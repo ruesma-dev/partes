@@ -79,11 +79,22 @@ Además de las 15 tareas, tres commits de cierre del rigor: `aebad0d`
    la app en un test exige PostgreSQL, y la regla dura dice que los unit
    tests no tocan BBDD. Es retrocompatible: sin inyección se comporta como
    antes.
-3. **Dependencias nuevas en los manifiestos** de sv4 y sv5:
-   `azure-storage-queue`, `azure-storage-blob`, `azure-identity`. No están
-   escritas en la spec, pero son la consecuencia directa de los
-   adaptadores que el design manda crear (`from azure.storage.queue
-   import ...`). Son las mismas librerías que ya usan sv1, sv2 y sv3.
+3. **Dependencias nuevas en sv4 y sv5**: `azure-identity`,
+   `azure-storage-queue`, `azure-storage-blob`. No están escritas en la
+   spec, pero son la consecuencia directa de los adaptadores que el design
+   manda crear (`from azure.storage.queue import ...`). Son las mismas
+   librerías que ya usan sv1, sv2 y sv3.
+
+   > **Corregido tras la review.** La redacción original de este punto
+   > —«Dependencias nuevas **en los manifiestos** de sv4 y sv5»— era
+   > **falsa**: los paquetes se instalaron en el `.venv` de la raíz (ver
+   > desviación 6) pero **no se declararon** en
+   > `infra/manifests/sv4/requirements.txt` ni en `sv5/requirements.txt`,
+   > que es lo que `build_images_partes.ps1` copia al contexto de build. La
+   > imagen no los habría instalado y ambos contenedores habrían muerto en
+   > el import de `main.py`. Lo declaré por hecho sin comprobarlo. Los tres
+   > paquetes están ya en ambos manifiestos, con los mismos pines que sv3;
+   > la evidencia está en «Correcciones tras review».
 4. **El sobre de resultado lleva `registro_ids`** además del `resultado`.
    El design no lo contemplaba y R14 lo necesita: sin la lista de líneas
    de la petición, un `ok=false` no se puede trazar en ninguna parte.
