@@ -96,6 +96,17 @@
       "branch": "feature/F-008-roles-portal"
     },
     {
+      "id": "F-009",
+      "title": "Automejoras del arnés destapadas por F-002",
+      "description": "Dos huecos del protocolo detectados por el reviewer en F-002 (detalle en progress/review_F-002.md, sección 'Automejora del arnés'): (1) C4 bis — cuando un fichero del alcance con muchas líneas cambiadas genera 0 mutantes, exigir evidencia alternativa (fase RED específica sobre ese fichero); (2) C3/C4 + init.sh — cruzar los imports nuevos de terceros del diff contra el requirements.txt del manifiesto de despliegue del servicio que los importa (habría cazado el crash-loop de azure-* en automático). REGLA DE PROPAGACIÓN: ambas mejoras son genéricas — se aplican aquí Y se portan a arnes-base en el mismo trabajo.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 9,
+      "branch": "feature/F-009-automejoras-arnes"
+    },
+    {
       "id": "F-007",
       "title": "Revisión del prompt de extracción de sv2 (J.310 rev.1)",
       "description": "Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.",
