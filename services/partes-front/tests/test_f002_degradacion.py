@@ -39,13 +39,18 @@ def entorno(monkeypatch):
 # ------------------------ settings: interruptor ------------------------- #
 
 def test_f002_r3_transfer_queue_enabled_reconoce_las_dos_formas(entorno):
+    """Siempre por `_settings()`: sv4 resuelve su `.env` por ruta ABSOLUTA
+    (`config/settings.py:10`), asi que un `Settings()` a pelo leeria el
+    fichero real de la maquina —que la guia de trabajo local de esta misma
+    feature invita a rellenar con Azurite— y el resultado dependeria de
+    quien ejecute la suite."""
     assert _settings().transfer_queue_enabled is False
     entorno.setenv("COLAS_CONNECTION_STRING", "UseDevelopmentStorage=true")
-    assert Settings().transfer_queue_enabled is True
+    assert _settings().transfer_queue_enabled is True
     entorno.delenv("COLAS_CONNECTION_STRING")
     entorno.setenv("COLAS_ACCOUNT_URL",
                    "https://stpartes.queue.core.windows.net")
-    assert Settings().transfer_queue_enabled is True
+    assert _settings().transfer_queue_enabled is True
 
 
 # ------------------- repositorio: lineas que ya no estan ---------------- #
