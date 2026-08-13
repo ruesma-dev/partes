@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import fields
 from datetime import datetime, timezone
@@ -120,3 +121,56 @@ def construir_handler_transfer(
                     {"peticion_id": peticion_id, "blob": destino})
 
     return _handler
+
+
+def arrancar_workers_transfer(
+    *, pipeline: RegistroPipeline, settings, fabrica_cola: Callable[[], object],
+    fabrica_blob: Callable[[], object],
+) -> list[threading.Thread]:
+    """Lanza `settings.transfer_workers` consumidores daemon de `q-transfer`.
+
+    Son N bucles identicos, no un receptor unico con pool de futures: asi
+    cada worker reutiliza tal cual el bucle `consumir` con su manejo de
+    poison, `max_dequeue` y SIGTERM, sin inventar gestion de visibilidad
+    para mensajes en vuelo.
+
+    Cada worker recibe SUS PROPIAS instancias de cliente de cola y blob:
+    los clientes del SDK de Azure no estan pensados para compartirse entre
+    hilos. Lo que SI comparten los N workers (y el HTTP) es el pipeline y,
+    con el, el unico lock de escritura.
+
+    Son daemon a proposito: viven dentro del proceso de la API y no deben
+    impedir que uvicorn termine.
+    """
+    n = max(1, int(getattr(settings, "transfer_workers", 1) or 1))
+    hilos: list[threading.Thread] = []
+    for i in range(n):
+        cola = fabrica_cola()
+        blob = fabrica_blob()
+        handler = construir_handler_transfer(
+            pipeline=pipeline, blob=blob, cola=cola, settings=settings)
+        hilo = threading.Thread(
+            target=_bucle_worker, args=(i, cola, settings.cola_transfer,
+                                        handler),
+            name=f"transfer-worker-{i}", daemon=True)
+        hilo.start()
+        hilos.append(hilo)
+    logger.info("[transfer-cola] %s worker(s) consumiendo '%s'", n,
+                settings.cola_transfer)
+    return hilos
+
+
+def _bucle_worker(indice: int, cola, nombre_cola: str,
+                  handler: Callable[[dict], None]) -> None:
+    """Bucle de un worker. Si revienta, se lleva SOLO su hilo (R22).
+
+    Los fallos por mensaje ya los absorbe `ColaCliente.consumir`; lo que
+    se atrapa aqui es la caida del bucle entero, que sin este `except`
+    subiria como excepcion no capturada de un hilo y se perderia en el log
+    sin decir de quien era.
+    """
+    try:
+        cola.consumir(nombre_cola, handler)
+    except Exception:
+        logger.exception("[transfer-cola] worker %s termino por un fallo del "
+                         "bucle de consumo; los demas siguen", indice)

@@ -184,6 +184,10 @@ class SigridFake:
         self.concurrencia: dict[str, int] = {}
         self.max_concurrencia: dict[str, int] = {}
         self._verificador_lock = None
+        #: Barrera opcional en la fase de preparacion (R18).
+        self.barrera = None
+        #: Retardo extra por recurso, para forzar un orden (R21).
+        self.retardo_por_recurso: dict[int, float] = {}
 
     # -- instrumentacion --------------------------------------------------
     def vigilar_lock(self, lock) -> None:
@@ -226,10 +230,23 @@ class SigridFake:
     def horas_de_recursos(self, resides):
         # La llamada mas pesada del pipeline y la que mas crece con el
         # lote: es la que debe solaparse entre peticiones (R18).
+        import time
+        ides = [int(i) for i in resides if i]
+        # El contador de concurrencia se abre ANTES de esperar: si no, los
+        # hilos cruzarian la barrera y saldrian de uno en uno, y el maximo
+        # observado seria 1 aunque hubieran solapado de verdad.
         self._entrar("horas_de_recursos", self.latencia_lectura)
         try:
-            return {int(i): list(self.horas.get(int(i), []))
-                    for i in resides if i}
+            if self.barrera is not None:
+                # Prueba DETERMINISTA de solapamiento: si las preparaciones
+                # no coinciden en el tiempo, la barrera expira (y el test
+                # falla con BrokenBarrierError).
+                self.barrera.wait()
+            for ide in ides:
+                espera = self.retardo_por_recurso.get(ide)
+                if espera:
+                    time.sleep(espera)
+            return {ide: list(self.horas.get(ide, [])) for ide in ides}
         finally:
             self._salir("horas_de_recursos")
 
