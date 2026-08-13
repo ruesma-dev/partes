@@ -1,0 +1,2550 @@
+// static/app.js — portal de partes (sv4)
+// Puebla los desplegables de codigo de hora (auxhor) desde Sigrid y
+// persiste el cambio por registro via PATCH /api/registros/{id}/hora.
+(function () {
+  "use strict";
+
+  var TIPOS_URL = "/api/sigrid/tipos-hora";
+
+  function fetchTiposHora() {
+    return fetch(TIPOS_URL, { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .catch(function () { return { ok: false, items: [] }; });
+  }
+
+  function buildOptions(select, items, current) {
+    // Agrupa Normales / Extra para facilitar la eleccion.
+    var normales = items.filter(function (t) { return t.ext !== 1; });
+    var extra = items.filter(function (t) { return t.ext === 1; });
+
+    function addGroup(label, list) {
+      if (!list.length) return;
+      var og = document.createElement("optgroup");
+      og.label = label;
+      list.forEach(function (t) {
+        var opt = document.createElement("option");
+        opt.value = String(t.ide);
+        opt.textContent = (t.codigo ? t.codigo + " · " : "") + (t.descripcion || "");
+        if (current !== "" && String(t.ide) === String(current)) opt.selected = true;
+        og.appendChild(opt);
+      });
+      select.appendChild(og);
+    }
+    addGroup("Horas ordinarias", normales);
+    addGroup("Horas extra", extra);
+  }
+
+  function flash(select, cls) {
+    select.classList.remove("saved", "error");
+    if (cls) {
+      select.classList.add(cls);
+      setTimeout(function () { select.classList.remove(cls); }, 1600);
+    }
+  }
+
+  function patchHora(registroId, horaIde) {
+    return fetch("/api/registros/" + registroId + "/hora", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ hora_ide: parseInt(horaIde, 10) }),
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    });
+  }
+
+  function onChange(ev) {
+    var select = ev.target;
+    var registroId = select.getAttribute("data-registro-id");
+    var value = select.value;
+    var row = select.closest("tr");
+    var current = row ? row.querySelector(".combo-hora-current") : null;
+
+    if (!value) { flash(select, null); return; }
+    var ids = [registroId];
+    var bulk = (typeof PartidaSel !== "undefined" &&
+                PartidaSel.has(registroId) && PartidaSel.count() > 1);
+    if (bulk) ids = PartidaSel.ids();
+    select.disabled = true;
+    Promise.all(ids.map(function (id) { return patchHora(id, value); }))
+      .then(function (results) {
+        flash(select, "saved");
+        if (bulk) { window.location.reload(); return; }
+        var data = results[0];
+        if (current) {
+          current.textContent = (data.hora_codigo || "") +
+            (data.hora_descripcion ? " · " + data.hora_descripcion : "");
+        }
+      })
+      .catch(function () { flash(select, "error"); })
+      .finally(function () { select.disabled = false; });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Edicion in-situ: fecha + obra (nivel parte/documento) y horas (nivel
+  // registro). Funciona tanto en el detalle del parte como en la tabla de
+  // registros del trabajador (varias filas). Tras guardar fecha/obra se
+  // propaga a las filas hermanas del MISMO documento que esten en pantalla.
+  // ---------------------------------------------------------------- //
+  function _norm(s) {
+    return (s || "")
+      .toString()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+  }
+
+  function flashEl(el, cls) {
+    if (!el) return;
+    el.classList.remove("saved", "error");
+    if (cls) {
+      el.classList.add(cls);
+      setTimeout(function () { el.classList.remove(cls); }, 1600);
+    }
+  }
+
+  function setStatus(id, text, cls) {
+    if (!id) return;
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "edit-status" + (cls ? " " + cls : "");
+    if (cls === "saved") {
+      setTimeout(function () {
+        if (el.textContent === text) { el.textContent = ""; el.className = "edit-status"; }
+      }, 1800);
+    }
+  }
+
+  function obraLabel(o) {
+    return (o.codigo ? o.codigo + " · " : "") + (o.nombre || "");
+  }
+
+  // ---- Fecha (todas las .fecha-edit) ---- //
+  function wireFechaInput(inp) {
+    inp.addEventListener("change", function () {
+      var docId = inp.getAttribute("data-document-id");
+      var statusId = inp.getAttribute("data-status");
+      var val = inp.value;
+      if (!val) return;
+      setStatus(statusId, "Guardando…", null);
+      inp.disabled = true;
+      fetch("/api/partes/" + docId + "/fecha", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ fecha: val }),
+      }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function (data) {
+        flashEl(inp, "saved");
+        setStatus(statusId, "✓ Guardado", "saved");
+        // Propaga a filas hermanas del mismo documento.
+        document.querySelectorAll(
+          '.fecha-edit[data-document-id="' + docId + '"]'
+        ).forEach(function (o) { if (o !== inp) o.value = data.fecha; });
+      }).catch(function () {
+        flashEl(inp, "error");
+        setStatus(statusId, "✗ Error", "error");
+      }).finally(function () { inp.disabled = false; });
+    });
+  }
+
+  // ---- Horas (todas las .horas-edit) ---- //
+  function wireHorasInput(inp) {
+    inp.addEventListener("change", function () {
+      var regId = inp.getAttribute("data-registro-id");
+      var val = inp.value;
+      if (val === "") return;
+      var ids = [regId];
+      var bulk = (typeof PartidaSel !== "undefined" &&
+                  PartidaSel.has(regId) && PartidaSel.count() > 1);
+      if (bulk) ids = PartidaSel.ids();
+      inp.disabled = true;
+      Promise.all(ids.map(function (id) {
+        return fetch("/api/registros/" + id, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ horas: val }),
+        }).then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        });
+      })).then(function () {
+        flashEl(inp, "saved");
+        if (bulk) window.location.reload();
+      }).catch(function () { flashEl(inp, "error"); })
+        .finally(function () { inp.disabled = false; });
+    });
+  }
+
+  // ---- Obra: combo type-ahead local sobre el catalogo de Sigrid ---- //
+  var OBRAS_URL = "/api/sigrid/obras";
+  var _obrasCache = null;
+
+  function fetchObras() {
+    if (_obrasCache) return Promise.resolve(_obrasCache);
+    return fetch(OBRAS_URL, { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _obrasCache = (data && data.ok && data.items) ? data.items : [];
+        return _obrasCache;
+      })
+      .catch(function () { _obrasCache = []; return _obrasCache; });
+  }
+
+  function wireObraCombo(wrap) {
+    var input = wrap.querySelector(".combo-input");
+    var panel = wrap.querySelector(".combo-panel");
+    if (!input || !panel) return;
+    var statusId = wrap.getAttribute("data-status");
+    var docId = wrap.getAttribute("data-document-id");
+    var shown = [];
+    var activeIdx = -1;
+    var repos = null;
+
+    function place() { positionPanel(input, panel); }
+    function close() {
+      panel.hidden = true; activeIdx = -1;
+      if (repos) {
+        window.removeEventListener("scroll", repos, true);
+        window.removeEventListener("resize", repos);
+        repos = null;
+      }
+    }
+    function render() {
+      panel.innerHTML = "";
+      if (!shown.length) {
+        var d = document.createElement("div");
+        d.className = "combo-msg";
+        d.textContent = _obrasCache === null ? "Cargando…" : "Sin coincidencias";
+        panel.appendChild(d);
+      } else {
+        shown.forEach(function (o, i) {
+          var it = document.createElement("div");
+          it.className = "combo-item" + (i === activeIdx ? " active" : "");
+          it.textContent = obraLabel(o);
+          it.addEventListener("mousedown", function (e) {
+            e.preventDefault(); pick(o);
+          });
+          panel.appendChild(it);
+        });
+      }
+      panel.hidden = false;
+      place();
+      if (!repos) {
+        repos = function (e) {
+          if (e && e.type === "scroll" && e.target && panel.contains(e.target)) return;
+          close();
+        };
+        window.addEventListener("scroll", repos, true);
+        window.addEventListener("resize", repos);
+      }
+    }
+    function open() {
+      fetchObras().then(function (obras) {
+        var tokens = _norm(input.value).split(/\s+/).filter(Boolean);
+        shown = obras.filter(function (o) {
+          if (!tokens.length) return true;
+          var nl = _norm(obraLabel(o));
+          return tokens.every(function (t) { return nl.indexOf(t) !== -1; });
+        }).slice(0, 200);
+        activeIdx = -1;
+        render();
+      });
+    }
+    function patchObra(d, o) {
+      return fetch("/api/partes/" + d + "/obra", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ codigo: o.codigo, ide: o.ide, nombre: o.nombre }),
+      });
+    }
+    function pick(o) {
+      input.value = obraLabel(o);
+      close();
+      // ¿La fila esta dentro de una seleccion multiple? -> cambio en bloque.
+      // La obra es por PARTE (documento): se aplica a todos los documentos
+      // unicos de la seleccion, afectando a TODAS sus lineas (no solo las
+      // seleccionadas). Por eso se pide confirmacion.
+      var tr = wrap.closest("[data-registro-id]");
+      var regId = tr ? tr.getAttribute("data-registro-id") : null;
+      if (regId && PartidaSel.has(regId) && PartidaSel.count() > 1) {
+        var docs = {};
+        PartidaSel.ids().forEach(function (id) {
+          var t = PartidaSel.tr(id);
+          var d = t && t.getAttribute("data-document-id");
+          if (d) docs[d] = true;
+        });
+        var docIds = Object.keys(docs);
+        if (!confirm("Vas a cambiar la obra de " + docIds.length + " parte(s) " +
+            "—todas sus líneas, no solo las seleccionadas— a «" + obraLabel(o) +
+            "». ¿Continuar?")) {
+          return;
+        }
+        setStatus(statusId, "Guardando…", null);
+        Promise.all(docIds.map(function (d) { return patchObra(d, o); }))
+          .then(function () { window.location.reload(); })
+          .catch(function () {
+            flashEl(input, "error"); setStatus(statusId, "✗ Error", "error");
+          });
+        return;
+      }
+      setStatus(statusId, "Guardando…", null);
+      patchObra(docId, o).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      }).then(function () {
+        flashEl(input, "saved");
+        setStatus(statusId, "✓ Guardado", "saved");
+        // Propaga a filas hermanas del mismo documento.
+        var label = obraLabel(o);
+        document.querySelectorAll(
+          '.combo-obra[data-document-id="' + docId + '"]'
+        ).forEach(function (w) {
+          if (w === wrap) return;
+          var si = w.querySelector(".combo-input");
+          if (si) si.value = label;
+          w.setAttribute("data-codigo", o.codigo || "");
+        });
+      }).catch(function () {
+        flashEl(input, "error");
+        setStatus(statusId, "✗ Error", "error");
+      });
+    }
+
+    input.addEventListener("focus", open);
+    input.addEventListener("click", open);
+    input.addEventListener("input", open);
+    input.addEventListener("keydown", function (e) {
+      if (panel.hidden) {
+        if (e.key === "ArrowDown" || e.key === "Enter") open();
+        return;
+      }
+      if (e.key === "ArrowDown") { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, shown.length - 1); render(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); render(); }
+      else if (e.key === "Enter") { e.preventDefault(); if (activeIdx >= 0 && shown[activeIdx]) pick(shown[activeIdx]); }
+      else if (e.key === "Escape") { close(); }
+    });
+    input.addEventListener("blur", function () { setTimeout(close, 150); });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Filtro por columna (cliente). Cualquier tabla con una fila
+  // <tr class="filter-row"> cuyas celdas lleven <input class="col-filter">
+  // filtra sus filas por el texto de la columna correspondiente.
+  // ---------------------------------------------------------------- //
+  function _filterCellText(cell) {
+    var parts = [];
+    cell.querySelectorAll("input, select, textarea").forEach(function (el) {
+      if (el.classList.contains("col-filter")) return;
+      if (el.tagName === "SELECT") {
+        var o = el.selectedOptions && el.selectedOptions[0];
+        if (o) parts.push(o.textContent);
+      } else {
+        parts.push(el.value || "");
+      }
+    });
+    parts.push(cell.textContent || "");
+    return _norm(parts.join(" "));
+  }
+
+  function wireColumnFilters(table) {
+    var frow = table.querySelector("thead tr.filter-row");
+    if (!frow) return;
+    var tbody = table.querySelector("tbody");
+    if (!tbody) return;
+    var filters = Array.prototype.slice.call(frow.querySelectorAll(".col-filter"));
+
+    function apply() {
+      var active = filters
+        .map(function (inp) {
+          var th = inp.closest("th");
+          return { col: th ? th.cellIndex : -1, val: _norm(inp.value) };
+        })
+        .filter(function (f) { return f.col >= 0 && f.val !== ""; });
+      Array.prototype.forEach.call(tbody.rows, function (row) {
+        var show = true;
+        for (var i = 0; i < active.length; i++) {
+          var cell = row.cells[active[i].col];
+          if (!cell || _filterCellText(cell).indexOf(active[i].val) === -1) {
+            show = false; break;
+          }
+        }
+        row.style.display = show ? "" : "none";
+      });
+    }
+    filters.forEach(function (inp) { inp.addEventListener("input", apply); });
+    frow.querySelectorAll(".filter-clear").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        filters.forEach(function (inp) { inp.value = ""; });
+        apply();
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Filtro por SELECCION de dias. Vista trabajador: casillas del
+  // calendario (.cal-pick[data-fecha]). Vista obra: celdas de la matriz
+  // (td.mx-pick[data-fecha][data-trabajador]). Marca con .filtered-day
+  // las filas de #lines-table que NO casan; se combina en AND con el
+  // filtro por columnas (que usa display inline) gracias al !important.
+  // ---------------------------------------------------------------- //
+  function _setupDaySelection(cells, table, keyFromCell, keyFromRow, stopProp) {
+    if (!cells.length || !table) return;
+    var tbody = table.querySelector("tbody");
+    if (!tbody) return;
+    var selected = new Set();
+    var badge = document.querySelector("[data-day-badge]");
+    var countEl = badge ? badge.querySelector("[data-count]") : null;
+    var clearBtn = document.querySelector("[data-day-clear]");
+
+    function apply() {
+      Array.prototype.forEach.call(tbody.rows, function (row) {
+        var pass = selected.size === 0 || selected.has(keyFromRow(row));
+        row.classList.toggle("filtered-day", !pass);
+      });
+      if (badge) {
+        if (selected.size === 0) {
+          badge.hidden = true;
+        } else {
+          badge.hidden = false;
+          if (countEl) countEl.textContent = String(selected.size);
+        }
+      }
+    }
+    function clearAll() {
+      selected.clear();
+      cells.forEach(function (c) { c.classList.remove("day-selected"); });
+      apply();
+    }
+    cells.forEach(function (cell) {
+      cell.addEventListener("click", function (ev) {
+        if (ev.target.closest("a, button, input, select")) return;
+        if (stopProp) ev.stopPropagation();
+        var key = keyFromCell(cell);
+        if (!key) return;
+        if (selected.has(key)) {
+          selected.delete(key);
+          cell.classList.remove("day-selected");
+        } else {
+          selected.add(key);
+          cell.classList.add("day-selected");
+        }
+        apply();
+      });
+    });
+    if (clearBtn) clearBtn.addEventListener("click", clearAll);
+  }
+
+  function wireDayFilters() {
+    var table = document.getElementById("lines-table");
+    if (!table) return;
+    // Vista TRABAJADOR: calendario .cal-grid, casillas .cal-pick[data-fecha].
+    var cal = document.querySelector(".cal-grid");
+    if (cal) {
+      var calCells = Array.prototype.slice.call(
+        cal.querySelectorAll(".cal-pick[data-fecha]"));
+      _setupDaySelection(
+        calCells, table,
+        function (c) { return c.getAttribute("data-fecha") || ""; },
+        function (r) { return r.getAttribute("data-fecha") || ""; },
+        false);
+    }
+    // Vista OBRA: matriz table.matrix, celdas td.mx-pick (trabajador + dia).
+    var matrix = document.querySelector("table.matrix");
+    if (matrix) {
+      var mxCells = Array.prototype.slice.call(
+        matrix.querySelectorAll("td.mx-pick[data-fecha]"));
+      _setupDaySelection(
+        mxCells, table,
+        function (c) {
+          return _norm(c.getAttribute("data-trabajador")) + "|" +
+                 (c.getAttribute("data-fecha") || "");
+        },
+        function (r) {
+          return _norm(r.getAttribute("data-trabajador")) + "|" +
+                 (r.getAttribute("data-fecha") || "");
+        },
+        true);
+    }
+  }
+
+  // ---------------------------------------------------------------- //
+  // Ordenacion por columna al pinchar la cabecera (con flechita ▲/▼).
+  // ---------------------------------------------------------------- //
+  function _sortKey(cell) {
+    var txt = _filterCellText(cell);
+    var num = parseFloat(txt.replace(/\s/g, "").replace(",", "."));
+    var isNum = txt !== "" && !isNaN(num) && /^[-+]?[\d.,\s]+$/.test(txt.trim());
+    return { txt: txt, num: num, isNum: isNum };
+  }
+
+  function _sortRows(tbody, col, dir) {
+    var rows = Array.prototype.slice.call(tbody.rows);
+    rows.sort(function (a, b) {
+      var ca = a.cells[col], cb = b.cells[col];
+      var ka = ca ? _sortKey(ca) : { txt: "", isNum: false };
+      var kb = cb ? _sortKey(cb) : { txt: "", isNum: false };
+      var empA = ka.txt === "", empB = kb.txt === "";
+      if (empA && empB) return 0;
+      if (empA) return 1;          // vacios siempre al final
+      if (empB) return -1;
+      var cmp;
+      if (ka.isNum && kb.isNum) cmp = ka.num - kb.num;
+      else cmp = ka.txt < kb.txt ? -1 : (ka.txt > kb.txt ? 1 : 0);
+      return cmp * dir;
+    });
+    rows.forEach(function (r) { tbody.appendChild(r); });
+  }
+
+  function wireSortable(table) {
+    var headRow = table.querySelector("thead tr:first-child");
+    var tbody = table.querySelector("tbody");
+    if (!headRow || !tbody) return;
+    var ths = Array.prototype.slice.call(headRow.children);
+    var state = { th: null, dir: 1 };
+    ths.forEach(function (th) {
+      if (!th.textContent.trim() || th.classList.contains("no-sort")) return;
+      th.classList.add("sortable-th");
+      var arrow = document.createElement("span");
+      arrow.className = "sort-arrow";
+      th.appendChild(arrow);
+      th.addEventListener("click", function () {
+        if (state.th === th) state.dir = -state.dir;
+        else { state.th = th; state.dir = 1; }
+        Array.prototype.forEach.call(headRow.children, function (t) {
+          t.classList.remove("sorted");
+          var a = t.querySelector(".sort-arrow");
+          if (a) a.textContent = "";
+        });
+        th.classList.add("sorted");
+        arrow.textContent = state.dir > 0 ? " ▲" : " ▼";
+        _sortRows(tbody, th.cellIndex, state.dir);  // cellIndex VIVO
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Conciliacion de trabajadores: casar (confirmar) + buscar manual.
+  // ---------------------------------------------------------------- //
+  function _confirmarCasado(nombre, ide, card, statusEl) {
+    if (statusEl) { statusEl.textContent = "Casando…"; statusEl.className = "recon-status"; }
+    return fetch("/api/conciliacion/confirmar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ nombre_leido: nombre, ide: ide }),
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.ok) throw new Error((res.d && res.d.error) || "Error");
+        var emp = res.d.empleado || {};
+        var label = (emp.codigo ? emp.codigo + " · " : "") + (emp.nombre || "");
+        if (!res.d.updated && statusEl) {
+          statusEl.textContent = "⚠ Casado pero 0 registros actualizados (revisa el nombre leido).";
+          statusEl.className = "recon-status error";
+          return;
+        }
+        if (card) {
+          card.classList.add("recon-done");
+          card.innerHTML = '<div class="recon-head"><div class="recon-id">' +
+            '<span class="recon-name">' + _esc(nombre) + '</span>' +
+            '<span class="recon-meta">✓ Casado con <strong>' + _esc(label) + '</strong> · ' +
+            res.d.updated + ' registro(s) actualizados</span></div>' +
+            '<span class="badge ok">Hecho</span></div>';
+        }
+      }).catch(function (e) {
+        if (statusEl) { statusEl.textContent = "✗ " + (e.message || "Error"); statusEl.className = "recon-status error"; }
+      });
+  }
+
+  function _esc(s) {
+    return (s || "").replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function wireConciliacion() {
+    var list = document.querySelector(".recon-list");
+    if (!list) return;
+
+    // Botones "Casar" de los candidatos (delegacion).
+    list.addEventListener("click", function (e) {
+      var btn = e.target.closest(".btn-casar");
+      if (!btn) return;
+      var card = btn.closest(".recon-card");
+      var statusEl = card ? card.querySelector(".recon-status") : null;
+      _confirmarCasado(btn.getAttribute("data-nombre"),
+        parseInt(btn.getAttribute("data-ide"), 10), card, statusEl);
+    });
+
+    // Buscadores manuales (uno por tarjeta).
+    list.querySelectorAll(".manual-q").forEach(function (input) {
+      var card = input.closest(".recon-card");
+      var results = card.querySelector(".manual-results");
+      var nombre = input.getAttribute("data-nombre");
+      var timer = null;
+      input.addEventListener("input", function () {
+        if (timer) clearTimeout(timer);
+        var q = input.value.trim();
+        if (q.length < 2) { results.innerHTML = ""; return; }
+        timer = setTimeout(function () {
+          fetch("/api/conciliacion/buscar?q=" + encodeURIComponent(q),
+            { headers: { Accept: "application/json" } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              var items = (data && data.items) || [];
+              if (!items.length) { results.innerHTML = '<div class="manual-empty">Sin resultados</div>'; return; }
+              results.innerHTML = "";
+              items.forEach(function (it) {
+                var row = document.createElement("div");
+                row.className = "manual-item";
+                var label = (it.codigo ? it.codigo + " · " : "") + (it.nombre || "");
+                row.innerHTML = '<span class="mi-score">' + it.score + '%</span>' +
+                  '<span class="mi-emp">' + _esc(label) +
+                  (it.dni ? ' <span class="cell-sub">DNI ' + _esc(it.dni) + '</span>' : '') + '</span>';
+                var b = document.createElement("button");
+                b.type = "button"; b.className = "btn primary small"; b.textContent = "Casar";
+                b.addEventListener("click", function () {
+                  _confirmarCasado(nombre, it.ide, card, card.querySelector(".recon-status"));
+                });
+                row.appendChild(b);
+                results.appendChild(row);
+              });
+            }).catch(function () { results.innerHTML = '<div class="manual-empty">Error en la busqueda</div>'; });
+        }, 250);
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Combo de EMPLEADO (autocompletar sobre el maestro activo de Sigrid)
+  // para reasignar el trabajador de un registro / grupo. Busca en
+  // servidor (/api/conciliacion/buscar). Al elegir, reasigna y recarga.
+  // ---------------------------------------------------------------- //
+  function _empReasignar(wrap, ide, label) {
+    var body = { ide: ide };
+    var regId = wrap.getAttribute("data-registro-id");
+    if (regId) {
+      // Vista de detalle: acota la reasignacion a la(s) linea(s). Si la fila
+      // esta en una seleccion multiple, aplica a TODAS las seleccionadas; si
+      // no, solo a esta. No toca el resto de lineas del mismo trabajador.
+      if (typeof PartidaSel !== "undefined" &&
+          PartidaSel.has(regId) && PartidaSel.count() > 1) {
+        body.registro_ids = PartidaSel.ids().map(function (x) {
+          return parseInt(x, 10);
+        });
+      } else {
+        body.registro_ids = [parseInt(regId, 10)];
+      }
+    } else if (wrap.getAttribute("data-worker-key"))
+      body.worker_key = wrap.getAttribute("data-worker-key");
+    else if (wrap.getAttribute("data-nombre-leido"))
+      body.nombre_leido = wrap.getAttribute("data-nombre-leido");
+    var input = wrap.querySelector(".combo-input");
+    if (input) { input.disabled = true; input.value = label; }
+    fetch("/api/empleado/reasignar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.ok) throw new Error((res.d && res.d.error) || "Error");
+        if (!res.d.updated) {
+          flashEl(input, "error");
+          if (input) { input.disabled = false; input.value = ""; input.placeholder = "No se encontraron registros — reintenta"; }
+          return;
+        }
+        flashEl(input, "saved");
+        // El agrupado por trabajador cambia: recargamos para reflejarlo.
+        window.location.reload();
+      }).catch(function () {
+        flashEl(input, "error");
+        if (input) input.disabled = false;
+      });
+  }
+
+  var EMP_URL = "/api/sigrid/empleados";
+  var _empCache = null;
+
+  function fetchEmpleados() {
+    if (_empCache) return Promise.resolve(_empCache);
+    return fetch(EMP_URL, { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _empCache = (data && data.ok && data.items) ? data.items : [];
+        return _empCache;
+      }).catch(function () { _empCache = []; return _empCache; });
+  }
+
+  function empLabel(e) {
+    return (e.codigo ? e.codigo + " · " : "") + (e.nombre || "");
+  }
+
+  function wireEmpleadoCombo(wrap) {
+    var input = wrap.querySelector(".combo-input");
+    var panel = wrap.querySelector(".combo-panel");
+    if (!input || !panel) return;
+    var shown = [];
+    var activeIdx = -1;
+    var repos = null;
+
+    function place() {
+      var r = input.getBoundingClientRect();
+      panel.style.top = (r.bottom + 4) + "px";
+      panel.style.left = r.left + "px";
+      panel.style.minWidth = Math.max(r.width, 320) + "px";
+      panel.style.maxWidth = "560px";
+    }
+    function close() {
+      panel.hidden = true; activeIdx = -1;
+      if (repos) {
+        window.removeEventListener("scroll", repos, true);
+        window.removeEventListener("resize", repos);
+        repos = null;
+      }
+    }
+    function render() {
+      panel.innerHTML = "";
+      if (!shown.length) {
+        var d = document.createElement("div");
+        d.className = "combo-msg";
+        d.textContent = _empCache === null ? "Cargando empleados…" : "Sin coincidencias";
+        panel.appendChild(d);
+      } else {
+        shown.forEach(function (e, i) {
+          var it = document.createElement("div");
+          it.className = "combo-item" + (i === activeIdx ? " active" : "");
+          it.innerHTML = _esc(empLabel(e)) +
+            (e.dni ? ' <span class="cell-sub">DNI ' + _esc(e.dni) + '</span>' : '');
+          it.addEventListener("mousedown", function (ev) {
+            ev.preventDefault(); _empReasignar(wrap, e.ide, empLabel(e));
+          });
+          panel.appendChild(it);
+        });
+      }
+      panel.hidden = false; place();
+      if (!repos) {
+        repos = function (ev) {
+          if (ev && ev.type === "scroll" && ev.target && panel.contains(ev.target)) return;
+          close();
+        };
+        window.addEventListener("scroll", repos, true);
+        window.addEventListener("resize", repos);
+      }
+    }
+    function open() {
+      fetchEmpleados().then(function (emps) {
+        var tokens = _norm(input.value).split(/\s+/).filter(Boolean);
+        shown = emps.filter(function (e) {
+          if (!tokens.length) return true;
+          var hay = _norm(empLabel(e) + " " + (e.dni || ""));
+          return tokens.every(function (t) { return hay.indexOf(t) !== -1; });
+        }).slice(0, 100);
+        activeIdx = -1;
+        render();
+      });
+    }
+
+    input.addEventListener("focus", function () { input.select(); open(); });
+    input.addEventListener("click", open);
+    input.addEventListener("input", open);
+    input.addEventListener("keydown", function (e) {
+      if (panel.hidden) { if (e.key === "ArrowDown" || e.key === "Enter") open(); return; }
+      if (e.key === "ArrowDown") { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, shown.length - 1); render(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); render(); }
+      else if (e.key === "Enter") {
+        e.preventDefault();
+        if (activeIdx >= 0 && shown[activeIdx]) _empReasignar(wrap, shown[activeIdx].ide, empLabel(shown[activeIdx]));
+      } else if (e.key === "Escape") { close(); }
+    });
+    input.addEventListener("blur", function () { setTimeout(close, 150); });
+  }
+
+  function wireNameEditToggles() {
+    document.querySelectorAll(".name-edit-toggle").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var cell = btn.closest("td") || btn.parentElement;
+        var combo = cell ? cell.querySelector(".combo-emp") : null;
+        if (!combo) return;
+        combo.classList.toggle("combo-emp-hidden");
+        if (!combo.classList.contains("combo-emp-hidden")) {
+          var inp = combo.querySelector(".combo-input");
+          if (inp) inp.focus();
+        }
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Modal de PDF del parte. Cualquier elemento con [data-parte-pdf]
+  // (= document_id) lo abre; opcional [data-parte-title] para el titulo.
+  // ---------------------------------------------------------------- //
+  function openPdfModal(documentId, title) {
+    var modal = document.getElementById("pdf-modal");
+    if (!modal) return;
+    var frame = document.getElementById("pdf-modal-frame");
+    var open = document.getElementById("pdf-modal-open");
+    var ttl = document.getElementById("pdf-modal-title");
+    var loading = document.getElementById("pdf-modal-loading");
+    var url = "/partes/" + encodeURIComponent(documentId) + "/preview";
+    if (ttl) ttl.textContent = title || "Parte";
+    if (open) open.href = url;
+    if (loading) loading.style.display = "";
+    if (frame) {
+      frame.onload = function () { if (loading) loading.style.display = "none"; };
+      frame.src = url;
+    }
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+  }
+
+  function closePdfModal() {
+    var modal = document.getElementById("pdf-modal");
+    if (!modal) return;
+    var frame = document.getElementById("pdf-modal-frame");
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
+    if (frame) { frame.src = "about:blank"; }
+  }
+
+  function wirePdfModal() {
+    var modal = document.getElementById("pdf-modal");
+    if (!modal) return;
+    // Disparadores en toda la pagina.
+    document.body.addEventListener("click", function (e) {
+      var trg = e.target.closest("[data-parte-pdf]");
+      if (trg) {
+        e.preventDefault();
+        openPdfModal(trg.getAttribute("data-parte-pdf"), trg.getAttribute("data-parte-title"));
+        return;
+      }
+      if (e.target.closest("[data-pdf-close]")) { e.preventDefault(); closePdfModal(); }
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !modal.hidden) closePdfModal();
+    });
+  }
+
+  // ---------------------------------------------------------------- //
+  // DESHACER: widget global. Lee el historial del servidor (persiste
+  // aunque cambies de pantalla) y deshace el ultimo cambio.
+  // ---------------------------------------------------------------- //
+  function _undoActionLabel(a) {
+    return ({
+      empleado: "Trabajador", registro_edit: "Horas",
+      registro_hora: "Codigo hora", parte_fecha: "Fecha",
+      parte_obra: "Obra",
+    })[a] || "Cambio";
+  }
+
+  function refreshUndo() {
+    var widget = document.getElementById("undo-widget");
+    if (!widget) return;
+    fetch("/api/undo/list", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var items = (data && data.items) || [];
+        if (!items.length) { widget.hidden = true; return; }
+        widget.hidden = false;
+        var cnt = document.getElementById("undo-count");
+        if (cnt) cnt.textContent = " (" + items.length + ")";
+        var ul = document.getElementById("undo-list");
+        if (ul) {
+          ul.innerHTML = "";
+          items.forEach(function (it, i) {
+            var li = document.createElement("li");
+            li.className = "undo-item" + (i === 0 ? " undo-next" : "");
+            li.innerHTML = '<span class="undo-tag">' + _esc(_undoActionLabel(it.action)) +
+              '</span> ' + _esc(it.description || "");
+            ul.appendChild(li);
+          });
+        }
+      }).catch(function () {});
+  }
+
+  function wireUndo() {
+    var widget = document.getElementById("undo-widget");
+    if (!widget) return;
+    var btn = document.getElementById("undo-btn");
+    var toggle = document.getElementById("undo-toggle");
+    var panel = document.getElementById("undo-panel");
+    if (btn) {
+      btn.addEventListener("click", function () {
+        btn.disabled = true;
+        fetch("/api/undo", {
+          method: "POST", headers: { Accept: "application/json" },
+        }).then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res && res.ok) {
+              window.location.reload();  // refleja el cambio revertido
+            } else {
+              btn.disabled = false;
+              refreshUndo();
+            }
+          }).catch(function () { btn.disabled = false; });
+      });
+    }
+    if (toggle && panel) {
+      toggle.addEventListener("click", function () {
+        panel.hidden = !panel.hidden;
+        if (!panel.hidden) refreshUndo();
+      });
+    }
+    refreshUndo();
+  }
+
+  function _postJSON(url) {
+    return fetch(url, { method: "POST", headers: { Accept: "application/json" } })
+      .then(function (r) {
+        return r.json().catch(function () { return { ok: r.ok }; });
+      })
+      .catch(function () { return { ok: false }; });
+  }
+
+  function _bindClick(sel, handler) {
+    document.querySelectorAll(sel).forEach(function (btn) {
+      btn.addEventListener("click", function () { handler(btn); });
+    });
+  }
+
+  function wireBorrado() {
+    // Borrar LINEA (✕ en filas) -> soft delete -> papelera.
+    _bindClick(".line-del", function (btn) {
+      var row = btn.closest("[data-registro-id]");
+      if (!row) return;
+      var id = row.getAttribute("data-registro-id");
+      if (!confirm("¿Mover esta línea a la papelera?")) return;
+      btn.disabled = true;
+      _postJSON("/api/registro/" + id + "/delete").then(function (d) {
+        if (d && d.ok) { window.location.reload(); }
+        else { btn.disabled = false; alert("No se pudo borrar la línea."); }
+      });
+    });
+    // Borrar OBRA completa (todos sus partes).
+    _bindClick("[data-del-obra]", function (btn) {
+      var key = btn.getAttribute("data-del-obra");
+      var label = btn.getAttribute("data-label") || "esta obra";
+      var partes = btn.getAttribute("data-partes");
+      var msg = "¿Mover a la papelera TODOS los partes de «" + label + "»"
+        + (partes ? " (" + partes + " partes)" : "") + "?";
+      if (!confirm(msg)) return;
+      btn.disabled = true;
+      _postJSON("/api/obra/" + encodeURIComponent(key) + "/delete").then(function (d) {
+        if (d && d.ok) { window.location.href = "/obras"; }
+        else { btn.disabled = false; alert("No se pudo borrar la obra."); }
+      });
+    });
+    // Borrar PERSONA completa (todas sus líneas).
+    _bindClick("[data-del-worker]", function (btn) {
+      var key = btn.getAttribute("data-del-worker");
+      var label = btn.getAttribute("data-label") || "esta persona";
+      if (!confirm("¿Mover a la papelera TODAS las líneas de «" + label + "»?")) return;
+      btn.disabled = true;
+      _postJSON("/api/trabajador/" + encodeURIComponent(key) + "/delete").then(function (d) {
+        if (d && d.ok) { window.location.href = "/trabajadores"; }
+        else { btn.disabled = false; alert("No se pudo borrar la persona."); }
+      });
+    });
+    // PAPELERA: restaurar / eliminar (documento y línea) + vaciar.
+    _bindClick("[data-restore-doc]", function (btn) {
+      btn.disabled = true;
+      _postJSON("/api/documento/" + btn.getAttribute("data-restore-doc") + "/restore")
+        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+    });
+    _bindClick("[data-hard-doc]", function (btn) {
+      var label = btn.getAttribute("data-label") || "este parte";
+      if (!confirm("Eliminar DEFINITIVAMENTE " + label + "?\nNo se puede deshacer.")) return;
+      btn.disabled = true;
+      _postJSON("/api/documento/" + btn.getAttribute("data-hard-doc") + "/hard-delete")
+        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+    });
+    _bindClick("[data-restore-line]", function (btn) {
+      btn.disabled = true;
+      _postJSON("/api/registro/" + btn.getAttribute("data-restore-line") + "/restore")
+        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+    });
+    _bindClick("[data-hard-line]", function (btn) {
+      var label = btn.getAttribute("data-label") || "esta línea";
+      if (!confirm("Eliminar DEFINITIVAMENTE " + label + "?\nNo se puede deshacer.")) return;
+      btn.disabled = true;
+      _postJSON("/api/registro/" + btn.getAttribute("data-hard-line") + "/hard-delete")
+        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+    });
+    var vaciar = document.getElementById("papelera-vaciar");
+    if (vaciar) {
+      vaciar.addEventListener("click", function () {
+        if (!confirm("Vaciar la papelera?\nSe eliminará DEFINITIVAMENTE todo su contenido. No se puede deshacer.")) return;
+        vaciar.disabled = true;
+        _postJSON("/api/papelera/vaciar")
+          .then(function (d) { if (d && d.ok) window.location.reload(); else vaciar.disabled = false; });
+      });
+    }
+  }
+
+  // ----- Crear parte (calendario + combos) ----- //
+  function _comboSimple(rootId, inputId, panelId, url, render, onPick) {
+    var input = document.getElementById(inputId);
+    var panel = document.getElementById(panelId);
+    if (!input || !panel) return;
+    var cache = null;
+    function load() {
+      if (cache) return Promise.resolve(cache);
+      return fetch(url, { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { cache = (d && d.items) || []; return cache; })
+        .catch(function () { cache = []; return cache; });
+    }
+    function norm(s) { return (s || "").toString().toLowerCase(); }
+    function show(items) {
+      panel.innerHTML = "";
+      if (!items.length) { panel.hidden = true; return; }
+      items.slice(0, 15).forEach(function (it) {
+        var row = document.createElement("div");
+        row.className = "combo-option";
+        row.textContent = render(it);
+        row.addEventListener("mousedown", function (ev) {
+          ev.preventDefault();
+          onPick(it);
+          input.value = render(it);
+          panel.hidden = true;
+        });
+        panel.appendChild(row);
+      });
+      panel.hidden = false;
+    }
+    input.addEventListener("input", function () {
+      var q = norm(input.value);
+      if (q.length < 1) { panel.hidden = true; return; }
+      load().then(function (items) {
+        show(items.filter(function (it) {
+          return norm(render(it)).indexOf(q) !== -1
+            || norm(it.dni).indexOf(q) !== -1
+            || norm(it.codigo).indexOf(q) !== -1;
+        }));
+      });
+    });
+    input.addEventListener("focus", function () {
+      if (input.value) input.dispatchEvent(new Event("input"));
+    });
+    document.addEventListener("click", function (ev) {
+      if (!panel.hidden && !document.getElementById(rootId).contains(ev.target)) {
+        panel.hidden = true;
+      }
+    });
+  }
+
+  function _partidaCombo(prefix, getObraIde) {
+    var input = document.getElementById(prefix + "-input");
+    var panel = document.getElementById(prefix + "-panel");
+    var rootSel = prefix + "-combo";
+    if (!input || !panel) return { reload: function () {}, clear: function () {} };
+    var items = [];
+    function setHidden(p) {
+      document.getElementById(prefix + "-ide").value = p && p.ide != null ? p.ide : "";
+      document.getElementById(prefix + "-cod").value = p ? (p.cod || "") : "";
+      document.getElementById(prefix + "-res").value = p ? (p.res || "") : "";
+      document.getElementById(prefix + "-capitulo").value = p ? (p.capitulo || "") : "";
+    }
+    function label(p) {
+      return "[" + (p.capitulo || "?") + "] " + (p.cod ? p.cod + " · " : "") + (p.res || "");
+    }
+    var capFilter = "";           // "" = todas | "CD" | "CI"
+    function filtrados() {
+      var q = input.value.toLowerCase();
+      return items.filter(function (p) {
+        if (capFilter && (p.capitulo || "") !== capFilter) return false;
+        return !q || label(p).toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    function chipsRow() {
+      var bar = document.createElement("div");
+      bar.className = "combo-chips";
+      [["", "Todas"], ["CD", "CD"], ["CI", "CI"]].forEach(function (c) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip" + (capFilter === c[0] ? " on" : "");
+        b.textContent = c[1];
+        b.addEventListener("mousedown", function (ev) {
+          ev.preventDefault(); capFilter = c[0]; show(filtrados());
+        });
+        bar.appendChild(b);
+      });
+      return bar;
+    }
+    function show(list) {
+      panel.innerHTML = "";
+      panel.appendChild(chipsRow());
+      if (!list.length) {
+        var v = document.createElement("div");
+        v.className = "combo-empty";
+        v.textContent = "Sin partidas con ese filtro";
+        panel.appendChild(v); panel.hidden = false; return;
+      }
+      list.slice(0, 40).forEach(function (p) {
+        var row = document.createElement("div");
+        row.className = "combo-option";
+        row.textContent = label(p);
+        row.addEventListener("mousedown", function (ev) {
+          ev.preventDefault(); setHidden(p); input.value = label(p); panel.hidden = true;
+        });
+        panel.appendChild(row);
+      });
+      panel.hidden = false;
+    }
+    input.addEventListener("input", function () { show(filtrados()); });
+    input.addEventListener("focus", function () {
+      if (!input.disabled) show(filtrados());
+    });
+    document.addEventListener("click", function (ev) {
+      var root = document.getElementById(rootSel);
+      if (!panel.hidden && root && !root.contains(ev.target)) panel.hidden = true;
+    });
+    function clear() { setHidden(null); input.value = ""; }
+    function reload() {
+      clear();
+      var obra = getObraIde();
+      if (!obra) {
+        items = []; input.disabled = true;
+        input.placeholder = "Selecciona obra primero…";
+        return;
+      }
+      input.disabled = true; input.placeholder = "Cargando partidas…";
+      fetch("/api/sigrid/partidas?obra_ide=" + encodeURIComponent(obra),
+        { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          items = (d && d.items) || [];
+          input.disabled = false;
+          input.placeholder = items.length
+            ? ("Buscar partida… (" + items.length + ")")
+            : "Esta obra no tiene partidas";
+        })
+        .catch(function () {
+          items = []; input.disabled = false; input.placeholder = "Error al cargar partidas";
+        });
+    }
+    return { reload: reload, clear: clear };
+  }
+
+  function wireNuevoParte() {
+    var grid = document.getElementById("cal-grid");
+    if (!grid) return;
+    var root = document.querySelector(".nuevo-grid");
+    var selected = {};            // iso -> true
+    var rangeStart = null;
+    var cur = new Date(root.getAttribute("data-hoy") + "T00:00:00");
+    var y = cur.getFullYear(), m = cur.getMonth();
+    var MESES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio",
+      "Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+    var DOW = ["L","M","X","J","V","S","D"];
+
+    function iso(yy, mm, dd) {
+      return yy + "-" + ("0" + (mm + 1)).slice(-2) + "-" + ("0" + dd).slice(-2);
+    }
+    function countSel() { return Object.keys(selected).length; }
+
+    function renderChips() {
+      var box = document.getElementById("dias-chips");
+      var keys = Object.keys(selected).sort();
+      document.getElementById("dias-count").textContent = keys.length;
+      box.innerHTML = "";
+      keys.forEach(function (k) {
+        var c = document.createElement("span");
+        c.className = "dia-chip";
+        c.textContent = k.slice(8) + "/" + k.slice(5, 7);
+        var x = document.createElement("button");
+        x.type = "button"; x.textContent = "×"; x.title = "Quitar día";
+        x.addEventListener("click", function () { delete selected[k]; renderCal(); });
+        c.appendChild(x); box.appendChild(c);
+      });
+      updateBtn();
+    }
+    function updateBtn() {
+      var obraOk = !!(document.getElementById("obra-ide").value
+        || document.getElementById("obra-codigo").value);
+      var empOk = !!document.getElementById("emp-nombre").value;
+      // Horas e incidencia son EXCLUYENTES: hace falta una de las dos.
+      var inc = document.getElementById("incidencia");
+      var incVal = inc ? inc.value : "";
+      var hayHoras = _hayHoras();
+      document.getElementById("crear-btn").disabled =
+        !(countSel() > 0 && obraOk && empOk && (hayHoras || incVal));
+    }
+    function _hayHoras() {
+      var ord = parseFloat(document.getElementById("horas-ord").value) || 0;
+      var ext = parseFloat(document.getElementById("horas-extra").value) || 0;
+      return ord !== 0 || ext !== 0;
+    }
+    function wireIncidencia() {
+      var inc = document.getElementById("incidencia");
+      if (!inc) return;
+      var ord = document.getElementById("horas-ord");
+      var ext = document.getElementById("horas-extra");
+      function sync() {
+        if (inc.value) {
+          // Incidencia elegida: las horas se anulan y bloquean.
+          ord.value = 0; ext.value = 0;
+          ord.disabled = true; ext.disabled = true;
+        } else {
+          ord.disabled = false; ext.disabled = false;
+        }
+        // Horas con valor: la incidencia se bloquea.
+        inc.disabled = !inc.value && _hayHoras();
+        updateBtn();
+      }
+      inc.addEventListener("change", sync);
+      ord.addEventListener("input", sync);
+      ext.addEventListener("input", sync);
+      sync();
+    }
+    wireIncidencia();
+    function clickDay(isoStr) {
+      var mode = (document.querySelector("input[name=cal-mode]:checked") || {}).value;
+      if (mode === "rango") {
+        if (!rangeStart) { rangeStart = isoStr; selected[isoStr] = true; }
+        else {
+          var a = rangeStart < isoStr ? rangeStart : isoStr;
+          var b = rangeStart < isoStr ? isoStr : rangeStart;
+          var d = new Date(a + "T00:00:00"), end = new Date(b + "T00:00:00");
+          while (d <= end) {
+            selected[iso(d.getFullYear(), d.getMonth(), d.getDate())] = true;
+            d.setDate(d.getDate() + 1);
+          }
+          rangeStart = null;
+        }
+      } else {
+        if (selected[isoStr]) delete selected[isoStr]; else selected[isoStr] = true;
+      }
+      renderCal();
+    }
+    function renderCal() {
+      document.getElementById("cal-title").textContent = MESES[m] + " " + y;
+      grid.innerHTML = "";
+      DOW.forEach(function (d) {
+        var h = document.createElement("div"); h.className = "cal-dow"; h.textContent = d;
+        grid.appendChild(h);
+      });
+      var first = new Date(y, m, 1);
+      var lead = (first.getDay() + 6) % 7;   // lunes=0
+      for (var i = 0; i < lead; i++) {
+        grid.appendChild(document.createElement("div"));
+      }
+      var days = new Date(y, m + 1, 0).getDate();
+      for (var dd = 1; dd <= days; dd++) {
+        var isoStr = iso(y, m, dd);
+        var cell = document.createElement("button");
+        cell.type = "button"; cell.className = "cal-day"; cell.textContent = dd;
+        if (selected[isoStr]) cell.classList.add("sel");
+        if (rangeStart === isoStr) cell.classList.add("range-start");
+        (function (s) {
+          cell.addEventListener("click", function () { clickDay(s); });
+        })(isoStr);
+        grid.appendChild(cell);
+      }
+      renderChips();
+    }
+
+    document.getElementById("cal-prev").addEventListener("click", function () {
+      m--; if (m < 0) { m = 11; y--; } renderCal();
+    });
+    document.getElementById("cal-next").addEventListener("click", function () {
+      m++; if (m > 11) { m = 0; y++; } renderCal();
+    });
+    document.getElementById("cal-clear").addEventListener("click", function () {
+      selected = {}; rangeStart = null; renderCal();
+    });
+    document.querySelectorAll("input[name=cal-mode]").forEach(function (r) {
+      r.addEventListener("change", function () { rangeStart = null; renderCal(); });
+    });
+
+    var partidaC = _partidaCombo("partida", function () {
+      return document.getElementById("obra-ide").value;
+    });
+
+    _comboSimple("obra-combo", "obra-input", "obra-panel", "/api/sigrid/obras",
+      function (o) { return (o.codigo ? o.codigo + " · " : "") + (o.nombre || ""); },
+      function (o) {
+        document.getElementById("obra-ide").value = o.ide != null ? o.ide : "";
+        document.getElementById("obra-codigo").value = o.codigo || "";
+        document.getElementById("obra-nombre").value = o.nombre || "";
+        updateBtn();
+        partidaC.reload();
+      });
+    _comboSimple("emp-combo", "emp-input", "emp-panel", "/api/sigrid/empleados",
+      function (e) { return (e.nombre || "") + (e.dni ? " · " + e.dni : ""); },
+      function (e) {
+        document.getElementById("emp-ide").value = e.ide != null ? e.ide : "";
+        document.getElementById("emp-codigo").value = e.codigo || "";
+        document.getElementById("emp-nombre").value = e.nombre || "";
+        document.getElementById("emp-dni").value = e.dni || "";
+        document.getElementById("emp-reside").value =
+          e.reside != null ? e.reside : "";
+        // Categoria: viene del trabajador en Sigrid (campo bloqueado).
+        document.getElementById("categoria").value = e.categoria || "";
+        // Sugerir la jornada por defecto del trabajador (editable).
+        if (e.jornada_sugerida != null) {
+          document.getElementById("horas-ord").value = e.jornada_sugerida;
+        }
+        updateBtn();
+      });
+
+    document.getElementById("crear-btn").addEventListener("click", function () {
+      var btn = this;
+      var dias = Object.keys(selected).sort();
+      var incSel = (document.getElementById("incidencia") || {}).value || "";
+      var payload = {
+        obra_ide: document.getElementById("obra-ide").value || null,
+        obra_codigo: document.getElementById("obra-codigo").value || null,
+        obra_nombre: document.getElementById("obra-nombre").value || null,
+        empleado_ide: document.getElementById("emp-ide").value || null,
+        empleado_codigo: document.getElementById("emp-codigo").value || null,
+        empleado_nombre: document.getElementById("emp-nombre").value || null,
+        empleado_dni: document.getElementById("emp-dni").value || null,
+        empleado_reside: document.getElementById("emp-reside").value || null,
+        categoria: document.getElementById("categoria").value || null,
+        dias: dias,
+        horas_ordinaria: incSel ? 0
+          : (document.getElementById("horas-ord").value || 0),
+        horas_extra: incSel ? 0
+          : (document.getElementById("horas-extra").value || 0),
+        incidencia_codigo: incSel || null,
+        partida_ide: document.getElementById("partida-ide").value || null,
+        partida_cod: document.getElementById("partida-cod").value || null,
+        partida_res: document.getElementById("partida-res").value || null,
+        partida_capitulo: document.getElementById("partida-capitulo").value || null
+      };
+      var st = document.getElementById("crear-status");
+      btn.disabled = true; st.hidden = false; st.className = "form-status";
+      st.textContent = "Creando…";
+      fetch("/api/partes/nuevo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d && d.ok) {
+          st.className = "form-status ok";
+          var emp = document.getElementById("emp-ide").value;
+          var verHref = emp ? ("/trabajadores/emp-" + emp) : "/partes";
+          st.innerHTML = "Creado: " + d.lineas + " línea(s) en "
+            + dias.length + " día(s). "
+            + '<a href="' + verHref + '">Ver</a> · listo para otro parte.';
+          // Nos quedamos AQUI: mismos datos (obra, trabajador, partida,
+          // horas/incidencia) y solo se vacian los DIAS, para encadenar
+          // la creacion de mas partes sin volver a rellenar.
+          Object.keys(selected).forEach(function (k) { delete selected[k]; });
+          rangeStart = null;
+          renderCal();
+          updateBtn();
+          btn.disabled = true;   // hasta elegir nuevos dias
+        } else {
+          st.className = "form-status error";
+          st.textContent = (d && d.error) || "No se pudo crear el parte.";
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        st.className = "form-status error";
+        st.textContent = "Error de red al crear el parte.";
+        btn.disabled = false;
+      });
+    });
+
+    renderCal();
+  }
+
+  function wireAddLine() {
+    var modal = document.getElementById("addline-modal");
+    if (!modal) return;
+    var g = function (id) { return document.getElementById(id); };
+
+    function setLock(prefix, locked, label, vals) {
+      var lockEl = g("addline-" + prefix + "-locked");
+      var combo = g("addline-" + prefix + "-combo");
+      if (locked) {
+        lockEl.textContent = label || "";
+        lockEl.hidden = false;
+        combo.hidden = true;
+      } else {
+        lockEl.hidden = true;
+        combo.hidden = false;
+        g("addline-" + prefix + "-input").value = "";
+      }
+      g("addline-" + prefix + "-ide").value = (vals && vals.ide) || "";
+      g("addline-" + prefix + "-codigo").value = (vals && vals.codigo) || "";
+      g("addline-" + prefix + "-nombre").value = (vals && vals.nombre) || "";
+      if (prefix === "emp") g("addline-emp-dni").value = (vals && vals.dni) || "";
+    }
+
+    function todayISO() {
+      var d = new Date();
+      return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2)
+        + "-" + ("0" + d.getDate()).slice(-2);
+    }
+
+    var partidaC = _partidaCombo("addline-partida", function () {
+      return g("addline-obra-ide").value;
+    });
+
+    function open(btn) {
+      var d = btn.dataset;
+      var obraLocked = !!(d.obraCodigo || d.obraIde);
+      setLock("obra", obraLocked, d.obraLabel, obraLocked
+        ? { ide: d.obraIde, codigo: d.obraCodigo, nombre: d.obraNombre } : null);
+      var empLocked = !!d.empNombre;
+      setLock("emp", empLocked, d.empLabel, empLocked
+        ? { ide: d.empIde, codigo: d.empCodigo, nombre: d.empNombre, dni: d.empDni } : null);
+      g("addline-categoria").value = d.categoria || "";
+      g("addline-fecha").value = d.fecha || todayISO();
+      g("addline-ord").value = "8";
+      g("addline-extra").value = "0";
+      partidaC.reload();
+      var st = g("addline-status"); st.hidden = true; st.textContent = "";
+      g("addline-submit").disabled = false;
+      modal.hidden = false;
+      document.body.classList.add("modal-open");
+    }
+    function close() {
+      modal.hidden = true;
+      document.body.classList.remove("modal-open");
+    }
+
+    // Combos del modal (una sola vez).
+    _comboSimple("addline-obra-combo", "addline-obra-input", "addline-obra-panel",
+      "/api/sigrid/obras",
+      function (o) { return (o.codigo ? o.codigo + " · " : "") + (o.nombre || ""); },
+      function (o) {
+        g("addline-obra-ide").value = o.ide != null ? o.ide : "";
+        g("addline-obra-codigo").value = o.codigo || "";
+        g("addline-obra-nombre").value = o.nombre || "";
+        partidaC.reload();
+      });
+    _comboSimple("addline-emp-combo", "addline-emp-input", "addline-emp-panel",
+      "/api/sigrid/empleados",
+      function (e) { return (e.nombre || "") + (e.dni ? " · " + e.dni : ""); },
+      function (e) {
+        g("addline-emp-ide").value = e.ide != null ? e.ide : "";
+        g("addline-emp-codigo").value = e.codigo || "";
+        g("addline-emp-nombre").value = e.nombre || "";
+        g("addline-emp-dni").value = e.dni || "";
+        g("addline-categoria").value = e.categoria || "";
+        if (e.jornada_sugerida != null) {
+          g("addline-ord").value = e.jornada_sugerida;
+        }
+      });
+    _bindClick("[data-add-line]", function (btn) { open(btn); });
+    g("addline-close").addEventListener("click", close);
+    g("addline-cancel").addEventListener("click", close);
+    modal.addEventListener("click", function (ev) { if (ev.target === modal) close(); });
+
+    g("addline-submit").addEventListener("click", function () {
+      var st = g("addline-status");
+      var fecha = g("addline-fecha").value;
+      var obra = g("addline-obra-codigo").value || g("addline-obra-ide").value;
+      var emp = g("addline-emp-nombre").value;
+      if (!obra) { st.hidden = false; st.className = "form-status error"; st.textContent = "Falta la obra."; return; }
+      if (!emp) { st.hidden = false; st.className = "form-status error"; st.textContent = "Falta el trabajador."; return; }
+      if (!fecha) { st.hidden = false; st.className = "form-status error"; st.textContent = "Falta la fecha."; return; }
+      var payload = {
+        obra_ide: g("addline-obra-ide").value || null,
+        obra_codigo: g("addline-obra-codigo").value || null,
+        obra_nombre: g("addline-obra-nombre").value || null,
+        empleado_ide: g("addline-emp-ide").value || null,
+        empleado_codigo: g("addline-emp-codigo").value || null,
+        empleado_nombre: g("addline-emp-nombre").value || null,
+        empleado_dni: g("addline-emp-dni").value || null,
+        categoria: g("addline-categoria").value || null,
+        dias: [fecha],
+        horas_ordinaria: g("addline-ord").value || 0,
+        horas_extra: g("addline-extra").value || 0,
+        partida_ide: g("addline-partida-ide").value || null,
+        partida_cod: g("addline-partida-cod").value || null,
+        partida_res: g("addline-partida-res").value || null,
+        partida_capitulo: g("addline-partida-capitulo").value || null
+      };
+      var btn = this; btn.disabled = true;
+      st.hidden = false; st.className = "form-status"; st.textContent = "Añadiendo…";
+      fetch("/api/partes/nuevo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res && res.ok) {
+          st.className = "form-status ok";
+          st.textContent = "Añadida: " + res.lineas + " línea(s).";
+          setTimeout(function () { window.location.reload(); }, 500);
+        } else {
+          st.className = "form-status error";
+          st.textContent = (res && res.error) || "No se pudo añadir.";
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        st.className = "form-status error";
+        st.textContent = "Error de red.";
+        btn.disabled = false;
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------- //
+  // Mover columnas (arrastrar cabecera) + redimensionar (arrastrar el
+  // borde derecho). Funciona en cualquier tabla; persiste orden y anchos
+  // por tabla en localStorage. Usa table-layout:fixed para que el ancho
+  // sea fiable y, al ensanchar, la tabla crezca y aparezca scroll.
+  // ---------------------------------------------------------------- //
+  function _ctKey(table) {
+    if (table.dataset.ctkey) return table.dataset.ctkey;
+    var hr = table.querySelector("thead tr:first-child");
+    var heads = hr
+      ? Array.prototype.map.call(hr.children, function (th) {
+          return (th.getAttribute("data-col-key") || th.textContent || "").trim();
+        }).join("|")
+      : "";
+    var base = table.id || heads;
+    var k = "ct:" + location.pathname.replace(/\/+$/, "") + ":" + base.slice(0, 140);
+    table.dataset.ctkey = k;
+    return k;
+  }
+  function _ctLoad(table) {
+    try { return JSON.parse(localStorage.getItem(_ctKey(table)) || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function _ctSave(table, st) {
+    try { localStorage.setItem(_ctKey(table), JSON.stringify(st)); } catch (e) {}
+  }
+
+  function wireColumnTools(table) {
+    var headRow = table.querySelector("thead tr:first-child");
+    var tbody = table.querySelector("tbody");
+    if (!headRow || !tbody) return;
+    var filterRow = table.querySelector("thead tr.filter-row");
+
+    // 1) Clave estable por columna (texto limpio, ANTES de flechas/handles).
+    Array.prototype.forEach.call(headRow.children, function (th, i) {
+      if (!th.getAttribute("data-col-key")) {
+        th.setAttribute("data-col-key", (th.textContent || "").trim() || ("col" + i));
+      }
+    });
+
+    function moveInRow(row, from, to) {
+      var cells = row.children;
+      if (from >= cells.length || to >= cells.length || from === to) return;
+      var cell = cells[from];
+      if (to > from) row.insertBefore(cell, cells[to].nextSibling);
+      else row.insertBefore(cell, cells[to]);
+    }
+    function moveColumn(from, to) {
+      if (from === to) return;
+      moveInRow(headRow, from, to);
+      if (filterRow) moveInRow(filterRow, from, to);
+      Array.prototype.forEach.call(tbody.rows, function (r) { moveInRow(r, from, to); });
+    }
+    function applyOrder(order) {
+      order.forEach(function (key, target) {
+        var curr = Array.prototype.slice.call(headRow.children);
+        var from = curr.findIndex(function (th) {
+          return th.getAttribute("data-col-key") === key;
+        });
+        if (from >= 0 && from !== target) moveColumn(from, target);
+      });
+    }
+
+    var saved = _ctLoad(table);
+
+    // 2) Orden guardado.
+    if (saved.order && saved.order.length) applyOrder(saved.order);
+
+    // 3) Anchos: fijar ancho de cada cabecera (guardado o el actual) y pasar
+    //    la tabla a table-layout:fixed para que el ancho mande.
+    var savedW = saved.widths || {};
+    Array.prototype.forEach.call(headRow.children, function (th) {
+      var key = th.getAttribute("data-col-key");
+      var w = savedW[key] || th.offsetWidth || 80;
+      th.style.width = w + "px";
+    });
+    table.style.tableLayout = "fixed";
+    table.style.minWidth = "100%";
+    function syncTableWidth() {
+      var total = 0;
+      Array.prototype.forEach.call(headRow.children, function (th) {
+        total += parseInt(th.style.width, 10) || th.offsetWidth || 0;
+      });
+      table.style.width = total + "px";
+    }
+    syncTableWidth();
+
+    function curState() {
+      var order = Array.prototype.map.call(headRow.children, function (th) {
+        return th.getAttribute("data-col-key");
+      });
+      var widths = {};
+      Array.prototype.forEach.call(headRow.children, function (th) {
+        var w = parseInt(th.style.width, 10);
+        if (w) widths[th.getAttribute("data-col-key")] = w;
+      });
+      return { order: order, widths: widths };
+    }
+    function persist() { _ctSave(table, curState()); }
+
+    // 4) Manijas de REDIMENSIONADO (borde derecho de cada cabecera).
+    Array.prototype.forEach.call(headRow.children, function (th) {
+      th.classList.add("ct-th");
+      var handle = document.createElement("span");
+      handle.className = "col-resize";
+      handle.setAttribute("draggable", "false");
+      th.appendChild(handle);
+      var startX = 0, startW = 0;
+      handle.addEventListener("mousedown", function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();           // no arranca reorder ni orden-por-clic
+        startX = ev.pageX;
+        startW = th.offsetWidth;
+        document.body.classList.add("col-resizing");
+        function mm(e) {
+          var w = Math.max(48, startW + (e.pageX - startX));
+          th.style.width = w + "px";
+          syncTableWidth();
+        }
+        function mu() {
+          document.removeEventListener("mousemove", mm);
+          document.removeEventListener("mouseup", mu);
+          document.body.classList.remove("col-resizing");
+          persist();
+        }
+        document.addEventListener("mousemove", mm);
+        document.addEventListener("mouseup", mu);
+      });
+      handle.addEventListener("click", function (ev) { ev.stopPropagation(); });
+      handle.addEventListener("dblclick", function (ev) {
+        ev.stopPropagation();           // doble clic: ancho automatico
+        th.style.width = "";
+        var max = 0;
+        var ci = th.cellIndex;
+        Array.prototype.forEach.call(tbody.rows, function (r) {
+          var c = r.cells[ci];
+          if (c) max = Math.max(max, c.scrollWidth);
+        });
+        th.style.width = Math.max(60, max + 22) + "px";
+        syncTableWidth();
+        persist();
+      });
+    });
+
+    // 5) REORDENAR con drag&drop nativo (no interfiere con el orden-por-clic:
+    //    un clic ordena, un arrastre mueve la columna).
+    var dragKey = null;
+    Array.prototype.forEach.call(headRow.children, function (th) {
+      th.setAttribute("draggable", "true");
+      th.addEventListener("dragstart", function (ev) {
+        dragKey = th.getAttribute("data-col-key");
+        if (ev.dataTransfer) {
+          ev.dataTransfer.effectAllowed = "move";
+          try { ev.dataTransfer.setData("text/plain", dragKey); } catch (e) {}
+        }
+        th.classList.add("col-dragging");
+      });
+      th.addEventListener("dragend", function () {
+        th.classList.remove("col-dragging");
+        Array.prototype.forEach.call(headRow.children, function (t) {
+          t.classList.remove("col-drop-target");
+        });
+        dragKey = null;
+      });
+      th.addEventListener("dragover", function (ev) {
+        if (dragKey == null) return;
+        ev.preventDefault();
+        if (ev.dataTransfer) ev.dataTransfer.dropEffect = "move";
+        if (th.getAttribute("data-col-key") !== dragKey) {
+          th.classList.add("col-drop-target");
+        }
+      });
+      th.addEventListener("dragleave", function () {
+        th.classList.remove("col-drop-target");
+      });
+      th.addEventListener("drop", function (ev) {
+        ev.preventDefault();
+        th.classList.remove("col-drop-target");
+        if (dragKey == null) return;
+        var kids = Array.prototype.slice.call(headRow.children);
+        var from = kids.findIndex(function (t) {
+          return t.getAttribute("data-col-key") === dragKey;
+        });
+        var to = kids.indexOf(th);
+        if (from >= 0 && to >= 0 && from !== to) {
+          moveColumn(from, to);
+          persist();
+        }
+      });
+    });
+  }
+
+  // ============ Edicion de PARTIDA + seleccion multiple (coordinados) ===========
+  // Estado de seleccion compartido entre el editor por-celda y la barra, para
+  // que editar la partida de una linea seleccionada la aplique a TODA la
+  // seleccion (de la misma obra). La partida pertenece al presupuesto de UNA
+  // obra, asi que el bloque solo agrupa lineas que comparten obra.
+  var PartidaSel = (function () {
+    var sel = {};               // registro_id -> tr
+    return {
+      has: function (id) { return !!sel[id]; },
+      ids: function () { return Object.keys(sel); },
+      count: function () { return Object.keys(sel).length; },
+      tr: function (id) { return sel[id]; },
+      set: function (id, tr) { sel[id] = tr; },
+      del: function (id) { delete sel[id]; },
+      clear: function () { sel = {}; },
+      idsSameObra: function (obra) {
+        return Object.keys(sel).filter(function (id) {
+          return (sel[id].getAttribute("data-obra-ide") || "") === String(obra);
+        });
+      }
+    };
+  })();
+
+  // Posiciona un panel (position:fixed) bajo/sobre un input, escapando del
+  // overflow horizontal de las tablas (misma estrategia que combo-obra/emp).
+  function positionPanel(input, panel) {
+    var r = input.getBoundingClientRect();
+    panel.style.position = "fixed";
+    panel.style.left = r.left + "px";
+    panel.style.width = Math.max(r.width, 240) + "px";
+    var below = window.innerHeight - r.bottom;
+    if (below > 220 || below >= r.top) {
+      panel.style.top = (r.bottom + 4) + "px";
+      panel.style.bottom = "auto";
+      panel.style.maxHeight = Math.max(120, Math.min(300, below - 12)) + "px";
+    } else {
+      panel.style.top = "auto";
+      panel.style.bottom = (window.innerHeight - r.top + 4) + "px";
+      panel.style.maxHeight = Math.max(120, Math.min(300, r.top - 12)) + "px";
+    }
+  }
+
+  var _partidasCache = {};
+  function loadPartidas(obra) {
+    if (!_partidasCache[obra]) {
+      _partidasCache[obra] = fetch(
+        "/api/sigrid/partidas?obra_ide=" + encodeURIComponent(obra),
+        { headers: { Accept: "application/json" } }
+      ).then(function (r) { return r.json(); })
+       .then(function (d) { return (d && d.items) || []; })
+       .catch(function () { return []; });
+    }
+    return _partidasCache[obra];
+  }
+
+  function plabel(p) {
+    return "[" + (p.capitulo || "?") + "] " +
+      (p.cod ? p.cod + " \u00b7 " : "") + (p.res || "");
+  }
+
+  function applyPartidaToIds(ids, p) {
+    var body = JSON.stringify({
+      partida_ide: p.ide != null ? p.ide : null,
+      partida_cod: p.cod || null,
+      partida_res: p.res || null,
+      partida_capitulo: p.capitulo || null
+    });
+    return Promise.all(ids.map(function (id) {
+      return fetch("/api/registros/" + id + "/partida", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: body
+      });
+    }));
+  }
+
+  // Buscador type-ahead de partidas dentro de `host` para `obra`; al elegir
+  // invoca onPick(partida).
+  function buildPartidaPicker(host, obra, onPick) {
+    host.innerHTML =
+      '<input type="text" class="combo-input" autocomplete="off" ' +
+      'placeholder="Cargando partidas\u2026" disabled>' +
+      '<div class="combo-panel partida-panel" hidden></div>';
+    var input = host.querySelector(".combo-input");
+    var panel = host.querySelector(".combo-panel");
+    var items = [];
+
+    var capFilter = "";           // "" = todas | "CD" | "CI"
+    function filtrados() {
+      var q = input.value.toLowerCase();
+      return items.filter(function (p) {
+        if (capFilter && (p.capitulo || "") !== capFilter) return false;
+        return !q || plabel(p).toLowerCase().indexOf(q) !== -1;
+      });
+    }
+    function show(list) {
+      panel.innerHTML = "";
+      var bar = document.createElement("div");
+      bar.className = "combo-chips";
+      [["", "Todas"], ["CD", "CD"], ["CI", "CI"]].forEach(function (c) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip" + (capFilter === c[0] ? " on" : "");
+        b.textContent = c[1];
+        b.addEventListener("mousedown", function (ev) {
+          ev.preventDefault(); capFilter = c[0]; show(filtrados());
+        });
+        bar.appendChild(b);
+      });
+      panel.appendChild(bar);
+      if (!list.length) {
+        var v = document.createElement("div");
+        v.className = "combo-empty";
+        v.textContent = "Sin partidas con ese filtro";
+        panel.appendChild(v);
+        panel.hidden = false; positionPanel(input, panel); return;
+      }
+      list.slice(0, 60).forEach(function (p) {
+        var row = document.createElement("div");
+        row.className = "combo-option";
+        row.textContent = plabel(p);
+        row.addEventListener("mousedown", function (ev) {
+          ev.preventDefault(); onPick(p);
+        });
+        panel.appendChild(row);
+      });
+      panel.hidden = false;
+      positionPanel(input, panel);
+    }
+    input.addEventListener("input", function () { show(filtrados()); });
+    input.addEventListener("focus", function () {
+      if (!input.disabled) show(filtrados());
+    });
+    function reposition() { if (!panel.hidden) positionPanel(input, panel); }
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+
+    loadPartidas(obra).then(function (list) {
+      items = list;
+      input.disabled = false;
+      input.placeholder = items.length
+        ? ("Buscar partida\u2026 (" + items.length + ")")
+        : "Esta obra no tiene partidas";
+      input.focus();
+    });
+    return { input: input };
+  }
+
+  // Editor por-celda (boton \u270e). Si la fila esta en una seleccion multiple,
+  // la partida elegida se aplica a TODAS las seleccionadas de la MISMA obra;
+  // las de otra obra se omiten con aviso.
+  function wirePartidaEdit() {
+    function wireCell(cell) {
+      var tr = cell.closest("[data-registro-id]");
+      if (!tr) return;
+      var regId = tr.getAttribute("data-registro-id");
+      var obra = tr.getAttribute("data-obra-ide");
+      if (!obra) return;
+      var btn = document.createElement("button");
+      btn.type = "button"; btn.className = "partida-edit-btn";
+      btn.title = "Editar la partida (imputacion)"; btn.textContent = "\u270e";
+      btn.addEventListener("click", function () {
+        openEditor(cell, regId, obra);
+      });
+      cell.appendChild(btn);
+    }
+    function openEditor(cell, regId, obra) {
+      if (cell.querySelector(".partida-editor")) return;
+      var prev = cell.innerHTML;
+      var ed = document.createElement("div");
+      ed.className = "partida-editor";
+      ed.innerHTML = '<div class="pe-host"></div>' +
+        '<div class="partida-editor-actions">' +
+        '<button type="button" class="btn-link partida-cancel">Cancelar</button>' +
+        '</div>';
+      cell.innerHTML = ""; cell.appendChild(ed);
+      function onDocDown(ev) {
+        // Clic FUERA del editor (y de su panel flotante): cerrar.
+        if (ed.contains(ev.target) || ev.target.closest(".partida-panel")) return;
+        restore();
+      }
+      function restore() {
+        document.removeEventListener("mousedown", onDocDown, true);
+        cell.innerHTML = prev; wireCell(cell);
+      }
+      setTimeout(function () {
+        document.addEventListener("mousedown", onDocDown, true);
+      }, 0);
+      ed.querySelector(".partida-cancel").addEventListener("click", restore);
+      buildPartidaPicker(ed.querySelector(".pe-host"), obra, function (p) {
+        var targets, omitidas = 0;
+        if (PartidaSel.has(regId) && PartidaSel.count() > 1) {
+          targets = PartidaSel.idsSameObra(obra);
+          omitidas = PartidaSel.count() - targets.length;
+        } else {
+          targets = [regId];
+        }
+        applyPartidaToIds(targets, p).then(function () {
+          if (omitidas > 0) {
+            alert("Partida aplicada a " + targets.length + " l\u00ednea(s). " +
+                  omitidas + " omitida(s) por ser de otra obra.");
+          }
+          window.location.reload();
+        }).catch(function () { alert("Error al cambiar la partida."); restore(); });
+      });
+    }
+    document.querySelectorAll("td.cell-partida").forEach(wireCell);
+  }
+
+  // Seleccion multiple (Ctrl/Shift+click) + barra de acciones en bloque.
+  function wireBulkSelect() {
+    var rows = Array.prototype.slice.call(
+      document.querySelectorAll("tr[data-registro-id]"));
+    if (!rows.length) return;
+    var lastIdx = -1, bar = null, pickerOpen = false;
+
+    function isInteractive(t) {
+      return !!(t.closest("input,select,textarea,button,a,label,.combo-panel," +
+        ".partida-editor,.combo-obra,.combo-emp,.row-detail"));
+    }
+    function paint(tr, on) { tr.classList.toggle("row-selected", on); }
+    function toggle(tr, on) {
+      var id = tr.getAttribute("data-registro-id");
+      if (on === undefined) on = !PartidaSel.has(id);
+      if (on) { PartidaSel.set(id, tr); paint(tr, true); }
+      else { PartidaSel.del(id); paint(tr, false); }
+    }
+    function clearSel() {
+      PartidaSel.ids().forEach(function (id) {
+        var t = PartidaSel.tr(id); if (t) paint(t, false);
+      });
+      PartidaSel.clear(); renderBar();
+    }
+    function selectRange(a0, b0) {
+      var a = Math.min(a0, b0), b = Math.max(a0, b0);
+      for (var i = a; i <= b; i++) toggle(rows[i], true);
+    }
+    rows.forEach(function (tr, idx) {
+      tr.addEventListener("click", function (ev) {
+        if (!(ev.ctrlKey || ev.metaKey || ev.shiftKey)) return;
+        if (isInteractive(ev.target)) return;
+        ev.preventDefault();
+        if (ev.shiftKey && lastIdx >= 0) selectRange(lastIdx, idx);
+        else { toggle(tr); lastIdx = idx; }
+        renderBar();
+      });
+    });
+
+    function ensureBar() {
+      if (bar) return bar;
+      bar = document.createElement("div");
+      bar.className = "bulk-bar"; bar.hidden = true;
+      bar.innerHTML = '<span class="bulk-count"></span>' +
+        '<div class="bulk-actions">' +
+        '<button type="button" class="btn-bulk" data-act="partida">Editar partida</button>' +
+        '<button type="button" class="btn-bulk danger" data-act="borrar">Borrar</button>' +
+        '<button type="button" class="btn-bulk ghost" data-act="clear">Quitar selecci\u00f3n</button>' +
+        '</div><div class="bulk-picker" hidden></div>';
+      document.body.appendChild(bar);
+      bar.querySelector('[data-act="clear"]').addEventListener("click", clearSel);
+      bar.querySelector('[data-act="borrar"]').addEventListener("click", doBorrar);
+      bar.querySelector('[data-act="partida"]').addEventListener("click", doPartida);
+      return bar;
+    }
+    function renderBar() {
+      ensureBar();
+      var n = PartidaSel.count();
+      if (!n) { bar.hidden = true; closePicker(); return; }
+      bar.hidden = false;
+      bar.querySelector(".bulk-count").textContent =
+        n + (n === 1 ? " l\u00ednea seleccionada" : " l\u00edneas seleccionadas");
+    }
+    function doBorrar() {
+      var ids = PartidaSel.ids(); if (!ids.length) return;
+      if (!confirm("\u00bfMover " + ids.length + " l\u00ednea(s) a la papelera?")) return;
+      Promise.all(ids.map(function (id) {
+        return fetch("/api/registro/" + id + "/delete", { method: "POST" });
+      })).then(function () { window.location.reload(); })
+        .catch(function () { alert("Error al borrar en bloque."); });
+    }
+    function closePicker() {
+      pickerOpen = false;
+      if (bar) {
+        var p = bar.querySelector(".bulk-picker");
+        if (p) { p.hidden = true; p.innerHTML = ""; }
+      }
+    }
+    function doPartida() {
+      var ids = PartidaSel.ids(); if (!ids.length) return;
+      var obras = {};
+      ids.forEach(function (id) {
+        obras[PartidaSel.tr(id).getAttribute("data-obra-ide") || ""] = true;
+      });
+      var keys = Object.keys(obras).filter(function (k) { return k; });
+      if (keys.length !== 1) {
+        alert("Las l\u00edneas seleccionadas son de " + keys.length + " obras " +
+              "distintas. La partida pertenece a una obra: selecciona l\u00edneas " +
+              "de una sola obra para editarla en bloque.");
+        return;
+      }
+      var obra = keys[0];
+      var box = bar.querySelector(".bulk-picker");
+      box.hidden = false; pickerOpen = true;
+      buildPartidaPicker(box, obra, function (p) {
+        applyPartidaToIds(PartidaSel.idsSameObra(obra), p)
+          .then(function () { window.location.reload(); })
+          .catch(function () { alert("Error al cambiar la partida en bloque."); });
+      });
+    }
+    document.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape") {
+        if (pickerOpen) closePicker();
+        else if (PartidaSel.count()) clearSel();
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    // Toggle del visor de PDF.
+    var pdfBtn = document.getElementById("pdfToggle");
+    var pdfWrap = document.getElementById("pdfWrap");
+    if (pdfBtn && pdfWrap) {
+      pdfBtn.addEventListener("click", function () {
+        var collapsed = pdfBtn.getAttribute("data-collapsed") === "1";
+        if (collapsed) {
+          pdfWrap.style.display = "";
+          pdfBtn.textContent = "Ocultar PDF";
+          pdfBtn.setAttribute("data-collapsed", "0");
+        } else {
+          pdfWrap.style.display = "none";
+          pdfBtn.textContent = "Mostrar PDF";
+          pdfBtn.setAttribute("data-collapsed", "1");
+        }
+      });
+    }
+
+    document.querySelectorAll(".fecha-edit").forEach(wireFechaInput);
+    document.querySelectorAll(".horas-edit").forEach(wireHorasInput);
+    document.querySelectorAll(".combo-obra").forEach(wireObraCombo);
+    document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireColumnTools);
+    document.querySelectorAll("table").forEach(wireColumnFilters);
+    wireDayFilters();
+    document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireSortable);
+    document.querySelectorAll(".combo-emp").forEach(wireEmpleadoCombo);
+    wireNameEditToggles();
+    wirePdfModal();
+    wireUndo();
+    wireConciliacion();
+    wireBorrado();
+    wirePartidaEdit();
+    wireBulkSelect();
+    wireNuevoParte();
+    wireAddLine();
+
+    var combos = Array.prototype.slice.call(document.querySelectorAll(".combo-hora"));
+    if (!combos.length) return;
+
+    fetchTiposHora().then(function (data) {
+      var items = (data && data.items) || [];
+      combos.forEach(function (select) {
+        var current = select.getAttribute("data-current") || "";
+        buildOptions(select, items, current);
+        select.addEventListener("change", onChange);
+      });
+    });
+  });
+})();
+
+/* ==================================================================== *
+ * Matriz de obra: (a) filtro 'sin codigo de hora extra' (ON por defecto)
+ * y (b) edicion inline de TODAS las lineas de una celda con DOBLE CLIC,
+ * incluida la creacion de la linea extra si no existe.
+ * Autonomo: no depende del init principal.
+ * ==================================================================== */
+(function () {
+  "use strict";
+
+  function ready(fn) {
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  ready(function () {
+    var matrix = document.querySelector("table.matrix");
+
+    // ---- (a) Ocultar trabajadores sin codigo de hora extra ---- //
+    var toggle = document.getElementById("hide-sin-extra");
+    function applySinExtra() {
+      if (!matrix) return;
+      var hide = toggle ? toggle.checked : true;
+      matrix.querySelectorAll("tbody tr[data-sin-extra='1']").forEach(
+        function (tr) { tr.hidden = hide; });
+    }
+    if (toggle) toggle.addEventListener("change", applySinExtra);
+    applySinExtra(); // por defecto: ocultos
+
+    // ---- (b) Editor de horas de celda (doble clic) ---- //
+    if (!matrix) return;
+    var pop = null;
+
+    function closePop() {
+      if (pop) { pop.remove(); pop = null; }
+    }
+    document.addEventListener("mousedown", function (ev) {
+      if (pop && !pop.contains(ev.target)) closePop();
+    });
+
+    function patchHoras(regId, val) {
+      return fetch("/api/registros/" + regId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ horas: val }),
+      }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+
+    function crearExtra(baseOrdId, val) {
+      return fetch("/api/registros/" + baseOrdId + "/extra", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ horas: val }),
+      }).then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      });
+    }
+
+    function fila(labelTxt, sub, value) {
+      var wrap = document.createElement("label");
+      wrap.className = "mxe-field";
+      var span = document.createElement("span");
+      span.textContent = labelTxt;
+      if (sub) span.title = sub;
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.step = "0.5";
+      inp.value = value;
+      wrap.appendChild(span);
+      wrap.appendChild(inp);
+      return { wrap: wrap, inp: inp };
+    }
+
+    matrix.addEventListener("dblclick", function (ev) {
+      var td = ev.target.closest("td.mx-cell");
+      if (!td || !td.dataset || !td.dataset.regs) return;
+      ev.preventDefault();
+      closePop();
+
+      var regs;
+      try { regs = JSON.parse(td.dataset.regs); } catch (e) { return; }
+      if (!regs || !regs.length) return;
+
+      pop = document.createElement("div");
+      pop.className = "mx-edit-pop";
+      var title = document.createElement("div");
+      title.className = "mxe-title";
+      title.textContent = (td.dataset.trabajador || "") + " \u00b7 "
+        + (td.dataset.fecha || "");
+      pop.appendChild(title);
+
+      // Una fila editable POR LINEA de la celda (con su partida si la tiene).
+      var campos = [];
+      regs.forEach(function (r) {
+        var base = r.t === "n" ? "Ord." : "Extra";
+        var lab = r.p ? (base + " \u00b7 " + r.p) : base;
+        var f = fila(lab, r.p ? ("Partida " + r.p) : null, r.h);
+        campos.push({ f: f, reg: r });
+        pop.appendChild(f.wrap);
+      });
+
+      // Sin linea extra aun: permitir CREARLA (clona contexto del 1er Ord.).
+      var nueva = null;
+      var hayExtra = regs.some(function (r) { return r.t === "e"; });
+      var primerOrd = regs.filter(function (r) { return r.t === "n"; })[0];
+      if (!hayExtra && primerOrd) {
+        nueva = fila("Extra", "Se creara una linea extra nueva", 0);
+        pop.appendChild(nueva.wrap);
+      }
+
+      var bar = document.createElement("div");
+      bar.className = "mxe-actions";
+      var ok = document.createElement("button");
+      ok.type = "button"; ok.className = "btn small"; ok.textContent = "Guardar";
+      var cancel = document.createElement("button");
+      cancel.type = "button"; cancel.className = "btn secondary small";
+      cancel.textContent = "Cancelar";
+      bar.appendChild(ok); bar.appendChild(cancel);
+      pop.appendChild(bar);
+
+      cancel.addEventListener("click", closePop);
+      ok.addEventListener("click", function () {
+        var jobs = [];
+        campos.forEach(function (it) {
+          var v = it.f.inp.value;
+          if (v === "" || parseFloat(v) === it.reg.h) return;
+          jobs.push(patchHoras(it.reg.id, v));
+        });
+        if (nueva && nueva.inp.value !== "" && parseFloat(nueva.inp.value) !== 0) {
+          jobs.push(crearExtra(primerOrd.id, nueva.inp.value));
+        }
+        if (!jobs.length) { closePop(); return; }
+        ok.disabled = true;
+        Promise.all(jobs)
+          .then(function () { window.location.reload(); })
+          .catch(function () {
+            ok.disabled = false;
+            title.textContent = "\u2717 Error guardando. Reintenta.";
+          });
+      });
+
+      document.body.appendChild(pop);
+      var r = td.getBoundingClientRect();
+      pop.style.left = Math.max(8, window.scrollX + r.left - 40) + "px";
+      pop.style.top = (window.scrollY + r.bottom + 4) + "px";
+      var first = pop.querySelector("input");
+      if (first) { first.focus(); first.select(); }
+      ev.stopPropagation();
+    });
+  });
+})();
+
+
+/* ==================================================================== *
+ * APROBAR -> registrar en Sigrid (via partes-transfer, sv5).
+ * Flujo: preflight -> si hay conflictos, modal de confirmacion
+ * ("pisar o no") -> ejecutar. Boton por linea y "Aprobar todo".
+ * ==================================================================== */
+(function () {
+  "use strict";
+
+  function ready(fn) {
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  function post(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body || {}),
+    }).then(function (r) {
+      return r.json().catch(function () {
+        return { ok: false, error: "respuesta no valida (HTTP " + r.status + ")" };
+      });
+    });
+  }
+
+  function fechaLegible(fint) {
+    var s = String(fint || "");
+    if (s.length !== 8) return s;
+    return s.slice(6, 8) + "/" + s.slice(4, 6) + "/" + s.slice(0, 4);
+  }
+
+  function num(v) {
+    return (v === null || v === undefined) ? "" : v;
+  }
+
+  // ---------------- modal ---------------- //
+  var overlay = null;
+
+  function cerrar() {
+    if (overlay) { overlay.remove(); overlay = null; }
+  }
+
+  function modal(titulo, cuerpoHtml, acciones) {
+    cerrar();
+    overlay = document.createElement("div");
+    overlay.className = "ap-overlay";
+    var caja = document.createElement("div");
+    caja.className = "ap-modal";
+    var h = document.createElement("div");
+    h.className = "ap-title";
+    h.textContent = titulo;
+    var c = document.createElement("div");
+    c.className = "ap-body";
+    c.innerHTML = cuerpoHtml;
+    var pie = document.createElement("div");
+    pie.className = "ap-actions";
+    (acciones || []).forEach(function (a) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn " + (a.clase || "secondary");
+      b.textContent = a.texto;
+      b.addEventListener("click", function () { a.onClick(caja, b); });
+      pie.appendChild(b);
+    });
+    caja.appendChild(h); caja.appendChild(c); caja.appendChild(pie);
+    overlay.appendChild(caja);
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", function (ev) {
+      if (ev.target === overlay) cerrar();
+    });
+    return caja;
+  }
+
+  function resumenHtml(pf) {
+    var r = pf.resumen || {};
+    var partes = (pf.partes || []).map(function (p) {
+      var mes = String(p.mes).padStart(2, "0");
+      return p.existe
+        ? "<li>Parte <strong>" + (p.cod || "?") + "</strong> (" + mes + "/" + p.ano + "): ya existe</li>"
+        : "<li>Parte <strong>" + (p.cod || "?") + "</strong> (" + mes + "/" + p.ano + "): <em>se creara</em></li>";
+    }).join("");
+    var aviso = pf.forzada_pruebas
+      ? '<p class="ap-warn">MODO PRUEBAS: se escribira en la obra <strong>'
+        + (pf.obra_destino && pf.obra_destino.codigo) + " · "
+        + ((pf.obra_destino && pf.obra_destino.nombre) || "")
+        + "</strong>, ignorando la obra del parte.</p>"
+      : "";
+    var omitidas = (pf.acciones || []).filter(function (a) {
+      return a.accion === "omitir";
+    });
+    var omHtml = "";
+    if (omitidas.length) {
+      omHtml = "<p><strong>No se registran " + omitidas.length
+        + " linea(s):</strong></p><ul class='ap-list'>"
+        + omitidas.map(function (a) {
+            return "<li>" + (a.nombre || "?") + " · " + fechaLegible(a.fecha_int)
+              + " — " + (a.motivo || "") + "</li>";
+          }).join("") + "</ul>";
+    }
+    return aviso
+      + "<ul class='ap-list'>" + partes + "</ul>"
+      + "<p>Se registraran <strong>" + (r.escribir || 0) + "</strong> linea(s)."
+      + (r.ya_registrado ? " Ya registradas: " + r.ya_registrado + "." : "")
+      + "</p>" + omHtml;
+  }
+
+  function conflictosHtml(conflictos) {
+    return "<p class='ap-warn'>Ya hay lineas en Sigrid con el <strong>mismo "
+      + "codigo de hora</strong> para ese parte, recurso y fecha. Marca las "
+      + "que quieras <strong>pisar</strong> (se borra la linea actual y se "
+      + "escribe la nueva). Las lineas con OTRO codigo de ese dia no se "
+      + "tocan.</p>"
+      + conflictos.map(function (c) {
+          var nuevoTxt = num(c.nueva_can) + " h · " + num(c.nueva_tot) + " €";
+          var detalle = "";
+          if ((c.nuevas || []).length > 1) {
+            detalle = " <span class='ap-mini'>(" + c.nuevas.map(function (n) {
+              return num(n.can) + " h" + (n.partida_cod ? " " + n.partida_cod : "");
+            }).join(" + ") + ")</span>";
+          }
+          // Lineas que SE PISAN, con la comparacion a la derecha.
+          var lineas = (c.lineas || []).map(function (l) {
+            return "<li><span class='ap-old'>linea " + l.ide + " · "
+              + (l.hora_codigo || "?") + " · " + num(l.can) + " h · "
+              + num(l.tot) + " €"
+              + (l.nuestra ? " <em>(escrita por esta app)</em>" : "")
+              + "</span> <span class='ap-arrow'>→</span> "
+              + "<span class='ap-new'>actualizacion a " + nuevoTxt + "</span>"
+              + detalle + "</li>";
+          }).join("");
+          // Lineas de ese dia con OTRO codigo: informativas.
+          var ctx = "";
+          if ((c.contexto || []).length) {
+            ctx = "<div class='ap-ctx'>Otras lineas de ese dia que <strong>no "
+              + "se tocan</strong>:<ul class='ap-list'>"
+              + c.contexto.map(function (l) {
+                  return "<li>linea " + l.ide + " · " + (l.hora_codigo || "?")
+                    + " · " + num(l.can) + " h · " + num(l.tot) + " €</li>";
+                }).join("") + "</ul></div>";
+          }
+          return "<div class='ap-conf'><label><input type='checkbox' "
+            + "class='ap-pisar' value='" + c.clave + "' checked> "
+            + "<strong>" + (c.nombre || ("recurso " + c.recurso_ide)) + "</strong> · "
+            + fechaLegible(c.fecha_int) + " · parte " + (c.parte_cod || "?")
+            + " · <strong>" + (c.hora_codigo || "?") + "</strong>"
+            + "</label><ul class='ap-list'>" + lineas + "</ul>" + ctx + "</div>";
+        }).join("");
+  }
+
+  function resultadoHtml(r) {
+    var partes = (r.partes || []).filter(function (p) { return p.creado; })
+      .map(function (p) { return p.cod; });
+    var html = "<p><strong>" + (r.escritas || []).length
+      + "</strong> linea(s) registradas en Sigrid.</p>";
+    if (partes.length) {
+      html += "<p>Parte(s) creado(s): <strong>" + partes.join(", ")
+        + "</strong></p>";
+    }
+    if (r.borradas) {
+      html += "<p>" + r.borradas + " linea(s) anteriores borradas (pisadas).</p>";
+    }
+    if ((r.omitidas || []).length) {
+      html += "<p>" + r.omitidas.length + " linea(s) no registradas (reglas).</p>";
+    }
+    if ((r.ya_registradas || []).length) {
+      html += "<p>" + r.ya_registradas.length
+        + " linea(s) ya estaban registradas (no se duplican).</p>";
+    }
+    if ((r.escritas || []).length) {
+      html += "<ul class='ap-list'>" + r.escritas.map(function (e) {
+        return "<li>" + (e.parte_cod || "") + " · " + (e.hora_codigo || "")
+          + " · " + num(e.can) + " h → linea " + (e.hmores_ide || "?") + "</li>";
+      }).join("") + "</ul>";
+    }
+    return html;
+  }
+
+  function ejecutar(peticion, pisarClaves, caja, boton) {
+    if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
+    var body = Object.assign({}, peticion, { pisar_claves: pisarClaves || [] });
+    return post("/api/aprobar/ejecutar", body).then(function (r) {
+      if (!r.ok) {
+        modal("No se pudo registrar",
+              "<p class='ap-warn'>" + (r.error || "error desconocido") + "</p>",
+              [{ texto: "Cerrar", onClick: cerrar }]);
+        return;
+      }
+      var pend = r.pendientes_confirmacion || [];
+      var html = resultadoHtml(r);
+      if (pend.length) {
+        html += "<hr>" + conflictosHtml(pend);
+        modal("Registro en Sigrid", html, [
+          { texto: "Pisar las marcadas", clase: "ok", onClick: function (cj, b) {
+              var claves = Array.prototype.slice.call(
+                cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
+                  return i.value;
+                });
+              if (!claves.length) { cerrar(); window.location.reload(); return; }
+              ejecutar(peticion, claves, cj, b);
+            } },
+          { texto: "Dejarlo asi", onClick: function () {
+              cerrar(); window.location.reload();
+            } },
+        ]);
+      } else {
+        modal("Registro en Sigrid", html, [
+          { texto: "Cerrar", clase: "ok", onClick: function () {
+              cerrar(); window.location.reload();
+            } },
+        ]);
+      }
+    }).catch(function (e) {
+      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    });
+  }
+
+  function aprobar(peticion) {
+    modal("Comprobando en Sigrid…", "<p>Analizando el parte, el mes y las "
+          + "lineas existentes…</p>", []);
+    post("/api/aprobar/preflight", peticion).then(function (pf) {
+      if (!pf.ok) {
+        modal("No se puede registrar",
+              "<p class='ap-warn'>" + (pf.error || "error desconocido") + "</p>",
+              [{ texto: "Cerrar", onClick: cerrar }]);
+        return;
+      }
+      var conflictos = pf.conflictos || [];
+      var html = resumenHtml(pf);
+      if (conflictos.length) html += "<hr>" + conflictosHtml(conflictos);
+      modal(conflictos.length ? "Confirmar: hay lineas que se pisarian"
+                              : "Confirmar registro en Sigrid",
+        html, [
+          { texto: conflictos.length ? "Registrar (pisando las marcadas)"
+                                     : "Registrar", clase: "ok",
+            onClick: function (cj, b) {
+              var claves = Array.prototype.slice.call(
+                cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
+                  return i.value;
+                });
+              ejecutar(peticion, claves, cj, b);
+            } },
+          { texto: "Cancelar", onClick: cerrar },
+        ]);
+    }).catch(function (e) {
+      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    });
+  }
+
+  ready(function () {
+    document.addEventListener("click", function (ev) {
+      var linea = ev.target.closest(".aprobar-linea");
+      if (linea) {
+        ev.preventDefault();
+        aprobar({ registro_ids: [parseInt(linea.dataset.registroId, 10)] });
+        return;
+      }
+      var todo = ev.target.closest("#aprobar-todo");
+      if (todo) {
+        ev.preventDefault();
+        if (todo.dataset.obraKey) {
+          // Vista de OBRA: el servidor resuelve las lineas del periodo.
+          aprobar({ obra_key: todo.dataset.obraKey,
+                    period: todo.dataset.period || null,
+                    mode: todo.dataset.mode || "nomina" });
+          return;
+        }
+        // Vista de TRABAJADOR: aprueba lo VISIBLE en la tabla (respeta el
+        // filtro de dias del calendario y los filtros de columna), sin
+        // incidencias.
+        var ids = [];
+        document.querySelectorAll(
+          "#lines-table tbody tr[data-registro-id]"
+        ).forEach(function (tr) {
+          if (tr.classList.contains("filtered-day")) return;
+          if (tr.style.display === "none") return;
+          ids.push(parseInt(tr.dataset.registroId, 10));
+        });
+        if (!ids.length) {
+          aprobar({ registro_ids: [] });  // el backend respondera con el aviso
+          return;
+        }
+        aprobar({ registro_ids: ids });
+      }
+    });
+  });
+})();
+
+
+/* ==================================================================== *
+ * Barra de scroll horizontal DUPLICADA encima de las tablas anchas
+ * (matriz y lineas del periodo): evita tener que bajar al final de la
+ * pagina para desplazarse a la derecha. Sincronizada en ambos sentidos.
+ * ==================================================================== */
+(function () {
+  "use strict";
+
+  function ready(fn) {
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  function anadirBarra(el) {
+    if (!el || el.dataset.topScroll === "1") return;
+    el.dataset.topScroll = "1";
+    var bar = document.createElement("div");
+    bar.className = "scroll-top";
+    var inner = document.createElement("div");
+    bar.appendChild(inner);
+    el.parentNode.insertBefore(bar, el);
+
+    function sync() {
+      inner.style.width = el.scrollWidth + "px";
+      bar.style.display = (el.scrollWidth > el.clientWidth + 2)
+        ? "block" : "none";
+    }
+    sync();
+    window.addEventListener("resize", sync);
+    if (window.ResizeObserver) {
+      try { new ResizeObserver(sync).observe(el); } catch (e) { /* noop */ }
+    }
+    // Re-medir cuando la tabla cambie (filtros, filas ocultas...).
+    if (window.MutationObserver) {
+      try {
+        new MutationObserver(sync).observe(el, {
+          childList: true, subtree: true, attributes: true,
+        });
+      } catch (e) { /* noop */ }
+    }
+
+    var lock = false;
+    bar.addEventListener("scroll", function () {
+      if (lock) return;
+      lock = true; el.scrollLeft = bar.scrollLeft; lock = false;
+    });
+    el.addEventListener("scroll", function () {
+      if (lock) return;
+      lock = true; bar.scrollLeft = el.scrollLeft; lock = false;
+    });
+  }
+
+  ready(function () {
+    document.querySelectorAll(".table-scroll, .matrix-scroll")
+      .forEach(anadirBarra);
+  });
+})();

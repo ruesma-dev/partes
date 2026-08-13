@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="page-eyebrow">Mano de obra</span>
+    <h1>Trabajadores</h1>
+    <p class="muted">Horas agregadas de todos los partes diarios, por trabajador.</p>
+  </div>
+  <div class="view-toggle">
+    <a class="seg active" href="/trabajadores">Por persona</a>
+    <a class="seg" href="/obras">Por obra</a>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">Trabajadores</span>
+    <span class="stat-value">{{ workers|length }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Horas ordinarias</span>
+    <span class="stat-value">{{ total_normales|horas }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Horas extra</span>
+    <span class="stat-value">{{ total_extra|horas }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Incidencias</span>
+    <span class="stat-value">{{ total_incidencias }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Sin casar</span>
+    <span class="stat-value">{{ sin_casar }}</span>
+  </div>
+</div>
+
+<form class="toolbar" method="get" action="/trabajadores">
+  <input class="input" type="search" name="search" value="{{ search }}"
+         placeholder="Buscar por nombre, codigo o DNI…" autocomplete="off">
+  <button class="btn primary small" type="submit">Buscar</button>
+  {% if search %}<a class="btn secondary small" href="/trabajadores">Limpiar</a>{% endif %}
+</form>
+
+{% if workers %}
+<div class="panel">
+  <div class="table-scroll">
+  <table class="table docs-table filterable">
+    <thead>
+      <tr>
+        <th>Trabajador</th>
+        <th>Categoria</th>
+        <th class="num">Partes</th>
+        <th class="num">Ordinarias</th>
+        <th class="num">Extra</th>
+        <th class="num">Incid.</th>
+        <th>Sigrid</th>
+        <th></th>
+      </tr>
+      <tr class="filter-row">
+        <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+        <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+        <th><input class="col-filter" type="text" placeholder="…"></th>
+        <th><input class="col-filter" type="text" placeholder="…"></th>
+        <th><input class="col-filter" type="text" placeholder="…"></th>
+        <th><input class="col-filter" type="text" placeholder="…"></th>
+        <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+        <th><button type="button" class="filter-clear">Limpiar</button></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for w in workers %}
+      <tr>
+        <td class="cell-trab-name">
+          <div class="trab-name-row">
+            <a class="link-strong" href="/trabajadores/{{ w.worker_key }}">{{ w.nombre }}</a>
+            {% if sigrid_enabled %}<button type="button" class="name-edit-toggle" title="Reasignar empleado">✎</button>{% endif %}
+          </div>
+          {% if w.dni %}<div class="cell-sub">DNI {{ w.dni }}</div>{% endif %}
+          {% if sigrid_enabled %}
+          <div class="combo-emp combo-emp-hidden" data-worker-key="{{ w.worker_key }}" data-reload="1">
+            <input type="text" class="combo-input cell-edit" autocomplete="off" placeholder="Reasignar a…">
+            <div class="combo-panel" hidden></div>
+          </div>
+          {% endif %}
+        </td>
+        <td>{{ w.categoria or "—" }}</td>
+        <td class="num">{{ w.num_partes }}</td>
+        <td class="num">{{ w.horas_normales|horas }}</td>
+        <td class="num">{{ w.horas_extra|horas }}</td>
+        <td class="num">{% if w.num_incidencias %}<span class="badge warn">{{ w.num_incidencias }}</span>{% else %}—{% endif %}</td>
+        <td>
+          {% if w.matched %}
+            <span class="badge ok">{% if w.dni %}DNI {{ w.dni }}{% else %}casado{% endif %}</span>
+          {% else %}
+            <span class="badge danger">sin casar</span>
+          {% endif %}
+        </td>
+        <td class="cell-actions">
+          <a class="btn secondary small" href="/trabajadores/{{ w.worker_key }}">Ver</a>
+          <button type="button" class="btn danger small" data-del-worker="{{ w.worker_key }}"
+                  data-label="{{ w.nombre }}">Borrar</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+<div class="empty">
+  <p>No hay registros de partes todavia{% if search %} para «{{ search }}»{% endif %}.</p>
+</div>
+{% endif %}
+{% endblock %}

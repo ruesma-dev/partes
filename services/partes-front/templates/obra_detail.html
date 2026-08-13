@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% block title %}{{ detail.obra_codigo or detail.obra_nombre or "Obra" }} · {{ title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="page-eyebrow">Obra</span>
+    <h1>{% if detail.obra_codigo %}{{ detail.obra_codigo }} · {% endif %}{{ detail.obra_nombre or "(obra sin identificar)" }}</h1>
+    <p class="muted">Horas por dia y trabajador del periodo seleccionado.</p>
+  </div>
+  <div class="header-actions">
+    <button type="button" class="btn primary" data-add-line
+            data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}"
+            data-obra-codigo="{{ detail.obra_codigo or '' }}"
+            data-obra-nombre="{{ detail.obra_nombre or '' }}"
+            data-obra-label="{% if detail.obra_codigo %}{{ detail.obra_codigo }} · {% endif %}{{ detail.obra_nombre or '' }}">+ Añadir línea</button>
+    {% if transfer_enabled %}
+    <button type="button" class="btn ok" id="aprobar-todo"
+            data-obra-key="{{ detail.obra_key }}"
+            data-period="{{ detail.period_key or '' }}"
+            data-mode="{{ detail.mode or 'nomina' }}"
+            title="Registrar en Sigrid todas las lineas del periodo">
+      ✓ Aprobar todo
+    </button>
+    {% endif %}
+    <a class="btn secondary" href="/obras">← Obras</a>
+    <button type="button" class="btn danger" data-del-obra="{{ obra_key }}"
+            data-label="{% if detail.obra_codigo %}{{ detail.obra_codigo }} · {% endif %}{{ detail.obra_nombre or '' }}"
+            data-partes="{{ detail.num_partes if detail.num_partes is defined else '' }}">Borrar obra</button>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">Horas ordinarias</span>
+    <span class="stat-value">{{ detail.total_normal|horas }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Horas extra</span>
+    <span class="stat-value">{{ detail.total_extra|horas }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Incidencias</span>
+    <span class="stat-value">{{ detail.total_incidencias }}</span>
+  </div>
+  {% if extras and extras.total_exceso %}
+  <div class="stat-card">
+    <span class="stat-label">Extra por jornada</span>
+    <span class="stat-value" title="Horas ordinarias por encima de la jornada por defecto del recurso ({{ extras.dias }} dias)">{{ extras.total_exceso|horas }}</span>
+  </div>
+  {% endif %}
+  <div class="stat-card">
+    <span class="stat-label">Trabajadores</span>
+    <span class="stat-value">{{ detail.rows|length }}</span>
+  </div>
+</div>
+
+<div class="panel cal-panel">
+  <div class="panel-header cal-head">
+    <div>
+      <h2>Horas por dia · {{ detail.period_label or "" }}</h2>
+      {% if detail.range_label %}<p class="muted small">{{ detail.range_label }}{% if period_mode == 'natural' %} · mes natural{% else %} · del 16 al 15{% endif %}</p>{% endif %}
+    </div>
+    <div class="cal-controls">
+      <div class="view-toggle small">
+        <a class="seg {% if period_mode != 'natural' %}active{% endif %}" href="/obras/{{ detail.obra_key }}?modo=nomina">Mes nomina</a>
+        <a class="seg {% if period_mode == 'natural' %}active{% endif %}" href="/obras/{{ detail.obra_key }}?modo=natural">Mes natural</a>
+      </div>
+      {% if detail.period_options %}
+      <form method="get" action="/obras/{{ detail.obra_key }}" class="cal-period">
+        <input type="hidden" name="modo" value="{{ period_mode }}">
+        <label class="small muted" for="period">Mes</label>
+        <select class="combo" id="period" name="period" onchange="this.form.submit()">
+          {% for opt in detail.period_options %}
+          <option value="{{ opt.key }}" {% if opt.key == selected_period %}selected{% endif %}>{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if detail.rows %}
+  <div class="matrix-legend">
+    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar horas.</span>
+    <label class="mx-toggle" title="Trabajadores cuyo recurso NO tiene codigo de hora extra en Sigrid (p. ej. mensuales tipo encargado). Sus horas no cuentan en los totales.">
+      <input type="checkbox" id="hide-sin-extra" checked> Ocultar trabajadores sin código de hora extra
+    </label>
+  </div>
+  <div class="matrix-scroll">
+    <table class="matrix filterable">
+      <thead>
+        <tr>
+          <th class="mx-name">Trabajador</th>
+          <th class="mx-cat">Categoría</th>
+          {% for d in detail.days %}
+          <th class="mx-day{% if d.is_weekend %} mx-we{% endif %}{% if d.is_holiday %} mx-hol{% endif %}{% if d.es_futuro %} mx-future{% endif %}"
+              title="{{ d.date_iso }}{% if d.holiday_name %} · {{ d.holiday_name }}{% endif %}{% if d.es_futuro %} · FECHA FUTURA{% endif %}">{{ d.day }}{% if d.es_futuro %} ⚠{% endif %}</th>
+          {% endfor %}
+          <th class="mx-tot">Tot</th>
+        </tr>
+        <tr class="filter-row">
+          <th class="mx-name"><input class="col-filter" type="text" placeholder="Filtrar trabajador…"></th>
+          <th class="mx-cat"><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+          {% for d in detail.days %}<th></th>{% endfor %}
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in detail.rows %}
+        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}">
+          <td class="mx-name">
+            <a class="link-strong" href="/trabajadores/{{ row.worker_key }}">{{ row.nombre }}</a>
+            {% if not row.matched %}<span class="badge danger mx-badge">sin casar</span>{% endif %}
+            {% if not row.tiene_extra %}<span class="badge warn mx-badge" title="El recurso no tiene código de hora extra en Sigrid: sus horas NO cuentan en los totales">sin cód. extra</span>{% endif %}
+          </td>
+          <td class="mx-cat">{{ row.categoria or '' }}</td>
+          {% for c in row.cells %}
+          <td class="mx-cell{% if c.is_weekend %} mx-we{% endif %}{% if c.is_holiday %} mx-hol{% endif %}{% if c.has_inc %} mx-inc{% endif %}{% if c.extra and not c.normal %} mx-extra{% endif %}{% if preview_enabled and c.tiene_pdf %} mx-cell-pdf{% endif %}{% if c.label %} mx-pick{% endif %}{% if ((row.nombre or '') ~ '|' ~ (c.date_iso or '')) in incompletos %} mx-warn{% endif %}"
+              {% if c.label %}data-fecha="{{ c.date_iso }}" data-trabajador="{{ row.nombre }}"{% endif %}
+              {% if c.regs %}data-regs='{{ c.regs|tojson }}'{% endif %}
+              {% if preview_enabled and c.tiene_pdf %}data-parte-pdf="{{ c.document_id }}" data-parte-title="Parte · {{ detail.obra_codigo or detail.obra_nombre or '' }} · {{ c.date_iso }} · {{ row.nombre }}" title="Ver parte del {{ c.date_iso }}"{% endif %}>{{ c.label }}</td>
+          {% endfor %}
+          <td class="mx-tot">{% if row.total_extra %}{{ row.total_normal|horas }}{% if row.total_extra > 0 %}+{% endif %}{{ row.total_extra|horas }}{% elif row.total_normal %}{{ row.total_normal|horas }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td class="mx-name">Total dia</td>
+          <td class="mx-cat mx-foot"></td>
+          {% for c in detail.col_totals %}
+          <td class="mx-cell mx-foot">{% if c.extra %}{{ c.normal|horas }}{% if c.extra > 0 %}+{% endif %}{{ c.extra|horas }}{% elif c.normal %}{{ c.normal|horas }}{% endif %}</td>
+          {% endfor %}
+          <td class="mx-tot">{{ detail.total_normal|horas }}{% if detail.total_extra %}{% if detail.total_extra > 0 %}+{% endif %}{{ detail.total_extra|horas }}{% endif %}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">No hay horas en este periodo para esta obra.</div>
+  {% endif %}
+</div>
+
+<div class="panel">
+  <div class="panel-header"><h2>Lineas del periodo</h2></div>
+  <div class="day-filter-bar" data-day-badge hidden>
+    <span>Filtrando por <strong><span data-count>0</span></strong> casilla(s) (trabajador · día) de la matriz.</span>
+    <button type="button" class="btn secondary small" data-day-clear>Quitar filtro</button>
+  </div>
+  {% if detail.registros %}
+  <div class="table-scroll">
+  <table class="table lines-table filterable" id="lines-table">
+    <thead>
+      <tr>
+        <th>Fecha</th>
+        <th>Trabajador</th>
+        <th>Categoria</th>
+        <th>Tipo</th>
+        <th class="num">Horas</th>
+        <th class="num">Cant. def.</th>
+        <th>Codigo de hora (Sigrid)</th>
+        <th>Partida (imputacion)</th>
+        <th>Recurso / Parte</th>
+        <th>Firma parte</th>
+        {% if transfer_enabled %}<th>Sigrid</th>{% endif %}
+        {% if preview_enabled %}<th>Parte</th>{% endif %}
+      </tr>
+      <tr class="filter-row">
+        <th><input class="col-filter" type="text" placeholder="AAAA-MM-DD"></th>
+        <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+        <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+        <th><input class="col-filter" type="text" placeholder="Ordin./Extra…"></th>
+        <th><input class="col-filter" type="text" placeholder="…"></th>
+        <th></th>
+        <th><input class="col-filter" type="text" placeholder="Codigo…"></th>
+        <th><input class="col-filter" type="text" placeholder="Partida…"></th>
+        <th><input class="col-filter" type="text" placeholder="Recurso…"></th>
+        {% if transfer_enabled %}<th></th>{% endif %}
+        <th><button type="button" class="filter-clear">Limpiar</button></th>
+        {% if preview_enabled %}<th></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in detail.registros %}
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}">
+        <td class="cell-fecha">
+          <input type="date" class="fecha-edit cell-edit"
+                 data-document-id="{{ r.document_id }}"
+                 value="{{ r.fecha or '' }}">
+          <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
+          {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}
+          <button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>
+        </td>
+        <td class="cell-trabajador">
+          {% if sigrid_enabled %}
+          <div class="combo-emp" data-registro-id="{{ r.id }}">
+            <input type="text" class="combo-input cell-edit" autocomplete="off"
+                   value="{{ r.trabajador_nombre or '' }}" placeholder="Trabajador…">
+            <div class="combo-panel" hidden></div>
+          </div>
+          {% else %}{{ r.trabajador_nombre or "—" }}{% endif %}
+        </td>
+        <td>{{ r.categoria or "—" }}</td>
+        <td>
+          {% if r.es_incidencia %}
+            <span class="badge warn" title="{{ r.incidencia_texto or '' }}">{{ r.incidencia_codigo }} · {{ r.incidencia_codigo|incidencia }}</span>
+          {% elif r.hora_ext == 1 or r.tipo_hora == 'extra' %}
+            <span class="badge extra">Extra</span>
+          {% else %}
+            <span class="badge normal">Ordinaria</span>{% if ((r.trabajador_nombre or '') ~ '|' ~ (r.fecha or '')) in incompletos %} <span class="badge warn" title="Jornada ordinaria (en esta obra) por debajo de la cantidad por defecto">⚠</span>{% endif %}
+          {% endif %}
+        </td>
+        <td class="num cell-horas">
+          <input type="number" step="0.5" min="0" class="horas-edit cell-edit cell-edit-num"
+                 data-registro-id="{{ r.id }}"
+                 value="{{ r.horas if r.horas is not none else '' }}">
+        </td>
+        <td class="num cell-candef{% if r.hora_candef is none or r.hora_candef <= candef_minimo %} candef-asignado{% endif %}" title="{% if r.hora_candef is none or r.hora_candef <= candef_minimo %}Asignado por defecto. En Sigrid: {% if r.hora_candef is not none %}{{ r.hora_candef|horas }}{% else %}sin dato{% endif %}{% else %}CanDefecto del recurso en Sigrid{% endif %}">{% if r.hora_candef is none or r.hora_candef <= candef_minimo %}{{ jornada_defecto|horas }} <span class="tag-asignado">asig.</span>{% else %}{{ r.hora_candef|horas }}{% endif %}</td>
+        <td>
+          <select class="combo combo-hora" data-registro-id="{{ r.id }}"
+                  data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}">
+            <option value="">— sin asignar —</option>
+          </select>
+          <div class="cell-sub combo-hora-current">
+            {% if r.hora_codigo %}{{ r.hora_codigo }} · {{ r.hora_descripcion or '' }}{% else %}—{% endif %}
+            {% if r.hora_match_method in ['categoria_normal', 'categoria_extra', 'categoria_extra_a_normal', 'extra_por_categoria', 'incidencia', 'incidencia_desc', 'ext_default', 'ext_first'] %}<span class="tag-auto" title="Asignado por matcheo determinista ({{ r.hora_match_method }})">auto</span>{% elif r.hora_match_method == 'codigo_propuesto' %}<span class="tag-ia" title="Propuesto por la IA - conviene revisar">IA</span>{% elif r.hora_match_method == 'manual' %}<span class="tag-manual">manual</span>{% endif %}
+          </div>
+        </td>
+        <td class="cell-partida">
+          {% if r.partida_cod %}
+            <span class="badge cap-{{ (r.partida_capitulo or 'CI')|lower }}">{{ r.partida_capitulo or 'CI' }}</span>
+            <span class="partida-cod">{{ r.partida_cod }}</span>
+            <div class="cell-sub">{{ r.partida_res or '' }}
+              {% if r.partida_match_method == 'auto_nombre' %}<span class="tag-auto" title="Casado por el nombre del recurso">nombre</span>
+              {% elif r.partida_match_method == 'auto_categoria' %}<span class="tag-auto" title="Casado por la categoria">auto</span>
+              {% elif r.partida_match_method == 'manual' %}<span class="tag-manual">manual</span>
+              {% elif r.partida_match_method == 'parte' %}<span class="tag-auto" title="Partida escrita en el propio parte (codigo {{ r.partida_leida or r.partida_cod }})">del parte</span>{% endif %}
+            </div>
+          {% else %}{% if r.partida_leida %}<span class="muted partida-warn" title="El parte indica la partida {{ r.partida_leida }} pero ese código no existe (o es ambiguo) en el presupuesto de la obra. Asígnala a mano.">⚠ {{ r.partida_leida }} no encontrada</span>{% else %}<span class="muted partida-warn" title="No se encontró partida ni por nombre ni por categoría en CI. No es obligatoria; puedes asignarla a mano.">⚠ sin partida</span>{% endif %}{% endif %}
+        </td>
+        <td class="cell-recurso">
+          {% if r.parte_estado == 'ok' %}<span class="badge ok" title="Existe parte de trabajo (hmo {{ r.hmo_ide }})">Parte ✓</span>
+          {% elif r.parte_estado == 'sin_recurso' %}<span class="badge muted-badge" title="No se localizo el recurso en Sigrid">Sin recurso</span>
+          {% else %}<span class="muted">—</span>{% endif %}
+          {% if r.recurso_cif %}<div class="cell-sub">DNI {{ r.recurso_cif }}{% if r.recurso_ide %} · rec {{ r.recurso_ide }}{% endif %}</div>{% endif %}
+        </td>
+        <td>
+          {% if r.parte_firmado %}
+            <span class="badge ok" title="Firmado{% if r.parte_firmante_rol %} · {{ r.parte_firmante_rol }}{% endif %}">Firmado</span>
+          {% else %}
+            <span class="badge danger">Sin firma</span>
+          {% endif %}
+          {% if r.parte_aprobado %}<span class="badge ok">Aprobado</span>{% endif %}
+        </td>
+        {% if transfer_enabled %}
+        <td class="cell-sigrid">
+          {% if r.sigrid_estado == 'registrado' %}
+            <span class="badge ok" title="Registrado en Sigrid{% if r.sigrid_parte_cod %} · parte {{ r.sigrid_parte_cod }}{% endif %}">✓ {{ r.sigrid_parte_cod or 'registrado' }}</span>
+          {% elif r.sigrid_estado == 'omitido' %}
+            <span class="badge warn" title="{{ r.sigrid_motivo or 'No se registra' }}">omitido</span>
+            <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea">↻</button>
+          {% else %}
+            <button type="button" class="btn small ok aprobar-linea" data-registro-id="{{ r.id }}" title="Registrar esta linea en Sigrid">Aprobar</button>
+          {% endif %}
+        </td>
+        {% endif %}
+        {% if preview_enabled %}
+        <td class="cell-parte">
+          {% if r.tiene_pdf %}
+          <button type="button" class="btn secondary small" data-parte-pdf="{{ r.document_id }}"
+                  data-parte-title="Parte · {{ detail.obra_codigo or detail.obra_nombre or '' }} · {{ r.fecha or '' }} · {{ r.trabajador_nombre or '' }}">Ver PDF</button>
+          {% else %}<span class="muted small">—</span>{% endif %}
+        </td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty-state">No hay lineas en este periodo.</div>
+  {% endif %}
+</div>
+{% endblock %}
