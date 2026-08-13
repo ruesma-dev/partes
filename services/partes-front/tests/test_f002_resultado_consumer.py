@@ -12,7 +12,6 @@ import threading
 
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
-
 from infrastructure.azure import blob_cliente as mod_blob
 from infrastructure.azure import cola_cliente as mod_cola
 from infrastructure.azure.blob_cliente import BlobCliente

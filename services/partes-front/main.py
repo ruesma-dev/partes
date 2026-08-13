@@ -5,7 +5,6 @@ import logging
 from pathlib import Path
 
 import uvicorn
-
 from config.logging_config import configure_logging
 from config.settings import Settings
 from infrastructure.azure.credenciales import (
