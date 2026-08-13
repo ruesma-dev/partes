@@ -1,10 +1,15 @@
 <!-- progress/review_F-002.md -->
 # F-002 · Cola q-transfer para aprobación asíncrona — review
 
-Rama `feature/F-002-cola-q-transfer` (verificada, HEAD `4f72189`), contra
-`dev`. Spec R1–R26 / T1–T15.
+Rama `feature/F-002-cola-q-transfer`, contra `dev`. Spec R1–R26 / T1–T15.
 
-## Veredicto
+- **Primera pasada** — HEAD `4f72189` — **CHANGES_REQUESTED**.
+- **Segunda pasada** — HEAD `63b1afe` — **APPROVED**. Ver la sección
+  «Segunda pasada» al final, que es la que manda. Lo que sigue hasta ahí se
+  conserva **tal como se escribió** para que quede el rastro de qué se
+  pidió y por qué; el único checkbox vacío queda cerrado allí.
+
+## Veredicto de la primera pasada (histórico)
 
 **CHANGES_REQUESTED**
 
@@ -102,7 +107,7 @@ en Sigrid. Ambas roturas restauradas con `git checkout`.
 - [x] Hexagonal respetada. `domain/models/registro_models.py` importa solo `__future__`, `dataclasses` y `typing`. Los imports de `azure.*` y `sqlalchemy` viven solo en `infrastructure/`. Los consumidores de `interface_adapters/` reciben cola y blob por parámetro y no importan Azure.
 - [x] Primera línea con la ruta relativa en los 30 ficheros `.py` del diff, más `static/app.js` y `static/styles.css`.
 - [x] Sin `print()` de debug, sin `console.log`, sin TODO/FIXME, sin secretos hardcodeados. Barrido hecho (`AccountKey=`, `password`, `token`, `Bearer`, `-----BEGIN`, `subscription`, `tenant`, IPs, `.internal.`, `*.core.windows.net`, correos): **cero valores reales**. Lo que hay son alias de variables de entorno sin default, `DefaultAzureCredential` con managed identity, y una CS de Azurite en tests con la clave sustituida por `xxx`. Las únicas IPs son `127.0.0.1:10000/10001` (Azurite) y los binds por defecto.
-- [ ] **Sin dependencias nuevas no previstas en la spec.** ← **ÚNICO CHECKBOX VACÍO.** `azure-storage-queue`, `azure-storage-blob` y `azure-identity` son dependencias nuevas y necesarias, pero **no están declaradas en `infra/manifests/sv4/requirements.txt` ni en `sv5/requirements.txt`**. Ver cambio requerido nº 1.
+- [ ] → **[x] en la segunda pasada** (commit `5f51a82`). **Sin dependencias nuevas no previstas en la spec.** ← **ÚNICO CHECKBOX VACÍO en la primera pasada.** `azure-storage-queue`, `azure-storage-blob` y `azure-identity` son dependencias nuevas y necesarias, pero **no están declaradas en `infra/manifests/sv4/requirements.txt` ni en `sv5/requirements.txt`**. Ver cambio requerido nº 1.
 - [x] Reglas de dominio y las tres trampas del monorepo:
   - **empleado ≠ recurso**: intacta. El pipeline mueve código sin cambiar decisiones; los tests de regresión se anclaron contra el pipeline previo y yo he confirmado por RED que la semántica se sostiene.
   - **incidencias**: no se tocan.
@@ -344,3 +349,208 @@ tocaría portarlos a `arnes-base` en el mismo trabajo.
    del servicio que lo importa*. Es automatizable en `init.sh` para
    proyectos Python (cruzar los imports de nivel superior del diff contra
    el `requirements.txt` del servicio) y habría cazado esto solo.
+
+---
+
+# Segunda pasada — HEAD `63b1afe`
+
+## Veredicto
+
+**APPROVED**
+
+Los dos cambios requeridos están aplicados y **verificados por mi cuenta**,
+no por lo que dice el informe; las dos mejoras sugeridas también. El delta
+desde `4f72189` toca **exactamente** lo pedido y **ni una línea de código de
+producción**, así que todo lo que aprobé en la primera pasada sigue en pie
+sin necesidad de rehacerlo: mismo alcance, misma cobertura, misma campaña de
+mutación (las tres cifras recalculadas más abajo).
+
+## Qué he ejecutado en esta pasada
+
+| Comprobación | Resultado |
+|---|---|
+| `bash harness/init.sh` (tal cual) | **ENTORNO LISTO**, `exit=0` |
+| Suites vía init.sh | 6 raíz + 112 sv4 + **87** sv5 = **205**, verde (eran 202; +3 del guardián de R11) |
+| Puerta de cobertura | **[OK] 97,4 %** de 648 líneas (631/648, umbral 80, nivel critico) |
+| `alcance_de_feature('F-002')` recalculado | **24 ficheros, 1630 líneas** — idéntico al de la campaña |
+| `generar_mutantes` recalculado sobre ese alcance | **132 mutantes** — idéntico |
+| Delta `4f72189..HEAD`: ficheros `.py` de producción | **ninguno** (solo 2 `.txt`, 1 `.ps1`, 2 tests y `progress/`) |
+| Arranque simulado sv4 y sv5 con el manifiesto de hoy | **ARRANQUE OK**, `exit=0` en ambos |
+| Control del arranque simulado (manifiesto sin `azure-*`) | **FALLO reproducido**, `exit=1` en ambos |
+| Guardián R11: las 3 puertas, con violación inyectada | **las 3 en rojo**, cada una por su motivo |
+| `add_qtransfer_partes.ps1`: bytes y parser | sin BOM, **166/166 CRLF**, ASCII puro, **0 errores** de parser PS 5.1 |
+| `ruff check` sobre los dos ficheros de test tocados | **All checks passed** (total del repo sigue en 442, deuda previa) |
+| Barrido de secretos/debug sobre el delta | **cero hallazgos** (los 3 positivos son la palabra «Todo» en comentarios y un `password` dentro de un regex) |
+| `git status --porcelain -uall` tras mis pruebas | **vacío** |
+
+## 1. BLOQUEANTE — paquetes `azure-*` en los manifiestos · **CERRADO**
+
+Ambos manifiestos declaran los tres paquetes con **los pines exactos** que
+pedí, los mismos de sv3 (commit `5f51a82`):
+
+```
+infra/manifests/sv4/requirements.txt:12-14   infra/manifests/sv5/requirements.txt:8-10
+azure-identity>=1.17                         azure-identity>=1.17
+azure-storage-queue>=12.10                   azure-storage-queue>=12.10
+azure-storage-blob>=12.20                    azure-storage-blob>=12.20
+```
+
+El implementer escribe que «el arranque simulado ya no es reproducible
+aquí». **Sí lo es, y lo he reproducido**, porque la pregunta correcta no es
+si falla sin las librerías sino si **arranca con lo que el manifiesto
+instala**. Monté la imagen simulada: un `meta_path` finder que niega todo
+módulo que no provenga de una distribución declarada en
+`infra/manifests/svN/requirements.txt`, **más su cierre transitivo
+respetando los marcadores de extra** (pip instala `uvicorn[standard]`, no
+todos los extras de todo), y ejecuté `main.py` entero:
+
+```
+########## partes-transfer — manifiesto tal cual esta hoy ##########
+  ARRANQUE OK: main.py importado entero          exit=0
+########## partes-front — manifiesto tal cual esta hoy ##########
+  ARRANQUE OK: main.py importado entero          exit=0
+```
+
+Y —esto es lo que hace que la prueba valga algo— **el control con las tres
+líneas quitadas vuelve a romper por el mismo sitio exacto que en la primera
+pasada**:
+
+```
+########## partes-transfer — manifiesto SIN los azure-* (control) ##########
+  File "...\services\partes-transfer\main.py", line 27, in <module>
+  FALLO DE ARRANQUE -> ModuleNotFoundError: No module named 'azure'   exit=1
+########## partes-front — manifiesto SIN los azure-* (control) ##########
+  File "...\services\partes-front\main.py", line 10, in <module>
+  FALLO DE ARRANQUE -> ModuleNotFoundError: No module named 'azure'   exit=1
+```
+
+Aviso metodológico, por si alguien repite esto: mi **primer** intento de
+control dio verde en falso. Al calcular el cierre transitivo sin mirar los
+marcadores, `pydantic-settings` arrastraba su extra `azure-key-vault` y
+colaba `azure-identity` por la puerta de atrás. Un control que no falla
+cuando debe no prueba nada; hubo que arreglar el instrumento antes de
+creerse el resultado.
+
+Cerrado además el caso general: he cruzado **todos** los imports de tercero
+del código de producción de sv4 y sv5 contra sus manifiestos y no queda
+**ninguno sin cubrir**.
+
+La desviación 3 del informe está corregida (`impl_F-002.md:88-97`) y no
+maquilla nada: dice literalmente «Lo declaré por hecho sin comprobarlo».
+
+## 2. MENOR — `Settings()` a pelo en el test de degradación · **CERRADO**
+
+`test_f002_degradacion.py` ya no construye `Settings()` sin `_env_file`. La
+única coincidencia de la cadena en el fichero está **dentro del docstring**
+que explica por qué no se debe hacer (`:43`). El test ya no depende del
+`.env` de la máquina.
+
+## Mejora 1 — `add_qtransfer_partes.ps1` sin clave de cuenta · **APLICADA**
+
+`grep -i "account-key|keys list|STKEY|account_key|sas"` → **sin
+coincidencias**. Las tres operaciones de datos (crear las 4 colas, crear el
+contenedor, listar) van con `--auth-mode login` (`:78`, `:86`, `:91`).
+Fichero sin BOM, 166 líneas CRLF sin un solo LF suelto, ASCII puro, y el
+parser real de PowerShell 5.1 lo acepta con **0 errores** — importante
+porque este script **no lo ejecuta ningún test**.
+
+La contrapartida operativa (hacen falta los roles de **datos** sobre el
+storage; «Contributor» no basta, y el síntoma sería
+`AuthorizationPermissionMismatch`) está escrita **en los tres sitios donde
+hace falta**: cabecera del script `:26-30`, verificación MANUAL nº 1 del
+informe, y `current.md:95` ya usaba `--auth-mode login`. No queda ninguna
+instrucción que contradiga al script.
+
+## Mejora 2 — guardián de R11 · **APLICADA, y de las buenas**
+
+`services/partes-transfer/tests/test_f002_r11_sin_postgresql.py`, 3 tests,
+verde. Cubre las tres puertas por las que entraría una BBDD en sv5:
+imports (con `ast`, no `grep` —así la propia lista `PROHIBIDOS` del fichero
+no se autoacusa), manifiesto de despliegue, y campos de `Settings`.
+
+Un guardián solo vale si **falla cuando debe**, así que lo he roto yo, por
+separado y sin dejar rastro (`git status` vacío después):
+
+```
+# puerta 1 — modulo temporal con "from sqlalchemy import create_engine"
+E   AssertionError: sv5 no debe tener BBDD (R11), pero estos modulos importan
+    un driver relacional: {'infrastructure/_regresion_temporal.py': ['sqlalchemy']}
+    1 failed in 0.48s
+# puerta 2 — MANIFIESTO redirigido a uno con psycopg[binary]
+PUERTA MANIFIESTO: RED -> requirements.txt de sv5 declara paquetes de BBDD: ['psycopg']
+# puerta 3 — Settings falso con un campo pg_dsn
+PUERTA SETTINGS: RED -> Settings de sv5 expone campos de BBDD: ['pg_dsn']
+```
+
+Las tres son sensibles y cada una falla por su motivo. R11 pasa de
+«verificado por inspección del reviewer» a **regresión detectable**: en la
+tabla de trazabilidad, R11 deja de estar en 0 tests. Quedan 3 requisitos sin
+test automático (R15, R16, R17), los tres **MANUAL por spec**.
+
+Detalle que agradezco y que no me esperaba: el test importa `Settings` pero
+**no lo instancia** (lee `Settings.model_fields`), así que no toca el `.env`
+de nadie. No introduce la misma trampa que acabábamos de quitar en sv4.
+
+## Cobertura y mutación tras el delta · siguen válidas
+
+El alcance **no ha crecido**: `harness.alcance` da los mismos **24 ficheros
+/ 1630 líneas** y `generar_mutantes` los mismos **132 mutantes** que la
+campaña del 17:46 y que mi recálculo de la primera pasada. Es coherente con
+el delta, que no toca ni un `.py` de producción (los ficheros nuevos son
+tests, y los tests no entran en el alcance). **No hacía falta relanzar la
+campaña**, y el informe lo justifica con ese mismo recálculo en vez de
+darlo por supuesto (`impl_F-002.md:552-565`). No aplica la prueba de control
+de «cero mutantes»: la campaña declara 132 evaluados.
+
+La puerta de cobertura sigue en `[OK] 97,4 %`, mismo numerador y
+denominador.
+
+## Checkpoints tras la segunda pasada
+
+- **C1** [x] · **C2** [x] · **C3** [x] · **C3 bis** N/A justificado (el diff
+  no toca `docs/referencia/`) · **C4** [x] · **C4 bis** [x] · **C4 ter** N/A
+  justificado (el repo no declara `harness/rutas_sensibles.json`) ·
+  **C5** [x].
+- El **único checkbox vacío** de la primera pasada —dependencias nuevas no
+  declaradas, en C3— queda **marcado**: los tres paquetes están en ambos
+  manifiestos y el arranque simulado lo demuestra.
+- C4: la trazabilidad mejora (R11 con test propio). C5: `tasks.md` con
+  **15 [x] y 0 [ ]**, árbol limpio, `features.json` con F-002 aún
+  `in_progress` a la espera de este veredicto y `rigor: critico`.
+- **Ningún N/A sin justificación escrita.**
+- La sección **«Evidencias»** del informe trae los cuatro números
+  actualizados (205 tests, 97,4 %, 132/0 supervivientes, tiempos).
+
+## Higiene del delta
+
+Los 6 commits desde `4f72189` son uno por arreglo, con mensaje que explica
+**por qué** y no solo qué, más los dos de documentación:
+
+| Commit | Qué |
+|---|---|
+| `5f51a82` | manifiestos sv4/sv5 + corrección de la desviación 3 |
+| `36c1c68` | `_settings()` en el test de degradación |
+| `19f3347` | script de infra con `--auth-mode login` |
+| `c18173d` | guardián de R11 |
+| `1aa4313` | sección «Correcciones tras review» |
+| `63b1afe` | versiona `progress/review_F-002.md` (mi entregable, sin tocarlo) |
+
+Nada fuera de lo pedido. Ningún `push`, ningún PR (siguen en la lista de
+pendientes del humano, junto con el commit `1440598` de `azure-apps`).
+
+## Lo que este APPROVED no cubre (para el humano, no bloquea)
+
+1. **Las verificaciones MANUAL siguen pendientes**, y una cambió de
+   requisitos: `add_qtransfer_partes.ps1` ahora exige que **la persona** que
+   lo ejecute tenga Storage Queue/Blob **Data** Contributor sobre
+   `stpartespt7m3`. La Fase 1 concedió esos roles a la managed identity
+   `id-partes-dev`, no necesariamente al humano. Es un cambio a mejor —la
+   clave de cuenta abre el storage entero— pero puede sorprender al
+   ejecutarlo.
+2. **La causa raíz del bloqueante sigue viva.** El arreglo pone los
+   paquetes; nada impide que el próximo import de tercero se olvide otra
+   vez en cualquier servicio. El propio implementer lo dice y hace bien en
+   **no** improvisar la solución (`impl_F-002.md:428-433`): es mi automejora
+   nº 2, y es decisión del humano y del arnés genérico. **Mantengo las dos
+   propuestas de automejora de la primera pasada**; esta pasada refuerza la
+   nº 2, porque el fallo se cerró a mano y a mano se puede repetir.
