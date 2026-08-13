@@ -1411,6 +1411,64 @@ def build_app(
                              "peticion_id": peticion_id,
                              "encoladas": len(ids)})
 
+    # ------------------------------------------------------------------ #
+    # COLAS 'poison': visibilidad y reencolado manual desde el portal.
+    # Sin esto, un mensaje que agota sus reintentos solo se ve entrando en
+    # Azure, y sus lineas se quedan en 'encolado' sin que nadie sepa por que.
+    # ------------------------------------------------------------------ #
+
+    #: Allowlist CERRADA. El nombre de cola no puede venir del cliente:
+    #: solo se admite elegir cual de estas dos, y el sufijo lo pone el
+    #: servidor.
+    COLAS_REENCOLABLES = (settings.cola_transfer, settings.cola_transfer_result)
+
+    @app.get("/api/admin/poison", include_in_schema=False)
+    async def poison_estado() -> JSONResponse:
+        if cola_cliente is None:
+            return JSONResponse({"habilitado": False})       # R26
+        colas = []
+        for principal in COLAS_REENCOLABLES:
+            poison = f"{principal}-poison"
+            try:
+                cuantos = cola_cliente.contar_aproximado(poison)
+            except Exception:
+                # El aviso es accesorio: que Storage no conteste no puede
+                # tumbar la pagina que lo muestra.
+                logger.warning("[poison] no se pudo contar %s", poison,
+                               exc_info=True)
+                cuantos = None
+            colas.append({"cola": poison, "principal": principal,
+                          "mensajes_aprox": cuantos})
+        return JSONResponse({"habilitado": True, "colas": colas})
+
+    @app.post("/api/admin/poison/reencolar", include_in_schema=False)
+    async def poison_reencolar(request: Request) -> JSONResponse:
+        """R24: devuelve a la cola principal hasta 32 mensajes muertos.
+
+        Repetirlo es seguro: sv5 detecta por synckey lo ya escrito (R8) y
+        el marcado de sv4 es idempotente (R13).
+        """
+        if cola_cliente is None:
+            return JSONResponse(
+                {"ok": False, "error": "colas no configuradas"},
+                status_code=409)                              # R26
+        body = await request.json()
+        cola = (body.get("cola") or "").strip()
+        if cola not in COLAS_REENCOLABLES:
+            return JSONResponse(
+                {"ok": False, "error": f"cola no admitida: {cola!r}"},
+                status_code=422)
+        poison = f"{cola}-poison"
+        movidos = cola_cliente.mover(poison, cola, maximo=32)
+        try:
+            restantes = cola_cliente.contar_aproximado(poison)
+        except Exception:
+            restantes = None
+        logger.warning("[poison] reencolados %s mensaje(s) de %s a %s por "
+                       "peticion del portal", len(movidos), poison, cola)
+        return JSONResponse({"ok": True, "movidos": len(movidos),
+                             "restantes_aprox": restantes})
+
     @app.patch("/api/registros/{registro_id}/hora")
     def set_registro_hora(
         registro_id: int,

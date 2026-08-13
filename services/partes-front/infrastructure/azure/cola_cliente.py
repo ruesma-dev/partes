@@ -88,6 +88,65 @@ class ColaCliente:
         logger.info("[cola] -> %s peticion_id=%s", queue_name,
                     payload.get("peticion_id"))
 
+    # -- Gestion de las colas '-poison' (desde el portal) --------------------
+    def contar_aproximado(self, queue_name: str) -> int:
+        """Mensajes en la cola, segun la API de Storage.
+
+        Es aproximado y basta: esto alimenta un AVISO, no un contador
+        contable. La accion de reencolar vuelve a leer la cola de verdad.
+        """
+        props = self._svc.get_queue_client(queue_name).get_queue_properties()
+        return int(getattr(props, "approximate_message_count", 0) or 0)
+
+    def mover(self, origen: str, destino: str,
+              maximo: int = 32) -> list[str]:
+        """Reencola hasta `maximo` mensajes de `origen` a `destino`.
+
+        El orden es SEND y despues DELETE, nunca al reves. Si falla entre
+        medias, el mensaje queda duplicado —inocuo: el procesamiento es
+        idempotente por synckey y el marcado tambien—, pero NUNCA se
+        pierde, que es la propiedad que importa en una DLQ.
+
+        Devuelve los ids movidos. Se registra cada uno con su contenido:
+        es una accion manual sobre mensajes que ya fallaron, y conviene
+        poder reconstruir despues que se movio y cuando.
+        """
+        cola_origen: QueueClient = self._svc.get_queue_client(origen)
+        cola_destino: QueueClient = self._svc.get_queue_client(destino)
+        movidos: list[str] = []
+        # Acotado por `maximo` tambien en numero de vueltas: un delete que
+        # falla no puede convertir esto en un bucle infinito de reenvios.
+        for _ in range(int(maximo)):
+            lote = list(cola_origen.receive_messages(
+                messages_per_page=1, visibility_timeout=self._vt))
+            if not lote:
+                break
+            for msg in lote:
+                mid = getattr(msg, "id", "?")
+                try:
+                    cola_destino.send_message(msg.content)
+                except Exception:
+                    logger.exception(
+                        "[poison] no se pudo reencolar %s de %s; se deja "
+                        "donde estaba", mid, origen)
+                    return movidos
+                logger.info("[poison] %s -> %s id=%s contenido=%s",
+                            origen, destino, mid, msg.content)
+                movidos.append(mid)
+                try:
+                    cola_origen.delete_message(msg)
+                except Exception:
+                    # Ya esta en la principal: se procesara. Como no se
+                    # pudo borrar de la poison, reaparecera y podria
+                    # reencolarse otra vez; el duplicado es benigno.
+                    logger.warning(
+                        "[poison] %s reencolado pero NO borrado de %s: "
+                        "puede duplicarse (inocuo por synckey)", mid,
+                        origen, exc_info=True)
+                if len(movidos) >= int(maximo):
+                    break
+        return movidos
+
     # -- Consumidor (bucle) -------------------------------------------------
     def consumir(self, queue_name: str, handler: Callable[[dict], None]) -> None:
         principal: QueueClient = self._svc.get_queue_client(queue_name)
