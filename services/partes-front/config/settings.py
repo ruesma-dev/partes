@@ -62,6 +62,27 @@ class Settings(BaseSettings):
     transfer_timeout_s: float = Field(120.0, alias="TRANSFER_TIMEOUT_S")
 
     # ------------------------------------------------------------ #
+    # Colas de aprobacion asincrona (F-002). TODAS opcionales: sin
+    # ellas el portal registra por HTTP sincrono como hasta ahora
+    # (R3), que es tambien el modo de trabajo en local sin Azurite.
+    #   q-transfer         sv4 -> sv5 (peticion de registro)
+    #   q-transfer-result  sv5 -> sv4 (veredicto por linea)
+    # ------------------------------------------------------------ #
+    colas_connection_string: str | None = Field(
+        None, alias="COLAS_CONNECTION_STRING")      # local / Azurite
+    colas_account_url: str | None = Field(None, alias="COLAS_ACCOUNT_URL")
+    blobs_connection_string: str | None = Field(
+        None, alias="BLOBS_CONNECTION_STRING")
+    blobs_account_url: str | None = Field(None, alias="BLOBS_ACCOUNT_URL")
+
+    cola_transfer: str = Field("q-transfer", alias="COLA_TRANSFER")
+    cola_transfer_result: str = Field("q-transfer-result",
+                                      alias="COLA_TRANSFER_RESULT")
+    blob_transfer: str = Field("transfer", alias="BLOB_TRANSFER")
+    cola_visibility_s: int = Field(600, alias="COLA_VISIBILITY_S")
+    cola_max_dequeue: int = Field(5, alias="COLA_MAX_DEQUEUE")
+
+    # ------------------------------------------------------------ #
     # Microsoft Graph — visor del PDF del parte (descarga desde
     # SharePoint el archivo subido por sv3). Solo lectura.
     # ------------------------------------------------------------ #
@@ -121,6 +142,12 @@ class Settings(BaseSettings):
     @property
     def transfer_enabled(self) -> bool:
         return bool((self.transfer_base_url or "").strip())
+
+    @property
+    def transfer_queue_enabled(self) -> bool:
+        """Hay cola configurada: la aprobacion puede ir en asincrono."""
+        return bool((self.colas_connection_string or "").strip()
+                    or (self.colas_account_url or "").strip())
 
     @property
     def preview_enabled(self) -> bool:

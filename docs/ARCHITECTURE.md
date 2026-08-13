@@ -29,9 +29,48 @@ Pydantic v2, FastAPI donde hay HTTP.
 Puntos de entrada: `main.py` en todos; sv2 y sv3 tienen además
 `main_worker.py` (bucle de cola, KEDA). Comunicación entre servicios:
 sv1→sv2→sv3 por colas de Azure Storage (`q-extraccion`, `q-persistencia`,
-at-least-once); sv4→sv5 por HTTP síncrono interno; sv3/sv4/sv5→Sigrid solo
-a través de `sigrid-api` (Function App). No hay librería compartida: los
-servicios se acoplan únicamente por mensajes, HTTP y la BBDD `partes`.
+at-least-once); sv4↔sv5 por **doble canal** (ver más abajo);
+sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
+librería compartida: los servicios se acoplan únicamente por mensajes,
+HTTP y la BBDD `partes`.
+
+### El doble canal sv4 ↔ sv5 (F-002)
+
+Aprobar una obra × mes entera son cientos de líneas: por HTTP síncrono
+bloqueaba al usuario minutos y rozaba los cortes del balanceador. Por eso
+conviven dos caminos, y cuál se usa depende de lo que la acción necesita:
+
+- **Cola `q-transfer`** para el grueso del registro. sv4 sube el payload
+  al contenedor `transfer` (`peticiones/<id>.json`) y encola solo la
+  referencia —un mensaje de Storage Queue no llega a 64 KB—; responde en
+  cuanto está encolado y deja las líneas en `sigrid_estado='encolado'`.
+- **Cola `q-transfer-result`** de vuelta: sv5 publica el veredicto por
+  línea (`resultados/<id>.json`) y un hilo daemon de sv4 lo vuelca en las
+  columnas `sigrid_*`. Va por cola, y no escribiendo sv5 en PostgreSQL,
+  para que sv5 siga sin BBDD y la duplicación de `orm_models.py` no crezca
+  a una tercera copia.
+- **HTTP interno síncrono** para lo que exige respuesta inmediata: el
+  preflight del modal y la confirmación de pisar conflictos (destructiva,
+  y por eso nunca viaja por una cola con reentregas).
+- **Sin colas configuradas, sv4 degrada al HTTP síncrono de siempre**: es
+  lo que permite trabajar en local sin Azurite y desplegar el código antes
+  que la infraestructura. Quitar `COLAS_ACCOUNT_URL` es también el
+  rollback.
+
+Dentro de sv5, `TRANSFER_WORKERS` hilos (por defecto 3) consumen la cola
+**en el mismo proceso que la API**, no en un worker aparte con KEDA:
+maxReplicas=1 es restricción dura y el lock que serializa la escritura es
+de proceso. Esos hilos solapan la fase de *preparación* (datos maestros:
+obra, recurso por DNI, `reshor`, reglas) y se serializan en la de
+*escritura* —parte `hmo`, correlativo `PT<AA>/NNNNN`, synckeys,
+conflictos e inserción—, que corre entera bajo el lock. Ganancia real
+esperada: ×1,4–×2, no ×N; el lock sigue siendo el cuello.
+
+Los mensajes que agotan sus reintentos caen en `q-transfer-poison` /
+`q-transfer-result-poison`. El portal muestra el recuento en la cabecera y
+permite **reencolarlos a mano** (≤32 por clic, allowlist cerrada de dos
+colas); el traslado hace *send* antes que *delete*, de modo que un fallo a
+mitad duplica el mensaje pero nunca lo pierde.
 
 ## Semántica de dominio imprescindible
 

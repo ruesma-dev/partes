@@ -154,6 +154,26 @@ class Conflicto:
 
 
 @dataclass
+class ContextoRegistro:
+    """Lo que la fase de PREPARACION deja listo para la de ESCRITURA.
+
+    Solo contiene datos maestros que sv5 nunca escribe (obra destino,
+    recursos resueltos, tipos de hora) y la decision por linea de las
+    reglas de negocio. Nada del estado que la propia escritura modifica
+    —parte `hmo`, correlativo, synckeys, conflictos—: eso se lee dentro
+    del lock, en `registrar` (R20).
+
+    Por eso preparar contextos de peticiones distintas EN PARALELO es
+    seguro (R18): ninguno depende de lo que otro vaya a escribir.
+    """
+    obra_origen: ObraEntrada
+    obra_destino: ObraEntrada
+    forzada_pruebas: bool
+    lineas: list[LineaEntrada] = field(default_factory=list)
+    acciones: list[AccionLinea] = field(default_factory=list)
+
+
+@dataclass
 class Preflight:
     """Resultado del analisis previo: que se hara y que hay que confirmar."""
     obra_destino: ObraEntrada

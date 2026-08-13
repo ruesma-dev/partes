@@ -51,7 +51,11 @@ from infrastructure.database.parte_repository import (
     extras_por_jornada,
 )
 from infrastructure.database.session_factory import SessionFactory
+from infrastructure.transfer.resultado_sigrid import aplicar_resultado
 from infrastructure.transfer.transfer_client import TransferClient
+from infrastructure.transfer.transfer_queue_publisher import (
+    TransferQueuePublisher,
+)
 from infrastructure.sigrid.sigrid_lookup_client import SigridLookupClient
 from infrastructure.graph.token_provider import GraphTokenProvider
 from application.services.obra_catalog import ObraCatalog
@@ -226,15 +230,33 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
-def build_app(settings: Settings) -> FastAPI:
-    session_factory = SessionFactory(
-        database_url=settings.database_url,
-        admin_database_url=settings.admin_database_url,
-        target_database_name=settings.pg_db,
-        auto_create_database=settings.auto_create_database,
-    )
-    repository = ParteReviewRepository(session_factory)
-    tables_ready = repository.initialize()
+def build_app(
+    settings: Settings,
+    *,
+    repository: ParteReviewRepository | None = None,
+    transfer_client: TransferClient | None = None,
+    publisher: TransferQueuePublisher | None = None,
+    cola_cliente=None,
+) -> FastAPI:
+    """Portal de revision.
+
+    Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
+    sv5, publisher de `q-transfer` y cliente de cola para la gestion de
+    poison). Sin inyeccion se construyen desde `settings`, que es lo que
+    hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
+    red y sin Storage.
+    """
+    if repository is None:
+        session_factory = SessionFactory(
+            database_url=settings.database_url,
+            admin_database_url=settings.admin_database_url,
+            target_database_name=settings.pg_db,
+            auto_create_database=settings.auto_create_database,
+        )
+        repository = ParteReviewRepository(session_factory)
+        tables_ready = repository.initialize()
+    else:
+        tables_ready = True
 
     sigrid_client: SigridLookupClient | None = None
     if settings.sigrid_lookup_enabled:
@@ -276,15 +298,15 @@ def build_app(settings: Settings) -> FastAPI:
     )
 
     # Cliente del servicio de REGISTRO en Sigrid (partes-transfer, sv5).
-    transfer_client = None
-    if settings.transfer_enabled:
+    # Sigue siendo el canal SINCRONO: preflight y pisado de conflictos.
+    if transfer_client is None and settings.transfer_enabled:
         transfer_client = TransferClient(
             base_url=settings.transfer_base_url,
             timeout_s=settings.transfer_timeout_s,
         )
         logger.info("[transfer][wiring] CABLEADO base_url=%s",
                     settings.transfer_base_url)
-    else:
+    elif transfer_client is None:
         logger.info("[transfer][wiring] DESHABILITADO (falta TRANSFER_BASE_URL)")
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
@@ -1310,6 +1332,20 @@ def build_app(settings: Settings) -> FastAPI:
             return payload
         return JSONResponse(transfer_client.preflight(payload))
 
+    def _trazar(resultado: dict, ids: list[int]) -> None:
+        """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
+
+        Que falle la traza no invalida lo que sv5 ya escribio en Sigrid;
+        y si el registro fue por cola, el mensaje de `q-transfer-result`
+        vuelve a intentarlo.
+        """
+        try:
+            aplicar_resultado(repository, resultado, registro_ids=ids,
+                              usuario=settings.default_reviewer)
+        except Exception:
+            logger.warning("[transfer] no se pudo guardar la traza del "
+                           "registro", exc_info=True)
+
     @app.post("/api/aprobar/ejecutar", include_in_schema=False)
     async def aprobar_ejecutar(request: Request) -> JSONResponse:
         if transfer_client is None:
@@ -1322,18 +1358,116 @@ def build_app(settings: Settings) -> FastAPI:
         if isinstance(payload, JSONResponse):
             return payload
         resultado = transfer_client.ejecutar(payload)
-        if resultado.get("ok"):
-            try:
-                repository.marcar_registros_sigrid(
-                    escritas=resultado.get("escritas") or [],
-                    omitidas=resultado.get("omitidas") or [],
-                    ya_registradas=resultado.get("ya_registradas") or [],
-                    usuario=settings.default_reviewer,
-                )
-            except Exception:  # noqa: BLE001
-                logger.warning("[transfer] no se pudo guardar la traza del "
-                               "registro", exc_info=True)
+        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]])
         return JSONResponse(resultado)
+
+    @app.post("/api/aprobar/encolar", include_in_schema=False)
+    async def aprobar_encolar(request: Request) -> JSONResponse:
+        """R1: aprobacion ASINCRONA por `q-transfer`.
+
+        Con colas configuradas responde en cuanto la peticion esta
+        encolada, sin esperar a que Sigrid termine: un lote de obra x mes
+        tardaba minutos y rozaba los cortes del balanceador.
+
+        Sin colas (R3) degrada al registro HTTP sincrono de siempre, que
+        es lo que permite trabajar en local sin Azurite y desplegar el
+        codigo antes que la infraestructura.
+        """
+        body = await request.json()
+        # R5/R10: pisar borra lineas de Sigrid. Es una decision humana del
+        # modal y no puede viajar por una cola con reentregas.
+        if body.get("pisar_claves"):
+            return JSONResponse(
+                {"ok": False, "error": "pisar conflictos no viaja por la "
+                                       "cola: usa /api/aprobar/ejecutar"},
+                status_code=422)
+        if publisher is None and transfer_client is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        payload = _payload_registro(body)
+        if isinstance(payload, JSONResponse):
+            return payload
+        ids = [l["registro_id"] for l in payload["lineas"]]
+
+        if publisher is None:
+            resultado = transfer_client.ejecutar(payload)     # R3
+            _trazar(resultado, ids)
+            return JSONResponse(dict(resultado, modo="sincrono"))
+
+        # Primero se publica y luego se marca: al reves, un fallo al
+        # publicar dejaria lineas en 'encolado' sin nada que las recoja.
+        peticion_id = publisher.publicar(payload,
+                                         usuario=settings.default_reviewer)
+        try:
+            repository.marcar_registros_encolado(
+                ids, usuario=settings.default_reviewer)      # R2
+        except Exception:
+            logger.warning("[transfer-cola] peticion %s encolada pero no se "
+                           "pudo marcar 'encolado'; el resultado las marcara",
+                           peticion_id, exc_info=True)
+        return JSONResponse({"ok": True, "modo": "asincrono",
+                             "peticion_id": peticion_id,
+                             "encoladas": len(ids)})
+
+    # ------------------------------------------------------------------ #
+    # COLAS 'poison': visibilidad y reencolado manual desde el portal.
+    # Sin esto, un mensaje que agota sus reintentos solo se ve entrando en
+    # Azure, y sus lineas se quedan en 'encolado' sin que nadie sepa por que.
+    # ------------------------------------------------------------------ #
+
+    #: Allowlist CERRADA. El nombre de cola no puede venir del cliente:
+    #: solo se admite elegir cual de estas dos, y el sufijo lo pone el
+    #: servidor.
+    COLAS_REENCOLABLES = (settings.cola_transfer, settings.cola_transfer_result)
+
+    @app.get("/api/admin/poison", include_in_schema=False)
+    async def poison_estado() -> JSONResponse:
+        if cola_cliente is None:
+            return JSONResponse({"habilitado": False})       # R26
+        colas = []
+        for principal in COLAS_REENCOLABLES:
+            poison = f"{principal}-poison"
+            try:
+                cuantos = cola_cliente.contar_aproximado(poison)
+            except Exception:
+                # El aviso es accesorio: que Storage no conteste no puede
+                # tumbar la pagina que lo muestra.
+                logger.warning("[poison] no se pudo contar %s", poison,
+                               exc_info=True)
+                cuantos = None
+            colas.append({"cola": poison, "principal": principal,
+                          "mensajes_aprox": cuantos})
+        return JSONResponse({"habilitado": True, "colas": colas})
+
+    @app.post("/api/admin/poison/reencolar", include_in_schema=False)
+    async def poison_reencolar(request: Request) -> JSONResponse:
+        """R24: devuelve a la cola principal hasta 32 mensajes muertos.
+
+        Repetirlo es seguro: sv5 detecta por synckey lo ya escrito (R8) y
+        el marcado de sv4 es idempotente (R13).
+        """
+        if cola_cliente is None:
+            return JSONResponse(
+                {"ok": False, "error": "colas no configuradas"},
+                status_code=409)                              # R26
+        body = await request.json()
+        cola = (body.get("cola") or "").strip()
+        if cola not in COLAS_REENCOLABLES:
+            return JSONResponse(
+                {"ok": False, "error": f"cola no admitida: {cola!r}"},
+                status_code=422)
+        poison = f"{cola}-poison"
+        movidos = cola_cliente.mover(poison, cola, maximo=32)
+        try:
+            restantes = cola_cliente.contar_aproximado(poison)
+        except Exception:
+            restantes = None
+        logger.warning("[poison] reencolados %s mensaje(s) de %s a %s por "
+                       "peticion del portal", len(movidos), poison, cola)
+        return JSONResponse({"ok": True, "movidos": len(movidos),
+                             "restantes_aprox": restantes})
 
     @app.patch("/api/registros/{registro_id}/hora")
     def set_registro_hora(

@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from application.pipelines.registro_pipeline import RegistroPipeline
 from domain.models.registro_models import LineaEntrada, ObraEntrada
 from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
+from interface_adapters.resultado_json import resultado_a_dict
 
 logger = logging.getLogger(__name__)
 
@@ -55,20 +56,32 @@ class PeticionIn(BaseModel):
     usuario: Optional[str] = None
 
 
-def build_app(settings) -> FastAPI:
+def build_app(settings, pipeline: RegistroPipeline | None = None) -> FastAPI:
+    """API de sv5.
+
+    `pipeline` se inyecta desde `main.py` para que el HTTP y los hilos
+    consumidores de `q-transfer` compartan UNA instancia y, con ella, UN
+    lock de escritura (R7). Sin inyeccion construye el suyo, que es el
+    comportamiento de siempre.
+
+    Los endpoints NO toman el lock: lo adquiere `RegistroPipeline.
+    registrar`, de modo que `ejecutar` queda serializado igualmente y
+    `preflight` sigue sin bloquear a nadie.
+    """
     app = FastAPI(title="Partes -> Sigrid (transfer)", version="1.0.0")
 
-    cliente = SigridWriteClient(
-        base_url=settings.sigrid_api_base_url,
-        function_key=settings.sigrid_api_function_key,
-        database=settings.sigrid_api_database,
-        empresa=settings.sigrid_empresa,
-        timeout_s=settings.sigrid_api_timeout_s,
-        max_statements=settings.sigrid_max_statements,
-        tip_parte=settings.tip_parte_trabajo,
-        est_parte=settings.est_parte_activo,
-    )
-    pipeline = RegistroPipeline(cliente=cliente, settings=settings)
+    if pipeline is None:
+        cliente = SigridWriteClient(
+            base_url=settings.sigrid_api_base_url,
+            function_key=settings.sigrid_api_function_key,
+            database=settings.sigrid_api_database,
+            empresa=settings.sigrid_empresa,
+            timeout_s=settings.sigrid_api_timeout_s,
+            max_statements=settings.sigrid_max_statements,
+            tip_parte=settings.tip_parte_trabajo,
+            est_parte=settings.est_parte_activo,
+        )
+        pipeline = RegistroPipeline(cliente=cliente, settings=settings)
 
     def _dominio(p: PeticionIn):
         obra = ObraEntrada(ide=p.obra.ide, codigo=p.obra.codigo,
@@ -114,18 +127,7 @@ def build_app(settings) -> FastAPI:
             logger.exception("[api] ejecutar fallo")
             return JSONResponse({"ok": False, "error": str(exc)},
                                 status_code=502)
-        return JSONResponse({
-            "ok": r.ok,
-            "obra_destino": asdict(r.obra_destino),
-            "forzada_pruebas": r.forzada_pruebas,
-            "partes": [asdict(x) for x in r.partes],
-            "escritas": r.escritas,
-            "omitidas": r.omitidas,
-            "ya_registradas": r.ya_registradas,
-            "pisadas": r.pisadas,
-            "borradas": r.borradas,
-            "pendientes_confirmacion": [asdict(c)
-                                        for c in r.pendientes_confirmacion],
-        })
+        # Mismo JSON que se publica en q-transfer-result (fuente unica).
+        return JSONResponse(resultado_a_dict(r))
 
     return app

@@ -47,6 +47,22 @@ from application.services.calendar_builder import (
 
 logger = logging.getLogger(__name__)
 
+# --- Estados de `parte_registros.sigrid_estado` (F-002) --------------- #
+# Son valores nuevos de una columna String(16) que ya existia: NO hay
+# cambio de schema y `orm_models.py` (duplicado en sv3 y sv4) no se toca.
+#   registrado / omitido -> veredicto FINAL de Sigrid
+#   encolado             -> peticion en vuelo por q-transfer
+#   conflicto            -> sv5 encontro lineas que habria que pisar
+#   error                -> sv5 no pudo completar la peticion
+ESTADO_ENCOLADO = "encolado"
+ESTADO_CONFLICTO = "conflicto"
+ESTADO_ERROR = "error"
+
+#: Estados que NO son un veredicto final y, por tanto, se pueden pisar
+#: cuando llega el resultado (ver `marcar_registros_sigrid`).
+ESTADOS_EN_VUELO = (None, "", ESTADO_ENCOLADO, ESTADO_CONFLICTO,
+                    ESTADO_ERROR)
+
 
 def _date_from_iso(ts: str | None) -> date | None:
     """Fecha (date) a partir de un ISO timestamp/fecha 'YYYY-MM-DD...'."""
@@ -1285,14 +1301,69 @@ class ParteReviewRepository:
             return []
         return [v.id for v in detail.registros]
 
-    def marcar_registros_sigrid(
-        self, *, escritas: list[dict], omitidas: list[dict],
-        ya_registradas: list[int], usuario: str | None,
+    def marcar_registros_encolado(
+        self, registro_ids: list[int], usuario: str | None,
     ) -> int:
-        """Guarda la traza del registro en cada linea."""
+        """R2: deja las lineas de la peticion en 'encolado'.
+
+        El motivo se limpia a proposito: si la linea venia de un intento
+        anterior omitido o con error, dejar el texto viejo mientras la
+        peticion esta en vuelo confundiria a quien mire el portal.
+        """
+        ids = sorted({int(i) for i in registro_ids if i})
         ahora = datetime.now(timezone.utc).isoformat()
         n = 0
         with self._session_factory.create_session() as session:
+            for rid in ids:
+                reg = session.get(ParteRegistroOrm, rid)
+                if reg is None:
+                    continue
+                reg.sigrid_estado = ESTADO_ENCOLADO
+                reg.sigrid_motivo = None
+                reg.sigrid_registrado_at_utc = ahora
+                reg.sigrid_registrado_by = usuario
+                n += 1
+            session.commit()
+        logger.info("[repo] %s linea(s) marcadas como encoladas", n)
+        return n
+
+    def marcar_registros_sigrid(
+        self, *, escritas: list[dict], omitidas: list[dict],
+        ya_registradas: list[int], usuario: str | None,
+        conflictos: list[dict] | None = None,
+        error_global: str | None = None,
+        registro_ids: list[int] | None = None,
+    ) -> int:
+        """Guarda la traza del registro en cada linea.
+
+        `conflictos` son los `pendientes_confirmacion` de sv5: sus lineas
+        NO se escribieron y quedan en 'conflicto' a la espera de que un
+        humano confirme el pisado desde el modal (R12).
+
+        `error_global` (con `registro_ids`) marca la peticion ENTERA en
+        'error' cuando sv5 no pudo completarla (R14). Reaprobar despues
+        es seguro: la idempotencia por synckey evita duplicar.
+
+        Aplicar dos veces el mismo resultado deja el mismo estado (R13):
+        la reentrega del mensaje de `q-transfer-result` es benigna.
+        """
+        ahora = datetime.now(timezone.utc).isoformat()
+        n = 0
+        with self._session_factory.create_session() as session:
+            if error_global:
+                for rid in sorted({int(i) for i in (registro_ids or []) if i}):
+                    reg = session.get(ParteRegistroOrm, rid)
+                    if reg is None:
+                        continue
+                    reg.sigrid_estado = ESTADO_ERROR
+                    reg.sigrid_motivo = str(error_global)[:255]
+                    reg.sigrid_registrado_at_utc = ahora
+                    reg.sigrid_registrado_by = usuario
+                    n += 1
+                session.commit()
+                logger.warning("[repo] registro FALLIDO en %s linea(s): %s",
+                               n, error_global)
+                return n
             for e in escritas or []:
                 reg = session.get(ParteRegistroOrm, int(e["registro_id"]))
                 if reg is None:
@@ -1316,9 +1387,30 @@ class ParteReviewRepository:
                 n += 1
             for rid in ya_registradas or []:
                 reg = session.get(ParteRegistroOrm, int(rid))
-                if reg is not None and not reg.sigrid_estado:
+                # Se respeta un veredicto FINAL anterior ('registrado' u
+                # 'omitido'), pero no los estados en vuelo: una linea que
+                # entro por la cola esta en 'encolado' y, sin esto, se
+                # quedaria ahi para siempre pese a estar ya en Sigrid.
+                if reg is not None and reg.sigrid_estado in ESTADOS_EN_VUELO:
                     reg.sigrid_estado = "registrado"
+                    reg.sigrid_motivo = None
                     reg.sigrid_registrado_at_utc = ahora
+                    reg.sigrid_registrado_by = usuario
+                    n += 1
+            for c in conflictos or []:
+                parte = c.get("parte_cod")
+                motivo = (
+                    "ya hay lineas en Sigrid para ese dia y codigo de hora"
+                    + (f" (parte {parte})" if parte else "")
+                    + ": hay que confirmar si se pisan")
+                for rid in c.get("registros") or []:
+                    reg = session.get(ParteRegistroOrm, int(rid))
+                    if reg is None:
+                        continue
+                    reg.sigrid_estado = ESTADO_CONFLICTO
+                    reg.sigrid_motivo = motivo[:255]
+                    reg.sigrid_registrado_at_utc = ahora
+                    reg.sigrid_registrado_by = usuario
                     n += 1
             session.commit()
         logger.info("[repo] traza de registro guardada en %s linea(s)", n)

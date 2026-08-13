@@ -2378,40 +2378,73 @@
     return html;
   }
 
+  /* Resultado COMPLETO del registro (llega por la via sincrona: pisado
+     de conflictos, o fallback sin colas configuradas). */
+  function mostrarResultado(peticion, r) {
+    var pend = r.pendientes_confirmacion || [];
+    var html = resultadoHtml(r);
+    if (pend.length) {
+      html += "<hr>" + conflictosHtml(pend);
+      modal("Registro en Sigrid", html, [
+        { texto: "Pisar las marcadas", clase: "ok", onClick: function (cj, b) {
+            var claves = Array.prototype.slice.call(
+              cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
+                return i.value;
+              });
+            if (!claves.length) { cerrar(); window.location.reload(); return; }
+            ejecutar(peticion, claves, cj, b);
+          } },
+        { texto: "Dejarlo asi", onClick: function () {
+            cerrar(); window.location.reload();
+          } },
+      ]);
+    } else {
+      modal("Registro en Sigrid", html, [
+        { texto: "Cerrar", clase: "ok", onClick: function () {
+            cerrar(); window.location.reload();
+          } },
+      ]);
+    }
+  }
+
+  function errorModal(titulo, r) {
+    modal(titulo, "<p class='ap-warn'>" + (r.error || "error desconocido")
+          + "</p>", [{ texto: "Cerrar", onClick: cerrar }]);
+  }
+
+  /* PISAR conflictos: siempre sincrono. Es destructivo (borra lineas de
+     Sigrid) y el usuario quiere ver el resultado en el momento. */
   function ejecutar(peticion, pisarClaves, caja, boton) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var body = Object.assign({}, peticion, { pisar_claves: pisarClaves || [] });
     return post("/api/aprobar/ejecutar", body).then(function (r) {
-      if (!r.ok) {
-        modal("No se pudo registrar",
-              "<p class='ap-warn'>" + (r.error || "error desconocido") + "</p>",
-              [{ texto: "Cerrar", onClick: cerrar }]);
-        return;
-      }
-      var pend = r.pendientes_confirmacion || [];
-      var html = resultadoHtml(r);
-      if (pend.length) {
-        html += "<hr>" + conflictosHtml(pend);
-        modal("Registro en Sigrid", html, [
-          { texto: "Pisar las marcadas", clase: "ok", onClick: function (cj, b) {
-              var claves = Array.prototype.slice.call(
-                cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
-                  return i.value;
-                });
-              if (!claves.length) { cerrar(); window.location.reload(); return; }
-              ejecutar(peticion, claves, cj, b);
-            } },
-          { texto: "Dejarlo asi", onClick: function () {
-              cerrar(); window.location.reload();
-            } },
-        ]);
-      } else {
-        modal("Registro en Sigrid", html, [
-          { texto: "Cerrar", clase: "ok", onClick: function () {
-              cerrar(); window.location.reload();
-            } },
-        ]);
-      }
+      if (!r.ok) { errorModal("No se pudo registrar", r); return; }
+      mostrarResultado(peticion, r);
+    }).catch(function (e) {
+      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    });
+  }
+
+  /* SIN conflictos que pisar: va por la cola. El servidor responde en
+     cuanto la peticion esta encolada, sin esperar a Sigrid (un mes de
+     obra entero tardaba minutos). Si el portal corre sin colas
+     configuradas, el mismo endpoint devuelve modo:"sincrono" con el
+     resultado completo y se pinta como toda la vida. */
+  function encolar(peticion, caja, boton) {
+    if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
+    return post("/api/aprobar/encolar", peticion).then(function (r) {
+      if (!r.ok) { errorModal("No se pudo registrar", r); return; }
+      if (r.modo !== "asincrono") { mostrarResultado(peticion, r); return; }
+      modal("Registro encolado", "<p><strong>" + (r.encoladas || 0)
+            + "</strong> linea(s) enviadas a registrar en Sigrid.</p>"
+            + "<p>Se registraran en segundo plano: no hace falta esperar. "
+            + "Recarga la pagina en unos segundos para ver el resultado "
+            + "de cada linea.</p>", [
+        { texto: "Cerrar", clase: "ok", onClick: function () {
+            cerrar(); window.location.reload();
+          } },
+      ]);
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
@@ -2441,7 +2474,10 @@
                 cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
                   return i.value;
                 });
-              ejecutar(peticion, claves, cj, b);
+              // Con claves marcadas hay borrado de por medio: sincrono.
+              // Sin ellas, a la cola.
+              if (claves.length) { ejecutar(peticion, claves, cj, b); }
+              else { encolar(peticion, cj, b); }
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);
@@ -2546,5 +2582,119 @@
   ready(function () {
     document.querySelectorAll(".table-scroll, .matrix-scroll")
       .forEach(anadirBarra);
+  });
+})();
+
+
+/* ==================================================================== *
+ * F-002 · Aviso de colas 'poison' en la cabecera.
+ *
+ * Una peticion de registro que agota sus reintentos acaba en la cola
+ * '-poison', y sus lineas se quedan en 'encolado' sin que nadie sepa por
+ * que. Esto lo saca a la vista del portal, con la accion de devolverlas
+ * a la cola principal (maximo 32 por clic).
+ *
+ * Se consulta UNA vez al cargar la pagina: no hay polling. Es un aviso
+ * accesorio; si el endpoint falla o no hay colas configuradas, no se
+ * pinta nada y la pagina sigue igual.
+ * ==================================================================== */
+(function () {
+  "use strict";
+
+  function ready(fn) {
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  function pedir(url, opciones) {
+    return fetch(url, Object.assign({
+      headers: { "Content-Type": "application/json" },
+    }, opciones || {})).then(function (r) {
+      return r.json().then(function (cuerpo) {
+        return { ok: r.ok, cuerpo: cuerpo };
+      });
+    });
+  }
+
+  function conMensajes(colas) {
+    return (colas || []).filter(function (c) {
+      return (c.mensajes_aprox || 0) > 0;
+    });
+  }
+
+  function total(colas) {
+    return colas.reduce(function (n, c) { return n + (c.mensajes_aprox || 0); }, 0);
+  }
+
+  function filaHtml(c) {
+    return '<div class="poison-fila"><span><code>' + c.cola + "</code> · "
+      + "<strong>" + c.mensajes_aprox + "</strong> mensaje(s)</span>"
+      + '<button type="button" class="btn small" data-poison-reencolar="'
+      + c.principal + '">Reencolar (max. 32)</button></div>';
+  }
+
+  function pintar(caja, badge, panel, colas) {
+    if (!colas.length) { caja.hidden = true; return; }
+    badge.textContent = "⚠ " + total(colas) + " en cola muerta";
+    panel.innerHTML = "<h4>Peticiones de registro paradas</h4>"
+      + colas.map(filaHtml).join("")
+      + '<p class="poison-nota">Fallaron y agotaron sus reintentos. '
+      + "Reencolarlas es seguro: lo ya escrito en Sigrid no se duplica.</p>"
+      + '<div class="poison-estado" id="poison-estado"></div>';
+    caja.hidden = false;
+  }
+
+  function cargar(caja, badge, panel) {
+    return pedir("/api/admin/poison").then(function (r) {
+      if (!r.ok || !r.cuerpo || !r.cuerpo.habilitado) { caja.hidden = true; return; }
+      pintar(caja, badge, panel, conMensajes(r.cuerpo.colas));
+    });
+  }
+
+  ready(function () {
+    var caja = document.getElementById("poison-aviso");
+    var badge = document.getElementById("poison-badge");
+    var panel = document.getElementById("poison-panel");
+    if (!caja || !badge || !panel) return;
+
+    cargar(caja, badge, panel).catch(function () { caja.hidden = true; });
+
+    badge.addEventListener("click", function () {
+      panel.hidden = !panel.hidden;
+    });
+
+    panel.addEventListener("click", function (ev) {
+      var boton = ev.target.closest("[data-poison-reencolar]");
+      if (!boton) return;
+      var principal = boton.dataset.poisonReencolar;
+      boton.disabled = true;
+      boton.textContent = "Reencolando…";
+      pedir("/api/admin/poison/reencolar", {
+        method: "POST",
+        body: JSON.stringify({ cola: principal }),
+      }).then(function (r) {
+        var estado = document.getElementById("poison-estado");
+        if (!r.ok || !r.cuerpo.ok) {
+          if (estado) {
+            estado.textContent = "No se pudo reencolar: "
+              + ((r.cuerpo && r.cuerpo.error) || "error desconocido");
+          }
+          boton.disabled = false;
+          boton.textContent = "Reencolar (max. 32)";
+          return;
+        }
+        if (estado) {
+          estado.textContent = r.cuerpo.movidos + " mensaje(s) devueltos a "
+            + principal + ". Quedan ~" + (r.cuerpo.restantes_aprox === null
+              ? "?" : r.cuerpo.restantes_aprox) + ".";
+        }
+        return cargar(caja, badge, panel).then(function () {
+          panel.hidden = false;
+        });
+      }).catch(function () {
+        boton.disabled = false;
+        boton.textContent = "Reencolar (max. 32)";
+      });
+    });
   });
 })();
