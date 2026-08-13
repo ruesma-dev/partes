@@ -1,0 +1,15 @@
+# --- monorepo partes ---
+.idea/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.env
+coverage.json
+.coverage
+services/*/coverage.json
+logs/
+*.zip
+infra/*.local.ps1
+infra/graphkey_nobom.json
