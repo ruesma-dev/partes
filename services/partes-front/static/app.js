@@ -2378,40 +2378,73 @@
     return html;
   }
 
+  /* Resultado COMPLETO del registro (llega por la via sincrona: pisado
+     de conflictos, o fallback sin colas configuradas). */
+  function mostrarResultado(peticion, r) {
+    var pend = r.pendientes_confirmacion || [];
+    var html = resultadoHtml(r);
+    if (pend.length) {
+      html += "<hr>" + conflictosHtml(pend);
+      modal("Registro en Sigrid", html, [
+        { texto: "Pisar las marcadas", clase: "ok", onClick: function (cj, b) {
+            var claves = Array.prototype.slice.call(
+              cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
+                return i.value;
+              });
+            if (!claves.length) { cerrar(); window.location.reload(); return; }
+            ejecutar(peticion, claves, cj, b);
+          } },
+        { texto: "Dejarlo asi", onClick: function () {
+            cerrar(); window.location.reload();
+          } },
+      ]);
+    } else {
+      modal("Registro en Sigrid", html, [
+        { texto: "Cerrar", clase: "ok", onClick: function () {
+            cerrar(); window.location.reload();
+          } },
+      ]);
+    }
+  }
+
+  function errorModal(titulo, r) {
+    modal(titulo, "<p class='ap-warn'>" + (r.error || "error desconocido")
+          + "</p>", [{ texto: "Cerrar", onClick: cerrar }]);
+  }
+
+  /* PISAR conflictos: siempre sincrono. Es destructivo (borra lineas de
+     Sigrid) y el usuario quiere ver el resultado en el momento. */
   function ejecutar(peticion, pisarClaves, caja, boton) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var body = Object.assign({}, peticion, { pisar_claves: pisarClaves || [] });
     return post("/api/aprobar/ejecutar", body).then(function (r) {
-      if (!r.ok) {
-        modal("No se pudo registrar",
-              "<p class='ap-warn'>" + (r.error || "error desconocido") + "</p>",
-              [{ texto: "Cerrar", onClick: cerrar }]);
-        return;
-      }
-      var pend = r.pendientes_confirmacion || [];
-      var html = resultadoHtml(r);
-      if (pend.length) {
-        html += "<hr>" + conflictosHtml(pend);
-        modal("Registro en Sigrid", html, [
-          { texto: "Pisar las marcadas", clase: "ok", onClick: function (cj, b) {
-              var claves = Array.prototype.slice.call(
-                cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
-                  return i.value;
-                });
-              if (!claves.length) { cerrar(); window.location.reload(); return; }
-              ejecutar(peticion, claves, cj, b);
-            } },
-          { texto: "Dejarlo asi", onClick: function () {
-              cerrar(); window.location.reload();
-            } },
-        ]);
-      } else {
-        modal("Registro en Sigrid", html, [
-          { texto: "Cerrar", clase: "ok", onClick: function () {
-              cerrar(); window.location.reload();
-            } },
-        ]);
-      }
+      if (!r.ok) { errorModal("No se pudo registrar", r); return; }
+      mostrarResultado(peticion, r);
+    }).catch(function (e) {
+      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    });
+  }
+
+  /* SIN conflictos que pisar: va por la cola. El servidor responde en
+     cuanto la peticion esta encolada, sin esperar a Sigrid (un mes de
+     obra entero tardaba minutos). Si el portal corre sin colas
+     configuradas, el mismo endpoint devuelve modo:"sincrono" con el
+     resultado completo y se pinta como toda la vida. */
+  function encolar(peticion, caja, boton) {
+    if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
+    return post("/api/aprobar/encolar", peticion).then(function (r) {
+      if (!r.ok) { errorModal("No se pudo registrar", r); return; }
+      if (r.modo !== "asincrono") { mostrarResultado(peticion, r); return; }
+      modal("Registro encolado", "<p><strong>" + (r.encoladas || 0)
+            + "</strong> linea(s) enviadas a registrar en Sigrid.</p>"
+            + "<p>Se registraran en segundo plano: no hace falta esperar. "
+            + "Recarga la pagina en unos segundos para ver el resultado "
+            + "de cada linea.</p>", [
+        { texto: "Cerrar", clase: "ok", onClick: function () {
+            cerrar(); window.location.reload();
+          } },
+      ]);
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
@@ -2441,7 +2474,10 @@
                 cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
                   return i.value;
                 });
-              ejecutar(peticion, claves, cj, b);
+              // Con claves marcadas hay borrado de por medio: sincrono.
+              // Sin ellas, a la cola.
+              if (claves.length) { ejecutar(peticion, claves, cj, b); }
+              else { encolar(peticion, cj, b); }
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);

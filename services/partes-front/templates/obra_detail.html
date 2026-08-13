@@ -259,6 +259,14 @@
           {% elif r.sigrid_estado == 'omitido' %}
             <span class="badge warn" title="{{ r.sigrid_motivo or 'No se registra' }}">omitido</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea">↻</button>
+          {% elif r.sigrid_estado == 'encolado' %}
+            <span class="badge info" title="Enviado a registrar; se escribira en Sigrid en segundo plano. Recarga en unos segundos.">⏳ encolado</span>
+          {% elif r.sigrid_estado == 'conflicto' %}
+            <span class="badge warn" title="{{ r.sigrid_motivo or 'Hay lineas en Sigrid que habria que pisar' }}">⚠ conflicto</span>
+            <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Revisar el conflicto y decidir si se pisa">Revisar</button>
+          {% elif r.sigrid_estado == 'error' %}
+            <span class="badge danger" title="{{ r.sigrid_motivo or 'El registro fallo' }}">✗ error</span>
+            <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea (no duplica: se detecta por synckey)">↻</button>
           {% else %}
             <button type="button" class="btn small ok aprobar-linea" data-registro-id="{{ r.id }}" title="Registrar esta linea en Sigrid">Aprobar</button>
           {% endif %}
