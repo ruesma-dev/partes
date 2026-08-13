@@ -376,6 +376,10 @@ en ambos. Era el rastro de los `git checkout` con los que el reviewer
 restauró sus roturas de RED, que reescribieron los ficheros con CRLF.
 Restaurados; el contenido nunca llegó a cambiar.
 
+`progress/review_F-002.md` también estaba sin trackear. Lo he versionado
+**sin tocar una coma** —es el entregable del reviewer, no mío— porque si no
+el árbol llega sucio a C5.
+
 ### 1. BLOQUEANTE — los paquetes `azure-*` en los manifiestos
 
 El diagnóstico del reviewer era correcto y mi desviación 3 era **falsa**:
