@@ -189,16 +189,17 @@ def sembrar_registros(fabrica: FabricaSesionSqlite, *,
                       cantidad: int = 2,
                       document_id: str = "doc-1") -> list[int]:
     """Crea un parte con `cantidad` registros y devuelve sus ids."""
+    ahora = "2026-03-02T08:00:00+00:00"
     with fabrica.create_session() as s:
         s.add(ParteDocumentOrm(
             id=document_id, source_filename="parte.pdf",
             source_mime_type="application/pdf", source_sha256="sha" + document_id,
-            fecha="2026-03-02", fecha_int=20260302,
+            fecha="2026-03-02", fecha_int=20260302, created_at_utc=ahora,
             obra_ide=10, obra_codigo="0100", obra_nombre="Obra Uno"))
         ids: list[int] = []
         for i in range(cantidad):
             reg = ParteRegistroOrm(
-                document_id=document_id, fecha="2026-03-02",
+                document_id=document_id, line_index=i, fecha="2026-03-02",
                 fecha_int=20260302, obra_ide=10, obra_codigo="0100",
                 obra_nombre="Obra Uno", empleado_dni=f"1234567{i}A",
                 empleado_nombre=f"Trabajador {i}", recurso_ide=501 + i,
