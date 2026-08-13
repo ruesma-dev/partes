@@ -17,7 +17,7 @@
         "El test falla si se declara un servicio con ruta inexistente",
         "bash harness/init.sh en verde"
       ],
-      "status": "pending",
+      "status": "done",
       "sdd": false,
       "rigor": "estandar",
       "priority": 1,
