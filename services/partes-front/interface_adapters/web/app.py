@@ -51,7 +51,11 @@ from infrastructure.database.parte_repository import (
     extras_por_jornada,
 )
 from infrastructure.database.session_factory import SessionFactory
+from infrastructure.transfer.resultado_sigrid import aplicar_resultado
 from infrastructure.transfer.transfer_client import TransferClient
+from infrastructure.transfer.transfer_queue_publisher import (
+    TransferQueuePublisher,
+)
 from infrastructure.sigrid.sigrid_lookup_client import SigridLookupClient
 from infrastructure.graph.token_provider import GraphTokenProvider
 from application.services.obra_catalog import ObraCatalog
@@ -226,15 +230,33 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
-def build_app(settings: Settings) -> FastAPI:
-    session_factory = SessionFactory(
-        database_url=settings.database_url,
-        admin_database_url=settings.admin_database_url,
-        target_database_name=settings.pg_db,
-        auto_create_database=settings.auto_create_database,
-    )
-    repository = ParteReviewRepository(session_factory)
-    tables_ready = repository.initialize()
+def build_app(
+    settings: Settings,
+    *,
+    repository: ParteReviewRepository | None = None,
+    transfer_client: TransferClient | None = None,
+    publisher: TransferQueuePublisher | None = None,
+    cola_cliente=None,
+) -> FastAPI:
+    """Portal de revision.
+
+    Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
+    sv5, publisher de `q-transfer` y cliente de cola para la gestion de
+    poison). Sin inyeccion se construyen desde `settings`, que es lo que
+    hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
+    red y sin Storage.
+    """
+    if repository is None:
+        session_factory = SessionFactory(
+            database_url=settings.database_url,
+            admin_database_url=settings.admin_database_url,
+            target_database_name=settings.pg_db,
+            auto_create_database=settings.auto_create_database,
+        )
+        repository = ParteReviewRepository(session_factory)
+        tables_ready = repository.initialize()
+    else:
+        tables_ready = True
 
     sigrid_client: SigridLookupClient | None = None
     if settings.sigrid_lookup_enabled:
@@ -276,15 +298,15 @@ def build_app(settings: Settings) -> FastAPI:
     )
 
     # Cliente del servicio de REGISTRO en Sigrid (partes-transfer, sv5).
-    transfer_client = None
-    if settings.transfer_enabled:
+    # Sigue siendo el canal SINCRONO: preflight y pisado de conflictos.
+    if transfer_client is None and settings.transfer_enabled:
         transfer_client = TransferClient(
             base_url=settings.transfer_base_url,
             timeout_s=settings.transfer_timeout_s,
         )
         logger.info("[transfer][wiring] CABLEADO base_url=%s",
                     settings.transfer_base_url)
-    else:
+    elif transfer_client is None:
         logger.info("[transfer][wiring] DESHABILITADO (falta TRANSFER_BASE_URL)")
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
@@ -1310,6 +1332,20 @@ def build_app(settings: Settings) -> FastAPI:
             return payload
         return JSONResponse(transfer_client.preflight(payload))
 
+    def _trazar(resultado: dict, ids: list[int]) -> None:
+        """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
+
+        Que falle la traza no invalida lo que sv5 ya escribio en Sigrid;
+        y si el registro fue por cola, el mensaje de `q-transfer-result`
+        vuelve a intentarlo.
+        """
+        try:
+            aplicar_resultado(repository, resultado, registro_ids=ids,
+                              usuario=settings.default_reviewer)
+        except Exception:
+            logger.warning("[transfer] no se pudo guardar la traza del "
+                           "registro", exc_info=True)
+
     @app.post("/api/aprobar/ejecutar", include_in_schema=False)
     async def aprobar_ejecutar(request: Request) -> JSONResponse:
         if transfer_client is None:
@@ -1322,18 +1358,58 @@ def build_app(settings: Settings) -> FastAPI:
         if isinstance(payload, JSONResponse):
             return payload
         resultado = transfer_client.ejecutar(payload)
-        if resultado.get("ok"):
-            try:
-                repository.marcar_registros_sigrid(
-                    escritas=resultado.get("escritas") or [],
-                    omitidas=resultado.get("omitidas") or [],
-                    ya_registradas=resultado.get("ya_registradas") or [],
-                    usuario=settings.default_reviewer,
-                )
-            except Exception:  # noqa: BLE001
-                logger.warning("[transfer] no se pudo guardar la traza del "
-                               "registro", exc_info=True)
+        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]])
         return JSONResponse(resultado)
+
+    @app.post("/api/aprobar/encolar", include_in_schema=False)
+    async def aprobar_encolar(request: Request) -> JSONResponse:
+        """R1: aprobacion ASINCRONA por `q-transfer`.
+
+        Con colas configuradas responde en cuanto la peticion esta
+        encolada, sin esperar a que Sigrid termine: un lote de obra x mes
+        tardaba minutos y rozaba los cortes del balanceador.
+
+        Sin colas (R3) degrada al registro HTTP sincrono de siempre, que
+        es lo que permite trabajar en local sin Azurite y desplegar el
+        codigo antes que la infraestructura.
+        """
+        body = await request.json()
+        # R5/R10: pisar borra lineas de Sigrid. Es una decision humana del
+        # modal y no puede viajar por una cola con reentregas.
+        if body.get("pisar_claves"):
+            return JSONResponse(
+                {"ok": False, "error": "pisar conflictos no viaja por la "
+                                       "cola: usa /api/aprobar/ejecutar"},
+                status_code=422)
+        if publisher is None and transfer_client is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        payload = _payload_registro(body)
+        if isinstance(payload, JSONResponse):
+            return payload
+        ids = [l["registro_id"] for l in payload["lineas"]]
+
+        if publisher is None:
+            resultado = transfer_client.ejecutar(payload)     # R3
+            _trazar(resultado, ids)
+            return JSONResponse(dict(resultado, modo="sincrono"))
+
+        # Primero se publica y luego se marca: al reves, un fallo al
+        # publicar dejaria lineas en 'encolado' sin nada que las recoja.
+        peticion_id = publisher.publicar(payload,
+                                         usuario=settings.default_reviewer)
+        try:
+            repository.marcar_registros_encolado(
+                ids, usuario=settings.default_reviewer)      # R2
+        except Exception:
+            logger.warning("[transfer-cola] peticion %s encolada pero no se "
+                           "pudo marcar 'encolado'; el resultado las marcara",
+                           peticion_id, exc_info=True)
+        return JSONResponse({"ok": True, "modo": "asincrono",
+                             "peticion_id": peticion_id,
+                             "encoladas": len(ids)})
 
     @app.patch("/api/registros/{registro_id}/hora")
     def set_registro_hora(
