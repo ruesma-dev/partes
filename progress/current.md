@@ -72,3 +72,36 @@ tasks renumeradas a T1–T15 (T2 nuevo = split del pipeline; T11–T12 nuevas
 Spec definitivamente aprobada (R1–R26, T1–T15). F-002 → in_progress;
 implementer lanzado. Tareas MANUAL del humano: ejecutar
 `infra/add_qtransfer_partes.ps1` y los `az containerapp update`.
+
+### Implementación terminada (2026-08-13, implementer)
+
+Las 15 tareas hechas, 15 commits + 3 de cierre del rigor. Detalle en
+`progress/impl_F-002.md`. Entorno en verde: `bash harness/init.sh` con
+**202 tests**, cobertura de líneas cambiadas **97,4 %** (umbral 80) y
+campaña de mutación con **0 supervivientes** de 132 mutantes
+(`progress/mutacion_F-002.md`). Pendiente el APROBADO del reviewer.
+
+Dos desviaciones que el reviewer debe mirar con calma, ambas explicadas
+en el informe: sv4 **no tenía** suite de tests (el design la daba por
+existente) y se ha creado; y `build_app` de sv4 acepta ahora sus
+colaboradores por parámetro, sin lo cual no hay forma de levantar la app
+en un test sin PostgreSQL.
+
+**Verificaciones MANUAL pendientes del humano** (ninguna la ejecuta un
+agente):
+
+1. Infra (R17), desde `infra/` y tras `. .\00_vars_partes.ps1`:
+   - `.\add_qtransfer_partes.ps1`
+   - `az storage queue list --account-name stpartespt7m3 --auth-mode login -o table`
+     → deben aparecer `q-transfer`, `q-transfer-result` y sus `-poison`.
+2. Escala de sv5 intacta (R16): el propio script la imprime al final;
+   debe seguir `Min 1 / Max 1` con ingress interno.
+3. Badges en el navegador (R15): con Azurite, aprobar un parte y, tras
+   recargar (Ctrl+F5 por los estáticos), ver `⏳ encolado` y después
+   `✓ PT26/...`.
+4. Aviso de poison en el portal (R23/R24): con un mensaje en
+   `q-transfer-poison`, ver el badge de la cabecera y reencolarlo.
+5. Despliegue (`redeploy_partes.ps1`), que los agentes no lanzan; el
+   orden seguro ya existente (sv5 antes que sv4) es el correcto.
+6. `git push` de esta rama y del commit `1440598` de `azure-apps`
+   (ambos son commits locales; ningún agente ha hecho push).
