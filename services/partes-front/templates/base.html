@@ -25,6 +25,14 @@
         <a href="/papelera"{% if request.url.path.startswith('/papelera') %} class="is-active"{% endif %}>Papelera</a>
         <a href="/nuevo"{% if request.url.path.startswith('/nuevo') %} class="is-active"{% endif %}>+ Nuevo</a>
       </nav>
+      {# F-002: aviso de mensajes muertos en las colas. Lo rellena app.js
+         consultando /api/admin/poison al cargar la pagina; si no hay colas
+         configuradas o estan vacias, se queda oculto. #}
+      <div id="poison-aviso" class="poison-aviso" hidden>
+        <button type="button" class="poison-badge" id="poison-badge"
+                title="Hay peticiones de registro que fallaron y estan paradas"></button>
+        <div class="poison-panel" id="poison-panel" hidden></div>
+      </div>
     </div>
   </header>
 

@@ -861,3 +861,43 @@ td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
 .combo-chips .chip.on { background: #e7f4ec; border-color: #8ecaa6;
   color: #1b5e3f; font-weight: 600; }
 .combo-empty { padding: 10px 12px; color: #888; font-size: 12.5px; }
+
+/* ==================================================================== *
+ * F-002 · aviso de colas 'poison' en la cabecera. Solo aparece cuando
+ * hay mensajes muertos: en condiciones normales no ocupa nada.
+ * ==================================================================== */
+.poison-aviso { position: relative; margin-left: auto; }
+.poison-badge {
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.poison-badge:hover { filter: brightness(0.97); }
+.poison-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 60;
+  min-width: 320px;
+  background: #fff;
+  border: 1px solid #dfe3e8;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.14);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: #24303c;
+}
+.poison-panel h4 { margin: 0 0 6px; font-size: 13px; }
+.poison-panel p.poison-nota { margin: 8px 0 0; font-size: 12px; color: #6b7280; }
+.poison-fila {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 6px 0; border-top: 1px solid #eef0f2;
+}
+.poison-fila code { font-size: 12px; }
+.poison-estado { margin-top: 8px; font-size: 12px; }

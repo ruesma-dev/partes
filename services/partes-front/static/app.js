@@ -2584,3 +2584,117 @@
       .forEach(anadirBarra);
   });
 })();
+
+
+/* ==================================================================== *
+ * F-002 · Aviso de colas 'poison' en la cabecera.
+ *
+ * Una peticion de registro que agota sus reintentos acaba en la cola
+ * '-poison', y sus lineas se quedan en 'encolado' sin que nadie sepa por
+ * que. Esto lo saca a la vista del portal, con la accion de devolverlas
+ * a la cola principal (maximo 32 por clic).
+ *
+ * Se consulta UNA vez al cargar la pagina: no hay polling. Es un aviso
+ * accesorio; si el endpoint falla o no hay colas configuradas, no se
+ * pinta nada y la pagina sigue igual.
+ * ==================================================================== */
+(function () {
+  "use strict";
+
+  function ready(fn) {
+    if (document.readyState !== "loading") fn();
+    else document.addEventListener("DOMContentLoaded", fn);
+  }
+
+  function pedir(url, opciones) {
+    return fetch(url, Object.assign({
+      headers: { "Content-Type": "application/json" },
+    }, opciones || {})).then(function (r) {
+      return r.json().then(function (cuerpo) {
+        return { ok: r.ok, cuerpo: cuerpo };
+      });
+    });
+  }
+
+  function conMensajes(colas) {
+    return (colas || []).filter(function (c) {
+      return (c.mensajes_aprox || 0) > 0;
+    });
+  }
+
+  function total(colas) {
+    return colas.reduce(function (n, c) { return n + (c.mensajes_aprox || 0); }, 0);
+  }
+
+  function filaHtml(c) {
+    return '<div class="poison-fila"><span><code>' + c.cola + "</code> · "
+      + "<strong>" + c.mensajes_aprox + "</strong> mensaje(s)</span>"
+      + '<button type="button" class="btn small" data-poison-reencolar="'
+      + c.principal + '">Reencolar (max. 32)</button></div>';
+  }
+
+  function pintar(caja, badge, panel, colas) {
+    if (!colas.length) { caja.hidden = true; return; }
+    badge.textContent = "⚠ " + total(colas) + " en cola muerta";
+    panel.innerHTML = "<h4>Peticiones de registro paradas</h4>"
+      + colas.map(filaHtml).join("")
+      + '<p class="poison-nota">Fallaron y agotaron sus reintentos. '
+      + "Reencolarlas es seguro: lo ya escrito en Sigrid no se duplica.</p>"
+      + '<div class="poison-estado" id="poison-estado"></div>';
+    caja.hidden = false;
+  }
+
+  function cargar(caja, badge, panel) {
+    return pedir("/api/admin/poison").then(function (r) {
+      if (!r.ok || !r.cuerpo || !r.cuerpo.habilitado) { caja.hidden = true; return; }
+      pintar(caja, badge, panel, conMensajes(r.cuerpo.colas));
+    });
+  }
+
+  ready(function () {
+    var caja = document.getElementById("poison-aviso");
+    var badge = document.getElementById("poison-badge");
+    var panel = document.getElementById("poison-panel");
+    if (!caja || !badge || !panel) return;
+
+    cargar(caja, badge, panel).catch(function () { caja.hidden = true; });
+
+    badge.addEventListener("click", function () {
+      panel.hidden = !panel.hidden;
+    });
+
+    panel.addEventListener("click", function (ev) {
+      var boton = ev.target.closest("[data-poison-reencolar]");
+      if (!boton) return;
+      var principal = boton.dataset.poisonReencolar;
+      boton.disabled = true;
+      boton.textContent = "Reencolando…";
+      pedir("/api/admin/poison/reencolar", {
+        method: "POST",
+        body: JSON.stringify({ cola: principal }),
+      }).then(function (r) {
+        var estado = document.getElementById("poison-estado");
+        if (!r.ok || !r.cuerpo.ok) {
+          if (estado) {
+            estado.textContent = "No se pudo reencolar: "
+              + ((r.cuerpo && r.cuerpo.error) || "error desconocido");
+          }
+          boton.disabled = false;
+          boton.textContent = "Reencolar (max. 32)";
+          return;
+        }
+        if (estado) {
+          estado.textContent = r.cuerpo.movidos + " mensaje(s) devueltos a "
+            + principal + ". Quedan ~" + (r.cuerpo.restantes_aprox === null
+              ? "?" : r.cuerpo.restantes_aprox) + ".";
+        }
+        return cargar(caja, badge, panel).then(function () {
+          panel.hidden = false;
+        });
+      }).catch(function () {
+        boton.disabled = false;
+        boton.textContent = "Reencolar (max. 32)";
+      });
+    });
+  });
+})();
