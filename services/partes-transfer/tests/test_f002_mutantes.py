@@ -112,17 +112,20 @@ def test_f002_el_sondeo_por_defecto_es_de_5_s(monkeypatch):
 
 def test_f002_tras_procesar_un_mensaje_no_se_duerme(monkeypatch):
     """Habiendo trabajo, el worker encadena; dormir aqui seria latencia
-    regalada en un lote grande."""
+    regalada en un lote grande.
+
+    La parada llega por la RONDA VACIA, no desde el handler: parando
+    dentro del handler, la condicion del sondeo saldria falsa por el flag
+    de parada y el test no distinguiria nada.
+    """
     esperas: list[float] = []
     monkeypatch.setattr(mod_cola.time, "sleep", esperas.append)
     cli, svc = _cola(monkeypatch)
     cola = svc.get_queue_client("q-transfer")
     cola.rondas = [[mensaje_json({"peticion_id": "p1"}, id="m1")]]
+    cola.on_agotado = cli.detener
 
-    def _handler(_p):
-        cli.detener()
-
-    cli.consumir("q-transfer", _handler)
+    cli.consumir("q-transfer", lambda _p: None)
 
     assert esperas == []
 

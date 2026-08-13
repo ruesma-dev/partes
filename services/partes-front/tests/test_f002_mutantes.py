@@ -118,13 +118,20 @@ def test_f002_el_sondeo_por_defecto_es_de_5_s(monkeypatch):
 
 
 def test_f002_tras_procesar_un_mensaje_no_se_duerme(monkeypatch):
+    """Habiendo trabajo, el worker encadena sin pausa.
+
+    La parada llega por la RONDA VACIA, no desde el handler: si se parara
+    dentro del handler, la condicion del sondeo saldria falsa por el flag
+    de parada y el test no distinguiria nada.
+    """
     esperas: list[float] = []
     monkeypatch.setattr(mod_cola.time, "sleep", esperas.append)
     cli, svc = _cola(monkeypatch)
     cola = svc.get_queue_client("q-transfer-result")
     cola.rondas = [[mensaje_json({"peticion_id": "p1"}, id="m1")]]
+    cola.on_agotado = cli.detener
 
-    cli.consumir("q-transfer-result", lambda _p: cli.detener())
+    cli.consumir("q-transfer-result", lambda _p: None)
 
     assert esperas == []
 
@@ -203,7 +210,10 @@ def test_f002_r25_el_fallo_al_borrar_deja_traza_completa(monkeypatch, caplog):
         cli.mover("q-transfer-poison", "q-transfer")
 
     avisos = [r for r in caplog.records if "NO borrado" in r.getMessage()]
-    assert avisos and avisos[0].exc_info is not None
+    # Ojo: con `exc_info=False` el atributo del registro vale False, que NO
+    # es None. Hay que exigir la tupla de la excepcion, no "algo distinto
+    # de None".
+    assert avisos and avisos[0].exc_info
 
 
 # ------------------------------ endpoints ------------------------------- #
@@ -272,8 +282,10 @@ class TransferClientFake:
 
 
 def _avisos_con_traza(caplog, fragmento: str) -> list:
+    # `exc_info` vale False (no None) cuando se suprime la traza, asi que
+    # se comprueba por verdad, no por identidad con None.
     return [r for r in caplog.records
-            if fragmento in r.getMessage() and r.exc_info is not None]
+            if fragmento in r.getMessage() and bool(r.exc_info)]
 
 
 def test_f002_el_fallo_al_trazar_se_registra_con_traceback(caplog):
