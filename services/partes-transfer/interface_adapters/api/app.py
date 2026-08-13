@@ -55,20 +55,32 @@ class PeticionIn(BaseModel):
     usuario: Optional[str] = None
 
 
-def build_app(settings) -> FastAPI:
+def build_app(settings, pipeline: RegistroPipeline | None = None) -> FastAPI:
+    """API de sv5.
+
+    `pipeline` se inyecta desde `main.py` para que el HTTP y los hilos
+    consumidores de `q-transfer` compartan UNA instancia y, con ella, UN
+    lock de escritura (R7). Sin inyeccion construye el suyo, que es el
+    comportamiento de siempre.
+
+    Los endpoints NO toman el lock: lo adquiere `RegistroPipeline.
+    registrar`, de modo que `ejecutar` queda serializado igualmente y
+    `preflight` sigue sin bloquear a nadie.
+    """
     app = FastAPI(title="Partes -> Sigrid (transfer)", version="1.0.0")
 
-    cliente = SigridWriteClient(
-        base_url=settings.sigrid_api_base_url,
-        function_key=settings.sigrid_api_function_key,
-        database=settings.sigrid_api_database,
-        empresa=settings.sigrid_empresa,
-        timeout_s=settings.sigrid_api_timeout_s,
-        max_statements=settings.sigrid_max_statements,
-        tip_parte=settings.tip_parte_trabajo,
-        est_parte=settings.est_parte_activo,
-    )
-    pipeline = RegistroPipeline(cliente=cliente, settings=settings)
+    if pipeline is None:
+        cliente = SigridWriteClient(
+            base_url=settings.sigrid_api_base_url,
+            function_key=settings.sigrid_api_function_key,
+            database=settings.sigrid_api_database,
+            empresa=settings.sigrid_empresa,
+            timeout_s=settings.sigrid_api_timeout_s,
+            max_statements=settings.sigrid_max_statements,
+            tip_parte=settings.tip_parte_trabajo,
+            est_parte=settings.est_parte_activo,
+        )
+        pipeline = RegistroPipeline(cliente=cliente, settings=settings)
 
     def _dominio(p: PeticionIn):
         obra = ObraEntrada(ide=p.obra.ide, codigo=p.obra.codigo,

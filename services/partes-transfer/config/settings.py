@@ -2,7 +2,7 @@
 """Configuracion de partes-transfer (sv5): registro de partes en Sigrid."""
 from __future__ import annotations
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,3 +41,43 @@ class Settings(BaseSettings):
     api_port: int = Field(8005, alias="API_PORT")
     log_level: str = Field("INFO", alias="LOG_LEVEL")
     log_dir: str = Field("logs", alias="LOG_DIR")
+
+    # ------------------------------------------------------------ #
+    # Storage: cola de aprobacion asincrona (F-002). TODAS opcionales:
+    # sin ellas sv5 arranca como siempre, solo con su API HTTP, y sv4
+    # cae al registro sincrono (R3).
+    # ------------------------------------------------------------ #
+    colas_connection_string: str | None = Field(
+        None, alias="COLAS_CONNECTION_STRING")      # local / Azurite
+    colas_account_url: str | None = Field(None, alias="COLAS_ACCOUNT_URL")
+    blobs_connection_string: str | None = Field(
+        None, alias="BLOBS_CONNECTION_STRING")
+    blobs_account_url: str | None = Field(None, alias="BLOBS_ACCOUNT_URL")
+
+    cola_transfer: str = Field("q-transfer", alias="COLA_TRANSFER")
+    cola_transfer_result: str = Field("q-transfer-result",
+                                      alias="COLA_TRANSFER_RESULT")
+    blob_transfer: str = Field("transfer", alias="BLOB_TRANSFER")
+
+    # Con N workers esperando el lock de escritura, un mensaje puede
+    # quedar invisible casi todo este tiempo mientras espera turno. Con
+    # TRANSFER_WORKERS=3 y escrituras de segundos sobra; si se subiera
+    # mucho el pool, hay que subir el visibility en proporcion.
+    cola_visibility_s: int = Field(600, alias="COLA_VISIBILITY_S")
+    cola_max_dequeue: int = Field(5, alias="COLA_MAX_DEQUEUE")
+
+    # Hilos consumidores de q-transfer. Solapan la fase de PREPARACION;
+    # la de escritura sigue serializada por el lock (R18/R19).
+    transfer_workers: int = Field(3, alias="TRANSFER_WORKERS")
+
+    @field_validator("transfer_workers")
+    @classmethod
+    def _al_menos_un_worker(cls, valor: int) -> int:
+        """0 o negativo dejaria la cola sin consumir en silencio."""
+        return max(1, int(valor))
+
+    @property
+    def storage_habilitado(self) -> bool:
+        """Hay cola configurada (nube o Azurite)."""
+        return bool((self.colas_connection_string or "").strip()
+                    or (self.colas_account_url or "").strip())
