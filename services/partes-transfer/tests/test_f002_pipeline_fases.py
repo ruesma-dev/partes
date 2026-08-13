@@ -20,10 +20,11 @@ from __future__ import annotations
 import threading
 
 import pytest
-
 from application.pipelines.registro_pipeline import RegistroPipeline
 from domain.models.registro_models import (
-    HoraRecurso, LineaEntrada, ObraEntrada,
+    HoraRecurso,
+    LineaEntrada,
+    ObraEntrada,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 from tests.dobles import SettingsFake, SigridFake
@@ -306,5 +307,5 @@ def test_f002_r10_pisar_confirmado_borra_e_inserta():
 
 def test_f002_registrar_exige_contexto():
     """`registrar` no acepta un contexto ausente: seria escribir a ciegas."""
-    with pytest.raises((TypeError, ValueError, AttributeError)):
+    with pytest.raises(ValueError, match="ContextoRegistro"):
         _pipeline(_sigrid()).registrar(None)

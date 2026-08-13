@@ -5,14 +5,16 @@ from __future__ import annotations
 import json
 
 import pytest
-
 from infrastructure.azure import blob_cliente as mod_blob
 from infrastructure.azure import cola_cliente as mod_cola
 from infrastructure.azure.blob_cliente import BlobCliente
 from infrastructure.azure.cola_cliente import ColaCliente
 from tests.dobles import (
-    BlobServiceClientFake, QueueServiceClientFake, mensaje_json,
-    parchear_blobs, parchear_colas,
+    BlobServiceClientFake,
+    QueueServiceClientFake,
+    mensaje_json,
+    parchear_blobs,
+    parchear_colas,
 )
 
 

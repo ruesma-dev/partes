@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 from application.pipelines.registro_pipeline import RegistroPipeline
 from domain.models.registro_models import LineaEntrada, ObraEntrada
 from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
+from interface_adapters.resultado_json import resultado_a_dict
 
 logger = logging.getLogger(__name__)
 
@@ -126,18 +127,7 @@ def build_app(settings, pipeline: RegistroPipeline | None = None) -> FastAPI:
             logger.exception("[api] ejecutar fallo")
             return JSONResponse({"ok": False, "error": str(exc)},
                                 status_code=502)
-        return JSONResponse({
-            "ok": r.ok,
-            "obra_destino": asdict(r.obra_destino),
-            "forzada_pruebas": r.forzada_pruebas,
-            "partes": [asdict(x) for x in r.partes],
-            "escritas": r.escritas,
-            "omitidas": r.omitidas,
-            "ya_registradas": r.ya_registradas,
-            "pisadas": r.pisadas,
-            "borradas": r.borradas,
-            "pendientes_confirmacion": [asdict(c)
-                                        for c in r.pendientes_confirmacion],
-        })
+        # Mismo JSON que se publica en q-transfer-result (fuente unica).
+        return JSONResponse(resultado_a_dict(r))
 
     return app

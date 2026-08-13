@@ -9,8 +9,8 @@ que exista solo para los tests.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from types import SimpleNamespace
-from typing import Callable, Optional
 
 
 class MensajeFake:
@@ -44,7 +44,7 @@ class QueueClientFake:
         self.enviados: list[str] = []
         self.borrados: list[str] = []
         self.recibidos: list[str] = []
-        self.on_agotado: Optional[Callable[[], None]] = None
+        self.on_agotado: Callable[[], None] | None = None
         self.fallo_delete = False
         self.fallo_send = False
         self.mensajes_aprox = 0
@@ -105,7 +105,10 @@ class BlobClientFake:
 
     def download_blob(self):
         if self._clave not in self._almacen:
-            raise KeyError(f"blob inexistente: {self._clave}")
+            # La misma excepcion que lanza el SDK real: asi los tests
+            # pueden exigir un tipo concreto y no un `Exception` ciego.
+            from azure.core.exceptions import ResourceNotFoundError
+            raise ResourceNotFoundError(f"blob inexistente: {self._clave}")
         datos = self._almacen[self._clave]
         return SimpleNamespace(readall=lambda: datos)
 
@@ -128,11 +131,23 @@ class SettingsFake:
     def __init__(self, *, obra_pruebas_forzar: bool = False,
                  obra_pruebas_cod: str = "0404",
                  marca_pruebas: str = "PRUEBA-IA",
-                 paso_pos: int = 64) -> None:
+                 paso_pos: int = 64,
+                 cola_transfer: str = "q-transfer",
+                 cola_transfer_result: str = "q-transfer-result",
+                 blob_transfer: str = "transfer",
+                 cola_visibility_s: int = 600,
+                 cola_max_dequeue: int = 5,
+                 transfer_workers: int = 3) -> None:
         self.obra_pruebas_forzar = obra_pruebas_forzar
         self.obra_pruebas_cod = obra_pruebas_cod
         self.marca_pruebas = marca_pruebas
         self.paso_pos = paso_pos
+        self.cola_transfer = cola_transfer
+        self.cola_transfer_result = cola_transfer_result
+        self.blob_transfer = blob_transfer
+        self.cola_visibility_s = cola_visibility_s
+        self.cola_max_dequeue = cola_max_dequeue
+        self.transfer_workers = transfer_workers
 
 
 class SigridFake:
@@ -288,7 +303,7 @@ class SigridFake:
             horide=l.get("horide"), hora_codigo=l.get("hora_codigo"),
             can=l.get("can"), tot=l.get("tot"), synckey=l.get("synckey"),
             nuestra=bool(l.get("synckey")))
-        setattr(ls, "hmoide", l["hmoide"])
+        ls.hmoide = l["hmoide"]
         return ls
 
     # -- sentencias (opacas para el pipeline) -----------------------------

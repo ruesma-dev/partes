@@ -21,7 +21,7 @@ import json
 import logging
 import signal
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from azure.storage.queue import QueueClient, QueueServiceClient
 
@@ -125,7 +125,7 @@ class ColaCliente:
                     principal.delete_message(msg)
                     logger.info("[cola] OK %s peticion_id=%s (dequeue=%s)",
                                 queue_name, peticion_id, msg.dequeue_count)
-                except Exception:  # noqa: BLE001
+                except Exception:
                     # No se borra: reaparece tras el visibility timeout.
                     logger.exception(
                         "[cola] FALLO %s peticion_id=%s (dequeue=%s); se "

@@ -45,8 +45,14 @@ from datetime import datetime, timezone
 
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
-    AccionLinea, Conflicto, ContextoRegistro, LineaEntrada, ObraEntrada,
-    ParteDestino, Preflight, ResultadoRegistro,
+    AccionLinea,
+    Conflicto,
+    ContextoRegistro,
+    LineaEntrada,
+    ObraEntrada,
+    ParteDestino,
+    Preflight,
+    ResultadoRegistro,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 

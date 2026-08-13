@@ -7,10 +7,9 @@ memoria; nada sale del proceso.
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-
 from application.pipelines.registro_pipeline import RegistroPipeline
 from config.settings import Settings
+from fastapi.testclient import TestClient
 from interface_adapters.api.app import build_app
 from tests.dobles import SettingsFake, SigridFake
 from tests.test_f002_pipeline_fases import OBRA, _sigrid
@@ -124,7 +123,7 @@ def test_f002_build_app_sin_pipeline_inyectado(entorno):
 def test_f002_build_app_usa_el_pipeline_que_recibe():
     """El pipeline inyectado es el que atiende las peticiones."""
     cli = _sigrid()
-    app, pipeline = _app_con_pipeline(cli)
+    app, _ = _app_con_pipeline(cli)
     TestClient(app).post("/api/registro/ejecutar", json=PETICION)
     assert "escribir" in cli.llamadas
 
