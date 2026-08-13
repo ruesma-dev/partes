@@ -62,12 +62,13 @@ tasks renumeradas a T1–T15 (T2 nuevo = split del pipeline; T11–T12 nuevas
   antes de delete ⇒ nunca se pierde un mensaje, duplicado benigno por
   synckey; log de lo movido).
 
-**Decisiones abiertas para el humano:**
+**Decisiones cerradas por el humano (2026-08-13, segunda ronda):**
 
-1. Autorización del reencolado: sin modelo de roles en el portal, la
-   acción queda para cualquier usuario autenticado (todo el portal ya está
-   tras Easy Auth). Restringir a administradores exigiría roles (fuera de
-   alcance de F-002). ¿Vale así?
-2. La mejora de throughput de la ampliación 1 está acotada por Amdahl
-   (×1,4–×2 con 3 workers). Se implementa igualmente salvo que el humano
-   prefiera descartarla por poca ganancia.
+1. Paralelismo: MANTENER — confirmado explícitamente que la escritura en
+   Sigrid va de una en una (lock) y el paralelo cubre solo la preparación.
+2. Reencolado de poison: basta usuario autenticado DE MOMENTO; se añade
+   F-008 (modelo de roles en el portal) al backlog para restringirlo.
+
+Spec definitivamente aprobada (R1–R26, T1–T15). F-002 → in_progress;
+implementer lanzado. Tareas MANUAL del humano: ejecutar
+`infra/add_qtransfer_partes.ps1` y los `az containerapp update`.

@@ -5,7 +5,13 @@
   "rules": {
     "one_feature_at_a_time": true,
     "require_init_green_to_close": true,
-    "valid_status": ["pending", "spec_ready", "in_progress", "done", "blocked"]
+    "valid_status": [
+      "pending",
+      "spec_ready",
+      "in_progress",
+      "done",
+      "blocked"
+    ]
   },
   "features": [
     {
@@ -28,7 +34,7 @@
       "title": "Cola q-transfer para aprobación asíncrona",
       "description": "sv4 publica las aprobaciones en una cola q-transfer y sv5 la consume (KEDA), en lugar del HTTP síncrono actual para lotes; el HTTP se mantiene donde haga falta respuesta inmediata (preflight y confirmación de conflictos en el modal). Tanda 5 del roadmap de infra.",
       "acceptance": [],
-      "status": "spec_ready",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 2,
@@ -77,6 +83,17 @@
       "rigor": "estandar",
       "priority": 6,
       "branch": "feature/F-006-tipo-hora-ext"
+    },
+    {
+      "id": "F-008",
+      "title": "Modelo de roles en el portal (sv4)",
+      "description": "Introducir roles en el portal (p. ej. administrador vs revisor) para restringir acciones administrativas: la primera es el reencolado de mensajes poison (F-002), que hoy queda disponible para cualquier usuario autenticado por decisión explícita del humano (2026-08-13). Base: claims de Easy Auth/Entra (grupos o app roles) leídos por sv4.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 8,
+      "branch": "feature/F-008-roles-portal"
     },
     {
       "id": "F-007",
