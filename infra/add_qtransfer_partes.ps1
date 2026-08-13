@@ -23,6 +23,11 @@
 # la managed identity id-partes-dev) YA los concedio la Fase 1: las colas y el
 # contenedor nuevos quedan cubiertos por el mismo ambito.
 #
+# Todo el acceso de datos va con --auth-mode login (el token de 'az login'),
+# nunca con la clave de cuenta. Quien ejecute el script necesita por tanto los
+# roles de DATOS sobre el storage (Storage Queue Data Contributor y Storage
+# Blob Data Contributor); 'Contributor' del plano de control NO basta.
+#
 # Uso:
 #     . .\00_vars_partes.ps1
 #     .\add_qtransfer_partes.ps1
@@ -61,14 +66,16 @@ function Run-Az($argList) {
 
 Write-Host "`n=== F-002: colas de aprobacion asincrona en $STORAGE ===" -ForegroundColor Green
 
-$STKEY = az storage account keys list -n $STORAGE -g $RG --query "[0].value" -o tsv
-if (-not $STKEY) { throw "No pude leer la clave del storage '$STORAGE'." }
+# La clave de cuenta abre el storage ENTERO y, pasada como parametro,
+# viaja en la linea de comandos del proceso. Se usa el token de 'az login'.
+# Si az responde AuthorizationPermissionMismatch, faltan los roles de datos
+# (ver cabecera), no la clave.
 
 # --- Colas + sus poison (idempotente: 'create' sobre una existente no falla) --
 foreach ($q in @($COLA_TRANSFER, $COLA_RESULT)) {
     foreach ($nombre in @($q, "$q-poison")) {
         Run-Az @("storage","queue","create","--name",$nombre,
-                 "--account-name",$STORAGE,"--account-key",$STKEY,
+                 "--account-name",$STORAGE,"--auth-mode","login",
                  "--only-show-errors")
         Write-Host "  cola OK: $nombre" -ForegroundColor Cyan
     }
@@ -76,12 +83,12 @@ foreach ($q in @($COLA_TRANSFER, $COLA_RESULT)) {
 
 # --- Contenedor del hand-off (privado) ---------------------------------------
 Run-Az @("storage","container","create","--name",$CONTENEDOR,
-         "--account-name",$STORAGE,"--account-key",$STKEY,
+         "--account-name",$STORAGE,"--auth-mode","login",
          "--public-access","off","--only-show-errors")
 Write-Host "  contenedor OK: $CONTENEDOR" -ForegroundColor Cyan
 
 Write-Host "`nColas del storage:" -ForegroundColor Green
-az storage queue list --account-name $STORAGE --account-key $STKEY `
+az storage queue list --account-name $STORAGE --auth-mode login `
     --query "[].name" -o tsv
 
 if ($SoloStorage) {
