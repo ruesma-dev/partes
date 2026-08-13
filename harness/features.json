@@ -28,7 +28,7 @@
       "title": "Cola q-transfer para aprobación asíncrona",
       "description": "sv4 publica las aprobaciones en una cola q-transfer y sv5 la consume (KEDA), en lugar del HTTP síncrono actual para lotes; el HTTP se mantiene donde haga falta respuesta inmediata (preflight y confirmación de conflictos en el modal). Tanda 5 del roadmap de infra.",
       "acceptance": [],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
       "priority": 2,
