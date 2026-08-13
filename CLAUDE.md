@@ -1,5 +1,5 @@
 <!-- CLAUDE.md -->
-# Arnés · [ADAPTAR: nombre-del-proyecto]
+# Arnés · partes (monorepo del pipeline de partes de trabajo)
 
 Eres parte de un sistema de agentes (arnés) de este repositorio. Tu punto de
 entrada es el rol **líder**: lee `.claude/agents/leader.md` y actúa según su
@@ -60,17 +60,33 @@ confirmación cubre el plan que se enseñó, no lo que apareció después.
 
 ## Mapa del repositorio (no leas todo el proyecto, ve a lo que necesites)
 
-[ADAPTAR: lista de carpetas/ficheros clave del proyecto y qué contiene cada
-uno. Objetivo: que un agente encuentre lo que necesita sin leer todo el repo.
-Ejemplo de formato:]
+Monorepo de 5 servicios + infra. El flujo del pipeline es:
+**sv1 → `q-extraccion` → sv2 → `q-persistencia` → sv3**; sv4 es el portal
+humano y llama a **sv5 por HTTP interno** para registrar en Sigrid. Detalle
+completo en `docs/ARCHITECTURE.md`; el documento maestro del dominio es
+`docs/referencia/partes-proyecto.md`.
 
-- `main.py` — punto de entrada / CLI.
-- `config/` — settings (pydantic-settings sobre `.env`) y YAML de
-  parametrización.
-- `<paquete>/domain/` — entidades puras (sin dependencias externas).
-- `<paquete>/application/` — orquestador + steps (patrón pipeline).
-- `<paquete>/infrastructure/` — adaptadores (BBDD, HTTP, colas...).
-- `tests/` — los unit tests NO tocan red ni BBDD.
+- `services/partes-email/` (**sv1**) — poller del buzón `partes@ruesma.es`
+  vía Graph; guarda el PDF y publica `q-extraccion`. Python puro (sin API).
+- `services/partes-api/` (**sv2**) — worker KEDA de extracción IA (Gemini,
+  prompt YAML + esquema). Pese al nombre, NO es «la API del sistema».
+  Publica `q-persistencia`.
+- `services/partes-persistencia/` (**sv3**) — worker KEDA de conciliación
+  contra los maestros de Sigrid (obra, empleado por DNI, recurso, partida,
+  tipo de hora), cómputo de extras por exceso de jornada, PostgreSQL
+  `partes` y archivo del PDF en SharePoint.
+- `services/partes-front/` (**sv4**) — portal de revisión/aprobación
+  (FastAPI + Jinja2 + JS vanilla, Easy Auth Entra). Aprueba → llama a sv5.
+- `services/partes-transfer/` (**sv5**) — escritura en Sigrid vía
+  sigrid-api: parte mensual `hmo` + líneas `hmores` con synckey. ÚNICO
+  servicio con credencial de escritura; 1 réplica fija.
+- `infra/` — scripts PowerShell de provisión/despliegue y
+  `manifests/svN/`. Los `infra/*.local.ps1` y `graphkey_nobom.json` (no
+  versionados) llevan los valores reales; los versionados van redactados.
+- Estructura interna de cada servicio: hexagonal (`domain/`,
+  `application/`, `infrastructure/`, `interface_adapters/`, `config/`).
+- `tests/` (raíz) — tests del monorepo como conjunto; los de cada servicio
+  viven en su carpeta. Los unit tests NO tocan red ni BBDD.
 - `specs/` — especificaciones SDD (una carpeta por feature).
 - `progress/` — memoria externa del arnés (`current.md`, `history.md`,
   informes `impl_*.md` / `review_*.md` / `explore_*.md` por subagente).
@@ -110,9 +126,15 @@ original NO se versiona: al repositorio entra solo el Markdown.
   contra `CHECKPOINTS.md`.
 - PROHIBIDO tocar `.env` o subirlo a git. Los secretos no se escriben en
   ningún fichero del repo ni en specs ni en progress.
-- [ADAPTAR: prohibiciones de escritura contra sistemas reales. Ejemplos:
-  "solo lectura contra el ERP", "nunca contra BBDD de producción",
-  "las colas se simulan con Azurite en local".]
+- Sigrid (el ERP) SOLO se toca a través de `sigrid-api`, nunca por SQL
+  directo. Escribir en Sigrid es exclusivo de sv5, contra la base `ruesma`
+  (la réplica `ruesma_rep` no admite escritura). Desde local, toda prueba
+  de escritura va en modo pruebas (`OBRA_PRUEBAS_FORZAR=true`, obra 0404,
+  marca `PRUEBA-IA`) y se limpia con `prueba_escritura_sigrid.py`.
+- El PostgreSQL `psql-albaranes-rs9k2` es COMPARTIDO con otros proyectos:
+  prohibido tocar nada a nivel de servidor; solo la base `partes`.
+- Desplegar en Azure (`redeploy_partes.ps1`) lo pide el humano; los agentes
+  no lo lanzan por iniciativa propia.
 - Cada feature se desarrolla en su rama `feature/F-XXX-slug`. Nunca commits
   directos a `dev` ni a `main`.
 - ANTI TELÉFONO-DESCOMPUESTO: por el chat no circula código ni informes
@@ -126,11 +148,14 @@ original NO se versiona: al repositorio entra solo el Markdown.
   variables ni decoración (la allowlist de permisos cubre el comando limpio).
 - Convenciones de código: `docs/CONVENTIONS.md`. Arquitectura:
   `docs/ARCHITECTURE.md`. Léelos antes de diseñar o implementar.
-- LÍMITE DE MICROSERVICIO: este repo es UN microservicio con una
-  responsabilidad acotada. Si una feature exige lógica que se sale de ese
-  límite (otra responsabilidad, otro dominio, integración que merece vida
-  propia), NO se implementa aquí: se marca `blocked` y se propone al humano
-  extraerla a otro microservicio.
+- LÍMITE DE SERVICIO (adaptación monorepo): cada feature declara en su spec
+  qué servicio(s) toca y por qué. La lógica NO se copia entre servicios; si
+  dos la necesitan, se propone al humano dónde debe vivir. La única
+  duplicación tolerada es la ya existente
+  (`infrastructure/database/orm_models.py` en sv3 y sv4, y los clientes
+  `infrastructure/sigrid/`): no crece, y quien la toque cambia TODAS las
+  copias en la misma feature. Una responsabilidad nueva que no encaje en
+  ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes NO hacen `git push` ni crean PRs salvo petición explícita del
   humano. Commits locales sí, según protocolo del implementer.
 

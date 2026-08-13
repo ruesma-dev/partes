@@ -22,9 +22,9 @@
 # node o jq. Si no hay ninguno, la validación DEGRADA a una comprobación por
 # texto (avisa de ello) en vez de fallar.
 
-# --- [ADAPTAR] Configuración por proyecto -----------------------------------
+# --- Configuración por proyecto (adaptada al monorepo partes) ---------------
 PROYECTO_PYTHON=auto     # auto (detecta) | 1 (forzar sí) | 0 (forzar no)
-REQUIERE_ENV=1           # 1 si el proyecto usa .env; 0 si no
+REQUIERE_ENV=0           # los .env viven en cada servicio, no en la raíz
 RUTAS_PYTHON=""          # rutas a compilar; vacío = todo el árbol. Si lo
                          # rellenas, incluye `harness` (las herramientas del
                          # arnés también son código que debe compilar).
@@ -410,7 +410,7 @@ if [ -n "$PENDIENTES" ]; then
     warn "Marcas [$MARCA] sin resolver en: $PENDIENTES"
 fi
 
-# --- 9. [ADAPTAR] Comprobaciones específicas del proyecto -------------------
+# --- 9. Comprobaciones específicas del proyecto (ninguna activa) ------------
 # Ejemplos según proyecto:
 #   - Azurite levantado y colas creadas (proyectos con colas):
 #       curl -s http://127.0.0.1:10001/devstoreaccount1 >/dev/null || ko "Azurite no responde"

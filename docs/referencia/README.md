@@ -20,12 +20,12 @@ está en el código sino en una norma de negocio.
 
 ## Índice
 
-[ADAPTAR: una fila por documento incorporado. Mantenerlo al día es parte de
-añadir un documento, no una tarea posterior.]
+Una fila por documento incorporado. Mantenerlo al día es parte de añadir un
+documento, no una tarea posterior.
 
 | Fichero | Qué es |
 |---|---|
-| `01_<tema>.md` | [ADAPTAR: qué es, de qué fecha, y si es una versión redactada.] |
+| `partes-proyecto.md` | Documento maestro del proyecto (2026-08-13): dominio de negocio, flujo funcional, esquema de BBDD, recursos Azure, operativa y hoja de ruta. Redactado: IP del SQL de Sigrid. |
 
 ## Formato
 

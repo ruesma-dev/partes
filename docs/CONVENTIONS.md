@@ -18,21 +18,29 @@
   producción; permitido en scripts puntuales.
 - Errores transitorios de red: reintentos con backoff, nunca bucle desnudo.
 
-### Python (borrar si el proyecto no es Python)
+### Python
 
 - Python 3.12, PEP8, type hints en firmas públicas.
 - Pydantic v2. `default=` solo en la firma, nunca duplicado dentro de
   `Field()`.
 - Configuración: `config/settings.py` (pydantic-settings) leyendo `.env`.
-- Logging con structlog. Reintentos con tenacity.
-- PDF en servidor: ReportLab (no HTML/CSS print).
+- BBDD con SQLAlchemy 2 + psycopg 3; el schema vive en
+  `infrastructure/database/orm_models.py` (duplicado a propósito en sv3 y
+  sv4: se cambian los dos a la vez).
 
-## SQL (borrar si el proyecto no lleva SQL)
+### Portal sv4 (JS y plantillas)
 
-- Un fichero por unidad lógica, numerado `NN_nombre.sql` dentro de su capa.
-- Idempotente: `CREATE ... IF NOT EXISTS` / `CREATE OR REPLACE VIEW`.
-- Comentario de cabecera explicando qué construye y de qué capa lee.
-- Palabras reservadas siempre entre comillas si se usan como identificador.
+- JS vanilla en `static/app.js` (sin frameworks ni build); CSS en
+  `static/styles.css`. Plantillas Jinja2 en `templates/`.
+- Validación mínima de todo cambio: `node --check static/app.js` y parseo
+  Jinja2 de las plantillas tocadas. En el navegador, Ctrl+F5 tras cambiar
+  estáticos.
+
+### PowerShell (infra)
+
+- PowerShell 5.1. Pitfalls que el reviewer vigila: `${var}:` en cadenas,
+  backticks con espacios, y el encoding de `infra/` (sin BOM; `00_vars` en
+  LF y el resto CRLF).
 
 ## Tests
 

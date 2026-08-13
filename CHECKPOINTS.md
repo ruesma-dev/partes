@@ -73,10 +73,18 @@ medición automática, no la disciplina.
       relativa.
 - [ ] Sin `print()` de debug, sin TODOs sin contexto, sin secretos
       hardcodeados, sin dependencias nuevas no previstas en la spec.
-- [ ] [ADAPTAR] Reglas de dominio propias del proyecto respetadas según
-      `docs/ARCHITECTURE.md` (añadir aquí las 2-3 trampas típicas del
-      dominio que el reviewer debe vigilar siempre: campos ambiguos,
-      invariantes de negocio, qué no se puede sumar o mezclar).
+- [ ] Reglas de dominio de `docs/ARCHITECTURE.md` respetadas. Las tres
+      trampas que el reviewer vigila SIEMPRE en este monorepo:
+      (1) **empleado ≠ recurso**: las líneas de Sigrid (`hmores.reside`)
+      apuntan al RECURSO, no al empleado; toda lógica de registro arrastra
+      ambos ides y respeta la red de seguridad por DNI;
+      (2) **incidencias**: van sin horas (`can=0`) y solo se registran el
+      inicio de la racha (código CI*) y el fin (CIZ) — los días intermedios
+      NO se escriben, y que Sigrid pinte el tramo completo con 2 líneas es
+      el comportamiento correcto, no un bug;
+      (3) **schema duplicado**: `infrastructure/database/orm_models.py` es
+      idéntico en sv3 y sv4 a propósito; un cambio de schema modifica los
+      DOS ficheros en la misma feature y lista sus lectores.
 
 ## C3 bis — Los documentos que entran de fuera son seguros
 

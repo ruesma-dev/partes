@@ -1,7 +1,7 @@
 {
   "$schema_doc": "Estados: pending -> spec_ready (aprueba humano) -> in_progress -> done. 'blocked' = parada con motivo en progress/current.md. Máximo UNA in_progress (lo valida init.sh). sdd=false salta la spec: 'acceptance' hace de mini-spec y el reviewer valida contra ella.",
   "$rigor_doc": "El campo 'rigor' de cada feature declara cuanta evidencia se le exige: documental, estandar o critico (ver CHECKPOINTS.md y harness/rigor.json). Si una feature NO lo declara se le aplica el mas exigente: omitirlo no relaja nada.",
-  "$adaptar": "Sustituye la feature de ejemplo por el backlog real del proyecto. Deja una primera feature trivial de calentamiento: sirve para validar el circuito completo del arnés antes de jugarse nada. 'priority' ordena el backlog; el líder coge la primera no terminada.",
+  "$origen": "Backlog inicial tomado de la hoja de ruta de docs/referencia/partes-proyecto.md §10 (2026-08-13). El humano ordena y ajusta.",
   "rules": {
     "one_feature_at_a_time": true,
     "require_init_green_to_close": true,
@@ -10,18 +10,84 @@
   "features": [
     {
       "id": "F-001",
-      "title": "[ADAPTAR] Feature de calentamiento",
-      "description": "Una tarea trivial (un comando version, un endpoint /health...) para validar el circuito completo del arnés en este proyecto: rama, spec o acceptance, implementer, reviewer y cierre.",
+      "title": "Test de estructura del monorepo (calentamiento)",
+      "description": "Feature trivial para validar el circuito completo del arnés en este repo: un test en tests/ (raíz) que valida harness/servicios.json contra el árbol real — cada ruta declarada existe y cada servicio Python tiene main.py. Igual que la F-001 de albaranes.",
       "acceptance": [
-        "[ADAPTAR] criterio observable 1",
-        "[ADAPTAR] criterio observable 2 (test sin red ni BBDD)",
+        "tests/test_estructura_monorepo.py pasa sin red ni BBDD",
+        "El test falla si se declara un servicio con ruta inexistente",
         "bash harness/init.sh en verde"
       ],
       "status": "pending",
       "sdd": false,
       "rigor": "estandar",
       "priority": 1,
-      "branch": "feature/F-001-calentamiento"
+      "branch": "feature/F-001-test-estructura"
+    },
+    {
+      "id": "F-002",
+      "title": "Cola q-transfer para aprobación asíncrona",
+      "description": "sv4 publica las aprobaciones en una cola q-transfer y sv5 la consume (KEDA), en lugar del HTTP síncrono actual para lotes; el HTTP se mantiene donde haga falta respuesta inmediata (preflight y confirmación de conflictos en el modal). Tanda 5 del roadmap de infra.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 2,
+      "branch": "feature/F-002-cola-q-transfer"
+    },
+    {
+      "id": "F-003",
+      "title": "Integración sesame-api: festivos y jornada reales",
+      "description": "Sustituir la librería holidays y el candef como jornada teórica por los datos reales de Sesame HR vía el servicio general sesame-api: festivos por calendario asignado a cada trabajador y jornada del contrato. Afecta a los avisos de jornada incompleta (sv4) y al cómputo de extras (sv3). Añadir aviso al registrar horas en festivo/domingo.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 3,
+      "branch": "feature/F-003-sesame-festivos-jornada"
+    },
+    {
+      "id": "F-004",
+      "title": "Congelar registros aprobados",
+      "description": "Un registro aprobado (y con más razón, ya registrado en Sigrid) no debe poder editarse en el portal sin desaprobarlo antes de forma explícita.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 4,
+      "branch": "feature/F-004-congelar-aprobados"
+    },
+    {
+      "id": "F-005",
+      "title": "GRAPH_KEY a Key Vault donde falte",
+      "description": "Mover la credencial de Graph a Key Vault (keyvaultref + managed identity) en los servicios donde aún viaje como variable de entorno en claro; eliminar graphkey_nobom.json del flujo de despliegue.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "documental",
+      "priority": 5,
+      "branch": "feature/F-005-graphkey-keyvault"
+    },
+    {
+      "id": "F-006",
+      "title": "tipo_hora_resolver con auxhor.ext para variantes HE%",
+      "description": "El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para reconocer todas las variantes HE% de la ficha del recurso, en lugar de depender del prefijo del código.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 6,
+      "branch": "feature/F-006-tipo-hora-ext"
+    },
+    {
+      "id": "F-007",
+      "title": "Revisión del prompt de extracción de sv2 (J.310 rev.1)",
+      "description": "Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 7,
+      "branch": "feature/F-007-prompt-sv2-evals"
     }
   ]
 }
