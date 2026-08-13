@@ -1,6 +1,25 @@
 # application/pipelines/registro_pipeline.py
 """Pipeline de registro de partes en Sigrid.
 
+Dos FASES (F-002), con el corte puesto donde esta la frontera real:
+
+  - `preparar` (pasos 1-4) lee DATOS MAESTROS que sv5 nunca escribe —obra
+    destino, recurso por DNI, tipos de hora del recurso (`reshor`)— y
+    aplica las reglas de negocio. Es la parte lenta (llamadas a
+    sigrid-api) y es segura en paralelo: nada de lo que lee lo cambia
+    ninguna escritura nuestra.
+  - `registrar` (pasos 5-9) corre BAJO EL LOCK. Los pasos 5-7 leen estado
+    que la propia escritura modifica: si se evaluaran fuera, dos
+    peticiones a la misma obra y mes propondrian el MISMO correlativo
+    `PT<AA>/NNNNN` (dos cabeceras para el mismo parte) y no se verian
+    mutuamente como conflicto (horas duplicadas en Sigrid). Por eso el
+    lock lo adquiere `registrar` y no sus llamantes: nadie puede
+    olvidarlo.
+
+`preflight` y `ejecutar` conservan firma y comportamiento: son la
+composicion de las dos fases (`preflight` no toma el lock porque no
+escribe y su resultado siempre fue consultivo).
+
 Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
 
   1. Resolver la OBRA DESTINO (en modo pruebas se fuerza a la obra de
@@ -21,12 +40,13 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
-    AccionLinea, Conflicto, LineaEntrada, ObraEntrada, ParteDestino,
-    Preflight, ResultadoRegistro,
+    AccionLinea, Conflicto, ContextoRegistro, LineaEntrada, ObraEntrada,
+    ParteDestino, Preflight, ResultadoRegistro,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 
@@ -34,9 +54,19 @@ logger = logging.getLogger(__name__)
 
 
 class RegistroPipeline:
-    def __init__(self, *, cliente, settings) -> None:
+    def __init__(self, *, cliente, settings,
+                 lock: threading.Lock | None = None) -> None:
         self._cli = cliente
         self._st = settings
+        # El lock de escritura viaja por el constructor para que HTTP y
+        # consumidores de cola compartan UNO solo dentro de la replica
+        # (sv5 va con min=1/max=1: `MAX(ide)+1` exige serializar).
+        self._lock = lock if lock is not None else threading.Lock()
+
+    @property
+    def lock(self) -> threading.Lock:
+        """El lock que serializa la fase de escritura (R7/R19)."""
+        return self._lock
 
     # ------------------------------------------------------------- #
     def _obra_destino(self, obra: ObraEntrada) -> tuple[ObraEntrada, bool]:
@@ -62,9 +92,10 @@ class RegistroPipeline:
                 f"cod={obra.codigo})")
         return real, False
 
-    # ------------------------------------------------------------- #
-    def preflight(self, *, obra: ObraEntrada,
-                  lineas: list[LineaEntrada]) -> Preflight:
+    # ---------------------- FASE 1: PREPARAR ---------------------- #
+    # Pasos 1-4. Solo datos maestros + reglas: paralelizable (R18).
+    def preparar(self, *, obra: ObraEntrada,
+                 lineas: list[LineaEntrada]) -> ContextoRegistro:
         destino, forzada = self._obra_destino(obra)
 
         # Paso 2b: lineas sin recurso pero con DNI -> resolver contra
@@ -98,7 +129,17 @@ class RegistroPipeline:
             [l.recurso_ide for l in lineas if l.recurso_ide])
         reglas = ReglasRegistro(horas)
         acciones: list[AccionLinea] = [reglas.decidir(l) for l in lineas]
+        return ContextoRegistro(
+            obra_origen=obra, obra_destino=destino, forzada_pruebas=forzada,
+            lineas=lineas, acciones=acciones)
 
+    # ---------------------- FASE 2a: EVALUAR ---------------------- #
+    # Pasos 5-7. Leen estado que la escritura modifica: SIEMPRE dentro
+    # del lock cuando se va a escribir (R20). `preflight` los usa sin
+    # lock a proposito: no escribe y su respuesta es consultiva.
+    def _evaluar(self, ctx: ContextoRegistro) -> Preflight:
+        destino = ctx.obra_destino
+        acciones = ctx.acciones
         escribir = [a for a in acciones if a.accion == "escribir"]
 
         # Paso 5: parte de cada periodo (ano/mes de la fecha real).
@@ -174,7 +215,8 @@ class RegistroPipeline:
             conflictos.extend(por_clave.values())
 
         pf = Preflight(
-            obra_destino=destino, obra_origen=obra, forzada_pruebas=forzada,
+            obra_destino=destino, obra_origen=ctx.obra_origen,
+            forzada_pruebas=ctx.forzada_pruebas,
             partes=[partes[k] for k in sorted(partes)], acciones=acciones,
             conflictos=conflictos)
         logger.info(
@@ -184,11 +226,34 @@ class RegistroPipeline:
         return pf
 
     # ------------------------------------------------------------- #
-    def ejecutar(self, *, obra: ObraEntrada, lineas: list[LineaEntrada],
-                 pisar_claves: set[str] | None = None,
-                 usuario: str | None = None) -> ResultadoRegistro:
+    def preflight(self, *, obra: ObraEntrada,
+                  lineas: list[LineaEntrada]) -> Preflight:
+        """Analisis consultivo: que se haria. No escribe, no toma lock."""
+        return self._evaluar(self.preparar(obra=obra, lineas=lineas))
+
+    # --------------------- FASE 2b: REGISTRAR --------------------- #
+    def registrar(self, ctx: ContextoRegistro, *,
+                  pisar_claves: set[str] | None = None,
+                  usuario: str | None = None) -> ResultadoRegistro:
+        """Evalua el estado escrito y escribe, todo bajo el MISMO lock.
+
+        Que la evaluacion entre dentro del lock es lo que garantiza R20:
+        entre que se lee el parte, el correlativo, las synckeys y los
+        conflictos y se termina de escribir, ninguna otra escritura
+        —de cola o de HTTP— toca Sigrid.
+        """
+        if ctx is None:
+            raise ValueError(
+                "registrar necesita el ContextoRegistro de preparar(...)")
+        with self._lock:
+            return self._registrar_bajo_lock(
+                ctx, pisar_claves=pisar_claves, usuario=usuario)
+
+    def _registrar_bajo_lock(self, ctx: ContextoRegistro, *,
+                             pisar_claves: set[str] | None,
+                             usuario: str | None) -> ResultadoRegistro:
         pisar = {str(k) for k in (pisar_claves or set())}
-        pf = self.preflight(obra=obra, lineas=lineas)
+        pf = self._evaluar(ctx)
         destino = pf.obra_destino
 
         res = ResultadoRegistro(
@@ -279,3 +344,11 @@ class RegistroPipeline:
             if hit is not None:
                 e["hmores_ide"] = hit.ide
         return res
+
+    # ------------------------------------------------------------- #
+    def ejecutar(self, *, obra: ObraEntrada, lineas: list[LineaEntrada],
+                 pisar_claves: set[str] | None = None,
+                 usuario: str | None = None) -> ResultadoRegistro:
+        """Las dos fases seguidas (firma y comportamiento de siempre)."""
+        ctx = self.preparar(obra=obra, lineas=lineas)
+        return self.registrar(ctx, pisar_claves=pisar_claves, usuario=usuario)

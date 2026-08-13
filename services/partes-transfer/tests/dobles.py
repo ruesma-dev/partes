@@ -122,6 +122,222 @@ class BlobServiceClientFake:
         self.contenedores.append(nombre)
 
 
+class SettingsFake:
+    """Lo minimo que el pipeline lee de la configuracion."""
+
+    def __init__(self, *, obra_pruebas_forzar: bool = False,
+                 obra_pruebas_cod: str = "0404",
+                 marca_pruebas: str = "PRUEBA-IA",
+                 paso_pos: int = 64) -> None:
+        self.obra_pruebas_forzar = obra_pruebas_forzar
+        self.obra_pruebas_cod = obra_pruebas_cod
+        self.marca_pruebas = marca_pruebas
+        self.paso_pos = paso_pos
+
+
+class SigridFake:
+    """Sigrid en memoria: partes (hmo) y lineas (hmores) con estado real.
+
+    NO se sincroniza a proposito: si el pipeline dejara de serializar su
+    fase de escritura, dos peticiones concurrentes a la misma obra y mes
+    verian ambas 'el parte no existe' y crearian dos cabeceras con el
+    MISMO correlativo. Ese es justamente el fallo que el lock evita y que
+    los tests de R19/R20 comprueban; un fake con lock propio los volveria
+    vacios.
+
+    Las latencias simulan las llamadas a sigrid-api y ensanchan la ventana
+    de carrera lo bastante para que el fallo sea determinista.
+    """
+
+    def __init__(self, *, obras=None, horas=None, partes=None, lineas=None,
+                 latencia_lectura: float = 0.0,
+                 latencia_escritura: float = 0.0) -> None:
+        from domain.models.registro_models import ObraEntrada, ParteDestino
+
+        self._ObraEntrada = ObraEntrada
+        self._ParteDestino = ParteDestino
+        self.obras = obras or {}
+        self.horas = horas or {}
+        self.partes: list[dict] = list(partes or [])
+        self.lineas: list[dict] = list(lineas or [])
+        self.latencia_lectura = latencia_lectura
+        self.latencia_escritura = latencia_escritura
+        self._siguiente_hmoide = 900
+        self._siguiente_hmores = 5000
+        self.llamadas: list[str] = []
+        # Concurrencia observada por metodo (para R18/R19).
+        self.concurrencia: dict[str, int] = {}
+        self.max_concurrencia: dict[str, int] = {}
+        self._verificador_lock = None
+
+    # -- instrumentacion --------------------------------------------------
+    def vigilar_lock(self, lock) -> None:
+        """Comprueba que la fase de escritura corre con el lock tomado."""
+        self._verificador_lock = lock
+
+    def _entrar(self, nombre: str, latencia: float):
+        import time
+        self.llamadas.append(nombre)
+        n = self.concurrencia.get(nombre, 0) + 1
+        self.concurrencia[nombre] = n
+        self.max_concurrencia[nombre] = max(
+            self.max_concurrencia.get(nombre, 0), n)
+        if latencia:
+            time.sleep(latencia)
+
+    def _salir(self, nombre: str) -> None:
+        self.concurrencia[nombre] = self.concurrencia.get(nombre, 1) - 1
+
+    def _lectura(self, nombre: str):
+        self._entrar(nombre, self.latencia_lectura)
+        self._salir(nombre)
+
+    # -- datos maestros (fase preparar) -----------------------------------
+    def obra_por_codigo(self, cod: str):
+        self._lectura("obra_por_codigo")
+        return self.obras.get(str(cod))
+
+    def obra_por_ide(self, ide: int):
+        self._lectura("obra_por_ide")
+        for o in self.obras.values():
+            if int(o.ide or 0) == int(ide):
+                return o
+        return None
+
+    def resides_por_dni(self, dnis):
+        self._lectura("resides_por_dni")
+        return {}
+
+    def horas_de_recursos(self, resides):
+        # La llamada mas pesada del pipeline y la que mas crece con el
+        # lote: es la que debe solaparse entre peticiones (R18).
+        self._entrar("horas_de_recursos", self.latencia_lectura)
+        try:
+            return {int(i): list(self.horas.get(int(i), []))
+                    for i in resides if i}
+        finally:
+            self._salir("horas_de_recursos")
+
+    # -- estado escrito (fase registrar, bajo lock) -----------------------
+    def _comprobar_lock(self, nombre: str) -> None:
+        if self._verificador_lock is not None \
+                and not self._verificador_lock.locked():
+            raise AssertionError(
+                f"{nombre} se ejecuto FUERA del lock de escritura")
+
+    def partes_existentes(self, obra_ide: int, periodos):
+        self._comprobar_lock("partes_existentes")
+        self._entrar("partes_existentes", self.latencia_lectura)
+        try:
+            out = {}
+            for ano, mes in sorted(set(periodos)):
+                hit = next((p for p in self.partes
+                            if p["obride"] == int(obra_ide)
+                            and p["ano"] == ano and p["mes"] == mes), None)
+                out[(ano, mes)] = (
+                    self._ParteDestino(ano=ano, mes=mes, existe=True,
+                                       ide=hit["ide"], cod=hit["cod"])
+                    if hit else
+                    self._ParteDestino(ano=ano, mes=mes, existe=False))
+            return out
+        finally:
+            self._salir("partes_existentes")
+
+    def siguiente_cod_pt(self, ano: int) -> str:
+        self._comprobar_lock("siguiente_cod_pt")
+        self._entrar("siguiente_cod_pt", self.latencia_lectura)
+        try:
+            yy = str(int(ano))[-2:]
+            usados = [int(p["cod"].split("/")[1]) for p in self.partes
+                      if p["cod"].startswith(f"PT{yy}/")]
+            return f"PT{yy}/{(max(usados) + 1 if usados else 1):05d}"
+        finally:
+            self._salir("siguiente_cod_pt")
+
+    def max_pos(self, hmoide: int) -> int:
+        self._comprobar_lock("max_pos")
+        self._lectura("max_pos")
+        pos = [l["pos"] for l in self.lineas if l["hmoide"] == int(hmoide)]
+        return max(pos) if pos else 0
+
+    def lineas_existentes(self, hmoide: int, resides, fechas):
+        self._comprobar_lock("lineas_existentes")
+        self._lectura("lineas_existentes")
+        res = {int(i) for i in resides if i}
+        fec = {int(f) for f in fechas if f}
+        if not res or not fec:
+            return []
+        return [self._a_linea_sigrid(l) for l in self.lineas
+                if l["hmoide"] == int(hmoide) and l["reside"] in res
+                and l["fec"] in fec]
+
+    def lineas_por_synckey(self, claves):
+        self._comprobar_lock("lineas_por_synckey")
+        self._lectura("lineas_por_synckey")
+        ks = {k for k in claves if k}
+        out = {}
+        for l in self.lineas:
+            if l.get("synckey") in ks:
+                out[l["synckey"]] = self._a_linea_sigrid(l)
+        return out
+
+    def _a_linea_sigrid(self, l: dict):
+        from domain.models.registro_models import LineaSigrid
+        ls = LineaSigrid(
+            ide=l["ide"], reside=l["reside"], fecha_int=l["fec"],
+            horide=l.get("horide"), hora_codigo=l.get("hora_codigo"),
+            can=l.get("can"), tot=l.get("tot"), synckey=l.get("synckey"),
+            nuestra=bool(l.get("synckey")))
+        setattr(ls, "hmoide", l["hmoide"])
+        return ls
+
+    # -- sentencias (opacas para el pipeline) -----------------------------
+    def stmts_crear_parte(self, *, obra, ano: int, mes: int, cod: str,
+                          desc: str) -> list[dict]:
+        return [{"op": "crear_parte", "obride": int(obra.ide), "ano": int(ano),
+                 "mes": int(mes), "cod": cod, "desc": desc}]
+
+    def stmt_insert_linea(self, *, hmoide, obra, reside, pos, fecha_int,
+                          horide, can, pre, paride, ano, mes, synckey,
+                          tex) -> dict:
+        return {"op": "insert", "hmoide": int(hmoide), "reside": int(reside),
+                "pos": int(pos), "fec": int(fecha_int), "horide": int(horide),
+                "can": float(can), "pre": float(pre),
+                "tot": round(float(can) * float(pre), 2),
+                "paride": int(paride or 0), "ano": int(ano), "mes": int(mes),
+                "synckey": synckey, "tex": tex}
+
+    @staticmethod
+    def stmt_borrar_linea(ide: int) -> dict:
+        return {"op": "borrar", "ide": int(ide)}
+
+    def escribir(self, statements: list[dict]) -> int:
+        self._comprobar_lock("escribir")
+        self._entrar("escribir", self.latencia_escritura)
+        try:
+            n = 0
+            for s in statements:
+                if s["op"] == "crear_parte":
+                    self._siguiente_hmoide += 1
+                    self.partes.append({
+                        "ide": self._siguiente_hmoide, "obride": s["obride"],
+                        "ano": s["ano"], "mes": s["mes"], "cod": s["cod"]})
+                elif s["op"] == "insert":
+                    self._siguiente_hmores += 1
+                    fila = dict(s)
+                    fila.pop("op")
+                    fila["ide"] = self._siguiente_hmores
+                    fila["hora_codigo"] = None
+                    self.lineas.append(fila)
+                elif s["op"] == "borrar":
+                    self.lineas = [l for l in self.lineas
+                                   if l["ide"] != s["ide"]]
+                n += 1
+            return n
+        finally:
+            self._salir("escribir")
+
+
 def parchear_colas(monkeypatch, modulo, servicio: QueueServiceClientFake):
     """Sustituye `QueueServiceClient` en el modulo adaptador indicado."""
     class _Factoria:
