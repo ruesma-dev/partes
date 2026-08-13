@@ -112,3 +112,64 @@ SQLite en memoria).
   `-poison`) y el contenedor blob `transfer` deben existir en
   `stpartespt7m3`; sv4 y sv5 acceden con la managed identity existente
   (`id-partes-dev`, roles de Storage ya concedidos en Fase 1).
+
+## Concurrencia en sv5 (ampliación 1 — aprobada por el humano)
+
+Contexto: el pipeline de registro tiene una fase de LECTURA/preparación
+(obra destino, resolución de recursos por DNI, carga de `reshor`, reglas)
+que es lo lento —llamadas a sigrid-api— y una fase de ESCRITURA que exige
+serialización por `MAX(ide)+1`. La ampliación paraleliza la primera y
+serializa la segunda bajo el MISMO lock de R7.
+
+- **R18** (ubicuo). El consumidor de `q-transfer` en sv5 debe procesar
+  hasta `TRANSFER_WORKERS` mensajes en paralelo (default 3, mínimo 1),
+  solapando las fases de preparación (`preparar`: pasos 1–4 del pipeline)
+  de peticiones distintas. Con `TRANSFER_WORKERS=1` el comportamiento es
+  el serial actual.
+
+- **R19** (estado). MIENTRAS una petición ejecuta su fase de escritura
+  (`registrar`), cualquier otra fase de escritura —de otro worker de cola
+  o del HTTP de pisado— debe esperar el lock: la fase `registrar` de una
+  petición es atómica frente a las demás. (Concreta R7: el lock es el
+  mismo y sigue siendo de proceso, réplica única.)
+
+- **R20** (ubicuo). Toda lectura de estado que la propia escritura
+  modifica —existencia del parte `hmo`, correlativo `PT<AA>/NNNNN`
+  (`siguiente_cod_pt`), líneas por synckey, conflictos— debe ejecutarse
+  DENTRO del lock, en la fase `registrar`. Fuera del lock solo se leen
+  datos maestros que sv5 nunca escribe (obras, recursos por DNI, `reshor`).
+
+- **R21** (ubicuo). El sistema no debe garantizar orden de terminación
+  entre peticiones: los resultados pueden publicarse en
+  `q-transfer-result` en orden distinto al de encolado. sv4 ya lo tolera
+  (marcado por `registro_id`, R12/R13); ningún componente nuevo debe
+  asumir orden.
+
+- **R22** (error). SI la petición de un worker falla en cualquier fase,
+  ENTONCES las demás peticiones en curso deben continuar y completarse, y
+  el pool de workers no debe morir; el fallo de esa petición se trata
+  según R9 (infraestructura) o R14 (pipeline).
+
+## Gestión de poison desde el portal (sv4 — ampliación 2, aprobada)
+
+- **R23** (estado). MIENTRAS `q-transfer-poison` o
+  `q-transfer-result-poison` tengan mensajes (recuento aproximado de la
+  API de Storage > 0), el portal debe mostrar un aviso con el recuento por
+  cola, visible sin salir del portal ni ir a Azure.
+
+- **R24** (evento). CUANDO el usuario acciona «reencolar» sobre una de las
+  dos colas poison, sv4 debe mover como máximo 32 mensajes de la `-poison`
+  a su cola principal, registrar en el log cada mensaje movido (id y
+  contenido) y responder `{movidos, restantes_aprox}`. Repetir la acción
+  es seguro: el procesamiento posterior es idempotente por synckey (R8) y
+  el marcado también (R13).
+
+- **R25** (error). SI el traslado de un mensaje falla entre encolarlo en
+  la cola principal y borrarlo de la poison, ENTONCES el mensaje puede
+  quedar duplicado pero nunca perderse: se borra de la poison SOLO tras
+  encolarse con éxito en la principal (el duplicado es inocuo por R8/R13).
+
+- **R26** (opcional). DONDE las colas NO estén configuradas (modo síncrono,
+  R3), el endpoint de recuento debe responder `{habilitado: false}`, la
+  acción de reencolar debe responder 409 y la UI no debe mostrar ni aviso
+  ni acción.
