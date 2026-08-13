@@ -1,0 +1,35 @@
+{
+  "$doc": "Declaración de los servicios del monorepo partes. La lee harness/servicios.py (validar con: python -m harness.servicios --validar). Ningún servicio declara 'venv': todos usan el intérprete que ejecuta el arnés (.venv de la raíz).",
+  "servicios": [
+    {
+      "nombre": "sv1-email",
+      "ruta": "services/partes-email",
+      "lenguaje": "python"
+    },
+    {
+      "nombre": "sv2-extraccion",
+      "ruta": "services/partes-api",
+      "lenguaje": "python"
+    },
+    {
+      "nombre": "sv3-persistencia",
+      "ruta": "services/partes-persistencia",
+      "lenguaje": "python"
+    },
+    {
+      "nombre": "sv4-front",
+      "ruta": "services/partes-front",
+      "lenguaje": "python"
+    },
+    {
+      "nombre": "sv5-transfer",
+      "ruta": "services/partes-transfer",
+      "lenguaje": "python"
+    },
+    {
+      "nombre": "infra",
+      "ruta": "infra",
+      "lenguaje": "otro"
+    }
+  ]
+}

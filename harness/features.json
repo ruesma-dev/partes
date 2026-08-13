@@ -1,0 +1,27 @@
+{
+  "$schema_doc": "Estados: pending -> spec_ready (aprueba humano) -> in_progress -> done. 'blocked' = parada con motivo en progress/current.md. Máximo UNA in_progress (lo valida init.sh). sdd=false salta la spec: 'acceptance' hace de mini-spec y el reviewer valida contra ella.",
+  "$rigor_doc": "El campo 'rigor' de cada feature declara cuanta evidencia se le exige: documental, estandar o critico (ver CHECKPOINTS.md y harness/rigor.json). Si una feature NO lo declara se le aplica el mas exigente: omitirlo no relaja nada.",
+  "$adaptar": "Sustituye la feature de ejemplo por el backlog real del proyecto. Deja una primera feature trivial de calentamiento: sirve para validar el circuito completo del arnés antes de jugarse nada. 'priority' ordena el backlog; el líder coge la primera no terminada.",
+  "rules": {
+    "one_feature_at_a_time": true,
+    "require_init_green_to_close": true,
+    "valid_status": ["pending", "spec_ready", "in_progress", "done", "blocked"]
+  },
+  "features": [
+    {
+      "id": "F-001",
+      "title": "[ADAPTAR] Feature de calentamiento",
+      "description": "Una tarea trivial (un comando version, un endpoint /health...) para validar el circuito completo del arnés en este proyecto: rama, spec o acceptance, implementer, reviewer y cierre.",
+      "acceptance": [
+        "[ADAPTAR] criterio observable 1",
+        "[ADAPTAR] criterio observable 2 (test sin red ni BBDD)",
+        "bash harness/init.sh en verde"
+      ],
+      "status": "pending",
+      "sdd": false,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-001-calentamiento"
+    }
+  ]
+}

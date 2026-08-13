@@ -13,3 +13,13 @@ logs/
 *.zip
 infra/*.local.ps1
 infra/graphkey_nobom.json
+
+# >>> ARNES-BASE: reglas anadidas por el instalador del arnes. >>>
+*.pdf
+*.docx
+*.xlsx
+*.pptx
+*.doc
+*.xls
+*.ppt
+# <<< ARNES-BASE: fin del bloque. <<<
