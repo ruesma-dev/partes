@@ -58,6 +58,7 @@ class QueueClientFake:
         self.enviados: list[str] = []
         self.borrados: list[str] = []
         self.on_agotado: Callable[[], None] | None = None
+        self.recepciones: list[dict] = []
         self.fallo_delete = False
         self.fallo_send = False
         self.mensajes_aprox = 0
@@ -70,6 +71,11 @@ class QueueClientFake:
 
     def receive_messages(self, messages_per_page: int = 1,
                          visibility_timeout: int | None = None):
+        # Se guardan los argumentos: el tamano de lote y el visibility no
+        # son decorativos (uno acota lo que se pierde ante SIGTERM, el
+        # otro cuanto tarda en reaparecer un mensaje fallido).
+        self.recepciones.append({"messages_per_page": messages_per_page,
+                                 "visibility_timeout": visibility_timeout})
         if self.rondas:
             return list(self.rondas.pop(0))
         if self.on_agotado is not None:
@@ -113,6 +119,11 @@ class BlobClientFake:
 
     def upload_blob(self, data, overwrite: bool = False,
                     content_settings=None) -> None:
+        if not overwrite and self._clave in self._almacen:
+            # Igual que el SDK real: sin overwrite, subir dos veces el
+            # mismo blob es un error.
+            from azure.core.exceptions import ResourceExistsError
+            raise ResourceExistsError(f"blob ya existe: {self._clave}")
         self._almacen[self._clave] = data
 
     def download_blob(self):
