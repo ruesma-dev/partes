@@ -319,8 +319,14 @@ test», así que no queda ningún análisis en `PENDIENTE`.
 
 ## Trazabilidad de requisitos
 
-Los 26 requisitos tienen al menos un test `test_f002_rN_*`. R15 (badges) y
-R16/R17 (infra) son los únicos con parte MANUAL; ver más abajo.
+23 de los 26 requisitos tienen al menos un test `test_f002_rN_*`. R15
+(badges) y R16/R17 (infra) son los tres únicos sin test, y la propia spec
+los declara de verificación MANUAL; ver más abajo.
+
+R11 **sí tiene test desde la review**: era el único requisito que se
+sostenía solo por inspección, y ahora lo cubre
+`services/partes-transfer/tests/test_f002_r11_sin_postgresql.py` (ver
+«Correcciones tras review»).
 
 ## Verificaciones MANUAL pendientes (del humano)
 
@@ -331,6 +337,13 @@ R16/R17 (infra) son los únicos con parte MANUAL; ver más abajo.
    az storage queue list --account-name stpartespt7m3 --auth-mode login -o table
    ```
    Debe listar `q-transfer`, `q-transfer-result` y sus `-poison`.
+
+   **Cambio tras la review**: el script ya no lee la clave de la cuenta;
+   todo va con `--auth-mode login`. Eso significa que **quien lo ejecute
+   necesita los roles de DATOS** sobre `stpartespt7m3` (Storage Queue Data
+   Contributor y Storage Blob Data Contributor): «Contributor» del plano de
+   control **no basta**. Si `az` responde `AuthorizationPermissionMismatch`,
+   es eso y no otra cosa. La cabecera del script lo deja escrito.
 2. **Comprobar que la escala de sv5 sigue intacta** (R16) — el propio
    script lo imprime al final; debe salir `Min 1 / Max 1`.
 3. **Badges en el navegador** (R15): con Azurite, aprobar un parte y, tras
@@ -342,6 +355,214 @@ R16/R17 (infra) son los únicos con parte MANUAL; ver más abajo.
    orden seguro ya existente (sv5 antes que sv4) es el correcto aquí.
 6. **Push y PR** de esta rama y del commit `1440598` en `azure-apps`.
 
+## Correcciones tras review
+
+Veredicto **CHANGES_REQUESTED** de `progress/review_F-002.md`: un cambio
+bloqueante, uno menor y dos mejoras sugeridas. Aplicados los cuatro, un
+commit por cambio.
+
+| # | Commit | Qué corrige |
+|---|---|---|
+| 1 | `5f51a82` | BLOQUEANTE: los tres paquetes `azure-*` en los manifiestos de sv4 y sv5 |
+| 2 | `36c1c68` | MENOR: `_settings()` en `test_f002_degradacion.py:44,48` |
+| 3 | `19f3347` | Mejora: `add_qtransfer_partes.ps1` sin clave de cuenta |
+| 4 | `c18173d` | Mejora: test guardián de R11 |
+
+Antes de empezar, el árbol traía dos ficheros marcados como modificados
+(`services/partes-front/infrastructure/azure/credenciales.py` y
+`services/partes-transfer/config/settings.py`). **No eran cambios**:
+`git diff --numstat` salía vacío y `git ls-files --eol` daba `i/lf w/crlf`
+en ambos. Era el rastro de los `git checkout` con los que el reviewer
+restauró sus roturas de RED, que reescribieron los ficheros con CRLF.
+Restaurados; el contenido nunca llegó a cambiar.
+
+### 1. BLOQUEANTE — los paquetes `azure-*` en los manifiestos
+
+El diagnóstico del reviewer era correcto y mi desviación 3 era **falsa**:
+los tres paquetes se instalaron en el `.venv` de la raíz, que es lo que
+ejecuta la suite, pero **no se declararon** en los `requirements.txt` que
+`build_images_partes.ps1` copia al contexto de build. La imagen no los
+habría instalado y sv4 y sv5 habrían muerto en el import de `main.py`. La
+desviación 3 del informe queda corregida arriba, diciendo lo que pasó.
+
+Añadidos a ambos manifiestos con los **mismos pines que sv3**:
+
+```
+$ grep -n "azure-" infra/manifests/sv4/requirements.txt infra/manifests/sv5/requirements.txt
+infra/manifests/sv4/requirements.txt:12:azure-identity>=1.17
+infra/manifests/sv4/requirements.txt:13:azure-storage-queue>=12.10
+infra/manifests/sv4/requirements.txt:14:azure-storage-blob>=12.20
+infra/manifests/sv5/requirements.txt:8:azure-identity>=1.17
+infra/manifests/sv5/requirements.txt:9:azure-storage-queue>=12.10
+infra/manifests/sv5/requirements.txt:10:azure-storage-blob>=12.20
+
+$ diff <(grep '^azure-' infra/manifests/sv3/requirements.txt) <(grep '^azure-' infra/manifests/sv4/requirements.txt) \
+  && diff <(grep '^azure-' infra/manifests/sv3/requirements.txt) <(grep '^azure-' infra/manifests/sv5/requirements.txt) \
+  && echo "PINES IDENTICOS A sv3"
+PINES IDENTICOS A sv3
+```
+
+Que las tres distribuciones declaradas son **exactamente** las que proveen
+los tres paquetes importados, comprobado contra los metadatos instalados y
+no de memoria:
+
+```
+$ python -c "from importlib.metadata import version; ..."
+azure.identity           <- azure-identity           instalado 1.25.3
+azure.storage.queue      <- azure-storage-queue      instalado 12.17.0
+azure.storage.blob       <- azure-storage-blob       instalado 12.30.0
+```
+
+El arranque simulado sin las librerías —la reproducción del reviewer— ya no
+es reproducible aquí, porque el fallo no estaba en el código sino en un
+fichero que la suite local no consume: la prueba de que está cerrado es que
+los manifiestos las declaran. Lo que **sí** queda comprobado de forma
+ejecutable es el caso de sv5, por el guardián nº 4: su test de manifiesto
+lee `infra/manifests/sv5/requirements.txt` de verdad y falla si su
+contenido no es el esperado.
+
+**Lo que este arreglo NO cubre, y conviene decirlo**: sigue sin haber nada
+que impida repetir el fallo en sv4 o en cualquier otro servicio. La causa
+raíz es la que el reviewer describe en su automejora nº 2 (la suite corre
+contra un `.venv`, el contenedor instala otro fichero, y ningún checkpoint
+cruza ambos). El arreglo correcto es esa comprobación en `init.sh`, que es
+decisión del humano y del arnés genérico; no la he improvisado aquí.
+
+### 2. MENOR — `_settings()` en el test de degradación
+
+Aplicado en las dos líneas. Antes de tocarlas comprobé que el problema era
+real y no teórico, **sin volcar ni modificar el `.env` del desarrollador**:
+
+```
+$ cd services/partes-front && python -c "..."
+sv4 resuelve el .env por ruta ABSOLUTA: C:\...\services\partes-front\.env
+  ese fichero existe en esta maquina: True
+
+El fichero .env es una FUENTE REAL de esta asercion:
+  Settings(_env_file=<fichero con COLAS_ACCOUNT_URL>).transfer_queue_enabled = True
+  Settings(_env_file=None).transfer_queue_enabled                            = False
+```
+
+Y la RED, simulando el `.env` de quien haya seguido la guía de trabajo
+local de esta misma feature (Azurite), que es la trampa concreta
+(`scratchpad/red_env_dependiente.py`, fuera del repositorio):
+
+```
+Simulando .env del desarrollador: .env con COLAS_CONNECTION_STRING=UseDevelopmentStorage=true
+
+--- Asercion ANTIGUA (linea 42, `Settings()` a pelo) ---
+  FALLA: AssertionError -> transfer_queue_enabled es True porque lo enciende
+  el .env del desarrollador, no el test
+
+--- Asercion NUEVA (`_settings()`, con _env_file=None) ---
+  PASA: el .env de la maquina es irrelevante
+```
+
+Se añade al test un docstring con el porqué, para que no vuelva a colarse.
+
+### 3. Mejora — `add_qtransfer_partes.ps1` sin clave de cuenta
+
+Las tres operaciones de datos (crear las cuatro colas, crear el contenedor
+y listar las colas) pasan a `--auth-mode login`, y desaparece todo el
+manejo de `$STKEY`. Rastro que queda de la clave, **cero**:
+
+```
+$ grep -n "account-key\|STKEY\|keys list" infra/add_qtransfer_partes.ps1
+(sin coincidencias)
+
+$ grep -n "auth-mode" infra/add_qtransfer_partes.ps1
+26:# Todo el acceso de datos va con --auth-mode login (el token de 'az login'),
+36:#     az storage queue list --account-name stpartespt7m3 --auth-mode login -o table
+78:                 "--account-name",$STORAGE,"--auth-mode","login",
+86:         "--account-name",$STORAGE,"--auth-mode","login",
+91:az storage queue list --account-name $STORAGE --auth-mode login `
+```
+
+Encoding respetado (el fichero es ASCII, CRLF, sin BOM; el repositorio lo
+guarda en LF vía `core.autocrlf`) y sintaxis validada con el parser real de
+PowerShell 5.1, porque el script **no lo ejecuta ningún test**:
+
+```
+$ file infra/add_qtransfer_partes.ps1
+infra/add_qtransfer_partes.ps1: ASCII text, with CRLF line terminators
+
+PS> [System.Management.Automation.Language.Parser]::ParseFile(...)
+PARSER OK: 0 errores de sintaxis (544 tokens) en PowerShell 5.1.26100.9168
+```
+
+**Contrapartida real, no gratuita**: `--auth-mode login` exige que **el
+humano que ejecute el script** tenga los roles de datos sobre el storage
+(Storage Queue/Blob Data Contributor). La Fase 1 se los concedió a la
+managed identity `id-partes-dev`, no necesariamente a la persona. Con
+`--account-key` bastaba «Contributor». Queda escrito en la cabecera del
+script y en la verificación MANUAL nº 1 de este informe, con el error
+concreto (`AuthorizationPermissionMismatch`) que se vería si falta.
+
+### 4. Mejora — test guardián de R11
+
+`services/partes-transfer/tests/test_f002_r11_sin_postgresql.py`, tres
+tests. Vigila las tres puertas por las que entraría una BBDD en sv5: los
+**imports** (con `ast`, no con `grep`, para que la mención en un comentario
+—o la propia lista de prohibidos de ese fichero— no cuente), el
+**manifiesto de despliegue** y los **campos de `Settings`** (R11 dice «ni
+conexión ni CREDENCIAL»).
+
+Un guardián que pasa el día que se escribe no demuestra nada, así que la
+RED se hizo inyectando las tres violaciones a la vez —un módulo con `from
+sqlalchemy.orm import Session`, `psycopg[binary]>=3.1` en el manifiesto y
+un campo `pg_password` en `Settings`— y revirtiéndolas después
+(`scratchpad/red_r11.py`, fuera del repositorio):
+
+```
+FFF                                                                      [100%]
+E   AssertionError: sv5 no debe tener BBDD (R11), pero estos modulos importan un
+    driver relacional: {'infrastructure/database/parte_repository.py': ['sqlalchemy']}...
+E   AssertionError: requirements.txt de sv5 declara paquetes de BBDD: ['psycopg']...
+E   AssertionError: Settings de sv5 expone campos de BBDD: ['pg_password']...
+=========================== short test summary info ===========================
+FAILED tests/test_f002_r11_sin_postgresql.py::test_f002_r11_ningun_modulo_de_sv5_importa_una_bbdd_relacional
+FAILED tests/test_f002_r11_sin_postgresql.py::test_f002_r11_el_manifiesto_de_sv5_no_declara_ninguna_bbdd
+FAILED tests/test_f002_r11_sin_postgresql.py::test_f002_r11_la_configuracion_de_sv5_no_expone_credenciales_de_bbdd
+3 failed in 0.44s
+
+--- revertido; git status del repo ---
+?? progress/review_F-002.md
+?? services/partes-transfer/tests/test_f002_r11_sin_postgresql.py
+```
+
+Cada uno falla por su motivo: ninguno pasa por casualidad ni tapa a otro.
+
+### Verificación final de las correcciones
+
+```
+$ bash harness/init.sh
+[OK] PUERTA COBERTURA: 97.4% de 648 líneas cambiadas cubiertas (631/648, umbral 80%, nivel critico)
+[OK] Rama actual: feature/F-002-cola-q-transfer
+ENTORNO LISTO. Puedes trabajar.
+    6 passed (raíz) · 112 passed (sv4) · 87 passed (sv5)
+
+$ cd services/partes-front  && python -m pytest tests -q   ->  112 passed in 4.64s
+$ cd services/partes-transfer && python -m pytest tests -q ->   87 passed in 2.77s
+```
+
+**La campaña de mutación NO se ha vuelto a lanzar, y con motivo medido**:
+ninguna corrección toca código de producción Python (son dos `.txt`, un
+`.ps1` y dos ficheros de test), así que el alcance y los mutantes son los
+mismos. Comprobado, no supuesto:
+
+```
+$ python -c "from harness.alcance import alcance_de_feature; ..."
+alcance: F-002: 24 fichero(s), 1630 línea(s) de producción
+mutantes generables sobre el alcance actual: 132
+```
+
+24 ficheros / 1630 líneas / 132 mutantes: **los mismos tres números** de la
+campaña del 17:46 y del recálculo independiente del reviewer. La campaña
+sigue siendo válida.
+
+Ruff sigue en **442 avisos**, los mismos de antes de las correcciones: los
+dos ficheros nuevos o tocados pasan `ruff check` limpios.
+
 ## Evidencias
 
 Medidos en la última pasada de `bash harness/init.sh` (en verde) y en
@@ -349,10 +570,10 @@ Medidos en la última pasada de `bash harness/init.sh` (en verde) y en
 
 | Evidencia | Valor |
 |---|---|
-| **Tests ejecutados** | **202**, todos en verde: 6 raíz + 112 sv4 + 84 sv5 |
-| **Cobertura de las líneas cambiadas** | **97,4 %** (631 de 648), umbral 80 %, nivel crítico |
-| **Mutantes generados / supervivientes** | **132 generados, 132 evaluados, 126 muertos, 0 supervivientes**, 6 timeouts (campaña completa, sin muestreo) |
-| **Tiempo de ejecución de la suite** | raíz 0,05 s · sv4 9,95 s · sv5 3,90 s (campaña de mutación: 1139,5 s) |
+| **Tests ejecutados** | **205**, todos en verde: 6 raíz + 112 sv4 + 87 sv5 (eran 202 antes de la review; +3 del guardián de R11) |
+| **Cobertura de las líneas cambiadas** | **97,4 %** (631 de 648), umbral 80 %, nivel crítico (sin cambio: las correcciones no tocan producción) |
+| **Mutantes generados / supervivientes** | **132 generados, 132 evaluados, 126 muertos, 0 supervivientes**, 6 timeouts (campaña completa, sin muestreo; alcance y recuento reconfirmados tras las correcciones) |
+| **Tiempo de ejecución de la suite** | raíz 0,05 s · sv4 9,35 s · sv5 3,97 s vía init.sh (directas: sv4 4,64 s · sv5 2,77 s; campaña de mutación: 1139,5 s) |
 
 Los 17 huecos de cobertura que quedan son, en su mayoría, la rama de
 `build_app` que construye `SessionFactory` contra PostgreSQL: no se puede
@@ -361,7 +582,8 @@ toquen.
 
 ## Estado del entorno al terminar
 
-`bash harness/init.sh` en **verde**. Avisos que quedan y NO son de esta
+`bash harness/init.sh` en **verde** (reejecutado tras aplicar las cuatro
+correcciones de la review). Avisos que quedan y NO son de esta
 feature: ruff con 442 avisos de deuda previa (F-002 no añade ninguno:
 eran 444 antes de empezar), y sv1, sv2, sv3 sin directorio de tests —sv4
 y sv5 ya no aparecen en esa lista, porque esta feature les ha creado la
