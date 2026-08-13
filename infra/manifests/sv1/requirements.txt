@@ -1,0 +1,10 @@
+# sv1-partes — webhook (FastAPI) + productor (blob + cola) + Job de suscripcion Graph
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.2
+httpx>=0.27
+pypdf>=4.2
+azure-identity>=1.17
+azure-storage-queue>=12.10
+azure-storage-blob>=12.20

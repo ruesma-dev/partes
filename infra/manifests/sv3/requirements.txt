@@ -1,0 +1,12 @@
+# sv3-partes — worker de persistencia (PostgreSQL + SharePoint via Graph + Sigrid)
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.2
+httpx>=0.27
+python-multipart>=0.0.9
+SQLAlchemy>=2.0
+psycopg[binary]>=3.1
+azure-identity>=1.17
+azure-storage-queue>=12.10
+azure-storage-blob>=12.20

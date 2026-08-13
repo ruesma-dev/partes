@@ -1,0 +1,7 @@
+# sv5-partes — registro de partes de trabajo en Sigrid (transfer).
+# NO usa PostgreSQL: sv4 le pasa las lineas en el payload.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.2
+httpx>=0.27
