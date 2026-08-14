@@ -20,7 +20,7 @@
 #     .\redeploy_sv4_partes.ps1
 #
 # Prerequisito: haber aplicado los cambios en
-#   C:\Users\pgris\PycharmProjects\partes-front
+#   services/partes-front (monorepo partes)
 # y estar logueado (az login) con AcrPush en 'acralbaranesdev'.
 
 param(
