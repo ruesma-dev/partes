@@ -22,13 +22,15 @@ if (-not (Test-Path $ManifestsRoot)) { throw "No encuentro 'manifests' en $Manif
 
 az account set --subscription $SUBSCRIPTION
 
-# --- AJUSTA estas rutas a tus 4 proyectos PyCharm de partes -----------------
+# --- Servicios del monorepo (rutas relativas a este script) -----------------
+# Desde 2026-08-13 el codigo vive en el monorepo `partes` (services/); las
+# carpetas sueltas partes-* quedaron archivadas y NO deben usarse para el build.
 $SVC = [ordered]@{
-    "sv1" = "C:\Users\pgris\PycharmProjects\partes-email"   # webhook (Tanda 3)
-    "sv2" = "C:\Users\pgris\PycharmProjects\partes-api"   # worker extraccion
-    "sv3" = "C:\Users\pgris\PycharmProjects\partes-persistencia"   # worker persistencia
-    "sv4" = "C:\Users\pgris\PycharmProjects\partes-front"   # portal
-    "sv5" = "C:\Users\pgris\PycharmProjects\partes-transfer"   # registro en Sigrid
+    "sv1" = (Join-Path $PSScriptRoot "..\services\partes-email")   # webhook (Tanda 3)
+    "sv2" = (Join-Path $PSScriptRoot "..\services\partes-api")   # worker extraccion
+    "sv3" = (Join-Path $PSScriptRoot "..\services\partes-persistencia")   # worker persistencia
+    "sv4" = (Join-Path $PSScriptRoot "..\services\partes-front")   # portal
+    "sv5" = (Join-Path $PSScriptRoot "..\services\partes-transfer")   # registro en Sigrid
 }
 
 $keys = if ($Solo.Count) { $Solo } else { @($SVC.Keys) }
