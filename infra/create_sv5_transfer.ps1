@@ -65,7 +65,11 @@ if ($ObraPruebasForzar -eq "true") {
     Write-Host "  Modo NORMAL: cada parte se registrara en SU obra (produccion)" -ForegroundColor Green
 }
 
-$existe = az containerapp show -n $APP -g $RG --query "name" -o tsv 2>$null
+# `containerapp show` de una app inexistente escribe en stderr y, con
+# ErrorActionPreference=Stop, PS 5.1 lo convierte en error terminante aunque
+# haya 2>$null: el alta moria justo en el caso "no existe". `list --query`
+# devuelve vacio sin tocar stderr.
+$existe = az containerapp list -g $RG --query "[?name=='$APP'].name" -o tsv
 if ($existe) {
     throw "El Container App '$APP' ya existe. Para republicar: .\redeploy_partes.ps1 -Solo sv5"
 }
@@ -124,7 +128,7 @@ if ($SinCablearSv4) {
     Write-Host "  az containerapp update -n $SV4APP -g $RG --set-env-vars TRANSFER_BASE_URL=$TRANSFER_URL" -ForegroundColor Yellow
 } else {
     Write-Host "`n=== Cableando sv4 ($SV4APP): TRANSFER_BASE_URL ===" -ForegroundColor Green
-    $sv4Existe = az containerapp show -n $SV4APP -g $RG --query "name" -o tsv 2>$null
+    $sv4Existe = az containerapp list -g $RG --query "[?name=='$SV4APP'].name" -o tsv
     if (-not $sv4Existe) {
         Write-Warning "No existe ${SV4APP}: crealo con create_sv4_front.ps1 y luego fija TRANSFER_BASE_URL=$TRANSFER_URL"
     } else {
