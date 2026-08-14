@@ -126,7 +126,7 @@ if ($SinCablearSv4) {
     Write-Host "`n=== Cableando sv4 ($SV4APP): TRANSFER_BASE_URL ===" -ForegroundColor Green
     $sv4Existe = az containerapp show -n $SV4APP -g $RG --query "name" -o tsv 2>$null
     if (-not $sv4Existe) {
-        Write-Warning "No existe $SV4APP: crealo con create_sv4_front.ps1 y luego fija TRANSFER_BASE_URL=$TRANSFER_URL"
+        Write-Warning "No existe ${SV4APP}: crealo con create_sv4_front.ps1 y luego fija TRANSFER_BASE_URL=$TRANSFER_URL"
     } else {
         $suf = "r" + (Get-Date -Format "yyyyMMddHHmmss")
         Run-Az @("containerapp","update","-n",$SV4APP,"-g",$RG,
