@@ -116,7 +116,10 @@ $envComunes = @(
 foreach ($par in @(@{App=$SV5APP; Extra=@("TRANSFER_WORKERS=$TransferWorkers")},
                    @{App=$SV4APP; Extra=@()})) {
     $app = $par.App
-    $existe = az containerapp show -n $app -g $RG --query "name" -o tsv 2>$null
+    # `containerapp show` de una app inexistente escribe en stderr y, con
+    # ErrorActionPreference=Stop, PS 5.1 lo convierte en error terminante
+    # aunque haya 2>$null. `list --query` devuelve vacio sin tocar stderr.
+    $existe = az containerapp list -g $RG --query "[?name=='$app'].name" -o tsv
     if (-not $existe) {
         Write-Warning "No existe $app : fija a mano las variables (ver abajo)."
         continue
