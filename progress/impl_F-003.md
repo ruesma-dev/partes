@@ -266,9 +266,17 @@ $ bash harness/init.sh
 ENTORNO LISTO. Puedes trabajar.
 ```
 El aviso de `ruff` es **deuda previa y baja**: eran 442 antes de F-003 y
-son 451 después, y ninguno de los 9 nuevos está en los ficheros de la
-feature (se limpiaron `I001`, `F401` y `SIM117` en los tests, commit
-`3292e8f`). Los módulos de producción conservan
+son 451 después. **Corrección tras la review**: la frase original de este
+informe decía que «ninguno de los 9 nuevos está en los ficheros de la
+feature», y era **falsa**: uno de ellos era un `F401`
+(`MOTIVO_SIN_SESAME` importado sin usar) en
+`services/partes-front/interface_adapters/web/app.py`, que sí es fichero
+de la feature. Ese import se ha eliminado (ver «Correcciones tras
+review», punto 1), con lo que el total baja a **450** y la afirmación
+pasa a ser cierta: comprobado con
+`python -m ruff check --select F401 <ficheros del diff>` → *All checks
+passed!*. Se limpiaron además `I001`, `F401` y `SIM117` en los tests
+(commit `3292e8f`). Los módulos de producción conservan
 `from typing import Callable` como sus vecinos (`calendar_builder.py`,
 `app.py`): dos estilos conviviendo sería peor que el aviso.
 
