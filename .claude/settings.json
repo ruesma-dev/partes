@@ -43,8 +43,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash harness/init.sh > /tmp/harness_init.log 2>&1 && echo '[arnes] init.sh OK' || (echo '[arnes] init.sh FALLO - revisa antes de cerrar:' && tail -20 /tmp/harness_init.log)",
-            "description": "Al terminar cada turno, fuerza una verificación completa del entorno."
+            "command": "ARNES_SALTAR_SUITES=1 bash harness/init.sh > /tmp/harness_init.log 2>&1 && echo '[arnes] init.sh OK (portero ligero)' || (echo '[arnes] init.sh FALLO - revisa antes de cerrar:' && tail -20 /tmp/harness_init.log)",
+            "description": "Al terminar cada turno, portero ligero (sin suites: las corre el portero completo en arranque y cierre de feature)."
           }
         ]
       }

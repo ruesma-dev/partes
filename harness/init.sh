@@ -34,6 +34,12 @@ RAMA_BASE=dev            # rama de integración contra la que se calcula el
                          # diff de la feature (puerta de cobertura y mutación)
 COMPROBACIONES_EXTRA=0   # 1 para activar la sección 9 (personalizada)
 
+# Modo ligero (para hooks): con ARNES_SALTAR_SUITES=1 el portero salta las
+# suites de tests y la puerta de cobertura, avisándolo en cada sección. NO
+# vale para cerrar una feature: el cierre exige el portero completo
+# (`bash harness/init.sh` a secas).
+SALTAR_SUITES="${ARNES_SALTAR_SUITES:-0}"
+
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -252,7 +258,9 @@ fi
 # --- 7. Tests (los unit tests no necesitan red ni BBDD) ---------------------
 # Si la medición de cobertura está disponible, la suite se ejecuta bajo ella
 # para que la puerta de la sección 7b tenga datos con los que trabajar.
-if [ "$ES_PYTHON" -eq 1 ]; then
+if [ "$SALTAR_SUITES" -eq 1 ]; then
+    warn "Portero ligero (ARNES_SALTAR_SUITES=1): suite de la raíz saltada — NO vale para cerrar una feature"
+elif [ "$ES_PYTHON" -eq 1 ]; then
     if [ -d "tests" ]; then
         if $PY -c "import coverage" >/dev/null 2>&1; then
             rm -f coverage.json
@@ -319,6 +327,28 @@ if [ -f "harness/servicios.json" ]; then
                     warn "servicio $NOMBRE ($RUTA): sin directorio de tests — NADIE está comprobando los tests de $NOMBRE"
                     continue
                 fi
+                if [ "$SALTAR_SUITES" -eq 1 ]; then
+                    warn "servicio $NOMBRE ($RUTA): suite saltada (portero ligero)"
+                    continue
+                fi
+                # Caché de suite: si el árbol del servicio no ha cambiado desde
+                # su último verde (mismo árbol commiteado y sin ficheros sucios
+                # en su ruta), la suite se salta. Cualquier edición, commit o
+                # fichero nuevo bajo la ruta del servicio invalida la caché.
+                HASH_SRV=$(git rev-parse "HEAD:$RUTA" 2>/dev/null)
+                SUCIO_SRV=$(git status --porcelain -- "$RUTA" 2>/dev/null | head -n 1)
+                CACHE_SRV=".arnes_cache/suite_${NOMBRE}.ok"
+                if [ -n "$HASH_SRV" ] && [ -z "$SUCIO_SRV" ] && [ -f "$CACHE_SRV" ] \
+                   && [ "$(cat "$CACHE_SRV" 2>/dev/null)" = "$HASH_SRV" ]; then
+                    # Con coverage disponible, solo vale la caché si el
+                    # coverage.json de ese mismo árbol sigue ahí (la puerta
+                    # de la sección 7b puede necesitarlo).
+                    if ! "$INTERPRETE" -c "import coverage" >/dev/null 2>&1 \
+                       || [ -f "$RUTA/coverage.json" ]; then
+                        ok "servicio $NOMBRE ($RUTA): pytest en verde (caché: árbol sin cambios desde el último verde)"
+                        continue
+                    fi
+                fi
                 if "$INTERPRETE" -c "import coverage" >/dev/null 2>&1; then
                     ( cd "$RUTA" && rm -f coverage.json \
                       && "$INTERPRETE" -m coverage run -m pytest -q --tb=short -x )
@@ -332,10 +362,19 @@ if [ -f "harness/servicios.json" ]; then
                 fi
                 if [ "$RESULTADO" -eq 0 ]; then
                     ok "servicio $NOMBRE ($RUTA): pytest en verde"
+                    # Solo se cachea un verde de árbol limpio: el hash describe
+                    # el árbol commiteado, no el estado sucio.
+                    if [ -n "$HASH_SRV" ] && [ -z "$SUCIO_SRV" ]; then
+                        mkdir -p .arnes_cache && printf '%s' "$HASH_SRV" > "$CACHE_SRV"
+                    fi
                 else
                     ko "servicio $NOMBRE ($RUTA): pytest en rojo"
                 fi
             elif [ -n "$COMANDO" ]; then
+                if [ "$SALTAR_SUITES" -eq 1 ]; then
+                    warn "servicio $NOMBRE ($RUTA): tests saltados (portero ligero)"
+                    continue
+                fi
                 warn "servicio $NOMBRE ($RUTA): lenguaje '$LENGUAJE', se saltan compilación, lint y pytest"
                 ( cd "$RUTA" && eval "$COMANDO" )
                 RESULTADO=$?
@@ -364,7 +403,9 @@ fi
 # La campaña de mutación NO corre aquí: es cara (minutos). Se lanza aparte con
 #     python -m harness.mutacion --feature F-XXX
 # y el reviewer la comprueba por progress/mutacion_F-XXX.md (ver C4 bis).
-if [ "$ES_PYTHON" -eq 1 ] && [ -n "$PY" ]; then
+if [ "$SALTAR_SUITES" -eq 1 ]; then
+    warn "PUERTA COBERTURA saltada (portero ligero): corre en el portero completo"
+elif [ "$ES_PYTHON" -eq 1 ] && [ -n "$PY" ]; then
     SALIDA_COBERTURA=$($PY -m harness.cobertura --base "$RAMA_BASE" --config harness/rigor.json 2>&1)
     if [ $? -eq 0 ]; then
         ok "$SALIDA_COBERTURA"
