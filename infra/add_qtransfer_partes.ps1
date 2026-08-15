@@ -108,7 +108,10 @@ $envComunes = @(
     "BLOBS_ACCOUNT_URL=$BLOB_URL",
     "COLA_TRANSFER=$COLA_TRANSFER",
     "COLA_TRANSFER_RESULT=$COLA_RESULT",
-    "BLOB_TRANSFER=$CONTENEDOR"
+    "BLOB_TRANSFER=$CONTENEDOR",
+    # DefaultAzureCredential con identidad user-assigned necesita el client
+    # id; sin esto la app no obtiene token de Storage (igual que en sv3).
+    "AZURE_CLIENT_ID=$MI_CLIENTID"
 )
 
 # Orden de despliegue: primero sv5 (el consumidor) y luego sv4 (el productor).

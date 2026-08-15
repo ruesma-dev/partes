@@ -82,6 +82,10 @@ $sv5Env = @(
     # --- API / uvicorn: ESCUCHAR EN 0.0.0.0 dentro del contenedor ---
     "API_HOST=0.0.0.0", "API_PORT=8005",
     "LOG_DIR=/tmp/logs", "LOG_LEVEL=INFO",
+    # --- Identidad user-assigned: DefaultAzureCredential necesita saber CUAL
+    #     usar; sin AZURE_CLIENT_ID intenta la system-assigned y falla (igual
+    #     que ya hace sv3) ---
+    "AZURE_CLIENT_ID=$MI_CLIENTID",
     # --- Sigrid con ESCRITURA: solo la base real 'ruesma' (nunca la replica) ---
     "SIGRID_API_BASE_URL=$SIGRID_BASE_URL",
     "SIGRID_API_FUNCTION_KEY=secretref:sigrid-key",
