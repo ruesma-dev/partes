@@ -135,6 +135,10 @@
 </div>
 {% endif %}
 
+{% if sesame_degradado %}
+<div class="alert warn sesame-degradado">⚠ El calendario puede no ser exacto: <strong>Sesame no disponible</strong>. Los festivos y los avisos de jornada incompleta salen del respaldo local, no del calendario real del trabajador.</div>
+{% endif %}
+
 {% if not sigrid_enabled %}
 <div class="alert info">El desplegable de codigo de hora esta vacio: Sigrid no esta configurado en este portal (variables <code>SIGRID_API_*</code>).</div>
 {% endif %}

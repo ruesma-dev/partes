@@ -54,6 +54,10 @@
   </div>
 </div>
 
+{% if sesame_degradado %}
+<div class="alert warn sesame-degradado">⚠ El calendario puede no ser exacto: <strong>Sesame no disponible</strong>. Los festivos de la cabecera y los avisos de jornada incompleta salen del respaldo local, no del calendario real de cada trabajador.</div>
+{% endif %}
+
 <div class="panel cal-panel">
   <div class="panel-header cal-head">
     <div>

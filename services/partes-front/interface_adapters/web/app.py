@@ -515,16 +515,25 @@ def build_app(
         if selected is None and period_options:
             selected = parse_period_key(period_options[0].key)
 
+        # Festivos DE ESTE TRABAJADOR (R2/R3): antes de F-003 el
+        # calendario era global y a quien no fuera de Madrid le salian
+        # avisos de jornada incompleta en dias que para el eran fiesta.
         calendar = None
+        anos_consultados: set[int] = set()
         if selected is not None:
             y, m = selected
             calendar = build_calendar(
                 year=y,
                 month=m,
                 per_day=per_day,
-                holiday_name=holiday_provider.name,
+                holiday_name=calendario_provider.holiday_name_para(detail.dni),
                 mode=mode,
             )
+            anos_consultados = {
+                int(_d.date_iso[:4])
+                for _w in calendar.weeks for _d in _w
+                if _d.in_period and _d.date_iso
+            }
 
         # Cantidad por defecto (CanDefecto) del recurso, para diagnostico.
         # Se distingue 0 de None (un 0 significa que Sigrid no tiene la
@@ -568,6 +577,14 @@ def build_app(
                             < candef_efectivo - 1e-9):
                         dias_incompletos.add(_day.date_iso)
 
+        # R22: si alguna resolucion de calendario de esta vista salio de
+        # la cache caducada o del respaldo, se avisa EN LA PANTALLA. La
+        # vista se sirve igual (nivel 1 de D2), pero el usuario tiene que
+        # saber que los festivos pueden no estar al dia.
+        sesame_degradado = not calendario_provider.fiable_para(
+            (detail.dni, ano) for ano in anos_consultados
+        )
+
         context = {
             "request": request,
             "title": settings.app_title,
@@ -576,6 +593,7 @@ def build_app(
             "candef_recurso": candef_recurso,
             "candef_kpi": candef_kpi,
             "dias_incompletos": dias_incompletos,
+            "sesame_degradado": sesame_degradado,
             "extras": extras_por_jornada(detail.registros),
             "period_options": period_options,
             "selected_period": calendar.period_key if calendar else None,
@@ -626,9 +644,12 @@ def build_app(
         message: str | None = Query(default=None),
     ) -> HTMLResponse:
         mode = normalize_mode(modo)
+        # La COLUMNA se tinta con el calendario por defecto (D6): una
+        # consulta, no una por fila x dia. La exactitud por trabajador
+        # vive donde importa, en los avisos de jornada incompleta.
         detail = repository.get_obra(
             obra_key, period_key=period, mode=mode,
-            holiday_name=holiday_provider.name,
+            holiday_name=calendario_provider.holiday_name_para(None),
             sin_extra_resolver=recursos_sin_extra_resolver,
         )
         if detail is None:
@@ -659,15 +680,27 @@ def build_app(
             if _nom not in _candef_real or _v < _candef_real[_nom]:
                 _candef_real[_nom] = _v
         incompletos: set[str] = set()
+        _consultas: set[tuple[str | None, int]] = set()
         for _row in detail.rows:
             _real = _candef_real.get(_row.nombre or "")
             _eff = jornada_efectiva(_real, minimo=_cd_min, por_defecto=_cd_jor)
+            # Festivo SEGUN EL CALENDARIO DE ESTA FILA (R2): la columna
+            # pinta el calendario por defecto, pero el aviso no puede
+            # heredar los festivos de otra provincia.
+            _es_festivo = calendario_provider.holiday_name_para(_row.dni)
             for _c in _row.cells:
-                if _c.is_weekend or _c.is_holiday:
+                if not _c.date_iso:
+                    continue
+                _fecha = date.fromisoformat(_c.date_iso)
+                _consultas.add((_row.dni, _fecha.year))
+                if _c.is_weekend or _es_festivo(_fecha):
                     continue
                 if 0.0 < (_c.normal or 0.0) < _eff - 1e-9:
                     incompletos.add((_row.nombre or "") + "|"
                                     + (_c.date_iso or ""))
+        _dias_periodo = {int(d.date_iso[:4]) for d in detail.days if d.date_iso}
+        _consultas.update((None, ano) for ano in _dias_periodo)
+        sesame_degradado = not calendario_provider.fiable_para(_consultas)
 
         context = {
             "request": request,
@@ -680,6 +713,7 @@ def build_app(
             "candef_minimo": settings.candef_minimo_valido,
             "jornada_defecto": settings.jornada_por_defecto,
             "incompletos": incompletos,
+            "sesame_degradado": sesame_degradado,
             "period_mode": mode,
             "sigrid_enabled": settings.sigrid_lookup_enabled,
             "preview_enabled": settings.preview_enabled,

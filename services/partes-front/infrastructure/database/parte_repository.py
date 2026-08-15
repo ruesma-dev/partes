@@ -290,6 +290,10 @@ class ObraMatrixRow:
     # Si no lo tiene, sus horas NO cuentan en totales (KPIs, dia, obra).
     recurso_ide: Optional[int] = None
     tiene_extra: bool = True
+    # DNI del trabajador (empleado_dni, o el CIF del recurso). F-003 lo
+    # necesita para evaluar el festivo de CADA fila con el calendario de
+    # su propietario; la clave visual de la matriz sigue siendo el nombre.
+    dni: Optional[str] = None
 
 
 @dataclass
@@ -957,6 +961,7 @@ class ParteReviewRepository:
                 categoria=w.get("categoria"),
                 recurso_ide=w.get("recurso_ide"),
                 tiene_extra=tiene_extra,
+                dni=w.get("dni"),
             ))
         rows.sort(key=lambda r: (0 if r.matched else 1, _norm(r.nombre)))
 
