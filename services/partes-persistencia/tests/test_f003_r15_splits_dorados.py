@@ -12,7 +12,6 @@ altera un reparto, aqui salta.
 from __future__ import annotations
 
 import pytest
-
 from application.services.recurso_conciliador import RecursoConciliador
 from tests.dobles import (
     CalendarioFake,

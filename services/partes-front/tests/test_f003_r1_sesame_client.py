@@ -10,7 +10,6 @@ import logging
 
 import httpx
 import pytest
-
 from infrastructure.sesame.sesame_api_client import (
     FestivoDia,
     JornadaContrato,
@@ -246,9 +245,8 @@ def test_f003_r20_el_log_de_instanciacion_no_lleva_la_clave(caplog) -> None:
 
 def test_f003_r20_los_errores_no_llevan_la_clave(caplog) -> None:
     c = _cliente(_fijo(UPSTREAM_KO, 502))
-    with caplog.at_level(logging.DEBUG):
-        with pytest.raises(RuntimeError) as exc:
-            c.festivos("12345678Z", 2026)
+    with caplog.at_level(logging.DEBUG), pytest.raises(RuntimeError) as exc:
+        c.festivos("12345678Z", 2026)
     assert CLAVE not in str(exc.value)
     assert CLAVE not in caplog.text
 

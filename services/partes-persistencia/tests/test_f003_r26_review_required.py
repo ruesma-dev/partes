@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import logging
 
-import pytest
-
 from application.services.recurso_conciliador import RecursoConciliador
 from domain.models.sigrid_models import RecursoRow
 from tests.dobles import (
@@ -181,10 +179,11 @@ def test_f003_r26_la_senal_no_se_arrastra_entre_pasadas() -> None:
 
 def test_f003_r26_fetch_registros_trae_el_document_id() -> None:
     """Sin el `document_id` en el dict no habria a que parte marcar."""
+    import inspect
+
     from infrastructure.database.sqlalchemy_parte_repository import (
         SqlAlchemyParteRepository,
     )
-    import inspect
 
     fuente = inspect.getsource(
         SqlAlchemyParteRepository.fetch_registros_para_recurso)
@@ -193,14 +192,13 @@ def test_f003_r26_fetch_registros_trae_el_document_id() -> None:
 
 def test_f003_r26_marcar_review_required_solo_sube_el_flag() -> None:
     """Sobre SQLite en memoria con el ORM real."""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from sqlalchemy.pool import StaticPool
-
     from infrastructure.database.orm_models import Base, ParteDocumentOrm
     from infrastructure.database.sqlalchemy_parte_repository import (
         SqlAlchemyParteRepository,
     )
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
 
     class Fabrica:
         def __init__(self) -> None:

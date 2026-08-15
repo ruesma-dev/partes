@@ -16,7 +16,6 @@ import logging
 from datetime import date
 
 import pytest
-
 from application.services.calendario_provider import CalendarioProvider
 from infrastructure.sesame.sesame_api_client import (
     FestivoDia,
@@ -345,8 +344,6 @@ def test_f003_r6_justo_en_el_ttl_la_entrada_ya_ha_caducado() -> None:
 def test_f003_r4_el_dia_resuelto_es_inmutable() -> None:
     """Viaja a la plantilla y al JSON: nadie lo retoca por el camino."""
     import dataclasses
-
-    from application.services.calendario_provider import DiaCalendario
 
     dia = _provider(ClienteFake(festivos=[])).dia(date(2026, 5, 18), None)
     with pytest.raises(dataclasses.FrozenInstanceError):

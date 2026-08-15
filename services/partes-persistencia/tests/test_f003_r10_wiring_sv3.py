@@ -17,7 +17,6 @@ from __future__ import annotations
 import logging
 
 import pytest
-
 from application.services.recurso_conciliador import RecursoConciliador
 from config.settings import Settings
 from infrastructure.calendario.json_calendario_laboral import (

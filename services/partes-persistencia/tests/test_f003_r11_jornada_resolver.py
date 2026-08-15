@@ -10,7 +10,6 @@ numero tiene que salir exactamente igual que hoy.
 from __future__ import annotations
 
 import pytest
-
 from application.services.jornada_resolver import (
     candef_valido,
     jornada_efectiva,

@@ -10,12 +10,11 @@ F-003 prepara el enchufe de Sesame, no cambia ningun numero (R15).
 from __future__ import annotations
 
 import pytest
+from application.services.jornada_resolver import jornada_efectiva
 from config.settings import Settings
 from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
-
-from application.services.jornada_resolver import jornada_efectiva
 from tests.dobles import FabricaSesionSqlite, sembrar_dias
 
 

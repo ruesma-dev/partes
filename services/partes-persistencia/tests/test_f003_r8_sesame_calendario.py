@@ -16,7 +16,6 @@ import logging
 
 import httpx
 import pytest
-
 from infrastructure.calendario.sesame_calendario_laboral import (
     SesameCalendarioLaboral,
 )

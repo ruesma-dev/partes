@@ -15,7 +15,6 @@ from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
 from infrastructure.sesame.sesame_api_client import JornadaContrato
 from interface_adapters.web.app import build_app
-
 from tests.dobles import FabricaSesionSqlite, sembrar_dias
 from tests.test_f003_r2_vistas_festivos import ProveedorFake
 

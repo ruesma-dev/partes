@@ -15,10 +15,8 @@ import json
 from typing import Any, Callable
 
 import httpx
-
 from domain.models.sigrid_models import ReshorRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
-
 
 # ------------------------------ calendario ------------------------------ #
 

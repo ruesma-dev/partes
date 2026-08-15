@@ -16,12 +16,11 @@ from __future__ import annotations
 from datetime import date
 
 import pytest
+from application.services.calendario_provider import DiaCalendario
 from config.settings import Settings
 from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
-
-from application.services.calendario_provider import DiaCalendario
 from tests.dobles import FabricaSesionSqlite, sembrar_dias
 
 #: 2026-05-15 (viernes) es festivo SOLO para el DNI de Pepe; 2026-05-14
