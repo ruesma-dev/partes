@@ -29,9 +29,14 @@ from application.services.partida_conciliador import PartidaConciliador
 from application.services.recurso_conciliador import RecursoConciliador
 from application.services.sigrid_matcher_provider import SigridMatcherProvider
 from config.settings import Settings
+from domain.ports.calendario_laboral_port import CalendarioLaboralPort
 from infrastructure.calendario.json_calendario_laboral import (
     JsonCalendarioLaboral,
 )
+from infrastructure.calendario.sesame_calendario_laboral import (
+    SesameCalendarioLaboral,
+)
+from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.session_factory import SessionFactory
 from infrastructure.database.sqlalchemy_parte_repository import (
     SqlAlchemyParteRepository,
@@ -39,6 +44,43 @@ from infrastructure.database.sqlalchemy_parte_repository import (
 from infrastructure.sigrid.sigrid_api_client import SigridApiClient
 
 logger = logging.getLogger(__name__)
+
+
+def construir_calendario(settings: Settings) -> CalendarioLaboralPort:
+    """El calendario laboral que usara el computo de extras (F-003).
+
+    Con SESAME_API_* configurado, los festivos REALES de cada trabajador
+    (por su DNI) con el JSON local de respaldo. Sin ellas, el JSON de
+    siempre y ni una llamada de red: la feature va apagada hasta que
+    sesame-api este desplegado.
+
+    Esta funcion vive fuera de `build_app` porque `build_app` monta la
+    SessionFactory contra PostgreSQL y no se puede levantar en la suite;
+    el cableado del calendario si tiene que estar cubierto.
+    """
+    respaldo = JsonCalendarioLaboral(path=settings.calendario_laboral_path)
+    if not settings.sesame_enabled:
+        logger.info(
+            "[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los "
+            "festivos salen del JSON local %s.",
+            settings.calendario_laboral_path,
+        )
+        return respaldo
+    cliente = SesameApiClient(
+        base_url=settings.sesame_api_base_url,   # type: ignore[arg-type]
+        api_key=settings.sesame_api_key,         # type: ignore[arg-type]
+        timeout_s=settings.sesame_api_timeout_s,
+    )
+    logger.info(
+        "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s "
+        "(respaldo: %s)",
+        settings.sesame_api_base_url, len(settings.sesame_api_key or ""),
+        settings.sesame_cache_ttl_s, settings.calendario_laboral_path,
+    )
+    return SesameCalendarioLaboral(
+        cliente=cliente, respaldo=respaldo,
+        ttl_seconds=settings.sesame_cache_ttl_s,
+    )
 
 
 def build_app(settings: Settings) -> FastAPI:
@@ -87,9 +129,7 @@ def build_app(settings: Settings) -> FastAPI:
         recurso_conciliador = RecursoConciliador(
             repository=repository,
             lookup=sigrid_client,
-            calendario=JsonCalendarioLaboral(
-                path=settings.calendario_laboral_path
-            ),
+            calendario=construir_calendario(settings),
             jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
             candef_minimo=settings.candef_minimo_valido,
         )
