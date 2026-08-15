@@ -61,9 +61,26 @@ $sv4Env = @(
     # --- Graph: visor del PDF (drive/item se toman del propio parte) ---
     "GRAPH_KEY=secretref:graph-key", "GRAPH_TIMEOUT_S=60",
     "SHAREPOINT_DRIVE_ID=$($SP['SHAREPOINT_DRIVE_ID'])",
-    # --- Festivos del calendario ---
+    # --- Festivos del calendario (RESPALDO de sesame-api, ver mas abajo) ---
     "HOLIDAYS_ENABLED=true", "HOLIDAYS_SUBDIV=MD"
 )
+
+# --- sesame-api (F-003): festivos reales por trabajador ---------------------
+# Solo se cablea si $SESAME_BASE_URL tiene valor (mira 00_vars_partes.ps1).
+# Sin ella, sv4 sale con la integracion APAGADA y usa su calendario de
+# festivos local: exactamente el comportamiento anterior a F-003.
+if ($SESAME_BASE_URL) {
+    $sv4Secrets += "sesame-key=$(KvRef 'SESAME-API-KEY')"
+    $sv4Env += @(
+        "SESAME_API_BASE_URL=$SESAME_BASE_URL",
+        "SESAME_API_KEY=secretref:sesame-key",
+        "SESAME_API_TIMEOUT_S=10",
+        "SESAME_CACHE_TTL_S=21600"
+    )
+    Write-Host "[sv4] sesame-api CABLEADO ($SESAME_BASE_URL)" -ForegroundColor Cyan
+} else {
+    Write-Host "[sv4] sesame-api NO cableado (SESAME_BASE_URL vacia): festivos locales" -ForegroundColor DarkGray
+}
 
 $a = @("containerapp","create","-n","ca-sv4-front","-g",$RG,"--environment",$CAE,
        "--image","$ACR_LOGIN/$($IMG['sv4'])",

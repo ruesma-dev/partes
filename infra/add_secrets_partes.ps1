@@ -17,6 +17,7 @@ $secretos = [ordered]@{
     "GEMINI-API-KEY"          = "clave de Gemini (sv2, primario)"
     "ANTHROPIC-API-KEY"       = "clave de Anthropic (sv2, alterno) - opcional"
     "OPENAI-API-KEY"          = "clave de OpenAI (sv2, alterno) - opcional"
+    "SESAME-API-KEY"          = "clave de partes en sesame-api, cabecera x-api-key (sv3 y sv4) - opcional hasta que sesame-api este desplegado"
 }
 
 foreach ($nombre in $secretos.Keys) {

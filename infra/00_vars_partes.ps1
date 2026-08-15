@@ -60,5 +60,23 @@ $Global:MY_IP = "AUTO"                 # o "88.x.x.x"
 # --- sigrid-api (informativo) ----------------------------------------------
 $Global:SIGRID_BASE_URL = "https://func-sigridapi-dev-huyke.azurewebsites.net"
 
+# --- sesame-api (F-003): festivos reales por trabajador ---------------------
+# VACIO A PROPOSITO: sesame-api todavia NO esta desplegado en Azure (su
+# codigo ni siquiera esta commiteado; es la peticion P2 del design de
+# F-003). Mientras esto siga vacio, sv3 y sv4 se despliegan con la
+# integracion APAGADA y usan su calendario de festivos local, que es el
+# comportamiento de siempre.
+#
+# Cuando sesame-api este desplegado:
+#   1. pon aqui su URL en tu copia 00_vars_partes.local.ps1 (NO en esta,
+#      que se versiona),
+#   2. carga la clave de partes en el Key Vault con add_secrets_partes.ps1
+#      (secreto SESAME-API-KEY),
+#   3. vuelve a crear/actualizar sv3 y sv4.
+# OJO: encender esto contra una URL muerta NO es inocuo. Con Sesame
+# activado y caido, el portal BLOQUEA el registro en Sigrid (R23); es
+# deliberado, porque sin los festivos reales el calculo puede estar mal.
+$Global:SESAME_BASE_URL = ""
+
 Write-Host "[vars-partes] cargadas. RG=$RG  STORAGE=$STORAGE  KV=$KV" -ForegroundColor Cyan
 Write-Host "[vars-partes] REUTILIZA ACR=$ACR ($ACR_RG)  PG=$PG/$PG_DB ($PG_RG)" -ForegroundColor Cyan
