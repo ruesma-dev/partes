@@ -2388,6 +2388,22 @@
       + "</p>" + omHtml;
   }
 
+  /* R18: horas imputadas en festivo o domingo. Informativo: no cambia
+     nada de lo que se registra, solo evita que se cuele un error de
+     fecha en una aprobacion de un mes entero. */
+  function avisosCalendarioHtml(avisos) {
+    if (!avisos || !avisos.length) return "";
+    return "<div class='ap-ctx ap-cal-avisos'><p>Hay <strong>"
+      + avisos.length + "</strong> linea(s) con horas en <strong>festivo o "
+      + "domingo</strong>. Puede ser correcto; comprueba que no sea un error "
+      + "de fecha:</p><ul class='ap-list'>"
+      + avisos.map(function (a) {
+          return "<li>" + (a.nombre || "?") + " · " + (a.fecha || "")
+            + " · " + num(a.horas) + " h — " + (a.motivo || "") + "</li>";
+        }).join("")
+      + "</ul></div>";
+  }
+
   function conflictosHtml(conflictos) {
     return "<p class='ap-warn'>Ya hay lineas en Sigrid con el <strong>mismo "
       + "codigo de hora</strong> para ese parte, recurso y fecha. Marca las "
@@ -2544,6 +2560,7 @@
       }
       var conflictos = pf.conflictos || [];
       var html = resumenHtml(pf);
+      html += avisosCalendarioHtml(pf.avisos_calendario);
       if (conflictos.length) html += "<hr>" + conflictosHtml(conflictos);
       modal(conflictos.length ? "Confirmar: hay lineas que se pisarian"
                               : "Confirmar registro en Sigrid",

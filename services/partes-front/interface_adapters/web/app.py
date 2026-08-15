@@ -21,7 +21,7 @@ import logging
 import time
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode
 
 import httpx
@@ -1467,6 +1467,53 @@ def build_app(
             "usuario": settings.default_reviewer,
         }
 
+    def _fecha_de_linea(linea: dict) -> date | None:
+        """La fecha de una linea del payload, que viaja como YYYYMMDD."""
+        fi = _as_int(linea.get("fecha_int"))
+        if not fi:
+            return None
+        try:
+            return date(fi // 10000, (fi // 100) % 100, fi % 100)
+        except ValueError:
+            return None
+
+    def _avisos_calendario(lineas: list[dict]) -> list[dict]:
+        """R18: lineas con horas (> 0) en dia festivo o domingo.
+
+        Informativo: no altera QUE se registra. Sirve para que quien
+        aprueba un mes entero vea, antes de darle al boton, que hay horas
+        en dias no laborables — correcto a veces, error de fecha otras.
+        """
+        avisos: list[dict] = []
+        nombres: dict[str, Callable[[date], str | None]] = {}
+        for linea in lineas:
+            if abs(float(linea.get("horas") or 0.0)) <= 1e-9:
+                continue
+            d = _fecha_de_linea(linea)
+            if d is None:
+                continue
+            dni = linea.get("dni")
+            resolutor = nombres.get(str(dni))
+            if resolutor is None:
+                resolutor = calendario_provider.holiday_name_para(dni)
+                nombres[str(dni)] = resolutor
+            nombre = resolutor(d)
+            if nombre:
+                tipo, motivo = "festivo", f"dia festivo ({nombre})"
+            elif d.weekday() == 6:
+                tipo, motivo = "domingo", "domingo"
+            else:
+                continue
+            avisos.append({
+                "registro_id": linea.get("registro_id"),
+                "fecha": d.isoformat(),
+                "nombre": linea.get("nombre"),
+                "horas": linea.get("horas"),
+                "tipo": tipo,
+                "motivo": f"horas registradas en {motivo}",
+            })
+        return avisos
+
     @app.post("/api/aprobar/preflight", include_in_schema=False)
     async def aprobar_preflight(request: Request) -> JSONResponse:
         if transfer_client is None:
@@ -1477,7 +1524,9 @@ def build_app(
         payload = _payload_registro(await request.json())
         if isinstance(payload, JSONResponse):
             return payload
-        return JSONResponse(transfer_client.preflight(payload))
+        resultado = dict(transfer_client.preflight(payload))
+        resultado["avisos_calendario"] = _avisos_calendario(payload["lineas"])
+        return JSONResponse(resultado)
 
     def _trazar(resultado: dict, ids: list[int]) -> None:
         """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
