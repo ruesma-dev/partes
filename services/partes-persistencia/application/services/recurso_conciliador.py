@@ -24,6 +24,7 @@ import time
 from collections import defaultdict
 
 from application.services import text_match as tm
+from application.services.jornada_resolver import jornada_efectiva
 from domain.models.sigrid_models import HmoRow, RecursoRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
 
@@ -485,11 +486,12 @@ class RecursoConciliador:
                     continue
                 # CanDefecto no valido (vacio o <= minimo) -> jornada por
                 # defecto: evita que un 0/1/2 mande TODAS las horas a extra.
-                candef_efectivo = (
-                    float(candef_real)
-                    if candef_real is not None
-                    and float(candef_real) > self._candef_min
-                    else self._jornada
+                # La regla vive en jornada_efectiva (resolutor unico, R11):
+                # es el punto donde entrara la jornada real del contrato
+                # cuando sesame-api exponga horas (peticion P1).
+                candef_efectivo = jornada_efectiva(
+                    candef_real, minimo=self._candef_min,
+                    por_defecto=self._jornada,
                 )
                 total = total_ord + total_ext
                 objetivo_extra = total - candef_efectivo
