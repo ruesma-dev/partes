@@ -836,6 +836,13 @@ tr.row-selected > td:first-child { box-shadow: inset 3px 0 0 var(--brand, #9f284
   margin-top: 14px; position: sticky; bottom: 0; background: #fff;
   padding: 12px 0 16px; border-top: 1px solid #eee; }
 .ap-modal hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+/* F-003: bloqueo por Sesame no disponible y su override consciente. */
+.ap-modal .ap-sesame-bloqueo { border-left-color: #9f2842;
+  background: #fdece9; }
+.ap-modal .ap-forzar { display: block; margin-top: 8px; font-size: 13px;
+  color: #6b1f30; cursor: pointer; }
+.ap-modal .ap-forzar input { margin-right: 6px; }
+.badge.badge-sin-sesame { font-size: 10.5px; letter-spacing: .3px; }
 td.cell-sigrid { white-space: nowrap; }
 td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
 

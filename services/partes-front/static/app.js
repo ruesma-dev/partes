@@ -2509,11 +2509,27 @@
           + "</p>", [{ texto: "Cerrar", onClick: cerrar }]);
   }
 
+  /* R23/R25: Sesame configurado pero caido. El calculo de horas pierde
+     los festivos reales, asi que el registro se BLOQUEA. La unica salida
+     es el override manual, que va por la via sincrona y deja las lineas
+     marcadas [SIN-SESAME]: mismo patron que el pisado de conflictos. */
+  function bloqueoSesameHtml(motivo) {
+    return "<div class='ap-warn ap-sesame-bloqueo'><p><strong>No se puede "
+      + "registrar:</strong> " + (motivo || "") + "</p>"
+      + "<p>Sin el calendario de Sesame faltan los festivos reales de cada "
+      + "trabajador, y el reparto entre horas ordinarias y extra puede ser "
+      + "incorrecto. Lo normal es esperar a que Sesame vuelva.</p>"
+      + "<label class='ap-forzar'><input type='checkbox' id='ap-forzar-sesame'> "
+      + "Registrar igualmente bajo mi responsabilidad. Las lineas quedaran "
+      + "marcadas <code>[SIN-SESAME]</code>.</label></div>";
+  }
+
   /* PISAR conflictos: siempre sincrono. Es destructivo (borra lineas de
      Sigrid) y el usuario quiere ver el resultado en el momento. */
-  function ejecutar(peticion, pisarClaves, caja, boton) {
+  function ejecutar(peticion, pisarClaves, caja, boton, forzarSinSesame) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var body = Object.assign({}, peticion, { pisar_claves: pisarClaves || [] });
+    if (forzarSinSesame) body.forzar_sin_sesame = true;
     return post("/api/aprobar/ejecutar", body).then(function (r) {
       if (!r.ok) { errorModal("No se pudo registrar", r); return; }
       mostrarResultado(peticion, r);
@@ -2559,12 +2575,15 @@
         return;
       }
       var conflictos = pf.conflictos || [];
+      var bloqueo = pf.sesame_bloqueo || "";
       var html = resumenHtml(pf);
       html += avisosCalendarioHtml(pf.avisos_calendario);
+      if (bloqueo) html += "<hr>" + bloqueoSesameHtml(bloqueo);
       if (conflictos.length) html += "<hr>" + conflictosHtml(conflictos);
-      modal(conflictos.length ? "Confirmar: hay lineas que se pisarian"
-                              : "Confirmar registro en Sigrid",
-        html, [
+      var titulo = "Confirmar registro en Sigrid";
+      if (bloqueo) titulo = "Bloqueado: Sesame no disponible";
+      else if (conflictos.length) titulo = "Confirmar: hay lineas que se pisarian";
+      modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
                                      : "Registrar", clase: "ok",
             onClick: function (cj, b) {
@@ -2572,10 +2591,19 @@
                 cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
                   return i.value;
                 });
-              // Con claves marcadas hay borrado de por medio: sincrono.
-              // Sin ellas, a la cola.
-              if (claves.length) { ejecutar(peticion, claves, cj, b); }
-              else { encolar(peticion, cj, b); }
+              var forzar = cj.querySelector("#ap-forzar-sesame");
+              if (bloqueo && !(forzar && forzar.checked)) {
+                // El servidor lo rechazaria igual (R24); avisar aqui
+                // evita un viaje y deja claro que falta la confirmacion.
+                window.alert("Marca la casilla para registrar sin el "
+                  + "calendario de Sesame, o espera a que vuelva.");
+                return;
+              }
+              // Con claves que pisar, o con override de Sesame, hay una
+              // decision humana de por medio: sincrono, nunca por cola.
+              if (claves.length || bloqueo) {
+                ejecutar(peticion, claves, cj, b, !!bloqueo);
+              } else { encolar(peticion, cj, b); }
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);

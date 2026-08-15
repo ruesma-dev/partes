@@ -57,7 +57,10 @@ from infrastructure.database.parte_repository import (
     extras_por_jornada,
 )
 from infrastructure.database.session_factory import SessionFactory
-from infrastructure.transfer.resultado_sigrid import aplicar_resultado
+from infrastructure.transfer.resultado_sigrid import (
+    MOTIVO_SIN_SESAME,
+    aplicar_resultado,
+)
 from infrastructure.transfer.transfer_client import TransferClient
 from infrastructure.transfer.transfer_queue_publisher import (
     TransferQueuePublisher,
@@ -69,6 +72,14 @@ from application.services.empleado_catalog import EmpleadoCatalog
 from application.services import empleado_reconciler as recon
 
 logger = logging.getLogger(__name__)
+
+#: F-003 (R23/R24). Motivo del bloqueo del registro cuando Sesame esta
+#: configurado pero no responde: sin sus festivos, el computo de horas
+#: puede estar mal y registrar en Sigrid escribe de verdad. La unica
+#: salida es el override consciente del modal, que queda marcado.
+MOTIVO_BLOQUEO_SESAME = (
+    "calendario Sesame no disponible: el calculo puede ser incorrecto"
+)
 
 # Leyenda de incidencias (para mostrar el nombre largo del codigo).
 _INCIDENCIAS = {
@@ -1514,6 +1525,22 @@ def build_app(
             })
         return avisos
 
+    def _calendario_fiable(lineas: list[dict]) -> bool:
+        """True si el calendario de TODAS las lineas del lote es de fiar.
+
+        Con Sesame configurado pero caido, el computo de horas pierde los
+        festivos reales y las jornadas reducidas: lo que se registraria
+        puede estar mal. `fiable_para` devuelve True siempre que Sesame
+        no este configurado, asi que con la feature apagada esto no
+        bloquea nada (R27).
+        """
+        consultas: set[tuple[str | None, int]] = set()
+        for linea in lineas:
+            d = _fecha_de_linea(linea)
+            if d is not None:
+                consultas.add((linea.get("dni"), d.year))
+        return calendario_provider.fiable_para(consultas)
+
     @app.post("/api/aprobar/preflight", include_in_schema=False)
     async def aprobar_preflight(request: Request) -> JSONResponse:
         if transfer_client is None:
@@ -1526,9 +1553,14 @@ def build_app(
             return payload
         resultado = dict(transfer_client.preflight(payload))
         resultado["avisos_calendario"] = _avisos_calendario(payload["lineas"])
+        # R23: el preflight se sirve igual (el humano tiene que poder ver
+        # que se iba a registrar), pero con el motivo del bloqueo dentro.
+        if not _calendario_fiable(payload["lineas"]):
+            resultado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
         return JSONResponse(resultado)
 
-    def _trazar(resultado: dict, ids: list[int]) -> None:
+    def _trazar(resultado: dict, ids: list[int], *,
+                sin_sesame: bool = False) -> None:
         """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
 
         Que falle la traza no invalida lo que sv5 ya escribio en Sigrid;
@@ -1537,7 +1569,8 @@ def build_app(
         """
         try:
             aplicar_resultado(repository, resultado, registro_ids=ids,
-                              usuario=settings.default_reviewer)
+                              usuario=settings.default_reviewer,
+                              sin_sesame=sin_sesame)
         except Exception:
             logger.warning("[transfer] no se pudo guardar la traza del "
                            "registro", exc_info=True)
@@ -1553,8 +1586,28 @@ def build_app(
         payload = _payload_registro(body)
         if isinstance(payload, JSONResponse):
             return payload
+        # R24: la guarda la impone el SERVIDOR, no el modal. Una peticion
+        # a pelo, sin pasar por el preflight, se para igual.
+        forzar = bool(body.get("forzar_sin_sesame"))
+        degradado = not _calendario_fiable(payload["lineas"])
+        if degradado and not forzar:
+            logger.warning(
+                "[sesame] registro BLOQUEADO: %s lineas con calendario no "
+                "fiable y sin override.", len(payload["lineas"]),
+            )
+            return JSONResponse(
+                {"ok": False, "error": MOTIVO_BLOQUEO_SESAME,
+                 "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
+                status_code=422)
         resultado = transfer_client.ejecutar(payload)
-        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]])
+        if degradado and forzar:
+            logger.warning(
+                "[sesame] registro FORZADO por %s con el calendario de "
+                "Sesame no disponible; las lineas quedan marcadas.",
+                settings.default_reviewer or "(sin usuario)",
+            )
+        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]],
+                sin_sesame=degradado and forzar)
         return JSONResponse(resultado)
 
     @app.post("/api/aprobar/encolar", include_in_schema=False)
@@ -1585,6 +1638,17 @@ def build_app(
         payload = _payload_registro(body)
         if isinstance(payload, JSONResponse):
             return payload
+        # R24/R25: igual que `pisar_claves`, el override de Sesame es una
+        # decision humana consciente y NO puede viajar por una cola con
+        # reentregas; sin override, el lote degradado se para aqui.
+        if not _calendario_fiable(payload["lineas"]):
+            return JSONResponse(
+                {"ok": False,
+                 "error": MOTIVO_BLOQUEO_SESAME + " Para registrarlo de "
+                          "todas formas hay que confirmarlo a mano: usa "
+                          "/api/aprobar/ejecutar.",
+                 "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
+                status_code=422)
         ids = [l["registro_id"] for l in payload["lineas"]]
 
         if publisher is None:

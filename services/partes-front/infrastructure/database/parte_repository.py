@@ -1338,8 +1338,14 @@ class ParteReviewRepository:
         conflictos: list[dict] | None = None,
         error_global: str | None = None,
         registro_ids: list[int] | None = None,
+        motivo_ok: str | None = None,
     ) -> int:
         """Guarda la traza del registro en cada linea.
+
+        `motivo_ok` es la anotacion que se escribe en las lineas que
+        quedan OK, donde normalmente va `None`. Hoy solo la usa F-003
+        para marcar `[SIN-SESAME]` un registro forzado sin calendario
+        fiable: no hace falta columna nueva para dejar constancia.
 
         `conflictos` son los `pendientes_confirmacion` de sv5: sus lineas
         NO se escribieron y quedan en 'conflicto' a la espera de que un
@@ -1379,7 +1385,7 @@ class ParteReviewRepository:
                 reg.sigrid_hmoide = e.get("hmoide")
                 reg.sigrid_hmores_ide = e.get("hmores_ide")
                 reg.sigrid_parte_cod = e.get("parte_cod")
-                reg.sigrid_motivo = None
+                reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                 n += 1
             for o in omitidas or []:
                 reg = session.get(ParteRegistroOrm, int(o["registro_id"]))
@@ -1398,7 +1404,7 @@ class ParteReviewRepository:
                 # quedaria ahi para siempre pese a estar ya en Sigrid.
                 if reg is not None and reg.sigrid_estado in ESTADOS_EN_VUELO:
                     reg.sigrid_estado = "registrado"
-                    reg.sigrid_motivo = None
+                    reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                     reg.sigrid_registrado_at_utc = ahora
                     reg.sigrid_registrado_by = usuario
                     n += 1
