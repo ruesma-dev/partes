@@ -340,7 +340,7 @@ Encoding preservado fichero a fichero (sin BOM; `00_vars`, `add_secrets` y
 | Evidencia | Valor |
 |---|---|
 | **Tests ejecutados** | **373** en total, todos en verde: **6** en `tests/` (raíz), **95** en sv3 (suite **nueva**: antes de F-003 sv3 tenía 0 y el portero lo avisaba en cada arranque), **272** en sv4 (**128** antes de F-003 ⇒ **+144**). sv5 y los demás servicios, sin tocar. |
-| **Cobertura de las líneas cambiadas** | **94,5 %** — 587 de 621 líneas Python de producción cubiertas; umbral del nivel `critico`, 80 %. Línea `PUERTA COBERTURA` de `bash harness/init.sh`. |
+| **Cobertura de las líneas cambiadas** | **94,5 %** — 586 de 620 líneas Python de producción cubiertas; umbral del nivel `critico`, 80 %. Línea `PUERTA COBERTURA` de `bash harness/init.sh`. (Antes de las correcciones de la review: 94,5 % de 587/621; el total baja en 1 porque el punto 1 elimina una línea cambiada.) |
 | **Mutantes generados y supervivientes** | **211 generados, 211 evaluados, 0 timeouts.** Campaña inicial: 154 muertos / **57 supervivientes** (73,0 %). Campaña final tras el refuerzo: **185 muertos / 26 supervivientes (87,7 %)**, y el nº 26 se cazó después con un test más (verificado a mano aplicando la mutación), así que quedan **25 supervivientes, todos analizados y equivalentes**. |
 | **Tiempo de ejecución de la suite** | raíz **0,2 s** · sv3 **3,3 s** · sv4 **35,3 s** (medidos dentro de `init.sh`); el portero completo, con la caché de servicios sin cambios, ronda el minuto. La campaña de mutación completa: **402 s**. |
 
@@ -358,3 +358,200 @@ guarda de un WARNING. **Ninguno cambia comportamiento observable.**
 Lo que más valor dio la mutación no fue el porcentaje: fue destapar **un
 bug real** (la fecha cruda contra el mapa de festivos) y **un test que se
 engañaba solo** (el `key_len` del log de wiring). Ambos, arreglados.
+
+---
+
+# Correcciones tras review
+
+Review: `progress/review_F-003.md`, veredicto **CHANGES_REQUESTED**
+(2026-08-15), sección «Cambios requeridos», puntos 1 a 4. **Los cuatro
+están aplicados.** El punto de la sección siguiente —la redacción del
+`CLAUDE.md`— **NO se ha tocado**: es una decisión del humano y sigue sin
+decidirse, así que queda tal y como estaba.
+
+## 1 · `MOTIVO_SIN_SESAME`: import sin usar que acoplaba la suite
+
+El defecto real: `interface_adapters/web/app.py` importaba
+`MOTIVO_SIN_SESAME` sin usarlo (F401), y
+`tests/test_f003_r23_bloqueo_registro.py:279` lo importaba **desde
+`app.py`**, apoyándose en esa reexportación implícita. Un `ruff --fix` de
+rutina habría borrado el import y roto la suite.
+
+Cambios (commit `e87bcc6`):
+
+- `services/partes-front/interface_adapters/web/app.py:60-63` — el import
+  de tres líneas se colapsa a
+  `from infrastructure.transfer.resultado_sigrid import aplicar_resultado`.
+- `services/partes-front/tests/test_f003_r23_bloqueo_registro.py:279` —
+  ahora importa la constante **de su origen**:
+  `from infrastructure.transfer.resultado_sigrid import MOTIVO_SIN_SESAME`.
+
+Verificado que el test que dependía de la reexportación sigue vivo:
+
+```
+$ cd services/partes-front && python -m pytest tests/test_f003_r23_bloqueo_registro.py -q
+22 passed, 1 warning in 3.21s
+```
+
+## 2 · La afirmación sobre `ruff` era falsa; ahora es cierta y comprobada
+
+La review tenía razón: el informe decía «ninguno de los 9 nuevos [avisos]
+está en los ficheros de la feature» y el F401 del punto 1 estaba en
+`app.py`, que sí lo es. La frase queda corregida en su sitio (sección de
+salidas del portero) diciendo lo que pasó, no borrándolo.
+
+Resultado **real** tras el arreglo, sobre los ficheros `.py` del diff de
+la feature:
+
+```
+$ python -m ruff check --select F401 $(git diff dev...HEAD --name-only --diff-filter=ACMR | grep '\.py$' | tr '\n' ' ')
+All checks passed!
+```
+
+Y el total agregado del repositorio baja de 451 a **450**:
+
+```
+$ python -m ruff check . --output-format=concise | grep -cE ":[0-9]+:[0-9]+:"
+450
+```
+
+(Commit `6358ea2`.)
+
+## 3 · `progress/current.md`: cobertura real y MANUALES con su comando
+
+Commit `12107c7`. Tres cosas:
+
+- **Cobertura**: decía 93,4 %. El valor real que imprime `init.sh` es
+  **94,5 %**. Ojo al número exacto: la review midió **587/621** y tras el
+  arreglo del punto 1 es **586/620**, porque ese arreglo elimina una línea
+  cambiada. El porcentaje no se mueve. `current.md` recoge el valor
+  post-corrección y explica la diferencia.
+- **Verificaciones MANUALES**: C4 pide que estén en `current.md`, no
+  delegadas al informe. Ahora hay una tabla con las cinco y su comando
+  exacto: `git diff dev...HEAD -- infra/`,
+  `git diff dev...HEAD -- CLAUDE.md`, `git -C ../azure-apps show 5a95c03`,
+  y las dos de navegador (T9 «+ Nuevo» y T15 modal de override), marcadas
+  como tales.
+- Añadido además, en «Pendiente del humano», el **punto 5** con la
+  decisión pendiente sobre la redacción del `CLAUDE.md`, para que la
+  siguiente sesión no la dé por cerrada.
+
+## 4 · Finales de línea del cliente gemelo de sv3
+
+`services/partes-persistencia/infrastructure/sesame/sesame_api_client.py`
+estaba en **CRLF** en el árbol de trabajo; su gemelo de sv4, en LF.
+Convertido a LF (210 finales de línea, ninguno queda CRLF).
+
+**No hay commit para este punto, y es correcto que no lo haya.** El
+repositorio tiene `core.autocrlf=true`, así que git normaliza CRLF→LF al
+indexar: el blob **ya estaba en LF** en el índice y en `HEAD`. La
+divergencia era exclusivamente del árbol de trabajo. Comprobado:
+
+```
+$ git ls-files --eol services/partes-persistencia/infrastructure/sesame/sesame_api_client.py services/partes-front/infrastructure/sesame/sesame_api_client.py
+i/lf    w/lf    attr/    services/partes-front/infrastructure/sesame/sesame_api_client.py
+i/lf    w/lf    attr/    services/partes-persistencia/infrastructure/sesame/sesame_api_client.py
+
+$ git add --renormalize services/partes-persistencia/infrastructure/sesame/sesame_api_client.py
+$ git diff --cached --stat
+(sin salida: el blob no cambia)
+```
+
+Y lo que pedía la review: que `diff` entre los dos gemelos enseñe **solo
+las diferencias legítimas**, no el fichero entero. Salida real:
+
+```
+$ diff services/partes-persistencia/infrastructure/sesame/sesame_api_client.py services/partes-front/infrastructure/sesame/sesame_api_client.py
+9,12d8
+< En sv3 lo que importa son los festivos: el computo de extras manda TODAS
+< las horas ordinarias de un dia no laborable a horas extra, asi que un
+< festivo que falte se paga como jornada normal.
+<
+23c19
+< GEMELO del cliente de sv4 (``services/partes-front/infrastructure/
+---
+> GEMELO del cliente de sv3 (``services/partes-persistencia/infrastructure/
+33,34c29,30
+< ante cualquier fallo. La cascada de degradacion vive en el adaptador
+< (``infrastructure/calendario/sesame_calendario_laboral.py``).
+---
+> ante cualquier fallo. La cascada de degradacion vive en el proveedor
+> (``application/services/calendario_provider.py``).
+```
+
+Las tres diferencias están **todas dentro del docstring de cabecera** y
+son las legítimas: el puntero cruzado al gemelo, el módulo donde vive la
+cascada de degradación en cada servicio, y un párrafo de sv3 sobre por
+qué allí los festivos son críticos (el cómputo de extras). **El cuerpo
+del código es idéntico**, que es lo que la regla del `CLAUDE.md` exige
+poder comprobar con un `diff` a secas.
+
+### Causa raíz, y por qué no la arreglo por mi cuenta
+
+`core.autocrlf=true` + el repositorio **sin `.gitattributes`** hace que
+git materialice en CRLF cualquier fichero que vuelva a tocar en el árbol
+de trabajo (git lo avisa en cada `add`: «LF will be replaced by CRLF the
+next time Git touches it»). Por eso el arreglo **no es permanente**: un
+`git checkout` de ese fichero lo devuelve a CRLF. De hecho hay más
+ficheros nuevos del alcance así —los que la campaña de mutación restauró
+con git— aunque **ninguno de ellos es un gemelo**, así que ninguno
+estropea un `diff` de comparación:
+
+```
+$ git ls-files --eol $(git diff dev...HEAD --name-only --diff-filter=A) | grep w/crlf
+progress/mutacion_F-003.md
+services/partes-front/tests/test_f003_r16_api_calendario.py
+services/partes-front/tests/test_f003_r4_calendario_provider.py
+services/partes-persistencia/tests/test_f003_r26_review_required.py
+services/partes-persistencia/tests/test_f003_r8_sesame_calendario.py
+specs/F-003-sesame-festivos-jornada/tasks.md
+```
+
+La cura de raíz sería un `.gitattributes` con `* text=auto eol=lf`. **No
+lo hago**: es un cambio de configuración de alcance de repositorio
+completo, afecta a los seis servicios y a todo trabajo futuro, y no está
+en la spec ni entre los cambios que pide la review. Queda **propuesto**
+para el humano, que es quien decide.
+
+## Verificación final (salidas reales)
+
+`bash harness/init.sh` completo, sin `ARNES_SALTAR_SUITES`:
+
+```
+$ bash harness/init.sh
+[OK] Arnés v1.4.0 (2026-08-13)
+[OK] compileall: sin errores de sintaxis
+[AVISO] ruff: 450 avisos (deuda previa, no bloquea). Detalle: python -m ruff check .
+6 passed in 0.06s
+[OK] pytest en verde (con medición de cobertura)
+[OK] servicio sv3-persistencia (services/partes-persistencia): pytest en verde (caché: árbol sin cambios desde el último verde)
+272 passed, 1 warning in 24.48s
+[OK] servicio sv4-front (services/partes-front): pytest en verde
+[OK] servicio sv5-transfer (services/partes-transfer): pytest en verde (caché)
+[OK] PUERTA COBERTURA: 94.5% de 620 líneas cambiadas cubiertas (586/620, umbral 80%, nivel critico)
+[OK] Rama actual: feature/F-003-sesame-festivos-jornada
+----------------------------------------
+ENTORNO LISTO. Puedes trabajar.
+```
+
+Como el portero cachea las suites de servicio, las tres se han lanzado
+**a mano y directas** después:
+
+| Suite | Comando | Resultado |
+|---|---|---|
+| raíz | `python -m pytest tests -q` | **6 passed** en 0,04 s |
+| sv3 | `cd services/partes-persistencia && python -m pytest -q` | **95 passed** en 1,17 s |
+| sv4 | `cd services/partes-front && python -m pytest -q` | **272 passed** en 14,16 s |
+
+**373 tests, todos en verde**, el mismo total que antes de las
+correcciones: ninguna corrección ha quitado ni añadido tests.
+
+## Estado de los cuatro puntos
+
+| # | Punto de la review | Estado | Commit |
+|---|---|---|---|
+| 1 | Import `MOTIVO_SIN_SESAME` (F401 + acoplamiento de la suite) | **HECHO** | `e87bcc6` |
+| 2 | Afirmación falsa sobre `ruff` en el informe | **HECHO** | `6358ea2` |
+| 3 | `current.md`: cobertura real + MANUALES con comando | **HECHO** | `12107c7` |
+| 4 | CRLF→LF del cliente gemelo de sv3 | **HECHO** (árbol de trabajo; el blob ya era LF, sin commit posible) | — |
+| — | Redacción del `CLAUDE.md` (T17) | **NO TOCADO a propósito**: decisión del humano, sin decidir a fecha de hoy | — |

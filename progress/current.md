@@ -17,7 +17,10 @@
   Campaña de mutación y análisis de supervivientes:
   **`progress/mutacion_F-003.md`**.
 - `bash harness/init.sh` en verde, con `PUERTA COBERTURA` al **94,5 %** de
-  las líneas cambiadas (**587/621**, umbral 80 % para rigor `critico`).
+  las líneas cambiadas (**586/620**, umbral 80 % para rigor `critico`).
+  Antes de aplicar las correcciones de la review era 94,5 % de **587/621**:
+  el total baja en 1 porque el arreglo del punto 1 elimina una línea
+  cambiada (el import sobrante).
 
 ### Lo que hay que saber para revisar
 
