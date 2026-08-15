@@ -17,6 +17,26 @@ sus `-poison`, contenedores `input`/`envelopes`), Key Vault `kv-partes-<suffix>`
 environment `cae-partes-dev`. Concede **AcrPull** a la MI sobre el ACR
 compartido y crea la BBDD `partes` en el servidor PostgreSQL compartido.
 
+## Login con MFA obligatorio (desde 2026-08)
+
+Azure exige la reclamación de MFA en el token para crear/modificar/borrar
+recursos (`RequestDisallowedByAzure ... MFA`). El `az login` normal reutiliza
+la sesión cacheada por SSO **sin** esa reclamación, así que las lecturas
+funcionan pero las escrituras fallan. La receta que funciona (también usada
+en datamart):
+
+```powershell
+az logout
+az login --tenant "<tenant-id>" --scope "https://management.core.windows.net//.default" --claims-challenge "eyJhY2Nlc3NfdG9rZW4iOnsiYWNycyI6eyJlc3NlbnRpYWwiOnRydWUsInZhbHVlcyI6WyJwMSJdfX19"
+# el claims-challenge decodificado es {"access_token":{"acrs":{"essential":true,"values":["p1"]}}}
+# si el navegador no se abre, añade --use-device-code
+```
+
+El tenant id real está en `00_vars_partes.local.ps1` (`$TENANT`). Regla
+práctica: **cada consola nueva** necesita los dos dot-source
+(`. .\00_vars_partes.local.ps1` y `. .\00_capps_vars_partes.ps1`) antes de
+usar `$RG`, `$MI_CLIENTID`, etc.
+
 ## Orden de ejecución (PowerShell, con `az login` hecho)
 ```powershell
 . .\00_vars_partes.ps1          # revisa $SUFFIX (storage/KV son únicos en Azure)
