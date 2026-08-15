@@ -126,7 +126,20 @@ def test_f003_r16_un_dni_desconocido_no_revienta(entorno) -> None:
 ])
 def test_f003_r16_fechas_invalidas_dan_422(entorno, query) -> None:
     cliente = _cliente(entorno, _proveedor())
-    assert cliente.get(f"/api/calendario?{query}").status_code == 422
+    r = cliente.get(f"/api/calendario?{query}")
+    assert r.status_code == 422
+    # El `ok` tambien importa: el JS mira `d.ok` antes que el status.
+    assert r.json()["ok"] is False
+
+
+def test_f003_r16_tolera_una_fecha_con_hora(entorno) -> None:
+    """Un `datetime` ISO se recorta a la fecha, como en el resto del
+    monorepo: quien llame desde JS con `toISOString()` no se queda fuera."""
+    cliente = _cliente(entorno, _proveedor())
+    r = cliente.get("/api/calendario?desde=2026-05-15T00:00:00"
+                    "&hasta=2026-05-15T23:59:59")
+    assert r.status_code == 200
+    assert [d["fecha"] for d in r.json()["data"]] == [SAN_ISIDRO]
 
 
 def test_f003_r16_rango_de_62_dias_pasa(entorno) -> None:
@@ -141,6 +154,7 @@ def test_f003_r16_rango_de_63_dias_da_422(entorno) -> None:
     cliente = _cliente(entorno, _proveedor())
     r = cliente.get("/api/calendario?desde=2026-01-01&hasta=2026-03-04")
     assert r.status_code == 422
+    assert r.json()["ok"] is False
     assert "62" in r.json()["error"]
 
 

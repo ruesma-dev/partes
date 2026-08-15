@@ -319,3 +319,47 @@ def test_f003_r6_ttl_no_positivo_no_cachea(ttl) -> None:
     p.holiday_name_para("12345678Z")(date(2026, 5, 15))
     p.holiday_name_para("12345678Z")(date(2026, 5, 15))
     assert len(cliente.llamadas) == 2
+
+
+def test_f003_r6_un_ttl_de_un_segundo_si_cachea() -> None:
+    """Cualquier TTL positivo cachea; el corte esta en 0, no en 1."""
+    reloj = Reloj()
+    cliente = ClienteFake(festivos=[SAN_ISIDRO])
+    p = _provider(cliente, reloj=reloj, ttl=1)
+    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
+    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
+    assert len(cliente.llamadas) == 1
+
+
+def test_f003_r6_justo_en_el_ttl_la_entrada_ya_ha_caducado() -> None:
+    """El limite es cerrado: a los TTL segundos exactos se refresca."""
+    reloj = Reloj()
+    cliente = ClienteFake(festivos=[SAN_ISIDRO])
+    p = _provider(cliente, reloj=reloj, ttl=100)
+    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
+    reloj.avanza(100)
+    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
+    assert len(cliente.llamadas) == 2
+
+
+def test_f003_r4_el_dia_resuelto_es_inmutable() -> None:
+    """Viaja a la plantilla y al JSON: nadie lo retoca por el camino."""
+    import dataclasses
+
+    from application.services.calendario_provider import DiaCalendario
+
+    dia = _provider(ClienteFake(festivos=[])).dia(date(2026, 5, 18), None)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        dia.festivo = True     # type: ignore[misc]
+
+
+def test_f003_r4_un_dia_es_fiable_mientras_no_se_diga_lo_contrario() -> None:
+    """El valor por defecto importa: un `DiaCalendario` construido sin
+    hablar de fiabilidad no puede salir marcado como degradado y
+    disparar bloqueos que nadie ha pedido."""
+    from application.services.calendario_provider import DiaCalendario
+
+    dia = DiaCalendario(fecha="2026-05-18", laborable=True,
+                        fin_de_semana=False, festivo=False,
+                        festivo_nombre=None)
+    assert dia.fiable is True

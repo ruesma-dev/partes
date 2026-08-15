@@ -133,6 +133,21 @@ def test_f003_r26_un_repositorio_sin_el_metodo_no_rompe_nada() -> None:
     calendario = CalendarioFake(set(), degradados={"2026-05-18"})
     resumen = _conciliador(repositorio, calendario).conciliar_todos()
     assert resumen["registros"] == 1
+    # Y no se cuenta como marcado, que seria mentir en el resumen.
+    assert resumen["partes_a_revisar"] == 0
+
+
+def test_f003_r26_si_el_marcado_falla_no_se_cuenta_ni_se_propaga() -> None:
+    class RepoRoto(RepositorioFake):
+        def marcar_review_required(self, document_ids) -> int:
+            raise RuntimeError("la BBDD no responde")
+
+    repositorio = RepoRoto([registro(1, fecha_int=LUNES, horas=10.0,
+                                     document_id="doc-A")])
+    calendario = CalendarioFake(set(), degradados={"2026-05-18"})
+    resumen = _conciliador(repositorio, calendario).conciliar_todos()
+    assert resumen["partes_a_revisar"] == 0
+    assert resumen["extras_reclasificadas"] == 1   # el resto siguio
 
 
 def test_f003_r26_el_resumen_cuenta_los_partes_marcados() -> None:
@@ -141,6 +156,14 @@ def test_f003_r26_el_resumen_cuenta_los_partes_marcados() -> None:
     calendario = CalendarioFake(set(), degradados={"2026-05-18"})
     resumen = _conciliador(repositorio, calendario).conciliar_todos()
     assert resumen["partes_a_revisar"] == 1
+
+
+def test_f003_r26_sin_degradacion_el_resumen_cuenta_cero() -> None:
+    repositorio = _repo([registro(1, fecha_int=LUNES, horas=10.0,
+                                  document_id="doc-A")])
+    resumen = _conciliador(repositorio,
+                           CalendarioFake(set())).conciliar_todos()
+    assert resumen["partes_a_revisar"] == 0
 
 
 def test_f003_r26_la_senal_no_se_arrastra_entre_pasadas() -> None:

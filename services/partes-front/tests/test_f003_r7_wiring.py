@@ -119,7 +119,13 @@ def test_f003_r7_el_log_de_wiring_no_lleva_la_clave(base, caplog) -> None:
     with caplog.at_level(logging.INFO):
         _app(Settings(_env_file=None))
     assert "clave-secretisima-de-prueba" not in caplog.text
-    assert "key_len=27" in caplog.text
+    # La longitud se comprueba EN LA LINEA DE WIRING, no en cualquier
+    # linea del log: el cliente escribe su propio `key_len` al
+    # instanciarse y taparia un fallo aqui.
+    wiring = [m for m in caplog.messages if "[sesame][wiring]" in m]
+    assert len(wiring) == 1
+    assert "key_len=27" in wiring[0]
+    assert "clave-secretisima-de-prueba" not in wiring[0]
 
 
 def test_f003_r7_el_proveedor_se_puede_inyectar(sin_red) -> None:

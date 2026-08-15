@@ -86,6 +86,10 @@ class SesameCalendarioLaboral(CalendarioLaboralPort):
             d = _dt.date.fromisoformat(str(fecha_iso)[:10])
         except (TypeError, ValueError):
             return False
+        # A partir de aqui manda la fecha NORMALIZADA, no la cadena que
+        # entro: si llega un ISO con hora, buscar la cruda en el mapa de
+        # festivos daria "laborable" para un dia de fiesta.
+        dia = d.isoformat()
 
         # 1) Fin de semana: determinista, no hace falta preguntar.
         if d.weekday() >= 5:
@@ -99,14 +103,14 @@ class SesameCalendarioLaboral(CalendarioLaboralPort):
             # persista.
             logger.warning(
                 "%s error inesperado resolviendo %s: %r; se usa el respaldo.",
-                _LOG_PREFIX, fecha_iso, exc,
+                _LOG_PREFIX, dia, exc,
             )
             festivos, degradado = None, True
 
         self._degradado = degradado
         if festivos is None:
-            return self._del_respaldo(fecha_iso, dni, localizacion, convenio)
-        return fecha_iso in festivos
+            return self._del_respaldo(dia, dni, localizacion, convenio)
+        return dia in festivos
 
     def consumir_degradacion(self) -> bool:
         """True si la ULTIMA resolucion fue a ciegas. Resetea la senal.

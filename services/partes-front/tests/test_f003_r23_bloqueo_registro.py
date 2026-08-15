@@ -134,6 +134,9 @@ def test_f003_r24_ejecutar_sin_override_da_422(montaje) -> None:
     cliente, _f, ids, sv5, _p, _prov = montaje(fiable=False)
     r = cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
     assert r.status_code == 422
+    # El JS mira `ok` antes que el status: si viniera true, el modal
+    # cantaria victoria sobre un registro que no se ha hecho.
+    assert r.json()["ok"] is False
     assert "Sesame no disponible" in r.json()["error"]
     assert sv5.ejecutadas == []      # ni se ha llamado a sv5
 
@@ -142,6 +145,7 @@ def test_f003_r24_encolar_sin_override_da_422(montaje) -> None:
     cliente, _f, ids, _sv5, publisher, _prov = montaje(fiable=False)
     r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
     assert r.status_code == 422
+    assert r.json()["ok"] is False
     assert publisher.publicadas == []
 
 
@@ -195,8 +199,44 @@ def test_f003_r25_el_override_no_vale_por_la_cola(montaje) -> None:
     r = cliente.post("/api/aprobar/encolar",
                      json={"registro_ids": ids, "forzar_sin_sesame": True})
     assert r.status_code == 422
+    assert r.json()["ok"] is False
     assert "ejecutar" in r.json()["error"]
     assert publisher.publicadas == []
+
+
+def test_f003_r25_la_cola_sin_publisher_tampoco_marca_de_mas(
+        montaje) -> None:
+    """`/encolar` sin colas configuradas degrada al registro sincrono y
+    traza el resultado. Ese camino NO pasa por el override: sus lineas no
+    pueden salir marcadas."""
+    cliente, fabrica, ids, sv5, _p, _prov = montaje(
+        fiable=True, con_publisher=False)
+    r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
+    assert r.status_code == 200
+    assert r.json()["modo"] == "sincrono"
+    for rid in ids:
+        assert estados_sigrid(fabrica, ids)[rid][1] is None
+
+
+def test_f003_r25_una_linea_ya_registrada_tambien_se_marca(
+        montaje) -> None:
+    """sv5 puede devolver una linea como `ya_registradas` (idempotencia
+    por synckey). Se registro igual con el calendario a ciegas: lleva la
+    misma marca que las escritas."""
+    cliente, fabrica, ids, sv5, _p, _prov = montaje(fiable=False)
+
+    def ejecutar(payload: dict) -> dict:
+        return {"ok": True, "escritas": [], "omitidas": [],
+                "ya_registradas": [l["registro_id"]
+                                   for l in payload["lineas"]]}
+
+    sv5.ejecutar = ejecutar   # type: ignore[assignment]
+    cliente.post("/api/aprobar/ejecutar",
+                 json={"registro_ids": ids, "forzar_sin_sesame": True})
+    for rid in ids:
+        estado, motivo, *_ = estados_sigrid(fabrica, ids)[rid]
+        assert estado == "registrado"
+        assert motivo.startswith("[SIN-SESAME]")
 
 
 def test_f003_r25_el_override_sin_degradacion_no_marca_nada(montaje) -> None:

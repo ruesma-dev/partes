@@ -189,6 +189,41 @@ def test_f003_r1_ok_false_con_200_sube_como_runtimeerror() -> None:
         c.festivos("12345678Z", 2026)
 
 
+def test_f003_r1_una_respuesta_sin_ok_no_se_da_por_buena() -> None:
+    """Sin el campo `ok` no es una respuesta de sesame-api: puede ser un
+    proxy o un servicio distinto en esa URL. No se interpreta."""
+    c = _cliente(_fijo({"data": [{"fecha": "2026-05-15"}]}))
+    with pytest.raises(RuntimeError, match="ok=false"):
+        c.festivos("12345678Z", 2026)
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 429, 500, 502, 503])
+def test_f003_r1_cualquier_status_de_error_sube(status) -> None:
+    """400 incluido: el limite es 400, no 401."""
+    c = _cliente(_fijo({"detail": "no"}, status))
+    with pytest.raises(RuntimeError, match=str(status)):
+        c.festivos("12345678Z", 2026)
+
+
+def test_f003_r1_el_error_lleva_el_cuerpo_de_la_respuesta() -> None:
+    """Sin el cuerpo, diagnosticar un 502 de un proxy es imposible."""
+    c = _cliente(_fijo("gateway timeout tras 30s", 504))
+    with pytest.raises(RuntimeError, match="gateway timeout"):
+        c.festivos("12345678Z", 2026)
+
+
+@pytest.mark.parametrize("tipo", [FestivoDia, JornadaContrato])
+def test_f003_r1_los_datos_son_inmutables(tipo) -> None:
+    """Van a vivir en una cache compartida entre peticiones: que nadie
+    pueda cambiarlos desde una vista."""
+    import dataclasses
+
+    valores = {c.name: None for c in dataclasses.fields(tipo)}
+    instancia = tipo(**valores)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        setattr(instancia, dataclasses.fields(tipo)[0].name, "otro")
+
+
 def test_f003_r1_error_de_red_sube_como_runtimeerror() -> None:
     def revienta(_request: httpx.Request) -> httpx.Response:
         raise httpx.ConnectError("conexion rechazada")

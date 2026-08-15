@@ -197,6 +197,51 @@ def test_f003_r9_una_fecha_invalida_no_revienta() -> None:
     assert cal.es_no_laborable("", dni="12345678Z") is False
 
 
+def test_f003_r9_una_fecha_con_hora_se_recorta() -> None:
+    """El puerto recibe 'YYYY-MM-DD', pero un ISO con hora no puede
+    convertir un festivo en dia laborable por un detalle de formato."""
+    cal = _adaptador(ClienteFake(
+        festivos=[FestivoDia(SAN_ISIDRO, "San Isidro")]))
+    assert cal.es_no_laborable("2026-05-15T00:00:00", dni="12345678Z") is True
+
+
+def test_f003_r9_si_falla_hasta_el_reloj_se_degrada_sin_reventar() -> None:
+    """Cinturon y tirantes: cualquier fallo inesperado dentro de la
+    resolucion cae al respaldo y se declara degradado, nunca propaga."""
+    def reloj_roto() -> float:
+        raise RuntimeError("reloj roto")
+
+    cal = SesameCalendarioLaboral(
+        cliente=ClienteFake(festivos=[]),
+        respaldo=CalendarioFake({REYES}), reloj=reloj_roto)
+    assert cal.es_no_laborable(REYES, dni="12345678Z") is True
+    assert cal.consumir_degradacion() is True
+
+
+@pytest.mark.parametrize("status, cuerpo", [
+    (400, {"detail": "peticion mala"}),
+    (401, {"detail": "x-api-key invalida"}),
+    (500, {"detail": "boom"}),
+])
+def test_f003_r9_cualquier_status_de_error_degrada(status, cuerpo) -> None:
+    cliente = SesameApiClient(
+        base_url="http://sesame.interno:8006", api_key=CLAVE,
+        transport=transporte_json({"/api/v1/festivos": (status, cuerpo)}))
+    cal = _adaptador(cliente, respaldo=CalendarioFake({REYES}))
+    assert cal.es_no_laborable(REYES, dni="12345678Z") is True
+    assert cal.consumir_degradacion() is True
+
+
+def test_f003_r9_una_respuesta_sin_ok_no_se_da_por_buena() -> None:
+    """Otro servicio en esa URL no puede colarse como calendario."""
+    cliente = SesameApiClient(
+        base_url="http://sesame.interno:8006", api_key=CLAVE,
+        transport=transporte_json({"/api/v1/festivos": {"data": []}}))
+    cal = _adaptador(cliente, respaldo=CalendarioFake({REYES}))
+    assert cal.es_no_laborable(REYES, dni="12345678Z") is True
+    assert cal.consumir_degradacion() is True
+
+
 def test_f003_r9_sin_calendario_por_defecto_cae_al_respaldo() -> None:
     cal = _adaptador(ClienteFake(festivos=None, por_defecto=None),
                      respaldo=CalendarioFake({REYES}))
@@ -212,6 +257,32 @@ def test_f003_r26_la_senal_se_consume_y_se_resetea() -> None:
     cal.es_no_laborable(LUNES, dni="12345678Z")
     assert cal.consumir_degradacion() is True
     assert cal.consumir_degradacion() is False
+
+
+def test_f003_r26_un_calendario_recien_creado_no_esta_degradado() -> None:
+    """La senal arranca apagada: si arrancase encendida, la primera
+    pasada mandaria a revision partes calculados con datos buenos."""
+    cal = _adaptador(ClienteFake(festivos=[]))
+    assert cal.consumir_degradacion() is False
+
+
+def test_f003_r26_el_ttl_de_un_segundo_cachea() -> None:
+    """Cualquier TTL positivo cachea; el corte esta en 0, no en 1."""
+    cliente = ClienteFake(festivos=[])
+    cal = _adaptador(cliente, ttl=1)
+    cal.es_no_laborable(LUNES, dni="12345678Z")
+    cal.es_no_laborable(LUNES, dni="12345678Z")
+    assert len(cliente.llamadas) == 1
+
+
+def test_f003_r26_justo_en_el_ttl_la_entrada_ya_ha_caducado() -> None:
+    reloj = Reloj()
+    cliente = ClienteFake(festivos=[])
+    cal = _adaptador(cliente, reloj=reloj, ttl=100)
+    cal.es_no_laborable(LUNES, dni="12345678Z")
+    reloj.avanza(100)
+    cal.es_no_laborable(LUNES, dni="12345678Z")
+    assert len(cliente.llamadas) == 2
 
 
 def test_f003_r26_una_resolucion_buena_apaga_la_senal() -> None:
