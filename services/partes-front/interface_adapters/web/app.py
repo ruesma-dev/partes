@@ -57,10 +57,7 @@ from infrastructure.database.parte_repository import (
     extras_por_jornada,
 )
 from infrastructure.database.session_factory import SessionFactory
-from infrastructure.transfer.resultado_sigrid import (
-    MOTIVO_SIN_SESAME,
-    aplicar_resultado,
-)
+from infrastructure.transfer.resultado_sigrid import aplicar_resultado
 from infrastructure.transfer.transfer_client import TransferClient
 from infrastructure.transfer.transfer_queue_publisher import (
     TransferQueuePublisher,

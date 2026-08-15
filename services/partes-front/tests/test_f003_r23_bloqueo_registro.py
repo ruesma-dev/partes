@@ -276,7 +276,7 @@ def test_f003_r25_una_linea_normal_no_lleva_badge(montaje) -> None:
 
 def test_f003_r25_la_marca_cabe_en_el_campo(montaje) -> None:
     """`sigrid_motivo` es String(255): sin schema nuevo."""
-    from interface_adapters.web.app import MOTIVO_SIN_SESAME
+    from infrastructure.transfer.resultado_sigrid import MOTIVO_SIN_SESAME
     assert len(MOTIVO_SIN_SESAME) <= 255
 
 
