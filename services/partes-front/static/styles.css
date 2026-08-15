@@ -681,6 +681,14 @@ body.modal-open { overflow: hidden; }
 .cal-day:hover{background:#f3f6ff;border-color:#c9d6ff;}
 .cal-day.sel{background:#1f4bd8;border-color:#1f4bd8;color:#fff;font-weight:700;}
 .cal-day.range-start{outline:2px solid #f5a623;outline-offset:-2px;}
+/* F-003: festivos y domingos del calendario de "+ Nuevo". Se pueden
+   seleccionar (trabajar en festivo es legitimo); solo se marcan para que
+   nadie los meta sin darse cuenta al pintar un rango de un tiron. */
+.cal-day.cal-day-fest{background:#fdece9;border-color:#f0b8ae;color:#9f2842;}
+.cal-day.cal-day-dom{background:#eef0f1;border-color:#dfe2e4;color:#6b7076;}
+.cal-day.cal-day-fest.sel,.cal-day.cal-day-dom.sel{background:#1f4bd8;border-color:#1f4bd8;color:#fff;}
+.cal-legend-fest{color:#9f2842;font-weight:600;}
+.cal-legend-dom{color:#6b7076;font-weight:600;}
 .cal-hint{font-size:12px;margin-top:10px;}
 .table-scroll{overflow-x:auto;overflow-y:visible;}
 

@@ -1144,6 +1144,64 @@
     }
     function countSel() { return Object.keys(selected).length; }
 
+    // ---- Calendario laboral (F-003, R17): festivos y domingos ----
+    // Se pide a /api/calendario el mes visible, con el DNI del trabajador
+    // elegido si lo hay. Sirve para MARCAR los dias, no para prohibirlos:
+    // trabajar en festivo es legitimo, lo que no vale es hacerlo sin darse
+    // cuenta.
+    var calDias = {};        // iso -> {festivo, fin_de_semana, festivo_nombre}
+    var calFiable = true;
+    var calPedido = "";      // clave de la ultima peticion lanzada
+
+    function calDniActual() {
+      var el = document.getElementById("emp-dni");
+      return (el && el.value) || "";
+    }
+    function calAviso() {
+      var box = document.getElementById("cal-aviso");
+      if (!box) return;
+      box.hidden = calFiable;
+    }
+    function cargarCalendario() {
+      var desde = iso(y, m, 1);
+      var hasta = iso(y, m, new Date(y, m + 1, 0).getDate());
+      var dni = calDniActual();
+      var clave = desde + "|" + dni;
+      if (clave === calPedido) return;
+      calPedido = clave;
+      var url = "/api/calendario?desde=" + desde + "&hasta=" + hasta
+        + (dni ? "&dni=" + encodeURIComponent(dni) : "");
+      fetch(url, { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.ok) return;
+          calFiable = d.fiable !== false;
+          (d.data || []).forEach(function (x) { calDias[x.fecha] = x; });
+          calAviso();
+          renderCal();
+        })
+        .catch(function () {
+          // El calendario es una AYUDA: si no se puede pintar, el alta
+          // sigue funcionando igual que antes de F-003.
+          calPedido = "";
+        });
+    }
+    function esDomingo(isoStr) {
+      var info = calDias[isoStr];
+      if (info) return !!info.fin_de_semana
+        && new Date(isoStr + "T00:00:00").getDay() === 0;
+      return new Date(isoStr + "T00:00:00").getDay() === 0;
+    }
+    function esFestivo(isoStr) {
+      var info = calDias[isoStr];
+      return !!(info && info.festivo);
+    }
+    function diasDelicados() {
+      return Object.keys(selected).filter(function (k) {
+        return esFestivo(k) || esDomingo(k);
+      }).sort();
+    }
+
     function renderChips() {
       var box = document.getElementById("dias-chips");
       var keys = Object.keys(selected).sort();
@@ -1237,6 +1295,14 @@
         cell.type = "button"; cell.className = "cal-day"; cell.textContent = dd;
         if (selected[isoStr]) cell.classList.add("sel");
         if (rangeStart === isoStr) cell.classList.add("range-start");
+        if (esFestivo(isoStr)) {
+          cell.classList.add("cal-day-fest");
+          var info = calDias[isoStr];
+          cell.title = (info && info.festivo_nombre) || "Festivo";
+        } else if (esDomingo(isoStr)) {
+          cell.classList.add("cal-day-dom");
+          cell.title = "Domingo";
+        }
         (function (s) {
           cell.addEventListener("click", function () { clickDay(s); });
         })(isoStr);
@@ -1246,10 +1312,10 @@
     }
 
     document.getElementById("cal-prev").addEventListener("click", function () {
-      m--; if (m < 0) { m = 11; y--; } renderCal();
+      m--; if (m < 0) { m = 11; y--; } renderCal(); cargarCalendario();
     });
     document.getElementById("cal-next").addEventListener("click", function () {
-      m++; if (m > 11) { m = 0; y++; } renderCal();
+      m++; if (m > 11) { m = 0; y++; } renderCal(); cargarCalendario();
     });
     document.getElementById("cal-clear").addEventListener("click", function () {
       selected = {}; rangeStart = null; renderCal();
@@ -1286,12 +1352,26 @@
         if (e.jornada_sugerida != null) {
           document.getElementById("horas-ord").value = e.jornada_sugerida;
         }
+        // Su calendario puede tener festivos distintos (F-003).
+        calDias = {}; calPedido = ""; cargarCalendario();
         updateBtn();
       });
 
     document.getElementById("crear-btn").addEventListener("click", function () {
       var btn = this;
       var dias = Object.keys(selected).sort();
+      // R17: aviso NO bloqueante. Registrar horas en festivo o domingo es
+      // legitimo (y frecuente en obra); lo que no puede pasar es hacerlo
+      // sin enterarse por haber pintado un rango de un tiron.
+      var raros = diasDelicados();
+      if (raros.length) {
+        var lista = raros.map(function (k) {
+          return k.slice(8) + "/" + k.slice(5, 7);
+        }).join(", ");
+        var msg = raros.length + " día(s) son festivo/domingo (" + lista
+          + ") — ¿continuar?";
+        if (!window.confirm(msg)) return;
+      }
       var incSel = (document.getElementById("incidencia") || {}).value || "";
       var payload = {
         obra_ide: document.getElementById("obra-ide").value || null,
@@ -1350,6 +1430,7 @@
     });
 
     renderCal();
+    cargarCalendario();
   }
 
   function wireAddLine() {
