@@ -108,10 +108,28 @@ class Settings(BaseSettings):
     candef_minimo_valido: float = Field(2.0, alias="CANDEF_MINIMO_VALIDO")
 
     # --- Festivos del calendario --- #
+    # RESPALDO de los festivos: se usa cuando Sesame no esta configurado
+    # (F-003 apagada) o no responde. No se retira hasta que sesame-api
+    # este desplegado y rodado.
     holidays_enabled: bool = Field(True, alias="HOLIDAYS_ENABLED")
     holidays_subdiv: str = Field("MD", alias="HOLIDAYS_SUBDIV")
     # Festivos locales extra (CSV de 'YYYY-MM-DD').
     holidays_extra: str | None = Field(None, alias="HOLIDAYS_EXTRA")
+
+    # ------------------------------------------------------------ #
+    # sesame-api (F-003) — festivos REALES por trabajador y tipo de
+    # jornada del contrato. Pasarela de solo lectura sobre Sesame HR,
+    # con clave propia en la cabecera 'x-api-key'.
+    #
+    # OPCIONAL: sin las dos variables el portal usa el respaldo
+    # 'holidays' de siempre y no hace ni una llamada (R7).
+    # ------------------------------------------------------------ #
+    sesame_api_base_url: str | None = Field(None, alias="SESAME_API_BASE_URL")
+    sesame_api_key: str | None = Field(None, alias="SESAME_API_KEY")
+    sesame_api_timeout_s: float = Field(10.0, alias="SESAME_API_TIMEOUT_S")
+    # 6 h: los festivos de un ano no cambian casi nunca, y la cache es lo
+    # que evita que un timeout puntual de Sesame bloquee una aprobacion.
+    sesame_cache_ttl_s: int = Field(21600, alias="SESAME_CACHE_TTL_S")
 
     # ------------------------------------------------------------ #
     # Derivados.
@@ -137,6 +155,18 @@ class Settings(BaseSettings):
             (self.sigrid_api_base_url or "").strip()
             and (self.sigrid_api_function_key or "").strip()
             and (self.sigrid_api_database or "").strip()
+        )
+
+    @property
+    def sesame_enabled(self) -> bool:
+        """Hay pasarela de Sesame cableada (mismo patron que Sigrid).
+
+        Mientras sea False, F-003 esta APAGADA: festivos del respaldo, ni
+        bloqueos ni avisos, comportamiento identico al anterior.
+        """
+        return bool(
+            (self.sesame_api_base_url or "").strip()
+            and (self.sesame_api_key or "").strip()
         )
 
     @property

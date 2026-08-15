@@ -44,12 +44,14 @@ from application.services.calendar_builder import (
     parse_period_key,
     DayObra,
 )
+from application.services.calendario_provider import CalendarioProvider
 from application.services.holiday_provider import HolidayProvider
 from application.services.jornada_resolver import (
     candef_valido,
     jornada_efectiva,
 )
 from config.settings import Settings
+from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.parte_repository import (
     ParteReviewRepository,
     extras_por_jornada,
@@ -241,14 +243,15 @@ def build_app(
     transfer_client: TransferClient | None = None,
     publisher: TransferQueuePublisher | None = None,
     cola_cliente=None,
+    calendario_provider: CalendarioProvider | None = None,
 ) -> FastAPI:
     """Portal de revision.
 
     Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
-    sv5, publisher de `q-transfer` y cliente de cola para la gestion de
-    poison). Sin inyeccion se construyen desde `settings`, que es lo que
-    hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
-    red y sin Storage.
+    sv5, publisher de `q-transfer`, cliente de cola para la gestion de
+    poison y proveedor de calendario). Sin inyeccion se construyen desde
+    `settings`, que es lo que hace `main.py`; con ella, la suite levanta
+    la app sin PostgreSQL, sin red y sin Storage.
     """
     if repository is None:
         session_factory = SessionFactory(
@@ -295,11 +298,40 @@ def build_app(
             "[preview][wiring] Visor de PDF DESACTIVADO (falta GRAPH_KEY)."
         )
 
+    # Festivos. El respaldo (libreria `holidays` + extras) sigue siendo
+    # el de siempre; con Sesame configurado, el proveedor lo antepone con
+    # el calendario REAL de cada trabajador y deja el respaldo para
+    # cuando Sesame no esta (F-003).
     holiday_provider = HolidayProvider(
         enabled=settings.holidays_enabled,
         subdiv=settings.holidays_subdiv,
         extra_iso=settings.holidays_extra_list,
     )
+    if calendario_provider is None:
+        sesame_client: SesameApiClient | None = None
+        if settings.sesame_enabled:
+            sesame_client = SesameApiClient(
+                base_url=settings.sesame_api_base_url,   # type: ignore[arg-type]
+                api_key=settings.sesame_api_key,         # type: ignore[arg-type]
+                timeout_s=settings.sesame_api_timeout_s,
+            )
+            logger.info(
+                "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s",
+                settings.sesame_api_base_url,
+                len(settings.sesame_api_key or ""),
+                settings.sesame_cache_ttl_s,
+            )
+        else:
+            logger.info(
+                "[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los "
+                "festivos salen del respaldo local y no se bloquea ningun "
+                "registro."
+            )
+        calendario_provider = CalendarioProvider(
+            cliente=sesame_client,
+            respaldo_holiday_name=holiday_provider.name,
+            ttl_seconds=settings.sesame_cache_ttl_s,
+        )
 
     # Cliente del servicio de REGISTRO en Sigrid (partes-transfer, sv5).
     # Sigue siendo el canal SINCRONO: preflight y pisado de conflictos.
@@ -367,6 +399,7 @@ def build_app(
     app.state.obra_catalog = obra_catalog
     app.state.empleado_catalog = empleado_catalog
     app.state.graph_token_provider = graph_token_provider
+    app.state.calendario_provider = calendario_provider
     app.state.tables_ready = tables_ready
 
     templates = Jinja2Templates(
