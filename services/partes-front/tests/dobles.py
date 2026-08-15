@@ -222,6 +222,56 @@ def sembrar_registros(fabrica: FabricaSesionSqlite, *,
     return ids
 
 
+def sembrar_dias(
+    fabrica: FabricaSesionSqlite,
+    dias: list[dict],
+    *,
+    document_id: str = "doc-cal",
+    empleado_ide: int = 77,
+    empleado_dni: str = "12345678Z",
+    empleado_nombre: str = "Pepe Perez",
+    obra_ide: int = 10,
+    obra_codigo: str = "0100",
+) -> list[int]:
+    """Siembra un trabajador con una linea por dia (F-003).
+
+    Cada elemento de `dias` es `{"fecha": "YYYY-MM-DD", "horas": 6.0,
+    "candef": 8.0, "tipo": "normal"}`. Sirve para las vistas que evaluan
+    festivos y jornada incompleta, donde lo que importa es la fecha y las
+    horas ordinarias de cada dia.
+    """
+    ahora = "2026-03-02T08:00:00+00:00"
+    primera = dias[0]["fecha"] if dias else "2026-01-01"
+    with fabrica.create_session() as s:
+        s.add(ParteDocumentOrm(
+            id=document_id, source_filename="parte.pdf",
+            source_mime_type="application/pdf",
+            source_sha256="sha" + document_id,
+            fecha=primera, fecha_int=int(primera.replace("-", "")),
+            created_at_utc=ahora, obra_ide=obra_ide, obra_codigo=obra_codigo,
+            obra_nombre="Obra Uno"))
+        ids: list[int] = []
+        for i, d in enumerate(dias):
+            fecha = str(d["fecha"])
+            reg = ParteRegistroOrm(
+                document_id=document_id, line_index=i, fecha=fecha,
+                fecha_int=int(fecha.replace("-", "")), obra_ide=obra_ide,
+                obra_codigo=obra_codigo, obra_nombre="Obra Uno",
+                empleado_ide=empleado_ide, empleado_dni=empleado_dni,
+                empleado_nombre=empleado_nombre,
+                trabajador_nombre_leido=empleado_nombre,
+                recurso_ide=501, recurso_cif=empleado_dni,
+                tipo_hora=str(d.get("tipo") or "normal"),
+                horas=float(d.get("horas", 8.0)),
+                hora_candef=d.get("candef"),
+                hora_ide=1, hora_codigo="HL01")
+            s.add(reg)
+            s.flush()
+            ids.append(reg.id)
+        s.commit()
+    return ids
+
+
 def estados_sigrid(fabrica: FabricaSesionSqlite,
                    ids: list[int]) -> dict[int, tuple]:
     """Estado + motivo + ides de Sigrid de cada registro."""

@@ -45,6 +45,10 @@ from application.services.calendar_builder import (
     DayObra,
 )
 from application.services.holiday_provider import HolidayProvider
+from application.services.jornada_resolver import (
+    candef_valido,
+    jornada_efectiva,
+)
 from config.settings import Settings
 from infrastructure.database.parte_repository import (
     ParteReviewRepository,
@@ -501,16 +505,20 @@ def build_app(
         # minimo, se muestra la jornada por defecto (no la de Sigrid) y se
         # marca como valor "asignado".
         _cd_real = min(candef_recurso) if candef_recurso else None
-        if _cd_real is None or _cd_real <= settings.candef_minimo_valido:
-            candef_kpi = {
-                "valor": settings.jornada_por_defecto,
-                "asignado": True,
-                "sigrid": _cd_real,
-            }
-        else:
-            candef_kpi = {
-                "valor": _cd_real, "asignado": False, "sigrid": _cd_real,
-            }
+        _cd_efectivo = jornada_efectiva(
+            _cd_real,
+            minimo=settings.candef_minimo_valido,
+            por_defecto=settings.jornada_por_defecto,
+        )
+        candef_kpi = {
+            "valor": _cd_efectivo,
+            # "asignado" = el valor mostrado NO viene de Sigrid, se le ha
+            # asignado la jornada por defecto porque el candef no era valido.
+            "asignado": not candef_valido(
+                _cd_real, minimo=settings.candef_minimo_valido
+            ),
+            "sigrid": _cd_real,
+        }
 
         # Dias LABORABLES con jornada ordinaria incompleta: horas
         # ordinarias del dia por debajo del CanDefecto efectivo (el de
@@ -620,7 +628,7 @@ def build_app(
         incompletos: set[str] = set()
         for _row in detail.rows:
             _real = _candef_real.get(_row.nombre or "")
-            _eff = _cd_jor if (_real is None or _real <= _cd_min) else _real
+            _eff = jornada_efectiva(_real, minimo=_cd_min, por_defecto=_cd_jor)
             for _c in _row.cells:
                 if _c.is_weekend or _c.is_holiday:
                     continue
@@ -1020,9 +1028,11 @@ def build_app(
         def _sugerida(cd: float | None) -> float:
             # CanDefecto no valido (vacio o <= minimo) -> jornada por defecto
             # (mismo umbral que sv3 al reclasificar extras).
-            if cd is None or float(cd) <= settings.candef_minimo_valido:
-                return settings.jornada_por_defecto
-            return float(cd)
+            return jornada_efectiva(
+                cd,
+                minimo=settings.candef_minimo_valido,
+                por_defecto=settings.jornada_por_defecto,
+            )
 
         return JSONResponse({
             "ok": True,
