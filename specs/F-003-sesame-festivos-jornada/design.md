@@ -105,27 +105,73 @@ con preview de 300 caracteres, `_LOG_PREFIX = "[sesame-client]"`).
   ahí** — exige schema nuevo (trampa C3, ver D3), un job de refresco que
   no existe, y sv4 lo necesita igualmente en vivo para días sin registros.
 
-**Decisión para el humano**: la pareja de clientes
-`infrastructure/sesame/` queda declarada aquí como adaptadores por
-servicio. Se propone además **ampliar la lista de duplicación tolerada
-del CLAUDE.md** (regla LÍMITE DE SERVICIO) añadiendo «los clientes
-`infrastructure/sesame/` (sv3 y sv4)» para que la regla «quien toque uno
-cambia TODAS las copias» los proteja igual que a los Sigrid. Si el humano
-prefiere no ampliarla, la feature funciona igual; solo pierde esa
-protección explícita.
+**Decisión APROBADA por el humano (2026-08-15)**: la pareja de clientes
+`infrastructure/sesame/` queda declarada como adaptadores por servicio y
+SÍ se amplía la lista de duplicación tolerada del CLAUDE.md (regla
+LÍMITE DE SERVICIO) añadiendo «los clientes `infrastructure/sesame/`
+(sv3 y sv4)», con redacción mínima coherente con la existente, para que
+la regla «quien toque uno cambia TODAS las copias» los proteja igual que
+a los Sigrid. La edición del CLAUDE.md es una tarea de esta feature
+(T17).
 
 ## 5. Otras decisiones
 
-- **D2 · Resiliencia: fail-open en cascada, nunca KO.** Orden:
-  caché vigente → llamada a Sesame → caché expirada (*stale-while-error*,
-  patrón ya existente en `SigridMatcherProvider`) → calendario por
-  defecto → respaldo actual (`holidays` en sv4 / `JsonCalendarioLaboral`
-  en sv3), con WARNING. Justificación: la conciliación de sv3 ya es
-  best-effort (envuelta en `try/except` en el pipeline) y un portal caído
-  por RRHH sería peor que un festivo sin refrescar. **Descartada** la
-  alternativa KO (fallar la persistencia/vista si Sesame no responde):
-  rompería el pipeline por un sistema no crítico y hoy ni siquiera
-  desplegado.
+- **D2 · Resiliencia en DOS niveles (corregida por el humano,
+  2026-08-15; sustituye al fail-open universal de la spec original).**
+
+  *Nivel 1 — vistas informativas* (matriz de obra, calendario del
+  trabajador, badges, «+ Nuevo»): cascada de respaldo como estaba —
+  caché vigente → llamada a Sesame → caché expirada
+  (*stale-while-error*, patrón ya existente en `SigridMatcherProvider`)
+  → calendario por defecto → respaldo actual (`holidays` en sv4 /
+  `JsonCalendarioLaboral` en sv3) — nunca caen, pero toda resolución
+  degradada produce **aviso visible en la UI** («el calendario puede no
+  ser exacto: Sesame no disponible»), no solo WARNING en log (R22).
+  Mecánica: cada resolución del proveedor lleva su `fuente`
+  (`sesame`/`default`/`stale`/`respaldo`); las dos primeras son
+  fiables, las dos últimas degradadas. Las vistas reciben un flag
+  `sesame_degradado` en el contexto y pintan un banner; `/api/calendario`
+  devuelve `fiable` en la raíz para que el JS de «+ Nuevo» avise (R16).
+
+  *Nivel 2 — cálculo y registro* con `sesame_enabled=true` pero Sesame
+  NO disponible: el cálculo de horas no es fiable sin los festivos
+  adicionales ni las jornadas reducidas, así que
+  - el preflight/aprobación de sv4 **BLOQUEA el registro** («calendario
+    Sesame no disponible: el cálculo puede ser incorrecto»): sv4 evalúa
+    la fiabilidad de las resoluciones (DNI × año) de las líneas del
+    lote y anota el bloqueo en la respuesta del preflight; `/ejecutar`
+    y `/encolar` lo imponen en servidor con 422 (R23/R24);
+  - existe **override manual explícito** en el modal (patrón del pisado
+    de conflictos de F-002): `forzar_sin_sesame=true`, solo por la vía
+    síncrona `/api/aprobar/ejecutar` (una decisión humana no viaja por
+    una cola con reentregas, mismo argumento que `pisar_claves`), y las
+    líneas registradas así quedan **marcadas** con el prefijo
+    `[SIN-SESAME]` en `sigrid_motivo` (R25) — ver «marca» más abajo;
+  - en sv3, si el cómputo de extras evaluó un día con resolución
+    degradada, el parte queda `review_required=true` (campo existente
+    de `parte_documents`; la señal nunca lo baja a `false`) con
+    WARNING (R26).
+
+  **Marca sin schema nuevo (decisión)**: se usa `sigrid_motivo`
+  (`String(255)`, ya existe en las dos copias de `orm_models.py` y en la
+  BBDD). Hoy el registro OK pone `sigrid_motivo=None`; con override, la
+  traza (`aplicar_resultado`) escribe en su lugar
+  `[SIN-SESAME] registrado con override: calendario Sesame no
+  disponible` (truncado a 255). Las plantillas muestran un badge cuando
+  `sigrid_estado` es OK y el motivo lleva el prefijo. Es viable: NO se
+  necesita columna nueva. Coste asumido: el campo mezcla motivos de
+  error y esta marca; el prefijo la hace distinguible y filtrable.
+
+  Con `sesame_enabled=false` no hay bloqueos, marcas ni avisos:
+  comportamiento actual (R27); la feature va apagada hasta P2.
+
+  **Descartadas**: el fail-open universal original (dejaba pasar
+  registros calculados con calendario posiblemente erróneo solo con un
+  WARNING que nadie mira — corrección del humano); el KO duro también
+  en vistas (un portal caído por RRHH sería peor que un festivo sin
+  refrescar; la conciliación de sv3 sigue best-effort y nunca falla la
+  persistencia); y una columna nueva `registrado_sin_sesame` (tocaría
+  las DOS copias de `orm_models.py` y el schema — trampa C3 y D3).
 - **D3 · Resolución al vuelo, SIN columnas nuevas.** Festivo y jornada se
   resuelven en el momento de uso (sv3 al conciliar, sv4 al pintar), con
   caché TTL. **Descartada** la alternativa de persistir
@@ -218,17 +264,31 @@ protección explícita.
     defecto; `incompletos` evaluando festivo por DNI de fila (D6);
     `jornada_efectiva`.
   - `_sugerida` (L1020-1025) → delega en `jornada_efectiva`.
-  - nuevo endpoint `GET /api/calendario` (R16).
+  - nuevo endpoint `GET /api/calendario` (R16, con `fiable` raíz).
   - preflight de aprobación: anotar líneas en festivo/domingo (R18).
+  - `aprobar_preflight`: anexar `sesame_bloqueo` (motivo) a la respuesta
+    si alguna resolución del lote es degradada (R23); `aprobar_ejecutar`
+    y `aprobar_encolar`: guarda de servidor 422 sin `forzar_sin_sesame`
+    (R24); `aprobar_ejecutar` acepta `forzar_sin_sesame` del body y lo
+    pasa a la traza (R25). El payload hacia sv5 NO cambia.
+- `infrastructure/transfer/resultado_sigrid.py`: `aplicar_resultado`
+  acepta `sin_sesame: bool = False` y, en líneas OK, escribe la marca
+  `[SIN-SESAME] ...` en `sigrid_motivo` en vez de `None` (R25).
 - `infrastructure/database/parte_repository.py`: añadir `dni` al DTO
   `ObraMatrixRow` (y poblarlo en `get_obra`). **Nada más** de este
   fichero.
 - `templates/trabajador_detail.html`: badge jornada contrato + aviso
-  divergencia.
+  divergencia; banner `sesame_degradado` (R22) y badge `[SIN-SESAME]`
+  en líneas OK marcadas (R25).
+- `templates/obra_detail.html`: banner `sesame_degradado` (R22) y badge
+  `[SIN-SESAME]` (R25).
 - `templates/nuevo_parte.html` y `static/app.js` (L1202-1259): rejilla
   con clases festivo/domingo alimentada por `GET /api/calendario`,
-  confirmación no bloqueante al enviar (R17). `static/styles.css`:
-  clases nuevas.
+  confirmación no bloqueante al enviar (R17); aviso si `fiable=false`
+  (R22). En el flujo de aprobación (L2206-2480), el modal muestra el
+  bloqueo `sesame_bloqueo` con confirmación de override que fuerza la
+  vía síncrona con `forzar_sin_sesame` (R23/R25), como el pisado.
+  `static/styles.css`: clases nuevas.
 - `.env.example`: bloque `SESAME_*` documentado (placeholders, sin
   valores reales).
 
@@ -242,7 +302,18 @@ protección explícita.
 - `application/services/recurso_conciliador.py`:
   `_es_no_laborable(fecha_int, regs)` extrae el DNI del grupo y lo pasa
   al puerto (D7); la regla candef de L486-493 delega en
-  `jornada_efectiva` (R11). El resto del algoritmo NO cambia.
+  `jornada_efectiva` (R11). Además (R26): tras cada evaluación de
+  no-laborable consulta `consumir_degradacion()` del calendario (si el
+  adaptador la ofrece — duck-typing, el puerto NO cambia) y acumula los
+  `document_id` de los registros del grupo; al final de
+  `conciliar_todos` llama a
+  `repository.marcar_review_required(document_ids)`. El resto del
+  algoritmo NO cambia.
+- `domain/ports/parte_repository.py` e
+  `infrastructure/database/sqlalchemy_parte_repository.py`:
+  `fetch_registros_para_recurso` añade `document_id` al dict de cada
+  registro; método nuevo `marcar_review_required(document_ids)` que solo
+  sube el flag a `true` (nunca lo baja). Sin cambios de schema.
 - `.env.example`: bloque `SESAME_*`.
 
 ### Transversales
@@ -254,6 +325,10 @@ protección explícita.
   lanza el humano.
 - `azure-apps/partes.md` (repo `azure-apps`): declarar el consumo de
   sesame-api (R21).
+- `CLAUDE.md` (raíz del repo): en la regla LÍMITE DE SERVICIO, la lista
+  de duplicación tolerada pasa a incluir «los clientes
+  `infrastructure/sesame/` (sv3 y sv4)». Redacción mínima, coherente
+  con la existente (D1 aprobada, T17).
 - `harness/features.json`: estado de F-003 según el flujo del arnés.
 
 ## 8. Clases y funciones (firma, responsabilidad, capa)
@@ -289,7 +364,17 @@ class CalendarioProvider:
     def holiday_name_para(self, dni: str | None) -> Callable[[date], str | None]: ...
     def dia(self, d: date, dni: str | None) -> DiaCalendario: ...
     def jornada_contrato(self, dni: str | None) -> JornadaContrato | None: ...
+    def fiable_para(self, consultas: Iterable[tuple[str | None, int]]) -> bool: ...
 ```
+
+- **Fuente de cada resolución (D2)**: las entradas de caché guardan
+  `(timestamp, valor, fuente)` con `fuente` en
+  `{"sesame", "default", "stale", "respaldo"}`; `sesame`/`default` son
+  fiables, `stale`/`respaldo` degradadas. `fiable_para` resuelve (con la
+  caché normal) los pares (DNI, año) del lote y devuelve `False` si
+  alguna resolución sale degradada; es la comprobación del bloqueo de
+  registro (R23/R24) y del banner de vistas (R22). Con `cliente is None`
+  devuelve `True` (Sesame no configurado ⇒ nivel 2 desactivado, R27).
 
 - Devuelve *callables* `holiday_name` compatibles con `build_calendar` y
   `get_obra` (mismo contrato que `HolidayProvider.name`): el resto de
@@ -315,6 +400,31 @@ class SesameCalendarioLaboral(CalendarioLaboralPort):
 
 - Finde en local; festivo por caché (DNI × año) → calendario por defecto
   → `respaldo.es_no_laborable(...)` (R9). Nunca propaga excepciones.
+- **Señal de degradación (R26)**: método adicional
+  `consumir_degradacion() -> bool` — devuelve si la ÚLTIMA llamada a
+  `es_no_laborable` se resolvió degradada (stale/respaldo) y resetea el
+  flag. No forma parte del puerto: el conciliador la descubre por
+  duck-typing y `JsonCalendarioLaboral` no la necesita.
+
+### `aplicar_resultado` (infrastructure, sv4 — ya existe, se amplía)
+
+```python
+def aplicar_resultado(repository, resultado: dict, *,
+                      registro_ids: list[int] | None,
+                      usuario: str | None,
+                      sin_sesame: bool = False) -> int: ...
+```
+
+- Con `sin_sesame=True`, las líneas que quedan OK reciben
+  `sigrid_motivo = "[SIN-SESAME] registrado con override: calendario "
+  "Sesame no disponible"` (truncado a 255) en vez de `None` (R25).
+
+### `marcar_review_required` (infrastructure, sv3 — método nuevo del repo)
+
+```python
+def marcar_review_required(self, document_ids: Collection[str]) -> int:
+    """Sube review_required a True en esos partes; nunca lo baja."""
+```
 
 ### `jornada_efectiva` (application, sv3 y sv4 — misma regla)
 
@@ -349,8 +459,17 @@ ninguna copia de `orm_models.py`.
 - sv3: se inaugura `services/partes-persistencia/tests/` (hoy no existe);
   regresión de `_reclasificar_extras_jornada` con calendario fake
   (laborable/festivo) y casos dorados de splits (R15).
+- Nivel 2 (D2): TestClient con doble del proveedor cuyo `fiable_para`
+  devuelve `False` ⇒ preflight anexa `sesame_bloqueo`, `/ejecutar` y
+  `/encolar` responden 422 sin flag, `/ejecutar` con
+  `forzar_sin_sesame=true` procede y la traza marca `[SIN-SESAME]` en
+  `sigrid_motivo` (R23–R25); proveedor `None` o `fiable_para=True` ⇒
+  ningún bloqueo (R27). sv3: conciliador con calendario fake que declara
+  degradación ⇒ `marcar_review_required` recibe los `document_id`
+  del grupo; sin degradación o sin Sesame ⇒ no se llama (R26/R27).
 - JS: `node --check static/app.js` + parseo Jinja2 de plantillas tocadas
-  (convención sv4). El comportamiento visual de R17 se verifica MANUAL.
+  (convención sv4). El comportamiento visual de R17, del banner R22 y
+  del modal de override R25 se verifica MANUAL.
 
 ## 11. Riesgos
 
@@ -358,11 +477,21 @@ ninguna copia de `orm_models.py`.
    activar `SESAME_*` contra una URL que no existe. Mitigación: la
    feature entera degrada a comportamiento actual con `sesame_enabled=
    false`, y la activación en Azure es un paso manual del humano
-   posterior a P2.
+   posterior a P2. OJO: con la D2 corregida, activar Sesame contra una
+   URL muerta ya no es silencioso — BLOQUEA las aprobaciones (R23). Es
+   deliberado: activar la feature sin el servicio detrás debe doler, no
+   calcular mal en silencio.
+1bis. **Falsos bloqueos por un Sesame inestable**: un timeout puntual en
+   pleno lote de aprobación bloquea el registro aunque los datos apenas
+   hayan cambiado. Mitigación: la caché vigente (TTL 6 h) absorbe la
+   mayoría de fallos puntuales (solo bloquea si la caché también
+   expiró), y el override manual de R25 deja pasar al humano de forma
+   consciente y marcada.
 2. **Cambio de contrato de sesame-api** (código aún no publicado, puede
    mutar): los tests del cliente fijan el contrato con fixtures; si
    sesame-api cambia, fallan los tests del cliente, no el portal en
-   producción (fail-open).
+   producción (fail-open en las vistas; el registro se bloquearía con
+   aviso claro, R23, no calcularía mal).
 3. **Divergencia sv3/sv4 en festivos durante la transición**: si solo un
    servicio tiene Sesame activo, sv3 y sv4 pueden discrepar en un
    festivo (ya discrepan hoy: Madrid vía `holidays` en sv4 vs nacionales

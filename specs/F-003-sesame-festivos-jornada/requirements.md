@@ -21,6 +21,13 @@ Notación EARS. Cada R se traduce a >= 1 test con nombre trazable
 - **«Jornada teórica»**: horas ordinarias diarias esperadas. Hoy:
   `candef` si `candef > CANDEF_MINIMO_VALIDO`, si no
   `JORNADA_POR_DEFECTO`/`JORNADA_ORDINARIA_HORAS` (8.0).
+- **«Resolución degradada»** (equivale a «Sesame no disponible»): DONDE
+  Sesame está configurado, una consulta de calendario cuyo resultado NO
+  procede de una respuesta vigente de Sesame (llamada con éxito o caché
+  dentro de TTL) sino de la caché expirada (*stale*) o del respaldo,
+  por fallo de sesame-api (error de red, timeout, 5xx, respuesta no
+  válida). El caso del DNI sin calendario (404 → calendario por defecto,
+  R4) NO es degradación: Sesame respondió y el dato es fiable.
 
 ## A. Festivos reales en sv4 (portal)
 
@@ -42,7 +49,9 @@ Notación EARS. Cada R se traduce a >= 1 test con nombre trazable
   respuesta no válida), ENTONCES el sistema debe reutilizar la última
   respuesta cacheada aunque su TTL haya expirado (*stale-while-error*);
   si no existe caché previa debe usar el respaldo, registrando WARNING.
-  Ninguna vista del portal debe romperse por un fallo de Sesame.
+  Ninguna vista del portal debe romperse por un fallo de Sesame. Toda
+  resolución degradada en una vista informativa lleva además el aviso
+  visible de R22 (sección F).
 - **R6.** MIENTRAS una consulta de festivos (DNI × año, o calendario por
   defecto × año) tenga caché vigente (TTL `SESAME_CACHE_TTL_S`, defecto
   21600 s), sv4 no debe repetir la llamada a sesame-api.
@@ -97,9 +106,10 @@ Notación EARS. Cada R se traduce a >= 1 test con nombre trazable
 
 - **R16.** CUANDO el front pide `GET /api/calendario?desde=&hasta=[&dni=]`,
   sv4 debe responder por día `{fecha, laborable, fin_de_semana, festivo,
-  festivo_nombre}` usando el proveedor de calendario (del trabajador si
-  llega `dni`, si no el por defecto), con las mismas degradaciones
-  R4–R5; rango máximo 62 días → 422.
+  festivo_nombre}` más un campo raíz `fiable` (false si alguna resolución
+  del rango fue degradada), usando el proveedor de calendario (del
+  trabajador si llega `dni`, si no el por defecto), con las mismas
+  degradaciones R4–R5; rango máximo 62 días → 422.
 - **R17.** CUANDO en «+ Nuevo» la selección de días incluye festivos o
   domingos, el portal debe marcarlos visualmente en la rejilla y, al
   enviar, pedir una confirmación no bloqueante («N día(s) son
@@ -121,3 +131,44 @@ Notación EARS. Cada R se traduce a >= 1 test con nombre trazable
 - **R21.** El documento `azure-apps/partes.md` debe quedar actualizado en
   esta misma feature declarando el nuevo consumo de sesame-api (endpoints
   usados, autenticación, degradación). *Verificación documental.*
+
+## F. Resiliencia en dos niveles (D2 corregida por el humano, 2026-08-15)
+
+> Nivel 1 — vistas informativas: nunca caen (cascada R5), pero avisan.
+> Nivel 2 — cálculo y registro: sin Sesame disponible el cálculo de horas
+> no es fiable (faltan festivos adicionales y jornadas reducidas), así
+> que el registro se bloquea salvo override manual explícito, que queda
+> marcado. Todo ello SOLO con Sesame configurado (R27).
+
+- **R22.** CUANDO una vista informativa de sv4 (vista trabajador, matriz
+  de obra, o «+ Nuevo» a través de `GET /api/calendario`) se sirve con
+  alguna resolución degradada, el sistema debe mostrar un aviso visible
+  en la propia UI («el calendario puede no ser exacto: Sesame no
+  disponible»), además del WARNING en log; la vista se sirve igualmente.
+- **R23.** DONDE Sesame está configurado, CUANDO el preflight de
+  aprobación se ejecuta y la resolución de calendario de algún
+  trabajador del lote es degradada, el modal debe BLOQUEAR el registro
+  mostrando el motivo «calendario Sesame no disponible: el cálculo puede
+  ser incorrecto», con el override de R25 como única salida.
+- **R24.** SI se solicita el registro (`/api/aprobar/ejecutar` o
+  `/api/aprobar/encolar`) con alguna resolución degradada del lote y sin
+  el flag de override `forzar_sin_sesame`, ENTONCES sv4 debe rechazarlo
+  con 422 y el motivo de R23 (el bloqueo lo impone el servidor, no solo
+  el modal).
+- **R25.** CUANDO el humano confirma el override explícito en el modal
+  (patrón del pisado de conflictos de F-002: confirmación consciente),
+  el registro debe proceder únicamente por la vía síncrona
+  `/api/aprobar/ejecutar` con `forzar_sin_sesame=true` (como
+  `pisar_claves`: una decisión humana no viaja por una cola con
+  reentregas), y las líneas registradas así deben quedar marcadas de
+  forma persistente en su `sigrid_motivo` con el prefijo `[SIN-SESAME]`
+  (campo `String(255)` existente: sin cambios de schema), marca visible
+  en las vistas del portal.
+- **R26.** DONDE Sesame está configurado en sv3, SI el cómputo de extras
+  evaluó algún día de un parte con resolución degradada, ENTONCES ese
+  parte debe quedar con `review_required=true` (campo existente de
+  `parte_documents`, sin schema nuevo) registrando WARNING; la marca
+  nunca pasa de `true` a `false` por esta vía.
+- **R27.** DONDE Sesame NO está configurado (`sesame_enabled=false`), el
+  sistema no debe aplicar ninguno de los bloqueos, marcas ni avisos de
+  esta sección: comportamiento actual exacto (refuerza R7/R10).

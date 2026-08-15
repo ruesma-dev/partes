@@ -3,10 +3,22 @@
 
 ## F-003 · Integración sesame-api: festivos y jornada reales
 
-- Estado: **spec escrita** (2026-08-15) en
-  `specs/F-003-sesame-festivos-jornada/` (requirements 21 R · design ·
-  15 tareas), commiteada en la rama `feature/F-003-sesame-festivos-jornada`.
-  Rigor critico · sdd=true. **PARADA: la spec la aprueba el humano.**
+- Estado: **spec APROBADA y ENMENDADA** (2026-08-15) en
+  `specs/F-003-sesame-festivos-jornada/` (requirements 27 R · design ·
+  18 tareas), en la rama `feature/F-003-sesame-festivos-jornada`.
+  Rigor critico · sdd=true. La enmienda integra las dos decisiones
+  cerradas por el humano (D1 y D2 corregida), sin reescribir lo aprobado:
+  - D2 en dos niveles: nueva sección F (R22–R27) — aviso visible en
+    vistas degradadas, bloqueo del registro con Sesame activado pero no
+    disponible, override `forzar_sin_sesame` solo por `/ejecutar`
+    (patrón pisar de F-002) con marca `[SIN-SESAME]` en `sigrid_motivo`
+    (sin schema nuevo: decisión tomada, es viable), y en sv3
+    `review_required=true` vía `consumir_degradacion()` +
+    `marcar_review_required` (solo sube el flag).
+  - D1: tarea T17 amplía la duplicación tolerada del CLAUDE.md con los
+    clientes `infrastructure/sesame/` (sv3 y sv4).
+  - Tareas nuevas T15 (nivel 2 sv4), T16 (señal sv3), T17 (CLAUDE.md);
+    init.sh pasa a T18. Ajustadas T4/T6/T8/T9/T11.
 
 ### Hallazgos clave de la exploración de sesame-api (repo local)
 
@@ -34,8 +46,11 @@
 - Spec APROBADA con la enmienda de D2. F-010 (resincronizar orm_models)
   añadida al backlog.
 
-Spec-author relanzado para la enmienda. Tras ella: delta al humano e
-implementer (aprobación ya dada).
+Enmienda hecha y commiteada en la rama. Siguiente: delta al humano e
+implementer (aprobación ya dada). Nada abierto que requiera validación
+nueva del humano: las decisiones de la enmienda (`sigrid_motivo` como
+marca, `review_required` como señal, override solo síncrono) desarrollan
+lo que él ya cerró.
 
 ### Decisiones abiertas ORIGINALES del spec-author (histórico)
 
