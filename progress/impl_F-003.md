@@ -1,9 +1,16 @@
 <!-- progress/impl_F-003.md -->
 # F-003 · Integración sesame-api: festivos y jornada reales — Informe de implementación
 
-Rama `feature/F-003-sesame-festivos-jornada`. Rigor **critico**. 22 commits
-(19 de tarea T1–T18 + 3 de refuerzo guiado por mutación), ninguno sobre
-`dev` ni `main`, sin `push`.
+Rama `feature/F-003-sesame-festivos-jornada`. Rigor **critico**. 24 commits
+(18 de tarea T1–T18 + los de refuerzo guiado por mutación, lint e
+informes), ninguno sobre `dev` ni `main`, sin `push`. Los 27 requisitos
+R1–R27 tienen al menos un test con nombre trazable `test_f003_rN_...`,
+con tres excepciones declaradas en la propia spec: **R17** (rejilla y
+confirmación de «+ Nuevo») y el modal de **R25** son verificación MANUAL;
+**R21** es documental (`azure-apps/partes.md`); y **R19** («los tests no
+tocan red ni BBDD») no es un test sino una propiedad de toda la suite —
+la impone el fixture `sin_red`, que corta `httpx.HTTPTransport`, más
+`httpx.MockTransport` en los clientes y SQLite en memoria en el resto.
 
 ## Resumen en una frase
 
@@ -243,18 +250,27 @@ comprueba sobre la línea de wiring concreta (en sv4 y en sv3).
 
 ### Suites, portero y estáticos
 
+Última ejecución completa, sin `ARNES_SALTAR_SUITES`:
 ```
 $ bash harness/init.sh
-[OK] pytest en verde (con medición de cobertura)          6 passed
-[OK] servicio sv3-persistencia: pytest en verde          82 passed   (suite nueva)
-[OK] servicio sv4-front: pytest en verde                253 passed
-[OK] servicio sv5-transfer: pytest en verde (caché)
-[OK] PUERTA COBERTURA: 93.4% de 620 líneas cambiadas cubiertas (579/620, umbral 80%, nivel critico)
+    10 features, 8 abiertas, en curso: ['F-003'], bloqueadas: ninguna
+[AVISO] ruff: 451 avisos (deuda previa, no bloquea)
+6 passed in 0.18s
+[OK] pytest en verde (con medición de cobertura)
+95 passed in 3.27s
+[OK] servicio sv3-persistencia (services/partes-persistencia): pytest en verde
+[OK] servicio sv4-front (services/partes-front): pytest en verde        272 passed
+[OK] servicio sv5-transfer (services/partes-transfer): pytest en verde
+[OK] PUERTA COBERTURA: 94.5% de 621 líneas cambiadas cubiertas (587/621, umbral 80%, nivel critico)
 [OK] Rama actual: feature/F-003-sesame-festivos-jornada
 ENTORNO LISTO. Puedes trabajar.
 ```
-(cifras del cierre de T18; los recuentos finales, tras el refuerzo de
-tests, están en «Evidencias»).
+El aviso de `ruff` es **deuda previa y baja**: eran 442 antes de F-003 y
+son 451 después, y ninguno de los 9 nuevos está en los ficheros de la
+feature (se limpiaron `I001`, `F401` y `SIM117` en los tests, commit
+`3292e8f`). Los módulos de producción conservan
+`from typing import Callable` como sus vecinos (`calendar_builder.py`,
+`app.py`): dos estilos conviviendo sería peor que el aviso.
 
 ```
 $ node --check services/partes-front/static/app.js
@@ -315,13 +331,22 @@ Encoding preservado fichero a fichero (sin BOM; `00_vars`, `add_secrets` y
 
 | Evidencia | Valor |
 |---|---|
-| **Tests ejecutados** | **372** en total, todos en verde: 6 en `tests/` (raíz), 94 en sv3 (suite **nueva**, antes 0), 272 en sv4 (128 antes de F-003 ⇒ **+144**). sv5 sin tocar. |
-| **Cobertura de las líneas cambiadas** | **93.4 %** (579/620 líneas Python de producción), umbral del nivel `critico` 80 %. Línea `PUERTA COBERTURA` de `bash harness/init.sh`. |
-| **Mutantes generados y supervivientes** | **211 generados / 211 evaluados**. Campaña inicial: 154 muertos, **57 supervivientes**. Tras el refuerzo de tests: **≥186 muertos, ≤25 supervivientes** (86–88 % de mortalidad). Detalle y análisis uno a uno en `progress/mutacion_F-003.md`. |
-| **Tiempo de ejecución de la suite** | raíz 2,9 s · sv3 4,3 s · sv4 52,2 s (medidos por separado; dentro de `init.sh`, con caché de servicios sin cambios, el portero completo tarda ~1 min). |
+| **Tests ejecutados** | **373** en total, todos en verde: **6** en `tests/` (raíz), **95** en sv3 (suite **nueva**: antes de F-003 sv3 tenía 0 y el portero lo avisaba en cada arranque), **272** en sv4 (**128** antes de F-003 ⇒ **+144**). sv5 y los demás servicios, sin tocar. |
+| **Cobertura de las líneas cambiadas** | **94,5 %** — 587 de 621 líneas Python de producción cubiertas; umbral del nivel `critico`, 80 %. Línea `PUERTA COBERTURA` de `bash harness/init.sh`. |
+| **Mutantes generados y supervivientes** | **211 generados, 211 evaluados, 0 timeouts.** Campaña inicial: 154 muertos / **57 supervivientes** (73,0 %). Campaña final tras el refuerzo: **185 muertos / 26 supervivientes (87,7 %)**, y el nº 26 se cazó después con un test más (verificado a mano aplicando la mutación), así que quedan **25 supervivientes, todos analizados y equivalentes**. |
+| **Tiempo de ejecución de la suite** | raíz **0,2 s** · sv3 **3,3 s** · sv4 **35,3 s** (medidos dentro de `init.sh`); el portero completo, con la caché de servicios sin cambios, ronda el minuto. La campaña de mutación completa: **402 s**. |
 
-Notas sobre la mutación: la campaña es completa (sin muestreo) sobre las
-1.533 líneas del alcance del diff, y tardó 407–467 s por pasada. Ninguno
-de los supervivientes que quedan cambia el comportamiento observable del
-sistema; el análisis individual de cada uno está escrito en
-`progress/mutacion_F-003.md`, sin ninguna sección en `PENDIENTE`.
+Notas sobre la mutación: campaña **completa, sin muestreo**, sobre las
+1.533 líneas del alcance del diff. Los 25 supervivientes que quedan están
+analizados **uno a uno** en `progress/mutacion_F-003.md` (cero secciones
+en `PENDIENTE`) y se agrupan en: 10 mutaciones dentro de argumentos de
+`logger.*` (cambian el texto de un log, no el comportamiento), 6
+constantes de ajuste (TTL, tamaño de recorte de errores, reintentos), 2
+truncados defensivos a 255 caracteres, 2 cortocircuitos que llegan al
+mismo resultado por otro camino, 2 guardas redundantes de TTL, 1 epsilon
+de coma flotante, 1 `include_in_schema` (solo afecta al OpenAPI) y 1
+guarda de un WARNING. **Ninguno cambia comportamiento observable.**
+
+Lo que más valor dio la mutación no fue el porcentaje: fue destapar **un
+bug real** (la fecha cruda contra el mapa de festivos) y **un test que se
+engañaba solo** (el `key_len` del log de wiring). Ambos, arreglados.

@@ -21,6 +21,7 @@ from infrastructure.calendario.sesame_calendario_laboral import (
 )
 from infrastructure.sesame.sesame_api_client import (
     FestivoDia,
+    JornadaContrato,
     SesameApiClient,
 )
 from tests.dobles import CalendarioFake, transporte_json
@@ -321,17 +322,23 @@ def test_f003_r8_el_cliente_de_sv3_habla_el_contrato_real() -> None:
     assert peticiones[0].headers["x-api-key"] == CLAVE
 
 
-@pytest.mark.parametrize("tipo, valores", [
-    (FestivoDia, {"fecha": "2026-05-15", "nombre": "San Isidro"}),
+@pytest.mark.parametrize("tipo, valores, campo", [
+    (FestivoDia, {"fecha": "2026-05-15", "nombre": "San Isidro"}, "fecha"),
+    (JornadaContrato,
+     {"tipo": "Parcial", "reducida": True, "tipo_contrato": "Indefinido"},
+     "reducida"),
 ])
-def test_f003_r8_los_datos_del_cliente_son_inmutables(tipo, valores) -> None:
+def test_f003_r8_los_datos_del_cliente_son_inmutables(
+        tipo, valores, campo) -> None:
     """Viven en la cache del adaptador, compartida entre persistencias:
-    que nadie los cambie desde fuera."""
+    que nadie los cambie desde fuera. `JornadaContrato` hoy no lo usa sv3
+    (solo el portal), pero el cliente es GEMELO del de sv4 y tiene que
+    seguir siendolo tambien en esto."""
     import dataclasses
 
     instancia = tipo(**valores)
     with pytest.raises(dataclasses.FrozenInstanceError):
-        instancia.fecha = "2026-01-01"   # type: ignore[misc]
+        setattr(instancia, campo, "otro")
 
 
 def test_f003_r8_el_cliente_de_sv3_es_gemelo_del_de_sv4() -> None:
