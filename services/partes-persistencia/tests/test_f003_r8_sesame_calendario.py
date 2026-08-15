@@ -322,6 +322,19 @@ def test_f003_r8_el_cliente_de_sv3_habla_el_contrato_real() -> None:
     assert peticiones[0].headers["x-api-key"] == CLAVE
 
 
+@pytest.mark.parametrize("tipo, valores", [
+    (FestivoDia, {"fecha": "2026-05-15", "nombre": "San Isidro"}),
+])
+def test_f003_r8_los_datos_del_cliente_son_inmutables(tipo, valores) -> None:
+    """Viven en la cache del adaptador, compartida entre persistencias:
+    que nadie los cambie desde fuera."""
+    import dataclasses
+
+    instancia = tipo(**valores)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        instancia.fecha = "2026-01-01"   # type: ignore[misc]
+
+
 def test_f003_r8_el_cliente_de_sv3_es_gemelo_del_de_sv4() -> None:
     """Duplicacion TOLERADA (adaptadores por servicio), no divergencia:
     quien toque uno tiene que tocar el otro. Se comparan los cuerpos de

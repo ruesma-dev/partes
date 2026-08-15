@@ -229,6 +229,18 @@ def test_f003_r22_la_consulta_de_fiabilidad_lleva_dni_y_ano(entorno) -> None:
     assert consultas and consultas[0][1] == [("12345678Z", 2026)]
 
 
+def test_f003_r22_solo_cuentan_los_dias_del_periodo(entorno) -> None:
+    """La rejilla de enero arrastra dias de diciembre para cuadrar la
+    semana. Esos NO son del periodo: si contaran, la vista consultaria
+    (y podria declarar degradado) un ano que no esta mirando."""
+    proveedor = ProveedorFake(por_dni={"12345678Z": set()})
+    cliente = _monta(entorno, [{"fecha": "2026-01-05", "horas": 8.0}],
+                     proveedor)
+    cliente.get("/trabajadores/emp-77?period=2026-01&modo=natural")
+    consultas = [c for c in proveedor.consultas if c[0] == "fiable_para"]
+    assert consultas and consultas[0][1] == [("12345678Z", 2026)]
+
+
 # ------------------------- el DNI de la fila (D6) ----------------------- #
 
 def test_f003_r2_la_fila_de_la_matriz_lleva_el_dni(entorno) -> None:
