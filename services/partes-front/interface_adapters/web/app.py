@@ -19,7 +19,7 @@ from __future__ import annotations
 import html
 import logging
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -1064,6 +1064,62 @@ def build_app(
                 ],
             }
         )
+
+    # ---------------- Calendario laboral (para el JS) ---------------- #
+    #: Tope del rango de `/api/calendario`. Dos meses cubren de sobra el
+    #: periodo de nomina mas largo; sin tope, un cliente pidiendo diez
+    #: anos pondria al proveedor a resolver una consulta por ano.
+    MAX_DIAS_CALENDARIO = 62
+
+    @app.get("/api/calendario", include_in_schema=False)
+    def api_calendario(
+        desde: str = Query(...),
+        hasta: str = Query(...),
+        dni: str | None = Query(default=None),
+    ) -> JSONResponse:
+        """Dias del rango con festivo / finde / laborable (R16).
+
+        Lo consume «+ Nuevo» para marcar en su rejilla los dias que son
+        festivo o domingo antes de crear las lineas. Con `dni` se resuelve
+        con el calendario de ese trabajador; sin el, con el calendario por
+        defecto. `fiable` en la raiz avisa de que alguna resolucion salio
+        del respaldo y el calendario puede no estar al dia.
+        """
+        try:
+            d1 = date.fromisoformat(str(desde)[:10])
+            d2 = date.fromisoformat(str(hasta)[:10])
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"ok": False, "error": "desde/hasta deben ser YYYY-MM-DD"},
+                status_code=422)
+        if d2 < d1:
+            return JSONResponse(
+                {"ok": False, "error": "hasta no puede ser anterior a desde"},
+                status_code=422)
+        dias_pedidos = (d2 - d1).days + 1
+        if dias_pedidos > MAX_DIAS_CALENDARIO:
+            return JSONResponse(
+                {"ok": False,
+                 "error": f"rango maximo: {MAX_DIAS_CALENDARIO} dias "
+                          f"(pedidos {dias_pedidos})"},
+                status_code=422)
+
+        datos: list[dict[str, Any]] = []
+        anos: set[int] = set()
+        d = d1
+        while d <= d2:
+            dia = calendario_provider.dia(d, dni)
+            datos.append({
+                "fecha": dia.fecha,
+                "laborable": dia.laborable,
+                "fin_de_semana": dia.fin_de_semana,
+                "festivo": dia.festivo,
+                "festivo_nombre": dia.festivo_nombre,
+            })
+            anos.add(d.year)
+            d += timedelta(days=1)
+        fiable = calendario_provider.fiable_para((dni, ano) for ano in anos)
+        return JSONResponse({"ok": True, "fiable": fiable, "data": datos})
 
     # ---------------- Lookup Sigrid (obras) -------------------------- #
     @app.get("/api/sigrid/obras", include_in_schema=False)
