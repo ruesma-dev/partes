@@ -585,6 +585,18 @@ def build_app(
             (detail.dni, ano) for ano in anos_consultados
         )
 
+        # R13/R14: tipo de jornada del contrato. Sesame NO da las horas
+        # (peticion P1), asi que esto no toca ni un calculo; sirve para
+        # ensenar el dato y para avisar de una divergencia que hoy no ve
+        # nadie: contrato de jornada reducida contra jornada aplicada de
+        # 8 h. `reducida=None` es "no se sabe" y no dispara el aviso.
+        jornada_contrato = calendario_provider.jornada_contrato(detail.dni)
+        jornada_divergente = bool(
+            jornada_contrato is not None
+            and jornada_contrato.reducida
+            and _cd_efectivo >= settings.jornada_por_defecto
+        )
+
         context = {
             "request": request,
             "title": settings.app_title,
@@ -594,6 +606,8 @@ def build_app(
             "candef_kpi": candef_kpi,
             "dias_incompletos": dias_incompletos,
             "sesame_degradado": sesame_degradado,
+            "jornada_contrato": jornada_contrato,
+            "jornada_divergente": jornada_divergente,
             "extras": extras_por_jornada(detail.registros),
             "period_options": period_options,
             "selected_period": calendar.period_key if calendar else None,

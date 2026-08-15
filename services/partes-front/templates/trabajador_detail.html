@@ -47,6 +47,12 @@
   <div class="stat-card">
     <span class="stat-label">Cantidad por defecto</span>
     <span class="stat-value{% if candef_kpi.asignado %} candef-asignado{% endif %}" title="{% if candef_kpi.asignado %}Valor ASIGNADO por defecto. En Sigrid: {% if candef_kpi.sigrid is not none %}{{ candef_kpi.sigrid|horas }}{% else %}sin dato{% endif %} (<= minimo){% else %}CanDefecto del recurso en Sigrid{% endif %}">{{ candef_kpi.valor|horas }}{% if candef_kpi.asignado %} <span class="tag-asignado">asignado</span>{% endif %}</span>
+    {% if jornada_contrato %}
+    <span class="cell-sub jornada-contrato" title="Tipo de jornada del contrato en Sesame{% if jornada_contrato.tipo_contrato %} · contrato {{ jornada_contrato.tipo_contrato }}{% endif %}. Sesame no expone las horas del contrato: el calculo sigue usando el CanDefecto de Sigrid.">contrato: {{ jornada_contrato.tipo or "sin tipo" }}{% if jornada_contrato.reducida %} · reducida{% endif %}</span>
+    {% endif %}
+    {% if jornada_divergente %}
+    <span class="tag-difiere jornada-divergencia" title="El contrato en Sesame es de jornada reducida, pero la jornada aplicada al calculo ({{ candef_kpi.valor|horas }}) es la completa. Revisa el CanDefecto del recurso en Sigrid.">&#9888; contrato reducida</span>
+    {% endif %}
   </div>
   <div class="stat-card">
     <span class="stat-label">Incidencias</span>
