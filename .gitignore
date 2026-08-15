@@ -15,6 +15,8 @@ infra/*.local.ps1
 infra/graphkey_nobom.json
 
 # >>> ARNES-BASE: reglas anadidas por el instalador del arnes. >>>
+# Cache de suites del portero (verdes por hash de arbol; ver init.sh 7 bis).
+.arnes_cache/
 *.pdf
 *.docx
 *.xlsx
