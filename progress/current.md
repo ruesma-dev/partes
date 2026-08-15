@@ -20,7 +20,24 @@
 - `azure-apps/` no tiene documento de sesame-api (hueco P3, dueño:
   proyecto sesame-api).
 
-### Decisiones abiertas que necesita validar el humano
+### Decisiones CERRADAS por el humano (2026-08-15, revisión conjunta)
+
+- D1: SÍ se amplía la duplicación tolerada del CLAUDE.md con los clientes
+  `infrastructure/sesame/` de sv3 y sv4 (tarea de la enmienda).
+- D2 CORREGIDA — régimen en DOS niveles: vistas informativas = fail-open
+  con aviso visible; cálculo/registro con Sesame ACTIVADO pero caído =
+  BLOQUEO del registro con marca (sin cambios de schema) y aprobación
+  manual explícita como override, que también queda marcada. Con
+  sesame_enabled=false no hay bloqueo (comportamiento actual).
+- D3 (al vuelo, sin columnas), D6 (tinte por calendario default): OK.
+- P2: implementar APAGADA ya; encendido tras desplegar sesame-api.
+- Spec APROBADA con la enmienda de D2. F-010 (resincronizar orm_models)
+  añadida al backlog.
+
+Spec-author relanzado para la enmienda. Tras ella: delta al humano e
+implementer (aprobación ya dada).
+
+### Decisiones abiertas ORIGINALES del spec-author (histórico)
 
 1. **D1**: pareja de clientes `infrastructure/sesame/` en sv3 y sv4
    (precedente F-002, adaptadores por servicio). Propuesta adicional:
