@@ -1,7 +1,7 @@
 # domain/ports/parte_repository.py
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Collection, Protocol
 
 from domain.models.parte_records import ExistingParte, ParteDocumento
 
@@ -27,4 +27,8 @@ class ParteRepository(Protocol):
         raw_context_json: str,
         review_required: bool,
     ) -> None:
+        ...
+
+    def marcar_review_required(self, document_ids: Collection[str]) -> int:
+        """Sube `review_required` a True en esos partes; nunca lo baja."""
         ...

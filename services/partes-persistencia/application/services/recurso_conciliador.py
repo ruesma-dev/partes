@@ -101,6 +101,9 @@ class RecursoConciliador:
         self._reshor_cache: tuple[float, dict[int, dict]] | None = None
         # hmo por obra: obra_ide -> (timestamp, {(reside,ano,mes): hmo_ide})
         self._hmo_cache: dict[int, tuple[float, dict[tuple, int]]] = {}
+        # F-003 (R26): partes cuyo computo se hizo con calendario degradado
+        # en la pasada EN CURSO. `conciliar_todos` lo vacia al empezar.
+        self._docs_degradados: set[str] = set()
 
     # ----- recursos (maestro) ----- #
     def _recurso_maps(
@@ -311,6 +314,8 @@ class RecursoConciliador:
         # (restaurar horas originales y borrar los extra auto) para recalcular
         # el dia completo desde el estado original del parte.
         self._repository.revert_extras_auto()
+        # La marca es de ESTE calculo, no un residuo del anterior.
+        self._docs_degradados = set()
 
         registros = self._repository.fetch_registros_para_recurso()
         by_conide, by_cif, by_ide = self._recurso_maps()
@@ -376,10 +381,12 @@ class RecursoConciliador:
             registros, ride_por_reg, reshor_idx
         )
         reclasificadas = self._repository.apply_extras_splits(splits)
+        a_revisar = self._marcar_partes_degradados()
         logger.info(
             "[recurso-concil] registros=%s actualizados=%s con_parte=%s "
-            "pisados=%s extras_reclasificadas=%s",
+            "pisados=%s extras_reclasificadas=%s partes_a_revisar=%s",
             len(registros), actualizados, con_parte, pisados, reclasificadas,
+            a_revisar,
         )
         return {
             "registros": len(registros),
@@ -387,7 +394,39 @@ class RecursoConciliador:
             "con_parte": con_parte,
             "pisados": pisados,
             "extras_reclasificadas": reclasificadas,
+            "partes_a_revisar": a_revisar,
         }
+
+    def _marcar_partes_degradados(self) -> int:
+        """R26: los partes calculados a ciegas quedan para revisar.
+
+        sv3 no puede bloquear nada (es un worker de cola y la
+        persistencia es best-effort), pero un festivo mal resuelto en
+        silencio cambia el reparto ordinaria/extra: al menos que se sepa.
+        """
+        docs = sorted(getattr(self, "_docs_degradados", set()))
+        if not docs:
+            return 0
+        marcar = getattr(self._repository, "marcar_review_required", None)
+        if marcar is None:
+            logger.warning(
+                "[recurso-concil] %s parte(s) calculados con el calendario "
+                "degradado, pero el repositorio no sabe marcarlos.", len(docs),
+            )
+            return 0
+        logger.warning(
+            "[recurso-concil] calendario DEGRADADO en %s parte(s): se marcan "
+            "para revision (%s).", len(docs), ", ".join(docs[:10]),
+        )
+        try:
+            marcar(docs)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[recurso-concil] no se pudieron marcar los partes para "
+                "revision: %r", exc,
+            )
+            return 0
+        return len(docs)
 
     # ----- exceso de jornada -> extra (por recurso y dia, across obras) ----- #
     def _reclasificar_extras_jornada(
@@ -556,7 +595,14 @@ class RecursoConciliador:
         self, fecha_int: int | None, regs: list[dict]
     ) -> bool:
         """True si el dia es fin de semana o festivo segun el calendario.
-        Sin calendario cableado o sin fecha valida, devuelve False."""
+        Sin calendario cableado o sin fecha valida, devuelve False.
+
+        Ademas recoge la senal de degradacion del adaptador (F-003, R26):
+        si la resolucion no salio de Sesame, los partes de este grupo
+        quedan apuntados para marcarlos al final de la pasada. La senal
+        se descubre por duck-typing: no forma parte del puerto y
+        `JsonCalendarioLaboral` no la tiene.
+        """
         if self._calendario is None:
             return False
         iso = self._fecha_int_to_iso(fecha_int)
@@ -567,13 +613,37 @@ class RecursoConciliador:
             None,
         )
         try:
-            return bool(self._calendario.es_no_laborable(iso, dni=dni))
+            no_laborable = bool(self._calendario.es_no_laborable(iso, dni=dni))
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "[recurso-concil] calendario laboral fallo en %s: %r",
                 iso, exc,
             )
             return False
+        self._recoger_degradacion(regs)
+        return no_laborable
+
+    def _recoger_degradacion(self, regs: list[dict]) -> None:
+        consumir = getattr(self._calendario, "consumir_degradacion", None)
+        if consumir is None:
+            return
+        try:
+            degradado = bool(consumir())
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[recurso-concil] no se pudo leer la senal de degradacion "
+                "del calendario: %r", exc,
+            )
+            return
+        if not degradado:
+            return
+        docs = getattr(self, "_docs_degradados", None)
+        if docs is None:
+            return
+        for r in regs:
+            doc = r.get("document_id")
+            if doc:
+                docs.add(str(doc))
 
     @staticmethod
     def _fecha_int_to_iso(fecha_int: int | None) -> str | None:
