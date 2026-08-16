@@ -81,3 +81,10 @@
   humano valide en navegador y pase a modo normal.
 - F-010 (resincronizar `orm_models.py` entre sv3 y sv4) sigue en el
   backlog: F-003 no lo ha tocado, a propósito.
+
+### Decisión del humano (2026-08-16, tras la review)
+
+El humano FIRMA la nueva redacción de la regla de duplicación tolerada del
+CLAUDE.md («lista cerrada… solo crece con una decisión así»), tal como la
+dejó el implementer en T17. El punto elevado por el reviewer queda
+resuelto: no hay que revertir nada.
