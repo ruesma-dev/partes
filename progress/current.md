@@ -41,3 +41,10 @@ Notas de contexto para la próxima sesión:
 - F-002 desplegada: sv5 en MODO PRUEBAS (obra 0404, PRUEBA-IA) hasta que
   el humano valide en navegador y ejecute el paso a modo normal.
 - Siguiente feature por prioridad: F-004 (congelar registros aprobados).
+
+### Decisiones del humano sobre la spec F-004 (2026-08-16)
+
+Las 3 decisiones abiertas: APROBADAS tal cual la spec (registradas
+permanentes, papelera bloqueada, masivas omiten-y-reportan). Spec F-004
+APROBADA. La implementación espera su turno: antes van F-013 (informe
+Sesame) y F-011 (jornada reducida), por orden del humano.
