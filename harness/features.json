@@ -149,6 +149,21 @@
       "rigor": "estandar",
       "priority": 4,
       "branch": "feature/F-012-estudio-jornada-semanal"
+    },
+    {
+      "id": "F-013",
+      "title": "Informe de validación de datos Sesame por trabajador",
+      "description": "Pedida por el humano el 2026-08-16 para terminar de validar F-003: script (p. ej. services/partes-front/validar_datos_sesame.py, junto al patrón de prueba_escritura_sigrid.py de sv5) que, usando el MISMO SesameApiClient y CalendarioProvider de F-003, extrae para cada trabajador activo sus festivos del año en curso, tipo de jornada y flag de reducida, y genera un informe Markdown/CSV legible para que el humano valide los números contra la realidad. Configurable contra sesame-api local (localhost:8006) o el desplegado cuando exista. La validación de los números en sí es MANUAL del humano sobre el informe. Su salida alimenta F-011 (días de jornada reducida) y F-012 (candef 9h/viernes).",
+      "acceptance": [
+        "El script genera el informe por trabajador (festivos del año, jornada, reducida) contra una instancia de sesame-api configurable, sin tocar BBDD",
+        "Los errores por trabajador (DNI sin casar, etc.) aparecen en el informe, no abortan el barrido",
+        "bash harness/init.sh en verde"
+      ],
+      "status": "pending",
+      "sdd": false,
+      "rigor": "estandar",
+      "priority": 2,
+      "branch": "feature/F-013-informe-validacion-sesame"
     }
   ]
 }
