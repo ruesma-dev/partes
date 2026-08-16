@@ -1,7 +1,36 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-(vacío — ninguna feature en ejecución)
+## F-004 · Congelar registros aprobados
+
+- Estado: `pending`, spec ESCRITA (2026-08-16) en
+  `specs/F-004-congelar-aprobados/{requirements,design,tasks}.md` · rama
+  `feature/F-004-congelar-aprobados` (creada desde la punta de F-003,
+  301cd78, para leer el código con F-003 incluida) · rigor estandar ·
+  sdd=true. Falta la aprobación del humano (→ `spec_ready`).
+- Resumen de la spec: congelación en sv4 SOLO. Matriz (R1): congela
+  `approved` del documento + `sigrid_estado` en {encolado, registrado};
+  `omitido`/`error`/`conflicto` siguen editables (son el camino de
+  arreglo). Guarda en el repositorio (`CongeladoError` → 409 con motivo);
+  la UI refleja con candados. Desaprobar = el `unapprove` existente;
+  bloqueado con líneas `encolado` (petición en vuelo); las `registrado`
+  siguen congeladas tras desaprobar (el synckey es estable: reaprobar una
+  línea editada NO actualiza Sigrid — hecho verificado en el pipeline de
+  sv5). Sin cambios de schema; sin tocar orm_models.py (F-010).
+- Decisiones abiertas que el humano debe validar al aprobar la spec:
+  1. Líneas `registrado`: quedan congeladas PERMANENTEMENTE en el portal
+     (corregirlas exige actuar en Sigrid; si se borra allí la línea,
+     reaprobar reescribe con valores nuevos). Se descartó un endpoint
+     «desvincular de Sigrid». ¿De acuerdo, o se quiere una feature futura
+     «anular en Sigrid» vía sv5?
+  2. Papelera bloqueada para documentos/líneas con algo registrado (R7,
+     R12): ¿de acuerdo?
+  3. Undo/reasignaciones/borrados masivos: omiten congeladas y reportan
+     recuento, en vez de abortar todo (D5): ¿de acuerdo?
+  4. Detectada discrepancia documental: `partes-proyecto.md` §5.2 lista
+     `approved*` en `parte_registros`, pero NINGÚN orm_models.py la tiene
+     (la aprobación real es por documento). Anotar para F-010/corrección
+     del documento maestro; F-004 no añade columnas.
 
 Notas de contexto para la próxima sesión:
 
