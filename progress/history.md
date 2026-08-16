@@ -65,3 +65,35 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   del alcance con >N líneas genere 0 mutantes; (2) C3/C4 o init.sh —
   cruzar imports nuevos de terceros contra el requirements del manifiesto
   del servicio. Ambas portables a arnes-base si se aprueban.
+
+## F-003 · Integración sesame-api: festivos y jornada reales — done 2026-08-16
+
+- Rama `feature/F-003-sesame-festivos-jornada` · rigor critico · sdd=true ·
+  spec aprobada por el humano con enmienda suya (resiliencia en DOS
+  niveles) · 1 ciclo de review · APPROVED en segunda pasada.
+- Entregado (APAGADO por defecto, `sesame_enabled=false` = comportamiento
+  actual): clientes Sesame gemelos en sv3/sv4 (duplicación tolerada
+  AMPLIADA en CLAUDE.md, redacción firmada por el humano el 2026-08-16),
+  proveedor con caché DNI×año y stale-while-error, resolutor único de
+  jornada (regla candef desduplicada de 4 sitios), festivos por calendario
+  del trabajador en avisos/matriz/+Nuevo, aviso festivo/domingo en
+  preflight, endpoint GET /api/calendario, y el régimen de resiliencia:
+  vistas degradadas con aviso visible; registro BLOQUEADO con Sesame
+  activado-pero-caído, override forzar_sin_sesame solo por /ejecutar con
+  marca [SIN-SESAME] en sigrid_motivo, y review_required en sv3. CERO
+  cambios de schema. Se inaugura la suite de sv3.
+- Verificado (reviewer, independiente): init.sh verde, **373 tests**
+  (6 raíz + 95 sv3 NUEVOS + 272 sv4, +144), cobertura líneas cambiadas
+  **94,5 %** (umbral 80), mutación **211 mutantes / 25 supervivientes,
+  todos analizados como equivalentes** (de 57 iniciales: la campaña forzó
+  refuerzo real de la suite), fase RED de la enmienda reproducida.
+- Hallazgos externos de la feature: sesame-api NO desplegado y sin
+  commitear (P2), su /jornada sin horas (P1), sin doc en azure-apps (P3) —
+  peticiones al proyecto sesame-api, del humano. F-010 (orm_models
+  desincronizado) al backlog. IP de Sigrid redactada en azure-apps
+  (deuda previa, commit fe4e977 de ese repo).
+- ENCENDIDO futuro (tras P2): variables SESAME_* en sv3 y sv4 A LA VEZ +
+  secreto sesame-api-key en kv-partes. OJO: encender contra URL muerta
+  bloquea las aprobaciones (por diseño, decisión del humano).
+- MANUAL pendiente del humano: merge a dev y push; verificación visual de
+  los avisos (R17) cuando se encienda.

@@ -45,7 +45,7 @@
       "title": "Integración sesame-api: festivos y jornada reales",
       "description": "Sustituir la librería holidays y el candef como jornada teórica por los datos reales de Sesame HR vía el servicio general sesame-api: festivos por calendario asignado a cada trabajador y jornada del contrato. Afecta a los avisos de jornada incompleta (sv4) y al cómputo de extras (sv3). Añadir aviso al registrar horas en festivo/domingo.",
       "acceptance": [],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 3,
