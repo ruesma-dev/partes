@@ -21,7 +21,6 @@ import io
 
 import httpx
 import pytest
-
 import validar_datos_sesame as vds
 from infrastructure.sesame.sesame_api_client import (
     FestivoDia,
@@ -163,7 +162,7 @@ def test_f013_a1_genera_informe_md_y_csv_de_tres_trabajadores(tmp_path):
     for empleado in EMPLEADOS_3:
         assert empleado["nombre"] in texto
         assert empleado["dni"] in texto
-    assert "3 empleados" in texto or "empleados: 3" in texto
+    assert "Empleados: 3 (0 con errores)" in texto
 
     filas = _filas_csv(csvs[0])
     assert filas[0] == list(vds.COLUMNAS)
@@ -296,7 +295,7 @@ def test_f013_a2_el_resumen_lista_los_dnis_con_error(tmp_path):
 
     cabeza, _, resumen = texto.partition("## Resumen")
     assert "87654321X" in resumen.split("## Trabajadores")[0]
-    assert "1" in cabeza.split("\n\n")[0] or "errores" in cabeza
+    assert "Empleados: 3 (1 con errores)" in cabeza
 
 
 def test_f013_a2_el_calendario_por_defecto_roto_no_tumba_el_informe(tmp_path):
@@ -417,9 +416,10 @@ def test_f013_r_render_markdown_escapa_las_barras_de_la_tabla():
         calendario=(), calendario_error="",
     )
 
-    linea = [x for x in texto.splitlines() if "Gomez" in x][0]
+    linea = next(x for x in texto.splitlines() if "Gomez" in x)
     assert r"Perez \| Gomez" in linea
-    assert linea.count("|") == len(vds.COLUMNAS) + 1
+    # Quitadas las barras escapadas, solo quedan las que delimitan columnas.
+    assert linea.replace(r"\|", "").count("|") == len(vds.COLUMNAS) + 1
 
 
 def test_f013_r_render_markdown_avisa_si_no_hay_calendario_por_defecto():
