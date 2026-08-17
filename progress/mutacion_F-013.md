@@ -1,7 +1,7 @@
 <!-- progress/mutacion_F-013.md -->
 # F-013 · Campaña de mutación
 
-Generado por `python -m harness.mutacion --feature F-013` el 2026-08-17 22:33.
+Generado por `python -m harness.mutacion --feature F-013` el 2026-08-17 23:23.
 
 ## Alcance
 
@@ -18,10 +18,10 @@ Origen del diff: **rama** (`da7293da005993dee235011b5ac2197b929d6a6d` .. `featur
 |---|---|
 | Mutantes generados | 74 |
 | Mutantes evaluados | 74 |
-| Muertos | 71 |
-| Supervivientes | 3 |
+| Muertos | 73 |
+| Supervivientes | 1 |
 | Timeouts | 0 |
-| Tiempo total | 379.3 s |
+| Tiempo total | 294.5 s |
 | Muestreo | no: campaña completa |
 
 ## Supervivientes
@@ -32,26 +32,6 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 
 - Original: `transporte = transport or httpx.HTTPTransport(retries=1)`
 - Mutado:   `transporte = transport or httpx.HTTPTransport(retries=2)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 2. `services/partes-front/validar_datos_sesame.py:384` [comparacion]
-
-- Original: `if respuesta.status_code >= 400:`
-- Mutado:   `if respuesta.status_code > 400:`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 3. `services/partes-front/validar_datos_sesame.py:384` [entero]
-
-- Original: `if respuesta.status_code >= 400:`
-- Mutado:   `if respuesta.status_code >= 401:`
 
 #### Análisis (PENDIENTE del implementer)
 
