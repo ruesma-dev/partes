@@ -159,7 +159,7 @@
         "Los errores por trabajador (DNI sin casar, etc.) aparecen en el informe, no abortan el barrido",
         "bash harness/init.sh en verde"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": false,
       "rigor": "estandar",
       "priority": 2,

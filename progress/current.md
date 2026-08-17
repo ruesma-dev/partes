@@ -1,6 +1,24 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-013 · Informe de validación de datos Sesame por trabajador
+
+- Estado: `in_progress` desde 2026-08-17 · rama
+  `feature/F-013-informe-validacion-sesame` (desde la punta de F-004,
+  da7293d) · rigor estandar · sdd=false (los `acceptance` de
+  features.json hacen de mini-spec). Propuesta enseñada al humano y
+  confirmada («lanzalo»).
+- Plan confirmado: script `services/partes-front/validar_datos_sesame.py`
+  (patrón `prueba_escritura_sigrid.py`) que lista los empleados que conoce
+  sesame-api (`GET /api/v1/empleados`), y por cada uno saca con el
+  `SesameApiClient` de F-003 los festivos del año y la jornada; informe
+  Markdown + CSV en `services/partes-front/logs/` (NO versionado: DNIs).
+  Errores por trabajador como filas del informe. Tests con MockTransport.
+  El humano ejecuta el script contra su sesame-api local (localhost:8006)
+  y valida los números a mano.
+- Fuera: desplegar sesame-api, tocar los servicios, corregir datos.
+
+
 ## F-004 · Congelar registros aprobados
 
 - Estado: `pending`, spec ESCRITA (2026-08-16) en
