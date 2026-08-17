@@ -17,6 +17,17 @@
   El humano ejecuta el script contra su sesame-api local (localhost:8006)
   y valida los números a mano.
 - Fuera: desplegar sesame-api, tocar los servicios, corregir datos.
+- IMPLEMENTADO el 2026-08-17 (informe completo en
+  `progress/impl_F-013.md`): `services/partes-front/validar_datos_sesame.py`
+  + `services/partes-front/tests/test_f013_informe_sesame.py` (40 tests,
+  sin red) + sección «Herramientas de consola» en `docs/ARCHITECTURE.md`.
+  El listado de empleados se hace en el propio script (no se tocó el
+  `SesameApiClient`, gemelo del de sv3), y se usa el cliente en crudo, sin
+  `CalendarioProvider`, para que un 404 salga como fila de error.
+  `bash harness/init.sh` en verde. Pendiente: reviewer, y la VALIDACIÓN
+  MANUAL del humano ejecutando el script contra su sesame-api local
+  (`cd services/partes-front && python validar_datos_sesame.py --base-url
+  http://localhost:8006 --api-key <clave>`).
 
 
 ## F-004 · Congelar registros aprobados

@@ -394,10 +394,14 @@ def test_f013_r_listado_sin_el_campo_ok_aborta(tmp_path):
 
 
 def test_f013_r_un_400_del_listado_tambien_aborta(tmp_path):
-    """400 es el primer codigo de error: la frontera cuenta como fallo."""
+    """400 es el PRIMER codigo de error: la frontera cuenta como fallo.
+
+    El cuerpo es deliberadamente valido (`ok=true` con datos): si el codigo
+    HTTP no se mirase bien, el informe saldria como si nada y el humano
+    validaria numeros que sesame-api nunca dio por buenos.
+    """
     transporte = _mock_transport(
-        empleados=EMPLEADOS_3, empleados_status=400,
-        empleados_body={"detail": "peticion invalida"})
+        empleados=EMPLEADOS_3, empleados_status=400)
 
     assert _ejecutar(tmp_path, transporte) == 1
     assert _ficheros(tmp_path) == ([], [])
