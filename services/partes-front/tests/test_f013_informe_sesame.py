@@ -585,6 +585,10 @@ def test_f013_r_resumir_agrupa_festivos_jornada_y_errores():
     assert resumen.total == 4
     assert resumen.con_error == 1
     assert resumen.dist_festivos == {1: 3}
+    assert resumen.festivos_ilegibles == 1
+    # El reparto de festivos + los ilegibles suman TODOS los trabajadores.
+    assert sum(resumen.dist_festivos.values()) + resumen.festivos_ilegibles \
+        == resumen.total
     assert resumen.dist_tipo == {"Completa": 2, "Parcial": 1,
                                  vds.DESCONOCIDO: 1}
     assert resumen.dist_reducida == {"no": 2, "si": 1, vds.DESCONOCIDO: 1}
@@ -657,6 +661,46 @@ def test_f013_r_render_markdown_cuenta_los_trabajadores_de_cada_grupo():
 
     assert "- 1 festivos: 2 trabajadores" in texto
     assert "- 0 festivos: 1 trabajador\n" in texto      # singular, sin "es"
+    # Nadie ilegible: la linea de "(no se pudo leer)" no ensucia el resumen.
+    assert vds.ILEGIBLE not in texto
+
+
+def test_f013_r_el_resumen_cierra_la_suma_con_los_ilegibles():
+    """Quien no se pudo leer aparece: si no, el reparto no suma el total."""
+    filas = [
+        _fila("A"),
+        _fila("B", festivos=(), festivos_ok=False, jornada=None,
+              error="festivos: 502"),
+        _fila("C", festivos=(), festivos_ok=False, jornada=None,
+              error="festivos: 404"),
+    ]
+    texto = vds.render_markdown(
+        meta=vds.MetaInforme(generado="2026-08-17 10:00", ano=ANO,
+                             base_url="http://sesame.test", solo_activos=True),
+        filas=filas, resumen=vds.resumir(filas),
+        calendario=(), calendario_error="",
+    )
+
+    assert f"- {vds.ILEGIBLE}: 2 trabajadores" in texto
+    assert "- 1 festivos: 1 trabajador\n" in texto
+    # La suma de la lista cuadra con la cabecera: 1 + 2 = 3.
+    assert "Empleados: 3" in texto
+
+
+def test_f013_r_el_resumen_de_un_barrido_entero_ilegible_no_dice_sin_datos():
+    """Si NADIE se pudo leer, se dice cuantos son, no "(sin datos)"."""
+    filas = [_fila("A", festivos=(), festivos_ok=False, jornada=None,
+                   error="festivos: 502")]
+    texto = vds.render_markdown(
+        meta=vds.MetaInforme(generado="2026-08-17 10:00", ano=ANO,
+                             base_url="http://sesame.test", solo_activos=True),
+        filas=filas, resumen=vds.resumir(filas),
+        calendario=(), calendario_error="",
+    )
+
+    cuerpo = texto.split("**Festivos por trabajador**")[1].split("**")[0]
+    assert f"- {vds.ILEGIBLE}: 1 trabajador\n" in cuerpo
+    assert "(sin datos)" not in cuerpo
 
 
 def test_f013_r_recorta_los_cuerpos_de_error_kilometricos():

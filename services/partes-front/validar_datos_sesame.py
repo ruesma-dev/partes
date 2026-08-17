@@ -74,6 +74,10 @@ SALIDA_POR_DEFECTO = Path(__file__).resolve().parent / "logs"
 #: Marca de "Sesame no lo dice", distinta de un valor real.
 DESCONOCIDO = "(desconocido)"
 
+#: Etiqueta de los trabajadores cuyos festivos NO se pudieron leer. No es
+#: un recuento de festivos: por eso no entra en el reparto como un numero.
+ILEGIBLE = "(no se pudo leer)"
+
 #: Orden de las columnas, compartido por el CSV y la tabla Markdown.
 COLUMNAS: tuple[str, ...] = (
     "nombre",
@@ -113,7 +117,11 @@ class Resumen:
     """Los agregados que el humano mira antes de bajar a la tabla."""
     total: int
     con_error: int
+    #: Reparto de "cuantos festivos tiene" entre los que SI se pudieron leer.
     dist_festivos: dict[int, int]
+    #: Los demas. Sin este contador, `dist_festivos` no suma `total` y el
+    #: humano no sabe si faltan trabajadores o es que se contaron mal.
+    festivos_ilegibles: int
     dist_tipo: dict[str, int]
     dist_reducida: dict[str, int]
     dnis_con_error: tuple[tuple[str, str], ...]
@@ -220,11 +228,14 @@ def resumir(filas: Sequence[FilaTrabajador]) -> Resumen:
     dist_tipo: dict[str, int] = {}
     dist_reducida: dict[str, int] = {}
     con_error: list[tuple[str, str]] = []
+    ilegibles = 0
 
     for fila in filas:
         if fila.festivos_ok:
             clave = len(fila.festivos)
             dist_festivos[clave] = dist_festivos.get(clave, 0) + 1
+        else:
+            ilegibles += 1
         tipo = (fila.jornada.tipo if fila.jornada else None) or DESCONOCIDO
         dist_tipo[tipo] = dist_tipo.get(tipo, 0) + 1
         reducida = fmt_bool(fila.jornada.reducida if fila.jornada else None)
@@ -236,6 +247,7 @@ def resumir(filas: Sequence[FilaTrabajador]) -> Resumen:
         total=len(filas),
         con_error=len(con_error),
         dist_festivos=dist_festivos,
+        festivos_ilegibles=ilegibles,
         dist_tipo=dist_tipo,
         dist_reducida=dist_reducida,
         dnis_con_error=tuple(con_error),
@@ -305,11 +317,13 @@ def render_markdown(
             out.append(f"- {festivo.fecha} {festivo.nombre or ''}".rstrip())
 
     out += ["", "## Resumen", ""]
-    out += _lista_distribucion(
-        "Festivos por trabajador",
-        {f"{k} festivos": v
-         for k, v in sorted(resumen.dist_festivos.items())},
-    )
+    reparto_festivos = {f"{k} festivos": v
+                        for k, v in sorted(resumen.dist_festivos.items())}
+    if resumen.festivos_ilegibles:
+        # Cierra la suma: con esta linea, la lista suma el total de la
+        # cabecera y se ve de un vistazo que no falta nadie por el camino.
+        reparto_festivos[ILEGIBLE] = resumen.festivos_ilegibles
+    out += _lista_distribucion("Festivos por trabajador", reparto_festivos)
     out += _lista_distribucion("Tipo de jornada", resumen.dist_tipo)
     out += _lista_distribucion("Jornada reducida", resumen.dist_reducida)
     out += ["**Trabajadores con error**", ""]
