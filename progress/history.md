@@ -97,3 +97,38 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   bloquea las aprobaciones (por diseño, decisión del humano).
 - MANUAL pendiente del humano: merge a dev y push; verificación visual de
   los avisos (R17) cuando se encienda.
+
+## F-013 · Informe de validación de datos Sesame por trabajador — done 2026-08-18
+
+- Rama `feature/F-013-informe-validacion-sesame` (HEAD APPROVED `c2e1c5e`) ·
+  rigor estandar · sdd=false (acceptance como mini-spec, propuesta
+  confirmada por el humano) · 1 ciclo de review (CHANGES_REQUESTED formal:
+  análisis del superviviente en `mutacion_F-013.md`; resuelto + NB-1).
+- Entregado: `services/partes-front/validar_datos_sesame.py`, herramienta de
+  consola de SOLO LECTURA que lista los empleados que conoce sesame-api
+  (`GET /api/v1/empleados`, hecho en el propio script para no tocar los
+  clientes gemelos sv3/sv4) y por cada uno saca con el `SesameApiClient`
+  de F-003 EN CRUDO (sin `CalendarioProvider`, para que los 404 se vean)
+  festivos del año, tipo de jornada, reducida y tipo de contrato; informe
+  Markdown + CSV (`;`, BOM) en `services/partes-front/logs/` (ignorado por
+  git: lleva DNIs), con calendario por defecto, resumen (distribuciones,
+  «(no se pudo leer)», DNIs con error) y tabla por trabajador. Errores por
+  trabajador = filas; solo abortan listado (exit 1) y configuración
+  (exit 2). Configuración `--base-url/--api-key` > `--env` >
+  `SESAME_API_BASE_URL/SESAME_API_KEY` > localhost:8006. Sección
+  «Herramientas de consola» en ARCHITECTURE.md.
+- Verificado (reviewer, independiente): init.sh verde, 314 tests sv4 (42
+  nuevos, sin red), cobertura del diff 99,6 %, mutación 77/76 con 1
+  superviviente equivalente analizado (retries del transporte real), fase
+  RED en el historial (0e6a47f), clave nunca en informe/log, contrato de
+  sesame-api contrastado con su código, ruff limpio, camino de aborto
+  probado.
+- MANUAL pendiente del humano: ejecutar el script contra sesame-api local
+  y validar los números (alimenta F-011/F-012). Comando en
+  `progress/impl_F-013.md`.
+- Automejoras del arnés propuestas por el reviewer (pendientes de decisión
+  del humano; genéricas ⇒ arnes-base): AM-1 oficializar `test_fXXX_aN_*`
+  para features sdd=false; AM-2 campo `base` opcional en features.json que
+  lea `harness.alcance` (evita alcances inflados al ramificar desde una
+  feature no mergeada); AM-3 el reviewer recalcula con la MISMA base que
+  declara el informe de mutación.

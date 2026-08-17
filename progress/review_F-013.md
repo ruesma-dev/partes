@@ -1,6 +1,15 @@
 <!-- progress/review_F-013.md -->
 # F-013 · Informe de validación de datos Sesame por trabajador — review
 
+> **VEREDICTO FINAL (segunda pasada, 2026-08-18): APPROVED.** El detalle de
+> la verificación está en la sección «Segunda pasada» al final de este
+> documento. Lo que sigue a continuación es el informe de la **primera
+> pasada**, que se conserva íntegro como rastro de qué se pidió y por qué.
+
+---
+
+# Primera pasada (2026-08-17, HEAD `156130f`)
+
 - **Veredicto: CHANGES_REQUESTED** — por UN solo punto, documental y de
   arreglo inmediato (ver «Cambios requeridos»). El código, los tests y las
   puertas de rigor están **todos en verde y verificados de forma
@@ -462,3 +471,187 @@ Se rechaza por **un** motivo formal y bien delimitado: el análisis del
 superviviente está escrito en `impl_F-013.md` en vez de en
 `mutacion_F-013.md`, que sigue diciendo `PENDIENTE`. Es un traslado de texto.
 Hecho eso, esto pasa a APPROVED sin más verificaciones.
+
+---
+
+# Segunda pasada (2026-08-18)
+
+- **VEREDICTO: APPROVED.**
+- HEAD revisado: `c2e1c5e`. Commits nuevos sobre `156130f`: `61db9d3`
+  (cambio requerido + NB-1) y `c2e1c5e` (campaña relanzada + sección
+  «Segunda pasada» del informe). Además `e7453d0` atendió NB-3.
+- Todo lo de abajo está **ejecutado por mí**, no leído del informe del
+  implementer.
+
+## 1. Cambio requerido (bloqueante) — RESUELTO
+
+`progress/mutacion_F-013.md` ya no contiene la palabra PENDIENTE en ningún
+sitio. Comprobado literalmente:
+
+```
+$ grep -n -i "pendiente" progress/mutacion_F-013.md
+SIN NINGUN PENDIENTE
+```
+
+El título de la sección es ahora `#### Análisis (completado por el
+implementer, 2026-08-18)` y el análisis vive **pegado a su superviviente**,
+que era exactamente lo que se pedía.
+
+**El análisis es correcto**, no solo presente. Lo he contrastado punto por
+punto:
+
+- *El `or` cortocircuita y por eso el constructor no se evalúa bajo test.*
+  Cierto: en `transporte = transport or httpx.HTTPTransport(retries=1)`,
+  con un `MockTransport` inyectado el operando derecho no llega a
+  ejecutarse, así que el `retries` mutado es inobservable. Los 42 tests
+  inyectan transporte.
+- *El segundo mutante de esa misma línea (`or`→`and`) sí muere.* Verificado
+  por mí con `generar_mutantes`: la línea 388 produce dos mutantes, `logico`
+  y `entero`, y solo sobrevive el `entero`. La afirmación es exacta, y es
+  además la que demuestra que la línea **sí** está ejercitada: lo incubrible
+  es únicamente la rama del transporte real.
+- *Cazarlo exigiría tocar red, que `CONVENTIONS.md` prohíbe.* Correcto, y es
+  la misma regla que C4 exige en sentido contrario.
+- *`retries` no altera ningún resultado observable del informe.* Correcto:
+  no cambia celda, ni código de salida, ni mensaje; solo cuántas veces
+  insiste `httpx` antes de rendirse, y el fallo resultante ya está cubierto
+  por `test_f013_r_sesame_api_inalcanzable_aborta`.
+
+Conclusión: **mutante equivalente, correctamente justificado**. En nivel
+`estandar` no se exigen cero supervivientes; se exige que cada uno esté
+analizado, y lo está.
+
+## 2. NB-1 (no bloqueante) — HECHO, y bien
+
+El cambio es el mínimo que resuelve la observación, sin tocar la decisión de
+fondo:
+
+- `Resumen` gana `festivos_ilegibles: int`; `resumir()` lo cuenta en el
+  `else` del `if fila.festivos_ok`.
+- `render_markdown` añade `- (no se pudo leer): N trabajadores` (constante
+  nueva `ILEGIBLE`) **solo cuando N > 0**, así que con nadie ilegible el
+  resumen no se ensucia.
+- **Lo importante: NO se convirtió a los ilegibles en «0 festivos».** Ese
+  cero falso era el riesgo real que señalaba mi observación; se ha cerrado
+  la suma sin inventar el dato. Es la lectura correcta de NB-1.
+
+Verificado en salida real, regenerando mi muestra con `MockTransport`
+(3 empleados, 2 con festivos ilegibles):
+
+```
+**Festivos por trabajador**
+
+- 2 festivos: 1 trabajador
+- (no se pudo leer): 2 trabajadores
+```
+
+1 + 2 = 3, que es lo que dice la cabecera `Empleados: 3 (2 con errores)`. La
+suma cuadra a ojo, que era el objeto de NB-1. Sin fuga de clave en el
+Markdown ni en el CSV (centinela comprobado de nuevo: `False` en ambos), BOM
+del CSV intacto.
+
+**Tests que lo cubren:** dos funciones nuevas —
+`test_f013_r_el_resumen_cierra_la_suma_con_los_ilegibles` (la línea aparece
+con su recuento y el reparto cuadra) y
+`test_f013_r_el_resumen_de_un_barrido_entero_ilegible_no_dice_sin_datos`
+(si NADIE se pudo leer se dice cuántos son, en vez de caer en «(sin
+datos)»)— más dos aserciones añadidas: el caso negativo (sin ilegibles la
+línea NO aparece) en `test_f013_r_render_markdown_cuenta_los_trabajadores_de_cada_grupo`,
+y la invariante `sum(dist_festivos.values()) + festivos_ilegibles == total`
+en `test_f013_r_resumir_agrupa_festivos_jornada_y_errores`. Cubre el caso
+positivo, el negativo y el borde (todos ilegibles). Correcto.
+
+## 3. Sin regresión, ruff limpio, init.sh en verde
+
+```
+$ python -m ruff check services/partes-front/validar_datos_sesame.py \
+    services/partes-front/tests/test_f013_informe_sesame.py --output-format=concise
+All checks passed!   (exit=0)
+
+$ cd services/partes-front && python -m pytest tests/test_f013_informe_sesame.py -q
+42 passed in 0.40s
+
+$ cd services/partes-front && python -m pytest tests/ -q
+314 passed, 1 warning in 20.99s
+```
+
+40 → **42 tests** de F-013 y 312 → **314** en sv4: cuadra con las dos
+funciones nuevas, y **ningún test previo se ha roto ni retirado**.
+`bash harness/init.sh` ejecutado por mí: **verde de punta a punta**, con
+`PUERTA COBERTURA: 96.0% de 884 líneas cambiadas cubiertas (849/884, umbral
+80%, nivel estandar)` — sube de 877 a 884 líneas por el código nuevo y
+mantiene el porcentaje. `git status --porcelain` vacío.
+
+## 4. Recuento de mutación verificado de forma independiente
+
+Recalculado con la **misma base `da7293d`** que declara el informe (cálculo
+puro, sin ejecutar la suite):
+
+```
+origen: rama  refs: ('da7293da005993dee235011b5ac2197b929d6a6d',
+                     'feature/F-013-informe-validacion-sesame')
+  services/partes-front/validar_datos_sesame.py   587
+total lineas: 587
+MUTANTES TOTALES: 77
+por operador: {'entero': 17, 'booleano': 9, 'logico': 20,
+               'not': 10, 'aritmetico': 18, 'comparacion': 3}
+```
+
+**Cuadra exactamente** con `progress/mutacion_F-013.md`: 1 fichero de
+producción, **587 líneas**, **77 mutantes**. Y el delta contra la primera
+pasada es coherente con el cambio: 573 → 587 líneas (+14, las de NB-1) y
+74 → 77 mutantes (+3, todos en `entero` +2 y `aritmetico` +1, que es lo que
+introducen el contador y la línea del reparto). El informe declara 76
+muertos y 1 superviviente: los 3 mutantes nuevos mueren, como afirma.
+
+Muestreo del superviviente declarado (`:388`, operador `entero`): existe como
+mutante real con el mismo texto original→mutado
+(`retries=1` → `retries=2`), y es el mismo de la primera pasada, desplazado
+de la línea 374 a la 388 por las 14 líneas añadidas. Consistente.
+
+## 5. NB-3 — atendido también (fuera de lo pedido)
+
+`progress/current.md` ya no se contradice: el bloque de F-004 dice
+`spec_ready — spec ESCRITA (2026-08-16) y APROBADA por el humano
+(2026-08-16)`, en vez del anterior «`pending` … Falta la aprobación del
+humano». Coincide con `harness/features.json`, donde F-004 está en
+`spec_ready`. La contradicción que señalé queda cerrada.
+
+NB-2, NB-4 y NB-5 no requerían acción (dos eran constataciones y uno un
+elogio); siguen siendo válidos tal como se escribieron.
+
+## Checkpoints — recorrido final
+
+| Checkpoint | Estado | Nota |
+|---|---|---|
+| **C1** arnés en verde | `[x]` | `init.sh` exit 0, ejecutado por mí |
+| **C2** estado coherente | `[x]` | 1 sola `in_progress`, rama correcta, `current.md` ya sin la contradicción de NB-3 |
+| **C3** arquitectura y convenciones | `[x]` | El cambio de NB-1 se queda dentro del script; no toca `sesame_api_client.py` (ni su gemelo de sv3), ni `application/`, ni `interface_adapters/`, ni `config/`, ni la BBDD |
+| **C3 bis** documentos de fuera | `N/A justificado` | No se toca `docs/referencia/` (diff vacío) |
+| **C4** verificación real | `[x]` | 42 tests trazables, 314 en sv4, sin red ni BBDD; MANUAL del humano listada en `current.md` con su comando |
+| **C4 bis** rigor `estandar` | `[x]` | RED en el historial (`0e6a47f` sin el script), cobertura 96,0 % `[OK]`, mutación 77/76/1 **recalculada y cuadrada**, superviviente **analizado y completado**, «Evidencias» con los cuatro números |
+| **C4 ter** rutas sensibles | `N/A sin nada que justificar` | No existe `harness/rutas_sensibles.json` (cláusula de CHECKPOINTS) |
+| **C5** sesión cerrada | `[x]` | `tasks.md` N/A justificado (sdd=false); commits con formato; árbol limpio; `features.json` en `in_progress` a la espera de este APPROVED |
+
+**Ningún checkbox vacío. Ningún N/A sin justificar por escrito.**
+
+## Cierre
+
+El único punto bloqueante de la primera pasada está resuelto en el sitio
+correcto y con contenido correcto, no con un parche cosmético. El extra de
+NB-1 se ha implementado con la lectura acertada del problema —cerrar la suma
+sin inventar un cero— y viene con sus tests, incluido el caso negativo y el
+borde. La campaña se relanzó porque NB-1 tocaba producción, que es la
+decisión correcta y no la cómoda: un informe de mutación sobre código viejo
+no demuestra nada.
+
+**APPROVED.** Queda pendiente, como estaba previsto desde el principio, la
+verificación **MANUAL del humano**: ejecutar el script contra su `sesame-api`
+local y validar los números contra la realidad, que es el objeto mismo de
+F-013. El arnés no puede darla por hecha.
+
+Las tres propuestas de automejora (AM-1, AM-2, AM-3) siguen sobre la mesa
+para que el humano decida; ninguna condiciona este veredicto. AM-2 y AM-3
+son las que más valor tienen: esta feature ha necesitado `--base da7293d` en
+las dos campañas, y ese dato solo vive hoy en la cabeza de quien lanza la
+herramienta y en la prosa del informe.
