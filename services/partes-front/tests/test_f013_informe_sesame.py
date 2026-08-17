@@ -286,7 +286,10 @@ def test_f013_a2_empleado_sin_dni_es_una_fila_con_error(tmp_path):
     filas = _filas_csv(_ficheros(tmp_path)[1][0])[1:]
     errores = [f for f in filas if dict(zip(vds.COLUMNAS, f))["error"]]
     assert len(errores) == 1
-    assert "sin DNI" in dict(zip(vds.COLUMNAS, errores[0]))["error"]
+    sin_datos = dict(zip(vds.COLUMNAS, errores[0]))
+    assert "sin DNI" in sin_datos["error"]
+    # No se le pregunto nada a Sesame: no puede figurar con cero festivos.
+    assert sin_datos["n_festivos"] == vds.DESCONOCIDO
 
 
 def test_f013_a2_el_resumen_lista_los_dnis_con_error(tmp_path):
@@ -355,13 +358,21 @@ def test_f013_a2_el_calendario_por_defecto_roto_no_tumba_el_informe(tmp_path):
 # --------------------------------------------------------------- #
 # Aborta SOLO si falla el listado o la configuracion.
 # --------------------------------------------------------------- #
-def test_f013_r_fallo_del_listado_aborta_con_codigo_distinto_de_cero(tmp_path):
-    """Sin lista de empleados no hay informe posible: exit != 0 y sin ficheros."""
+def test_f013_r_fallo_del_listado_aborta_con_codigo_1(tmp_path, capsys):
+    """Sin lista de empleados no hay informe: exit 1, sin ficheros y con motivo.
+
+    El mensaje tiene que traer lo que respondio sesame-api: "fallo el
+    listado" a secas no le sirve a nadie para arreglarlo.
+    """
     transporte = _mock_transport(
         empleados=EMPLEADOS_3, empleados_status=502, empleados_body=UPSTREAM_KO)
 
-    assert _ejecutar(tmp_path, transporte) != 0
+    assert _ejecutar(tmp_path, transporte) == 1
     assert _ficheros(tmp_path) == ([], [])
+    error = capsys.readouterr().err
+    assert "ABORTADO" in error
+    assert "502" in error
+    assert "Sesame respondio 429" in error   # el cuerpo real del upstream
 
 
 def test_f013_r_listado_con_ok_false_aborta(tmp_path):
@@ -369,7 +380,26 @@ def test_f013_r_listado_con_ok_false_aborta(tmp_path):
     transporte = _mock_transport(
         empleados=EMPLEADOS_3, empleados_body={"ok": False, "data": []})
 
-    assert _ejecutar(tmp_path, transporte) != 0
+    assert _ejecutar(tmp_path, transporte) == 1
+    assert _ficheros(tmp_path) == ([], [])
+
+
+def test_f013_r_listado_sin_el_campo_ok_aborta(tmp_path):
+    """Si falta `ok`, NO se asume que todo fue bien: no es el contrato."""
+    transporte = _mock_transport(
+        empleados=EMPLEADOS_3, empleados_body={"total": 0, "data": []})
+
+    assert _ejecutar(tmp_path, transporte) == 1
+    assert _ficheros(tmp_path) == ([], [])
+
+
+def test_f013_r_un_400_del_listado_tambien_aborta(tmp_path):
+    """400 es el primer codigo de error: la frontera cuenta como fallo."""
+    transporte = _mock_transport(
+        empleados=EMPLEADOS_3, empleados_status=400,
+        empleados_body={"detail": "peticion invalida"})
+
+    assert _ejecutar(tmp_path, transporte) == 1
     assert _ficheros(tmp_path) == ([], [])
 
 
@@ -407,6 +437,8 @@ def test_f013_r_el_fichero_env_alimenta_la_configuracion(tmp_path, monkeypatch):
     env = tmp_path / "sesame.env"
     env.write_text(
         "# fichero de ejemplo\n"
+        "#SESAME_API_BASE_URL=http://viejo.test\n"   # comentada: se ignora
+        "\n"
         "SESAME_API_BASE_URL=http://sesame.test\n"
         f'SESAME_API_KEY="{CLAVE}"\n'
         "OTRA_COSA\n",
@@ -419,7 +451,28 @@ def test_f013_r_el_fichero_env_alimenta_la_configuracion(tmp_path, monkeypatch):
     )
 
     assert codigo == 0
-    assert len(_ficheros(tmp_path)[0]) == 1
+    texto = _ficheros(tmp_path)[0][0].read_text(encoding="utf-8")
+    assert "sesame-api: http://sesame.test" in texto
+    assert "viejo.test" not in texto
+
+
+def test_f013_r_leer_env_no_parte_el_valor_por_cada_igual(tmp_path):
+    """Una clave en base64 acaba en `=`: solo se parte por el PRIMER `=`."""
+    env = tmp_path / "sesame.env"
+    env.write_text("SESAME_API_KEY=abc=def==\n", encoding="utf-8")
+
+    assert vds.leer_env(env) == {"SESAME_API_KEY": "abc=def=="}
+
+
+def test_f013_r_leer_env_ignora_comentarios_y_lineas_sueltas(tmp_path):
+    """Una variable comentada NO se aplica aunque lleve `=`."""
+    env = tmp_path / "sesame.env"
+    env.write_text(
+        "# comentario\n#SESAME_API_KEY=vieja\n\nOTRA_COSA\nA=1\n",
+        encoding="utf-8",
+    )
+
+    assert vds.leer_env(env) == {"A": "1"}
 
 
 def test_f013_r_env_inexistente_aborta(tmp_path):
@@ -429,24 +482,24 @@ def test_f013_r_env_inexistente_aborta(tmp_path):
         transport=None,
     )
 
-    assert codigo != 0
+    assert codigo == 2          # 2 = configuracion, 1 = fallo de sesame-api
     assert _ficheros(tmp_path) == ([], [])
 
 
 def test_f013_r_sin_api_key_aborta_sin_llamar_a_nadie(tmp_path, monkeypatch):
-    """Sin clave ni por CLI ni por entorno: mensaje claro y exit != 0."""
+    """Sin clave ni por CLI ni por entorno: mensaje claro y exit 2."""
     monkeypatch.delenv("SESAME_API_KEY", raising=False)
     monkeypatch.delenv("SESAME_API_BASE_URL", raising=False)
 
     codigo = vds.main(
         ["--ano", str(ANO), "--salida", str(tmp_path)], transport=None)
 
-    assert codigo != 0
+    assert codigo == 2
     assert _ficheros(tmp_path) == ([], [])
 
 
 def test_f013_r_la_clave_del_entorno_sirve_de_respaldo(tmp_path, monkeypatch):
-    """Sin `--api-key`, se lee SESAME_API_KEY (mismo nombre que settings)."""
+    """Sin `--api-key`, se leen SESAME_API_* (los nombres de settings.py)."""
     monkeypatch.setenv("SESAME_API_KEY", CLAVE)
     monkeypatch.setenv("SESAME_API_BASE_URL", "http://sesame.test")
 
@@ -456,7 +509,57 @@ def test_f013_r_la_clave_del_entorno_sirve_de_respaldo(tmp_path, monkeypatch):
     )
 
     assert codigo == 0
-    assert len(_ficheros(tmp_path)[0]) == 1
+    mds = _ficheros(tmp_path)[0]
+    assert len(mds) == 1
+    # La base_url del entorno se USA, no se cae al localhost por defecto.
+    assert "sesame-api: http://sesame.test" in mds[0].read_text(
+        encoding="utf-8")
+
+
+def test_f013_r_la_carpeta_de_salida_se_crea_con_sus_padres(tmp_path):
+    """`--salida` a una ruta anidada que aun no existe: se crea entera."""
+    destino = tmp_path / "informes" / "sesame" / "2026"
+
+    codigo = vds.main(
+        ["--base-url", "http://sesame.test", "--api-key", CLAVE,
+         "--ano", str(ANO), "--salida", str(destino)],
+        transport=_mock_transport(empleados=EMPLEADOS_3[:1]),
+    )
+
+    assert codigo == 0
+    assert len(_ficheros(destino)[0]) == 1
+
+
+def test_f013_r_el_estado_del_empleado_viaja_al_informe(tmp_path):
+    """Saber si Sesame lo tiene de baja es parte de lo que se valida."""
+    de_baja = _empleado("99999999R", "Eva", "Ruiz", estado="inactive")
+    sin_estado = _empleado("88888888P", "Mar", "Diaz")
+    sin_estado["estado"] = None
+    transporte = _mock_transport(
+        empleados=[EMPLEADOS_3[0], de_baja, sin_estado])
+
+    assert _ejecutar(tmp_path, transporte, "--incluir-inactivos") == 0
+    filas = {f[1]: dict(zip(vds.COLUMNAS, f))
+             for f in _filas_csv(_ficheros(tmp_path)[1][0])[1:]}
+    assert filas["12345678Z"]["estado"] == "active"
+    assert filas["99999999R"]["estado"] == "inactive"
+    assert filas["88888888P"]["estado"] == vds.DESCONOCIDO
+
+
+def test_f013_r_sin_dni_norm_se_pregunta_con_el_dni_sin_normalizar(tmp_path):
+    """`dni_norm` vacio no puede dejar fuera a un empleado que SI tiene DNI."""
+    raro = _empleado("12345678Z", "Pepe", "Perez")
+    raro["dni_norm"] = ""
+    peticiones: list[httpx.Request] = []
+    transporte = _mock_transport(empleados=[raro], peticiones=peticiones)
+
+    assert _ejecutar(tmp_path, transporte) == 0
+    consultados = {p.url.params.get("dni") for p in peticiones
+                   if p.url.path == "/api/v1/festivos"}
+    assert consultados == {"12345678Z"}
+    fila = dict(zip(vds.COLUMNAS, _filas_csv(_ficheros(tmp_path)[1][0])[1]))
+    assert fila["dni"] == "12345678Z"
+    assert fila["error"] == ""
 
 
 # --------------------------------------------------------------- #
@@ -534,6 +637,44 @@ def test_f013_r_render_markdown_avisa_si_no_hay_calendario_por_defecto():
 
     assert "## Calendario por defecto" in texto
     assert "ningun calendario" in texto.lower()
+    # Sin trabajadores, el resumen lo dice en vez de mostrar listas vacias.
+    assert "(sin datos)" in texto
+
+
+def test_f013_r_render_markdown_cuenta_los_trabajadores_de_cada_grupo():
+    """El resumen se lee solo: "2 festivos: 3 trabajadores"."""
+    filas = [_fila("A"), _fila("B"), _fila("C", festivos=())]
+    texto = vds.render_markdown(
+        meta=vds.MetaInforme(generado="2026-08-17 10:00", ano=ANO,
+                             base_url="http://sesame.test", solo_activos=True),
+        filas=filas, resumen=vds.resumir(filas),
+        calendario=(), calendario_error="",
+    )
+
+    assert "- 1 festivos: 2 trabajadores" in texto
+    assert "- 0 festivos: 1 trabajador\n" in texto      # singular, sin "es"
+
+
+def test_f013_r_recorta_los_cuerpos_de_error_kilometricos():
+    """Una pagina de error de un proxy no puede inundar una celda del CSV."""
+    recorte = vds._recorta(RuntimeError("x" * 500))
+
+    assert len(recorte) == 300
+
+
+def test_f013_r_las_estructuras_del_informe_son_inmutables():
+    """Construida una fila, nadie la retoca por el camino hasta el fichero."""
+    from dataclasses import FrozenInstanceError
+
+    fila = _fila("Pepe")
+    resumen = vds.resumir([fila])
+    meta = vds.MetaInforme(generado="2026-08-17 10:00", ano=ANO,
+                           base_url="http://sesame.test", solo_activos=True)
+
+    for objeto, campo in ((fila, "nombre"), (resumen, "total"),
+                          (meta, "base_url")):
+        with pytest.raises(FrozenInstanceError):
+            setattr(objeto, campo, "otra cosa")
 
 
 @pytest.mark.parametrize("valor,esperado", [
