@@ -32,11 +32,12 @@
 
 ## F-004 · Congelar registros aprobados
 
-- Estado: `pending`, spec ESCRITA (2026-08-16) en
+- Estado: `spec_ready` — spec ESCRITA (2026-08-16) y APROBADA por el
+  humano (2026-08-16) en
   `specs/F-004-congelar-aprobados/{requirements,design,tasks}.md` · rama
   `feature/F-004-congelar-aprobados` (creada desde la punta de F-003,
   301cd78, para leer el código con F-003 incluida) · rigor estandar ·
-  sdd=true. Falta la aprobación del humano (→ `spec_ready`).
+  sdd=true. Implementación pendiente de turno (tras F-013 y F-011).
 - Resumen de la spec: congelación en sv4 SOLO. Matriz (R1): congela
   `approved` del documento + `sigrid_estado` en {encolado, registrado};
   `omitido`/`error`/`conflicto` siguen editables (son el camino de
@@ -46,7 +47,7 @@
   siguen congeladas tras desaprobar (el synckey es estable: reaprobar una
   línea editada NO actualiza Sigrid — hecho verificado en el pipeline de
   sv5). Sin cambios de schema; sin tocar orm_models.py (F-010).
-- Decisiones abiertas que el humano debe validar al aprobar la spec:
+- Decisiones que estaban abiertas (resueltas al aprobar; ver más abajo):
   1. Líneas `registrado`: quedan congeladas PERMANENTEMENTE en el portal
      (corregirlas exige actuar en Sigrid; si se borra allí la línea,
      reaprobar reescribe con valores nuevos). Se descartó un endpoint
