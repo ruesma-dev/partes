@@ -76,6 +76,7 @@ def _mock_transport(
     festivos: dict[str, tuple[int, dict]] | None = None,
     jornada: dict[str, tuple[int, dict]] | None = None,
     calendarios_status: int = 200,
+    calendarios_body: dict | None = None,
     peticiones: list[httpx.Request] | None = None,
 ) -> httpx.MockTransport:
     """Transporte que sirve las rutas de sesame-api que usa el script.
@@ -104,7 +105,11 @@ def _mock_transport(
             estado, cuerpo = (jornada or {}).get(dni, (200, JORNADA))
             return httpx.Response(estado, json=cuerpo)
         if path == "/api/v1/calendarios-festivos":
-            return httpx.Response(calendarios_status, json=CALENDARIOS)
+            return httpx.Response(
+                calendarios_status,
+                json=CALENDARIOS if calendarios_body is None
+                else calendarios_body,
+            )
         return httpx.Response(404, json={"detail": f"ruta {path} desconocida"})
 
     return httpx.MockTransport(handler)
@@ -298,6 +303,42 @@ def test_f013_a2_el_resumen_lista_los_dnis_con_error(tmp_path):
     assert "Empleados: 3 (1 con errores)" in cabeza
 
 
+def test_f013_a2_los_dos_fallos_del_mismo_trabajador_se_acumulan(tmp_path):
+    """Festivos caidos (502) Y jornada sin casar (404) en la misma fila."""
+    transporte = _mock_transport(
+        empleados=EMPLEADOS_3,
+        festivos={"12345678Z": (502, UPSTREAM_KO)},
+        jornada={"12345678Z": (404, NO_ENCONTRADO)},
+    )
+    codigo = _ejecutar(tmp_path, transporte)
+
+    assert codigo == 0
+    filas = {f[1]: dict(zip(vds.COLUMNAS, f))
+             for f in _filas_csv(_ficheros(tmp_path)[1][0])[1:]}
+    fila = filas["12345678Z"]
+    assert "festivos: " in fila["error"] and "502" in fila["error"]
+    assert "jornada: " in fila["error"] and "404" in fila["error"]
+    # Sin festivos leidos, el recuento NO puede fingir un cero.
+    assert fila["n_festivos"] == vds.DESCONOCIDO
+    assert fila["jornada_tipo"] == vds.DESCONOCIDO
+    assert filas["87654321X"]["error"] == ""
+
+
+def test_f013_a2_ningun_calendario_por_defecto_se_dice_en_el_informe(tmp_path):
+    """Sesame sin calendario `por_defecto`: no es un error, pero se avisa."""
+    sin_defecto = {
+        "ok": True, "total": 1,
+        "data": [{"id": "cal-x", "nombre": "X", "por_defecto": False,
+                  "festivos": []}],
+    }
+    transporte = _mock_transport(
+        empleados=EMPLEADOS_3[:1], calendarios_body=sin_defecto)
+
+    assert _ejecutar(tmp_path, transporte) == 0
+    texto = _ficheros(tmp_path)[0][0].read_text(encoding="utf-8")
+    assert "ningun calendario" in texto.lower()
+
+
 def test_f013_a2_el_calendario_por_defecto_roto_no_tumba_el_informe(tmp_path):
     """Si /calendarios-festivos falla, esa seccion avisa y el resto sale."""
     transporte = _mock_transport(
@@ -329,6 +370,66 @@ def test_f013_r_listado_con_ok_false_aborta(tmp_path):
         empleados=EMPLEADOS_3, empleados_body={"ok": False, "data": []})
 
     assert _ejecutar(tmp_path, transporte) != 0
+    assert _ficheros(tmp_path) == ([], [])
+
+
+def test_f013_r_listado_con_data_que_no_es_lista_aborta(tmp_path):
+    """Contrato roto de sesame-api: se dice, no se procesa medio informe."""
+    transporte = _mock_transport(
+        empleados=EMPLEADOS_3, empleados_body={"ok": True, "data": {"a": 1}})
+
+    assert _ejecutar(tmp_path, transporte) != 0
+    assert _ficheros(tmp_path) == ([], [])
+
+
+def test_f013_r_listado_que_no_es_json_aborta(tmp_path):
+    """Un proxy devolviendo HTML no puede pasar por una lista vacia."""
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>proxy</html>")
+
+    assert _ejecutar(tmp_path, httpx.MockTransport(handler)) != 0
+    assert _ficheros(tmp_path) == ([], [])
+
+
+def test_f013_r_sesame_api_inalcanzable_aborta(tmp_path):
+    """Sin conexion no hay barrido: mensaje claro y exit != 0."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("conexion rechazada", request=request)
+
+    assert _ejecutar(tmp_path, httpx.MockTransport(handler)) != 0
+    assert _ficheros(tmp_path) == ([], [])
+
+
+def test_f013_r_el_fichero_env_alimenta_la_configuracion(tmp_path, monkeypatch):
+    """`--env`: mismos nombres de variable que config/settings.py."""
+    monkeypatch.delenv("SESAME_API_KEY", raising=False)
+    monkeypatch.delenv("SESAME_API_BASE_URL", raising=False)
+    env = tmp_path / "sesame.env"
+    env.write_text(
+        "# fichero de ejemplo\n"
+        "SESAME_API_BASE_URL=http://sesame.test\n"
+        f'SESAME_API_KEY="{CLAVE}"\n'
+        "OTRA_COSA\n",
+        encoding="utf-8",
+    )
+
+    codigo = vds.main(
+        ["--env", str(env), "--ano", str(ANO), "--salida", str(tmp_path)],
+        transport=_mock_transport(empleados=EMPLEADOS_3[:1]),
+    )
+
+    assert codigo == 0
+    assert len(_ficheros(tmp_path)[0]) == 1
+
+
+def test_f013_r_env_inexistente_aborta(tmp_path):
+    """Un `--env` mal escrito no puede degradar en silencio a los defectos."""
+    codigo = vds.main(
+        ["--env", str(tmp_path / "no-existe.env"), "--salida", str(tmp_path)],
+        transport=None,
+    )
+
+    assert codigo != 0
     assert _ficheros(tmp_path) == ([], [])
 
 
