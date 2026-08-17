@@ -280,3 +280,129 @@ terminada en `=` habría reventado el parseo.
   **cuántos trabajadores de Sigrid** no aparecen en Sesame, porque el barrido
   parte de la lista de Sesame. El cruce con `emp`/`res` de Sigrid sería otra
   feature (y tocaría sigrid-api).
+
+---
+
+# Segunda pasada (2026-08-18) — respuesta al CHANGES_REQUESTED
+
+Review: `progress/review_F-013.md` (primera pasada, HEAD revisado `156130f`).
+Veredicto CHANGES_REQUESTED por **un único punto formal**. Se atiende ese
+punto y, además, el hallazgo no bloqueante NB-1.
+
+## 1. Cambio requerido (bloqueante) — RESUELTO
+
+**Qué pedía:** el análisis del superviviente estaba escrito en
+`progress/impl_F-013.md`, pero `progress/mutacion_F-013.md` —el artefacto de
+registro de la campaña, el que abrirá quien audite esto dentro de seis
+meses— conservaba la plantilla de la herramienta con `PENDIENTE` en las dos
+líneas y en el propio título. `CHECKPOINTS.md` §C4 bis exige que ningún
+superviviente quede con su análisis en `PENDIENTE`.
+
+**Qué se ha hecho:** el análisis vive ahora **dentro de
+`progress/mutacion_F-013.md`**, pegado a su superviviente, con el título
+`#### Análisis (completado por el implementer, 2026-08-18)` — sin la palabra
+PENDIENTE. Contenido: decisión explícita (**mutante equivalente para esta
+suite, justificado**), el cortocircuito del `or` que impide que el
+constructor real se evalúe con `MockTransport` inyectado, la prohibición de
+`docs/CONVENTIONS.md` de tocar red en los unit tests, y el hecho de que
+`retries` no altera ningún resultado observable del informe —el fallo final
+sí está cubierto, por `test_f013_r_sesame_api_inalcanzable_aborta` y
+`test_f013_r_fallo_del_listado_aborta_con_codigo_1`—. Se añadió también el
+dato que el propio reviewer verificó: el segundo mutante de esa misma línea
+(`or`→`and`) **sí** muere, o sea que la inyección del transporte está
+cubierta; lo incubrible es la rama del transporte real.
+
+El reviewer daba el análisis por «correcto y suficiente», así que el
+contenido es el mismo; lo que cambia es **dónde vive**, que era justo el
+problema. El texto sigue estando también en este informe, en su sección
+«Análisis del superviviente».
+
+## 2. NB-1 (no bloqueante) — HECHO
+
+**Qué observaba:** en el «Resumen», la distribución «Festivos por trabajador»
+solo cuenta a quien tiene `festivos_ok`, así que los que fallaron
+desaparecían de esa lista sin decir por qué y la suma no cuadraba contra la
+cabecera.
+
+**Qué se ha hecho** (es barato y se veía claro, así que se implementa):
+
+- `Resumen` gana el campo `festivos_ilegibles: int`, que `resumir()` cuenta
+  en el `else` del `if fila.festivos_ok`.
+- `render_markdown` añade al reparto la línea
+  `- (no se pudo leer): N trabajadores` (constante nueva `ILEGIBLE`), **solo
+  cuando N > 0**: con nadie ilegible, la línea sería ruido.
+- **NO se toca la decisión de fondo**, que el reviewer daba por acertada: un
+  trabajador ilegible sigue SIN contar como «0 festivos». Ese cero falso es
+  exactamente el número que el humano validaría por bueno. La línea nueva
+  cierra la suma; no inventa datos.
+
+Muestra real del resumen generado (3 empleados, dos con festivos ilegibles):
+
+```
+**Festivos por trabajador**
+
+- 2 festivos: 1 trabajador
+- (no se pudo leer): 2 trabajadores
+```
+
+1 + 2 = 3, que es lo que dice la cabecera («Empleados: 3 (2 con errores)»).
+
+**Tests nuevos (3):** `test_f013_r_el_resumen_cierra_la_suma_con_los_ilegibles`
+(la línea aparece con su recuento y el reparto cuadra),
+`test_f013_r_el_resumen_de_un_barrido_entero_ilegible_no_dice_sin_datos` (si
+NADIE se pudo leer, se dice cuántos son en vez de «(sin datos)»), y una
+aserción añadida a `test_f013_r_render_markdown_cuenta_los_trabajadores_de_cada_grupo`
+(sin ilegibles, la línea NO ensucia el resumen). Más la comprobación de que
+`dist_festivos` + `festivos_ilegibles` == `total` en el test de `resumir`.
+
+## 3. Campaña de mutación relanzada
+
+NB-1 **toca código de producción**, así que el informe de mutación de la
+primera pasada quedaba obsoleto: se relanzó la campaña entera sobre el
+código nuevo (la herramienta regenera `progress/mutacion_F-013.md`, así que
+el análisis del punto 1 se reescribió sobre el informe regenerado, no al
+revés).
+
+```
+$ python -m harness.mutacion --feature F-013 --base da7293d --workers 8
+77 mutantes evaluados, 76 muertos, 1 supervivientes, 0 timeouts en 389.1 s
+Informe: progress/mutacion_F-013.md
+```
+
+Los **3 mutantes nuevos** que introduce el cambio de NB-1 (74 → 77) mueren
+**todos**. El único superviviente sigue siendo el mismo `retries=1` →
+`retries=2`, ahora en la línea 388 en vez de la 374 por el desplazamiento
+del fichero.
+
+## Evidencias de la segunda pasada
+
+| Evidencia | Valor real |
+|---|---|
+| **Tests ejecutados** | **314 passed, 0 failed** en sv4 (42 de F-013: 40 + 2 nuevos de NB-1). Suite de la raíz y sv3/sv5, en verde. |
+| **Cobertura de las líneas cambiadas** | **99.6 % (263/264)** sobre el diff de F-013 (`python -m harness.cobertura --base da7293d`). La puerta de `init.sh` contra `dev`: **96.0 % (849/884)**. Sigue sin cubrir solo el guardián `if __name__ == "__main__":`. |
+| **Mutantes generados y supervivientes** | **77 generados, 76 muertos, 1 superviviente, 0 timeouts** (389,1 s). Análisis del superviviente: dentro de `progress/mutacion_F-013.md`, completo. |
+| **Tiempo de ejecución de la suite** | sv4 completa: **32,90 s** (314 tests). Solo los de F-013: **0,66 s** (42 tests). |
+
+`bash harness/init.sh`: **en verde**, `ENTORNO LISTO. Puedes trabajar.`
+`ruff` sobre los dos ficheros de la feature: `All checks passed!`.
+
+## Lo que NO se ha tocado en esta pasada
+
+- Ni el diseño, ni el contrato de la CLI, ni el formato del CSV: el reviewer
+  no pedía nada de eso y no se aprovecha una corrección formal para colar
+  cambios que nadie ha revisado.
+- **NB-2** (`--solo-activos` es un argumento inerte, porque el
+  comportamiento por defecto ya es ese): se deja como está a propósito. El
+  flag existe para poder escribir la intención explícita en un comando
+  copiado en un documento o un ticket —`--solo-activos` frente a
+  `--incluir-inactivos`, que es su pareja en el grupo mutuamente
+  excluyente—, y quitarlo rompería cualquier comando ya escrito. Si el
+  reviewer o el humano prefieren que desaparezca, es un cambio de una línea.
+- **NB-3** (contradicción en el bloque de F-004 de `progress/current.md`,
+  anterior a esta rama) ya lo limpió el líder en `e7453d0`, antes de esta
+  pasada. No es de F-013 y no había nada que hacer aquí.
+- **NB-4** (la única línea sin cubrir es `if __name__ == "__main__":`) es
+  informativo y sigue igual. **NB-5** es un elogio de dos decisiones de
+  diseño —cliente en crudo en vez de `CalendarioProvider`, y `festivos_ok`
+  para distinguir «cero festivos» de «no se pudo leer»—: precisamente las
+  dos que esta pasada NO ha tocado.
