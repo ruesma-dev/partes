@@ -82,12 +82,18 @@ día** = horas ordinarias teóricas de un día concreto.
 
 - **R10.** El sistema debe derivar la jornada semanal S del candef efectivo
   del recurso mediante un mapa configurable candef → S
-  (`JORNADA_SEMANAL_POR_CANDEF`, por defecto `8:40,9:42`); SI el candef
-  efectivo no está en el mapa, ENTONCES S = `JORNADA_SEMANAL_POR_DEFECTO`
-  (40.0).
-  *Test: `test_f015_r10_mapa_candef` — 8 → 40; 9 → 42; 10 → 40 (mapa por
-  defecto); mapa `8:40,9:42,10:48` → 10 → 48; mapa mal formado → error de
-  configuración al arrancar (fail-fast), no en caliente.*
+  (`JORNADA_SEMANAL_POR_CANDEF`, por defecto `8:40,9:42`, la MISMA cadena
+  en sv3 y sv4); SI el candef efectivo es válido pero NO está en el mapa,
+  ENTONCES S = 5 × candef efectivo (jornada plana: comportamiento actual)
+  y el sistema debe emitir un WARNING en log con el candef y el recurso
+  (`[jornada] candef=<c> sin entrada en JORNADA_SEMANAL_POR_CANDEF: se
+  aplica jornada plana S=<5c>`), una vez por recurso y pasada/vista.
+  (Decisión firme del humano, 2026-08-18. No existe una «jornada semanal
+  por defecto» aparte del mapa.)
+  *Test: `test_f015_r10_mapa_candef` — 8 → 40; 9 → 42; 10 → 50 + WARNING
+  en `caplog`; 8 y 9 → sin WARNING; mapa `8:40,9:42,10:48` → 10 → 48 sin
+  WARNING; mapa mal formado → error de configuración al arrancar
+  (fail-fast), no en caliente.*
 - **R11.** MIENTRAS el candef efectivo sea 8 y S 40, el sistema debe
   producir EXACTAMENTE el mismo desglose y los mismos avisos que hoy
   (jornada 8 todos los días laborables): regresión cero.
@@ -113,8 +119,8 @@ día** = horas ordinarias teóricas de un día concreto.
   *Test: `test_f015_r13_ultimo_laborable` — candef 9, S 42: semana normal
   → V 6; viernes festivo → J 6 (y V 0); miércoles festivo → X 0, V 6;
   jueves y viernes festivos → X 6; solo lunes laborable → L 6. Candef 8,
-  S 40 → siempre 8. Candef 9, S 40 → último 4. Candef 10, S 40 (fuera del
-  mapa) → último 0.*
+  S 40 → siempre 8. Candef 9 con mapa `9:40` → último 4. Candef 10 (fuera
+  del mapa) → S 50 → último laborable 10 (jornada plana).*
 - **R14.** El sistema debe considerar sábado y domingo NUNCA candidatos a
   último laborable ni a jornada (jornada 0: todo lo ordinario a extra,
   como hoy); y SI una semana no tiene ningún día laborable L–V, ENTONCES

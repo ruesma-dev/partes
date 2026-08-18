@@ -3,8 +3,8 @@
 
 > Este documento ES el entregable de F-012: estudio con datos reales
 > (§3), análisis de la regla decidida (§4), fuentes (§5), modelo (§6),
-> ficheros de la implementación (§7–§8), decisiones tomadas y abiertas
-> (§9) y riesgos (§10). F-012 no cambia código.
+> ficheros de la implementación (§7–§8), decisiones tomadas por el humano
+> —ninguna queda abierta— (§9) y riesgos (§10). F-012 no cambia código.
 >
 > **Versión 2 (2026-08-18).** La primera versión proponía derivar la
 > jornada semanal de una tabla por trabajador y aplicar el «resto» al
@@ -51,8 +51,9 @@ comprobación posterior por sigrid-api en solo lectura (SQL del anexo A).
   amplía (R19). NO se propone un «servicio de jornadas»: sería un salto de
   red en cada persistencia y en cada vista para una función pura.
 - **El mapa candef → jornada semanal es configuración**, no datos por
-  persona: variable de entorno en sv3 y sv4 (misma cadena en los dos,
-  D-A1 en §9) con valor por defecto en código `8:40,9:42`.
+  persona: variable de entorno espejo en sv3 y sv4 (misma cadena en los
+  dos, D9 en §9) con valor por defecto en código `8:40,9:42`; candef válido
+  fuera del mapa ⇒ jornada plana 5×candef + WARNING (D10).
 - **La tabla `empleado_jornada` entra en las DOS copias de
   `orm_models.py`** (duplicación tolerada del CLAUDE.md, trampa 3 de C3).
   Las copias ya están desincronizadas (F-010): recomendado hacer F-010
@@ -128,7 +129,8 @@ incidencia CIE/CIZ. Ni un solo día de 9 h todavía. Dos observaciones:
 ### H3 · Cómo se registran hoy los viernes (histórico `hmores`, candef 8)
 
 Pares (ordinaria, extra) más frecuentes en **viernes** de recursos con
-candef 8 (3.498 viernes con ordinarias):
+candef 8 (3.498 viernes con ordinarias). Medición del 2026-08-18 (sesión
+de redacción, mañana):
 
 | ord | extra | días | lectura |
 |---|---|---|---|
@@ -140,6 +142,13 @@ candef 8 (3.498 viernes con ordinarias):
 | 8 | +2 | 234 | |
 | 8 | −1 | 157 | |
 
+*Nota de reproducibilidad*: las frecuencias fila a fila se mueven con las
+ediciones diarias de Administración sobre los partes en curso (el reviewer
+midió el mismo 2026-08-18, por la tarde, 803/764/648/326/241/230/154 para
+las mismas siete filas, con el total de 3.498 idéntico y las mismas
+conclusiones). Lo estable es el orden y las proporciones, no la última
+unidad.
+
 Suma neta de extras en viernes: **−1.101 h** (negativa); en L–J es
 positiva (+4.600…+5.000 h por día de semana). Es decir: **la práctica
 humana en Sigrid ya usa el modelo «jornada diaria + extra negativa el
@@ -148,6 +157,11 @@ de 4 h (n=0 de 3.498) ni de 9 h (n=1). El patrón «9+9+9+9+4» que
 enunciaba la petición **no existe en el histórico**.
 
 ### H4 · Semanas completas (5 días laborables con horas): horas ordinarias
+
+La tabla se limita a los recursos con **candef 8 y 9** (los que cobran por
+horas y tienen jornada informada). Fuera de ella quedan 91 semanas de 40 h
+en 3 recursos con candef 0 y 10 semanas de 40 h en 2 recursos con candef 1
+(más 10 de 35 h, 1 de 38 y 1 de 39 con candef 0), que no cambian nada.
 
 | candef | h ordinarias/semana | semanas | recursos |
 |---|---|---|---|
@@ -232,8 +246,8 @@ registrada por Administración durante 20 meses.
 ## 4. Análisis: la regla decidida y sus casos
 
 **Regla (decisión del humano, 2026-08-18).** Para un trabajador con
-candef efectivo c y jornada semanal S = mapa[c] (40 si c no está en el
-mapa), en una semana L–D:
+candef efectivo c y jornada semanal S = mapa[c] (y S = 5c + WARNING si c
+es válido pero no está en el mapa), en una semana L–D:
 
 - día no laborable (finde o festivo de SU calendario) → jornada 0
   (todo lo ordinario a extra, como hoy);
@@ -267,7 +281,7 @@ hoy** en toda semana, con o sin festivos.
 | J. sábado trabajado 6 h | 9 / 42 | + S 6 | 6 extra | 6 extra | sin cambio |
 | K. c 8, S 40, festivo cualquiera | 8 / 40 | 8,8,8,8 | 8 | 8 (40 − 32) | **regresión cero** |
 | L. c 9 sin corregir en Sigrid (S 40 por mapa) | 9 / 40 | 9,9,9,9,6 | V 9/−3 | V jornada 4 → ord 4 + 2 extra | por eso F-014 va ANTES |
-| M. c fuera del mapa (10) | 10 / 40 | 10,10,10,10,8 | (c 10) V 10/−2 | V jornada max(0, 40−40)=0 → 8 extra | ver decisión abierta D-A2 |
+| M. c válido fuera del mapa (10) | 10 / 50 (5c) | 10,10,10,10,8 | (c 10) V 10/−2 | igual que hoy: V jornada 10 → −2; **WARNING** «candef 10 sin entrada en el mapa» | decisión D9: jornada plana hasta que se añada al mapa o se corrija en Sigrid |
 | N. intensiva 7×5 (fuera de F-012) | 8 / 40 | 7,7,7,7,7 | 8/−1 cada día | igual (F-011 sobre `empleado_jornada` + `emphis.porjorlab`) | H6/H7 |
 | O. recurso sin HE (MENC) | — | — | no se normaliza | no se normaliza | sin cambio |
 | P. candef inválido (0/1) | 8 (asignado) / 40 | 8,8,8,8,8 | 0 | 0 | sin cambio |
@@ -306,7 +320,8 @@ solo lo realmente incompleto (A'').
    - con patrón explícito → `jornada = patron[weekday(d)]` si d es
      laborable, 0 si no; FIN.
    - con solo `jornada_semanal` → `S = fila.jornada_semanal`.
-3. Sin excepción de S: `S = mapa.get(c, S_defecto)` (R10).
+3. Sin excepción de S: `S = mapa.get(c, 5 * c)`; si c no estaba en el mapa,
+   WARNING (R10).
 4. Regla del último laborable (R13–R15) con el calendario del trabajador:
    `es_laborable(x)` para x en los días L–V de la semana de d.
    - d no laborable → 0;
@@ -338,7 +353,6 @@ class Excepcion:
 
 def jornada_dia(d: date, *, candef: float | str | None, minimo: float,
                 por_defecto: float, mapa: Mapping[float, float],
-                semanal_por_defecto: float,
                 es_laborable: Callable[[date], bool],
                 excepcion: Excepcion | None = None) -> float: ...
 ```
@@ -361,7 +375,7 @@ sv4: `lambda x: calendario_provider.dia(x, dni).laborable`).
 - La señal de degradación del calendario (F-003 R26) se recoge también en
   las consultas de «último laborable» (R23): mismo `_recoger_degradacion`.
 - Sin calendario cableado (`calendario=None`, tests antiguos): todo día es
-  laborable y el último laborable es el viernes (D-A3).
+  laborable y el último laborable es el viernes (D11).
 
 ### 6.4 sv4 — avisos, KPI y «+ Nuevo»
 
@@ -398,13 +412,13 @@ sv4: `lambda x: calendario_provider.dia(x, dni).laborable`).
 | `services/partes-front/infrastructure/database/orm_models.py` | `EmpleadoJornadaOrm` idéntico; `create_all` de sv4 la crea al arrancar |
 | `services/partes-persistencia/application/services/recurso_conciliador.py` | §6.3 (+ D7: excluir registrado/encolado/approved del re-split) |
 | `services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py` | D7: `revert_extras_auto` / `fetch_registros_para_recurso` excluyen líneas congeladas |
-| `services/partes-persistencia/config/settings.py` y `services/partes-front/config/settings.py` | `JORNADA_SEMANAL_POR_CANDEF` (`8:40,9:42`), `JORNADA_SEMANAL_POR_DEFECTO` (40.0), `JORNADA_CACHE_TTL_S`; validación fail-fast del mapa |
+| `services/partes-persistencia/config/settings.py` y `services/partes-front/config/settings.py` | `JORNADA_SEMANAL_POR_CANDEF` (`8:40,9:42`; variable espejo, misma cadena en ambos), `JORNADA_CACHE_TTL_S`; validación fail-fast del mapa |
 | `services/partes-persistencia/interface_adapters/api/app.py` | wiring (mapa + repositorio de excepciones al conciliador) |
 | `services/partes-front/infrastructure/database/parte_repository.py` | `get_jornadas_empleado(dni)` |
 | `services/partes-front/interface_adapters/web/app.py` | §6.4 |
 | `services/partes-front/templates/trabajador_detail.html` | KPI (R25) |
 | `services/partes-front/static/app.js` | solo si «+ Nuevo» usa `jornada_dia` (R26) |
-| `infra/manifests/sv3/`, `infra/manifests/sv4/` (o scripts de despliegue) | variable NO secreta `JORNADA_SEMANAL_POR_CANDEF` con el mismo valor en ambos (si D-A1 = env) |
+| `infra/manifests/sv3/`, `infra/manifests/sv4/` (o scripts de despliegue) | variable NO secreta `JORNADA_SEMANAL_POR_CANDEF` con el mismo valor en ambos (D9: variable espejo) |
 | `docs/ARCHITECTURE.md` | semántica 3 («exceso sobre la jornada DEL DÍA: candef, salvo el último laborable de la semana, que recibe el resto de la jornada semanal derivada del candef…») y 7 (cuatro tablas) |
 | `docs/referencia/partes-proyecto.md` | §4.3 (cómputo) y §5 (tabla nueva) |
 | `azure-apps/partes.md` | schema de la BBDD `partes` (tabla nueva) y variables nuevas |
@@ -454,8 +468,9 @@ excepción real.
 ### 9.1 Tomadas por el humano (2026-08-18) — FIRMES
 
 - **D1 · Fuente**: la jornada semanal se deriva del candef por el mapa
-  `{8: 40, 9: 42}` (configurable); cualquier otro candef → 40. Sigrid es la
-  fuente y se corrige allí. Sustituye a la propuesta de tabla-fuente.
+  `{8: 40, 9: 42}` (configurable); Sigrid es la fuente y se corrige allí.
+  Sustituye a la propuesta de tabla-fuente. (Candef válido fuera del mapa:
+  ver D10.)
 - **D2 · Regla del resto**: el último día laborable L–V de la semana del
   trabajador (calendario F-003), con los festivos contando como jornada
   (lectura A). No «el viernes».
@@ -476,29 +491,28 @@ excepción real.
   F-016 `estandar`; F-011 se replantea sobre `empleado_jornada` +
   `emphis.porjorlab`.
 
-### 9.2 Abiertas (solo lo que queda)
+- **D9 · Dónde vive el mapa candef → S** (2026-08-18): variable de entorno
+  `JORNADA_SEMANAL_POR_CANDEF` **espejo en sv3 y sv4** (misma cadena;
+  default en código `8:40,9:42`; no es secreto: va en los manifiestos
+  versionados). Descartada la tabla de configuración (schema y UI para dos
+  filas). Riesgo: desincronizar sv3 y sv4; mitigación: documentarla como
+  variable «espejo» y que el KPI de sv4 enseñe la S aplicada (R25).
+- **D10 · Candef válido fuera del mapa (≠ 8/9, > 2)** (2026-08-18): **S =
+  5 × candef (jornada plana = comportamiento actual) + WARNING
+  obligatorio** en log (R10), para que quien lo vea añada la clave al mapa
+  o corrija el candef en Sigrid. Hoy no existe ninguno (H1). Descartadas
+  S = 40 fija (daría último laborable 0 h y 8 h de extra un viernes normal
+  con candef 10) y el silencio.
+- **D11 · Calendario sin cablear (sv3 con `calendario=None`)**
+  (2026-08-18): sin calendario no hay regla de no laborable y «último
+  laborable» = viernes. Los tests antiguos siguen valiendo; en producción
+  el calendario está cableado desde F-003.
 
-- **D-A1 · Dónde vive el mapa candef → S.** (a) variable de entorno
-  `JORNADA_SEMANAL_POR_CANDEF` en sv3 Y sv4 (misma cadena; default en
-  código `8:40,9:42`; no es secreto: va en los manifiestos versionados);
-  (b) tabla de configuración en `partes` leída por ambos. Recomendación:
-  **(a)** — es parametrización, no dato por persona; cambia una vez cada
-  mucho; una tabla exigiría schema y UI para dos filas. Riesgo de (a):
-  desincronizar sv3 y sv4; mitigación: documentarla como variable
-  «espejo» y que el KPI de sv4 enseñe la S aplicada.
-- **D-A2 · Candef válido fuera del mapa (≠ 8/9, > 2).** Hoy no existe
-  ninguno (H1), pero un candef 10 con S 40 daría último laborable 0 h y 8 h
-  extra el viernes (caso M). Opciones: (a) tal cual (S = 40, es lo que
-  dijo el humano); (b) S = 5 × c (jornada plana = comportamiento actual)
-  hasta que alguien añada la clave al mapa; (c) WARNING en log en ambos
-  casos. Recomendación: **(a) + (c)** — respetar la decisión y hacer
-  ruido si aparece un candef desconocido, para que se añada al mapa o se
-  corrija en Sigrid.
-- **D-A3 · Calendario sin cablear (sv3 con `calendario=None`).** Hoy sin
-  calendario no hay regla de no laborable; con la regla nueva, «último
-  laborable» sin calendario = viernes. Recomendación: así (los tests
-  antiguos siguen valiendo y en producción el calendario está cableado
-  desde F-003).
+### 9.2 Abiertas
+
+Ninguna: todas las decisiones del estudio están tomadas por el humano
+(2026-08-18). Lo que quede por decidir en la implementación lo abrirá la
+spec de F-015 en su propio `design.md`.
 
 ## 10. Riesgos y alternativas descartadas
 
@@ -530,7 +544,7 @@ excepción real.
    visto (Sesame caído, respaldo) puede mover el resto de día. Mitigación:
    mismo régimen de F-003 (review_required en sv3, banner/bloqueo en sv4),
    R23; no se inventa un tercer régimen.
-8. **Mapa desincronizado entre sv3 y sv4** (si D-A1 = env). Mitigación:
+8. **Mapa desincronizado entre sv3 y sv4** (D9: env espejo). Mitigación:
    default idéntico en código, variable documentada como «espejo», KPI
    visible.
 9. **`MO/0037` sin DNI** hasta que F-014 lo corrija: cae al calendario por
@@ -585,28 +599,137 @@ SELECT ord, ext, COUNT(*) AS dias FROM d2
 WHERE dow = 5 AND ord > 0 GROUP BY ord, ext ORDER BY dias DESC
 ```
 
-Semanas completas (H4) y grupo > 40 h (H5):
+Semanas completas (H4), ejecutable tal cual:
 
 ```sql
--- sobre d2:
-, s AS (
+WITH d AS (
+  SELECT h.reside, h.fec,
+         SUM(CASE WHEN a.cod LIKE 'HL%' THEN h.can ELSE 0 END) AS ord,
+         SUM(CASE WHEN a.cod LIKE 'HE%' THEN h.can ELSE 0 END) AS ext
+  FROM hmores h JOIN auxhor a ON a.ide = h.horide
+  WHERE h.fec >= 20250101 AND h.fec < 20260901
+    AND (a.cod LIKE 'HL%' OR a.cod LIKE 'HE%')
+  GROUP BY h.reside, h.fec),
+d2 AS (
+  SELECT reside, fec, ord, ext,
+         ((DATEPART(dw, CONVERT(date, CONVERT(varchar(8), fec))) + @@DATEFIRST - 2) % 7) + 1 AS dow,
+         (SELECT r.candef FROM reshor r JOIN res ON res.ide = r.reside
+           WHERE r.reside = d.reside AND r.horide = res.horide) AS candef
+  FROM d),
+s AS (
   SELECT reside, candef,
          DATEPART(isowk, CONVERT(date, CONVERT(varchar(8), fec))) AS wk,
          YEAR(CONVERT(date, CONVERT(varchar(8), fec))) AS yr,
          COUNT(*) AS dias, SUM(ord) AS ord, SUM(ext) AS ext
   FROM d2 WHERE ord > 0 AND dow <= 5
-  GROUP BY reside, candef, DATEPART(isowk, ...), YEAR(...)
+  GROUP BY reside, candef,
+           DATEPART(isowk, CONVERT(date, CONVERT(varchar(8), fec))),
+           YEAR(CONVERT(date, CONVERT(varchar(8), fec)))
   HAVING COUNT(*) = 5)
-SELECT candef, ord AS ord_semana, COUNT(*) AS semanas, COUNT(DISTINCT reside) AS recursos
-FROM s GROUP BY candef, ord ORDER BY candef, semanas DESC;
--- recursos con semanas > 40:
-SELECT reside, COUNT(*) AS semanas5d, SUM(CASE WHEN ord > 40 THEN 1 ELSE 0 END) AS sem_mas40
-FROM s GROUP BY reside HAVING SUM(CASE WHEN ord > 40 THEN 1 ELSE 0 END) > 0
+SELECT candef, ord AS ord_semana, COUNT(*) AS semanas,
+       COUNT(DISTINCT reside) AS recursos, ROUND(AVG(ext), 1) AS ext_media
+FROM s GROUP BY candef, ord ORDER BY candef, semanas DESC
+```
+
+Recursos con semanas de más de 40 h (H5), ejecutable tal cual (misma
+cabecera `WITH d AS (...), d2 AS (...)` que la consulta anterior):
+
+```sql
+WITH d AS (
+  SELECT h.reside, h.fec,
+         SUM(CASE WHEN a.cod LIKE 'HL%' THEN h.can ELSE 0 END) AS ord,
+         SUM(CASE WHEN a.cod LIKE 'HE%' THEN h.can ELSE 0 END) AS ext
+  FROM hmores h JOIN auxhor a ON a.ide = h.horide
+  WHERE h.fec >= 20250101 AND h.fec < 20260901
+    AND (a.cod LIKE 'HL%' OR a.cod LIKE 'HE%')
+  GROUP BY h.reside, h.fec),
+d2 AS (
+  SELECT reside, fec, ord, ext,
+         ((DATEPART(dw, CONVERT(date, CONVERT(varchar(8), fec))) + @@DATEFIRST - 2) % 7) + 1 AS dow
+  FROM d),
+s AS (
+  SELECT reside,
+         DATEPART(isowk, CONVERT(date, CONVERT(varchar(8), fec))) AS wk,
+         YEAR(CONVERT(date, CONVERT(varchar(8), fec))) AS yr,
+         COUNT(*) AS dias, SUM(ord) AS ord
+  FROM d2 WHERE ord > 0 AND dow <= 5
+  GROUP BY reside,
+           DATEPART(isowk, CONVERT(date, CONVERT(varchar(8), fec))),
+           YEAR(CONVERT(date, CONVERT(varchar(8), fec)))
+  HAVING COUNT(*) = 5)
+SELECT reside, COUNT(*) AS semanas5d,
+       SUM(CASE WHEN ord > 40 THEN 1 ELSE 0 END) AS sem_mas40,
+       SUM(CASE WHEN ord = 40 THEN 1 ELSE 0 END) AS sem_40,
+       SUM(CASE WHEN ord < 40 THEN 1 ELSE 0 END) AS sem_menos40,
+       MAX(ord) AS max_sem
+FROM s GROUP BY reside
+HAVING SUM(CASE WHEN ord > 40 THEN 1 ELSE 0 END) > 0
 ORDER BY sem_mas40 DESC
 ```
 
-Patrón por mes y día de semana del grupo H5 (`reside IN (…)`) y del
-recurso `MO/0037`: misma CTE `d`, `GROUP BY fec/100, dow, ord`.
+Categoría, DNI (solo si existe) y códigos HE del grupo H5:
+
+```sql
+SELECT res.ide AS reside, con.cod AS cod, auxrestip.res AS restip,
+       CASE WHEN emp.dni IS NULL THEN 'sin' ELSE 'si' END AS tiene_dni,
+       (SELECT COUNT(*) FROM reshor r2 JOIN auxhor a2 ON a2.ide = r2.horide
+         WHERE r2.reside = res.ide AND a2.cod LIKE 'HE%') AS n_he,
+       (SELECT MAX(r3.candef) FROM reshor r3
+         WHERE r3.reside = res.ide AND r3.horide = res.horide) AS candef
+FROM res JOIN con ON con.ide = res.ide
+LEFT JOIN auxrestip ON auxrestip.ide = res.restipide
+LEFT JOIN emp ON emp.ide = res.conide
+WHERE res.ide IN (1555819, 2146402, 2146404, 1392590, 1336571, 2146403, 2714845)
+```
+
+Patrón por mes y día de semana del grupo H5 (tabla de H5; cambiar el
+rango de fechas o el `IN` para `MO/0037`, `res.ide` 2798044):
+
+```sql
+WITH d AS (
+  SELECT h.reside, h.fec,
+         SUM(CASE WHEN a.cod LIKE 'HL%' THEN h.can ELSE 0 END) AS ord,
+         SUM(CASE WHEN a.cod LIKE 'HE%' THEN h.can ELSE 0 END) AS ext
+  FROM hmores h JOIN auxhor a ON a.ide = h.horide
+  WHERE h.fec >= 20250101 AND h.fec < 20260901
+    AND h.reside IN (1555819, 2146402, 2146404, 1392590, 1336571, 2146403, 2714845)
+    AND (a.cod LIKE 'HL%' OR a.cod LIKE 'HE%')
+  GROUP BY h.reside, h.fec)
+SELECT fec / 100 AS anomes,
+       ((DATEPART(dw, CONVERT(date, CONVERT(varchar(8), fec))) + @@DATEFIRST - 2) % 7) + 1 AS dow,
+       ord, COUNT(*) AS dias, ROUND(SUM(ext), 0) AS ext_total
+FROM d WHERE ord > 0
+GROUP BY fec / 100,
+         ((DATEPART(dw, CONVERT(date, CONVERT(varchar(8), fec))) + @@DATEFIRST - 2) % 7) + 1,
+         ord
+ORDER BY anomes, dow, dias DESC
+```
+
+Líneas registradas de `MO/0037` (H2):
+
+```sql
+SELECT h.fec, a.cod, h.can
+FROM hmores h JOIN auxhor a ON a.ide = h.horide
+WHERE h.reside = 2798044 AND h.fec >= 20250101
+ORDER BY h.fec, a.cod
+```
+
+Jornada intensiva por mes (H6):
+
+```sql
+WITH d AS (
+  SELECT h.reside, h.fec, SUM(h.can) AS ord
+  FROM hmores h JOIN auxhor a ON a.ide = h.horide
+  WHERE h.fec >= 20250101 AND h.fec < 20260901 AND a.cod LIKE 'HL%'
+  GROUP BY h.reside, h.fec)
+SELECT fec / 100 AS anomes,
+       SUM(CASE WHEN ord = 8 THEN 1 ELSE 0 END) AS n8,
+       SUM(CASE WHEN ord = 7 THEN 1 ELSE 0 END) AS n7,
+       SUM(CASE WHEN ord = 9 THEN 1 ELSE 0 END) AS n9,
+       SUM(CASE WHEN ord >= 10 THEN 1 ELSE 0 END) AS n10mas,
+       COUNT(*) AS dias
+FROM d WHERE ord > 0 GROUP BY fec / 100 ORDER BY fec / 100
+```
 
 Campos de jornada en Sigrid (H7):
 
