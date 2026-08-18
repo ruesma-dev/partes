@@ -200,3 +200,44 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   0366, 0405, 0456 y DNI de MO/0037 — MANUAL RRHH/Administración),
   F-015 (implementación) y F-016 (UI). F-011 replanteada sobre
   `empleado_jornada` + `emphis.porjorlab`.
+
+## F-010 · Saneamiento: resincronizar orm_models.py entre sv3 y sv4 — done 2026-08-18
+
+- Rama `feature/F-010-resincronizar-orm-models` (HEAD APPROVED `cd62e5b`,
+  base dev 716a4f7) · rigor estandar · sdd=true · spec aprobada por el
+  humano (D2 DDL generado, D3 índice, D4 SAWarning, D5 docs en el sitio) ·
+  APPROVED a la primera (`progress/review_F-010.md`). Arranque accidentado
+  por saturación de la API (3×529 + 1 stall), sin pérdida de trabajo.
+- Entregado: `orm_models.py` canónico (unión: base sv3 + `sigrid_*` y
+  `UndoLogOrm` de sv4) BYTE-IDÉNTICO en sv3 y sv4; `ddl_complementario()`
+  generado desde el ORM (`ADD COLUMN IF NOT EXISTS` de la unión + índices;
+  118 sentencias, idempotente) usado por `initialize()` de sv3 y sv4 (las
+  listas a mano desaparecen); guardián en `tests/` de la raíz que exige las
+  dos copias byte-idénticas; borrado de papelera/hard-delete en sv4 sin
+  los 3 SAWarning (se quita el DELETE masivo, la cascada borra); esquema
+  real documentado y corregido en el sitio en `docs/referencia/
+  partes-proyecto.md` §5 (línea de corrección en cabecera; `approved*` en
+  parte_registros no existía) y `azure-apps/partes.md` §4 (commit local
+  8f55505). Único cambio físico previsto en la BBDD `partes`: el índice
+  `ix_parte_registros_deleted_at_utc` (autorizado; tabla de 104 filas).
+- Verificado (reviewer, independiente): init.sh verde, 676 tests (raíz +
+  sv3 + sv4 + sv5) sin regresión, guardián roto a propósito en worktree,
+  DDL recalculado, cobertura 100 % (60/60), mutación 23/23 (3 candidatos a
+  superviviente comprobados uno a uno), C3 bis limpio, ruff limpio, ningún
+  test toca PostgreSQL real.
+- MANUAL pendiente del humano (pasos exactos en `progress/impl_F-010.md`
+  §6): M1 arrancar sv3 o sv4 en local y comprobar en `pg_indexes` el
+  índice nuevo (recomendación: mirar también `parte_documents`) y que las
+  columnas siguen siendo empleado_alias 7 / parte_documents 47 /
+  parte_registros 56 / undo_log 7; M2 arranque de sv3 y sv4 con «esquema
+  inicializado (118 sentencias complementarias)» en ambos; M3 redeploy
+  cuando decida (sv3 antes que sv4, no crítico).
+- Observación para F-015: `undo_log.undone` se genera `NOT NULL` sin
+  DEFAULT porque la BBDD real es así; una columna nueva NOT NULL sin
+  default sobre tabla con filas hará fallar el arranque «en voz alta»
+  (deliberado, documentado en el docstring del generador).
+- Automejora del arnés (pendiente, genérica ⇒ arnes-base, para F-009):
+  `harness/mutacion.py` solo ejecuta la suite del servicio dueño del
+  fichero mutado, así que los guardianes de la raíz nunca matan mutantes
+  ⇒ supervivientes falsos; debería ejecutar también la suite de la raíz (o
+  todas las que importan el fichero).

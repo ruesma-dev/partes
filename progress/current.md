@@ -1,29 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-010 · Saneamiento: resincronizar orm_models.py entre sv3 y sv4
-
-- Estado: `in_progress` — spec APROBADA por el humano el 2026-08-18 con las
-  4 recomendaciones (D3 crear el índice, D4 arreglar SAWarning, D5 corregir
-  docs en el sitio, D2 DDL generado del ORM) · rama
-  `feature/F-010-resincronizar-orm-models` (desde dev 716a4f7) · rigor
-  estandar · sdd=true. Prerrequisito de F-015 (D6 de F-012).
-- **IMPLEMENTACIÓN TERMINADA** el 2026-08-18: T1–T9 completas, informe en
-  `progress/impl_F-010.md`. `bash harness/init.sh` en verde (exit 0), 676
-  tests, cobertura de líneas cambiadas 100 % (60/60), mutación 23/23
-  muertos y 0 supervivientes (`progress/mutacion_F-010.md`). **Pendiente
-  del reviewer**; después, MANUAL del humano M1–M3 (pasos exactos en el
-  informe): al arrancar sv3/sv4 contra la BBDD real, el único cambio físico
-  esperado es el índice `ix_parte_registros_deleted_at_utc`.
-- Colateral: commit local `8f55505` en `C:\Users\pgris\PycharmProjects\azure-apps`
-  (`partes.md` §4, mismo saneamiento documental). Sin push: ese repo no
-  tiene remoto.
-- Sin desviaciones de fondo respecto a la spec. Dos menores, justificadas en
-  el informe (§4): `key=lambda i: i.name or ""` al ordenar índices, y la
-  retirada del import `delete` en sv4 al quedarse sin usos tras R11.
-
-
 ## Notas de contexto para la próxima sesión
+
+- F-010 cerrada el 2026-08-18 (resumen en `progress/history.md`). MANUAL
+  del humano: M1/M2 (arranque local de sv3 y sv4 → índice nuevo en
+  `pg_indexes`, 118 sentencias en ambos), pasos en `progress/impl_F-010.md`
+  §6. Merge a dev y push pendientes del humano; en azure-apps hay commit
+  local 8f55505.
 
 - F-012 cerrada el 2026-08-18 (resumen en `progress/history.md`). Merge de
   `feature/F-012-estudio-jornada-semanal` a dev y push pendientes del
@@ -56,4 +40,4 @@
   F-015/F-016) por el humano el 2026-08-18: sin
   contratos en Sesame no hay fuente de jornada reducida.
 - Siguiente feature por prioridad: F-014 (candef en Sigrid, humano) →
-  F-010 → F-015 → F-016 → F-005 …
+  F-015 (spec) → F-016 → F-005 …
