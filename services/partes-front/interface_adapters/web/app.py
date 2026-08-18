@@ -1896,17 +1896,21 @@ def build_app(
 
     @app.post("/api/obra/{obra_key}/delete", include_in_schema=False)
     def api_obra_delete(obra_key: str) -> JSONResponse:
-        n = repository.soft_delete_obra(
+        n, congelados = repository.soft_delete_obra(
             obra_key=obra_key, by=settings.default_reviewer
         )
-        return JSONResponse({"ok": n > 0, "partes": n})
+        # F-004 R13: `congelados` lo pinta la UI; sin ese numero el
+        # usuario creeria que se borro la obra entera.
+        return JSONResponse(
+            {"ok": n > 0, "partes": n, "congelados": congelados})
 
     @app.post("/api/trabajador/{worker_key}/delete", include_in_schema=False)
     def api_trabajador_delete(worker_key: str) -> JSONResponse:
-        n = repository.soft_delete_worker(
+        n, congelados = repository.soft_delete_worker(
             worker_key=worker_key, by=settings.default_reviewer
         )
-        return JSONResponse({"ok": n > 0, "lineas": n})
+        return JSONResponse(
+            {"ok": n > 0, "lineas": n, "congelados": congelados})
 
     @app.post("/api/documento/{document_id}/restore", include_in_schema=False)
     def api_documento_restore(document_id: str) -> JSONResponse:

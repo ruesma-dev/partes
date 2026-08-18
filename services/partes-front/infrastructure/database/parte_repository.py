@@ -39,9 +39,10 @@ from infrastructure.database.orm_models import (
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.congelacion import (
-    ESTADO_REGISTRADO,
+    MOTIVO_HARD_DELETE_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
+    es_registrado,
     exigir_documento_editable,
     exigir_linea_editable,
     hay_linea_encolada,
@@ -515,10 +516,7 @@ def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
     """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
     local a la linea escrita en Sigrid; un hard-delete la borra para
     siempre."""
-    return any(
-        (e or "").strip().lower() == ESTADO_REGISTRADO
-        for e in _estados_de_doc(doc)
-    )
+    return any(es_registrado(e) for e in _estados_de_doc(doc))
 
 
 class ParteReviewRepository:
@@ -2235,14 +2233,23 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            if es_registrado(reg.sigrid_estado):   # F-004 R12
+                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
             session.delete(reg)
             session.commit()
         return True
 
     # ---- OBRA (todos sus partes) ---- #
-    def soft_delete_obra(self, *, obra_key: str, by: str | None = None) -> int:
+    def soft_delete_obra(
+        self, *, obra_key: str, by: str | None = None,
+    ) -> tuple[int, int]:
+        """Manda a la papelera los partes de la obra.
+
+        Devuelve (partes movidos, partes omitidos por congelacion: R13).
+        """
         now_iso = datetime.now(timezone.utc).isoformat()
         n = 0
+        congelados = 0
         with self._session_factory.create_session() as session:
             docs = session.execute(
                 select(ParteDocumentOrm).where(
@@ -2250,16 +2257,26 @@ class ParteReviewRepository:
                 )
             ).scalars().all()
             for doc in docs:
-                if self._obra_key_for_doc(doc) == obra_key:
-                    doc.is_active = False
-                    doc.deleted_at_utc = now_iso
-                    doc.deleted_by = by
-                    n += 1
+                if self._obra_key_for_doc(doc) != obra_key:
+                    continue
+                if _motivo_congelado_doc(doc) is not None:
+                    congelados += 1
+                    continue
+                doc.is_active = False
+                doc.deleted_at_utc = now_iso
+                doc.deleted_by = by
+                n += 1
             session.commit()
-        return n
+        return n, congelados
 
     # ---- PERSONA (todas sus lineas) ---- #
-    def soft_delete_worker(self, *, worker_key: str, by: str | None = None) -> int:
+    def soft_delete_worker(
+        self, *, worker_key: str, by: str | None = None,
+    ) -> tuple[int, int]:
+        """Manda a la papelera las lineas del trabajador.
+
+        Devuelve (lineas movidas, lineas omitidas por congelacion: R13).
+        """
         now_iso = datetime.now(timezone.utc).isoformat()
         n = 0
         with self._session_factory.create_session() as session:
@@ -2269,13 +2286,15 @@ class ParteReviewRepository:
                 .where(ParteDocumentOrm.is_active.is_(True))
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
             ).scalars().all()
+            suyas = [r for r in rows
+                     if worker_key_for_registro(r) == worker_key]
+            libres, congelados = _separar_congeladas(suyas)
             docs_tocados: set[str] = set()
-            for reg in rows:
-                if worker_key_for_registro(reg) == worker_key:
-                    reg.deleted_at_utc = now_iso
-                    reg.deleted_by = by
-                    n += 1
-                    docs_tocados.add(reg.document_id)
+            for reg in libres:
+                reg.deleted_at_utc = now_iso
+                reg.deleted_by = by
+                n += 1
+                docs_tocados.add(reg.document_id)
             # Documentos que quedan sin lineas activas -> a papelera tambien.
             for did in docs_tocados:
                 queda = session.execute(
@@ -2291,7 +2310,7 @@ class ParteReviewRepository:
                         doc.deleted_at_utc = now_iso
                         doc.deleted_by = by
             session.commit()
-        return n
+        return n, congelados
 
     # ---- PAPELERA ---- #
     def list_papelera(self) -> dict:
@@ -2352,6 +2371,8 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            if _tiene_linea_registrada(doc):   # F-004 R12
+                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
             session.execute(
                 delete(ParteRegistroOrm).where(
                     ParteRegistroOrm.document_id == document_id
@@ -2363,9 +2384,16 @@ class ParteReviewRepository:
 
     def vaciar_papelera(self) -> dict:
         """Hard-delete de TODO lo que esta en papelera (documentos + sus
-        registros, y lineas sueltas borradas)."""
+        registros, y lineas sueltas borradas).
+
+        F-004 R12: lo que tenga lineas `registrado` se OMITE y se cuenta
+        (`omitidos`). Vaciar la papelera es la accion mas destructiva del
+        portal; abortarla entera por un parte viejo la haria inservible,
+        pero llevarse la referencia a Sigrid es irreparable.
+        """
         docs_borrados = 0
         regs_borrados = 0
+        omitidos = 0
         with self._session_factory.create_session() as session:
             docs = session.execute(
                 select(ParteDocumentOrm).where(
@@ -2373,6 +2401,9 @@ class ParteReviewRepository:
                 )
             ).scalars().all()
             for d in docs:
+                if _tiene_linea_registrada(d):
+                    omitidos += 1
+                    continue
                 session.execute(
                     delete(ParteRegistroOrm).where(
                         ParteRegistroOrm.document_id == d.id
@@ -2388,10 +2419,19 @@ class ParteReviewRepository:
                 .where(ParteDocumentOrm.deleted_at_utc.is_(None))
             ).scalars().all()
             for r in regs:
+                if es_registrado(r.sigrid_estado):
+                    omitidos += 1
+                    continue
                 session.delete(r)
                 regs_borrados += 1
             session.commit()
-        return {"documentos": docs_borrados, "registros": regs_borrados}
+        if omitidos:
+            logger.info(
+                "[papelera] %s elemento(s) omitidos por estar en Sigrid",
+                omitidos,
+            )
+        return {"documentos": docs_borrados, "registros": regs_borrados,
+                "omitidos": omitidos}
 
     # ----------------------------------------------------------------- #
     # CREAR parte manualmente (un dia o un periodo).

@@ -29,7 +29,7 @@ parametrizables).
       congelados (+ `omitidos` en `/api/undo`).
       | Verificación: tests R8, R9: mezcla de líneas libres y congeladas → solo las libres cambian y el recuento excluido llega en la respuesta; un undo cuyo snapshot toca una línea hoy `registrado` no la muta.
 
-- [ ] T5: Hard-delete y masivos: `hard_delete_registro`/`hard_delete_document`
+- [x] T5: Hard-delete y masivos: `hard_delete_registro`/`hard_delete_document`
       lanzan `CongeladoError` si hay línea `registrado`; `vaciar_papelera`,
       `soft_delete_obra`, `soft_delete_worker` omiten congelados y
       devuelven recuento (respuestas de los endpoints incluidas).

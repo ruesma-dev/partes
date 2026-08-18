@@ -61,6 +61,11 @@ MOTIVO_DOC_REGISTRADO = (
     "distintas."
 )
 MOTIVO_DOC_APROBADO = MOTIVO_LINEA_APROBADA
+MOTIVO_HARD_DELETE_REGISTRADO = (
+    "Hay lineas registradas en Sigrid: eliminarlas definitivamente "
+    "borraria la unica referencia local a lo escrito alli (el parte "
+    "PT<AA>/NNNNN y el numero de linea). Se quedan en la papelera."
+)
 MOTIVO_UNAPPROVE_ENCOLADO = (
     "No se puede marcar pendiente: hay lineas encoladas hacia Sigrid. "
     "Editar mientras sv5 procesa la peticion produce una carrera; espera "
@@ -143,6 +148,16 @@ def exigir_documento_editable(
         aprobado=aprobado, estados_lineas=estados_lineas)
     if motivo is not None:
         raise CongeladoError(motivo)
+
+
+def es_registrado(sigrid_estado: str | None) -> bool:
+    """R12: la linea vive en Sigrid, asi que su hard-delete se bloquea.
+
+    Es MAS estrecho que la congelacion general a proposito: un parte
+    aprobado sin registrar, o una linea `omitido`, no dejan rastro en el
+    ERP y vaciar la papelera con ellas dentro no rompe nada.
+    """
+    return _normaliza(sigrid_estado) == ESTADO_REGISTRADO
 
 
 def hay_linea_encolada(estados_lineas: Iterable[str | None]) -> bool:
