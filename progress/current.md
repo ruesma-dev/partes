@@ -3,7 +3,9 @@
 
 ## F-012 · Estudio jornada semanal — spec APROBADA (2026-08-18)
 
-- Estado: `spec_ready` (rigor `documental`, es un estudio sin código). La
+- Estado: `in_progress` desde 2026-08-18 para su cierre documental (rigor
+  `documental`, es un estudio sin código; no hay implementer: el
+  entregable es la spec; T4 hecha por el líder en 765cab8, T5 MANUAL). La
   spec (`specs/F-012-estudio-jornada-semanal/`, commit c13b524) ES el
   entregable: hallazgos H1–H8 con datos reales de Sigrid + propuesta.
   Pasa a `in_progress` → reviewer documental → `done` cuando F-004 cierre
