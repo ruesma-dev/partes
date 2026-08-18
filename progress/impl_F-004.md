@@ -41,8 +41,8 @@ escribir) y responde **409 con motivo**; la UI refleja con candado, inputs
 | `services/partes-front/static/app.js` | No cablea editores en filas congeladas; popup de la matriz en solo-lectura para las líneas con `c` (sin Guardar ni crear extra si todas lo están); TODOS los manejadores de error muestran el motivo del 409; avisos de los recuentos de las masivas. |
 | `services/partes-front/static/styles.css` | 25 líneas: fila congelada, candado, campo congelado del popup. |
 | `services/partes-front/tests/test_f004_congelacion_reglas.py` | **NUEVO**. 26 tests de la matriz R1/R2 (funciones puras). |
-| `services/partes-front/tests/test_f004_endpoints_congelados.py` | **NUEVO**. 77 tests de R3–R13 + R18 vía `TestClient` sobre SQLite en memoria. |
-| `services/partes-front/tests/test_f004_vistas_candado.py` | **NUEVO**. 26 tests de R14/R15/R16/R17 sobre el HTML renderizado. |
+| `services/partes-front/tests/test_f004_endpoints_congelados.py` | **NUEVO**. 79 tests de R3–R13 + R18 vía `TestClient` sobre SQLite en memoria. |
+| `services/partes-front/tests/test_f004_vistas_candado.py` | **NUEVO**. 29 tests de R14/R15/R16/R17 sobre el HTML renderizado. |
 | `services/partes-front/tests/dobles.py` | `sembrar_parte(...)` (documento con `approved` y `sigrid_estado` por línea, incluidas líneas en papelera) y `datos_registros(...)` (foto de lo que una edición tocaría, para probar que NO se tocó). |
 | `docs/ARCHITECTURE.md` | Punto 10 de «Semántica de dominio imprescindible»: qué congela, dónde vive la regla y qué NO levanta la desaprobación. |
 | `specs/F-004-congelar-aprobados/tasks.md` | T1–T8 marcadas `[x]`. |
@@ -65,6 +65,10 @@ e9c6226  F-004 T6 (RED): tests R14/R15/R17 — hoy la vista deja escribir lo que
 0311667  F-004 T6: candado, inputs deshabilitados y banner del parte aprobado en las tres vistas
 fd00e6c  F-004 T7: app.js no cablea filas congeladas, popup solo-lectura y errores con motivo
 26db275  F-004 T8: tests de los caminos vacios y de las filas desaparecidas
+647c532  F-004 T8: ARCHITECTURE.md, informe de implementacion y 1a campana
+9157ff4  F-004 T8: tests que cazan los mutantes de 'ok' en los borrados masivos
+e5950af  F-004 T8: el aviso solo para congelaciones, y tests del payload de la celda
+(+ el commit de cierre con la campaña definitiva y este informe)
 ```
 
 ## Decisiones de diseño (y por qué)
@@ -117,7 +121,11 @@ fd00e6c  F-004 T7: app.js no cablea filas congeladas, popup solo-lectura y error
 10. **El JS deja de tragarse los errores.** `applyPartidaToIds` ni siquiera
     miraba el estado de la respuesta: un rechazo del servidor acababa en un
     `reload()` que fingía éxito. Ahora todos los caminos pasan por
-    `MotivoHttp.lanzarSiFalla` y enseñan el motivo real (R16).
+    `MotivoHttp.lanzarSiFalla` y enseñan el motivo real (R16). El error que
+    lanza ese helper trae `congelado`, para distinguir «el sistema dice que
+    NO» —que se enseña con un aviso, porque el usuario no lo espera y tiene
+    que saber qué hacer— de un fallo de red, que se queda en el aviso
+    discreto de siempre (borde rojo + tooltip) para no volverse molesto.
 11. **Coste de las guardas: valorado y aceptado.** Decidir si una línea está
     congelada exige mirar `reg.document.approved`, y en las masivas eso es
     una carga perezosa por fila (N+1) cuando el `selectinload` no está
@@ -271,6 +279,7 @@ E   AttributeError: 'RegistroView' object has no attribute 'congelado'
 | R13 | `test_f004_r13_*` (4): obra y trabajador con congelados, otra obra intacta, sin congelados. |
 | R14 | `test_f004_r14_*` (13): las tres vistas × las tres condiciones, línea libre sin candado, motivo en el tooltip, convivencia, flag calculado en el repositorio. |
 | R15 | `test_f004_r15_*` (2): flag `c` en los `regs` de la celda, y ausencia cuando no hay congeladas. |
+| R15 (bis) | `test_f004_r15_la_celda_sigue_llevando_horas_tipo_y_partida` y `..._no_inventa_valores`: el flag `c` se añadió a un payload que ya existía y ahora está fijado entero (`id`, `t`, `h`, `p`). |
 | R16 | `test_f004_r16_el_front_lee_el_motivo_del_409` (estático sobre `app.js`) + `test_f004_r3_el_motivo_del_409_distingue_el_caso` (el contrato que el front consume). El comportamiento en el navegador es verificación MANUAL: el proyecto no tiene arnés de tests JS. |
 | R17 | `test_f004_r17_*` (3): banner + fecha/obra/«+ Añadir línea» bloqueados; parte pendiente sin bloqueos; parte sin aprobar con línea en Sigrid también avisa. |
 | R18 | `test_f004_r18_*` (7): aprobar/desaprobar/reaprobar siguen funcionando, la traza del sistema no se congela, restaurar de papelera permitido, undo y masivas sin congelados idénticos a antes, botones Aprobar/↻/Revisar presentes. Y las suites de F-002/F-003/F-013, intactas. |
@@ -279,18 +288,24 @@ E   AttributeError: 'RegistroView' object has no attribute 'congelado'
 
 ### `bash harness/init.sh` (entero, en verde)
 
+Última ejecución (2026-08-18, tras cerrar T8):
+
 ```
 [OK] Arnés v1.4.0 (2026-08-13)
 [OK] compileall: sin errores de sintaxis
 [AVISO] ruff: 450 avisos (deuda previa, no bloquea)
-[OK] pytest en verde (con medición de cobertura)
+[OK] pytest en verde (con medición de cobertura)        # 6 tests de la raíz
 [OK] servicio sv3-persistencia: pytest en verde (caché)
+448 passed, 5 warnings in 65.47s (0:01:05)
 [OK] servicio sv4-front (services/partes-front): pytest en verde
 [OK] servicio sv5-transfer: pytest en verde (caché)
-[OK] PUERTA COBERTURA: 95.6% de 1067 líneas cambiadas cubiertas (umbral 80%, nivel estandar)
+[OK] PUERTA COBERTURA: 96.7% de 1067 líneas cambiadas cubiertas (1032/1067, umbral 80%, nivel estandar)
 [OK] Rama actual: feature/F-004-congelar-aprobados
 ENTORNO LISTO. Puedes trabajar.
 ```
+
+Los cinco `warnings` son el `StarletteDeprecationWarning` de `TestClient`
+(previo) y los tres `SAWarning` que se explican al final de este informe.
 
 **ruff sigue en 450 avisos, los mismos que antes de F-004** (medido contra
 `9772ba4`): la feature no añade ni uno. Sobre los ficheros nuevos, ruff sale
@@ -323,14 +338,61 @@ renderizan `obra_detail`, `trabajador_detail` y `parte_detail` con
 
 | Evidencia | Valor real |
 |---|---|
-| **Tests ejecutados** | **443 passed, 0 failed** en la suite de sv4 (129 nuevos de F-004: 26 + 77 + 26). Más 6 en la suite de la raíz y sv3/sv5 en verde. |
-| **Cobertura de las líneas cambiadas** | **100,0 % (183/183)** midiendo solo el diff de F-004 (`python -m harness.cobertura --base 9772ba4`). Umbral 80 %. La puerta de `init.sh` contra `dev` da **95,6 % (1020/1067)** porque arrastra F-003 y F-013, que aún no están en `dev`. |
-| **Mutantes generados y supervivientes** | PENDIENTE-CAMPAÑA |
-| **Tiempo de ejecución de la suite** | sv4 completa: **PENDIENTE-TIEMPO** |
+| **Tests ejecutados** | **448 passed, 0 failed** en la suite de sv4 (**134 nuevos** de F-004: 26 de la regla + 79 de los endpoints + 29 de las vistas). Más 6 en la suite de la raíz y sv3/sv5 en verde. |
+| **Cobertura de las líneas cambiadas** | **100,0 % (183/183)** midiendo solo el diff de F-004 (`python -m harness.cobertura --base 9772ba4`). Umbral 80 %. La puerta de `init.sh` contra `dev` da **96,7 % (1032/1067)** porque arrastra F-003 y F-013, que aún no están en `dev`. |
+| **Mutantes generados y supervivientes** | **54 generados, 54 evaluados, 53 muertos, 1 superviviente, 0 timeouts** (678,9 s). Informe: `progress/mutacion_F-004.md`. |
+| **Tiempo de ejecución de la suite** | sv4 completa: **46,08 s** (448 tests); dentro de `init.sh`, con medición de cobertura, **65,47 s**. Solo los tests de F-004: **20,84 s** (134 tests). |
 
-### Análisis de los supervivientes
+### Análisis del superviviente
 
-PENDIENTE-ANALISIS
+El único que queda es **equivalente y está justificado por escrito** en
+`progress/mutacion_F-004.md` (ninguna sección en `PENDIENTE`):
+`app.py:929`, `congeladas = 0` → `congeladas = 1`. Es la inicialización de
+una variable que los cuatro caminos que llegan a la respuesta reasignan
+siempre; los otros dos caminos salen por un 400 o un 500 que no llevan ese
+campo. No hay ejecución que distinga 0 de 1. Se mantiene la inicialización
+a propósito: sin ella, un quinto selector futuro que olvidara asignarla
+produciría un `NameError` en producción en vez de un dato malo visible.
+
+**Las tres campañas y qué destaparon** (los números de arriba son los de la
+tercera y definitiva):
+
+| Campaña | Ajustes | Resultado |
+|---|---|---|
+| 1ª | por defecto (16 workers, 120 s) | 36 muertos, 5 supervivientes, **13 timeouts** |
+| 2ª | `--workers 4 --timeout 400` | 49 muertos, 5 supervivientes, 0 timeouts |
+| 3ª (definitiva) | `--workers 4 --timeout 400`, con los tests nuevos | **53 muertos, 1 superviviente, 0 timeouts** |
+
+Los 13 timeouts de la primera **no eran mutantes indestructibles**: con 16
+evaluadores compitiendo por la misma máquina, la suite (≈46 s en solitario)
+no cabía en los 120 s por mutante y el veredicto se quedaba sin emitir. Con
+4 evaluadores y 400 s los 54 mutantes tienen veredicto real. Queda dicho
+porque un timeout NO es un mutante muerto: es una casilla vacía.
+
+Los **cuatro supervivientes que sí eran huecos reales** se taparon con
+tests, y esos huecos merecían serlo:
+
+1. **`{"ok": n > 0}` en `/api/obra/{key}/delete`** (mutado a `n >= 0` y a
+   `n > 1`). Ningún test miraba `ok`, y ese campo es el que decide si el
+   front navega a `/obras` dando el borrado por hecho. Con todos los partes
+   congelados, un `ok` erróneo dejaría al usuario mirando una lista donde la
+   obra sigue viva. Test:
+   `test_f004_r13_si_toda_la_obra_esta_congelada_la_respuesta_no_dice_ok`.
+2. **Lo mismo en `/api/trabajador/{key}/delete`**. Test:
+   `test_f004_r13_si_todas_las_lineas_estan_congeladas_no_dice_ok`.
+3. **El payload de la celda de la matriz** (`"h": reg.horas or 0.0` mutado a
+   `and`, y las dos variantes de `"p"`). Al mover ese diccionario a
+   `_reg_de_celda` para colgarle el flag `c`, nada comprobaba que `h`, `t` y
+   `p` siguieran llegando bien: el popup habría abierto con las horas a cero
+   —y el usuario habría guardado ese cero encima de lo bueno—. Tests:
+   `test_f004_r15_la_celda_sigue_llevando_horas_tipo_y_partida` y
+   `test_f004_r15_una_linea_sin_partida_ni_horas_no_inventa_valores`.
+4. **El valor por defecto de `RegistroView.congelado`** (mutado a `True`).
+   Los tests de F-003 construyen `RegistroView` a mano para
+   `extras_por_jornada`: con el defecto invertido, cualquier vista
+   construida fuera de `_registro_view` saldría bloqueada sin haberlo
+   pedido. Test:
+   `test_f004_r14_un_dto_construido_a_mano_no_sale_congelado`.
 
 ## Verificaciones MANUAL pendientes (del humano)
 

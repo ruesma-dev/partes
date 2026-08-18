@@ -57,12 +57,16 @@
   un commit por tarea más su commit de fase RED. Informe completo en
   **`progress/impl_F-004.md`**; campaña de mutación en
   `progress/mutacion_F-004.md`.
-- `bash harness/init.sh` en verde. sv4: 443 tests (129 nuevos), ruff sin
+- `bash harness/init.sh` en verde. sv4: 448 tests (134 nuevos), ruff sin
   avisos nuevos (450, los mismos que antes de la feature),
   `node --check static/app.js` OK.
 - Cobertura del diff propio de F-004 (base `9772ba4`, la punta de F-013):
-  **100 % (183/183)**. La puerta de `init.sh` mide contra `dev` y da 95,6 %
+  **100 % (183/183)**. La puerta de `init.sh` mide contra `dev` y da 96,7 %
   porque arrastra F-003 y F-013, que aún no están en `dev`.
+- Mutación (3ª campaña, `--workers 4 --timeout 400`): **54 mutantes, 53
+  muertos, 1 superviviente, 0 timeouts**. El superviviente es equivalente y
+  está analizado en `progress/mutacion_F-004.md` (sin `PENDIENTE`); los
+  cuatro anteriores eran huecos reales y ya tienen test.
 - **Verificaciones MANUAL del humano**: las 7 están listadas con sus pasos
   exactos al final de `progress/impl_F-004.md` (parte aprobado, línea
   registrada con `curl`, línea encolada, popup de la matriz, masivas,

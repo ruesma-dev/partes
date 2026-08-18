@@ -48,7 +48,7 @@ parametrizables).
       genérico. Retoque mínimo de `styles.css` si hace falta.
       | Verificación: `node --check services/partes-front/static/app.js` + MANUAL (humano): en el navegador (Ctrl+F5), editar una línea registrada muestra el motivo; celda de matriz congelada no ofrece guardar; parte aprobado sale bloqueado con banner.
 
-- [ ] T8: No regresión + cierre: suites completas de sv4 (F-002/F-003
+- [x] T8: No regresión + cierre: suites completas de sv4 (F-002/F-003
       incluidas) y del monorepo; anotar en `progress/` y actualizar
       `progress/current.md`.
       | Verificación: `bash harness/init.sh` en verde.
