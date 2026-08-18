@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
-from sqlalchemy import delete, func, select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
@@ -2325,11 +2325,10 @@ class ParteReviewRepository:
                 return False
             if _tiene_linea_registrada(doc):   # F-004 R12
                 raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
-            session.execute(
-                delete(ParteRegistroOrm).where(
-                    ParteRegistroOrm.document_id == document_id
-                )
-            )
+            # Las lineas las borra la CASCADA del ORM (`all, delete-orphan`).
+            # Un DELETE masivo previo las borraria por detras de la sesion,
+            # que ya las tiene cargadas por `_tiene_linea_registrada`, y la
+            # cascada avisaria de que no encuentra nada que borrar (F-010 R11).
             session.delete(doc)
             session.commit()
         return True
@@ -2356,11 +2355,7 @@ class ParteReviewRepository:
                 if _tiene_linea_registrada(d):
                     omitidos += 1
                     continue
-                session.execute(
-                    delete(ParteRegistroOrm).where(
-                        ParteRegistroOrm.document_id == d.id
-                    )
-                )
+                # Sus lineas se van por la cascada del ORM (F-010 R11).
                 session.delete(d)
                 docs_borrados += 1
             # Lineas sueltas borradas cuyo doc no esta en papelera.
