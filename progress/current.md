@@ -3,12 +3,14 @@
 
 ## F-004 · Congelar registros aprobados
 
-- Estado: `spec_ready` — spec ESCRITA (2026-08-16) y APROBADA por el
-  humano (2026-08-16) en
+- Estado: `in_progress` desde 2026-08-18 (implementer lanzado) — spec
+  ESCRITA (2026-08-16) y APROBADA por el humano (2026-08-16) en
   `specs/F-004-congelar-aprobados/{requirements,design,tasks}.md` · rama
   `feature/F-004-congelar-aprobados` (creada desde la punta de F-003,
   301cd78, para leer el código con F-003 incluida) · rigor estandar ·
-  sdd=true. Implementación pendiente de turno (tras F-013 y F-011).
+  sdd=true. La rama se puso al día con la punta de F-013 (191b6ed) antes
+  de implementar. En paralelo, el spec-author redacta la spec de F-012 en
+  esta misma rama (solo `specs/F-012-*/`).
 - Resumen de la spec: congelación en sv4 SOLO. Matriz (R1): congela
   `approved` del documento + `sigrid_estado` en {encolado, registrado};
   `omitido`/`error`/`conflicto` siguen editables (son el camino de
