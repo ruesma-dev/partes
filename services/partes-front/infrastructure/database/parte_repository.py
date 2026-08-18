@@ -40,6 +40,7 @@ from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.congelacion import (
     ESTADO_REGISTRADO,
+    MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
     exigir_documento_editable,
     exigir_linea_editable,
@@ -2014,6 +2015,7 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            _exigir_doc_editable(doc)   # F-004 R6
             doc_snap = _doc_snapshot(doc)
             reg_snaps = [_reg_snapshot(r) for r in doc.registros]
             old = doc.fecha
@@ -2047,6 +2049,7 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            _exigir_doc_editable(doc)   # F-004 R6
             doc_snap = _doc_snapshot(doc)
             reg_snaps = [_reg_snapshot(r) for r in doc.registros]
             doc.obra_ide = obra_ide
@@ -2092,6 +2095,23 @@ class ParteReviewRepository:
         return self._set_approval(document_id, True, approved_by)
 
     def unapprove_document(self, *, document_id: str) -> bool:
+        """Desaprobar («Marcar pendiente») ES la via explicita de F-004.
+
+        R10: se rechaza mientras haya lineas ACTIVAS en vuelo (`encolado`);
+        con lineas ya `registrado` SI se permite —hace falta para corregir
+        las del mismo parte que no llegaron a Sigrid— y esas siguen
+        congeladas por su propio estado (R11).
+        """
+        with self._session_factory.create_session() as session:
+            doc = session.get(ParteDocumentOrm, document_id)
+            if doc is None:
+                return False
+            activas = [
+                r.sigrid_estado for r in doc.registros
+                if not r.deleted_at_utc
+            ]
+            if hay_linea_encolada(activas):
+                raise CongeladoError(MOTIVO_UNAPPROVE_ENCOLADO)
         return self._set_approval(document_id, False, None)
 
     def _set_approval(
@@ -2114,6 +2134,7 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            _exigir_doc_editable(doc)   # F-004 R7
             doc.is_active = False
             doc.deleted_at_utc = now_iso
             doc.deleted_by = deleted_by

@@ -17,7 +17,7 @@ parametrizables).
       409 JSON en `app.py`.
       | Verificación: tests R3, R4, R5 en `test_f004_endpoints_congelados.py`: cada endpoint responde 409 con `congelado: true` y la BBDD queda intacta; los mismos endpoints sobre línea libre siguen funcionando.
 
-- [ ] T3: Guardas de DOCUMENTO (`update_parte_fecha`, `update_parte_obra`,
+- [x] T3: Guardas de DOCUMENTO (`update_parte_fecha`, `update_parte_obra`,
       `delete_document`, `unapprove_document`) + redirects con mensaje en
       los flujos de formulario.
       | Verificación: tests R6, R7, R10, R11: fecha/obra→409 con doc congelado; delete de doc congelado no borra y redirige con motivo; unapprove con línea `encolado` rechaza; unapprove sin líneas en vuelo libera las no registradas y las `registrado` siguen congeladas.

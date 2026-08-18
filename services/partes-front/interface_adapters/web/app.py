@@ -1838,7 +1838,13 @@ def build_app(
         document_id: str,
         back: str = Form(default="/partes"),
     ) -> RedirectResponse:
-        repository.unapprove_document(document_id=document_id)
+        # F-004 R10: flujo de FORMULARIO, no JSON; el motivo viaja en el
+        # mensaje de la redireccion (el manejador global de 409 solo vale
+        # para las APIs que consume el JS).
+        try:
+            repository.unapprove_document(document_id=document_id)
+        except CongeladoError as exc:
+            return _redirect(back, exc.motivo)
         return _redirect(back, "Parte marcado como pendiente")
 
     @app.post("/documents/{document_id}/delete", include_in_schema=False)
@@ -1846,10 +1852,13 @@ def build_app(
         document_id: str,
         back: str = Form(default="/partes"),
     ) -> RedirectResponse:
-        repository.delete_document(
-            document_id=document_id,
-            deleted_by=settings.default_reviewer,
-        )
+        try:
+            repository.delete_document(
+                document_id=document_id,
+                deleted_by=settings.default_reviewer,
+            )
+        except CongeladoError as exc:   # F-004 R7
+            return _redirect(back, exc.motivo)
         # Si borramos desde el detalle del propio parte, volver al listado.
         target = "/partes" if back.startswith(f"/partes/{document_id}") else back
         return _redirect(target, "Parte movido a la papelera")
