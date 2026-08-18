@@ -22,7 +22,7 @@ parametrizables).
       los flujos de formulario.
       | Verificación: tests R6, R7, R10, R11: fecha/obra→409 con doc congelado; delete de doc congelado no borra y redirige con motivo; unapprove con línea `encolado` rechaza; unapprove sin líneas en vuelo libera las no registradas y las `registrado` siguen congeladas.
 
-- [ ] T4: Reasignación/conciliación de empleado excluye congeladas
+- [x] T4: Reasignación/conciliación de empleado excluye congeladas
       (`backfill_empleado`, `reassign_empleado_by_*` + respuesta
       `congeladas` en `/api/empleado/reasignar` y
       `/api/conciliacion/confirmar`) y `undo_last` omite snapshots

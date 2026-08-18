@@ -497,6 +497,20 @@ def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
     )
 
 
+def _separar_congeladas(
+    regs: list[ParteRegistroOrm],
+) -> tuple[list[ParteRegistroOrm], int]:
+    """(libres, nº congeladas) de una edicion MASIVA (R8/R9/R13).
+
+    D5: estas herramientas tocan N filas. Abortarlas enteras por UNA
+    congelada las volveria inservibles en cuanto hubiera un mes
+    registrado; omitir en silencio ocultaria que la accion fue parcial.
+    Se actualiza lo libre, se cuenta lo omitido y quien llama lo reporta.
+    """
+    libres = [r for r in regs if _motivo_congelado_reg(r) is None]
+    return libres, len(regs) - len(libres)
+
+
 def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
     """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
     local a la linea escrita en Sigrid; un hard-delete la borra para
@@ -1684,12 +1698,15 @@ class ParteReviewRepository:
     def backfill_empleado(
         self, *, nombre_leido: str, ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         """Asigna el empleado a TODOS los registros activos sin casar cuyo
-        nombre leido (normalizado) coincide. Devuelve nº de filas tocadas."""
+        nombre leido (normalizado) coincide.
+
+        Devuelve (filas tocadas, filas omitidas por congelacion: R8).
+        """
         target = tm.normalize(nombre_leido)
         if not target:
-            return 0
+            return 0, 0
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1699,12 +1716,13 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.empleado_ide.is_(None))
             )
             regs = list(session.execute(stmt).scalars().all())
-            affected = [
+            candidatos = [
                 r for r in regs
                 if tm.normalize(r.trabajador_nombre_leido) == target
             ]
+            affected, congeladas = _separar_congeladas(candidatos)
             if not affected:
-                return 0
+                return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             alias_snaps = [self._alias_snapshot(session, target)]
             for r in affected:
@@ -1719,7 +1737,7 @@ class ParteReviewRepository:
                 registros=reg_snaps, aliases=alias_snaps,
             )
             session.commit()
-        return len(affected)
+        return len(affected), congeladas
 
     def upsert_empleado_alias(
         self, *, nombre_leido: str, ide: int,
@@ -1827,7 +1845,13 @@ class ParteReviewRepository:
 
     def undo_last(self) -> dict:
         """Deshace la accion no-deshecha mas reciente: restaura el estado
-        anterior de registros/documento/alias y la marca como deshecha."""
+        anterior de registros/documento/alias y la marca como deshecha.
+
+        F-004 R9: los snapshots de filas HOY congeladas se OMITEN. El
+        snapshot es de antes; entre medias la linea pudo irse a Sigrid, y
+        restaurar los valores viejos la dejaria divergente para siempre.
+        Se aplica el resto y se devuelve cuantos se omitieron (D5).
+        """
         with self._session_factory.create_session() as session:
             stmt = (
                 select(UndoLogOrm)
@@ -1843,14 +1867,23 @@ class ParteReviewRepository:
                 payload = json.loads(row.payload)
             except Exception:  # noqa: BLE001
                 payload = {}
+            omitidos = 0
             for snap in payload.get("documents", []):
                 doc = session.get(ParteDocumentOrm, snap.get("id"))
-                if doc is not None:
-                    _apply_doc_snapshot(doc, snap)
+                if doc is None:
+                    continue
+                if _motivo_congelado_doc(doc) is not None:
+                    omitidos += 1
+                    continue
+                _apply_doc_snapshot(doc, snap)
             for snap in payload.get("registros", []):
                 reg = session.get(ParteRegistroOrm, snap.get("id"))
-                if reg is not None:
-                    _apply_reg_snapshot(reg, snap)
+                if reg is None:
+                    continue
+                if _motivo_congelado_reg(reg) is not None:
+                    omitidos += 1
+                    continue
+                _apply_reg_snapshot(reg, snap)
             for snap in payload.get("aliases", []):
                 self._apply_alias_snapshot(session, snap)
             row.undone = True
@@ -1858,7 +1891,13 @@ class ParteReviewRepository:
             remaining = len(list(session.execute(
                 select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
             ).scalars().all()))
-        return {"ok": True, "description": description, "remaining": remaining}
+        if omitidos:
+            logger.info(
+                "[undo] %s fila(s) omitidas por congelacion (%s)",
+                omitidos, description,
+            )
+        return {"ok": True, "description": description,
+                "remaining": remaining, "omitidos": omitidos}
 
     def get_registro_recurso(self, registro_id: int) -> int | None:
         """recurso_ide del registro (para resolver su hora extra)."""
@@ -1874,12 +1913,15 @@ class ParteReviewRepository:
     def reassign_empleado_by_leido(
         self, *, nombre_leido: str, ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         """Reasigna el empleado a TODOS los registros activos cuyo nombre
-        leido (normalizado) coincide, ESTEN o no casados (correccion)."""
+        leido (normalizado) coincide, ESTEN o no casados (correccion).
+
+        Devuelve (filas tocadas, omitidas por congelacion: R8).
+        """
         target = tm.normalize(nombre_leido)
         if not target:
-            return 0
+            return 0, 0
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1887,12 +1929,12 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
-            affected = [
+            affected, congeladas = _separar_congeladas([
                 r for r in session.execute(stmt).scalars().all()
                 if tm.normalize(r.trabajador_nombre_leido) == target
-            ]
+            ])
             if not affected:
-                return 0
+                return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             alias_snaps = [self._alias_snapshot(session, target)]
             for r in affected:
@@ -1907,14 +1949,17 @@ class ParteReviewRepository:
                 registros=reg_snaps, aliases=alias_snaps,
             )
             session.commit()
-        return len(affected)
+        return len(affected), congeladas
 
     def reassign_empleado_by_worker_key(
         self, *, worker_key: str, ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> tuple[int, list[str]]:
+    ) -> tuple[int, list[str], int]:
         """Reasigna todos los registros activos del grupo (worker_key).
-        Devuelve (filas, nombres_leidos_distintos) para escribir alias."""
+
+        Devuelve (filas, nombres_leidos_distintos, omitidas por
+        congelacion: R8); los nombres leidos sirven para escribir alias.
+        """
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1922,12 +1967,12 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
-            affected = [
+            affected, congeladas = _separar_congeladas([
                 r for r in session.execute(stmt).scalars().all()
                 if worker_key_for_registro(r) == worker_key
-            ]
+            ])
             if not affected:
-                return 0, []
+                return 0, [], congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             leidos = sorted({
                 r.trabajador_nombre_leido for r in affected
@@ -1948,12 +1993,12 @@ class ParteReviewRepository:
                 registros=reg_snaps, aliases=alias_snaps,
             )
             session.commit()
-        return len(affected), leidos
+        return len(affected), leidos, congeladas
 
     def reassign_empleado_by_registro_ids(
         self, *, registro_ids: list[int], ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         """Reasigna el empleado SOLO a los registros indicados (activos).
 
         A diferencia de ``reassign_empleado_by_leido`` (que afecta a TODOS los
@@ -1963,7 +2008,7 @@ class ParteReviewRepository:
         """
         ids = [int(x) for x in registro_ids if x is not None]
         if not ids:
-            return 0
+            return 0, 0
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1972,9 +2017,10 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
-            affected = list(session.execute(stmt).scalars().all())
+            affected, congeladas = _separar_congeladas(
+                list(session.execute(stmt).scalars().all()))
             if not affected:
-                return 0
+                return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             for r in affected:
                 r.empleado_ide = ide
@@ -1988,7 +2034,7 @@ class ParteReviewRepository:
                 registros=reg_snaps,
             )
             session.commit()
-        return len(affected)
+        return len(affected), congeladas
 
     def get_sharepoint_ref(self, document_id: str) -> dict | None:
         """Datos para descargar el PDF de SharePoint por Graph."""

@@ -839,7 +839,7 @@ def build_app(
                 status_code=404,
             )
         try:
-            updated = repository.backfill_empleado(
+            updated, congeladas = repository.backfill_empleado(
                 nombre_leido=nombre_leido, ide=emp.ide,
                 codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
             )
@@ -863,6 +863,9 @@ def build_app(
             logger.warning("[conciliacion] alias no guardado: %r", exc)
         return JSONResponse({
             "ok": True, "updated": updated, "alias_ok": alias_ok,
+            # F-004 R8: las lineas congeladas se omiten; decirlo evita
+            # que el usuario crea que su casado se aplico entero.
+            "congeladas": congeladas,
             "empleado": {"ide": emp.ide, "codigo": emp.codigo,
                          "nombre": emp.nombre},
         })
@@ -923,14 +926,17 @@ def build_app(
         worker_key = data.get("worker_key")
         nombre_leido_in = data.get("nombre_leido")
         updated = 0
+        congeladas = 0
         leidos: list[str] = []
         try:
             if isinstance(registro_ids_in, list) and registro_ids_in:
                 ids = [_as_int(x) for x in registro_ids_in]
                 ids = [x for x in ids if x is not None]
-                updated = repository.reassign_empleado_by_registro_ids(
-                    registro_ids=ids, ide=emp.ide, codigo=emp.codigo,
-                    nombre=emp.nombre, dni=emp.dni,
+                updated, congeladas = (
+                    repository.reassign_empleado_by_registro_ids(
+                        registro_ids=ids, ide=emp.ide, codigo=emp.codigo,
+                        nombre=emp.nombre, dni=emp.dni,
+                    )
                 )
                 # Acotado a lineas concretas: no se crea alias de mapeo.
                 leidos = []
@@ -941,18 +947,20 @@ def build_app(
                         {"ok": False, "error": "Registro sin nombre leido"},
                         status_code=400,
                     )
-                updated = repository.reassign_empleado_by_leido(
+                updated, congeladas = repository.reassign_empleado_by_leido(
                     nombre_leido=leido, ide=emp.ide, codigo=emp.codigo,
                     nombre=emp.nombre, dni=emp.dni,
                 )
                 leidos = [leido]
             elif worker_key:
-                updated, leidos = repository.reassign_empleado_by_worker_key(
-                    worker_key=worker_key, ide=emp.ide,
-                    codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                updated, leidos, congeladas = (
+                    repository.reassign_empleado_by_worker_key(
+                        worker_key=worker_key, ide=emp.ide,
+                        codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                    )
                 )
             elif nombre_leido_in:
-                updated = repository.reassign_empleado_by_leido(
+                updated, congeladas = repository.reassign_empleado_by_leido(
                     nombre_leido=nombre_leido_in, ide=emp.ide,
                     codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
                 )
@@ -984,6 +992,7 @@ def build_app(
                 logger.warning("[reasignar] alias no guardado: %r", exc)
         return JSONResponse({
             "ok": True, "updated": updated, "alias_ok": alias_ok,
+            "congeladas": congeladas,   # F-004 R8
             "empleado": {"ide": emp.ide, "codigo": emp.codigo,
                          "nombre": emp.nombre},
         })
