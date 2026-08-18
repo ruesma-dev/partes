@@ -2,12 +2,21 @@
 # F-012 · Estudio: candef de 9 h, viernes y jornada semanal particularizable — Diseño técnico
 
 > Este documento ES el entregable de F-012: estudio con datos reales
-> (§3), análisis (§4), fuentes (§5), modelo propuesto (§6), ficheros de la
-> implementación (§7–§8) y decisiones abiertas para el humano (§9). La
-> implementación se propone como feature aparte (**F-014**, y opcionalmente
-> **F-015** para la UI de mantenimiento) porque toca dos servicios, añade
-> una tabla al schema duplicado y depende de decisiones de negocio que hoy
-> nadie ha tomado. F-012 no cambia código.
+> (§3), análisis de la regla decidida (§4), fuentes (§5), modelo (§6),
+> ficheros de la implementación (§7–§8), decisiones tomadas y abiertas
+> (§9) y riesgos (§10). F-012 no cambia código.
+>
+> **Versión 2 (2026-08-18).** La primera versión proponía derivar la
+> jornada semanal de una tabla por trabajador y aplicar el «resto» al
+> viernes. El humano la revisó y decidió: **la jornada semanal se deriva
+> del candef** (mapa configurable `{8: 40, 9: 42}`, Sigrid es la fuente y
+> se corrige allí — F-014); **el «resto» va al último día laborable de la
+> semana** según el calendario del trabajador, contando los festivos como
+> jornada; y **las excepciones** (jornada distinta de la derivada) van a
+> una tabla `empleado_jornada` que se espera vacía mucho tiempo, con
+> pantalla de administración en una feature posterior. Reparto:
+> **F-014** (candef en Sigrid, documental, prerrequisito) → **F-015**
+> (regla en sv3 + sv4) → **F-016** (UI de excepciones).
 
 ## 1. Servicios que toca y por qué (regla LÍMITE DE SERVICIO)
 
@@ -15,38 +24,43 @@
 Las consultas del §3 se hicieron en modo SOLO LECTURA (`sigrid-api`
 `POST /api/sql/read` sobre `ruesma`; `SELECT` sobre la BBDD `partes` de
 desarrollo) desde un script de usar y tirar fuera del repositorio; el SQL
-va en el anexo para que cualquiera lo reproduzca.
+va en el anexo A para que cualquiera lo reproduzca.
 
-**F-014 (implementación propuesta)** tocaría, y por esto:
+**F-014 (prerrequisito, documental): ningún servicio.** Es un cambio de
+datos maestros en Sigrid que hace RRHH/Administración a mano; los agentes
+no escriben en Sigrid fuera de sv5. Entrega la petición redactada y la
+comprobación posterior por sigrid-api en solo lectura (SQL del anexo A).
 
-- **sv3 `partes-persistencia`**: es donde vive el cómputo de extras por
-  exceso de jornada (`RecursoConciliador._reclasificar_extras_jornada`). La
-  jornada del día deja de ser «candef plano» y pasa a depender del día de
-  la semana y del trabajador. Necesita LEER la jornada particularizada.
-- **sv4 `partes-front`**: es donde viven los avisos de «jornada
-  incompleta» (vista trabajador y matriz de obra), el KPI de jornada y la
+**F-015 (implementación de la regla)** tocaría, y por esto:
+
+- **sv3 `partes-persistencia`**: aquí vive el cómputo de extras por exceso
+  de jornada (`RecursoConciliador._reclasificar_extras_jornada`). La
+  jornada del día deja de ser «candef plano» y pasa a depender de la
+  jornada semanal derivada del candef, del calendario del trabajador
+  (último laborable) y, excepcionalmente, de `empleado_jornada`. Ya tiene
+  el calendario por DNI (`CalendarioLaboralPort`, F-003): solo hay que
+  preguntarle por los otros días de la semana.
+- **sv4 `partes-front`**: aquí viven los avisos de «jornada incompleta»
+  (vista trabajador y matriz de obra), el KPI de jornada y la
   `jornada_sugerida` de «+ Nuevo». Los tres consumen `jornada_efectiva`,
   el resolutor que F-003 dejó como único punto de entrada precisamente
-  para esto. Y es el único servicio con UI: si la jornada particularizada
-  se mantiene desde el portal (D5), el mantenimiento va aquí.
+  para esto. Ya tiene el calendario por DNI (`CalendarioProvider`).
 - **La regla se escribe DOS veces (resolutor gemelo)**, como ya ocurre con
   `jornada_resolver.py` desde F-003 y como manda `docs/ARCHITECTURE.md`
   (sin librería compartida). El guardián que compara ambas copias se
-  amplía (R14). NO se propone extraer un «servicio de jornadas»: sería un
-  salto de red en cada persistencia y en cada vista para una función pura
-  de diez líneas.
-- **La tabla nueva `empleado_jornada` entra en las DOS copias de
+  amplía (R19). NO se propone un «servicio de jornadas»: sería un salto de
+  red en cada persistencia y en cada vista para una función pura.
+- **El mapa candef → jornada semanal es configuración**, no datos por
+  persona: variable de entorno en sv3 y sv4 (misma cadena en los dos,
+  D-A1 en §9) con valor por defecto en código `8:40,9:42`.
+- **La tabla `empleado_jornada` entra en las DOS copias de
   `orm_models.py`** (duplicación tolerada del CLAUDE.md, trampa 3 de C3).
-  OJO: las copias ya están desincronizadas (F-010, pendiente); F-014
-  puede añadir la clase nueva idéntica en ambas sin resolver la deriva
-  previa, pero es más limpio hacer F-010 antes (D6).
-- **sv1, sv2 y sv5 NO se tocan.** sv5 recibe líneas ya desglosadas
-  (ordinaria/extra) y no sabe de jornadas. `sigrid-api` tampoco (todo es
-  lectura con el SQL que ya usa sv3).
-- **Sigrid NO se escribe** (ni `reshor.candef`, ni `auxtur`, ni `emphis`):
-  fuera del alcance de este monorepo (§5, S2). Si el humano quiere que
-  RRHH mantenga algo en Sigrid, es una decisión suya, no una tarea de
-  aquí.
+  Las copias ya están desincronizadas (F-010): recomendado hacer F-010
+  antes (D6).
+- **sv1, sv2 y sv5 NO se tocan.** sv5 recibe líneas ya desglosadas y no
+  sabe de jornadas. `sigrid-api` tampoco (el candef ya llega por
+  `_SQL_RESHOR`).
+- **Sigrid NO se escribe desde aquí**: F-014 es una petición a RRHH.
 
 ## 2. Cómo funciona hoy (lo que el estudio pone en cuestión)
 
@@ -54,7 +68,7 @@ va en el anexo para que cualquiera lo reproduzca.
   (`res.horide`), y 8 h si el candef no es válido (≤ 2). Regla única en
   `jornada_efectiva(candef, minimo, por_defecto)` (F-003, R11/R12), con
   copias gemelas en sv3 y sv4. La jornada es **la misma todos los días
-  laborables**: no distingue viernes ni sabe de semanas.
+  laborables**: no distingue el último día ni sabe de semanas.
 - **Cómputo de extras (sv3)**, por (recurso, día) reuniendo todas las
   obras: en día laborable, `extra objetivo = ordinarias + extras − candef
   efectivo`; si falta extra se recorta lo ordinario (ids mayores primero);
@@ -66,8 +80,8 @@ va en el anexo para que cualquiera lo reproduzca.
   < candef efectivo`. Con jornada plana, TODO viernes corto sale marcado.
 - **Recomputación total en cada pasada**: `revert_extras_auto()` deshace
   las extras automáticas de TODOS los registros activos y se recalcula
-  desde cero (idempotente por diseño). No excluye líneas ya registradas en
-  Sigrid (ver riesgo §10.5).
+  desde cero. No excluye líneas ya registradas en Sigrid (riesgo §10.5,
+  decisión D7).
 
 ## 3. Estudio con datos reales
 
@@ -109,7 +123,7 @@ incidencia CIE/CIZ. Ni un solo día de 9 h todavía. Dos observaciones:
   de H5).
 - **No tiene DNI en `emp`** (`res.conide` no enlaza con un empleado con
   DNI). El sistema lo resolverá solo por nombre/alias, no por DNI: dato a
-  corregir en Sigrid (aviso al humano, fuera del alcance de F-012).
+  corregir en Sigrid → **F-014** lo incluye.
 
 ### H3 · Cómo se registran hoy los viernes (histórico `hmores`, candef 8)
 
@@ -170,12 +184,15 @@ Lo relevante para el diseño:
   48 h: **+8 h/semana**. Los humanos registraron **0**. Hay una
   discrepancia de fondo que ninguna regla resuelve sola: ¿su jornada
   semanal es 42/48 (y entonces 0 extras) o es 40 y esas horas son extras
-  no registradas? Es la decisión D3.
+  no registradas? **Resuelto por el humano (2026-08-18)**: su jornada es
+  42 h y se deriva del candef 9 (mapa `9: 42`) → **F-014** les pone
+  candef 9 en Sigrid; no se siembra ninguna excepción.
 - Su viernes NO es «el resto hasta 40» (sería 4): es 6. Solo con una
-  jornada semanal **particularizada a 42** la regla «viernes = resto»
-  reproduce lo que hacen. Es exactamente lo que el humano intuía.
-- El régimen cambia con el tiempo (48 → 42 → 35): la jornada
-  particularizada necesita **vigencia** (desde/hasta), no un número fijo.
+  jornada semanal de **42** la regla «último laborable = resto»
+  reproduce lo que hacen: de ahí el mapa `{8: 40, 9: 42}`.
+- El régimen cambia con el tiempo (48 → 42 → 35): por eso las
+  excepciones de la tabla `empleado_jornada` llevan **vigencia**
+  (desde/hasta), aunque hoy no haga falta sembrar ninguna.
 
 ### H6 · Hallazgo colateral: jornada intensiva de verano (7 × 5 = 35 h)
 
@@ -183,9 +200,10 @@ Julio-agosto 2025: 667/543 días de 7 h frente a 283/251 de 8 h; julio
 2026: 754 frente a 311; agosto 2026 (parcial): 388 frente a 34. Los
 humanos registran **7 ordinarias y 0 extra**; sv3 hoy registraría **8
 ordinarias y −1 extra** cada día. No es objeto de F-012 (es F-011,
-«jornada reducida por días»), pero el modelo del §6 lo cubre con un patrón
-explícito con vigencia, y la fuente del §5 es la misma. Se anota para que
-F-011 no reinvente otra tabla.
+«jornada reducida por días»), pero la tabla de excepciones del §6 lo
+cubre con un patrón explícito con vigencia (7×5) o, mejor, con una fuente
+de RRHH que la alimente. Se anota para que F-011 se replantee sobre
+`empleado_jornada` + `emphis.porjorlab` (H7) y no reinvente otra tabla.
 
 ### H7 · Campos de jornada en Sigrid: existen, pero están vacíos
 
@@ -211,167 +229,185 @@ fila por cambio, `fec`): habría que tomar la última fila ≤ fecha.
 análisis de patrones se apoya en `hmores` (Sigrid), que es la verdad
 registrada por Administración durante 20 meses.
 
-## 4. Análisis: qué cambia con «viernes = resto hasta la jornada semanal»
+## 4. Análisis: la regla decidida y sus casos
 
-Notación: candef c, jornada semanal S, patrón derivado
-`L–J = c, V = S − 4c`. Extras netas de la semana = Σ(trabajado) − Σ(patrón
-de los días laborables).
+**Regla (decisión del humano, 2026-08-18).** Para un trabajador con
+candef efectivo c y jornada semanal S = mapa[c] (40 si c no está en el
+mapa), en una semana L–D:
 
-| caso | horas trabajadas L–V | hoy (candef plano) | propuesto | comentario |
-|---|---|---|---|---|
-| A. c=9, S=40 (la petición) | 9,9,9,9,4 | L–J 0; V ord 9 / extra **−5**; neto −5; aviso «incompleto» cada viernes | V jornada 4 → 0 extra; neto 0; sin aviso | el motivo de la feature |
-| A'. ídem, viernes de 9 h | 9,9,9,9,9 | 0 extras (45 h sin extra) | V ord 4 + **5 extra** | hoy se PIERDEN 5 h extra |
-| B. cuadrilla H5, c=8 (Sigrid), S=40 | 9,9,9,9,6 | +1×4, V −2 → **+2** | igual (+2) | los humanos registran 0: D3 |
-| B'. cuadrilla, c=9, S=42 | 9,9,9,9,6 | (con c=9) V 9/−3 → −3 | V jornada 6 → **0** | reproduce la práctica humana |
-| C. régimen 48, c=10, S=48 | 10,10,10,10,8 | (con c=8) +8/sem | 0 | ídem |
-| D. c=9, S=40, festivo lunes | —,9,9,9,4 | V −5 | V 4 → 0; jornada teórica de la semana 31 h | el viernes NO absorbe el festivo (ver §6.2) |
-| E. semana partida entre dos meses | — | día a día | día a día | el modelo es local al día: indiferente al parte mensual |
-| F. parte que solo trae L–M | 9,9 | 0 | 0 | ídem; el viernes se calcula cuando llegue |
-| G. sábado/festivo trabajado | 6 (S) | todo a extra | todo a extra | sin cambio (jornada 0) |
-| H. intensiva 7×5 (fuera de F-012) | 7,7,7,7,7 | 8/−1 cada día | con patrón explícito 7×5 vigente: 0 | F-011 sobre la misma tabla |
-| I. recurso sin HE (MENC) | — | no se normaliza | no se normaliza | sin cambio |
-| J. candef inválido (0/1) | 8,8,8,8,8 | 8 → 0 | patrón 8×5 → 0 | sin cambio |
+- día no laborable (finde o festivo de SU calendario) → jornada 0
+  (todo lo ordinario a extra, como hoy);
+- día laborable que NO es el último laborable L–V de la semana → c;
+- **último día laborable L–V de la semana → `max(0, S − 4c)`**. Los
+  festivos L–V CUENTAN como jornada c a efectos del resto (lectura A):
+  el último laborable recibe siempre `S − 4c`, haya o no festivos.
+- Sábado y domingo nunca son candidatos; una semana sin laborables L–V
+  no reparte resto.
+- «Último laborable» se decide SOLO con el calendario, nunca con lo que
+  haya registrado: ausencias, incidencias y días sin parte no lo mueven
+  ni absorben horas.
 
-Conclusión del análisis: el modelo «patrón semanal derivado (o
-explícito) por trabajador, aplicado día a día» reproduce lo pedido,
-mantiene la **regresión cero** para candef 8 / 40 h (la mayoría), corrige
-la pérdida de extras del caso A', y es **compatible con el pipeline
-actual** (grupo por (recurso, día), parte mensual, F-004) porque no
-necesita ver la semana entera. El modelo alternativo «acumular la semana y
-volcar la diferencia el viernes» se descarta (§10.1).
+Con (c 8, S 40) el último laborable recibe 40 − 32 = 8: **idéntico a
+hoy** en toda semana, con o sin festivos.
 
-## 5. De dónde sale la jornada semanal particularizable (D1)
+| caso | c / S | horas trabajadas L–V | hoy (candef plano) | con la regla | comentario |
+|---|---|---|---|---|---|
+| A. cuadrilla H5, régimen 42 (tras F-014) | 9 / 42 | 9,9,9,9,6 | (c 8 hoy) +1×4, V −2 → **+2/sem**; (c 9) V 9/−3 → −3 | V jornada 6 → **0** | reproduce la práctica humana |
+| A'. ídem, viernes de 9 h | 9 / 42 | 9,9,9,9,9 | (c 9) 0 extras (45 h sin extra) | V ord 6 + **3 extra** | hoy se PIERDEN extras |
+| A''. ídem, viernes de 4 h | 9 / 42 | 9,9,9,9,4 | (c 9) V 9/−5 | V ord 6, extra **−2**; aviso «incompleto» el viernes (correcto) | |
+| B. viernes festivo | 9 / 42 | 9,9,9,6,— | (c 9) J 9/−3 | **jueves** es último laborable → jornada 6 → 0 extra | el humano lo fijó así |
+| B'. viernes festivo TRABAJADO 5 h | 9 / 42 | 9,9,9,6,5 | V todo a extra (5) | igual: V no laborable → 5 extra; J 6 → 0 | la regla no convierte festivos en laborables |
+| C. miércoles festivo | 9 / 42 | 9,9,—,9,6 | X: 0; V −3 | X 0; **V** último laborable → 6 → 0 | el festivo cuenta como 9 |
+| D. jueves y viernes festivos | 9 / 42 | 9,9,6,—,— | X 9/−3 | **X** último laborable → 6 → 0 | |
+| E. solo lunes laborable | 9 / 42 | 6,—,—,—,— | L 9/−3 | L es último laborable → 6 → 0 | consecuencia de la lectura A |
+| F. semana entera festiva | 9 / 42 | — | todo a extra si se trabaja | igual (nadie recibe resto) | |
+| G. semana partida (X 30/06 · J 01/07) | 9 / 42 | 9,9,9,9,6 en dos partes | día a día | día a día: el viernes 03/07 sabe que es último laborable por calendario, esté o no el parte de junio | local al día |
+| H. parte que solo trae L–M | 9 / 42 | 9,9 | 0 | 0 (L y M no son últimos) | el resto se calcula cuando llegue el viernes |
+| I. ausencia el viernes (V) | 9 / 42 | 9,9,9,9,(V) | — | V sigue siendo el último laborable: jornada 6; sin ordinarias no se normaliza; **jueves NO absorbe** | R15 |
+| J. sábado trabajado 6 h | 9 / 42 | + S 6 | 6 extra | 6 extra | sin cambio |
+| K. c 8, S 40, festivo cualquiera | 8 / 40 | 8,8,8,8 | 8 | 8 (40 − 32) | **regresión cero** |
+| L. c 9 sin corregir en Sigrid (S 40 por mapa) | 9 / 40 | 9,9,9,9,6 | V 9/−3 | V jornada 4 → ord 4 + 2 extra | por eso F-014 va ANTES |
+| M. c fuera del mapa (10) | 10 / 40 | 10,10,10,10,8 | (c 10) V 10/−2 | V jornada max(0, 40−40)=0 → 8 extra | ver decisión abierta D-A2 |
+| N. intensiva 7×5 (fuera de F-012) | 8 / 40 | 7,7,7,7,7 | 8/−1 cada día | igual (F-011 sobre `empleado_jornada` + `emphis.porjorlab`) | H6/H7 |
+| O. recurso sin HE (MENC) | — | — | no se normaliza | no se normaliza | sin cambio |
+| P. candef inválido (0/1) | 8 (asignado) / 40 | 8,8,8,8,8 | 0 | 0 | sin cambio |
+| Q. excepción en tabla: S 48 | 10 / 48 | 10,10,10,10,8 | — | V 8 → 0 | R16 |
+| R. excepción en tabla: patrón 7×5 vigente | — | 7,7,7,7,7 | 8/−1 | 7 cada día → 0; festivo → 0 | R16 |
 
-| fuente | ¿datos hoy? | quién la mantiene | pros | contras |
-|---|---|---|---|---|
-| **S1. Tabla propia `empleado_jornada` en la BBDD `partes`** (recomendada) | no; se crea vacía y todo cae al defecto 40 h | Administración desde el portal (D5) o el humano por SQL | control total; por DNI (misma clave que `empleado_alias`); vigencias; ambos servicios ya leen `partes`; el mismo sitio sirve a F-011 (patrón 7×5 con fechas) y admite `origen` sigrid/sesame en el futuro | schema en dos copias (F-010); otra verdad además del candef; hay que mantenerla a mano |
-| S2. Sigrid: `auxtur` + `emphis.turide` (o `numhor`/`porjorlab`) | estructura sí, datos **no** (H7) | RRHH en Sigrid; nosotros solo leeríamos por sigrid-api | una sola verdad (Sigrid); sin schema aquí | depende de RRHH; `emphis` es histórico de nómina con semántica propia; NO se puede escribir desde aquí; el candef seguiría siendo otra fuente paralela |
-| S3. Sesame (contrato / horarios) | **no**: 0/218 contratos (F-013); módulo horarios sin explorar; P1 pendiente | RRHH en Sesame | verdad de RRHH | plazo desconocido; sesame-api ni desplegado |
-| S4. Fichero de parametrización versionado (por código `MO/NNNN`) | — | git | trivial | datos por persona en git (aunque sea por código); redeploy por cada cambio; sin vigencias cómodas. Descartado como fuente; a lo sumo semilla |
+Lecturas: (1) la regla es **local al día** dado el calendario: no exige
+ver la semana entera ni los registros de otros días → compatible con el
+parte mensual, la llegada por partes y la congelación de F-004; (2) el
+neto semanal coincide con el modelo acumulativo en semanas completas
+(H3 lo muestra en el histórico humano), pero corrige los casos donde el
+modelo diario plano pierde extras (A') o inventa negativas (A, B, C, D);
+(3) los avisos de sv4 dejan de marcar el último día corto y pasan a marcar
+solo lo realmente incompleto (A'').
 
-**Recomendación**: S1 ahora, con columna `origen` para que S2/S3 puedan
-alimentarla más adelante sin cambiar el modelo. Los `candef` de Sigrid se
-siguen leyendo como hasta ahora (son la base del patrón derivado); la
-tabla solo aporta lo que Sigrid no tiene: la jornada semanal y, si hace
-falta, el patrón explícito con fechas.
+## 5. Fuentes de la jornada semanal: inventario y decisión
 
-## 6. Modelo propuesto (para F-014)
+| fuente | ¿datos hoy? | quién la mantiene | decisión |
+|---|---|---|---|
+| **`reshor.candef` de Sigrid + mapa candef → S** | sí para ~107 recursos (H1); F-014 corrige la cuadrilla | RRHH/Administración en Sigrid (dato maestro que ya mantienen) | **ELEGIDA (humano, 2026-08-18)**: una sola verdad, la que ya se usa; el mapa es configuración, no datos por persona |
+| Sigrid `auxtur` + `emphis.turide` (patrón por día de semana) | estructura sí, datos **no** (H7) | RRHH en Sigrid | descartada como fuente hoy; posible `origen=sigrid` de una excepción futura (R18) |
+| Sigrid `emphis.numhor` / `porjorlab` | `porjorlab` sí (87,5 / 75 / 50 %) | RRHH | no es jornada semanal; **sí sirve a F-011** (reducida) |
+| Sesame (contrato / horarios) | **no**: 0/218 contratos (F-013); P1 pendiente | RRHH en Sesame | descartada hoy; posible `origen=sesame` futuro |
+| **Tabla `empleado_jornada` en `partes`** | no; se crea vacía | Administración desde el portal (F-016); mientras, SQL manual | **ELEGIDA SOLO PARA EXCEPCIONES** (jornada ≠ derivada): S distinta y/o patrón explícito con vigencia. Se espera vacía mucho tiempo |
+| Fichero de parametrización por código `MO/NNNN` | — | git | descartada (datos por persona en git; redeploy por cambio) |
 
-### 6.1 Concepto
+## 6. Modelo (para F-015)
 
-`PatronSemanal` = 7 floats (L…D) + `semanal` (suma) + `origen`
-(`derivado` | `explicito`) + vigencia. Regla de resolución para (DNI,
-fecha):
+### 6.1 Resolución para (recurso, DNI, fecha d)
 
-1. Fila vigente en `empleado_jornada` con patrón explícito → ese patrón.
-2. Fila vigente sin patrón explícito pero con `jornada_semanal` → patrón
-   derivado con esa S.
-3. Sin fila → patrón derivado con `JORNADA_SEMANAL_POR_DEFECTO` (40).
+1. `c = jornada_efectiva(candef, minimo, por_defecto)` (sin cambios).
+2. Excepción: fila vigente de `empleado_jornada` para el DNI normalizado
+   (`desde ≤ d < hasta`), leída por el repositorio propio de cada
+   servicio con caché TTL; tabla vacía o sin fila → sin excepción; fallo
+   de lectura → WARNING y sin excepción (R17).
+   - con patrón explícito → `jornada = patron[weekday(d)]` si d es
+     laborable, 0 si no; FIN.
+   - con solo `jornada_semanal` → `S = fila.jornada_semanal`.
+3. Sin excepción de S: `S = mapa.get(c, S_defecto)` (R10).
+4. Regla del último laborable (R13–R15) con el calendario del trabajador:
+   `es_laborable(x)` para x en los días L–V de la semana de d.
+   - d no laborable → 0;
+   - d laborable y existe x > d (L–V) laborable → c;
+   - d laborable y ningún x > d laborable → `max(0, S − 4c)`.
 
-Patrón derivado: `L–J = candef efectivo`; `V = max(0, S − 4 × candef
-efectivo)`; `S/D = 0`. Con (8, 40) sale 8×5: **idéntico a hoy**.
+Cinco consultas al calendario como mucho por día (los L–V de su semana),
+todas cacheadas por (DNI × año) en ambos servicios (F-003, D5): coste
+despreciable.
 
-### 6.2 Reglas de contorno (a validar por el humano)
-
-- **El calendario manda sobre el patrón**: día no laborable (finde/festivo
-  según `CalendarioLaboralPort` / `CalendarioProvider`) ⇒ jornada 0 y todo
-  a extra, aunque el patrón diga otra cosa. Un patrón con sábado > 0 no
-  convierte el sábado en laborable (si algún día se necesita, es otra
-  decisión).
-- **El viernes NO absorbe festivos ni ausencias**: es un valor fijo del
-  patrón, no «lo que falte de lo trabajado». Semana con festivo el lunes y
-  c=9/S=40: jornada teórica 9+9+9+4 = 31 (hoy sería 32 con 8×4). La
-  alternativa «resto de lo realmente trabajado» daría viernes de 13 h en
-  esa semana: absurda.
-- **`hora_candef` se sigue persistiendo con el candef real** (diagnóstico,
-  R19). La jornada del día aplicada se traza en log (R25); no se añade
-  columna a `parte_registros` (misma decisión D3 de F-003: sin columnas
-  nuevas en la tabla grande).
-- **Recurso sin código HE**: sin cambios (no se normaliza nada).
-- **DNI**: la clave de la tabla. sv3 lo toma del grupo (como
-  `_es_no_laborable`); sin DNI ⇒ patrón derivado por defecto (R20).
-
-### 6.3 Firma del resolutor (gemelo sv3/sv4)
+### 6.2 Firma del resolutor (gemelo sv3/sv4)
 
 ```python
 # application/services/jornada_resolver.py (ambas copias)
+def parsear_mapa_semanal(texto: str) -> dict[float, float]:
+    """'8:40,9:42' -> {8.0: 40.0, 9.0: 42.0}; ValueError si está mal formado."""
+
+def jornada_semanal_de(candef_efectivo: float, *, mapa: Mapping[float, float],
+                       por_defecto: float) -> float: ...
+
+def es_ultimo_laborable(d: date, es_laborable: Callable[[date], bool]) -> bool:
+    """d es L–V, laborable, y ningún día posterior L–V de su semana lo es."""
+
 @dataclass(frozen=True)
-class PatronSemanal:
-    horas: tuple[float, float, float, float, float, float, float]  # L..D
-    origen: str  # "derivado" | "explicito"
-    semanal: float  # suma de horas
+class Excepcion:
+    semanal: float | None
+    patron: tuple[float, ...] | None  # 7 valores L..D o None
+    origen: str
 
-def patron_derivado(candef_efectivo: float, semanal: float) -> PatronSemanal: ...
-
-def jornada_dia(fecha: date, *, candef: float | str | None, minimo: float,
-                por_defecto: float, semanal: float,
-                patron: PatronSemanal | None = None) -> float:
-    """Jornada teórica del día: patrón explícito si lo hay; si no,
-    derivado de jornada_efectiva(candef) y `semanal`. Sábado/domingo 0."""
+def jornada_dia(d: date, *, candef: float | str | None, minimo: float,
+                por_defecto: float, mapa: Mapping[float, float],
+                semanal_por_defecto: float,
+                es_laborable: Callable[[date], bool],
+                excepcion: Excepcion | None = None) -> float: ...
 ```
 
-`jornada_efectiva` y `candef_valido` **no cambian** (los usa el KPI y son
-la base del patrón derivado).
+`jornada_efectiva` y `candef_valido` **no cambian**. El resolutor es
+puro: no sabe de BBDD ni de Sesame; recibe el calendario ya ligado al DNI
+(sv3: `lambda x: not calendario.es_no_laborable(x.isoformat(), dni=dni)`;
+sv4: `lambda x: calendario_provider.dia(x, dni).laborable`).
 
-### 6.4 sv3 — cómputo
+### 6.3 sv3 — cómputo
 
-- `RecursoConciliador.__init__` gana `jornada_semanal_horas: float = 40.0`
-  y `jornadas: JornadaEmpleadoPort | None` (puerto de lectura de la tabla,
-  con caché TTL en el conciliador como `_reshor_cache`).
-- En `_reclasificar_extras_jornada`, la línea
-  `candef_efectivo = jornada_efectiva(...)` pasa a
-  `jornada_del_dia = jornada_dia(fecha, candef=candef_real, …,
-  semanal=S_del_dni, patron=patron_del_dni)`; `objetivo_extra = total −
-  jornada_del_dia`. Nada más del algoritmo cambia.
-- Lectura de la tabla con `try/except` → WARNING y defecto (R16). Sin
-  puerto cableado (`None`) ⇒ comportamiento actual (misma filosofía que
-  `calendario=None`).
+- `RecursoConciliador.__init__` gana `mapa_semanal: Mapping[float, float]`,
+  `jornada_semanal_horas: float = 40.0` y `jornadas: JornadaEmpleadoPort |
+  None = None` (excepciones; caché TTL como `_reshor_cache`).
+- En `_reclasificar_extras_jornada`, `candef_efectivo = jornada_efectiva(...)`
+  pasa a `jornada_del_dia = jornada_dia(fecha, candef=candef_real, …,
+  es_laborable=<ligado al DNI del grupo>, excepcion=<fila o None>)`;
+  `objetivo_extra = total − jornada_del_dia`. La rama «no laborable» del
+  algoritmo se conserva tal cual (sigue delante). Nada más cambia.
+- La señal de degradación del calendario (F-003 R26) se recoge también en
+  las consultas de «último laborable» (R23): mismo `_recoger_degradacion`.
+- Sin calendario cableado (`calendario=None`, tests antiguos): todo día es
+  laborable y el último laborable es el viernes (D-A3).
 
-### 6.5 sv4 — avisos, KPI y «+ Nuevo»
+### 6.4 sv4 — avisos, KPI y «+ Nuevo»
 
 - `trabajador_detail`: `candef_efectivo` → `jornada_dia(...)` por día del
-  calendario; el KPI muestra el patrón (`candef_kpi` gana `patron`,
-  `semanal`, `particularizada: bool`).
-- `obra_detail`: `_eff` por fila y día → `jornada_dia(...)` con el DNI de
-  la fila (ya está en `ObraMatrixRow.dni` desde F-003).
-- `_sugerida` / `GET /api/sigrid/empleados`: no cambia salvo `jornada_dia`
-  opcional cuando llega `fecha` (R23).
-- Proveedor `JornadaEmpleadoProvider` (application) con caché TTL por DNI y
-  fallback al defecto, cableado en `build_app` con inyección para tests
-  (patrón `calendario_provider`).
-- (D5 / F-015) rutas `/admin/jornadas` + plantilla + validaciones (R24).
+  calendario; el KPI muestra c, S (y si viene de excepción) y la jornada
+  del último laborable (R25).
+- `obra_detail`: `_eff` por fila y día → `jornada_dia(...)` con el DNI de la
+  fila (`ObraMatrixRow.dni`, F-003) (R24).
+- `_sugerida` / `GET /api/sigrid/empleados`: `jornada_dia` opcional cuando
+  llega `fecha` (R26).
+- `JornadaEmpleadoProvider` (application): lectura de excepciones con caché
+  TTL y fallback silencioso; inyectable en `build_app` para tests.
+- (F-016) rutas `/admin/jornadas` + plantilla + validaciones (R27).
 
-## 7. Ficheros (para F-014; F-012 no crea ninguno fuera de `specs/`)
+## 7. Ficheros (para F-015; F-012 no crea ninguno fuera de `specs/`)
 
 ### Crear
 
 | Fichero | Contenido |
 |---|---|
-| `services/partes-persistencia/domain/ports/jornada_empleado.py` | `JornadaEmpleadoRow` (dni_norm, semanal, horas L..D o None, desde, hasta, origen) y puerto `JornadaEmpleadoPort.fetch_jornadas() -> list[JornadaEmpleadoRow]` |
+| `services/partes-persistencia/domain/ports/jornada_empleado.py` | `JornadaEmpleadoRow` (dni_norm, semanal, patrón 7 valores o None, desde, hasta, origen) y puerto `JornadaEmpleadoPort.fetch_jornadas() -> list[JornadaEmpleadoRow]` |
 | `services/partes-persistencia/infrastructure/database/sqlalchemy_jornada_repository.py` | implementación sobre `EmpleadoJornadaOrm` |
-| `services/partes-persistencia/tests/test_f014_r*.py` | tests R10–R20, R25 (sin red ni BBDD: SQLite en memoria / dobles) |
-| `services/partes-front/application/services/jornada_provider.py` | `JornadaEmpleadoProvider(repository, ttl_seconds, semanal_defecto)` → `patron_para(dni, fecha)` |
-| `services/partes-front/tests/test_f014_r*.py` | tests R10–R17, R21–R23 (TestClient + SQLite) |
-| (D5) `services/partes-front/templates/admin_jornadas.html` | mantenimiento (R24) |
+| `services/partes-persistencia/tests/test_f015_r*.py` | tests R10–R23, R28 (sin red ni BBDD: SQLite en memoria / dobles / calendario fake) |
+| `services/partes-front/application/services/jornada_provider.py` | `JornadaEmpleadoProvider(repository, ttl_seconds)` → `excepcion_para(dni, fecha)` |
+| `services/partes-front/tests/test_f015_r*.py` | tests R10–R19, R24–R26 (TestClient + SQLite + doble de calendario) |
 
 ### Modificar
 
 | Fichero | Cambio |
 |---|---|
-| `services/partes-persistencia/application/services/jornada_resolver.py` | `PatronSemanal`, `patron_derivado`, `jornada_dia` (§6.3) |
+| `services/partes-persistencia/application/services/jornada_resolver.py` | §6.2 |
 | `services/partes-front/application/services/jornada_resolver.py` | gemelo, idéntico |
 | `services/partes-persistencia/infrastructure/database/orm_models.py` | `EmpleadoJornadaOrm` (§8) |
 | `services/partes-front/infrastructure/database/orm_models.py` | `EmpleadoJornadaOrm` idéntico; `create_all` de sv4 la crea al arrancar |
-| `services/partes-persistencia/application/services/recurso_conciliador.py` | §6.4 |
-| `services/partes-persistencia/config/settings.py` y `services/partes-front/config/settings.py` | `JORNADA_SEMANAL_POR_DEFECTO` (40.0), `JORNADA_CACHE_TTL_S` |
-| `services/partes-persistencia/interface_adapters/api/app.py` | wiring del repositorio de jornadas al conciliador |
-| `services/partes-front/infrastructure/database/parte_repository.py` | `get_jornadas_empleado(dni)` (+ `list/upsert/cerrar` si D5) |
-| `services/partes-front/interface_adapters/web/app.py` | §6.5 (+ rutas admin si D5) |
-| `services/partes-front/templates/trabajador_detail.html` | KPI con patrón (R22) |
-| `services/partes-front/static/app.js` | solo si «+ Nuevo» usa `jornada_dia` (R23) o hay UI admin |
-| `docs/ARCHITECTURE.md` | semántica 3 («exceso sobre la jornada DEL DÍA…») y 7 (cuatro tablas) |
+| `services/partes-persistencia/application/services/recurso_conciliador.py` | §6.3 (+ D7: excluir registrado/encolado/approved del re-split) |
+| `services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py` | D7: `revert_extras_auto` / `fetch_registros_para_recurso` excluyen líneas congeladas |
+| `services/partes-persistencia/config/settings.py` y `services/partes-front/config/settings.py` | `JORNADA_SEMANAL_POR_CANDEF` (`8:40,9:42`), `JORNADA_SEMANAL_POR_DEFECTO` (40.0), `JORNADA_CACHE_TTL_S`; validación fail-fast del mapa |
+| `services/partes-persistencia/interface_adapters/api/app.py` | wiring (mapa + repositorio de excepciones al conciliador) |
+| `services/partes-front/infrastructure/database/parte_repository.py` | `get_jornadas_empleado(dni)` |
+| `services/partes-front/interface_adapters/web/app.py` | §6.4 |
+| `services/partes-front/templates/trabajador_detail.html` | KPI (R25) |
+| `services/partes-front/static/app.js` | solo si «+ Nuevo» usa `jornada_dia` (R26) |
+| `infra/manifests/sv3/`, `infra/manifests/sv4/` (o scripts de despliegue) | variable NO secreta `JORNADA_SEMANAL_POR_CANDEF` con el mismo valor en ambos (si D-A1 = env) |
+| `docs/ARCHITECTURE.md` | semántica 3 («exceso sobre la jornada DEL DÍA: candef, salvo el último laborable de la semana, que recibe el resto de la jornada semanal derivada del candef…») y 7 (cuatro tablas) |
 | `docs/referencia/partes-proyecto.md` | §4.3 (cómputo) y §5 (tabla nueva) |
-| `azure-apps/partes.md` | schema de la BBDD `partes` (tabla nueva) |
+| `azure-apps/partes.md` | schema de la BBDD `partes` (tabla nueva) y variables nuevas |
 | `services/*/.env.example` | variables nuevas |
 
 ### NO se tocan
@@ -380,116 +416,126 @@ la base del patrón derivado).
 (el payload hacia sv5 y lo que sv5 escribe en Sigrid NO cambian);
 `parte_registros` y `parte_documents` (ni una columna); los clientes
 `infrastructure/sigrid/` y `infrastructure/sesame/` (sin SQL nuevo contra
-Sigrid: el candef ya llega por `_SQL_RESHOR`); `_es_no_laborable`,
-`revert_extras_auto`, `apply_extras_splits`; `jornada_efectiva` y
-`candef_valido` (firma y semántica intactas); `infra/` (sin variables
-secretas nuevas: los defaults valen).
+Sigrid); `CalendarioLaboralPort` (firma) y `CalendarioProvider` (se
+consumen, no se cambian); `_es_no_laborable`; `apply_extras_splits`;
+`jornada_efectiva` y `candef_valido` (firma y semántica intactas).
 
-## 8. SQL / schema (para F-014)
+## 8. SQL / schema (para F-015)
 
 No hay ficheros `NN_nombre.sql` en este proyecto: el schema vive en
 `orm_models.py` (duplicado sv3/sv4) y sv4 lo crea con
 `Base.metadata.create_all` + `ALTER TABLE … ADD COLUMN IF NOT EXISTS` al
-arrancar. La tabla nueva sigue ese camino (una clase ORM nueva en ambas
+arrancar. La tabla nueva sigue ese camino (clase ORM nueva en ambas
 copias; `create_all` la crea; no hace falta ALTER).
 
-Tabla `empleado_jornada` (nombre en la familia de `empleado_alias`):
+Tabla `empleado_jornada` (excepciones; nombre en la familia de
+`empleado_alias`):
 
 | columna | tipo | notas |
 |---|---|---|
 | `id` | Integer PK autoincrement | |
 | `dni_norm` | String(32) NOT NULL, index | DNI normalizado (misma función que `empleado_alias`) |
-| `jornada_semanal` | Float NOT NULL | p. ej. 40, 42, 48, 35 |
-| `h_lun` … `h_dom` | Float NULL (7 columnas) | patrón explícito; NULL = derivar de candef y `jornada_semanal` |
+| `jornada_semanal` | Float NULL | S de la excepción; NULL si solo hay patrón |
+| `h_lun` … `h_dom` | Float NULL (7 columnas) | patrón explícito; NULL = usar S (regla del último laborable) |
 | `desde` | String(16) NOT NULL | ISO `YYYY-MM-DD` (mismo criterio que `parte_registros.fecha`) |
 | `hasta` | String(16) NULL | ISO, exclusivo; NULL = abierta |
 | `origen` | String(16) NOT NULL default `manual` | `manual` / `sigrid` / `sesame` (futuro) |
-| `nota` | String(255) NULL | «cuadrilla 9×4+6 desde mayo 2026» |
+| `nota` | String(255) NULL | |
 | `is_active` | Boolean NOT NULL default true | papelera lógica (regla 8 de ARCHITECTURE) |
 | `created_at_utc`, `created_by`, `updated_at_utc`, `updated_by` | String(64/255) | trazabilidad, como el resto de tablas |
 
-Restricción de negocio (validada en aplicación, R24): sin solapes de
-vigencia por `dni_norm`; horas 0–24. Semilla inicial: la hace el humano
-(MANUAL) con las 7 filas de la cuadrilla H5 si D3 lo confirma; el resto
-cae al defecto.
+Restricciones de negocio (validadas en aplicación, R27): al menos uno de
+`jornada_semanal` / patrón; sin solapes de vigencia por `dni_norm`; horas
+0–24. Sin semilla: la tabla nace y se queda vacía hasta que haya una
+excepción real.
 
-## 9. Decisiones abiertas para el humano
+## 9. Decisiones
 
-- **D1 · Fuente de la jornada semanal.** Recomendada **S1** (tabla
-  `empleado_jornada` en `partes`, §5). Alternativa: pedir a RRHH que
-  mantenga `auxtur`/`emphis.turide` en Sigrid (S2) y leerlo desde aquí;
-  compatible con S1 vía `origen=sigrid` más adelante.
-- **D2 · Regla del viernes.** Recomendada: viernes = `S − 4 × candef
-  efectivo`, valor FIJO del patrón (no absorbe festivos ni ausencias,
-  §6.2). Confirmar que en semana con festivo el viernes sigue siendo 4 h
-  (c=9, S=40) y no «lo que falte».
-- **D3 · La cuadrilla de 7 (H5): ¿42 h de jornada o 40 h + 2 extras?** Y
-  antes, ¿48 h eran jornada? Determina si se les da fila con
-  `jornada_semanal=42` (extras 0, como registran los humanos) o se les
-  deja al defecto (+2 h/semana de extra automática). Es negocio, no
-  técnica. Recomendación técnica: sembrar lo que reproduce la práctica
-  registrada (42 desde 2026-05-01, 48 antes) y que Administración lo
-  corrija si no es así.
-- **D4 · ¿Se corrige el candef en Sigrid?** La cuadrilla tiene candef 8 y
-  hace 9 L–J. Con patrón explícito en la tabla no hace falta tocar Sigrid;
-  con patrón derivado sí (candef 9). Recomendación: patrón EXPLÍCITO para
-  ellos (9,9,9,9,6) y no depender de RRHH; y avisar de que `MO/0037` no
-  tiene DNI en `emp` (H2).
-- **D5 · Mantenimiento de la tabla.** (a) UI de administración en el
-  portal (R24) dentro de F-014; (b) UI en una F-015 posterior y mientras
-  tanto SQL manual del humano; (c) solo SQL manual. Recomendación: **(b)**
-  — que F-014 entregue la regla y la lectura con tests, y la UI llegue con
-  su propia spec.
-- **D6 · Orden respecto a F-010.** Recomendación: F-010 (resincronizar
-  `orm_models.py`) ANTES de F-014, para no añadir una clase idéntica sobre
-  dos ficheros que ya difieren en `parte_registros`. Si el humano prefiere
-  no esperar, F-014 añade la clase en ambas copias y F-010 sigue igual.
-- **D7 · Recomputación de líneas ya registradas (riesgo §10.5).**
-  ¿Debe F-014 excluir de `revert_extras_auto`/splits las líneas con
-  `sigrid_estado` en {encolado, registrado} (y las de documentos
-  `approved`), en coherencia con F-004? Recomendación: sí, en F-014 o en
-  una feature de saneamiento propia; con la jornada por día el problema
-  deja de ser teórico (cambiar una fila de la tabla re-splitea el pasado).
-- **D8 · Rigor y reparto.** F-012 no lleva código: se recomienda cerrarla
-  con rigor `documental` (CHECKPOINTS lo prevé). F-014 `estandar`; F-015
-  (UI) `estandar`; F-011 debería replantearse sobre `empleado_jornada` +
-  `emphis.porjorlab` (H6/H7).
+### 9.1 Tomadas por el humano (2026-08-18) — FIRMES
+
+- **D1 · Fuente**: la jornada semanal se deriva del candef por el mapa
+  `{8: 40, 9: 42}` (configurable); cualquier otro candef → 40. Sigrid es la
+  fuente y se corrige allí. Sustituye a la propuesta de tabla-fuente.
+- **D2 · Regla del resto**: el último día laborable L–V de la semana del
+  trabajador (calendario F-003), con los festivos contando como jornada
+  (lectura A). No «el viernes».
+- **D3 / D4 · La cuadrilla H5 y `MO/0037`**: su jornada es 42 h y sale del
+  candef 9 → **F-014** pone candef 9 a `MO/0006`, `MO/0007`, `MO/0008`,
+  `MO/0031`, `MO/0366`, `MO/0405`, `MO/0456` y DNI en `emp` a `MO/0037`.
+  No se siembra ninguna excepción. F-014 se cierra ANTES de implementar.
+- **D5 · Excepciones**: tabla `empleado_jornada` (opción a) mantenida
+  desde una pantalla de administración del portal en **F-016**; mientras,
+  SQL manual. Resolutor preparado para `origen` sigrid/sesame.
+- **D6 · Orden con F-010**: F-010 (resincronizar `orm_models.py`) antes de
+  F-015 (recomendación mantenida).
+- **D7 · Recomputación de líneas registradas**: sí — F-015 (o saneamiento
+  propio) excluye de `revert_extras_auto`/splits las líneas con
+  `sigrid_estado` en {encolado, registrado} y las de documentos
+  `approved`, en coherencia con F-004.
+- **D8 · Rigor y reparto**: F-012 `documental`; F-014 `documental`; F-015 y
+  F-016 `estandar`; F-011 se replantea sobre `empleado_jornada` +
+  `emphis.porjorlab`.
+
+### 9.2 Abiertas (solo lo que queda)
+
+- **D-A1 · Dónde vive el mapa candef → S.** (a) variable de entorno
+  `JORNADA_SEMANAL_POR_CANDEF` en sv3 Y sv4 (misma cadena; default en
+  código `8:40,9:42`; no es secreto: va en los manifiestos versionados);
+  (b) tabla de configuración en `partes` leída por ambos. Recomendación:
+  **(a)** — es parametrización, no dato por persona; cambia una vez cada
+  mucho; una tabla exigiría schema y UI para dos filas. Riesgo de (a):
+  desincronizar sv3 y sv4; mitigación: documentarla como variable
+  «espejo» y que el KPI de sv4 enseñe la S aplicada.
+- **D-A2 · Candef válido fuera del mapa (≠ 8/9, > 2).** Hoy no existe
+  ninguno (H1), pero un candef 10 con S 40 daría último laborable 0 h y 8 h
+  extra el viernes (caso M). Opciones: (a) tal cual (S = 40, es lo que
+  dijo el humano); (b) S = 5 × c (jornada plana = comportamiento actual)
+  hasta que alguien añada la clave al mapa; (c) WARNING en log en ambos
+  casos. Recomendación: **(a) + (c)** — respetar la decisión y hacer
+  ruido si aparece un candef desconocido, para que se añada al mapa o se
+  corrija en Sigrid.
+- **D-A3 · Calendario sin cablear (sv3 con `calendario=None`).** Hoy sin
+  calendario no hay regla de no laborable; con la regla nueva, «último
+  laborable» sin calendario = viernes. Recomendación: así (los tests
+  antiguos siguen valiendo y en producción el calendario está cableado
+  desde F-003).
 
 ## 10. Riesgos y alternativas descartadas
 
 1. **Modelo acumulativo semanal (descartado).** «Sumar la semana y volcar
-   la diferencia contra S en el último día trabajado». Descartado porque:
-   (a) el pipeline procesa por parte, y la semana puede llegar en dos
-   partes (o dos meses: el parte mensual de Sigrid corta la semana);
-   (b) exige recomputar el viernes cuando llegan días anteriores, lo que
-   choca con la congelación de F-004 (líneas ya registradas en Sigrid);
-   (c) el neto semanal del modelo diario con extras negativas YA coincide
-   con el acumulativo en semanas completas (H3 lo demuestra en el
-   histórico humano); (d) los avisos de sv4 se vuelven inexplicables
-   («¿por qué mi jueves está incompleto?»). El patrón fijo por día da el
-   mismo neto y es local al día.
-2. **Columna `jornada_semanal` en `parte_registros` (descartada).**
-   Congela un dato editable, toca la tabla grande en dos copias y no
-   sirve para días sin registros (avisos, «+ Nuevo»). Igual que D3 de
-   F-003.
-3. **Variable de entorno por trabajador (descartada).** Secretos no son,
-   pero son datos por persona en manifiestos versionados; y sin
-   vigencias.
+   la diferencia contra S en el último día trabajado». (a) El pipeline
+   procesa por parte y la semana puede llegar en dos partes o dos meses;
+   (b) exigiría recomputar días anteriores, chocando con la congelación
+   de F-004; (c) el neto semanal de la regla del último laborable ya
+   coincide en semanas completas; (d) los avisos serían inexplicables. La
+   regla decidida es local al día dado el calendario.
+2. **«Resto = lo que falte de lo trabajado» (descartado, y así lo fijó el
+   humano).** Absorbería festivos y ausencias (semana con festivo el
+   lunes: viernes de 13 h). El festivo cuenta como jornada (lectura A).
+3. **Columna `jornada` en `parte_registros` (descartada).** Congela un
+   dato editable, toca la tabla grande en dos copias y no sirve para días
+   sin registros. Igual que D3 de F-003.
 4. **Regresión silenciosa.** La regla nueva debe ser bit a bit igual con
-   (candef 8, S 40). Mitigación: R11 exige que los casos dorados de F-003
-   pasen sin tocar y el guardián de gemelos (R14).
+   (c 8, S 40), con o sin festivos. Mitigación: R11 exige que los casos
+   dorados de F-003 pasen sin tocar y el guardián de gemelos (R19).
 5. **Recomputación total de sv3 sobre líneas registradas (preexistente,
-   agravado).** Hoy `revert_extras_auto` no excluye nada; una fila nueva en
-   `empleado_jornada` con vigencia pasada re-splitearía en `partes` líneas
-   ya escritas en Sigrid (que no cambian allí: divergencia). Ver D7.
-6. **Sin DNI no hay particularización.** `MO/0037` (el único candef 9)
-   no tiene DNI en `emp`: hasta que Sigrid lo tenga, caerá al patrón
-   derivado (9,9,9,9,4 con S=40), que quizá no sea el suyo. Aviso, no
-   bloqueo.
-7. **La tabla es otra verdad que mantener.** Mitigación: `origen`,
-   `nota`, trazabilidad de quién/cuándo, y KPI del portal que enseña
-   siempre el patrón aplicado y si es particularizado (R22): lo que se ve
-   se corrige.
+   agravado).** Con la regla nueva, corregir un candef en Sigrid (F-014) o
+   añadir una excepción re-splitea en `partes` líneas ya escritas en Sigrid
+   (que no cambian allí: divergencia). D7 lo cierra excluyéndolas.
+6. **F-014 antes que F-015 (orden duro).** Si la regla se despliega con la
+   cuadrilla aún a candef 8, su viernes de 6 h se marcará incompleto y se
+   generará +2 h/semana de extra automática (caso L). Mitigación: F-014
+   documental y verificable por SQL antes de mergear F-015.
+7. **Calendario degradado decide el «último laborable».** Un festivo no
+   visto (Sesame caído, respaldo) puede mover el resto de día. Mitigación:
+   mismo régimen de F-003 (review_required en sv3, banner/bloqueo en sv4),
+   R23; no se inventa un tercer régimen.
+8. **Mapa desincronizado entre sv3 y sv4** (si D-A1 = env). Mitigación:
+   default idéntico en código, variable documentada como «espejo», KPI
+   visible.
+9. **`MO/0037` sin DNI** hasta que F-014 lo corrija: cae al calendario por
+   defecto y sin excepción posible; con candef 9 → S 42 igual que la
+   cuadrilla. Aviso, no bloqueo.
 
 ## Anexo A · SQL reproducible (solo lectura, `POST /api/sql/read`, base `ruesma`)
 
