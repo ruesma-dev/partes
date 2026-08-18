@@ -1,6 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-010 · Saneamiento: resincronizar orm_models.py entre sv3 y sv4
+
+- Estado: `pending`, spec EN REDACCIÓN (spec-author lanzado el
+  2026-08-18) · rama `feature/F-010-resincronizar-orm-models` (desde dev
+  716a4f7) · rigor estandar · sdd=true. Prerrequisito de F-015 (D6 de
+  F-012). Diff real de las dos copias al arrancar: sv3 tiene
+  `horas_orig`/`extra_auto` (y comentarios de conciliación) que faltan en
+  sv4; sv4 tiene `sigrid_*` (7 columnas) y `UndoLogOrm` que faltan en sv3.
+
+
 ## Notas de contexto para la próxima sesión
 
 - F-012 cerrada el 2026-08-18 (resumen en `progress/history.md`). Merge de
