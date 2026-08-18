@@ -104,6 +104,19 @@ mitad duplica el mensaje pero nunca lo pierde.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
    del que solo las hojas admiten imputación; CD = costes directos
    (códigos numéricos), CI = indirectos (códigos con letras).
+10. **Congelación de lo aprobado (F-004, sv4)**: una línea rechaza toda
+    edición de usuario si su parte está `approved`, o si su
+    `sigrid_estado` es `encolado` (petición en vuelo hacia sv5) o
+    `registrado` (ya escrita en Sigrid). `omitido`/`error`/`conflicto` NO
+    congelan: editarlas es el camino de arreglo. La regla se escribe UNA
+    vez, en `services/partes-front/application/services/congelacion.py`, y
+    la usan tanto las guardas del repositorio (`CongeladoError` → HTTP 409
+    con motivo) como las vistas que pintan el candado. Desaprobar
+    («Marcar pendiente») levanta la capa «aprobado», **nunca** la capa
+    «vive en Sigrid»: el synckey es estable por `registro_id`, así que
+    reaprobar una línea editada NO actualiza el ERP. Las acciones masivas
+    (undo, reasignaciones, borrados por obra/persona, vaciar papelera)
+    omiten lo congelado y devuelven el recuento en vez de abortar.
 
 ## Acceso a datos y sistemas externos
 

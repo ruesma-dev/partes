@@ -35,6 +35,29 @@
      (la aprobación real es por documento). Anotar para F-010/corrección
      del documento maestro; F-004 no añade columnas.
 
+### IMPLEMENTACIÓN TERMINADA (2026-08-18) — pendiente de review
+
+- T1–T8 completas (`specs/F-004-congelar-aprobados/tasks.md`, todas `[x]`),
+  un commit por tarea más su commit de fase RED. Informe completo en
+  **`progress/impl_F-004.md`**; campaña de mutación en
+  `progress/mutacion_F-004.md`.
+- `bash harness/init.sh` en verde. sv4: 443 tests (129 nuevos), ruff sin
+  avisos nuevos (450, los mismos que antes de la feature),
+  `node --check static/app.js` OK.
+- Cobertura del diff propio de F-004 (base `9772ba4`, la punta de F-013):
+  **100 % (183/183)**. La puerta de `init.sh` mide contra `dev` y da 95,6 %
+  porque arrastra F-003 y F-013, que aún no están en `dev`.
+- **Verificaciones MANUAL del humano**: las 7 están listadas con sus pasos
+  exactos al final de `progress/impl_F-004.md` (parte aprobado, línea
+  registrada con `curl`, línea encolada, popup de la matriz, masivas,
+  papelera y no regresión del flujo de aprobación). Requieren portal en
+  local y sv5 en modo pruebas, y **Ctrl+F5** (cambian `app.js` y
+  `styles.css`).
+- Anotado para F-010, además de la resincronización del ORM: los
+  `SAWarning` de `hard_delete_document`/`vaciar_papelera` (borrado masivo +
+  cascada del ORM sobre filas ya borradas). Es código anterior a F-004; los
+  tests nuevos lo sacan a la luz, arreglarlo toca `orm_models.py`.
+
 Notas de contexto para la próxima sesión:
 
 - F-003 cerrada el 2026-08-16 (resumen en `progress/history.md`): entregada
