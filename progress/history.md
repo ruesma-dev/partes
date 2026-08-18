@@ -132,3 +132,40 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   lea `harness.alcance` (evita alcances inflados al ramificar desde una
   feature no mergeada); AM-3 el reviewer recalcula con la MISMA base que
   declara el informe de mutación.
+
+## F-004 · Congelar registros aprobados — done 2026-08-18
+
+- Rama `feature/F-004-congelar-aprobados` (HEAD APPROVED `c27dc04`) · rigor
+  estandar · sdd=true · spec aprobada por el humano (3 decisiones tal cual)
+  · APPROVED a la primera (`progress/review_F-004.md`).
+- Entregado (solo sv4, sin cambio de schema ni orm_models): módulo
+  `application/services/congelacion.py` (matriz R1: `approved` del
+  documento + `sigrid_estado` ∈ {encolado, registrado} congela;
+  omitido/error/conflicto editables; `CongeladoError`), guardas en el
+  repositorio para línea y documento con handler → 409 `congelado: true`
+  y motivo; `unapprove` bloqueado con líneas `encolado` y las `registrado`
+  siguen congeladas; reasignación/conciliación/undo y borrados masivos
+  omiten congeladas y reportan recuento; papelera y hard-delete bloqueados
+  con `registrado`; flags a vistas y matriz (candado, disabled, banner
+  🔒), `static/app.js` sin editores en filas congeladas y mostrando el
+  motivo del 409; regla documentada en ARCHITECTURE.md.
+- Verificado (reviewer, independiente): init.sh verde, **448 tests sv4**
+  (134 nuevos; 314 previos intactos, comprobado en worktree de la base),
+  cobertura del diff **100 % (183/183)**, mutación **54/53 con 1
+  superviviente equivalente** analizado, fase RED por tarea en el
+  historial, `node --check` OK, ruff limpio en lo nuevo, camino
+  aprobar→editar 409→desaprobar→editar OK reproducido con TestClient.
+- No bloqueantes: `crear_extra_desde` más estricto que la letra de R5
+  (superconjunto coherente); `#fechaEdit` disabled sin data-congelado
+  (cosmético); ventana teórica en `unapprove` entre sesiones (sin riesgo);
+  3 SAWarning de DELETE previos a F-004 (→ F-010).
+- MANUAL pendiente del humano (pasos en `progress/impl_F-004.md` /
+  review): 7 comprobaciones en navegador con Ctrl+F5 (banner y candados en
+  parte aprobado, 409 sobre línea registrada, encolado bloquea «Marcar
+  pendiente», matriz solo lectura, masivas y papelera avisan y omiten, no
+  regresión de ↻/Revisar/Aprobar).
+- Automejoras del arnés propuestas (pendientes de decisión; genéricas ⇒
+  arnes-base): puerta de cobertura contra la base real de la rama (campo
+  `base` o merge-base) — coincide con AM-2 de F-013; el reviewer debe
+  REPRODUCIR una fase RED en un worktree del commit RED; `harness.mutacion`
+  debe `git worktree prune`/limpiar en `finally`.

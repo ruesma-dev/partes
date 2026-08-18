@@ -56,7 +56,7 @@
       "title": "Congelar registros aprobados",
       "description": "Un registro aprobado (y con más razón, ya registrado en Sigrid) no debe poder editarse en el portal sin desaprobarlo antes de forma explícita.",
       "acceptance": [],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 5,
