@@ -5,7 +5,10 @@
 
 - Estado: `in_progress` desde 2026-08-18 para su cierre documental (rigor
   `documental`, es un estudio sin código; no hay implementer: el
-  entregable es la spec; T4 hecha por el líder en 765cab8, T5 MANUAL). La
+  entregable es la spec; T4 hecha por el líder en 765cab8, T5 MANUAL).
+  Rama `feature/F-012-estudio-jornada-semanal` creada desde dev (9247c16)
+  el 2026-08-18 para el cierre. Primera pasada del reviewer:
+  CHANGES_REQUESTED (bloque B contradecía D-A2, §9.2, tasks.md sin marcar). La
   spec (`specs/F-012-estudio-jornada-semanal/`, commit c13b524) ES el
   entregable: hallazgos H1–H8 con datos reales de Sigrid + propuesta.
   Pasa a `in_progress` → reviewer documental → `done` cuando F-004 cierre
@@ -41,7 +44,8 @@
   sesame-api (sin commit allí: árbol P2 pendiente). Excel para el humano en
   services/partes-front/logs/festivos_por_trabajador_2026.xlsx (no
   versionado).
-- F-011 REPRIORIZADA A BAJA (prio 12) por el humano el 2026-08-18: sin
+- F-011 REPRIORIZADA A BAJA (última del backlog, prio 14 tras el alta de
+  F-015/F-016) por el humano el 2026-08-18: sin
   contratos en Sesame no hay fuente de jornada reducida.
 - Siguiente feature por prioridad: F-012 (cierre documental) → F-014
   (candef en Sigrid, humano) → F-010 → F-015 → F-016 → F-005 …
