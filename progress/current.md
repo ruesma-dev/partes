@@ -1,6 +1,22 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-012 · Estudio jornada semanal — spec APROBADA (2026-08-18)
+
+- Estado: `spec_ready` (rigor `documental`, es un estudio sin código). La
+  spec (`specs/F-012-estudio-jornada-semanal/`, commit c13b524) ES el
+  entregable: hallazgos H1–H8 con datos reales de Sigrid + propuesta.
+  Pasa a `in_progress` → reviewer documental → `done` cuando F-004 cierre
+  (una sola in_progress). Decisiones del humano: derivación por candef
+  {8:40, 9:42} (env espejo sv3+sv4); resto en el ÚLTIMO LABORABLE con el
+  festivo contando como jornada; excepciones en tabla `empleado_jornada`
+  (UI en F-016); candef desconocido → 5×candef + WARNING; sin calendario
+  → viernes; F-010 antes de F-015. Backlog dado de alta: F-015
+  (implementación) y F-016 (UI); F-014 (candef 9 en Sigrid) ya estaba.
+- MANUAL del humano (F-014): pedir a RRHH/Administración candef 9 en HLOF
+  de MO/0006, 0007, 0008, 0031, 0366, 0405, 0456 y DNI en emp de MO/0037.
+
+
 ## F-004 · Congelar registros aprobados
 
 - Estado: `in_progress` desde 2026-08-18 (implementer lanzado) — spec
