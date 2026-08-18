@@ -282,6 +282,180 @@ def test_f004_r3_el_registro_inexistente_sigue_dando_404(montaje) -> None:
                          json={"horas": 1.0}).status_code == 404
 
 
+# ------------------------------- R6 ------------------------------------ #
+
+#: Las tres formas de tener un DOCUMENTO congelado (R2). La tercera es la
+#: que mas se olvida: la linea esta en la PAPELERA del portal, pero sigue
+#: viva en Sigrid, y cambiar la fecha del parte propagaria a TODAS.
+DOCS_CONGELADOS = [
+    pytest.param([{"estado": None}], True, id="doc-aprobado"),
+    pytest.param([{"estado": "encolado"}], False, id="con-linea-encolada"),
+    pytest.param([{"estado": "registrado"}], False,
+                 id="con-linea-registrada"),
+    pytest.param([{"estado": "registrado", "borrada": True},
+                  {"estado": None}], False, id="registrada-en-papelera"),
+]
+
+
+@pytest.mark.parametrize("lineas,aprobado", DOCS_CONGELADOS)
+def test_f004_r6_patch_fecha_de_documento_congelado_responde_409(
+        montaje, lineas, aprobado) -> None:
+    cliente, _repo, fabrica, ids = montaje(lineas, aprobado=aprobado)
+    antes = datos_registros(fabrica, ids)
+    _congelado(cliente.patch("/api/partes/doc-f004/fecha",
+                             json={"fecha": "2026-04-09"}))
+    assert _doc(fabrica).fecha == "2026-03-02"
+    assert datos_registros(fabrica, ids) == antes
+
+
+@pytest.mark.parametrize("lineas,aprobado", DOCS_CONGELADOS)
+def test_f004_r6_patch_obra_de_documento_congelado_responde_409(
+        montaje, lineas, aprobado) -> None:
+    """Y sin re-casar partidas: el 409 llega ANTES de tocar nada."""
+    cliente, _repo, fabrica, ids = montaje(lineas, aprobado=aprobado)
+    antes = datos_registros(fabrica, ids)
+    _congelado(cliente.patch("/api/partes/doc-f004/obra",
+                             json={"codigo": "0999", "nombre": "Otra"}))
+    assert _doc(fabrica).obra_codigo == "0100"
+    assert datos_registros(fabrica, ids) == antes
+
+
+def test_f004_r6_el_documento_libre_se_sigue_editando(montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "omitido"}, {"estado": "error"}])
+    assert cliente.patch("/api/partes/doc-f004/fecha",
+                         json={"fecha": "2026-04-09"}).status_code == 200
+    assert _doc(fabrica).fecha == "2026-04-09"
+    assert all(d["fecha"] == "2026-04-09"
+               for d in datos_registros(fabrica, ids).values())
+    assert cliente.patch("/api/partes/doc-f004/obra",
+                         json={"codigo": "0999",
+                               "nombre": "Otra"}).status_code == 200
+    assert _doc(fabrica).obra_codigo == "0999"
+
+
+# ------------------------------- R7 ------------------------------------ #
+
+@pytest.mark.parametrize("lineas,aprobado", DOCS_CONGELADOS)
+def test_f004_r7_papelera_de_documento_congelado_no_borra_y_avisa(
+        montaje, lineas, aprobado) -> None:
+    """Flujo de formulario (no JSON): redirige con el motivo visible. Un
+    parte oculto en el portal con horas vivas en Sigrid es justo la
+    desincronizacion silenciosa que esto impide."""
+    cliente, _repo, fabrica, _ids = montaje(lineas, aprobado=aprobado)
+    respuesta = cliente.post("/documents/doc-f004/delete",
+                             data={"back": "/partes"},
+                             follow_redirects=False)
+    assert respuesta.status_code == 303
+    destino = respuesta.headers["location"]
+    assert "message=" in destino
+    assert _doc(fabrica).is_active is True
+    assert _doc(fabrica).deleted_at_utc is None
+
+
+def test_f004_r7_el_documento_libre_se_sigue_borrando(montaje) -> None:
+    cliente, _repo, fabrica, _ids = montaje([{"estado": "omitido"}])
+    respuesta = cliente.post("/documents/doc-f004/delete",
+                             data={"back": "/partes"},
+                             follow_redirects=False)
+    assert respuesta.status_code == 303
+    assert _doc(fabrica).is_active is False
+
+
+# ------------------------------ R10/R11 -------------------------------- #
+
+def test_f004_r10_no_se_desaprueba_con_una_linea_en_vuelo(montaje) -> None:
+    """Editar mientras sv5 procesa produce carrera: el resultado volvera
+    y pisara las columnas `sigrid_*` de una linea ya divergente."""
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "encolado"}, {"estado": None}], aprobado=True)
+    respuesta = cliente.post("/documents/doc-f004/unapprove",
+                             data={"back": "/partes"},
+                             follow_redirects=False)
+    assert respuesta.status_code == 303
+    assert "message=" in respuesta.headers["location"]
+    assert _doc(fabrica).approved is True
+
+
+def test_f004_r10_una_encolada_en_papelera_no_bloquea_la_desaprobacion(
+        montaje) -> None:
+    """R10 habla de lineas ACTIVAS: una linea en la papelera no tiene
+    peticion en vuelo que esperar."""
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "encolado", "borrada": True}, {"estado": None}],
+        aprobado=True)
+    cliente.post("/documents/doc-f004/unapprove", data={"back": "/partes"},
+                 follow_redirects=False)
+    assert _doc(fabrica).approved is False
+
+
+def test_f004_r11_desaprobar_libera_lo_no_registrado(montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}, {"estado": "omitido"}],
+        aprobado=True)
+    for rid in ids:
+        _congelado(cliente.patch(f"/api/registros/{rid}", json={"horas": 1.0}))
+    cliente.post("/documents/doc-f004/unapprove", data={"back": "/partes"},
+                 follow_redirects=False)
+    assert _doc(fabrica).approved is False
+    assert cliente.patch(f"/api/registros/{ids[1]}",
+                         json={"horas": 6.0}).status_code == 200
+    assert cliente.patch(f"/api/registros/{ids[2]}",
+                         json={"horas": 6.0}).status_code == 200
+    assert datos_registros(fabrica, ids)[ids[1]]["horas"] == 6.0
+
+
+def test_f004_r11_la_linea_registrada_sigue_congelada_tras_desaprobar(
+        montaje) -> None:
+    """La desaprobacion quita la capa «aprobado», nunca la capa «vive en
+    Sigrid»: el parte PT<AA>/NNNNN sigue existiendo alli."""
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}], aprobado=True)
+    cliente.post("/documents/doc-f004/unapprove", data={"back": "/partes"},
+                 follow_redirects=False)
+    motivo = _congelado(
+        cliente.patch(f"/api/registros/{ids[0]}", json={"horas": 1.0}))
+    assert "sigrid" in motivo.lower()
+    assert datos_registros(fabrica, ids)[ids[0]]["horas"] == 8.0
+
+
+def test_f004_r11_el_documento_con_linea_registrada_sigue_congelado(
+        montaje) -> None:
+    """Desaprobar tampoco permite cambiarle la fecha: propagaria a la
+    linea que ya esta en Sigrid."""
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}], aprobado=True)
+    cliente.post("/documents/doc-f004/unapprove", data={"back": "/partes"},
+                 follow_redirects=False)
+    _congelado(cliente.patch("/api/partes/doc-f004/fecha",
+                             json={"fecha": "2026-04-09"}))
+
+
+def test_f004_r18_aprobar_y_desaprobar_siguen_funcionando(montaje) -> None:
+    """R18: la congelacion bloquea EDICIONES, no el camino por el que las
+    lineas llegan a Sigrid."""
+    cliente, _repo, fabrica, _ids = montaje([{"estado": None}])
+    cliente.post("/documents/doc-f004/approve", data={"back": "/partes"},
+                 follow_redirects=False)
+    assert _doc(fabrica).approved is True
+    cliente.post("/documents/doc-f004/unapprove", data={"back": "/partes"},
+                 follow_redirects=False)
+    assert _doc(fabrica).approved is False
+
+
+def test_f004_r18_un_parte_aprobado_se_puede_volver_a_aprobar(
+        montaje) -> None:
+    """Reaprobar es el reintento seguro (la idempotencia por synckey lo
+    protege): la guarda NO puede alcanzar `approve_document`."""
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "registrado"}], aprobado=True)
+    respuesta = cliente.post("/documents/doc-f004/approve",
+                             data={"back": "/partes"},
+                             follow_redirects=False)
+    assert respuesta.status_code == 303
+    assert _doc(fabrica).approved is True
+
+
 def test_f004_r18_marcar_encolado_y_registrado_no_se_congelan(
         montaje) -> None:
     """R18: las escrituras del SISTEMA (la traza del registro) NO son
