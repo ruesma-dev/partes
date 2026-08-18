@@ -44,8 +44,17 @@ Notas de contexto para la próxima sesión:
 - F-013 cerrada el 2026-08-18 (resumen en `progress/history.md`). MANUAL
   del humano: ejecutar `validar_datos_sesame.py` contra sesame-api local y
   validar los números.
-- Siguiente feature por prioridad: F-011 (jornada reducida por días,
-  URGENTE, spec) → F-012 → F-004 (spec aprobada).
+- Informe F-013 ejecutado el 2026-08-18 contra sesame-api local (218
+  empleados): festivos OK (Madrid 196, Tomares 15, Sevilla 4, Málaga 2,
+  Alicante 1 parcial 8/21 — revisar asignación); contratos en Sesame:
+  NINGUNO (jornada/reducida sin fuente). Bug daysOff corregido en
+  sesame-api (sin commit allí: árbol P2 pendiente). Excel para el humano en
+  services/partes-front/logs/festivos_por_trabajador_2026.xlsx (no
+  versionado).
+- F-011 REPRIORIZADA A BAJA (prio 12) por el humano el 2026-08-18: sin
+  contratos en Sesame no hay fuente de jornada reducida.
+- Siguiente feature por prioridad: F-012 (estudio candef 9h/viernes) →
+  F-004 (spec aprobada) → F-005 …
 
 ### Decisiones del humano sobre la spec F-004 (2026-08-16)
 
