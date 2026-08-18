@@ -280,7 +280,7 @@ hoy** en toda semana, con o sin festivos.
 | I. ausencia el viernes (V) | 9 / 42 | 9,9,9,9,(V) | — | V sigue siendo el último laborable: jornada 6; sin ordinarias no se normaliza; **jueves NO absorbe** | R15 |
 | J. sábado trabajado 6 h | 9 / 42 | + S 6 | 6 extra | 6 extra | sin cambio |
 | K. c 8, S 40, festivo cualquiera | 8 / 40 | 8,8,8,8 | 8 | 8 (40 − 32) | **regresión cero** |
-| L. c 9 sin corregir en Sigrid (S 40 por mapa) | 9 / 40 | 9,9,9,9,6 | V 9/−3 | V jornada 4 → ord 4 + 2 extra | por eso F-014 va ANTES |
+| L. cuadrilla H5 ANTES de F-014 (candef 8 en Sigrid) | 8 / 40 | 9,9,9,9,6 | +1×4, V −2 → **+2/sem** | igual que hoy: L–J +1, V jornada 8 → −2 → **+2/sem** | por eso F-014 va ANTES (mismo escenario que el riesgo §10.6) |
 | M. c válido fuera del mapa (10) | 10 / 50 (5c) | 10,10,10,10,8 | (c 10) V 10/−2 | igual que hoy: V jornada 10 → −2; **WARNING** «candef 10 sin entrada en el mapa» | decisión D10: jornada plana hasta que se añada al mapa o se corrija en Sigrid |
 | N. intensiva 7×5 (fuera de F-012) | 8 / 40 | 7,7,7,7,7 | 8/−1 cada día | igual (F-011 sobre `empleado_jornada` + `emphis.porjorlab`) | H6/H7 |
 | O. recurso sin HE (MENC) | — | — | no se normaliza | no se normaliza | sin cambio |
