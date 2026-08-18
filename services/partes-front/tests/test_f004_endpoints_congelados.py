@@ -593,6 +593,132 @@ def test_f004_r9_el_undo_normal_sigue_funcionando(montaje) -> None:
     assert datos_registros(fabrica, ids)[ids[0]]["horas"] == 8.0
 
 
+# ------------------------------ R12 ------------------------------------ #
+# El hard-delete es irreversible: se lleva por delante `sigrid_hmores_ide`
+# y `sigrid_parte_cod`, la UNICA referencia local a la linea escrita en
+# Sigrid. Sin ella, nadie puede volver a cruzar portal y ERP.
+
+def test_f004_r12_hard_delete_de_linea_registrada_responde_409(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado", "borrada": True}, {"estado": None}])
+    _congelado(cliente.post(f"/api/registro/{ids[0]}/hard-delete"))
+    assert _num_lineas(fabrica) == 2
+
+
+def test_f004_r12_hard_delete_de_linea_omitida_sigue_funcionando(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "omitido", "borrada": True}, {"estado": None}])
+    assert cliente.post(
+        f"/api/registro/{ids[0]}/hard-delete").json()["ok"] is True
+    assert _num_lineas(fabrica) == 1
+
+
+def test_f004_r12_hard_delete_de_documento_con_linea_registrada_da_409(
+        montaje) -> None:
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}], doc_en_papelera=True)
+    _congelado(cliente.post("/api/documento/doc-f004/hard-delete"))
+    assert _doc(fabrica) is not None
+    assert _num_lineas(fabrica) == 2
+
+
+def test_f004_r12_hard_delete_de_documento_sin_nada_en_sigrid_funciona(
+        montaje) -> None:
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "omitido"}], doc_en_papelera=True)
+    assert cliente.post(
+        "/api/documento/doc-f004/hard-delete").json()["ok"] is True
+    assert _doc(fabrica) is None
+
+
+def test_f004_r12_vaciar_papelera_omite_lo_registrado_y_lo_cuenta(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}], doc_en_papelera=True)
+    sembrar_parte(fabrica, [{"estado": "omitido"}], document_id="doc-libre",
+                  doc_en_papelera=True)
+    cuerpo = cliente.post("/api/papelera/vaciar").json()
+    assert cuerpo["documentos"] == 1          # solo el que no toca Sigrid
+    assert cuerpo["omitidos"] == 1
+    assert _doc(fabrica) is not None          # el congelado sigue ahi
+    assert _doc(fabrica, "doc-libre") is None
+    assert _num_lineas(fabrica) == 2
+    assert ids                                 # sus lineas tampoco se van
+
+
+def test_f004_r12_vaciar_papelera_omite_la_linea_suelta_registrada(
+        montaje) -> None:
+    """Linea en papelera cuyo documento sigue activo: el barrido de
+    lineas sueltas tiene su propia rama, y tambien tiene que omitir."""
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "registrado", "borrada": True},
+         {"estado": "omitido", "borrada": True}])
+    cuerpo = cliente.post("/api/papelera/vaciar").json()
+    assert cuerpo["registros"] == 1
+    assert cuerpo["omitidos"] == 1
+    assert _num_lineas(fabrica) == 1
+
+
+def test_f004_r18_vaciar_papelera_sin_nada_registrado_vacia_del_todo(
+        montaje) -> None:
+    cliente, _repo, fabrica, _ids = montaje(
+        [{"estado": "omitido"}], doc_en_papelera=True)
+    cuerpo = cliente.post("/api/papelera/vaciar").json()
+    assert (cuerpo["documentos"], cuerpo["omitidos"]) == (1, 0)
+    assert _num_lineas(fabrica) == 0
+
+
+# ------------------------------ R13 ------------------------------------ #
+
+def test_f004_r13_borrar_la_obra_omite_los_partes_congelados(
+        montaje) -> None:
+    cliente, _repo, fabrica, _ids = montaje([{"estado": None}],
+                                            aprobado=True)
+    sembrar_parte(fabrica, [{"estado": None}], document_id="doc-libre")
+    cuerpo = cliente.post("/api/obra/obr-10/delete").json()
+    assert cuerpo["partes"] == 1
+    assert cuerpo["congelados"] == 1
+    assert _doc(fabrica).is_active is True
+    assert _doc(fabrica, "doc-libre").is_active is False
+
+
+def test_f004_r13_borrar_al_trabajador_omite_las_lineas_congeladas(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}])
+    cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    assert cuerpo["lineas"] == 1
+    assert cuerpo["congelados"] == 1
+    datos = datos_registros(fabrica, ids)
+    assert datos[ids[0]]["deleted_at_utc"] is None
+    assert datos[ids[1]]["deleted_at_utc"] is not None
+    # El parte NO se va a la papelera: le queda una linea activa.
+    assert _doc(fabrica).is_active is True
+
+
+def test_f004_r13_sin_congelados_el_borrado_masivo_no_cambia(
+        montaje) -> None:
+    """R18: el comportamiento de siempre cuando no hay nada en Sigrid."""
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "omitido"}, {"estado": None}])
+    cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    assert (cuerpo["lineas"], cuerpo["congelados"]) == (2, 0)
+    assert all(d["deleted_at_utc"] is not None
+               for d in datos_registros(fabrica, ids).values())
+    assert _doc(fabrica).is_active is False   # se queda sin lineas activas
+
+
+def test_f004_r18_restaurar_de_papelera_sigue_permitido(montaje) -> None:
+    """Restaurar no es editar contenido congelado: devuelve la linea a la
+    vista, que es justo lo que hay que poder hacer tras un 409."""
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado", "borrada": True}])
+    assert cliente.post(f"/api/registro/{ids[0]}/restore").json()["ok"] is True
+    assert datos_registros(fabrica, ids)[ids[0]]["deleted_at_utc"] is None
+
+
 def test_f004_r18_marcar_encolado_y_registrado_no_se_congelan(
         montaje) -> None:
     """R18: las escrituras del SISTEMA (la traza del registro) NO son
