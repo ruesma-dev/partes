@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
@@ -35,6 +35,7 @@ from infrastructure.database.orm_models import (
     ParteDocumentOrm,
     ParteRegistroOrm,
     UndoLogOrm,
+    ddl_complementario,
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
@@ -548,94 +549,26 @@ class ParteReviewRepository:
         self._session_factory = session_factory
 
     def initialize(self) -> bool:
+        """Crea lo que falte del esquema y lo completa (idempotente).
+
+        Ejecuta el MISMO `ddl_complementario()` que sv3: es la misma base
+        `partes`. Antes habia aqui ~80 lineas de DDL a mano que no cubrian
+        `horas_orig` ni `extra_auto` (F-010).
+
+        Devuelve `False` en vez de propagar (D6): el portal se levanta
+        igual y ensena que las tablas no estan listas; el worker de sv3, en
+        cambio, no debe procesar nada con el esquema roto.
+        """
         try:
             Base.metadata.create_all(self._session_factory.engine)
+            sentencias = ddl_complementario()
             with self._session_factory.engine.begin() as conn:
-                from sqlalchemy import text
-                for col in (
-                    "firma_encargado", "firma_jefe_obra", "firma_administracion",
-                ):
-                    conn.execute(text(
-                        f"ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-                        f"{col} BOOLEAN NOT NULL DEFAULT false"
-                    ))
-                conn.execute(text(
-                    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-                    "sharepoint_url TEXT"
-                ))
-                conn.execute(text(
-                    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-                    "sharepoint_item_id VARCHAR(255)"
-                ))
-                conn.execute(text(
-                    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-                    "sharepoint_drive_id VARCHAR(255)"
-                ))
-                # Trazabilidad del REGISTRO en Sigrid (lo escribe sv4 al
-                # aprobar; sv5 hace la escritura real en el ERP).
-                for _col in (
-                    "sigrid_registrado_at_utc VARCHAR(64)",
-                    "sigrid_registrado_by VARCHAR(255)",
-                    "sigrid_hmoide INTEGER",
-                    "sigrid_hmores_ide INTEGER",
-                    "sigrid_parte_cod VARCHAR(64)",
-                    "sigrid_estado VARCHAR(16)",
-                    "sigrid_motivo VARCHAR(255)",
-                ):
-                    conn.execute(text(
-                        "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-                        + _col
-                    ))
-                # Columnas del casado partida/recurso (las crea sv3; aqui de
-                # forma idempotente por si sv4 inicializa primero). SOLO LEE.
-                for col_ddl in (
-                    "partida_ide INTEGER", "partida_cod VARCHAR(64)",
-                    "partida_res VARCHAR(255)", "partida_capitulo VARCHAR(8)",
-                    "partida_match_method VARCHAR(24)",
-                    "partida_match_score DOUBLE PRECISION",
-                    "recurso_ide INTEGER", "recurso_cif VARCHAR(64)",
-                    "hmo_ide INTEGER", "parte_estado VARCHAR(16)",
-                    "hora_candef DOUBLE PRECISION",
-                    "recurso_precio_hora DOUBLE PRECISION",
-                    "deleted_at_utc VARCHAR(64)", "deleted_by VARCHAR(255)",
-                ):
-                    conn.execute(text(
-                        "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-                        + col_ddl
-                    ))
-                conn.execute(text(
-                    "CREATE TABLE IF NOT EXISTS empleado_alias ("
-                    "  nombre_norm VARCHAR(300) PRIMARY KEY,"
-                    "  empleado_ide INTEGER NOT NULL,"
-                    "  empleado_codigo VARCHAR(60),"
-                    "  empleado_nombre TEXT,"
-                    "  empleado_dni VARCHAR(40),"
-                    "  created_at_utc VARCHAR(40) NOT NULL,"
-                    "  created_by VARCHAR(120)"
-                    ")"
-                ))
-                conn.execute(text(
-                    "CREATE TABLE IF NOT EXISTS undo_log ("
-                    "  id SERIAL PRIMARY KEY,"
-                    "  created_at_utc VARCHAR(40) NOT NULL,"
-                    "  action VARCHAR(40) NOT NULL,"
-                    "  description TEXT NOT NULL,"
-                    "  payload TEXT NOT NULL,"
-                    "  undone BOOLEAN NOT NULL DEFAULT false,"
-                    "  actor VARCHAR(120)"
-                    ")"
-                ))
-                # Parche idempotente: si 'undo_log' ya existia SIN la columna
-                # 'actor' (tabla creada por una version anterior), el CREATE
-                # TABLE IF NOT EXISTS de arriba NO la modifica. Sin este ALTER,
-                # SQLAlchemy genera 'SELECT ... undo_log.actor' y Postgres
-                # responde "column actor does not exist", reventando
-                # list_undo/undo_last (el undo queda inservible). Tambien deja
-                # el terreno listo para el undo/papelera por usuario.
-                conn.execute(text(
-                    "ALTER TABLE undo_log ADD COLUMN IF NOT EXISTS "
-                    "actor VARCHAR(120)"
-                ))
+                for ddl in sentencias:
+                    conn.execute(text(ddl))
+            logger.info(
+                "[parte-repo-sv4] esquema inicializado (%s sentencias "
+                "complementarias).", len(sentencias),
+            )
             return True
         except Exception:
             logger.exception("[parte-repo-sv4] create_all fallo (continua).")
