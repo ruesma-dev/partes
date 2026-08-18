@@ -16,6 +16,7 @@
     <a class="btn primary" href="{{ parte.sharepoint_url }}" target="_blank" rel="noopener">Abrir en SharePoint ↗</a>
     {% endif %}
     <button type="button" class="btn primary" data-add-line
+            {% if parte.congelado_doc %}disabled title="{{ parte.congelado_doc }}"{% endif %}
             data-obra-ide="{{ parte.obra_ide if parte.obra_ide is not none else '' }}"
             data-obra-codigo="{{ parte.obra_codigo or '' }}"
             data-obra-nombre="{{ parte.obra_nombre or '' }}"
@@ -25,6 +26,10 @@
   </div>
 </div>
 
+{% if parte.congelado_doc %}
+<div class="alert warn parte-congelado">🔒 {{ parte.congelado_doc }}</div>
+{% endif %}
+
 <div class="info-grid">
   <div class="info-item">
     <span class="info-k">Fecha</span>
@@ -32,7 +37,7 @@
       <input type="date" class="fecha-edit" id="fechaEdit"
              data-document-id="{{ parte.document_id }}"
              data-status="fechaStatus"
-             value="{{ parte.fecha or '' }}">
+             value="{{ parte.fecha or '' }}"{% if parte.congelado_doc %} disabled{% endif %}>
       <span class="edit-status" id="fechaStatus"></span>
     </span>
   </div>
@@ -42,10 +47,11 @@
       <div class="combo-obra" id="obraEdit"
            data-document-id="{{ parte.document_id }}"
            data-status="obraStatus"
+           {% if parte.congelado_doc %}data-congelado="1"{% endif %}
            data-codigo="{{ parte.obra_codigo or '' }}">
         <input type="text" class="combo-input" autocomplete="off"
                value="{% if parte.obra_codigo %}{{ parte.obra_codigo }} · {{ parte.obra_nombre or '' }}{% else %}{{ parte.obra_nombre or parte.obra_numero_leido or '' }}{% endif %}"
-               placeholder="Escribe codigo o nombre de obra…">
+               placeholder="Escribe codigo o nombre de obra…"{% if parte.congelado_doc %} disabled{% endif %}>
         <div class="combo-panel" hidden></div>
       </div>
       <span class="edit-status" id="obraStatus"></span>
@@ -144,7 +150,7 @@
         </thead>
         <tbody>
           {% for r in emp.registros %}
-          <tr data-registro-id="{{ r.id }}" data-obra-ide="{{ parte.obra_ide if parte.obra_ide is not none else '' }}">
+          <tr data-registro-id="{{ r.id }}" data-obra-ide="{{ parte.obra_ide if parte.obra_ide is not none else '' }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
             <td>
               {% if r.es_incidencia %}
                 <span class="badge warn" title="{{ r.incidencia_texto or '' }}">{{ r.incidencia_codigo }} · {{ r.incidencia_codigo|incidencia }}</span>
@@ -153,16 +159,16 @@
               {% else %}
                 <span class="badge normal">Ordinaria</span>
               {% endif %}
-              <button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>
+              {% if r.congelado %}<span class="congelado-motivo" title="{{ r.congelado_motivo }}">🔒</span>{% else %}<button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>{% endif %}
             </td>
             <td class="num cell-horas">
               <input type="number" step="0.5" min="0" class="horas-edit cell-edit cell-edit-num"
                      data-registro-id="{{ r.id }}"
-                     value="{{ r.horas if r.horas is not none else '' }}">
+                     value="{{ r.horas if r.horas is not none else '' }}"{% if r.congelado %} disabled{% endif %}>
             </td>
             <td>
               <select class="combo combo-hora" data-registro-id="{{ r.id }}"
-                      data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}">
+                      data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}"{% if r.congelado %} disabled{% endif %}>
                 <option value="">— sin asignar —</option>
               </select>
               <div class="cell-sub combo-hora-current">

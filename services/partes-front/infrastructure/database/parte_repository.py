@@ -166,6 +166,12 @@ class RegistroView:
     recurso_cif: Optional[str] = None
     hmo_ide: Optional[int] = None
     parte_estado: Optional[str] = None              # ok|sin_recurso|sin_parte
+    # --- Congelacion (F-004 R14) --- #
+    # Decidido en el SERVIDOR con la misma funcion que las guardas; la
+    # vista solo pinta. Si el JS lo recalculase, un dia diria que se
+    # puede editar algo que el servidor rechaza con un 409.
+    congelado: bool = False
+    congelado_motivo: Optional[str] = None
 
 
 @dataclass
@@ -233,6 +239,8 @@ class ParteDetail:
     source_filename: Optional[str]
     sharepoint_url: Optional[str]
     es_futuro: bool = False
+    #: Motivo por el que el DOCUMENTO esta congelado (R2/R17), o None.
+    congelado_doc: Optional[str] = None
     empleados: list[ParteEmpleadoView] = field(default_factory=list)
 
 
@@ -496,6 +504,22 @@ def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
     exigir_documento_editable(
         aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
     )
+
+
+def _reg_de_celda(reg: ParteRegistroOrm, tipo: str) -> dict:
+    """Linea tal como la ve el popup de la celda de la matriz (R15).
+
+    `c` = 1 si esta congelada: el popup la pinta solo-lectura y, si TODAS
+    lo estan, no ofrece ni guardar ni crear la extra. El flag lo calcula
+    el servidor (misma funcion que la guarda), no el JS.
+    """
+    fila = {
+        "id": reg.id, "t": tipo, "h": reg.horas or 0.0,
+        "p": reg.partida_cod or reg.partida or None,
+    }
+    if _motivo_congelado_reg(reg) is not None:
+        fila["c"] = 1
+    return fila
 
 
 def _separar_congeladas(
@@ -952,17 +976,11 @@ class ParteReviewRepository:
             elif _is_extra(reg):
                 slot["extra"] += reg.horas or 0.0
                 slot["e_ids"].append(reg.id)
-                slot["regs"].append({
-                    "id": reg.id, "t": "e", "h": reg.horas or 0.0,
-                    "p": reg.partida_cod or reg.partida or None,
-                })
+                slot["regs"].append(_reg_de_celda(reg, "e"))
             else:
                 slot["normal"] += reg.horas or 0.0
                 slot["n_ids"].append(reg.id)
-                slot["regs"].append({
-                    "id": reg.id, "t": "n", "h": reg.horas or 0.0,
-                    "p": reg.partida_cod or reg.partida or None,
-                })
+                slot["regs"].append(_reg_de_celda(reg, "n"))
 
         # Trabajadores SIN codigo de hora extra en Sigrid (fuente: reshor).
         # Sus horas (ordinarias Y extras) NO cuentan en los totales. La
@@ -1165,6 +1183,7 @@ class ParteReviewRepository:
                 source_filename=doc.source_filename,
                 sharepoint_url=doc.sharepoint_url,
                 es_futuro=_doc_es_futuro(doc),
+                congelado_doc=_motivo_congelado_doc(doc),   # F-004 R17
             )
 
             # Agrupar registros por empleado (linea de la tabla PERSONAL).
@@ -2625,6 +2644,7 @@ def extras_por_jornada(registros: list["RegistroView"]) -> dict:
 
 def _registro_view(reg: ParteRegistroOrm) -> RegistroView:
     doc = reg.document
+    motivo = _motivo_congelado_reg(reg)
     return RegistroView(
         id=reg.id,
         document_id=reg.document_id,
@@ -2668,4 +2688,6 @@ def _registro_view(reg: ParteRegistroOrm) -> RegistroView:
         recurso_cif=reg.recurso_cif,
         hmo_ide=reg.hmo_ide,
         parte_estado=reg.parte_estado,
+        congelado=motivo is not None,
+        congelado_motivo=motivo,
     )

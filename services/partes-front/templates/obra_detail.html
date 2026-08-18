@@ -186,17 +186,17 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}">
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
         <td class="cell-fecha">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
-                 value="{{ r.fecha or '' }}">
+                 value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}
-          <button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>
+          {% if r.congelado %}<span class="congelado-motivo" title="{{ r.congelado_motivo }}">🔒</span>{% else %}<button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>{% endif %}
         </td>
         <td class="cell-trabajador">
-          {% if sigrid_enabled %}
+          {% if sigrid_enabled and not r.congelado %}
           <div class="combo-emp" data-registro-id="{{ r.id }}">
             <input type="text" class="combo-input cell-edit" autocomplete="off"
                    value="{{ r.trabajador_nombre or '' }}" placeholder="Trabajador…">
@@ -217,12 +217,12 @@
         <td class="num cell-horas">
           <input type="number" step="0.5" min="0" class="horas-edit cell-edit cell-edit-num"
                  data-registro-id="{{ r.id }}"
-                 value="{{ r.horas if r.horas is not none else '' }}">
+                 value="{{ r.horas if r.horas is not none else '' }}"{% if r.congelado %} disabled{% endif %}>
         </td>
         <td class="num cell-candef{% if r.hora_candef is none or r.hora_candef <= candef_minimo %} candef-asignado{% endif %}" title="{% if r.hora_candef is none or r.hora_candef <= candef_minimo %}Asignado por defecto. En Sigrid: {% if r.hora_candef is not none %}{{ r.hora_candef|horas }}{% else %}sin dato{% endif %}{% else %}CanDefecto del recurso en Sigrid{% endif %}">{% if r.hora_candef is none or r.hora_candef <= candef_minimo %}{{ jornada_defecto|horas }} <span class="tag-asignado">asig.</span>{% else %}{{ r.hora_candef|horas }}{% endif %}</td>
         <td>
           <select class="combo combo-hora" data-registro-id="{{ r.id }}"
-                  data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}">
+                  data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}"{% if r.congelado %} disabled{% endif %}>
             <option value="">— sin asignar —</option>
           </select>
           <div class="cell-sub combo-hora-current">

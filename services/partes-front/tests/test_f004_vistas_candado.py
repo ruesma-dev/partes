@@ -34,6 +34,10 @@ def entorno(monkeypatch):
     for clave, valor in {
         "PG_PASSWORD": "irrelevante-en-tests",
         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+        # Con sv5 cableado la tabla saca la columna «Sigrid» y sus
+        # botones Aprobar/↻/Revisar: son justo los que R18 exige que
+        # sigan ahi al lado de una linea congelada.
+        "TRANSFER_BASE_URL": "http://sv5.interno",
     }.items():
         monkeypatch.setenv(clave, valor)
     return monkeypatch

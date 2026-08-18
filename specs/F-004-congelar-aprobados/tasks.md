@@ -35,7 +35,7 @@ parametrizables).
       devuelven recuento (respuestas de los endpoints incluidas).
       | Verificación: tests R12, R13: hard-delete de línea `registrado` → 409 y sigue en BBDD; vaciar papelera y borrados masivos dejan intactos los congelados y reportan cuántos.
 
-- [ ] T6: Flags a las vistas: `RegistroView.congelado`/`congelado_motivo`,
+- [x] T6: Flags a las vistas: `RegistroView.congelado`/`congelado_motivo`,
       `ParteDetail.congelado_doc`, flag `"c"` en los `regs` de la matriz;
       plantillas `parte_detail.html`, `obra_detail.html`,
       `trabajador_detail.html` con candado, `disabled`, aspa oculta y
