@@ -144,7 +144,7 @@
       "title": "Estudio: candef de 9h, viernes y jornada semanal particularizable",
       "description": "Pedida por el humano el 2026-08-16, para después de F-011: estudiar los trabajadores con candef=9h y cómo deben comportarse sus viernes — deberían ser el resto de horas hasta la jornada SEMANAL (con 9+9+9+9 el viernes serían 4h para llegar a 40). La jornada semanal debe ser PARTICULARIZABLE por trabajador (por defecto 40h, pero hay trabajadores que hacen más de 40h semanales). Entregable: análisis con datos reales (cuántos trabajadores, qué patrones hay en reshor/Sesame) y propuesta de diseño para que el cómputo de extras y los avisos usen jornada semanal además de diaria; la implementación puede ser feature aparte si el estudio lo justifica. APROBADA por el humano el 2026-08-18 con decisiones firmes: jornada semanal DERIVADA del candef ({8:40, 9:42}, env espejo sv3+sv4), resto en el ULTIMO DIA LABORABLE de la semana (festivo cuenta como jornada), excepciones en tabla empleado_jornada (UI en F-016), candef desconocido → jornada plana 5×candef + WARNING, sin calendario → viernes. Rigor documental (estudio sin código). Sale de aquí F-014 (candef en Sigrid), F-015 (implementación) y F-016 (UI).",
       "acceptance": [],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "documental",
       "priority": 4,

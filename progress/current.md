@@ -1,25 +1,14 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-012 · Estudio jornada semanal — spec APROBADA (2026-08-18)
-
-- Estado: `in_progress` desde 2026-08-18 para su cierre documental (rigor
-  `documental`, es un estudio sin código; no hay implementer: el
-  entregable es la spec; T4 hecha por el líder en 765cab8, T5 MANUAL). La
-  spec (`specs/F-012-estudio-jornada-semanal/`, commit c13b524) ES el
-  entregable: hallazgos H1–H8 con datos reales de Sigrid + propuesta.
-  Pasa a `in_progress` → reviewer documental → `done` cuando F-004 cierre
-  (una sola in_progress). Decisiones del humano: derivación por candef
-  {8:40, 9:42} (env espejo sv3+sv4); resto en el ÚLTIMO LABORABLE con el
-  festivo contando como jornada; excepciones en tabla `empleado_jornada`
-  (UI en F-016); candef desconocido → 5×candef + WARNING; sin calendario
-  → viernes; F-010 antes de F-015. Backlog dado de alta: F-015
-  (implementación) y F-016 (UI); F-014 (candef 9 en Sigrid) ya estaba.
-- MANUAL del humano (F-014): pedir a RRHH/Administración candef 9 en HLOF
-  de MO/0006, 0007, 0008, 0031, 0366, 0405, 0456 y DNI en emp de MO/0037.
-
-
 ## Notas de contexto para la próxima sesión
+
+- F-012 cerrada el 2026-08-18 (resumen en `progress/history.md`). Merge de
+  `feature/F-012-estudio-jornada-semanal` a dev y push pendientes del
+  humano.
+- MANUAL del humano (F-014): pedir a RRHH/Administración candef 9 en HLOF
+  de MO/0006, 0007, 0008, 0031, 0366, 0405, 0456 y DNI en emp de MO/0037;
+  después F-014 se cierra con la comprobación por sigrid-api.
 
 - F-004 cerrada el 2026-08-18 (resumen en `progress/history.md`). MANUAL
   del humano: 7 comprobaciones en navegador (Ctrl+F5), pasos en
@@ -41,7 +30,8 @@
   sesame-api (sin commit allí: árbol P2 pendiente). Excel para el humano en
   services/partes-front/logs/festivos_por_trabajador_2026.xlsx (no
   versionado).
-- F-011 REPRIORIZADA A BAJA (prio 12) por el humano el 2026-08-18: sin
+- F-011 REPRIORIZADA A BAJA (última del backlog, prio 14 tras el alta de
+  F-015/F-016) por el humano el 2026-08-18: sin
   contratos en Sesame no hay fuente de jornada reducida.
-- Siguiente feature por prioridad: F-012 (cierre documental) → F-014
-  (candef en Sigrid, humano) → F-010 → F-015 → F-016 → F-005 …
+- Siguiente feature por prioridad: F-014 (candef en Sigrid, humano) →
+  F-010 → F-015 → F-016 → F-005 …
