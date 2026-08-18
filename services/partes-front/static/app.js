@@ -12,22 +12,29 @@
  * ==================================================================== */
 var MotivoHttp = (function () {
   "use strict";
-  function de(r) {
-    return r.json().then(function (d) {
-      return (d && d.error) ? d.error : ("HTTP " + r.status);
-    }, function () { return "HTTP " + r.status; });
+  function cuerpo(r) {
+    return r.json().then(function (d) { return d || {}; },
+                         function () { return {}; });
   }
   // Uso: fetch(...).then(MotivoHttp.lanzarSiFalla)
+  // El error lleva `congelado` para poder distinguir «el sistema dice
+  // que NO» (hay que enseñarlo sí o sí) de un fallo de red (basta el
+  // aviso discreto de siempre).
   function lanzarSiFalla(r) {
     if (r.ok) return r.json();
-    return de(r).then(function (m) { throw new Error(m); });
+    return cuerpo(r).then(function (d) {
+      var e = new Error(d.error || ("HTTP " + r.status));
+      e.congelado = !!d.congelado;
+      e.status = r.status;
+      throw e;
+    });
   }
   // True si el elemento vive en una fila congelada (el flag lo pinta el
   // servidor con la misma regla que la guarda: aqui no se recalcula).
   function congelado(el) {
     return !!(el && el.closest && el.closest('[data-congelado="1"]'));
   }
-  return { de: de, lanzarSiFalla: lanzarSiFalla, congelado: congelado };
+  return { lanzarSiFalla: lanzarSiFalla, congelado: congelado };
 })();
 
 (function () {
@@ -201,12 +208,13 @@ var MotivoHttp = (function () {
         inp.title = "";
         if (bulk) window.location.reload();
       }).catch(function (e) {
-        // F-004 R16: sin sitio para un texto largo, el motivo va al
-        // tooltip del propio input (y con alert si es congelacion, que
-        // es lo que el usuario no espera).
+        // F-004 R16: en la celda no cabe un texto largo, asi que el
+        // motivo va al tooltip del input; y si es una CONGELACION —el
+        // sistema diciendo que no— ademas se enseña, porque el usuario
+        // no lo espera y tiene que saber que hacer.
         flashEl(inp, "error");
         inp.title = e.message || "Error";
-        alert(e.message || "No se pudo guardar.");
+        if (e.congelado) alert(e.message);
       }).finally(function () { inp.disabled = false; });
     });
   }
@@ -323,7 +331,7 @@ var MotivoHttp = (function () {
           .catch(function (e) {
             flashEl(input, "error");
             setStatus(statusId, "✗ " + (e.message || "Error"), "error");
-            alert(e.message || "No se pudo cambiar la obra.");
+            if (e.congelado) alert(e.message);   // F-004 R16
           });
         return;
       }

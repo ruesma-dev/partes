@@ -155,6 +155,53 @@ def test_f004_r15_la_celda_de_la_matriz_marca_las_lineas_congeladas(
     assert por_id[ids[1]].get("c") in (0, None)
 
 
+def test_f004_r15_la_celda_sigue_llevando_horas_tipo_y_partida(
+        montaje) -> None:
+    """El flag `c` se añadió a un payload que ya existía: si al moverlo
+    se estropease `h`, `t` o `p`, el popup abriría con las horas a cero o
+    sin la partida y el usuario guardaría eso encima de lo bueno."""
+    cliente, _f, ids = montaje([
+        {"estado": None, "tipo": "normal", "horas": 8.0,
+         "partida_cod": "3.1"},
+        {"estado": None, "tipo": "extra", "horas": 2.5,
+         "partida_leida": "J.310"},
+    ])
+    regs = _regs_de_la_matriz(
+        cliente.get("/obras/obr-10?period=2026-03&modo=natural").text)
+    por_id = {r["id"]: r for r in regs}
+    assert por_id[ids[0]] == {"id": ids[0], "t": "n", "h": 8.0, "p": "3.1"}
+    # Sin partida casada se enseña la LEIDA del parte (es lo que hay).
+    assert por_id[ids[1]] == {"id": ids[1], "t": "e", "h": 2.5, "p": "J.310"}
+
+
+def test_f004_r15_una_linea_sin_partida_ni_horas_no_inventa_valores(
+        montaje) -> None:
+    cliente, _f, ids = montaje([{"estado": None, "horas": None}])
+    regs = _regs_de_la_matriz(
+        cliente.get("/obras/obr-10?period=2026-03&modo=natural").text)
+    assert regs == [{"id": ids[0], "t": "n", "h": 0.0, "p": None}]
+
+
+def test_f004_r14_un_dto_construido_a_mano_no_sale_congelado() -> None:
+    """`congelado` es un campo con valor por defecto: quien construya un
+    `RegistroView` fuera de `_registro_view` (los tests de F-003 lo hacen
+    para `extras_por_jornada`) no puede encontrarse la fila bloqueada sin
+    haberlo pedido, ni un `ParteDetail` con la cabecera congelada."""
+    from infrastructure.database.parte_repository import RegistroView
+
+    vista = RegistroView(
+        id=1, document_id="d", fecha="2026-03-02", obra_codigo=None,
+        obra_nombre=None, categoria=None, tipo_hora="normal",
+        es_incidencia=False, incidencia_codigo=None, incidencia_texto=None,
+        horas=8.0, hora_ide=None, hora_codigo=None, hora_descripcion=None,
+        hora_ext=None, hora_match_method=None, hora_candef=None,
+        recurso_precio_hora=None, confianza_pct=None, parte_firmado=False,
+        parte_firmante_rol=None, parte_aprobado=False,
+    )
+    assert vista.congelado is False
+    assert vista.congelado_motivo is None
+
+
 def test_f004_r15_sin_congeladas_la_celda_no_marca_nada(montaje) -> None:
     cliente, _f, _ids = montaje([{"estado": "omitido"}])
     regs = _regs_de_la_matriz(

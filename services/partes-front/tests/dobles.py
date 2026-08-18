@@ -289,9 +289,10 @@ def sembrar_parte(
     """Siembra UN parte con lineas de `sigrid_estado` parametrizable (F-004).
 
     Cada elemento de `lineas` admite: `estado` (`sigrid_estado`), `horas`,
-    `tipo` (`normal`/`extra`), `borrada` (linea en papelera) y
-    `partida_cod`. Es lo que hace falta para montar la matriz de
-    congelacion: el estado del documento (`aprobado`) y el de cada linea.
+    `tipo` (`normal`/`extra`), `borrada` (linea en papelera),
+    `partida_cod` (la casada) y `partida_leida` (la que traia el parte).
+    Es lo que hace falta para montar la matriz de congelacion: el estado
+    del documento (`aprobado`) y el de cada linea.
     """
     ahora = "2026-03-02T08:00:00+00:00"
     fint = int(fecha.replace("-", ""))
@@ -324,6 +325,7 @@ def sembrar_parte(
                 horas=linea.get("horas", 8.0),
                 es_incidencia=bool(linea.get("es_incidencia")),
                 hora_ide=1, hora_codigo="HL01", hora_candef=8.0,
+                partida=linea.get("partida_leida"),
                 partida_cod=linea.get("partida_cod"),
                 sigrid_estado=estado,
                 sigrid_hmores_ide=9000 + i if estado == "registrado" else None,
