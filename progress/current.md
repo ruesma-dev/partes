@@ -3,8 +3,10 @@
 
 ## F-010 · Saneamiento: resincronizar orm_models.py entre sv3 y sv4
 
-- Estado: `pending`, spec EN REDACCIÓN (spec-author lanzado el
-  2026-08-18) · rama `feature/F-010-resincronizar-orm-models` (desde dev
+- Estado: `in_progress` — spec ESCRITA (f583f6b) y APROBADA por el humano
+  el 2026-08-18 con las 4 recomendaciones (D3 crear el índice, D4 arreglar
+  SAWarning, D5 corregir docs en el sitio, D2 DDL generado del ORM);
+  implementer lanzado · rama `feature/F-010-resincronizar-orm-models` (desde dev
   716a4f7) · rigor estandar · sdd=true. Prerrequisito de F-015 (D6 de
   F-012). Diff real de las dos copias al arrancar: sv3 tiene
   `horas_orig`/`extra_auto` (y comentarios de conciliación) que faltan en

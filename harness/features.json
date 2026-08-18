@@ -111,7 +111,7 @@
       "title": "Saneamiento: resincronizar orm_models.py entre sv3 y sv4",
       "description": "El spec-author de F-003 detectó (2026-08-15) que la duplicación tolerada de infrastructure/database/orm_models.py YA está desincronizada: sv3 tiene horas_orig/extra_auto que faltan en sv4, y sv4 tiene las columnas sigrid_* que faltan en sv3. Viola la trampa 3 de C3 (un cambio de schema modifica las DOS copias). Resincronizar ambas copias con el schema real de la BBDD partes, añadir un test que compare las dos declaraciones (como el guardián R11 de F-002), y valorar si el ALTER TABLE IF NOT EXISTS de sv4 debe cubrir también lo de sv3.",
       "acceptance": [],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 6,
