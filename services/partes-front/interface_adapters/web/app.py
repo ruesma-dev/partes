@@ -36,6 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, field_validator
 
+from application.services.congelacion import CongeladoError
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
     build_calendar,
@@ -424,6 +425,21 @@ def build_app(
         ),
         name="static",
     )
+
+    # --- F-004: congelacion -> 409 (no es un 500) --------------------- #
+    @app.exception_handler(CongeladoError)
+    def _congelado_handler(
+        _request: Request, exc: CongeladoError
+    ) -> JSONResponse:
+        """Una edicion sobre algo congelado no es un fallo del sistema:
+        es una regla de negocio diciendo que no. El front pinta `error`
+        tal cual, asi que el motivo tiene que ser legible por un humano.
+        """
+        logger.info("[congelado] mutacion rechazada: %s", exc.motivo)
+        return JSONResponse(
+            {"ok": False, "congelado": True, "error": exc.motivo},
+            status_code=409,
+        )
 
     # ----------------------------------------------------------------- #
     @app.get("/health")

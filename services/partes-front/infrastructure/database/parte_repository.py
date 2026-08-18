@@ -38,6 +38,15 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.congelacion import (
+    ESTADO_REGISTRADO,
+    CongeladoError,
+    exigir_documento_editable,
+    exigir_linea_editable,
+    hay_linea_encolada,
+    motivo_congelacion_documento,
+    motivo_congelacion_linea,
+)
 from application.services.calendar_builder import (
     build_period_options,
     is_future_fecha,
@@ -443,6 +452,58 @@ def _is_extra(reg: ParteRegistroOrm) -> bool:
     # o el auxhor resuelto es extra (ext=1). NO depende de que hora_ext sea
     # exactamente 1 (puede quedar 0/None y el tipo seguir siendo 'extra').
     return (reg.tipo_hora or "") == "extra" or reg.hora_ext == 1
+
+
+# ------------------------------------------------------------------ #
+# CONGELACION (F-004). La decision vive en
+# `application/services/congelacion.py`; aqui solo se lee el estado de la
+# fila (documento aprobado + `sigrid_estado`) y se aplica DENTRO de la
+# misma sesion que la mutacion: sin ventana entre comprobar y escribir.
+#
+# Ojo: `doc.registros` incluye las lineas en PAPELERA a proposito. Una
+# linea borrada del portal puede seguir viva en Sigrid, y cambiar la
+# fecha o la obra del parte propaga a TODAS.
+# ------------------------------------------------------------------ #
+def _motivo_congelado_reg(reg: ParteRegistroOrm) -> str | None:
+    doc = reg.document
+    return motivo_congelacion_linea(
+        doc_aprobado=bool(doc is not None and doc.approved),
+        sigrid_estado=reg.sigrid_estado,
+    )
+
+
+def _exigir_reg_editable(reg: ParteRegistroOrm) -> None:
+    doc = reg.document
+    exigir_linea_editable(
+        doc_aprobado=bool(doc is not None and doc.approved),
+        sigrid_estado=reg.sigrid_estado,
+    )
+
+
+def _estados_de_doc(doc: ParteDocumentOrm) -> list[str | None]:
+    return [r.sigrid_estado for r in doc.registros]
+
+
+def _motivo_congelado_doc(doc: ParteDocumentOrm) -> str | None:
+    return motivo_congelacion_documento(
+        aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
+    )
+
+
+def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
+    exigir_documento_editable(
+        aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
+    )
+
+
+def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
+    """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
+    local a la linea escrita en Sigrid; un hard-delete la borra para
+    siempre."""
+    return any(
+        (e or "").strip().lower() == ESTADO_REGISTRADO
+        for e in _estados_de_doc(doc)
+    )
 
 
 class ParteReviewRepository:
@@ -1138,6 +1199,12 @@ class ParteReviewRepository:
             base = session.get(ParteRegistroOrm, registro_id)
             if base is None or base.es_incidencia:
                 return None
+            # F-004 R5: un parte aprobado no cambia de contenido, tampoco
+            # por adicion. Se aplica la misma matriz que a la edicion (no
+            # solo `approved`): la vista pinta la celda congelada con esa
+            # decision y el popup no ofrece crear extra, asi que el
+            # servidor tiene que decir lo mismo.
+            _exigir_reg_editable(base)
             h = hora or {}
             nuevo = ParteRegistroOrm(
                 document_id=base.document_id,
@@ -1438,6 +1505,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R3
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             if tipo_hora is not None:
@@ -1466,6 +1534,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R3
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.hora_ide = hora_ide
@@ -1525,6 +1594,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R3
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.partida_ide = partida_ide
@@ -2071,6 +2141,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None or reg.deleted_at_utc:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R4
             reg.deleted_at_utc = now_iso
             reg.deleted_by = by
             session.commit()

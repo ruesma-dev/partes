@@ -7,11 +7,11 @@ Rama: `feature/F-004-congelar-aprobados`. Un commit por tarea
 `sembrar_registros` o añadir un sembrador con `approved`/`sigrid_estado`
 parametrizables).
 
-- [ ] T1: Crear `application/services/congelacion.py` (funciones puras,
+- [x] T1: Crear `application/services/congelacion.py` (funciones puras,
       constantes, `CongeladoError`) con su test de matriz.
       | Verificación: `python -m pytest services/partes-front/tests/test_f004_congelacion_reglas.py` en verde (R1, R2); fase RED primero (el test de la matriz falla sin el módulo).
 
-- [ ] T2: Guardas de LÍNEA en `parte_repository.py` (`update_registro`,
+- [x] T2: Guardas de LÍNEA en `parte_repository.py` (`update_registro`,
       `set_registro_hora`, `set_registro_partida`, `soft_delete_registro`,
       `crear_extra_desde`) + `@app.exception_handler(CongeladoError)` →
       409 JSON en `app.py`.
