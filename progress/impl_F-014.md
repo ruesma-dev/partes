@@ -47,7 +47,7 @@ petición.
 
 ```
 e04c575  F-014 T1: linea base en Sigrid (solo lectura) y peticion para RRHH
-<este>   F-014 T2: informe del implementer
+3446c18  F-014 T2: informe del implementer con linea base, hallazgos y evidencias
 ```
 
 ## Línea base medida (2026-08-19, antes del cambio)
