@@ -3,6 +3,12 @@
 
 ## Notas de contexto para la próxima sesión
 
+- F-010 cerrada el 2026-08-18 (resumen en `progress/history.md`). MANUAL
+  del humano: M1/M2 (arranque local de sv3 y sv4 → índice nuevo en
+  `pg_indexes`, 118 sentencias en ambos), pasos en `progress/impl_F-010.md`
+  §6. Merge a dev y push pendientes del humano; en azure-apps hay commit
+  local 8f55505.
+
 - F-012 cerrada el 2026-08-18 (resumen en `progress/history.md`). Merge de
   `feature/F-012-estudio-jornada-semanal` a dev y push pendientes del
   humano.
@@ -34,4 +40,4 @@
   F-015/F-016) por el humano el 2026-08-18: sin
   contratos en Sesame no hay fuente de jornada reducida.
 - Siguiente feature por prioridad: F-014 (candef en Sigrid, humano) →
-  F-010 → F-015 → F-016 → F-005 …
+  F-015 (spec) → F-016 → F-005 …

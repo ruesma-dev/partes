@@ -13,61 +13,12 @@ from infrastructure.database.orm_models import (
     EmpleadoAliasOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
+    ddl_complementario,
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 
 logger = logging.getLogger(__name__)
-
-_DDL_PARTIAL_UNIQUE = (
-    "CREATE UNIQUE INDEX IF NOT EXISTS ux_parte_documents_sha256_active "
-    "ON parte_documents (source_sha256) WHERE is_active"
-)
-
-# Columnas anadidas despues del esquema inicial. ALTER defensivo por si la
-# tabla ya existe (create_all no anade columnas a tablas existentes).
-_DDL_ALTERS = (
-    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-    "firma_encargado BOOLEAN NOT NULL DEFAULT false",
-    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-    "firma_jefe_obra BOOLEAN NOT NULL DEFAULT false",
-    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-    "firma_administracion BOOLEAN NOT NULL DEFAULT false",
-    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-    "sharepoint_url TEXT",
-    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-    "sharepoint_item_id VARCHAR(255)",
-    "ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
-    "sharepoint_drive_id VARCHAR(255)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "partida_ide INTEGER",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "partida_cod VARCHAR(64)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "partida_res VARCHAR(255)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "partida_capitulo VARCHAR(8)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "partida_match_method VARCHAR(24)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "partida_match_score DOUBLE PRECISION",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "recurso_ide INTEGER",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "recurso_cif VARCHAR(64)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "hmo_ide INTEGER",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "parte_estado VARCHAR(16)",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "hora_candef DOUBLE PRECISION",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "recurso_precio_hora DOUBLE PRECISION",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "horas_orig DOUBLE PRECISION",
-    "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
-    "extra_auto BOOLEAN NOT NULL DEFAULT false",
-)
 
 
 def _norm_txt(s: str | None) -> str:
@@ -101,13 +52,23 @@ class SqlAlchemyParteRepository:
         self._session_factory = session_factory
 
     def initialize(self) -> None:
+        """Crea lo que falte del esquema y lo completa (idempotente).
+
+        `create_all` no anade columnas ni indices a una tabla que ya
+        existe: eso lo hace `ddl_complementario()`, GENERADO del ORM. Antes
+        habia aqui una lista de ALTER escrita a mano que se quedo
+        incompleta y distinta de la de sv4 (F-010).
+        """
         engine = self._session_factory.engine
         Base.metadata.create_all(engine)
+        sentencias = ddl_complementario()
         with engine.begin() as connection:
-            connection.execute(text(_DDL_PARTIAL_UNIQUE))
-            for ddl in _DDL_ALTERS:
+            for ddl in sentencias:
                 connection.execute(text(ddl))
-        logger.info("[parte-repo] esquema inicializado.")
+        logger.info(
+            "[parte-repo] esquema inicializado (%s sentencias complementarias).",
+            len(sentencias),
+        )
 
     # ----------------------------------------------------------------- #
     # Conciliacion de PARTIDAS (la lanza sv3 al persistir; sv4 solo lee).

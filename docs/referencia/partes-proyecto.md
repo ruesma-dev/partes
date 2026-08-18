@@ -10,6 +10,14 @@
 > Sigrid (`<ip-vpn-sigrid>`). El detalle está fuera del repositorio
 > (infra local).
 
+> **Corregido el 2026-08-18 por F-010**: §5 (esquema real de la base
+> `partes`). La versión anterior describía tres tablas y listaba en
+> `parte_registros` columnas que nunca existieron (`approved*`,
+> `is_active`, `page_number`, `created_at_utc`, `created_by`,
+> `nombre_norm`), un índice en `fecha_int` que no existe y `confianza_pct`
+> en `parte_documents` (la que hay es `firma_confianza_pct`). Se corrige
+> en el sitio, contra `information_schema` de la base real.
+
 > Sistema completo de captura, revisión y registro en Sigrid de los partes
 > diarios de trabajo de Construcciones Ruesma. Julio 2026.
 > Estado: **desplegado en Azure y operativo** (sv1–sv4 en producción de
@@ -338,36 +346,47 @@ y jornada (completa/reducida) del contrato — con lo que los avisos de
 
 **Servidor**: PostgreSQL Flexible Server `psql-albaranes-rs9k2`
 (compartido con albaranes) · **Base de datos**: `partes` · ORM:
-SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`, idéntico
-en sv3 y sv4; sv4 hace `ALTER TABLE … ADD COLUMN IF NOT EXISTS` al
-arrancar para columnas nuevas). Tres tablas.
+SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`,
+**byte-idéntico** en sv3 y sv4, con guardián automático desde F-010).
+**Cuatro tablas**: `parte_documents`, `parte_registros`, `empleado_alias`
+y `undo_log`.
+
+Al arrancar, sv3 y sv4 ejecutan el mismo DDL complementario —`ALTER TABLE
+… ADD COLUMN IF NOT EXISTS` por columna y `CREATE INDEX IF NOT EXISTS`—
+porque `create_all()` no añade columnas ni índices a una tabla que ya
+existe. Ese DDL se **genera del propio ORM** (`ddl_complementario()`), no
+se escribe a mano: las dos listas manuales anteriores acabaron incompletas
+y distintas entre servicios.
 
 ### 5.1 `parte_documents` — un PDF de parte recibido/creado
 
 | Grupo | Columnas | Notas |
 |---|---|---|
 | Identidad | `id` (PK, uuid), `created_at_utc` | |
-| Origen | `source_filename`, `source_attachment_filename`, `source_mime_type`, `source_sha256`, `page_count` | sha256 deduplica reenvíos |
+| Origen | `source_filename`, `source_attachment_filename`, `source_attachment_sha256`, `source_mime_type`, `source_sha256`, `page_number`, `page_count` | índice único PARCIAL por `source_sha256` `WHERE is_active`: deduplica reenvíos, pero un parte borrado no bloquea reingerir el mismo PDF |
 | Correo | `email_id`, `email_subject`, `email_sender`, `email_received_datetime` | vacíos en creación manual |
 | Obra leída/casada | `obra_numero_leido`, `obra_nombre_leido`, `obra_codigo`, `obra_ide`, `obra_nombre`, `obra_match_method`, `obra_match_score` | ide = `con.ide`/`obr` en Sigrid |
+| Día del parte | `fecha` (ISO), `fecha_int` (YYYYMMDD) | |
 | Personas del parte | `encargado_nombre`, `jefe_obra_nombre` | |
 | Firmas | `firma_encargado`, `firma_jefe_obra`, `firma_administracion`, `firmado`, `firmante_nombre`, `firmante_rol`, `firma_confianza_pct` | |
-| Extracción IA | `provider`, `model_name`, `prompt_key`, `schema_name`, `confianza_pct`, `review_required`, `raw_extraction_json`, `raw_context_json` | trazabilidad completa |
+| Extracción IA | `provider`, `model_name`, `prompt_key`, `schema_name`, `review_required`, `raw_extraction_json`, `raw_context_json` | trazabilidad completa. La confianza por línea vive en `parte_registros.confianza_pct`; aquí solo hay `firma_confianza_pct` (fila «Firmas») |
 | SharePoint | `sharepoint_drive_id`, `sharepoint_item_id`, `sharepoint_url` | PDF archivado |
 | Aprobación | `approved`, `approved_at_utc`, `approved_by` | |
 | Papelera | `is_active`, `deleted_at_utc`, `deleted_by` | borrado lógico |
 
 ### 5.2 `parte_registros` — una línea (trabajador × día × tipo)
 
-~50 columnas; FK `document_id` → `parte_documents.id`, `document`
-relación ORM.
+**56 columnas** (contadas contra la base real); FK `document_id` →
+`parte_documents.id`, `document` relación ORM con `cascade="all,
+delete-orphan"` (borrar el parte se lleva sus líneas). Índices:
+`document_id`, `empleado_ide` y `deleted_at_utc`.
 
 | Grupo | Columnas | Notas |
 |---|---|---|
-| Identidad | `id` (PK autoinc), `document_id` (FK), `line_index`, `page_number`, `empleado_line_no`, `created_at_utc`, `created_by` | |
-| Trabajador leído | `trabajador_nombre_leido`, `nombre_norm` | |
+| Identidad | `id` (PK autoinc), `document_id` (FK), `line_index`, `empleado_line_no` | la línea NO guarda fecha de creación ni autor: eso vive en el documento |
+| Trabajador leído | `trabajador_nombre_leido` | el nombre normalizado solo se guarda en `empleado_alias.nombre_norm` |
 | Trabajador casado | `empleado_ide`, `empleado_codigo`, `empleado_nombre`, `empleado_dni`, `empleado_reside`, `empleado_match_method`, `empleado_match_score`, `categoria` | ide = `emp.ide`; reside = `res.ide` |
-| Fecha | `fecha` (ISO), `fecha_int` (YYYYMMDD) | fecha_int indexada, formato Sigrid |
+| Fecha | `fecha` (ISO), `fecha_int` (YYYYMMDD) | desnormalizadas del documento; `fecha_int` es el formato de Sigrid (NO está indexada) |
 | Obra (por línea) | `obra_codigo`, `obra_ide`, `obra_nombre` | editable; manual la fija aquí |
 | Horas | `tipo_hora` (normal/extra/V/B/AT/FJ/F/H/M), `horas`, `horas_orig`, `extra_auto` | extra_auto = generada por cómputo |
 | Incidencias | `es_incidencia`, `incidencia_codigo`, `incidencia_texto`, `incidencia_dias` | sin horas |
@@ -376,7 +395,7 @@ relación ORM.
 | Tipo de hora Sigrid | `hora_ide`, `hora_codigo` (HLOF/HEOF/CI*…), `hora_descripcion`, `hora_ext` (¿es extra?), `hora_candef` (jornada), `hora_precio_coste`, `hora_precio_nomina`, `hora_match_method` | contra `auxhor`/`reshor` |
 | Calidad | `confianza_pct` | de la extracción |
 | **Registro en Sigrid** | `sigrid_estado` (registrado/omitido/error), `sigrid_parte_cod` (PT26/00251…), `sigrid_hmoide` (cabecera), `sigrid_hmores_ide` (línea), `sigrid_motivo`, `sigrid_registrado_at_utc`, `sigrid_registrado_by` | escrito por sv4 tras sv5 |
-| Aprobación / papelera | `approved`, `approved_at_utc`, `approved_by`, `is_active`, `deleted_at_utc`, `deleted_by` | soft-delete recuperable |
+| Papelera (de la línea) | `deleted_at_utc`, `deleted_by` | soft-delete recuperable; NULL = activa. La APROBACIÓN es del documento (`parte_documents.approved*`): la línea no tiene `approved*` ni `is_active` |
 
 ### 5.3 `empleado_alias` — aprendizaje de la conciliación
 
@@ -389,7 +408,20 @@ relación ORM.
 Cuando Administración concilia un nombre una vez, los siguientes partes
 con ese nombre casan solos.
 
-### 5.4 Datos que NO están en esta BBDD
+### 5.4 `undo_log` — historial para DESHACER del portal
+
+Solo la escribe y la lee **sv4**; sv3 la declara igualmente porque las dos
+copias del ORM son gemelas y la base es una.
+
+| Columna | Notas |
+|---|---|
+| `id` (PK autoinc), `created_at_utc` | |
+| `action`, `description` | qué se hizo (reasignar, casar, editar horas/fecha/obra…) y cómo se le enseña al usuario |
+| `payload` | estado ANTERIOR de las filas afectadas (registros/documento/alias) en JSON: es lo que permite restaurarlas |
+| `undone` | si ya se deshizo |
+| `actor` | quién lo hizo |
+
+### 5.5 Datos que NO están en esta BBDD
 
 - Los **partes de Sigrid** (`con`+`hmo` cabecera, `hmores` líneas) viven
   en el SQL Server de Sigrid (base `ruesma`); esta BBDD solo guarda la
