@@ -76,10 +76,14 @@ apartado 6 de `progress/peticion_F-014.md`.
 
 ## MANUAL pendiente del humano (acumulado)
 
-- **F-014 (NUEVO, 2026-08-19):** enviar la petición de
-  `progress/peticion_F-014.md` §7 a RRHH/Administración y, cuando avisen,
-  ejecutar V1/V2/V3 del apartado 6 (solo lectura, script de usar y tirar
-  fuera del repo, credenciales `SIGRID_API_*` de sv3).
+- **F-014 (2026-08-19) — EN ESPERA POR DECISIÓN DEL HUMANO, NO ENVIAR
+  TODAVÍA:** la petición de `progress/peticion_F-014.md` §7 está lista y
+  aprobada, pero **el correo a RRHH no sale hasta que F-015 esté
+  implementada y lista para desplegar**: F-014 SIN F-015 deja a esos 7
+  trabajadores **peor que hoy** (−3 h/semana de extra negativa). El aviso
+  está también en la cabecera del propio documento. Cuando salga y RRHH
+  avise: ejecutar V1/V2/V3 del apartado 6 (solo lectura, script de usar y
+  tirar fuera del repo, credenciales `SIGRID_API_*` de sv3).
 - **F-002 (Azure):** validar en navegador la aprobación asíncrona (⏳
   encolado → ✓ PT26/…, obra 0404 en modo pruebas), limpiar 0404
   (`python prueba_escritura_sigrid.py limpiar --ejecutar` en sv5) y pasar

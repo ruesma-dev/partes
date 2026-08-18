@@ -16,6 +16,31 @@
 
 ---
 
+> ## ⛔ NO ENVIAR TODAVÍA (decisión del humano, 2026-08-19)
+>
+> Este documento está **terminado y aprobado**, pero **el correo del
+> apartado 7 no sale hasta que F-015 esté implementada y lista para
+> desplegar**.
+>
+> **Motivo**: aplicar este cambio en Sigrid **sin** la regla de jornada
+> semanal desplegada (F-015) deja a estos 7 trabajadores **peor que hoy**.
+> Con `candef = 9` y la jornada plana actual, sus viernes de 6 h pasan a
+> restar **−3 h por semana** de extra negativa, cuando hoy el problema es
+> de +2 h. El daño está en la ventana intermedia, no en el cambio.
+>
+> | situación | efecto |
+> |---|---|
+> | hoy (candef 8, sin F-015) | +2 h/semana de extra automática |
+> | F-015 sin F-014 | igual que hoy (regresión cero) |
+> | **F-014 sin F-015** | **−3 h/semana: peor que hoy** |
+> | F-014 + F-015 | 0 extras |
+>
+> Cuando F-015 esté lista, se envía el correo y se coordina la ejecución con
+> el despliegue de sv3 y sv4. Contexto en `progress/current.md`, sección
+> «Ventana F-014 → F-015», y en `specs/F-015-.../design.md` §11.2.
+
+---
+
 ## 1. Resumen en una línea
 
 A siete oficiales hay que cambiar en Sigrid **la cantidad por defecto de su
