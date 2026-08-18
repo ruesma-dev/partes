@@ -47,6 +47,12 @@
   <div class="stat-card">
     <span class="stat-label">Cantidad por defecto</span>
     <span class="stat-value{% if candef_kpi.asignado %} candef-asignado{% endif %}" title="{% if candef_kpi.asignado %}Valor ASIGNADO por defecto. En Sigrid: {% if candef_kpi.sigrid is not none %}{{ candef_kpi.sigrid|horas }}{% else %}sin dato{% endif %} (<= minimo){% else %}CanDefecto del recurso en Sigrid{% endif %}">{{ candef_kpi.valor|horas }}{% if candef_kpi.asignado %} <span class="tag-asignado">asignado</span>{% endif %}</span>
+    {% if jornada_contrato %}
+    <span class="cell-sub jornada-contrato" title="Tipo de jornada del contrato en Sesame{% if jornada_contrato.tipo_contrato %} · contrato {{ jornada_contrato.tipo_contrato }}{% endif %}. Sesame no expone las horas del contrato: el calculo sigue usando el CanDefecto de Sigrid.">contrato: {{ jornada_contrato.tipo or "sin tipo" }}{% if jornada_contrato.reducida %} · reducida{% endif %}</span>
+    {% endif %}
+    {% if jornada_divergente %}
+    <span class="tag-difiere jornada-divergencia" title="El contrato en Sesame es de jornada reducida, pero la jornada aplicada al calculo ({{ candef_kpi.valor|horas }}) es la completa. Revisa el CanDefecto del recurso en Sigrid.">&#9888; contrato reducida</span>
+    {% endif %}
   </div>
   <div class="stat-card">
     <span class="stat-label">Incidencias</span>
@@ -135,6 +141,10 @@
 </div>
 {% endif %}
 
+{% if sesame_degradado %}
+<div class="alert warn sesame-degradado">⚠ El calendario puede no ser exacto: <strong>Sesame no disponible</strong>. Los festivos y los avisos de jornada incompleta salen del respaldo local, no del calendario real del trabajador.</div>
+{% endif %}
+
 {% if not sigrid_enabled %}
 <div class="alert info">El desplegable de codigo de hora esta vacio: Sigrid no esta configurado en este portal (variables <code>SIGRID_API_*</code>).</div>
 {% endif %}
@@ -177,17 +187,17 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}">
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
         <td class="cell-fecha">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
-                 value="{{ r.fecha or '' }}">
+                 value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}
-          <button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>
+          {% if r.congelado %}<span class="congelado-motivo" title="{{ r.congelado_motivo }}">🔒</span>{% else %}<button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>{% endif %}
         </td>
         <td class="cell-obra">
-          {% if sigrid_enabled %}
+          {% if sigrid_enabled and not r.congelado %}
           <div class="combo-obra" data-document-id="{{ r.document_id }}"
                data-codigo="{{ r.obra_codigo or '' }}">
             <input type="text" class="combo-input cell-edit" autocomplete="off"
@@ -213,11 +223,11 @@
         <td class="num cell-horas">
           <input type="number" step="0.5" min="0" class="horas-edit cell-edit cell-edit-num"
                  data-registro-id="{{ r.id }}"
-                 value="{{ r.horas if r.horas is not none else '' }}">
+                 value="{{ r.horas if r.horas is not none else '' }}"{% if r.congelado %} disabled{% endif %}>
         </td>
         <td>
           <select class="combo combo-hora" data-registro-id="{{ r.id }}"
-                  data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}">
+                  data-current="{{ r.hora_ide if r.hora_ide is not none else '' }}"{% if r.congelado %} disabled{% endif %}>
             <option value="">— sin asignar —</option>
           </select>
           <div class="cell-sub combo-hora-current">
@@ -257,6 +267,7 @@
         <td class="cell-sigrid">
           {% if r.sigrid_estado == 'registrado' %}
             <span class="badge ok" title="Registrado en Sigrid{% if r.sigrid_parte_cod %} · parte {{ r.sigrid_parte_cod }}{% endif %}">✓ {{ r.sigrid_parte_cod or 'registrado' }}</span>
+            {% if r.sigrid_motivo and r.sigrid_motivo.startswith('[SIN-SESAME]') %}<span class="badge warn badge-sin-sesame" title="{{ r.sigrid_motivo }}. El calculo de horas de esta linea se hizo sin los festivos reales del trabajador.">SIN-SESAME</span>{% endif %}
           {% elif r.sigrid_estado == 'omitido' %}
             <span class="badge warn" title="{{ r.sigrid_motivo or 'No se registra' }}">omitido</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea">↻</button>

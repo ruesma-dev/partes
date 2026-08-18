@@ -1,6 +1,42 @@
 // static/app.js — portal de partes (sv4)
 // Puebla los desplegables de codigo de hora (auxhor) desde Sigrid y
 // persiste el cambio por registro via PATCH /api/registros/{id}/hora.
+
+/* ==================================================================== *
+ * F-004 · rechazos del servidor con MOTIVO.
+ * El 409 de congelacion trae {ok:false, congelado:true, error:"..."}.
+ * Sin leer ese cuerpo, todas las ediciones mostraban un "✗ Error"
+ * generico que no le dice a nadie por que no puede guardar ni que hacer
+ * para poder ("Marcar pendiente", esperar al resultado de Sigrid...).
+ * Compartido entre los IIFE, igual que `PartidaSel`.
+ * ==================================================================== */
+var MotivoHttp = (function () {
+  "use strict";
+  function cuerpo(r) {
+    return r.json().then(function (d) { return d || {}; },
+                         function () { return {}; });
+  }
+  // Uso: fetch(...).then(MotivoHttp.lanzarSiFalla)
+  // El error lleva `congelado` para poder distinguir «el sistema dice
+  // que NO» (hay que enseñarlo sí o sí) de un fallo de red (basta el
+  // aviso discreto de siempre).
+  function lanzarSiFalla(r) {
+    if (r.ok) return r.json();
+    return cuerpo(r).then(function (d) {
+      var e = new Error(d.error || ("HTTP " + r.status));
+      e.congelado = !!d.congelado;
+      e.status = r.status;
+      throw e;
+    });
+  }
+  // True si el elemento vive en una fila congelada (el flag lo pinta el
+  // servidor con la misma regla que la guarda: aqui no se recalcula).
+  function congelado(el) {
+    return !!(el && el.closest && el.closest('[data-congelado="1"]'));
+  }
+  return { lanzarSiFalla: lanzarSiFalla, congelado: congelado };
+})();
+
 (function () {
   "use strict";
 
@@ -47,10 +83,7 @@
       method: "PATCH",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ hora_ide: parseInt(horaIde, 10) }),
-    }).then(function (r) {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    });
+    }).then(MotivoHttp.lanzarSiFalla);
   }
 
   function onChange(ev) {
@@ -76,7 +109,10 @@
             (data.hora_descripcion ? " · " + data.hora_descripcion : "");
         }
       })
-      .catch(function () { flash(select, "error"); })
+      .catch(function (e) {
+        flash(select, "error");
+        select.title = e.message || "Error";   // F-004 R16
+      })
       .finally(function () { select.disabled = false; });
   }
 
@@ -134,19 +170,18 @@
         method: "PATCH",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ fecha: val }),
-      }).then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      }).then(function (data) {
+      }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
         flashEl(inp, "saved");
         setStatus(statusId, "✓ Guardado", "saved");
         // Propaga a filas hermanas del mismo documento.
         document.querySelectorAll(
           '.fecha-edit[data-document-id="' + docId + '"]'
         ).forEach(function (o) { if (o !== inp) o.value = data.fecha; });
-      }).catch(function () {
+      }).catch(function (e) {
         flashEl(inp, "error");
-        setStatus(statusId, "✗ Error", "error");
+        // F-004 R16: el motivo del servidor, no un "✗ Error" mudo.
+        setStatus(statusId, "✗ " + (e.message || "Error"), "error");
+        inp.title = e.message || "";
       }).finally(function () { inp.disabled = false; });
     });
   }
@@ -167,15 +202,20 @@
           method: "PATCH",
           headers: { "Content-Type": "application/json", Accept: "application/json" },
           body: JSON.stringify({ horas: val }),
-        }).then(function (r) {
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.json();
-        });
+        }).then(MotivoHttp.lanzarSiFalla);
       })).then(function () {
         flashEl(inp, "saved");
+        inp.title = "";
         if (bulk) window.location.reload();
-      }).catch(function () { flashEl(inp, "error"); })
-        .finally(function () { inp.disabled = false; });
+      }).catch(function (e) {
+        // F-004 R16: en la celda no cabe un texto largo, asi que el
+        // motivo va al tooltip del input; y si es una CONGELACION —el
+        // sistema diciendo que no— ademas se enseña, porque el usuario
+        // no lo espera y tiene que saber que hacer.
+        flashEl(inp, "error");
+        inp.title = e.message || "Error";
+        if (e.congelado) alert(e.message);
+      }).finally(function () { inp.disabled = false; });
     });
   }
 
@@ -284,18 +324,19 @@
           return;
         }
         setStatus(statusId, "Guardando…", null);
-        Promise.all(docIds.map(function (d) { return patchObra(d, o); }))
+        Promise.all(docIds.map(function (d) {
+          return patchObra(d, o).then(MotivoHttp.lanzarSiFalla);
+        }))
           .then(function () { window.location.reload(); })
-          .catch(function () {
-            flashEl(input, "error"); setStatus(statusId, "✗ Error", "error");
+          .catch(function (e) {
+            flashEl(input, "error");
+            setStatus(statusId, "✗ " + (e.message || "Error"), "error");
+            if (e.congelado) alert(e.message);   // F-004 R16
           });
         return;
       }
       setStatus(statusId, "Guardando…", null);
-      patchObra(docId, o).then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      }).then(function () {
+      patchObra(docId, o).then(MotivoHttp.lanzarSiFalla).then(function () {
         flashEl(input, "saved");
         setStatus(statusId, "✓ Guardado", "saved");
         // Propaga a filas hermanas del mismo documento.
@@ -308,9 +349,9 @@
           if (si) si.value = label;
           w.setAttribute("data-codigo", o.codigo || "");
         });
-      }).catch(function () {
+      }).catch(function (e) {
         flashEl(input, "error");
-        setStatus(statusId, "✗ Error", "error");
+        setStatus(statusId, "✗ " + (e.message || "Error"), "error");  // R16
       });
     }
 
@@ -540,6 +581,10 @@
         if (!res.ok || !res.d.ok) throw new Error((res.d && res.d.error) || "Error");
         var emp = res.d.empleado || {};
         var label = (emp.codigo ? emp.codigo + " · " : "") + (emp.nombre || "");
+        if (res.d.congeladas) {   // F-004 R8
+          alert(res.d.congeladas + " linea(s) se han omitido al casar: "
+                + "estan aprobadas o registradas en Sigrid.");
+        }
         if (!res.d.updated && statusEl) {
           statusEl.textContent = "⚠ Casado pero 0 registros actualizados (revisa el nombre leido).";
           statusEl.className = "recon-status error";
@@ -650,6 +695,10 @@
     }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         if (!res.ok || !res.d.ok) throw new Error((res.d && res.d.error) || "Error");
+        if (res.d.congeladas) {   // F-004 R8
+          alert(res.d.congeladas + " linea(s) se han omitido: estan "
+                + "aprobadas o registradas en Sigrid.");
+        }
         if (!res.d.updated) {
           flashEl(input, "error");
           if (input) { input.disabled = false; input.value = ""; input.placeholder = "No se encontraron registros — reintenta"; }
@@ -876,6 +925,10 @@
           method: "POST", headers: { Accept: "application/json" },
         }).then(function (r) { return r.json(); })
           .then(function (res) {
+            if (res && res.omitidos) {   // F-004 R9
+              alert(res.omitidos + " fila(s) no se han deshecho: hoy estan "
+                    + "aprobadas o registradas en Sigrid.");
+            }
             if (res && res.ok) {
               window.location.reload();  // refleja el cambio revertido
             } else {
@@ -918,7 +971,11 @@
       btn.disabled = true;
       _postJSON("/api/registro/" + id + "/delete").then(function (d) {
         if (d && d.ok) { window.location.reload(); }
-        else { btn.disabled = false; alert("No se pudo borrar la línea."); }
+        else {
+          btn.disabled = false;
+          // F-004 R16: si el 409 es de congelacion, trae el motivo.
+          alert((d && d.error) || "No se pudo borrar la línea.");
+        }
       });
     });
     // Borrar OBRA completa (todos sus partes).
@@ -931,8 +988,14 @@
       if (!confirm(msg)) return;
       btn.disabled = true;
       _postJSON("/api/obra/" + encodeURIComponent(key) + "/delete").then(function (d) {
-        if (d && d.ok) { window.location.href = "/obras"; }
-        else { btn.disabled = false; alert("No se pudo borrar la obra."); }
+        // F-004 R13: los partes congelados se omiten; hay que DECIRLO.
+        if (d && d.congelados) {
+          alert(d.congelados + " parte(s) no se han movido a la papelera: "
+                + "estan aprobados o tienen lineas en Sigrid.");
+        }
+        if (d && d.ok) { window.location.href = "/obras"; return; }
+        btn.disabled = false;
+        if (!d || !d.congelados) alert("No se pudo borrar la obra.");
       });
     });
     // Borrar PERSONA completa (todas sus líneas).
@@ -942,8 +1005,13 @@
       if (!confirm("¿Mover a la papelera TODAS las líneas de «" + label + "»?")) return;
       btn.disabled = true;
       _postJSON("/api/trabajador/" + encodeURIComponent(key) + "/delete").then(function (d) {
-        if (d && d.ok) { window.location.href = "/trabajadores"; }
-        else { btn.disabled = false; alert("No se pudo borrar la persona."); }
+        if (d && d.congelados) {   // F-004 R13
+          alert(d.congelados + " linea(s) no se han movido a la papelera: "
+                + "estan aprobadas o registradas en Sigrid.");
+        }
+        if (d && d.ok) { window.location.href = "/trabajadores"; return; }
+        btn.disabled = false;
+        if (!d || !d.congelados) alert("No se pudo borrar la persona.");
       });
     });
     // PAPELERA: restaurar / eliminar (documento y línea) + vaciar.
@@ -957,7 +1025,11 @@
       if (!confirm("Eliminar DEFINITIVAMENTE " + label + "?\nNo se puede deshacer.")) return;
       btn.disabled = true;
       _postJSON("/api/documento/" + btn.getAttribute("data-hard-doc") + "/hard-delete")
-        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+        .then(function (d) {
+          if (d && d.ok) { window.location.reload(); return; }
+          btn.disabled = false;
+          if (d && d.error) alert(d.error);   // F-004 R12/R16
+        });
     });
     _bindClick("[data-restore-line]", function (btn) {
       btn.disabled = true;
@@ -969,7 +1041,11 @@
       if (!confirm("Eliminar DEFINITIVAMENTE " + label + "?\nNo se puede deshacer.")) return;
       btn.disabled = true;
       _postJSON("/api/registro/" + btn.getAttribute("data-hard-line") + "/hard-delete")
-        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+        .then(function (d) {
+          if (d && d.ok) { window.location.reload(); return; }
+          btn.disabled = false;
+          if (d && d.error) alert(d.error);   // F-004 R12/R16
+        });
     });
     var vaciar = document.getElementById("papelera-vaciar");
     if (vaciar) {
@@ -977,7 +1053,14 @@
         if (!confirm("Vaciar la papelera?\nSe eliminará DEFINITIVAMENTE todo su contenido. No se puede deshacer.")) return;
         vaciar.disabled = true;
         _postJSON("/api/papelera/vaciar")
-          .then(function (d) { if (d && d.ok) window.location.reload(); else vaciar.disabled = false; });
+          .then(function (d) {
+            if (d && d.omitidos) {   // F-004 R12
+              alert(d.omitidos + " elemento(s) siguen en la papelera: "
+                    + "tienen lineas registradas en Sigrid y borrarlas "
+                    + "perderia la referencia a lo escrito alli.");
+            }
+            if (d && d.ok) window.location.reload(); else vaciar.disabled = false;
+          });
       });
     }
   }
@@ -1144,6 +1227,64 @@
     }
     function countSel() { return Object.keys(selected).length; }
 
+    // ---- Calendario laboral (F-003, R17): festivos y domingos ----
+    // Se pide a /api/calendario el mes visible, con el DNI del trabajador
+    // elegido si lo hay. Sirve para MARCAR los dias, no para prohibirlos:
+    // trabajar en festivo es legitimo, lo que no vale es hacerlo sin darse
+    // cuenta.
+    var calDias = {};        // iso -> {festivo, fin_de_semana, festivo_nombre}
+    var calFiable = true;
+    var calPedido = "";      // clave de la ultima peticion lanzada
+
+    function calDniActual() {
+      var el = document.getElementById("emp-dni");
+      return (el && el.value) || "";
+    }
+    function calAviso() {
+      var box = document.getElementById("cal-aviso");
+      if (!box) return;
+      box.hidden = calFiable;
+    }
+    function cargarCalendario() {
+      var desde = iso(y, m, 1);
+      var hasta = iso(y, m, new Date(y, m + 1, 0).getDate());
+      var dni = calDniActual();
+      var clave = desde + "|" + dni;
+      if (clave === calPedido) return;
+      calPedido = clave;
+      var url = "/api/calendario?desde=" + desde + "&hasta=" + hasta
+        + (dni ? "&dni=" + encodeURIComponent(dni) : "");
+      fetch(url, { headers: { Accept: "application/json" } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d || !d.ok) return;
+          calFiable = d.fiable !== false;
+          (d.data || []).forEach(function (x) { calDias[x.fecha] = x; });
+          calAviso();
+          renderCal();
+        })
+        .catch(function () {
+          // El calendario es una AYUDA: si no se puede pintar, el alta
+          // sigue funcionando igual que antes de F-003.
+          calPedido = "";
+        });
+    }
+    function esDomingo(isoStr) {
+      var info = calDias[isoStr];
+      if (info) return !!info.fin_de_semana
+        && new Date(isoStr + "T00:00:00").getDay() === 0;
+      return new Date(isoStr + "T00:00:00").getDay() === 0;
+    }
+    function esFestivo(isoStr) {
+      var info = calDias[isoStr];
+      return !!(info && info.festivo);
+    }
+    function diasDelicados() {
+      return Object.keys(selected).filter(function (k) {
+        return esFestivo(k) || esDomingo(k);
+      }).sort();
+    }
+
     function renderChips() {
       var box = document.getElementById("dias-chips");
       var keys = Object.keys(selected).sort();
@@ -1237,6 +1378,14 @@
         cell.type = "button"; cell.className = "cal-day"; cell.textContent = dd;
         if (selected[isoStr]) cell.classList.add("sel");
         if (rangeStart === isoStr) cell.classList.add("range-start");
+        if (esFestivo(isoStr)) {
+          cell.classList.add("cal-day-fest");
+          var info = calDias[isoStr];
+          cell.title = (info && info.festivo_nombre) || "Festivo";
+        } else if (esDomingo(isoStr)) {
+          cell.classList.add("cal-day-dom");
+          cell.title = "Domingo";
+        }
         (function (s) {
           cell.addEventListener("click", function () { clickDay(s); });
         })(isoStr);
@@ -1246,10 +1395,10 @@
     }
 
     document.getElementById("cal-prev").addEventListener("click", function () {
-      m--; if (m < 0) { m = 11; y--; } renderCal();
+      m--; if (m < 0) { m = 11; y--; } renderCal(); cargarCalendario();
     });
     document.getElementById("cal-next").addEventListener("click", function () {
-      m++; if (m > 11) { m = 0; y++; } renderCal();
+      m++; if (m > 11) { m = 0; y++; } renderCal(); cargarCalendario();
     });
     document.getElementById("cal-clear").addEventListener("click", function () {
       selected = {}; rangeStart = null; renderCal();
@@ -1286,12 +1435,26 @@
         if (e.jornada_sugerida != null) {
           document.getElementById("horas-ord").value = e.jornada_sugerida;
         }
+        // Su calendario puede tener festivos distintos (F-003).
+        calDias = {}; calPedido = ""; cargarCalendario();
         updateBtn();
       });
 
     document.getElementById("crear-btn").addEventListener("click", function () {
       var btn = this;
       var dias = Object.keys(selected).sort();
+      // R17: aviso NO bloqueante. Registrar horas en festivo o domingo es
+      // legitimo (y frecuente en obra); lo que no puede pasar es hacerlo
+      // sin enterarse por haber pintado un rango de un tiron.
+      var raros = diasDelicados();
+      if (raros.length) {
+        var lista = raros.map(function (k) {
+          return k.slice(8) + "/" + k.slice(5, 7);
+        }).join(", ");
+        var msg = raros.length + " día(s) son festivo/domingo (" + lista
+          + ") — ¿continuar?";
+        if (!window.confirm(msg)) return;
+      }
       var incSel = (document.getElementById("incidencia") || {}).value || "";
       var payload = {
         obra_ide: document.getElementById("obra-ide").value || null,
@@ -1350,6 +1513,7 @@
     });
 
     renderCal();
+    cargarCalendario();
   }
 
   function wireAddLine() {
@@ -1747,9 +1911,11 @@
     return Promise.all(ids.map(function (id) {
       return fetch("/api/registros/" + id + "/partida", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: body
-      });
+        // F-004 R16: antes NO se miraba el estado de la respuesta y un
+        // rechazo del servidor acababa en un reload que fingia exito.
+      }).then(MotivoHttp.lanzarSiFalla);
     }));
   }
 
@@ -1880,10 +2046,15 @@
                   omitidas + " omitida(s) por ser de otra obra.");
           }
           window.location.reload();
-        }).catch(function () { alert("Error al cambiar la partida."); restore(); });
+        }).catch(function (e) {
+          alert(e.message || "Error al cambiar la partida.");   // R16
+          restore();
+        });
       });
     }
-    document.querySelectorAll("td.cell-partida").forEach(wireCell);
+    document.querySelectorAll("td.cell-partida").forEach(function (cell) {
+      if (!MotivoHttp.congelado(cell)) wireCell(cell);   // F-004 R14
+    });
   }
 
   // Seleccion multiple (Ctrl/Shift+click) + barra de acciones en bloque.
@@ -2013,14 +2184,23 @@
       });
     }
 
-    document.querySelectorAll(".fecha-edit").forEach(wireFechaInput);
-    document.querySelectorAll(".horas-edit").forEach(wireHorasInput);
-    document.querySelectorAll(".combo-obra").forEach(wireObraCombo);
+    // F-004: en una fila congelada no se cablea NINGUN editor. El input
+    // ya sale `disabled` del servidor; esto evita ademas que un cambio
+    // programatico (o un `disabled` retirado desde la consola) dispare
+    // una peticion que el servidor va a rechazar con un 409.
+    function _cablear(sel, fn) {
+      document.querySelectorAll(sel).forEach(function (el) {
+        if (!MotivoHttp.congelado(el)) fn(el);
+      });
+    }
+    _cablear(".fecha-edit", wireFechaInput);
+    _cablear(".horas-edit", wireHorasInput);
+    _cablear(".combo-obra", wireObraCombo);
     document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireColumnTools);
     document.querySelectorAll("table").forEach(wireColumnFilters);
     wireDayFilters();
     document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireSortable);
-    document.querySelectorAll(".combo-emp").forEach(wireEmpleadoCombo);
+    _cablear(".combo-emp", wireEmpleadoCombo);
     wireNameEditToggles();
     wirePdfModal();
     wireUndo();
@@ -2031,7 +2211,9 @@
     wireNuevoParte();
     wireAddLine();
 
-    var combos = Array.prototype.slice.call(document.querySelectorAll(".combo-hora"));
+    var combos = Array.prototype.slice.call(
+      document.querySelectorAll(".combo-hora")
+    ).filter(function (s) { return !MotivoHttp.congelado(s); });
     if (!combos.length) return;
 
     fetchTiposHora().then(function (data) {
@@ -2089,10 +2271,7 @@
         method: "PATCH",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ horas: val }),
-      }).then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      });
+      }).then(MotivoHttp.lanzarSiFalla);
     }
 
     function crearExtra(baseOrdId, val) {
@@ -2100,22 +2279,20 @@
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ horas: val }),
-      }).then(function (r) {
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return r.json();
-      });
+      }).then(MotivoHttp.lanzarSiFalla);
     }
 
-    function fila(labelTxt, sub, value) {
+    function fila(labelTxt, sub, value, congelada) {
       var wrap = document.createElement("label");
-      wrap.className = "mxe-field";
+      wrap.className = "mxe-field" + (congelada ? " mxe-congelada" : "");
       var span = document.createElement("span");
-      span.textContent = labelTxt;
+      span.textContent = congelada ? (labelTxt + " 🔒") : labelTxt;
       if (sub) span.title = sub;
       var inp = document.createElement("input");
       inp.type = "number";
       inp.step = "0.5";
       inp.value = value;
+      if (congelada) { inp.readOnly = true; inp.disabled = true; }
       wrap.appendChild(span);
       wrap.appendChild(inp);
       return { wrap: wrap, inp: inp };
@@ -2139,22 +2316,31 @@
         + (td.dataset.fecha || "");
       pop.appendChild(title);
 
-      // Una fila editable POR LINEA de la celda (con su partida si la tiene).
+      // Una fila editable POR LINEA de la celda (con su partida si la
+      // tiene). F-004 R15: las que traen `c` salen solo-lectura.
       var campos = [];
       regs.forEach(function (r) {
         var base = r.t === "n" ? "Ord." : "Extra";
         var lab = r.p ? (base + " \u00b7 " + r.p) : base;
-        var f = fila(lab, r.p ? ("Partida " + r.p) : null, r.h);
+        var sub = r.c
+          ? "Linea congelada: aprobada o ya registrada en Sigrid"
+          : (r.p ? ("Partida " + r.p) : null);
+        var f = fila(lab, sub, r.h, !!r.c);
         campos.push({ f: f, reg: r });
         pop.appendChild(f.wrap);
       });
 
       // Sin linea extra aun: permitir CREARLA (clona contexto del 1er Ord.).
+      // R15: si TODAS las lineas estan congeladas no se ofrece ni crear
+      // la extra ni guardar (el servidor las rechazaria con un 409).
+      var todasCongeladas = regs.every(function (r) { return !!r.c; });
       var nueva = null;
       var hayExtra = regs.some(function (r) { return r.t === "e"; });
-      var primerOrd = regs.filter(function (r) { return r.t === "n"; })[0];
-      if (!hayExtra && primerOrd) {
-        nueva = fila("Extra", "Se creara una linea extra nueva", 0);
+      var primerOrd = regs.filter(function (r) {
+        return r.t === "n" && !r.c;
+      })[0];
+      if (!hayExtra && primerOrd && !todasCongeladas) {
+        nueva = fila("Extra", "Se creara una linea extra nueva", 0, false);
         pop.appendChild(nueva.wrap);
       }
 
@@ -2164,8 +2350,9 @@
       ok.type = "button"; ok.className = "btn small"; ok.textContent = "Guardar";
       var cancel = document.createElement("button");
       cancel.type = "button"; cancel.className = "btn secondary small";
-      cancel.textContent = "Cancelar";
-      bar.appendChild(ok); bar.appendChild(cancel);
+      cancel.textContent = todasCongeladas ? "Cerrar" : "Cancelar";
+      if (!todasCongeladas) bar.appendChild(ok);
+      bar.appendChild(cancel);
       pop.appendChild(bar);
 
       cancel.addEventListener("click", closePop);
@@ -2173,6 +2360,7 @@
         var jobs = [];
         campos.forEach(function (it) {
           var v = it.f.inp.value;
+          if (it.reg.c) return;   // F-004 R15: congelada, no se envia
           if (v === "" || parseFloat(v) === it.reg.h) return;
           jobs.push(patchHoras(it.reg.id, v));
         });
@@ -2183,9 +2371,11 @@
         ok.disabled = true;
         Promise.all(jobs)
           .then(function () { window.location.reload(); })
-          .catch(function () {
+          .catch(function (e) {
             ok.disabled = false;
-            title.textContent = "\u2717 Error guardando. Reintenta.";
+            // F-004 R16: el motivo real del servidor.
+            title.textContent = "\u2717 " + (e.message || "Error guardando.");
+            title.title = e.message || "";
           });
       });
 
@@ -2193,7 +2383,7 @@
       var r = td.getBoundingClientRect();
       pop.style.left = Math.max(8, window.scrollX + r.left - 40) + "px";
       pop.style.top = (window.scrollY + r.bottom + 4) + "px";
-      var first = pop.querySelector("input");
+      var first = pop.querySelector("input:not([disabled])");
       if (first) { first.focus(); first.select(); }
       ev.stopPropagation();
     });
@@ -2307,6 +2497,22 @@
       + "</p>" + omHtml;
   }
 
+  /* R18: horas imputadas en festivo o domingo. Informativo: no cambia
+     nada de lo que se registra, solo evita que se cuele un error de
+     fecha en una aprobacion de un mes entero. */
+  function avisosCalendarioHtml(avisos) {
+    if (!avisos || !avisos.length) return "";
+    return "<div class='ap-ctx ap-cal-avisos'><p>Hay <strong>"
+      + avisos.length + "</strong> linea(s) con horas en <strong>festivo o "
+      + "domingo</strong>. Puede ser correcto; comprueba que no sea un error "
+      + "de fecha:</p><ul class='ap-list'>"
+      + avisos.map(function (a) {
+          return "<li>" + (a.nombre || "?") + " · " + (a.fecha || "")
+            + " · " + num(a.horas) + " h — " + (a.motivo || "") + "</li>";
+        }).join("")
+      + "</ul></div>";
+  }
+
   function conflictosHtml(conflictos) {
     return "<p class='ap-warn'>Ya hay lineas en Sigrid con el <strong>mismo "
       + "codigo de hora</strong> para ese parte, recurso y fecha. Marca las "
@@ -2412,11 +2618,27 @@
           + "</p>", [{ texto: "Cerrar", onClick: cerrar }]);
   }
 
+  /* R23/R25: Sesame configurado pero caido. El calculo de horas pierde
+     los festivos reales, asi que el registro se BLOQUEA. La unica salida
+     es el override manual, que va por la via sincrona y deja las lineas
+     marcadas [SIN-SESAME]: mismo patron que el pisado de conflictos. */
+  function bloqueoSesameHtml(motivo) {
+    return "<div class='ap-warn ap-sesame-bloqueo'><p><strong>No se puede "
+      + "registrar:</strong> " + (motivo || "") + "</p>"
+      + "<p>Sin el calendario de Sesame faltan los festivos reales de cada "
+      + "trabajador, y el reparto entre horas ordinarias y extra puede ser "
+      + "incorrecto. Lo normal es esperar a que Sesame vuelva.</p>"
+      + "<label class='ap-forzar'><input type='checkbox' id='ap-forzar-sesame'> "
+      + "Registrar igualmente bajo mi responsabilidad. Las lineas quedaran "
+      + "marcadas <code>[SIN-SESAME]</code>.</label></div>";
+  }
+
   /* PISAR conflictos: siempre sincrono. Es destructivo (borra lineas de
      Sigrid) y el usuario quiere ver el resultado en el momento. */
-  function ejecutar(peticion, pisarClaves, caja, boton) {
+  function ejecutar(peticion, pisarClaves, caja, boton, forzarSinSesame) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var body = Object.assign({}, peticion, { pisar_claves: pisarClaves || [] });
+    if (forzarSinSesame) body.forzar_sin_sesame = true;
     return post("/api/aprobar/ejecutar", body).then(function (r) {
       if (!r.ok) { errorModal("No se pudo registrar", r); return; }
       mostrarResultado(peticion, r);
@@ -2462,11 +2684,15 @@
         return;
       }
       var conflictos = pf.conflictos || [];
+      var bloqueo = pf.sesame_bloqueo || "";
       var html = resumenHtml(pf);
+      html += avisosCalendarioHtml(pf.avisos_calendario);
+      if (bloqueo) html += "<hr>" + bloqueoSesameHtml(bloqueo);
       if (conflictos.length) html += "<hr>" + conflictosHtml(conflictos);
-      modal(conflictos.length ? "Confirmar: hay lineas que se pisarian"
-                              : "Confirmar registro en Sigrid",
-        html, [
+      var titulo = "Confirmar registro en Sigrid";
+      if (bloqueo) titulo = "Bloqueado: Sesame no disponible";
+      else if (conflictos.length) titulo = "Confirmar: hay lineas que se pisarian";
+      modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
                                      : "Registrar", clase: "ok",
             onClick: function (cj, b) {
@@ -2474,10 +2700,19 @@
                 cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
                   return i.value;
                 });
-              // Con claves marcadas hay borrado de por medio: sincrono.
-              // Sin ellas, a la cola.
-              if (claves.length) { ejecutar(peticion, claves, cj, b); }
-              else { encolar(peticion, cj, b); }
+              var forzar = cj.querySelector("#ap-forzar-sesame");
+              if (bloqueo && !(forzar && forzar.checked)) {
+                // El servidor lo rechazaria igual (R24); avisar aqui
+                // evita un viaje y deja claro que falta la confirmacion.
+                window.alert("Marca la casilla para registrar sin el "
+                  + "calendario de Sesame, o espera a que vuelva.");
+                return;
+              }
+              // Con claves que pisar, o con override de Sesame, hay una
+              // decision humana de por medio: sincrono, nunca por cola.
+              if (claves.length || bloqueo) {
+                ejecutar(peticion, claves, cj, b, !!bloqueo);
+              } else { encolar(peticion, cj, b); }
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);

@@ -222,6 +222,143 @@ def sembrar_registros(fabrica: FabricaSesionSqlite, *,
     return ids
 
 
+def sembrar_dias(
+    fabrica: FabricaSesionSqlite,
+    dias: list[dict],
+    *,
+    document_id: str = "doc-cal",
+    empleado_ide: int = 77,
+    empleado_dni: str = "12345678Z",
+    empleado_nombre: str = "Pepe Perez",
+    obra_ide: int = 10,
+    obra_codigo: str = "0100",
+) -> list[int]:
+    """Siembra un trabajador con una linea por dia (F-003).
+
+    Cada elemento de `dias` es `{"fecha": "YYYY-MM-DD", "horas": 6.0,
+    "candef": 8.0, "tipo": "normal"}`. Sirve para las vistas que evaluan
+    festivos y jornada incompleta, donde lo que importa es la fecha y las
+    horas ordinarias de cada dia.
+    """
+    ahora = "2026-03-02T08:00:00+00:00"
+    primera = dias[0]["fecha"] if dias else "2026-01-01"
+    with fabrica.create_session() as s:
+        s.add(ParteDocumentOrm(
+            id=document_id, source_filename="parte.pdf",
+            source_mime_type="application/pdf",
+            source_sha256="sha" + document_id,
+            fecha=primera, fecha_int=int(primera.replace("-", "")),
+            created_at_utc=ahora, obra_ide=obra_ide, obra_codigo=obra_codigo,
+            obra_nombre="Obra Uno"))
+        ids: list[int] = []
+        for i, d in enumerate(dias):
+            fecha = str(d["fecha"])
+            reg = ParteRegistroOrm(
+                document_id=document_id, line_index=i, fecha=fecha,
+                fecha_int=int(fecha.replace("-", "")), obra_ide=obra_ide,
+                obra_codigo=obra_codigo, obra_nombre="Obra Uno",
+                empleado_ide=empleado_ide, empleado_dni=empleado_dni,
+                empleado_nombre=empleado_nombre,
+                trabajador_nombre_leido=empleado_nombre,
+                recurso_ide=501, recurso_cif=empleado_dni,
+                tipo_hora=str(d.get("tipo") or "normal"),
+                horas=float(d.get("horas", 8.0)),
+                hora_candef=d.get("candef"),
+                hora_ide=1, hora_codigo="HL01")
+            s.add(reg)
+            s.flush()
+            ids.append(reg.id)
+        s.commit()
+    return ids
+
+
+def sembrar_parte(
+    fabrica: FabricaSesionSqlite,
+    lineas: list[dict],
+    *,
+    document_id: str = "doc-f004",
+    aprobado: bool = False,
+    doc_en_papelera: bool = False,
+    fecha: str = "2026-03-02",
+    obra_ide: int | None = 10,
+    obra_codigo: str | None = "0100",
+    empleado_ide: int | None = 77,
+    empleado_dni: str = "12345678Z",
+    empleado_nombre: str = "Pepe Perez",
+) -> list[int]:
+    """Siembra UN parte con lineas de `sigrid_estado` parametrizable (F-004).
+
+    Cada elemento de `lineas` admite: `estado` (`sigrid_estado`), `horas`,
+    `tipo` (`normal`/`extra`), `borrada` (linea en papelera),
+    `partida_cod` (la casada) y `partida_leida` (la que traia el parte).
+    Es lo que hace falta para montar la matriz de congelacion: el estado
+    del documento (`aprobado`) y el de cada linea.
+    """
+    ahora = "2026-03-02T08:00:00+00:00"
+    fint = int(fecha.replace("-", ""))
+    with fabrica.create_session() as s:
+        doc = ParteDocumentOrm(
+            id=document_id, source_filename="parte.pdf",
+            source_mime_type="application/pdf",
+            source_sha256="sha" + document_id,
+            fecha=fecha, fecha_int=fint, created_at_utc=ahora,
+            obra_ide=obra_ide, obra_codigo=obra_codigo,
+            obra_nombre="Obra Uno", approved=aprobado,
+            approved_by="ana" if aprobado else None,
+            is_active=not doc_en_papelera,
+            deleted_at_utc=ahora if doc_en_papelera else None)
+        s.add(doc)
+        ids: list[int] = []
+        for i, linea in enumerate(lineas):
+            estado = linea.get("estado")
+            reg = ParteRegistroOrm(
+                document_id=document_id, line_index=i, empleado_line_no=1,
+                fecha=fecha, fecha_int=fint, obra_ide=obra_ide,
+                obra_codigo=obra_codigo, obra_nombre="Obra Uno",
+                empleado_ide=empleado_ide, empleado_dni=empleado_dni,
+                empleado_nombre=empleado_nombre,
+                trabajador_nombre_leido=linea.get(
+                    "leido", empleado_nombre),
+                recurso_ide=501, recurso_cif=empleado_dni,
+                categoria=linea.get("categoria"),
+                tipo_hora=str(linea.get("tipo") or "normal"),
+                horas=linea.get("horas", 8.0),
+                es_incidencia=bool(linea.get("es_incidencia")),
+                hora_ide=1, hora_codigo="HL01", hora_candef=8.0,
+                partida=linea.get("partida_leida"),
+                partida_cod=linea.get("partida_cod"),
+                sigrid_estado=estado,
+                sigrid_hmores_ide=9000 + i if estado == "registrado" else None,
+                sigrid_parte_cod="PT26/00001" if estado == "registrado"
+                else None,
+                deleted_at_utc=ahora if linea.get("borrada") else None)
+            s.add(reg)
+            s.flush()
+            ids.append(reg.id)
+        s.commit()
+    return ids
+
+
+def datos_registros(fabrica: FabricaSesionSqlite,
+                    ids: list[int]) -> dict[int, dict]:
+    """Campos que una edicion tocaria, para comprobar que NO se tocaron."""
+    with fabrica.create_session() as s:
+        out: dict[int, dict] = {}
+        for i in ids:
+            r = s.get(ParteRegistroOrm, i)
+            out[i] = {} if r is None else {
+                "horas": r.horas, "tipo_hora": r.tipo_hora,
+                "hora_ide": r.hora_ide, "hora_codigo": r.hora_codigo,
+                "partida_cod": r.partida_cod, "fecha": r.fecha,
+                "obra_codigo": r.obra_codigo,
+                "empleado_ide": r.empleado_ide,
+                "empleado_nombre": r.empleado_nombre,
+                "deleted_at_utc": r.deleted_at_utc,
+                "existe": True,
+            }
+        return out
+
+
 def estados_sigrid(fabrica: FabricaSesionSqlite,
                    ids: list[int]) -> dict[int, tuple]:
     """Estado + motivo + ides de Sigrid de cada registro."""

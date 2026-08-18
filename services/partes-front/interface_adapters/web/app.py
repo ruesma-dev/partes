@@ -19,9 +19,9 @@ from __future__ import annotations
 import html
 import logging
 import time
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode
 
 import httpx
@@ -36,6 +36,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, field_validator
 
+from application.services.congelacion import CongeladoError
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
     build_calendar,
@@ -44,8 +45,14 @@ from application.services.calendar_builder import (
     parse_period_key,
     DayObra,
 )
+from application.services.calendario_provider import CalendarioProvider
 from application.services.holiday_provider import HolidayProvider
+from application.services.jornada_resolver import (
+    candef_valido,
+    jornada_efectiva,
+)
 from config.settings import Settings
+from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.parte_repository import (
     ParteReviewRepository,
     extras_por_jornada,
@@ -63,6 +70,14 @@ from application.services.empleado_catalog import EmpleadoCatalog
 from application.services import empleado_reconciler as recon
 
 logger = logging.getLogger(__name__)
+
+#: F-003 (R23/R24). Motivo del bloqueo del registro cuando Sesame esta
+#: configurado pero no responde: sin sus festivos, el computo de horas
+#: puede estar mal y registrar en Sigrid escribe de verdad. La unica
+#: salida es el override consciente del modal, que queda marcado.
+MOTIVO_BLOQUEO_SESAME = (
+    "calendario Sesame no disponible: el calculo puede ser incorrecto"
+)
 
 # Leyenda de incidencias (para mostrar el nombre largo del codigo).
 _INCIDENCIAS = {
@@ -237,14 +252,15 @@ def build_app(
     transfer_client: TransferClient | None = None,
     publisher: TransferQueuePublisher | None = None,
     cola_cliente=None,
+    calendario_provider: CalendarioProvider | None = None,
 ) -> FastAPI:
     """Portal de revision.
 
     Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
-    sv5, publisher de `q-transfer` y cliente de cola para la gestion de
-    poison). Sin inyeccion se construyen desde `settings`, que es lo que
-    hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
-    red y sin Storage.
+    sv5, publisher de `q-transfer`, cliente de cola para la gestion de
+    poison y proveedor de calendario). Sin inyeccion se construyen desde
+    `settings`, que es lo que hace `main.py`; con ella, la suite levanta
+    la app sin PostgreSQL, sin red y sin Storage.
     """
     if repository is None:
         session_factory = SessionFactory(
@@ -291,11 +307,40 @@ def build_app(
             "[preview][wiring] Visor de PDF DESACTIVADO (falta GRAPH_KEY)."
         )
 
+    # Festivos. El respaldo (libreria `holidays` + extras) sigue siendo
+    # el de siempre; con Sesame configurado, el proveedor lo antepone con
+    # el calendario REAL de cada trabajador y deja el respaldo para
+    # cuando Sesame no esta (F-003).
     holiday_provider = HolidayProvider(
         enabled=settings.holidays_enabled,
         subdiv=settings.holidays_subdiv,
         extra_iso=settings.holidays_extra_list,
     )
+    if calendario_provider is None:
+        sesame_client: SesameApiClient | None = None
+        if settings.sesame_enabled:
+            sesame_client = SesameApiClient(
+                base_url=settings.sesame_api_base_url,   # type: ignore[arg-type]
+                api_key=settings.sesame_api_key,         # type: ignore[arg-type]
+                timeout_s=settings.sesame_api_timeout_s,
+            )
+            logger.info(
+                "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s",
+                settings.sesame_api_base_url,
+                len(settings.sesame_api_key or ""),
+                settings.sesame_cache_ttl_s,
+            )
+        else:
+            logger.info(
+                "[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los "
+                "festivos salen del respaldo local y no se bloquea ningun "
+                "registro."
+            )
+        calendario_provider = CalendarioProvider(
+            cliente=sesame_client,
+            respaldo_holiday_name=holiday_provider.name,
+            ttl_seconds=settings.sesame_cache_ttl_s,
+        )
 
     # Cliente del servicio de REGISTRO en Sigrid (partes-transfer, sv5).
     # Sigue siendo el canal SINCRONO: preflight y pisado de conflictos.
@@ -363,6 +408,7 @@ def build_app(
     app.state.obra_catalog = obra_catalog
     app.state.empleado_catalog = empleado_catalog
     app.state.graph_token_provider = graph_token_provider
+    app.state.calendario_provider = calendario_provider
     app.state.tables_ready = tables_ready
 
     templates = Jinja2Templates(
@@ -379,6 +425,21 @@ def build_app(
         ),
         name="static",
     )
+
+    # --- F-004: congelacion -> 409 (no es un 500) --------------------- #
+    @app.exception_handler(CongeladoError)
+    def _congelado_handler(
+        _request: Request, exc: CongeladoError
+    ) -> JSONResponse:
+        """Una edicion sobre algo congelado no es un fallo del sistema:
+        es una regla de negocio diciendo que no. El front pinta `error`
+        tal cual, asi que el motivo tiene que ser legible por un humano.
+        """
+        logger.info("[congelado] mutacion rechazada: %s", exc.motivo)
+        return JSONResponse(
+            {"ok": False, "congelado": True, "error": exc.motivo},
+            status_code=409,
+        )
 
     # ----------------------------------------------------------------- #
     @app.get("/health")
@@ -478,16 +539,25 @@ def build_app(
         if selected is None and period_options:
             selected = parse_period_key(period_options[0].key)
 
+        # Festivos DE ESTE TRABAJADOR (R2/R3): antes de F-003 el
+        # calendario era global y a quien no fuera de Madrid le salian
+        # avisos de jornada incompleta en dias que para el eran fiesta.
         calendar = None
+        anos_consultados: set[int] = set()
         if selected is not None:
             y, m = selected
             calendar = build_calendar(
                 year=y,
                 month=m,
                 per_day=per_day,
-                holiday_name=holiday_provider.name,
+                holiday_name=calendario_provider.holiday_name_para(detail.dni),
                 mode=mode,
             )
+            anos_consultados = {
+                int(_d.date_iso[:4])
+                for _w in calendar.weeks for _d in _w
+                if _d.in_period and _d.date_iso
+            }
 
         # Cantidad por defecto (CanDefecto) del recurso, para diagnostico.
         # Se distingue 0 de None (un 0 significa que Sigrid no tiene la
@@ -501,16 +571,20 @@ def build_app(
         # minimo, se muestra la jornada por defecto (no la de Sigrid) y se
         # marca como valor "asignado".
         _cd_real = min(candef_recurso) if candef_recurso else None
-        if _cd_real is None or _cd_real <= settings.candef_minimo_valido:
-            candef_kpi = {
-                "valor": settings.jornada_por_defecto,
-                "asignado": True,
-                "sigrid": _cd_real,
-            }
-        else:
-            candef_kpi = {
-                "valor": _cd_real, "asignado": False, "sigrid": _cd_real,
-            }
+        _cd_efectivo = jornada_efectiva(
+            _cd_real,
+            minimo=settings.candef_minimo_valido,
+            por_defecto=settings.jornada_por_defecto,
+        )
+        candef_kpi = {
+            "valor": _cd_efectivo,
+            # "asignado" = el valor mostrado NO viene de Sigrid, se le ha
+            # asignado la jornada por defecto porque el candef no era valido.
+            "asignado": not candef_valido(
+                _cd_real, minimo=settings.candef_minimo_valido
+            ),
+            "sigrid": _cd_real,
+        }
 
         # Dias LABORABLES con jornada ordinaria incompleta: horas
         # ordinarias del dia por debajo del CanDefecto efectivo (el de
@@ -527,6 +601,26 @@ def build_app(
                             < candef_efectivo - 1e-9):
                         dias_incompletos.add(_day.date_iso)
 
+        # R22: si alguna resolucion de calendario de esta vista salio de
+        # la cache caducada o del respaldo, se avisa EN LA PANTALLA. La
+        # vista se sirve igual (nivel 1 de D2), pero el usuario tiene que
+        # saber que los festivos pueden no estar al dia.
+        sesame_degradado = not calendario_provider.fiable_para(
+            (detail.dni, ano) for ano in anos_consultados
+        )
+
+        # R13/R14: tipo de jornada del contrato. Sesame NO da las horas
+        # (peticion P1), asi que esto no toca ni un calculo; sirve para
+        # ensenar el dato y para avisar de una divergencia que hoy no ve
+        # nadie: contrato de jornada reducida contra jornada aplicada de
+        # 8 h. `reducida=None` es "no se sabe" y no dispara el aviso.
+        jornada_contrato = calendario_provider.jornada_contrato(detail.dni)
+        jornada_divergente = bool(
+            jornada_contrato is not None
+            and jornada_contrato.reducida
+            and _cd_efectivo >= settings.jornada_por_defecto
+        )
+
         context = {
             "request": request,
             "title": settings.app_title,
@@ -535,6 +629,9 @@ def build_app(
             "candef_recurso": candef_recurso,
             "candef_kpi": candef_kpi,
             "dias_incompletos": dias_incompletos,
+            "sesame_degradado": sesame_degradado,
+            "jornada_contrato": jornada_contrato,
+            "jornada_divergente": jornada_divergente,
             "extras": extras_por_jornada(detail.registros),
             "period_options": period_options,
             "selected_period": calendar.period_key if calendar else None,
@@ -585,9 +682,12 @@ def build_app(
         message: str | None = Query(default=None),
     ) -> HTMLResponse:
         mode = normalize_mode(modo)
+        # La COLUMNA se tinta con el calendario por defecto (D6): una
+        # consulta, no una por fila x dia. La exactitud por trabajador
+        # vive donde importa, en los avisos de jornada incompleta.
         detail = repository.get_obra(
             obra_key, period_key=period, mode=mode,
-            holiday_name=holiday_provider.name,
+            holiday_name=calendario_provider.holiday_name_para(None),
             sin_extra_resolver=recursos_sin_extra_resolver,
         )
         if detail is None:
@@ -618,15 +718,27 @@ def build_app(
             if _nom not in _candef_real or _v < _candef_real[_nom]:
                 _candef_real[_nom] = _v
         incompletos: set[str] = set()
+        _consultas: set[tuple[str | None, int]] = set()
         for _row in detail.rows:
             _real = _candef_real.get(_row.nombre or "")
-            _eff = _cd_jor if (_real is None or _real <= _cd_min) else _real
+            _eff = jornada_efectiva(_real, minimo=_cd_min, por_defecto=_cd_jor)
+            # Festivo SEGUN EL CALENDARIO DE ESTA FILA (R2): la columna
+            # pinta el calendario por defecto, pero el aviso no puede
+            # heredar los festivos de otra provincia.
+            _es_festivo = calendario_provider.holiday_name_para(_row.dni)
             for _c in _row.cells:
-                if _c.is_weekend or _c.is_holiday:
+                if not _c.date_iso:
+                    continue
+                _fecha = date.fromisoformat(_c.date_iso)
+                _consultas.add((_row.dni, _fecha.year))
+                if _c.is_weekend or _es_festivo(_fecha):
                     continue
                 if 0.0 < (_c.normal or 0.0) < _eff - 1e-9:
                     incompletos.add((_row.nombre or "") + "|"
                                     + (_c.date_iso or ""))
+        _dias_periodo = {int(d.date_iso[:4]) for d in detail.days if d.date_iso}
+        _consultas.update((None, ano) for ano in _dias_periodo)
+        sesame_degradado = not calendario_provider.fiable_para(_consultas)
 
         context = {
             "request": request,
@@ -639,6 +751,7 @@ def build_app(
             "candef_minimo": settings.candef_minimo_valido,
             "jornada_defecto": settings.jornada_por_defecto,
             "incompletos": incompletos,
+            "sesame_degradado": sesame_degradado,
             "period_mode": mode,
             "sigrid_enabled": settings.sigrid_lookup_enabled,
             "preview_enabled": settings.preview_enabled,
@@ -726,7 +839,7 @@ def build_app(
                 status_code=404,
             )
         try:
-            updated = repository.backfill_empleado(
+            updated, congeladas = repository.backfill_empleado(
                 nombre_leido=nombre_leido, ide=emp.ide,
                 codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
             )
@@ -750,6 +863,9 @@ def build_app(
             logger.warning("[conciliacion] alias no guardado: %r", exc)
         return JSONResponse({
             "ok": True, "updated": updated, "alias_ok": alias_ok,
+            # F-004 R8: las lineas congeladas se omiten; decirlo evita
+            # que el usuario crea que su casado se aplico entero.
+            "congeladas": congeladas,
             "empleado": {"ide": emp.ide, "codigo": emp.codigo,
                          "nombre": emp.nombre},
         })
@@ -810,14 +926,17 @@ def build_app(
         worker_key = data.get("worker_key")
         nombre_leido_in = data.get("nombre_leido")
         updated = 0
+        congeladas = 0
         leidos: list[str] = []
         try:
             if isinstance(registro_ids_in, list) and registro_ids_in:
                 ids = [_as_int(x) for x in registro_ids_in]
                 ids = [x for x in ids if x is not None]
-                updated = repository.reassign_empleado_by_registro_ids(
-                    registro_ids=ids, ide=emp.ide, codigo=emp.codigo,
-                    nombre=emp.nombre, dni=emp.dni,
+                updated, congeladas = (
+                    repository.reassign_empleado_by_registro_ids(
+                        registro_ids=ids, ide=emp.ide, codigo=emp.codigo,
+                        nombre=emp.nombre, dni=emp.dni,
+                    )
                 )
                 # Acotado a lineas concretas: no se crea alias de mapeo.
                 leidos = []
@@ -828,18 +947,20 @@ def build_app(
                         {"ok": False, "error": "Registro sin nombre leido"},
                         status_code=400,
                     )
-                updated = repository.reassign_empleado_by_leido(
+                updated, congeladas = repository.reassign_empleado_by_leido(
                     nombre_leido=leido, ide=emp.ide, codigo=emp.codigo,
                     nombre=emp.nombre, dni=emp.dni,
                 )
                 leidos = [leido]
             elif worker_key:
-                updated, leidos = repository.reassign_empleado_by_worker_key(
-                    worker_key=worker_key, ide=emp.ide,
-                    codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                updated, leidos, congeladas = (
+                    repository.reassign_empleado_by_worker_key(
+                        worker_key=worker_key, ide=emp.ide,
+                        codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                    )
                 )
             elif nombre_leido_in:
-                updated = repository.reassign_empleado_by_leido(
+                updated, congeladas = repository.reassign_empleado_by_leido(
                     nombre_leido=nombre_leido_in, ide=emp.ide,
                     codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
                 )
@@ -871,6 +992,7 @@ def build_app(
                 logger.warning("[reasignar] alias no guardado: %r", exc)
         return JSONResponse({
             "ok": True, "updated": updated, "alias_ok": alias_ok,
+            "congeladas": congeladas,   # F-004 R8
             "empleado": {"ide": emp.ide, "codigo": emp.codigo,
                          "nombre": emp.nombre},
         })
@@ -976,6 +1098,62 @@ def build_app(
             }
         )
 
+    # ---------------- Calendario laboral (para el JS) ---------------- #
+    #: Tope del rango de `/api/calendario`. Dos meses cubren de sobra el
+    #: periodo de nomina mas largo; sin tope, un cliente pidiendo diez
+    #: anos pondria al proveedor a resolver una consulta por ano.
+    MAX_DIAS_CALENDARIO = 62
+
+    @app.get("/api/calendario", include_in_schema=False)
+    def api_calendario(
+        desde: str = Query(...),
+        hasta: str = Query(...),
+        dni: str | None = Query(default=None),
+    ) -> JSONResponse:
+        """Dias del rango con festivo / finde / laborable (R16).
+
+        Lo consume «+ Nuevo» para marcar en su rejilla los dias que son
+        festivo o domingo antes de crear las lineas. Con `dni` se resuelve
+        con el calendario de ese trabajador; sin el, con el calendario por
+        defecto. `fiable` en la raiz avisa de que alguna resolucion salio
+        del respaldo y el calendario puede no estar al dia.
+        """
+        try:
+            d1 = date.fromisoformat(str(desde)[:10])
+            d2 = date.fromisoformat(str(hasta)[:10])
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"ok": False, "error": "desde/hasta deben ser YYYY-MM-DD"},
+                status_code=422)
+        if d2 < d1:
+            return JSONResponse(
+                {"ok": False, "error": "hasta no puede ser anterior a desde"},
+                status_code=422)
+        dias_pedidos = (d2 - d1).days + 1
+        if dias_pedidos > MAX_DIAS_CALENDARIO:
+            return JSONResponse(
+                {"ok": False,
+                 "error": f"rango maximo: {MAX_DIAS_CALENDARIO} dias "
+                          f"(pedidos {dias_pedidos})"},
+                status_code=422)
+
+        datos: list[dict[str, Any]] = []
+        anos: set[int] = set()
+        d = d1
+        while d <= d2:
+            dia = calendario_provider.dia(d, dni)
+            datos.append({
+                "fecha": dia.fecha,
+                "laborable": dia.laborable,
+                "fin_de_semana": dia.fin_de_semana,
+                "festivo": dia.festivo,
+                "festivo_nombre": dia.festivo_nombre,
+            })
+            anos.add(d.year)
+            d += timedelta(days=1)
+        fiable = calendario_provider.fiable_para((dni, ano) for ano in anos)
+        return JSONResponse({"ok": True, "fiable": fiable, "data": datos})
+
     # ---------------- Lookup Sigrid (obras) -------------------------- #
     @app.get("/api/sigrid/obras", include_in_schema=False)
     def sigrid_obras() -> JSONResponse:
@@ -1020,9 +1198,11 @@ def build_app(
         def _sugerida(cd: float | None) -> float:
             # CanDefecto no valido (vacio o <= minimo) -> jornada por defecto
             # (mismo umbral que sv3 al reclasificar extras).
-            if cd is None or float(cd) <= settings.candef_minimo_valido:
-                return settings.jornada_por_defecto
-            return float(cd)
+            return jornada_efectiva(
+                cd,
+                minimo=settings.candef_minimo_valido,
+                por_defecto=settings.jornada_por_defecto,
+            )
 
         return JSONResponse({
             "ok": True,
@@ -1320,6 +1500,69 @@ def build_app(
             "usuario": settings.default_reviewer,
         }
 
+    def _fecha_de_linea(linea: dict) -> date | None:
+        """La fecha de una linea del payload, que viaja como YYYYMMDD."""
+        fi = _as_int(linea.get("fecha_int"))
+        if not fi:
+            return None
+        try:
+            return date(fi // 10000, (fi // 100) % 100, fi % 100)
+        except ValueError:
+            return None
+
+    def _avisos_calendario(lineas: list[dict]) -> list[dict]:
+        """R18: lineas con horas (> 0) en dia festivo o domingo.
+
+        Informativo: no altera QUE se registra. Sirve para que quien
+        aprueba un mes entero vea, antes de darle al boton, que hay horas
+        en dias no laborables — correcto a veces, error de fecha otras.
+        """
+        avisos: list[dict] = []
+        nombres: dict[str, Callable[[date], str | None]] = {}
+        for linea in lineas:
+            if abs(float(linea.get("horas") or 0.0)) <= 1e-9:
+                continue
+            d = _fecha_de_linea(linea)
+            if d is None:
+                continue
+            dni = linea.get("dni")
+            resolutor = nombres.get(str(dni))
+            if resolutor is None:
+                resolutor = calendario_provider.holiday_name_para(dni)
+                nombres[str(dni)] = resolutor
+            nombre = resolutor(d)
+            if nombre:
+                tipo, motivo = "festivo", f"dia festivo ({nombre})"
+            elif d.weekday() == 6:
+                tipo, motivo = "domingo", "domingo"
+            else:
+                continue
+            avisos.append({
+                "registro_id": linea.get("registro_id"),
+                "fecha": d.isoformat(),
+                "nombre": linea.get("nombre"),
+                "horas": linea.get("horas"),
+                "tipo": tipo,
+                "motivo": f"horas registradas en {motivo}",
+            })
+        return avisos
+
+    def _calendario_fiable(lineas: list[dict]) -> bool:
+        """True si el calendario de TODAS las lineas del lote es de fiar.
+
+        Con Sesame configurado pero caido, el computo de horas pierde los
+        festivos reales y las jornadas reducidas: lo que se registraria
+        puede estar mal. `fiable_para` devuelve True siempre que Sesame
+        no este configurado, asi que con la feature apagada esto no
+        bloquea nada (R27).
+        """
+        consultas: set[tuple[str | None, int]] = set()
+        for linea in lineas:
+            d = _fecha_de_linea(linea)
+            if d is not None:
+                consultas.add((linea.get("dni"), d.year))
+        return calendario_provider.fiable_para(consultas)
+
     @app.post("/api/aprobar/preflight", include_in_schema=False)
     async def aprobar_preflight(request: Request) -> JSONResponse:
         if transfer_client is None:
@@ -1330,9 +1573,16 @@ def build_app(
         payload = _payload_registro(await request.json())
         if isinstance(payload, JSONResponse):
             return payload
-        return JSONResponse(transfer_client.preflight(payload))
+        resultado = dict(transfer_client.preflight(payload))
+        resultado["avisos_calendario"] = _avisos_calendario(payload["lineas"])
+        # R23: el preflight se sirve igual (el humano tiene que poder ver
+        # que se iba a registrar), pero con el motivo del bloqueo dentro.
+        if not _calendario_fiable(payload["lineas"]):
+            resultado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
+        return JSONResponse(resultado)
 
-    def _trazar(resultado: dict, ids: list[int]) -> None:
+    def _trazar(resultado: dict, ids: list[int], *,
+                sin_sesame: bool = False) -> None:
         """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
 
         Que falle la traza no invalida lo que sv5 ya escribio en Sigrid;
@@ -1341,7 +1591,8 @@ def build_app(
         """
         try:
             aplicar_resultado(repository, resultado, registro_ids=ids,
-                              usuario=settings.default_reviewer)
+                              usuario=settings.default_reviewer,
+                              sin_sesame=sin_sesame)
         except Exception:
             logger.warning("[transfer] no se pudo guardar la traza del "
                            "registro", exc_info=True)
@@ -1357,8 +1608,28 @@ def build_app(
         payload = _payload_registro(body)
         if isinstance(payload, JSONResponse):
             return payload
+        # R24: la guarda la impone el SERVIDOR, no el modal. Una peticion
+        # a pelo, sin pasar por el preflight, se para igual.
+        forzar = bool(body.get("forzar_sin_sesame"))
+        degradado = not _calendario_fiable(payload["lineas"])
+        if degradado and not forzar:
+            logger.warning(
+                "[sesame] registro BLOQUEADO: %s lineas con calendario no "
+                "fiable y sin override.", len(payload["lineas"]),
+            )
+            return JSONResponse(
+                {"ok": False, "error": MOTIVO_BLOQUEO_SESAME,
+                 "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
+                status_code=422)
         resultado = transfer_client.ejecutar(payload)
-        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]])
+        if degradado and forzar:
+            logger.warning(
+                "[sesame] registro FORZADO por %s con el calendario de "
+                "Sesame no disponible; las lineas quedan marcadas.",
+                settings.default_reviewer or "(sin usuario)",
+            )
+        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]],
+                sin_sesame=degradado and forzar)
         return JSONResponse(resultado)
 
     @app.post("/api/aprobar/encolar", include_in_schema=False)
@@ -1389,6 +1660,17 @@ def build_app(
         payload = _payload_registro(body)
         if isinstance(payload, JSONResponse):
             return payload
+        # R24/R25: igual que `pisar_claves`, el override de Sesame es una
+        # decision humana consciente y NO puede viajar por una cola con
+        # reentregas; sin override, el lote degradado se para aqui.
+        if not _calendario_fiable(payload["lineas"]):
+            return JSONResponse(
+                {"ok": False,
+                 "error": MOTIVO_BLOQUEO_SESAME + " Para registrarlo de "
+                          "todas formas hay que confirmarlo a mano: usa "
+                          "/api/aprobar/ejecutar.",
+                 "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
+                status_code=422)
         ids = [l["registro_id"] for l in payload["lineas"]]
 
         if publisher is None:
@@ -1565,7 +1847,13 @@ def build_app(
         document_id: str,
         back: str = Form(default="/partes"),
     ) -> RedirectResponse:
-        repository.unapprove_document(document_id=document_id)
+        # F-004 R10: flujo de FORMULARIO, no JSON; el motivo viaja en el
+        # mensaje de la redireccion (el manejador global de 409 solo vale
+        # para las APIs que consume el JS).
+        try:
+            repository.unapprove_document(document_id=document_id)
+        except CongeladoError as exc:
+            return _redirect(back, exc.motivo)
         return _redirect(back, "Parte marcado como pendiente")
 
     @app.post("/documents/{document_id}/delete", include_in_schema=False)
@@ -1573,10 +1861,13 @@ def build_app(
         document_id: str,
         back: str = Form(default="/partes"),
     ) -> RedirectResponse:
-        repository.delete_document(
-            document_id=document_id,
-            deleted_by=settings.default_reviewer,
-        )
+        try:
+            repository.delete_document(
+                document_id=document_id,
+                deleted_by=settings.default_reviewer,
+            )
+        except CongeladoError as exc:   # F-004 R7
+            return _redirect(back, exc.motivo)
         # Si borramos desde el detalle del propio parte, volver al listado.
         target = "/partes" if back.startswith(f"/partes/{document_id}") else back
         return _redirect(target, "Parte movido a la papelera")
@@ -1605,17 +1896,21 @@ def build_app(
 
     @app.post("/api/obra/{obra_key}/delete", include_in_schema=False)
     def api_obra_delete(obra_key: str) -> JSONResponse:
-        n = repository.soft_delete_obra(
+        n, congelados = repository.soft_delete_obra(
             obra_key=obra_key, by=settings.default_reviewer
         )
-        return JSONResponse({"ok": n > 0, "partes": n})
+        # F-004 R13: `congelados` lo pinta la UI; sin ese numero el
+        # usuario creeria que se borro la obra entera.
+        return JSONResponse(
+            {"ok": n > 0, "partes": n, "congelados": congelados})
 
     @app.post("/api/trabajador/{worker_key}/delete", include_in_schema=False)
     def api_trabajador_delete(worker_key: str) -> JSONResponse:
-        n = repository.soft_delete_worker(
+        n, congelados = repository.soft_delete_worker(
             worker_key=worker_key, by=settings.default_reviewer
         )
-        return JSONResponse({"ok": n > 0, "lineas": n})
+        return JSONResponse(
+            {"ok": n > 0, "lineas": n, "congelados": congelados})
 
     @app.post("/api/documento/{document_id}/restore", include_in_schema=False)
     def api_documento_restore(document_id: str) -> JSONResponse:

@@ -65,3 +65,107 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   del alcance con >N líneas genere 0 mutantes; (2) C3/C4 o init.sh —
   cruzar imports nuevos de terceros contra el requirements del manifiesto
   del servicio. Ambas portables a arnes-base si se aprueban.
+
+## F-003 · Integración sesame-api: festivos y jornada reales — done 2026-08-16
+
+- Rama `feature/F-003-sesame-festivos-jornada` · rigor critico · sdd=true ·
+  spec aprobada por el humano con enmienda suya (resiliencia en DOS
+  niveles) · 1 ciclo de review · APPROVED en segunda pasada.
+- Entregado (APAGADO por defecto, `sesame_enabled=false` = comportamiento
+  actual): clientes Sesame gemelos en sv3/sv4 (duplicación tolerada
+  AMPLIADA en CLAUDE.md, redacción firmada por el humano el 2026-08-16),
+  proveedor con caché DNI×año y stale-while-error, resolutor único de
+  jornada (regla candef desduplicada de 4 sitios), festivos por calendario
+  del trabajador en avisos/matriz/+Nuevo, aviso festivo/domingo en
+  preflight, endpoint GET /api/calendario, y el régimen de resiliencia:
+  vistas degradadas con aviso visible; registro BLOQUEADO con Sesame
+  activado-pero-caído, override forzar_sin_sesame solo por /ejecutar con
+  marca [SIN-SESAME] en sigrid_motivo, y review_required en sv3. CERO
+  cambios de schema. Se inaugura la suite de sv3.
+- Verificado (reviewer, independiente): init.sh verde, **373 tests**
+  (6 raíz + 95 sv3 NUEVOS + 272 sv4, +144), cobertura líneas cambiadas
+  **94,5 %** (umbral 80), mutación **211 mutantes / 25 supervivientes,
+  todos analizados como equivalentes** (de 57 iniciales: la campaña forzó
+  refuerzo real de la suite), fase RED de la enmienda reproducida.
+- Hallazgos externos de la feature: sesame-api NO desplegado y sin
+  commitear (P2), su /jornada sin horas (P1), sin doc en azure-apps (P3) —
+  peticiones al proyecto sesame-api, del humano. F-010 (orm_models
+  desincronizado) al backlog. IP de Sigrid redactada en azure-apps
+  (deuda previa, commit fe4e977 de ese repo).
+- ENCENDIDO futuro (tras P2): variables SESAME_* en sv3 y sv4 A LA VEZ +
+  secreto sesame-api-key en kv-partes. OJO: encender contra URL muerta
+  bloquea las aprobaciones (por diseño, decisión del humano).
+- MANUAL pendiente del humano: merge a dev y push; verificación visual de
+  los avisos (R17) cuando se encienda.
+
+## F-013 · Informe de validación de datos Sesame por trabajador — done 2026-08-18
+
+- Rama `feature/F-013-informe-validacion-sesame` (HEAD APPROVED `c2e1c5e`) ·
+  rigor estandar · sdd=false (acceptance como mini-spec, propuesta
+  confirmada por el humano) · 1 ciclo de review (CHANGES_REQUESTED formal:
+  análisis del superviviente en `mutacion_F-013.md`; resuelto + NB-1).
+- Entregado: `services/partes-front/validar_datos_sesame.py`, herramienta de
+  consola de SOLO LECTURA que lista los empleados que conoce sesame-api
+  (`GET /api/v1/empleados`, hecho en el propio script para no tocar los
+  clientes gemelos sv3/sv4) y por cada uno saca con el `SesameApiClient`
+  de F-003 EN CRUDO (sin `CalendarioProvider`, para que los 404 se vean)
+  festivos del año, tipo de jornada, reducida y tipo de contrato; informe
+  Markdown + CSV (`;`, BOM) en `services/partes-front/logs/` (ignorado por
+  git: lleva DNIs), con calendario por defecto, resumen (distribuciones,
+  «(no se pudo leer)», DNIs con error) y tabla por trabajador. Errores por
+  trabajador = filas; solo abortan listado (exit 1) y configuración
+  (exit 2). Configuración `--base-url/--api-key` > `--env` >
+  `SESAME_API_BASE_URL/SESAME_API_KEY` > localhost:8006. Sección
+  «Herramientas de consola» en ARCHITECTURE.md.
+- Verificado (reviewer, independiente): init.sh verde, 314 tests sv4 (42
+  nuevos, sin red), cobertura del diff 99,6 %, mutación 77/76 con 1
+  superviviente equivalente analizado (retries del transporte real), fase
+  RED en el historial (0e6a47f), clave nunca en informe/log, contrato de
+  sesame-api contrastado con su código, ruff limpio, camino de aborto
+  probado.
+- MANUAL pendiente del humano: ejecutar el script contra sesame-api local
+  y validar los números (alimenta F-011/F-012). Comando en
+  `progress/impl_F-013.md`.
+- Automejoras del arnés propuestas por el reviewer (pendientes de decisión
+  del humano; genéricas ⇒ arnes-base): AM-1 oficializar `test_fXXX_aN_*`
+  para features sdd=false; AM-2 campo `base` opcional en features.json que
+  lea `harness.alcance` (evita alcances inflados al ramificar desde una
+  feature no mergeada); AM-3 el reviewer recalcula con la MISMA base que
+  declara el informe de mutación.
+
+## F-004 · Congelar registros aprobados — done 2026-08-18
+
+- Rama `feature/F-004-congelar-aprobados` (HEAD APPROVED `c27dc04`) · rigor
+  estandar · sdd=true · spec aprobada por el humano (3 decisiones tal cual)
+  · APPROVED a la primera (`progress/review_F-004.md`).
+- Entregado (solo sv4, sin cambio de schema ni orm_models): módulo
+  `application/services/congelacion.py` (matriz R1: `approved` del
+  documento + `sigrid_estado` ∈ {encolado, registrado} congela;
+  omitido/error/conflicto editables; `CongeladoError`), guardas en el
+  repositorio para línea y documento con handler → 409 `congelado: true`
+  y motivo; `unapprove` bloqueado con líneas `encolado` y las `registrado`
+  siguen congeladas; reasignación/conciliación/undo y borrados masivos
+  omiten congeladas y reportan recuento; papelera y hard-delete bloqueados
+  con `registrado`; flags a vistas y matriz (candado, disabled, banner
+  🔒), `static/app.js` sin editores en filas congeladas y mostrando el
+  motivo del 409; regla documentada en ARCHITECTURE.md.
+- Verificado (reviewer, independiente): init.sh verde, **448 tests sv4**
+  (134 nuevos; 314 previos intactos, comprobado en worktree de la base),
+  cobertura del diff **100 % (183/183)**, mutación **54/53 con 1
+  superviviente equivalente** analizado, fase RED por tarea en el
+  historial, `node --check` OK, ruff limpio en lo nuevo, camino
+  aprobar→editar 409→desaprobar→editar OK reproducido con TestClient.
+- No bloqueantes: `crear_extra_desde` más estricto que la letra de R5
+  (superconjunto coherente); `#fechaEdit` disabled sin data-congelado
+  (cosmético); ventana teórica en `unapprove` entre sesiones (sin riesgo);
+  3 SAWarning de DELETE previos a F-004 (→ F-010).
+- MANUAL pendiente del humano (pasos en `progress/impl_F-004.md` /
+  review): 7 comprobaciones en navegador con Ctrl+F5 (banner y candados en
+  parte aprobado, 409 sobre línea registrada, encolado bloquea «Marcar
+  pendiente», matriz solo lectura, masivas y papelera avisan y omiten, no
+  regresión de ↻/Revisar/Aprobar).
+- Automejoras del arnés propuestas (pendientes de decisión; genéricas ⇒
+  arnes-base): puerta de cobertura contra la base real de la rama (campo
+  `base` o merge-base) — coincide con AM-2 de F-013; el reviewer debe
+  REPRODUCIR una fase RED en un worktree del commit RED; `harness.mutacion`
+  debe `git worktree prune`/limpiar en `finally`.

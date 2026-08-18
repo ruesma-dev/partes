@@ -104,6 +104,19 @@ mitad duplica el mensaje pero nunca lo pierde.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
    del que solo las hojas admiten imputación; CD = costes directos
    (códigos numéricos), CI = indirectos (códigos con letras).
+10. **Congelación de lo aprobado (F-004, sv4)**: una línea rechaza toda
+    edición de usuario si su parte está `approved`, o si su
+    `sigrid_estado` es `encolado` (petición en vuelo hacia sv5) o
+    `registrado` (ya escrita en Sigrid). `omitido`/`error`/`conflicto` NO
+    congelan: editarlas es el camino de arreglo. La regla se escribe UNA
+    vez, en `services/partes-front/application/services/congelacion.py`, y
+    la usan tanto las guardas del repositorio (`CongeladoError` → HTTP 409
+    con motivo) como las vistas que pintan el candado. Desaprobar
+    («Marcar pendiente») levanta la capa «aprobado», **nunca** la capa
+    «vive en Sigrid»: el synckey es estable por `registro_id`, así que
+    reaprobar una línea editada NO actualiza el ERP. Las acciones masivas
+    (undo, reasignaciones, borrados por obra/persona, vaciar papelera)
+    omiten lo congelado y devuelven el recuento en vez de abortar.
 
 ## Acceso a datos y sistemas externos
 
@@ -129,3 +142,25 @@ código exige `redeploy_partes.ps1 -Solo svX` (orden seguro
 Vault `kv-partes-pt7m3` vía managed identity (`keyvaultref`); `.env` no
 viaja nunca. Los identificadores reales (suscripción, tenant) viven en
 `infra/*.local.ps1`, sin versionar; los scripts versionados van redactados.
+
+## Herramientas de consola
+
+Scripts sueltos en la raíz de su servicio, para lanzar A MANO desde una
+terminal: no forman parte de ningún pipeline ni los llama el portal. Cada
+uno explica su uso en el docstring de cabecera; aquí solo consta que
+existen y para qué sirven.
+
+- `services/partes-transfer/prueba_escritura_sigrid.py` — prueba de
+  ESCRITURA de partes en Sigrid por fases, siempre contra la obra de
+  pruebas 0404 y con marca `PRUEBA-IA`; dry-run salvo `--ejecutar`.
+- `services/partes-front/consulta_reshor_recursos.py` — diagnóstico de
+  solo lectura: qué recursos y qué códigos de hora tiene un DNI en Sigrid.
+- `services/partes-front/validar_datos_sesame.py` (F-013) — informe de
+  solo lectura contra `sesame-api`: por cada trabajador, sus festivos del
+  año, el tipo de jornada y el flag de reducida, más el calendario por
+  defecto. Genera un Markdown y un CSV en `services/partes-front/logs/`
+  (carpeta ignorada por git: el informe lleva DNIs) para que el humano
+  valide a mano los datos que F-003 usa en el cómputo de extras y en los
+  avisos de jornada. Los fallos por trabajador salen como filas del
+  informe, no lo abortan. Se configura con `--base-url` / `--api-key` o
+  con `SESAME_API_BASE_URL` / `SESAME_API_KEY`.

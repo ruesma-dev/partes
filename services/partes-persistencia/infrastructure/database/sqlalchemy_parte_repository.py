@@ -181,6 +181,9 @@ class SqlAlchemyParteRepository:
             stmt = (
                 select(
                     ParteRegistroOrm.id,
+                    # F-003: el parte del que sale cada registro, para poder
+                    # marcarlo si su computo se hizo con calendario dudoso.
+                    ParteRegistroOrm.document_id,
                     ParteRegistroOrm.obra_ide,
                     ParteRegistroOrm.empleado_ide,
                     ParteRegistroOrm.empleado_reside,
@@ -199,12 +202,13 @@ class SqlAlchemyParteRepository:
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
             out: list[dict] = []
-            for (rid, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
+            for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
                  hora_ide, hora_codigo, categoria, horas) in session.execute(
                 stmt
             ).all():
                 out.append({
                     "registro_id": rid,
+                    "document_id": doc_id,
                     "obra_ide": obra_ide,
                     "empleado_ide": emp_ide,
                     "empleado_reside": reside,
@@ -217,6 +221,34 @@ class SqlAlchemyParteRepository:
                     "horas": horas,
                 })
             return out
+
+    def marcar_review_required(self, document_ids) -> int:
+        """Sube `review_required` a True en esos partes; nunca lo baja.
+
+        La usa el conciliador cuando el computo de extras evaluo algun
+        dia con el calendario degradado (F-003, R26): el parte se guarda
+        igual —sv3 es best-effort— pero queda senalado para que alguien
+        lo mire en el portal. Solo SUBE el flag: un parte marcado por
+        otro motivo no se desmarca por esta via.
+        """
+        ids = sorted({str(d) for d in (document_ids or []) if d})
+        if not ids:
+            return 0
+        n = 0
+        with self._session_factory.create_session() as session:
+            for doc_id in ids:
+                doc = session.get(ParteDocumentOrm, doc_id)
+                if doc is None or doc.review_required:
+                    continue
+                doc.review_required = True
+                n += 1
+            session.commit()
+        if n:
+            logger.warning(
+                "[repo] %s parte(s) marcados para revision de %s solicitados.",
+                n, len(ids),
+            )
+        return n
 
     # ----- extras por jornada (revert + split) ----- #
     def revert_extras_auto(self) -> int:

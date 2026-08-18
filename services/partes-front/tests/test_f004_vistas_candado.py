@@ -1,0 +1,272 @@
+# tests/test_f004_vistas_candado.py
+"""F-004 · el candado en las vistas (R14, R15, R17).
+
+La UI no es la que manda —el servidor ya responde 409—, pero una fila que
+se deja escribir y luego rebota es una trampa: el usuario teclea, guarda,
+ve un error y no sabe por que. Aqui se comprueba sobre el HTML REAL que
+la fila congelada sale bloqueada, con su candado y su motivo, y que la
+fila libre no cambia en nada.
+
+El flag y el motivo los calcula el SERVIDOR con la misma funcion que las
+guardas (R1): en JS no se recalcula nada.
+"""
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+
+import pytest
+from config.settings import Settings
+from fastapi.testclient import TestClient
+from infrastructure.database.parte_repository import ParteReviewRepository
+from interface_adapters.web.app import build_app
+from tests.dobles import FabricaSesionSqlite, sembrar_parte
+
+#: Raiz del servicio (mismo criterio que `tests/conftest.py`).
+RAIZ_SERVICIO = Path(__file__).resolve().parents[1]
+
+CANDADO = "\U0001F512"          # 🔒
+
+
+def _settings() -> Settings:
+    return Settings(_env_file=None)
+
+
+@pytest.fixture
+def entorno(monkeypatch):
+    for clave, valor in {
+        "PG_PASSWORD": "irrelevante-en-tests",
+        "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+        # Con sv5 cableado la tabla saca la columna «Sigrid» y sus
+        # botones Aprobar/↻/Revisar: son justo los que R18 exige que
+        # sigan ahi al lado de una linea congelada.
+        "TRANSFER_BASE_URL": "http://sv5.interno",
+    }.items():
+        monkeypatch.setenv(clave, valor)
+    return monkeypatch
+
+
+@pytest.fixture
+def montaje(entorno):
+    def _montar(lineas, *, aprobado: bool = False, **kw):
+        fabrica = FabricaSesionSqlite()
+        ids = sembrar_parte(fabrica, lineas, aprobado=aprobado, **kw)
+        app = build_app(_settings(),
+                        repository=ParteReviewRepository(fabrica))
+        return TestClient(app), fabrica, ids
+    return _montar
+
+
+def _fila(html: str, registro_id: int) -> str:
+    """La fila <tr> de ese registro (para no confundirla con las demas)."""
+    marca = f'data-registro-id="{registro_id}"'
+    ini = html.index(marca)
+    return html[ini:html.index("</tr>", ini)]
+
+
+def _regs_de_la_matriz(html: str) -> list[dict]:
+    """Los `regs` que la celda de la matriz le pasa al popup (R15)."""
+    crudo = re.search(r"data-regs='([^']*)'", html)
+    assert crudo, "la celda de la matriz tiene que llevar sus lineas"
+    return json.loads(crudo.group(1).replace("&#34;", '"')
+                      .replace("&amp;", "&"))
+
+
+VISTAS = [
+    pytest.param("/obras/obr-10?period=2026-03&modo=natural", id="obra"),
+    pytest.param("/trabajadores/emp-77?period=2026-03&modo=natural",
+                 id="trabajador"),
+    pytest.param("/partes/doc-f004", id="parte"),
+]
+
+
+# ------------------------------ R14 ------------------------------------ #
+
+@pytest.mark.parametrize("url", VISTAS)
+@pytest.mark.parametrize("linea,aprobado", [
+    pytest.param({"estado": None}, True, id="doc-aprobado"),
+    pytest.param({"estado": "encolado"}, False, id="linea-encolada"),
+    pytest.param({"estado": "registrado"}, False, id="linea-registrada"),
+])
+def test_f004_r14_la_linea_congelada_sale_bloqueada(
+        montaje, url, linea, aprobado) -> None:
+    cliente, _f, ids = montaje([linea], aprobado=aprobado)
+    fila = _fila(cliente.get(url).text, ids[0])
+    assert 'data-congelado="1"' in fila
+    assert CANDADO in fila
+    assert "disabled" in fila
+    assert "line-del" not in fila     # sin aspa de borrado
+
+
+@pytest.mark.parametrize("url", VISTAS)
+def test_f004_r14_la_linea_libre_no_lleva_candado(montaje, url) -> None:
+    cliente, _f, ids = montaje([{"estado": "omitido"}])
+    fila = _fila(cliente.get(url).text, ids[0])
+    assert 'data-congelado="1"' not in fila
+    assert CANDADO not in fila
+    assert "disabled" not in fila
+    assert "line-del" in fila
+
+
+@pytest.mark.parametrize("url", VISTAS)
+def test_f004_r14_el_candado_explica_el_motivo(montaje, url) -> None:
+    """El tooltip viene del servidor: el mismo texto del 409."""
+    cliente, _f, ids = montaje([{"estado": "registrado"}])
+    fila = _fila(cliente.get(url).text, ids[0])
+    assert "Sigrid" in fila
+    assert "congelado-motivo" in fila
+
+
+@pytest.mark.parametrize("url", VISTAS)
+def test_f004_r14_en_la_misma_tabla_conviven_congelada_y_libre(
+        montaje, url) -> None:
+    cliente, _f, ids = montaje(
+        [{"estado": "registrado"}, {"estado": "omitido"}])
+    html = cliente.get(url).text
+    assert 'data-congelado="1"' in _fila(html, ids[0])
+    assert 'data-congelado="1"' not in _fila(html, ids[1])
+
+
+def test_f004_r14_el_flag_lo_calcula_el_repositorio(montaje) -> None:
+    """R14: el flag y el motivo viajan del servidor. Si la vista los
+    recalculase en JS, acabarian discrepando de la guarda."""
+    _cliente, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": None}])
+    detalle = ParteReviewRepository(fabrica).get_worker("emp-77")
+    congelados = {v.id: (v.congelado, v.congelado_motivo)
+                  for v in detalle.registros}
+    assert congelados[ids[0]][0] is True
+    assert "Sigrid" in congelados[ids[0]][1]
+    assert congelados[ids[1]] == (False, None)
+
+
+# ------------------------------ R15 ------------------------------------ #
+
+def test_f004_r15_la_celda_de_la_matriz_marca_las_lineas_congeladas(
+        montaje) -> None:
+    cliente, _f, ids = montaje(
+        [{"estado": "registrado", "tipo": "normal"},
+         {"estado": None, "tipo": "extra", "horas": 2.0}])
+    regs = _regs_de_la_matriz(
+        cliente.get("/obras/obr-10?period=2026-03&modo=natural").text)
+    por_id = {r["id"]: r for r in regs}
+    assert por_id[ids[0]].get("c") == 1
+    assert por_id[ids[1]].get("c") in (0, None)
+
+
+def test_f004_r15_la_celda_sigue_llevando_horas_tipo_y_partida(
+        montaje) -> None:
+    """El flag `c` se añadió a un payload que ya existía: si al moverlo
+    se estropease `h`, `t` o `p`, el popup abriría con las horas a cero o
+    sin la partida y el usuario guardaría eso encima de lo bueno."""
+    cliente, _f, ids = montaje([
+        {"estado": None, "tipo": "normal", "horas": 8.0,
+         "partida_cod": "3.1"},
+        {"estado": None, "tipo": "extra", "horas": 2.5,
+         "partida_leida": "J.310"},
+    ])
+    regs = _regs_de_la_matriz(
+        cliente.get("/obras/obr-10?period=2026-03&modo=natural").text)
+    por_id = {r["id"]: r for r in regs}
+    assert por_id[ids[0]] == {"id": ids[0], "t": "n", "h": 8.0, "p": "3.1"}
+    # Sin partida casada se enseña la LEIDA del parte (es lo que hay).
+    assert por_id[ids[1]] == {"id": ids[1], "t": "e", "h": 2.5, "p": "J.310"}
+
+
+def test_f004_r15_una_linea_sin_partida_ni_horas_no_inventa_valores(
+        montaje) -> None:
+    cliente, _f, ids = montaje([{"estado": None, "horas": None}])
+    regs = _regs_de_la_matriz(
+        cliente.get("/obras/obr-10?period=2026-03&modo=natural").text)
+    assert regs == [{"id": ids[0], "t": "n", "h": 0.0, "p": None}]
+
+
+def test_f004_r14_un_dto_construido_a_mano_no_sale_congelado() -> None:
+    """`congelado` es un campo con valor por defecto: quien construya un
+    `RegistroView` fuera de `_registro_view` (los tests de F-003 lo hacen
+    para `extras_por_jornada`) no puede encontrarse la fila bloqueada sin
+    haberlo pedido, ni un `ParteDetail` con la cabecera congelada."""
+    from infrastructure.database.parte_repository import RegistroView
+
+    vista = RegistroView(
+        id=1, document_id="d", fecha="2026-03-02", obra_codigo=None,
+        obra_nombre=None, categoria=None, tipo_hora="normal",
+        es_incidencia=False, incidencia_codigo=None, incidencia_texto=None,
+        horas=8.0, hora_ide=None, hora_codigo=None, hora_descripcion=None,
+        hora_ext=None, hora_match_method=None, hora_candef=None,
+        recurso_precio_hora=None, confianza_pct=None, parte_firmado=False,
+        parte_firmante_rol=None, parte_aprobado=False,
+    )
+    assert vista.congelado is False
+    assert vista.congelado_motivo is None
+
+
+def test_f004_r15_sin_congeladas_la_celda_no_marca_nada(montaje) -> None:
+    cliente, _f, _ids = montaje([{"estado": "omitido"}])
+    regs = _regs_de_la_matriz(
+        cliente.get("/obras/obr-10?period=2026-03&modo=natural").text)
+    assert all(r.get("c") in (0, None) for r in regs)
+
+
+# ------------------------------ R17 ------------------------------------ #
+
+def test_f004_r17_el_parte_aprobado_avisa_y_bloquea_la_cabecera(
+        montaje) -> None:
+    cliente, _f, _ids = montaje([{"estado": None}], aprobado=True)
+    html = cliente.get("/partes/doc-f004").text
+    aviso = re.search(r'<div class="alert[^"]*parte-congelado"[^>]*>(.*?)</div>',
+                      html, re.DOTALL)
+    assert aviso, "un parte aprobado tiene que avisar de por que no se edita"
+    assert "Marcar pendiente" in aviso.group(1)
+    assert 'class="fecha-edit" id="fechaEdit"' in html
+    fecha = html[html.index('id="fechaEdit"'):]
+    assert "disabled" in fecha[:400]
+    assert "data-add-line" in html
+    boton = html[html.index("data-add-line"):]
+    assert "disabled" in boton[:400]
+
+
+def test_f004_r17_el_parte_pendiente_no_lleva_aviso_ni_bloqueos(
+        montaje) -> None:
+    cliente, _f, _ids = montaje([{"estado": "omitido"}])
+    html = cliente.get("/partes/doc-f004").text
+    assert "parte-congelado" not in html
+    fecha = html[html.index('id="fechaEdit"'):]
+    assert "disabled" not in fecha[:400]
+
+
+def test_f004_r17_un_parte_sin_aprobar_con_linea_en_sigrid_tambien_avisa(
+        montaje) -> None:
+    """R2: la cabecera propaga a TODAS las lineas; basta una en Sigrid."""
+    cliente, _f, _ids = montaje([{"estado": "registrado"}, {"estado": None}])
+    html = cliente.get("/partes/doc-f004").text
+    assert "parte-congelado" in html
+
+
+# ------------------------------ R16 ------------------------------------ #
+
+def test_f004_r16_el_front_lee_el_motivo_del_409() -> None:
+    """El proyecto no tiene arnes de tests JS (`docs/CONVENTIONS.md`: la
+    validacion es `node --check` + revision manual). Esto es lo minimo
+    automatizable y lo que de verdad se rompe al retocar `app.js`: que
+    los manejadores de error lean el `error` del cuerpo en vez de pintar
+    un generico. El comportamiento en el navegador lo verifica el humano.
+    """
+    js = (RAIZ_SERVICIO / "static" / "app.js").read_text(encoding="utf-8")
+    assert "MotivoHttp" in js
+    assert "lanzarSiFalla" in js
+    # Ningun manejador se queda con el generico mudo (el texto solo
+    # sobrevive en el comentario que explica por que se quito).
+    assert '"✗ Error", "error"' not in js
+    # Y el popup de la matriz sabe que linea esta congelada (R15).
+    assert "todasCongeladas" in js
+
+
+def test_f004_r18_el_boton_de_aprobar_sigue_en_el_parte(montaje) -> None:
+    """La congelacion bloquea ediciones, nunca el camino a Sigrid."""
+    cliente, _f, _ids = montaje([{"estado": "omitido"}], aprobado=True)
+    html = cliente.get("/partes/doc-f004").text
+    assert "/unapprove" in html
+    assert "aprobar-linea" in cliente.get(
+        "/obras/obr-10?period=2026-03&modo=natural").text

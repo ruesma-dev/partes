@@ -19,11 +19,24 @@ logger = logging.getLogger(__name__)
 
 MOTIVO_SIN_DETALLE = "sv5 no pudo completar el registro"
 
+#: F-003 (R25): marca de un registro forzado por el humano con el
+#: calendario de Sesame no disponible. Va en `sigrid_motivo`, que ya
+#: existe (String(255)): la decision consciente queda por escrito sin
+#: tocar el schema. El prefijo la hace distinguible y filtrable frente a
+#: los motivos de error, que son el otro uso del campo.
+MOTIVO_SIN_SESAME = ("[SIN-SESAME] registrado con override: calendario "
+                     "Sesame no disponible")
+
 
 def aplicar_resultado(repository, resultado: dict, *,
                       registro_ids: list[int] | None,
-                      usuario: str | None) -> int:
-    """Marca las lineas segun el veredicto. Devuelve cuantas cambiaron."""
+                      usuario: str | None,
+                      sin_sesame: bool = False) -> int:
+    """Marca las lineas segun el veredicto. Devuelve cuantas cambiaron.
+
+    Con `sin_sesame=True`, las lineas que quedan OK llevan la marca
+    `[SIN-SESAME]` en vez del motivo vacio de siempre.
+    """
     if not resultado.get("ok"):
         # R14: fallo global -> la peticion entera queda en 'error' para
         # que el humano pueda reaprobar (seguro por synckey).
@@ -38,4 +51,5 @@ def aplicar_resultado(repository, resultado: dict, *,
         ya_registradas=resultado.get("ya_registradas") or [],
         conflictos=resultado.get("pendientes_confirmacion") or [],
         usuario=usuario,
+        motivo_ok=MOTIVO_SIN_SESAME if sin_sesame else None,
     )

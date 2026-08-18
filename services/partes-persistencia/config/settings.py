@@ -106,10 +106,23 @@ class Settings(BaseSettings):
 
     # Calendario laboral (fin de semana + festivos). En fin de semana o
     # festivo no hay horas ordinarias: el reparto las manda todas a extra.
-    # Hoy lo alimenta este JSON local; el dia de manana, Sesame.
+    # Con SESAME_API_* configurado manda Sesame y este JSON queda de
+    # RESPALDO; sin ellas, es la unica fuente (F-003).
     calendario_laboral_path: str = Field(
         "config/calendario_laboral.json", alias="CALENDARIO_LABORAL_PATH"
     )
+
+    # ------------------------------------------------------------ #
+    # sesame-api (F-003) — festivos REALES por trabajador. Pasarela de
+    # solo lectura sobre Sesame HR, con clave propia en 'x-api-key'.
+    #
+    # OPCIONAL: sin las dos variables el calendario es el JSON de
+    # siempre y no se hace ni una llamada (R10).
+    # ------------------------------------------------------------ #
+    sesame_api_base_url: str | None = Field(None, alias="SESAME_API_BASE_URL")
+    sesame_api_key: str | None = Field(None, alias="SESAME_API_KEY")
+    sesame_api_timeout_s: float = Field(10.0, alias="SESAME_API_TIMEOUT_S")
+    sesame_cache_ttl_s: int = Field(21600, alias="SESAME_CACHE_TTL_S")
 
     # ------------------------------------------------------------ #
     # SharePoint (Microsoft Graph). Archiva el PDF del parte. Best-effort:
@@ -177,6 +190,18 @@ class Settings(BaseSettings):
     @property
     def sigrid_catalog_enabled(self) -> bool:
         return self.sigrid_credentials_present
+
+    @property
+    def sesame_enabled(self) -> bool:
+        """Hay pasarela de Sesame cableada (mismo patron que Sigrid).
+
+        Mientras sea False, F-003 esta APAGADA en sv3: los festivos
+        salen del JSON local, exactamente como antes.
+        """
+        return bool(
+            (self.sesame_api_base_url or "").strip()
+            and (self.sesame_api_key or "").strip()
+        )
 
     @property
     def sharepoint_enabled(self) -> bool:

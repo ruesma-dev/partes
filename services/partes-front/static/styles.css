@@ -681,6 +681,14 @@ body.modal-open { overflow: hidden; }
 .cal-day:hover{background:#f3f6ff;border-color:#c9d6ff;}
 .cal-day.sel{background:#1f4bd8;border-color:#1f4bd8;color:#fff;font-weight:700;}
 .cal-day.range-start{outline:2px solid #f5a623;outline-offset:-2px;}
+/* F-003: festivos y domingos del calendario de "+ Nuevo". Se pueden
+   seleccionar (trabajar en festivo es legitimo); solo se marcan para que
+   nadie los meta sin darse cuenta al pintar un rango de un tiron. */
+.cal-day.cal-day-fest{background:#fdece9;border-color:#f0b8ae;color:#9f2842;}
+.cal-day.cal-day-dom{background:#eef0f1;border-color:#dfe2e4;color:#6b7076;}
+.cal-day.cal-day-fest.sel,.cal-day.cal-day-dom.sel{background:#1f4bd8;border-color:#1f4bd8;color:#fff;}
+.cal-legend-fest{color:#9f2842;font-weight:600;}
+.cal-legend-dom{color:#6b7076;font-weight:600;}
 .cal-hint{font-size:12px;margin-top:10px;}
 .table-scroll{overflow-x:auto;overflow-y:visible;}
 
@@ -828,6 +836,13 @@ tr.row-selected > td:first-child { box-shadow: inset 3px 0 0 var(--brand, #9f284
   margin-top: 14px; position: sticky; bottom: 0; background: #fff;
   padding: 12px 0 16px; border-top: 1px solid #eee; }
 .ap-modal hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+/* F-003: bloqueo por Sesame no disponible y su override consciente. */
+.ap-modal .ap-sesame-bloqueo { border-left-color: #9f2842;
+  background: #fdece9; }
+.ap-modal .ap-forzar { display: block; margin-top: 8px; font-size: 13px;
+  color: #6b1f30; cursor: pointer; }
+.ap-modal .ap-forzar input { margin-right: 6px; }
+.badge.badge-sin-sesame { font-size: 10.5px; letter-spacing: .3px; }
 td.cell-sigrid { white-space: nowrap; }
 td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
 
@@ -901,3 +916,28 @@ td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
 }
 .poison-fila code { font-size: 12px; }
 .poison-estado { margin-top: 8px; font-size: 12px; }
+
+/* --- F-004 · lineas congeladas (aprobadas o ya en Sigrid) ----------- */
+/* Un gris apagado con el candado a la vista: la fila se lee, no se
+   toca. Sin esto, una fila con los inputs `disabled` parece un fallo de
+   carga en vez de una decision del sistema. */
+.row-congelada { background: #f7f8fa; }
+.row-congelada input[disabled],
+.row-congelada select[disabled] {
+  background: #eef0f3;
+  color: #6b7280;
+  border-color: #dfe3e8;
+  cursor: not-allowed;
+}
+.congelado-motivo {
+  cursor: help;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.parte-congelado { margin: 10px 0; }
+.mxe-congelada span { color: #6b7280; }
+.mxe-congelada input[disabled] {
+  background: #eef0f3;
+  color: #6b7280;
+  cursor: not-allowed;
+}

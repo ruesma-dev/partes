@@ -38,6 +38,17 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.congelacion import (
+    MOTIVO_HARD_DELETE_REGISTRADO,
+    MOTIVO_UNAPPROVE_ENCOLADO,
+    CongeladoError,
+    es_registrado,
+    exigir_documento_editable,
+    exigir_linea_editable,
+    hay_linea_encolada,
+    motivo_congelacion_documento,
+    motivo_congelacion_linea,
+)
 from application.services.calendar_builder import (
     build_period_options,
     is_future_fecha,
@@ -155,6 +166,12 @@ class RegistroView:
     recurso_cif: Optional[str] = None
     hmo_ide: Optional[int] = None
     parte_estado: Optional[str] = None              # ok|sin_recurso|sin_parte
+    # --- Congelacion (F-004 R14) --- #
+    # Decidido en el SERVIDOR con la misma funcion que las guardas; la
+    # vista solo pinta. Si el JS lo recalculase, un dia diria que se
+    # puede editar algo que el servidor rechaza con un 409.
+    congelado: bool = False
+    congelado_motivo: str | None = None
 
 
 @dataclass
@@ -222,6 +239,8 @@ class ParteDetail:
     source_filename: Optional[str]
     sharepoint_url: Optional[str]
     es_futuro: bool = False
+    #: Motivo por el que el DOCUMENTO esta congelado (R2/R17), o None.
+    congelado_doc: str | None = None
     empleados: list[ParteEmpleadoView] = field(default_factory=list)
 
 
@@ -290,6 +309,10 @@ class ObraMatrixRow:
     # Si no lo tiene, sus horas NO cuentan en totales (KPIs, dia, obra).
     recurso_ide: Optional[int] = None
     tiene_extra: bool = True
+    # DNI del trabajador (empleado_dni, o el CIF del recurso). F-003 lo
+    # necesita para evaluar el festivo de CADA fila con el calendario de
+    # su propietario; la clave visual de la matriz sigue siendo el nombre.
+    dni: Optional[str] = None
 
 
 @dataclass
@@ -439,6 +462,85 @@ def _is_extra(reg: ParteRegistroOrm) -> bool:
     # o el auxhor resuelto es extra (ext=1). NO depende de que hora_ext sea
     # exactamente 1 (puede quedar 0/None y el tipo seguir siendo 'extra').
     return (reg.tipo_hora or "") == "extra" or reg.hora_ext == 1
+
+
+# ------------------------------------------------------------------ #
+# CONGELACION (F-004). La decision vive en
+# `application/services/congelacion.py`; aqui solo se lee el estado de la
+# fila (documento aprobado + `sigrid_estado`) y se aplica DENTRO de la
+# misma sesion que la mutacion: sin ventana entre comprobar y escribir.
+#
+# Ojo: `doc.registros` incluye las lineas en PAPELERA a proposito. Una
+# linea borrada del portal puede seguir viva en Sigrid, y cambiar la
+# fecha o la obra del parte propaga a TODAS.
+# ------------------------------------------------------------------ #
+def _motivo_congelado_reg(reg: ParteRegistroOrm) -> str | None:
+    doc = reg.document
+    return motivo_congelacion_linea(
+        doc_aprobado=bool(doc is not None and doc.approved),
+        sigrid_estado=reg.sigrid_estado,
+    )
+
+
+def _exigir_reg_editable(reg: ParteRegistroOrm) -> None:
+    doc = reg.document
+    exigir_linea_editable(
+        doc_aprobado=bool(doc is not None and doc.approved),
+        sigrid_estado=reg.sigrid_estado,
+    )
+
+
+def _estados_de_doc(doc: ParteDocumentOrm) -> list[str | None]:
+    return [r.sigrid_estado for r in doc.registros]
+
+
+def _motivo_congelado_doc(doc: ParteDocumentOrm) -> str | None:
+    return motivo_congelacion_documento(
+        aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
+    )
+
+
+def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
+    exigir_documento_editable(
+        aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
+    )
+
+
+def _reg_de_celda(reg: ParteRegistroOrm, tipo: str) -> dict:
+    """Linea tal como la ve el popup de la celda de la matriz (R15).
+
+    `c` = 1 si esta congelada: el popup la pinta solo-lectura y, si TODAS
+    lo estan, no ofrece ni guardar ni crear la extra. El flag lo calcula
+    el servidor (misma funcion que la guarda), no el JS.
+    """
+    fila = {
+        "id": reg.id, "t": tipo, "h": reg.horas or 0.0,
+        "p": reg.partida_cod or reg.partida or None,
+    }
+    if _motivo_congelado_reg(reg) is not None:
+        fila["c"] = 1
+    return fila
+
+
+def _separar_congeladas(
+    regs: list[ParteRegistroOrm],
+) -> tuple[list[ParteRegistroOrm], int]:
+    """(libres, nº congeladas) de una edicion MASIVA (R8/R9/R13).
+
+    D5: estas herramientas tocan N filas. Abortarlas enteras por UNA
+    congelada las volveria inservibles en cuanto hubiera un mes
+    registrado; omitir en silencio ocultaria que la accion fue parcial.
+    Se actualiza lo libre, se cuenta lo omitido y quien llama lo reporta.
+    """
+    libres = [r for r in regs if _motivo_congelado_reg(r) is None]
+    return libres, len(regs) - len(libres)
+
+
+def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
+    """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
+    local a la linea escrita en Sigrid; un hard-delete la borra para
+    siempre."""
+    return any(es_registrado(e) for e in _estados_de_doc(doc))
 
 
 class ParteReviewRepository:
@@ -874,17 +976,11 @@ class ParteReviewRepository:
             elif _is_extra(reg):
                 slot["extra"] += reg.horas or 0.0
                 slot["e_ids"].append(reg.id)
-                slot["regs"].append({
-                    "id": reg.id, "t": "e", "h": reg.horas or 0.0,
-                    "p": reg.partida_cod or reg.partida or None,
-                })
+                slot["regs"].append(_reg_de_celda(reg, "e"))
             else:
                 slot["normal"] += reg.horas or 0.0
                 slot["n_ids"].append(reg.id)
-                slot["regs"].append({
-                    "id": reg.id, "t": "n", "h": reg.horas or 0.0,
-                    "p": reg.partida_cod or reg.partida or None,
-                })
+                slot["regs"].append(_reg_de_celda(reg, "n"))
 
         # Trabajadores SIN codigo de hora extra en Sigrid (fuente: reshor).
         # Sus horas (ordinarias Y extras) NO cuentan en los totales. La
@@ -957,6 +1053,7 @@ class ParteReviewRepository:
                 categoria=w.get("categoria"),
                 recurso_ide=w.get("recurso_ide"),
                 tiene_extra=tiene_extra,
+                dni=w.get("dni"),
             ))
         rows.sort(key=lambda r: (0 if r.matched else 1, _norm(r.nombre)))
 
@@ -1086,6 +1183,7 @@ class ParteReviewRepository:
                 source_filename=doc.source_filename,
                 sharepoint_url=doc.sharepoint_url,
                 es_futuro=_doc_es_futuro(doc),
+                congelado_doc=_motivo_congelado_doc(doc),   # F-004 R17
             )
 
             # Agrupar registros por empleado (linea de la tabla PERSONAL).
@@ -1133,6 +1231,12 @@ class ParteReviewRepository:
             base = session.get(ParteRegistroOrm, registro_id)
             if base is None or base.es_incidencia:
                 return None
+            # F-004 R5: un parte aprobado no cambia de contenido, tampoco
+            # por adicion. Se aplica la misma matriz que a la edicion (no
+            # solo `approved`): la vista pinta la celda congelada con esa
+            # decision y el popup no ofrece crear extra, asi que el
+            # servidor tiene que decir lo mismo.
+            _exigir_reg_editable(base)
             h = hora or {}
             nuevo = ParteRegistroOrm(
                 document_id=base.document_id,
@@ -1333,8 +1437,14 @@ class ParteReviewRepository:
         conflictos: list[dict] | None = None,
         error_global: str | None = None,
         registro_ids: list[int] | None = None,
+        motivo_ok: str | None = None,
     ) -> int:
         """Guarda la traza del registro en cada linea.
+
+        `motivo_ok` es la anotacion que se escribe en las lineas que
+        quedan OK, donde normalmente va `None`. Hoy solo la usa F-003
+        para marcar `[SIN-SESAME]` un registro forzado sin calendario
+        fiable: no hace falta columna nueva para dejar constancia.
 
         `conflictos` son los `pendientes_confirmacion` de sv5: sus lineas
         NO se escribieron y quedan en 'conflicto' a la espera de que un
@@ -1374,7 +1484,7 @@ class ParteReviewRepository:
                 reg.sigrid_hmoide = e.get("hmoide")
                 reg.sigrid_hmores_ide = e.get("hmores_ide")
                 reg.sigrid_parte_cod = e.get("parte_cod")
-                reg.sigrid_motivo = None
+                reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                 n += 1
             for o in omitidas or []:
                 reg = session.get(ParteRegistroOrm, int(o["registro_id"]))
@@ -1393,7 +1503,7 @@ class ParteReviewRepository:
                 # quedaria ahi para siempre pese a estar ya en Sigrid.
                 if reg is not None and reg.sigrid_estado in ESTADOS_EN_VUELO:
                     reg.sigrid_estado = "registrado"
-                    reg.sigrid_motivo = None
+                    reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                     reg.sigrid_registrado_at_utc = ahora
                     reg.sigrid_registrado_by = usuario
                     n += 1
@@ -1427,6 +1537,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R3
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             if tipo_hora is not None:
@@ -1455,6 +1566,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R3
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.hora_ide = hora_ide
@@ -1514,6 +1626,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R3
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.partida_ide = partida_ide
@@ -1602,12 +1715,15 @@ class ParteReviewRepository:
     def backfill_empleado(
         self, *, nombre_leido: str, ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         """Asigna el empleado a TODOS los registros activos sin casar cuyo
-        nombre leido (normalizado) coincide. Devuelve nº de filas tocadas."""
+        nombre leido (normalizado) coincide.
+
+        Devuelve (filas tocadas, filas omitidas por congelacion: R8).
+        """
         target = tm.normalize(nombre_leido)
         if not target:
-            return 0
+            return 0, 0
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1617,12 +1733,13 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.empleado_ide.is_(None))
             )
             regs = list(session.execute(stmt).scalars().all())
-            affected = [
+            candidatos = [
                 r for r in regs
                 if tm.normalize(r.trabajador_nombre_leido) == target
             ]
+            affected, congeladas = _separar_congeladas(candidatos)
             if not affected:
-                return 0
+                return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             alias_snaps = [self._alias_snapshot(session, target)]
             for r in affected:
@@ -1637,7 +1754,7 @@ class ParteReviewRepository:
                 registros=reg_snaps, aliases=alias_snaps,
             )
             session.commit()
-        return len(affected)
+        return len(affected), congeladas
 
     def upsert_empleado_alias(
         self, *, nombre_leido: str, ide: int,
@@ -1745,7 +1862,13 @@ class ParteReviewRepository:
 
     def undo_last(self) -> dict:
         """Deshace la accion no-deshecha mas reciente: restaura el estado
-        anterior de registros/documento/alias y la marca como deshecha."""
+        anterior de registros/documento/alias y la marca como deshecha.
+
+        F-004 R9: los snapshots de filas HOY congeladas se OMITEN. El
+        snapshot es de antes; entre medias la linea pudo irse a Sigrid, y
+        restaurar los valores viejos la dejaria divergente para siempre.
+        Se aplica el resto y se devuelve cuantos se omitieron (D5).
+        """
         with self._session_factory.create_session() as session:
             stmt = (
                 select(UndoLogOrm)
@@ -1761,14 +1884,23 @@ class ParteReviewRepository:
                 payload = json.loads(row.payload)
             except Exception:  # noqa: BLE001
                 payload = {}
+            omitidos = 0
             for snap in payload.get("documents", []):
                 doc = session.get(ParteDocumentOrm, snap.get("id"))
-                if doc is not None:
-                    _apply_doc_snapshot(doc, snap)
+                if doc is None:
+                    continue
+                if _motivo_congelado_doc(doc) is not None:
+                    omitidos += 1
+                    continue
+                _apply_doc_snapshot(doc, snap)
             for snap in payload.get("registros", []):
                 reg = session.get(ParteRegistroOrm, snap.get("id"))
-                if reg is not None:
-                    _apply_reg_snapshot(reg, snap)
+                if reg is None:
+                    continue
+                if _motivo_congelado_reg(reg) is not None:
+                    omitidos += 1
+                    continue
+                _apply_reg_snapshot(reg, snap)
             for snap in payload.get("aliases", []):
                 self._apply_alias_snapshot(session, snap)
             row.undone = True
@@ -1776,7 +1908,13 @@ class ParteReviewRepository:
             remaining = len(list(session.execute(
                 select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
             ).scalars().all()))
-        return {"ok": True, "description": description, "remaining": remaining}
+        if omitidos:
+            logger.info(
+                "[undo] %s fila(s) omitidas por congelacion (%s)",
+                omitidos, description,
+            )
+        return {"ok": True, "description": description,
+                "remaining": remaining, "omitidos": omitidos}
 
     def get_registro_recurso(self, registro_id: int) -> int | None:
         """recurso_ide del registro (para resolver su hora extra)."""
@@ -1792,12 +1930,15 @@ class ParteReviewRepository:
     def reassign_empleado_by_leido(
         self, *, nombre_leido: str, ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         """Reasigna el empleado a TODOS los registros activos cuyo nombre
-        leido (normalizado) coincide, ESTEN o no casados (correccion)."""
+        leido (normalizado) coincide, ESTEN o no casados (correccion).
+
+        Devuelve (filas tocadas, omitidas por congelacion: R8).
+        """
         target = tm.normalize(nombre_leido)
         if not target:
-            return 0
+            return 0, 0
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1805,12 +1946,12 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
-            affected = [
+            affected, congeladas = _separar_congeladas([
                 r for r in session.execute(stmt).scalars().all()
                 if tm.normalize(r.trabajador_nombre_leido) == target
-            ]
+            ])
             if not affected:
-                return 0
+                return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             alias_snaps = [self._alias_snapshot(session, target)]
             for r in affected:
@@ -1825,14 +1966,17 @@ class ParteReviewRepository:
                 registros=reg_snaps, aliases=alias_snaps,
             )
             session.commit()
-        return len(affected)
+        return len(affected), congeladas
 
     def reassign_empleado_by_worker_key(
         self, *, worker_key: str, ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> tuple[int, list[str]]:
+    ) -> tuple[int, list[str], int]:
         """Reasigna todos los registros activos del grupo (worker_key).
-        Devuelve (filas, nombres_leidos_distintos) para escribir alias."""
+
+        Devuelve (filas, nombres_leidos_distintos, omitidas por
+        congelacion: R8); los nombres leidos sirven para escribir alias.
+        """
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1840,12 +1984,12 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
-            affected = [
+            affected, congeladas = _separar_congeladas([
                 r for r in session.execute(stmt).scalars().all()
                 if worker_key_for_registro(r) == worker_key
-            ]
+            ])
             if not affected:
-                return 0, []
+                return 0, [], congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             leidos = sorted({
                 r.trabajador_nombre_leido for r in affected
@@ -1866,12 +2010,12 @@ class ParteReviewRepository:
                 registros=reg_snaps, aliases=alias_snaps,
             )
             session.commit()
-        return len(affected), leidos
+        return len(affected), leidos, congeladas
 
     def reassign_empleado_by_registro_ids(
         self, *, registro_ids: list[int], ide: int,
         codigo: str | None, nombre: str | None, dni: str | None,
-    ) -> int:
+    ) -> tuple[int, int]:
         """Reasigna el empleado SOLO a los registros indicados (activos).
 
         A diferencia de ``reassign_empleado_by_leido`` (que afecta a TODOS los
@@ -1881,7 +2025,7 @@ class ParteReviewRepository:
         """
         ids = [int(x) for x in registro_ids if x is not None]
         if not ids:
-            return 0
+            return 0, 0
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1890,9 +2034,10 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
-            affected = list(session.execute(stmt).scalars().all())
+            affected, congeladas = _separar_congeladas(
+                list(session.execute(stmt).scalars().all()))
             if not affected:
-                return 0
+                return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             for r in affected:
                 r.empleado_ide = ide
@@ -1906,7 +2051,7 @@ class ParteReviewRepository:
                 registros=reg_snaps,
             )
             session.commit()
-        return len(affected)
+        return len(affected), congeladas
 
     def get_sharepoint_ref(self, document_id: str) -> dict | None:
         """Datos para descargar el PDF de SharePoint por Graph."""
@@ -1933,6 +2078,7 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            _exigir_doc_editable(doc)   # F-004 R6
             doc_snap = _doc_snapshot(doc)
             reg_snaps = [_reg_snapshot(r) for r in doc.registros]
             old = doc.fecha
@@ -1966,6 +2112,7 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            _exigir_doc_editable(doc)   # F-004 R6
             doc_snap = _doc_snapshot(doc)
             reg_snaps = [_reg_snapshot(r) for r in doc.registros]
             doc.obra_ide = obra_ide
@@ -2011,6 +2158,23 @@ class ParteReviewRepository:
         return self._set_approval(document_id, True, approved_by)
 
     def unapprove_document(self, *, document_id: str) -> bool:
+        """Desaprobar («Marcar pendiente») ES la via explicita de F-004.
+
+        R10: se rechaza mientras haya lineas ACTIVAS en vuelo (`encolado`);
+        con lineas ya `registrado` SI se permite —hace falta para corregir
+        las del mismo parte que no llegaron a Sigrid— y esas siguen
+        congeladas por su propio estado (R11).
+        """
+        with self._session_factory.create_session() as session:
+            doc = session.get(ParteDocumentOrm, document_id)
+            if doc is None:
+                return False
+            activas = [
+                r.sigrid_estado for r in doc.registros
+                if not r.deleted_at_utc
+            ]
+            if hay_linea_encolada(activas):
+                raise CongeladoError(MOTIVO_UNAPPROVE_ENCOLADO)
         return self._set_approval(document_id, False, None)
 
     def _set_approval(
@@ -2033,6 +2197,7 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            _exigir_doc_editable(doc)   # F-004 R7
             doc.is_active = False
             doc.deleted_at_utc = now_iso
             doc.deleted_by = deleted_by
@@ -2060,6 +2225,7 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None or reg.deleted_at_utc:
                 return False
+            _exigir_reg_editable(reg)   # F-004 R4
             reg.deleted_at_utc = now_iso
             reg.deleted_by = by
             session.commit()
@@ -2086,14 +2252,23 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            if es_registrado(reg.sigrid_estado):   # F-004 R12
+                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
             session.delete(reg)
             session.commit()
         return True
 
     # ---- OBRA (todos sus partes) ---- #
-    def soft_delete_obra(self, *, obra_key: str, by: str | None = None) -> int:
+    def soft_delete_obra(
+        self, *, obra_key: str, by: str | None = None,
+    ) -> tuple[int, int]:
+        """Manda a la papelera los partes de la obra.
+
+        Devuelve (partes movidos, partes omitidos por congelacion: R13).
+        """
         now_iso = datetime.now(timezone.utc).isoformat()
         n = 0
+        congelados = 0
         with self._session_factory.create_session() as session:
             docs = session.execute(
                 select(ParteDocumentOrm).where(
@@ -2101,16 +2276,26 @@ class ParteReviewRepository:
                 )
             ).scalars().all()
             for doc in docs:
-                if self._obra_key_for_doc(doc) == obra_key:
-                    doc.is_active = False
-                    doc.deleted_at_utc = now_iso
-                    doc.deleted_by = by
-                    n += 1
+                if self._obra_key_for_doc(doc) != obra_key:
+                    continue
+                if _motivo_congelado_doc(doc) is not None:
+                    congelados += 1
+                    continue
+                doc.is_active = False
+                doc.deleted_at_utc = now_iso
+                doc.deleted_by = by
+                n += 1
             session.commit()
-        return n
+        return n, congelados
 
     # ---- PERSONA (todas sus lineas) ---- #
-    def soft_delete_worker(self, *, worker_key: str, by: str | None = None) -> int:
+    def soft_delete_worker(
+        self, *, worker_key: str, by: str | None = None,
+    ) -> tuple[int, int]:
+        """Manda a la papelera las lineas del trabajador.
+
+        Devuelve (lineas movidas, lineas omitidas por congelacion: R13).
+        """
         now_iso = datetime.now(timezone.utc).isoformat()
         n = 0
         with self._session_factory.create_session() as session:
@@ -2120,13 +2305,15 @@ class ParteReviewRepository:
                 .where(ParteDocumentOrm.is_active.is_(True))
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
             ).scalars().all()
+            suyas = [r for r in rows
+                     if worker_key_for_registro(r) == worker_key]
+            libres, congelados = _separar_congeladas(suyas)
             docs_tocados: set[str] = set()
-            for reg in rows:
-                if worker_key_for_registro(reg) == worker_key:
-                    reg.deleted_at_utc = now_iso
-                    reg.deleted_by = by
-                    n += 1
-                    docs_tocados.add(reg.document_id)
+            for reg in libres:
+                reg.deleted_at_utc = now_iso
+                reg.deleted_by = by
+                n += 1
+                docs_tocados.add(reg.document_id)
             # Documentos que quedan sin lineas activas -> a papelera tambien.
             for did in docs_tocados:
                 queda = session.execute(
@@ -2142,7 +2329,7 @@ class ParteReviewRepository:
                         doc.deleted_at_utc = now_iso
                         doc.deleted_by = by
             session.commit()
-        return n
+        return n, congelados
 
     # ---- PAPELERA ---- #
     def list_papelera(self) -> dict:
@@ -2203,6 +2390,8 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
+            if _tiene_linea_registrada(doc):   # F-004 R12
+                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
             session.execute(
                 delete(ParteRegistroOrm).where(
                     ParteRegistroOrm.document_id == document_id
@@ -2214,9 +2403,16 @@ class ParteReviewRepository:
 
     def vaciar_papelera(self) -> dict:
         """Hard-delete de TODO lo que esta en papelera (documentos + sus
-        registros, y lineas sueltas borradas)."""
+        registros, y lineas sueltas borradas).
+
+        F-004 R12: lo que tenga lineas `registrado` se OMITE y se cuenta
+        (`omitidos`). Vaciar la papelera es la accion mas destructiva del
+        portal; abortarla entera por un parte viejo la haria inservible,
+        pero llevarse la referencia a Sigrid es irreparable.
+        """
         docs_borrados = 0
         regs_borrados = 0
+        omitidos = 0
         with self._session_factory.create_session() as session:
             docs = session.execute(
                 select(ParteDocumentOrm).where(
@@ -2224,6 +2420,9 @@ class ParteReviewRepository:
                 )
             ).scalars().all()
             for d in docs:
+                if _tiene_linea_registrada(d):
+                    omitidos += 1
+                    continue
                 session.execute(
                     delete(ParteRegistroOrm).where(
                         ParteRegistroOrm.document_id == d.id
@@ -2239,10 +2438,19 @@ class ParteReviewRepository:
                 .where(ParteDocumentOrm.deleted_at_utc.is_(None))
             ).scalars().all()
             for r in regs:
+                if es_registrado(r.sigrid_estado):
+                    omitidos += 1
+                    continue
                 session.delete(r)
                 regs_borrados += 1
             session.commit()
-        return {"documentos": docs_borrados, "registros": regs_borrados}
+        if omitidos:
+            logger.info(
+                "[papelera] %s elemento(s) omitidos por estar en Sigrid",
+                omitidos,
+            )
+        return {"documentos": docs_borrados, "registros": regs_borrados,
+                "omitidos": omitidos}
 
     # ----------------------------------------------------------------- #
     # CREAR parte manualmente (un dia o un periodo).
@@ -2436,6 +2644,7 @@ def extras_por_jornada(registros: list["RegistroView"]) -> dict:
 
 def _registro_view(reg: ParteRegistroOrm) -> RegistroView:
     doc = reg.document
+    motivo = _motivo_congelado_reg(reg)
     return RegistroView(
         id=reg.id,
         document_id=reg.document_id,
@@ -2479,4 +2688,6 @@ def _registro_view(reg: ParteRegistroOrm) -> RegistroView:
         recurso_cif=reg.recurso_cif,
         hmo_ide=reg.hmo_ide,
         parte_estado=reg.parte_estado,
+        congelado=motivo is not None,
+        congelado_motivo=motivo,
     )
