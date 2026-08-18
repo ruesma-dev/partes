@@ -169,3 +169,34 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   `base` o merge-base) — coincide con AM-2 de F-013; el reviewer debe
   REPRODUCIR una fase RED en un worktree del commit RED; `harness.mutacion`
   debe `git worktree prune`/limpiar en `finally`.
+
+## F-012 · Estudio: candef 9 h, viernes y jornada semanal particularizable — done 2026-08-18
+
+- Estudio sin código (rigor documental): el entregable es la propia spec
+  `specs/F-012-estudio-jornada-semanal/` (requirements bloque A = el
+  estudio, bloque B = requisitos EARS que hereda F-015; design H1–H8 con
+  datos reales de Sigrid vía sigrid-api solo lectura y anexo SQL
+  reproducible; tasks). Rama de cierre
+  `feature/F-012-estudio-jornada-semanal` (HEAD 0333c69). Spec aprobada
+  por el humano el 2026-08-18; 1 ciclo de review (bloque B contradecía
+  una decisión, decisiones cerradas en «abiertas», tasks sin marcar) y
+  APPROVED en segunda pasada con errata E1 corregida por el líder.
+- Hallazgos clave: candef 9 = 1 recurso (MO/0037, sin DNI en emp); en
+  3.498 viernes no hay ninguno de 4 h (la práctica es 8 − 2 / 8 − 3);
+  los >40 h son una cuadrilla de 7 oficiales de 1.ª con candef 8 que
+  registran 9-9-9-9-6 = 42 (48 antes de 2026-05); intensiva de verano
+  7×5 masiva (F-011); Sigrid tiene auxtur/emphis.turide vacíos pero
+  emphis.porjorlab (% jornada) con datos reales; contratos Sesame vacíos.
+- Decisiones del humano (firmes): jornada semanal DERIVADA del candef por
+  mapa configurable {8:40, 9:42} en env espejo sv3+sv4; «resto» en el
+  ÚLTIMO DÍA LABORABLE de la semana del trabajador (calendario F-003), el
+  festivo cuenta como jornada; candef válido fuera del mapa → jornada
+  plana 5×candef + WARNING; sin calendario → viernes; excepciones en tabla
+  `empleado_jornada` (UI en F-016, SQL manual mientras); F-010 antes de
+  F-015; excluir del re-split lo registrado/encolado/approved.
+- Reviewer (independiente): 18/18 sentencias del anexo ejecutan tal cual
+  y las cifras cuadran exactas; sin DNIs/claves en la spec; init.sh verde.
+- Salen de aquí: F-014 (candef 9 en Sigrid a MO/0006, 0007, 0008, 0031,
+  0366, 0405, 0456 y DNI de MO/0037 — MANUAL RRHH/Administración),
+  F-015 (implementación) y F-016 (UI). F-011 replanteada sobre
+  `empleado_jornada` + `emphis.porjorlab`.

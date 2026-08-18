@@ -1,6 +1,12 @@
 <!-- progress/review_F-012.md -->
 # Review · F-012 · Estudio: candef de 9 h, viernes y jornada semanal particularizable
 
+> **VEREDICTO FINAL: APPROVED** (segunda pasada, al final de este documento).
+> Lo que sigue es la PRIMERA pasada, que rechazó la spec; se conserva entera
+> porque es el registro de qué se pidió corregir y por qué.
+
+## Primera pasada · 2026-08-18
+
 - **Veredicto: CHANGES_REQUESTED**
 - Fecha: 2026-08-18 · Rama revisada: `feature/F-004-congelar-aprobados` (HEAD `6a29e77`)
 - Entregable revisado: `specs/F-012-estudio-jornada-semanal/{requirements,design,tasks}.md`
@@ -334,3 +340,229 @@ Propuesta para el humano, a aplicar en este repositorio **y a portar a
    pega en el informe. Es el equivalente documental de la verificación
    independiente de la campaña de mutación que ya exige C4 bis: sin ella, un
    estudio con números inventados pasa el filtro sin despeinarse.
+
+---
+
+# Segunda pasada · 2026-08-18
+
+- **Veredicto final: APPROVED**
+- Rama: `feature/F-012-estudio-jornada-semanal` (creada desde `dev` `9247c16`),
+  HEAD `80aefc5`. Commits revisados: `37b50af` (corrección del spec-author),
+  `80aefc5` (errata del caso M), `c31b24a` (punto 7, hecho por el líder).
+- `git diff dev...HEAD` toca **solo** `specs/F-012-estudio-jornada-semanal/`
+  (los tres ficheros), `progress/current.md` y `progress/review_F-012.md`.
+  Sigue sin haber una línea de código: el estudio no cambia el producto.
+- `bash harness/init.sh`: **exit code 0**, `ENTORNO LISTO`. Además la puerta de
+  cobertura ahora imprime el motivo correcto por sí sola:
+  `PUERTA COBERTURA: N/A (F-012 es de nivel documental: no exige cobertura)`,
+  en vez del 96,7 % heredado de F-004 que confundía en la primera pasada.
+- `git status` limpio. Rama activa = rama declarada en `features.json`.
+
+## Punto por punto
+
+### 1 · Bloque B con 5×candef + WARNING como requisito EARS — **RESUELTO**
+
+- `requirements.md` **R10** reescrito: «SI el candef efectivo es válido pero NO
+  está en el mapa, ENTONCES S = 5 × candef efectivo (jornada plana:
+  comportamiento actual) **y el sistema debe emitir un WARNING**» con el texto
+  del mensaje y la cadencia (una vez por recurso y pasada/vista). El WARNING deja
+  de ser una recomendación y pasa a ser obligación EARS, que era justo el punto.
+  Añade la frase que cierra la puerta: «No existe una "jornada semanal por
+  defecto" aparte del mapa».
+- **R13** corregido: «Candef 10 (fuera del mapa) → S 50 → último laborable 10
+  (jornada plana)». Aritmética comprobada: 50 − 4×10 = 10. El antiguo «Candef 10,
+  S 40 → último 0» ha desaparecido. El caso «candef 9 con mapa `9:40` → último 4»
+  sigue siendo correcto (40 − 36 = 4) y ahora explicita el mapa que lo produce.
+- **§4 caso M** rehecho: `10 / 50 (5c)`, «igual que hoy: V jornada 10 → −2;
+  **WARNING**». Ya no promete 8 h de extra automática un viernes normal.
+- **§6.1 paso 3**: `S = mapa.get(c, 5 * c)`; si c no estaba en el mapa, WARNING.
+- Consistencia de arrastre verificada por grep: **cero apariciones** de
+  `JORNADA_SEMANAL_POR_DEFECTO`, `semanal_por_defecto`, `S_defecto` en los tres
+  ficheros. El parámetro se ha retirado también de la firma de `jornada_dia`
+  (§6.2) y de la tabla de settings de §7, y §1 y §10.8 se han alineado. La
+  corrección es completa, no un parche en el requisito.
+
+### 2 · §9.2 sin decisiones ya cerradas — **RESUELTO**
+
+Las tres pasan a §9.1 como **D9** (mapa en variable de entorno espejo sv3+sv4),
+**D10** (5×candef + WARNING obligatorio) y **D11** (sin calendario → viernes),
+cada una fechada 2026-08-18 y con las alternativas descartadas y su motivo. §9.2
+queda con una línea: «Ninguna: todas las decisiones del estudio están tomadas por
+el humano». La cabecera del documento se ha actualizado en coherencia
+(«decisiones tomadas por el humano —ninguna queda abierta—»). Las referencias
+`D-A1/D-A2/D-A3` han desaparecido del árbol (grep sin resultados): §1, §6.3, §7,
+§10.8 y `tasks.md` citan ya D9/D10/D11. **R6 se cumple.**
+
+### 3 · `tasks.md` al día — **RESUELTO**
+
+T1, T2, T3, T4 y T6 en `[x]`, cada una con la evidencia citada (commits `765cab8`
+y `093ee41` para el backlog, la aprobación del humano para T2/T3, el exit code 0
+para T6). T5 queda en `[ ]` y **bien encuadrada**: se dice por escrito que es
+MANUAL del humano, que pertenece de hecho a F-014, que **no bloquea el cierre de
+F-012** y que **sí bloquea el merge de F-015** (riesgo §10.6). Eso es exactamente
+lo que pedía C4 sobre los MANUAL. **C5 satisfecho.**
+
+### 4 · Anexo A ejecutable tal cual — **RESUELTO, y verificado a lo bruto**
+
+No me he fiado de la lectura: extraje con un script los **10 bloques sql del
+anexo tal como están en el fichero**, sin retocar un carácter, y los lancé contra
+`sigrid-api` (`POST /api/sql/read`, base `ruesma`, solo lectura). Son 18
+sentencias contando las del bloque H7.
+
+**Resultado: 18 de 18 ejecutan sin un solo error.** Ya no hay fragmentos que
+empiecen por coma ni puntos suspensivos literales en el `GROUP BY`; los bloques
+de H4 y H5 traen su propia cabecera `WITH d AS (...), d2 AS (...)` completa. El
+anexo ha crecido además con cuatro consultas que antes eran prosa (categoría/DNI
+del grupo H5, patrón por mes y día de semana, líneas de `MO/0037`, intensiva de
+H6), todas ejecutables.
+
+Cifras que devuelve el anexo ejecutado literalmente, contrastadas con el texto:
+
+| Afirmación | Anexo ejecutado tal cual | ¿Cuadra? |
+|---|---|---|
+| H4 · 8→40 h: 2.351 semanas / 81 recursos | 2.351 / 81 | exacto |
+| H4 · 8→35 / 8→48 / 8→42 / 8→41 | 362/69 · 222/9 · 46/7 · 4/4 | exacto |
+| H4 · nota nueva: candef 0 → 91 semanas de 40 h en 3 recursos | 91 / 3 | exacto |
+| H4 · nota nueva: candef 1 → 10 semanas de 40 h en 2 recursos | 10 / 2 | exacto |
+| H4 · nota nueva: candef 0 → 10 de 35 h, 1 de 38, 1 de 39 | 10 · 1 · 1 | exacto |
+| H5 · «≥ 15 semanas por encima de 40 h: 7 recursos» | 7 recursos con 54, 49, 42, 40, 39, 33 y 15; **el octavo baja a 1** | exacto y con corte limpio |
+| H5 · «todos OFIC. 1ª ALBAÑIL, con DNI en `emp`, con código HE, candef 8» | los 7: `restip` OFIC. 1ª ALBAÑIL, `tiene_dni='si'`, `n_he=1`, `candef=8.0` | exacto |
+| H5 · los códigos | `MO/0366`, `MO/0405`, `MO/0456`, `MO/0006`, `MO/0007`, `MO/0008`, `MO/0031` — los siete de F-014, ni uno más | exacto |
+| H5 · «extras registradas ≈ 0» en los regímenes 48 y 42 | `ext_media` −0,1 (48 h) y 0,5 (42 h) | lo sostiene |
+| H2 · «su histórico registrado (29 líneas)» | 29 filas | exacto |
+
+La consulta nueva que mapea `res.ide` → `con.cod` es la que cierra el círculo:
+permite a cualquiera comprobar que los siete `ide` del anexo son los siete
+códigos `MO/NNNN` que F-014 va a pedir a RRHH, sin que el repositorio tenga que
+guardar un solo nombre ni un solo DNI.
+
+### 5 · H3 con fecha de medición — **RESUELTO**
+
+La tabla lleva ahora «Medición del 2026-08-18 (sesión de redacción, mañana)» y
+una *Nota de reproducibilidad* que recoge las siete frecuencias que midió este
+reviewer por la tarde (803/764/648/326/241/230/154), el total idéntico de 3.498 y
+la advertencia de que «lo estable es el orden y las proporciones, no la última
+unidad». Es más honesto que refrescar los números y callar el efecto.
+
+### 6 · H4 con el filtro explícito — **RESUELTO**
+
+La tabla declara antes de empezar que se limita a candef 8 y 9, y enumera lo que
+queda fuera con sus cifras. Las cinco están verificadas arriba.
+
+### 7 · Coherencia de estado (lo arregló el líder en `c31b24a`) — **RESUELTO**
+
+`features.json` declara para F-012 la rama `feature/F-012-estudio-jornada-semanal`
+y **esa rama existe y es la activa**. F-011 figura con `priority: 14` en
+`features.json` y `current.md` dice ahora «última del backlog, prio 14 tras el
+alta de F-015/F-016»: coinciden. El orden del backlog sigue siendo
+F-012 → F-014 → F-010 → F-015 → F-016 (prioridades 4, 5, 6, 7, 8), coherente con
+D6 y con el riesgo §10.6.
+
+## Barrido de datos sensibles, repetido sobre la spec corregida (R7)
+
+Obligatorio repetirlo: el anexo ha crecido con listas de `res.ide` y con una
+consulta que toca `emp.dni`.
+
+| patrón | resultado |
+|---|---|
+| `[0-9]{8}[A-Z]` (DNIs) | **0 coincidencias** |
+| `https?://`, `api[_-]?key`, `apikey`, `x-api-key`, `password`, `passwd`, `token`, `Bearer`, `.azurecontainerapps`, `@ruesma.es` | **0 coincidencias** |
+| `\b([0-9]{1,3}\.){3}[0-9]{1,3}\b` (IPs) | **0 coincidencias** |
+
+La consulta nueva del grupo H5 **no trae el DNI**: proyecta
+`CASE WHEN emp.dni IS NULL THEN 'sin' ELSE 'si' END`, que es la forma correcta de
+responder «¿tiene DNI?» sin escribirlo. Los recursos se citan por `MO/NNNN` y por
+`res.ide`, ambos permitidos por R7. **R7 se cumple.**
+
+## Checkpoints (segunda pasada)
+
+- **C1 — [x]** · `init.sh` exit 0; los siete ficheros del arnés presentes.
+- **C2 — [x]** · Una sola `in_progress` (F-012); la rama activa es la declarada
+  para la feature en curso y no es `main` ni `dev`; `current.md` describe la
+  sesión activa; las `done` tienen resumen en `history.md`. Desaparece el N/A que
+  la primera pasada tuvo que justificar: ahora se cumple literalmente.
+- **C3 — N/A justificado** · La feature no crea ni modifica ningún fichero de
+  código (`git diff dev...HEAD`: solo `specs/` y `progress/`). No hay
+  arquitectura, cabeceras de ruta, imports ni dependencias que evaluar.
+- **C3 bis — N/A justificado** · No toca `docs/referencia/` ni entra ningún PDF u
+  ofimática al árbol. El barrido de datos sensibles se ha ejecutado igualmente
+  (arriba, con los patrones): limpio.
+- **C4 — [x]** · R1–R7 del bloque A verificados uno a uno (tabla de la primera
+  pasada, más las verificaciones de esta). Los tests existentes siguen en verde y
+  no se han tocado. Los MANUAL del humano están listados en `current.md` y en
+  `tasks.md` T5 con su SQL de comprobación. R6, que era el `[ ]` de la primera
+  pasada, se cumple.
+- **C4 bis — [x]** · Rigor `documental` declarado y válido. **Fase RED N/A
+  justificada** (`rigor.json`: `documental.fase_red = false`; el entregable es un
+  documento, no hay código cuyo fallo previo enseñar). **Cobertura N/A
+  justificada** (`documental.cobertura = false`; init.sh lo imprime con su
+  motivo). **Mutación N/A justificada** (`documental.mutacion = false`; cero
+  líneas de Python en el diff, no hay campaña que verificar ni prueba de control
+  que hacer). **Sección «Evidencias» N/A justificada**: no hay implementer; su
+  papel lo hace la verificación independiente de este informe, que reprodujo las
+  cifras contra la fuente en lugar de creérselas.
+- **C4 ter — N/A** · `harness/rutas_sensibles.json` no existe: sin declaración,
+  el bloque es N/A por configuración y no hay nada que justificar.
+- **C5 — [x]** · `tasks.md` con todas las tareas en `[x]` salvo T5, que queda
+  pendiente **por diseño** (MANUAL del humano, pertenece a F-014, con su
+  condición de bloqueo escrita). `git status` limpio, sin artefactos sueltos.
+  `features.json` refleja el estado real, rama incluida. Los commits siguen el
+  formato `F-012: <descripción>` en vez de `F-012 Tn:`; se acepta en un estudio
+  cuyas tareas son de validación y cierre, **porque `tasks.md` cita ahora el
+  commit que cierra cada tarea**, que es la trazabilidad que el checkpoint busca.
+
+## Errata detectada en esta pasada (no bloquea, pero hay que arreglarla)
+
+**E1 · `design.md:283`, caso L de la tabla §4, quedó sin actualizar.** Dice:
+
+`| L. c 9 sin corregir en Sigrid (S 40 por mapa) | 9 / 40 | 9,9,9,9,6 | V 9/−3 | V jornada 4 → ord 4 + 2 extra |`
+
+Esa combinación **ya no puede darse** con la regla decidida: con el mapa por
+defecto un candef 9 da S = 42, y si 9 no estuviera en el mapa, D10 da S = 45
+(5×9), nunca 40. La aritmética de la celda (40 − 36 = 4) es el último resto de la
+opción (a) descartada. Además no encaja con el riesgo §10.6, que cita este mismo
+caso L pero describe el escenario correcto: la cuadrilla **aún a candef 8**, cuyo
+viernes de 6 h daría +2 h/semana de extra automática. La fila debería decir
+`8 / 40` con ese desenlace, o suprimirse y dejar que §10.6 cuente el riesgo.
+
+**Por qué no bloquea**: es una fila ilustrativa de una tabla de 20, mientras que
+todo lo normativo —R10, R13, §6.1, §6.2, §7, §9.1 D10— es ya correcto y
+consistente, y es el bloque B lo que F-015 hereda «tal cual». Un implementador
+que siga R10 no se equivoca. **No la señalé en la primera pasada** pese a estar en
+la misma tabla que el caso M, así que rechazar ahora por ella sería cobrarle al
+spec-author un fallo mío.
+
+**Condición del APPROVED**: corregir E1 en un commit de errata sobre esta misma
+rama (documentación, rigor documental, sin código y sin nueva pasada de review),
+o —si se prefiere no tocar más F-012— arrastrarla explícitamente a la spec de
+F-015, que es quien hereda §4 como material de trabajo. Queda anotado en
+`progress/current.md` por el líder.
+
+## Veredicto
+
+**APPROVED.** Los seis puntos de la primera pasada están resueltos, y resueltos
+de verdad: no se ha parcheado el requisito y dejado el resto, se ha propagado la
+decisión D10 a los seis sitios donde vivía la opción contraria, se ha retirado el
+parámetro que sobraba de la firma del resolutor y se ha reconstruido el anexo
+hasta que **las 18 sentencias ejecutan literalmente contra Sigrid**. Las cifras
+del estudio se han vuelto a comprobar contra la fuente y siguen saliendo exactas,
+incluidas las cinco de la nota nueva de H4 y el mapeo `res.ide` → `MO/NNNN` de la
+cuadrilla. Queda la errata E1, documentada arriba con su condición.
+
+F-012 puede pasar a `done` con su resumen en `progress/history.md`. Recordatorio
+para el líder: **F-014 (MANUAL del humano) bloquea el merge de F-015**, no el
+cierre de F-012; y F-010 va antes que F-015 (D6).
+
+## Automejora del arnés (se mantiene la propuesta de la primera pasada)
+
+Las tres propuestas siguen en pie y esta segunda pasada refuerza la tercera: la
+verificación que ha dado valor real aquí no ha sido leer el documento, sino
+**ejecutar su anexo tal cual y comprobar que devuelve lo que el texto afirma**.
+Una feature documental que presenta datos debe traer sus consultas ejecutables, y
+el reviewer debe ejecutarlas. Propuesta concreta para `CHECKPOINTS.md`, a portar
+a `arnes-base`: en features de nivel `documental` que presenten datos medidos,
+nuevo checkbox — «las consultas o comandos que sostienen las cifras están en el
+documento en forma **ejecutable sin edición**, y el reviewer ha ejecutado al
+menos las que sostienen los hallazgos principales, dejando el resultado en el
+informe». Es el equivalente documental de la verificación independiente de la
+campaña de mutación que C4 bis ya exige para el código.
