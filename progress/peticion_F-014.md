@@ -73,9 +73,24 @@ tienen 8 h por defecto, así que **es fácil corregir la ficha equivocada**.
 Por eso cada fila de la tabla lleva, además del código, el
 **identificador interno de la ficha de recurso** (`res.ide`, el número que
 Sigrid asigna a esa ficha), **la categoría** y **la fecha del último parte
-registrado**. La ficha correcta es, en los cinco casos con código repetido,
-**la única que tiene partes registrados en 2026**; las demás no registran
-nada desde 2013, 2019, 2024 o mayo de 2025.
+registrado**.
+
+**El criterio para saber que estás en la ficha correcta es que coincidan a la
+vez el código, el identificador y la categoría de la tabla del apartado 3.2.**
+La columna «último parte registrado» está solo para confirmarlo, **no** como
+criterio de selección.
+
+De los tres datos, **el que decide siempre es el identificador**: bajo
+`MO/0006`, `MO/0007` y `MO/0008` hay otras fichas **de alta**, también
+**OFIC. 1ª ALBAÑIL**, también con hora por defecto `HLOF` y también con
+cantidad por defecto **8** — indistinguibles de la correcta salvo por el
+identificador.
+
+> ⚠️ **Caso `MO/0031`**: sus dos fichas **están de alta y las dos registran
+> partes en 2026**. Se distinguen por la categoría: la correcta es
+> **`OFIC. 1ª ALBAÑIL`** (identificador **2714845**); la otra es **ENCARGADO
+> DE OBRA** (identificador 537335, hora por defecto `MENC`, cantidad por
+> defecto 1). **A esa segunda no se le toca nada.**
 
 **Si al abrir una ficha los tres datos (código, identificador y categoría)
 no cuadran a la vez, no la toques y pregunta.**
@@ -113,7 +128,7 @@ Dos opciones, las dos válidas:
 
 | Código | Ficha de recurso (`res.ide`) | Categoría | Cantidad por defecto HOY | ¿Hay que tocar la jornada? | Qué falta |
 |---|---|---|---|---|---|
-| `MO/0037` | 2798044 | OFIC. 2ª ALBAÑIL | **9** ✅ | **NO** | **Falta el DNI**: la ficha de recurso no está enlazada con una ficha de empleado con DNI |
+| `MO/0037` | 2798044 | OFIC.2ª ALBAÑIL | **9** ✅ | **NO** | **Falta el DNI**: la ficha de recurso no está enlazada con una ficha de empleado con DNI |
 
 Es un alta reciente (su primer parte es del 13 de julio de 2026). Su jornada
 ya está bien puesta en 9 h. Lo único que hay que hacer es **enlazar la ficha
@@ -127,11 +142,12 @@ de recurso con su ficha de empleado y que ésta tenga el DNI grabado**.
 
 Para que no haya dudas, el cambio se limita a lo de arriba. En concreto:
 
-- ❌ **No tocar ninguna otra línea de horas** de estos recursos. Cada uno
-  tiene entre 2 y 10 líneas de horas (`CIA`, `CIE`, `CIF`, `CIH`, `CIM`,
-  `CIP`, `CIV`, `CIZ`, `HEOF`, `HEGR`, `HECAP`, `HLGR`, `MCAP`…). **Solo se
-  cambia la línea `HLOF` que es la hora por defecto del recurso.** El resto
-  se quedan con la cantidad que tienen hoy (0, en general).
+- ❌ **No tocar ninguna otra línea de horas** de estos recursos. Las ocho
+  fichas tienen **10 líneas de horas** cada una, y las mismas diez:
+  `CIA`, `CIE`, `CIF`, `CIH`, `CIM`, `CIP`, `CIV`, `CIZ`, `HEOF` y `HLOF`.
+  **Solo se cambia la línea `HLOF`**, que es la hora por defecto del recurso
+  (es la única `HLOF` de la ficha). Las otras nueve se quedan con la
+  cantidad que tienen hoy, que es 0.
 - ❌ **No tocar los códigos de hora** en sí (la tabla de tipos de hora de
   Sigrid, `auxhor`): no se crean, ni se renombran, ni se cambian sus
   propiedades. `HLOF` sigue siendo `HLOF` para todo el mundo.
@@ -210,15 +226,35 @@ WHERE reshor.horide = res.horide AND (con.fecbaj IS NULL OR con.fecbaj = 0)
 GROUP BY reshor.candef ORDER BY n DESC
 ```
 
-| `candef` | recursos ANTES (2026-08-19) | recursos ESPERADOS DESPUÉS |
-|---|---|---|
-| 1.0 | 561 | **561** (sin cambios) |
-| 0.0 | 199 | **199** (sin cambios) |
-| 8.0 | 106 | **99** (= 106 − 7) |
-| 9.0 | 1 | **8** (= 1 + 7) |
+El resultado esperado **depende de qué decida RRHH sobre `MO/0007`**
+(apartado 3.2), igual que en V1. Los tres escenarios posibles, calculados
+sobre la línea base medida el 2026-08-19:
 
-Si aparece cualquier otro valor de `candef` (7, 10, 40…) o si las filas de
-1.0 y 0.0 se mueven, **se ha tocado algo que no tocaba**.
+| `candef` | ANTES (2026-08-19) | **A** · se cambian los 7 (incluido `MO/0007`) | **B** · `MO/0007` sigue de alta y **sin tocar** | **C** · `MO/0007` recibe la **baja** |
+|---|---|---|---|---|
+| 1.0 | 561 | **561** | **561** | **561** |
+| 0.0 | 199 | **199** | **199** | **199** |
+| 8.0 | 106 | **99** (= 106 − 7) | **100** (= 106 − 6) | **99** (= 106 − 6 − 1) |
+| 9.0 | 1 | **8** (= 1 + 7) | **7** (= 1 + 6) | **7** (= 1 + 6) |
+| **total** | **867** | **867** | **867** | **866** |
+
+Notas para leer la tabla:
+
+- La fila **total** no la devuelve la consulta: es la **suma de la columna
+  `n`** de las cuatro filas. Hay que calcularla a mano, y merece la pena
+  porque es lo que distingue los escenarios B y C.
+- En el escenario **C**, el total baja de 867 a 866 **y no es un error**: las
+  tres consultas filtran por recursos de alta, así que dar de baja a
+  `MO/0007` lo saca del recuento (su ficha deja de aparecer también en V1,
+  aunque sigue siendo auditable en V3, que no filtra por baja).
+- **B** y **C** dan los dos `9.0 = 7`; se distinguen por el total (867 vs
+  866) y por la fila `8.0` (100 vs 99).
+
+**Qué es una alarma real:** que las filas **1.0** o **0.0** se muevan, que
+aparezca **cualquier otro valor** de `candef` (7, 10, 40…), o que la pareja
+`8.0` / `9.0` **no encaje en ninguna de las tres columnas** de arriba. Que
+`8.0` salga **100** NO es una alarma por sí solo: es el escenario B, y hay
+que contrastarlo con lo que RRHH haya respondido sobre `MO/0007`.
 
 ### V3 · Estado detallado de las ocho fichas
 
@@ -314,10 +350,17 @@ en `progress/impl_F-014.md` y la feature puede cerrarse.
 > | MO/0456 | 1555819 | OFIC. 1ª ALBAÑIL |
 >
 > **Aviso importante:** varios de esos códigos `MO/NNNN` devuelven **más de
-> una ficha** en Sigrid (MO/0006 devuelve cinco), algunas de la misma
-> categoría. Por eso va el identificador de ficha en la tabla: es el que
-> manda. Si el código, el identificador y la categoría no cuadran a la vez,
-> no la toquéis y nos preguntáis.
+> una ficha** en Sigrid (MO/0006 devuelve cinco), y algunas de esas fichas
+> están **de alta, son de la misma categoría y tienen también 8 h por
+> defecto**: son indistinguibles de la buena salvo por el identificador. Por
+> eso va el identificador de ficha en la tabla: **es el que manda**. Si el
+> código, el identificador y la categoría no cuadran a la vez, no la toquéis
+> y nos preguntáis.
+>
+> Un caso concreto que conviene mirar dos veces: **MO/0031 tiene dos fichas
+> de alta y las dos registran partes este año**. La que hay que cambiar es la
+> de **OFIC. 1ª ALBAÑIL (identificador 2714845)**; la otra es la de
+> **ENCARGADO DE OBRA (identificador 537335)** y **no hay que tocarla**.
 >
 > **Dos cosas más:**
 >
@@ -325,7 +368,7 @@ en `progress/impl_F-014.md` y la feature puede cerrarse.
 >    el 4 de febrero. Decidnos si sigue en la cuadrilla (entonces le ponéis
 >    los 9 h como al resto) o si ya no está (entonces no le toquéis la
 >    jornada y, si procede, le dais la baja que le falta).
-> 2. **MO/0037 (ficha 2798044, OFIC. 2ª ALBAÑIL)** ya tiene bien sus 9 h: a
+> 2. **MO/0037 (ficha 2798044, OFIC.2ª ALBAÑIL)** ya tiene bien sus 9 h: a
 >    éste **no le toquéis la jornada**. Lo que le falta es el **DNI**: su
 >    ficha de recurso no está enlazada a una ficha de empleado con DNI, y sin
 >    DNI no podemos cruzarlo con su calendario laboral y sus festivos.
@@ -358,7 +401,7 @@ Estado de las ocho fichas (todas de alta, `fecbaj = 0`, hora por defecto
 | `MO/0007` | 2146403 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 2026-02-04 |
 | `MO/0008` | 2146404 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 2026-07-16 |
 | `MO/0031` | 2714845 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 2026-08-13 |
-| `MO/0037` | 2798044 | OFIC. 2ª ALBAÑIL | **9.0** | **no** | 2026-08-19 |
+| `MO/0037` | 2798044 | OFIC.2ª ALBAÑIL | **9.0** | **no** | 2026-08-19 |
 | `MO/0366` | 1336571 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 2026-07-04 |
 | `MO/0405` | 1392590 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 2026-08-17 |
 | `MO/0456` | 1555819 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 2026-08-13 |

@@ -39,7 +39,8 @@ redactada** para que RRHH la ejecute sin conocer el proyecto y (c) la
 `progress/current.md`. Los scripts de consulta usados para medir la línea
 base son de usar y tirar y viven **fuera del repositorio**, en el
 scratchpad de la sesión (`linea_base_f014.py`, `linea_base_f014b.py`,
-`linea_base_f014c.py`); no se versionan porque no aportan nada reutilizable
+`linea_base_f014c.py` y, tras la revisión, `verif_f014d.py` y
+`verif_f014e.py`); no se versionan porque no aportan nada reutilizable
 y el `acceptance` 2 pide SQL reproducible, que está escrito literal en la
 petición.
 
@@ -48,7 +49,16 @@ petición.
 ```
 e04c575  F-014 T1: linea base en Sigrid (solo lectura) y peticion para RRHH
 3446c18  F-014 T2: informe del implementer con linea base, hallazgos y evidencias
+568b5dc  F-014: fijar en el informe el hash real del commit T2
+(este)   F-014 T3: correcciones tras revision
 ```
+
+`T3` se cita como «(este)» y no por su hash a propósito: es el commit que
+contiene esta misma línea, así que su hash no existe todavía cuando se
+escribe. Fijarlo obligaría a un commit más —que quedaría a su vez sin
+listar—, que es justo el bucle que el reviewer señaló en `568b5dc`. La lista
+queda así cerrada y completa: cuatro commits, los tres primeros por hash y
+el cuarto por posición.
 
 ## Línea base medida (2026-08-19, antes del cambio)
 
@@ -71,7 +81,7 @@ ningún `candef` en el intervalo.**
 
 ### H2 · Recursos con `candef = 9`
 
-Una sola fila: `res.ide` 2798044, `con.cod` `MO/0037`, OFIC. 2ª ALBAÑIL,
+Una sola fila: `res.ide` 2798044, `con.cod` `MO/0037`, OFIC.2ª ALBAÑIL,
 `tiene_dni = sin`, `n_he = 1`. Coincide con H2 del estudio.
 
 ### Estado de las 8 fichas de la petición
@@ -87,7 +97,7 @@ ficha), y todas con un código `HE%` disponible (`n_he = 1`).
 | `MO/0007` | 2146403 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 0 | **2026-02-04** | 22 |
 | `MO/0008` | 2146404 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 0 | 2026-07-16 | 138 |
 | `MO/0031` | 2714845 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 0 | 2026-08-13 | 120 |
-| `MO/0037` | 2798044 | OFIC. 2ª ALBAÑIL | **9.0** | **no** | 0 | 2026-08-19 | 29 |
+| `MO/0037` | 2798044 | OFIC.2ª ALBAÑIL | **9.0** | **no** | 0 | 2026-08-19 | 29 |
 | `MO/0366` | 1336571 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 0 | 2026-07-04 | 119 |
 | `MO/0405` | 1392590 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 0 | 2026-08-17 | 153 |
 | `MO/0456` | 1555819 | OFIC. 1ª ALBAÑIL | 8.0 | sí | 0 | 2026-08-13 | 160 |
@@ -142,9 +152,20 @@ tiene cuatro maneras de corregir la ficha equivocada.**
 una petición **ejecutable de forma incorrecta**, que es justo el riesgo que
 F-014 existe para evitar. La petición cita, además del código, el
 **identificador interno de la ficha de recurso (`res.ide`)**, la
-**categoría** y la **fecha del último parte registrado** (la ficha correcta
-es, en los cinco casos ambiguos, la única con partes en 2026; las homónimas
-no registran nada desde 2013, 2019, 2024 o mayo de 2025).
+**categoría** y la **fecha del último parte registrado**. El criterio de
+selección son los **tres primeros a la vez**, y de ellos **`res.ide` es el
+único que decide siempre**: bajo `MO/0006`, `MO/0007` y `MO/0008` las
+homónimas comparten código **y** categoría **y** hora por defecto **y**
+`candef`. La fecha del último parte es solo confirmatoria.
+
+> **Corregido tras la revisión.** La primera redacción de este párrafo y de
+> §3.1 de la petición decía que la ficha correcta era «la única con partes
+> en 2026, porque las homónimas no registran nada desde 2013, 2019, 2024 o
+> mayo de 2025». **Era falso en sus dos mitades** y el reviewer lo cazó: bajo
+> `MO/0031` hay una segunda ficha de alta **que sí registra en 2026**
+> (537335, ENCARGADO DE OBRA, último parte 2026-01-30), y la enumeración de
+> años omitía homónimas de 2010, 2011, 2020, 2022 y 2023. Ver
+> «Correcciones tras la revisión».
 
 `res.ide` es un **identificador técnico de fila**, no un dato personal: no
 es un DNI, ni un nombre, ni permite identificar a nadie fuera de Sigrid. Y
@@ -177,7 +198,7 @@ igual de vigente para ellos.
 
 ### Hallazgo 3 (menor) · `MO/0037` tiene una homónima antigua
 
-`MO/0037` devuelve dos fichas: la correcta (2798044, OFIC. 2ª ALBAÑIL, de
+`MO/0037` devuelve dos fichas: la correcta (2798044, OFIC.2ª ALBAÑIL, de
 alta, `candef = 9`, sin DNI) y una antigua (592326, OFIC. 1ª ALBAÑIL, baja
 el 2017-11-02, `candef = 8`). La petición lo dice explícitamente para que
 nadie «corrija» la de 2017.
@@ -286,5 +307,123 @@ Markdown en `progress/`.
 | Mutantes generados y supervivientes | **N/A** — el nivel documental no exige mutación y, además, el diff no contiene código Python: una campaña generaría 0 mutantes por ausencia de alcance, no por falta de tests. No se lanzó `python -m harness.mutacion`. | `harness/rigor.json`, nivel `documental` |
 | Tiempo de ejecución de la suite | **4.59 s** en la pasada final (`15 passed in 4.59s`, suite raíz; 3.00 s en la inicial — misma suite, la diferencia es ruido de máquina) | salida de la propia suite |
 | Fase RED | **N/A** — `fase_red: false` para el nivel documental. Sin código no hay test que pueda fallar antes. | `harness/rigor.json` |
-| Consultas a Sigrid | **4 consultas** de solo lectura, `ok = true`, sin truncar, 0 escrituras | scripts de scratchpad, salida en este informe |
+| Consultas a Sigrid | **6 consultas** de solo lectura (4 en la línea base + 2 en la re-verificación de T3), `ok = true`, sin truncar, **0 escrituras** | scripts de scratchpad, salida en este informe |
 | Ficheros de producción tocados | **0** (`services/**`, `orm_models.py`, tests: intactos) | `git show --stat` de los commits de la rama |
+
+---
+
+## Correcciones tras la revisión (T3)
+
+El reviewer devolvió **CHANGES_REQUESTED** (`progress/review_F-014.md`, §9)
+con dos defectos bloqueantes y cuatro menores. **Los seis están aplicados.**
+El núcleo de la feature —línea base, hallazgo de códigos duplicados,
+desviación declarada, ausencia de datos sensibles— lo dio por verificado tras
+re-ejecutar las consultas por su cuenta; el rechazo era por el contenido del
+documento que sale por correo.
+
+**Antes de reescribir nada re-consulté Sigrid en solo lectura** (dos pasadas
+más, `verif_f014d.py` y `verif_f014e.py` en el scratchpad, `SELECT` puros,
+cero escrituras) para no dar por buenos ni los datos del reviewer ni los
+míos. Las seis correcciones descansan en esa medición nueva.
+
+### Bloqueantes
+
+**C1 · §3.1 de la petición: afirmación falsa sustituida por el criterio real.**
+
+La frase «la ficha correcta es la única que tiene partes registrados en 2026;
+las demás no registran nada desde 2013, 2019, 2024 o mayo de 2025» **era
+falsa en sus dos mitades**, y lo he confirmado listando las 21 fichas de los
+8 códigos:
+
+- **`MO/0031` tiene dos fichas de alta y las dos registran en 2026**: la
+  correcta (2714845, `OFIC. 1ª ALBAÑIL`, `HLOF`, `candef` 8, último parte
+  2026-08-13, 120 líneas en 2026) y **537335** (`ENCARGADO DE OBRA`, `MENC`,
+  `candef` 1.0, `fecbaj` 0, último parte **2026-01-30**, 1 línea en 2026).
+  El criterio «la única con partes en 2026» **no desambigua ahí**.
+- La enumeración de años omitía homónimas cuyo último parte es de **2010**
+  (592326), **2011** (537312), **2020** (537314), **2022** (1990968),
+  **2023** (537313) y **2026-01** (537335).
+
+Sustituida por el criterio verdadero —**código + identificador + categoría,
+los tres a la vez**, con «último parte» como mera confirmación— más dos
+precisiones que la medición obliga a hacer:
+
+- **`res.ide` es el único dato que decide siempre.** Bajo `MO/0006`,
+  `MO/0007` y `MO/0008`, las homónimas de alta comparten código, categoría
+  (`OFIC. 1ª ALBAÑIL`), hora por defecto (`HLOF`) **y** `candef` 8: ahí
+  código+categoría **no** desambiguan.
+- **Aviso destacado del caso `MO/0031`**, donde sí desempata la categoría,
+  con el identificador de la ficha que **no** hay que tocar (537335).
+
+**C2 · §6 de la petición: V2 declara ahora los tres escenarios.**
+
+La bifurcación de `MO/0007` que ya estaba en V1 y V3 no llegaba a V2, de modo
+que el escenario B habría disparado una falsa alarma de «se ha tocado algo
+que no tocaba». La tabla de resultado esperado pasa de una columna a tres,
+sobre la línea base 106/1 y el universo de **867** recursos de alta con hora
+por defecto (recontado hoy: `COUNT(*) = 867`):
+
+| `candef` | ANTES | A · cambian los 7 | B · `MO/0007` de alta sin tocar | C · `MO/0007` de baja |
+|---|---|---|---|---|
+| 1.0 | 561 | 561 | 561 | 561 |
+| 0.0 | 199 | 199 | 199 | 199 |
+| 8.0 | 106 | **99** | **100** | **99** |
+| 9.0 | 1 | **8** | **7** | **7** |
+| total | 867 | 867 | 867 | **866** |
+
+Con tres añadidos: la nota de que en C el universo baja a 866 porque
+`fecbaj ≠ 0` saca la ficha del filtro de las tres consultas; la advertencia
+de que la fila «total» **no la devuelve la consulta** (es la suma de `n`) y
+es lo que distingue B de C; y la frase de cierre reescrita, que ya no trata
+`8.0 = 100` como alarma sino como el escenario B a contrastar con la
+respuesta de RRHH.
+
+### No bloqueantes
+
+**C3 · Literal de la categoría de `MO/0037`.** Verificado carácter a carácter
+con `LEN()`: el literal en Sigrid es **`OFIC.2ª ALBAÑIL`** (15 caracteres,
+**sin** espacio tras el punto), mientras que `OFIC. 1ª ALBAÑIL` sí lo lleva
+(16). Es una inconsistencia de los propios datos maestros. Corregidas las 3
+apariciones en la petición (§3.3, correo §7, anexo) y las 3 de este informe.
+
+**C4 · §4 de la petición: «entre 2 y 10 líneas de horas» → «10».** La
+horquilla salía de mezclar las fichas homónimas con las ocho objetivo. Las
+**ocho** tienen exactamente **10** líneas, y he comprobado que son **las
+mismas diez en las ocho**: `CIA, CIE, CIF, CIH, CIM, CIP, CIV, CIZ, HEOF,
+HLOF`. Además, cada ficha tiene **exactamente 1** línea `HLOF` y
+**exactamente 1** con `horide = res.horide`, y son la misma: la instrucción
+«la línea `HLOF`» es unívoca. El texto ahora lo dice con esos números y
+nombra las nueve líneas que no se tocan.
+
+**C5 · §7 (correo): la advertencia de duplicados recoge `MO/0031`.** El
+bloque copiable dice ahora que las homónimas pueden ser indistinguibles
+salvo por el identificador, y añade el caso `MO/0031` con los dos
+identificadores y cuál **no** se toca.
+
+**C6 · Sección «Commits» de este informe.** Añadidos `568b5dc` y el commit
+T3 que falta por crear al escribir estas líneas.
+
+### Lo que NO se cambió, y por qué
+
+- **El criterio de `acceptance` 2 sigue sin ejecutarse.** Correcto: depende
+  de que RRHH haga el cambio. Lo que esta pasada mejora es que su resultado
+  esperado ya no es ambiguo en ningún escenario.
+- **`harness/features.json` y `progress/current.md`**: intactos. El reviewer
+  los anota como acciones **del líder** (dejar F-014 `blocked` y trasladar
+  las verificaciones MANUAL a `current.md`); el encargo me los prohíbe
+  expresamente y no los he tocado.
+- **Las automejoras del arnés que propone §11 de la revisión** (un bloque
+  `C6 · Peticiones a terceros` en `CHECKPOINTS.md` y la generalización del
+  deber de re-medición del reviewer) **no se aplican aquí**: las decide el
+  humano y, por la regla de propagación de `CLAUDE.md`, tocarían también
+  `arnes-base`. Quedan donde el reviewer las dejó.
+
+### Verificación de esta pasada
+
+- `bash harness/init.sh` en verde (comando limpio). La feature sigue sin
+  tocar código: el diff de T3 son dos ficheros Markdown de `progress/`.
+- **6 consultas de solo lectura** a Sigrid en total a lo largo de la feature
+  (4 en la línea base + 2 en esta re-verificación), todas `SELECT`, todas con
+  `ok = true`, **cero escrituras** y sin usar ninguna credencial de
+  escritura. Ningún secreto, DNI ni nombre de persona ha entrado en ningún
+  fichero versionado.
