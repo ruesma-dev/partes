@@ -94,11 +94,19 @@ mitad duplica el mensaje pero nunca lo pierde.
 6. **Ides de Sigrid = MAX(ide)+1** bajo `UPDLOCK` (sin secuencias): por eso
    sv5 corre a UNA réplica fija. Fechas Sigrid: enteros `YYYYMMDD` (0=null).
    El nombre de un concepto está en `con.res` (¡no existe `con.nom`!).
-7. **Schema PostgreSQL duplicado a propósito**: `orm_models.py` es idéntico
-   en sv3 y sv4 (sv4 hace `ALTER TABLE … ADD COLUMN IF NOT EXISTS` al
-   arrancar). Un cambio de schema modifica los DOS ficheros en la misma
-   feature. Tres tablas: `parte_documents`, `parte_registros`,
-   `empleado_alias` — detalle en `partes-proyecto.md` §5.
+7. **Schema PostgreSQL duplicado a propósito**: `orm_models.py` es
+   **byte-idéntico** en sv3 y sv4, y desde F-010 lo comprueba el guardián
+   `tests/test_f010_orm_models_gemelos.py` de la raíz en cada
+   `bash harness/init.sh` (antes era una promesa, y llevaba meses rota). Un
+   cambio de schema modifica los DOS ficheros en la misma feature. **Cuatro
+   tablas**: `parte_documents`, `parte_registros`, `empleado_alias` y
+   `undo_log` (esta solo la usa sv4, pero la declaran las dos copias porque
+   la base es una) — detalle en `partes-proyecto.md` §5. El DDL
+   complementario de arranque (`ALTER TABLE … ADD COLUMN IF NOT EXISTS` +
+   `CREATE INDEX IF NOT EXISTS`, que `create_all` no hace sobre tablas ya
+   existentes) lo **genera** `ddl_complementario()` del propio ORM y lo
+   aplican **sv3 y sv4** al arrancar: era la lista escrita a mano en cada
+   servicio la que se quedó incompleta y distinta.
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
    `deleted_*`; nunca borrado físico desde la aplicación.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
