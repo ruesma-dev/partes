@@ -31,6 +31,8 @@ from infrastructure.database.orm_models import (
     ddl_complementario,
 )
 from sqlalchemy import Boolean, Column, Integer, MetaData, String, Table
+from sqlalchemy.dialects import postgresql
+from sqlalchemy.schema import CreateColumn
 
 #: Verbos que cambiarían o destruirían lo que la BBDD ya tiene. El DDL de
 #: arranque se ejecuta en producción sin supervisión: si alguna vez emite
@@ -94,6 +96,80 @@ def test_f010_r6a_cubre_las_columnas_que_las_listas_a_mano_olvidaban() -> None:
     )
 
 
+def test_f010_r6a_el_ddl_de_undo_log_es_el_esquema_real() -> None:
+    """`undo_log` entera, tipo a tipo y NOT NULL a NOT NULL.
+
+    sv3 no usa esta tabla —la escribe solo el portal—, pero la declara
+    porque la base es una sola y las dos copias son gemelas. Justo por eso
+    nadie la miraba: es donde una divergencia pasaria mas desapercibida.
+    Se fija aqui el DDL entero, que es lo que se ejecuta en produccion.
+    """
+    sentencias = ddl_complementario()
+    prefijo = "ALTER TABLE undo_log ADD COLUMN IF NOT EXISTS "
+
+    assert tuple(
+        s[len(prefijo):] for s in sentencias if s.startswith(prefijo)
+    ) == (
+        "created_at_utc VARCHAR(40) NOT NULL",
+        "action VARCHAR(40) NOT NULL",
+        "description TEXT NOT NULL",
+        "payload TEXT NOT NULL",
+        "undone BOOLEAN NOT NULL",
+        "actor VARCHAR(120)",
+    )
+
+
+def test_f010_r6a_el_ddl_de_la_traza_de_sigrid_es_el_esquema_real() -> None:
+    """Las 7 columnas `sigrid_*`: las que faltaban en la copia de sv3.
+
+    Las escribe sv4 y las va a leer sv3 (F-012 D7). Un VARCHAR mas corto
+    de la cuenta aqui trunca el motivo de un registro fallido en Sigrid.
+    """
+    sentencias = ddl_complementario()
+    prefijo = "ALTER TABLE parte_registros ADD COLUMN IF NOT EXISTS "
+
+    assert tuple(
+        s[len(prefijo):] for s in sentencias
+        if s.startswith(prefijo + "sigrid_")
+    ) == (
+        "sigrid_estado VARCHAR(16)",
+        "sigrid_registrado_at_utc VARCHAR(64)",
+        "sigrid_registrado_by VARCHAR(255)",
+        "sigrid_hmoide INTEGER",
+        "sigrid_hmores_ide INTEGER",
+        "sigrid_parte_cod VARCHAR(64)",
+        "sigrid_motivo VARCHAR(255)",
+    )
+
+
+def test_f010_r6a_las_claves_primarias_son_autoincrementales() -> None:
+    """`id` de `parte_registros` y `undo_log` es SERIAL, no un INTEGER pelado.
+
+    No sale en el DDL complementario (una PK nace con la tabla), asi que
+    se comprueba sobre la declaracion: sin autoincremento, insertar sin
+    `id` explicito reventaria en PostgreSQL.
+    """
+    for tabla in ("parte_registros", "undo_log"):
+        columna = Base.metadata.tables[tabla].columns["id"]
+        assert columna.autoincrement is True, tabla
+        assert str(
+            CreateColumn(columna).compile(dialect=postgresql.dialect())
+        ) == "id SERIAL NOT NULL", tabla
+
+
+def test_f010_r6a_los_valores_por_defecto_de_python_son_los_esperados() -> None:
+    """Defaults que NO viajan en el DDL pero deciden lo que se inserta.
+
+    `extra_auto=True` por defecto marcaria como generada automaticamente
+    toda linea nueva (y el recalculo de extras las borra y recrea);
+    `undone=True` daria por deshecha cada accion nada mas registrarla.
+    """
+    registros = Base.metadata.tables["parte_registros"].columns
+    assert registros["extra_auto"].default.arg is False
+    assert registros["es_incidencia"].default.arg is False
+    assert Base.metadata.tables["undo_log"].columns["undone"].default.arg is False
+
+
 def test_f010_r6a_incluye_los_indices_declarados_y_el_parcial() -> None:
     """El índice que la BBDD no tenía (D3) y el único parcial de `partes`."""
     sentencias = ddl_complementario()
@@ -138,6 +214,22 @@ def test_f010_r6c_el_orden_y_el_conteo_son_deterministas() -> None:
     )
     # 3 columnas no primarias + 1 índice + los extras de PostgreSQL.
     assert len(sentencias) == 3 + 1 + len(DDL_EXTRA_POSTGRES)
+
+
+def test_f010_r6c_los_indices_de_una_tabla_salen_en_orden_alfabetico() -> None:
+    """`tabla.indexes` es un `set`: sin ordenar, el DDL cambia de orden.
+
+    Un orden que baila hace que dos arranques emitan secuencias distintas
+    y que el test de R7/R8 pase o falle segun el dia. `parte_registros`
+    tiene tres indices, que es donde se nota.
+    """
+    indices = [
+        s for s in ddl_complementario()
+        if s.startswith("CREATE INDEX IF NOT EXISTS ix_parte_registros_")
+    ]
+
+    assert indices == sorted(indices)
+    assert len(indices) == 3
 
 
 def test_f010_r6c_dos_llamadas_dan_lo_mismo() -> None:
