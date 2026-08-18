@@ -770,10 +770,37 @@ def test_f004_r13_borrar_la_obra_omite_los_partes_congelados(
                                             aprobado=True)
     sembrar_parte(fabrica, [{"estado": None}], document_id="doc-libre")
     cuerpo = cliente.post("/api/obra/obr-10/delete").json()
+    assert cuerpo["ok"] is True         # se borro algo
     assert cuerpo["partes"] == 1
     assert cuerpo["congelados"] == 1
     assert _doc(fabrica).is_active is True
     assert _doc(fabrica, "doc-libre").is_active is False
+
+
+def test_f004_r13_si_toda_la_obra_esta_congelada_la_respuesta_no_dice_ok(
+        montaje) -> None:
+    """`ok` es lo que decide si el front navega a /obras como si hubiera
+    borrado la obra. Con TODO congelado no se ha borrado nada: decir que
+    si dejaria al usuario mirando una lista donde la obra sigue viva."""
+    cliente, _repo, fabrica, _ids = montaje([{"estado": "registrado"}])
+    sembrar_parte(fabrica, [{"estado": None}], document_id="doc-aprobado",
+                  aprobado=True)
+    cuerpo = cliente.post("/api/obra/obr-10/delete").json()
+    assert cuerpo["ok"] is False
+    assert (cuerpo["partes"], cuerpo["congelados"]) == (0, 2)
+    assert _doc(fabrica).is_active is True
+    assert _doc(fabrica, "doc-aprobado").is_active is True
+
+
+def test_f004_r13_si_todas_las_lineas_estan_congeladas_no_dice_ok(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": "encolado"}])
+    cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    assert cuerpo["ok"] is False
+    assert (cuerpo["lineas"], cuerpo["congelados"]) == (0, 2)
+    assert all(d["deleted_at_utc"] is None
+               for d in datos_registros(fabrica, ids).values())
 
 
 def test_f004_r13_borrar_la_obra_no_toca_los_partes_de_otra_obra(
@@ -799,6 +826,7 @@ def test_f004_r13_borrar_al_trabajador_omite_las_lineas_congeladas(
     cliente, _repo, fabrica, ids = montaje(
         [{"estado": "registrado"}, {"estado": None}])
     cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    assert cuerpo["ok"] is True         # una linea si se movio
     assert cuerpo["lineas"] == 1
     assert cuerpo["congelados"] == 1
     datos = datos_registros(fabrica, ids)
