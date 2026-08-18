@@ -2,7 +2,7 @@
 """ORM de partes de trabajo (SQLAlchemy 2.0).
 
 Modelo real (un documento = un parte DIARIO de una obra, con varios
-empleados):
+empleados). CUATRO tablas en la base ``partes``:
 
   - ``parte_documents``: cabecera del parte diario (fecha, obra leida +
     casada, encargado, jefe de obra, FIRMA) + metadatos de email/IA +
@@ -13,20 +13,37 @@ empleados):
     categoria, y el CODIGO DE HORA de Sigrid (``auxhor``) resuelto. La
     fecha y la obra se desnormalizan desde el documento para agregar por
     trabajador sin joins.
+  - ``empleado_alias``: alias aprendidos nombre leido -> empleado.
+  - ``undo_log``: historial para DESHACER del portal. SOLO la escribe sv4;
+    sv3 ni la lee, pero la declara porque el schema de la base es UNO.
 
 La unicidad por ``source_sha256`` es un INDICE UNICO PARCIAL
-``WHERE is_active`` (creado en el repositorio): un parte borrado no ocupa
-el slot y el mismo PDF puede reingerirse.
+``WHERE is_active`` (``DDL_EXTRA_POSTGRES``): un parte borrado no ocupa el
+slot y el mismo PDF puede reingerirse.
+
+ESTE FICHERO ESTA DUPLICADO A PROPOSITO en sv3 (``partes-persistencia``) y
+sv4 (``partes-front``), que son los dos servicios que hablan con la base.
+Las dos copias tienen que ser BYTE-IDENTICAS: lo comprueba el guardian
+``tests/test_f010_orm_models_gemelos.py`` de la raiz del monorepo en cada
+``bash harness/init.sh``. Quien toque una copia toca la otra en la misma
+feature; si no, la comprobacion falla y dice que columna diverge (F-010,
+tras meses con las dos copias descuadradas).
+
+El DDL complementario de arranque se GENERA aqui (``ddl_complementario``)
+en vez de escribirse a mano en cada repositorio: una segunda lista escrita
+a mano es exactamente lo que se olvida de actualizar.
 """
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, MetaData, String, Text
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
     mapped_column,
     relationship,
 )
+from sqlalchemy.schema import CreateColumn, CreateIndex
 
 
 class Base(DeclarativeBase):
@@ -159,9 +176,12 @@ class ParteRegistroOrm(Base):
     # --- Tipo de registro --- #
     tipo_hora: Mapped[str | None] = mapped_column(String(16))  # normal|extra|V|B|...
 
-    # --- Borrado (soft delete -> papelera). NULL = activo. --- #
+    # --- Borrado a nivel LINEA (soft delete -> papelera de sv4). --- #
+    # NULL = activo. Lo escribe sv4; sv3 SOLO LO LEE para EXCLUIR estas
+    # lineas de las conciliaciones (partida, recurso y reparto de jornada).
     deleted_at_utc: Mapped[str | None] = mapped_column(String(64), index=True)
     deleted_by: Mapped[str | None] = mapped_column(String(255))
+
     es_incidencia: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
@@ -172,19 +192,31 @@ class ParteRegistroOrm(Base):
     horas: Mapped[float | None] = mapped_column(Float)
     partida: Mapped[str | None] = mapped_column(String(128))
 
-    # --- PARTIDA + RECURSO casados por sv3 (sv4 SOLO LEE) --- #
+    # --- PARTIDA CASADA contra el presupuesto (Sigrid obrparpar) --- #
+    # La escribe la conciliacion automatica de sv3 al persistir (no el front).
+    # partida_ide/cod/res identifican la partida; partida_capitulo es CD/CI/CP
+    # del capitulo raiz; metodo: auto_nombre|auto_categoria|manual|sin.
     partida_ide: Mapped[int | None] = mapped_column(Integer)
     partida_cod: Mapped[str | None] = mapped_column(String(64))
     partida_res: Mapped[str | None] = mapped_column(String(255))
     partida_capitulo: Mapped[str | None] = mapped_column(String(8))
     partida_match_method: Mapped[str | None] = mapped_column(String(24))
     partida_match_score: Mapped[float | None] = mapped_column(Float)
+
+    # --- RECURSO / PARTE DE TRABAJO casado (Sigrid res + hmo) --- #
+    # Lo escribe la conciliacion automatica de sv3. recurso_ide = res.ide
+    # (recurso del trabajador, via emp.reside o por DNI); recurso_cif = DNI;
+    # hmo_ide = parte de trabajo localizado (reside+obra+ano+mes) o NULL;
+    # parte_estado: ok | sin_recurso | sin_parte.
     recurso_ide: Mapped[int | None] = mapped_column(Integer)
     recurso_cif: Mapped[str | None] = mapped_column(String(64))
     hmo_ide: Mapped[int | None] = mapped_column(Integer)
     parte_estado: Mapped[str | None] = mapped_column(String(16))
 
-    # --- Traza del REGISTRO en Sigrid (escritura via partes-transfer) --- #
+    # --- Traza del REGISTRO en Sigrid --- #
+    # La escribe sv4 (al aprobar y al volcar q-transfer-result); sv5 hace la
+    # escritura real en el ERP. sv3 la LEE para no recomputar lo que ya esta
+    # registrado o encolado.
     sigrid_estado: Mapped[str | None] = mapped_column(String(16))
     sigrid_registrado_at_utc: Mapped[str | None] = mapped_column(String(64))
     sigrid_registrado_by: Mapped[str | None] = mapped_column(String(255))
@@ -200,9 +232,24 @@ class ParteRegistroOrm(Base):
     hora_ext: Mapped[int | None] = mapped_column(Integer)   # 0 normal|1 extra
     hora_precio_coste: Mapped[float | None] = mapped_column(Float)
     hora_precio_nomina: Mapped[float | None] = mapped_column(Float)
-    # CanDefecto (jornada laborable por defecto del recurso) escrito por sv3.
+    # Cantidad por defecto (CanDefecto) de la hora laborable del recurso =
+    # jornada por defecto. La escribe la conciliacion de recurso (sv3) al
+    # casar; sirve para contabilizar las horas extra.
     hora_candef: Mapped[float | None] = mapped_column(Float)
+    # Precio/valor BASE de la hora laborable del recurso en Sigrid
+    # (reshor.pre de su hora por defecto). Lo escribe la conciliacion de
+    # recurso; es el coste hora asignado al trabajador.
     recurso_precio_hora: Mapped[float | None] = mapped_column(Float)
+    # Horas ORIGINALES del registro normal antes de recortar parte del dia a
+    # extra (para poder revertir y recalcular de forma idempotente). NULL si
+    # el registro no ha sido recortado.
+    horas_orig: Mapped[float | None] = mapped_column(Float)
+    # Marca un registro EXTRA generado automaticamente por el calculo de
+    # exceso de jornada (no venia en el parte). Se borra y recrea en cada
+    # conciliacion. Los extra EXPLICITOS del parte tienen extra_auto=False.
+    extra_auto: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
     hora_match_method: Mapped[str | None] = mapped_column(String(24))
 
     confianza_pct: Mapped[float | None] = mapped_column(Float)
@@ -233,7 +280,11 @@ class UndoLogOrm(Base):
     """Historial de cambios para DESHACER. Cada fila = una accion del usuario
     (reasignar, casar, editar horas/fecha/obra...). 'payload' guarda el estado
     ANTERIOR de las filas afectadas (registros/documento/alias) en JSON, para
-    poder restaurarlo. 'undone' marca si ya se deshizo."""
+    poder restaurarlo. 'undone' marca si ya se deshizo.
+
+    SOLO la escribe y la lee sv4 (el portal); sv3 la declara porque el
+    schema de la base 'partes' es uno solo y las dos copias de este fichero
+    son gemelas."""
     __tablename__ = "undo_log"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -243,3 +294,56 @@ class UndoLogOrm(Base):
     payload: Mapped[str] = mapped_column(Text, nullable=False)
     undone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     actor: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+#: DDL de PostgreSQL que el ORM no sabe expresar de forma portable y que
+#: ambos servicios aplican al arrancar. Hoy solo el INDICE UNICO PARCIAL de
+#: `source_sha256`: la unicidad vale solo entre partes ACTIVOS, para que un
+#: parte borrado no bloquee la reingesta del mismo PDF.
+DDL_EXTRA_POSTGRES: tuple[str, ...] = (
+    (
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_parte_documents_sha256_active "
+        "ON parte_documents (source_sha256) WHERE is_active"
+    ),
+)
+
+
+def ddl_complementario(metadata: MetaData = Base.metadata) -> tuple[str, ...]:
+    """DDL idempotente que completa las tablas que YA existen.
+
+    `Base.metadata.create_all()` crea la tabla que falta, pero NO anade
+    columnas ni indices a una tabla ya creada. Esto genera lo que falta a
+    partir del propio ORM, en orden determinista:
+
+      1. un `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` por cada columna NO
+         primaria (tablas por nombre, columnas por orden de declaracion),
+      2. un `CREATE INDEX IF NOT EXISTS` por cada indice declarado,
+      3. `DDL_EXTRA_POSTGRES`.
+
+    Funcion PURA: compila contra el dialecto PostgreSQL sin abrir ninguna
+    conexion, asi que se puede probar entera sin BBDD. Se genera del ORM a
+    proposito: la lista escrita a mano que habia en cada servicio se quedo
+    incompleta y distinta en cada uno (F-010).
+
+    Sobre columnas que ya existen toda sentencia es un no-op. Aviso para
+    quien anada columnas: una columna `NOT NULL` SIN `server_default` sobre
+    una tabla con filas hace que PostgreSQL rechace el `ALTER` y el
+    servicio no arranque. Es deliberado: mejor fallar en voz alta que
+    inventar un valor por defecto para datos reales.
+    """
+    dialecto = postgresql.dialect()
+    sentencias: list[str] = []
+    for tabla in sorted(metadata.tables.values(), key=lambda t: t.name):
+        for columna in tabla.columns:
+            if columna.primary_key:
+                continue
+            definicion = str(CreateColumn(columna).compile(dialect=dialecto))
+            sentencias.append(
+                f"ALTER TABLE {tabla.name} ADD COLUMN IF NOT EXISTS {definicion}"
+            )
+        for indice in sorted(tabla.indexes, key=lambda i: i.name or ""):
+            sentencias.append(
+                str(CreateIndex(indice, if_not_exists=True).compile(dialect=dialecto))
+            )
+    sentencias.extend(DDL_EXTRA_POSTGRES)
+    return tuple(sentencias)
