@@ -5,6 +5,42 @@ Ninguna feature `in_progress`. Última sesión: 2026-08-18. `dev` = 97fc0a8
 (merge de F-010) y en el remoto. Al retomar: `bash harness/init.sh` y
 seguir el orden del backlog de abajo.
 
+## Sesión 2026-08-19 · spec de F-015 escrita (pendiente de aprobación)
+
+En la rama `feature/F-015-jornada-semanal-candef` (creada desde `dev`) está
+ya `specs/F-015-jornada-semanal-candef/` con `requirements.md` (R10–R28
+heredados del bloque B de F-012 + R29–R35 nuevos; R27 reservado a F-016),
+`design.md` (13 apartados, DA1–DA8 y 5 dudas) y `tasks.md` (T1–T13).
+Informe del spec-author: **`progress/spec_F-015.md`**. Sin código, sin
+push, sin PR; `bash harness/init.sh` en verde.
+
+**Siguiente acción**: PARADA 1 — el humano aprueba la spec (o responde las
+dudas) y el LÍDER mueve F-015 en `harness/features.json` antes de lanzar al
+implementer. El spec-author no toca `features.json`.
+
+**Decisiones abiertas que necesita validar el humano** (detalle en
+`progress/spec_F-015.md` §4):
+
+1. ¿Se añade `application/services/jornada_resolver.py` a la lista cerrada
+   de duplicación tolerada de `CLAUDE.md`? Lleva duplicado desde F-003 y
+   F-015 lo amplía, pero no figura por su nombre. (No se ha tocado
+   `CLAUDE.md`.)
+2. **Ventana F-014 → F-015**: la spec documenta que F-015 **sin** F-014 es
+   regresión cero, mientras que **F-014 sin F-015** sí hace daño (−3 h/semana
+   de extra negativa a los 7 recursos de la cuadrilla). La puerta de merge
+   se mantiene como la decidió el humano; ¿se coordina el cambio de RRHH con
+   el despliegue de sv3+sv4 el mismo día?
+3. **DA3 · cómo se implementa D7**: las líneas congeladas
+   (`registrado`/`encolado`/`approved`) **cuentan en el total del día pero no
+   se modifican**, en vez de excluirlas también del total (que rompería los
+   días mixtos entre dos obras). Si el humano prefiere la lectura literal de
+   D7, hay que decirlo antes de T6.
+4. `hasta` de `empleado_jornada` es **exclusivo** (`desde ≤ d < hasta`),
+   como escribió F-012 §6.1. Importa para el formulario de F-016.
+5. Las validaciones de `empleado_jornada` (horas 0–24, sin solapes, al menos
+   S o patrón) son de **F-016**; hasta entonces, SQL manual y el resolutor
+   ignorando con WARNING la fila mal formada. ¿Suficiente?
+
 ## Orden del backlog (por prioridad en `harness/features.json`)
 
 1. **F-014** (documental, sdd=false) — candef 9 en Sigrid. La ejecuta
@@ -13,9 +49,9 @@ seguir el orden del backlog de abajo.
    humano lo pida/haga. No bloquea la spec de F-015, sí su merge.
 2. **F-015** (estandar, sdd=true) — jornada semanal derivada del candef +
    último laborable + tabla `empleado_jornada`. Prerrequisitos: F-010 (ya
-   done) y F-014. Siguiente acción del líder: PARADA 1 y spec-author, con
-   los requisitos R10–R25 del bloque B de `specs/F-012-.../requirements.md`
-   como base (decisiones firmes ya escritas en `design.md` §9.1).
+   done) y F-014. **Spec ESCRITA el 2026-08-19** en
+   `specs/F-015-jornada-semanal-candef/` (ver la sección de la sesión, más
+   arriba): falta la aprobación del humano y, después, el implementer.
 3. **F-016** — pantalla de administración de `empleado_jornada` (tras F-015).
 4. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
    F-008 roles · F-009 automejoras del arnés (lista larga en history.md:
