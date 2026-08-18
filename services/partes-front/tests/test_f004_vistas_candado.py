@@ -14,13 +14,18 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 import pytest
-from config.settings import Settings
 from fastapi.testclient import TestClient
+
+from config.settings import Settings
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite, sembrar_parte
+
+#: Raiz del servicio (mismo criterio que `tests/conftest.py`).
+RAIZ_SERVICIO = Path(__file__).resolve().parents[1]
 
 CANDADO = "\U0001F512"          # 🔒
 
@@ -165,7 +170,7 @@ def test_f004_r17_el_parte_aprobado_avisa_y_bloquea_la_cabecera(
     cliente, _f, _ids = montaje([{"estado": None}], aprobado=True)
     html = cliente.get("/partes/doc-f004").text
     aviso = re.search(r'<div class="alert[^"]*parte-congelado"[^>]*>(.*?)</div>',
-                      html, re.S)
+                      html, re.DOTALL)
     assert aviso, "un parte aprobado tiene que avisar de por que no se edita"
     assert "Marcar pendiente" in aviso.group(1)
     assert 'class="fecha-edit" id="fechaEdit"' in html
@@ -191,6 +196,25 @@ def test_f004_r17_un_parte_sin_aprobar_con_linea_en_sigrid_tambien_avisa(
     cliente, _f, _ids = montaje([{"estado": "registrado"}, {"estado": None}])
     html = cliente.get("/partes/doc-f004").text
     assert "parte-congelado" in html
+
+
+# ------------------------------ R16 ------------------------------------ #
+
+def test_f004_r16_el_front_lee_el_motivo_del_409() -> None:
+    """El proyecto no tiene arnes de tests JS (`docs/CONVENTIONS.md`: la
+    validacion es `node --check` + revision manual). Esto es lo minimo
+    automatizable y lo que de verdad se rompe al retocar `app.js`: que
+    los manejadores de error lean el `error` del cuerpo en vez de pintar
+    un generico. El comportamiento en el navegador lo verifica el humano.
+    """
+    js = (RAIZ_SERVICIO / "static" / "app.js").read_text(encoding="utf-8")
+    assert "MotivoHttp" in js
+    assert "lanzarSiFalla" in js
+    # Ningun manejador se queda con el generico mudo (el texto solo
+    # sobrevive en el comentario que explica por que se quito).
+    assert '"✗ Error", "error"' not in js
+    # Y el popup de la matriz sabe que linea esta congelada (R15).
+    assert "todasCongeladas" in js
 
 
 def test_f004_r18_el_boton_de_aprobar_sigue_en_el_parte(montaje) -> None:

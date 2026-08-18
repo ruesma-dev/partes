@@ -12,6 +12,7 @@ Sin BBDD, sin FastAPI y sin red: son funciones puras.
 from __future__ import annotations
 
 import pytest
+
 from application.services.congelacion import (
     ESTADOS_CONGELANTES,
     CongeladoError,

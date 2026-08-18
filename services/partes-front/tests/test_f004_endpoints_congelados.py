@@ -13,8 +13,9 @@ Sin red y sin PostgreSQL: SQLite en memoria con el ORM real y
 from __future__ import annotations
 
 import pytest
-from config.settings import Settings
 from fastapi.testclient import TestClient
+
+from config.settings import Settings
 from infrastructure.database import parte_repository as repo_mod
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,
@@ -427,7 +428,7 @@ def test_f004_r11_el_documento_con_linea_registrada_sigue_congelado(
         montaje) -> None:
     """Desaprobar tampoco permite cambiarle la fecha: propagaria a la
     linea que ya esta en Sigrid."""
-    cliente, _repo, fabrica, _ids = montaje(
+    cliente, _repo, _f, _ids = montaje(
         [{"estado": "registrado"}, {"estado": None}], aprobado=True)
     cliente.post("/documents/doc-f004/unapprove", data={"back": "/partes"},
                  follow_redirects=False)

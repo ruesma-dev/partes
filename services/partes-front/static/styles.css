@@ -916,3 +916,28 @@ td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
 }
 .poison-fila code { font-size: 12px; }
 .poison-estado { margin-top: 8px; font-size: 12px; }
+
+/* --- F-004 · lineas congeladas (aprobadas o ya en Sigrid) ----------- */
+/* Un gris apagado con el candado a la vista: la fila se lee, no se
+   toca. Sin esto, una fila con los inputs `disabled` parece un fallo de
+   carga en vez de una decision del sistema. */
+.row-congelada { background: #f7f8fa; }
+.row-congelada input[disabled],
+.row-congelada select[disabled] {
+  background: #eef0f3;
+  color: #6b7280;
+  border-color: #dfe3e8;
+  cursor: not-allowed;
+}
+.congelado-motivo {
+  cursor: help;
+  font-size: 13px;
+  opacity: 0.85;
+}
+.parte-congelado { margin: 10px 0; }
+.mxe-congelada span { color: #6b7280; }
+.mxe-congelada input[disabled] {
+  background: #eef0f3;
+  color: #6b7280;
+  cursor: not-allowed;
+}

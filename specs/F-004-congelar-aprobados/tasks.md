@@ -42,7 +42,7 @@ parametrizables).
       banner de parte aprobado.
       | Verificación: tests R14, R15 (flag en `regs`), R17 en `test_f004_vistas_candado.py` sobre el HTML de `TestClient` (presencia de `disabled`/candado/banner en línea congelada; ausencia en línea libre); parseo Jinja2 de las tres plantillas.
 
-- [ ] T7: `static/app.js`: no cablear editores en filas congeladas, popup
+- [x] T7: `static/app.js`: no cablear editores en filas congeladas, popup
       de matriz con filas `c` en solo-lectura (sin Guardar/extra si todas),
       y los catch de edición muestran el `error` del 409 en vez del
       genérico. Retoque mínimo de `styles.css` si hace falta.

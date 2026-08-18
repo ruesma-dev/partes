@@ -171,7 +171,7 @@ class RegistroView:
     # vista solo pinta. Si el JS lo recalculase, un dia diria que se
     # puede editar algo que el servidor rechaza con un 409.
     congelado: bool = False
-    congelado_motivo: Optional[str] = None
+    congelado_motivo: str | None = None
 
 
 @dataclass
@@ -240,7 +240,7 @@ class ParteDetail:
     sharepoint_url: Optional[str]
     es_futuro: bool = False
     #: Motivo por el que el DOCUMENTO esta congelado (R2/R17), o None.
-    congelado_doc: Optional[str] = None
+    congelado_doc: str | None = None
     empleados: list[ParteEmpleadoView] = field(default_factory=list)
 
 
