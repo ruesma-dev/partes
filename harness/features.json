@@ -174,7 +174,7 @@
         "Verificación por sigrid-api en solo lectura tras el cambio: los 7 recursos con candef=9 y MO/0037 con DNI en emp (SQL reproducible del anexo A de specs/F-012 §H1/H2)",
         "bash harness/init.sh en verde"
       ],
-      "status": "in_progress",
+      "status": "blocked",
       "sdd": false,
       "rigor": "documental",
       "priority": 5,

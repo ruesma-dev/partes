@@ -1,29 +1,85 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-Ninguna feature `in_progress`. Última sesión: 2026-08-18. `dev` = 97fc0a8
-(merge de F-010) y en el remoto. Al retomar: `bash harness/init.sh` y
-seguir el orden del backlog de abajo.
+Sesión 2026-08-19. **F-014 `blocked`** (a la espera de RRHH/Administración,
+motivo abajo). Ninguna feature `in_progress`. Rama de trabajo viva:
+`feature/F-014-candef-9-sigrid` (4 commits, sin mergear a `dev` porque la
+feature no está `done`). `dev` = `cf77e6a`.
+
+## F-014 · bloqueada a la espera de RRHH (2026-08-19)
+
+**Motivo del `blocked`**: el `acceptance` 2 exige verificar por sigrid-api,
+tras el cambio, que los 7 recursos tienen `candef = 9` y que `MO/0037` tiene
+DNI. Ese cambio es de **datos maestros en Sigrid** y lo ejecuta a mano
+RRHH/Administración: ningún agente escribe ahí. Hasta que no se ejecute, no
+hay nada que verificar.
+
+Entregado y **APROBADO por el reviewer** (`progress/review_F-014.md`, dos
+pasadas):
+
+- `progress/peticion_F-014.md` — la petición para RRHH, con el porqué en
+  lenguaje de negocio, la tabla recurso a recurso, qué NO se toca, el
+  procedimiento de 5 pasos, la verificación posterior (V1/V2/V3 con su
+  resultado esperado en los 3 escenarios) y el **texto de correo copiable**
+  (§7).
+- `progress/impl_F-014.md` — línea base medida contra Sigrid el 2026-08-19
+  en solo lectura, hallazgos y evidencias. El reviewer re-midió todo por su
+  cuenta: coincide dato por dato.
+
+**Para retomar**: `git checkout feature/F-014-candef-9-sigrid` y seguir el
+apartado 6 de `progress/peticion_F-014.md`.
+
+### Lo que falta para cerrarla (en orden)
+
+1. **El humano envía la petición** a RRHH/Administración (§7 de
+   `peticion_F-014.md`).
+2. **RRHH ejecuta en Sigrid**: `candef` 8 → 9 en la línea `HLOF` de las 7
+   fichas (o 6, según decidan) y el DNI de `MO/0037`.
+3. **RRHH responde qué decidió con `MO/0007`** (ficha 2146403: figura de
+   alta pero no registra partes desde el 2026-02-04, así que nunca llegó a
+   hacer el régimen de 9 h). Sin esa respuesta el esperado de V1 y V2 es
+   ambiguo entre los escenarios A, B y C.
+4. **Ejecutar V1, V2 y V3** en solo lectura y anotar el resultado real en
+   `progress/impl_F-014.md`.
+5. **Segunda revisión** que verifique el punto 4 → `done` → merge.
+
+### Hallazgos que conviene no perder
+
+- **Los códigos `MO/NNNN` NO identifican una sola ficha de recurso.**
+  `MO/0006` devuelve 5 fichas (4 de alta) y bajo `MO/0006`, `MO/0007` y
+  `MO/0008` hay homónimas **de alta, misma categoría, misma hora por defecto
+  `HLOF` y también con `candef = 8`**: indistinguibles salvo por `res.ide`.
+  Por eso la petición identifica por código + `res.ide` + categoría.
+- **`MO/0031` tiene dos fichas de alta que registran partes en 2026**: la
+  correcta (2714845, OFIC. 1ª ALBAÑIL) y otra (537335, ENCARGADO DE OBRA,
+  hora por defecto `MENC`, `candef` 1). Ahí desempata la categoría.
+- **`MO/0037` sigue sin DNI** (`res.conide = 0`) y registró parte el
+  2026-08-19: el hueco es actual y afecta ya al cruce con calendario y
+  festivos de F-003.
+- **ORDEN DURO**: F-015 **no se mergea** hasta que el punto 4 salga en
+  verde. Es el riesgo §10.6 de F-012: con la cuadrilla aún a `candef = 8`,
+  la regla nueva marcaría sus viernes de 6 h como incompletos y generaría
+  **+2 h/semana de extra automática falsa** por trabajador.
 
 ## Orden del backlog (por prioridad en `harness/features.json`)
 
-1. **F-014** (documental, sdd=false) — candef 9 en Sigrid. La ejecuta
-   RRHH/Administración a mano; el arnés solo redacta la petición y
-   comprueba después por sigrid-api. Estado real: PENDIENTE de que el
-   humano lo pida/haga. No bloquea la spec de F-015, sí su merge.
+1. **F-014** — `blocked`, ver arriba. Solo la desbloquea RRHH.
 2. **F-015** (estandar, sdd=true) — jornada semanal derivada del candef +
-   último laborable + tabla `empleado_jornada`. Prerrequisitos: F-010 (ya
-   done) y F-014. Siguiente acción del líder: PARADA 1 y spec-author, con
-   los requisitos R10–R25 del bloque B de `specs/F-012-.../requirements.md`
-   como base (decisiones firmes ya escritas en `design.md` §9.1).
+   último laborable + tabla `empleado_jornada`. Base: requisitos R10–R25 del
+   bloque B de `specs/F-012-.../requirements.md` y las decisiones firmes de
+   su `design.md` §9.1. Su **spec** no depende de F-014; su **merge** sí.
 3. **F-016** — pantalla de administración de `empleado_jornada` (tras F-015).
 4. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
    F-008 roles · F-009 automejoras del arnés (lista larga en history.md:
-   AM de F-013, F-004 y F-010) · F-011 jornada reducida (última; fuente
-   candidata `empleado_jornada` + `emphis.porjorlab`).
+   AM de F-013, F-004, F-010 y ahora F-014) · F-011 jornada reducida
+   (última; fuente candidata `empleado_jornada` + `emphis.porjorlab`).
 
 ## MANUAL pendiente del humano (acumulado)
 
+- **F-014 (NUEVO, 2026-08-19):** enviar la petición de
+  `progress/peticion_F-014.md` §7 a RRHH/Administración y, cuando avisen,
+  ejecutar V1/V2/V3 del apartado 6 (solo lectura, script de usar y tirar
+  fuera del repo, credenciales `SIGRID_API_*` de sv3).
 - **F-002 (Azure):** validar en navegador la aprobación asíncrona (⏳
   encolado → ✓ PT26/…, obra 0404 en modo pruebas), limpiar 0404
   (`python prueba_escritura_sigrid.py limpiar --ejecutar` en sv5) y pasar
@@ -41,8 +97,6 @@ seguir el orden del backlog de abajo.
 - **F-013:** validar el Excel `services/partes-front/logs/
   festivos_por_trabajador_2026.xlsx` (no versionado): Alicante 8/21
   (Antuane Gavilán) y asignaciones por centro.
-- **F-014:** pedir candef 9 en la hora por defecto HLOF de MO/0006, 0007,
-  0008, 0031, 0366, 0405, 0456 y DNI en `emp` para MO/0037.
 - **sesame-api (otro repo, del humano):** commitear el árbol P2 (incluye
   el fix `daysOff` del 2026-08-18), desplegar, doc en azure-apps (P3);
   `contract_not_found` → 404 en vez de 502; su `.env` ya apunta a EU4.
@@ -62,7 +116,20 @@ seguir el orden del backlog de abajo.
   ÚLTIMO LABORABLE de la semana (festivo cuenta como jornada); excepciones
   en `empleado_jornada`; candef desconocido → 5×candef + WARNING; sin
   calendario → viernes.
+- **Deuda detectada el 2026-08-19 (fuera de alcance de F-014)**:
+  `services/partes-front/consulta_reshor_recursos.py` tiene 4 DNIs y
+  nombres de personas reales **hardcodeados y versionados** (líneas 27-31)
+  y apunta a una ruta `.env` de otro repositorio. Pendiente de decisión del
+  humano sobre si se limpia y en qué feature.
 - azure-apps es un repo git LOCAL sin remoto (decisión del humano): tiene
   commits 8f55505 (F-010) y anteriores; no proponer push.
 - Automejoras del arnés propuestas por reviewers (F-013 AM-1..3, F-004,
-  F-010) esperan decisión del humano en F-009; genéricas ⇒ arnes-base.
+  F-010 y F-014) esperan decisión del humano en F-009; genéricas ⇒
+  arnes-base. Las de F-014 (`progress/review_F-014.md` §11): (A) checkpoint
+  nuevo para features cuyo entregable es una **petición a un tercero**
+  (clave unívoca verificada, apartado «qué NO se toca», verificación
+  escrita ANTES con control de daños, resultado esperado en TODOS los
+  escenarios, barrido de datos sensibles porque el documento sale del
+  repo); (B) generalizar la regla del reviewer «si el entregable es una
+  medición, se **re-ejecuta** en solo lectura en vez de leerla» — es lo que
+  destapó el defecto D1 de esta feature.
