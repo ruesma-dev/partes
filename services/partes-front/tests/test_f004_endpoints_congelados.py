@@ -21,7 +21,10 @@ from infrastructure.database.orm_models import (
     ParteRegistroOrm,
 )
 from infrastructure.database.parte_repository import ParteReviewRepository
-from infrastructure.sigrid.sigrid_lookup_client import TipoHoraOption
+from infrastructure.sigrid.sigrid_lookup_client import (
+    EmpleadoOption,
+    TipoHoraOption,
+)
 from interface_adapters.web import app as app_mod
 from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite, datos_registros, sembrar_parte
@@ -53,8 +56,9 @@ class SigridLookupClientFake:
     def fetch_obras(self) -> list:
         return []
 
-    def fetch_empleados(self) -> list:
-        return []
+    def fetch_empleados(self) -> list[EmpleadoOption]:
+        return [EmpleadoOption(ide=4242, codigo="E42", nombre="Ana Casada",
+                               dni="99999999R", categoria="Oficial 1a")]
 
     def fetch_partidas_obra(self, _obra_ide: int) -> list:
         return []
@@ -454,6 +458,139 @@ def test_f004_r18_un_parte_aprobado_se_puede_volver_a_aprobar(
                              follow_redirects=False)
     assert respuesta.status_code == 303
     assert _doc(fabrica).approved is True
+
+
+# ------------------------------- R8 ------------------------------------ #
+# Reasignar empleado toca N filas: abortar todo por UNA congelada haria
+# la herramienta inservible en cuanto hubiera un mes registrado. Se
+# actualizan las libres, se omiten las congeladas y se DICE cuantas (en
+# silencio, el usuario creeria que su accion se aplico entera).
+
+def _mezcla_sin_casar():
+    return [{"estado": "registrado"}, {"estado": None}]
+
+
+def test_f004_r8_la_conciliacion_omite_las_congeladas_y_lo_reporta(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        _mezcla_sin_casar(), empleado_ide=None)
+    respuesta = cliente.post("/api/conciliacion/confirmar",
+                             json={"nombre_leido": "Pepe Perez",
+                                   "ide": 4242})
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["updated"] == 1
+    assert cuerpo["congeladas"] == 1
+    datos = datos_registros(fabrica, ids)
+    assert datos[ids[0]]["empleado_ide"] is None      # registrada: intacta
+    assert datos[ids[1]]["empleado_ide"] == 4242
+
+
+@pytest.mark.parametrize("cuerpo_extra", [
+    pytest.param({"worker_key": "nom-PEPE_PEREZ"}, id="por-worker-key"),
+    pytest.param({"nombre_leido": "Pepe Perez"}, id="por-nombre-leido"),
+])
+def test_f004_r8_la_reasignacion_omite_las_congeladas_y_lo_reporta(
+        montaje, cuerpo_extra) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        _mezcla_sin_casar(), empleado_ide=None)
+    respuesta = cliente.post("/api/empleado/reasignar",
+                             json={"ide": 4242, **cuerpo_extra})
+    assert respuesta.status_code == 200
+    cuerpo = respuesta.json()
+    assert cuerpo["updated"] == 1
+    assert cuerpo["congeladas"] == 1
+    datos = datos_registros(fabrica, ids)
+    assert datos[ids[0]]["empleado_ide"] is None
+    assert datos[ids[1]]["empleado_ide"] == 4242
+
+
+def test_f004_r8_la_reasignacion_por_ids_omite_las_congeladas(
+        montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        _mezcla_sin_casar(), empleado_ide=None)
+    respuesta = cliente.post("/api/empleado/reasignar",
+                             json={"ide": 4242, "registro_ids": ids})
+    cuerpo = respuesta.json()
+    assert (cuerpo["updated"], cuerpo["congeladas"]) == (1, 1)
+    assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] is None
+
+
+def test_f004_r8_si_todas_estan_congeladas_no_se_toca_nada(montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje(
+        [{"estado": "registrado"}, {"estado": "encolado"}],
+        empleado_ide=None)
+    antes = datos_registros(fabrica, ids)
+    cuerpo = cliente.post("/api/empleado/reasignar",
+                          json={"ide": 4242, "registro_ids": ids}).json()
+    assert (cuerpo["updated"], cuerpo["congeladas"]) == (0, 2)
+    assert datos_registros(fabrica, ids) == antes
+
+
+def test_f004_r8_sin_congeladas_el_recuento_es_cero(montaje) -> None:
+    cliente, _repo, _f, ids = montaje(
+        [{"estado": "omitido"}, {"estado": None}], empleado_ide=None)
+    cuerpo = cliente.post("/api/empleado/reasignar",
+                          json={"ide": 4242, "registro_ids": ids}).json()
+    assert (cuerpo["updated"], cuerpo["congeladas"]) == (2, 0)
+
+
+# ------------------------------- R9 ------------------------------------ #
+
+def test_f004_r9_el_undo_no_revive_una_linea_hoy_registrada(
+        montaje) -> None:
+    """Se edita una linea libre, luego se registra en Sigrid y despues se
+    deshace: el undo restauraria las horas VIEJAS sobre una linea que ya
+    esta escrita en Sigrid con las nuevas."""
+    cliente, repositorio, fabrica, ids = montaje([{"estado": None}])
+    assert cliente.patch(f"/api/registros/{ids[0]}",
+                         json={"horas": 6.0}).status_code == 200
+    repositorio.marcar_registros_sigrid(
+        escritas=[{"registro_id": ids[0], "hmoide": 1, "hmores_ide": 2,
+                   "parte_cod": "PT26/00001"}],
+        omitidas=[], ya_registradas=[], usuario="ana")
+    cuerpo = cliente.post("/api/undo").json()
+    assert cuerpo["ok"] is True
+    assert cuerpo["omitidos"] == 1
+    assert datos_registros(fabrica, ids)[ids[0]]["horas"] == 6.0
+
+
+def test_f004_r9_el_undo_aplica_lo_libre_y_omite_lo_congelado(
+        montaje) -> None:
+    cliente, repositorio, fabrica, ids = montaje(
+        [{"estado": None}, {"estado": None}], empleado_ide=None)
+    cliente.post("/api/empleado/reasignar",
+                 json={"ide": 4242, "registro_ids": ids})
+    repositorio.marcar_registros_sigrid(
+        escritas=[{"registro_id": ids[0], "hmoide": 1, "hmores_ide": 2,
+                   "parte_cod": "PT26/00001"}],
+        omitidas=[], ya_registradas=[], usuario="ana")
+    cuerpo = cliente.post("/api/undo").json()
+    assert cuerpo["omitidos"] == 1
+    datos = datos_registros(fabrica, ids)
+    assert datos[ids[0]]["empleado_ide"] == 4242   # registrada: no vuelve
+    assert datos[ids[1]]["empleado_ide"] is None   # libre: deshecha
+
+
+def test_f004_r9_el_undo_omite_el_documento_hoy_congelado(montaje) -> None:
+    cliente, _repo, fabrica, ids = montaje([{"estado": None}])
+    cliente.patch("/api/partes/doc-f004/fecha", json={"fecha": "2026-04-09"})
+    cliente.post("/documents/doc-f004/approve", data={"back": "/partes"},
+                 follow_redirects=False)
+    cuerpo = cliente.post("/api/undo").json()
+    assert cuerpo["omitidos"] == 2          # el documento y su linea
+    assert _doc(fabrica).fecha == "2026-04-09"
+    assert datos_registros(fabrica, ids)[ids[0]]["fecha"] == "2026-04-09"
+
+
+def test_f004_r9_el_undo_normal_sigue_funcionando(montaje) -> None:
+    """R18: sin nada congelado, deshacer se comporta como siempre."""
+    cliente, _repo, fabrica, ids = montaje([{"estado": None, "horas": 8.0}])
+    cliente.patch(f"/api/registros/{ids[0]}", json={"horas": 6.0})
+    cuerpo = cliente.post("/api/undo").json()
+    assert cuerpo["ok"] is True
+    assert cuerpo["omitidos"] == 0
+    assert datos_registros(fabrica, ids)[ids[0]]["horas"] == 8.0
 
 
 def test_f004_r18_marcar_encolado_y_registrado_no_se_congelan(
