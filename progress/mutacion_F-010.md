@@ -1,7 +1,7 @@
 <!-- progress/mutacion_F-010.md -->
 # F-010 · Campaña de mutación
 
-Generado por `python -m harness.mutacion --feature F-010` el 2026-08-18 21:37.
+Generado por `python -m harness.mutacion --feature F-010` el 2026-08-18 21:43.
 
 ## Alcance
 
@@ -21,193 +21,50 @@ Origen del diff: **rama** (`716a4f717f28571ef5987c586d69ac6d31d5035f` .. `featur
 |---|---|
 | Mutantes generados | 23 |
 | Mutantes evaluados | 23 |
-| Muertos | 5 |
-| Supervivientes | 18 |
+| Muertos | 23 |
+| Supervivientes | 0 |
 | Timeouts | 0 |
-| Tiempo total | 67.1 s |
+| Tiempo total | 61.0 s |
 | Muestreo | no: campaña completa |
 
 ## Supervivientes
 
-Cada superviviente es una línea que ningún test comprueba de verdad, o una mutación equivalente. Distinguirlo es trabajo del implementer: ningún análisis puede quedarse sin completar al cerrar la feature.
-
-### 1. `services/partes-front/infrastructure/database/orm_models.py:251` [booleano]
-
-- Original: `Boolean, nullable=False, default=False, server_default="false"`
-- Mutado:   `Boolean, nullable=True, default=False, server_default="false"`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 2. `services/partes-front/infrastructure/database/orm_models.py:251` [booleano]
-
-- Original: `Boolean, nullable=False, default=False, server_default="false"`
-- Mutado:   `Boolean, nullable=False, default=True, server_default="false"`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 3. `services/partes-front/infrastructure/database/orm_models.py:344` [logico]
-
-- Original: `for indice in sorted(tabla.indexes, key=lambda i: i.name or ""):`
-- Mutado:   `for indice in sorted(tabla.indexes, key=lambda i: i.name and ""):`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 4. `services/partes-front/infrastructure/database/orm_models.py:346` [booleano]
-
-- Original: `str(CreateIndex(indice, if_not_exists=True).compile(dialect=dialecto))`
-- Mutado:   `str(CreateIndex(indice, if_not_exists=False).compile(dialect=dialecto))`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 5. `services/partes-persistencia/infrastructure/database/orm_models.py:221` [entero]
-
-- Original: `sigrid_registrado_at_utc: Mapped[str | None] = mapped_column(String(64))`
-- Mutado:   `sigrid_registrado_at_utc: Mapped[str | None] = mapped_column(String(65))`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 6. `services/partes-persistencia/infrastructure/database/orm_models.py:222` [entero]
-
-- Original: `sigrid_registrado_by: Mapped[str | None] = mapped_column(String(255))`
-- Mutado:   `sigrid_registrado_by: Mapped[str | None] = mapped_column(String(256))`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 7. `services/partes-persistencia/infrastructure/database/orm_models.py:225` [entero]
-
-- Original: `sigrid_parte_cod: Mapped[str | None] = mapped_column(String(64))`
-- Mutado:   `sigrid_parte_cod: Mapped[str | None] = mapped_column(String(65))`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 8. `services/partes-persistencia/infrastructure/database/orm_models.py:226` [entero]
-
-- Original: `sigrid_motivo: Mapped[str | None] = mapped_column(String(255))`
-- Mutado:   `sigrid_motivo: Mapped[str | None] = mapped_column(String(256))`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 9. `services/partes-persistencia/infrastructure/database/orm_models.py:290` [booleano]
-
-- Original: `id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)`
-- Mutado:   `id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 10. `services/partes-persistencia/infrastructure/database/orm_models.py:291` [entero]
-
-- Original: `created_at_utc: Mapped[str] = mapped_column(String(40), nullable=False)`
-- Mutado:   `created_at_utc: Mapped[str] = mapped_column(String(41), nullable=False)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 11. `services/partes-persistencia/infrastructure/database/orm_models.py:291` [booleano]
-
-- Original: `created_at_utc: Mapped[str] = mapped_column(String(40), nullable=False)`
-- Mutado:   `created_at_utc: Mapped[str] = mapped_column(String(40), nullable=True)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 12. `services/partes-persistencia/infrastructure/database/orm_models.py:292` [entero]
-
-- Original: `action: Mapped[str] = mapped_column(String(40), nullable=False)`
-- Mutado:   `action: Mapped[str] = mapped_column(String(41), nullable=False)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 13. `services/partes-persistencia/infrastructure/database/orm_models.py:292` [booleano]
-
-- Original: `action: Mapped[str] = mapped_column(String(40), nullable=False)`
-- Mutado:   `action: Mapped[str] = mapped_column(String(40), nullable=True)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 14. `services/partes-persistencia/infrastructure/database/orm_models.py:293` [booleano]
-
-- Original: `description: Mapped[str] = mapped_column(Text, nullable=False)`
-- Mutado:   `description: Mapped[str] = mapped_column(Text, nullable=True)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 15. `services/partes-persistencia/infrastructure/database/orm_models.py:294` [booleano]
-
-- Original: `payload: Mapped[str] = mapped_column(Text, nullable=False)`
-- Mutado:   `payload: Mapped[str] = mapped_column(Text, nullable=True)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 16. `services/partes-persistencia/infrastructure/database/orm_models.py:295` [booleano]
-
-- Original: `undone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)`
-- Mutado:   `undone: Mapped[bool] = mapped_column(Boolean, nullable=True, default=False)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 17. `services/partes-persistencia/infrastructure/database/orm_models.py:295` [booleano]
-
-- Original: `undone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)`
-- Mutado:   `undone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 18. `services/partes-persistencia/infrastructure/database/orm_models.py:344` [logico]
-
-- Original: `for indice in sorted(tabla.indexes, key=lambda i: i.name or ""):`
-- Mutado:   `for indice in sorted(tabla.indexes, key=lambda i: i.name and ""):`
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
+Ninguno: cada mutación aplicada la cazó al menos un test.
+
+
+## Nota del implementer (2026-08-18)
+
+Esta es la **segunda** campaña. La primera, con el mismo alcance (23
+mutantes), dio **5 muertos y 18 supervivientes**, y el diagnóstico fue el
+mismo para casi todos:
+
+1. **Cada suite solo ejecuta el código de SU servicio.** El guardián que
+   compara las dos copias (R1/R2/R4) vive en la suite de la **raíz**, así
+   que la herramienta no lo lanza al mutar el `orm_models.py` de un
+   servicio. Mutaciones que el guardián caza en cada `init.sh` —cambiar
+   `String(255)` por `String(256)` en una sola copia— sobrevivían aquí.
+2. **La suite de cada servicio no miraba lo que ese servicio no usa.** En
+   sv3 sobrevivían todas las mutaciones sobre `undo_log` y las siete
+   `sigrid_*` (13 de los 18): son columnas que sv3 declara porque la base
+   es una sola, pero que no lee nadie allí.
+3. **En sv4 nadie probaba su copia del generador.** El test de `initialize()`
+   (R8) compara lo ejecutado contra `ddl_complementario()` del **mismo**
+   módulo: si el generador se estropea, los dos lados de la comparación
+   cambian a la vez y el test sigue en verde. Es una tautología, y la
+   mutación la destapó.
+
+En lugar de justificar los 18 como equivalentes —que en parte lo eran, por
+(1)— se taparon los huecos, porque describían algo que sí importa: el ORM
+tiene que describir la BBDD real, columna a columna, en las dos copias.
+
+- `services/partes-persistencia/tests/test_f010_r6_ddl_complementario.py`:
+  DDL literal completo de `undo_log` y de las siete `sigrid_*`,
+  autoincremento de las claves primarias, valores por defecto de Python
+  (`extra_auto`, `es_incidencia`, `undone`) y orden alfabético de los
+  índices.
+- `services/partes-front/tests/test_f010_r6_ddl_complementario_sv4.py`
+  (nuevo): las mismas propiedades sobre **la copia de sv4**, que es la que
+  ejecuta el portal al arrancar.
+
+Resultado: **23/23 muertos, 0 supervivientes**, y 11 tests más que sí
+comprueban el esquema en vez de darlo por bueno.

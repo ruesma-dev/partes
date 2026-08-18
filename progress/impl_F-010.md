@@ -21,8 +21,9 @@ papelera de sv4 deja de emitir los `SAWarning` que arrastraba desde F-004.
 | `services/partes-front/infrastructure/database/orm_models.py` | **byte-idéntico** al anterior |
 | `services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py` | `initialize()` usa el generador; fuera `_DDL_ALTERS` y `_DDL_PARTIAL_UNIQUE` (−46 líneas) |
 | `services/partes-front/infrastructure/database/parte_repository.py` | `initialize()` idem (−80 líneas de DDL); R11 en `hard_delete_document` y `vaciar_papelera`; import `delete` retirado (ya no se usa) |
-| `services/partes-persistencia/tests/test_f010_r6_ddl_complementario.py` | **nuevo** · R6, R9, R10 |
+| `services/partes-persistencia/tests/test_f010_r6_ddl_complementario.py` | **nuevo** · R6, R9, R10 (+ ampliado en T8) |
 | `services/partes-persistencia/tests/test_f010_r7_initialize_sv3.py` | **nuevo** · R7 |
+| `services/partes-front/tests/test_f010_r6_ddl_complementario_sv4.py` | **nuevo** (T8) · el generador probado sobre LA COPIA DE sv4 |
 | `services/partes-front/tests/test_f010_r8_initialize_sv4.py` | **nuevo** · R8 |
 | `services/partes-front/tests/test_f010_r11_borrado_sin_sawarning.py` | **nuevo** · R11 |
 | `docs/ARCHITECTURE.md` | punto 7 reescrito (R12) |
@@ -179,6 +180,22 @@ están» a §5.5; misma corrección en `azure-apps/partes.md` §4.
 Barrido C3 bis sobre lo añadido (correos, IPs, GUID, tokens, claves) en los
 dos repositorios: **sin coincidencias**.
 
+### T8 · Mutación y refuerzo de los tests (commits de T8)
+
+La **primera** campaña dio 23 mutantes, 5 muertos y **18 supervivientes**.
+No se justificaron como equivalentes: casi todos señalaban un hueco real
+(análisis completo en `progress/mutacion_F-010.md`, sección «Nota del
+implementer»). Se añadieron 11 tests —DDL literal de `undo_log` y de las
+siete `sigrid_*`, autoincremento de las PK, defaults de Python, orden
+alfabético de los índices, y un fichero propio en sv4 que prueba SU copia
+del generador— y la segunda campaña quedó en **23/23 muertos, 0
+supervivientes**.
+
+### T9 · Cierre (`bash harness/init.sh`)
+
+`exit 0` · `ENTORNO LISTO`. De regalo, la deuda de ruff del repositorio baja
+de **450 a 430** avisos al desaparecer el DDL escrito a mano.
+
 ## 4. Decisiones de diseño y desviaciones
 
 - **D1–D7 de la spec: aplicadas tal cual.** Ninguna decisión nueva.
@@ -250,13 +267,45 @@ La deuda de ruff previa tampoco se toca.
 
 | Evidencia | Valor medido |
 |---|---|
-| **Tests ejecutados** | **665 en verde, 0 fallos**: raíz 15 (6 → 15), sv3 107 (95 → 107), sv4 456 (448 → 456), sv5 87 (sin cambios). **+32 tests nuevos de F-010** |
+| **Tests ejecutados** | **676 en verde, 0 fallos**: raíz 15 (6 → 15), sv3 112 (95 → 112), sv4 462 (448 → 462), sv5 87 (sin cambios). **+40 tests nuevos de F-010** |
 | **Cobertura de las líneas cambiadas** | **100,0 % (60/60 líneas)**, umbral 80 % (línea `PUERTA COBERTURA` de `bash harness/init.sh`, nivel `estandar`) |
-| **Mutantes generados / supervivientes** | ver `progress/mutacion_F-010.md` (sección 9) |
-| **Tiempo de ejecución de la suite** | raíz 3,04 s · sv3 3,10 s · sv4 63,32 s · sv5 4,05 s (**≈ 73 s** el conjunto que ejecuta `init.sh`) |
-| **`bash harness/init.sh`** | exit 0 — `ENTORNO LISTO` |
+| **Mutantes generados / supervivientes** | **23 generados, 23 muertos, 0 supervivientes, 0 timeouts** en 61,0 s (segunda campaña; la primera dio 18 supervivientes y se taparon los huecos — sección 9) |
+| **Tiempo de ejecución de la suite** | raíz 3,64 s · sv3 3,58 s · sv4 64,66 s · sv5 4,05 s (**≈ 76 s** el conjunto que ejecuta `init.sh`) |
+| **`bash harness/init.sh`** | **exit 0** — `ENTORNO LISTO` |
 | **Avisos `SAWarning` en la suite de sv4** | 5 → **0** |
+| **Deuda de ruff del repositorio** | 450 → **430** avisos (al desaparecer el DDL a mano) |
 
 ## 9. Campaña de mutación
 
-PENDIENTE
+`python -m harness.mutacion --feature F-010` · alcance: 257 líneas de
+producción en 4 ficheros · informe completo en
+**`progress/mutacion_F-010.md`**.
+
+| Campaña | Mutantes | Muertos | Supervivientes | Tiempo |
+|---|---|---|---|---|
+| 1.ª (antes de reforzar) | 23 | 5 | **18** | 67,1 s |
+| 2.ª (final) | 23 | **23** | **0** | 61,0 s |
+
+**Qué enseñaron los 18 supervivientes** (análisis completo en el informe de
+mutación; ninguno se cerró como «equivalente» sin más):
+
+1. El guardián de las copias gemelas vive en la suite de la **raíz**, y la
+   herramienta solo ejecuta la suite del **servicio** cuyo fichero muta. Por
+   eso sobrevivían mutaciones que `init.sh` sí caza (cambiar `String(255)`
+   por `String(256)` en una sola copia rompe R1/R2/R4). Es una limitación de
+   la herramienta, no un hueco de los tests —pero servía de tapadera para
+   los otros dos puntos, así que igualmente se tapó.
+2. **13 de los 18** eran mutaciones sobre `undo_log` y las siete `sigrid_*`
+   dentro de la copia de **sv3**: columnas que sv3 declara (la base es una
+   sola) y no lee nadie allí, así que su suite no las miraba.
+3. En **sv4** nadie probaba su copia del generador: R8 compara lo ejecutado
+   contra `ddl_complementario()` del mismo módulo —si el generador se
+   estropea, los dos lados cambian a la vez y el test sigue verde—.
+
+Se añadieron 11 tests que fijan el DDL literal de `undo_log` y de las
+`sigrid_*`, el autoincremento de las PK, los defaults de Python
+(`extra_auto`, `es_incidencia`, `undone`) y el orden alfabético de los
+índices, más el fichero
+`services/partes-front/tests/test_f010_r6_ddl_complementario_sv4.py`, que
+ejercita **la copia de sv4**. Ninguna sección del informe de mutación queda
+en `PENDIENTE`.

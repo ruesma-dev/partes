@@ -14,19 +14,19 @@ copias divergen— y tests del generador con RED por `ImportError`), después
 la resincronización que los pone en verde, después los `initialize()`,
 después R11 y la documentación.
 
-- [ ] T1: Crear `tests/test_f010_orm_models_gemelos.py` (raíz) con R1, R2,
+- [x] T1: Crear `tests/test_f010_orm_models_gemelos.py` (raíz) con R1, R2,
       R3 (parametrizado con 4 alteraciones en `tmp_path`) y R4 (lista literal
       de las 56 columnas de `parte_registros`, 4 tablas, atributos clave de
       `horas_orig`, `extra_auto`, `sigrid_*`, `UndoLogOrm`).
       | Verificación: `python -m pytest tests -q -k f010` → R1, R2 y R4 en ROJO contra el árbol real (traza pegada en `impl_F-010.md`: es la fase RED de la feature) y R3 en VERDE (las alteraciones se detectan). Commit del test en rojo permitido en esta tarea (el `init.sh` completo se exige en T9).
 
-- [ ] T2: Tests del generador en sv3:
+- [x] T2: Tests del generador en sv3:
       `services/partes-persistencia/tests/test_f010_r6_ddl_complementario.py`
       con R6 (a–d), R9 y R10 (sobre `Base.metadata` real y sobre un
       `MetaData` de juguete). Se escriben ANTES de que exista el generador.
       | Verificación: `python -m pytest services/partes-persistencia/tests -q -k f010` → ROJO natural (`ImportError: cannot import name 'ddl_complementario'`; traza pegada en `impl_F-010.md`). Commit del test en rojo permitido en esta tarea.
 
-- [ ] T3: Escribir el `orm_models.py` canónico (D1, §6.1 del diseño: base
+- [x] T3: Escribir el `orm_models.py` canónico (D1, §6.1 del diseño: base
       sv3 + bloque `sigrid_*` de sv4 + `UndoLogOrm` + docstring «cuatro
       tablas» + `DDL_EXTRA_POSTGRES` + `ddl_complementario()`) y copiarlo
       byte a byte a las DOS rutas
@@ -34,14 +34,14 @@ después R11 y la documentación.
       y `services/partes-front/infrastructure/database/orm_models.py`).
       | Verificación: `python -m pytest tests -q -k f010` → R1, R2, R3, R4 en VERDE; `python -m pytest services/partes-persistencia/tests -q -k f010` → R6, R9, R10 en VERDE; `cmp`/`fc` de los dos ficheros sin diferencias; las suites completas de sv3 y sv4 siguen en verde (`python -m pytest services/partes-persistencia/tests -q`, `python -m pytest services/partes-front/tests -q`).
 
-- [ ] T4: sv3 `SqlAlchemyParteRepository.initialize()` usa
+- [x] T4: sv3 `SqlAlchemyParteRepository.initialize()` usa
       `ddl_complementario()`; borrar `_DDL_PARTIAL_UNIQUE` y `_DDL_ALTERS`.
       Test `services/partes-persistencia/tests/test_f010_r7_initialize_sv3.py`
       (engine doble grabador; `create_all` antes; sentencias == generador,
       en orden).
       | Verificación: RED (el test exige las sentencias del generador y `initialize()` aún ejecuta la lista a mano) → GREEN; `grep -n "_DDL_ALTERS\|_DDL_PARTIAL_UNIQUE" services/partes-persistencia -r` sin resultados; suite sv3 en verde.
 
-- [ ] T5: sv4 `ParteReviewRepository.initialize()` usa
+- [x] T5: sv4 `ParteReviewRepository.initialize()` usa
       `ddl_complementario()` dentro del `try/except` actual; borrar los
       `ALTER`, `CREATE TABLE IF NOT EXISTS empleado_alias/undo_log` y el
       parche `undo_log.actor` a mano. Test
@@ -50,13 +50,13 @@ después R11 y la documentación.
       `logger.exception`).
       | Verificación: RED → GREEN; `grep -n "ADD COLUMN IF NOT EXISTS\|CREATE TABLE IF NOT EXISTS" services/partes-front/infrastructure -r` sin resultados fuera de `orm_models.py`; suite sv4 en verde.
 
-- [ ] T6: sv4 R11: quitar el `DELETE` masivo previo a `session.delete(doc)`
+- [x] T6: sv4 R11: quitar el `DELETE` masivo previo a `session.delete(doc)`
       en `hard_delete_document` y `vaciar_papelera`. Test
       `services/partes-front/tests/test_f010_r11_borrado_sin_sawarning.py`
       con `warnings.simplefilter("error", SAWarning)`.
       | Verificación: RED real (hoy el test revienta con `SAWarning: DELETE statement on table 'parte_registros' expected to delete 1 row(s); 0 were matched`) → GREEN; `python -m pytest services/partes-front/tests -q -W error::sqlalchemy.exc.SAWarning -k "f004 or f010"` en verde (los R12/R18 de F-004 dejan de avisar).
 
-- [ ] T7: Documentación (R12): `docs/ARCHITECTURE.md` punto 7;
+- [x] T7: Documentación (R12): `docs/ARCHITECTURE.md` punto 7;
       `docs/referencia/partes-proyecto.md` §5 (+ línea de corrección en la
       cabecera, D5); `C:\Users\pgris\PycharmProjects\azure-apps\partes.md`
       §4 (commit local en ese repositorio: «partes: F-010 corrige el
@@ -64,14 +64,14 @@ después R11 y la documentación.
       parte_registros)», sin push).
       | Verificación: revisión del reviewer (C3, C3 bis: barrido de datos sensibles sobre `docs/referencia/partes-proyecto.md` con los patrones habituales —correos, IPs, GUID, tokens—; `git -C ../azure-apps log -1 --stat` muestra el commit).
 
-- [ ] T8: Campaña de mutación `python -m harness.mutacion --feature F-010`
+- [x] T8: Campaña de mutación `python -m harness.mutacion --feature F-010`
       y análisis de supervivientes en `progress/mutacion_F-010.md`; informe
       `progress/impl_F-010.md` con «Evidencias» (tests/resultado, cobertura
       de líneas cambiadas, mutantes/supervivientes, tiempo de la suite) y
       las trazas RED de T1, T2, T4, T5, T6.
       | Verificación: `progress/mutacion_F-010.md` existe con totales reales y ninguna sección `PENDIENTE`; puerta de cobertura de `init.sh` en `[OK]`.
 
-- [ ] T9: Ejecutar `bash harness/init.sh` en verde.
+- [x] T9: Ejecutar `bash harness/init.sh` en verde.
       | Verificación: exit code 0, incluye la suite de la raíz (guardián) y las de sv3/sv4.
 
 ## Verificaciones MANUAL (humano) — requieren BBDD real
