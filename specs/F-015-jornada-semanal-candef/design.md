@@ -472,3 +472,34 @@ Sigrid.
    entonces las filas se cargan por SQL manual y el resolutor solo se
    defiende ignorando la fila mal formada. ¿Suficiente para el periodo
    intermedio, sabiendo que se espera que la tabla siga vacía?
+
+### 13 bis. Respuestas del humano (2026-08-19, PARADA 1 del líder)
+
+Las dudas 1, 2 y 3 quedan **resueltas**. Las 4 y 5 se aceptan tal como las
+dejó el spec-author (`hasta` exclusivo; validaciones a F-016).
+
+1. **Duda 1 — RESUELTA: sí.** `jornada_resolver.py` **se añade a la lista
+   cerrada de duplicación tolerada de `CLAUDE.md`**, con fecha y motivo,
+   igual que se hizo con los clientes de Sigrid y Sesame en F-003. La
+   edición de `CLAUDE.md` se hace **dentro de F-015, en T11**
+   (documentación), no antes: la lista queda entonces en
+   `orm_models.py` + `infrastructure/sigrid/` + `infrastructure/sesame/` +
+   `application/services/jornada_resolver.py`.
+2. **Duda 2 — RESUELTA: no se envía la petición de F-014 hasta que F-015
+   esté lista.** El humano elige eliminar la ventana en vez de gestionarla:
+   el correo a RRHH **no sale todavía**. Consecuencia práctica: el tiempo de
+   respuesta de RRHH entra en el camino crítico *después* de la
+   implementación, no en paralelo. Anotado también en `progress/current.md`
+   y en la cabecera de `progress/peticion_F-014.md` (rama
+   `feature/F-014-candef-9-sigrid`).
+3. **Duda 3 — RESUELTA: se confirma DA3**, la lectura NO literal de D7. Las
+   líneas congeladas (`sigrid_estado` en {`encolado`, `registrado`} o
+   documento `approved`) **cuentan en el total del día pero no se modifican
+   nunca**; si el día no cuadra sin tocarlas, no se genera split y se avisa.
+   Motivo: la lectura literal daría al trabajador una segunda jornada
+   completa en los días mixtos (una obra ya registrada y otra pendiente).
+   T6 se implementa como está diseñada.
+
+> **Estado de la spec**: pendiente de la lectura del humano. F-015 sigue
+> `pending` en `harness/features.json`; el líder no la ha pasado a
+> `spec_ready`.
