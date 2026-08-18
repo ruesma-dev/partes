@@ -13,9 +13,8 @@ Sin red y sin PostgreSQL: SQLite en memoria con el ORM real y
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-
 from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database import parte_repository as repo_mod
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,
@@ -538,6 +537,61 @@ def test_f004_r8_sin_congeladas_el_recuento_es_cero(montaje) -> None:
 
 # ------------------------------- R9 ------------------------------------ #
 
+def test_f004_r8_la_reasignacion_por_registro_id_omite_las_congeladas(
+        montaje) -> None:
+    """La variante que parte de UNA linea y reasigna todas las que
+    comparten su nombre leido: si no filtrase, la linea registrada del
+    mismo trabajador cambiaria de empleado sin que nadie lo pidiera."""
+    cliente, _repo, fabrica, ids = montaje(
+        _mezcla_sin_casar(), empleado_ide=None)
+    cuerpo = cliente.post("/api/empleado/reasignar",
+                          json={"ide": 4242, "registro_id": ids[1]}).json()
+    assert (cuerpo["updated"], cuerpo["congeladas"]) == (1, 1)
+    assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] is None
+
+
+def test_f004_r8_sin_lineas_que_tocar_el_recuento_es_cero(montaje) -> None:
+    """Los caminos vacios no pueden inventarse congeladas ni tocadas."""
+    _cliente, repositorio, _f, _ids = montaje([{"estado": "registrado"}],
+                                              empleado_ide=None)
+    assert repositorio.backfill_empleado(
+        nombre_leido="Nadie Con Ese Nombre", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 0)
+    assert repositorio.backfill_empleado(
+        nombre_leido="   ", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 0)
+    assert repositorio.reassign_empleado_by_leido(
+        nombre_leido="Nadie Con Ese Nombre", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 0)
+    assert repositorio.reassign_empleado_by_leido(
+        nombre_leido="", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 0)
+    assert repositorio.reassign_empleado_by_registro_ids(
+        registro_ids=[], ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 0)
+    assert repositorio.reassign_empleado_by_worker_key(
+        worker_key="nom-NO_EXISTE", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, [], 0)
+
+
+def test_f004_r8_si_solo_hay_congeladas_no_se_crea_entrada_de_undo(
+        montaje) -> None:
+    """Nada que deshacer: si se registrara la accion, el historial
+    ofreceria deshacer un cambio que nunca ocurrio."""
+    cliente, repositorio, _f, ids = montaje(
+        [{"estado": "registrado"}], empleado_ide=None)
+    assert repositorio.backfill_empleado(
+        nombre_leido="Pepe Perez", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 1)
+    assert repositorio.reassign_empleado_by_worker_key(
+        worker_key="nom-PEPE_PEREZ", ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, [], 1)
+    assert repositorio.reassign_empleado_by_registro_ids(
+        registro_ids=ids, ide=4242, codigo=None,
+        nombre=None, dni=None) == (0, 1)
+    assert cliente.post("/api/undo").json()["ok"] is False
+
+
 def test_f004_r9_el_undo_no_revive_una_linea_hoy_registrada(
         montaje) -> None:
     """Se edita una linea libre, luego se registra en Sigrid y despues se
@@ -582,6 +636,43 @@ def test_f004_r9_el_undo_omite_el_documento_hoy_congelado(montaje) -> None:
     assert cuerpo["omitidos"] == 2          # el documento y su linea
     assert _doc(fabrica).fecha == "2026-04-09"
     assert datos_registros(fabrica, ids)[ids[0]]["fecha"] == "2026-04-09"
+
+
+def test_f004_r18_el_undo_de_la_cabecera_sigue_restaurando(montaje) -> None:
+    """R18: sin nada congelado, deshacer un cambio de fecha restaura el
+    DOCUMENTO y sus lineas, como siempre."""
+    cliente, _repo, fabrica, ids = montaje([{"estado": "omitido"}])
+    cliente.patch("/api/partes/doc-f004/fecha", json={"fecha": "2026-04-09"})
+    cuerpo = cliente.post("/api/undo").json()
+    assert cuerpo["omitidos"] == 0
+    assert _doc(fabrica).fecha == "2026-03-02"
+    assert datos_registros(fabrica, ids)[ids[0]]["fecha"] == "2026-03-02"
+
+
+def test_f004_r9_el_undo_ignora_las_filas_que_ya_no_existen(
+        montaje) -> None:
+    """La guarda lee la fila para decidir; si entre medias se elimino
+    definitivamente (papelera vaciada), el undo tiene que saltarsela sin
+    reventar y sin contarla como omitida por congelacion."""
+    cliente, _repo, fabrica, ids = montaje([{"estado": "omitido"}])
+    cliente.patch("/api/partes/doc-f004/fecha", json={"fecha": "2026-04-09"})
+    cliente.post(f"/api/registro/{ids[0]}/delete")
+    cliente.post("/documents/doc-f004/delete", data={"back": "/partes"},
+                 follow_redirects=False)
+    assert cliente.post("/api/papelera/vaciar").json()["omitidos"] == 0
+    cuerpo = cliente.post("/api/undo").json()
+    assert cuerpo["ok"] is True
+    assert cuerpo["omitidos"] == 0
+    assert _doc(fabrica) is None
+
+
+def test_f004_r10_desaprobar_un_parte_inexistente_no_revienta(
+        montaje) -> None:
+    cliente, repositorio, _f, _ids = montaje([{"estado": None}])
+    assert repositorio.unapprove_document(document_id="no-existe") is False
+    assert cliente.post("/documents/no-existe/unapprove",
+                        data={"back": "/partes"},
+                        follow_redirects=False).status_code == 303
 
 
 def test_f004_r9_el_undo_normal_sigue_funcionando(montaje) -> None:
@@ -683,6 +774,24 @@ def test_f004_r13_borrar_la_obra_omite_los_partes_congelados(
     assert cuerpo["congelados"] == 1
     assert _doc(fabrica).is_active is True
     assert _doc(fabrica, "doc-libre").is_active is False
+
+
+def test_f004_r13_borrar_la_obra_no_toca_los_partes_de_otra_obra(
+        montaje) -> None:
+    cliente, _repo, fabrica, _ids = montaje([{"estado": None}])
+    sembrar_parte(fabrica, [{"estado": None}], document_id="doc-otra",
+                  obra_ide=99, obra_codigo="0999")
+    cuerpo = cliente.post("/api/obra/obr-10/delete").json()
+    assert (cuerpo["partes"], cuerpo["congelados"]) == (1, 0)
+    assert _doc(fabrica, "doc-otra").is_active is True
+
+
+def test_f004_r12_hard_delete_de_una_linea_inexistente_no_revienta(
+        montaje) -> None:
+    cliente, _repo, _f, _ids = montaje([{"estado": None}])
+    assert cliente.post("/api/registro/9999/hard-delete").json()["ok"] is False
+    assert cliente.post(
+        "/api/documento/no-existe/hard-delete").json()["ok"] is False
 
 
 def test_f004_r13_borrar_al_trabajador_omite_las_lineas_congeladas(
