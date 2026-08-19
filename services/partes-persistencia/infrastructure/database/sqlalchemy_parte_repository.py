@@ -17,6 +17,7 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.recurso_conciliador import esta_congelado
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +138,12 @@ class SqlAlchemyParteRepository:
         """Registros de partes ACTIVOS con lo necesario para localizar el
         recurso y su parte de trabajo (empleado conciliado, obra y fecha) y
         para que el recurso pise categoria/hora: el tipo de hora de la linea
-        y el codigo de hora/categoria ya resueltos (para detectar cambios)."""
+        y el codigo de hora/categoria ya resueltos (para detectar cambios).
+
+        Desde F-015 trae ademas lo que hace falta para saber si la linea
+        esta CONGELADA (R32): su `sigrid_estado` y si el parte del que sale
+        esta aprobado. Esas lineas cuentan en el total del dia pero no se
+        pueden recortar."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(
@@ -155,6 +161,9 @@ class SqlAlchemyParteRepository:
                     ParteRegistroOrm.hora_codigo,
                     ParteRegistroOrm.categoria,
                     ParteRegistroOrm.horas,
+                    # F-015 (R32): lo que congela una linea.
+                    ParteRegistroOrm.sigrid_estado,
+                    ParteDocumentOrm.approved,
                 )
                 .join(
                     ParteDocumentOrm,
@@ -164,9 +173,8 @@ class SqlAlchemyParteRepository:
             )
             out: list[dict] = []
             for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
-                 hora_ide, hora_codigo, categoria, horas) in session.execute(
-                stmt
-            ).all():
+                 hora_ide, hora_codigo, categoria, horas, sigrid_estado,
+                 aprobado) in session.execute(stmt).all():
                 out.append({
                     "registro_id": rid,
                     "document_id": doc_id,
@@ -180,6 +188,8 @@ class SqlAlchemyParteRepository:
                     "hora_codigo": hora_codigo,
                     "categoria": categoria,
                     "horas": horas,
+                    "sigrid_estado": sigrid_estado,
+                    "doc_approved": bool(aprobado),
                 })
             return out
 
@@ -216,26 +226,46 @@ class SqlAlchemyParteRepository:
         """Deshace las extras por jornada de pasadas anteriores para poder
         recalcular el dia desde el estado original del parte: borra los
         registros extra_auto y restaura las horas originales de los normales
-        recortados. Idempotente."""
+        recortados. Idempotente.
+
+        NO toca lo CONGELADO (F-015, R31; decision D7 de F-012): una linea
+        con `sigrid_estado` en {encolado, registrado} o cuyo parte esta
+        `approved` ya viajo al ERP y alli no se va a recalcular. Borrarla y
+        recrearla aqui la dejaria descuadrada respecto a Sigrid. El
+        contador devuelto sigue siendo el de extras automaticas realmente
+        borradas.
+        """
         n = 0
         with self._session_factory.create_session() as session:
-            autos = session.execute(
-                select(ParteRegistroOrm).where(
+            filas = session.execute(
+                select(ParteRegistroOrm, ParteDocumentOrm.approved)
+                .join(
+                    ParteDocumentOrm,
+                    ParteRegistroOrm.document_id == ParteDocumentOrm.id,
+                )
+                .where(
                     ParteRegistroOrm.extra_auto.is_(True)
+                    | ParteRegistroOrm.horas_orig.isnot(None)
                 )
-            ).scalars().all()
-            for a in autos:
-                session.delete(a)
-                n += 1
-            recortados = session.execute(
-                select(ParteRegistroOrm).where(
-                    ParteRegistroOrm.horas_orig.isnot(None)
-                )
-            ).scalars().all()
-            for r in recortados:
-                r.horas = r.horas_orig
-                r.horas_orig = None
+            ).all()
+            congeladas = 0
+            for reg, aprobado in filas:
+                if esta_congelado(reg.sigrid_estado, aprobado):
+                    congeladas += 1
+                    continue
+                if reg.extra_auto:
+                    session.delete(reg)
+                    n += 1
+                else:
+                    reg.horas = reg.horas_orig
+                    reg.horas_orig = None
             session.commit()
+        if congeladas:
+            logger.info(
+                "[repo] revert de extras: %s linea(s) CONGELADAS respetadas "
+                "(ya registradas/encoladas en Sigrid o en un parte aprobado).",
+                congeladas,
+            )
         return n
 
     def apply_extras_splits(self, splits: list[dict]) -> int:

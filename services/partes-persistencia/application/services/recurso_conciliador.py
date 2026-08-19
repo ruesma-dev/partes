@@ -74,6 +74,28 @@ def _tipo(reg: dict) -> str:
     return (reg.get("tipo_hora") or "").strip().lower()
 
 
+#: Estados de `sigrid_estado` que significan "esto ya viajo al ERP" (F-004).
+ESTADOS_CONGELADOS: frozenset[str] = frozenset({"encolado", "registrado"})
+
+
+def esta_congelado(sigrid_estado: str | None, doc_approved: object) -> bool:
+    """True si esa linea NO se puede recalcular (F-004; F-015 R31/R32).
+
+    Misma regla que el portal: linea encolada o registrada en Sigrid, o
+    parte aprobado. Escrita UNA vez para que el conciliador y el
+    repositorio no puedan discrepar: si uno congelase y el otro no, la
+    reversion borraria lo que el calculo da por bueno.
+    """
+    if bool(doc_approved):
+        return True
+    return (sigrid_estado or "").strip().lower() in ESTADOS_CONGELADOS
+
+
+def _congelado(reg: dict) -> bool:
+    """`esta_congelado` sobre un registro tal como lo trae el repositorio."""
+    return esta_congelado(reg.get("sigrid_estado"), reg.get("doc_approved"))
+
+
 def _upd(registro_id, recurso_ide, recurso_cif, hmo_ide, estado) -> dict:
     return {
         "registro_id": registro_id, "recurso_ide": recurso_ide,
@@ -540,8 +562,13 @@ class RecursoConciliador:
             # None/0/2...). Se PERSISTE tal cual para diagnostico; el
             # calculo usa el "efectivo".
             candef_real = hsel.get("candef")
-            ordinarios = [x for x in regs if _tipo(x) in ("", "normal")]
-            total_ord = sum((x.get("horas") or 0.0) for x in ordinarios)
+            # CONGELADOS (F-015, R32): las lineas que ya viajaron a Sigrid
+            # SUMAN en el total del dia —si no, un dia mixto le regalaria
+            # al trabajador una segunda jornada— pero no son candidatas ni
+            # a recorte ni a pivote.
+            todas_ordinarias = [x for x in regs if _tipo(x) in ("", "normal")]
+            ordinarios = [x for x in todas_ordinarias if not _congelado(x)]
+            total_ord = sum((x.get("horas") or 0.0) for x in todas_ordinarias)
             total_ext = sum(
                 (x.get("horas") or 0.0) for x in regs if _tipo(x) == "extra"
             )
@@ -591,6 +618,22 @@ class RecursoConciliador:
             orden = sorted(
                 ordinarios, key=lambda z: z["registro_id"], reverse=True
             )
+            # R32: si el dia no cuadra sin tocar una linea congelada, no se
+            # genera NADA y se avisa. Ajustar la mitad seria peor: dejaria
+            # el dia con un total distinto del que firmo el encargado.
+            disponible = sum(max(0.0, x.get("horas") or 0.0) for x in orden)
+            if (delta > 0 and disponible + 1e-9 < delta) or (
+                delta < 0 and not orden
+            ):
+                logger.warning(
+                    "[recurso-concil] dia %s (recurso=%s) NO se puede cuadrar "
+                    "sin tocar lineas CONGELADAS (ya en Sigrid o parte "
+                    "aprobado): faltan %.2f h ajustables y hay %.2f. No se "
+                    "genera ningun split.",
+                    self._fecha_int_to_iso(fecha_int), ride, abs(delta),
+                    disponible,
+                )
+                continue
             if delta > 0:
                 # Falta extra: recortar ordinarias empezando por las ultimas
                 # horas del dia (registros creados despues = id mayor).

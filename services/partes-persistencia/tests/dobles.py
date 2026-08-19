@@ -178,8 +178,15 @@ def indice_reshor(reside: int, *, candef: float | None = 8.0,
 
 def registro(registro_id: int, *, fecha_int: int, horas: float,
              tipo: str = "normal", dni: str | None = "12345678Z",
-             document_id: str = "doc-1", obra_ide: int | None = 10) -> dict:
-    """Un registro tal como lo devuelve `fetch_registros_para_recurso`."""
+             document_id: str = "doc-1", obra_ide: int | None = 10,
+             sigrid_estado: str | None = None,
+             doc_approved: bool = False) -> dict:
+    """Un registro tal como lo devuelve `fetch_registros_para_recurso`.
+
+    `sigrid_estado` y `doc_approved` son lo que F-015 anadio a la lectura
+    para saber que lineas estan CONGELADAS (F-004): las que ya viajaron a
+    Sigrid o cuyo parte esta aprobado.
+    """
     return {
         "registro_id": registro_id,
         "document_id": document_id,
@@ -193,7 +200,93 @@ def registro(registro_id: int, *, fecha_int: int, horas: float,
         "hora_codigo": None,
         "categoria": None,
         "horas": horas,
+        "sigrid_estado": sigrid_estado,
+        "doc_approved": doc_approved,
     }
+
+
+# --------------------------- BBDD en memoria ---------------------------- #
+
+class FabricaSesionSqlite:
+    """`SessionFactory` equivalente sobre SQLite en memoria.
+
+    Misma interfaz que la de produccion (`engine` + `create_session`) y el
+    MISMO ORM, asi que el repositorio se ejercita de verdad. Vale para el
+    DML (leer registros, revertir extras); el DDL de arranque NO se prueba
+    aqui porque SQLite no admite `ADD COLUMN IF NOT EXISTS` (ver
+    `test_f010_r7_initialize_sv3.py`).
+    """
+
+    def __init__(self) -> None:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.pool import StaticPool
+
+        from infrastructure.database.orm_models import Base
+
+        self.engine = create_engine(
+            "sqlite://", future=True, poolclass=StaticPool,
+            connect_args={"check_same_thread": False})
+        Base.metadata.create_all(self.engine)
+        self._sessionmaker = sessionmaker(
+            bind=self.engine, expire_on_commit=False, future=True)
+
+    def create_session(self):
+        return self._sessionmaker()
+
+
+def sembrar_lineas(fabrica, lineas: list[dict], *, document_id: str = "doc-1",
+                   aprobado: bool = False, fecha: str = "2026-03-20",
+                   obra_ide: int | None = 10) -> list[int]:
+    """Un parte con esas lineas en la base de memoria.
+
+    Cada linea admite `horas`, `horas_orig`, `tipo` (`normal`/`extra`),
+    `extra_auto` y `estado` (`sigrid_estado`).
+    """
+    from infrastructure.database.orm_models import (
+        ParteDocumentOrm,
+        ParteRegistroOrm,
+    )
+
+    ahora = "2026-03-20T08:00:00+00:00"
+    fint = int(fecha.replace("-", ""))
+    with fabrica.create_session() as s:
+        s.add(ParteDocumentOrm(
+            id=document_id, source_filename="parte.pdf",
+            source_mime_type="application/pdf",
+            source_sha256="sha" + document_id, fecha=fecha, fecha_int=fint,
+            created_at_utc=ahora, obra_ide=obra_ide, obra_codigo="0100",
+            obra_nombre="Obra Uno", approved=aprobado))
+        ids: list[int] = []
+        for i, linea in enumerate(lineas):
+            reg = ParteRegistroOrm(
+                document_id=document_id, line_index=i, fecha=fecha,
+                fecha_int=fint, obra_ide=obra_ide, obra_codigo="0100",
+                obra_nombre="Obra Uno", empleado_dni="12345678Z",
+                empleado_reside=501, tipo_hora=str(linea.get("tipo")
+                                                  or "normal"),
+                horas=linea.get("horas"), horas_orig=linea.get("horas_orig"),
+                extra_auto=bool(linea.get("extra_auto")),
+                sigrid_estado=linea.get("estado"),
+                hora_ide=1, hora_codigo="HL01")
+            s.add(reg)
+            s.flush()
+            ids.append(reg.id)
+        s.commit()
+    return ids
+
+
+def estado_lineas(fabrica, ids: list[int]) -> dict[int, tuple]:
+    """(existe, horas, horas_orig, extra_auto) de cada linea."""
+    from infrastructure.database.orm_models import ParteRegistroOrm
+
+    with fabrica.create_session() as s:
+        out: dict[int, tuple] = {}
+        for i in ids:
+            r = s.get(ParteRegistroOrm, i)
+            out[i] = ((False, None, None, None) if r is None
+                      else (True, r.horas, r.horas_orig, r.extra_auto))
+        return out
 
 
 # --------------------------------- HTTP --------------------------------- #

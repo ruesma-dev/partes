@@ -88,7 +88,7 @@ Reglas que no se negocian durante la ejecución:
       | Verificación: `python -m pytest services/partes-persistencia/tests -q -k "f015_r20 or f015_r21 or f015_r23 or f015_r28"`;
       `python -m pytest services/partes-persistencia/tests -q -k f003_r15` (dorados) en verde.
 
-- [ ] **T6**: sv3 · congelados (D7, `design.md` DA3) —
+- [x] **T6**: sv3 · congelados (D7, `design.md` DA3) —
       `sqlalchemy_parte_repository.py`: `revert_extras_auto()` salta las líneas
       congeladas (`sigrid_estado` en {`encolado`, `registrado`} o documento
       `approved`) y `fetch_registros_para_recurso()` devuelve además
