@@ -146,7 +146,9 @@ def test_f015_r17_una_fila_mal_formada_se_ignora_y_se_cuenta(caplog) -> None:
         detalle = _detalle(conciliador, VIERNES, candef=10.0)
     avisos = [m for m in caplog.messages if "mal formadas" in m]
     assert len(avisos) == 1
-    assert "2 fila(s)" in avisos[0]
+    # Prefijo exacto: un contador con el signo cambiado ("-2 fila(s)")
+    # colaria con un `in`.
+    assert avisos[0].startswith("[recurso-concil] 2 fila(s)")
     # Y la fila buena sigue aplicandose.
     assert detalle.origen == "excepcion"
 

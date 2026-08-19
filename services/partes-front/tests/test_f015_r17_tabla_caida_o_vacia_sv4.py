@@ -158,7 +158,9 @@ def test_f015_r17_sv4_las_filas_mal_formadas_se_ignoran_y_se_cuentan(
         excepcion = proveedor.excepcion_para(DNI, VIERNES)
     avisos = [m for m in caplog.messages if "mal formadas" in m]
     assert len(avisos) == 1
-    assert "2 fila(s)" in avisos[0]
+    # Prefijo exacto: un contador con el signo cambiado ("-2 fila(s)")
+    # colaria con un `in`.
+    assert avisos[0].startswith("[jornada-excepciones] 2 fila(s)")
     # La fila buena sigue en pie.
     assert excepcion is not None and excepcion.semanal == 48.0
 

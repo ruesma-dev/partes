@@ -188,7 +188,9 @@ def test_f015_r31_el_log_dice_cuantas_congeladas_se_respetaron(caplog) -> None:
         _repo(fabrica).revert_extras_auto()
     avisos = [m for m in caplog.messages if "CONGELADAS" in m]
     assert len(avisos) == 1
-    assert "2 linea(s)" in avisos[0]
+    # Prefijo exacto: un contador con el signo cambiado ("-2 linea(s)")
+    # colaria con un `in`.
+    assert avisos[0].startswith("[repo] revert de extras: 2 linea(s)")
 
 
 def test_f015_r31_sin_congeladas_no_se_dice_nada(caplog) -> None:
