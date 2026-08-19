@@ -53,7 +53,7 @@ Reglas que no se negocian durante la ejecución:
       `python -m pytest services/partes-persistencia/tests services/partes-front/tests -q -k "f003 or f015_r11"`
       en verde **sin haber tocado ningún test de F-003**.
 
-- [ ] **T3**: `EmpleadoJornadaOrm` (`design.md` §6) en las **DOS** copias de
+- [x] **T3**: `EmpleadoJornadaOrm` (`design.md` §6) en las **DOS** copias de
       `infrastructure/database/orm_models.py`, byte-idénticas, con
       `server_default` en `origen` e `is_active` y `index=True` en `dni_norm`;
       docstring «CINCO tablas». Actualizar el guardián
