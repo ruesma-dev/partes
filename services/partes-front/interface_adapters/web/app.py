@@ -1276,7 +1276,25 @@ def build_app(
         )
 
     @app.get("/api/sigrid/empleados", include_in_schema=False)
-    def sigrid_empleados() -> JSONResponse:
+    def sigrid_empleados(
+        fecha: str | None = Query(default=None),
+    ) -> JSONResponse:
+        """Empleados de Sigrid para «+ Nuevo».
+
+        `jornada_sugerida` es el candef efectivo y NO cambia: hay JS que ya
+        la consume. Con `fecha` (ISO) se anade ademas `jornada_dia`, que es
+        la jornada de ESE dia para ese trabajador (F-015, R26): el viernes
+        de un recurso de regimen 42 son 6 h, no 9.
+        """
+        dia: date | None = None
+        if fecha:
+            try:
+                dia = date.fromisoformat(str(fecha)[:10])
+            except (TypeError, ValueError):
+                return JSONResponse(
+                    {"ok": False, "error": "fecha debe ser YYYY-MM-DD",
+                     "items": []},
+                    status_code=422)
         if not empleado_catalog.enabled:
             return JSONResponse(
                 {"ok": False, "error": "Sigrid no configurado en el sv4.",
@@ -1299,16 +1317,30 @@ def build_app(
                 por_defecto=settings.jornada_por_defecto,
             )
 
-        return JSONResponse({
-            "ok": True,
-            "items": [
-                {"ide": e.ide, "codigo": e.codigo, "nombre": e.nombre,
-                 "dni": e.dni, "reside": e.reside, "categoria": e.categoria,
-                 "candef": e.candef,
-                 "jornada_sugerida": _sugerida(e.candef)}
-                for e in items
-            ],
-        })
+        def _del_dia(empleado) -> float:
+            def _es_laborable(d: date) -> bool:
+                return calendario_provider.dia(d, empleado.dni).laborable
+
+            return jornada_dia(
+                dia, candef=empleado.candef,          # type: ignore[arg-type]
+                minimo=settings.candef_minimo_valido,
+                por_defecto=settings.jornada_por_defecto,
+                mapa=mapa_semanal, es_laborable=_es_laborable,
+                excepcion=jornada_provider.excepcion_para(empleado.dni, dia),
+            )
+
+        salida: list[dict[str, Any]] = []
+        for e in items:
+            fila: dict[str, Any] = {
+                "ide": e.ide, "codigo": e.codigo, "nombre": e.nombre,
+                "dni": e.dni, "reside": e.reside, "categoria": e.categoria,
+                "candef": e.candef,
+                "jornada_sugerida": _sugerida(e.candef),
+            }
+            if dia is not None:
+                fila["jornada_dia"] = _del_dia(e)
+            salida.append(fila)
+        return JSONResponse({"ok": True, "items": salida})
 
     @app.get("/api/sigrid/partidas", include_in_schema=False)
     def sigrid_partidas(obra_ide: int = Query(...)) -> JSONResponse:

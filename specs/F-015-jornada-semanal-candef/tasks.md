@@ -128,7 +128,7 @@ Reglas que no se negocian durante la ejecución:
       parseo Jinja2 de `trabajador_detail.html`;
       `python -m pytest services/partes-front/tests -q -k f003` en verde.
 
-- [ ] **T10**: sv4 · «+ Nuevo» — `GET /api/sigrid/empleados` mantiene
+- [x] **T10**: sv4 · «+ Nuevo» — `GET /api/sigrid/empleados` mantiene
       `jornada_sugerida` intacta y añade `jornada_dia` **solo** cuando llega
       `fecha` válida (R26). Si se toca `static/app.js`, `node --check`.
       | Verificación: `python -m pytest services/partes-front/tests -q -k f015_r26`;
