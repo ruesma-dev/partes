@@ -138,3 +138,63 @@ def test_f015_r17_sv4_la_matriz_de_obra_se_sirve_con_la_tabla_caida(
     cliente = TestClient(app)
     assert cliente.get(
         "/obras/obr-10?period=2026-03&modo=natural").status_code == 200
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# El proveedor de sv4 tiene el mismo codigo de descarte y de conteo que el
+# de sv3, y los mismos huecos: nadie comprobaba cuantas filas se tiraban ni
+# que una fila mala no cambiase los avisos del portal.
+
+def test_f015_r17_sv4_las_filas_mal_formadas_se_ignoran_y_se_cuentan(
+        caplog) -> None:
+    proveedor = JornadaEmpleadoProvider(lambda: [
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "desde": "2026-01-01"},
+        {"dni_norm": DNI, "jornada_semanal": None, "desde": "2026-01-01",
+         "h_lun": 7.0, "h_mar": 7.0, "h_mie": None, "h_jue": None,
+         "h_vie": None, "h_sab": None, "h_dom": None},
+        {"dni_norm": "", "jornada_semanal": 42.0, "desde": "2026-01-01"},
+    ])
+    with caplog.at_level(logging.WARNING):
+        excepcion = proveedor.excepcion_para(DNI, VIERNES)
+    avisos = [m for m in caplog.messages if "mal formadas" in m]
+    assert len(avisos) == 1
+    assert "2 fila(s)" in avisos[0]
+    # La fila buena sigue en pie.
+    assert excepcion is not None and excepcion.semanal == 48.0
+
+
+def test_f015_r17_sv4_sin_filas_malas_no_se_avisa(caplog) -> None:
+    proveedor = JornadaEmpleadoProvider(lambda: [
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "desde": "2026-01-01"},
+    ])
+    with caplog.at_level(logging.WARNING):
+        proveedor.excepcion_para(DNI, VIERNES)
+    assert "mal formadas" not in caplog.text
+
+
+def test_f015_r17_sv4_una_fila_sin_jornada_ni_patron_se_ignora() -> None:
+    """Una fila creada a medias por SQL no puede volverse una excepcion
+    vacia que tape la regla del mapa."""
+    proveedor = JornadaEmpleadoProvider(lambda: [
+        {"dni_norm": DNI, "jornada_semanal": None, "desde": "2026-01-01"},
+    ])
+    assert proveedor.excepcion_para(DNI, VIERNES) is None
+
+
+def test_f015_r17_sv4_con_dos_vigencias_solapadas_gana_la_mas_reciente(
+) -> None:
+    proveedor = JornadaEmpleadoProvider(lambda: [
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "desde": "2026-01-01"},
+        {"dni_norm": DNI, "jornada_semanal": 30.0, "desde": "2026-03-01"},
+    ])
+    assert proveedor.excepcion_para(DNI, VIERNES).semanal == 30.0
+
+
+def test_f015_r17_sv4_la_fila_del_proveedor_es_inmutable() -> None:
+    import dataclasses
+
+    from application.services.jornada_provider import JornadaEmpleadoRow
+
+    fila = JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=48.0)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        fila.jornada_semanal = 1.0

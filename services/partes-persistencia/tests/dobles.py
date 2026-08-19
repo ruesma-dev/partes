@@ -346,3 +346,34 @@ class JornadasFake:
         if self.fallo is not None:
             raise self.fallo
         return list(self.filas)
+
+
+def sembrar_jornadas(fabrica, filas: list[dict]) -> list[int]:
+    """Filas de `empleado_jornada` en la base de memoria (F-015).
+
+    Cada elemento admite `dni_norm`, `jornada_semanal`, `patron` (7 valores
+    L..D), `desde`, `hasta`, `origen` e `is_active`.
+    """
+    from infrastructure.database.orm_models import EmpleadoJornadaOrm
+
+    dias = ("h_lun", "h_mar", "h_mie", "h_jue", "h_vie", "h_sab", "h_dom")
+    ids: list[int] = []
+    with fabrica.create_session() as s:
+        for f in filas:
+            patron = f.get("patron") or [None] * 7
+            fila = EmpleadoJornadaOrm(
+                dni_norm=f.get("dni_norm", "12345678Z"),
+                jornada_semanal=f.get("jornada_semanal"),
+                desde=f.get("desde", "2026-01-01"),
+                hasta=f.get("hasta"),
+                origen=f.get("origen", "manual"),
+                nota=f.get("nota"),
+                is_active=bool(f.get("is_active", True)),
+                created_at_utc="2026-08-19T00:00:00Z",
+                **dict(zip(dias, patron)),
+            )
+            s.add(fila)
+            s.flush()
+            ids.append(fila.id)
+        s.commit()
+    return ids

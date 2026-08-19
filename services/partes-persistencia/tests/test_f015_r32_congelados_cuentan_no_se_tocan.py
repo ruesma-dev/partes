@@ -160,3 +160,59 @@ def test_f015_r32_una_extra_explicita_congelada_no_se_toca() -> None:
     splits = _splits(regs)
     assert _resumen(splits) == [(1, 8.0, -4.0)]
     assert all(s["normal_id"] != 2 for s in splits)
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# Los BORDES de la guarda "no se puede cuadrar sin tocar lo congelado" no
+# estaban fijados: sobrevivian mutantes que movian `>` a `>=`, `<` a `<=` o
+# el 0 a 1, y cada uno de ellos decide entre ajustar un dia o no tocarlo.
+
+def test_f015_r32_con_lo_justo_para_recortar_si_se_ajusta(caplog) -> None:
+    """Sobran 2 h y hay EXACTAMENTE 2 h no congeladas: se ajusta."""
+    regs = [registro(1, fecha_int=LUNES, horas=2.0),
+            registro(2, fecha_int=LUNES, horas=8.0,
+                     sigrid_estado="registrado")]
+    with caplog.at_level(logging.WARNING):
+        splits = _splits(regs)
+    assert _resumen(splits) == [(1, 0.0, 2.0)]
+    assert "CONGELADAS" not in caplog.text
+
+
+def test_f015_r32_una_hora_menos_de_la_necesaria_ya_no_se_ajusta(
+        caplog) -> None:
+    """Sobran 3 h y solo hay 2 h ajustables: no se toca nada."""
+    regs = [registro(1, fecha_int=LUNES, horas=2.0),
+            registro(2, fecha_int=LUNES, horas=9.0,
+                     sigrid_estado="registrado")]
+    with caplog.at_level(logging.WARNING):
+        assert _splits(regs) == []
+    assert "CONGELADAS" in caplog.text
+
+
+def test_f015_r32_un_dia_que_cuadra_no_dispara_la_guarda(caplog) -> None:
+    """`delta == 0`: no hay nada que ajustar, y eso NO es un dia bloqueado
+    por lo congelado. No puede salir el aviso."""
+    regs = [registro(1, fecha_int=LUNES, horas=8.0,
+                     sigrid_estado="registrado")]
+    with caplog.at_level(logging.WARNING):
+        assert _splits(regs) == []
+    assert "CONGELADAS" not in caplog.text
+
+
+def test_f015_r32_falta_UNA_hora_y_hay_pivote_libre(caplog) -> None:
+    """`delta = -1` con una linea ajustable: se sube y se compensa."""
+    regs = [registro(1, fecha_int=LUNES, horas=7.0)]
+    with caplog.at_level(logging.WARNING):
+        assert _resumen(_splits(regs)) == [(1, 8.0, -1.0)]
+    assert "CONGELADAS" not in caplog.text
+
+
+def test_f015_r32_el_aviso_dice_cuantas_horas_faltaban(caplog) -> None:
+    regs = [registro(1, fecha_int=LUNES, horas=1.0),
+            registro(2, fecha_int=LUNES, horas=11.0,
+                     sigrid_estado="registrado")]
+    with caplog.at_level(logging.WARNING):
+        _splits(regs)
+    aviso = next(m for m in caplog.messages if "CONGELADAS" in m)
+    assert "faltan 4.00 h" in aviso
+    assert "hay 1.00" in aviso

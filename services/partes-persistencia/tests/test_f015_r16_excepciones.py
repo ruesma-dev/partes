@@ -210,3 +210,191 @@ def test_f015_r16_sin_puerto_cableado_no_hay_excepciones() -> None:
     )
     regs = [registro(1, fecha_int=VIERNES, horas=1.0)]
     assert conciliador._detalle_jornada(VIERNES, regs, 9.0).origen == "mapa"
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# Lo que dejaron al descubierto los mutantes supervivientes: el adaptador
+# real no tenia ni un test, `Excepcion.valida()` no tenia bordes y las
+# vigencias solapadas no se probaban.
+
+import dataclasses  # noqa: E402
+
+import pytest  # noqa: E402
+from application.services.jornada_resolver import (  # noqa: E402
+    DetalleJornada,
+    Excepcion,
+)
+from infrastructure.database.sqlalchemy_jornada_repository import (  # noqa: E402
+    SqlAlchemyJornadaRepository,
+)
+from tests.dobles import FabricaSesionSqlite, sembrar_jornadas  # noqa: E402
+
+PATRON_7 = (7.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0)
+
+
+# --------------------- el adaptador contra la BBDD ---------------------- #
+
+def _repositorio(filas):
+    fabrica = FabricaSesionSqlite()
+    sembrar_jornadas(fabrica, filas)
+    return SqlAlchemyJornadaRepository(fabrica)
+
+
+def test_f015_r16_el_adaptador_lee_las_filas_activas() -> None:
+    filas = _repositorio([
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "desde": "2026-01-01"},
+    ]).fetch_jornadas()
+    assert [(f.dni_norm, f.jornada_semanal, f.patron, f.desde, f.hasta,
+             f.origen) for f in filas] == [
+        (DNI, 48.0, None, "2026-01-01", None, "manual")]
+
+
+def test_f015_r16_el_adaptador_NO_lee_las_filas_desactivadas() -> None:
+    """`is_active` es la papelera logica: una fila retirada no puede seguir
+    cambiando el reparto de horas de nadie."""
+    assert _repositorio([
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "is_active": False},
+    ]).fetch_jornadas() == []
+
+
+def test_f015_r16_el_adaptador_solo_deja_fuera_las_desactivadas() -> None:
+    filas = _repositorio([
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "is_active": True},
+        {"dni_norm": "00000000T", "jornada_semanal": 35.0,
+         "is_active": False},
+    ]).fetch_jornadas()
+    assert [f.dni_norm for f in filas] == [DNI]
+
+
+def test_f015_r16_el_adaptador_arma_el_patron_con_las_siete_horas() -> None:
+    filas = _repositorio([
+        {"dni_norm": DNI, "patron": list(PATRON_7), "desde": "2026-07-01",
+         "hasta": "2026-09-01"},
+    ]).fetch_jornadas()
+    assert filas[0].patron == PATRON_7
+    assert filas[0].jornada_semanal is None
+    assert (filas[0].desde, filas[0].hasta) == ("2026-07-01", "2026-09-01")
+
+
+def test_f015_r16_el_adaptador_ignora_un_patron_a_medias() -> None:
+    """Con una sola hora a NULL no hay patron: se entiende "solo semanal"."""
+    filas = _repositorio([
+        {"dni_norm": DNI, "jornada_semanal": 48.0,
+         "patron": [7.0, 7.0, 7.0, 7.0, 7.0, 0.0, None]},
+    ]).fetch_jornadas()
+    assert filas[0].patron is None
+    assert filas[0].jornada_semanal == 48.0
+
+
+def test_f015_r16_el_adaptador_conserva_el_origen_de_la_fila() -> None:
+    """`origen` dira algun dia si la excepcion vino de Sigrid o de Sesame."""
+    filas = _repositorio([
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "origen": "sigrid"},
+    ]).fetch_jornadas()
+    assert filas[0].origen == "sigrid"
+
+
+def test_f015_r16_el_adaptador_normaliza_el_dni() -> None:
+    filas = _repositorio([
+        {"dni_norm": "12345678-z", "jornada_semanal": 48.0},
+    ]).fetch_jornadas()
+    assert filas[0].dni_norm == "12345678Z"
+
+
+def test_f015_r16_el_adaptador_con_la_tabla_vacia_devuelve_lista_vacia(
+) -> None:
+    assert _repositorio([]).fetch_jornadas() == []
+
+
+# ------------------------ `Excepcion.valida()` -------------------------- #
+
+def test_f015_r16_una_excepcion_sin_nada_no_es_valida() -> None:
+    """Ni jornada semanal ni patron: no dice nada, no se puede aplicar."""
+    assert Excepcion().valida() is False
+    assert Excepcion(semanal=None, patron=None).valida() is False
+
+
+@pytest.mark.parametrize("semanal, esperado", [
+    (0.0, False),      # el limite inferior es ABIERTO
+    (0.5, True),
+    (42.0, True),
+    (168.0, True),     # 24 x 7: el limite superior es CERRADO
+    (168.1, False),
+    (-1.0, False),
+])
+def test_f015_r16_los_bordes_de_la_jornada_semanal(semanal, esperado) -> None:
+    assert Excepcion(semanal=semanal).valida() is esperado
+
+
+@pytest.mark.parametrize("horas, esperado", [
+    ((0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), True),
+    ((24.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), True),   # 24 h es el limite
+    ((24.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), False),
+    ((-1.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0), False),
+    ((30.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0), False),
+    ((7.0, 7.0, 7.0, 7.0, 7.0, 0.0), False),        # solo 6 valores
+    ((7.0,) * 8, False),                            # 8 valores
+])
+def test_f015_r16_los_bordes_del_patron(horas, esperado) -> None:
+    assert Excepcion(patron=horas).valida() is esperado
+
+
+def test_f015_r16_un_patron_con_un_hueco_no_es_valido() -> None:
+    assert Excepcion(
+        patron=(7.0, 7.0, 7.0, 7.0, 7.0, 0.0, None)).valida() is False
+
+
+def test_f015_r16_el_patron_manda_sobre_la_semanal_al_validar() -> None:
+    """Con patron valido, la semanal ya no se mira (no se aplica)."""
+    assert Excepcion(semanal=999.0, patron=PATRON_7).valida() is True
+
+
+def test_f015_r16_una_hora_del_patron_fuera_de_rango_anula_la_fila() -> None:
+    """De punta a punta: la fila mala no cambia el reparto de nadie."""
+    conciliador = _conciliador([
+        JornadaEmpleadoRow(dni_norm=DNI, patron=(30.0, 7.0, 7.0, 7.0, 7.0,
+                                                 0.0, 0.0),
+                           desde="2026-01-01"),
+    ])
+    assert _horas(conciliador, VIERNES, candef=9.0) == 6.0
+
+
+# ----------------- vigencias solapadas: gana la mas nueva --------------- #
+
+def test_f015_r16_con_dos_vigencias_solapadas_gana_la_mas_reciente() -> None:
+    """F-016 impedira el solape; hasta entonces las carga el humano a mano y
+    el criterio tiene que ser determinista: la que alguien anadio despues."""
+    conciliador = _conciliador([
+        JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=48.0,
+                           desde="2026-01-01"),
+        JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=30.0,
+                           desde="2026-03-01"),
+    ])
+    # Con candef 10: la de 48 daria 8 el viernes; la de 30, 0.
+    assert _horas(conciliador, VIERNES, candef=10.0) == 0.0
+
+
+def test_f015_r16_el_orden_no_depende_de_como_lleguen_las_filas() -> None:
+    conciliador = _conciliador([
+        JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=30.0,
+                           desde="2026-03-01"),
+        JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=48.0,
+                           desde="2026-01-01"),
+    ])
+    assert _horas(conciliador, VIERNES, candef=10.0) == 0.0
+
+
+# ----------------- las dataclases son inmutables a proposito ------------ #
+
+@pytest.mark.parametrize("instancia", [
+    Excepcion(semanal=42.0),
+    DetalleJornada(horas=6.0, candef_efectivo=9.0, semanal=42.0,
+                   origen="mapa", ultimo_laborable=True),
+    JornadaEmpleadoRow(dni_norm=DNI),
+])
+def test_f015_r16_las_dataclases_son_inmutables(instancia) -> None:
+    """Se comparten entre grupos y entre dias dentro de una pasada: si se
+    pudieran mutar, el reparto de un dia contaminaria al del siguiente."""
+    campo = dataclasses.fields(instancia)[0].name
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        setattr(instancia, campo, "tocado")

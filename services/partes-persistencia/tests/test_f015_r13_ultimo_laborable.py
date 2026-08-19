@@ -218,3 +218,51 @@ def test_f015_r13_como_mucho_se_consultan_los_LV_de_la_semana() -> None:
 def test_f015_r13_semana_completa_dia_a_dia(dia, esperado) -> None:
     assert jornada_dia(dia, candef=9.0, minimo=2.0, por_defecto=8.0,
                        mapa=MAPA, es_laborable=es_laborable_fake()) == esperado
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# `DetalleJornada.ultimo_laborable` solo estaba fijado en la rama que
+# aplica el resto. Las otras tres —dia no laborable, sabado laborable y el
+# atajo `S = 5c`— dejaban pasar mutantes que lo ponian a True, y ese campo
+# es lo que la traza del log (R28) enseña a Administracion.
+
+def _detalle(dia, *, candef=9.0, no_laborables=(), finde_laborable=False):
+    return detalle_jornada_dia(
+        dia, candef=candef, minimo=2.0, por_defecto=8.0, mapa=MAPA,
+        es_laborable=es_laborable_fake(no_laborables,
+                                       finde_laborable=finde_laborable),
+    )
+
+
+def test_f015_r13_un_dia_no_laborable_no_es_ultimo_laborable() -> None:
+    """0 h porque es fiesta, no porque le toque el resto de la semana."""
+    det = _detalle(VIERNES, no_laborables={"2026-03-20"})
+    assert (det.horas, det.ultimo_laborable) == (0.0, False)
+
+
+def test_f015_r13_el_finde_laborable_no_es_ultimo_laborable() -> None:
+    """DA4: sin calendario cableado el sabado vale `c`, pero NO recibe el
+    resto de la semana."""
+    det = _detalle(SABADO, finde_laborable=True)
+    assert (det.horas, det.ultimo_laborable) == (9.0, False)
+
+
+def test_f015_r13_con_S_igual_a_5c_ningun_dia_recibe_el_resto() -> None:
+    """El atajo del candef 8: la regla no cambia nada, asi que NINGUN dia
+    queda marcado como "recibio el resto" (es lo que documenta DI1)."""
+    for dia in SEMANA:
+        det = _detalle(dia, candef=8.0)
+        assert (det.horas, det.ultimo_laborable) == (8.0, False)
+
+
+def test_f015_r13_solo_el_ultimo_laborable_queda_marcado() -> None:
+    marcados = [d for d in SEMANA if _detalle(d).ultimo_laborable]
+    assert marcados == [VIERNES]
+
+
+def test_f015_r13_con_el_viernes_festivo_el_marcado_es_el_jueves() -> None:
+    marcados = [
+        d for d in SEMANA
+        if _detalle(d, no_laborables={"2026-03-20"}).ultimo_laborable
+    ]
+    assert marcados == [JUEVES]

@@ -31,6 +31,7 @@ from application.services.jornada_resolver import (
     Excepcion,
     detalle_jornada_dia,
     jornada_efectiva,
+    jornada_semanal_de,
 )
 from domain.models.sigrid_models import HmoRow, RecursoRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
@@ -879,15 +880,19 @@ class RecursoConciliador:
         iso = self._fecha_int_to_iso(fecha_int)
         dni = self._dni_grupo(regs)
         if iso is None:
-            # Sin fecha utilizable no hay semana que mirar: jornada plana,
-            # que es lo que hacia sv3 antes de F-015.
+            # Sin fecha utilizable no hay semana que mirar: la jornada del
+            # dia es el candef efectivo, que es lo que hacia sv3 antes de
+            # F-015. La jornada SEMANAL se informa igual (sale del mapa, no
+            # de la fecha) para que el log y el KPI no mientan.
             candef_efectivo = jornada_efectiva(
                 candef_real, minimo=self._candef_min, por_defecto=self._jornada,
             )
+            semanal, origen = jornada_semanal_de(
+                candef_efectivo, mapa=self._mapa_semanal
+            )
             return DetalleJornada(
                 horas=candef_efectivo, candef_efectivo=candef_efectivo,
-                semanal=5.0 * candef_efectivo, origen="plana",
-                ultimo_laborable=False,
+                semanal=semanal, origen=origen, ultimo_laborable=False,
             )
         return detalle_jornada_dia(
             date.fromisoformat(iso),

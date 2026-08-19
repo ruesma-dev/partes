@@ -167,3 +167,47 @@ def test_f015_r31_un_parte_no_aprobado_lo_declara_asi() -> None:
     filas = _repo(fabrica).fetch_registros_para_recurso()
     assert filas[0]["doc_approved"] is False
     assert filas[0]["sigrid_estado"] is None
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# El contador de lineas congeladas respetadas no lo miraba nadie: es la
+# unica pista en el log de que la reversion se ha dejado cosas por el
+# camino a proposito.
+
+def test_f015_r31_el_log_dice_cuantas_congeladas_se_respetaron(caplog) -> None:
+    import logging
+
+    fabrica = FabricaSesionSqlite()
+    sembrar_lineas(fabrica, [
+        {"horas": 8.0, "horas_orig": 9.0, "estado": "registrado"},
+        {"horas": 1.0, "tipo": "extra", "extra_auto": True,
+         "estado": "encolado"},
+        {"horas": 2.0, "tipo": "extra", "extra_auto": True},
+    ])
+    with caplog.at_level(logging.INFO):
+        _repo(fabrica).revert_extras_auto()
+    avisos = [m for m in caplog.messages if "CONGELADAS" in m]
+    assert len(avisos) == 1
+    assert "2 linea(s)" in avisos[0]
+
+
+def test_f015_r31_sin_congeladas_no_se_dice_nada(caplog) -> None:
+    import logging
+
+    fabrica = FabricaSesionSqlite()
+    sembrar_lineas(fabrica, [
+        {"horas": 2.0, "tipo": "extra", "extra_auto": True},
+    ])
+    with caplog.at_level(logging.INFO):
+        _repo(fabrica).revert_extras_auto()
+    assert "CONGELADAS" not in caplog.text
+
+
+def test_f015_r31_un_parte_sin_nada_que_revertir_no_dice_nada(caplog) -> None:
+    import logging
+
+    fabrica = FabricaSesionSqlite()
+    sembrar_lineas(fabrica, [{"horas": 8.0}])
+    with caplog.at_level(logging.INFO):
+        assert _repo(fabrica).revert_extras_auto() == 0
+    assert "CONGELADAS" not in caplog.text

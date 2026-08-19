@@ -10,6 +10,8 @@ un parte porque a una linea le falte el DNI.
 """
 from __future__ import annotations
 
+import pytest
+
 from application.services.recurso_conciliador import RecursoConciliador
 from domain.ports.jornada_empleado_port import JornadaEmpleadoRow
 from tests.dobles import (
@@ -77,3 +79,43 @@ def test_f015_r22_un_dni_en_blanco_cuenta_como_sin_dni() -> None:
     detalle = conciliador._detalle_jornada(VIERNES, regs, 9.0)
     assert puerto.llamadas == 0
     assert detalle.horas == 6.0
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# La rama "sin fecha utilizable" de `_detalle_jornada` no la ejercitaba
+# nadie: sobrevivian mutantes que rompian su jornada plana. Es una rama
+# defensiva, pero alcanzable (un registro con `fecha_int` a NULL o basura
+# existe en la base) y decide horas.
+
+@pytest.mark.parametrize("fecha_int", [None, 0, -1, 20261301, 20260232, "x"])
+def test_f015_r22_sin_fecha_utilizable_la_jornada_es_plana(fecha_int) -> None:
+    conciliador = _conciliador()
+    regs = [registro(1, fecha_int=fecha_int, horas=1.0)]
+    detalle = conciliador._detalle_jornada(fecha_int, regs, 9.0)
+    assert (detalle.horas, detalle.candef_efectivo, detalle.semanal,
+            detalle.origen, detalle.ultimo_laborable) == (
+        9.0, 9.0, 42.0, "mapa", False)
+
+
+def test_f015_r22_sin_fecha_el_candef_invalido_sigue_cayendo_a_8() -> None:
+    conciliador = _conciliador()
+    regs = [registro(1, fecha_int=None, horas=1.0)]
+    detalle = conciliador._detalle_jornada(None, regs, 0.0)
+    assert (detalle.horas, detalle.semanal) == (8.0, 40.0)
+
+
+def test_f015_r22_sin_fecha_un_candef_fuera_del_mapa_sigue_siendo_plano(
+) -> None:
+    conciliador = _conciliador()
+    regs = [registro(1, fecha_int=None, horas=1.0)]
+    detalle = conciliador._detalle_jornada(None, regs, 10.0)
+    assert (detalle.horas, detalle.semanal, detalle.origen) == (
+        10.0, 50.0, "plana")
+
+
+def test_f015_r22_sin_fecha_no_se_consulta_el_calendario() -> None:
+    calendario = CalendarioFake(set())
+    conciliador = _conciliador(calendario=calendario)
+    regs = [registro(1, fecha_int=None, horas=1.0)]
+    conciliador._detalle_jornada(None, regs, 9.0)
+    assert calendario.consultas == []

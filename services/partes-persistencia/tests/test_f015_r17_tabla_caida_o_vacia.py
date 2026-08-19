@@ -123,3 +123,71 @@ def test_f015_r17_conciliar_todos_reinicia_el_aviso(caplog) -> None:
         _detalle(conciliador, VIERNES)
     avisos = [m for m in caplog.messages if "empleado_jornada" in m]
     assert len(avisos) == 2
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# Tres huecos: el conteo de filas ignoradas no se comprobaba, nadie fijaba
+# que SIN puerto cableado no puede haber aviso ninguno, y la deduplicacion
+# del aviso se estaba probando solo por la via de la cache (que tapa el
+# flag `_aviso_jornadas_fallo`).
+
+def test_f015_r17_una_fila_mal_formada_se_ignora_y_se_cuenta(caplog) -> None:
+    """El aviso dice CUANTAS filas se han tirado: una sola linea por lectura
+    en lugar de una por celda, pero con el numero, que es lo accionable."""
+    puerto = JornadasFake([
+        JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=48.0,
+                           desde="2026-01-01"),
+        JornadaEmpleadoRow(dni_norm=DNI, patron=(7.0, 7.0), desde="2026-01-01"),
+        JornadaEmpleadoRow(dni_norm="", jornada_semanal=42.0,
+                           desde="2026-01-01"),
+    ])
+    conciliador = _conciliador(puerto)
+    with caplog.at_level(logging.WARNING):
+        detalle = _detalle(conciliador, VIERNES, candef=10.0)
+    avisos = [m for m in caplog.messages if "mal formadas" in m]
+    assert len(avisos) == 1
+    assert "2 fila(s)" in avisos[0]
+    # Y la fila buena sigue aplicandose.
+    assert detalle.origen == "excepcion"
+
+
+def test_f015_r17_sin_filas_malas_no_se_avisa(caplog) -> None:
+    conciliador = _conciliador(JornadasFake([
+        JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=48.0,
+                           desde="2026-01-01"),
+    ]))
+    with caplog.at_level(logging.WARNING):
+        _detalle(conciliador, VIERNES, candef=10.0)
+    assert "mal formadas" not in caplog.text
+
+
+def test_f015_r17_sin_puerto_cableado_no_se_avisa_de_nada(caplog) -> None:
+    """`jornadas=None` es como corre sv3 en todos los tests anteriores a
+    F-015 y como corria en produccion hasta ahora: ni consulta ni ruido."""
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(),
+        calendario=CalendarioFake(set()),
+    )
+    with caplog.at_level(logging.WARNING):
+        regs = [registro(1, fecha_int=VIERNES, horas=1.0, dni=DNI)]
+        assert conciliador._detalle_jornada(VIERNES, regs, 9.0).horas == 6.0
+    assert "empleado_jornada" not in caplog.text
+
+
+def test_f015_r17_el_aviso_no_se_repite_aunque_la_cache_caduque(
+        caplog) -> None:
+    """Con TTL 0 la tabla se relee en cada consulta; el aviso sigue siendo
+    UNO por pasada, que es lo que promete R17."""
+    puerto = JornadasFake(fallo=RuntimeError("BBDD caida"))
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(),
+        calendario=CalendarioFake(set()), jornadas=puerto,
+        jornada_cache_ttl_s=0,
+    )
+    with caplog.at_level(logging.WARNING):
+        for fecha in (LUNES, VIERNES, LUNES + 1):
+            regs = [registro(1, fecha_int=fecha, horas=1.0, dni=DNI)]
+            conciliador._detalle_jornada(fecha, regs, 9.0)
+    assert puerto.llamadas == 3          # se releyo: la cache no lo tapa
+    avisos = [m for m in caplog.messages if "empleado_jornada" in m]
+    assert len(avisos) == 1              # pero el aviso es UNO

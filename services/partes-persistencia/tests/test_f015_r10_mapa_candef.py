@@ -158,3 +158,34 @@ def test_f015_r10_conciliar_todos_reinicia_los_avisos(caplog) -> None:
     assert conciliador._avisados_mapa == {501}
     conciliador.conciliar_todos()
     assert conciliador._avisados_mapa == set()
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# Los bordes del rango de horas del mapa no estaban fijados: sobrevivian
+# mutantes que movian el limite inferior (0 -> 1) y el superior (24*7).
+
+@pytest.mark.parametrize("texto, esperado", [
+    ("1:5", {1.0: 5.0}),          # valores pequenos: validos
+    ("0.5:2.5", {0.5: 2.5}),
+    ("24:168", {24.0: 168.0}),    # 24 h/dia x 7: el limite superior, CERRADO
+])
+def test_f015_r10_los_bordes_del_rango_se_aceptan(texto, esperado) -> None:
+    assert parsear_mapa_semanal(texto) == esperado
+
+
+@pytest.mark.parametrize("texto", [
+    "8:169",     # una hora por encima de 24*7
+    "169:40",    # el candef tambien tiene tope
+    "8:-1",
+    "-8:40",
+])
+def test_f015_r10_pasarse_del_rango_es_error(texto) -> None:
+    with pytest.raises(ValueError):
+        parsear_mapa_semanal(texto)
+
+
+def test_f015_r10_el_error_de_rango_dice_que_valor_y_que_par() -> None:
+    with pytest.raises(ValueError) as exc:
+        parsear_mapa_semanal("8:200")
+    mensaje = str(exc.value)
+    assert "200" in mensaje and "8:200" in mensaje

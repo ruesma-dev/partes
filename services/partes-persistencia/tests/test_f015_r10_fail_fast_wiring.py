@@ -125,3 +125,49 @@ def test_f015_r10_el_conciliador_usa_el_mapa_que_se_le_inyecta() -> None:
         regs, {1: 501}, indice_reshor(501, candef=9.0))
     # Viernes: 40 - 36 = 4 h de jornada, asi que 4 h trabajadas cuadran.
     assert splits == []
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# Los valores por defecto del conciliador no los fijaba nadie: un cambio en
+# el TTL o en el mapa por defecto habria pasado sin que ningun test se
+# enterase, y son los que valen cuando se construye sin cablear nada (todos
+# los tests anteriores a F-015 y cualquier uso futuro).
+
+def test_f015_r10_los_defaults_del_conciliador_son_los_del_settings(
+        entorno) -> None:
+    from application.services.recurso_conciliador import (
+        MAPA_SEMANAL_POR_DEFECTO,
+        RecursoConciliador,
+    )
+    from tests.dobles import LookupFake, RepositorioFake
+
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake())
+    assert conciliador._jornada_ttl == Settings(
+        _env_file=None).jornada_cache_ttl_s == 600
+    assert conciliador._mapa_semanal == MAPA_SEMANAL_POR_DEFECTO
+    assert MAPA_SEMANAL_POR_DEFECTO == {8.0: 40.0, 9.0: 42.0}
+
+
+def test_f015_r10_el_mapa_por_defecto_es_el_del_settings(entorno) -> None:
+    """Si el default del codigo y el del settings se separan, sv3 calcularia
+    una cosa cableado y otra sin cablear."""
+    from application.services.recurso_conciliador import MAPA_SEMANAL_POR_DEFECTO
+
+    assert construir_mapa_semanal(
+        Settings(_env_file=None)) == MAPA_SEMANAL_POR_DEFECTO
+
+
+def test_f015_r10_el_conciliador_no_comparte_el_mapa_por_defecto() -> None:
+    """El default es un dict mutable: si se compartiera, tocar el mapa de un
+    conciliador cambiaria el de todos."""
+    from application.services.recurso_conciliador import (
+        MAPA_SEMANAL_POR_DEFECTO,
+        RecursoConciliador,
+    )
+    from tests.dobles import LookupFake, RepositorioFake
+
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake())
+    conciliador._mapa_semanal[99.0] = 1.0
+    assert 99.0 not in MAPA_SEMANAL_POR_DEFECTO
