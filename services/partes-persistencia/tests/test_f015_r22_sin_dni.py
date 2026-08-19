@@ -88,7 +88,7 @@ def test_f015_r22_un_dni_en_blanco_cuenta_como_sin_dni() -> None:
 # existe en la base) y decide horas.
 
 @pytest.mark.parametrize("fecha_int", [None, 0, -1, 20261301, 20260232, "x"])
-def test_f015_r22_sin_fecha_utilizable_la_jornada_es_plana(fecha_int) -> None:
+def test_f015_r22_sin_fecha_utilizable_la_semanal_sale_del_mapa(fecha_int) -> None:
     conciliador = _conciliador()
     regs = [registro(1, fecha_int=fecha_int, horas=1.0)]
     detalle = conciliador._detalle_jornada(fecha_int, regs, 9.0)

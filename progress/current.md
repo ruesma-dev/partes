@@ -1,209 +1,192 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-Sesión 2026-08-19. **F-015 `in_progress`** (implementación en marcha sobre su
-spec aprobada), **F-016 con la spec en redacción** y **F-014 `blocked` como
-DEUDA IMPORTANTE aparcada** (decisión del humano: no es crítica, la ejecuta
-RRHH y lleva tiempo; él avisará cuando se pueda retomar). `dev` = `cf77e6a`.
-Tres ramas vivas, ninguna mergeada: `feature/F-014-candef-9-sigrid`,
-`feature/F-015-jornada-semanal-candef` y
-`feature/F-016-admin-empleado-jornada`.
+Sesión 2026-08-19. **F-015 `done`** (APROBADA por el reviewer, pendiente de
+merge del humano). **F-016** y **F-017** con trabajo hecho y esperando
+decisión. **F-014 `blocked`** como deuda aparcada. Ninguna feature
+`in_progress`.
 
-## F-014 · DEUDA IMPORTANTE, aparcada por decisión del humano (2026-08-19)
+Ramas vivas, ninguna mergeada, nada en el remoto:
 
-> **Decisión del humano (2026-08-19, tarde)**: lo que falta de F-014 **no es
-> crítico para el funcionamiento**. Es un problema conocido —esos 7
-> trabajadores acumulan +2 h/semana de extra automática, como hasta hoy—, el
-> cambio lo ejecuta RRHH en Sigrid y **lleva tiempo**. Queda **apuntado como
-> deuda importante**, NO como bloqueo del backlog: el humano avisará cuando
-> se pueda retomar. **F-015 no espera a F-014** (ver «la puerta se invierte»
-> abajo).
-
-
-
-**Motivo del `blocked`**: el `acceptance` 2 exige verificar por sigrid-api,
-tras el cambio, que los 7 recursos tienen `candef = 9` y que `MO/0037` tiene
-DNI. Ese cambio es de **datos maestros en Sigrid** y lo ejecuta a mano
-RRHH/Administración: ningún agente escribe ahí. Hasta que no se ejecute, no
-hay nada que verificar.
-
-Entregado y **APROBADO por el reviewer** (`progress/review_F-014.md`, dos
-pasadas):
-
-- `progress/peticion_F-014.md` — la petición para RRHH, con el porqué en
-  lenguaje de negocio, la tabla recurso a recurso, qué NO se toca, el
-  procedimiento de 5 pasos, la verificación posterior (V1/V2/V3 con su
-  resultado esperado en los 3 escenarios) y el **texto de correo copiable**
-  (§7).
-- `progress/impl_F-014.md` — línea base medida contra Sigrid el 2026-08-19
-  en solo lectura, hallazgos y evidencias. El reviewer re-midió todo por su
-  cuenta: coincide dato por dato.
-
-**Para retomar**: `git checkout feature/F-014-candef-9-sigrid` y seguir el
-apartado 6 de `progress/peticion_F-014.md`.
-
-### Lo que falta para cerrarla (en orden)
-
-1. **El humano envía la petición** a RRHH/Administración (§7 de
-   `peticion_F-014.md`).
-2. **RRHH ejecuta en Sigrid**: `candef` 8 → 9 en la línea `HLOF` de las 7
-   fichas (o 6, según decidan) y el DNI de `MO/0037`.
-3. **RRHH responde qué decidió con `MO/0007`** (ficha 2146403: figura de
-   alta pero no registra partes desde el 2026-02-04, así que nunca llegó a
-   hacer el régimen de 9 h). Sin esa respuesta el esperado de V1 y V2 es
-   ambiguo entre los escenarios A, B y C.
-4. **Ejecutar V1, V2 y V3** en solo lectura y anotar el resultado real en
-   `progress/impl_F-014.md`.
-5. **Segunda revisión** que verifique el punto 4 → `done` → merge.
-
-### Hallazgos que conviene no perder
-
-- **Los códigos `MO/NNNN` NO identifican una sola ficha de recurso.**
-  `MO/0006` devuelve 5 fichas (4 de alta) y bajo `MO/0006`, `MO/0007` y
-  `MO/0008` hay homónimas **de alta, misma categoría, misma hora por defecto
-  `HLOF` y también con `candef = 8`**: indistinguibles salvo por `res.ide`.
-  Por eso la petición identifica por código + `res.ide` + categoría.
-- **`MO/0031` tiene dos fichas de alta que registran partes en 2026**: la
-  correcta (2714845, OFIC. 1ª ALBAÑIL) y otra (537335, ENCARGADO DE OBRA,
-  hora por defecto `MENC`, `candef` 1). Ahí desempata la categoría.
-- **`MO/0037` sigue sin DNI** (`res.conide = 0`) y registró parte el
-  2026-08-19: el hueco es actual y afecta ya al cruce con calendario y
-  festivos de F-003.
-- **ORDEN DURO**: F-015 **no se mergea** hasta que el punto 4 salga en
-  verde. Es el riesgo §10.6 de F-012: con la cuadrilla aún a `candef = 8`,
-  la regla nueva marcaría sus viernes de 6 h como incompletos y generaría
-  **+2 h/semana de extra automática falsa** por trabajador.
-
-## F-015 · spec redactada, pendiente de lectura del humano (2026-08-19)
-
-`specs/F-015-jornada-semanal-candef/` — `requirements.md` (25 requisitos
-EARS: R10–R28 heredados del bloque B de F-012 con su numeración original,
-R29–R35 nuevos), `design.md` (modelo de resolución, firmas, DDL, 8
-decisiones propias DA1–DA8) y `tasks.md` (13 tareas, T12 MANUAL del humano,
-T13 init.sh + mutación). Informe: `progress/spec_F-015.md`.
-
-**Estado**: **`in_progress`** desde el 2026-08-19 (tarde). El humano dio el
-visto bueno a la spec y ordenó arrancar. El `implementer` trabaja las 13
-tareas de `tasks.md` en la rama `feature/F-015-jornada-semanal-candef`.
-
-### Ventana F-014 → F-015 (hallazgo del spec-author, design §11.2)
-
-El riesgo §10.6 de F-012 es correcto pero la ventana peligrosa es **la
-inversa** de la intuitiva:
-
-| situación | efecto sobre los 7 recursos de la cuadrilla |
+| Rama | Estado |
 |---|---|
-| hoy | +2 h/semana de extra automática |
-| **F-015 sin F-014** | igual que hoy (**regresión cero**) |
-| **F-014 sin F-015** | **−3 h/semana de extra negativa: peor que hoy** |
-| F-014 + F-015 | 0 extras (lo que registran los humanos) |
+| `feature/F-015-jornada-semanal-candef` | **lista para merge a `dev`** |
+| `feature/F-016-admin-empleado-jornada` | solo spec (2 commits), pendiente de aprobación |
+| `feature/F-014-candef-9-sigrid` | petición lista, aparcada a la espera de RRHH |
 
-**Decisión del humano (2026-08-19), la puerta se INVIERTE**: F-015 **sí** se
-mergea y despliega sin F-014 (es regresión cero: con c 8 y S 40 el último
-laborable recibe 40 − 32 = 8, o sea lo de hoy). Lo que NO se hace es lo
-contrario: la petición de F-014 **no se envía hasta que F-015 esté
-desplegada**, porque `candef = 9` con jornada plana daría −3 h/semana. Es
-decir: primero F-015 en producción, después se pide el cambio en Sigrid.
-Escrito en `specs/F-015-.../design.md` §13 ter y R35 reescrito.
+`dev` = `cf77e6a`.
 
-### Decisiones del humano sobre la spec (2026-08-19)
+## Lo que el humano tiene que decidir o hacer
 
-1. **D7 / DA3 confirmada**: las líneas congeladas (`sigrid_estado` en
-   {`encolado`, `registrado`} o documento `approved`) **cuentan en el total
-   del día pero no se modifican nunca**; si el día no cuadra sin tocarlas,
-   no se genera split y se avisa. La lectura literal de F-012 («excluir
-   también del total») daría una segunda jornada completa en días mixtos.
-2. **`jornada_resolver.py` se añade a la lista cerrada de duplicación
-   tolerada de `CLAUDE.md`**, con fecha y motivo, igual que los clientes de
-   Sigrid y Sesame en F-003. La edición se hace **en T11 de F-015**, no
-   antes.
-3. Dudas 4 y 5 del spec-author aceptadas tal cual: `hasta` exclusivo
-   (`desde ≤ d < hasta`) y validaciones de `empleado_jornada` a F-016.
+1. **Mergear F-015 a `dev`** (y desplegar cuando quiera). No espera a F-014.
+2. **T12 de F-015**: verificación MANUAL en el portal tras desplegar (detalle
+   en «MANUAL pendiente»).
+3. **Aprobar la spec de F-016** (`specs/F-016-admin-empleado-jornada/`, 20
+   requisitos) para que se implemente. Su puerta de entrada es F-015 en `dev`.
+4. **Orden de F-016 y F-017**: las dos órdenes funcionan sin retrabajo. F-017
+   antes solo sirve para que las filas de `empleado_jornada` nazcan firmadas
+   con el usuario real. Hoy las dos están en `priority` 8.
+5. **Dos dudas abiertas de F-016** (`design.md` §13): los tres normalizadores
+   de DNI equivalentes que conviven en sv4 (¿feature de limpieza aparte?) y si
+   las filas con `origen` `sigrid`/`sesame` serán editables desde la pantalla.
+6. **Automejoras del arnés** acumuladas para F-009 (ver abajo).
 
-Las tres quedan escritas en `specs/F-015-.../design.md` §13 bis.
+## F-015 · done (2026-08-19)
 
-## F-016 · spec en redacción (2026-08-19)
+Implementada, revisada y aprobada. Resumen completo en `progress/history.md`;
+detalle en `progress/impl_F-015.md`, mutación en `progress/mutacion_F-015.md`,
+revisión en `progress/review_F-015.md`.
 
-Pantalla de administración de `empleado_jornada` en sv4: alta, edición y
-cierre de jornadas especiales por trabajador. Sigue `pending`; el
-`spec-author` redacta `specs/F-016-admin-empleado-jornada/` en un **worktree
-aislado** sobre la rama `feature/F-016-admin-empleado-jornada`, en paralelo
-con la implementación de F-015. Depende de la tabla que crea F-015 (R18/R30)
-y de las validaciones que F-015 dejó explícitamente para aquí (R27).
+Números verificados por el reviewer, no leídos: `init.sh` verde, **1.195
+tests**, cobertura de líneas cambiadas **99,4 %** (520/523), mutación
+**259/237/22/0** (91,5 %). Regresión cero: los dorados de F-003 intactos.
 
-## Orden del backlog (por prioridad en `harness/features.json`)
+**La puerta R35 está INVERTIDA** (decisión del humano): F-015 se mergea y
+despliega sin F-014, porque con candef 8 es regresión cero. Lo que NO se puede
+es aplicar el `candef = 9` en Sigrid antes de desplegar F-015: eso daría
+−3 h/semana de extra negativa a esos 7 recursos.
 
-1. **F-014** — `blocked`, ver arriba. Solo la desbloquea RRHH.
-2. **F-015** (estandar, sdd=true) — **spec ya redactada** (ver arriba),
-   pendiente de lectura del humano. Su **spec** no dependía de F-014; su
-   **merge** sí, y además el cambio en Sigrid espera al despliegue.
-3. **F-016** — pantalla de administración de `empleado_jornada`: **spec en
-   redacción ya** (ver arriba), implementación tras F-015.
-4. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
-   F-008 roles · F-009 automejoras del arnés (lista larga en history.md:
-   AM de F-013, F-004, F-010 y ahora F-014) · F-011 jornada reducida
+Correcciones menores del reviewer aplicadas por el líder al cerrar: referencia
+cruzada §5.5 → §5.4 en `docs/referencia/partes-proyecto.md`, «16 columnas» →
+«19» en T12 de `tasks.md`, y el test `..._la_jornada_es_plana` renombrado a
+`..._la_semanal_sale_del_mapa`, que es lo que de verdad fija (14 tests del
+fichero en verde tras el renombrado).
+
+## F-016 · spec lista, pendiente de aprobación (2026-08-19)
+
+Pantalla de administración de `empleado_jornada` en sv4: alta, edición, cierre,
+desactivación y reactivación de jornadas especiales. **20 requisitos**, solo
+sv4, **cero cambios de schema** (vive con las 19 columnas que creó F-015, con
+test que lo vigila). Informe: `progress/spec_F-016.md`.
+
+Decisiones del humano ya incorporadas (2026-08-19): acceso a cualquier usuario
+autenticado con interruptor `JORNADAS_ADMIN_ENABLED` y puerta única para
+enchufar el rol cuando exista F-008; identidad real de Easy Auth (⇒ F-017);
+**selector de trabajador con DNI y nombre y autorrelleno**, reutilizando el
+`GET /api/sigrid/empleados` y el `_comboSimple` que ya existen; y «Reactivar»
+se queda.
+
+Del diseño conviene recordar: el humano **nunca escribe `hasta`** (el
+formulario pide «último día incluido» y la web hace el `+1 día`); cerrar ≠
+desactivar; un solape se rechaza con 409 nombrando la fila en conflicto y
+**nunca se resuelve solo**; y la pantalla avisa de que el cambio tarda en
+aplicarse porque sv3 cachea la tabla (`JORNADA_CACHE_TTL_S`).
+
+## F-017 · alta nueva (2026-08-19)
+
+«Identidad real de Easy Auth en el portal (sv4)». Hallazgo del spec-author de
+F-016, verificado por el líder: **sv4 no lee hoy la identidad del usuario**.
+Cero referencias a `X-MS-CLIENT-PRINCIPAL` en el repositorio; las **once**
+escrituras de auditoría (`approved_by`, `deleted_by` y cuatro entradas de
+`undo_log`, todas en `services/partes-front/interface_adapters/web/app.py`) se
+firman con `DEFAULT_REVIEWER`, igual para todos.
+
+Decisión del humano: se introduce y **se extiende a todo el portal**, no solo a
+las columnas de F-016. Material de partida en
+`specs/F-016-admin-empleado-jornada/design.md` §14. Los **roles** siguen siendo
+F-008: F-017 responde a «quién hizo esto», no a «quién puede hacerlo».
+
+## F-014 · DEUDA IMPORTANTE, aparcada (2026-08-19)
+
+Decisión del humano: lo que falta **no es crítico**, lo ejecuta RRHH en Sigrid
+y lleva tiempo; él avisará cuando se pueda retomar. La petición está redactada,
+revisada y **APROBADA** en `progress/peticion_F-014.md` (rama
+`feature/F-014-candef-9-sigrid`), con un ⛔ en la cabecera: **no se envía hasta
+que F-015 esté desplegada**.
+
+Cuando se retome: enviar el correo (§7) → RRHH cambia el `candef` de 7 fichas y
+el DNI de `MO/0037` → responde qué decide con `MO/0007` (de alta pero sin
+partes desde 2026-02-04) → ejecutar V1/V2/V3 en solo lectura → segunda revisión
+→ `done` → merge.
+
+Hallazgos que no conviene perder: los códigos `MO/NNNN` **no identifican una
+sola ficha** (bajo MO/0006, MO/0007 y MO/0008 hay homónimas de alta, misma
+categoría, misma hora por defecto y también con `candef = 8`: solo las separa
+`res.ide`); `MO/0031` tiene dos fichas de alta que registran en 2026 y ahí
+desempata la categoría; y `MO/0037` sigue sin DNI (`res.conide = 0`).
+
+## Orden del backlog
+
+1. **F-016** (spec lista) y **F-017** (alta nueva), en el orden que decida el
+   humano; F-016 necesita F-015 en `dev`.
+2. **F-014** — `blocked`, solo la desbloquea RRHH.
+3. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
+   F-008 roles · F-009 automejoras del arnés · F-011 jornada reducida
    (última; fuente candidata `empleado_jornada` + `emphis.porjorlab`).
 
 ## MANUAL pendiente del humano (acumulado)
 
-- **F-014 (2026-08-19) — EN ESPERA POR DECISIÓN DEL HUMANO, NO ENVIAR
-  TODAVÍA:** la petición de `progress/peticion_F-014.md` §7 está lista y
-  aprobada, pero **el correo a RRHH no sale hasta que F-015 esté
-  implementada y lista para desplegar**. Motivo: F-014 SIN F-015 deja a esos
-  7 trabajadores **peor que hoy** (−3 h/semana de extra negativa; ver
-  «Ventana F-014 → F-015» abajo). Cuando salga y RRHH avise: ejecutar
-  V1/V2/V3 del apartado 6 (solo lectura, script de usar y tirar fuera del
-  repo, credenciales `SIGRID_API_*` de sv3).
-- **F-002 (Azure):** validar en navegador la aprobación asíncrona (⏳
-  encolado → ✓ PT26/…, obra 0404 en modo pruebas), limpiar 0404
-  (`python prueba_escritura_sigrid.py limpiar --ejecutar` en sv5) y pasar
-  sv5 a modo normal (`az containerapp update -n ca-sv5-transfer -g $RG
-  --set-env-vars OBRA_PRUEBAS_FORZAR=false`).
+- **F-015 · T12 (NUEVO)**, tras desplegar sv3 y sv4: en el log de arranque de
+  ambos, «esquema inicializado (N sentencias complementarias)» con N mayor que
+  el de F-010; en la base `partes`, la tabla `empleado_jornada` con sus **19**
+  columnas y el índice `ix_empleado_jornada_dni_norm`; en el portal, un
+  trabajador de la cuadrilla con un viernes de 6 h **sin** aviso de jornada
+  incompleta y el KPI «9 h · 42 h/sem · último laborable 6 h»; y que un parte
+  ya aprobado/registrado **no** cambie su desglose tras la primera pasada de
+  sv3. Ojo: los 7 de la cuadrilla siguen con `candef = 8` hasta que se haga
+  F-014, así que ese punto solo se ve del todo después.
+- **F-014**: enviar la petición **solo cuando F-015 esté desplegada**.
+- **F-002 (Azure):** validar en navegador la aprobación asíncrona (⏳ encolado →
+  ✓ PT26/…, obra 0404 en modo pruebas), limpiar 0404 (`python
+  prueba_escritura_sigrid.py limpiar --ejecutar` en sv5) y pasar sv5 a modo
+  normal (`az containerapp update -n ca-sv5-transfer -g $RG --set-env-vars
+  OBRA_PRUEBAS_FORZAR=false`).
 - **F-003:** encendido cuando sesame-api esté desplegado (P2) — variables
-  SESAME_* en sv3 y sv4 a la vez + secreto `sesame-api-key` en kv-partes.
-  Ojo: encender contra URL muerta bloquea aprobaciones por diseño.
+  SESAME_* en sv3 y sv4 a la vez + secreto `sesame-api-key` en kv-partes. Ojo:
+  encender contra URL muerta bloquea aprobaciones por diseño.
 - **F-004:** 7 comprobaciones en navegador con Ctrl+F5 (pasos al final de
   `progress/impl_F-004.md`).
-- **F-010:** M1/M2 — arrancar sv3 y sv4 en local, «esquema inicializado
-  (118 sentencias complementarias)» en ambos, índice
+- **F-010:** M1/M2 — arrancar sv3 y sv4 en local, «esquema inicializado (118
+  sentencias complementarias)» en ambos, índice
   `ix_parte_registros_deleted_at_utc` en `pg_indexes`, columnas 7/47/56/7
-  (`progress/impl_F-010.md` §6). M3 redeploy cuando decida.
+  (`progress/impl_F-010.md` §6). M3 redeploy cuando decida. **Se cumple de paso
+  al hacer T12 de F-015.**
 - **F-013:** validar el Excel `services/partes-front/logs/
-  festivos_por_trabajador_2026.xlsx` (no versionado): Alicante 8/21
-  (Antuane Gavilán) y asignaciones por centro.
-- **sesame-api (otro repo, del humano):** commitear el árbol P2 (incluye
-  el fix `daysOff` del 2026-08-18), desplegar, doc en azure-apps (P3);
-  `contract_not_found` → 404 en vez de 502; su `.env` ya apunta a EU4.
+  festivos_por_trabajador_2026.xlsx` (no versionado): Alicante 8/21 y
+  asignaciones por centro.
+- **sesame-api (otro repo, del humano):** commitear el árbol P2 (incluye el fix
+  `daysOff` del 2026-08-18), desplegar, doc en azure-apps (P3);
+  `contract_not_found` → 404 en vez de 502.
 - **Sesame HR (RRHH):** completar el calendario Alicante; contratos vacíos
   (0/218) — decidir si se cargan.
 - **Cambio de modelo Gemini** en sv2 (comando dado; actualizar
   `infra/create_capps_partes.ps1:38`).
 
+## Automejoras del arnés pendientes (F-009 ⇒ genéricas a `arnes-base`)
+
+- **La más rentable, ya confirmada con datos por F-015 y anotada desde F-010**:
+  `harness/mutacion.py` ejecuta solo la suite del servicio dueño del fichero
+  mutado, así que **el guardián de una copia gemela nunca mata mutantes** (vive
+  en `tests/` de la raíz). Produjo **27 de los 48 supervivientes** de la 2.ª
+  campaña de F-015, todos falsos «equivalentes». Arreglo: ejecutar también la
+  suite de la raíz (~4 s aquí) o, mínimo, avisar cuando el fichero mutado tenga
+  copia gemela declarada en `CLAUDE.md`. El reviewer de F-015 propone además
+  una línea en `.claude/agents/reviewer.md`: desconfiar por defecto de los
+  supervivientes de una copia duplicada.
+- **El presupuesto de mutación por mutante es engañoso** (F-015): con 16
+  evaluadores concurrentes y una suite de ~80 s, el timeout de 120 s de
+  `rigor.json` convirtió 100 mutantes en «timeout», que **no es una medición**.
+  Debería escalar con la concurrencia o avisar cuando los timeouts superen un
+  porcentaje del total.
+- **Del reviewer de F-014**: (A) checkpoint para features cuyo entregable es
+  una **petición a un tercero** (clave unívoca verificada, apartado «qué NO se
+  toca», verificación escrita ANTES con control de daños, resultado esperado en
+  TODOS los escenarios, barrido de datos sensibles); (B) generalizar la regla
+  «si el entregable es una medición, el reviewer la **re-ejecuta** en vez de
+  leerla» — es lo que destapó el defecto D1 de F-014.
+- Las anteriores de F-013 (AM-1..3), F-004 y F-010 siguen en `history.md`.
+
 ## Notas de contexto
 
-- F-013 (2026-08-18): informe contra sesame-api local, 218 empleados;
-  festivos OK (Madrid 196, Tomares 15, Sevilla 4, Málaga 2, Alicante 1
-  parcial); contratos en Sesame: NINGUNO ⇒ jornada/reducida sin fuente en
-  Sesame; F-011 repriorizada a baja por eso.
-- F-012 (2026-08-18): decisiones firmes del humano — jornada semanal
-  DERIVADA del candef ({8:40, 9:42}, env espejo sv3+sv4); resto en el
-  ÚLTIMO LABORABLE de la semana (festivo cuenta como jornada); excepciones
-  en `empleado_jornada`; candef desconocido → 5×candef + WARNING; sin
-  calendario → viernes.
 - **Deuda detectada el 2026-08-19 (fuera de alcance de F-014)**:
-  `services/partes-front/consulta_reshor_recursos.py` tiene 4 DNIs y
-  nombres de personas reales **hardcodeados y versionados** (líneas 27-31)
-  y apunta a una ruta `.env` de otro repositorio. Pendiente de decisión del
-  humano sobre si se limpia y en qué feature.
-- azure-apps es un repo git LOCAL sin remoto (decisión del humano): tiene
-  commits 8f55505 (F-010) y anteriores; no proponer push.
-- Automejoras del arnés propuestas por reviewers (F-013 AM-1..3, F-004,
-  F-010 y F-014) esperan decisión del humano en F-009; genéricas ⇒
-  arnes-base. Las de F-014 (`progress/review_F-014.md` §11): (A) checkpoint
-  nuevo para features cuyo entregable es una **petición a un tercero**
-  (clave unívoca verificada, apartado «qué NO se toca», verificación
-  escrita ANTES con control de daños, resultado esperado en TODOS los
-  escenarios, barrido de datos sensibles porque el documento sale del
-  repo); (B) generalizar la regla del reviewer «si el entregable es una
-  medición, se **re-ejecuta** en solo lectura en vez de leerla» — es lo que
-  destapó el defecto D1 de esta feature.
+  `services/partes-front/consulta_reshor_recursos.py` tiene 4 DNIs y nombres de
+  personas reales **hardcodeados y versionados** (líneas 27-31) y apunta a una
+  ruta `.env` de otro repositorio. Pendiente de decisión del humano.
+- F-013 (2026-08-18): 218 empleados; festivos OK (Madrid 196, Tomares 15,
+  Sevilla 4, Málaga 2, Alicante 1 parcial); contratos en Sesame: NINGUNO ⇒
+  jornada/reducida sin fuente en Sesame; F-011 repriorizada a baja por eso.
+- F-012 (2026-08-18): decisiones firmes del humano sobre la jornada semanal
+  (mapa 8→40 / 9→42, resto en el último laborable, excepciones en
+  `empleado_jornada`), ya implementadas por F-015.
+- azure-apps es un repo git LOCAL sin remoto (decisión del humano); no proponer
+  push.

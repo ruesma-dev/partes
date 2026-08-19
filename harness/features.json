@@ -174,7 +174,7 @@
         "Verificación por sigrid-api en solo lectura tras el cambio: los 7 recursos con candef=9 y MO/0037 con DNI en emp (SQL reproducible del anexo A de specs/F-012 §H1/H2)",
         "bash harness/init.sh en verde"
       ],
-      "status": "pending",
+      "status": "blocked",
       "sdd": false,
       "rigor": "documental",
       "priority": 5,
@@ -185,7 +185,7 @@
       "title": "Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada",
       "description": "Implementación de lo que propone el estudio F-012 (specs/F-012-estudio-jornada-semanal, requisitos R10–R25 del bloque B, tasks §'Propuesta de tasks para F-015'). Resolutor único gemelo sv3/sv4: L–V = candef efectivo salvo el ÚLTIMO DÍA LABORABLE de la semana del trabajador (calendario F-003; festivo cuenta como jornada), que vale jornada semanal − 4×candef (nunca negativo); jornada semanal derivada del candef por el mapa configurable JORNADA_SEMANAL_POR_CANDEF (default 8:40,9:42; env espejo en sv3 y sv4; candef válido fuera del mapa → jornada plana 5×candef + WARNING; sin calendario cableado → viernes). Excepciones por trabajador en tabla nueva empleado_jornada de la BBDD partes (DNI normalizado, jornada semanal y/o patrón 7 valores, vigencia desde/hasta, origen, auditoría), declarada en las DOS copias de orm_models.py; si falla su lectura, derivada + WARNING. sv3 usa la jornada del día en el split de extras (excluyendo del re-split lo registrado/encolado/approved, coherente con F-004); sv4 en avisos de jornada incompleta, KPI (enseña patrón y S aplicada) y +Nuevo (jornada_dia con fecha). Regresión cero con candef 8. PRERREQUISITOS: F-014 cerrada (candef 9 en Sigrid) y F-010 antes (orm_models resincronizado, decisión D6 aprobada). Servicios: sv3 y sv4 (duplicación tolerada de orm_models y resolutor gemelo, patrón F-003).",
       "acceptance": [],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 7,
@@ -201,6 +201,17 @@
       "rigor": "estandar",
       "priority": 8,
       "branch": "feature/F-016-admin-empleado-jornada"
+    },
+    {
+      "id": "F-017",
+      "title": "Identidad real de Easy Auth en el portal (sv4)",
+      "description": "Detectado por el spec-author de F-016 el 2026-08-19 y verificado por el lider: sv4 NO lee hoy la identidad del usuario. No hay ni una referencia a X-MS-CLIENT-PRINCIPAL en el repositorio y las once escrituras de auditoria del portal (approved_by, deleted_by y las cuatro entradas de undo_log, todas en services/partes-front/interface_adapters/web/app.py: lineas 1500, 1594, 1629, 1684, 1687, 1841, 1867, 1881, 1900, 1910 y 2121) se firman con la variable DEFAULT_REVIEWER, igual para todos. Decision del humano del 2026-08-19: se introduce la lectura de Easy Auth y se extiende a TODO el portal, no solo a las columnas de F-016. Alcance: decodificar la cabecera de Easy Auth (X-MS-CLIENT-PRINCIPAL-NAME o el token base64, decidiendo cual manda), un unico helper de identidad que consuman los once puntos, fallback para desarrollo local, y decidir que se hace con las filas historicas ya firmadas con el valor generico (propuesta del spec-author: NO se reescriben, se documenta el corte; inventar autores seria falsificar auditoria). Los ROLES siguen siendo F-008: esta feature responde a 'quien hizo esto', no a 'quien puede hacerlo'. Material de partida en specs/F-016-admin-empleado-jornada/design.md seccion 14. Deberia ir ANTES de F-016 para que las filas de empleado_jornada nazcan firmadas con el usuario real, pero las dos ordenes funcionan sin retrabajo porque F-016 pide la identidad a un solo helper.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 8,
+      "branch": "feature/F-017-identidad-easy-auth"
     }
   ]
 }

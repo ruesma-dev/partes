@@ -149,7 +149,7 @@ Reglas que no se negocian durante la ejecución:
       tabla vacía al arrancar):
       1. En el log de arranque de **ambos**, «esquema inicializado (N
          sentencias complementarias)» con N mayor que el de F-010; en la base
-         `partes`, `\d empleado_jornada` muestra las 16 columnas y el índice
+         `partes`, `\d empleado_jornada` muestra las 19 columnas y el índice
          `ix_empleado_jornada_dni_norm`.
       2. En el portal, un trabajador de la cuadrilla (ya con candef 9 en
          Sigrid): viernes de 6 h **sin** aviso de jornada incompleta y KPI

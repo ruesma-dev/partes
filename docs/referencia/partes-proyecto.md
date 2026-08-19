@@ -286,7 +286,7 @@ generaba una extra negativa de −3 h todas las semanas.
 - Con `candef = 8` y `S = 40` el resto vale `40 − 32 = 8`: **exactamente lo
   de antes de F-015** para todo el mundo que tenga jornada normal.
 - Las **excepciones por trabajador** (otra jornada semanal, o un patrón
-  explícito de horas por día) viven en `empleado_jornada` (§5.5). La tabla
+  explícito de horas por día) viven en `empleado_jornada` (§5.4). La tabla
   nace vacía.
 - Lo que ya viajó a Sigrid (línea `encolado`/`registrado` o parte
   aprobado) **cuenta en el total del día pero no se recalcula**: si el día
