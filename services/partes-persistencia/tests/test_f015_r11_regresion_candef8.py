@@ -140,3 +140,45 @@ def test_f015_r11_el_candef_efectivo_no_cambia_de_semantica(
     assert [(s["horas_norm"], s["extra_horas"]) for s in splits] == [
         (norm, extra)]
     assert splits[0]["hora_candef"] == candef
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# Sin calendario cableado (D11) solo se probaba con candef 8, que entra por
+# el atajo `S = 5c` y no recorre la semana. Con candef 9 SI la recorre, y
+# ahi es donde importa que "sin calendario" signifique "todo laborable": si
+# significara lo contrario, el LUNES pasaria a ser el ultimo laborable de
+# su semana y recibiria el resto (6 h en vez de 9).
+
+@pytest.mark.parametrize("fecha_int, esperado", [
+    (LUNES, 9.0), (MARTES, 9.0), (MIERCOLES, 9.0), (JUEVES, 9.0),
+    (VIERNES, 6.0),
+])
+def test_f015_r11_sin_calendario_el_ultimo_laborable_es_el_viernes(
+        fecha_int, esperado) -> None:
+    """D11: sin calendario, la semana es L-V entera y el resto cae el
+    viernes. Es la situacion de todos los tests previos a F-003."""
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(), calendario=None,
+        jornada_ordinaria_horas=8.0, candef_minimo=2.0,
+    )
+    regs = [registro(1, fecha_int=fecha_int, horas=1.0)]
+    assert conciliador._detalle_jornada(fecha_int, regs, 9.0).horas == esperado
+
+
+def test_f015_r11_sin_calendario_solo_el_viernes_recibe_el_resto() -> None:
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(), calendario=None,
+    )
+    marcados = []
+    for fecha_int in SEMANA:
+        regs = [registro(1, fecha_int=fecha_int, horas=1.0)]
+        if conciliador._detalle_jornada(fecha_int, regs, 9.0).ultimo_laborable:
+            marcados.append(fecha_int)
+    assert marcados == [VIERNES]
+
+
+def test_f015_r11_sin_calendario_un_viernes_de_6_horas_cuadra() -> None:
+    """De punta a punta: sin calendario y con candef 9, el viernes tipico de
+    la cuadrilla tampoco genera extras."""
+    regs = [registro(1, fecha_int=VIERNES, horas=6.0)]
+    assert _splits(regs, calendario=None, candef=9.0) == []
