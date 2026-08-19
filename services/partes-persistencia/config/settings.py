@@ -104,6 +104,24 @@ class Settings(BaseSettings):
     # Sigrid: el reparto usa la jornada por defecto en su lugar.
     candef_minimo_valido: float = Field(2.0, alias="CANDEF_MINIMO_VALIDO")
 
+    # ------------------------------------------------------------ #
+    # Jornada del DIA (F-015). El candef de Sigrid dice cuantas horas
+    # se hacen de lunes a jueves; este mapa dice cuantas TIENE la
+    # semana, y el ultimo dia laborable recibe el resto. Un candef que
+    # no este en el mapa se queda con la jornada plana de siempre.
+    #
+    # VARIABLE ESPEJO: el mismo nombre y el mismo valor por defecto en
+    # sv4. Si las dos copias discrepan, el portal avisaria de jornadas
+    # incompletas que sv3 no genera. No es secreto: viaja en el script
+    # de provision, no por Key Vault.
+    # ------------------------------------------------------------ #
+    jornada_semanal_por_candef: str = Field(
+        "8:40,9:42", alias="JORNADA_SEMANAL_POR_CANDEF"
+    )
+    # TTL (s) de la cache de `empleado_jornada` (excepciones por
+    # trabajador). La tabla nace vacia y se lee entera de una vez.
+    jornada_cache_ttl_s: int = Field(600, alias="JORNADA_CACHE_TTL_S")
+
     # Calendario laboral (fin de semana + festivos). En fin de semana o
     # festivo no hay horas ordinarias: el reparto las manda todas a extra.
     # Con SESAME_API_* configurado manda Sesame y este JSON queda de

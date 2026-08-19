@@ -100,7 +100,7 @@ Reglas que no se negocian durante la ejecución:
       un día sin congelados produce **exactamente** los mismos splits que antes
       del cambio (caso de regresión dentro del propio test).
 
-- [ ] **T7**: sv3 · configuración y cableado — `config/settings.py`:
+- [x] **T7**: sv3 · configuración y cableado — `config/settings.py`:
       `jornada_semanal_por_candef` (`8:40,9:42`) y `jornada_cache_ttl_s`
       (`600`); `interface_adapters/api/app.py`: `parsear_mapa_semanal(...)`
       (fail-fast al arrancar) y `SqlAlchemyJornadaRepository` inyectado al
