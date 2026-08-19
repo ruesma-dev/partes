@@ -108,7 +108,7 @@ Reglas que no se negocian durante la ejecución:
       mal formado ⇒ la app no se construye) y test de wiring del conciliador.
       | Verificación: `python -m pytest services/partes-persistencia/tests -q -k "f015 or f003_r10_wiring"`.
 
-- [ ] **T8**: sv4 · lectura de excepciones —
+- [x] **T8**: sv4 · lectura de excepciones —
       `application/services/jornada_provider.py` (`JornadaEmpleadoProvider`
       con caché TTL y degradación silenciosa),
       `infrastructure/database/parte_repository.py::list_jornadas_empleado()`,

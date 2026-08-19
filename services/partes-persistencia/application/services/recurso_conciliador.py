@@ -803,10 +803,27 @@ class RecursoConciliador:
                 )
             filas = []
         indice: dict[str, list[JornadaEmpleadoRow]] = defaultdict(list)
+        ignoradas = 0
         for fila in filas:
             clave = tm.normalize_dni(fila.dni_norm)
-            if clave:
-                indice[clave].append(fila)
+            if not clave:
+                ignoradas += 1
+                continue
+            if not Excepcion(
+                semanal=fila.jornada_semanal, patron=fila.patron,
+                origen=fila.origen,
+            ).valida():
+                # Hasta F-016 las filas las carga el humano por SQL: una
+                # mal formada se IGNORA en vez de repartir horas raras.
+                ignoradas += 1
+                continue
+            indice[clave].append(fila)
+        if ignoradas:
+            logger.warning(
+                "[recurso-concil] %s fila(s) de empleado_jornada ignoradas "
+                "por venir mal formadas (sin DNI, patron incompleto u horas "
+                "fuera de rango).", ignoradas,
+            )
         # Vigencia mas reciente primero: si dos filas solapan (F-016 lo
         # impedira; hasta entonces las carga el humano a mano), gana la de
         # `desde` mayor, que es la que alguien anadio despues.

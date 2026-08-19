@@ -47,9 +47,13 @@ from application.services.calendar_builder import (
 )
 from application.services.calendario_provider import CalendarioProvider
 from application.services.holiday_provider import HolidayProvider
+from application.services.jornada_provider import JornadaEmpleadoProvider
 from application.services.jornada_resolver import (
     candef_valido,
+    detalle_jornada_dia,
+    jornada_dia,
     jornada_efectiva,
+    parsear_mapa_semanal,
 )
 from config.settings import Settings
 from infrastructure.sesame.sesame_api_client import SesameApiClient
@@ -253,15 +257,27 @@ def build_app(
     publisher: TransferQueuePublisher | None = None,
     cola_cliente=None,
     calendario_provider: CalendarioProvider | None = None,
+    jornada_provider: JornadaEmpleadoProvider | None = None,
 ) -> FastAPI:
     """Portal de revision.
 
     Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
     sv5, publisher de `q-transfer`, cliente de cola para la gestion de
-    poison y proveedor de calendario). Sin inyeccion se construyen desde
-    `settings`, que es lo que hace `main.py`; con ella, la suite levanta
-    la app sin PostgreSQL, sin red y sin Storage.
+    poison, proveedor de calendario y proveedor de excepciones de
+    jornada). Sin inyeccion se construyen desde `settings`, que es lo que
+    hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
+    red y sin Storage.
     """
+    # Jornada del DIA (F-015). Lo PRIMERO: un mapa mal escrito cambiaria
+    # los avisos de jornada incompleta de todo el portal en silencio, asi
+    # que es preferible que la app no levante (fail-fast, R10). Se parsea
+    # aqui y no en `config/settings.py` para no invertir las capas.
+    mapa_semanal = parsear_mapa_semanal(settings.jornada_semanal_por_candef)
+    logger.info(
+        "[jornada][wiring] mapa candef -> jornada semanal: %s",
+        ", ".join(f"{c:g}:{v:g}" for c, v in sorted(mapa_semanal.items())),
+    )
+
     if repository is None:
         session_factory = SessionFactory(
             database_url=settings.database_url,
@@ -342,6 +358,16 @@ def build_app(
             ttl_seconds=settings.sesame_cache_ttl_s,
         )
 
+    # Excepciones de jornada (`empleado_jornada`). La tabla nace vacia:
+    # mientras no tenga filas, el proveedor devuelve None y la jornada de
+    # cada dia sale del mapa. Si la lectura falla, las vistas se sirven
+    # igual con la jornada derivada (R17).
+    if jornada_provider is None:
+        jornada_provider = JornadaEmpleadoProvider(
+            repository.list_jornadas_empleado,
+            ttl_seconds=settings.jornada_cache_ttl_s,
+        )
+
     # Cliente del servicio de REGISTRO en Sigrid (partes-transfer, sv5).
     # Sigue siendo el canal SINCRONO: preflight y pisado de conflictos.
     if transfer_client is None and settings.transfer_enabled:
@@ -409,6 +435,8 @@ def build_app(
     app.state.empleado_catalog = empleado_catalog
     app.state.graph_token_provider = graph_token_provider
     app.state.calendario_provider = calendario_provider
+    app.state.jornada_provider = jornada_provider
+    app.state.mapa_semanal = mapa_semanal
     app.state.tables_ready = tables_ready
 
     templates = Jinja2Templates(
