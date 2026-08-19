@@ -404,9 +404,57 @@ persona.** Los DNIs de los tests son sintéticos (`AAA1`, `BBB2`, `1234ABCD`,
 
 `bash harness/init.sh` termina con **ENTORNO LISTO**.
 
-## 7. Informe de mutación
+## 7. Informe de mutación (T9)
 
-PENDIENTE — se completa al terminar la campaña (sección 9).
+`python -m harness.mutacion --feature F-016 --workers 6 --timeout 600`, lanzada
+**una sola vez y al final**. Detalle completo, superviviente por superviviente,
+en **`progress/mutacion_F-016.md`**; aquí, el resumen.
+
+| Métrica | Valor |
+|---|---|
+| Ficheros en alcance | 5 (827 líneas de producción) |
+| Mutantes generados y evaluados | **93** (campaña completa, sin muestreo) |
+| Muertos | **79** (85 %) |
+| Supervivientes | **14**, los 14 analizados |
+| **Timeouts** | **0** |
+| Tiempo total | 1409,6 s |
+
+**Los parámetros no son decorativos.** Con el `timeout_por_mutante_s: 120` por
+defecto de `rigor.json` y la suite de sv4 en ~115 s, la campaña habría dado
+timeouts masivos —que no son una medición— en vez de veredictos; es la lección
+que dejó F-015. Con 600 s de margen y 6 workers salieron **0 timeouts**.
+
+**Los 14 supervivientes, en tres grupos:**
+
+| Grupo | Cuántos | Qué son |
+|---|---|---|
+| Equivalentes de verdad | 4 | `zip` trunca a siete (`[None]*7` vs `*8`); `//60` vs `//61` **da el mismo número para todo TTL múltiplo de 60 hasta 3600 s** (comprobado numéricamente, el primero que difiere es 3660); `exc_info` es diagnóstico; el `or`→`and` de la guarda de formato acaba en el **mismo** 422 con el **mismo `campo`** |
+| Fuera del contrato observable | 5 | `include_in_schema=False` → `True`: solo afecta al OpenAPI. **Un solo test los mataría los cinco** |
+| Huecos reales, acotados | 5 | inmutabilidad de `EntradaJornada`; el suelo del aviso con TTL < 120 s; «sin fin» en el **texto** del 409; el campo `ok` del cuerpo de desactivar y reactivar |
+
+**Lo que de verdad dice la campaña.** Los mutantes sobre la lógica de riesgo
+**murieron todos**: los cuatro extremos del solape (`>=`↔`>`, `and`↔`or`,
+`<`↔`<=`), la conversión de fechas (`days=1`→`days=2`), los rangos de R9 y R10
+en sus cuatro límites, la exclusión de la propia fila al editar, el filtro por
+`is_active`, el `origen='manual'` forzado y el 404 de la puerta de acceso. Eso
+es lo que había que comprobar en una pantalla que edita el cómputo de nóminas.
+
+**Tres mejoras anotadas y no aplicadas**, por orden de valor: (1) que el 409
+contra una vigencia abierta diga «sin fin» y no `None` —el único superviviente
+con consecuencia visible—; (2) `assert respuesta.json()["ok"] is True` en
+desactivar y reactivar; (3) un test sobre `app.openapi()["paths"]`. **No se
+aplican en esta feature a propósito**: el nivel `estandar` exige supervivientes
+**analizados**, no cero supervivientes, y añadir tests después de medir dejaría
+estos números sin corresponder con el árbol que el reviewer va a leer.
+
+**Exit code 1 es lo esperado** cuando quedan supervivientes; no es un fallo de
+ejecución (`supervivientes_maximos: null` en el nivel `estandar`).
+
+**Sobre cómo se ejecutó.** La campaña tarda ~23 minutos y el `timeout` máximo de
+una llamada en primer plano es de 10, así que se lanzó **en segundo plano** y se
+esperó su notificación de salida —una sola ejecución, sin relanzarla—. Es el
+mecanismo que la propia herramienta recomienda para «una notificación cuando
+termine», y no es un monitor de los que se quedaron colgados en F-015.
 
 ## 8. Verificaciones MANUAL (humano) — pendientes
 
@@ -443,4 +491,29 @@ PostgreSQL, el portal levantado y un navegador.
 
 ## 9. Evidencias
 
-PENDIENTE — se completa al terminar la campaña de mutación.
+Números **medidos**, no estimados, y comparables con los de features anteriores.
+
+| Evidencia | Valor | De dónde sale |
+|---|---|---|
+| **Tests ejecutados y resultado** | **799 passed, 0 failed** (suite de sv4); de ellos **134 nuevos de F-016**. Raíz del monorepo: **92 passed**. sv3 y sv5: en verde | `python -m pytest` de cada suite y `bash harness/init.sh` |
+| **Cobertura de las líneas cambiadas** | **98,5 % — 326 de 331 líneas** (umbral del nivel `estandar`: 80 %) | línea `PUERTA COBERTURA` de `bash harness/init.sh` |
+| **Mutantes generados / supervivientes** | **93 generados, 79 muertos, 14 supervivientes, 0 timeouts** (85 % de mortalidad); los 14 **analizados uno a uno** | `python -m harness.mutacion --feature F-016 --workers 6 --timeout 600` → `progress/mutacion_F-016.md` |
+| **Tiempo de ejecución de la suite** | sv4 **114,06 s** (799 tests) · solo F-016 **40,04 s** (134 tests) · raíz **6,27 s** (92 tests) · campaña de mutación **1409,6 s** | salida de las propias suites |
+
+Notas de honestidad sobre estos números:
+
+- **La suite de sv4 ha pasado de ~52 s a ~114 s** con F-016. La causa es que
+  cada test de endpoint o de vista levanta la app entera con `build_app`, que es
+  el montaje que usan F-002, F-003 y F-004: no se ha inventado nada, pero 134
+  tests nuevos con ese patrón cuestan unos 60 s. Es lo que hace que la campaña
+  de mutación necesite `--timeout 600`. Queda dicho por si en el futuro alguien
+  quiere una fixture de app compartida — sería una mejora transversal del
+  servicio, no de esta feature.
+- **Las 5 líneas cambiadas sin cubrir**: el arnés da el porcentaje agregado y no
+  las enumera, y no se han listado a mano para no lanzar una segunda medición de
+  cobertura mientras corría la campaña de mutación. Con 98,5 % sobre 331 líneas
+  y 79 de 93 mutantes muertos, el hueco no está en la lógica de riesgo: la
+  campaña lo confirma superviviente por superviviente.
+- **Rigor `estandar` cumplido**: fase RED con traza real en **R7, R12** (T1),
+  **R15** (T3) y **R14** (T6); cobertura por encima del umbral; campaña de
+  mutación con **cero** secciones en `PENDIENTE`.

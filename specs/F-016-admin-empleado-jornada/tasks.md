@@ -188,7 +188,7 @@ Reglas que no se negocian durante la ejecución:
       sensibles sobre lo añadido (`grep -niE "dni|[0-9]{8}[A-Za-z]|password|
       key|token"`), con el resultado pegado en el informe.
 
-- [ ] **T9**: Campaña de mutación y evidencias —
+- [x] **T9**: Campaña de mutación y evidencias —
       `python -m harness.mutacion --feature F-016`; analizar **cada**
       superviviente en `progress/mutacion_F-016.md` (ninguno en `PENDIENTE`)
       y completar la sección «Evidencias» de `progress/impl_F-016.md` con los
@@ -199,7 +199,7 @@ Reglas que no se negocian durante la ejecución:
       | Verificación: existe `progress/mutacion_F-016.md` con totales reales
       y sin secciones pendientes.
 
-- [ ] **T10**: Ejecutar `bash harness/init.sh` en verde (comando limpio, sin
+- [x] **T10**: Ejecutar `bash harness/init.sh` en verde (comando limpio, sin
       pipes ni decoración) y dejar `tasks.md` con todas las tareas marcadas.
       | Verificación: `bash harness/init.sh` termina con exit code 0,
       incluida la puerta de cobertura de las líneas cambiadas.
