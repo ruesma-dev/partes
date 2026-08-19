@@ -503,3 +503,32 @@ dejó el spec-author (`hasta` exclusivo; validaciones a F-016).
 > **Estado de la spec**: pendiente de la lectura del humano. F-015 sigue
 > `pending` en `harness/features.json`; el líder no la ha pasado a
 > `spec_ready`.
+
+### 13 ter. La puerta R35 se INVIERTE (decisión del humano, 2026-08-19, tarde)
+
+El humano decide que **F-014 no es crítica** para el funcionamiento: es un
+problema conocido, el cambio en Sigrid depende de RRHH y lleva tiempo. Queda
+como **deuda apuntada**, no como bloqueo, y él avisará cuando se pueda
+retomar.
+
+**Consecuencia sobre R35, que queda reescrito así:**
+
+- **F-015 SÍ se puede mergear y desplegar sin F-014.** Es seguro y está
+  demostrado: con `c = 8` y `S = 40` el último laborable recibe `40 − 32 = 8`,
+  o sea exactamente lo de hoy. Es la **regresión cero** de R11, protegida por
+  los dorados de F-003, que no se tocan. Para los 7 recursos de la cuadrilla,
+  F-015 sin F-014 deja las cosas **igual que ahora** (+2 h/semana de extra
+  automática, que es el problema que ya existe hoy).
+- **Lo que NO se puede hacer es lo contrario**: aplicar el `candef = 9` en
+  Sigrid mientras sv3 y sv4 sigan sin F-015 desplegada. Eso sí hace daño
+  (−3 h/semana de extra negativa: peor que hoy). Por eso la petición de F-014
+  sigue con su ⛔ NO ENVIAR TODAVÍA.
+
+**La puerta, por tanto, ya no gobierna el merge de F-015 sino el envío de la
+petición de F-014**: primero se despliega F-015, después se pide el cambio en
+Sigrid. Con ese orden no hay ninguna ventana peligrosa.
+
+El criterio de aceptación original de R35 («`harness/features.json` tiene
+F-014 en `done`») **deja de aplicarse a F-015**. El requisito se conserva por
+trazabilidad, con esta nota, y su verificación pasa a ser la del envío de la
+petición.

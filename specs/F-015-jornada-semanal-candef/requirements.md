@@ -370,8 +370,16 @@ del monorepo** (guardianes de las copias gemelas). Justificación en
     tiene remoto), sin push.
   - *Test*: revisión del reviewer contra C3/C5 (+ el `grep` anterior).
 
-- **R35** (comportamiento no deseado; **requisito de PROCESO**, no de
-  software). SI **F-014 no está verificada en Sigrid** (los 7 recursos de la
+- **R35** — **REESCRITO el 2026-08-19 por decisión del humano: la puerta se
+  INVIERTE.** F-015 **sí** se mergea y despliega sin F-014 (es regresión
+  cero, R11). Lo que no se hace es lo contrario: la petición de F-014 no se
+  envía hasta que F-015 esté desplegada, porque `candef = 9` con jornada
+  plana daría −3 h/semana a esos 7 recursos. Detalle en `design.md` §13 ter.
+  El texto original se conserva debajo para trazabilidad, **pero su criterio
+  de aceptación ya no aplica a F-015**.
+
+- **R35 (texto original)** (comportamiento no deseado; **requisito de
+  PROCESO**, no de software). SI **F-014 no está verificada en Sigrid** (los 7 recursos de la
   cuadrilla con `candef = 9` en su hora por defecto y el octavo con DNI en
   `emp`), ENTONCES la rama `feature/F-015-jornada-semanal-candef` **no debe
   mergearse a `dev` ni desplegarse**. Decisión del humano (F-012 §10.6, D3).

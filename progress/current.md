@@ -1,13 +1,25 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-Sesión 2026-08-19. **F-014 `blocked`** (a la espera de RRHH, motivo abajo) y
-**F-015 con la spec redactada, pendiente de que la lea el humano**. Ninguna
-feature `in_progress`. `dev` = `cf77e6a`. Dos ramas vivas, ninguna mergeada:
-`feature/F-014-candef-9-sigrid` (5 commits) y
-`feature/F-015-jornada-semanal-candef` (spec + este `current.md`).
+Sesión 2026-08-19. **F-015 `in_progress`** (implementación en marcha sobre su
+spec aprobada), **F-016 con la spec en redacción** y **F-014 `blocked` como
+DEUDA IMPORTANTE aparcada** (decisión del humano: no es crítica, la ejecuta
+RRHH y lleva tiempo; él avisará cuando se pueda retomar). `dev` = `cf77e6a`.
+Tres ramas vivas, ninguna mergeada: `feature/F-014-candef-9-sigrid`,
+`feature/F-015-jornada-semanal-candef` y
+`feature/F-016-admin-empleado-jornada`.
 
-## F-014 · bloqueada a la espera de RRHH (2026-08-19)
+## F-014 · DEUDA IMPORTANTE, aparcada por decisión del humano (2026-08-19)
+
+> **Decisión del humano (2026-08-19, tarde)**: lo que falta de F-014 **no es
+> crítico para el funcionamiento**. Es un problema conocido —esos 7
+> trabajadores acumulan +2 h/semana de extra automática, como hasta hoy—, el
+> cambio lo ejecuta RRHH en Sigrid y **lleva tiempo**. Queda **apuntado como
+> deuda importante**, NO como bloqueo del backlog: el humano avisará cuando
+> se pueda retomar. **F-015 no espera a F-014** (ver «la puerta se invierte»
+> abajo).
+
+
 
 **Motivo del `blocked`**: el `acceptance` 2 exige verificar por sigrid-api,
 tras el cambio, que los 7 recursos tienen `candef = 9` y que `MO/0037` tiene
@@ -70,10 +82,9 @@ R29–R35 nuevos), `design.md` (modelo de resolución, firmas, DDL, 8
 decisiones propias DA1–DA8) y `tasks.md` (13 tareas, T12 MANUAL del humano,
 T13 init.sh + mutación). Informe: `progress/spec_F-015.md`.
 
-**Estado**: F-015 sigue `pending` en `harness/features.json`. El humano
-quiere leer la spec antes de que se implemente (PARADA 1). Siguiente acción
-del líder cuando dé el visto bueno: `spec_ready` → `in_progress` → lanzar
-`implementer`.
+**Estado**: **`in_progress`** desde el 2026-08-19 (tarde). El humano dio el
+visto bueno a la spec y ordenó arrancar. El `implementer` trabaja las 13
+tareas de `tasks.md` en la rama `feature/F-015-jornada-semanal-candef`.
 
 ### Ventana F-014 → F-015 (hallazgo del spec-author, design §11.2)
 
@@ -87,8 +98,13 @@ inversa** de la intuitiva:
 | **F-014 sin F-015** | **−3 h/semana de extra negativa: peor que hoy** |
 | F-014 + F-015 | 0 extras (lo que registran los humanos) |
 
-**Decisión del humano (2026-08-19)**: no se envía la petición de F-014 hasta
-que F-015 esté lista. Se elimina la ventana en vez de gestionarla.
+**Decisión del humano (2026-08-19), la puerta se INVIERTE**: F-015 **sí** se
+mergea y despliega sin F-014 (es regresión cero: con c 8 y S 40 el último
+laborable recibe 40 − 32 = 8, o sea lo de hoy). Lo que NO se hace es lo
+contrario: la petición de F-014 **no se envía hasta que F-015 esté
+desplegada**, porque `candef = 9` con jornada plana daría −3 h/semana. Es
+decir: primero F-015 en producción, después se pide el cambio en Sigrid.
+Escrito en `specs/F-015-.../design.md` §13 ter y R35 reescrito.
 
 ### Decisiones del humano sobre la spec (2026-08-19)
 
@@ -106,13 +122,23 @@ que F-015 esté lista. Se elimina la ventana en vez de gestionarla.
 
 Las tres quedan escritas en `specs/F-015-.../design.md` §13 bis.
 
+## F-016 · spec en redacción (2026-08-19)
+
+Pantalla de administración de `empleado_jornada` en sv4: alta, edición y
+cierre de jornadas especiales por trabajador. Sigue `pending`; el
+`spec-author` redacta `specs/F-016-admin-empleado-jornada/` en un **worktree
+aislado** sobre la rama `feature/F-016-admin-empleado-jornada`, en paralelo
+con la implementación de F-015. Depende de la tabla que crea F-015 (R18/R30)
+y de las validaciones que F-015 dejó explícitamente para aquí (R27).
+
 ## Orden del backlog (por prioridad en `harness/features.json`)
 
 1. **F-014** — `blocked`, ver arriba. Solo la desbloquea RRHH.
 2. **F-015** (estandar, sdd=true) — **spec ya redactada** (ver arriba),
    pendiente de lectura del humano. Su **spec** no dependía de F-014; su
    **merge** sí, y además el cambio en Sigrid espera al despliegue.
-3. **F-016** — pantalla de administración de `empleado_jornada` (tras F-015).
+3. **F-016** — pantalla de administración de `empleado_jornada`: **spec en
+   redacción ya** (ver arriba), implementación tras F-015.
 4. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
    F-008 roles · F-009 automejoras del arnés (lista larga en history.md:
    AM de F-013, F-004, F-010 y ahora F-014) · F-011 jornada reducida

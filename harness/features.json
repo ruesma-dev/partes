@@ -185,7 +185,7 @@
       "title": "Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada",
       "description": "Implementación de lo que propone el estudio F-012 (specs/F-012-estudio-jornada-semanal, requisitos R10–R25 del bloque B, tasks §'Propuesta de tasks para F-015'). Resolutor único gemelo sv3/sv4: L–V = candef efectivo salvo el ÚLTIMO DÍA LABORABLE de la semana del trabajador (calendario F-003; festivo cuenta como jornada), que vale jornada semanal − 4×candef (nunca negativo); jornada semanal derivada del candef por el mapa configurable JORNADA_SEMANAL_POR_CANDEF (default 8:40,9:42; env espejo en sv3 y sv4; candef válido fuera del mapa → jornada plana 5×candef + WARNING; sin calendario cableado → viernes). Excepciones por trabajador en tabla nueva empleado_jornada de la BBDD partes (DNI normalizado, jornada semanal y/o patrón 7 valores, vigencia desde/hasta, origen, auditoría), declarada en las DOS copias de orm_models.py; si falla su lectura, derivada + WARNING. sv3 usa la jornada del día en el split de extras (excluyendo del re-split lo registrado/encolado/approved, coherente con F-004); sv4 en avisos de jornada incompleta, KPI (enseña patrón y S aplicada) y +Nuevo (jornada_dia con fecha). Regresión cero con candef 8. PRERREQUISITOS: F-014 cerrada (candef 9 en Sigrid) y F-010 antes (orm_models resincronizado, decisión D6 aprobada). Servicios: sv3 y sv4 (duplicación tolerada de orm_models y resolutor gemelo, patrón F-003).",
       "acceptance": [],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 7,
