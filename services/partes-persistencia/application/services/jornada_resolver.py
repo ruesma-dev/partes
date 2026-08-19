@@ -28,7 +28,13 @@ Todo lo de aqui son FUNCIONES PURAS: el calendario llega ya ligado al DNI
 como callable `es_laborable(date) -> bool` y los avisos los emite quien
 llama, que es quien sabe deduplicarlos por recurso y por pasada.
 """
-from __future__ import annotations
+# NOTA (F-015): este modulo NO lleva `from __future__ import
+# annotations` a proposito. Se carga por RUTA como modulo suelto
+# desde dos guardianes del monorepo (el gemelo de F-003 y el de
+# F-015), y con las anotaciones aplazadas `@dataclass` intenta
+# resolverlas por `sys.modules[cls.__module__]`, que en esa forma de
+# carga no existe: las dataclases de aqui abajo no se podrian
+# construir. Las anotaciones nativas de 3.12 bastan para lo que hay.
 
 from dataclasses import dataclass
 from datetime import date, timedelta

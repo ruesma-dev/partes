@@ -41,7 +41,7 @@ Reglas que no se negocian durante la ejecución:
       en verde tras la implementación; traza de la fase RED pegada en
       `progress/impl_F-015.md`.
 
-- [ ] **T2**: Gemelo de sv4 —
+- [x] **T2**: Gemelo de sv4 —
       `services/partes-front/application/services/jornada_resolver.py` con la
       misma API pública y el mismo comportamiento (docstring propio, como
       hoy). Guardián `tests/test_f015_r19_jornada_resolver_gemelo.py` en la
