@@ -12,6 +12,14 @@
 > `dev`. Sin ella no existen ni la tabla, ni `EmpleadoJornadaOrm`, ni el
 > proveedor con TTL de sv4. Ver `design.md` §11 (riesgo D1).
 >
+> **Prerrequisito RECOMENDADO, no bloqueante**: **F-017 · «Identidad real de
+> Easy Auth en sv4»** (decisión del humano y del líder del 2026-08-19, ver
+> `design.md` §13 duda 2 y §14). F-016 consume la identidad por **un único
+> helper** (`_actor(request)`); si F-017 todavía no existe, ese helper cae a
+> `DEFAULT_REVIEWER` **exactamente como hace hoy el resto del portal**, y
+> F-016 se implementa igual. Cuando F-017 llegue, `_actor` pasa a devolver el
+> principal real y F-016 **no cambia ni una línea**.
+>
 > **Semántica heredada que NO se reabre** (F-015 §6 y su duda 4, aceptada por
 > el humano el 2026-08-19): la vigencia es el intervalo semiabierto
 > `desde ≤ d < hasta`; `desde` es **inclusivo** y `hasta` es **EXCLUSIVO**;
@@ -27,8 +35,13 @@
 - **`S`** — `jornada_semanal` de la fila.
 - **Último día incluido** — la fecha que ve y escribe el humano en el
   formulario. Se traduce a `hasta = último día incluido + 1 día`.
-- **Actor** — la identidad que se sella en `created_by` / `updated_by`
-  (ver R13; hoy sv4 no lee Easy Auth, ver `design.md` §5.4).
+- **Actor** — la identidad que se sella en `created_by` / `updated_by`, tal
+  como la devuelve el **único** helper `_actor(request)` (ver R13). Hoy sv4
+  no lee Easy Auth y ese helper cae a `DEFAULT_REVIEWER`; F-017 le enchufará
+  el principal real sin tocar F-016 (`design.md` §5.3 y §14).
+- **Selector de trabajador** — el combo con búsqueda incremental por DNI y
+  nombre contra `GET /api/sigrid/empleados`, el mismo componente que ya usa
+  «+ Nuevo» (R20). El DNI **normalmente no se teclea**: se elige.
 - **Fila vigente en `d`** — `is_active` verdadero y `desde ≤ d` y
   (`hasta` nulo o `d < hasta`).
 
@@ -206,11 +219,42 @@ regla que F-004).
   activo en sv4, SI el DNI del alta no consta en él, el sistema debe
   **guardar igualmente** y devolver en la respuesta un campo `aviso` con el
   texto de que ese DNI no consta en Sigrid.
+  - *Nota tras la decisión del 2026-08-19*: con el selector de R20 el DNI
+    llega **del propio catálogo**, así que este aviso pasa a ser el **caso
+    raro** —el alta manual de R20, o un catálogo refrescado entre medias—,
+    no el camino normal. La regla no cambia: se avisa, **no se bloquea**.
   - *Criterios*: catálogo activo y DNI desconocido ⇒ 200, fila creada y
-    `aviso` presente; catálogo activo y DNI conocido ⇒ 200 sin `aviso`;
-    catálogo **apagado** ⇒ 200 sin `aviso` y sin ninguna llamada al cliente
-    de Sigrid (la pantalla no depende de que Sigrid esté cableado).
+    `aviso` presente; catálogo activo y DNI **elegido en el selector** ⇒ 200
+    sin `aviso` (el camino normal no molesta al humano); catálogo **apagado**
+    ⇒ 200 sin `aviso` y sin ninguna llamada al cliente de Sigrid (la pantalla
+    no depende de que Sigrid esté cableado).
   - *Test*: `test_f016_r19_dni_desconocido_avisa`.
+
+- **R20** (dirigido por evento). CUANDO el humano va a indicar el trabajador
+  de un alta, el sistema debe ofrecerle un **selector con búsqueda
+  incremental** que muestre **DNI y nombre** y que se alimente del endpoint
+  **ya existente** `GET /api/sigrid/empleados`, reutilizando el mismo
+  componente del portal (`combo-simple` + `_comboSimple`, el de «+ Nuevo»);
+  al elegir un trabajador, el DNI queda fijado desde el catálogo. El sistema
+  debe además ofrecer un **alta manual** (escribir el DNI a mano) como
+  camino de excepción, y usarlo como único camino DONDE Sigrid no esté
+  cableado en sv4.
+  - *Criterios*: el HTML de `GET /admin/jornadas` contiene el marcado del
+    combo con las clases y la estructura que ya usa `nuevo_parte.html`
+    (`combo-simple` / `combo-panel` / campo oculto con el DNI) y **no**
+    define ningún endpoint nuevo de catálogo (el diff no añade rutas
+    `/api/sigrid/*`); con `settings.sigrid_lookup_enabled` en **falso** (es
+    decir, sin `SIGRID_API_BASE_URL` / key / database, que es como corre la
+    suite) la página **sigue respondiendo 200**, el selector aparece
+    deshabilitado con su texto de ayuda y el campo de DNI manual está
+    visible; el modo edición
+    (`?editar=<id>`) muestra el trabajador pero **no** deja cambiarlo (R4);
+    la búsqueda del componente ya filtra por nombre **y** por DNI, así que
+    no se escribe un buscador nuevo.
+  - *Test*: `test_f016_r20_selector_trabajador` (marcado y degradación, en
+    la vista) + `node --check` del JS y la verificación MANUAL 6 de
+    `design.md` §8.2 (el comportamiento del combo en el navegador no es
+    testeable en este repositorio: no hay arnés de JS).
 
 ## Auditoría, caché y acceso
 
@@ -220,9 +264,14 @@ regla que F-004).
   reactivar), con instantes UTC en ISO-8601 y el actor resuelto por un único
   punto del código.
   - *Criterios*: las cuatro operaciones de modificación sellan
-    `updated_by`; con la cabecera de Easy Auth presente en la petición se
-    sella ese principal; sin ella, se sella `DEFAULT_REVIEWER`; sin ninguno
-    de los dos, se sella `NULL` y la operación **no** falla.
+    `updated_by`; el actor se resuelve en **un solo sitio** —el helper
+    `_actor(request)`, y `grep` no encuentra ninguna otra lectura de la
+    identidad en el código de F-016—; **mientras F-017 no exista**, ese
+    helper devuelve `DEFAULT_REVIEWER`, igual que hace hoy el resto del
+    portal; sin `DEFAULT_REVIEWER` configurado se sella `NULL` y la
+    operación **no** falla. El test **inyecta el helper** (o parchea su
+    resultado) en vez de fabricar cabeceras: así sigue en verde el día que
+    F-017 cambie su interior.
   - *Test*: `test_f016_r13_auditoria`.
 
 - **R14** (ubicuo). MIENTRAS los servicios cacheen `empleado_jornada` con
@@ -266,6 +315,12 @@ regla que F-004).
     cinco operaciones enteras; ningún endpoint de esta pantalla llama a
     `sigrid-api`, a Graph, a Sesame ni a sv5; toda la suite de F-016 corre
     sobre SQLite en memoria y `Settings(_env_file=None)`.
+  - *Aclaración tras R20*: el selector **no** rompe esto. Pintar la página no
+    consulta el catálogo: el combo pide `GET /api/sigrid/empleados` por
+    `fetch`, desde el navegador, **después** de que el humano teclee, y ese
+    endpoint es de F-003, no de F-016. Sin Sigrid cableado devuelve
+    `{"ok": false, "items": []}` con HTTP 200 y la pantalla sigue entera por
+    el camino manual.
   - *Test*: `test_f016_r17_sin_red`.
 
 ---
@@ -293,6 +348,7 @@ regla que F-004).
 | R17 | `test_f016_r17_sin_red` | `tests/test_f016_vista_admin_jornadas.py` |
 | R18 | `test_f016_r18_dni_normalizado` | `tests/test_f016_validacion_jornada_admin.py` |
 | R19 | `test_f016_r19_dni_desconocido_avisa` | `tests/test_f016_endpoints_admin_jornadas.py` |
+| R20 | `test_f016_r20_selector_trabajador` | `tests/test_f016_vista_admin_jornadas.py` (+ `node --check` y MANUAL 6) |
 
 **Fase RED obligatoria** (rigor `estandar`) con la traza real pegada en
 `progress/impl_F-016.md` para **R7, R12, R14 y R15**: son los cuatro donde un
@@ -307,15 +363,21 @@ solape, la invalidación de caché y la puerta de acceso).
 - **sv3**: no se toca ni un fichero. La conciliación sigue leyendo la tabla
   con su propio TTL (ver R14 y `design.md` §7).
 - **Roles** (F-008): esta feature deja el punto único donde engancharlos
-  (R15), no los implementa. Ver `design.md` §13, duda 1.
-- **Leer la identidad real de Easy Auth en el resto del portal**
-  (`approved_by`, `deleted_by`, …): F-016 introduce el helper solo para sus
-  columnas. Ver `design.md` §13, duda 2.
+  (R15), no los implementa. Ver `design.md` §13, duda 1 (**RESUELTA**).
+- **Leer la identidad real de Easy Auth** (decodificar
+  `X-MS-CLIENT-PRINCIPAL-NAME` / el token base64) y llevarla a
+  `approved_by`, `deleted_by` y las once firmas con `DEFAULT_REVIEWER` que
+  hoy tiene el portal: **eso es F-017**, feature propia (decisión del
+  2026-08-19). F-016 solo declara el helper `_actor(request)` y lo usa; su
+  interior lo escribe F-017. Ver `design.md` §13 duda 2 y **§14**.
 - **Origen `sigrid` / `sesame`**: la columna existe desde F-015 y esta
   pantalla escribe siempre `manual`. Importar excepciones de esas fuentes es
   otra feature.
-- **Buscador / combo de trabajadores contra Sigrid** para elegir el DNI: se
-  queda en el aviso de R19. Ver `design.md` §13, duda 3.
+- **Un endpoint de catálogo propio de F-016**: el selector de R20 consume
+  `GET /api/sigrid/empleados`, que ya existe (F-003). F-016 **no** crea, ni
+  modifica, ni extiende ese endpoint, ni el `EmpleadoCatalog` que lo
+  alimenta. Si el selector necesitara un campo que ese endpoint no da,
+  **parar y consultar** en vez de tocarlo.
 - **Invalidar la caché de sv3 (o la de otras réplicas de sv4) desde la
   pantalla**: exigiría una llamada entre servicios que `docs/ARCHITECTURE.md`
   no contempla. Ver `design.md` §7.

@@ -10,6 +10,13 @@
 > existen `EmpleadoJornadaOrm`, `list_jornadas_empleado()` ni
 > `JornadaEmpleadoProvider`, que son las tres cosas sobre las que F-016 se
 > apoya. Ver §11.1.
+>
+> **Segunda pasada (2026-08-19)**: el humano ha contestado cuatro de las seis
+> dudas de §13. Han quedado **resueltas** la 1 (acceso), la 2 (identidad, con
+> el alcance ampliado y sacado a **F-017**, §14), la 3 (**selector** de
+> trabajador, que cambia el formulario — §5.6, DA11, R20) y la 5 («Reactivar»
+> se queda). Siguen **abiertas** la 4 y la 6. El detalle del cambio está en
+> `progress/spec_F-016.md`.
 
 ---
 
@@ -20,7 +27,7 @@
 | **sv4 `partes-front`** | **SÍ, y solo él** | Es el único servicio con humano delante: portal FastAPI + Jinja2 + JS vanilla con Easy Auth. Ya tiene la sesión a la base `partes`, ya declara `EmpleadoJornadaOrm` (F-015) y ya lee la tabla. Una pantalla de administración de una tabla de esa base es exactamente su trabajo. |
 | sv3 `partes-persistencia` | **NO** | Es un worker de cola sin interfaz humana. Lee `empleado_jornada` (F-015) y seguirá leyéndola igual: **no necesita enterarse de que ahora hay una UI**. Si en algún momento del desarrollo pareciera necesario tocar sv3, es una señal de alarma — ver §12, decisión DA7. |
 | sv1, sv2, sv5 | **NO** | No saben qué es una jornada. sv5 recibe líneas ya desglosadas. |
-| `sigrid-api` | **NO** | Ni una consulta nueva. El único roce con Sigrid es de solo lectura y **opcional**: el catálogo de empleados que sv4 ya tiene cacheado, para avisar de un DNI desconocido (R19). |
+| `sigrid-api` | **NO** | Ni una consulta nueva **y ni un endpoint nuevo**. Los dos roces con Sigrid son de solo lectura, opcionales y **sobre lo que sv4 ya tiene**: el catálogo de empleados cacheado (`EmpleadoCatalog`) para avisar de un DNI desconocido (R19), y el endpoint **ya existente** `GET /api/sigrid/empleados` (F-003) que alimenta el selector de trabajador (R20, §5.6). |
 | `infra/` | **NO** | La única variable nueva (`JORNADAS_ADMIN_ENABLED`) tiene default en código y **no** se declara en el manifiesto: encenderla/apagarla es `az containerapp update`, no un redespliegue. Ver §7 y §13, duda 1. |
 | raíz del monorepo (`tests/`) | **NO** | F-016 no crea ninguna propiedad del monorepo que vigilar: no duplica nada entre servicios. El guardián de F-010 sigue como está y debe seguir en verde (R1). |
 
@@ -45,7 +52,13 @@ Una sola página, `/admin/jornadas`, con dos zonas:
    formulario en los dos modos: `GET /admin/jornadas?editar=<id>` lo devuelve
    **relleno desde el servidor** (patrón PRG, cero JS de precarga) y con el
    botón «Guardar cambios» en vez de «Crear». Campos:
-   - DNI (texto; deshabilitado en modo edición, R4).
+   - **Trabajador** — **selector con búsqueda incremental por DNI y nombre**
+     (R20, §5.6), el mismo componente de «+ Nuevo». Al elegir, el DNI queda
+     en un campo oculto. Debajo, un checkbox **«El trabajador no está en la
+     lista (escribir el DNI a mano)»** que descubre un campo de texto: es el
+     camino de excepción y el único disponible si Sigrid no está cableado.
+     En modo edición el bloque entero se muestra **deshabilitado** con el
+     DNI de la fila (R4: la edición no cambia de trabajador).
    - `Jornada semanal (h)` — número, coma o punto decimal.
    - `Usar patrón por días` (checkbox) → siete números L, M, X, J, V, S, D.
    - `Desde` (`<input type="date">`, por defecto hoy).
@@ -83,21 +96,21 @@ Para una vigencia que acaba el 31/07, escribe 31/07.»
 | Fichero | Contenido | Capa |
 |---|---|---|
 | `services/partes-front/application/services/jornada_admin.py` | Reglas de negocio **puras** de la pantalla: `EntradaJornada`, `JornadaInvalida`, `normalizar_entrada`, `validar_entrada`, `buscar_solape`, `a_hasta_exclusivo`, `a_ultimo_dia_incluido`. Sin BBDD, sin FastAPI, sin logging. Vecino natural de `congelacion.py`, que hace lo mismo para F-004. | **application** |
-| `services/partes-front/templates/admin_jornadas.html` | Plantilla de la página: `{% extends "base.html" %}`, formulario + tabla + aviso de caché. | interface_adapters (vista) |
+| `services/partes-front/templates/admin_jornadas.html` | Plantilla de la página: `{% extends "base.html" %}`, formulario (con el **selector de trabajador** de §5.6, copiando el marcado `combo-simple` de `nuevo_parte.html`) + tabla + aviso de caché. | interface_adapters (vista) |
 | `services/partes-front/tests/test_f016_validacion_jornada_admin.py` | R7–R12, R18 sobre funciones puras (sin app, sin BBDD). | tests sv4 |
 | `services/partes-front/tests/test_f016_endpoints_admin_jornadas.py` | R3–R6, R12 (409), R13, R16, R19 con TestClient + SQLite en memoria. | tests sv4 |
-| `services/partes-front/tests/test_f016_vista_admin_jornadas.py` | R1, R2, R14, R15, R17 (HTML renderizado y puerta de acceso). | tests sv4 |
+| `services/partes-front/tests/test_f016_vista_admin_jornadas.py` | R1, R2, R14, R15, R17, R20 (HTML renderizado, puerta de acceso y marcado del selector). | tests sv4 |
 
 ## 4. Ficheros a modificar
 
 | Fichero | Cambio |
 |---|---|
-| `services/partes-front/interface_adapters/web/app.py` | §5.3: `_actor`, `_exigir_admin_jornadas`, la página `GET /admin/jornadas` y los cinco endpoints JSON; un `templates.env.globals` para el enlace de la barra. |
+| `services/partes-front/interface_adapters/web/app.py` | §5.3: `_actor`, `_exigir_admin_jornadas`, la página `GET /admin/jornadas` (que pasa `sigrid_enabled` al contexto, §5.6) y los cinco endpoints JSON; un `templates.env.globals` para el enlace de la barra. **Ninguna ruta `/api/sigrid/*` nueva ni modificada.** |
 | `services/partes-front/infrastructure/database/parte_repository.py` | §5.2: cinco métodos nuevos en `ParteReviewRepository` (`list_jornadas_admin`, `crear_jornada`, `actualizar_jornada`, `cerrar_jornada`, `set_jornada_activa`). **`list_jornadas_empleado()` de F-015 no se toca.** |
 | `services/partes-front/application/services/jornada_provider.py` | Añadir `invalidar() -> None` a `JornadaEmpleadoProvider` (vacía la caché TTL). Es lo único que F-016 cambia de lo que dejó F-015, y no altera su comportamiento (R14). |
 | `services/partes-front/config/settings.py` | `jornadas_admin_enabled: bool = Field(True, alias="JORNADAS_ADMIN_ENABLED")`. **Única variable nueva.** |
 | `services/partes-front/templates/base.html` | Un enlace `Jornadas` en `<nav class="topnav">`, envuelto en `{% if jornadas_admin_enabled %}` (R15). |
-| `services/partes-front/static/app.js` | Un IIFE nuevo al final, con el patrón de la casa (`MotivoHttp.lanzarSiFalla`, delegación por `data-*`, `window.location.reload()` al terminar). Sin frameworks, sin build. |
+| `services/partes-front/static/app.js` | Un bloque nuevo **dentro del IIFE grande** (el que hoy va de la línea ~40 a la ~2228 y es el que define `_comboSimple`), justo antes de su cierre, para poder **reutilizar el combo sin tocarlo** (§5.6). Patrón de la casa: `MotivoHttp.lanzarSiFalla`, delegación por `data-*`, recarga al terminar. Sin frameworks, sin build. |
 | `services/partes-front/static/styles.css` | **Solo si hace falta.** El objetivo es no tocarlo: `panel`, `table`, `field`, `field-row`, `btn`, `badge`, `alert`, `muted`, `cell-sub`, `cell-actions` ya existen. |
 | `services/partes-front/tests/dobles.py` | `sembrar_jornadas(fabrica, filas) -> list[int]`, al lado de `sembrar_registros`. |
 | `services/partes-front/.env.example` | `JORNADAS_ADMIN_ENABLED=true` con su comentario. |
@@ -213,11 +226,16 @@ Helpers nuevos (uno de cada, y solo uno):
 
 ```python
 def _actor(request: Request) -> str | None:
-    """Quién firma el cambio (R13).
+    """Quién firma el cambio (R13). PUNTO ÚNICO de identidad en F-016.
 
-    Easy Auth (App Service) inyecta `X-MS-CLIENT-PRINCIPAL-NAME` en cada
-    petición autenticada. En local esa cabecera no existe y se cae a
-    `DEFAULT_REVIEWER`, que es lo que hoy usa el resto del portal.
+    HOY devuelve `settings.default_reviewer`, exactamente lo que hace el
+    resto del portal (once sitios de este mismo fichero, ver §14). No lee
+    ninguna cabecera: leer y decodificar la de Easy Auth es trabajo de
+    **F-017**, y cuando F-017 llegue solo cambia el INTERIOR de esta
+    función — F-016 no se toca.
+
+    Si F-017 ya está mergeada al implementar F-016, este helper NO se
+    duplica: se llama al que haya dejado F-017.
     """
 
 def _exigir_admin_jornadas() -> None:
@@ -253,12 +271,23 @@ templates.env.globals["jornadas_admin_enabled"] = bool(settings.jornadas_admin_e
 
 ### 5.4 `static/app.js`
 
-Un IIFE nuevo, autocontenido, que **solo actúa si existe** el contenedor de
+Un bloque nuevo, autocontenido, que **solo actúa si existe** el contenedor de
 la página (`document.getElementById("admin-jornadas")`), como hacen los demás
-bloques del fichero. Responsabilidades:
+bloques del fichero.
 
-1. Mostrar/ocultar los siete campos del patrón con el checkbox, y el campo de
-   fecha de fin con «Sin fecha de fin».
+**Dónde va, y por qué no es un IIFE al final.** `_comboSimple` —el motor del
+selector de R20— es una función **privada** del IIFE grande de `app.js`
+(declarada sobre la línea 1069, dentro del IIFE que abre en la ~40 y cierra
+en la ~2228). Un IIFE nuevo al final del fichero **no la vería**. El bloque
+de F-016 se escribe por tanto **dentro de ese mismo IIFE, justo antes de su
+`})();`**, que es coste cero: no se modifica ni una línea existente. Ver
+DA11.
+
+Responsabilidades:
+
+1. Mostrar/ocultar los siete campos del patrón con el checkbox, el campo de
+   fecha de fin con «Sin fecha de fin», y el DNI manual con el checkbox
+   «El trabajador no está en la lista» (§5.6).
 2. Enviar el formulario por `fetch` (`POST` o `PATCH` según el `data-modo`
    que ponga la plantilla), con `MotivoHttp.lanzarSiFalla`.
 3. En error, pintar el motivo en `#adminjor-status` (y marcar el campo si la
@@ -269,6 +298,8 @@ bloques del fichero. Responsabilidades:
 5. Delegación por `data-*` para `Editar` (navegar a `?editar=<id>`),
    `Cerrar…` (pide el último día incluido y hace POST), `Desactivar` y
    `Reactivar`, con `confirm()` en los dos últimos.
+6. Cablear el selector de trabajador con **una sola llamada** a
+   `_comboSimple` (§5.6).
 
 ### 5.5 Normalización del DNI (R18)
 
@@ -280,6 +311,62 @@ pero sí ata el cabo peligroso: el test de R18 comprueba que la que usa la
 pantalla y la que usa la lectura de jornadas de sv4 dan el **mismo** resultado
 para una batería de entradas. Si alguien las toca por separado, se pone rojo
 antes de que una excepción deje de casar en producción.
+
+### 5.6 Selector de trabajador (R20) — lo que YA existe y lo mínimo que falta
+
+Decisión del humano del **2026-08-19** (duda 3): el DNI **no se teclea**, se
+elige de un selector con DNI y nombre y búsqueda incremental, como los que ya
+usa el portal. Antes de diseñar nada se ha mirado el que existe.
+
+**Lo que ya existe y sirve tal cual (se reutiliza sin tocarlo):**
+
+| Pieza | Dónde | Qué da |
+|---|---|---|
+| `GET /api/sigrid/empleados` | `interface_adapters/web/app.py:1183` | `{"ok": bool, "items": [{"ide", "codigo", "nombre", "dni", "reside", "categoria", "candef", "jornada_sugerida"}]}`. Trae **DNI y nombre**, que es justo lo que R20 pide. |
+| `EmpleadoCatalog` | `application/services/empleado_catalog.py` | Cachea el maestro `emp` de Sigrid con TTL propio y `enabled = client is not None`. Sin cliente, el endpoint responde `{"ok": false, "items": []}` con **HTTP 200** (no 500). |
+| `_comboSimple(rootId, inputId, panelId, url, render, onPick)` | `static/app.js:1069` | El combo entero: carga perezosa con caché en memoria, panel de 15 resultados, filtro **por la etiqueta pintada, por `dni` y por `codigo`**, cierre al hacer clic fuera, `mousedown` para no perder el foco. |
+| Marcado `combo-simple` / `combo-panel` / `combo-option` | `templates/nuevo_parte.html:28-36` y `static/styles.css` | El HTML y el CSS del combo. **No hace falta CSS nuevo.** |
+
+**Cómo se cabla en F-016** (una llamada, dentro del bloque de §5.4):
+
+```js
+_comboSimple("jor-emp-combo", "jor-emp-input", "jor-emp-panel",
+  "/api/sigrid/empleados",
+  function (e) { return (e.dni || "—") + " · " + (e.nombre || ""); },
+  function (e) { document.getElementById("jor-dni").value = e.dni || ""; });
+```
+
+- El `render` pone **el DNI delante** (R20 pide «DNI y nombre»); «+ Nuevo»
+  lo pinta al revés porque allí lo que identifica es el nombre. El filtro del
+  componente ya mira `it.dni` aparte de la etiqueta, así que **la búsqueda
+  incremental por DNI funciona sin añadir nada**.
+- El `onPick` solo rellena el campo oculto `#jor-dni`. Ese campo es el único
+  que lee el envío del formulario, venga del combo o del alta manual: el
+  servidor recibe siempre lo mismo y R18 lo normaliza igual.
+
+**Lo mínimo que hay que añadir, y por qué el componente no basta solo:**
+
+1. **Camino manual.** `_comboSimple` no ofrece salida cuando el catálogo está
+   vacío o apagado: el panel simplemente no se abre. Como R17 exige que la
+   pantalla funcione **sin Sigrid cableado**, la plantilla añade el checkbox
+   «El trabajador no está en la lista (escribir el DNI a mano)» que
+   deshabilita el combo y descubre un `<input type="text">` que escribe en
+   `#jor-dni`. Con `sigrid_enabled` falso, ese checkbox llega **marcado y el
+   combo deshabilitado** desde el servidor, con el mismo `placeholder`
+   «Sigrid no configurado» que usa `nuevo_parte.html`.
+2. **Contexto en la plantilla.** `GET /admin/jornadas` pasa
+   `"sigrid_enabled": settings.sigrid_lookup_enabled`, igual que hacen ya las
+   otras seis vistas del portal (líneas 477, 639, 756, 801, 1060, 1956).
+   Nada más.
+3. **Modo edición.** Con `?editar=<id>`, la plantilla pinta el DNI de la fila
+   como texto y deja combo, checkbox y campo manual **deshabilitados**
+   (R4: cambiar de trabajador es cerrar una fila y crear otra).
+
+**Lo que NO se hace:** promover `_comboSimple` a global compartido (como
+`MotivoHttp` o `PartidaSel`). Sería más «limpio», pero obliga a mover código
+vivo del que cuelgan cuatro combos de features ya cerradas (F-002/F-003) a
+cambio de nada: colocar el bloque de F-016 dentro del mismo IIFE lo resuelve
+sin tocar una línea ajena. Ver DA11.
 
 ---
 
@@ -373,6 +460,14 @@ cliente = TestClient(app)
 - **Regresión**: ningún test existente de sv4 se modifica. Si uno se pone
   rojo, es que se rompió algo que ya funcionaba: **parar y avisar**, no
   adaptar el test.
+- **Lo que del selector SÍ se puede probar sin navegador** (R20): que el HTML
+  trae el marcado del combo con sus ids, que apunta a
+  `/api/sigrid/empleados`, que con `sigrid_lookup_enabled` falso llega el
+  camino manual descubierto y el combo deshabilitado, que en modo edición
+  todo el bloque va deshabilitado, y que **el diff no añade ninguna ruta
+  `/api/sigrid/*`**. Lo que **no**: el comportamiento del combo al teclear —
+  este repositorio no tiene arnés de JS. Eso queda en `node --check` (T7) y
+  en la verificación MANUAL 6.
 - **Campaña de mutación**: `python -m harness.mutacion --feature F-016`, con
   los supervivientes analizados en `progress/mutacion_F-016.md`.
 
@@ -408,9 +503,19 @@ Con `A = [2026-07-01, 2026-08-01)` activa y del mismo DNI:
    que sv3 tarda hasta `JORNADA_CACHE_TTL_S` en usarla.
 4. **Estáticos**: `Ctrl+F5` tras el despliegue (convención de sv4) y
    `node --check services/partes-front/static/app.js` antes del commit.
-5. **Easy Auth en Azure**: comprobar que `created_by` recoge el principal
-   real (`X-MS-CLIENT-PRINCIPAL-NAME`) y no el `DEFAULT_REVIEWER`. En local
-   esa cabecera no existe: es la única forma de verificarlo.
+5. **Identidad**: comprobar que `created_by` lleva lo que corresponde al
+   estado del portal. **Si F-017 aún no está**, lo esperado es
+   `DEFAULT_REVIEWER` (y eso es correcto, no un fallo). **Si F-017 ya está**,
+   en Azure debe verse el principal real de Easy Auth; en local esa cabecera
+   no existe, así que solo se puede verificar desplegado.
+6. **Selector de trabajador (R20)** en el navegador, que es lo único que no
+   cubre ningún test: teclear tres letras del nombre y ver la lista; teclear
+   tres cifras del DNI y ver la misma lista filtrada; elegir uno y comprobar
+   que el alta guarda **ese** DNI normalizado; marcar «no está en la lista»,
+   escribir un DNI que no exista en Sigrid y comprobar que la fila **se crea
+   igual** y sale el aviso de R19. Repetirlo con Sigrid apagado en local
+   (sin `SIGRID_API_BASE_URL`): el combo debe salir deshabilitado y el
+   camino manual funcionar entero.
 
 ---
 
@@ -432,6 +537,14 @@ Con `A = [2026-07-01, 2026-08-01)` activa y del mismo DNI:
   revertir filas de otra tabla. La papelera lógica de R6 es la marcha atrás.
 - **`sigrid_lookup_client.py`, `sesame_api_client.py`, `transfer_*`**: sin
   llamadas nuevas.
+- **`GET /api/sigrid/empleados` (`app.py:1183`) y
+  `application/services/empleado_catalog.py`**: el selector de R20 los
+  **consume tal cual**. Ni un campo nuevo en la respuesta, ni un parámetro
+  de búsqueda, ni un TTL distinto. Si el selector pareciera necesitar algo
+  de ahí, **parar y consultar** (§5.6).
+- **`_comboSimple` (`static/app.js:1069`) y el marcado/CSS del combo**: se
+  reutilizan **sin modificarlos**. F-016 solo lo *llama*. Tampoco se toca
+  `templates/nuevo_parte.html`.
 - **`infra/`**, **`harness/features.json`**, **`progress/current.md`**: los
   mueve el líder, no esta spec.
 
@@ -490,7 +603,19 @@ restricción de exclusión en PostgreSQL obligaría a DDL nuevo (que R1 prohíbe
 y a un tipo `daterange` que el ORM de este proyecto no usa. Queda anotado
 como límite conocido, no como descuido.
 
-### 11.4 El aviso de caché puede convertirse en ruido
+### 11.4 El selector ata media pantalla a que Sigrid esté cableado
+
+Añadido en la segunda pasada (R20). El combo solo tiene contenido si sv4
+tiene cliente de Sigrid; sin él, `GET /api/sigrid/empleados` devuelve la
+lista vacía y el humano se queda mirando un campo que no propone nada. Por
+eso el camino manual **no es un extra**, es el respaldo: se muestra siempre y
+llega ya activado cuando `sigrid_lookup_enabled` es falso (§5.6). El riesgo
+real que queda es más sutil: el catálogo se cachea con TTL propio en
+`EmpleadoCatalog`, así que un trabajador **dado de alta hoy en Sigrid** puede
+tardar en aparecer en la lista. La salida es la misma —alta manual— y el
+aviso de R19 avisa de que ese DNI no consta. No se toca el TTL ajeno.
+
+### 11.5 El aviso de caché puede convertirse en ruido
 
 Un aviso permanente que siempre está acaba siendo invisible. Se asume: es
 preferible a que el humano concluya que la pantalla «no funciona» porque
@@ -520,8 +645,8 @@ cual exige recordar el instante del último cambio, y eso es estado nuevo.
 - **DA4 · Reactivar existe, y revalida.** No estaba en el enunciado («crear,
   editar y cerrar»), pero sin él una desactivación por error solo se arregla
   por SQL — justo lo que esta feature viene a evitar. Cuesta un endpoint y
-  reutiliza la validación de R12. **Si el humano prefiere recortar alcance,
-  es lo primero que se cae** (§13, duda 5).
+  reutiliza la validación de R12. **CONFIRMADO por el humano el 2026-08-19**
+  (§13, duda 5): se queda, y deja de ser candidato a recorte.
 - **DA5 · La validación vive en `application/services/`, no en Pydantic.**
   Los payloads Pydantic del portal (`HoraPayload`, `RegistroEditPayload`…)
   validan **tipos**; aquí hay **reglas de negocio** (solape, «`S` o patrón»)
@@ -554,44 +679,161 @@ cual exige recordar el instante del último cambio, y eso es estado nuevo.
   `poison_reencolar`, 409 en `CongeladoError`) y permite al JS distinguir
   «corrige el campo» de «mira esa otra fila».
 
+### Decisiones de la segunda pasada (2026-08-19, tras las respuestas del humano)
+
+- **DA11 · El selector reutiliza `_comboSimple`, y por eso el JS de F-016 va
+  DENTRO del IIFE grande.** `_comboSimple` es privado de ese IIFE; un bloque
+  nuevo al final del fichero no lo alcanzaría. Las tres salidas eran:
+  (a) duplicar el componente — prohibido por el espíritu de `CLAUDE.md` y
+  garantía de que un día divergen; (b) promoverlo a global como `MotivoHttp`
+  — toca código vivo de cuatro combos de features cerradas para no ganar
+  nada hoy; (c) escribir el bloque dentro del mismo IIFE — **cero líneas
+  ajenas modificadas**. Se elige (c). Si algún día un cuarto sitio lo
+  necesita desde otro IIFE, entonces sí toca promoverlo, y será su feature.
+- **DA12 · El DNI viaja siempre por el mismo campo, venga del combo o del
+  alta manual.** El servidor no distingue el origen y R18 lo normaliza
+  igual. Así R3/R4/R18 no crecen ni un caso por haber añadido el selector, y
+  el aviso de R19 sigue siendo una sola regla en un solo sitio.
+- **DA13 · La identidad se pide por un helper y no se implementa aquí.**
+  F-016 llama a `_actor(request)`; su interior, hoy, es
+  `settings.default_reviewer`. Meter la decodificación de Easy Auth dentro
+  de F-016 mezclaría dos cambios de naturaleza distinta —una pantalla nueva
+  y un cambio de significado de datos ya guardados en todo el portal— en una
+  sola revisión. Sale a **F-017** (§14). Consecuencia práctica: F-016 **no
+  queda bloqueada** por F-017, y cuando F-017 entre, F-016 mejora sola.
+
 ---
 
-## 13. Dudas para el humano (ninguna bloquea la implementación)
+## 13. Dudas para el humano
 
-1. **¿Quién puede entrar, mientras F-008 no exista?** La propuesta es
-   repetir el precedente que el propio humano fijó el 2026-08-13 con el
-   reencolado de mensajes poison: **abierta a cualquier usuario autenticado
-   por Easy Auth**, con `JORNADAS_ADMIN_ENABLED` (default `true`) como
-   interruptor para apagarla entera desde Azure sin tocar código, y un único
-   punto (`_exigir_admin_jornadas`) donde F-008 enchufará el rol. Las dos
-   alternativas, por si prefieres otra: (a) default `false` y encenderla solo
-   cuando la necesites; (b) esperar a F-008 y dejar F-016 en `blocked`.
-   **Recomendación: la propuesta.** La pantalla no borra nada y todo cambio
-   queda firmado.
-2. **¿Se introduce la lectura de la identidad de Easy Auth?** Hoy sv4 **no
-   la lee**: `approved_by` y `deleted_by` se rellenan con la variable
-   `DEFAULT_REVIEWER`, la misma para todos. F-016 necesita «quién», así que
-   propone el helper `_actor(request)` (cabecera
-   `X-MS-CLIENT-PRINCIPAL-NAME`, con `DEFAULT_REVIEWER` de reserva) **solo
-   para sus columnas**. Extenderlo a `approved_by` / `deleted_by` cambiaría
-   el significado de datos ya guardados y es material para F-008. ¿De
-   acuerdo con dejarlo acotado?
-3. **¿Hace falta elegir el trabajador de una lista?** La pantalla pide el DNI
-   a mano y solo **avisa** si no consta en el catálogo de Sigrid (R19). Un
-   selector de trabajadores como el de «+ Nuevo» es bastante más JS y ata la
-   pantalla a que Sigrid esté cableado. Si prefieres el selector, se dice
-   ahora: después es rehacer la mitad del formulario.
-4. **Tres normalizadores de DNI equivalentes en sv4**
-   (`text_match.normalize_dni`, `calendario_provider.normalizar_dni` y el
-   `_norm_dni` local de `build_app`). F-016 **no los unifica** —sería tocar
-   código de tres features ajenas— pero deja un test que salta si divergen
-   (R18). ¿Se abre una feature de limpieza aparte?
-5. **¿Se queda «Reactivar»?** (DA4). No estaba en el enunciado. Si sobra, se
-   quita el endpoint y la mitad de R6, y una desactivación por error vuelve a
-   arreglarse por SQL.
-6. **`origen`**: la pantalla escribe siempre `manual` (R3) y, tal como está
-   especificada, deja **editar cualquier fila** con independencia de su
-   `origen` — hoy no existe ninguna que no sea `manual`. Cuando lleguen las
-   importadas de `sigrid` o `sesame`, ¿deberán quedar en solo lectura (una
-   importación posterior pisaría la corrección a mano) o se podrán corregir
-   igualmente desde aquí? No urge, pero condiciona esa feature futura.
+Estado tras la sesión del **2026-08-19**: **cuatro RESUELTAS, dos ABIERTAS**.
+Ninguna bloquea la implementación.
+
+### RESUELTAS
+
+- **1 · ¿Quién puede entrar, mientras F-008 no exista?** — **RESUELTA
+  (2026-08-19)**: **cualquier usuario autenticado**, con interruptor. Se
+  acepta la propuesta tal cual, repitiendo el precedente que el propio humano
+  fijó el **2026-08-13** con el reencolado de mensajes poison. Queda por
+  tanto: `JORNADAS_ADMIN_ENABLED` con default **`true`** para poder apagar la
+  pantalla entera desde Azure sin tocar código, y la puerta **única**
+  `_exigir_admin_jornadas()` (DA9, R15) para que **F-008 solo tenga que
+  enchufar el rol ahí**. Descartadas las alternativas de default apagado y
+  de dejar F-016 en `blocked` hasta F-008.
+
+- **2 · ¿Se introduce la lectura de la identidad de Easy Auth?** —
+  **RESUELTA (2026-08-19), y con el alcance AMPLIADO**. El hallazgo era
+  correcto y el líder lo ha verificado: **no hay ni una referencia a
+  `X-MS-CLIENT-PRINCIPAL` en el repositorio** y todo el portal firma con
+  `DEFAULT_REVIEWER`. Decisión del humano: **sí se lee Easy Auth, y no solo
+  para las columnas de F-016** — `approved_by` y `deleted_by` deben llevar
+  también el usuario real. Decisión del líder sobre **cómo organizarlo**:
+  esa ampliación **NO entra en F-016**; sale a una feature propia,
+  **F-017 · «Identidad real de Easy Auth en sv4»**, porque cambia el
+  significado de datos ya guardados (hoy todas las filas dicen lo mismo) y
+  merece sus propios tests y su propia revisión.
+  **Efecto en F-016**: F-017 es **prerrequisito recomendado, no
+  bloqueante**. F-016 consume la identidad por un helper único
+  (`_actor(request)`, §5.3) que **hoy cae a `DEFAULT_REVIEWER` exactamente
+  como el resto del portal**; cuando F-017 exista, ese helper devuelve el
+  principal real y F-016 no cambia. Lo que debería cubrir F-017 está en
+  **§14** (enumerado como propuesta, no redactado como spec).
+
+- **3 · ¿Selector de trabajador o DNI a mano?** — **RESUELTA (2026-08-19):
+  selector**, y **cambia el diseño**. El humano **no** quiere teclear el DNI:
+  quiere un selector con **DNI y nombre y autorrellenado** como los que ya
+  usa el portal. Se ha mirado el que existe («+ Nuevo») y se reutiliza:
+  endpoint `GET /api/sigrid/empleados` **sin cambios** y componente
+  `_comboSimple` **sin cambios**. Lo mínimo que hay que añadir —camino manual
+  de excepción, `sigrid_enabled` en el contexto de la plantilla y el bloque
+  deshabilitado en modo edición— está detallado y justificado en **§5.6**;
+  la ubicación del JS, en **DA11**. Requisito nuevo **R20**; **R19** se
+  degrada a caso raro (el aviso «no consta en Sigrid» solo aparece por el
+  alta manual).
+
+- **5 · ¿Se queda «Reactivar»?** — **RESUELTA (2026-08-19): se queda.** Deja
+  de estar marcado como «lo primero que se recorta» (DA4). R6 se implementa
+  entero, con la revalidación de solape al reactivar.
+
+### ABIERTAS (no las cierra el spec-author)
+
+- **4 · Tres normalizadores de DNI equivalentes en sv4**
+  (`application/services/text_match.normalize_dni`,
+  `calendario_provider.normalizar_dni` y el `_norm_dni` local de `build_app`,
+  `app.py:363`). F-016 **no los unifica** —sería tocar código de tres
+  features ajenas— pero deja un test que salta si divergen (R18). ¿Se abre
+  una feature de limpieza aparte? **Sigue abierta.**
+
+- **6 · `origen` de las filas importadas.** La pantalla escribe siempre
+  `manual` (R3) y, tal como está especificada, deja **editar cualquier fila**
+  con independencia de su `origen` — hoy no existe ninguna que no sea
+  `manual`. Cuando lleguen las importadas de `sigrid` o `sesame`, ¿deberán
+  quedar en solo lectura (una importación posterior pisaría la corrección a
+  mano) o se podrán corregir igualmente desde aquí? No urge, pero condiciona
+  esa feature futura. **Sigue abierta.**
+
+---
+
+## 14. Propuesta de F-017 · «Identidad real de Easy Auth en sv4»
+
+**Esto NO es la spec de F-017**: es el material para que el líder pueda darla
+de alta con criterio (decisión del 2026-08-19, duda 2). F-016 no depende de
+que exista.
+
+**Por qué es feature propia y no un trozo de F-016.** No añade una pantalla:
+cambia **el significado de datos ya guardados**. Hoy toda fila aprobada o
+borrada del portal dice lo mismo (`DEFAULT_REVIEWER`), así que la columna no
+distingue a nadie; después empezará a distinguir. Ese corte hay que decidirlo
+y documentarlo, no dejarlo caer de rebote dentro de otra feature.
+
+**Qué debería cubrir, punto por punto:**
+
+1. **Leer y decodificar la cabecera de Easy Auth.** App Service inyecta
+   `X-MS-CLIENT-PRINCIPAL-NAME` (el UPN, en claro) y `X-MS-CLIENT-PRINCIPAL`
+   (el token de claims en base64). Decidir cuál manda —lo barato y estable es
+   el `-NAME`, y caer al base64 solo si falta— y **dónde** se corta la
+   longitud, porque `created_by` / `approved_by` son columnas de texto con
+   límite.
+2. **El fallback cuando no llega**, que es el caso de **todo el desarrollo
+   local**: sin cabecera, `settings.default_reviewer`; sin ninguno de los
+   dos, `NULL` **sin fallar la operación**. Ese orden es exactamente el que
+   F-016 ya asume en R13.
+3. **Un solo helper, y los once sitios que hoy firman con
+   `settings.default_reviewer`** — todos en
+   `services/partes-front/interface_adapters/web/app.py`, verificados en el
+   árbol el 2026-08-19:
+
+   | Línea | Ruta / función | Qué firma |
+   |---|---|---|
+   | 1500 | `_payload_registro` | campo `usuario` del payload de edición |
+   | 1594 | `_trazar` (aprobación) | `usuario=` de la traza |
+   | 1629 | `POST /api/aprobar/ejecutar` | usuario del log (`or "(sin usuario)"`) |
+   | 1684, 1687 | `POST /api/aprobar/encolar` | `usuario=` (dos llamadas) |
+   | 1841 | `POST /documents/{id}/approve` | **`approved_by`** |
+   | 1867 | `POST /documents/{id}/delete` | **`deleted_by`** |
+   | 1881 | `POST /api/registro/{id}/delete` | `by=` |
+   | 1900 | `POST /api/obra/{key}/delete` | `by=` |
+   | 1910 | `POST /api/trabajador/{key}/delete` | `by=` |
+   | 2121 | `POST /api/partes/nuevo` | `by=` (alta manual de parte) |
+
+   Los cuatro `by=` van al **`undo_log`**, así que el cambio también se ve en
+   el widget de deshacer: conviene mirarlo antes de decidir el formato del
+   texto.
+4. **Qué se hace con las filas históricas.** La propuesta es la barata y
+   honesta: **no se reescriben**. Las filas anteriores conservan
+   `DEFAULT_REVIEWER` y se **documenta el corte** —fecha de despliegue de
+   F-017— en `docs/referencia/partes-proyecto.md`, para que dentro de un año
+   nadie interprete que una persona aprobó doscientos partes en un día. Una
+   migración que inventara autores sería falsificar auditoría.
+5. **Tests sin red**: fabricar la cabecera en el `TestClient` y comprobar el
+   principal en cada una de las columnas; comprobar el fallback sin cabecera;
+   comprobar que una cabecera vacía o mal formada **no rompe** ninguna ruta.
+   La verificación en Azure (que la cabecera llega de verdad) es MANUAL: en
+   local no existe.
+6. **Fuera de F-017**: los **roles** (quién puede hacer qué) siguen siendo
+   F-008. F-017 responde «quién es», no «qué puede».
+
+**Orden recomendado**: F-017 **antes** que F-016 si el humano quiere que las
+filas de `empleado_jornada` nazcan ya con el usuario real desde el primer
+día; **después** si prefiere no retrasar la pantalla. Las dos órdenes
+funcionan sin retrabajo.

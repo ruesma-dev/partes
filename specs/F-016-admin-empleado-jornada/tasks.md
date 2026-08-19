@@ -6,6 +6,12 @@ crea otra). Un commit **local** por tarea, mensaje `F-016 Tn: …`, por rutas
 explícitas (nunca `git add -A`). Sin `git push` y sin PR: eso lo hace el
 humano.
 
+> **Actualizado el 2026-08-19** con las decisiones del humano: acceso abierto
+> a cualquier autenticado con interruptor (duda 1), identidad por helper con
+> F-017 aparte (duda 2), **selector de trabajador** en vez de teclear el DNI
+> (duda 3, afecta a T5 y T7) y «Reactivar» confirmado (duda 5). Ver
+> `design.md` §13 y §14.
+
 Rigor **`estandar`** ⇒ fase **RED** con traza real en `progress/impl_F-016.md`
 para **R7, R12, R14 y R15**; **cobertura** de las líneas cambiadas ≥ umbral;
 **campaña de mutación** con los supervivientes analizados.
@@ -23,6 +29,13 @@ Reglas que no se negocian durante la ejecución:
   que ya funcionaba: parar y avisar, no adaptar el test.
 - **Ni un DNI ni un nombre de persona real** en el código, los tests, la spec
   o los informes.
+- **Ninguna ruta `/api/sigrid/*` nueva ni modificada**, y **`_comboSimple` no
+  se toca**: el selector de R20 los reutiliza tal cual (`design.md` §5.6). Si
+  parece que hay que cambiarlos, parar y consultar.
+- **La identidad no se implementa aquí.** `_actor(request)` devuelve
+  `settings.default_reviewer` y punto; leer Easy Auth es **F-017**
+  (`design.md` §14). Si F-017 ya está mergeada al empezar, se **usa** su
+  helper en vez de escribir otro.
 - Si la spec resulta ambigua o una herramienta falla de forma inesperada:
   `blocked`, motivo en `progress/current.md`, parar. Nada de workarounds.
 
@@ -84,11 +97,15 @@ Reglas que no se negocian durante la ejecución:
       y `_actor(request)` en
       `services/partes-front/interface_adapters/web/app.py` (`design.md`
       §5.3); `JORNADAS_ADMIN_ENABLED=true` con su comentario en
-      `services/partes-front/.env.example`. Tests **primero** (fase RED) en
+      `services/partes-front/.env.example`. `_actor` devuelve
+      `settings.default_reviewer` **sin leer cabeceras** (eso es F-017,
+      `design.md` §14): un solo punto, con el docstring que dice quién lo
+      relevará. Tests **primero** (fase RED) en
       `services/partes-front/tests/test_f016_vista_admin_jornadas.py`:
       `test_f016_r15_puerta_de_acceso` (404 en las seis rutas con la variable
       a falso; 200 con ella a verdadero) y la parte de `_actor` de
-      `test_f016_r13_auditoria`.
+      `test_f016_r13_auditoria`, que **inyecta o parchea el helper** en vez
+      de fabricar cabeceras, para que siga en verde cuando llegue F-017.
       | Verificación: `python -m pytest services/partes-front/tests -q -k f016`
       en verde; traza de la fase RED de **R15** en el informe; el `.env` real
       **no** se toca (`git status` limpio para `services/partes-front/.env`).
@@ -115,11 +132,23 @@ Reglas que no se negocian durante la ejecución:
       existentes; enlace `Jornadas` en `<nav class="topnav">` de
       `services/partes-front/templates/base.html` bajo
       `{% if jornadas_admin_enabled %}`, con el global registrado junto a
-      `asset_version`. Tests: `test_f016_r1_schema_intacto`,
-      `test_f016_r2_listado`, `test_f016_r17_sin_red`.
+      `asset_version`. **Incluye el bloque de trabajador de `design.md`
+      §5.6**: marcado `combo-simple` / `combo-panel` copiado de
+      `nuevo_parte.html` (ids `jor-emp-combo` / `jor-emp-input` /
+      `jor-emp-panel` y el oculto `jor-dni`), checkbox «El trabajador no está
+      en la lista» con su campo de texto, y `"sigrid_enabled":
+      settings.sigrid_lookup_enabled` en el contexto de la vista. En modo
+      edición, bloque **deshabilitado** con el DNI de la fila (R4).
+      Tests: `test_f016_r1_schema_intacto`, `test_f016_r2_listado`,
+      `test_f016_r17_sin_red`, `test_f016_r20_selector_trabajador`.
       | Verificación: `python -m pytest services/partes-front/tests -q -k f016`
       en verde; el test de listado comprueba el orden, el estado vacío, el
-      «sin fin» y el último día incluido pintado (no el valor exclusivo).
+      «sin fin» y el último día incluido pintado (no el valor exclusivo); el
+      de R20 comprueba el marcado, que apunta a `/api/sigrid/empleados`, la
+      degradación con `sigrid_lookup_enabled` falso y el bloque deshabilitado
+      en `?editar=<id>`; además,
+      `git diff dev -- services/partes-front/interface_adapters/web/app.py`
+      **no** muestra ninguna ruta `/api/sigrid/*` añadida ni cambiada.
 
 - [ ] **T6**: Aviso de caché e invalidación — `invalidar()` en
       `services/partes-front/application/services/jornada_provider.py`;
@@ -132,13 +161,21 @@ Reglas que no se negocian durante la ejecución:
       en verde; traza de la fase RED de **R14** en el informe; con TTL 900 en
       settings el HTML dice «15 minutos» (número derivado, no cableado).
 
-- [ ] **T7**: JS de la pantalla — IIFE nuevo al final de
-      `services/partes-front/static/app.js` (`design.md` §5.4), con
-      `MotivoHttp.lanzarSiFalla`, delegación por `data-*` y
-      `confirm()` en desactivar/reactivar. Sin frameworks, sin build. Tocar
-      `static/styles.css` **solo** si alguna clase falta de verdad.
+- [ ] **T7**: JS de la pantalla — bloque nuevo **dentro del IIFE grande** de
+      `services/partes-front/static/app.js` (el que define `_comboSimple`;
+      hoy abre sobre la línea 40 y cierra sobre la 2228), **justo antes de su
+      cierre** (`design.md` §5.4 y DA11), con `MotivoHttp.lanzarSiFalla`,
+      delegación por `data-*` y `confirm()` en desactivar/reactivar. Incluye
+      **una** llamada a `_comboSimple` para el selector (`design.md` §5.6,
+      con el `render` que pone el **DNI delante** del nombre) y el
+      mostrar/ocultar del DNI manual. **`_comboSimple` no se modifica** y no
+      se duplica. Sin frameworks, sin build. Tocar `static/styles.css`
+      **solo** si alguna clase falta de verdad — el combo ya tiene la suya.
       | Verificación: `node --check services/partes-front/static/app.js` sin
-      salida; `python -m pytest services/partes-front/tests -q` en verde.
+      salida; `python -m pytest services/partes-front/tests -q` en verde;
+      `git diff dev -- services/partes-front/static/app.js` muestra **solo
+      líneas añadidas** en el tramo del bloque nuevo (ninguna modificada
+      dentro de `_comboSimple` ni de los combos existentes).
 
 - [ ] **T8**: Documentación — la pantalla y el criterio «último día incluido»
       en `docs/referencia/partes-proyecto.md` (sección de `empleado_jornada`
@@ -181,5 +218,12 @@ Detalle y comandos en `design.md` §8.2. Resumen:
 3. Efecto en caliente: el portal refleja el cambio enseguida; sv3 tarda hasta
    `JORNADA_CACHE_TTL_S`.
 4. `Ctrl+F5` tras desplegar estáticos.
-5. En Azure: `created_by` recoge el principal real de Easy Auth, no
-   `DEFAULT_REVIEWER`.
+5. Identidad: **mientras F-017 no esté**, lo esperado en `created_by` es
+   `DEFAULT_REVIEWER` (correcto, no un fallo). Con F-017 desplegada, en Azure
+   debe verse el principal real de Easy Auth; en local esa cabecera no
+   existe.
+6. **Selector de trabajador (R20)**, lo único que ningún test cubre: buscar
+   por nombre y por DNI, elegir y comprobar el DNI guardado; marcar «no está
+   en la lista», dar de alta un DNI desconocido y ver el aviso de R19 sin que
+   se bloquee; repetirlo con Sigrid apagado (combo deshabilitado, camino
+   manual entero).
