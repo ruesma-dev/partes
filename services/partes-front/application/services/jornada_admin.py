@@ -37,6 +37,12 @@ NOMBRE_DIA: dict[str, str] = {
     "h_dom": "domingo",
 }
 
+#: Y como se llama en la cabecera de una columna estrecha del formulario.
+ABREVIATURA_DIA: dict[str, str] = {
+    "h_lun": "L", "h_mar": "M", "h_mie": "X", "h_jue": "J",
+    "h_vie": "V", "h_sab": "S", "h_dom": "D",
+}
+
 #: Limites de la jornada semanal (R10): mas de 0 y hasta 168 (7 x 24).
 SEMANAL_MINIMA = 0.0
 SEMANAL_MAXIMA = 168.0

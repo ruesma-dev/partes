@@ -48,6 +48,8 @@ from application.services.calendar_builder import (
 from application.services.calendario_provider import CalendarioProvider
 from application.services.holiday_provider import HolidayProvider
 from application.services.jornada_admin import (
+    ABREVIATURA_DIA,
+    DIAS as DIAS_JORNADA,
     JornadaInvalida,
     a_hasta_exclusivo,
     buscar_solape,
@@ -1935,6 +1937,62 @@ def build_app(
     #      nunca se ajusta la fila ajena (DA3);
     #   3. no hay DELETE: la papelera es logica (R6).
     # ----------------------------------------------------------------- #
+
+    def _numero_texto(valor: Any) -> str:
+        """Un float como lo escribiria un humano: `48`, no `48.0`."""
+        return "" if valor is None else f"{float(valor):g}"
+
+    def _fila_para_pantalla(fila: dict) -> dict:
+        """La fila del repositorio, en el idioma de la pantalla (R7).
+
+        `hasta` NO viaja a la plantilla: lo que se pinta es el ultimo dia
+        incluido. La palabra «exclusivo» no aparece en la interfaz.
+        """
+        horas = [fila.get(dia) for dia in DIAS_JORNADA]
+        vista = dict(fila)
+        vista["hasta_inclusivo"] = ultimo_dia_incluido_de_fila(fila.get("hasta"))
+        vista["patron"] = ([_numero_texto(h) for h in horas]
+                           if all(h is not None for h in horas) else None)
+        vista["semanal_texto"] = _numero_texto(fila.get("jornada_semanal"))
+        return vista
+
+    @app.get("/admin/jornadas", response_class=HTMLResponse)
+    def admin_jornadas(
+        request: Request,
+        editar: int | None = Query(default=None),
+    ) -> HTMLResponse:
+        """R2 · el listado entero mas el formulario de alta o edicion.
+
+        `?editar=<id>` devuelve el formulario RELLENO desde el servidor
+        (patron PRG): cero JS de precarga. Si el id no existe, se cae al
+        modo alta en vez de dar un 404: la pagina sigue siendo util.
+        """
+        _exigir_admin_jornadas()
+        filas = [_fila_para_pantalla(f)
+                 for f in repository.list_jornadas_admin()]
+        edicion = next((f for f in filas if f["id"] == editar), None)
+        patron = (edicion or {}).get("patron")
+        context = {
+            "request": request,
+            "title": settings.app_title,
+            "filas": filas,
+            "edicion": edicion,
+            "dias": [
+                {"columna": columna,
+                 "etiqueta": ABREVIATURA_DIA[columna],
+                 "valor": patron[i] if patron else ""}
+                for i, columna in enumerate(DIAS_JORNADA)
+            ],
+            "hoy": date.today().isoformat(),
+            "sigrid_enabled": settings.sigrid_lookup_enabled,
+            # R14: los minutos salen de la configuracion, no cableados. Se
+            # redondea hacia ARRIBA para no prometer menos espera de la real.
+            "cache_minutos": max(
+                1, -(-int(settings.jornada_cache_ttl_s) // 60)),
+            "aviso": request.query_params.get("aviso"),
+        }
+        return templates.TemplateResponse(
+            request=request, name="admin_jornadas.html", context=context)
 
     async def _cuerpo(request: Request) -> dict[str, Any]:
         """El JSON del formulario, o un diccionario vacio.
