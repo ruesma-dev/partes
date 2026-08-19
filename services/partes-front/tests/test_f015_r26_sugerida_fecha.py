@@ -149,3 +149,30 @@ def test_f015_r26_nunca_se_devuelve_un_500(cliente) -> None:
     for fecha in ("", "x", "2026-02-30", "0000-00-00"):
         assert cliente.get(
             f"/api/sigrid/empleados?fecha={fecha}").status_code in (200, 422)
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# El recorte `str(fecha)[:10]` no lo probaba nadie con una fecha ISO LARGA,
+# que es justo lo que manda un `<input type="datetime-local">` o cualquier
+# cliente que envie un instante en vez de un dia.
+
+def test_f015_r26_una_fecha_con_hora_se_recorta_al_dia(cliente) -> None:
+    dias = {i["ide"]: i["jornada_dia"]
+            for i in _items(cliente, "?fecha=2026-03-20T08:30:00")}
+    assert dias == {1: 6.0, 2: 8.0, 3: 8.0}
+
+
+def test_f015_r26_una_fecha_con_zona_horaria_tambien(cliente) -> None:
+    dias = {i["ide"]: i["jornada_dia"]
+            for i in _items(cliente, "?fecha=2026-03-16T00:00:00%2B01:00")}
+    assert dias == {1: 9.0, 2: 8.0, 3: 8.0}
+
+
+def test_f015_r26_la_fecha_recortada_es_la_del_dia_pedido(cliente) -> None:
+    """Sin el recorte, un instante del viernes se leeria como otra cosa (o
+    reventaria) y «+ Nuevo» prerrellenaria las horas del dia equivocado."""
+    con_hora = {i["ide"]: i["jornada_dia"]
+                for i in _items(cliente, "?fecha=2026-03-20T23:59:59")}
+    sin_hora = {i["ide"]: i["jornada_dia"]
+                for i in _items(cliente, "?fecha=2026-03-20")}
+    assert con_hora == sin_hora

@@ -248,3 +248,68 @@ def test_f015_r24_sin_la_excepcion_ese_mismo_viernes_avisaria() -> None:
     assert _incompletos_trabajador([
         {"fecha": VIERNES, "horas": 8.0, "candef": 10.0},
     ]) == {VIERNES}
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# El filtro de dias de la vista y la eleccion del dia con el que se resuelve
+# la excepcion del KPI no estaban fijados: sobrevivian mutantes que cambiaban
+# la estructura booleana del filtro y que hacian que el KPI mirase la
+# vigencia de HOY en vez de la del periodo que se esta viendo.
+
+SABADO = "2026-03-21"
+DOMINGO = "2026-03-22"
+
+#: Vigencia que cubre marzo de 2026 y NADA mas: ni los dias de febrero que
+#: la rejilla arrastra para cuadrar la semana, ni el dia de hoy.
+EXCEPCION_SOLO_MARZO = {
+    "dni_norm": "12345678Z", "jornada_semanal": 48.0,
+    "desde": "2026-03-01", "hasta": "2026-04-01", "origen": "manual",
+    "h_lun": None, "h_mar": None, "h_mie": None, "h_jue": None,
+    "h_vie": None, "h_sab": None, "h_dom": None,
+}
+
+
+def test_f015_r24_un_sabado_trabajado_nunca_es_jornada_incompleta() -> None:
+    """El fin de semana no tiene jornada ordinaria: 4 h ahi son extra, no un
+    dia al que le falten horas."""
+    assert _incompletos_trabajador([
+        {"fecha": SABADO, "horas": 4.0, "candef": 9.0},
+    ]) == set()
+
+
+def test_f015_r24_un_domingo_trabajado_tampoco() -> None:
+    assert _incompletos_trabajador([
+        {"fecha": DOMINGO, "horas": 4.0, "candef": 9.0},
+    ]) == set()
+
+
+def test_f015_r24_un_dia_con_la_jornada_justa_no_se_marca() -> None:
+    """El borde: horas == jornada del dia."""
+    assert _incompletos_trabajador([
+        {"fecha": VIERNES, "horas": 6.0, "candef": 9.0},
+        {"fecha": LUNES, "horas": 9.0, "candef": 9.0},
+    ]) == set()
+
+
+def test_f015_r25_el_kpi_resuelve_la_excepcion_con_el_periodo_que_se_ve(
+) -> None:
+    """La rejilla de marzo arrastra dias de febrero para cuadrar la primera
+    semana. Si el KPI resolviese la vigencia con uno de esos —o con la fecha
+    de hoy— ensenaria una jornada semanal que no es la del mes que se esta
+    mirando."""
+    respuesta = _cliente(
+        [{"fecha": VIERNES, "horas": 6.0, "candef": 10.0}],
+        excepciones=[EXCEPCION_SOLO_MARZO],
+    ).get("/trabajadores/emp-77?period=2026-03&modo=natural")
+    kpi = respuesta.context["jornada_kpi"]
+    assert (kpi["origen"], kpi["semanal"], kpi["ultimo_laborable"]) == (
+        "excepcion", 48.0, 8.0)
+
+
+def test_f015_r25_fuera_de_la_vigencia_el_kpi_vuelve_al_mapa() -> None:
+    """Control del test anterior: la misma excepcion, un mes que no cubre."""
+    respuesta = _cliente(
+        [{"fecha": "2026-05-15", "horas": 6.0, "candef": 10.0}],
+        excepciones=[EXCEPCION_SOLO_MARZO],
+    ).get("/trabajadores/emp-77?period=2026-05&modo=natural")
+    assert respuesta.context["jornada_kpi"]["origen"] == "plana"

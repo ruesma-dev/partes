@@ -218,3 +218,56 @@ def test_f015_r13_sv4_como_mucho_se_consultan_los_LV_de_la_semana() -> None:
 def test_f015_r13_sv4_semana_completa_dia_a_dia(dia, esperado) -> None:
     assert jornada_dia(dia, candef=9.0, minimo=2.0, por_defecto=8.0,
                        mapa=MAPA, es_laborable=es_laborable_fake()) == esperado
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# La regla vive DUPLICADA en sv3 y sv4, y la campana de mutacion ejecuta
+# solo la suite del servicio dueño del fichero: mutar la copia de sv4 no
+# corre el guardian R19 de la raiz. Asi que la copia de sv4 necesita sus
+# propios tests de la regla, no basta con los de sv3.
+
+def _det(dia, *, candef=9.0, no_laborables=(), finde_laborable=False,
+         excepcion=None):
+    return detalle_jornada_dia(
+        dia, candef=candef, minimo=2.0, por_defecto=8.0, mapa=MAPA,
+        es_laborable=es_laborable_fake(no_laborables,
+                                       finde_laborable=finde_laborable),
+        excepcion=excepcion,
+    )
+
+
+def test_f015_r13_sv4_un_dia_no_laborable_no_es_ultimo_laborable() -> None:
+    det = _det(VIERNES, no_laborables={"2026-03-20"})
+    assert (det.horas, det.ultimo_laborable) == (0.0, False)
+
+
+def test_f015_r13_sv4_el_finde_laborable_no_es_ultimo_laborable() -> None:
+    det = _det(SABADO, finde_laborable=True)
+    assert (det.horas, det.ultimo_laborable) == (9.0, False)
+
+
+def test_f015_r13_sv4_con_S_igual_a_5c_ningun_dia_recibe_el_resto() -> None:
+    for dia in SEMANA:
+        det = _det(dia, candef=8.0)
+        assert (det.horas, det.ultimo_laborable) == (8.0, False)
+
+
+def test_f015_r13_sv4_solo_el_ultimo_laborable_queda_marcado() -> None:
+    assert [d for d in SEMANA if _det(d).ultimo_laborable] == [VIERNES]
+
+
+def test_f015_r13_sv4_con_el_viernes_festivo_se_marca_el_jueves() -> None:
+    marcados = [d for d in SEMANA
+                if _det(d, no_laborables={"2026-03-20"}).ultimo_laborable]
+    assert marcados == [JUEVES]
+
+
+def test_f015_r13_sv4_una_excepcion_de_patron_no_marca_ningun_dia() -> None:
+    """Con patron manda el patron entero: no hay "resto de la semana"."""
+    from application.services.jornada_resolver import Excepcion
+
+    patron = Excepcion(patron=(7.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0))
+    for dia in SEMANA:
+        det = _det(dia, excepcion=patron)
+        assert (det.horas, det.origen, det.ultimo_laborable) == (
+            7.0, "excepcion", False)

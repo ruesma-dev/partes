@@ -200,3 +200,66 @@ def test_f015_r17_sv4_la_fila_del_proveedor_es_inmutable() -> None:
     fila = JornadaEmpleadoRow(dni_norm=DNI, jornada_semanal=48.0)
     with pytest.raises(dataclasses.FrozenInstanceError):
         fila.jornada_semanal = 1.0
+
+
+# --------- la cache del proveedor: TTL y deduplicacion del aviso -------- #
+# Mas huecos que destapo la campana en la copia de sv4: el TTL por defecto,
+# que un TTL de 0 o 1 signifiquen lo que dicen, y que el flag `_avisado`
+# haga su trabajo cuando la cache NO lo esta tapando.
+
+def test_f015_r17_sv4_el_ttl_por_defecto_del_proveedor_es_600(
+        entorno) -> None:
+    """Espejo del de sv3 y del `JORNADA_CACHE_TTL_S` del settings."""
+    proveedor = JornadaEmpleadoProvider(lambda: [])
+    assert proveedor._ttl == 600
+    assert Settings(_env_file=None).jornada_cache_ttl_s == 600
+
+
+def test_f015_r17_sv4_un_ttl_de_cero_desactiva_la_cache() -> None:
+    """TTL 0 = "no caches": cada consulta relee. Si se tomase como "cachea
+    para siempre", una excepcion recien cargada no se veria hasta reiniciar
+    el portal."""
+    llamadas: list[int] = []
+
+    def _cargar():
+        llamadas.append(1)
+        return []
+
+    proveedor = JornadaEmpleadoProvider(_cargar, ttl_seconds=0)
+    for _ in range(3):
+        proveedor.excepcion_para(DNI, VIERNES)
+    assert len(llamadas) == 3
+
+
+def test_f015_r17_sv4_un_ttl_de_uno_si_cachea() -> None:
+    llamadas: list[int] = []
+    reloj = {"t": 1000.0}
+
+    def _cargar():
+        llamadas.append(1)
+        return []
+
+    proveedor = JornadaEmpleadoProvider(
+        _cargar, ttl_seconds=1, reloj=lambda: reloj["t"])
+    for _ in range(3):
+        proveedor.excepcion_para(DNI, VIERNES)
+    assert len(llamadas) == 1
+
+
+def test_f015_r17_sv4_el_aviso_no_se_repite_aunque_la_cache_no_lo_tape(
+        caplog) -> None:
+    """Con TTL 0 la tabla se relee en cada consulta; el aviso sigue siendo
+    UNO. Sin el flag, una matriz de obra llenaria el log."""
+    llamadas: list[int] = []
+
+    def _cargar():
+        llamadas.append(1)
+        raise RuntimeError("BBDD caida")
+
+    proveedor = JornadaEmpleadoProvider(_cargar, ttl_seconds=0)
+    with caplog.at_level(logging.WARNING):
+        for dia in range(16, 21):
+            proveedor.excepcion_para(DNI, date(2026, 3, dia))
+    assert len(llamadas) == 5            # se releyo de verdad
+    assert len([m for m in caplog.messages
+                if "empleado_jornada" in m]) == 1

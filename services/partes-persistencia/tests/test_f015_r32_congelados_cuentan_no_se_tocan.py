@@ -216,3 +216,17 @@ def test_f015_r32_el_aviso_dice_cuantas_horas_faltaban(caplog) -> None:
     aviso = next(m for m in caplog.messages if "CONGELADAS" in m)
     assert "faltan 4.00 h" in aviso
     assert "hay 1.00" in aviso
+
+
+def test_f015_r32_un_exceso_de_menos_de_una_hora_tambien_se_guarda(
+        caplog) -> None:
+    """El descuadre no siempre es de horas enteras: sobra 1 h y solo hay
+    media ajustable. Un umbral puesto en 1 en vez de en 0 dejaria pasar
+    justo estos casos y recortaria a medias el dia."""
+    regs = [registro(1, fecha_int=LUNES, horas=0.5),
+            registro(2, fecha_int=LUNES, horas=8.5,
+                     sigrid_estado="registrado")]
+    with caplog.at_level(logging.WARNING):
+        assert _splits(regs) == []
+    assert "CONGELADAS" in caplog.text
+    assert "faltan 1.00 h" in caplog.text

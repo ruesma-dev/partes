@@ -12,6 +12,8 @@ contra SQLite en memoria con el ORM real.
 """
 from __future__ import annotations
 
+import pytest
+
 from datetime import date
 
 from application.services.jornada_provider import JornadaEmpleadoProvider
@@ -196,3 +198,118 @@ def test_f015_r16_sv4_sin_dni_no_se_lee_la_tabla() -> None:
     proveedor = JornadaEmpleadoProvider(_cargar)
     assert proveedor.excepcion_para(None, VIERNES) is None
     assert llamadas == []
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# La campana muta la copia de sv4 y ejecuta SOLO la suite de sv4: el
+# guardian R19 de la raiz (que compara las dos copias) no entra. Asi que
+# la copia de sv4 necesita sus propios tests de la validacion y de los
+# bordes, no basta con los de sv3.
+
+import dataclasses  # noqa: E402
+
+from application.services.jornada_provider import (  # noqa: E402
+    JornadaEmpleadoRow,
+    fila_desde_dict,
+)
+from application.services.jornada_resolver import (  # noqa: E402
+    DetalleJornada,
+    Excepcion,
+    parsear_mapa_semanal,
+)
+
+PATRON_7 = (7.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0)
+
+
+# ------------------------ `Excepcion.valida()` -------------------------- #
+
+def test_f015_r16_sv4_una_excepcion_sin_nada_no_es_valida() -> None:
+    assert Excepcion().valida() is False
+
+
+@pytest.mark.parametrize("semanal, esperado", [
+    (0.0, False), (0.5, True), (42.0, True), (168.0, True), (168.1, False),
+    (-1.0, False),
+])
+def test_f015_r16_sv4_los_bordes_de_la_jornada_semanal(
+        semanal, esperado) -> None:
+    assert Excepcion(semanal=semanal).valida() is esperado
+
+
+@pytest.mark.parametrize("horas, esperado", [
+    ((0.0,) * 7, True),
+    ((24.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), True),
+    ((24.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), False),
+    ((-1.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0), False),
+    ((30.0, 7.0, 7.0, 7.0, 7.0, 0.0, 0.0), False),
+    ((7.0, 7.0, 7.0, 7.0, 7.0, 0.0), False),
+    ((7.0,) * 8, False),
+])
+def test_f015_r16_sv4_los_bordes_del_patron(horas, esperado) -> None:
+    assert Excepcion(patron=horas).valida() is esperado
+
+
+def test_f015_r16_sv4_un_patron_con_un_hueco_no_es_valido() -> None:
+    assert Excepcion(
+        patron=(7.0, 7.0, 7.0, 7.0, 7.0, 0.0, None)).valida() is False
+
+
+# ---------------------------- el mapa en sv4 ---------------------------- #
+
+@pytest.mark.parametrize("texto, esperado", [
+    ("1:5", {1.0: 5.0}),
+    ("24:168", {24.0: 168.0}),
+])
+def test_f015_r16_sv4_los_bordes_del_mapa_se_aceptan(texto, esperado) -> None:
+    assert parsear_mapa_semanal(texto) == esperado
+
+
+@pytest.mark.parametrize("texto", ["8:169", "169:40", "8:-1", "-8:40"])
+def test_f015_r16_sv4_pasarse_del_rango_del_mapa_es_error(texto) -> None:
+    with pytest.raises(ValueError):
+        parsear_mapa_semanal(texto)
+
+
+# ------------------------ la traduccion de la fila ---------------------- #
+
+def test_f015_r16_sv4_una_fila_sin_origen_se_toma_como_manual() -> None:
+    fila = fila_desde_dict({"dni_norm": DNI, "jornada_semanal": 48.0,
+                            "origen": None, "desde": "2026-01-01"})
+    assert fila.origen == "manual"
+
+
+def test_f015_r16_sv4_el_origen_de_la_fila_se_respeta() -> None:
+    fila = fila_desde_dict({"dni_norm": DNI, "jornada_semanal": 48.0,
+                            "origen": "sesame", "desde": "2026-01-01"})
+    assert fila.origen == "sesame"
+
+
+def test_f015_r16_sv4_el_origen_llega_hasta_la_excepcion() -> None:
+    proveedor = JornadaEmpleadoProvider(lambda: [
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "desde": "2026-01-01",
+         "origen": "sigrid"},
+    ])
+    assert proveedor.excepcion_para(DNI, VIERNES).origen == "sigrid"
+
+
+def test_f015_r16_sv4_desde_es_inclusivo() -> None:
+    """El primer dia de la vigencia YA cuenta."""
+    proveedor = JornadaEmpleadoProvider(lambda: [
+        {"dni_norm": DNI, "jornada_semanal": 48.0, "desde": "2026-03-20"},
+    ])
+    assert proveedor.excepcion_para(DNI, VIERNES) is not None
+    assert proveedor.excepcion_para(DNI, date(2026, 3, 19)) is None
+
+
+# ----------------- las dataclases son inmutables a proposito ------------ #
+
+@pytest.mark.parametrize("instancia", [
+    Excepcion(semanal=42.0),
+    DetalleJornada(horas=6.0, candef_efectivo=9.0, semanal=42.0,
+                   origen="mapa", ultimo_laborable=True),
+    JornadaEmpleadoRow(dni_norm=DNI),
+])
+def test_f015_r16_sv4_las_dataclases_son_inmutables(instancia) -> None:
+    campo = dataclasses.fields(instancia)[0].name
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        setattr(instancia, campo, "tocado")
