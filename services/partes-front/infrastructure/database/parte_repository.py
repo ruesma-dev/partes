@@ -40,6 +40,7 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.jornada_admin import columnas_patron
 from application.services.congelacion import (
     MOTIVO_HARD_DELETE_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
@@ -1818,6 +1819,136 @@ class ParteReviewRepository:
                 }
                 for f in filas
             ]
+
+    # --------- administracion de `empleado_jornada` (F-016) ---------- #
+    #
+    # AQUI NO HAY NINGUN `DELETE`, y no es un descuido: la papelera de
+    # esta tabla es logica (`is_active`), semantica 8 de
+    # `docs/ARCHITECTURE.md`. Una fila mal puesta cambia el computo de
+    # extras de sv3, asi que toda fila se queda con su auditoria.
+
+    @staticmethod
+    def _jornada_admin_dict(fila: EmpleadoJornadaOrm) -> dict:
+        """Las 19 columnas de la fila, planas. Fuente del listado y del
+        control de solape (una sola lectura por peticion, DA8)."""
+        return {
+            "id": fila.id,
+            "dni_norm": fila.dni_norm,
+            "jornada_semanal": fila.jornada_semanal,
+            "h_lun": fila.h_lun, "h_mar": fila.h_mar, "h_mie": fila.h_mie,
+            "h_jue": fila.h_jue, "h_vie": fila.h_vie, "h_sab": fila.h_sab,
+            "h_dom": fila.h_dom,
+            "desde": fila.desde, "hasta": fila.hasta,
+            "origen": fila.origen, "nota": fila.nota,
+            "is_active": bool(fila.is_active),
+            "created_at_utc": fila.created_at_utc,
+            "created_by": fila.created_by,
+            "updated_at_utc": fila.updated_at_utc,
+            "updated_by": fila.updated_by,
+        }
+
+    def list_jornadas_admin(self) -> list[dict]:
+        """TODAS las filas, activas e inactivas (R2).
+
+        Orden `dni_norm` ascendente y, dentro de cada DNI, `desde`
+        DESCENDENTE: lo primero que se quiere ver de un trabajador es su
+        vigencia mas reciente. `desde` es texto ISO, asi que el orden
+        lexicografico y el cronologico son el mismo.
+        """
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(EmpleadoJornadaOrm).order_by(
+                    EmpleadoJornadaOrm.dni_norm.asc(),
+                    EmpleadoJornadaOrm.desde.desc(),
+                    EmpleadoJornadaOrm.id.desc(),
+                )
+            ).scalars().all()
+            return [self._jornada_admin_dict(f) for f in filas]
+
+    def crear_jornada(self, *, entrada: dict, actor: str | None) -> int:
+        """Alta de una excepcion (R3). Devuelve el id nuevo.
+
+        `origen` lo pone el servidor y siempre vale `manual`: no es un
+        campo del cliente. Importar de Sigrid o de Sesame es otra feature.
+        """
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = EmpleadoJornadaOrm(
+                dni_norm=entrada["dni_norm"],
+                jornada_semanal=entrada.get("jornada_semanal"),
+                desde=entrada["desde"],
+                hasta=entrada.get("hasta"),
+                origen="manual",
+                nota=entrada.get("nota"),
+                is_active=True,
+                created_at_utc=ahora,
+                created_by=actor,
+                **columnas_patron(entrada.get("patron")),
+            )
+            session.add(fila)
+            session.commit()
+            logger.info("[jornada-admin] alta id=%s dni=%s desde=%s hasta=%s "
+                        "por=%s", fila.id, fila.dni_norm, fila.desde,
+                        fila.hasta, actor)
+            return fila.id
+
+    def actualizar_jornada(self, *, jornada_id: int, entrada: dict,
+                           actor: str | None) -> bool:
+        """Edicion (R4). `False` si el id no existe (-> 404 de R16).
+
+        NO toca `id`, `dni_norm`, `origen`, `created_at_utc` ni
+        `created_by`: la autoria del alta se conserva aunque edite otro.
+        """
+        with self._session_factory.create_session() as session:
+            fila = session.get(EmpleadoJornadaOrm, jornada_id)
+            if fila is None:
+                return False
+            fila.jornada_semanal = entrada.get("jornada_semanal")
+            for columna, valor in columnas_patron(entrada.get("patron")).items():
+                setattr(fila, columna, valor)
+            fila.desde = entrada["desde"]
+            fila.hasta = entrada.get("hasta")
+            fila.nota = entrada.get("nota")
+            fila.updated_at_utc = datetime.now(timezone.utc).isoformat()
+            fila.updated_by = actor
+            session.commit()
+            logger.info("[jornada-admin] edicion id=%s por=%s",
+                        jornada_id, actor)
+            return True
+
+    def cerrar_jornada(self, *, jornada_id: int, hasta: str | None,
+                       actor: str | None) -> bool:
+        """Cierre de vigencia (R5): solo `hasta`, y la fila sigue ACTIVA.
+
+        Cerrar no es desactivar (DA2): «la excepcion dejo de aplicar el
+        31/07» es historia legitima, no una fila que sobre.
+        """
+        with self._session_factory.create_session() as session:
+            fila = session.get(EmpleadoJornadaOrm, jornada_id)
+            if fila is None:
+                return False
+            fila.hasta = hasta
+            fila.updated_at_utc = datetime.now(timezone.utc).isoformat()
+            fila.updated_by = actor
+            session.commit()
+            logger.info("[jornada-admin] cierre id=%s hasta=%s por=%s",
+                        jornada_id, hasta, actor)
+            return True
+
+    def set_jornada_activa(self, *, jornada_id: int, activa: bool,
+                           actor: str | None) -> bool:
+        """Papelera logica (R6): desactivar y reactivar. Nunca borra."""
+        with self._session_factory.create_session() as session:
+            fila = session.get(EmpleadoJornadaOrm, jornada_id)
+            if fila is None:
+                return False
+            fila.is_active = bool(activa)
+            fila.updated_at_utc = datetime.now(timezone.utc).isoformat()
+            fila.updated_by = actor
+            session.commit()
+            logger.info("[jornada-admin] id=%s activa=%s por=%s",
+                        jornada_id, activa, actor)
+            return True
 
     def count_undo(self) -> int:
         with self._session_factory.create_session() as session:

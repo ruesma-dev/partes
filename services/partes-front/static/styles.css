@@ -941,3 +941,13 @@ td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
   color: #6b7280;
   cursor: not-allowed;
 }
+
+
+/* F-016 · pantalla de excepciones de jornada. Solo dos reglas, y las dos
+   hacian falta de verdad: el resto (panel, field, btn, badge, alert,
+   combo-simple, filter-row...) ya existia y se reutiliza tal cual.
+   - `input-error`: marca el campo que el servidor senala en un 422.
+   - `is-conflicto`: senala la fila que un 409 nombra, para que el humano
+     vea CUAL es la vigencia que pisa la suya (R12). */
+.input-error { border-color: var(--danger-border); background: var(--danger-soft); }
+tr.is-conflicto > td { background: var(--warn-soft); }

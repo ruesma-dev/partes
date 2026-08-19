@@ -397,7 +397,10 @@ def sembrar_jornadas(fabrica, filas: list[dict]) -> list[int]:
     """Filas de `empleado_jornada` en la base de memoria (F-015).
 
     Cada elemento admite `dni_norm`, `jornada_semanal`, `patron` (7
-    valores L..D), `desde`, `hasta`, `origen` e `is_active`.
+    valores L..D), `desde`, `hasta`, `origen` e `is_active`; y, desde
+    F-016, las cuatro columnas de auditoria (`created_at_utc`,
+    `created_by`, `updated_at_utc`, `updated_by`), que la pantalla de
+    administracion pinta en el listado.
     """
     from infrastructure.database.orm_models import EmpleadoJornadaOrm
 
@@ -414,7 +417,10 @@ def sembrar_jornadas(fabrica, filas: list[dict]) -> list[int]:
                 origen=f.get("origen", "manual"),
                 nota=f.get("nota"),
                 is_active=bool(f.get("is_active", True)),
-                created_at_utc="2026-08-19T00:00:00Z",
+                created_at_utc=f.get("created_at_utc", "2026-08-19T00:00:00Z"),
+                created_by=f.get("created_by"),
+                updated_at_utc=f.get("updated_at_utc"),
+                updated_by=f.get("updated_by"),
                 **dict(zip(dias, patron)),
             )
             s.add(fila)

@@ -2225,6 +2225,230 @@ var MotivoHttp = (function () {
       });
     });
   });
+
+  /* ------------------------------------------------------------------ *
+   * F-016 · Pantalla de excepciones de jornada (/admin/jornadas).
+   *
+   * Va DENTRO de este IIFE a proposito: `_comboSimple` —el selector de
+   * trabajador que ya usa "+ Nuevo"— es privado de aqui, y un bloque
+   * nuevo al final del fichero no lo veria. Asi se reutiliza sin tocar
+   * ni una linea del componente ni de los combos que ya cuelgan de el
+   * (DA11 del diseno).
+   *
+   * El servidor manda: aqui no se valida nada de negocio. Lo unico que
+   * hace este bloque es recoger el formulario, mandarlo y ensenar lo que
+   * conteste. Las reglas viven en `application/services/jornada_admin.py`.
+   * ------------------------------------------------------------------ */
+  document.addEventListener("DOMContentLoaded", function () {
+    var raiz = document.getElementById("admin-jornadas");
+    if (!raiz) return;
+
+    var DIAS = ["h_lun", "h_mar", "h_mie", "h_jue", "h_vie", "h_sab", "h_dom"];
+    var status = document.getElementById("adminjor-status");
+
+    function val(id) {
+      var el = document.getElementById(id);
+      return el ? el.value.trim() : "";
+    }
+    function marcado(id) {
+      var el = document.getElementById(id);
+      return !!(el && el.checked);
+    }
+    function limpiarMarcas() {
+      raiz.querySelectorAll(".input-error").forEach(function (el) {
+        el.classList.remove("input-error");
+      });
+      raiz.querySelectorAll("tr.is-conflicto").forEach(function (tr) {
+        tr.classList.remove("is-conflicto");
+      });
+    }
+    function decir(texto, clase) {
+      if (!status) return;
+      status.textContent = texto;
+      status.className = "form-status" + (clase ? " " + clase : "");
+      status.hidden = !texto;
+    }
+
+    // --- mostrar/ocultar lo que depende de un checkbox ---------------- #
+    function alternar(checkboxId, contenedorId, alMarcar) {
+      var check = document.getElementById(checkboxId);
+      var caja = document.getElementById(contenedorId);
+      if (!check || !caja) return;
+      function pintar() {
+        caja.hidden = (check.checked !== alMarcar);
+      }
+      check.addEventListener("change", pintar);
+      pintar();
+    }
+    alternar("jor-usar-patron", "jor-patron", true);
+    alternar("jor-manual", "jor-manual-campo", true);
+
+    // «Sin fecha de fin» deshabilita el dia de fin en vez de ocultarlo:
+    // asi se ve que existe y que se puede rellenar desmarcando.
+    var sinFin = document.getElementById("jor-sin-fin");
+    var hasta = document.getElementById("jor-hasta");
+    if (sinFin && hasta) {
+      sinFin.addEventListener("change", function () {
+        hasta.disabled = sinFin.checked;
+        if (sinFin.checked) hasta.value = "";
+      });
+    }
+
+    // --- selector de trabajador (R20): UNA llamada, cero componentes --- #
+    // El filtro de `_comboSimple` ya mira la etiqueta pintada Y el `dni`,
+    // asi que la busqueda incremental por DNI funciona sin anadir nada.
+    var urlEmpleados = raiz.getAttribute("data-empleados-url");
+    var manual = document.getElementById("jor-manual");
+    var dniManual = document.getElementById("jor-dni-manual");
+    if (urlEmpleados && document.getElementById("jor-emp-combo")) {
+      _comboSimple("jor-emp-combo", "jor-emp-input", "jor-emp-panel",
+        urlEmpleados,
+        function (e) { return (e.dni || "—") + " · " + (e.nombre || ""); },
+        function (e) {
+          var oculto = document.getElementById("jor-dni");
+          if (oculto) oculto.value = e.dni || "";
+          if (manual) manual.checked = false;
+          if (dniManual) dniManual.value = "";
+          var caja = document.getElementById("jor-manual-campo");
+          if (caja) caja.hidden = true;
+        });
+    }
+    // El DNI viaja SIEMPRE por el mismo campo, venga del combo o de la
+    // mano: el servidor no distingue el origen y lo normaliza igual (DA12).
+    if (dniManual) {
+      dniManual.addEventListener("input", function () {
+        var oculto = document.getElementById("jor-dni");
+        if (oculto) oculto.value = dniManual.value;
+      });
+    }
+
+    // --- el cuerpo que se manda --------------------------------------- #
+    function cuerpo() {
+      var datos = {
+        dni: val("jor-dni"),
+        jornada_semanal: val("jor-semanal"),
+        desde: val("jor-desde"),
+        hasta_inclusivo: marcado("jor-sin-fin") ? null : val("jor-hasta"),
+        nota: val("jor-nota")
+      };
+      // Sin el checkbox del patron no se manda ninguna hora: es como se
+      // QUITA un patron al editar (R4).
+      if (marcado("jor-usar-patron")) {
+        DIAS.forEach(function (d) { datos[d] = val("jor-" + d); });
+      }
+      return datos;
+    }
+
+    function fallo(err) {
+      var data = (err && err.data) || {};
+      decir(data.error || (err && err.message) || "No se pudo guardar.",
+            "error");
+      if (data.campo) {
+        var campo = document.getElementById("jor-" + data.campo);
+        if (!campo && data.campo === "dni") campo = document.getElementById(
+          manual && manual.checked ? "jor-dni-manual" : "jor-emp-input");
+        if (!campo && data.campo === "hasta_inclusivo") {
+          campo = document.getElementById("jor-hasta");
+        }
+        if (campo) { campo.classList.add("input-error"); campo.focus(); }
+      }
+      if (data.conflicto && data.conflicto.id != null) {
+        var fila = raiz.querySelector(
+          'tr[data-jornada-id="' + data.conflicto.id + '"]');
+        if (fila) {
+          fila.classList.add("is-conflicto");
+          fila.scrollIntoView({ block: "center" });
+        }
+      }
+    }
+
+    function volver(aviso) {
+      var url = "/admin/jornadas";
+      if (aviso) url += "?aviso=" + encodeURIComponent(aviso);
+      window.location.assign(url);
+    }
+
+    // `MotivoHttp.lanzarSiFalla` es la puerta de siempre (devuelve ya el
+    // JSON y lanza con el motivo del servidor). Lo unico que anade F-016
+    // es guardar el CUERPO del rechazo en `err.data`: sin el no se puede
+    // marcar el campo culpable (422) ni senalar la fila en conflicto
+    // (409). Se clona la respuesta ANTES de que la lea el componente,
+    // asi no hay que tocarlo ni una linea.
+    function enviar(metodo, url, datos) {
+      limpiarMarcas();
+      decir("Guardando…", "");
+      return fetch(url, {
+        method: metodo,
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(datos || {})
+      }).then(function (r) {
+        var copia = r.ok ? null : r.clone();
+        return MotivoHttp.lanzarSiFalla(r).catch(function (err) {
+          if (!copia) throw err;
+          return copia.json().then(
+            function (d) { err.data = d || {}; throw err; },
+            function () { err.data = {}; throw err; });
+        });
+      });
+    }
+
+    // --- guardar (alta o edicion, segun el modo que puso el servidor) -- #
+    var submit = document.getElementById("jor-submit");
+    if (submit) {
+      submit.addEventListener("click", function () {
+        var edicion = raiz.getAttribute("data-modo") === "edicion";
+        var id = raiz.getAttribute("data-jornada-id");
+        submit.disabled = true;
+        enviar(edicion ? "PATCH" : "POST",
+               edicion ? "/api/admin/jornadas/" + id : "/api/admin/jornadas",
+               cuerpo())
+          .then(function (data) { volver(data && data.aviso); })
+          .catch(function (err) { submit.disabled = false; fallo(err); });
+      });
+    }
+
+    // --- acciones por fila, por delegacion ---------------------------- #
+    raiz.addEventListener("click", function (ev) {
+      var boton = ev.target.closest("button[data-jor-cerrar], " +
+        "button[data-jor-desactivar], button[data-jor-reactivar]");
+      if (!boton) return;
+
+      var id = boton.getAttribute("data-jor-cerrar");
+      if (id) {
+        // El humano escribe el ULTIMO DIA INCLUIDO. La conversion a
+        // `hasta` la hace el servidor; aqui no se suma ni un dia.
+        var dia = window.prompt(
+          "Ultimo dia en que se aplica esta excepcion (AAAA-MM-DD).\n" +
+          "Ese dia queda INCLUIDO. Dejalo vacio para quitar la fecha de fin.",
+          boton.getAttribute("data-desde") || "");
+        if (dia === null) return;
+        enviar("POST", "/api/admin/jornadas/" + id + "/cerrar",
+               { hasta_inclusivo: dia.trim() })
+          .then(function () { volver(); }).catch(fallo);
+        return;
+      }
+
+      id = boton.getAttribute("data-jor-desactivar");
+      if (id) {
+        if (!window.confirm(
+          "La excepcion dejara de aplicarse (no se borra: queda inactiva " +
+          "y se puede reactivar). ¿Seguro?")) return;
+        enviar("POST", "/api/admin/jornadas/" + id + "/desactivar")
+          .then(function () { volver(); }).catch(fallo);
+        return;
+      }
+
+      id = boton.getAttribute("data-jor-reactivar");
+      if (id) {
+        if (!window.confirm(
+          "La excepcion volvera a aplicarse en su periodo. ¿Seguro?")) return;
+        enviar("POST", "/api/admin/jornadas/" + id + "/reactivar")
+          .then(function () { volver(); }).catch(fallo);
+      }
+    });
+  });
+
+
 })();
 
 /* ==================================================================== *

@@ -303,3 +303,56 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   cuadrilla sin aviso de incompleta y el KPI «9 h · 42 h/sem · último laborable
   6 h»; y que un parte ya aprobado no cambie su desglose tras la primera pasada
   de sv3.
+
+## F-016 · Pantalla de administración de `empleado_jornada` en el portal (2026-08-19)
+
+- Rama `feature/F-016-admin-empleado-jornada`, 11 commits sobre el merge de
+  `dev` + cierre del líder. Rigor `estandar`, `sdd: true`. Spec:
+  `specs/F-016-admin-empleado-jornada/` (R1–R20, T0–T10), aprobada por el
+  humano tras dos pasadas del spec-author.
+- Qué hace: `/admin/jornadas` en sv4 permite crear, editar, cerrar, desactivar
+  y reactivar las excepciones de jornada que F-015 dejó sin UI. Cinco endpoints
+  JSON bajo `/api/admin/`, validación pura en
+  `application/services/jornada_admin.py` (vecino de `congelacion.py` de
+  F-004), cinco métodos nuevos en el repositorio de sv4 y una sola variable
+  nueva, `JORNADAS_ADMIN_ENABLED`.
+- Las tres decisiones que definen la pantalla: **el humano nunca ve ni escribe
+  `hasta`** (habla de «último día incluido» y el `+1 día` vive solo en la capa
+  web, R7); **cerrar ≠ desactivar** (fin de vigencia vs papelera lógica, sin
+  un solo `DELETE`); y **un solape se rechaza con 409 nombrando la fila en
+  conflicto y nunca se ajusta la fila ajena** (R12), porque recortar la
+  vigencia de otro reescribiría en silencio un dato con el que sv3 ya calculó
+  extras.
+- Se reutiliza lo existente en vez de reinventarlo: el selector de trabajador
+  consume `GET /api/sigrid/empleados` (F-003) y el componente `_comboSimple`
+  **sin tocarlos**, y el bloque JS va DENTRO del IIFE que define esa función
+  —desde un IIFE nuevo al final del fichero no se vería—. Con Sigrid apagado la
+  página sigue entera por el camino de alta manual.
+- Verificado (reviewer, ejecutando y recalculando): `init.sh` verde, **799
+  tests en sv4** (134 nuevos) + 92 en la raíz, cobertura de líneas cambiadas
+  **98,5 %** (326/331), mutación **93/79/14/0** (85 %) con los 14 supervivientes
+  analizados. El reviewer recalculó el alcance (827 líneas) y los 93 mutantes
+  fichero a fichero, y muestreó tres supervivientes contra el generador.
+- Cero cambios de schema (R1): la tabla sigue con sus 19 columnas, ninguna
+  copia de `orm_models.py` tocada, el guardián de F-010 en verde sin
+  modificarse y **sv3 sin un solo fichero cambiado**.
+- Observación heredada por **F-017** (anotada en su descripción): el test
+  `test_f016_r13_auditoria` parchea `DEFAULT_REVIEWER` en vez del helper
+  `_actor`, así que se pondrá rojo cuando `_actor` devuelva el principal real.
+- Observación informativa: `JORNADAS_ADMIN_ENABLED` no queda en ningún fichero
+  versionado porque `services/partes-front/.gitignore` ignora `*.example`. El
+  implementer NO forzó un `git add -f` y el reviewer le da la razón: revertir
+  una decisión del repositorio por la puerta de atrás es peor. Queda con
+  default `True` en el código y documentada en `azure-apps/partes.md`.
+- Deuda transversal detectada, NO de esta feature: la suite de sv4 pasa de
+  ~52 s a ~114 s porque cada test de endpoint levanta `build_app` entera
+  (patrón de F-002/F-003/F-004). Candidata a fixture de app compartida ⇒ F-009.
+- Automejoras del arnés propuestas por el reviewer (⇒ F-009 y `arnes-base`):
+  que `progress/mutacion_*.md` registre **qué suite se ejecutó** por fichero
+  (hoy no se puede detectar el hueco de las copias gemelas sin recalcular), y
+  que C4 de `CHECKPOINTS.md` pida un **recuento mecánico test-por-requisito**
+  sobre los nombres `test_fXXX_rN_*` en vez de fiarse de la tabla de
+  trazabilidad de la spec.
+- MANUAL pendiente del humano: las 6 verificaciones de `design.md` §8.2
+  (portal levantado, PostgreSQL y navegador). La 6 —comportamiento del combo en
+  el navegador— es la única funcionalidad que ningún test cubre.

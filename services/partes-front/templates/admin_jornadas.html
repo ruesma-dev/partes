@@ -1,0 +1,234 @@
+{# templates/admin_jornadas.html · F-016 · excepciones de jornada #}
+{% extends "base.html" %}
+{% block title %}Jornadas · {{ title }}{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="page-eyebrow">Administracion</span>
+    <h1>Excepciones de jornada</h1>
+    <p class="muted">
+      La jornada de cada dia se deduce del regimen del trabajador en Sigrid.
+      Aqui se registran las excepciones: quien tiene otra jornada semanal o un
+      patron propio de horas por dia, y desde cuando hasta cuando.
+    </p>
+  </div>
+</div>
+
+{# R14 · aviso PERMANENTE, con los minutos derivados de la configuracion.
+   Un cambio hecho aqui no se ve al instante en todas partes, y es mejor
+   decirlo que dejar que alguien concluya que la pantalla no funciona. #}
+<div class="alert warn" role="status">
+  <strong>Los cambios tardan en aplicarse.</strong>
+  El portal los usa enseguida, pero la conciliacion (sv3) sigue con los datos
+  anteriores hasta <strong>{{ cache_minutos }} minutos</strong>. Si acabas de
+  cambiar una excepcion, espera ese rato antes de comprobar el reparto de
+  extras de un parte.
+</div>
+
+{% if aviso %}
+<div class="alert info" role="status">{{ aviso }}</div>
+{% endif %}
+
+<div id="admin-jornadas"
+     data-modo="{{ 'edicion' if edicion else 'alta' }}"
+     data-jornada-id="{{ edicion.id if edicion else '' }}"
+     data-empleados-url="/api/sigrid/empleados"
+     data-sigrid="{{ '1' if sigrid_enabled else '0' }}">
+
+  <div class="panel nuevo-form">
+    <h2 class="panel-title">
+      {% if edicion %}Editar la excepcion #{{ edicion.id }}{% else %}Nueva excepcion{% endif %}
+    </h2>
+
+    {# --- Trabajador (R20) ------------------------------------------- #}
+    <div class="field" id="jor-emp-field">
+      <label>Trabajador</label>
+      {% if edicion %}
+      {# R4: la edicion no cambia de trabajador. Cambiar de persona es
+         cerrar esta fila y crear otra. #}
+      <input type="text" class="input input-locked" id="jor-emp-fijo"
+             value="{{ edicion.dni_norm }}" readonly tabindex="-1"
+             title="Para cambiar de trabajador, cierra esta fila y crea otra">
+      <input type="hidden" id="jor-dni" value="{{ edicion.dni_norm }}">
+      {% else %}
+      <div class="combo-simple" id="jor-emp-combo">
+        <input type="text" id="jor-emp-input" class="input" autocomplete="off"
+               placeholder="{{ 'Escribe DNI o nombre…' if sigrid_enabled else 'Sigrid no configurado' }}"
+               {% if not sigrid_enabled %}disabled{% endif %}>
+        <div class="combo-panel" id="jor-emp-panel" hidden></div>
+      </div>
+      <input type="hidden" id="jor-dni">
+      <label class="check" style="margin-top:8px">
+        <input type="checkbox" id="jor-manual"
+               {% if not sigrid_enabled %}checked{% endif %}>
+        El trabajador no esta en la lista (escribir el DNI a mano)
+      </label>
+      <div id="jor-manual-campo" {% if sigrid_enabled %}hidden{% endif %}>
+        <input type="text" id="jor-dni-manual" class="input"
+               autocomplete="off" placeholder="DNI o NIE">
+      </div>
+      {% endif %}
+    </div>
+
+    {# --- Jornada semanal --------------------------------------------- #}
+    <div class="field">
+      <label>Jornada semanal (h)</label>
+      <input type="text" id="jor-semanal" class="input" autocomplete="off"
+             inputmode="decimal" placeholder="p. ej. 40"
+             value="{{ edicion.semanal_texto if edicion else '' }}">
+    </div>
+
+    {# --- Patron por dias --------------------------------------------- #}
+    <div class="field">
+      <label class="check">
+        <input type="checkbox" id="jor-usar-patron"
+               {% if edicion and edicion.patron %}checked{% endif %}>
+        Usar patron por dias (manda sobre la jornada semanal)
+      </label>
+    </div>
+    <div id="jor-patron" {% if not (edicion and edicion.patron) %}hidden{% endif %}>
+      <div class="field-row">
+        {% for dia in dias %}
+        <div class="field">
+          <label>{{ dia.etiqueta }}</label>
+          <input type="text" id="jor-{{ dia.columna }}" class="input"
+                 inputmode="decimal" autocomplete="off"
+                 data-dia="{{ dia.columna }}"
+                 value="{{ dia.valor }}">
+        </div>
+        {% endfor %}
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:6px">
+        O estan los siete dias, o no hay patron. Pon <strong>0</strong> en los
+        que no se trabaja.
+      </p>
+    </div>
+
+    {# --- Vigencia (R7: el humano nunca ve ni escribe `hasta`) --------- #}
+    <div class="field-row">
+      <div class="field">
+        <label>Desde (incluido)</label>
+        <input type="date" id="jor-desde" class="input"
+               value="{{ edicion.desde if edicion else hoy }}">
+      </div>
+      <div class="field">
+        <label>Ultimo dia incluido</label>
+        <input type="date" id="jor-hasta" class="input"
+               value="{{ edicion.hasta_inclusivo if edicion and edicion.hasta_inclusivo else '' }}"
+               {% if not (edicion and edicion.hasta_inclusivo) %}disabled{% endif %}>
+      </div>
+    </div>
+    <div class="field">
+      <label class="check">
+        <input type="checkbox" id="jor-sin-fin"
+               {% if not (edicion and edicion.hasta_inclusivo) %}checked{% endif %}>
+        Sin fecha de fin
+      </label>
+      <p class="muted" style="font-size:12px;margin-top:6px">
+        El dia que escribas queda <strong>incluido</strong>. Para una vigencia
+        que acaba el 31/07, escribe 31/07.
+      </p>
+    </div>
+
+    <div class="field">
+      <label>Nota</label>
+      <input type="text" id="jor-nota" class="input" maxlength="255"
+             autocomplete="off" placeholder="Por que existe esta excepcion"
+             value="{{ edicion.nota or '' if edicion else '' }}">
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn primary" id="jor-submit">
+        {% if edicion %}Guardar cambios{% else %}Crear{% endif %}
+      </button>
+      {% if edicion %}
+      <a class="btn secondary" href="/admin/jornadas">Cancelar</a>
+      {% endif %}
+    </div>
+    <p id="adminjor-status" class="form-status" hidden></p>
+  </div>
+
+  {# --- Listado (R2) -------------------------------------------------- #}
+  {% if filas %}
+  <div class="panel" style="margin-top:20px">
+    <div class="table-scroll">
+    <table class="table docs-table filterable">
+      <thead>
+        <tr>
+          <th>DNI</th>
+          <th class="num">Semanal</th>
+          <th>Patron (L M X J V S D)</th>
+          <th>Vigencia</th>
+          <th>Origen</th>
+          <th>Nota</th>
+          <th>Estado</th>
+          <th>Auditoria</th>
+          <th></th>
+        </tr>
+        <tr class="filter-row">
+          <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+          <th><input class="col-filter" type="text" placeholder="…"></th>
+          <th><input class="col-filter" type="text" placeholder="…"></th>
+          <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+          <th><input class="col-filter" type="text" placeholder="…"></th>
+          <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+          <th><input class="col-filter" type="text" placeholder="…"></th>
+          <th><input class="col-filter" type="text" placeholder="…"></th>
+          <th><button type="button" class="filter-clear">Limpiar</button></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr data-jornada-id="{{ f.id }}">
+          <td><span class="link-strong">{{ f.dni_norm }}</span>
+              <div class="cell-sub">#{{ f.id }}</div></td>
+          <td class="num">{% if f.jornada_semanal is not none %}{{ f.jornada_semanal|horas }}{% else %}—{% endif %}</td>
+          <td>{% if f.patron %}{{ f.patron|join(" · ") }}{% else %}—{% endif %}</td>
+          <td>
+            {{ f.desde }} … {% if f.hasta_inclusivo %}{{ f.hasta_inclusivo }}{% else %}<span class="muted">sin fin</span>{% endif %}
+          </td>
+          <td>{{ f.origen }}</td>
+          <td>{{ f.nota or "—" }}</td>
+          <td>
+            {% if f.is_active %}
+            <span class="badge ok">activa</span>
+            {% else %}
+            <span class="badge danger">inactiva</span>
+            {% endif %}
+          </td>
+          <td class="cell-sub">
+            Alta: {{ f.created_by or "—" }} · {{ f.created_at_utc }}
+            {% if f.updated_at_utc %}
+            <br>Cambio: {{ f.updated_by or "—" }} · {{ f.updated_at_utc }}
+            {% endif %}
+          </td>
+          <td class="cell-actions">
+            <a class="btn secondary small" href="/admin/jornadas?editar={{ f.id }}">Editar</a>
+            <button type="button" class="btn secondary small"
+                    data-jor-cerrar="{{ f.id }}"
+                    data-desde="{{ f.desde }}">Cerrar…</button>
+            {% if f.is_active %}
+            <button type="button" class="btn danger small"
+                    data-jor-desactivar="{{ f.id }}">Desactivar</button>
+            {% else %}
+            <button type="button" class="btn secondary small"
+                    data-jor-reactivar="{{ f.id }}">Reactivar</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty" style="margin-top:20px">
+    <p>No hay ninguna excepcion de jornada registrada.</p>
+    <p class="muted">
+      Lo normal es no tener ninguna: la jornada sale del regimen del
+      trabajador en Sigrid. Crea una solo cuando ese regimen no la exprese.
+    </p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

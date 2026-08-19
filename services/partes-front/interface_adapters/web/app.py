@@ -47,7 +47,21 @@ from application.services.calendar_builder import (
 )
 from application.services.calendario_provider import CalendarioProvider
 from application.services.holiday_provider import HolidayProvider
+from application.services.jornada_admin import (
+    ABREVIATURA_DIA,
+    DIAS as DIAS_JORNADA,
+    JornadaInvalida,
+    a_hasta_exclusivo,
+    buscar_solape,
+    describir_conflicto,
+    entrada_desde_fila,
+    normalizar_entrada,
+    ultimo_dia_incluido_de_fila,
+    validar_entrada,
+    validar_vigencia,
+)
 from application.services.jornada_provider import JornadaEmpleadoProvider
+from application.services.text_match import normalize_dni
 from application.services.jornada_resolver import (
     candef_valido,
     detalle_jornada_dia,
@@ -446,6 +460,10 @@ def build_app(
     templates.env.filters["fecha"] = _fmt_fecha
     templates.env.filters["incidencia"] = _incidencia_label
     templates.env.globals["asset_version"] = str(int(time.time()))
+    # Enlace «Jornadas» de la barra (R15). Como global, para no tener que
+    # anadirlo al contexto de las diez vistas que ya existen.
+    templates.env.globals["jornadas_admin_enabled"] = bool(
+        settings.jornadas_admin_enabled)
     app.mount(
         "/static",
         StaticFiles(
@@ -453,6 +471,36 @@ def build_app(
         ),
         name="static",
     )
+
+    # --- F-016: quien firma y quien puede entrar ---------------------- #
+
+    def _actor(request: Request) -> str | None:
+        """Quien firma el cambio (R13). PUNTO UNICO de identidad en F-016.
+
+        HOY devuelve `settings.default_reviewer`, exactamente lo que hace
+        el resto del portal (once sitios de este mismo fichero). No lee
+        ninguna cabecera: leer y decodificar la de Easy Auth es trabajo
+        de **F-017**, y cuando F-017 llegue solo cambia el INTERIOR de
+        esta funcion — F-016 no se toca.
+
+        Sin `DEFAULT_REVIEWER` configurado se sella `NULL` y la operacion
+        NO falla: no saber quien fue no es motivo para perder el cambio.
+        """
+        _ = request                      # lo usara F-017; aqui, no
+        return settings.default_reviewer
+
+    def _exigir_admin_jornadas() -> None:
+        """Puerta UNICA de la pantalla de jornadas (R15).
+
+        Hoy: el interruptor `JORNADAS_ADMIN_ENABLED`. Cuando exista F-008
+        (roles), la comprobacion de rol se escribe AQUI y en ningun otro
+        sitio. Por eso es una funcion y no un middleware por prefijo: un
+        middleware habria que desmontarlo (DA9).
+
+        404 y no 403 a proposito: con la pantalla apagada no existe.
+        """
+        if not settings.jornadas_admin_enabled:
+            raise HTTPException(status_code=404, detail="Pagina no encontrada.")
 
     # --- F-004: congelacion -> 409 (no es un 500) --------------------- #
     @app.exception_handler(CongeladoError)
@@ -1877,6 +1925,269 @@ def build_app(
                        "peticion del portal", len(movidos), poison, cola)
         return JSONResponse({"ok": True, "movidos": len(movidos),
                              "restantes_aprox": restantes})
+
+    # ----------------------------------------------------------------- #
+    # F-016 · administracion de `empleado_jornada`.
+    #
+    # Esta pantalla edita el COMPUTO DE NOMINAS: una fila mal guardada
+    # cambia que horas cuenta sv3 como extra y acaba en Sigrid. De ahi
+    # las tres reglas que se repiten en los cinco endpoints:
+    #   1. se valida ANTES de escribir, y un rechazo deja la BBDD intacta;
+    #   2. un solape se RECHAZA (409) nombrando la fila en conflicto, y
+    #      nunca se ajusta la fila ajena (DA3);
+    #   3. no hay DELETE: la papelera es logica (R6).
+    # ----------------------------------------------------------------- #
+
+    def _numero_texto(valor: Any) -> str:
+        """Un float como lo escribiria un humano: `48`, no `48.0`."""
+        return "" if valor is None else f"{float(valor):g}"
+
+    def _fila_para_pantalla(fila: dict) -> dict:
+        """La fila del repositorio, en el idioma de la pantalla (R7).
+
+        `hasta` NO viaja a la plantilla: lo que se pinta es el ultimo dia
+        incluido. La palabra «exclusivo» no aparece en la interfaz.
+        """
+        horas = [fila.get(dia) for dia in DIAS_JORNADA]
+        vista = dict(fila)
+        vista["hasta_inclusivo"] = ultimo_dia_incluido_de_fila(fila.get("hasta"))
+        vista["patron"] = ([_numero_texto(h) for h in horas]
+                           if all(h is not None for h in horas) else None)
+        vista["semanal_texto"] = _numero_texto(fila.get("jornada_semanal"))
+        return vista
+
+    @app.get("/admin/jornadas", response_class=HTMLResponse)
+    def admin_jornadas(
+        request: Request,
+        editar: int | None = Query(default=None),
+    ) -> HTMLResponse:
+        """R2 · el listado entero mas el formulario de alta o edicion.
+
+        `?editar=<id>` devuelve el formulario RELLENO desde el servidor
+        (patron PRG): cero JS de precarga. Si el id no existe, se cae al
+        modo alta en vez de dar un 404: la pagina sigue siendo util.
+        """
+        _exigir_admin_jornadas()
+        filas = [_fila_para_pantalla(f)
+                 for f in repository.list_jornadas_admin()]
+        edicion = next((f for f in filas if f["id"] == editar), None)
+        patron = (edicion or {}).get("patron")
+        context = {
+            "request": request,
+            "title": settings.app_title,
+            "filas": filas,
+            "edicion": edicion,
+            "dias": [
+                {"columna": columna,
+                 "etiqueta": ABREVIATURA_DIA[columna],
+                 "valor": patron[i] if patron else ""}
+                for i, columna in enumerate(DIAS_JORNADA)
+            ],
+            "hoy": date.today().isoformat(),
+            "sigrid_enabled": settings.sigrid_lookup_enabled,
+            # R14: los minutos salen de la configuracion, no cableados. Se
+            # redondea hacia ARRIBA para no prometer menos espera de la real.
+            "cache_minutos": max(
+                1, -(-int(settings.jornada_cache_ttl_s) // 60)),
+            "aviso": request.query_params.get("aviso"),
+        }
+        return templates.TemplateResponse(
+            request=request, name="admin_jornadas.html", context=context)
+
+    async def _cuerpo(request: Request) -> dict[str, Any]:
+        """El JSON del formulario, o un diccionario vacio.
+
+        Un cuerpo ilegible no es un 500: cae en las validaciones de campo
+        y sale como 422 con el motivo puesto."""
+        try:
+            datos = await request.json()
+        except Exception:                                       # noqa: BLE001
+            return {}
+        return datos if isinstance(datos, dict) else {}
+
+    def _rechazo(exc: JornadaInvalida) -> JSONResponse:
+        """422: lo que el humano escribio no se puede guardar (DA10)."""
+        logger.info("[jornada-admin] rechazada: %s (campo=%s)",
+                    exc.motivo, exc.campo)
+        return JSONResponse(
+            {"ok": False, "error": exc.motivo, "campo": exc.campo},
+            status_code=422)
+
+    def _conflicto(fila: dict) -> JSONResponse:
+        """409: choca con el estado. El humano decide cual cierra."""
+        detalle = describir_conflicto(fila)
+        fin = detalle["hasta_inclusivo"] or "sin fin"
+        logger.info("[jornada-admin] solape con la fila id=%s", detalle["id"])
+        return JSONResponse(
+            {"ok": False,
+             "error": (f"Ese periodo pisa la vigencia de la fila #"
+                       f"{detalle['id']} ({detalle['desde']} … {fin}). "
+                       "Cierrala primero o cambia las fechas."),
+             "conflicto": detalle},
+            status_code=409)
+
+    def _no_encontrada() -> JSONResponse:
+        return JSONResponse(
+            {"ok": False, "error": "Esa excepcion de jornada ya no existe."},
+            status_code=404)
+
+    def _invalidar_jornadas() -> None:
+        """Tira la cache del proveedor DE ESTE PROCESO (R14).
+
+        No avisa ni a sv3 ni a otras replicas de sv4: eso exigiria un
+        acoplamiento entre servicios que `docs/ARCHITECTURE.md` no
+        contempla, para ahorrar como mucho `JORNADA_CACHE_TTL_S` en una
+        tabla que se toca dos veces al ano. Por eso la pagina lleva el
+        aviso permanente en vez de prometer un efecto inmediato.
+        """
+        proveedor = getattr(app.state, "jornada_provider", None)
+        invalidar = getattr(proveedor, "invalidar", None)
+        if callable(invalidar):
+            invalidar()
+
+    def _aviso_dni_desconocido(dni_norm: str) -> str | None:
+        """R19: si el DNI no consta en Sigrid se AVISA, no se bloquea.
+
+        Con el catalogo apagado no se llama al cliente de Sigrid ni una
+        vez: la pantalla no depende de que Sigrid este cableado (R17).
+        """
+        catalogo = getattr(app.state, "empleado_catalog", None)
+        if catalogo is None or not catalogo.enabled:
+            return None
+        try:
+            conocidos = {normalize_dni(e.dni) for e in catalogo.list()}
+        except Exception:                                       # noqa: BLE001
+            logger.warning("[jornada-admin] no se pudo comprobar el DNI "
+                           "contra Sigrid", exc_info=True)
+            return None
+        if dni_norm in conocidos:
+            return None
+        return ("Ese DNI no consta en el catalogo de empleados de Sigrid. "
+                "La excepcion se ha guardado igualmente: comprueba que es "
+                "el trabajador que querias.")
+
+    def _por_id(filas: list[dict], jornada_id: int) -> dict | None:
+        return next((f for f in filas if f["id"] == jornada_id), None)
+
+    def _a_persistir(entrada) -> dict:
+        """De `EntradaJornada` a lo que entiende el repositorio."""
+        return {
+            "dni_norm": entrada.dni_norm,
+            "jornada_semanal": entrada.jornada_semanal,
+            "patron": entrada.patron,
+            "desde": entrada.desde,
+            "hasta": entrada.hasta,
+            "nota": entrada.nota,
+        }
+
+    @app.post("/api/admin/jornadas", include_in_schema=False)
+    async def jornada_crear(request: Request) -> JSONResponse:
+        """R3 · alta de una excepcion de jornada."""
+        _exigir_admin_jornadas()
+        try:
+            entrada = normalizar_entrada(await _cuerpo(request))
+            validar_entrada(entrada)
+        except JornadaInvalida as exc:
+            return _rechazo(exc)
+        choque = buscar_solape(entrada, repository.list_jornadas_admin())
+        if choque is not None:
+            return _conflicto(choque)
+        nuevo_id = repository.crear_jornada(
+            entrada=_a_persistir(entrada), actor=_actor(request))
+        _invalidar_jornadas()
+        cuerpo: dict[str, Any] = {"ok": True, "id": nuevo_id}
+        aviso = _aviso_dni_desconocido(entrada.dni_norm)
+        if aviso:
+            cuerpo["aviso"] = aviso
+        return JSONResponse(cuerpo)
+
+    @app.patch("/api/admin/jornadas/{jornada_id}", include_in_schema=False)
+    async def jornada_editar(jornada_id: int,
+                             request: Request) -> JSONResponse:
+        """R4 · edicion. El `dni_norm` del cuerpo se IGNORA."""
+        _exigir_admin_jornadas()
+        filas = repository.list_jornadas_admin()
+        actual = _por_id(filas, jornada_id)
+        if actual is None:
+            return _no_encontrada()
+        try:
+            entrada = normalizar_entrada(await _cuerpo(request),
+                                         dni_fijo=actual["dni_norm"])
+            validar_entrada(entrada)
+        except JornadaInvalida as exc:
+            return _rechazo(exc)
+        choque = buscar_solape(entrada, filas, excluir_id=jornada_id)
+        if choque is not None:
+            return _conflicto(choque)
+        if not repository.actualizar_jornada(
+            jornada_id=jornada_id, entrada=_a_persistir(entrada),
+            actor=_actor(request),
+        ):
+            return _no_encontrada()
+        _invalidar_jornadas()
+        return JSONResponse({"ok": True, "id": jornada_id})
+
+    @app.post("/api/admin/jornadas/{jornada_id}/cerrar",
+              include_in_schema=False)
+    async def jornada_cerrar(jornada_id: int,
+                             request: Request) -> JSONResponse:
+        """R5 · cierre de vigencia por el ULTIMO DIA INCLUIDO.
+
+        Cerrar solo acorta la vigencia, asi que no puede crear un solape
+        nuevo: no hace falta revalidarlo.
+        """
+        _exigir_admin_jornadas()
+        actual = _por_id(repository.list_jornadas_admin(), jornada_id)
+        if actual is None:
+            return _no_encontrada()
+        try:
+            hasta = a_hasta_exclusivo((await _cuerpo(request)).get(
+                "hasta_inclusivo"))
+            validar_vigencia(actual["desde"], hasta)
+        except JornadaInvalida as exc:
+            return _rechazo(exc)
+        if not repository.cerrar_jornada(jornada_id=jornada_id, hasta=hasta,
+                                         actor=_actor(request)):
+            return _no_encontrada()
+        _invalidar_jornadas()
+        return JSONResponse({"ok": True, "id": jornada_id})
+
+    @app.post("/api/admin/jornadas/{jornada_id}/desactivar",
+              include_in_schema=False)
+    def jornada_desactivar(jornada_id: int, request: Request) -> JSONResponse:
+        """R6 · a la papelera logica. La fila se queda en la tabla."""
+        _exigir_admin_jornadas()
+        if not repository.set_jornada_activa(
+            jornada_id=jornada_id, activa=False, actor=_actor(request),
+        ):
+            return _no_encontrada()
+        _invalidar_jornadas()
+        return JSONResponse({"ok": True, "id": jornada_id})
+
+    @app.post("/api/admin/jornadas/{jornada_id}/reactivar",
+              include_in_schema=False)
+    def jornada_reactivar(jornada_id: int, request: Request) -> JSONResponse:
+        """R6 · sacarla de la papelera, REVALIDANDO el solape.
+
+        Mientras estaba inactiva su vigencia no reservaba nada, asi que
+        otra fila pudo ocuparla. Si choca, se rechaza y la fila SE QUEDA
+        INACTIVA: no se toca ni ella ni la otra.
+        """
+        _exigir_admin_jornadas()
+        filas = repository.list_jornadas_admin()
+        actual = _por_id(filas, jornada_id)
+        if actual is None:
+            return _no_encontrada()
+        choque = buscar_solape(entrada_desde_fila(actual), filas,
+                               excluir_id=jornada_id)
+        if choque is not None:
+            return _conflicto(choque)
+        if not repository.set_jornada_activa(
+            jornada_id=jornada_id, activa=True, actor=_actor(request),
+        ):
+            return _no_encontrada()
+        _invalidar_jornadas()
+        return JSONResponse({"ok": True, "id": jornada_id})
 
     @app.patch("/api/registros/{registro_id}/hora")
     def set_registro_hora(

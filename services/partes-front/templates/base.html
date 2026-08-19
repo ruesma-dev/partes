@@ -23,6 +23,9 @@
         <a href="/conciliacion"{% if request.url.path.startswith('/conciliacion') %} class="is-active"{% endif %}>Conciliar</a>
         <a href="/partes"{% if request.url.path.startswith('/partes') %} class="is-active"{% endif %}>Partes</a>
         <a href="/papelera"{% if request.url.path.startswith('/papelera') %} class="is-active"{% endif %}>Papelera</a>
+        {% if jornadas_admin_enabled %}
+        <a href="/admin/jornadas"{% if request.url.path.startswith('/admin/jornadas') %} class="is-active"{% endif %}>Jornadas</a>
+        {% endif %}
         <a href="/nuevo"{% if request.url.path.startswith('/nuevo') %} class="is-active"{% endif %}>+ Nuevo</a>
       </nav>
       {# F-002: aviso de mensajes muertos en las colas. Lo rellena app.js

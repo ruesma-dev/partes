@@ -441,8 +441,9 @@ con ese nombre casan solos.
 **Nace vacía y se espera que siga así**: es para los trabajadores cuyo
 régimen no cabe en el `candef` de Sigrid. Mientras no tenga filas, la
 jornada de cada día se deriva del mapa `JORNADA_SEMANAL_POR_CANDEF`
-(§4.3). Hasta F-016 (pantalla de administración) las filas se cargan por
-SQL a mano; una fila mal formada se ignora, no cambia el reparto.
+(§4.3). Desde **F-016** las filas se mantienen desde el portal, en
+**`/admin/jornadas`** (§5.4.1); antes se cargaban por SQL a mano. Una fila
+mal formada se ignora, no cambia el reparto.
 
 | Columna | Notas |
 |---|---|
@@ -460,6 +461,47 @@ La leen sv3 (cómputo de extras) y sv4 (avisos y KPI), cada uno con su
 propio adaptador y su caché con TTL (`JORNADA_CACHE_TTL_S`). Si la lectura
 falla, los dos siguen con la jornada derivada y dejan un WARNING: la tabla
 es un accesorio, no puede tumbar ni la conciliación ni el portal.
+
+#### 5.4.1 La pantalla `/admin/jornadas` (F-016, solo sv4)
+
+Alta, edición, cierre, desactivación y reactivación de las filas de
+`empleado_jornada`. Tres cosas que hay que saber antes de tocarla:
+
+- **El humano nunca ve ni escribe `hasta`.** La pantalla habla de
+  **«último día incluido»** y la conversión `hasta = último día incluido +
+  1 día` ocurre solo en la capa web. Una vigencia que acaba el 31/07 se
+  escribe *31/07* y se guarda como `hasta = 2026-08-01`. Ese criterio es
+  el motivo de que la palabra «exclusivo» no aparezca en la interfaz: el
+  error de un día de más o de menos en una vigencia es **silencioso**, no
+  produce ningún fallo, solo un reparto de horas distinto.
+- **Cerrar ≠ desactivar.** «Cerrar…» pone la fecha de fin y la fila sigue
+  activa (es historia legítima: la excepción dejó de aplicar). «Desactivar»
+  es la papelera lógica (`is_active = false`). Ningún endpoint borra: la
+  papelera es lógica (semántica 8 de `docs/ARCHITECTURE.md`).
+- **Un solape se rechaza, no se resuelve solo.** Si la vigencia que se
+  intenta guardar pisa la de otra fila **activa** del mismo DNI, se
+  responde 409 nombrando esa fila y **no se escribe nada**; la otra fila
+  **nunca** se ajusta automáticamente. Dos vigencias **contiguas** (el
+  `hasta` de una igual al `desde` de la otra) **no** solapan: es el caso
+  normal de encadenar vigencias.
+
+Otros detalles de operación:
+
+- `origen` lo pone siempre el servidor y vale `manual`: no es un campo del
+  cliente.
+- El trabajador se elige en un selector con búsqueda por DNI y nombre que
+  consume el endpoint ya existente `GET /api/sigrid/empleados`. Sin Sigrid
+  cableado, el selector llega deshabilitado y queda el alta manual del DNI.
+  Un DNI que no consta en Sigrid **se guarda igual** y sale un aviso.
+- **Los cambios no se ven al instante en todas partes.** sv4 invalida su
+  propia caché tras cada escritura, pero sv3 sigue con los datos anteriores
+  hasta `JORNADA_CACHE_TTL_S` (600 s por defecto). La pantalla lo avisa de
+  forma permanente, con los minutos calculados desde esa variable.
+- Se apaga entera —página y endpoints— con `JORNADAS_ADMIN_ENABLED=false`.
+  Mientras no exista F-008 (roles), puede entrar cualquier usuario
+  autenticado del portal, igual que en el reencolado de mensajes poison.
+- `created_by` / `updated_by` llevan hoy `DEFAULT_REVIEWER`, como el resto
+  del portal; el usuario real de Easy Auth es trabajo de **F-017**.
 
 ### 5.5 `undo_log` — historial para DESHACER del portal
 

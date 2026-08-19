@@ -122,6 +122,12 @@ class Settings(BaseSettings):
     # TTL (s) de la cache de la tabla de excepciones `empleado_jornada`.
     jornada_cache_ttl_s: int = Field(600, alias="JORNADA_CACHE_TTL_S")
 
+    # Pantalla de administracion de `empleado_jornada` (F-016). ENCENDIDA
+    # por defecto: hasta que exista F-008 (roles) puede entrar cualquier
+    # usuario autenticado, igual que en el reencolado de mensajes poison.
+    # Apagarla es `az containerapp update`, sin redesplegar.
+    jornadas_admin_enabled: bool = Field(True, alias="JORNADAS_ADMIN_ENABLED")
+
     # --- Festivos del calendario --- #
     # RESPALDO de los festivos: se usa cuando Sesame no esta configurado
     # (F-003 apagada) o no responde. No se retira hasta que sesame-api
