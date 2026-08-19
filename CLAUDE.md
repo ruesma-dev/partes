@@ -155,8 +155,12 @@ original NO se versiona: al repositorio entra solo el Markdown.
   `infrastructure/database/orm_models.py` (sv3 y sv4), los clientes
   `infrastructure/sigrid/` y los clientes `infrastructure/sesame/`
   (sv3 y sv4, añadidos por F-003 con decisión expresa del humano el
-  2026-08-15). Solo crece con una decisión así; quien toque una copia
-  cambia TODAS en la misma feature. Una responsabilidad nueva que no
+  2026-08-15) y `application/services/jornada_resolver.py` (sv3 y sv4,
+  duplicado de hecho desde F-003 y añadido a esta lista con decisión
+  expresa del humano el 2026-08-19, al ampliarlo F-015 con la jornada
+  del día; equivalencia comprobada por
+  `tests/test_f015_r19_jornada_resolver_gemelo.py`). Solo crece con una
+  decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes NO hacen `git push` ni crean PRs salvo petición explícita del
   humano. Commits locales sí, según protocolo del implementer.

@@ -241,3 +241,65 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   fichero mutado, así que los guardianes de la raíz nunca matan mutantes
   ⇒ supervivientes falsos; debería ejecutar también la suite de la raíz (o
   todas las que importan el fichero).
+
+## F-015 · Jornada del día por jornada semanal derivada del candef y último laborable (2026-08-19)
+
+- Rama `feature/F-015-jornada-semanal-candef`, 19 commits + cierre del líder.
+  Rigor `estandar`, `sdd: true`. Spec: `specs/F-015-jornada-semanal-candef/`
+  (R10–R35, 13 tareas), nacida del estudio F-012 y de sus decisiones firmes.
+- Qué hace: la jornada deja de ser el candef plano y pasa a ser **jornada del
+  día**. L–V vale el candef efectivo salvo el **último día laborable** de la
+  semana del trabajador (calendario de F-003; un festivo cuenta como jornada),
+  que recibe `max(0, S − 4c)`. La jornada semanal `S` se **deriva del candef**
+  por el mapa configurable `JORNADA_SEMANAL_POR_CANDEF` (`8:40,9:42`, variable
+  espejo en sv3 y sv4, fail-fast al arrancar); candef válido fuera del mapa ⇒
+  `5×c` + WARNING. Excepciones por trabajador en la tabla nueva
+  `empleado_jornada` (19 columnas, declarada en las DOS copias del ORM, nace
+  vacía); si su lectura falla ⇒ derivada + WARNING.
+- Regresión cero: con `c = 8` y `S = 40` el último laborable recibe
+  `40 − 32 = 8`, idéntico a hoy con festivos o sin ellos. Los tests dorados de
+  F-003 quedaron **intactos** y verdes.
+- Congelados (D7, lectura NO literal aprobada por el humano): las líneas
+  `encolado`/`registrado`/`approved` **cuentan en el total del día pero no se
+  modifican nunca**; si el día no cuadra sin tocarlas, no hay split y se avisa.
+  La lectura literal habría dado una segunda jornada completa en días mixtos.
+- Verificado (reviewer, independiente): `init.sh` verde, **1.195 tests**
+  (raíz 92, sv3 438, sv4 665), cobertura de líneas cambiadas **99,4 %**
+  (520/523), mutación **259/237/22/0 → 91,5 %**. El reviewer **recalculó** el
+  alcance y los mutantes con las herramientas del arnés (coincidencia fichero a
+  fichero), muestreó 9 de los 22 supervivientes contra el generador y
+  **confirmó leyendo el código tres grupos de equivalencias**.
+- Tres campañas de mutación, documentadas las tres: la 1.ª dio **100 timeouts**
+  (16 evaluadores × suite de sv4 de ~80 s contra el presupuesto de 120 s de
+  `rigor.json`) y NO es una medición; la 2.ª (211/48) motivó **+70 tests**; la
+  3.ª es la válida. El salto 211 → 237 muertos es el valor de esos tests.
+- La mutación destapó **un fallo real de diseño**: la rama «sin fecha
+  utilizable» inventaba `5×c` con `origen="plana"` aunque el candef estuviera
+  en el mapa — mentía en el KPI y disparaba un WARNING falso. Corregido y con
+  test.
+- Huecos de test que destapó y se taparon: el adaptador
+  `SqlAlchemyJornadaRepository` de sv3 **no tenía ningún test** (sobrevivía
+  invertir `is_active`, es decir leer justo las filas retiradas); bordes de
+  `Excepcion.valida()` y `parsear_mapa_semanal`; tres de las cuatro ramas de
+  `ultimo_laborable`; asserts que colaban un signo cambiado por usar `in` en
+  vez del prefijo exacto.
+- **CONFIRMA con datos la automejora del arnés ya anotada en F-010**:
+  `harness/mutacion.py` solo ejecuta la suite del servicio dueño del fichero
+  mutado, así que el guardián de una copia gemela —que vive en `tests/` de la
+  raíz— nunca entra. Fueron **27 de los 48 supervivientes** de la 2.ª campaña,
+  todos falsos «equivalentes». Contramedida aplicada aquí: cada copia tiene ya
+  sus propios tests de la regla en la suite de su servicio. Arreglo genérico
+  propuesto (F-009 ⇒ `arnes-base`): ejecutar también la suite de la raíz
+  (~4 s en este repo) o, como mínimo, avisar en el informe cuando el fichero
+  mutado tenga copia gemela declarada en `CLAUDE.md`.
+- `CLAUDE.md`: `application/services/jornada_resolver.py` entra en la lista
+  cerrada de duplicación tolerada (decisión del humano del 2026-08-19).
+- Puerta R35 **invertida** por decisión del humano: F-015 se mergea y despliega
+  **sin** F-014 (regresión cero). Lo que no se puede es aplicar el `candef = 9`
+  en Sigrid antes de desplegar F-015 (daría −3 h/semana a esos 7 recursos).
+- MANUAL pendiente del humano: **T12** (`specs/F-015-.../tasks.md`), tras
+  desplegar sv3 y sv4 — «esquema inicializado (N sentencias)» en ambos y las
+  19 columnas de `empleado_jornada` con su índice; un viernes de 6 h de la
+  cuadrilla sin aviso de incompleta y el KPI «9 h · 42 h/sem · último laborable
+  6 h»; y que un parte ya aprobado no cambie su desglose tras la primera pasada
+  de sv3.

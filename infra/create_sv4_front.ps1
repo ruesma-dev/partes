@@ -61,6 +61,10 @@ $sv4Env = @(
     # --- Graph: visor del PDF (drive/item se toman del propio parte) ---
     "GRAPH_KEY=secretref:graph-key", "GRAPH_TIMEOUT_S=60",
     "SHAREPOINT_DRIVE_ID=$($SP['SHAREPOINT_DRIVE_ID'])",
+    # --- Jornada del DIA (F-015): mapa candef -> jornada SEMANAL. ESPEJO
+    #     del de sv3; el mismo valor en los dos o los avisos del portal
+    #     dejan de coincidir con el reparto de horas. No es secreto. ---
+    "JORNADA_SEMANAL_POR_CANDEF=8:40,9:42", "JORNADA_CACHE_TTL_S=600",
     # --- Festivos del calendario (RESPALDO de sesame-api, ver mas abajo) ---
     "HOLIDAYS_ENABLED=true", "HOLIDAYS_SUBDIV=MD"
 )

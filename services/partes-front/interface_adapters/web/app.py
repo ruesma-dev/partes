@@ -47,9 +47,13 @@ from application.services.calendar_builder import (
 )
 from application.services.calendario_provider import CalendarioProvider
 from application.services.holiday_provider import HolidayProvider
+from application.services.jornada_provider import JornadaEmpleadoProvider
 from application.services.jornada_resolver import (
     candef_valido,
+    detalle_jornada_dia,
+    jornada_dia,
     jornada_efectiva,
+    parsear_mapa_semanal,
 )
 from config.settings import Settings
 from infrastructure.sesame.sesame_api_client import SesameApiClient
@@ -253,15 +257,27 @@ def build_app(
     publisher: TransferQueuePublisher | None = None,
     cola_cliente=None,
     calendario_provider: CalendarioProvider | None = None,
+    jornada_provider: JornadaEmpleadoProvider | None = None,
 ) -> FastAPI:
     """Portal de revision.
 
     Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
     sv5, publisher de `q-transfer`, cliente de cola para la gestion de
-    poison y proveedor de calendario). Sin inyeccion se construyen desde
-    `settings`, que es lo que hace `main.py`; con ella, la suite levanta
-    la app sin PostgreSQL, sin red y sin Storage.
+    poison, proveedor de calendario y proveedor de excepciones de
+    jornada). Sin inyeccion se construyen desde `settings`, que es lo que
+    hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
+    red y sin Storage.
     """
+    # Jornada del DIA (F-015). Lo PRIMERO: un mapa mal escrito cambiaria
+    # los avisos de jornada incompleta de todo el portal en silencio, asi
+    # que es preferible que la app no levante (fail-fast, R10). Se parsea
+    # aqui y no en `config/settings.py` para no invertir las capas.
+    mapa_semanal = parsear_mapa_semanal(settings.jornada_semanal_por_candef)
+    logger.info(
+        "[jornada][wiring] mapa candef -> jornada semanal: %s",
+        ", ".join(f"{c:g}:{v:g}" for c, v in sorted(mapa_semanal.items())),
+    )
+
     if repository is None:
         session_factory = SessionFactory(
             database_url=settings.database_url,
@@ -342,6 +358,16 @@ def build_app(
             ttl_seconds=settings.sesame_cache_ttl_s,
         )
 
+    # Excepciones de jornada (`empleado_jornada`). La tabla nace vacia:
+    # mientras no tenga filas, el proveedor devuelve None y la jornada de
+    # cada dia sale del mapa. Si la lectura falla, las vistas se sirven
+    # igual con la jornada derivada (R17).
+    if jornada_provider is None:
+        jornada_provider = JornadaEmpleadoProvider(
+            repository.list_jornadas_empleado,
+            ttl_seconds=settings.jornada_cache_ttl_s,
+        )
+
     # Cliente del servicio de REGISTRO en Sigrid (partes-transfer, sv5).
     # Sigue siendo el canal SINCRONO: preflight y pisado de conflictos.
     if transfer_client is None and settings.transfer_enabled:
@@ -409,6 +435,8 @@ def build_app(
     app.state.empleado_catalog = empleado_catalog
     app.state.graph_token_provider = graph_token_provider
     app.state.calendario_provider = calendario_provider
+    app.state.jornada_provider = jornada_provider
+    app.state.mapa_semanal = mapa_semanal
     app.state.tables_ready = tables_ready
 
     templates = Jinja2Templates(
@@ -587,19 +615,72 @@ def build_app(
         }
 
         # Dias LABORABLES con jornada ordinaria incompleta: horas
-        # ordinarias del dia por debajo del CanDefecto efectivo (el de
-        # Sigrid, u 8 si era <= minimo). Se excluyen findes/festivos y
-        # los dias sin horas ordinarias (0).
-        candef_efectivo = candef_kpi["valor"]
+        # ordinarias del dia por debajo de LA JORNADA DE ESE DIA (F-015),
+        # que es el candef efectivo salvo el ultimo dia laborable de la
+        # semana, que recibe el resto de la jornada semanal. Se excluyen
+        # findes/festivos y los dias sin horas ordinarias (0).
+        def _es_laborable_trabajador(d: date) -> bool:
+            return calendario_provider.dia(d, detail.dni).laborable
+
+        def _jornada_de(d: date) -> float:
+            return jornada_dia(
+                d, candef=_cd_real,
+                minimo=settings.candef_minimo_valido,
+                por_defecto=settings.jornada_por_defecto,
+                mapa=mapa_semanal, es_laborable=_es_laborable_trabajador,
+                excepcion=jornada_provider.excepcion_para(detail.dni, d),
+            )
+
         dias_incompletos: set[str] = set()
         if calendar is not None:
             for _week in calendar.weeks:
                 for _day in _week:
-                    if (_day.in_period and not _day.is_weekend
-                            and not _day.is_holiday
-                            and 0.0 < (_day.normal_h or 0.0)
-                            < candef_efectivo - 1e-9):
+                    if not (_day.in_period and not _day.is_weekend
+                            and not _day.is_holiday and _day.date_iso):
+                        continue
+                    if 0.0 < (_day.normal_h or 0.0) < (
+                        _jornada_de(date.fromisoformat(_day.date_iso)) - 1e-9
+                    ):
                         dias_incompletos.add(_day.date_iso)
+
+        # KPI de jornada (R25): con que numeros se esta calculando. Sin
+        # esto, F-015 seria magia: el portal dejaria de avisar de unos dias
+        # y empezaria a avisar de otros sin que se pudiera ver por que. La
+        # excepcion se resuelve con el PRIMER dia del periodo mostrado.
+        _dia_kpi = next(
+            (date.fromisoformat(_d.date_iso)
+             for _w in (calendar.weeks if calendar else [])
+             for _d in _w if _d.in_period and _d.date_iso),
+            None,
+        )
+        _excepcion_kpi = (
+            jornada_provider.excepcion_para(detail.dni, _dia_kpi)
+            if _dia_kpi is not None else None
+        )
+        _detalle_kpi = detalle_jornada_dia(
+            _dia_kpi or date.today(), candef=_cd_real,
+            minimo=settings.candef_minimo_valido,
+            por_defecto=settings.jornada_por_defecto,
+            mapa=mapa_semanal, es_laborable=_es_laborable_trabajador,
+            excepcion=_excepcion_kpi,
+        )
+        _patron_kpi = (
+            _excepcion_kpi.patron
+            if _excepcion_kpi is not None and _excepcion_kpi.valida()
+            else None
+        )
+        jornada_kpi = {
+            "candef": _cd_efectivo,
+            "semanal": _detalle_kpi.semanal,
+            "origen": _detalle_kpi.origen,
+            # Horas del ultimo dia laborable de la semana. Con patron no
+            # hay "resto" que ensenar: manda el patron entero.
+            "ultimo_laborable": (
+                None if _patron_kpi is not None
+                else max(0.0, _detalle_kpi.semanal - 4.0 * _cd_efectivo)
+            ),
+            "patron": _patron_kpi,
+        }
 
         # R22: si alguna resolucion de calendario de esta vista salio de
         # la cache caducada o del respaldo, se avisa EN LA PANTALLA. La
@@ -628,6 +709,7 @@ def build_app(
             "calendar": calendar,
             "candef_recurso": candef_recurso,
             "candef_kpi": candef_kpi,
+            "jornada_kpi": jornada_kpi,
             "dias_incompletos": dias_incompletos,
             "sesame_degradado": sesame_degradado,
             "jornada_contrato": jornada_contrato,
@@ -721,11 +803,14 @@ def build_app(
         _consultas: set[tuple[str | None, int]] = set()
         for _row in detail.rows:
             _real = _candef_real.get(_row.nombre or "")
-            _eff = jornada_efectiva(_real, minimo=_cd_min, por_defecto=_cd_jor)
             # Festivo SEGUN EL CALENDARIO DE ESTA FILA (R2): la columna
             # pinta el calendario por defecto, pero el aviso no puede
             # heredar los festivos de otra provincia.
             _es_festivo = calendario_provider.holiday_name_para(_row.dni)
+
+            def _es_laborable_fila(d: date, _dni=_row.dni) -> bool:
+                return calendario_provider.dia(d, _dni).laborable
+
             for _c in _row.cells:
                 if not _c.date_iso:
                     continue
@@ -733,6 +818,16 @@ def build_app(
                 _consultas.add((_row.dni, _fecha.year))
                 if _c.is_weekend or _es_festivo(_fecha):
                     continue
+                # JORNADA DEL DIA de ESTA fila (F-015): el candef efectivo
+                # salvo su ultimo dia laborable, que recibe el resto de la
+                # jornada semanal.
+                _eff = jornada_dia(
+                    _fecha, candef=_real, minimo=_cd_min,
+                    por_defecto=_cd_jor, mapa=mapa_semanal,
+                    es_laborable=_es_laborable_fila,
+                    excepcion=jornada_provider.excepcion_para(
+                        _row.dni, _fecha),
+                )
                 if 0.0 < (_c.normal or 0.0) < _eff - 1e-9:
                     incompletos.add((_row.nombre or "") + "|"
                                     + (_c.date_iso or ""))
@@ -1181,7 +1276,25 @@ def build_app(
         )
 
     @app.get("/api/sigrid/empleados", include_in_schema=False)
-    def sigrid_empleados() -> JSONResponse:
+    def sigrid_empleados(
+        fecha: str | None = Query(default=None),
+    ) -> JSONResponse:
+        """Empleados de Sigrid para «+ Nuevo».
+
+        `jornada_sugerida` es el candef efectivo y NO cambia: hay JS que ya
+        la consume. Con `fecha` (ISO) se anade ademas `jornada_dia`, que es
+        la jornada de ESE dia para ese trabajador (F-015, R26): el viernes
+        de un recurso de regimen 42 son 6 h, no 9.
+        """
+        dia: date | None = None
+        if fecha:
+            try:
+                dia = date.fromisoformat(str(fecha)[:10])
+            except (TypeError, ValueError):
+                return JSONResponse(
+                    {"ok": False, "error": "fecha debe ser YYYY-MM-DD",
+                     "items": []},
+                    status_code=422)
         if not empleado_catalog.enabled:
             return JSONResponse(
                 {"ok": False, "error": "Sigrid no configurado en el sv4.",
@@ -1204,16 +1317,30 @@ def build_app(
                 por_defecto=settings.jornada_por_defecto,
             )
 
-        return JSONResponse({
-            "ok": True,
-            "items": [
-                {"ide": e.ide, "codigo": e.codigo, "nombre": e.nombre,
-                 "dni": e.dni, "reside": e.reside, "categoria": e.categoria,
-                 "candef": e.candef,
-                 "jornada_sugerida": _sugerida(e.candef)}
-                for e in items
-            ],
-        })
+        def _del_dia(empleado) -> float:
+            def _es_laborable(d: date) -> bool:
+                return calendario_provider.dia(d, empleado.dni).laborable
+
+            return jornada_dia(
+                dia, candef=empleado.candef,          # type: ignore[arg-type]
+                minimo=settings.candef_minimo_valido,
+                por_defecto=settings.jornada_por_defecto,
+                mapa=mapa_semanal, es_laborable=_es_laborable,
+                excepcion=jornada_provider.excepcion_para(empleado.dni, dia),
+            )
+
+        salida: list[dict[str, Any]] = []
+        for e in items:
+            fila: dict[str, Any] = {
+                "ide": e.ide, "codigo": e.codigo, "nombre": e.nombre,
+                "dni": e.dni, "reside": e.reside, "categoria": e.categoria,
+                "candef": e.candef,
+                "jornada_sugerida": _sugerida(e.candef),
+            }
+            if dia is not None:
+                fila["jornada_dia"] = _del_dia(e)
+            salida.append(fila)
+        return JSONResponse({"ok": True, "items": salida})
 
     @app.get("/api/sigrid/partidas", include_in_schema=False)
     def sigrid_partidas(obra_ide: int = Query(...)) -> JSONResponse:

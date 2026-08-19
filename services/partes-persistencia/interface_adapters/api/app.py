@@ -26,6 +26,7 @@ from application.pipelines.persist_parte_pipeline import (
 )
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.partida_conciliador import PartidaConciliador
+from application.services.jornada_resolver import parsear_mapa_semanal
 from application.services.recurso_conciliador import RecursoConciliador
 from application.services.sigrid_matcher_provider import SigridMatcherProvider
 from config.settings import Settings
@@ -38,6 +39,9 @@ from infrastructure.calendario.sesame_calendario_laboral import (
 )
 from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.session_factory import SessionFactory
+from infrastructure.database.sqlalchemy_jornada_repository import (
+    SqlAlchemyJornadaRepository,
+)
 from infrastructure.database.sqlalchemy_parte_repository import (
     SqlAlchemyParteRepository,
 )
@@ -83,7 +87,33 @@ def construir_calendario(settings: Settings) -> CalendarioLaboralPort:
     )
 
 
+def construir_mapa_semanal(settings: Settings) -> dict[float, float]:
+    """Mapa candef -> jornada semanal, validado AL ARRANCAR (F-015, R10).
+
+    Se parsea aqui, en el cableado, y no dentro de `config/settings.py`:
+    asi la validacion revienta el arranque (fail-fast) en vez de fallar en
+    caliente en mitad de una pasada, y `config/` no acaba importando de
+    `application/`.
+
+    Un mapa mal escrito cambiaria el reparto ordinaria/extra de todos los
+    partes sin que nadie lo note, asi que es preferible que el servicio no
+    levante.
+    """
+    mapa = parsear_mapa_semanal(settings.jornada_semanal_por_candef)
+    logger.info(
+        "[jornada][wiring] mapa candef -> jornada semanal: %s",
+        ", ".join(f"{c:g}:{s:g}" for c, s in sorted(mapa.items())),
+    )
+    return mapa
+
+
 def build_app(settings: Settings) -> FastAPI:
+    # ----------------------------------------------------------- #
+    # Jornada del dia (F-015). Lo PRIMERO: si el mapa esta mal, mejor
+    # no levantar el servicio que repartir mal las horas.
+    # ----------------------------------------------------------- #
+    mapa_semanal = construir_mapa_semanal(settings)
+
     # ----------------------------------------------------------- #
     # Persistencia.
     # ----------------------------------------------------------- #
@@ -132,6 +162,9 @@ def build_app(settings: Settings) -> FastAPI:
             calendario=construir_calendario(settings),
             jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
             candef_minimo=settings.candef_minimo_valido,
+            mapa_semanal=mapa_semanal,
+            jornadas=SqlAlchemyJornadaRepository(session_factory),
+            jornada_cache_ttl_s=settings.jornada_cache_ttl_s,
         )
         logger.info(
             "[svc3][wiring] Sigrid CABLEADO base_url=%s db=%s empresa=%s",

@@ -2,7 +2,7 @@
 """ORM de partes de trabajo (SQLAlchemy 2.0).
 
 Modelo real (un documento = un parte DIARIO de una obra, con varios
-empleados). CUATRO tablas en la base ``partes``:
+empleados). CINCO tablas en la base ``partes``:
 
   - ``parte_documents``: cabecera del parte diario (fecha, obra leida +
     casada, encargado, jefe de obra, FIRMA) + metadatos de email/IA +
@@ -14,6 +14,10 @@ empleados). CUATRO tablas en la base ``partes``:
     fecha y la obra se desnormalizan desde el documento para agregar por
     trabajador sin joins.
   - ``empleado_alias``: alias aprendidos nombre leido -> empleado.
+  - ``empleado_jornada``: EXCEPCIONES de jornada por trabajador (F-015).
+    Nace vacia: mientras no tenga filas, la jornada de cada dia sale del
+    mapa candef -> jornada semanal. La leen sv3 (computo de extras) y sv4
+    (avisos y KPI).
   - ``undo_log``: historial para DESHACER del portal. SOLO la escribe sv4;
     sv3 ni la lee, pero la declara porque el schema de la base es UNO.
 
@@ -274,6 +278,87 @@ class EmpleadoAliasOrm(Base):
     empleado_dni: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at_utc: Mapped[str] = mapped_column(String(40), nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+class EmpleadoJornadaOrm(Base):
+    """EXCEPCION de jornada de UN trabajador, con vigencia (F-015).
+
+    Lo normal es no tener fila aqui: la jornada del dia se deriva del
+    ``candef`` de Sigrid por el mapa ``JORNADA_SEMANAL_POR_CANDEF``. Esta
+    tabla es para los casos que ese mapa no puede expresar:
+
+      - ``jornada_semanal`` sola: mismo reparto (candef de lunes a jueves
+        y el resto el ultimo laborable) pero con OTRA jornada semanal;
+      - ``h_lun``..``h_dom``: PATRON explicito de horas por dia de la
+        semana. Manda entero y no se aplica la regla del resto.
+
+    ``desde`` es inclusivo y ``hasta`` EXCLUSIVO (``desde <= fecha <
+    hasta``); ``hasta`` nulo es vigencia abierta. ``origen`` deja sitio a
+    que la excepcion venga algun dia de Sigrid (``auxtur``) o de Sesame
+    sin cambiar el modelo. ``is_active`` es la papelera logica de la casa
+    (semantica 8 de ``docs/ARCHITECTURE.md``): aqui no se borra, se
+    desactiva.
+
+    Las validaciones de negocio (al menos jornada o patron, sin solapes
+    de vigencia por DNI, horas 0-24) son de F-016, que es quien pondra la
+    pantalla; hasta entonces las filas se cargan por SQL a mano y el
+    resolutor IGNORA la fila que venga mal formada.
+
+    TODA columna ``NOT NULL`` lleva ``server_default`` a proposito: el
+    DDL complementario de arranque emite un ``ALTER TABLE ... ADD COLUMN``
+    por columna y, el dia que se anada una a una tabla ya con filas, sin
+    ``server_default`` PostgreSQL lo rechaza y el servicio no arranca. Los
+    de ``dni_norm``, ``desde`` y ``created_at_utc`` son centinelas que en
+    la practica no se usan: ``create_all`` crea la tabla completa.
+    """
+    __tablename__ = "empleado_jornada"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    #: DNI normalizado (sin separadores, en mayusculas), como en
+    #: `empleado_alias`: es la clave de identidad del trabajador. El
+    #: `server_default` vacio es un centinela que no casa con ningun
+    #: trabajador (nadie consulta la tabla por DNI vacio).
+    dni_norm: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="", index=True
+    )
+
+    #: Horas ordinarias teoricas de la SEMANA. NULL si solo hay patron.
+    jornada_semanal: Mapped[float | None] = mapped_column(Float)
+
+    # --- Patron explicito de horas por dia (lunes..domingo) --- #
+    h_lun: Mapped[float | None] = mapped_column(Float)
+    h_mar: Mapped[float | None] = mapped_column(Float)
+    h_mie: Mapped[float | None] = mapped_column(Float)
+    h_jue: Mapped[float | None] = mapped_column(Float)
+    h_vie: Mapped[float | None] = mapped_column(Float)
+    h_sab: Mapped[float | None] = mapped_column(Float)
+    h_dom: Mapped[float | None] = mapped_column(Float)
+
+    # --- Vigencia (ISO YYYY-MM-DD, como `parte_registros.fecha`) --- #
+    desde: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="1900-01-01"
+    )
+    hasta: Mapped[str | None] = mapped_column(String(16))
+
+    #: manual | sigrid | sesame.
+    origen: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="manual", server_default="manual"
+    )
+    nota: Mapped[str | None] = mapped_column(String(255))
+
+    # --- Papelera logica --- #
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="true"
+    )
+
+    # --- Auditoria --- #
+    created_at_utc: Mapped[str] = mapped_column(
+        String(40), nullable=False, server_default="1970-01-01T00:00:00Z"
+    )
+    created_by: Mapped[str | None] = mapped_column(String(120))
+    updated_at_utc: Mapped[str | None] = mapped_column(String(40))
+    updated_by: Mapped[str | None] = mapped_column(String(120))
 
 
 class UndoLogOrm(Base):
