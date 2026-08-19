@@ -46,7 +46,7 @@ Reglas que no se negocian durante la ejecución:
 
 ---
 
-- [ ] **T0**: Comprobar la puerta de entrada. `git log --oneline dev | head`
+- [x] **T0**: Comprobar la puerta de entrada. `git log --oneline dev | head`
       muestra el merge de F-015; existen `EmpleadoJornadaOrm` en
       `services/partes-front/infrastructure/database/orm_models.py`,
       `list_jornadas_empleado` en
@@ -61,7 +61,7 @@ Reglas que no se negocian durante la ejecución:
       (`blocked`); si difiere la semántica (`hasta` exclusivo, `is_active`,
       `origen`), PARAR también.
 
-- [ ] **T1**: Validación pura —
+- [x] **T1**: Validación pura —
       `services/partes-front/application/services/jornada_admin.py`
       (`design.md` §5.1): `JornadaInvalida`, `EntradaJornada`,
       `a_hasta_exclusivo`, `a_ultimo_dia_incluido`, `normalizar_entrada`,
@@ -77,7 +77,7 @@ Reglas que no se negocian durante la ejecución:
       en verde; trazas de la fase RED de **R7 y R12** pegadas en
       `progress/impl_F-016.md`.
 
-- [ ] **T2**: Repositorio — cinco métodos nuevos en `ParteReviewRepository`
+- [x] **T2**: Repositorio — cinco métodos nuevos en `ParteReviewRepository`
       (`services/partes-front/infrastructure/database/parte_repository.py`,
       `design.md` §5.2): `list_jornadas_admin`, `crear_jornada`,
       `actualizar_jornada`, `cerrar_jornada`, `set_jornada_activa`.
@@ -91,7 +91,7 @@ Reglas que no se negocian durante la ejecución:
       en verde; `grep -n "DELETE\|session.delete" ` sobre los métodos nuevos
       sin resultados.
 
-- [ ] **T3**: Configuración y puerta de acceso —
+- [x] **T3**: Configuración y puerta de acceso —
       `jornadas_admin_enabled: bool = Field(True, alias="JORNADAS_ADMIN_ENABLED")`
       en `services/partes-front/config/settings.py`; `_exigir_admin_jornadas()`
       y `_actor(request)` en
@@ -110,7 +110,7 @@ Reglas que no se negocian durante la ejecución:
       en verde; traza de la fase RED de **R15** en el informe; el `.env` real
       **no** se toca (`git status` limpio para `services/partes-front/.env`).
 
-- [ ] **T4**: Endpoints JSON —
+- [x] **T4**: Endpoints JSON —
       `POST /api/admin/jornadas`, `PATCH /api/admin/jornadas/{jornada_id}`,
       `POST /api/admin/jornadas/{jornada_id}/cerrar`, `…/desactivar` y
       `…/reactivar` en `interface_adapters/web/app.py` (`design.md` §5.3),
@@ -126,7 +126,7 @@ Reglas que no se negocian durante la ejecución:
       en verde; en cada caso de rechazo, el test comprueba el `count(*)` de
       la tabla antes y después.
 
-- [ ] **T5**: Página y plantilla — `GET /admin/jornadas` (con `?editar=<id>`)
+- [x] **T5**: Página y plantilla — `GET /admin/jornadas` (con `?editar=<id>`)
       en `app.py` y `services/partes-front/templates/admin_jornadas.html`
       (`design.md` §2), extendiendo `base.html` y reutilizando las clases CSS
       existentes; enlace `Jornadas` en `<nav class="topnav">` de
@@ -150,7 +150,7 @@ Reglas que no se negocian durante la ejecución:
       `git diff dev -- services/partes-front/interface_adapters/web/app.py`
       **no** muestra ninguna ruta `/api/sigrid/*` añadida ni cambiada.
 
-- [ ] **T6**: Aviso de caché e invalidación — `invalidar()` en
+- [x] **T6**: Aviso de caché e invalidación — `invalidar()` en
       `services/partes-front/application/services/jornada_provider.py`;
       llamada tras cada escritura con éxito (y **solo** con éxito); aviso
       permanente en `admin_jornadas.html` con los minutos derivados de
@@ -161,7 +161,7 @@ Reglas que no se negocian durante la ejecución:
       en verde; traza de la fase RED de **R14** en el informe; con TTL 900 en
       settings el HTML dice «15 minutos» (número derivado, no cableado).
 
-- [ ] **T7**: JS de la pantalla — bloque nuevo **dentro del IIFE grande** de
+- [x] **T7**: JS de la pantalla — bloque nuevo **dentro del IIFE grande** de
       `services/partes-front/static/app.js` (el que define `_comboSimple`;
       hoy abre sobre la línea 40 y cierra sobre la 2228), **justo antes de su
       cierre** (`design.md` §5.4 y DA11), con `MotivoHttp.lanzarSiFalla`,
@@ -177,7 +177,7 @@ Reglas que no se negocian durante la ejecución:
       líneas añadidas** en el tramo del bloque nuevo (ninguna modificada
       dentro de `_comboSimple` ni de los combos existentes).
 
-- [ ] **T8**: Documentación — la pantalla y el criterio «último día incluido»
+- [x] **T8**: Documentación — la pantalla y el criterio «último día incluido»
       en `docs/referencia/partes-proyecto.md` (sección de `empleado_jornada`
       que abrió F-015); rutas nuevas de sv4 y la variable
       `JORNADAS_ADMIN_ENABLED` en
