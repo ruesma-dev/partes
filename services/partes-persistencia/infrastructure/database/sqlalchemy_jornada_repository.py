@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import select
-
 from application.services import text_match as tm
 from domain.ports.jornada_empleado_port import (
     JornadaEmpleadoPort,
@@ -24,6 +22,7 @@ from domain.ports.jornada_empleado_port import (
 )
 from infrastructure.database.orm_models import EmpleadoJornadaOrm
 from infrastructure.database.session_factory import SessionFactory
+from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
 

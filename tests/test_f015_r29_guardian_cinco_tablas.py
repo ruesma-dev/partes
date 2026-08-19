@@ -34,7 +34,6 @@ from tests.test_f010_orm_models_gemelos import (
     _huella,
 )
 
-
 # ------------------------- la lista no se relaja ------------------------ #
 
 def test_f015_r29_el_guardian_declara_cinco_tablas() -> None:

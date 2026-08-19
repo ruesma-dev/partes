@@ -438,8 +438,8 @@ class RecursoConciliador:
 
         actualizados = self._repository.apply_recurso_matches(updates)
 
-        # Segunda pasada: pasar a extra el exceso de horas ORDINARIAS sobre el
-        # CanDefecto del recurso, por (recurso, dia) across obras.
+        # Segunda pasada: pasar a extra el exceso de horas ORDINARIAS sobre
+        # la JORNADA DEL DIA, por (recurso, dia) across obras.
         splits = self._reclasificar_extras_jornada(
             registros, ride_por_reg, reshor_idx
         )
@@ -500,10 +500,15 @@ class RecursoConciliador:
     ) -> list[dict]:
         """Normaliza el desglose ordinaria/extra por (recurso, dia) reuniendo
         TODAS las obras. Regla en DIA LABORABLE: se suman las horas normales
-        Y las extras del dia y se comparan con el CanDefecto efectivo; las
-        ordinarias finales son el CanDefecto y la extra es LA RESTA
-        (total - candef), que puede salir NEGATIVA (viernes tipico: trabaja 6
-        con jornada 8 -> ordinaria 8, extra -2).
+        Y las extras del dia y se comparan con la JORNADA DEL DIA (F-015);
+        las ordinarias finales son esa jornada y la extra es LA RESTA
+        (total - jornada), que puede salir NEGATIVA (viernes tipico: trabaja
+        6 con jornada 8 -> ordinaria 8, extra -2).
+
+        La jornada del dia ya NO es plana: es el CanDefecto efectivo salvo
+        el ULTIMO dia laborable de la semana del trabajador, que recibe el
+        resto de la jornada semanal (`max(0, S - 4c)`). Con candef 8 y
+        S 40 el resto vale 8 y no cambia nada respecto a antes de F-015.
 
         - Si falta extra (total > candef + extras explicitas): se recorta lo
           ordinario a extra empezando por los registros de mayor id, como
@@ -587,9 +592,9 @@ class RecursoConciliador:
                     self._fecha_int_to_iso(fecha_int), ride,
                 )
             else:
-                # DIA LABORABLE: normales + extras comparadas con el
-                # CanDefecto efectivo. extra objetivo = total - candef
-                # (puede ser NEGATIVA). Sin ordinarias no se normaliza.
+                # DIA LABORABLE: normales + extras comparadas con la jornada
+                # DEL DIA. extra objetivo = total - jornada (puede ser
+                # NEGATIVA). Sin ordinarias no se normaliza.
                 if total_ord <= 1e-9:
                     continue
                 # JORNADA DEL DIA (F-015). Sigue partiendo del CanDefecto
