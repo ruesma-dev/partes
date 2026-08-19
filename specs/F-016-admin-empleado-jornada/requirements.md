@@ -55,7 +55,7 @@
   ninguna de las dos copias de `infrastructure/database/orm_models.py` y no
   modifica ningún fichero de sv3, sv1, sv2, sv5 ni de `infra/`.
   - *Criterios de aceptación*: `EmpleadoJornadaOrm.__table__.columns` expone
-    exactamente las **16** columnas declaradas por F-015 (`id`, `dni_norm`,
+    exactamente las **19** columnas declaradas por F-015 (`id`, `dni_norm`,
     `jornada_semanal`, `h_lun`…`h_dom`, `desde`, `hasta`, `origen`, `nota`,
     `is_active`, `created_at_utc`, `created_by`, `updated_at_utc`,
     `updated_by`), con los mismos tipos y `nullable`; el guardián de F-010
