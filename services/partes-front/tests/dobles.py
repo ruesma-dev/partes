@@ -369,3 +369,56 @@ def estados_sigrid(fabrica: FabricaSesionSqlite,
             out[i] = (r.sigrid_estado, r.sigrid_motivo, r.sigrid_hmoide,
                       r.sigrid_hmores_ide, r.sigrid_parte_cod)
         return out
+
+
+# --------------------------- jornada del dia ---------------------------- #
+
+def es_laborable_fake(no_laborables=(), *, registro=None,
+                      finde_laborable: bool = False):
+    """`es_laborable(date) -> bool` para el resolutor de jornada (F-015).
+
+    El resolutor recibe el calendario ya LIGADO al DNI como callable, asi
+    que en sus tests basta una lista de fechas ISO no laborables.
+    `registro`, si se pasa, apunta cada fecha consultada.
+    """
+    fuera = {str(f) for f in no_laborables}
+
+    def _es_laborable(d) -> bool:
+        if registro is not None:
+            registro.append(d.isoformat())
+        if not finde_laborable and d.weekday() >= 5:
+            return False
+        return d.isoformat() not in fuera
+
+    return _es_laborable
+
+
+def sembrar_jornadas(fabrica, filas: list[dict]) -> list[int]:
+    """Filas de `empleado_jornada` en la base de memoria (F-015).
+
+    Cada elemento admite `dni_norm`, `jornada_semanal`, `patron` (7
+    valores L..D), `desde`, `hasta`, `origen` e `is_active`.
+    """
+    from infrastructure.database.orm_models import EmpleadoJornadaOrm
+
+    dias = ("h_lun", "h_mar", "h_mie", "h_jue", "h_vie", "h_sab", "h_dom")
+    ids: list[int] = []
+    with fabrica.create_session() as s:
+        for f in filas:
+            patron = f.get("patron") or [None] * 7
+            fila = EmpleadoJornadaOrm(
+                dni_norm=f.get("dni_norm", "12345678Z"),
+                jornada_semanal=f.get("jornada_semanal"),
+                desde=f.get("desde", "2026-01-01"),
+                hasta=f.get("hasta"),
+                origen=f.get("origen", "manual"),
+                nota=f.get("nota"),
+                is_active=bool(f.get("is_active", True)),
+                created_at_utc="2026-08-19T00:00:00Z",
+                **dict(zip(dias, patron)),
+            )
+            s.add(fila)
+            s.flush()
+            ids.append(fila.id)
+        s.commit()
+    return ids

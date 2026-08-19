@@ -82,8 +82,18 @@ mitad duplica el mensaje pero nunca lo pierde.
    como último recurso, con alias aprendidos (`empleado_alias`).
 3. **Horas extra solo con código HE%** en la ficha del recurso (`reshor`).
    Los mensuales (MENC) no registran por horas: sus «extras» del papel se
-   omiten con motivo. El exceso sobre la jornada (`candef`, 8 h si
-   inválida) se separa como extra automática (`extra_auto`) en sv3.
+   omiten con motivo. El exceso se mide contra la **jornada DEL DÍA** y se
+   separa como extra automática (`extra_auto`) en sv3. Desde **F-015** esa
+   jornada no es plana: es el `candef` (8 h si inválida) de lunes a jueves,
+   y el **último día laborable de la semana** —según el calendario del
+   trabajador, festivos incluidos— recibe el resto de la jornada semanal,
+   `max(0, S − 4 × candef)`. `S` sale del mapa configurable
+   `JORNADA_SEMANAL_POR_CANDEF` (espejo en sv3 y sv4, por defecto
+   `8:40,9:42`); un `candef` que no esté en el mapa se queda con la jornada
+   plana `5 × candef`. Las excepciones por trabajador viven en
+   `empleado_jornada`. Con `candef = 8` y `S = 40` el resto vale 8: idéntico
+   a antes de F-015. Lo ya **congelado** (semántica 10) cuenta en el total
+   del día pero no se recalcula.
 4. **Incidencias sin horas** (`can=0`) y **solo inicio/fin de racha**
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
@@ -98,10 +108,11 @@ mitad duplica el mensaje pero nunca lo pierde.
    **byte-idéntico** en sv3 y sv4, y desde F-010 lo comprueba el guardián
    `tests/test_f010_orm_models_gemelos.py` de la raíz en cada
    `bash harness/init.sh` (antes era una promesa, y llevaba meses rota). Un
-   cambio de schema modifica los DOS ficheros en la misma feature. **Cuatro
-   tablas**: `parte_documents`, `parte_registros`, `empleado_alias` y
-   `undo_log` (esta solo la usa sv4, pero la declaran las dos copias porque
-   la base es una) — detalle en `partes-proyecto.md` §5. El DDL
+   cambio de schema modifica los DOS ficheros en la misma feature. **Cinco
+   tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
+   `empleado_jornada` (excepciones de jornada por trabajador, F-015; nace
+   vacía) y `undo_log` (esta solo la usa sv4, pero la declaran las dos
+   copias porque la base es una) — detalle en `partes-proyecto.md` §5. El DDL
    complementario de arranque (`ALTER TABLE … ADD COLUMN IF NOT EXISTS` +
    `CREATE INDEX IF NOT EXISTS`, que `create_all` no hace sobre tablas ya
    existentes) lo **genera** `ddl_complementario()` del propio ORM y lo

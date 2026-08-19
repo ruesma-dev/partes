@@ -32,6 +32,7 @@ from sqlalchemy.orm import selectinload
 from infrastructure.database.orm_models import (
     Base,
     EmpleadoAliasOrm,
+    EmpleadoJornadaOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
     UndoLogOrm,
@@ -1786,6 +1787,36 @@ class ParteReviewRepository:
                 {"id": r.id, "action": r.action,
                  "description": r.description, "created_at": r.created_at_utc}
                 for r in rows
+            ]
+
+    # ---------------- excepciones de jornada (F-015) ---------------- #
+    def list_jornadas_empleado(self) -> list[dict]:
+        """Filas ACTIVAS de `empleado_jornada`, tal cual estan.
+
+        No filtra por fecha ni por DNI: la vigencia la resuelve
+        `JornadaEmpleadoProvider`, que es quien sabe por que dia se
+        pregunta. La tabla nace vacia y se espera que tenga unidades de
+        filas, asi que leerla entera sale mas barato que una consulta por
+        trabajador y dia (DA8 del diseno).
+        """
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(EmpleadoJornadaOrm).where(
+                    EmpleadoJornadaOrm.is_active.is_(True)
+                )
+            ).scalars().all()
+            return [
+                {
+                    "id": f.id,
+                    "dni_norm": f.dni_norm,
+                    "jornada_semanal": f.jornada_semanal,
+                    "h_lun": f.h_lun, "h_mar": f.h_mar, "h_mie": f.h_mie,
+                    "h_jue": f.h_jue, "h_vie": f.h_vie, "h_sab": f.h_sab,
+                    "h_dom": f.h_dom,
+                    "desde": f.desde, "hasta": f.hasta,
+                    "origen": f.origen, "nota": f.nota,
+                }
+                for f in filas
             ]
 
     def count_undo(self) -> int:

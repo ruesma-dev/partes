@@ -23,8 +23,10 @@ Estos tests convierten la promesa en una propiedad verificada por
   (nunca el árbol real) y se exige que la comparación las cace nombrando
   el elemento divergente.
 - **R4**: el contenido canónico es la UNIÓN de lo que declaraba cada copia
-  (D1 del diseño): cuatro tablas y las 56 columnas reales de
-  `parte_registros`, ni una más ni una menos.
+  (D1 del diseño): las tablas de la base y las 56 columnas reales de
+  `parte_registros`, ni una más ni una menos. F-015 añadió la quinta
+  tabla (`empleado_jornada`) y la declaró aquí con sus columnas
+  literales: la lista de `parte_registros` NO se tocó.
 
 Sin red, sin BBDD y sin conexión: solo sistema de ficheros y compilación
 de tipos de SQLAlchemy contra el dialecto PostgreSQL.
@@ -117,12 +119,39 @@ COLUMNAS_PARTE_REGISTROS: tuple[str, ...] = (
     "confianza_pct",
 )
 
-#: Las CUATRO tablas de la base `partes` (no tres, como decía la doc).
+#: Las CINCO tablas de la base `partes` (cuatro hasta F-015, que añadió
+#: `empleado_jornada`). Añadir una tabla OBLIGA a tocar esta constante: es
+#: el aviso de que hay que mirar si la BBDD real la tiene.
 TABLAS: tuple[str, ...] = (
     "empleado_alias",
+    "empleado_jornada",
     "parte_documents",
     "parte_registros",
     "undo_log",
+)
+
+#: Las 19 columnas de `empleado_jornada` (F-015), en orden de declaración.
+#: Literal por el mismo motivo que la de `parte_registros`.
+COLUMNAS_EMPLEADO_JORNADA: tuple[str, ...] = (
+    "id",
+    "dni_norm",
+    "jornada_semanal",
+    "h_lun",
+    "h_mar",
+    "h_mie",
+    "h_jue",
+    "h_vie",
+    "h_sab",
+    "h_dom",
+    "desde",
+    "hasta",
+    "origen",
+    "nota",
+    "is_active",
+    "created_at_utc",
+    "created_by",
+    "updated_at_utc",
+    "updated_by",
 )
 
 
@@ -380,13 +409,14 @@ def test_f010_r3_el_arbol_real_no_se_toca(tmp_path: Path) -> None:
 # --------------------------------- R4 ----------------------------------- #
 
 
-def test_f010_r4_el_orm_canonico_tiene_las_cuatro_tablas_y_56_columnas() -> None:
+def test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas() -> None:
     """Contenido canónico = UNIÓN de las dos copias de partida (D1)."""
     modulo = _cargar(RUTA_SV3, "orm_models_sv3_r4")
     metadata = modulo.Base.metadata
 
     assert tuple(sorted(metadata.tables)) == TABLAS, (
-        "la base 'partes' tiene CUATRO tablas (undo_log solo la escribe sv4)"
+        "la base 'partes' tiene CINCO tablas (undo_log solo la escribe sv4; "
+        "empleado_jornada la añadió F-015)"
     )
 
     columnas = tuple(c.name for c in metadata.tables["parte_registros"].columns)
@@ -442,3 +472,71 @@ def test_f010_r4_los_atributos_de_las_columnas_reunidas() -> None:
     )
     assert undo["actor"]["tipo"] == "VARCHAR(120)"
     assert undo["payload"]["nullable"] is False
+
+
+# ------------------- R29 (F-015) · la quinta tabla ---------------------- #
+
+
+def test_f010_r29_empleado_jornada_declara_sus_columnas_literales() -> None:
+    """La tabla de excepciones de jornada, columna a columna (F-015, R18)."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_r29")
+    tabla = modulo.Base.metadata.tables["empleado_jornada"]
+    columnas = tuple(c.name for c in tabla.columns)
+    assert columnas == COLUMNAS_EMPLEADO_JORNADA, (
+        "empleado_jornada no declara exactamente sus columnas. Sobran: "
+        f"{sorted(set(columnas) - set(COLUMNAS_EMPLEADO_JORNADA))}; faltan: "
+        f"{sorted(set(COLUMNAS_EMPLEADO_JORNADA) - set(columnas))}"
+    )
+
+
+def test_f010_r29_las_columnas_de_empleado_jornada_tienen_los_atributos() -> None:
+    """Tipos, `nullable`, `server_default` e índice de la tabla nueva."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_r29_attrs")
+    huella = _huella(modulo.Base.metadata)
+    jornada = huella["empleado_jornada"]["columnas"]
+
+    assert jornada["dni_norm"]["tipo"] == "VARCHAR(32)"
+    assert jornada["dni_norm"]["nullable"] is False
+    assert jornada["dni_norm"]["index"] is True
+    assert jornada["jornada_semanal"] == {
+        "tipo": "FLOAT", "nullable": True, "pk": False,
+        "server_default": None, "index": False, "unique": False, "fks": [],
+    }
+    for dia in ("h_lun", "h_mar", "h_mie", "h_jue", "h_vie", "h_sab", "h_dom"):
+        assert jornada[dia]["tipo"] == "FLOAT"
+        assert jornada[dia]["nullable"] is True
+    assert jornada["desde"]["nullable"] is False
+    assert jornada["hasta"]["nullable"] is True
+    assert jornada["origen"]["server_default"] == "manual"
+    assert jornada["is_active"]["server_default"] == "true"
+    assert jornada["nota"]["tipo"] == "VARCHAR(255)"
+    assert (
+        "ix_empleado_jornada_dni_norm"
+        in huella["empleado_jornada"]["indices"]
+    )
+
+
+def test_f010_r29_ninguna_columna_not_null_se_queda_sin_server_default() -> None:
+    """Un `ALTER TABLE ... ADD COLUMN NOT NULL` sin default sobre una tabla
+    con filas hace que PostgreSQL rechace el DDL y el servicio no arranque
+    (F-015, R30). En una tabla NUEVA es barato dejarlo cerrado."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_r29_notnull")
+    tabla = modulo.Base.metadata.tables["empleado_jornada"]
+    sin_default = [
+        c.name for c in tabla.columns
+        if not c.nullable and not c.primary_key and c.server_default is None
+    ]
+    assert sin_default == [], (
+        f"columnas NOT NULL de empleado_jornada sin server_default: "
+        f"{sin_default}"
+    )
+
+
+def test_f010_r29_parte_registros_no_gana_ni_pierde_columnas() -> None:
+    """F-015 no toca la tabla grande (R21): 56 columnas, las mismas."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_r29_registros")
+    columnas = tuple(
+        c.name for c in modulo.Base.metadata.tables["parte_registros"].columns
+    )
+    assert columnas == COLUMNAS_PARTE_REGISTROS
+    assert len(columnas) == 56

@@ -22,13 +22,31 @@ import re
 import threading
 import time
 from collections import defaultdict
+from datetime import date
+from typing import Callable, Mapping
 
 from application.services import text_match as tm
-from application.services.jornada_resolver import jornada_efectiva
+from application.services.jornada_resolver import (
+    DetalleJornada,
+    Excepcion,
+    detalle_jornada_dia,
+    jornada_efectiva,
+    jornada_semanal_de,
+)
 from domain.models.sigrid_models import HmoRow, RecursoRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
+from domain.ports.jornada_empleado_port import (
+    JornadaEmpleadoPort,
+    JornadaEmpleadoRow,
+)
 
 logger = logging.getLogger(__name__)
+
+#: Mapa candef -> jornada semanal por defecto (F-015). El de verdad llega
+#: del cableado (`JORNADA_SEMANAL_POR_CANDEF`, espejo del de sv4); este
+#: existe para que los conciliadores construidos sin el —todos los tests
+#: anteriores a F-015— sigan calculando exactamente lo de siempre.
+MAPA_SEMANAL_POR_DEFECTO: dict[float, float] = {8.0: 40.0, 9.0: 42.0}
 
 
 def _ano_mes(fecha_int: int | None) -> tuple[int | None, int | None]:
@@ -57,6 +75,28 @@ def _tipo(reg: dict) -> str:
     return (reg.get("tipo_hora") or "").strip().lower()
 
 
+#: Estados de `sigrid_estado` que significan "esto ya viajo al ERP" (F-004).
+ESTADOS_CONGELADOS: frozenset[str] = frozenset({"encolado", "registrado"})
+
+
+def esta_congelado(sigrid_estado: str | None, doc_approved: object) -> bool:
+    """True si esa linea NO se puede recalcular (F-004; F-015 R31/R32).
+
+    Misma regla que el portal: linea encolada o registrada en Sigrid, o
+    parte aprobado. Escrita UNA vez para que el conciliador y el
+    repositorio no puedan discrepar: si uno congelase y el otro no, la
+    reversion borraria lo que el calculo da por bueno.
+    """
+    if bool(doc_approved):
+        return True
+    return (sigrid_estado or "").strip().lower() in ESTADOS_CONGELADOS
+
+
+def _congelado(reg: dict) -> bool:
+    """`esta_congelado` sobre un registro tal como lo trae el repositorio."""
+    return esta_congelado(reg.get("sigrid_estado"), reg.get("doc_approved"))
+
+
 def _upd(registro_id, recurso_ide, recurso_cif, hmo_ide, estado) -> dict:
     return {
         "registro_id": registro_id, "recurso_ide": recurso_ide,
@@ -75,6 +115,9 @@ class RecursoConciliador:
         jornada_ordinaria_horas: float = 8.0,
         candef_minimo: float = 2.0,
         ttl_seconds: int = 600,
+        mapa_semanal: Mapping[float, float] | None = None,
+        jornadas: JornadaEmpleadoPort | None = None,
+        jornada_cache_ttl_s: int = 600,
     ) -> None:
         # repository: SqlAlchemyParteRepository. lookup: SigridLookupPort
         # (fetch_recursos, fetch_reshor, fetch_hmo_obra).
@@ -104,6 +147,24 @@ class RecursoConciliador:
         # F-003 (R26): partes cuyo computo se hizo con calendario degradado
         # en la pasada EN CURSO. `conciliar_todos` lo vacia al empezar.
         self._docs_degradados: set[str] = set()
+        # F-015: mapa candef -> jornada semanal (`JORNADA_SEMANAL_POR_CANDEF`)
+        # y excepciones por trabajador (`empleado_jornada`). Los dos son
+        # opcionales: sin ellos, la jornada del dia es el candef efectivo de
+        # siempre.
+        self._mapa_semanal: Mapping[float, float] = dict(
+            MAPA_SEMANAL_POR_DEFECTO if mapa_semanal is None else mapa_semanal
+        )
+        self._jornadas = jornadas
+        self._jornada_ttl = int(jornada_cache_ttl_s)
+        # (timestamp, {dni_norm: [filas ordenadas por 'desde' descendente]}).
+        self._jornadas_cache: tuple[
+            float, dict[str, list[JornadaEmpleadoRow]]
+        ] | None = None
+        # Avisos de la pasada EN CURSO, que `conciliar_todos` vacia igual que
+        # `_docs_degradados`: recursos con el candef fuera del mapa (R10) y si
+        # ya se aviso de que `empleado_jornada` no se pudo leer (R17).
+        self._avisados_mapa: set[int] = set()
+        self._aviso_jornadas_fallo = False
 
     # ----- recursos (maestro) ----- #
     def _recurso_maps(
@@ -314,8 +375,11 @@ class RecursoConciliador:
         # (restaurar horas originales y borrar los extra auto) para recalcular
         # el dia completo desde el estado original del parte.
         self._repository.revert_extras_auto()
-        # La marca es de ESTE calculo, no un residuo del anterior.
+        # Las marcas son de ESTE calculo, no un residuo del anterior.
         self._docs_degradados = set()
+        self._avisados_mapa = set()
+        self._aviso_jornadas_fallo = False
+        self._jornadas_cache = None
 
         registros = self._repository.fetch_registros_para_recurso()
         by_conide, by_cif, by_ide = self._recurso_maps()
@@ -375,8 +439,8 @@ class RecursoConciliador:
 
         actualizados = self._repository.apply_recurso_matches(updates)
 
-        # Segunda pasada: pasar a extra el exceso de horas ORDINARIAS sobre el
-        # CanDefecto del recurso, por (recurso, dia) across obras.
+        # Segunda pasada: pasar a extra el exceso de horas ORDINARIAS sobre
+        # la JORNADA DEL DIA, por (recurso, dia) across obras.
         splits = self._reclasificar_extras_jornada(
             registros, ride_por_reg, reshor_idx
         )
@@ -437,10 +501,15 @@ class RecursoConciliador:
     ) -> list[dict]:
         """Normaliza el desglose ordinaria/extra por (recurso, dia) reuniendo
         TODAS las obras. Regla en DIA LABORABLE: se suman las horas normales
-        Y las extras del dia y se comparan con el CanDefecto efectivo; las
-        ordinarias finales son el CanDefecto y la extra es LA RESTA
-        (total - candef), que puede salir NEGATIVA (viernes tipico: trabaja 6
-        con jornada 8 -> ordinaria 8, extra -2).
+        Y las extras del dia y se comparan con la JORNADA DEL DIA (F-015);
+        las ordinarias finales son esa jornada y la extra es LA RESTA
+        (total - jornada), que puede salir NEGATIVA (viernes tipico: trabaja
+        6 con jornada 8 -> ordinaria 8, extra -2).
+
+        La jornada del dia ya NO es plana: es el CanDefecto efectivo salvo
+        el ULTIMO dia laborable de la semana del trabajador, que recibe el
+        resto de la jornada semanal (`max(0, S - 4c)`). Con candef 8 y
+        S 40 el resto vale 8 y no cambia nada respecto a antes de F-015.
 
         - Si falta extra (total > candef + extras explicitas): se recorta lo
           ordinario a extra empezando por los registros de mayor id, como
@@ -499,12 +568,18 @@ class RecursoConciliador:
             # None/0/2...). Se PERSISTE tal cual para diagnostico; el
             # calculo usa el "efectivo".
             candef_real = hsel.get("candef")
-            ordinarios = [x for x in regs if _tipo(x) in ("", "normal")]
-            total_ord = sum((x.get("horas") or 0.0) for x in ordinarios)
+            # CONGELADOS (F-015, R32): las lineas que ya viajaron a Sigrid
+            # SUMAN en el total del dia —si no, un dia mixto le regalaria
+            # al trabajador una segunda jornada— pero no son candidatas ni
+            # a recorte ni a pivote.
+            todas_ordinarias = [x for x in regs if _tipo(x) in ("", "normal")]
+            ordinarios = [x for x in todas_ordinarias if not _congelado(x)]
+            total_ord = sum((x.get("horas") or 0.0) for x in todas_ordinarias)
             total_ext = sum(
                 (x.get("horas") or 0.0) for x in regs if _tipo(x) == "extra"
             )
 
+            marca = ""
             if self._es_no_laborable(fecha_int, regs):
                 # Fin de semana / festivo: NO hay jornada ordinaria, TODO
                 # el trabajo ordinario pasa a extra (las extras explicitas
@@ -518,22 +593,29 @@ class RecursoConciliador:
                     self._fecha_int_to_iso(fecha_int), ride,
                 )
             else:
-                # DIA LABORABLE: normales + extras comparadas con el
-                # CanDefecto efectivo. extra objetivo = total - candef
-                # (puede ser NEGATIVA). Sin ordinarias no se normaliza.
+                # DIA LABORABLE: normales + extras comparadas con la jornada
+                # DEL DIA. extra objetivo = total - jornada (puede ser
+                # NEGATIVA). Sin ordinarias no se normaliza.
                 if total_ord <= 1e-9:
                     continue
-                # CanDefecto no valido (vacio o <= minimo) -> jornada por
-                # defecto: evita que un 0/1/2 mande TODAS las horas a extra.
-                # La regla vive en jornada_efectiva (resolutor unico, R11):
-                # es el punto donde entrara la jornada real del contrato
-                # cuando sesame-api exponga horas (peticion P1).
-                candef_efectivo = jornada_efectiva(
-                    candef_real, minimo=self._candef_min,
-                    por_defecto=self._jornada,
+                # JORNADA DEL DIA (F-015). Sigue partiendo del CanDefecto
+                # efectivo de F-003 —un 0/1/2 de Sigrid no puede mandar el
+                # dia entero a extra—, pero ya no es plano: el ULTIMO dia
+                # laborable de la semana recibe el resto de la jornada
+                # semanal. El dia ya se sabe laborable, asi que se le pasa
+                # al resolutor esa respuesta hecha para no preguntarla dos
+                # veces al calendario.
+                memo: dict[str, bool] = {}
+                iso_dia = self._fecha_int_to_iso(fecha_int)
+                if iso_dia is not None:
+                    memo[iso_dia] = True
+                detalle = self._detalle_jornada(
+                    fecha_int, regs, candef_real, memo
                 )
+                self._avisar_candef_fuera_del_mapa(ride, detalle, candef_real)
+                marca = self._marca_jornada(detalle)
                 total = total_ord + total_ext
-                objetivo_extra = total - candef_efectivo
+                objetivo_extra = total - detalle.horas
                 # Lo que falta (o sobra) respecto a las extras explicitas.
                 delta = objetivo_extra - total_ext
                 if abs(delta) <= 1e-9:
@@ -542,6 +624,22 @@ class RecursoConciliador:
             orden = sorted(
                 ordinarios, key=lambda z: z["registro_id"], reverse=True
             )
+            # R32: si el dia no cuadra sin tocar una linea congelada, no se
+            # genera NADA y se avisa. Ajustar la mitad seria peor: dejaria
+            # el dia con un total distinto del que firmo el encargado.
+            disponible = sum(max(0.0, x.get("horas") or 0.0) for x in orden)
+            if (delta > 0 and disponible + 1e-9 < delta) or (
+                delta < 0 and not orden
+            ):
+                logger.warning(
+                    "[recurso-concil] dia %s (recurso=%s) NO se puede cuadrar "
+                    "sin tocar lineas CONGELADAS (ya en Sigrid o parte "
+                    "aprobado): faltan %.2f h ajustables y hay %.2f. No se "
+                    "genera ningun split.",
+                    self._fecha_int_to_iso(fecha_int), ride, abs(delta),
+                    disponible,
+                )
+                continue
             if delta > 0:
                 # Falta extra: recortar ordinarias empezando por las ultimas
                 # horas del dia (registros creados despues = id mayor).
@@ -565,6 +663,12 @@ class RecursoConciliador:
                         "hora_candef": candef_real,
                     })
                     restante -= porcion
+                if marca:
+                    logger.info(
+                        "[recurso-concil] recorte a extra %s (recurso=%s): "
+                        "%.2f h.%s",
+                        self._fecha_int_to_iso(fecha_int), ride, delta, marca,
+                    )
             else:
                 # Sobra: jornada incompleta (o extras explicitas por encima
                 # de la resta). Se sube el ordinario de mayor id hasta
@@ -585,10 +689,222 @@ class RecursoConciliador:
                 })
                 logger.info(
                     "[recurso-concil] jornada incompleta %s (recurso=%s): "
-                    "ordinaria %+.2f, extra %.2f.",
+                    "ordinaria %+.2f, extra %.2f.%s",
                     self._fecha_int_to_iso(fecha_int), ride, -delta, delta,
+                    marca,
                 )
         return splits
+
+    # ----- avisos y trazabilidad de la jornada del dia (F-015) ----- #
+    def _avisar_candef_fuera_del_mapa(
+        self, ride: int, detalle: DetalleJornada, candef_real
+    ) -> None:
+        """R10: un candef valido que el mapa no conoce cae a jornada PLANA.
+
+        No es un error —el resultado es exactamente el de antes de F-015—,
+        pero significa que hay un regimen sin mapear. Un aviso por recurso
+        y pasada; uno por registro llenaria el log.
+        """
+        if detalle.origen != "plana" or ride in self._avisados_mapa:
+            return
+        self._avisados_mapa.add(ride)
+        logger.warning(
+            "[recurso-concil] recurso=%s con candef=%s fuera del mapa "
+            "JORNADA_SEMANAL_POR_CANDEF: se aplica jornada plana "
+            "(%.2f h/dia, %.2f h/semana). Si ese regimen tiene otra jornada "
+            "semanal, anadelo al mapa.",
+            ride, candef_real, detalle.candef_efectivo, detalle.semanal,
+        )
+
+    @staticmethod
+    def _marca_jornada(detalle: DetalleJornada) -> str:
+        """R28: traza de POR QUE la jornada de ese dia no fue el candef.
+
+        Cadena vacia cuando la jornada del dia ES el candef efectivo, que
+        es el caso normal (candef 8): un log que repite lo obvio en cada
+        linea de cada parte no lo lee nadie.
+        """
+        if abs(detalle.horas - detalle.candef_efectivo) <= 1e-9:
+            return ""
+        return (
+            f" jornada_dia={detalle.horas:.2f} "
+            f"(semanal={detalle.semanal:.2f}, origen={detalle.origen}, "
+            f"ultimo_laborable={'si' if detalle.ultimo_laborable else 'no'})"
+        )
+
+    # ----- jornada del dia (F-015) ----- #
+    @staticmethod
+    def _dni_grupo(regs: list[dict]) -> str | None:
+        """El DNI del grupo: el primer `empleado_dni` no vacio.
+
+        Mismo criterio que `_es_no_laborable` desde F-003, para que el
+        calendario y la excepcion se resuelvan con el MISMO trabajador
+        que decide si el dia es festivo.
+        """
+        for r in regs:
+            dni = (r.get("empleado_dni") or "").strip()
+            if dni:
+                return dni
+        return None
+
+    def _es_laborable_para(
+        self, dni: str | None, regs: list[dict], memo: dict[str, bool]
+    ) -> Callable[[date], bool]:
+        """`es_laborable(date) -> bool` del trabajador, para el resolutor.
+
+        Envuelve el puerto con el MISMO `try/except` que `_es_no_laborable`
+        (si el calendario falla, el dia se trata como laborable, que es el
+        comportamiento de siempre) y recoge la senal de degradacion: si el
+        dia que decide el ultimo laborable se resolvio a ciegas, el parte
+        acaba marcado para revision igual que hoy (R23).
+
+        Sin calendario cableado, todo dia es laborable (D11) y el ultimo
+        laborable de la semana acaba siendo el viernes. `memo` evita
+        preguntar dos veces por la misma fecha dentro del mismo grupo.
+        """
+        def _es_laborable(d: date) -> bool:
+            iso = d.isoformat()
+            if iso in memo:
+                return memo[iso]
+            if self._calendario is None:
+                memo[iso] = True
+                return True
+            try:
+                valor = not bool(self._calendario.es_no_laborable(iso, dni=dni))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[recurso-concil] calendario laboral fallo en %s: %r",
+                    iso, exc,
+                )
+                valor = True
+            else:
+                self._recoger_degradacion(regs)
+            memo[iso] = valor
+            return valor
+
+        return _es_laborable
+
+    def _jornadas_index(self) -> dict[str, list[JornadaEmpleadoRow]]:
+        """Toda `empleado_jornada` indexada por DNI, con cache TTL.
+
+        Se lee entera una vez por pasada (DA8): son unidades de filas y un
+        `SELECT` por trabajador y dia seria una consulta por celda. Si la
+        lectura falla, se cachea el vacio para no reintentar en bucle y se
+        avisa UNA vez (R17): la excepcion de jornada es un accesorio, no
+        puede tumbar la conciliacion de un parte.
+        """
+        now = time.time()
+        with self._lock:
+            if (self._jornadas_cache is not None
+                    and (now - self._jornadas_cache[0]) < self._jornada_ttl):
+                return self._jornadas_cache[1]
+        try:
+            filas = self._jornadas.fetch_jornadas()  # type: ignore[union-attr]
+        except Exception as exc:  # noqa: BLE001
+            if not self._aviso_jornadas_fallo:
+                self._aviso_jornadas_fallo = True
+                logger.warning(
+                    "[recurso-concil] no se pudo leer empleado_jornada (%r): "
+                    "se sigue con la jornada derivada del candef.", exc,
+                )
+            filas = []
+        indice: dict[str, list[JornadaEmpleadoRow]] = defaultdict(list)
+        ignoradas = 0
+        for fila in filas:
+            clave = tm.normalize_dni(fila.dni_norm)
+            if not clave:
+                ignoradas += 1
+                continue
+            if not Excepcion(
+                semanal=fila.jornada_semanal, patron=fila.patron,
+                origen=fila.origen,
+            ).valida():
+                # Hasta F-016 las filas las carga el humano por SQL: una
+                # mal formada se IGNORA en vez de repartir horas raras.
+                ignoradas += 1
+                continue
+            indice[clave].append(fila)
+        if ignoradas:
+            logger.warning(
+                "[recurso-concil] %s fila(s) de empleado_jornada ignoradas "
+                "por venir mal formadas (sin DNI, patron incompleto u horas "
+                "fuera de rango).", ignoradas,
+            )
+        # Vigencia mas reciente primero: si dos filas solapan (F-016 lo
+        # impedira; hasta entonces las carga el humano a mano), gana la de
+        # `desde` mayor, que es la que alguien anadio despues.
+        for lista in indice.values():
+            lista.sort(key=lambda f: (f.desde or ""), reverse=True)
+        plano = dict(indice)
+        with self._lock:
+            self._jornadas_cache = (now, plano)
+        return plano
+
+    def _excepcion_para(
+        self, dni: str | None, fecha_iso: str | None
+    ) -> Excepcion | None:
+        """Excepcion vigente de ese trabajador ese dia, o `None`.
+
+        Vigencia `desde <= fecha < hasta` (`hasta` nulo = abierta). Sin
+        puerto cableado, sin DNI o sin fecha no se consulta nada.
+        """
+        if self._jornadas is None or not fecha_iso:
+            return None
+        clave = tm.normalize_dni(dni)
+        if not clave:
+            return None
+        for fila in self._jornadas_index().get(clave, ()):
+            if fila.desde and fecha_iso < fila.desde:
+                continue
+            if fila.hasta and fecha_iso >= fila.hasta:
+                continue
+            return Excepcion(
+                semanal=fila.jornada_semanal, patron=fila.patron,
+                origen=fila.origen,
+            )
+        return None
+
+    def _detalle_jornada(
+        self,
+        fecha_int: int | None,
+        regs: list[dict],
+        candef_real: float | None,
+        memo: dict[str, bool] | None = None,
+    ) -> DetalleJornada:
+        """Jornada teorica del (recurso, dia) con su explicacion.
+
+        Es el punto donde F-015 sustituye al `candef` plano: mismo candef
+        efectivo de F-003, pero repartido en la semana segun el calendario
+        del trabajador y su posible excepcion.
+        """
+        iso = self._fecha_int_to_iso(fecha_int)
+        dni = self._dni_grupo(regs)
+        if iso is None:
+            # Sin fecha utilizable no hay semana que mirar: la jornada del
+            # dia es el candef efectivo, que es lo que hacia sv3 antes de
+            # F-015. La jornada SEMANAL se informa igual (sale del mapa, no
+            # de la fecha) para que el log y el KPI no mientan.
+            candef_efectivo = jornada_efectiva(
+                candef_real, minimo=self._candef_min, por_defecto=self._jornada,
+            )
+            semanal, origen = jornada_semanal_de(
+                candef_efectivo, mapa=self._mapa_semanal
+            )
+            return DetalleJornada(
+                horas=candef_efectivo, candef_efectivo=candef_efectivo,
+                semanal=semanal, origen=origen, ultimo_laborable=False,
+            )
+        return detalle_jornada_dia(
+            date.fromisoformat(iso),
+            candef=candef_real,
+            minimo=self._candef_min,
+            por_defecto=self._jornada,
+            mapa=self._mapa_semanal,
+            es_laborable=self._es_laborable_para(
+                dni, regs, {} if memo is None else memo
+            ),
+            excepcion=self._excepcion_para(dni, iso),
+        )
 
     # ----- calendario laboral (fin de semana / festivos) ----- #
     def _es_no_laborable(
