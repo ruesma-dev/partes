@@ -13,6 +13,11 @@ logs/
 *.zip
 infra/*.local.ps1
 infra/graphkey_nobom.json
+# Worktrees efimeros que crea Claude Code para trabajar en paralelo:
+# son copias del repositorio, nunca contenido del proyecto. Ademas,
+# sin esta regla el arbol nunca esta limpio y la campana de mutacion
+# paralela (harness/mutacion_paralela.py) se niega a arrancar.
+.claude/worktrees/
 
 # >>> ARNES-BASE: reglas anadidas por el instalador del arnes. >>>
 # Cache de suites del portero (verdes por hash de arbol; ver init.sh 7 bis).
