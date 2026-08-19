@@ -78,7 +78,7 @@ Reglas que no se negocian durante la ejecución:
       | Verificación: `python -m pytest services/partes-persistencia/tests -q -k "f015_r16 or f015_r17 or f015_r22"`;
       con `jornadas=None` los tests de F-003 siguen verdes.
 
-- [ ] **T5**: sv3 · cómputo — en `_reclasificar_extras_jornada`, sustituir
+- [x] **T5**: sv3 · cómputo — en `_reclasificar_extras_jornada`, sustituir
       `candef_efectivo` por `detalle_jornada_dia(...)` con `es_laborable`
       ligado al DNI del grupo; **la rama de día no laborable no se toca**;
       `objetivo_extra = total − detalle.horas`. WARNING de candef fuera del

@@ -87,3 +87,74 @@ def test_f015_r10_un_mapa_ampliado_saca_el_candef_de_la_jornada_plana() -> None:
 
 def test_f015_r10_mapa_vacio_deja_todo_en_jornada_plana() -> None:
     assert jornada_semanal_de(9.0, mapa={}) == (45.0, "plana")
+
+
+# ------------------- el aviso de candef fuera del mapa ------------------ #
+
+def _splits_con(candef, fechas):
+    """Splits de un recurso con ese candef en esos dias (mismo recurso)."""
+    from application.services.recurso_conciliador import RecursoConciliador
+    from tests.dobles import (
+        CalendarioFake,
+        LookupFake,
+        RepositorioFake,
+        indice_reshor,
+        registro,
+    )
+
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(),
+        calendario=CalendarioFake(set()), jornada_ordinaria_horas=8.0,
+        candef_minimo=2.0,
+    )
+    regs = [registro(i + 1, fecha_int=f, horas=4.0)
+            for i, f in enumerate(fechas)]
+    return conciliador, conciliador._reclasificar_extras_jornada(
+        regs, {r["registro_id"]: 501 for r in regs},
+        indice_reshor(501, candef=candef),
+    )
+
+
+def test_f015_r10_un_candef_fuera_del_mapa_avisa(caplog) -> None:
+    """Nadie empeora, pero conviene saber que hay un regimen sin mapear."""
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _splits_con(10.0, [20260320])
+    assert "fuera del mapa" in caplog.text
+    assert "candef=10" in caplog.text
+    assert "recurso=501" in caplog.text
+
+
+def test_f015_r10_el_aviso_va_una_vez_por_recurso_y_pasada(caplog) -> None:
+    """Dos dias del mismo recurso fuera del mapa: UN aviso, no dos."""
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _splits_con(10.0, [20260316, 20260317, 20260318])
+    avisos = [m for m in caplog.messages if "fuera del mapa" in m]
+    assert len(avisos) == 1
+
+
+def test_f015_r10_un_candef_del_mapa_no_avisa(caplog) -> None:
+    import logging
+    for candef in (8.0, 9.0):
+        caplog.clear()
+        with caplog.at_level(logging.WARNING):
+            _splits_con(candef, [20260320])
+        assert "fuera del mapa" not in caplog.text
+
+
+def test_f015_r10_un_candef_no_informado_no_avisa(caplog) -> None:
+    """Cae a la jornada por defecto (8), que SI esta en el mapa."""
+    import logging
+    with caplog.at_level(logging.WARNING):
+        _splits_con(0.0, [20260320])
+    assert "fuera del mapa" not in caplog.text
+
+
+def test_f015_r10_conciliar_todos_reinicia_los_avisos(caplog) -> None:
+    """Los acumuladores son de la pasada, como `_docs_degradados`."""
+    import logging
+    conciliador, _ = _splits_con(10.0, [20260320])
+    assert conciliador._avisados_mapa == {501}
+    conciliador.conciliar_todos()
+    assert conciliador._avisados_mapa == set()

@@ -546,6 +546,7 @@ class RecursoConciliador:
                 (x.get("horas") or 0.0) for x in regs if _tipo(x) == "extra"
             )
 
+            marca = ""
             if self._es_no_laborable(fecha_int, regs):
                 # Fin de semana / festivo: NO hay jornada ordinaria, TODO
                 # el trabajo ordinario pasa a extra (las extras explicitas
@@ -564,17 +565,24 @@ class RecursoConciliador:
                 # (puede ser NEGATIVA). Sin ordinarias no se normaliza.
                 if total_ord <= 1e-9:
                     continue
-                # CanDefecto no valido (vacio o <= minimo) -> jornada por
-                # defecto: evita que un 0/1/2 mande TODAS las horas a extra.
-                # La regla vive en jornada_efectiva (resolutor unico, R11):
-                # es el punto donde entrara la jornada real del contrato
-                # cuando sesame-api exponga horas (peticion P1).
-                candef_efectivo = jornada_efectiva(
-                    candef_real, minimo=self._candef_min,
-                    por_defecto=self._jornada,
+                # JORNADA DEL DIA (F-015). Sigue partiendo del CanDefecto
+                # efectivo de F-003 —un 0/1/2 de Sigrid no puede mandar el
+                # dia entero a extra—, pero ya no es plano: el ULTIMO dia
+                # laborable de la semana recibe el resto de la jornada
+                # semanal. El dia ya se sabe laborable, asi que se le pasa
+                # al resolutor esa respuesta hecha para no preguntarla dos
+                # veces al calendario.
+                memo: dict[str, bool] = {}
+                iso_dia = self._fecha_int_to_iso(fecha_int)
+                if iso_dia is not None:
+                    memo[iso_dia] = True
+                detalle = self._detalle_jornada(
+                    fecha_int, regs, candef_real, memo
                 )
+                self._avisar_candef_fuera_del_mapa(ride, detalle, candef_real)
+                marca = self._marca_jornada(detalle)
                 total = total_ord + total_ext
-                objetivo_extra = total - candef_efectivo
+                objetivo_extra = total - detalle.horas
                 # Lo que falta (o sobra) respecto a las extras explicitas.
                 delta = objetivo_extra - total_ext
                 if abs(delta) <= 1e-9:
@@ -606,6 +614,12 @@ class RecursoConciliador:
                         "hora_candef": candef_real,
                     })
                     restante -= porcion
+                if marca:
+                    logger.info(
+                        "[recurso-concil] recorte a extra %s (recurso=%s): "
+                        "%.2f h.%s",
+                        self._fecha_int_to_iso(fecha_int), ride, delta, marca,
+                    )
             else:
                 # Sobra: jornada incompleta (o extras explicitas por encima
                 # de la resta). Se sube el ordinario de mayor id hasta
@@ -626,10 +640,48 @@ class RecursoConciliador:
                 })
                 logger.info(
                     "[recurso-concil] jornada incompleta %s (recurso=%s): "
-                    "ordinaria %+.2f, extra %.2f.",
+                    "ordinaria %+.2f, extra %.2f.%s",
                     self._fecha_int_to_iso(fecha_int), ride, -delta, delta,
+                    marca,
                 )
         return splits
+
+    # ----- avisos y trazabilidad de la jornada del dia (F-015) ----- #
+    def _avisar_candef_fuera_del_mapa(
+        self, ride: int, detalle: DetalleJornada, candef_real
+    ) -> None:
+        """R10: un candef valido que el mapa no conoce cae a jornada PLANA.
+
+        No es un error —el resultado es exactamente el de antes de F-015—,
+        pero significa que hay un regimen sin mapear. Un aviso por recurso
+        y pasada; uno por registro llenaria el log.
+        """
+        if detalle.origen != "plana" or ride in self._avisados_mapa:
+            return
+        self._avisados_mapa.add(ride)
+        logger.warning(
+            "[recurso-concil] recurso=%s con candef=%s fuera del mapa "
+            "JORNADA_SEMANAL_POR_CANDEF: se aplica jornada plana "
+            "(%.2f h/dia, %.2f h/semana). Si ese regimen tiene otra jornada "
+            "semanal, anadelo al mapa.",
+            ride, candef_real, detalle.candef_efectivo, detalle.semanal,
+        )
+
+    @staticmethod
+    def _marca_jornada(detalle: DetalleJornada) -> str:
+        """R28: traza de POR QUE la jornada de ese dia no fue el candef.
+
+        Cadena vacia cuando la jornada del dia ES el candef efectivo, que
+        es el caso normal (candef 8): un log que repite lo obvio en cada
+        linea de cada parte no lo lee nadie.
+        """
+        if abs(detalle.horas - detalle.candef_efectivo) <= 1e-9:
+            return ""
+        return (
+            f" jornada_dia={detalle.horas:.2f} "
+            f"(semanal={detalle.semanal:.2f}, origen={detalle.origen}, "
+            f"ultimo_laborable={'si' if detalle.ultimo_laborable else 'no'})"
+        )
 
     # ----- jornada del dia (F-015) ----- #
     @staticmethod

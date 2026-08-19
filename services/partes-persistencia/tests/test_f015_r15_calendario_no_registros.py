@@ -88,3 +88,62 @@ def test_f015_r15_el_ultimo_de_junio_no_es_ultimo_laborable_por_ser_fin_de_mes(
 ) -> None:
     """El mes no pinta nada: la unidad es la SEMANA (lunes a domingo)."""
     assert _jornada(M_JUNIO) != 6.0
+
+
+# ------------------- lo mismo, ya dentro del conciliador ---------------- #
+
+def _splits(regs, *, candef=9.0, no_laborables=()):
+    from application.services.recurso_conciliador import RecursoConciliador
+    from tests.dobles import (
+        CalendarioFake,
+        LookupFake,
+        RepositorioFake,
+        indice_reshor,
+    )
+
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(),
+        calendario=CalendarioFake(set(no_laborables)),
+        jornada_ordinaria_horas=8.0, candef_minimo=2.0,
+    )
+    return conciliador._reclasificar_extras_jornada(
+        regs, {r["registro_id"]: 501 for r in regs},
+        indice_reshor(501, candef=candef),
+    )
+
+
+def _resumen(splits):
+    return sorted((s["normal_id"], s["horas_norm"], s["extra_horas"])
+                  for s in splits)
+
+
+def test_f015_r15_el_viernes_da_lo_mismo_con_y_sin_el_jueves() -> None:
+    """Escenario I: que el jueves este o no persistido no toca el viernes."""
+    from tests.dobles import registro
+
+    solo_viernes = [registro(2, fecha_int=20260320, horas=4.0)]
+    con_jueves = [registro(1, fecha_int=20260319, horas=9.0),
+                  registro(2, fecha_int=20260320, horas=4.0)]
+    del_viernes = [s for s in _splits(con_jueves) if s["normal_id"] == 2]
+    assert _resumen(_splits(solo_viernes)) == _resumen(del_viernes)
+
+
+def test_f015_r15_dos_partes_distintos_dan_lo_mismo_que_uno() -> None:
+    """Escenario G: 30/06 y 01/07 son de la misma semana aunque lleguen en
+    partes distintos y en meses distintos."""
+    from tests.dobles import registro
+
+    juntos = [registro(1, fecha_int=20260630, horas=4.0, document_id="doc-a"),
+              registro(2, fecha_int=20260701, horas=4.0, document_id="doc-b")]
+    por_separado = (
+        _splits([juntos[0]]) + _splits([juntos[1]])
+    )
+    assert _resumen(_splits(juntos)) == _resumen(por_separado)
+
+
+def test_f015_r15_un_viernes_de_incidencia_no_pasa_el_resto_al_jueves() -> None:
+    """El viernes sigue siendo el ultimo laborable aunque no tenga horas."""
+    from tests.dobles import registro
+
+    regs = [registro(1, fecha_int=20260319, horas=9.0)]
+    assert _splits(regs) == []
