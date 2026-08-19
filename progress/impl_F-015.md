@@ -3,7 +3,7 @@
 
 Rama `feature/F-015-jornada-semanal-candef` (desde `dev` `cf77e6a`) · rigor
 **estandar** · spec aprobada por el humano (§13 bis y §13 ter del `design.md`)
-· **13 commits**, uno por tarea más uno de higiene, y un commit local en
+· **19 commits**, uno por tarea más los del cierre, y un commit local en
 `azure-apps`. **T12 es MANUAL del humano y queda pendiente** (sección 7).
 
 ## 1. Qué cambió, en una frase
@@ -442,14 +442,200 @@ Acuse o captura anotada, aquí mismo o en `progress/current.md`.
 
 | Evidencia | Valor medido |
 |---|---|
-| **Tests ejecutados** | **1 064 en verde, 0 fallos**: raíz **92** (15 → 92), sv3 **360** (112 → 360), sv4 **612** (462 → 612). sv5 sin cambios. **+475 tests nuevos de F-015** |
-| **Cobertura de las líneas cambiadas** | **95,4 % (498/522 líneas)**, umbral 80 % — línea `PUERTA COBERTURA` de `bash harness/init.sh`, nivel `estandar` |
-| **Mutantes generados / supervivientes** | ver sección 9 |
-| **Tiempo de ejecución de la suite** | raíz 7,64 s · sv3 4,64 s · sv4 78,21 s (**≈ 91 s** el conjunto que ejecuta `init.sh`) |
+| **Tests ejecutados** | **1 195 en verde, 0 fallos**: raíz **92** (15 → 92), sv3 **438** (112 → 438), sv4 **665** (462 → 665). sv5 sin cambios. **+606 tests nuevos de F-015** |
+| **Cobertura de las líneas cambiadas** | **99,4 % (520/523 líneas)**, umbral 80 % — línea `PUERTA COBERTURA` de `bash harness/init.sh`, nivel `estandar` |
+| **Mutantes generados / muertos / supervivientes** | **259 / 237 / 22**, 0 timeouts, 1 300,2 s · tasa de muerte **91,5 %** · los 22 supervivientes son **equivalentes**, analizados uno a uno en la sección 9 |
+| **Tiempo de ejecución de la suite** | raíz 4,4 s · sv3 4,3 s · sv4 95,2 s (**≈ 104 s** el conjunto que ejecuta `init.sh`) |
 | **`bash harness/init.sh`** | **exit 0** — `ENTORNO LISTO` |
 | **Copias gemelas** | `orm_models.py` byte-idéntico (`cmp` sin salida) · los dos `jornada_resolver.py` equivalentes en API y comportamiento (guardián R19) |
 | **Deuda de ruff del árbol real** | 430 → **455** avisos (+25: `UP035` por `typing.Callable`, que es el estilo del resto del repositorio, y `I001` en dos ficheros). El `python -m ruff check .` de `init.sh` marca 883 porque además recorre `.claude/worktrees/`, la copia efímera del agente de F-016 |
 
 ## 9. Campaña de mutación
 
-PENDIENTE — se completa al terminar la campaña.
+`python -m harness.mutacion --feature F-015` · alcance: **1 570 líneas de
+producción en 14 ficheros** · informe completo en
+**`progress/mutacion_F-015.md`** (el de la campaña final).
+
+### 9.1 Tres campañas, y por qué hicieron falta tres
+
+| Campaña | Parámetros | Mutantes | Muertos | Superv. | Timeouts | Tiempo |
+|---|---|---|---|---|---|---|
+| 1.ª (12:05) | por defecto (16 workers, 120 s) | 260 | 116 | 44 | **100** | 1 013 s |
+| 2.ª (12:46) | `--workers 6 --timeout 600` | 259 | 211 | 48 | 0 | 1 793,6 s |
+| **3.ª final (14:16)** | `--workers 6 --timeout 600` | **259** | **237** | **22** | **0** | **1 300,2 s** |
+
+Tasa de muerte final: **91,5 %**. El salto de 211 a 237 muertos —y la caída
+de 48 a 22 supervivientes— es el efecto de los tests que se añadieron entre
+la segunda campaña y la tercera.
+
+**Los 100 timeouts de la primera pasada eran el reloj, no mutantes
+resistentes, y leerlos como «81 mutantes vivos» habría sido un error de
+bulto.** La herramienta juzga cada mutante con la suite del servicio dueño
+del fichero; la de sv4 tarda ~80 s ella sola, y un mutante que *sobrevive* la
+agota entera (los que mueren cortan antes por el `-x`). Con 16 evaluadores
+concurrentes en la misma máquina esas suites se iban por encima del
+presupuesto de 120 s que fija `harness/rigor.json` y se contaban como
+timeout, es decir, **como no medidos**. Bajando a 6 evaluadores y subiendo el
+presupuesto a 600 s desaparecieron los 100: casi todos eran mutantes que
+mueren. Queda como aviso para el próximo que lance una campaña en un
+monorepo con una suite lenta: **si salen timeouts, el resultado no es
+«malo», es que no hay resultado**.
+
+### 9.2 Qué enseñaron los supervivientes
+
+Los 48 de la segunda campaña se agruparon en cuatro causas. Ninguno se cerró
+como «equivalente» sin medirlo.
+
+**(a) 27 supervivientes en ficheros de sv4: la regla estaba duplicada, sus
+tests no.** Es el hallazgo más útil de la campaña y se detalla en 9.5 porque
+es un problema del **arnés**, no de esta feature. Resumen: la campaña ejecuta
+solo la suite del servicio dueño del fichero, y el guardián R19 —que compara
+las dos copias del resolutor— vive en la suite de la **raíz**, así que nunca
+entra al mutar la copia de sv4. Los 27 eran el espejo exacto de huecos ya
+cerrados en sv3. Se han portado a sv4 los tests de bordes
+(`Excepcion.valida`, rango del mapa, `ultimo_laborable` en las cuatro ramas,
+inmutabilidad de las dataclases, `desde` inclusivo, semántica del TTL y
+deduplicación del aviso).
+
+**(b) Huecos reales de test, tapados.** El más grave: el adaptador
+`SqlAlchemyJornadaRepository` de sv3 **no tenía ni un test**. Sobrevivían
+mutantes que invertían `is_active` —habría leído justo las filas retiradas de
+la papelera— y que rompían el valor por defecto de `origen`. También estaban
+sin fijar los bordes de validación (`0 < horas ≤ 24×7`, patrón de 7 valores
+en 0–24), las vigencias solapadas, la rama «sin fecha utilizable», el
+fallback del calendario cuando revienta, los bordes de la guarda de líneas
+congeladas y los contadores de los avisos.
+
+**(c) Un fallo de diseño, no un test que faltaba.** Ver 9.3.
+
+**(d) Un defecto en los propios tests.** Los asserts que comprobaban los
+contadores de los avisos lo hacían con un `in`, y `"-2 linea(s)"` **contiene**
+`"2 linea(s)"`: un mutante que invertía el signo del contador pasaba por
+bueno. Se cambiaron por comparación de prefijo exacto, y se comprobó a mano
+que con el mutante aplicado el test se pone rojo.
+
+### 9.3 Lo que destapó la mutación y era un fallo de verdad
+
+El mutante `semanal = 5.0 * candef_efectivo` → `5.0 // candef_efectivo`
+sobrevivía porque **nadie ejercitaba la rama «sin fecha utilizable»** de
+`_detalle_jornada` (un registro con `fecha_int` nulo o corrupto, que en la
+base existe). Al escribir el test para matarlo se vio que esa rama estaba
+mal: inventaba una jornada semanal plana `5 × c` y la etiquetaba
+`origen="plana"` **aunque el candef estuviera en el mapa**. Con candef 9
+informaba «45 h/sem, plana» cuando la verdad es «42 h/sem, del mapa», y
+además disparaba el WARNING de R10 («candef fuera del mapa») sobre un candef
+que sí está en él.
+
+No movía ni una hora —en esa rama la jornada del día es el candef efectivo, y
+eso era correcto—, pero sí lo que el KPI del portal enseña y lo que el log
+dice. Arreglado: la rama usa `jornada_semanal_de(...)` como todas las demás,
+con cinco tests que la cubren (`test_f015_r22_sin_fecha_*`).
+
+### 9.4 Los 22 supervivientes finales: todos equivalentes, y por qué
+
+Se reconciliaron las dos listas (48 → 22): **no aparece ninguno nuevo**. Los
+22 caen en cinco grupos, y cada equivalencia está **medida**, no afirmada.
+El método: cargar la versión íntegra y la mutada como módulos independientes
+y comparar el `DetalleJornada` completo (horas, jornada semanal, origen y
+último laborable) sobre una malla grande de entradas.
+
+| # | Grupo | Mutación | Comprobación | Diferencias |
+|---|---|---|---|---|
+| 5, 6, 15, 16 | Fin de semana redundante | `d.weekday() >= 5` → `> 5` y `>= 6` | 3 años × 5 calendarios × 8 candef × 4 excepciones, en las **dos** copias (175 360 + 122 752 combinaciones) | **0** |
+| 4, 7, 14, 17 | Tolerancia de coma flotante | `<= _EPS` → `< _EPS` (mapa y atajo `S = 5c`) | la misma malla, con un candef de `8.0000000001` puesto a propósito junto a la tolerancia | **0** |
+| 3, 13 | Cortocircuito del parser | `texto is None or …` → `and` | 19 cadenas de entrada, comparando resultado **y** tipo de excepción | **0** |
+| 11, 22 | Tolerancia en las comparaciones de horas | `<` → `<=` sobre `jornada − 1e-9` | razonamiento cerrado: el `− 1e-9` ya separa los dos operadores | — |
+| 1, 2, 12 | Guardas redundantes del proveedor y del KPI | `_ttl > 0` → `>= 0`, `< _ttl` → `<=`, `_dia_kpi or` → `and` | mini-campaña dirigida (26 mutantes contra su subconjunto de tests) | sobreviven, ver abajo |
+| 8, 9, 10 | Filtro de días de la vista | `and` → `or` en `in_period` / `is_weekend` / `is_holiday` | mini-campaña dirigida + lectura de `calendar_builder.py` | sobreviven, ver abajo |
+| 18, 19, 20, 21 | Bordes de la guarda de congelados | `delta > 0` → `>= 0`, `delta < 0` → `<= 0`, `delta < 1`, `< delta` → `<=` | razonamiento cerrado | — |
+
+Los que hacen falta explicar de uno en uno:
+
+- **Fin de semana (5, 6, 15, 16).** `es_ultimo_laborable` ya descarta sábado y
+  domingo por su propia guarda, así que un sábado laborable acaba valiendo
+  `c` por los dos caminos. La rama se conserva porque R13 la enumera
+  explícitamente (paso 2) y hace legible la regla, pero es inobservable.
+- **Tolerancia (4, 7, 11, 14, 17, 22).** Para que `<` y `<=` difieran haría
+  falta una diferencia en coma flotante de **exactamente** 1e-9 h, o sea 3,6
+  microsegundos de jornada. No es construible de forma estable ni corresponde
+  a ningún dato que llegue de Sigrid.
+- **Parser (3, 13).** Con `and` se deja de cortocircuitar, pero `None` y `""`
+  acaban igualmente en `ValueError` unas líneas más abajo. Cambia el texto del
+  mensaje, no el contrato: el arranque se cae igual.
+- **TTL del proveedor (1, 2).** `self._ttl > 0` es redundante: con `ttl = 0`
+  la segunda condición (`ahora − cache < 0`) ya es falsa siempre, así que
+  relee por los dos caminos. Está comprobado con un test propio
+  (`test_f015_r17_sv4_un_ttl_de_cero_desactiva_la_cache`), que mide el
+  comportamiento correcto aunque no distinga las dos escrituras.
+- **Fecha del KPI (12).** `_dia_kpi or date.today()` → `and` sobrevive porque
+  **el KPI solo lee `semanal` y `origen`**, que salen de la excepción o del
+  mapa y **no dependen de la fecha**; la excepción se resuelve aparte, con
+  `_dia_kpi`, y eso sí está fijado
+  (`test_f015_r25_el_kpi_resuelve_la_excepcion_con_el_periodo_que_se_ve`). Esa
+  fecha es relleno para un parámetro obligatorio cuyo valor no influye en lo
+  que se enseña.
+- **Filtro de días de la vista (8, 9, 10).** Aquí la primera hipótesis era que
+  **sí** eran un hueco —un día arrastrado de otro mes podría marcarse—, y se
+  escribió el test para cazarlos. **No los mató**, y la razón está en
+  `calendar_builder.py:199`: `agg = per_day.get(iso, {}) if in_period else {}`.
+  Las celdas fuera del periodo llevan **siempre 0 h**, y las de fin de semana
+  o festivo tienen jornada 0, así que `0.0 < horas < jornada` no se cumple
+  nunca por ninguna de las tres vías. Las tres guardas son redundantes dado
+  ese invariante. Los dos tests se conservan
+  (`test_f015_r24_un_dia_arrastrado_de_otro_mes_no_genera_aviso` y su control
+  en el periodo propio) porque documentan la intención y saltarían el día que
+  `build_calendar` deje de anular esas celdas.
+- **Guarda de congelados (18–21).** `delta == 0` no llega nunca a esa línea:
+  el día que cuadra sale antes (`if abs(delta) <= 1e-9: continue`). Y con
+  `not orden` y `delta > 0`, la primera condición ya dispara. El único de ese
+  grupo que **sí** era un hueco —`delta > 1`, que dejaba ajustar a medias un
+  día descuadrado en menos de una hora— murió con su test nuevo
+  (`test_f015_r32_un_exceso_de_menos_de_una_hora_tambien_se_guarda`).
+
+### 9.5 Hallazgo del arnés (genérico, para `arnes-base`)
+
+**La campaña de mutación no puede ver el guardián de una copia gemela si ese
+guardián vive en la suite de la raíz.** Es un agujero real de la herramienta,
+no una particularidad de F-015, y en este monorepo afecta a las tres
+duplicaciones toleradas de `CLAUDE.md`.
+
+- **El mecanismo.** `harness/mutacion.py::ejecutor_para` elige el ejecutor
+  según a qué **servicio** pertenece el fichero mutado: si es de un servicio
+  Python, se juzga con la suite de ESE servicio, en su directorio y con su
+  intérprete. Los tests de la raíz (`tests/`) solo se ejecutan para ficheros
+  que no son de ningún servicio.
+- **La consecuencia.** Un fichero duplicado a propósito —`orm_models.py`,
+  los clientes de Sigrid/Sesame, y desde F-015 `jornada_resolver.py`— tiene su
+  garantía en un guardián de la raíz (`tests/test_f010_orm_models_gemelos.py`,
+  `tests/test_f015_r19_jornada_resolver_gemelo.py`). Al mutar una de las dos
+  copias, ese guardián **no se ejecuta**, así que la mutación sobrevive aunque
+  `bash harness/init.sh` la cazaría en el acto. F-010 ya lo sufrió y lo dejó
+  anotado como limitación; F-015 lo ha vuelto a ver, y esta vez con 27 de 48
+  supervivientes, más de la mitad.
+- **Por qué importa.** Invita a leer un superviviente como «equivalente o
+  intocable» cuando en realidad es «nadie de este servicio lo mira». En F-015
+  eso era literalmente cierto: la copia de sv4 del resolutor decide los avisos
+  del portal y su suite no la guardaba.
+- **Arreglo propuesto para `arnes-base`** (por orden de coste):
+  1. **Mínimo**: que `ejecutor_para` ejecute, además de la suite del
+     servicio, la de la **raíz**, cuando el fichero mutado esté declarado como
+     duplicación tolerada. Haría falta una lista en `harness/servicios.json`
+     (algo como `"guardianes_raiz": ["**/orm_models.py", "**/jornada_resolver.py"]`).
+  2. **General**: ejecutar siempre la suite de la raíz junto a la del
+     servicio. Es lo más simple y lo más lento; en este repositorio la raíz
+     tarda ~4 s, así que probablemente sale a cuenta.
+  3. **Barato y útil ya**: que el informe de mutación **avise** cuando el
+     fichero mutado tenga una copia byte-idéntica o gemela en otro servicio,
+     para que quien analice los supervivientes no se lo coma sin saberlo.
+- **Mientras no se arregle**, la contramedida es la que se ha aplicado aquí:
+  **si una regla vive duplicada, sus tests también** — cada copia con los
+  suyos en la suite de su servicio, y el guardián de la raíz como refuerzo,
+  no como única red.
+
+### 9.6 Nota de operación
+
+El proceso devuelve **exit 1** cuando quedan supervivientes; no es un fallo de
+ejecución. El nivel `estandar` de `harness/rigor.json` fija
+`supervivientes_maximos: null`, es decir, exige supervivientes **analizados**,
+no cero supervivientes. Ninguna sección del informe de mutación queda en
+`PENDIENTE`.

@@ -159,7 +159,7 @@ Reglas que no se negocian durante la ejecución:
       | Verificación: MANUAL (humano) — acuse o captura anotada en
       `progress/impl_F-015.md`.
 
-- [ ] **T13**: Ejecutar `bash harness/init.sh` en verde y la campaña
+- [x] **T13**: Ejecutar `bash harness/init.sh` en verde y la campaña
       `python -m harness.mutacion --feature F-015`, con los supervivientes
       analizados por escrito.
       | Verificación: exit code 0 en `bash harness/init.sh` (comando limpio,

@@ -313,3 +313,31 @@ def test_f015_r25_fuera_de_la_vigencia_el_kpi_vuelve_al_mapa() -> None:
         excepciones=[EXCEPCION_SOLO_MARZO],
     ).get("/trabajadores/emp-77?period=2026-05&modo=natural")
     assert respuesta.context["jornada_kpi"]["origen"] == "plana"
+
+
+# --- dias que la rejilla arrastra de otro mes (mutantes 8 y 10) --------- #
+# La rejilla de marzo empieza el lunes 23 de FEBRERO para cuadrar la primera
+# semana. Esos dias NO son del periodo y no pueden generar avisos: si el
+# filtro se afloja, el portal marca en rojo dias de un mes que no se esta
+# mirando (y que ademas ya se revisaron en su momento).
+
+FEBRERO_ARRASTRADO = "2026-02-24"      # martes de la semana del 23-F
+
+
+def test_f015_r24_un_dia_arrastrado_de_otro_mes_no_genera_aviso() -> None:
+    incompletos = _incompletos_trabajador([
+        {"fecha": VIERNES, "horas": 6.0, "candef": 9.0},
+        {"fecha": FEBRERO_ARRASTRADO, "horas": 4.0, "candef": 9.0},
+    ])
+    assert incompletos == set()
+
+
+def test_f015_r24_ese_mismo_dia_si_avisa_en_SU_periodo() -> None:
+    """Control del anterior: el 24 de febrero no esta exento, es que no es
+    del periodo que se esta viendo."""
+    respuesta = _cliente([
+        {"fecha": VIERNES, "horas": 6.0, "candef": 9.0},
+        {"fecha": FEBRERO_ARRASTRADO, "horas": 4.0, "candef": 9.0},
+    ]).get("/trabajadores/emp-77?period=2026-02&modo=natural")
+    assert respuesta.status_code == 200
+    assert respuesta.context["dias_incompletos"] == {FEBRERO_ARRASTRADO}
