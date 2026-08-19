@@ -229,3 +229,27 @@ def transporte_json(
                               headers={"content-type": "application/json"})
 
     return httpx.MockTransport(responder)
+
+
+# ------------------------- excepciones de jornada ----------------------- #
+
+class JornadasFake:
+    """Doble del `JornadaEmpleadoPort` (F-015).
+
+    `filas` son las excepciones que devuelve; `fallo`, la excepcion que
+    lanza en su lugar (para ejercitar R17: la tabla caida no puede tumbar
+    la conciliacion). `llamadas` cuenta las lecturas, que es como se
+    comprueba que la tabla se lee UNA vez por pasada y no una por
+    registro.
+    """
+
+    def __init__(self, filas=None, *, fallo: Exception | None = None) -> None:
+        self.filas = list(filas or [])
+        self.fallo = fallo
+        self.llamadas = 0
+
+    def fetch_jornadas(self):
+        self.llamadas += 1
+        if self.fallo is not None:
+            raise self.fallo
+        return list(self.filas)

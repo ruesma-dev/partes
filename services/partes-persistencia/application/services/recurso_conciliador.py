@@ -22,13 +22,30 @@ import re
 import threading
 import time
 from collections import defaultdict
+from datetime import date
+from typing import Callable, Mapping
 
 from application.services import text_match as tm
-from application.services.jornada_resolver import jornada_efectiva
+from application.services.jornada_resolver import (
+    DetalleJornada,
+    Excepcion,
+    detalle_jornada_dia,
+    jornada_efectiva,
+)
 from domain.models.sigrid_models import HmoRow, RecursoRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
+from domain.ports.jornada_empleado_port import (
+    JornadaEmpleadoPort,
+    JornadaEmpleadoRow,
+)
 
 logger = logging.getLogger(__name__)
+
+#: Mapa candef -> jornada semanal por defecto (F-015). El de verdad llega
+#: del cableado (`JORNADA_SEMANAL_POR_CANDEF`, espejo del de sv4); este
+#: existe para que los conciliadores construidos sin el —todos los tests
+#: anteriores a F-015— sigan calculando exactamente lo de siempre.
+MAPA_SEMANAL_POR_DEFECTO: dict[float, float] = {8.0: 40.0, 9.0: 42.0}
 
 
 def _ano_mes(fecha_int: int | None) -> tuple[int | None, int | None]:
@@ -75,6 +92,9 @@ class RecursoConciliador:
         jornada_ordinaria_horas: float = 8.0,
         candef_minimo: float = 2.0,
         ttl_seconds: int = 600,
+        mapa_semanal: Mapping[float, float] | None = None,
+        jornadas: JornadaEmpleadoPort | None = None,
+        jornada_cache_ttl_s: int = 600,
     ) -> None:
         # repository: SqlAlchemyParteRepository. lookup: SigridLookupPort
         # (fetch_recursos, fetch_reshor, fetch_hmo_obra).
@@ -104,6 +124,24 @@ class RecursoConciliador:
         # F-003 (R26): partes cuyo computo se hizo con calendario degradado
         # en la pasada EN CURSO. `conciliar_todos` lo vacia al empezar.
         self._docs_degradados: set[str] = set()
+        # F-015: mapa candef -> jornada semanal (`JORNADA_SEMANAL_POR_CANDEF`)
+        # y excepciones por trabajador (`empleado_jornada`). Los dos son
+        # opcionales: sin ellos, la jornada del dia es el candef efectivo de
+        # siempre.
+        self._mapa_semanal: Mapping[float, float] = dict(
+            MAPA_SEMANAL_POR_DEFECTO if mapa_semanal is None else mapa_semanal
+        )
+        self._jornadas = jornadas
+        self._jornada_ttl = int(jornada_cache_ttl_s)
+        # (timestamp, {dni_norm: [filas ordenadas por 'desde' descendente]}).
+        self._jornadas_cache: tuple[
+            float, dict[str, list[JornadaEmpleadoRow]]
+        ] | None = None
+        # Avisos de la pasada EN CURSO, que `conciliar_todos` vacia igual que
+        # `_docs_degradados`: recursos con el candef fuera del mapa (R10) y si
+        # ya se aviso de que `empleado_jornada` no se pudo leer (R17).
+        self._avisados_mapa: set[int] = set()
+        self._aviso_jornadas_fallo = False
 
     # ----- recursos (maestro) ----- #
     def _recurso_maps(
@@ -314,8 +352,11 @@ class RecursoConciliador:
         # (restaurar horas originales y borrar los extra auto) para recalcular
         # el dia completo desde el estado original del parte.
         self._repository.revert_extras_auto()
-        # La marca es de ESTE calculo, no un residuo del anterior.
+        # Las marcas son de ESTE calculo, no un residuo del anterior.
         self._docs_degradados = set()
+        self._avisados_mapa = set()
+        self._aviso_jornadas_fallo = False
+        self._jornadas_cache = None
 
         registros = self._repository.fetch_registros_para_recurso()
         by_conide, by_cif, by_ide = self._recurso_maps()
@@ -589,6 +630,159 @@ class RecursoConciliador:
                     self._fecha_int_to_iso(fecha_int), ride, -delta, delta,
                 )
         return splits
+
+    # ----- jornada del dia (F-015) ----- #
+    @staticmethod
+    def _dni_grupo(regs: list[dict]) -> str | None:
+        """El DNI del grupo: el primer `empleado_dni` no vacio.
+
+        Mismo criterio que `_es_no_laborable` desde F-003, para que el
+        calendario y la excepcion se resuelvan con el MISMO trabajador
+        que decide si el dia es festivo.
+        """
+        for r in regs:
+            dni = (r.get("empleado_dni") or "").strip()
+            if dni:
+                return dni
+        return None
+
+    def _es_laborable_para(
+        self, dni: str | None, regs: list[dict], memo: dict[str, bool]
+    ) -> Callable[[date], bool]:
+        """`es_laborable(date) -> bool` del trabajador, para el resolutor.
+
+        Envuelve el puerto con el MISMO `try/except` que `_es_no_laborable`
+        (si el calendario falla, el dia se trata como laborable, que es el
+        comportamiento de siempre) y recoge la senal de degradacion: si el
+        dia que decide el ultimo laborable se resolvio a ciegas, el parte
+        acaba marcado para revision igual que hoy (R23).
+
+        Sin calendario cableado, todo dia es laborable (D11) y el ultimo
+        laborable de la semana acaba siendo el viernes. `memo` evita
+        preguntar dos veces por la misma fecha dentro del mismo grupo.
+        """
+        def _es_laborable(d: date) -> bool:
+            iso = d.isoformat()
+            if iso in memo:
+                return memo[iso]
+            if self._calendario is None:
+                memo[iso] = True
+                return True
+            try:
+                valor = not bool(self._calendario.es_no_laborable(iso, dni=dni))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[recurso-concil] calendario laboral fallo en %s: %r",
+                    iso, exc,
+                )
+                valor = True
+            else:
+                self._recoger_degradacion(regs)
+            memo[iso] = valor
+            return valor
+
+        return _es_laborable
+
+    def _jornadas_index(self) -> dict[str, list[JornadaEmpleadoRow]]:
+        """Toda `empleado_jornada` indexada por DNI, con cache TTL.
+
+        Se lee entera una vez por pasada (DA8): son unidades de filas y un
+        `SELECT` por trabajador y dia seria una consulta por celda. Si la
+        lectura falla, se cachea el vacio para no reintentar en bucle y se
+        avisa UNA vez (R17): la excepcion de jornada es un accesorio, no
+        puede tumbar la conciliacion de un parte.
+        """
+        now = time.time()
+        with self._lock:
+            if (self._jornadas_cache is not None
+                    and (now - self._jornadas_cache[0]) < self._jornada_ttl):
+                return self._jornadas_cache[1]
+        try:
+            filas = self._jornadas.fetch_jornadas()  # type: ignore[union-attr]
+        except Exception as exc:  # noqa: BLE001
+            if not self._aviso_jornadas_fallo:
+                self._aviso_jornadas_fallo = True
+                logger.warning(
+                    "[recurso-concil] no se pudo leer empleado_jornada (%r): "
+                    "se sigue con la jornada derivada del candef.", exc,
+                )
+            filas = []
+        indice: dict[str, list[JornadaEmpleadoRow]] = defaultdict(list)
+        for fila in filas:
+            clave = tm.normalize_dni(fila.dni_norm)
+            if clave:
+                indice[clave].append(fila)
+        # Vigencia mas reciente primero: si dos filas solapan (F-016 lo
+        # impedira; hasta entonces las carga el humano a mano), gana la de
+        # `desde` mayor, que es la que alguien anadio despues.
+        for lista in indice.values():
+            lista.sort(key=lambda f: (f.desde or ""), reverse=True)
+        plano = dict(indice)
+        with self._lock:
+            self._jornadas_cache = (now, plano)
+        return plano
+
+    def _excepcion_para(
+        self, dni: str | None, fecha_iso: str | None
+    ) -> Excepcion | None:
+        """Excepcion vigente de ese trabajador ese dia, o `None`.
+
+        Vigencia `desde <= fecha < hasta` (`hasta` nulo = abierta). Sin
+        puerto cableado, sin DNI o sin fecha no se consulta nada.
+        """
+        if self._jornadas is None or not fecha_iso:
+            return None
+        clave = tm.normalize_dni(dni)
+        if not clave:
+            return None
+        for fila in self._jornadas_index().get(clave, ()):
+            if fila.desde and fecha_iso < fila.desde:
+                continue
+            if fila.hasta and fecha_iso >= fila.hasta:
+                continue
+            return Excepcion(
+                semanal=fila.jornada_semanal, patron=fila.patron,
+                origen=fila.origen,
+            )
+        return None
+
+    def _detalle_jornada(
+        self,
+        fecha_int: int | None,
+        regs: list[dict],
+        candef_real: float | None,
+        memo: dict[str, bool] | None = None,
+    ) -> DetalleJornada:
+        """Jornada teorica del (recurso, dia) con su explicacion.
+
+        Es el punto donde F-015 sustituye al `candef` plano: mismo candef
+        efectivo de F-003, pero repartido en la semana segun el calendario
+        del trabajador y su posible excepcion.
+        """
+        iso = self._fecha_int_to_iso(fecha_int)
+        dni = self._dni_grupo(regs)
+        if iso is None:
+            # Sin fecha utilizable no hay semana que mirar: jornada plana,
+            # que es lo que hacia sv3 antes de F-015.
+            candef_efectivo = jornada_efectiva(
+                candef_real, minimo=self._candef_min, por_defecto=self._jornada,
+            )
+            return DetalleJornada(
+                horas=candef_efectivo, candef_efectivo=candef_efectivo,
+                semanal=5.0 * candef_efectivo, origen="plana",
+                ultimo_laborable=False,
+            )
+        return detalle_jornada_dia(
+            date.fromisoformat(iso),
+            candef=candef_real,
+            minimo=self._candef_min,
+            por_defecto=self._jornada,
+            mapa=self._mapa_semanal,
+            es_laborable=self._es_laborable_para(
+                dni, regs, {} if memo is None else memo
+            ),
+            excepcion=self._excepcion_para(dni, iso),
+        )
 
     # ----- calendario laboral (fin de semana / festivos) ----- #
     def _es_no_laborable(

@@ -67,7 +67,7 @@ Reglas que no se negocian durante la ejecución:
       `python -m pytest services/partes-persistencia/tests services/partes-front/tests -q -k "f015_r18 or f015_r30"`;
       `cmp` de las dos copias sin diferencias.
 
-- [ ] **T4**: sv3 · excepciones — puerto
+- [x] **T4**: sv3 · excepciones — puerto
       `domain/ports/jornada_empleado_port.py` (`JornadaEmpleadoRow`,
       `JornadaEmpleadoPort.fetch_jornadas()`) y adaptador
       `infrastructure/database/sqlalchemy_jornada_repository.py` (lee
