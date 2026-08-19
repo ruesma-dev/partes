@@ -196,7 +196,7 @@
       "title": "Pantalla de administración de empleado_jornada en el portal (sv4)",
       "description": "Propuesta por el estudio F-012 (D5, R24): vista de administración en sv4 para crear/editar/cerrar filas de empleado_jornada (DNI, jornada semanal, patrón opcional L–D, desde/hasta, nota), registrando quién y cuándo, validando horas 0–24 por día, desde<hasta y sin solapes por DNI. Hasta entonces las excepciones se cargan por SQL manual del humano. Después de F-015; valorar restringirla por roles cuando exista F-008.",
       "acceptance": [],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 8,
