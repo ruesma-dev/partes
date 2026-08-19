@@ -75,6 +75,10 @@ $sv3Env = @(
     "SIGRID_API_FUNCTION_KEY=secretref:sigrid-key",
     "SIGRID_API_DATABASE=$SIGRID_DB", "SIGRID_EMPRESA=0",
     "EMPLEADO_MIN_SCORE=0.6", "OBRA_MIN_SCORE=0.6", "JORNADA_ORDINARIA_HORAS=8",
+    # Jornada del DIA (F-015): mapa candef -> jornada SEMANAL. ESPEJO del
+    # de sv4: si los dos no llevan el MISMO valor, el portal avisa de
+    # jornadas incompletas que sv3 no genera. No es secreto.
+    "JORNADA_SEMANAL_POR_CANDEF=8:40,9:42", "JORNADA_CACHE_TTL_S=600",
     "SHAREPOINT_MODE=$($SP['SHAREPOINT_MODE'])",
     "SHAREPOINT_DRIVE_ID=$($SP['SHAREPOINT_DRIVE_ID'])",
     "SHAREPOINT_FOLDER_ROOT=$($SP['SHAREPOINT_FOLDER_ROOT'])",

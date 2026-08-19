@@ -263,10 +263,38 @@ imputar, con su precio. Los relevantes:
   línea marca el hecho, no una duración.
 
 **Cómputo de extras por exceso** (en la conciliación, sv3): si un día
-trae más ordinarias que la jornada del recurso, se divide la línea:
+trae más ordinarias que la **jornada de ese día**, se divide la línea:
 jornada como HLOF + exceso como extra automática (`extra_auto=true`,
 conservando `horas_orig`). Admite ajustes negativos (un «8-1» = 8
 ordinarias y −1 de regularización de extra).
+
+**La jornada del día no es plana** (F-015). El `candef` de Sigrid son las
+horas de lunes a jueves; el **último día laborable de la semana** —el
+mayor L–V que sea laborable en el calendario de ESE trabajador— recibe el
+resto de la jornada semanal: `max(0, S − 4 × candef)`. Es como trabaja la
+cuadrilla de régimen 42 h: 9-9-9-9-6, y hasta F-015 el viernes de 6 h
+generaba una extra negativa de −3 h todas las semanas.
+
+- `S` (jornada semanal) sale del mapa configurable
+  `JORNADA_SEMANAL_POR_CANDEF` — el mismo valor en sv3 y en sv4, por
+  defecto `8:40,9:42`. Un `candef` que no esté en el mapa se queda con la
+  **jornada plana** `5 × candef`, que es el comportamiento anterior, y se
+  avisa en el log.
+- Los **festivos entre semana cuentan como jornada**: el último laborable
+  recibe siempre `S − 4 × candef`, haya festivos o no. Si el viernes es
+  fiesta, el resto se queda en el jueves; el sábado nunca es candidato.
+- Con `candef = 8` y `S = 40` el resto vale `40 − 32 = 8`: **exactamente lo
+  de antes de F-015** para todo el mundo que tenga jornada normal.
+- Las **excepciones por trabajador** (otra jornada semanal, o un patrón
+  explícito de horas por día) viven en `empleado_jornada` (§5.5). La tabla
+  nace vacía.
+- Lo que ya viajó a Sigrid (línea `encolado`/`registrado` o parte
+  aprobado) **cuenta en el total del día pero no se recalcula**: si el día
+  no se puede cuadrar sin tocarlo, no se genera ningún ajuste y se avisa.
+
+El portal (sv4) usa la misma jornada del día para los avisos de «jornada
+incompleta», para el KPI de jornada de la vista trabajador y —cuando se le
+pasa una fecha— para la jornada sugerida de «+ Nuevo».
 
 ### 4.4 El parte mensual de Sigrid (el destino)
 
@@ -348,8 +376,8 @@ y jornada (completa/reducida) del contrato — con lo que los avisos de
 (compartido con albaranes) · **Base de datos**: `partes` · ORM:
 SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`,
 **byte-idéntico** en sv3 y sv4, con guardián automático desde F-010).
-**Cuatro tablas**: `parte_documents`, `parte_registros`, `empleado_alias`
-y `undo_log`.
+**Cinco tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
+`empleado_jornada` y `undo_log`.
 
 Al arrancar, sv3 y sv4 ejecutan el mismo DDL complementario —`ALTER TABLE
 … ADD COLUMN IF NOT EXISTS` por columna y `CREATE INDEX IF NOT EXISTS`—
@@ -408,7 +436,32 @@ delete-orphan"` (borrar el parte se lleva sus líneas). Índices:
 Cuando Administración concilia un nombre una vez, los siguientes partes
 con ese nombre casan solos.
 
-### 5.4 `undo_log` — historial para DESHACER del portal
+### 5.4 `empleado_jornada` — excepciones de jornada (F-015)
+
+**Nace vacía y se espera que siga así**: es para los trabajadores cuyo
+régimen no cabe en el `candef` de Sigrid. Mientras no tenga filas, la
+jornada de cada día se deriva del mapa `JORNADA_SEMANAL_POR_CANDEF`
+(§4.3). Hasta F-016 (pantalla de administración) las filas se cargan por
+SQL a mano; una fila mal formada se ignora, no cambia el reparto.
+
+| Columna | Notas |
+|---|---|
+| `id` (PK autoinc) | |
+| `dni_norm` (indexado) | DNI normalizado, la clave de identidad de la casa |
+| `jornada_semanal` | `S` de la excepción; NULL si solo hay patrón |
+| `h_lun`…`h_dom` (7) | patrón explícito de horas por día; manda entero y no se aplica la regla del resto |
+| `desde`, `hasta` | vigencia ISO. `desde` **inclusivo**, `hasta` **exclusivo** (una vigencia «hasta el 31/07» se carga como `hasta = 2026-08-01`); `hasta` NULL = abierta |
+| `origen` | `manual` (hoy) / `sigrid` / `sesame`: deja sitio a importarlas sin migrar el modelo |
+| `nota` | |
+| `is_active` | papelera lógica |
+| `created_at_utc`, `created_by`, `updated_at_utc`, `updated_by` | auditoría |
+
+La leen sv3 (cómputo de extras) y sv4 (avisos y KPI), cada uno con su
+propio adaptador y su caché con TTL (`JORNADA_CACHE_TTL_S`). Si la lectura
+falla, los dos siguen con la jornada derivada y dejan un WARNING: la tabla
+es un accesorio, no puede tumbar ni la conciliación ni el portal.
+
+### 5.5 `undo_log` — historial para DESHACER del portal
 
 Solo la escribe y la lee **sv4**; sv3 la declara igualmente porque las dos
 copias del ORM son gemelas y la base es una.
@@ -421,7 +474,7 @@ copias del ORM son gemelas y la base es una.
 | `undone` | si ya se deshizo |
 | `actor` | quién lo hizo |
 
-### 5.5 Datos que NO están en esta BBDD
+### 5.6 Datos que NO están en esta BBDD
 
 - Los **partes de Sigrid** (`con`+`hmo` cabecera, `hmores` líneas) viven
   en el SQL Server de Sigrid (base `ruesma`); esta BBDD solo guarda la

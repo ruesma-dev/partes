@@ -134,7 +134,7 @@ Reglas que no se negocian durante la ejecución:
       | Verificación: `python -m pytest services/partes-front/tests -q -k f015_r26`;
       `node --check services/partes-front/static/app.js` si procede.
 
-- [ ] **T11**: Documentación (R34) — `docs/ARCHITECTURE.md` semántica 3
+- [x] **T11**: Documentación (R34) — `docs/ARCHITECTURE.md` semántica 3
       (exceso sobre la jornada **del día**: candef, salvo el último laborable
       de la semana, que recibe el resto de la jornada semanal derivada del
       candef) y semántica 7 (**cinco** tablas);
