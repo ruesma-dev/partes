@@ -116,6 +116,17 @@ class JornadaEmpleadoProvider:
             return _excepcion_de(fila)
         return None
 
+    def invalidar(self) -> None:
+        """Tira la cache: la proxima consulta relee la tabla (F-016).
+
+        La llama la pantalla de administracion tras cada escritura con
+        exito, para que el portal refleje el cambio sin esperar al TTL.
+        Solo afecta a ESTE proceso: sv3 y otras replicas de sv4 siguen
+        con su propio TTL, y la pantalla lo avisa.
+        """
+        with self._lock:
+            self._cache = None
+
     def _indice(self) -> dict[str, list[JornadaEmpleadoRow]]:
         ahora = self._reloj()
         with self._lock:
