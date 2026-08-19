@@ -26,7 +26,7 @@ Reglas que no se negocian durante la ejecución:
 
 ---
 
-- [ ] **T1**: Resolutor de sv3 —
+- [x] **T1**: Resolutor de sv3 —
       `services/partes-persistencia/application/services/jornada_resolver.py`:
       `parsear_mapa_semanal`, `jornada_semanal_de`, `es_ultimo_laborable`,
       `Excepcion`, `DetalleJornada`, `detalle_jornada_dia` y `jornada_dia`

@@ -64,6 +64,33 @@ class CalendarioFake(CalendarioLaboralPort):
         return valor
 
 
+def es_laborable_fake(
+    no_laborables: object = (),
+    *,
+    registro: list[str] | None = None,
+    finde_laborable: bool = False,
+) -> Callable[[Any], bool]:
+    """`es_laborable(date) -> bool` para el resolutor de jornada (F-015).
+
+    El resolutor recibe el calendario ya LIGADO al DNI como callable, asi
+    que en sus tests no hace falta ni puerto ni doble de clase: una
+    lista de fechas ISO no laborables basta. `registro`, si se pasa,
+    apunta cada fecha consultada (para comprobar que no se pregunta de
+    mas). Con `finde_laborable` se simula la situacion sin calendario
+    cableado (D11), donde sabado y domingo son dias como los demas.
+    """
+    fuera = {str(f) for f in no_laborables}
+
+    def _es_laborable(d) -> bool:
+        if registro is not None:
+            registro.append(d.isoformat())
+        if not finde_laborable and d.weekday() >= 5:
+            return False
+        return d.isoformat() not in fuera
+
+    return _es_laborable
+
+
 class CalendarioSinSenal(CalendarioFake):
     """Calendario que NO ofrece `consumir_degradacion` (como el JSON)."""
 
