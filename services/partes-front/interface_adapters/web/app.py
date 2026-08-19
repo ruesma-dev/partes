@@ -446,6 +446,10 @@ def build_app(
     templates.env.filters["fecha"] = _fmt_fecha
     templates.env.filters["incidencia"] = _incidencia_label
     templates.env.globals["asset_version"] = str(int(time.time()))
+    # Enlace «Jornadas» de la barra (R15). Como global, para no tener que
+    # anadirlo al contexto de las diez vistas que ya existen.
+    templates.env.globals["jornadas_admin_enabled"] = bool(
+        settings.jornadas_admin_enabled)
     app.mount(
         "/static",
         StaticFiles(
@@ -453,6 +457,36 @@ def build_app(
         ),
         name="static",
     )
+
+    # --- F-016: quien firma y quien puede entrar ---------------------- #
+
+    def _actor(request: Request) -> str | None:
+        """Quien firma el cambio (R13). PUNTO UNICO de identidad en F-016.
+
+        HOY devuelve `settings.default_reviewer`, exactamente lo que hace
+        el resto del portal (once sitios de este mismo fichero). No lee
+        ninguna cabecera: leer y decodificar la de Easy Auth es trabajo
+        de **F-017**, y cuando F-017 llegue solo cambia el INTERIOR de
+        esta funcion — F-016 no se toca.
+
+        Sin `DEFAULT_REVIEWER` configurado se sella `NULL` y la operacion
+        NO falla: no saber quien fue no es motivo para perder el cambio.
+        """
+        _ = request                      # lo usara F-017; aqui, no
+        return settings.default_reviewer
+
+    def _exigir_admin_jornadas() -> None:
+        """Puerta UNICA de la pantalla de jornadas (R15).
+
+        Hoy: el interruptor `JORNADAS_ADMIN_ENABLED`. Cuando exista F-008
+        (roles), la comprobacion de rol se escribe AQUI y en ningun otro
+        sitio. Por eso es una funcion y no un middleware por prefijo: un
+        middleware habria que desmontarlo (DA9).
+
+        404 y no 403 a proposito: con la pantalla apagada no existe.
+        """
+        if not settings.jornadas_admin_enabled:
+            raise HTTPException(status_code=404, detail="Pagina no encontrada.")
 
     # --- F-004: congelacion -> 409 (no es un 500) --------------------- #
     @app.exception_handler(CongeladoError)
