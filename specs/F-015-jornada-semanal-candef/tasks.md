@@ -119,7 +119,7 @@ Reglas que no se negocian durante la ejecución:
       | Verificación: `python -m pytest services/partes-front/tests -q -k f015`;
       `python -m pytest tests -q -k f015_r33`.
 
-- [ ] **T9**: sv4 · avisos y KPI — `trabajador_detail` (`dias_incompletos` por
+- [x] **T9**: sv4 · avisos y KPI — `trabajador_detail` (`dias_incompletos` por
       `jornada_dia` del día + contexto `jornada_kpi`), `obra_detail`
       (`incompletos` por fila y día con el DNI de la fila) y
       `templates/trabajador_detail.html` (KPI: candef efectivo, `S` aplicada

@@ -53,6 +53,16 @@
     {% if jornada_divergente %}
     <span class="tag-difiere jornada-divergencia" title="El contrato en Sesame es de jornada reducida, pero la jornada aplicada al calculo ({{ candef_kpi.valor|horas }}) es la completa. Revisa el CanDefecto del recurso en Sigrid.">&#9888; contrato reducida</span>
     {% endif %}
+    {# F-015: con que jornada SEMANAL se esta calculando y cuanto le toca al
+       ultimo dia laborable, que es el numero que mas sorprende. #}
+    {% if jornada_kpi %}
+    <span class="cell-sub jornada-semanal{% if jornada_kpi.origen == 'excepcion' %} jornada-excepcion{% endif %}" title="Jornada SEMANAL con la que se reparten las horas: {{ jornada_kpi.semanal|horas }} h{% if jornada_kpi.origen == 'excepcion' %}, de una excepcion de empleado_jornada{% elif jornada_kpi.origen == 'plana' %}, jornada plana (este CanDefecto no esta en el mapa JORNADA_SEMANAL_POR_CANDEF){% else %}, del mapa JORNADA_SEMANAL_POR_CANDEF{% endif %}. De lunes a jueves se esperan {{ jornada_kpi.candef|horas }} h y el ultimo dia laborable de la semana recibe el resto.">{{ jornada_kpi.semanal|horas }} h/sem{% if jornada_kpi.origen == 'excepcion' %} <span class="tag-asignado">excepcion</span>{% endif %}</span>
+    {% if jornada_kpi.patron %}
+    <span class="cell-sub jornada-patron" title="Patron de horas por dia (lunes a domingo) de su excepcion de jornada.">patron: {{ jornada_kpi.patron|join(' · ') }}</span>
+    {% elif jornada_kpi.ultimo_laborable is not none %}
+    <span class="cell-sub jornada-ultimo" title="Horas ordinarias que se esperan el ultimo dia laborable de cada semana ({{ jornada_kpi.semanal|horas }} - 4 x {{ jornada_kpi.candef|horas }}).">ultimo laborable: {{ jornada_kpi.ultimo_laborable|horas }} h</span>
+    {% endif %}
+    {% endif %}
   </div>
   <div class="stat-card">
     <span class="stat-label">Incidencias</span>
