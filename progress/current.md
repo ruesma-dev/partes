@@ -94,11 +94,22 @@ Verificado contra PostgreSQL 16.14, base `partes`:
   humano: `origen='manual'` ✅ y `created_by`/`updated_by` **NULL** ✅, que es
   lo esperado sin `DEFAULT_REVIEWER` (H1) y confirma ese hallazgo desde la base.
 
-**R7 se queda a medias**: las 4 filas se crearon «sin fecha de fin», así que
-`hasta` es NULL en todas. Queda confirmada la mitad NULL, pero **la conversión
-«+1 día» no se ejercita**. Para cerrarla hace falta un alta más en pantalla con
-último día incluido `2026-07-31` y comprobar que la base guarda `2026-08-01` y
-el listado repinta `2026-07-31` (SQL listo en §6.6 del informe).
+**R7 VERIFICADO** (2026-08-20, segunda vuelta). Alta en pantalla con último
+día incluido `2026-07-31`: la base guarda **`hasta = 2026-08-01`** y el listado
+repinta `2026-07-31`. La conversión «+1 día» funciona. Confirmado por partida
+doble con una fila de control (último día `2026-08-20` → `hasta = 2026-08-21`),
+y una tercera fila «sin fin» cubre la mitad NULL del requisito.
+
+`desde` sin desplazamiento de huso en las tres. Se sostiene porque `desde` y
+`hasta` son **`varchar(16)`** con la fecha ISO, no `date`/`timestamp`: no hay
+capa que pueda reinterpretar la zona horaria.
+
+**R12 (solapes) sin violación**: las tres filas se solapan en julio pero solo
+una está activa; la auditoría muestra que el humano desactivó cada una antes de
+crear la siguiente (baja 11:31:16 → alta 11:31:42), así que el alta **no debía**
+rechazarse. La rama de rechazo sí se ejercitó, pero en la prueba anterior de
+navegador (el aviso rojo nombrando la fila en conflicto), no en estas filas —
+lógicamente no deja rastro en la base, porque no llega a crear nada.
 
 ### 2-bis. (histórico) el falso bloqueo por firewall
 

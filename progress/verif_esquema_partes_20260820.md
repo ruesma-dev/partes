@@ -28,16 +28,12 @@ discrepancias.**
 | F-010 M1 · recuentos 7 / 47 / 56 / 7 sin cambios | ✅ exactos |
 | Base ↔ ORM sv3 ↔ ORM sv4 | ✅ los tres coinciden |
 | Filas de prueba de F-016 (`origen`, `created_by`, coherencia) | ✅ conformes |
+| **R7 de F-016 · `hasta` exclusivo (`+1 día`)** | ✅ **VERIFICADO en producción** (§5.3) |
+| R12 de F-016 · sin solapes entre filas activas del mismo DNI | ✅ sin violación: solo una fila activa (§5.4) |
 
-Dos apuntes que **no son defectos** pero conviene que consten:
-
-1. **R7 de F-016 (`hasta` exclusivo) no ha quedado ejercitado por estas
-   pruebas**: las cuatro filas se crearon «sin fecha de fin», así que las
-   cuatro tienen `hasta = NULL`. Eso confirma la mitad NULL del requisito,
-   pero la conversión «último día incluido + 1 día» sigue **sin verificar en
-   producción**. Ver §5.3 con lo que hay que hacer en pantalla para cerrarla.
-2. **Errata en la spec de F-015**: `design.md` §8 habla de «las 16 columnas».
-   Son **19**. Ver §2.4.
+Un apunte que **no es un defecto** pero conviene que conste: **errata en la
+spec de F-015**, `design.md` §8 habla de «las 16 columnas». Son **19**. Ver
+§2.4.
 
 ---
 
@@ -260,10 +256,12 @@ El guardián declara además `TABLAS` con las **cinco** tablas
 
 ## 5. Filas de prueba creadas hoy desde `/admin/jornadas`
 
-`SELECT count(*) FROM empleado_jornada` → **4 filas**.
+`SELECT count(*) FROM empleado_jornada` → **7 filas**.
 
-**No se ha modificado ni borrado ninguna.** Los DNI van enmascarados: son
-datos personales y este fichero se versiona.
+**No se ha modificado ni borrado ninguna.** Los DNI reales van enmascarados:
+son datos personales y este fichero se versiona. El DNI `00000000T` de las
+filas 5–7 es **ficticio**, creado a propósito para la prueba de R7, y por eso
+puede aparecer entero.
 
 | id | DNI | `jornada_semanal` | patrón | `desde` | `hasta` | `origen` | `nota` | `is_active` | `created_by` | `updated_by` |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -271,57 +269,118 @@ datos personales y este fichero se versiona.
 | 2 | `28…` | 42.0 | ninguno (7 NULL) | 2026-08-20 | **NULL** | `manual` | — | `false` | NULL | NULL |
 | 3 | `28…` | 42.0 | ninguno (7 NULL) | 2026-08-01 | **NULL** | `manual` | — | `false` | NULL | NULL |
 | 4 | `28…` | 42.0 | ninguno (7 NULL) | 2024-07-01 | **NULL** | `manual` | — | `false` | NULL | NULL |
+| 5 | `00000000T` | 40.0 | ninguno (7 NULL) | 2026-07-01 | **NULL** | `manual` | `prueba R7` | `false` | NULL | NULL |
+| 6 | `00000000T` | 40.0 | ninguno (7 NULL) | 2026-07-01 | **2026-08-21** | `manual` | `prueba r7` | `false` | NULL | NULL |
+| 7 | `00000000T` | 40.0 | ninguno (7 NULL) | 2026-07-01 | **2026-08-01** | `manual` | `prueba buena r7` | **`true`** | NULL | NULL |
 
-Las cuatro llevan `created_at_utc` y `updated_at_utc` reales de hoy
-(altas entre las 08:52 y las 10:20 UTC, desactivaciones entre las 09:21 y las
-10:21 UTC).
+Todas llevan `created_at_utc` real de hoy (altas entre las 08:52 y las 11:31
+UTC). Las seis primeras están ya desactivadas, con su `updated_at_utc`
+sellado; la 7 es la **única activa** y, coherentemente, es la única con
+`updated_at_utc` a NULL: nunca se ha modificado desde su alta.
 
 ### 5.1 Comprobaciones pedidas
 
 | Comprobación | Resultado |
 |---|---|
-| `origen = 'manual'` en todas | ✅ las 4 |
-| `is_active` | ✅ las 4 en `false`: el humano las desactivó por la pantalla (papelera lógica, semántica 8). El `DEFAULT true` de la columna es correcto; el `false` es un `UPDATE` deliberado de la UI, no un fallo |
-| `created_by` **NULL** (por `DEFAULT_REVIEWER` no configurada en sv4) | ✅ las 4 a NULL, como se esperaba |
-| `updated_by` | ✅ las 4 a NULL, coherente con lo anterior (mismo helper `_actor(request)`, R13) |
-| `created_at_utc` / `updated_at_utc` sellados | ✅ ISO-8601 con offset UTC en las 4 |
-| Patrón coherente | ✅ o los siete valores o ninguno (R8): las 4 usan solo `jornada_semanal`, con los 7 `h_*` a NULL |
+| `origen = 'manual'` en todas | ✅ las 7 |
+| `is_active` | ✅ coherente: 6 en `false` porque el humano las desactivó por la pantalla (papelera lógica, semántica 8) y la 7 en `true`. El `DEFAULT true` de la columna es correcto; el `false` es un `UPDATE` deliberado de la UI, no un fallo |
+| `created_by` **NULL** (por `DEFAULT_REVIEWER` no configurada en sv4) | ✅ las 7 a NULL, como se esperaba |
+| `updated_by` | ✅ las 7 a NULL, coherente con lo anterior (mismo helper `_actor(request)`, R13) |
+| `created_at_utc` / `updated_at_utc` sellados | ✅ ISO-8601 con offset UTC; `updated_at_utc` solo en las que se han tocado |
+| Patrón coherente | ✅ o los siete valores o ninguno (R8): las 7 usan solo `jornada_semanal`, con los 7 `h_*` a NULL |
+| `dni_norm` normalizado (R18) | ✅ sin separadores y en mayúsculas en las 7 |
 
 ### 5.2 Reglas de negocio que la base no impone pero los datos respetan
 
-- **Solapes de vigencia por `dni_norm` entre filas activas** (R12): **ninguno**
-  — trivialmente, porque las 4 están inactivas. La consulta queda en §6 para
-  volver a pasarla cuando haya filas activas.
-- **Horas fuera de rango** (R9/R10): **0 filas**. `jornada_semanal` 42 y 48
-  son valores plausibles y dentro de rango.
-- **`desde` bien formado**: las 4 en ISO `YYYY-MM-DD`, ninguna con el
+- **Solapes de vigencia por `dni_norm` entre filas activas** (R12):
+  **ninguno**. Analizado en detalle en §5.4, porque las tres filas del DNI
+  ficticio sí se solapan en el calendario.
+- **Horas fuera de rango** (R9/R10): **0 filas**. `jornada_semanal` 40, 42 y
+  48 son valores plausibles y dentro de rango.
+- **`desde` bien formado**: las 7 en ISO `YYYY-MM-DD`, ninguna con el
   centinela `1900-01-01`.
 
-### 5.3 R7 (`hasta` exclusivo): **no verificable con estos datos**
+### 5.3 R7 (`hasta` exclusivo): **VERIFICADO EN PRODUCCIÓN** ✅
 
 R7 de F-016 exige que la pantalla hable en **último día incluido** y la base
 guarde el **exclusivo** (`hasta = último día incluido + 1 día`), y que «sin
 fecha de fin» equivalga a `hasta = NULL` en los dos sentidos.
 
-**Las cuatro filas tienen `hasta = NULL`**, es decir, las cuatro se dieron de
-alta «sin fecha de fin». Por tanto:
+Las filas 5, 6 y 7 (DNI ficticio `00000000T`) cierran las dos mitades del
+requisito. Aplicando a cada una el mismo cálculo que hace
+`ultimo_dia_incluido_de_fila` al pintar (`hasta − 1 día`):
 
-- ✅ **Queda confirmada la mitad NULL de R7**: «sin fin» en pantalla ⇒ `hasta`
-  NULL en base. Es correcto y no hay ninguna fecha centinela inventada.
-- ⏸ **La conversión `+1 día` NO queda ejercitada**: no hay ni una fila con
-  `hasta` no nulo contra la que contrastar el «último día incluido» que se
-  escribió en pantalla.
+| id | `desde` en base | `hasta` en base (exclusivo) | Lo que pinta la pantalla | Veredicto |
+|---|---|---|---|---|
+| 5 | `2026-07-01` | `NULL` | `2026-07-01 … sin fin` | ✅ mitad NULL de R7 |
+| 6 | `2026-07-01` | **`2026-08-21`** | `2026-07-01 … 2026-08-20` | ✅ **coincide con lo observado en pantalla** |
+| 7 | `2026-07-01` | **`2026-08-01`** | `2026-07-01 … 2026-07-31` | ✅ el caso canónico de la spec |
 
-**Esto no es un defecto detectado; es una verificación que sigue abierta.**
-Para cerrarla en producción basta con un caso desde `/admin/jornadas`:
+**Fila 6 — la prueba decisiva.** La pantalla la pintaba
+`2026-07-01 … 2026-08-20` y en la base `hasta` vale **exactamente
+`2026-08-21`**: un día más que el último día incluido. Es justo el valor que
+R7 exige. No es `2026-08-20` (que sería guardar el inclusivo, sin
+conversión), ni `2026-07-31`, ni `2026-08-01`. **La conversión «+1 día»
+funciona.**
 
-1. Dar de alta una jornada con un **último día incluido** conocido, por
-   ejemplo `2026-07-31` (o cerrar una existente con esa fecha).
-2. Releer la fila: la base debe guardar **`hasta = '2026-08-01'`**.
-3. Volver al listado: debe **pintar `2026-07-31`**, no `2026-08-01`.
+**Fila 7 — el caso que planeábamos.** `hasta = '2026-08-01'` para un último
+día incluido `2026-07-31`: el criterio literal de aceptación que escribe la
+spec en R7. ✅
 
-La consulta de §6 punto 6 hace el paso 2 y ya calcula el «último día
-incluido» que debería verse en pantalla, para comparar de un vistazo.
+**`desde` sin desplazamiento.** Las tres filas guardan `desde =
+'2026-07-01'`, **tal cual se escribió**, sin corrimiento de un día ni
+conversión de zona horaria. Era el segundo defecto posible y no aparece. Se
+sostiene porque `desde` y `hasta` son `varchar(16)` con la fecha ISO literal,
+no `date` ni `timestamp`: no hay ninguna capa que pueda reinterpretarlos en
+otro huso. Las cuatro filas anteriores (1–4) lo confirman también, con
+`desde` en 2024 y 2026 sin desviación.
+
+**Conclusión: R7 queda verificado en el entorno desplegado**, en sus dos
+sentidos —«sin fin» ⇒ `NULL`, y último día incluido ⇒ `+1 día`— y con la
+garantía adicional de que `desde` no sufre desplazamiento.
+
+### 5.4 R12 (sin solapes por DNI): **no hay violación** ✅
+
+Las tres filas del DNI ficticio `00000000T` **se solapan en el calendario**:
+las tres arrancan el `2026-07-01` y cubren julio. R12 no prohíbe eso: prohíbe
+que dos filas **activas** del mismo `dni_norm` se solapen. Y ahí el estado es
+correcto:
+
+| id | vigencia | `is_active` |
+|---|---|---|
+| 5 | 2026-07-01 → sin fin | `false` |
+| 6 | 2026-07-01 → 2026-08-21 (excl.) | `false` |
+| 7 | 2026-07-01 → 2026-08-01 (excl.) | **`true`** |
+
+**Solo una está activa.** La consulta de solapes entre filas activas devuelve
+**cero pares**. No hay hallazgo.
+
+La cronología de las marcas de auditoría explica por qué el validador nunca
+llegó a tener que rechazar nada — el humano fue desactivando cada fila antes
+de crear la siguiente:
+
+```
+11:28:11  alta   id 5
+11:29:22  baja   id 5      <- desactivada ANTES de crear la 6
+11:30:05  alta   id 6
+11:31:16  baja   id 6      <- desactivada ANTES de crear la 7
+11:31:42  alta   id 7      (unica activa)
+```
+
+Entre la baja de la 6 y el alta de la 7 pasaron 26 segundos, así que **el alta
+de la 7 no debía ser rechazada**: en ese instante no había ninguna otra fila
+activa de ese DNI con la que solapar. El comportamiento observado es el
+correcto.
+
+Matiz honesto sobre el alcance: de esto **no se deduce que el validador de
+solapes funcione**, solo que no se ha disparado ningún falso positivo. La
+rama de rechazo (409) de R12 no ha quedado ejercitada en producción; sí la
+cubren los tests `test_f016_r12_solape`
+(`tests/test_f016_validacion_jornada_admin.py` en unidad y
+`tests/test_f016_endpoints_admin_jornadas.py` por HTTP). Para probarla en
+pantalla habría que intentar dar de alta una segunda fila del mismo DNI con
+vigencias solapadas **sin desactivar la primera** y comprobar que la pantalla
+la rechaza. Queda anotado en §7 como opcional.
 
 En el código la conversión está donde R7 manda —solo en la capa web:
 `services/partes-front/interface_adapters/web/app.py` usa
@@ -401,19 +460,27 @@ SELECT count(*) FROM empleado_jornada
 
 ## 7. Qué queda pendiente
 
-1. **R7 de F-016 en el entorno desplegado** (§5.3): dar de alta o cerrar una
-   jornada con fecha de fin y comprobar el desfase de un día. Es la única
-   comprobación de este encargo que no ha podido cerrarse.
-2. **Errata de `design.md` §8 de F-015** (§2.4): «16 columnas» debería decir
+**Todas las comprobaciones de este encargo están cerradas.** Queda:
+
+1. **Errata de `design.md` §8 de F-015** (§2.4): «16 columnas» debería decir
    «19». Corrección documental de una línea.
+2. **Opcional, no bloqueante — rama de rechazo de R12** (§5.4): intentar en
+   `/admin/jornadas` un alta solapada con una fila **activa** del mismo DNI y
+   comprobar que la pantalla la rechaza (409). Está cubierta por tests, pero
+   no se ha ejercitado en el entorno desplegado.
+3. **Limpieza de las filas de prueba**, cuando el humano lo decida: 7 filas de
+   prueba en `empleado_jornada`, seis ya inactivas y la id 7 activa con DNI
+   ficticio `00000000T`. No estorban al cómputo (el DNI no casa con ningún
+   trabajador real), pero conviene no dejarlas ahí indefinidamente. **Las
+   borra o desactiva el humano por la pantalla, no un agente.**
 
 ---
 
 ## 8. Qué NO se ha hecho
 
 - No se ha ejecutado ningún DDL, `INSERT`, `UPDATE` ni `DELETE`.
-- **No se ha tocado ninguna de las 4 filas de prueba**: las desactiva el
-  humano por la pantalla.
+- **No se ha tocado ninguna de las 7 filas de prueba**: las crea, desactiva y
+  borra el humano por la pantalla.
 - No se ha creado, modificado ni borrado ninguna regla de firewall, ni antes
   ni después del intento fallido.
 - No se ha tocado nada a nivel del servidor `psql-albaranes-rs9k2`.
