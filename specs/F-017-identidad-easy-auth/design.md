@@ -103,7 +103,7 @@ Contado en `services/partes-front/infrastructure/database/orm_models.py`
 | `parte_registros` | `sigrid_registrado_by` | `String(255)` | sv4 (R16) |
 | `empleado_alias` | `created_by` | `String(120)` | sv4 (Conciliar) |
 | `empleado_jornada` | `created_by`, `updated_by` | `String(120)` | sv4 (R19) |
-| `undo_log` | `actor` | `String(120)` | sv4 (R14, R15) |
+| `undo_log` | `actor` | `String(120)` | sv4 — **columna que hoy no escribe nadie**; R14/R15 enmendados el 2026-08-20 no la usan (ver `requirements.md`). Se mantiene en la tabla de anchos porque sigue siendo la columna de autor más estrecha del esquema y por tanto la que fija el truncado a 120. |
 
 **Conclusión: el mínimo común es 120, y sobra.** Un UPN cabe de largo (los del
 tenant rondan los 25–35 caracteres; el límite teórico de un UPN son 113 según

@@ -169,12 +169,39 @@ sistema debe sellar `parte_documents.deleted_by` con el actor de esa petición.
 
 **R14.** CUANDO el usuario borra una línea, una obra o un trabajador
 (`POST /api/registro/{id}/delete`, `POST /api/obra/{key}/delete`,
-`POST /api/trabajador/{key}/delete`), el sistema debe escribir el actor de esa
-petición en `undo_log.actor`.
+`POST /api/trabajador/{key}/delete`), el sistema debe sellar el actor de esa
+petición en la columna de autor que esas operaciones escriben:
+`parte_registros.deleted_by` y `parte_documents.deleted_by`.
+
+> **ENMENDADO el 2026-08-20, decisión del humano.** La redacción original decía
+> «en `undo_log.actor`», y eso **no describía el código**: esas tres
+> operaciones NO generan filas de `undo_log`, y esa columna no la escribe
+> nadie. Lo verificamos en el árbol antes de enmendar. El requisito de fondo
+> —que un borrado quede firmado— se cumple igual, y mejor, en la columna que
+> esas operaciones ya usan.
 
 **R15.** CUANDO el usuario da de alta un parte manual
-(`POST /api/partes/nuevo`), el sistema debe escribir el actor de esa petición
-en `undo_log.actor`.
+(`POST /api/partes/nuevo`), el sistema debe hacer llegar el actor de esa
+petición a la capa de aplicación por el parámetro `by` de
+`crear_parte_manual`, que hasta ahora se recibía y se descartaba.
+
+> **ENMENDADO el 2026-08-20, decisión del humano.** La redacción original decía
+> «en `undo_log.actor`». Verificado en el árbol: el alta manual **no** genera
+> fila de `undo_log`, y `crear_parte_manual` declara `by` **sin usarlo**
+> (`services/partes-front/infrastructure/database/parte_repository.py:2562`).
+> Persistir quién dio de alta un parte manual exigiría una **columna nueva**:
+> ni `parte_documents` ni `parte_registros` tienen `created_by`. Esta feature
+> prometió **cero cambios de schema**, así que no se añade aquí.
+>
+> **Lo que queda cubierto**: el cableado, hasta la frontera de la persistencia.
+> **Lo que NO**: el dato guardado. Eso lo aporta **F-018**, cuyo diseño existe
+> justamente para registrar la *decisión* de acciones que hoy no tienen
+> columna. Añadir la columna en F-017 habría tocado las **dos copias** del ORM
+> por un caso que otra feature resuelve mejor.
+>
+> **Consecuencia asumida y documentada**: el criterio del corte
+> (`autor IS NULL` ⇔ anterior a F-017) vale para las columnas que sí se
+> escriben; `undo_log.actor` sigue vacío y no significa nada nuevo.
 
 **R16.** CUANDO el usuario aprueba de forma síncrona
 (`POST /api/aprobar/ejecutar`) o encolada (`POST /api/aprobar/encolar`), el
@@ -269,8 +296,8 @@ suite de F-016.
 | R11 | `test_f017_punto_unico.py::test_f017_r11_una_sola_lectura_de_default_reviewer` |
 | R12 | `test_f017_endpoints_firmados.py::test_f017_r12_approved_by` |
 | R13 | `test_f017_endpoints_firmados.py::test_f017_r13_deleted_by` |
-| R14 | `test_f017_endpoints_firmados.py::test_f017_r14_undo_log_actor_borrados` (parametrizado: registro / obra / trabajador) |
-| R15 | `test_f017_endpoints_firmados.py::test_f017_r15_undo_log_actor_parte_manual` |
+| R14 | `test_f017_endpoints_firmados.py::test_f017_r14_borrar_linea_sella_deleted_by`, `::test_f017_r14_undo_log_actor_borrados` (parametrizado: registro / obra / trabajador), `::test_f017_r14_sin_cabecera_tambien_se_firma`, `::test_f017_r14_cada_peticion_lleva_su_actor` |
+| R15 | `test_f017_endpoints_firmados.py::test_f017_r15_undo_log_actor_parte_manual` (el nombre conserva el literal histórico; comprueba el paso del actor por `by=`), `::test_f017_r15_sin_cabecera_el_alta_manual_tambien_se_firma`, `::test_f017_r15_desplegado_sin_cabecera_el_alta_lleva_sin_identidad` |
 | R16 | `test_f017_aprobacion_firmada.py::test_f017_r16_payload_y_marcas` (síncrono y encolado) |
 | R17 | `test_f017_aprobacion_firmada.py::test_f017_r17_log_forzado_nombra_al_actor` |
 | R18 | `test_f017_aprobacion_firmada.py::test_f017_r18_el_sobre_manda_en_el_consumidor` |
