@@ -141,3 +141,45 @@ existe.
 **Regla de reparación** (de `design.md` §6, aplicada en T5 y T7): si el test
 comprueba *quién firma*, se le pone cabecera; si solo necesita *que haya algún
 valor*, basta con actualizar el literal esperado a `local:…`.
+
+---
+
+## T2 · Fase RED de la resolución de identidad (R1–R9, R20, R21)
+
+Los dos ficheros de test escritos **antes** de que exista `identidad.py`.
+Traza real, no un resumen:
+
+```
+$ python -m pytest services/partes-front/tests/test_f017_identidad.py \
+                   services/partes-front/tests/test_f017_entorno.py -q
+
+ERROR collecting services/partes-front/tests/test_f017_identidad.py
+services\partes-front\tests\test_f017_identidad.py:27: in <module>
+    from interface_adapters.web.identidad import (
+E   ModuleNotFoundError: No module named 'interface_adapters.web.identidad'
+
+ERROR collecting services/partes-front/tests/test_f017_entorno.py
+services\partes-front\tests\test_f017_entorno.py:28: in <module>
+    from interface_adapters.web.identidad import (
+E   ModuleNotFoundError: No module named 'interface_adapters.web.identidad'
+
+!!!!!!!!!!!!!!!!!!! Interrupted: 2 errors during collection !!!!!!!!!!!!!!!!!!!
+1 warning, 2 errors in 1.44s
+```
+
+**R5b y R5c no son una formalidad en esta fase**, como avisaba T2. Los tests
+que las cubren están escritos de forma que un `local:` en el sitio equivocado
+los pone rojos aunque el valor «parezca» correcto:
+
+- `test_f017_r5b_desplegado_sin_cabecera_es_sin_identidad` no se conforma con
+  `actor == "sin-identidad"`: afirma **además** `not actor.startswith("local:")`.
+  Comprobar sólo la igualdad dejaría pasar justo la confusión que la enmienda
+  del humano viene a evitar.
+- `test_f017_r5c_la_senal_b_se_aprende_y_corrige_a` reproduce el escenario del
+  agujero de la señal A (la plataforma deja de inyectar `CONTAINER_APP_*`) y
+  comprueba que, tras el primer usuario autenticado, una petición sin cabecera
+  ya **no** se firma como sesión local.
+- `test_f017_r5c_la_senal_b_tambien_llega_a_la_columna` impide que la señal B
+  se quede en cosmética de `/whoami`: comprueba el valor **sellado en la fila**.
+- `test_f017_r5c_creerse_desplegado_en_local_es_inocuo` documenta la otra
+  dirección del fallo asimétrico y fija por qué es tolerable.
