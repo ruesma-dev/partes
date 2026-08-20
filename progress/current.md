@@ -1,25 +1,54 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-Sesión 2026-08-19. **F-015 y F-016 `done`**, las dos APROBADAS por el reviewer.
-F-015 ya está en `dev` y en el remoto; **F-016 espera su merge**. **F-014
-`blocked`** como deuda aparcada. Ninguna feature `in_progress`.
+Sesión 2026-08-19/20. **F-015 y F-016 `done`**, las dos APROBADAS por el
+reviewer, mergeadas, publicadas y **DESPLEGADAS**. **F-014 `blocked`** como
+deuda aparcada, pero su puerta ya está abierta (ver abajo). Ninguna feature
+`in_progress`.
 
 | Rama | Estado |
 |---|---|
-| `feature/F-016-admin-empleado-jornada` | **lista para merge a `dev`** |
+| `feature/F-016-admin-empleado-jornada` | mergeada a `dev` y borrada |
 | `feature/F-014-candef-9-sigrid` | petición lista, aparcada a la espera de RRHH |
 
-`dev` = merge de F-015 (`047eb5b`), publicado.
+`dev` = merge de F-016 (`5606954`), publicado, con F-015 dentro.
+
+## Despliegue del 2026-08-20 (00:10)
+
+`redeploy_partes.ps1 -Solo sv3,sv4` desde el árbol en `dev`. Ambos servicios en
+la revisión **`r20260820000737`**:
+
+| Servicio | Estado comprobado |
+|---|---|
+| `ca-sv4-front` | `Running`, 1 réplica. Arranque limpio: «esquema inicializado (137 sentencias complementarias)» → `Application startup complete` → Uvicorn en 8014. `HTTP 401` sin cookie ⇒ Easy Auth en pie. |
+| `ca-sv3-persistencia` | `ScaledToZero` (KEDA min 0, normal). **Su log de esquema aún no existe**: saldrá al procesar el primer parte, o subiéndolo a `--min-replicas 1` y devolviéndolo a `0`. |
+
+Con esto queda aplicado también el DDL pendiente de **F-010** (M1/M2).
+
+Dos tropiezos, ninguno de código y los dos ya conocidos:
+
+1. `RequestDisallowedByAzure` (MFA) en el primer intento: el `az login` normal
+   vale para el build en el ACR pero no para `containerapp update`. Se resuelve
+   con el `--claims-challenge` de `infra/README_partes.md:28`.
+2. `getaddrinfo failed` de DNS en el **paso final informativo**, ya creadas las
+   dos revisiones: solo dejó vacío el «Portal sv4: https://». FQDN real:
+   `ca-sv4-front.yellowplant-2add9c3e.spaincentral.azurecontainerapps.io`.
+
+Aprendizaje operativo: `az containerapp logs show --tail` ya no alcanza el
+arranque —el polling de colas llena el buffer en minutos—. Los logs de arranque
+salen con `az monitor log-analytics query -w <workspace de log-partes-dev>`
+filtrando por `RevisionName_s`.
 
 ## Lo que el humano tiene que decidir o hacer
 
-1. **Mergear F-016 a `dev`** y **desplegar sv3 + sv4** con las dos features
-   juntas (decisión suya del 2026-08-19: esperar a F-016 para desplegar una
-   sola vez).
-2. **Verificaciones MANUAL tras desplegar**: T12 de F-015 y las 6 de
+1. **Verificaciones MANUAL del despliegue, pendientes**: lo que queda de T12
+   de F-015 (las 19 columnas de `empleado_jornada`, el KPI «9 h · 42 h/sem ·
+   último laborable 6 h», el viernes de 6 h sin aviso, y que un parte ya
+   aprobado no cambie su desglose) y las 6 de
    `specs/F-016-admin-empleado-jornada/design.md` §8.2. La 6 —el combo en el
    navegador— es la única funcionalidad que ningún test cubre.
+2. **Enviar la petición de F-014 a RRHH**: la condición ya se cumple (F-015
+   desplegada). Texto aprobado en `progress/peticion_F-014.md`.
 3. **F-017** (identidad real de Easy Auth): es la siguiente natural. No la
    necesita nadie para funcionar, pero mientras no exista, todas las filas de
    auditoría del portal siguen firmadas con `DEFAULT_REVIEWER`.
@@ -40,7 +69,7 @@ mutación **259/237/22/0** (91,5 %). Regresión cero: con `candef = 8` —que ho
 son todos— no cambia el comportamiento de nadie. Por eso se puede desplegar
 sin F-014.
 
-## F-016 · done, pendiente de merge (2026-08-19)
+## F-016 · done, en `dev` y desplegada (2026-08-19/20)
 
 Pantalla `/admin/jornadas` en sv4: crear, editar, cerrar, desactivar y
 reactivar las excepciones de jornada. Resumen en `progress/history.md`; detalle
@@ -61,7 +90,9 @@ en la cabecera.
 
 **El orden importa**: primero F-015 desplegada, después el correo. Aplicar el
 `candef = 9` en Sigrid con sv3/sv4 sin F-015 daría **−3 h/semana** de extra
-negativa a esos 7 recursos; al revés no pasa nada.
+negativa a esos 7 recursos; al revés no pasa nada. **Desde el despliegue del
+2026-08-20 esa condición se cumple**: el correo ya se puede enviar en cuanto el
+humano quiera.
 
 Cuando se retome: enviar el correo (§7) → RRHH cambia el `candef` de 7 fichas y
 el DNI de `MO/0037` → responde qué decide con `MO/0007` (de alta pero sin
@@ -90,15 +121,17 @@ desempata la categoría; y `MO/0037` sigue sin DNI (`res.conide = 0`).
   `specs/F-016-admin-empleado-jornada/design.md` §8.2, con el portal levantado
   y PostgreSQL. La 6 (comportamiento del combo de trabajador en el navegador)
   no la cubre ningún test.
-- **F-015 · T12**, tras desplegar sv3 y sv4: «esquema inicializado (N
-  sentencias complementarias)» en ambos logs; la tabla `empleado_jornada` con
-  sus **19** columnas y el índice `ix_empleado_jornada_dni_norm`; un trabajador
-  de la cuadrilla con viernes de 6 h **sin** aviso de jornada incompleta y el
-  KPI «9 h · 42 h/sem · último laborable 6 h»; y que un parte ya aprobado **no**
+- **F-015 · T12** (desplegado el 2026-08-20; el log de esquema de sv4 ya está
+  comprobado, falta el de sv3 porque sigue a cero réplicas): la tabla
+  `empleado_jornada` con sus **19** columnas y el índice
+  `ix_empleado_jornada_dni_norm`; un trabajador de la cuadrilla con viernes de
+  6 h **sin** aviso de jornada incompleta y el KPI «9 h · 42 h/sem · último
+  laborable 6 h»; y que un parte ya aprobado **no**
   cambie su desglose tras la primera pasada de sv3. Ojo: la cuadrilla sigue con
   `candef = 8` hasta F-014, así que ese punto solo se ve del todo después.
 - **F-010:** M1/M2 se cumplen de paso al hacer T12 de F-015.
-- **F-014**: enviar la petición **solo cuando F-015 esté desplegada**.
+- **F-014**: la puerta ya está abierta (F-015 desplegada el 2026-08-20); queda
+  enviar la petición cuando el humano decida.
 - **F-002 (Azure):** validar en navegador la aprobación asíncrona (⏳ encolado →
   ✓ PT26/…, obra 0404 en modo pruebas), limpiar 0404 (`python
   prueba_escritura_sigrid.py limpiar --ejecutar` en sv5) y pasar sv5 a modo
