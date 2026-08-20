@@ -183,3 +183,96 @@ los pone rojos aunque el valor «parezca» correcto:
   se quede en cosmética de `/whoami`: comprueba el valor **sellado en la fila**.
 - `test_f017_r5c_creerse_desplegado_en_local_es_inocuo` documenta la otra
   dirección del fallo asimétrico y fija por qué es tolerable.
+
+---
+
+## T3 · `identidad.py` · T3 bis · las dos ramas del fallback
+
+Creado `services/partes-front/interface_adapters/web/identidad.py` con las
+cinco funciones puras de `design.md` §7. Resultado sobre los tests de T2:
+
+```
+$ python -m pytest services/partes-front/tests/test_f017_identidad.py \
+                   services/partes-front/tests/test_f017_entorno.py -q
+14 failed, 179 passed, 1 warning in 13.59s
+```
+
+**Los 14 rojos son exactamente los que T3 anunciaba**: los que necesitan la
+app entera (`_actor` y `/whoami`), no las funciones puras. Se cierran en T4 y
+T7. Verificación literal de T3 bis:
+
+```
+$ python -m pytest services/partes-front/tests/test_f017_identidad.py -q -k "r5 or r5b or r6"
+2 failed, 48 passed, 124 deselected      # los 2 son el WARNING de R5b, que vive en app.py (T4)
+```
+
+Dos decisiones tomadas al implementar, ninguna de ellas contradice la spec:
+
+1. **`es_actor_reservado` normaliza por su cuenta** en vez de confiar en que
+   el llamante le pase el valor ya normalizado. R6 es una garantía de
+   seguridad: hacerla depender de que quien llama se acuerde de un paso previo
+   es exactamente como se pierden las garantías de seguridad.
+2. **Un `-NAME` reservado no impide que el token identifique.** R6 dice
+   descartar el valor y seguir «como si la cabecera no existiera»; el
+   paréntesis de la spec cita R5/R5b porque es el caso normal (no hay token).
+   Se ha implementado la lectura literal —seguir el flujo— que además es la
+   útil: si el `-NAME` viniera envenenado, el token real sigue sirviendo. En
+   el caso sin token el resultado es idéntico al que pide el paréntesis, y
+   `test_f017_r6_espacio_reservado_por_cabecera_se_descarta` lo comprueba en
+   las dos cabeceras y en los dos entornos.
+
+`python -m ruff check` sobre los tres ficheros nuevos: `All checks passed!`.
+
+---
+
+## T4 · `_actor` pasa a leer la cabecera
+
+Tres cambios en `app.py`, ninguno fuera de lo previsto: el `import` de
+`identidad`, `app.state.easy_auth_visto = False` (+ `identidad_anunciada`,
+para la nota única de R9) en `build_app`, y `_resolver_identidad` junto a
+`_actor`. **La firma de `_actor` no se ha tocado.**
+
+### La trampa de F-016, tal y como estaba anunciada
+
+```
+$ python -m pytest services/partes-front/tests/test_f016_endpoints_admin_jornadas.py -q
+FAILED ...::test_f016_r13_auditoria
+FAILED ...::test_f016_r13_sin_default_reviewer_se_sella_nulo_y_no_falla
+2 failed, 50 passed, 1 warning in 6.10s
+```
+
+Traza real del primero — **es la evidencia de que `_actor` manda de verdad**,
+no una molestia:
+
+```
+        monkeypatch.setenv("DEFAULT_REVIEWER", "quien-firma")
+        cliente, _, fabrica, _ = _montaje()
+        jid = cliente.post("/api/admin/jornadas", json=_alta()).json()["id"]
+        fila = _fila_cruda(fabrica, jid)
+>       assert fila.created_by == "quien-firma"
+E       AssertionError: assert 'local:quien-firma' == 'quien-firma'
+E         - quien-firma
+E         + local:quien-firma
+E         ? ++++++
+```
+
+Y el segundo, que confirma R7 (ya no hay `NULL` posible):
+
+```
+>       assert _fila_cruda(fabrica, jid).created_by is None
+E       AssertionError: assert 'local:sin-identidad' is None
+```
+
+### El guardián del punto único, VERDE sin tocarlo
+
+```
+$ python -m pytest services/partes-front/tests/test_f016_endpoints_admin_jornadas.py -q -k "identidad_se_resuelve"
+1 passed, 51 deselected, 1 warning in 1.28s
+```
+
+`test_f016_r13_la_identidad_se_resuelve_en_un_solo_sitio` sigue afirmando las
+tres cosas que hacían intangible la firma: `def _actor(request: Request)`
+aparece **una** vez, el bloque de F-016 llama `_actor(request)` **cinco**
+veces y no contiene `settings.default_reviewer`. Las cinco escrituras de F-016
+pasaron a firmar con la identidad real **sin tocar una sola línea de sus
+endpoints** (R19), que era la promesa que F-016 dejó escrita.

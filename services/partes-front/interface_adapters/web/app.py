@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import html
 import logging
+import os
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -83,6 +84,13 @@ from infrastructure.transfer.transfer_queue_publisher import (
 )
 from infrastructure.sigrid.sigrid_lookup_client import SigridLookupClient
 from infrastructure.graph.token_provider import GraphTokenProvider
+from interface_adapters.web.identidad import (
+    CABECERA_ID,
+    CABECERA_NOMBRE,
+    CABECERA_TOKEN,
+    actor_desde_cabeceras,
+    senal_de_despliegue,
+)
 from application.services.obra_catalog import ObraCatalog
 from application.services.empleado_catalog import EmpleadoCatalog
 from application.services import empleado_reconciler as recon
@@ -452,6 +460,14 @@ def build_app(
     app.state.jornada_provider = jornada_provider
     app.state.mapa_semanal = mapa_semanal
     app.state.tables_ready = tables_ready
+    # F-017 R5c, senal B: ¿este proceso ha visto ya alguna cabecera de Easy
+    # Auth? Es la red de seguridad de la senal A (las `CONTAINER_APP_*`).
+    # Es por PROCESO, no compartida entre replicas: como mucho, una segunda
+    # replica tarda una peticion autenticada en aprender lo mismo.
+    app.state.easy_auth_visto = False
+    # F-017 R9: la nota de arranque se emite UNA vez, en la primera
+    # peticion (aqui todavia no se sabe si traera cabecera o no).
+    app.state.identidad_anunciada = False
 
     templates = Jinja2Templates(
         directory=str(Path(__file__).resolve().parents[2] / "templates")
@@ -474,20 +490,65 @@ def build_app(
 
     # --- F-016: quien firma y quien puede entrar ---------------------- #
 
-    def _actor(request: Request) -> str | None:
-        """Quien firma el cambio (R13). PUNTO UNICO de identidad en F-016.
+    def _resolver_identidad(request: Request) -> tuple[str, str]:
+        """Resuelve `(actor, origen)` y mantiene viva la senal B (R5c).
 
-        HOY devuelve `settings.default_reviewer`, exactamente lo que hace
-        el resto del portal (once sitios de este mismo fichero). No lee
-        ninguna cabecera: leer y decodificar la de Easy Auth es trabajo
-        de **F-017**, y cuando F-017 llegue solo cambia el INTERIOR de
-        esta funcion — F-016 no se toca.
-
-        Sin `DEFAULT_REVIEWER` configurado se sella `NULL` y la operacion
-        NO falla: no saber quien fue no es motivo para perder el cambio.
+        Vive junto a `_actor` y NO lo sustituye: `_actor` es la firma que
+        consumen los once puntos de escritura y la que vigila el guardian
+        de F-016. Aqui esta todo lo que la funcion pura de `identidad.py`
+        no puede hacer: leer el entorno del proceso, recordar si ya se ha
+        visto una cabecera y escribir en el log.
         """
-        _ = request                      # lo usara F-017; aqui, no
-        return settings.default_reviewer
+        senal = senal_de_despliegue(
+            os.environ, cabecera_vista=app.state.easy_auth_visto)
+        actor, origen = actor_desde_cabeceras(
+            request.headers, fallback=settings.default_reviewer,
+            desplegado=senal is not None)
+
+        if origen.startswith("cabecera"):
+            app.state.easy_auth_visto = True                  # senal B
+        elif origen == "sin-identidad-desplegado":
+            # R5b: NO es «una sesion sin identificar», es la autenticacion
+            # caida. Un WARNING por peticion, porque cada una es un
+            # incidente y tiene que verse en Log Analytics en vez de
+            # colarse en una columna en silencio.
+            logger.warning(
+                "[identidad] peticion SIN identidad de Easy Auth estando "
+                "desplegado (senal=%s, ruta=%s): se sella '%s'. Revisa la "
+                "autenticacion del portal.",
+                senal, request.url.path, actor)
+
+        # R9: una sola nota por arranque, con la senal que se encontro.
+        # Ni el token ni los claims ni el propio actor salen en el log:
+        # aqui interesa el DIAGNOSTICO, no quien es la persona.
+        if not app.state.identidad_anunciada:
+            app.state.identidad_anunciada = True
+            logger.info(
+                "[identidad] primera peticion atendida: entorno=%s "
+                "senal=%s cabecera_easy_auth=%s",
+                "desplegado" if senal else "local", senal,
+                "si" if origen.startswith("cabecera") else "no")
+        return actor, origen
+
+    def _actor(request: Request) -> str | None:
+        """Quien firma el cambio. PUNTO UNICO de identidad del portal (R10).
+
+        F-016 dejo escrito que aqui solo cambiaria el INTERIOR cuando
+        llegase F-017: asi ha sido. La firma es la misma y los cinco
+        endpoints de jornadas no se han tocado.
+
+        Devuelve el principal de Easy Auth (`X-MS-CLIENT-PRINCIPAL-NAME`,
+        o el claim preferido del token si aquella no llega), normalizado y
+        truncado a 120. Sin cabecera: `local:<DEFAULT_REVIEWER>` en un
+        puesto de desarrollo, `sin-identidad` estando desplegado. **Nunca
+        devuelve vacio** (R7): desde F-017, un NULL en una columna de
+        autor significa exclusivamente «fila anterior al corte».
+
+        Se mantiene el tipo `str | None` aunque hoy nunca devuelva `None`:
+        es el que aceptan las siete columnas y los repositorios.
+        """
+        actor, _origen = _resolver_identidad(request)
+        return actor
 
     def _exigir_admin_jornadas() -> None:
         """Puerta UNICA de la pantalla de jornadas (R15).
