@@ -21,7 +21,7 @@ la revisión **`r20260820000737`**:
 | Servicio | Estado comprobado |
 |---|---|
 | `ca-sv4-front` | `Running`, 1 réplica. Arranque limpio: «esquema inicializado (137 sentencias complementarias)» → `Application startup complete` → Uvicorn en 8014. `HTTP 401` sin cookie ⇒ Easy Auth en pie. |
-| `ca-sv3-persistencia` | `ScaledToZero` (KEDA min 0, normal). **Su log de esquema aún no existe**: saldrá al procesar el primer parte, o subiéndolo a `--min-replicas 1` y devolviéndolo a `0`. |
+| `ca-sv3-persistencia` | `ScaledToZero` (KEDA min 0, normal). Su log de arranque **ya está verificado** (2026-08-20 por la mañana): ver la sección siguiente. |
 
 Con esto queda aplicado también el DDL pendiente de **F-010** (M1/M2).
 
@@ -38,6 +38,61 @@ Aprendizaje operativo: `az containerapp logs show --tail` ya no alcanza el
 arranque —el polling de colas llena el buffer en minutos—. Los logs de arranque
 salen con `az monitor log-analytics query -w <workspace de log-partes-dev>`
 filtrando por `RevisionName_s`.
+
+## Verificación del despliegue (2026-08-20, mañana)
+
+Dos verificaciones lanzadas a subagentes. Informes:
+`progress/verif_sv3_arranque_20260820.md` y
+`progress/verif_esquema_partes_20260820.md`.
+
+### 1. Arranque de sv3 — VERDE
+
+Sin `Traceback`, sin `ERROR` y **sin ningún WARNING de jornada** (ni candef
+fuera del mapa, ni fallo leyendo `empleado_jornada`). Esquema inicializado con
+**137 sentencias complementarias**, las mismas que reportó sv4. Wiring
+correcto: `[jornada][wiring] mapa candef -> jornada semanal: 8:40, 9:42`, más
+calendario, Sigrid, SharePoint y consumo de `q-persistencia`. Misma imagen del
+despliegue (`sv3-partes:latest`, digest `sha256:b3b533c5…`). Devuelto a **0
+réplicas**, confirmado `ScaledToZero`.
+
+Dos aprendizajes operativos:
+
+- **La revisión `r20260820000737` YA había arrancado** entre 22:09 y 22:14 UTC
+  de anoche y su log estaba en Log Analytics desde entonces. Forzar réplicas no
+  era necesario: antes de hacerlo, mirar si la revisión ya tiene filas en
+  `ContainerAppConsoleLogs_CL`.
+- **Cada cambio de `--min-replicas` crea una revisión nueva.** La activa ya no
+  se llama `r2026…` sino `ca-sv3-persistencia--0000010`. El código se rastrea
+  por **digest del ACR**, no por el nombre de la revisión.
+- El `az containerapp update` pasó a la primera: el `--claims-challenge` no
+  llegó a hacer falta (el humano había reautenticado con MFA en su consola).
+
+### 2. Esquema en PostgreSQL — BLOQUEADO por firewall
+
+No se pudo consultar la base real: la IP pública del puesto no figura en
+ninguna regla de `psql-albaranes-rs9k2` (`connection timeout expired`). **No se
+tocó nada del servidor**, que es compartido. Queda pendiente de que el humano
+añada la regla (`datamart-puesto-pgris-<fecha>`) y se relance; el SQL exacto
+está listo en el informe, incluida la **M1 de F-010**.
+
+Lo verificable sin base salió **CONFORME**: 19 columnas declaradas, índice
+`ix_empleado_jornada_dni_norm` sobre `(dni_norm)` declarado, y las **dos copias
+de `orm_models.py` (sv3 y sv4) byte-idénticas** — el defecto que F-010 vino a
+arreglar sigue sano. `ddl_complementario()` genera 137 sentencias, 19 de ellas
+de `empleado_jornada`: **cuadra con el log de arranque de los dos servicios**.
+
+Sin CHECKs de horas 0–24 ni de vigencias en la base, y eso es **correcto**: la
+spec los pone en la aplicación (F-016/R27), no en el schema.
+
+Dos correcciones que salieron de aquí:
+
+- **Errata en `specs/F-015-jornada-semanal-candef/design.md` §8**: dice «las 16
+  columnas». La tabla normativa §6, el ORM y el guardián dicen **19**. El texto
+  está mal, no el código. Pendiente de corregir.
+- **F-010 no tiene «migraciones M1/M2»**: M1/M2/M3 son sus *verificaciones
+  manuales*. M2/M3 se dan por cumplidas con las 137 sentencias; **M1 sigue
+  pendiente** (índice `ix_parte_registros_deleted_at_utc` y los recuentos
+  7/47/56/7) y necesita acceso a la base.
 
 ## Lo que el humano tiene que decidir o hacer
 
@@ -121,15 +176,17 @@ desempata la categoría; y `MO/0037` sigue sin DNI (`res.conide = 0`).
   `specs/F-016-admin-empleado-jornada/design.md` §8.2, con el portal levantado
   y PostgreSQL. La 6 (comportamiento del combo de trabajador en el navegador)
   no la cubre ningún test.
-- **F-015 · T12** (desplegado el 2026-08-20; el log de esquema de sv4 ya está
-  comprobado, falta el de sv3 porque sigue a cero réplicas): la tabla
+- **F-015 · T12** (desplegado el 2026-08-20; los logs de esquema de sv4 **y de
+  sv3** ya están comprobados, los dos con 137 sentencias y sin errores): la tabla
   `empleado_jornada` con sus **19** columnas y el índice
   `ix_empleado_jornada_dni_norm`; un trabajador de la cuadrilla con viernes de
   6 h **sin** aviso de jornada incompleta y el KPI «9 h · 42 h/sem · último
   laborable 6 h»; y que un parte ya aprobado **no**
   cambie su desglose tras la primera pasada de sv3. Ojo: la cuadrilla sigue con
   `candef = 8` hasta F-014, así que ese punto solo se ve del todo después.
-- **F-010:** M1/M2 se cumplen de paso al hacer T12 de F-015.
+- **F-010:** M2/M3 cumplidas (137 sentencias en sv3 y sv4). **M1 pendiente**:
+  índice `ix_parte_registros_deleted_at_utc` y recuentos 7/47/56/7, a la espera
+  de la regla de firewall de PostgreSQL.
 - **F-014**: la puerta ya está abierta (F-015 desplegada el 2026-08-20); queda
   enviar la petición cuando el humano decida.
 - **F-002 (Azure):** validar en navegador la aprobación asíncrona (⏳ encolado →
