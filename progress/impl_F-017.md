@@ -605,3 +605,149 @@ Los 23 requisitos, con el test que los cubre. Ninguno se quedó sin cubrir.
 
 **Fase RED con traza pegada** para los seis que exigía el rigor `estandar`:
 R1, R5, R5b (T2), R10 (T8, con el defecto inyectado), R12 y R16 (T6).
+
+---
+
+## T12 · Campaña de mutación
+
+Se ejecutaron **tres** campañas, y la diferencia entre ellas es la parte
+interesante.
+
+| # | Config | Mutantes | Muertos | Supervivientes | Timeouts | Tiempo |
+|---|---|---|---|---|---|---|
+| 1ª | 16 workers, timeout 120 s (por defecto) | 31 | 19 | 1 | **11** | 234,6 s |
+| 2ª | 4 workers, timeout 300 s | 31 | 30 | 1 | **0** | 468,2 s |
+| **3ª (final)** | 4 workers, timeout 300 s | **31** | **31** | **0** | **0** | **500,2 s** |
+
+Ficheros mutados: `identidad.py` (257 líneas) y `app.py` (143 líneas en
+alcance), **400 líneas** en total. Muestreo: no, campaña completa.
+
+**Qué suite se ejecutó** (la trampa que avisa T12, automejora 1 de
+`current.md`): los dos ficheros mutados pertenecen a **sv4**, así que
+`harness/mutacion.py` ejecutó la suite de sv4 en los 31 casos. **Esta feature
+no cae en esa trampa**: los guardianes de T9 y T10 viven en `tests/` de la
+raíz, pero los ficheros que ellos vigilan (el ORM, la documentación) **no
+están en el alcance de mutación**, porque F-017 no los modifica como código de
+producción. Ningún mutante quedó sin evaluar por la suite equivocada.
+
+### Los 11 «timeouts» de la primera campaña no eran una medición
+
+Se concentraban en los mutantes 9–18, justo el arranque de 16 workers a la vez
+contra una suite de ~75 s. Al bajar a 4 workers **los 11 murieron**. Es
+exactamente la automejora 2 que `progress/current.md` ya tenía registrada
+(«el presupuesto de mutación por mutante es engañoso»), y aquí se confirma con
+números: **un timeout no es un superviviente, pero tampoco es un muerto — es
+una medición que no se hizo.** Cerrar la feature con «11 timeouts» habría sido
+dejar 11 líneas sin comprobar creyendo que estaban comprobadas.
+
+### Los dos supervivientes reales, y por qué ninguno era equivalente
+
+**1. `identidad.py:136` — `isinstance(tipo, str) and isinstance(valor, str)`
+→ `or`.** Con `or`, un claim `{"typ": "upn", "val": 12345}` pasaba el filtro y
+`normalizar_actor` lo convertía en la cadena `"12345"`: **un actor fabricado a
+partir de un dato que no era un nombre**. No es equivalente: cambia lo que se
+sella en la columna. Matado con
+`test_f017_r3_un_claim_con_valor_que_no_es_texto_no_firma` (5 tipos
+parametrizados) y `test_f017_r3_un_claim_no_textual_no_tapa_al_siguiente_valido`,
+que además comprueba que descartarlo no cuesta la identidad válida que venía
+detrás. Verificado a mano: con el `or` inyectado caen 5 tests.
+
+**2. `identidad.py:117` — `b64decode(token, validate=True)` → `validate=False`.**
+Este parecía equivalente (un token roto acaba en `None` por las dos vías: o
+falla el base64, o falla el JSON) y **no lo era**. Comprobado ejecutando las
+dos ramas sobre el mismo dato:
+
+```
+manipulado = token_valido[:10] + "!" + token_valido[10:]
+
+validate=True : LANZA binascii.Error: Only base64 data is allowed
+validate=False: decodifica -> b'{"auth_typ": "aad", "claims": [{"typ": "upn", ...'
+```
+
+Con `validate=False`, Python **descarta en silencio** los caracteres que no
+son base64 y decodifica el resto: un token al que alguien haya metido mano por
+el camino **cuela como si estuviera intacto** y la fila queda firmada con el
+nombre que trae dentro. Matado con
+`test_f017_r3_un_token_manipulado_no_se_arregla_solo`, que comprueba las dos
+capas (la función pura y el resolutor completo). Verificado a mano: con el
+mutante inyectado, cae.
+
+Este segundo es el que justifica la campaña entera. Era una línea que parecía
+un detalle de implementación, la habría dado por buena cualquier lectura del
+código, y resultó ser **la diferencia entre rechazar una entrada malformada y
+repararla en silencio** — en la función que decide quién firma.
+
+**Ningún superviviente quedó en `PENDIENTE`**: los dos se analizaron y los dos
+se mataron con un test.
+
+---
+
+## T14 · `bash harness/init.sh` en verde
+
+```
+[OK] compileall: sin errores de sintaxis
+[OK] pytest en verde (con medición de cobertura)          129 passed (raíz)
+[OK] servicio sv4-front (services/partes-front): pytest en verde
+                                                       1040 passed in 179.47s
+[OK] servicio sv3-persistencia / sv5-transfer: en verde (caché)
+[OK] PUERTA COBERTURA: 99.2% de 133 líneas cambiadas cubiertas
+     (132/133, umbral 80%, nivel estandar)
+[OK] Rama actual: feature/F-017-identidad-easy-auth
+----------------------------------------
+ENTORNO LISTO. Puedes trabajar.
+```
+
+Los avisos que salen (`ruff: 468`, sv1/sv2 sin tests, `infra` sin comando,
+F-014 `blocked`) son **deuda previa, idéntica a la del arranque de T1**: F-017
+no añade ni uno. Sobre los ficheros que esta feature toca, `ruff` está limpio.
+
+---
+
+## Evidencias
+
+| Evidencia | Valor | De dónde sale |
+|---|---|---|
+| **Tests ejecutados y resultado** | **1040 passed** en sv4 + **129 passed** en la raíz. **0 fallos, 0 skips** | salida de `bash harness/init.sh` |
+| **Tests nuevos de F-017** | **113** (`test_f017_*`: 40 identidad + 15 entorno + 9 punto único + 13 endpoints + 11 aprobación + 7 R22 + 10 R23 + 8 parametrizaciones de F-016) | `grep -c "def test_"` sobre los ficheros nuevos |
+| **Crecimiento de la suite de sv4** | 799 → **1040** (+241 casos, contando parametrizaciones) | T1 vs. T14 |
+| **Cobertura de las líneas cambiadas** | **99,2 %** (132/133), umbral 80 %, nivel `estandar` | línea `PUERTA COBERTURA` de `init.sh` |
+| **Mutantes generados / muertos / supervivientes** | **31 / 31 / 0**, 0 timeouts, campaña completa (sin muestreo) | `progress/mutacion_F-017.md` |
+| **Supervivientes analizados** | **2 encontrados, 2 analizados, 2 matados**, ninguno equivalente, ninguno en `PENDIENTE` | ver T12 |
+| **Tiempo de ejecución de la suite** | sv4 **179,47 s**; raíz **6,75 s** | salida de la propia suite |
+| **Tiempo de la campaña de mutación** | 500,2 s (4 workers) | `progress/mutacion_F-017.md` |
+
+La cobertura no llega al 100 % por **una** línea de 133. Todo lo demás está
+cubierto.
+
+---
+
+## Resumen para el humano
+
+**Qué cambió.** El portal ya no firma sus escrituras con una variable de
+configuración: firma con el **usuario real de Entra**. La identidad se resuelve
+en un único punto (`_actor`, cuyo interior era lo único que F-016 dejó
+pendiente de cambiar) y de ahí sale a los once puntos de escritura, al payload
+que viaja a sv5 y a las cinco escrituras de jornadas de F-016 — estas últimas
+**sin tocar ni una línea de sus endpoints**, que era la promesa que F-016 dejó
+escrita.
+
+**Qué se verificó, con resultado real.** `init.sh` en verde: 1040 tests de sv4
+y 129 de la raíz, cobertura del **99,2 %** de las líneas cambiadas y campaña de
+mutación con **31 de 31 mutantes muertos**. La fase RED está pegada con trazas
+reales para los seis requisitos que exigía el rigor, y el fallo de R12 devolvía
+`None` — no un genérico: los tests reproducen el estado real del despliegue,
+donde la auditoría estaba en blanco.
+
+**La puerta T0 se pasó.** Las cuatro `CONTAINER_APP_*` existen de verdad en
+`ca-sv4-front`, así que la detección de «estoy desplegado» no es un supuesto.
+Se comprobó **sin volcar el entorno del contenedor**, porque el comando que
+traía la spec habría expuesto los secretos de Key Vault.
+
+**Qué quedó fuera.** Roles y permisos (F-008), tabla de log de auditoría
+(F-018), reescritura de filas históricas (deliberadamente: R22), y `oid`
+inmutable. Cero cambios de schema, cero columnas, cero tablas, cero `403`.
+
+**Qué falta para cerrar.** El review; las cuatro verificaciones MANUAL
+(M1 tras desplegar, M2–M4 cuando haya firewall); rellenar la fecha del corte
+al desplegar; y **una decisión sobre R14/R15**, que es lo único que no se pudo
+cerrar por diseño.

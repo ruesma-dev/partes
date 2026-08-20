@@ -174,7 +174,7 @@ Reglas que no se negocian durante la ejecución:
       `azure-apps`** (`git -C C:/Users/pgris/PycharmProjects/azure-apps commit`),
       local y **sin push**, con el diff enseñado en el informe.
 
-- [ ] **T12: Campaña de mutación y evidencias.** Ejecutar
+- [x] **T12: Campaña de mutación y evidencias.** Ejecutar
       `python -m harness.mutacion --feature F-017`, analizar **todos** los
       supervivientes (ninguno en `PENDIENTE`) y cerrar la sección
       «Evidencias» de `progress/impl_F-017.md` con los cuatro números: tests
@@ -197,7 +197,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: MANUAL (humano) — las cuatro entradas presentes en
       `progress/current.md`.
 
-- [ ] **T14: Ejecutar `bash harness/init.sh` en verde.** Tal cual, sin pipes
+- [x] **T14: Ejecutar `bash harness/init.sh` en verde.** Tal cual, sin pipes
       ni decoración. Incluye la puerta de cobertura de las líneas cambiadas
       (rama de feature).
       Verificación: `bash harness/init.sh` termina con exit code 0 y la
