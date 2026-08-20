@@ -5,252 +5,338 @@
   (2026-08-20 00:10). Lleva F-015 (tabla `empleado_jornada`), F-016
   (pantalla `/admin/jornadas`, sin cambios de schema) y el DDL pendiente de
   F-010, que sv3/sv4 aplican al arrancar.
-- **Alcance**: solo lectura. No se ha ejecutado ni un DDL, INSERT, UPDATE o
-  DELETE, ni se ha tocado nada a nivel del servidor compartido.
+- **Base consultada**: `partes` en `psql-albaranes-rs9k2`, PostgreSQL 16.14.
+- **Alcance**: SOLO LECTURA. Ni un DDL, `INSERT`, `UPDATE` o `DELETE`; la
+  sesión se abrió con `SET default_transaction_read_only = on`. No se ha
+  tocado nada a nivel del servidor compartido.
 
-## 0. VEREDICTO FINAL
+---
 
-**BLOQUEADO — verificación contra la base real NO realizada.**
+## 0. VEREDICTO FINAL: **CONFORME**
 
-El PostgreSQL compartido `psql-albaranes-rs9k2` tiene acceso público
-habilitado pero con lista blanca de IP, y **la IP pública del puesto desde el
-que se ejecuta esta verificación no figura en ninguna regla de firewall del
-servidor**. La conexión termina en `connection timeout expired`, que es el
-síntoma típico del *drop* silencioso del firewall de Azure PostgreSQL.
-
-Siguiendo la instrucción explícita del encargo y la regla dura de
-`CLAUDE.md` («el PostgreSQL `psql-albaranes-rs9k2` es COMPARTIDO: prohibido
-tocar nada a nivel de servidor»), **no se ha creado ninguna regla de
-firewall** y se ha parado ahí.
-
-Lo que **sí** se ha podido verificar (sin base de datos) sale **CONFORME**,
-sin ninguna discrepancia:
+**El esquema de la base coincide exactamente con lo que declaran las dos
+copias de `orm_models.py` y con lo que exige la spec de F-015. Cero
+discrepancias.**
 
 | Comprobación | Resultado |
 |---|---|
-| `empleado_jornada` declarada con 19 columnas en el ORM | ✅ |
-| Las DOS copias de `orm_models.py` (sv3 y sv4) byte-idénticas | ✅ |
-| El DDL generado emite exactamente 137 sentencias | ✅ (coincide con el log de arranque de sv4) |
-| Índice `ix_empleado_jornada_dni_norm` declarado | ✅ |
-| Guardián `tests/test_f010_orm_models_gemelos.py` con las 5 tablas y las 19 columnas literales | ✅ |
+| `empleado_jornada` existe con **19 columnas** | ✅ 19/19, nombre, tipo, nullabilidad y `DEFAULT` correctos |
+| Índice `ix_empleado_jornada_dni_norm` sobre `(dni_norm)`, no único | ✅ existe |
+| PK `empleado_jornada_pkey` sobre `(id)` con secuencia | ✅ existe |
+| CHECKs en `empleado_jornada` | ✅ **ninguno — que es lo correcto** (§2.3) |
+| F-010 M1 · `ix_parte_registros_deleted_at_utc` | ✅ existe |
+| F-010 M1 · recuentos 7 / 47 / 56 / 7 sin cambios | ✅ exactos |
+| Base ↔ ORM sv3 ↔ ORM sv4 | ✅ los tres coinciden |
+| Filas de prueba de F-016 (`origen`, `created_by`, coherencia) | ✅ conformes |
 
-Queda **PENDIENTE** el contraste físico base ↔ ORM. Ver §6 con el SQL exacto,
-listo para ejecutarse en cuanto el puesto tenga acceso.
+Dos apuntes que **no son defectos** pero conviene que consten:
+
+1. **R7 de F-016 (`hasta` exclusivo) no ha quedado ejercitado por estas
+   pruebas**: las cuatro filas se crearon «sin fecha de fin», así que las
+   cuatro tienen `hasta = NULL`. Eso confirma la mitad NULL del requisito,
+   pero la conversión «último día incluido + 1 día» sigue **sin verificar en
+   producción**. Ver §5.3 con lo que hay que hacer en pantalla para cerrarla.
+2. **Errata en la spec de F-015**: `design.md` §8 habla de «las 16 columnas».
+   Son **19**. Ver §2.4.
 
 ---
 
-## 1. Fuente de verdad: qué debe existir
+## 1. Corrección: por qué falló el primer intento de conexión
 
-### 1.1 `empleado_jornada` según `specs/F-015-jornada-semanal-candef/design.md` §6
+En un primer intento la conexión terminó en `connection timeout expired` y
+**este informe lo atribuyó al firewall del servidor, dando la verificación
+por bloqueada. Esa conclusión se emitió con evidencia insuficiente y se
+corrige aquí.** Lo que se comprobó después, desde el mismo puesto:
 
-19 columnas. Contrastadas una a una con la declaración real de
-`EmpleadoJornadaOrm` en las dos copias de `infrastructure/database/orm_models.py`
-(leída por reflexión de SQLAlchemy, no a ojo):
+- **TCP al 5432 funciona**: conexión cruda al `…postgres.database.azure.com`
+  en 0,01 s (y `Test-NetConnection` → `TcpTestSucceeded: True`).
+- **La conexión real funciona**: `psycopg` conecta a la base `partes` con el
+  admin del servidor, tanto con `sslmode=require` como con `prefer`, en
+  0,1 s.
 
-| # | Columna | Tipo (ORM) | NULL | `server_default` | Spec §6 | ORM = Spec |
+Sobre el estado del firewall, los hechos, sin interpretarlos: el listado de
+`az postgres flexible-server firewall-rule list` ejecutado en el primer
+intento devolvió **8 reglas**, ninguna cubriendo la IP pública del puesto; el
+mismo comando, ejecutado después, devuelve **9 reglas**, e incluye una
+llamada `datamart-puesto-pgris` que sí la cubre. Entre ambos listados algo
+cambió (regla añadida, o un listado servido de caché). **No se ha creado ni
+modificado ninguna regla desde esta verificación**, ni en el intento fallido
+ni después.
+
+La lección operativa, que es lo que vale: **un timeout no basta para acusar
+al firewall**. Antes de concluirlo hay que probar el TCP crudo al puerto y
+comparar la IP contra las reglas en el mismo momento. Todo lo demás de este
+informe se ha ejecutado ya contra la base real.
+
+Parámetros usados (sin contraseña): host
+`psql-albaranes-rs9k2.postgres.database.azure.com`, puerto `5432`, base
+`partes`, usuario = admin del servidor, `sslmode=require`. La credencial se
+leyó del **Key Vault de partes** (secreto `PG-PASSWORD`); los `.env` locales
+de sv3/sv4 no sirven porque apuntan a un PostgreSQL de desarrollo del propio
+puesto.
+
+---
+
+## 2. `empleado_jornada`: columna a columna
+
+19 columnas esperadas (tabla normativa de
+`specs/F-015-jornada-semanal-candef/design.md` §6, implementadas por
+`EmpleadoJornadaOrm`) contra 19 encontradas en `information_schema.columns`.
+
+| # | Columna | Tipo real | NULL | `DEFAULT` real | Esperado (ORM/spec) | |
 |---|---|---|---|---|---|---|
-| 1 | `id` | INTEGER | NO (PK) | — | Integer PK autoincrement | ✅ |
-| 2 | `dni_norm` | VARCHAR(32) | NO | `''` (centinela) | String(32) NOT NULL, `index=True` | ✅ |
-| 3 | `jornada_semanal` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 4 | `h_lun` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 5 | `h_mar` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 6 | `h_mie` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 7 | `h_jue` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 8 | `h_vie` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 9 | `h_sab` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 10 | `h_dom` | FLOAT | SÍ | — | Float NULL | ✅ |
-| 11 | `desde` | VARCHAR(16) | NO | `'1900-01-01'` | String(16) NOT NULL, ISO inclusivo | ✅ |
-| 12 | `hasta` | VARCHAR(16) | SÍ | — | String(16) NULL, ISO exclusivo | ✅ |
-| 13 | `origen` | VARCHAR(16) | NO | `'manual'` | String(16) NOT NULL, sd `manual` | ✅ |
-| 14 | `nota` | VARCHAR(255) | SÍ | — | String(255) NULL | ✅ |
-| 15 | `is_active` | BOOLEAN | NO | `true` | Boolean NOT NULL, sd `true` | ✅ |
-| 16 | `created_at_utc` | VARCHAR(40) | NO | `'1970-01-01T00:00:00Z'` | String(40) NOT NULL | ✅ |
-| 17 | `created_by` | VARCHAR(120) | SÍ | — | String(120) NULL | ✅ |
-| 18 | `updated_at_utc` | VARCHAR(40) | SÍ | — | String(40) NULL | ✅ |
-| 19 | `updated_by` | VARCHAR(120) | SÍ | — | String(120) NULL | ✅ |
+| 1 | `id` | `integer` | NO | `nextval('empleado_jornada_id_seq')` | Integer PK autoincrement | ✅ |
+| 2 | `dni_norm` | `varchar(32)` | NO | `''` | String(32) NOT NULL, sd `''` | ✅ |
+| 3 | `jornada_semanal` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 4 | `h_lun` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 5 | `h_mar` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 6 | `h_mie` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 7 | `h_jue` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 8 | `h_vie` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 9 | `h_sab` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 10 | `h_dom` | `double precision` | SÍ | — | Float NULL | ✅ |
+| 11 | `desde` | `varchar(16)` | NO | `'1900-01-01'` | String(16) NOT NULL, sd centinela | ✅ |
+| 12 | `hasta` | `varchar(16)` | SÍ | — | String(16) NULL | ✅ |
+| 13 | `origen` | `varchar(16)` | NO | `'manual'` | String(16) NOT NULL, sd `manual` | ✅ |
+| 14 | `nota` | `varchar(255)` | SÍ | — | String(255) NULL | ✅ |
+| 15 | `is_active` | `boolean` | NO | `true` | Boolean NOT NULL, sd `true` | ✅ |
+| 16 | `created_at_utc` | `varchar(40)` | NO | `'1970-01-01T00:00:00Z'` | String(40) NOT NULL, sd centinela | ✅ |
+| 17 | `created_by` | `varchar(120)` | SÍ | — | String(120) NULL | ✅ |
+| 18 | `updated_at_utc` | `varchar(40)` | SÍ | — | String(40) NULL | ✅ |
+| 19 | `updated_by` | `varchar(120)` | SÍ | — | String(120) NULL | ✅ |
 
-Los `server_default` de `dni_norm`, `desde` y `created_at_utc` no están en la
-tabla de la spec pero **sí son coherentes con ella**: la spec exige
-`server_default` para toda columna `NOT NULL` (§6, párrafo tras la tabla),
-porque el DDL complementario las añade con `ALTER TABLE … ADD COLUMN` y un
-`NOT NULL` sin default reventaría el arranque sobre una tabla con filas.
-Los tres son centinelas que no casan con ningún dato real.
+**19 columnas encontradas / 19 esperadas.** El **orden ordinal** también
+coincide con el de declaración del ORM y con el que fija literalmente el
+guardián `tests/test_f010_orm_models_gemelos.py`
+(`COLUMNAS_EMPLEADO_JORNADA`).
 
-**Índice esperado**: `ix_empleado_jornada_dni_norm` sobre `(dni_norm)`, **no
-único**. Confirmado en el ORM.
+`Float` de SQLAlchemy se materializa como `double precision`: es la
+correspondencia normal del dialecto PostgreSQL, no una desviación.
 
-**Clave primaria esperada**: `empleado_jornada_pkey` sobre `(id)`.
+### 2.1 Índices
 
-**Restricciones CHECK esperadas: NINGUNA.** Es un punto que conviene dejar
-claro porque el encargo preguntaba por CHECKs de horas 0–24 y `desde<hasta`:
-la spec de F-015 §6 dice literalmente que esas reglas de negocio (al menos
-`S` o patrón, sin solapes de vigencia por `dni_norm`, horas 0–24) **se
-validan en aplicación y son de F-016 (R27)**, no en la base. Así que
-encontrar cero CHECKs en `empleado_jornada` es lo CONFORME; encontrar
-alguno sería la sorpresa.
+```
+empleado_jornada | empleado_jornada_pkey         | UNIQUE INDEX ... btree (id)
+empleado_jornada | ix_empleado_jornada_dni_norm  | INDEX ... btree (dni_norm)
+```
 
-**Unicidad**: la spec **no** pide índice único en `empleado_jornada`. El no
-solapamiento de vigencias por `dni_norm` se valida en aplicación (F-016).
-El único índice único del schema sigue siendo el parcial de F-010,
-`ux_parte_documents_sha256_active ON parte_documents (source_sha256) WHERE is_active`.
+- `ix_empleado_jornada_dni_norm` **existe**, sobre `(dni_norm)`, **no
+  único** — exactamente lo que declara el ORM (`index=True`). ✅
+- PK sobre `(id)` respaldada por índice único, con secuencia
+  `empleado_jornada_id_seq`. ✅
 
-### 1.2 Nota: incoherencia interna de la spec (16 vs 19)
+### 2.2 Restricciones
+
+Las únicas restricciones de `empleado_jornada` son la PK:
+
+```
+empleado_jornada | empleado_jornada_pkey | p | PRIMARY KEY (id)
+```
+
+Cero CHECK, cero UNIQUE adicional, cero FK.
+
+### 2.3 Por qué la ausencia de CHECKs es lo CONFORME
+
+Es el punto que más fácilmente se lee al revés. La spec de F-015 §6 dice
+literalmente que las restricciones de negocio —al menos `S` o patrón, sin
+solapes de vigencia por `dni_norm`, horas 0–24— **se validan en aplicación y
+son de F-016 (R8, R9, R10, R11, R12)**, no en la base. Encontrar cero CHECKs
+es lo esperado; encontrar alguno sería la sorpresa. Lo mismo con la
+unicidad: la spec **no** pide índice único en `empleado_jornada`.
+
+Comprobado además que los datos reales respetan esas reglas aunque la base no
+las imponga (§5.2).
+
+### 2.4 Errata de la spec: 16 vs 19 columnas
 
 `specs/F-015-jornada-semanal-candef/design.md` §8, en la lista de
-verificaciones manuales, dice «`\d empleado_jornada` en la base `partes`
-mostrando las **16** columnas». La tabla normativa de §6 del mismo documento
-declara **19**, y 19 es lo que implementa el ORM, lo que fija el guardián y
-lo que cuadra con el número de sentencias del arranque (§3).
+verificaciones manuales, dice «`\d empleado_jornada` … mostrando las **16**
+columnas». La tabla normativa de §6 del mismo documento declara **19**, y 19
+es lo que implementa el ORM, lo que fija el guardián, lo que cuadra con el
+número de sentencias del arranque (§4) y **lo que hay en la base**.
 
-**Es una errata del texto de §8**, no un defecto del código. Se anota aquí
-para que nadie la use como criterio de aceptación. El número correcto es
-**19**.
-
-### 1.3 F-010: qué eran M1 y M2
-
-Contra lo que sugería el encargo, F-010 **no tiene «migraciones M1/M2» que
-añadan columnas**. `M1`, `M2` y `M3` son las tres *verificaciones manuales*
-que la feature dejó pendientes de una base real
-(`specs/F-010-resincronizar-orm-models/tasks.md` §«Verificaciones MANUAL»,
-`progress/impl_F-010.md` §6, `progress/review_F-010.md`):
-
-- **M1 — «el único cambio físico es el índice»**. F-010 resincronizó los dos
-  `orm_models.py` con la base **tal y como ya era**; el único cambio físico
-  que introduce en PostgreSQL es el índice
-  **`ix_parte_registros_deleted_at_utc`**, que el ORM declaraba y la base no
-  tenía. Criterio de M1:
-  - `pg_indexes` de `parte_registros` debe listar exactamente
-    `ix_parte_registros_deleted_at_utc`, `ix_parte_registros_document_id`,
-    `ix_parte_registros_empleado_ide` y `parte_registros_pkey`.
-  - El nº de columnas por tabla **no cambia**: `empleado_alias` 7,
-    `parte_documents` 47, `parte_registros` 56, `undo_log` 7.
-  - El reviewer recomendó ampliar la consulta a
-    `tablename IN ('parte_documents','parte_registros')`, para cubrir también
-    `ix_parte_documents_source_sha256` (el otro índice que el generador emite
-    y que el DDL a mano de sv3 nunca creaba; se esperaba no-op).
-- **M2 — «el arranque no revienta»**: `initialize()` termina sin excepción en
-  los dos servicios y loguea el **mismo** número de sentencias
-  complementarias en ambos.
-- **M3 — despliegue**: orden sv3 antes que sv4; el DDL es idempotente, así
-  que el orden no es crítico.
-
-M2 y M3 **ya están verificados por el despliegue de anoche** (§3). M1 es
-justamente lo que sigue pendiente por el bloqueo de firewall.
+**Es una errata del texto de §8**, no un defecto del código. Se anota para
+que nadie la use como criterio de aceptación. El número correcto es **19**.
 
 ---
 
-## 2. Contraste sv3 ↔ sv4 de `orm_models.py`: CONFORME ✅
+## 3. F-010: qué eran M1/M2 y cómo han quedado
 
-Éste es el defecto que F-010 vino a arreglar, y hoy está sano:
+Conviene aclararlo porque induce a error: F-010 **no tiene «migraciones
+M1/M2»**. `M1`, `M2` y `M3` son las tres *verificaciones manuales* que la
+feature dejó pendientes de una base real
+(`specs/F-010-resincronizar-orm-models/tasks.md`, `progress/impl_F-010.md`
+§6, `progress/review_F-010.md`). F-010 resincronizó los dos `orm_models.py`
+con la base **tal y como ya era**; su único cambio físico previsto era un
+índice.
 
-- `services/partes-persistencia/infrastructure/database/orm_models.py`
-- `services/partes-front/infrastructure/database/orm_models.py`
+### M1 · «el único cambio físico es el índice» — ✅ VERIFICADO
 
-**`diff` vacío y mismo hash MD5** (`5587db8a…`): las dos copias son
-**byte-idénticas**, que es exactamente lo que exige el guardián
-`tests/test_f010_orm_models_gemelos.py`.
-
-El guardián declara además, de forma literal:
-
-- `TABLAS` = `empleado_alias`, `empleado_jornada`, `parte_documents`,
-  `parte_registros`, `undo_log` — **cinco** tablas, con `empleado_jornada`
-  ya incorporada por F-015 (R29).
-- `COLUMNAS_EMPLEADO_JORNADA` con **las 19 columnas en orden de
-  declaración**, comentada como «Las 19 columnas de `empleado_jornada`
-  (F-015)».
-
-Recuento de columnas declaradas en el ORM, por tabla:
-
-| Tabla | Columnas en el ORM | Índices declarados |
-|---|---|---|
-| `empleado_alias` | 7 | — |
-| `empleado_jornada` | **19** | `ix_empleado_jornada_dni_norm` |
-| `parte_documents` | 47 | `ix_parte_documents_source_sha256` |
-| `parte_registros` | 56 | `ix_parte_registros_deleted_at_utc`, `ix_parte_registros_document_id`, `ix_parte_registros_empleado_ide` |
-| `undo_log` | 7 | — |
-
-Coincide, columna a columna, con los recuentos que F-010 fijó como criterio
-de M1 (7 / 47 / 56 / 7) más la tabla nueva de F-015.
-
----
-
-## 3. Evidencia indirecta del despliegue: las 137 sentencias
-
-`ddl_complementario()` se ha ejecutado **en local, como función pura** (no
-abre ninguna conexión: compila contra el dialecto PostgreSQL) sobre el ORM
-de sv3:
+Índices reales de `parte_registros` y `parte_documents`:
 
 ```
-TOTAL sentencias: 137
-de ellas, de `empleado_jornada`: 19
-columnas declaradas en `empleado_jornada`: 19
+parte_registros  | ix_parte_registros_deleted_at_utc | btree (deleted_at_utc)   <- el de F-010
+parte_registros  | ix_parte_registros_document_id    | btree (document_id)
+parte_registros  | ix_parte_registros_empleado_ide   | btree (empleado_ide)
+parte_registros  | parte_registros_pkey              | UNIQUE btree (id)
+parte_documents  | ix_parte_documents_source_sha256  | btree (source_sha256)
+parte_documents  | parte_documents_pkey              | UNIQUE btree (id)
+parte_documents  | ux_parte_documents_sha256_active  | UNIQUE btree (source_sha256) WHERE is_active
 ```
 
-El log de arranque de sv4 de anoche dijo **«esquema inicializado (137
-sentencias complementarias)»**. Cuadra con la aritmética esperada:
+- **`ix_parte_registros_deleted_at_utc` está presente** ✅ — era el único
+  índice que el ORM declaraba y la base no tenía.
+- La lista de `parte_registros` es **exactamente** la que M1 exigía.
+- Cubierta también la **observación 1 del reviewer de F-010** (ampliar M1 a
+  `parte_documents`): `ix_parte_documents_source_sha256` existe, y el índice
+  único parcial `ux_parte_documents_sha256_active` sigue en pie con su
+  `WHERE is_active`. ✅
 
-- F-010 dejó el generador en **118** sentencias (número recalculado por el
-  reviewer en `progress/review_F-010.md`).
-- F-015 añade `empleado_jornada`: **18** `ALTER TABLE … ADD COLUMN IF NOT
-  EXISTS` (las 19 columnas menos la PK `id`, que el generador salta) **+ 1**
-  `CREATE INDEX IF NOT EXISTS ix_empleado_jornada_dni_norm` = **19**.
-- 118 + 19 = **137**. ✅
+Recuento de columnas por tabla:
 
-Esto es una confirmación **fuerte pero indirecta**: prueba que el código
-desplegado es el que declara las 19 columnas y el índice, y que `initialize()`
-recorrió las 137 sentencias sin excepción (M2 ✅ en el entorno real). **No
-prueba** que PostgreSQL las aplicara con el resultado esperado — de ahí que
-el contraste físico siga siendo necesario.
+| Tabla | Real | Esperado M1 | ORM | |
+|---|---|---|---|---|
+| `empleado_alias` | 7 | 7 | 7 | ✅ |
+| `empleado_jornada` | **19** | (nueva, F-015) | 19 | ✅ |
+| `parte_documents` | 47 | 47 | 47 | ✅ |
+| `parte_registros` | 56 | 56 | 56 | ✅ |
+| `undo_log` | 7 | 7 | 7 | ✅ |
 
-También queda cubierto **M3**: el despliegue de anoche llevó sv3 y sv4, y
-ambos ejecutan el mismo DDL idempotente.
+**Ninguna tabla ganó ni perdió columnas**: F-015 solo añadió la tabla nueva,
+como exigía R21 de su spec. La base tiene **exactamente esas cinco tablas**,
+ni una más.
+
+### M2 · «el arranque no revienta» — ✅ VERIFICADO
+
+El log de arranque de sv4 dijo «esquema inicializado (**137** sentencias
+complementarias)», sin excepción en `initialize()`. Ver §4.
+
+### M3 · despliegue — ✅ VERIFICADO
+
+El despliegue de anoche llevó sv3 y sv4; ambos ejecutan el mismo DDL
+idempotente, así que el orden no era crítico. El estado final de la base lo
+confirma.
+
+Restricciones del resto del schema, sin novedad:
+
+```
+empleado_alias  | empleado_alias_pkey              | p | PRIMARY KEY (nombre_norm)
+parte_documents | parte_documents_pkey             | p | PRIMARY KEY (id)
+parte_registros | parte_registros_document_id_fkey | f | FOREIGN KEY (document_id) REFERENCES parte_documents(id)
+parte_registros | parte_registros_pkey             | p | PRIMARY KEY (id)
+undo_log        | undo_log_pkey                    | p | PRIMARY KEY (id)
+```
+
+La FK `parte_registros.document_id` sigue **sin** `ON DELETE CASCADE`, tal
+como F-010 dejó dicho que quedaba fuera de alcance. ✅
 
 ---
 
-## 4. Contraste base ↔ ORM: PENDIENTE
+## 4. Contraste base ↔ ORM sv3 ↔ ORM sv4: **los tres coinciden** ✅
 
-| Comprobación | Estado |
+Éste es el defecto que F-010 vino a arreglar. Hoy está sano en los tres
+vértices:
+
+1. **sv3 ↔ sv4**: `services/partes-persistencia/…/orm_models.py` y
+   `services/partes-front/…/orm_models.py` tienen **`diff` vacío y el mismo
+   MD5** (`5587db8a…`): son **byte-idénticas**, que es lo que exige el
+   guardián `tests/test_f010_orm_models_gemelos.py`.
+2. **ORM ↔ base**: las 19 columnas de `empleado_jornada` (nombre, orden,
+   tipo, nullabilidad, `DEFAULT`), los índices de las cinco tablas y los
+   recuentos 7/19/47/56/7 coinciden **sin una sola diferencia**.
+3. **Aritmética del arranque**, como control cruzado independiente:
+   `ddl_complementario()`, ejecutada en local como función pura, emite **137
+   sentencias**, de ellas **19** de `empleado_jornada` (18 `ALTER TABLE …
+   ADD COLUMN IF NOT EXISTS` — las 19 columnas menos la PK, que el generador
+   salta — más 1 `CREATE INDEX`). F-010 dejó el generador en **118**
+   sentencias; 118 + 19 = **137**, que es justo lo que logueó sv4 al
+   arrancar. ✅
+
+El guardián declara además `TABLAS` con las **cinco** tablas
+(`empleado_alias`, `empleado_jornada`, `parte_documents`, `parte_registros`,
+`undo_log`) — R29 de F-015 — y coinciden una a una con las de la base.
+
+---
+
+## 5. Filas de prueba creadas hoy desde `/admin/jornadas`
+
+`SELECT count(*) FROM empleado_jornada` → **4 filas**.
+
+**No se ha modificado ni borrado ninguna.** Los DNI van enmascarados: son
+datos personales y este fichero se versiona.
+
+| id | DNI | `jornada_semanal` | patrón | `desde` | `hasta` | `origen` | `nota` | `is_active` | `created_by` | `updated_by` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | `50…` | 48.0 | ninguno (7 NULL) | 2026-08-01 | **NULL** | `manual` | `prueba F-016` | `false` | NULL | NULL |
+| 2 | `28…` | 42.0 | ninguno (7 NULL) | 2026-08-20 | **NULL** | `manual` | — | `false` | NULL | NULL |
+| 3 | `28…` | 42.0 | ninguno (7 NULL) | 2026-08-01 | **NULL** | `manual` | — | `false` | NULL | NULL |
+| 4 | `28…` | 42.0 | ninguno (7 NULL) | 2024-07-01 | **NULL** | `manual` | — | `false` | NULL | NULL |
+
+Las cuatro llevan `created_at_utc` y `updated_at_utc` reales de hoy
+(altas entre las 08:52 y las 10:20 UTC, desactivaciones entre las 09:21 y las
+10:21 UTC).
+
+### 5.1 Comprobaciones pedidas
+
+| Comprobación | Resultado |
 |---|---|
-| Columnas reales de `empleado_jornada` (19 esperadas) | ⏸ PENDIENTE (sin acceso) |
-| Índice `ix_empleado_jornada_dni_norm` sobre `(dni_norm)` | ⏸ PENDIENTE |
-| PK `empleado_jornada_pkey` sobre `(id)` | ⏸ PENDIENTE |
-| Ausencia de CHECKs (lo esperado, ver §1.1) | ⏸ PENDIENTE |
-| `SELECT count(*) FROM empleado_jornada` (esperado 0) | ⏸ PENDIENTE |
-| M1 · `ix_parte_registros_deleted_at_utc` presente | ⏸ PENDIENTE |
-| M1 · recuentos 7 / 47 / 56 / 7 sin cambios | ⏸ PENDIENTE |
+| `origen = 'manual'` en todas | ✅ las 4 |
+| `is_active` | ✅ las 4 en `false`: el humano las desactivó por la pantalla (papelera lógica, semántica 8). El `DEFAULT true` de la columna es correcto; el `false` es un `UPDATE` deliberado de la UI, no un fallo |
+| `created_by` **NULL** (por `DEFAULT_REVIEWER` no configurada en sv4) | ✅ las 4 a NULL, como se esperaba |
+| `updated_by` | ✅ las 4 a NULL, coherente con lo anterior (mismo helper `_actor(request)`, R13) |
+| `created_at_utc` / `updated_at_utc` sellados | ✅ ISO-8601 con offset UTC en las 4 |
+| Patrón coherente | ✅ o los siete valores o ninguno (R8): las 4 usan solo `jornada_semanal`, con los 7 `h_*` a NULL |
 
-**Ninguna de estas comprobaciones ha fallado: no se han podido ejecutar.**
+### 5.2 Reglas de negocio que la base no impone pero los datos respetan
+
+- **Solapes de vigencia por `dni_norm` entre filas activas** (R12): **ninguno**
+  — trivialmente, porque las 4 están inactivas. La consulta queda en §6 para
+  volver a pasarla cuando haya filas activas.
+- **Horas fuera de rango** (R9/R10): **0 filas**. `jornada_semanal` 42 y 48
+  son valores plausibles y dentro de rango.
+- **`desde` bien formado**: las 4 en ISO `YYYY-MM-DD`, ninguna con el
+  centinela `1900-01-01`.
+
+### 5.3 R7 (`hasta` exclusivo): **no verificable con estos datos**
+
+R7 de F-016 exige que la pantalla hable en **último día incluido** y la base
+guarde el **exclusivo** (`hasta = último día incluido + 1 día`), y que «sin
+fecha de fin» equivalga a `hasta = NULL` en los dos sentidos.
+
+**Las cuatro filas tienen `hasta = NULL`**, es decir, las cuatro se dieron de
+alta «sin fecha de fin». Por tanto:
+
+- ✅ **Queda confirmada la mitad NULL de R7**: «sin fin» en pantalla ⇒ `hasta`
+  NULL en base. Es correcto y no hay ninguna fecha centinela inventada.
+- ⏸ **La conversión `+1 día` NO queda ejercitada**: no hay ni una fila con
+  `hasta` no nulo contra la que contrastar el «último día incluido» que se
+  escribió en pantalla.
+
+**Esto no es un defecto detectado; es una verificación que sigue abierta.**
+Para cerrarla en producción basta con un caso desde `/admin/jornadas`:
+
+1. Dar de alta una jornada con un **último día incluido** conocido, por
+   ejemplo `2026-07-31` (o cerrar una existente con esa fecha).
+2. Releer la fila: la base debe guardar **`hasta = '2026-08-01'`**.
+3. Volver al listado: debe **pintar `2026-07-31`**, no `2026-08-01`.
+
+La consulta de §6 punto 6 hace el paso 2 y ya calcula el «último día
+incluido» que debería verse en pantalla, para comparar de un vistazo.
+
+En el código la conversión está donde R7 manda —solo en la capa web:
+`services/partes-front/interface_adapters/web/app.py` usa
+`ultimo_dia_incluido_de_fila(...)` al pintar y hace la conversión inversa al
+guardar— y la cubre el test `test_f016_r7_hasta_exclusivo`
+(`tests/test_f016_validacion_jornada_admin.py`), con el par ida-y-vuelta
+estable para 366 fechas consecutivas. Lo que falta es la comprobación
+**manual en el entorno desplegado**, no la del código.
 
 ---
 
-## 5. Motivo del bloqueo
+## 6. SQL de solo lectura utilizado
 
-1. Los ficheros locales no versionados de sv3 y sv4 (`.env`) apuntan a un
-   PostgreSQL **de desarrollo en el propio puesto**, no al servidor de Azure:
-   no sirven para esta verificación.
-2. La credencial real de la base vive en el **Key Vault de partes**
-   (secreto `PG-PASSWORD`), como declara `infra/create_capps_partes.ps1`.
-   Se pudo leer con la sesión de `az` ya iniciada. **No se ha escrito en
-   ningún fichero ni se ha mostrado por pantalla.**
-3. El servidor tiene `publicNetworkAccess = Enabled`, estado `Ready`,
-   PostgreSQL 16, y una lista blanca de reglas de firewall. **La IP pública
-   del puesto no está en ninguna de ellas.** Resultado:
-   `connection timeout expired`.
-4. Se paró ahí. **No se ha creado ninguna regla de firewall** ni se ha
-   modificado nada del servidor compartido, conforme a la instrucción del
-   encargo y a la regla dura de `CLAUDE.md`.
-
-Para desbloquear, el humano tiene que **añadir una regla de firewall para la
-IP pública actual del puesto** en `psql-albaranes-rs9k2` (es la operación
-rutinaria que ya se hace a diario para `datamart`, con reglas del tipo
-`datamart-puesto-pgris-<fecha>`). La IP concreta se le ha dado por chat: no
-se escribe aquí porque este fichero se versiona.
-
----
-
-## 6. SQL exacto, listo para ejecutar cuando haya acceso
-
-Todo `SELECT`. Ejecutar sobre la base **`partes`** (no sobre `postgres`).
+Todo `SELECT`, sobre la base **`partes`**. Recomendación de higiene: abrir la
+sesión con `SET default_transaction_read_only = on;` antes de nada.
 
 ```sql
 -- 1) Las 19 columnas de empleado_jornada
@@ -259,62 +345,78 @@ SELECT ordinal_position, column_name, data_type,
   FROM information_schema.columns
  WHERE table_schema='public' AND table_name='empleado_jornada'
  ORDER BY ordinal_position;
--- Esperado: 19 filas, en el orden de la tabla de §1.1.
 
--- 2) Recuento de columnas por tabla (cubre M1 de F-010)
-SELECT table_name, count(*)
-  FROM information_schema.columns
- WHERE table_schema='public'
- GROUP BY 1 ORDER BY 1;
--- Esperado: empleado_alias 7 | empleado_jornada 19 | parte_documents 47
---           parte_registros 56 | undo_log 7
+-- 2) Recuento de columnas por tabla (M1 de F-010)
+SELECT table_name, count(*) FROM information_schema.columns
+ WHERE table_schema='public' GROUP BY 1 ORDER BY 1;
 
 -- 3) Indices (M1 ampliado segun la observacion 1 del reviewer de F-010)
-SELECT tablename, indexname, indexdef
-  FROM pg_indexes
- WHERE schemaname='public'
- ORDER BY tablename, indexname;
--- Esperado, entre otros:
---   empleado_jornada  ix_empleado_jornada_dni_norm  (dni_norm), NO unico
---   empleado_jornada  empleado_jornada_pkey         (id)
---   parte_registros   ix_parte_registros_deleted_at_utc   <- el de F-010
---   parte_registros   ix_parte_registros_document_id
---   parte_registros   ix_parte_registros_empleado_ide
---   parte_registros   parte_registros_pkey
---   parte_documents   ix_parte_documents_source_sha256
---   parte_documents   ux_parte_documents_sha256_active  (UNIQUE ... WHERE is_active)
+SELECT tablename, indexname, indexdef FROM pg_indexes
+ WHERE schemaname='public' ORDER BY tablename, indexname;
 
 -- 4) Restricciones
 SELECT t.relname, c.conname, c.contype, pg_get_constraintdef(c.oid)
   FROM pg_constraint c
-  JOIN pg_class t ON t.oid = c.conrelid
-  JOIN pg_namespace n ON n.oid = t.relnamespace
- WHERE n.nspname='public'
+  JOIN pg_class t ON t.oid=c.conrelid
+  JOIN pg_namespace n ON n.oid=t.relnamespace
+ WHERE n.nspname='public' AND t.relkind='r'
  ORDER BY t.relname, c.conname;
--- Esperado en empleado_jornada: SOLO la PK. CERO CHECK (§1.1).
 
--- 5) La tabla nace vacia
+-- 5) Filas, con el DNI SIEMPRE enmascarado (dato personal)
 SELECT count(*) FROM empleado_jornada;
--- Esperado: 0
-
--- 6) Si hubiera filas, mirarlas SIN DNI completo (dato personal)
-SELECT id, left(dni_norm,2)||'***' AS dni, jornada_semanal,
+SELECT id, left(dni_norm,2)||'...' AS dni, jornada_semanal,
        h_lun,h_mar,h_mie,h_jue,h_vie,h_sab,h_dom,
-       desde, hasta, origen, is_active
+       desde, hasta, origen, nota, is_active,
+       created_at_utc, created_by, updated_at_utc, updated_by
   FROM empleado_jornada ORDER BY id;
-```
 
-Recomendación de higiene para quien las ejecute: abrir la sesión con
-`SET default_transaction_read_only = on;` antes de nada, para que un error de
-dedo no pueda escribir.
+-- 6) R7 de F-016: `hasta` es EXCLUSIVO. La columna `ultimo_dia_incluido`
+--    debe coincidir con la fecha que se escribio en la pantalla.
+SELECT id, desde, hasta AS hasta_exclusivo,
+       CASE WHEN hasta IS NULL THEN 'sin fin'
+            ELSE to_char(to_date(hasta,'YYYY-MM-DD') - 1,'YYYY-MM-DD')
+       END AS ultimo_dia_incluido_en_pantalla,
+       CASE WHEN hasta IS NULL THEN NULL
+            ELSE (to_date(hasta,'YYYY-MM-DD') > to_date(desde,'YYYY-MM-DD'))
+       END AS desde_menor_que_hasta
+  FROM empleado_jornada ORDER BY id;
+
+-- 7) R12: solapes de vigencia por DNI entre filas ACTIVAS (debe salir vacio)
+SELECT a.id, b.id
+  FROM empleado_jornada a JOIN empleado_jornada b
+    ON a.dni_norm=b.dni_norm AND a.id<b.id
+ WHERE a.is_active AND b.is_active
+   AND a.desde < coalesce(b.hasta,'9999-12-31')
+   AND b.desde < coalesce(a.hasta,'9999-12-31');
+
+-- 8) R9/R10: horas fuera de rango (debe salir 0)
+SELECT count(*) FROM empleado_jornada
+ WHERE (jornada_semanal IS NOT NULL AND (jornada_semanal<0 OR jornada_semanal>168))
+    OR h_lun<0 OR h_lun>24 OR h_mar<0 OR h_mar>24 OR h_mie<0 OR h_mie>24
+    OR h_jue<0 OR h_jue>24 OR h_vie<0 OR h_vie>24 OR h_sab<0 OR h_sab>24
+    OR h_dom<0 OR h_dom>24;
+```
 
 ---
 
-## 7. Qué NO se ha hecho
+## 7. Qué queda pendiente
+
+1. **R7 de F-016 en el entorno desplegado** (§5.3): dar de alta o cerrar una
+   jornada con fecha de fin y comprobar el desfase de un día. Es la única
+   comprobación de este encargo que no ha podido cerrarse.
+2. **Errata de `design.md` §8 de F-015** (§2.4): «16 columnas» debería decir
+   «19». Corrección documental de una línea.
+
+---
+
+## 8. Qué NO se ha hecho
 
 - No se ha ejecutado ningún DDL, `INSERT`, `UPDATE` ni `DELETE`.
-- No se ha creado, modificado ni borrado ninguna regla de firewall.
+- **No se ha tocado ninguna de las 4 filas de prueba**: las desactiva el
+  humano por la pantalla.
+- No se ha creado, modificado ni borrado ninguna regla de firewall, ni antes
+  ni después del intento fallido.
 - No se ha tocado nada a nivel del servidor `psql-albaranes-rs9k2`.
 - No se ha escrito ninguna credencial, cadena de conexión, IP, id de
-  suscripción/tenant ni DNI en este fichero.
-- No se ha desplegado nada ni se ha modificado código del repositorio.
+  suscripción/tenant ni DNI completo en este fichero.
+- No se ha modificado código del repositorio ni se ha desplegado nada.

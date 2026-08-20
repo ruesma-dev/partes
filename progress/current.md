@@ -67,7 +67,40 @@ Dos aprendizajes operativos:
 - El `az containerapp update` pasó a la primera: el `--claims-challenge` no
   llegó a hacer falta (el humano había reautenticado con MFA en su consola).
 
-### 2. Esquema en PostgreSQL — BLOQUEADO por firewall
+### 2. Esquema en PostgreSQL — CONFORME (verificado contra la base real)
+
+Al primer intento el subagente reportó `connection timeout expired` y **acusó
+al firewall**. Era un diagnóstico sin evidencia: la IP pública del puesto
+(`nslookup myip.opendns.com`) YA tenía regla en `psql-albaranes-rs9k2`, y
+`Test-NetConnection ... -Port 5432` responde `TcpTestSucceeded: True` en 0,01 s.
+Al reintentar, `psycopg` conectó en 0,1 s con el mismo host, puerto y usuario.
+**Lección** (candidata a automejora del arnés): un timeout no basta para
+acusar al firewall sin probar antes el TCP crudo.
+
+Verificado contra PostgreSQL 16.14, base `partes`:
+
+- **19/19 columnas** en `empleado_jornada`: nombre, orden ordinal, tipo,
+  nulabilidad y `DEFAULT` coinciden con el ORM y con la spec.
+- **`ix_empleado_jornada_dni_norm`** presente sobre `(dni_norm)`, no único, más
+  la PK con secuencia. **Cero CHECKs**, que es lo correcto: F-015 §6 delega esas
+  validaciones a la aplicación (F-016/R27).
+- **M1 de F-010 ✅**: `ix_parte_registros_deleted_at_utc` presente, recuentos
+  exactos **7/47/56/7**, `ux_parte_documents_sha256_active` intacto. Ninguna
+  tabla ganó ni perdió columnas.
+- **Base ↔ sv3 ↔ sv4 coinciden**: las dos copias del ORM siguen byte-idénticas
+  y cuadran con la base. Control cruzado: 118 + 19 = **137 sentencias**, justo
+  lo que loguearon los dos servicios.
+- **4 filas de prueba** de las pruebas en navegador, **ya desactivadas** por el
+  humano: `origen='manual'` ✅ y `created_by`/`updated_by` **NULL** ✅, que es
+  lo esperado sin `DEFAULT_REVIEWER` (H1) y confirma ese hallazgo desde la base.
+
+**R7 se queda a medias**: las 4 filas se crearon «sin fecha de fin», así que
+`hasta` es NULL en todas. Queda confirmada la mitad NULL, pero **la conversión
+«+1 día» no se ejercita**. Para cerrarla hace falta un alta más en pantalla con
+último día incluido `2026-07-31` y comprobar que la base guarda `2026-08-01` y
+el listado repinta `2026-07-31` (SQL listo en §6.6 del informe).
+
+### 2-bis. (histórico) el falso bloqueo por firewall
 
 No se pudo consultar la base real: la IP pública del puesto no figura en
 ninguna regla de `psql-albaranes-rs9k2` (`connection timeout expired`). **No se
