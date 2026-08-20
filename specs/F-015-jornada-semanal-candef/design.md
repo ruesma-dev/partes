@@ -303,7 +303,10 @@ clase `CalendarioFake` que ya usan los dorados de F-003, y
 - **MANUAL (humano)** — no se puede verificar sin BBDD ni despliegue:
   1. Arranque de sv3 y sv4 en local: en el log, «esquema inicializado (N
      sentencias complementarias)» con N mayor que el de F-010, y
-     `\d empleado_jornada` en la base `partes` mostrando las 16 columnas.
+     `\d empleado_jornada` en la base `partes` mostrando las 19 columnas.
+     <!-- 2026-08-20: decia 16, errata del texto. La tabla normativa de
+          la seccion 6, el ORM y el guardian dicen 19 desde el principio;
+          verificado contra la base real tras el despliegue. -->
   2. Portal, vista de un trabajador de la cuadrilla (ya con candef 9 en
      Sigrid): viernes de 6 h **sin** aviso de incompleto y KPI
      «9 h · 42 h/sem · último laborable 6 h».

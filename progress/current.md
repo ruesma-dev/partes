@@ -160,10 +160,10 @@ puntos de auditoría del portal (`approved_by`, `deleted_by` y las cuatro
 entradas de `undo_log`) llevan sellando NULL desde el primer despliegue**. La
 auditoría del portal está en blanco, no «firmada con un genérico».
 Reordena el enunciado de **F-017**: no es «pasar del valor genérico al usuario
-real», es que hoy no hay ni genérico. **Decisión del humano pendiente**: poner
-un `DEFAULT_REVIEWER` provisional o esperar a F-017 (recomendación del líder:
-esperar; el NULL dice «no se sabe», que es la verdad, y un genérico crearía un
-tramo de filas que luego habría que explicar).
+real», es que hoy no hay ni genérico. **DECIDIDO por el humano el 2026-08-20**:
+NO se configura un `DEFAULT_REVIEWER` provisional; se espera a **F-017**. El
+NULL dice «no se sabe», que es la verdad, y un genérico crearía un tramo de
+filas que luego habría que explicar.
 
 **H2 · El KPI de jornada se resuelve con el PRIMER DÍA DEL PERIODO MOSTRADO,
 no con hoy** (`app.py:698`, decisión consciente de R25). El periodo que sale
