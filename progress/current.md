@@ -94,14 +94,64 @@ Dos correcciones que salieron de aquí:
   pendiente** (índice `ix_parte_registros_deleted_at_utc` y los recuentos
   7/47/56/7) y necesita acceso a la base.
 
+### 3. Pruebas en navegador (2026-08-20, humano) — SUPERADAS
+
+Las 6 verificaciones de `specs/F-016-admin-empleado-jornada/design.md` §8.2 y
+el punto de KPI de **F-015 T12**, hechas por el humano contra el portal
+desplegado. **Todo funciona.** Combo de trabajador (la 6, que ningún test
+cubre): busca por nombre y por DNI, y el alta guarda el DNI elegido. Alta con
+DNI ficticio: sale el aviso de R19 y la fila se crea igual. Solape: rechazado
+nombrando la fila en conflicto, sin crear nada. Contigua: aceptada. El
+listado enseña el `hasta` **inclusivo**, no el interno.
+
+Tres hallazgos, ninguno de ellos un fallo del código desplegado:
+
+**H1 · `DEFAULT_REVIEWER` NO está configurada en el Container App de sv4.**
+Comprobado en Azure: la variable no existe en la plantilla del contenedor, y
+`.env.example` la declara vacía. El helper `_actor`
+(`services/partes-front/interface_adapters/web/app.py:477`) lo contempla —
+«sin `DEFAULT_REVIEWER` configurado se sella `NULL` y la operación NO falla»—
+y la plantilla pinta `—`. Consecuencia que va más allá de F-016: **los once
+puntos de auditoría del portal (`approved_by`, `deleted_by` y las cuatro
+entradas de `undo_log`) llevan sellando NULL desde el primer despliegue**. La
+auditoría del portal está en blanco, no «firmada con un genérico».
+Reordena el enunciado de **F-017**: no es «pasar del valor genérico al usuario
+real», es que hoy no hay ni genérico. **Decisión del humano pendiente**: poner
+un `DEFAULT_REVIEWER` provisional o esperar a F-017 (recomendación del líder:
+esperar; el NULL dice «no se sabe», que es la verdad, y un genérico crearía un
+tramo de filas que luego habría que explicar).
+
+**H2 · El KPI de jornada se resuelve con el PRIMER DÍA DEL PERIODO MOSTRADO,
+no con hoy** (`app.py:698`, decisión consciente de R25). El periodo que sale
+por defecto es el más reciente **con registros de ese trabajador**. Efecto
+práctico: se creó una excepción con `desde` = hoy y **el KPI no la reflejaba**;
+tampoco con `desde` = 1 del mes en curso. Con `desde` = 2026-01-01 apareció al
+instante. Le pasó al humano, que conoce el sistema: **a un administrador le
+parecerá que la pantalla no funciona**. No es un bug —la caché se invalida
+bien y sv4 tiene una réplica— pero es deuda de usabilidad real. Candidatas:
+avisar en la pantalla, o resolver el KPI con `hoy` cuando la excepción esté
+vigente hoy.
+
+**H3 · Hueco de borde**: si el trabajador **no tiene ningún registro**, la
+ficha no construye calendario, y entonces el KPI se calcula con `date.today()`
+pero pasando `excepcion=None` — ignoraría una excepción vigente hoy. En esa
+rama la fecha y la excepción dejan de ir juntas. Menor, pero es una
+incoherencia real.
+
+**LIMPIEZA**: las pruebas dejaron filas en `empleado_jornada` de la BASE REAL,
+incluida una de **un trabajador real** con vigencia desde 2026-01-01 y 42
+h/sem. Hay que dejarlas todas `inactiva` (esta pantalla no borra, por diseño).
+
 ## Lo que el humano tiene que decidir o hacer
 
-1. **Verificaciones MANUAL del despliegue, pendientes**: lo que queda de T12
-   de F-015 (las 19 columnas de `empleado_jornada`, el KPI «9 h · 42 h/sem ·
-   último laborable 6 h», el viernes de 6 h sin aviso, y que un parte ya
-   aprobado no cambie su desglose) y las 6 de
-   `specs/F-016-admin-empleado-jornada/design.md` §8.2. La 6 —el combo en el
-   navegador— es la única funcionalidad que ningún test cubre.
+1. **Verificaciones del despliegue**: las 6 de F-016 §8.2 y el KPI de F-015
+   **SUPERADAS** en navegador el 2026-08-20 (sección anterior). Quedan: el
+   contraste contra la BASE (`origen`, `is_active`, `created_by` y que el
+   `hasta` sea un día después del escrito) y la **M1 de F-010**, los dos a la
+   espera de la **regla de firewall** de `psql-albaranes-rs9k2`; el «último
+   laborable 6 h» con `candef = 9` de verdad, que no llega hasta F-014; y la
+   **limpieza** de las filas de prueba.
+   Decisión pendiente: qué hacer con `DEFAULT_REVIEWER` (H1).
 2. **Enviar la petición de F-014 a RRHH**: la condición ya se cumple (F-015
    desplegada). Texto aprobado en `progress/peticion_F-014.md`.
 3. **F-017** (identidad real de Easy Auth): es la siguiente natural. No la
