@@ -276,3 +276,73 @@ aparece **una** vez, el bloque de F-016 llama `_actor(request)` **cinco**
 veces y no contiene `settings.default_reviewer`. Las cinco escrituras de F-016
 pasaron a firmar con la identidad real **sin tocar una sola línea de sus
 endpoints** (R19), que era la promesa que F-016 dejó escrita.
+
+---
+
+## T6 · Fase RED de los once puntos (R12–R18)
+
+Escritos `test_f017_endpoints_firmados.py` (R12–R15) y
+`test_f017_aprobacion_firmada.py` (R16–R18) **antes** de tocar las rutas.
+Traza real de los dos requisitos que el rigor exige en RED:
+
+```
+$ python -m pytest .../test_f017_endpoints_firmados.py::test_f017_r12_approved_by \
+                   .../test_f017_aprobacion_firmada.py::test_f017_r16_payload_y_marcas_encolado -q
+
+>       assert documento.approved_by == USUARIO
+E       AssertionError: assert None == 'ana.ejemplo@ejemplo.invalid'
+E        +  where None = <...ParteDocumentOrm object...>.approved_by
+
+>       assert usuario == USUARIO                    # el sobre de q-transfer
+E       AssertionError: assert None == 'ana.ejemplo@ejemplo.invalid'
+
+2 failed, 1 warning in 1.80s
+```
+
+Merece la pena pararse en el valor que devuelve el fallo: **`None`**, no un
+genérico. La fase RED no está reproduciendo un caso de laboratorio — está
+reproduciendo **el estado real del despliegue**, donde `DEFAULT_REVIEWER` no
+está configurada y la auditoría del portal lleva en blanco desde el primer día
+(hallazgo H1). El rojo de estos dos tests es la feature entera en una línea.
+
+### ⚠ HALLAZGO QUE EL HUMANO DEBE DECIDIR — R14 y R15 nombran una columna que nadie escribe
+
+Al implementar T6 se comprobó contra el árbol que **la premisa de R14 y R15 es
+incorrecta**. Los dos dicen que el actor debe escribirse en `undo_log.actor`.
+Los hechos, verificados uno a uno:
+
+1. **`undo_log.actor` existe** (la añadió F-010 por DDL complementario) **pero
+   no la escribe nadie**: `_record_undo` ni siquiera acepta un actor, y no hay
+   una sola asignación a esa columna en todo sv4.
+2. **Las cuatro operaciones de R14/R15 no generan ninguna fila de `undo_log`.**
+   Los tres borrados (`soft_delete_registro`, `soft_delete_obra`,
+   `soft_delete_worker`) y el alta manual no llaman a `_record_undo`. Quienes
+   sí lo llaman son las **ediciones**: `update_registro`, `set_registro_hora`,
+   `set_registro_partida`, `backfill_empleado`, `reassign_empleado_*`,
+   `update_parte_fecha`, `update_parte_obra`.
+3. **`crear_parte_manual` acepta `by=` y lo ignora**: el parámetro se declara
+   en la firma y no aparece ni una vez en el cuerpo del método.
+
+`design.md` §5.2 (puntos 8–11) sí es correcto y es lo que se ha implementado:
+entregar `_actor(request)` por el parámetro `by=` que esas rutas ya usaban.
+Para los tres borrados eso llega de verdad a `deleted_by`. Para el alta manual
+**se queda en la puerta del repositorio**.
+
+**Lo que NO se ha hecho por cuenta propia**, y por qué:
+
+| Opción | Por qué se descartó sin consultar |
+|---|---|
+| Que los borrados escriban en `undo_log` | Es **funcionalidad nueva**: pasarían a ser deshacibles. Y un «log de auditoría de acciones» es literalmente **F-018** (`requirements.md` §0 y §2.2) |
+| Que `crear_parte_manual` use su `by=` | Toca `parte_repository.py`, que `design.md` §5.3 marca explícitamente como fichero que **NO se toca** |
+
+**Por qué esto importa y no es un detalle**: R7 declara que, tras esta feature,
+`autor IS NULL` significa **exclusivamente** «fila anterior al corte». Ese
+criterio es la base de R22 y el apoyo que §12 promete a F-018. Con
+`undo_log.actor` condenada a seguir siempre a `NULL`, el criterio **no es
+universal**: vale para las seis columnas que sí se escriben, no para la
+séptima. La documentación de T10 lo dice así, sin redondear.
+
+Los tests dejan el hecho a la vista en vez de taparlo: `test_f017_r14_*` y
+`test_f017_r15_*` comprueban el actor **en el punto que la ruta controla** (el
+argumento con el que llama al repositorio), y el fichero termina con un bloque
+de comentario que explica los tres hechos anteriores.
