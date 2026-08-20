@@ -186,6 +186,42 @@ incoherencia real.
 incluida una de **un trabajador real** con vigencia desde 2026-01-01 y 42
 h/sem. Hay que dejarlas todas `inactiva` (esta pantalla no borra, por diseño).
 
+## F-017 · spec_ready, esperando aprobación del humano (2026-08-20)
+
+Spec redactada en `specs/F-017-identidad-easy-auth/` (requirements, design,
+tasks). **No se implementa hasta que el humano la apruebe.** Cuatro decisiones
+que hay que aprobar o rebatir, y una ambigüedad que no se cierra hasta
+desplegar:
+
+- **DA1/DA2/DA3**: manda `X-MS-CLIENT-PRINCIPAL-NAME`; el token base64 queda de
+  suplente y nunca puede lanzar. Se guarda el **UPN en minúsculas**, no el
+  `oid`: la columna la leen personas en dos plantillas. La identidad inmutable
+  se deja para F-018. Anchos comprobados: la más estrecha es `String(120)`
+  (`undo_log.actor`, `empleado_jornada`, `empleado_alias`); un UPN cabe de
+  sobra y el helper trunca a 120. **Cero cambios de schema.**
+- **DA4, el que más conviene discutir**: el fallback local NO es `NULL`, sino un
+  valor marcado (`local:<algo>`), porque `:` no es válido en un UPN y porque
+  sv4 se arranca en local **contra el PostgreSQL real**. Efecto colateral
+  valioso: a partir de esta feature siempre hay actor, así que el corte queda
+  exacto y gratis — `autor IS NULL` ⇔ «anterior a F-017». Las históricas no se
+  tocan.
+- **DA6**: `test_f016_r13_auditoria` se pone ROJO a propósito en T4, como
+  evidencia de que `_actor` manda, y se repara fabricando la cabecera, no
+  parcheando el helper: `_actor` es una clausura dentro de `build_app` y no hay
+  símbolo que parchear.
+- **DA8, vetable**: un `GET /whoami` que devuelva actor y origen (nombres de
+  cabecera, nunca valores) para poder verificar en Azure sin aprobar un parte
+  de verdad. Es la pieza más fácil de quitar si no la quieres.
+
+**Ambigüedad real, honesta**: nadie ha verificado nunca que Azure inyecte
+`-NAME` con el UPN —hay cero referencias a `X-MS-CLIENT-PRINCIPAL` en el
+repositorio—, así que podría llegar el display name. No rompe nada, pero **el
+valor exacto que acabará en la columna no se sabe hasta desplegar**; `/whoami`
+lo aclara en un minuto.
+
+Servicio: **solo sv4**. Comprobado que sv5 ya acepta `usuario` y solo lo
+loguea.
+
 ## Lo que el humano tiene que decidir o hacer
 
 1. **Verificaciones del despliegue**: las 6 de F-016 §8.2 y el KPI de F-015
@@ -198,9 +234,10 @@ h/sem. Hay que dejarlas todas `inactiva` (esta pantalla no borra, por diseño).
    Decisión pendiente: qué hacer con `DEFAULT_REVIEWER` (H1).
 2. **Enviar la petición de F-014 a RRHH**: la condición ya se cumple (F-015
    desplegada). Texto aprobado en `progress/peticion_F-014.md`.
-3. **F-017** (identidad real de Easy Auth): es la siguiente natural. No la
-   necesita nadie para funcionar, pero mientras no exista, todas las filas de
-   auditoría del portal siguen firmadas con `DEFAULT_REVIEWER`.
+3. **F-017** (identidad real de Easy Auth): **spec escrita el 2026-08-20**, a
+   la espera de aprobación del humano. Ver la sección «F-017 · spec escrita»
+   más abajo. Mientras no exista, todas las filas de auditoría del portal
+   siguen sellando `NULL` (H1).
 4. **Dos dudas abiertas de F-016** (`design.md` §13): los tres normalizadores
    de DNI equivalentes de sv4 (¿feature de limpieza aparte?) y si las filas con
    `origen` `sigrid`/`sesame` serán editables cuando existan.
@@ -255,11 +292,70 @@ categoría, misma hora por defecto y también con `candef = 8`: solo las separa
 `res.ide`); `MO/0031` tiene dos fichas de alta que registran en 2026 y ahí
 desempata la categoría; y `MO/0037` sigue sin DNI (`res.conide = 0`).
 
+## F-017 · spec escrita (2026-08-20), pendiente de aprobación
+
+`specs/F-017-identidad-easy-auth/` con los tres ficheros. **Solo sv4**: se
+comprobó que sv5 ya acepta el campo `usuario` (`Optional[str]`) y **solo lo
+loguea** — no llega a ninguna columna de Sigrid, así que empezará a registrar
+un nombre real sin un cambio de código. Cero cambios de schema: las siete
+columnas de autor ya existen y la más estrecha es `String(120)`
+(`undo_log.actor`, `empleado_jornada.created_by`/`updated_by`,
+`empleado_alias.created_by`); un UPN cabe de sobra y el helper trunca a 120 de
+una vez para todos.
+
+**Ocho decisiones que el humano tiene que aprobar o rebatir** (detalle y
+argumentos en `design.md` §11):
+
+| # | Decisión propuesta |
+|---|---|
+| DA1 | Manda `X-MS-CLIENT-PRINCIPAL-NAME`; el token base64 es el suplente y **nunca** puede lanzar |
+| DA2 | Se guarda el **UPN**, no el `oid`: la columna la leen personas (`parte_detail.html`, `admin_jornadas.html`) y no hay dónde meter el `oid`. Identidad inmutable ⇒ F-018 |
+| DA3 | El actor se normaliza a **minúsculas** (los UPN son insensibles a mayúsculas; si no, un `GROUP BY` cuenta dos personas donde hay una) |
+| DA4 | Fallback local **marcado**: `local:<DEFAULT_REVIEWER>` o `local:sin-identidad`. `:` no es válido en un UPN ⇒ no se puede confundir con nadie real, ni con el `NULL` histórico. **Importante**: el humano arranca sv4 en local contra el PostgreSQL real, así que el fallback SÍ puede acabar en la base buena |
+| DA5 | `DEFAULT_REVIEWER` se queda con el nombre, cambia el significado: pasa a ser la etiqueta de la sesión local. Renombrarla obligaría a tocar Azure para nada |
+| DA6 | El test `test_f016_r13_auditoria` **se pone rojo a propósito** (T4, es la evidencia de que `_actor` manda) y se repara **fabricando la cabecera**, no parcheando el helper: `_actor` es una clausura dentro de `build_app` y no hay nada que `monkeypatch` alcance |
+| DA7 | Las filas que escribe **sv3** (ingesta automática) NO se tocan: ahí el autor es el pipeline, no una persona |
+| DA8 | Se añade `GET /whoami` (actor + origen + **nombres** de cabeceras presentes, nunca valores) para que la verificación en Azure no obligue a aprobar un parte de verdad. Es la pieza más fácil de retirar si el humano la ve de más |
+
+**Filas históricas**: no se reescribe ni una (R22). Con H1 la decisión sale
+más barata de lo previsto — no hay genéricos que traducir, hay `NULL`, que ya
+dice la verdad. Y como a partir de la feature **siempre** hay actor (R7), el
+corte queda exacto y gratis: `autor IS NULL` ⇔ «anterior a F-017». Se
+documenta en `docs/referencia/partes-proyecto.md` (T10) con un hueco
+`⛔ PENDIENTE: fecha de despliegue` que **rellena el humano al desplegar**.
+
+**Ambigüedades encontradas que conviene que el humano sepa:**
+
+1. **No está verificado que Azure inyecte `-NAME`** con el UPN: en local no
+   existe la cabecera y en el repositorio no hay ni una referencia a
+   `X-MS-CLIENT-PRINCIPAL`. Puede llegar el *display name*. No es un fallo
+   (identifica igual) y `/whoami` lo resuelve en un minuto (M1), pero el
+   humano debe saber que el valor exacto que acabará en la columna **no se
+   puede confirmar hasta desplegar**.
+2. **Alcance colateral no acotado del todo**: siete ficheros de tests de
+   F-002/F-003/F-004 configuran `DEFAULT_REVIEWER="ana"` y alguno comprueba
+   ese valor. **T1 los inventaría antes de tocar nada** en vez de descubrirlos
+   a mitad, pero el número final de tests a ajustar no se sabrá hasta ese
+   inventario.
+3. **`docs/referencia/partes-proyecto.md` §5.4 está desactualizado**: dice que
+   `created_by`/`updated_by` llevan `DEFAULT_REVIEWER`. Con H1 sabemos que
+   llevan `NULL`. Se corrige en T10.
+4. **`.env.example` de sv4 no está versionado** (el `.gitignore` ignora
+   `*.example`), igual que pasó con `JORNADAS_ADMIN_ENABLED` en F-016: la
+   documentación efectiva de `DEFAULT_REVIEWER` va al docstring y a
+   `azure-apps/partes.md` (T11).
+5. **Aviso para F-008**: esta feature confía en el texto en claro de la
+   cabecera porque lo que decide es una *anotación*, no un permiso. Un **rol**
+   leído igual sí sería una decisión de permiso y ahí esa confianza deja de
+   ser gratis (`design.md` §8).
+
 ## Orden del backlog
 
 1. **F-017** — identidad real de Easy Auth en sv4 (`pending`, prioridad 8).
-   Material listo en `specs/F-016-admin-empleado-jornada/design.md` §14, con
-   los once puntos exactos que hoy firman con `DEFAULT_REVIEWER`.
+   **Spec escrita** en `specs/F-017-identidad-easy-auth/` (2026-08-20), a la
+   espera de que el humano apruebe las ocho decisiones DA1–DA8. Los once
+   puntos exactos, verificados de nuevo contra el árbol: `app.py` líneas
+   1675, 1769, 1804, 1859, 1862, 2279, 2305, 2319, 2338, 2348 y 2559.
 2. **F-014** — `blocked`, solo la desbloquea RRHH.
 3. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
    F-008 roles · F-011 jornada reducida
