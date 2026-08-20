@@ -166,7 +166,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: `python -m pytest tests/test_f017_r23_corte_documentado.py -q`
       en verde (comprueba que el apartado y el criterio están escritos).
 
-- [ ] **T11: Actualizar `azure-apps/partes.md`.** Documentar el nuevo
+- [x] **T11: Actualizar `azure-apps/partes.md`.** Documentar el nuevo
       significado de `DEFAULT_REVIEWER` en sv4 (etiqueta de la sesión local,
       **no** «quién firma»), que la auditoría del portal usa el principal de
       Easy Auth, y la ruta `GET /whoami`.
