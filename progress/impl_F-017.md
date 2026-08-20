@@ -751,3 +751,174 @@ inmutable. Cero cambios de schema, cero columnas, cero tablas, cero `403`.
 (M1 tras desplegar, M2–M4 cuando haya firewall); rellenar la fecha del corte
 al desplegar; y **una decisión sobre R14/R15**, que es lo único que no se pudo
 cerrar por diseño.
+
+---
+
+# Correcciones tras el review (2026-08-21)
+
+El reviewer **rechazó** la feature (`progress/review_F-017.md`) con seis
+defectos: uno de código y cinco de texto, todos con la misma raíz — la
+propiedad que vende la feature (`autor IS NULL` ⇔ anterior a F-017) se
+enunciaba sin sus excepciones, y existía una vía real por la que una fila
+podía nacer sin actor **después** del corte.
+
+Lo que el reviewer validó y **no se ha tocado**: la resolución de identidad,
+las rutas, `identidad.py` como diseño, la fase RED, la campaña de mutación y
+la enmienda de R14/R15 (que verificó por su cuenta en el árbol y dio por
+honesta).
+
+## Defecto 1 (el grave) · Un punto de identidad fuera del helper
+
+`interface_adapters/workers/resultado_consumer.py:48` conservaba:
+
+```python
+usuario = sobre.get("usuario") or getattr(settings, "default_reviewer", None)
+```
+
+**Tres cosas mal a la vez**, y la tercera es la que importa:
+
+1. Una **tercera lectura de identidad** fuera del punto único (R10/R11).
+2. Contradecía lo que la feature publica en tres documentos: estando
+   desplegado, `DEFAULT_REVIEWER` **no firma nada**.
+3. Con esa variable sin configurar —el caso real—, marcaba líneas con
+   `sigrid_registrado_by = NULL` **después** del corte. Era **la única vía por
+   la que una fila podía nacer sin actor tras F-017**, y por tanto el único
+   agujero real del criterio de R7. No es teórico: se materializa con los
+   mensajes **en vuelo durante el despliegue**, publicados antes de F-017 y
+   por tanto sin firma en el sobre.
+
+**Decisión del humano aplicada**: el fallback es **`sin-identidad`**, ni `NULL`
+ni `DEFAULT_REVIEWER`. El consumidor corre siempre desplegado, así que es
+exactamente el caso de **R5b**: un sobre sin firma es una anomalía que debe
+verse en el log, no una firma.
+
+Entregado:
+
+- **`_quien_firma(sobre)`** en el consumidor, que **reutiliza la constante**
+  `ACTOR_SIN_IDENTIDAD` de `identidad.py` (el valor reservado no queda escrito
+  suelto en dos sitios) y emite el **WARNING** con el `peticion_id`, uno por
+  mensaje afectado — mismo criterio que R5b: cada uno es un incidente.
+  El sobre, cuando trae usuario, se respeta **intacto** (R18): ya viene
+  normalizado del punto único.
+- **`test_f017_r24_consumer_firmado.py`**, 14 tests: las cinco formas de sobre
+  sin firma (ausente, `None`, vacío, en blanco, no textual), que el aviso
+  nombra la petición, que se repite por mensaje, que un sobre firmado **no**
+  hace ruido, que el marcado se completa igualmente, y el test de la propiedad
+  global —`..._ninguna_fila_nace_con_autor_nulo_tras_el_corte`—, que es
+  literalmente el que le faltaba a la feature.
+- **Requisito `R24` nuevo** en `requirements.md` con su fila de trazabilidad,
+  y **R7 acotado** para nombrar este camino.
+
+### El guardián, ampliado y reescrito por AST
+
+El reviewer señaló que el guardián no podía ver esto: solo miraba `app.py` y
+`parte_repository.py`, y **un worker no es «ninguna ruta, plantilla ni
+repositorio»** — la letra de R10 se cumplía, su propósito no.
+
+Ahora barre **todo el código de producción de sv4** y lo hace **por AST**, no
+por texto. La razón es concreta: con `grep` había que elegir entre dos
+errores. Si busca el nombre a secas, delata los docstrings que explican por
+qué **no** hay que leer la variable —y castigar la documentación sólo produce
+documentación peor, como ya pasó en T8 con la cabecera—; y si se afina el
+patrón para esquivarlos, deja pasar `getattr(settings, "default_reviewer",
+None)`, que es **exactamente** la forma que se coló. Con el AST no hay que
+elegir: una cadena en un docstring no es un nodo de acceso a atributo, y las
+dos formas de lectura sí.
+
+**Comprobado que muerde**: reintroducida la línea original en el consumidor,
+saltan dos tests, uno de ellos nombrando el fichero culpable:
+
+```
+FAILED ...::test_f017_r11_ni_un_solo_fichero_mas_de_sv4_lee_la_identidad
+FAILED ...::test_f017_r11_el_consumidor_de_resultados_no_lee_default_reviewer
+E       assert [89] == []
+```
+
+Y `test_f017_r11_el_guardian_por_ast_ve_las_dos_formas_de_lectura` fija sobre
+ficheros fabricados en `tmp_path` que detecta la forma directa y la indirecta
+y que **no** se deja engañar por un docstring, un comentario ni una constante
+de texto.
+
+### Dos tests que afirmaban el comportamiento viejo
+
+- `test_f002_r12_sin_usuario_en_el_sobre_se_usa_el_revisor_por_defecto` →
+  renombrado a `..._se_sella_sin_identidad`. **El nombre importaba**: afirmaba
+  lo contrario de lo que el humano decidió. El requisito de F-002 no ha
+  cambiado (la traza se firma igual), ha cambiado **con qué**; el test lo dice
+  ahora y comprueba las dos mitades (que no es `NULL` y que no es
+  `DEFAULT_REVIEWER`).
+- `test_f017_r18_el_sobre_manda_en_el_consumidor`: su aserción «`identidad` no
+  aparece en la fuente» dejó de ser cierta (ahora se importa la constante).
+  Comprueba lo que sigue importando —que el consumidor no sabe qué es una
+  cabecera HTTP— y delega en el guardián AST lo de la lectura.
+
+## Defecto 2 · La enmienda de R14/R15 no se había propagado
+
+El criterio se enunciaba con «exclusivamente» en cuatro sitios y con la
+excepción en uno solo. Corregidos **los cinco** (uno más de los que el
+reviewer listó, ver abajo):
+
+| Sitio | Qué se hizo |
+|---|---|
+| `specs/.../requirements.md` (R7) | Acotado a las columnas que el portal escribe + nota explícita de que `undo_log.actor` no participa |
+| `docs/ARCHITECTURE.md` (regla 11) | Excepción añadida, y el comportamiento del consumidor |
+| `azure-apps/partes.md` | Excepción destacada para quien consulte la base; commit propio `c0d1e6e` en su repositorio, local y sin push |
+| `identidad.py` (cabecera del módulo) | Ya no lista `undo_log.actor` entre las columnas que se sellan; dice por qué **no** está |
+| `identidad.py` (`ACTOR_MAX_LEN`) | La razón del 120 pasa a ser una columna que **de verdad se escribe** (`empleado_jornada.created_by`). El número no cambia; la justificación era falsa |
+
+**Un quinto sitio que el reviewer no listó**, encontrado por el test nuevo:
+los docstrings de `actor_desde_cabeceras` y de `_actor` en `app.py` repetían
+«exclusivamente». Los encontró el guardián, no una lectura — que es justamente
+el punto.
+
+### El guardián que faltaba, para que esto no vuelva a pasar
+
+`tests/test_f017_r23_corte_documentado.py` gana tres tests parametrizados por
+los cuatro sitios versionados del repositorio:
+
+- que **cada uno** mencione `undo_log.actor` allí donde habla del corte;
+- que **ninguno** afirme «exclusivamente» sobre un `NULL` de autor sin la
+  excepción en el mismo párrafo;
+- que la cabecera de `identidad.py` no la liste entre las columnas firmadas.
+
+Enunciar un criterio en cinco sitios sólo es seguro si algo comprueba que los
+cinco dicen lo mismo. Esa es la lección de este defecto, y ahora está
+automatizada. (`azure-apps/partes.md` queda fuera del test a propósito: vive
+en otro repositorio y esta suite no puede depender de él.)
+
+## Defecto 3 · La spec seguía proponiendo el `printenv` peligroso
+
+`requirements.md` (M1 bis) mandaba
+`az containerapp exec ... --command "printenv" | Select-String CONTAINER_APP`.
+El `Select-String` filtra **la vista, no el volcado**: `printenv` imprime
+todas las variables con los secretos ya resueltos desde Key Vault
+(`PG_PASSWORD`, `GRAPH_KEY`, `SESAME_API_KEY`...) al terminal y a su historial.
+Yo lo detecté en T0 y lo evité al ejecutarlo, pero **dejé el comando escrito
+en el documento versionado**, que es el que alguien volverá a leer.
+
+Sustituido por la forma segura realmente usada —una variable por invocación,
+que no puede imprimir nada más que la variable nombrada— con el aviso
+explicando por qué la otra no vale, y anotado que M1 bis ya se ejecutó con
+resultado positivo. También queda dicho por qué no conviene insistir con el
+filtro dentro del contenedor: si el entrecomillado se rompe, el comando
+degenera en `printenv` a secas.
+
+**M3 corregida** (defecto 6): consultaba `undo_log.actor` tras un borrado, que
+la enmienda demostró que no se escribe. Habría devuelto nada y se habría leído
+como un fallo de la feature. Ahora consulta `parte_registros.deleted_by`, que
+es el destino real.
+
+## Verificación tras las correcciones
+
+```
+$ bash harness/init.sh
+[OK] servicio sv4-front: pytest en verde     1057 passed in 103.18s
+[OK] pytest en verde (raíz)
+[OK] PUERTA COBERTURA: 99.3% de 142 líneas cambiadas cubiertas
+     (141/142, umbral 80%, nivel estandar)
+[OK] Rama actual: feature/F-017-identidad-easy-auth
+ENTORNO LISTO. Puedes trabajar.
+```
+
+Suite: 1040 -> **1057** (+17 tests). Cobertura: 99,2 % -> **99,3 %** sobre 142
+líneas cambiadas. `ruff` limpio en todos los ficheros tocados.
