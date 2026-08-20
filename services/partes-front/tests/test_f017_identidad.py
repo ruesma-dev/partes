@@ -226,6 +226,28 @@ def test_f017_r3_un_claim_con_valor_que_no_es_texto_no_firma(valor) -> None:
     assert actor_desde_token(token) is None
 
 
+def test_f017_r3_un_token_manipulado_no_se_arregla_solo() -> None:
+    """Un token con basura intercalada se RECHAZA, no se «repara».
+
+    `base64.b64decode(..., validate=True)` es una decision deliberada:
+    sin ella, Python **descarta en silencio** los caracteres que no son
+    base64 y decodifica el resto. Un token al que alguien haya metido
+    mano por el camino colaria como si estuviera intacto, y la fila
+    quedaria firmada con el nombre que trajera dentro.
+
+    Preferimos rechazar una entrada malformada a intentar entenderla:
+    lo peor que pasa es que se caiga al fallback (R5/R5b), que no pierde
+    la operacion y deja rastro.
+    """
+    limpio = _token(upn=USUARIO)
+    manipulado = limpio[:10] + "!" + limpio[10:]
+    assert actor_desde_token(manipulado) is None
+    # Y el resolutor completo tampoco lo acepta como identidad.
+    _actor_resuelto, origen = actor_desde_cabeceras(
+        {CABECERA_TOKEN: manipulado}, fallback=None, desplegado=True)
+    assert origen == "sin-identidad-desplegado"
+
+
 def test_f017_r3_un_claim_no_textual_no_tapa_al_siguiente_valido() -> None:
     """Y descartarlo no puede costar la identidad real que venía detrás."""
     cuerpo = {"claims": [{"typ": "preferred_username", "val": 999},
