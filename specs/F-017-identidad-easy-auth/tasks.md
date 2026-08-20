@@ -33,7 +33,7 @@ Reglas que no se negocian durante la ejecución:
 
 ---
 
-- [ ] **T0 (PUERTA, antes de escribir nada): confirmar la señal de despliegue
+- [x] **T0 (PUERTA, antes de escribir nada): confirmar la señal de despliegue
       (R5c).** Ejecutar la verificación **M1 bis** de `requirements.md` §4 y
       pegar la salida real en `progress/impl_F-017.md`:
       `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv" | Select-String CONTAINER_APP`
@@ -47,7 +47,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: MANUAL (humano) — la lista de variables encontradas, con
       su nombre y **sin sus valores**, pegada en el informe.
 
-- [ ] **T1: Inventario de rojos.** Con la rama recién creada y **sin tocar
+- [x] **T1: Inventario de rojos.** Con la rama recién creada y **sin tocar
       nada**, ejecutar la suite de sv4 y dejar constancia del punto de
       partida en `progress/impl_F-017.md`; después, listar por lectura los
       tests que dependen de `DEFAULT_REVIEWER` y anotar cuáles se espera que
