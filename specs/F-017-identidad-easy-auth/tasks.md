@@ -155,7 +155,7 @@ Reglas que no se negocian durante la ejecución:
       esas columnas ni ningún `.sql` de migración nuevo.
       Verificación: `python -m pytest tests -q` en verde.
 
-- [ ] **T10: Documentar el corte (R23).** En
+- [x] **T10: Documentar el corte (R23).** En
       `docs/referencia/partes-proyecto.md`: corregir §5.4 (donde hoy dice que
       `created_by`/`updated_by` llevan `DEFAULT_REVIEWER`, que además es
       falso: llevan `NULL`) y añadir el apartado **«Corte de auditoría
@@ -188,7 +188,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: `progress/mutacion_F-017.md` generado por la herramienta,
       con sus totales reales y cada superviviente analizado.
 
-- [ ] **T13: Listar las verificaciones MANUAL.** Copiar **M1, M1 bis y M2–M4**
+- [x] **T13: Listar las verificaciones MANUAL.** Copiar **M1, M1 bis y M2–M4**
       de `requirements.md` §4 a `progress/current.md` con su comando exacto
       (M1 bis ya estará ejecutada en T0: se anota con su resultado real),
       marcadas como pendientes del humano, junto con el aviso de que M2–M4

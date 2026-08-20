@@ -512,3 +512,94 @@ Las anteriores de F-013 (AM-1..3), F-004 y F-010 siguen en `history.md`.
   implementadas por F-015.
 - azure-apps es un repo git LOCAL sin remoto (decisión del humano); no proponer
   push.
+
+---
+
+## F-017 · Identidad real de Easy Auth (sv4) — pendientes del humano
+
+Rama `feature/F-017-identidad-easy-auth`. Implementación terminada (T0–T14),
+suite en verde, **pendiente de review**. Informe: `progress/impl_F-017.md`.
+
+### ⚠ DECISIÓN PENDIENTE — R14/R15 nombran una columna que nadie escribe
+
+Verificado contra el árbol al implementar T6 (y coincide con lo que encontró
+el agente de F-018 por su cuenta):
+
+- `undo_log.actor` **existe pero no la escribe nadie**: `_record_undo` ni
+  siquiera acepta un actor.
+- Las cuatro operaciones de R14/R15 —los tres borrados y el alta manual—
+  **no generan ninguna fila de `undo_log`**. Solo la generan las ediciones.
+- `crear_parte_manual` **acepta `by=` y lo ignora**: el parámetro no aparece
+  en su cuerpo.
+
+Lo implementado es lo que manda `design.md` §5.2: entregar `_actor(request)`
+por el parámetro `by=`. Para los tres borrados eso llega de verdad a
+`deleted_by`; para el alta manual se queda en la puerta del repositorio.
+
+**No se resolvió por cuenta propia**, y el motivo es que las dos salidas
+posibles se salen del alcance aprobado:
+
+| Salida | Por qué se paró |
+|---|---|
+| Que los borrados escriban en `undo_log` | Hay que **crear** filas de historial que hoy no existen: payload de restauración, `undo_last` sabiendo deshacerlas y entradas nuevas en el widget de deshacer. Es funcionalidad nueva, y un log de acciones es **F-018** |
+| Que `crear_parte_manual` use su `by=` | **No hay dónde escribirlo**: ni `parte_documents` ni `parte_registros` tienen columna `created_by` (solo la tienen `empleado_alias` y `empleado_jornada`). Exigiría **columna nueva** ⇒ cambio de schema en las dos copias gemelas del ORM ⇒ prohibido por la spec y por `CLAUDE.md` |
+
+**Consecuencia que hay que conocer**: el criterio del corte (`autor IS NULL`
+⇔ «anterior a F-017») vale para las columnas de autor que sí se escriben,
+**no para `undo_log.actor`**, que seguirá siempre a `NULL`. Queda dicho así,
+sin redondear, en `docs/referencia/partes-proyecto.md` §5.7 punto 3.
+
+### Verificaciones MANUAL pendientes
+
+- **M1 bis — YA EJECUTADA en T0 (2026-08-20), resultado POSITIVO.** Las cuatro
+  variables `CONTAINER_APP_NAME` / `_REVISION` / `_REPLICA_NAME` / `_HOSTNAME`
+  **existen** en `ca-sv4-front`. La señal A de R5c es un hecho verificado, no
+  un supuesto; no hace falta la alternativa `ENTORNO=produccion`.
+  Comprobado **sin volcar el entorno**, una variable por invocación:
+  `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_NAME"`
+  (ídem con las otras tres). **No usar `printenv` a secas**: vuelca los
+  secretos resueltos desde Key Vault.
+- **M1 — tras desplegar.** Abrir `https://<fqdn de ca-sv4-front>/whoami` con
+  la sesión de Entra iniciada y comprobar tres cosas: `actor` es el correo/UPN
+  de quien mira, `origen` es `cabecera-name` y `entorno` es `desplegado`.
+  Lecturas posibles:
+  - `origen = cabecera-token`: la cabecera `-NAME` no llega y el suplente hace
+    su trabajo. Correcto, pero **anótalo**.
+  - `origen = sin-identidad-desplegado`: Easy Auth no inyecta nada.
+    **Incidente**: la feature funciona (no miente), pero la autenticación del
+    portal está rota. Parar y avisar.
+  - `origen = local` o `entorno = local`: la detección de R5c ha fallado en
+    Azure y el portal estaría firmando filas de producción como locales.
+    **Parar y avisar de inmediato**: es el único fallo de esta feature que
+    ensucia datos. El campo `senal_despliegue` dice qué se buscó.
+- **M2 — tras desplegar.** Aprobar un parte de prueba desde el portal y
+  comprobar en la base `partes`:
+  `SELECT id, approved_by, approved_at_utc FROM parte_documents WHERE approved_at_utc IS NOT NULL ORDER BY approved_at_utc DESC LIMIT 5;`
+- **M3 — tras desplegar.** Borrar una línea de prueba y comprobar:
+  `SELECT created_at_utc, action, actor FROM undo_log ORDER BY id DESC LIMIT 5;`
+  **Ojo**: por lo dicho arriba, `actor` saldrá `NULL` y el borrado **no**
+  generará fila de `undo_log`. La comprobación útil hoy es sobre
+  `parte_registros.deleted_by`.
+- **M4 — antes y después de desplegar.** Que las filas anteriores sigan
+  intactas (R22): el número debe ser **el mismo** las dos veces:
+  `SELECT count(*) FROM parte_documents WHERE approved_at_utc IS NOT NULL AND approved_by IS NULL;`
+
+M2, M3 y M4 necesitan la regla de firewall de `psql-albaranes-rs9k2` que ya
+está pendiente más arriba en este mismo documento.
+
+### Otros pendientes de F-017
+
+- **La fecha del corte la rellena quien despliegue.**
+  `docs/referencia/partes-proyecto.md` §5.7 tiene el hueco marcado como
+  `⛔ PENDIENTE: fecha de despliegue`, y
+  `tests/test_f017_r23_corte_documentado.py` se pondrá **rojo** cuando se
+  cambie, a propósito: obliga a actualizar el test en el mismo trabajo.
+- **`DEFAULT_REVIEWER` cambia de significado, no de nombre**: ya no es «quién
+  firma el portal» sino la etiqueta de la sesión local (`local:<valor>`).
+  Sigue sin estar configurada en Azure y **no hace falta configurarla**.
+- **Nota para F-018** (aviso recibido del coordinador, no aplicado aquí a
+  propósito): si F-018 llama a `_resolver_identidad` más de una vez por
+  petición, saldrán varios WARNING de R5b. Hoy no ocurre —cada endpoint pide
+  el actor una sola vez—, así que memoizar sería resolver un problema que aún
+  no existe. Cuando F-018 lo necesite, son tres líneas en
+  `_resolver_identidad` y no cambia ninguna firma.

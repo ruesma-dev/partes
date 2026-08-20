@@ -136,6 +136,23 @@ mitad duplica el mensaje pero nunca lo pierde.
     reaprobar una línea editada NO actualiza el ERP. Las acciones masivas
     (undo, reasignaciones, borrados por obra/persona, vaciar papelera)
     omiten lo congelado y devuelven el recuento en vez de abortar.
+11. **Identidad del portal (F-017, sv4)**: quién firma una escritura se
+    resuelve en **un único punto**, `_actor(request)` en
+    `interface_adapters/web/app.py`, que delega en las funciones puras de
+    `interface_adapters/web/identidad.py`. Ninguna ruta, plantilla ni
+    repositorio lee `settings.default_reviewer` ni una cabecera de Easy
+    Auth por su cuenta: el autor **se recibe por parámetro** (`by=`,
+    `usuario=`, `approved_by=`, `actor=`), no se averigua — leer una
+    cabecera HTTP es transporte, no dominio. El valor es el principal de
+    Entra normalizado (minúsculas, sin caracteres de control, 120), o un
+    marcador reservado que ningún valor externo puede fabricar: `local:…`
+    en un puesto de desarrollo y `sin-identidad` —con WARNING por
+    petición— si el proceso está desplegado y la cabecera no llega. A
+    partir de F-017, **`NULL` en una columna de autor significa
+    exclusivamente «fila anterior a F-017»**; `GET /whoami` permite
+    comprobar la identidad resuelta sin escribir ninguna fila.
+    `DEFAULT_REVIEWER` sobrevive con otro significado: ya no es «quién
+    firma el portal» sino la etiqueta de la sesión local.
 
 ## Acceso a datos y sistemas externos
 

@@ -500,8 +500,10 @@ Otros detalles de operación:
 - Se apaga entera —página y endpoints— con `JORNADAS_ADMIN_ENABLED=false`.
   Mientras no exista F-008 (roles), puede entrar cualquier usuario
   autenticado del portal, igual que en el reencolado de mensajes poison.
-- `created_by` / `updated_by` llevan hoy `DEFAULT_REVIEWER`, como el resto
-  del portal; el usuario real de Easy Auth es trabajo de **F-017**.
+- `created_by` / `updated_by` llevan el **principal de Easy Auth** de quien
+  hizo el cambio (F-017). Hasta el despliegue de esa feature llevaban `NULL`
+  —no `DEFAULT_REVIEWER`, como decía este documento: esa variable nunca
+  llegó a configurarse en `ca-sv4-front`—. Ver «Corte de auditoría (F-017)».
 
 ### 5.5 `undo_log` — historial para DESHACER del portal
 
@@ -514,7 +516,7 @@ copias del ORM son gemelas y la base es una.
 | `action`, `description` | qué se hizo (reasignar, casar, editar horas/fecha/obra…) y cómo se le enseña al usuario |
 | `payload` | estado ANTERIOR de las filas afectadas (registros/documento/alias) en JSON: es lo que permite restaurarlas |
 | `undone` | si ya se deshizo |
-| `actor` | quién lo hizo |
+| `actor` | quién lo hizo. **Ojo: hoy no la escribe nadie** — ver «Corte de auditoría (F-017)», punto 3 |
 
 ### 5.6 Datos que NO están en esta BBDD
 
@@ -525,6 +527,70 @@ copias del ORM son gemelas y la base es una.
 - `sesame-api` (festivos/jornada, futuro) no persiste nada.
 
 ---
+
+### 5.7 Corte de auditoría (F-017)
+
+**Fecha de despliegue: ⛔ PENDIENTE: fecha de despliegue** (la rellena quien
+despliegue; hasta entonces el corte no ha ocurrido todavía).
+
+Hasta F-017, las escrituras del portal se firmaban con la variable
+`DEFAULT_REVIEWER`, que **nunca se configuró** en `ca-sv4-front`. Consecuencia
+comprobada contra la base real el 2026-08-20: **la auditoría del portal estaba
+en blanco desde el primer despliegue**. No había un autor genérico que
+convivir con los reales; había ausencia.
+
+Desde F-017, cada escritura del portal se firma con el **principal de Easy
+Auth** de quien hizo la petición (`X-MS-CLIENT-PRINCIPAL-NAME`, o el claim
+preferido del token si aquélla no llega), normalizado a minúsculas y truncado
+a 120 caracteres.
+
+**El criterio del corte, que es lo que hay que recordar dentro de un año:**
+
+> **`autor IS NULL` ⇔ «fila anterior al despliegue de F-017».**
+
+Es exacto y no necesita que nadie haya guardado la fecha en ninguna tabla:
+desde F-017 el portal **siempre** resuelve un autor no vacío, así que ninguna
+fila nueva puede quedar en `NULL`. Vale para las columnas de autor de
+`parte_documents`, `parte_registros`, `empleado_alias` y `empleado_jornada`.
+
+**Las filas anteriores no se han tocado**: ni migración, ni `UPDATE`, ni valor
+inventado. Rellenar esos `NULL` con cualquier nombre sería inventar una firma,
+que no es migrar sino falsificar una auditoría. `NULL` ya dice la verdad.
+
+Tres cosas que conviene saber al leer estos valores:
+
+1. **`local:…` no es una persona.** Es una sesión de desarrollo: el portal
+   arrancado en un puesto local, sin Easy Auth delante, escribiendo contra
+   esta misma base. `local:<DEFAULT_REVIEWER>` si esa variable está puesta en
+   ese puesto, o `local:sin-identidad` si no.
+2. **`sin-identidad` (sin prefijo) es un incidente.** Significa que el portal
+   estaba **desplegado** y la petición llegó **sin** cabecera de Easy Auth:
+   la autenticación no está inyectando la identidad. Cada caso deja además un
+   WARNING en el log. Si aparece en la base, hay que mirar la autenticación
+   del portal, no la fila.
+3. **`undo_log.actor` sigue en `NULL`, y el criterio del corte NO le aplica.**
+   La columna existe desde F-010 pero **no la escribe nadie**: las
+   operaciones que F-017 firma (borrados y alta manual) no generan filas de
+   `undo_log`, y las que sí las generan (ediciones) nunca han pasado un
+   actor. Es la única de las columnas de autor que no participa del corte;
+   arreglarlo es trabajo de **F-018**, que es quien se ocupa del log de
+   acciones.
+
+Para comprobar el corte en la base:
+
+```sql
+-- Filas anteriores a F-017 (deben mantener el mismo recuento para siempre)
+SELECT count(*) FROM parte_documents
+ WHERE approved_at_utc IS NOT NULL AND approved_by IS NULL;
+
+-- Quién ha firmado desde el corte
+SELECT approved_by, count(*) FROM parte_documents
+ WHERE approved_by IS NOT NULL GROUP BY approved_by ORDER BY 2 DESC;
+```
+
+Para ver qué identidad está resolviendo el portal **sin escribir ninguna
+fila**, está `GET /whoami`: devuelve el actor, por qué rama salió, si el
+proceso se considera desplegado y por qué señal.
 
 ## 6. Recursos de Azure
 
