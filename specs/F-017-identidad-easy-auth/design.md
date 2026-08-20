@@ -118,35 +118,103 @@ uso que lo justifique.
 
 ---
 
-## 4. El fallback de desarrollo local
+## 4. El fallback cuando no llega la cabecera
 
 En local **no hay Easy Auth**: no hay sidecar, no hay cabeceras. Y esto no es
 teórico — el humano arranca sv4 en local **contra el PostgreSQL real**
 (así se hicieron las verificaciones del 2026-08-20). Es decir: **una sesión
 local puede escribir filas en la base de producción**.
 
-De ahí el diseño:
+> **Enmienda del humano (2026-08-20), incorporada.** La primera versión de
+> esta sección disparaba el fallback por **ausencia de cabecera**, sin mirar
+> dónde corría el proceso. Defecto real: si Easy Auth dejara de inyectar la
+> cabecera en Azure —mal configurado, una ruta excluida, un cambio de
+> plataforma—, el portal escribiría `local:sin-identidad` **en producción**.
+> Eso no es «honesto y evidente»: **afirma algo falso**, que la fila vino de
+> una sesión local. Un dato de auditoría que miente sobre su origen es peor
+> que uno vacío. Y encima taparía un incidente de autenticación en una
+> columna, en silencio. Los dos casos van separados.
 
-```
-X-MS-CLIENT-PRINCIPAL-NAME  →  "nombre.apellido@dominio"      (origen: cabecera-name)
-X-MS-CLIENT-PRINCIPAL       →  "nombre.apellido@dominio"      (origen: cabecera-token)
-(ninguna)                   →  "local:<DEFAULT_REVIEWER>"     (origen: local)
-(ninguna, y sin variable)   →  "local:sin-identidad"          (origen: local)
-```
+Tabla de resolución completa:
 
-**Decisión DA4 — el fallback es un valor MARCADO, no `NULL` y no un nombre
-suelto.** Tres razones:
+| Cabeceras | Entorno | Actor | `origen` | Log |
+|---|---|---|---|---|
+| `…-NAME` con valor | cualquiera | el principal normalizado | `cabecera-name` | — |
+| solo `X-MS-CLIENT-PRINCIPAL` | cualquiera | claim preferido normalizado | `cabecera-token` | — |
+| ninguna | **no desplegado** | `local:<DEFAULT_REVIEWER>` o `local:sin-identidad` | `local` | — |
+| ninguna | **desplegado** | **`sin-identidad`** (sin prefijo) | `sin-identidad-desplegado` | **WARNING por petición** |
+| reservada (invade el espacio de nombres) | cualquiera | se descarta ⇒ fila anterior según entorno | `local` / `sin-identidad-desplegado` | WARNING |
 
-1. **No puede confundirse con un usuario real.** Un UPN de Entra **no admite
-   el carácter `:`**. El prefijo `local:` es, por tanto, un espacio de nombres
-   que ninguna identidad real puede ocupar. Y R6 cierra la puerta por el otro
-   lado: un valor que llegue por cabecera empezando por `local:` se descarta.
-2. **No puede confundirse con «no se sabe».** `NULL` ya tiene dueño: las filas
-   anteriores al corte (R7, R22). Si el desarrollo local también escribiera
-   `NULL`, se perdería la única propiedad limpia que esta feature regala.
-3. **Sigue siendo útil.** `local:pgris` dice quién y desde dónde. Con
-   `DEFAULT_REVIEWER` sin configurar —que es el estado real hoy—, dice
-   `local:sin-identidad`: honesto y evidente.
+En los cuatro casos **la operación se completa**. Ese principio viene de F-016
+y no lo toca la enmienda: no saber quién fue no es motivo para perder el
+cambio. Lo que cambia es **el valor** y **el aviso**.
+
+**Decisión DA4 (enmendada) — el fallback tiene DOS ramas, y solo la de
+desarrollo lleva el prefijo `local:`.**
+
+1. **Ninguna rama puede confundirse con un usuario real**, y no por la forma
+   del texto sino **por construcción**: R6 descarta cualquier valor que llegue
+   por cabecera invadiendo el espacio reservado (`local:*` o exactamente
+   `sin-identidad`). Los valores reservados **solo puede producirlos el
+   resolutor**. Como refuerzo, ni uno ni otro tienen forma de UPN: `:` no es
+   un carácter válido en un UPN de Entra, y `sin-identidad` no lleva `@`.
+2. **Ninguna rama puede confundirse con «no se sabe».** `NULL` ya tiene
+   dueño: las filas anteriores al corte (R7, R22). Ni `local:…` ni
+   `sin-identidad` son `NULL`, así que el criterio del corte sigue siendo
+   exacto.
+3. **`local:` afirma algo, y por eso hay que merecerlo.** Decir «esto lo hizo
+   una sesión de desarrollo» es una afirmación sobre el origen del dato. Solo
+   se escribe cuando el proceso **ha comprobado** que no está desplegado.
+   `sin-identidad` no afirma nada sobre el origen: dice exactamente lo que
+   pasó, que la petición llegó sin identidad.
+4. **El caso desplegado es un incidente y se trata como tal**: WARNING por
+   petición (no una nota de arranque), para que se vea en Log Analytics con el
+   mismo filtro con el que ya se leen los arranques.
+
+### 4.1 Cómo se sabe si el proceso está desplegado (R5c)
+
+Sin variable nueva y sin tocar Azure, como pide la enmienda. Dos señales, en
+`OR`:
+
+**Señal A — el entorno del proceso.** Azure Container Apps inyecta en todos
+sus contenedores `CONTAINER_APP_NAME`, `CONTAINER_APP_REVISION`,
+`CONTAINER_APP_REPLICA_NAME` y `CONTAINER_APP_HOSTNAME`. En un puesto local no
+existen. Presencia de cualquiera ⇒ desplegado.
+
+> **⚠ SUPUESTO NO VERIFICADO EN ESTE REPOSITORIO.** Comprobado el 2026-08-20:
+> **ningún servicio del monorepo lee esas variables** y **ningún script de
+> `infra/` las declara** (`grep` sobre `*.py` y `*.ps1`). Es comportamiento
+> documentado de la plataforma, no un hecho verificado en este despliegue. Por
+> eso: (a) la verificación **M1 bis** de `requirements.md` §4 se puede ejecutar
+> **antes** de implementar, con `az containerapp exec … printenv`; (b) `R9`
+> obliga a loguear al arranque **qué señal se encontró**; y (c) existe la
+> señal B.
+
+**Señal B — la evidencia acumulada.** Si el proceso ya ha atendido **alguna**
+petición con cabecera de Easy Auth desde su arranque, está detrás de Easy
+Auth: eso ya no es un supuesto, es un hecho observado. Un `bool` en
+`app.state`, puesto a `True` la primera vez que se ve una cabecera.
+
+**Por qué la disyunción y no solo A.** El fallo de detección es
+**asimétrico**, y conviene verlo escrito:
+
+| Fallo | Consecuencia | Gravedad |
+|---|---|---|
+| Creerse **local** estando desplegado (A no llega) | Se escriben filas de producción firmadas `local:…`: **exactamente la mentira que la enmienda viene a evitar** | **Grave: ensucia datos** |
+| Creerse **desplegado** estando en local (alguien exporta la variable) | Se escribe `sin-identidad` y salen WARNINGs en un puesto de desarrollo | Inocua |
+
+La señal B solo puede mover el resultado hacia el lado seguro, nunca hacia el
+peligroso: no puede convertir un proceso local en «desplegado» salvo que
+alguien fabrique cabeceras de Easy Auth a mano contra su propio portal, y el
+resultado de hacerlo sería `sin-identidad`, que es inocuo. Cuesta tres líneas
+y cierra el único agujero de A.
+
+**Alternativa descartada**: una variable `ENTORNO=produccion` en el Container
+App. Sería la señal más fiable, pero obliga a tocar Azure —la enmienda lo
+excluye explícitamente— y a mantener sincronizado un valor que la plataforma
+ya sabe. Si M1 bis demostrara que A no existe en este entorno, esta es la
+propuesta de repuesto y hay que consultarla con el humano antes de
+implementar, no resolverla por cuenta propia.
 
 **Decisión DA5 — `DEFAULT_REVIEWER` se queda, con el significado cambiado.**
 Ya no es «quién firma el portal» sino «cómo se etiqueta la sesión local». No
@@ -166,7 +234,8 @@ el docstring de `identidad.py` y `azure-apps/partes.md`.
 | Fichero | Capa | Qué es |
 |---|---|---|
 | `services/partes-front/interface_adapters/web/identidad.py` | `interface_adapters` (adaptador web) | **Función pura** que traduce cabeceras HTTP a un actor. Sin FastAPI, sin `Settings`, sin I/O: entra un `Mapping[str, str]` y una etiqueta de fallback, sale `(actor, origen)`. Testeable sin levantar la app. |
-| `services/partes-front/tests/test_f017_identidad.py` | tests | R1–R9, R20, R21 |
+| `services/partes-front/tests/test_f017_identidad.py` | tests | R1–R9 (menos R5c), R20, R21 |
+| `services/partes-front/tests/test_f017_entorno.py` | tests | R5c: las dos señales de despliegue, las dos direcciones del fallo y la asimetría de §4.1 |
 | `services/partes-front/tests/test_f017_punto_unico.py` | tests | R10, R11 |
 | `services/partes-front/tests/test_f017_endpoints_firmados.py` | tests | R12–R15 |
 | `services/partes-front/tests/test_f017_aprobacion_firmada.py` | tests | R16–R18 |
@@ -188,7 +257,7 @@ de producción que cambia. Doce puntos:
 
 | # | Función / ruta (línea el 2026-08-20) | Qué cambia |
 |---|---|---|
-| 0 | `_actor` (477) | **Solo su interior** y su docstring, como prometió F-016. Firma **intacta**: `def _actor(request: Request) -> str \| None`. Pasa a llamar a `identidad.actor_desde_cabeceras(request.headers, fallback=settings.default_reviewer)` |
+| 0 | `_actor` (477) | **Solo su interior** y su docstring, como prometió F-016. Firma **intacta**: `def _actor(request: Request) -> str \| None`. Delega en `_resolver_identidad` (§7), función nueva **junto** a él. Y `build_app` inicializa `app.state.easy_auth_visto = False` |
 | 1 | `_payload_registro` (1654 → campo `usuario`, 1675) | Nuevo parámetro `*, actor: str \| None`. Sus **dos** llamadores ya tienen `request` |
 | 2 | `_trazar` (1758 → `usuario=`, 1769) | Nuevo parámetro `*, actor: str \| None` |
 | 3 | `aprobar_ejecutar` (1804, log de forzado) | `settings.default_reviewer or "(sin usuario)"` → el actor (que nunca es vacío, R7; el `or` se puede quitar) |
@@ -311,7 +380,16 @@ CABECERA_ID = "X-MS-CLIENT-PRINCIPAL-ID"     # solo para /whoami (R21)
 
 PREFIJO_LOCAL = "local:"
 ACTOR_LOCAL_SIN_NOMBRE = "local:sin-identidad"
+ACTOR_SIN_IDENTIDAD = "sin-identidad"        # R5b: desplegado y sin cabecera
 ACTOR_MAX_LEN = 120          # la columna mas estrecha: undo_log.actor
+
+#: R5c, senal A. Variables que Azure Container Apps inyecta en todos sus
+#: contenedores y que en un puesto local no existen. SUPUESTO DE PLATAFORMA:
+#: verificar con M1 bis (design.md §4.1) antes de fiarse.
+VARIABLES_DESPLIEGUE: tuple[str, ...] = (
+    "CONTAINER_APP_NAME", "CONTAINER_APP_REVISION",
+    "CONTAINER_APP_REPLICA_NAME", "CONTAINER_APP_HOSTNAME",
+)
 
 CLAIMS_PREFERIDOS: tuple[str, ...] = (
     "preferred_username", "upn", "email", "emails", "name",
@@ -322,36 +400,82 @@ def normalizar_actor(valor: str | None) -> str | None:
     """R4: recorta, quita caracteres de control, minusculas, 120."""
 
 
+def es_actor_reservado(valor: str | None) -> bool:
+    """R6: `local:*` o exactamente `sin-identidad`, ya normalizado."""
+
+
 def actor_desde_token(token: str | None) -> str | None:
     """R2/R3: base64 -> JSON -> primer claim preferido. NUNCA lanza."""
 
 
+def senal_de_despliegue(
+    entorno: Mapping[str, str], *, cabecera_vista: bool = False,
+) -> str | None:
+    """R5c: devuelve el NOMBRE de la senal que prueba el despliegue.
+
+    El nombre de la variable encontrada (senal A), `'cabecera-vista'`
+    (senal B) o None si no hay ninguna. Devolver el nombre y no un bool
+    es lo que permite a R9 y a /whoami decir POR QUE se creyo desplegado.
+    """
+
+
 def actor_desde_cabeceras(
     cabeceras: Mapping[str, str], *, fallback: str | None,
+    desplegado: bool,
 ) -> tuple[str, str]:
-    """R1/R2/R5/R6/R7: devuelve (actor, origen).
+    """R1/R2/R5/R5b/R6/R7: devuelve (actor, origen).
 
-    `origen` es 'cabecera-name', 'cabecera-token' o 'local'.
-    El actor devuelto NUNCA es vacio ni None.
+    `origen`: 'cabecera-name' | 'cabecera-token' | 'local' |
+    'sin-identidad-desplegado'. El actor NUNCA es vacio ni None.
     """
 ```
 
-`actor_desde_cabeceras` recibe un `Mapping` (no un `Request`) a propósito: así
-la función es pura, no importa FastAPI y se prueba sin levantar la app.
+`actor_desde_cabeceras` recibe un `Mapping` (no un `Request`) y un `bool`
+(no lee `os.environ`) a propósito: así la función es **pura** —no importa
+FastAPI, no toca el proceso— y las dos decisiones se prueban por separado.
 `request.headers` de Starlette ya es un mapping insensible a mayúsculas.
+Quien lee el entorno de verdad es `senal_de_despliegue`, y también recibe el
+`Mapping`: en los tests entra un diccionario, no `monkeypatch.setenv`.
 
 ### `_actor` dentro de `app.py` (firma intacta)
 
 ```python
+def _resolver_identidad(request: Request) -> tuple[str, str]:
+    """Resuelve (actor, origen) y mantiene la senal B viva (R5c).
+
+    Vive junto a `_actor` y NO lo sustituye: `_actor` es la firma que
+    consumen los once puntos y la que vigila el guardian de F-016.
+    """
+    senal = senal_de_despliegue(
+        os.environ, cabecera_vista=app.state.easy_auth_visto)
+    actor, origen = actor_desde_cabeceras(
+        request.headers, fallback=settings.default_reviewer,
+        desplegado=senal is not None)
+    if origen.startswith("cabecera"):
+        app.state.easy_auth_visto = True          # senal B
+    elif origen == "sin-identidad-desplegado":
+        logger.warning(
+            "[identidad] peticion SIN identidad de Easy Auth estando "
+            "desplegado (senal=%s, ruta=%s): se sella '%s'. Revisa la "
+            "autenticacion del portal.", senal, request.url.path, actor)
+    return actor, origen
+
+
 def _actor(request: Request) -> str | None:
     """Quien firma el cambio. PUNTO UNICO de identidad del portal (R10).
 
     F-016 dejo escrito que aqui solo cambiaria el INTERIOR: asi ha sido.
     """
-    actor, _origen = actor_desde_cabeceras(
-        request.headers, fallback=settings.default_reviewer)
+    actor, _origen = _resolver_identidad(request)
     return actor
 ```
+
+`app.state.easy_auth_visto` se inicializa a `False` en `build_app`, junto a
+`app.state.tables_ready`. Es por proceso, no compartido entre réplicas: sv4
+corre con `--min-replicas 1 --max-replicas 2`, así que como mucho una segunda
+réplica tarda una petición autenticada en «aprender» lo mismo. Irrelevante,
+porque la señal A ya la tiene resuelta desde el arranque; B solo existe por si
+A falla.
 
 Se mantiene el tipo de retorno `str | None` aunque hoy nunca devuelva `None`
 (R7): es el tipo que aceptan las siete columnas y los repositorios, y estrechar
@@ -363,11 +487,14 @@ que compara el texto exacto `def _actor(request: Request)`.
 ```python
 @app.get("/whoami")
 def whoami(request: Request) -> dict[str, Any]:
-    actor, origen = actor_desde_cabeceras(
-        request.headers, fallback=settings.default_reviewer)
+    senal = senal_de_despliegue(
+        os.environ, cabecera_vista=app.state.easy_auth_visto)
+    actor, origen = _resolver_identidad(request)
     return {
         "actor": actor,
-        "origen": origen,
+        "origen": origen,                  # la RAMA por la que salio
+        "entorno": "desplegado" if senal else "local",
+        "senal_despliegue": senal,         # POR QUE se cree desplegado
         "cabeceras_easy_auth": [           # NOMBRES, nunca valores
             c for c in (CABECERA_NOMBRE, CABECERA_TOKEN, CABECERA_ID)
             if c.lower() in request.headers
@@ -378,10 +505,16 @@ def whoami(request: Request) -> dict[str, Any]:
 **Por qué existe `/whoami` y por qué es tan aburrida.** Sin ella, la
 verificación M1 obliga a aprobar un parte de verdad y a mirar la base — y si
 sale mal, ya has escrito la fila. Con ella, el humano abre una URL y ve en un
-segundo si la cabecera llega y cuál. Devuelve **la identidad de quien
-pregunta y nada más**: ni el token, ni los claims, ni los valores de las
-cabeceras, ni ningún dato de otro usuario. Si el humano la considera de más,
-es la pieza más fácil de quitar de toda la feature (una ruta y un test).
+segundo si la cabecera llega, cuál, y **por qué rama salió el actor**.
+Devuelve **la identidad de quien pregunta y nada más**: ni el token, ni los
+claims, ni los valores de las cabeceras, ni ningún dato de otro usuario.
+
+Con la enmienda, `/whoami` gana el papel que antes no tenía: es **el único
+sitio donde se puede comprobar la detección de R5c sin escribir una fila**.
+`entorno` y `senal_despliegue` son precisamente lo que M1 mira para descartar
+el fallo grave (creerse local estando desplegado). Los campos `entorno` y
+`senal_despliegue` no revelan nada sensible: el nombre de una variable de
+plataforma, no su valor.
 
 ---
 
@@ -454,6 +587,19 @@ cliente.post("/documents/abc/approve", headers=_como("ana@ejemplo.invalid"))
 
 Y el token, con `base64.b64encode(json.dumps({...}).encode())`.
 
+**El entorno también se fabrica, no se toca**: `senal_de_despliegue` recibe un
+`Mapping`, así que los tests de R5c le pasan `{"CONTAINER_APP_NAME": "ca-sv4-front"}`
+o `{}` directamente. Para los tests que necesitan la app entera «desplegada»,
+`monkeypatch.setenv("CONTAINER_APP_NAME", "ca-sv4-front-test")`, que se
+deshace solo al acabar el test.
+
+**Un test que hay que escribir aunque incomode** (R5b, fase RED): con el
+entorno marcado como desplegado y **sin** cabecera, aprobar un parte y
+comprobar las tres cosas a la vez — que `approved_by` es `sin-identidad`, que
+**no** empieza por `local:`, y que el parte **queda aprobado igualmente**. Es
+el requisito que la enmienda añade y el que un implementer con prisa se
+saltaría por parecer un caso raro.
+
 **Datos de prueba**: dominio `ejemplo.invalid` (RFC 2606) y nombres
 inventados. **En la spec, en los tests y en los commits no entra ni un correo
 real de una persona, ni un DNI, ni una IP** (regla dura de `CLAUDE.md`).
@@ -470,14 +616,16 @@ son las verificaciones **M1–M4** de `requirements.md` §4.
 | **DA1** | ¿`-NAME` o el token base64? | `-NAME` manda, token de suplente. §2 |
 | **DA2** | ¿UPN u `oid`? | UPN. El `oid` es ilegible y no hay columna; identidad inmutable ⇒ F-018. §2 |
 | **DA3** | ¿Se normaliza a minúsculas? | Sí: los UPN son insensibles a mayúsculas y si no, `GROUP BY` miente. §2 |
-| **DA4** | ¿Qué se escribe en local? | `local:<algo>`, marcado y no confundible: `:` no es válido en un UPN. §4 |
+| **DA4** | ¿Qué se escribe cuando no llega la cabecera? | **Dos ramas** (enmienda del humano, 2026-08-20): sin desplegar, `local:<algo>`; **desplegado, `sin-identidad` + WARNING por petición**. Escribir `local:` en producción sería afirmar un origen falso, y taparía una caída de la autenticación. §4 |
+| **DA4 bis** | ¿Cómo se sabe si está desplegado, sin variable nueva ni tocar Azure? | `CONTAINER_APP_*` presente **o** haber visto ya una cabecera de Easy Auth desde el arranque. §4.1. **Supuesto de plataforma sin verificar en este repo** ⇒ M1 bis |
 | **DA5** | ¿Se elimina `DEFAULT_REVIEWER`? | No: se queda con significado nuevo (etiqueta de sesión local). Renombrarla obligaría a tocar Azure para nada. §4 |
 | **DA6** | ¿Se inyecta o se parchea el helper en el test de F-016? | Ninguna de las dos: **se fabrica la cabecera**. `_actor` es una clausura, no hay nada que parchear, y el camino a probar es cabecera→columna. §6 |
 | **DA7** | ¿Y las filas que escribe **sv3** (ingesta automática)? | **No se tocan.** Ahí el autor no es una persona. Si en el futuro se quiere distinguir el pipeline de un humano, el sitio es F-018, no esta feature |
 | **DA8** | ¿`/whoami` es alcance de más? | Se propone porque hace verificable M1 sin escribir en la base. Es la pieza más fácil de retirar si el humano dice que no |
 | **R1** | Añadir `request: Request` a cinco firmas rompe algún contrato HTTP | **No**: FastAPI inyecta `Request` por anotación, sin tocar query/path/body. Lo cubren los tests de esas rutas, que ya existen |
 | **R2** | Que `-NAME` traiga el *display name* en vez del UPN | Detectable con **M1** en un minuto. No es un fallo (identifica igual) y, si molesta, se arregla cambiando el orden de preferencia dentro de una función pura |
-| **R3** | Que el sidecar de Container Apps no inyecte las cabeceras | Sería un `local:sin-identidad` en producción, visible al instante en `/whoami` (M1) y en la primera fila. **No rompe nada**: la operación se completa igual (R7) |
+| **R3** | Que el sidecar de Container Apps no inyecte las cabeceras | Con la enmienda, se sella `sin-identidad` y sale un **WARNING por petición** (R5b): el incidente se ve en Log Analytics en vez de disfrazarse de sesión local. Visible también en `/whoami` (M1). **No rompe nada**: la operación se completa igual (R7) |
+| **R6** | Que `CONTAINER_APP_*` no exista en este entorno y la señal A no valga | **Es el riesgo nuevo que introduce la enmienda**, y es el único que ensucia datos (§4.1). Mitigado por tres vías: **M1 bis** lo comprueba *antes* de implementar, **R9** lo loguea al arranque y la **señal B** lo corrige en cuanto entra el primer usuario autenticado. Si M1 bis sale negativo ⇒ **parar y consultar** la alternativa `ENTORNO=produccion` |
 | **R4** | Rojos colaterales en la suite de sv4 | **T1** los inventaria antes de tocar nada. §6 |
 | **R5** | Que aparezca la tentación de meter roles «ya que estamos» | `requirements.md` §0 y §2. Un `403` nuevo en el diff es motivo de rechazo |
 

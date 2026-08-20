@@ -213,6 +213,37 @@ desplegar:
   cabecera, nunca valores) para poder verificar en Azure sin aprobar un parte
   de verdad. Es la pieza más fácil de quitar si no la quieres.
 
+### Enmienda a DA4, aprobada por el humano el 2026-08-20
+
+El fallback original se disparaba por **ausencia de cabecera**, sin mirar dónde
+corría el proceso: si Easy Auth dejase de inyectar la cabecera en Azure, el
+portal escribiría `local:sin-identidad` **en producción**, afirmando un origen
+falso. Un dato de auditoría que miente sobre su origen es peor que uno vacío.
+Ahora son dos ramas: **R5** (no desplegado ⇒ `local:<algo>`) y **R5b**
+(desplegado ⇒ `sin-identidad`, sin prefijo, **más WARNING por petición**). La
+operación se completa en las dos: no saber quién fue no es motivo para perder
+el cambio. **R6** amplía el espacio de nombres reservado para cubrir también
+`sin-identidad`, y la garantía es **estructural** —esos valores solo los
+produce el resolutor— en vez de una apuesta sobre si el valor lleva `@`.
+
+**La pega que el propio spec-author encontró, y es buena**: `CONTAINER_APP_*`
+es comportamiento documentado de la plataforma, pero **aquí no está
+verificado**: ningún servicio del monorepo lee esas variables y ningún script
+de `infra/` las declara. Y el fallo es **asimétrico** — creerse desplegado en
+local es inocuo; creerse local estando desplegado escribe `local:…` en
+producción, que es justo la mentira que la enmienda evita. Por eso añadió:
+
+- **T0, puerta BLOQUEANTE**: comprobar las variables en el contenedor antes de
+  implementar. Si no aparecen ⇒ `blocked` y se consulta la alternativa
+  (`ENTORNO=produccion`, que sí obligaría a tocar Azure).
+- Una **segunda señal en OR**: haber visto ya una cabecera de Easy Auth desde
+  el arranque. Tres líneas, y solo puede mover el resultado al lado seguro.
+
+`senal_de_despliegue` recibe el entorno como `Mapping` (función pura, sin
+`os.environ` dentro). `/whoami` devuelve ahora `origen` con las cuatro ramas,
+más `entorno` y `senal_despliegue`. R5b entra en la lista de fase RED, con
+fichero de tests propio.
+
 **Ambigüedad real, honesta**: nadie ha verificado nunca que Azure inyecte
 `-NAME` con el UPN —hay cero referencias a `X-MS-CLIENT-PRINCIPAL` en el
 repositorio—, así que podría llegar el display name. No rompe nada, pero **el
@@ -311,11 +342,12 @@ argumentos en `design.md` §11):
 | DA1 | Manda `X-MS-CLIENT-PRINCIPAL-NAME`; el token base64 es el suplente y **nunca** puede lanzar |
 | DA2 | Se guarda el **UPN**, no el `oid`: la columna la leen personas (`parte_detail.html`, `admin_jornadas.html`) y no hay dónde meter el `oid`. Identidad inmutable ⇒ F-018 |
 | DA3 | El actor se normaliza a **minúsculas** (los UPN son insensibles a mayúsculas; si no, un `GROUP BY` cuenta dos personas donde hay una) |
-| DA4 | Fallback local **marcado**: `local:<DEFAULT_REVIEWER>` o `local:sin-identidad`. `:` no es válido en un UPN ⇒ no se puede confundir con nadie real, ni con el `NULL` histórico. **Importante**: el humano arranca sv4 en local contra el PostgreSQL real, así que el fallback SÍ puede acabar en la base buena |
+| DA4 | **ENMENDADA por el humano el 2026-08-20 y ya incorporada.** El fallback tiene **dos ramas**: sin desplegar ⇒ `local:<DEFAULT_REVIEWER>` / `local:sin-identidad`; **desplegado y sin cabecera ⇒ `sin-identidad`, sin prefijo, con WARNING por petición**. Motivo: escribir `local:` en producción no sería «honesto», sería **afirmar un origen falso** y taparía una caída de la autenticación en una columna. La operación se completa igual en las dos ramas |
+| DA4 bis | Se distingue el entorno **sin variable nueva ni tocar Azure**: `CONTAINER_APP_*` presente **o** haber visto ya una cabecera de Easy Auth desde el arranque (segunda señal, red de seguridad de la primera). ⚠ **Supuesto de plataforma NO verificado en este repo**: nadie lee esas variables hoy ⇒ **T0 es una puerta** que lo comprueba con `az containerapp exec … printenv` **antes** de implementar, y si no aparecen, `blocked` y se consulta |
 | DA5 | `DEFAULT_REVIEWER` se queda con el nombre, cambia el significado: pasa a ser la etiqueta de la sesión local. Renombrarla obligaría a tocar Azure para nada |
 | DA6 | El test `test_f016_r13_auditoria` **se pone rojo a propósito** (T4, es la evidencia de que `_actor` manda) y se repara **fabricando la cabecera**, no parcheando el helper: `_actor` es una clausura dentro de `build_app` y no hay nada que `monkeypatch` alcance |
 | DA7 | Las filas que escribe **sv3** (ingesta automática) NO se tocan: ahí el autor es el pipeline, no una persona |
-| DA8 | Se añade `GET /whoami` (actor + origen + **nombres** de cabeceras presentes, nunca valores) para que la verificación en Azure no obligue a aprobar un parte de verdad. Es la pieza más fácil de retirar si el humano la ve de más |
+| DA8 | **Aprobado por el humano.** `GET /whoami` devuelve actor, **por qué rama salió** (`cabecera-name` / `cabecera-token` / `local` / `sin-identidad-desplegado`), `entorno`, la señal que lo prueba y los **nombres** de las cabeceras presentes (nunca valores). Con la enmienda gana papel: es el único sitio donde se comprueba la detección de entorno **sin escribir una fila** |
 
 **Filas históricas**: no se reescribe ni una (R22). Con H1 la decisión sale
 más barata de lo previsto — no hay genéricos que traducir, hay `NULL`, que ya
@@ -326,6 +358,16 @@ documenta en `docs/referencia/partes-proyecto.md` (T10) con un hueco
 
 **Ambigüedades encontradas que conviene que el humano sepa:**
 
+0. **La enmienda mete un riesgo nuevo, y es el único de la feature que
+   ensucia datos**: si en Azure no existieran las `CONTAINER_APP_*`, el
+   portal se creería local y firmaría filas de producción como `local:…` —
+   justo la mentira que la enmienda quiere evitar. El fallo es asimétrico
+   (creerse desplegado en local es inocuo: `sin-identidad` + WARNINGs en un
+   puesto de trabajo). Mitigado por tres vías: **T0** lo comprueba antes de
+   implementar (y si falla, `blocked`), el arranque lo loguea, y la segunda
+   señal lo corrige en cuanto entra el primer usuario autenticado. Aun así,
+   el humano debe saber que la detección de entorno pasa a ser **una pieza
+   con peso en la auditoría** que antes no existía.
 1. **No está verificado que Azure inyecte `-NAME`** con el UPN: en local no
    existe la cabecera y en el repositorio no hay ni una referencia a
    `X-MS-CLIENT-PRINCIPAL`. Puede llegar el *display name*. No es un fallo

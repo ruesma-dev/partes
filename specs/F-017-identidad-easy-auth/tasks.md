@@ -7,9 +7,15 @@ lleva F-015 y F-016 dentro). Un commit **local** por tarea, mensaje
 `git push` y sin PR: eso lo hace el humano.
 
 Rigor **`estandar`** ⇒ **fase RED** con la traza real pegada en
-`progress/impl_F-017.md` para **R1, R5, R10, R12 y R16**; **cobertura** de las
-líneas cambiadas ≥ 80 %; **campaña de mutación** con los supervivientes
+`progress/impl_F-017.md` para **R1, R5, R5b, R10, R12 y R16**; **cobertura**
+de las líneas cambiadas ≥ 80 %; **campaña de mutación** con los supervivientes
 analizados uno a uno.
+
+> **Enmienda del humano del 2026-08-20 ya incorporada** (`design.md` §4 y
+> §4.1): el fallback tiene **dos ramas**. Sin desplegar, `local:<algo>`;
+> **desplegado y sin cabecera, `sin-identidad` + WARNING**. Escribir `local:`
+> en producción sería afirmar un origen falso y taparía una caída de la
+> autenticación. Afecta a **T0, T2, T3, T7** y añade **T3 bis**.
 
 Reglas que no se negocian durante la ejecución:
 
@@ -27,6 +33,20 @@ Reglas que no se negocian durante la ejecución:
 
 ---
 
+- [ ] **T0 (PUERTA, antes de escribir nada): confirmar la señal de despliegue
+      (R5c).** Ejecutar la verificación **M1 bis** de `requirements.md` §4 y
+      pegar la salida real en `progress/impl_F-017.md`:
+      `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv" | Select-String CONTAINER_APP`
+      Hoy **ningún servicio del monorepo lee esas variables** y ningún script
+      de `infra/` las declara (comprobado el 2026-08-20): es un supuesto de
+      plataforma, no un hecho verificado aquí.
+      **SI NO APARECE NINGUNA `CONTAINER_APP_*`: PARAR.** No improvisar otra
+      señal: marcar la feature `blocked`, anotarlo en `progress/current.md` y
+      consultar al humano la alternativa `ENTORNO=produccion` de
+      `design.md` §4.1 (que sí obliga a tocar Azure).
+      Verificación: MANUAL (humano) — la lista de variables encontradas, con
+      su nombre y **sin sus valores**, pegada en el informe.
+
 - [ ] **T1: Inventario de rojos.** Con la rama recién creada y **sin tocar
       nada**, ejecutar la suite de sv4 y dejar constancia del punto de
       partida en `progress/impl_F-017.md`; después, listar por lectura los
@@ -37,25 +57,46 @@ Reglas que no se negocian durante la ejecución:
       recuento real y la lista de tests candidatos.
 
 - [ ] **T2: Fase RED de la resolución de identidad.** Escribir
-      `services/partes-front/tests/test_f017_identidad.py` con R1–R9, R20 y
-      R21 **antes** de que exista `identidad.py`, y pegar la traza real del
-      fallo en `progress/impl_F-017.md`.
-      Verificación: `python -m pytest services/partes-front/tests/test_f017_identidad.py -q`
-      falla con `ModuleNotFoundError`/`AttributeError`, y la salida está
-      pegada en el informe.
+      `services/partes-front/tests/test_f017_identidad.py` (R1–R9 menos R5c,
+      R20, R21) y `services/partes-front/tests/test_f017_entorno.py` (R5c)
+      **antes** de que exista `identidad.py`, y pegar la traza real del fallo
+      en `progress/impl_F-017.md`. **La fase RED de R5b y R5c es obligatoria
+      y no es una formalidad**: son los requisitos que impiden que un fallo
+      de autenticación en producción se disfrace de sesión local, y esa clase
+      de defecto no se ve leyendo el código.
+      Verificación: los dos ficheros fallan con
+      `ModuleNotFoundError`/`AttributeError`, y la salida está pegada en el
+      informe.
 
 - [ ] **T3: `identidad.py`.** Crear
       `services/partes-front/interface_adapters/web/identidad.py` con
-      `normalizar_actor`, `actor_desde_token` y `actor_desde_cabeceras`
-      (firmas en `design.md` §7). Función pura: sin FastAPI, sin `Settings`,
-      sin I/O. Primera línea del fichero, el comentario con su ruta relativa.
-      Verificación: `python -m pytest services/partes-front/tests/test_f017_identidad.py -q`
+      `normalizar_actor`, `es_actor_reservado`, `actor_desde_token`,
+      `senal_de_despliegue` y `actor_desde_cabeceras` (firmas en
+      `design.md` §7). **Funciones puras**: sin FastAPI, sin `Settings`, y
+      `senal_de_despliegue` recibe el entorno como `Mapping` en vez de leer
+      `os.environ` por dentro. Primera línea del fichero, el comentario con
+      su ruta relativa.
+      Verificación:
+      `python -m pytest services/partes-front/tests/test_f017_identidad.py services/partes-front/tests/test_f017_entorno.py -q`
       en verde salvo los tests de `/whoami` (R21), que dependen de T7.
+
+- [ ] **T3 bis: Las dos ramas del fallback, comprobadas por separado (R5,
+      R5b, R6).** Cerrar los tests que distinguen los dos entornos: sin
+      desplegar ⇒ `local:…`; desplegado y sin cabecera ⇒ **exactamente**
+      `sin-identidad`, **sin** el prefijo `local:`, con **WARNING** en
+      `caplog`; y el espacio de nombres reservado descartado en los dos
+      entornos (`local:x`, `LOCAL:X`, `sin-identidad`, ` Sin-Identidad `).
+      Verificación: `python -m pytest services/partes-front/tests/test_f017_identidad.py -q -k "r5 or r5b or r6"`
+      en verde, y una aserción explícita de que el valor desplegado **no**
+      empieza por `local:` (no basta con comprobar que es `sin-identidad`:
+      es justo la confusión que la enmienda viene a evitar).
 
 - [ ] **T4: `_actor` pasa a leer la cabecera.** Cambiar **solo el interior** y
       el docstring de `_actor` en
       `services/partes-front/interface_adapters/web/app.py`, dejando la firma
-      intacta.
+      intacta; añadir junto a él `_resolver_identidad` (que emite el WARNING
+      de R5b y mantiene viva la señal B) e inicializar
+      `app.state.easy_auth_visto = False` en `build_app`.
       Verificación:
       `python -m pytest services/partes-front/tests/test_f016_endpoints_admin_jornadas.py -q`
       — `test_f016_r13_la_identidad_se_resuelve_en_un_solo_sitio` **sigue en
@@ -88,7 +129,10 @@ Reglas que no se negocian durante la ejecución:
       `api_obra_delete`, `api_trabajador_delete`), pasar `actor` por
       parámetro a `_payload_registro` y `_trazar`, sustituir las once lecturas
       de `settings.default_reviewer` por `_actor(request)` y añadir la ruta
-      `GET /whoami` (R21). Tabla completa en `design.md` §5.2.
+      `GET /whoami` (R21) con sus cinco campos: `actor`, `origen` (las
+      **cuatro** ramas), `entorno`, `senal_despliegue` y
+      `cabeceras_easy_auth` (**nombres**, nunca valores). Tabla completa en
+      `design.md` §5.2.
       Verificación: `python -m pytest services/partes-front/tests -q` en verde
       **entero**, incluidos los tests de F-002/F-003/F-004 inventariados en
       T1 (ajustando sus literales donde solo comprobaban «que hay un valor»).
@@ -144,8 +188,9 @@ Reglas que no se negocian durante la ejecución:
       Verificación: `progress/mutacion_F-017.md` generado por la herramienta,
       con sus totales reales y cada superviviente analizado.
 
-- [ ] **T13: Listar las verificaciones MANUAL.** Copiar **M1–M4** de
-      `requirements.md` §4 a `progress/current.md` con su comando exacto,
+- [ ] **T13: Listar las verificaciones MANUAL.** Copiar **M1, M1 bis y M2–M4**
+      de `requirements.md` §4 a `progress/current.md` con su comando exacto
+      (M1 bis ya estará ejecutada en T0: se anota con su resultado real),
       marcadas como pendientes del humano, junto con el aviso de que M2–M4
       necesitan la regla de firewall de `psql-albaranes-rs9k2` que ya está
       pendiente.

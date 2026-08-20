@@ -82,15 +82,53 @@ fallback de R5 y **no elevar ninguna excepción**.
 espacios de los extremos, eliminar los caracteres de control (incluidos `\r`
 y `\n`), pasar a minúsculas y truncar a **120 caracteres**.
 
-**R5.** CUANDO no llega ninguna de las dos cabeceras de Easy Auth, el sistema
-debe resolver un actor de desarrollo local con el prefijo reservado `local:`:
-`local:` + `DEFAULT_REVIEWER` si esa variable está configurada, o
-`local:sin-identidad` si no lo está.
+**R5.** MIENTRAS el proceso **no** esté desplegado (desarrollo local) y no
+llegue ninguna de las dos cabeceras de Easy Auth, el sistema debe resolver un
+actor de desarrollo local con el prefijo reservado `local:`: `local:` +
+`DEFAULT_REVIEWER` si esa variable está configurada, o `local:sin-identidad`
+si no lo está.
 
-**R6.** SI el valor recibido por cualquiera de las dos cabeceras empieza por
-el prefijo reservado `local:`, ENTONCES el sistema debe descartarlo, registrar
-un aviso en el log y sellar `local:sin-identidad`: ningún valor de origen
-externo puede hacerse pasar por un actor local, ni al revés.
+**R5b.** MIENTRAS el proceso **sí** esté desplegado y no llegue ninguna de las
+dos cabeceras de Easy Auth, el sistema debe sellar el actor
+**`sin-identidad`** —sin el prefijo `local:`— y registrar un **WARNING** en el
+log por cada petición afectada. La operación solicitada debe completarse
+igualmente.
+
+> **Por qué son dos casos y no uno** (enmienda del humano, 2026-08-20). Un
+> portal desplegado sin cabecera de Easy Auth no es «una sesión sin
+> identificar»: es **la autenticación caída**. Escribir ahí `local:…` no sería
+> honesto, sería **afirmar algo falso** —que la fila vino de un puesto de
+> desarrollo— y un dato de auditoría que miente sobre su origen es peor que
+> uno vacío. Además, un incidente de autenticación tiene que **verse en los
+> logs**, no colarse en una columna en silencio. Lo que NO cambia es el
+> principio heredado de F-016: no saber quién fue **no** es motivo para perder
+> el cambio.
+
+**R5c.** El sistema debe decidir si está desplegado **sin ninguna variable de
+configuración nueva y sin tocar Azure**, mirando el entorno del proceso: se
+considera desplegado si está presente cualquiera de las variables que Azure
+Container Apps inyecta en todos sus contenedores (`CONTAINER_APP_NAME`,
+`CONTAINER_APP_REVISION`, `CONTAINER_APP_REPLICA_NAME`,
+`CONTAINER_APP_HOSTNAME`) **o** si el proceso ya ha atendido alguna petición
+con cabecera de Easy Auth desde su arranque.
+
+> **La segunda señal es la red de seguridad de la primera.** Ver
+> `design.md` §4.1: el fallo de detección solo es peligroso en un sentido
+> (creerse local estando desplegado), y esa disyunción lo corrige en cuanto
+> entra el primer usuario autenticado.
+
+**R6.** SI el valor recibido por cualquiera de las dos cabeceras invade el
+**espacio de nombres reservado** —empieza por `local:` o es exactamente
+`sin-identidad`, comparado ya normalizado (R4)—, ENTONCES el sistema debe
+descartarlo, registrar un WARNING y resolver como si la cabecera no existiera
+(R5 o R5b según el entorno). Ningún valor de origen externo puede fabricar un
+actor reservado.
+
+> R6 es lo que hace la garantía **estructural**, no una apuesta sobre la forma
+> del texto: los valores reservados solo puede producirlos el propio
+> resolutor. Por eso no hace falta razonar si `sin-identidad` «parece» un UPN
+> (no lo es: no lleva `@`) ni confiar en que un display name nunca coincida
+> con esa cadena.
 
 **R7.** El sistema debe resolver **siempre** un actor no vacío para toda
 petición HTTP del portal. A partir de esta feature, un `NULL` en una columna
@@ -101,8 +139,11 @@ el sistema debe truncarlo (R4) y completar la operación con normalidad: una
 identidad larga no puede hacer fallar una escritura.
 
 **R9.** El sistema debe registrar en el log, **una sola vez por arranque**, si
-la primera petición atendida trajo o no cabecera de Easy Auth, sin volcar el
-token ni los claims.
+se considera desplegado (y por qué señal) y si la primera petición atendida
+trajo o no cabecera de Easy Auth, sin volcar el token ni los claims. El
+WARNING de R5b es aparte y **no** está sujeto a esa limitación: se emite en
+cada petición sin identidad estando desplegado, porque cada una es un
+incidente.
 
 ### 1.2 Un único punto de identidad
 
@@ -113,7 +154,9 @@ cuenta.
 
 **R11.** MIENTRAS exista `services/partes-front/interface_adapters/web/
 app.py`, el número de lecturas de `settings.default_reviewer` en ese fichero
-debe ser exactamente **una**, y estar dentro de `_actor`.
+debe ser exactamente **una**, y estar dentro del resolutor de identidad
+(`_actor` o la función a la que delega, que vive pegada a él). Ninguna ruta
+puede leerla.
 
 ### 1.3 Los once puntos que hoy firman sin autor
 
@@ -161,9 +204,10 @@ formadas, ENTONCES ninguna ruta del portal debe cambiar su código de estado
 respecto al comportamiento anterior a esta feature.
 
 **R21.** CUANDO se consulta `GET /whoami`, el sistema debe responder con el
-actor resuelto, el **origen** de esa resolución (`cabecera-name`,
-`cabecera-token` o `local`) y la lista de **nombres** de las cabeceras de Easy
-Auth presentes en la petición — nunca sus valores, nunca el token, nunca los
+actor resuelto, **por qué rama salió** (`cabecera-name`, `cabecera-token`,
+`local` o `sin-identidad-desplegado`), si el proceso se considera desplegado y
+**por qué señal**, y la lista de **nombres** de las cabeceras de Easy Auth
+presentes en la petición — nunca sus valores, nunca el token, nunca los
 claims.
 
 ### 1.5 El corte
@@ -214,11 +258,13 @@ suite de F-016.
 | R2 | `test_f017_identidad.py::test_f017_r2_sin_name_se_lee_el_token` (parametrizado por los cinco claims) |
 | R3 | `test_f017_identidad.py::test_f017_r3_token_corrupto_no_rompe` (parametrizado: no-base64, no-JSON, JSON sin `claims`, claims vacíos) |
 | R4 | `test_f017_identidad.py::test_f017_r4_normalizacion` (espacios, mayúsculas, `\r\n`, 120) |
-| R5 | `test_f017_identidad.py::test_f017_r5_fallback_local` (con y sin `DEFAULT_REVIEWER`) |
-| R6 | `test_f017_identidad.py::test_f017_r6_prefijo_local_por_cabecera_se_descarta` |
-| R7 | `test_f017_identidad.py::test_f017_r7_siempre_hay_actor` (barrido de las 4 combinaciones de cabeceras) |
+| R5 | `test_f017_identidad.py::test_f017_r5_fallback_local_sin_desplegar` (con y sin `DEFAULT_REVIEWER`) |
+| R5b | `test_f017_identidad.py::test_f017_r5b_desplegado_sin_cabecera_es_sin_identidad_con_warning` (valor exacto, ausencia del prefijo `local:`, WARNING en `caplog` y **la escritura se completa**) |
+| R5c | `test_f017_entorno.py::test_f017_r5c_deteccion_de_despliegue` (parametrizado por las cuatro variables `CONTAINER_APP_*`, entorno vacío, y la segunda señal: tras una petición con cabecera, una posterior sin ella ya no cae en `local:`) |
+| R6 | `test_f017_identidad.py::test_f017_r6_espacio_reservado_por_cabecera_se_descarta` (parametrizado: `local:x`, `LOCAL:X`, `sin-identidad`, ` Sin-Identidad `; y en los dos entornos) |
+| R7 | `test_f017_identidad.py::test_f017_r7_siempre_hay_actor` (barrido de las 4 combinaciones de cabeceras × los 2 entornos) |
 | R8 | `test_f017_identidad.py::test_f017_r8_upn_larguisimo_se_trunca_y_no_falla` |
-| R9 | `test_f017_identidad.py::test_f017_r9_aviso_una_sola_vez` (`caplog`) |
+| R9 | `test_f017_identidad.py::test_f017_r9_aviso_una_sola_vez` (`caplog`: la nota de arranque una vez; el WARNING de R5b, en cada petición) |
 | R10 | `test_f017_punto_unico.py::test_f017_r10_ninguna_ruta_lee_la_identidad_por_su_cuenta` (grep sobre `app.py`) |
 | R11 | `test_f017_punto_unico.py::test_f017_r11_una_sola_lectura_de_default_reviewer` |
 | R12 | `test_f017_endpoints_firmados.py::test_f017_r12_approved_by` |
@@ -230,13 +276,15 @@ suite de F-016.
 | R18 | `test_f017_aprobacion_firmada.py::test_f017_r18_el_sobre_manda_en_el_consumidor` |
 | R19 | `test_f016_endpoints_admin_jornadas.py::test_f016_r13_auditoria` **reescrito** (ver `design.md` §6) |
 | R20 | `test_f017_identidad.py::test_f017_r20_cabeceras_basura_no_cambian_el_estado` (parametrizado sobre varias rutas) |
-| R21 | `test_f017_identidad.py::test_f017_r21_whoami` |
+| R21 | `test_f017_identidad.py::test_f017_r21_whoami` (las cuatro ramas de `origen`, el `entorno` y que **no** aparece ningún valor de cabecera ni claim en la respuesta) |
 | R22 | `tests/test_f017_r22_sin_reescritura_historica.py` (raíz): (a) el ORM sigue declarando exactamente las mismas columnas de autor, con los mismos anchos, en las **dos** copias; (b) barrido del árbol: no existe ningún `UPDATE` sobre `approved_by`/`deleted_by`/`created_by`/`updated_by`/`actor` ni ningún fichero `.sql` de migración nuevo |
 | R23 | `tests/test_f017_r23_corte_documentado.py` (raíz del monorepo) |
 
 **Fase RED obligatoria** (rigor `estandar`) con traza real pegada en
-`progress/impl_F-017.md` para los requisitos centrales: **R1, R5, R10, R12 y
-R16**.
+`progress/impl_F-017.md` para los requisitos centrales: **R1, R5, R5b, R10,
+R12 y R16**. R5b entra en la lista por la enmienda del humano: es el requisito
+que impide que un fallo de autenticación en producción se disfrace de sesión
+local, y esa clase de defecto no se detecta leyendo el código.
 
 ---
 
@@ -247,10 +295,25 @@ lleguen de verdad en Azure no lo puede demostrar ningún test.
 
 - **M1.** Con sv4 desplegado, abrir en el navegador
   `https://<fqdn de ca-sv4-front>/whoami` con la sesión de Entra iniciada, y
-  comprobar que `actor` es el correo/UPN de quien mira y `origen` es
-  `cabecera-name`. Si sale `cabecera-token`, la cabecera `-NAME` no llega y
-  el fallback de R2 está haciendo su trabajo (correcto, pero anótalo). Si
-  sale `local`, **la feature no está funcionando en Azure**: parar y avisar.
+  comprobar **tres cosas**: `actor` es el correo/UPN de quien mira, `origen`
+  es `cabecera-name` y `entorno` es `desplegado`. Lecturas posibles:
+  - `origen = cabecera-token`: la cabecera `-NAME` no llega y el suplente de
+    R2 está haciendo su trabajo. Correcto, pero **anótalo**.
+  - `origen = sin-identidad-desplegado`: Easy Auth no está inyectando nada.
+    **Incidente**: la feature funciona (no miente), pero la autenticación del
+    portal está rota. Parar y avisar.
+  - `origen = local` o `entorno = local`: **la detección de R5c ha fallado en
+    Azure** y el portal está firmando filas de producción como si fueran
+    locales. **Parar y avisar de inmediato**: es el único fallo de esta
+    feature que ensucia datos. El campo `senal_despliegue` de la respuesta
+    dice qué se buscó y qué se encontró.
+- **M1 bis (se puede hacer ANTES de implementar, y conviene).** Comprobar que
+  Azure Container Apps inyecta de verdad las variables de R5c en este
+  entorno — hoy **ningún servicio del monorepo las lee**, así que es un
+  supuesto de plataforma sin verificar aquí:
+  `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv" | Select-String CONTAINER_APP`
+  Si no aparece ninguna, R5c se queda **solo** con la segunda señal y hay que
+  decidir otra (ver `design.md` §4.1).
 - **M2.** Aprobar un parte de prueba desde el portal desplegado y comprobar
   en la base `partes` que `parte_documents.approved_by` lleva ese mismo valor
   y no `NULL`:
