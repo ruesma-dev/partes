@@ -113,9 +113,9 @@ def test_f017_r16_payload_y_marcas_encolado() -> None:
     assert usuario == USUARIO                    # el sobre de q-transfer
     assert payload["usuario"] == USUARIO         # el payload que lee sv5
     assert sv5.ejecutadas == []
-    # Y la marca `encolado` de las lineas.
-    for _id, (_estado, _motivo) in estados_sigrid(fabrica, ids).items():
-        pass
+    # Y la marca `encolado` de las lineas, con quien las encolo.
+    assert all(fila[0] == "encolado"
+               for fila in estados_sigrid(fabrica, ids).values())
     with fabrica.create_session() as s:
         from infrastructure.database.orm_models import ParteRegistroOrm
         for registro_id in ids:
@@ -125,7 +125,7 @@ def test_f017_r16_payload_y_marcas_encolado() -> None:
 
 def test_f017_r16_payload_y_marcas_sincrono() -> None:
     """Rama SINCRONA: el payload a sv5 y la traza del resultado."""
-    cliente, _repo, fabrica, ids, _pub, sv5 = _montaje(
+    cliente, _repo, _fabrica, ids, _pub, sv5 = _montaje(
         con_publisher=False,
         resultado={"ok": True, "escritas": [], "omitidas": [],
                    "ya_registradas": []})
@@ -140,11 +140,12 @@ def test_f017_r16_payload_y_marcas_sincrono() -> None:
 
 def test_f017_r16_la_traza_del_resultado_lleva_el_actor() -> None:
     """`_trazar` sella `sigrid_registrado_by` con quien aprobo."""
-    cliente, _repo, fabrica, ids, _pub, _sv5 = _montaje(
-        con_publisher=False,
-        resultado={"ok": True,
-                   "escritas": [{"registro_id": ids[0], "hmoide": 901}],
-                   "omitidas": [], "ya_registradas": []})
+    cliente, _repo, fabrica, ids, _pub, sv5 = _montaje(con_publisher=False)
+    # El resultado depende de los ids sembrados, asi que se ajusta el
+    # doble una vez montado.
+    sv5.resultado = {"ok": True,
+                     "escritas": [{"registro_id": ids[0], "hmoide": 901}],
+                     "omitidas": [], "ya_registradas": []}
 
     cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids},
                  headers=_como(USUARIO))

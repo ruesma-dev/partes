@@ -116,14 +116,14 @@ Reglas que no se negocian durante la ejecución:
       `python -m pytest services/partes-front/tests/test_f016_endpoints_admin_jornadas.py -q`
       entero en verde, incluido el test del punto único.
 
-- [ ] **T6: Fase RED de los once puntos.** Escribir
+- [x] **T6: Fase RED de los once puntos.** Escribir
       `test_f017_endpoints_firmados.py` (R12–R15) y
       `test_f017_aprobacion_firmada.py` (R16–R18) **antes** de tocar las
       rutas, y pegar la traza del fallo de R12 y R16 en el informe.
       Verificación: los dos ficheros fallan por el motivo esperado (se sella
       `local:…` en vez del principal), con la salida pegada.
 
-- [ ] **T7: Los once puntos + `/whoami`.** En `app.py`: añadir
+- [x] **T7: Los once puntos + `/whoami`.** En `app.py`: añadir
       `request: Request` a las cinco firmas que no lo tienen
       (`approve_document`, `delete_document`, `api_registro_delete`,
       `api_obra_delete`, `api_trabajador_delete`), pasar `actor` por

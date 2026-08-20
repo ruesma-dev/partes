@@ -211,7 +211,7 @@ def test_f017_r14_borrar_linea_sella_deleted_by() -> None:
 
 
 @pytest.mark.parametrize("ruta, metodo", [
-    (f"/api/registro/{{id}}/delete", "soft_delete_registro"),
+    ("/api/registro/{id}/delete", "soft_delete_registro"),
     ("/api/obra/0100/delete", "soft_delete_obra"),
     ("/api/trabajador/cualquiera/delete", "soft_delete_worker"),
 ])
@@ -245,7 +245,7 @@ def test_f017_r14_sin_cabecera_tambien_se_firma(ruta: str) -> None:
 def test_f017_r14_cada_peticion_lleva_su_actor() -> None:
     """Dos borrados seguidos de dos personas distintas, dos firmas."""
     otra = "otra.persona@ejemplo.invalid"
-    cliente, repositorio, fabrica, ids = _montaje()
+    cliente, _repo, fabrica, ids = _montaje()
     cliente.post(f"/api/registro/{ids[0]}/delete", headers=_como(USUARIO))
     cliente.post(f"/api/registro/{ids[1]}/delete", headers=_como(otra))
 
