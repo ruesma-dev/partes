@@ -80,7 +80,7 @@ Reglas que no se negocian durante la ejecución:
       `python -m pytest services/partes-front/tests/test_f017_identidad.py services/partes-front/tests/test_f017_entorno.py -q`
       en verde salvo los tests de `/whoami` (R21), que dependen de T7.
 
-- [ ] **T3 bis: Las dos ramas del fallback, comprobadas por separado (R5,
+- [x] **T3 bis: Las dos ramas del fallback, comprobadas por separado (R5,
       R5b, R6).** Cerrar los tests que distinguen los dos entornos: sin
       desplegar ⇒ `local:…`; desplegado y sin cabecera ⇒ **exactamente**
       `sin-identidad`, **sin** el prefijo `local:`, con **WARNING** en
@@ -91,7 +91,7 @@ Reglas que no se negocian durante la ejecución:
       empieza por `local:` (no basta con comprobar que es `sin-identidad`:
       es justo la confusión que la enmienda viene a evitar).
 
-- [ ] **T4: `_actor` pasa a leer la cabecera.** Cambiar **solo el interior** y
+- [x] **T4: `_actor` pasa a leer la cabecera.** Cambiar **solo el interior** y
       el docstring de `_actor` en
       `services/partes-front/interface_adapters/web/app.py`, dejando la firma
       intacta; añadir junto a él `_resolver_identidad` (que emite el WARNING
@@ -105,7 +105,7 @@ Reglas que no se negocian durante la ejecución:
       Ambos resultados van al informe: el rojo es evidencia de que `_actor`
       manda de verdad.
 
-- [ ] **T5: Reparar los tests de F-016 (R19).** En
+- [x] **T5: Reparar los tests de F-016 (R19).** En
       `services/partes-front/tests/test_f016_endpoints_admin_jornadas.py`:
       helper `_como(usuario)`, reescribir `test_f016_r13_auditoria` para que
       fabrique la cabecera, y convertir

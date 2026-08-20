@@ -516,46 +516,94 @@ def test_f016_r12_el_dni_escrito_de_otra_forma_sigue_solapando() -> None:
 
 # --------------------------- R13 · auditoria -------------------------- #
 
-def test_f016_r13_auditoria(monkeypatch) -> None:
+FIRMANTE = "quien.firma@ejemplo.invalid"
+
+
+def _como(usuario: str) -> dict[str, str]:
+    """La cabecera que Easy Auth inyecta, fabricada a mano (F-017 DA6).
+
+    Dominio `.invalid` (RFC 2606): en el repositorio no entra el correo
+    real de ninguna persona.
+    """
+    return {"X-MS-CLIENT-PRINCIPAL-NAME": usuario}
+
+
+def test_f016_r13_auditoria() -> None:
     """Las cuatro modificaciones sellan `updated_by`; el alta, `created_by`.
 
-    El actor se parchea por su RESULTADO (`DEFAULT_REVIEWER`), no
-    fabricando cabeceras: asi este test sigue en verde el dia que F-017
-    cambie el interior de `_actor`.
+    Desde F-017 el actor se fabrica por su ORIGEN —la cabecera de Easy
+    Auth— y no por su resultado (`DEFAULT_REVIEWER`). Es lo que hay que
+    probar de verdad: el camino cabecera -> columna. Parchear `_actor` no
+    era una alternativa: es una clausura dentro de `build_app`, no un
+    simbolo de modulo, asi que no hay nada que `monkeypatch` alcance.
+
+    Sigue cubriendo R13 de F-016 y pasa a cubrir R19 de F-017.
     """
-    monkeypatch.setenv("DEFAULT_REVIEWER", "quien-firma")
     cliente, _, fabrica, _ = _montaje()
 
-    jid = cliente.post("/api/admin/jornadas", json=_alta()).json()["id"]
+    jid = cliente.post("/api/admin/jornadas", json=_alta(),
+                       headers=_como(FIRMANTE)).json()["id"]
     fila = _fila_cruda(fabrica, jid)
-    assert fila.created_by == "quien-firma"
+    assert fila.created_by == FIRMANTE
     assert fila.created_at_utc.endswith("+00:00")
     assert (fila.updated_at_utc, fila.updated_by) == (None, None)
 
     for peticion in (
         lambda: cliente.patch(f"/api/admin/jornadas/{jid}", json={
-            "jornada_semanal": "40", "desde": "2026-07-01"}),
+            "jornada_semanal": "40", "desde": "2026-07-01"},
+            headers=_como(FIRMANTE)),
         lambda: cliente.post(f"/api/admin/jornadas/{jid}/cerrar",
-                             json={"hasta_inclusivo": "2026-07-31"}),
-        lambda: cliente.post(f"/api/admin/jornadas/{jid}/desactivar"),
-        lambda: cliente.post(f"/api/admin/jornadas/{jid}/reactivar"),
+                             json={"hasta_inclusivo": "2026-07-31"},
+                             headers=_como(FIRMANTE)),
+        lambda: cliente.post(f"/api/admin/jornadas/{jid}/desactivar",
+                             headers=_como(FIRMANTE)),
+        lambda: cliente.post(f"/api/admin/jornadas/{jid}/reactivar",
+                             headers=_como(FIRMANTE)),
     ):
         with fabrica.create_session() as s:
             s.get(EmpleadoJornadaOrm, jid).updated_by = None
             s.commit()
         assert peticion().status_code == 200
         sellada = _fila_cruda(fabrica, jid)
-        assert sellada.updated_by == "quien-firma"
+        assert sellada.updated_by == FIRMANTE
         assert sellada.updated_at_utc is not None
         # Y el alta nunca se reescribe.
-        assert sellada.created_by == "quien-firma"
+        assert sellada.created_by == FIRMANTE
 
 
-def test_f016_r13_sin_default_reviewer_se_sella_nulo_y_no_falla() -> None:
+def test_f016_r13_cada_peticion_lleva_su_propio_actor() -> None:
+    """Dos personas distintas, dos firmas distintas en la misma fila.
+
+    Con `DEFAULT_REVIEWER` esto era imposible de expresar: todo el portal
+    firmaba igual. Es el valor de F-017 en un solo test.
+    """
+    otra = "otra.persona@ejemplo.invalid"
+    cliente, _, fabrica, _ = _montaje()
+    jid = cliente.post("/api/admin/jornadas", json=_alta(),
+                       headers=_como(FIRMANTE)).json()["id"]
+    cliente.post(f"/api/admin/jornadas/{jid}/desactivar",
+                 headers=_como(otra))
+
+    fila = _fila_cruda(fabrica, jid)
+    assert (fila.created_by, fila.updated_by) == (FIRMANTE, otra)
+
+
+def test_f016_r13_sin_cabecera_se_sella_el_actor_local() -> None:
+    """R13 de F-016 con la respuesta actualizada por F-017 R7.
+
+    Ya no se sella `NULL`: sin cabecera y sin desplegar, la fila queda
+    firmada `local:sin-identidad`. El principio de F-016 no cambia —no
+    saber quien fue no es motivo para perder el cambio—, cambia el valor:
+    desde F-017, un `NULL` en una columna de autor significa
+    EXCLUSIVAMENTE «fila anterior al corte».
+    """
     cliente, _, fabrica, _ = _montaje()
     assert _settings().default_reviewer is None
     jid = cliente.post("/api/admin/jornadas", json=_alta()).json()["id"]
-    assert _fila_cruda(fabrica, jid).created_by is None
+
+    creado_por = _fila_cruda(fabrica, jid).created_by
+    assert creado_por == "local:sin-identidad"
+    assert creado_por is not None       # el cambio NO se pierde (R7)
 
 
 def test_f016_r13_la_identidad_se_resuelve_en_un_solo_sitio() -> None:
