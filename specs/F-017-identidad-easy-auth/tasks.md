@@ -56,7 +56,7 @@ Reglas que no se negocian durante la ejecución:
       verde + sección «Punto de partida» en `progress/impl_F-017.md` con el
       recuento real y la lista de tests candidatos.
 
-- [ ] **T2: Fase RED de la resolución de identidad.** Escribir
+- [x] **T2: Fase RED de la resolución de identidad.** Escribir
       `services/partes-front/tests/test_f017_identidad.py` (R1–R9 menos R5c,
       R20, R21) y `services/partes-front/tests/test_f017_entorno.py` (R5c)
       **antes** de que exista `identidad.py`, y pegar la traza real del fallo
@@ -68,7 +68,7 @@ Reglas que no se negocian durante la ejecución:
       `ModuleNotFoundError`/`AttributeError`, y la salida está pegada en el
       informe.
 
-- [ ] **T3: `identidad.py`.** Crear
+- [x] **T3: `identidad.py`.** Crear
       `services/partes-front/interface_adapters/web/identidad.py` con
       `normalizar_actor`, `es_actor_reservado`, `actor_desde_token`,
       `senal_de_despliegue` y `actor_desde_cabeceras` (firmas en

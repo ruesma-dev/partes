@@ -148,8 +148,8 @@ def test_f017_r5c_la_senal_b_se_aprende_y_corrige_a(monkeypatch) -> None:
     demuestra que hay un Easy Auth delante; desde entonces, una peticion
     sin cabecera ya NO se firma como sesion local.
     """
-    cliente, fabrica = _montaje()
-    assert senal_de_despliegue(dict()) is None      # A no llega
+    cliente, _fabrica = _montaje()
+    assert senal_de_despliegue({}) is None          # A no llega
 
     # 1) Un usuario autenticado entra: se aprende la senal B.
     cliente.get("/whoami", headers={CABECERA_NOMBRE: USUARIO})
