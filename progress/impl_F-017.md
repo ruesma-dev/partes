@@ -431,3 +431,177 @@ rojo el **docstring** de `_actor`, que menciona la cabecera para explicar de
 dónde sale el actor. Perseguir la documentación habría sido un guardián
 contraproducente: empuja a escribir docstrings peores. Ahora busca el literal
 **entrecomillado**, que es lo que delata una lectura de verdad.
+
+---
+
+## T9 · Guardián del corte histórico (R22)
+
+`tests/test_f017_r22_sin_reescritura_historica.py`, en la raíz del monorepo:
+**27 tests**, en verde. Vigila las dos cosas de las que depende el criterio
+del corte:
+
+- **(a)** Las ocho columnas de autor conservan nombre y ancho en las **dos**
+  copias del ORM (sv3 y sv4), el mínimo sigue siendo 120 —el que
+  `identidad.py` usa para truncar— y no ha aparecido ninguna columna de autor
+  sin declarar.
+- **(b)** No hay ningún `UPDATE` sobre esas columnas en el árbol, ningún
+  fichero `.sql`, y el DDL complementario de F-010 no las estrecha ni las
+  reescribe.
+
+Incluye `test_f017_r22_el_guardian_muerde`, que comprueba sobre texto
+fabricado —nunca sobre el árbol— que el patrón de `UPDATE` masivo se detecta
+de verdad y que **no** salta con una escritura legítima por ORM.
+
+## T10 · El corte, documentado (R23)
+
+`docs/referencia/partes-proyecto.md`:
+
+- **§5.4 corregido.** Decía literalmente que `created_by`/`updated_by`
+  «llevan hoy `DEFAULT_REVIEWER`». Era **falso**, y de una forma que
+  importaba: llevaban `NULL`, porque esa variable nunca se configuró.
+- **§5.7 nuevo, «Corte de auditoría (F-017)»**, con el criterio
+  (`autor IS NULL` ⇔ anterior a F-017), la explicación de los dos marcadores
+  reservados, las consultas SQL para comprobarlo, la mención a `/whoami` y el
+  hueco `⛔ PENDIENTE: fecha de despliegue`.
+- **§5.5**: `undo_log.actor` marcada como «hoy no la escribe nadie».
+
+`docs/ARCHITECTURE.md`: regla de dominio 11, la identidad se resuelve en un
+único punto y `NULL` significa «anterior a F-017».
+
+`tests/test_f017_r23_corte_documentado.py` (10 tests) no se conforma con que
+el apartado exista: comprueba que contiene el criterio, que distingue
+`local:…` de `sin-identidad`, que dice que no se reescribió nada, que advierte
+de `undo_log.actor` y que el hueco de la fecha sigue puesto. **Ese último test
+se pondrá rojo el día del despliegue, y es deliberado**: un recordatorio que
+no molesta no recuerda nada.
+
+## T11 · `azure-apps/partes.md`
+
+Commit **local y sin push** en su propio repositorio (`47cb860`), como manda
+la regla de mantenimiento de `CLAUDE.md`. Documenta qué se guarda y dónde, la
+ruta nueva `GET /whoami`, el cambio de significado de `DEFAULT_REVIEWER` (y
+que **no** hace falta configurarla), los dos marcadores que no son personas,
+cómo se distingue «desplegado» de «local» sin variable nueva, y el criterio
+del corte con su excepción declarada.
+
+---
+
+## Ficheros tocados
+
+| Fichero | Qué |
+|---|---|
+| `services/partes-front/interface_adapters/web/identidad.py` | **Nuevo.** Las cinco funciones puras del resolutor (257 líneas) |
+| `services/partes-front/interface_adapters/web/app.py` | **El único fichero de producción modificado.** `_resolver_identidad` + interior de `_actor`, `app.state.easy_auth_visto`/`identidad_anunciada`, `actor` por parámetro en `_payload_registro` y `_trazar`, `request: Request` en cinco firmas, las once lecturas sustituidas, `GET /whoami` |
+| `services/partes-front/tests/test_f017_identidad.py` | **Nuevo.** R1–R9 (menos R5c), R20, R21 |
+| `services/partes-front/tests/test_f017_entorno.py` | **Nuevo.** R5c y la asimetría del fallo |
+| `services/partes-front/tests/test_f017_punto_unico.py` | **Nuevo.** R10, R11 |
+| `services/partes-front/tests/test_f017_endpoints_firmados.py` | **Nuevo.** R12–R15 |
+| `services/partes-front/tests/test_f017_aprobacion_firmada.py` | **Nuevo.** R16–R18 |
+| `tests/test_f017_r22_sin_reescritura_historica.py` | **Nuevo** (raíz). R22 |
+| `tests/test_f017_r23_corte_documentado.py` | **Nuevo** (raíz). R23 |
+| `services/partes-front/tests/test_f016_endpoints_admin_jornadas.py` | Helper `_como`, `test_f016_r13_auditoria` reescrito, el de `NULL` convertido y uno nuevo (R19) |
+| `services/partes-front/tests/test_f002_aprobar_encolar.py` | Un literal: `"ana"` → `"local:ana"` |
+| `docs/referencia/partes-proyecto.md` | §5.4 corregido, §5.5 matizada, §5.7 nueva (R23) |
+| `docs/ARCHITECTURE.md` | Regla de dominio 11 |
+| `progress/current.md` | Verificaciones MANUAL y la decisión pendiente |
+| `azure-apps/partes.md` | **Repo distinto**, commit `47cb860`, local y sin push |
+
+**Cero cambios** en `orm_models.py` (ninguna de las dos copias), en
+`parte_repository.py`, en `resultado_consumer.py`, en las plantillas, en el JS,
+en `config/settings.py`, en `infra/` y en sv1, sv2, sv3 y sv5. **Cero cambios
+de schema, cero columnas, cero tablas, cero rutas de catálogo nuevas** (aparte
+de `/whoami`, que la spec aprueba explícitamente). Ningún `403`, ningún rol,
+ninguna restricción de acceso nueva.
+
+## Decisiones de diseño tomadas al implementar
+
+Las de la spec (DA1–DA8) se respetaron sin cambios. Estas son las que hubo que
+tomar sobre la marcha, todas menores salvo la primera:
+
+1. **R14/R15 no se resolvieron por cuenta propia** — el hallazgo del bloque de
+   T6. Las dos salidas posibles (crear filas de `undo_log`, o dar destino al
+   `by` de `crear_parte_manual`) se salen del alcance aprobado: la primera es
+   funcionalidad nueva y territorio de F-018; la segunda exige **una columna
+   nueva**, porque ni `parte_documents` ni `parte_registros` tienen
+   `created_by` (solo la tienen `empleado_alias` y `empleado_jornada`).
+   Elevado al humano; detalle en `progress/current.md`.
+2. **El preflight también va firmado.** No estaba en la tabla de §5.2 porque
+   no escribe en ninguna columna, pero comparte `_payload_registro`: al añadir
+   el parámetro había que dárselo, y así el `usuario` que ve sv5 es el mismo
+   en las tres rutas.
+3. **`es_actor_reservado` normaliza por su cuenta.** R6 es una garantía de
+   seguridad; hacerla depender de que el llamante recuerde un paso previo es
+   como se pierden las garantías de seguridad.
+4. **Un `-NAME` reservado no impide que el token identifique.** Lectura
+   literal de R6 («como si la cabecera no existiera») y la más útil.
+5. **El guardián de R10 persigue el literal entrecomillado, no el nombre.**
+   La primera versión ponía rojo el docstring de `_actor`; un guardián que
+   castiga la documentación produce documentación peor.
+6. **No se memoizó `_resolver_identidad`** (aviso recibido del coordinador
+   pensando en F-018). Hoy cada endpoint pide el actor una sola vez, así que
+   no hay WARNING duplicados y memoizar sería resolver un problema que aún no
+   existe. Anotado en `progress/current.md` para F-018: tres líneas, sin
+   cambiar ninguna firma.
+
+---
+
+## Verificaciones MANUAL pendientes (humano)
+
+Copiadas con su comando exacto a `progress/current.md` (T13). En local **no
+existe** ninguna cabecera de Easy Auth: que lleguen de verdad en Azure no lo
+puede demostrar ningún test.
+
+| | Qué | Estado |
+|---|---|---|
+| **M1 bis** | ¿Inyecta Container Apps las `CONTAINER_APP_*`? | ✅ **EJECUTADA en T0, positiva.** Las cuatro presentes en `ca-sv4-front` |
+| **M1** | `GET /whoami` en el portal desplegado con sesión de Entra: `actor` = tu UPN, `origen` = `cabecera-name`, `entorno` = `desplegado` | Pendiente del despliegue |
+| **M2** | Aprobar un parte y ver `parte_documents.approved_by` | Pendiente (necesita firewall) |
+| **M3** | Borrar una línea y mirar el autor | Pendiente (necesita firewall). **Ojo**: por el hallazgo de R14, `undo_log` no recibirá fila; lo que hay que mirar es `parte_registros.deleted_by` |
+| **M4** | Que el recuento de filas históricas con autor `NULL` sea **el mismo** antes y después del despliegue (R22) | Pendiente (necesita firewall) |
+
+M2, M3 y M4 necesitan la regla de firewall de `psql-albaranes-rs9k2` que ya
+estaba pendiente en `progress/current.md`.
+
+**Lo que M1 debe delatar si sale mal**, por orden de gravedad: `entorno = local`
+en el portal desplegado sería el **único fallo de esta feature que ensucia
+datos** (filas de producción firmadas `local:…`), y el campo
+`senal_despliegue` dice exactamente qué se buscó y qué se encontró. T0 hace
+ese escenario muy improbable —la señal A está verificada en el contenedor—,
+pero la comprobación sigue costando abrir una URL.
+
+---
+
+## Trazabilidad requisito → test (recuento real)
+
+Los 23 requisitos, con el test que los cubre. Ninguno se quedó sin cubrir.
+
+| R | Dónde | Estado |
+|---|---|---|
+| R1 | `test_f017_identidad.py` (4 tests: la cabecera manda, gana al token, insensible a mayúsculas, vacía = ausente) | ✅ **fase RED** |
+| R2 | `test_f017_identidad.py` (5 claims parametrizados + orden de preferencia + claim vacío + normalización) | ✅ |
+| R3 | `test_f017_identidad.py` (7 formas de token roto + claim desconocido + entrada mal formada) | ✅ |
+| R4 | `test_f017_identidad.py` (10 casos + truncado + inyección de log) | ✅ |
+| R5 | `test_f017_identidad.py` (con y sin `DEFAULT_REVIEWER`, con espacios, en blanco) | ✅ **fase RED** |
+| R5b | `test_f017_identidad.py` (valor exacto, **no** empieza por `local:`, WARNING, escritura completada, aviso por petición) | ✅ **fase RED** |
+| R5c | `test_f017_entorno.py` (4 variables + entorno normal + vacías + señal B + asimetría + llega a la columna) | ✅ |
+| R6 | `test_f017_identidad.py` (8 valores × 2 cabeceras × 2 entornos = 32, + WARNING + qué cuenta como reservado) | ✅ |
+| R7 | `test_f017_identidad.py` (4 cabeceras × 2 entornos × 4 fallbacks = 32) + `test_f017_endpoints_firmados.py` (los 6 puntos) | ✅ |
+| R8 | `test_f017_identidad.py` (trunca + cabe en la columna más estrecha) | ✅ |
+| R9 | `test_f017_identidad.py` (una sola nota; no vuelca token ni claims) | ✅ |
+| R10 | `test_f017_punto_unico.py` (app, `identidad.py`, 4 capas internas, repositorio) | ✅ **fase RED** (T8: defecto inyectado) |
+| R11 | `test_f017_punto_unico.py` (una lectura, dentro del resolutor, ninguna ruta) | ✅ |
+| R12 | `test_f017_endpoints_firmados.py` (cabecera, token, `back` intacto) | ✅ **fase RED** |
+| R13 | `test_f017_endpoints_firmados.py` | ✅ |
+| R14 | `test_f017_endpoints_firmados.py` (3 borrados parametrizados + `deleted_by` real + dos personas) | ⚠ **ver hallazgo de T6**: se cumple vía `deleted_by`, no vía `undo_log.actor` |
+| R15 | `test_f017_endpoints_firmados.py` (3 tests) | ⚠ **ver hallazgo de T6**: el actor llega al repositorio, que lo descarta |
+| R16 | `test_f017_aprobacion_firmada.py` (encolado, síncrono, traza, preflight, dos personas, sin cabecera, desplegado) | ✅ **fase RED** |
+| R17 | `test_f017_aprobacion_firmada.py` (2 tests, uno sobre la fuente) | ✅ |
+| R18 | `test_f017_aprobacion_firmada.py` (2 tests) | ✅ |
+| R19 | `test_f016_endpoints_admin_jornadas.py` reescrito + uno nuevo (dos personas, dos firmas) | ✅ |
+| R20 | `test_f017_identidad.py` (8 cabeceras basura × 6 rutas = 48) | ✅ |
+| R21 | `test_f017_identidad.py` (5 tests: 4 ramas de `origen`, no revela nada, no escribe) | ✅ |
+| R22 | `tests/test_f017_r22_sin_reescritura_historica.py` (27) | ✅ |
+| R23 | `tests/test_f017_r23_corte_documentado.py` (10) | ✅ |
+
+**Fase RED con traza pegada** para los seis que exigía el rigor `estandar`:
+R1, R5, R5b (T2), R10 (T8, con el defecto inyectado), R12 y R16 (T6).
