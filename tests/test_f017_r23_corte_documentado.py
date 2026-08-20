@@ -19,9 +19,9 @@ Sin red y sin BBDD: solo lectura de los dos documentos.
 
 from __future__ import annotations
 
-import pytest
-
 from pathlib import Path
+
+import pytest
 
 RAIZ = Path(__file__).resolve().parents[1]
 MAESTRO = RAIZ / "docs" / "referencia" / "partes-proyecto.md"
