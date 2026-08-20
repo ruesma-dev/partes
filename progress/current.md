@@ -204,8 +204,9 @@ h/sem. Hay que dejarlas todas `inactiva` (esta pantalla no borra, por diseño).
 4. **Dos dudas abiertas de F-016** (`design.md` §13): los tres normalizadores
    de DNI equivalentes de sv4 (¿feature de limpieza aparte?) y si las filas con
    `origen` `sigrid`/`sesame` serán editables cuando existan.
-5. **Automejoras del arnés** acumuladas para F-009 (lista abajo). Ya son ocho,
-   varias con evidencia medida.
+5. **Automejoras del arnés** acumuladas (lista abajo), ya sin feature propia:
+   F-009 se eliminó el 2026-08-20 por decisión del humano. Varias con evidencia
+   medida. Destino previsto: portarlas a `arnes-base` al actualizar el arnés.
 
 ## F-015 · done, en `dev` (2026-08-19)
 
@@ -261,7 +262,7 @@ desempata la categoría; y `MO/0037` sigue sin DNI (`res.conide = 0`).
    los once puntos exactos que hoy firman con `DEFAULT_REVIEWER`.
 2. **F-014** — `blocked`, solo la desbloquea RRHH.
 3. F-005 GRAPH_KEY→KV · F-006 tipo_hora ext · F-007 prompt sv2 + evals ·
-   F-008 roles · F-009 automejoras del arnés · F-011 jornada reducida
+   F-008 roles · F-011 jornada reducida
    (última; fuente candidata `empleado_jornada` + `emphis.porjorlab`).
 
 ## MANUAL pendiente del humano (acumulado)
@@ -304,7 +305,25 @@ desempata la categoría; y `MO/0037` sigue sin DNI (`res.conide = 0`).
 - **Cambio de modelo Gemini** en sv2 (comando dado; actualizar
   `infra/create_capps_partes.ps1:38`).
 
-## Automejoras del arnés pendientes (F-009 ⇒ genéricas a `arnes-base`)
+## Automejoras del arnés pendientes (⇒ genéricas a `arnes-base`)
+
+> **F-009 se eliminó de `harness/features.json` el 2026-08-20** por decisión
+> del humano. Esta lista NO desaparece con ella: sigue siendo el registro de lo
+> que hay que portar a `arnes-base`. Varios puntos (1, 2, 3 y 7) son de la
+> campaña de mutación y **probablemente ya vengan resueltos en el arnés
+> 1.6.0**, que la rehace entera; confirmarlo con
+> `progress/analisis_arnes_1.6.2.md` antes de implementar ninguno.
+>
+> Los **dos puntos originales de F-009**, que NO son de mutación y se habrían
+> perdido al borrar la ficha, se conservan aquí:
+>
+> - **C4 bis**: cuando un fichero del alcance con muchas líneas cambiadas
+>   genera **0 mutantes**, exigir evidencia alternativa (fase RED específica
+>   sobre ese fichero).
+> - **C3/C4 + `init.sh`**: cruzar los imports nuevos de terceros del diff
+>   contra el `requirements.txt` del manifiesto de despliegue del servicio que
+>   los importa. Habría cazado en automático el crash-loop de `azure-*` de
+>   F-002.
 
 1. **La más rentable, confirmada con datos por F-015 y anotada desde F-010**:
    `harness/mutacion.py` ejecuta solo la suite del servicio dueño del fichero
