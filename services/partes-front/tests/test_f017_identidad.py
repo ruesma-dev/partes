@@ -26,8 +26,8 @@ from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
 from interface_adapters.web.identidad import (
     ACTOR_LOCAL_SIN_NOMBRE,
-    ACTOR_SIN_IDENTIDAD,
     ACTOR_MAX_LEN,
+    ACTOR_SIN_IDENTIDAD,
     CABECERA_NOMBRE,
     CABECERA_TOKEN,
     PREFIJO_LOCAL,
