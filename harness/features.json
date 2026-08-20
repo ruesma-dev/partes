@@ -64,8 +64,8 @@
     },
     {
       "id": "F-005",
-      "title": "GRAPH_KEY a Key Vault donde falte",
-      "description": "Mover la credencial de Graph a Key Vault (keyvaultref + managed identity) en los servicios donde aún viaje como variable de entorno en claro; eliminar graphkey_nobom.json del flujo de despliegue.",
+      "title": "GRAPH_KEY a Key Vault (HECHO) + retirar graphkey_nobom.json del despliegue",
+      "description": "Mover la credencial de Graph a Key Vault (keyvaultref + managed identity) en los servicios donde aún viaje como variable de entorno en claro; eliminar graphkey_nobom.json del flujo de despliegue. COMPROBADO el 2026-08-20 contra Azure (lectura): los TRES servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- ya tienen GRAPH_KEY como secretRef 'graph-key', sin ningun valor en claro, y el secreto de la Container App es una referencia a Key Vault (keyVaultUrl informado), no una copia. sv5 no usa Graph. Es decir: el PRIMER objetivo de esta feature YA ESTA CUMPLIDO. Lo unico vivo es el segundo: sacar graphkey_nobom.json del flujo de despliegue (no versionado, lleva los valores reales, hoy se usa para cargar el secreto a mano). Pendiente de decision del humano: cerrarla como done dejando constancia de esta comprobacion, o reescribirla para que sea solo la retirada de graphkey_nobom.json y, con mas valor de seguridad, la ROTACION de esa credencial.",
       "acceptance": [],
       "status": "pending",
       "sdd": true,
@@ -201,6 +201,17 @@
       "rigor": "estandar",
       "priority": 8,
       "branch": "feature/F-017-identidad-easy-auth"
+    },
+    {
+      "id": "F-018",
+      "title": "Log de auditoria de acciones del portal (quien hizo que y cuando)",
+      "description": "Pedida por el humano el 2026-08-20 al explicarle F-017. Hoy NO existe un registro de auditoria del portal. Lo mas parecido es la tabla undo_log, pero NO sirve como tal: su proposito es DESHACER (guarda el estado anterior en payload para restaurarlo), solo cubre las acciones reversibles -reasignar, casar, editar horas/fecha/obra-, y deja fuera las aprobaciones, los borrados, las excepciones de jornada de F-016 y cualquier accion administrativa. Ademas sus filas se marcan como undone y su vida la manda la funcion de deshacer, no la de auditar. ALCANCE A DECIDIR EN LA SPEC: que acciones se registran (como minimo las que hoy escriben approved_by/deleted_by y las cinco pantallas de administracion), que se guarda de cada una (actor, cuando, que entidad, que cambio, desde donde), donde vive (tabla propia de la base partes frente a reutilizar undo_log, que el spec-author debe valorar y descartar con argumentos), si hay pantalla de consulta o basta con SQL, y cuanto se conserva. Valorar tambien si sv3 y sv5 deben escribir en el mismo log: sv5 es el unico que escribe en Sigrid, y hoy esa escritura no deja rastro de quien la origino. DEPENDE DE F-017: sin identidad real de Easy Auth, este log registraria NULL en el campo mas importante, que es el actor. Hacerla antes seria construir un libro de firmas sin firmas.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 9,
+      "branch": "feature/F-018-log-auditoria-portal"
     }
   ]
 }
