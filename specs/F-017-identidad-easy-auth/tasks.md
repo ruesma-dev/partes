@@ -148,7 +148,7 @@ Reglas que no se negocian durante la ejecución:
       añadir temporalmente una segunda lectura, ver el rojo, deshacerlo (la
       traza del rojo, al informe).
 
-- [ ] **T9: Guardián del corte (R22).** Escribir
+- [x] **T9: Guardián del corte (R22).** Escribir
       `tests/test_f017_r22_sin_reescritura_historica.py` en la raíz del
       monorepo: las siete columnas de autor conservan nombre y ancho en las
       **dos** copias del ORM, y no existe en el árbol ningún `UPDATE` sobre
