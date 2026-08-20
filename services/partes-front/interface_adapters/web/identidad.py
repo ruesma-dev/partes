@@ -2,9 +2,18 @@
 """F-017 · Quien firma las escrituras del portal: identidad de Easy Auth.
 
 Traduce las cabeceras que el sidecar de autenticacion de Container Apps
-inyecta en cada peticion a un **actor**: el texto que se sella en las siete
-columnas de autor del portal (`approved_by`, `deleted_by`,
-`sigrid_registrado_by`, `created_by`, `updated_by`, `undo_log.actor`).
+inyecta en cada peticion a un **actor**: el texto que se sella en las columnas
+de autor que el portal escribe — `parte_documents.approved_by` /
+`deleted_by`, `parte_registros.deleted_by` / `sigrid_registrado_by`,
+`empleado_alias.created_by` y `empleado_jornada.created_by` / `updated_by`.
+
+**`undo_log.actor` NO esta en esa lista, aunque exista como columna**: no la
+escribe nadie. Ninguna de las operaciones que F-017 firma genera fila de
+`undo_log`, y las que si la generan (las ediciones) nunca han pasado un actor.
+Seguira naciendo `NULL` **despues** del corte, asi que el criterio
+«`autor IS NULL` ⇔ fila anterior a F-017» **no le aplica**. Escribirla es
+trabajo de F-018. Se dice aqui porque este modulo es lo primero que va a leer
+quien construya encima.
 
 Todo lo de aqui son **funciones puras**: entra un `Mapping` de cabeceras (o
 del entorno) y sale un valor. Sin FastAPI, sin `Settings`, sin `os.environ`,
@@ -50,7 +59,12 @@ CABECERA_ID = "X-MS-CLIENT-PRINCIPAL-ID"     # solo para /whoami (R21)
 PREFIJO_LOCAL = "local:"
 ACTOR_LOCAL_SIN_NOMBRE = "local:sin-identidad"
 ACTOR_SIN_IDENTIDAD = "sin-identidad"        # R5b: desplegado y sin cabecera
-ACTOR_MAX_LEN = 120          # la columna mas estrecha: undo_log.actor
+#: La columna mas estrecha de las que SE ESCRIBEN: `empleado_jornada.
+#: created_by` / `updated_by` y `empleado_alias.created_by`, las tres
+#: `String(120)`. (`undo_log.actor` tambien es 120, pero no vale como razon:
+#: nadie la escribe.) Truncar aqui, una vez, evita que una identidad larga
+#: haga fallar una escritura en cualquiera de los siete consumidores.
+ACTOR_MAX_LEN = 120
 
 #: R5c, senal A. Variables que Azure Container Apps inyecta en todos sus
 #: contenedores y que en un puesto local no existen. **Verificado en el
@@ -215,8 +229,9 @@ def actor_desde_cabeceras(
 
     `origen`: `'cabecera-name'` | `'cabecera-token'` | `'local'` |
     `'sin-identidad-desplegado'`. **El actor NUNCA es vacio ni `None`**: a
-    partir de F-017, un `NULL` en una columna de autor significa
-    exclusivamente «fila anterior al corte» (R7, R22).
+    partir de F-017, un `NULL` en una columna de autor significa «fila
+    anterior al corte» (R7, R22) — en las columnas que el portal escribe, no
+    en `undo_log.actor` (ver la cabecera del modulo).
 
     `fallback` es `DEFAULT_REVIEWER`, y solo se usa **sin desplegar**: es
     la etiqueta de la sesion local, no una firma. `desplegado` lo decide

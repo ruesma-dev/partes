@@ -542,7 +542,9 @@ def build_app(
         truncado a 120. Sin cabecera: `local:<DEFAULT_REVIEWER>` en un
         puesto de desarrollo, `sin-identidad` estando desplegado. **Nunca
         devuelve vacio** (R7): desde F-017, un NULL en una columna de
-        autor significa exclusivamente «fila anterior al corte».
+        autor significa «fila anterior al corte» — en las columnas que el
+        portal escribe; `undo_log.actor` no participa del criterio porque
+        no la escribe nadie (es trabajo de F-018).
 
         Se mantiene el tipo `str | None` aunque hoy nunca devuelva `None`:
         es el que aceptan las siete columnas y los repositorios.

@@ -256,9 +256,16 @@ def test_f017_r18_el_sobre_manda_en_el_consumidor() -> None:
 
     # El consumidor no sabe —ni puede saber— que es una cabecera HTTP.
     assert "X-MS-CLIENT-PRINCIPAL" not in fuente
-    assert "identidad" not in fuente
     # Y sigue tomando el usuario del sobre.
     assert "usuario" in fuente
+    # Desde la correccion del defecto 1 del review (2026-08-21) SI conoce
+    # `identidad.py`, pero solo para reutilizar la constante del fallback:
+    # el valor reservado no puede quedar escrito suelto en dos sitios.
+    assert "ACTOR_SIN_IDENTIDAD" in fuente
+    # Que ya no LEA `default_reviewer` lo vigila el guardian por AST de
+    # `test_f017_punto_unico.py`, no un `in` sobre el texto: aqui el
+    # nombre aparece en el docstring que explica por que no se lee.
+    # El comportamiento lo fijan los tests de R24.
 
 
 def test_f017_r18_lo_que_se_encola_es_lo_que_el_consumidor_leera() -> None:

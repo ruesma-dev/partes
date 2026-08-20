@@ -402,9 +402,20 @@ class SettingsCola:
     default_reviewer = "revisor-por-defecto"
 
 
-def test_f002_r12_sin_usuario_en_el_sobre_se_usa_el_revisor_por_defecto(
+def test_f002_r12_sin_usuario_en_el_sobre_se_sella_sin_identidad(
         monkeypatch):
-    """Un sobre antiguo o sin usuario no puede dejar la traza sin firmar."""
+    """Un sobre antiguo o sin usuario no puede dejar la traza sin firmar.
+
+    El requisito de F-002 no ha cambiado —la traza se firma igual—, ha
+    cambiado CON QUE. Hasta F-017 se firmaba con `DEFAULT_REVIEWER`;
+    desde F-017 (R24) se sella `sin-identidad` y sale un WARNING.
+
+    El motivo, decidido por el humano el 2026-08-20: este consumidor corre
+    **siempre desplegado**, y estando desplegado `DEFAULT_REVIEWER` no
+    firma nada. Un sobre sin usuario —tipicamente uno publicado antes del
+    corte y aun en vuelo— es una anomalia que debe verse en el log, no una
+    firma. Los detalles, en `test_f017_r24_consumer_firmado.py`.
+    """
     import json as _json
 
     parchear_blobs(monkeypatch, mod_blob, BlobServiceClientFake())
@@ -425,8 +436,12 @@ def test_f002_r12_sin_usuario_en_el_sobre_se_usa_el_revisor_por_defecto(
 
     with fabrica.create_session() as s:
         from infrastructure.database.orm_models import ParteRegistroOrm
-        assert s.get(ParteRegistroOrm,
-                     ids[0]).sigrid_registrado_by == "revisor-por-defecto"
+        firma = s.get(ParteRegistroOrm, ids[0]).sigrid_registrado_by
+        assert firma == "sin-identidad"
+        # Lo que el requisito de F-002 protege: la traza NO se queda sin
+        # firmar. Y lo que añade F-017: tampoco firma `DEFAULT_REVIEWER`.
+        assert firma is not None
+        assert firma != "revisor-por-defecto"
 
 
 def test_f002_r1_la_peticion_se_escribe_legible(monkeypatch):

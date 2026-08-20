@@ -147,12 +147,17 @@ mitad duplica el mensaje pero nunca lo pierde.
     Entra normalizado (minúsculas, sin caracteres de control, 120), o un
     marcador reservado que ningún valor externo puede fabricar: `local:…`
     en un puesto de desarrollo y `sin-identidad` —con WARNING por
-    petición— si el proceso está desplegado y la cabecera no llega. A
-    partir de F-017, **`NULL` en una columna de autor significa
-    exclusivamente «fila anterior a F-017»**; `GET /whoami` permite
-    comprobar la identidad resuelta sin escribir ninguna fila.
-    `DEFAULT_REVIEWER` sobrevive con otro significado: ya no es «quién
-    firma el portal» sino la etiqueta de la sesión local.
+    petición— si el proceso está desplegado y la cabecera no llega. El
+    consumidor de `q-transfer-result` es el único punto de escritura sin
+    petición HTTP: toma el actor **del sobre**, y si el sobre no lo trae
+    sella `sin-identidad` con WARNING (nunca `NULL`, nunca
+    `DEFAULT_REVIEWER`). A partir de F-017, **`NULL` en una columna de
+    autor significa «fila anterior a F-017»** — con **una excepción que
+    hay que conocer: `undo_log.actor`**, que no la escribe nadie y sigue
+    naciendo `NULL` después del corte (escribirla es trabajo de F-018).
+    `GET /whoami` permite comprobar la identidad resuelta sin escribir
+    ninguna fila. `DEFAULT_REVIEWER` sobrevive con otro significado: ya no
+    es «quién firma el portal» sino la etiqueta de la sesión local.
 
 ## Acceso a datos y sistemas externos
 

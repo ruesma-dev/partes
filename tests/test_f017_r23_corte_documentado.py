@@ -132,3 +132,76 @@ def test_f017_r23_la_regla_esta_en_architecture() -> None:
     assert "Identidad del portal (F-017" in arquitectura
     assert "_actor(request)" in arquitectura
     assert "anterior a F-017" in arquitectura
+
+
+# ====================================================================== #
+# La excepción se propaga a TODOS los sitios que enuncian el criterio
+# ====================================================================== #
+#
+# Este bloque existe por el defecto 2 del review (2026-08-20). La enmienda
+# de R14/R15 se escribió bien en `partes-proyecto.md` §5.7 y se quedó sin
+# propagar a los otros cuatro sitios donde el criterio seguía enunciado con
+# «exclusivamente». No es una errata: F-018 hereda ese criterio, y un
+# documento que parece vigente y miente hace más daño que no tenerlo.
+#
+# La lección es que enunciar el criterio en varios sitios sólo es seguro si
+# algo comprueba que todos dicen lo mismo. Eso es lo que hace este bloque.
+
+IDENTIDAD_PY = (RAIZ / "services" / "partes-front" / "interface_adapters"
+                / "web" / "identidad.py")
+
+#: Cada sitio versionado del repositorio que enuncia el criterio del corte.
+#: `azure-apps/partes.md` NO está aquí: vive en otro repositorio y esta
+#: suite no puede depender de él. Se corrige en el mismo trabajo, con su
+#: propio commit, como manda la regla de propiedad de `CLAUDE.md`.
+SITIOS_QUE_ENUNCIAN_EL_CRITERIO = (
+    ("docs/referencia/partes-proyecto.md", MAESTRO),
+    ("docs/ARCHITECTURE.md", ARQUITECTURA),
+    ("specs/F-017-identidad-easy-auth/requirements.md",
+     RAIZ / "specs" / "F-017-identidad-easy-auth" / "requirements.md"),
+    ("services/.../web/identidad.py", IDENTIDAD_PY),
+)
+
+
+@pytest.mark.parametrize("nombre, ruta", SITIOS_QUE_ENUNCIAN_EL_CRITERIO)
+def test_f017_r23_la_excepcion_de_undo_log_esta_en_todos_los_sitios(
+        nombre: str, ruta) -> None:
+    """Quien enuncie el criterio del corte, que enuncie su excepción.
+
+    No se exige una redacción concreta —cada documento tiene su tono— sino
+    que `undo_log.actor` aparezca nombrada allí donde se habla del corte.
+    """
+    texto = ruta.read_text(encoding="utf-8")
+    assert "undo_log.actor" in texto, (
+        f"{nombre} habla del corte de F-017 pero no menciona la excepción de "
+        "`undo_log.actor`, que sigue naciendo NULL después del corte")
+
+
+@pytest.mark.parametrize("nombre, ruta", SITIOS_QUE_ENUNCIAN_EL_CRITERIO)
+def test_f017_r23_ningun_sitio_dice_exclusivamente_sin_matizar(
+        nombre: str, ruta) -> None:
+    """La palabra que hacía falsa la afirmación.
+
+    «`NULL` significa **exclusivamente** fila anterior a F-017» es lo que
+    decían los cuatro documentos, y es falso mientras `undo_log.actor`
+    exista. Si alguien vuelve a escribirlo, que sea a la vista.
+    """
+    texto = ruta.read_text(encoding="utf-8").lower()
+    for parrafo in texto.split("\n\n"):
+        if "exclusivamente" in parrafo and "null" in parrafo:
+            assert "undo_log.actor" in parrafo, (
+                f"{nombre} afirma «exclusivamente» sobre un NULL de autor sin "
+                "la excepción de `undo_log.actor` en el mismo párrafo")
+
+
+def test_f017_r23_identidad_py_no_lista_undo_log_como_columna_que_se_sella(
+        ) -> None:
+    """El docstring del módulo la listaba entre las columnas firmadas.
+
+    Era el sitio más engañoso de los cinco: quien construya F-018 encima va
+    a leer este módulo antes que ningún documento.
+    """
+    texto = IDENTIDAD_PY.read_text(encoding="utf-8")
+    cabecera = texto[:texto.index("from __future__")]
+    assert "undo_log.actor" in cabecera
+    assert "NO esta en esa lista" in cabecera
