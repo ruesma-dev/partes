@@ -211,6 +211,30 @@ def test_f017_r3_una_entrada_de_claims_mal_formada_se_ignora() -> None:
     assert actor_desde_token(token) == USUARIO
 
 
+@pytest.mark.parametrize("valor", [12345, None, True, ["a"], {"b": 1}])
+def test_f017_r3_un_claim_con_valor_que_no_es_texto_no_firma(valor) -> None:
+    """`typ` correcto pero `val` que no es una cadena: NO vale como actor.
+
+    Sin esta comprobación, un claim `{"typ": "upn", "val": 12345}` acabaría
+    firmando la fila como `"12345"` — un actor **fabricado** a partir de un
+    dato que no era un nombre. Las dos mitades del claim tienen que ser
+    texto, no una de las dos.
+    """
+    cuerpo = {"claims": [{"typ": "upn", "val": valor}]}
+    token = base64.b64encode(
+        json.dumps(cuerpo).encode("utf-8")).decode("ascii")
+    assert actor_desde_token(token) is None
+
+
+def test_f017_r3_un_claim_no_textual_no_tapa_al_siguiente_valido() -> None:
+    """Y descartarlo no puede costar la identidad real que venía detrás."""
+    cuerpo = {"claims": [{"typ": "preferred_username", "val": 999},
+                         {"typ": "upn", "val": USUARIO}]}
+    token = base64.b64encode(
+        json.dumps(cuerpo).encode("utf-8")).decode("ascii")
+    assert actor_desde_token(token) == USUARIO
+
+
 # ====================================================================== #
 # R4 · normalizacion
 # ====================================================================== #
