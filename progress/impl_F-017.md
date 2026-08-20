@@ -1,0 +1,143 @@
+<!-- progress/impl_F-017.md -->
+# F-017 · Identidad real de Easy Auth en el portal (sv4) — Informe de implementación
+
+Rama: `feature/F-017-identidad-easy-auth` (desde `dev`, `3d6fd7e`).
+Rigor: **`estandar`** ⇒ fase RED obligatoria para R1, R5, R5b, R10, R12 y R16;
+cobertura de líneas cambiadas ≥ 80 %; campaña de mutación con supervivientes
+analizados uno a uno.
+
+---
+
+## T0 (PUERTA) · Confirmación de la señal de despliegue (R5c) — **PASA**
+
+La verificación **M1 bis** de `requirements.md` §4 era la puerta bloqueante de
+esta feature: `design.md` §4.1 marcaba la señal A como **supuesto de
+plataforma no verificado en este repositorio** (ningún servicio del monorepo
+lee esas variables y ningún script de `infra/` las declara).
+
+**Resultado: las cuatro variables existen en el contenedor desplegado.**
+
+| Variable de `VARIABLES_DESPLIEGUE` | ¿Presente en `ca-sv4-front`? |
+|---|---|
+| `CONTAINER_APP_NAME` | **Sí** |
+| `CONTAINER_APP_REVISION` | **Sí** |
+| `CONTAINER_APP_REPLICA_NAME` | **Sí** |
+| `CONTAINER_APP_HOSTNAME` | **Sí** |
+
+Contenedor: `ca-sv4-front` en `rg-partes-dev`, revisión activa a 2026-08-20.
+**Los valores no se transcriben aquí** (T0 pide nombres sin valores).
+
+### Cómo se comprobó, y por qué no con el comando de la spec
+
+El comando literal de `tasks.md` T0 vuelca **todo** el entorno del contenedor
+y filtra *en el cliente*. Eso expondría los secretos resueltos desde Key Vault
+(`GRAPH_KEY`, `PG-PASSWORD`, la credencial de Sigrid). **No se ejecutó así.**
+
+Primer intento, con el filtro **dentro** del contenedor:
+
+```
+az containerapp exec -n ca-sv4-front -g rg-partes-dev \
+  --command "sh -c 'printenv | grep CONTAINER_APP'"
+```
+
+Conecta a la réplica y falla al ejecutar:
+
+```
+INFO: Successfully connected to container: 'ca-sv4-front'. [ Revision: ... ].
+WARNING: Disconnecting...
+ERROR: {"Error":{"Code":"ClusterExecFailure","Message":"Cluster exec API
+returns error: Internal error occurred: error executing command in container:
+websocket: close 1011 (internal server error): ... Cannot attach to a
+container that is not running. ..., code: 500.", ...}}
+```
+
+Causa: el comando compuesto con comillas anidadas no sobrevive al transporte
+del `exec`. Se descartó reintentar variantes de *quoting* del pipe: si el
+entrecomillado se rompe, el comando degenera en `printenv` a secas y vuelca los
+secretos. **Riesgo asimétrico, no se corre.**
+
+Vía usada, una variable por invocación — no puede volcar nada más que la
+variable nombrada:
+
+```
+az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_NAME"
+az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_REVISION"
+az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_REPLICA_NAME"
+az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_HOSTNAME"
+```
+
+Las cuatro devuelven valor no vacío y `INFO: received success status from
+cluster`. Ningún secreto ha pasado por el chat, por el informe ni por un commit.
+
+**Consecuencia para el diseño**: la señal A de R5c es un **hecho verificado en
+este despliegue**, no un supuesto. No hace falta la alternativa
+`ENTORNO=produccion` de `design.md` §4.1 (que habría obligado a tocar Azure y
+a consultar al humano). La señal B se implementa igualmente como red de
+seguridad, tal y como manda §4.1: cubre el caso de que la plataforma deje de
+inyectarlas en el futuro.
+
+Interacción con Azure en toda la feature: **solo estas cuatro lecturas**.
+
+---
+
+## T1 · Punto de partida e inventario de rojos
+
+Suite de sv4 sobre la rama recién creada, sin tocar nada:
+
+```
+$ python -m pytest services/partes-front/tests -q
+799 passed, 1 warning in 54.37s
+```
+
+`bash harness/init.sh` de arranque: en verde (92 tests en la raíz, 4.07 s;
+puerta de cobertura `N/A` porque la rama aún no cambia líneas Python).
+
+### Las doce lecturas de `settings.default_reviewer` en `app.py`
+
+Confirmada la tabla de `design.md` §5.2 contra el árbol (líneas del 2026-08-20):
+
+| Punto | Línea | Contexto |
+|---|---|---|
+| dentro de `_actor` | 490 | la única que debe sobrevivir (R11) |
+| 1 | 1675 | `_payload_registro` → campo `usuario` |
+| 2 | 1769 | `_trazar` → `usuario=` |
+| 3 | 1804 | `aprobar_ejecutar`, log de forzado (R17) |
+| 4 | 1859 | `aprobar_encolar` → `publisher.publicar(usuario=)` |
+| 5 | 1862 | `aprobar_encolar` → `marcar_registros_encolado(usuario=)` |
+| 6 | 2279 | `approve_document` → `approved_by=` |
+| 7 | 2305 | `delete_document` → `deleted_by=` |
+| 8 | 2319 | `api_registro_delete` → `by=` |
+| 9 | 2338 | `api_obra_delete` → `by=` |
+| 10 | 2348 | `api_trabajador_delete` → `by=` |
+| 11 | 2559 | `api_partes_nuevo` → `by=` |
+
+Once fuera del helper, exactamente lo que anunciaba la spec.
+
+### Tests candidatos a ponerse rojos
+
+Revisados por lectura los siete ficheros que `design.md` §6 señalaba como
+«rondan la zona». **La distinción que decide** es si el test llega al valor
+*a través de una petición HTTP* (el TestClient no manda cabeceras de Easy
+Auth ⇒ caerá al fallback) o si llama al repositorio / al consumidor
+directamente (no pasa por `_actor` ⇒ intacto).
+
+| Test | Predicción | Motivo |
+|---|---|---|
+| `test_f002_aprobar_encolar.py:101` (`assert usuario == "ana"`) | **ROJO** | El valor llega por `POST /api/aprobar/encolar` ⇒ pasará a `local:ana` |
+| `test_f016_r13_auditoria` | **ROJO** | La trampa anunciada en `design.md` §6: espera `quien-firma`, obtendrá `local:quien-firma` |
+| `test_f016_r13_sin_default_reviewer_se_sella_nulo_y_no_falla` | **ROJO** | Espera `NULL`; con R7 ya nunca hay `NULL` ⇒ `local:sin-identidad` |
+| `test_f016_r13_la_identidad_se_resuelve_en_un_solo_sitio` | **VERDE** (y es el guardián) | Compara textos que el diseño respeta; si se pone rojo, se rompió el punto único |
+| `test_f002_mutantes.py:429` (`sigrid_registrado_by == "revisor-por-defecto"`) | VERDE | Es el **consumidor de resultados** (R18), sin petición HTTP: toma el usuario del sobre y su `Settings` es un doble |
+| `test_f002_degradacion.py`, `test_f002_credenciales_y_arranque.py`, `test_f002_resultado_consumer.py`, `test_f002_publisher.py` | VERDE | `Settings` dobles y llamadas directas al repositorio/publisher |
+| `test_f003_r23_bloqueo_registro.py`, `test_f004_endpoints_congelados.py` | VERDE | Ponen `DEFAULT_REVIEWER=ana` en el entorno pero **no asertan sobre quién firma** |
+
+Comprobado además que **ningún test comprueba el texto del log de forzado**
+(R17) ni **las firmas de las cinco rutas** que ganan `request: Request`: no hay
+ni una referencia a `FORZADO`, `approve_document`, `delete_document`,
+`api_registro_delete`, `api_obra_delete` ni `api_trabajador_delete` en la
+suite. Añadir el parámetro no puede romper una aserción de firma porque no
+existe.
+
+**Regla de reparación** (de `design.md` §6, aplicada en T5 y T7): si el test
+comprueba *quién firma*, se le pone cabecera; si solo necesita *que haya algún
+valor*, basta con actualizar el literal esperado a `local:…`.
