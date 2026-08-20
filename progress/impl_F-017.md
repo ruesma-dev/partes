@@ -346,3 +346,88 @@ Los tests dejan el hecho a la vista en vez de taparlo: `test_f017_r14_*` y
 `test_f017_r15_*` comprueban el actor **en el punto que la ruta controla** (el
 argumento con el que llama al repositorio), y el fichero termina con un bloque
 de comentario que explica los tres hechos anteriores.
+
+---
+
+## T7 · Los once puntos + `/whoami`
+
+Los doce cambios de `design.md` §5.2, aplicados tal cual. Las cinco firmas que
+no tenían `request` lo reciben **el primero**, con los `Form(default=…)`
+intactos; `_payload_registro` y `_trazar` reciben el actor **por parámetro**
+(no lo resuelven: R10); y `/whoami` devuelve sus cinco campos.
+
+Un punto **añadido** a la tabla de §5.2, y conviene justificarlo: el
+**preflight** (`POST /api/aprobar/preflight`) también llama a
+`_payload_registro`. La spec no lo listaba porque no escribe en ninguna
+columna, pero comparte el constructor del payload: al añadir el parámetro
+`actor` había que dárselo igualmente, y así el `usuario` que ve sv5 es el
+mismo en las tres rutas. Lo cubre
+`test_f017_r16_el_preflight_tambien_va_firmado`.
+
+```
+$ python -m pytest services/partes-front/tests -q
+1021 passed, 1 warning in 74.58s
+```
+
+**Un único rojo colateral en toda la suite**, el que T1 predijo:
+`test_f002_aprobar_encolar.py` esperaba `usuario == "ana"` y pasa a
+`"local:ana"`. Se aplicó la regla de `design.md` §6: el test sólo necesitaba
+*que hubiera un valor y cuál*, así que se actualizó el literal y se explicó
+por qué en un comentario. Los otros seis ficheros que «rondaban la zona»
+siguieron verdes sin tocarlos, exactamente como se predijo en T1.
+
+También se retiró el `or "(sin usuario)"` del aviso de forzado (R17): con R7
+el actor nunca es vacío, así que ese relleno ya no puede ocurrir — y hay un
+test que comprueba que ese texto no vuelve a aparecer en la fuente.
+
+---
+
+## T8 · El punto único, con guardián (R10, R11)
+
+`test_f017_punto_unico.py`, 12 tests, en verde:
+
+```
+$ python -m pytest services/partes-front/tests/test_f017_punto_unico.py -q
+12 passed in 0.14s
+```
+
+Comprueba que `app.py` tiene **exactamente una** lectura de
+`settings.default_reviewer` (antes había doce) y que está dentro de
+`_resolver_identidad`; que ninguna ruta la lee en su cuerpo; que ningún
+fichero de producción de sv4 usa el literal de una cabecera de Easy Auth
+fuera de `identidad.py`; y que `infrastructure/`, `application/`, `domain/` y
+`config/` ni saben que Easy Auth existe.
+
+### El guardián detecta el defecto (verificación pedida por T8)
+
+Se introdujo a propósito una segunda lectura en `api_registro_delete`
+(`by=settings.default_reviewer`) y se ejecutó el guardián. Lo caza **por tres
+vías independientes**:
+
+```
+FAILED ...::test_f017_r11_una_sola_lectura_de_default_reviewer
+FAILED ...::test_f017_r11_ninguna_ruta_lee_default_reviewer
+FAILED ...::test_f017_todos_los_puntos_de_escritura_usan_el_helper
+3 failed, 9 passed
+```
+
+Traza del segundo, que además **señala la ruta culpable**:
+
+```
+>           assert "settings.default_reviewer" not in cuerpo
+E           assert 'settings.default_reviewer' not in '@app.post("..."ok": ok})\n'
+E             'settings.default_reviewer' is contained here:
+E               ro_id, by=settings.default_reviewer
+E                       )
+E                       return JSONResponse({"ok": ok})
+```
+
+El defecto se deshizo con `git checkout` sobre el fichero (el commit de T7 ya
+estaba hecho) y los 12 vuelven a verde.
+
+**Un ajuste durante T8, por precisión del guardián.** La primera versión
+prohibía el texto `X-MS-CLIENT-PRINCIPAL` en `app.py` a secas, y eso ponía
+rojo el **docstring** de `_actor`, que menciona la cabecera para explicar de
+dónde sale el actor. Perseguir la documentación habría sido un guardián
+contraproducente: empuja a escribir docstrings peores. Ahora busca el literal
+**entrecomillado**, que es lo que delata una lectura de verdad.

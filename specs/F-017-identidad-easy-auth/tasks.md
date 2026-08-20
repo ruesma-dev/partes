@@ -137,7 +137,7 @@ Reglas que no se negocian durante la ejecución:
       **entero**, incluidos los tests de F-002/F-003/F-004 inventariados en
       T1 (ajustando sus literales donde solo comprobaban «que hay un valor»).
 
-- [ ] **T8: El punto único, con guardián (R10, R11).** Escribir
+- [x] **T8: El punto único, con guardián (R10, R11).** Escribir
       `services/partes-front/tests/test_f017_punto_unico.py`: `app.py`
       contiene exactamente **una** lectura de `settings.default_reviewer` y
       está dentro de `_actor`; ninguna otra función lee cabeceras
