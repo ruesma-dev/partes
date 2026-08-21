@@ -610,3 +610,46 @@ está pendiente más arriba en este mismo documento.
   el actor una sola vez—, así que memoizar sería resolver un problema que aún
   no existe. Cuando F-018 lo necesite, son tres líneas en
   `_resolver_identidad` y no cambia ninguna firma.
+
+---
+
+## Actualización del arnés: 1.4.0 → 1.7.2 (2026-08-21)
+
+Rama `chore/arnes-1.7.2`, sin push. Origen: `arnes-base` (payload 1.7.2 del
+2026-08-21). Ejecutado `instalar_arnes.ps1 -Modo actualizar`; los seis ficheros
+«adaptados» se restauraron a la versión de `partes` y las novedades genéricas
+se portaron a mano, bloque a bloque. Backup del instalador en
+`%LOCALAPPDATA%\arnes-base\backups\partes\20260821-232232` (16 ficheros).
+
+**Qué entra**: puerta de tamaño del papeleo (`harness/tamano.py`, sección
+7 quater de `init.sh`), `BACKLOG.md` generado desde `features.json`
+(`harness/backlog.py`, sección 3 bis), centinela de campaña de mutación en
+curso (sección 1 bis), motor de mutación de la 1.6.0–1.7.2 (línea base que no
+puede mentir, mutación de `is`, sin envenenar el árbol con bytecode,
+`--ficheros`, dimensionado automático de timeout y workers), reglas RM1–RM6 del
+reviewer en `CHECKPOINTS.md` y 16 tests nuevos del arnés en `tests/`.
+
+**Qué se conservó de `partes`**: las tres adaptaciones de `init.sh`
+(`REQUIERE_ENV=0`, cabeceras de las secciones de configuración y 9), el punto
+C4 de dominio de `CHECKPOINTS.md` (empleado ≠ recurso, incidencias, schema
+duplicado), `docs/CONVENTIONS.md` entero (la plantilla no cambió desde 1.4.0) y
+todo el contenido propio de `CLAUDE.md`. Los cuatro agentes de `.claude/agents/`
+no tenían adaptación local: se comprobó antes de dejar que el instalador los
+pisara.
+
+**Rigor**: `nivel_por_defecto` pasa de `critico` a `estandar`, pero **las 17
+features declaran su nivel explícitamente**, así que ninguna cambia de
+exigencia. Lo que sí cambia de aquí en adelante: las campañas de nivel
+`estandar` van **muestreadas a 20 mutantes con semilla fija** (`--max-mutantes 0`
+para la campaña entera) y sus números **no son comparables** con los de
+campañas anteriores. Tampoco lo son los tiempos: desde la 1.7.2 el timeout por
+mutante se deriva de la línea base medida.
+
+**Verificado**: `bash harness/init.sh` en verde con el arnés v1.7.2 — 401 tests
+pasados (138 antes de la actualización) y 1 saltado, servicios sv3/sv4/sv5 en
+verde por caché, `BACKLOG.md` generado. `python -m harness.mutacion --estado` y
+`python -m harness.tamano --feature F-018` responden bien.
+
+**Pendiente / sabido**: `ruff` sube de 468 a 496 avisos, los 28 nuevos en el
+código del arnés recién entrado (deuda del genérico, no bloquea). Nada que
+propagar de vuelta a `arnes-base`: esta actualización solo consume.
