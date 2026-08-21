@@ -232,6 +232,34 @@ un cambio de nombre y otra que no.
 excepción de `undo_log.actor`**. Hay que refrescarlo contra `dev` después de
 mergear, antes de darlo por bueno.
 
+## Cierre de sesión · 2026-08-21
+
+Trabajo hecho hoy, todo commiteado en `dev` (**`git push origin dev` PENDIENTE**):
+
+1. **Verificación completa del despliegue del 2026-08-20** (sv3 y sv4, esquema
+   con las 19 columnas, M1 de F-010, las 6 de F-016 §8.2, KPI de F-015, R7 y
+   R12). Sin nada abierto.
+2. **F-017 done, mergeada, desplegada y verificada en producción.**
+3. **F-005 revisada** contra Azure: su primer objetivo ya estaba cumplido.
+   **Pendiente de decisión del humano**: cerrarla o reescribirla como retirada
+   de `graphkey_nobom.json` + rotación de la credencial.
+4. **F-009 eliminada** por decisión del humano; su lista de automejoras sigue
+   viva en este fichero, sin feature propia.
+5. **F-018 dada de alta**, con spec redactada **en un worktree sin integrar**.
+
+### Por dónde seguir, en orden
+
+1. `git push origin dev`.
+2. Comprobar en el portal que **«Aprobado por» ya sale con el usuario real**
+   (única verificación que queda de F-017).
+3. **Integrar la spec de F-018** desde `worktree-agent-ad862e62640d64553`
+   (commit `eee9d53`), refrescándola antes contra `dev`: heredó el criterio del
+   corte SIN la excepción de `undo_log.actor`, y tiene material nuevo (el `oid`
+   de `X-MS-CLIENT-PRINCIPAL-ID`). Luego `git worktree remove`.
+4. Decidir sobre **F-005**.
+5. Cuando toque: el **correo de F-014 a RRHH** y la **actualización del arnés
+   a 1.6.2** (aplazada; el análisis de impacto se paró sin informe).
+
 ## Lo que el humano tiene que decidir o hacer
 
 1. **Verificaciones del despliegue**: las 6 de F-016 §8.2 y el KPI de F-015
