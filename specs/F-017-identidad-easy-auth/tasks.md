@@ -33,7 +33,7 @@ Reglas que no se negocian durante la ejecución:
 
 ---
 
-- [ ] **T0 (PUERTA, antes de escribir nada): confirmar la señal de despliegue
+- [x] **T0 (PUERTA, antes de escribir nada): confirmar la señal de despliegue
       (R5c).** Ejecutar la verificación **M1 bis** de `requirements.md` §4 y
       pegar la salida real en `progress/impl_F-017.md`:
       `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv" | Select-String CONTAINER_APP`
@@ -47,7 +47,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: MANUAL (humano) — la lista de variables encontradas, con
       su nombre y **sin sus valores**, pegada en el informe.
 
-- [ ] **T1: Inventario de rojos.** Con la rama recién creada y **sin tocar
+- [x] **T1: Inventario de rojos.** Con la rama recién creada y **sin tocar
       nada**, ejecutar la suite de sv4 y dejar constancia del punto de
       partida en `progress/impl_F-017.md`; después, listar por lectura los
       tests que dependen de `DEFAULT_REVIEWER` y anotar cuáles se espera que
@@ -56,7 +56,7 @@ Reglas que no se negocian durante la ejecución:
       verde + sección «Punto de partida» en `progress/impl_F-017.md` con el
       recuento real y la lista de tests candidatos.
 
-- [ ] **T2: Fase RED de la resolución de identidad.** Escribir
+- [x] **T2: Fase RED de la resolución de identidad.** Escribir
       `services/partes-front/tests/test_f017_identidad.py` (R1–R9 menos R5c,
       R20, R21) y `services/partes-front/tests/test_f017_entorno.py` (R5c)
       **antes** de que exista `identidad.py`, y pegar la traza real del fallo
@@ -68,7 +68,7 @@ Reglas que no se negocian durante la ejecución:
       `ModuleNotFoundError`/`AttributeError`, y la salida está pegada en el
       informe.
 
-- [ ] **T3: `identidad.py`.** Crear
+- [x] **T3: `identidad.py`.** Crear
       `services/partes-front/interface_adapters/web/identidad.py` con
       `normalizar_actor`, `es_actor_reservado`, `actor_desde_token`,
       `senal_de_despliegue` y `actor_desde_cabeceras` (firmas en
@@ -80,7 +80,7 @@ Reglas que no se negocian durante la ejecución:
       `python -m pytest services/partes-front/tests/test_f017_identidad.py services/partes-front/tests/test_f017_entorno.py -q`
       en verde salvo los tests de `/whoami` (R21), que dependen de T7.
 
-- [ ] **T3 bis: Las dos ramas del fallback, comprobadas por separado (R5,
+- [x] **T3 bis: Las dos ramas del fallback, comprobadas por separado (R5,
       R5b, R6).** Cerrar los tests que distinguen los dos entornos: sin
       desplegar ⇒ `local:…`; desplegado y sin cabecera ⇒ **exactamente**
       `sin-identidad`, **sin** el prefijo `local:`, con **WARNING** en
@@ -91,7 +91,7 @@ Reglas que no se negocian durante la ejecución:
       empieza por `local:` (no basta con comprobar que es `sin-identidad`:
       es justo la confusión que la enmienda viene a evitar).
 
-- [ ] **T4: `_actor` pasa a leer la cabecera.** Cambiar **solo el interior** y
+- [x] **T4: `_actor` pasa a leer la cabecera.** Cambiar **solo el interior** y
       el docstring de `_actor` en
       `services/partes-front/interface_adapters/web/app.py`, dejando la firma
       intacta; añadir junto a él `_resolver_identidad` (que emite el WARNING
@@ -105,7 +105,7 @@ Reglas que no se negocian durante la ejecución:
       Ambos resultados van al informe: el rojo es evidencia de que `_actor`
       manda de verdad.
 
-- [ ] **T5: Reparar los tests de F-016 (R19).** En
+- [x] **T5: Reparar los tests de F-016 (R19).** En
       `services/partes-front/tests/test_f016_endpoints_admin_jornadas.py`:
       helper `_como(usuario)`, reescribir `test_f016_r13_auditoria` para que
       fabrique la cabecera, y convertir
@@ -116,14 +116,14 @@ Reglas que no se negocian durante la ejecución:
       `python -m pytest services/partes-front/tests/test_f016_endpoints_admin_jornadas.py -q`
       entero en verde, incluido el test del punto único.
 
-- [ ] **T6: Fase RED de los once puntos.** Escribir
+- [x] **T6: Fase RED de los once puntos.** Escribir
       `test_f017_endpoints_firmados.py` (R12–R15) y
       `test_f017_aprobacion_firmada.py` (R16–R18) **antes** de tocar las
       rutas, y pegar la traza del fallo de R12 y R16 en el informe.
       Verificación: los dos ficheros fallan por el motivo esperado (se sella
       `local:…` en vez del principal), con la salida pegada.
 
-- [ ] **T7: Los once puntos + `/whoami`.** En `app.py`: añadir
+- [x] **T7: Los once puntos + `/whoami`.** En `app.py`: añadir
       `request: Request` a las cinco firmas que no lo tienen
       (`approve_document`, `delete_document`, `api_registro_delete`,
       `api_obra_delete`, `api_trabajador_delete`), pasar `actor` por
@@ -137,7 +137,7 @@ Reglas que no se negocian durante la ejecución:
       **entero**, incluidos los tests de F-002/F-003/F-004 inventariados en
       T1 (ajustando sus literales donde solo comprobaban «que hay un valor»).
 
-- [ ] **T8: El punto único, con guardián (R10, R11).** Escribir
+- [x] **T8: El punto único, con guardián (R10, R11).** Escribir
       `services/partes-front/tests/test_f017_punto_unico.py`: `app.py`
       contiene exactamente **una** lectura de `settings.default_reviewer` y
       está dentro de `_actor`; ninguna otra función lee cabeceras
@@ -148,14 +148,14 @@ Reglas que no se negocian durante la ejecución:
       añadir temporalmente una segunda lectura, ver el rojo, deshacerlo (la
       traza del rojo, al informe).
 
-- [ ] **T9: Guardián del corte (R22).** Escribir
+- [x] **T9: Guardián del corte (R22).** Escribir
       `tests/test_f017_r22_sin_reescritura_historica.py` en la raíz del
       monorepo: las siete columnas de autor conservan nombre y ancho en las
       **dos** copias del ORM, y no existe en el árbol ningún `UPDATE` sobre
       esas columnas ni ningún `.sql` de migración nuevo.
       Verificación: `python -m pytest tests -q` en verde.
 
-- [ ] **T10: Documentar el corte (R23).** En
+- [x] **T10: Documentar el corte (R23).** En
       `docs/referencia/partes-proyecto.md`: corregir §5.4 (donde hoy dice que
       `created_by`/`updated_by` llevan `DEFAULT_REVIEWER`, que además es
       falso: llevan `NULL`) y añadir el apartado **«Corte de auditoría
@@ -166,7 +166,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: `python -m pytest tests/test_f017_r23_corte_documentado.py -q`
       en verde (comprueba que el apartado y el criterio están escritos).
 
-- [ ] **T11: Actualizar `azure-apps/partes.md`.** Documentar el nuevo
+- [x] **T11: Actualizar `azure-apps/partes.md`.** Documentar el nuevo
       significado de `DEFAULT_REVIEWER` en sv4 (etiqueta de la sesión local,
       **no** «quién firma»), que la auditoría del portal usa el principal de
       Easy Auth, y la ruta `GET /whoami`.
@@ -174,7 +174,7 @@ Reglas que no se negocian durante la ejecución:
       `azure-apps`** (`git -C C:/Users/pgris/PycharmProjects/azure-apps commit`),
       local y **sin push**, con el diff enseñado en el informe.
 
-- [ ] **T12: Campaña de mutación y evidencias.** Ejecutar
+- [x] **T12: Campaña de mutación y evidencias.** Ejecutar
       `python -m harness.mutacion --feature F-017`, analizar **todos** los
       supervivientes (ninguno en `PENDIENTE`) y cerrar la sección
       «Evidencias» de `progress/impl_F-017.md` con los cuatro números: tests
@@ -188,7 +188,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: `progress/mutacion_F-017.md` generado por la herramienta,
       con sus totales reales y cada superviviente analizado.
 
-- [ ] **T13: Listar las verificaciones MANUAL.** Copiar **M1, M1 bis y M2–M4**
+- [x] **T13: Listar las verificaciones MANUAL.** Copiar **M1, M1 bis y M2–M4**
       de `requirements.md` §4 a `progress/current.md` con su comando exacto
       (M1 bis ya estará ejecutada en T0: se anota con su resultado real),
       marcadas como pendientes del humano, junto con el aviso de que M2–M4
@@ -197,7 +197,7 @@ Reglas que no se negocian durante la ejecución:
       Verificación: MANUAL (humano) — las cuatro entradas presentes en
       `progress/current.md`.
 
-- [ ] **T14: Ejecutar `bash harness/init.sh` en verde.** Tal cual, sin pipes
+- [x] **T14: Ejecutar `bash harness/init.sh` en verde.** Tal cual, sin pipes
       ni decoración. Incluye la puerta de cobertura de las líneas cambiadas
       (rama de feature).
       Verificación: `bash harness/init.sh` termina con exit code 0 y la

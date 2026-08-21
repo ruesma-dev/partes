@@ -98,7 +98,10 @@ def test_f002_r1_encolar_responde_asincrono_sin_esperar_a_sigrid(montaje):
     # No se llamo a sv5 por HTTP: de eso se encarga la cola.
     assert sv5.ejecutadas == []
     payload, usuario = publisher.publicadas[0]
-    assert usuario == "ana"
+    # F-017: el TestClient no manda cabeceras de Easy Auth, asi que el
+    # sobre viaja firmado como sesion local. Lo que este test comprueba
+    # sigue siendo lo mismo: que el sobre va firmado, y con quien.
+    assert usuario == "local:ana"
     assert [x["registro_id"] for x in payload["lineas"]] == ids
 
 

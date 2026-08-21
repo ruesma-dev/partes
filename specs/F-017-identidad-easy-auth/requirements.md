@@ -131,8 +131,25 @@ actor reservado.
 > con esa cadena.
 
 **R7.** El sistema debe resolver **siempre** un actor no vacío para toda
-petición HTTP del portal. A partir de esta feature, un `NULL` en una columna
-de autor significa **exclusivamente** «fila anterior al corte de F-017».
+petición HTTP del portal, **y también para el marcado que hace el consumidor
+de `q-transfer-result` fuera de toda petición** (R24). A partir de esta
+feature, un `NULL` en una columna de autor significa «fila anterior al corte
+de F-017» en las columnas que el portal escribe: `parte_documents.approved_by`
+/ `deleted_by`, `parte_registros.deleted_by` / `sigrid_registrado_by`,
+`empleado_alias.created_by` y `empleado_jornada.created_by` / `updated_by`.
+
+> **La excepción, dicha aquí y no solo en R15** (enmienda del 2026-08-20,
+> propagada a R7 el 2026-08-21 tras el review). **`undo_log.actor` NO
+> participa del criterio**: esa columna no la escribe nadie —ninguna de las
+> operaciones que F-017 firma genera fila de `undo_log`, y las que sí la
+> generan nunca han pasado un actor—, así que **seguirá naciendo `NULL`
+> después del corte**. Aplicarle el criterio daría «anterior a F-017» para
+> filas nuevas, que es falso. Escribirla es trabajo de **F-018**, que es quien
+> se ocupa del log de acciones.
+>
+> Esto importa más de lo que parece porque **F-018 hereda este criterio**:
+> dejarlo enunciado sin la excepción sería sembrar el error justo donde se va
+> a recoger.
 
 **R8.** SI el valor recibido por cabecera supera los 120 caracteres, ENTONCES
 el sistema debe truncarlo (R4) y completar la operación con normalidad: una
@@ -169,12 +186,39 @@ sistema debe sellar `parte_documents.deleted_by` con el actor de esa petición.
 
 **R14.** CUANDO el usuario borra una línea, una obra o un trabajador
 (`POST /api/registro/{id}/delete`, `POST /api/obra/{key}/delete`,
-`POST /api/trabajador/{key}/delete`), el sistema debe escribir el actor de esa
-petición en `undo_log.actor`.
+`POST /api/trabajador/{key}/delete`), el sistema debe sellar el actor de esa
+petición en la columna de autor que esas operaciones escriben:
+`parte_registros.deleted_by` y `parte_documents.deleted_by`.
+
+> **ENMENDADO el 2026-08-20, decisión del humano.** La redacción original decía
+> «en `undo_log.actor`», y eso **no describía el código**: esas tres
+> operaciones NO generan filas de `undo_log`, y esa columna no la escribe
+> nadie. Lo verificamos en el árbol antes de enmendar. El requisito de fondo
+> —que un borrado quede firmado— se cumple igual, y mejor, en la columna que
+> esas operaciones ya usan.
 
 **R15.** CUANDO el usuario da de alta un parte manual
-(`POST /api/partes/nuevo`), el sistema debe escribir el actor de esa petición
-en `undo_log.actor`.
+(`POST /api/partes/nuevo`), el sistema debe hacer llegar el actor de esa
+petición a la capa de aplicación por el parámetro `by` de
+`crear_parte_manual`, que hasta ahora se recibía y se descartaba.
+
+> **ENMENDADO el 2026-08-20, decisión del humano.** La redacción original decía
+> «en `undo_log.actor`». Verificado en el árbol: el alta manual **no** genera
+> fila de `undo_log`, y `crear_parte_manual` declara `by` **sin usarlo**
+> (`services/partes-front/infrastructure/database/parte_repository.py:2562`).
+> Persistir quién dio de alta un parte manual exigiría una **columna nueva**:
+> ni `parte_documents` ni `parte_registros` tienen `created_by`. Esta feature
+> prometió **cero cambios de schema**, así que no se añade aquí.
+>
+> **Lo que queda cubierto**: el cableado, hasta la frontera de la persistencia.
+> **Lo que NO**: el dato guardado. Eso lo aporta **F-018**, cuyo diseño existe
+> justamente para registrar la *decisión* de acciones que hoy no tienen
+> columna. Añadir la columna en F-017 habría tocado las **dos copias** del ORM
+> por un caso que otra feature resuelve mejor.
+>
+> **Consecuencia asumida y documentada**: el criterio del corte
+> (`autor IS NULL` ⇔ anterior a F-017) vale para las columnas que sí se
+> escriben; `undo_log.actor` sigue vacío y no significa nada nuevo.
 
 **R16.** CUANDO el usuario aprueba de forma síncrona
 (`POST /api/aprobar/ejecutar`) o encolada (`POST /api/aprobar/encolar`), el
@@ -190,7 +234,36 @@ al actor de esa petición.
 **R18.** MIENTRAS el resultado de una aprobación encolada llegue por
 `q-transfer-result` —fuera de toda petición HTTP—, el sistema debe seguir
 tomando el `usuario` del sobre del mensaje, que ya viaja firmado con el actor
-real gracias a R16.
+real gracias a R16, **y respetarlo intacto** (viene ya normalizado del punto
+único).
+
+**R24.** SI el sobre de `q-transfer-result` llega **sin** `usuario` —ausente,
+vacío o no textual—, ENTONCES el sistema debe sellar `sin-identidad`,
+registrar un **WARNING** nombrando el `peticion_id`, y completar el marcado de
+las líneas igualmente. **No debe leer `DEFAULT_REVIEWER` ni escribir `NULL`.**
+
+> **Requisito añadido el 2026-08-21**, tras el defecto 1 del review. La línea
+> era `sobre.get("usuario") or getattr(settings, "default_reviewer", None)`, y
+> fallaba por tres sitios a la vez: era una **tercera lectura de identidad**
+> fuera del punto único (R10/R11) e invisible para el guardián —que solo
+> miraba `app.py`—; contradecía lo que la feature publica en tres documentos
+> («estando desplegado, `DEFAULT_REVIEWER` no firma nada»); y, con esa
+> variable sin configurar, marcaba líneas con `sigrid_registrado_by = NULL`
+> **después** del corte.
+>
+> Ese último punto es el que lo hacía grave: era **la única vía real por la
+> que una fila podía nacer sin actor tras el corte**, y por tanto el único
+> agujero del criterio de R7. Se materializa con los mensajes que están **en
+> vuelo durante el despliegue**, publicados antes de F-017 y por tanto sin
+> firma en el sobre — no es un caso teórico, es lo que va a pasar el día que
+> se despliegue.
+>
+> **Decisión del humano (2026-08-20)**: el fallback es `sin-identidad`, ni
+> `NULL` ni `DEFAULT_REVIEWER`. El consumidor corre **siempre desplegado**
+> (vive dentro del proceso web), así que es exactamente el caso de **R5b**: un
+> sobre sin firma no es una sesión sin identificar, es una **anomalía que debe
+> verse en el log**. Un WARNING por mensaje afectado, con el mismo criterio
+> que R5b: cada uno es un incidente, no ruido.
 
 **R19.** CUANDO el usuario crea, edita, cierra, desactiva o reactiva una
 excepción de jornada (las cinco escrituras de F-016), el sistema debe sellar
@@ -269,11 +342,12 @@ suite de F-016.
 | R11 | `test_f017_punto_unico.py::test_f017_r11_una_sola_lectura_de_default_reviewer` |
 | R12 | `test_f017_endpoints_firmados.py::test_f017_r12_approved_by` |
 | R13 | `test_f017_endpoints_firmados.py::test_f017_r13_deleted_by` |
-| R14 | `test_f017_endpoints_firmados.py::test_f017_r14_undo_log_actor_borrados` (parametrizado: registro / obra / trabajador) |
-| R15 | `test_f017_endpoints_firmados.py::test_f017_r15_undo_log_actor_parte_manual` |
+| R14 | `test_f017_endpoints_firmados.py::test_f017_r14_borrar_linea_sella_deleted_by`, `::test_f017_r14_undo_log_actor_borrados` (parametrizado: registro / obra / trabajador), `::test_f017_r14_sin_cabecera_tambien_se_firma`, `::test_f017_r14_cada_peticion_lleva_su_actor` |
+| R15 | `test_f017_endpoints_firmados.py::test_f017_r15_undo_log_actor_parte_manual` (el nombre conserva el literal histórico; comprueba el paso del actor por `by=`), `::test_f017_r15_sin_cabecera_el_alta_manual_tambien_se_firma`, `::test_f017_r15_desplegado_sin_cabecera_el_alta_lleva_sin_identidad` |
 | R16 | `test_f017_aprobacion_firmada.py::test_f017_r16_payload_y_marcas` (síncrono y encolado) |
 | R17 | `test_f017_aprobacion_firmada.py::test_f017_r17_log_forzado_nombra_al_actor` |
-| R18 | `test_f017_aprobacion_firmada.py::test_f017_r18_el_sobre_manda_en_el_consumidor` |
+| R18 | `test_f017_aprobacion_firmada.py::test_f017_r18_el_sobre_manda_en_el_consumidor` y `test_f017_r24_consumer_firmado.py::test_f017_r18_el_sobre_manda_y_su_usuario_llega_intacto` (+ que gana a `DEFAULT_REVIEWER` y que respeta los marcadores ya firmados) |
+| R24 | `test_f017_r24_consumer_firmado.py::test_f017_r24_sobre_sin_usuario_se_sella_sin_identidad` (5 formas de sobre sin firma), `::_el_aviso_nombra_la_peticion`, `::_el_aviso_se_repite_por_mensaje`, `::_un_sobre_firmado_no_genera_aviso`, `::_el_marcado_se_completa_aunque_no_haya_firma`, `::_ninguna_fila_nace_con_autor_nulo_tras_el_corte`; y el guardián `test_f017_punto_unico.py::test_f017_r11_ni_un_solo_fichero_mas_de_sv4_lee_la_identidad` |
 | R19 | `test_f016_endpoints_admin_jornadas.py::test_f016_r13_auditoria` **reescrito** (ver `design.md` §6) |
 | R20 | `test_f017_identidad.py::test_f017_r20_cabeceras_basura_no_cambian_el_estado` (parametrizado sobre varias rutas) |
 | R21 | `test_f017_identidad.py::test_f017_r21_whoami` (las cuatro ramas de `origen`, el `entorno` y que **no** aparece ningún valor de cabecera ni claim en la respuesta) |
@@ -310,16 +384,48 @@ lleguen de verdad en Azure no lo puede demostrar ningún test.
 - **M1 bis (se puede hacer ANTES de implementar, y conviene).** Comprobar que
   Azure Container Apps inyecta de verdad las variables de R5c en este
   entorno — hoy **ningún servicio del monorepo las lee**, así que es un
-  supuesto de plataforma sin verificar aquí:
-  `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv" | Select-String CONTAINER_APP`
-  Si no aparece ninguna, R5c se queda **solo** con la segunda señal y hay que
-  decidir otra (ver `design.md` §4.1).
+  supuesto de plataforma sin verificar aquí. **EJECUTADA el 2026-08-20 (T0)
+  con resultado positivo: las cuatro existen en `ca-sv4-front`.**
+
+  > ⚠ **Nunca con `printenv` a secas.** La primera redacción de esta spec
+  > proponía
+  > `az containerapp exec … --command "printenv" | Select-String CONTAINER_APP`.
+  > **Es peligroso y no se debe usar**: el `Select-String` filtra *lo que se
+  > muestra*, no lo que el contenedor imprime. `printenv` vuelca **todas** las
+  > variables con los secretos ya resueltos desde Key Vault (`PG_PASSWORD`,
+  > `GRAPH_KEY`, `SESAME_API_KEY`, la credencial de Sigrid…) al terminal, y de
+  > ahí al historial de la sesión y a cualquier registro que la capture.
+
+  Forma segura, una variable por invocación — no puede imprimir nada más que
+  la variable nombrada:
+
+  ```
+  az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_NAME"
+  az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_REVISION"
+  az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_REPLICA_NAME"
+  az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_HOSTNAME"
+  ```
+
+  (Se probó también a filtrar **dentro** del contenedor con
+  `sh -c 'printenv | grep CONTAINER_APP'`, y el `exec` falla con las comillas
+  anidadas. No conviene insistir por ahí: si el entrecomillado se rompe, el
+  comando degenera en `printenv` a secas.)
+
+  Si no apareciera ninguna, R5c se queda **solo** con la segunda señal y hay
+  que decidir otra (ver `design.md` §4.1).
 - **M2.** Aprobar un parte de prueba desde el portal desplegado y comprobar
   en la base `partes` que `parte_documents.approved_by` lleva ese mismo valor
   y no `NULL`:
   `SELECT id, approved_by, approved_at_utc FROM parte_documents WHERE approved_at_utc IS NOT NULL ORDER BY approved_at_utc DESC LIMIT 5;`
-- **M3.** Borrar una línea de prueba y comprobar
-  `SELECT created_at_utc, action, actor FROM undo_log ORDER BY id DESC LIMIT 5;`
+- **M3.** Borrar una línea de prueba y comprobar que queda firmada:
+  `SELECT id, deleted_at_utc, deleted_by FROM parte_registros WHERE deleted_at_utc IS NOT NULL ORDER BY deleted_at_utc DESC LIMIT 5;`
+
+  > **Corregida el 2026-08-21.** La redacción original consultaba
+  > `undo_log.actor`, y la enmienda de R14/R15 demostró que ese camino no
+  > existe: **borrar una línea no genera ninguna fila de `undo_log`**, así que
+  > la consulta antigua no habría devuelto nada nuevo y se habría leído como
+  > un fallo de la feature. El destino real del actor en un borrado es
+  > `parte_registros.deleted_by`.
 - **M4.** Comprobar que las filas anteriores al despliegue **siguen** con
   `NULL` (R22):
   `SELECT count(*) FROM parte_documents WHERE approved_at_utc IS NOT NULL AND approved_by IS NULL;`

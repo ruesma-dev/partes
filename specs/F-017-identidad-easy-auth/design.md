@@ -103,7 +103,7 @@ Contado en `services/partes-front/infrastructure/database/orm_models.py`
 | `parte_registros` | `sigrid_registrado_by` | `String(255)` | sv4 (R16) |
 | `empleado_alias` | `created_by` | `String(120)` | sv4 (Conciliar) |
 | `empleado_jornada` | `created_by`, `updated_by` | `String(120)` | sv4 (R19) |
-| `undo_log` | `actor` | `String(120)` | sv4 (R14, R15) |
+| `undo_log` | `actor` | `String(120)` | sv4 — **columna que hoy no escribe nadie**; R14/R15 enmendados el 2026-08-20 no la usan (ver `requirements.md`). Se mantiene en la tabla de anchos porque sigue siendo la columna de autor más estrecha del esquema y por tanto la que fija el truncado a 120. |
 
 **Conclusión: el mínimo común es 120, y sobra.** Un UPN cabe de largo (los del
 tenant rondan los 25–35 caracteres; el límite teórico de un UPN son 113 según
@@ -289,7 +289,8 @@ trabajo de F-017»*, y un apartado nuevo **«Corte de auditoría (F-017)»** en
 
 **`docs/ARCHITECTURE.md`** — una entrada corta en la lista de reglas de
 dominio: la identidad del portal se resuelve en un único punto y `NULL`
-significa «anterior a F-017».
+significa «anterior a F-017» **en las columnas que se escriben**
+(`undo_log.actor` queda fuera: no la escribe nadie, ver R7 enmendado).
 
 **`C:\Users\pgris\PycharmProjects\azure-apps\partes.md`** — regla de
 mantenimiento de `CLAUDE.md`: cambia el significado de una variable de entorno
@@ -382,6 +383,7 @@ PREFIJO_LOCAL = "local:"
 ACTOR_LOCAL_SIN_NOMBRE = "local:sin-identidad"
 ACTOR_SIN_IDENTIDAD = "sin-identidad"        # R5b: desplegado y sin cabecera
 ACTOR_MAX_LEN = 120          # la columna mas estrecha: undo_log.actor
+                             # (nadie la escribe, pero fija el ancho)
 
 #: R5c, senal A. Variables que Azure Container Apps inyecta en todos sus
 #: contenedores y que en un puesto local no existen. SUPUESTO DE PLATAFORMA:
@@ -555,9 +557,13 @@ ausencia**. Y `NULL` ya dice la verdad —«no se sabe»—, así que:
   falsificar una auditoría.
 - **El corte queda perfectamente nítido, y gratis.** Con R7 (siempre hay
   actor), a partir del despliegue **ninguna fila nueva puede quedar en
-  `NULL`**. Por tanto: `autor IS NULL` ⇔ «anterior a F-017». Es un criterio
-  exacto, comprobable con una consulta y sin necesidad de guardar la fecha en
-  ninguna parte.
+  `NULL`** en las columnas de autor que el portal escribe. Por tanto:
+  `autor IS NULL` ⇔ «anterior a F-017». Es un criterio exacto, comprobable con
+  una consulta y sin necesidad de guardar la fecha en ninguna parte.
+  **Excepción, enmendada el 2026-08-20**: `undo_log.actor` NO participa del
+  criterio y sigue siempre a `NULL`, porque no la escribe nadie (R14/R15
+  enmendados). Quien herede este criterio —F-018 la primera— debe llevarse la
+  excepción con él.
 - **Se documenta** en `docs/referencia/partes-proyecto.md` con la fecha real
   de despliegue (R23), para que dentro de un año nadie lea esos `NULL` como un
   fallo del sistema. Como el despliegue lo hace el humano y no los agentes, la

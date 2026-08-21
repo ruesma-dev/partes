@@ -186,72 +186,27 @@ incoherencia real.
 incluida una de **un trabajador real** con vigencia desde 2026-01-01 y 42
 h/sem. Hay que dejarlas todas `inactiva` (esta pantalla no borra, por diseño).
 
-## F-017 · spec_ready, esperando aprobación del humano (2026-08-20)
+## F-017 · done, APROBADA y lista para mergear (2026-08-21)
 
-Spec redactada en `specs/F-017-identidad-easy-auth/` (requirements, design,
-tasks). **No se implementa hasta que el humano la apruebe.** Cuatro decisiones
-que hay que aprobar o rebatir, y una ambigüedad que no se cierra hasta
-desplegar:
+Identidad real de Easy Auth en sv4. Resumen en `progress/history.md`; detalle
+en `progress/impl_F-017.md`, `progress/mutacion_F-017.md` y
+`progress/review_F-017.md`.
 
-- **DA1/DA2/DA3**: manda `X-MS-CLIENT-PRINCIPAL-NAME`; el token base64 queda de
-  suplente y nunca puede lanzar. Se guarda el **UPN en minúsculas**, no el
-  `oid`: la columna la leen personas en dos plantillas. La identidad inmutable
-  se deja para F-018. Anchos comprobados: la más estrecha es `String(120)`
-  (`undo_log.actor`, `empleado_jornada`, `empleado_alias`); un UPN cabe de
-  sobra y el helper trunca a 120. **Cero cambios de schema.**
-- **DA4, el que más conviene discutir**: el fallback local NO es `NULL`, sino un
-  valor marcado (`local:<algo>`), porque `:` no es válido en un UPN y porque
-  sv4 se arranca en local **contra el PostgreSQL real**. Efecto colateral
-  valioso: a partir de esta feature siempre hay actor, así que el corte queda
-  exacto y gratis — `autor IS NULL` ⇔ «anterior a F-017». Las históricas no se
-  tocan.
-- **DA6**: `test_f016_r13_auditoria` se pone ROJO a propósito en T4, como
-  evidencia de que `_actor` manda, y se repara fabricando la cabecera, no
-  parcheando el helper: `_actor` es una clausura dentro de `build_app` y no hay
-  símbolo que parchear.
-- **DA8, vetable**: un `GET /whoami` que devuelva actor y origen (nombres de
-  cabecera, nunca valores) para poder verificar en Azure sin aprobar un parte
-  de verdad. Es la pieza más fácil de quitar si no la quieres.
+Verificado por el reviewer re-ejecutando: **1.057 tests** en sv4 + 138 en la
+raíz, cobertura **99,3 %**, mutación **32/32 muertos, 0 supervivientes, 0
+timeouts**. Solo sv4, cero cambios de schema. Primera vuelta RECHAZADA con
+tres defectos, los tres corregidos y verificados —el guardián ampliado lo
+comprobó **rompiéndolo**—.
 
-### Enmienda a DA4, aprobada por el humano el 2026-08-20
+**Pendiente**: mergear a `dev` y desplegar. Tras desplegar, la verificación que
+no se puede hacer antes: **`GET /whoami` dirá qué inyecta Azure de verdad** en
+`X-MS-CLIENT-PRINCIPAL-NAME` (¿UPN o display name?). Era la única ambigüedad
+que la spec no podía cerrar.
 
-El fallback original se disparaba por **ausencia de cabecera**, sin mirar dónde
-corría el proceso: si Easy Auth dejase de inyectar la cabecera en Azure, el
-portal escribiría `local:sin-identidad` **en producción**, afirmando un origen
-falso. Un dato de auditoría que miente sobre su origen es peor que uno vacío.
-Ahora son dos ramas: **R5** (no desplegado ⇒ `local:<algo>`) y **R5b**
-(desplegado ⇒ `sin-identidad`, sin prefijo, **más WARNING por petición**). La
-operación se completa en las dos: no saber quién fue no es motivo para perder
-el cambio. **R6** amplía el espacio de nombres reservado para cubrir también
-`sin-identidad`, y la garantía es **estructural** —esos valores solo los
-produce el resolutor— en vez de una apuesta sobre si el valor lleva `@`.
-
-**La pega que el propio spec-author encontró, y es buena**: `CONTAINER_APP_*`
-es comportamiento documentado de la plataforma, pero **aquí no está
-verificado**: ningún servicio del monorepo lee esas variables y ningún script
-de `infra/` las declara. Y el fallo es **asimétrico** — creerse desplegado en
-local es inocuo; creerse local estando desplegado escribe `local:…` en
-producción, que es justo la mentira que la enmienda evita. Por eso añadió:
-
-- **T0, puerta BLOQUEANTE**: comprobar las variables en el contenedor antes de
-  implementar. Si no aparecen ⇒ `blocked` y se consulta la alternativa
-  (`ENTORNO=produccion`, que sí obligaría a tocar Azure).
-- Una **segunda señal en OR**: haber visto ya una cabecera de Easy Auth desde
-  el arranque. Tres líneas, y solo puede mover el resultado al lado seguro.
-
-`senal_de_despliegue` recibe el entorno como `Mapping` (función pura, sin
-`os.environ` dentro). `/whoami` devuelve ahora `origen` con las cuatro ramas,
-más `entorno` y `senal_despliegue`. R5b entra en la lista de fase RED, con
-fichero de tests propio.
-
-**Ambigüedad real, honesta**: nadie ha verificado nunca que Azure inyecte
-`-NAME` con el UPN —hay cero referencias a `X-MS-CLIENT-PRINCIPAL` en el
-repositorio—, así que podría llegar el display name. No rompe nada, pero **el
-valor exacto que acabará en la columna no se sabe hasta desplegar**; `/whoami`
-lo aclara en un minuto.
-
-Servicio: **solo sv4**. Comprobado que sv5 ya acepta `usuario` y solo lo
-loguea.
+**Aviso para F-018**: su borrador vive en el worktree
+`worktree-agent-ad862e62640d64553` y **heredó el criterio del corte SIN la
+excepción de `undo_log.actor`**. Hay que refrescarlo contra `dev` después de
+mergear, antes de darlo por bueno.
 
 ## Lo que el humano tiene que decidir o hacer
 
@@ -512,3 +467,94 @@ Las anteriores de F-013 (AM-1..3), F-004 y F-010 siguen en `history.md`.
   implementadas por F-015.
 - azure-apps es un repo git LOCAL sin remoto (decisión del humano); no proponer
   push.
+
+---
+
+## F-017 · Identidad real de Easy Auth (sv4) — pendientes del humano
+
+Rama `feature/F-017-identidad-easy-auth`. Implementación terminada (T0–T14),
+suite en verde, **pendiente de review**. Informe: `progress/impl_F-017.md`.
+
+### ⚠ DECISIÓN PENDIENTE — R14/R15 nombran una columna que nadie escribe
+
+Verificado contra el árbol al implementar T6 (y coincide con lo que encontró
+el agente de F-018 por su cuenta):
+
+- `undo_log.actor` **existe pero no la escribe nadie**: `_record_undo` ni
+  siquiera acepta un actor.
+- Las cuatro operaciones de R14/R15 —los tres borrados y el alta manual—
+  **no generan ninguna fila de `undo_log`**. Solo la generan las ediciones.
+- `crear_parte_manual` **acepta `by=` y lo ignora**: el parámetro no aparece
+  en su cuerpo.
+
+Lo implementado es lo que manda `design.md` §5.2: entregar `_actor(request)`
+por el parámetro `by=`. Para los tres borrados eso llega de verdad a
+`deleted_by`; para el alta manual se queda en la puerta del repositorio.
+
+**No se resolvió por cuenta propia**, y el motivo es que las dos salidas
+posibles se salen del alcance aprobado:
+
+| Salida | Por qué se paró |
+|---|---|
+| Que los borrados escriban en `undo_log` | Hay que **crear** filas de historial que hoy no existen: payload de restauración, `undo_last` sabiendo deshacerlas y entradas nuevas en el widget de deshacer. Es funcionalidad nueva, y un log de acciones es **F-018** |
+| Que `crear_parte_manual` use su `by=` | **No hay dónde escribirlo**: ni `parte_documents` ni `parte_registros` tienen columna `created_by` (solo la tienen `empleado_alias` y `empleado_jornada`). Exigiría **columna nueva** ⇒ cambio de schema en las dos copias gemelas del ORM ⇒ prohibido por la spec y por `CLAUDE.md` |
+
+**Consecuencia que hay que conocer**: el criterio del corte (`autor IS NULL`
+⇔ «anterior a F-017») vale para las columnas de autor que sí se escriben,
+**no para `undo_log.actor`**, que seguirá siempre a `NULL`. Queda dicho así,
+sin redondear, en `docs/referencia/partes-proyecto.md` §5.7 punto 3.
+
+### Verificaciones MANUAL pendientes
+
+- **M1 bis — YA EJECUTADA en T0 (2026-08-20), resultado POSITIVO.** Las cuatro
+  variables `CONTAINER_APP_NAME` / `_REVISION` / `_REPLICA_NAME` / `_HOSTNAME`
+  **existen** en `ca-sv4-front`. La señal A de R5c es un hecho verificado, no
+  un supuesto; no hace falta la alternativa `ENTORNO=produccion`.
+  Comprobado **sin volcar el entorno**, una variable por invocación:
+  `az containerapp exec -n ca-sv4-front -g rg-partes-dev --command "printenv CONTAINER_APP_NAME"`
+  (ídem con las otras tres). **No usar `printenv` a secas**: vuelca los
+  secretos resueltos desde Key Vault.
+- **M1 — tras desplegar.** Abrir `https://<fqdn de ca-sv4-front>/whoami` con
+  la sesión de Entra iniciada y comprobar tres cosas: `actor` es el correo/UPN
+  de quien mira, `origen` es `cabecera-name` y `entorno` es `desplegado`.
+  Lecturas posibles:
+  - `origen = cabecera-token`: la cabecera `-NAME` no llega y el suplente hace
+    su trabajo. Correcto, pero **anótalo**.
+  - `origen = sin-identidad-desplegado`: Easy Auth no inyecta nada.
+    **Incidente**: la feature funciona (no miente), pero la autenticación del
+    portal está rota. Parar y avisar.
+  - `origen = local` o `entorno = local`: la detección de R5c ha fallado en
+    Azure y el portal estaría firmando filas de producción como locales.
+    **Parar y avisar de inmediato**: es el único fallo de esta feature que
+    ensucia datos. El campo `senal_despliegue` dice qué se buscó.
+- **M2 — tras desplegar.** Aprobar un parte de prueba desde el portal y
+  comprobar en la base `partes`:
+  `SELECT id, approved_by, approved_at_utc FROM parte_documents WHERE approved_at_utc IS NOT NULL ORDER BY approved_at_utc DESC LIMIT 5;`
+- **M3 — tras desplegar.** Borrar una línea de prueba y comprobar:
+  `SELECT created_at_utc, action, actor FROM undo_log ORDER BY id DESC LIMIT 5;`
+  **Ojo**: por lo dicho arriba, `actor` saldrá `NULL` y el borrado **no**
+  generará fila de `undo_log`. La comprobación útil hoy es sobre
+  `parte_registros.deleted_by`.
+- **M4 — antes y después de desplegar.** Que las filas anteriores sigan
+  intactas (R22): el número debe ser **el mismo** las dos veces:
+  `SELECT count(*) FROM parte_documents WHERE approved_at_utc IS NOT NULL AND approved_by IS NULL;`
+
+M2, M3 y M4 necesitan la regla de firewall de `psql-albaranes-rs9k2` que ya
+está pendiente más arriba en este mismo documento.
+
+### Otros pendientes de F-017
+
+- **La fecha del corte la rellena quien despliegue.**
+  `docs/referencia/partes-proyecto.md` §5.7 tiene el hueco marcado como
+  `⛔ PENDIENTE: fecha de despliegue`, y
+  `tests/test_f017_r23_corte_documentado.py` se pondrá **rojo** cuando se
+  cambie, a propósito: obliga a actualizar el test en el mismo trabajo.
+- **`DEFAULT_REVIEWER` cambia de significado, no de nombre**: ya no es «quién
+  firma el portal» sino la etiqueta de la sesión local (`local:<valor>`).
+  Sigue sin estar configurada en Azure y **no hace falta configurarla**.
+- **Nota para F-018** (aviso recibido del coordinador, no aplicado aquí a
+  propósito): si F-018 llama a `_resolver_identidad` más de una vez por
+  petición, saldrán varios WARNING de R5b. Hoy no ocurre —cada endpoint pide
+  el actor una sola vez—, así que memoizar sería resolver un problema que aún
+  no existe. Cuando F-018 lo necesite, son tres líneas en
+  `_resolver_identidad` y no cambia ninguna firma.

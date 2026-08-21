@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import html
 import logging
+import os
 import time
 from datetime import date, timedelta
 from pathlib import Path
@@ -83,6 +84,13 @@ from infrastructure.transfer.transfer_queue_publisher import (
 )
 from infrastructure.sigrid.sigrid_lookup_client import SigridLookupClient
 from infrastructure.graph.token_provider import GraphTokenProvider
+from interface_adapters.web.identidad import (
+    CABECERA_ID,
+    CABECERA_NOMBRE,
+    CABECERA_TOKEN,
+    actor_desde_cabeceras,
+    senal_de_despliegue,
+)
 from application.services.obra_catalog import ObraCatalog
 from application.services.empleado_catalog import EmpleadoCatalog
 from application.services import empleado_reconciler as recon
@@ -452,6 +460,14 @@ def build_app(
     app.state.jornada_provider = jornada_provider
     app.state.mapa_semanal = mapa_semanal
     app.state.tables_ready = tables_ready
+    # F-017 R5c, senal B: ¿este proceso ha visto ya alguna cabecera de Easy
+    # Auth? Es la red de seguridad de la senal A (las `CONTAINER_APP_*`).
+    # Es por PROCESO, no compartida entre replicas: como mucho, una segunda
+    # replica tarda una peticion autenticada en aprender lo mismo.
+    app.state.easy_auth_visto = False
+    # F-017 R9: la nota de arranque se emite UNA vez, en la primera
+    # peticion (aqui todavia no se sabe si traera cabecera o no).
+    app.state.identidad_anunciada = False
 
     templates = Jinja2Templates(
         directory=str(Path(__file__).resolve().parents[2] / "templates")
@@ -474,20 +490,67 @@ def build_app(
 
     # --- F-016: quien firma y quien puede entrar ---------------------- #
 
-    def _actor(request: Request) -> str | None:
-        """Quien firma el cambio (R13). PUNTO UNICO de identidad en F-016.
+    def _resolver_identidad(request: Request) -> tuple[str, str]:
+        """Resuelve `(actor, origen)` y mantiene viva la senal B (R5c).
 
-        HOY devuelve `settings.default_reviewer`, exactamente lo que hace
-        el resto del portal (once sitios de este mismo fichero). No lee
-        ninguna cabecera: leer y decodificar la de Easy Auth es trabajo
-        de **F-017**, y cuando F-017 llegue solo cambia el INTERIOR de
-        esta funcion — F-016 no se toca.
-
-        Sin `DEFAULT_REVIEWER` configurado se sella `NULL` y la operacion
-        NO falla: no saber quien fue no es motivo para perder el cambio.
+        Vive junto a `_actor` y NO lo sustituye: `_actor` es la firma que
+        consumen los once puntos de escritura y la que vigila el guardian
+        de F-016. Aqui esta todo lo que la funcion pura de `identidad.py`
+        no puede hacer: leer el entorno del proceso, recordar si ya se ha
+        visto una cabecera y escribir en el log.
         """
-        _ = request                      # lo usara F-017; aqui, no
-        return settings.default_reviewer
+        senal = senal_de_despliegue(
+            os.environ, cabecera_vista=app.state.easy_auth_visto)
+        actor, origen = actor_desde_cabeceras(
+            request.headers, fallback=settings.default_reviewer,
+            desplegado=senal is not None)
+
+        if origen.startswith("cabecera"):
+            app.state.easy_auth_visto = True                  # senal B
+        elif origen == "sin-identidad-desplegado":
+            # R5b: NO es «una sesion sin identificar», es la autenticacion
+            # caida. Un WARNING por peticion, porque cada una es un
+            # incidente y tiene que verse en Log Analytics en vez de
+            # colarse en una columna en silencio.
+            logger.warning(
+                "[identidad] peticion SIN identidad de Easy Auth estando "
+                "desplegado (senal=%s, ruta=%s): se sella '%s'. Revisa la "
+                "autenticacion del portal.",
+                senal, request.url.path, actor)
+
+        # R9: una sola nota por arranque, con la senal que se encontro.
+        # Ni el token ni los claims ni el propio actor salen en el log:
+        # aqui interesa el DIAGNOSTICO, no quien es la persona.
+        if not app.state.identidad_anunciada:
+            app.state.identidad_anunciada = True
+            logger.info(
+                "[identidad] primera peticion atendida: entorno=%s "
+                "senal=%s cabecera_easy_auth=%s",
+                "desplegado" if senal else "local", senal,
+                "si" if origen.startswith("cabecera") else "no")
+        return actor, origen
+
+    def _actor(request: Request) -> str | None:
+        """Quien firma el cambio. PUNTO UNICO de identidad del portal (R10).
+
+        F-016 dejo escrito que aqui solo cambiaria el INTERIOR cuando
+        llegase F-017: asi ha sido. La firma es la misma y los cinco
+        endpoints de jornadas no se han tocado.
+
+        Devuelve el principal de Easy Auth (`X-MS-CLIENT-PRINCIPAL-NAME`,
+        o el claim preferido del token si aquella no llega), normalizado y
+        truncado a 120. Sin cabecera: `local:<DEFAULT_REVIEWER>` en un
+        puesto de desarrollo, `sin-identidad` estando desplegado. **Nunca
+        devuelve vacio** (R7): desde F-017, un NULL en una columna de
+        autor significa «fila anterior al corte» — en las columnas que el
+        portal escribe; `undo_log.actor` no participa del criterio porque
+        no la escribe nadie (es trabajo de F-018).
+
+        Se mantiene el tipo `str | None` aunque hoy nunca devuelva `None`:
+        es el que aceptan las siete columnas y los repositorios.
+        """
+        actor, _origen = _resolver_identidad(request)
+        return actor
 
     def _exigir_admin_jornadas() -> None:
         """Puerta UNICA de la pantalla de jornadas (R15).
@@ -527,6 +590,37 @@ def build_app(
             "tables_ready": app.state.tables_ready,
             "database": settings.pg_db,
             "sigrid_lookup_enabled": settings.sigrid_lookup_enabled,
+        }
+
+    @app.get("/whoami")
+    def whoami(request: Request) -> dict[str, Any]:
+        """F-017 R21: quien cree el portal que eres, y por que.
+
+        Existe para que la verificacion M1 se pueda hacer **sin escribir
+        una fila**: sin ella habria que aprobar un parte de verdad y mirar
+        la base, y si sale mal el dato ya esta escrito.
+
+        Devuelve la identidad de quien pregunta y NADA mas: ni el token,
+        ni los claims, ni los valores de las cabeceras, ni un dato de otro
+        usuario. De las cabeceras solo salen los NOMBRES de las que
+        vienen, que es lo que hace falta para diagnosticar.
+
+        `entorno` y `senal_despliegue` son los campos que delatan el unico
+        fallo de esta feature que ensucia datos —creerse local estando
+        desplegado (design.md §4.1)—, y por eso van aqui.
+        """
+        senal = senal_de_despliegue(
+            os.environ, cabecera_vista=app.state.easy_auth_visto)
+        actor, origen = _resolver_identidad(request)
+        return {
+            "actor": actor,
+            "origen": origen,                  # la RAMA por la que salio
+            "entorno": "desplegado" if senal else "local",
+            "senal_despliegue": senal,         # POR QUE se cree desplegado
+            "cabeceras_easy_auth": [           # NOMBRES, nunca valores
+                c for c in (CABECERA_NOMBRE, CABECERA_TOKEN, CABECERA_ID)
+                if c.lower() in request.headers
+            ],
         }
 
     @app.get("/", include_in_schema=False)
@@ -1651,8 +1745,13 @@ def build_app(
     # APROBAR -> registrar en Sigrid (delegado en partes-transfer, sv5)
     # ------------------------------------------------------------------ #
 
-    def _payload_registro(body: dict) -> dict | JSONResponse:
-        """Construye el payload de sv5 desde los ids (o desde la obra)."""
+    def _payload_registro(body: dict, *,
+                          actor: str | None) -> dict | JSONResponse:
+        """Construye el payload de sv5 desde los ids (o desde la obra).
+
+        `actor` viene por parametro y no se resuelve aqui: la identidad se
+        lee en UN solo sitio (R10). Sus dos llamadores ya tienen `request`.
+        """
         ids = [int(i) for i in (body.get("registro_ids") or []) if i]
         if not ids:
             obra_key = (body.get("obra_key") or "").strip()
@@ -1672,7 +1771,7 @@ def build_app(
             "obra": datos["obra"],
             "lineas": datos["lineas"],
             "pisar_claves": [str(k) for k in (body.get("pisar_claves") or [])],
-            "usuario": settings.default_reviewer,
+            "usuario": actor,
         }
 
     def _fecha_de_linea(linea: dict) -> date | None:
@@ -1745,7 +1844,8 @@ def build_app(
                 {"ok": False, "error": "registro en Sigrid no configurado "
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
-        payload = _payload_registro(await request.json())
+        payload = _payload_registro(await request.json(),
+                                    actor=_actor(request))
         if isinstance(payload, JSONResponse):
             return payload
         resultado = dict(transfer_client.preflight(payload))
@@ -1756,7 +1856,7 @@ def build_app(
             resultado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
         return JSONResponse(resultado)
 
-    def _trazar(resultado: dict, ids: list[int], *,
+    def _trazar(resultado: dict, ids: list[int], *, actor: str | None,
                 sin_sesame: bool = False) -> None:
         """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
 
@@ -1766,7 +1866,7 @@ def build_app(
         """
         try:
             aplicar_resultado(repository, resultado, registro_ids=ids,
-                              usuario=settings.default_reviewer,
+                              usuario=actor,
                               sin_sesame=sin_sesame)
         except Exception:
             logger.warning("[transfer] no se pudo guardar la traza del "
@@ -1780,7 +1880,8 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         body = await request.json()
-        payload = _payload_registro(body)
+        actor = _actor(request)
+        payload = _payload_registro(body, actor=actor)
         if isinstance(payload, JSONResponse):
             return payload
         # R24: la guarda la impone el SERVIDOR, no el modal. Una peticion
@@ -1798,13 +1899,16 @@ def build_app(
                 status_code=422)
         resultado = transfer_client.ejecutar(payload)
         if degradado and forzar:
+            # R17: saltarse la guarda de Sesame es una decision humana
+            # consciente, y queda con NOMBRE en el log. El viejo
+            # El viejo `or` de relleno sobra: el actor nunca es vacio (R7).
             logger.warning(
                 "[sesame] registro FORZADO por %s con el calendario de "
                 "Sesame no disponible; las lineas quedan marcadas.",
-                settings.default_reviewer or "(sin usuario)",
+                actor,
             )
         _trazar(resultado, [l["registro_id"] for l in payload["lineas"]],
-                sin_sesame=degradado and forzar)
+                actor=actor, sin_sesame=degradado and forzar)
         return JSONResponse(resultado)
 
     @app.post("/api/aprobar/encolar", include_in_schema=False)
@@ -1832,7 +1936,8 @@ def build_app(
                 {"ok": False, "error": "registro en Sigrid no configurado "
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
-        payload = _payload_registro(body)
+        actor = _actor(request)
+        payload = _payload_registro(body, actor=actor)
         if isinstance(payload, JSONResponse):
             return payload
         # R24/R25: igual que `pisar_claves`, el override de Sesame es una
@@ -1850,16 +1955,14 @@ def build_app(
 
         if publisher is None:
             resultado = transfer_client.ejecutar(payload)     # R3
-            _trazar(resultado, ids)
+            _trazar(resultado, ids, actor=actor)
             return JSONResponse(dict(resultado, modo="sincrono"))
 
         # Primero se publica y luego se marca: al reves, un fallo al
         # publicar dejaria lineas en 'encolado' sin nada que las recoja.
-        peticion_id = publisher.publicar(payload,
-                                         usuario=settings.default_reviewer)
+        peticion_id = publisher.publicar(payload, usuario=actor)
         try:
-            repository.marcar_registros_encolado(
-                ids, usuario=settings.default_reviewer)      # R2
+            repository.marcar_registros_encolado(ids, usuario=actor)  # R2
         except Exception:
             logger.warning("[transfer-cola] peticion %s encolada pero no se "
                            "pudo marcar 'encolado'; el resultado las marcara",
@@ -2271,12 +2374,17 @@ def build_app(
     # ---------------- Estado del parte (documento) ------------------- #
     @app.post("/documents/{document_id}/approve", include_in_schema=False)
     def approve_document(
+        request: Request,
         document_id: str,
         back: str = Form(default="/partes"),
     ) -> RedirectResponse:
+        # `request: Request` va el PRIMERO y los `Form` se quedan como
+        # estaban: FastAPI inyecta `Request` por anotacion de tipo y no lo
+        # trata como parametro de query, path ni body, asi que el contrato
+        # HTTP y el JS no cambian.
         repository.approve_document(
             document_id=document_id,
-            approved_by=settings.default_reviewer,
+            approved_by=_actor(request),
         )
         return _redirect(back, "Parte aprobado")
 
@@ -2296,13 +2404,14 @@ def build_app(
 
     @app.post("/documents/{document_id}/delete", include_in_schema=False)
     def delete_document(
+        request: Request,
         document_id: str,
         back: str = Form(default="/partes"),
     ) -> RedirectResponse:
         try:
             repository.delete_document(
                 document_id=document_id,
-                deleted_by=settings.default_reviewer,
+                deleted_by=_actor(request),
             )
         except CongeladoError as exc:   # F-004 R7
             return _redirect(back, exc.motivo)
@@ -2314,9 +2423,10 @@ def build_app(
     # BORRADO: linea / obra / persona  (soft -> papelera -> hard).
     # ----------------------------------------------------------- #
     @app.post("/api/registro/{registro_id}/delete", include_in_schema=False)
-    def api_registro_delete(registro_id: int) -> JSONResponse:
+    def api_registro_delete(request: Request,
+                            registro_id: int) -> JSONResponse:
         ok = repository.soft_delete_registro(
-            registro_id=registro_id, by=settings.default_reviewer
+            registro_id=registro_id, by=_actor(request)
         )
         return JSONResponse({"ok": ok})
 
@@ -2333,9 +2443,9 @@ def build_app(
         )
 
     @app.post("/api/obra/{obra_key}/delete", include_in_schema=False)
-    def api_obra_delete(obra_key: str) -> JSONResponse:
+    def api_obra_delete(request: Request, obra_key: str) -> JSONResponse:
         n, congelados = repository.soft_delete_obra(
-            obra_key=obra_key, by=settings.default_reviewer
+            obra_key=obra_key, by=_actor(request)
         )
         # F-004 R13: `congelados` lo pinta la UI; sin ese numero el
         # usuario creeria que se borro la obra entera.
@@ -2343,9 +2453,10 @@ def build_app(
             {"ok": n > 0, "partes": n, "congelados": congelados})
 
     @app.post("/api/trabajador/{worker_key}/delete", include_in_schema=False)
-    def api_trabajador_delete(worker_key: str) -> JSONResponse:
+    def api_trabajador_delete(request: Request,
+                              worker_key: str) -> JSONResponse:
         n, congelados = repository.soft_delete_worker(
-            worker_key=worker_key, by=settings.default_reviewer
+            worker_key=worker_key, by=_actor(request)
         )
         return JSONResponse(
             {"ok": n > 0, "lineas": n, "congelados": congelados})
@@ -2556,7 +2667,7 @@ def build_app(
             partida_match_score=partida_score,
             hora_normal=hora_normal,
             hora_extra=hora_extra,
-            by=settings.default_reviewer,
+            by=_actor(request),
         )
         ok = not res.get("error") and (res.get("lineas") or 0) > 0
         return JSONResponse(

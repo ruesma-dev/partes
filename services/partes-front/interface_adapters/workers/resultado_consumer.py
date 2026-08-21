@@ -24,8 +24,51 @@ import threading
 from collections.abc import Callable
 
 from infrastructure.transfer.resultado_sigrid import aplicar_resultado
+from interface_adapters.web.identidad import ACTOR_SIN_IDENTIDAD
 
 logger = logging.getLogger(__name__)
+
+
+def _quien_firma(sobre: dict) -> str:
+    """F-017 R18/R24: quien firma el marcado de un resultado encolado.
+
+    Aqui NO hay peticion HTTP ni cabecera de Easy Auth que leer: este hilo
+    consume una cola. La identidad tiene que venir en el sobre, que viaja
+    firmado desde `aprobar_encolar` con el actor real (R16). **El sobre
+    manda, y su valor se respeta intacto**: ya viene normalizado del punto
+    unico, y reprocesarlo aqui solo podria estropearlo.
+
+    Si el sobre NO trae usuario, el fallback es `sin-identidad` — el mismo
+    valor de R5b, y por el mismo motivo. Este consumidor corre **siempre
+    desplegado** (vive dentro del proceso web de `ca-sv4-front`), asi que
+    un sobre sin firma no es «una sesion sin identificar»: es una anomalia
+    —tipicamente un mensaje publicado ANTES del corte de F-017 y aun en
+    vuelo— que **debe verse en el log**, no colarse en una columna.
+
+    Lo que NO se hace aqui, y es deliberado (defecto 1 del review de
+    F-017, 2026-08-20):
+
+    * **No se lee `settings.default_reviewer`.** Hasta esta correccion la
+      linea era `sobre.get("usuario") or getattr(settings,
+      "default_reviewer", None)`: una TERCERA lectura de identidad, fuera
+      del punto unico (R10/R11), sin test, e invisible para el guardian
+      —que solo miraba `app.py`—. Contradecia ademas lo que la feature
+      publica en tres documentos: estando desplegado, `DEFAULT_REVIEWER`
+      no firma nada.
+    * **No se devuelve `None`.** Devolverlo dejaba
+      `sigrid_registrado_by = NULL` **despues** del corte y rompia el
+      criterio «`autor IS NULL` ⇔ fila anterior a F-017» justo en la
+      ventana del despliegue, que es cuando hay mensajes en vuelo.
+    """
+    usuario = sobre.get("usuario")
+    if isinstance(usuario, str) and usuario.strip():
+        return usuario
+    logger.warning(
+        "[identidad] resultado de q-transfer-result SIN usuario en el sobre "
+        "(peticion_id=%s): se sella '%s'. Sobre publicado antes de F-017 y "
+        "aun en vuelo, o publicador que no firma.",
+        sobre.get("peticion_id"), ACTOR_SIN_IDENTIDAD)
+    return ACTOR_SIN_IDENTIDAD
 
 
 def construir_handler_resultados(
@@ -44,8 +87,7 @@ def construir_handler_resultados(
 
         resultado = sobre.get("resultado") or {}
         registro_ids = sobre.get("registro_ids") or []
-        usuario = sobre.get("usuario") or getattr(
-            settings, "default_reviewer", None)
+        usuario = _quien_firma(sobre)
         n = aplicar_resultado(repository, resultado,
                               registro_ids=registro_ids, usuario=usuario)
         logger.info("[transfer-result] peticion_id=%s ok=%s lineas_marcadas=%s",
