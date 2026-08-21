@@ -1,0 +1,139 @@
+<!-- BACKLOG.md -->
+# Backlog
+
+**Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
+
+Resumen: **17 features**, 7 abiertas, 10 terminadas.
+
+Bloqueadas: **F-014**.
+
+## Trabajo abierto
+
+| # | Feature | Prioridad | Estado | Rigor | Rama |
+|---|---|---|---|---|---|
+| F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
+| F-005 | GRAPH_KEY a Key Vault (HECHO) + retirar graphkey_nobom.json del despliegue | 9 | pendiente | documental | `feature/F-005-graphkey-keyvault` |
+| F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
+| F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 10 | pendiente | estandar | `feature/F-006-tipo-hora-ext` |
+| F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 11 | pendiente | critico | `feature/F-007-prompt-sv2-evals` |
+| F-008 | Modelo de roles en el portal (sv4) | 12 | pendiente | estandar | `feature/F-008-roles-portal` |
+| F-011 | Jornada reducida por días desde Sesame sustituye al candef | 14 | pendiente | critico | `feature/F-011-jornada-reducida-dias` |
+
+## Terminadas
+
+| # | Feature | Prioridad | Rigor |
+|---|---|---|---|
+| F-001 | Test de estructura del monorepo (calentamiento) | 1 | estandar |
+| F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
+| F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
+| F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
+| F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
+| F-004 | Congelar registros aprobados | 5 | estandar |
+| F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |
+| F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |
+| F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |
+| F-017 | Identidad real de Easy Auth en el portal (sv4) | 8 | estandar |
+
+## Detalle
+
+### F-014 · Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h
+
+estado **bloqueada** · prioridad 5 · rigor `documental` · SDD no · rama `feature/F-014-candef-9-sigrid`
+
+Pedida por el humano el 2026-08-18 a raíz del estudio F-012 (design.md H5): la jornada semanal se derivará del candef (8→40 h, 9→42 h), así que todo trabajador con jornada de 9 h L–J DEBE tener candef=9 en su hora por defecto (HLOF) de Sigrid. El estudio encontró 7 recursos que registran 9-9-9-9-6 (42 h) desde 2026-05 y 10-10-10-10-8 antes, todos OFIC. 1ª ALBAÑIL con DNI en emp y código HE, y todos con candef=8 hoy: MO/0006, MO/0007, MO/0008, MO/0031, MO/0366, MO/0405, MO/0456. MO/0037 (OFIC. 2ª) ya tiene candef=9 pero NO tiene DNI en emp: corregirlo a la vez. Es un cambio de DATOS MAESTROS en Sigrid que hace RRHH/Administración a mano (los agentes NO escriben en Sigrid fuera de sv5): la feature entrega la petición redactada con la lista y la comprobación posterior por sigrid-api en solo lectura (candef del recurso), sin código nuevo. Los DNIs no se versionan: los recursos se citan por código MO/NNNN. Debe cerrarse ANTES de implementar la regla de jornada semanal que propone F-012.
+
+### F-005 · GRAPH_KEY a Key Vault (HECHO) + retirar graphkey_nobom.json del despliegue
+
+estado **pendiente** · prioridad 9 · rigor `documental` · SDD sí · rama `feature/F-005-graphkey-keyvault`
+
+Mover la credencial de Graph a Key Vault (keyvaultref + managed identity) en los servicios donde aún viaje como variable de entorno en claro; eliminar graphkey_nobom.json del flujo de despliegue. COMPROBADO el 2026-08-20 contra Azure (lectura): los TRES servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- ya tienen GRAPH_KEY como secretRef 'graph-key', sin ningun valor en claro, y el secreto de la Container App es una referencia a Key Vault (keyVaultUrl informado), no una copia. sv5 no usa Graph. Es decir: el PRIMER objetivo de esta feature YA ESTA CUMPLIDO. Lo unico vivo es el segundo: sacar graphkey_nobom.json del flujo de despliegue (no versionado, lleva los valores reales, hoy se usa para cargar el secreto a mano). Pendiente de decision del humano: cerrarla como done dejando constancia de esta comprobacion, o reescribirla para que sea solo la retirada de graphkey_nobom.json y, con mas valor de seguridad, la ROTACION de esa credencial.
+
+### F-018 · Log de auditoria de acciones del portal (quien hizo que y cuando)
+
+estado **pendiente** · prioridad 9 · rigor `estandar` · SDD sí · rama `feature/F-018-log-auditoria-portal`
+
+Pedida por el humano el 2026-08-20 al explicarle F-017. Hoy NO existe un registro de auditoria del portal. Lo mas parecido es la tabla undo_log, pero NO sirve como tal: su proposito es DESHACER (guarda el estado anterior en payload para restaurarlo), solo cubre las acciones reversibles -reasignar, casar, editar horas/fecha/obra-, y deja fuera las aprobaciones, los borrados, las excepciones de jornada de F-016 y cualquier accion administrativa. Ademas sus filas se marcan como undone y su vida la manda la funcion de deshacer, no la de auditar. ALCANCE A DECIDIR EN LA SPEC: que acciones se registran (como minimo las que hoy escriben approved_by/deleted_by y las cinco pantallas de administracion), que se guarda de cada una (actor, cuando, que entidad, que cambio, desde donde), donde vive (tabla propia de la base partes frente a reutilizar undo_log, que el spec-author debe valorar y descartar con argumentos), si hay pantalla de consulta o basta con SQL, y cuanto se conserva. Valorar tambien si sv3 y sv5 deben escribir en el mismo log: sv5 es el unico que escribe en Sigrid, y hoy esa escritura no deja rastro de quien la origino. DEPENDE DE F-017: sin identidad real de Easy Auth, este log registraria NULL en el campo mas importante, que es el actor. Hacerla antes seria construir un libro de firmas sin firmas. HALLAZGO del 2026-08-21, al verificar F-017 desplegada con GET /whoami: Easy Auth inyecta TRES cabeceras, y una es X-MS-CLIENT-PRINCIPAL-ID, el oid INMUTABLE del usuario, disponible sin decodificar el token. F-017 renuncio a guardar el oid por no tener columna donde ponerlo y remitio a esta feature. Si F-018 crea tabla propia, valorar dos columnas: actor (UPN legible, que puede cambiar) y actor_id (oid, que no). Es la diferencia entre una auditoria que aguanta un cambio de nombre y otra que no.
+
+### F-006 · tipo_hora_resolver con auxhor.ext para variantes HE%
+
+estado **pendiente** · prioridad 10 · rigor `estandar` · SDD sí · rama `feature/F-006-tipo-hora-ext`
+
+El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para reconocer todas las variantes HE% de la ficha del recurso, en lugar de depender del prefijo del código.
+
+### F-007 · Revisión del prompt de extracción de sv2 (J.310 rev.1)
+
+estado **pendiente** · prioridad 11 · rigor `critico` · SDD sí · rama `feature/F-007-prompt-sv2-evals`
+
+Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.
+
+### F-008 · Modelo de roles en el portal (sv4)
+
+estado **pendiente** · prioridad 12 · rigor `estandar` · SDD sí · rama `feature/F-008-roles-portal`
+
+Introducir roles en el portal (p. ej. administrador vs revisor) para restringir acciones administrativas: la primera es el reencolado de mensajes poison (F-002), que hoy queda disponible para cualquier usuario autenticado por decisión explícita del humano (2026-08-13). Base: claims de Easy Auth/Entra (grupos o app roles) leídos por sv4.
+
+### F-011 · Jornada reducida por días desde Sesame sustituye al candef
+
+estado **pendiente** · prioridad 14 · rigor `critico` · SDD sí · rama `feature/F-011-jornada-reducida-dias`
+
+Corrección de alcance sobre F-003, pedida por el humano el 2026-08-16 (entonces urgente): el candef sigue siendo la jornada teórica como hasta ahora (con el fallback de 8h si falta o es bajo), PERO en los días que Sesame indique jornada reducida para un trabajador, el candef se sustituye SOLO esos días por la jornada reducida (previsiblemente 7h). Afecta al cómputo de extras (sv3) y a los avisos de jornada incompleta (sv4), vía el resolutor único jornada_efectiva que F-003 dejó preparado. OJO: la spec debe verificar qué puede exponer sesame-api sobre días/periodos de jornada reducida (hoy /jornada solo da un booleano heurístico sin fechas) — probablemente amplía la petición P1 a ese proyecto; como F-003, valorar si se implementa apagada con el enchufe listo. REPRIORIZADA A BAJA por el humano el 2026-08-18, tras el informe de F-013: Sesame HR no tiene NINGÚN contrato cargado (0 de 218 empleados; /contract/v1/.../current-contract da contract_not_found para todos), así que hoy no existe fuente de jornada ni de reducida en Sesame. La spec deberá partir de decidir la fuente (contratos en Sesame cuando RRHH los cargue, módulo de horarios de Sesame, o tabla propia). Mientras tanto el candef sigue mandando (F-003 apagada; y encendida, sin contrato Sesame devuelve None y cae al candef). NOTA F-012 (2026-08-18): su fuente candidata es la tabla empleado_jornada (patrón explícito con vigencia) + emphis.porjorlab de Sigrid (% de jornada: 87,5/75/50…, con datos reales), no los contratos de Sesame.
+
+### F-001 · Test de estructura del monorepo (calentamiento)
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD no · rama `feature/F-001-test-estructura`
+
+Feature trivial para validar el circuito completo del arnés en este repo: un test en tests/ (raíz) que valida harness/servicios.json contra el árbol real — cada ruta declarada existe y cada servicio Python tiene main.py. Igual que la F-001 de albaranes.
+
+### F-002 · Cola q-transfer para aprobación asíncrona
+
+estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-002-cola-q-transfer`
+
+sv4 publica las aprobaciones en una cola q-transfer y sv5 la consume (KEDA), en lugar del HTTP síncrono actual para lotes; el HTTP se mantiene donde haga falta respuesta inmediata (preflight y confirmación de conflictos en el modal). Tanda 5 del roadmap de infra.
+
+### F-013 · Informe de validación de datos Sesame por trabajador
+
+estado **terminada** · prioridad 2 · rigor `estandar` · SDD no · rama `feature/F-013-informe-validacion-sesame`
+
+Pedida por el humano el 2026-08-16 para terminar de validar F-003: script (p. ej. services/partes-front/validar_datos_sesame.py, junto al patrón de prueba_escritura_sigrid.py de sv5) que, usando el MISMO SesameApiClient y CalendarioProvider de F-003, extrae para cada trabajador activo sus festivos del año en curso, tipo de jornada y flag de reducida, y genera un informe Markdown/CSV legible para que el humano valide los números contra la realidad. Configurable contra sesame-api local (localhost:8006) o el desplegado cuando exista. La validación de los números en sí es MANUAL del humano sobre el informe. Su salida alimenta F-011 (días de jornada reducida) y F-012 (candef 9h/viernes).
+
+### F-003 · Integración sesame-api: festivos y jornada reales
+
+estado **terminada** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-003-sesame-festivos-jornada`
+
+Sustituir la librería holidays y el candef como jornada teórica por los datos reales de Sesame HR vía el servicio general sesame-api: festivos por calendario asignado a cada trabajador y jornada del contrato. Afecta a los avisos de jornada incompleta (sv4) y al cómputo de extras (sv3). Añadir aviso al registrar horas en festivo/domingo.
+
+### F-012 · Estudio: candef de 9h, viernes y jornada semanal particularizable
+
+estado **terminada** · prioridad 4 · rigor `documental` · SDD sí · rama `feature/F-012-estudio-jornada-semanal`
+
+Pedida por el humano el 2026-08-16, para después de F-011: estudiar los trabajadores con candef=9h y cómo deben comportarse sus viernes — deberían ser el resto de horas hasta la jornada SEMANAL (con 9+9+9+9 el viernes serían 4h para llegar a 40). La jornada semanal debe ser PARTICULARIZABLE por trabajador (por defecto 40h, pero hay trabajadores que hacen más de 40h semanales). Entregable: análisis con datos reales (cuántos trabajadores, qué patrones hay en reshor/Sesame) y propuesta de diseño para que el cómputo de extras y los avisos usen jornada semanal además de diaria; la implementación puede ser feature aparte si el estudio lo justifica. APROBADA por el humano el 2026-08-18 con decisiones firmes: jornada semanal DERIVADA del candef ({8:40, 9:42}, env espejo sv3+sv4), resto en el ULTIMO DIA LABORABLE de la semana (festivo cuenta como jornada), excepciones en tabla empleado_jornada (UI en F-016), candef desconocido → jornada plana 5×candef + WARNING, sin calendario → viernes. Rigor documental (estudio sin código). Sale de aquí F-014 (candef en Sigrid), F-015 (implementación) y F-016 (UI).
+
+### F-004 · Congelar registros aprobados
+
+estado **terminada** · prioridad 5 · rigor `estandar` · SDD sí · rama `feature/F-004-congelar-aprobados`
+
+Un registro aprobado (y con más razón, ya registrado en Sigrid) no debe poder editarse en el portal sin desaprobarlo antes de forma explícita.
+
+### F-010 · Saneamiento: resincronizar orm_models.py entre sv3 y sv4
+
+estado **terminada** · prioridad 6 · rigor `estandar` · SDD sí · rama `feature/F-010-resincronizar-orm-models`
+
+El spec-author de F-003 detectó (2026-08-15) que la duplicación tolerada de infrastructure/database/orm_models.py YA está desincronizada: sv3 tiene horas_orig/extra_auto que faltan en sv4, y sv4 tiene las columnas sigrid_* que faltan en sv3. Viola la trampa 3 de C3 (un cambio de schema modifica las DOS copias). Resincronizar ambas copias con el schema real de la BBDD partes, añadir un test que compare las dos declaraciones (como el guardián R11 de F-002), y valorar si el ALTER TABLE IF NOT EXISTS de sv4 debe cubrir también lo de sv3.
+
+### F-015 · Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada
+
+estado **terminada** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-015-jornada-semanal-candef`
+
+Implementación de lo que propone el estudio F-012 (specs/F-012-estudio-jornada-semanal, requisitos R10–R25 del bloque B, tasks §'Propuesta de tasks para F-015'). Resolutor único gemelo sv3/sv4: L–V = candef efectivo salvo el ÚLTIMO DÍA LABORABLE de la semana del trabajador (calendario F-003; festivo cuenta como jornada), que vale jornada semanal − 4×candef (nunca negativo); jornada semanal derivada del candef por el mapa configurable JORNADA_SEMANAL_POR_CANDEF (default 8:40,9:42; env espejo en sv3 y sv4; candef válido fuera del mapa → jornada plana 5×candef + WARNING; sin calendario cableado → viernes). Excepciones por trabajador en tabla nueva empleado_jornada de la BBDD partes (DNI normalizado, jornada semanal y/o patrón 7 valores, vigencia desde/hasta, origen, auditoría), declarada en las DOS copias de orm_models.py; si falla su lectura, derivada + WARNING. sv3 usa la jornada del día en el split de extras (excluyendo del re-split lo registrado/encolado/approved, coherente con F-004); sv4 en avisos de jornada incompleta, KPI (enseña patrón y S aplicada) y +Nuevo (jornada_dia con fecha). Regresión cero con candef 8. PRERREQUISITOS: F-014 cerrada (candef 9 en Sigrid) y F-010 antes (orm_models resincronizado, decisión D6 aprobada). Servicios: sv3 y sv4 (duplicación tolerada de orm_models y resolutor gemelo, patrón F-003).
+
+### F-016 · Pantalla de administración de empleado_jornada en el portal (sv4)
+
+estado **terminada** · prioridad 8 · rigor `estandar` · SDD sí · rama `feature/F-016-admin-empleado-jornada`
+
+Propuesta por el estudio F-012 (D5, R24): vista de administración en sv4 para crear/editar/cerrar filas de empleado_jornada (DNI, jornada semanal, patrón opcional L–D, desde/hasta, nota), registrando quién y cuándo, validando horas 0–24 por día, desde<hasta y sin solapes por DNI. Hasta entonces las excepciones se cargan por SQL manual del humano. Después de F-015; valorar restringirla por roles cuando exista F-008.
+
+### F-017 · Identidad real de Easy Auth en el portal (sv4)
+
+estado **terminada** · prioridad 8 · rigor `estandar` · SDD sí · rama `feature/F-017-identidad-easy-auth`
+
+Detectado por el spec-author de F-016 el 2026-08-19 y verificado por el lider: sv4 NO lee hoy la identidad del usuario. No hay ni una referencia a X-MS-CLIENT-PRINCIPAL en el repositorio y las once escrituras de auditoria del portal (approved_by, deleted_by y las cuatro entradas de undo_log, todas en services/partes-front/interface_adapters/web/app.py: lineas 1500, 1594, 1629, 1684, 1687, 1841, 1867, 1881, 1900, 1910 y 2121) se firman con la variable DEFAULT_REVIEWER, igual para todos. Decision del humano del 2026-08-19: se introduce la lectura de Easy Auth y se extiende a TODO el portal, no solo a las columnas de F-016. Alcance: decodificar la cabecera de Easy Auth (X-MS-CLIENT-PRINCIPAL-NAME o el token base64, decidiendo cual manda), un unico helper de identidad que consuman los once puntos, fallback para desarrollo local, y decidir que se hace con las filas historicas ya firmadas con el valor generico (propuesta del spec-author: NO se reescriben, se documenta el corte; inventar autores seria falsificar auditoria). Los ROLES siguen siendo F-008: esta feature responde a 'quien hizo esto', no a 'quien puede hacerlo'. Material de partida en specs/F-016-admin-empleado-jornada/design.md seccion 14. AVISO del reviewer de F-016 (2026-08-19): el test test_f016_r13_auditoria (services/partes-front/tests/test_f016_endpoints_admin_jornadas.py:519) parchea DEFAULT_REVIEWER en vez del helper _actor, asi que se pondra ROJO el dia que _actor devuelva el principal real de Easy Auth. F-017 debe incluirlo en su lista de ficheros a tocar y pasarlo a inyectar o parchear el helper. Deberia ir ANTES de F-016 para que las filas de empleado_jornada nazcan firmadas con el usuario real, pero las dos ordenes funcionan sin retrabajo porque F-016 pide la identidad a un solo helper. HALLAZGO del 2026-08-20 (verificacion del despliegue): DEFAULT_REVIEWER NO esta configurada en el Container App ca-sv4-front (comprobado en Azure; .env.example la declara vacia), asi que _actor devuelve None y los once puntos de auditoria llevan sellando NULL desde el primer despliegue. El enunciado de esta feature decia que las filas van firmadas con un valor generico: NO es asi, van SIN autor. Cambia la decision sobre las filas historicas (no hay nada que reescribir, solo un corte que documentar) y sube el valor de la feature: hoy la auditoria del portal esta en blanco. DECISION del humano del 2026-08-20: no se pone un DEFAULT_REVIEWER provisional mientras tanto; la auditoria sigue con NULL hasta que esta feature lea la identidad real de Easy Auth.

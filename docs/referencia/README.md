@@ -18,6 +18,19 @@ está en el código sino en una norma de negocio.
 | Documentos que llegan en PDF, Word o Excel, convertidos a Markdown | Especificaciones de features → `specs/` |
 | Capturas o extractos de informes de referencia | Notas de trabajo de una sesión → `progress/` |
 
+### Documentación compartida por varios proyectos: una sola copia
+
+Si un documento describe algo **común a varios repositorios** —el diccionario
+de una base de datos que todos consumen, la API de un servicio compartido, el
+diseño de red de la organización— **no va aquí**: va al repositorio de
+documentación del ecosistema (en el entorno de Ruesma, `azure-apps/`) como
+única copia, y en este directorio queda solo un **puntero** de pocas líneas
+con la ruta, el motivo y lo imprescindible para no tener que abrir el otro
+repositorio. Dos copias del mismo documento divergen siempre; el puntero
+evita además arrastrar ficheros de megas a cada proyecto que instale el arnés.
+Convención del puntero: mismo nombre `NN_tema.md`, título terminado en
+«— vive en `<repositorio>`, no aquí» y una nota fechada de cuándo se movió.
+
 ## Índice
 
 Una fila por documento incorporado. Mantenerlo al día es parte de añadir un

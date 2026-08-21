@@ -5,10 +5,10 @@ Lo escribe `instalar_arnes.ps1`. **No lo edites a mano.**
 
 | Dato | Valor |
 |---|---|
-| Version del arnes | `1.4.0` |
-| Fecha de la version | 2026-08-13 |
-| Instalado/actualizado el | 2026-08-13 13:22 |
-| Modo | instalar |
+| Version del arnes | `1.7.2` |
+| Fecha de la version | 2026-08-21 |
+| Instalado/actualizado el | 2026-08-21 23:22 |
+| Modo | actualizar |
 | Origen | `arnes-base` |
 
 Para actualizar a una version posterior, desde el repositorio `arnes-base`:
@@ -17,6 +17,18 @@ Para actualizar a una version posterior, desde el repositorio `arnes-base`:
 .\instalar_arnes.ps1 -Destino "C:\Users\pgris\PycharmProjects\partes" -Modo actualizar
 ```
 
-Antes de aceptar cambios, lee `GUIA_INSTALACION.md` en `arnes-base`: los
-ficheros con marcas de adaptacion llevan contenido propio de este proyecto y
-casi siempre hay que conservarlos, no sobrescribirlos.
+Que hace el instalador por su cuenta al actualizar, sin que tengas que
+vigilarlo fichero a fichero:
+
+- **No toca el estado de este proyecto**: `harness/features.json`,
+  `docs/ARCHITECTURE.md`, `progress/`, `specs/`, `docs/referencia/`,
+  `BACKLOG.md` y la configuracion local. Ni con `-Forzar`.
+- **Aplica sin preguntar** los ficheros genericos del arnes (los agentes,
+  `harness/*.py`, `specs/SPECS.md`...), guardando antes una copia de la
+  version que tenias.
+- **Pregunta solo** por los que mezclan lo generico con lo tuyo (`CLAUDE.md`,
+  `CHECKPOINTS.md`, `harness/init.sh`, `docs/CONVENTIONS.md`,
+  `.claude/settings.json`), y la opcion por defecto es CONSERVAR el tuyo.
+
+La clasificacion completa vive en `politica_ficheros.json`, en `arnes-base`.
+Detalle en `GUIA_INSTALACION.md`.

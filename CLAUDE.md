@@ -12,9 +12,20 @@ El humano **autoriza y espera** que lances los subagentes de
 herramienta Agent. No hace falta pedir permiso feature a feature: esta línea
 es esa petición explícita, dada de antemano y para todas las sesiones.
 
-Si el entorno te impide lanzarlos (por ejemplo, una sesión hija de Claude
-Code, detectable con `CLAUDE_CODE_CHILD_SESSION=1`, arranca restringida),
-**dilo en el primer mensaje** en vez de asumir el trabajo en silencio: el
+**Delegar es la vía normal de trabajo, no la excepción.** El flujo SDD de
+este arnés está pensado para que cada rol lo ejecute su subagente: el líder
+orquesta y habla con el humano, los subagentes leen el código, escriben y
+verifican. Si te encuentras haciendo tú el trabajo de un rol pudiendo
+delegarlo, es que te has saltado el arnés.
+
+Algunas configuraciones de sesión traen la regla contraria («no uses la
+herramienta Agent salvo que el usuario lo pida»). Esta sección **es** esa
+petición del usuario, escrita de antemano: da por pedida la delegación en
+todas las sesiones de este repositorio.
+
+Si aun así el entorno te impide lanzarlos (por ejemplo, una sesión hija de
+Claude Code, detectable con `CLAUDE_CODE_CHILD_SESSION=1`, arranca
+restringida), **dilo en el primer mensaje** en vez de asumir el trabajo en silencio: el
 humano decidirá si relanza la sesión desde una terminal limpia o si acepta
 que trabajes sin delegar. Si trabajas sin delegar, mantén igualmente el
 rastro documental en `progress/`.
@@ -97,6 +108,10 @@ completo en `docs/ARCHITECTURE.md`; el documento maestro del dominio es
   `README.md`.
 - `CHECKPOINTS.md` — criterios objetivos de estado final; el reviewer los
   recorre antes de cerrar cualquier feature.
+- `BACKLOG.md` — el backlog en Markdown (estado, prioridad, rigor y
+  descripción de cada feature). **Generado** por `harness/backlog.py` desde
+  `harness/features.json` y regenerado por `harness/init.sh`: no lo edites a
+  mano ni respondas al humano «déjame mirar el JSON», está aquí.
 - `harness/ARNES_VERSION.md` — qué versión del arnés genérico lleva este
   repositorio. Lo escribe el instalador; no lo edites a mano.
 - `infra/` — scripts de despliegue (si aplica).
@@ -185,6 +200,12 @@ contenedores común.
 Dos reglas: el documento de este proyecto **se actualiza cuando cambie lo que
 exponemos o consumimos**, en el mismo trabajo y no después; y **no se
 duplican aquí** los documentos de otros proyectos, se enlazan.
+
+Además de un documento por proyecto, `azure-apps/` guarda la **documentación
+del sistema origen común**: `sigrid_api.md` (la pasarela) y
+`sigrid_tablas.md` (el diccionario completo de la BBDD de Sigrid, tablas,
+campos, tipos e índices). Cuando necesites saber qué es una tabla o un campo
+de Sigrid, ve ahí; en `docs/referencia/` de cada proyecto solo hay punteros.
 
 ### El arnés genérico: `arnes-base`
 
