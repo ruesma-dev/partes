@@ -356,3 +356,55 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - MANUAL pendiente del humano: las 6 verificaciones de `design.md` §8.2
   (portal levantado, PostgreSQL y navegador). La 6 —comportamiento del combo en
   el navegador— es la única funcionalidad que ningún test cubre.
+
+---
+
+## F-017 · Identidad real de Easy Auth en el portal (sv4) — done 2026-08-21
+
+- Rama `feature/F-017-identidad-easy-auth` · rigor estandar · sdd=true ·
+  **APROBADO** del reviewer en segunda vuelta (`progress/review_F-017.md`).
+  Detalle en `progress/impl_F-017.md` y `progress/mutacion_F-017.md`.
+- Entregado: `interface_adapters/web/identidad.py` (cinco funciones puras que
+  traducen cabeceras a `(actor, origen)`, sin FastAPI ni I/O), `_actor` pasa a
+  leer Easy Auth, los once puntos de auditoría firman con la identidad real,
+  `GET /whoami` para diagnóstico, y el consumidor de resultados deja de leer
+  `DEFAULT_REVIEWER` (R24). Un solo servicio: **sv4**. **Cero cambios de
+  schema.**
+- Verificado: init.sh en verde, **1.057 tests en sv4** + 138 en la raíz,
+  cobertura **99,3 %** (141/142 líneas cambiadas), mutación **32/32 muertos,
+  0 supervivientes, 0 timeouts** (re-ejecutada por el reviewer, que recalculó
+  el alcance: 3 ficheros / 462 líneas / 32 mutantes, coincidencia exacta).
+- **T0 fue una puerta bloqueante y pasó**: las cuatro `CONTAINER_APP_*`
+  existen en `ca-sv4-front`, comprobadas variable a variable. El implementer
+  detectó que el comando `printenv` que proponía la spec **habría volcado los
+  secretos de Key Vault**, y lo corrigió en la spec.
+- **Enmienda de R14/R15 durante la implementación**: la spec decía que los
+  borrados y el alta manual escribirían en `undo_log.actor`; se verificó en el
+  árbol que **eso no describía el código** (esas operaciones no generan filas
+  de `undo_log`, y `crear_parte_manual` declaraba `by` sin usarlo). Decisión
+  del humano: enmendar los requisitos, no ampliar el alcance. El reviewer
+  validó por su cuenta que la enmienda era honesta y no una tapadera.
+  Consecuencia documentada: `undo_log.actor` NO participa del criterio del
+  corte y sigue siempre a `NULL`.
+- **Primera vuelta RECHAZADA**, con tres defectos que merece la pena recordar:
+  (1) una tercera lectura de identidad en `resultado_consumer.py`, invisible
+  para el guardián porque solo miraba `app.py` — se corrigió Y se amplió el
+  guardián a todo sv4 con `rglob`, y el reviewer lo verificó **rompiéndolo**
+  (sembró la lectura en un fichero desechable y el guardián se puso rojo);
+  (2) la enmienda de R14/R15 no se había propagado a los otros cuatro sitios
+  que enunciaban el corte, y **F-018 lo habría heredado**; (3) la spec seguía
+  proponiendo el `printenv` peligroso, porque el `Select-String` filtra la
+  vista, no el volcado.
+- **Hallazgo que originó la feature** (verificación del despliegue del
+  2026-08-20): `DEFAULT_REVIEWER` nunca estuvo configurada en Azure, así que
+  la auditoría del portal no llevaba «un genérico», llevaba **NULL desde el
+  primer despliegue**. Decisión del humano: no poner un genérico provisional.
+- **Evidencia para el arnés**: la campaña con el presupuesto por defecto de
+  `rigor.json` (120 s, concurrencia alta) dio **8 timeouts de 32** con la
+  suite de sv4 ya en 1.057 tests; con `--timeout 420 --workers 4` los 8
+  resultaron ser mutantes muertos. **Un timeout no es una medición.** Refuerza
+  la automejora ya anotada. Además: la campaña paralela **exige árbol limpio**
+  (aborta con exit 2 explicándolo, porque crea los worktrees desde `HEAD`), y
+  **canalizar su salida por `tail` se traga el código de salida** — el mismo
+  motivo por el que `init.sh` se lanza sin pipes.
+

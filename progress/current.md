@@ -186,72 +186,27 @@ incoherencia real.
 incluida una de **un trabajador real** con vigencia desde 2026-01-01 y 42
 h/sem. Hay que dejarlas todas `inactiva` (esta pantalla no borra, por diseño).
 
-## F-017 · spec_ready, esperando aprobación del humano (2026-08-20)
+## F-017 · done, APROBADA y lista para mergear (2026-08-21)
 
-Spec redactada en `specs/F-017-identidad-easy-auth/` (requirements, design,
-tasks). **No se implementa hasta que el humano la apruebe.** Cuatro decisiones
-que hay que aprobar o rebatir, y una ambigüedad que no se cierra hasta
-desplegar:
+Identidad real de Easy Auth en sv4. Resumen en `progress/history.md`; detalle
+en `progress/impl_F-017.md`, `progress/mutacion_F-017.md` y
+`progress/review_F-017.md`.
 
-- **DA1/DA2/DA3**: manda `X-MS-CLIENT-PRINCIPAL-NAME`; el token base64 queda de
-  suplente y nunca puede lanzar. Se guarda el **UPN en minúsculas**, no el
-  `oid`: la columna la leen personas en dos plantillas. La identidad inmutable
-  se deja para F-018. Anchos comprobados: la más estrecha es `String(120)`
-  (`undo_log.actor`, `empleado_jornada`, `empleado_alias`); un UPN cabe de
-  sobra y el helper trunca a 120. **Cero cambios de schema.**
-- **DA4, el que más conviene discutir**: el fallback local NO es `NULL`, sino un
-  valor marcado (`local:<algo>`), porque `:` no es válido en un UPN y porque
-  sv4 se arranca en local **contra el PostgreSQL real**. Efecto colateral
-  valioso: a partir de esta feature siempre hay actor, así que el corte queda
-  exacto y gratis — `autor IS NULL` ⇔ «anterior a F-017». Las históricas no se
-  tocan.
-- **DA6**: `test_f016_r13_auditoria` se pone ROJO a propósito en T4, como
-  evidencia de que `_actor` manda, y se repara fabricando la cabecera, no
-  parcheando el helper: `_actor` es una clausura dentro de `build_app` y no hay
-  símbolo que parchear.
-- **DA8, vetable**: un `GET /whoami` que devuelva actor y origen (nombres de
-  cabecera, nunca valores) para poder verificar en Azure sin aprobar un parte
-  de verdad. Es la pieza más fácil de quitar si no la quieres.
+Verificado por el reviewer re-ejecutando: **1.057 tests** en sv4 + 138 en la
+raíz, cobertura **99,3 %**, mutación **32/32 muertos, 0 supervivientes, 0
+timeouts**. Solo sv4, cero cambios de schema. Primera vuelta RECHAZADA con
+tres defectos, los tres corregidos y verificados —el guardián ampliado lo
+comprobó **rompiéndolo**—.
 
-### Enmienda a DA4, aprobada por el humano el 2026-08-20
+**Pendiente**: mergear a `dev` y desplegar. Tras desplegar, la verificación que
+no se puede hacer antes: **`GET /whoami` dirá qué inyecta Azure de verdad** en
+`X-MS-CLIENT-PRINCIPAL-NAME` (¿UPN o display name?). Era la única ambigüedad
+que la spec no podía cerrar.
 
-El fallback original se disparaba por **ausencia de cabecera**, sin mirar dónde
-corría el proceso: si Easy Auth dejase de inyectar la cabecera en Azure, el
-portal escribiría `local:sin-identidad` **en producción**, afirmando un origen
-falso. Un dato de auditoría que miente sobre su origen es peor que uno vacío.
-Ahora son dos ramas: **R5** (no desplegado ⇒ `local:<algo>`) y **R5b**
-(desplegado ⇒ `sin-identidad`, sin prefijo, **más WARNING por petición**). La
-operación se completa en las dos: no saber quién fue no es motivo para perder
-el cambio. **R6** amplía el espacio de nombres reservado para cubrir también
-`sin-identidad`, y la garantía es **estructural** —esos valores solo los
-produce el resolutor— en vez de una apuesta sobre si el valor lleva `@`.
-
-**La pega que el propio spec-author encontró, y es buena**: `CONTAINER_APP_*`
-es comportamiento documentado de la plataforma, pero **aquí no está
-verificado**: ningún servicio del monorepo lee esas variables y ningún script
-de `infra/` las declara. Y el fallo es **asimétrico** — creerse desplegado en
-local es inocuo; creerse local estando desplegado escribe `local:…` en
-producción, que es justo la mentira que la enmienda evita. Por eso añadió:
-
-- **T0, puerta BLOQUEANTE**: comprobar las variables en el contenedor antes de
-  implementar. Si no aparecen ⇒ `blocked` y se consulta la alternativa
-  (`ENTORNO=produccion`, que sí obligaría a tocar Azure).
-- Una **segunda señal en OR**: haber visto ya una cabecera de Easy Auth desde
-  el arranque. Tres líneas, y solo puede mover el resultado al lado seguro.
-
-`senal_de_despliegue` recibe el entorno como `Mapping` (función pura, sin
-`os.environ` dentro). `/whoami` devuelve ahora `origen` con las cuatro ramas,
-más `entorno` y `senal_despliegue`. R5b entra en la lista de fase RED, con
-fichero de tests propio.
-
-**Ambigüedad real, honesta**: nadie ha verificado nunca que Azure inyecte
-`-NAME` con el UPN —hay cero referencias a `X-MS-CLIENT-PRINCIPAL` en el
-repositorio—, así que podría llegar el display name. No rompe nada, pero **el
-valor exacto que acabará en la columna no se sabe hasta desplegar**; `/whoami`
-lo aclara en un minuto.
-
-Servicio: **solo sv4**. Comprobado que sv5 ya acepta `usuario` y solo lo
-loguea.
+**Aviso para F-018**: su borrador vive en el worktree
+`worktree-agent-ad862e62640d64553` y **heredó el criterio del corte SIN la
+excepción de `undo_log.actor`**. Hay que refrescarlo contra `dev` después de
+mergear, antes de darlo por bueno.
 
 ## Lo que el humano tiene que decidir o hacer
 
