@@ -198,10 +198,34 @@ timeouts**. Solo sv4, cero cambios de schema. Primera vuelta RECHAZADA con
 tres defectos, los tres corregidos y verificados —el guardián ampliado lo
 comprobó **rompiéndolo**—.
 
-**Pendiente**: mergear a `dev` y desplegar. Tras desplegar, la verificación que
-no se puede hacer antes: **`GET /whoami` dirá qué inyecta Azure de verdad** en
-`X-MS-CLIENT-PRINCIPAL-NAME` (¿UPN o display name?). Era la única ambigüedad
-que la spec no podía cerrar.
+**MERGEADA Y DESPLEGADA el 2026-08-21.** La ambigüedad que la spec no podía
+cerrar **queda cerrada a favor de lo diseñado**. `GET /whoami` en el portal
+desplegado devuelve:
+
+```json
+{"actor":"<upn del usuario>","origen":"cabecera-name",
+ "entorno":"desplegado","senal_despliegue":"CONTAINER_APP_NAME",
+ "cabeceras_easy_auth":["X-MS-CLIENT-PRINCIPAL-NAME",
+                        "X-MS-CLIENT-PRINCIPAL",
+                        "X-MS-CLIENT-PRINCIPAL-ID"]}
+```
+
+- Azure inyecta el **UPN**, no el display name: la apuesta de DA3 era correcta.
+- Manda `cabecera-name`; el suplente base64 no hace falta.
+- R5c detecta el entorno por la **señal A** (`CONTAINER_APP_NAME`), como
+  confirmó T0. La señal B (haber visto una cabecera) no llegó a necesitarse.
+
+**HALLAZGO PARA F-018**: Easy Auth inyecta también
+**`X-MS-CLIENT-PRINCIPAL-ID`**, que es el **`oid` inmutable** del usuario.
+F-017 dejó por escrito que no guardaba el `oid` «porque no hay columna y no se
+va a inventar una», remitiendo a F-018 — y ahora sabemos que **el dato está
+disponible en una cabecera dedicada**, sin decodificar el token. Si F-018 crea
+la tabla de auditoría, puede llevar `actor` (legible) y `actor_id`
+(inmutable) sin coste extra: es la diferencia entre una auditoría que aguanta
+un cambio de nombre y otra que no.
+
+**Verificación que queda**: aprobar algo en el portal y comprobar que
+«Aprobado por» ya sale con el usuario real.
 
 **Aviso para F-018**: su borrador vive en el worktree
 `worktree-agent-ad862e62640d64553` y **heredó el criterio del corte SIN la

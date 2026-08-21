@@ -407,4 +407,11 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   (aborta con exit 2 explicándolo, porque crea los worktrees desde `HEAD`), y
   **canalizar su salida por `tail` se traga el código de salida** — el mismo
   motivo por el que `init.sh` se lanza sin pipes.
+- **Verificado DESPLEGADO el 2026-08-21** con `GET /whoami`: Azure inyecta el
+  **UPN** en `X-MS-CLIENT-PRINCIPAL-NAME` (no el display name), el origen es
+  `cabecera-name` y el entorno se detecta por `CONTAINER_APP_NAME`. La única
+  ambigüedad que la spec no podía cerrar se cerró a favor de lo diseñado.
+  De propina: Easy Auth inyecta también **`X-MS-CLIENT-PRINCIPAL-ID`**, el
+  `oid` inmutable, dato que F-017 daba por no disponible sin decodificar el
+  token y que se anota como material de F-018.
 
