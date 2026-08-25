@@ -92,8 +92,12 @@ completo en `docs/ARCHITECTURE.md`; el documento maestro del dominio es
   sigrid-api: parte mensual `hmo` + líneas `hmores` con synckey. ÚNICO
   servicio con credencial de escritura; 1 réplica fija.
 - `infra/` — scripts PowerShell de provisión/despliegue y
-  `manifests/svN/`. Los `infra/*.local.ps1` y `graphkey_nobom.json` (no
-  versionados) llevan los valores reales; los versionados van redactados.
+  `manifests/svN/`. Los versionados van redactados; los valores reales de
+  suscripción y tenant viven en `infra/*.local.ps1` (no versionado). Los
+  **secretos de la app no están en ningún fichero**: viven en el Key Vault
+  (`$KV`) y se cargan con `infra/add_secrets_partes.ps1`, que los pide por
+  consola. Los servicios los consumen por `secretref` + identidad
+  gestionada, nunca en claro. Ver `infra/README_partes.md`.
 - Estructura interna de cada servicio: hexagonal (`domain/`,
   `application/`, `infrastructure/`, `interface_adapters/`, `config/`).
 - `tests/` (raíz) — tests del monorepo como conjunto; los de cada servicio
