@@ -653,3 +653,17 @@ verde por caché, `BACKLOG.md` generado. `python -m harness.mutacion --estado` y
 **Pendiente / sabido**: `ruff` sube de 468 a 496 avisos, los 28 nuevos en el
 código del arnés recién entrado (deuda del genérico, no bloquea). Nada que
 propagar de vuelta a `arnes-base`: esta actualización solo consume.
+
+## Actualización del arnés: 1.7.2 → 1.7.3 (2026-08-25)
+
+Rama `chore/arnes-1.7.3`. Correctivo de la puerta de tamaño que estrenó la
+1.7.0: la sección 7 quater medía también el papeleo de features **`done`**, y
+una feature cerrada que declara la rama base como suya dejaba el portero en
+rojo permanente en `dev`. El snippet descarta ahora la ficha si su `status` es
+`done` y el N/A lo dice con sus palabras. Encontrado en `porcentajes`, no aquí:
+en `partes` ninguna feature declara `dev` o `main` como rama, así que el
+portero nunca llegó a ponerse rojo por esto.
+
+Toca `harness/init.sh` (portado a mano, conservando las tres adaptaciones de
+`partes`), `tests/test_tamano.py` y `harness/VERSION`. Verificado:
+`bash harness/init.sh` en verde con v1.7.3, 402 tests pasados y 1 saltado.

@@ -5,9 +5,9 @@ Lo escribe `instalar_arnes.ps1`. **No lo edites a mano.**
 
 | Dato | Valor |
 |---|---|
-| Version del arnes | `1.7.2` |
-| Fecha de la version | 2026-08-21 |
-| Instalado/actualizado el | 2026-08-21 23:22 |
+| Version del arnes | `1.7.3` |
+| Fecha de la version | 2026-08-22 |
+| Instalado/actualizado el | 2026-08-25 10:15 |
 | Modo | actualizar |
 | Origen | `arnes-base` |
 

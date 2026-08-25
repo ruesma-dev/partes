@@ -278,3 +278,20 @@ def test_sin_papeleo_todavia_el_cli_lo_dice_en_vez_de_callar(
 
     assert main(["--feature", "F-100", "--raiz", str(raiz)]) == 0
     assert "ningún fichero de papeleo todavía" in capsys.readouterr().out
+
+
+# --- La puerta de init.sh no mide papeleo ya cerrado ------------------------
+
+
+def test_la_puerta_de_init_descarta_las_features_done() -> None:
+    """Una feature `done` es papeleo CERRADO: medirlo no cambia nada de lo que
+    se vaya a escribir y deja el portero en rojo permanente. Sin esta regla la
+    amnistía de «lo viejo no se mide» se cae justo en la rama base, en cuanto
+    una feature cerrada declara esa rama como suya: pasó con F-015 de
+    `porcentajes`, hecha directamente en `dev`, cuyo review de 546 líneas
+    —anterior a los topes— dejaba `dev` en rojo para siempre."""
+    portero = Path("harness/init.sh").read_text(encoding="utf-8", errors="replace")
+    bloque = portero.split("7 quater", 1)[1].split("--- 8.", 1)[0]
+
+    assert 'ficha.get("status") == "done"' in bloque
+    assert "ficha = None" in bloque

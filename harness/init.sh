@@ -506,6 +506,12 @@ fi
 # lista de excepciones que mantener. Lo viejo queda amnistiado por
 # construcción; lo que se retome y se edite pasará a medirse.
 #
+# «En curso» excluye las `done`: una feature cerrada es papeleo cerrado. Sin
+# esa exclusión, la amnistía se cae justo en la rama base -donde arranca cada
+# sesión- en cuanto una feature cerrada declara esa rama como suya, que es lo
+# que pasó con F-015 de `porcentajes`, hecha directamente en `dev`: 546 líneas
+# de un review anterior a los topes dejaban `dev` en rojo para siempre.
+#
 # Códigos de harness.tamano: 0 cabe, 1 se pasa (KO: el portero se pone rojo),
 # 2 no aplica (sin configuración o sin bloque `tamano`) => AVISO con el motivo
 # impreso, nunca un verde silencioso.
@@ -520,11 +526,13 @@ from harness.rigor import cargar_features, feature_de_rama
 
 rama = ejecutar_git(["branch", "--show-current"]).strip()
 ficha = feature_de_rama(rama, cargar_features())
+if ficha and ficha.get("status") == "done":
+    ficha = None  # papeleo cerrado: no hay nada que se vaya a escribir
 print(ficha.get("id", "") if ficha else "")
 EOF
 )
     if [ -z "$FEATURE_TAMANO" ]; then
-        warn "PUERTA TAMAÑO: N/A (ni la rama actual corresponde a una feature declarada ni hay ninguna in_progress: no hay papeleo que medir)"
+        warn "PUERTA TAMAÑO: N/A (no hay papeleo abierto que medir: ni la rama actual corresponde a una feature sin cerrar ni hay ninguna in_progress)"
     else
         SALIDA_TAMANO=$($PY -m harness.tamano --feature "$FEATURE_TAMANO" 2>&1)
         case "$?" in
