@@ -16,11 +16,11 @@ quedan **archivados en solo lectura** (cada uno lleva un `ARCHIVADO.md`).
 
 En `infra/` los secretos están redactados. Los identificadores de suscripción
 y tenant reales van en `infra/*.local.ps1`, sin versionar. Los **secretos de
-la aplicación** (`GRAPH-KEY`, `SIGRID-API-FUNCTION-KEY`, `GEMINI-API-KEY`,
-`PG-PASSWORD`, `SESAME-API-KEY`) no viven en ningún fichero: están en el Key
-Vault (`$KV`) y se cargan con `infra/add_secrets_partes.ps1`, que los pide por
-consola. Las Container Apps los referencian con `secretref` + identidad
-gestionada.
+la aplicación** no viven en ningún fichero: están en el Key Vault (`$KV`).
+`GRAPH-KEY`, `SIGRID-API-FUNCTION-KEY`, `GEMINI-API-KEY` y `SESAME-API-KEY`
+los carga `infra/add_secrets_partes.ps1`, que los pide por consola;
+`PG-PASSWORD` la deja `infra/fase1_infra_partes.ps1` al provisionar. Las
+Container Apps los referencian con `secretref` + identidad gestionada.
 
 El documento maestro de integración (qué expone, qué consume, cómo se
 despliega) está en `azure-apps/partes.md`.
