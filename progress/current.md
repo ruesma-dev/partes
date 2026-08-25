@@ -723,3 +723,30 @@ en claro en el disco— **no está del todo conseguido**.
 La **rotación de la credencial de Graph** no entra en esta feature. Sigue
 siendo pendiente suyo, y el hallazgo del zip refuerza el argumento: el secreto
 ha estado en claro en disco desde el 2026-06-22.
+
+### F-005 · ronda 1 corregida, pero la puerta de tamaño queda ROJA (2026-08-25)
+
+Los dos cambios del `CHANGES_REQUESTED` están hechos y commiteados
+(`ad770be`, `861c0d1`; en `azure-apps`, `65430cd`), y el informe actualizado
+(`a0a084b` + el de esta ronda). H1 pasa a resuelto: el humano borró
+`infra/partes-infra.zip` y en el árbol no queda rastro de `graphkey*`.
+
+**`bash harness/init.sh` NO queda en verde**, y no por el código ni por mi
+papeleo:
+
+```
+[KO] PUERTA TAMAÑO: F-005 se pasa de los topes:
+    progress/review_F-005.md: 151 líneas > tope 140
+```
+
+`progress/impl_F-005.md` está dentro (**206/220**). El único fichero que se
+pasa es **el informe del reviewer**, que tengo instrucción expresa de no
+tocar por ser papeleo suyo. No lo he recortado: recortar el informe de quien
+te revisa, para que tu propia entrega salga verde, es justo lo que la puerta
+existe para impedir.
+
+**Lo pendiente, y es de un minuto**: el reviewer recorta
+`progress/review_F-005.md` a **≤ 140 líneas** (11 de más; el tope admite
+resumir y enlazar) y lo commitea. Con eso el portero cierra en verde: todas
+las demás comprobaciones ya lo están —402 tests pasados, 1 saltado,
+cobertura N/A por nivel `documental`, `BACKLOG.md` al día—.
