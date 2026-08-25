@@ -62,8 +62,9 @@ Regla de esta carpeta, y conviene no romperla:
   fichero de secretos que haya que tener al lado para desplegar.
 - `add_secrets_partes.ps1` los pide **por consola** con
   `Read-Host -AsSecureString` y los sube con `az keyvault secret set`. No los
-  escribe en disco ni los imprime; el script solo conoce el *nombre* del
-  secreto, nunca su valor.
+  escribe en disco ni los imprime: el **fichero versionado solo contiene los
+  nombres** de los secretos; el valor existe únicamente en memoria durante la
+  ejecución del script.
 - Los servicios los reciben por **referencia**: `create_capps_partes.ps1`,
   `create_sv1_poller.ps1` y `create_sv4_front.ps1` montan
   `GRAPH_KEY=secretref:graph-key`, y el secreto de la Container App es un
