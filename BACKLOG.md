@@ -5,6 +5,8 @@
 
 Resumen: **17 features**, 7 abiertas, 10 terminadas.
 
+En curso: **F-005**.
+
 Bloqueadas: **F-014**.
 
 ## Trabajo abierto
@@ -12,7 +14,7 @@ Bloqueadas: **F-014**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
-| F-005 | GRAPH_KEY a Key Vault (HECHO) + retirar graphkey_nobom.json del despliegue | 9 | pendiente | documental | `feature/F-005-graphkey-keyvault` |
+| F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | en curso | documental | `feature/F-005-graphkey-keyvault` |
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
 | F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 10 | pendiente | estandar | `feature/F-006-tipo-hora-ext` |
 | F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 11 | pendiente | critico | `feature/F-007-prompt-sv2-evals` |
@@ -42,11 +44,11 @@ estado **bloqueada** · prioridad 5 · rigor `documental` · SDD no · rama `fea
 
 Pedida por el humano el 2026-08-18 a raíz del estudio F-012 (design.md H5): la jornada semanal se derivará del candef (8→40 h, 9→42 h), así que todo trabajador con jornada de 9 h L–J DEBE tener candef=9 en su hora por defecto (HLOF) de Sigrid. El estudio encontró 7 recursos que registran 9-9-9-9-6 (42 h) desde 2026-05 y 10-10-10-10-8 antes, todos OFIC. 1ª ALBAÑIL con DNI en emp y código HE, y todos con candef=8 hoy: MO/0006, MO/0007, MO/0008, MO/0031, MO/0366, MO/0405, MO/0456. MO/0037 (OFIC. 2ª) ya tiene candef=9 pero NO tiene DNI en emp: corregirlo a la vez. Es un cambio de DATOS MAESTROS en Sigrid que hace RRHH/Administración a mano (los agentes NO escriben en Sigrid fuera de sv5): la feature entrega la petición redactada con la lista y la comprobación posterior por sigrid-api en solo lectura (candef del recurso), sin código nuevo. Los DNIs no se versionan: los recursos se citan por código MO/NNNN. Debe cerrarse ANTES de implementar la regla de jornada semanal que propone F-012.
 
-### F-005 · GRAPH_KEY a Key Vault (HECHO) + retirar graphkey_nobom.json del despliegue
+### F-005 · Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault
 
-estado **pendiente** · prioridad 9 · rigor `documental` · SDD sí · rama `feature/F-005-graphkey-keyvault`
+estado **en curso** · prioridad 9 · rigor `documental` · SDD no · rama `feature/F-005-graphkey-keyvault`
 
-Mover la credencial de Graph a Key Vault (keyvaultref + managed identity) en los servicios donde aún viaje como variable de entorno en claro; eliminar graphkey_nobom.json del flujo de despliegue. COMPROBADO el 2026-08-20 contra Azure (lectura): los TRES servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- ya tienen GRAPH_KEY como secretRef 'graph-key', sin ningun valor en claro, y el secreto de la Container App es una referencia a Key Vault (keyVaultUrl informado), no una copia. sv5 no usa Graph. Es decir: el PRIMER objetivo de esta feature YA ESTA CUMPLIDO. Lo unico vivo es el segundo: sacar graphkey_nobom.json del flujo de despliegue (no versionado, lleva los valores reales, hoy se usa para cargar el secreto a mano). Pendiente de decision del humano: cerrarla como done dejando constancia de esta comprobacion, o reescribirla para que sea solo la retirada de graphkey_nobom.json y, con mas valor de seguridad, la ROTACION de esa credencial.
+Los dos objetivos originales estan cumplidos de hecho. Comprobado el 2026-08-20 y reconfirmado el 2026-08-25 contra Azure (solo lectura): los tres servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- llevan GRAPH_KEY como secretRef 'graph-key' y el secreto de la Container App es una referencia a Key Vault, no una copia; el secreto GRAPH-KEY existe y esta habilitado en el Key Vault de partes ($KV). Ningun script de infra/ lee graphkey_nobom.json: add_secrets_partes.ps1 pide el JSON por consola con Read-Host -AsSecureString y lo sube al Key Vault sin tocar disco. Lo que queda, y es esta feature: borrar la copia local de infra/graphkey_nobom.json (no versionada, nunca entro en git) y corregir las dos menciones que aun la presentan como parte del despliegue. Decision del humano del 2026-08-25: SOLO LIMPIEZA; la rotacion de la credencial de Graph no entra aqui y queda anotada como pendiente suyo.
 
 ### F-018 · Log de auditoria de acciones del portal (quien hizo que y cuando)
 

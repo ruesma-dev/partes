@@ -1,10 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-Sesión 2026-08-19/20. **F-015 y F-016 `done`**, las dos APROBADAS por el
-reviewer, mergeadas, publicadas y **DESPLEGADAS**. **F-014 `blocked`** como
-deuda aparcada, pero su puerta ya está abierta (ver abajo). Ninguna feature
-`in_progress`.
+Sesión 2026-08-25: **F-005 `in_progress`** en `feature/F-005-graphkey-keyvault`
+(limpieza documental, ver la sección final). De la sesión anterior
+(2026-08-19/20): **F-015 y F-016 `done`**, las dos APROBADAS por el reviewer,
+mergeadas, publicadas y **DESPLEGADAS**. **F-014 `blocked`** como deuda
+aparcada, pero su puerta ya está abierta (ver abajo).
 
 | Rama | Estado |
 |---|---|
@@ -667,3 +668,58 @@ portero nunca llegó a ponerse rojo por esto.
 Toca `harness/init.sh` (portado a mano, conservando las tres adaptaciones de
 `partes`), `tests/test_tamano.py` y `harness/VERSION`. Verificado:
 `bash harness/init.sh` en verde con v1.7.3, 402 tests pasados y 1 saltado.
+
+## F-005 · GRAPH_KEY en Key Vault: constancia de la comprobación (2026-08-25)
+
+Rama `feature/F-005-graphkey-keyvault`. Feature de **limpieza documental**
+(`sdd: false`, rigor `documental`): **no se toca código de producción**. Queda
+aquí la constancia que pide su criterio A4.
+
+### Lo comprobado contra Azure (solo lectura, sesión de `pgris@ruesma.es`)
+
+| Fecha | Qué se comprobó | Resultado |
+|---|---|---|
+| 2026-08-20 | Los **tres** servicios que usan Graph (`ca-sv1-poller`, `ca-sv3-persistencia`, `ca-sv4-front`) | `GRAPH_KEY` llega como `secretref:graph-key`, y el secreto de la Container App es una **referencia** a Key Vault (`keyVaultUrl` informado), **no una copia**. Ningún valor en claro. |
+| 2026-08-25 | El secreto `GRAPH-KEY` en el Key Vault de `rg-partes-dev` (`$KV`) | **Existe y está habilitado**. Creación y última actualización: `2026-06-22T13:59:10+00:00`. |
+
+sv5 no usa Graph. Es decir: el objetivo original de la feature —sacar la
+credencial de las variables de entorno en claro— **ya estaba cumplido de
+hecho** antes de abrirla; lo que quedaba era la limpieza.
+
+### Lo comprobado en el árbol
+
+- **Ningún script de `infra/` lee `graphkey_nobom.json`.**
+  `add_secrets_partes.ps1` pide el JSON por consola con
+  `Read-Host -AsSecureString` y lo sube con `az keyvault secret set`, sin
+  tocar disco. `create_capps_partes.ps1:63,73`, `create_sv1_poller.ps1:44,49`
+  y `create_sv4_front.ps1:41,62` montan `GRAPH_KEY=secretref:graph-key` sobre
+  un `keyvaultref` resuelto con la identidad gestionada `id-partes-dev`.
+- **Nunca entró en git**: `git log --all -- infra/graphkey_nobom.json` no
+  devuelve nada, y sigue cubierto por `.gitignore:15`.
+- **Borrado del disco** el 2026-08-25 (criterio A1). El valor vive en el Key
+  Vault, ya verificado arriba.
+
+### HALLAZGO para el humano: una segunda copia del secreto en disco
+
+`infra/partes-infra.zip` (33 KB, del 2026-07-26, **no versionado**, cubierto
+por la regla `*.zip` del `.gitignore`) **contiene dentro
+`graphkey_nobom.json`** con `tenant_id`, `client_id` y un `client_secret` no
+vacío. Comprobado sin imprimir los valores.
+
+No se ha borrado: **queda fuera del alcance declarado de F-005**, cuyo
+criterio A1 nombra solo `infra/graphkey_nobom.json`. Es un artefacto de
+empaquetado regenerable (un zip de `infra/`), así que borrarlo no pierde nada
+que no se pueda rehacer, pero es decisión del humano:
+
+```powershell
+Remove-Item C:\Users\pgris\PycharmProjects\partes\infra\partes-infra.zip
+```
+
+Mientras siga ahí, el objetivo real de A1 —que la credencial de Graph no esté
+en claro en el disco— **no está del todo conseguido**.
+
+### Fuera de alcance por decisión del humano (2026-08-25)
+
+La **rotación de la credencial de Graph** no entra en esta feature. Sigue
+siendo pendiente suyo, y el hallazgo del zip refuerza el argumento: el secreto
+ha estado en claro en disco desde el 2026-06-22.
