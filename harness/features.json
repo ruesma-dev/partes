@@ -64,11 +64,17 @@
     },
     {
       "id": "F-005",
-      "title": "GRAPH_KEY a Key Vault (HECHO) + retirar graphkey_nobom.json del despliegue",
-      "description": "Mover la credencial de Graph a Key Vault (keyvaultref + managed identity) en los servicios donde aún viaje como variable de entorno en claro; eliminar graphkey_nobom.json del flujo de despliegue. COMPROBADO el 2026-08-20 contra Azure (lectura): los TRES servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- ya tienen GRAPH_KEY como secretRef 'graph-key', sin ningun valor en claro, y el secreto de la Container App es una referencia a Key Vault (keyVaultUrl informado), no una copia. sv5 no usa Graph. Es decir: el PRIMER objetivo de esta feature YA ESTA CUMPLIDO. Lo unico vivo es el segundo: sacar graphkey_nobom.json del flujo de despliegue (no versionado, lleva los valores reales, hoy se usa para cargar el secreto a mano). Pendiente de decision del humano: cerrarla como done dejando constancia de esta comprobacion, o reescribirla para que sea solo la retirada de graphkey_nobom.json y, con mas valor de seguridad, la ROTACION de esa credencial.",
-      "acceptance": [],
-      "status": "pending",
-      "sdd": true,
+      "title": "Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault",
+      "description": "Los dos objetivos originales estan cumplidos de hecho. Comprobado el 2026-08-20 y reconfirmado el 2026-08-25 contra Azure (solo lectura): los tres servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- llevan GRAPH_KEY como secretRef 'graph-key' y el secreto de la Container App es una referencia a Key Vault, no una copia; el secreto GRAPH-KEY existe y esta habilitado en kv-partes-pt7m3. Ningun script de infra/ lee graphkey_nobom.json: add_secrets_partes.ps1 pide el JSON por consola con Read-Host -AsSecureString y lo sube al Key Vault sin tocar disco. Lo que queda, y es esta feature: borrar la copia local de infra/graphkey_nobom.json (no versionada, nunca entro en git) y corregir las dos menciones que aun la presentan como parte del despliegue. Decision del humano del 2026-08-25: SOLO LIMPIEZA; la rotacion de la credencial de Graph no entra aqui y queda anotada como pendiente suyo.",
+      "acceptance": [
+        "A1: infra/graphkey_nobom.json no existe en el arbol de trabajo, y .gitignore sigue cubriendolo por si alguien lo regenera.",
+        "A2: CLAUDE.md y README.md dejan de presentar graphkey_nobom.json como fichero del despliegue con los valores reales; explican que GRAPH_KEY vive en el Key Vault y se carga con infra/add_secrets_partes.ps1.",
+        "A3: infra/README_partes.md deja por escrito donde vive GRAPH-KEY y que ningun script lee secretos de ficheros en disco.",
+        "A4: queda constancia en progress/ de la comprobacion contra Azure (los tres servicios con secretRef y el secreto habilitado en el Key Vault), con su fecha.",
+        "A5: bash harness/init.sh termina en verde y ningun secreto -tenant_id, client_id, client_secret, nombre del Key Vault aparte, valores- entra en el repositorio."
+      ],
+      "status": "in_progress",
+      "sdd": false,
       "rigor": "documental",
       "priority": 9,
       "branch": "feature/F-005-graphkey-keyvault"
