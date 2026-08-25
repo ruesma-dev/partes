@@ -82,8 +82,7 @@ versionado (`git log --all` vacío, `.gitignore:13 *.zip`). No lo conté contra
 A1 —el alcance lo fijó el humano— y el implementer hizo lo correcto: lo
 comprobó sin filtrarlo, no borró fuera de alcance y lo elevó con el comando
 exacto. El humano lo borró el 2026-08-25 y lo he verificado: **ni rastro de
-`graphkey*` ni de zips**. Refuerza el pendiente de rotación: ese
-`client_secret` estuvo en claro en disco desde el 2026-06-22.
+`graphkey*` ni de zips**.
 
 ## Checkpoints
 
@@ -98,8 +97,8 @@ exacto. El humano lo borró el 2026-08-25 y lo he verificado: **ni rastro de
 - **C3 bis** **N/A justificado**: no toca `docs/referencia/`. Aun así ejecuté
   el barrido de datos sensibles que exige, con los patrones listados arriba.
 - **C4** **N/A por nivel `documental`** (ver arriba). Las verificaciones MANUAL
-  sí están listadas: H1 (**hecha**, zip borrado), H2 y la rotación H3 quedan en
-  `impl_F-005.md` y `current.md` como decisión del humano.
+  sí están listadas: H1 (**hecha**, zip borrado) y H2 queda en
+  `impl_F-005.md` como decisión del humano.
 - **C4 bis** [x] con N/A justificados: `rigor` declarado y válido; **fase RED,
   cobertura y mutación N/A POR NIVEL** (`rigor.json` los pone a `false` en
   `documental`); sin campaña, RM1–RM6 y los controles de tiempo, workers y

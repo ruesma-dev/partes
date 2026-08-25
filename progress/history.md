@@ -446,6 +446,3 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Verificado: init.sh en verde (402 pasados, 1 saltado), cobertura y mutación
   N/A por nivel `documental` con el motivo impreso, cero secretos en el diff
   `dev...HEAD`.
-- Fuera de alcance por decisión del humano: la **rotación de la credencial de
-  Graph**, que sigue siendo pendiente suyo. El secreto lleva en claro en disco
-  desde el 2026-06-22 (fecha de creación del secreto en el Key Vault).
