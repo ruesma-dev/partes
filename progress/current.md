@@ -243,7 +243,7 @@ Trabajo hecho hoy, todo commiteado en `dev` (**`git push origin dev` PENDIENTE**
 2. **F-017 done, mergeada, desplegada y verificada en producción.**
 3. **F-005 revisada** contra Azure: su primer objetivo ya estaba cumplido.
    **Pendiente de decisión del humano**: cerrarla o reescribirla como retirada
-   de `graphkey_nobom.json` + rotación de la credencial.
+   de `graphkey_nobom.json`.
 4. **F-009 eliminada** por decisión del humano; su lista de automejoras sigue
    viva en este fichero, sin feature propia.
 5. **F-018 dada de alta**, con spec redactada **en un worktree sin integrar**.
@@ -711,12 +711,6 @@ lo demás que llevaba está en git en versiones más nuevas.
 queda ningún rastro de `graphkey*` (`find . -name "graphkey*"`, vacío), así
 que el objetivo real de A1 —que la credencial de Graph no esté en claro en el
 disco— sí está conseguido.
-
-### Fuera de alcance por decisión del humano (2026-08-25)
-
-La **rotación de la credencial de Graph** no entra en esta feature. Sigue
-siendo pendiente suyo, y el hallazgo del zip refuerza el argumento: el secreto
-ha estado en claro en disco desde el 2026-06-22.
 
 ### F-005 · CERRADA, APROBADA por el reviewer (2026-08-25)
 

@@ -144,13 +144,6 @@ fuera de alcance y además falsearía el registro. Si el humano considera que el
 nombre no debe estar en el repo, la decisión de fondo es qué hacer con
 `00_vars_partes.ps1`, y eso sí toca despliegue.
 
-### H3 — rotación de la credencial de Graph (fuera de alcance, apuntado)
-
-Excluida por decisión del humano del 2026-08-25 y **no implementada ni
-propuesta como tarea del arnés** en ningún documento. Solo queda dicho que es
-pendiente suyo. H1 refuerza el argumento: ese `client_secret` estuvo en claro
-en disco desde el `2026-06-22` hasta el `2026-08-25`.
-
 ## Fase RED
 
 **No aplica.** Nivel `documental` (`harness/rigor.json`) y, sobre todo, esta
