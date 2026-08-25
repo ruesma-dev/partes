@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **17 features**, 7 abiertas, 10 terminadas.
-
-En curso: **F-005**.
+Resumen: **17 features**, 6 abiertas, 11 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -14,7 +12,6 @@ Bloqueadas: **F-014**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
-| F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | en curso | documental | `feature/F-005-graphkey-keyvault` |
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
 | F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 10 | pendiente | estandar | `feature/F-006-tipo-hora-ext` |
 | F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 11 | pendiente | critico | `feature/F-007-prompt-sv2-evals` |
@@ -35,6 +32,7 @@ Bloqueadas: **F-014**.
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |
 | F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |
 | F-017 | Identidad real de Easy Auth en el portal (sv4) | 8 | estandar |
+| F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | documental |
 
 ## Detalle
 
@@ -43,12 +41,6 @@ Bloqueadas: **F-014**.
 estado **bloqueada** · prioridad 5 · rigor `documental` · SDD no · rama `feature/F-014-candef-9-sigrid`
 
 Pedida por el humano el 2026-08-18 a raíz del estudio F-012 (design.md H5): la jornada semanal se derivará del candef (8→40 h, 9→42 h), así que todo trabajador con jornada de 9 h L–J DEBE tener candef=9 en su hora por defecto (HLOF) de Sigrid. El estudio encontró 7 recursos que registran 9-9-9-9-6 (42 h) desde 2026-05 y 10-10-10-10-8 antes, todos OFIC. 1ª ALBAÑIL con DNI en emp y código HE, y todos con candef=8 hoy: MO/0006, MO/0007, MO/0008, MO/0031, MO/0366, MO/0405, MO/0456. MO/0037 (OFIC. 2ª) ya tiene candef=9 pero NO tiene DNI en emp: corregirlo a la vez. Es un cambio de DATOS MAESTROS en Sigrid que hace RRHH/Administración a mano (los agentes NO escriben en Sigrid fuera de sv5): la feature entrega la petición redactada con la lista y la comprobación posterior por sigrid-api en solo lectura (candef del recurso), sin código nuevo. Los DNIs no se versionan: los recursos se citan por código MO/NNNN. Debe cerrarse ANTES de implementar la regla de jornada semanal que propone F-012.
-
-### F-005 · Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault
-
-estado **en curso** · prioridad 9 · rigor `documental` · SDD no · rama `feature/F-005-graphkey-keyvault`
-
-Los dos objetivos originales estan cumplidos de hecho. Comprobado el 2026-08-20 y reconfirmado el 2026-08-25 contra Azure (solo lectura): los tres servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- llevan GRAPH_KEY como secretRef 'graph-key' y el secreto de la Container App es una referencia a Key Vault, no una copia; el secreto GRAPH-KEY existe y esta habilitado en el Key Vault de partes ($KV). Ningun script de infra/ lee graphkey_nobom.json: add_secrets_partes.ps1 pide el JSON por consola con Read-Host -AsSecureString y lo sube al Key Vault sin tocar disco. Lo que queda, y es esta feature: borrar la copia local de infra/graphkey_nobom.json (no versionada, nunca entro en git) y corregir las dos menciones que aun la presentan como parte del despliegue. Decision del humano del 2026-08-25: SOLO LIMPIEZA; la rotacion de la credencial de Graph no entra aqui y queda anotada como pendiente suyo.
 
 ### F-018 · Log de auditoria de acciones del portal (quien hizo que y cuando)
 
@@ -139,3 +131,9 @@ Propuesta por el estudio F-012 (D5, R24): vista de administración en sv4 para c
 estado **terminada** · prioridad 8 · rigor `estandar` · SDD sí · rama `feature/F-017-identidad-easy-auth`
 
 Detectado por el spec-author de F-016 el 2026-08-19 y verificado por el lider: sv4 NO lee hoy la identidad del usuario. No hay ni una referencia a X-MS-CLIENT-PRINCIPAL en el repositorio y las once escrituras de auditoria del portal (approved_by, deleted_by y las cuatro entradas de undo_log, todas en services/partes-front/interface_adapters/web/app.py: lineas 1500, 1594, 1629, 1684, 1687, 1841, 1867, 1881, 1900, 1910 y 2121) se firman con la variable DEFAULT_REVIEWER, igual para todos. Decision del humano del 2026-08-19: se introduce la lectura de Easy Auth y se extiende a TODO el portal, no solo a las columnas de F-016. Alcance: decodificar la cabecera de Easy Auth (X-MS-CLIENT-PRINCIPAL-NAME o el token base64, decidiendo cual manda), un unico helper de identidad que consuman los once puntos, fallback para desarrollo local, y decidir que se hace con las filas historicas ya firmadas con el valor generico (propuesta del spec-author: NO se reescriben, se documenta el corte; inventar autores seria falsificar auditoria). Los ROLES siguen siendo F-008: esta feature responde a 'quien hizo esto', no a 'quien puede hacerlo'. Material de partida en specs/F-016-admin-empleado-jornada/design.md seccion 14. AVISO del reviewer de F-016 (2026-08-19): el test test_f016_r13_auditoria (services/partes-front/tests/test_f016_endpoints_admin_jornadas.py:519) parchea DEFAULT_REVIEWER en vez del helper _actor, asi que se pondra ROJO el dia que _actor devuelva el principal real de Easy Auth. F-017 debe incluirlo en su lista de ficheros a tocar y pasarlo a inyectar o parchear el helper. Deberia ir ANTES de F-016 para que las filas de empleado_jornada nazcan firmadas con el usuario real, pero las dos ordenes funcionan sin retrabajo porque F-016 pide la identidad a un solo helper. HALLAZGO del 2026-08-20 (verificacion del despliegue): DEFAULT_REVIEWER NO esta configurada en el Container App ca-sv4-front (comprobado en Azure; .env.example la declara vacia), asi que _actor devuelve None y los once puntos de auditoria llevan sellando NULL desde el primer despliegue. El enunciado de esta feature decia que las filas van firmadas con un valor generico: NO es asi, van SIN autor. Cambia la decision sobre las filas historicas (no hay nada que reescribir, solo un corte que documentar) y sube el valor de la feature: hoy la auditoria del portal esta en blanco. DECISION del humano del 2026-08-20: no se pone un DEFAULT_REVIEWER provisional mientras tanto; la auditoria sigue con NULL hasta que esta feature lea la identidad real de Easy Auth.
+
+### F-005 · Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault
+
+estado **terminada** · prioridad 9 · rigor `documental` · SDD no · rama `feature/F-005-graphkey-keyvault`
+
+Los dos objetivos originales estan cumplidos de hecho. Comprobado el 2026-08-20 y reconfirmado el 2026-08-25 contra Azure (solo lectura): los tres servicios que usan Graph -ca-sv1-poller, ca-sv3-persistencia y ca-sv4-front- llevan GRAPH_KEY como secretRef 'graph-key' y el secreto de la Container App es una referencia a Key Vault, no una copia; el secreto GRAPH-KEY existe y esta habilitado en el Key Vault de partes ($KV). Ningun script de infra/ lee graphkey_nobom.json: add_secrets_partes.ps1 pide el JSON por consola con Read-Host -AsSecureString y lo sube al Key Vault sin tocar disco. Lo que queda, y es esta feature: borrar la copia local de infra/graphkey_nobom.json (no versionada, nunca entro en git) y corregir las dos menciones que aun la presentan como parte del despliegue. Decision del humano del 2026-08-25: SOLO LIMPIEZA; la rotacion de la credencial de Graph no entra aqui y queda anotada como pendiente suyo.

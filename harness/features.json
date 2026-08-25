@@ -73,7 +73,7 @@
         "A4: queda constancia en progress/ de la comprobacion contra Azure (los tres servicios con secretRef y el secreto habilitado en el Key Vault), con su fecha.",
         "A5: bash harness/init.sh termina en verde y ningun secreto -tenant_id, client_id, client_secret, nombre del Key Vault aparte, valores- entra en el repositorio."
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": false,
       "rigor": "documental",
       "priority": 9,
