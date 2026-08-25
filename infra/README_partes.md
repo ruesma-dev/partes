@@ -48,10 +48,34 @@ usar `$RG`, `$MI_CLIENTID`, etc.
 > Si `fase1_infra_partes.ps1` falla por nombre global pillado (storage o KV),
 > cambia `$SUFFIX` en `00_vars_partes.ps1` y re-ejecuta (es idempotente).
 
-## Secretos (Key Vault `kv-partes-<suffix>`)
+## Secretos (Key Vault `$KV`, es decir `kv-partes-<suffix>`)
 `PG-PASSWORD` la deja `fase1`. El resto los pides con `add_secrets_partes.ps1`:
 `GRAPH-KEY` (JSON `{tenant_id,client_id,client_secret}`), `SIGRID-API-FUNCTION-KEY`,
-`GEMINI-API-KEY`, y opcionalmente `ANTHROPIC-API-KEY` / `OPENAI-API-KEY`.
+`GEMINI-API-KEY`, `SESAME-API-KEY`, y opcionalmente `ANTHROPIC-API-KEY` /
+`OPENAI-API-KEY`.
+
+### Ningún script lee secretos de ficheros en disco
+
+Regla de esta carpeta, y conviene no romperla:
+
+- **El Key Vault es la única fuente de los secretos de la app.** No hay
+  fichero de secretos que haya que tener al lado para desplegar.
+- `add_secrets_partes.ps1` los pide **por consola** con
+  `Read-Host -AsSecureString` y los sube con `az keyvault secret set`. No los
+  escribe en disco ni los imprime; el script solo conoce el *nombre* del
+  secreto, nunca su valor.
+- Los servicios los reciben por **referencia**: `create_capps_partes.ps1`,
+  `create_sv1_poller.ps1` y `create_sv4_front.ps1` montan
+  `GRAPH_KEY=secretref:graph-key`, y el secreto de la Container App es un
+  `keyvaultref` al Key Vault resuelto con la **identidad gestionada**
+  `id-partes-dev`. En ningún punto del despliegue viaja el valor en claro.
+- **`GRAPH-KEY`** (correo de sv1 + SharePoint de sv3 + sv4) vive ahí y solo
+  ahí. Para consultarlo o rotarlo se va al Key Vault, no a un fichero.
+
+Hasta el 2026-08-25 existió un `infra/graphkey_nobom.json` (no versionado, con
+los valores en claro) que se usó para la carga manual inicial. **Ya no forma
+parte del despliegue y se ha borrado** (F-005): ningún script lo leía. Sigue
+en `.gitignore` por si alguien lo regenera; si te lo encuentras, sobra.
 
 ## sv5 — registro de partes en Sigrid (`partes-transfer`)
 Servicio de ESCRITURA en el ERP. Alta e integración:
