@@ -1,10 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-Sesión 2026-08-19/20. **F-015 y F-016 `done`**, las dos APROBADAS por el
-reviewer, mergeadas, publicadas y **DESPLEGADAS**. **F-014 `blocked`** como
-deuda aparcada, pero su puerta ya está abierta (ver abajo). Ninguna feature
-`in_progress`.
+Sesión 2026-08-25: **F-005 `in_progress`** en `feature/F-005-graphkey-keyvault`
+(limpieza documental, ver la sección final). De la sesión anterior
+(2026-08-19/20): **F-015 y F-016 `done`**, las dos APROBADAS por el reviewer,
+mergeadas, publicadas y **DESPLEGADAS**. **F-014 `blocked`** como deuda
+aparcada, pero su puerta ya está abierta (ver abajo).
 
 | Rama | Estado |
 |---|---|
@@ -256,9 +257,9 @@ Trabajo hecho hoy, todo commiteado en `dev` (**`git push origin dev` PENDIENTE**
    (commit `eee9d53`), refrescándola antes contra `dev`: heredó el criterio del
    corte SIN la excepción de `undo_log.actor`, y tiene material nuevo (el `oid`
    de `X-MS-CLIENT-PRINCIPAL-ID`). Luego `git worktree remove`.
-4. Decidir sobre **F-005**.
-5. Cuando toque: el **correo de F-014 a RRHH** y la **actualización del arnés
-   a 1.6.2** (aplazada; el análisis de impacto se paró sin informe).
+4. ~~Decidir sobre **F-005**~~ — hecha y cerrada el 2026-08-25.
+5. Cuando toque: el **correo de F-014 a RRHH**. La actualización del arnés ya
+   no está pendiente: va por la 1.7.3.
 
 ## Lo que el humano tiene que decidir o hacer
 
@@ -667,3 +668,89 @@ portero nunca llegó a ponerse rojo por esto.
 Toca `harness/init.sh` (portado a mano, conservando las tres adaptaciones de
 `partes`), `tests/test_tamano.py` y `harness/VERSION`. Verificado:
 `bash harness/init.sh` en verde con v1.7.3, 402 tests pasados y 1 saltado.
+
+## F-005 · GRAPH_KEY en Key Vault: constancia de la comprobación (2026-08-25)
+
+Rama `feature/F-005-graphkey-keyvault`. Feature de **limpieza documental**
+(`sdd: false`, rigor `documental`): **no se toca código de producción**. Queda
+aquí la constancia que pide su criterio A4.
+
+### Lo comprobado contra Azure (solo lectura, sesión de `pgris@ruesma.es`)
+
+| Fecha | Qué se comprobó | Resultado |
+|---|---|---|
+| 2026-08-20 | Los **tres** servicios que usan Graph (`ca-sv1-poller`, `ca-sv3-persistencia`, `ca-sv4-front`) | `GRAPH_KEY` llega como `secretref:graph-key`, y el secreto de la Container App es una **referencia** a Key Vault (`keyVaultUrl` informado), **no una copia**. Ningún valor en claro. |
+| 2026-08-25 | El secreto `GRAPH-KEY` en el Key Vault de `rg-partes-dev` (`$KV`) | **Existe y está habilitado**. Creación y última actualización: `2026-06-22T13:59:10+00:00`. |
+
+sv5 no usa Graph. Es decir: el objetivo original de la feature —sacar la
+credencial de las variables de entorno en claro— **ya estaba cumplido de
+hecho** antes de abrirla; lo que quedaba era la limpieza.
+
+### Lo comprobado en el árbol
+
+- **Ningún script de `infra/` lee `graphkey_nobom.json`.**
+  `add_secrets_partes.ps1` pide el JSON por consola con
+  `Read-Host -AsSecureString` y lo sube con `az keyvault secret set`, sin
+  tocar disco. `create_capps_partes.ps1:63,73`, `create_sv1_poller.ps1:44,49`
+  y `create_sv4_front.ps1:41,62` montan `GRAPH_KEY=secretref:graph-key` sobre
+  un `keyvaultref` resuelto con la identidad gestionada `id-partes-dev`.
+- **Nunca entró en git**: `git log --all -- infra/graphkey_nobom.json` no
+  devuelve nada, y sigue cubierto por `.gitignore:15`.
+- **Borrado del disco** el 2026-08-25 (criterio A1). El valor vive en el Key
+  Vault, ya verificado arriba.
+
+### HALLAZGO H1, RESUELTO: la segunda copia del secreto en disco
+
+`infra/partes-infra.zip` (33 KB, del 2026-07-26, **no versionado**, cubierto
+por la regla `*.zip` del `.gitignore`) contenía dentro `graphkey_nobom.json`
+con `tenant_id`, `client_id` y un `client_secret` no vacío. Comprobado sin
+imprimir los valores: 32 entradas, una foto de `infra/` del 2026-06-22, y todo
+lo demás que llevaba está en git en versiones más nuevas.
+
+**Borrado el 2026-08-25 por decisión del humano**, entero. En el árbol no
+queda ningún rastro de `graphkey*` (`find . -name "graphkey*"`, vacío), así
+que el objetivo real de A1 —que la credencial de Graph no esté en claro en el
+disco— sí está conseguido.
+
+### Fuera de alcance por decisión del humano (2026-08-25)
+
+La **rotación de la credencial de Graph** no entra en esta feature. Sigue
+siendo pendiente suyo, y el hallazgo del zip refuerza el argumento: el secreto
+ha estado en claro en disco desde el 2026-06-22.
+
+### F-005 · CERRADA, APROBADA por el reviewer (2026-08-25)
+
+Ronda 1: `CHANGES_REQUESTED` por **dos frases falsas** en documentación —el
+defecto que esta feature existía para eliminar—. `README.md` atribuía
+`PG-PASSWORD` a `add_secrets_partes.ps1` (la carga `fase1_infra_partes.ps1:151`)
+e `infra/README_partes.md` decía que el script «solo conoce el nombre del
+secreto, nunca su valor» (el valor viaja en `az keyvault secret set --value`).
+Corregidas en `ad770be` y `861c0d1`, más `65430cd` en `azure-apps`. El
+implementer encontró además que **su propio informe repetía las dos frases** en
+las tablas de A2 y A3, y las arregló ahí también.
+
+**La puerta de tamaño del arnés 1.7.3 mordió por primera vez** en este
+repositorio: `progress/review_F-005.md` salió a 151 líneas contra un tope de
+140 y dejó el portero en KO. El implementer NO lo recortó —recortar el informe
+de quien te revisa para que tu entrega salga verde es justo lo que la puerta
+impide—; lo recortó el reviewer a 140/140 y lo commiteó (`0d7fd31`).
+
+Veredicto final **APROBADO** (`progress/review_F-005.md`). Verificaciones
+independientes del reviewer que conviene no perder: barrido de `git ls-tree`
+sobre **todos** los commits alcanzables (el nombre `graphkey_nobom.json` no
+aparece en ningún árbol de la historia), barrido de secretos sobre el diff
+completo `dev...HEAD` (cero hallazgos) y contraste línea a línea de cada
+afirmación de los documentos contra los scripts de `infra/`.
+
+`bash harness/init.sh` en verde: 402 pasados / 1 saltado, cobertura N/A por
+nivel `documental` con su motivo impreso, puerta de tamaño 206/220 y 140/140.
+
+Dos cosas que el reviewer deja apuntadas y **no** entran aquí:
+
+- **Deuda preexistente**: `add_secrets_partes.ps1` pasa el secreto por
+  `--value`, que lo deja visible en la línea de comandos del proceso. Se
+  arreglaría con `--file` o con `Az.KeyVault`.
+- **Automejora del arnés (genérica ⇒ `arnes-base`)**: que `CHECKPOINTS.md`
+  obligue, en nivel `documental`, a que cada afirmación de un documento sobre
+  cómo se ejecuta algo cite el fichero y la línea que la respalda. Aquí todo
+  pasó en verde y el defecto era una frase falsa.

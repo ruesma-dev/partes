@@ -14,8 +14,13 @@ quedan **archivados en solo lectura** (cada uno lleva un `ARCHIVADO.md`).
 | `services/partes-transfer` | repo `partes-transfer` | sv5 · escritura en Sigrid |
 | `infra/` | carpeta `partes-infra` (no estaba en git) | scripts de despliegue Azure + manifests |
 
-En `infra/` los secretos están redactados: los valores reales van en
-`infra/*.local.ps1` y `infra/graphkey_nobom.json`, sin versionar.
+En `infra/` los secretos están redactados. Los identificadores de suscripción
+y tenant reales van en `infra/*.local.ps1`, sin versionar. Los **secretos de
+la aplicación** no viven en ningún fichero: están en el Key Vault (`$KV`).
+`GRAPH-KEY`, `SIGRID-API-FUNCTION-KEY`, `GEMINI-API-KEY` y `SESAME-API-KEY`
+los carga `infra/add_secrets_partes.ps1`, que los pide por consola;
+`PG-PASSWORD` la deja `infra/fase1_infra_partes.ps1` al provisionar. Las
+Container Apps los referencian con `secretref` + identidad gestionada.
 
 El documento maestro de integración (qué expone, qué consume, cómo se
 despliega) está en `azure-apps/partes.md`.

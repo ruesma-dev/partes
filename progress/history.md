@@ -415,3 +415,37 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   `oid` inmutable, dato que F-017 daba por no disponible sin decodificar el
   token y que se anota como material de F-018.
 
+---
+
+## F-005 · Retirar `graphkey_nobom.json` y constancia de `GRAPH_KEY` en Key Vault — done 2026-08-25
+
+- Rama `feature/F-005-graphkey-keyvault` · rigor documental · sdd=false ·
+  APROBADO del reviewer (`progress/review_F-005.md`), tras una ronda de
+  `CHANGES_REQUESTED`.
+- Contexto: la feature nació como «mover GRAPH_KEY a Key Vault + retirar el
+  fichero del despliegue». Al estudiarla, **los dos objetivos estaban
+  cumplidos de hecho**: los tres servicios que usan Graph (sv1, sv3, sv4)
+  llevan `GRAPH_KEY=secretref:graph-key` contra una referencia a Key Vault, y
+  ningún script de `infra/` lee `graphkey_nobom.json` —`add_secrets_partes.ps1`
+  pide el JSON por consola con `Read-Host -AsSecureString`—. Se reabrió como
+  limpieza por decisión del humano: `sdd=false` y cinco criterios `acceptance`.
+- Entregado: borrado de `infra/graphkey_nobom.json` (no versionado, **nunca
+  entró en git**, comprobado con un barrido de `git ls-tree` sobre toda la
+  historia); `CLAUDE.md`, `README.md` e `infra/README_partes.md` dejan de
+  presentarlo como fichero del despliegue y explican dónde viven de verdad los
+  secretos; constancia fechada de la comprobación contra Azure en
+  `progress/current.md`; `azure-apps/partes.md` §5.5 actualizado en el mismo
+  trabajo (`ff22735` y `65430cd`).
+- Hallazgo H1 del implementer, resuelto: `infra/partes-infra.zip` guardaba una
+  **segunda copia del `client_secret`** en claro. Borrado por decisión del
+  humano el 2026-08-25; en el árbol no queda rastro de `graphkey*`.
+- La ronda de rechazo fue por dos afirmaciones falsas en documentación, el
+  mismo defecto que la feature venía a eliminar. Y **la puerta de tamaño del
+  arnés 1.7.3 mordió por primera vez**: el informe del reviewer salió a
+  151/140 y lo recortó él, no el implementer.
+- Verificado: init.sh en verde (402 pasados, 1 saltado), cobertura y mutación
+  N/A por nivel `documental` con el motivo impreso, cero secretos en el diff
+  `dev...HEAD`.
+- Fuera de alcance por decisión del humano: la **rotación de la credencial de
+  Graph**, que sigue siendo pendiente suyo. El secreto lleva en claro en disco
+  desde el 2026-06-22 (fecha de creación del secreto en el Key Vault).
