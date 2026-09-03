@@ -1,6 +1,51 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## Sesión 2026-09-02 · sv5 pasa a MODO NORMAL de escritura en Sigrid
+
+Cambio operativo en Azure, pedido por el humano. No toca código ni features.
+
+```powershell
+az containerapp update -n ca-sv5-transfer -g rg-partes-dev `
+    --set-env-vars OBRA_PRUEBAS_FORZAR=false
+```
+
+Verificado tras el cambio (lecturas reales, no supuestos):
+
+| Comprobación | Resultado |
+|---|---|
+| `OBRA_PRUEBAS_FORZAR` | `false` |
+| `SIGRID_API_DATABASE` | `ruesma` (la base de escritura, no la réplica) |
+| Revisión activa | `ca-sv5-transfer--0000002`, 100 % tráfico, 1 réplica, `RunningAtMaxScale` |
+| Otras revisiones | ninguna activa |
+
+`OBRA_PRUEBAS_COD=0404` y `MARCA_PRUEBAS=PRUEBA-IA` siguen definidas pero son
+inertes con el flag en `false`. **Desde ahora cada parte aprobado en el portal
+se registra en SU obra real de Sigrid.**
+
+Del arranque no se pudo leer la línea de Uvicorn: el buffer de
+`az containerapp logs show` venía lleno de trazas del SDK de colas y el
+arranque ya había pasado. La evidencia válida es la revisión corriendo con su
+réplica.
+
+Documentación actualizada en el mismo trabajo: `azure-apps/partes.md`
+(commit local `66682f8`, **sin push**).
+
+### Lo que queda pendiente de esto
+
+1. **Limpiar las líneas `PRUEBA-IA` de la obra 0404** que dejó la etapa de
+   pruebas. El flag ya no afecta a lo escrito, así que el orden da igual, pero
+   la basura sigue en Sigrid:
+   `cd services\partes-transfer && python .\prueba_escritura_sigrid.py limpiar --ejecutar`
+2. **Revisar si algún parte de la BD `partes` figura como registrado en Sigrid
+   cuando en realidad fue a la 0404** (aprobado mientras el modo pruebas estaba
+   activo). Ofrecido al humano, aún sin hacer.
+3. **Aviso: el `.env` local de sv5 también tiene `OBRA_PRUEBAS_FORZAR=false`.**
+   Cualquier prueba lanzada desde local escribe en la obra REAL, al contrario
+   de lo que manda `CLAUDE.md` para pruebas locales.
+
+## Sesión 2026-08-25 y anteriores
+
 Sesión 2026-08-25: **F-005 `in_progress`** en `feature/F-005-graphkey-keyvault`
 (limpieza documental, ver la sección final). De la sesión anterior
 (2026-08-19/20): **F-015 y F-016 `done`**, las dos APROBADAS por el reviewer,
