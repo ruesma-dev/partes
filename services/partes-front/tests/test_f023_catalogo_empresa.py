@@ -328,3 +328,84 @@ def test_f023_r39_endpoint_catalogo_por_codigo_solo_si_es_unico() -> None:
     assert catalogo.get_by_ide(999) is None
     assert catalogo.get_by_ide(None) is None
     assert [o.ide for o in catalogo.list()] == [100, 200, 300]
+
+
+# ============================= soltar · R42 ============================= #
+
+from infrastructure.database.orm_models import ParteRegistroOrm  # noqa: E402
+
+SUELTOS = ("empleado_reside", "recurso_ide", "recurso_cif", "hmo_ide",
+           "parte_estado")
+
+
+def _con_recurso(fabrica, ids) -> None:
+    """Deja cada linea como la deja sv3: con reside, recurso y parte."""
+    with fabrica.create_session() as s:
+        for rid in ids:
+            reg = s.get(ParteRegistroOrm, rid)
+            reg.empleado_reside, reg.hmo_ide, reg.parte_estado = 900, 7, "ok"
+        s.commit()
+
+
+def _suelto(fabrica, rid) -> tuple:
+    with fabrica.create_session() as s:
+        reg = s.get(ParteRegistroOrm, rid)
+        return tuple(getattr(reg, c) for c in SUELTOS)
+
+
+def _montar_soltar(**kw):
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar_parte(fabrica, [{"estado": None}, {"estado": "registrado"},
+                                  {"estado": "error"}], **kw)
+    _con_recurso(fabrica, ids)
+    return ParteReviewRepository(fabrica), fabrica, ids
+
+
+CON_RECURSO = (900, 501, "12345678Z", 7, "ok")
+SIN_RECURSO = (None, None, None, None, None)
+
+
+def _comprobar(fabrica, ids) -> None:
+    libre, congelada, con_error = ids
+    assert _suelto(fabrica, libre) == SIN_RECURSO
+    assert _suelto(fabrica, con_error) == SIN_RECURSO   # error no congela
+    assert _suelto(fabrica, congelada) == CON_RECURSO
+
+
+def test_f023_r42_soltar_al_casar_por_nombre_leido() -> None:
+    repo, fabrica, ids = _montar_soltar(empleado_ide=None)
+    assert repo.backfill_empleado(nombre_leido="Pepe Perez", ide=4242,
+                                  codigo=None, nombre=None, dni=None) == (2, 1)
+    _comprobar(fabrica, ids)
+
+
+def test_f023_r42_soltar_al_reasignar_por_nombre_leido() -> None:
+    repo, fabrica, ids = _montar_soltar()
+    assert repo.reassign_empleado_by_leido(
+        nombre_leido="Pepe Perez", ide=4242, codigo=None, nombre=None,
+        dni=None) == (2, 1)
+    _comprobar(fabrica, ids)
+
+
+def test_f023_r42_soltar_al_reasignar_el_trabajador() -> None:
+    repo, fabrica, ids = _montar_soltar()
+    assert repo.reassign_empleado_by_worker_key(
+        worker_key="emp-77", ide=4242, codigo=None, nombre=None,
+        dni=None) == (2, ["Pepe Perez"], 1)
+    _comprobar(fabrica, ids)
+
+
+def test_f023_r42_soltar_al_reasignar_por_lineas() -> None:
+    repo, fabrica, ids = _montar_soltar()
+    assert repo.reassign_empleado_by_registro_ids(
+        registro_ids=ids, ide=4242, codigo=None, nombre=None,
+        dni=None) == (2, 1)
+    _comprobar(fabrica, ids)
+
+
+def test_f023_r42_soltar_solo_las_lineas_elegidas() -> None:
+    repo, fabrica, ids = _montar_soltar()
+    repo.reassign_empleado_by_registro_ids(
+        registro_ids=[ids[0]], ide=4242, codigo=None, nombre=None, dni=None)
+    assert _suelto(fabrica, ids[0]) == SIN_RECURSO
+    assert _suelto(fabrica, ids[2]) == CON_RECURSO
