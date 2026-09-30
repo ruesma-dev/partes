@@ -1,6 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-020 · done (2026-09-30), pendiente de DESPLIEGUE y verificación manual
+
+Cerrada con APPROVED del reviewer; resumen en `progress/history.md`.
+Pendiente del humano (design §10):
+
+1. Merge a `dev` y `redeploy_partes.ps1 -Solo sv1` (lo lanza el humano).
+2. Mover **uno** de los cuatro correos del escáner («Attached Image», 17/09 y
+   tres del 30/09) de `Errores` a la carpeta origen y marcarlo **no leído**.
+3. Logs de `ca-sv1-poller`: `correo adjunto con 1 PDF interior(es)`,
+   `Documento logico INGERIDO` (una por página) y `movido a Procesados`; el
+   parte (o sus páginas) en el portal.
+4. Reprocesar los otros tres igual (la dedup de sv3 por `document.sha256`
+   hace inocuo repetir uno ya ingerido).
+
 ## Sesión 2026-09-02 · sv5 pasa a MODO NORMAL de escritura en Sigrid
 
 Cambio operativo en Azure, pedido por el humano. No toca código ni features.

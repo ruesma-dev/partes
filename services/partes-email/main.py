@@ -7,6 +7,7 @@ from pathlib import Path
 from application.pipelines.polling_pipeline import PollingPipeline
 from config.logging_config import configure_logging
 from config.settings import Settings
+from infrastructure.document.mime_pdf_extractor import MimePdfExtractor
 from infrastructure.document.pdf_page_splitter import PdfPageSplitter
 from infrastructure.graph.mail_client import GraphMailClient
 from infrastructure.graph.token_provider import GraphTokenProvider
@@ -74,6 +75,8 @@ def main() -> int:
         mailbox=mailbox,
         sink=sink,
         pdf_splitter=PdfPageSplitter(),
+        # F-020: abre los correos adjuntos (message/rfc822) hasta el PDF.
+        extractor_correo=MimePdfExtractor(),
     ).run_forever(settings)
 
     return 0

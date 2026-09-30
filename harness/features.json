@@ -218,6 +218,61 @@
       "rigor": "estandar",
       "priority": 9,
       "branch": "feature/F-018-log-auditoria-portal"
+    },
+    {
+      "id": "F-019",
+      "title": "Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid",
+      "description": "Pedida por el humano el 2026-09-29. Los trabajadores cuyo recurso tiene un codigo de hora mes (M* en su reshor de Sigrid: encargados, jefes de obra, tecnicos...) hoy NO dejan nada de sus horas en ningun sitio: sv5 las omite (reglas_registro.py R2 si no tienen HE%, R3 si no tienen HL%). Solo sus INCIDENCIAS se escriben en Sigrid (R1). LO QUE SE PIDE: al APROBAR en el portal, las lineas de estos trabajadores viajan al sistema de dedicacion (repo porcentajes) EN LUGAR DE a Sigrid. DECISIONES DEL HUMANO (2026-09-29): (1) Criterio de 'mensual' = tener un codigo M* en reshor, el mismo que usa dedicacion (no el 'sin HE%' que usa partes hoy). (2) Se envian TODAS las horas aprobadas que haya en partes para ese trabajador. (3) El porcentaje por obra se calcula en funcion de los DIAS LABORABLES del mes; las horas indicadas en festivos se desprecian. Ese calculo es de dedicacion (porcentajes tiene o tendra la funcion): partes envia el dato del dia (trabajador, fecha, obra/partida, horas, tipo) y NO calcula porcentajes, por el limite de servicio. (4) Las VACACIONES cuentan como dias trabajados para ese calculo. (5) Las INCIDENCIAS se llevan a dedicacion COMO INCIDENCIA, con su porcentaje; dejan de escribirse en Sigrid para estos trabajadores (cambia R1). (6) Se presentan en dedicacion como PROPUESTA de reparto, que alguien revisa en el cuadrante; no lo sobrescriben solas. (7) En el portal de partes esas lineas dejan de salir como 'omitidas' y pasan a 'enviadas a dedicacion'. A DECIDIR EN LA SPEC: (a) CANAL. Recomendacion del lider: una bandeja de salida en la base partes (tabla propia escrita por sv5 al aprobar) que dedicacion-api lee con un rol de SOLO LECTURA; cada proyecto escribe solo en su base y no se abre ninguna ruta de red. Descartado HTTP hacia dedicacion-api: no tiene autenticacion propia, su ingress interno es su unico control de acceso (azure-apps/dedicacion.md 5) y vive en otro Container Apps Environment. Alternativa a valorar y descartar con argumentos: bandeja de entrada en la base dedicacion escrita por partes. Nada a nivel de servidor en psql-albaranes-rs9k2: el rol se crea dentro de la base partes. (b) Mensuales que ademas tienen HE% (capataz MCAP + HECAP): si sus extras siguen yendo a Sigrid o tambien viajan a dedicacion; hoy van a Sigrid. (c) DESAPROBAR (F-004): como se retira de dedicacion lo ya enviado, e idempotencia al reaprobar. (d) Que pasa si el periodo ya esta CERRADO en dedicacion cuando llega la aprobacion. (e) Donde vive la decision de enrutar: previsiblemente en sv5 (reglas_registro, nueva accion ademas de escribir/omitir), que ya carga los codigos del recurso. FUERA DE ESTE REPOSITORIO: la lectura y el calculo del porcentaje en dedicacion son una feature del repo porcentajes, a crear alli con decision del humano; esta feature publica el dato y actualiza azure-apps/partes.md en el mismo trabajo (pasamos a exponer algo). RIGOR critico: cambia que se escribe en Sigrid en produccion (sv5 deja de registrar las incidencias de los mensuales).",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 9,
+      "branch": "feature/F-019-mensuales-a-dedicacion"
+    },
+    {
+      "id": "F-020",
+      "title": "Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF",
+      "description": "Pedida por el humano el 2026-09-30. El escaner (visto desde el remitente del escaner, asunto 'Attached Image') envia los partes como un correo adjunto (message/rfc822, itemAttachment de Graph) que contiene el PDF. Hoy sv1 descarta los itemAttachment (_NON_FILE_ODATA_TYPES en polling_pipeline.py) y el correo acaba en Errores por 'sin adjuntos elegibles'. LO QUE SE PIDE: sv1 abre los correos adjuntos de CUALQUIER remitente (decision del humano: NO se filtra por remitente) y los recorre de forma recursiva, correo dentro de correo, hasta encontrar el/los PDF, que siguen el camino normal (troceo por paginas -> Blob -> q-extraccion). DECISIONES CONFIRMADAS (2026-09-30): (1) Solo se extraen PDF del interior; imagenes no. (2) Tope de seguridad de 5 niveles de anidamiento; si se excede o no aparece ningun PDF, el correo va a Errores con log explicativo. (3) Un correo con PDF directos y correos adjuntos procesa todo en la misma pasada. (4) Citas de calendario, contactos y referenceAttachment se siguen descartando. (5) El contexto del documento lleva el nombre del PDF interior y una clave nueva 'embedded_in' con la cadena de correos atravesados; verificar que sv2/sv3 no se rompen. (6) Se crean los primeros tests de sv1 (services/partes-email/tests/) con .eml sinteticos, sin red, y se registran en harness/servicios.json. PRIMER PASO OBLIGATORIO: sonda de SOLO LECTURA que confirme que GET /attachments/{id}/$value sobre un itemAttachment devuelve el MIME del correo adjunto con el PDF dentro; si no, parar y reproponer. SOLO TOCA sv1. Desplegar lo lanza el humano. Reprocesar los correos ya caidos en Errores es manual y queda fuera.",
+      "acceptance": [],
+      "status": "done",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 10,
+      "branch": "feature/F-020-correo-adjunto-escaner"
+    },
+    {
+      "id": "F-021",
+      "title": "Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid",
+      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-021-cuenta-analitica-sigrid"
+    },
+    {
+      "id": "F-022",
+      "title": "Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona",
+      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 2,
+      "branch": "feature/F-022-aprobar-seleccionadas"
+    },
+    {
+      "id": "F-023",
+      "title": "Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta",
+      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. Al coger el recurso del trabajador de un parte (casado contra el maestro emp/con de Sigrid por DNI -> emp.reside), (1) seleccionar SOLO los que estan dados de alta y (2) seleccionar POR EMPRESA, porque un mismo trabajador/recurso puede existir en 2 empresas. ESTADO ACTUAL: sv3 (infrastructure/sigrid/sigrid_api_client.py, _SQL_EMPLEADOS_BASE + fetch_empleados) filtra por una empresa FIJA (SIGRID_EMPRESA, con.emp = ?) y NO filtra altas/bajas; sv4 tiene su propio fetch_empleados en infrastructure/sigrid/sigrid_lookup_client.py (catalogo para corregir a mano en el portal) y sv5 usa SIGRID_EMPRESA al escribir. A DECIDIR EN LA SPEC: (a) que significa 'dado de alta' en Sigrid para un empleado/recurso (campo fecbaj u otro de emp/con/res; ver azure-apps/sigrid_tablas.md) y si se evalua a hoy o a la FECHA DEL PARTE; (b) DE DONDE SALE LA EMPRESA de cada parte: previsiblemente la empresa de la obra del parte (con.emp de la obra), en lugar del SIGRID_EMPRESA fijo; confirmar con el humano; (c) que pasa si el DNI casa en las 2 empresas y la obra no desempata, o si solo casa con un trabajador de baja (sin casar + revision, no elegir uno al azar); (d) coherencia con sv5, que escribe con SIGRID_EMPRESA fijo: si la empresa pasa a ser la de la obra, la escritura (hmo/hmores) debe usar la misma. Servicios: sv3 (casado), sv4 (catalogo del portal) y probablemente sv5. Los clientes infrastructure/sigrid/ estan en la lista cerrada de duplicacion tolerada: quien toque una copia cambia todas en la misma feature. RIGOR critico: decide a que recurso se imputan horas que se escriben en Sigrid en produccion.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-023-recurso-alta-empresa"
     }
   ]
 }

@@ -446,3 +446,26 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Verificado: init.sh en verde (402 pasados, 1 saltado), cobertura y mutación
   N/A por nivel `documental` con el motivo impreso, cero secretos en el diff
   `dev...HEAD`.
+
+## F-020 · Ingesta de sv1: correos adjuntos encadenados hasta el PDF — done 2026-09-30
+
+- Rama `feature/F-020-correo-adjunto-escaner` · rigor estandar · sdd=true ·
+  APPROVED del reviewer (`progress/review_F-020.md`).
+- Motivo: el escáner envía el parte como correo adjunto (`message/rfc822`)
+  con el PDF dentro; sv1 descartaba los `itemAttachment` y el correo caía en
+  `Errores`. Sonda de solo lectura previa (`progress/explore_F-020_sonda.md`):
+  `$value` devuelve el MIME RFC 822 con el PDF.
+- Entregado (solo sv1): `MimePdfExtractor` (stdlib `email`, recursivo, tope 5
+  niveles) tras el puerto `ExtractorCorreoAdjunto`; el pipeline abre correos
+  adjuntos de cualquier remitente (item o fileAttachment), ingiere cada PDF
+  interior por el camino de siempre y añade `embedded_in` al contexto.
+  Decisiones del humano: D2 correo adjunto sin PDF junto a otros ingeridos ⇒
+  Procesados con WARNING; D3 tope excedido ⇒ nada de ese correo adjunto;
+  D4 `.eml` como fichero también se abre. sv2/sv3 sin cambios (verificado).
+- Verificado: primera suite de sv1 (74 tests, sin red), init.sh en verde,
+  cobertura 99.0 %, mutación 20 muestreados con 1 superviviente equivalente.
+- Observaciones no bloqueantes: `azure-apps/partes.md` §3.1 no menciona los
+  correos adjuntos (decisión del humano); log de R23 algo impreciso cuando el
+  único adjunto es un correo adjunto descartado por tamaño.
+- Pendiente del humano: desplegar sv1 y verificación manual (ver
+  `current.md`).

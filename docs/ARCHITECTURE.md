@@ -72,6 +72,16 @@ permite **reencolarlos a mano** (≤32 por clic, allowlist cerrada de dos
 colas); el traslado hace *send* antes que *delete*, de modo que un fallo a
 mitad duplica el mensaje pero nunca lo pierde.
 
+### Ingesta de sv1: correos adjuntos (F-020)
+
+El escáner envía cada parte como **correo adjunto** (`message/rfc822`) con
+el PDF dentro. sv1 descarga su `$value` (MIME RFC 822, sin llamadas Graph
+nuevas) y `MimePdfExtractor` (tras el puerto `ExtractorCorreoAdjunto`) lo
+recorre hasta **5 niveles** de correos anidados; más ⇒ no se ingiere nada
+de ese adjunto. Cada PDF interior sigue el camino de un PDF directo y su
+contexto añade `embedded_in` (la cadena de correos). El correo va a
+`Procesados` si no falló nada y entró ≥ 1 documento; si no, a `Errores`.
+
 ## Semántica de dominio imprescindible
 
 1. **Empleado ≠ recurso.** `emp` es la persona (con DNI); `res` es el
