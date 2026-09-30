@@ -315,3 +315,15 @@ def test_f023_fetch_registros_trae_recurso_y_empresa_del_parte() -> None:
     (fila,) = SqlAlchemyParteRepository(
         fabrica).fetch_registros_para_recurso()  # type: ignore[arg-type]
     assert (fila["recurso_ide"], fila["parte_empresa"]) == (901, 28)
+
+
+def test_f023_r29_el_aviso_lista_como_mucho_diez_partes(caplog) -> None:
+    """Con muchos partes a revision el WARNING no se desborda: nombra los
+    diez primeros (por orden) y los marca TODOS."""
+    lineas = [_linea(i, doc=f"doc-{i:02d}") for i in range(1, 12)]
+    with caplog.at_level(logging.WARNING):
+        repo, resumen = _conciliar(lineas, _indice(recursos=(BAJA_2021,)))
+    assert resumen["partes_sin_recurso"] == 11
+    assert len(repo.review_required[0]) == 11
+    aviso = next(m for m in caplog.messages if "se marcan para revision" in m)
+    assert "doc-10" in aviso and "doc-11" not in aviso

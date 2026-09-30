@@ -409,3 +409,16 @@ def test_f023_r42_soltar_solo_las_lineas_elegidas() -> None:
         registro_ids=[ids[0]], ide=4242, codigo=None, nombre=None, dni=None)
     assert _suelto(fabrica, ids[0]) == SIN_RECURSO
     assert _suelto(fabrica, ids[2]) == CON_RECURSO
+
+
+# ===================== DA11 · la copia del ORM de sv4 ==================== #
+
+def test_f023_da11_sv4_el_ddl_de_arranque_anade_las_tres_columnas() -> None:
+    """sv4 aplica el mismo DDL al arrancar: las tres columnas nullables."""
+    from infrastructure.database.orm_models import ddl_complementario
+
+    sentencias = ddl_complementario()
+    for definicion in ("empresa_membrete VARCHAR(255)", "empresa INTEGER",
+                       "empresa_origen VARCHAR(24)"):
+        assert ("ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
+                f"{definicion}") in sentencias

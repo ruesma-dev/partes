@@ -62,14 +62,15 @@ class ObraMatcher:
             len(obras), len(self._by_codigo), self._min_score,
         )
 
-    def _candidatas(self, cod_n: str) -> tuple[list[ObraRow], bool]:
+    def _candidatas(self, cod_n: str) -> tuple[list[ObraRow], bool] | None:
         """Obras del codigo exacto o, si no hay, de la primera variante con
-        ceros que tenga alguna. El booleano dice si hizo falta variante."""
+        ceros que tenga alguna; el booleano dice si hizo falta variante.
+        None si ninguna variante del codigo existe."""
         for i, cand in enumerate(_code_candidates(cod_n)):
             obras = self._by_codigo.get(cand)
             if obras:
                 return obras, i > 0
-        return [], False
+        return None
 
     def match(
         self,
@@ -80,20 +81,20 @@ class ObraMatcher:
         discriminantes: Iterable[frozenset[int]] = (),
     ) -> ObraMatch:
         cod_n = tm.normalize_code(codigo)
-        if cod_n:
-            candidatas, padded = self._candidatas(cod_n)
-            if candidatas:
-                obra, metodo = elegir_obra(
-                    candidatas, empresa_membrete, list(discriminantes),
-                    nombre, self._min_score,
-                )
-                if obra is None:
-                    return ObraMatch(method=metodo)
-                if not padded:
-                    return self._to_match(obra, 1.0, metodo)
-                if metodo == "codigo":
-                    metodo = "codigo_padded"
-                return self._to_match(obra, 0.98, metodo)
+        hallado = self._candidatas(cod_n) if cod_n else None
+        if hallado is not None:
+            candidatas, padded = hallado
+            obra, metodo = elegir_obra(
+                candidatas, empresa_membrete, list(discriminantes),
+                nombre, self._min_score,
+            )
+            if obra is None:
+                return ObraMatch(method=metodo)
+            if not padded:
+                return self._to_match(obra, 1.0, metodo)
+            if metodo == "codigo":
+                metodo = "codigo_padded"
+            return self._to_match(obra, 0.98, metodo)
 
         # R14: sin codigo que case, por nombre; limitado a la empresa del
         # membrete si se conoce.
