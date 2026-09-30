@@ -11,22 +11,35 @@ reales (25/07/2026):
            (dia real), horide, can (=horas, puede ser negativa), pre, tot,
            ano, mes, fac=0, ortide=0 (NOT NULL sin default), caaide=0,
            tex, synckey (nuestra clave de idempotencia).
+
+F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
+no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
+y el ``INSERT INTO hmo`` localiza su cabecera por codigo, tipo y empresa.
+Todas las lecturas son agregados o lotes acotados (sin paginar) y una
+respuesta con ``truncated: true`` es una excepcion.
 """
 from __future__ import annotations
 
 import calendar
 import logging
+import re
 from typing import Any, Iterable
 
 import httpx
 
 from domain.models.registro_models import (
-    HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino,
+    HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino, RecursoSigrid,
 )
 
 logger = logging.getLogger(__name__)
 
 PREFIJO_SYNCKEY = "partes:"
+
+#: Recursos por lectura en `datos_recursos` (lote acotado, F-023).
+LOTE_RECURSOS = 500
+
+# DNI normalizado en SQL Server: mayusculas y sin guiones ni espacios.
+_DNI_SQL = "REPLACE(REPLACE(UPPER(ISNULL({campo},'')),'-',''),' ','')"
 
 
 def synckey_de(registro_id: int) -> str:
@@ -40,7 +53,6 @@ class SigridWriteClient:
         base_url: str,
         function_key: str,
         database: str,
-        empresa: int = 1,
         timeout_s: float = 60.0,
         max_statements: int = 15,
         tip_parte: int = 35,
@@ -50,7 +62,6 @@ class SigridWriteClient:
         self._headers = {"x-functions-key": function_key,
                          "Content-Type": "application/json"}
         self._db = database
-        self._empresa = int(empresa)
         self._timeout = float(timeout_s)
         self._max_st = int(max_statements)
         self._tip = int(tip_parte)
@@ -71,6 +82,9 @@ class SigridWriteClient:
         body = r.json()
         if not body.get("ok"):
             raise RuntimeError(f"sigrid-api read ok=false: {str(body)[:400]}")
+        if body.get("truncated"):
+            # F-023 (R4): nunca se decide con filas parciales.
+            raise RuntimeError("sigrid-api devolvio una respuesta truncada")
         cols = [c.lower() for c in body["columns"]]
         return [dict(zip(cols, row)) for row in body["rows"]]
 
@@ -98,69 +112,101 @@ class SigridWriteClient:
 
     # ----------------------------- lecturas ----------------------------- #
 
-    def obra_por_codigo(self, cod: str) -> ObraEntrada | None:
-        filas = self._read(
-            "SELECT obr.ide AS ide, con.cod AS cod, con.res AS res, "
-            "obr.cenide AS cenide FROM obr JOIN con ON con.ide = obr.ide "
-            "WHERE con.cod = ?", [cod])
-        if not filas:
-            return None
-        f = filas[0]
-        o = ObraEntrada(ide=int(f["ide"]), codigo=f["cod"], nombre=f["res"])
+    _SQL_OBRA = (
+        "SELECT obr.ide AS ide, con.cod AS cod, con.res AS res, "
+        "obr.cenide AS cenide, con.emp AS emp "
+        "FROM obr JOIN con ON con.ide = obr.ide "
+    )
+
+    @staticmethod
+    def _a_obra(f: dict) -> ObraEntrada:
+        o = ObraEntrada(ide=int(f["ide"]), codigo=f["cod"], nombre=f["res"],
+                        empresa=int(f["emp"] or 0) or None)
         setattr(o, "cenide", int(f["cenide"] or 0))
         return o
+
+    def obra_por_codigo(self, cod: str) -> ObraEntrada | None:
+        """La obra de ese codigo. F-023 (R35): hay codigos en dos empresas;
+        si hay varias obras, falla en vez de elegir una."""
+        filas = self._read(self._SQL_OBRA + "WHERE con.cod = ?", [cod])
+        if not filas:
+            return None
+        if len(filas) > 1:
+            raise RuntimeError(
+                f"la obra {cod} existe en varias empresas de Sigrid "
+                f"({len(filas)} obras): no se elige ninguna")
+        return self._a_obra(filas[0])
 
     def obra_por_ide(self, ide: int) -> ObraEntrada | None:
-        filas = self._read(
-            "SELECT obr.ide AS ide, con.cod AS cod, con.res AS res, "
-            "obr.cenide AS cenide FROM obr JOIN con ON con.ide = obr.ide "
-            "WHERE obr.ide = ?", [int(ide)])
+        filas = self._read(self._SQL_OBRA + "WHERE obr.ide = ?", [int(ide)])
         if not filas:
             return None
-        f = filas[0]
-        o = ObraEntrada(ide=int(f["ide"]), codigo=f["cod"], nombre=f["res"])
-        setattr(o, "cenide", int(f["cenide"] or 0))
-        return o
+        return self._a_obra(filas[0])
 
-    def resides_por_dni(self, dnis: Iterable[str]) -> dict[str, int]:
-        """DNI normalizado -> res.ide del recurso del empleado.
+    def recursos_por_dni(
+        self, dnis: Iterable[str | None]
+    ) -> dict[str, list[RecursoSigrid]]:
+        """DNI normalizado -> TODOS sus recursos, con empresa y baja.
 
         Red de seguridad para lineas creadas sin recurso casado (p. ej.
         creacion manual antigua): mismo doble camino que la exclusion de
-        extras (emp.dni via res.conide, y res.cif). Si un DNI tiene varios
-        recursos se toma el de ide mas alto (el mas reciente)."""
-        import re as _re
-        norm = {_re.sub(r"[^0-9A-Za-z]", "", d or "").upper()
-                for d in dnis if d}
+        extras (emp.dni via res.conide, y res.cif). F-023 (R37): ya no se
+        elige aqui el de ide mas alto; elige `elegir_por_dni` con la
+        empresa de la obra y la fecha de cada linea."""
+        norm = {re.sub(r"[^0-9A-Za-z]", "", d or "").upper() for d in dnis}
         norm.discard("")
         if not norm:
             return {}
         ks = sorted(norm)
         marcas = ",".join("?" for _ in ks)
+        dni_emp = _DNI_SQL.format(campo="emp.dni")
+        dni_res = _DNI_SQL.format(campo="res.cif")
         sql = (
-            "SELECT dnin AS dni, MAX(reside) AS reside FROM ("
-            "  SELECT REPLACE(REPLACE(UPPER(ISNULL(emp.dni,'')),'-',''),' ','')"
-            "         AS dnin, res.ide AS reside"
+            "SELECT q.dnin AS dni, q.reside AS reside, rc.emp AS emp, "
+            "rc.fecbaj AS fecbaj FROM ("
+            f"  SELECT {dni_emp} AS dnin, res.ide AS reside"
             "  FROM res JOIN emp ON emp.ide = res.conide"
-            f"  WHERE REPLACE(REPLACE(UPPER(ISNULL(emp.dni,'')),'-',''),' ','')"
-            f"        IN ({marcas})"
+            f"  WHERE {dni_emp} IN ({marcas})"
             "  UNION ALL"
-            "  SELECT REPLACE(REPLACE(UPPER(ISNULL(res.cif,'')),'-',''),' ','')"
-            "         AS dnin, res.ide AS reside"
+            f"  SELECT {dni_res} AS dnin, res.ide AS reside"
             "  FROM res"
-            f"  WHERE REPLACE(REPLACE(UPPER(ISNULL(res.cif,'')),'-',''),' ','')"
-            f"        IN ({marcas})"
-            ") q GROUP BY dnin"
+            f"  WHERE {dni_res} IN ({marcas})"
+            ") q JOIN con rc ON rc.ide = q.reside"
         )
-        filas = self._read(sql, ks + ks)
-        out: dict[str, int] = {}
-        for f in filas:
+        out: dict[str, list[RecursoSigrid]] = {}
+        for f in self._read(sql, ks + ks):
             d = (f.get("dni") or "").strip()
-            r = f.get("reside")
-            if d and r:
-                out[d] = int(r)
-        logger.info("[sigrid-write] resides_por_dni: %s/%s resueltos",
+            if d:
+                out.setdefault(d, []).append(RecursoSigrid(
+                    reside=int(f["reside"]), empresa=f.get("emp"),
+                    fecbaj=f.get("fecbaj"), dni=d))
+        logger.info("[sigrid-write] recursos_por_dni: %s/%s DNI con recurso",
                     len(out), len(ks))
+        return out
+
+    def datos_recursos(
+        self, resides: Iterable[int | None]
+    ) -> dict[int, RecursoSigrid]:
+        """Empresa, baja y DNI de cada recurso, para verificarlo (R36).
+
+        El DNI es `emp.dni` del empleado enlazado si no esta vacio y, si
+        no, `res.cif`. En lotes de `LOTE_RECURSOS` (sin paginar)."""
+        ides = sorted({int(i) for i in resides if i})
+        out: dict[int, RecursoSigrid] = {}
+        for i in range(0, len(ides), LOTE_RECURSOS):
+            trozo = ides[i:i + LOTE_RECURSOS]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT res.ide AS reside, rc.emp AS emp, rc.fecbaj AS fecbaj, "
+                "CASE WHEN LTRIM(RTRIM(ISNULL(emp.dni,''))) <> '' "
+                "THEN emp.dni ELSE res.cif END AS dni "
+                "FROM res JOIN con rc ON rc.ide = res.ide "
+                "LEFT JOIN emp ON emp.ide = res.conide "
+                f"WHERE res.ide IN ({marcas})", trozo)
+            for f in filas:
+                out[int(f["reside"])] = RecursoSigrid(
+                    reside=int(f["reside"]), empresa=f.get("emp"),
+                    fecbaj=f.get("fecbaj"), dni=f.get("dni"))
         return out
 
     def horas_de_recursos(
@@ -204,10 +250,13 @@ class SigridWriteClient:
                 out[(ano, mes)] = ParteDestino(ano=ano, mes=mes, existe=False)
         return out
 
-    def siguiente_cod_pt(self, ano: int) -> str:
+    def siguiente_cod_pt(self, ano: int, empresa: int) -> str:
+        """Siguiente `PT<AA>/NNNNN` de ESA empresa (F-023, R33): el
+        correlativo es por empresa y los numeros se repiten entre ellas."""
         yy = str(int(ano))[-2:]
-        filas = self._read("SELECT MAX(cod) AS maxcod FROM con WHERE cod LIKE ?",
-                           [f"PT{yy}/%"])
+        filas = self._read(
+            "SELECT MAX(cod) AS maxcod FROM con WHERE cod LIKE ? AND emp = ?",
+            [f"PT{yy}/%", int(empresa)])
         maxcod = (filas[0]["maxcod"] or "") if filas else ""
         try:
             n = int(str(maxcod).split("/")[1]) + 1
@@ -283,7 +332,12 @@ class SigridWriteClient:
     def stmts_crear_parte(
         self, *, obra: ObraEntrada, ano: int, mes: int, cod: str, desc: str
     ) -> list[dict]:
-        """Cabecera (con) + extension (hmo) del parte de obra/mes."""
+        """Cabecera (con) + extension (hmo) del parte de obra/mes.
+
+        F-023: la cabecera es de la empresa de la obra (R32) y el `hmo` la
+        busca por codigo, tipo y empresa (R34). Una obra sin empresa no
+        genera sentencias (el pipeline ya la rechaza antes, R35)."""
+        empresa = int(obra.empresa)  # type: ignore[arg-type]
         ultimo = calendar.monthrange(int(ano), int(mes))[1]
         fec = int(f"{int(ano)}{int(mes):02d}{ultimo:02d}")
         cenide = int(getattr(obra, "cenide", 0) or 0)
@@ -291,13 +345,13 @@ class SigridWriteClient:
             {"sql": ("INSERT INTO con (ide, emp, tip, est, cod, res, fec) "
                      "SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ? "
                      "FROM con WITH (UPDLOCK, HOLDLOCK)"),
-             "parameters": [self._empresa, self._tip, self._est,
+             "parameters": [empresa, self._tip, self._est,
                             cod, desc[:128], fec]},
             {"sql": ("INSERT INTO hmo (ide, cenide, obride, ano, mes, reside, "
                      "cenmul) SELECT ide, ?, ?, ?, ?, 0, 0 FROM con "
-                     "WHERE cod = ? AND tip = ?"),
+                     "WHERE cod = ? AND tip = ? AND emp = ?"),
              "parameters": [cenide, int(obra.ide), int(ano), int(mes),
-                            cod, self._tip]},
+                            cod, self._tip, empresa]},
         ]
 
     def stmt_insert_linea(

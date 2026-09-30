@@ -21,7 +21,6 @@ copia cambia las dos en la misma feature.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 
 from application.services.reglas_registro import (
     MOTIVO_RECURSO_AMBIGUO,
@@ -31,6 +30,9 @@ from application.services.reglas_registro import (
     MOTIVO_RECURSO_OTRA_PERSONA,
     MOTIVO_SIN_RECURSO_EMPRESA,
 )
+from domain.models.registro_models import RecursoSigrid
+
+__all__ = ["RecursoSigrid", "de_alta", "elegir_por_dni", "verificar_recurso"]
 
 
 def de_alta(fecbaj: int | None, fecha: int) -> bool:
@@ -41,21 +43,6 @@ def de_alta(fecbaj: int | None, fecha: int) -> bool:
 def _dni(dni: str | None) -> str:
     """DNI comparable: solo alfanumerico y en mayusculas."""
     return re.sub(r"[^0-9A-Za-z]", "", dni or "").upper()
-
-
-@dataclass(frozen=True)
-class RecursoSigrid:
-    """Lo que sv5 lee de un recurso para verificarlo.
-
-    `empresa` y `fecbaj` son `con.emp` y `con.fecbaj` del recurso; `dni`
-    es `emp.dni` de su empleado (via `res.conide`) o, si esta vacio,
-    `res.cif`.
-    """
-
-    reside: int
-    empresa: int | None
-    fecbaj: int | None
-    dni: str | None
 
 
 def verificar_recurso(

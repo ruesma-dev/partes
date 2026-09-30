@@ -41,6 +41,23 @@ class ObraEntrada:
     ide: Optional[int] = None
     codigo: Optional[str] = None
     nombre: Optional[str] = None
+    # F-023: `con.emp` de la obra, leido de Sigrid (nunca del portal). La
+    # cabecera del parte y su correlativo son de esta empresa (R32-R34).
+    empresa: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class RecursoSigrid:
+    """Lo que sv5 lee de un recurso para verificarlo (F-023, R36-R37).
+
+    `empresa` y `fecbaj` son `con.emp` y `con.fecbaj` del recurso; `dni`
+    es `emp.dni` de su empleado (via `res.conide`) o, si esta vacio,
+    `res.cif`.
+    """
+    reside: int
+    empresa: Optional[int]
+    fecbaj: Optional[int]
+    dni: Optional[str]
 
 
 # ----------------------------- salida ----------------------------- #
