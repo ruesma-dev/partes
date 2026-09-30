@@ -127,7 +127,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `CREATE INDEX IF NOT EXISTS`, que `create_all` no hace sobre tablas ya
    existentes) lo **genera** `ddl_complementario()` del propio ORM y lo
    aplican **sv3 y sv4** al arrancar: era la lista escrita a mano en cada
-   servicio la que se quedó incompleta y distinta.
+   servicio la que se quedó incompleta y distinta. Desde F-023,
+   `parte_documents` lleva `empresa_membrete`, `empresa` y
+   `empresa_origen` (nullables; semántica 12).
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
    `deleted_*`; nunca borrado físico desde la aplicación.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
@@ -168,6 +170,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `GET /whoami` permite comprobar la identidad resuelta sin escribir
     ninguna fila. `DEFAULT_REVIEWER` sobrevive con otro significado: ya no
     es «quién firma el portal» sino la etiqueta de la sesión local.
+12. **Empresa y alta (F-023)**: maestros de TODAS las empresas (`con.emp`;
+    `SIGRID_EMPRESA` ya no se usa). «De alta a D» = `con.fecbaj` NULL, 0 o
+    `> D` (nunca `emp.fecbaj`). Hay códigos de obra en dos empresas: la
+    **empresa del parte** sale del **membrete** (sv2 lo copia; sv3 lo
+    traduce con `config/empresas_membrete.yaml`), si no de la obra única,
+    los trabajadores o el nombre; si no, revisión. El trabajador se casa
+    entre las fichas de alta de esa empresa y el **recurso**, entre los de
+    la persona de alta a la fecha de la línea en la empresa de su obra
+    (`emp.reside` solo desempata). Nada se elige al azar. sv5 firma la
+    cabecera con la empresa de la obra y verifica cada recurso. Los
+    listados de Sigrid se paginan y `truncated: true` es error.
 
 ## Acceso a datos y sistemas externos
 
