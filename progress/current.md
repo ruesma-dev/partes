@@ -1,55 +1,19 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-020 · implementada (T1–T12), pendiente del reviewer (2026-09-30)
+## F-020 · done (2026-09-30), pendiente de DESPLIEGUE y verificación manual
 
-Informe: `progress/impl_F-020.md`; mutación: `progress/mutacion_F-020.md`.
+Cerrada con APPROVED del reviewer; resumen en `progress/history.md`.
+Pendiente del humano (design §10):
 
-Spec APROBADA por el humano (D1–D4 según propuesta de design §9). D1 hecho:
-`pypdf` 6.19.0 instalado en el `.venv` de la raíz. Tareas T1–T12 en curso;
-avance marcado en `specs/F-020-correo-adjunto-escaner/tasks.md` e informe en
-`progress/impl_F-020.md`.
-
-**PENDIENTE DEL HUMANO (T11, verificación MANUAL tras desplegar)** — design §10:
-
-1. `redeploy_partes.ps1 -Solo sv1` (lo lanza el humano, no los agentes).
-2. Mover **uno** de los cuatro correos del escáner («Attached Image») de
-   `Errores` a la carpeta origen y marcarlo como **no leído**.
-3. Comprobar en los logs de `ca-sv1-poller`: la línea `correo adjunto con 1
-   PDF interior(es)`, las de `Documento logico INGERIDO` (una por página) y
-   `movido a Procesados`; el correo en `Procesados`, y el parte (o sus
-   páginas) en el portal.
-4. Reprocesar los otros tres: manual y fuera de F-020 (la dedup de sv3 por
-   `document.sha256` hace inocuo repetir uno ya ingerido).
-
-## F-020 · spec escrita (2026-09-30), pendiente de aprobación
-
-Rama `feature/F-020-correo-adjunto-escaner`. Spec en
-`specs/F-020-correo-adjunto-escaner/` (requirements 143/150, design 250/250,
-tasks T1–T12). **Solo toca sv1**; sv2 y sv3 no cambian (verificado, design §7).
-
-**Sonda de solo lectura HECHA y concluyente** (`progress/explore_F-020_sonda.md`):
-`GET …/attachments/{id}/$value` sobre el itemAttachment devuelve el MIME RFC 822
-con el PDF dentro. Los cuatro correos del escáner (17/09 y tres del 30/09)
-siguen **sin leer en `Errores`**.
-
-Decisiones abiertas que el humano debe validar antes de implementar
-(detalle en `design.md` §9):
-
-- **D1** · Instalar `pypdf` (dependencia ya declarada de sv1) en el `.venv` de
-  la raíz: `.venv/Scripts/python.exe -m pip install "pypdf>=4.2"`. Sin ello la
-  primera suite de sv1 no importa. Prerrequisito de T1.
-- **D2** · Correo adjunto SIN PDF junto a otros documentos ingeridos ⇒
-  `Procesados` con WARNING (propuesta) o ⇒ `Errores` siempre.
-- **D3** · Tope de 5 niveles excedido ⇒ no se ingiere NADA de ese correo
-  adjunto (propuesta) o se ingiere lo hallado hasta el nivel 5.
-- **D4** · Un `.eml` adjuntado como fichero (`fileAttachment` con
-  `message/rfc822`) también se abre (propuesta) o solo `itemAttachment`.
-
-MANUAL del humano tras desplegar (`redeploy_partes.ps1 -Solo sv1`): mover UNO
-de esos correos a la carpeta origen, marcarlo no leído y comprobar logs de
-`ca-sv1-poller`, `Procesados` y el parte en el portal (design §10). Reprocesar
-el resto: manual y fuera de F-020.
+1. Merge a `dev` y `redeploy_partes.ps1 -Solo sv1` (lo lanza el humano).
+2. Mover **uno** de los cuatro correos del escáner («Attached Image», 17/09 y
+   tres del 30/09) de `Errores` a la carpeta origen y marcarlo **no leído**.
+3. Logs de `ca-sv1-poller`: `correo adjunto con 1 PDF interior(es)`,
+   `Documento logico INGERIDO` (una por página) y `movido a Procesados`; el
+   parte (o sus páginas) en el portal.
+4. Reprocesar los otros tres igual (la dedup de sv3 por `document.sha256`
+   hace inocuo repetir uno ya ingerido).
 
 ## Sesión 2026-09-02 · sv5 pasa a MODO NORMAL de escritura en Sigrid
 
