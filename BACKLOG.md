@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **19 features**, 8 abiertas, 11 terminadas.
+Resumen: **21 features**, 10 abiertas, 11 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -11,6 +11,8 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 1 | pendiente | critico | `feature/F-021-cuenta-analitica-sigrid` |
+| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | pendiente | estandar | `feature/F-022-aprobar-seleccionadas` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
 | F-019 | Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid | 9 | pendiente | critico | `feature/F-019-mensuales-a-dedicacion` |
@@ -37,6 +39,18 @@ Bloqueadas: **F-014**.
 | F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | documental |
 
 ## Detalle
+
+### F-021 · Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid
+
+estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-021-cuenta-analitica-sigrid`
+
+Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion.
+
+### F-022 · Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona
+
+estado **pendiente** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
+
+Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar.
 
 ### F-014 · Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h
 
