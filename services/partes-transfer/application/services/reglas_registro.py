@@ -51,6 +51,27 @@ MOTIVO_SIN_LABORABLE = (
 )
 MOTIVO_TIPO = "tipo de hora no reconocido"
 
+# F-023 (R36-R37): la verificacion del recurso antes de escribir. Cada
+# motivo dice QUE comprobacion fallo, para que Administracion sepa que
+# arreglar (reasignar el trabajador, dar de alta el recurso...).
+MOTIVO_RECURSO_NO_EXISTE = "el recurso no existe en Sigrid"
+MOTIVO_RECURSO_OTRA_EMPRESA = (
+    "el recurso es de otra empresa que la obra destino"
+)
+MOTIVO_RECURSO_BAJA = (
+    "el recurso esta de baja en Sigrid a la fecha de la linea"
+)
+MOTIVO_RECURSO_OTRA_PERSONA = (
+    "el recurso no es de este trabajador (su DNI no coincide)"
+)
+MOTIVO_SIN_RECURSO_EMPRESA = (
+    "sin recurso de alta para ese DNI en la empresa de la obra destino"
+)
+MOTIVO_RECURSO_AMBIGUO = (
+    "varios recursos de alta para ese DNI en la empresa de la obra "
+    "destino: no se elige ninguno"
+)
+
 
 class ReglasRegistro:
     """Decide, para cada linea, si se escribe y con que codigo/precio."""
