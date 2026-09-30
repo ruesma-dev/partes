@@ -85,6 +85,10 @@ def test_f015_r10_el_error_nombra_la_variable(entorno) -> None:
 # ------------------------------ el cableado ----------------------------- #
 
 FUENTE_BUILD_APP = inspect.getsource(modulo_app.build_app)
+#: F-023 saco la construccion de los conciliadores a su propia funcion
+#: (para poder probar su cableado sin PostgreSQL): lo que build_app le
+#: pasa sigue en build_app; lo que ella cablea, en su fuente.
+FUENTE_CASADO = inspect.getsource(modulo_app.construir_casado_sigrid)
 
 
 def test_f015_r10_build_app_valida_el_mapa_antes_de_abrir_la_bbdd() -> None:
@@ -102,7 +106,7 @@ def test_f015_r10_build_app_inyecta_el_repositorio_de_excepciones() -> None:
     assert "jornadas=SqlAlchemyJornadaRepository(session_factory)" in (
         FUENTE_BUILD_APP)
     assert "jornada_cache_ttl_s=settings.jornada_cache_ttl_s" in (
-        FUENTE_BUILD_APP)
+        FUENTE_CASADO)
 
 
 def test_f015_r10_el_conciliador_usa_el_mapa_que_se_le_inyecta() -> None:

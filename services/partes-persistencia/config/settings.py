@@ -70,9 +70,16 @@ class Settings(BaseSettings):
     sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S")
     sigrid_api_max_rows: int = Field(10000, alias="SIGRID_API_MAX_ROWS")
 
-    # Empresa de Construcciones Ruesma en Sigrid (con.emp). Filtra
-    # empleados / tipos de hora de la empresa correcta. 1 por defecto.
-    sigrid_empresa: int = Field(1, alias="SIGRID_EMPRESA")
+    # F-023 (DA5): SIGRID_EMPRESA ya no existe aqui. Los maestros son de
+    # TODAS las empresas y la empresa de cada parte sale del membrete, la
+    # obra o los trabajadores. Si la variable sigue en Azure, se ignora
+    # (extra="ignore").
+
+    # F-023 (DA3): tabla VERSIONADA de alias del membrete por empresa
+    # (numemp -> [alias]). La mantiene el humano; va en la imagen.
+    empresas_membrete_path: str = Field(
+        "config/empresas_membrete.yaml", alias="EMPRESAS_MEMBRETE_PATH"
+    )
 
     # ------------------------------------------------------------ #
     # Resolucion del codigo de hora (auxhor).
