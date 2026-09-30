@@ -1,6 +1,48 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-023 · spec escrita (2026-09-30), pendiente de aprobación del humano
+
+`specs/F-023-recurso-alta-empresa/` (rama `feature/F-023-recurso-alta-empresa`,
+sin commit). Datos medidos en Sigrid, solo lectura y agregados, en
+`progress/explore_F-023_sigrid.md`. La base réplica `ruesma_rep` no tiene
+`emp`/`res`/`obr`: se leyó `ruesma` por `/api/sql/read`, como hace sv3.
+
+**Tres hallazgos que cambian el alcance pedido:**
+
+1. **Obras gemelas**: 22 códigos de obra tienen dos obras activas en 2026, una
+   en la empresa 1 y otra en la 28 (13 con el mismo nombre). sv3 y sv4
+   deduplican las obras por código ⇒ hoy un parte de la 28 puede casarse con
+   la obra de la 1, y en el portal la de la 28 **ni aparece**. La empresa del
+   parte no sale solo del código: se propone deducirla de los trabajadores.
+2. **sv5 numera `PT` mezclando empresas**: el correlativo es por empresa (la 1
+   va por 00338 y la 28 por 00121; 115 códigos repetidos). Además, el `INSERT
+   INTO hmo` localiza la cabecera sin filtrar por empresa.
+3. **La baja buena es `con.fecbaj` del recurso**, no `emp.fecbaj` (22 empleados
+   tienen líneas posteriores a esa fecha). En agosto se dieron de baja 804
+   recursos de golpe. `emp.reside` apunta a un recurso de baja en 507 fichas
+   de alta.
+
+Toca **sv3, sv5 y sv4**. Decisiones que el humano tiene que aprobar o rebatir
+(argumentos en `design.md` §8):
+
+| # | Propuesta |
+|---|---|
+| DA1 | «De alta» = `con.fecbaj` del recurso y de la ficha (NULL, 0 o posterior a la fecha); `emp.fecbaj` no cuenta |
+| DA2 | Se evalúa a la fecha de la línea (recurso) o del parte (ficha); el portal sigue con «hoy» |
+| DA3 | Empresa del parte = la de la obra; las gemelas se desempatan por los trabajadores del parte, luego por nombre; si no, obra sin casar y revisión. Pregunta al humano: ¿trae el J.310 la empresa en el membrete? |
+| DA4 | Sin obra casada, el trabajador se casa solo si su DNI tiene una única ficha de alta |
+| DA5 | `SIGRID_EMPRESA` se retira del código de sv3 y sv5 (la variable de Azure queda inerte) |
+| DA6 | sv5 verifica empresa, alta y DNI de cada recurso antes de escribir ⇒ **ampliar la lista cerrada de duplicación de `CLAUDE.md`** con `de_alta` y la elección por DNI (sv3/sv5, con guardián) |
+| DA7 | Sin reescritura histórica: nada se re-casa y las líneas congeladas no cambian de recurso; las pendientes sí se re-resuelven |
+| DA8 | El portal muestra la empresa, filtra el alta manual por la empresa de la obra y suelta el recurso al reasignar |
+| DA9 | Una sola feature; **despliegue sv5 → sv3 → sv4** |
+| DA10 | `truncated: true` de sigrid-api ⇒ excepción en los tres clientes |
+
+**Antes de implementar conviene M1** (design §9): contar en la base `partes`
+las líneas en obras gemelas, que dice cuánto pendiente puede estar en la obra
+equivocada.
+
 ## F-020 · done y DESPLEGADA (2026-09-30), pendiente de verificación manual
 
 Cerrada con APPROVED del reviewer; resumen en `progress/history.md`.
