@@ -1,7 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-023 · spec REVISADA (2026-09-30) con las respuestas del humano, pendiente de aprobación
+## F-023 · EN IMPLEMENTACIÓN (implementer, desde 2026-10-01)
+
+Spec aprobada por el humano el 2026-10-01 (DA1–DA12 tal cual, con DA6, DA11 y
+DA12). El implementer sigue T1–T24 de `tasks.md` en la rama
+`feature/F-023-recurso-alta-empresa`; tarea en curso, decisiones y
+desviaciones en `progress/impl_F-023.md`. Lo que sigue es el estado de la
+spec antes de aprobarse, y se conserva como contexto.
+
+## F-023 · spec REVISADA (2026-09-30) con las respuestas del humano (APROBADA 2026-10-01)
 
 `specs/F-023-recurso-alta-empresa/` (rama `feature/F-023-recurso-alta-empresa`;
 la primera versión está en `97a4a3f`, la revisión **sin commit**). Datos de

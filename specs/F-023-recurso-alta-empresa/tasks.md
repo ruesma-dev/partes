@@ -24,7 +24,7 @@ Reglas que no se negocian:
   lo vigila).
 - Comando de tests por servicio: `cd services/<svc> && ../../.venv/Scripts/python.exe -m pytest -q <ficheros>`.
 
-- [ ] T1: Inventariar los tests existentes que construyen los clientes con `empresa=`, usan `resides_por_dni`, `fetch_obras` deduplicado por código, el orden `ORDER BY` de los listados o `EmpleadoMatcher.match` sin empresa, y anotarlos en `progress/impl_F-023.md`  |  Verificación: lista en el informe; ningún fichero de código modificado
+- [x] T1: Inventariar los tests existentes que construyen los clientes con `empresa=`, usan `resides_por_dni`, `fetch_obras` deduplicado por código, el orden `ORDER BY` de los listados o `EmpleadoMatcher.match` sin empresa, y anotarlos en `progress/impl_F-023.md`  |  Verificación: lista en el informe; ningún fichero de código modificado
 - [ ] T2: Crear `services/partes-api/tests/` (conftest) con los tests de R5 en rojo; añadir `CabeceraParte.empresa_membrete` y la viñeta + clave en `config/prompts.yaml` (design §4)  |  Verificación: `pytest tests/test_f023_empresa_membrete.py` en sv2 en verde y `bash harness/init.sh` ya no avisa de sv2 sin tests
 - [ ] T3: DTOs y puerto de sv3 (`sigrid_models.py`, `parte_records.py`, `fetch_empresas` en el puerto) con valores por defecto  |  Verificación: suite completa de sv3 en verde sin tocar tests
 - [ ] T4: Tests de `seleccion_sigrid` (R1, R9–R13, R17–R24, R25–R28; incluye el caso guía sintético) en rojo con trazas RED, e implementar `seleccion_sigrid.py` (design §5.1)  |  Verificación: `pytest tests/test_f023_seleccion_sigrid.py` en verde
