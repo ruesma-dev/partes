@@ -5,6 +5,8 @@
 
 Resumen: **22 features**, 11 abiertas, 11 terminadas.
 
+En curso: **F-020**.
+
 Bloqueadas: **F-014**.
 
 ## Trabajo abierto
@@ -18,7 +20,7 @@ Bloqueadas: **F-014**.
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
 | F-019 | Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid | 9 | pendiente | critico | `feature/F-019-mensuales-a-dedicacion` |
 | F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 10 | pendiente | estandar | `feature/F-006-tipo-hora-ext` |
-| F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | spec lista | estandar | `feature/F-020-correo-adjunto-escaner` |
+| F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | en curso | estandar | `feature/F-020-correo-adjunto-escaner` |
 | F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 11 | pendiente | critico | `feature/F-007-prompt-sv2-evals` |
 | F-008 | Modelo de roles en el portal (sv4) | 12 | pendiente | estandar | `feature/F-008-roles-portal` |
 | F-011 | Jornada reducida por días desde Sesame sustituye al candef | 14 | pendiente | critico | `feature/F-011-jornada-reducida-dias` |
@@ -85,7 +87,7 @@ El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para 
 
 ### F-020 · Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF
 
-estado **spec lista** · prioridad 10 · rigor `estandar` · SDD sí · rama `feature/F-020-correo-adjunto-escaner`
+estado **en curso** · prioridad 10 · rigor `estandar` · SDD sí · rama `feature/F-020-correo-adjunto-escaner`
 
 Pedida por el humano el 2026-09-30. El escaner (visto desde ruesma@inforban.eu, asunto 'Attached Image') envia los partes como un correo adjunto (message/rfc822, itemAttachment de Graph) que contiene el PDF. Hoy sv1 descarta los itemAttachment (_NON_FILE_ODATA_TYPES en polling_pipeline.py) y el correo acaba en Errores por 'sin adjuntos elegibles'. LO QUE SE PIDE: sv1 abre los correos adjuntos de CUALQUIER remitente (decision del humano: NO se filtra por remitente) y los recorre de forma recursiva, correo dentro de correo, hasta encontrar el/los PDF, que siguen el camino normal (troceo por paginas -> Blob -> q-extraccion). DECISIONES CONFIRMADAS (2026-09-30): (1) Solo se extraen PDF del interior; imagenes no. (2) Tope de seguridad de 5 niveles de anidamiento; si se excede o no aparece ningun PDF, el correo va a Errores con log explicativo. (3) Un correo con PDF directos y correos adjuntos procesa todo en la misma pasada. (4) Citas de calendario, contactos y referenceAttachment se siguen descartando. (5) El contexto del documento lleva el nombre del PDF interior y una clave nueva 'embedded_in' con la cadena de correos atravesados; verificar que sv2/sv3 no se rompen. (6) Se crean los primeros tests de sv1 (services/partes-email/tests/) con .eml sinteticos, sin red, y se registran en harness/servicios.json. PRIMER PASO OBLIGATORIO: sonda de SOLO LECTURA que confirme que GET /attachments/{id}/$value sobre un itemAttachment devuelve el MIME del correo adjunto con el PDF dentro; si no, parar y reproponer. SOLO TOCA sv1. Desplegar lo lanza el humano. Reprocesar los correos ya caidos en Errores es manual y queda fuera.
 
