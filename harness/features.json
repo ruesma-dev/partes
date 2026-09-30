@@ -244,7 +244,7 @@
     {
       "id": "F-021",
       "title": "Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid",
-      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion.",
+      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion. ACLARADO 2026-09-30 (correo de Juan Romero, Dir. Admon y Control de Costes, 'RV: CAPTURAS'): 'No arrastra cuenta analitica del recurso' => la cuenta analitica SALE DEL RECURSO (su ficha en Sigrid) y hoy no se copia a la linea al registrar. Queda por fijar en la spec el campo exacto del recurso y el de la linea.",
       "acceptance": [],
       "status": "pending",
       "sdd": true,
@@ -255,7 +255,7 @@
     {
       "id": "F-022",
       "title": "Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona",
-      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar.",
+      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar. ACLARADO 2026-09-30 (correo de Juan Romero 'RV: CAPTURAS'): 'opcion de seleccionar varias lineas y aprobarlas, por si quiero dejar alguna pendiente' => seleccion explicita de lineas (casillas) en la vista detallada; el humano lo describio tambien como 'las visibles': la spec debe cubrir ambos (lo filtrado y lo marcado) y confirmarlo.",
       "acceptance": [],
       "status": "pending",
       "sdd": true,
@@ -266,13 +266,49 @@
     {
       "id": "F-023",
       "title": "Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta",
-      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. Al coger el recurso del trabajador de un parte (casado contra el maestro emp/con de Sigrid por DNI -> emp.reside), (1) seleccionar SOLO los que estan dados de alta y (2) seleccionar POR EMPRESA, porque un mismo trabajador/recurso puede existir en 2 empresas. ESTADO ACTUAL: sv3 (infrastructure/sigrid/sigrid_api_client.py, _SQL_EMPLEADOS_BASE + fetch_empleados) filtra por una empresa FIJA (SIGRID_EMPRESA, con.emp = ?) y NO filtra altas/bajas; sv4 tiene su propio fetch_empleados en infrastructure/sigrid/sigrid_lookup_client.py (catalogo para corregir a mano en el portal) y sv5 usa SIGRID_EMPRESA al escribir. A DECIDIR EN LA SPEC: (a) que significa 'dado de alta' en Sigrid para un empleado/recurso (campo fecbaj u otro de emp/con/res; ver azure-apps/sigrid_tablas.md) y si se evalua a hoy o a la FECHA DEL PARTE; (b) DE DONDE SALE LA EMPRESA de cada parte: previsiblemente la empresa de la obra del parte (con.emp de la obra), en lugar del SIGRID_EMPRESA fijo; confirmar con el humano; (c) que pasa si el DNI casa en las 2 empresas y la obra no desempata, o si solo casa con un trabajador de baja (sin casar + revision, no elegir uno al azar); (d) coherencia con sv5, que escribe con SIGRID_EMPRESA fijo: si la empresa pasa a ser la de la obra, la escritura (hmo/hmores) debe usar la misma. Servicios: sv3 (casado), sv4 (catalogo del portal) y probablemente sv5. Los clientes infrastructure/sigrid/ estan en la lista cerrada de duplicacion tolerada: quien toque una copia cambia todas en la misma feature. RIGOR critico: decide a que recurso se imputan horas que se escriben en Sigrid en produccion.",
+      "description": "Pedida por el humano el 2026-09-30, prioridad maxima. Al coger el recurso del trabajador de un parte (casado contra el maestro emp/con de Sigrid por DNI -> emp.reside), (1) seleccionar SOLO los que estan dados de alta y (2) seleccionar POR EMPRESA, porque un mismo trabajador/recurso puede existir en 2 empresas. ESTADO ACTUAL: sv3 (infrastructure/sigrid/sigrid_api_client.py, _SQL_EMPLEADOS_BASE + fetch_empleados) filtra por una empresa FIJA (SIGRID_EMPRESA, con.emp = ?) y NO filtra altas/bajas; sv4 tiene su propio fetch_empleados en infrastructure/sigrid/sigrid_lookup_client.py (catalogo para corregir a mano en el portal) y sv5 usa SIGRID_EMPRESA al escribir. A DECIDIR EN LA SPEC: (a) que significa 'dado de alta' en Sigrid para un empleado/recurso (campo fecbaj u otro de emp/con/res; ver azure-apps/sigrid_tablas.md) y si se evalua a hoy o a la FECHA DEL PARTE; (b) DE DONDE SALE LA EMPRESA de cada parte: previsiblemente la empresa de la obra del parte (con.emp de la obra), en lugar del SIGRID_EMPRESA fijo; confirmar con el humano; (c) que pasa si el DNI casa en las 2 empresas y la obra no desempata, o si solo casa con un trabajador de baja (sin casar + revision, no elegir uno al azar); (d) coherencia con sv5, que escribe con SIGRID_EMPRESA fijo: si la empresa pasa a ser la de la obra, la escritura (hmo/hmores) debe usar la misma. Servicios: sv3 (casado), sv4 (catalogo del portal) y probablemente sv5. Los clientes infrastructure/sigrid/ estan en la lista cerrada de duplicacion tolerada: quien toque una copia cambia todas en la misma feature. RIGOR critico: decide a que recurso se imputan horas que se escriben en Sigrid en produccion. ACLARADO 2026-09-30: caso real de Juan Romero ('RV: CAPTURAS'): cogio el recurso MO/0239 dado de baja y no aviso de que existian dos recursos con el mismo DNI. El parte en papel TRAE LA EMPRESA EN EL MEMBRETE (p.ej. Porsan): la empresa del parte se extrae del membrete (sv2) y desempata obras gemelas y recursos. Las consultas a sigrid-api se paginan (OFFSET/FETCH); la instancia dev admite 500.000 filas por peticion.",
       "acceptance": [],
       "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-023-recurso-alta-empresa"
+    },
+    {
+      "id": "F-024",
+      "title": "Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid",
+      "description": "Reportado el 2026-09-30 por Juan Romero (correo 'RV: CAPTURAS', captura de la vista de obra). En un mismo parte y dia, la linea Extra (HEOF) muestra 'PT26/00314' en la columna Sigrid y la linea Ordinaria (HLOF) del mismo trabajador se queda en 'encolado', 'si ya lo habiamos llevado a Sigrid, igual que el de abajo'. A INVESTIGAR (explorer de solo lectura antes de la spec): si la linea se escribio en Sigrid y el portal no recibio/actualizo el resultado (q-transfer/resultado_sigrid de F-002), si el mensaje se perdio o acabo en -poison, o si sv5 la omitio sin devolver estado. Comprobar en Sigrid (solo lectura) y en la base partes. Servicios probables: sv4 (estado mostrado) y sv5 (resultado por linea). RIGOR critico si resulta que hay lineas sin registrar que el usuario cree registradas.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 3,
+      "branch": "feature/F-024-lineas-encoladas"
+    },
+    {
+      "id": "F-025",
+      "title": "Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)",
+      "description": "Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): hizo un parte con una incidencia y al lado una hora extra el mismo dia; 'si esta de baja maternidad, no puede tener horas extra'. Hay que limitarlo. A DECIDIR EN LA SPEC: que incidencias son incompatibles con horas trabajadas/extra (baja, maternidad, vacaciones...?) y de donde sale esa lista (tipos de incidencia de Sigrid o lista propia); si se bloquea la aprobacion, se marca para revision o se avisa en el preflight; en que servicio vive la regla (sv3 al conciliar y/o sv4 al aprobar). Servicios probables: sv3/sv4.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 4,
+      "branch": "feature/F-025-incidencia-vs-extra"
+    },
+    {
+      "id": "F-026",
+      "title": "Partes enviados como foto del movil se ven demasiado grandes en el portal",
+      "description": "Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): un parte metido como foto tomada con el movil se dimensiona muy grande al verlo en el portal. Ajustar el visor del documento en sv4 para que las imagenes se escalen al contenedor (como los PDF). Servicio: sv4. sdd=false salvo que la investigacion muestre que hay que tocar la ingesta (sv1) o el almacenamiento de la imagen.",
+      "acceptance": [
+        "Una imagen JPG/PNG de gran resolucion se muestra escalada al ancho del visor sin desbordar la pagina",
+        "Los PDF se siguen viendo igual que hoy"
+      ],
+      "status": "pending",
+      "sdd": false,
+      "rigor": "estandar",
+      "priority": 6,
+      "branch": "feature/F-026-visor-fotos"
     }
   ]
 }
