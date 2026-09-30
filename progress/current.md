@@ -1,12 +1,17 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-020 · done (2026-09-30), pendiente de DESPLIEGUE y verificación manual
+## F-020 · done y DESPLEGADA (2026-09-30), pendiente de verificación manual
 
 Cerrada con APPROVED del reviewer; resumen en `progress/history.md`.
-Pendiente del humano (design §10):
+Mergeada a `dev` y desplegada a petición del humano:
+`redeploy_partes.ps1 -Solo sv1` → imagen `sv1-partes:latest`
+(digest `sha256:06fa219d…`), revisión **`ca-sv1-poller--r20260930150607`**,
+`Healthy` y `RunningAtMaxScale`. Arranque limpio en el log: carpetas origen,
+Procesados y Errores resueltas, «Pre-checks OK» y primer sondeo del inbox
+con `200 OK`. Pendiente del humano (design §10):
 
-1. Merge a `dev` y `redeploy_partes.ps1 -Solo sv1` (lo lanza el humano).
+1. ~~Merge a `dev` y despliegue de sv1~~ (hecho).
 2. Mover **uno** de los cuatro correos del escáner («Attached Image», 17/09 y
    tres del 30/09) de `Errores` a la carpeta origen y marcarlo **no leído**.
 3. Logs de `ca-sv1-poller`: `correo adjunto con 1 PDF interior(es)`,
