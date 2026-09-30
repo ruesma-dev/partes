@@ -104,6 +104,48 @@ de sigrid-api admite hasta 500.000 y los clientes piden 10.000, así que no se
 recorta. Pero ningún cliente mira `truncated`: si algún día se recorta, el
 maestro llega incompleto **sin error**.
 
+## 8. Segunda vuelta (2026-09-30, tras las respuestas del humano)
+
+### 8.1 Nombre de las empresas (para el membrete)
+
+`auxemp` (campos: `ide, cod, res, pos, fecbaj, tiemod, numemp, empdom, niv,
+desact, codalt, tiptar, tipemp, cif`). `con.emp` coincide con `numemp` (y con
+`ide`) en las dos activas; **`cod` no** (la 28 tiene `cod = '29'`):
+
+| `numemp` | `cod` | `res` | `cif` |
+|---|---|---|---|
+| 1 | 01 | CONSTRUCCIONES RUESMA | vacío |
+| 28 | 29 | PORSAN E HIJOS CONSTRUCCIONES SL | vacío |
+
+Son las dos únicas con obras con líneas en 2026. El membrete «Porsan» casa por
+palabra con `res` de la 28, pero no hay CIF en `auxemp` con el que casar de
+forma exacta: la traducción texto → empresa necesita una tabla de alias.
+
+### 8.2 Caso guía MO/0239 (correo «RV: CAPTURAS»), solo recuentos
+
+- El recurso `MO/0239` es de la **empresa 1**, tiene `con.fecbaj = 20210126`
+  (de baja desde 2021) y su última línea en `hmores` es de 2019.
+- Su DNI tiene **3 recursos**: MO/0239 (empresa 1, baja), **otro de la empresa
+  1 de alta y con líneas en 2026**, y otro de la **empresa 31** de alta sin
+  actividad en 2026.
+- Tiene **2 fichas de empleado**, las dos de alta: la de la empresa 1 tiene
+  `emp.reside` **apuntando a MO/0239** (el de baja); la de la 31 apunta a otro.
+- Explica el fallo: sv3 resuelve el recurso por `empleado_reside` **antes que
+  nada** (`_resuelve_recurso`) y nunca mira la baja ni si hay otros. Con la
+  regla nueva (empresa del parte + alta a la fecha de la línea) solo queda el
+  recurso bueno.
+- Contexto: 38 códigos `MO/…` de recurso están repetidos en Sigrid.
+
+### 8.3 Límite de filas y paginación
+
+`azure-apps/sigrid_api.md` §4.1: la instancia `dev` admite 500.000 filas por
+petición (defecto del código: 1.000). §6.3–6.4: `truncated: true` significa
+respuesta incompleta, y las lecturas de volumen se paginan con `ORDER BY` por
+columna estable + `OFFSET ? ROWS FETCH NEXT ? ROWS ONLY`. §6.7: un agregado o
+una consulta por lote de N ids no necesita paginar. Los volúmenes actuales
+(1.355 fichas, 2.622 recursos, 922 obras) caben en una página, pero ningún
+cliente pagina ni mira `truncated`.
+
 ## Qué no se pudo medir aquí
 
 El impacto en la base `partes` (cuántas líneas pendientes hay hoy en obras de
