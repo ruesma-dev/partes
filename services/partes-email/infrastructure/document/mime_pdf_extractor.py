@@ -80,8 +80,6 @@ class MimePdfExtractor:
             raiz = message_from_bytes(raw_mime, policy=POLITICA_EMAIL)
             cadena = (self._cabeceras(raiz, 1, nombre_adjunto),)
             self._recorrer(raiz, 1, cadena, acumulador)
-        except CorreoAdjuntoIlegible:
-            raise
         except Exception as exc:
             # Solo el tipo de la excepcion: su texto podria llevar contenido.
             raise CorreoAdjuntoIlegible(
