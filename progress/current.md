@@ -1,7 +1,9 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-020 · en implementación (implementer, 2026-09-30)
+## F-020 · implementada (T1–T12), pendiente del reviewer (2026-09-30)
+
+Informe: `progress/impl_F-020.md`; mutación: `progress/mutacion_F-020.md`.
 
 Spec APROBADA por el humano (D1–D4 según propuesta de design §9). D1 hecho:
 `pypdf` 6.19.0 instalado en el `.venv` de la raíz. Tareas T1–T12 en curso;
