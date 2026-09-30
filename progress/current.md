@@ -8,6 +8,18 @@ Spec APROBADA por el humano (D1–D4 según propuesta de design §9). D1 hecho:
 avance marcado en `specs/F-020-correo-adjunto-escaner/tasks.md` e informe en
 `progress/impl_F-020.md`.
 
+**PENDIENTE DEL HUMANO (T11, verificación MANUAL tras desplegar)** — design §10:
+
+1. `redeploy_partes.ps1 -Solo sv1` (lo lanza el humano, no los agentes).
+2. Mover **uno** de los cuatro correos del escáner («Attached Image») de
+   `Errores` a la carpeta origen y marcarlo como **no leído**.
+3. Comprobar en los logs de `ca-sv1-poller`: la línea `correo adjunto con 1
+   PDF interior(es)`, las de `Documento logico INGERIDO` (una por página) y
+   `movido a Procesados`; el correo en `Procesados`, y el parte (o sus
+   páginas) en el portal.
+4. Reprocesar los otros tres: manual y fuera de F-020 (la dedup de sv3 por
+   `document.sha256` hace inocuo repetir uno ya ingerido).
+
 ## F-020 · spec escrita (2026-09-30), pendiente de aprobación
 
 Rama `feature/F-020-correo-adjunto-escaner`. Spec en
