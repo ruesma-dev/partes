@@ -249,7 +249,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 1,
+      "priority": 2,
       "branch": "feature/F-021-cuenta-analitica-sigrid"
     },
     {
