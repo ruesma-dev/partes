@@ -19,8 +19,8 @@ revision.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from application.services import text_match as tm
 from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
