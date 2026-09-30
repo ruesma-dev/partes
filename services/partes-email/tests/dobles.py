@@ -15,7 +15,9 @@ from dataclasses import dataclass, field
 
 from application.pipelines.polling_pipeline import PollingPipeline
 from domain.models.email_models import EmailAttachment, EmailMessage
+from domain.ports.extractor_correo_adjunto import ExtractorCorreoAdjunto
 from domain.ports.mailbox_client import MailboxClient
+from infrastructure.document.mime_pdf_extractor import MimePdfExtractor
 from infrastructure.document.pdf_page_splitter import PdfPageSplitter
 
 BUZON = "partes@example.com"
@@ -139,10 +141,15 @@ def adjunto(id: str, *, name: str = "parte.pdf",
                            odata_type=odata_type)
 
 
-def construir_pipeline(buzon: BuzonFalso,
-                       sumidero: SumideroFalso) -> PollingPipeline:
-    return PollingPipeline(mailbox=buzon, sink=sumidero,
-                           pdf_splitter=PdfPageSplitter())
+def construir_pipeline(buzon: BuzonFalso, sumidero: SumideroFalso, *,
+                       extractor: ExtractorCorreoAdjunto | None = None
+                       ) -> PollingPipeline:
+    """Pipeline con el troceador y (salvo que se pase otro) el extractor
+    MIME REALES."""
+    return PollingPipeline(
+        mailbox=buzon, sink=sumidero, pdf_splitter=PdfPageSplitter(),
+        extractor_correo=(MimePdfExtractor() if extractor is None
+                          else extractor))
 
 
 def ejecutar(pipeline: PollingPipeline, *,

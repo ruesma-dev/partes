@@ -13,8 +13,6 @@ from email.message import EmailMessage as MensajeMime
 from pathlib import Path
 
 import pytest
-
-from domain.models.email_models import CorreoEmbebido
 from eml_sinteticos import (
     Anidado,
     Fichero,
@@ -26,6 +24,8 @@ from eml_sinteticos import (
     fichero_texto,
     pdf_bytes,
 )
+
+from domain.models.email_models import CorreoEmbebido
 
 MODULO_EXTRACTOR = "infrastructure.document.mime_pdf_extractor"
 

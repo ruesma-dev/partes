@@ -63,6 +63,14 @@ class MailboxClient(ABC):
         message_id: str,
         attachment_id: str,
     ) -> bytes:
+        """Bytes crudos del adjunto (``GET .../attachments/{id}/$value``).
+
+        Para un fichero, su contenido. Para un correo adjunto
+        (``itemAttachment`` con ``contentType`` ``message/rfc822``, F-020),
+        el mensaje completo en MIME RFC 822 con sus propios adjuntos
+        dentro; el ``Content-Type`` HTTP de esa respuesta (``text/plain``)
+        no significa nada y se ignora.
+        """
         raise NotImplementedError
 
     @abstractmethod

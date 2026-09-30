@@ -22,12 +22,12 @@ Reglas (requirements R7-R13 de F-020):
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from email import message_from_bytes
 from email.message import Message
 from email.policy import default as POLITICA_EMAIL
 from email.utils import parseaddr
 from pathlib import PurePosixPath
-from typing import Callable, Optional
 
 from domain.models.email_models import (
     CorreoEmbebido,
@@ -63,11 +63,15 @@ class MimePdfExtractor:
     def __init__(self, nivel_maximo: int = NIVEL_MAXIMO_ANIDAMIENTO) -> None:
         self._nivel_maximo = nivel_maximo
 
+    @property
+    def nivel_maximo(self) -> int:
+        return self._nivel_maximo
+
     def extraer(
         self,
         *,
         raw_mime: bytes,
-        nombre_adjunto: Optional[str],
+        nombre_adjunto: str | None,
     ) -> ExtraccionCorreoAdjunto:
         if not raw_mime:
             raise CorreoAdjuntoIlegible("el correo adjunto no trae bytes")
@@ -140,7 +144,7 @@ class MimePdfExtractor:
         ))
 
     @staticmethod
-    def _primer_mensaje(parte: Message) -> Optional[Message]:
+    def _primer_mensaje(parte: Message) -> Message | None:
         contenido = parte.get_payload()
         if isinstance(contenido, list) and contenido:
             return contenido[0]
@@ -158,7 +162,7 @@ class MimePdfExtractor:
     def _cabeceras(
         mensaje: Message,
         nivel: int,
-        nombre: Optional[str],
+        nombre: str | None,
     ) -> CorreoEmbebido:
         remitente = _leer(lambda: mensaje.get("From"))
         direccion = parseaddr(remitente)[1] if remitente else ""
@@ -171,7 +175,7 @@ class MimePdfExtractor:
         )
 
 
-def _leer(obtener: Callable[[], object]) -> Optional[str]:
+def _leer(obtener: Callable[[], object]) -> str | None:
     """Valor de una cabecera como texto truncado, o None si falta o falla."""
     try:
         valor = obtener()
@@ -181,18 +185,18 @@ def _leer(obtener: Callable[[], object]) -> Optional[str]:
         return None
 
 
-def _truncar(valor: Optional[str]) -> Optional[str]:
+def _truncar(valor: str | None) -> str | None:
     return None if valor is None else valor[:_MAX_CARACTERES_CABECERA]
 
 
-def _nombre_fichero(parte: Message) -> Optional[str]:
+def _nombre_fichero(parte: Message) -> str | None:
     try:
         return parte.get_filename()
     except Exception:
         return None
 
 
-def _nombre_pdf(nombre: Optional[str], orden: int) -> str:
+def _nombre_pdf(nombre: str | None, orden: int) -> str:
     """Nombre base del fichero MIME (R11) o ``documento_<orden>.pdf``."""
     if nombre:
         base = PurePosixPath(nombre.replace("\\", "/")).name

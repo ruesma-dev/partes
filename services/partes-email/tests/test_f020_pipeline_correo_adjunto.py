@@ -10,8 +10,6 @@ import hashlib
 import logging
 from io import BytesIO
 
-from pypdf import PdfReader
-
 from dobles import (
     CARPETA_ERRORES,
     CARPETA_PROCESADOS,
@@ -23,11 +21,6 @@ from dobles import (
     ejecutar,
     mensaje,
 )
-from domain.models.email_models import (
-    CorreoEmbebido,
-    ExtraccionCorreoAdjunto,
-    PdfEmbebido,
-)
 from eml_sinteticos import (
     Anidado,
     Fichero,
@@ -37,6 +30,13 @@ from eml_sinteticos import (
     fichero_imagen,
     fichero_pdf,
     pdf_bytes,
+)
+from pypdf import PdfReader
+
+from domain.models.email_models import (
+    CorreoEmbebido,
+    ExtraccionCorreoAdjunto,
+    PdfEmbebido,
 )
 
 LOGGER_PIPELINE = "application.pipelines.polling_pipeline"

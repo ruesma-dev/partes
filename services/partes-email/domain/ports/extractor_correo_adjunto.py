@@ -6,7 +6,7 @@ la biblioteca estandar) vive en ``infrastructure/document/``.
 """
 from __future__ import annotations
 
-from typing import Optional, Protocol
+from typing import Protocol
 
 from domain.models.email_models import ExtraccionCorreoAdjunto
 
@@ -16,11 +16,16 @@ class CorreoAdjuntoIlegible(Exception):
 
 
 class ExtractorCorreoAdjunto(Protocol):
+    @property
+    def nivel_maximo(self) -> int:
+        """Niveles de correo que se abren como maximo (va al log de R10)."""
+        ...
+
     def extraer(
         self,
         *,
         raw_mime: bytes,
-        nombre_adjunto: Optional[str],
+        nombre_adjunto: str | None,
     ) -> ExtraccionCorreoAdjunto:
         """Recorre el mensaje RFC 822 (nivel 1) y devuelve sus PDF.
 
