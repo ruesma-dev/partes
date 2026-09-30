@@ -203,3 +203,128 @@ def test_f023_r38_r39_la_empresa_tiene_valor_por_defecto() -> None:
     assert EmpleadoOption(ide=1, codigo=None, nombre=None,
                           dni=None).empresa is None
     assert ObraOption(ide=1, codigo=None, nombre=None).empresa is None
+
+
+# ============================ endpoint · R40 ============================ #
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from application.services.obra_catalog import ObraCatalog  # noqa: E402
+from config.settings import Settings  # noqa: E402
+from infrastructure.database.orm_models import ParteDocumentOrm  # noqa: E402
+from infrastructure.database.parte_repository import (  # noqa: E402
+    ParteReviewRepository,
+)
+from interface_adapters.web import app as app_mod  # noqa: E402
+from interface_adapters.web.app import build_app  # noqa: E402
+from tests.dobles import FabricaSesionSqlite, sembrar_parte  # noqa: E402
+
+GEMELAS = [ObraOption(ide=100, codigo="0100", nombre="Norte", empresa=1),
+           ObraOption(ide=200, codigo="0100", nombre="Sur", empresa=28),
+           ObraOption(ide=300, codigo="0300", nombre="Este", empresa=1)]
+FICHAS = [EmpleadoOption(ide=10, codigo="E10", nombre="Uno", dni="00000001R",
+                         categoria="Oficial", candef=8.0, reside=900,
+                         empresa=1),
+          EmpleadoOption(ide=11, codigo="E11", nombre="Uno", dni="00000001R",
+                         categoria=None, candef=None, reside=902, empresa=28)]
+
+
+class LookupPortalFake:
+    """Doble de `SigridLookupClient` para montar el portal sin red."""
+
+    def __init__(self, **_kw) -> None:
+        pass
+
+    def fetch_tipos_hora(self) -> list:
+        return []
+
+    def fetch_obras(self) -> list:
+        return list(GEMELAS)
+
+    def fetch_empleados(self) -> list:
+        return list(FICHAS)
+
+    def fetch_partidas_obra(self, _obra_ide: int) -> list:
+        return []
+
+    def fetch_hora_extra_recurso(self, _recurso_ide: int):
+        return None
+
+    def fetch_dnis_sin_extra(self, _dnis) -> set:
+        return set()
+
+
+@pytest.fixture
+def portal(monkeypatch):
+    for clave, valor in {
+        "PG_PASSWORD": "irrelevante-en-tests",
+        "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+        "DEFAULT_REVIEWER": "ana",
+        "SIGRID_API_BASE_URL": "http://sigrid.invalid",
+        "SIGRID_API_FUNCTION_KEY": "clave-de-test",
+        "SIGRID_API_DATABASE": "bd",
+    }.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.setattr(app_mod, "SigridLookupClient", LookupPortalFake)
+    fabrica = FabricaSesionSqlite()
+    sembrar_parte(fabrica, [{"estado": None}])
+    app = build_app(Settings(_env_file=None),
+                    repository=ParteReviewRepository(fabrica))
+    return TestClient(app), fabrica
+
+
+def test_f023_r40_endpoint_obras_anade_la_empresa(portal) -> None:
+    cliente, _ = portal
+    cuerpo = cliente.get("/api/sigrid/obras").json()
+    assert cuerpo["ok"] is True
+    assert cuerpo["items"] == [
+        {"ide": 100, "codigo": "0100", "nombre": "Norte", "empresa": 1},
+        {"ide": 200, "codigo": "0100", "nombre": "Sur", "empresa": 28},
+        {"ide": 300, "codigo": "0300", "nombre": "Este", "empresa": 1},
+    ]
+
+
+def test_f023_r40_endpoint_empleados_anade_la_empresa_sin_quitar_nada(
+        portal) -> None:
+    cliente, _ = portal
+    items = cliente.get("/api/sigrid/empleados").json()["items"]
+    assert [(i["ide"], i["empresa"]) for i in items] == [(10, 1), (11, 28)]
+    for i in items:
+        assert {"ide", "codigo", "nombre", "dni", "reside", "categoria",
+                "candef", "jornada_sugerida", "empresa"} <= set(i)
+    assert items[0]["reside"] == 900 and items[0]["categoria"] == "Oficial"
+
+
+def test_f023_r39_endpoint_el_cambio_de_obra_respeta_la_gemela_elegida(
+        portal) -> None:
+    """El combo envia el ide de la obra elegida: con dos obras del mismo
+    codigo, el servidor no puede cambiarla por la otra al resolver."""
+    cliente, fabrica = portal
+    for ide, nombre in ((200, "Sur"), (100, "Norte")):
+        # Sin nombre: el del catalogo manda, asi que la obra se resolvio.
+        r = cliente.patch("/api/partes/doc-f004/obra",
+                          json={"codigo": "0100", "ide": ide})
+        assert r.status_code == 200, r.text
+        with fabrica.create_session() as s:
+            doc = s.get(ParteDocumentOrm, "doc-f004")
+            assert (doc.obra_ide, doc.obra_nombre) == (ide, nombre)
+
+
+def test_f023_r39_endpoint_codigo_unico_sin_ide_se_resuelve(portal) -> None:
+    cliente, fabrica = portal
+    r = cliente.patch("/api/partes/doc-f004/obra", json={"codigo": "0300"})
+    assert r.status_code == 200, r.text
+    with fabrica.create_session() as s:
+        doc = s.get(ParteDocumentOrm, "doc-f004")
+        assert (doc.obra_ide, doc.obra_nombre) == (300, "Este")
+
+
+def test_f023_r39_endpoint_catalogo_por_codigo_solo_si_es_unico() -> None:
+    catalogo = ObraCatalog(client=LookupPortalFake())
+    assert catalogo.get_by_codigo("0100") is None          # dos empresas
+    assert catalogo.get_by_codigo(" 0300 ").ide == 300
+    assert catalogo.get_by_codigo(None) is None
+    assert catalogo.get_by_ide(200).empresa == 28
+    assert catalogo.get_by_ide(999) is None
+    assert catalogo.get_by_ide(None) is None
+    assert [o.ide for o in catalogo.list()] == [100, 200, 300]

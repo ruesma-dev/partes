@@ -1411,7 +1411,8 @@ def build_app(
             {
                 "ok": True,
                 "items": [
-                    {"ide": o.ide, "codigo": o.codigo, "nombre": o.nombre}
+                    {"ide": o.ide, "codigo": o.codigo, "nombre": o.nombre,
+                     "empresa": o.empresa}     # F-023 (R40)
                     for o in items
                 ],
             }
@@ -1478,6 +1479,7 @@ def build_app(
                 "dni": e.dni, "reside": e.reside, "categoria": e.categoria,
                 "candef": e.candef,
                 "jornada_sugerida": _sugerida(e.candef),
+                "empresa": e.empresa,          # F-023 (R40)
             }
             if dia is not None:
                 fila["jornada_dia"] = _del_dia(e)
@@ -1642,11 +1644,13 @@ def build_app(
         if not payload.codigo:
             raise HTTPException(status_code=400, detail="Falta el codigo de obra.")
         # Resuelve ide/nombre desde el catalogo (fuente de verdad); si no esta
-        # cableado o no se encuentra, usa lo que envie el front.
+        # cableado o no se encuentra, usa lo que envie el front. F-023: por
+        # el IDE que eligio el usuario: un codigo puede ser de dos obras
+        # (gemelas de dos empresas) y por codigo solo se resuelve si es unico.
         ide = payload.ide
         nombre = payload.nombre
         if obra_catalog.enabled:
-            opt = obra_catalog.get_by_codigo(payload.codigo)
+            opt = obra_catalog.get_by_ide(payload.ide)                 or obra_catalog.get_by_codigo(payload.codigo)
             if opt is not None:
                 ide = opt.ide
                 nombre = opt.nombre
