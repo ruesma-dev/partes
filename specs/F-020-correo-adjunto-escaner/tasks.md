@@ -21,7 +21,7 @@ Reglas que no se negocian:
 
 - [x] T1: Comprobar el prerrequisito D1 y crear `tests/conftest.py`, `tests/eml_sinteticos.py` y `tests/dobles.py` (design §8)  |  Verificación: `cd services/partes-email && ../../.venv/Scripts/python.exe -m pytest -q` recoge 0 tests sin error de importación
 - [x] T2: Modelos de dominio `CorreoEmbebido`, `PdfEmbebido`, `ExtraccionCorreoAdjunto` y puerto `extractor_correo_adjunto.py` (design §6.1–6.2), con su test `test_f020_r17_to_context_*` en `test_f020_extractor_mime.py`  |  Verificación: `pytest tests/test_f020_extractor_mime.py -k to_context` en verde
-- [ ] T3: Tests del extractor (R7–R13) en rojo, con traza RED de R10  |  Verificación: `pytest tests/test_f020_extractor_mime.py` falla por ausencia de `MimePdfExtractor`
+- [x] T3: Tests del extractor (R7–R13) en rojo, con traza RED de R10  |  Verificación: `pytest tests/test_f020_extractor_mime.py` falla por ausencia de `MimePdfExtractor`
 - [ ] T4: Implementar `infrastructure/document/mime_pdf_extractor.py` (design §6.2)  |  Verificación: `pytest tests/test_f020_extractor_mime.py` en verde
 - [ ] T5: Test de no regresión del contexto de PDF directo (R18) sobre el código ACTUAL, antes de tocar el pipeline; construye el pipeline por un helper de `tests/dobles.py` (en T7 solo cambia el helper, no el test)  |  Verificación: `pytest tests/test_f020_contexto_pdf_directo.py` en verde contra `polling_pipeline.py` sin modificar
 - [ ] T6: Tests de clasificación y de pipeline (R1–R6, R14–R17, R19–R24) en rojo, con traza RED de R1, R17 y R20  |  Verificación: `pytest tests/test_f020_clasificacion_adjuntos.py tests/test_f020_pipeline_correo_adjunto.py` falla por los motivos esperados
