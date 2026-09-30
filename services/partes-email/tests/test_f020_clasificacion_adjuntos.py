@@ -127,6 +127,20 @@ def test_f020_r4_correo_adjunto_mayor_que_el_limite_se_descarta(caplog):
     assert [r.levelno for r in avisos] == [logging.WARNING]
 
 
+def test_f020_r4_limite_cero_significa_sin_limite():
+    # Superviviente 3: MAX_ATTACHMENT_MB=0 desactiva el limite, como para
+    # los ficheros (`_is_eligible`).
+    att = adjunto("att-c", name="Attached Image",
+                  content_type="message/rfc822", odata_type=ODATA_ITEM,
+                  size=10_000_000)
+
+    buzon, sumidero = _correr(att, _escaner_bytes(), max_bytes=0)
+
+    assert _descargados(buzon) == ["att-c"]
+    assert len(sumidero.encolados) == 1
+    assert buzon.destino("msg-1") == CARPETA_PROCESADOS
+
+
 def test_f020_r4_correo_adjunto_justo_en_el_limite_se_abre():
     att = adjunto("att-justo", name="Attached Image",
                   content_type="message/rfc822", odata_type=ODATA_ITEM,

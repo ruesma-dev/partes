@@ -309,6 +309,22 @@ def test_f020_r22_fallo_de_descarga_sigue_con_los_demas_y_va_a_errores(
     assert any("att-falla" in m for m in _mensajes(caplog, logging.ERROR))
 
 
+def test_f020_r20_fallo_de_descarga_de_pdf_directo_va_a_errores():
+    # Superviviente 1 de la campana de mutacion: la descarga fallida de un
+    # PDF DIRECTO cuenta como fallo aunque otro adjunto si entre.
+    valor = a_bytes(correo(adjuntos=[fichero_pdf("interior.pdf")]))
+    buzon, sumidero, pipeline = _montar([
+        (adjunto("att-directo", name="directo.pdf"), b"no importa"),
+        (_correo_adjunto("att-c"), valor),
+    ])
+    buzon.fallo_descarga.add("att-directo")
+
+    ejecutar(pipeline)
+
+    assert [e.filename for e in sumidero.encolados] == ["interior.pdf"]
+    assert buzon.movidos == [("msg-1", CARPETA_ERRORES)]
+
+
 def test_f020_r22_bytes_ilegibles_van_a_errores(caplog):
     with caplog.at_level(logging.INFO, logger=LOGGER_PIPELINE):
         buzon, sumidero = _correr([(_correo_adjunto("att-vacio"), b"")])

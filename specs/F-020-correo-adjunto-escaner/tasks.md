@@ -28,6 +28,6 @@ Reglas que no se negocian:
 - [x] T7: Modificar `polling_pipeline.py` (design §6.3) y el docstring de `mailbox_client.py`  |  Verificación: T5 y T6 en verde
 - [x] T8: Test de cableado (R25) y cambio de `main.py` (design §6.4)  |  Verificación: `pytest tests/test_f020_wiring_main.py` en verde
 - [x] T9: Subsección «Ingesta de sv1: correos adjuntos (F-020)» en `docs/ARCHITECTURE.md` (≤ 10 líneas)  |  Verificación: lectura del reviewer contra design §6.3
-- [ ] T10: Cobertura y campaña de mutación de la feature; supervivientes analizados en `progress/impl_F-020.md`  |  Verificación: `python -m harness.mutacion` según `harness/rigor.json` (nivel estandar)
-- [ ] T11: Anotar en `progress/current.md` la verificación MANUAL de design §10 (reprocesar un correo del escáner tras desplegar) como pendiente del humano  |  Verificación: MANUAL (humano) — mover un correo de `Errores` a la carpeta origen, marcarlo no leído y comprobar logs de `ca-sv1-poller`, `Procesados` y el parte en el portal
+- [x] T10: Cobertura y campaña de mutación de la feature; supervivientes analizados en `progress/impl_F-020.md`  |  Verificación: `python -m harness.mutacion` según `harness/rigor.json` (nivel estandar)
+- [x] T11: Anotar en `progress/current.md` la verificación MANUAL de design §10 (reprocesar un correo del escáner tras desplegar) como pendiente del humano  |  Verificación: MANUAL (humano) — mover un correo de `Errores` a la carpeta origen, marcarlo no leído y comprobar logs de `ca-sv1-poller`, `Procesados` y el parte en el portal
 - [ ] T12: Ejecutar `bash harness/init.sh` en verde, con la línea «servicio sv1-email (services/partes-email): pytest en verde» (R26)  |  Verificación: `bash harness/init.sh`

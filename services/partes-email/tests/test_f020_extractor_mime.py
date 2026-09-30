@@ -140,6 +140,24 @@ def test_f020_r7_rfc822_sin_mensaje_dentro_se_ignora(modulo, monkeypatch):
     assert resultado.tope_excedido is False
 
 
+def test_f020_r7_rfc822_con_lista_de_mensajes_vacia_se_ignora(modulo,
+                                                              monkeypatch):
+    # Superviviente 4: una parte message/rfc822 cuyo payload es una lista
+    # VACIA se ignora; no es un correo ilegible entero.
+    msg = correo(adjuntos=[fichero_pdf("a.pdf")])
+    vacio = MensajeMime()
+    vacio["Content-Type"] = "message/rfc822"
+    vacio.set_payload([])
+    msg.attach(vacio)
+    monkeypatch.setattr(modulo, "message_from_bytes", lambda *a, **k: msg)
+
+    resultado = modulo.MimePdfExtractor().extraer(raw_mime=b"x",
+                                                  nombre_adjunto=None)
+
+    assert [p.filename for p in resultado.pdfs] == ["a.pdf"]
+    assert resultado.partes_ignoradas == 1
+
+
 def test_f020_r7_rfc822_con_cuerpo_vacio_no_rompe(extractor):
     crudo = "\r\n".join([
         "From: a@example.com",
