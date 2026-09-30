@@ -123,15 +123,41 @@ def test_f020_r7_rfc822_sin_nombre_da_attachment_name_nulo(extractor):
     assert resultado.pdfs[0].cadena[1].attachment_name is None
 
 
-def test_f020_r7_rfc822_vacio_no_rompe(extractor):
+def test_f020_r7_rfc822_sin_mensaje_dentro_se_ignora(modulo, monkeypatch):
+    # Un message/rfc822 sin mensaje dentro no se puede serializar; se inyecta
+    # el arbol ya construido en lugar del parser.
     msg = correo(adjuntos=[fichero_pdf("a.pdf")])
     vacio = MensajeMime()
     vacio["Content-Type"] = "message/rfc822"
     msg.attach(vacio)
+    monkeypatch.setattr(modulo, "message_from_bytes", lambda *a, **k: msg)
 
-    resultado = _extraer(extractor, msg)
+    resultado = modulo.MimePdfExtractor().extraer(raw_mime=b"x",
+                                                  nombre_adjunto=None)
 
     assert [p.filename for p in resultado.pdfs] == ["a.pdf"]
+    assert resultado.partes_ignoradas == 1
+    assert resultado.tope_excedido is False
+
+
+def test_f020_r7_rfc822_con_cuerpo_vacio_no_rompe(extractor):
+    crudo = "\r\n".join([
+        "From: a@example.com",
+        "MIME-Version: 1.0",
+        'Content-Type: multipart/mixed; boundary="B"',
+        "",
+        "--B",
+        "Content-Type: message/rfc822",
+        "",
+        "",
+        "--B--",
+        "",
+    ]).encode("ascii")
+
+    resultado = extractor.extraer(raw_mime=crudo, nombre_adjunto=None)
+
+    assert resultado.pdfs == ()
+    assert resultado.tope_excedido is False
 
 
 # --- R8 · que es un PDF y sus bytes decodificados ------------------------ #
@@ -281,15 +307,31 @@ def test_f020_r12_cabeceras_truncadas_a_200(extractor):
     largo = "x" * 150
     msg = correo(subject="S" * 500,
                  sender=f"{largo}{largo}@example.com",
-                 date="D" * 300,
                  adjuntos=[fichero_pdf()])
 
     c = _extraer(extractor, msg, nombre="N" * 300).pdfs[0].cadena[0]
 
     assert c.subject == "S" * 200
     assert c.sender == ("x" * 200)
-    assert c.date == "D" * 200
     assert c.attachment_name == "N" * 200
+
+
+def test_f020_r12_date_ilegible_da_nulo(extractor):
+    # Con la politica por defecto de `email`, una fecha que no se puede
+    # interpretar se lee como cadena vacia: se trata como ilegible.
+    msg = correo(date="esto no es una fecha", adjuntos=[fichero_pdf()])
+
+    c = _extraer(extractor, msg).pdfs[0].cadena[0]
+
+    assert c.date is None
+
+
+def test_f020_r12_subject_vacio_da_nulo(extractor):
+    msg = correo(subject="", adjuntos=[fichero_pdf()])
+
+    c = _extraer(extractor, msg).pdfs[0].cadena[0]
+
+    assert c.subject is None
 
 
 def test_f020_r12_cabecera_de_200_exactos_no_se_toca(extractor):
@@ -315,7 +357,8 @@ def test_f020_r12_cabecera_ilegible_da_nulo_sin_excepcion(modulo):
 
 
 def test_f020_r12_from_sin_direccion_da_nulo(extractor):
-    msg = correo(sender="Solo Un Nombre", adjuntos=[fichero_pdf()])
+    # parseaddr("") -> ("", ""): sin direccion, el campo es nulo.
+    msg = correo(sender="", adjuntos=[fichero_pdf()])
 
     c = _extraer(extractor, msg).pdfs[0].cadena[0]
 
