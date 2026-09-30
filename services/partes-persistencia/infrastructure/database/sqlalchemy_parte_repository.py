@@ -513,6 +513,10 @@ class SqlAlchemyParteRepository:
                 obra_nombre=obra.nombre,
                 obra_match_score=obra.score,
                 obra_match_method=obra.method,
+                # Empresa del parte (F-023, DA11).
+                empresa_membrete=parte.empresa_membrete,
+                empresa=parte.empresa,
+                empresa_origen=parte.empresa_origen,
                 # Responsables.
                 encargado_nombre=parte.encargado_nombre,
                 jefe_obra_nombre=parte.jefe_obra_nombre,

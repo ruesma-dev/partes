@@ -120,6 +120,9 @@ class ParteNormalizer:
             obra_nombre_leido=_opt_str(cabecera.get("obra_nombre")),
             encargado_nombre=_opt_str(cabecera.get("encargado_nombre")),
             jefe_obra_nombre=_opt_str(cabecera.get("jefe_obra_nombre")),
+            # F-023 (R6): el membrete tal cual lo leyo sv2 (None si un sv2
+            # anterior no manda la clave).
+            empresa_membrete=_opt_str(cabecera.get("empresa_membrete")),
             firmado=firmado,
             firma_encargado=firma_enc,
             firma_jefe_obra=firma_jo,
