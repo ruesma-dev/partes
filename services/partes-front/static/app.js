@@ -153,8 +153,22 @@ var MotivoHttp = (function () {
     }
   }
 
+  // F-023 (R41): la empresa (con.emp) acompaña a obras y fichas en los
+  // combos: un mismo código de obra puede existir en dos empresas.
+  function empresaSufijo(x) {
+    return (x && x.empresa != null) ? " · empresa " + x.empresa : "";
+  }
+
   function obraLabel(o) {
-    return (o.codigo ? o.codigo + " · " : "") + (o.nombre || "");
+    return (o.codigo ? o.codigo + " · " : "") + (o.nombre || "")
+      + empresaSufijo(o);
+  }
+
+  // R41: en un alta manual con obra elegida, solo las fichas de su empresa.
+  function mismaEmpresa(empresaObra) {
+    return function (e) {
+      return empresaObra() == null || e.empresa === empresaObra();
+    };
   }
 
   // ---- Fecha (todas las .fecha-edit) ---- //
@@ -727,7 +741,8 @@ var MotivoHttp = (function () {
   }
 
   function empLabel(e) {
-    return (e.codigo ? e.codigo + " · " : "") + (e.nombre || "");
+    return (e.codigo ? e.codigo + " · " : "") + (e.nombre || "")
+      + empresaSufijo(e);
   }
 
   function wireEmpleadoCombo(wrap) {
@@ -1066,7 +1081,8 @@ var MotivoHttp = (function () {
   }
 
   // ----- Crear parte (calendario + combos) ----- //
-  function _comboSimple(rootId, inputId, panelId, url, render, onPick) {
+  function _comboSimple(rootId, inputId, panelId, url, render, onPick,
+                        filtro) {
     var input = document.getElementById(inputId);
     var panel = document.getElementById(panelId);
     if (!input || !panel) return;
@@ -1101,6 +1117,7 @@ var MotivoHttp = (function () {
       if (q.length < 1) { panel.hidden = true; return; }
       load().then(function (items) {
         show(items.filter(function (it) {
+          if (filtro && !filtro(it)) return false;   // F-023 (R41)
           return norm(render(it)).indexOf(q) !== -1
             || norm(it.dni).indexOf(q) !== -1
             || norm(it.codigo).indexOf(q) !== -1;
@@ -1411,18 +1428,34 @@ var MotivoHttp = (function () {
       return document.getElementById("obra-ide").value;
     });
 
+    // F-023 (R41): empresa de la obra elegida y de la ficha elegida.
+    var obraEmpresa = null, empEmpresa = null;
     _comboSimple("obra-combo", "obra-input", "obra-panel", "/api/sigrid/obras",
-      function (o) { return (o.codigo ? o.codigo + " · " : "") + (o.nombre || ""); },
+      obraLabel,
       function (o) {
         document.getElementById("obra-ide").value = o.ide != null ? o.ide : "";
         document.getElementById("obra-codigo").value = o.codigo || "";
         document.getElementById("obra-nombre").value = o.nombre || "";
+        obraEmpresa = o.empresa != null ? o.empresa : null;
+        if (empEmpresa != null && obraEmpresa != null
+            && empEmpresa !== obraEmpresa) {
+          // La ficha elegida es de otra empresa: se descarta.
+          ["emp-ide", "emp-codigo", "emp-nombre", "emp-dni", "emp-reside",
+           "emp-input"].forEach(function (id) {
+            document.getElementById(id).value = "";
+          });
+          empEmpresa = null;
+        }
         updateBtn();
         partidaC.reload();
       });
     _comboSimple("emp-combo", "emp-input", "emp-panel", "/api/sigrid/empleados",
-      function (e) { return (e.nombre || "") + (e.dni ? " · " + e.dni : ""); },
       function (e) {
+        return (e.nombre || "") + (e.dni ? " · " + e.dni : "")
+          + empresaSufijo(e);
+      },
+      function (e) {
+        empEmpresa = e.empresa != null ? e.empresa : null;
         document.getElementById("emp-ide").value = e.ide != null ? e.ide : "";
         document.getElementById("emp-codigo").value = e.codigo || "";
         document.getElementById("emp-nombre").value = e.nombre || "";
@@ -1438,7 +1471,7 @@ var MotivoHttp = (function () {
         // Su calendario puede tener festivos distintos (F-003).
         calDias = {}; calPedido = ""; cargarCalendario();
         updateBtn();
-      });
+      }, mismaEmpresa(function () { return obraEmpresa; }));
 
     document.getElementById("crear-btn").addEventListener("click", function () {
       var btn = this;
@@ -1548,10 +1581,22 @@ var MotivoHttp = (function () {
     var partidaC = _partidaCombo("addline-partida", function () {
       return g("addline-obra-ide").value;
     });
+    // F-023 (R41): empresa de la obra del alta (la fijada por el parte o la
+    // elegida en el combo) para ofrecer solo fichas de esa empresa.
+    var addlineEmpresa = null;
 
     function open(btn) {
       var d = btn.dataset;
       var obraLocked = !!(d.obraCodigo || d.obraIde);
+      addlineEmpresa = null;
+      if (obraLocked && d.obraIde) {
+        fetchObras().then(function (obras) {
+          var o = obras.filter(function (x) {
+            return String(x.ide) === String(d.obraIde);
+          })[0];
+          addlineEmpresa = (o && o.empresa != null) ? o.empresa : null;
+        });
+      }
       setLock("obra", obraLocked, d.obraLabel, obraLocked
         ? { ide: d.obraIde, codigo: d.obraCodigo, nombre: d.obraNombre } : null);
       var empLocked = !!d.empNombre;
@@ -1575,16 +1620,20 @@ var MotivoHttp = (function () {
     // Combos del modal (una sola vez).
     _comboSimple("addline-obra-combo", "addline-obra-input", "addline-obra-panel",
       "/api/sigrid/obras",
-      function (o) { return (o.codigo ? o.codigo + " · " : "") + (o.nombre || ""); },
+      obraLabel,
       function (o) {
         g("addline-obra-ide").value = o.ide != null ? o.ide : "";
         g("addline-obra-codigo").value = o.codigo || "";
         g("addline-obra-nombre").value = o.nombre || "";
+        addlineEmpresa = o.empresa != null ? o.empresa : null;
         partidaC.reload();
       });
     _comboSimple("addline-emp-combo", "addline-emp-input", "addline-emp-panel",
       "/api/sigrid/empleados",
-      function (e) { return (e.nombre || "") + (e.dni ? " · " + e.dni : ""); },
+      function (e) {
+        return (e.nombre || "") + (e.dni ? " · " + e.dni : "")
+          + empresaSufijo(e);
+      },
       function (e) {
         g("addline-emp-ide").value = e.ide != null ? e.ide : "";
         g("addline-emp-codigo").value = e.codigo || "";
@@ -1594,7 +1643,7 @@ var MotivoHttp = (function () {
         if (e.jornada_sugerida != null) {
           g("addline-ord").value = e.jornada_sugerida;
         }
-      });
+      }, mismaEmpresa(function () { return addlineEmpresa; }));
     _bindClick("[data-add-line]", function (btn) { open(btn); });
     g("addline-close").addEventListener("click", close);
     g("addline-cancel").addEventListener("click", close);
