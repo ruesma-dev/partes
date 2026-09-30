@@ -1,6 +1,35 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-020 · spec escrita (2026-09-30), pendiente de aprobación
+
+Rama `feature/F-020-correo-adjunto-escaner`. Spec en
+`specs/F-020-correo-adjunto-escaner/` (requirements 143/150, design 250/250,
+tasks T1–T12). **Solo toca sv1**; sv2 y sv3 no cambian (verificado, design §7).
+
+**Sonda de solo lectura HECHA y concluyente** (`progress/explore_F-020_sonda.md`):
+`GET …/attachments/{id}/$value` sobre el itemAttachment devuelve el MIME RFC 822
+con el PDF dentro. Los cuatro correos del escáner (17/09 y tres del 30/09)
+siguen **sin leer en `Errores`**.
+
+Decisiones abiertas que el humano debe validar antes de implementar
+(detalle en `design.md` §9):
+
+- **D1** · Instalar `pypdf` (dependencia ya declarada de sv1) en el `.venv` de
+  la raíz: `.venv/Scripts/python.exe -m pip install "pypdf>=4.2"`. Sin ello la
+  primera suite de sv1 no importa. Prerrequisito de T1.
+- **D2** · Correo adjunto SIN PDF junto a otros documentos ingeridos ⇒
+  `Procesados` con WARNING (propuesta) o ⇒ `Errores` siempre.
+- **D3** · Tope de 5 niveles excedido ⇒ no se ingiere NADA de ese correo
+  adjunto (propuesta) o se ingiere lo hallado hasta el nivel 5.
+- **D4** · Un `.eml` adjuntado como fichero (`fileAttachment` con
+  `message/rfc822`) también se abre (propuesta) o solo `itemAttachment`.
+
+MANUAL del humano tras desplegar (`redeploy_partes.ps1 -Solo sv1`): mover UNO
+de esos correos a la carpeta origen, marcarlo no leído y comprobar logs de
+`ca-sv1-poller`, `Procesados` y el parte en el portal (design §10). Reprocesar
+el resto: manual y fuera de F-020.
+
 ## Sesión 2026-09-02 · sv5 pasa a MODO NORMAL de escritura en Sigrid
 
 Cambio operativo en Azure, pedido por el humano. No toca código ni features.
