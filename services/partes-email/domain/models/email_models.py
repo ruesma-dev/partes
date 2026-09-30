@@ -37,10 +37,10 @@ class CorreoEmbebido:
     """
 
     level: int
-    attachment_name: Optional[str]
-    subject: Optional[str]
-    sender: Optional[str]
-    date: Optional[str]
+    attachment_name: str | None
+    subject: str | None
+    sender: str | None
+    date: str | None
 
     def to_context(self) -> dict:
         """Elemento de ``embedded_in`` del contexto (design §5)."""

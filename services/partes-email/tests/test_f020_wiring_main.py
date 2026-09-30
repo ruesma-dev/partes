@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from typing import ClassVar
 
 import main as modulo_main
 from infrastructure.document.mime_pdf_extractor import MimePdfExtractor
@@ -16,7 +17,7 @@ from infrastructure.document.pdf_page_splitter import PdfPageSplitter
 class PipelineEspia:
     """Sustituye a `PollingPipeline`: guarda con que se construyo."""
 
-    construcciones: list[dict] = []
+    construcciones: ClassVar[list[dict]] = []
 
     def __init__(self, **kwargs) -> None:
         PipelineEspia.construcciones.append(kwargs)
