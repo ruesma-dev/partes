@@ -1,9 +1,15 @@
 # application/services/empleado_matcher.py
-"""Casa el trabajador leido del parte contra el maestro ``emp`` de Sigrid.
+"""Casa el trabajador leido del parte por SIMILITUD DE NOMBRE (R24).
 
-Prioridad: DNI exacto > codigo exacto > nombre por similitud. El maestro
-se carga UNA vez (en el wiring) y se indexa para casar O(1) por DNI /
-codigo y O(n) por nombre.
+Desde F-023 el casado por DNI no vive aqui: la ficha de un DNI se elige en
+`seleccion_sigrid.IndicePersonas.elegir_ficha` con la empresa del parte y
+la baja a la fecha (R17-R21), y los alias en el pipeline (R23). Este
+matcher solo resuelve el ultimo recurso, el nombre, y SOLO entre las
+fichas candidatas que le pasan (las de R17: de alta a la fecha del parte y
+de la empresa del parte).
+
+Nunca elige al azar: si la mejor ficha es de un DNI con varias fichas
+candidatas, o empata con la de otra persona, devuelve `nombre_ambiguo`.
 """
 from __future__ import annotations
 
@@ -16,62 +22,41 @@ from domain.models.sigrid_models import EmpleadoRow
 logger = logging.getLogger(__name__)
 
 
-class EmpleadoMatcher:
-    def __init__(
-        self,
-        *,
-        empleados: list[EmpleadoRow],
-        min_score: float = 0.55,
-    ) -> None:
-        self._empleados = empleados
-        self._min_score = float(min_score)
-        self._by_dni: dict[str, EmpleadoRow] = {}
-        self._by_codigo: dict[str, EmpleadoRow] = {}
-        for e in empleados:
-            dni_n = tm.normalize_dni(e.dni)
-            if dni_n:
-                self._by_dni.setdefault(dni_n, e)
-            cod_n = tm.normalize_code(e.codigo)
-            if cod_n:
-                self._by_codigo.setdefault(cod_n, e)
-        logger.info(
-            "[empleado-matcher] %s empleados (dni=%s cod=%s) min_score=%s",
-            len(empleados), len(self._by_dni), len(self._by_codigo),
-            self._min_score,
-        )
+def _persona(e: EmpleadoRow) -> str:
+    """Identidad de persona: el DNI normalizado o, sin DNI, la ficha."""
+    return tm.normalize_dni(e.dni) or f"ficha:{e.ide}"
 
-    def match(
+
+class EmpleadoMatcher:
+    def __init__(self, *, min_score: float = 0.55) -> None:
+        self._min_score = float(min_score)
+
+    def match_nombre(
         self,
         *,
         nombre: str | None,
-        dni: str | None,
-        codigo: str | None,
+        candidatas: list[EmpleadoRow],
     ) -> EmpleadoMatch:
-        # 1) DNI exacto.
-        dni_n = tm.normalize_dni(dni)
-        if dni_n and dni_n in self._by_dni:
-            return self._to_match(self._by_dni[dni_n], 1.0, "dni")
-
-        # 2) Codigo exacto.
-        cod_n = tm.normalize_code(codigo)
-        if cod_n and cod_n in self._by_codigo:
-            return self._to_match(self._by_codigo[cod_n], 1.0, "codigo")
-
-        # 3) Nombre por similitud.
-        if nombre and tm.normalize(nombre):
-            best: EmpleadoRow | None = None
-            best_score = 0.0
-            for e in self._empleados:
-                score = tm.name_similarity(nombre, e.nombre)
-                if score > best_score:
-                    best_score, best = score, e
-            if best is not None and best_score >= self._min_score:
-                return self._to_match(best, best_score, "nombre")
-
-        return EmpleadoMatch()
+        """R24: la ficha candidata de nombre mas parecido, si alcanza el
+        umbral y no hay ambiguedad de persona."""
+        if not candidatas or not tm.normalize(nombre):
+            return EmpleadoMatch()
+        puntuadas = sorted(
+            ((tm.name_similarity(nombre, e.nombre), e) for e in candidatas),
+            key=lambda par: par[0], reverse=True,
+        )
+        mejor, ficha = puntuadas[0]
+        if mejor < self._min_score:
+            return EmpleadoMatch()
+        persona = _persona(ficha)
+        suyas = [e for e in candidatas if _persona(e) == persona]
+        empatadas = [e for score, e in puntuadas if score >= mejor]
+        if len(suyas) > 1 or any(_persona(e) != persona for e in empatadas):
+            return EmpleadoMatch(method="nombre_ambiguo")
+        return self.to_match(ficha, mejor, "nombre")
 
     @staticmethod
-    def _to_match(e: EmpleadoRow, score: float, method: str) -> EmpleadoMatch:
+    def to_match(e: EmpleadoRow, score: float, method: str) -> EmpleadoMatch:
         return EmpleadoMatch(
             ide=e.ide,
             codigo=e.codigo,

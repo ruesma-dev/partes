@@ -6,12 +6,24 @@ nombre por similitud.
 Los partes escriben el numero de obra sin ceros ('672'), pero en Sigrid
 el codigo suele ir con ceros a 4 digitos ('0672'). Por eso, si el codigo
 leido es numerico y no casa tal cual, se prueban variantes con/ sin ceros.
+
+F-023: un codigo puede existir en DOS empresas (las «gemelas»). Todas las
+obras del codigo compiten y decide `seleccion_sigrid.elegir_obra` (R9-R13)
+con la empresa del membrete y los trabajadores del parte. Sin codigo, el
+nombre se limita a la empresa del membrete si se conoce y un empate es
+`nombre_ambiguo` (R14).
 """
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
+from collections.abc import Iterable
 
 from application.services import text_match as tm
+from application.services.seleccion_sigrid import (
+    elegir_obra,
+    elegir_por_nombre,
+)
 from domain.models.parte_records import ObraMatch
 from domain.models.sigrid_models import ObraRow
 
@@ -40,45 +52,61 @@ class ObraMatcher:
     ) -> None:
         self._obras = obras
         self._min_score = float(min_score)
-        self._by_codigo: dict[str, ObraRow] = {}
+        self._by_codigo: dict[str, list[ObraRow]] = defaultdict(list)
         for o in obras:
             cod_n = tm.normalize_code(o.codigo)
             if cod_n:
-                self._by_codigo.setdefault(cod_n, o)
+                self._by_codigo[cod_n].append(o)
         logger.info(
             "[obra-matcher] %s obras (cod=%s) min_score=%s",
             len(obras), len(self._by_codigo), self._min_score,
         )
+
+    def _candidatas(self, cod_n: str) -> tuple[list[ObraRow], bool]:
+        """Obras del codigo exacto o, si no hay, de la primera variante con
+        ceros que tenga alguna. El booleano dice si hizo falta variante."""
+        for i, cand in enumerate(_code_candidates(cod_n)):
+            obras = self._by_codigo.get(cand)
+            if obras:
+                return obras, i > 0
+        return [], False
 
     def match(
         self,
         *,
         codigo: str | None,
         nombre: str | None,
+        empresa_membrete: int | None = None,
+        discriminantes: Iterable[frozenset[int]] = (),
     ) -> ObraMatch:
         cod_n = tm.normalize_code(codigo)
         if cod_n:
-            # Exacto.
-            if cod_n in self._by_codigo:
-                return self._to_match(self._by_codigo[cod_n], 1.0, "codigo")
-            # Variantes con ceros a la izquierda.
-            for cand in _code_candidates(cod_n)[1:]:
-                if cand in self._by_codigo:
-                    return self._to_match(
-                        self._by_codigo[cand], 0.98, "codigo_padded"
-                    )
+            candidatas, padded = self._candidatas(cod_n)
+            if candidatas:
+                obra, metodo = elegir_obra(
+                    candidatas, empresa_membrete, list(discriminantes),
+                    nombre, self._min_score,
+                )
+                if obra is None:
+                    return ObraMatch(method=metodo)
+                if not padded:
+                    return self._to_match(obra, 1.0, metodo)
+                if metodo == "codigo":
+                    metodo = "codigo_padded"
+                return self._to_match(obra, 0.98, metodo)
 
-        if nombre and tm.normalize(nombre):
-            best: ObraRow | None = None
-            best_score = 0.0
-            for o in self._obras:
-                score = tm.name_similarity(nombre, o.nombre)
-                if score > best_score:
-                    best_score, best = score, o
-            if best is not None and best_score >= self._min_score:
-                return self._to_match(best, best_score, "nombre")
-
-        return ObraMatch()
+        # R14: sin codigo que case, por nombre; limitado a la empresa del
+        # membrete si se conoce.
+        pool = [
+            o for o in self._obras
+            if empresa_membrete is None or o.empresa == empresa_membrete
+        ]
+        obra, motivo = elegir_por_nombre(pool, nombre, self._min_score)
+        if obra is None:
+            return ObraMatch(method=motivo)
+        return self._to_match(
+            obra, tm.name_similarity(nombre, obra.nombre), "nombre"
+        )
 
     @staticmethod
     def _to_match(o: ObraRow, score: float, method: str) -> ObraMatch:
@@ -88,4 +116,5 @@ class ObraMatcher:
             nombre=o.nombre,
             score=round(score, 4),
             method=method,
+            empresa=o.empresa,
         )
