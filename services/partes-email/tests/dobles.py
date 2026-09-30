@@ -145,12 +145,15 @@ def construir_pipeline(buzon: BuzonFalso,
                            pdf_splitter=PdfPageSplitter())
 
 
-def ejecutar(pipeline: PollingPipeline, *, max_mb: int = MAX_MB) -> None:
+def ejecutar(pipeline: PollingPipeline, *,
+             max_bytes: int | None = None) -> None:
+    """Una pasada de polling; el limite por defecto es `MAX_MB` megas."""
     pipeline.run_once(
         mailbox=BUZON,
         source_folder=CARPETA_ORIGEN,
         processed_folder_id=CARPETA_PROCESADOS,
         errors_folder_id=CARPETA_ERRORES,
         top=10,
-        max_attachment_bytes=max_mb * 1024 * 1024,
+        max_attachment_bytes=(MAX_MB * 1024 * 1024 if max_bytes is None
+                              else max_bytes),
     )
