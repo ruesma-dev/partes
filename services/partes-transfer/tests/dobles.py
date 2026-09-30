@@ -177,13 +177,22 @@ class SigridFake:
 
     def __init__(self, *, obras=None, horas=None, partes=None, lineas=None,
                  latencia_lectura: float = 0.0,
-                 latencia_escritura: float = 0.0) -> None:
+                 latencia_escritura: float = 0.0,
+                 recursos=None, por_dni=None) -> None:
         from domain.models.registro_models import ObraEntrada, ParteDestino
 
         self._ObraEntrada = ObraEntrada
         self._ParteDestino = ParteDestino
         self.obras = obras or {}
         self.horas = horas or {}
+        #: F-023: {reside: RecursoSigrid} que devuelve `datos_recursos`. Sin
+        #: el, cada recurso pedido es COHERENTE (empresa 1, de alta, sin
+        #: DNI), que es lo que suponian los tests anteriores a F-023.
+        self.recursos = recursos
+        #: F-023: {dni_normalizado: [RecursoSigrid]} de `recursos_por_dni`.
+        self.por_dni = por_dni or {}
+        #: Resides pedidos en cada llamada a `datos_recursos`.
+        self.recursos_leidos: list[list[int]] = []
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -234,9 +243,19 @@ class SigridFake:
                 return o
         return None
 
-    def resides_por_dni(self, dnis):
-        self._lectura("resides_por_dni")
-        return {}
+    def recursos_por_dni(self, dnis):
+        self._lectura("recursos_por_dni")
+        return {d: list(v) for d, v in self.por_dni.items()}
+
+    def datos_recursos(self, resides):
+        from domain.models.registro_models import RecursoSigrid
+
+        self._lectura("datos_recursos")
+        ides = sorted({int(i) for i in resides if i})
+        self.recursos_leidos.append(ides)
+        if self.recursos is None:
+            return {i: RecursoSigrid(i, 1, None, None) for i in ides}
+        return {i: self.recursos[i] for i in ides if i in self.recursos}
 
     def horas_de_recursos(self, resides):
         # La llamada mas pesada del pipeline y la que mas crece con el
@@ -286,13 +305,15 @@ class SigridFake:
         finally:
             self._salir("partes_existentes")
 
-    def siguiente_cod_pt(self, ano: int) -> str:
+    def siguiente_cod_pt(self, ano: int, empresa: int) -> str:
         self._comprobar_lock("siguiente_cod_pt")
         self._entrar("siguiente_cod_pt", self.latencia_lectura)
         try:
             yy = str(int(ano))[-2:]
+            # F-023 (R33): el correlativo es POR EMPRESA.
             usados = [int(p["cod"].split("/")[1]) for p in self.partes
-                      if p["cod"].startswith(f"PT{yy}/")]
+                      if p["cod"].startswith(f"PT{yy}/")
+                      and p.get("emp", 1) == empresa]
             return f"PT{yy}/{(max(usados) + 1 if usados else 1):05d}"
         finally:
             self._salir("siguiente_cod_pt")
@@ -338,7 +359,8 @@ class SigridFake:
     def stmts_crear_parte(self, *, obra, ano: int, mes: int, cod: str,
                           desc: str) -> list[dict]:
         return [{"op": "crear_parte", "obride": int(obra.ide), "ano": int(ano),
-                 "mes": int(mes), "cod": cod, "desc": desc}]
+                 "mes": int(mes), "cod": cod, "desc": desc,
+                 "emp": int(obra.empresa)}]
 
     def stmt_insert_linea(self, *, hmoide, obra, reside, pos, fecha_int,
                           horide, can, pre, paride, ano, mes, synckey,
@@ -364,7 +386,8 @@ class SigridFake:
                     self._siguiente_hmoide += 1
                     self.partes.append({
                         "ide": self._siguiente_hmoide, "obride": s["obride"],
-                        "ano": s["ano"], "mes": s["mes"], "cod": s["cod"]})
+                        "ano": s["ano"], "mes": s["mes"], "cod": s["cod"],
+                        "emp": s["emp"]})
                 elif s["op"] == "insert":
                     self._siguiente_hmores += 1
                     fila = dict(s)

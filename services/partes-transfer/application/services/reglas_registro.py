@@ -74,10 +74,17 @@ MOTIVO_RECURSO_AMBIGUO = (
 
 
 class ReglasRegistro:
-    """Decide, para cada linea, si se escribe y con que codigo/precio."""
+    """Decide, para cada linea, si se escribe y con que codigo/precio.
 
-    def __init__(self, horas_por_recurso: dict[int, list[HoraRecurso]]) -> None:
+    `omisiones` (F-023): lineas que la verificacion del recurso ya descarto
+    (R36-R37), con su motivo. Mandan sobre cualquier otra regla: lo primero
+    que hay que arreglar es el recurso.
+    """
+
+    def __init__(self, horas_por_recurso: dict[int, list[HoraRecurso]],
+                 omisiones: dict[int, str] | None = None) -> None:
         self._horas = horas_por_recurso
+        self._omisiones = omisiones or {}
 
     # ------------------------------------------------------------- #
     def decidir(self, linea: LineaEntrada) -> AccionLinea:
@@ -92,6 +99,9 @@ class ReglasRegistro:
         def omitir(motivo: str) -> AccionLinea:
             return AccionLinea(accion="omitir", motivo=motivo, **base)
 
+        previa = self._omisiones.get(linea.registro_id)
+        if previa:
+            return omitir(previa)
         if linea.es_incidencia:
             return self._decidir_incidencia(linea, base, omitir)
         tipo = (linea.tipo_hora or "").strip().lower()

@@ -332,3 +332,197 @@ def test_f023_r36_cliente_datos_recursos_sin_resides_no_lee(monkeypatch) -> None
     falso = SigridApiFalso(["reside"])
     assert _cliente(monkeypatch, falso).datos_recursos([None, 0]) == {}
     assert falso.lecturas == []
+
+
+# ===================================================================== #
+# pipeline · preparar/registrar con el doble en memoria (R32-R37).
+# ===================================================================== #
+
+from application.pipelines.registro_pipeline import (  # noqa: E402
+    RegistroPipeline,
+)
+from application.services.reglas_registro import (  # noqa: E402
+    MOTIVO_SIN_RECURSO,
+)
+from domain.models.registro_models import (  # noqa: E402
+    HoraRecurso,
+    LineaEntrada,
+)
+from tests.dobles import SettingsFake, SigridFake  # noqa: E402
+
+HORAS = [HoraRecurso(horide=1, cod="HL01", res=None, pre=10.0),
+         HoraRecurso(horide=2, cod="HE01", res=None, pre=15.0)]
+OBRA_UNO = ObraEntrada(ide=10, codigo="0100", nombre="Uno", empresa=1)
+OBRA_VEINTIOCHO = ObraEntrada(ide=20, codigo="0200", nombre="Veintiocho",
+                              empresa=28)
+PRUEBAS = ObraEntrada(ide=99, codigo="0404", nombre="Pruebas", empresa=1)
+
+
+def _sigrid_empresas(**kw) -> SigridFake:
+    return SigridFake(
+        obras={"0100": OBRA_UNO, "0200": OBRA_VEINTIOCHO, "0404": PRUEBAS},
+        horas={i: HORAS for i in range(501, 510)}, **kw)
+
+
+def _lin(rid, recurso=501, *, dni=None, fecha=FECHA) -> LineaEntrada:
+    return LineaEntrada(registro_id=rid, fecha_int=fecha, recurso_ide=recurso,
+                        dni=dni, nombre=f"T{rid}", tipo_hora="normal",
+                        horas=8.0)
+
+
+def _pipeline(cli, **st) -> RegistroPipeline:
+    return RegistroPipeline(cliente=cli, settings=SettingsFake(**st))
+
+
+def _motivos(resultado) -> dict:
+    return {o["registro_id"]: o["motivo"] for o in resultado.omitidas}
+
+
+def test_f023_r32_r33_pipeline_parte_nuevo_en_la_empresa_de_la_obra() -> None:
+    cli = _sigrid_empresas(
+        recursos={502: RecursoSigrid(502, 28, 0, None)},
+        partes=[{"ide": 1, "obride": 10, "ano": 2025, "mes": 1,
+                 "cod": "PT26/00338", "emp": 1},
+                {"ide": 2, "obride": 20, "ano": 2025, "mes": 1,
+                 "cod": "PT26/00121", "emp": 28}])
+    r = _pipeline(cli).ejecutar(obra=OBRA_VEINTIOCHO, lineas=[_lin(1, 502)])
+    assert [e["registro_id"] for e in r.escritas] == [1]
+    nuevo = cli.partes[-1]
+    assert (nuevo["cod"], nuevo["emp"], nuevo["obride"]) == \
+        ("PT26/00122", 28, 20)
+
+
+def test_f023_r33_pipeline_el_preflight_propone_el_correlativo_de_la_empresa(
+) -> None:
+    cli = _sigrid_empresas(partes=[
+        {"ide": 1, "obride": 10, "ano": 2025, "mes": 1, "cod": "PT26/00338",
+         "emp": 1}])
+    pf = _pipeline(cli).preflight(obra=OBRA_UNO, lineas=[_lin(1)])
+    assert [p.cod for p in pf.partes] == ["PT26/00339"]
+    pf28 = _pipeline(_sigrid_empresas(
+        recursos={502: RecursoSigrid(502, 28, 0, None)}, partes=[
+            {"ide": 1, "obride": 10, "ano": 2025, "mes": 1,
+             "cod": "PT26/00338", "emp": 1}])).preflight(
+        obra=OBRA_VEINTIOCHO, lineas=[_lin(1, 502)])
+    assert [p.cod for p in pf28.partes] == ["PT26/00001"]
+
+
+def test_f023_r35_pipeline_obra_sin_empresa_no_escribe_nada() -> None:
+    sin = ObraEntrada(ide=30, codigo="0300", nombre="Sin", empresa=None)
+    cli = SigridFake(obras={"0300": sin}, horas={501: HORAS})
+    with pytest.raises(RuntimeError, match="empresa"):
+        _pipeline(cli).ejecutar(obra=sin, lineas=[_lin(1)])
+    assert "escribir" not in cli.llamadas
+    assert "horas_de_recursos" not in cli.llamadas
+
+
+def test_f023_r35_pipeline_la_obra_de_pruebas_sin_empresa_tampoco() -> None:
+    sin = ObraEntrada(ide=99, codigo="0404", nombre="Pruebas", empresa=None)
+    cli = SigridFake(obras={"0100": OBRA_UNO, "0404": sin},
+                     horas={501: HORAS})
+    with pytest.raises(RuntimeError, match="empresa"):
+        _pipeline(cli, obra_pruebas_forzar=True).ejecutar(
+            obra=OBRA_UNO, lineas=[_lin(1)])
+    assert "escribir" not in cli.llamadas
+
+
+def test_f023_r36_pipeline_verifica_cada_recurso_antes_de_escribir() -> None:
+    cli = _sigrid_empresas(recursos={
+        501: RecursoSigrid(501, 1, 0, DNI),
+        502: RecursoSigrid(502, 28, 0, DNI),
+        503: RecursoSigrid(503, 1, FECHA, DNI),
+        505: RecursoSigrid(505, 1, 0, "87654321X"),
+    })
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[
+        _lin(1, 501, dni=DNI), _lin(2, 502, dni=DNI), _lin(3, 503, dni=DNI),
+        _lin(4, 504, dni=DNI), _lin(5, 505, dni=DNI), _lin(6, 505)])
+    assert [e["registro_id"] for e in r.escritas] == [1, 6]
+    assert _motivos(r) == {
+        2: MOTIVO_RECURSO_OTRA_EMPRESA, 3: MOTIVO_RECURSO_BAJA,
+        4: MOTIVO_RECURSO_NO_EXISTE, 5: MOTIVO_RECURSO_OTRA_PERSONA}
+    assert cli.recursos_leidos == [[501, 502, 503, 504, 505]]
+
+
+def test_f023_r36_pipeline_si_no_se_puede_verificar_no_se_escribe() -> None:
+    class Caido(SigridFake):
+        def datos_recursos(self, resides):
+            raise RuntimeError("sigrid-api caido")
+
+    cli = Caido(obras={"0100": OBRA_UNO}, horas={501: HORAS})
+    with pytest.raises(RuntimeError, match="caido"):
+        _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[_lin(1)])
+    assert "escribir" not in cli.llamadas
+
+
+def test_f023_r37_pipeline_sin_recurso_se_resuelve_por_dni_en_la_empresa(
+) -> None:
+    cli = _sigrid_empresas(por_dni={DNI: [
+        RecursoSigrid(501, 1, 0, DNI), RecursoSigrid(502, 28, 0, DNI)]})
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO,
+                                lineas=[_lin(1, None, dni="12345678-z")])
+    assert [e["registro_id"] for e in r.escritas] == [1]
+    assert cli.lineas[0]["reside"] == 501
+    # Lo resuelto por DNI ya es coherente: no se vuelve a verificar.
+    assert cli.recursos_leidos == []
+
+
+def test_f023_r37_pipeline_por_dni_cero_o_varios_se_omite_con_motivo(
+) -> None:
+    cli = _sigrid_empresas(por_dni={
+        DNI: [RecursoSigrid(501, 1, 0, DNI), RecursoSigrid(503, 1, 0, DNI)],
+        "87654321X": [RecursoSigrid(502, 28, 0, "87654321X")],
+    })
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[
+        _lin(1, None, dni=DNI), _lin(2, None, dni="87654321X"),
+        _lin(3, None, dni="11111111H")])
+    assert r.escritas == []
+    assert _motivos(r) == {1: MOTIVO_RECURSO_AMBIGUO,
+                           2: MOTIVO_SIN_RECURSO_EMPRESA,
+                           3: MOTIVO_SIN_RECURSO_EMPRESA}
+
+
+def test_f023_r37_pipeline_la_fecha_de_cada_linea_cuenta() -> None:
+    cli = _sigrid_empresas(por_dni={DNI: [
+        RecursoSigrid(501, 1, 20260801, DNI), RecursoSigrid(502, 1, 0, DNI)]})
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[
+        _lin(1, None, dni=DNI, fecha=20260731),
+        _lin(2, None, dni=DNI, fecha=20260915)])
+    assert _motivos(r) == {1: MOTIVO_RECURSO_AMBIGUO}
+    assert [e["registro_id"] for e in r.escritas] == [2]
+
+
+def test_f023_r37_pipeline_si_falla_la_lectura_por_dni_queda_sin_recurso(
+) -> None:
+    class Caido(SigridFake):
+        def recursos_por_dni(self, dnis):
+            raise RuntimeError("sigrid-api caido")
+
+    cli = Caido(obras={"0100": OBRA_UNO}, horas={501: HORAS})
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[_lin(1, None, dni=DNI)])
+    assert _motivos(r) == {1: MOTIVO_SIN_RECURSO}
+
+
+def test_f023_r37_pipeline_sin_recurso_ni_dni_no_lee_por_dni() -> None:
+    cli = _sigrid_empresas()
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[_lin(1, None)])
+    assert _motivos(r) == {1: MOTIVO_SIN_RECURSO}
+    assert "recursos_por_dni" not in cli.llamadas
+
+
+def test_f023_r36_pipeline_la_verificacion_manda_sobre_las_reglas() -> None:
+    """Una incidencia intermedia con el recurso de otra empresa: el motivo
+    es el de la verificacion (lo que hay que arreglar primero)."""
+    cli = _sigrid_empresas(recursos={502: RecursoSigrid(502, 28, 0, None)})
+    linea = _lin(1, 502)
+    linea.es_incidencia, linea.incidencia_rol = True, "intermedio"
+    r = _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[linea])
+    assert _motivos(r) == {1: MOTIVO_RECURSO_OTRA_EMPRESA}
+
+
+def test_f023_da5_pipeline_settings_sin_sigrid_empresa(monkeypatch) -> None:
+    from config.settings import Settings
+
+    monkeypatch.setenv("SIGRID_API_BASE_URL", "http://sigrid.invalid")
+    monkeypatch.setenv("SIGRID_API_FUNCTION_KEY", "clave-de-test")
+    monkeypatch.setenv("SIGRID_EMPRESA", "1")
+    assert not hasattr(Settings(_env_file=None), "sigrid_empresa")

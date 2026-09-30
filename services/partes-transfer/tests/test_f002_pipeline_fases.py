@@ -29,7 +29,9 @@ from domain.models.registro_models import (
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 from tests.dobles import SettingsFake, SigridFake
 
-OBRA = ObraEntrada(ide=10, codigo="0100", nombre="Obra Uno")
+#: F-023: la obra destino trae su empresa de Sigrid (sin ella, R35 no deja
+#: escribir); los recursos del doble son de esa misma empresa.
+OBRA = ObraEntrada(ide=10, codigo="0100", nombre="Obra Uno", empresa=1)
 
 HORAS_COMPLETAS = [
     HoraRecurso(horide=1, cod="HL01", res=None, pre=10.0),
@@ -42,7 +44,8 @@ HORAS_MENSUAL = [HoraRecurso(horide=2, cod="HE01", res=None, pre=15.0)]
 def _sigrid(**kwargs) -> SigridFake:
     return SigridFake(
         obras={"0100": OBRA, "0404": ObraEntrada(ide=99, codigo="0404",
-                                                 nombre="Obra pruebas")},
+                                                 nombre="Obra pruebas",
+                                                 empresa=1)},
         horas={501: HORAS_COMPLETAS, 502: HORAS_MENSUAL},
         **kwargs)
 
