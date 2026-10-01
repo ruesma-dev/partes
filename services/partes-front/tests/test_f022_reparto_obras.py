@@ -12,9 +12,13 @@ from __future__ import annotations
 import pytest
 from application.services.reparto_obras import (
     SEPARADOR_CLAVE,
+    UMBRAL_PLEGADO,
+    GrupoObra,
     agregar_ejecucion,
     agregar_preflight,
+    listado_grupo,
     repartir_claves,
+    totales,
 )
 
 # ===================================================================== #
@@ -247,3 +251,201 @@ def test_f022_r22_agregar_ejecucion_todos_mal_no_es_parcial() -> None:
     assert (plano["ok"], plano["parcial"]) == (False, False)
     assert plano["error"] == "0100: uno; obr-20: error desconocido"
     assert "obra_destino" not in plano
+
+
+# ===================================================================== #
+# T4 · R23, R24 · listado_grupo
+# ===================================================================== #
+
+def _linea(rid: int, **kw) -> dict:
+    base = {"registro_id": rid, "fecha_int": 20260302, "nombre": "Persona A",
+            "tipo_hora": "normal", "es_incidencia": False, "horas": 8.0,
+            "hora_codigo": "HL01", "partida_cod": "P-01", "recurso_ide": 501}
+    base.update(kw)
+    return base
+
+
+def _escribir(rid: int, **kw) -> dict:
+    base = {"registro_id": rid, "accion": "escribir", "hora_codigo": "HL01",
+            "can": 8.0, "partida_cod": "P-01", "recurso_ide": 501}
+    base.update(kw)
+    return base
+
+
+def _g(lineas, previo=None) -> GrupoObra:
+    return GrupoObra(clave="obr-10", obra={"codigo": "0100"}, lineas=lineas,
+                     estado_previo=previo or {})
+
+
+def test_f022_r23_listado_columnas_de_una_fila() -> None:
+    filas = listado_grupo(_g([_linea(1)]),
+                          {"ok": True, "acciones": [_escribir(1)]})
+    assert filas == [{
+        "registro_id": 1, "fecha_int": 20260302, "nombre": "Persona A",
+        "tipo": "ordinaria", "hora_codigo": "HL01", "horas": 8.0,
+        "partida_cod": "P-01", "recurso_ide": 501, "estado": "nuevo",
+        "motivo": ""}]
+
+
+def test_f022_r23_listado_codigo_partida_recurso_y_horas_de_la_accion() -> None:
+    """Las reglas de sv5 pueden cambiar codigo, partida, recurso y horas:
+    el listado ensena lo que se ESCRIBIRA, no lo que dice la linea."""
+    accion = _escribir(1, hora_codigo="HE02", can=7.5, partida_cod="P-99",
+                       recurso_ide=777)
+    fila = listado_grupo(_g([_linea(1)]),
+                         {"ok": True, "acciones": [accion]})[0]
+    assert (fila["hora_codigo"], fila["horas"], fila["partida_cod"],
+            fila["recurso_ide"]) == ("HE02", 7.5, "P-99", 777)
+
+
+def test_f022_r23_listado_sin_datos_en_la_accion_usa_los_de_la_linea() -> None:
+    accion = {"registro_id": 1, "accion": "escribir", "hora_codigo": None,
+              "can": None, "partida_cod": None, "recurso_ide": None}
+    fila = listado_grupo(_g([_linea(1, horas=6.0)]),
+                         {"ok": True, "acciones": [accion]})[0]
+    assert (fila["hora_codigo"], fila["horas"], fila["partida_cod"],
+            fila["recurso_ide"]) == ("HL01", 6.0, "P-01", 501)
+
+
+def test_f022_r23_listado_horas_de_la_linea_si_no_se_escribe() -> None:
+    accion = {"registro_id": 1, "accion": "omitir", "motivo": "sin recurso",
+              "can": 99.0}
+    fila = listado_grupo(_g([_linea(1, horas=6.0)]),
+                         {"ok": True, "acciones": [accion]})[0]
+    assert fila["horas"] == 6.0
+
+
+def test_f022_r23_listado_tipo_ordinaria_extra_incidencia() -> None:
+    lineas = [_linea(1), _linea(2, tipo_hora=" Extra "),
+              _linea(3, es_incidencia=True, tipo_hora="normal", horas=None,
+                     hora_codigo="CIV")]
+    acciones = [_escribir(1), _escribir(2, can=2.0, hora_codigo="HE01"),
+                _escribir(3, can=0.0, hora_codigo="CIV")]
+    filas = listado_grupo(_g(lineas), {"ok": True, "acciones": acciones})
+    assert [(f["tipo"], f["horas"], f["hora_codigo"]) for f in filas] == [
+        ("ordinaria", 8.0, "HL01"), ("extra", 2.0, "HE01"),
+        ("incidencia", 0.0, "CIV")]
+
+
+def test_f022_r23_listado_ordenado_por_fecha_trabajador_y_tipo() -> None:
+    lineas = [
+        _linea(1, fecha_int=20260303, nombre="Persona A"),
+        _linea(2, fecha_int=20260302, nombre="persona b"),
+        _linea(3, fecha_int=20260302, nombre="Persona A", es_incidencia=True),
+        _linea(4, fecha_int=20260302, nombre="Persona A", tipo_hora="extra"),
+        _linea(5, fecha_int=20260302, nombre="Persona A"),
+        _linea(6, fecha_int=None, nombre=None),
+        _linea(7, fecha_int=20260302, nombre="Persona A"),
+    ]
+    filas = listado_grupo(_g(lineas), {"ok": True, "acciones": []})
+    assert [f["registro_id"] for f in filas] == [6, 5, 7, 4, 3, 2, 1]
+
+
+def test_f022_r24_listado_conflicto_manda_sobre_la_accion() -> None:
+    pf = {"ok": True, "acciones": [_escribir(1), _escribir(2)],
+          "conflictos": [{"clave": "k", "parte_cod": "PT26/00003",
+                          "registros": [2]},
+                         {"clave": "k2", "parte_cod": None,
+                          "registros": [1]}]}
+    filas = listado_grupo(_g([_linea(1), _linea(2)], {2: "error"}), pf)
+    assert [(f["estado"], f["motivo"]) for f in filas] == [
+        ("conflicto", "ya hay una linea en Sigrid con el mismo codigo de "
+                      "hora (parte ?): decide si se pisa"),
+        ("conflicto", "ya hay una linea en Sigrid con el mismo codigo de "
+                      "hora (parte PT26/00003): decide si se pisa")]
+    assert [f["horas"] for f in filas] == [8.0, 8.0]
+
+
+def test_f022_r24_listado_un_conflicto_sin_registros_no_marca_nada() -> None:
+    pf = {"ok": True, "acciones": [_escribir(1)],
+          "conflictos": [{"clave": "k", "registros": None}]}
+    assert listado_grupo(_g([_linea(1)]), pf)[0]["estado"] == "nuevo"
+
+
+def test_f022_r24_listado_omitida_y_ya_registrada_con_su_motivo() -> None:
+    pf = {"ok": True, "acciones": [
+        {"registro_id": 1, "accion": "omitir", "motivo": "sin codigo"},
+        {"registro_id": 2, "accion": "ya_registrado", "motivo": "synckey"},
+        {"registro_id": 3, "accion": "omitir", "motivo": None},
+        {"registro_id": 4, "accion": "ya_registrado"}]}
+    filas = listado_grupo(_g([_linea(i) for i in (1, 2, 3, 4)]), pf)
+    assert [(f["estado"], f["motivo"]) for f in filas] == [
+        ("omitida", "sin codigo"), ("ya_registrada", "synckey"),
+        ("omitida", "las reglas de registro la omiten"),
+        ("ya_registrada", "ya estaba en Sigrid: no se duplica")]
+
+
+@pytest.mark.parametrize("previo", ["borrado_sigrid", "error", "omitido",
+                                    "conflicto", "encolado"])
+def test_f022_r24_listado_reaprobacion_por_cada_estado_previo(previo) -> None:
+    fila = listado_grupo(_g([_linea(1)], {1: previo}),
+                         {"ok": True, "acciones": [_escribir(1)]})[0]
+    assert (fila["estado"], fila["motivo"]) == ("reaprobacion",
+                                                f"antes: {previo}")
+
+
+@pytest.mark.parametrize("previo", ["", "otro"])
+def test_f022_r24_listado_nuevo_sin_intento_previo(previo) -> None:
+    fila = listado_grupo(_g([_linea(1)], {1: previo}),
+                         {"ok": True, "acciones": [_escribir(1)]})[0]
+    assert (fila["estado"], fila["motivo"]) == ("nuevo", "")
+
+
+def test_f022_r24_listado_sin_accion_de_sv5_cuenta_como_que_se_escribe() -> None:
+    fila = listado_grupo(_g([_linea(1, horas=5.0)], {1: "error"}),
+                         {"ok": True})[0]
+    assert (fila["estado"], fila["horas"]) == ("reaprobacion", 5.0)
+
+
+def test_f022_r24_listado_grupo_fallido_no_se_registra() -> None:
+    pf = {"ok": False, "error": "sv5 caido", "acciones": [_escribir(1)]}
+    filas = listado_grupo(_g([_linea(1), _linea(2)], {1: "error"}), pf)
+    assert [(f["estado"], f["motivo"]) for f in filas] == [
+        ("no_se_registra", "sv5 caido"), ("no_se_registra", "sv5 caido")]
+    sin_motivo = listado_grupo(_g([_linea(1)]), {"ok": False})[0]
+    assert sin_motivo["motivo"] == "no se pudo evaluar la obra"
+
+
+# ===================================================================== #
+# T4 · R25 · totales
+# ===================================================================== #
+
+def _fila(estado: str, tipo: str, horas) -> dict:
+    return {"estado": estado, "tipo": tipo, "horas": horas}
+
+
+def test_f022_r25_totales_horas_solo_de_lo_que_se_escribe() -> None:
+    listado = [
+        _fila("nuevo", "ordinaria", 8.0),
+        _fila("reaprobacion", "ordinaria", 0.25),
+        _fila("conflicto", "extra", 2.0),
+        _fila("nuevo", "extra", 1.5),
+        _fila("nuevo", "incidencia", 0.0),
+        _fila("conflicto", "incidencia", None),
+        _fila("omitida", "ordinaria", 8.0),
+        _fila("ya_registrada", "extra", 3.0),
+        _fila("no_se_registra", "incidencia", 0.0),
+        _fila("nuevo", "ordinaria", None),
+    ]
+    assert totales(listado) == {
+        "lineas": 10,
+        "por_estado": {"nuevo": 4, "reaprobacion": 1, "conflicto": 2,
+                       "omitida": 1, "ya_registrada": 1,
+                       "no_se_registra": 1},
+        "horas_ordinarias": 8.25, "horas_extra": 3.5, "incidencias": 2}
+
+
+def test_f022_r25_totales_redondea_a_dos_decimales() -> None:
+    listado = [_fila("nuevo", "ordinaria", 0.1)] * 3
+    assert totales(listado)["horas_ordinarias"] == 0.3
+    assert totales([_fila("nuevo", "extra", 0.1)] * 3)["horas_extra"] == 0.3
+
+
+def test_f022_r25_totales_vacio() -> None:
+    assert totales([]) == {"lineas": 0, "por_estado": {},
+                           "horas_ordinarias": 0.0, "horas_extra": 0.0,
+                           "incidencias": 0}
+
+
+def test_f022_r28_listado_umbral_de_plegado() -> None:
+    assert UMBRAL_PLEGADO == 40

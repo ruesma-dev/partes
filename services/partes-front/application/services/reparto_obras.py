@@ -146,3 +146,108 @@ def agregar_ejecucion(ejecutados: list[dict]) -> dict:
     if not ok:
         plano["error"] = _errores([g for g in ejecutados if not g.get("ok")])
     return plano
+
+
+# --------------------------------------------------------------------- #
+# DA19 · el listado del modal: lo que sv5 hara de verdad con cada linea.
+# --------------------------------------------------------------------- #
+
+#: Estados del listado en los que la linea SE ESCRIBE (o se escribira si
+#: el humano pisa el conflicto): son los que suman horas (R25).
+ESTADOS_ESCRITURA = ("nuevo", "reaprobacion", "conflicto")
+
+#: `sigrid_estado` previos que hacen de la escritura una reaprobacion.
+ESTADOS_REAPROBACION = ("borrado_sigrid", "error", "omitido", "conflicto",
+                        "encolado")
+
+ORDEN_TIPO = {"ordinaria": 0, "extra": 1, "incidencia": 2}
+
+
+def _tipo(linea: dict) -> str:
+    if linea.get("es_incidencia"):
+        return "incidencia"
+    if (linea.get("tipo_hora") or "").strip().lower() == "extra":
+        return "extra"
+    return "ordinaria"
+
+
+def _estado(accion: dict, conflicto: dict | None,
+            previo: str) -> tuple[str, str]:
+    """R24 para un grupo que sv5 pudo evaluar."""
+    if conflicto is not None:
+        return "conflicto", (
+            "ya hay una linea en Sigrid con el mismo codigo de hora (parte "
+            f"{conflicto.get('parte_cod') or '?'}): decide si se pisa")
+    if accion.get("accion") == "omitir":
+        return "omitida", (accion.get("motivo")
+                           or "las reglas de registro la omiten")
+    if accion.get("accion") == "ya_registrado":
+        return "ya_registrada", (accion.get("motivo")
+                                 or "ya estaba en Sigrid: no se duplica")
+    if previo in ESTADOS_REAPROBACION:
+        return "reaprobacion", f"antes: {previo}"
+    return "nuevo", ""
+
+
+def listado_grupo(grupo: GrupoObra, pf: dict) -> list[dict]:
+    """R23, R24: una fila por linea del grupo con lo que se escribira.
+
+    Cruza por `registro_id` con las `acciones` y los `conflictos` del
+    preflight de sv5: codigo de hora, partida, recurso y horas salen de la
+    accion si los trae (las reglas de sv5 pueden cambiarlos) y, si no, de
+    la linea. Si el preflight del grupo fallo, nada se registra.
+    """
+    acciones = {a.get("registro_id"): a for a in (pf.get("acciones") or [])}
+    en_conflicto: dict = {}
+    for c in pf.get("conflictos") or []:
+        for rid in c.get("registros") or []:
+            en_conflicto.setdefault(rid, c)
+    filas = []
+    for linea in grupo.lineas:
+        rid = linea["registro_id"]
+        accion = acciones.get(rid) or {}
+        if pf.get("ok"):
+            estado, motivo = _estado(accion, en_conflicto.get(rid),
+                                     grupo.estado_previo.get(rid, ""))
+        else:
+            estado = "no_se_registra"
+            motivo = str(pf.get("error") or "no se pudo evaluar la obra")
+        horas = linea.get("horas")
+        if estado in ESTADOS_ESCRITURA and accion.get("can") is not None:
+            horas = accion["can"]
+        filas.append({
+            "registro_id": rid,
+            "fecha_int": linea.get("fecha_int"),
+            "nombre": linea.get("nombre"),
+            "tipo": _tipo(linea),
+            "hora_codigo": accion.get("hora_codigo") or linea.get("hora_codigo"),
+            "horas": horas,
+            "partida_cod": accion.get("partida_cod") or linea.get("partida_cod"),
+            "recurso_ide": accion.get("recurso_ide") or linea.get("recurso_ide"),
+            "estado": estado,
+            "motivo": motivo,
+        })
+    filas.sort(key=lambda f: (f["fecha_int"] or 0, (f["nombre"] or "").lower(),
+                              ORDEN_TIPO[f["tipo"]], f["registro_id"]))
+    return filas
+
+
+def totales(listado: list[dict]) -> dict:
+    """R25: lineas por estado y lo que se ESCRIBIRA (horas ordinarias,
+    horas extra e incidencias); lo omitido o ya registrado no suma."""
+    por_estado: dict[str, int] = {}
+    ordinarias = extra = 0.0
+    incidencias = 0
+    for fila in listado:
+        por_estado[fila["estado"]] = por_estado.get(fila["estado"], 0) + 1
+        if fila["estado"] not in ESTADOS_ESCRITURA:
+            continue
+        if fila["tipo"] == "incidencia":
+            incidencias += 1
+        elif fila["tipo"] == "extra":
+            extra += float(fila["horas"] or 0.0)
+        else:
+            ordinarias += float(fila["horas"] or 0.0)
+    return {"lineas": len(listado), "por_estado": por_estado,
+            "horas_ordinarias": round(ordinarias, 2),
+            "horas_extra": round(extra, 2), "incidencias": incidencias}
