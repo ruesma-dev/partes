@@ -43,3 +43,18 @@ raíz:
 **Ningún test** llama a `SigridWriteClient.stmt_insert_linea` real ni
 compara el SQL de `horas_de_recursos`: no hay tests que adaptar en T6 más
 allá del doble.
+
+## 2. Fase RED (trazas reales)
+
+### T2 · regla pura (R1, R2, R4, R5, R6, R8)
+
+`cd services/partes-transfer && python -m pytest -q tests/test_f021_cuenta_analitica.py`
+
+```
+____________ ERROR collecting tests/test_f021_cuenta_analitica.py _____________
+tests\test_f021_cuenta_analitica.py:18: in <module>
+    from application.services.cuenta_analitica import (
+E   ModuleNotFoundError: No module named 'application.services.cuenta_analitica'
+ERROR tests/test_f021_cuenta_analitica.py
+1 error in 0.25s
+```
