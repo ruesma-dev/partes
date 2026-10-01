@@ -325,3 +325,255 @@ def test_f024_r8_cliente_error_http_es_una_excepcion(monkeypatch, metodo) -> Non
     falso = SigridApiFalso(["ide"], status=500)
     with pytest.raises(RuntimeError):
         getattr(_cliente(monkeypatch, falso), metodo)([1])
+
+
+
+# ===================================================================== #
+# ComprobadorLineas y endpoint `POST /api/registro/comprobar` (R1, R8, R9)
+# ===================================================================== #
+
+import threading  # noqa: E402
+
+from application.pipelines.registro_pipeline import RegistroPipeline  # noqa: E402
+from application.services.comprobacion_lineas import (  # noqa: E402
+    ComprobadorLineas,
+)
+from fastapi.testclient import TestClient  # noqa: E402
+from interface_adapters.api.app import build_app  # noqa: E402
+from tests.dobles import SettingsFake  # noqa: E402
+
+
+class ClienteFalso:
+    """Cliente de Sigrid en memoria que apunta cada lectura y revienta si
+    alguien intenta escribir."""
+
+    def __init__(self, *, por_synckey=None, por_ide=None, partes=None,
+                 fallo: str | None = None) -> None:
+        self.por_synckey = por_synckey or {}
+        self.por_ide = por_ide or {}
+        self.partes = partes if partes is not None else {HMO: COD}
+        self.fallo = fallo
+        self.llamadas: list[tuple[str, list]] = []
+
+    def _anotar(self, nombre, valores):
+        self.llamadas.append((nombre, list(valores)))
+        if self.fallo == nombre:
+            raise RuntimeError(f"sigrid-api caida en {nombre}")
+
+    def lineas_por_synckey(self, claves):
+        self._anotar("lineas_por_synckey", claves)
+        return {k: v for k, v in self.por_synckey.items() if k in claves}
+
+    def lineas_por_ide(self, ides):
+        self._anotar("lineas_por_ide", ides)
+        return {k: v for k, v in self.por_ide.items() if k in ides}
+
+    def partes_por_ide(self, hmoides):
+        self._anotar("partes_por_ide", hmoides)
+        return {k: v for k, v in self.partes.items() if k in hmoides}
+
+    def escribir(self, statements):   # pragma: no cover - no debe llamarse
+        self.llamadas.append(("escribir", statements))
+        raise AssertionError("la comprobacion no puede escribir")
+
+
+def test_f024_r1_comprobador_deduplica_por_registro_id() -> None:
+    cli = ClienteFalso(por_synckey={"partes:1": _ls(4001, synckey="partes:1")})
+    out = ComprobadorLineas(cliente=cli).comprobar(
+        [_linea(1), _linea(1, hmores_ide=9), _linea(2, hmores_ide=4002)])
+    assert [(v.registro_id, v.estado) for v in out] == [
+        (1, "presente"), (2, "borrada")]
+    assert cli.llamadas[0] == ("lineas_por_synckey", ["partes:1", "partes:2"])
+
+
+def test_f024_r3_comprobador_lee_por_ide_solo_los_fallos() -> None:
+    cli = ClienteFalso(
+        por_synckey={"partes:1": _ls(4001, synckey="partes:1")},
+        por_ide={4002: _ls(4002, hmoide=HMO_OTRO)},
+        partes={HMO: COD, HMO_OTRO: COD_OTRO})
+    out = ComprobadorLineas(cliente=cli).comprobar(
+        [_linea(1, hmores_ide=4001), _linea(2, hmores_ide=4002, hmoide=None),
+         _linea(3, hmores_ide=None, hmoide=7777)])
+    nombres = [n for n, _ in cli.llamadas]
+    assert nombres == ["lineas_por_synckey", "lineas_por_ide",
+                       "partes_por_ide"]
+    assert cli.llamadas[1] == ("lineas_por_ide", [4002])
+    assert sorted(cli.llamadas[2][1]) == [HMO, HMO_OTRO, 7777]
+    assert [(v.estado, v.sin_synckey, v.parte_cod) for v in out] == [
+        ("presente", False, COD), ("presente", True, COD_OTRO),
+        ("borrada", False, None)]
+    assert out[2].parte_existe is False
+
+
+def test_f024_r3_comprobador_sin_fallos_no_lee_por_ide() -> None:
+    cli = ClienteFalso(por_synckey={"partes:1": _ls(4001, synckey="partes:1")})
+    ComprobadorLineas(cliente=cli).comprobar([_linea(1)])
+    assert [n for n, _ in cli.llamadas] == ["lineas_por_synckey",
+                                            "partes_por_ide"]
+
+
+def test_f024_r4_comprobador_sin_partes_que_mirar_no_lee_partes() -> None:
+    cli = ClienteFalso()
+    out = ComprobadorLineas(cliente=cli).comprobar(
+        [_linea(1, hmores_ide=None, hmoide=None)])
+    assert [n for n, _ in cli.llamadas] == ["lineas_por_synckey"]
+    assert out[0].estado == "borrada"
+
+
+@pytest.mark.parametrize("donde", ["lineas_por_synckey", "lineas_por_ide",
+                                   "partes_por_ide"])
+def test_f024_r8_comprobador_una_lectura_fallida_sube(donde) -> None:
+    cli = ClienteFalso(fallo=donde)
+    with pytest.raises(RuntimeError, match="caida"):
+        ComprobadorLineas(cliente=cli).comprobar([_linea(1)])
+
+
+# ------------------------------- endpoint ------------------------------- #
+
+def _app(cli: ClienteFalso, *, lock: threading.Lock | None = None):
+    pipeline = RegistroPipeline(cliente=cli, settings=SettingsFake(),
+                                lock=lock)
+    return build_app(SettingsFake(), pipeline=pipeline,
+                     comprobador=ComprobadorLineas(cliente=cli))
+
+
+def _cuerpo(*lineas: dict) -> dict:
+    return {"lineas": list(lineas)}
+
+
+LINEA_JSON = {"registro_id": 1, "hmores_ide": 4001, "hmoide": HMO,
+              "recurso_ide": 501, "fecha_int": 20260916, "horas": 8.0,
+              "es_incidencia": False}
+
+
+def test_f024_r1_endpoint_un_veredicto_por_registro_id() -> None:
+    cli = ClienteFalso(por_synckey={"partes:1": _ls(4001, synckey="partes:1")})
+    r = TestClient(_app(cli)).post("/api/registro/comprobar", json=_cuerpo(
+        LINEA_JSON, dict(LINEA_JSON), dict(LINEA_JSON, registro_id=2,
+                                           hmores_ide=4002)))
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["ok"] is True
+    assert [v["registro_id"] for v in cuerpo["veredictos"]] == [1, 2]
+    assert cuerpo["veredictos"][0] == {
+        "registro_id": 1, "estado": "presente", "hmores_ide": 4001,
+        "hmoide": HMO, "parte_cod": COD, "parte_existe": True,
+        "sin_synckey": False, "diferencias": [], "motivo": None}
+    assert cuerpo["veredictos"][1]["estado"] == "borrada"
+    assert all(n != "escribir" for n, _ in cli.llamadas)
+
+
+def test_f024_r1_endpoint_solo_registro_id_es_obligatorio() -> None:
+    cli = ClienteFalso()
+    r = TestClient(_app(cli)).post("/api/registro/comprobar",
+                                   json=_cuerpo({"registro_id": 5}))
+    assert r.status_code == 200
+    assert r.json()["veredictos"][0]["estado"] == "borrada"
+
+
+def test_f024_r1_endpoint_no_toma_el_lock_de_escritura() -> None:
+    """Con el lock tomado por otro hilo (una escritura en curso), la
+    comprobacion responde igual: no espera a nadie."""
+    lock = threading.Lock()
+    cli = ClienteFalso()
+    cliente_http = TestClient(_app(cli, lock=lock))
+    respuesta: dict = {}
+
+    def _pedir():
+        respuesta["r"] = cliente_http.post("/api/registro/comprobar",
+                                           json=_cuerpo(LINEA_JSON))
+
+    assert lock.acquire(timeout=1)
+    try:
+        hilo = threading.Thread(target=_pedir, daemon=True)
+        hilo.start()
+        hilo.join(timeout=10)
+        assert not hilo.is_alive(), "la comprobacion espero al lock"
+    finally:
+        lock.release()
+    assert respuesta["r"].status_code == 200
+
+
+def test_f024_r1_endpoint_admite_500_lineas() -> None:
+    cli = ClienteFalso()
+    lineas = [dict(LINEA_JSON, registro_id=i) for i in range(1, 501)]
+    r = TestClient(_app(cli)).post("/api/registro/comprobar",
+                                   json=_cuerpo(*lineas))
+    assert r.status_code == 200
+    assert len(r.json()["veredictos"]) == 500
+
+
+@pytest.mark.parametrize("cuerpo", [
+    pytest.param({"lineas": []}, id="cero-lineas"),
+    pytest.param({"lineas": [dict(LINEA_JSON, registro_id=i)
+                             for i in range(1, 502)]}, id="501-lineas"),
+    pytest.param({}, id="sin-lineas"),
+    pytest.param({"lineas": [{"hmores_ide": 3}]}, id="sin-registro-id"),
+    pytest.param({"lineas": [{"registro_id": "x"}]}, id="id-no-numerico"),
+])
+def test_f024_r9_endpoint_cuerpo_invalido_es_422_sin_leer(cuerpo) -> None:
+    cli = ClienteFalso()
+    r = TestClient(_app(cli)).post("/api/registro/comprobar", json=cuerpo)
+    assert r.status_code == 422
+    assert cli.llamadas == []
+
+
+def test_f024_r8_endpoint_lectura_fallida_es_502_sin_veredictos() -> None:
+    cli = ClienteFalso(fallo="lineas_por_ide")
+    r = TestClient(_app(cli)).post("/api/registro/comprobar",
+                                   json=_cuerpo(LINEA_JSON))
+    assert r.status_code == 502
+    cuerpo = r.json()
+    assert cuerpo["ok"] is False
+    assert "caida" in cuerpo["error"]
+    assert "veredictos" not in cuerpo
+
+
+def test_f024_r8_endpoint_truncated_es_502(monkeypatch) -> None:
+    """De punta a punta: sigrid-api devuelve `truncated` y el endpoint no
+    da ningun veredicto."""
+    falso = SigridApiFalso(["ide"], [], truncated=True)
+    cli_real = _cliente(monkeypatch, falso)
+    app = build_app(SettingsFake(),
+                    pipeline=RegistroPipeline(cliente=cli_real,
+                                              settings=SettingsFake()),
+                    comprobador=ComprobadorLineas(cliente=cli_real))
+    r = TestClient(app).post("/api/registro/comprobar",
+                             json=_cuerpo(LINEA_JSON))
+    assert r.status_code == 502
+    assert "veredictos" not in r.json()
+    assert all(u.endswith("/api/sql/read") for u in falso.urls)
+
+
+def _settings_con_sigrid() -> SettingsFake:
+    st = SettingsFake()
+    st.sigrid_api_base_url = "http://sigrid.invalid"
+    st.sigrid_api_function_key = "clave-de-test"
+    st.sigrid_api_database = "bd"
+    st.sigrid_api_timeout_s = 5
+    st.sigrid_max_statements = 15
+    st.tip_parte_trabajo = 35
+    st.est_parte_activo = 1
+    return st
+
+
+@pytest.mark.parametrize("con_pipeline", [True, False])
+def test_f024_r1_endpoint_sin_comprobador_inyectado_usa_el_cliente_de_sigrid(
+        monkeypatch, con_pipeline) -> None:
+    """Sin `comprobador`, la app lo construye sobre un SigridWriteClient
+    (el suyo o, con pipeline de fuera, uno nuevo en la primera peticion)
+    y solo lee."""
+    falso = SigridApiFalso(["ide"])
+    monkeypatch.setattr(modulo_cliente.httpx, "post", falso)
+    st = _settings_con_sigrid()
+    pipeline = (RegistroPipeline(cliente=ClienteFalso(), settings=st)
+                if con_pipeline else None)
+    cliente_http = TestClient(build_app(st, pipeline=pipeline))
+    for _ in range(2):
+        r = cliente_http.post("/api/registro/comprobar",
+                              json=_cuerpo(LINEA_JSON))
+        assert r.status_code == 200
+        assert r.json()["veredictos"][0]["estado"] == "borrada"
+    assert falso.urls and all(u == "http://sigrid.invalid/api/sql/read"
+                              for u in falso.urls)
+    assert falso.lecturas[0]["database"] == "bd"
