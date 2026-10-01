@@ -162,3 +162,22 @@ FAILED ...::test_f021_r20_sin_avisos_no_pinta_el_bloque[acciones0..4]   (x4)
 ```
 El que pasa es `test_f021_r21_el_preflight_reenvia_los_caa_de_sv5`: R21 no
 exige código (design §5: `aprobar_preflight` ya reenvía la respuesta).
+
+## 3. Commits (rama `feature/F-021-cuenta-analitica-sigrid`)
+
+| Tarea | Commit | Contenido |
+|---|---|---|
+| T1 | `2dad9ab` | inventario + contraste con F-023/F-024 |
+| T2 | `7806afb` | tests RED de `cuenta_analitica.py` |
+| T4 | `5a9682f` | `HoraRecurso.caa_cod/defecto`, `AccionLinea.caa_*` |
+| T3 | `9947927` | `application/services/cuenta_analitica.py` |
+| T5 | `f732c2a` | tests RED del cliente |
+| T6 | `a3788d5` | `horas_de_recursos`, `cuentas_de_centro`, `stmt_insert_linea(caaide)` |
+| T7 | `3ec0277` | doble: `cuentas_de_centro` y `caaide` obligatorio |
+| T8 | `83fa669` | tests RED del pipeline |
+| T9 | `ee5a79d` | `_resolver_cuentas` en `preparar`; `caaide` y `caa_cod` al escribir |
+| T10 | `d65a880` | tests RED de sv4 |
+| T11 | `6103a82` | `avisosCuentaHtml` en `app.js` |
+| T12 | `34c2750` | comentarios de `prueba_escritura_sigrid.py` |
+| T13 | `f88019e` | `ARCHITECTURE.md` (punto 13) y `partes-proyecto.md` §3.5 (3b) |
+| T14 | `2fd1e92` (repo `azure-apps`, rama `master`, sin push) | `partes.md`: nota F-021 y §3.5 3b |
