@@ -15,6 +15,7 @@
             data-obra-label="{% if detail.obra_codigo %}{{ detail.obra_codigo }} · {% endif %}{{ detail.obra_nombre or '' }}">+ Añadir línea</button>
     {% if transfer_enabled %}
     <button type="button" class="btn ok" id="aprobar-todo"
+            data-vista="obra"
             data-obra-key="{{ detail.obra_key }}"
             data-period="{{ detail.period_key or '' }}"
             data-mode="{{ detail.mode or 'nomina' }}"
@@ -154,6 +155,11 @@
 
 <div class="panel">
   <div class="panel-header"><h2>Lineas del periodo</h2></div>
+  <div class="sel-tools" data-sel-tools>
+    <button type="button" class="btn secondary small" data-sel-visibles title="Marcar todas las lineas que se ven con los filtros actuales">Seleccionar visibles</button>
+    <button type="button" class="btn secondary small" data-sel-ninguna>Quitar selección</button>
+    <span class="sel-contador muted small" data-sel-contador></span>
+  </div>
   <div class="day-filter-bar" data-day-badge hidden>
     <span>Filtrando por <strong><span data-count>0</span></strong> casilla(s) (trabajador · día) de la matriz.</span>
     <button type="button" class="btn secondary small" data-day-clear>Quitar filtro</button>
@@ -195,6 +201,7 @@
       {% for r in detail.registros %}
       <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
         <td class="cell-fecha">
+          <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>

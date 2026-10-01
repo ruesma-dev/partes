@@ -25,6 +25,7 @@
             data-emp-label="{{ detail.nombre or '' }}">+ Añadir línea</button>
     {% if transfer_enabled %}
     <button type="button" class="btn ok" id="aprobar-todo" data-scope="visible"
+            data-vista="trabajador" data-worker-key="{{ worker_key }}"
             title="Registrar en Sigrid las lineas visibles de la tabla (respeta los filtros)">
       ✓ Aprobar visibles
     </button>
@@ -168,6 +169,11 @@
 
 <div class="panel">
   <div class="panel-header"><h2>Registros horarios</h2></div>
+  <div class="sel-tools" data-sel-tools>
+    <button type="button" class="btn secondary small" data-sel-visibles title="Marcar todas las lineas que se ven con los filtros actuales">Seleccionar visibles</button>
+    <button type="button" class="btn secondary small" data-sel-ninguna>Quitar selección</button>
+    <span class="sel-contador muted small" data-sel-contador></span>
+  </div>
   <div class="day-filter-bar" data-day-badge hidden>
     <span>Filtrando por <strong><span data-count>0</span></strong> día(s) seleccionados en el calendario.</span>
     <button type="button" class="btn secondary small" data-day-clear>Quitar filtro</button>
@@ -206,6 +212,7 @@
       {% for r in detail.registros %}
       <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
         <td class="cell-fecha">
+          <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
