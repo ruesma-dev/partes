@@ -1,62 +1,24 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-024 · implementada (implementer, 2026-10-01), pendiente de reviewer
+## F-024 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
 
-Spec aprobada (DA1–DA15 según recomendación). Rama
-`feature/F-024-lineas-encoladas`, T1–T18 hechas; informe en
-`progress/impl_F-024.md`, mutación en `progress/mutacion_F-024.md` (175
-mutantes; 22 supervivientes muertos con tests, 1 equivalente pendiente de
-que el humano acepte la justificación). `bash harness/init.sh` en verde.
-azure-apps: commit local `03f994c` (sin push). Sin desplegar.
+APPROVED del reviewer (`progress/review_F-024.md`); resumen en
+`progress/history.md`. Rama `feature/F-024-lineas-encoladas`, sin mergear ni
+desplegar. azure-apps: commit local `03f994c` (sin push).
 
-Pendientes MANUAL (humano; comandos exactos en `impl_F-024.md`, design §9):
-M1 consulta de `registrado` en PG antes de desplegar; M2 desplegar sv5 y
-luego sv4; M3 abrir la obra 0719 en el periodo del 16–28/09 y ver
-`[comprobacion-sigrid] … borradas=35` sin `[sigrid-write]`; M4 PG:
-PT26/00314 con 35 `borrado_sigrid`; M5 navegador (Reaprobar, botón,
-sondeo del modal, casilla de borradas: el JS de T13 no tiene tests).
-El AVISO OPERATIVO (DA13) sigue vigente hasta desplegar.
+**AVISO OPERATIVO (DA13) vigente hasta desplegar**: no usar «Aprobar todo» en
+la obra 0719 · 09/2026 ni «Aprobar visibles» en la ficha de sus trabajadores
+(reescribiría las 35 líneas que Administración borró a propósito).
 
-## F-024 · spec revisada (2026-10-01, DA1 cambiada por el humano), APROBADA
-
-Spec en `specs/F-024-lineas-encoladas/` (rama
-`feature/F-024-lineas-encoladas`; spec inicial en `d7bfd84`, revisión sin
-commitear). Base: `progress/explore_F-024.md`
-y lecturas del spec-author por sigrid-api (solo lectura): 0 `hmores` huérfanas
-de `hmo`, 0 líneas con `synckey` `partes:%`, los 35 `ide` de sv5 siguen sin
-existir. Toca **sv5** (endpoint de solo lectura `POST /api/registro/comprobar`)
-y **sv4** (estado nuevo `borrado_sigrid`, comprobación en segundo plano al
-entrar en la obra —y en la persona, DA15—, botón «Comprobar en Sigrid» para
-forzarla, sondeo del modal tras encolar). Sin barrido horario. sv3 no se toca. Sin cambio de schema.
-
-**AVISO OPERATIVO YA (DA13)**: hasta desplegar F-024, **no usar «Aprobar
-todo»** en la obra 0719 · 09/2026 ni «Aprobar visibles» en la ficha de sus
-trabajadores. Hoy las aprobaciones masivas reenvían también las líneas
-`registrado`, y sv5, al no encontrar su `synckey`, **reescribiría las 35
-líneas que Administración borró a propósito** (las del recurso de baja saldrían
-omitidas por F-023; el resto se escribiría).
-
-Decisiones a validar (design §8, con recomendación):
-
-1. DA1 · cuándo (decisión del humano): al entrar en la vista de obra, en segundo plano, solo sus líneas `registrado` del periodo mostrado (la vista siempre acota periodo: sin ventana configurable); botón para forzar. Si sv5/Sigrid fallan: nota discreta, nada cambia.
-2. DA2 · quién: sv5 por HTTP interno de solo lectura; sv4 no lee `hmores` (la lista cerrada no crece).
-3. DA3 · criterio: el de la idempotencia (`synckey`) + respaldo estricto por `hmores.ide`.
-4. DA4 · `borrado_sigrid` no congela, conserva `sigrid_parte_cod`/`hmores_ide`/`hmoide`; fecha en el motivo.
-5. DA5 · líneas modificadas a mano en Sigrid: siguen `registrado`; diferencias solo informativas.
-6. DA6 · cabecera borrada: misma transición; al reaprobar sale un `PT` nuevo.
-7. DA7 · aprobaciones masivas excluyen siempre `registrado` y `borrado_sigrid` salvo casilla; «Reaprobar» por línea.
-8. DA8 · `encolado` sigue entrando en las masivas (salida de atascos).
-9. DA9 · vista con resultado pendiente: aviso con «Actualizar», sin recarga automática.
-10. DA10 · las 35 de septiembre: al entrar en la obra 0719 en el periodo que contiene el 16–28/09, tras desplegar; después M3 de F-023 (reconciliar recursos) y reaprobación del humano.
-11. DA11 · despliegue sv5 → sv4.
-12. DA12 · desaprobar sin cambios (nada se borra en Sigrid).
-13. DA13 · el aviso operativo de arriba.
-14. DA14 · antimartilleo: TTL de 120 s por línea y proceso, sellado al reservar (también si falla); el botón lo salta. Lote 500, timeout 30 s; configurables.
-15. DA15 · la vista de persona también comprueba al entrar (mismo mecanismo); alternativa: allí solo el botón.
-
-Verificaciones MANUAL (humano) tras aprobar e implementar: design §9 (M1–M5),
-con la consulta previa de M1 en la base `partes` (sin firewall para los agentes).
+Pendientes MANUAL (comandos exactos en `progress/impl_F-024.md`, design §9):
+M1 consulta de `registrado` en PG antes de desplegar (requiere firewall);
+M2 desplegar sv5 y luego sv4; M3 abrir la obra 0719 en el periodo del
+16–28/09 y ver en el log `[comprobacion-sigrid] … borradas=35` sin
+`[sigrid-write]`; M4 PG: PT26/00314 con 35 `borrado_sigrid`; M5 navegador
+(Reaprobar, botón, sondeo del modal, casilla de borradas: el JS no tiene
+tests). Después: M3 de F-023 (reconciliar recursos) y reaprobación por
+Administración.
 
 ## F-021 · spec escrita (2026-10-01), pendiente de aprobación del humano
 
