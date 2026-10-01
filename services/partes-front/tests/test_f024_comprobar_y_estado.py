@@ -423,3 +423,195 @@ def test_f024_r14_servicio_ok_false_sin_texto_tiene_error() -> None:
     out = _servicio(repo, Sv5Falso(fallos=[{"ok": False}])).comprobar_ids(
         ids, origen="boton")
     assert out["error"] == "sv5 no respondio ok"
+
+
+
+# ===================================================================== #
+# T11 · endpoints POST /api/sigrid/comprobar (R17, R18, R21) y
+# POST /api/aprobar/estado (R28)
+# ===================================================================== #
+
+from fastapi.testclient import TestClient  # noqa: E402
+from interface_adapters.web.app import build_app  # noqa: E402
+
+
+class Sv5Portal(Sv5Falso):
+    """Doble completo de sv5 para levantar el portal: la comprobacion y
+    contadores de lo demas (que estos tests no deben disparar)."""
+
+    def __init__(self, **kw) -> None:
+        super().__init__(**kw)
+        self.otras: list[str] = []
+
+    def preflight(self, payload):  # pragma: no cover - no debe llamarse
+        self.otras.append("preflight")
+        return {"ok": True}
+
+    def ejecutar(self, payload):   # pragma: no cover - no debe llamarse
+        self.otras.append("ejecutar")
+        return {"ok": True}
+
+
+@pytest.fixture
+def portal(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana"}.items():
+        monkeypatch.setenv(clave, valor)
+    for clave in ("TRANSFER_BASE_URL", "COMPROBACION_SIGRID_TTL_S",
+                  "COMPROBACION_SIGRID_LOTE", "COMPROBACION_SIGRID_TIMEOUT_S"):
+        monkeypatch.delenv(clave, raising=False)
+
+    def _levantar(estados, *, sv5=None, con_sv5=True, entorno=None):
+        for clave, valor in (entorno or {}).items():
+            monkeypatch.setenv(clave, valor)
+        fabrica, repo, ids = _sembrar(estados)
+        sv5 = sv5 or (Sv5Portal() if con_sv5 else None)
+        app = build_app(Settings(_env_file=None), repository=repo,
+                        transfer_client=sv5)
+        return TestClient(app), fabrica, ids, sv5
+    return _levantar
+
+
+def test_f024_r17_endpoint_comprobar_aplica_y_responde(portal) -> None:
+    sv5 = Sv5Portal()
+    cliente, fabrica, ids, _ = portal(["registrado", "registrado", None],
+                                      sv5=sv5)
+    sv5.borradas = {ids[0]}
+    r = cliente.post("/api/sigrid/comprobar",
+                     json={"registro_ids": ids, "origen": "vista-obra"})
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo == {"ok": True, "comprobadas": 2, "recientes": 0,
+                      "borradas": 1, "borradas_ids": [ids[0]],
+                      "actualizadas": 0, "sin_synckey": 0,
+                      "con_diferencias": [], "fallidos": 0}
+    assert _estado(fabrica, ids[0]) == "borrado_sigrid"
+    assert [l["registro_id"] for l in sv5.llamadas[0][0]["lineas"]] == ids[:2]
+    assert sv5.otras == []
+
+
+def test_f024_r17_endpoint_usa_las_variables_de_entorno(portal) -> None:
+    cliente, _f, ids, sv5 = portal(
+        ["registrado"] * 3, entorno={"COMPROBACION_SIGRID_LOTE": "2",
+                                     "COMPROBACION_SIGRID_TIMEOUT_S": "7"})
+    cliente.post("/api/sigrid/comprobar", json={"registro_ids": ids})
+    assert [len(p["lineas"]) for p, _ in sv5.llamadas] == [2, 1]
+    assert {t for _, t in sv5.llamadas} == {7.0}
+
+
+def test_f024_r19_endpoint_recientes_y_forzar(portal) -> None:
+    cliente, _f, ids, sv5 = portal(["registrado"] * 2)
+    cliente.post("/api/sigrid/comprobar", json={"registro_ids": ids})
+    r = cliente.post("/api/sigrid/comprobar", json={"registro_ids": ids})
+    assert (r.json()["comprobadas"], r.json()["recientes"]) == (0, 2)
+    assert len(sv5.llamadas) == 1
+    r = cliente.post("/api/sigrid/comprobar",
+                     json={"registro_ids": ids, "forzar": True})
+    assert r.json()["comprobadas"] == 2 and len(sv5.llamadas) == 2
+
+
+def test_f024_r19_endpoint_ttl_cero_no_retiene(portal) -> None:
+    cliente, _f, ids, sv5 = portal(
+        ["registrado"], entorno={"COMPROBACION_SIGRID_TTL_S": "0"})
+    cliente.post("/api/sigrid/comprobar", json={"registro_ids": ids})
+    cliente.post("/api/sigrid/comprobar", json={"registro_ids": ids})
+    assert len(sv5.llamadas) == 2
+
+
+def test_f024_r17_endpoint_sin_sv5_es_503(portal) -> None:
+    cliente, *_ = portal(["registrado"], con_sv5=False)
+    r = cliente.post("/api/sigrid/comprobar", json={"registro_ids": [1]})
+    assert r.status_code == 503
+    assert r.json()["ok"] is False
+
+
+@pytest.mark.parametrize("cuerpo", [
+    pytest.param({"registro_ids": []}, id="cero"),
+    pytest.param({"registro_ids": list(range(1, 5002))}, id="5001"),
+    pytest.param({}, id="sin-ids"),
+    pytest.param({"registro_ids": ["x"]}, id="no-numerico"),
+])
+def test_f024_r17_endpoint_ids_fuera_de_rango_es_422(portal, cuerpo) -> None:
+    cliente, _f, _ids, sv5 = portal(["registrado"])
+    r = cliente.post("/api/sigrid/comprobar", json=cuerpo)
+    assert r.status_code == 422
+    assert sv5.llamadas == []
+
+
+def test_f024_r17_endpoint_admite_5000_ids(portal) -> None:
+    cliente, _f, ids, sv5 = portal(["registrado"])
+    r = cliente.post("/api/sigrid/comprobar",
+                     json={"registro_ids": list(range(ids[0], ids[0] + 5000))})
+    assert r.status_code == 200 and r.json()["comprobadas"] == 1
+
+
+def test_f024_r14_endpoint_fallo_de_sv5_es_502_y_no_cambia_nada(portal) -> None:
+    sv5 = Sv5Portal(fallos=[{"ok": False, "error": "HTTP 404"}])
+    cliente, fabrica, ids, _ = portal(["registrado"], sv5=sv5)
+    sv5.borradas = set(ids)
+    r = cliente.post("/api/sigrid/comprobar", json={"registro_ids": ids})
+    assert r.status_code == 502
+    assert r.json()["ok"] is False and r.json()["error"] == "HTTP 404"
+    assert _estado(fabrica, ids[0]) == "registrado"
+
+
+@pytest.mark.parametrize("origen, esperado", [
+    ("vista-obra", "vista-obra"), ("vista-trabajador", "vista-trabajador"),
+    ("boton", "boton"), ("<script>", "boton"), (None, "boton")])
+def test_f024_r21_endpoint_log_con_el_origen(portal, caplog, origen,
+                                             esperado) -> None:
+    cliente, _f, ids, _sv5 = portal(["registrado"])
+    cuerpo = {"registro_ids": ids}
+    if origen is not None:
+        cuerpo["origen"] = origen
+    with caplog.at_level(logging.INFO):
+        cliente.post("/api/sigrid/comprobar", json=cuerpo)
+    lineas = [r.getMessage() for r in caplog.records
+              if "[comprobacion-sigrid]" in r.getMessage()]
+    assert len(lineas) == 1
+    assert f"origen={esperado} " in lineas[0]
+
+
+def test_f024_r18_endpoint_servir_las_vistas_no_llama_a_sv5(portal) -> None:
+    cliente, _f, _ids, sv5 = portal(["registrado", "borrado_sigrid"])
+    assert cliente.get("/obras/obr-10").status_code == 200
+    assert cliente.get("/trabajadores/emp-77").status_code == 200
+    assert sv5.llamadas == [] and sv5.otras == []
+
+
+def test_f024_r28_endpoint_estado_cuenta_sin_escribir(portal) -> None:
+    cliente, fabrica, ids, sv5 = portal(
+        ["encolado", "encolado", "registrado", "omitido", "conflicto",
+         "error", None])
+    antes = {i: _estado(fabrica, i) for i in ids}
+    r = cliente.post("/api/aprobar/estado", json={"registro_ids": ids})
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "total": 7, "pendientes": 2, "estados": {
+        "encolado": 2, "registrado": 1, "omitido": 1, "conflicto": 1,
+        "error": 1, "sin_estado": 1}}
+    assert {i: _estado(fabrica, i) for i in ids} == antes
+    assert sv5.llamadas == [] and sv5.otras == []
+
+
+def test_f024_r28_endpoint_estado_no_necesita_sv5(portal) -> None:
+    cliente, _f, ids, _ = portal(["encolado"], con_sv5=False)
+    r = cliente.post("/api/aprobar/estado", json={"registro_ids": ids})
+    assert r.status_code == 200 and r.json()["pendientes"] == 1
+
+
+@pytest.mark.parametrize("cuerpo", [
+    pytest.param({"registro_ids": []}, id="cero"),
+    pytest.param({"registro_ids": list(range(1, 5002))}, id="5001"),
+    pytest.param({}, id="sin-ids"),
+])
+def test_f024_r28_endpoint_estado_fuera_de_rango_es_422(portal, cuerpo) -> None:
+    cliente, *_ = portal(["encolado"])
+    assert cliente.post("/api/aprobar/estado", json=cuerpo).status_code == 422
+
+
+def test_f024_r28_endpoint_estado_admite_5000(portal) -> None:
+    cliente, _f, ids, _ = portal(["encolado"])
+    r = cliente.post("/api/aprobar/estado",
+                     json={"registro_ids": list(range(ids[0], ids[0] + 5000))})
+    assert r.status_code == 200 and r.json()["total"] == 1

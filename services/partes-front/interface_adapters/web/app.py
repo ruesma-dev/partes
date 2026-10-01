@@ -35,8 +35,12 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
+from application.services.comprobacion_sigrid import (
+    ComprobacionSigrid,
+    RegistroComprobaciones,
+)
 from application.services.congelacion import CongeladoError
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
@@ -189,6 +193,27 @@ class PartidaPayload(BaseModel):
     partida_cod: str | None = None
     partida_res: str | None = None
     partida_capitulo: str | None = None
+
+
+#: Tope de ids por peticion de comprobacion y de estado (F-024, R17/R28).
+MAX_IDS_COMPROBAR = 5000
+
+#: Origenes admitidos en el log de la comprobacion (R21). Cualquier otro
+#: valor del navegador se registra como `boton`: el log no repite texto
+#: libre que llegue de fuera.
+ORIGENES_COMPROBACION = ("vista-obra", "vista-trabajador", "boton")
+
+
+class ComprobarSigridPayload(BaseModel):
+    registro_ids: list[int] = Field(min_length=1,
+                                    max_length=MAX_IDS_COMPROBAR)
+    forzar: bool = False
+    origen: str | None = None
+
+
+class EstadoAprobacionPayload(BaseModel):
+    registro_ids: list[int] = Field(min_length=1,
+                                    max_length=MAX_IDS_COMPROBAR)
 
 
 class FechaPayload(BaseModel):
@@ -401,6 +426,19 @@ def build_app(
                     settings.transfer_base_url)
     elif transfer_client is None:
         logger.info("[transfer][wiring] DESHABILITADO (falta TRANSFER_BASE_URL)")
+
+    # F-024: comprobacion de lineas `registrado` contra Sigrid (via sv5).
+    # UNA por proceso: su registro de comprobaciones recientes (R19) es lo
+    # que evita que cada recarga de una vista vuelva a preguntar a sv5.
+    comprobacion_sigrid: ComprobacionSigrid | None = None
+    if transfer_client is not None:
+        comprobacion_sigrid = ComprobacionSigrid(
+            repository=repository, transfer_client=transfer_client,
+            lote=settings.comprobacion_sigrid_lote,
+            timeout_s=settings.comprobacion_sigrid_timeout_s,
+            recientes=RegistroComprobaciones(
+                ttl_s=settings.comprobacion_sigrid_ttl_s),
+        )
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo
@@ -2007,6 +2045,33 @@ def build_app(
                              "peticion_id": peticion_id,
                              "encoladas": len(ids), "registro_ids": ids,
                              "excluidas": excluidas})
+
+    @app.post("/api/sigrid/comprobar", include_in_schema=False)
+    def sigrid_comprobar(p: ComprobarSigridPayload) -> JSONResponse:
+        """F-024 (R17-R21): siguen en Sigrid estas lineas `registrado`?
+
+        Lo llama el navegador al cargar la vista de obra o de persona (sin
+        `forzar`) y el boton «Comprobar en Sigrid» (con `forzar`). El GET
+        de las vistas NO llama a sv5 (R18). `def`: corre en un hilo del
+        pool y no bloquea el bucle mientras sv5 lee Sigrid.
+        """
+        if comprobacion_sigrid is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        origen = p.origen if p.origen in ORIGENES_COMPROBACION else "boton"
+        res = comprobacion_sigrid.comprobar_ids(
+            p.registro_ids, origen=origen, forzar=p.forzar)
+        return JSONResponse(res, status_code=200 if res["ok"] else 502)
+
+    @app.post("/api/aprobar/estado", include_in_schema=False)
+    def aprobar_estado(p: EstadoAprobacionPayload) -> JSONResponse:
+        """F-024 (R28): en que `sigrid_estado` estan esas lineas. Solo
+        lectura; lo sondea el modal tras encolar (R29) y la vista con
+        lineas `encolado` (R30)."""
+        return JSONResponse({"ok": True,
+                             **repository.recuento_estados(p.registro_ids)})
 
     # ------------------------------------------------------------------ #
     # COLAS 'poison': visibilidad y reencolado manual desde el portal.
