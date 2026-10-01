@@ -628,3 +628,89 @@ def test_f024_r30_vista_el_tooltip_de_encolado_no_pide_recargar(
     assert "encolado" in fila
     assert "Recarga en unos segundos" not in html
     assert "segundo plano" in fila
+
+
+
+# ===================================================================== #
+# T17 · supervivientes de la campana de mutacion (progress/mutacion_F-024.md)
+# ===================================================================== #
+
+@pytest.mark.parametrize("cod_guardado, cod_veredicto, hmoide, esperado", [
+    pytest.param(None, "PT26/09002", None, "PT26/09002", id="del-veredicto"),
+    pytest.param(None, None, 7003, "7003", id="del-hmoide"),
+    pytest.param(None, None, None, "?", id="sin-nada"),
+])
+def test_f024_r10_repo_motivo_parte_de_respaldo(cod_guardado, cod_veredicto,
+                                                hmoide, esperado) -> None:
+    """La parte del motivo: la guardada, la del veredicto, el `hmoide` o
+    `?` (mutantes 39 y 44)."""
+    repo, fabrica, ids = _montar(["registrado"])
+    _registrada(fabrica, ids[0], hmores=4001)
+    _poner(fabrica, ids[0], sigrid_parte_cod=cod_guardado, sigrid_hmoide=hmoide)
+    repo.aplicar_comprobacion_sigrid(
+        [_borrada(ids[0], parte_cod=cod_veredicto)], {ids[0]: 4001}, AHORA)
+    assert _leer(fabrica, ids[0]).sigrid_motivo.startswith(
+        f"Borrada en Sigrid: la linea 4001 del parte {esperado} ya no existe")
+
+
+def test_f024_r11_repo_veredicto_sin_registro_id_no_se_aplica() -> None:
+    """Un veredicto sin `registro_id` no se confunde con el id 1
+    (mutante 59)."""
+    repo, fabrica, ids = _montar(["registrado"])
+    assert ids[0] == 1
+    _registrada(fabrica, ids[0], hmores=4001)
+    veredicto = _borrada(ids[0])
+    del veredicto["registro_id"]
+    out = repo.aplicar_comprobacion_sigrid([veredicto], {1: 4001}, AHORA)
+    assert out == {"borradas": [], "actualizadas": []}
+    assert _leer(fabrica, ids[0]).sigrid_estado == "registrado"
+
+
+def test_f024_r11_repo_lee_cada_linea_con_bloqueo_de_fila() -> None:
+    """CAS en la misma transaccion (R11): en PostgreSQL la lectura lleva
+    `FOR UPDATE`; SQLite lo ignora, asi que se espia la llamada
+    (mutante 64)."""
+    repo, fabrica, ids = _montar(["registrado"])
+    _registrada(fabrica, ids[0], hmores=4001)
+    llamadas: list[dict] = []
+    original = fabrica.create_session
+
+    def _sesion_espia():
+        sesion = original()
+        get = sesion.get
+
+        def _get(modelo, ident, **kw):
+            llamadas.append(kw)
+            return get(modelo, ident, **kw)
+
+        sesion.get = _get
+        return sesion
+
+    fabrica.create_session = _sesion_espia
+    repo.aplicar_comprobacion_sigrid([_borrada(ids[0])], {ids[0]: 4001}, AHORA)
+    assert llamadas == [{"with_for_update": True}]
+
+
+def test_f024_r17_repo_consulta_por_lotes_de_mil_ids() -> None:
+    """Mutante 38: las lecturas por ids van en `IN` de 1000 como mucho."""
+    repo, fabrica, ids = _montar(["registrado"])
+    _registrada(fabrica, ids[0], hmores=4001)
+    consultas: list[int] = []
+    original = fabrica.create_session
+
+    def _sesion_espia():
+        sesion = original()
+        execute = sesion.execute
+
+        def _execute(*a, **kw):
+            consultas.append(1)
+            return execute(*a, **kw)
+
+        sesion.execute = _execute
+        return sesion
+
+    fabrica.create_session = _sesion_espia
+    assert repo_mod.LOTE_IDS_CONSULTA == 1000
+    filas = repo.registrados_para_comprobar(list(range(1, 1002)))
+    assert [f["registro_id"] for f in filas] == [ids[0]]
+    assert len(consultas) == 2

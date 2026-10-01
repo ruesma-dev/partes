@@ -615,3 +615,32 @@ def test_f024_r28_endpoint_estado_admite_5000(portal) -> None:
     r = cliente.post("/api/aprobar/estado",
                      json={"registro_ids": list(range(ids[0], ids[0] + 5000))})
     assert r.status_code == 200 and r.json()["total"] == 1
+
+
+
+# ===================================================================== #
+# T17 · supervivientes de la campana de mutacion (progress/mutacion_F-024.md)
+# ===================================================================== #
+
+def test_f024_r14_servicio_la_excepcion_de_sv5_llega_al_error() -> None:
+    """Mutante 18: el texto de la excepcion es el error que se devuelve."""
+    fabrica, repo, ids = _sembrar(["registrado"])
+    sv5 = Sv5Falso(fallos=[RuntimeError("sv5 caido")])
+    out = _servicio(repo, sv5).comprobar_ids(ids, origen="boton")
+    assert out["error"] == "error llamando a sv5: sv5 caido"
+    assert _estado(fabrica, ids[0]) == "registrado"
+
+
+def test_f024_r17_servicio_settings_timeout_fraccionario(entorno_pg) -> None:
+    """Mutante 36: cualquier plazo positivo vale, tambien menos de 1 s."""
+    entorno_pg.setenv("COMPROBACION_SIGRID_TIMEOUT_S", "0.5")
+    assert Settings(_env_file=None).comprobacion_sigrid_timeout_s == 0.5
+
+
+@pytest.mark.parametrize("ruta", ["/api/sigrid/comprobar",
+                                  "/api/aprobar/estado"])
+def test_f024_r17_endpoint_fuera_del_esquema_publico(portal, ruta) -> None:
+    """Mutantes 103 y 113: como el resto de endpoints de aprobacion, no
+    se publican en el esquema OpenAPI."""
+    cliente, *_ = portal(["registrado"])
+    assert ruta not in cliente.app.openapi()["paths"]

@@ -14,6 +14,7 @@ Todos los `ide`, recursos y codigos son sinteticos.
 from __future__ import annotations
 
 import pytest
+
 from application.services.comprobacion_lineas import (
     LineaComprobar,
     Veredicto,
@@ -218,6 +219,7 @@ def test_f024_r1_clasificar_un_veredicto_por_linea_y_en_orden() -> None:
 # ===================================================================== #
 
 import httpx
+
 from infrastructure.sigrid import sigrid_write_client as modulo_cliente
 from infrastructure.sigrid.sigrid_write_client import (
     SigridWriteClient,
@@ -333,11 +335,12 @@ def test_f024_r8_cliente_error_http_es_una_excepcion(monkeypatch, metodo) -> Non
 
 import threading
 
+from fastapi.testclient import TestClient
+
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.comprobacion_lineas import (
     ComprobadorLineas,
 )
-from fastapi.testclient import TestClient
 from interface_adapters.api.app import build_app
 from tests.dobles import SettingsFake
 
@@ -576,3 +579,81 @@ def test_f024_r1_endpoint_sin_comprobador_inyectado_usa_el_cliente_de_sigrid(
     assert falso.urls and all(u == "http://sigrid.invalid/api/sql/read"
                               for u in falso.urls)
     assert falso.lecturas[0]["database"] == "bd"
+
+
+
+# ===================================================================== #
+# T17 · supervivientes de la campana de mutacion (progress/mutacion_F-024.md)
+# ===================================================================== #
+
+import logging
+
+
+def test_f024_r21_comprobador_log_con_los_recuentos(caplog) -> None:
+    """Mutantes 94, 118, 128, 144, 163 y 168: la linea `[comprobar]`
+    cuenta bien cada clase de veredicto (es lo que M3 lee en Log
+    Analytics)."""
+    cli = ClienteFalso(
+        por_synckey={"partes:1": _ls(4001, synckey="partes:1", can=6.0)},
+        por_ide={4002: _ls(4002)})
+    with caplog.at_level(logging.INFO):
+        ComprobadorLineas(cliente=cli).comprobar(
+            [_linea(1, hmores_ide=4001), _linea(2, hmores_ide=4002),
+             _linea(3, hmores_ide=4003), _linea(4, hmores_ide=4004),
+             _linea(5, hmores_ide=4005)])
+    lineas = [r.getMessage() for r in caplog.records
+              if r.getMessage().startswith("[comprobar]")]
+    assert lineas == [("[comprobar] lineas=5 presentes=2 borradas=3 "
+                       "sin_synckey=1 con_diferencias=1")]
+
+
+def test_f024_r6_clasificar_tolerancia_justo_en_el_limite() -> None:
+    """Mutante 110: una diferencia de exactamente 0,005 no se avisa."""
+    v = _uno(_linea(11, horas=0.0),
+             synckey={"partes:11": _ls(4001, synckey="partes:11", can=0.005)})
+    assert v.diferencias == []
+
+
+def test_f024_r6_clasificar_por_defecto_no_es_incidencia() -> None:
+    """Mutante 136: sin `es_incidencia`, las horas se comparan."""
+    linea = LineaComprobar(registro_id=11, recurso_ide=501,
+                           fecha_int=20260916, horas=8.0)
+    assert linea.es_incidencia is False
+    v = _uno(linea, synckey={"partes:11": _ls(4001, synckey="partes:11",
+                                              can=6.0)})
+    assert v.diferencias == ["horas: portal 8, Sigrid 6"]
+
+
+def test_f024_r6_endpoint_por_defecto_no_es_incidencia() -> None:
+    """Mutante 171: el esquema del endpoint tambien asume `False`."""
+    cli = ClienteFalso(por_synckey={"partes:1": _ls(4001, synckey="partes:1",
+                                                    can=6.0)})
+    linea = {k: v for k, v in LINEA_JSON.items() if k != "es_incidencia"}
+    r = TestClient(_app(cli)).post("/api/registro/comprobar",
+                                   json=_cuerpo(linea))
+    assert r.json()["veredictos"][0]["diferencias"] == [
+        "horas: portal 8, Sigrid 6"]
+
+
+def test_f024_r7_cliente_lineas_por_ide_nulos_a_cero(monkeypatch) -> None:
+    """Mutantes 130, 131 y 167: los NULL de Sigrid se leen como 0."""
+    falso = SigridApiFalso(COLS_HMORES,
+                           [[7, None, None, None, None, None, None, None]])
+    fila = _cliente(monkeypatch, falso).lineas_por_ide([7])[7]
+    assert (fila.hmoide, fila.reside, fila.fecha_int, fila.horide,
+            fila.synckey) == (0, 0, 0, None, None)
+
+
+def test_f024_r1_endpoint_respeta_el_comprobador_inyectado_sin_pipeline(
+        monkeypatch) -> None:
+    """Mutante 132: con `pipeline=None` y comprobador inyectado, la app no
+    lo sustituye por uno propio."""
+    falso = SigridApiFalso(["ide"])
+    monkeypatch.setattr(modulo_cliente.httpx, "post", falso)
+    cli = ClienteFalso(por_synckey={"partes:1": _ls(4001, synckey="partes:1")})
+    app = build_app(_settings_con_sigrid(),
+                    comprobador=ComprobadorLineas(cliente=cli))
+    r = TestClient(app).post("/api/registro/comprobar",
+                             json=_cuerpo(LINEA_JSON))
+    assert r.json()["veredictos"][0]["estado"] == "presente"
+    assert falso.urls == []
