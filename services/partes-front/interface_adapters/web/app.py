@@ -20,6 +20,7 @@ import html
 import logging
 import os
 import time
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable
@@ -98,8 +99,31 @@ from interface_adapters.web.identidad import (
 from application.services.obra_catalog import ObraCatalog
 from application.services.empleado_catalog import EmpleadoCatalog
 from application.services import empleado_reconciler as recon
+from application.services.reparto_obras import (
+    SEPARADOR_CLAVE,
+    UMBRAL_PLEGADO,
+    GrupoObra,
+    agregar_ejecucion,
+    agregar_preflight,
+    listado_grupo,
+    repartir_claves,
+    totales,
+)
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Preparado:
+    """F-022: una aprobacion lista para sv5, ya repartida por obra.
+
+    `claves` son las de pisar de cada grupo, sin su prefijo (R19); `datos`
+    es lo que devolvio el repositorio (para `excluidas` y su detalle).
+    """
+
+    grupos: list[GrupoObra]
+    claves: dict[str, list[str]]
+    datos: dict
 
 #: F-003 (R23/R24). Motivo del bloqueo del registro cuando Sesame esta
 #: configurado pero no responde: sin sus festivos, el computo de horas
@@ -1801,18 +1825,16 @@ def build_app(
     # APROBAR -> registrar en Sigrid (delegado en partes-transfer, sv5)
     # ------------------------------------------------------------------ #
 
-    def _payload_registro(
-        body: dict, *, actor: str | None,
-    ) -> tuple[dict, dict] | JSONResponse:
-        """Construye el payload de sv5 desde los ids (o desde la obra).
+    def _preparar_registro(body: dict) -> Preparado | JSONResponse:
+        """Las lineas a registrar, repartidas por obra (F-022 §D).
 
-        `actor` viene por parametro y no se resuelve aqui: la identidad se
-        lee en UN solo sitio (R10). Sus dos llamadores ya tienen `request`.
+        F-024 (R22, R23): las lineas `registrado` no viajan nunca y las
+        `borrado_sigrid` solo con `incluir_borradas`; `excluidas` NO va en
+        el payload de sv5, va en la respuesta al navegador.
 
-        F-024 (R22, R23): devuelve `(payload, excluidas)`. Las lineas
-        `registrado` no viajan nunca y las `borrado_sigrid` solo con
-        `incluir_borradas`; `excluidas` NO va en el payload de sv5, va en
-        la respuesta al navegador.
+        F-022: con `ambito`, los ids tienen que ser de la vista (R10-R12);
+        sin el, como hasta ahora (ids sueltos u `obra_key`). Mas de
+        `APROBACION_MAX_OBRAS` obras se rechaza con el desglose (R15).
         """
         try:
             ids = list(dict.fromkeys(
@@ -1842,12 +1864,55 @@ def build_app(
                 {"ok": False, "error": _motivo_sin_lineas(excluidas),
                  "excluidas": excluidas},
                 status_code=422)
+        grupos = [GrupoObra(**g) for g in datos["grupos"]]
+        maximo = settings.aprobacion_max_obras
+        if len(grupos) > maximo:
+            return JSONResponse(
+                {"ok": False,
+                 "error": f"la aprobacion abarca {len(grupos)} obras y el "
+                          f"maximo es {maximo}: filtra la tabla o "
+                          "selecciona menos obras",
+                 "obras": [{"clave": g.clave,
+                            "codigo": g.obra.get("codigo"),
+                            "nombre": g.obra.get("nombre"),
+                            "lineas": len(g.lineas)} for g in grupos],
+                 "excluidas": excluidas},
+                status_code=422)
+        claves = repartir_claves(
+            [str(k) for k in (body.get("pisar_claves") or [])],
+            [g.clave for g in grupos])
+        if claves is None:
+            return JSONResponse(
+                {"ok": False,
+                 "error": "con varias obras, cada clave que pisar tiene que "
+                          f"llevar su obra (<obra>{SEPARADOR_CLAVE}<clave>)"},
+                status_code=422)
+        return Preparado(grupos=grupos, claves=claves, datos=datos)
+
+    def _payload_grupo(grupo: GrupoObra, claves: list[str],
+                       actor: str | None) -> dict:
+        """El payload de sv5 de una obra: la forma de siempre (R33).
+
+        `actor` viene por parametro y no se resuelve aqui: la identidad se
+        lee en UN solo sitio (F-017 R10).
+        """
+        return {"obra": grupo.obra, "lineas": grupo.lineas,
+                "pisar_claves": claves, "usuario": actor}
+
+    def _payload_registro(
+        body: dict, *, actor: str | None,
+    ) -> tuple[dict, dict] | JSONResponse:
+        """Transitorio (T6): lote plano para ejecutar y encolar."""
+        preparado = _preparar_registro(body)
+        if isinstance(preparado, JSONResponse):
+            return preparado
+        datos = preparado.datos
         return {
             "obra": datos["obra"],
             "lineas": datos["lineas"],
             "pisar_claves": [str(k) for k in (body.get("pisar_claves") or [])],
             "usuario": actor,
-        }, excluidas
+        }, datos["excluidas"]
 
     def _rechazo_ambito(error: str, **extra) -> JSONResponse:
         return JSONResponse(dict({"ok": False, "error": error}, **extra),
@@ -1974,19 +2039,45 @@ def build_app(
                 {"ok": False, "error": "registro en Sigrid no configurado "
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
-        preparado = _payload_registro(await request.json(),
-                                      actor=_actor(request))
+        actor = _actor(request)
+        preparado = _preparar_registro(await request.json())
         if isinstance(preparado, JSONResponse):
             return preparado
-        payload, excluidas = preparado
-        resultado = dict(transfer_client.preflight(payload))
-        resultado["excluidas"] = excluidas
-        resultado["avisos_calendario"] = _avisos_calendario(payload["lineas"])
-        # R23: el preflight se sirve igual (el humano tiene que poder ver
-        # que se iba a registrar), pero con el motivo del bloqueo dentro.
-        if not _calendario_fiable(payload["lineas"]):
-            resultado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
-        return JSONResponse(resultado)
+        evaluados = [
+            _evaluar_grupo(g, preparado.claves[g.clave], actor)
+            for g in preparado.grupos]
+        datos = preparado.datos
+        return JSONResponse(dict(
+            agregar_preflight(evaluados), grupos=evaluados,
+            excluidas=datos["excluidas"],
+            excluidas_detalle=datos["excluidas_detalle"],
+            umbral_plegado=UMBRAL_PLEGADO))
+
+    def _evaluar_grupo(grupo: GrupoObra, claves: list[str],
+                       actor: str | None) -> dict:
+        """F-022 (R17, R18, R23-R25): el preflight de UNA obra.
+
+        Un fallo de sv5 en esta obra no tumba las demas: el grupo sale con
+        `ok` falso y su motivo. Avisos de calendario y bloqueo de Sesame
+        son los de SUS lineas (R31).
+        """
+        try:
+            pf = dict(transfer_client.preflight(
+                _payload_grupo(grupo, claves, actor)))
+        except Exception as exc:
+            logger.warning("[transfer] preflight de la obra %s fallo",
+                           grupo.clave, exc_info=True)
+            pf = {"ok": False, "error": f"no se pudo evaluar la obra: {exc}"}
+        evaluado = dict(pf, clave=grupo.clave, obra=grupo.obra,
+                        registro_ids=grupo.registro_ids,
+                        avisos_calendario=_avisos_calendario(grupo.lineas))
+        # F-003 R23: el preflight se sirve igual (el humano tiene que poder
+        # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
+        if not _calendario_fiable(grupo.lineas):
+            evaluado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
+        evaluado["listado"] = listado_grupo(grupo, pf)
+        evaluado["totales"] = totales(evaluado["listado"])
+        return evaluado
 
     def _trazar(resultado: dict, ids: list[int], *, actor: str | None,
                 sin_sesame: bool = False) -> None:
