@@ -57,8 +57,7 @@ T15, ver D6). Sin push, sin despliegue, ni una escritura en Sigrid.
   solo si es único. Toca `obra_catalog.py`, fuera de la lista de design §4.
   Sin esto R39/R41 dejaban un camino roto. **A validar por el humano.**
 - **D2 · PyYAML** no está en `requirements.txt` de sv3: llega con
-  `uvicorn[standard]`. No se añade (regla del implementer); recomendable
-  declararlo si se quiere depender de él explícitamente.
+  `uvicorn[standard]`; no se añade (regla del implementer).
 - **D3 · `construir_casado_sigrid`** sale de `build_app` (sv3) para probar el
   cableado sin PostgreSQL; `test_f015_r10_fail_fast_wiring` se adapta (mira
   `jornada_cache_ttl_s` en la función nueva).
@@ -67,19 +66,20 @@ T15, ver D6). Sin push, sin despliegue, ni una escritura en Sigrid.
   `application`.
 - **D5 · Modo pruebas de sv5**: la obra 0404 tiene empresa; los recursos de
   otra empresa ahora se omiten también en pruebas (M4).
-- **D6 · Commit de ajuste de T15** (`31a411d`): dos dobles de sv4
-  (`test_f015_r26_sugerida_fecha`, `test_f003_r12_jornada_resolver`) no
-  tenían `empresa`; el commit de T16 se hizo sin ver la suite de sv4 en
-  verde (un `| tail` tapó el código de salida). Arreglado en commit aparte.
+- **D6 · Commit de ajuste de T15** (`31a411d`): dos dobles de sv4 sin
+  `empresa`; un `| tail` tapó el rojo de la suite en el commit de T16.
+- **Review 1, punto 2** (`a2ef047`): la línea del PATCH de obra se parte
+  dentro de sus paréntesis; sin espacios el fichero y su AST son idénticos.
 
-## Tests existentes adaptados (nunca borrados)
+## T1 · Inventario y tests existentes adaptados (nunca borrados)
 
-`partes-transfer/tests/dobles.py` (`SigridFake`: `recursos_por_dni`,
-`datos_recursos`, `siguiente_cod_pt(ano, empresa)`, `emp` en la cabecera),
-`test_f002_pipeline_fases.py` (obras con `empresa=1`),
-`partes-persistencia/tests/test_f015_r10_fail_fast_wiring.py` (D3),
-`partes-front/tests/test_f015_r26_sugerida_fecha.py` (clave `empresa`),
-`partes-front/tests/test_f003_r12_jornada_resolver.py` (doble con `empresa`).
+Ningún test construía los clientes con `empresa=` ni miraba el SQL o el
+`_match` de sv3. Adaptados: `partes-transfer/tests/dobles.py` (`SigridFake`
+con `recursos_por_dni`, `datos_recursos`, `siguiente_cod_pt(ano, empresa)`),
+`test_f002_pipeline_fases.py` (obras con `empresa=1`), sv3
+`test_f015_r10_fail_fast_wiring.py` (D3), sv4 `test_f015_r26_sugerida_fecha.py`
+y `test_f003_r12_jornada_resolver.py` (campo `empresa`). `test_f003_r26` (sv3)
+sigue verde sin tocarlo: su recurso 501 es el único candidato.
 
 ## Fase RED (traza real pegada; el esqueleto previo solo tenía firmas)
 
@@ -111,8 +111,18 @@ E       assert [10000] == [5001]
 >       with pytest.raises(RuntimeError, match="truncad"):
 E       Failed: DID NOT RAISE RuntimeError
 ```
-**R7** (`test_f023_empresa_membrete.py` de sv3): 26 fallos contra el
-esqueleto (`NotImplementedError`) y `FileNotFoundError: …config\empresas_membrete.yaml`.
+**R7** (reproducida tras la review en copia aislada del servicio, con
+`ResolutorEmpresa.resolver` = `raise NotImplementedError`; `-k r7`):
+```
+E       NotImplementedError
+FAILED ...::test_f023_r7_un_alias_de_una_sola_empresa_casa[PORSAN-28]
+FAILED ...::test_f023_r7_un_alias_de_una_sola_empresa_casa[CONSTRUCCIONES RUESMA S.A.-1]
+FAILED ...::test_f023_r7_solo_palabras_completas
+FAILED ...::test_f023_r7_la_empresa_tiene_que_existir_en_auxemp
+FAILED ...::test_f023_r7_empresa_de_baja_o_desactivada_no_vale[5]
+FAILED ...::test_f023_r7_dos_alias_de_la_misma_empresa_no_son_varias
+12 failed, 1 passed, 13 deselected in 0.50s
+```
 
 **R9, R10, R11, R13, R19, R22** (`test_f023_pipeline_match.py`, pipeline
 anterior, con el constructor ya aceptando `hoy` y `alias_empresas`):
@@ -139,12 +149,24 @@ E       AssertionError: assert [1, 35, 1, 'P...ve', 20260930] == [28, 35, 1, '..
 E        +    where '...' = _sql('INSERT INTO hmo (ide, cenide, obride, ano, mes, reside, cenmul) SELECT ide, ?, ?, ?, ?, 0, 0 FROM con WHERE cod = ? AND tip = ?')
 E       TypeError: SigridWriteClient.siguiente_cod_pt() takes 2 positional arguments but 3 were given
 ```
-**R36** (`-k coherencia` contra el esqueleto: `NotImplementedError` en
-`verificar_recurso` y `elegir_por_dni`, 22 failed) y en el pipeline:
+**R36** (reproducida tras la review en copia aislada de sv5). Con
+`verificar_recurso`/`elegir_por_dni` = `raise NotImplementedError`, `-k "r36 and coherencia"`:
 ```
-E               TypeError: SigridFake.siguiente_cod_pt() missing 1 required positional argument: 'empresa'
-E       assert [] == [1]                   # R37: la línea sin recurso no se resolvía por DNI
-4 failed, 48 deselected in 0.49s
+E       NotImplementedError
+FAILED ...::test_f023_r36_coherencia_otra_empresa
+FAILED ...::test_f023_r36_coherencia_de_baja_a_la_fecha_de_la_linea
+FAILED ...::test_f023_r36_coherencia_dni_de_otra_persona
+12 failed, 7 passed, 35 deselected in 0.63s
+```
+Con `verificar_recurso` = `return None` (pipeline SIN verificación), `-k "r36 and pipeline"`:
+```
+>       assert [e["registro_id"] for e in r.escritas] == [1, 6]
+E       assert [1, 2, 3, 4, 5, 6] == [1, 6]
+>       assert _motivos(r) == {1: MOTIVO_RECURSO_OTRA_EMPRESA}
+E         {1: 'dia intermedio de la incidencia: solo se registran el inicio y el fin'} != {1: 'el recurso es de otra empresa que la obra destino'}
+FAILED ...::test_f023_r36_pipeline_verifica_cada_recurso_antes_de_escribir
+FAILED ...::test_f023_r36_pipeline_la_verificacion_manda_sobre_las_reglas
+2 failed, 1 passed, 51 deselected in 0.39s
 ```
 **R42** (`test_f023_catalogo_empresa.py -k soltar`, repositorio anterior):
 ```
@@ -159,16 +181,6 @@ scratchpad, nunca en el árbol real:
   `E AssertionError: fetch_reshor` · `1 failed, 8 passed`; `E AssertionError: fetch_tipos_hora` · `1 failed, 6 passed`.
 - T19 (`>=` en `de_alta` de sv5 y en el SQL de sv4): `FAILED …tabla_comun[20260915-20260915-False-sv5]`,
   `…misma_firma_y_codigo` (`ops=[GtE()]` vs `ops=[Gt()]`), `…sql_de_sv4_conserva_la_misma_regla` · `3 failed, 11 passed`.
-
-## T1 · Inventario (resumen)
-
-Ningún test construía los clientes con `empresa=` ni miraba `ORDER BY` o el
-`_match` de sv3. Sí dependían de lo que cambia: el doble `SigridFake` de sv5
-(`resides_por_dni`, `siguiente_cod_pt(ano)`), las obras sin empresa de
-`test_f002_pipeline_fases`, el `fetch_obras` del doble de
-`test_f004_endpoints_congelados` (lista vacía: sin cambio) y
-`dobles.registro` de sv3 (`empleado_reside=501`; `test_f003_r26` sigue
-verde porque el recurso 501 es el único candidato). Adaptados: ver arriba.
 
 ## Resultados reales
 
@@ -196,18 +208,13 @@ verde porque el recurso 501 es el único candidato). Adaptados: ver arriba.
 | Tiempo de las suites | dentro de `init.sh` (con cobertura): sv4 323 s, raíz 71 s, sv3 20 s, sv5 9,6 s; sv2 0,4 s suelta |
 | SHA medido | `ad48d2dd39b92197f09e5d11b6250a71ca8f2823` (después solo cambian `progress/` y `tasks.md`) |
 
-## Pendientes MANUAL (humano) — detalle y comandos en `progress/current.md`
+## Pendientes MANUAL (comandos exactos en `progress/current.md`)
 
-M1 (gemelas con líneas pendientes, antes de desplegar), M5 (≥ 10 partes
-reales con sv2 en local, antes de desplegar sv2), despliegue
-**sv5 → sv2 → sv3 → sv4** (lo pide el humano; el DDL de arranque pasa de 137
-a 140 sentencias), M2 (cabecera `con.emp = 28` y `PT` de la 28), M3
-(`POST /admin/reconciliar-recursos` y caso guía), M4 (`0404` en una sola
-empresa) y T17 en navegador (empresa en los combos y filtro del alta
-manual). Además, validar **D1** y, si se quiere, declarar PyYAML (D2).
+M1 y M5 antes de desplegar; despliegue **sv5 → sv2 → sv3 → sv4** (lo pide el
+humano; DDL de arranque 137 → 140); M2, M3, M4 y T17 (navegador) después.
+Validar **D1** y, si se quiere, declarar PyYAML (D2).
 
 ## Fuera de alcance (sin tocar)
 
-Banco de evals y `rutas_sensibles.json` del prompt (F-007); re-casar
-empleado, obra o empresa de partes ya ingeridos (DA7); mostrar la empresa
-del parte en las pantallas de sv4; `prueba_escritura_sigrid.py`; infra.
+F-007 (evals del prompt), re-casar partes ya ingeridos (DA7), empresa del
+parte en las pantallas de sv4, `prueba_escritura_sigrid.py`, infra.
