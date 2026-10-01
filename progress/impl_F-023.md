@@ -159,3 +159,55 @@ scratchpad, nunca en el árbol real:
   `E AssertionError: fetch_reshor` · `1 failed, 8 passed`; `E AssertionError: fetch_tipos_hora` · `1 failed, 6 passed`.
 - T19 (`>=` en `de_alta` de sv5 y en el SQL de sv4): `FAILED …tabla_comun[20260915-20260915-False-sv5]`,
   `…misma_firma_y_codigo` (`ops=[GtE()]` vs `ops=[Gt()]`), `…sql_de_sv4_conserva_la_misma_regla` · `3 failed, 11 passed`.
+
+## T1 · Inventario (resumen)
+
+Ningún test construía los clientes con `empresa=` ni miraba `ORDER BY` o el
+`_match` de sv3. Sí dependían de lo que cambia: el doble `SigridFake` de sv5
+(`resides_por_dni`, `siguiente_cod_pt(ano)`), las obras sin empresa de
+`test_f002_pipeline_fases`, el `fetch_obras` del doble de
+`test_f004_endpoints_congelados` (lista vacía: sin cambio) y
+`dobles.registro` de sv3 (`empleado_reside=501`; `test_f003_r26` sigue
+verde porque el recurso 501 es el único candidato). Adaptados: ver arriba.
+
+## Resultados reales
+
+- `bash harness/init.sh` (tras el último commit): ver «Evidencias».
+- Suites por servicio (`python -m pytest -q`): sv2 **8 passed** (0,4 s);
+  sv3 **640 passed** (7,6 s); sv4 **1.086 passed** (≈150 s); sv5 **141
+  passed** (7 s); raíz (incluye el guardián T19) en `init.sh`.
+- `node --check services/partes-front/static/app.js`: OK.
+- Mutación (T23): primera campaña sobre `200a98c`, 214 mutantes, **3
+  supervivientes** (`@dataclass(frozen=True)` de `RecursoSigrid` y de
+  `EmpresaRow`, y `cod = p.cod or …siguiente_cod_pt` → `and` en sv5).
+  Ninguno era equivalente: se mataron con tests (inmutabilidad de los DTO y
+  «el correlativo se pide una vez por parte nuevo», `16dc86a`). Campaña
+  final sobre `ad48d2d`: **214/214 muertos, 0 supervivientes, 0 timeouts,
+  0 sin veredicto**. Informe: `progress/mutacion_F-023.md`.
+
+## Evidencias
+
+| Evidencia | Valor real |
+|---|---|
+| Tests ejecutados | sv2 8 · sv3 640 · sv4 1.086 · sv5 141 · raíz 417 (1 skipped): todo en verde |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 596 líneas cambiadas cubiertas (595/596, umbral 80%, nivel critico)` |
+| Mutantes / supervivientes | 214 generados y evaluados (sv3 155, sv4 22, sv5 37; sv2 sin mutantes: solo un campo `Optional`), **0 supervivientes** |
+| Workers / timeout | `--workers 6 --timeout 600` · tiempo total 2.076,5 s · media 9,7 s (≈ 58 s reales por mutante con 6 workers; líneas base sv4 ≈ 291 s, sv3 ≈ 16 s, sv5 ≈ 12 s) |
+| Tiempo de las suites | sv4 ≈ 150 s, sv3 7,6 s, sv5 7 s, sv2 0,4 s, raíz ≈ 59 s |
+| SHA medido | `ad48d2dd39b92197f09e5d11b6250a71ca8f2823` (después solo cambian `progress/` y `tasks.md`) |
+
+## Pendientes MANUAL (humano) — detalle y comandos en `progress/current.md`
+
+M1 (gemelas con líneas pendientes, antes de desplegar), M5 (≥ 10 partes
+reales con sv2 en local, antes de desplegar sv2), despliegue
+**sv5 → sv2 → sv3 → sv4** (lo pide el humano; el DDL de arranque pasa de 137
+a 140 sentencias), M2 (cabecera `con.emp = 28` y `PT` de la 28), M3
+(`POST /admin/reconciliar-recursos` y caso guía), M4 (`0404` en una sola
+empresa) y T17 en navegador (empresa en los combos y filtro del alta
+manual). Además, validar **D1** y, si se quiere, declarar PyYAML (D2).
+
+## Fuera de alcance (sin tocar)
+
+Banco de evals y `rutas_sensibles.json` del prompt (F-007); re-casar
+empleado, obra o empresa de partes ya ingeridos (DA7); mostrar la empresa
+del parte en las pantallas de sv4; `prueba_escritura_sigrid.py`; infra.
