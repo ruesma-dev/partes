@@ -1,6 +1,36 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-021 · spec escrita (2026-10-01), pendiente de aprobación del humano
+
+Spec en `specs/F-021-cuenta-analitica-sigrid/` (rama
+`feature/F-021-cuenta-analitica-sigrid`, sin commits). Exploración de solo
+lectura en `progress/explore_F-021_sigrid.md`. Toca **sv5** (regla y
+escritura) y **sv4** (solo un aviso en el modal del preflight); sv3 no.
+
+Hallazgo: la «cuenta analítica del recurso» **no** es `res.caaide` (0 en
+todos); es `reshor.caaide` (recurso × tipo de hora), una plantilla del centro
+`00000`. La línea manual lleva en `hmores.caaide` la cuenta **del centro de
+su obra** con la misma subcuenta: 99,64 % de coincidencia en la empresa 1 con
+respaldo por el tipo de hora por defecto. Porsan (28) no usa cuenta en horas
+(0 %). Hoy hay 0 líneas de sv5 en Sigrid: nada que reescribir.
+
+Decisiones a validar (design §8, con recomendación):
+
+1. DA1 · origen `reshor.caaide` del tipo escrito; si no, del tipo por defecto.
+2. DA2 · destino: la cuenta del centro de la obra con esa subcuenta.
+3. DA3 · sin cuenta ⇒ escribir 0 y avisar solo si la obra no la tiene; no bloquear.
+4. DA4 · aviso en el modal del preflight (JS de sv4); alternativa: solo log.
+5. DA5 · la partida no interviene.
+6. DA6 · sin reescritura de lo ya registrado (M1 lo comprueba antes).
+7. DA7 · fallo al leer cuentas ⇒ la petición falla entera.
+8. DA8 · sin variable de activación (marcha atrás = revisión anterior).
+9. DA9 · `caaide` obligatorio en `stmt_insert_linea`.
+10. DA10 · `cuaide` sin escribir; cuentas de baja sin filtrar.
+11. DA11 · corregir solo comentarios de `prueba_escritura_sigrid.py`.
+12. DA12 · despliegue sv5 → sv4 (cualquier orden es seguro).
+13. DA13 · Porsan: nada en código; si la quieren, se rellena `reshor` en Sigrid.
+
 ## F-023 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 Mergeada a `dev` (`27fc03c`) y desplegada a petición del humano, que decidió

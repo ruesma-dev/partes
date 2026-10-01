@@ -11,7 +11,7 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | pendiente | critico | `feature/F-021-cuenta-analitica-sigrid` |
+| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | spec lista | critico | `feature/F-021-cuenta-analitica-sigrid` |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | pendiente | estandar | `feature/F-022-aprobar-seleccionadas` |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | pendiente | critico | `feature/F-024-lineas-encoladas` |
 | F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | pendiente | estandar | `feature/F-025-incidencia-vs-extra` |
@@ -46,7 +46,7 @@ Bloqueadas: **F-014**.
 
 ### F-021 · Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid
 
-estado **pendiente** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-021-cuenta-analitica-sigrid`
+estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-021-cuenta-analitica-sigrid`
 
 Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion. ACLARADO 2026-09-30 (correo de Juan Romero, Dir. Admon y Control de Costes, 'RV: CAPTURAS'): 'No arrastra cuenta analitica del recurso' => la cuenta analitica SALE DEL RECURSO (su ficha en Sigrid) y hoy no se copia a la linea al registrar. Queda por fijar en la spec el campo exacto del recurso y el de la linea.
 
@@ -60,7 +60,7 @@ Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la 
 
 estado **pendiente** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-024-lineas-encoladas`
 
-Reportado el 2026-09-30 por Juan Romero (correo 'RV: CAPTURAS', captura de la vista de obra). En un mismo parte y dia, la linea Extra (HEOF) muestra 'PT26/00314' en la columna Sigrid y la linea Ordinaria (HLOF) del mismo trabajador se queda en 'encolado', 'si ya lo habiamos llevado a Sigrid, igual que el de abajo'. A INVESTIGAR (explorer de solo lectura antes de la spec): si la linea se escribio en Sigrid y el portal no recibio/actualizo el resultado (q-transfer/resultado_sigrid de F-002), si el mensaje se perdio o acabo en -poison, o si sv5 la omitio sin devolver estado. Comprobar en Sigrid (solo lectura) y en la base partes. Servicios probables: sv4 (estado mostrado) y sv5 (resultado por linea). RIGOR critico si resulta que hay lineas sin registrar que el usuario cree registradas.
+Reportado el 2026-09-30 por Juan Romero (correo 'RV: CAPTURAS', captura de la vista de obra). En un mismo parte y dia, la linea Extra (HEOF) muestra 'PT26/00314' en la columna Sigrid y la linea Ordinaria (HLOF) del mismo trabajador se queda en 'encolado', 'si ya lo habiamos llevado a Sigrid, igual que el de abajo'. A INVESTIGAR (explorer de solo lectura antes de la spec): si la linea se escribio en Sigrid y el portal no recibio/actualizo el resultado (q-transfer/resultado_sigrid de F-002), si el mensaje se perdio o acabo en -poison, o si sv5 la omitio sin devolver estado. Comprobar en Sigrid (solo lectura) y en la base partes. Servicios probables: sv4 (estado mostrado) y sv5 (resultado por linea). RIGOR critico si resulta que hay lineas sin registrar que el usuario cree registradas. HALLAZGO DEL LIDER 2026-10-01 (lectura por sigrid-api, base ruesma): NINGUNA linea hmores de Sigrid tiene synckey no vacio (ni 'partes:%' ni otro), aunque sv5 escribe hmores.synckey = 'partes:<id>' y el portal mostro lineas registradas en PT26/00314 (cabecera existe, empresa 1, 2026-09, 56 lineas, todas con synckey vacio). Hipotesis a verificar: Sigrid (o un proceso suyo) vacia synckey despues de escribir, o las lineas se borraron y se reteclearon. Si synckey no persiste, la idempotencia, la deteccion de conflictos y la desaprobacion (F-004) que se apoyan en el no funcionan: investigar ANTES de F-021.
 
 ### F-025 · Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)
 
