@@ -58,3 +58,31 @@ E   ModuleNotFoundError: No module named 'application.services.cuenta_analitica'
 ERROR tests/test_f021_cuenta_analitica.py
 1 error in 0.25s
 ```
+
+### T5 · cliente (R9, R10, R11, R14)
+
+`cd services/partes-transfer && python -m pytest -q tests/test_f021_cliente_cuenta.py`
+(líneas `E`/`FAILED` de la salida real; el diff largo del SQL, recortado)
+
+```
+E   {501: [HoraRecurso(horide=11, cod='HL01', res='Laborable', pre=10.0, caa_cod=None, defecto=False), ...]} != {501: [HoraRecurso(horide=11, ..., caa_cod='00000.LAB', defecto=True), ...]}
+E   - pre AS pre, cc.cod AS caacod, CASE WHEN reshor.horide = res.horide THEN 1 ELSE 0 END AS defecto FROM reshor ... LEFT JOIN con cc ON cc.ide = reshor.caaide AND ISNULL(reshor.caaide, 0) <> 0 WHERE ...
+E   + pre AS pre FROM reshor JOIN auxhor ON auxhor.ide = reshor.horide WHERE reshor.reside IN (?,?) ORDER BY reshor.reside, auxhor.cod
+E   AttributeError: 'SigridWriteClient' object has no attribute 'cuentas_de_centro'   (x6)
+E   TypeError: SigridWriteClient.stmt_insert_linea() got an unexpected keyword argument 'caaide'   (x3)
+E   Failed: DID NOT RAISE TypeError
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r9_horas_traen_la_cuenta_y_el_defecto
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r9_horas_misma_consulta_con_cuenta_y_defecto
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r10_una_lectura_por_centro_empresa_y_subcuentas
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r10_el_filtro_sql_solo_acota
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r10_los_parametros_son_enteros
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r10_sin_subcuentas_no_lee
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r11_cuentas_truncated_es_excepcion
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r11_cuentas_error_http_es_excepcion
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r14_caaide_es_un_parametro_del_insert
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r8_r14_sin_cuenta_se_escribe_cero_como_parametro
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r14_caaide_se_convierte_a_entero
+FAILED tests/test_f021_cliente_cuenta.py::test_f021_r14_caaide_es_obligatorio
+12 failed, 1 passed in 0.47s
+```
+(El que pasa es `test_f021_r9_horas_sin_recursos_no_lee`: comportamiento previo que se conserva.)
