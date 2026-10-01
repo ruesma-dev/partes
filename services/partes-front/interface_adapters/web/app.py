@@ -2104,36 +2104,66 @@ def build_app(
                 status_code=503)
         body = await request.json()
         actor = _actor(request)
-        preparado = _payload_registro(body, actor=actor)
+        preparado = _preparar_registro(body)
         if isinstance(preparado, JSONResponse):
             return preparado
-        payload, excluidas = preparado
-        # R24: la guarda la impone el SERVIDOR, no el modal. Una peticion
-        # a pelo, sin pasar por el preflight, se para igual.
+        # F-003 R24: la guarda la impone el SERVIDOR, no el modal. Una
+        # peticion a pelo, sin pasar por el preflight, se para igual.
+        # F-022 (R18, R22): por obra y una tras otra; una obra bloqueada o
+        # que falla no para a las demas (DA16).
         forzar = bool(body.get("forzar_sin_sesame"))
-        degradado = not _calendario_fiable(payload["lineas"])
-        if degradado and not forzar:
-            logger.warning(
-                "[sesame] registro BLOQUEADO: %s lineas con calendario no "
-                "fiable y sin override.", len(payload["lineas"]),
-            )
+        ejecutados = []
+        for grupo in preparado.grupos:
+            degradado = not _calendario_fiable(grupo.lineas)
+            if degradado and not forzar:
+                ejecutados.append(_bloqueado_sesame(grupo))
+                continue
+            resultado = _ejecutar_grupo(grupo, preparado.claves[grupo.clave],
+                                        actor)
+            if degradado:
+                # F-003 R17: saltarse la guarda de Sesame es una decision
+                # humana consciente, y queda con NOMBRE en el log. El actor
+                # nunca es vacio (F-017 R7).
+                logger.warning(
+                    "[sesame] registro FORZADO por %s con el calendario de "
+                    "Sesame no disponible (obra %s); las lineas quedan "
+                    "marcadas.", actor, grupo.clave)
+            _trazar(resultado, grupo.registro_ids, actor=actor,
+                    sin_sesame=degradado)
+            ejecutados.append(dict(resultado, clave=grupo.clave,
+                                   obra=grupo.obra,
+                                   registro_ids=grupo.registro_ids))
+        if all(e.get("bloqueado_sesame") for e in ejecutados):
             return JSONResponse(
                 {"ok": False, "error": MOTIVO_BLOQUEO_SESAME,
                  "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
                 status_code=422)
-        resultado = transfer_client.ejecutar(payload)
-        if degradado and forzar:
-            # R17: saltarse la guarda de Sesame es una decision humana
-            # consciente, y queda con NOMBRE en el log. El viejo
-            # El viejo `or` de relleno sobra: el actor nunca es vacio (R7).
-            logger.warning(
-                "[sesame] registro FORZADO por %s con el calendario de "
-                "Sesame no disponible; las lineas quedan marcadas.",
-                actor,
-            )
-        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]],
-                actor=actor, sin_sesame=degradado and forzar)
-        return JSONResponse(dict(resultado, excluidas=excluidas))
+        return JSONResponse(dict(agregar_ejecucion(ejecutados),
+                                 grupos=ejecutados,
+                                 excluidas=preparado.datos["excluidas"]))
+
+    def _bloqueado_sesame(grupo: GrupoObra) -> dict:
+        """F-022 (R18): una obra con el calendario no fiable y sin override
+        no se envia; sus lineas no cambian."""
+        logger.warning(
+            "[sesame] registro BLOQUEADO: obra %s, %s lineas con calendario "
+            "no fiable y sin override.", grupo.clave, len(grupo.lineas))
+        return {"clave": grupo.clave, "obra": grupo.obra,
+                "registro_ids": grupo.registro_ids, "ok": False,
+                "bloqueado_sesame": True, "error": MOTIVO_BLOQUEO_SESAME}
+
+    def _ejecutar_grupo(grupo: GrupoObra, claves: list[str],
+                        actor: str | None) -> dict:
+        """El registro sincrono de UNA obra. Una excepcion se queda en su
+        obra (`ok` falso, sus lineas a `error`): las demas siguen."""
+        try:
+            return dict(transfer_client.ejecutar(
+                _payload_grupo(grupo, claves, actor)))
+        except Exception as exc:
+            logger.warning("[transfer] registro de la obra %s fallo",
+                           grupo.clave, exc_info=True)
+            return {"ok": False,
+                    "error": f"no se pudo registrar la obra: {exc}"}
 
     @app.post("/api/aprobar/encolar", include_in_schema=False)
     async def aprobar_encolar(request: Request) -> JSONResponse:

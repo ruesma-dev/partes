@@ -721,3 +721,186 @@ def test_f022_r33_preflight_payload_de_siempre(portal) -> None:
         assert p["pisar_claves"] == []
         for linea in p["lineas"]:
             assert "estado_previo" not in linea
+
+
+# ===================================================================== #
+# T7 · ejecutar por grupo (R18, R19, R22, R32, R33)
+# ===================================================================== #
+
+MOTIVO_SIN_SESAME_PREFIJO = "[SIN-SESAME]"
+
+
+def _ejecutar(cliente, ids, **extra):
+    return cliente.post("/api/aprobar/ejecutar",
+                        json=dict({"registro_ids": ids}, **extra))
+
+
+def test_f022_r19_ejecutar_cada_grupo_recibe_solo_sus_claves(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = _ejecutar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A,
+                  pisar_claves=["obr-20::502|20260303|1", "obr-10::k1",
+                                "obr-99::kx"])
+    assert r.status_code == 200
+    assert [(_codigo(p), p["pisar_claves"]) for p in sv5.ejecutadas] == [
+        ("0100", ["k1"]), ("0200", ["502|20260303|1"])]
+
+
+def test_f022_r19_ejecutar_claves_sin_grupo_con_varias_obras_es_422(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal()
+    antes = estados_sigrid(fabrica, _todos(ids))
+    r = _ejecutar(cliente, ids["o10_a"] + ids["o20_a"],
+                  pisar_claves=["obr-10::k1", "501|20260302|1"])
+    assert r.status_code == 422
+    assert r.json()["ok"] is False
+    assert r.json()["error"] == ("con varias obras, cada clave que pisar "
+                                 "tiene que llevar su obra "
+                                 "(<obra>::<clave>)")
+    assert sv5.ejecutadas == []
+    assert estados_sigrid(fabrica, _todos(ids)) == antes
+
+
+def test_f022_r19_ejecutar_claves_sin_grupo_con_una_obra_van_a_ella(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    _ejecutar(cliente, ids["o10_a"], pisar_claves=["501|20260302|1"])
+    assert sv5.ejecutadas[0]["pisar_claves"] == ["501|20260302|1"]
+
+
+def test_f022_r22_ejecutar_obras_en_orden_y_cada_una_con_su_traza(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal()
+    r = _ejecutar(cliente, ids["o20_a"] + ids["o10_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    assert [_codigo(p) for p in sv5.ejecutadas] == ["0100", "0200"]
+    estados = estados_sigrid(fabrica, ids["o10_a"] + ids["o20_a"])
+    assert {rid: e[4] for rid, e in estados.items()} == dict(
+        [(rid, "PT-0100") for rid in ids["o10_a"]]
+        + [(rid, "PT-0200") for rid in ids["o20_a"]])
+    assert {e[0] for e in estados.values()} == {"registrado"}
+    cuerpo = r.json()
+    assert (cuerpo["ok"], cuerpo["parcial"]) == (True, False)
+    assert [g["clave"] for g in cuerpo["grupos"]] == ["obr-10", "obr-20"]
+    assert [g["registro_ids"] for g in cuerpo["grupos"]] == [
+        ids["o10_a"], ids["o20_a"]]
+    assert len(cuerpo["escritas"]) == 4
+
+
+def test_f022_r22_ejecutar_un_grupo_mal_solo_deja_en_error_sus_lineas(portal) -> None:
+    cliente, fabrica, ids, _sv5, _p = portal(sv5=Sv5Falso(ejecutar_por_obra={
+        "0100": {"ok": False, "error": "sigrid-api caido"}}))
+    r = _ejecutar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert (cuerpo["ok"], cuerpo["parcial"]) == (False, True)
+    assert cuerpo["error"] == "0100: sigrid-api caido"
+    estados = estados_sigrid(fabrica, ids["o10_a"] + ids["o20_a"])
+    assert [estados[i][:2] for i in ids["o10_a"]] == [
+        ("error", "sigrid-api caido")] * 2
+    assert [estados[i][0] for i in ids["o20_a"]] == ["registrado"] * 2
+    assert [g["ok"] for g in cuerpo["grupos"]] == [False, True]
+
+
+def test_f022_r22_ejecutar_una_excepcion_no_para_a_las_demas_obras(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal(sv5=Sv5Falso(ejecutar_por_obra={
+        "0100": RuntimeError("se corto")}))
+    r = _ejecutar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    assert len(sv5.ejecutadas) == 2
+    malo = r.json()["grupos"][0]
+    assert malo["error"] == "no se pudo registrar la obra: se corto"
+    estados = estados_sigrid(fabrica, ids["o10_a"] + ids["o20_a"])
+    assert [estados[i][0] for i in ids["o10_a"]] == ["error"] * 2
+    assert [estados[i][0] for i in ids["o20_a"]] == ["registrado"] * 2
+
+
+def test_f022_r16_ejecutar_un_grupo_planos_identicos_a_hoy(portal) -> None:
+    cliente, _f, ids, _sv5, _p = portal()
+    cuerpo = _ejecutar(cliente, ids["o10_a"], ambito=MARZO).json()
+    esperado = ej_por_defecto({"obra": OBRA_10, "pisar_claves": [],
+                               "lineas": [{"registro_id": i}
+                                          for i in ids["o10_a"]]})
+    for clave, valor in esperado.items():
+        assert cuerpo[clave] == valor
+    assert cuerpo["parcial"] is False
+    assert cuerpo["excluidas"] == {"registrado": 0, "borrado_sigrid": 0}
+    for clave in ("clave", "obra", "registro_ids"):
+        assert clave not in cuerpo
+
+
+def test_f022_r18_ejecutar_grupo_bloqueado_sin_override_no_se_envia(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_B}))
+    antes = estados_sigrid(fabrica, ids["o10_b"])
+    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
+    assert r.status_code == 200
+    assert [_codigo(p) for p in sv5.ejecutadas] == ["0200"]
+    bloqueado, bueno = r.json()["grupos"]
+    assert bloqueado == {"clave": "obr-10", "obra": OBRA_10,
+                         "registro_ids": ids["o10_b"], "ok": False,
+                         "bloqueado_sesame": True,
+                         "error": "calendario Sesame no disponible: el "
+                                  "calculo puede ser incorrecto"}
+    assert bueno["ok"] is True
+    assert (r.json()["ok"], r.json()["parcial"]) == (False, True)
+    assert estados_sigrid(fabrica, ids["o10_b"]) == antes
+
+
+def test_f022_r18_ejecutar_todos_bloqueados_es_el_422_de_hoy(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_A, DNI_B}))
+    antes = estados_sigrid(fabrica, _todos(ids))
+    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
+    assert r.status_code == 422
+    assert r.json() == {"ok": False,
+                        "error": "calendario Sesame no disponible: el "
+                                 "calculo puede ser incorrecto",
+                        "sesame_bloqueo": "calendario Sesame no disponible: "
+                                          "el calculo puede ser incorrecto"}
+    assert sv5.ejecutadas == []
+    assert estados_sigrid(fabrica, _todos(ids)) == antes
+
+
+def test_f022_r18_ejecutar_override_solo_marca_los_bloqueados(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_B}))
+    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"],
+                  forzar_sin_sesame=True)
+    assert r.status_code == 200
+    assert len(sv5.ejecutadas) == 2
+    estados = estados_sigrid(fabrica, ids["o10_b"] + ids["o20_a"])
+    assert estados[ids["o10_b"][0]][1].startswith(MOTIVO_SIN_SESAME_PREFIJO)
+    assert [estados[i][1] for i in ids["o20_a"]] == [None, None]
+
+
+def test_f022_r18_ejecutar_bloqueo_y_override_quedan_en_el_log(
+        portal, caplog) -> None:
+    import logging
+    cliente, _f, ids, _sv5, _p = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_B}))
+    with caplog.at_level(logging.WARNING):
+        _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
+        _ejecutar(cliente, ids["o10_b"], forzar_sin_sesame=True)
+    textos = [r.getMessage() for r in caplog.records]
+    assert any("registro BLOQUEADO" in t and "obr-10" in t for t in textos)
+    assert any("registro FORZADO por local:ana" in t and "obr-10" in t
+               for t in textos)
+
+
+def test_f022_r32_ejecutar_lo_no_pedido_no_cambia(portal) -> None:
+    cliente, fabrica, ids, _sv5, _p = portal()
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["o20_a"][1]).sigrid_motivo = "fallo viejo"
+        s.commit()
+    resto = [i for i in _todos(ids) if i != ids["o10_a"][0]]
+    antes = estados_sigrid(fabrica, resto)
+    _ejecutar(cliente, ids["o10_a"][:1], ambito=MARZO)
+    assert estados_sigrid(fabrica, resto) == antes
+    assert estados_sigrid(fabrica, ids["o10_a"][:1])[ids["o10_a"][0]][0] == \
+        "registrado"
+
+
+def test_f022_r33_ejecutar_payload_de_siempre(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    _ejecutar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A,
+              pisar_claves=["obr-10::k1"])
+    for p in sv5.ejecutadas:
+        assert set(p) == {"obra", "lineas", "pisar_claves", "usuario"}
+        assert p["usuario"] == "local:ana"
