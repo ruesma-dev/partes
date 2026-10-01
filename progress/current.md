@@ -1,11 +1,22 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-024 · implementación en curso (implementer, 2026-10-01)
+## F-024 · implementada (implementer, 2026-10-01), pendiente de reviewer
 
 Spec aprobada (DA1–DA15 según recomendación). Rama
-`feature/F-024-lineas-encoladas`. Tarea en curso y decisiones: ver
-`progress/impl_F-024.md` (se rellena tarea a tarea).
+`feature/F-024-lineas-encoladas`, T1–T18 hechas; informe en
+`progress/impl_F-024.md`, mutación en `progress/mutacion_F-024.md` (175
+mutantes; 22 supervivientes muertos con tests, 1 equivalente pendiente de
+que el humano acepte la justificación). `bash harness/init.sh` en verde.
+azure-apps: commit local `03f994c` (sin push). Sin desplegar.
+
+Pendientes MANUAL (humano; comandos exactos en `impl_F-024.md`, design §9):
+M1 consulta de `registrado` en PG antes de desplegar; M2 desplegar sv5 y
+luego sv4; M3 abrir la obra 0719 en el periodo del 16–28/09 y ver
+`[comprobacion-sigrid] … borradas=35` sin `[sigrid-write]`; M4 PG:
+PT26/00314 con 35 `borrado_sigrid`; M5 navegador (Reaprobar, botón,
+sondeo del modal, casilla de borradas: el JS de T13 no tiene tests).
+El AVISO OPERATIVO (DA13) sigue vigente hasta desplegar.
 
 ## F-024 · spec revisada (2026-10-01, DA1 cambiada por el humano), APROBADA
 
