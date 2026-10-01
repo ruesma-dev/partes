@@ -1650,7 +1650,9 @@ def build_app(
         ide = payload.ide
         nombre = payload.nombre
         if obra_catalog.enabled:
-            opt = obra_catalog.get_by_ide(payload.ide)                 or obra_catalog.get_by_codigo(payload.codigo)
+            opt = obra_catalog.get_by_ide(
+                payload.ide) or obra_catalog.get_by_codigo(
+                    payload.codigo)
             if opt is not None:
                 ide = opt.ide
                 nombre = opt.nombre
