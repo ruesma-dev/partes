@@ -86,3 +86,19 @@ FAILED tests/test_f021_cliente_cuenta.py::test_f021_r14_caaide_es_obligatorio
 12 failed, 1 passed in 0.47s
 ```
 (El que pasa es `test_f021_r9_horas_sin_recursos_no_lee`: comportamiento previo que se conserva.)
+
+### T7 · doble con `caaide` obligatorio (R14 a nivel de pipeline)
+
+Con `SigridFake.stmt_insert_linea(..., caaide)` obligatorio y el pipeline
+aún sin tocar, `cd services/partes-transfer && python -m pytest -q`
+(agregado con `grep -E "^E |failed|passed" | sort | uniq -c`):
+
+```
+      9 E           TypeError: SigridFake.stmt_insert_linea() missing 1 required keyword-only argument: 'caaide'
+      1 E         Left contains 3 more items, first extra item: TypeError("SigridFake.stmt_insert_linea() missing 1 required keyword-only argument: 'caaide'")
+      1 21 failed, 229 passed, 5 warnings in 10.03s
+```
+Desviación de orden (D2): la verificación de T7 («suite en verde») solo se
+alcanza en T9, porque el doble exige ya `caaide` (DA9) y el pipeline lo
+pasa en T9. Se deja así a propósito: es la traza RED de que el pipeline
+no escribía la cuenta.
