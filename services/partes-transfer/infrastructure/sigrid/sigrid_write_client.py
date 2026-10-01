@@ -9,8 +9,14 @@ reales (25/07/2026):
            reside=0 (es parte de obra, no de recurso).
   hmores : hmoide, reside, cenide, obride, paride, pos (de 64 en 64), fec
            (dia real), horide, can (=horas, puede ser negativa), pre, tot,
-           ano, mes, fac=0, ortide=0 (NOT NULL sin default), caaide=0,
+           ano, mes, fac=0, ortide=0 (NOT NULL sin default), caaide,
            tex, synckey (nuestra clave de idempotencia).
+
+F-021: `hmores.caaide` es la cuenta analitica de la linea: la cuenta del
+centro de la obra con la subcuenta de la ficha del recurso (regla en
+`application/services/cuenta_analitica.py`), o 0 si no hay. Va como
+parametro; `horas_de_recursos` trae la plantilla (`reshor.caaide`) y
+`cuentas_de_centro` las cuentas candidatas del centro.
 
 F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
 no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
@@ -27,6 +33,7 @@ from typing import Any, Iterable
 
 import httpx
 
+from application.services.cuenta_analitica import indexar_cuentas
 from domain.models.registro_models import (
     HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino, RecursoSigrid,
 )
@@ -219,18 +226,48 @@ class SigridWriteClient:
         if not ides:
             return {}
         marcas = ",".join("?" for _ in ides)
+        # F-021 (R9): en la MISMA consulta, el codigo de la cuenta de la
+        # ficha (`reshor.caaide`, 0 = ninguna) y si es el tipo por defecto.
         filas = self._read(
             "SELECT reshor.reside AS reside, reshor.horide AS horide, "
-            "auxhor.cod AS cod, auxhor.res AS res, reshor.pre AS pre "
+            "auxhor.cod AS cod, auxhor.res AS res, reshor.pre AS pre, "
+            "cc.cod AS caacod, "
+            "CASE WHEN reshor.horide = res.horide THEN 1 ELSE 0 END "
+            "AS defecto "
             "FROM reshor JOIN auxhor ON auxhor.ide = reshor.horide "
+            "LEFT JOIN res ON res.ide = reshor.reside "
+            "LEFT JOIN con cc ON cc.ide = reshor.caaide "
+            "AND ISNULL(reshor.caaide, 0) <> 0 "
             f"WHERE reshor.reside IN ({marcas}) "
             "ORDER BY reshor.reside, auxhor.cod", ides)
         out: dict[int, list[HoraRecurso]] = {}
         for f in filas:
             out.setdefault(int(f["reside"]), []).append(HoraRecurso(
                 horide=int(f["horide"]), cod=(f["cod"] or "").strip(),
-                res=f["res"], pre=float(f["pre"] or 0.0)))
+                res=f["res"], pre=float(f["pre"] or 0.0),
+                caa_cod=(f["caacod"] or "").strip() or None,
+                defecto=bool(f["defecto"])))
         return out
+
+    def cuentas_de_centro(
+        self, cenide: int, empresa: int, subcuentas: Iterable[str | None]
+    ) -> dict[str, list[tuple[int, str]]]:
+        """Cuentas analiticas del centro, de esa empresa, con esas
+        subcuentas (F-021, R10): UNA lectura, agrupada por subcuenta.
+
+        El filtro SQL solo acota; la agrupacion la rehace `indexar_cuentas`
+        con la misma `subcuenta()` del origen. Un fallo o un `truncated`
+        sube como excepcion (R11)."""
+        subs = sorted({s for s in subcuentas if s})
+        if not subs:
+            return {}
+        marcas = ",".join("?" for _ in subs)
+        filas = self._read(
+            "SELECT a.ide AS caaide, c.cod AS cod FROM caa a "
+            "JOIN con c ON c.ide = a.ide WHERE a.cenide = ? AND c.emp = ? "
+            "AND LTRIM(RTRIM(SUBSTRING(c.cod, CHARINDEX('.', c.cod) + 1, "
+            f"24))) IN ({marcas})", [int(cenide), int(empresa)] + subs)
+        return indexar_cuentas((f["caaide"], f["cod"]) for f in filas)
 
     def partes_existentes(
         self, obra_ide: int, periodos: Iterable[tuple[int, int]]
@@ -403,20 +440,23 @@ class SigridWriteClient:
     def stmt_insert_linea(
         self, *, hmoide: int, obra: ObraEntrada, reside: int, pos: int,
         fecha_int: int, horide: int, can: float, pre: float, paride: int,
-        ano: int, mes: int, synckey: str, tex: str | None,
+        ano: int, mes: int, synckey: str, tex: str | None, caaide: int,
     ) -> dict:
+        """Linea `hmores`. F-021 (R14): `caaide` es la cuenta analitica
+        resuelta (0 = sin cuenta) y es OBLIGATORIO (DA9): un 0 por defecto
+        esconderia una llamada que lo olvide."""
         cenide = int(getattr(obra, "cenide", 0) or 0)
         return {"sql": (
             "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
             "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
             "tex, synckey) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ?, ?, "
-            "?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ? "
+            "?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ? "
             "FROM hmores WITH (UPDLOCK, HOLDLOCK)"),
             "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
                            int(paride or 0), int(pos), int(fecha_int),
                            int(horide), float(can), float(pre),
                            round(float(can) * float(pre), 2), int(ano),
-                           int(mes), (tex or ""), synckey]}
+                           int(mes), int(caaide), (tex or ""), synckey]}
 
     @staticmethod
     def stmt_borrar_linea(ide: int) -> dict:

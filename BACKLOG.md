@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **25 features**, 11 abiertas, 14 terminadas.
+Resumen: **25 features**, 10 abiertas, 15 terminadas.
 
 En curso: **F-022**.
 
@@ -13,7 +13,6 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | spec lista | critico | `feature/F-021-cuenta-analitica-sigrid` |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | en curso | critico | `feature/F-022-aprobar-seleccionadas` |
 | F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | pendiente | estandar | `feature/F-025-incidencia-vs-extra` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -33,6 +32,7 @@ Bloqueadas: **F-014**.
 | F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
+| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
@@ -45,12 +45,6 @@ Bloqueadas: **F-014**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-021 · Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid
-
-estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-021-cuenta-analitica-sigrid`
-
-Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion. ACLARADO 2026-09-30 (correo de Juan Romero, Dir. Admon y Control de Costes, 'RV: CAPTURAS'): 'No arrastra cuenta analitica del recurso' => la cuenta analitica SALE DEL RECURSO (su ficha en Sigrid) y hoy no se copia a la linea al registrar. Queda por fijar en la spec el campo exacto del recurso y el de la linea.
 
 ### F-022 · Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona
 
@@ -135,6 +129,12 @@ sv4 publica las aprobaciones en una cola q-transfer y sv5 la consume (KEDA), en 
 estado **terminada** · prioridad 2 · rigor `estandar` · SDD no · rama `feature/F-013-informe-validacion-sesame`
 
 Pedida por el humano el 2026-08-16 para terminar de validar F-003: script (p. ej. services/partes-front/validar_datos_sesame.py, junto al patrón de prueba_escritura_sigrid.py de sv5) que, usando el MISMO SesameApiClient y CalendarioProvider de F-003, extrae para cada trabajador activo sus festivos del año en curso, tipo de jornada y flag de reducida, y genera un informe Markdown/CSV legible para que el humano valide los números contra la realidad. Configurable contra sesame-api local (localhost:8006) o el desplegado cuando exista. La validación de los números en sí es MANUAL del humano sobre el informe. Su salida alimenta F-011 (días de jornada reducida) y F-012 (candef 9h/viernes).
+
+### F-021 · Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid
+
+estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-021-cuenta-analitica-sigrid`
+
+Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion. ACLARADO 2026-09-30 (correo de Juan Romero, Dir. Admon y Control de Costes, 'RV: CAPTURAS'): 'No arrastra cuenta analitica del recurso' => la cuenta analitica SALE DEL RECURSO (su ficha en Sigrid) y hoy no se copia a la linea al registrar. Queda por fijar en la spec el campo exacto del recurso y el de la linea.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 

@@ -23,7 +23,10 @@ Mapeo CONFIRMADO contra datos reales (fase 'inspeccionar', 25/07/2026):
   hmores : hmoide, reside, cenide, obride, pos (de 64 en 64), fec (dia
            real), horide, can = HORAS, pre (de reshor), tot = can*pre,
            ano, mes, fac=0, ortide=0 (NOT NULL sin default), paride=0,
-           caaide=0 (las lineas diarias reales la llevan a 0).
+           caaide=0 en ESTE script de pruebas. Ojo: las lineas reales
+           SI llevan cuenta analitica (la del centro de la obra con la
+           subcuenta del recurso, F-021) y sv5 la escribe; aqui se deja a 0
+           a proposito porque solo se prueba la mecanica de escritura.
 
 TODAS las pruebas van contra la OBRA DE PRUEBAS (0404), diga lo que diga
 el parte. Las lineas se marcan con tex='PRUEBA-IA' para poder limpiarlas.
@@ -408,7 +411,8 @@ def fase_lineas(ejecutar: bool) -> None:
             print(f"  + pos={pos} {tipo}: {hora['cod']} can={can} pre={pre} "
                   f"tot={tot} fec={rec['fecha']}")
             # ortide es NOT NULL sin default -> 0 (las lineas reales lo
-            # tienen a 0). paride y caaide van a 0 como las diarias reales.
+            # tienen a 0). paride y caaide van a 0 en este script de
+            # pruebas; las lineas reales (y sv5, F-021) si llevan caaide.
             statements.append(insert_max_ide("hmores", {
                 "hmoide": pt["ide"], "reside": rec["reside"],
                 "cenide": pt["cenide"] or obra["cenide"],
