@@ -34,7 +34,7 @@ def _ls(ide: int, *, reside: int = 501, fecha: int = 20260916,
     ls = LineaSigrid(ide=ide, reside=reside, fecha_int=fecha, horide=1,
                      hora_codigo=None, can=can, tot=None, synckey=synckey,
                      nuestra=bool(synckey))
-    setattr(ls, "hmoide", hmoide)
+    ls.hmoide = hmoide
     return ls
 
 
@@ -217,10 +217,9 @@ def test_f024_r1_clasificar_un_veredicto_por_linea_y_en_orden() -> None:
 # (R7, R8). `httpx.post` se sustituye por un doble: ni una peticion real.
 # ===================================================================== #
 
-import httpx  # noqa: E402
-
-from infrastructure.sigrid import sigrid_write_client as modulo_cliente  # noqa: E402
-from infrastructure.sigrid.sigrid_write_client import (  # noqa: E402
+import httpx
+from infrastructure.sigrid import sigrid_write_client as modulo_cliente
+from infrastructure.sigrid.sigrid_write_client import (
     SigridWriteClient,
 )
 
@@ -332,15 +331,15 @@ def test_f024_r8_cliente_error_http_es_una_excepcion(monkeypatch, metodo) -> Non
 # ComprobadorLineas y endpoint `POST /api/registro/comprobar` (R1, R8, R9)
 # ===================================================================== #
 
-import threading  # noqa: E402
+import threading
 
-from application.pipelines.registro_pipeline import RegistroPipeline  # noqa: E402
-from application.services.comprobacion_lineas import (  # noqa: E402
+from application.pipelines.registro_pipeline import RegistroPipeline
+from application.services.comprobacion_lineas import (
     ComprobadorLineas,
 )
-from fastapi.testclient import TestClient  # noqa: E402
-from interface_adapters.api.app import build_app  # noqa: E402
-from tests.dobles import SettingsFake  # noqa: E402
+from fastapi.testclient import TestClient
+from interface_adapters.api.app import build_app
+from tests.dobles import SettingsFake
 
 
 class ClienteFalso:

@@ -17,8 +17,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
-from typing import Any, Callable, Iterable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

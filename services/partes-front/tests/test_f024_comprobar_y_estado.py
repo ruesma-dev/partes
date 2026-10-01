@@ -106,7 +106,7 @@ def test_f024_r19_recientes_seguro_con_dos_hilos() -> None:
 def test_f024_r19_recientes_usa_reloj_monotono_por_defecto() -> None:
     import time
     reg = RegistroComprobaciones(ttl_s=120)
-    assert reg._reloj is time.monotonic          # noqa: SLF001
+    assert reg._reloj is time.monotonic
 
 
 
@@ -115,16 +115,16 @@ def test_f024_r19_recientes_usa_reloj_monotono_por_defecto() -> None:
 # variables COMPROBACION_SIGRID_*
 # ===================================================================== #
 
-import logging  # noqa: E402
-from datetime import datetime, timezone  # noqa: E402
+import logging
+from datetime import datetime, timezone
 
-import httpx  # noqa: E402
-from application.services.comprobacion_sigrid import ComprobacionSigrid  # noqa: E402
-from infrastructure.database.orm_models import ParteRegistroOrm  # noqa: E402
-from infrastructure.database.parte_repository import ParteReviewRepository  # noqa: E402
-from infrastructure.transfer import transfer_client as modulo_tc  # noqa: E402
-from infrastructure.transfer.transfer_client import TransferClient  # noqa: E402
-from tests.dobles import FabricaSesionSqlite, sembrar_parte  # noqa: E402
+import httpx
+from application.services.comprobacion_sigrid import ComprobacionSigrid
+from infrastructure.database.orm_models import ParteRegistroOrm
+from infrastructure.database.parte_repository import ParteReviewRepository
+from infrastructure.transfer import transfer_client as modulo_tc
+from infrastructure.transfer.transfer_client import TransferClient
+from tests.dobles import FabricaSesionSqlite, sembrar_parte
 
 PARTE = "PT26/09001"
 HMO = 7001
@@ -310,7 +310,7 @@ def test_f024_r17_servicio_reloj_utc_por_defecto() -> None:
     servicio = ComprobacionSigrid(
         repository=None, transfer_client=None, lote=1, timeout_s=1,
         recientes=RegistroComprobaciones(ttl_s=1))
-    assert servicio._reloj_utc().tzinfo is timezone.utc   # noqa: SLF001
+    assert servicio._reloj_utc().tzinfo is timezone.utc
 
 
 # ---------------------- TransferClient.comprobar ------------------------ #
@@ -362,8 +362,8 @@ def test_f024_r17_servicio_cliente_404_de_sv5_viejo_es_ok_false(
 
 # ------------------------------ Settings -------------------------------- #
 
-from config.settings import Settings  # noqa: E402
-from pydantic import ValidationError  # noqa: E402
+from config.settings import Settings
+from pydantic import ValidationError
 
 
 @pytest.fixture
@@ -431,8 +431,8 @@ def test_f024_r14_servicio_ok_false_sin_texto_tiene_error() -> None:
 # POST /api/aprobar/estado (R28)
 # ===================================================================== #
 
-from fastapi.testclient import TestClient  # noqa: E402
-from interface_adapters.web.app import build_app  # noqa: E402
+from fastapi.testclient import TestClient
+from interface_adapters.web.app import build_app
 
 
 class Sv5Portal(Sv5Falso):
@@ -540,7 +540,7 @@ def test_f024_r17_endpoint_ids_fuera_de_rango_es_422(portal, cuerpo) -> None:
 
 
 def test_f024_r17_endpoint_admite_5000_ids(portal) -> None:
-    cliente, _f, ids, sv5 = portal(["registrado"])
+    cliente, _f, ids, _sv5 = portal(["registrado"])
     r = cliente.post("/api/sigrid/comprobar",
                      json={"registro_ids": list(range(ids[0], ids[0] + 5000))})
     assert r.status_code == 200 and r.json()["comprobadas"] == 1

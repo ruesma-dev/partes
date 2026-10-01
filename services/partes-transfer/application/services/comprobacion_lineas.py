@@ -20,8 +20,8 @@ llama. Nada aqui escribe ni toma el lock de escritura (R1).
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Iterable, Optional
 
 from domain.models.registro_models import LineaSigrid
 from infrastructure.sigrid.sigrid_write_client import synckey_de
@@ -39,11 +39,11 @@ TOLERANCIA_HORAS = 0.005
 class LineaComprobar:
     """Lo que sv4 sabe de una linea `registrado` (todo opcional salvo id)."""
     registro_id: int
-    hmores_ide: Optional[int] = None
-    hmoide: Optional[int] = None
-    recurso_ide: Optional[int] = None
-    fecha_int: Optional[int] = None
-    horas: Optional[float] = None
+    hmores_ide: int | None = None
+    hmoide: int | None = None
+    recurso_ide: int | None = None
+    fecha_int: int | None = None
+    horas: float | None = None
     es_incidencia: bool = False
 
 
@@ -53,13 +53,13 @@ class Veredicto:
     Sigrid HOY (R5); con ``borrada``, las que envio el portal."""
     registro_id: int
     estado: str
-    hmores_ide: Optional[int] = None
-    hmoide: Optional[int] = None
-    parte_cod: Optional[str] = None
+    hmores_ide: int | None = None
+    hmoide: int | None = None
+    parte_cod: str | None = None
     parte_existe: bool = True
     sin_synckey: bool = False
     diferencias: list[str] = field(default_factory=list)
-    motivo: Optional[str] = None
+    motivo: str | None = None
 
 
 def _num(valor: float | None) -> str:
@@ -79,15 +79,15 @@ def _diferencias(linea: LineaComprobar, fila: LineaSigrid) -> list[str]:
         out.append(f"recurso: portal {linea.recurso_ide}, Sigrid {fila.reside}")
     if fila.fecha_int != linea.fecha_int:
         out.append(f"fecha: portal {linea.fecha_int}, Sigrid {fila.fecha_int}")
-    if not linea.es_incidencia and linea.horas is not None:
-        if fila.can is None or (
-                abs(float(fila.can) - float(linea.horas)) > TOLERANCIA_HORAS):
-            out.append(f"horas: portal {_num(linea.horas)}, "
-                       f"Sigrid {_num(fila.can)}")
+    compara_horas = not linea.es_incidencia and linea.horas is not None
+    if compara_horas and (fila.can is None or abs(
+            float(fila.can) - float(linea.horas)) > TOLERANCIA_HORAS):
+        out.append(f"horas: portal {_num(linea.horas)}, "
+                   f"Sigrid {_num(fila.can)}")
     return out
 
 
-def _hmoide(fila: LineaSigrid) -> Optional[int]:
+def _hmoide(fila: LineaSigrid) -> int | None:
     return getattr(fila, "hmoide", None)
 
 

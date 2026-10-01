@@ -89,7 +89,7 @@ def test_f024_r13_congel_la_linea_borrada_en_sigrid_se_puede_editar() -> None:
 
 
 def test_f024_r13_congel_la_vista_no_pinta_candado() -> None:
-    repo, _f, ids = _montar([ESTADO_BORRADO_SIGRID])
+    repo, _f, _ids = _montar([ESTADO_BORRADO_SIGRID])
     detalle = repo.get_parte("doc-f004")
     assert detalle.congelado_doc is None
 
@@ -302,7 +302,7 @@ def test_f024_r12_repo_presente_sin_dato_no_borra_lo_guardado() -> None:
 
 
 def test_f024_r28_repo_recuento_estados() -> None:
-    repo, fabrica, ids = _montar(
+    repo, _fabrica, ids = _montar(
         ["encolado", "registrado", " Registrado ", "omitido", None,
          ESTADO_BORRADO_SIGRID, "ENCOLADO"])
     out = repo.recuento_estados(ids + [999999])
@@ -323,9 +323,9 @@ def test_f024_r28_repo_recuento_sin_ids() -> None:
 # `registro_ids` al encolar (R27)
 # ===================================================================== #
 
-from config.settings import Settings  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-from interface_adapters.web.app import build_app  # noqa: E402
+from config.settings import Settings
+from fastapi.testclient import TestClient
+from interface_adapters.web.app import build_app
 
 
 class PublisherFalso:
@@ -430,7 +430,7 @@ def test_f024_r22_payload_preflight_incluir_borradas(portal) -> None:
 
 
 def test_f024_r27_payload_encolar_devuelve_registro_ids(portal) -> None:
-    cliente, fabrica, ids, sv5, publisher = portal(
+    cliente, fabrica, ids, _sv5, publisher = portal(
         [None, "registrado", ESTADO_BORRADO_SIGRID, "error"])
     r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
     assert r.status_code == 200
@@ -448,7 +448,7 @@ def test_f024_r27_payload_encolar_devuelve_registro_ids(portal) -> None:
 
 
 def test_f024_r22_payload_encolar_reaprobar_una_borrada(portal) -> None:
-    cliente, fabrica, ids, _sv5, publisher = portal([ESTADO_BORRADO_SIGRID])
+    cliente, fabrica, ids, _sv5, _pub = portal([ESTADO_BORRADO_SIGRID])
     r = cliente.post("/api/aprobar/encolar",
                      json={"registro_ids": ids, "incluir_borradas": True})
     assert r.status_code == 200
@@ -526,7 +526,7 @@ def test_f024_r23_payload_sin_lineas_activas_mantiene_su_mensaje(portal) -> None
 # T12 · vistas de obra y de trabajador (R24, R26, R30)
 # ===================================================================== #
 
-import re  # noqa: E402
+import re
 
 MOTIVO_BORRADA = ('Borrada en Sigrid: la linea 4001 del parte PT26/09001 '
                   'ya no existe (comprobado 2026-10-01 09:30 UTC)')
@@ -544,7 +544,7 @@ def _html_vistas(portal):
 
 
 def _fila(html: str, rid: int) -> str:
-    m = re.search(rf'<tr data-registro-id="{rid}".*?</tr>', html, re.S)
+    m = re.search(rf'<tr data-registro-id="{rid}".*?</tr>', html, re.DOTALL)
     assert m, f"no hay fila para {rid}"
     return m.group(0)
 
@@ -580,7 +580,7 @@ def test_f024_r24_vista_la_cabecera_avisa_de_cuantas(portal, ruta,
     _poner(fabrica, ids[3], sigrid_estado=" Borrado_Sigrid ")
     html = cliente.get(ruta).text
     aviso = re.search(r'<div class="alert warn borradas-sigrid-aviso".*?</div>',
-                      html, re.S)
+                      html, re.DOTALL)
     assert aviso, "falta el aviso de cabecera"
     assert "<strong>2</strong>" in aviso.group(0)
     assert "Reaprobar" in aviso.group(0)
