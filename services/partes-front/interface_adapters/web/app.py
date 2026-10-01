@@ -109,6 +109,10 @@ MOTIVO_BLOQUEO_SESAME = (
     "calendario Sesame no disponible: el calculo puede ser incorrecto"
 )
 
+#: F-022 (DA11): ids por aprobacion con `ambito`. Una obra x mes ronda las
+#: mil lineas; el tope evita que una peticion desbocada lea media base.
+MAX_IDS_APROBACION = 5000
+
 # Leyenda de incidencias (para mostrar el nombre largo del codigo).
 _INCIDENCIAS = {
     "V": "Vacaciones",
@@ -1810,8 +1814,18 @@ def build_app(
         `incluir_borradas`; `excluidas` NO va en el payload de sv5, va en
         la respuesta al navegador.
         """
-        ids = [int(i) for i in (body.get("registro_ids") or []) if i]
-        if not ids:
+        try:
+            ids = list(dict.fromkeys(
+                int(i) for i in (body.get("registro_ids") or []) if i))
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"ok": False, "error": "registro_ids no validos"},
+                status_code=422)
+        if body.get("ambito") is not None:
+            rechazo = _validar_ambito(body["ambito"], ids)
+            if rechazo is not None:
+                return rechazo
+        elif not ids:
             obra_key = (body.get("obra_key") or "").strip()
             if not obra_key:
                 return JSONResponse(
@@ -1834,6 +1848,47 @@ def build_app(
             "pisar_claves": [str(k) for k in (body.get("pisar_claves") or [])],
             "usuario": actor,
         }, excluidas
+
+    def _rechazo_ambito(error: str, **extra) -> JSONResponse:
+        return JSONResponse(dict({"ok": False, "error": error}, **extra),
+                            status_code=422)
+
+    def _validar_ambito(ambito, ids: list[int]) -> JSONResponse | None:
+        """F-022 (R10-R12, DA7): los ids pedidos tienen que ser de la vista
+        de la que salen. Uno ajeno (otra obra, otro periodo, otra persona,
+        la papelera o inexistente) rechaza la peticion ENTERA, sin llamar a
+        sv5 ni marcar nada: es la senal de una pagina desfasada."""
+        if not isinstance(ambito, dict):
+            return _rechazo_ambito("ambito no valido")
+        vista = ambito.get("vista")
+        if vista not in ("obra", "trabajador"):
+            return _rechazo_ambito(
+                f"ambito no valido: vista desconocida ({vista!r})")
+        campo = "obra_key" if vista == "obra" else "worker_key"
+        clave = str(ambito.get(campo) or "").strip()
+        if not clave:
+            return _rechazo_ambito(f"ambito no valido: falta {campo}")
+        if not ids:
+            return _rechazo_ambito("no hay lineas seleccionadas que aprobar")
+        if len(ids) > MAX_IDS_APROBACION:
+            return _rechazo_ambito(
+                f"demasiadas lineas en una aprobacion ({len(ids)}); el "
+                f"maximo es {MAX_IDS_APROBACION}")
+        if vista == "obra":
+            permitidos = repository.registro_ids_de_obra(
+                clave, period_key=ambito.get("period") or None,
+                mode=ambito.get("mode") or "nomina")
+        else:
+            permitidos = repository.registro_ids_de_trabajador(clave)
+        fuera = len(set(ids) - set(permitidos))
+        if fuera:
+            logger.warning("[aprobar] %s id(s) fuera del ambito %s=%s",
+                           fuera, campo, clave)
+            return _rechazo_ambito(
+                f"{fuera} linea(s) no son de esta vista (otra obra, otro "
+                "periodo, otra persona o en la papelera): recarga la pagina "
+                "y vuelve a seleccionar", fuera_de_ambito=fuera)
+        return None
 
     def _motivo_sin_lineas(excluidas: dict) -> str:
         """R23: por que no queda nada que registrar."""

@@ -10,10 +10,16 @@ Bloques (los `-k` de tasks.md): `repo` (T2), `ambito` (T5), `preflight`
 """
 from __future__ import annotations
 
+import copy
+
 import pytest
+from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database.orm_models import ParteRegistroOrm
 from infrastructure.database.parte_repository import ParteReviewRepository
-from tests.dobles import FabricaSesionSqlite, sembrar_parte
+from interface_adapters.web.app import build_app
+from tests.dobles import FabricaSesionSqlite, estados_sigrid, sembrar_parte
+from tests.test_f003_r2_vistas_festivos import ProveedorFake
 
 # Tres obras: dos con `obra_ide` y una solo con codigo. Sus claves
 # (`obra_key_for_registro`) ordenadas: cod-0300 < obr-10 < obr-20.
@@ -161,3 +167,557 @@ def test_f022_r26_repo_con_borradas_incluidas_no_hay_detalle_de_ellas() -> None:
     repo, _f, _a, _b, c = _tres_obras()
     assert repo.lineas_para_registro(
         c, incluir_borradas=True)["excluidas_detalle"] == []
+
+
+# ===================================================================== #
+# Dobles de los endpoints: sv5, publisher y calendario
+# ===================================================================== #
+
+def _codigo(payload: dict) -> str | None:
+    return (payload.get("obra") or {}).get("codigo")
+
+
+class Sv5Falso:
+    """sv5 por obra: `preflight_por_obra` / `ejecutar_por_obra` mapean el
+    codigo de obra del payload a una respuesta, a una excepcion o a una
+    funcion; sin entrada, la respuesta por defecto (todo se escribe)."""
+
+    def __init__(self, preflight_por_obra=None, ejecutar_por_obra=None):
+        self.preflights: list[dict] = []
+        self.ejecutadas: list[dict] = []
+        self._pf = preflight_por_obra or {}
+        self._ej = ejecutar_por_obra or {}
+
+    @staticmethod
+    def _responder(tabla, payload, defecto):
+        r = tabla.get(_codigo(payload))
+        if isinstance(r, Exception):
+            raise r
+        if callable(r):
+            return r(payload)
+        return copy.deepcopy(r) if r is not None else defecto(payload)
+
+    def preflight(self, payload: dict) -> dict:
+        self.preflights.append(copy.deepcopy(payload))
+        return self._responder(self._pf, payload, pf_por_defecto)
+
+    def ejecutar(self, payload: dict) -> dict:
+        self.ejecutadas.append(copy.deepcopy(payload))
+        return self._responder(self._ej, payload, ej_por_defecto)
+
+    def comprobar(self, payload: dict, *, timeout_s: float) -> dict:
+        return {"ok": True, "veredictos": []}
+
+
+def pf_por_defecto(payload: dict) -> dict:
+    lineas = payload["lineas"]
+    return {
+        "ok": True, "obra_destino": payload["obra"], "forzada_pruebas": False,
+        "partes": [{"ano": 2026, "mes": 3, "existe": False,
+                    "cod": f"PT-{_codigo(payload)}"}],
+        "acciones": [{"registro_id": l["registro_id"], "accion": "escribir",
+                      "fecha_int": l["fecha_int"], "nombre": l["nombre"],
+                      "hora_codigo": l["hora_codigo"], "can": l["horas"],
+                      "recurso_ide": l["recurso_ide"]} for l in lineas],
+        "conflictos": [],
+        "resumen": {"escribir": len(lineas), "omitir": 0, "ya_registrado": 0,
+                    "conflictos": 0},
+    }
+
+
+def ej_por_defecto(payload: dict) -> dict:
+    return {
+        "ok": True, "obra_destino": payload["obra"], "forzada_pruebas": False,
+        "partes": [{"cod": f"PT-{_codigo(payload)}", "creado": True}],
+        "escritas": [{"registro_id": l["registro_id"], "hmoide": 900,
+                      "hmores_ide": 1000 + l["registro_id"],
+                      "parte_cod": f"PT-{_codigo(payload)}"}
+                     for l in payload["lineas"]],
+        "omitidas": [], "ya_registradas": [],
+        "pisadas": list(payload["pisar_claves"]), "borradas": 0,
+        "pendientes_confirmacion": [],
+    }
+
+
+class PublisherFalso:
+    def __init__(self, fallan=()) -> None:
+        self.publicadas: list[tuple[dict, str | None]] = []
+        self._fallan = set(fallan)
+
+    def publicar(self, payload: dict, usuario: str | None = None) -> str:
+        if _codigo(payload) in self._fallan:
+            raise RuntimeError("cola caida")
+        self.publicadas.append((copy.deepcopy(payload), usuario))
+        return f"peticion-{len(self.publicadas)}"
+
+
+class CalendarioFalso(ProveedorFake):
+    """Sesame no fiable solo para los DNIs de `no_fiables`."""
+
+    def __init__(self, no_fiables=()) -> None:
+        super().__init__(por_dni={}, por_defecto=set())
+        self._no_fiables = set(no_fiables)
+
+    def fiable_para(self, consultas):
+        consultas = list(consultas)
+        self.consultas.append(("fiable_para", sorted(
+            (str(d), a) for d, a in consultas)))
+        return not any(d in self._no_fiables for d, _a in consultas)
+
+
+DNI_A = "12345678Z"      # emp-77
+DNI_B = "00000001R"      # emp-88
+MARZO = {"vista": "obra", "obra_key": "obr-10", "period": "2026-03",
+         "mode": "nomina"}
+PERSONA_A = {"vista": "trabajador", "worker_key": "emp-77"}
+ENDPOINTS = ("/api/aprobar/preflight", "/api/aprobar/ejecutar",
+             "/api/aprobar/encolar")
+
+
+def _escenario(fabrica) -> dict[str, list[int]]:
+    """obr-10 · marzo: 2 de A y 1 de B; obr-10 · abril: 1 de A; obr-20 ·
+    marzo: 2 de A (una `error`); obr-10 · marzo: 1 de A en la papelera."""
+    return {
+        "o10_a": _sembrar(fabrica, OBRA_10, [None, None], doc="d-10a"),
+        "o10_b": _sembrar(fabrica, OBRA_10, [None], doc="d-10b",
+                          fecha="2026-03-04", empleado_ide=88,
+                          empleado_dni=DNI_B, empleado_nombre="Persona B"),
+        "o10_abril": _sembrar(fabrica, OBRA_10, [None], doc="d-10abr",
+                              fecha="2026-04-02"),
+        "o20_a": _sembrar(fabrica, OBRA_20, [None, "error"], doc="d-20a",
+                          fecha="2026-03-03"),
+        "papelera": sembrar_parte(fabrica, [{"borrada": True}],
+                                  document_id="d-pap", obra_ide=10,
+                                  obra_codigo="0100"),
+    }
+
+
+@pytest.fixture
+def portal(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana",
+                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+        monkeypatch.setenv(clave, valor)
+
+    def _levantar(*, sv5=None, publisher="si", calendario=None, env=None):
+        for clave, valor in (env or {}).items():
+            monkeypatch.setenv(clave, valor)
+        fabrica = FabricaSesionSqlite()
+        ids = _escenario(fabrica)
+        sv5 = sv5 or Sv5Falso()
+        if publisher == "si":
+            publisher = PublisherFalso()
+        app = build_app(Settings(_env_file=None),
+                        repository=ParteReviewRepository(fabrica),
+                        transfer_client=sv5, publisher=publisher,
+                        calendario_provider=calendario or CalendarioFalso())
+        return TestClient(app), fabrica, ids, sv5, publisher
+    return _levantar
+
+
+def _todos(ids: dict) -> list[int]:
+    return [i for v in ids.values() for i in v]
+
+
+# ===================================================================== #
+# T5 · R10-R13 · el ambito de la vista
+# ===================================================================== #
+
+def test_f022_r10_ambito_obra_sigue_solo_con_los_pedidos(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": ids["o10_a"][:1], "ambito": MARZO})
+    assert r.status_code == 200
+    assert [[l["registro_id"] for l in p["lineas"]]
+            for p in sv5.preflights] == [ids["o10_a"][:1]]
+
+
+def test_f022_r10_ambito_obra_sin_periodo_usa_el_de_la_vista(portal) -> None:
+    """Sin `period`, la vista de obra abre el periodo mas reciente."""
+    cliente, _f, ids, sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": ids["o10_abril"],
+        "ambito": {"vista": "obra", "obra_key": "obr-10"}})
+    assert r.status_code == 200
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": ids["o10_a"],
+        "ambito": {"vista": "obra", "obra_key": "obr-10", "period": None,
+                   "mode": None}})
+    assert r.status_code == 422
+
+
+def test_f022_r10_ambito_obra_respeta_el_modo_natural(portal) -> None:
+    """2026-03-02 es de marzo en natural y de marzo en nomina; el 04-02,
+    de abril en los dos. El modo viaja hasta la consulta de la vista."""
+    cliente, fabrica, _ids, _sv5, _p = portal()
+    tardia = _sembrar(fabrica, OBRA_10, [None], doc="d-10-20mar",
+                      fecha="2026-03-20")
+    nomina = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": tardia, "ambito": MARZO})
+    natural = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": tardia, "ambito": dict(MARZO, mode="natural")})
+    assert nomina.status_code == 422          # nomina: va a abril
+    assert natural.status_code == 200
+
+
+def test_f022_r10_ambito_persona_es_toda_su_tabla(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    pedidos = ids["o10_a"] + ids["o10_abril"] + ids["o20_a"]
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": pedidos, "ambito": PERSONA_A})
+    assert r.status_code == 200
+    assert sorted(l["registro_id"] for p in sv5.preflights
+                  for l in p["lineas"]) == sorted(pedidos)
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+@pytest.mark.parametrize("intruso,ambito", [
+    ("o20_a", MARZO),               # otra obra
+    ("o10_abril", MARZO),           # otro periodo
+    ("o10_b", PERSONA_A),           # otra persona
+    ("papelera", MARZO),            # en la papelera
+    ("papelera", PERSONA_A),
+])
+def test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada(
+        portal, endpoint, intruso, ambito) -> None:
+    cliente, fabrica, ids, sv5, publisher = portal()
+    antes = estados_sigrid(fabrica, _todos(ids))
+    r = cliente.post(endpoint, json={
+        "registro_ids": ids["o10_a"] + ids[intruso][:1], "ambito": ambito})
+    assert r.status_code == 422
+    assert r.json()["ok"] is False
+    assert r.json()["fuera_de_ambito"] == 1
+    assert "no son de esta vista" in r.json()["error"]
+    assert sv5.preflights == [] and sv5.ejecutadas == []
+    assert publisher.publicadas == []
+    assert estados_sigrid(fabrica, _todos(ids)) == antes
+
+
+def test_f022_r11_ambito_cuenta_todos_los_ids_ajenos(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": ids["o20_a"] + [999999] + ids["o10_a"],
+        "ambito": MARZO})
+    assert r.status_code == 422
+    assert r.json()["fuera_de_ambito"] == 3
+    assert sv5.preflights == []
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+@pytest.mark.parametrize("ambito,ids_fn,texto", [
+    ({"vista": "parte", "obra_key": "obr-10"}, lambda i: i["o10_a"],
+     "vista desconocida"),
+    ({"obra_key": "obr-10"}, lambda i: i["o10_a"], "vista desconocida"),
+    ("obra", lambda i: i["o10_a"], "ambito no valido"),
+    ({"vista": "obra"}, lambda i: i["o10_a"], "falta obra_key"),
+    ({"vista": "obra", "obra_key": "  "}, lambda i: i["o10_a"],
+     "falta obra_key"),
+    ({"vista": "trabajador", "obra_key": "obr-10"}, lambda i: i["o10_a"],
+     "falta worker_key"),
+    (MARZO, lambda i: [], "no hay lineas seleccionadas"),
+    (MARZO, lambda i: list(range(1, 5002)), "el maximo es 5000"),
+])
+def test_f022_r12_ambito_mal_formado_es_422_sin_sv5(
+        portal, endpoint, ambito, ids_fn, texto) -> None:
+    cliente, fabrica, ids, sv5, publisher = portal()
+    antes = estados_sigrid(fabrica, _todos(ids))
+    r = cliente.post(endpoint, json={"registro_ids": ids_fn(ids),
+                                     "ambito": ambito})
+    assert r.status_code == 422
+    assert r.json()["ok"] is False
+    assert texto in r.json()["error"]
+    assert sv5.preflights == [] and sv5.ejecutadas == []
+    assert publisher.publicadas == []
+    assert estados_sigrid(fabrica, _todos(ids)) == antes
+
+
+def test_f022_r12_ambito_5000_ids_es_el_limite_admitido(portal) -> None:
+    """5000 se admite (llega a la validacion de ambito); 5001 no."""
+    cliente, _f, ids, _sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": ids["o10_a"] + list(range(100000, 104998)),
+        "ambito": MARZO})
+    assert r.status_code == 422
+    assert r.json()["fuera_de_ambito"] == 4998
+
+
+def test_f022_r12_ambito_los_ids_repetidos_cuentan_una_vez(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": ids["o10_a"] * 3000, "ambito": MARZO})
+    assert r.status_code == 200
+    assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == \
+        ids["o10_a"]
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+def test_f022_r12_ambito_ids_no_numericos_son_422(portal, endpoint) -> None:
+    cliente, _f, _ids, sv5, _p = portal()
+    r = cliente.post(endpoint, json={"registro_ids": ["x"], "ambito": MARZO})
+    assert r.status_code == 422
+    assert r.json()["error"] == "registro_ids no validos"
+    assert sv5.preflights == [] and sv5.ejecutadas == []
+
+
+def test_f022_r13_ambito_ausente_con_obra_key_heredado(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={
+        "obra_key": "obr-10", "period": "2026-03", "mode": "nomina"})
+    assert r.status_code == 200
+    assert sorted(l["registro_id"] for l in sv5.preflights[0]["lineas"]) == \
+        sorted(ids["o10_a"] + ids["o10_b"])
+
+
+def test_f022_r13_ambito_ausente_sin_ids_ni_obra_es_422(portal) -> None:
+    cliente, _f, _ids, sv5, _p = portal()
+    r = cliente.post("/api/aprobar/preflight", json={"registro_ids": []})
+    assert r.status_code == 422
+    assert r.json()["error"] == "faltan registro_ids u obra_key"
+
+
+# ===================================================================== #
+# T6 · preflight por grupo (R14-R18, R23-R26, R31)
+# ===================================================================== #
+
+def _preflight(cliente, ids, **extra):
+    return cliente.post("/api/aprobar/preflight",
+                        json=dict({"registro_ids": ids}, **extra))
+
+
+def test_f022_r14_preflight_una_llamada_a_sv5_por_obra(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = _preflight(cliente, ids["o20_a"] + ids["o10_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    assert [p["obra"] for p in sv5.preflights] == [OBRA_10, OBRA_20]
+    assert [[l["registro_id"] for l in p["lineas"]]
+            for p in sv5.preflights] == [ids["o10_a"], ids["o20_a"]]
+    grupos = r.json()["grupos"]
+    assert [g["clave"] for g in grupos] == ["obr-10", "obr-20"]
+    assert [g["obra"] for g in grupos] == [OBRA_10, OBRA_20]
+    assert [g["registro_ids"] for g in grupos] == [ids["o10_a"],
+                                                    ids["o20_a"]]
+
+
+def test_f022_r13_preflight_sin_vista_reparte_por_obra(portal) -> None:
+    """Sin `ambito` no se valida la vista (JS en cache, botones por linea):
+    los ids van tal cual, ya repartidos por obra (§D)."""
+    cliente, _f, ids, sv5, _p = portal()
+    r = _preflight(cliente, ids["o10_b"] + ids["o20_a"], ambito=None)
+    assert r.status_code == 200
+    assert [_codigo(p) for p in sv5.preflights] == ["0100", "0200"]
+
+
+def _sembrar_obras(fabrica, n: int) -> list[int]:
+    """`n` obras mas (ide 101..) de la persona A, una linea cada una."""
+    ids: list[int] = []
+    for k in range(n):
+        ids += _sembrar(fabrica, {"ide": 101 + k, "codigo": f"09{k:02d}"},
+                        [None], doc=f"d-x{k}")
+    return ids
+
+
+def test_f022_r15_preflight_mas_de_diez_obras_es_422_con_desglose(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal()
+    extra = _sembrar_obras(fabrica, 9)                 # 2 + 9 = 11 obras
+    r = _preflight(cliente, ids["o10_a"] + ids["o20_a"] + extra,
+                   ambito=PERSONA_A)
+    assert r.status_code == 422
+    cuerpo = r.json()
+    assert cuerpo["ok"] is False
+    assert cuerpo["error"] == ("la aprobacion abarca 11 obras y el maximo "
+                               "es 10: filtra la tabla o selecciona menos "
+                               "obras")
+    assert len(cuerpo["obras"]) == 11
+    assert cuerpo["obras"][0] == {"clave": "obr-10", "codigo": "0100",
+                                  "nombre": "Obra Uno", "lineas": 2}
+    assert cuerpo["obras"][-1]["clave"] == "obr-20"
+    assert sv5.preflights == []
+
+
+def test_f022_r15_preflight_diez_obras_si_se_admiten(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal()
+    extra = _sembrar_obras(fabrica, 8)                 # 2 + 8 = 10 obras
+    r = _preflight(cliente, ids["o10_a"] + ids["o20_a"] + extra,
+                   ambito=PERSONA_A)
+    assert r.status_code == 200
+    assert len(sv5.preflights) == 10
+
+
+def test_f022_r15_preflight_el_tope_sale_de_la_configuracion(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal(env={"APROBACION_MAX_OBRAS": "1"})
+    r = _preflight(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 422
+    assert "el maximo es 1:" in r.json()["error"]
+    assert sv5.preflights == []
+
+
+@pytest.mark.parametrize("valor,valido", [("0", False), ("1", True),
+                                          ("50", True), ("51", False)])
+def test_f022_r15_preflight_tope_de_obras_entre_1_y_50(
+        monkeypatch, valor, valido) -> None:
+    monkeypatch.setenv("PG_PASSWORD", "x")
+    monkeypatch.setenv("PG_ADMIN_PASSWORD", "x")
+    monkeypatch.setenv("APROBACION_MAX_OBRAS", valor)
+    if valido:
+        assert Settings(_env_file=None).aprobacion_max_obras == int(valor)
+    else:
+        with pytest.raises(ValueError):
+            Settings(_env_file=None)
+
+
+def test_f022_r15_preflight_tope_por_defecto(monkeypatch) -> None:
+    monkeypatch.setenv("PG_PASSWORD", "x")
+    monkeypatch.setenv("PG_ADMIN_PASSWORD", "x")
+    monkeypatch.delenv("APROBACION_MAX_OBRAS", raising=False)
+    assert Settings(_env_file=None).aprobacion_max_obras == 10
+
+
+def test_f022_r16_preflight_un_grupo_planos_identicos_a_hoy(portal) -> None:
+    respuesta = {"ok": True, "obra_destino": {"codigo": "0404"},
+                 "forzada_pruebas": True, "partes": [{"cod": "PT26/00009"}],
+                 "acciones": [], "conflictos": [], "escribir": 2,
+                 "resumen": {"escribir": 2}}
+    cliente, _f, ids, _sv5, _p = portal(
+        sv5=Sv5Falso(preflight_por_obra={"0100": respuesta}))
+    cuerpo = _preflight(cliente, ids["o10_a"], ambito=MARZO).json()
+    for clave, valor in respuesta.items():
+        assert cuerpo[clave] == valor
+    assert cuerpo["excluidas"] == {"registrado": 0, "borrado_sigrid": 0}
+    assert cuerpo["avisos_calendario"] == []
+    assert cuerpo["umbral_plegado"] == 40
+    assert cuerpo["excluidas_detalle"] == []
+    assert "sesame_bloqueo" not in cuerpo
+    for clave in ("clave", "obra", "registro_ids", "listado"):
+        assert clave not in cuerpo
+    assert cuerpo["totales"] == cuerpo["grupos"][0]["totales"]
+    assert len(cuerpo["grupos"]) == 1
+
+
+def test_f022_r17_preflight_un_grupo_fallido_y_el_otro_sigue(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal(sv5=Sv5Falso(preflight_por_obra={
+        "0100": {"ok": False, "error": "sigrid-api caido"}}))
+    r = _preflight(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["ok"] is True
+    malo, bueno = cuerpo["grupos"]
+    assert (malo["ok"], malo["error"]) == (False, "sigrid-api caido")
+    assert {f["estado"] for f in malo["listado"]} == {"no_se_registra"}
+    assert bueno["ok"] is True
+    assert cuerpo["obra_destino"] == OBRA_20
+    assert len(sv5.preflights) == 2
+
+
+def test_f022_r17_preflight_una_excepcion_de_sv5_solo_tumba_su_grupo(portal) -> None:
+    cliente, _f, ids, _sv5, _p = portal(sv5=Sv5Falso(preflight_por_obra={
+        "0200": RuntimeError("se corto la conexion")}))
+    r = _preflight(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    bueno, malo = r.json()["grupos"]
+    assert bueno["ok"] is True
+    assert malo["ok"] is False
+    assert malo["error"] == ("no se pudo evaluar la obra: se corto la "
+                             "conexion")
+
+
+def test_f022_r17_preflight_todos_fallidos(portal) -> None:
+    caido = {"ok": False, "error": "caido"}
+    cliente, _f, ids, _sv5, _p = portal(sv5=Sv5Falso(preflight_por_obra={
+        "0100": caido, "0200": caido}))
+    cuerpo = _preflight(cliente, ids["o10_a"] + ids["o20_a"],
+                        ambito=PERSONA_A).json()
+    assert cuerpo["ok"] is False
+    assert cuerpo["error"] == ("ninguna obra se pudo evaluar: 0100: caido; "
+                               "0200: caido")
+
+
+def test_f022_r18_preflight_sesame_no_fiable_solo_en_un_grupo(portal) -> None:
+    cliente, _f, ids, _sv5, _p = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_B}))
+    cuerpo = _preflight(cliente, ids["o10_b"] + ids["o20_a"]).json()
+    o10, o20 = cuerpo["grupos"]
+    assert o10["sesame_bloqueo"]
+    assert "sesame_bloqueo" not in o20
+    assert cuerpo["sesame_bloqueo"] == o10["sesame_bloqueo"]
+
+
+def test_f022_r31_preflight_avisos_y_bloqueo_solo_de_lo_pedido(portal) -> None:
+    """La vista tiene una linea de B (Sesame caido) y una en domingo; si no
+    se piden, ni bloquean ni avisan, aunque sean de la misma obra."""
+    cliente, fabrica, ids, sv5, _p = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_B}))
+    domingo = _sembrar(fabrica, OBRA_10, [None], doc="d-dom",
+                       fecha="2026-03-01")
+    cuerpo = _preflight(cliente, ids["o10_a"], ambito=MARZO).json()
+    assert "sesame_bloqueo" not in cuerpo
+    assert cuerpo["avisos_calendario"] == []
+    assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == \
+        ids["o10_a"]
+    cuerpo = _preflight(cliente, ids["o10_a"] + domingo,
+                        ambito=MARZO).json()
+    assert [a["registro_id"] for a in cuerpo["avisos_calendario"]] == domingo
+    assert [a["registro_id"] for a in
+            cuerpo["grupos"][0]["avisos_calendario"]] == domingo
+
+
+def test_f022_r31_preflight_lo_excluido_no_viaja(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal()
+    reg = _sembrar(fabrica, OBRA_10, ["registrado"], doc="d-reg")
+    cuerpo = _preflight(cliente, ids["o10_a"] + reg, ambito=MARZO).json()
+    assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == \
+        ids["o10_a"]
+    assert cuerpo["excluidas"] == {"registrado": 1, "borrado_sigrid": 0}
+    assert [d["registro_id"] for d in cuerpo["excluidas_detalle"]] == reg
+    assert cuerpo["excluidas_detalle"][0]["motivo"].startswith(
+        "ya registrada en Sigrid")
+
+
+def test_f022_r23_preflight_listado_y_totales_por_grupo(portal) -> None:
+    def con_conflicto(payload):
+        pf = pf_por_defecto(payload)
+        rid = payload["lineas"][0]["registro_id"]
+        pf["conflictos"] = [{"clave": "501|20260303|1", "registros": [rid],
+                             "parte_cod": "PT26/00004"}]
+        pf["acciones"][1]["hora_codigo"] = "HX99"
+        return pf
+    cliente, _f, ids, _sv5, _p = portal(sv5=Sv5Falso(preflight_por_obra={
+        "0200": con_conflicto}))
+    cuerpo = _preflight(cliente, ids["o10_a"] + ids["o20_a"],
+                        ambito=PERSONA_A).json()
+    o10, o20 = cuerpo["grupos"]
+    assert [f["estado"] for f in o10["listado"]] == ["nuevo", "nuevo"]
+    assert [(f["registro_id"], f["estado"], f["hora_codigo"])
+            for f in o20["listado"]] == [
+        (ids["o20_a"][0], "conflicto", "HL01"),
+        (ids["o20_a"][1], "reaprobacion", "HX99")]
+    assert o20["listado"][1]["motivo"] == "antes: error"
+    assert o20["totales"] == {"lineas": 2, "por_estado": {
+        "conflicto": 1, "reaprobacion": 1}, "horas_ordinarias": 16.0,
+        "horas_extra": 0.0, "incidencias": 0}
+    assert cuerpo["totales"] == {"lineas": 4, "por_estado": {
+        "nuevo": 2, "conflicto": 1, "reaprobacion": 1},
+        "horas_ordinarias": 32.0, "horas_extra": 0.0, "incidencias": 0}
+    assert cuerpo["umbral_plegado"] == 40
+    assert set(o10["listado"][0]) == {
+        "registro_id", "fecha_int", "nombre", "tipo", "hora_codigo",
+        "horas", "partida_cod", "recurso_ide", "estado", "motivo"}
+
+
+def test_f022_r19_preflight_claves_sin_grupo_con_varias_obras_es_422(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    r = _preflight(cliente, ids["o10_a"] + ids["o20_a"],
+                   pisar_claves=["501|20260302|1"])
+    assert r.status_code == 422
+    assert sv5.preflights == []
+
+
+def test_f022_r33_preflight_payload_de_siempre(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal()
+    _preflight(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A,
+               incluir_borradas=True)
+    for p in sv5.preflights:
+        assert set(p) == {"obra", "lineas", "pisar_claves", "usuario"}
+        assert p["pisar_claves"] == []
+        for linea in p["lineas"]:
+            assert "estado_previo" not in linea
