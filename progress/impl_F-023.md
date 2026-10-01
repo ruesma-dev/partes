@@ -172,10 +172,10 @@ verde porque el recurso 501 es el único candidato). Adaptados: ver arriba.
 
 ## Resultados reales
 
-- `bash harness/init.sh` (tras el último commit): ver «Evidencias».
-- Suites por servicio (`python -m pytest -q`): sv2 **8 passed** (0,4 s);
-  sv3 **640 passed** (7,6 s); sv4 **1.086 passed** (≈150 s); sv5 **141
-  passed** (7 s); raíz (incluye el guardián T19) en `init.sh`.
+- `bash harness/init.sh` tras el commit `92d88c2`: **exit 0**, «ENTORNO
+  LISTO»; raíz `416 passed, 1 skipped in 71.31s`; sv3 `640 passed in
+  20.18s`; sv4 `1093 passed, 1 warning in 323.03s`; sv5 `141 passed, 1
+  warning in 9.61s`; sv1 y sv2 en verde (caché; sv2 `8 passed` a mano).
 - `node --check services/partes-front/static/app.js`: OK.
 - Mutación (T23): primera campaña sobre `200a98c`, 214 mutantes, **3
   supervivientes** (`@dataclass(frozen=True)` de `RecursoSigrid` y de
@@ -189,11 +189,11 @@ verde porque el recurso 501 es el único candidato). Adaptados: ver arriba.
 
 | Evidencia | Valor real |
 |---|---|
-| Tests ejecutados | sv2 8 · sv3 640 · sv4 1.086 · sv5 141 · raíz 417 (1 skipped): todo en verde |
-| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 596 líneas cambiadas cubiertas (595/596, umbral 80%, nivel critico)` |
+| Tests ejecutados | sv2 8 · sv3 640 · sv4 1.093 · sv5 141 · raíz 416 (+1 skipped): todo en verde |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 597 líneas cambiadas cubiertas (596/597, umbral 80%, nivel critico)` |
 | Mutantes / supervivientes | 214 generados y evaluados (sv3 155, sv4 22, sv5 37; sv2 sin mutantes: solo un campo `Optional`), **0 supervivientes** |
 | Workers / timeout | `--workers 6 --timeout 600` · tiempo total 2.076,5 s · media 9,7 s (≈ 58 s reales por mutante con 6 workers; líneas base sv4 ≈ 291 s, sv3 ≈ 16 s, sv5 ≈ 12 s) |
-| Tiempo de las suites | sv4 ≈ 150 s, sv3 7,6 s, sv5 7 s, sv2 0,4 s, raíz ≈ 59 s |
+| Tiempo de las suites | dentro de `init.sh` (con cobertura): sv4 323 s, raíz 71 s, sv3 20 s, sv5 9,6 s; sv2 0,4 s suelta |
 | SHA medido | `ad48d2dd39b92197f09e5d11b6250a71ca8f2823` (después solo cambian `progress/` y `tasks.md`) |
 
 ## Pendientes MANUAL (humano) — detalle y comandos en `progress/current.md`
