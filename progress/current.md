@@ -22,7 +22,17 @@ M2 desplegar sv5 y luego sv4; M3 abrir la obra 0719 en el periodo del
 tests). Después: M3 de F-023 (reconciliar recursos) y reaprobación por
 Administración.
 
-## F-021 · spec escrita (2026-10-01), pendiente de aprobación del humano
+## F-021 · EN IMPLEMENTACIÓN (implementer, 2026-10-01)
+
+Spec aprobada por el humano (DA1–DA13 según recomendación). Rama
+`feature/F-021-cuenta-analitica-sigrid`. Contraste previo con el código
+de `dev` tras F-023/F-024: la spec sigue encajando (`stmt_insert_linea`,
+`horas_de_recursos` y `preparar` sin cambios de firma relevantes; el
+preflight de sv5 serializa `acciones` con `asdict`; el modal de sv4 sigue
+construyéndose desde `resumenHtml`). Tarea en curso y desviaciones:
+`progress/impl_F-021.md`.
+
+### (histórico) spec escrita, pendiente de aprobación
 
 Spec en `specs/F-021-cuenta-analitica-sigrid/` (rama
 `feature/F-021-cuenta-analitica-sigrid`, sin commits). Exploración de solo
