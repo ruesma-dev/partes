@@ -1,6 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-022 · EN IMPLEMENTACIÓN (rama `feature/F-022-aprobar-seleccionadas`)
+
+Spec aprobada el 2026-10-01 (DA1–DA19), rigor `critico`, solo sv4 (sv5 sin
+cambios). Implementer en marcha: tarea en curso y desviaciones en
+`progress/impl_F-022.md`. Contraste inicial de la spec con dev (F-021, F-023,
+F-024 ya mergeadas): sin cambios de comportamiento; solo adaptaciones de
+nombres (el aviso de cuenta de F-021, `avisosCuentaHtml`, se integra por obra
+dentro de `resumenHtml`).
+
+Pendientes MANUAL (humano, design §9): M1 (consulta de lectura en PG, ¿ya
+pasó un lote de varias obras?), M2–M7 en navegador en modo pruebas y M8 tras
+la primera aprobación real de varias obras. Pasos exactos en
+`progress/impl_F-022.md` al cerrar.
+
 ## F-024 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-024.md`); resumen en
