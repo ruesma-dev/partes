@@ -32,6 +32,33 @@ preflight de sv5 serializa `acciones` con `asdict`; el modal de sv4 sigue
 construyéndose desde `resumenHtml`). Tarea en curso y desviaciones:
 `progress/impl_F-021.md`.
 
+Implementación T1–T16 terminada por el implementer (informe en
+`progress/impl_F-021.md`); pendiente del reviewer. Sin desplegar.
+
+MANUAL (humano), design §9 — solo lecturas salvo M2 (modo pruebas):
+
+- **M1 · antes de desplegar sv5** (sigrid-api, base `ruesma`, lectura):
+  `SELECT h.ano, h.mes, COUNT(*) AS n, SUM(CASE WHEN ISNULL(h.caaide,0)=0
+  THEN 1 ELSE 0 END) AS sin_cuenta FROM hmores h WHERE h.synckey LIKE
+  'partes:%' GROUP BY h.ano, h.mes`. Esperado: lo que haya escrito sv5
+  desde la exploración (0 filas el 2026-10-01); si hay, decidir según DA6.
+- **M2 · tras desplegar sv5** (modo pruebas, obra `0404`): aprobar un
+  parte con ordinarias, extras y una incidencia de un recurso de la
+  empresa 1 y leer `SELECT h.synckey, ah.cod AS hora, c.cod AS cuenta,
+  ca.cenide, o.cenide AS cen_obra FROM hmores h JOIN obr o ON o.ide =
+  h.obride LEFT JOIN auxhor ah ON ah.ide = h.horide LEFT JOIN con c ON
+  c.ide = h.caaide LEFT JOIN caa ca ON ca.ide = h.caaide WHERE h.synckey
+  IN (…)`. Esperado: `cuenta` = `<código del centro de 0404>.<subcuenta>`,
+  `ca.cenide = cen_obra`; `CI*`/`CIZ` con la subcuenta del tipo por
+  defecto. En el log de sv5: `[registro] cuentas obra=0404 ok=…`. Limpiar
+  con `prueba_escritura_sigrid.py`.
+- **M3 · tras desplegar sv4** (navegador, Ctrl+F5): preflight de un
+  recurso cuya subcuenta no tiene la `0404` (consulta en design §9 M3).
+  Esperado: bloque «N linea(s) se registraran sin cuenta analitica» en el
+  modal y la línea escrita con `caaide = 0`.
+- **M4 · Administración**: la línea de M2 se ve en Sigrid con la cuenta
+  igual que una tecleada; confirmar DA3 y DA13 (Porsan sin cuenta).
+
 ### (histórico) spec escrita, pendiente de aprobación
 
 Spec en `specs/F-021-cuenta-analitica-sigrid/` (rama

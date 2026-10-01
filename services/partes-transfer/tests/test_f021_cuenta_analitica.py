@@ -109,6 +109,17 @@ def test_f021_r7_otra_fila_con_cuenta_no_interviene() -> None:
     assert subcuenta_de_linea(horas, HL) is None
 
 
+def test_f021_r2_una_fila_sin_marcar_no_es_el_tipo_por_defecto() -> None:
+    """`HoraRecurso` construida sin `defecto` (como en los tests y dobles
+    anteriores a F-021) NO actua de respaldo: si lo hiciera, cualquier
+    tipo de hora con cuenta se colaria en las lineas de otro tipo."""
+    otra = HoraRecurso(horide=OTRA, cod="HL09", res=None, pre=1.0,
+                       caa_cod="00000.OTRA")
+    assert otra.defecto is False and otra.caa_cod == "00000.OTRA"
+    assert HoraRecurso(horide=HL, cod="HL01", res=None, pre=1.0).caa_cod         is None
+    assert subcuenta_de_linea([otra], CI) is None
+
+
 # ============================ indexar_cuentas ============================ #
 
 def test_f021_r4_indexar_agrupa_por_subcuenta() -> None:

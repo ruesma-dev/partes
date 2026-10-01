@@ -209,11 +209,13 @@ class RegistroPipeline:
         lectura de cuentas va SIN `try`: si falla, la peticion falla y la
         cola reintenta (R11, DA7); escribir 0 en silencio es justo el
         defecto que se corrige."""
+        # Una accion `escribir` siempre trae recurso (las reglas omiten las
+        # que no lo tienen).
         escribir = [a for a in acciones if a.accion == "escribir"]
         if not escribir:
             return
         subs = {id(a): subcuenta_de_linea(
-                    horas.get(int(a.recurso_ide or 0), []), a.hora_ide)
+                    horas.get(int(a.recurso_ide), []), a.hora_ide)
                 for a in escribir}
         cenide = int(getattr(destino, "cenide", 0) or 0)
         pedidas = {s for s in subs.values() if s}
