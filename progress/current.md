@@ -1,6 +1,43 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-024 · spec escrita (2026-10-01), pendiente de aprobación del humano
+
+Spec en `specs/F-024-lineas-encoladas/` (rama
+`feature/F-024-lineas-encoladas`, sin commits). Base: `progress/explore_F-024.md`
+y lecturas del spec-author por sigrid-api (solo lectura): 0 `hmores` huérfanas
+de `hmo`, 0 líneas con `synckey` `partes:%`, los 35 `ide` de sv5 siguen sin
+existir. Toca **sv5** (endpoint de solo lectura `POST /api/registro/comprobar`)
+y **sv4** (estado nuevo `borrado_sigrid`, barrido horario, botón «Comprobar en
+Sigrid», sondeo del modal tras encolar). sv3 no se toca. Sin cambio de schema.
+
+**AVISO OPERATIVO YA (DA13)**: hasta desplegar F-024, **no usar «Aprobar
+todo»** en la obra 0719 · 09/2026 ni «Aprobar visibles» en la ficha de sus
+trabajadores. Hoy las aprobaciones masivas reenvían también las líneas
+`registrado`, y sv5, al no encontrar su `synckey`, **reescribiría las 35
+líneas que Administración borró a propósito** (las del recurso de baja saldrían
+omitidas por F-023; el resto se escribiría).
+
+Decisiones a validar (design §8, con recomendación):
+
+1. DA1 · cuándo: barrido horario en sv4 (ventana de 3 meses) + botón «Comprobar en Sigrid»; no al abrir la vista.
+2. DA2 · quién: sv5 por HTTP interno de solo lectura; sv4 no lee `hmores` (la lista cerrada no crece).
+3. DA3 · criterio: el de la idempotencia (`synckey`) + respaldo estricto por `hmores.ide`.
+4. DA4 · `borrado_sigrid` no congela, conserva `sigrid_parte_cod`/`hmores_ide`/`hmoide`; fecha en el motivo.
+5. DA5 · líneas modificadas a mano en Sigrid: siguen `registrado`; diferencias solo informativas.
+6. DA6 · cabecera borrada: misma transición; al reaprobar sale un `PT` nuevo.
+7. DA7 · aprobaciones masivas excluyen siempre `registrado` y `borrado_sigrid` salvo casilla; «Reaprobar» por línea.
+8. DA8 · `encolado` sigue entrando en las masivas (salida de atascos).
+9. DA9 · vista con resultado pendiente: aviso con «Actualizar», sin recarga automática.
+10. DA10 · las 35 de septiembre: por el barrido tras desplegar; después M3 de F-023 (reconciliar recursos) y reaprobación del humano.
+11. DA11 · despliegue sv5 → sv4.
+12. DA12 · desaprobar sin cambios (nada se borra en Sigrid).
+13. DA13 · el aviso operativo de arriba.
+14. DA14 · ventana 3 meses y lote 500, configurables.
+
+Verificaciones MANUAL (humano) tras aprobar e implementar: design §9 (M1–M5),
+con la consulta previa de M1 en la base `partes` (sin firewall para los agentes).
+
 ## F-021 · spec escrita (2026-10-01), pendiente de aprobación del humano
 
 Spec en `specs/F-021-cuenta-analitica-sigrid/` (rama
