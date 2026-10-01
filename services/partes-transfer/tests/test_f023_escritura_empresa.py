@@ -526,3 +526,26 @@ def test_f023_da5_pipeline_settings_sin_sigrid_empresa(monkeypatch) -> None:
     monkeypatch.setenv("SIGRID_API_FUNCTION_KEY", "clave-de-test")
     monkeypatch.setenv("SIGRID_EMPRESA", "1")
     assert not hasattr(Settings(_env_file=None), "sigrid_empresa")
+
+
+# ============== refuerzo tras la campana de mutacion (T23) ============== #
+
+def test_f023_r36_coherencia_lo_leido_de_sigrid_no_se_puede_alterar() -> None:
+    """`RecursoSigrid` es inmutable: lo que se verifica es lo que Sigrid
+    dijo, no algo que un paso posterior haya podido tocar."""
+    import dataclasses
+
+    r = _rec()
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        r.empresa = 28  # type: ignore[misc]
+    assert {r, _rec()} == {r}
+
+
+def test_f023_r33_pipeline_el_correlativo_se_pide_una_vez_por_parte_nuevo(
+) -> None:
+    """El `PT` propuesto en la evaluacion (bajo el lock) es el que se
+    escribe: no se vuelve a pedir al crear la cabecera."""
+    cli = _sigrid_empresas()
+    _pipeline(cli).ejecutar(obra=OBRA_UNO, lineas=[_lin(1)])
+    assert cli.llamadas.count("siguiente_cod_pt") == 1
+    assert cli.partes[-1]["cod"] == "PT26/00001"

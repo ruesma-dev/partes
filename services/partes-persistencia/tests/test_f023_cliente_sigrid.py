@@ -224,3 +224,13 @@ def test_f023_tipos_de_hora_ordenados_por_ext_y_codigo(monkeypatch) -> None:
          [3, "HL01", "a", 0, None, None], [4, None, "d", 0, None, None]])
     tipos = _cliente(monkeypatch, falso).fetch_tipos_hora()
     assert [t.ide for t in tipos] == [4, 3, 1, 2]
+
+
+def test_f023_r2_las_empresas_leidas_no_se_pueden_alterar() -> None:
+    """`EmpresaRow` es un DTO inmutable, como el resto de filas de Sigrid."""
+    import dataclasses
+
+    fila = EmpresaRow(numemp=1, nombre="UNO")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        fila.desact = 1  # type: ignore[misc]
+    assert {fila, EmpresaRow(numemp=1, nombre="UNO")} == {fila}
