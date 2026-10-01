@@ -69,6 +69,11 @@ class HoraRecurso:
     cod: str
     res: Optional[str]
     pre: float
+    # F-021 (R9): codigo de la cuenta analitica de `reshor.caaide` (la
+    # plantilla del recurso para este tipo de hora) y si este tipo es el
+    # tipo por defecto del recurso (`reshor.horide = res.horide`).
+    caa_cod: Optional[str] = None
+    defecto: bool = False
 
     @property
     def es_extra(self) -> bool:
@@ -113,6 +118,14 @@ class AccionLinea:
     paride: int = 0
     partida_cod: Optional[str] = None
     hmores_ide: Optional[int] = None     # si ya estaba registrada
+    # F-021 (R13): cuenta analitica que se escribira en `hmores.caaide`.
+    # `caa_ide = 0` = sin cuenta (la linea se escribe igual, R8);
+    # `caa_motivo` None = cuenta resuelta; `caa_aviso` solo si la obra
+    # podria arreglarse (R5, R6).
+    caa_ide: int = 0
+    caa_cod: Optional[str] = None
+    caa_motivo: Optional[str] = None
+    caa_aviso: Optional[str] = None
 
     @property
     def clave_conflicto(self) -> str:
