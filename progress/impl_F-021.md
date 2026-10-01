@@ -2,49 +2,67 @@
 # F-021 · Informe del implementer
 
 Rama `feature/F-021-cuenta-analitica-sigrid`. Rigor **critico**. Spec
-aprobada el 2026-10-01 (DA1–DA13 según recomendación).
+aprobada el 2026-10-01 (DA1–DA13 según recomendación). T1–T16 hechas.
 
-## 0. Contraste con el código de `dev` (F-023 y F-024 ya mergeadas)
+## 0. Contraste previo con `dev` (F-023 y F-024 ya mergeadas)
 
-Revisados `sigrid_write_client.py`, `registro_pipeline.py`,
-`reglas_registro.py`, `coherencia_recurso.py`, `comprobacion_lineas.py`
-(F-024), `interface_adapters/api/app.py` de sv5 y el modal del preflight de
-`static/app.js` (sv4). La spec sigue encajando sin cambiar comportamiento
-ni decisiones:
+**Nada cambia comportamiento ni decisiones**: `preparar` ya tiene la empresa
+(F-023) y lee `horas_de_recursos` en el mismo punto; `cenide` llega por
+`setattr`; `acciones` se serializa con `asdict`; F-024 no mira `caaide`;
+sv4 reenvía el `dict` de sv5 y el modal sigue saliendo de `resumenHtml`.
 
-- `preparar` ya tiene la empresa de la obra destino (F-023) y lee
-  `horas_de_recursos` en el mismo punto; la cuenta se resuelve tras las
-  reglas, como dice design §6.2.
-- `ObraEntrada` no declara `cenide`: el cliente lo añade con `setattr`
-  (`_a_obra`), igual que antes; `getattr(destino, "cenide", 0)` del diseño
-  sigue siendo la vía correcta.
-- El preflight de sv5 serializa `acciones` con `asdict`: los `caa_*` viajan
-  sin tocar el adaptador (R13). `resultado_json.py` ya pasa `escritas` tal
-  cual (R15).
-- F-024 (comprobación) solo lee por `synckey`/`ide`; no compara `caaide`.
-- sv4: `aprobar_preflight` reenvía el `dict` de sv5 (R21 sin código); el
-  modal sigue construyéndose con `resumenHtml(pf)`. F-024 añadió `esc()`.
+## 1. Qué cambió, por servicio
 
-## 1. T1 · Inventario de tests afectados
+**sv5** (`services/partes-transfer/`)
+- `application/services/cuenta_analitica.py` (nuevo, puro): `subcuenta`,
+  `subcuenta_de_linea` (R1–R2), `CuentaLinea`, `indexar_cuentas`,
+  `resolver_cuenta` (R3–R6) y los tres motivos.
+- `domain/models/registro_models.py`: `HoraRecurso.caa_cod/defecto`;
+  `AccionLinea.caa_ide/caa_cod/caa_motivo/caa_aviso`, con defaults.
+- `infrastructure/sigrid/sigrid_write_client.py`: `horas_de_recursos` con
+  `caacod` y `defecto` en la misma consulta (R9); `cuentas_de_centro`
+  nuevo, una lectura agrupada con `indexar_cuentas` (R10–R11);
+  `stmt_insert_linea(..., caaide)` obligatorio y `caaide` como `?` (R14);
+  docstring de cabecera.
+- `application/pipelines/registro_pipeline.py`: paso 4b
+  `_resolver_cuentas(destino, empresa, acciones, horas)` al final de
+  `preparar` (fuera del lock, sin `try`), log INFO por motivo (R18);
+  `caaide=int(a.caa_ide)` en el `INSERT` y `caa_cod` en `escritas` (R15).
+- `prueba_escritura_sigrid.py`: solo dos comentarios (DA11).
+- Tests nuevos: 36 + 13 + 18 (`test_f021_*`); `tests/dobles.py` con
+  `cuentas_de_centro` (llamadas, `bajo_lock`, `fallo_cuentas`) y `caaide`.
 
-Búsqueda de `stmt_insert_linea`, `horas_de_recursos`, `HoraRecurso(`,
-`AccionLinea(` y comparaciones de `escritas` en las suites de sv5, sv4 y
-raíz:
+**sv4** (`services/partes-front/`)
+- `static/app.js`: `avisosCuentaHtml(acciones)` (filtra `escribir` con
+  `caa_aviso`, `""` si no hay) llamado al final de `resumenHtml(pf)`. Sin
+  cambios en Python (R21 ya se cumplía).
+- `tests/test_f021_preflight_cuenta.py` (11): R21 por HTTP, texto de
+  `app.js` y la función **ejecutada con `node`** (skip si no hay `node`).
 
-| Test | Qué usa | Impacto |
-|---|---|---|
-| `tests/dobles.py` (sv5) | `SigridFake.stmt_insert_linea` (sin `caaide`) y `horas_de_recursos` | **Se adapta en T7**: con `caaide` obligatorio el pipeline lo pasa y el doble debe aceptarlo |
-| `test_f002_pipeline_fases.py:37-41` | `HoraRecurso(horide, cod, res, pre)` | Ninguno: los campos nuevos tienen valor por defecto |
-| `test_f023_escritura_empresa.py:353` | `HoraRecurso(...)` | Ninguno (ídem) |
-| `test_f023_escritura_empresa.py:416` | `"horas_de_recursos" not in cli.llamadas` | Ninguno: la obra sin empresa falla antes |
-| `test_f002_workers.py:121` | concurrencia de `horas_de_recursos` | Ninguno |
-| `test_f002_*`, `test_f023_*`, sv4 `test_f002_aprobar_encolar.py` | `escritas` por `registro_id` o `== []` | Ninguno: no comparan el dict entero |
+**Docs**: `ARCHITECTURE.md` punto 13; `partes-proyecto.md` §3.5 (3b);
+`azure-apps/partes.md` (commit local `2fd1e92`, sin push). sv1–sv3, ORM,
+reglas, coherencia, `resultado_json.py`, `infra/`, `CLAUDE.md`: sin tocar.
 
-**Ningún test** llama a `SigridWriteClient.stmt_insert_linea` real ni
-compara el SQL de `horas_de_recursos`: no hay tests que adaptar en T6 más
-allá del doble.
+## 2. Decisiones y desviaciones
 
-## 2. Fase RED (trazas reales)
+- **D1 · orden T4 antes que T3**: los tests de `subcuenta_de_linea` (T2)
+  construyen `HoraRecurso` con los campos nuevos.
+- **D2 · T7 deja la suite en rojo hasta T9**: el doble exige `caaide`
+  (DA9) y el pipeline lo pasa en T9; es a la vez la traza RED de R14 a
+  nivel de pipeline (abajo).
+- **D3 · el cliente importa `indexar_cuentas` de `application/services`**:
+  lo pide la firma del diseño (§7, devuelve el dict agrupado); hay
+  precedente en sv3/sv4 (`text_match`, `congelacion`).
+- **D4 · el aviso de sv4 escapa** nombre, fecha y texto con el `esc()` de
+  F-024 (`avisosCalendarioHtml`, el modelo citado, no escapa).
+- **D5 · log R18 solo si hay acciones `escribir`**: sin ninguna no hay
+  cuentas que resolver (test `..._sin_nada_que_escribir_no_se_lee`).
+- Inventario T1: ningún test llamaba al `stmt_insert_linea` real ni
+  comparaba el SQL de `horas_de_recursos`; solo había que adaptar el doble
+  (los `HoraRecurso(...)` y `escritas` de F-002/F-023 no se ven afectados).
+- `ruff`: nuevos limpios; `registro_models.py` +4 `UP045` (estilo del fichero).
+
+## 3. Fase RED (trazas reales, comando exacto encima de cada una)
 
 ### T2 · regla pura (R1, R2, R4, R5, R6, R8)
 
@@ -85,7 +103,7 @@ FAILED tests/test_f021_cliente_cuenta.py::test_f021_r14_caaide_se_convierte_a_en
 FAILED tests/test_f021_cliente_cuenta.py::test_f021_r14_caaide_es_obligatorio
 12 failed, 1 passed in 0.47s
 ```
-(El que pasa es `test_f021_r9_horas_sin_recursos_no_lee`: comportamiento previo que se conserva.)
+(Pasa `..._r9_horas_sin_recursos_no_lee`: comportamiento previo.)
 
 ### T7 · doble con `caaide` obligatorio (R14 a nivel de pipeline)
 
@@ -136,12 +154,9 @@ FAILED ...::test_f021_r5_obra_sin_atributo_cenide_es_sin_centro
 FAILED ...::test_f021_modo_pruebas_usa_el_centro_de_la_obra_de_pruebas
 16 failed, 2 passed in 1.01s
 ```
-Pasan en RED, a propósito, dos guardas de lo que NO debe cambiar:
-`test_f021_r16_ya_registrada_no_se_reescribe_ni_se_actualiza` (el código
-previo ya no reescribía) y `test_f021_r10_sin_nada_que_escribir_no_se_lee`.
-La parte de R16 «`omitir` sale con `caa_ide = 0` y sin motivo» tampoco
-puede fallar en RED: son los valores por defecto de T4. Lo que la protege
-es que `_resolver_cuentas` solo toque acciones `escribir` (mutantes de T15).
+Pasan en RED dos guardas de lo que NO cambia: `..._r16_ya_registrada_...`
+y `..._r10_sin_nada_que_escribir_...`. «`omitir` con `caa_ide = 0`» (R16)
+son los defaults de T4; lo protege el filtro `escribir` (mutantes T15).
 
 ### T10 · modal del preflight de sv4 (R19–R21)
 
@@ -163,21 +178,43 @@ FAILED ...::test_f021_r20_sin_avisos_no_pinta_el_bloque[acciones0..4]   (x4)
 El que pasa es `test_f021_r21_el_preflight_reenvia_los_caa_de_sv5`: R21 no
 exige código (design §5: `aprobar_preflight` ya reenvía la respuesta).
 
-## 3. Commits (rama `feature/F-021-cuenta-analitica-sigrid`)
+## 4. Commits (todos locales)
 
-| Tarea | Commit | Contenido |
-|---|---|---|
-| T1 | `2dad9ab` | inventario + contraste con F-023/F-024 |
-| T2 | `7806afb` | tests RED de `cuenta_analitica.py` |
-| T4 | `5a9682f` | `HoraRecurso.caa_cod/defecto`, `AccionLinea.caa_*` |
-| T3 | `9947927` | `application/services/cuenta_analitica.py` |
-| T5 | `f732c2a` | tests RED del cliente |
-| T6 | `a3788d5` | `horas_de_recursos`, `cuentas_de_centro`, `stmt_insert_linea(caaide)` |
-| T7 | `3ec0277` | doble: `cuentas_de_centro` y `caaide` obligatorio |
-| T8 | `83fa669` | tests RED del pipeline |
-| T9 | `ee5a79d` | `_resolver_cuentas` en `preparar`; `caaide` y `caa_cod` al escribir |
-| T10 | `d65a880` | tests RED de sv4 |
-| T11 | `6103a82` | `avisosCuentaHtml` en `app.js` |
-| T12 | `34c2750` | comentarios de `prueba_escritura_sigrid.py` |
-| T13 | `f88019e` | `ARCHITECTURE.md` (punto 13) y `partes-proyecto.md` §3.5 (3b) |
-| T14 | `2fd1e92` (repo `azure-apps`, rama `master`, sin push) | `partes.md`: nota F-021 y §3.5 3b |
+`2dad9ab` T1 · `7806afb` T2 · `5a9682f` T4 · `9947927` T3 · `f732c2a` T5 ·
+`a3788d5` T6 · `3ec0277` T7 · `83fa669` T8 · `ee5a79d` T9 · `d65a880` T10 ·
+`6103a82` T11 · `34c2750` T12 · `f88019e` T13 · `42ff47e` T14 (+ `2fd1e92`
+en azure-apps) · `b038943` estilo · `37fdcbd`, `fe3af66`, `489a515` T15 ·
+el de T16 cierra este informe.
+
+## 5. Evidencias
+
+`bash harness/init.sh`: **verde** («ENTORNO LISTO»). `node --check
+static/app.js`: OK. Mutación: 1.ª pasada 35 / **2 supervivientes** (`or 0`
+muerto en el pipeline; default `defecto=False` sin test), cerrados en
+`37fdcbd`; 2.ª pasada **33/33 muertos** (`progress/mutacion_F-021.md`).
+
+| Evidencia | Valor medido |
+|---|---|
+| Tests ejecutados | sv5 269 passed; sv4 1.230 passed; raíz 419 passed + 1 skipped |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 76 líneas cambiadas cubiertas (76/76, umbral 80%, nivel critico)` |
+| Mutantes generados / supervivientes | 33 / 0 (`--workers 6 --timeout 600`, campaña completa, 82,4 s) |
+| Tiempo de la suite | sv5 4,9 s; sv4 325 s; raíz 64 s |
+| `app.js` | sin mutación ni cobertura (la herramienta solo cubre Python); cubierto por 8 tests que lo ejecutan con `node` |
+
+## 6. Fuera de alcance y pendientes
+
+Fuera (design §10): rellenar líneas ya registradas (DA6), `cuaide`,
+`hmo.caaide`, mostrar la cuenta en otras pantallas. **Nada desplegado, ni
+push.** Pendientes MANUAL (humano), detalle y SQL completo en design §9 y
+`progress/current.md`:
+
+- **M1** antes de desplegar sv5, lectura en `ruesma`: `SELECT h.ano, h.mes,
+  COUNT(*) AS n, SUM(CASE WHEN ISNULL(h.caaide,0)=0 THEN 1 ELSE 0 END) AS
+  sin_cuenta FROM hmores h WHERE h.synckey LIKE 'partes:%' GROUP BY h.ano,
+  h.mes`. Esperado: 0 filas (o decidir según DA6).
+- **M2** tras sv5, modo pruebas `0404`: la consulta de M2 (design §9) da
+  `cuenta = <centro 0404>.<subcuenta>` y `ca.cenide = cen_obra`; log
+  `[registro] cuentas obra=0404 ok=…`. Limpiar con `prueba_escritura_sigrid.py`.
+- **M3** tras sv4 (Ctrl+F5): recurso con subcuenta que la `0404` no tiene
+  ⇒ bloque «sin cuenta analitica» en el modal y línea con `caaide = 0`.
+- **M4** Administración: la línea de M2 se ve como una tecleada; DA3/DA13.
