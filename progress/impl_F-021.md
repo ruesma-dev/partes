@@ -102,3 +102,42 @@ Desviación de orden (D2): la verificación de T7 («suite en verde») solo se
 alcanza en T9, porque el doble exige ya `caaide` (DA9) y el pipeline lo
 pasa en T9. Se deja así a propósito: es la traza RED de que el pipeline
 no escribía la cuenta.
+
+### T8 · pipeline (R8, R10–R18)
+
+`cd services/partes-transfer && python -m pytest -q tests/test_f021_pipeline_cuenta.py`
+(agregado con `grep -E "^(E  |FAILED)|passed|failed" | sort | uniq -c`, extracto)
+
+```
+     10 E           TypeError: SigridFake.stmt_insert_linea() missing 1 required keyword-only argument: 'caaide'
+      1 E       ValueError: not enough values to unpack (expected 1, got 0)
+      1 E       Failed: DID NOT RAISE RuntimeError
+      1 E         {1: (0, None, None)} != {1: (701, '0100.LAB', None)}
+      1 E         {2: (0, None, None)} != {2: (702, '0100.EXT', None)}
+      1 E         {3: (0, None, None)} != {3: (0, None, 'obra_sin_cuenta')}
+      1 E         {4: (0, None, None)} != {4: (0, None, 'recurso_sin_cuenta')}
+      1 E         At index 0 diff: ('escribir', 0) != ('escribir', 701)
+      1 E       AssertionError: assert None == 'obra_sin_cuenta'
+FAILED ...::test_f021_r8_sin_cuenta_la_linea_se_escribe_igual
+FAILED ...::test_f021_r10_una_lectura_por_peticion_con_centro_empresa_y_subs
+FAILED ...::test_f021_r10_sin_subcuentas_no_se_lee
+FAILED ...::test_f021_r11_fallo_al_leer_cuentas_no_escribe_nada
+FAILED ...::test_f021_r11_fallo_al_leer_cuentas_tumba_el_preflight
+FAILED ...::test_f021_r12_se_resuelve_en_preparar_tras_las_reglas
+FAILED ...::test_f021_r12_preflight_y_ejecutar_obtienen_la_misma_cuenta
+FAILED ...::test_f021_r12_la_lectura_de_cuentas_va_fuera_del_lock
+FAILED ...::test_f021_r13_el_preflight_trae_la_cuenta_de_cada_accion
+FAILED ...::test_f021_r14_r15_insert_con_caaide_y_escritas_con_caa_cod
+FAILED ...::test_f021_r17_al_pisar_la_linea_nueva_lleva_la_cuenta
+FAILED ...::test_f021_r18_log_por_motivo_sin_datos_personales
+FAILED ...::test_f021_r4_la_cuenta_es_de_la_empresa_de_la_obra
+FAILED ...::test_f021_r5_obra_sin_centro_no_lee_y_avisa
+FAILED ...::test_f021_r5_obra_sin_atributo_cenide_es_sin_centro
+FAILED ...::test_f021_modo_pruebas_usa_el_centro_de_la_obra_de_pruebas
+16 failed, 2 passed in 1.01s
+```
+Pasan en RED, a propósito, dos guardas de lo que NO debe cambiar:
+`test_f021_r16_ya_registrada_no_se_reescribe_ni_se_actualiza` (el código
+previo ya no reescribía) y `test_f021_r10_sin_nada_que_escribir_no_se_lee`.
+La parte de R16 «`omitir` sale con `caa_ide = 0` y sin motivo» sí falló
+dentro de `test_f021_r13_...` (diff de la clave 4/6 en la misma aserción).
