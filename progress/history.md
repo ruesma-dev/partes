@@ -497,3 +497,29 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   (sv5 la omitiría); `partes_existentes` localiza `hmo` por `obride`.
 - Pendiente del humano: M1, M5, despliegue sv5 → sv2 → sv3 → sv4, M2, M3, M4
   y T17 (ver `current.md`).
+
+## F-024 · Líneas borradas en Sigrid y estado «encolado» en el portal — done 2026-10-01
+
+- Rama `feature/F-024-lineas-encoladas` · rigor critico · sdd=true · APPROVED
+  del reviewer (`progress/review_F-024.md`).
+- Origen: correo de Juan Romero «RV: CAPTURAS» (línea en «encolado» aunque el
+  parte estaba en Sigrid). Investigación (`progress/explore_F-024.md`): sv5
+  escribió 35 líneas el 30/09 en PT26/00314 y Administración las borró a
+  propósito en Sigrid; el portal las seguía dando por registradas y
+  congeladas. El «encolado» era una vista recargada antes del resultado.
+- Entregado: sv5 expone `POST /api/registro/comprobar` (solo lectura, por
+  synckey con respaldo por `hmores.ide`); sv4 añade el estado
+  `borrado_sigrid` (no congela), lo comprueba en segundo plano al entrar en
+  la vista de obra y de persona (antimartilleo 120 s) y con el botón
+  «Comprobar en Sigrid», «Reaprobar» por línea; las aprobaciones masivas
+  excluyen `registrado` y `borrado_sigrid` salvo casilla; el modal sondea el
+  resultado en vez de recargar. Decisiones del humano: comprobación al entrar
+  en la obra (no barrido horario) y también en la vista de persona.
+- Verificado: init.sh en verde (sv4 1.219, sv5 203, sv3 640, raíz 419),
+  cobertura 99,7 % de 347 líneas, mutación completa 175 mutantes (22
+  supervivientes matados con tests nuevos, 1 equivalente justificado).
+- Observaciones no bloqueantes: avisos de ruff autocorregibles en ficheros
+  nuevos de sv5; un fallo a mitad de varios lotes deja aplicados los
+  anteriores (lo pide R14); en la vista de persona con muchos lotes el
+  navegador puede cortar a los 90 s y decir «no se pudo» aunque sv4 termine.
+- Pendiente del humano: despliegue sv5 → sv4 y M1–M5 (ver `current.md`).

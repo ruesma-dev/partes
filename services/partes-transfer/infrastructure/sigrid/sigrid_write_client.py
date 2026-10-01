@@ -38,6 +38,9 @@ PREFIJO_SYNCKEY = "partes:"
 #: Recursos por lectura en `datos_recursos` (lote acotado, F-023).
 LOTE_RECURSOS = 500
 
+#: `ide` por lectura en la comprobacion de lineas (F-024, R7).
+LOTE_COMPROBACION = 200
+
 # DNI normalizado en SQL Server: mayusculas y sin guiones ni espacios.
 _DNI_SQL = "REPLACE(REPLACE(UPPER(ISNULL({campo},'')),'-',''),' ','')"
 
@@ -325,6 +328,49 @@ class SigridWriteClient:
                     synckey=sk, nuestra=True)
                 setattr(ls, "hmoide", int(f["hmoide"] or 0))
                 out[sk] = ls
+        return out
+
+    # ------------------ comprobacion (F-024, solo lectura) ------------------ #
+
+    def lineas_por_ide(self, ides: Iterable[int | None]) -> dict[int, LineaSigrid]:
+        """Filas de `hmores` por `ide`, para el respaldo de R3 (F-024).
+
+        Lotes de `LOTE_COMPROBACION` (R7); `_read` ya convierte un
+        `truncated` en excepcion (R8). La base es la de escritura: una
+        replica con retraso daria por borradas lineas recien escritas."""
+        ks = sorted({int(i) for i in ides if i})
+        out: dict[int, LineaSigrid] = {}
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT ide, hmoide, reside, fec, horide, can, tot, synckey "
+                f"FROM hmores WHERE ide IN ({marcas})", trozo)
+            for f in filas:
+                sk = (f["synckey"] or "").strip() or None
+                ls = LineaSigrid(
+                    ide=int(f["ide"]), reside=int(f["reside"] or 0),
+                    fecha_int=int(f["fec"] or 0),
+                    horide=int(f["horide"] or 0) or None, hora_codigo=None,
+                    can=f["can"], tot=f["tot"], synckey=sk,
+                    nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY)))
+                setattr(ls, "hmoide", int(f["hmoide"] or 0))
+                out[ls.ide] = ls
+        return out
+
+    def partes_por_ide(self, hmoides: Iterable[int | None]) -> dict[int, str]:
+        """`hmo.ide` -> `con.cod` de los partes que existen (F-024, R4/R5)."""
+        ks = sorted({int(i) for i in hmoides if i})
+        out: dict[int, str] = {}
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT hmo.ide AS ide, con.cod AS cod FROM hmo "
+                f"JOIN con ON con.ide = hmo.ide WHERE hmo.ide IN ({marcas})",
+                trozo)
+            for f in filas:
+                out[int(f["ide"])] = f["cod"]
         return out
 
     # -------------------------- sentencias -------------------------- #

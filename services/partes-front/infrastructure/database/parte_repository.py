@@ -42,6 +42,8 @@ from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.jornada_admin import columnas_patron
 from application.services.congelacion import (
+    ESTADO_BORRADO_SIGRID,
+    ESTADO_REGISTRADO,
     MOTIVO_HARD_DELETE_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
@@ -68,14 +70,42 @@ logger = logging.getLogger(__name__)
 #   encolado             -> peticion en vuelo por q-transfer
 #   conflicto            -> sv5 encontro lineas que habria que pisar
 #   error                -> sv5 no pudo completar la peticion
+#   borrado_sigrid       -> F-024: estaba registrada y ya no esta en Sigrid
 ESTADO_ENCOLADO = "encolado"
 ESTADO_CONFLICTO = "conflicto"
 ESTADO_ERROR = "error"
 
 #: Estados que NO son un veredicto final y, por tanto, se pueden pisar
-#: cuando llega el resultado (ver `marcar_registros_sigrid`).
+#: cuando llega el resultado (ver `marcar_registros_sigrid`). F-024 (R15):
+#: `borrado_sigrid` tampoco lo es; si sv5 la vuelve a ver por su synckey
+#: (`ya_registradas`), la linea vuelve a `registrado`.
 ESTADOS_EN_VUELO = (None, "", ESTADO_ENCOLADO, ESTADO_CONFLICTO,
-                    ESTADO_ERROR)
+                    ESTADO_ERROR, ESTADO_BORRADO_SIGRID)
+
+
+#: Ids por consulta `IN` en las lecturas por lote de F-024 (R17, R28).
+LOTE_IDS_CONSULTA = 1000
+
+
+def _estado_norm(estado: str | None) -> str:
+    """`sigrid_estado` normalizado (misma regla que la congelacion)."""
+    return (estado or "").strip().lower()
+
+
+def _motivo_borrada(reg: "ParteRegistroOrm", veredicto: dict,
+                    ahora_iso: str) -> str:
+    """R10: parte, linea y fecha UTC de la comprobacion, en <= 255."""
+    parte = (reg.sigrid_parte_cod or veredicto.get("parte_cod")
+             or reg.sigrid_hmoide or "?")
+    linea = reg.sigrid_hmores_ide or "?"
+    cuando = f"comprobado {ahora_iso[:16].replace('T', ' ')} UTC"
+    if veredicto.get("parte_existe") is False:
+        texto = (f"Borrada en Sigrid: el parte {parte} ya no existe "
+                 f"(linea {linea}; {cuando})")
+    else:
+        texto = (f"Borrada en Sigrid: la linea {linea} del parte {parte} "
+                 f"ya no existe ({cuando})")
+    return texto[:255]
 
 
 def _date_from_iso(ts: str | None) -> date | None:
@@ -1232,11 +1262,21 @@ class ParteReviewRepository:
     # escritura la hace partes-transfer (sv5).
     # ------------------------------------------------------------------ #
 
-    def lineas_para_registro(self, registro_ids: list[int]) -> dict[str, Any]:
-        """Payload para sv5: obra + lineas de esos registros (activos)."""
+    def lineas_para_registro(
+        self, registro_ids: list[int], *, incluir_borradas: bool = False,
+    ) -> dict[str, Any]:
+        """Payload para sv5: obra + lineas de esos registros (activos).
+
+        F-024 (R22, DA7): nunca viajan las lineas `registrado` (reenviarlas
+        reescribiria en Sigrid lo que Administracion borro a proposito) y,
+        salvo `incluir_borradas`, tampoco las `borrado_sigrid`. `excluidas`
+        cuenta las que se quedaron fuera y por que. `encolado` SI viaja
+        (DA8): es la salida de un atasco.
+        """
         ids = sorted({int(i) for i in registro_ids if i})
+        excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
         if not ids:
-            return {"obra": {}, "lineas": []}
+            return {"obra": {}, "lineas": [], "excluidas": excluidas}
         with self._session_factory.create_session() as session:
             regs = list(session.execute(
                 select(ParteRegistroOrm)
@@ -1246,6 +1286,12 @@ class ParteReviewRepository:
             lineas: list[dict[str, Any]] = []
             obra: dict[str, Any] = {}
             for r in regs:
+                estado = _estado_norm(r.sigrid_estado)
+                if estado == ESTADO_REGISTRADO or (
+                        estado == ESTADO_BORRADO_SIGRID
+                        and not incluir_borradas):
+                    excluidas[estado] += 1
+                    continue
                 if not obra and (r.obra_ide or r.obra_codigo):
                     obra = {"ide": r.obra_ide, "codigo": r.obra_codigo,
                             "nombre": r.obra_nombre}
@@ -1274,7 +1320,7 @@ class ParteReviewRepository:
             if roles:
                 logger.info("[registro-payload] roles de incidencia: %s",
                             roles)
-        return {"obra": obra, "lineas": lineas}
+        return {"obra": obra, "lineas": lineas, "excluidas": excluidas}
 
     @staticmethod
     def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:
@@ -1352,6 +1398,103 @@ class ParteReviewRepository:
         if detail is None:
             return []
         return [v.id for v in detail.registros]
+
+    # ------------------------------------------------------------------ #
+    # F-024 · comprobacion de las lineas `registrado` contra Sigrid. sv4 no
+    # lee Sigrid: prepara las lineas, sv5 da los veredictos y aqui se
+    # aplican con CAS por linea.
+    # ------------------------------------------------------------------ #
+
+    def _registros_por_ids(self, session, ids: list[int]) -> list:
+        out: list = []
+        for i in range(0, len(ids), LOTE_IDS_CONSULTA):
+            out.extend(session.execute(
+                select(ParteRegistroOrm).where(
+                    ParteRegistroOrm.id.in_(ids[i:i + LOTE_IDS_CONSULTA]))
+            ).scalars().all())
+        return out
+
+    def registrados_para_comprobar(
+        self, registro_ids: list[int],
+    ) -> list[dict[str, Any]]:
+        """De esos ids, los `registrado` fuera de la papelera, con lo que
+        sv5 necesita para comprobarlos (R17)."""
+        ids = sorted({int(i) for i in registro_ids if i})
+        if not ids:
+            return []
+        with self._session_factory.create_session() as session:
+            regs = self._registros_por_ids(session, ids)
+            return [{
+                "registro_id": r.id,
+                "hmores_ide": r.sigrid_hmores_ide,
+                "hmoide": r.sigrid_hmoide,
+                "recurso_ide": r.recurso_ide,
+                "fecha_int": r.fecha_int,
+                "horas": r.horas,
+                "es_incidencia": bool(r.es_incidencia),
+            } for r in sorted(regs, key=lambda x: x.id)
+                if r.deleted_at_utc is None
+                and _estado_norm(r.sigrid_estado) == ESTADO_REGISTRADO]
+
+    def aplicar_comprobacion_sigrid(
+        self, veredictos: list[dict], enviados: dict[int, int | None],
+        ahora_iso: str,
+    ) -> dict[str, list[int]]:
+        """Aplica los veredictos de sv5 en UNA transaccion, con CAS (R11).
+
+        Solo se toca una linea si sigue en `registrado` y con el MISMO
+        `sigrid_hmores_ide` que se envio: si entre la lectura y el veredicto
+        se reaprobo o cambio de estado, el veredicto ya no habla de ella.
+        `borrada` -> `borrado_sigrid` conservando las referencias y la
+        traza del registro (R10, DA4); `presente` con referencias nuevas
+        -> se actualizan y sigue `registrado` (R12).
+        """
+        borradas: list[int] = []
+        actualizadas: list[int] = []
+        with self._session_factory.create_session() as session:
+            for v in veredictos:
+                rid = int(v.get("registro_id") or 0)
+                if rid not in enviados:
+                    continue
+                reg = session.get(ParteRegistroOrm, rid, with_for_update=True)
+                if (reg is None
+                        or _estado_norm(reg.sigrid_estado) != ESTADO_REGISTRADO
+                        or reg.sigrid_hmores_ide != enviados[rid]):
+                    continue
+                if v.get("estado") == "borrada":
+                    reg.sigrid_estado = ESTADO_BORRADO_SIGRID
+                    reg.sigrid_motivo = _motivo_borrada(reg, v, ahora_iso)
+                    borradas.append(rid)
+                elif v.get("estado") == "presente":
+                    cambio = False
+                    for campo, columna in (("hmores_ide", "sigrid_hmores_ide"),
+                                           ("hmoide", "sigrid_hmoide"),
+                                           ("parte_cod", "sigrid_parte_cod")):
+                        nuevo = v.get(campo)
+                        if nuevo is not None and getattr(reg, columna) != nuevo:
+                            setattr(reg, columna, nuevo)
+                            cambio = True
+                    if cambio:
+                        actualizadas.append(rid)
+            session.commit()
+        logger.info("[repo] comprobacion Sigrid: %s borrada(s), %s con "
+                    "referencias actualizadas", len(borradas),
+                    len(actualizadas))
+        return {"borradas": borradas, "actualizadas": actualizadas}
+
+    def recuento_estados(self, registro_ids: list[int]) -> dict[str, Any]:
+        """R28: cuantas lineas hay en cada `sigrid_estado` (solo lectura).
+        `pendientes` son las que siguen `encolado`."""
+        ids = sorted({int(i) for i in registro_ids if i})
+        estados: dict[str, int] = {}
+        if ids:
+            with self._session_factory.create_session() as session:
+                for r in self._registros_por_ids(session, ids):
+                    clave = _estado_norm(r.sigrid_estado) or "sin_estado"
+                    estados[clave] = estados.get(clave, 0) + 1
+        return {"total": sum(estados.values()),
+                "pendientes": estados.get(ESTADO_ENCOLADO, 0),
+                "estados": estados}
 
     def marcar_registros_encolado(
         self, registro_ids: list[int], usuario: str | None,
