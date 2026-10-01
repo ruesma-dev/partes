@@ -22,18 +22,14 @@ M2 desplegar sv5 y luego sv4; M3 abrir la obra 0719 en el periodo del
 tests). Después: M3 de F-023 (reconciliar recursos) y reaprobación por
 Administración.
 
-## F-021 · EN IMPLEMENTACIÓN (implementer, 2026-10-01)
+## F-021 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
 
-Spec aprobada por el humano (DA1–DA13 según recomendación). Rama
-`feature/F-021-cuenta-analitica-sigrid`. Contraste previo con el código
-de `dev` tras F-023/F-024: la spec sigue encajando (`stmt_insert_linea`,
-`horas_de_recursos` y `preparar` sin cambios de firma relevantes; el
-preflight de sv5 serializa `acciones` con `asdict`; el modal de sv4 sigue
-construyéndose desde `resumenHtml`). Tarea en curso y desviaciones:
-`progress/impl_F-021.md`.
-
-Implementación T1–T16 terminada por el implementer (informe en
-`progress/impl_F-021.md`); pendiente del reviewer. Sin desplegar.
+APPROVED del reviewer (`progress/review_F-021.md`); resumen en
+`progress/history.md`. Rama `feature/F-021-cuenta-analitica-sigrid`, sin
+desplegar. Observación O1 del reviewer: el docstring de `_resolver_cuentas`
+(`registro_pipeline.py:210`) dice que la cola reintenta; no reintenta (sv4
+marca las líneas en error hasta que se reaprueban). Corregir en la próxima
+feature de sv5.
 
 MANUAL (humano), design §9 — solo lecturas salvo M2 (modo pruebas):
 
