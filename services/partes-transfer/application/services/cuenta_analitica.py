@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Optional
 
 from domain.models.registro_models import HoraRecurso
 
@@ -29,7 +28,7 @@ MOTIVO_OBRA_SIN_CUENTA = "obra_sin_cuenta"         # R5 (con aviso)
 MOTIVO_CUENTA_AMBIGUA = "cuenta_ambigua"           # R6 (con aviso)
 
 
-def subcuenta(cod: Optional[str]) -> Optional[str]:
+def subcuenta(cod: str | None) -> str | None:
     """Texto tras el PRIMER punto de `cod`, sin espacios a los lados.
 
     None si el codigo esta vacio, no tiene punto o no hay nada tras el."""
@@ -38,7 +37,7 @@ def subcuenta(cod: Optional[str]) -> Optional[str]:
 
 
 def subcuenta_de_linea(horas: list[HoraRecurso],
-                       horide: Optional[int]) -> Optional[str]:
+                       horide: int | None) -> str | None:
     """R1: subcuenta de la plantilla del tipo de hora escrito; si no hay,
     R2: la del tipo por defecto del recurso. None si ninguna da (R3)."""
     for h in horas:
@@ -58,13 +57,13 @@ def subcuenta_de_linea(horas: list[HoraRecurso],
 class CuentaLinea:
     """Cuenta resuelta para una linea. `caa_ide = 0` = sin cuenta."""
     caa_ide: int
-    caa_cod: Optional[str]
-    motivo: Optional[str]      # None = cuenta resuelta
-    aviso: Optional[str]       # solo R5 y R6
+    caa_cod: str | None
+    motivo: str | None      # None = cuenta resuelta
+    aviso: str | None       # solo R5 y R6
 
 
 def indexar_cuentas(
-    filas: Iterable[tuple[int, Optional[str]]]
+    filas: Iterable[tuple[int, str | None]]
 ) -> dict[str, list[tuple[int, str]]]:
     """Agrupa `(caaide, cod)` por la subcuenta de `cod` (misma `subcuenta`
     que el origen); descarta las que no tienen."""
@@ -76,9 +75,9 @@ def indexar_cuentas(
     return out
 
 
-def resolver_cuenta(sub: Optional[str],
+def resolver_cuenta(sub: str | None,
                     cuentas: dict[str, list[tuple[int, str]]],
-                    obra_cod: Optional[str]) -> CuentaLinea:
+                    obra_cod: str | None) -> CuentaLinea:
     """R3-R6: la unica cuenta del centro de la obra con esa subcuenta."""
     if not sub:
         return CuentaLinea(0, None, MOTIVO_RECURSO_SIN_CUENTA, None)

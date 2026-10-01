@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 
 import pytest
-
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.cuenta_analitica import (
     MOTIVO_CUENTA_AMBIGUA,
@@ -38,7 +37,7 @@ HL, HE, CIV, CIZ = 1, 2, 3, 4
 def _obra(ide, cod, cenide, empresa=1) -> ObraEntrada:
     o = ObraEntrada(ide=ide, codigo=cod, nombre=f"Obra {cod}",
                     empresa=empresa)
-    setattr(o, "cenide", cenide)        # como lo deja el cliente real
+    o.cenide = cenide        # como lo deja el cliente real
     return o
 
 

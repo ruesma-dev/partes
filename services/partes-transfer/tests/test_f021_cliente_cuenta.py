@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from domain.models.registro_models import HoraRecurso, ObraEntrada
 from infrastructure.sigrid import sigrid_write_client as modulo
 from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
@@ -155,11 +154,12 @@ def test_f021_r11_cuentas_error_http_es_excepcion(monkeypatch) -> None:
 # ======================= R14 · stmt_insert_linea ======================= #
 
 OBRA = ObraEntrada(ide=200, codigo="0404", nombre="Pruebas", empresa=1)
-setattr(OBRA, "cenide", 77)
+OBRA.cenide = 77
 
-ARGS = dict(hmoide=900, obra=OBRA, reside=501, pos=128, fecha_int=20260915,
-            horide=11, can=8.0, pre=10.5, paride=33, ano=2026, mes=9,
-            synckey="partes:1", tex=None)
+ARGS = {"hmoide": 900, "obra": OBRA, "reside": 501, "pos": 128,
+        "fecha_int": 20260915, "horide": 11, "can": 8.0, "pre": 10.5,
+        "paride": 33, "ano": 2026, "mes": 9, "synckey": "partes:1",
+        "tex": None}
 
 
 def _insert(**extra) -> dict:

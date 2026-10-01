@@ -14,7 +14,6 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-
 from application.services.cuenta_analitica import (
     MOTIVO_CUENTA_AMBIGUA,
     MOTIVO_OBRA_SIN_CUENTA,

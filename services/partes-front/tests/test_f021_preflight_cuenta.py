@@ -90,7 +90,7 @@ def _js() -> str:
 
 
 def _funcion(js: str, nombre: str) -> str:
-    m = re.search(r"\n  function " + nombre + r"\(.*?\n  \}\n", js, re.S)
+    m = re.search(r"\n  function " + nombre + r"\(.*?\n  \}\n", js, re.DOTALL)
     assert m, f"app.js no define {nombre}"
     return m.group(0)
 

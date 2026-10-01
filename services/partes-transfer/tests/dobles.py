@@ -290,8 +290,7 @@ class SigridFake:
 
     def cuentas_de_centro(self, cenide, empresa, subcuentas):
         """F-021 (R10-R11): como el cliente real, agrupado por subcuenta."""
-        from application.services.cuenta_analitica import (
-            indexar_cuentas, subcuenta)
+        from application.services.cuenta_analitica import indexar_cuentas, subcuenta
 
         self._lectura("cuentas_de_centro")
         subs = sorted({s for s in subcuentas if s})
