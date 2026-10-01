@@ -2699,6 +2699,28 @@ var MotivoHttp = (function () {
     return (v === null || v === undefined) ? "" : v;
   }
 
+  // F-024: texto que llega del servidor y se pinta con innerHTML.
+  function esc(v) {
+    return String(v === null || v === undefined ? "" : v)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  /* F-024 (R22/R25): lo que el servidor dejo fuera de la aprobacion. */
+  function excluidasHtml(excl) {
+    excl = excl || {};
+    var html = "";
+    if (excl.registrado) {
+      html += "<p class='muted small'>" + excl.registrado + " linea(s) ya "
+        + "registradas en Sigrid no se reenvian.</p>";
+    }
+    if (excl.borrado_sigrid) {
+      html += "<p class='muted small'>" + excl.borrado_sigrid + " linea(s) "
+        + "borradas en Sigrid no se incluyen.</p>";
+    }
+    return html;
+  }
+
   // ---------------- modal ---------------- //
   var overlay = null;
 
@@ -2861,7 +2883,7 @@ var MotivoHttp = (function () {
      de conflictos, o fallback sin colas configuradas). */
   function mostrarResultado(peticion, r) {
     var pend = r.pendientes_confirmacion || [];
-    var html = resultadoHtml(r);
+    var html = resultadoHtml(r) + excluidasHtml(r.excluidas);
     if (pend.length) {
       html += "<hr>" + conflictosHtml(pend);
       modal("Registro en Sigrid", html, [
@@ -2931,41 +2953,319 @@ var MotivoHttp = (function () {
     return post("/api/aprobar/encolar", peticion).then(function (r) {
       if (!r.ok) { errorModal("No se pudo registrar", r); return; }
       if (r.modo !== "asincrono") { mostrarResultado(peticion, r); return; }
-      modal("Registro encolado", "<p><strong>" + (r.encoladas || 0)
-            + "</strong> linea(s) enviadas a registrar en Sigrid.</p>"
-            + "<p>Se registraran en segundo plano: no hace falta esperar. "
-            + "Recarga la pagina en unos segundos para ver el resultado "
-            + "de cada linea.</p>", [
-        { texto: "Cerrar", clase: "ok", onClick: function () {
-            cerrar(); window.location.reload();
-          } },
-      ]);
+      sondearEncolado(r);
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
     });
   }
 
+  /* F-024 (R29): tras encolar, el modal NO recarga la pagina (la recarga
+     inmediata pintaba "encolado" antes de que llegara el resultado):
+     sondea el estado de esas lineas cada 3 s durante 120 s como mucho.
+     Con el resultado, resumen y recarga al cerrar; si se cierra antes, el
+     aviso de la vista sigue esperando (R30). */
+  var SONDEO_MODAL_MS = 3000, PLAZO_MODAL_MS = 120000;
+
+  function resumenEstadosTexto(estados) {
+    estados = estados || {};
+    return (estados.registrado || 0) + " registrada(s), "
+      + (estados.omitido || 0) + " omitida(s), "
+      + (estados.conflicto || 0) + " en conflicto, "
+      + (estados.error || 0) + " con error";
+  }
+
+  function sondearEncolado(r) {
+    var ids = r.registro_ids || [];
+    var terminado = false, soltado = false;
+    var inicio = Date.now();
+    function soltar() {
+      if (soltado) return;
+      soltado = true;
+      if (!terminado) vigilarEncoladas(ids);
+    }
+    var caja = modal("Registro encolado", "<p><strong>" + (r.encoladas || 0)
+          + "</strong> linea(s) enviadas a registrar en Sigrid.</p>"
+          + excluidasHtml(r.excluidas)
+          + "<p class='ap-estado-cola'>Esperando el resultado de Sigrid… "
+          + "Puedes cerrar: se registraran en segundo plano y el aviso de la "
+          + "pagina dira cuando llegue.</p>", [
+      { texto: "Cerrar", clase: "ok", onClick: function () {
+          cerrar();
+          if (terminado) { window.location.reload(); return; }
+          soltar();
+        } },
+    ]);
+    function paso() {
+      if (soltado) return;
+      if (!caja.isConnected) { soltar(); return; }
+      post("/api/aprobar/estado", { registro_ids: ids }).then(function (e) {
+        if (soltado) return;
+        var linea = caja.querySelector(".ap-estado-cola");
+        if (e && e.ok && e.pendientes === 0) {
+          terminado = true;
+          linea.innerHTML = "<strong>Resultado:</strong> "
+            + resumenEstadosTexto(e.estados)
+            + ". Al cerrar se actualizara la pagina.";
+          return;
+        }
+        if (Date.now() - inicio >= PLAZO_MODAL_MS) {
+          linea.innerHTML = "Siguen <strong>"
+            + (e && e.ok ? e.pendientes : "?") + "</strong> linea(s) en "
+            + "cola. Se registraran en segundo plano; el aviso de la pagina "
+            + "dira cuando llegue el resultado.";
+          return;
+        }
+        setTimeout(paso, SONDEO_MODAL_MS);
+      }).catch(function () {
+        if (Date.now() - inicio < PLAZO_MODAL_MS) setTimeout(paso, SONDEO_MODAL_MS);
+      });
+    }
+    if (ids.length) setTimeout(paso, SONDEO_MODAL_MS);
+  }
+
+  // ---------------- F-024: estado en Sigrid de la vista ---------------- //
+  var MAX_IDS = 5000;
+  var SONDEO_VISTA_MS = 15000, PLAZO_VISTA_MS = 30 * 60 * 1000;
+  var PLAZO_COMPROBAR_MS = 90000;
+  var NOTA_FALLO = "No se pudo comprobar en Sigrid; los estados son los guardados.";
+
+  function idsPorEstado(estado) {
+    var ids = [];
+    document.querySelectorAll(
+      '#lines-table tbody tr[data-sigrid-estado="' + estado + '"]'
+    ).forEach(function (tr) {
+      var id = parseInt(tr.dataset.registroId, 10);
+      if (id) ids.push(id);
+    });
+    return ids.slice(0, MAX_IDS);
+  }
+
+  function avisoSigrid(clave, html) {
+    var caja = document.getElementById("sigrid-aviso");
+    if (!caja) return;
+    var trozo = caja.querySelector('[data-aviso="' + clave + '"]');
+    if (!trozo) {
+      trozo = document.createElement("div");
+      trozo.setAttribute("data-aviso", clave);
+      caja.appendChild(trozo);
+    }
+    trozo.innerHTML = html;
+    caja.hidden = false;
+  }
+
+  function botonActualizar() {
+    return ' <button type="button" class="btn small ok" '
+      + 'data-sigrid-actualizar>Actualizar</button>';
+  }
+
+  function notaComprobacion(texto, aviso) {
+    var nota = document.getElementById("comprobar-sigrid-nota");
+    if (!nota) return;
+    nota.textContent = texto;
+    nota.className = "comprobar-sigrid-nota small "
+      + (aviso ? "comprobar-sigrid-fallo" : "muted");
+  }
+
+  function horaCorta() {
+    var d = new Date();
+    return String(d.getHours()).padStart(2, "0") + ":"
+      + String(d.getMinutes()).padStart(2, "0");
+  }
+
+  /* Las filas que Sigrid ya no tiene cambian de texto al momento; sus
+     controles de edicion llegan con la recarga, que decide el usuario
+     (DA9: recargar sola perderia lo que se este tecleando). */
+  function marcarBorradas(ids) {
+    (ids || []).forEach(function (id) {
+      var tr = document.querySelector(
+        '#lines-table tbody tr[data-registro-id="' + id + '"]');
+      if (!tr) return;
+      tr.dataset.sigridEstado = "borrado_sigrid";
+      var celda = tr.querySelector("td.cell-sigrid");
+      if (celda) {
+        celda.innerHTML = '<span class="badge danger badge-borrado-sigrid" '
+          + 'title="Ya no esta en Sigrid. Pulsa Actualizar para corregirla '
+          + 'y reaprobarla.">✗ borrada en Sigrid</span>';
+      }
+    });
+  }
+
+  /* R18/R20: al cargar la vista se pregunta a Sigrid, en segundo plano,
+     si siguen alli sus lineas registradas. La vista ya esta pintada con lo
+     guardado; si algo falla, solo una nota discreta junto al boton. */
+  function comprobarVista() {
+    var boton = document.getElementById("comprobar-sigrid");
+    if (!boton) return;
+    var ids = idsPorEstado("registrado");
+    if (!ids.length) return;
+    var ctrl = window.AbortController ? new AbortController() : null;
+    var plazo = setTimeout(function () { if (ctrl) ctrl.abort(); },
+                           PLAZO_COMPROBAR_MS);
+    fetch("/api/sigrid/comprobar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ registro_ids: ids,
+                             origen: boton.dataset.origen || "vista-obra" }),
+      signal: ctrl ? ctrl.signal : undefined,
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false }; });
+    }).then(function (d) {
+      clearTimeout(plazo);
+      var borradas = (d && d.borradas_ids) || [];
+      if (borradas.length) {
+        marcarBorradas(borradas);
+        avisoSigrid("borradas", "⚠ <strong>" + borradas.length
+          + "</strong> linea(s) de esta vista ya no estan en Sigrid. "
+          + "Actualiza para poder corregirlas y reaprobarlas."
+          + botonActualizar());
+      }
+      if (!d || !d.ok) { notaComprobacion(NOTA_FALLO, true); return; }
+      if (!borradas.length) notaComprobacion("Comprobado en Sigrid " + horaCorta());
+    }).catch(function () {
+      clearTimeout(plazo);
+      notaComprobacion(NOTA_FALLO, true);
+    });
+  }
+
+  function resultadoComprobacionHtml(d) {
+    var html = "";
+    if (!d.ok) {
+      html += "<p class='ap-warn'>No se pudo completar: "
+        + esc(d.error || "error desconocido")
+        + ". Lo que no se comprobo queda como estaba.</p>";
+    }
+    html += "<ul class='ap-list'>"
+      + "<li>Comprobadas: <strong>" + (d.comprobadas || 0) + "</strong></li>"
+      + "<li>Borradas en Sigrid: <strong>" + (d.borradas || 0) + "</strong></li>"
+      + "<li>Con referencias actualizadas: " + (d.actualizadas || 0) + "</li>"
+      + "<li>Localizadas sin synckey: " + (d.sin_synckey || 0) + "</li>"
+      + "</ul>";
+    var dif = d.con_diferencias || [];
+    if (dif.length) {
+      html += "<p>Cambiadas a mano en Sigrid (solo informativo):</p>"
+        + "<ul class='ap-list'>" + dif.map(function (x) {
+            return "<li>linea " + esc(x.registro_id) + ": "
+              + esc((x.diferencias || []).join("; ")) + "</li>";
+          }).join("") + "</ul>";
+    }
+    return html;
+  }
+
+  /* R26: el boton fuerza la comprobacion (salta el TTL) de TODAS las
+     lineas registradas de la vista y ensena el resultado. */
+  function comprobarBoton() {
+    var ids = idsPorEstado("registrado");
+    if (!ids.length) {
+      modal("Comprobar en Sigrid", "<p>No hay lineas registradas en Sigrid "
+            + "en esta vista.</p>", [{ texto: "Cerrar", onClick: cerrar }]);
+      return;
+    }
+    modal("Comprobando en Sigrid…", "<p>Preguntando a Sigrid por "
+          + ids.length + " linea(s) registradas…</p>", []);
+    post("/api/sigrid/comprobar", { registro_ids: ids, origen: "boton",
+                                    forzar: true }).then(function (d) {
+      d = d || {};
+      var cambios = (d.borradas || 0) + (d.actualizadas || 0) > 0;
+      modal(d.ok ? "Comprobado en Sigrid" : "Comprobacion incompleta",
+            resultadoComprobacionHtml(d), [
+        { texto: "Cerrar", clase: "ok", onClick: function () {
+            cerrar();
+            if (cambios) window.location.reload();
+          } },
+      ]);
+    }).catch(function (e) {
+      modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    });
+  }
+
+  /* R30: mientras la vista tenga lineas encoladas, un aviso sondea su
+     estado cada 15 s (30 min como mucho) y, al llegar el resultado,
+     ofrece «Actualizar» sin recargar sola. */
+  var vigiladas = {};
+  var vigilando = false;
+
+  function vigilarEncoladas(ids) {
+    (ids || []).forEach(function (i) { vigiladas[i] = true; });
+    var total = Object.keys(vigiladas).length;
+    if (!total) return;
+    avisoSigrid("cola", "⏳ <strong>" + total + "</strong> linea(s) en cola "
+                + "hacia Sigrid; esperando el resultado…");
+    if (vigilando) return;
+    vigilando = true;
+    var inicio = Date.now();
+    function paso() {
+      var lista = Object.keys(vigiladas).map(Number).slice(0, MAX_IDS);
+      post("/api/aprobar/estado", { registro_ids: lista }).then(function (e) {
+        if (e && e.ok && e.pendientes === 0) {
+          vigilando = false;
+          avisoSigrid("cola", "✓ Ha llegado el resultado de Sigrid: "
+            + resumenEstadosTexto(e.estados) + "." + botonActualizar());
+          return;
+        }
+        if (Date.now() - inicio >= PLAZO_VISTA_MS) {
+          vigilando = false;
+          avisoSigrid("cola", "⚠ Tras 30 min siguen <strong>"
+            + (e && e.ok ? e.pendientes : "?") + "</strong> linea(s) en cola "
+            + "hacia Sigrid." + botonActualizar());
+          return;
+        }
+        if (e && e.ok) {
+          avisoSigrid("cola", "⏳ <strong>" + e.pendientes + "</strong> "
+                      + "linea(s) en cola hacia Sigrid; esperando el resultado…");
+        }
+        setTimeout(paso, SONDEO_VISTA_MS);
+      }).catch(function () {
+        if (Date.now() - inicio < PLAZO_VISTA_MS) setTimeout(paso, SONDEO_VISTA_MS);
+        else vigilando = false;
+      });
+    }
+    setTimeout(paso, SONDEO_VISTA_MS);
+  }
+
   function aprobar(peticion) {
     modal("Comprobando en Sigrid…", "<p>Analizando el parte, el mes y las "
           + "lineas existentes…</p>", []);
     post("/api/aprobar/preflight", peticion).then(function (pf) {
+      var excl = pf.excluidas || {};
+      var conBorradas = function () {
+        aprobar(Object.assign({}, peticion, { incluir_borradas: true }));
+      };
       if (!pf.ok) {
+        var accionesError = [{ texto: "Cerrar", onClick: cerrar }];
+        if (excl.borrado_sigrid && !peticion.incluir_borradas) {
+          // R25: si solo quedaban lineas borradas en Sigrid, se ofrece
+          // repetir incluyendolas.
+          accionesError.unshift({ texto: "Incluir las borradas en Sigrid",
+                                  clase: "ok", onClick: conBorradas });
+        }
         modal("No se puede registrar",
-              "<p class='ap-warn'>" + (pf.error || "error desconocido") + "</p>",
-              [{ texto: "Cerrar", onClick: cerrar }]);
+              "<p class='ap-warn'>" + esc(pf.error || "error desconocido") + "</p>",
+              accionesError);
         return;
       }
       var conflictos = pf.conflictos || [];
       var bloqueo = pf.sesame_bloqueo || "";
       var html = resumenHtml(pf);
+      if (excl.registrado) {
+        html += "<p class='muted small'>" + excl.registrado + " linea(s) ya "
+          + "registradas en Sigrid no se reenvian.</p>";
+      }
+      if (excl.borrado_sigrid && !peticion.incluir_borradas) {
+        html += "<div class='ap-ctx ap-borradas'><p><strong>"
+          + excl.borrado_sigrid + "</strong> linea(s) estan borradas en "
+          + "Sigrid y no se incluyen.</p><label><input type='checkbox' "
+          + "id='ap-incluir-borradas'> Incluirlas (se volveran a escribir en "
+          + "Sigrid)</label></div>";
+      }
       html += avisosCalendarioHtml(pf.avisos_calendario);
       if (bloqueo) html += "<hr>" + bloqueoSesameHtml(bloqueo);
       if (conflictos.length) html += "<hr>" + conflictosHtml(conflictos);
       var titulo = "Confirmar registro en Sigrid";
       if (bloqueo) titulo = "Bloqueado: Sesame no disponible";
       else if (conflictos.length) titulo = "Confirmar: hay lineas que se pisarian";
-      modal(titulo, html, [
+      var cajaPf = modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
                                      : "Registrar", clase: "ok",
             onClick: function (cj, b) {
@@ -2989,6 +3289,12 @@ var MotivoHttp = (function () {
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);
+      var casilla = cajaPf.querySelector("#ap-incluir-borradas");
+      if (casilla) {
+        casilla.addEventListener("change", function () {
+          if (casilla.checked) conBorradas();   // repite el preflight
+        });
+      }
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
@@ -3000,7 +3306,20 @@ var MotivoHttp = (function () {
       var linea = ev.target.closest(".aprobar-linea");
       if (linea) {
         ev.preventDefault();
-        aprobar({ registro_ids: [parseInt(linea.dataset.registroId, 10)] });
+        var porLinea = { registro_ids: [parseInt(linea.dataset.registroId, 10)] };
+        // F-024: «Reaprobar» una linea borrada en Sigrid la incluye.
+        if (linea.dataset.incluirBorradas === "1") porLinea.incluir_borradas = true;
+        aprobar(porLinea);
+        return;
+      }
+      if (ev.target.closest("#comprobar-sigrid")) {
+        ev.preventDefault();
+        comprobarBoton();
+        return;
+      }
+      if (ev.target.closest("[data-sigrid-actualizar]")) {
+        ev.preventDefault();
+        window.location.reload();
         return;
       }
       var todo = ev.target.closest("#aprobar-todo");
@@ -3031,6 +3350,8 @@ var MotivoHttp = (function () {
         aprobar({ registro_ids: ids });
       }
     });
+    comprobarVista();                          // R18
+    vigilarEncoladas(idsPorEstado("encolado")); // R30
   });
 })();
 

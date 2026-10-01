@@ -951,3 +951,8 @@ td.cell-sigrid .btn.small { padding: 2px 8px; font-size: 11px; }
      vea CUAL es la vigencia que pisa la suya (R12). */
 .input-error { border-color: var(--danger-border); background: var(--danger-soft); }
 tr.is-conflicto > td { background: var(--warn-soft); }
+
+/* F-024: comprobacion en Sigrid (nota junto al boton y aviso de la vista) */
+.comprobar-sigrid-nota { margin-left: 6px; align-self: center; }
+.comprobar-sigrid-fallo { color: #8a5a00; }
+.sigrid-aviso [data-aviso] + [data-aviso] { margin-top: 6px; }
