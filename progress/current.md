@@ -22,11 +22,15 @@ M2 desplegar sv5 y luego sv4; M3 abrir la obra 0719 en el periodo del
 tests). Después: M3 de F-023 (reconciliar recursos) y reaprobación por
 Administración.
 
-## F-021 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
+## F-021 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-021.md`); resumen en
-`progress/history.md`. Rama `feature/F-021-cuenta-analitica-sigrid`, sin
-desplegar. Observación O1 del reviewer: el docstring de `_resolver_cuentas`
+`progress/history.md`. Mergeada a `dev` (`3e5d85f`) y desplegada a petición
+del humano: sv5 `ca-sv5-transfer--r20261001183051` y luego sv4
+`ca-sv4-front--r20261001183229` (arranques limpios en Log Analytics).
+**M1 hecha por el líder**: 0 líneas `partes:%` en `hmores` (nada que
+rellenar). M2 requiere escritura en modo pruebas desde local: solo con
+autorización expresa del humano. Observación O1 del reviewer: el docstring de `_resolver_cuentas`
 (`registro_pipeline.py:210`) dice que la cola reintenta; no reintenta (sv4
 marca las líneas en error hasta que se reaprueban). Corregir en la próxima
 feature de sv5.
