@@ -195,10 +195,10 @@ muerto en el pipeline; default `defecto=False` sin test), cerrados en
 
 | Evidencia | Valor medido |
 |---|---|
-| Tests ejecutados | sv5 269 passed; sv4 1.230 passed; raíz 419 passed + 1 skipped |
-| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 76 líneas cambiadas cubiertas (76/76, umbral 80%, nivel critico)` |
+| Tests ejecutados | sv5 269 passed; sv4 1.230 passed; raíz 419 passed + 1 skipped (última `init.sh`, verde) |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 75 líneas cambiadas cubiertas (75/75, umbral 80%, nivel critico)` |
 | Mutantes generados / supervivientes | 33 / 0 (`--workers 6 --timeout 600`, campaña completa, 82,4 s) |
-| Tiempo de la suite | sv5 4,9 s; sv4 325 s; raíz 64 s |
+| Tiempo de la suite | sv5 8,0 s; sv4 258 s; raíz 72 s (última `init.sh`) |
 | `app.js` | sin mutación ni cobertura (la herramienta solo cubre Python); cubierto por 8 tests que lo ejecutan con `node` |
 
 ## 6. Fuera de alcance y pendientes
