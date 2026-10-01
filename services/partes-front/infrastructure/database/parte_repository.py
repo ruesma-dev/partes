@@ -42,6 +42,7 @@ from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.jornada_admin import columnas_patron
 from application.services.congelacion import (
+    ESTADO_BORRADO_SIGRID,
     MOTIVO_HARD_DELETE_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
@@ -68,14 +69,17 @@ logger = logging.getLogger(__name__)
 #   encolado             -> peticion en vuelo por q-transfer
 #   conflicto            -> sv5 encontro lineas que habria que pisar
 #   error                -> sv5 no pudo completar la peticion
+#   borrado_sigrid       -> F-024: estaba registrada y ya no esta en Sigrid
 ESTADO_ENCOLADO = "encolado"
 ESTADO_CONFLICTO = "conflicto"
 ESTADO_ERROR = "error"
 
 #: Estados que NO son un veredicto final y, por tanto, se pueden pisar
-#: cuando llega el resultado (ver `marcar_registros_sigrid`).
+#: cuando llega el resultado (ver `marcar_registros_sigrid`). F-024 (R15):
+#: `borrado_sigrid` tampoco lo es; si sv5 la vuelve a ver por su synckey
+#: (`ya_registradas`), la linea vuelve a `registrado`.
 ESTADOS_EN_VUELO = (None, "", ESTADO_ENCOLADO, ESTADO_CONFLICTO,
-                    ESTADO_ERROR)
+                    ESTADO_ERROR, ESTADO_BORRADO_SIGRID)
 
 
 def _date_from_iso(ts: str | None) -> date | None:

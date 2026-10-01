@@ -13,7 +13,8 @@ dejaria la BBDD `partes` diciendo una cosa y Sigrid otra:
     que sv5 la daria por `ya_registrado` y NO actualizaria valores. La
     divergencia seria permanente.
 
-`omitido`, `error`, `conflicto` y el estado vacio NO congelan: editar es
+`omitido`, `error`, `conflicto`, `borrado_sigrid` (F-024: la linea ya no
+esta en Sigrid) y el estado vacio NO congelan: editar es
 precisamente el camino de arreglo de esas lineas (asignar el codigo de
 hora que falta, corregir el dato que fallo, resolver el conflicto) y
 bloquearlas dejaria el portal sin salida.
@@ -32,6 +33,9 @@ from collections.abc import Iterable
 ESTADO_ENCOLADO = "encolado"
 #: Veredicto final: la linea se escribio en Sigrid (`hmores`).
 ESTADO_REGISTRADO = "registrado"
+#: F-024: la linea se escribio, pero una comprobacion vio que ya NO esta en
+#: Sigrid (Administracion la borro). No congela: se edita y se reaprueba.
+ESTADO_BORRADO_SIGRID = "borrado_sigrid"
 
 #: Los unicos estados de `parte_registros.sigrid_estado` que congelan por
 #: si mismos, sin mirar si el documento esta aprobado.
@@ -44,8 +48,9 @@ MOTIVO_LINEA_ENCOLADA = (
 )
 MOTIVO_LINEA_REGISTRADA = (
     "Linea ya registrada en Sigrid: editarla aqui no la cambiaria alli "
-    "(el synckey evita que se reescriba). Para corregirla hay que "
-    "eliminar la linea en Sigrid y volver a aprobarla."
+    "(el synckey evita que se reescriba). Para corregirla: borra la linea "
+    "en Sigrid, pulsa «Comprobar en Sigrid» (quedara «borrada en Sigrid» "
+    "y editable), corrigela y vuelve a aprobarla con «Reaprobar»."
 )
 MOTIVO_LINEA_APROBADA = (
     "Parte aprobado: marcalo pendiente («Marcar pendiente») antes de "
