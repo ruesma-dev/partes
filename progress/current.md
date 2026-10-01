@@ -1,15 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-022 · EN IMPLEMENTACIÓN (rama `feature/F-022-aprobar-seleccionadas`)
+## F-022 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
 
-Spec aprobada el 2026-10-01 (DA1–DA19), rigor `critico`, solo sv4 (sv5 sin
-cambios). Implementación terminada (T1–T15), pendiente del reviewer: informe
-en `progress/impl_F-022.md` (desviaciones §3, RED §4, mutación §6), trazas
-RED completas en `progress/red_F-022.log`, mutación en
-`progress/mutacion_F-022.md`. azure-apps: commit local `fdc6e1d` (sin push).
-Contraste inicial con dev (F-021, F-023, F-024): sin cambios de
-comportamiento; el aviso de cuenta de F-021 se pinta por obra.
+APPROVED del reviewer (`progress/review_F-022.md`, seis observaciones no
+bloqueantes; O4 y O5 dan lugar a F-027); resumen en `progress/history.md`.
+Rama `feature/F-022-aprobar-seleccionadas`, sin desplegar (solo sv4).
+azure-apps: commit local `fdc6e1d` (sin push).
 
 Pendientes MANUAL (humano, design §9; pasos exactos en `impl_F-022.md` §7):
 M1 consulta de lectura en PG (¿ya pasó un lote de varias obras?); desplegar

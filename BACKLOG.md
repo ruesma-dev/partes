@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **25 features**, 10 abiertas, 15 terminadas.
-
-En curso: **F-022**.
+Resumen: **26 features**, 10 abiertas, 16 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -13,7 +11,7 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | en curso | critico | `feature/F-022-aprobar-seleccionadas` |
+| F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | pendiente | estandar | `feature/F-025-incidencia-vs-extra` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -33,6 +31,7 @@ Bloqueadas: **F-014**.
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
+| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | critico |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
@@ -46,11 +45,11 @@ Bloqueadas: **F-014**.
 
 ## Detalle
 
-### F-022 · Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona
+### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 
-estado **en curso** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
+estado **pendiente** · prioridad 3 · rigor `estandar` · SDD no · rama `feature/F-027-escape-modales`
 
-Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar. ACLARADO 2026-09-30 (correo de Juan Romero 'RV: CAPTURAS'): 'opcion de seleccionar varias lineas y aprobarlas, por si quiero dejar alguna pendiente' => seleccion explicita de lineas (casillas) en la vista detallada; el humano lo describio tambien como 'las visibles': la spec debe cubrir ambos (lo filtrado y lo marcado) y confirmarlo.
+Observacion O4 del reviewer de F-022 (2026-10-01): resumenHtml, conflictosHtml, avisosCalendarioHtml y resultadoHtml de static/app.js (sv4, anteriores a F-022) pintan sin esc() nombre, motivo y cod, y esos nombres pueden venir del OCR de un PDF recibido por correo (inyeccion de HTML en el portal). Ademas (O5) sondearGrupos mete g.clave sin escapar en un querySelector. Aplicar el esc() existente de F-024 y CSS.escape en el selector, con tests que ejecuten el JS con node como en F-021/F-022. Solo sv4.
 
 ### F-025 · Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)
 
@@ -135,6 +134,12 @@ Pedida por el humano el 2026-08-16 para terminar de validar F-003: script (p. ej
 estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-021-cuenta-analitica-sigrid`
 
 Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv5: parte mensual hmo + lineas hmores), rellenar la cuenta analitica de cada linea. Hoy partes no la escribe en ningun sitio (ni rastro de 'analitic' en el codigo). En el diccionario de Sigrid (azure-apps/sigrid_tablas.md) aparece un campo caacod 'Codigo Cue analitica' (texto de 24) en varias tablas y un 'modana' (Modo solo analitica); sin identificar aun si hmores lo tiene. A DECIDIR EN LA SPEC: (a) en que tabla/campo de Sigrid va la cuenta analitica de una linea de horas y si sigrid-api permite escribirla; (b) DE DONDE SALE: de la obra, de la partida, del recurso o de otro maestro de Sigrid; su lectura via sigrid-api (nunca SQL directo); (c) que pasa si no se encuentra (linea sin cuenta, error o aviso en el portal); (d) si afecta al preflight/conflictos del portal (sv4) y a la desaprobacion (F-004). Servicios: sv5 seguro; sv3/sv4 si hay que resolverla antes o mostrarla. RIGOR critico: cambia lo que se escribe en Sigrid en produccion. ACLARADO 2026-09-30 (correo de Juan Romero, Dir. Admon y Control de Costes, 'RV: CAPTURAS'): 'No arrastra cuenta analitica del recurso' => la cuenta analitica SALE DEL RECURSO (su ficha en Sigrid) y hoy no se copia a la linea al registrar. Queda por fijar en la spec el campo exacto del recurso y el de la linea.
+
+### F-022 · Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona
+
+estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
+
+Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar. ACLARADO 2026-09-30 (correo de Juan Romero 'RV: CAPTURAS'): 'opcion de seleccionar varias lineas y aprobarlas, por si quiero dejar alguna pendiente' => seleccion explicita de lineas (casillas) en la vista detallada; el humano lo describio tambien como 'las visibles': la spec debe cubrir ambos (lo filtrado y lo marcado) y confirmarlo.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 
