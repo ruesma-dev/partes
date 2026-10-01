@@ -5,10 +5,13 @@ Pasos:
   1. Lee el envelope ``{meta, data, debug}`` de sv2.
   2. Dedup por sha256 del documento (soft-delete consciente).
   3. Normaliza ``data`` -> ParteDocumento (expande empleados en registros).
-  4. Casa contra Sigrid (si esta cableado):
-       - obra a nivel de parte (numero/nombre),
-       - por registro: empleado (por nombre) + codigo de hora ``auxhor``
-         (normal/extra por ext, o incidencia por codigo).
+  4. Casa contra Sigrid (si esta cableado), en el orden de F-023:
+       - fecha de referencia (la del parte o, sin ella, hoy: R16),
+       - empresa del membrete (R7-R8) y discriminantes por los recursos
+         de alta de los trabajadores con DNI leido (R11),
+       - obra a nivel de parte (R9-R14) y empresa del parte (R15),
+       - por registro: empleado (DNI -> alias -> nombre, R17-R24) +
+         codigo de hora ``auxhor`` (normal/extra por ext, o incidencia).
   5. Calcula ``review_required``.
   6. Persiste documento + registros.
 """
@@ -17,16 +20,57 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, Optional
 
+from application.services import text_match as tm
 from application.services.parte_normalizer import ParteNormalizer
-from application.services.sigrid_matcher_provider import SigridMatcherProvider
-from domain.models.parte_records import ParteDocumento, PersistParteResult
-from domain.models.parte_records import EmpleadoMatch
+from application.services.seleccion_sigrid import IndicePersonas
+from application.services.sigrid_matcher_provider import (
+    Matchers,
+    SigridMatcherProvider,
+)
+from domain.models.parte_records import (
+    EmpleadoMatch,
+    ObraMatch,
+    ParteDocumento,
+    PersistParteResult,
+    RegistroNormalizado,
+)
 from domain.ports.parte_repository import ParteRepository
 
 logger = logging.getLogger(__name__)
+
+#: Obras sin casar por F-023 que mandan el parte a revision (R10, R13, R14).
+OBRA_A_REVISAR: frozenset[str] = frozenset(
+    {"codigo_otra_empresa", "codigo_ambiguo", "nombre_ambiguo"}
+)
+
+#: De donde sale la empresa del parte cuando la da la obra y no hubo
+#: membrete (R15). Lo que no esta aqui (codigo, codigo_padded) es `obra`.
+_ORIGEN_POR_METODO: dict[str, str] = {
+    "codigo_trabajadores": "trabajadores",
+    "codigo_nombre": "nombre",
+    "nombre": "nombre",
+}
+
+
+def empresa_del_parte(
+    obra: ObraMatch, empresa_membrete: int | None
+) -> tuple[int | None, str | None]:
+    """R15: la empresa de la obra casada; sin obra, la del membrete; si no,
+    ninguna. Devuelve `(empresa, origen)`."""
+    if obra.ide is not None:
+        if obra.empresa is None:
+            return None, None
+        if empresa_membrete is not None:
+            return obra.empresa, "membrete"
+        return obra.empresa, _ORIGEN_POR_METODO.get(obra.method, "obra")
+    if empresa_membrete is not None:
+        return empresa_membrete, "membrete"
+    return None, None
 
 
 @dataclass(frozen=True)
@@ -48,7 +92,10 @@ class PersistPartePipeline:
         sharepoint_uploader: Any = None,
         partida_conciliador: Any = None,
         recurso_conciliador: Any = None,
+        hoy: Callable[[], date] = date.today,
     ) -> None:
+        # F-023 (R16): de donde sale «hoy» cuando el parte no trae fecha.
+        self._hoy = hoy
         self._repository = repository
         self._normalizer = normalizer
         self._matcher_provider = matcher_provider
@@ -209,11 +256,28 @@ class PersistPartePipeline:
     def _match(self, parte: ParteDocumento) -> None:
         assert self._matcher_provider is not None
         matchers = self._matcher_provider.get()
+        indice = matchers.indice
 
-        # Obra (nivel parte).
+        # R16: fecha de referencia del parte.
+        fecha = parte.fecha_int or int(self._hoy().strftime("%Y%m%d"))
+        # R7-R8: empresa del membrete (None si no se reconoce; se loguea).
+        empresa_m, _ = matchers.empresas.resolver(parte.empresa_membrete)
+        # R11: por cada trabajador con DNI leido, las empresas donde tiene
+        # recursos de alta a la fecha.
+        dnis = sorted({
+            tm.normalize_dni(r.trabajador_dni_leido) for r in parte.registros
+        } - {""})
+        discriminantes = [indice.empresas_con_recurso(d, fecha) for d in dnis]
+
+        # Obra (nivel parte) y empresa del parte.
         parte.obra = matchers.obra.match(
             codigo=parte.obra_numero_leido,
             nombre=parte.obra_nombre_leido,
+            empresa_membrete=empresa_m,
+            discriminantes=discriminantes,
+        )
+        parte.empresa, parte.empresa_origen = empresa_del_parte(
+            parte.obra, empresa_m
         )
 
         # Cache de casado de empleado por nombre (evita rematchear el mismo
@@ -231,36 +295,9 @@ class PersistPartePipeline:
             if key in emp_cache:
                 reg.empleado = emp_cache[key]
             else:
-                match: EmpleadoMatch | None = None
-                # 0) DNI leido del parte (J.310 rev. 1): PRIORIDAD ABSOLUTA.
-                #    Si el maestro lo resuelve por DNI exacto, gana sobre el
-                #    alias y sobre cualquier similitud de nombre.
-                if dni_leido:
-                    m = matchers.empleado.match(
-                        nombre=None, dni=dni_leido, codigo=None
-                    )
-                    if m.method == "dni":
-                        match = m
-                if match is None:
-                    # 1) Alias aprendido (casado confirmado en conciliacion):
-                    #    casa de forma EXACTA las variantes recurrentes de OCR.
-                    alias = self._repository.find_empleado_alias(
-                        reg.trabajador_nombre_leido
-                    )
-                    if alias is not None:
-                        match = EmpleadoMatch(
-                            ide=alias["ide"], codigo=alias["codigo"],
-                            nombre=alias["nombre"], dni=alias["dni"],
-                            reside=None, score=1.0, method="alias",
-                        )
-                    else:
-                        # 2) Similitud contra el maestro (con el DNI como
-                        #    apoyo por si el maestro puede resolverlo).
-                        match = matchers.empleado.match(
-                            nombre=reg.trabajador_nombre_leido,
-                            dni=dni_leido or None,
-                            codigo=None,
-                        )
+                match = self._casar_trabajador(
+                    reg, matchers, parte.empresa, fecha
+                )
                 emp_cache[key] = match
                 reg.empleado = match
 
@@ -287,6 +324,62 @@ class PersistPartePipeline:
                     ord_desc_by_emp[key] = reg.hora.descripcion
 
     # ----------------------------------------------------------------- #
+    def _casar_trabajador(
+        self,
+        reg: RegistroNormalizado,
+        matchers: Matchers,
+        empresa: int | None,
+        fecha: int,
+    ) -> EmpleadoMatch:
+        """R17-R24: DNI leido -> alias aprendido -> similitud de nombre,
+        siempre contra las fichas de alta a la fecha de la empresa del
+        parte. Un DNI ambiguo, de baja o de otra empresa CIERRA la linea
+        sin casar (R22): nunca se sigue al alias ni al nombre."""
+        indice = matchers.indice
+        res = indice.elegir_ficha(reg.trabajador_dni_leido, empresa, fecha)
+        if res.motivo == "ok":
+            return matchers.empleado.to_match(
+                indice.ficha(res.ide), 1.0, "dni"  # type: ignore[arg-type]
+            )
+        if res.motivo != "desconocido":
+            return EmpleadoMatch(method=f"dni_{res.motivo}")
+        candidatas = indice.fichas_candidatas(empresa, fecha)
+        alias = self._repository.find_empleado_alias(
+            reg.trabajador_nombre_leido
+        )
+        if alias is not None:
+            return self._casar_alias(
+                alias, indice, matchers, candidatas, empresa, fecha
+            )
+        return matchers.empleado.match_nombre(
+            nombre=reg.trabajador_nombre_leido, candidatas=candidatas
+        )
+
+    @staticmethod
+    def _casar_alias(
+        alias: dict,
+        indice: IndicePersonas,
+        matchers: Matchers,
+        candidatas: list,
+        empresa: int | None,
+        fecha: int,
+    ) -> EmpleadoMatch:
+        """R23: el alias vale si su ficha es candidata; si no, se re-resuelve
+        por el DNI del alias. Sin DNI, o con uno que no esta en el maestro,
+        el alias no es valido."""
+        ficha = next((f for f in candidatas if f.ide == alias.get("ide")), None)
+        if ficha is not None:
+            return matchers.empleado.to_match(ficha, 1.0, "alias")
+        res = indice.elegir_ficha(alias.get("dni"), empresa, fecha)
+        if res.motivo == "ok":
+            return matchers.empleado.to_match(
+                indice.ficha(res.ide), 1.0, "alias"  # type: ignore[arg-type]
+            )
+        if res.motivo == "desconocido":
+            return EmpleadoMatch(method="alias_no_valido")
+        return EmpleadoMatch(method=f"dni_{res.motivo}")
+
+    # ----------------------------------------------------------------- #
     @staticmethod
     def _compute_review_required(parte: ParteDocumento) -> bool:
         # Revision si: sin registros, o el parte no esta firmado, o algun
@@ -295,6 +388,9 @@ class PersistPartePipeline:
         if not parte.registros:
             return True
         if not parte.firmado:
+            return True
+        # F-023: obra sin casar por empresa o por ambiguedad (R10, R13, R14).
+        if parte.obra.method in OBRA_A_REVISAR:
             return True
         for reg in parte.registros:
             if reg.empleado.ide is None:

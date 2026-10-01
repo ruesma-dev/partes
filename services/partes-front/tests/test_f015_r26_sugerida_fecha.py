@@ -38,6 +38,7 @@ class EmpleadoDoble:
     reside: int | None
     categoria: str | None
     candef: float | None
+    empresa: int | None = None   # F-023 (R40)
 
 
 EMPLEADOS = [
@@ -87,10 +88,12 @@ def _items(cliente, params=""):
 # ------------------------- sin `fecha`: como hoy ------------------------ #
 
 def test_f015_r26_sin_fecha_las_claves_son_las_de_siempre(cliente) -> None:
+    """F-023 (R40) anade `empresa`; ninguna de las de siempre se quita ni
+    se renombra."""
     for item in _items(cliente):
         assert set(item) == {
             "ide", "codigo", "nombre", "dni", "reside", "categoria",
-            "candef", "jornada_sugerida",
+            "candef", "jornada_sugerida", "empresa",
         }
 
 

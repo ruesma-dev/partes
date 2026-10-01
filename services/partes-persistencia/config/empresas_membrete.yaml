@@ -1,0 +1,14 @@
+# config/empresas_membrete.yaml
+# F-023 (DA3): alias del MEMBRETE del parte por empresa de Sigrid.
+#
+# sv2 copia tal cual el nombre de empresa impreso en el membrete o el
+# logotipo; sv3 lo traduce con esta tabla. Clave: numemp de auxemp (el
+# numero que usa con.emp). Valor: lista de alias. Casa si el texto
+# normalizado (minusculas, sin acentos ni signos) contiene un alias como
+# palabras completas, y solo si es de UNA empresa valida.
+#
+# La mantiene el humano: un alias nuevo es un cambio versionado.
+1:
+  - RUESMA
+28:
+  - PORSAN

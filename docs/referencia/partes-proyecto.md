@@ -18,6 +18,10 @@
 > en `parte_documents` (la que hay es `firma_confianza_pct`). Se corrige
 > en el sitio, contra `information_schema` de la base real.
 
+> **Actualizado el 2026-10-01 por F-023**: §4.6 (casado por empresa y
+> alta), §5.1 (columnas de empresa del parte) y §6.6 (`SIGRID_EMPRESA`
+> deja de usarse; tabla de alias del membrete).
+
 > Sistema completo de captura, revisión y registro en Sigrid de los partes
 > diarios de trabajo de Construcciones Ruesma. Julio 2026.
 > Estado: **desplegado en Azure y operativo** (sv1–sv4 en producción de
@@ -342,13 +346,36 @@ eso el filtro).
 ### 4.6 Personas: identificación y aprendizaje
 
 La clave de identidad en toda la casa es el **DNI normalizado** (sin
-guiones/espacios, mayúsculas; vale NIE). Cadena de casado del
-trabajador: DNI exacto → código exacto → nombre por similitud (umbral
-0,55). Como los encargados escriben los nombres «a su manera» («Fco.
-Javier Roldán»), la primera vez Administración concilia a mano en el
-portal y el sistema **aprende el alias** (`empleado_alias`): la
-siguiente vez casa solo. Los trabajadores dados de baja en Sigrid se
-excluyen de las búsquedas.
+guiones/espacios, mayúsculas; vale NIE). Como los encargados escriben los
+nombres «a su manera» («Fco. Javier Roldán»), la primera vez
+Administración concilia a mano en el portal y el sistema **aprende el
+alias** (`empleado_alias`): la siguiente vez casa solo.
+
+**Empresa y alta (F-023).** Sigrid tiene varias empresas (`con.emp`) y
+una misma persona puede tener fichas y recursos en más de una; hay además
+**códigos de obra repetidos** en dos empresas («gemelas»). «De alta a la
+fecha D» es `con.fecbaj` NULL, 0 o posterior a D, tanto del empleado como
+del recurso (`emp.fecbaj` no cuenta). En la ingesta (sv3):
+
+1. La **empresa del membrete**: sv2 copia el nombre de empresa impreso en
+   el membrete o logotipo y sv3 lo traduce con la tabla versionada
+   `config/empresas_membrete.yaml` (alias por `numemp`).
+2. La **obra**: con membrete, solo compiten las obras de esa empresa con
+   el código leído; sin él, obra única → esa; gemelas → la empresa donde
+   tienen recurso de alta los trabajadores con DNI → el nombre (si gana
+   con claridad) → si no, sin casar y a revisión. La **empresa del parte**
+   es la de la obra (o la del membrete si no hay obra).
+3. El **trabajador**: DNI → alias → nombre (umbral 0,55), siempre entre las
+   fichas de alta a la fecha del parte de la empresa del parte. Un DNI con
+   varias fichas, solo de baja o de otra empresa queda sin casar (nunca se
+   elige al azar).
+4. El **recurso** de cada línea: entre los recursos de la persona de alta
+   a la fecha de la línea y de la empresa de su obra; `emp.reside` solo
+   desempata entre ellos. Si no queda uno, `sin_recurso` y a revisión.
+
+Al registrar, sv5 vuelve a comprobar empresa, alta y persona de cada
+recurso y firma la cabecera con la empresa de la obra. En el portal los
+combos muestran la empresa y reasignar un trabajador suelta su recurso.
 
 ### 4.7 Mes natural vs mes nómina
 
@@ -393,7 +420,8 @@ y distintas entre servicios.
 | Identidad | `id` (PK, uuid), `created_at_utc` | |
 | Origen | `source_filename`, `source_attachment_filename`, `source_attachment_sha256`, `source_mime_type`, `source_sha256`, `page_number`, `page_count` | índice único PARCIAL por `source_sha256` `WHERE is_active`: deduplica reenvíos, pero un parte borrado no bloquea reingerir el mismo PDF |
 | Correo | `email_id`, `email_subject`, `email_sender`, `email_received_datetime` | vacíos en creación manual |
-| Obra leída/casada | `obra_numero_leido`, `obra_nombre_leido`, `obra_codigo`, `obra_ide`, `obra_nombre`, `obra_match_method`, `obra_match_score` | ide = `con.ide`/`obr` en Sigrid |
+| Obra leída/casada | `obra_numero_leido`, `obra_nombre_leido`, `obra_codigo`, `obra_ide`, `obra_nombre`, `obra_match_method`, `obra_match_score` | ide = `con.ide`/`obr` en Sigrid. Métodos de F-023: `codigo_membrete`, `codigo_trabajadores`, `codigo_nombre`; sin casar: `codigo_otra_empresa`, `codigo_ambiguo`, `nombre_ambiguo` |
+| Empresa del parte (F-023) | `empresa_membrete`, `empresa`, `empresa_origen` | nullables: el texto del membrete tal cual, la empresa (`con.emp`) y de dónde sale (`membrete`, `obra`, `trabajadores`, `nombre`). NULL en los partes anteriores a F-023 |
 | Día del parte | `fecha` (ISO), `fecha_int` (YYYYMMDD) | |
 | Personas del parte | `encargado_nombre`, `jefe_obra_nombre` | |
 | Firmas | `firma_encargado`, `firma_jefe_obra`, `firma_administracion`, `firmado`, `firmante_nombre`, `firmante_rol`, `firma_confianza_pct` | |
@@ -659,9 +687,9 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 |---|---|
 | sv1 | Graph (tenant/client/secret ref), buzón, QUEUE_URL |
 | sv2 | GEMINI (secreto), colas, prompts/schema |
-| sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas |
+| sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
 | sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA=1`, `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, API_PORT=8005 |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, API_PORT=8005 |
 
 ---
 

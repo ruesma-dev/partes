@@ -178,7 +178,17 @@ original NO se versiona: al repositorio entra solo el Markdown.
   duplicado de hecho desde F-003 y añadido a esta lista con decisión
   expresa del humano el 2026-08-19, al ampliarlo F-015 con la jornada
   del día; equivalencia comprobada por
-  `tests/test_f015_r19_jornada_resolver_gemelo.py`). Solo crece con una
+  `tests/test_f015_r19_jornada_resolver_gemelo.py`) y, desde F-023 (DA6,
+  decisión expresa del humano el 2026-10-01), la regla «de alta»
+  `de_alta` y la elección de recurso por DNI de sv3
+  (`application/services/seleccion_sigrid.py`: `de_alta`,
+  `IndicePersonas.elegir_recurso`) y sv5
+  (`application/services/coherencia_recurso.py`: `de_alta`,
+  `elegir_por_dni`), más el filtro de alta del SQL de empleados de sv4;
+  `de_alta` y ese SQL los vigila `tests/test_f023_de_alta_gemelos.py`. La
+  elección por DNI no es idéntica a propósito (sv3 desempata con el
+  `reside` de la ficha; sv5 exige un único candidato), pero sus candidatos
+  son los mismos: empresa de la obra y alta a la fecha. Solo crece con una
   decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes NO hacen `git push` ni crean PRs salvo petición explícita del

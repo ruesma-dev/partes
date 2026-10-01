@@ -23,11 +23,15 @@ escribe y su resultado siempre fue consultivo).
 Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
 
   1. Resolver la OBRA DESTINO (en modo pruebas se fuerza a la obra de
-     pruebas, ignorando la obra del parte).
+     pruebas, ignorando la obra del parte) y SU EMPRESA: sin empresa no se
+     escribe nada (F-023, R35).
   2. Agrupar las lineas por PERIODO (ano/mes de la fecha REAL de trabajo):
      el parte de Sigrid es por obra y mes natural, no por mes de nomina.
   2b. Completar el recurso de las lineas que llegan sin recurso_ide pero
-     con DNI (creacion manual antigua): DNI -> res.ide contra Sigrid.
+     con DNI (creacion manual antigua): un UNICO recurso de alta de esa
+     empresa a la fecha de la linea (R37).
+  2c. Verificar el recurso de las demas: de la empresa de la obra, de alta
+     a la fecha de la linea y de esa persona (R36). Si no, se omite.
   3. Cargar los tipos de hora de los recursos implicados (reshor).
   4. Aplicar las REGLAS de negocio -> accion por linea.
   5. Localizar el parte de cada periodo; proponer codigo si no existe.
@@ -43,6 +47,10 @@ import logging
 import threading
 from datetime import datetime, timezone
 
+from application.services.coherencia_recurso import (
+    elegir_por_dni,
+    verificar_recurso,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -98,31 +106,69 @@ class RegistroPipeline:
                 f"cod={obra.codigo})")
         return real, False
 
+    def _con_empresa(self, obra: ObraEntrada) -> tuple[ObraEntrada, bool]:
+        """Paso 1 completo: la obra destino tiene que tener empresa (R35).
+
+        La cabecera, el correlativo y la verificacion de recursos son de
+        esa empresa: sin ella no hay nada seguro que escribir."""
+        destino, forzada = self._obra_destino(obra)
+        if destino.empresa is None:
+            raise RuntimeError(
+                f"la obra {destino.codigo} no tiene empresa en Sigrid: no se "
+                f"escribe nada")
+        return destino, forzada
+
     # ---------------------- FASE 1: PREPARAR ---------------------- #
     # Pasos 1-4. Solo datos maestros + reglas: paralelizable (R18).
     def preparar(self, *, obra: ObraEntrada,
                  lineas: list[LineaEntrada]) -> ContextoRegistro:
-        destino, forzada = self._obra_destino(obra)
+        destino, forzada = self._con_empresa(obra)
+        empresa = int(destino.empresa)  # type: ignore[arg-type]
+        # Lineas que se omiten ANTES de las reglas, con el motivo concreto
+        # de la comprobacion que fallo (R36-R37).
+        omisiones: dict[int, str] = {}
+        con_recurso = [l for l in lineas if l.recurso_ide]
 
-        # Paso 2b: lineas sin recurso pero con DNI -> resolver contra
-        # Sigrid (red de seguridad para creaciones manuales sin casar).
+        # Paso 2b: lineas sin recurso pero con DNI -> un unico candidato de
+        # la empresa de la obra a la fecha de la linea (R37).
         import re as _re
         sin_recurso = [l for l in lineas if not l.recurso_ide and l.dni]
         if sin_recurso:
             try:
-                mapa = self._cli.resides_por_dni(
+                mapa = self._cli.recursos_por_dni(
                     {l.dni for l in sin_recurso})
             except Exception:  # noqa: BLE001
                 logger.warning("[registro] fallo resolviendo recursos por "
                                "DNI; esas lineas se omitiran", exc_info=True)
-                mapa = {}
-            for l in sin_recurso:
-                d = _re.sub(r"[^0-9A-Za-z]", "", l.dni or "").upper()
-                if d in mapa:
-                    l.recurso_ide = mapa[d]
+                mapa = None
+            if mapa is not None:
+                for l in sin_recurso:
+                    d = _re.sub(r"[^0-9A-Za-z]", "", l.dni or "").upper()
+                    reside, motivo = elegir_por_dni(
+                        mapa.get(d, []), empresa, l.fecha_int)
+                    if reside is None:
+                        omisiones[l.registro_id] = motivo  # type: ignore[assignment]
+                    l.recurso_ide = reside
             logger.info("[registro] recursos resueltos por DNI: %s/%s",
                         sum(1 for l in sin_recurso if l.recurso_ide),
                         len(sin_recurso))
+
+        # Paso 2c: el recurso que llega se verifica (R36). Si Sigrid no
+        # responde, la peticion falla entera: nada se escribe sin verificar.
+        if con_recurso:
+            datos = self._cli.datos_recursos(
+                [l.recurso_ide for l in con_recurso])
+            for l in con_recurso:
+                motivo = verificar_recurso(
+                    datos.get(int(l.recurso_ide)), empresa, l.fecha_int,
+                    l.dni)
+                if motivo is not None:
+                    omisiones[l.registro_id] = motivo
+            if omisiones:
+                logger.warning(
+                    "[registro] obra=%s empresa=%s: %s linea(s) omitidas por "
+                    "el recurso: %s", destino.codigo, empresa,
+                    len(omisiones), omisiones)
 
         # Paso 3-4: reglas.
         roles_in = {l.registro_id: l.incidencia_rol
@@ -133,7 +179,7 @@ class RegistroPipeline:
                         roles_in)
         horas = self._cli.horas_de_recursos(
             [l.recurso_ide for l in lineas if l.recurso_ide])
-        reglas = ReglasRegistro(horas)
+        reglas = ReglasRegistro(horas, omisiones=omisiones)
         acciones: list[AccionLinea] = [reglas.decidir(l) for l in lineas]
         return ContextoRegistro(
             obra_origen=obra, obra_destino=destino, forzada_pruebas=forzada,
@@ -155,7 +201,8 @@ class RegistroPipeline:
         for clave in sorted(periodos):
             p = partes.get(clave) or ParteDestino(ano=clave[0], mes=clave[1])
             if not p.existe and not p.cod:
-                p.cod = self._cli.siguiente_cod_pt(p.ano)
+                p.cod = self._cli.siguiente_cod_pt(
+                    p.ano, int(destino.empresa))  # type: ignore[arg-type]
             partes[clave] = p
 
         # Paso 6: idempotencia por synckey.
@@ -297,7 +344,8 @@ class RegistroPipeline:
             marca = (f" ({self._st.marca_pruebas})" if pf.forzada_pruebas
                      else "")
             desc = f"Parte {destino.nombre or destino.codigo}{marca}"
-            cod = p.cod or self._cli.siguiente_cod_pt(p.ano)
+            cod = p.cod or self._cli.siguiente_cod_pt(
+                p.ano, int(destino.empresa))  # type: ignore[arg-type]
             self._cli.escribir(self._cli.stmts_crear_parte(
                 obra=destino, ano=p.ano, mes=p.mes, cod=cod, desc=desc))
             nuevos = self._cli.partes_existentes(int(destino.ide), [clave])

@@ -1,6 +1,73 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-023 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
+
+APPROVED del reviewer en la pasada 2 (`progress/review_F-023.md`); resumen en
+`progress/history.md`. Rama `feature/F-023-recurso-alta-empresa`, sin mergear
+ni desplegar. Desviación D1 del implementer (el PATCH de obra del portal
+resuelve por `ide`) aceptada por el reviewer.
+
+### MANUAL (humano) pendientes de F-023 (design §9 y T17)
+
+1. **M1 · antes de desplegar (lectura, SQL Server vía sigrid-api y PG
+   `partes`)**: `ide` de obras gemelas en Sigrid
+   (`SELECT con.ide, con.cod, con.emp FROM obr JOIN con ON con.ide = obr.ide
+   WHERE con.cod IN (SELECT c.cod FROM obr o JOIN con c ON c.ide = o.ide
+   GROUP BY c.cod HAVING COUNT(DISTINCT c.emp) > 1)`) y, con esos ides, en
+   `partes`: `SELECT r.obra_ide, d.approved, count(*) FROM parte_registros r
+   JOIN parte_documents d ON d.id = r.document_id WHERE d.is_active AND
+   r.deleted_at_utc IS NULL AND r.obra_ide IN (…) GROUP BY 1, 2;`
+2. **M5 · antes de desplegar sv2**: con sv2 en local, ≥ 10 partes reales
+   (≥ 5 de cada empresa): `empresa_membrete` correcto y el resto de la
+   cabecera y los empleados igual que su extracción guardada. Anotar en
+   `progress/evals_F-023.md` sin nombres ni DNIs.
+3. **Despliegue** (lo pide el humano): orden **sv5 → sv2 → sv3 → sv4**
+   (`redeploy_partes.ps1 -Solo svN`). Al arrancar sv3/sv4 el DDL
+   complementario pasa de 137 a 140 sentencias (log de arranque).
+4. **M2 · tras sv5** (lecturas por `POST /api/sql/read` de sigrid-api,
+   base `ruesma`; `<OBRA_IDE>`, `<AAAA>`, `<MM>` = obra de la empresa 28 y
+   mes del parte aprobado; `$KEY` = function key que el humano saca del Key
+   Vault, nunca escrita en ningún fichero). Antes de aprobar, apuntar el
+   `PT` máximo de cada empresa con la 2.ª consulta (con `28` y con `1`):
+   ```powershell
+   $q = @{ database = 'ruesma'; max_rows = 10; parameters = @(<OBRA_IDE>, <AAAA>, <MM>);
+     sql = 'SELECT con.ide, con.cod, con.emp, con.tip FROM hmo JOIN con ON con.ide = hmo.ide WHERE hmo.obride = ? AND hmo.ano = ? AND hmo.mes = ? AND ISNULL(hmo.reside, 0) = 0 AND con.tip = 35' } | ConvertTo-Json
+   Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
+   $pt = @{ database = 'ruesma'; max_rows = 1; parameters = @('PT26/%', 28);
+     sql = 'SELECT MAX(cod) AS maxcod FROM con WHERE cod LIKE ? AND emp = ?' } | ConvertTo-Json
+   Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $pt
+   ```
+   **Esperado**: la 1.ª devuelve UNA fila con `emp = 28` y `tip = 35`; si
+   la cabecera la creó sv5, su `cod` es el máximo de la 28 anterior + 1 (la
+   2.ª consulta con `28` lo devuelve) y el máximo de la empresa `1` no ha
+   cambiado. `truncated` = false.
+5. **M3 · tras sv3** (lo lanza el humano): `POST
+   <url-de-sv3>/admin/reconciliar-recursos` → `{"ok": true, …,
+   "partes_sin_recurso": N}`. Después, en la base `partes` (solo lectura;
+   `:dni` = DNI del caso guía, que el humano escribe en la consola y no se
+   apunta en ningún fichero):
+   ```sql
+   SELECT r.recurso_ide, r.parte_estado, (d.approved OR r.sigrid_estado IN ('encolado','registrado')) AS congelada, count(*)
+   FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+   WHERE d.is_active AND r.deleted_at_utc IS NULL
+     AND upper(replace(replace(r.empleado_dni,'-',''),' ','')) = upper(:dni)
+   GROUP BY 1, 2, 3 ORDER BY 3, 1;
+   ```
+   y, con los `recurso_ide` que salgan, en Sigrid: `SELECT res.ide, rc.emp,
+   rc.fecbaj FROM res JOIN con rc ON rc.ide = res.ide WHERE res.ide IN
+   (<ides>)`. **Esperado**: las filas NO congeladas tienen un único
+   `recurso_ide`, de `emp = 1` con `fecbaj` 0 (no el dado de baja en 2021),
+   y `parte_estado` `ok` o `sin_parte`; las congeladas conservan el que
+   tenían.
+6. **M4**: el código `0404` (modo pruebas) existe en una sola empresa
+   (`SELECT con.emp FROM obr JOIN con ON con.ide = obr.ide WHERE con.cod = '0404'`).
+7. **T17 · navegador (sv4, Ctrl+F5)**: los combos de obra y trabajador
+   muestran «· empresa N»; en «+ Nuevo» y en «Añadir línea», con obra
+   elegida (o fijada por el parte), el combo de trabajador solo ofrece
+   fichas de su empresa; elegir la gemela de la 28 en el combo de obra del
+   detalle deja esa obra (no la de la 1).
+
 ## F-020 · done y DESPLEGADA (2026-09-30), pendiente de verificación manual
 
 Cerrada con APPROVED del reviewer; resumen en `progress/history.md`.

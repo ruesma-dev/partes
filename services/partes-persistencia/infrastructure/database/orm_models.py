@@ -87,6 +87,15 @@ class ParteDocumentOrm(Base):
     obra_match_score: Mapped[float | None] = mapped_column(Float)
     obra_match_method: Mapped[str | None] = mapped_column(String(24))
 
+    # --- Empresa del parte (F-023, DA11) --- #
+    # Texto del membrete tal cual lo leyo sv2 (R6), empresa del parte
+    # (con.emp, R15) y de donde sale: membrete | obra | trabajadores |
+    # nombre (NULL si no se sabe). Nullables: los partes anteriores quedan
+    # a NULL y nadie los re-casa (DA7).
+    empresa_membrete: Mapped[str | None] = mapped_column(String(255))
+    empresa: Mapped[int | None] = mapped_column(Integer)
+    empresa_origen: Mapped[str | None] = mapped_column(String(24))
+
     # --- Responsables --- #
     encargado_nombre: Mapped[str | None] = mapped_column(String(255))
     jefe_obra_nombre: Mapped[str | None] = mapped_column(String(255))

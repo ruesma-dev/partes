@@ -3,8 +3,12 @@
 partes (sv3). Se lanza al persistir, junto al casado de partidas.
 
 Por cada linea de parte (de un trabajador ya conciliado contra ``emp``):
-  1. Localiza su RECURSO de Sigrid (``res``): por ``emp.reside`` (ya casado),
-     y si falta, por ``res.conide = empleado`` o ``res.cif = DNI``.
+  1. Localiza su RECURSO de Sigrid (``res``). F-023 (R25-R29): candidatos =
+     recursos de la persona (``res.conide`` = una de sus fichas o
+     ``res.cif`` = su DNI) de ALTA a la fecha de la linea y de la empresa de
+     su obra (sin obra, la del parte; sin ninguna, cualquiera). Con uno, ese;
+     con varios, el ``emp.reside`` de la ficha si es candidato o el unico de
+     la ficha casada. ``emp.reside`` NUNCA se asigna fuera de los candidatos.
   2. Localiza el PARTE DE TRABAJO (``hmo``) donde se imputarian las horas:
      por ``reside + obra + ano + mes`` (la fecha del registro da ano/mes).
 
@@ -13,7 +17,8 @@ Resultado por registro: ``recurso_ide`` / ``recurso_cif`` / ``hmo_ide`` /
 parte de ese mes/obra; ``sin_recurso`` = no se localizo el recurso).
 
 NO escribe en Sigrid. Best-effort: si Sigrid falla para una obra, esos
-registros NO se tocan (se reintentan en la siguiente persistencia).
+registros NO se tocan (se reintentan en la siguiente persistencia). Las
+lineas CONGELADAS (F-004) no cambian de recurso ni de estado (R30).
 """
 from __future__ import annotations
 
@@ -33,6 +38,7 @@ from application.services.jornada_resolver import (
     jornada_efectiva,
     jornada_semanal_de,
 )
+from application.services.seleccion_sigrid import IndicePersonas
 from domain.models.sigrid_models import HmoRow, RecursoRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
 from domain.ports.jornada_empleado_port import (
@@ -74,6 +80,13 @@ def _tipo_inc(res: str | None) -> str | None:
 def _tipo(reg: dict) -> str:
     return (reg.get("tipo_hora") or "").strip().lower()
 
+
+#: Motivos de `elegir_recurso` que dejan la linea sin recurso y el parte a
+#: revision (F-023, R29). `desconocido` (la persona no tiene recursos) es
+#: el `sin_recurso` de siempre y no sube la revision.
+MOTIVOS_SIN_RECURSO_A_REVISAR: frozenset[str] = frozenset(
+    {"ambiguo", "solo_baja", "otra_empresa"}
+)
 
 #: Estados de `sigrid_estado` que significan "esto ya viajo al ERP" (F-004).
 ESTADOS_CONGELADOS: frozenset[str] = frozenset({"encolado", "registrado"})
@@ -118,11 +131,19 @@ class RecursoConciliador:
         mapa_semanal: Mapping[float, float] | None = None,
         jornadas: JornadaEmpleadoPort | None = None,
         jornada_cache_ttl_s: int = 600,
+        indice_provider: Callable[[], IndicePersonas] | None = None,
+        hoy: Callable[[], date] = date.today,
     ) -> None:
         # repository: SqlAlchemyParteRepository. lookup: SigridLookupPort
         # (fetch_recursos, fetch_reshor, fetch_hmo_obra).
         self._repository = repository
         self._lookup = lookup
+        # F-023: fichas y recursos de TODAS las empresas. En produccion es
+        # el indice del `SigridMatcherProvider` (el mismo de la ingesta);
+        # sin el, solo los recursos del lookup. `hoy` es la fecha de las
+        # lineas que no traen fecha.
+        self._indice_provider = indice_provider
+        self._hoy = hoy
         # Calendario laboral (fin de semana + festivos). Si es None, no
         # se aplica la regla de no laborable (comportamiento anterior).
         self._calendario = calendario
@@ -135,11 +156,6 @@ class RecursoConciliador:
         self._candef_min = float(candef_minimo)
         self._ttl = int(ttl_seconds)
         self._lock = threading.RLock()
-        # maestro de recursos: maps conide->ide, cif_norm->ide, ide->RecursoRow
-        # (para la clasificacion/categoria y la hora por defecto) + timestamp.
-        self._res_maps: tuple[
-            float, dict[int, int], dict[str, int], dict[int, RecursoRow]
-        ] | None = None
         # costes de horas por recurso: reside -> {ord, ext, candef} (+ ts).
         self._reshor_cache: tuple[float, dict[int, dict]] | None = None
         # hmo por obra: obra_ide -> (timestamp, {(reside,ano,mes): hmo_ide})
@@ -147,6 +163,9 @@ class RecursoConciliador:
         # F-003 (R26): partes cuyo computo se hizo con calendario degradado
         # en la pasada EN CURSO. `conciliar_todos` lo vacia al empezar.
         self._docs_degradados: set[str] = set()
+        # F-023 (R29): partes con alguna linea sin recurso por ambiguedad o
+        # por tener la persona solo recursos de baja o de otra empresa.
+        self._docs_sin_recurso: set[str] = set()
         # F-015: mapa candef -> jornada semanal (`JORNADA_SEMANAL_POR_CANDEF`)
         # y excepciones por trabajador (`empleado_jornada`). Los dos son
         # opcionales: sin ellos, la jornada del dia es el candef efectivo de
@@ -166,36 +185,18 @@ class RecursoConciliador:
         self._avisados_mapa: set[int] = set()
         self._aviso_jornadas_fallo = False
 
-    # ----- recursos (maestro) ----- #
-    def _recurso_maps(
-        self,
-    ) -> tuple[dict[int, int], dict[str, int], dict[int, RecursoRow]]:
-        now = time.time()
-        with self._lock:
-            if self._res_maps is not None and (now - self._res_maps[0]) < self._ttl:
-                return self._res_maps[1], self._res_maps[2], self._res_maps[3]
+    # ----- fichas y recursos (maestros, F-023) ----- #
+    def _indice(self) -> IndicePersonas:
+        """El indice de personas de esta pasada. Con proveedor, el de la
+        ingesta; sin el (tests y herramientas), los recursos del lookup."""
+        if self._indice_provider is not None:
+            return self._indice_provider()
         try:
             recursos: list[RecursoRow] = self._lookup.fetch_recursos()
         except Exception as exc:  # noqa: BLE001
             logger.warning("[recurso-concil] fallo leyendo recursos: %r", exc)
-            return {}, {}, {}   # fallback: solo emp.reside
-        by_conide: dict[int, int] = {}
-        by_cif: dict[str, int] = {}
-        by_ide: dict[int, RecursoRow] = {}
-        for r in recursos:
-            by_ide[r.ide] = r
-            if r.conide is not None:
-                by_conide.setdefault(r.conide, r.ide)
-            cifn = tm.normalize_dni(r.cif)
-            if cifn:
-                by_cif.setdefault(cifn, r.ide)
-        with self._lock:
-            self._res_maps = (now, by_conide, by_cif, by_ide)
-        logger.info(
-            "[recurso-concil] recursos: por_empleado=%s por_dni=%s total=%s",
-            len(by_conide), len(by_cif), len(by_ide),
-        )
-        return by_conide, by_cif, by_ide
+            recursos = []
+        return IndicePersonas([], recursos)
 
     # ----- costes de horas por recurso (reshor) ----- #
     def _reshor_index(self, by_ide: dict[int, RecursoRow]) -> dict[int, dict]:
@@ -356,19 +357,44 @@ class RecursoConciliador:
         )
         return idx
 
-    def _resuelve_recurso(
-        self, reg: dict, by_conide: dict[int, int], by_cif: dict[str, int]
-    ) -> int | None:
-        reside = reg.get("empleado_reside")
-        if reside:
-            return reside
-        emp_ide = reg.get("empleado_ide")
-        if emp_ide is not None and emp_ide in by_conide:
-            return by_conide[emp_ide]
-        dni = tm.normalize_dni(reg.get("empleado_dni"))
-        if dni and dni in by_cif:
-            return by_cif[dni]
-        return None
+    def _resuelve_recurso(self, reg: dict, indice: IndicePersonas) -> int | None:
+        """R25-R29: el recurso de la linea, o None."""
+        fecha = reg.get("fecha_int") or int(self._hoy().strftime("%Y%m%d"))
+        empresa = indice.empresa_de_obra(reg.get("obra_ide"))
+        if empresa is None:
+            empresa = reg.get("parte_empresa")
+        res = indice.elegir_recurso(
+            reg.get("empleado_dni"), reg.get("empleado_ide"),
+            reg.get("empleado_reside"), empresa, fecha,
+        )
+        if res.descartados_baja or res.descartados_otra_empresa:
+            logger.info(
+                "[recurso-concil] registro=%s: %s recurso(s) descartado(s) "
+                "(baja=%s, otra empresa=%s) empresa=%s fecha=%s",
+                reg.get("registro_id"),
+                res.descartados_baja + res.descartados_otra_empresa,
+                res.descartados_baja, res.descartados_otra_empresa,
+                empresa, fecha,
+            )
+        if res.motivo in MOTIVOS_SIN_RECURSO_A_REVISAR:
+            logger.warning(
+                "[recurso-concil] registro=%s SIN recurso: %s (empresa=%s "
+                "fecha=%s); el parte %s va a revision.",
+                reg.get("registro_id"), res.motivo, empresa, fecha,
+                reg.get("document_id"),
+            )
+            self._docs_sin_recurso.add(str(reg.get("document_id")))
+        return res.ide
+
+    @staticmethod
+    def _fijar_congelada(reg: dict, ride_por_reg: dict[int, int]) -> bool:
+        """R30: una linea congelada no se re-resuelve; su recurso actual
+        cuenta en el dia. Devuelve True si la linea esta congelada."""
+        if not _congelado(reg):
+            return False
+        if reg.get("recurso_ide"):
+            ride_por_reg[reg["registro_id"]] = reg["recurso_ide"]
+        return True
 
     def conciliar_todos(self) -> dict:
         # Idempotencia: revertir las extras por jornada de pasadas anteriores
@@ -377,12 +403,14 @@ class RecursoConciliador:
         self._repository.revert_extras_auto()
         # Las marcas son de ESTE calculo, no un residuo del anterior.
         self._docs_degradados = set()
+        self._docs_sin_recurso = set()
         self._avisados_mapa = set()
         self._aviso_jornadas_fallo = False
         self._jornadas_cache = None
 
         registros = self._repository.fetch_registros_para_recurso()
-        by_conide, by_cif, by_ide = self._recurso_maps()
+        indice = self._indice()
+        by_ide = {r.ide: r for r in indice.recursos}
         reshor_idx = self._reshor_index(by_ide)
 
         por_obra: dict[int | None, list[dict]] = defaultdict(list)
@@ -398,7 +426,9 @@ class RecursoConciliador:
                 # Sin obra casada: no se puede localizar el parte, pero si el
                 # recurso se resuelve igualmente se pisa categoria/hora.
                 for r in regs:
-                    ride = self._resuelve_recurso(r, by_conide, by_cif)
+                    if self._fijar_congelada(r, ride_por_reg):
+                        continue
+                    ride = self._resuelve_recurso(r, indice)
                     estado = "sin_parte" if ride else "sin_recurso"
                     u = _upd(r["registro_id"], ride, r.get("empleado_dni"),
                              None, estado)
@@ -414,7 +444,9 @@ class RecursoConciliador:
             if idx is None:
                 continue  # Sigrid fallo: no tocar, se reintenta luego
             for r in regs:
-                ride = self._resuelve_recurso(r, by_conide, by_cif)
+                if self._fijar_congelada(r, ride_por_reg):
+                    continue
+                ride = self._resuelve_recurso(r, indice)
                 if not ride:
                     updates.append(
                         _upd(r["registro_id"], None, r.get("empleado_dni"),
@@ -446,11 +478,15 @@ class RecursoConciliador:
         )
         reclasificadas = self._repository.apply_extras_splits(splits)
         a_revisar = self._marcar_partes_degradados()
+        sin_recurso = self._marcar_revision(
+            self._docs_sin_recurso, "linea SIN recurso (ambiguo, de baja o "
+            "de otra empresa)")
         logger.info(
             "[recurso-concil] registros=%s actualizados=%s con_parte=%s "
-            "pisados=%s extras_reclasificadas=%s partes_a_revisar=%s",
+            "pisados=%s extras_reclasificadas=%s partes_a_revisar=%s "
+            "partes_sin_recurso=%s",
             len(registros), actualizados, con_parte, pisados, reclasificadas,
-            a_revisar,
+            a_revisar, sin_recurso,
         )
         return {
             "registros": len(registros),
@@ -459,6 +495,7 @@ class RecursoConciliador:
             "pisados": pisados,
             "extras_reclasificadas": reclasificadas,
             "partes_a_revisar": a_revisar,
+            "partes_sin_recurso": sin_recurso,
         }
 
     def _marcar_partes_degradados(self) -> int:
@@ -468,19 +505,28 @@ class RecursoConciliador:
         persistencia es best-effort), pero un festivo mal resuelto en
         silencio cambia el reparto ordinaria/extra: al menos que se sepa.
         """
-        docs = sorted(getattr(self, "_docs_degradados", set()))
+        return self._marcar_revision(
+            getattr(self, "_docs_degradados", set()), "calendario DEGRADADO")
+
+    def _marcar_revision(self, documentos: set[str], motivo: str) -> int:
+        """Sube `review_required` en esos partes; nunca rompe la pasada.
+
+        Lo usan el calendario degradado (F-003, R26) y las lineas sin
+        recurso por ambiguedad, baja u otra empresa (F-023, R29).
+        """
+        docs = sorted(documentos)
         if not docs:
             return 0
         marcar = getattr(self._repository, "marcar_review_required", None)
         if marcar is None:
             logger.warning(
-                "[recurso-concil] %s parte(s) calculados con el calendario "
-                "degradado, pero el repositorio no sabe marcarlos.", len(docs),
+                "[recurso-concil] %s en %s parte(s), pero el repositorio no "
+                "sabe marcarlos para revision.", motivo, len(docs),
             )
             return 0
         logger.warning(
-            "[recurso-concil] calendario DEGRADADO en %s parte(s): se marcan "
-            "para revision (%s).", len(docs), ", ".join(docs[:10]),
+            "[recurso-concil] %s en %s parte(s): se marcan para revision "
+            "(%s).", motivo, len(docs), ", ".join(docs[:10]),
         )
         try:
             marcar(docs)

@@ -141,11 +141,11 @@ def test_f003_r12_jornada_sugerida_del_lookup_usa_la_regla(entorno) -> None:
 
     catalogo = CatalogoEmpleadosFake([
         SimpleNamespace(ide=1, codigo="E1", nombre="A", dni="1A", reside=1,
-                        categoria="Oficial", candef=None),
+                        categoria="Oficial", candef=None, empresa=None),
         SimpleNamespace(ide=2, codigo="E2", nombre="B", dni="2B", reside=2,
-                        categoria="Peon", candef=2.0),
+                        categoria="Peon", candef=2.0, empresa=None),
         SimpleNamespace(ide=3, codigo="E3", nombre="C", dni="3C", reside=3,
-                        categoria="Peon", candef=7.5),
+                        categoria="Peon", candef=7.5, empresa=None),
     ])
     entorno.setattr(modulo_app, "EmpleadoCatalog",
                     lambda **_kw: catalogo)

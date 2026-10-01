@@ -41,6 +41,10 @@ parte_trabajo_es:
        - cabecera.encargado_nombre: el nombre junto a "ENCARGADO".
        - cabecera.jefe_obra_nombre: el nombre junto a "JEFE DE OBRA" (suele
          estar vacio -> null).
+       - cabecera.empresa_membrete: el nombre de la EMPRESA impreso en el
+         membrete o en el logotipo del parte, copiado TAL CUAL. Si no
+         aparece o no se lee, null. No lo deduzcas de la obra, del
+         encargado ni de los trabajadores.
 
     2) FIRMA (IMPORTANTE: confirmar QUE CASILLAS estan firmadas):
        En el pie del parte hay TRES recuadros de firma. Evalua CADA UNO por
@@ -149,7 +153,8 @@ parte_trabajo_es:
     Devuelve un unico JSON con la forma:
       {
         "cabecera": { "fecha", "obra_numero", "obra_nombre",
-                      "encargado_nombre", "jefe_obra_nombre" },
+                      "encargado_nombre", "jefe_obra_nombre",
+                      "empresa_membrete" },
         "firma":    { "firmado", "firma_encargado", "firma_jefe_obra",
                       "firma_administracion", "firmante_rol",
                       "firmante_nombre", "confianza_pct" },

@@ -164,6 +164,11 @@ class SqlAlchemyParteRepository:
                     # F-015 (R32): lo que congela una linea.
                     ParteRegistroOrm.sigrid_estado,
                     ParteDocumentOrm.approved,
+                    # F-023: el recurso actual (una congelada lo conserva y
+                    # cuenta con el en el dia, R30) y la empresa del parte
+                    # (la de una linea sin obra, R25).
+                    ParteRegistroOrm.recurso_ide,
+                    ParteDocumentOrm.empresa,
                 )
                 .join(
                     ParteDocumentOrm,
@@ -174,7 +179,7 @@ class SqlAlchemyParteRepository:
             out: list[dict] = []
             for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
                  hora_ide, hora_codigo, categoria, horas, sigrid_estado,
-                 aprobado) in session.execute(stmt).all():
+                 aprobado, recurso_ide, empresa) in session.execute(stmt).all():
                 out.append({
                     "registro_id": rid,
                     "document_id": doc_id,
@@ -190,6 +195,8 @@ class SqlAlchemyParteRepository:
                     "horas": horas,
                     "sigrid_estado": sigrid_estado,
                     "doc_approved": bool(aprobado),
+                    "recurso_ide": recurso_ide,
+                    "parte_empresa": empresa,
                 })
             return out
 
@@ -513,6 +520,10 @@ class SqlAlchemyParteRepository:
                 obra_nombre=obra.nombre,
                 obra_match_score=obra.score,
                 obra_match_method=obra.method,
+                # Empresa del parte (F-023, DA11).
+                empresa_membrete=parte.empresa_membrete,
+                empresa=parte.empresa,
+                empresa_origen=parte.empresa_origen,
                 # Responsables.
                 encargado_nombre=parte.encargado_nombre,
                 jefe_obra_nombre=parte.jefe_obra_nombre,

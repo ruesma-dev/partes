@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     sigrid_api_function_key: str = Field(..., alias="SIGRID_API_FUNCTION_KEY")
     # La ESCRITURA solo admite 'ruesma' (nunca la replica ruesma_rep).
     sigrid_api_database: str = Field("ruesma", alias="SIGRID_API_DATABASE")
-    sigrid_empresa: int = Field(1, alias="SIGRID_EMPRESA")
+    # F-023 (DA5): SIGRID_EMPRESA ya no existe. La empresa de la cabecera
+    # es la de la obra destino; si la variable sigue en Azure, se ignora.
     sigrid_api_timeout_s: float = Field(60.0, alias="SIGRID_API_TIMEOUT_S")
     # Tope de sentencias por batch de sigrid-api (MAX_STATEMENTS_PER_BATCH=20).
     sigrid_max_statements: int = Field(15, alias="SIGRID_MAX_STATEMENTS")

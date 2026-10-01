@@ -34,7 +34,11 @@ class ObraMatch:
     codigo: Optional[str] = None
     nombre: Optional[str] = None
     score: float = 0.0
-    method: str = "none"   # codigo | codigo_padded | nombre | none
+    # codigo | codigo_padded | codigo_membrete | codigo_trabajadores |
+    # codigo_nombre | nombre | none; sin casar por F-023:
+    # codigo_otra_empresa | codigo_ambiguo | nombre_ambiguo.
+    method: str = "none"
+    empresa: Optional[int] = None   # con.emp de la obra casada (F-023)
 
 
 @dataclass
@@ -114,6 +118,13 @@ class ParteDocumento:
     sharepoint_url: Optional[str] = None
     sharepoint_item_id: Optional[str] = None
     sharepoint_drive_id: Optional[str] = None
+
+    # F-023: empresa impresa en el membrete (texto leido por sv2, R6), la
+    # empresa del parte (R15) y de donde sale (membrete | obra |
+    # trabajadores | nombre | None).
+    empresa_membrete: Optional[str] = None
+    empresa: Optional[int] = None
+    empresa_origen: Optional[str] = None
 
     registros: list[RegistroNormalizado] = field(default_factory=list)
 

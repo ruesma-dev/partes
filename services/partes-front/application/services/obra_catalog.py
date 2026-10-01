@@ -2,8 +2,11 @@
 """Cachea la lista de obras de Sigrid (codigo + nombre + ide) con TTL.
 
 La usa el endpoint que puebla el desplegable con autocompletar de obra del
-detalle del parte, y la resolucion de la obra elegida (por codigo) al
-guardar, para fijar ide/nombre desde el maestro.
+detalle del parte, y la resolucion de la obra elegida al guardar, para
+fijar ide/nombre desde el maestro.
+
+F-023: un codigo puede ser de dos obras (gemelas de dos empresas), asi que
+la obra elegida se resuelve por su ide y por codigo solo si es unico.
 """
 from __future__ import annotations
 
@@ -30,7 +33,8 @@ class ObraCatalog:
         self._ttl = int(ttl_seconds)
         self._lock = threading.RLock()
         self._items: list[ObraOption] = []
-        self._by_codigo: dict[str, ObraOption] = {}
+        self._by_codigo: dict[str, list[ObraOption]] = {}
+        self._by_ide: dict[int, ObraOption] = {}
         self._loaded_at: float = 0.0
         self._ever_loaded = False
 
@@ -43,10 +47,18 @@ class ObraCatalog:
         return list(self._items)
 
     def get_by_codigo(self, codigo: str | None) -> ObraOption | None:
+        """La obra de ese codigo si es UNICA; None si no hay o hay varias."""
         if not codigo:
             return None
         self._ensure_fresh()
-        return self._by_codigo.get(str(codigo).strip().upper())
+        obras = self._by_codigo.get(str(codigo).strip().upper(), [])
+        return obras[0] if len(obras) == 1 else None
+
+    def get_by_ide(self, ide: int | None) -> ObraOption | None:
+        if ide is None:
+            return None
+        self._ensure_fresh()
+        return self._by_ide.get(int(ide))
 
     def _ensure_fresh(self) -> None:
         if self._client is None:
@@ -58,11 +70,12 @@ class ObraCatalog:
             try:
                 items = self._client.fetch_obras()
                 self._items = items
-                self._by_codigo = {
-                    str(o.codigo).strip().upper(): o
-                    for o in items
-                    if o.codigo
-                }
+                self._by_codigo = {}
+                for o in items:
+                    if o.codigo:
+                        self._by_codigo.setdefault(
+                            str(o.codigo).strip().upper(), []).append(o)
+                self._by_ide = {o.ide: o for o in items if o.ide is not None}
                 self._loaded_at = now
                 self._ever_loaded = True
             except Exception as exc:  # noqa: BLE001

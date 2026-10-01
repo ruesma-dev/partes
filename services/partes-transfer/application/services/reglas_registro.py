@@ -51,12 +51,40 @@ MOTIVO_SIN_LABORABLE = (
 )
 MOTIVO_TIPO = "tipo de hora no reconocido"
 
+# F-023 (R36-R37): la verificacion del recurso antes de escribir. Cada
+# motivo dice QUE comprobacion fallo, para que Administracion sepa que
+# arreglar (reasignar el trabajador, dar de alta el recurso...).
+MOTIVO_RECURSO_NO_EXISTE = "el recurso no existe en Sigrid"
+MOTIVO_RECURSO_OTRA_EMPRESA = (
+    "el recurso es de otra empresa que la obra destino"
+)
+MOTIVO_RECURSO_BAJA = (
+    "el recurso esta de baja en Sigrid a la fecha de la linea"
+)
+MOTIVO_RECURSO_OTRA_PERSONA = (
+    "el recurso no es de este trabajador (su DNI no coincide)"
+)
+MOTIVO_SIN_RECURSO_EMPRESA = (
+    "sin recurso de alta para ese DNI en la empresa de la obra destino"
+)
+MOTIVO_RECURSO_AMBIGUO = (
+    "varios recursos de alta para ese DNI en la empresa de la obra "
+    "destino: no se elige ninguno"
+)
+
 
 class ReglasRegistro:
-    """Decide, para cada linea, si se escribe y con que codigo/precio."""
+    """Decide, para cada linea, si se escribe y con que codigo/precio.
 
-    def __init__(self, horas_por_recurso: dict[int, list[HoraRecurso]]) -> None:
+    `omisiones` (F-023): lineas que la verificacion del recurso ya descarto
+    (R36-R37), con su motivo. Mandan sobre cualquier otra regla: lo primero
+    que hay que arreglar es el recurso.
+    """
+
+    def __init__(self, horas_por_recurso: dict[int, list[HoraRecurso]],
+                 omisiones: dict[int, str] | None = None) -> None:
         self._horas = horas_por_recurso
+        self._omisiones = omisiones or {}
 
     # ------------------------------------------------------------- #
     def decidir(self, linea: LineaEntrada) -> AccionLinea:
@@ -71,6 +99,9 @@ class ReglasRegistro:
         def omitir(motivo: str) -> AccionLinea:
             return AccionLinea(accion="omitir", motivo=motivo, **base)
 
+        previa = self._omisiones.get(linea.registro_id)
+        if previa:
+            return omitir(previa)
         if linea.es_incidencia:
             return self._decidir_incidencia(linea, base, omitir)
         tipo = (linea.tipo_hora or "").strip().lower()

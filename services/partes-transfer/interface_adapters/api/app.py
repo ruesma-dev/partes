@@ -75,7 +75,6 @@ def build_app(settings, pipeline: RegistroPipeline | None = None) -> FastAPI:
             base_url=settings.sigrid_api_base_url,
             function_key=settings.sigrid_api_function_key,
             database=settings.sigrid_api_database,
-            empresa=settings.sigrid_empresa,
             timeout_s=settings.sigrid_api_timeout_s,
             max_statements=settings.sigrid_max_statements,
             tip_parte=settings.tip_parte_trabajo,

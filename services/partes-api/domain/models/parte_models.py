@@ -117,6 +117,10 @@ class CabeceraParte(StrictSchemaModel):
     obra_nombre: Optional[str] = None       # nombre + ubicacion de la obra
     encargado_nombre: Optional[str] = None
     jefe_obra_nombre: Optional[str] = None
+    # F-023 (R5): nombre de empresa impreso en el membrete o logotipo, TAL
+    # CUAL. None si no aparece o no se lee. sv2 no lo traduce a una empresa
+    # de Sigrid: eso lo hace sv3 con su tabla de alias.
+    empresa_membrete: Optional[str] = None
 
 
 class ParteTrabajo(StrictSchemaModel):

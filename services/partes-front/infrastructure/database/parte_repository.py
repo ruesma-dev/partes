@@ -539,6 +539,19 @@ def _separar_congeladas(
     return libres, len(regs) - len(libres)
 
 
+def _soltar_recurso(reg: ParteRegistroOrm) -> None:
+    """F-023 (R42): al casar o reasignar el EMPLEADO de una linea, el
+    recurso que tenia era el de la persona anterior. Se suelta todo lo que
+    colgaba de el (reside de la ficha, recurso, cif, parte `hmo` y estado)
+    y lo vuelven a resolver sv3 en su siguiente pasada y sv5 al registrar
+    (DA8). Solo se llama sobre lineas NO congeladas."""
+    reg.empleado_reside = None
+    reg.recurso_ide = None
+    reg.recurso_cif = None
+    reg.hmo_ide = None
+    reg.parte_estado = None
+
+
 def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
     """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
     local a la linea escrita en Sigrid; un hard-delete la borra para
@@ -1682,6 +1695,7 @@ class ParteReviewRepository:
                 r.empleado_codigo = codigo
                 r.empleado_nombre = nombre
                 r.empleado_dni = dni
+                _soltar_recurso(r)
             self._record_undo(
                 session, action="empleado",
                 description=f"Casar '{nombre_leido}' → "
@@ -2054,6 +2068,7 @@ class ParteReviewRepository:
                 r.empleado_codigo = codigo
                 r.empleado_nombre = nombre
                 r.empleado_dni = dni
+                _soltar_recurso(r)
             self._record_undo(
                 session, action="empleado",
                 description=f"Reasignar '{nombre_leido}' → "
@@ -2098,6 +2113,7 @@ class ParteReviewRepository:
                 r.empleado_codigo = codigo
                 r.empleado_nombre = nombre
                 r.empleado_dni = dni
+                _soltar_recurso(r)
             self._record_undo(
                 session, action="empleado",
                 description=f"Reasignar trabajador → "
@@ -2139,6 +2155,7 @@ class ParteReviewRepository:
                 r.empleado_codigo = codigo
                 r.empleado_nombre = nombre
                 r.empleado_dni = dni
+                _soltar_recurso(r)
             self._record_undo(
                 session, action="empleado",
                 description=f"Reasignar {len(affected)} línea(s) → "

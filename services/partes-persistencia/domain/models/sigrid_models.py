@@ -16,6 +16,10 @@ class EmpleadoRow:
     ``ide`` es ``con.ide`` (= ``emp.ide``). ``codigo`` es ``con.cod``.
     ``reside`` es el Recurso relacionado (``emp.reside`` -> ``res``), que
     es lo que referencian ``hmo.reside`` / ``hmores.reside`` al imputar.
+
+    F-023: ``empresa`` es ``con.emp`` (= ``auxemp.numemp``) y ``fecbaj`` es
+    ``con.fecbaj`` (``YYYYMMDD``; NULL o 0 = sin baja). La baja que cuenta
+    es la del concepto, no ``emp.fecbaj`` (DA1).
     """
 
     ide: int
@@ -23,6 +27,8 @@ class EmpleadoRow:
     nombre: str | None       # emp.res (nombre completo)
     dni: str | None          # emp.dni
     reside: int | None       # emp.reside (Recurso)
+    empresa: int | None = None   # con.emp
+    fecbaj: int | None = None    # con.fecbaj
 
 
 @dataclass(frozen=True)
@@ -30,6 +36,22 @@ class ObraRow:
     ide: int
     codigo: str | None       # con.cod
     nombre: str | None       # obr.res
+    empresa: int | None = None   # con.emp (F-023: hay codigos en dos empresas)
+
+
+@dataclass(frozen=True)
+class EmpresaRow:
+    """Empresa de Sigrid (``auxemp``), F-023.
+
+    ``numemp`` es el numero que usa ``con.emp``. ``nombre`` es
+    ``auxemp.res``; ``fecbaj`` su baja (``YYYYMMDD``, 0 = sin baja) y
+    ``desact`` 1 si esta desactivada.
+    """
+
+    numemp: int
+    nombre: str | None
+    fecbaj: int | None = None
+    desact: int | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +107,8 @@ class RecursoRow:
     restip_cod: str | None = None  # auxrestip.cod (categoria, codigo)
     restip_res: str | None = None  # auxrestip.res (categoria, descripcion)
     horide_def: int | None = None  # res.horide (tipo de hora por defecto)
+    empresa: int | None = None     # con.emp del recurso (F-023)
+    fecbaj: int | None = None      # con.fecbaj del recurso (F-023)
 
 
 @dataclass(frozen=True)

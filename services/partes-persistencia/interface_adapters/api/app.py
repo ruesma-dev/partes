@@ -16,14 +16,17 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Dict
 
+import yaml
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 
 from application.pipelines.persist_parte_pipeline import (
     PersistPartePipeline,
     PersistParteRequest,
 )
+from application.services.empresa_membrete import parsear_alias
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.partida_conciliador import PartidaConciliador
 from application.services.jornada_resolver import parsear_mapa_semanal
@@ -107,6 +110,93 @@ def construir_mapa_semanal(settings: Settings) -> dict[float, float]:
     return mapa
 
 
+def construir_alias_empresas(settings: Settings) -> dict[int, list[str]]:
+    """Tabla versionada de alias del membrete (F-023, DA3), al ARRANCAR.
+
+    Un fichero ausente o mal escrito revienta el arranque: un membrete que
+    nadie sabe traducir en silencio mandaria los partes de las obras
+    gemelas a la empresa equivocada o a revision sin que nadie supiera por
+    que. PyYAML llega con `uvicorn[standard]`.
+    """
+    ruta = Path(settings.empresas_membrete_path)
+    alias = parsear_alias(yaml.safe_load(ruta.read_text(encoding="utf-8")))
+    logger.info(
+        "[empresa-membrete][wiring] alias de %s empresa(s) desde %s: %s",
+        len(alias), ruta, ", ".join(str(n) for n in sorted(alias)),
+    )
+    return alias
+
+
+def construir_casado_sigrid(
+    settings: Settings,
+    *,
+    repository: Any,
+    jornadas: Any,
+    mapa_semanal: dict[float, float],
+) -> tuple[
+    SigridApiClient | None,
+    SigridMatcherProvider | None,
+    PartidaConciliador | None,
+    RecursoConciliador | None,
+]:
+    """Cliente de Sigrid, matchers y conciliadores; None sin credenciales.
+
+    Separada de `build_app` (que monta PostgreSQL) para poder probar el
+    cableado de F-023: sin `SIGRID_EMPRESA`, con la tabla de alias del
+    membrete y con el conciliador usando el MISMO indice de personas que
+    la ingesta (`indice_provider`).
+    """
+    if not settings.sigrid_credentials_present:
+        logger.warning(
+            "[svc3][wiring] Sigrid NO cableado (faltan SIGRID_API_*). "
+            "El parte se persistira SIN casar empleado/obra/codigo de hora."
+        )
+        return None, None, None, None
+    sigrid_client = SigridApiClient(
+        base_url=settings.sigrid_api_base_url,        # type: ignore[arg-type]
+        function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
+        database=settings.sigrid_api_database,        # type: ignore[arg-type]
+        timeout_s=settings.sigrid_api_timeout_s,
+        max_rows=settings.sigrid_api_max_rows,
+    )
+    matcher_provider = SigridMatcherProvider(
+        lookup=sigrid_client,
+        empleado_min_score=settings.empleado_min_score,
+        obra_min_score=settings.obra_min_score,
+        default_hora_normal_cod=settings.default_hora_normal_cod,
+        default_hora_extra_cod=settings.default_hora_extra_cod,
+        alias_empresas=construir_alias_empresas(settings),
+    )
+    # Conciliacion de partidas: usa el mismo cliente Sigrid (lee obrparpar
+    # por obra) y el repositorio (lee registros / escribe el casado).
+    partida_conciliador = PartidaConciliador(
+        repository=repository,
+        lookup=sigrid_client,
+    )
+    # Conciliacion de recurso/parte de trabajo (mismo cliente Sigrid:
+    # lee reshor + hmo por obra; las fichas y recursos, del indice del
+    # proveedor; el repositorio lee/escribe el casado).
+    recurso_conciliador = RecursoConciliador(
+        repository=repository,
+        lookup=sigrid_client,
+        calendario=construir_calendario(settings),
+        jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
+        candef_minimo=settings.candef_minimo_valido,
+        mapa_semanal=mapa_semanal,
+        jornadas=jornadas,
+        jornada_cache_ttl_s=settings.jornada_cache_ttl_s,
+        indice_provider=matcher_provider.indice,
+    )
+    logger.info(
+        "[svc3][wiring] Sigrid CABLEADO base_url=%s db=%s (todas las "
+        "empresas)",
+        settings.sigrid_api_base_url,
+        settings.sigrid_api_database,
+    )
+    return (sigrid_client, matcher_provider, partida_conciliador,
+            recurso_conciliador)
+
+
 def build_app(settings: Settings) -> FastAPI:
     # ----------------------------------------------------------- #
     # Jornada del dia (F-015). Lo PRIMERO: si el mapa esta mal, mejor
@@ -128,55 +218,14 @@ def build_app(settings: Settings) -> FastAPI:
     # ----------------------------------------------------------- #
     # Sigrid (casado). Solo si hay credenciales.
     # ----------------------------------------------------------- #
-    matcher_provider: SigridMatcherProvider | None = None
-    partida_conciliador: PartidaConciliador | None = None
-    recurso_conciliador: RecursoConciliador | None = None
-    sigrid_client: SigridApiClient | None = None
-    if settings.sigrid_credentials_present:
-        sigrid_client = SigridApiClient(
-            base_url=settings.sigrid_api_base_url,        # type: ignore[arg-type]
-            function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
-            database=settings.sigrid_api_database,        # type: ignore[arg-type]
-            empresa=settings.sigrid_empresa,
-            timeout_s=settings.sigrid_api_timeout_s,
-            max_rows=settings.sigrid_api_max_rows,
-        )
-        matcher_provider = SigridMatcherProvider(
-            lookup=sigrid_client,
-            empleado_min_score=settings.empleado_min_score,
-            obra_min_score=settings.obra_min_score,
-            default_hora_normal_cod=settings.default_hora_normal_cod,
-            default_hora_extra_cod=settings.default_hora_extra_cod,
-        )
-        # Conciliacion de partidas: usa el mismo cliente Sigrid (lee obrparpar
-        # por obra) y el repositorio (lee registros / escribe el casado).
-        partida_conciliador = PartidaConciliador(
-            repository=repository,
-            lookup=sigrid_client,
-        )
-        # Conciliacion de recurso/parte de trabajo (mismo cliente Sigrid:
-        # lee res + hmo por obra; el repositorio lee/escribe el casado).
-        recurso_conciliador = RecursoConciliador(
-            repository=repository,
-            lookup=sigrid_client,
-            calendario=construir_calendario(settings),
-            jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
-            candef_minimo=settings.candef_minimo_valido,
-            mapa_semanal=mapa_semanal,
+    (sigrid_client, matcher_provider, partida_conciliador,
+     recurso_conciliador) = (
+        construir_casado_sigrid(
+            settings, repository=repository,
             jornadas=SqlAlchemyJornadaRepository(session_factory),
-            jornada_cache_ttl_s=settings.jornada_cache_ttl_s,
+            mapa_semanal=mapa_semanal,
         )
-        logger.info(
-            "[svc3][wiring] Sigrid CABLEADO base_url=%s db=%s empresa=%s",
-            settings.sigrid_api_base_url,
-            settings.sigrid_api_database,
-            settings.sigrid_empresa,
-        )
-    else:
-        logger.warning(
-            "[svc3][wiring] Sigrid NO cableado (faltan SIGRID_API_*). "
-            "El parte se persistira SIN casar empleado/obra/codigo de hora."
-        )
+    )
 
     # SharePoint (best-effort). Solo si hay GRAPH_KEY + config del modo.
     sharepoint_uploader = None

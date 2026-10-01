@@ -6,6 +6,11 @@ para el desplegable de codigo de hora del detalle del trabajador. El
 casado inicial lo hace el sv3; aqui solo poblamos el selector y, al
 guardar, resolvemos el ``auxhor`` elegido por ``ide`` para no confiar
 en el cliente con los precios.
+
+F-023: los listados (tipos de hora, obras, empleados, partidas) se PAGINAN
+igual que en sv3 (``_leer_paginado``) y una respuesta con ``truncated:
+true`` es una excepcion. Obras y empleados traen su empresa (``con.emp``);
+las obras van una por ``ide``: hay codigos en dos empresas.
 """
 from __future__ import annotations
 
@@ -21,6 +26,12 @@ logger = logging.getLogger(__name__)
 
 _LOG_PREFIX = "[sigrid-lookup]"
 
+#: Filas por pagina de los listados (F-023, R3), igual que en sv3. Se
+#: piden con ``max_rows = PAGINA_FILAS + 1``: ``truncated`` es siempre error.
+PAGINA_FILAS = 5000
+
+# Tipos de hora: se paginan por auxhor.ide y el orden (ext, cod) se rehace
+# en Python.
 _SQL_TIPOS_HORA = """\
 SELECT
     auxhor.ide    AS ide,
@@ -31,26 +42,27 @@ SELECT
     auxhor.prenom AS prenom
 FROM auxhor
 WHERE (auxhor.fecbaj IS NULL OR auxhor.fecbaj = 0)
-ORDER BY auxhor.ext, auxhor.cod
 """
 
 # Obras: obr extiende con (obr.ide = con.ide). Codigo en con.cod, nombre en
-# obr.res. Para el desplegable de obra del detalle del parte.
+# obr.res. Para el desplegable de obra del detalle del parte. F-023: con su
+# empresa y una por ide (las gemelas de dos empresas salen las dos).
 _SQL_OBRAS = """\
 SELECT
     con.ide AS ide,
     con.cod AS codigo,
-    obr.res AS nombre
+    obr.res AS nombre,
+    con.emp AS empresa
 FROM obr
 JOIN con ON obr.ide = con.ide
 WHERE con.cod IS NOT NULL
-ORDER BY con.cod
 """
 
 
 # Empleados: emp extiende con (emp.ide = con.ide). Codigo en con.cod,
 # nombre completo en emp.res, DNI en emp.dni. Para la conciliacion de
-# trabajadores sin casar contra el maestro de Sigrid.
+# trabajadores sin casar contra el maestro de Sigrid. F-023: + la empresa
+# de la ficha (con.emp); el filtro de alta a hoy no cambia.
 _SQL_EMPLEADOS = """\
 SELECT
     con.ide       AS ide,
@@ -59,7 +71,8 @@ SELECT
     emp.dni       AS dni,
     res.ide       AS reside,
     auxrestip.res AS categoria,
-    reshor.candef AS candef
+    reshor.candef AS candef,
+    con.emp       AS empresa
 FROM emp
 JOIN con ON emp.ide = con.ide
 LEFT JOIN res ON res.conide = emp.ide
@@ -104,6 +117,7 @@ class ObraOption:
     ide: int | None
     codigo: str | None
     nombre: str | None
+    empresa: int | None = None   # con.emp (F-023)
 
 
 @dataclass(frozen=True)
@@ -115,6 +129,7 @@ class EmpleadoOption:
     categoria: str | None = None
     candef: float | None = None
     reside: int | None = None   # recurso (res.ide) del empleado
+    empresa: int | None = None  # con.emp de la ficha (F-023)
 
 
 @dataclass
@@ -157,8 +172,9 @@ class SigridLookupClient:
         )
 
     def fetch_tipos_hora(self) -> list[TipoHoraOption]:
-        columns, rows = self._post_sql_read(
-            sql=_SQL_TIPOS_HORA, parameters=[], label="tipos_hora"
+        columns, rows = self._leer_paginado(
+            sql=_SQL_TIPOS_HORA, parameters=[], orden="auxhor.ide",
+            label="tipos_hora",
         )
         out: list[TipoHoraOption] = []
         for row in rows:
@@ -176,26 +192,30 @@ class SigridLookupClient:
                     prenom=_opt_float(rm.get("prenom")),
                 )
             )
+        # El orden de siempre (normales antes que extras, por codigo).
+        out.sort(key=lambda t: (t.ext, t.codigo or ""))
         logger.info("%s tipos_hora -> %s filas", _LOG_PREFIX, len(out))
         return out
 
     def fetch_obras(self) -> list[ObraOption]:
-        columns, rows = self._post_sql_read(
-            sql=_SQL_OBRAS, parameters=[], label="obras"
+        columns, rows = self._leer_paginado(
+            sql=_SQL_OBRAS, parameters=[], orden="con.ide", label="obras"
         )
-        seen: set[str] = set()
+        seen: set[int] = set()
         out: list[ObraOption] = []
         for row in rows:
             rm = dict(zip(columns, row))
             cod = _opt_str(rm.get("codigo"))
-            if not cod or cod in seen:
+            ide = _opt_int(rm.get("ide"))
+            if not cod or ide is None or ide in seen:
                 continue
-            seen.add(cod)
+            seen.add(ide)
             out.append(
                 ObraOption(
-                    ide=_opt_int(rm.get("ide")),
+                    ide=ide,
                     codigo=cod,
                     nombre=_opt_str(rm.get("nombre")),
+                    empresa=_opt_int(rm.get("empresa")),
                 )
             )
         logger.info("%s obras -> %s obras", _LOG_PREFIX, len(out))
@@ -210,8 +230,9 @@ class SigridLookupClient:
         (una baja con fecha futura sigue apareciendo hasta ese dia).
         """
         hoy = int(datetime.now().strftime("%Y%m%d"))
-        columns, rows = self._post_sql_read(
-            sql=_SQL_EMPLEADOS, parameters=[hoy, hoy], label="empleados"
+        columns, rows = self._leer_paginado(
+            sql=_SQL_EMPLEADOS, parameters=[hoy, hoy],
+            orden="con.ide, res.ide", label="empleados",
         )
         out: list[EmpleadoOption] = []
         por_ide: dict[int, EmpleadoOption] = {}
@@ -248,6 +269,7 @@ class SigridLookupClient:
                 categoria=categoria,
                 candef=candef,
                 reside=reside,
+                empresa=_opt_int(rm.get("empresa")),
             )
             por_ide[ide] = emp
             out.append(emp)
@@ -255,8 +277,9 @@ class SigridLookupClient:
         return out
 
     def fetch_partidas_obra(self, obra_ide: int) -> list[PartidaRowLite]:
-        columns, rows = self._post_sql_read(
-            sql=_SQL_PARTIDAS, parameters=[int(obra_ide)], label="partidas",
+        columns, rows = self._leer_paginado(
+            sql=_SQL_PARTIDAS, parameters=[int(obra_ide)],
+            orden="obrparpar.ide", label="partidas",
         )
         out: list[PartidaRowLite] = []
         for row in rows:
@@ -374,8 +397,42 @@ class SigridLookupClient:
             "pre": _opt_float(rm.get("pre")),
         }
 
+    def _leer_paginado(
+        self, *, sql: str, parameters: list[Any], orden: str, label: str,
+    ) -> tuple[list[str], list[list[Any]]]:
+        """Lee un listado entero por paginas de ``PAGINA_FILAS`` (R3).
+
+        ``orden`` es una clave unica y estable (nunca un campo ``text``).
+        Mismo diseno que el cliente de sv3; para en la primera pagina
+        incompleta.
+        """
+        sql_pagina = (
+            f"{sql.rstrip()}\nORDER BY {orden}\n"
+            "OFFSET ? ROWS FETCH NEXT ? ROWS ONLY\n"
+        )
+        columnas: list[str] = []
+        filas: list[list[Any]] = []
+        desde = 0
+        while True:
+            columnas, pagina = self._post_sql_read(
+                sql=sql_pagina,
+                parameters=[*parameters, desde, PAGINA_FILAS],
+                label=label,
+                max_rows=PAGINA_FILAS + 1,
+            )
+            if len(pagina) > PAGINA_FILAS:
+                raise RuntimeError(
+                    f"sigrid-api devolvio {len(pagina)} filas en una pagina "
+                    f"de {PAGINA_FILAS} [{label}]"
+                )
+            filas.extend(pagina)
+            if len(pagina) < PAGINA_FILAS:
+                return columnas, filas
+            desde += PAGINA_FILAS
+
     def _post_sql_read(
-        self, *, sql: str, parameters: list[Any], label: str
+        self, *, sql: str, parameters: list[Any], label: str,
+        max_rows: int | None = None,
     ) -> tuple[list[str], list[list[Any]]]:
         url = f"{self._base_url}/api/sql/read"
         payload = {
@@ -383,7 +440,7 @@ class SigridLookupClient:
             "sql": sql,
             "parameters": parameters,
             "timeout_seconds": int(self._timeout_s),
-            "max_rows": self._max_rows,
+            "max_rows": self._max_rows if max_rows is None else max_rows,
         }
         headers = {
             "x-functions-key": self._function_key,
@@ -404,6 +461,11 @@ class SigridLookupClient:
             ) from exc
         if not body.get("ok", False):
             raise RuntimeError(f"sigrid-api devolvio ok=false: {body!r}")
+        if body.get("truncated"):
+            # F-023 (R4): filas parciales NUNCA.
+            raise RuntimeError(
+                f"sigrid-api devolvio una respuesta truncada [{label}]"
+            )
         columns: list[str] = list(body.get("columns") or [])
         rows: list[list[Any]] = list(body.get("rows") or [])
         return columns, rows
