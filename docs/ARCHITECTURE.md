@@ -50,8 +50,11 @@ conviven dos caminos, y cuál se usa depende de lo que la acción necesita:
   para que sv5 siga sin BBDD y la duplicación de `orm_models.py` no crezca
   a una tercera copia.
 - **HTTP interno síncrono** para lo que exige respuesta inmediata: el
-  preflight del modal y la confirmación de pisar conflictos (destructiva,
-  y por eso nunca viaja por una cola con reentregas).
+  preflight del modal, la confirmación de pisar conflictos (destructiva,
+  y por eso nunca viaja por una cola con reentregas) y, desde F-024, la
+  **comprobación de solo lectura** `POST /api/registro/comprobar` (¿siguen
+  en Sigrid las líneas `registrado`?), que sv4 pide al abrir una obra o una
+  persona y con el botón «Comprobar en Sigrid».
 - **Sin colas configuradas, sv4 degrada al HTTP síncrono de siempre**: es
   lo que permite trabajar en local sin Azurite y desplegar el código antes
   que la infraestructura. Quitar `COLAS_ACCOUNT_URL` es también el
@@ -109,8 +112,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
    solo 2 líneas físicas es correcto. La racha cruza partes y obras.
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
-   NATURAL de la fecha real de trabajo; las líneas llevan **synckey** en
-   `tex` para idempotencia (reaprobar no duplica) y detección de conflictos.
+   NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
+   (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
+   idempotencia (reaprobar no duplica) y detección de conflictos.
 6. **Ides de Sigrid = MAX(ide)+1** bajo `UPDLOCK` (sin secuencias): por eso
    sv5 corre a UNA réplica fija. Fechas Sigrid: enteros `YYYYMMDD` (0=null).
    El nombre de un concepto está en `con.res` (¡no existe `con.nom`!).
@@ -139,7 +143,11 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     edición de usuario si su parte está `approved`, o si su
     `sigrid_estado` es `encolado` (petición en vuelo hacia sv5) o
     `registrado` (ya escrita en Sigrid). `omitido`/`error`/`conflicto` NO
-    congelan: editarlas es el camino de arreglo. La regla se escribe UNA
+    congelan: editarlas es el camino de arreglo. Tampoco `borrado_sigrid`
+    (F-024): estaba registrada y una comprobación vio que Administración la
+    borró en Sigrid; se edita y se reaprueba («Reaprobar»), y sv3
+    (`esta_congelado`) dice lo mismo. Las aprobaciones masivas excluyen
+    siempre `registrado` y `borrado_sigrid` salvo casilla explícita. La regla se escribe UNA
     vez, en `services/partes-front/application/services/congelacion.py`, y
     la usan tanto las guardas del repositorio (`CongeladoError` → HTTP 409
     con motivo) como las vistas que pintan el candado. Desaprobar
