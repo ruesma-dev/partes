@@ -11,6 +11,7 @@ Bloques (los `-k` de tasks.md): `repo` (T2), `ambito` (T5), `preflight`
 from __future__ import annotations
 
 import copy
+import logging
 
 import pytest
 from config.settings import Settings
@@ -161,6 +162,31 @@ def test_f022_r26_repo_excluida_sin_parte_conocido() -> None:
         "excluidas_detalle"]
     assert detalle[0]["motivo"] == ("ya registrada en Sigrid (parte ?): no "
                                     "se reenvia")
+
+
+def test_f022_r26_repo_excluida_con_el_nombre_casado() -> None:
+    """El nombre es el del empleado casado; el leido solo si no lo hay."""
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar_parte(fabrica, [{"estado": "registrado", "leido": "Leido X"},
+                                  {"estado": "registrado", "leido": "Leido Y"}],
+                        document_id="doc-n", obra_ide=10, obra_codigo="0100")
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids[1]).empleado_nombre = None
+        s.commit()
+    detalle = ParteReviewRepository(fabrica).lineas_para_registro(ids)[
+        "excluidas_detalle"]
+    assert [d["nombre"] for d in detalle] == ["Pepe Perez", "Leido Y"]
+
+
+def test_f022_r14_repo_la_obra_del_grupo_es_la_de_su_primera_linea() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _sembrar(fabrica, OBRA_10, [None, None], doc="doc-o")
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids[1]).obra_codigo = "0100-bis"
+        s.commit()
+    grupos = ParteReviewRepository(fabrica).lineas_para_registro(ids)["grupos"]
+    assert len(grupos) == 1
+    assert grupos[0]["obra"] == OBRA_10
 
 
 def test_f022_r26_repo_con_borradas_incluidas_no_hay_detalle_de_ellas() -> None:
@@ -335,7 +361,7 @@ def test_f022_r10_ambito_obra_sigue_solo_con_los_pedidos(portal) -> None:
 
 def test_f022_r10_ambito_obra_sin_periodo_usa_el_de_la_vista(portal) -> None:
     """Sin `period`, la vista de obra abre el periodo mas reciente."""
-    cliente, _f, ids, sv5, _p = portal()
+    cliente, _f, ids, _sv5, _p = portal()
     r = cliente.post("/api/aprobar/preflight", json={
         "registro_ids": ids["o10_abril"],
         "ambito": {"vista": "obra", "obra_key": "obr-10"}})
@@ -452,9 +478,11 @@ def test_f022_r12_ambito_los_ids_repetidos_cuentan_una_vez(portal) -> None:
 
 
 @pytest.mark.parametrize("endpoint", ENDPOINTS)
-def test_f022_r12_ambito_ids_no_numericos_son_422(portal, endpoint) -> None:
+@pytest.mark.parametrize("raros", [["x"], [[1]], [{"id": 1}]])
+def test_f022_r12_ambito_ids_no_numericos_son_422(portal, endpoint,
+                                                  raros) -> None:
     cliente, _f, _ids, sv5, _p = portal()
-    r = cliente.post(endpoint, json={"registro_ids": ["x"], "ambito": MARZO})
+    r = cliente.post(endpoint, json={"registro_ids": raros, "ambito": MARZO})
     assert r.status_code == 422
     assert r.json()["error"] == "registro_ids no validos"
     assert sv5.preflights == [] and sv5.ejecutadas == []
@@ -470,7 +498,7 @@ def test_f022_r13_ambito_ausente_con_obra_key_heredado(portal) -> None:
 
 
 def test_f022_r13_ambito_ausente_sin_ids_ni_obra_es_422(portal) -> None:
-    cliente, _f, _ids, sv5, _p = portal()
+    cliente, _f, _ids, _sv5, _p = portal()
     r = cliente.post("/api/aprobar/preflight", json={"registro_ids": []})
     assert r.status_code == 422
     assert r.json()["error"] == "faltan registro_ids u obra_key"
@@ -532,6 +560,7 @@ def test_f022_r15_preflight_mas_de_diez_obras_es_422_con_desglose(portal) -> Non
     assert cuerpo["obras"][0] == {"clave": "obr-10", "codigo": "0100",
                                   "nombre": "Obra Uno", "lineas": 2}
     assert cuerpo["obras"][-1]["clave"] == "obr-20"
+    assert cuerpo["excluidas"] == {"registrado": 0, "borrado_sigrid": 0}
     assert sv5.preflights == []
 
 
@@ -872,7 +901,6 @@ def test_f022_r18_ejecutar_override_solo_marca_los_bloqueados(portal) -> None:
 
 def test_f022_r18_ejecutar_bloqueo_y_override_quedan_en_el_log(
         portal, caplog) -> None:
-    import logging
     cliente, _f, ids, _sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
     with caplog.at_level(logging.WARNING):
@@ -1095,3 +1123,39 @@ def test_f022_r20_encolar_con_claves_sigue_siendo_422(portal) -> None:
     assert r.status_code == 422
     assert "usa /api/aprobar/ejecutar" in r.json()["error"]
     assert publisher.publicadas == []
+
+
+# ===================================================================== #
+# Los fallos de una obra quedan en el log CON su traza (exc_info)
+# ===================================================================== #
+
+def _avisos_con_traza(caplog, fragmento: str) -> list:
+    return [r for r in caplog.records
+            if fragmento in r.getMessage() and bool(r.exc_info)]
+
+
+def test_f022_r17_preflight_el_fallo_de_una_obra_deja_traza(
+        portal, caplog) -> None:
+    cliente, _f, ids, _sv5, _p = portal(sv5=Sv5Falso(preflight_por_obra={
+        "0100": RuntimeError("se corto")}))
+    with caplog.at_level(logging.WARNING):
+        _preflight(cliente, ids["o10_a"])
+    assert _avisos_con_traza(caplog, "preflight de la obra obr-10 fallo")
+
+
+def test_f022_r22_ejecutar_el_fallo_de_una_obra_deja_traza(
+        portal, caplog) -> None:
+    cliente, _f, ids, _sv5, _p = portal(sv5=Sv5Falso(ejecutar_por_obra={
+        "0100": RuntimeError("se corto")}))
+    with caplog.at_level(logging.WARNING):
+        _ejecutar(cliente, ids["o10_a"])
+    assert _avisos_con_traza(caplog, "registro de la obra obr-10 fallo")
+
+
+def test_f022_r21_encolar_el_fallo_al_publicar_deja_traza(
+        portal, caplog) -> None:
+    cliente, _f, ids, _sv5, _p = portal(
+        publisher=PublisherFalso(fallan={"0100"}))
+    with caplog.at_level(logging.WARNING):
+        _encolar(cliente, ids["o10_a"] + ids["o20_a"])
+    assert _avisos_con_traza(caplog, "no se pudo encolar la obra obr-10")

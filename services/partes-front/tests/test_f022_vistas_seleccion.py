@@ -302,11 +302,11 @@ def test_f022_r29_js_ids_y_claves_de_sus_grupos() -> None:
      "✓ Aprobar todo (3)", "", "todas (3) de 3"),
     ({"modo": "seleccion", "ids": [], "total": 9, "marcadas": 3},
      "✓ Aprobar seleccionadas (0)",
-     "Las 3 lineas seleccionadas estan ocultas por los filtros: no se "
-     "aprueba ninguna", "0 seleccionadas de 9"),
+     ("Las 3 lineas seleccionadas estan ocultas por los filtros: no se "
+      "aprueba ninguna"), "0 seleccionadas de 9"),
     ({"modo": "visibles", "ids": [], "total": 9, "marcadas": 0},
-     "✓ Aprobar visibles (0)", "Ninguna linea visible con los filtros "
-     "actuales", "0 visibles de 9"),
+     "✓ Aprobar visibles (0)",
+     "Ninguna linea visible con los filtros actuales", "0 visibles de 9"),
     ({"modo": "todo", "ids": [], "total": 0, "marcadas": 0},
      "✓ Aprobar todo (0)", "No hay lineas en la tabla", "todas (0) de 0"),
 ])

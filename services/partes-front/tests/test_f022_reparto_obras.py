@@ -334,11 +334,17 @@ def test_f022_r23_listado_ordenado_por_fecha_trabajador_y_tipo() -> None:
         _linea(3, fecha_int=20260302, nombre="Persona A", es_incidencia=True),
         _linea(4, fecha_int=20260302, nombre="Persona A", tipo_hora="extra"),
         _linea(5, fecha_int=20260302, nombre="Persona A"),
-        _linea(6, fecha_int=None, nombre=None),
+        _linea(6, fecha_int=0, nombre=None),     # el repo pone 0 si falta
         _linea(7, fecha_int=20260302, nombre="Persona A"),
     ]
     filas = listado_grupo(_g(lineas), {"ok": True, "acciones": []})
     assert [f["registro_id"] for f in filas] == [6, 5, 7, 4, 3, 2, 1]
+
+
+def test_f022_r23_listado_el_trabajador_se_ordena_sin_mayusculas() -> None:
+    lineas = [_linea(1, nombre="Persona B"), _linea(2, nombre="persona a")]
+    filas = listado_grupo(_g(lineas), {"ok": True, "acciones": []})
+    assert [f["registro_id"] for f in filas] == [2, 1]
 
 
 def test_f022_r24_listado_conflicto_manda_sobre_la_accion() -> None:
@@ -349,10 +355,10 @@ def test_f022_r24_listado_conflicto_manda_sobre_la_accion() -> None:
                           "registros": [1]}]}
     filas = listado_grupo(_g([_linea(1), _linea(2)], {2: "error"}), pf)
     assert [(f["estado"], f["motivo"]) for f in filas] == [
-        ("conflicto", "ya hay una linea en Sigrid con el mismo codigo de "
-                      "hora (parte ?): decide si se pisa"),
-        ("conflicto", "ya hay una linea en Sigrid con el mismo codigo de "
-                      "hora (parte PT26/00003): decide si se pisa")]
+        ("conflicto", ("ya hay una linea en Sigrid con el mismo codigo de "
+                       "hora (parte ?): decide si se pisa")),
+        ("conflicto", ("ya hay una linea en Sigrid con el mismo codigo de "
+                       "hora (parte PT26/00003): decide si se pisa"))]
     assert [f["horas"] for f in filas] == [8.0, 8.0]
 
 
@@ -439,6 +445,20 @@ def test_f022_r25_totales_redondea_a_dos_decimales() -> None:
     listado = [_fila("nuevo", "ordinaria", 0.1)] * 3
     assert totales(listado)["horas_ordinarias"] == 0.3
     assert totales([_fila("nuevo", "extra", 0.1)] * 3)["horas_extra"] == 0.3
+    # Con tres decimales se nota que son DOS (0.126 -> 0.13, no 0.126).
+    assert totales([_fila("nuevo", "ordinaria", 0.126)])[
+        "horas_ordinarias"] == 0.13
+    assert totales([_fila("nuevo", "extra", 0.126)])["horas_extra"] == 0.13
+
+
+def test_f022_r25_totales_sumados_redondean_a_dos_decimales() -> None:
+    from application.services.reparto_obras import sumar_totales
+    suma = sumar_totales([{"horas_ordinarias": 0.126, "horas_extra": 1.004},
+                          {"horas_ordinarias": 0.1, "horas_extra": 0.2}])
+    assert (suma["horas_ordinarias"], suma["horas_extra"]) == (0.23, 1.2)
+    assert sumar_totales([]) == {"lineas": 0, "por_estado": {},
+                                 "horas_ordinarias": 0.0, "horas_extra": 0.0,
+                                 "incidencias": 0}
 
 
 def test_f022_r25_totales_vacio() -> None:

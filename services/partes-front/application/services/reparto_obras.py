@@ -160,7 +160,8 @@ ESTADOS_ESCRITURA = ("nuevo", "reaprobacion", "conflicto")
 ESTADOS_REAPROBACION = ("borrado_sigrid", "error", "omitido", "conflicto",
                         "encolado")
 
-ORDEN_TIPO = {"ordinaria": 0, "extra": 1, "incidencia": 2}
+#: Orden de los tipos dentro de un mismo dia y trabajador.
+ORDEN_TIPOS = ("ordinaria", "extra", "incidencia")
 
 
 def _tipo(linea: dict) -> str:
@@ -227,8 +228,9 @@ def listado_grupo(grupo: GrupoObra, pf: dict) -> list[dict]:
             "estado": estado,
             "motivo": motivo,
         })
-    filas.sort(key=lambda f: (f["fecha_int"] or 0, (f["nombre"] or "").lower(),
-                              ORDEN_TIPO[f["tipo"]], f["registro_id"]))
+    # `fecha_int` siempre es entero: el repositorio pone 0 si falta.
+    filas.sort(key=lambda f: (f["fecha_int"], (f["nombre"] or "").lower(),
+                              ORDEN_TIPOS.index(f["tipo"]), f["registro_id"]))
     return filas
 
 
