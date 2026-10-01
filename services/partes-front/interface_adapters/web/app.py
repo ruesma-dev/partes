@@ -1899,21 +1899,6 @@ def build_app(
         return {"obra": grupo.obra, "lineas": grupo.lineas,
                 "pisar_claves": claves, "usuario": actor}
 
-    def _payload_registro(
-        body: dict, *, actor: str | None,
-    ) -> tuple[dict, dict] | JSONResponse:
-        """Transitorio (T6): lote plano para ejecutar y encolar."""
-        preparado = _preparar_registro(body)
-        if isinstance(preparado, JSONResponse):
-            return preparado
-        datos = preparado.datos
-        return {
-            "obra": datos["obra"],
-            "lineas": datos["lineas"],
-            "pisar_claves": [str(k) for k in (body.get("pisar_claves") or [])],
-            "usuario": actor,
-        }, datos["excluidas"]
-
     def _rechazo_ambito(error: str, **extra) -> JSONResponse:
         return JSONResponse(dict({"ok": False, "error": error}, **extra),
                             status_code=422)
@@ -2191,14 +2176,30 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         actor = _actor(request)
-        preparado = _payload_registro(body, actor=actor)
+        preparado = _preparar_registro(body)
         if isinstance(preparado, JSONResponse):
             return preparado
-        payload, excluidas = preparado
-        # R24/R25: igual que `pisar_claves`, el override de Sesame es una
-        # decision humana consciente y NO puede viajar por una cola con
-        # reentregas; sin override, el lote degradado se para aqui.
-        if not _calendario_fiable(payload["lineas"]):
+        excluidas = preparado.datos["excluidas"]
+        # F-022 (R20, R21): una peticion por obra. Una obra bloqueada o que
+        # no se pudo publicar no para a las demas.
+        grupos = []
+        for grupo in preparado.grupos:
+            # F-003 R24/R25: igual que `pisar_claves`, el override de
+            # Sesame es una decision humana consciente y NO viaja por una
+            # cola con reentregas; sin override, la obra degradada se para.
+            if not _calendario_fiable(grupo.lineas):
+                grupos.append(dict(_bloqueado_sesame(grupo),
+                                   estado="bloqueado_sesame",
+                                   peticion_id=None))
+            elif publisher is None:
+                resultado = _ejecutar_grupo(grupo, [], actor)     # F-002 R3
+                _trazar(resultado, grupo.registro_ids, actor=actor)
+                grupos.append(dict(resultado, clave=grupo.clave,
+                                   obra=grupo.obra,
+                                   registro_ids=grupo.registro_ids))
+            else:
+                grupos.append(_publicar_grupo(grupo, actor))
+        if all(g.get("bloqueado_sesame") for g in grupos):
             return JSONResponse(
                 {"ok": False,
                  "error": MOTIVO_BLOQUEO_SESAME + " Para registrarlo de "
@@ -2206,29 +2207,55 @@ def build_app(
                           "/api/aprobar/ejecutar.",
                  "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
                 status_code=422)
-        ids = [l["registro_id"] for l in payload["lineas"]]
-
         if publisher is None:
-            resultado = transfer_client.ejecutar(payload)     # R3
-            _trazar(resultado, ids, actor=actor)
-            return JSONResponse(dict(resultado, modo="sincrono",
-                                     excluidas=excluidas))
+            return JSONResponse(dict(agregar_ejecucion(grupos),
+                                     modo="sincrono", excluidas=excluidas,
+                                     grupos=grupos))
+        encolados = [g for g in grupos if g["estado"] == "encolado"]
+        if not encolados:
+            return JSONResponse(
+                {"ok": False,
+                 "error": "no se pudo encolar ninguna obra: "
+                          + "; ".join(f"{g['obra'].get('codigo') or g['clave']}"
+                                      f": {g['error']}" for g in grupos),
+                 "excluidas": excluidas, "grupos": grupos},
+                status_code=502)
+        ids = [i for g in encolados for i in g["registro_ids"]]
+        # F-024 (R27): los ids encolados, para que el modal sondee su
+        # estado (R29) en vez de recargar antes de que llegue el resultado.
+        return JSONResponse({
+            "ok": True, "modo": "asincrono",
+            "peticion_id": encolados[0]["peticion_id"],
+            "peticiones": [g["peticion_id"] for g in encolados],
+            "encoladas": len(ids), "registro_ids": ids,
+            "excluidas": excluidas, "grupos": grupos})
 
-        # Primero se publica y luego se marca: al reves, un fallo al
-        # publicar dejaria lineas en 'encolado' sin nada que las recoja.
-        peticion_id = publisher.publicar(payload, usuario=actor)
+    def _publicar_grupo(grupo: GrupoObra, actor: str | None) -> dict:
+        """F-022 (R20, R21): encola UNA obra y marca sus lineas.
+
+        Primero se publica y luego se marca: al reves, un fallo al publicar
+        dejaria lineas en 'encolado' sin nada que las recoja.
+        """
+        base = {"clave": grupo.clave, "obra": grupo.obra,
+                "registro_ids": grupo.registro_ids}
         try:
-            repository.marcar_registros_encolado(ids, usuario=actor)  # R2
+            peticion_id = publisher.publicar(
+                _payload_grupo(grupo, [], actor), usuario=actor)
+        except Exception as exc:
+            logger.warning("[transfer-cola] no se pudo encolar la obra %s; "
+                           "sus lineas no cambian", grupo.clave,
+                           exc_info=True)
+            return dict(base, ok=False, estado="error_cola", peticion_id=None,
+                        error=f"no se pudo encolar: {exc}")
+        try:
+            repository.marcar_registros_encolado(grupo.registro_ids,
+                                                 usuario=actor)  # F-002 R2
         except Exception:
             logger.warning("[transfer-cola] peticion %s encolada pero no se "
                            "pudo marcar 'encolado'; el resultado las marcara",
                            peticion_id, exc_info=True)
-        # F-024 (R27): los ids encolados, para que el modal sondee su
-        # estado (R29) en vez de recargar antes de que llegue el resultado.
-        return JSONResponse({"ok": True, "modo": "asincrono",
-                             "peticion_id": peticion_id,
-                             "encoladas": len(ids), "registro_ids": ids,
-                             "excluidas": excluidas})
+        return dict(base, ok=True, estado="encolado", peticion_id=peticion_id,
+                    error=None)
 
     @app.post("/api/sigrid/comprobar", include_in_schema=False)
     def sigrid_comprobar(p: ComprobarSigridPayload) -> JSONResponse:

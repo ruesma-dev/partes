@@ -904,3 +904,194 @@ def test_f022_r33_ejecutar_payload_de_siempre(portal) -> None:
     for p in sv5.ejecutadas:
         assert set(p) == {"obra", "lineas", "pisar_claves", "usuario"}
         assert p["usuario"] == "local:ana"
+
+
+# ===================================================================== #
+# T8 · encolar por grupo (R18, R20, R21, R32, R33)
+# ===================================================================== #
+
+def _encolar(cliente, ids, **extra):
+    return cliente.post("/api/aprobar/encolar",
+                        json=dict({"registro_ids": ids}, **extra))
+
+
+def test_f022_r20_encolar_una_publicacion_por_obra(portal) -> None:
+    cliente, fabrica, ids, sv5, publisher = portal()
+    r = _encolar(cliente, ids["o20_a"] + ids["o10_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    assert [(_codigo(p), [l["registro_id"] for l in p["lineas"]], u)
+            for p, u in publisher.publicadas] == [
+        ("0100", ids["o10_a"], "local:ana"),
+        ("0200", ids["o20_a"], "local:ana")]
+    assert sv5.ejecutadas == []
+    cuerpo = r.json()
+    assert cuerpo == {
+        "ok": True, "modo": "asincrono", "peticion_id": "peticion-1",
+        "peticiones": ["peticion-1", "peticion-2"], "encoladas": 4,
+        "registro_ids": ids["o10_a"] + ids["o20_a"],
+        "excluidas": {"registrado": 0, "borrado_sigrid": 0},
+        "grupos": [
+            {"clave": "obr-10", "obra": OBRA_10,
+             "registro_ids": ids["o10_a"], "ok": True, "estado": "encolado",
+             "peticion_id": "peticion-1", "error": None},
+            {"clave": "obr-20", "obra": OBRA_20,
+             "registro_ids": ids["o20_a"], "ok": True, "estado": "encolado",
+             "peticion_id": "peticion-2", "error": None}]}
+    estados = estados_sigrid(fabrica, ids["o10_a"] + ids["o20_a"])
+    assert {e[0] for e in estados.values()} == {"encolado"}
+
+
+def test_f022_r21_encolar_si_falla_una_obra_las_demas_siguen(portal) -> None:
+    cliente, fabrica, ids, _sv5, _p = portal(
+        publisher=PublisherFalso(fallan={"0100"}))
+    antes = estados_sigrid(fabrica, ids["o10_a"])
+    r = _encolar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    cuerpo = r.json()
+    malo, bueno = cuerpo["grupos"]
+    assert malo == {"clave": "obr-10", "obra": OBRA_10,
+                    "registro_ids": ids["o10_a"], "ok": False,
+                    "estado": "error_cola", "peticion_id": None,
+                    "error": "no se pudo encolar: cola caida"}
+    assert bueno["estado"] == "encolado"
+    assert cuerpo["peticiones"] == ["peticion-1"]
+    assert cuerpo["registro_ids"] == ids["o20_a"]
+    assert cuerpo["encoladas"] == 2
+    assert estados_sigrid(fabrica, ids["o10_a"]) == antes
+    assert {e[0] for e in estados_sigrid(fabrica, ids["o20_a"]).values()} \
+        == {"encolado"}
+
+
+def test_f022_r21_encolar_si_fallan_todas_es_502_sin_marcas(portal) -> None:
+    cliente, fabrica, ids, _sv5, _p = portal(
+        publisher=PublisherFalso(fallan={"0100", "0200"}))
+    antes = estados_sigrid(fabrica, _todos(ids))
+    r = _encolar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 502
+    cuerpo = r.json()
+    assert cuerpo["ok"] is False
+    assert cuerpo["error"] == ("no se pudo encolar ninguna obra: 0100: no "
+                               "se pudo encolar: cola caida; 0200: no se "
+                               "pudo encolar: cola caida")
+    assert [g["estado"] for g in cuerpo["grupos"]] == ["error_cola"] * 2
+    assert cuerpo["excluidas"] == {"registrado": 0, "borrado_sigrid": 0}
+    assert estados_sigrid(fabrica, _todos(ids)) == antes
+
+
+def test_f022_r21_encolar_falla_el_marcado_y_sigue_encolada(portal) -> None:
+    """Ya esta en la cola: el resultado marcara las lineas al volver (el
+    aviso con traza lo cubre `test_f002_mutantes`)."""
+    _c, fabrica, ids, _sv5, publisher = portal()
+
+    def roto(*_a, **_kw):
+        raise RuntimeError("PostgreSQL caido")
+    repo = ParteReviewRepository(fabrica)
+    repo.marcar_registros_encolado = roto
+    app = build_app(Settings(_env_file=None), repository=repo,
+                    transfer_client=Sv5Falso(), publisher=publisher,
+                    calendario_provider=CalendarioFalso())
+    r = TestClient(app).post("/api/aprobar/encolar", json={
+        "registro_ids": ids["o10_a"] + ids["o20_a"]})
+    assert r.status_code == 200
+    assert [g["estado"] for g in r.json()["grupos"]] == ["encolado"] * 2
+    assert len(publisher.publicadas) == 2
+
+
+def test_f022_r18_encolar_grupo_bloqueado_no_se_publica(portal) -> None:
+    cliente, fabrica, ids, _sv5, publisher = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_B}))
+    antes = estados_sigrid(fabrica, ids["o10_b"])
+    r = _encolar(cliente, ids["o10_b"] + ids["o20_a"])
+    assert r.status_code == 200
+    assert [_codigo(p) for p, _u in publisher.publicadas] == ["0200"]
+    bloqueado = r.json()["grupos"][0]
+    assert bloqueado == {"clave": "obr-10", "obra": OBRA_10,
+                         "registro_ids": ids["o10_b"], "ok": False,
+                         "bloqueado_sesame": True,
+                         "error": "calendario Sesame no disponible: el "
+                                  "calculo puede ser incorrecto",
+                         "estado": "bloqueado_sesame", "peticion_id": None}
+    assert r.json()["registro_ids"] == ids["o20_a"]
+    assert estados_sigrid(fabrica, ids["o10_b"]) == antes
+
+
+def test_f022_r18_encolar_todos_bloqueados_es_el_422_de_hoy(portal) -> None:
+    cliente, _f, ids, _sv5, publisher = portal(
+        calendario=CalendarioFalso(no_fiables={DNI_A, DNI_B}))
+    r = _encolar(cliente, ids["o10_b"] + ids["o20_a"])
+    assert r.status_code == 422
+    assert r.json()["sesame_bloqueo"] == ("calendario Sesame no disponible: "
+                                          "el calculo puede ser incorrecto")
+    assert "usa /api/aprobar/ejecutar" in r.json()["error"]
+    assert publisher.publicadas == []
+
+
+def test_f022_r20_encolar_sin_publisher_es_sincrono_por_obra(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal(publisher=None)
+    r = _encolar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A)
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["modo"] == "sincrono"
+    assert (cuerpo["ok"], cuerpo["parcial"]) == (True, False)
+    assert [_codigo(p) for p in sv5.ejecutadas] == ["0100", "0200"]
+    assert [p["pisar_claves"] for p in sv5.ejecutadas] == [[], []]
+    assert [g["clave"] for g in cuerpo["grupos"]] == ["obr-10", "obr-20"]
+    assert cuerpo["excluidas"] == {"registrado": 0, "borrado_sigrid": 0}
+    estados = estados_sigrid(fabrica, ids["o10_a"] + ids["o20_a"])
+    assert {e[0] for e in estados.values()} == {"registrado"}
+
+
+def test_f022_r20_encolar_sin_publisher_un_grupo_es_como_hoy(portal) -> None:
+    cliente, _f, ids, _sv5, _p = portal(publisher=None)
+    cuerpo = _encolar(cliente, ids["o10_a"]).json()
+    assert cuerpo["modo"] == "sincrono"
+    assert cuerpo["parcial"] is False
+    assert len(cuerpo["escritas"]) == 2
+    assert "clave" not in cuerpo and "registro_ids" not in cuerpo
+
+
+def test_f022_r20_encolar_sin_publisher_bloqueado_y_fallido(portal) -> None:
+    cliente, fabrica, ids, sv5, _p = portal(
+        publisher=None, calendario=CalendarioFalso(no_fiables={DNI_B}),
+        sv5=Sv5Falso(ejecutar_por_obra={"0200": RuntimeError("caido")}))
+    r = _encolar(cliente, ids["o10_b"] + ids["o20_a"] + ids["o10_a"])
+    assert r.status_code == 200
+    assert [_codigo(p) for p in sv5.ejecutadas] == ["0200"]
+    cuerpo = r.json()
+    assert cuerpo["ok"] is False
+    # obr-10 mezcla A (fiable) y B (no): el grupo entero se bloquea.
+    assert cuerpo["grupos"][0]["bloqueado_sesame"] is True
+    assert [estados_sigrid(fabrica, ids["o20_a"])[i][0]
+            for i in ids["o20_a"]] == ["error"] * 2
+
+
+def test_f022_r32_encolar_lo_no_pedido_conserva_estado_y_motivo(portal) -> None:
+    cliente, fabrica, ids, _sv5, _p = portal()
+    with fabrica.create_session() as s:
+        reg = s.get(ParteRegistroOrm, ids["o20_a"][1])
+        reg.sigrid_motivo = "fallo viejo"
+        s.commit()
+    resto = [i for i in _todos(ids) if i not in ids["o10_a"]]
+    antes = estados_sigrid(fabrica, resto)
+    _encolar(cliente, ids["o10_a"], ambito=MARZO)
+    assert estados_sigrid(fabrica, resto) == antes
+    assert antes[ids["o20_a"][1]][:2] == ("error", "fallo viejo")
+
+
+def test_f022_r33_encolar_publicacion_de_siempre_sin_listado(portal) -> None:
+    cliente, _f, ids, _sv5, publisher = portal()
+    _encolar(cliente, ids["o10_a"] + ids["o20_a"], ambito=PERSONA_A,
+             incluir_borradas=True)
+    for payload, _u in publisher.publicadas:
+        assert set(payload) == {"obra", "lineas", "pisar_claves", "usuario"}
+        assert payload["pisar_claves"] == []
+        for linea in payload["lineas"]:
+            assert "estado_previo" not in linea
+
+
+def test_f022_r20_encolar_con_claves_sigue_siendo_422(portal) -> None:
+    cliente, _f, ids, _sv5, publisher = portal()
+    r = _encolar(cliente, ids["o10_a"], pisar_claves=["obr-10::k"])
+    assert r.status_code == 422
+    assert "usa /api/aprobar/ejecutar" in r.json()["error"]
+    assert publisher.publicadas == []
