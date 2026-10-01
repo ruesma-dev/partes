@@ -34,6 +34,11 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      a la fecha de la linea y de esa persona (R36). Si no, se omite.
   3. Cargar los tipos de hora de los recursos implicados (reshor).
   4. Aplicar las REGLAS de negocio -> accion por linea.
+  4b. Resolver la CUENTA ANALITICA de cada accion `escribir` (F-021): la
+     subcuenta de la ficha del recurso para el tipo de hora escrito (o su
+     tipo por defecto) en el centro de la obra destino, con UNA lectura de
+     cuentas por peticion. Sin cuenta, `caa_ide = 0` y se escribe igual;
+     si la lectura falla, la peticion entera falla (nada se escribe).
   5. Localizar el parte de cada periodo; proponer codigo si no existe.
   6. Detectar lineas YA registradas por nosotros (synckey) -> idempotencia.
   7. Detectar CONFLICTOS: ya hay linea(s) en Sigrid para ese parte +
@@ -51,11 +56,19 @@ from application.services.coherencia_recurso import (
     elegir_por_dni,
     verificar_recurso,
 )
+from application.services.cuenta_analitica import (
+    MOTIVO_CUENTA_AMBIGUA,
+    MOTIVO_OBRA_SIN_CUENTA,
+    MOTIVO_RECURSO_SIN_CUENTA,
+    resolver_cuenta,
+    subcuenta_de_linea,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
     Conflicto,
     ContextoRegistro,
+    HoraRecurso,
     LineaEntrada,
     ObraEntrada,
     ParteDestino,
@@ -181,9 +194,44 @@ class RegistroPipeline:
             [l.recurso_ide for l in lineas if l.recurso_ide])
         reglas = ReglasRegistro(horas, omisiones=omisiones)
         acciones: list[AccionLinea] = [reglas.decidir(l) for l in lineas]
+        # Paso 4b: cuenta analitica (F-021). Datos maestros: fuera del lock.
+        self._resolver_cuentas(destino, empresa, acciones, horas)
         return ContextoRegistro(
             obra_origen=obra, obra_destino=destino, forzada_pruebas=forzada,
             lineas=lineas, acciones=acciones)
+
+    def _resolver_cuentas(self, destino: ObraEntrada, empresa: int,
+                          acciones: list[AccionLinea],
+                          horas: dict[int, list[HoraRecurso]]) -> None:
+        """Paso 4b (F-021, R1-R13, R18): `caa_*` de cada accion `escribir`.
+
+        Las demas se quedan con `caa_ide = 0` y sin motivo (R16). La
+        lectura de cuentas va SIN `try`: si falla, la peticion falla y la
+        cola reintenta (R11, DA7); escribir 0 en silencio es justo el
+        defecto que se corrige."""
+        escribir = [a for a in acciones if a.accion == "escribir"]
+        if not escribir:
+            return
+        subs = {id(a): subcuenta_de_linea(
+                    horas.get(int(a.recurso_ide or 0), []), a.hora_ide)
+                for a in escribir}
+        cenide = int(getattr(destino, "cenide", 0) or 0)
+        pedidas = {s for s in subs.values() if s}
+        cuentas = (self._cli.cuentas_de_centro(cenide, empresa, pedidas)
+                   if pedidas and cenide else {})
+        recuento = {None: 0, MOTIVO_RECURSO_SIN_CUENTA: 0,
+                    MOTIVO_OBRA_SIN_CUENTA: 0, MOTIVO_CUENTA_AMBIGUA: 0}
+        for a in escribir:
+            c = resolver_cuenta(subs[id(a)], cuentas, destino.codigo)
+            a.caa_ide, a.caa_cod = c.caa_ide, c.caa_cod
+            a.caa_motivo, a.caa_aviso = c.motivo, c.aviso
+            recuento[c.motivo] += 1
+        logger.info(
+            "[registro] cuentas obra=%s ok=%s recurso_sin_cuenta=%s "
+            "obra_sin_cuenta=%s cuenta_ambigua=%s", destino.codigo,
+            recuento[None], recuento[MOTIVO_RECURSO_SIN_CUENTA],
+            recuento[MOTIVO_OBRA_SIN_CUENTA],
+            recuento[MOTIVO_CUENTA_AMBIGUA])
 
     # ---------------------- FASE 2a: EVALUAR ---------------------- #
     # Pasos 5-7. Leen estado que la escritura modifica: SIEMPRE dentro
@@ -379,11 +427,13 @@ class RegistroPipeline:
                 pos=pos_por_parte[hmoide], fecha_int=a.fecha_int,
                 horide=int(a.hora_ide), can=float(a.can), pre=float(a.pre),
                 paride=int(a.paride or 0), ano=a.ano, mes=a.mes,
-                synckey=synckey_de(a.registro_id), tex=tex))
+                synckey=synckey_de(a.registro_id), tex=tex,
+                caaide=int(a.caa_ide)))
             res.escritas.append({"registro_id": a.registro_id,
                                  "hmoide": hmoide, "parte_cod": p.cod,
                                  "hora_codigo": a.hora_codigo,
-                                 "can": a.can, "tot": a.tot})
+                                 "can": a.can, "tot": a.tot,
+                                 "caa_cod": a.caa_cod})
 
         afectadas = self._cli.escribir(statements)
         logger.info("[registro] escritas=%s borradas=%s filas=%s usuario=%s "

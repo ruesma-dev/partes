@@ -25,6 +25,7 @@ from domain.models.registro_models import (
     HoraRecurso,
     LineaEntrada,
     ObraEntrada,
+    RecursoSigrid,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 from tests.dobles import SettingsFake, SigridFake
@@ -98,15 +99,17 @@ def _caa(acciones) -> dict:
             for a in acciones}
 
 
-TODAS = [_lin(1), _lin(2, tipo="extra"), _lin(3, 502), _lin(4, 503),
-         _lin(5, 504), _lin(6, 505), _incidencia(7)]
+def _todas() -> list[LineaEntrada]:
+    """Lineas NUEVAS en cada llamada: el pipeline puede mutarlas."""
+    return [_lin(1), _lin(2, tipo="extra"), _lin(3, 502), _lin(4, 503),
+            _lin(5, 504), _lin(6, 505), _incidencia(7)]
 
 
 # ======================= R12-R13 · preparar y preflight ======================= #
 
 def test_f021_r13_el_preflight_trae_la_cuenta_de_cada_accion() -> None:
     pf = _pipeline(_cli()).preflight(obra=_obra(10, "0100", CEN_OBRA),
-                                     lineas=list(TODAS))
+                                     lineas=_todas())
     assert _caa(pf.acciones) == {
         1: (701, "0100.LAB", None),                   # R1 ordinarias
         2: (702, "0100.EXT", None),                   # R1 extras
@@ -133,9 +136,9 @@ def test_f021_r12_se_resuelve_en_preparar_tras_las_reglas() -> None:
 
 def test_f021_r12_preflight_y_ejecutar_obtienen_la_misma_cuenta() -> None:
     obra = _obra(10, "0100", CEN_OBRA)
-    pf = _pipeline(_cli()).preflight(obra=obra, lineas=list(TODAS))
+    pf = _pipeline(_cli()).preflight(obra=obra, lineas=_todas())
     cli = _cli()
-    r = _pipeline(cli).ejecutar(obra=obra, lineas=list(TODAS))
+    r = _pipeline(cli).ejecutar(obra=obra, lineas=_todas())
     esperado = {a.registro_id: a.caa_ide for a in pf.acciones
                 if a.accion == "escribir"}
     escrito = {int(l["synckey"].split(":")[1]): l["caaide"]
@@ -159,7 +162,7 @@ def test_f021_r12_la_lectura_de_cuentas_va_fuera_del_lock() -> None:
 def test_f021_r10_una_lectura_por_peticion_con_centro_empresa_y_subs() -> None:
     cli = _cli()
     _pipeline(cli).ejecutar(obra=_obra(10, "0100", CEN_OBRA),
-                            lineas=list(TODAS))
+                            lineas=_todas())
     (lectura,) = cli.cuentas_leidas
     # Solo subcuentas de acciones `escribir`: la ZZZ de la omitida no.
     assert (lectura["cenide"], lectura["empresa"], lectura["subcuentas"]) \
@@ -230,7 +233,7 @@ def test_f021_r11_fallo_al_leer_cuentas_tumba_el_preflight() -> None:
 def test_f021_r14_r15_insert_con_caaide_y_escritas_con_caa_cod() -> None:
     cli = _cli()
     r = _pipeline(cli).ejecutar(obra=_obra(10, "0100", CEN_OBRA),
-                                lineas=list(TODAS))
+                                lineas=_todas())
     caaide = {int(l["synckey"].split(":")[1]): l["caaide"]
               for l in cli.lineas}
     assert caaide == {1: 701, 2: 702, 3: 0, 4: 0, 5: 0, 7: 701}
@@ -310,11 +313,14 @@ def test_f021_modo_pruebas_usa_el_centro_de_la_obra_de_pruebas() -> None:
 # ============================ R18 · log por motivo ============================ #
 
 def test_f021_r18_log_por_motivo_sin_datos_personales(caplog) -> None:
-    lineas = list(TODAS)
+    lineas = _todas()
     lineas[0].dni = "12345678Z"
+    # El recurso de la linea con DNI es de esa persona (F-023 no la omite).
+    recursos = {i: RecursoSigrid(i, 1, None, None) for i in HORAS}
+    recursos[501] = RecursoSigrid(501, 1, None, "12345678Z")
     with caplog.at_level(logging.INFO,
                          logger="application.pipelines.registro_pipeline"):
-        _pipeline(_cli()).preflight(obra=_obra(10, "0100", CEN_OBRA),
+        _pipeline(_cli(recursos=recursos)).preflight(obra=_obra(10, "0100", CEN_OBRA),
                                     lineas=lineas)
     (msg,) = [r.getMessage() for r in caplog.records
               if "cuentas obra=" in r.getMessage()]
