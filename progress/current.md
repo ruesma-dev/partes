@@ -1,6 +1,42 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-025 · spec escrita, pendiente de aprobación (2026-10-01)
+
+La spec está en `specs/F-025-incidencia-vs-extra/` (rama
+`feature/F-025-incidencia-vs-extra`, sin commits). La exploración de Sigrid,
+de solo lectura y con datos agregados, está en
+`progress/explore_F-025_sigrid.md`. Toca **solo sv4**; sv2, sv3 y sv5 no se
+tocan, no hay schema ni duplicación nueva. Rigor estándar.
+
+Hallazgos:
+
+- **Sigrid no clasifica las incidencias.** `auxhor` tiene 7 códigos `CI*`
+  más `CIZ`, todos con `tipincnom = 0`; `auxincfic` y `e_aus` están vacías.
+- Lo que Administración teclea a mano casi nunca junta incidencia y horas el
+  mismo día: 5 días como mucho de 1.191 en 2026. El único caso legítimo es
+  un AT con 2 h trabajadas.
+- `auxhor.ext = 0` también en los `HE%`.
+- La H es **Huelga**; `partes-proyecto.md` lo tiene mal.
+
+Decisiones a validar (design §8, con recomendación):
+
+1. DA1 · tabla versionada propia `config/incidencias.yaml` en sv4; si está mal, sv4 no arranca.
+2. DA2 · día completo: V, B, M y F; parcial: AT, FJ y H. Confirmar F y H con Administración.
+3. DA3 · día completo + horas: las líneas de ese día-trabajador salen excluidas de la aprobación, sin poder forzarlo. Parcial + extra: solo aviso.
+4. DA4 · no se bloquea nada al crear ni al editar.
+5. DA5 · se marca en las vistas de obra y de trabajador (matriz, calendario, líneas); `parte_detail` queda fuera.
+6. DA6 · nada ya aprobado o registrado se reescribe; los conflictos antiguos se ven marcados.
+7. DA7 · solo sv4 (marcar la revisión en sv3 exigiría duplicar código).
+8. DA8 · `_rol_incidencia` y el cálculo de extras por jornada no cambian.
+9. DA9 · quedan fuera las horas dentro de una racha y la jornada con permiso parcial (candidatas a feature).
+10. DA10 · rigor estándar.
+11. DA11 · la persona es el DNI normalizado; sin DNI, la clave de trabajador del portal.
+12. DA12 · se despliega solo sv4, sin variable de activación.
+
+Manual: M1 (lectura en PostgreSQL, antes de desplegar) mide cuántos
+conflictos hay ya; M2–M5 se hacen en el navegador en modo pruebas.
+
 ## F-022 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-022.md`, seis observaciones no
