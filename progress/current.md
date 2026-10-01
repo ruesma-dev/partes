@@ -4,10 +4,41 @@
 ## F-023 · EN IMPLEMENTACIÓN (implementer, desde 2026-10-01)
 
 Spec aprobada por el humano el 2026-10-01 (DA1–DA12 tal cual, con DA6, DA11 y
-DA12). El implementer sigue T1–T24 de `tasks.md` en la rama
-`feature/F-023-recurso-alta-empresa`; tarea en curso, decisiones y
-desviaciones en `progress/impl_F-023.md`. Lo que sigue es el estado de la
-spec antes de aprobarse, y se conserva como contexto.
+DA12). El implementer hizo T1–T24 en la rama
+`feature/F-023-recurso-alta-empresa` (commits locales, sin push ni
+despliegue); decisiones, desviaciones (D1: el PATCH de obra del portal
+resuelve por `ide`, a validar) y evidencias en `progress/impl_F-023.md`.
+Pendiente del reviewer.
+
+### MANUAL (humano) pendientes de F-023 (design §9 y T17)
+
+1. **M1 · antes de desplegar (lectura, SQL Server vía sigrid-api y PG
+   `partes`)**: `ide` de obras gemelas en Sigrid
+   (`SELECT con.ide, con.cod, con.emp FROM obr JOIN con ON con.ide = obr.ide
+   WHERE con.cod IN (SELECT c.cod FROM obr o JOIN con c ON c.ide = o.ide
+   GROUP BY c.cod HAVING COUNT(DISTINCT c.emp) > 1)`) y, con esos ides, en
+   `partes`: `SELECT r.obra_ide, d.approved, count(*) FROM parte_registros r
+   JOIN parte_documents d ON d.id = r.document_id WHERE d.is_active AND
+   r.deleted_at_utc IS NULL AND r.obra_ide IN (…) GROUP BY 1, 2;`
+2. **M5 · antes de desplegar sv2**: con sv2 en local, ≥ 10 partes reales
+   (≥ 5 de cada empresa): `empresa_membrete` correcto y el resto de la
+   cabecera y los empleados igual que su extracción guardada. Anotar en
+   `progress/evals_F-023.md` sin nombres ni DNIs.
+3. **Despliegue** (lo pide el humano): orden **sv5 → sv2 → sv3 → sv4**
+   (`redeploy_partes.ps1 -Solo svN`). Al arrancar sv3/sv4 el DDL
+   complementario pasa de 137 a 140 sentencias (log de arranque).
+4. **M2 · tras sv5**: aprobar un parte de una obra de la empresa 28 y
+   comprobar en Sigrid que su cabecera tiene `con.emp = 28` y el `PT`
+   siguiente de la 28.
+5. **M3 · tras sv3**: `POST /admin/reconciliar-recursos`; el caso guía
+   (MO/0239) queda con el recurso de alta de su empresa.
+6. **M4**: el código `0404` (modo pruebas) existe en una sola empresa
+   (`SELECT con.emp FROM obr JOIN con ON con.ide = obr.ide WHERE con.cod = '0404'`).
+7. **T17 · navegador (sv4, Ctrl+F5)**: los combos de obra y trabajador
+   muestran «· empresa N»; en «+ Nuevo» y en «Añadir línea», con obra
+   elegida (o fijada por el parte), el combo de trabajador solo ofrece
+   fichas de su empresa; elegir la gemela de la 28 en el combo de obra del
+   detalle deja esa obra (no la de la 1).
 
 ## F-023 · spec REVISADA (2026-09-30) con las respuestas del humano (APROBADA 2026-10-01)
 
