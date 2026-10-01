@@ -397,10 +397,13 @@ def test_f024_r22_payload_repo_incluir_borradas() -> None:
 
 
 def test_f024_r22_payload_repo_sin_ids() -> None:
+    # F-022 (T2, R14/R26): el dict gana `grupos` y `excluidas_detalle`,
+    # vacios sin ids; los tres campos de F-024 no cambian.
     repo, _f, _ids = _montar([None])
     assert repo.lineas_para_registro([]) == {
         "obra": {}, "lineas": [],
-        "excluidas": {"registrado": 0, "borrado_sigrid": 0}}
+        "excluidas": {"registrado": 0, "borrado_sigrid": 0},
+        "grupos": [], "excluidas_detalle": []}
 
 
 def test_f024_r22_payload_repo_la_obra_sale_de_las_lineas_que_viajan() -> None:

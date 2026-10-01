@@ -490,6 +490,33 @@ def obra_key_for_registro(reg: ParteRegistroOrm) -> str:
     return "sin-obra"
 
 
+def _obra_de(reg: ParteRegistroOrm) -> dict[str, Any]:
+    """La obra de una linea tal como viaja a sv5."""
+    return {"ide": reg.obra_ide, "codigo": reg.obra_codigo,
+            "nombre": reg.obra_nombre}
+
+
+def _excluida_detalle(reg: ParteRegistroOrm, estado: str) -> dict[str, Any]:
+    """F-022 (R26): una linea que la aprobacion deja fuera, y por que."""
+    parte = reg.sigrid_parte_cod
+    if estado == ESTADO_REGISTRADO:
+        motivo = f"ya registrada en Sigrid (parte {parte or '?'}): no se reenvia"
+    else:
+        motivo = ("borrada en Sigrid: para reenviarla marca «Incluir las "
+                  "borradas en Sigrid» o usa «Reaprobar»")
+    return {
+        "registro_id": reg.id,
+        "fecha_int": int(reg.fecha_int or 0),
+        "nombre": reg.empleado_nombre or reg.trabajador_nombre_leido,
+        "obra_codigo": reg.obra_codigo,
+        "horas": reg.horas,
+        "hora_codigo": reg.hora_codigo,
+        "estado": estado,
+        "parte_cod": parte,
+        "motivo": motivo,
+    }
+
+
 def _is_extra(reg: ParteRegistroOrm) -> bool:
     # Mismo criterio que el badge de la lista: es extra si el tipo es 'extra'
     # o el auxhor resuelto es extra (ext=1). NO depende de que hora_ext sea
@@ -1272,11 +1299,18 @@ class ParteReviewRepository:
         salvo `incluir_borradas`, tampoco las `borrado_sigrid`. `excluidas`
         cuenta las que se quedaron fuera y por que. `encolado` SI viaja
         (DA8): es la salida de un atasco.
+
+        F-022 (R14, R26): `grupos` reparte las lineas que viajan por SU
+        obra (`obra_key_for_registro`), en orden de clave, con el estado
+        previo de cada una (para el listado del modal; NO va en el payload
+        de sv5, R33); `excluidas_detalle` dice cuales se quedaron fuera y
+        por que. `obra`, `lineas` y `excluidas` no cambian.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
         if not ids:
-            return {"obra": {}, "lineas": [], "excluidas": excluidas}
+            return {"obra": {}, "lineas": [], "excluidas": excluidas,
+                    "grupos": [], "excluidas_detalle": []}
         with self._session_factory.create_session() as session:
             regs = list(session.execute(
                 select(ParteRegistroOrm)
@@ -1285,16 +1319,23 @@ class ParteReviewRepository:
             ).scalars().all())
             lineas: list[dict[str, Any]] = []
             obra: dict[str, Any] = {}
+            grupos: dict[str, dict[str, Any]] = {}
+            detalle: list[dict[str, Any]] = []
             for r in regs:
                 estado = _estado_norm(r.sigrid_estado)
                 if estado == ESTADO_REGISTRADO or (
                         estado == ESTADO_BORRADO_SIGRID
                         and not incluir_borradas):
                     excluidas[estado] += 1
+                    detalle.append(_excluida_detalle(r, estado))
                     continue
                 if not obra and (r.obra_ide or r.obra_codigo):
-                    obra = {"ide": r.obra_ide, "codigo": r.obra_codigo,
-                            "nombre": r.obra_nombre}
+                    obra = _obra_de(r)
+                grupo = grupos.setdefault(obra_key_for_registro(r), {
+                    "obra": {}, "lineas": [], "estado_previo": {}})
+                if not grupo["obra"] and (r.obra_ide or r.obra_codigo):
+                    grupo["obra"] = _obra_de(r)
+                grupo["estado_previo"][r.id] = estado
                 lineas.append({
                     "registro_id": r.id,
                     "fecha_int": int(r.fecha_int or 0),
@@ -1315,12 +1356,16 @@ class ParteReviewRepository:
                         if r.es_incidencia else None
                     ),
                 })
+                grupo["lineas"].append(lineas[-1])
             roles = {l["registro_id"]: l["incidencia_rol"]
                      for l in lineas if l["es_incidencia"]}
             if roles:
                 logger.info("[registro-payload] roles de incidencia: %s",
                             roles)
-        return {"obra": obra, "lineas": lineas, "excluidas": excluidas}
+        detalle.sort(key=lambda d: (d["fecha_int"], d["registro_id"]))
+        return {"obra": obra, "lineas": lineas, "excluidas": excluidas,
+                "grupos": [dict(clave=k, **grupos[k]) for k in sorted(grupos)],
+                "excluidas_detalle": detalle}
 
     @staticmethod
     def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:
@@ -1395,6 +1440,14 @@ class ParteReviewRepository:
         'Aprobar todo'). Excluye borrados; INCLUYE incidencias (se
         registran con su codigo CI*)."""
         detail = self.get_obra(obra_key, period_key=period_key, mode=mode)
+        if detail is None:
+            return []
+        return [v.id for v in detail.registros]
+
+    def registro_ids_de_trabajador(self, worker_key: str) -> list[int]:
+        """F-022 (R10, DA12): ids de la tabla de la vista de persona (todos
+        sus meses y obras), para validar el ambito de una aprobacion."""
+        detail = self.get_worker(worker_key)
         if detail is None:
             return []
         return [v.id for v in detail.registros]
