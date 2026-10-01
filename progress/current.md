@@ -1,11 +1,14 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-022 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
+## F-022 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-022.md`, seis observaciones no
 bloqueantes; O4 y O5 dan lugar a F-027); resumen en `progress/history.md`.
-Rama `feature/F-022-aprobar-seleccionadas`, sin desplegar (solo sv4).
+Mergeada a `dev` (`5dea576`) y desplegada a petición del humano: sv4
+`ca-sv4-front--r20261001210234` (140 sentencias, Uvicorn 8014, revisión
+anterior retirada). El aviso de filtrar por obra en la ficha de persona ya
+no aplica.
 azure-apps: commit local `fdc6e1d` (sin push).
 
 Pendientes MANUAL (humano, design §9; pasos exactos en `impl_F-022.md` §7):
