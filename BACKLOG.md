@@ -5,6 +5,8 @@
 
 Resumen: **25 features**, 11 abiertas, 14 terminadas.
 
+En curso: **F-022**.
+
 Bloqueadas: **F-014**.
 
 ## Trabajo abierto
@@ -12,7 +14,7 @@ Bloqueadas: **F-014**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | spec lista | critico | `feature/F-021-cuenta-analitica-sigrid` |
-| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | spec lista | estandar | `feature/F-022-aprobar-seleccionadas` |
+| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | en curso | critico | `feature/F-022-aprobar-seleccionadas` |
 | F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | pendiente | estandar | `feature/F-025-incidencia-vs-extra` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -52,7 +54,7 @@ Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv
 
 ### F-022 · Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona
 
-estado **spec lista** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
+estado **en curso** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
 
 Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar. ACLARADO 2026-09-30 (correo de Juan Romero 'RV: CAPTURAS'): 'opcion de seleccionar varias lineas y aprobarlas, por si quiero dejar alguna pendiente' => seleccion explicita de lineas (casillas) en la vista detallada; el humano lo describio tambien como 'las visibles': la spec debe cubrir ambos (lo filtrado y lo marcado) y confirmarlo.
 

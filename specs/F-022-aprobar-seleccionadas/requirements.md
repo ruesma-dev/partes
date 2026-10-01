@@ -1,142 +1,142 @@
 <!-- specs/F-022-aprobar-seleccionadas/requirements.md -->
 # F-022 · Aprobar solo las líneas seleccionadas — Requisitos (EARS)
 
-Origen: petición del humano (2026-09-30) y correo de Juan Romero («RV:
-CAPTURAS»): «opción de seleccionar varias líneas y aprobarlas, por si quiero
-dejar alguna pendiente», descrito también como «las visibles». Cubre **lo
-marcado con casilla y lo visible tras filtrar**. Revisión 2026-10-01 (DA8 del
-humano): una aprobación con líneas de **varias obras** no se rechaza, **cada
-línea va al parte de SU obra**. Servicio: **solo sv4**; sv5 no cambia (design
-§1). Se apoya en F-024 (exclusiones R22/R23, «Reaprobar», sondeo) sin
-duplicarlo. Diagnóstico, diseño y decisiones: `design.md` §0, §2 y §8.
+Origen: humano (2026-09-30) y correo de Juan Romero («RV: CAPTURAS»):
+«seleccionar varias líneas y aprobarlas, por si quiero dejar alguna
+pendiente», también «las visibles». Cubre **lo marcado y lo visible tras
+filtrar**. Aprobada el 2026-10-01 con: **cada línea va al parte de SU obra**
+(reparto por obra, DA8), rigor `critico` y un **listado** de lo que se va a
+aprobar en el modal, al estilo del portal de dedicación (DA19). Servicio:
+**solo sv4**; sv5 no cambia. Se apoya en F-024 sin duplicarlo. Diseño y
+decisiones: `design.md`.
 
 Vocabulario: «tabla» = `#lines-table` de la vista de obra o de persona;
-«visible» = fila sin `filtered-day` (casillas de la matriz o días del
-calendario) y sin `display:none` (filtros por columna); «selección» = la
-selección común de filas (casillas y Ctrl/Shift+clic); «ámbito» = la vista de
-la que salen los ids; «grupo» = las líneas que viajan de una misma obra
-(`obra_key_for_registro`). Tests `test_f022_rN_*`, sin red ni BBDD (SQLite y
-dobles de sv5, publisher y calendario). JS: `node --check`, comprobaciones
-estáticas en pytest y MANUAL de `design.md` §9.
+«visible» = fila sin `filtered-day` (matriz o calendario) ni `display:none`
+(filtros por columna); «selección» = la común de filas (casillas y
+Ctrl/Shift+clic); «ámbito» = la vista de la que salen los ids; «grupo» = las
+líneas que viajan de una misma obra (`obra_key_for_registro`). Tests
+`test_f022_rN_*` sin red ni BBDD (SQLite y dobles de sv5, publisher y
+calendario). JS: `node --check`, estáticos en pytest y MANUAL (design §9).
 
 ## A · Selección en la tabla (obra y persona)
 
-- **R1** (ubicuo). Cada fila de la tabla debe llevar en su celda Fecha una
-  casilla `input.sel-linea` con su `data-registro-id`, también si está
-  congelada o registrada (DA6).
+- **R1** (ubicuo). Cada fila debe llevar en su celda Fecha una casilla
+  `input.sel-linea` con su `data-registro-id`, también si está congelada.
 - **R2** (evento). CUANDO se marca o desmarca una casilla, la fila debe
   entrar o salir de la selección común, y Ctrl/Shift+clic debe reflejarse en
-  la casilla (DA3).
+  la casilla.
 - **R3** (evento). CUANDO se pulsa «Seleccionar visibles», deben quedar
-  seleccionadas todas las filas visibles y ninguna oculta; CUANDO se pulsa
-  «Quitar selección», la selección debe quedar vacía.
-- **R4** (ubicuo). El rango de Shift+clic debe incluir solo filas visibles.
-- **R5** (ubicuo). Filtros por columna y ordenación deben ignorar la casilla.
-- **R6** (estado). MIENTRAS haya selección, un contador debe mostrar
+  seleccionadas las visibles y ninguna oculta; «Quitar selección» la vacía.
+- **R4** (ubicuo). Shift+clic debe seleccionar solo filas visibles; filtros
+  y ordenación deben ignorar la casilla.
+- **R5** (estado). MIENTRAS haya selección, un contador debe mostrar
   «N seleccionadas» y, si las hay, «(M ocultas: no se aprueban)».
 
 ## B · Qué aprueba el botón de cabecera
 
-- **R7** (estado). MIENTRAS haya selección, el botón debe decir «Aprobar
-  seleccionadas (N)» y aprobar las seleccionadas **visibles**; sin selección
-  y con algún filtro, «Aprobar visibles (N)» y las visibles; sin selección
-  ni filtros, «Aprobar todo (N)» y toda la tabla (DA1, DA2).
-- **R8** (no deseado). SI el conjunto tiene 0 filas, ENTONCES el botón debe
+- **R6** (estado). Con selección, «Aprobar seleccionadas (N)» aprueba las
+  seleccionadas **visibles**; sin selección y con filtros (también los de
+  matriz o calendario), «Aprobar visibles (N)» las visibles; sin nada,
+  «Aprobar todo (N)» toda la tabla. Quitar un filtro no vacía la selección.
+- **R7** (no deseado). SI el conjunto tiene 0 filas, ENTONCES el botón debe
   quedar deshabilitado con un `title` que diga por qué.
-- **R9** (evento). CUANDO un filtro de matriz (obra) o de calendario
-  (persona) está activo y no hay selección, el botón debe aprobar solo las
-  filas visibles; quitar el filtro no debe vaciar la selección.
-- **R10** (evento). CUANDO se aprueba desde el botón de cabecera, toda
-  petición a `/api/aprobar/preflight`, `/encolar` y `/ejecutar` (también
-  las repeticiones con `incluir_borradas` y con claves que pisar) debe
-  llevar `registro_ids` y `ambito`: obra `{vista:"obra", obra_key, period,
-  mode}`, persona `{vista:"trabajador", worker_key}`.
-- **R11** (ubicuo). El modal debe decir el alcance («N seleccionadas», «N
-  visibles (filtros activos)» o «todas (N)») sobre las M filas de la tabla.
-- **R12** (ubicuo). Los botones por línea deben aprobar solo su línea aunque
-  esté seleccionada, sin `ambito`, como hoy (DA9).
+- **R8** (evento). CUANDO se aprueba desde la cabecera, toda petición a
+  `/api/aprobar/preflight`, `/encolar` y `/ejecutar` debe llevar
+  `registro_ids` y `ambito` (obra `{vista:"obra", obra_key, period, mode}`,
+  persona `{vista:"trabajador", worker_key}`), también al repetir.
+- **R9** (ubicuo). Los botones por línea deben aprobar solo su línea aunque
+  esté seleccionada, sin `ambito`, como hoy.
 
 ## C · Validación en el servidor (sv4)
 
-- **R13** (evento). CUANDO llega `ambito`, sv4 debe resolver los ids de la
-  vista (obra: `registro_ids_de_obra(obra_key, period, mode)`; persona:
-  `registro_ids_de_trabajador(worker_key)`, las filas de su tabla) y seguir
-  solo con los `registro_ids` pedidos.
-- **R14** (no deseado). SI con `ambito` algún id no es de la vista,
-  ENTONCES 422 `{ok:false, error, fuera_de_ambito: n}` sin llamar a sv5, sin
-  publicar y sin marcar ninguna línea (DA7).
-- **R15** (no deseado). SI `ambito` trae `vista` desconocida o sin su clave,
-  o `registro_ids` está vacío o pasa de 5000 distintos, ENTONCES 422 sin
-  llamar a sv5 (DA11).
-- **R16** (ubicuo). Las exclusiones de F-024 (`registrado` siempre,
-  `borrado_sigrid` salvo `incluir_borradas`) deben aplicarse sin cambios y
-  `excluidas` debe contar solo líneas pedidas. Sin `ambito` (botón por
-  línea, JS antiguo con `obra_key`), sv4 debe seguir como hoy salvo §D.
+- **R10** (evento). CUANDO llega `ambito`, sv4 debe resolver los ids de la
+  vista (obra: `registro_ids_de_obra`; persona: `registro_ids_de_trabajador`,
+  las filas de su tabla) y seguir solo con los pedidos.
+- **R11** (no deseado). SI con `ambito` algún id no es de la vista, ENTONCES
+  422 `{ok:false, error, fuera_de_ambito: n}` sin llamar a sv5, publicar ni
+  marcar nada.
+- **R12** (no deseado). SI `ambito` trae `vista` desconocida o sin su clave,
+  o `registro_ids` está vacío o pasa de 5000, ENTONCES 422 sin llamar a sv5.
+- **R13** (ubicuo). Las exclusiones de F-024 (`registrado` siempre,
+  `borrado_sigrid` salvo `incluir_borradas`) no cambian y `excluidas` cuenta
+  solo lo pedido. Sin `ambito`, sv4 sigue como hoy salvo §D.
 
 ## D · Reparto por obra (sv4)
 
-- **R17** (ubicuo). sv4 debe agrupar las líneas que viajan por obra y
-  enviar a sv5 **una petición por grupo**, con la `obra` del grupo y solo
-  sus líneas; ninguna línea debe viajar con la obra de otro grupo. No se
-  agrupa por mes: sv5 ya reparte cada petición por mes natural (DA8).
-- **R18** (no deseado). SI hay más de `APROBACION_MAX_OBRAS` grupos (10),
-  ENTONCES 422 con el desglose por obra y sin llamar a sv5 (DA15).
-- **R19** (ubicuo). Preflight, encolar y ejecutar deben devolver
-  `grupos: [{clave, obra, registro_ids, …}]` en orden de clave, y los campos
-  planos de hoy agregados; con un solo grupo, los planos idénticos a hoy.
-- **R20** (no deseado). SI el preflight de un grupo falla, ENTONCES ese
-  grupo debe salir con `ok:false` y su `error` y los demás seguir; el plano
-  `ok` es `true` si algún grupo pudo evaluarse.
-- **R21** (ubicuo). El bloqueo por Sesame y los avisos de calendario deben
-  calcularse **por grupo**; ejecutar y encolar no deben enviar un grupo
-  bloqueado sin `forzar_sin_sesame` (lo dejan `bloqueado_sesame`, sin
-  tocar sus líneas); SI todos lo están, ENTONCES 422 con `sesame_bloqueo`
-  como hoy.
-- **R22** (ubicuo). Las claves que pisar deben ir como `<grupo>::<clave>` y
-  cada grupo recibir solo las suyas (la clave de sv5 no lleva obra); SI
-  llegan claves sin grupo con más de un grupo, ENTONCES 422.
-- **R23** (evento). CUANDO se encola, sv4 debe publicar una petición por
-  grupo no bloqueado y marcar `encolado` cada grupo tras publicarlo; la
-  respuesta debe traer `peticiones`, `registro_ids` (todos los encolados) y
-  por grupo `estado`, `peticion_id` y `error`.
-- **R24** (no deseado). SI publicar un grupo falla, ENTONCES ese grupo debe
-  quedar `error_cola` sin cambiar sus líneas y los demás seguir; SI fallan
-  todos, ENTONCES 502 sin ninguna línea marcada.
-- **R25** (evento). CUANDO se ejecuta en síncrono (pisar, override de
-  Sesame o sin colas), sv4 debe ejecutar los grupos uno a uno y trazar cada
-  uno con sus ids: un grupo con `ok:false` deja en `error` solo sus líneas
-  (F-002 R14). El plano `ok` es `true` solo si todos van bien, con
-  `parcial: true` si unos sí y otros no (DA16: no hay «todo o nada»).
+- **R14** (ubicuo). sv4 debe enviar a sv5 **una petición por grupo**, con la
+  `obra` del grupo y solo sus líneas; ninguna línea viaja con otra obra. No
+  se agrupa por mes (sv5 ya parte por mes natural).
+- **R15** (no deseado). SI hay más de `APROBACION_MAX_OBRAS` grupos (10),
+  ENTONCES 422 con el desglose por obra, sin llamar a sv5.
+- **R16** (ubicuo). Preflight, encolar y ejecutar deben devolver `grupos`
+  en orden de clave y los campos planos de hoy agregados; con un grupo, los
+  planos idénticos a hoy.
+- **R17** (no deseado). SI el preflight de un grupo falla, ENTONCES ese
+  grupo sale con `ok:false` y `error` y los demás siguen; el plano `ok` es
+  `true` si algún grupo pudo evaluarse.
+- **R18** (ubicuo). Bloqueo por Sesame y avisos de calendario deben ir **por
+  grupo**; un grupo bloqueado sin `forzar_sin_sesame` no se envía
+  (`bloqueado_sesame`, líneas intactas); SI lo están todos, ENTONCES 422 con
+  `sesame_bloqueo` como hoy.
+- **R19** (ubicuo). Las claves que pisar deben ir como `<grupo>::<clave>` y
+  cada grupo recibir solo las suyas; SI llegan sin grupo con más de uno,
+  ENTONCES 422.
+- **R20** (evento). CUANDO se encola, sv4 debe publicar una petición por
+  grupo no bloqueado y marcar `encolado` cada grupo tras publicarlo, y
+  responder `peticiones`, `registro_ids` y por grupo `estado`,
+  `peticion_id` y `error`.
+- **R21** (no deseado). SI publicar un grupo falla, ENTONCES queda
+  `error_cola` sin cambiar sus líneas y los demás siguen; SI fallan todos,
+  ENTONCES 502 sin marcas.
+- **R22** (evento). CUANDO se ejecuta en síncrono (pisar, override o sin
+  colas), los grupos van uno a uno y cada uno se traza con sus ids; uno con
+  `ok:false` deja en `error` solo sus líneas; plano `ok` solo si todos van
+  bien, con `parcial: true` si no (sin «todo o nada»).
 
-## E · Modal y resultado (navegador)
+## E · Listado en el modal (DA19)
 
-- **R26** (ubicuo). El modal de preflight debe mostrar una sección por obra
-  (líneas, partes, conflictos, avisos, bloqueo o error) y un total; los
-  grupos con error o bloqueados deben decir «no se registrará» y por qué.
-- **R27** (evento). CUANDO se confirma, deben ir por `ejecutar` los grupos
-  con claves marcadas o bloqueados con la casilla de Sesame, y por
-  `encolar` el resto evaluado; los grupos con error de preflight no se
-  envían.
-- **R28** (evento). CUANDO llega el resultado, el modal debe mostrarlo por
+- **R23** (ubicuo). El preflight debe devolver por grupo un `listado`
+  construido **en el servidor** con la respuesta de sv5 (no lo deduce el
+  navegador): una fila por línea pedida con `registro_id`, fecha,
+  trabajador, tipo (ordinaria/extra/incidencia), código de hora, horas que
+  se escribirán, partida, recurso, `estado` y `motivo`.
+- **R24** (ubicuo). `estado` debe ser `conflicto` si la línea está en algún
+  conflicto; `omitida` o `ya_registrada` según la acción de sv5 (con su
+  motivo); si se escribe, `nuevo` sin intento previo y `reaprobacion` si
+  venía de `borrado_sigrid`, `error`, `omitido`, `conflicto` o `encolado`
+  (motivo «antes: …»); `no_se_registra` con el error si el grupo falló.
+- **R25** (ubicuo). Cada grupo y el conjunto deben traer `totales`: líneas
+  por estado, horas ordinarias y extra e incidencias que se escribirán.
+- **R26** (ubicuo). El preflight debe devolver `excluidas_detalle` (fecha,
+  trabajador, obra, horas, motivo: ya registrada con su parte, o borrada en
+  Sigrid y cómo incluirla); el modal las lista aparte, junto a las M
+  marcadas ocultas que no se enviaron (dato del navegador).
+- **R27** (ubicuo). El modal debe mostrar el alcance («N seleccionadas»,
+  «N visibles», «todas (N)» de M), el total general y una sección por obra
+  con su resumen siempre visible, partes, conflictos, bloqueo o error, y su
+  tabla del listado ordenada por fecha y trabajador.
+- **R28** (estado). MIENTRAS el listado pase de 40 filas, las secciones
+  deben abrirse plegadas, con la tabla en un área con scroll y cabecera
+  fija; conflictos, errores y bloqueos deben verse sin desplegar.
+
+## F · Confirmación y resultado (navegador)
+
+- **R29** (evento). CUANDO se confirma, van por `ejecutar` los grupos con
+  claves marcadas o bloqueados con la casilla de Sesame, y por `encolar` el
+  resto evaluado; los grupos con error de preflight no se envían.
+- **R30** (evento). CUANDO llega el resultado, el modal debe mostrarlo por
   obra (síncrono) o sondear `POST /api/aprobar/estado` por grupo cada 3 s
-  hasta 120 s (F-024 R29), y listar las obras que quedaron sin registrar
-  con su motivo, más el total.
+  hasta 120 s (F-024 R29), y listar las obras sin registrar con su motivo.
 
-## F · Lo que cuenta y lo que cambia
+## G · Lo que cuenta, lo que cambia y no regresión
 
-- **R29** (ubicuo). Cada payload a sv5 debe llevar solo líneas pedidas que
-  pasan R16, y conflictos, avisos y bloqueo deben contar solo esas: un DNI
-  sin calendario fiable fuera de la selección no debe bloquear.
-- **R30** (evento). CUANDO se aprueba un subconjunto, solo esas líneas
-  deben cambiar de estado; el resto de la vista debe conservar exactos su
-  `sigrid_estado` y su `sigrid_motivo`.
-- **R31** (ubicuo). Cada payload a sv5 y a la cola debe conservar la forma
-  de hoy (`obra`, `lineas`, `pisar_claves`, `usuario`); ni `ambito` ni el
-  grupo salen de sv4. La idempotencia sigue siendo la `synckey` por línea.
-
-## G · No regresión
-
-- **R32** (ubicuo). Siguen en verde las suites de F-002, F-003, F-004,
-  F-017 y F-024 de sv4 (adaptando con nota escrita solo lo inventariado en
-  T1); no hay endpoints nuevos; `node --check` pasa y las dos plantillas
-  parsean en Jinja2.
+- **R31** (ubicuo). Cada payload a sv5 debe llevar solo líneas pedidas que
+  pasan R13, y conflictos, avisos y bloqueo deben contar solo esas.
+- **R32** (evento). CUANDO se aprueba un subconjunto, solo esas líneas
+  cambian de estado; el resto conserva `sigrid_estado` y `sigrid_motivo`.
+- **R33** (ubicuo). Cada payload a sv5 y a la cola conserva su forma
+  (`obra`, `lineas`, `pisar_claves`, `usuario`); ni `ambito`, ni grupo, ni
+  listado salen de sv4. La idempotencia sigue siendo la `synckey`.
+- **R34** (ubicuo). Siguen en verde las suites de F-002, F-003, F-004,
+  F-017 y F-024 de sv4 (adaptando con nota solo lo inventariado en T1); no
+  hay endpoints nuevos; `node --check` y Jinja2 pasan.
