@@ -67,24 +67,32 @@ Tests: `test_f024_rN_*`, sin red ni BBDD (dobles, `httpx` simulado, SQLite).
 - **R16** (ubicuo). El motivo del candado de una línea `registrado` debe
   explicar la vía nueva: borrarla en Sigrid, comprobar y reaprobar.
 
-## A3 · Cuándo se comprueba
+## A3 · Cuándo se comprueba (al entrar en la obra; DA1 revisada)
 
-- **R17** (evento). CUANDO se llama a `POST /api/sigrid/comprobar` con
-  `registro_ids`, sv4 debe comprobar solo las que están en `registrado`, en
-  lotes de `COMPROBACION_SIGRID_LOTE` (500), y responder `{ok, comprobadas,
-  borradas, actualizadas, sin_synckey, con_diferencias: [{registro_id,
-  diferencias}]}`. Sin sv5 configurado, 503; sin ids, 422.
-- **R18** (opcional). DONDE `COMPROBACION_SIGRID_INTERVALO_S` > 0 y sv5 esté
-  configurado, sv4 debe arrancar un hilo daemon que, 60 s después de
-  arrancar y luego cada intervalo (3600 por defecto), compruebe toda línea
-  `registrado` —activa o en papelera— con `fecha_int` ≥ el día 1 del mes
-  actual menos `COMPROBACION_SIGRID_MESES − 1` meses (3 por defecto).
-- **R19** (no deseado). SI una pasada falla, ENTONCES el hilo debe registrar
-  el error y seguir con la siguiente pasada a su hora.
-- **R20** (opcional). DONDE el intervalo sea 0 o falte sv5, el hilo no debe
-  arrancar y el arranque debe decirlo en el log.
-- **R21** (ubicuo). Cada pasada y cada comprobación manual deben dejar una
-  línea de log `[comprobacion-sigrid]` con origen y recuentos.
+- **R17** (evento). CUANDO se llama a `POST /api/sigrid/comprobar` con 1–5000
+  `registro_ids`, sv4 debe comprobar solo las que están en `registrado` y,
+  salvo `forzar: true`, no comprobadas ni en curso en los últimos
+  `COMPROBACION_SIGRID_TTL_S`; en lotes de `COMPROBACION_SIGRID_LOTE` (500)
+  y con `COMPROBACION_SIGRID_TIMEOUT_S` (30) por llamada a sv5. Respuesta:
+  `{ok, comprobadas, recientes, borradas, borradas_ids, actualizadas,
+  sin_synckey, con_diferencias: [{registro_id, diferencias}]}`. Sin sv5,
+  503; con 0 o más de 5000 ids, 422.
+- **R18** (evento). CUANDO se carga la vista de una obra —y la de una
+  persona (DA15)—, el navegador debe lanzar R17 **en segundo plano**, sin
+  `forzar`, con los ids de sus filas `registrado` (las del periodo que
+  muestra la vista); servir la vista (`GET`) no debe llamar a sv5.
+- **R19** (ubicuo). Un `registro_id` comprobado o en curso no debe volver a
+  enviarse a sv5 sin `forzar` hasta pasados `COMPROBACION_SIGRID_TTL_S`
+  (120 por defecto) en ese proceso, **también si su lote falló**; el
+  registro es seguro entre hilos y descarta entradas caducadas.
+- **R20** (evento). CUANDO la comprobación en segundo plano termina con
+  `borradas > 0`, la vista debe marcar esas filas «borrada en Sigrid» y
+  avisar con «Actualizar», sin recargar sola; SI falla o vence, ENTONCES
+  debe mostrar un aviso discreto junto al botón («no se pudo comprobar en
+  Sigrid; los estados son los guardados») y seguir usable (JS: manual).
+- **R21** (ubicuo). Cada comprobación debe dejar una línea de log
+  `[comprobacion-sigrid]` con origen (`vista-obra`, `vista-trabajador`,
+  `boton`) y recuentos.
 
 ## A4 · Aprobación y vistas (sv4)
 
@@ -102,9 +110,9 @@ Tests: `test_f024_rN_*`, sin red ni BBDD (dobles, `httpx` simulado, SQLite).
   `excluidas.borrado_sigrid > 0`, el modal debe decirlo y ofrecer una
   casilla que repita el preflight incluyéndolas (JS: verificación manual).
 - **R26** (opcional). DONDE el registro esté configurado, las vistas de obra
-  y de trabajador deben ofrecer «Comprobar en Sigrid» sobre todas sus
-  líneas `registrado`, y cada fila de líneas debe llevar
-  `data-sigrid-estado`.
+  y de trabajador deben ofrecer «Comprobar en Sigrid» (R17 con `forzar:
+  true`) sobre todas sus líneas `registrado`, y cada fila de líneas debe
+  llevar `data-sigrid-estado`.
 
 ## B · Estado «encolado»
 
@@ -125,9 +133,10 @@ Tests: `test_f024_rN_*`, sin red ni BBDD (dobles, `httpx` simulado, SQLite).
 
 ## C · Las 35 líneas de septiembre
 
-- **R31** (evento). CUANDO, desplegados sv5 y sv4, corra la primera pasada
-  de R18, las 35 líneas de PT26/00314 (explore §4.1) deben quedar en
-  `borrado_sigrid`. Verificación: MANUAL (humano), design §9.
+- **R31** (evento). CUANDO, desplegados sv5 y sv4, se abra la obra 0719 en
+  el periodo que contiene el 16–28/09/2026 (R18) o se pulse allí
+  «Comprobar en Sigrid», las 35 líneas de PT26/00314 (explore §4.1) deben
+  quedar en `borrado_sigrid`. Verificación: MANUAL (humano), design §9.
 
 ## No regresión
 
