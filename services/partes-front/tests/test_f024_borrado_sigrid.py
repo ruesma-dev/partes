@@ -315,3 +315,207 @@ def test_f024_r28_repo_recuento_sin_ids() -> None:
     repo, _f, _ids = _montar(["encolado"])
     assert repo.recuento_estados([]) == {"total": 0, "pendientes": 0,
                                          "estados": {}}
+
+
+
+# ===================================================================== #
+# T10 · payload de registro: excluidas (R22), 422 sin lineas (R23) y
+# `registro_ids` al encolar (R27)
+# ===================================================================== #
+
+from config.settings import Settings  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from interface_adapters.web.app import build_app  # noqa: E402
+
+
+class PublisherFalso:
+    def __init__(self) -> None:
+        self.publicadas: list[tuple[dict, str | None]] = []
+
+    def publicar(self, payload: dict, usuario: str | None = None) -> str:
+        self.publicadas.append((payload, usuario))
+        return f"peticion-{len(self.publicadas)}"
+
+
+class Sv5RegistroFalso:
+    def __init__(self) -> None:
+        self.preflights: list[dict] = []
+        self.ejecutadas: list[dict] = []
+        self.comprobaciones: list[dict] = []
+
+    def preflight(self, payload: dict) -> dict:
+        self.preflights.append(payload)
+        return {"ok": True, "conflictos": []}
+
+    def ejecutar(self, payload: dict) -> dict:
+        self.ejecutadas.append(payload)
+        return {"ok": True, "escritas": [], "omitidas": [],
+                "ya_registradas": []}
+
+    def comprobar(self, payload: dict, *, timeout_s: float) -> dict:
+        self.comprobaciones.append(payload)
+        return {"ok": True, "veredictos": []}
+
+
+@pytest.fixture
+def portal(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana",
+                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+        monkeypatch.setenv(clave, valor)
+
+    def _levantar(estados, *, con_publisher=True):
+        repo, fabrica, ids = _montar(estados)
+        sv5 = Sv5RegistroFalso()
+        publisher = PublisherFalso() if con_publisher else None
+        app = build_app(Settings(_env_file=None), repository=repo,
+                        transfer_client=sv5, publisher=publisher)
+        return TestClient(app), fabrica, ids, sv5, publisher
+    return _levantar
+
+
+ESTADOS_MEZCLA = ["registrado", ESTADO_BORRADO_SIGRID, None, " Registrado ",
+                  "encolado", "omitido", "error", "conflicto"]
+
+
+def test_f024_r22_payload_repo_excluye_registrado_y_borrado_sigrid() -> None:
+    repo, _f, ids = _montar(ESTADOS_MEZCLA)
+    datos = repo.lineas_para_registro(ids)
+    assert [l["registro_id"] for l in datos["lineas"]] == ids[2:3] + ids[4:]
+    assert datos["excluidas"] == {"registrado": 2, "borrado_sigrid": 1}
+    assert datos["obra"] == {"ide": 10, "codigo": "0100",
+                             "nombre": "Obra Uno"}
+
+
+def test_f024_r22_payload_repo_incluir_borradas() -> None:
+    repo, _f, ids = _montar(ESTADOS_MEZCLA)
+    datos = repo.lineas_para_registro(ids, incluir_borradas=True)
+    assert [l["registro_id"] for l in datos["lineas"]] == (
+        ids[1:3] + ids[4:])
+    assert datos["excluidas"] == {"registrado": 2, "borrado_sigrid": 0}
+
+
+def test_f024_r22_payload_repo_sin_ids() -> None:
+    repo, _f, _ids = _montar([None])
+    assert repo.lineas_para_registro([]) == {
+        "obra": {}, "lineas": [],
+        "excluidas": {"registrado": 0, "borrado_sigrid": 0}}
+
+
+def test_f024_r22_payload_repo_la_obra_sale_de_las_lineas_que_viajan() -> None:
+    repo, fabrica, ids = _montar(["registrado", None])
+    _poner(fabrica, ids[0], obra_ide=99, obra_codigo="0999",
+           obra_nombre="Otra")
+    assert repo.lineas_para_registro(ids)["obra"]["ide"] == 10
+
+
+def test_f024_r22_payload_preflight_devuelve_excluidas(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal(["registrado", ESTADO_BORRADO_SIGRID,
+                                        None])
+    r = cliente.post("/api/aprobar/preflight", json={"registro_ids": ids})
+    assert r.status_code == 200
+    assert r.json()["excluidas"] == {"registrado": 1, "borrado_sigrid": 1}
+    assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == [ids[2]]
+    assert "excluidas" not in sv5.preflights[0]
+
+
+def test_f024_r22_payload_preflight_incluir_borradas(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal(["registrado", ESTADO_BORRADO_SIGRID])
+    r = cliente.post("/api/aprobar/preflight",
+                     json={"registro_ids": ids, "incluir_borradas": True})
+    assert r.status_code == 200
+    assert r.json()["excluidas"] == {"registrado": 1, "borrado_sigrid": 0}
+    assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == [ids[1]]
+
+
+def test_f024_r27_payload_encolar_devuelve_registro_ids(portal) -> None:
+    cliente, fabrica, ids, sv5, publisher = portal(
+        [None, "registrado", ESTADO_BORRADO_SIGRID, "error"])
+    r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["modo"] == "asincrono"
+    assert cuerpo["registro_ids"] == [ids[0], ids[3]]
+    assert cuerpo["encoladas"] == 2
+    assert cuerpo["excluidas"] == {"registrado": 1, "borrado_sigrid": 1}
+    payload, _u = publisher.publicadas[0]
+    assert [l["registro_id"] for l in payload["lineas"]] == [ids[0], ids[3]]
+    assert set(payload) == {"obra", "lineas", "pisar_claves", "usuario"}
+    estados = estados_sigrid(fabrica, ids)
+    assert [estados[i][0] for i in ids] == [
+        "encolado", "registrado", ESTADO_BORRADO_SIGRID, "encolado"]
+
+
+def test_f024_r22_payload_encolar_reaprobar_una_borrada(portal) -> None:
+    cliente, fabrica, ids, _sv5, publisher = portal([ESTADO_BORRADO_SIGRID])
+    r = cliente.post("/api/aprobar/encolar",
+                     json={"registro_ids": ids, "incluir_borradas": True})
+    assert r.status_code == 200
+    assert r.json()["registro_ids"] == ids
+    assert estados_sigrid(fabrica, ids)[ids[0]][0] == "encolado"
+
+
+def test_f024_r22_payload_encolar_sincrono_devuelve_excluidas(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal([None, "registrado"],
+                                       con_publisher=False)
+    r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
+    assert r.status_code == 200
+    assert r.json()["modo"] == "sincrono"
+    assert r.json()["excluidas"] == {"registrado": 1, "borrado_sigrid": 0}
+    assert [l["registro_id"] for l in sv5.ejecutadas[0]["lineas"]] == [ids[0]]
+
+
+def test_f024_r22_payload_ejecutar_devuelve_excluidas(portal) -> None:
+    cliente, _f, ids, sv5, _p = portal([None, "registrado"])
+    r = cliente.post("/api/aprobar/ejecutar",
+                     json={"registro_ids": ids, "pisar_claves": ["k"]})
+    assert r.status_code == 200
+    assert r.json()["excluidas"] == {"registrado": 1, "borrado_sigrid": 0}
+    assert [l["registro_id"] for l in sv5.ejecutadas[0]["lineas"]] == [ids[0]]
+    assert sv5.ejecutadas[0]["pisar_claves"] == ["k"]
+
+
+def test_f024_r22_payload_aprobar_todo_de_la_obra_excluye_registrado(
+        portal) -> None:
+    cliente, _f, ids, sv5, _p = portal([None, "registrado"])
+    r = cliente.post("/api/aprobar/preflight",
+                     json={"obra_key": "obr-10", "period": "2026-03",
+                           "mode": "natural"})
+    assert r.status_code == 200
+    assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == [ids[0]]
+    assert r.json()["excluidas"]["registrado"] == 1
+
+
+@pytest.mark.parametrize("ruta", ["/api/aprobar/preflight",
+                                  "/api/aprobar/encolar",
+                                  "/api/aprobar/ejecutar"])
+def test_f024_r23_payload_todo_excluido_es_422_con_el_motivo(portal,
+                                                             ruta) -> None:
+    cliente, _f, ids, sv5, publisher = portal(
+        ["registrado", "registrado", ESTADO_BORRADO_SIGRID])
+    r = cliente.post(ruta, json={"registro_ids": ids})
+    assert r.status_code == 422
+    cuerpo = r.json()
+    assert cuerpo["ok"] is False
+    assert cuerpo["excluidas"] == {"registrado": 2, "borrado_sigrid": 1}
+    assert "2 ya registrada(s) en Sigrid" in cuerpo["error"]
+    assert "1 borrada(s) en Sigrid" in cuerpo["error"]
+    assert "Reaprobar" in cuerpo["error"]
+    assert sv5.preflights == [] and sv5.ejecutadas == []
+    assert publisher.publicadas == []
+
+
+def test_f024_r23_payload_solo_registradas_no_habla_de_borradas(portal) -> None:
+    cliente, _f, ids, _sv5, _p = portal(["registrado"])
+    error = cliente.post("/api/aprobar/preflight",
+                         json={"registro_ids": ids}).json()["error"]
+    assert "1 ya registrada(s) en Sigrid" in error
+    assert "borrada" not in error
+
+
+def test_f024_r23_payload_sin_lineas_activas_mantiene_su_mensaje(portal) -> None:
+    cliente, *_ = portal([None])
+    r = cliente.post("/api/aprobar/preflight", json={"registro_ids": [999999]})
+    assert r.status_code == 422
+    assert r.json()["error"] == "no hay lineas activas que registrar"

@@ -1262,11 +1262,21 @@ class ParteReviewRepository:
     # escritura la hace partes-transfer (sv5).
     # ------------------------------------------------------------------ #
 
-    def lineas_para_registro(self, registro_ids: list[int]) -> dict[str, Any]:
-        """Payload para sv5: obra + lineas de esos registros (activos)."""
+    def lineas_para_registro(
+        self, registro_ids: list[int], *, incluir_borradas: bool = False,
+    ) -> dict[str, Any]:
+        """Payload para sv5: obra + lineas de esos registros (activos).
+
+        F-024 (R22, DA7): nunca viajan las lineas `registrado` (reenviarlas
+        reescribiria en Sigrid lo que Administracion borro a proposito) y,
+        salvo `incluir_borradas`, tampoco las `borrado_sigrid`. `excluidas`
+        cuenta las que se quedaron fuera y por que. `encolado` SI viaja
+        (DA8): es la salida de un atasco.
+        """
         ids = sorted({int(i) for i in registro_ids if i})
+        excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
         if not ids:
-            return {"obra": {}, "lineas": []}
+            return {"obra": {}, "lineas": [], "excluidas": excluidas}
         with self._session_factory.create_session() as session:
             regs = list(session.execute(
                 select(ParteRegistroOrm)
@@ -1276,6 +1286,12 @@ class ParteReviewRepository:
             lineas: list[dict[str, Any]] = []
             obra: dict[str, Any] = {}
             for r in regs:
+                estado = _estado_norm(r.sigrid_estado)
+                if estado == ESTADO_REGISTRADO or (
+                        estado == ESTADO_BORRADO_SIGRID
+                        and not incluir_borradas):
+                    excluidas[estado] += 1
+                    continue
                 if not obra and (r.obra_ide or r.obra_codigo):
                     obra = {"ide": r.obra_ide, "codigo": r.obra_codigo,
                             "nombre": r.obra_nombre}
@@ -1304,7 +1320,7 @@ class ParteReviewRepository:
             if roles:
                 logger.info("[registro-payload] roles de incidencia: %s",
                             roles)
-        return {"obra": obra, "lineas": lineas}
+        return {"obra": obra, "lineas": lineas, "excluidas": excluidas}
 
     @staticmethod
     def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:

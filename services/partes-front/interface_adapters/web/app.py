@@ -1751,12 +1751,18 @@ def build_app(
     # APROBAR -> registrar en Sigrid (delegado en partes-transfer, sv5)
     # ------------------------------------------------------------------ #
 
-    def _payload_registro(body: dict, *,
-                          actor: str | None) -> dict | JSONResponse:
+    def _payload_registro(
+        body: dict, *, actor: str | None,
+    ) -> tuple[dict, dict] | JSONResponse:
         """Construye el payload de sv5 desde los ids (o desde la obra).
 
         `actor` viene por parametro y no se resuelve aqui: la identidad se
         lee en UN solo sitio (R10). Sus dos llamadores ya tienen `request`.
+
+        F-024 (R22, R23): devuelve `(payload, excluidas)`. Las lineas
+        `registrado` no viajan nunca y las `borrado_sigrid` solo con
+        `incluir_borradas`; `excluidas` NO va en el payload de sv5, va en
+        la respuesta al navegador.
         """
         ids = [int(i) for i in (body.get("registro_ids") or []) if i]
         if not ids:
@@ -1768,17 +1774,34 @@ def build_app(
             ids = repository.registro_ids_de_obra(
                 obra_key, period_key=body.get("period"),
                 mode=(body.get("mode") or "nomina"))
-        datos = repository.lineas_para_registro(ids)
+        datos = repository.lineas_para_registro(
+            ids, incluir_borradas=bool(body.get("incluir_borradas")))
+        excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
-                {"ok": False, "error": "no hay lineas activas que registrar"},
+                {"ok": False, "error": _motivo_sin_lineas(excluidas),
+                 "excluidas": excluidas},
                 status_code=422)
         return {
             "obra": datos["obra"],
             "lineas": datos["lineas"],
             "pisar_claves": [str(k) for k in (body.get("pisar_claves") or [])],
             "usuario": actor,
-        }
+        }, excluidas
+
+    def _motivo_sin_lineas(excluidas: dict) -> str:
+        """R23: por que no queda nada que registrar."""
+        partes = []
+        if excluidas.get("registrado"):
+            partes.append(f"{excluidas['registrado']} ya registrada(s) en "
+                          "Sigrid (no se reenvian)")
+        if excluidas.get("borrado_sigrid"):
+            partes.append(f"{excluidas['borrado_sigrid']} borrada(s) en "
+                          "Sigrid (para reenviarlas, marca «Incluir las "
+                          "borradas en Sigrid» o usa «Reaprobar»)")
+        if not partes:
+            return "no hay lineas activas que registrar"
+        return "no hay lineas que registrar: " + " y ".join(partes)
 
     def _fecha_de_linea(linea: dict) -> date | None:
         """La fecha de una linea del payload, que viaja como YYYYMMDD."""
@@ -1850,11 +1873,13 @@ def build_app(
                 {"ok": False, "error": "registro en Sigrid no configurado "
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
-        payload = _payload_registro(await request.json(),
-                                    actor=_actor(request))
-        if isinstance(payload, JSONResponse):
-            return payload
+        preparado = _payload_registro(await request.json(),
+                                      actor=_actor(request))
+        if isinstance(preparado, JSONResponse):
+            return preparado
+        payload, excluidas = preparado
         resultado = dict(transfer_client.preflight(payload))
+        resultado["excluidas"] = excluidas
         resultado["avisos_calendario"] = _avisos_calendario(payload["lineas"])
         # R23: el preflight se sirve igual (el humano tiene que poder ver
         # que se iba a registrar), pero con el motivo del bloqueo dentro.
@@ -1887,9 +1912,10 @@ def build_app(
                 status_code=503)
         body = await request.json()
         actor = _actor(request)
-        payload = _payload_registro(body, actor=actor)
-        if isinstance(payload, JSONResponse):
-            return payload
+        preparado = _payload_registro(body, actor=actor)
+        if isinstance(preparado, JSONResponse):
+            return preparado
+        payload, excluidas = preparado
         # R24: la guarda la impone el SERVIDOR, no el modal. Una peticion
         # a pelo, sin pasar por el preflight, se para igual.
         forzar = bool(body.get("forzar_sin_sesame"))
@@ -1915,7 +1941,7 @@ def build_app(
             )
         _trazar(resultado, [l["registro_id"] for l in payload["lineas"]],
                 actor=actor, sin_sesame=degradado and forzar)
-        return JSONResponse(resultado)
+        return JSONResponse(dict(resultado, excluidas=excluidas))
 
     @app.post("/api/aprobar/encolar", include_in_schema=False)
     async def aprobar_encolar(request: Request) -> JSONResponse:
@@ -1943,9 +1969,10 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         actor = _actor(request)
-        payload = _payload_registro(body, actor=actor)
-        if isinstance(payload, JSONResponse):
-            return payload
+        preparado = _payload_registro(body, actor=actor)
+        if isinstance(preparado, JSONResponse):
+            return preparado
+        payload, excluidas = preparado
         # R24/R25: igual que `pisar_claves`, el override de Sesame es una
         # decision humana consciente y NO puede viajar por una cola con
         # reentregas; sin override, el lote degradado se para aqui.
@@ -1962,7 +1989,8 @@ def build_app(
         if publisher is None:
             resultado = transfer_client.ejecutar(payload)     # R3
             _trazar(resultado, ids, actor=actor)
-            return JSONResponse(dict(resultado, modo="sincrono"))
+            return JSONResponse(dict(resultado, modo="sincrono",
+                                     excluidas=excluidas))
 
         # Primero se publica y luego se marca: al reves, un fallo al
         # publicar dejaria lineas en 'encolado' sin nada que las recoja.
@@ -1973,9 +2001,12 @@ def build_app(
             logger.warning("[transfer-cola] peticion %s encolada pero no se "
                            "pudo marcar 'encolado'; el resultado las marcara",
                            peticion_id, exc_info=True)
+        # F-024 (R27): los ids encolados, para que el modal sondee su
+        # estado (R29) en vez de recargar antes de que llegue el resultado.
         return JSONResponse({"ok": True, "modo": "asincrono",
                              "peticion_id": peticion_id,
-                             "encoladas": len(ids)})
+                             "encoladas": len(ids), "registro_ids": ids,
+                             "excluidas": excluidas})
 
     # ------------------------------------------------------------------ #
     # COLAS 'poison': visibilidad y reencolado manual desde el portal.
