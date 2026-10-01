@@ -27,11 +27,41 @@ Pendiente del reviewer.
 3. **Despliegue** (lo pide el humano): orden **sv5 → sv2 → sv3 → sv4**
    (`redeploy_partes.ps1 -Solo svN`). Al arrancar sv3/sv4 el DDL
    complementario pasa de 137 a 140 sentencias (log de arranque).
-4. **M2 · tras sv5**: aprobar un parte de una obra de la empresa 28 y
-   comprobar en Sigrid que su cabecera tiene `con.emp = 28` y el `PT`
-   siguiente de la 28.
-5. **M3 · tras sv3**: `POST /admin/reconciliar-recursos`; el caso guía
-   (MO/0239) queda con el recurso de alta de su empresa.
+4. **M2 · tras sv5** (lecturas por `POST /api/sql/read` de sigrid-api,
+   base `ruesma`; `<OBRA_IDE>`, `<AAAA>`, `<MM>` = obra de la empresa 28 y
+   mes del parte aprobado; `$KEY` = function key que el humano saca del Key
+   Vault, nunca escrita en ningún fichero). Antes de aprobar, apuntar el
+   `PT` máximo de cada empresa con la 2.ª consulta (con `28` y con `1`):
+   ```powershell
+   $q = @{ database = 'ruesma'; max_rows = 10; parameters = @(<OBRA_IDE>, <AAAA>, <MM>);
+     sql = 'SELECT con.ide, con.cod, con.emp, con.tip FROM hmo JOIN con ON con.ide = hmo.ide WHERE hmo.obride = ? AND hmo.ano = ? AND hmo.mes = ? AND ISNULL(hmo.reside, 0) = 0 AND con.tip = 35' } | ConvertTo-Json
+   Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
+   $pt = @{ database = 'ruesma'; max_rows = 1; parameters = @('PT26/%', 28);
+     sql = 'SELECT MAX(cod) AS maxcod FROM con WHERE cod LIKE ? AND emp = ?' } | ConvertTo-Json
+   Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $pt
+   ```
+   **Esperado**: la 1.ª devuelve UNA fila con `emp = 28` y `tip = 35`; si
+   la cabecera la creó sv5, su `cod` es el máximo de la 28 anterior + 1 (la
+   2.ª consulta con `28` lo devuelve) y el máximo de la empresa `1` no ha
+   cambiado. `truncated` = false.
+5. **M3 · tras sv3** (lo lanza el humano): `POST
+   <url-de-sv3>/admin/reconciliar-recursos` → `{"ok": true, …,
+   "partes_sin_recurso": N}`. Después, en la base `partes` (solo lectura;
+   `:dni` = DNI del caso guía, que el humano escribe en la consola y no se
+   apunta en ningún fichero):
+   ```sql
+   SELECT r.recurso_ide, r.parte_estado, (d.approved OR r.sigrid_estado IN ('encolado','registrado')) AS congelada, count(*)
+   FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+   WHERE d.is_active AND r.deleted_at_utc IS NULL
+     AND upper(replace(replace(r.empleado_dni,'-',''),' ','')) = upper(:dni)
+   GROUP BY 1, 2, 3 ORDER BY 3, 1;
+   ```
+   y, con los `recurso_ide` que salgan, en Sigrid: `SELECT res.ide, rc.emp,
+   rc.fecbaj FROM res JOIN con rc ON rc.ide = res.ide WHERE res.ide IN
+   (<ides>)`. **Esperado**: las filas NO congeladas tienen un único
+   `recurso_ide`, de `emp = 1` con `fecbaj` 0 (no el dado de baja en 2021),
+   y `parte_estado` `ok` o `sin_parte`; las congeladas conservan el que
+   tenían.
 6. **M4**: el código `0404` (modo pruebas) existe en una sola empresa
    (`SELECT con.emp FROM obr JOIN con ON con.ide = obr.ide WHERE con.cod = '0404'`).
 7. **T17 · navegador (sv4, Ctrl+F5)**: los combos de obra y trabajador
