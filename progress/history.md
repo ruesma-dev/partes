@@ -523,3 +523,23 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   anteriores (lo pide R14); en la vista de persona con muchos lotes el
   navegador puede cortar a los 90 s y decir «no se pudo» aunque sv4 termine.
 - Pendiente del humano: despliegue sv5 → sv4 y M1–M5 (ver `current.md`).
+
+## F-021 · Cuenta analítica en las líneas que sv5 registra en Sigrid — done 2026-10-01
+
+- Rama `feature/F-021-cuenta-analitica-sigrid` · rigor critico · sdd=true ·
+  APPROVED del reviewer (`progress/review_F-021.md`).
+- Origen: correo de Juan Romero «RV: CAPTURAS» («no arrastra cuenta
+  analítica del recurso»). Exploración (`progress/explore_F-021_sigrid.md`):
+  la cuenta del recurso es `reshor.caaide` (plantilla del centro `00000`);
+  la línea manual lleva la cuenta del centro de su obra con esa subcuenta
+  (99,64 % en la empresa 1); Porsan no usa cuenta en horas.
+- Entregado: sv5 resuelve la subcuenta del tipo escrito (o del tipo por
+  defecto) y escribe en `hmores.caaide` la cuenta del centro de la obra;
+  sin cuenta ⇒ 0 y aviso, sin bloquear; fallo al leer cuentas ⇒ la petición
+  falla sin escribir nada; sv4 avisa en el modal del preflight de las líneas
+  sin cuenta. Sin reescritura de lo ya registrado.
+- Verificado: init.sh en verde (sv5 269, sv4 1.230, raíz 419), cobertura
+  100 % de 75 líneas, mutación completa 33/33 muertos.
+- Observación O1: el docstring de `_resolver_cuentas` afirma un reintento de
+  cola que no existe.
+- Pendiente del humano: despliegue sv5 → sv4 y M1–M4 (ver `current.md`).

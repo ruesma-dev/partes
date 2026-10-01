@@ -170,6 +170,18 @@ registro**:
      el histórico del trabajador hacia atrás Y hacia delante, saltando
      días vacíos y cruzando partes/obras. Sigrid pinta el tramo completo
      en su vista calendario a partir del par inicio/fin.
+   - 3b. **Cuenta analítica** (F-021): de la ficha del recurso sale la
+     **subcuenta** (lo que va tras el primer punto de la cuenta de
+     `reshor.caaide` para el tipo de hora escrito; si ese tipo no tiene,
+     la de su tipo por defecto `res.horide`, que es lo que llevan las
+     incidencias). En `hmores.caaide` se escribe la cuenta del **centro
+     de la obra destino** (y de su empresa) con esa subcuenta, leída de
+     `caa`/`con` en UNA consulta por petición. Si el recurso no tiene
+     subcuenta (p. ej. toda la empresa 28), o la obra no tiene esa cuenta
+     o tiene varias, la línea se escribe con `caaide = 0`; en los dos
+     últimos casos el modal del preflight lo avisa. Si la lectura de
+     cuentas falla, la petición entera falla (no se escribe nada). Ni la
+     partida, ni `res.caaide`, ni `auxhor.caacod` intervienen.
 4. **Parte mensual**: busca el `hmo` de la obra+mes; si no existe crea
    cabecera `con`+`hmo` con código `PT<AA>/NNNNN` correlativo.
 5. **Líneas** `hmores` con `ide = MAX(ide)+1` bajo `UPDLOCK` (por eso

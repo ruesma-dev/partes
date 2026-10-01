@@ -178,7 +178,7 @@ class SigridFake:
     def __init__(self, *, obras=None, horas=None, partes=None, lineas=None,
                  latencia_lectura: float = 0.0,
                  latencia_escritura: float = 0.0,
-                 recursos=None, por_dni=None) -> None:
+                 recursos=None, por_dni=None, cuentas=None) -> None:
         from domain.models.registro_models import ObraEntrada, ParteDestino
 
         self._ObraEntrada = ObraEntrada
@@ -193,6 +193,14 @@ class SigridFake:
         self.por_dni = por_dni or {}
         #: Resides pedidos en cada llamada a `datos_recursos`.
         self.recursos_leidos: list[list[int]] = []
+        #: F-021: cuentas analiticas de Sigrid como `(cenide, emp, caaide,
+        #: cod)`; `cuentas_de_centro` filtra como el SQL real.
+        self.cuentas: list[tuple] = list(cuentas or [])
+        #: F-021: cada llamada a `cuentas_de_centro`, con lo pedido y si
+        #: corrio con el lock de escritura tomado (debe ser que no).
+        self.cuentas_leidas: list[dict] = []
+        #: F-021 (R11): excepcion que lanzara `cuentas_de_centro`.
+        self.fallo_cuentas: Exception | None = None
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -280,6 +288,23 @@ class SigridFake:
         finally:
             self._salir("horas_de_recursos")
 
+    def cuentas_de_centro(self, cenide, empresa, subcuentas):
+        """F-021 (R10-R11): como el cliente real, agrupado por subcuenta."""
+        from application.services.cuenta_analitica import indexar_cuentas, subcuenta
+
+        self._lectura("cuentas_de_centro")
+        subs = sorted({s for s in subcuentas if s})
+        self.cuentas_leidas.append({
+            "cenide": cenide, "empresa": empresa, "subcuentas": subs,
+            "bajo_lock": bool(self._verificador_lock is not None
+                              and self._verificador_lock.locked())})
+        if self.fallo_cuentas is not None:
+            raise self.fallo_cuentas
+        return indexar_cuentas(
+            (ide, cod) for cen, emp, ide, cod in self.cuentas
+            if cen == int(cenide) and emp == int(empresa)
+            and subcuenta(cod) in subs)
+
     # -- estado escrito (fase registrar, bajo lock) -----------------------
     def _comprobar_lock(self, nombre: str) -> None:
         if self._verificador_lock is not None \
@@ -364,13 +389,14 @@ class SigridFake:
 
     def stmt_insert_linea(self, *, hmoide, obra, reside, pos, fecha_int,
                           horide, can, pre, paride, ano, mes, synckey,
-                          tex) -> dict:
+                          tex, caaide) -> dict:
+        # F-021: `caaide` obligatorio, igual que en el cliente real (DA9).
         return {"op": "insert", "hmoide": int(hmoide), "reside": int(reside),
                 "pos": int(pos), "fec": int(fecha_int), "horide": int(horide),
                 "can": float(can), "pre": float(pre),
                 "tot": round(float(can) * float(pre), 2),
                 "paride": int(paride or 0), "ano": int(ano), "mes": int(mes),
-                "synckey": synckey, "tex": tex}
+                "synckey": synckey, "tex": tex, "caaide": int(caaide)}
 
     @staticmethod
     def stmt_borrar_linea(ide: int) -> dict:

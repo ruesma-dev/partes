@@ -2789,7 +2789,28 @@ var MotivoHttp = (function () {
       + "<ul class='ap-list'>" + partes + "</ul>"
       + "<p>Se registraran <strong>" + (r.escribir || 0) + "</strong> linea(s)."
       + (r.ya_registrado ? " Ya registradas: " + r.ya_registrado + "." : "")
-      + "</p>" + omHtml;
+      + "</p>" + omHtml + avisosCuentaHtml(pf.acciones);
+  }
+
+  /* F-021 (R19-R20): lineas que se escribiran SIN cuenta analitica porque
+     la obra no tiene la del recurso (o tiene varias). Informativo: no
+     cambia botones ni lo que se registra. Sin avisos (o con un sv5
+     anterior a F-021, que no manda `caa_aviso`) no pinta nada. */
+  function avisosCuentaHtml(acciones) {
+    var conAviso = (acciones || []).filter(function (a) {
+      return a.accion === "escribir" && a.caa_aviso;
+    });
+    if (!conAviso.length) return "";
+    return "<div class='ap-ctx ap-cuenta-avisos'><p><strong>"
+      + conAviso.length + "</strong> linea(s) se registraran <strong>sin "
+      + "cuenta analitica</strong>; se puede completar despues en "
+      + "Sigrid:</p><ul class='ap-list'>"
+      + conAviso.map(function (a) {
+          return "<li>" + esc(a.nombre || "?") + " · "
+            + esc(fechaLegible(a.fecha_int)) + " — " + esc(a.caa_aviso)
+            + "</li>";
+        }).join("")
+      + "</ul></div>";
   }
 
   /* R18: horas imputadas en festivo o domingo. Informativo: no cambia

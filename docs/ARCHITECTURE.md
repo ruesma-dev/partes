@@ -189,6 +189,14 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (`emp.reside` solo desempata). Nada se elige al azar. sv5 firma la
     cabecera con la empresa de la obra y verifica cada recurso. Los
     listados de Sigrid se paginan y `truncated: true` es error.
+13. **Cuenta analítica de la línea (F-021, sv5)**: `hmores.caaide` = la
+    cuenta `caa` del **centro de la obra destino** (`obr.cenide`, su
+    empresa) cuya subcuenta (texto tras el primer punto de `con.cod`) es
+    la de la ficha del recurso: `reshor.caaide` del tipo de hora escrito o,
+    si no tiene, del tipo por defecto (`res.horide`). Nunca `res.caaide`,
+    la partida ni `auxhor.caacod`. Sin subcuenta, sin esa cuenta en la obra
+    o con varias: `caaide = 0` y la línea se escribe igual (aviso en el
+    preflight solo en los dos últimos). Una lectura de `caa` por petición.
 
 ## Acceso a datos y sistemas externos
 
