@@ -1,7 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-023 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
+## F-023 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
+
+Mergeada a `dev` (`27fc03c`) y desplegada a petición del humano, que decidió
+desplegar sin esperar a M1 ni M5. Orden de la spec: sv5 primero
+(`ca-sv5-transfer--r20261001083016`) y luego sv2 → sv3 → sv4
+(`…--r20261001083313`). Arranques comprobados en Log Analytics: sv5 Uvicorn
+8005; sv2 catálogo auxhor CABLEADO; sv3 «140 sentencias complementarias»,
+Sigrid «todas las empresas», alias del membrete 1 y 28; sv4 «140 sentencias»,
+transfer y sigrid-lookup CABLEADOS, Uvicorn 8014; portal responde 302 (Easy
+Auth). Hechas por el líder (solo lectura, sigrid-api, base `ruesma`):
+**M4 OK** (`0404` solo en la empresa 1) y **línea base de M2**: `PT26` máximo
+`00338` en la empresa 1 y `00121` en la 28 antes de cualquier aprobación con
+el código nuevo. T17 no se pudo hacer: extensión de Chrome sin conectar.
+
 
 APPROVED del reviewer en la pasada 2 (`progress/review_F-023.md`); resumen en
 `progress/history.md`. Rama `feature/F-023-recurso-alta-empresa`, sin mergear
