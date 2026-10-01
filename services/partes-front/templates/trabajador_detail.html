@@ -28,6 +28,9 @@
             title="Registrar en Sigrid las lineas visibles de la tabla (respeta los filtros)">
       ✓ Aprobar visibles
     </button>
+    <button type="button" class="btn secondary" id="comprobar-sigrid" data-origen="vista-trabajador"
+            title="Comprobar en Sigrid si siguen alli las lineas registradas de esta vista">Comprobar en Sigrid</button>
+    <span class="comprobar-sigrid-nota muted small" id="comprobar-sigrid-nota"></span>
     {% endif %}
     <a class="btn secondary" href="/trabajadores">← Trabajadores</a>
     <button type="button" class="btn danger" data-del-worker="{{ worker_key }}"
@@ -151,6 +154,10 @@
 </div>
 {% endif %}
 
+{% if borradas_sigrid %}
+<div class="alert warn borradas-sigrid-aviso">⚠ <strong>{{ borradas_sigrid }}</strong> linea(s) de esta vista ya no estan en Sigrid (se borraron alli). Corrigelas si hace falta y vuelve a registrarlas con «Reaprobar»; las aprobaciones masivas no las reenvian salvo que lo marques.</div>
+{% endif %}
+<div class="alert info sigrid-aviso" id="sigrid-aviso" hidden></div>
 {% if sesame_degradado %}
 <div class="alert warn sesame-degradado">⚠ El calendario puede no ser exacto: <strong>Sesame no disponible</strong>. Los festivos y los avisos de jornada incompleta salen del respaldo local, no del calendario real del trabajador.</div>
 {% endif %}
@@ -197,7 +204,7 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}>
         <td class="cell-fecha">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
@@ -275,18 +282,22 @@
         </td>
         {% if transfer_enabled %}
         <td class="cell-sigrid">
-          {% if r.sigrid_estado == 'registrado' %}
+          {% set _est = (r.sigrid_estado or '')|trim|lower %}
+          {% if _est == 'registrado' %}
             <span class="badge ok" title="Registrado en Sigrid{% if r.sigrid_parte_cod %} · parte {{ r.sigrid_parte_cod }}{% endif %}">✓ {{ r.sigrid_parte_cod or 'registrado' }}</span>
             {% if r.sigrid_motivo and r.sigrid_motivo.startswith('[SIN-SESAME]') %}<span class="badge warn badge-sin-sesame" title="{{ r.sigrid_motivo }}. El calculo de horas de esta linea se hizo sin los festivos reales del trabajador.">SIN-SESAME</span>{% endif %}
-          {% elif r.sigrid_estado == 'omitido' %}
+          {% elif _est == 'omitido' %}
             <span class="badge warn" title="{{ r.sigrid_motivo or 'No se registra' }}">omitido</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea">↻</button>
-          {% elif r.sigrid_estado == 'encolado' %}
-            <span class="badge info" title="Enviado a registrar; se escribira en Sigrid en segundo plano. Recarga en unos segundos.">⏳ encolado</span>
-          {% elif r.sigrid_estado == 'conflicto' %}
+          {% elif _est == 'encolado' %}
+            <span class="badge info" title="Enviado a registrar; se escribira en Sigrid en segundo plano. Cuando llegue el resultado, el aviso de la cabecera ofrecera «Actualizar».">⏳ encolado</span>
+          {% elif _est == 'conflicto' %}
             <span class="badge warn" title="{{ r.sigrid_motivo or 'Hay lineas en Sigrid que habria que pisar' }}">⚠ conflicto</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Revisar el conflicto y decidir si se pisa">Revisar</button>
-          {% elif r.sigrid_estado == 'error' %}
+          {% elif _est == 'borrado_sigrid' %}
+            <span class="badge danger badge-borrado-sigrid" title="{{ r.sigrid_motivo or 'La linea ya no esta en Sigrid' }}">✗ borrada en Sigrid</span>
+            <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" data-incluir-borradas="1" title="Volver a registrar esta linea en Sigrid (se escribe de nuevo)">Reaprobar</button>
+          {% elif _est == 'error' %}
             <span class="badge danger" title="{{ r.sigrid_motivo or 'El registro fallo' }}">✗ error</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea (no duplica: se detecta por synckey)">↻</button>
           {% else %}

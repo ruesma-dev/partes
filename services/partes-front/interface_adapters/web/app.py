@@ -286,6 +286,12 @@ class RegistroEditPayload(BaseModel):
         return s or None
 
 
+def _borradas_sigrid(registros) -> int:
+    """F-024 (R24): lineas de la vista que ya no estan en Sigrid."""
+    return sum(1 for r in registros
+               if (r.sigrid_estado or "").strip().lower() == "borrado_sigrid")
+
+
 def _as_int(value: Any) -> int | None:
     """Coacciona a int tolerando str/float; None si no es convertible."""
     if value is None or value == "":
@@ -895,6 +901,7 @@ def build_app(
             "jornada_contrato": jornada_contrato,
             "jornada_divergente": jornada_divergente,
             "extras": extras_por_jornada(detail.registros),
+            "borradas_sigrid": _borradas_sigrid(detail.registros),
             "period_options": period_options,
             "selected_period": calendar.period_key if calendar else None,
             "period_mode": mode,
@@ -1022,6 +1029,7 @@ def build_app(
             "period_options": detail.period_options,
             "selected_period": detail.period_key,
             "extras": extras_por_jornada(_regs_kpi),
+            "borradas_sigrid": _borradas_sigrid(detail.registros),
             "transfer_enabled": transfer_client is not None,
             "candef_minimo": settings.candef_minimo_valido,
             "jornada_defecto": settings.jornada_por_defecto,

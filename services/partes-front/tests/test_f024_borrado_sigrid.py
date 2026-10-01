@@ -519,3 +519,112 @@ def test_f024_r23_payload_sin_lineas_activas_mantiene_su_mensaje(portal) -> None
     r = cliente.post("/api/aprobar/preflight", json={"registro_ids": [999999]})
     assert r.status_code == 422
     assert r.json()["error"] == "no hay lineas activas que registrar"
+
+
+
+# ===================================================================== #
+# T12 · vistas de obra y de trabajador (R24, R26, R30)
+# ===================================================================== #
+
+import re  # noqa: E402
+
+MOTIVO_BORRADA = ('Borrada en Sigrid: la linea 4001 del parte PT26/09001 '
+                  'ya no existe (comprobado 2026-10-01 09:30 UTC)')
+VISTAS = [("/obras/obr-10", "vista-obra"),
+          ("/trabajadores/emp-77", "vista-trabajador")]
+
+
+def _html_vistas(portal):
+    estados = ["registrado", ESTADO_BORRADO_SIGRID, "encolado", None,
+               " Registrado "]
+    cliente, fabrica, ids, _sv5, _p = portal(estados)
+    _poner(fabrica, ids[1], sigrid_motivo=MOTIVO_BORRADA,
+           sigrid_parte_cod=PARTE, sigrid_hmores_ide=4001)
+    return cliente, fabrica, ids
+
+
+def _fila(html: str, rid: int) -> str:
+    m = re.search(rf'<tr data-registro-id="{rid}".*?</tr>', html, re.S)
+    assert m, f"no hay fila para {rid}"
+    return m.group(0)
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r26_vista_cada_fila_lleva_su_estado(portal, ruta, origen) -> None:
+    cliente, _f, ids = _html_vistas(portal)
+    html = cliente.get(ruta).text
+    esperados = ["registrado", "borrado_sigrid", "encolado", "", "registrado"]
+    for rid, estado in zip(ids, esperados):
+        assert f'data-sigrid-estado="{estado}"' in _fila(html, rid), rid
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r24_vista_pinta_la_borrada_con_reaprobar(portal, ruta,
+                                                       origen) -> None:
+    cliente, _f, ids = _html_vistas(portal)
+    fila = _fila(cliente.get(ruta).text, ids[1])
+    assert "borrada en Sigrid" in fila
+    assert f'title="{MOTIVO_BORRADA}"' in fila
+    boton = re.search(r'<button[^>]*data-incluir-borradas="1"[^>]*>', fila)
+    assert boton, "falta el boton Reaprobar"
+    assert "aprobar-linea" in boton.group(0)
+    assert f'data-registro-id="{ids[1]}"' in boton.group(0)
+    assert ">Reaprobar</button>" in fila
+    assert 'class="row-congelada"' not in fila      # R13: no congela
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r24_vista_la_cabecera_avisa_de_cuantas(portal, ruta,
+                                                     origen) -> None:
+    cliente, fabrica, ids = _html_vistas(portal)
+    _poner(fabrica, ids[3], sigrid_estado=" Borrado_Sigrid ")
+    html = cliente.get(ruta).text
+    aviso = re.search(r'<div class="alert warn borradas-sigrid-aviso".*?</div>',
+                      html, re.S)
+    assert aviso, "falta el aviso de cabecera"
+    assert "<strong>2</strong>" in aviso.group(0)
+    assert "Reaprobar" in aviso.group(0)
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r24_vista_sin_borradas_no_avisa(portal, ruta, origen) -> None:
+    cliente, _f, _ids, _sv5, _p = portal(["registrado", None])
+    assert "borradas-sigrid-aviso" not in cliente.get(ruta).text
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r26_vista_boton_comprobar_en_sigrid(portal, ruta, origen) -> None:
+    cliente, _f, _ids = _html_vistas(portal)
+    html = cliente.get(ruta).text
+    boton = re.search(r'<button[^>]*id="comprobar-sigrid"[^>]*>', html)
+    assert boton, "falta el boton"
+    assert f'data-origen="{origen}"' in boton.group(0)
+    assert "Comprobar en Sigrid" in html
+    assert 'id="comprobar-sigrid-nota"' in html
+    assert 'id="sigrid-aviso"' in html
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r26_vista_sin_registro_configurado_no_hay_boton(
+        monkeypatch, ruta, origen) -> None:
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana"}.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.delenv("TRANSFER_BASE_URL", raising=False)
+    repo, _f, ids = _montar(["registrado"])
+    app = build_app(Settings(_env_file=None), repository=repo)
+    html = TestClient(app).get(ruta).text
+    assert 'id="comprobar-sigrid"' not in html
+    assert 'data-sigrid-estado="registrado"' in _fila(html, ids[0])
+
+
+@pytest.mark.parametrize("ruta, origen", VISTAS)
+def test_f024_r30_vista_el_tooltip_de_encolado_no_pide_recargar(
+        portal, ruta, origen) -> None:
+    cliente, _f, ids = _html_vistas(portal)
+    html = cliente.get(ruta).text
+    fila = _fila(html, ids[2])
+    assert "encolado" in fila
+    assert "Recarga en unos segundos" not in html
+    assert "segundo plano" in fila
