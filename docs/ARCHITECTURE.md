@@ -114,7 +114,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
-   idempotencia (reaprobar no duplica) y detección de conflictos.
+   idempotencia (reaprobar no duplica) y detección de conflictos. **Una
+   petición a sv5 = una obra** (F-022): sv4 reparte cada aprobación por
+   `obra_key_for_registro` y manda una petición por obra (tope
+   `APROBACION_MAX_OBRAS`, 10), sin «todo o nada»; sv5 no agrupa obras.
 6. **Ides de Sigrid = MAX(ide)+1** bajo `UPDLOCK` (sin secuencias): por eso
    sv5 corre a UNA réplica fija. Fechas Sigrid: enteros `YYYYMMDD` (0=null).
    El nombre de un concepto está en `con.res` (¡no existe `con.nom`!).
@@ -147,7 +150,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (F-024): estaba registrada y una comprobación vio que Administración la
     borró en Sigrid; se edita y se reaprueba («Reaprobar»), y sv3
     (`esta_congelado`) dice lo mismo. Las aprobaciones masivas excluyen
-    siempre `registrado` y `borrado_sigrid` salvo casilla explícita. La regla se escribe UNA
+    siempre `registrado` y `borrado_sigrid` salvo casilla explícita, y
+    (F-022) aprueban solo lo seleccionado y visible, o lo visible, con el
+    `ambito` de la vista: un id ajeno a ella es 422 sin tocar nada. La regla se escribe UNA
     vez, en `services/partes-front/application/services/congelacion.py`, y
     la usan tanto las guardas del repositorio (`CongeladoError` → HTTP 409
     con motivo) como las vistas que pintan el candado. Desaprobar
