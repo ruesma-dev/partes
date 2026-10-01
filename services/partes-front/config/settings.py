@@ -69,6 +69,10 @@ class Settings(BaseSettings):
         30.0, alias="COMPROBACION_SIGRID_TIMEOUT_S", gt=0)
     comprobacion_sigrid_lote: int = Field(
         500, alias="COMPROBACION_SIGRID_LOTE", ge=1, le=500)
+    # F-022 (DA15): obras distintas por aprobacion. sv4 manda a sv5 una
+    # peticion por obra, una tras otra; el tope acota la espera del modal.
+    aprobacion_max_obras: int = Field(
+        10, alias="APROBACION_MAX_OBRAS", ge=1, le=50)
 
     # ------------------------------------------------------------ #
     # Colas de aprobacion asincrona (F-002). TODAS opcionales: sin

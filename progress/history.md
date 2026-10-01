@@ -543,3 +543,26 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Observación O1: el docstring de `_resolver_cuentas` afirma un reintento de
   cola que no existe.
 - Pendiente del humano: despliegue sv5 → sv4 y M1–M4 (ver `current.md`).
+
+## F-022 · Aprobar solo lo seleccionado, una petición por obra y listado en el modal — done 2026-10-01
+
+- Rama `feature/F-022-aprobar-seleccionadas` · rigor critico · sdd=true ·
+  APPROVED del reviewer (`progress/review_F-022.md`).
+- Origen: humano y correo de Juan Romero («seleccionar varias líneas y
+  aprobarlas, por si quiero dejar alguna pendiente»). Hallazgo de la spec:
+  sv5 escribía toda una petición en el parte de UNA obra (la de la primera
+  línea); en la ficha de persona «Aprobar visibles» podía llevar horas a la
+  obra equivocada (no llegó a ocurrir: sv5 solo escribió el 30/09).
+- Entregado (solo sv4; sv5 sin cambios): casillas sobre la selección
+  existente, «Seleccionar visibles»/«Quitar selección»; sin marcar aprueba lo
+  visible, con marcadas solo esas; validación de ámbito en servidor; reparto
+  en una petición por obra con resultado por obra (sin «todo o nada»),
+  claves de conflicto con grupo, tope de 10 obras; modal con el listado de
+  lo que se va a aprobar construido por el servidor (por obra, totales,
+  estado y excluidas, plegado con más de 40 filas). Decisiones del humano:
+  repartir por obra en vez de rechazar, y el listado «como porcentajes».
+- Verificado: init.sh en verde (sv4 1.428, raíz 419), cobertura 100 % de 282
+  líneas, mutación completa sin supervivientes sin resolver.
+- Observaciones: O4 escape heredado en modales anteriores y O5 selector sin
+  escapar ⇒ F-027; O2 `parcial:false` cuando fallan todas (R22 decía true).
+- Pendiente del humano: despliegue de sv4 y M1–M8 (ver `current.md`).

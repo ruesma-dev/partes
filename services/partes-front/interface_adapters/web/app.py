@@ -20,6 +20,7 @@ import html
 import logging
 import os
 import time
+from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Callable
@@ -98,8 +99,31 @@ from interface_adapters.web.identidad import (
 from application.services.obra_catalog import ObraCatalog
 from application.services.empleado_catalog import EmpleadoCatalog
 from application.services import empleado_reconciler as recon
+from application.services.reparto_obras import (
+    SEPARADOR_CLAVE,
+    UMBRAL_PLEGADO,
+    GrupoObra,
+    agregar_ejecucion,
+    agregar_preflight,
+    listado_grupo,
+    repartir_claves,
+    totales,
+)
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Preparado:
+    """F-022: una aprobacion lista para sv5, ya repartida por obra.
+
+    `claves` son las de pisar de cada grupo, sin su prefijo (R19); `datos`
+    es lo que devolvio el repositorio (para `excluidas` y su detalle).
+    """
+
+    grupos: list[GrupoObra]
+    claves: dict[str, list[str]]
+    datos: dict
 
 #: F-003 (R23/R24). Motivo del bloqueo del registro cuando Sesame esta
 #: configurado pero no responde: sin sus festivos, el computo de horas
@@ -108,6 +132,10 @@ logger = logging.getLogger(__name__)
 MOTIVO_BLOQUEO_SESAME = (
     "calendario Sesame no disponible: el calculo puede ser incorrecto"
 )
+
+#: F-022 (DA11): ids por aprobacion con `ambito`. Una obra x mes ronda las
+#: mil lineas; el tope evita que una peticion desbocada lea media base.
+MAX_IDS_APROBACION = 5000
 
 # Leyenda de incidencias (para mostrar el nombre largo del codigo).
 _INCIDENCIAS = {
@@ -1797,21 +1825,29 @@ def build_app(
     # APROBAR -> registrar en Sigrid (delegado en partes-transfer, sv5)
     # ------------------------------------------------------------------ #
 
-    def _payload_registro(
-        body: dict, *, actor: str | None,
-    ) -> tuple[dict, dict] | JSONResponse:
-        """Construye el payload de sv5 desde los ids (o desde la obra).
+    def _preparar_registro(body: dict) -> Preparado | JSONResponse:
+        """Las lineas a registrar, repartidas por obra (F-022 §D).
 
-        `actor` viene por parametro y no se resuelve aqui: la identidad se
-        lee en UN solo sitio (R10). Sus dos llamadores ya tienen `request`.
+        F-024 (R22, R23): las lineas `registrado` no viajan nunca y las
+        `borrado_sigrid` solo con `incluir_borradas`; `excluidas` NO va en
+        el payload de sv5, va en la respuesta al navegador.
 
-        F-024 (R22, R23): devuelve `(payload, excluidas)`. Las lineas
-        `registrado` no viajan nunca y las `borrado_sigrid` solo con
-        `incluir_borradas`; `excluidas` NO va en el payload de sv5, va en
-        la respuesta al navegador.
+        F-022: con `ambito`, los ids tienen que ser de la vista (R10-R12);
+        sin el, como hasta ahora (ids sueltos u `obra_key`). Mas de
+        `APROBACION_MAX_OBRAS` obras se rechaza con el desglose (R15).
         """
-        ids = [int(i) for i in (body.get("registro_ids") or []) if i]
-        if not ids:
+        try:
+            ids = list(dict.fromkeys(
+                int(i) for i in (body.get("registro_ids") or []) if i))
+        except (TypeError, ValueError):
+            return JSONResponse(
+                {"ok": False, "error": "registro_ids no validos"},
+                status_code=422)
+        if body.get("ambito") is not None:
+            rechazo = _validar_ambito(body["ambito"], ids)
+            if rechazo is not None:
+                return rechazo
+        elif not ids:
             obra_key = (body.get("obra_key") or "").strip()
             if not obra_key:
                 return JSONResponse(
@@ -1828,12 +1864,81 @@ def build_app(
                 {"ok": False, "error": _motivo_sin_lineas(excluidas),
                  "excluidas": excluidas},
                 status_code=422)
-        return {
-            "obra": datos["obra"],
-            "lineas": datos["lineas"],
-            "pisar_claves": [str(k) for k in (body.get("pisar_claves") or [])],
-            "usuario": actor,
-        }, excluidas
+        grupos = [GrupoObra(**g) for g in datos["grupos"]]
+        maximo = settings.aprobacion_max_obras
+        if len(grupos) > maximo:
+            return JSONResponse(
+                {"ok": False,
+                 "error": f"la aprobacion abarca {len(grupos)} obras y el "
+                          f"maximo es {maximo}: filtra la tabla o "
+                          "selecciona menos obras",
+                 "obras": [{"clave": g.clave,
+                            "codigo": g.obra.get("codigo"),
+                            "nombre": g.obra.get("nombre"),
+                            "lineas": len(g.lineas)} for g in grupos],
+                 "excluidas": excluidas},
+                status_code=422)
+        claves = repartir_claves(
+            [str(k) for k in (body.get("pisar_claves") or [])],
+            [g.clave for g in grupos])
+        if claves is None:
+            return JSONResponse(
+                {"ok": False,
+                 "error": "con varias obras, cada clave que pisar tiene que "
+                          f"llevar su obra (<obra>{SEPARADOR_CLAVE}<clave>)"},
+                status_code=422)
+        return Preparado(grupos=grupos, claves=claves, datos=datos)
+
+    def _payload_grupo(grupo: GrupoObra, claves: list[str],
+                       actor: str | None) -> dict:
+        """El payload de sv5 de una obra: la forma de siempre (R33).
+
+        `actor` viene por parametro y no se resuelve aqui: la identidad se
+        lee en UN solo sitio (F-017 R10).
+        """
+        return {"obra": grupo.obra, "lineas": grupo.lineas,
+                "pisar_claves": claves, "usuario": actor}
+
+    def _rechazo_ambito(error: str, **extra) -> JSONResponse:
+        return JSONResponse(dict({"ok": False, "error": error}, **extra),
+                            status_code=422)
+
+    def _validar_ambito(ambito, ids: list[int]) -> JSONResponse | None:
+        """F-022 (R10-R12, DA7): los ids pedidos tienen que ser de la vista
+        de la que salen. Uno ajeno (otra obra, otro periodo, otra persona,
+        la papelera o inexistente) rechaza la peticion ENTERA, sin llamar a
+        sv5 ni marcar nada: es la senal de una pagina desfasada."""
+        if not isinstance(ambito, dict):
+            return _rechazo_ambito("ambito no valido")
+        vista = ambito.get("vista")
+        if vista not in ("obra", "trabajador"):
+            return _rechazo_ambito(
+                f"ambito no valido: vista desconocida ({vista!r})")
+        campo = "obra_key" if vista == "obra" else "worker_key"
+        clave = str(ambito.get(campo) or "").strip()
+        if not clave:
+            return _rechazo_ambito(f"ambito no valido: falta {campo}")
+        if not ids:
+            return _rechazo_ambito("no hay lineas seleccionadas que aprobar")
+        if len(ids) > MAX_IDS_APROBACION:
+            return _rechazo_ambito(
+                f"demasiadas lineas en una aprobacion ({len(ids)}); el "
+                f"maximo es {MAX_IDS_APROBACION}")
+        if vista == "obra":
+            permitidos = repository.registro_ids_de_obra(
+                clave, period_key=ambito.get("period") or None,
+                mode=ambito.get("mode") or "nomina")
+        else:
+            permitidos = repository.registro_ids_de_trabajador(clave)
+        fuera = len(set(ids) - set(permitidos))
+        if fuera:
+            logger.warning("[aprobar] %s id(s) fuera del ambito %s=%s",
+                           fuera, campo, clave)
+            return _rechazo_ambito(
+                f"{fuera} linea(s) no son de esta vista (otra obra, otro "
+                "periodo, otra persona o en la papelera): recarga la pagina "
+                "y vuelve a seleccionar", fuera_de_ambito=fuera)
+        return None
 
     def _motivo_sin_lineas(excluidas: dict) -> str:
         """R23: por que no queda nada que registrar."""
@@ -1919,19 +2024,45 @@ def build_app(
                 {"ok": False, "error": "registro en Sigrid no configurado "
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
-        preparado = _payload_registro(await request.json(),
-                                      actor=_actor(request))
+        actor = _actor(request)
+        preparado = _preparar_registro(await request.json())
         if isinstance(preparado, JSONResponse):
             return preparado
-        payload, excluidas = preparado
-        resultado = dict(transfer_client.preflight(payload))
-        resultado["excluidas"] = excluidas
-        resultado["avisos_calendario"] = _avisos_calendario(payload["lineas"])
-        # R23: el preflight se sirve igual (el humano tiene que poder ver
-        # que se iba a registrar), pero con el motivo del bloqueo dentro.
-        if not _calendario_fiable(payload["lineas"]):
-            resultado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
-        return JSONResponse(resultado)
+        evaluados = [
+            _evaluar_grupo(g, preparado.claves[g.clave], actor)
+            for g in preparado.grupos]
+        datos = preparado.datos
+        return JSONResponse(dict(
+            agregar_preflight(evaluados), grupos=evaluados,
+            excluidas=datos["excluidas"],
+            excluidas_detalle=datos["excluidas_detalle"],
+            umbral_plegado=UMBRAL_PLEGADO))
+
+    def _evaluar_grupo(grupo: GrupoObra, claves: list[str],
+                       actor: str | None) -> dict:
+        """F-022 (R17, R18, R23-R25): el preflight de UNA obra.
+
+        Un fallo de sv5 en esta obra no tumba las demas: el grupo sale con
+        `ok` falso y su motivo. Avisos de calendario y bloqueo de Sesame
+        son los de SUS lineas (R31).
+        """
+        try:
+            pf = dict(transfer_client.preflight(
+                _payload_grupo(grupo, claves, actor)))
+        except Exception as exc:
+            logger.warning("[transfer] preflight de la obra %s fallo",
+                           grupo.clave, exc_info=True)
+            pf = {"ok": False, "error": f"no se pudo evaluar la obra: {exc}"}
+        evaluado = dict(pf, clave=grupo.clave, obra=grupo.obra,
+                        registro_ids=grupo.registro_ids,
+                        avisos_calendario=_avisos_calendario(grupo.lineas))
+        # F-003 R23: el preflight se sirve igual (el humano tiene que poder
+        # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
+        if not _calendario_fiable(grupo.lineas):
+            evaluado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
+        evaluado["listado"] = listado_grupo(grupo, pf)
+        evaluado["totales"] = totales(evaluado["listado"])
+        return evaluado
 
     def _trazar(resultado: dict, ids: list[int], *, actor: str | None,
                 sin_sesame: bool = False) -> None:
@@ -1958,36 +2089,66 @@ def build_app(
                 status_code=503)
         body = await request.json()
         actor = _actor(request)
-        preparado = _payload_registro(body, actor=actor)
+        preparado = _preparar_registro(body)
         if isinstance(preparado, JSONResponse):
             return preparado
-        payload, excluidas = preparado
-        # R24: la guarda la impone el SERVIDOR, no el modal. Una peticion
-        # a pelo, sin pasar por el preflight, se para igual.
+        # F-003 R24: la guarda la impone el SERVIDOR, no el modal. Una
+        # peticion a pelo, sin pasar por el preflight, se para igual.
+        # F-022 (R18, R22): por obra y una tras otra; una obra bloqueada o
+        # que falla no para a las demas (DA16).
         forzar = bool(body.get("forzar_sin_sesame"))
-        degradado = not _calendario_fiable(payload["lineas"])
-        if degradado and not forzar:
-            logger.warning(
-                "[sesame] registro BLOQUEADO: %s lineas con calendario no "
-                "fiable y sin override.", len(payload["lineas"]),
-            )
+        ejecutados = []
+        for grupo in preparado.grupos:
+            degradado = not _calendario_fiable(grupo.lineas)
+            if degradado and not forzar:
+                ejecutados.append(_bloqueado_sesame(grupo))
+                continue
+            resultado = _ejecutar_grupo(grupo, preparado.claves[grupo.clave],
+                                        actor)
+            if degradado:
+                # F-003 R17: saltarse la guarda de Sesame es una decision
+                # humana consciente, y queda con NOMBRE en el log. El actor
+                # nunca es vacio (F-017 R7).
+                logger.warning(
+                    "[sesame] registro FORZADO por %s con el calendario de "
+                    "Sesame no disponible (obra %s); las lineas quedan "
+                    "marcadas.", actor, grupo.clave)
+            _trazar(resultado, grupo.registro_ids, actor=actor,
+                    sin_sesame=degradado)
+            ejecutados.append(dict(resultado, clave=grupo.clave,
+                                   obra=grupo.obra,
+                                   registro_ids=grupo.registro_ids))
+        if all(e.get("bloqueado_sesame") for e in ejecutados):
             return JSONResponse(
                 {"ok": False, "error": MOTIVO_BLOQUEO_SESAME,
                  "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
                 status_code=422)
-        resultado = transfer_client.ejecutar(payload)
-        if degradado and forzar:
-            # R17: saltarse la guarda de Sesame es una decision humana
-            # consciente, y queda con NOMBRE en el log. El viejo
-            # El viejo `or` de relleno sobra: el actor nunca es vacio (R7).
-            logger.warning(
-                "[sesame] registro FORZADO por %s con el calendario de "
-                "Sesame no disponible; las lineas quedan marcadas.",
-                actor,
-            )
-        _trazar(resultado, [l["registro_id"] for l in payload["lineas"]],
-                actor=actor, sin_sesame=degradado and forzar)
-        return JSONResponse(dict(resultado, excluidas=excluidas))
+        return JSONResponse(dict(agregar_ejecucion(ejecutados),
+                                 grupos=ejecutados,
+                                 excluidas=preparado.datos["excluidas"]))
+
+    def _bloqueado_sesame(grupo: GrupoObra) -> dict:
+        """F-022 (R18): una obra con el calendario no fiable y sin override
+        no se envia; sus lineas no cambian."""
+        logger.warning(
+            "[sesame] registro BLOQUEADO: obra %s, %s lineas con calendario "
+            "no fiable y sin override.", grupo.clave, len(grupo.lineas))
+        return {"clave": grupo.clave, "obra": grupo.obra,
+                "registro_ids": grupo.registro_ids, "ok": False,
+                "bloqueado_sesame": True, "error": MOTIVO_BLOQUEO_SESAME}
+
+    def _ejecutar_grupo(grupo: GrupoObra, claves: list[str],
+                        actor: str | None) -> dict:
+        """El registro sincrono de UNA obra. Una excepcion se queda en su
+        obra (`ok` falso, sus lineas a `error`): las demas siguen."""
+        try:
+            return dict(transfer_client.ejecutar(
+                _payload_grupo(grupo, claves, actor)))
+        except Exception as exc:
+            logger.warning("[transfer] registro de la obra %s fallo",
+                           grupo.clave, exc_info=True)
+            return {"ok": False,
+                    "error": f"no se pudo registrar la obra: {exc}"}
 
     @app.post("/api/aprobar/encolar", include_in_schema=False)
     async def aprobar_encolar(request: Request) -> JSONResponse:
@@ -2015,14 +2176,30 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         actor = _actor(request)
-        preparado = _payload_registro(body, actor=actor)
+        preparado = _preparar_registro(body)
         if isinstance(preparado, JSONResponse):
             return preparado
-        payload, excluidas = preparado
-        # R24/R25: igual que `pisar_claves`, el override de Sesame es una
-        # decision humana consciente y NO puede viajar por una cola con
-        # reentregas; sin override, el lote degradado se para aqui.
-        if not _calendario_fiable(payload["lineas"]):
+        excluidas = preparado.datos["excluidas"]
+        # F-022 (R20, R21): una peticion por obra. Una obra bloqueada o que
+        # no se pudo publicar no para a las demas.
+        grupos = []
+        for grupo in preparado.grupos:
+            # F-003 R24/R25: igual que `pisar_claves`, el override de
+            # Sesame es una decision humana consciente y NO viaja por una
+            # cola con reentregas; sin override, la obra degradada se para.
+            if not _calendario_fiable(grupo.lineas):
+                grupos.append(dict(_bloqueado_sesame(grupo),
+                                   estado="bloqueado_sesame",
+                                   peticion_id=None))
+            elif publisher is None:
+                resultado = _ejecutar_grupo(grupo, [], actor)     # F-002 R3
+                _trazar(resultado, grupo.registro_ids, actor=actor)
+                grupos.append(dict(resultado, clave=grupo.clave,
+                                   obra=grupo.obra,
+                                   registro_ids=grupo.registro_ids))
+            else:
+                grupos.append(_publicar_grupo(grupo, actor))
+        if all(g.get("bloqueado_sesame") for g in grupos):
             return JSONResponse(
                 {"ok": False,
                  "error": MOTIVO_BLOQUEO_SESAME + " Para registrarlo de "
@@ -2030,29 +2207,55 @@ def build_app(
                           "/api/aprobar/ejecutar.",
                  "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
                 status_code=422)
-        ids = [l["registro_id"] for l in payload["lineas"]]
-
         if publisher is None:
-            resultado = transfer_client.ejecutar(payload)     # R3
-            _trazar(resultado, ids, actor=actor)
-            return JSONResponse(dict(resultado, modo="sincrono",
-                                     excluidas=excluidas))
+            return JSONResponse(dict(agregar_ejecucion(grupos),
+                                     modo="sincrono", excluidas=excluidas,
+                                     grupos=grupos))
+        encolados = [g for g in grupos if g["estado"] == "encolado"]
+        if not encolados:
+            return JSONResponse(
+                {"ok": False,
+                 "error": "no se pudo encolar ninguna obra: "
+                          + "; ".join(f"{g['obra'].get('codigo') or g['clave']}"
+                                      f": {g['error']}" for g in grupos),
+                 "excluidas": excluidas, "grupos": grupos},
+                status_code=502)
+        ids = [i for g in encolados for i in g["registro_ids"]]
+        # F-024 (R27): los ids encolados, para que el modal sondee su
+        # estado (R29) en vez de recargar antes de que llegue el resultado.
+        return JSONResponse({
+            "ok": True, "modo": "asincrono",
+            "peticion_id": encolados[0]["peticion_id"],
+            "peticiones": [g["peticion_id"] for g in encolados],
+            "encoladas": len(ids), "registro_ids": ids,
+            "excluidas": excluidas, "grupos": grupos})
 
-        # Primero se publica y luego se marca: al reves, un fallo al
-        # publicar dejaria lineas en 'encolado' sin nada que las recoja.
-        peticion_id = publisher.publicar(payload, usuario=actor)
+    def _publicar_grupo(grupo: GrupoObra, actor: str | None) -> dict:
+        """F-022 (R20, R21): encola UNA obra y marca sus lineas.
+
+        Primero se publica y luego se marca: al reves, un fallo al publicar
+        dejaria lineas en 'encolado' sin nada que las recoja.
+        """
+        base = {"clave": grupo.clave, "obra": grupo.obra,
+                "registro_ids": grupo.registro_ids}
         try:
-            repository.marcar_registros_encolado(ids, usuario=actor)  # R2
+            peticion_id = publisher.publicar(
+                _payload_grupo(grupo, [], actor), usuario=actor)
+        except Exception as exc:
+            logger.warning("[transfer-cola] no se pudo encolar la obra %s; "
+                           "sus lineas no cambian", grupo.clave,
+                           exc_info=True)
+            return dict(base, ok=False, estado="error_cola", peticion_id=None,
+                        error=f"no se pudo encolar: {exc}")
+        try:
+            repository.marcar_registros_encolado(grupo.registro_ids,
+                                                 usuario=actor)  # F-002 R2
         except Exception:
             logger.warning("[transfer-cola] peticion %s encolada pero no se "
                            "pudo marcar 'encolado'; el resultado las marcara",
                            peticion_id, exc_info=True)
-        # F-024 (R27): los ids encolados, para que el modal sondee su
-        # estado (R29) en vez de recargar antes de que llegue el resultado.
-        return JSONResponse({"ok": True, "modo": "asincrono",
-                             "peticion_id": peticion_id,
-                             "encoladas": len(ids), "registro_ids": ids,
-                             "excluidas": excluidas})
+        return dict(base, ok=True, estado="encolado", peticion_id=peticion_id,
+                    error=None)
 
     @app.post("/api/sigrid/comprobar", include_in_schema=False)
     def sigrid_comprobar(p: ComprobarSigridPayload) -> JSONResponse:

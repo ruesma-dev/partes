@@ -1,6 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-022 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
+
+APPROVED del reviewer (`progress/review_F-022.md`, seis observaciones no
+bloqueantes; O4 y O5 dan lugar a F-027); resumen en `progress/history.md`.
+Rama `feature/F-022-aprobar-seleccionadas`, sin desplegar (solo sv4).
+azure-apps: commit local `fdc6e1d` (sin push).
+
+Pendientes MANUAL (humano, design §9; pasos exactos en `impl_F-022.md` §7):
+M1 consulta de lectura en PG (¿ya pasó un lote de varias obras?); desplegar
+sv4 (solo sv4) y Ctrl+F5; M2–M7 en navegador en modo pruebas (selección,
+filtros, ocultas, persona con dos obras, listado y excluidas, muchas filas y
+regresión del botón por línea); M8 tras la primera aprobación real de varias
+obras. El JS no tiene arnés: lo de navegador solo lo verifica M2–M7.
+
 ## F-024 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-024.md`); resumen en

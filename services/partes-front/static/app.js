@@ -37,6 +37,51 @@ var MotivoHttp = (function () {
   return { lanzarSiFalla: lanzarSiFalla, congelado: congelado };
 })();
 
+/* ==================================================================== *
+ * Seleccion COMUN de filas de la tabla de lineas (Ctrl/Shift+clic y,
+ * desde F-022, la casilla `.sel-linea`). La usan la edicion en bloque
+ * (partida, hora, trabajador, borrar) y el boton de aprobar de la
+ * cabecera, que vive en otro IIFE: por eso es global, como `MotivoHttp`.
+ * La partida pertenece al presupuesto de UNA obra, asi que el bloque de
+ * partida solo agrupa lineas que comparten obra (`idsSameObra`).
+ * ==================================================================== */
+var PartidaSel = (function () {
+  "use strict";
+  var sel = {};               // registro_id -> tr
+  // F-022 (R4): una fila esta oculta si la filtra la matriz o el
+  // calendario (.filtered-day) o un filtro por columna (display:none).
+  function visible(tr) {
+    return !!tr && !tr.hidden && !tr.classList.contains("filtered-day")
+      && tr.style.display !== "none";
+  }
+  return {
+    has: function (id) { return !!sel[id]; },
+    ids: function () { return Object.keys(sel); },
+    count: function () { return Object.keys(sel).length; },
+    tr: function (id) { return sel[id]; },
+    set: function (id, tr) { sel[id] = tr; },
+    del: function (id) { delete sel[id]; },
+    clear: function () { sel = {}; },
+    visible: visible,
+    ocultas: function () {
+      return Object.keys(sel).filter(function (id) {
+        return !visible(sel[id]);
+      }).length;
+    },
+    idsSameObra: function (obra) {
+      return Object.keys(sel).filter(function (id) {
+        return (sel[id].getAttribute("data-obra-ide") || "") === String(obra);
+      });
+    }
+  };
+})();
+
+/* F-022: filtros y seleccion avisan de que cambio el conjunto de lineas
+   (el contador de la barra y el boton de aprobar se repintan). */
+function avisarCambioLineas() {
+  document.dispatchEvent(new CustomEvent("lineas:cambio"));
+}
+
 (function () {
   "use strict";
 
@@ -393,7 +438,9 @@ var MotivoHttp = (function () {
   function _filterCellText(cell) {
     var parts = [];
     cell.querySelectorAll("input, select, textarea").forEach(function (el) {
+      // F-022 (R4): la casilla de seleccion no es dato (su value es "on").
       if (el.classList.contains("col-filter")) return;
+      if (el.classList.contains("sel-linea")) return;
       if (el.tagName === "SELECT") {
         var o = el.selectedOptions && el.selectedOptions[0];
         if (o) parts.push(o.textContent);
@@ -429,6 +476,7 @@ var MotivoHttp = (function () {
         }
         row.style.display = show ? "" : "none";
       });
+      avisarCambioLineas();                     // F-022 (R5, R6)
     }
     filters.forEach(function (inp) { inp.addEventListener("input", apply); });
     frow.querySelectorAll(".filter-clear").forEach(function (btn) {
@@ -460,6 +508,7 @@ var MotivoHttp = (function () {
         var pass = selected.size === 0 || selected.has(keyFromRow(row));
         row.classList.toggle("filtered-day", !pass);
       });
+      avisarCambioLineas();                     // F-022 (R5, R6)
       if (badge) {
         if (selected.size === 0) {
           badge.hidden = true;
@@ -1891,27 +1940,9 @@ var MotivoHttp = (function () {
   }
 
   // ============ Edicion de PARTIDA + seleccion multiple (coordinados) ===========
-  // Estado de seleccion compartido entre el editor por-celda y la barra, para
-  // que editar la partida de una linea seleccionada la aplique a TODA la
-  // seleccion (de la misma obra). La partida pertenece al presupuesto de UNA
-  // obra, asi que el bloque solo agrupa lineas que comparten obra.
-  var PartidaSel = (function () {
-    var sel = {};               // registro_id -> tr
-    return {
-      has: function (id) { return !!sel[id]; },
-      ids: function () { return Object.keys(sel); },
-      count: function () { return Object.keys(sel).length; },
-      tr: function (id) { return sel[id]; },
-      set: function (id, tr) { sel[id] = tr; },
-      del: function (id) { delete sel[id]; },
-      clear: function () { sel = {}; },
-      idsSameObra: function (obra) {
-        return Object.keys(sel).filter(function (id) {
-          return (sel[id].getAttribute("data-obra-ide") || "") === String(obra);
-        });
-      }
-    };
-  })();
+  // El estado de seleccion es `PartidaSel` (global desde F-022, al principio
+  // del fichero): editar la partida de una linea seleccionada la aplica a
+  // TODA la seleccion de la misma obra.
 
   // Posiciona un panel (position:fixed) bajo/sobre un input, escapando del
   // overflow horizontal de las tablas (misma estrategia que combo-obra/emp).
@@ -2106,18 +2137,32 @@ var MotivoHttp = (function () {
     });
   }
 
-  // Seleccion multiple (Ctrl/Shift+click) + barra de acciones en bloque.
+  // F-022 (R5): \u00abN seleccionadas\u00bb y, si las hay, \u00ab(M ocultas: no se
+  // aprueban)\u00bb. Puro: lo usan el contador de la barra y la `.bulk-bar`.
+  function textoSeleccion(n, ocultas) {
+    if (!n) return "";
+    return n + (n === 1 ? " seleccionada" : " seleccionadas")
+      + (ocultas ? " (" + ocultas + (ocultas === 1 ? " oculta" : " ocultas")
+                   + ": no se aprueban)" : "");
+  }
+
+  // Seleccion multiple (Ctrl/Shift+click y, desde F-022, la casilla
+  // `.sel-linea` de la celda Fecha) + barra de acciones en bloque.
   function wireBulkSelect() {
     var rows = Array.prototype.slice.call(
       document.querySelectorAll("tr[data-registro-id]"));
     if (!rows.length) return;
-    var lastIdx = -1, bar = null, pickerOpen = false;
+    var lastTr = null, bar = null, pickerOpen = false;
 
     function isInteractive(t) {
       return !!(t.closest("input,select,textarea,button,a,label,.combo-panel," +
         ".partida-editor,.combo-obra,.combo-emp,.row-detail"));
     }
-    function paint(tr, on) { tr.classList.toggle("row-selected", on); }
+    function paint(tr, on) {
+      tr.classList.toggle("row-selected", on);
+      var casilla = tr.querySelector("input.sel-linea");     // F-022 (R2)
+      if (casilla) casilla.checked = on;
+    }
     function toggle(tr, on) {
       var id = tr.getAttribute("data-registro-id");
       if (on === undefined) on = !PartidaSel.has(id);
@@ -2130,20 +2175,52 @@ var MotivoHttp = (function () {
       });
       PartidaSel.clear(); renderBar();
     }
-    function selectRange(a0, b0) {
-      var a = Math.min(a0, b0), b = Math.max(a0, b0);
-      for (var i = a; i <= b; i++) toggle(rows[i], true);
+    // F-022 (R4): el rango sigue el orden ACTUAL de la tabla (tras ordenar
+    // por columna) y solo marca filas visibles: lo oculto por un filtro no
+    // se cuela en la seleccion.
+    function selectRange(desde, hasta) {
+      var cuerpo = hasta.parentNode;
+      if (!desde || desde.parentNode !== cuerpo) { toggle(hasta, true); return; }
+      var filas = Array.prototype.slice.call(cuerpo.rows);
+      var a = filas.indexOf(desde), b = filas.indexOf(hasta);
+      if (a > b) { var t = a; a = b; b = t; }
+      for (var i = a; i <= b; i++) {
+        if (filas[i].hasAttribute("data-registro-id")
+            && PartidaSel.visible(filas[i])) toggle(filas[i], true);
+      }
     }
-    rows.forEach(function (tr, idx) {
+    rows.forEach(function (tr) {
       tr.addEventListener("click", function (ev) {
         if (!(ev.ctrlKey || ev.metaKey || ev.shiftKey)) return;
         if (isInteractive(ev.target)) return;
         ev.preventDefault();
-        if (ev.shiftKey && lastIdx >= 0) selectRange(lastIdx, idx);
-        else { toggle(tr); lastIdx = idx; }
+        if (ev.shiftKey && lastTr) selectRange(lastTr, tr);
+        else { toggle(tr); lastTr = tr; }
         renderBar();
       });
     });
+    // F-022 (R2): la casilla entra y sale de la MISMA seleccion.
+    document.querySelectorAll("tr[data-registro-id] input.sel-linea")
+      .forEach(function (casilla) {
+        casilla.addEventListener("click", function (ev) {
+          var tr = casilla.closest("tr[data-registro-id]");
+          if (!tr) return;
+          if (ev.shiftKey && lastTr && casilla.checked) selectRange(lastTr, tr);
+          else { toggle(tr, casilla.checked); lastTr = tr; }
+          renderBar();
+        });
+      });
+    // F-022 (R3): \u00abSeleccionar visibles\u00bb y \u00abQuitar seleccion\u00bb.
+    var todas = document.querySelector("[data-sel-visibles]");
+    if (todas) {
+      todas.addEventListener("click", function () {
+        document.querySelectorAll("#lines-table tbody tr[data-registro-id]")
+          .forEach(function (tr) { if (PartidaSel.visible(tr)) toggle(tr, true); });
+        renderBar();
+      });
+    }
+    var ninguna = document.querySelector("[data-sel-ninguna]");
+    if (ninguna) ninguna.addEventListener("click", clearSel);
 
     function ensureBar() {
       if (bar) return bar;
@@ -2151,6 +2228,9 @@ var MotivoHttp = (function () {
       bar.className = "bulk-bar"; bar.hidden = true;
       bar.innerHTML = '<span class="bulk-count"></span>' +
         '<div class="bulk-actions">' +
+        (document.getElementById("aprobar-todo")
+          ? '<button type="button" class="btn-bulk ok" data-act="aprobar">Aprobar seleccionadas</button>'
+          : '') +
         '<button type="button" class="btn-bulk" data-act="partida">Editar partida</button>' +
         '<button type="button" class="btn-bulk danger" data-act="borrar">Borrar</button>' +
         '<button type="button" class="btn-bulk ghost" data-act="clear">Quitar selecci\u00f3n</button>' +
@@ -2159,16 +2239,29 @@ var MotivoHttp = (function () {
       bar.querySelector('[data-act="clear"]').addEventListener("click", clearSel);
       bar.querySelector('[data-act="borrar"]').addEventListener("click", doBorrar);
       bar.querySelector('[data-act="partida"]').addEventListener("click", doPartida);
+      var aprobarSel = bar.querySelector('[data-act="aprobar"]');
+      if (aprobarSel) {
+        // DA5: el mismo boton de la cabecera, que ya sabe que aprobar.
+        aprobarSel.addEventListener("click", function () {
+          document.getElementById("aprobar-todo").click();
+        });
+      }
       return bar;
+    }
+    function pintarContador() {
+      var texto = textoSeleccion(PartidaSel.count(), PartidaSel.ocultas());
+      var contador = document.querySelector("[data-sel-contador]");
+      if (contador) contador.textContent = texto;
+      if (bar && !bar.hidden) bar.querySelector(".bulk-count").textContent = texto;
     }
     function renderBar() {
       ensureBar();
       var n = PartidaSel.count();
-      if (!n) { bar.hidden = true; closePicker(); return; }
-      bar.hidden = false;
-      bar.querySelector(".bulk-count").textContent =
-        n + (n === 1 ? " l\u00ednea seleccionada" : " l\u00edneas seleccionadas");
+      if (!n) { bar.hidden = true; closePicker(); }
+      else bar.hidden = false;
+      avisarCambioLineas();                 // repinta contador y boton
     }
+    document.addEventListener("lineas:cambio", pintarContador);
     function doBorrar() {
       var ids = PartidaSel.ids(); if (!ids.length) return;
       if (!confirm("\u00bfMover " + ids.length + " l\u00ednea(s) a la papelera?")) return;
@@ -2706,21 +2799,6 @@ var MotivoHttp = (function () {
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
-  /* F-024 (R22/R25): lo que el servidor dejo fuera de la aprobacion. */
-  function excluidasHtml(excl) {
-    excl = excl || {};
-    var html = "";
-    if (excl.registrado) {
-      html += "<p class='muted small'>" + excl.registrado + " linea(s) ya "
-        + "registradas en Sigrid no se reenvian.</p>";
-    }
-    if (excl.borrado_sigrid) {
-      html += "<p class='muted small'>" + excl.borrado_sigrid + " linea(s) "
-        + "borradas en Sigrid no se incluyen.</p>";
-    }
-    return html;
-  }
-
   // ---------------- modal ---------------- //
   var overlay = null;
 
@@ -2829,7 +2907,13 @@ var MotivoHttp = (function () {
       + "</ul></div>";
   }
 
-  function conflictosHtml(conflictos) {
+  /* F-022 (R19): la clave de sv5 no lleva la obra; con varias obras cada
+     casilla de pisar lleva delante la de su grupo. */
+  function claveConGrupo(grupo, clave) {
+    return grupo ? grupo + SEPARADOR_CLAVE + clave : String(clave);
+  }
+
+  function conflictosHtml(conflictos, grupo) {
     return "<p class='ap-warn'>Ya hay lineas en Sigrid con el <strong>mismo "
       + "codigo de hora</strong> para ese parte, recurso y fecha. Marca las "
       + "que quieras <strong>pisar</strong> (se borra la linea actual y se "
@@ -2864,7 +2948,8 @@ var MotivoHttp = (function () {
                 }).join("") + "</ul></div>";
           }
           return "<div class='ap-conf'><label><input type='checkbox' "
-            + "class='ap-pisar' value='" + c.clave + "' checked> "
+            + "class='ap-pisar' value=\"" + esc(claveConGrupo(grupo, c.clave))
+            + "\" checked> "
             + "<strong>" + (c.nombre || ("recurso " + c.recurso_ide)) + "</strong> · "
             + fechaLegible(c.fecha_int) + " · parte " + (c.parte_cod || "?")
             + " · <strong>" + (c.hora_codigo || "?") + "</strong>"
@@ -2900,40 +2985,6 @@ var MotivoHttp = (function () {
     return html;
   }
 
-  /* Resultado COMPLETO del registro (llega por la via sincrona: pisado
-     de conflictos, o fallback sin colas configuradas). */
-  function mostrarResultado(peticion, r) {
-    var pend = r.pendientes_confirmacion || [];
-    var html = resultadoHtml(r) + excluidasHtml(r.excluidas);
-    if (pend.length) {
-      html += "<hr>" + conflictosHtml(pend);
-      modal("Registro en Sigrid", html, [
-        { texto: "Pisar las marcadas", clase: "ok", onClick: function (cj, b) {
-            var claves = Array.prototype.slice.call(
-              cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
-                return i.value;
-              });
-            if (!claves.length) { cerrar(); window.location.reload(); return; }
-            ejecutar(peticion, claves, cj, b);
-          } },
-        { texto: "Dejarlo asi", onClick: function () {
-            cerrar(); window.location.reload();
-          } },
-      ]);
-    } else {
-      modal("Registro en Sigrid", html, [
-        { texto: "Cerrar", clase: "ok", onClick: function () {
-            cerrar(); window.location.reload();
-          } },
-      ]);
-    }
-  }
-
-  function errorModal(titulo, r) {
-    modal(titulo, "<p class='ap-warn'>" + (r.error || "error desconocido")
-          + "</p>", [{ texto: "Cerrar", onClick: cerrar }]);
-  }
-
   /* R23/R25: Sesame configurado pero caido. El calculo de horas pierde
      los festivos reales, asi que el registro se BLOQUEA. La unica salida
      es el override manual, que va por la via sincrona y deja las lineas
@@ -2949,43 +3000,165 @@ var MotivoHttp = (function () {
       + "marcadas <code>[SIN-SESAME]</code>.</label></div>";
   }
 
-  /* PISAR conflictos: siempre sincrono. Es destructivo (borra lineas de
-     Sigrid) y el usuario quiere ver el resultado en el momento. */
-  function ejecutar(peticion, pisarClaves, caja, boton, forzarSinSesame) {
+  /* F-022 (R29): que obras van por `ejecutar` (sincrono: hay claves que
+     pisar o se fuerza el bloqueo de Sesame), cuales por `encolar` y cuales
+     no se envian (preflight fallido o bloqueadas sin la casilla). Puro. */
+  function planEnvio(grupos, claves, forzado) {
+    var conClave = {};
+    (claves || []).forEach(function (k) {
+      conClave[String(k).split(SEPARADOR_CLAVE)[0]] = true;
+    });
+    var plan = { sincronos: [], cola: [], fuera: [] };
+    (grupos || []).forEach(function (g) {
+      if (!g.ok || (g.sesame_bloqueo && !forzado)) plan.fuera.push(g);
+      else if (conClave[g.clave] || g.sesame_bloqueo) plan.sincronos.push(g);
+      else plan.cola.push(g);
+    });
+    return plan;
+  }
+
+  function idsDe(grupos) {
+    var ids = [];
+    (grupos || []).forEach(function (g) {
+      (g.registro_ids || []).forEach(function (i) { ids.push(i); });
+    });
+    return ids;
+  }
+
+  /* Las claves que pisar de esas obras, con su prefijo de grupo (R19). */
+  function clavesDe(grupos, claves) {
+    var de = {};
+    (grupos || []).forEach(function (g) { de[g.clave] = true; });
+    return (claves || []).filter(function (k) {
+      return de[String(k).split(SEPARADOR_CLAVE)[0]];
+    });
+  }
+
+  /* Confirmar: primero lo sincrono (pisar o forzar es una decision humana
+     que no viaja por la cola) y luego lo encolado; cada llamada lleva los
+     ids de SUS obras y el mismo `ambito`, y el servidor reparte igual. */
+  function confirmar(peticion, plan, claves, forzado, boton, contexto) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
-    var body = Object.assign({}, peticion, { pisar_claves: pisarClaves || [] });
-    if (forzarSinSesame) body.forzar_sin_sesame = true;
-    return post("/api/aprobar/ejecutar", body).then(function (r) {
-      if (!r.ok) { errorModal("No se pudo registrar", r); return; }
-      mostrarResultado(peticion, r);
+    var base = { ambito: peticion.ambito,
+                 incluir_borradas: peticion.incluir_borradas };
+    var respuestas = { sincrono: null, cola: null };
+    var paso = Promise.resolve();
+    if (plan.sincronos.length) {
+      paso = paso.then(function () {
+        var cuerpo = Object.assign({}, base, {
+          registro_ids: idsDe(plan.sincronos),
+          pisar_claves: clavesDe(plan.sincronos, claves) });
+        if (forzado) cuerpo.forzar_sin_sesame = true;
+        return post("/api/aprobar/ejecutar", cuerpo).then(function (r) {
+          respuestas.sincrono = r;
+        });
+      });
+    }
+    if (plan.cola.length) {
+      paso = paso.then(function () {
+        return post("/api/aprobar/encolar", Object.assign({}, base, {
+          registro_ids: idsDe(plan.cola) })).then(function (r) {
+            respuestas.cola = r;
+          });
+      });
+    }
+    paso.then(function () {
+      mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto);
     }).catch(function (e) {
-      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
+      modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
     });
   }
 
-  /* SIN conflictos que pisar: va por la cola. El servidor responde en
-     cuanto la peticion esta encolada, sin esperar a Sigrid (un mes de
-     obra entero tardaba minutos). Si el portal corre sin colas
-     configuradas, el mismo endpoint devuelve modo:"sincrono" con el
-     resultado completo y se pinta como toda la vida. */
-  function encolar(peticion, caja, boton) {
-    if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
-    return post("/api/aprobar/encolar", peticion).then(function (r) {
-      if (!r.ok) { errorModal("No se pudo registrar", r); return; }
-      if (r.modo !== "asincrono") { mostrarResultado(peticion, r); return; }
-      sondearEncolado(r);
-    }).catch(function (e) {
-      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
-            [{ texto: "Cerrar", onClick: cerrar }]);
-    });
+  function seccionObra(g, cuerpo) {
+    return "<section class='ap-grupo-res' data-grupo=\"" + esc(g.clave)
+      + "\"><h4 class='ap-obra'>" + esc(obraTexto(g)) + "</h4>" + cuerpo
+      + "</section>";
   }
 
-  /* F-024 (R29): tras encolar, el modal NO recarga la pagina (la recarga
-     inmediata pintaba "encolado" antes de que llegara el resultado):
-     sondea el estado de esas lineas cada 3 s durante 120 s como mucho.
-     Con el resultado, resumen y recarga al cerrar; si se cierra antes, el
-     aviso de la vista sigue esperando (R30). */
+  /* F-022 (R30): el resultado de una obra registrada en sincrono. */
+  function resultadoGrupoHtml(g) {
+    if (!g.ok) {
+      return seccionObra(g, "<p class='ap-warn'>Sin registrar: "
+                         + esc(g.error || "error desconocido") + "</p>");
+    }
+    return seccionObra(g, resultadoHtml(g));
+  }
+
+  /* F-022 (R20, R30): una obra que se mando a la cola. */
+  function encoladoGrupoHtml(g) {
+    if (g.estado !== "encolado") {
+      return seccionObra(g, "<p class='ap-warn'>Sin registrar: "
+                         + esc(g.error || "error desconocido") + "</p>");
+    }
+    return seccionObra(g, "<p class='ap-estado-cola'><strong>"
+      + (g.registro_ids || []).length + "</strong> linea(s) en cola; "
+      + "esperando el resultado de Sigrid…</p>");
+  }
+
+  /* El resultado por obra de las dos llamadas, mas las obras que no se
+     enviaron con su motivo. Si alguna obra se encolo, sondea su estado
+     (F-024 R29, por obra); si quedan conflictos, ofrece pisarlos. */
+  function mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto) {
+    var html = "", sondeos = [], pendientes = [];
+    [respuestas.sincrono, respuestas.cola].forEach(function (r) {
+      if (!r) return;
+      if (!r.grupos) {
+        html += "<p class='ap-warn'>" + esc(r.error || "error desconocido")
+          + "</p>";
+        return;
+      }
+      r.grupos.forEach(function (g) {
+        if (r.modo === "asincrono") {
+          html += encoladoGrupoHtml(g);
+          if (g.estado === "encolado") sondeos.push(g);
+          return;
+        }
+        html += resultadoGrupoHtml(g);
+        if ((g.pendientes_confirmacion || []).length) pendientes.push(g);
+      });
+    });
+    plan.fuera.forEach(function (g) {
+      html += seccionObra(g, "<p class='ap-warn'>Sin registrar: "
+        + esc(g.sesame_bloqueo || g.error || "error desconocido") + "</p>");
+    });
+    pendientes.forEach(function (g) {
+      html += "<hr><p><strong>" + esc(obraTexto(g)) + "</strong></p>"
+        + conflictosHtml(g.pendientes_confirmacion, g.clave);
+    });
+    var sondeo = { terminado: !sondeos.length, soltar: function () {} };
+    var acciones = [];
+    if (pendientes.length) {
+      acciones.push({ texto: "Pisar las marcadas", clase: "ok",
+        onClick: function (cj, b) {
+          var claves = Array.prototype.slice.call(
+            cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
+              return i.value;
+            });
+          sondeo.soltar();
+          if (!claves.length) { cerrar(); window.location.reload(); return; }
+          confirmar(peticion, planEnvio(pendientes, claves, forzado), claves,
+                    forzado, b, contexto);
+        } });
+      acciones.push({ texto: "Dejarlo asi", onClick: function () {
+        sondeo.soltar(); cerrar(); window.location.reload();
+      } });
+    } else {
+      acciones.push({ texto: "Cerrar", clase: "ok", onClick: function () {
+        cerrar();
+        if (sondeo.terminado) { window.location.reload(); return; }
+        sondeo.soltar();
+      } });
+    }
+    var caja = modal("Registro en Sigrid", html, acciones);
+    if (sondeos.length) sondeo = sondearGrupos(caja, sondeos);
+  }
+
+  /* F-024 (R29) por obra: tras encolar, el modal NO recarga la pagina (la
+     recarga inmediata pintaba "encolado" antes de que llegara el
+     resultado): sondea el estado de las lineas de cada obra cada 3 s
+     durante 120 s como mucho. Si se cierra antes, el aviso de la vista
+     sigue esperando (R30). */
   var SONDEO_MODAL_MS = 3000, PLAZO_MODAL_MS = 120000;
 
   function resumenEstadosTexto(estados) {
@@ -2996,53 +3169,52 @@ var MotivoHttp = (function () {
       + (estados.error || 0) + " con error";
   }
 
-  function sondearEncolado(r) {
-    var ids = r.registro_ids || [];
-    var terminado = false, soltado = false;
-    var inicio = Date.now();
+  function sondearGrupos(caja, grupos) {
+    var inicio = Date.now(), soltado = false, pendientes = grupos.length;
+    var estado = { terminado: false, soltar: soltar };
     function soltar() {
       if (soltado) return;
       soltado = true;
-      if (!terminado) vigilarEncoladas(ids);
+      if (!estado.terminado) {
+        vigilarEncoladas(idsDe(grupos.filter(function (g) { return !g.listo; })));
+      }
     }
-    var caja = modal("Registro encolado", "<p><strong>" + (r.encoladas || 0)
-          + "</strong> linea(s) enviadas a registrar en Sigrid.</p>"
-          + excluidasHtml(r.excluidas)
-          + "<p class='ap-estado-cola'>Esperando el resultado de Sigrid… "
-          + "Puedes cerrar: se registraran en segundo plano y el aviso de la "
-          + "pagina dira cuando llegue.</p>", [
-      { texto: "Cerrar", clase: "ok", onClick: function () {
-          cerrar();
-          if (terminado) { window.location.reload(); return; }
-          soltar();
-        } },
-    ]);
-    function paso() {
+    function linea(g) {
+      return caja.querySelector('[data-grupo="' + g.clave + '"] .ap-estado-cola');
+    }
+    function paso(g) {
       if (soltado) return;
       if (!caja.isConnected) { soltar(); return; }
-      post("/api/aprobar/estado", { registro_ids: ids }).then(function (e) {
-        if (soltado) return;
-        var linea = caja.querySelector(".ap-estado-cola");
-        if (e && e.ok && e.pendientes === 0) {
-          terminado = true;
-          linea.innerHTML = "<strong>Resultado:</strong> "
-            + resumenEstadosTexto(e.estados)
-            + ". Al cerrar se actualizara la pagina.";
-          return;
-        }
-        if (Date.now() - inicio >= PLAZO_MODAL_MS) {
-          linea.innerHTML = "Siguen <strong>"
-            + (e && e.ok ? e.pendientes : "?") + "</strong> linea(s) en "
-            + "cola. Se registraran en segundo plano; el aviso de la pagina "
-            + "dira cuando llegue el resultado.";
-          return;
-        }
-        setTimeout(paso, SONDEO_MODAL_MS);
-      }).catch(function () {
-        if (Date.now() - inicio < PLAZO_MODAL_MS) setTimeout(paso, SONDEO_MODAL_MS);
-      });
+      post("/api/aprobar/estado", { registro_ids: g.registro_ids })
+        .then(function (e) {
+          if (soltado) return;
+          var p = linea(g);
+          if (e && e.ok && e.pendientes === 0) {
+            g.listo = true;
+            if (p) p.innerHTML = "<strong>Resultado:</strong> "
+              + resumenEstadosTexto(e.estados) + ".";
+            pendientes -= 1;
+            if (!pendientes) estado.terminado = true;
+            return;
+          }
+          if (Date.now() - inicio >= PLAZO_MODAL_MS) {
+            if (p) p.innerHTML = "Siguen <strong>"
+              + (e && e.ok ? e.pendientes : "?") + "</strong> linea(s) en "
+              + "cola. Se registraran en segundo plano; el aviso de la "
+              + "pagina dira cuando llegue el resultado.";
+            return;
+          }
+          setTimeout(function () { paso(g); }, SONDEO_MODAL_MS);
+        }).catch(function () {
+          if (Date.now() - inicio < PLAZO_MODAL_MS) {
+            setTimeout(function () { paso(g); }, SONDEO_MODAL_MS);
+          }
+        });
     }
-    if (ids.length) setTimeout(paso, SONDEO_MODAL_MS);
+    grupos.forEach(function (g) {
+      setTimeout(function () { paso(g); }, SONDEO_MODAL_MS);
+    });
+    return estado;
   }
 
   // ---------------- F-024: estado en Sigrid de la vista ---------------- //
@@ -3245,34 +3417,253 @@ var MotivoHttp = (function () {
     setTimeout(paso, SONDEO_VISTA_MS);
   }
 
-  function aprobar(peticion) {
+  // ---------------- F-022: que aprueba el boton de cabecera ------------- //
+
+  function filasTabla() {
+    return Array.prototype.slice.call(
+      document.querySelectorAll("#lines-table tbody tr[data-registro-id]"));
+  }
+
+  /* R6: con seleccion, las seleccionadas VISIBLES; sin seleccion y con
+     algo oculto por un filtro, las visibles; si no, toda la tabla. */
+  function conjuntoAprobacion() {
+    var filas = filasTabla();
+    var enTabla = {};
+    filas.forEach(function (tr) { enTabla[tr.dataset.registroId] = tr; });
+    var marcadas = PartidaSel.ids().filter(function (id) { return enTabla[id]; });
+    var visibles = filas.filter(PartidaSel.visible);
+    var c = { total: filas.length, ocultas: 0, marcadas: marcadas.length };
+    if (marcadas.length) {
+      c.modo = "seleccion";
+      c.ids = marcadas.filter(function (id) {
+        return PartidaSel.visible(enTabla[id]);
+      });
+      c.ocultas = marcadas.length - c.ids.length;
+    } else if (visibles.length < filas.length) {
+      c.modo = "visibles";
+      c.ids = visibles.map(function (tr) { return tr.dataset.registroId; });
+    } else {
+      c.modo = "todo";
+      c.ids = filas.map(function (tr) { return tr.dataset.registroId; });
+    }
+    c.ids = c.ids.map(function (id) { return parseInt(id, 10); });
+    return c;
+  }
+
+  function textoBoton(c) {
+    var nombre = { seleccion: "seleccionadas", visibles: "visibles",
+                   todo: "todo" }[c.modo];
+    return "✓ Aprobar " + nombre + " (" + c.ids.length + ")";
+  }
+
+  /* R7: por que el boton no aprueba nada ("" si aprueba algo). */
+  function motivoVacio(c) {
+    if (c.ids.length) return "";
+    if (c.modo === "seleccion") {
+      return "Las " + c.marcadas + " lineas seleccionadas estan ocultas por "
+        + "los filtros: no se aprueba ninguna";
+    }
+    if (c.modo === "visibles") return "Ninguna linea visible con los filtros actuales";
+    return "No hay lineas en la tabla";
+  }
+
+  function tituloBoton(c) {
+    var motivo = motivoVacio(c);
+    if (motivo) return motivo;
+    if (c.modo === "seleccion") {
+      return "Registrar en Sigrid las lineas seleccionadas que se ven"
+        + (c.ocultas ? " (" + c.ocultas + " ocultas no se aprueban)" : "");
+    }
+    if (c.modo === "visibles") {
+      return "Registrar en Sigrid las lineas visibles (respeta los filtros)";
+    }
+    return "Registrar en Sigrid todas las lineas de la tabla";
+  }
+
+  /* R27: el alcance, tal como lo ve el modal. */
+  function alcanceTexto(c) {
+    if (c.modo === "seleccion") return c.ids.length + " seleccionadas de " + c.total;
+    if (c.modo === "visibles") return c.ids.length + " visibles de " + c.total;
+    return "todas (" + c.ids.length + ") de " + c.total;
+  }
+
+  /* R8: de que vista salen los ids; el servidor lo comprueba (R10-R12). */
+  function ambitoDe(boton) {
+    if (boton.dataset.vista === "obra") {
+      return { vista: "obra", obra_key: boton.dataset.obraKey,
+               period: boton.dataset.period || null,
+               mode: boton.dataset.mode || "nomina" };
+    }
+    return { vista: "trabajador", worker_key: boton.dataset.workerKey };
+  }
+
+  function actualizarBoton() {
+    var boton = document.getElementById("aprobar-todo");
+    if (!boton || !boton.dataset.vista) return;
+    var c = conjuntoAprobacion();
+    boton.textContent = textoBoton(c);
+    boton.disabled = !c.ids.length;
+    boton.title = tituloBoton(c);
+  }
+
+  // ---------------- F-022: el modal por obra (DA19) ---------------- //
+
+  var SEPARADOR_CLAVE = "::";
+  var ETIQUETAS_ESTADO = {
+    nuevo: "nueva", reaprobacion: "reaprobación", conflicto: "conflicto",
+    omitida: "no se registra (regla)", ya_registrada: "ya en Sigrid",
+    no_se_registra: "no se registra",
+  };
+  var TIPOS = { ordinaria: "ordinaria", extra: "extra",
+                incidencia: "incidencia" };
+
+  function obraTexto(g) {
+    var o = g.obra || {};
+    var partes = [o.codigo, o.nombre].filter(function (x) { return x; });
+    return partes.length ? partes.join(" · ") : "(obra sin identificar)";
+  }
+
+  function horasTexto(v) {
+    return String(Math.round((Number(v) || 0) * 100) / 100).replace(".", ",");
+  }
+
+  /* R25: el resumen de unos `totales` en una linea. */
+  function totalesTexto(t) {
+    t = t || {};
+    var por = t.por_estado || {};
+    var estados = Object.keys(por).map(function (k) {
+      return por[k] + " " + (ETIQUETAS_ESTADO[k] || k);
+    }).join(", ");
+    return (t.lineas || 0) + " linea(s) · " + horasTexto(t.horas_ordinarias)
+      + " h ordinarias · " + horasTexto(t.horas_extra) + " h extra · "
+      + (t.incidencias || 0) + " incidencia(s)"
+      + (estados ? " — " + estados : "");
+  }
+
+  /* R23, R27: la tabla de lo que se va a aprobar de una obra. Viene
+     construida del servidor: aqui solo se pinta (y se escapa). */
+  function listadoHtml(filas) {
+    if (!filas || !filas.length) return "";
+    return "<div class='ap-listado'><table class='ap-tabla'><thead><tr>"
+      + "<th>Fecha</th><th>Trabajador</th><th>Tipo</th><th>Cód. hora</th>"
+      + "<th class='num'>Horas</th><th>Partida</th><th>Recurso</th>"
+      + "<th>Estado</th></tr></thead><tbody>"
+      + filas.map(function (f) {
+          return "<tr class=\"ap-fila-" + esc(f.estado) + "\"><td>"
+            + esc(fechaLegible(f.fecha_int)) + "</td><td>"
+            + esc(f.nombre || "?") + "</td><td>"
+            + esc(TIPOS[f.tipo] || f.tipo) + "</td><td>"
+            + esc(f.hora_codigo || "") + "</td><td class='num'>"
+            + esc(horasTexto(f.horas)) + "</td><td>"
+            + esc(f.partida_cod || "") + "</td><td>"
+            + esc(num(f.recurso_ide)) + "</td><td><span class=\"ap-estado "
+            + "ap-estado-" + esc(f.estado) + "\" title=\"" + esc(f.motivo || "")
+            + "\">" + esc(ETIQUETAS_ESTADO[f.estado] || f.estado)
+            + "</span></td></tr>";
+        }).join("")
+      + "</tbody></table></div>";
+  }
+
+  /* R27, R28: una seccion por obra. Resumen siempre visible en el
+     <summary>; dentro, partes, avisos y el listado (plegado si el total
+     pasa del umbral); FUERA del pliegue, errores, bloqueo y conflictos. */
+  function grupoHtml(g, plegar) {
+    var dentro = (g.ok ? resumenHtml(g) + avisosCalendarioHtml(g.avisos_calendario)
+                       : "") + listadoHtml(g.listado);
+    var fuera = "";
+    if (!g.ok) {
+      fuera += "<p class='ap-warn'>No se registra: "
+        + esc(g.error || "error desconocido") + "</p>";
+    }
+    if (g.sesame_bloqueo) {
+      fuera += "<p class='ap-warn'>Bloqueada: " + esc(g.sesame_bloqueo) + "</p>";
+    }
+    if ((g.conflictos || []).length) fuera += conflictosHtml(g.conflictos, g.clave);
+    return "<section class='ap-grupo' data-grupo=\"" + esc(g.clave) + "\">"
+      + "<details class='ap-grupo-det'" + (plegar ? "" : " open") + ">"
+      + "<summary><strong>" + esc(obraTexto(g)) + "</strong> — "
+      + esc(totalesTexto(g.totales)) + "</summary>" + dentro + "</details>"
+      + fuera + "</section>";
+  }
+
+  function filasListado(grupos) {
+    return (grupos || []).reduce(function (n, g) {
+      return n + (g.listado || []).length;
+    }, 0);
+  }
+
+  /* R26: lo que se queda fuera, aparte y plegado: lo que el servidor
+     excluyo (ya registrado o borrado en Sigrid) y lo marcado que estaba
+     oculto por un filtro (eso no llego a enviarse). */
+  function excluidasDetalleHtml(detalle, ocultas) {
+    detalle = detalle || [];
+    var n = detalle.length + (ocultas || 0);
+    if (!n) return "";
+    return "<details class='ap-excluidas'><summary>Excluidas (" + n
+      + ")</summary><ul class='ap-list'>"
+      + detalle.map(function (d) {
+          return "<li>" + esc(fechaLegible(d.fecha_int)) + " · "
+            + esc(d.nombre || "?") + " · " + esc(d.obra_codigo || "")
+            + " · " + esc(horasTexto(d.horas)) + " h — " + esc(d.motivo || "")
+            + "</li>";
+        }).join("")
+      + (ocultas ? "<li>" + ocultas + " linea(s) marcadas estan ocultas por "
+                   + "los filtros y no se envian.</li>" : "")
+      + "</ul></details>";
+  }
+
+  /* R27: alcance y total general, arriba del todo. */
+  function cabeceraHtml(pf, contexto) {
+    var html = "";
+    if (contexto) {
+      html += "<p class='ap-alcance'>Alcance: <strong>"
+        + esc(alcanceTexto(contexto)) + "</strong> lineas de la tabla.</p>";
+    }
+    var n = (pf.grupos || []).length;
+    return html + "<p class='ap-total'><strong>Total"
+      + (n > 1 ? " (" + n + " obras)" : "") + ":</strong> "
+      + esc(totalesTexto(pf.totales)) + "</p>";
+  }
+
+  function noSePuedeHtml(pf) {
+    var html = "<p class='ap-warn'>" + esc(pf.error || "error desconocido") + "</p>";
+    if ((pf.obras || []).length) {
+      html += "<ul class='ap-list'>" + pf.obras.map(function (o) {
+        return "<li>" + esc(o.codigo || o.clave) + " · " + esc(o.nombre || "")
+          + ": " + esc(o.lineas) + " linea(s)</li>";
+      }).join("") + "</ul>";
+    }
+    return html;
+  }
+
+  function aprobar(peticion, contexto) {
     modal("Comprobando en Sigrid…", "<p>Analizando el parte, el mes y las "
           + "lineas existentes…</p>", []);
     post("/api/aprobar/preflight", peticion).then(function (pf) {
       var excl = pf.excluidas || {};
       var conBorradas = function () {
-        aprobar(Object.assign({}, peticion, { incluir_borradas: true }));
+        aprobar(Object.assign({}, peticion, { incluir_borradas: true }), contexto);
       };
       if (!pf.ok) {
         var accionesError = [{ texto: "Cerrar", onClick: cerrar }];
         if (excl.borrado_sigrid && !peticion.incluir_borradas) {
-          // R25: si solo quedaban lineas borradas en Sigrid, se ofrece
-          // repetir incluyendolas.
+          // F-024 R25: si solo quedaban lineas borradas en Sigrid, se
+          // ofrece repetir incluyendolas.
           accionesError.unshift({ texto: "Incluir las borradas en Sigrid",
                                   clase: "ok", onClick: conBorradas });
         }
-        modal("No se puede registrar",
-              "<p class='ap-warn'>" + esc(pf.error || "error desconocido") + "</p>",
-              accionesError);
+        modal("No se puede registrar", noSePuedeHtml(pf), accionesError);
         return;
       }
+      var grupos = pf.grupos || [];
+      var evaluables = grupos.filter(function (g) { return g.ok; });
+      var bloqueadas = evaluables.filter(function (g) { return g.sesame_bloqueo; });
       var conflictos = pf.conflictos || [];
-      var bloqueo = pf.sesame_bloqueo || "";
-      var html = resumenHtml(pf);
-      if (excl.registrado) {
-        html += "<p class='muted small'>" + excl.registrado + " linea(s) ya "
-          + "registradas en Sigrid no se reenvian.</p>";
-      }
+      var plegar = filasListado(grupos) > (pf.umbral_plegado || 40);
+      var html = cabeceraHtml(pf, contexto)
+        + grupos.map(function (g) { return grupoHtml(g, plegar); }).join("")
+        + excluidasDetalleHtml(pf.excluidas_detalle,
+                               contexto ? contexto.ocultas : 0);
       if (excl.borrado_sigrid && !peticion.incluir_borradas) {
         html += "<div class='ap-ctx ap-borradas'><p><strong>"
           + excl.borrado_sigrid + "</strong> linea(s) estan borradas en "
@@ -3280,12 +3671,16 @@ var MotivoHttp = (function () {
           + "id='ap-incluir-borradas'> Incluirlas (se volveran a escribir en "
           + "Sigrid)</label></div>";
       }
-      html += avisosCalendarioHtml(pf.avisos_calendario);
-      if (bloqueo) html += "<hr>" + bloqueoSesameHtml(bloqueo);
-      if (conflictos.length) html += "<hr>" + conflictosHtml(conflictos);
+      if (bloqueadas.length) {
+        html += "<hr>" + bloqueoSesameHtml(esc(pf.sesame_bloqueo) + " ("
+          + esc(bloqueadas.map(obraTexto).join(", ")) + ")");
+      }
       var titulo = "Confirmar registro en Sigrid";
-      if (bloqueo) titulo = "Bloqueado: Sesame no disponible";
-      else if (conflictos.length) titulo = "Confirmar: hay lineas que se pisarian";
+      if (bloqueadas.length && bloqueadas.length === evaluables.length) {
+        titulo = "Bloqueado: Sesame no disponible";
+      } else if (conflictos.length) {
+        titulo = "Confirmar: hay lineas que se pisarian";
+      }
       var cajaPf = modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
                                      : "Registrar", clase: "ok",
@@ -3294,30 +3689,28 @@ var MotivoHttp = (function () {
                 cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
                   return i.value;
                 });
-              var forzar = cj.querySelector("#ap-forzar-sesame");
-              if (bloqueo && !(forzar && forzar.checked)) {
-                // El servidor lo rechazaria igual (R24); avisar aqui
+              var casilla = cj.querySelector("#ap-forzar-sesame");
+              var forzado = !!(casilla && casilla.checked);
+              var plan = planEnvio(grupos, claves, forzado);
+              if (!plan.sincronos.length && !plan.cola.length) {
+                // El servidor lo rechazaria igual (F-003 R24); avisar aqui
                 // evita un viaje y deja claro que falta la confirmacion.
                 window.alert("Marca la casilla para registrar sin el "
                   + "calendario de Sesame, o espera a que vuelva.");
                 return;
               }
-              // Con claves que pisar, o con override de Sesame, hay una
-              // decision humana de por medio: sincrono, nunca por cola.
-              if (claves.length || bloqueo) {
-                ejecutar(peticion, claves, cj, b, !!bloqueo);
-              } else { encolar(peticion, cj, b); }
+              confirmar(peticion, plan, claves, forzado, b, contexto);
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);
-      var casilla = cajaPf.querySelector("#ap-incluir-borradas");
-      if (casilla) {
-        casilla.addEventListener("change", function () {
-          if (casilla.checked) conBorradas();   // repite el preflight
+      var incluir = cajaPf.querySelector("#ap-incluir-borradas");
+      if (incluir) {
+        incluir.addEventListener("change", function () {
+          if (incluir.checked) conBorradas();   // repite el preflight
         });
       }
     }).catch(function (e) {
-      modal("Error de red", "<p class='ap-warn'>" + e + "</p>",
+      modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
     });
   }
@@ -3327,10 +3720,11 @@ var MotivoHttp = (function () {
       var linea = ev.target.closest(".aprobar-linea");
       if (linea) {
         ev.preventDefault();
+        // R9: solo su linea, aunque este seleccionada, y sin `ambito`.
         var porLinea = { registro_ids: [parseInt(linea.dataset.registroId, 10)] };
         // F-024: «Reaprobar» una linea borrada en Sigrid la incluye.
         if (linea.dataset.incluirBorradas === "1") porLinea.incluir_borradas = true;
-        aprobar(porLinea);
+        aprobar(porLinea, null);
         return;
       }
       if (ev.target.closest("#comprobar-sigrid")) {
@@ -3346,31 +3740,16 @@ var MotivoHttp = (function () {
       var todo = ev.target.closest("#aprobar-todo");
       if (todo) {
         ev.preventDefault();
-        if (todo.dataset.obraKey) {
-          // Vista de OBRA: el servidor resuelve las lineas del periodo.
-          aprobar({ obra_key: todo.dataset.obraKey,
-                    period: todo.dataset.period || null,
-                    mode: todo.dataset.mode || "nomina" });
-          return;
-        }
-        // Vista de TRABAJADOR: aprueba lo VISIBLE en la tabla (respeta el
-        // filtro de dias del calendario y los filtros de columna), sin
-        // incidencias.
-        var ids = [];
-        document.querySelectorAll(
-          "#lines-table tbody tr[data-registro-id]"
-        ).forEach(function (tr) {
-          if (tr.classList.contains("filtered-day")) return;
-          if (tr.style.display === "none") return;
-          ids.push(parseInt(tr.dataset.registroId, 10));
-        });
-        if (!ids.length) {
-          aprobar({ registro_ids: [] });  // el backend respondera con el aviso
-          return;
-        }
-        aprobar({ registro_ids: ids });
+        if (todo.disabled) return;
+        // F-022 (R6, R8): lo seleccionado y visible, lo visible o toda la
+        // tabla, siempre con el `ambito` de la vista (tambien al repetir).
+        var c = conjuntoAprobacion();
+        if (!c.ids.length) return;
+        aprobar({ registro_ids: c.ids, ambito: ambitoDe(todo) }, c);
       }
     });
+    document.addEventListener("lineas:cambio", actualizarBoton);
+    actualizarBoton();
     comprobarVista();                          // R18
     vigilarEncoladas(idsPorEstado("encolado")); // R30
   });
