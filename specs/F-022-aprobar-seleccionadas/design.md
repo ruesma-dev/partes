@@ -3,63 +3,53 @@
 
 ## 0. Resumen para el humano (decisiones a validar, detalle en §8)
 
-- **DA1** Sin nada marcado, el botón aprueba **lo visible** («Aprobar visibles
-  (N)»; sin filtros, «Aprobar todo (N)»). Con algo marcado, **solo lo
-  marcado** («Aprobar seleccionadas (N)»).
-- **DA2** Marcado + oculto por un filtro **no** se aprueba; se avisa.
-- **DA3** Una sola selección: las casillas son la cara visible de la
-  selección Ctrl/Shift+clic que ya existe (la de editar partida en bloque).
-- **DA4/DA5** Casilla dentro de la celda Fecha (sin columna nueva) y botones
-  «Seleccionar visibles» / «Quitar selección» sobre la tabla.
-- **DA7** El servidor exige que los ids pertenezcan a la vista y, si no,
-  **rechaza toda la petición** (422), no aprueba «lo que pueda».
-- **DA8 · Hallazgo**: sv5 escribe todas las líneas de una petición en el
-  parte de **una** obra, la de la primera línea. Hoy «Aprobar visibles» en
-  la ficha de una persona con líneas de varias obras **las escribiría en la
-  obra equivocada**. F-022 lo rechaza (422 con desglose por obra) en toda
-  petición. **Aviso inmediato**: hasta desplegar, en la ficha de persona
-  filtrar la columna Obra antes de «Aprobar visibles». M1 (§9) mira si ya
-  ocurrió.
-- **DA14** Solo **sv4**; sv5 sin cambios. Rigor `estandar`.
+- **DA1/DA2** Con algo marcado, aprueba **solo lo marcado y visible**; sin
+  nada marcado, **lo visible** (sin filtros, todo). **DA3–DA5** Casillas
+  sobre la selección Ctrl/Shift+clic que ya existe. **DA7** Ids que no son
+  de la vista ⇒ **422 de toda la petición**.
+- **DA8 (revisada por el humano, 2026-10-01)**: varias obras **no** se
+  rechazan: **sv4 parte la aprobación en una petición por obra** y cada
+  línea va al parte de su obra; sv5 no cambia. Hoy un lote de varias obras
+  va entero a la obra de la primera línea: **aviso inmediato**, en persona
+  filtrar la columna Obra antes de «Aprobar visibles». M1: ¿ya pasó?
+- **DA16** Resultado **por obra**, sin «todo o nada». **DA14** Rigor
+  **`critico`** (decide a qué obra van las horas en Sigrid). Solo **sv4**.
 
 ## 1. Servicios que toca y por qué
 
 | Servicio | Por qué | Qué no hace |
 |---|---|---|
-| sv4 | Dueño de las vistas, de la selección en el navegador y de construir el payload de registro (`_payload_registro`, `lineas_para_registro`) | No toca el esquema ni la cola |
+| sv4 | Dueño de las vistas, de la selección y de construir el payload (`lineas_para_registro`, `_payload_registro`): es quien elige la obra de cada petición | No toca esquema, cola ni el formato del mensaje |
 
-**sv5 no cambia** (verificado): `PeticionIn` es `{obra, lineas, pisar_claves,
-usuario}`; preflight, conflictos y escritura operan solo sobre las `lineas`
-recibidas; el mensaje de `q-transfer` y el resultado por línea no cambian.
-Basta con que sv4 envíe menos líneas. El guardia de una obra (R17) va en sv4
-porque es quien elige la obra del payload. sv3 no se toca.
+**sv5 no cambia** (verificado): `PeticionIn` = `{obra, lineas, pisar_claves,
+usuario}`, **una obra por petición**; su paso 2 ya agrupa por mes natural (un
+parte por obra y mes), así que sv4 **no agrupa por mes**. Empresa,
+verificación de recurso (F-023) y conflictos dependen de esa obra.
+**Alternativa descartada: que agrupe sv5** (obra por línea): cambia el
+contrato del único servicio que escribe (HTTP, mensaje de `q-transfer`,
+resultado y su consumidor), su fallo es «petición entera» y habría que
+rehacerlo por obra dentro del lock, y obliga a desplegar sv5 antes. En sv4,
+cada grupo pasa por el pipeline ya probado; coste: N viajes y N mensajes.
 
 ## 2. Qué hace hoy (diagnóstico)
 
-- **Obra** (`obra_detail.html`): «✓ Aprobar todo» envía `{obra_key, period,
-  mode}`; el servidor resuelve **todas** las líneas del periodo
-  (`registro_ids_de_obra`). **Ignora** filtros de columna y el filtro por
-  casillas de la matriz: es el caso que reporta el humano.
-- **Persona** (`trabajador_detail.html`): «✓ Aprobar visibles» ya envía los
-  `registro_ids` de las filas sin `filtered-day` ni `display:none`. Pero la
-  tabla de persona pinta **todas** sus líneas (todos los meses y obras; el
-  selector de mes solo mueve el calendario) y el servidor no comprueba nada
-  de esos ids salvo papelera y exclusiones de F-024.
-- **Selección**: existe `PartidaSel` (Ctrl/Shift+clic, barra `.bulk-bar` con
-  «Editar partida», «Borrar», «Quitar selección»), sin casillas, local al
-  segundo IIFE de `app.js`; el IIFE de aprobar no la ve. El rango de
-  Shift+clic incluye filas ocultas.
-- **Obra del payload**: `lineas_para_registro` toma la obra de la primera
-  línea leída (orden de la BBDD) y no comprueba que el resto sea de la misma.
+- **Obra**: «✓ Aprobar todo» envía `{obra_key, period, mode}`; el servidor
+  aprueba **todo** el periodo e **ignora** filtros de columna y de matriz.
+- **Persona**: «✓ Aprobar visibles» envía los ids visibles, pero la tabla
+  pinta **todas** sus líneas (todos los meses y obras) y nadie las valida.
+- **Obra del payload**: la de la primera línea leída, sin mirar el resto.
+  **Selección**: `PartidaSel` (Ctrl/Shift+clic), sin casillas, local a un
+  IIFE; Shift+clic incluye ocultas.
+- **Clave de conflicto** de sv5 = `recurso|fecha|hora_ide`, **sin obra**:
+  dos obras pueden producir la misma clave (motiva R22).
 
 ## 3. Encaje y flujo
 
-Navegador: conjunto = `seleccionadas ∩ visibles` si hay selección; si no,
-`visibles` → `aprobar({registro_ids, ambito}, alcanceTexto)` → preflight →
-(encolar | ejecutar) con la misma petición. Servidor: `_payload_registro` →
-si hay `ambito`, `_validar_ambito` (R13–R15) → `lineas_para_registro`
-(exclusiones F-024, R16) → guardia de una obra (R17) → payload de siempre a
-sv5 (R21). Sin `ambito`, como hoy + R17 (R18).
+Conjunto (DA1/DA2) → `preflight {registro_ids, ambito}` → ámbito (R13–R15)
+→ `lineas_para_registro` → `grupos` (R17, R18) → preflight, Sesame y avisos
+por grupo → modal por obra (R26) → `ejecutar` con los ids de los grupos
+síncronos y `encolar` con el resto (R27), reagrupando igual (determinista) →
+resultado y sondeo por grupo (R28). Cada llamada es subconjunto de la vista.
 
 ## 4. Ficheros
 
@@ -67,178 +57,194 @@ sv5 (R21). Sin `ambito`, como hoy + R17 (R18).
 
 | Ruta | Contenido |
 |---|---|
-| `services/partes-front/tests/test_f022_aprobar_seleccion.py` | R13–R21 (endpoints con `TestClient`, repositorio SQLite, dobles de sv5, publisher y calendario de F-003/F-024) |
-| `services/partes-front/tests/test_f022_vistas_seleccion.py` | R1, R10, R12 y R5 en lo estático: HTML de las dos vistas (casilla por fila, botones de selección, `data-*` del ámbito) y comprobaciones mínimas de `app.js` (patrón `test_f004_r16`) |
+| `services/partes-front/application/services/reparto_obras.py` | `GrupoObra`, `repartir_claves`, `agregar_preflight`, `agregar_ejecucion` (§5.2), puro |
+| `services/partes-front/tests/test_f022_reparto_obras.py` | R17–R22, R25 en lo puro (tablas de casos) |
+| `services/partes-front/tests/test_f022_aprobar_seleccion.py` | R13–R16, R18–R25, R29–R31 por endpoint (`TestClient`, SQLite, dobles de sv5, publisher y calendario de F-003/F-024) |
+| `services/partes-front/tests/test_f022_vistas_seleccion.py` | R1, R10, R12 y lo estático de R5 (HTML de las dos vistas y comprobaciones mínimas de `app.js`, patrón `test_f004_r16`) |
 
 ### Modificar
 
 | Ruta | Qué cambia |
 |---|---|
-| `services/partes-front/infrastructure/database/parte_repository.py` | `registro_ids_de_trabajador(worker_key)`; `lineas_para_registro` añade la clave `obras` (§5.1). `registro_ids_de_obra` no cambia |
-| `services/partes-front/interface_adapters/web/app.py` | `_payload_registro`: rama `ambito` (R13–R15) y guardia de una obra (R17); constantes `MAX_IDS_APROBACION = 5000` y `VISTAS_AMBITO`. Sin endpoints nuevos |
-| `services/partes-front/templates/obra_detail.html` | `#aprobar-todo` conserva `id` y `data-obra-key/period/mode`, añade `data-vista="obra"`; casilla `sel-linea` en `cell-fecha`; barra de selección en la cabecera del panel |
-| `services/partes-front/templates/trabajador_detail.html` | Igual, con `data-vista="trabajador"` y `data-worker-key` |
-| `services/partes-front/static/app.js` | §5.2 |
-| `services/partes-front/static/styles.css` | Estilo mínimo de `.sel-linea`, `.sel-tools` y botón deshabilitado |
-| `services/partes-front/tests/test_f024_borrado_sigrid.py` | `test_f024_r22_payload_repo_sin_ids` compara el dict entero: se añade `"obras": []` con comentario (R22). Nada más |
-| `docs/ARCHITECTURE.md` | Semántica 5: una petición de registro es de **una** obra; sv4 rechaza lotes de varias. Semántica 10: masivas por selección/visibles (≤ 6 líneas netas) |
-| `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` | Líneas que citan «Aprobar todo»/«Aprobar visibles»: selección explícita y regla de una obra (no cambia lo expuesto entre servicios) |
+| `services/partes-front/infrastructure/database/parte_repository.py` | `registro_ids_de_trabajador(worker_key)`; `lineas_para_registro` añade `grupos` (§5.1); `obra`, `lineas` y exclusiones no cambian |
+| `services/partes-front/interface_adapters/web/app.py` | `_payload_registro` → `_preparar_registro` (ámbito, grupos, tope); los tres endpoints iteran por grupo (§5.3). Sin endpoints nuevos |
+| `services/partes-front/config/settings.py` | `APROBACION_MAX_OBRAS=10` (1–50) |
+| `services/partes-front/templates/obra_detail.html`, `trabajador_detail.html` | casilla `sel-linea` en `cell-fecha`; barra `.sel-tools`; `#aprobar-todo` con `data-vista` y `data-obra-key/period/mode` o `data-worker-key` |
+| `services/partes-front/static/app.js`, `static/styles.css` | §5.4; estilo de casilla, barra, secciones por obra y botón deshabilitado |
+| `services/partes-front/tests/test_f024_borrado_sigrid.py` | `test_f024_r22_payload_repo_sin_ids` compara el dict entero: + `"grupos": []` con nota (R32) |
+| `docs/ARCHITECTURE.md` | Semántica 5: una petición a sv5 es de una obra; sv4 parte las aprobaciones por obra. Semántica 10: masivas por selección/visibles (≤ 8 líneas netas) |
+| `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` | «Aprobar todo/visibles» → selección explícita y una petición `q-transfer` por obra (el contrato con sv5 no cambia) |
 
 ### No se tocan
 
 `services/partes-transfer/**` (sv5), `services/partes-persistencia/**`,
-`orm_models.py` (las dos copias), `congelacion.py`, `resultado_sigrid.py`,
-`resultado_consumer.py`, `comprobacion_sigrid.py`, `registro_ids_de_obra`,
-las exclusiones de `lineas_para_registro` (F-024 R22), los endpoints
-`/api/sigrid/comprobar` y `/api/aprobar/estado`, `parte_detail.html`, `infra/`.
+`orm_models.py`, `congelacion.py`, `resultado_sigrid.py`,
+`resultado_consumer.py`, `transfer_queue_publisher.py`, `transfer_client.py`,
+`comprobacion_sigrid.py`, `registro_ids_de_obra`, `/api/sigrid/comprobar`,
+`/api/aprobar/estado`, `parte_detail.html`, `infra/`.
 
 ## 5. Clases y funciones
 
 ### 5.1 Repositorio (infrastructure)
 
+- `registro_ids_de_trabajador(worker_key) -> list[int]`: ids de
+  `get_worker(key).registros` (`[]` si no existe): las filas de la tabla.
+- `lineas_para_registro(...)["grupos"]`: `[{clave, obra: {ide, codigo,
+  nombre}, lineas: [...]}]` de **las líneas que viajan**, por
+  `obra_key_for_registro(r)`, en orden de `clave`; `obra` del grupo = la de
+  sus líneas. `[]` sin líneas.
+
+### 5.2 `reparto_obras.py` (application, puro)
+
 ```python
-def registro_ids_de_trabajador(self, worker_key: str) -> list[int]
-def lineas_para_registro(self, registro_ids, *, incluir_borradas=False) -> dict
-    # + "obras": list[{"clave", "codigo", "nombre", "lineas": int}]
+@dataclass
+class GrupoObra: clave: str; obra: dict; lineas: list[dict]  # + registro_ids
+SEPARADOR_CLAVE = "::"
+def repartir_claves(pisar: list[str], claves_grupo: list[str]) -> dict[str, list[str]] | None
+def agregar_preflight(evaluados: list[dict]) -> dict
+def agregar_ejecucion(ejecutados: list[dict]) -> dict
 ```
 
-- `registro_ids_de_trabajador`: `[v.id for v in get_worker(key).registros]`
-  (`[]` si no existe). Son las filas de la tabla de persona (DA12).
-- `obras`: agrupa **las líneas que viajan** (no las excluidas) por
-  `obra_key_for_registro(r)`, en orden de clave; `[]` sin líneas. `obra`
-  sigue saliendo de la primera línea que viaja (con una obra, da igual).
+- `repartir_claves`: `"g::k"` → grupo `g` recibe `k` (grupo desconocido se
+  ignora); claves sin `::` → al único grupo, o `None` si hay más de uno
+  (R22 → 422).
+- `agregar_preflight` (R19, R20): cada evaluado es `{clave, obra,
+  registro_ids, ok, error, …respuesta de sv5, avisos_calendario,
+  sesame_bloqueo}`. Plano: `partes`, `acciones`, `conflictos`,
+  `avisos_calendario` concatenados; `resumen` sumado por clave numérica;
+  `obra_destino`/`forzada_pruebas` del primer grupo `ok`; `sesame_bloqueo`
+  si algún grupo lo tiene; `ok` = algún grupo `ok`; `error` = los de los
+  grupos si ninguno. Con un grupo, el plano es su respuesta tal cual.
+- `agregar_ejecucion` (R25): `escritas`, `omitidas`, `ya_registradas`,
+  `pendientes_confirmacion`, `partes` concatenados; `borradas` sumado;
+  `ok` = todos `ok`; `parcial` = unos sí y otros no. Un grupo
+  `bloqueado_sesame` cuenta como no `ok`.
 
-### 5.2 Portal (`interface_adapters/web/app.py`)
+### 5.3 Portal (`interface_adapters/web/app.py`)
 
-`_payload_registro(body, *, actor)` mantiene su firma y su retorno
-`(payload, excluidas) | JSONResponse`:
+`_preparar_registro(body, *, actor) -> tuple[list[GrupoObra], dict] |
+JSONResponse`: ids deduplicados → con `ambito`, `_validar_ambito` (R13–R15,
+422 `fuera_de_ambito`) → sin `ambito` ni ids, `obra_key` heredado →
+`lineas_para_registro` → vacío: 422 de F-024 R23 → más de
+`aprobacion_max_obras` grupos: 422 con desglose (R18). `_payload_grupo(g,
+claves, actor)` construye el payload de siempre (R31).
 
-1. `ids` = `registro_ids` deduplicados. Si `body.ambito` existe →
-   `_validar_ambito(ambito, ids)`; si devuelve respuesta, se devuelve.
-2. Sin `ambito` y sin ids → `obra_key` heredado como hoy (R18).
-3. `lineas_para_registro` → si `lineas` vacío, 422 de F-024 R23 sin cambios.
-4. Si `len(datos["obras"]) > 1` → 422 `{ok:false, error, obras}`; el `error`
-   lista «0719 · Nombre: 20 líneas; 0404 · …: 3» y dice «Sigrid registra por
-   obra: filtra la columna Obra o selecciona líneas de una sola» (R17).
+- **preflight**: por grupo, `transfer_client.preflight`, avisos y
+  `_calendario_fiable` sobre sus líneas (R21, R29); `agregar_preflight` +
+  `grupos` + `excluidas`.
+- **ejecutar**: `repartir_claves` (None ⇒ 422); por grupo y en orden:
+  bloqueado sin override ⇒ `bloqueado_sesame`; si no, `ejecutar` +
+  `_trazar(sus ids, sin_sesame=bloqueado y forzado)`. Todos bloqueados ⇒
+  422 de hoy. Respuesta `agregar_ejecucion` + `grupos` + `excluidas`.
+- **encolar**: `pisar_claves` ⇒ 422 (F-002 R5); por grupo: bloqueado ⇒
+  `bloqueado_sesame`; sin publisher ⇒ `ejecutar` síncrono (F-002 R3);
+  con publisher ⇒ `publicar` y después `marcar_registros_encolado(sus ids)`;
+  excepción al publicar ⇒ `error_cola` y sigue (R24). Todos bloqueados ⇒
+  422 de hoy; todos `error_cola` ⇒ 502. Respuesta: `ok` (todos
+  encolados), `modo`, `peticion_id` (el primero, compatibilidad),
+  `peticiones`, `encoladas`, `registro_ids`, `excluidas`, `grupos`.
 
-`_validar_ambito(ambito: dict, ids: list[int]) -> JSONResponse | None`:
-422 si `vista` ∉ `VISTAS_AMBITO = ("obra", "trabajador")`, falta `obra_key` /
-`worker_key`, `ids` vacío o `len(ids) > MAX_IDS_APROBACION` (R15); resuelve
-los ids de la vista (R13) y, si `set(ids) - vista` no es vacío, 422 con
-`fuera_de_ambito` y «N línea(s) ya no pertenecen a esta vista; recarga la
-página» (R14). La validación ocurre **antes** de cualquier llamada a sv5, al
-publisher o a `marcar_registros_encolado`, y en los tres endpoints por
-pasar todos por `_payload_registro`. `ambito` no entra en el payload (R21).
+### 5.4 Navegador (`static/app.js`)
 
-### 5.3 Navegador (`static/app.js`)
-
-- **Global compartido**: `PartidaSel` sale del segundo IIFE a nivel de
-  fichero, junto a `MotivoHttp` (mismo nombre: sus usos no cambian), y gana
-  `visible(tr)` (sin `filtered-day`, `style.display !== "none"`, sin
-  `hidden`). El IIFE de aprobar la usa.
-- **`wireBulkSelect`**: cablea `change` de `.sel-linea` ↔ `toggle(tr)`;
-  `paint` marca también la casilla (R2); `selectRange` salta filas no
-  visibles (R4); «Seleccionar visibles» y «Quitar selección» (`[data-sel-
-  visibles]`, `[data-sel-ninguna]`) y contador `[data-sel-cuenta]` con
-  ocultas (R3, R6). `isInteractive` ya excluye `input`.
-- **`_filterCellText`**: ignora `.sel-linea` (R5).
-- **Aviso de cambios**: filtros por columna, filtro por días/casillas y
-  selección disparan `document.dispatchEvent(new CustomEvent("lineas:cambio"))`.
-- **IIFE de aprobar**: `conjuntoAprobacion()` → `{modo: "seleccion" |
-  "visibles" | "todo", ids, total, ocultas}`; `pintarBotonAprobar()` en
-  `ready` y en `lineas:cambio` pone texto, `disabled` y `title` (R7, R8).
-  El clic en `#aprobar-todo` construye `{registro_ids, ambito}` desde los
-  `data-*` del botón (R10) y llama `aprobar(peticion, alcance)`; `alcance`
-  (texto de R11) se pinta al principio de `resumenHtml` y **no** viaja al
-  servidor; `conBorradas` y `ejecutar` reutilizan la misma `peticion`. La
-  rama `.aprobar-linea` no cambia (R12).
+- `PartidaSel` pasa a global junto a `MotivoHttp` (mismo nombre) con
+  `visible(tr)`; casillas ↔ selección, rango solo visibles, «Seleccionar
+  visibles»/«Quitar selección», contador con ocultas; `_filterCellText`
+  ignora `.sel-linea`; filtros y selección emiten `lineas:cambio`.
+- Botón: `conjuntoAprobacion()` → `{modo, ids, total, ocultas}`; texto,
+  `disabled` y `title` en `ready` y en `lineas:cambio` (R7, R8); la
+  petición lleva `{registro_ids, ambito}` (R10) y el `alcance` (R11) se
+  pinta en el modal sin viajar.
+- Modal (R26): una sección por `pf.grupos` (obra, «se registrarán N»,
+  partes, conflictos con `value="<clave grupo>::<clave>"`, avisos, error o
+  bloqueo) y total. Confirmar (R27): grupos síncronos → `ejecutar`,
+  evaluados restantes → `encolar`, en ese orden si hay ambos.
+- Resultado (R28): síncrono por grupo (`r.grupos`); encolado: sondeo de
+  F-024 por grupo con sus `registro_ids`; obras sin registrar con motivo
+  (`error` de preflight, `bloqueado_sesame`, `error_cola`, `ok:false`).
+  Repetir para pisar conflictos de la respuesta de `ejecutar` usa solo los
+  grupos con claves marcadas. `.aprobar-linea` no cambia (R12).
 
 ## 6. SQL
 
-Ninguno. Sin cambios de esquema ni consultas nuevas a Sigrid.
+Ninguno: ni esquema nuevo ni consultas nuevas a Sigrid.
 
 ## 7. Fuera de alcance
 
-- Partir automáticamente un lote de varias obras en varias peticiones
-  (alternativa de DA8): feature aparte si el humano la quiere.
 - Acotar la tabla de persona al mes del calendario (DA12).
-- Casillas en `parte_detail.html` y en la matriz (la matriz sigue siendo
-  filtro, no selección).
-- Arnés de tests JS (DA13). Cambiar las reglas de exclusión de F-024.
+- Casillas en `parte_detail.html` o en la matriz (sigue siendo filtro).
+- Arnés de tests JS (DA13). Cambiar las exclusiones de F-024.
+- Corregir en Sigrid lo que M1 encuentre (feature aparte si aparece).
 
 ## 8. Decisiones abiertas (recomendación en negrita)
 
-1. **DA1 · Botón sin nada marcado**: **aprueba lo visible**, con el texto
-   diciendo qué («Aprobar visibles (N)» / «Aprobar todo (N)»). Alternativas:
-   (b) deshabilitado hasta marcar algo (pierde «aprobar el mes» de un clic);
-   (c) «todo» ignorando filtros (es lo que falla hoy en obra).
-2. **DA2 · Marcadas ocultas**: **no se aprueban** («apruebo lo que veo
-   marcado»); contador y modal lo dicen. Alternativas: que manden aunque
-   estén ocultas; o que filtrar desmarque (cambiaría la edición en bloque).
-3. **DA3 · Una sola selección** (casillas = Ctrl/Shift+clic). Consecuencia
-   conocida: con filas marcadas, cambiar hora, partida o trabajador de una
-   de ellas sigue aplicándose a toda la selección (hoy ya es así).
-   Alternativa: selección aparte para aprobar (dos selecciones confunden).
-4. **DA4 · Casilla en la celda Fecha**, no columna nueva: no rompe el orden
-   y los anchos guardados en `localStorage` (`wireColumnTools`), los filtros
-   por `cellIndex` ni los tests de vistas. Alternativa: columna propia con
-   casilla «todas» en la cabecera, fijada fuera del reordenado.
-5. **DA5 · «Seleccionar visibles» / «Quitar selección» como botones** sobre
-   la tabla, con contador; la barra flotante `.bulk-bar` gana «Aprobar
-   seleccionadas» solo si existe `#aprobar-todo`.
-6. **DA6 · Casilla en todas las filas** (también `registrado`/`encolado`):
-   el servidor excluye y el modal cuenta (F-024 R22, R25); no se copia la
-   regla en JS. Alternativa: sin casilla en `registrado`.
-7. **DA7 · Ids fuera de la vista ⇒ 422 de toda la petición**. Alternativa:
-   descartarlos en silencio (aprobaría menos de lo marcado sin decirlo).
-8. **DA8 · Una obra por petición, en toda petición** (también la heredada
-   y la de persona): 422 con desglose. Alternativa: el navegador parte el
-   lote por obra (varios preflights/modales): §7.
-9. **DA9 · El botón por línea no mira la selección** (a diferencia de las
-   ediciones): aprobar es una escritura en Sigrid y se quiere exacta.
-10. **DA10 · Shift+clic solo en visibles** (hoy marca también ocultas).
-11. **DA11 · Tope de 5000 ids con `ambito`**, como F-024 R17/R28.
-12. **DA12 · Ámbito de persona = toda su tabla** (todos los meses), porque
-    es lo que pinta hoy; con DA8, sin filtrar por obra la mayoría de
-    personas con varias obras recibirá el 422 explicativo.
-13. **DA13 · JS sin arnés**: `node --check`, comprobaciones estáticas en
-    pytest y M2–M6 (como F-004 y F-024).
-14. **DA14 · Servicios y rigor**: solo sv4; **`estandar`**. DA8 reduce un
-    riesgo de escritura en Sigrid sin escribir nada nuevo; si el humano
-    prefiere `critico` por ello, cambia solo la campaña de mutación.
+1. **DA1 · Sin nada marcado aprueba lo visible**. Alternativas:
+   deshabilitado hasta marcar; «todo» ignorando filtros (el fallo de hoy).
+2. **DA2 · Marcada y oculta no se aprueba**; contador y modal lo dicen.
+3. **DA3 · Una sola selección**: con filas marcadas, editar hora, partida
+   o trabajador de una sigue aplicando a toda la selección (ya es así).
+4. **DA4 · Casilla en la celda Fecha**, sin columna nueva: no rompe orden ni
+   anchos guardados (`wireColumnTools`), filtros por `cellIndex` ni tests.
+5. **DA5 · «Seleccionar visibles»/«Quitar selección» como botones**; la
+   `.bulk-bar` gana «Aprobar seleccionadas» si existe `#aprobar-todo`.
+6. **DA6 · Casilla en todas las filas**; el servidor excluye (F-024).
+7. **DA7 · Ids fuera de la vista ⇒ 422 entero**, no aprobar «lo que se
+   pueda» en silencio.
+8. **DA8 · Reparto por obra en sv4, sv5 sin cambios** (§1); por obra y no
+   por (obra, mes): sv5 ya parte por mes natural.
+9. **DA9–DA13**: el botón por línea no mira la selección; Shift+clic solo
+   en visibles; tope de 5000 ids con `ambito` (como F-024); ámbito de
+   persona = toda su tabla; JS sin arnés (`node --check`, estáticos, M2–M7).
+10. **DA14 · Rigor `critico`** (hoy `estandar`): el reparto decide qué obra,
+    qué empresa y qué parte reciben las horas en Sigrid de producción; un
+    fallo imputa coste a la obra equivocada, mismo nivel que F-024. Exige
+    campaña de mutación completa sobre `reparto_obras.py` y los hunks de
+    `app.py` y `parte_repository.py`, con 0 supervivientes sin test o
+    justificación aceptada. Si el humano lo aprueba, el líder actualiza
+    `features.json`.
+11. **DA15 · Grupos uno a uno, tope 10 obras** (`APROBACION_MAX_OBRAS`):
+    preflights en serie (sv5 una réplica; el lock serializa la escritura de
+    todos modos). Alternativa: preflights en paralelo con hilos.
+12. **DA16 · Resultado por grupo, sin «todo o nada»**: Sigrid no tiene
+    transacción entre partes de obras distintas y cada línea es idempotente
+    por `synckey`; lo fallido queda en `error`/sin cambios, visible, y se
+    reaprueba. Alternativa: abortar todo si un preflight falla (bloquea a
+    todas las obras por una).
+13. **DA17 · Claves de pisar con prefijo de grupo** (`<grupo>::<clave>`):
+    la de sv5 no lleva obra y dos obras pueden coincidir el mismo día.
+14. **DA18 · Modo pruebas**: todos los grupos van a la 0404 en peticiones
+    separadas; el modal puede anunciar el mismo «se creará PT…» en dos
+    grupos, pero la escritura bajo lock crea uno y el segundo lo reutiliza.
 
 ## 9. Verificaciones manuales (humano)
 
-- **M1 · ¿ya pasó lo de DA8? (PG `partes`, lectura)**: partes de Sigrid con
-  líneas de más de una obra:
-  `SELECT sigrid_parte_cod, count(DISTINCT coalesce(obra_ide::text,
-  obra_codigo, obra_nombre)) AS obras, count(*) FROM parte_registros WHERE
-  sigrid_hmoide IS NOT NULL GROUP BY 1 HAVING count(DISTINCT
-  coalesce(obra_ide::text, obra_codigo, obra_nombre)) > 1;` (las de modo
-  pruebas, todas a la 0404, también saldrán). Si hay filas reales: feature
-  de limpieza aparte.
-- **M2 · obra** (modo pruebas, obra 0404, tras Ctrl+F5): marcar 2 líneas →
-  «Aprobar seleccionadas (2)» → el modal dice «2 seleccionadas de M» y solo
-  esas pasan a `encolado`/`registrado`; el resto sigue igual.
-- **M3 · obra, filtro de matriz sin selección**: marcar 2 casillas de la
-  matriz → «Aprobar visibles (N)» con N = filas visibles; con un filtro de
-  columna además, N baja; «Quitar filtro» no borra la selección.
-- **M4 · marcadas ocultas**: marcar 3, filtrar para ocultar 1 → contador
-  «(1 oculta: no se aprueba)» y «Aprobar seleccionadas (2)»; ocultar las 3
-  → botón deshabilitado con su `title`.
-- **M5 · persona con dos obras**: «Aprobar visibles» sin filtrar → 422 con
-  el desglose por obra; filtrar Obra = 0404 → se aprueba solo esa.
-- **M6 · regresión**: «Reaprobar» de una `borrado_sigrid` marcada aprueba
-  solo esa; «Seleccionar visibles» + «Editar partida» en bloque sigue igual;
-  Shift+clic con filtro activo no marca ocultas.
+- **M1 · ¿ya pasó? (PG `partes`, lectura)**: `SELECT sigrid_parte_cod,
+  count(DISTINCT coalesce(obra_ide::text, obra_codigo, obra_nombre)),
+  count(*) FROM parte_registros WHERE sigrid_hmoide IS NOT NULL GROUP BY 1
+  HAVING count(DISTINCT coalesce(obra_ide::text, obra_codigo,
+  obra_nombre)) > 1;` (las de modo pruebas en la 0404 también salen).
+- **M2 · obra** (modo pruebas, Ctrl+F5): marcar 2 → «Aprobar seleccionadas
+  (2)»; el modal dice «2 seleccionadas de M»; solo esas cambian de estado.
+- **M3 · filtro de matriz sin selección**: «Aprobar visibles (N)» con N =
+  filas visibles; «Quitar filtro» no borra la selección.
+- **M4 · ocultas**: marcar 3 y ocultar 1 → «(1 oculta…)» y «(2)»; ocultar
+  las 3 → botón deshabilitado con su `title`.
+- **M5 · persona con dos obras** (modo pruebas): sin filtrar → modal con
+  dos secciones y total; tras confirmar, en `ca-sv5-transfer` dos líneas
+  `[registro] MODO PRUEBAS: la obra <X> se ignora` (una por obra, prueba
+  que cada petición llevó la suya) y en `ca-sv4-front` dos `[transfer-cola]
+  encolada`; el resultado se ve por obra.
+- **M6 · regresión**: «Reaprobar» de una marcada aprueba solo esa;
+  «Editar partida» en bloque igual; Shift+clic con filtro no marca ocultas.
+- **M7 · primera aprobación real de varias obras** (producción, tras
+  desplegar y salir de modo pruebas): repetir M1 y que no aparezcan partes
+  nuevos con más de una obra.
 
 ## 10. Riesgos
 
-- **JS en caché tras desplegar**: el JS viejo envía `obra_key` (obra) o ids
-  sin `ambito` (persona): sigue funcionando (R18) y ya le aplica R17.
-- **Selección compartida** (DA3): aprobar no cambia, pero un usuario puede
-  editar en bloque sin querer; el contador visible lo mitiga.
-- **`app.js` sin tests de comportamiento**: M2–M6. **Mutación** (estándar,
-  20 mutantes) sobre los hunks de `app.py` y `parte_repository.py`.
-- **Tests heredados** que posten lotes de varias obras: T1 los inventaría;
-  se adaptan con nota, no se borran.
+- **JS en caché**: el viejo envía `obra_key` o ids sin `ambito`; el
+  servidor reparte igual y pinta planos agregados; claves sin prefijo con
+  varias obras ⇒ 422 (seguro).
+- **Duración**: N preflights en serie (endpoint `async` que llama síncrono
+  a sv5, como hoy con uno); tope 10 (DA15). **Modo pruebas**: DA18.
+- **`app.js` sin tests de comportamiento**: M2–M7. **Tests heredados** de
+  la forma de las respuestas: T1 los inventaría; se adaptan con nota.
