@@ -1,13 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-024 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
+## F-024 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-024.md`); resumen en
-`progress/history.md`. Rama `feature/F-024-lineas-encoladas`, sin mergear ni
-desplegar. azure-apps: commit local `03f994c` (sin push).
+`progress/history.md`. Mergeada a `dev` (`93a3eff`) y desplegada a petición
+del humano: sv5 `ca-sv5-transfer--r20261001170655` (Uvicorn 8005) y luego sv4
+`ca-sv4-front--r20261001170858` (140 sentencias, transfer y sigrid-lookup
+CABLEADOS, Uvicorn 8014, revisión anterior retirada). azure-apps: commit local `03f994c` (sin push).
 
-**AVISO OPERATIVO (DA13) vigente hasta desplegar**: no usar «Aprobar todo» en
+**AVISO OPERATIVO (DA13): ya NO aplica tras el despliegue del 2026-10-01**; era: no usar «Aprobar todo» en
 la obra 0719 · 09/2026 ni «Aprobar visibles» en la ficha de sus trabajadores
 (reescribiría las 35 líneas que Administración borró a propósito).
 
