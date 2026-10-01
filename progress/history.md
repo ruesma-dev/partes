@@ -469,3 +469,31 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   único adjunto es un correo adjunto descartado por tamaño.
 - Pendiente del humano: desplegar sv1 y verificación manual (ver
   `current.md`).
+
+## F-023 · Casado de trabajador/recurso: solo de alta y por empresa — done 2026-10-01
+
+- Rama `feature/F-023-recurso-alta-empresa` · rigor critico · sdd=true ·
+  APPROVED del reviewer en la pasada 2 (`progress/review_F-023.md`; la 1
+  pidió tres cambios documentales y de formato).
+- Pedida por el humano y por el correo de Juan Romero «RV: CAPTURAS» (el
+  portal cogió MO/0239, de baja desde 2021, porque la ficha del empleado
+  apuntaba a él con `emp.reside`). Exploración de Sigrid en
+  `progress/explore_F-023_sigrid.md`: 22 códigos de obra con gemela activa en
+  las empresas 1 y 28; sv5 numeraba `PT` mezclando empresas.
+- Entregado (sv2, sv3, sv4, sv5): sv2 lee `empresa_membrete`; sv3 la traduce
+  con alias versionados y casa obra, empleado y recurso por empresa y por
+  alta (`con.fecbaj`) a la fecha de la línea, con revisión cuando no puede
+  decidir; sv5 numera y localiza `hmo` por la empresa de la obra y verifica
+  empresa/alta/DNI antes de escribir; portal con empresa en los combos y alta
+  manual filtrada; listados de Sigrid paginados y `truncated` como error;
+  tres columnas nuevas en `parte_documents`; `SIGRID_EMPRESA` inerte. Lista
+  cerrada de duplicación de `CLAUDE.md` ampliada (DA6) con guardián.
+  `azure-apps/partes.md` actualizado (commit local `8c7df86`).
+- Verificado: init.sh en verde (raíz 416, sv3 640, sv4 1.093, sv5 141, sv2
+  8), cobertura 99,8 % de 597 líneas, mutación completa 214/214 muertos.
+- Observaciones no bloqueantes: con Sigrid caído en arranque en frío, las
+  líneas no congeladas sin obra pasan a `sin_recurso`; en «Añadir línea»,
+  elegir la obra después del trabajador no limpia una ficha de otra empresa
+  (sv5 la omitiría); `partes_existentes` localiza `hmo` por `obride`.
+- Pendiente del humano: M1, M5, despliegue sv5 → sv2 → sv3 → sv4, M2, M3, M4
+  y T17 (ver `current.md`).

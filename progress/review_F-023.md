@@ -1,11 +1,10 @@
 <!-- progress/review_F-023.md -->
-Revisión completa (pasada 1) · `git diff dev...HEAD` (base `e5e2bd9`, HEAD `df72dcc`)
+Revisión incremental desde df72dcc (pasada 2) · HEAD `5d9a3ce`; la pasada 1 fue completa (`dev...df72dcc`)
 
 # F-023 · Review
 
-**Veredicto: CHANGES_REQUESTED** · tres arreglos baratos de evidencia y forma
-(ninguno toca la lógica). El código cumple la spec en todo lo que decide qué
-se escribe en Sigrid.
+**Veredicto (pasada 2): APPROVED.** Están corregidos los tres cambios de la pasada 1
+(ver «Pasada 2»). Pasada 1: CHANGES_REQUESTED, sin defectos de lógica.
 
 **Nivel de rigor:** `critico` (declarado en `harness/features.json`): fase RED
 de los requisitos centrales, cobertura ≥ 80 %, mutación completa con 0
@@ -69,7 +68,7 @@ D3–D5 correctas (D4 respeta capas). D6 bien declarado y arreglado.
 - C3 [x] hexagonal (los dos imports application→infrastructure ya estaban en
   `dev`) · [x] ruta en primera línea · [x] sin prints/TODO/secretos (PyYAML,
   D2) · [x] empleado≠recurso, incidencias sin cambio, ORM en las dos copias ·
-  [ ] estilo: cambio 2.
+  [x] estilo (pasada 2; en la 1, cambio 2).
 - C3 bis [x] cabecera de origen ya presente + nota de actualización · [x] sin
   PDF/ofimática (`git log --diff-filter=A`) · [x] barrido del reviewer sobre
   las líneas añadidas (correos, IPv4, GUID, `password|secret|token|api_key|
@@ -79,8 +78,8 @@ D3–D5 correctas (D4 respeta capas). D6 bien declarado y arreglado.
   `…r25_r27_caso_guia_*`, `…r30_una_linea_congelada…`, `…r33/r34_cliente_*`,
   `…r36_pipeline_verifica_cada_recurso…`); R41 es JS: `node --check` OK +
   MANUAL T17 (sin banco de tests JS, justificado por T17); R43 leído ·
-  [x] sin red/BBDD · [ ] MANUAL: cambio 1.
-- C4 bis [x] rigor declarado · [ ] fase RED: cambio 3 · [x] cobertura 99,8 % ·
+  [x] sin red/BBDD · [x] MANUAL (pasada 2; en la 1, cambio 1).
+- C4 bis [x] rigor declarado · [x] fase RED (pasada 2; en la 1, cambio 3) · [x] cobertura 99,8 % ·
   [x] mutación recalculada · [x] > 60 s, no reejecutada (dicho) + RM4 ·
   [x] coste 2.076,5 × 6 ÷ 214 = 58,2 s ≫ 1 s · [x] sin «⚠ CAMPAÑA NO VÁLIDA»,
   0 sin veredicto · [x] RM1: SHA `ad48d2d`, después solo `progress/` y
@@ -96,26 +95,32 @@ D3–D5 correctas (D4 respeta capas). D6 bien declarado y arreglado.
 - C5 [x] T1–T24 `[x]`, commit `F-023 Tn:` por tarea · [x] árbol limpio ·
   [x] `features.json` en `in_progress`.
 
-## Cambios requeridos
+## Cambios de la pasada 1 (resumen) y pasada 2
 
-1. **`progress/current.md`, M2 y M3**: falta el **comando exacto** (C4). M2:
-   añadir el `SELECT` de solo lectura que comprueba `con.emp = 28` en la
-   cabecera del `hmo` de esa obra/año/mes y el `PT` de la 28, con el resultado
-   esperado. M3: cómo se comprueba el caso guía tras `POST
-   /admin/reconciliar-recursos` (consulta a `partes` por `recurso_ide` y
-   `parte_estado`), sin identificadores personales.
-2. **`services/partes-front/interface_adapters/web/app.py:1653`**: `opt =
-   obra_catalog.get_by_ide(payload.ide)                 or …` es un salto de
-   línea perdido (17 espacios en medio, 125 columnas): partirla con paréntesis.
-   Solo espacios: en la pasada 2 compruebo `git diff -w` vacío en `services/`
-   y, si lo está, la campaña no se repite.
-3. **`progress/impl_F-023.md`, RED de R7 y R36** (centrales en `tasks.md`): hoy
-   son frases con recuentos («26 fallos…», «22 failed»), y el bloque de
-   pipeline de R36 enseña un `TypeError` de firma, no la verificación ausente.
-   Reproducirla en copia aislada con `verificar_recurso`/`elegir_por_dni` y
-   `ResolutorEmpresa.resolver` como `raise NotImplementedError` (o con el
-   `registro_pipeline` de `dev`) y pegar las líneas `E`/`FAILED`. El informe
-   está a 213/220: comprimir otra sección.
+Pedidos: (1) comando exacto de M2/M3 en `current.md`; (2) partir la línea de
+`app.py:1653` (salto perdido, 125 columnas); (3) traza RED real de R7 y R36.
+Delta `df72dcc..5d9a3ce`: `a2ef047`, `976f67a` y `5d9a3ce` (más el commit de
+la review 1). Solo cambian `app.py`, `current.md` e `impl_F-023.md`.
+
+- (2) [x] `git diff -w` sobre `services/` **no** sale vacío: `-w` no ignora
+  saltos de línea. Por eso lo comparé por AST: el `app.py` de `df72dcc` y el de
+  HEAD tienen **AST idéntico**. Recálculo en HEAD: 28 ficheros, 1.505 líneas
+  (+2 por el salto), **214 mutantes**, el mismo único mutante en `app.py`.
+  Código idéntico ⇒ la campaña sobre `ad48d2d` **sigue valiendo** (RM1). No
+  se repite. Los 29 tests de `test_f023_catalogo_empresa.py` pasan en HEAD.
+- (1) [x] M2: dos `SELECT` de solo lectura por `/api/sql/read` (cabecera del
+  `hmo` de obra/año/mes con `emp`/`tip`, y `MAX(cod)` por empresa) con el
+  resultado esperado. La function key se pide por consola y no queda en ningún
+  fichero. M3: el POST, un `SELECT` sobre `partes` con el DNI escrito en
+  consola, la consulta de `res`/`con` en Sigrid y el resultado esperado. C4 [x].
+- (3) [x] R7: 12 FAILED con `NotImplementedError` en copia aislada. R36:
+  12 FAILED de coherencia, y con `verificar_recurso = return None` fallan los
+  dos tests de pipeline por la razón correcta (`[1..6] == [1, 6]` y el motivo
+  «otra empresa»). Es la verificación ausente. C4 bis RED [x].
+- `bash harness/init.sh` tal cual: **exit 0**. Raíz 416 passed / 1 skipped,
+  sv1–sv5 en verde, cobertura [OK] 99,8 %, tamaño [OK] (impl 220/220).
+  Árbol limpio. Con esto, C3 estilo [x] y todos los checkpoints en [x] o en
+  N/A justificado.
 
 ## Observaciones (no bloquean)
 

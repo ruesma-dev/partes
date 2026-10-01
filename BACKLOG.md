@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **25 features**, 13 abiertas, 12 terminadas.
-
-En curso: **F-023**.
+Resumen: **25 features**, 12 abiertas, 13 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | en curso | critico | `feature/F-023-recurso-alta-empresa` |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | pendiente | critico | `feature/F-021-cuenta-analitica-sigrid` |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | pendiente | estandar | `feature/F-022-aprobar-seleccionadas` |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | pendiente | critico | `feature/F-024-lineas-encoladas` |
@@ -32,6 +29,7 @@ Bloqueadas: **F-014**.
 | # | Feature | Prioridad | Rigor |
 |---|---|---|---|
 | F-001 | Test de estructura del monorepo (calentamiento) | 1 | estandar |
+| F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
@@ -45,12 +43,6 @@ Bloqueadas: **F-014**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-023 · Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-023-recurso-alta-empresa`
-
-Pedida por el humano el 2026-09-30, prioridad maxima. Al coger el recurso del trabajador de un parte (casado contra el maestro emp/con de Sigrid por DNI -> emp.reside), (1) seleccionar SOLO los que estan dados de alta y (2) seleccionar POR EMPRESA, porque un mismo trabajador/recurso puede existir en 2 empresas. ESTADO ACTUAL: sv3 (infrastructure/sigrid/sigrid_api_client.py, _SQL_EMPLEADOS_BASE + fetch_empleados) filtra por una empresa FIJA (SIGRID_EMPRESA, con.emp = ?) y NO filtra altas/bajas; sv4 tiene su propio fetch_empleados en infrastructure/sigrid/sigrid_lookup_client.py (catalogo para corregir a mano en el portal) y sv5 usa SIGRID_EMPRESA al escribir. A DECIDIR EN LA SPEC: (a) que significa 'dado de alta' en Sigrid para un empleado/recurso (campo fecbaj u otro de emp/con/res; ver azure-apps/sigrid_tablas.md) y si se evalua a hoy o a la FECHA DEL PARTE; (b) DE DONDE SALE LA EMPRESA de cada parte: previsiblemente la empresa de la obra del parte (con.emp de la obra), en lugar del SIGRID_EMPRESA fijo; confirmar con el humano; (c) que pasa si el DNI casa en las 2 empresas y la obra no desempata, o si solo casa con un trabajador de baja (sin casar + revision, no elegir uno al azar); (d) coherencia con sv5, que escribe con SIGRID_EMPRESA fijo: si la empresa pasa a ser la de la obra, la escritura (hmo/hmores) debe usar la misma. Servicios: sv3 (casado), sv4 (catalogo del portal) y probablemente sv5. Los clientes infrastructure/sigrid/ estan en la lista cerrada de duplicacion tolerada: quien toque una copia cambia todas en la misma feature. RIGOR critico: decide a que recurso se imputan horas que se escriben en Sigrid en produccion. ACLARADO 2026-09-30: caso real de Juan Romero ('RV: CAPTURAS'): cogio el recurso MO/0239 dado de baja y no aviso de que existian dos recursos con el mismo DNI. El parte en papel TRAE LA EMPRESA EN EL MEMBRETE (p.ej. Porsan): la empresa del parte se extrae del membrete (sv2) y desempata obras gemelas y recursos. Las consultas a sigrid-api se paginan (OFFSET/FETCH); la instancia dev admite 500.000 filas por peticion.
 
 ### F-021 · Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid
 
@@ -129,6 +121,12 @@ Corrección de alcance sobre F-003, pedida por el humano el 2026-08-16 (entonces
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD no · rama `feature/F-001-test-estructura`
 
 Feature trivial para validar el circuito completo del arnés en este repo: un test en tests/ (raíz) que valida harness/servicios.json contra el árbol real — cada ruta declarada existe y cada servicio Python tiene main.py. Igual que la F-001 de albaranes.
+
+### F-023 · Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-023-recurso-alta-empresa`
+
+Pedida por el humano el 2026-09-30, prioridad maxima. Al coger el recurso del trabajador de un parte (casado contra el maestro emp/con de Sigrid por DNI -> emp.reside), (1) seleccionar SOLO los que estan dados de alta y (2) seleccionar POR EMPRESA, porque un mismo trabajador/recurso puede existir en 2 empresas. ESTADO ACTUAL: sv3 (infrastructure/sigrid/sigrid_api_client.py, _SQL_EMPLEADOS_BASE + fetch_empleados) filtra por una empresa FIJA (SIGRID_EMPRESA, con.emp = ?) y NO filtra altas/bajas; sv4 tiene su propio fetch_empleados en infrastructure/sigrid/sigrid_lookup_client.py (catalogo para corregir a mano en el portal) y sv5 usa SIGRID_EMPRESA al escribir. A DECIDIR EN LA SPEC: (a) que significa 'dado de alta' en Sigrid para un empleado/recurso (campo fecbaj u otro de emp/con/res; ver azure-apps/sigrid_tablas.md) y si se evalua a hoy o a la FECHA DEL PARTE; (b) DE DONDE SALE LA EMPRESA de cada parte: previsiblemente la empresa de la obra del parte (con.emp de la obra), en lugar del SIGRID_EMPRESA fijo; confirmar con el humano; (c) que pasa si el DNI casa en las 2 empresas y la obra no desempata, o si solo casa con un trabajador de baja (sin casar + revision, no elegir uno al azar); (d) coherencia con sv5, que escribe con SIGRID_EMPRESA fijo: si la empresa pasa a ser la de la obra, la escritura (hmo/hmores) debe usar la misma. Servicios: sv3 (casado), sv4 (catalogo del portal) y probablemente sv5. Los clientes infrastructure/sigrid/ estan en la lista cerrada de duplicacion tolerada: quien toque una copia cambia todas en la misma feature. RIGOR critico: decide a que recurso se imputan horas que se escriben en Sigrid en produccion. ACLARADO 2026-09-30: caso real de Juan Romero ('RV: CAPTURAS'): cogio el recurso MO/0239 dado de baja y no aviso de que existian dos recursos con el mismo DNI. El parte en papel TRAE LA EMPRESA EN EL MEMBRETE (p.ej. Porsan): la empresa del parte se extrae del membrete (sv2) y desempata obras gemelas y recursos. Las consultas a sigrid-api se paginan (OFFSET/FETCH); la instancia dev admite 500.000 filas por peticion.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

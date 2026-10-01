@@ -1,14 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-023 · EN IMPLEMENTACIÓN (implementer, desde 2026-10-01)
+## F-023 · done (2026-10-01), pendiente de DESPLIEGUE y verificaciones manuales
 
-Spec aprobada por el humano el 2026-10-01 (DA1–DA12 tal cual, con DA6, DA11 y
-DA12). El implementer hizo T1–T24 en la rama
-`feature/F-023-recurso-alta-empresa` (commits locales, sin push ni
-despliegue); decisiones, desviaciones (D1: el PATCH de obra del portal
-resuelve por `ide`, a validar) y evidencias en `progress/impl_F-023.md`.
-Pendiente del reviewer.
+APPROVED del reviewer en la pasada 2 (`progress/review_F-023.md`); resumen en
+`progress/history.md`. Rama `feature/F-023-recurso-alta-empresa`, sin mergear
+ni desplegar. Desviación D1 del implementer (el PATCH de obra del portal
+resuelve por `ide`) aceptada por el reviewer.
 
 ### MANUAL (humano) pendientes de F-023 (design §9 y T17)
 
@@ -69,57 +67,6 @@ Pendiente del reviewer.
    elegida (o fijada por el parte), el combo de trabajador solo ofrece
    fichas de su empresa; elegir la gemela de la 28 en el combo de obra del
    detalle deja esa obra (no la de la 1).
-
-## F-023 · spec REVISADA (2026-09-30) con las respuestas del humano (APROBADA 2026-10-01)
-
-`specs/F-023-recurso-alta-empresa/` (rama `feature/F-023-recurso-alta-empresa`;
-la primera versión está en `97a4a3f`, la revisión **sin commit**). Datos de
-Sigrid, solo lectura y agregados, en `progress/explore_F-023_sigrid.md` (§8
-añade la segunda vuelta). Se leyó `ruesma` por `/api/sql/read`, como hace sv3:
-`ruesma_rep` no tiene `emp`/`res`/`obr`.
-
-**Qué cambió con las respuestas del humano:**
-
-1. **La empresa sale del membrete** (DA3): sv2 extrae `cabecera.empresa_membrete`
-   y sv3 lo traduce con una tabla versionada de alias
-   (`config/empresas_membrete.yaml`: 1 = «RUESMA», 28 = «PORSAN»). En `auxemp`
-   la 1 es «CONSTRUCCIONES RUESMA» y la 28 «PORSAN E HIJOS CONSTRUCCIONES SL»,
-   **sin CIF**, así que no hay casado exacto posible sin alias. Si el membrete
-   no se lee o no casa: obra única → su empresa; gemelas → trabajadores →
-   nombre → revisión. La feature pasa a tocar **sv2** también.
-2. **Paginación** (DA10): todos los listados de sv3 y sv4 con `OFFSET/FETCH`
-   de 5.000 y `max_rows` = página + 1, y `truncated: true` ⇒ excepción en los
-   tres clientes (sv5 lee por lotes acotados y no pagina).
-3. **Caso guía MO/0239** confirmado en Sigrid: es de la empresa 1, de baja desde
-   2021; su DNI tiene 3 recursos (ese, otro de alta en la 1 con actividad en
-   2026 y otro de alta en la 31) y la ficha de alta **apunta con `emp.reside` al
-   de baja**. sv3 toma `empleado_reside` antes que nada: de ahí el fallo.
-
-**Hallazgos de la primera vuelta que siguen vigentes**: 22 códigos de obra con
-gemela activa en la 1 y la 28 (sv3 y sv4 deduplican por código); sv5 numera
-`PT` mezclando empresas e inserta `hmo` sin filtrar por empresa; la baja buena
-es `con.fecbaj` del recurso.
-
-Toca **sv2, sv3, sv5 y sv4**. Decisiones que el humano tiene que aprobar o
-rebatir (argumentos en `design.md` §8):
-
-| # | Propuesta |
-|---|---|
-| DA1 | «De alta» = `con.fecbaj` del recurso y de la ficha (NULL, 0 o posterior a la fecha); `emp.fecbaj` no cuenta |
-| DA2 | Se evalúa a la fecha de la línea (recurso) o del parte (ficha); el portal sigue con «hoy» |
-| DA3 | **Empresa del parte = membrete** (sv2 lee, sv3 traduce con alias versionados); fallback por obra única, trabajadores, nombre; si no, revisión |
-| DA4 | Sin empresa del parte, el trabajador se casa solo con una única ficha de alta en todas las empresas |
-| DA5 | `SIGRID_EMPRESA` sale del código de sv3 y sv5 (la variable de Azure queda inerte) |
-| DA6 | sv5 verifica empresa, alta y persona de cada recurso ⇒ **ampliar la lista cerrada de `CLAUDE.md`** (`de_alta` y elección por DNI en sv3/sv5, con guardián). **Sigue pendiente del humano**; se mantiene la recomendación |
-| DA7 | Sin reescritura histórica; lo pendiente sí se re-resuelve; las congeladas no cambian de recurso |
-| DA8 | Portal: empresa en los combos, filtro por empresa de la obra en el alta manual, soltar el recurso al reasignar |
-| DA9 | Una sola feature; **despliegue sv5 → sv2 → sv3 → sv4** |
-| DA10 | **Paginación** `OFFSET/FETCH` en sv3 y sv4 y `truncated` ⇒ excepción en los tres |
-| DA11 | **Nuevo**: tres columnas nullables en `parte_documents` (`empresa_membrete`, `empresa`, `empresa_origen`) en las dos copias de `orm_models.py` |
-| DA12 | **Nuevo**: cambio mínimo del prompt (un campo) **antes de F-007**, protegido por la evaluación manual M5 (≥ 10 partes reales) y porque un membrete mal leído no puede escribir en otra empresa |
-
-**Antes de implementar**: M1 (líneas pendientes en obras gemelas, lectura en
-`partes`) y, antes de desplegar sv2, M5 (design §9).
 
 ## F-020 · done y DESPLEGADA (2026-09-30), pendiente de verificación manual
 
