@@ -1,0 +1,379 @@
+# progress/red_F-022.log — salida REAL de la fase RED de F-022 (lineas E/FAILED y resumen de pytest, filtradas con grep; comandos lanzados desde services/partes-front)
+### T2 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_aprobar_seleccion.py -k repo
+E       AttributeError: 'ParteReviewRepository' object has no attribute 'registro_ids_de_trabajador'. Did you mean: 'registro_ids_de_obra'?
+E       AttributeError: 'ParteReviewRepository' object has no attribute 'registro_ids_de_trabajador'. Did you mean: 'registro_ids_de_obra'?
+E       KeyError: 'grupos'
+E       KeyError: 'grupos'
+E       KeyError: 'grupos'
+E       KeyError: 'grupos'
+E       KeyError: 'grupos'
+E       KeyError: 'grupos'
+E       KeyError: 'excluidas_detalle'
+E       KeyError: 'excluidas_detalle'
+E       KeyError: 'excluidas_detalle'
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r10_repo_ids_de_trabajador_son_los_de_su_tabla
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r10_repo_ids_de_trabajador_inexistente_es_lista_vacia
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_repo_grupos_uno_por_obra_en_orden_de_clave
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_repo_grupos_con_borradas_incluidas
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_repo_el_estado_previo_va_normalizado
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_repo_los_planos_de_hoy_no_cambian
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_repo_sin_lineas_no_hay_grupos
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_repo_grupo_sin_obra_identificada_va_con_obra_vacia
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r26_repo_excluidas_detalle
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r26_repo_excluida_sin_parte_conocido
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r26_repo_con_borradas_incluidas_no_hay_detalle_de_ellas
+11 failed in 1.74s
+
+### T3 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_reparto_obras.py -k "claves or agregar"
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_con_prefijo_van_a_su_grupo
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_cada_grupo_recibe_solo_las_suyas_o_ninguna
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_de_un_grupo_desconocido_se_ignoran
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_sin_prefijo_con_un_solo_grupo_van_a_el
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_sin_prefijo_con_varios_grupos_es_none[grupos0]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_sin_prefijo_con_varios_grupos_es_none[grupos1]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_el_prefijo_se_corta_en_el_primer_separador
+FAILED tests/test_f022_reparto_obras.py::test_f022_r19_claves_admite_claves_no_texto
+FAILED tests/test_f022_reparto_obras.py::test_f022_r16_agregar_un_grupo_es_su_respuesta_tal_cual
+FAILED tests/test_f022_reparto_obras.py::test_f022_r16_agregar_un_grupo_fallido_tambien_tal_cual
+FAILED tests/test_f022_reparto_obras.py::test_f022_r16_agregar_varios_grupos_concatena_y_suma
+FAILED tests/test_f022_reparto_obras.py::test_f022_r17_agregar_un_grupo_fallido_no_tumba_a_los_demas
+FAILED tests/test_f022_reparto_obras.py::test_f022_r17_agregar_todos_fallidos_ok_falso_con_el_motivo
+FAILED tests/test_f022_reparto_obras.py::test_f022_r18_agregar_el_bloqueo_de_sesame_sube_si_algun_grupo_lo_tiene
+FAILED tests/test_f022_reparto_obras.py::test_f022_r22_agregar_ejecucion_un_grupo_es_su_respuesta
+FAILED tests/test_f022_reparto_obras.py::test_f022_r22_agregar_ejecucion_todos_bien
+FAILED tests/test_f022_reparto_obras.py::test_f022_r22_agregar_ejecucion_parcial_sin_todo_o_nada
+FAILED tests/test_f022_reparto_obras.py::test_f022_r22_agregar_ejecucion_bloqueado_cuenta_como_no_ok
+FAILED tests/test_f022_reparto_obras.py::test_f022_r22_agregar_ejecucion_todos_mal_no_es_parcial
+19 failed in 0.34s
+
+### T4 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_reparto_obras.py -k listado or totales
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+E       NotImplementedError
+FAILED tests/test_f022_reparto_obras.py::test_f022_r23_listado_columnas_de_una_fila
+FAILED tests/test_f022_reparto_obras.py::test_f022_r23_listado_codigo_partida_recurso_y_horas_de_la_accion
+FAILED tests/test_f022_reparto_obras.py::test_f022_r23_listado_sin_datos_en_la_accion_usa_los_de_la_linea
+FAILED tests/test_f022_reparto_obras.py::test_f022_r23_listado_horas_de_la_linea_si_no_se_escribe
+FAILED tests/test_f022_reparto_obras.py::test_f022_r23_listado_tipo_ordinaria_extra_incidencia
+FAILED tests/test_f022_reparto_obras.py::test_f022_r23_listado_ordenado_por_fecha_trabajador_y_tipo
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_conflicto_manda_sobre_la_accion
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_un_conflicto_sin_registros_no_marca_nada
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_omitida_y_ya_registrada_con_su_motivo
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_reaprobacion_por_cada_estado_previo[borrado_sigrid]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_reaprobacion_por_cada_estado_previo[error]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_reaprobacion_por_cada_estado_previo[omitido]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_reaprobacion_por_cada_estado_previo[conflicto]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_reaprobacion_por_cada_estado_previo[encolado]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_nuevo_sin_intento_previo[]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_nuevo_sin_intento_previo[otro]
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_sin_accion_de_sv5_cuenta_como_que_se_escribe
+FAILED tests/test_f022_reparto_obras.py::test_f022_r24_listado_grupo_fallido_no_se_registra
+FAILED tests/test_f022_reparto_obras.py::test_f022_r25_totales_horas_solo_de_lo_que_se_escribe
+FAILED tests/test_f022_reparto_obras.py::test_f022_r25_totales_redondea_a_dos_decimales
+FAILED tests/test_f022_reparto_obras.py::test_f022_r25_totales_vacio - NotImp...
+21 failed, 1 passed, 19 deselected in 0.63s
+
+### T5 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_aprobar_seleccion.py -k ambito
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       AssertionError: assert 'no hay lineas seleccionadas' in 'faltan registro_ids u obra_key'
+E       AssertionError: assert 'no hay lineas seleccionadas' in 'faltan registro_ids u obra_key'
+E       AssertionError: assert 'no hay lineas seleccionadas' in 'faltan registro_ids u obra_key'
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       ValueError: invalid literal for int() with base 10: 'x'
+E       ValueError: invalid literal for int() with base 10: 'x'
+E       ValueError: invalid literal for int() with base 10: 'x'
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([{'obra': {'ide': 10, 'codigo': '0100', 'nombre': 'Obra Uno'}, 'lineas': [{'registro_id': 3, 'fecha_int': 20260304, 'r...: 6, 'fecha_int': 20260303, 'recurso_ide': 501, 'dni': '12345678Z', ...}], 'pisar_claves': [], 'usuario': 'local:ana'}])
+E        +    where [{'obra': {'ide': 10, 'codigo': '0100', 'nombre': 'Obra Uno'}, 'lineas': [{'registro_id': 3, 'fecha_int': 20260304, 'r...: 6, 'fecha_int': 20260303, 'recurso_ide': 501, 'dni': '12345678Z', ...}], 'pisar_claves': [], 'usuario': 'local:ana'}] = <test_f022_aprobar_seleccion.Sv5Falso object at 0x000001E31721DE20>.preflights
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r10_ambito_obra_sin_periodo_usa_el_de_la_vista
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r10_ambito_obra_respeta_el_modo_natural
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o20_a-ambito0-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o20_a-ambito0-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o20_a-ambito0-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o10_abril-ambito1-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o10_abril-ambito1-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o10_abril-ambito1-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o10_b-ambito2-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o10_b-ambito2-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[o10_b-ambito2-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[papelera-ambito3-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[papelera-ambito3-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[papelera-ambito3-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[papelera-ambito4-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[papelera-ambito4-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_id_ajeno_es_422_sin_tocar_nada[papelera-ambito4-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r11_ambito_cuenta_todos_los_ids_ajenos
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito0-<lambda>-vista desconocida-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito0-<lambda>-vista desconocida-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito0-<lambda>-vista desconocida-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito1-<lambda>-vista desconocida-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito1-<lambda>-vista desconocida-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito1-<lambda>-vista desconocida-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[obra-<lambda>-ambito no valido-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[obra-<lambda>-ambito no valido-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[obra-<lambda>-ambito no valido-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito3-<lambda>-falta obra_key-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito3-<lambda>-falta obra_key-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito3-<lambda>-falta obra_key-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito4-<lambda>-falta obra_key-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito4-<lambda>-falta obra_key-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito4-<lambda>-falta obra_key-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito5-<lambda>-falta worker_key-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito5-<lambda>-falta worker_key-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito5-<lambda>-falta worker_key-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito6-<lambda>-no hay lineas seleccionadas-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito6-<lambda>-no hay lineas seleccionadas-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito6-<lambda>-no hay lineas seleccionadas-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito7-<lambda>-el maximo es 5000-/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito7-<lambda>-el maximo es 5000-/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_mal_formado_es_422_sin_sv5[ambito7-<lambda>-el maximo es 5000-/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_5000_ids_es_el_limite_admitido
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_ids_no_numericos_son_422[/api/aprobar/preflight]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_ids_no_numericos_son_422[/api/aprobar/ejecutar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r12_ambito_ids_no_numericos_son_422[/api/aprobar/encolar]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r13_ambito_ausente_sigue_como_hoy
+47 failed, 5 passed, 11 deselected, 1 warning in 13.21s
+
+### T6 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_aprobar_seleccion.py -k preflight
+E       AssertionError: assert [{'ide': 10, ...: 'Obra Uno'}] == [{'ide': 10, ...: 'Obra Uno'}]
+E         
+E         Right contains one more item: {'ide': 20, 'codigo': '0200', 'nombre': 'Obra Uno'}
+E         Use -v to get more diff
+E       AssertionError: assert ['0100'] == ['0100', '0200']
+E         
+E         Right contains one more item: '0200'
+E         Use -v to get more diff
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E       AssertionError: assert 1 == 10
+E        +  where 1 = len([{'obra': {'ide': 10, 'codigo': '0100', 'nombre': 'Obra Uno'}, 'lineas': [{'registro_id': 1, 'fecha_int': 20260302, 'r...'fecha_int': 20260302, 'recurso_ide': 501, 'dni': '12345678Z', ...}, ...], 'pisar_claves': [], 'usuario': 'local:ana'}])
+E        +    where [{'obra': {'ide': 10, 'codigo': '0100', 'nombre': 'Obra Uno'}, 'lineas': [{'registro_id': 1, 'fecha_int': 20260302, 'r...'fecha_int': 20260302, 'recurso_ide': 501, 'dni': '12345678Z', ...}, ...], 'pisar_claves': [], 'usuario': 'local:ana'}] = <test_f022_aprobar_seleccion.Sv5Falso object at 0x000002779A6BE630>.preflights
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+E           Failed: DID NOT RAISE ValueError
+E                   AttributeError: 'Settings' object has no attribute 'aprobacion_max_obras'
+E                   AttributeError: 'Settings' object has no attribute 'aprobacion_max_obras'
+E           Failed: DID NOT RAISE ValueError
+E                   AttributeError: 'Settings' object has no attribute 'aprobacion_max_obras'
+E       KeyError: 'umbral_plegado'
+E       assert False is True
+E       KeyError: 'grupos'
+E       AssertionError: assert 'caido' == 'ninguna obra...; 0200: caido'
+E         
+E         - ninguna obra se pudo evaluar: 0100: caido; 0200: caido
+E         + caido
+E       KeyError: 'grupos'
+E       KeyError: 'grupos'
+E       KeyError: 'excluidas_detalle'
+E       KeyError: 'grupos'
+E       assert 200 == 422
+E        +  where 200 = <Response [200 OK]>.status_code
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r14_preflight_una_llamada_a_sv5_por_obra
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r13_preflight_sin_vista_reparte_por_obra
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_mas_de_diez_obras_es_422_con_desglose
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_diez_obras_si_se_admiten
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_el_tope_sale_de_la_configuracion
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_tope_de_obras_entre_1_y_50[0-False]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_tope_de_obras_entre_1_y_50[1-True]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_tope_de_obras_entre_1_y_50[50-True]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_tope_de_obras_entre_1_y_50[51-False]
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r15_preflight_tope_por_defecto
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r16_preflight_un_grupo_planos_identicos_a_hoy
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r17_preflight_un_grupo_fallido_y_el_otro_sigue
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r17_preflight_una_excepcion_de_sv5_solo_tumba_su_grupo
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r17_preflight_todos_fallidos
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r18_preflight_sesame_no_fiable_solo_en_un_grupo
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r31_preflight_avisos_y_bloqueo_solo_de_lo_pedido
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r31_preflight_lo_excluido_no_viaja
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r23_preflight_listado_y_totales_por_grupo
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r19_preflight_claves_sin_grupo_con_varias_obras_es_422
+19 failed, 15 passed, 48 deselected, 1 warning in 9.40s
+
+### T7 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_aprobar_seleccion.py -k ejecutar
+E       AssertionError: assert [('0100', ['o...obr-99::kx'])] == [('0100', ['k...20260303|1'])]
+E         
+E         At index 0 diff: ('0100', ['obr-20::502|20260303|1', 'obr-10::k1', 'obr-99::kx']) != ('0100', ['k1'])
+E         Right contains one more item: ('0200', ['502|20260303|1'])
+E         Use -v to get more diff
+E       AssertionError: assert ['0100'] == ['0100', '0200']
+E         
+E         Right contains one more item: '0200'
+E         Use -v to get more diff
+E       KeyError: 'parcial'
+E           RuntimeError: se corto
+E       KeyError: 'parcial'
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([{'obra': {'ide': 10, 'codigo': '0100', 'nombre': 'Obra Uno'}, 'lineas': [{'registro_id': 3, 'fecha_int': 20260304, 'r...: 6, 'fecha_int': 20260303, 'recurso_ide': 501, 'dni': '12345678Z', ...}], 'pisar_claves': [], 'usuario': 'local:ana'}])
+E        +    where [{'obra': {'ide': 10, 'codigo': '0100', 'nombre': 'Obra Uno'}, 'lineas': [{'registro_id': 3, 'fecha_int': 20260304, 'r...: 6, 'fecha_int': 20260303, 'recurso_ide': 501, 'dni': '12345678Z', ...}], 'pisar_claves': [], 'usuario': 'local:ana'}] = <test_f022_aprobar_seleccion.Sv5Falso object at 0x000001C99A653470>.ejecutadas
+E       assert False
+E        +  where False = any(<generator object test_f022_r18_ejecutar_bloqueo_y_override_quedan_en_el_log.<locals>.<genexpr> at 0x000001C99A894A00>)
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r19_ejecutar_cada_grupo_recibe_solo_sus_claves
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r22_ejecutar_obras_en_orden_y_cada_una_con_su_traza
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r22_ejecutar_un_grupo_mal_solo_deja_en_error_sus_lineas
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r22_ejecutar_una_excepcion_no_para_a_las_demas_obras
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r16_ejecutar_un_grupo_planos_identicos_a_hoy
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r18_ejecutar_grupo_bloqueado_sin_override_no_se_envia
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r18_ejecutar_override_solo_marca_los_bloqueados
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r18_ejecutar_bloqueo_y_override_quedan_en_el_log
+8 failed, 19 passed, 68 deselected, 1 warning in 7.75s
+
+### T8 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_aprobar_seleccion.py -k encolar
+E       AssertionError: assert [('0100', [1,... 'local:ana')] == [('0100', [1,... 'local:ana')]
+E         
+E         At index 0 diff: ('0100', [1, 2, 5, 6], 'local:ana') != ('0100', [1, 2], 'local:ana')
+E         Right contains one more item: ('0200', [5, 6], 'local:ana')
+E         Use -v to get more diff
+E           RuntimeError: cola caida
+E           RuntimeError: cola caida
+E       KeyError: 'grupos'
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+E       KeyError: 'parcial'
+E       KeyError: 'parcial'
+E       assert 422 == 200
+E        +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r20_encolar_una_publicacion_por_obra
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r21_encolar_si_falla_una_obra_las_demas_siguen
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r21_encolar_si_fallan_todas_es_502_sin_marcas
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r21_encolar_falla_el_marcado_y_sigue_encolada
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r18_encolar_grupo_bloqueado_no_se_publica
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r20_encolar_sin_publisher_es_sincrono_por_obra
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r20_encolar_sin_publisher_un_grupo_es_como_hoy
+FAILED tests/test_f022_aprobar_seleccion.py::test_f022_r20_encolar_sin_publisher_bloqueado_y_fallido
+8 failed, 18 passed, 81 deselected, 1 warning in 6.48s
+
+### T9 RED: ../../.venv/Scripts/python.exe -m pytest -q tests/test_f022_vistas_seleccion.py -k vista
+E           AssertionError: la fila 1 no tiene casilla
+E           assert None
+E           AssertionError: la fila 1 no tiene casilla
+E           assert None
+E       AssertionError: falta la barra .sel-tools
+E       assert None
+E       AssertionError: falta la barra .sel-tools
+E       assert None
+E       assert 'data-vista="obra"' in '<button type="button" class="btn ok" id="aprobar-todo"\n            data-obra-key="obr-10"\n            data-period="2026-03"\n            data-mode="natural"\n            title="Registrar en Sigrid todas las lineas del periodo">'
+E       assert 'data-vista="trabajador"' in '<button type="button" class="btn ok" id="aprobar-todo" data-scope="visible"\n            title="Registrar en Sigrid las lineas visibles de la tabla (respeta los filtros)">'
+FAILED tests/test_f022_vistas_seleccion.py::test_f022_r1_vista_casilla_en_cada_fila_tambien_congelada[/obras/obr-10?period=2026-03&modo=natural]
+FAILED tests/test_f022_vistas_seleccion.py::test_f022_r1_vista_casilla_en_cada_fila_tambien_congelada[/trabajadores/emp-77?period=2026-03&modo=natural]
+FAILED tests/test_f022_vistas_seleccion.py::test_f022_r3_vista_barra_de_seleccion_y_contador[/obras/obr-10?period=2026-03&modo=natural]
+FAILED tests/test_f022_vistas_seleccion.py::test_f022_r3_vista_barra_de_seleccion_y_contador[/trabajadores/emp-77?period=2026-03&modo=natural]
+FAILED tests/test_f022_vistas_seleccion.py::test_f022_r8_vista_obra_boton_con_su_ambito
+FAILED tests/test_f022_vistas_seleccion.py::test_f022_r8_vista_persona_boton_con_su_ambito
+6 failed, 4 passed, 1 warning in 5.06s

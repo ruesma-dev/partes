@@ -456,6 +456,9 @@ def test_f022_r25_totales_sumados_redondean_a_dos_decimales() -> None:
     suma = sumar_totales([{"horas_ordinarias": 0.126, "horas_extra": 1.004},
                           {"horas_ordinarias": 0.1, "horas_extra": 0.2}])
     assert (suma["horas_ordinarias"], suma["horas_extra"]) == (0.23, 1.2)
+    # Un `totales` sin lineas ni incidencias (grupo raro) suma 0, no 1.
+    assert (suma["lineas"], suma["incidencias"], suma["por_estado"]) == (
+        0, 0, {})
     assert sumar_totales([]) == {"lineas": 0, "por_estado": {},
                                  "horas_ordinarias": 0.0, "horas_extra": 0.0,
                                  "incidencias": 0}

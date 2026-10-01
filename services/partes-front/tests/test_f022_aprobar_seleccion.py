@@ -164,6 +164,19 @@ def test_f022_r26_repo_excluida_sin_parte_conocido() -> None:
                                     "se reenvia")
 
 
+def test_f022_r26_repo_excluida_sin_fecha_va_con_cero() -> None:
+    """Sin fecha, `fecha_int` es 0 (como en las lineas que viajan): el
+    navegador la pinta vacia y ordena al principio."""
+    fabrica = FabricaSesionSqlite()
+    ids = _sembrar(fabrica, OBRA_10, ["registrado"], doc="doc-sf")
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids[0]).fecha_int = None
+        s.commit()
+    detalle = ParteReviewRepository(fabrica).lineas_para_registro(ids)[
+        "excluidas_detalle"]
+    assert detalle[0]["fecha_int"] == 0
+
+
 def test_f022_r26_repo_excluida_con_el_nombre_casado() -> None:
     """El nombre es el del empleado casado; el leido solo si no lo hay."""
     fabrica = FabricaSesionSqlite()
@@ -485,6 +498,7 @@ def test_f022_r12_ambito_ids_no_numericos_son_422(portal, endpoint,
     r = cliente.post(endpoint, json={"registro_ids": raros, "ambito": MARZO})
     assert r.status_code == 422
     assert r.json()["error"] == "registro_ids no validos"
+    assert r.json()["ok"] is False
     assert sv5.preflights == [] and sv5.ejecutadas == []
 
 
