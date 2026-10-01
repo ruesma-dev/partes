@@ -21,10 +21,12 @@ class TransferClient:
         self._base = base_url.rstrip("/")
         self._timeout = float(timeout_s)
 
-    def _post(self, ruta: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def _post(self, ruta: str, payload: dict[str, Any],
+              timeout_s: float | None = None) -> dict[str, Any]:
         url = f"{self._base}{ruta}"
+        plazo = self._timeout if timeout_s is None else float(timeout_s)
         try:
-            r = httpx.post(url, json=payload, timeout=self._timeout)
+            r = httpx.post(url, json=payload, timeout=plazo)
         except httpx.ConnectError:
             # El servicio no esta arrancado / puerto cerrado: mensaje util
             # en la pantalla en vez de un 500 con traceback.
@@ -37,7 +39,7 @@ class TransferClient:
             logger.warning("[transfer] timeout en %s", url)
             return {"ok": False, "error": (
                 f"el servicio de registro no respondio en "
-                f"{self._timeout:.0f}s ({self._base}).")}
+                f"{plazo:.0f}s ({self._base}).")}
         except httpx.HTTPError as exc:
             logger.warning("[transfer] error de red en %s: %s", url, exc)
             return {"ok": False, "error": f"error de red hacia {self._base}: {exc}"}
@@ -57,3 +59,11 @@ class TransferClient:
 
     def ejecutar(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._post("/api/registro/ejecutar", payload)
+
+    def comprobar(self, payload: dict[str, Any], *,
+                  timeout_s: float) -> dict[str, Any]:
+        """F-024: siguen en Sigrid estas lineas? Solo lectura en sv5. Con
+        su propio plazo, mas corto que el del registro: quien pregunta es
+        una vista que espera."""
+        return self._post("/api/registro/comprobar", payload,
+                          timeout_s=timeout_s)

@@ -60,6 +60,15 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------ #
     transfer_base_url: str | None = Field(None, alias="TRANSFER_BASE_URL")
     transfer_timeout_s: float = Field(120.0, alias="TRANSFER_TIMEOUT_S")
+    # F-024: comprobacion de las lineas `registrado` contra Sigrid (via
+    # sv5, solo lectura) al abrir una obra o una persona. TTL por linea y
+    # proceso (antimartilleo), plazo por llamada y lineas por llamada.
+    comprobacion_sigrid_ttl_s: int = Field(
+        120, alias="COMPROBACION_SIGRID_TTL_S", ge=0)
+    comprobacion_sigrid_timeout_s: float = Field(
+        30.0, alias="COMPROBACION_SIGRID_TIMEOUT_S", gt=0)
+    comprobacion_sigrid_lote: int = Field(
+        500, alias="COMPROBACION_SIGRID_LOTE", ge=1, le=500)
 
     # ------------------------------------------------------------ #
     # Colas de aprobacion asincrona (F-002). TODAS opcionales: sin
