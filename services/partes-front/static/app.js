@@ -3519,8 +3519,8 @@ function avisarCambioLineas() {
 
   function obraTexto(g) {
     var o = g.obra || {};
-    if (!o.codigo && !o.nombre) return "(obra sin identificar)";
-    return (o.codigo ? o.codigo + " · " : "") + (o.nombre || "");
+    var partes = [o.codigo, o.nombre].filter(function (x) { return x; });
+    return partes.length ? partes.join(" · ") : "(obra sin identificar)";
   }
 
   function horasTexto(v) {
