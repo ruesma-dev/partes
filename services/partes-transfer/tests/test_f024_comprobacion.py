@@ -210,3 +210,118 @@ def test_f024_r1_clasificar_un_veredicto_por_linea_y_en_orden() -> None:
                      {HMO: COD})
     assert [(v.registro_id, v.estado) for v in out] == [
         (3, "borrada"), (1, "presente"), (2, "borrada")]
+
+
+# ===================================================================== #
+# cliente · lineas_por_ide / partes_por_ide contra sigrid-api simulado
+# (R7, R8). `httpx.post` se sustituye por un doble: ni una peticion real.
+# ===================================================================== #
+
+import httpx  # noqa: E402
+
+from infrastructure.sigrid import sigrid_write_client as modulo_cliente  # noqa: E402
+from infrastructure.sigrid.sigrid_write_client import (  # noqa: E402
+    SigridWriteClient,
+)
+
+
+class SigridApiFalso:
+    """sigrid-api en memoria: cada lectura devuelve la siguiente lista de
+    filas de `respuestas` y apunta la URL y el cuerpo pedidos."""
+
+    def __init__(self, columnas, *respuestas, truncated=False,
+                 status=200, ok=True) -> None:
+        self.columnas = columnas
+        self.respuestas = list(respuestas)
+        self.truncated = truncated
+        self.status = status
+        self.ok = ok
+        self.urls: list[str] = []
+        self.lecturas: list[dict] = []
+
+    def __call__(self, url, headers=None, timeout=None, json=None):
+        self.urls.append(url)
+        self.lecturas.append(json)
+        filas = self.respuestas.pop(0) if self.respuestas else []
+        return httpx.Response(self.status, json={
+            "ok": self.ok, "columns": self.columnas, "rows": filas,
+            "truncated": self.truncated})
+
+
+def _cliente(monkeypatch, falso) -> SigridWriteClient:
+    monkeypatch.setattr(modulo_cliente.httpx, "post", falso)
+    return SigridWriteClient(base_url="http://sigrid.invalid",
+                             function_key="clave-de-test", database="bd")
+
+
+def _sql(texto: str) -> str:
+    return " ".join(texto.split())
+
+
+COLS_HMORES = ["ide", "hmoide", "reside", "fec", "horide", "can", "tot",
+               "synckey"]
+
+
+def test_f024_r7_cliente_lineas_por_ide_en_lotes_de_200(monkeypatch) -> None:
+    falso = SigridApiFalso(
+        COLS_HMORES,
+        [[1, HMO, 501, 20260916, 3, 8.0, 80.0, ""]],
+        [[201, HMO_OTRO, 502, 20260917, None, None, None, "partes:9"]])
+    out = _cliente(monkeypatch, falso).lineas_por_ide(range(1, 202))
+    assert [len(l["parameters"]) for l in falso.lecturas] == [200, 1]
+    assert falso.lecturas[1]["parameters"] == [201]
+    assert all(l["max_rows"] == 1000 for l in falso.lecturas)
+    assert all(u.endswith("/api/sql/read") for u in falso.urls)
+    assert _sql(falso.lecturas[0]["sql"]) == (
+        "SELECT ide, hmoide, reside, fec, horide, can, tot, synckey "
+        "FROM hmores WHERE ide IN (" + ",".join("?" * 200) + ")")
+    uno, otro = out[1], out[201]
+    assert (uno.ide, uno.hmoide, uno.reside, uno.fecha_int, uno.horide,
+            uno.can, uno.tot, uno.synckey, uno.nuestra) == (
+        1, HMO, 501, 20260916, 3, 8.0, 80.0, None, False)
+    assert (otro.hmoide, otro.horide, otro.synckey, otro.nuestra) == (
+        HMO_OTRO, None, "partes:9", True)
+    assert sorted(out) == [1, 201]
+
+
+def test_f024_r7_cliente_lineas_por_ide_deduplica_y_no_lee_sin_ides(
+        monkeypatch) -> None:
+    falso = SigridApiFalso(COLS_HMORES)
+    cli = _cliente(monkeypatch, falso)
+    assert cli.lineas_por_ide([]) == {}
+    assert cli.lineas_por_ide([None, 0]) == {}
+    assert falso.lecturas == []
+    cli.lineas_por_ide([5, 5, 3])
+    assert falso.lecturas[0]["parameters"] == [3, 5]
+
+
+def test_f024_r7_cliente_partes_por_ide_en_lotes_de_200(monkeypatch) -> None:
+    falso = SigridApiFalso(["ide", "cod"], [[1, COD]], [[201, COD_OTRO]])
+    out = _cliente(monkeypatch, falso).partes_por_ide(range(1, 202))
+    assert out == {1: COD, 201: COD_OTRO}
+    assert [len(l["parameters"]) for l in falso.lecturas] == [200, 1]
+    assert all(l["max_rows"] == 1000 for l in falso.lecturas)
+    assert _sql(falso.lecturas[1]["sql"]) == (
+        "SELECT hmo.ide AS ide, con.cod AS cod FROM hmo "
+        "JOIN con ON con.ide = hmo.ide WHERE hmo.ide IN (?)")
+
+
+def test_f024_r7_cliente_partes_por_ide_sin_ides_no_lee(monkeypatch) -> None:
+    falso = SigridApiFalso(["ide", "cod"])
+    assert _cliente(monkeypatch, falso).partes_por_ide([None]) == {}
+    assert falso.lecturas == []
+
+
+@pytest.mark.parametrize("metodo", ["lineas_por_ide", "partes_por_ide"])
+def test_f024_r8_cliente_truncated_es_una_excepcion(monkeypatch, metodo) -> None:
+    falso = SigridApiFalso(COLS_HMORES, [[1, HMO, 501, 20260916, 1, 8, 8, ""]],
+                           truncated=True)
+    with pytest.raises(RuntimeError, match="truncada"):
+        getattr(_cliente(monkeypatch, falso), metodo)([1])
+
+
+@pytest.mark.parametrize("metodo", ["lineas_por_ide", "partes_por_ide"])
+def test_f024_r8_cliente_error_http_es_una_excepcion(monkeypatch, metodo) -> None:
+    falso = SigridApiFalso(["ide"], status=500)
+    with pytest.raises(RuntimeError):
+        getattr(_cliente(monkeypatch, falso), metodo)([1])
