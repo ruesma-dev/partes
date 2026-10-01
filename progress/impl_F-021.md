@@ -139,5 +139,26 @@ FAILED ...::test_f021_modo_pruebas_usa_el_centro_de_la_obra_de_pruebas
 Pasan en RED, a propósito, dos guardas de lo que NO debe cambiar:
 `test_f021_r16_ya_registrada_no_se_reescribe_ni_se_actualiza` (el código
 previo ya no reescribía) y `test_f021_r10_sin_nada_que_escribir_no_se_lee`.
-La parte de R16 «`omitir` sale con `caa_ide = 0` y sin motivo» sí falló
-dentro de `test_f021_r13_...` (diff de la clave 4/6 en la misma aserción).
+La parte de R16 «`omitir` sale con `caa_ide = 0` y sin motivo» tampoco
+puede fallar en RED: son los valores por defecto de T4. Lo que la protege
+es que `_resolver_cuentas` solo toque acciones `escribir` (mutantes de T15).
+
+### T10 · modal del preflight de sv4 (R19–R21)
+
+`cd services/partes-front && python -m pytest -q tests/test_f021_preflight_cuenta.py`
+(agregado con `grep -E "^E  |FAILED|passed|failed" | sort | uniq -c`, extracto)
+
+```
+      9 E       AssertionError: app.js no define avisosCuentaHtml
+      1 E       assert 'avisosCuentaHtml(pf.acciones)' in '\n  function resumenHtml(pf) {\n    var r = pf.resumen || {};\n ... + "</p>" + omHtml;\n  }\n'
+FAILED ...::test_f021_r19_app_js_define_avisos_cuenta_y_filtra_escribir
+FAILED ...::test_f021_r19_cuenta_todas_las_lineas_con_aviso
+FAILED ...::test_f021_r19_escapa_el_texto_que_llega_del_servidor
+FAILED ...::test_f021_r19_pinta_una_fila_por_linea_escribir_con_aviso
+FAILED ...::test_f021_r19_resumen_html_llama_a_avisos_cuenta
+FAILED ...::test_f021_r20_sin_avisos_no_pinta_el_bloque[None]
+FAILED ...::test_f021_r20_sin_avisos_no_pinta_el_bloque[acciones0..4]   (x4)
+10 failed, 1 passed, 1 warning in 4.32s
+```
+El que pasa es `test_f021_r21_el_preflight_reenvia_los_caa_de_sv5`: R21 no
+exige código (design §5: `aprobar_preflight` ya reenvía la respuesta).
