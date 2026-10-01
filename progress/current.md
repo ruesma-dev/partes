@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-024 · spec revisada (2026-10-01, DA1 cambiada por el humano), pendiente de aprobación
+## F-024 · implementación en curso (implementer, 2026-10-01)
+
+Spec aprobada (DA1–DA15 según recomendación). Rama
+`feature/F-024-lineas-encoladas`. Tarea en curso y decisiones: ver
+`progress/impl_F-024.md` (se rellena tarea a tarea).
+
+## F-024 · spec revisada (2026-10-01, DA1 cambiada por el humano), APROBADA
 
 Spec en `specs/F-024-lineas-encoladas/` (rama
 `feature/F-024-lineas-encoladas`; spec inicial en `d7bfd84`, revisión sin
