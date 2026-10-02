@@ -3004,6 +3004,11 @@ function avisarCambioLineas() {
       html += "<p>" + r.ya_registradas.length
         + " linea(s) ya estaban registradas (no se duplican).</p>";
     }
+    if ((r.dedicacion || []).length) {
+      // F-019 (R8): de mensuales; publicadas en la bandeja, no en Sigrid.
+      html += "<p>" + esc(r.dedicacion.length)
+        + " linea(s) enviadas a dedicación (no se escriben en Sigrid).</p>";
+    }
     if ((r.escritas || []).length) {
       html += "<ul class='ap-list'>" + r.escritas.map(function (e) {
         return "<li>" + (e.parte_cod || "") + " · " + (e.hora_codigo || "")
@@ -3541,6 +3546,7 @@ function avisarCambioLineas() {
     nuevo: "nueva", reaprobacion: "reaprobación", conflicto: "conflicto",
     omitida: "no se registra (regla)", ya_registrada: "ya en Sigrid",
     no_se_registra: "no se registra",
+    dedicacion: "a dedicación",                       // F-019 (R18)
   };
   var TIPOS = { ordinaria: "ordinaria", extra: "extra",
                 incidencia: "incidencia" };
@@ -3699,6 +3705,12 @@ function avisarCambioLineas() {
         + grupos.map(function (g) { return grupoHtml(g, plegar); }).join("")
         + excluidasDetalleHtml(pf.excluidas_detalle,
                                contexto ? contexto.ocultas : 0);
+      if (excl.dedicacion) {
+        // F-019 (R17): ya publicadas en dedicacion; no viajan.
+        html += "<p class='ap-ctx'><strong>" + esc(excl.dedicacion)
+          + "</strong> linea(s) enviadas a dedicación no se incluyen (para "
+          + "reenviarlas, «Retirar de dedicación»).</p>";
+      }
       if (excl.borrado_sigrid && !peticion.incluir_borradas) {
         html += "<div class='ap-ctx ap-borradas'><p><strong>"
           + excl.borrado_sigrid + "</strong> linea(s) estan borradas en "
@@ -3750,8 +3762,40 @@ function avisarCambioLineas() {
     });
   }
 
+  /* F-019 (R21): «Retirar de dedicacion» de UNA linea, con el `ambito` de
+     la vista (el servidor rechaza un id ajeno). Tras retirar se recarga:
+     la linea vuelve a ser editable y aprobable. */
+  function retirarDedicacion(registroId) {
+    var peticion = {
+      registro_ids: [registroId],
+      ambito: ambitoDe(document.getElementById("aprobar-todo")),
+    };
+    modal("Retirar de dedicación", "<p>La linea dejara de estar publicada "
+          + "para dedicación y quedara libre para corregirla y volver a "
+          + "aprobarla.</p>", [
+      { texto: "Retirar", clase: "ok", onClick: function () {
+          post("/api/dedicacion/retirar", peticion).then(function (r) {
+            if (r.ok) { window.location.reload(); return; }
+            modal("No se pudo retirar", "<p class='ap-warn'>"
+                  + esc(r.error || "error desconocido") + "</p>",
+                  [{ texto: "Cerrar", onClick: cerrar }]);
+          }).catch(function (e) {
+            modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
+                  [{ texto: "Cerrar", onClick: cerrar }]);
+          });
+        } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
   ready(function () {
     document.addEventListener("click", function (ev) {
+      var retirar = ev.target.closest(".retirar-dedicacion");
+      if (retirar) {
+        ev.preventDefault();
+        retirarDedicacion(parseInt(retirar.dataset.registroId, 10));
+        return;
+      }
       var linea = ev.target.closest(".aprobar-linea");
       if (linea) {
         ev.preventDefault();

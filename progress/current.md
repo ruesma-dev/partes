@@ -56,6 +56,12 @@ en `progress/impl_F-019.md`.
   mas, asi que el contador pasa a 15 con su docstring. Es un test ajeno a
   F-019 (T12 no lo preveia); esquivarlo escribiendo la llamada de otra
   forma habria sido enganar al guardian.
+- T10 hecha: rama `dedicacion` en las dos vistas («→ dedicación», motivo
+  en el `title` escapado por Jinja, boton «Retirar»); `app.js`: etiqueta
+  del listado, aviso de `excluidas.dedicacion` y del resultado con
+  `esc()`, `retirarDedicacion` con el `ambito` de `#aprobar-todo` y
+  recarga. Sin CSS nuevo (`badge info` basta). `node --check` OK. El JS
+  no tiene arnes: el comportamiento en navegador queda para M3.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

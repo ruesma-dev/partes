@@ -443,3 +443,105 @@ def test_f019_r24_el_autor_es_el_actor_de_la_peticion(publicado) -> None:
         autor = fila.retirado_por
     assert autor == _estado(p["fabrica"], p["ded"][1])[2]
     assert autor not in (None, "")
+
+
+# ================ T10 · R19 · las vistas · R20 · «Marcar pendiente» =========== #
+
+import re  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+VISTAS = ["/obras/obr-10", "/trabajadores/emp-77"]
+APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
+
+
+def _fila(html: str, rid: int) -> str:
+    m = re.search(rf'<tr data-registro-id="{rid}".*?</tr>', html, re.DOTALL)
+    assert m, f"no hay fila para {rid}"
+    return m.group(0)
+
+
+@pytest.mark.parametrize("ruta", VISTAS)
+def test_f019_r19_la_vista_pinta_dedicacion_con_retirar(publicado,
+                                                        ruta) -> None:
+    p = publicado
+    fila = _fila(p["cliente"].get(ruta).text, p["ded"][0])
+    assert 'data-sigrid-estado="dedicacion"' in fila
+    assert "→ dedicación</span>" in fila
+    assert ('title="enviada a dedicación (MENC). Para corregirla: '
+            '«Retirar de dedicación»."') in fila
+    boton = re.search(r'<button[^>]*retirar-dedicacion[^>]*>', fila)
+    assert boton, "falta el boton Retirar"
+    assert f'data-registro-id="{p["ded"][0]}"' in boton.group(0)
+    assert ">Retirar</button>" in fila
+    assert "aprobar-linea" not in fila
+    assert 'class="row-congelada"' in fila          # R15
+
+
+@pytest.mark.parametrize("ruta", VISTAS)
+def test_f019_r19_el_motivo_va_escapado(publicado, ruta) -> None:
+    p = publicado
+    with p["fabrica"].create_session() as s:
+        s.get(ParteRegistroOrm, p["ded"][0]).sigrid_motivo = '<b>"x"</b>'
+        s.commit()
+    fila = _fila(p["cliente"].get(ruta).text, p["ded"][0])
+    assert "<b>" not in fila
+    assert "&lt;b&gt;" in fila
+
+
+@pytest.mark.parametrize("ruta", VISTAS)
+def test_f019_r19_las_demas_lineas_no_cambian(publicado, ruta) -> None:
+    p = publicado
+    html = p["cliente"].get(ruta).text
+    assert "retirar-dedicacion" not in _fila(html, p["libre"])
+    assert "aprobar-linea" in _fila(html, p["libre"])
+    assert "→ dedicación" not in _fila(html, p["reg"])
+
+
+def test_f019_r20_marcar_pendiente_no_retira() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar_mensual(fabrica)
+    repo = ParteReviewRepository(fabrica)
+    _marcar(repo, ids)
+    repo.approve_document(document_id="d1", approved_by="ana")
+    assert repo.unapprove_document(document_id="d1") is True
+    with fabrica.create_session() as s:
+        assert s.get(ParteRegistroOrm, ids[0]).sigrid_estado == "dedicacion"
+        assert s.get(ParteRegistroOrm, ids[0]).document.approved is False
+    assert {f["vigente"] for f in _filas(fabrica).values()} == {True}
+    # Sigue congelada por su propio estado (como `registrado`, F-004 R11).
+    with pytest.raises(CongeladoError):
+        repo.update_registro(registro_id=ids[0], horas=1.0)
+
+
+def test_f019_r20_marcar_pendiente_por_el_portal(publicado) -> None:
+    p = publicado
+    p["repo"].approve_document(document_id="d1", approved_by="ana")
+    r = p["cliente"].post("/documents/d1/unapprove", follow_redirects=False)
+    assert r.status_code in (200, 303)
+    with p["fabrica"].create_session() as s:
+        assert s.get(ParteRegistroOrm, p["ded"][0]).sigrid_estado == \
+            "dedicacion"
+
+
+def _js() -> str:
+    return APP_JS.read_text(encoding="utf-8")
+
+
+def test_f019_r18_el_modal_etiqueta_el_estado_dedicacion() -> None:
+    assert 'dedicacion: "a dedicación"' in _js()
+
+
+def test_f019_r21_el_boton_retirar_manda_el_ambito_de_la_vista() -> None:
+    js = _js()
+    bloque = js[js.index('closest(".retirar-dedicacion")'):]
+    bloque = bloque[:bloque.index("return;")]
+    assert '"/api/dedicacion/retirar"' in js
+    assert "ambito: ambitoDe(document.getElementById(\"aprobar-todo\"))" \
+        in js
+    assert "retirarDedicacion(" in bloque
+
+
+def test_f019_r17_el_modal_avisa_de_las_excluidas_con_esc() -> None:
+    js = _js()
+    assert "esc(excl.dedicacion)" in js
+    assert "esc(r.dedicacion.length)" in js
