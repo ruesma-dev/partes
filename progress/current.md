@@ -26,6 +26,13 @@ en `progress/impl_F-019.md`.
   `(anio, mes)`, server_default en toda NOT NULL) en las dos copias byte a
   byte; guardianes de raiz a seis tablas. Test extra en sv3
   (`test_f019_orm_bandeja.py`) para que la copia de sv3 tenga sus tests.
+- T5 hecha. **Desviacion D3**: `dedicacion` NO entra en la tupla
+  `ESTADOS_CONGELANTES` (design §4 lo pedia): dos tests ajenos (F-004 y
+  F-024) fijan esa tupla literal y T12 prohibe tocarlos. La tupla no la
+  usa ningun codigo de produccion; la congelacion de `dedicacion` va en
+  `motivo_congelacion_linea/documento` y el guardian F-024 lo compara con
+  sv3. Para el bloqueo de borrado definitivo: `vive_fuera` y
+  `motivo_borrado_definitivo` (motivo propio para dedicacion).
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

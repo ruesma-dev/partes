@@ -44,15 +44,15 @@ from application.services.jornada_admin import columnas_patron
 from application.services.congelacion import (
     ESTADO_BORRADO_SIGRID,
     ESTADO_REGISTRADO,
-    MOTIVO_HARD_DELETE_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
-    es_registrado,
     exigir_documento_editable,
     exigir_linea_editable,
     hay_linea_encolada,
+    motivo_borrado_definitivo,
     motivo_congelacion_documento,
     motivo_congelacion_linea,
+    vive_fuera,
 )
 from application.services.incidencias_horas import (
     NIVEL_AVISO,
@@ -678,8 +678,8 @@ def _soltar_recurso(reg: ParteRegistroOrm) -> None:
 def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
     """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
     local a la linea escrita en Sigrid; un hard-delete la borra para
-    siempre."""
-    return any(es_registrado(e) for e in _estados_de_doc(doc))
+    siempre. F-019 (R16): igual una linea publicada en dedicacion."""
+    return any(vive_fuera(e) for e in _estados_de_doc(doc))
 
 
 class ParteReviewRepository:
@@ -2699,8 +2699,9 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
-            if es_registrado(reg.sigrid_estado):   # F-004 R12
-                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
+            motivo = motivo_borrado_definitivo([reg.sigrid_estado])
+            if motivo is not None:   # F-004 R12, F-019 R16
+                raise CongeladoError(motivo)
             session.delete(reg)
             session.commit()
         return True
@@ -2837,8 +2838,9 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
-            if _tiene_linea_registrada(doc):   # F-004 R12
-                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
+            if _tiene_linea_registrada(doc):   # F-004 R12, F-019 R16
+                raise CongeladoError(
+                    motivo_borrado_definitivo(_estados_de_doc(doc)))
             # Las lineas las borra la CASCADA del ORM (`all, delete-orphan`).
             # Un DELETE masivo previo las borraria por detras de la sesion,
             # que ya las tiene cargadas por `_tiene_linea_registrada`, y la
@@ -2880,7 +2882,7 @@ class ParteReviewRepository:
                 .where(ParteDocumentOrm.deleted_at_utc.is_(None))
             ).scalars().all()
             for r in regs:
-                if es_registrado(r.sigrid_estado):
+                if vive_fuera(r.sigrid_estado):   # F-019 R16
                     omitidos += 1
                     continue
                 session.delete(r)

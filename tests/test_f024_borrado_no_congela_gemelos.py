@@ -30,7 +30,8 @@ SV4 = RAIZ / "services" / "partes-front"
 
 #: Estados de `sigrid_estado` que se comparan (con un parte sin aprobar).
 ESTADOS = [None, "", "encolado", "registrado", "omitido", "error",
-           "conflicto", "borrado_sigrid", " Borrado_Sigrid ", " Registrado "]
+           "conflicto", "borrado_sigrid", " Borrado_Sigrid ", " Registrado ",
+           "dedicacion", " Dedicacion "]  # F-019 (R15)
 
 _SV3 = """
 import json, sys
@@ -82,3 +83,11 @@ def test_f024_r13_la_tabla_no_es_trivial(congelados) -> None:
     assert congelados["sv4"][repr("registrado")] is True
     assert congelados["sv4"][repr("encolado")] is True
     assert congelados["sv4"][repr(None)] is False
+
+
+def test_f019_r15_dedicacion_congela_en_sv3_y_en_sv4(congelados) -> None:
+    """F-019 (R15): una linea publicada en la bandeja de dedicacion esta
+    congelada en las dos reglas, como `registrado`."""
+    for servicio in ("sv3", "sv4"):
+        assert congelados[servicio][repr("dedicacion")] is True, servicio
+        assert congelados[servicio][repr(" Dedicacion ")] is True, servicio

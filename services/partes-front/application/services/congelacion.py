@@ -13,6 +13,10 @@ dejaria la BBDD `partes` diciendo una cosa y Sigrid otra:
     que sv5 la daria por `ya_registrado` y NO actualizaria valores. La
     divergencia seria permanente.
 
+  - su `sigrid_estado` es **dedicacion** (F-019): la linea es de un
+    mensual y ya se publico en la bandeja de dedicacion. Se libera con
+    «Retirar de dedicacion», nunca editando.
+
 `omitido`, `error`, `conflicto`, `borrado_sigrid` (F-024: la linea ya no
 esta en Sigrid) y el estado vacio NO congelan: editar es
 precisamente el camino de arreglo de esas lineas (asignar el codigo de
@@ -37,8 +41,14 @@ ESTADO_REGISTRADO = "registrado"
 #: Sigrid (Administracion la borro). No congela: se edita y se reaprueba.
 ESTADO_BORRADO_SIGRID = "borrado_sigrid"
 
-#: Los unicos estados de `parte_registros.sigrid_estado` que congelan por
-#: si mismos, sin mirar si el documento esta aprobado.
+#: F-019: la linea es de un mensual y esta publicada en la bandeja de
+#: dedicacion. Congela como `registrado` (R15).
+ESTADO_DEDICACION = "dedicacion"
+
+#: Los estados de Sigrid de `parte_registros.sigrid_estado` que congelan
+#: por si mismos, sin mirar si el documento esta aprobado. `dedicacion`
+#: (F-019) tambien congela, pero va aparte: esta tupla es el contrato que
+#: fijan los tests de F-004 y F-024 (desviacion D3 de F-019).
 ESTADOS_CONGELANTES: tuple[str, ...] = (ESTADO_ENCOLADO, ESTADO_REGISTRADO)
 
 # --- Motivos (los lee el humano en el candado y en el 409) ------------- #
@@ -51,6 +61,11 @@ MOTIVO_LINEA_REGISTRADA = (
     "(el synckey evita que se reescriba). Para corregirla: borra la linea "
     "en Sigrid, pulsa «Comprobar en Sigrid» (quedara «borrada en Sigrid» "
     "y editable), corrigela y vuelve a aprobarla con «Reaprobar»."
+)
+MOTIVO_LINEA_DEDICACION = (
+    "Linea enviada a dedicación (la de un mensual): editarla aqui no la "
+    "cambiaria alli. Para corregirla: pulsa «Retirar de dedicación», "
+    "corrigela y vuelve a aprobarla."
 )
 MOTIVO_LINEA_APROBADA = (
     "Parte aprobado: marcalo pendiente («Marcar pendiente») antes de "
@@ -65,11 +80,21 @@ MOTIVO_DOC_REGISTRADO = (
     "obra (o borrarlo) dejaria el portal y Sigrid diciendo cosas "
     "distintas."
 )
+MOTIVO_DOC_DEDICACION = (
+    "El parte tiene lineas enviadas a dedicación: cambiar su fecha u obra "
+    "(o borrarlo) dejaria el portal y lo publicado diciendo cosas "
+    "distintas. Liberalas antes con «Retirar de dedicación»."
+)
 MOTIVO_DOC_APROBADO = MOTIVO_LINEA_APROBADA
 MOTIVO_HARD_DELETE_REGISTRADO = (
     "Hay lineas registradas en Sigrid: eliminarlas definitivamente "
     "borraria la unica referencia local a lo escrito alli (el parte "
     "PT<AA>/NNNNN y el numero de linea). Se quedan en la papelera."
+)
+MOTIVO_HARD_DELETE_DEDICACION = (
+    "Hay lineas enviadas a dedicación: eliminarlas definitivamente "
+    "dejaria publicada en la bandeja una linea que ya no existe. Se quedan "
+    "en la papelera; para soltarlas, «Retirar de dedicación»."
 )
 MOTIVO_UNAPPROVE_ENCOLADO = (
     "No se puede marcar pendiente: hay lineas encoladas hacia Sigrid. "
@@ -101,15 +126,18 @@ def motivo_congelacion_linea(
 ) -> str | None:
     """Motivo por el que la LINEA esta congelada, o None si es editable.
 
-    Prioridad: encolado > registrado > aprobado, del mas restrictivo e
-    informativo al menos: quien vea el candado de una linea registrada
-    necesita saber que desaprobar el parte NO la libera (R11).
+    Prioridad: encolado > registrado > dedicacion > aprobado, del mas
+    restrictivo e informativo al menos: quien vea el candado de una linea
+    registrada (o en dedicacion) necesita saber que desaprobar el parte NO
+    la libera (R11; F-019 R20).
     """
     estado = _normaliza(sigrid_estado)
     if estado == ESTADO_ENCOLADO:
         return MOTIVO_LINEA_ENCOLADA
     if estado == ESTADO_REGISTRADO:
         return MOTIVO_LINEA_REGISTRADA
+    if estado == ESTADO_DEDICACION:
+        return MOTIVO_LINEA_DEDICACION
     if doc_aprobado:
         return MOTIVO_LINEA_APROBADA
     return None
@@ -130,6 +158,8 @@ def motivo_congelacion_documento(
         return MOTIVO_DOC_ENCOLADO
     if ESTADO_REGISTRADO in estados:
         return MOTIVO_DOC_REGISTRADO
+    if ESTADO_DEDICACION in estados:
+        return MOTIVO_DOC_DEDICACION
     if aprobado:
         return MOTIVO_DOC_APROBADO
     return None
@@ -163,6 +193,29 @@ def es_registrado(sigrid_estado: str | None) -> bool:
     ERP y vaciar la papelera con ellas dentro no rompe nada.
     """
     return _normaliza(sigrid_estado) == ESTADO_REGISTRADO
+
+
+def vive_fuera(sigrid_estado: str | None) -> bool:
+    """F-019 (R16): la linea vive FUERA del portal —en Sigrid
+    (`registrado`) o publicada en la bandeja de dedicacion
+    (`dedicacion`)—, asi que su hard-delete se bloquea."""
+    return _normaliza(sigrid_estado) in (ESTADO_REGISTRADO,
+                                         ESTADO_DEDICACION)
+
+
+def motivo_borrado_definitivo(
+    estados_lineas: Iterable[str | None],
+) -> str | None:
+    """Por que no se pueden eliminar definitivamente esas lineas, o None.
+
+    Una registrada manda sobre una en dedicacion: perder la referencia a
+    Sigrid es lo irreparable."""
+    estados = {_normaliza(e) for e in estados_lineas}
+    if ESTADO_REGISTRADO in estados:
+        return MOTIVO_HARD_DELETE_REGISTRADO
+    if ESTADO_DEDICACION in estados:
+        return MOTIVO_HARD_DELETE_DEDICACION
+    return None
 
 
 def hay_linea_encolada(estados_lineas: Iterable[str | None]) -> bool:
