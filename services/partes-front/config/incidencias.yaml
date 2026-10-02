@@ -16,6 +16,9 @@
 #                   el accidente). Solo se avisa si ese dia hay horas
 #                   EXTRA; se registra igual (aviso).
 #
+# Huelga (H) como dia completo: decision del humano con Administracion,
+# 2026-10-02 (la spec proponia parcial).
+#
 # La mantiene el humano, de acuerdo con Administracion: cambiar una clase
 # es un cambio versionado y un redespliegue de sv4.
 #
@@ -43,7 +46,7 @@ F:
 H:
   sigrid: CIH
   nombre: Huelga
-  clase: parcial
+  clase: dia_completo
 M:
   sigrid: CIM
   nombre: Maternidad/Paternidad

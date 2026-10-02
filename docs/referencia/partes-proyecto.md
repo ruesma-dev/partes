@@ -236,7 +236,7 @@ Convenciones del papel que el sistema respeta:
   · **AT** accidente de trabajo (CIA) · **FJ** falta justificada (CIP)
   · **F** falta (CIF) · **H** huelga (CIH) ·
   **M** maternidad/paternidad (CIM). Si cada una es de **día completo**
-  (V, B, M, F) o **parcial** (AT, FJ, H) lo dice la tabla versionada
+  (V, B, M, F, H) o **parcial** (AT, FJ) lo dice la tabla versionada
   `services/partes-front/config/incidencias.yaml` (F-025): Sigrid no lo
   clasifica.
 - Las horas extra se apuntan aparte de las ordinarias, pero muchos

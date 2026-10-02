@@ -577,7 +577,7 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   Administración casi nunca junta incidencia y horas (5 de 1.191 días en
   2026); la H es Huelga (corregido en `partes-proyecto.md`).
 - Entregado (solo sv4): tabla versionada `config/incidencias.yaml` (día
-  completo V, B, M, F; parcial AT, FJ, H; si está mal, sv4 no arranca);
+  completo V, B, M, F, H —huelga cambiada a día completo por el humano—; parcial AT, FJ; si está mal, sv4 no arranca);
   detección por día-trabajador cruzando obras; día completo + horas ⇒ líneas
   excluidas de la aprobación con motivo propio en el modal de F-022, sin
   forzar; parcial + extra ⇒ aviso; marcado en matriz, calendario y líneas de

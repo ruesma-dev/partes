@@ -207,7 +207,7 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     versionada `services/partes-front/config/incidencias.yaml`
     (`INCIDENCIAS_PATH`), que sv4 lee al arrancar y sin la que no levanta
     (falta una letra, clase desconocida, código que no empieza por `CI`).
-    Día completo: V, B, M, F; parcial: AT, FJ, H. La persona es el DNI
+    Día completo: V, B, M, F, H; parcial: AT, FJ. La persona es el DNI
     normalizado (si no hay, la clave de trabajador) y se miran todas sus
     líneas activas de ese día, de cualquier obra y estado. **Bloqueo**:
     incidencia de día completo + horas (|h| > 0) ⇒ las líneas de ese

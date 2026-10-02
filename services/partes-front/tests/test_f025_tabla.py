@@ -30,7 +30,7 @@ def _datos_validos() -> dict:
         "AT": {"sigrid": "CIA", "nombre": "Accidente", "clase": "parcial"},
         "FJ": {"sigrid": "CIP", "nombre": "Permiso", "clase": "parcial"},
         "F": {"sigrid": "CIF", "nombre": "Falta", "clase": "dia_completo"},
-        "H": {"sigrid": "CIH", "nombre": "Huelga", "clase": "parcial"},
+        "H": {"sigrid": "CIH", "nombre": "Huelga", "clase": "dia_completo"},
         "M": {"sigrid": "CIM", "nombre": "Maternidad", "clase": "dia_completo"},
     }
 
@@ -45,8 +45,8 @@ def test_f025_r1_el_yaml_versionado_tiene_las_siete_letras_y_da2() -> None:
     clases = {letra: c.clase for letra, c in tabla.por_letra.items()}
     assert clases == {"V": CLASE_DIA_COMPLETO, "B": CLASE_DIA_COMPLETO,
                       "M": CLASE_DIA_COMPLETO, "F": CLASE_DIA_COMPLETO,
-                      "AT": CLASE_PARCIAL, "FJ": CLASE_PARCIAL,
-                      "H": CLASE_PARCIAL}
+                      "H": CLASE_DIA_COMPLETO,
+                      "AT": CLASE_PARCIAL, "FJ": CLASE_PARCIAL}
     codigos = {letra: c.sigrid for letra, c in tabla.por_letra.items()}
     assert codigos == {"V": "CIV", "B": "CIE", "AT": "CIA", "FJ": "CIP",
                        "F": "CIF", "H": "CIH", "M": "CIM"}
@@ -196,12 +196,12 @@ def test_f025_r1_build_app_carga_la_tabla_al_arrancar(entorno, tmp_path,
 
 def test_f025_r1_build_app_respeta_incidencias_path(entorno, tmp_path) -> None:
     datos = _datos_validos()
-    datos["H"]["clase"] = "dia_completo"
+    datos["H"]["clase"] = "parcial"
     fichero = tmp_path / "otra.yaml"
     fichero.write_text(yaml.safe_dump(datos), encoding="utf-8")
     entorno.setenv("INCIDENCIAS_PATH", str(fichero))
     assert _levantar().state.tabla_incidencias.por_letra["H"].clase == \
-        CLASE_DIA_COMPLETO
+        CLASE_PARCIAL
 
 
 def test_f025_r2_arranque_con_ruta_inexistente_falla(entorno, tmp_path) -> None:
