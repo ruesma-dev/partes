@@ -192,6 +192,22 @@ registro**:
      últimos casos el modal del preflight lo avisa. Si la lectura de
      cuentas falla, la petición entera falla (no se escribe nada). Ni la
      partida, ni `res.caaide`, ni `auxhor.caacod` intervienen.
+   - **Mensuales a dedicación (F-019)**, solo con el interruptor de sv5
+     `MENSUALES_A_DEDICACION=true` (apagado por defecto: con él apagado,
+     las reglas de arriba son exactamente las de siempre). Un recurso con
+     algún código `M*` en `reshor` es «mensual» (criterio P1 de
+     dedicación). Sus horas ordinarias, sus extra si no tiene `HE*` y sus
+     incidencias de cualquier rol (inicio, intermedio y fin) NO van a
+     Sigrid: la acción es `dedicacion`, con su código `M*`. Las extra de
+     un mensual con `HE*` (capataz `MCAP`+`HECAP`) se siguen escribiendo
+     con su `HE*` como hoy. Encender solo puede cambiar `omitir` →
+     `dedicacion` e incidencia de un `M*` `escribir` → `dedicacion`; nada
+     de un recurso sin `M*` cambia. Antes siguen mandando las omisiones de
+     siempre (recurso no verificado, tipo raro, sin recurso, sin horas), y
+     si la synckey ya está en Sigrid la línea es «ya registrada». Una
+     acción `dedicacion` no abre parte, no pide cuenta ni entra en
+     conflictos: viaja en `dedicacion` del resultado y sv4 la publica en
+     `dedicacion_bandeja` (§5.5 bis).
 4. **Parte mensual**: busca el `hmo` de la obra+mes; si no existe crea
    cabecera `con`+`hmo` con código `PT<AA>/NNNNN` correlativo.
 5. **Líneas** `hmores` con `ide = MAX(ide)+1` bajo `UPDLOCK` (por eso
@@ -199,7 +215,8 @@ registro**:
    idempotencia: reaprobar no duplica; detecta conflictos si alguien
    modificó la línea en Sigrid y pide confirmación para pisar.
 6. Devuelve por línea: escrita (con ide de Sigrid) / ya registrada /
-   omitida (motivo) / conflicto.
+   omitida (motivo) / conflicto / a dedicación (F-019, con su código
+   `M*`).
 
 Modo pruebas (apagado por defecto): desvía todo a la obra 0404 y marca
 `PRUEBA-IA` en `tex`; el script `prueba_escritura_sigrid.py` permite
@@ -428,8 +445,8 @@ y jornada (completa/reducida) del contrato — con lo que los avisos de
 (compartido con albaranes) · **Base de datos**: `partes` · ORM:
 SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`,
 **byte-idéntico** en sv3 y sv4, con guardián automático desde F-010).
-**Cinco tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
-`empleado_jornada` y `undo_log`.
+**Seis tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
+`empleado_jornada`, `undo_log` y `dedicacion_bandeja` (F-019).
 
 Al arrancar, sv3 y sv4 ejecutan el mismo DDL complementario —`ALTER TABLE
 … ADD COLUMN IF NOT EXISTS` por columna y `CREATE INDEX IF NOT EXISTS`—
@@ -570,6 +587,33 @@ copias del ORM son gemelas y la base es una.
 | `payload` | estado ANTERIOR de las filas afectadas (registros/documento/alias) en JSON: es lo que permite restaurarlas |
 | `undone` | si ya se deshizo |
 | `actor` | quién lo hizo. **Ojo: hoy no la escribe nadie** — ver «Corte de auditoría (F-017)», punto 3 |
+
+### 5.5 bis `dedicacion_bandeja` — bandeja de salida hacia dedicación (F-019)
+
+Una fila por línea de un mensual que sv5 mandó a dedicación. La escribe
+**solo sv4**, en la misma transacción que deja la línea en
+`sigrid_estado = 'dedicacion'`; la **lee** la aplicación de dedicación con
+su rol de aplicación y un `GRANT SELECT` sobre esta tabla y ninguna otra
+(`infra/sql/01_dedicacion_lectura.sql`, lo ejecuta el humano). Es un
+**contrato publicado**: no se cambia sin avisar a dedicación. Nunca se
+borra; sin FK a `parte_registros` a propósito; sin nombres ni DNIs.
+
+| Columna | Notas |
+|---|---|
+| `registro_id` (PK, sin secuencia) | = `parte_registros.id` |
+| `version`, `vigente` | 1 al crear; +1 en cada cambio; `vigente = false` = retirada. Reaplicar el mismo resultado no la toca |
+| `recurso_ide`, `codigo_mes` | el trabajador para dedicación (`res.ide`) y su código `M*` |
+| `fecha_int`, `anio`, `mes` | fecha real de trabajo; índice `(anio, mes)` para leer por periodo |
+| `obra_ide`, `obra_codigo`, `obra_empresa` | de la línea y de `parte_documents.empresa` (F-023) |
+| `partida_ide`, `partida_cod` | nulos si no casó |
+| `tipo`, `horas` | `normal`/`extra`/`incidencia`; horas tal cual (negativas y festivos incluidos) |
+| `incidencia_codigo`, `incidencia_clase` | letra y clase `dia_completo`/`parcial` (`config/incidencias.yaml`) |
+| `prueba` | `forzada_pruebas` del resultado de sv5 |
+| `enviado_por`, `enviado_at_utc`, `retirado_por`, `retirado_at_utc`, `actualizado_at_utc` | autoría; `actualizado_at_utc` cambia con `version` |
+
+«Retirar de dedicación» (botón de las vistas, `POST /api/dedicacion/
+retirar`) deja la fila `vigente = false` con `version + 1` y la línea
+libre; reaprobarla la vuelve a `vigente` con otra versión.
 
 ### 5.6 Datos que NO están en esta BBDD
 
@@ -714,7 +758,7 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 | sv2 | GEMINI (secreto), colas, prompts/schema |
 | sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
 | sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, API_PORT=8005 |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), API_PORT=8005 |
 
 ---
 

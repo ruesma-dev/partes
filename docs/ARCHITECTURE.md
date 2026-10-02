@@ -125,11 +125,13 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    **byte-idéntico** en sv3 y sv4, y desde F-010 lo comprueba el guardián
    `tests/test_f010_orm_models_gemelos.py` de la raíz en cada
    `bash harness/init.sh` (antes era una promesa, y llevaba meses rota). Un
-   cambio de schema modifica los DOS ficheros en la misma feature. **Cinco
+   cambio de schema modifica los DOS ficheros en la misma feature. **Seis
    tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
    `empleado_jornada` (excepciones de jornada por trabajador, F-015; nace
-   vacía) y `undo_log` (esta solo la usa sv4, pero la declaran las dos
-   copias porque la base es una) — detalle en `partes-proyecto.md` §5. El DDL
+   vacía), `undo_log` (esta solo la usa sv4, pero la declaran las dos
+   copias porque la base es una) y `dedicacion_bandeja` (F-019, la bandeja
+   de salida hacia dedicación; la escribe solo sv4, semántica 15) — detalle
+   en `partes-proyecto.md` §5. El DDL
    complementario de arranque (`ALTER TABLE … ADD COLUMN IF NOT EXISTS` +
    `CREATE INDEX IF NOT EXISTS`, que `create_all` no hace sobre tablas ya
    existentes) lo **genera** `ddl_complementario()` del propio ORM y lo
@@ -220,6 +222,32 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     calendario y las líneas de la de trabajador; crear y editar no se
     bloquea. El rol de racha (`_rol_incidencia`) y las extras por jornada
     no cambian.
+15. **Horas de los mensuales a dedicación (F-019, sv5 decide, sv4
+    publica)**: «mensual» es el recurso con algún código `M*` en `reshor`
+    (el criterio P1 de dedicación, compartido: si allí cambia, aquí se
+    sigue). Con el interruptor de sv5 `MENSUALES_A_DEDICACION` **apagado**
+    (por defecto) todo es como antes. **Encendido**, `ReglasRegistro`
+    manda a la acción `dedicacion` (con `codigo_mes`) las ordinarias, las
+    extra sin `HE*` y las incidencias de cualquier rol de un mensual; solo
+    cambia `omitir` → `dedicacion` e incidencia `escribir` → `dedicacion`
+    (R3 bis): las extra de un mensual con `HE*` (capataz `MCAP`+`HECAP`)
+    siguen a Sigrid con su `HE*`, y nada de un recurso sin `M*` cambia.
+    Antes mandan las omisiones de siempre (recurso no verificado, tipo
+    raro, sin recurso, sin horas); si la synckey ya está en Sigrid, es
+    `ya_registrado` (Sigrid manda). `dedicacion` no escribe, no abre parte,
+    no pide cuenta ni entra en conflictos; viaja en `resultado.dedicacion`
+    (`{registro_id, recurso_ide, codigo_mes}`) por los dos canales. sv4,
+    en la MISMA transacción que pone la línea en `sigrid_estado =
+    'dedicacion'`, hace upsert de su fila en `dedicacion_bandeja` (una por
+    línea, `version` + `vigente`, sin nombres ni DNIs; reaplicar el mismo
+    resultado no la toca). `dedicacion` **congela** como `registrado` (sv4
+    y sv3), no se borra definitivamente y no viaja al aprobar
+    (`excluidas.dedicacion`). **«Retirar de dedicación»**
+    (`POST /api/dedicacion/retirar`, con `ambito`) deja la fila
+    `vigente = false` con `version + 1` y libera la línea, que se corrige y
+    se reaprueba. La lee dedicación con `GRANT SELECT` solo sobre esa tabla
+    (`infra/sql/01_dedicacion_lectura.sql`, lo ejecuta el humano); partes
+    no calcula porcentajes ni lee la base de dedicación.
 
 ## Acceso a datos y sistemas externos
 
