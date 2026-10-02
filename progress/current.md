@@ -17,6 +17,11 @@ en `progress/impl_F-019.md`.
   R3 bis (innegociable del humano transmitido por el lider: «encendido,
   solo cambia omitir->dedicacion e incidencia M* escribir->dedicacion»).
   Test: `test_f019_r3bis_mensual_con_hl_y_he_sigue_escribiendo_ordinarias`.
+- T3 hecha. **Desviacion D2**: `resumen.dedicacion` del preflight (R7)
+  solo aparece si hay alguna linea a dedicacion. Con la clave siempre
+  presente fallaba `test_f002_r4_preflight_del_endpoint_no_escribe`, que
+  compara el resumen clave a clave y T12 prohibe tocar tests ajenos; asi,
+  con el interruptor apagado el contrato de F-002 queda identico.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

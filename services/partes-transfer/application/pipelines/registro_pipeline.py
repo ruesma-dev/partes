@@ -33,7 +33,10 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
   2c. Verificar el recurso de las demas: de la empresa de la obra, de alta
      a la fecha de la linea y de esa persona (R36). Si no, se omite.
   3. Cargar los tipos de hora de los recursos implicados (reshor).
-  4. Aplicar las REGLAS de negocio -> accion por linea.
+  4. Aplicar las REGLAS de negocio -> accion por linea. F-019: con el
+     interruptor MENSUALES_A_DEDICACION, las de un mensual (`M*`) salen
+     como `dedicacion`: no se escriben, no abren parte, no piden cuenta ni
+     entran en conflictos; viajan en `ResultadoRegistro.dedicacion`.
   4b. Resolver la CUENTA ANALITICA de cada accion `escribir` (F-021): la
      subcuenta de la ficha del recurso para el tipo de hora escrito (o su
      tipo por defecto) en el centro de la obra destino, con UNA lectura de
@@ -41,6 +44,7 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      si la lectura falla, la peticion entera falla (nada se escribe).
   5. Localizar el parte de cada periodo; proponer codigo si no existe.
   6. Detectar lineas YA registradas por nosotros (synckey) -> idempotencia.
+     Tambien las `dedicacion`: si ya viven en Sigrid, Sigrid manda (R5).
   7. Detectar CONFLICTOS: ya hay linea(s) en Sigrid para ese parte +
      recurso + fecha -> hay que confirmar si se pisan.
   8. Crear los partes que falten (cabecera + extension).
@@ -192,7 +196,12 @@ class RegistroPipeline:
                         roles_in)
         horas = self._cli.horas_de_recursos(
             [l.recurso_ide for l in lineas if l.recurso_ide])
-        reglas = ReglasRegistro(horas, omisiones=omisiones)
+        # F-019 (DA8): un settings sin el ajuste (anterior a F-019) es
+        # el interruptor apagado.
+        reglas = ReglasRegistro(
+            horas, omisiones=omisiones,
+            mensuales_a_dedicacion=bool(getattr(
+                self._st, "mensuales_a_dedicacion", False)))
         acciones: list[AccionLinea] = [reglas.decidir(l) for l in lineas]
         # Paso 4b: cuenta analitica (F-021). Datos maestros: fuera del lock.
         self._resolver_cuentas(destino, empresa, acciones, horas)
@@ -255,12 +264,16 @@ class RegistroPipeline:
                     p.ano, int(destino.empresa))  # type: ignore[arg-type]
             partes[clave] = p
 
-        # Paso 6: idempotencia por synckey.
+        # Paso 6: idempotencia por synckey. F-019 (R5): una `dedicacion`
+        # que ya esta en Sigrid es `ya_registrado` (nada se cuenta dos
+        # veces).
+        consultables = [a for a in acciones
+                        if a.accion in ("escribir", "dedicacion")]
         ya = self._cli.lineas_por_synckey(
-            [synckey_de(a.registro_id) for a in escribir])
-        for a in acciones:
+            [synckey_de(a.registro_id) for a in consultables])
+        for a in consultables:
             hit = ya.get(synckey_de(a.registro_id))
-            if a.accion == "escribir" and hit is not None:
+            if hit is not None:
                 a.accion = "ya_registrado"
                 a.hmores_ide = hit.ide
                 a.motivo = (f"ya registrada en Sigrid (linea {hit.ide}); "
@@ -366,6 +379,11 @@ class RegistroPipeline:
                       for a in pf.acciones if a.accion == "omitir"],
             ya_registradas=[a.registro_id for a in pf.acciones
                             if a.accion == "ya_registrado"],
+            # F-019 (R8): lo que va a dedicacion y no a Sigrid.
+            dedicacion=[{"registro_id": a.registro_id,
+                         "recurso_ide": a.recurso_ide,
+                         "codigo_mes": a.codigo_mes}
+                        for a in pf.acciones if a.accion == "dedicacion"],
         )
 
         # Conflictos NO confirmados -> esas lineas no se tocan.

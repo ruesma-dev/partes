@@ -145,6 +145,13 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
             logger.exception("[api] preflight fallo")
             return JSONResponse({"ok": False, "error": str(exc)},
                                 status_code=502)
+        resumen = {"escribir": pf.n_escribir, "omitir": pf.n_omitir,
+                   "ya_registrado": pf.n_ya,
+                   "conflictos": len(pf.conflictos)}
+        # F-019 (R7): solo si hay alguna (con el interruptor apagado el
+        # resumen es el de siempre, clave a clave).
+        if pf.n_dedicacion:
+            resumen["dedicacion"] = pf.n_dedicacion
         return JSONResponse({
             "ok": True,
             "obra_destino": asdict(pf.obra_destino),
@@ -152,9 +159,7 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
             "partes": [asdict(x) for x in pf.partes],
             "acciones": [asdict(a) for a in pf.acciones],
             "conflictos": [asdict(c) for c in pf.conflictos],
-            "resumen": {"escribir": pf.n_escribir, "omitir": pf.n_omitir,
-                        "ya_registrado": pf.n_ya,
-                        "conflictos": len(pf.conflictos)},
+            "resumen": resumen,
         })
 
     @app.post("/api/registro/ejecutar")

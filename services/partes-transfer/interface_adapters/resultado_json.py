@@ -26,4 +26,6 @@ def resultado_a_dict(r: ResultadoRegistro) -> dict:
         "borradas": r.borradas,
         "pendientes_confirmacion": [asdict(c)
                                     for c in r.pendientes_confirmacion],
+        # F-019 (R8): {registro_id, recurso_ide, codigo_mes} por linea.
+        "dedicacion": r.dedicacion,
     }
