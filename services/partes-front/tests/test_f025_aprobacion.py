@@ -484,3 +484,42 @@ def test_f025_r14_el_payload_de_sv5_no_cambia_de_forma(portal25) -> None:
         assert set(p) == {"obra", "lineas", "pisar_claves", "usuario"}
         assert all(set(l) == CLAVES_LINEA for l in p["lineas"])
         assert _enviadas([p]) == sorted(ids["aviso"] + ids["libre"])
+
+
+# ================= Mutacion: supervivientes cazados ==================== #
+
+def test_f025_r15_peor_nivel_gana_el_bloqueo_en_cualquier_orden() -> None:
+    from application.services.incidencias_horas import Incompatibilidad
+    from infrastructure.database.parte_repository import _peor
+    b = Incompatibilidad("bloqueo", "b")
+    a = Incompatibilidad("aviso", "a")
+    a2 = Incompatibilidad("aviso", "a2")
+    assert _peor(None, None) is None
+    assert _peor(None, a) is a
+    assert _peor(a, None) is a
+    assert _peor(a, b) is b
+    assert _peor(b, a) is b
+    assert _peor(a, a2) is a          # a igualdad, el primero
+
+
+def test_f025_r11_repo_aviso_solo_lista_extras_positivas() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar(fabrica, [{"inc": "AT"}, {"tipo": "extra", "horas": 2.0},
+                            {"tipo": "extra", "horas": 0.0},
+                            {"tipo": "extra", "horas": -1.0}], doc="d1")
+    datos = ParteReviewRepository(fabrica).lineas_para_registro(
+        ids, incidencias=TABLA)
+    assert [a["registro_id"] for a in datos["grupos"][0][
+        "avisos_incidencia"]] == [ids[1]]
+
+
+def test_f025_r11_repo_aviso_de_la_unica_linea_pedida() -> None:
+    """La extra en aviso es la primera (y unica) linea que viaja: el aviso
+    lleva SU nombre."""
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar(fabrica, [{"inc": "FJ"}, {"tipo": "extra", "horas": 2.0}],
+                  doc="d1", nombre="Persona Sola")
+    datos = ParteReviewRepository(fabrica).lineas_para_registro(
+        ids[1:], incidencias=TABLA)
+    (aviso,) = datos["grupos"][0]["avisos_incidencia"]
+    assert (aviso["registro_id"], aviso["nombre"]) == (ids[1], "Persona Sola")

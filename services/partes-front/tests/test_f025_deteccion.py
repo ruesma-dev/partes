@@ -151,3 +151,10 @@ def test_f025_resumen_por_dia_gana_el_bloqueo() -> None:
                             ("d3", b), ("d3", a)]) == {
         "d1": b, "d2": a, "d3": b}
     assert resumen_por_dia([]) == {}
+
+
+# ================= Mutacion: supervivientes cazados ==================== #
+
+def test_f025_r6_las_horas_del_motivo_van_con_dos_decimales() -> None:
+    r = detectar([inc(1, "FJ"), hor(2, 1.234, extra=True)], TABLA)
+    assert "(FJ) y 1.23 h extra" in r[1].motivo
