@@ -1,10 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-028 · done (2026-10-02), pendiente de merge, despliegue de sv4 y M1
+## F-028 · done y DESPLEGADA (2026-10-02), pendiente de M1
 
 APPROVED del reviewer (`progress/review_F-028.md`); resumen en
-`progress/history.md`.
+`progress/history.md`. Mergeada a `dev` (`62c544b`) y desplegada a petición
+del humano: sv4 `ca-sv4-front--r20261002122235` (Healthy, 100 % del tráfico,
+arranque limpio en Log Analytics).
 
 Rama `feature/F-028-ancho-detalle`, solo sv4. `base.html` admite una clase
 extra en el contenedor del `<main>` (bloque `container_class`, vacío por
