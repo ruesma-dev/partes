@@ -1,6 +1,21 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-028 · in_progress (2026-10-02), implementada y pendiente de reviewer
+
+Rama `feature/F-028-ancho-detalle`, solo sv4. `base.html` admite una clase
+extra en el contenedor del `<main>` (bloque `container_class`, vacío por
+defecto); `obra_detail.html` y `trabajador_detail.html` usan
+`container--ancho` (`styles.css`: `width: calc(100% - 32px)`, sin tope).
+Listados y topbar sin cambios. Informe: `progress/impl_F-028.md`. Sin
+desviaciones. Sin despliegue.
+
+Pendiente MANUAL (humano, tras desplegar sv4 y Ctrl+F5): **M1** abrir el
+detalle de una obra (y el de un trabajador) en la ventana ancha (3440 px) y
+comprobar que el contenido ocupa todo el ancho menos 16 px por lado y que no
+hay scroll horizontal en la matriz de días ni en la tabla de líneas cuando
+caben; un listado (Obras) sigue centrado a 1500 px.
+
 ## F-025 · done y DESPLEGADA (2026-10-02), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-025.md`); resumen en
