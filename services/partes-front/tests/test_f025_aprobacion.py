@@ -9,6 +9,8 @@ Personas, DNIs, obras y partes SINTETICOS.
 from __future__ import annotations
 
 import pytest
+from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database import parte_repository as repo_mod
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,
@@ -18,7 +20,13 @@ from infrastructure.database.parte_repository import (
     ParteReviewRepository,
     persona_de,
 )
-from tests.dobles import FabricaSesionSqlite
+from interface_adapters.web.app import build_app
+from tests.dobles import FabricaSesionSqlite, estados_sigrid
+from tests.test_f022_aprobar_seleccion import (
+    CalendarioFalso,
+    PublisherFalso,
+    Sv5Falso,
+)
 from tests.test_f025_deteccion import TABLA
 
 AHORA = "2026-03-02T08:00:00+00:00"
@@ -256,3 +264,222 @@ def test_f025_r23_repo_sin_tabla_todo_como_antes() -> None:
     assert datos["excluidas"] == {"registrado": 0, "borrado_sigrid": 0}
     assert datos["excluidas_detalle"] == []
     assert [g["avisos_incidencia"] for g in datos["grupos"]] == [[]]
+
+
+# ===================================================================== #
+# T5 · endpoints de la aprobacion (R9-R12, R14)
+# ===================================================================== #
+
+ENDPOINTS = ("/api/aprobar/preflight", "/api/aprobar/ejecutar",
+             "/api/aprobar/encolar")
+
+
+def _escenario_portal(fabrica) -> dict[str, list[int]]:
+    """Persona A: dia 02 con M (obra 20) y horas (obra 10) en bloqueo; dia
+    03 con FJ y 2 h extra en aviso (obra 10); dia 04 normal (obra 10).
+    Persona B: dia 02 normal en la obra 10."""
+    return {
+        "inc_m": sembrar(fabrica, [{"inc": "M"}], doc="p-m", obra=OBRA_20),
+        "bloq": sembrar(fabrica, [{"horas": 8.0},
+                                  {"tipo": "extra", "horas": 1.0}],
+                        doc="p-bloq"),
+        "aviso": sembrar(fabrica, [{"inc": "FJ"}, {"horas": 6.0},
+                                   {"tipo": "extra", "horas": 2.0}],
+                         doc="p-aviso", fecha="2026-03-03"),
+        "libre": sembrar(fabrica, [{"horas": 8.0}], doc="p-libre",
+                         fecha="2026-03-04"),
+        "otra": sembrar(fabrica, [{"horas": 8.0}], doc="p-otra", dni=DNI_B,
+                        empleado_ide=88, nombre="Persona B"),
+    }
+
+
+@pytest.fixture
+def portal25(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana",
+                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.delenv("INCIDENCIAS_PATH", raising=False)
+
+    def _levantar(*, publisher="si"):
+        fabrica = FabricaSesionSqlite()
+        ids = _escenario_portal(fabrica)
+        sv5 = Sv5Falso()
+        if publisher == "si":
+            publisher = PublisherFalso()
+        app = build_app(Settings(_env_file=None),
+                        repository=ParteReviewRepository(fabrica),
+                        transfer_client=sv5, publisher=publisher,
+                        calendario_provider=CalendarioFalso())
+        return TestClient(app), fabrica, ids, sv5, publisher
+    return _levantar
+
+
+def _enviadas(payloads) -> list[int]:
+    return sorted(l["registro_id"] for p in payloads for l in p["lineas"])
+
+
+def test_f025_r9_preflight_excluye_el_dia_en_bloqueo(portal25) -> None:
+    cliente, _f, ids, sv5, _p = portal25()
+    pedidas = ids["bloq"] + ids["libre"] + ids["otra"]
+    r = cliente.post("/api/aprobar/preflight", json={"registro_ids": pedidas})
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert _enviadas(sv5.preflights) == sorted(ids["libre"] + ids["otra"])
+    assert cuerpo["excluidas"] == {"registrado": 0, "borrado_sigrid": 0,
+                                   "incompatible": 2}
+    detalle = {d["registro_id"]: d for d in cuerpo["excluidas_detalle"]}
+    assert set(detalle) == set(ids["bloq"])
+    assert {d["estado"] for d in detalle.values()} == {"incompatible"}
+    assert all("Maternidad/Paternidad (M) es de día completo" in d["motivo"]
+               for d in detalle.values())
+    listadas = {f["registro_id"] for g in cuerpo["grupos"]
+                for f in g["listado"]}
+    assert not listadas & set(ids["bloq"])
+
+
+def test_f025_r11_preflight_lleva_los_avisos_por_grupo(portal25) -> None:
+    cliente, _f, ids, sv5, _p = portal25()
+    pedidas = ids["aviso"] + ids["libre"]
+    r = cliente.post("/api/aprobar/preflight", json={
+        "registro_ids": pedidas,
+        "ambito": {"vista": "trabajador", "worker_key": "emp-77"}})
+    assert r.status_code == 200
+    assert _enviadas(sv5.preflights) == sorted(pedidas)
+    (grupo,) = r.json()["grupos"]
+    assert grupo["avisos_incidencia"] == [{
+        "registro_id": ids["aviso"][2], "fecha": "2026-03-03",
+        "nombre": "Persona A", "horas": 2.0,
+        # El nombre es el de la tabla versionada: build_app la carga.
+        "motivo": "Falta justificada o permiso (FJ) y 2 h extra el mismo "
+                  "día: comprueba que sean correctas"}]
+    assert "incompatible" not in r.json()["excluidas"]
+
+
+def test_f025_r11_grupo_sin_avisos_lleva_lista_vacia(portal25) -> None:
+    cliente, _f, ids, _sv5, _p = portal25()
+    r = cliente.post("/api/aprobar/preflight",
+                     json={"registro_ids": ids["libre"]})
+    assert [g["avisos_incidencia"] for g in r.json()["grupos"]] == [[]]
+
+
+def test_f025_r11_aviso_con_sv5_caido_sigue_en_el_grupo(portal25) -> None:
+    cliente, _f, ids, sv5, _p = portal25()
+    sv5._pf["0100"] = RuntimeError("sv5 caido")
+    r = cliente.post("/api/aprobar/preflight",
+                     json={"registro_ids": ids["aviso"]})
+    (grupo,) = r.json()["grupos"]
+    assert grupo["ok"] is False
+    assert [a["registro_id"] for a in grupo["avisos_incidencia"]] == \
+        [ids["aviso"][2]]
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+def test_f025_r10_todo_excluido_es_422_sin_llamar_a_sv5(portal25,
+                                                        endpoint) -> None:
+    cliente, fabrica, ids, sv5, publisher = portal25()
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["libre"][0]).sigrid_estado = "registrado"
+        s.commit()
+    antes = estados_sigrid(fabrica, ids["bloq"] + ids["libre"])
+    r = cliente.post(endpoint, json={
+        "registro_ids": ids["bloq"] + ids["libre"]})
+    assert r.status_code == 422
+    cuerpo = r.json()
+    assert cuerpo["excluidas"] == {"registrado": 1, "borrado_sigrid": 0,
+                                   "incompatible": 2}
+    assert cuerpo["error"] == (
+        "no hay lineas que registrar: 1 ya registrada(s) en Sigrid (no se "
+        "reenvian) y 2 con una incidencia de día completo y horas el mismo "
+        "día (corrige el día en el portal)")
+    assert sv5.preflights == [] and sv5.ejecutadas == []
+    assert publisher.publicadas == []
+    assert estados_sigrid(fabrica, ids["bloq"] + ids["libre"]) == antes
+
+
+def test_f025_r10_solo_incompatibles_nombra_solo_eso(portal25) -> None:
+    cliente, _f, ids, _sv5, _p = portal25()
+    r = cliente.post("/api/aprobar/preflight",
+                     json={"registro_ids": ids["bloq"][:1]})
+    assert r.status_code == 422
+    assert r.json()["error"] == (
+        "no hay lineas que registrar: 1 con una incidencia de día completo "
+        "y horas el mismo día (corrige el día en el portal)")
+
+
+def test_f025_r9_ejecutar_no_envia_ni_marca_el_bloqueo(portal25) -> None:
+    cliente, fabrica, ids, sv5, _p = portal25()
+    antes = estados_sigrid(fabrica, ids["bloq"])
+    r = cliente.post("/api/aprobar/ejecutar", json={
+        "registro_ids": ids["bloq"] + ids["libre"]})
+    assert r.status_code == 200
+    assert _enviadas(sv5.ejecutadas) == ids["libre"]
+    assert r.json()["excluidas"]["incompatible"] == 2
+    assert estados_sigrid(fabrica, ids["bloq"]) == antes
+    assert estados_sigrid(fabrica, ids["libre"])[ids["libre"][0]][0] == \
+        "registrado"
+
+
+def test_f025_r9_encolar_no_publica_ni_marca_el_bloqueo(portal25) -> None:
+    cliente, fabrica, ids, _sv5, publisher = portal25()
+    antes = estados_sigrid(fabrica, ids["bloq"])
+    r = cliente.post("/api/aprobar/encolar", json={
+        "registro_ids": ids["bloq"] + ids["libre"] + ids["otra"]})
+    assert r.status_code == 200
+    assert _enviadas([p for p, _u in publisher.publicadas]) == sorted(
+        ids["libre"] + ids["otra"])
+    assert r.json()["excluidas"]["incompatible"] == 2
+    assert estados_sigrid(fabrica, ids["bloq"]) == antes
+
+
+def test_f025_r9_encolar_sin_colas_tampoco_lo_envia(portal25) -> None:
+    cliente, _f, ids, sv5, _p = portal25(publisher=None)
+    r = cliente.post("/api/aprobar/encolar", json={
+        "registro_ids": ids["bloq"] + ids["libre"]})
+    assert r.status_code == 200
+    assert _enviadas(sv5.ejecutadas) == ids["libre"]
+    assert r.json()["excluidas"]["incompatible"] == 2
+
+
+@pytest.mark.parametrize("extra", [
+    {"incluir_borradas": True},
+    {"pisar_claves": ["k1"]},
+    {"forzar_sin_sesame": True},
+    {"incluir_borradas": True, "pisar_claves": ["k1"],
+     "forzar_sin_sesame": True},
+])
+def test_f025_r12_ningun_override_levanta_la_exclusion(portal25,
+                                                       extra) -> None:
+    cliente, fabrica, ids, sv5, _p = portal25()
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["bloq"][0]).sigrid_estado = \
+            "borrado_sigrid"
+        s.commit()
+    for endpoint in ("/api/aprobar/preflight", "/api/aprobar/ejecutar"):
+        r = cliente.post(endpoint, json=dict(
+            {"registro_ids": ids["bloq"] + ids["libre"]}, **extra))
+        assert r.status_code == 200, endpoint
+        assert r.json()["excluidas"]["incompatible"] == \
+            (2 if extra.get("incluir_borradas") else 1)
+    assert not set(_enviadas(sv5.preflights + sv5.ejecutadas)) & \
+        set(ids["bloq"])
+    r = cliente.post("/api/aprobar/ejecutar", json=dict(
+        {"registro_ids": ids["bloq"]}, **extra))
+    assert r.status_code == 422
+
+
+def test_f025_r14_el_payload_de_sv5_no_cambia_de_forma(portal25) -> None:
+    payloads = []
+    for endpoint in ENDPOINTS:
+        # Un portal por endpoint: ejecutar deja las lineas `registrado`.
+        cliente, _f, ids, sv5, publisher = portal25()
+        pedidas = ids["bloq"] + ids["aviso"] + ids["libre"]
+        cliente.post(endpoint, json={"registro_ids": pedidas})
+        payloads += sv5.preflights + sv5.ejecutadas + [
+            p for p, _u in publisher.publicadas]
+    assert len(payloads) == 3
+    for p in payloads:
+        assert set(p) == {"obra", "lineas", "pisar_claves", "usuario"}
+        assert all(set(l) == CLAVES_LINEA for l in p["lineas"])
+        assert _enviadas([p]) == sorted(ids["aviso"] + ids["libre"])

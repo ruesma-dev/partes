@@ -1899,8 +1899,11 @@ def build_app(
             ids = repository.registro_ids_de_obra(
                 obra_key, period_key=body.get("period"),
                 mode=(body.get("mode") or "nomina"))
+        # F-025 (R9, R12): con la tabla de clases, los dias con una
+        # incidencia de dia completo y horas se quedan fuera, sin override.
         datos = repository.lineas_para_registro(
-            ids, incluir_borradas=bool(body.get("incluir_borradas")))
+            ids, incluir_borradas=bool(body.get("incluir_borradas")),
+            incidencias=tabla_incidencias)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
@@ -1993,6 +1996,11 @@ def build_app(
             partes.append(f"{excluidas['borrado_sigrid']} borrada(s) en "
                           "Sigrid (para reenviarlas, marca «Incluir las "
                           "borradas en Sigrid» o usa «Reaprobar»)")
+        if excluidas.get("incompatible"):
+            # F-025 (R10).
+            partes.append(f"{excluidas['incompatible']} con una incidencia "
+                          "de día completo y horas el mismo día (corrige el "
+                          "día en el portal)")
         if not partes:
             return "no hay lineas activas que registrar"
         return "no hay lineas que registrar: " + " y ".join(partes)
@@ -2098,7 +2106,8 @@ def build_app(
             pf = {"ok": False, "error": f"no se pudo evaluar la obra: {exc}"}
         evaluado = dict(pf, clave=grupo.clave, obra=grupo.obra,
                         registro_ids=grupo.registro_ids,
-                        avisos_calendario=_avisos_calendario(grupo.lineas))
+                        avisos_calendario=_avisos_calendario(grupo.lineas),
+                        avisos_incidencia=grupo.avisos_incidencia)  # F-025
         # F-003 R23: el preflight se sirve igual (el humano tiene que poder
         # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
         if not _calendario_fiable(grupo.lineas):
