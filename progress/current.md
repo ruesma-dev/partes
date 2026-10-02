@@ -1,11 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-025 · done (2026-10-02), pendiente de DESPLIEGUE y verificaciones manuales
+## F-025 · done y DESPLEGADA (2026-10-02), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-025.md`); resumen en
-`progress/history.md`. Rama `feature/F-025-incidencia-vs-extra`, solo sv4,
-sin desplegar. azure-apps actualizado por el líder (commit local `6347c60`:
+`progress/history.md`. Mergeada a `dev` (`04ac4fb`) y desplegada a petición del humano: sv4
+`ca-sv4-front--r20261002110836`; el log de arranque lista las clases
+(H=CIH:dia_completo). azure-apps actualizado por el líder (commit local `6347c60`:
 `INCIDENCIAS_PATH` y la regla). Pendientes MANUAL (humano): M1 (lectura en
 PG antes de desplegar, requiere firewall) y M2–M5 tras desplegar sv4, con
 los pasos de `impl_F-025.md` §6. Clasificación confirmada por el humano
