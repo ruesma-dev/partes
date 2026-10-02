@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **26 features**, 9 abiertas, 17 terminadas.
+Resumen: **27 features**, 9 abiertas, 18 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -27,6 +27,7 @@ Bloqueadas: **F-014**.
 |---|---|---|---|
 | F-001 | Test de estructura del monorepo (calentamiento) | 1 | estandar |
 | F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | critico |
+| F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | 1 | estandar |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -110,6 +111,12 @@ Feature trivial para validar el circuito completo del arnés en este repo: un te
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-023-recurso-alta-empresa`
 
 Pedida por el humano el 2026-09-30, prioridad maxima. Al coger el recurso del trabajador de un parte (casado contra el maestro emp/con de Sigrid por DNI -> emp.reside), (1) seleccionar SOLO los que estan dados de alta y (2) seleccionar POR EMPRESA, porque un mismo trabajador/recurso puede existir en 2 empresas. ESTADO ACTUAL: sv3 (infrastructure/sigrid/sigrid_api_client.py, _SQL_EMPLEADOS_BASE + fetch_empleados) filtra por una empresa FIJA (SIGRID_EMPRESA, con.emp = ?) y NO filtra altas/bajas; sv4 tiene su propio fetch_empleados en infrastructure/sigrid/sigrid_lookup_client.py (catalogo para corregir a mano en el portal) y sv5 usa SIGRID_EMPRESA al escribir. A DECIDIR EN LA SPEC: (a) que significa 'dado de alta' en Sigrid para un empleado/recurso (campo fecbaj u otro de emp/con/res; ver azure-apps/sigrid_tablas.md) y si se evalua a hoy o a la FECHA DEL PARTE; (b) DE DONDE SALE LA EMPRESA de cada parte: previsiblemente la empresa de la obra del parte (con.emp de la obra), en lugar del SIGRID_EMPRESA fijo; confirmar con el humano; (c) que pasa si el DNI casa en las 2 empresas y la obra no desempata, o si solo casa con un trabajador de baja (sin casar + revision, no elegir uno al azar); (d) coherencia con sv5, que escribe con SIGRID_EMPRESA fijo: si la empresa pasa a ser la de la obra, la escritura (hmo/hmores) debe usar la misma. Servicios: sv3 (casado), sv4 (catalogo del portal) y probablemente sv5. Los clientes infrastructure/sigrid/ estan en la lista cerrada de duplicacion tolerada: quien toque una copia cambia todas en la misma feature. RIGOR critico: decide a que recurso se imputan horas que se escriben en Sigrid en produccion. ACLARADO 2026-09-30: caso real de Juan Romero ('RV: CAPTURAS'): cogio el recurso MO/0239 dado de baja y no aviso de que existian dos recursos con el mismo DNI. El parte en papel TRAE LA EMPRESA EN EL MEMBRETE (p.ej. Porsan): la empresa del parte se extrae del membrete (sv2) y desempata obras gemelas y recursos. Las consultas a sigrid-api se paginan (OFFSET/FETCH); la instancia dev admite 500.000 filas por peticion.
+
+### F-028 · Detalle de obra y de trabajador a todo el ancho de la ventana
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD no · rama `feature/F-028-ancho-detalle`
+
+Peticion del humano (2026-10-02, captura del detalle de obra): el contenido de todas las paginas de sv4 esta topado a 1500 px por .container (static/styles.css), y en ventanas mas anchas la matriz de dias y la tabla de lineas del detalle de obra y de trabajador sacan scroll horizontal aunque sobre espacio. Solucion aprobada: base.html admite una clase extra para el contenedor principal (bloque Jinja), obra_detail.html y trabajador_detail.html la usan, y styles.css la define a todo el ancho menos 16 px por lado. Los listados conservan el tope de 1500 px. Fuera: rehacer columnas de la tabla de lineas. Solo sv4.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

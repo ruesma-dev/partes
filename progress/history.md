@@ -586,3 +586,23 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   mutación muestreada con 6 supervivientes (5 con test nuevo, 1 equivalente).
 - Observaciones: los avisos agregados del modal no nombran la obra;
   `/api/admin/poison/reencolar` reenvía sin pasar por la exclusión.
+
+## F-028 · Detalle de obra y de trabajador a todo el ancho — done 2026-10-02
+
+- Rama `feature/F-028-ancho-detalle` · rigor estandar · sdd=false · APPROVED
+  del reviewer en la primera pasada (`progress/review_F-028.md`). Petición del
+  humano con captura: scroll horizontal en el detalle de obra con sitio de
+  sobra en un monitor de 3440 px.
+- Causa: `.container` topaba todo el portal a 1500 px. Entregado (solo sv4):
+  bloque Jinja `container_class` en el contenedor del `<main>` de `base.html`
+  (vacío por defecto), `container--ancho` en `obra_detail.html` y
+  `trabajador_detail.html`, regla `width: calc(100% - 32px)` en
+  `styles.css`. Listados y topbar sin cambios (decisión del humano).
+- Verificado: 13 tests `test_f028_*` (RED 4 failed antes del cambio), sv4
+  1548 passed, init.sh en verde. Mutación N/A por lenguaje (sin Python de
+  producción); el reviewer hizo una campaña manual de 9 mutantes sobre
+  plantillas y CSS, 9 muertos.
+- Observaciones: O2, anchos de columna guardados en localStorage pueden
+  estirar la tabla o mantener el scroll (doble clic en la manija los
+  reajusta); propuesta de automejora de C4 bis para «proyecto Python sin
+  líneas Python de producción» (sin aplicar).
