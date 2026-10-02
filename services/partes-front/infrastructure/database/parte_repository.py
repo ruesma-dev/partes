@@ -345,8 +345,8 @@ class ObraMatrixCell:
     # [{'id':..,'t':'n'|'e','h':horas,'p':partida|None}, ...]
     regs: list = field(default_factory=list)
     # F-025 (R15): peor nivel de las lineas de la celda y su motivo.
-    incompat_nivel: Optional[str] = None
-    incompat_motivo: Optional[str] = None
+    incompat_nivel: str | None = None
+    incompat_motivo: str | None = None
 
 
 @dataclass

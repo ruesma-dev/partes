@@ -12,16 +12,16 @@ from __future__ import annotations
 import json
 import re
 import shutil
-import subprocess
 from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from config.settings import Settings
 from fastapi.testclient import TestClient
+from jinja2 import Environment, FileSystemLoader
+
+from config.settings import Settings
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
-from jinja2 import Environment, FileSystemLoader
 from tests.dobles import FabricaSesionSqlite
 from tests.test_f025_aprobacion import DNI_B, OBRA_20, sembrar
 from tests.test_f025_deteccion import TABLA
@@ -259,7 +259,7 @@ def test_f025_r16_r17_html_vista_de_trabajador(portal) -> None:
                                               "cal-incompat-aviso"}
     marcas = [a for t, a, _f in _etiquetas(html)
               if t == "span" and "cal-incompat-mark" in _clases(a)]
-    assert [m["title"] for m in marcas][0] == MOTIVO_M
+    assert marcas[0]["title"] == MOTIVO_M
     assert len(marcas) == 2 and "(FJ)" in marcas[1]["title"]
     insignias = _insignias(html)
     assert set(insignias) == set(ids["inc_m"] + ids["bloq"] + ids["aviso"])
@@ -293,7 +293,7 @@ def test_f025_r15_r16_el_css_define_las_clases() -> None:
 # T8 · app.js: el modal (R19)
 # ===================================================================== #
 
-from tests.test_f022_vistas_seleccion import (  # noqa: E402
+from tests.test_f022_vistas_seleccion import (
     _ejecutar_js,
     _funcion,
     _js,

@@ -16,8 +16,8 @@ parametro al repositorio. Aqui:
 """
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 CLASE_DIA_COMPLETO = "dia_completo"
 CLASE_PARCIAL = "parcial"
@@ -68,7 +68,9 @@ class TablaIncidencias:
 
 def _entrada(letra: str, valor: object) -> ClaseIncidencia:
     if not isinstance(valor, dict):
-        raise ValueError(
+        # ValueError y no TypeError: R2 trata igual cualquier tabla mal
+        # escrita (el arranque solo distingue «la tabla no vale»).
+        raise ValueError(  # noqa: TRY004
             f"incidencias: la letra {letra} tiene que ser un mapa con "
             "sigrid, nombre y clase")
     sigrid = normalizar_codigo(valor.get("sigrid"))
@@ -92,7 +94,7 @@ def _entrada(letra: str, valor: object) -> ClaseIncidencia:
 def parsear_tabla(datos: object) -> TablaIncidencias:
     """R1, R2: la tabla del YAML ya cargado, o `ValueError`."""
     if not isinstance(datos, dict):
-        raise ValueError(
+        raise ValueError(  # noqa: TRY004 (ver `_entrada`)
             "incidencias: la tabla tiene que ser un mapa LETRA -> "
             "{sigrid, nombre, clase}")
     por_letra: dict[str, ClaseIncidencia] = {}
@@ -150,7 +152,7 @@ def _horas_texto(valor: float) -> str:
     redondeado = round(valor, 2)
     if float(redondeado).is_integer():
         return str(int(redondeado))
-    return "%g" % redondeado
+    return f"{redondeado:g}"
 
 
 def _nombrar(clases: dict[str, ClaseIncidencia]) -> str:
