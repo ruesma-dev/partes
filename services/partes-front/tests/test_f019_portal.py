@@ -545,3 +545,13 @@ def test_f019_r17_el_modal_avisa_de_las_excluidas_con_esc() -> None:
     js = _js()
     assert "esc(excl.dedicacion)" in js
     assert "esc(r.dedicacion.length)" in js
+
+
+def test_f019_r21_la_ruta_no_se_publica_en_el_esquema(publicado) -> None:
+    """Como las demas rutas de escritura del portal (aprobar, comprobar):
+    `include_in_schema=False`, fuera de `/openapi.json`. Lo pidio el
+    superviviente 1 de la campana de mutacion de F-019."""
+    esquema = publicado["cliente"].get("/openapi.json").json()
+    rutas = set(esquema.get("paths", {}))
+    assert "/api/dedicacion/retirar" not in rutas
+    assert "/api/aprobar/ejecutar" not in rutas         # control: la norma
