@@ -87,6 +87,11 @@ class HoraRecurso:
     def es_incidencia(self) -> bool:
         return (self.cod or "").upper().startswith("CI")
 
+    @property
+    def es_mensual(self) -> bool:
+        """F-019 (decision 1, criterio P1 de dedicacion): codigo `M*`."""
+        return (self.cod or "").upper().startswith("M")
+
 
 @dataclass
 class ParteDestino:
@@ -103,7 +108,8 @@ class ParteDestino:
 class AccionLinea:
     """Que se hara con una linea de entrada."""
     registro_id: int
-    accion: str                         # escribir | omitir | ya_registrado
+    # escribir | omitir | ya_registrado | dedicacion (F-019)
+    accion: str
     ano: int
     mes: int
     fecha_int: int
@@ -126,6 +132,8 @@ class AccionLinea:
     caa_cod: Optional[str] = None
     caa_motivo: Optional[str] = None
     caa_aviso: Optional[str] = None
+    # F-019 (R2): el codigo `M*` del recurso de una accion `dedicacion`.
+    codigo_mes: Optional[str] = None
 
     @property
     def clave_conflicto(self) -> str:
@@ -225,6 +233,11 @@ class Preflight:
     def n_ya(self) -> int:
         return sum(1 for a in self.acciones if a.accion == "ya_registrado")
 
+    @property
+    def n_dedicacion(self) -> int:
+        """F-019 (R7): lineas que van a dedicacion y no a Sigrid."""
+        return sum(1 for a in self.acciones if a.accion == "dedicacion")
+
 
 @dataclass
 class ResultadoRegistro:
@@ -240,3 +253,6 @@ class ResultadoRegistro:
     borradas: int = 0
     pendientes_confirmacion: list[Conflicto] = field(default_factory=list)
     error: Optional[str] = None
+    # F-019 (R8): {registro_id, recurso_ide, codigo_mes} de cada linea que
+    # va a dedicacion; vacia con el interruptor apagado.
+    dedicacion: list[dict] = field(default_factory=list)

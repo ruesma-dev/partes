@@ -10,6 +10,13 @@ en `progress/impl_F-019.md`.
 
 - T1 hecha: 26 tests de caracterizacion de `ReglasRegistro` en verde
   contra el codigo de hoy, ANTES de tocar `reglas_registro.py`.
+- T2 hecha. **Desviacion D1 (interpretacion, no improvisacion)**: R2 y
+  R3 bis chocan en una ficha M*+HL*+HE* (hoy inexistente en Sigrid: 0
+  recursos M* con HL*). R2 mandaria su ordinaria a dedicacion; R3 bis
+  prohibe que algo que hoy se escribe y no es incidencia cambie. Manda
+  R3 bis (innegociable del humano transmitido por el lider: «encendido,
+  solo cambia omitir->dedicacion e incidencia M* escribir->dedicacion»).
+  Test: `test_f019_r3bis_mensual_con_hl_y_he_sigue_escribiendo_ordinarias`.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

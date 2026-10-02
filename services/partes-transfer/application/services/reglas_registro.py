@@ -2,6 +2,17 @@
 """Reglas de negocio de QUE se registra en Sigrid y con que codigo.
 
 Reglas (definidas por Administracion; R1 actualizada el 25/07/2026):
+  R0. (F-019, solo con el interruptor MENSUALES_A_DEDICACION encendido)
+      Una linea con recurso cuyo recurso tiene un codigo MENSUAL ('M%')
+      NO va a Sigrid: su accion es `dedicacion`, con ese codigo, para las
+      horas ordinarias, las extra si el recurso no tiene 'HE%' y las
+      incidencias de cualquier rol (inicio, intermedio y fin). Las EXTRA
+      de un mensual con 'HE%' (capataz MCAP+HECAP) siguen R4. Antes que
+      R0 mandan, como siempre, la omision previa del recurso (F-023), el
+      tipo de hora no reconocido y la falta de horas (en lo que no es
+      incidencia) y la falta de recurso.
+  Con el interruptor APAGADO (por defecto) R0 no existe y R1-R5 deciden
+  exactamente lo de antes de F-019:
   R1. Las INCIDENCIAS (V, B, AT, FJ, F, H, M...) SE REGISTRAN solo el
       dia de INICIO y el de FIN (los partes no marcan los intermedios):
       el inicio con su codigo CI* (CIV, CIE, CIP, CIH...) y el fin con
@@ -50,6 +61,10 @@ MOTIVO_SIN_LABORABLE = (
     "registran sus horas extra"
 )
 MOTIVO_TIPO = "tipo de hora no reconocido"
+#: F-019 (R0): plantilla del motivo de una accion `dedicacion`.
+MOTIVO_DEDICACION = (
+    "recurso mensual ({codigo}): sus horas van a dedicacion, no a Sigrid"
+)
 
 # F-023 (R36-R37): la verificacion del recurso antes de escribir. Cada
 # motivo dice QUE comprobacion fallo, para que Administracion sepa que
@@ -79,12 +94,17 @@ class ReglasRegistro:
     `omisiones` (F-023): lineas que la verificacion del recurso ya descarto
     (R36-R37), con su motivo. Mandan sobre cualquier otra regla: lo primero
     que hay que arreglar es el recurso.
+
+    `mensuales_a_dedicacion` (F-019, DA8): el interruptor de R0. Apagado,
+    las reglas son las de siempre.
     """
 
     def __init__(self, horas_por_recurso: dict[int, list[HoraRecurso]],
-                 omisiones: dict[int, str] | None = None) -> None:
+                 omisiones: dict[int, str] | None = None,
+                 mensuales_a_dedicacion: bool = False) -> None:
         self._horas = horas_por_recurso
         self._omisiones = omisiones or {}
+        self._a_dedicacion = mensuales_a_dedicacion
 
     # ------------------------------------------------------------- #
     def decidir(self, linea: LineaEntrada) -> AccionLinea:
@@ -102,6 +122,9 @@ class ReglasRegistro:
         previa = self._omisiones.get(linea.registro_id)
         if previa:
             return omitir(previa)
+        mensual = self._decidir_mensual(linea, base)
+        if mensual is not None:
+            return mensual
         if linea.es_incidencia:
             return self._decidir_incidencia(linea, base, omitir)
         tipo = (linea.tipo_hora or "").strip().lower()
@@ -134,6 +157,40 @@ class ReglasRegistro:
             accion="escribir", hora_ide=hora.horide, hora_codigo=hora.cod,
             can=can, pre=pre, tot=round(can * pre, 2), **base,
         )
+
+    # ------------------------------------------------------------- #
+    def _decidir_mensual(self, linea: LineaEntrada,
+                         base: dict) -> AccionLinea | None:
+        """R0 (F-019): la accion `dedicacion`, o None si no aplica.
+
+        None con el interruptor apagado, en los casos que se omiten antes
+        (tipo no reconocido o sin horas en lo que no es incidencia, sin
+        recurso), si el recurso no tiene codigo `M*` y en las horas que
+        R2-R4 ya escriben hoy: la extra de un mensual con `HE*` (DA4) y,
+        por R3 bis, la ordinaria de un `M*` que ademas tenga `HL*` y `HE*`
+        (combinacion que hoy no existe en Sigrid). Con None, `decidir`
+        sigue el flujo de siempre, que da a esas lineas su motivo de
+        siempre."""
+        if not self._a_dedicacion or not linea.recurso_ide:
+            return None
+        tipo = (linea.tipo_hora or "").strip().lower()
+        if not linea.es_incidencia and (
+                tipo not in ("normal", "extra") or not linea.horas):
+            return None
+        disponibles = self._horas.get(int(linea.recurso_ide), [])
+        mensuales = [h for h in disponibles if h.es_mensual]
+        if not mensuales:
+            return None
+        # R3 / R3 bis: lo que hoy se escribe y no es incidencia, sigue.
+        if (not linea.es_incidencia
+                and any(h.es_extra for h in disponibles)
+                and (tipo == "extra"
+                     or any(h.es_laborable for h in disponibles))):
+            return None
+        codigo = sorted(h.cod for h in mensuales)[0]
+        return AccionLinea(
+            accion="dedicacion", codigo_mes=codigo,
+            motivo=MOTIVO_DEDICACION.format(codigo=codigo), **base)
 
     # ------------------------------------------------------------- #
     def _decidir_incidencia(self, linea: LineaEntrada, base: dict,
