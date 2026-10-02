@@ -361,3 +361,61 @@ def test_f025_r19_js_avisos_de_incidencia_escapados() -> None:
 def test_f025_r19_js_sin_avisos_no_pinta_nada(avisos) -> None:
     assert _ejecutar_js(["esc", "num", "avisosIncidenciaHtml"],
                         f"avisosIncidenciaHtml({json.dumps(avisos)})") == ""
+
+
+# ===================================================================== #
+# T9 · R20: ninguna creacion ni edicion se rechaza por el conflicto
+# ===================================================================== #
+
+@pytest.fixture
+def portal_sigrid(monkeypatch):
+    """Como `portal`, con el catalogo de tipos de hora ENCENDIDO (doble de
+    F-004): sin el, cambiar el codigo responde 503 antes de llegar."""
+    from interface_adapters.web import app as app_mod
+    from tests.test_f004_endpoints_congelados import SigridLookupClientFake
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "SIGRID_API_BASE_URL": "http://sigrid.interno",
+                         "SIGRID_API_FUNCTION_KEY": "clave-de-prueba",
+                         "SIGRID_API_DATABASE": "ruesma_rep"}.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.delenv("INCIDENCIAS_PATH", raising=False)
+    monkeypatch.setattr(app_mod, "SigridLookupClient", SigridLookupClientFake)
+    fabrica = FabricaSesionSqlite()
+    ids = _escenario(fabrica)
+    app = build_app(Settings(_env_file=None),
+                    repository=ParteReviewRepository(fabrica))
+    return TestClient(app), ids
+
+
+def test_f025_r20_crear_y_editar_un_dia_en_conflicto_sigue_igual(
+        portal_sigrid) -> None:
+    cliente, ids = portal_sigrid
+    base = {"empleado_nombre": "Persona A", "empleado_ide": 77,
+            "empleado_dni": "12345678Z", "obra_codigo": "0100",
+            "obra_ide": 10}
+    # «+ Nuevo»: una incidencia de dia completo sobre un dia con horas, y
+    # horas sobre el dia que ya tiene la M.
+    r = cliente.post("/api/partes/nuevo", json=dict(
+        base, dias=["2026-03-04"], incidencia_codigo="V",
+        horas_ordinaria=0, horas_extra=0))
+    assert (r.status_code, r.json()["ok"]) == (200, True)
+    r = cliente.post("/api/partes/nuevo", json=dict(
+        base, dias=["2026-03-02"], horas_ordinaria=4, horas_extra=0))
+    assert (r.status_code, r.json()["ok"]) == (200, True)
+    # Editar horas, crear la extra y cambiar el codigo de una linea en
+    # bloqueo; mover la fecha de un parte libre al dia en conflicto.
+    linea = ids["bloq"][0]
+    assert cliente.patch(f"/api/registros/{linea}",
+                         json={"horas": 5.0}).status_code == 200
+    r = cliente.post(f"/api/registros/{linea}/extra", json={"horas": 2.0})
+    assert (r.status_code, r.json()["ok"]) == (200, True)
+    assert cliente.patch(f"/api/registros/{linea}/hora",
+                         json={"hora_ide": 2}).status_code == 200
+    r = cliente.patch("/api/partes/v-libre/fecha", json={"fecha": "2026-03-02"})
+    assert r.status_code == 200
+    # Y el conflicto se sigue viendo (solo se marca, no se rechaza).
+    html = cliente.get(f"/trabajadores/emp-77?period={MARZO}").text
+    dias = {a["data-fecha"]: a for t, a, _f in _etiquetas(html)
+            if t == "div" and "cal-day" in _clases(a) and "data-fecha" in a}
+    assert "cal-incompat" in _clases(dias["2026-03-02"])
