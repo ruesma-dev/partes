@@ -1,9 +1,18 @@
 <!-- progress/spec_F-019.md -->
 # F-019 · Spec lista para revisar (resumen para el humano)
 
-Spec: `specs/F-019-mensuales-a-dedicacion/` (requirements 149 líneas, design
-~235, tasks 19 tareas). Rigor crítico. Estado `spec_ready`. **No se
-implementa nada hasta que apruebes DA1–DA8** (`design.md` §8).
+Spec: `specs/F-019-mensuales-a-dedicacion/` (requirements 150 líneas, design
+239, tasks 19 tareas). Rigor crítico. Estado `spec_ready`.
+
+**Aprobada por el humano el 2026-10-02**: DA1–DA8 tal cual, DA4 opción 2,
+con el matiz «cuando haya hora mes y HE debe registrar hora mes en
+porcentajes y HE en sigrid con normalidad». Blindado en el requisito nuevo
+**R3 bis (no regresión)**: con el interruptor encendido la acción de una
+línea solo puede cambiar de `omitir` a `dedicacion` o, en una incidencia de
+un recurso `M*`, de `escribir` a `dedicacion`; nada omitido pasa a
+escribirse, ninguna extra `HE*` de un mensual con `HE*` deja de escribirse y
+nada de un recurso sin `M*` cambia. Se prueba con el producto de
+combinaciones (apagado contra encendido), con fase RED exigida.
 
 ## Qué propone, en llano
 
@@ -25,7 +34,7 @@ implementa nada hasta que apruebes DA1–DA8** (`design.md` §8).
    defecto). Con él apagado todo funciona como hoy. Lo enciendes tú cuando
    dedicación ya lea la bandeja; apagarlo es el rollback.
 
-## Decisiones que te tocan (mi recomendación)
+## Decisiones (aprobadas el 2026-10-02)
 
 | DA | Pregunta | Recomiendo |
 |---|---|---|

@@ -4,7 +4,7 @@
 Requisitos en `requirements.md`. Rama `feature/F-019-mensuales-a-dedicacion`
 (desde `dev` `b9b3b81`). Rigor **crítico**: cambia lo que se escribe en
 Sigrid en producción (las incidencias de los mensuales dejan de ir, R1 de
-`reglas_registro.py`). **Nada se implementa sin DA1–DA8 aprobadas** (§8).
+`reglas_registro.py`). **DA1–DA8 aprobadas por el humano el 2026-10-02** (§8).
 
 ## 1. Servicios que toca y por qué (límite de servicio)
 
@@ -184,14 +184,20 @@ Lectura de dedicación por periodo: `WHERE anio = ? AND mes = ?`; cambios por
 - **Obras de otra empresa**: dedicación imputa solo a la empresa de las obras
   (su F-034); la bandeja publica `obra_empresa` y la decisión es suya.
 
-## 8. Decisiones pendientes del humano
+## 8. Decisiones (APROBADAS por el humano el 2026-10-02)
 
-| DA | Punto | Alternativas | Recomendación y por qué | Riesgo de la recomendación |
+Las ocho, tal cual se recomendaban, DA4 con la opción 2. Matiz del humano
+sobre DA4, blindado en R3 bis: «ahora mismo funciona perfectamente el que no
+registra en Sigrid los recursos correctos (con hora mes). eso no debe
+perderse. cuando haya hora mes y HE debe registrar hora mes en porcentajes y
+HE en sigrid con normalidad».
+
+| DA | Punto | Alternativas | Aprobada (y por qué) | Riesgo |
 |---|---|---|---|---|
 | DA1 | (a) Canal | 1) bandeja de salida en la base `partes`; 2) bandeja de entrada en la base `dedicacion` escrita por partes; 3) HTTP a `dedicacion-api`; 4) cola o blob de Storage; 5) vista sobre `parte_registros` | **1**. Cada proyecto escribe solo en su base; dedicación ya llega al servidor. 2 da a partes credencial de escritura en base ajena y le hace depender de un esquema que no controla. 3: la api no tiene autenticación y su ingress interno es su control de acceso, en otro entorno. 4: dedicación no usa Storage por diseño, exige RBAC cruzado y una cola consumida no sirve para retirar. 5 expone la tabla interna, que cambia bajo los pies | dedicación necesita una segunda conexión (otra base del mismo servidor) |
 | DA2 | Quién escribe la bandeja | sv4 al volcar el resultado / sv5 al aprobar (lo que proponía el líder) | **sv4**. `ARCHITECTURE.md` (F-002) fija que sv5 va sin BBDD para no crear una tercera copia del ORM (lo vigila `test_f002_r11_sin_postgresql.py`); sv4 ya escribe `sigrid_*` en la misma transacción | ninguno nuevo: el resultado ya viaja por los dos canales |
 | DA3 | Rol de lectura | `GRANT SELECT` sobre la bandeja al rol de aplicación que dedicación ya tiene / rol nuevo de solo lectura | **El rol existente**. En PostgreSQL un rol es objeto del **servidor**, no de una base: «crear el rol dentro de la base partes» no es posible; con el existente no se crea nada a nivel de servidor ni hay contraseña nueva en el Key Vault de dedicación | si dedicación rota o renombra su rol, hay que repetir el `GRANT` (documentado) |
-| DA4 | (b) Capataces `MCAP`+`HECAP` (32) | 1) todo a dedicación; 2) extras a Sigrid con `HECAP` como hoy, el resto a dedicación; 3) como 2 y además copia informativa de las extras en la bandeja | **2**. No cambia lo que se paga hoy por extras; dedicación reparte por días y las extras no cambian el reparto | es una **excepción a la decisión 2** («todas las horas»): necesita el sí expreso |
+| DA4 | (b) Capataces `MCAP`+`HECAP` (32) | 1) todo a dedicación; 2) extras a Sigrid con `HECAP` como hoy, el resto a dedicación; 3) como 2 y además copia informativa de las extras en la bandeja | **2** (aprobada con el matiz citado arriba). No cambia lo que se paga hoy por extras; dedicación reparte por días y las extras no cambian el reparto | excepción a la decisión 2 aceptada por el humano; R3 bis impide cualquier otra diferencia |
 | DA5 | (c) Desaprobar, retirar y reaprobar | 1) `dedicacion` congela; botón «Retirar de dedicación»; reaprobar = upsert por `registro_id` con `version`; 2) «Marcar pendiente» retira las líneas del parte; 3) no congela y editar retira solo | **1**. Mismo modelo que `registrado` (F-004/F-024), acción explícita y con autor; 2 mezcla el parte (documento) con líneas que se aprueban por selección; 3 retira en silencio | un botón y una ruta nuevos en sv4 |
 | DA6 | (d) Periodo cerrado en dedicación | 1) partes publica igual y dedicación decide al leer; 2) partes lee el periodo de dedicación y avisa o bloquea; 3) dedicación escribe un acuse en partes | **1**. partes no tiene por qué conocer la base de dedicación; 2 y 3 abren el acceso en sentido contrario. El portal dice «enviada a dedicación», no «aplicada» | quien aprueba no ve si llegó tarde: lo resuelve la feature espejo (avisar en el cuadrante) |
 | DA7 | (e) Dónde se decide | sv5 (`ReglasRegistro`, acción nueva) / sv4 antes de enviar / sv3 al conciliar | **sv5**: ya lee `reshor` al aprobar (dato fresco) y es donde viven R1–R5. sv4 duplicaría la lectura y la regla; sv3 decidiría con datos de días atrás | el contrato de sv5 crece (R8), compatible hacia atrás |

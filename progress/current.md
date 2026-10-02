@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-019 · spec_ready (2026-10-02), pendiente de DA1–DA8 del humano
+## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 
 spec-author: `specs/F-019-mensuales-a-dedicacion/` en la rama
 `feature/F-019-mensuales-a-dedicacion`; resumen en llano en
@@ -14,7 +14,9 @@ dedicación existente (un rol nuevo sería objeto de servidor), DA4 extras de
 `MCAP`+`HECAP` siguen a Sigrid (**excepción a la decisión 2**), DA5 congelar
 + «Retirar de dedicación», DA6 periodo cerrado lo decide dedicación, DA7
 sv5, DA8 interruptor `MENSUALES_A_DEDICACION` apagado y sin migración del
-histórico. Verificaciones MANUAL M0–M3 en design §10.
+histórico. Verificaciones MANUAL M0–M3 en design §10. Aprobadas tal cual el
+2026-10-02; el matiz de DA4 (hora mes a porcentajes y HE a Sigrid con
+normalidad) queda blindado en R3 bis (no regresión, con RED).
 
 ## F-028 · done y DESPLEGADA (2026-10-02), pendiente de M1
 
