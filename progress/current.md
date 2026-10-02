@@ -78,6 +78,12 @@ en `progress/impl_F-019.md`.
   exponemos y que se rompe, variable en §5.6), commit local `c7ad8e9` en
   `azure-apps` (sin push; ese repo no tiene remoto).
 
+- T15 hecha: campana de mutacion completa, 126 mutantes, 125 muertos, 1
+  superviviente (`include_in_schema` de la ruta nueva) cerrado con test
+  nuevo; `progress/mutacion_F-019.md`. Informe: `progress/impl_F-019.md`.
+- T19 hecha: `bash harness/init.sh` en verde (cobertura de lineas
+  cambiadas 100 %, 201/201). T16-T18 pendientes del humano (abajo).
+
 **Las desviaciones D3, D4 y D5 tocan tests ajenos a F-019 o se apartan
 del design por ellos: necesitan el visto bueno del humano.** Si no se
 aceptan, alternativas: D3 meter `dedicacion` en `ESTADOS_CONGELANTES` y

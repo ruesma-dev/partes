@@ -19,8 +19,8 @@ Rigor **`critico`**: fase RED con traza en `progress/impl_F-019.md` para los req
 - [x] T12: Regresión R28/R29: suites completas de sv3, sv4 y sv5 sin tocar tests ajenos a F-019 salvo los tres guardianes de raíz  |  Verificación: `python -m pytest services/partes-transfer/tests services/partes-front/tests services/partes-persistencia/tests -q` (cada uno desde su carpeta si el `conftest` lo exige)
 - [x] T13: Docs del repo: semántica 15 y «seis tablas» en `docs/ARCHITECTURE.md`; §3.5 y §5 de `docs/referencia/partes-proyecto.md` (R30)  |  Verificación: lectura del reviewer y `git diff --stat`
 - [x] T14: `azure-apps/partes.md` (R31): nota F-019, bandeja como lo que exponemos (columnas, lector, permiso), `MENSUALES_A_DEDICACION` en §5.6 y «qué se rompe»; commit local en ese repositorio, sin push  |  Verificación: `git -C ../azure-apps log -1 --stat`
-- [ ] T15: Informe `progress/impl_F-019.md` (≤ 220 líneas) con trazas RED, cobertura y campaña de mutación completa con 0 supervivientes  |  Verificación: `python -m harness.mutacion --feature F-019` y `python -m harness.tamano --feature F-019`
+- [x] T15: Informe `progress/impl_F-019.md` (≤ 220 líneas) con trazas RED, cobertura y campaña de mutación completa con 0 supervivientes  |  Verificación: `python -m harness.mutacion --feature F-019` y `python -m harness.tamano --feature F-019`
 - [ ] T16: MANUAL (humano) antes de desplegar: M0 de `design.md` §10 en PG `partes`; anotar el resultado en `progress/current.md`  |  Verificación: MANUAL (humano)
 - [ ] T17: MANUAL (humano) despliegue sv3 → sv4, M1 y M2 (`psql ... -f infra/sql/01_dedicacion_lectura.sql`), luego sv5 con el interruptor apagado  |  Verificación: MANUAL (humano)
 - [ ] T18: MANUAL (humano) cuando la feature espejo de `porcentajes` lea la bandeja: M3 (encender, aprobar, retirar, reaprobar; apagar si algo falla)  |  Verificación: MANUAL (humano)
-- [ ] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
