@@ -1,6 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-019 · in_progress (2026-10-02), implementer
+
+Rama `feature/F-019-mensuales-a-dedicacion`. Tarea en curso: ver
+`specs/F-019-mensuales-a-dedicacion/tasks.md` (las marcadas `[x]` estan
+hechas, un commit por tarea). Decisiones y desviaciones: se anotan aqui y
+en `progress/impl_F-019.md`.
+
+- T1 hecha: 26 tests de caracterizacion de `ReglasRegistro` en verde
+  contra el codigo de hoy, ANTES de tocar `reglas_registro.py`.
+
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 
 spec-author: `specs/F-019-mensuales-a-dedicacion/` en la rama
