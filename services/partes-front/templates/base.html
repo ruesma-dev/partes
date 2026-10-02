@@ -40,7 +40,9 @@
   </header>
 
   <main class="page-shell">
-    <div class="container">
+    {# F-028: las vistas de detalle ensanchan el contenedor con una clase
+       extra (p. ej. ` container--ancho`); por defecto no hay ninguna. #}
+    <div class="container{% block container_class %}{% endblock %}">
       {% if message %}
       <div class="alert success" role="status">{{ message }}</div>
       {% endif %}

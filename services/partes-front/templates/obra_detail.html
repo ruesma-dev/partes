@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ detail.obra_codigo or detail.obra_nombre or "Obra" }} · {{ title }}{% endblock %}
+{# F-028: detalle a todo el ancho de la ventana #}
+{% block container_class %} container--ancho{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>

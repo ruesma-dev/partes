@@ -73,6 +73,8 @@ code {
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
 .container { width: min(1500px, calc(100% - 32px)); margin: 0 auto; }
+/* F-028: detalle de obra y de trabajador a todo el ancho (sin tope de 1500 px). */
+.container--ancho { width: calc(100% - 32px); }
 
 /* ---------- Topbar ---------- */
 .topbar {
