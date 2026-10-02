@@ -54,6 +54,14 @@ from application.services.congelacion import (
     motivo_congelacion_documento,
     motivo_congelacion_linea,
 )
+from application.services.incidencias_horas import (
+    NIVEL_AVISO,
+    NIVEL_BLOQUEO,
+    Incompatibilidad,
+    LineaDia,
+    TablaIncidencias,
+    detectar,
+)
 from application.services.calendar_builder import (
     build_period_options,
     is_future_fecha,
@@ -85,6 +93,11 @@ ESTADOS_EN_VUELO = (None, "", ESTADO_ENCOLADO, ESTADO_CONFLICTO,
 
 #: Ids por consulta `IN` en las lecturas por lote de F-024 (R17, R28).
 LOTE_IDS_CONSULTA = 1000
+
+#: F-025 (R9): estado de `excluidas` de una linea cuyo dia-trabajador tiene
+#: una incidencia de dia completo y horas. No es un `sigrid_estado`: nunca
+#: se escribe en la fila, solo se cuenta en la respuesta de la aprobacion.
+EXCLUIDA_INCOMPATIBLE = "incompatible"
 
 
 def _estado_norm(estado: str | None) -> str:
@@ -399,6 +412,28 @@ def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
     return "sin-trabajador"
 
 
+def persona_de(reg: ParteRegistroOrm) -> str:
+    """F-025 (R4, DA11): quien es la persona de una linea para cruzar sus
+    lineas de un mismo dia. El DNI normalizado (sin espacios ni guiones,
+    en mayusculas) cruza obras y casados distintos; sin DNI, la clave de
+    trabajador del portal, que no pierde el conflicto dentro de un parte
+    sin casar."""
+    dni = "".join((reg.empleado_dni or "").replace("-", "").split()).upper()
+    if dni:
+        return "dni:" + dni
+    return worker_key_for_registro(reg)
+
+
+def _linea_dia(reg: ParteRegistroOrm) -> LineaDia:
+    """F-025: lo que la deteccion necesita de una linea del portal."""
+    return LineaDia(
+        registro_id=reg.id, persona=persona_de(reg), fecha_int=reg.fecha_int,
+        es_incidencia=bool(reg.es_incidencia),
+        incidencia_codigo=reg.incidencia_codigo, hora_codigo=reg.hora_codigo,
+        es_extra=_is_extra(reg), horas=reg.horas,
+    )
+
+
 # ------------------------------------------------------------------ #
 # DESHACER: snapshots de filas (estado ANTERIOR) y su restauracion.
 # Un snapshot de registro captura TODOS los campos que cualquier accion
@@ -496,12 +531,16 @@ def _obra_de(reg: ParteRegistroOrm) -> dict[str, Any]:
             "nombre": reg.obra_nombre}
 
 
-def _excluida_detalle(reg: ParteRegistroOrm, estado: str) -> dict[str, Any]:
-    """F-022 (R26): una linea que la aprobacion deja fuera, y por que."""
+def _excluida_detalle(reg: ParteRegistroOrm, estado: str,
+                      motivo: str | None = None) -> dict[str, Any]:
+    """F-022 (R26): una linea que la aprobacion deja fuera, y por que.
+
+    F-025 (R9): las `incompatible` traen su `motivo` (el de la deteccion).
+    """
     parte = reg.sigrid_parte_cod
-    if estado == ESTADO_REGISTRADO:
+    if motivo is None and estado == ESTADO_REGISTRADO:
         motivo = f"ya registrada en Sigrid (parte {parte or '?'}): no se reenvia"
-    else:
+    elif motivo is None:
         motivo = ("borrada en Sigrid: para reenviarla marca «Incluir las "
                   "borradas en Sigrid» o usa «Reaprobar»")
     return {
@@ -1291,6 +1330,7 @@ class ParteReviewRepository:
 
     def lineas_para_registro(
         self, registro_ids: list[int], *, incluir_borradas: bool = False,
+        incidencias: TablaIncidencias | None = None,
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
 
@@ -1305,6 +1345,15 @@ class ParteReviewRepository:
         previo de cada una (para el listado del modal; NO va en el payload
         de sv5, R33); `excluidas_detalle` dice cuales se quedaron fuera y
         por que. `obra`, `lineas` y `excluidas` no cambian.
+
+        F-025 (R9-R13): con `incidencias`, se miran TODAS las lineas activas
+        de las fechas pedidas (de cualquier obra y estado, pedidas o no).
+        Despues de las exclusiones de F-024, una linea de un dia en
+        `bloqueo` no viaja: cuenta en `excluidas["incompatible"]` (que solo
+        existe si es > 0) y sale en el detalle con su motivo, sin excepcion
+        posible. Las extras positivas de un dia en `aviso` viajan y se
+        listan en `avisos_incidencia` de su grupo. Sin `incidencias`, como
+        antes de F-025 (R23).
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -1317,6 +1366,12 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.id.in_(ids))
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
             ).scalars().all())
+            incompat: dict[int, Incompatibilidad] = {}
+            if incidencias is not None:
+                incompat = detectar(
+                    [_linea_dia(x) for x in self._activas_de_fechas(
+                        session, {r.fecha_int for r in regs if r.fecha_int})],
+                    incidencias)
             lineas: list[dict[str, Any]] = []
             obra: dict[str, Any] = {}
             grupos: dict[str, dict[str, Any]] = {}
@@ -1329,10 +1384,18 @@ class ParteReviewRepository:
                     excluidas[estado] += 1
                     detalle.append(_excluida_detalle(r, estado))
                     continue
+                nivel = incompat.get(r.id)
+                if nivel is not None and nivel.nivel == NIVEL_BLOQUEO:
+                    excluidas[EXCLUIDA_INCOMPATIBLE] = excluidas.get(
+                        EXCLUIDA_INCOMPATIBLE, 0) + 1
+                    detalle.append(_excluida_detalle(
+                        r, EXCLUIDA_INCOMPATIBLE, nivel.motivo))
+                    continue
                 if not obra and (r.obra_ide or r.obra_codigo):
                     obra = _obra_de(r)
                 grupo = grupos.setdefault(obra_key_for_registro(r), {
-                    "obra": {}, "lineas": [], "estado_previo": {}})
+                    "obra": {}, "lineas": [], "estado_previo": {},
+                    "avisos_incidencia": []})
                 if not grupo["obra"] and (r.obra_ide or r.obra_codigo):
                     grupo["obra"] = _obra_de(r)
                 grupo["estado_previo"][r.id] = estado
@@ -1357,6 +1420,13 @@ class ParteReviewRepository:
                     ),
                 })
                 grupo["lineas"].append(lineas[-1])
+                if (nivel is not None and nivel.nivel == NIVEL_AVISO
+                        and _is_extra(r) and (r.horas or 0.0) > 0.0):
+                    grupo["avisos_incidencia"].append({
+                        "registro_id": r.id, "fecha": r.fecha,
+                        "nombre": lineas[-1]["nombre"], "horas": r.horas,
+                        "motivo": nivel.motivo,
+                    })
             roles = {l["registro_id"]: l["incidencia_rol"]
                      for l in lineas if l["es_incidencia"]}
             if roles:
@@ -1366,6 +1436,24 @@ class ParteReviewRepository:
         return {"obra": obra, "lineas": lineas, "excluidas": excluidas,
                 "grupos": [dict(clave=k, **grupos[k]) for k in sorted(grupos)],
                 "excluidas_detalle": detalle}
+
+    @staticmethod
+    def _activas_de_fechas(session, fechas: set[int]) -> list:
+        """F-025 (R9): las lineas activas (fuera de la papelera y de un
+        documento activo) de esas fechas, de cualquier obra y estado. En
+        lotes de `LOTE_IDS_CONSULTA` fechas."""
+        orden = sorted(fechas)
+        out: list = []
+        for i in range(0, len(orden), LOTE_IDS_CONSULTA):
+            out.extend(session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.fecha_int.in_(
+                    orden[i:i + LOTE_IDS_CONSULTA]))
+            ).scalars().all())
+        return out
 
     @staticmethod
     def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:

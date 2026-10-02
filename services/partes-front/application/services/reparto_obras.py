@@ -32,6 +32,9 @@ class GrupoObra:
     obra: dict
     lineas: list[dict]
     estado_previo: dict[int, str] = field(default_factory=dict)
+    #: F-025 (R11): extras de un dia en `aviso`. Van al preflight del
+    #: grupo, NUNCA al payload de sv5 (R14).
+    avisos_incidencia: list[dict] = field(default_factory=list)
 
     @property
     def registro_ids(self) -> list[int]:
