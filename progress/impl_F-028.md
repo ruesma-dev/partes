@@ -11,7 +11,7 @@ tocar Sigrid ni PostgreSQL.
 | Commit | Tarea | Qué |
 |---|---|---|
 | `a1a7731` | T1 | Plantillas, CSS y tests (abajo) |
-| (siguiente) | T2 | `progress/current.md` (F-028 en curso, M1) y este informe |
+| `4e289f3` | T2 | `progress/current.md` (F-028 en curso, M1) y este informe |
 
 Ficheros tocados (`services/partes-front/`):
 
@@ -109,8 +109,10 @@ Jinja2 que pide `docs/CONVENTIONS.md`. `app.js` no se toca (no aplica
   in 367.31s (0:06:07)`; sv1, sv2, sv3, sv5 en verde (caché, árbol sin
   cambios); `PUERTA COBERTURA: N/A (F-028 no cambia líneas Python de
   producción frente a dev)`; `PUERTA TAMAÑO` dentro de topes; ruff 557 avisos
-  de deuda previa (no bloquea). El `init.sh` final, tras el commit de T2, se
-  vuelve a lanzar antes de responder al líder.
+  de deuda previa (no bloquea).
+- `bash harness/init.sh` final (tras el commit de T2): **ENTORNO LISTO**,
+  raíz `419 passed, 1 skipped in 86.52s`, sv4 en verde (caché del verde
+  anterior, árbol sin cambios), `PUERTA TAMAÑO: impl 138/220`.
 
 ## 7. Fuera de alcance
 
