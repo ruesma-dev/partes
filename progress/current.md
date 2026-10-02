@@ -62,6 +62,53 @@ en `progress/impl_F-019.md`.
   `esc()`, `retirarDedicacion` con el `ambito` de `#aprobar-todo` y
   recarga. Sin CSS nuevo (`badge info` basta). `node --check` OK. El JS
   no tiene arnes: el comportamiento en navegador queda para M3.
+- T11 hecha: `infra/sql/01_dedicacion_lectura.sql` (solo 3 GRANT + 4
+  SELECT de comprobacion) y `tests/test_f019_sql_lectura.py` (analizador
+  probado contra 15 alteraciones; R27 por AST: ningun literal no-docstring
+  de `services/` lleva `GRANT`).
+- T12 hecha. **Desviacion D5**: el guardian de F-017
+  `test_f017_r22_no_hay_ficheros_sql_de_migracion` prohibia CUALQUIER
+  `.sql` del arbol y R25 exige uno. Se admite SOLO
+  `infra/sql/01_dedicacion_lectura.sql` (no es migracion: GRANT + SELECT,
+  vigilado por el test de T11); cualquier otro `.sql` sigue fallando.
+  Suites completas de sv3, sv4, sv5 y raiz en verde (cifras en el informe).
+- T13 hecha: semantica 15 y «seis tablas» en `docs/ARCHITECTURE.md`;
+  §3.5, §5, §5.5 bis y §6.6 en `docs/referencia/partes-proyecto.md`.
+- T14 hecha: `azure-apps/partes.md` (nota F-019, §4.5 bis lo que
+  exponemos y que se rompe, variable en §5.6), commit local `c7ad8e9` en
+  `azure-apps` (sin push; ese repo no tiene remoto).
+
+**Las desviaciones D3, D4 y D5 tocan tests ajenos a F-019 o se apartan
+del design por ellos: necesitan el visto bueno del humano.** Si no se
+aceptan, alternativas: D3 meter `dedicacion` en `ESTADOS_CONGELANTES` y
+actualizar los dos tests; D4/D5 no tienen alternativa limpia (R24 exige
+`_actor(request)` y R25 exige el `.sql`).
+
+### Pendiente MANUAL (humano) · T16-T18 (design §10)
+
+Orden: **sv3 → sv4 → M1, M2 → sv5** (interruptor apagado) → feature espejo
+de `porcentajes` leyendo la bandeja → **M3** (encender).
+
+- **T16 · M0** (ANTES de desplegar; PG `partes`, abrir firewall a tu IP):
+  `SELECT sigrid_estado, left(fecha,7) AS mes, count(*) FROM parte_registros WHERE sigrid_motivo LIKE '%codigo mensual%' OR sigrid_motivo LIKE '%es mensual%' GROUP BY 1,2 ORDER BY 2;`
+  Anotar el resultado aqui.
+- **T17 · despliegue** (lo pide el humano), desde `infra/` y EN TRES
+  pasadas (con `-Solo sv3,sv4,sv5` el script ordenaria sv3 → sv5 → sv4):
+  `./redeploy_partes.ps1 -Solo sv3`, luego `./redeploy_partes.ps1 -Solo sv4`.
+  - **M1** (tras sv3 y sv4): `SELECT count(*) FROM dedicacion_bandeja;` → 0.
+  - **M2**: `psql "host=<servidor> dbname=partes user=<admin> sslmode=require" -v rol=<rol_app_dedicacion> -f infra/sql/01_dedicacion_lectura.sql`
+    → las comprobaciones dan true / false / false (si la tercera da true,
+    avisar; no se corrige aqui).
+  - `./redeploy_partes.ps1 -Solo sv5` con el interruptor APAGADO (no hay
+    que tocar nada: `MENSUALES_A_DEDICACION` no existe en Azure y su
+    defecto es false).
+- **T18 · M3** (solo cuando la feature espejo de `porcentajes` lea la
+  bandeja):
+  `az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MENSUALES_A_DEDICACION=true`;
+  aprobar una linea de un mensual, ver «→ dedicación» en la vista y
+  `SELECT registro_id, version, vigente, tipo, codigo_mes, prueba FROM dedicacion_bandeja ORDER BY actualizado_at_utc DESC LIMIT 5;`;
+  «Retirar» (vigente false, version 2) y reaprobar (vigente true,
+  version 3). Si algo falla, apagar con el mismo comando y `=false`.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 
