@@ -135,6 +135,14 @@ class Settings(BaseSettings):
     # TTL (s) de la cache de la tabla de excepciones `empleado_jornada`.
     jornada_cache_ttl_s: int = Field(600, alias="JORNADA_CACHE_TTL_S")
 
+    # F-025 (DA1): tabla VERSIONADA de clases de incidencia (dia completo o
+    # parcial). La mantiene el humano y va en la imagen; si esta mal, el
+    # portal no arranca. Una ruta relativa es relativa a la raiz del
+    # servicio, no al directorio de trabajo.
+    incidencias_path: str = Field(
+        "config/incidencias.yaml", alias="INCIDENCIAS_PATH"
+    )
+
     # Pantalla de administracion de `empleado_jornada` (F-016). ENCENDIDA
     # por defecto: hasta que exista F-008 (roles) puede entrar cualquier
     # usuario autenticado, igual que en el reencolado de mensajes poison.

@@ -27,6 +27,7 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 
 import httpx
+import yaml
 from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import (
     HTMLResponse,
@@ -43,6 +44,10 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.incidencias_horas import (
+    TablaIncidencias,
+    parsear_tabla,
+)
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
     build_calendar,
@@ -330,6 +335,41 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
+#: Raiz del servicio: contra ella se resuelven las rutas relativas de los
+#: ficheros de datos versionados (`config/*.yaml`).
+RAIZ_SERVICIO = Path(__file__).resolve().parents[2]
+
+
+def construir_tabla_incidencias(settings: Settings) -> TablaIncidencias:
+    """F-025 (R1, R2): la tabla versionada de clases de incidencia.
+
+    Se lee AL ARRANCAR y un fallo lo tumba (como la tabla del membrete de
+    sv3): una incidencia mal clasificada en silencio dejaria pasar a Sigrid
+    horas en un dia de baja, o bloquearia dias correctos sin que nadie
+    supiera por que. PyYAML llega con `uvicorn[standard]`.
+    """
+    ruta = Path(settings.incidencias_path)
+    if not ruta.is_absolute():
+        ruta = RAIZ_SERVICIO / ruta
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(
+            f"incidencias: no se puede leer {ruta}: {exc}") from exc
+    try:
+        datos = yaml.safe_load(texto)
+    except yaml.YAMLError as exc:
+        raise ValueError(
+            f"incidencias: no se puede parsear {ruta}: {exc}") from exc
+    tabla = parsear_tabla(datos)
+    logger.info(
+        "[incidencias][wiring] clases desde %s: %s", ruta,
+        ", ".join(f"{c.letra}={c.sigrid}:{c.clase}"
+                  for c in tabla.por_letra.values()),
+    )
+    return tabla
+
+
 def build_app(
     settings: Settings,
     *,
@@ -358,6 +398,8 @@ def build_app(
         "[jornada][wiring] mapa candef -> jornada semanal: %s",
         ", ".join(f"{c:g}:{v:g}" for c, v in sorted(mapa_semanal.items())),
     )
+    # F-025: clases de incidencia, tambien fail-fast (R2).
+    tabla_incidencias = construir_tabla_incidencias(settings)
 
     if repository is None:
         session_factory = SessionFactory(
@@ -531,6 +573,7 @@ def build_app(
     app.state.calendario_provider = calendario_provider
     app.state.jornada_provider = jornada_provider
     app.state.mapa_semanal = mapa_semanal
+    app.state.tabla_incidencias = tabla_incidencias
     app.state.tables_ready = tables_ready
     # F-017 R5c, senal B: ¿este proceso ha visto ya alguna cabecera de Easy
     # Auth? Es la red de seguridad de la senal A (las `CONTAINER_APP_*`).

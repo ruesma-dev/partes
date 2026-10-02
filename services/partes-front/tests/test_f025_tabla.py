@@ -152,3 +152,80 @@ def test_f025_r3_sin_letra_conocida_sale_del_codigo_de_hora() -> None:
     (None, "CIZ"), ("Z", "CIZ"), (None, None), ("", ""), ("X", "HL01")])
 def test_f025_r3_sin_clase(letra, codigo) -> None:
     assert parsear_tabla(_datos_validos()).clase_de(letra, codigo) is None
+
+
+# ================= T3 · cableado del arranque (R1, R2) ================= #
+
+@pytest.fixture
+def entorno(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests"}.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.delenv("INCIDENCIAS_PATH", raising=False)
+    return monkeypatch
+
+
+def _levantar():
+    from config.settings import Settings
+    from infrastructure.database.parte_repository import (
+        ParteReviewRepository,
+    )
+    from interface_adapters.web.app import build_app
+    from tests.dobles import FabricaSesionSqlite
+    return build_app(Settings(_env_file=None),
+                     repository=ParteReviewRepository(FabricaSesionSqlite()))
+
+
+def test_f025_r1_settings_ruta_por_defecto(entorno) -> None:
+    from config.settings import Settings
+    assert Settings(_env_file=None).incidencias_path == \
+        "config/incidencias.yaml"
+
+
+def test_f025_r1_build_app_carga_la_tabla_al_arrancar(entorno, tmp_path,
+                                                      caplog) -> None:
+    # La ruta relativa es la del servicio, no la del directorio de trabajo.
+    entorno.chdir(tmp_path)
+    with caplog.at_level("INFO"):
+        app = _levantar()
+    tabla = app.state.tabla_incidencias
+    assert set(tabla.por_letra) == set(LETRAS_LEYENDA)
+    assert tabla.por_letra["M"].clase == CLASE_DIA_COMPLETO
+    assert any("[incidencias][wiring]" in r.getMessage()
+               for r in caplog.records)
+
+
+def test_f025_r1_build_app_respeta_incidencias_path(entorno, tmp_path) -> None:
+    datos = _datos_validos()
+    datos["H"]["clase"] = "dia_completo"
+    fichero = tmp_path / "otra.yaml"
+    fichero.write_text(yaml.safe_dump(datos), encoding="utf-8")
+    entorno.setenv("INCIDENCIAS_PATH", str(fichero))
+    assert _levantar().state.tabla_incidencias.por_letra["H"].clase == \
+        CLASE_DIA_COMPLETO
+
+
+def test_f025_r2_arranque_con_ruta_inexistente_falla(entorno, tmp_path) -> None:
+    entorno.setenv("INCIDENCIAS_PATH", str(tmp_path / "no-existe.yaml"))
+    with pytest.raises(ValueError, match="no se puede leer.*no-existe.yaml"):
+        _levantar()
+
+
+def test_f025_r2_arranque_con_yaml_mal_escrito_falla(entorno, tmp_path) -> None:
+    fichero = tmp_path / "rota.yaml"
+    fichero.write_text("V: {sigrid: CIV, nombre: [sin cerrar\n",
+                       encoding="utf-8")
+    entorno.setenv("INCIDENCIAS_PATH", str(fichero))
+    with pytest.raises(ValueError, match="no se puede parsear.*rota.yaml"):
+        _levantar()
+
+
+def test_f025_r2_arranque_con_una_letra_de_menos_falla(entorno,
+                                                       tmp_path) -> None:
+    datos = _datos_validos()
+    del datos["FJ"]
+    fichero = tmp_path / "corta.yaml"
+    fichero.write_text(yaml.safe_dump(datos), encoding="utf-8")
+    entorno.setenv("INCIDENCIAS_PATH", str(fichero))
+    with pytest.raises(ValueError, match="faltan.*FJ"):
+        _levantar()
