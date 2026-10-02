@@ -9,9 +9,8 @@ Personas, DNIs, obras y partes SINTETICOS.
 from __future__ import annotations
 
 import pytest
-from fastapi.testclient import TestClient
-
 from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database import parte_repository as repo_mod
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,

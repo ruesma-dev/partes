@@ -16,12 +16,11 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-from jinja2 import Environment, FileSystemLoader
-
 from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
+from jinja2 import Environment, FileSystemLoader
 from tests.dobles import FabricaSesionSqlite
 from tests.test_f025_aprobacion import DNI_B, OBRA_20, sembrar
 from tests.test_f025_deteccion import TABLA

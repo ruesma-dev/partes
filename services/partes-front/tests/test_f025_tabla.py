@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from application.services.incidencias_horas import (
     CLASE_DIA_COMPLETO,
     CLASE_PARCIAL,
