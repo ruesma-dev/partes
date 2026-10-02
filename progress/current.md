@@ -1,7 +1,10 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-028 · in_progress (2026-10-02), implementada y pendiente de reviewer
+## F-028 · done (2026-10-02), pendiente de merge, despliegue de sv4 y M1
+
+APPROVED del reviewer (`progress/review_F-028.md`); resumen en
+`progress/history.md`.
 
 Rama `feature/F-028-ancho-detalle`, solo sv4. `base.html` admite una clase
 extra en el contenedor del `<main>` (bloque `container_class`, vacío por
@@ -14,7 +17,9 @@ Pendiente MANUAL (humano, tras desplegar sv4 y Ctrl+F5): **M1** abrir el
 detalle de una obra (y el de un trabajador) en la ventana ancha (3440 px) y
 comprobar que el contenido ocupa todo el ancho menos 16 px por lado y que no
 hay scroll horizontal en la matriz de días ni en la tabla de líneas cuando
-caben; un listado (Obras) sigue centrado a 1500 px.
+caben; un listado (Obras) sigue centrado a 1500 px. Si la tabla de líneas
+sale estirada o con scroll por anchos de columna guardados de antes, doble
+clic en la manija de la columna los reajusta (O2 del reviewer).
 
 ## F-025 · done y DESPLEGADA (2026-10-02), pendiente de verificaciones manuales
 
