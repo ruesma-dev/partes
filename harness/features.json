@@ -290,7 +290,7 @@
       "title": "Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)",
       "description": "Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): hizo un parte con una incidencia y al lado una hora extra el mismo dia; 'si esta de baja maternidad, no puede tener horas extra'. Hay que limitarlo. A DECIDIR EN LA SPEC: que incidencias son incompatibles con horas trabajadas/extra (baja, maternidad, vacaciones...?) y de donde sale esa lista (tipos de incidencia de Sigrid o lista propia); si se bloquea la aprobacion, se marca para revision o se avisa en el preflight; en que servicio vive la regla (sv3 al conciliar y/o sv4 al aprobar). Servicios probables: sv3/sv4.",
       "acceptance": [],
-      "status": "spec_ready",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 4,

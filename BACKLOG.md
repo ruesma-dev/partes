@@ -5,6 +5,8 @@
 
 Resumen: **26 features**, 10 abiertas, 16 terminadas.
 
+En curso: **F-025**.
+
 Bloqueadas: **F-014**.
 
 ## Trabajo abierto
@@ -12,7 +14,7 @@ Bloqueadas: **F-014**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
-| F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | spec lista | estandar | `feature/F-025-incidencia-vs-extra` |
+| F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | en curso | estandar | `feature/F-025-incidencia-vs-extra` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
@@ -53,7 +55,7 @@ Observacion O4 del reviewer de F-022 (2026-10-01): resumenHtml, conflictosHtml, 
 
 ### F-025 · Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)
 
-estado **spec lista** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-025-incidencia-vs-extra`
+estado **en curso** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-025-incidencia-vs-extra`
 
 Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): hizo un parte con una incidencia y al lado una hora extra el mismo dia; 'si esta de baja maternidad, no puede tener horas extra'. Hay que limitarlo. A DECIDIR EN LA SPEC: que incidencias son incompatibles con horas trabajadas/extra (baja, maternidad, vacaciones...?) y de donde sale esa lista (tipos de incidencia de Sigrid o lista propia); si se bloquea la aprobacion, se marca para revision o se avisa en el preflight; en que servicio vive la regla (sv3 al conciliar y/o sv4 al aprobar). Servicios probables: sv3/sv4.
 
