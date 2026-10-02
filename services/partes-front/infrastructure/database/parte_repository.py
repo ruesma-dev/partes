@@ -218,6 +218,11 @@ class RegistroView:
     # puede editar algo que el servidor rechaza con un 409.
     congelado: bool = False
     congelado_motivo: str | None = None
+    # --- Incidencia y horas el mismo dia (F-025 R17) --- #
+    # `bloqueo` o `aviso` del dia-trabajador de la linea (cruzando obras),
+    # o None; el motivo va en el `title` de la insignia.
+    incompat_nivel: str | None = None
+    incompat_motivo: str | None = None
 
 
 @dataclass
@@ -339,6 +344,9 @@ class ObraMatrixCell:
     # TODAS las lineas de horas de la celda, para el editor inline:
     # [{'id':..,'t':'n'|'e','h':horas,'p':partida|None}, ...]
     regs: list = field(default_factory=list)
+    # F-025 (R15): peor nivel de las lineas de la celda y su motivo.
+    incompat_nivel: Optional[str] = None
+    incompat_motivo: Optional[str] = None
 
 
 @dataclass
@@ -529,6 +537,25 @@ def _obra_de(reg: ParteRegistroOrm) -> dict[str, Any]:
     """La obra de una linea tal como viaja a sv5."""
     return {"ide": reg.obra_ide, "codigo": reg.obra_codigo,
             "nombre": reg.obra_nombre}
+
+
+def _incompatibilidades(
+    regs: list[ParteRegistroOrm], incidencias: TablaIncidencias | None,
+) -> dict[int, Incompatibilidad]:
+    """F-025: el nivel de cada linea; vacio sin tabla (R23)."""
+    if incidencias is None:
+        return {}
+    return detectar([_linea_dia(r) for r in regs], incidencias)
+
+
+def _peor(actual: Incompatibilidad | None,
+          nueva: Incompatibilidad | None) -> Incompatibilidad | None:
+    """F-025 (R15): el peor de dos niveles (gana `bloqueo`)."""
+    if actual is None or (nueva is not None
+                          and nueva.nivel == NIVEL_BLOQUEO
+                          and actual.nivel != NIVEL_BLOQUEO):
+        return nueva
+    return actual
 
 
 def _excluida_detalle(reg: ParteRegistroOrm, estado: str,
@@ -767,7 +794,13 @@ class ParteReviewRepository:
         rows.sort(key=lambda r: (0 if r.matched else 1, _norm(r.nombre)))
         return rows
 
-    def get_worker(self, worker_key: str) -> WorkerDetail | None:
+    def get_worker(
+        self, worker_key: str, *,
+        incidencias: TablaIncidencias | None = None,
+    ) -> WorkerDetail | None:
+        """Lineas activas del trabajador. F-025 (R17, R18): con
+        `incidencias`, cada linea lleva el nivel de su dia-trabajador,
+        calculado sobre TODAS las lineas activas (cruza obras)."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -776,10 +809,12 @@ class ParteReviewRepository:
                 .options(selectinload(ParteRegistroOrm.document))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
+            todas = list(session.execute(stmt).scalars().all())
             regs = [
-                r for r in session.execute(stmt).scalars().all()
+                r for r in todas
                 if worker_key_for_registro(r) == worker_key
             ]
+        incompat = _incompatibilidades(todas, incidencias)
 
         if not regs:
             return None
@@ -805,7 +840,8 @@ class ParteReviewRepository:
                 detail.horas_extra += reg.horas or 0.0
             else:
                 detail.horas_normales += reg.horas or 0.0
-            detail.registros.append(_registro_view(reg))
+            detail.registros.append(
+                _registro_view(reg, incompat.get(reg.id)))
         detail.horas_normales = round(detail.horas_normales, 2)
         detail.horas_extra = round(detail.horas_extra, 2)
         return detail
@@ -911,7 +947,12 @@ class ParteReviewRepository:
         mode: str = "nomina",
         holiday_name: Callable[[date], str | None] | None = None,
         sin_extra_resolver: Callable[[set[int]], set[int]] | None = None,
+        incidencias: TablaIncidencias | None = None,
     ) -> ObraDetail | None:
+        """Matriz y lineas de una obra. F-025 (R15, R17, R18): con
+        `incidencias`, celdas y lineas llevan el nivel de su
+        dia-trabajador, calculado sobre TODAS las lineas activas, tambien
+        las de otras obras (ya se cargan antes de filtrar)."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -920,12 +961,14 @@ class ParteReviewRepository:
                 .options(selectinload(ParteRegistroOrm.document))
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
+            todas = list(session.execute(stmt).scalars().all())
             regs = [
-                r for r in session.execute(stmt).scalars().all()
+                r for r in todas
                 if obra_key_for_registro(r) == obra_key
             ]
             if not regs:
                 return None
+            incompat = _incompatibilidades(todas, incidencias)
 
             head = next(
                 (r for r in regs if r.obra_codigo or r.obra_nombre), regs[0]
@@ -939,7 +982,7 @@ class ParteReviewRepository:
             if selected is None and period_options:
                 selected = parse_period_key(period_options[0].key)
 
-            views = [_registro_view(r) for r in regs]
+            views = [_registro_view(r, incompat.get(r.id)) for r in regs]
 
         if selected is None:
             # Sin fechas validas: sin matriz, registros sueltos.
@@ -1004,8 +1047,11 @@ class ParteReviewRepository:
             slot = w["days"].setdefault(
                 reg.fecha, {"normal": 0.0, "extra": 0.0, "inc": [],
                            "doc": None, "pdf": False, "es_futuro": False,
-                           "n_ids": [], "e_ids": [], "regs": []}
+                           "n_ids": [], "e_ids": [], "regs": [],
+                           "incompat": None}
             )
+            # F-025 (R15): la celda toma el peor nivel de sus lineas.
+            slot["incompat"] = _peor(slot["incompat"], incompat.get(reg.id))
             if slot["doc"] is None:
                 slot["doc"] = reg.document_id
                 slot["pdf"] = bool(
@@ -1066,6 +1112,7 @@ class ParteReviewRepository:
                 fut = bool(slot.get("es_futuro"))
                 n_ids = slot.get("n_ids") or []
                 e_ids = slot.get("e_ids") or []
+                nivel_celda = slot.get("incompat")
                 cells.append(ObraMatrixCell(
                     date_iso=dc.date_iso,
                     label=_cell_label(n, e, inc),
@@ -1081,6 +1128,10 @@ class ParteReviewRepository:
                         slot.get("regs") or [],
                         key=lambda x: (0 if x["t"] == "n" else 1, x["id"]),
                     ),
+                    incompat_nivel=(nivel_celda.nivel
+                                    if nivel_celda else None),
+                    incompat_motivo=(nivel_celda.motivo
+                                     if nivel_celda else None),
                 ))
                 idx = day_index[dc.date_iso]
                 if tiene_extra:
@@ -3033,7 +3084,9 @@ def extras_por_jornada(registros: list["RegistroView"]) -> dict:
     return {"total_exceso": round(total, 2), "dias": dias, "candef": candef}
 
 
-def _registro_view(reg: ParteRegistroOrm) -> RegistroView:
+def _registro_view(
+    reg: ParteRegistroOrm, incompat: Incompatibilidad | None = None,
+) -> RegistroView:
     doc = reg.document
     motivo = _motivo_congelado_reg(reg)
     return RegistroView(
@@ -3081,4 +3134,6 @@ def _registro_view(reg: ParteRegistroOrm) -> RegistroView:
         parte_estado=reg.parte_estado,
         congelado=motivo is not None,
         congelado_motivo=motivo,
+        incompat_nivel=incompat.nivel if incompat else None,
+        incompat_motivo=incompat.motivo if incompat else None,
     )

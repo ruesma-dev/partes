@@ -45,8 +45,10 @@ from application.services.comprobacion_sigrid import (
 )
 from application.services.congelacion import CongeladoError
 from application.services.incidencias_horas import (
+    Incompatibilidad,
     TablaIncidencias,
     parsear_tabla,
+    resumen_por_dia,
 )
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
@@ -775,7 +777,8 @@ def build_app(
         message: str | None = Query(default=None),
     ) -> HTMLResponse:
         mode = normalize_mode(modo)
-        detail = repository.get_worker(worker_key)
+        detail = repository.get_worker(worker_key,
+                                       incidencias=tabla_incidencias)
         if detail is None:
             raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
@@ -900,6 +903,12 @@ def build_app(
                     ):
                         dias_incompletos.add(_day.date_iso)
 
+        # F-025 (R16): el peor nivel de cada dia (incidencia de dia
+        # completo con horas, o parcial con extra), para el calendario.
+        dias_incompatibles = resumen_por_dia(
+            (r.fecha, Incompatibilidad(r.incompat_nivel, r.incompat_motivo))
+            for r in detail.registros if r.fecha and r.incompat_nivel)
+
         # KPI de jornada (R25): con que numeros se esta calculando. Sin
         # esto, F-015 seria magia: el portal dejaria de avisar de unos dias
         # y empezaria a avisar de otros sin que se pudiera ver por que. La
@@ -968,6 +977,7 @@ def build_app(
             "candef_kpi": candef_kpi,
             "jornada_kpi": jornada_kpi,
             "dias_incompletos": dias_incompletos,
+            "dias_incompatibles": dias_incompatibles,
             "sesame_degradado": sesame_degradado,
             "jornada_contrato": jornada_contrato,
             "jornada_divergente": jornada_divergente,
@@ -1029,6 +1039,7 @@ def build_app(
             obra_key, period_key=period, mode=mode,
             holiday_name=calendario_provider.holiday_name_para(None),
             sin_extra_resolver=recursos_sin_extra_resolver,
+            incidencias=tabla_incidencias,
         )
         if detail is None:
             raise HTTPException(status_code=404, detail="Obra no encontrada")
