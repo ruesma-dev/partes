@@ -989,3 +989,17 @@ td.cell-fecha input.sel-linea { margin: 0 6px 0 0; vertical-align: middle;
 .ap-modal .ap-excluidas > summary { cursor: pointer; }
 .ap-modal .ap-grupo-res { margin: 6px 0; }
 .ap-modal .ap-obra { margin: 8px 0 2px; font-size: 14.5px; }
+
+/* F-025 · incidencia y horas el mismo dia. Bloqueo (dia completo con
+   horas: no se registra) en rojo; aviso (parcial con extra: se registra)
+   en ambar, distinto del amarillo de la jornada incompleta (mx-warn). */
+td.mx-cell.mx-incompat { background: var(--danger-soft); box-shadow: inset 0 0 0 2px var(--danger); color: var(--danger-strong); }
+td.mx-cell.mx-incompat-aviso { background: #fff1e0; box-shadow: inset 0 0 0 2px #e8912d; }
+.cal-day.cal-incompat { box-shadow: inset 0 0 0 2px var(--danger); background: var(--danger-soft); }
+.cal-day.cal-incompat-aviso { box-shadow: inset 0 0 0 2px #e8912d; }
+.cal-incompat-mark { margin-left: 3px; font-size: 0.82em; cursor: help; }
+.cal-incompat-mark-bloqueo { color: var(--danger); }
+.cal-incompat-mark-aviso { color: #b45309; }
+.badge.incompat { cursor: help; }
+.badge.incompat.incompat-bloqueo { background: var(--danger-soft); border-color: var(--danger-border); color: var(--danger-strong); }
+.badge.incompat.incompat-aviso { background: #fff1e0; border-color: #f5b971; color: #b45309; }

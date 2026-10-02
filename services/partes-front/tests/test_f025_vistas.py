@@ -9,13 +9,29 @@ el HTML renderizado y, con `node` instalado, las funciones puras de
 """
 from __future__ import annotations
 
+import json
+import re
+import shutil
+import subprocess
+from html.parser import HTMLParser
+from pathlib import Path
+
 import pytest
+from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
+from interface_adapters.web.app import build_app
+from jinja2 import Environment, FileSystemLoader
 from tests.dobles import FabricaSesionSqlite
 from tests.test_f025_aprobacion import DNI_B, OBRA_20, sembrar
 from tests.test_f025_deteccion import TABLA
 
 MARZO = "2026-03"
+RAIZ_SERVICIO = Path(__file__).resolve().parents[1]
+APP_JS = RAIZ_SERVICIO / "static" / "app.js"
+STYLES = RAIZ_SERVICIO / "static" / "styles.css"
+MOTIVO_M = ("Maternidad/Paternidad (M) es de día completo y ese día hay 9 h "
+            "de trabajo: deja solo una de las dos")
 
 
 def _escenario(fabrica) -> dict[str, list[int]]:
@@ -114,3 +130,160 @@ def test_f025_r23_repo_vistas_sin_tabla_como_antes() -> None:
     assert {v.incompat_nivel for v in det.registros} == {None}
     assert {v.incompat_nivel
             for v in repo.get_worker("emp-77").registros} == {None}
+
+
+# ===================================================================== #
+# T7 · plantillas y CSS (HTML renderizado)
+# ===================================================================== #
+
+class _Etiquetas(HTMLParser):
+    """Etiquetas de apertura con sus atributos, y la linea de la tabla
+    (`tr[data-registro-id]`) en la que esta cada una."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.etiquetas: list[tuple[str, dict, int | None]] = []
+        self._fila: int | None = None
+
+    def handle_starttag(self, tag, attrs):
+        a = dict(attrs)
+        if tag == "tr":
+            rid = a.get("data-registro-id")
+            self._fila = int(rid) if rid else None
+        self.etiquetas.append((tag, a, self._fila))
+
+    def handle_endtag(self, tag):
+        if tag == "tr":
+            self._fila = None
+
+
+def _etiquetas(html: str) -> list[tuple[str, dict, int | None]]:
+    p = _Etiquetas()
+    p.feed(html)
+    return p.etiquetas
+
+
+def _clases(a: dict) -> set[str]:
+    return set((a.get("class") or "").split())
+
+
+@pytest.fixture
+def portal(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests"}.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.delenv("INCIDENCIAS_PATH", raising=False)
+    fabrica = FabricaSesionSqlite()
+    ids = _escenario(fabrica)
+    app = build_app(Settings(_env_file=None),
+                    repository=ParteReviewRepository(fabrica))
+    return TestClient(app), ids
+
+
+def _celdas_obra(html: str) -> dict[tuple[str, str], dict]:
+    return {(a["data-trabajador"], a["data-fecha"]): a
+            for t, a, _f in _etiquetas(html)
+            if t == "td" and "mx-cell" in _clases(a) and "data-fecha" in a}
+
+
+def _insignias(html: str) -> dict[int, list[dict]]:
+    out: dict[int, list[dict]] = {}
+    for t, a, fila in _etiquetas(html):
+        if t == "span" and fila is not None and "incompat" in _clases(a):
+            out.setdefault(fila, []).append(a)
+    return out
+
+
+def test_f025_r15_html_celdas_de_la_matriz(portal) -> None:
+    cliente, _ids = portal
+    html = cliente.get(f"/obras/obr-10?period={MARZO}").text
+    celdas = _celdas_obra(html)
+    bloq = celdas[("Persona A", "2026-03-02")]
+    assert "mx-incompat" in _clases(bloq)
+    assert "mx-incompat-aviso" not in _clases(bloq)
+    assert bloq["title"] == MOTIVO_M
+    aviso = celdas[("Persona A", "2026-03-03")]
+    assert "mx-incompat-aviso" in _clases(aviso)
+    assert "mx-incompat" not in _clases(aviso)
+    assert "(FJ) y 2 h extra" in aviso["title"]
+    for clave in (("Persona A", "2026-03-04"), ("Persona B", "2026-03-02")):
+        assert not _clases(celdas[clave]) & {"mx-incompat",
+                                             "mx-incompat-aviso"}
+        assert "title" not in celdas[clave]
+
+
+def test_f025_r15_html_el_title_convive_con_el_del_visor(portal,
+                                                         monkeypatch) -> None:
+    cliente, _ids = portal
+    cliente.app.state.settings.graph_key = "irrelevante"   # visor activo
+    with cliente.app.state.repository._session_factory.create_session() as s:
+        from infrastructure.database.orm_models import ParteDocumentOrm
+        doc = s.get(ParteDocumentOrm, "v-bloq")
+        doc.sharepoint_drive_id, doc.sharepoint_item_id = "d", "i"
+        s.commit()
+    html = cliente.get(f"/obras/obr-10?period={MARZO}").text
+    bloq = _celdas_obra(html)[("Persona A", "2026-03-02")]
+    assert bloq["title"] == MOTIVO_M + " · Ver parte del 2026-03-02"
+    assert html.count('title="Ver parte del 2026-03-02"') == 0
+
+
+def test_f025_r18_html_la_obra_de_la_incidencia_tambien(portal) -> None:
+    cliente, _ids = portal
+    html = cliente.get(f"/obras/obr-20?period={MARZO}").text
+    celda = _celdas_obra(html)[("Persona A", "2026-03-02")]
+    assert "mx-incompat" in _clases(celda)
+    assert celda["title"] == MOTIVO_M
+
+
+def test_f025_r17_html_insignias_en_las_lineas_de_obra(portal) -> None:
+    cliente, ids = portal
+    insignias = _insignias(cliente.get(f"/obras/obr-10?period={MARZO}").text)
+    assert set(insignias) == set(ids["bloq"] + ids["aviso"])
+    for rid in ids["bloq"]:
+        (b,) = insignias[rid]
+        assert "incompat-bloqueo" in _clases(b) and b["title"] == MOTIVO_M
+    for rid in ids["aviso"]:
+        (b,) = insignias[rid]
+        assert "incompat-aviso" in _clases(b) and "(FJ)" in b["title"]
+
+
+def test_f025_r16_r17_html_vista_de_trabajador(portal) -> None:
+    cliente, ids = portal
+    html = cliente.get(f"/trabajadores/emp-77?period={MARZO}").text
+    dias = {a["data-fecha"]: a for t, a, _f in _etiquetas(html)
+            if t == "div" and "cal-day" in _clases(a) and "data-fecha" in a}
+    assert "cal-incompat" in _clases(dias["2026-03-02"])
+    assert "cal-incompat-aviso" not in _clases(dias["2026-03-02"])
+    assert "cal-incompat-aviso" in _clases(dias["2026-03-03"])
+    assert not _clases(dias["2026-03-04"]) & {"cal-incompat",
+                                              "cal-incompat-aviso"}
+    marcas = [a for t, a, _f in _etiquetas(html)
+              if t == "span" and "cal-incompat-mark" in _clases(a)]
+    assert [m["title"] for m in marcas][0] == MOTIVO_M
+    assert len(marcas) == 2 and "(FJ)" in marcas[1]["title"]
+    insignias = _insignias(html)
+    assert set(insignias) == set(ids["inc_m"] + ids["bloq"] + ids["aviso"])
+
+
+def test_f025_r16_html_sin_conflictos_no_hay_marcas(portal) -> None:
+    cliente, _ids = portal
+    html = cliente.get(f"/trabajadores/emp-88?period={MARZO}").text
+    assert "cal-incompat" not in html
+    assert _insignias(html) == {}
+
+
+@pytest.mark.parametrize("plantilla", ["obra_detail.html",
+                                       "trabajador_detail.html"])
+def test_f025_r15_r17_las_plantillas_parsean(plantilla) -> None:
+    entorno = Environment(loader=FileSystemLoader(
+        str(RAIZ_SERVICIO / "templates")))
+    entorno.parse(entorno.loader.get_source(entorno, plantilla)[0])
+
+
+def test_f025_r15_r16_el_css_define_las_clases() -> None:
+    css = STYLES.read_text(encoding="utf-8")
+    for selector in ("td.mx-cell.mx-incompat", "td.mx-cell.mx-incompat-aviso",
+                     ".cal-day.cal-incompat", ".cal-day.cal-incompat-aviso",
+                     ".badge.incompat", ".cal-incompat-mark"):
+        assert selector + " " in css or selector + "{" in css \
+            or selector + "," in css, selector
