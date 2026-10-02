@@ -33,6 +33,11 @@ en `progress/impl_F-019.md`.
   `motivo_congelacion_linea/documento` y el guardian F-024 lo compara con
   sv3. Para el bloqueo de borrado definitivo: `vive_fuera` y
   `motivo_borrado_definitivo` (motivo propio para dedicacion).
+- T6 hecha: `_upsert_bandeja` + `marcar_registros_sigrid(dedicacion=,
+  prueba=, incidencias=)` en la misma transaccion. Decision: el
+  `recurso_ide` de la fila es el del resultado de sv5 (pudo resolverlo por
+  DNI) y, si no viene, el de la linea; el motivo de la linea no se trunca
+  (el codigo `M*` es corto y la columna `codigo_mes` es String(16)).
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

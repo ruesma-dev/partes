@@ -31,6 +31,7 @@ from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
     Base,
+    DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
     ParteDocumentOrm,
@@ -43,6 +44,7 @@ from application.services import text_match as tm
 from application.services.jornada_admin import columnas_patron
 from application.services.congelacion import (
     ESTADO_BORRADO_SIGRID,
+    ESTADO_DEDICACION,
     ESTADO_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
@@ -79,6 +81,8 @@ logger = logging.getLogger(__name__)
 #   conflicto            -> sv5 encontro lineas que habria que pisar
 #   error                -> sv5 no pudo completar la peticion
 #   borrado_sigrid       -> F-024: estaba registrada y ya no esta en Sigrid
+#   dedicacion           -> F-019: de un mensual, publicada en la bandeja
+#                           de dedicacion (veredicto final, congela)
 ESTADO_ENCOLADO = "encolado"
 ESTADO_CONFLICTO = "conflicto"
 ESTADO_ERROR = "error"
@@ -89,6 +93,35 @@ ESTADO_ERROR = "error"
 #: (`ya_registradas`), la linea vuelve a `registrado`.
 ESTADOS_EN_VUELO = (None, "", ESTADO_ENCOLADO, ESTADO_CONFLICTO,
                     ESTADO_ERROR, ESTADO_BORRADO_SIGRID)
+
+
+def _datos_bandeja(reg: "ParteRegistroOrm", *, recurso_ide: int | None,
+                   codigo_mes: str, prueba: bool,
+                   clase: str | None) -> dict[str, Any]:
+    """F-019 (R10): las columnas de DATOS de la fila de la bandeja de una
+    linea (R12: si todas coinciden, la fila no se toca). Nunca nombre ni
+    DNI. El recurso es el del resultado de sv5 (pudo resolverlo por DNI)
+    y, si no viene, el de la linea."""
+    fecha_int = int(reg.fecha_int or 0)
+    if reg.es_incidencia:
+        tipo = "incidencia"
+    elif (reg.tipo_hora or "").strip().lower() == "extra":
+        tipo = "extra"
+    else:
+        tipo = "normal"
+    doc = reg.document
+    return {
+        "recurso_ide": int(recurso_ide or reg.recurso_ide or 0),
+        "codigo_mes": codigo_mes, "fecha_int": fecha_int,
+        "anio": fecha_int // 10000, "mes": fecha_int // 100 % 100,
+        "obra_ide": reg.obra_ide, "obra_codigo": reg.obra_codigo,
+        "obra_empresa": doc.empresa if doc is not None else None,
+        "partida_ide": reg.partida_ide, "partida_cod": reg.partida_cod,
+        "tipo": tipo, "horas": reg.horas,
+        "incidencia_codigo": reg.incidencia_codigo if reg.es_incidencia
+        else None,
+        "incidencia_clase": clase, "prueba": bool(prueba),
+    }
 
 
 #: Ids por consulta `IN` en las lecturas por lote de F-024 (R17, R28).
@@ -1721,6 +1754,9 @@ class ParteReviewRepository:
         error_global: str | None = None,
         registro_ids: list[int] | None = None,
         motivo_ok: str | None = None,
+        dedicacion: list[dict] | None = None,
+        prueba: bool = False,
+        incidencias: TablaIncidencias | None = None,
     ) -> int:
         """Guarda la traza del registro en cada linea.
 
@@ -1739,6 +1775,13 @@ class ParteReviewRepository:
 
         Aplicar dos veces el mismo resultado deja el mismo estado (R13):
         la reentrega del mensaje de `q-transfer-result` es benigna.
+
+        F-019 (R9-R14): `dedicacion` son las lineas de mensuales que sv5
+        mando a dedicacion. Cada una queda en 'dedicacion' y se publica en
+        `dedicacion_bandeja` en ESTA MISMA transaccion: si la bandeja
+        falla, no se marca nada y la excepcion sube (la cola reintenta).
+        `prueba` es el `forzada_pruebas` del resultado; con `incidencias`,
+        la fila lleva la clase de la incidencia.
         """
         ahora = datetime.now(timezone.utc).isoformat()
         n = 0
@@ -1805,9 +1848,55 @@ class ParteReviewRepository:
                     reg.sigrid_registrado_at_utc = ahora
                     reg.sigrid_registrado_by = usuario
                     n += 1
+            for d in dedicacion or []:
+                reg = session.get(ParteRegistroOrm, int(d["registro_id"]))
+                if reg is None:
+                    continue
+                codigo = str(d.get("codigo_mes") or "")
+                reg.sigrid_estado = ESTADO_DEDICACION
+                reg.sigrid_motivo = f"enviada a dedicación ({codigo})"
+                reg.sigrid_registrado_at_utc = ahora
+                reg.sigrid_registrado_by = usuario
+                clase = (incidencias.clase_de(reg.incidencia_codigo,
+                                              reg.hora_codigo)
+                         if incidencias is not None and reg.es_incidencia
+                         else None)
+                self._upsert_bandeja(
+                    session, reg, recurso_ide=d.get("recurso_ide"),
+                    codigo_mes=codigo, prueba=prueba,
+                    clase=clase.clase if clase is not None else None,
+                    actor=usuario, ahora=ahora)
+                n += 1
             session.commit()
         logger.info("[repo] traza de registro guardada en %s linea(s)", n)
         return n
+
+    @staticmethod
+    def _upsert_bandeja(session, reg: ParteRegistroOrm, *,
+                        recurso_ide: int | None, codigo_mes: str,
+                        prueba: bool, clase: str | None, actor: str | None,
+                        ahora: str) -> bool:
+        """F-019 (R10-R13): la fila de la bandeja de esa linea. True si
+        cambio. Nueva: version 1. Vigente con el mismo contenido: no se
+        toca (R12). Retirada o con otro contenido: vigente, version + 1."""
+        datos = _datos_bandeja(reg, recurso_ide=recurso_ide,
+                               codigo_mes=codigo_mes, prueba=prueba,
+                               clase=clase)
+        fila = session.get(DedicacionBandejaOrm, reg.id)
+        if fila is None:
+            fila = DedicacionBandejaOrm(registro_id=reg.id, version=0)
+            session.add(fila)
+        elif fila.vigente and all(getattr(fila, k) == v
+                                  for k, v in datos.items()):
+            return False
+        for campo, valor in datos.items():
+            setattr(fila, campo, valor)
+        fila.version += 1
+        fila.vigente = True
+        fila.enviado_por, fila.enviado_at_utc = actor, ahora
+        fila.retirado_por = fila.retirado_at_utc = None
+        fila.actualizado_at_utc = ahora
+        return True
 
     def update_registro(
         self,
