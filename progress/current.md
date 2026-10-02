@@ -1,6 +1,21 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-019 · spec_ready (2026-10-02), pendiente de DA1–DA8 del humano
+
+spec-author: `specs/F-019-mensuales-a-dedicacion/` en la rama
+`feature/F-019-mensuales-a-dedicacion`; resumen en llano en
+`progress/spec_F-019.md`. Rigor crítico; servicios sv5 (decide), sv4
+(publica en `dedicacion_bandeja`, estado, retirada) y sv3 (ORM gemelo y
+congelación). Decisiones abiertas que valida el humano (design §8): DA1
+canal (bandeja en base `partes`), DA2 la escribe **sv4, no sv5** (difiere de
+la propuesta del líder: sv5 va sin BBDD), DA3 `GRANT SELECT` al rol de
+dedicación existente (un rol nuevo sería objeto de servidor), DA4 extras de
+`MCAP`+`HECAP` siguen a Sigrid (**excepción a la decisión 2**), DA5 congelar
++ «Retirar de dedicación», DA6 periodo cerrado lo decide dedicación, DA7
+sv5, DA8 interruptor `MENSUALES_A_DEDICACION` apagado y sin migración del
+histórico. Verificaciones MANUAL M0–M3 en design §10.
+
 ## F-028 · done y DESPLEGADA (2026-10-02), pendiente de M1
 
 APPROVED del reviewer (`progress/review_F-028.md`); resumen en
