@@ -1,0 +1,50 @@
+# config/incidencias.yaml
+# F-025 (DA1, DA2): clase de cada incidencia de la leyenda del parte.
+#
+# Sigrid NO clasifica sus incidencias (`auxhor` no tiene ningun campo que
+# diga si una incidencia es de dia completo o parcial; ver
+# progress/explore_F-025_sigrid.md), asi que la clasificacion vive aqui,
+# versionada. sv4 la lee AL ARRANCAR y no levanta si esta mal: falta una
+# letra, una clase desconocida o un codigo que no empieza por CI.
+#
+# Clases:
+#   dia_completo -> la incidencia ocupa el dia entero: si ese mismo dia la
+#                   persona tiene horas (ordinarias o extra), es un error y
+#                   sus lineas de ese dia NO se registran en Sigrid hasta
+#                   que se corrija el dia en el portal (bloqueo).
+#   parcial      -> puede convivir con horas (p. ej. trabajo 2 h y tengo
+#                   el accidente). Solo se avisa si ese dia hay horas
+#                   EXTRA; se registra igual (aviso).
+#
+# La mantiene el humano, de acuerdo con Administracion: cambiar una clase
+# es un cambio versionado y un redespliegue de sv4.
+#
+# Formato: LETRA: {sigrid: codigo CI* de auxhor, nombre, clase}
+V:
+  sigrid: CIV
+  nombre: Vacaciones
+  clase: dia_completo
+B:
+  sigrid: CIE
+  nombre: Baja por enfermedad o accidente no laboral
+  clase: dia_completo
+AT:
+  sigrid: CIA
+  nombre: Accidente de trabajo o enfermedad profesional
+  clase: parcial
+FJ:
+  sigrid: CIP
+  nombre: Falta justificada o permiso
+  clase: parcial
+F:
+  sigrid: CIF
+  nombre: Falta injustificada
+  clase: dia_completo
+H:
+  sigrid: CIH
+  nombre: Huelga
+  clase: parcial
+M:
+  sigrid: CIM
+  nombre: Maternidad/Paternidad
+  clase: dia_completo
