@@ -38,6 +38,11 @@ en `progress/impl_F-019.md`.
   `recurso_ide` de la fila es el del resultado de sv5 (pudo resolverlo por
   DNI) y, si no viene, el de la linea; el motivo de la linea no se trunca
   (el codigo `M*` es corto y la columna `codigo_mes` es String(16)).
+- T7 hecha: `aplicar_resultado(..., incidencias=)`; el consumidor recibe la
+  tabla de clases desde `main.py` (la construye `main()` con
+  `construir_tabla_incidencias`, parametro opcional de
+  `_componentes_de_cola` para no romper sus tests de F-002); `_trazar` usa
+  la tabla del portal. Test de los dos canales marcando igual.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

@@ -2138,7 +2138,8 @@ def build_app(
         try:
             aplicar_resultado(repository, resultado, registro_ids=ids,
                               usuario=actor,
-                              sin_sesame=sin_sesame)
+                              sin_sesame=sin_sesame,
+                              incidencias=tabla_incidencias)  # F-019
         except Exception:
             logger.warning("[transfer] no se pudo guardar la traza del "
                            "registro", exc_info=True)

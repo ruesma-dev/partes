@@ -348,3 +348,232 @@ def test_f019_r10_sin_recurso_en_el_resultado_vale_el_de_la_linea() -> None:
                     {"registro_id": ids[1], "recurso_ide": None,
                      "codigo_mes": "MENC"}])
     assert [f["recurso_ide"] for f in _filas(fabrica).values()] == [602, 602]
+
+
+# =========== T7 · aplicar_resultado y los dos canales (HTTP y cola) ============ #
+
+import json  # noqa: E402
+
+from config.settings import Settings  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from infrastructure.azure import blob_cliente as mod_blob  # noqa: E402
+from infrastructure.azure.blob_cliente import BlobCliente  # noqa: E402
+from infrastructure.transfer.resultado_sigrid import (  # noqa: E402
+    aplicar_resultado,
+)
+from interface_adapters.web.app import build_app  # noqa: E402
+from interface_adapters.workers import resultado_consumer  # noqa: E402
+from interface_adapters.workers.resultado_consumer import (  # noqa: E402
+    arrancar_consumidor_resultados,
+    construir_handler_resultados,
+)
+from tests.dobles import (  # noqa: E402
+    BlobServiceClientFake,
+    parchear_blobs,
+)
+from tests.test_f002_resultado_consumer import SettingsFake  # noqa: E402
+from tests.test_f022_aprobar_seleccion import (  # noqa: E402
+    CalendarioFalso,
+    PublisherFalso,
+    Sv5Falso,
+)
+
+
+def _resultado(ids, *, forzada=True, escritas=()) -> dict:
+    return {"ok": True, "obra_destino": {"codigo": "0404"},
+            "forzada_pruebas": forzada, "partes": [],
+            "escritas": [{"registro_id": i, "hmoide": 900,
+                          "hmores_ide": 1000 + i, "parte_cod": "PT26/00009"}
+                         for i in escritas],
+            "omitidas": [], "ya_registradas": [], "pisadas": [],
+            "borradas": 0, "pendientes_confirmacion": [],
+            "dedicacion": _ded(ids)}
+
+
+class RepoQueApunta:
+    def __init__(self) -> None:
+        self.llamadas: list[dict] = []
+
+    def marcar_registros_sigrid(self, **kw):
+        self.llamadas.append(kw)
+        return 0
+
+
+def test_f019_r9_aplicar_resultado_pasa_dedicacion_prueba_e_incidencias():
+    repo = RepoQueApunta()
+    aplicar_resultado(repo, _resultado([5, 6]), registro_ids=[5, 6],
+                      usuario="ana", incidencias=TABLA)
+    (kw,) = repo.llamadas
+    assert kw["dedicacion"] == _ded([5, 6])
+    assert kw["prueba"] is True and kw["incidencias"] is TABLA
+
+
+def test_f019_r9_aplicar_resultado_sin_clave_dedicacion_ni_tabla():
+    """Un resultado de un sv5 anterior a F-019 (sin `dedicacion`)."""
+    repo = RepoQueApunta()
+    resultado = _resultado([], forzada=False)
+    del resultado["dedicacion"]
+    aplicar_resultado(repo, resultado, registro_ids=[], usuario="ana")
+    (kw,) = repo.llamadas
+    assert (kw["dedicacion"], kw["prueba"], kw["incidencias"]) == (
+        [], False, None)
+
+
+def test_f019_r9_el_resultado_fallido_no_publica():
+    repo = RepoQueApunta()
+    aplicar_resultado(repo, {"ok": False, "error": "boom",
+                             "dedicacion": _ded([5])},
+                      registro_ids=[5], usuario="ana", incidencias=TABLA)
+    (kw,) = repo.llamadas
+    assert kw["error_global"] == "boom" and "dedicacion" not in kw
+
+
+def _sobre(blob, resultado, ids) -> dict:
+    sobre = {"peticion_id": "p1", "usuario": "ana",
+             "procesado_at_utc": AHORA, "registro_ids": ids,
+             "resultado": resultado}
+    blob.subir("transfer", "resultados/p1.json",
+               json.dumps(sobre).encode("utf-8"))
+    return {"peticion_id": "p1", "blob": "resultados/p1.json"}
+
+
+def _sin_fechas(filas: dict) -> dict:
+    """Sin fechas ni autor: el HTTP firma `local:<reviewer>` y la cola el
+    usuario del sobre."""
+    return {rid: {k: v for k, v in f.items()
+                  if not k.endswith("_at_utc") and k != "enviado_por"}
+            for rid, f in filas.items()}
+
+
+def _estados(fabrica, ids) -> dict:
+    with fabrica.create_session() as s:
+        return {i: (s.get(ParteRegistroOrm, i).sigrid_estado,
+                    s.get(ParteRegistroOrm, i).sigrid_motivo) for i in ids}
+
+
+def _por_la_cola(monkeypatch, resultado, *, incidencias=TABLA):
+    parchear_blobs(monkeypatch, mod_blob, BlobServiceClientFake())
+    blob = BlobCliente(connection_string="UseDevelopmentStorage=true")
+    fabrica = FabricaSesionSqlite()
+    ids = _sin_choque(fabrica)
+    handler = construir_handler_resultados(
+        repository=ParteReviewRepository(fabrica), blob=blob,
+        settings=SettingsFake(), incidencias=incidencias)
+    handler(_sobre(blob, resultado(ids), ids))
+    return fabrica, ids
+
+
+def _sin_choque(fabrica) -> list[int]:
+    """Las tres lineas del mensual, con la incidencia en OTRO dia para que
+    F-025 no deje fuera el dia al aprobar por HTTP."""
+    ids = sembrar_mensual(fabrica, estado=None)
+    with fabrica.create_session() as s:
+        r = s.get(ParteRegistroOrm, ids[2])
+        r.fecha, r.fecha_int = "2026-03-03", 20260303
+        s.commit()
+    return ids
+
+
+def test_f019_r9_la_cola_publica_con_la_clase(monkeypatch):
+    fabrica, ids = _por_la_cola(monkeypatch, _resultado)
+    filas = _filas(fabrica)
+    assert sorted(filas) == ids
+    assert filas[ids[2]]["incidencia_clase"] == "dia_completo"
+    assert {f["prueba"] for f in filas.values()} == {True}
+
+
+def test_f019_r9_los_dos_canales_marcan_igual(monkeypatch):
+    for clave, valor in {"PG_PASSWORD": "x", "PG_ADMIN_PASSWORD": "x",
+                         "DEFAULT_REVIEWER": "ana",
+                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+        monkeypatch.setenv(clave, valor)
+    http = FabricaSesionSqlite()
+    ids = _sin_choque(http)
+    sv5 = Sv5Falso(ejecutar_por_obra={"0100": _resultado(ids)})
+    cliente = TestClient(build_app(
+        Settings(_env_file=None), repository=ParteReviewRepository(http),
+        transfer_client=sv5, publisher=PublisherFalso(),
+        calendario_provider=CalendarioFalso()))
+    r = cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
+    assert r.status_code == 200, r.text
+    cola, ids_cola = _por_la_cola(monkeypatch, _resultado)
+    assert ids_cola == ids
+    assert _estados(http, ids) == _estados(cola, ids)
+    assert _sin_fechas(_filas(http)) == _sin_fechas(_filas(cola))
+    assert _filas(http)[ids[2]]["incidencia_clase"] == "dia_completo"
+
+
+def test_f019_r9_arrancar_consumidor_entrega_la_tabla(monkeypatch):
+    vistos = {}
+
+    def _construir(**kw):
+        vistos.update(kw)
+        return lambda _m: None
+
+    class _Cola:
+        def consumir(self, _nombre, _handler):
+            return None
+
+    monkeypatch.setattr(resultado_consumer, "construir_handler_resultados",
+                        _construir)
+    hilo = arrancar_consumidor_resultados(
+        repository="repo", cola=_Cola(), blob="blob",
+        settings=SettingsFake(), incidencias=TABLA)
+    hilo.join(5)
+    assert vistos == {"repository": "repo", "blob": "blob",
+                      "settings": vistos["settings"], "incidencias": TABLA}
+
+
+def test_f019_r9_el_main_cablea_la_tabla_al_consumidor(monkeypatch):
+    import main as entrypoint
+
+    capturado = {}
+    monkeypatch.setattr(entrypoint, "construir_cola_cliente",
+                        lambda **kw: type("C", (), {
+                            "asegurar_colas": lambda self, _c: None})())
+    monkeypatch.setattr(entrypoint, "construir_blob_cliente",
+                        lambda **kw: type("B", (), {
+                            "asegurar_contenedores": lambda self, _c: None})())
+    monkeypatch.setattr(entrypoint, "arrancar_consumidor_resultados",
+                        lambda **kw: capturado.update(kw))
+    settings = SettingsFake()
+    settings.colas_connection_string = None
+    settings.colas_account_url = "https://cola.invalida"
+    settings.blobs_connection_string = None
+    settings.blobs_account_url = None
+    settings.cola_max_dequeue = 5
+    settings.cola_visibility_s = 600
+    entrypoint._componentes_de_cola(settings, "repo", incidencias=TABLA)
+    assert capturado["incidencias"] is TABLA
+
+
+def test_f019_r9_main_construye_la_tabla_y_la_pasa(monkeypatch):
+    import main as entrypoint
+
+    llamadas = {}
+
+    class _Settings:
+        log_dir = "logs"
+        log_level = "INFO"
+        database_url = admin_database_url = "sqlite://"
+        pg_db = "partes"
+        auto_create_database = False
+        transfer_queue_enabled = True
+        api_host, api_port = "127.0.0.1", 0
+
+    monkeypatch.setattr(entrypoint, "Settings", _Settings)
+    monkeypatch.setattr(entrypoint, "configure_logging", lambda *a: None)
+    monkeypatch.setattr(entrypoint, "SessionFactory", lambda **kw: None)
+    monkeypatch.setattr(entrypoint, "ParteReviewRepository",
+                        lambda _f: type("R", (), {
+                            "initialize": lambda self: True})())
+    monkeypatch.setattr(entrypoint, "construir_tabla_incidencias",
+                        lambda st: "TABLA")
+    monkeypatch.setattr(entrypoint, "_componentes_de_cola",
+                        lambda st, repo, incidencias=None: (
+                            llamadas.update(incidencias=incidencias)
+                            or ("pub", "cola")))
+    monkeypatch.setattr(entrypoint, "build_app", lambda *a, **kw: "app")
+    monkeypatch.setattr(entrypoint.uvicorn, "run", lambda *a, **kw: None)
+    assert entrypoint.main() == 0
+    assert llamadas == {"incidencias": "TABLA"}
