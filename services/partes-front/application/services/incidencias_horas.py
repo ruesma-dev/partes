@@ -111,3 +111,122 @@ def parsear_tabla(datos: object) -> TablaIncidencias:
                 f"{por_sigrid[clase.sigrid].letra} y en {clase.letra}")
         por_sigrid[clase.sigrid] = clase
     return TablaIncidencias(por_letra=por_letra, por_sigrid=por_sigrid)
+
+
+
+#: Por debajo de esto, una cantidad de horas es cero.
+_EPSILON = 1e-9
+
+
+@dataclass(frozen=True)
+class LineaDia:
+    """Lo que la deteccion necesita de una linea activa del portal.
+
+    `persona` la calcula quien llama (R4: DNI normalizado o, sin DNI, la
+    clave de trabajador del portal); `es_extra` es el criterio de
+    `_is_extra` del repositorio.
+    """
+
+    registro_id: int
+    persona: str
+    fecha_int: int | None
+    es_incidencia: bool
+    incidencia_codigo: str | None
+    hora_codigo: str | None
+    es_extra: bool
+    horas: float | None
+
+
+@dataclass(frozen=True)
+class Incompatibilidad:
+    """El nivel (`bloqueo` o `aviso`) de un dia-trabajador y su motivo."""
+
+    nivel: str
+    motivo: str
+
+
+def _horas_texto(valor: float) -> str:
+    """8.0 -> '8', 8.5 -> '8.5' (como las celdas de la matriz)."""
+    redondeado = round(valor, 2)
+    if float(redondeado).is_integer():
+        return str(int(redondeado))
+    return "%g" % redondeado
+
+
+def _nombrar(clases: dict[str, ClaseIncidencia]) -> str:
+    """'Nombre (L)' de cada incidencia, en orden de letra."""
+    return " y ".join(f"{clases[letra].nombre} ({letra})"
+                      for letra in sorted(clases))
+
+
+def _evaluar_dia(grupo: list[LineaDia],
+                 tabla: TablaIncidencias) -> Incompatibilidad | None:
+    """R5-R8 sobre las lineas de UN dia-trabajador."""
+    completas: dict[str, ClaseIncidencia] = {}
+    parciales: dict[str, ClaseIncidencia] = {}
+    horas = 0.0
+    hay_horas = False
+    extra_pos = 0.0
+    for linea in grupo:
+        if linea.es_incidencia:
+            clase = tabla.clase_de(linea.incidencia_codigo, linea.hora_codigo)
+            if clase is None:
+                continue
+            destino = (completas if clase.clase == CLASE_DIA_COMPLETO
+                       else parciales)
+            destino[clase.letra] = clase
+            continue
+        valor = float(linea.horas or 0.0)
+        if abs(valor) > _EPSILON:
+            hay_horas = True
+            horas += valor
+            if linea.es_extra and valor > _EPSILON:
+                extra_pos += valor
+    if completas and hay_horas:
+        verbo = "es" if len(completas) == 1 else "son"
+        return Incompatibilidad(NIVEL_BLOQUEO, (
+            f"{_nombrar(completas)} {verbo} de día completo y ese día hay "
+            f"{_horas_texto(horas)} h de trabajo: deja solo una de las dos"))
+    if parciales and extra_pos > 0.0:
+        return Incompatibilidad(NIVEL_AVISO, (
+            f"{_nombrar(parciales)} y {_horas_texto(extra_pos)} h extra el "
+            "mismo día: comprueba que sean correctas"))
+    return None
+
+
+def detectar(lineas: Iterable[LineaDia],
+             tabla: TablaIncidencias) -> dict[int, Incompatibilidad]:
+    """R4-R8: el nivel de cada linea, por `registro_id`.
+
+    Agrupa por (persona, fecha); las lineas sin fecha no entran. Una linea
+    que no aparece no esta en conflicto. Todas las lineas de un dia en
+    conflicto llevan el mismo nivel y el mismo motivo.
+    """
+    por_dia: dict[tuple[str, int], list[LineaDia]] = {}
+    for linea in lineas:
+        if not linea.fecha_int:
+            continue
+        por_dia.setdefault((linea.persona, int(linea.fecha_int)),
+                           []).append(linea)
+    resultado: dict[int, Incompatibilidad] = {}
+    for grupo in por_dia.values():
+        nivel = _evaluar_dia(grupo, tabla)
+        if nivel is None:
+            continue
+        for linea in grupo:
+            resultado[linea.registro_id] = nivel
+    return resultado
+
+
+def resumen_por_dia(
+        items: Iterable[tuple[str, Incompatibilidad]],
+) -> dict[str, Incompatibilidad]:
+    """El peor nivel de cada dia (gana `bloqueo`; a igualdad, el primero).
+    Para el calendario de la vista de trabajador (R16)."""
+    resumen: dict[str, Incompatibilidad] = {}
+    for dia, incompat in items:
+        previo = resumen.get(dia)
+        if previo is None or (incompat.nivel == NIVEL_BLOQUEO
+                              and previo.nivel != NIVEL_BLOQUEO):
+            resumen[dia] = incompat
+    return resumen
