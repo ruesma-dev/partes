@@ -3,7 +3,9 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **26 features**, 9 abiertas, 17 terminadas.
+Resumen: **27 features**, 10 abiertas, 17 terminadas.
+
+En curso: **F-028**.
 
 Bloqueadas: **F-014**.
 
@@ -11,6 +13,7 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | 1 | en curso | estandar | `feature/F-028-ancho-detalle` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -44,6 +47,12 @@ Bloqueadas: **F-014**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
+
+### F-028 · Detalle de obra y de trabajador a todo el ancho de la ventana
+
+estado **en curso** · prioridad 1 · rigor `estandar` · SDD no · rama `feature/F-028-ancho-detalle`
+
+Peticion del humano (2026-10-02, captura del detalle de obra): el contenido de todas las paginas de sv4 esta topado a 1500 px por .container (static/styles.css), y en ventanas mas anchas la matriz de dias y la tabla de lineas del detalle de obra y de trabajador sacan scroll horizontal aunque sobre espacio. Solucion aprobada: base.html admite una clase extra para el contenedor principal (bloque Jinja), obra_detail.html y trabajador_detail.html la usan, y styles.css la define a todo el ancho menos 16 px por lado. Los listados conservan el tope de 1500 px. Fuera: rehacer columnas de la tabla de lineas. Solo sv4.
 
 ### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 

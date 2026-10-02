@@ -324,6 +324,22 @@
       "rigor": "estandar",
       "priority": 3,
       "branch": "feature/F-027-escape-modales"
+    },
+    {
+      "id": "F-028",
+      "title": "Detalle de obra y de trabajador a todo el ancho de la ventana",
+      "description": "Peticion del humano (2026-10-02, captura del detalle de obra): el contenido de todas las paginas de sv4 esta topado a 1500 px por .container (static/styles.css), y en ventanas mas anchas la matriz de dias y la tabla de lineas del detalle de obra y de trabajador sacan scroll horizontal aunque sobre espacio. Solucion aprobada: base.html admite una clase extra para el contenedor principal (bloque Jinja), obra_detail.html y trabajador_detail.html la usan, y styles.css la define a todo el ancho menos 16 px por lado. Los listados conservan el tope de 1500 px. Fuera: rehacer columnas de la tabla de lineas. Solo sv4.",
+      "acceptance": [
+        "obra_detail y trabajador_detail renderizan su contenedor principal con la clase ancha y sin el tope de 1500 px",
+        "Los listados (obras, trabajadores, partes) conservan el contenedor con tope de 1500 px",
+        "La barra superior (topbar) no cambia",
+        "Suite de sv4 en verde"
+      ],
+      "status": "in_progress",
+      "sdd": false,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-028-ancho-detalle"
     }
   ]
 }
