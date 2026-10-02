@@ -235,7 +235,7 @@
         "orm_models.py gemelo con seis tablas; ARCHITECTURE, partes-proyecto y azure-apps/partes.md actualizados (R29-R31).",
         "Despliegue sv3 -> sv4 -> GRANT -> sv5 apagado; encender solo cuando porcentajes lea (M0-M3 manuales)."
       ],
-      "status": "spec_ready",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 9,
