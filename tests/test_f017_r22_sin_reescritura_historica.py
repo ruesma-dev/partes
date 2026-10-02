@@ -152,10 +152,18 @@ def test_f017_r22_no_hay_update_masivo_sobre_las_columnas_de_autor(
     assert culpables == [], f"reescriben {columna} en masa: {culpables}"
 
 
+#: F-019 (R25): el UNICO .sql admitido. No es una migracion ni toca filas:
+#: concede a dedicacion la lectura de su bandeja y lo ejecuta el humano. Su
+#: contenido (solo GRANT y SELECT, sin UPDATE) lo vigila
+#: `tests/test_f019_sql_lectura.py`.
+SQL_ADMITIDOS = (Path("infra/sql/01_dedicacion_lectura.sql"),)
+
+
 def test_f017_r22_no_hay_ficheros_sql_de_migracion() -> None:
     """F-017 no trae migración. Ninguna, ni siquiera «por si acaso»."""
     sql = [p.relative_to(RAIZ) for p in RAIZ.rglob("*.sql")
-           if "__pycache__" not in p.parts and ".venv" not in p.parts]
+           if "__pycache__" not in p.parts and ".venv" not in p.parts
+           and p.relative_to(RAIZ) not in SQL_ADMITIDOS]
     assert sql == [], f"han aparecido ficheros .sql: {sql}"
 
 

@@ -577,3 +577,40 @@ def test_f019_r9_main_construye_la_tabla_y_la_pasa(monkeypatch):
     monkeypatch.setattr(entrypoint.uvicorn, "run", lambda *a, **kw: None)
     assert entrypoint.main() == 0
     assert llamadas == {"incidencias": "TABLA"}
+
+
+# ============ T6 · _upsert_bandeja directo (True si cambio, R11-R13) =========== #
+
+def _upsert(fabrica, rid, **kw) -> bool:
+    datos = dict(recurso_ide=602, codigo_mes="MENC", prueba=False,
+                 clase=None, actor="ana", ahora=AHORA)
+    datos.update(kw)
+    with fabrica.create_session() as s:
+        cambio = ParteReviewRepository._upsert_bandeja(
+            s, s.get(ParteRegistroOrm, rid), **datos)
+        s.commit()
+    return cambio
+
+
+def test_f019_r11_r13_upsert_dice_si_cambio_la_fila() -> None:
+    fabrica = FabricaSesionSqlite()
+    rid = sembrar_mensual(fabrica)[0]
+    assert _upsert(fabrica, rid) is True                      # R11: nueva
+    assert _upsert(fabrica, rid, ahora="2026-03-03") is False  # R12: igual
+    assert _filas(fabrica)[rid]["actualizado_at_utc"] == AHORA
+    assert _upsert(fabrica, rid, codigo_mes="MCAP") is True   # R13
+    assert _filas(fabrica)[rid]["version"] == 2
+
+
+def test_f019_r10_sin_recurso_ni_fecha_quedan_a_cero() -> None:
+    """Centinelas de las columnas NOT NULL si la linea viene incompleta."""
+    fabrica = FabricaSesionSqlite()
+    rid = sembrar_mensual(fabrica)[0]
+    with fabrica.create_session() as s:
+        r = s.get(ParteRegistroOrm, rid)
+        r.recurso_ide, r.fecha_int = None, None
+        s.commit()
+    assert _upsert(fabrica, rid, recurso_ide=None) is True
+    f = _filas(fabrica)[rid]
+    assert (f["recurso_ide"], f["fecha_int"], f["anio"], f["mes"]) == (
+        0, 0, 0, 0)

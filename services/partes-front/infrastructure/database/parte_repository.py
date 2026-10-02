@@ -1940,9 +1940,10 @@ class ParteReviewRepository:
                 reg.sigrid_registrado_by = actor
                 retiradas += 1
             session.commit()
+        no_aplica = len(ids) - retiradas
         logger.info("[dedicacion] %s linea(s) retiradas, %s no aplica(n); "
-                    "actor=%s", retiradas, len(ids) - retiradas, actor)
-        return {"retiradas": retiradas, "no_aplica": len(ids) - retiradas}
+                    "actor=%s", retiradas, no_aplica, actor)
+        return {"retiradas": retiradas, "no_aplica": no_aplica}
 
     def update_registro(
         self,
