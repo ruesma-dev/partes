@@ -287,3 +287,77 @@ def test_f025_r15_r16_el_css_define_las_clases() -> None:
                      ".badge.incompat", ".cal-incompat-mark"):
         assert selector + " " in css or selector + "{" in css \
             or selector + "," in css, selector
+
+
+# ===================================================================== #
+# T8 · app.js: el modal (R19)
+# ===================================================================== #
+
+from tests.test_f022_vistas_seleccion import (  # noqa: E402
+    _ejecutar_js,
+    _funcion,
+    _js,
+)
+
+NODE = shutil.which("node")
+sin_node = pytest.mark.skipif(NODE is None, reason="node no instalado")
+
+
+def test_f025_r19_js_cableado_en_el_modal() -> None:
+    js = _js()
+    aprobar = _funcion(js, "aprobar")
+    assert "incompatiblesHtml(excl.incompatible)" in aprobar
+    # Fuera del desplegable de excluidas: antes de pintarlo.
+    assert aprobar.index("incompatiblesHtml(") < aprobar.index(
+        "excluidasDetalleHtml(")
+    # Los avisos de todas las obras, juntos y fuera del pliegue (no en
+    # `grupoHtml`: los tests de F-022 la ejecutan con una lista cerrada de
+    # funciones).
+    assert "g.avisos_incidencia" in aprobar
+    assert "avisosIncidenciaHtml(avisosIncid)" in aprobar
+    assert aprobar.index("avisosIncidenciaHtml(") < aprobar.index(
+        "grupoHtml(g, plegar)")
+    for nombre in ("incompatiblesHtml", "avisosIncidenciaHtml"):
+        cuerpo = _funcion(js, nombre)
+        assert "innerHTML" not in cuerpo
+
+
+@sin_node
+@pytest.mark.parametrize("n", [0, None, "", -1])
+def test_f025_r19_js_sin_incompatibles_no_pinta_nada(n) -> None:
+    assert _ejecutar_js(["esc", "incompatiblesHtml"],
+                        f"incompatiblesHtml({json.dumps(n)})") == ""
+
+
+@sin_node
+def test_f025_r19_js_aviso_de_incompatibles_visible() -> None:
+    html = _ejecutar_js(["esc", "incompatiblesHtml"], "incompatiblesHtml(3)")
+    assert "ap-incompat" in html
+    assert re.sub(r"<[^>]+>", "", html) == (
+        "3 línea(s) no se registran: tienen una incidencia de día completo "
+        "y horas el mismo día. Están en «Excluidas»; corrige el día y "
+        "vuelve a aprobar.")
+    # Lo que no es un numero no se pinta (ni se cuela como HTML).
+    assert _ejecutar_js(["esc", "incompatiblesHtml"],
+                        'incompatiblesHtml("<b>2</b>")') == ""
+
+
+@sin_node
+def test_f025_r19_js_avisos_de_incidencia_escapados() -> None:
+    avisos = [{"registro_id": 1, "fecha": "2026-03-03",
+               "nombre": "<script>x</script>", "horas": 2,
+               "motivo": "Permiso (FJ) & <i>2</i> h extra"}]
+    html = _ejecutar_js(["esc", "num", "avisosIncidenciaHtml"],
+                        f"avisosIncidenciaHtml({json.dumps(avisos)})")
+    assert "ap-incid-avisos" in html
+    assert "<script>" not in html and "&lt;script&gt;x" in html
+    assert "<i>" not in html and "&amp; &lt;i&gt;2" in html
+    assert "2026-03-03" in html and "2 h" in html
+    assert "<strong>1</strong>" in html
+
+
+@sin_node
+@pytest.mark.parametrize("avisos", [[], None])
+def test_f025_r19_js_sin_avisos_no_pinta_nada(avisos) -> None:
+    assert _ejecutar_js(["esc", "num", "avisosIncidenciaHtml"],
+                        f"avisosIncidenciaHtml({json.dumps(avisos)})") == ""

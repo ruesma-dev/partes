@@ -1003,3 +1003,7 @@ td.mx-cell.mx-incompat-aviso { background: #fff1e0; box-shadow: inset 0 0 0 2px 
 .badge.incompat { cursor: help; }
 .badge.incompat.incompat-bloqueo { background: var(--danger-soft); border-color: var(--danger-border); color: var(--danger-strong); }
 .badge.incompat.incompat-aviso { background: #fff1e0; border-color: #f5b971; color: #b45309; }
+/* F-025 (R19): en el modal, las lineas que no se registran por el bloqueo
+   (rojo, fuera de «Excluidas») y los avisos de incidencia parcial (ambar). */
+.ap-modal .ap-ctx.ap-incompat { background: var(--danger-soft); border: 1px solid var(--danger-border); border-radius: 6px; padding: 6px 8px; color: var(--danger-strong); }
+.ap-modal .ap-ctx.ap-incid-avisos { background: #fff1e0; border: 1px solid #f5b971; border-radius: 6px; padding: 6px 8px; }
