@@ -2907,6 +2907,34 @@ function avisarCambioLineas() {
       + "</ul></div>";
   }
 
+  /* F-025 (R19): lineas que el servidor dejo fuera porque su dia tiene una
+     incidencia de dia completo y horas. Va FUERA del desplegable de
+     excluidas: si no se ve, parece que se registro todo. */
+  function incompatiblesHtml(n) {
+    var k = Number(n);
+    if (!(k > 0)) return "";
+    return "<div class='ap-ctx ap-incompat'><p><strong>" + esc(k)
+      + "</strong> línea(s) <strong>no se registran</strong>: tienen una "
+      + "incidencia de día completo y horas el mismo día. Están en "
+      + "«Excluidas»; corrige el día y vuelve a aprobar.</p></div>";
+  }
+
+  /* F-025 (R19): extras de un dia con una incidencia parcial. Informativo:
+     se registran igual. Todo lo que llega del servidor se escapa. */
+  function avisosIncidenciaHtml(avisos) {
+    if (!avisos || !avisos.length) return "";
+    return "<div class='ap-ctx ap-incid-avisos'><p>Hay <strong>"
+      + esc(avisos.length) + "</strong> linea(s) extra en un día con una "
+      + "<strong>incidencia parcial</strong>. Se registran; comprueba que "
+      + "sean correctas:</p><ul class='ap-list'>"
+      + avisos.map(function (a) {
+          return "<li>" + esc(a.nombre || "?") + " · " + esc(a.fecha || "")
+            + " · " + esc(num(a.horas)) + " h — " + esc(a.motivo || "")
+            + "</li>";
+        }).join("")
+      + "</ul></div>";
+  }
+
   /* F-022 (R19): la clave de sv5 no lleva la obra; con varias obras cada
      casilla de pisar lleva delante la de su grupo. */
   function claveConGrupo(grupo, clave) {
@@ -3660,7 +3688,14 @@ function avisarCambioLineas() {
       var bloqueadas = evaluables.filter(function (g) { return g.sesame_bloqueo; });
       var conflictos = pf.conflictos || [];
       var plegar = filasListado(grupos) > (pf.umbral_plegado || 40);
+      // F-025 (R19): los avisos de incidencia de todas las obras, juntos
+      // y fuera del pliegue de cada obra, para que se vean siempre.
+      var avisosIncid = grupos.reduce(function (todos, g) {
+        return todos.concat(g.avisos_incidencia || []);
+      }, []);
       var html = cabeceraHtml(pf, contexto)
+        + incompatiblesHtml(excl.incompatible)
+        + avisosIncidenciaHtml(avisosIncid)
         + grupos.map(function (g) { return grupoHtml(g, plegar); }).join("")
         + excluidasDetalleHtml(pf.excluidas_detalle,
                                contexto ? contexto.ocultas : 0);

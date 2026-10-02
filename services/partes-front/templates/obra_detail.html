@@ -127,10 +127,11 @@
           </td>
           <td class="mx-cat">{{ row.categoria or '' }}</td>
           {% for c in row.cells %}
-          <td class="mx-cell{% if c.is_weekend %} mx-we{% endif %}{% if c.is_holiday %} mx-hol{% endif %}{% if c.has_inc %} mx-inc{% endif %}{% if c.extra and not c.normal %} mx-extra{% endif %}{% if preview_enabled and c.tiene_pdf %} mx-cell-pdf{% endif %}{% if c.label %} mx-pick{% endif %}{% if ((row.nombre or '') ~ '|' ~ (c.date_iso or '')) in incompletos %} mx-warn{% endif %}"
+          <td class="mx-cell{% if c.is_weekend %} mx-we{% endif %}{% if c.is_holiday %} mx-hol{% endif %}{% if c.has_inc %} mx-inc{% endif %}{% if c.extra and not c.normal %} mx-extra{% endif %}{% if preview_enabled and c.tiene_pdf %} mx-cell-pdf{% endif %}{% if c.label %} mx-pick{% endif %}{% if ((row.nombre or '') ~ '|' ~ (c.date_iso or '')) in incompletos %} mx-warn{% endif %}{% if c.incompat_nivel == 'bloqueo' %} mx-incompat{% elif c.incompat_nivel == 'aviso' %} mx-incompat-aviso{% endif %}"
               {% if c.label %}data-fecha="{{ c.date_iso }}" data-trabajador="{{ row.nombre }}"{% endif %}
               {% if c.regs %}data-regs='{{ c.regs|tojson }}'{% endif %}
-              {% if preview_enabled and c.tiene_pdf %}data-parte-pdf="{{ c.document_id }}" data-parte-title="Parte · {{ detail.obra_codigo or detail.obra_nombre or '' }} · {{ c.date_iso }} · {{ row.nombre }}" title="Ver parte del {{ c.date_iso }}"{% endif %}>{{ c.label }}</td>
+              {% if preview_enabled and c.tiene_pdf %}data-parte-pdf="{{ c.document_id }}" data-parte-title="Parte · {{ detail.obra_codigo or detail.obra_nombre or '' }} · {{ c.date_iso }} · {{ row.nombre }}"{% endif %}
+              {% if c.incompat_motivo or (preview_enabled and c.tiene_pdf) %}title="{% if c.incompat_motivo %}{{ c.incompat_motivo }}{% if preview_enabled and c.tiene_pdf %} · {% endif %}{% endif %}{% if preview_enabled and c.tiene_pdf %}Ver parte del {{ c.date_iso }}{% endif %}"{% endif %}>{{ c.label }}</td>
           {% endfor %}
           <td class="mx-tot">{% if row.total_extra %}{{ row.total_normal|horas }}{% if row.total_extra > 0 %}+{% endif %}{{ row.total_extra|horas }}{% elif row.total_normal %}{{ row.total_normal|horas }}{% else %}—{% endif %}</td>
         </tr>
@@ -227,6 +228,7 @@
           {% else %}
             <span class="badge normal">Ordinaria</span>{% if ((r.trabajador_nombre or '') ~ '|' ~ (r.fecha or '')) in incompletos %} <span class="badge warn" title="Jornada ordinaria (en esta obra) por debajo de la cantidad por defecto">⚠</span>{% endif %}
           {% endif %}
+          {% if r.incompat_nivel %} <span class="badge incompat incompat-{{ r.incompat_nivel }}" title="{{ r.incompat_motivo }}">{% if r.incompat_nivel == 'bloqueo' %}⛔ no se registra{% else %}⚠ revisar{% endif %}</span>{% endif %}
         </td>
         <td class="num cell-horas">
           <input type="number" step="0.5" min="0" class="horas-edit cell-edit cell-edit-num"

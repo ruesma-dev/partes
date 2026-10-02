@@ -27,6 +27,7 @@ from typing import Any, Callable
 from urllib.parse import urlencode
 
 import httpx
+import yaml
 from fastapi import Body, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import (
     HTMLResponse,
@@ -43,6 +44,12 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.incidencias_horas import (
+    Incompatibilidad,
+    TablaIncidencias,
+    parsear_tabla,
+    resumen_por_dia,
+)
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
     build_calendar,
@@ -330,6 +337,41 @@ def _as_int(value: Any) -> int | None:
         return None
 
 
+#: Raiz del servicio: contra ella se resuelven las rutas relativas de los
+#: ficheros de datos versionados (`config/*.yaml`).
+RAIZ_SERVICIO = Path(__file__).resolve().parents[2]
+
+
+def construir_tabla_incidencias(settings: Settings) -> TablaIncidencias:
+    """F-025 (R1, R2): la tabla versionada de clases de incidencia.
+
+    Se lee AL ARRANCAR y un fallo lo tumba (como la tabla del membrete de
+    sv3): una incidencia mal clasificada en silencio dejaria pasar a Sigrid
+    horas en un dia de baja, o bloquearia dias correctos sin que nadie
+    supiera por que. PyYAML llega con `uvicorn[standard]`.
+    """
+    ruta = Path(settings.incidencias_path)
+    if not ruta.is_absolute():
+        ruta = RAIZ_SERVICIO / ruta
+    try:
+        texto = ruta.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(
+            f"incidencias: no se puede leer {ruta}: {exc}") from exc
+    try:
+        datos = yaml.safe_load(texto)
+    except yaml.YAMLError as exc:
+        raise ValueError(
+            f"incidencias: no se puede parsear {ruta}: {exc}") from exc
+    tabla = parsear_tabla(datos)
+    logger.info(
+        "[incidencias][wiring] clases desde %s: %s", ruta,
+        ", ".join(f"{c.letra}={c.sigrid}:{c.clase}"
+                  for c in tabla.por_letra.values()),
+    )
+    return tabla
+
+
 def build_app(
     settings: Settings,
     *,
@@ -358,6 +400,8 @@ def build_app(
         "[jornada][wiring] mapa candef -> jornada semanal: %s",
         ", ".join(f"{c:g}:{v:g}" for c, v in sorted(mapa_semanal.items())),
     )
+    # F-025: clases de incidencia, tambien fail-fast (R2).
+    tabla_incidencias = construir_tabla_incidencias(settings)
 
     if repository is None:
         session_factory = SessionFactory(
@@ -531,6 +575,7 @@ def build_app(
     app.state.calendario_provider = calendario_provider
     app.state.jornada_provider = jornada_provider
     app.state.mapa_semanal = mapa_semanal
+    app.state.tabla_incidencias = tabla_incidencias
     app.state.tables_ready = tables_ready
     # F-017 R5c, senal B: ¿este proceso ha visto ya alguna cabecera de Easy
     # Auth? Es la red de seguridad de la senal A (las `CONTAINER_APP_*`).
@@ -732,7 +777,8 @@ def build_app(
         message: str | None = Query(default=None),
     ) -> HTMLResponse:
         mode = normalize_mode(modo)
-        detail = repository.get_worker(worker_key)
+        detail = repository.get_worker(worker_key,
+                                       incidencias=tabla_incidencias)
         if detail is None:
             raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
@@ -857,6 +903,12 @@ def build_app(
                     ):
                         dias_incompletos.add(_day.date_iso)
 
+        # F-025 (R16): el peor nivel de cada dia (incidencia de dia
+        # completo con horas, o parcial con extra), para el calendario.
+        dias_incompatibles = resumen_por_dia(
+            (r.fecha, Incompatibilidad(r.incompat_nivel, r.incompat_motivo))
+            for r in detail.registros if r.fecha and r.incompat_nivel)
+
         # KPI de jornada (R25): con que numeros se esta calculando. Sin
         # esto, F-015 seria magia: el portal dejaria de avisar de unos dias
         # y empezaria a avisar de otros sin que se pudiera ver por que. La
@@ -925,6 +977,7 @@ def build_app(
             "candef_kpi": candef_kpi,
             "jornada_kpi": jornada_kpi,
             "dias_incompletos": dias_incompletos,
+            "dias_incompatibles": dias_incompatibles,
             "sesame_degradado": sesame_degradado,
             "jornada_contrato": jornada_contrato,
             "jornada_divergente": jornada_divergente,
@@ -986,6 +1039,7 @@ def build_app(
             obra_key, period_key=period, mode=mode,
             holiday_name=calendario_provider.holiday_name_para(None),
             sin_extra_resolver=recursos_sin_extra_resolver,
+            incidencias=tabla_incidencias,
         )
         if detail is None:
             raise HTTPException(status_code=404, detail="Obra no encontrada")
@@ -1856,8 +1910,11 @@ def build_app(
             ids = repository.registro_ids_de_obra(
                 obra_key, period_key=body.get("period"),
                 mode=(body.get("mode") or "nomina"))
+        # F-025 (R9, R12): con la tabla de clases, los dias con una
+        # incidencia de dia completo y horas se quedan fuera, sin override.
         datos = repository.lineas_para_registro(
-            ids, incluir_borradas=bool(body.get("incluir_borradas")))
+            ids, incluir_borradas=bool(body.get("incluir_borradas")),
+            incidencias=tabla_incidencias)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
@@ -1950,6 +2007,11 @@ def build_app(
             partes.append(f"{excluidas['borrado_sigrid']} borrada(s) en "
                           "Sigrid (para reenviarlas, marca «Incluir las "
                           "borradas en Sigrid» o usa «Reaprobar»)")
+        if excluidas.get("incompatible"):
+            # F-025 (R10).
+            partes.append(f"{excluidas['incompatible']} con una incidencia "
+                          "de día completo y horas el mismo día (corrige el "
+                          "día en el portal)")
         if not partes:
             return "no hay lineas activas que registrar"
         return "no hay lineas que registrar: " + " y ".join(partes)
@@ -2055,7 +2117,8 @@ def build_app(
             pf = {"ok": False, "error": f"no se pudo evaluar la obra: {exc}"}
         evaluado = dict(pf, clave=grupo.clave, obra=grupo.obra,
                         registro_ids=grupo.registro_ids,
-                        avisos_calendario=_avisos_calendario(grupo.lineas))
+                        avisos_calendario=_avisos_calendario(grupo.lineas),
+                        avisos_incidencia=grupo.avisos_incidencia)  # F-025
         # F-003 R23: el preflight se sirve igual (el humano tiene que poder
         # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
         if not _calendario_fiable(grupo.lineas):

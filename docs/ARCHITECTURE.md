@@ -202,6 +202,24 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     la partida ni `auxhor.caacod`. Sin subcuenta, sin esa cuenta en la obra
     o con varias: `caaide = 0` y la línea se escribe igual (aviso en el
     preflight solo en los dos últimos). Una lectura de `caa` por petición.
+14. **Incidencia y horas el mismo día (F-025, solo sv4)**: Sigrid no
+    clasifica sus incidencias; la clase de cada letra vive en la tabla
+    versionada `services/partes-front/config/incidencias.yaml`
+    (`INCIDENCIAS_PATH`), que sv4 lee al arrancar y sin la que no levanta
+    (falta una letra, clase desconocida, código que no empieza por `CI`).
+    Día completo: V, B, M, F, H; parcial: AT, FJ. La persona es el DNI
+    normalizado (si no hay, la clave de trabajador) y se miran todas sus
+    líneas activas de ese día, de cualquier obra y estado. **Bloqueo**:
+    incidencia de día completo + horas (|h| > 0) ⇒ las líneas de ese
+    día-trabajador no viajan a sv5 (`excluidas.incompatible`, con motivo en
+    `excluidas_detalle`; ni `incluir_borradas`, ni `pisar_claves`, ni
+    `forzar_sin_sesame` lo levantan; las `registrado`/`borrado_sigrid` se
+    cuentan solo en su estado). **Aviso**: incidencia parcial + extra > 0
+    ⇒ viaja y el grupo del preflight lo lista en `avisos_incidencia`. Se
+    marca en la matriz y las líneas de la vista de obra, y en el
+    calendario y las líneas de la de trabajador; crear y editar no se
+    bloquea. El rol de racha (`_rol_incidencia`) y las extras por jornada
+    no cambian.
 
 ## Acceso a datos y sistemas externos
 

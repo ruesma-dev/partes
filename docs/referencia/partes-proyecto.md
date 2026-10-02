@@ -149,6 +149,16 @@ encadenado (tras crear se queda en la página con los días vacíos);
 aprobación con **preflight** (modal con qué se registrará y qué no, y
 por qué) → registro vía sv5 → estado por línea.
 
+Incidencia y horas el mismo día (F-025): si una persona tiene en un día
+una incidencia de **día completo** y horas (de cualquier obra), las
+líneas de ese día **no se registran**: el modal lo dice fuera de
+«Excluidas» («N línea(s) no se registran…») y cada una sale en
+«Excluidas» con su motivo; no hay casilla para forzarlo, hay que corregir
+el día. Con una incidencia **parcial** y horas extra, se registra y el
+modal muestra un aviso. La matriz y el calendario marcan esos días (rojo
+el bloqueo, ámbar el aviso) y las líneas llevan una insignia con el
+motivo.
+
 ### 3.5 Registro en Sigrid (sv5)
 Recibe de sv4 la obra y las líneas aprobadas y aplica el **pipeline de
 registro**:
@@ -224,8 +234,11 @@ Convenciones del papel que el sistema respeta:
 - Las letras usadas y su significado (mapa a códigos Sigrid entre
   paréntesis): **V** vacaciones (CIV) · **B** baja por enfermedad (CIE)
   · **AT** accidente de trabajo (CIA) · **FJ** falta justificada (CIP)
-  · **F** falta (CIF) · **H** horas sindicales/permiso horario (CIH) ·
-  **M** maternidad/paternidad (CIM).
+  · **F** falta (CIF) · **H** huelga (CIH) ·
+  **M** maternidad/paternidad (CIM). Si cada una es de **día completo**
+  (V, B, M, F, H) o **parcial** (AT, FJ) lo dice la tabla versionada
+  `services/partes-front/config/incidencias.yaml` (F-025): Sigrid no lo
+  clasifica.
 - Las horas extra se apuntan aparte de las ordinarias, pero muchos
   encargados escriben el total del día (p. ej. «13») y toca separar.
 

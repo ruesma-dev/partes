@@ -566,3 +566,23 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Observaciones: O4 escape heredado en modales anteriores y O5 selector sin
   escapar ⇒ F-027; O2 `parcial:false` cuando fallan todas (R22 decía true).
 - Pendiente del humano: despliegue de sv4 y M1–M8 (ver `current.md`).
+
+## F-025 · Incompatibilidad incidencia/horas el mismo día — done 2026-10-02
+
+- Rama `feature/F-025-incidencia-vs-extra` · rigor estandar · sdd=true ·
+  APPROVED del reviewer (`progress/review_F-025.md`).
+- Origen: correo de Juan Romero «RV: CAPTURAS» (incidencia de baja por
+  maternidad con una hora extra el mismo día). Exploración
+  (`progress/explore_F-025_sigrid.md`): Sigrid no clasifica las incidencias;
+  Administración casi nunca junta incidencia y horas (5 de 1.191 días en
+  2026); la H es Huelga (corregido en `partes-proyecto.md`).
+- Entregado (solo sv4): tabla versionada `config/incidencias.yaml` (día
+  completo V, B, M, F, H —huelga cambiada a día completo por el humano—; parcial AT, FJ; si está mal, sv4 no arranca);
+  detección por día-trabajador cruzando obras; día completo + horas ⇒ líneas
+  excluidas de la aprobación con motivo propio en el modal de F-022, sin
+  forzar; parcial + extra ⇒ aviso; marcado en matriz, calendario y líneas de
+  las vistas de obra y persona; nada se bloquea al crear o editar.
+- Verificado: init.sh en verde (sv4 1.535), cobertura 100 % de 204 líneas,
+  mutación muestreada con 6 supervivientes (5 con test nuevo, 1 equivalente).
+- Observaciones: los avisos agregados del modal no nombran la obra;
+  `/api/admin/poison/reencolar` reenvía sin pasar por la exclusión.

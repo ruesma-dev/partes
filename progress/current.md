@@ -1,6 +1,17 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-025 · done (2026-10-02), pendiente de DESPLIEGUE y verificaciones manuales
+
+APPROVED del reviewer (`progress/review_F-025.md`); resumen en
+`progress/history.md`. Rama `feature/F-025-incidencia-vs-extra`, solo sv4,
+sin desplegar. azure-apps actualizado por el líder (commit local `6347c60`:
+`INCIDENCIAS_PATH` y la regla). Pendientes MANUAL (humano): M1 (lectura en
+PG antes de desplegar, requiere firewall) y M2–M5 tras desplegar sv4, con
+los pasos de `impl_F-025.md` §6. Clasificación confirmada por el humano
+con Administración el 2026-10-02: F día completo y **H (huelga) día
+completo** (cambiado respecto a la spec, que la proponía parcial).
+
 ## F-022 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
 APPROVED del reviewer (`progress/review_F-022.md`, seis observaciones no
