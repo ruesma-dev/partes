@@ -49,6 +49,13 @@ en `progress/impl_F-019.md`.
   `dedicacion`, fuera de `ESTADOS_ESCRITURA`. `agregar_ejecucion` (varias
   obras) NO junta `dedicacion`: lo rompia un test de F-022 y no lo pide la
   spec; el modal lo lee de cada grupo.
+- T9 hecha: `retirar_de_dedicacion` + `POST /api/dedicacion/retirar`
+  (ambito obligatorio, `_validar_ambito`, `_actor`). **Desviacion D4**: el
+  guardian de F-017 `test_f017_todos_los_puntos_de_escritura_usan_el_helper`
+  cuenta literalmente las llamadas a `_actor(request)` (14); R24 exige una
+  mas, asi que el contador pasa a 15 con su docstring. Es un test ajeno a
+  F-019 (T12 no lo preveia); esquivarlo escribiendo la llamada de otra
+  forma habria sido enganar al guardian.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 

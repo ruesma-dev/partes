@@ -1908,6 +1908,42 @@ class ParteReviewRepository:
         fila.actualizado_at_utc = ahora
         return True
 
+    def retirar_de_dedicacion(self, registro_ids: list[int],
+                              actor: str | None) -> dict[str, int]:
+        """F-019 (R21, R22): «Retirar de dedicacion».
+
+        Cada linea en `dedicacion`, en UNA transaccion: su fila de la
+        bandeja pasa a `vigente = false` con `version + 1` y el autor y la
+        hora de la retirada; la linea vuelve a `sigrid_estado = NULL`
+        (editable y reaprobable) con el motivo «retirada de dedicacion».
+        Las que no estan en `dedicacion` no se tocan y cuentan en
+        `no_aplica`.
+        """
+        ids = sorted({int(i) for i in registro_ids if i})
+        ahora = datetime.now(timezone.utc).isoformat()
+        retiradas = 0
+        with self._session_factory.create_session() as session:
+            for rid in ids:
+                reg = session.get(ParteRegistroOrm, rid)
+                if reg is None or (_estado_norm(reg.sigrid_estado)
+                                   != ESTADO_DEDICACION):
+                    continue
+                fila = session.get(DedicacionBandejaOrm, rid)
+                if fila is not None:
+                    fila.vigente = False
+                    fila.version += 1
+                    fila.retirado_por, fila.retirado_at_utc = actor, ahora
+                    fila.actualizado_at_utc = ahora
+                reg.sigrid_estado = None
+                reg.sigrid_motivo = "retirada de dedicación"
+                reg.sigrid_registrado_at_utc = ahora
+                reg.sigrid_registrado_by = actor
+                retiradas += 1
+            session.commit()
+        logger.info("[dedicacion] %s linea(s) retiradas, %s no aplica(n); "
+                    "actor=%s", retiradas, len(ids) - retiradas, actor)
+        return {"retiradas": retiradas, "no_aplica": len(ids) - retiradas}
+
     def update_registro(
         self,
         *,

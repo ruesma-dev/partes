@@ -273,3 +273,173 @@ def test_f019_r18_el_listado_las_ensena_a_dedicacion() -> None:
     assert t["por_estado"] == {"dedicacion": 2, "nuevo": 1}
     assert (t["horas_ordinarias"], t["incidencias"]) == (8.0, 0)
 
+
+
+# ============== T9 · R21-R24 · «Retirar de dedicacion» y reaprobar ============= #
+
+from infrastructure.database.orm_models import (  # noqa: E402
+    DedicacionBandejaOrm,
+)
+from tests.test_f019_bandeja import (  # noqa: E402
+    _filas,
+    _marcar,
+    sembrar_mensual,
+)
+
+PERSONA = {"vista": "trabajador", "worker_key": "emp-77"}
+
+
+@pytest.fixture
+def publicado(monkeypatch):
+    """Un mensual con sus tres lineas publicadas en la bandeja, una linea
+    libre suya, otra `registrado` suya y una de otra persona; y el portal."""
+    for clave, valor in {"PG_PASSWORD": "x", "PG_ADMIN_PASSWORD": "x",
+                         "DEFAULT_REVIEWER": "ana",
+                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+        monkeypatch.setenv(clave, valor)
+    fabrica = FabricaSesionSqlite()
+    ded = sembrar_mensual(fabrica)
+    repo = ParteReviewRepository(fabrica)
+    _marcar(repo, ded)
+    libre, reg = sembrar(fabrica, [{}, {"estado": "registrado"}], doc="d2",
+                         empleado_ide=77, fecha="2026-03-05")
+    (ajena,) = sembrar(fabrica, [{"estado": "dedicacion"}], doc="d3",
+                       empleado_ide=88, dni="00000001R",
+                       nombre="Persona B")
+    app = build_app(Settings(_env_file=None), repository=repo,
+                    transfer_client=Sv5Falso(), publisher=PublisherFalso(),
+                    calendario_provider=CalendarioFalso())
+    return {"cliente": TestClient(app), "fabrica": fabrica, "repo": repo,
+            "ded": ded, "libre": libre, "reg": reg, "ajena": ajena}
+
+
+def _retirar(p, ids, ambito=PERSONA):
+    cuerpo = {"registro_ids": ids}
+    if ambito is not None:
+        cuerpo["ambito"] = ambito
+    return p["cliente"].post("/api/dedicacion/retirar", json=cuerpo)
+
+
+def _estado(fabrica, rid) -> tuple:
+    with fabrica.create_session() as s:
+        r = s.get(ParteRegistroOrm, rid)
+        return (r.sigrid_estado, r.sigrid_motivo, r.sigrid_registrado_by)
+
+
+def test_f019_r21_retirar_libera_la_linea_y_retira_la_fila(publicado) -> None:
+    p = publicado
+    r = _retirar(p, p["ded"][:2])
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "retiradas": 2, "no_aplica": 0}
+    filas = _filas(p["fabrica"])
+    for rid in p["ded"][:2]:
+        assert _estado(p["fabrica"], rid) == (
+            None, "retirada de dedicación", "local:ana")
+        f = filas[rid]
+        assert (f["vigente"], f["version"], f["retirado_por"]) == (
+            False, 2, "local:ana")
+        assert f["retirado_at_utc"] == f["actualizado_at_utc"]
+        assert f["retirado_at_utc"] > f["enviado_at_utc"]
+    # La tercera sigue publicada.
+    assert (filas[p["ded"][2]]["vigente"], filas[p["ded"][2]]["version"]) \
+        == (True, 1)
+    assert _estado(p["fabrica"], p["ded"][2])[0] == "dedicacion"
+
+
+def test_f019_r21_un_id_ajeno_rechaza_todo_sin_tocar_nada(publicado) -> None:
+    p = publicado
+    antes = _filas(p["fabrica"])
+    r = _retirar(p, [p["ded"][0], p["ajena"]])
+    assert r.status_code == 422
+    assert r.json()["fuera_de_ambito"] == 1
+    assert _filas(p["fabrica"]) == antes
+    assert _estado(p["fabrica"], p["ded"][0])[0] == "dedicacion"
+    assert _estado(p["fabrica"], p["ajena"])[0] == "dedicacion"
+
+
+@pytest.mark.parametrize("cuerpo", [
+    {"registro_ids": [1]},                                  # sin ambito
+    {"registro_ids": ["x"], "ambito": PERSONA},             # ids malos
+    {"registro_ids": [], "ambito": PERSONA},                # sin ids
+    {"registro_ids": [1], "ambito": {"vista": "otra"}},
+])
+def test_f019_r21_peticiones_invalidas_son_422(publicado, cuerpo) -> None:
+    p = publicado
+    antes = _filas(p["fabrica"])
+    r = p["cliente"].post("/api/dedicacion/retirar", json=cuerpo)
+    assert r.status_code == 422
+    assert r.json()["ok"] is False
+    assert _filas(p["fabrica"]) == antes
+
+
+def test_f019_r22_las_que_no_estan_en_dedicacion_no_se_tocan(publicado) -> None:
+    p = publicado
+    antes = {i: _estado(p["fabrica"], i) for i in (p["libre"], p["reg"])}
+    r = _retirar(p, [p["ded"][0], p["libre"], p["reg"]])
+    assert r.json() == {"ok": True, "retiradas": 1, "no_aplica": 2}
+    assert {i: _estado(p["fabrica"], i) for i in (p["libre"], p["reg"])} \
+        == antes
+
+
+def test_f019_r22_repo_cuenta_lo_que_no_aplica() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar_mensual(fabrica)
+    repo = ParteReviewRepository(fabrica)
+    _marcar(repo, ids[:1])
+    assert repo.retirar_de_dedicacion([ids[0], ids[1], 99999], "eva") == {
+        "retiradas": 1, "no_aplica": 2}
+    assert repo.retirar_de_dedicacion([], "eva") == {
+        "retiradas": 0, "no_aplica": 0}
+
+
+def test_f019_r21_repo_una_linea_sin_fila_se_libera_igual() -> None:
+    fabrica = FabricaSesionSqlite()
+    (rid,) = sembrar(fabrica, [{"estado": " Dedicacion "}], doc="d1")
+    repo = ParteReviewRepository(fabrica)
+    assert repo.retirar_de_dedicacion([rid], "eva") == {
+        "retiradas": 1, "no_aplica": 0}
+    assert _estado(fabrica, rid) == (None, "retirada de dedicación", "eva")
+    assert _filas(fabrica) == {}
+
+
+def test_f019_r23_reaprobar_tras_retirar_vuelve_a_publicar(publicado) -> None:
+    p = publicado
+    rid = p["ded"][0]
+    assert _retirar(p, [rid]).status_code == 200
+    # Libre: se edita y viaja otra vez a sv5.
+    p["repo"].update_registro(registro_id=rid, horas=7.0)
+    datos = p["repo"].lineas_para_registro([rid])
+    assert [l["registro_id"] for l in datos["lineas"]] == [rid]
+    _marcar(p["repo"], [rid], usuario="eva")
+    f = _filas(p["fabrica"])[rid]
+    assert (f["vigente"], f["version"], f["horas"], f["enviado_por"],
+            f["retirado_por"]) == (True, 3, 7.0, "eva", None)
+    assert _estado(p["fabrica"], rid)[0] == "dedicacion"
+
+
+def test_f019_r23_reaprobar_con_el_interruptor_apagado_sigue_las_reglas(
+        publicado) -> None:
+    """Retirada y reaprobada sin dedicacion en el resultado: la linea queda
+    como digan las reglas de siempre y la fila sigue retirada."""
+    p = publicado
+    rid = p["ded"][0]
+    _retirar(p, [rid])
+    p["repo"].marcar_registros_sigrid(
+        escritas=[], omitidas=[{"registro_id": rid, "motivo": "mensual"}],
+        ya_registradas=[], usuario="ana")
+    assert _estado(p["fabrica"], rid)[:2] == ("omitido", "mensual")
+    assert _filas(p["fabrica"])[rid]["vigente"] is False
+
+
+def test_f019_r24_el_autor_es_el_actor_de_la_peticion(publicado) -> None:
+    p = publicado
+    r = p["cliente"].post(
+        "/api/dedicacion/retirar",
+        json={"registro_ids": [p["ded"][1]], "ambito": PERSONA},
+        headers={"X-MS-CLIENT-PRINCIPAL-NAME": "Eva@Ruesma.es"})
+    assert r.status_code == 200
+    with p["fabrica"].create_session() as s:
+        fila = s.get(DedicacionBandejaOrm, p["ded"][1])
+        autor = fila.retirado_por
+    assert autor == _estado(p["fabrica"], p["ded"][1])[2]
+    assert autor not in (None, "")
