@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **26 features**, 10 abiertas, 16 terminadas.
-
-En curso: **F-025**.
+Resumen: **26 features**, 9 abiertas, 17 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -14,7 +12,6 @@ Bloqueadas: **F-014**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
-| F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | en curso | estandar | `feature/F-025-incidencia-vs-extra` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 9 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
@@ -37,6 +34,7 @@ Bloqueadas: **F-014**.
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
+| F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | estandar |
 | F-004 | Congelar registros aprobados | 5 | estandar |
 | F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |
@@ -52,12 +50,6 @@ Bloqueadas: **F-014**.
 estado **pendiente** · prioridad 3 · rigor `estandar` · SDD no · rama `feature/F-027-escape-modales`
 
 Observacion O4 del reviewer de F-022 (2026-10-01): resumenHtml, conflictosHtml, avisosCalendarioHtml y resultadoHtml de static/app.js (sv4, anteriores a F-022) pintan sin esc() nombre, motivo y cod, y esos nombres pueden venir del OCR de un PDF recibido por correo (inyeccion de HTML en el portal). Ademas (O5) sondearGrupos mete g.clave sin escapar en un querySelector. Aplicar el esc() existente de F-024 y CSS.escape en el selector, con tests que ejecuten el JS con node como en F-021/F-022. Solo sv4.
-
-### F-025 · Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)
-
-estado **en curso** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-025-incidencia-vs-extra`
-
-Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): hizo un parte con una incidencia y al lado una hora extra el mismo dia; 'si esta de baja maternidad, no puede tener horas extra'. Hay que limitarlo. A DECIDIR EN LA SPEC: que incidencias son incompatibles con horas trabajadas/extra (baja, maternidad, vacaciones...?) y de donde sale esa lista (tipos de incidencia de Sigrid o lista propia); si se bloquea la aprobacion, se marca para revision o se avisa en el preflight; en que servicio vive la regla (sv3 al conciliar y/o sv4 al aprobar). Servicios probables: sv3/sv4.
 
 ### F-014 · Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h
 
@@ -160,6 +152,12 @@ Reportado el 2026-09-30 por Juan Romero (correo 'RV: CAPTURAS', captura de la vi
 estado **terminada** · prioridad 4 · rigor `documental` · SDD sí · rama `feature/F-012-estudio-jornada-semanal`
 
 Pedida por el humano el 2026-08-16, para después de F-011: estudiar los trabajadores con candef=9h y cómo deben comportarse sus viernes — deberían ser el resto de horas hasta la jornada SEMANAL (con 9+9+9+9 el viernes serían 4h para llegar a 40). La jornada semanal debe ser PARTICULARIZABLE por trabajador (por defecto 40h, pero hay trabajadores que hacen más de 40h semanales). Entregable: análisis con datos reales (cuántos trabajadores, qué patrones hay en reshor/Sesame) y propuesta de diseño para que el cómputo de extras y los avisos usen jornada semanal además de diaria; la implementación puede ser feature aparte si el estudio lo justifica. APROBADA por el humano el 2026-08-18 con decisiones firmes: jornada semanal DERIVADA del candef ({8:40, 9:42}, env espejo sv3+sv4), resto en el ULTIMO DIA LABORABLE de la semana (festivo cuenta como jornada), excepciones en tabla empleado_jornada (UI en F-016), candef desconocido → jornada plana 5×candef + WARNING, sin calendario → viernes. Rigor documental (estudio sin código). Sale de aquí F-014 (candef en Sigrid), F-015 (implementación) y F-016 (UI).
+
+### F-025 · Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra)
+
+estado **terminada** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-025-incidencia-vs-extra`
+
+Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): hizo un parte con una incidencia y al lado una hora extra el mismo dia; 'si esta de baja maternidad, no puede tener horas extra'. Hay que limitarlo. A DECIDIR EN LA SPEC: que incidencias son incompatibles con horas trabajadas/extra (baja, maternidad, vacaciones...?) y de donde sale esa lista (tipos de incidencia de Sigrid o lista propia); si se bloquea la aprobacion, se marca para revision o se avisa en el preflight; en que servicio vive la regla (sv3 al conciliar y/o sv4 al aprobar). Servicios probables: sv3/sv4.
 
 ### F-004 · Congelar registros aprobados
 

@@ -1,17 +1,16 @@
+<!-- progress/current.md -->
 # Trabajo en curso
 
-## F-025 · implementada, pendiente del reviewer (implementer, 2026-10-02)
+## F-025 · done (2026-10-02), pendiente de DESPLIEGUE y verificaciones manuales
 
-Spec aprobada por el humano el 2026-10-02 (DA1–DA12 tal cual, DA2 sin
-cambios). Rama `feature/F-025-incidencia-vs-extra`, solo sv4, T1–T11 y T14
-con commit local; informe en `progress/impl_F-025.md`, mutación en
-`progress/mutacion_F-025.md` (6 supervivientes: 5 con test nuevo, 1
-equivalente). Una desviación del design (§5.4): los avisos de incidencia del
-modal se pintan en `aprobar()` y no en `grupoHtml` (los tests de F-022 la
-ejecutan con una lista cerrada de funciones). Pendientes MANUAL (humano):
-T12 = M1 (consulta de lectura en PG antes de desplegar; anotar aquí el
-recuento) y T13 = M2–M5 tras desplegar sv4, con los pasos de
-`impl_F-025.md` §6.
+APPROVED del reviewer (`progress/review_F-025.md`); resumen en
+`progress/history.md`. Rama `feature/F-025-incidencia-vs-extra`, solo sv4,
+sin desplegar. azure-apps actualizado por el líder (commit local `6347c60`:
+`INCIDENCIAS_PATH` y la regla). Pendientes MANUAL (humano): M1 (lectura en
+PG antes de desplegar, requiere firewall) y M2–M5 tras desplegar sv4, con
+los pasos de `impl_F-025.md` §6. Confirmar con Administración la
+clasificación de F (falta injustificada) y H (huelga): se cambia en
+`services/partes-front/config/incidencias.yaml`.
 
 ## F-022 · done y DESPLEGADA (2026-10-01), pendiente de verificaciones manuales
 
