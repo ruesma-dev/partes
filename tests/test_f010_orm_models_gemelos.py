@@ -119,15 +119,46 @@ COLUMNAS_PARTE_REGISTROS: tuple[str, ...] = (
     "confianza_pct",
 )
 
-#: Las CINCO tablas de la base `partes` (cuatro hasta F-015, que añadió
-#: `empleado_jornada`). Añadir una tabla OBLIGA a tocar esta constante: es
-#: el aviso de que hay que mirar si la BBDD real la tiene.
+#: Las SEIS tablas de la base `partes` (cuatro hasta F-015, que añadió
+#: `empleado_jornada`; cinco hasta F-019, que añadió `dedicacion_bandeja`).
+#: Añadir una tabla OBLIGA a tocar esta constante: es el aviso de que hay
+#: que mirar si la BBDD real la tiene.
 TABLAS: tuple[str, ...] = (
+    "dedicacion_bandeja",
     "empleado_alias",
     "empleado_jornada",
     "parte_documents",
     "parte_registros",
     "undo_log",
+)
+
+#: Las 23 columnas de `dedicacion_bandeja` (F-019), en orden de
+#: declaración. Literal por el mismo motivo que las demás y, además, porque
+#: es un CONTRATO publicado: la lee la aplicación de dedicación.
+COLUMNAS_DEDICACION_BANDEJA: tuple[str, ...] = (
+    "registro_id",
+    "version",
+    "vigente",
+    "recurso_ide",
+    "codigo_mes",
+    "fecha_int",
+    "anio",
+    "mes",
+    "obra_ide",
+    "obra_codigo",
+    "obra_empresa",
+    "partida_ide",
+    "partida_cod",
+    "tipo",
+    "horas",
+    "incidencia_codigo",
+    "incidencia_clase",
+    "prueba",
+    "enviado_por",
+    "enviado_at_utc",
+    "retirado_por",
+    "retirado_at_utc",
+    "actualizado_at_utc",
 )
 
 #: Las 19 columnas de `empleado_jornada` (F-015), en orden de declaración.
@@ -415,8 +446,8 @@ def test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas() -> None:
     metadata = modulo.Base.metadata
 
     assert tuple(sorted(metadata.tables)) == TABLAS, (
-        "la base 'partes' tiene CINCO tablas (undo_log solo la escribe sv4; "
-        "empleado_jornada la añadió F-015)"
+        "la base 'partes' tiene SEIS tablas (undo_log solo la escribe sv4; "
+        "empleado_jornada la añadió F-015 y dedicacion_bandeja F-019)"
     )
 
     columnas = tuple(c.name for c in metadata.tables["parte_registros"].columns)
@@ -540,3 +571,51 @@ def test_f010_r29_parte_registros_no_gana_ni_pierde_columnas() -> None:
     )
     assert columnas == COLUMNAS_PARTE_REGISTROS
     assert len(columnas) == 56
+
+
+# ------------------- R29 (F-019) · la sexta tabla ----------------------- #
+
+
+def test_f019_r29_dedicacion_bandeja_declara_sus_columnas_literales() -> None:
+    """La bandeja de salida hacia dedicación, columna a columna."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f019_r29")
+    tabla = modulo.Base.metadata.tables["dedicacion_bandeja"]
+    columnas = tuple(c.name for c in tabla.columns)
+    assert columnas == COLUMNAS_DEDICACION_BANDEJA, (
+        "dedicacion_bandeja no declara exactamente sus columnas. Sobran: "
+        f"{sorted(set(columnas) - set(COLUMNAS_DEDICACION_BANDEJA))}; "
+        "faltan: "
+        f"{sorted(set(COLUMNAS_DEDICACION_BANDEJA) - set(columnas))}"
+    )
+    assert len(columnas) == 23
+
+
+def test_f019_r29_dedicacion_bandeja_atributos_y_sin_fk() -> None:
+    """Clave = `registro_id` sin secuencia ni FK; índice por periodo."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f019_r29_attrs")
+    huella = _huella(modulo.Base.metadata)["dedicacion_bandeja"]
+    columnas = huella["columnas"]
+    assert columnas["registro_id"]["pk"] is True
+    assert all(c["fks"] == [] for c in columnas.values())
+    assert columnas["codigo_mes"]["tipo"] == "VARCHAR(16)"
+    assert columnas["horas"]["tipo"] == "FLOAT"
+    assert columnas["vigente"]["server_default"] == "true"
+    assert columnas["prueba"]["server_default"] == "false"
+    assert huella["indices"] == {
+        "ix_dedicacion_bandeja_periodo": (("anio", "mes"), False)}
+    tabla = modulo.Base.metadata.tables["dedicacion_bandeja"]
+    sin_default = [
+        c.name for c in tabla.columns
+        if not c.nullable and not c.primary_key and c.server_default is None
+    ]
+    assert sin_default == []
+
+
+def test_f019_r29_parte_registros_no_gana_ni_pierde_columnas() -> None:
+    """F-019 no toca la tabla grande: `dedicacion` es un valor nuevo de
+    `sigrid_estado`, que ya existía (String(16))."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f019_r29_registros")
+    columnas = tuple(
+        c.name for c in modulo.Base.metadata.tables["parte_registros"].columns
+    )
+    assert columnas == COLUMNAS_PARTE_REGISTROS

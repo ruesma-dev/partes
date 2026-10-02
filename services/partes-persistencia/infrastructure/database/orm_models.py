@@ -2,7 +2,7 @@
 """ORM de partes de trabajo (SQLAlchemy 2.0).
 
 Modelo real (un documento = un parte DIARIO de una obra, con varios
-empleados). CINCO tablas en la base ``partes``:
+empleados). SEIS tablas en la base ``partes``:
 
   - ``parte_documents``: cabecera del parte diario (fecha, obra leida +
     casada, encargado, jefe de obra, FIRMA) + metadatos de email/IA +
@@ -20,6 +20,10 @@ empleados). CINCO tablas en la base ``partes``:
     (avisos y KPI).
   - ``undo_log``: historial para DESHACER del portal. SOLO la escribe sv4;
     sv3 ni la lee, pero la declara porque el schema de la base es UNO.
+  - ``dedicacion_bandeja``: bandeja de SALIDA hacia dedicacion (F-019).
+    Una fila por linea de un mensual que sv5 mando a dedicacion; la
+    escribe sv4 al volcar el resultado y la LEE el rol de dedicacion (solo
+    esta tabla). Es un contrato publicado: no se cambia sin avisar.
 
 La unicidad por ``source_sha256`` es un INDICE UNICO PARCIAL
 ``WHERE is_active`` (``DDL_EXTRA_POSTGRES``): un parte borrado no ocupa el
@@ -39,7 +43,16 @@ a mano es exactamente lo que se olvida de actualizar.
 """
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Float, ForeignKey, Integer, MetaData, String, Text
+from sqlalchemy import (
+    Boolean,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Text,
+)
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -388,6 +401,88 @@ class UndoLogOrm(Base):
     payload: Mapped[str] = mapped_column(Text, nullable=False)
     undone: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     actor: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+
+class DedicacionBandejaOrm(Base):
+    """Bandeja de salida hacia dedicacion (F-019, DA1-DA2).
+
+    Una fila por linea (``registro_id`` = ``parte_registros.id``) de un
+    recurso MENSUAL que sv5 decidio mandar a dedicacion en vez de a
+    Sigrid. La escribe SOLO sv4, en la misma transaccion que pone la
+    linea en ``sigrid_estado = 'dedicacion'``; la lee el rol de la
+    aplicacion de dedicacion con un ``GRANT SELECT`` sobre esta tabla y
+    ninguna otra (``infra/sql/01_dedicacion_lectura.sql``).
+
+    Nunca se borra: retirar una linea la deja ``vigente = false`` y
+    reaprobarla la vuelve a ``true``; cada cambio sube ``version`` y
+    ``actualizado_at_utc``, que es como el lector detecta los cambios.
+    Sin FK a ``parte_registros`` a proposito: es un contrato publicado y
+    la retirada es explicita. Sin nombres ni DNIs: el trabajador es su
+    ``recurso_ide`` de Sigrid.
+
+    TODA columna ``NOT NULL`` lleva ``server_default`` (como en
+    ``empleado_jornada``): son centinelas para el DDL complementario de
+    arranque; en la practica ``create_all`` crea la tabla completa y sv4
+    escribe todas las columnas.
+    """
+    __tablename__ = "dedicacion_bandeja"
+    __table_args__ = (
+        Index("ix_dedicacion_bandeja_periodo", "anio", "mes"),
+    )
+
+    registro_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=False
+    )
+    version: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="1"
+    )
+    vigente: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="true"
+    )
+    recurso_ide: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    #: El codigo `M*` del recurso en Sigrid (`reshor`).
+    codigo_mes: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=""
+    )
+    # --- Fecha REAL de trabajo --- #
+    fecha_int: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    anio: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    mes: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    # --- Obra de la linea y empresa del parte (F-023) --- #
+    obra_ide: Mapped[int | None] = mapped_column(Integer)
+    obra_codigo: Mapped[str | None] = mapped_column(String(64))
+    obra_empresa: Mapped[int | None] = mapped_column(Integer)
+    partida_ide: Mapped[int | None] = mapped_column(Integer)
+    partida_cod: Mapped[str | None] = mapped_column(String(64))
+    #: normal | extra | incidencia.
+    tipo: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default=""
+    )
+    #: Tal cual la linea: negativas y festivos incluidos.
+    horas: Mapped[float | None] = mapped_column(Float)
+    incidencia_codigo: Mapped[str | None] = mapped_column(String(8))
+    #: dia_completo | parcial (`config/incidencias.yaml` de sv4) o nula.
+    incidencia_clase: Mapped[str | None] = mapped_column(String(16))
+    #: `forzada_pruebas` del resultado de sv5.
+    prueba: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    # --- Autoria --- #
+    enviado_por: Mapped[str | None] = mapped_column(String(255))
+    enviado_at_utc: Mapped[str | None] = mapped_column(String(64))
+    retirado_por: Mapped[str | None] = mapped_column(String(255))
+    retirado_at_utc: Mapped[str | None] = mapped_column(String(64))
+    actualizado_at_utc: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default=""
+    )
 
 
 #: DDL de PostgreSQL que el ORM no sabe expresar de forma portable y que

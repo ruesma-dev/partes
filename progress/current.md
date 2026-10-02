@@ -22,6 +22,10 @@ en `progress/impl_F-019.md`.
   presente fallaba `test_f002_r4_preflight_del_endpoint_no_escribe`, que
   compara el resumen clave a clave y T12 prohibe tocar tests ajenos; asi,
   con el interruptor apagado el contrato de F-002 queda identico.
+- T4 hecha: `DedicacionBandejaOrm` (23 columnas, sin FK, indice
+  `(anio, mes)`, server_default en toda NOT NULL) en las dos copias byte a
+  byte; guardianes de raiz a seis tablas. Test extra en sv3
+  (`test_f019_orm_bandeja.py`) para que la copia de sv3 tenga sus tests.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 
