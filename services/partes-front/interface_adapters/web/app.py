@@ -2007,6 +2007,11 @@ def build_app(
             partes.append(f"{excluidas['borrado_sigrid']} borrada(s) en "
                           "Sigrid (para reenviarlas, marca «Incluir las "
                           "borradas en Sigrid» o usa «Reaprobar»)")
+        if excluidas.get("dedicacion"):
+            # F-019 (R17).
+            partes.append(f"{excluidas['dedicacion']} enviada(s) a "
+                          "dedicación (para reenviarlas, «Retirar de "
+                          "dedicación»)")
         if excluidas.get("incompatible"):
             # F-025 (R10).
             partes.append(f"{excluidas['incompatible']} con una incidencia "

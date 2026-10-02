@@ -127,6 +127,10 @@ def _datos_bandeja(reg: "ParteRegistroOrm", *, recurso_ide: int | None,
 #: Ids por consulta `IN` en las lecturas por lote de F-024 (R17, R28).
 LOTE_IDS_CONSULTA = 1000
 
+#: F-019 (R17): por que una linea en dedicacion no viaja a sv5.
+MOTIVO_EXCLUIDA_DEDICACION = (
+    "enviada a dedicación: para reenviarla, «Retirar de dedicación»")
+
 #: F-025 (R9): estado de `excluidas` de una linea cuyo dia-trabajador tiene
 #: una incidencia de dia completo y horas. No es un `sigrid_estado`: nunca
 #: se escribe en la fila, solo se cuenta en la respuesta de la aprobacion.
@@ -1467,6 +1471,12 @@ class ParteReviewRepository:
                         and not incluir_borradas):
                     excluidas[estado] += 1
                     detalle.append(_excluida_detalle(r, estado))
+                    continue
+                if estado == ESTADO_DEDICACION:
+                    # F-019 (R17): ya publicada; la clave solo si hay alguna.
+                    excluidas[estado] = excluidas.get(estado, 0) + 1
+                    detalle.append(_excluida_detalle(
+                        r, estado, MOTIVO_EXCLUIDA_DEDICACION))
                     continue
                 nivel = incompat.get(r.id)
                 if nivel is not None and nivel.nivel == NIVEL_BLOQUEO:

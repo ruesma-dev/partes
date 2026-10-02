@@ -43,6 +43,12 @@ en `progress/impl_F-019.md`.
   `construir_tabla_incidencias`, parametro opcional de
   `_componentes_de_cola` para no romper sus tests de F-002); `_trazar` usa
   la tabla del portal. Test de los dos canales marcando igual.
+- T8 hecha: `excluidas["dedicacion"]` solo aparece si hay alguna (como
+  `incompatible` de F-025: los tests de F-022/F-025 comparan `excluidas`
+  literal); `_motivo_sin_lineas` lo dice; el listado del modal pinta
+  `dedicacion`, fuera de `ESTADOS_ESCRITURA`. `agregar_ejecucion` (varias
+  obras) NO junta `dedicacion`: lo rompia un test de F-022 y no lo pide la
+  spec; el modal lo lee de cada grupo.
 
 ## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
 
