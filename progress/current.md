@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-019 · in_progress (2026-10-02), implementer
+## F-019 · done (2026-10-03), sin desplegar: pendiente de M0 y despliegue
+
+APPROVED del reviewer en la primera pasada (`progress/review_F-019.md`);
+D3, D4 y D5 aceptadas por el humano el 2026-10-03. Resumen en
+`progress/history.md`. Queda a decisión del humano añadir la pareja de
+congelación sv3/sv4 (F-004/F-024) a la lista cerrada de `CLAUDE.md`
+(observación del reviewer; no la crea F-019).
 
 Rama `feature/F-019-mensuales-a-dedicacion`. Tarea en curso: ver
 `specs/F-019-mensuales-a-dedicacion/tasks.md` (las marcadas `[x]` estan
@@ -115,23 +121,6 @@ de `porcentajes` leyendo la bandeja → **M3** (encender).
   `SELECT registro_id, version, vigente, tipo, codigo_mes, prueba FROM dedicacion_bandeja ORDER BY actualizado_at_utc DESC LIMIT 5;`;
   «Retirar» (vigente false, version 2) y reaprobar (vigente true,
   version 3). Si algo falla, apagar con el mismo comando y `=false`.
-
-## F-019 · spec_ready (2026-10-02), DA1–DA8 APROBADAS por el humano
-
-spec-author: `specs/F-019-mensuales-a-dedicacion/` en la rama
-`feature/F-019-mensuales-a-dedicacion`; resumen en llano en
-`progress/spec_F-019.md`. Rigor crítico; servicios sv5 (decide), sv4
-(publica en `dedicacion_bandeja`, estado, retirada) y sv3 (ORM gemelo y
-congelación). Decisiones abiertas que valida el humano (design §8): DA1
-canal (bandeja en base `partes`), DA2 la escribe **sv4, no sv5** (difiere de
-la propuesta del líder: sv5 va sin BBDD), DA3 `GRANT SELECT` al rol de
-dedicación existente (un rol nuevo sería objeto de servidor), DA4 extras de
-`MCAP`+`HECAP` siguen a Sigrid (**excepción a la decisión 2**), DA5 congelar
-+ «Retirar de dedicación», DA6 periodo cerrado lo decide dedicación, DA7
-sv5, DA8 interruptor `MENSUALES_A_DEDICACION` apagado y sin migración del
-histórico. Verificaciones MANUAL M0–M3 en design §10. Aprobadas tal cual el
-2026-10-02; el matiz de DA4 (hora mes a porcentajes y HE a Sigrid con
-normalidad) queda blindado en R3 bis (no regresión, con RED).
 
 ## F-028 · done y DESPLEGADA (2026-10-02), pendiente de M1
 
