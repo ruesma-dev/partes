@@ -291,6 +291,10 @@
           {% elif _est == 'borrado_sigrid' %}
             <span class="badge danger badge-borrado-sigrid" title="{{ r.sigrid_motivo or 'La linea ya no esta en Sigrid' }}">✗ borrada en Sigrid</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" data-incluir-borradas="1" title="Volver a registrar esta linea en Sigrid (se escribe de nuevo)">Reaprobar</button>
+          {% elif _est == 'dedicacion' %}
+            {# F-019 (R19): linea de un mensual publicada en la bandeja de dedicacion. #}
+            <span class="badge info badge-dedicacion" title="{{ r.sigrid_motivo or 'enviada a dedicación' }}. Para corregirla: «Retirar de dedicación».">→ dedicación</span>
+            <button type="button" class="btn small retirar-dedicacion" data-registro-id="{{ r.id }}" title="Retirar de dedicación: la linea deja de estar publicada y queda libre para corregirla y reaprobarla">Retirar</button>
           {% elif _est == 'error' %}
             <span class="badge danger" title="{{ r.sigrid_motivo or 'El registro fallo' }}">✗ error</span>
             <button type="button" class="btn small aprobar-linea" data-registro-id="{{ r.id }}" title="Reintentar el registro de esta linea (no duplica: se detecta por synckey)">↻</button>

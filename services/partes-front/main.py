@@ -16,7 +16,7 @@ from infrastructure.database.session_factory import SessionFactory
 from infrastructure.transfer.transfer_queue_publisher import (
     TransferQueuePublisher,
 )
-from interface_adapters.web.app import build_app
+from interface_adapters.web.app import build_app, construir_tabla_incidencias
 from interface_adapters.workers.resultado_consumer import (
     arrancar_consumidor_resultados,
 )
@@ -24,12 +24,14 @@ from interface_adapters.workers.resultado_consumer import (
 logger = logging.getLogger(__name__)
 
 
-def _componentes_de_cola(settings: Settings, repository):
+def _componentes_de_cola(settings: Settings, repository, incidencias=None):
     """Cablea publisher y consumidor de resultados (F-002).
 
     Devuelve `(publisher, cola_cliente)`. El cliente de cola que se le
     pasa a la app es el de la gestion de poison; el consumidor usa el
     suyo, porque los clientes del SDK no se comparten entre hilos.
+    `incidencias` (F-019) es la tabla de clases que el consumidor pasa a
+    la bandeja de dedicacion.
     """
     colas_cs = settings.colas_connection_string
 
@@ -62,7 +64,8 @@ def _componentes_de_cola(settings: Settings, repository):
         contenedor=settings.blob_transfer,
     )
     arrancar_consumidor_resultados(
-        repository=repository, cola=_cola(), blob=_blob(), settings=settings)
+        repository=repository, cola=_cola(), blob=_blob(), settings=settings,
+        incidencias=incidencias)
     logger.info("[transfer-cola][wiring] CABLEADO cola=%s resultado=%s "
                 "contenedor=%s", settings.cola_transfer,
                 settings.cola_transfer_result, settings.blob_transfer)
@@ -84,7 +87,10 @@ def main() -> int:
 
     publisher = cola_cliente = None
     if settings.transfer_queue_enabled:
-        publisher, cola_cliente = _componentes_de_cola(settings, repository)
+        # F-019: la misma tabla de clases que usa el portal (fail-fast).
+        publisher, cola_cliente = _componentes_de_cola(
+            settings, repository,
+            incidencias=construir_tabla_incidencias(settings))
     else:
         logger.info("[transfer-cola][wiring] DESACTIVADO (faltan COLAS_*): "
                     "la aprobacion se registrara en modo SINCRONO.")

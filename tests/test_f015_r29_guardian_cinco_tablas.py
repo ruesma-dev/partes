@@ -37,7 +37,10 @@ from tests.test_f010_orm_models_gemelos import (
 # ------------------------- la lista no se relaja ------------------------ #
 
 def test_f015_r29_el_guardian_declara_cinco_tablas() -> None:
+    """F-019 (R29) añade la sexta, `dedicacion_bandeja`: la asercion se
+    cambia, no se relaja (sigue siendo la lista literal y completa)."""
     assert TABLAS == (
+        "dedicacion_bandeja",
         "empleado_alias",
         "empleado_jornada",
         "parte_documents",

@@ -1,6 +1,127 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-019 · done (2026-10-03), sin desplegar: pendiente de M0 y despliegue
+
+APPROVED del reviewer en la primera pasada (`progress/review_F-019.md`);
+D3, D4 y D5 aceptadas por el humano el 2026-10-03. Resumen en
+`progress/history.md`. Queda a decisión del humano añadir la pareja de
+congelación sv3/sv4 (F-004/F-024) a la lista cerrada de `CLAUDE.md`
+(observación del reviewer; no la crea F-019).
+
+Rama `feature/F-019-mensuales-a-dedicacion`. Tarea en curso: ver
+`specs/F-019-mensuales-a-dedicacion/tasks.md` (las marcadas `[x]` estan
+hechas, un commit por tarea). Decisiones y desviaciones: se anotan aqui y
+en `progress/impl_F-019.md`.
+
+- T1 hecha: 26 tests de caracterizacion de `ReglasRegistro` en verde
+  contra el codigo de hoy, ANTES de tocar `reglas_registro.py`.
+- T2 hecha. **Desviacion D1 (interpretacion, no improvisacion)**: R2 y
+  R3 bis chocan en una ficha M*+HL*+HE* (hoy inexistente en Sigrid: 0
+  recursos M* con HL*). R2 mandaria su ordinaria a dedicacion; R3 bis
+  prohibe que algo que hoy se escribe y no es incidencia cambie. Manda
+  R3 bis (innegociable del humano transmitido por el lider: «encendido,
+  solo cambia omitir->dedicacion e incidencia M* escribir->dedicacion»).
+  Test: `test_f019_r3bis_mensual_con_hl_y_he_sigue_escribiendo_ordinarias`.
+- T3 hecha. **Desviacion D2**: `resumen.dedicacion` del preflight (R7)
+  solo aparece si hay alguna linea a dedicacion. Con la clave siempre
+  presente fallaba `test_f002_r4_preflight_del_endpoint_no_escribe`, que
+  compara el resumen clave a clave y T12 prohibe tocar tests ajenos; asi,
+  con el interruptor apagado el contrato de F-002 queda identico.
+- T4 hecha: `DedicacionBandejaOrm` (23 columnas, sin FK, indice
+  `(anio, mes)`, server_default en toda NOT NULL) en las dos copias byte a
+  byte; guardianes de raiz a seis tablas. Test extra en sv3
+  (`test_f019_orm_bandeja.py`) para que la copia de sv3 tenga sus tests.
+- T5 hecha. **Desviacion D3**: `dedicacion` NO entra en la tupla
+  `ESTADOS_CONGELANTES` (design §4 lo pedia): dos tests ajenos (F-004 y
+  F-024) fijan esa tupla literal y T12 prohibe tocarlos. La tupla no la
+  usa ningun codigo de produccion; la congelacion de `dedicacion` va en
+  `motivo_congelacion_linea/documento` y el guardian F-024 lo compara con
+  sv3. Para el bloqueo de borrado definitivo: `vive_fuera` y
+  `motivo_borrado_definitivo` (motivo propio para dedicacion).
+- T6 hecha: `_upsert_bandeja` + `marcar_registros_sigrid(dedicacion=,
+  prueba=, incidencias=)` en la misma transaccion. Decision: el
+  `recurso_ide` de la fila es el del resultado de sv5 (pudo resolverlo por
+  DNI) y, si no viene, el de la linea; el motivo de la linea no se trunca
+  (el codigo `M*` es corto y la columna `codigo_mes` es String(16)).
+- T7 hecha: `aplicar_resultado(..., incidencias=)`; el consumidor recibe la
+  tabla de clases desde `main.py` (la construye `main()` con
+  `construir_tabla_incidencias`, parametro opcional de
+  `_componentes_de_cola` para no romper sus tests de F-002); `_trazar` usa
+  la tabla del portal. Test de los dos canales marcando igual.
+- T8 hecha: `excluidas["dedicacion"]` solo aparece si hay alguna (como
+  `incompatible` de F-025: los tests de F-022/F-025 comparan `excluidas`
+  literal); `_motivo_sin_lineas` lo dice; el listado del modal pinta
+  `dedicacion`, fuera de `ESTADOS_ESCRITURA`. `agregar_ejecucion` (varias
+  obras) NO junta `dedicacion`: lo rompia un test de F-022 y no lo pide la
+  spec; el modal lo lee de cada grupo.
+- T9 hecha: `retirar_de_dedicacion` + `POST /api/dedicacion/retirar`
+  (ambito obligatorio, `_validar_ambito`, `_actor`). **Desviacion D4**: el
+  guardian de F-017 `test_f017_todos_los_puntos_de_escritura_usan_el_helper`
+  cuenta literalmente las llamadas a `_actor(request)` (14); R24 exige una
+  mas, asi que el contador pasa a 15 con su docstring. Es un test ajeno a
+  F-019 (T12 no lo preveia); esquivarlo escribiendo la llamada de otra
+  forma habria sido enganar al guardian.
+- T10 hecha: rama `dedicacion` en las dos vistas («→ dedicación», motivo
+  en el `title` escapado por Jinja, boton «Retirar»); `app.js`: etiqueta
+  del listado, aviso de `excluidas.dedicacion` y del resultado con
+  `esc()`, `retirarDedicacion` con el `ambito` de `#aprobar-todo` y
+  recarga. Sin CSS nuevo (`badge info` basta). `node --check` OK. El JS
+  no tiene arnes: el comportamiento en navegador queda para M3.
+- T11 hecha: `infra/sql/01_dedicacion_lectura.sql` (solo 3 GRANT + 4
+  SELECT de comprobacion) y `tests/test_f019_sql_lectura.py` (analizador
+  probado contra 15 alteraciones; R27 por AST: ningun literal no-docstring
+  de `services/` lleva `GRANT`).
+- T12 hecha. **Desviacion D5**: el guardian de F-017
+  `test_f017_r22_no_hay_ficheros_sql_de_migracion` prohibia CUALQUIER
+  `.sql` del arbol y R25 exige uno. Se admite SOLO
+  `infra/sql/01_dedicacion_lectura.sql` (no es migracion: GRANT + SELECT,
+  vigilado por el test de T11); cualquier otro `.sql` sigue fallando.
+  Suites completas de sv3, sv4, sv5 y raiz en verde (cifras en el informe).
+- T13 hecha: semantica 15 y «seis tablas» en `docs/ARCHITECTURE.md`;
+  §3.5, §5, §5.5 bis y §6.6 en `docs/referencia/partes-proyecto.md`.
+- T14 hecha: `azure-apps/partes.md` (nota F-019, §4.5 bis lo que
+  exponemos y que se rompe, variable en §5.6), commit local `c7ad8e9` en
+  `azure-apps` (sin push; ese repo no tiene remoto).
+
+- T15 hecha: campana de mutacion completa, 126 mutantes, 125 muertos, 1
+  superviviente (`include_in_schema` de la ruta nueva) cerrado con test
+  nuevo; `progress/mutacion_F-019.md`. Informe: `progress/impl_F-019.md`.
+- T19 hecha: `bash harness/init.sh` en verde (cobertura de lineas
+  cambiadas 100 %, 201/201). T16-T18 pendientes del humano (abajo).
+
+**Las desviaciones D3, D4 y D5 tocan tests ajenos a F-019 o se apartan
+del design por ellos: necesitan el visto bueno del humano.** Si no se
+aceptan, alternativas: D3 meter `dedicacion` en `ESTADOS_CONGELANTES` y
+actualizar los dos tests; D4/D5 no tienen alternativa limpia (R24 exige
+`_actor(request)` y R25 exige el `.sql`).
+
+### Pendiente MANUAL (humano) · T16-T18 (design §10)
+
+Orden: **sv3 → sv4 → M1, M2 → sv5** (interruptor apagado) → feature espejo
+de `porcentajes` leyendo la bandeja → **M3** (encender).
+
+- **T16 · M0** (ANTES de desplegar; PG `partes`, abrir firewall a tu IP):
+  `SELECT sigrid_estado, left(fecha,7) AS mes, count(*) FROM parte_registros WHERE sigrid_motivo LIKE '%codigo mensual%' OR sigrid_motivo LIKE '%es mensual%' GROUP BY 1,2 ORDER BY 2;`
+  Anotar el resultado aqui.
+- **T17 · despliegue** (lo pide el humano), desde `infra/` y EN TRES
+  pasadas (con `-Solo sv3,sv4,sv5` el script ordenaria sv3 → sv5 → sv4):
+  `./redeploy_partes.ps1 -Solo sv3`, luego `./redeploy_partes.ps1 -Solo sv4`.
+  - **M1** (tras sv3 y sv4): `SELECT count(*) FROM dedicacion_bandeja;` → 0.
+  - **M2**: `psql "host=<servidor> dbname=partes user=<admin> sslmode=require" -v rol=<rol_app_dedicacion> -f infra/sql/01_dedicacion_lectura.sql`
+    → las comprobaciones dan true / false / false (si la tercera da true,
+    avisar; no se corrige aqui).
+  - `./redeploy_partes.ps1 -Solo sv5` con el interruptor APAGADO (no hay
+    que tocar nada: `MENSUALES_A_DEDICACION` no existe en Azure y su
+    defecto es false).
+- **T18 · M3** (solo cuando la feature espejo de `porcentajes` lea la
+  bandeja):
+  `az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MENSUALES_A_DEDICACION=true`;
+  aprobar una linea de un mensual, ver «→ dedicación» en la vista y
+  `SELECT registro_id, version, vigente, tipo, codigo_mes, prueba FROM dedicacion_bandeja ORDER BY actualizado_at_utc DESC LIMIT 5;`;
+  «Retirar» (vigente false, version 2) y reaprobar (vigente true,
+  version 3). Si algo falla, apagar con el mismo comando y `=false`.
+
 ## F-028 · done y DESPLEGADA (2026-10-02), pendiente de M1
 
 APPROVED del reviewer (`progress/review_F-028.md`); resumen en

@@ -31,6 +31,7 @@ from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
     Base,
+    DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
     ParteDocumentOrm,
@@ -43,16 +44,17 @@ from application.services import text_match as tm
 from application.services.jornada_admin import columnas_patron
 from application.services.congelacion import (
     ESTADO_BORRADO_SIGRID,
+    ESTADO_DEDICACION,
     ESTADO_REGISTRADO,
-    MOTIVO_HARD_DELETE_REGISTRADO,
     MOTIVO_UNAPPROVE_ENCOLADO,
     CongeladoError,
-    es_registrado,
     exigir_documento_editable,
     exigir_linea_editable,
     hay_linea_encolada,
+    motivo_borrado_definitivo,
     motivo_congelacion_documento,
     motivo_congelacion_linea,
+    vive_fuera,
 )
 from application.services.incidencias_horas import (
     NIVEL_AVISO,
@@ -79,6 +81,8 @@ logger = logging.getLogger(__name__)
 #   conflicto            -> sv5 encontro lineas que habria que pisar
 #   error                -> sv5 no pudo completar la peticion
 #   borrado_sigrid       -> F-024: estaba registrada y ya no esta en Sigrid
+#   dedicacion           -> F-019: de un mensual, publicada en la bandeja
+#                           de dedicacion (veredicto final, congela)
 ESTADO_ENCOLADO = "encolado"
 ESTADO_CONFLICTO = "conflicto"
 ESTADO_ERROR = "error"
@@ -91,8 +95,41 @@ ESTADOS_EN_VUELO = (None, "", ESTADO_ENCOLADO, ESTADO_CONFLICTO,
                     ESTADO_ERROR, ESTADO_BORRADO_SIGRID)
 
 
+def _datos_bandeja(reg: "ParteRegistroOrm", *, recurso_ide: int | None,
+                   codigo_mes: str, prueba: bool,
+                   clase: str | None) -> dict[str, Any]:
+    """F-019 (R10): las columnas de DATOS de la fila de la bandeja de una
+    linea (R12: si todas coinciden, la fila no se toca). Nunca nombre ni
+    DNI. El recurso es el del resultado de sv5 (pudo resolverlo por DNI)
+    y, si no viene, el de la linea."""
+    fecha_int = int(reg.fecha_int or 0)
+    if reg.es_incidencia:
+        tipo = "incidencia"
+    elif (reg.tipo_hora or "").strip().lower() == "extra":
+        tipo = "extra"
+    else:
+        tipo = "normal"
+    doc = reg.document
+    return {
+        "recurso_ide": int(recurso_ide or reg.recurso_ide or 0),
+        "codigo_mes": codigo_mes, "fecha_int": fecha_int,
+        "anio": fecha_int // 10000, "mes": fecha_int // 100 % 100,
+        "obra_ide": reg.obra_ide, "obra_codigo": reg.obra_codigo,
+        "obra_empresa": doc.empresa if doc is not None else None,
+        "partida_ide": reg.partida_ide, "partida_cod": reg.partida_cod,
+        "tipo": tipo, "horas": reg.horas,
+        "incidencia_codigo": reg.incidencia_codigo if reg.es_incidencia
+        else None,
+        "incidencia_clase": clase, "prueba": bool(prueba),
+    }
+
+
 #: Ids por consulta `IN` en las lecturas por lote de F-024 (R17, R28).
 LOTE_IDS_CONSULTA = 1000
+
+#: F-019 (R17): por que una linea en dedicacion no viaja a sv5.
+MOTIVO_EXCLUIDA_DEDICACION = (
+    "enviada a dedicación: para reenviarla, «Retirar de dedicación»")
 
 #: F-025 (R9): estado de `excluidas` de una linea cuyo dia-trabajador tiene
 #: una incidencia de dia completo y horas. No es un `sigrid_estado`: nunca
@@ -678,8 +715,8 @@ def _soltar_recurso(reg: ParteRegistroOrm) -> None:
 def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
     """R12: `sigrid_hmores_ide`/`sigrid_parte_cod` son la UNICA referencia
     local a la linea escrita en Sigrid; un hard-delete la borra para
-    siempre."""
-    return any(es_registrado(e) for e in _estados_de_doc(doc))
+    siempre. F-019 (R16): igual una linea publicada en dedicacion."""
+    return any(vive_fuera(e) for e in _estados_de_doc(doc))
 
 
 class ParteReviewRepository:
@@ -1435,6 +1472,12 @@ class ParteReviewRepository:
                     excluidas[estado] += 1
                     detalle.append(_excluida_detalle(r, estado))
                     continue
+                if estado == ESTADO_DEDICACION:
+                    # F-019 (R17): ya publicada; la clave solo si hay alguna.
+                    excluidas[estado] = excluidas.get(estado, 0) + 1
+                    detalle.append(_excluida_detalle(
+                        r, estado, MOTIVO_EXCLUIDA_DEDICACION))
+                    continue
                 nivel = incompat.get(r.id)
                 if nivel is not None and nivel.nivel == NIVEL_BLOQUEO:
                     excluidas[EXCLUIDA_INCOMPATIBLE] = excluidas.get(
@@ -1721,6 +1764,9 @@ class ParteReviewRepository:
         error_global: str | None = None,
         registro_ids: list[int] | None = None,
         motivo_ok: str | None = None,
+        dedicacion: list[dict] | None = None,
+        prueba: bool = False,
+        incidencias: TablaIncidencias | None = None,
     ) -> int:
         """Guarda la traza del registro en cada linea.
 
@@ -1739,6 +1785,13 @@ class ParteReviewRepository:
 
         Aplicar dos veces el mismo resultado deja el mismo estado (R13):
         la reentrega del mensaje de `q-transfer-result` es benigna.
+
+        F-019 (R9-R14): `dedicacion` son las lineas de mensuales que sv5
+        mando a dedicacion. Cada una queda en 'dedicacion' y se publica en
+        `dedicacion_bandeja` en ESTA MISMA transaccion: si la bandeja
+        falla, no se marca nada y la excepcion sube (la cola reintenta).
+        `prueba` es el `forzada_pruebas` del resultado; con `incidencias`,
+        la fila lleva la clase de la incidencia.
         """
         ahora = datetime.now(timezone.utc).isoformat()
         n = 0
@@ -1805,9 +1858,92 @@ class ParteReviewRepository:
                     reg.sigrid_registrado_at_utc = ahora
                     reg.sigrid_registrado_by = usuario
                     n += 1
+            for d in dedicacion or []:
+                reg = session.get(ParteRegistroOrm, int(d["registro_id"]))
+                if reg is None:
+                    continue
+                codigo = str(d.get("codigo_mes") or "")
+                reg.sigrid_estado = ESTADO_DEDICACION
+                reg.sigrid_motivo = f"enviada a dedicación ({codigo})"
+                reg.sigrid_registrado_at_utc = ahora
+                reg.sigrid_registrado_by = usuario
+                clase = (incidencias.clase_de(reg.incidencia_codigo,
+                                              reg.hora_codigo)
+                         if incidencias is not None and reg.es_incidencia
+                         else None)
+                self._upsert_bandeja(
+                    session, reg, recurso_ide=d.get("recurso_ide"),
+                    codigo_mes=codigo, prueba=prueba,
+                    clase=clase.clase if clase is not None else None,
+                    actor=usuario, ahora=ahora)
+                n += 1
             session.commit()
         logger.info("[repo] traza de registro guardada en %s linea(s)", n)
         return n
+
+    @staticmethod
+    def _upsert_bandeja(session, reg: ParteRegistroOrm, *,
+                        recurso_ide: int | None, codigo_mes: str,
+                        prueba: bool, clase: str | None, actor: str | None,
+                        ahora: str) -> bool:
+        """F-019 (R10-R13): la fila de la bandeja de esa linea. True si
+        cambio. Nueva: version 1. Vigente con el mismo contenido: no se
+        toca (R12). Retirada o con otro contenido: vigente, version + 1."""
+        datos = _datos_bandeja(reg, recurso_ide=recurso_ide,
+                               codigo_mes=codigo_mes, prueba=prueba,
+                               clase=clase)
+        fila = session.get(DedicacionBandejaOrm, reg.id)
+        if fila is None:
+            fila = DedicacionBandejaOrm(registro_id=reg.id, version=0)
+            session.add(fila)
+        elif fila.vigente and all(getattr(fila, k) == v
+                                  for k, v in datos.items()):
+            return False
+        for campo, valor in datos.items():
+            setattr(fila, campo, valor)
+        fila.version += 1
+        fila.vigente = True
+        fila.enviado_por, fila.enviado_at_utc = actor, ahora
+        fila.retirado_por = fila.retirado_at_utc = None
+        fila.actualizado_at_utc = ahora
+        return True
+
+    def retirar_de_dedicacion(self, registro_ids: list[int],
+                              actor: str | None) -> dict[str, int]:
+        """F-019 (R21, R22): «Retirar de dedicacion».
+
+        Cada linea en `dedicacion`, en UNA transaccion: su fila de la
+        bandeja pasa a `vigente = false` con `version + 1` y el autor y la
+        hora de la retirada; la linea vuelve a `sigrid_estado = NULL`
+        (editable y reaprobable) con el motivo «retirada de dedicacion».
+        Las que no estan en `dedicacion` no se tocan y cuentan en
+        `no_aplica`.
+        """
+        ids = sorted({int(i) for i in registro_ids if i})
+        ahora = datetime.now(timezone.utc).isoformat()
+        retiradas = 0
+        with self._session_factory.create_session() as session:
+            for rid in ids:
+                reg = session.get(ParteRegistroOrm, rid)
+                if reg is None or (_estado_norm(reg.sigrid_estado)
+                                   != ESTADO_DEDICACION):
+                    continue
+                fila = session.get(DedicacionBandejaOrm, rid)
+                if fila is not None:
+                    fila.vigente = False
+                    fila.version += 1
+                    fila.retirado_por, fila.retirado_at_utc = actor, ahora
+                    fila.actualizado_at_utc = ahora
+                reg.sigrid_estado = None
+                reg.sigrid_motivo = "retirada de dedicación"
+                reg.sigrid_registrado_at_utc = ahora
+                reg.sigrid_registrado_by = actor
+                retiradas += 1
+            session.commit()
+        no_aplica = len(ids) - retiradas
+        logger.info("[dedicacion] %s linea(s) retiradas, %s no aplica(n); "
+                    "actor=%s", retiradas, no_aplica, actor)
+        return {"retiradas": retiradas, "no_aplica": no_aplica}
 
     def update_registro(
         self,
@@ -2699,8 +2835,9 @@ class ParteReviewRepository:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
-            if es_registrado(reg.sigrid_estado):   # F-004 R12
-                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
+            motivo = motivo_borrado_definitivo([reg.sigrid_estado])
+            if motivo is not None:   # F-004 R12, F-019 R16
+                raise CongeladoError(motivo)
             session.delete(reg)
             session.commit()
         return True
@@ -2837,8 +2974,9 @@ class ParteReviewRepository:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
                 return False
-            if _tiene_linea_registrada(doc):   # F-004 R12
-                raise CongeladoError(MOTIVO_HARD_DELETE_REGISTRADO)
+            if _tiene_linea_registrada(doc):   # F-004 R12, F-019 R16
+                raise CongeladoError(
+                    motivo_borrado_definitivo(_estados_de_doc(doc)))
             # Las lineas las borra la CASCADA del ORM (`all, delete-orphan`).
             # Un DELETE masivo previo las borraria por detras de la sesion,
             # que ya las tiene cargadas por `_tiene_linea_registrada`, y la
@@ -2880,7 +3018,7 @@ class ParteReviewRepository:
                 .where(ParteDocumentOrm.deleted_at_utc.is_(None))
             ).scalars().all()
             for r in regs:
-                if es_registrado(r.sigrid_estado):
+                if vive_fuera(r.sigrid_estado):   # F-019 R16
                     omitidos += 1
                     continue
                 session.delete(r)

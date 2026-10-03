@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     # Marca en hmores.tex de las lineas escritas en modo pruebas.
     marca_pruebas: str = Field("PRUEBA-IA", alias="MARCA_PRUEBAS")
 
+    # --- F-019 (DA8): horas de los mensuales a dedicacion --- #
+    # false (por defecto) -> sv5 decide exactamente lo de antes de F-019.
+    # true -> las lineas de un recurso con codigo `M*` no van a Sigrid:
+    #         se devuelven en `dedicacion` y sv4 las publica en la bandeja
+    #         (salvo las extras de un mensual con HE*, que siguen igual).
+    mensuales_a_dedicacion: bool = Field(False,
+                                         alias="MENSUALES_A_DEDICACION")
+
     # --- Constantes del modelo Sigrid (confirmadas con datos reales) --- #
     tip_parte_trabajo: int = Field(35, alias="TIP_PARTE_TRABAJO")
     est_parte_activo: int = Field(1, alias="EST_PARTE_ACTIVO")

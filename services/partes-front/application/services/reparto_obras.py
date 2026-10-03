@@ -188,6 +188,10 @@ def _estado(accion: dict, conflicto: dict | None,
     if accion.get("accion") == "ya_registrado":
         return "ya_registrada", (accion.get("motivo")
                                  or "ya estaba en Sigrid: no se duplica")
+    if accion.get("accion") == "dedicacion":
+        # F-019 (R18): no se escribe en Sigrid ni suma horas.
+        return "dedicacion", (accion.get("motivo")
+                              or "va a dedicación: no se escribe en Sigrid")
     if previo in ESTADOS_REAPROBACION:
         return "reaprobacion", f"antes: {previo}"
     return "nuevo", ""

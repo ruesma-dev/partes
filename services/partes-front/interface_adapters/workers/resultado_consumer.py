@@ -72,9 +72,12 @@ def _quien_firma(sobre: dict) -> str:
 
 
 def construir_handler_resultados(
-    *, repository, blob, settings,
+    *, repository, blob, settings, incidencias=None,
 ) -> Callable[[dict], None]:
-    """Handler puro: recibe TODOS sus colaboradores por parametro."""
+    """Handler puro: recibe TODOS sus colaboradores por parametro.
+
+    `incidencias` (F-019): la tabla de clases de F-025, para que la bandeja
+    de dedicacion lleve la clase de cada incidencia igual que por HTTP."""
 
     def _handler(mensaje: dict) -> None:
         nombre_blob = mensaje.get("blob")
@@ -89,7 +92,8 @@ def construir_handler_resultados(
         registro_ids = sobre.get("registro_ids") or []
         usuario = _quien_firma(sobre)
         n = aplicar_resultado(repository, resultado,
-                              registro_ids=registro_ids, usuario=usuario)
+                              registro_ids=registro_ids, usuario=usuario,
+                              incidencias=incidencias)
         logger.info("[transfer-result] peticion_id=%s ok=%s lineas_marcadas=%s",
                     sobre.get("peticion_id"), resultado.get("ok"), n)
 
@@ -97,11 +101,12 @@ def construir_handler_resultados(
 
 
 def arrancar_consumidor_resultados(
-    *, repository, cola, blob, settings,
+    *, repository, cola, blob, settings, incidencias=None,
 ) -> threading.Thread:
     """Lanza el hilo daemon que consume `q-transfer-result`."""
     handler = construir_handler_resultados(
-        repository=repository, blob=blob, settings=settings)
+        repository=repository, blob=blob, settings=settings,
+        incidencias=incidencias)
 
     def _bucle() -> None:
         try:

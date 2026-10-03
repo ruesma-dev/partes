@@ -606,3 +606,31 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   estirar la tabla o mantener el scroll (doble clic en la manija los
   reajusta); propuesta de automejora de C4 bis para «proyecto Python sin
   líneas Python de producción» (sin aplicar).
+
+## F-019 · Horas de los mensuales a dedicación — done 2026-10-03
+
+- Rama `feature/F-019-mensuales-a-dedicacion` · rigor crítico · sdd=true ·
+  spec con DA1–DA8 aprobadas por el humano el 2026-10-02 (DA4 opción 2:
+  hora mes a dedicación y `HE*` a Sigrid como siempre, blindado en R3 bis) ·
+  APPROVED del reviewer en la primera pasada (`progress/review_F-019.md`).
+- Entregado: sv5 decide tras el interruptor `MENSUALES_A_DEDICACION`
+  (apagado por defecto) la acción `dedicacion` para recursos con `M*`
+  (ordinarias, extras sin `HE*`, incidencias); sv4 la marca y escribe
+  `dedicacion_bandeja` en la misma transacción (versión por línea, retirada
+  con autor, `POST /api/dedicacion/retirar`, «→ dedicación» en las vistas);
+  sv3 con el ORM gemelo a seis tablas y la congelación; script
+  `infra/sql/01_dedicacion_lectura.sql` (GRANT de lectura dentro de la base
+  `partes`, lo ejecuta el humano); docs y `azure-apps/partes.md`
+  (`c7ad8e9`, local).
+- Verificado: apagado, 0 diferencias frente a `dev` en 730 líneas
+  (comparación del reviewer); 11 roturas deliberadas de la regla, 11
+  detectadas; cobertura 100 % (201/201); mutación 126 generados, 125
+  muertos, 1 superviviente cerrado con test, 0 timeouts (6794 s, 6
+  workers); suites sv5 357, sv3 654, sv4 1636, raíz 445.
+- Desviaciones aceptadas por el humano el 2026-10-03: D3 (`dedicacion`
+  fuera de `ESTADOS_CONGELANTES`, tupla sin uso en producción), D4
+  (guardián de `_actor` a 15) y D5 (lista blanca de un `.sql` en F-017).
+- Pendiente: M0 antes de desplegar, despliegue sv3 → sv4 → M1/M2 → sv5
+  apagado, y M3 al encender cuando `porcentajes` lea la bandeja.
+  Automejora propuesta: en rigor crítico, relanzar sin caché las suites de
+  servicio en la review.

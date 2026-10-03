@@ -89,7 +89,10 @@ MOTIVOS_SIN_RECURSO_A_REVISAR: frozenset[str] = frozenset(
 )
 
 #: Estados de `sigrid_estado` que significan "esto ya viajo al ERP" (F-004).
-ESTADOS_CONGELADOS: frozenset[str] = frozenset({"encolado", "registrado"})
+#: F-019 (R15): `dedicacion` (linea publicada en la bandeja de dedicacion)
+#: congela igual que `registrado`.
+ESTADOS_CONGELADOS: frozenset[str] = frozenset(
+    {"encolado", "registrado", "dedicacion"})
 
 
 def esta_congelado(sigrid_estado: str | None, doc_approved: object) -> bool:

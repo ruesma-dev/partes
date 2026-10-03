@@ -2007,6 +2007,11 @@ def build_app(
             partes.append(f"{excluidas['borrado_sigrid']} borrada(s) en "
                           "Sigrid (para reenviarlas, marca «Incluir las "
                           "borradas en Sigrid» o usa «Reaprobar»)")
+        if excluidas.get("dedicacion"):
+            # F-019 (R17).
+            partes.append(f"{excluidas['dedicacion']} enviada(s) a "
+                          "dedicación (para reenviarlas, «Retirar de "
+                          "dedicación»)")
         if excluidas.get("incompatible"):
             # F-025 (R10).
             partes.append(f"{excluidas['incompatible']} con una incidencia "
@@ -2138,7 +2143,8 @@ def build_app(
         try:
             aplicar_resultado(repository, resultado, registro_ids=ids,
                               usuario=actor,
-                              sin_sesame=sin_sesame)
+                              sin_sesame=sin_sesame,
+                              incidencias=tabla_incidencias)  # F-019
         except Exception:
             logger.warning("[transfer] no se pudo guardar la traza del "
                            "registro", exc_info=True)
@@ -2319,6 +2325,25 @@ def build_app(
                            peticion_id, exc_info=True)
         return dict(base, ok=True, estado="encolado", peticion_id=peticion_id,
                     error=None)
+
+    @app.post("/api/dedicacion/retirar", include_in_schema=False)
+    async def dedicacion_retirar(request: Request) -> JSONResponse:
+        """F-019 (R21-R24): «Retirar de dedicacion» de las lineas elegidas.
+
+        El ambito se valida como en la aprobacion (F-022): un id que no es
+        de la vista rechaza la peticion entera sin tocar nada. Las que no
+        estan en `dedicacion` se cuentan en `no_aplica`. Firma `_actor`."""
+        body = await request.json()
+        try:
+            ids = list(dict.fromkeys(
+                int(i) for i in (body.get("registro_ids") or []) if i))
+        except (TypeError, ValueError):
+            return _rechazo_ambito("registro_ids no validos")
+        rechazo = _validar_ambito(body.get("ambito"), ids)
+        if rechazo is not None:
+            return rechazo
+        resultado = repository.retirar_de_dedicacion(ids, _actor(request))
+        return JSONResponse(dict(resultado, ok=True))
 
     @app.post("/api/sigrid/comprobar", include_in_schema=False)
     def sigrid_comprobar(p: ComprobarSigridPayload) -> JSONResponse:

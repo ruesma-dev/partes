@@ -31,11 +31,17 @@ MOTIVO_SIN_SESAME = ("[SIN-SESAME] registrado con override: calendario "
 def aplicar_resultado(repository, resultado: dict, *,
                       registro_ids: list[int] | None,
                       usuario: str | None,
-                      sin_sesame: bool = False) -> int:
+                      sin_sesame: bool = False,
+                      incidencias=None) -> int:
     """Marca las lineas segun el veredicto. Devuelve cuantas cambiaron.
 
     Con `sin_sesame=True`, las lineas que quedan OK llevan la marca
     `[SIN-SESAME]` en vez del motivo vacio de siempre.
+
+    F-019 (R9): las de `dedicacion` se publican en la bandeja, con
+    `forzada_pruebas` como `prueba` y, con `incidencias` (la tabla de
+    F-025), la clase de cada incidencia. Un resultado sin la clave (sv5
+    anterior a F-019) no publica nada.
     """
     if not resultado.get("ok"):
         # R14: fallo global -> la peticion entera queda en 'error' para
@@ -52,4 +58,7 @@ def aplicar_resultado(repository, resultado: dict, *,
         conflictos=resultado.get("pendientes_confirmacion") or [],
         usuario=usuario,
         motivo_ok=MOTIVO_SIN_SESAME if sin_sesame else None,
+        dedicacion=resultado.get("dedicacion") or [],
+        prueba=bool(resultado.get("forzada_pruebas")),
+        incidencias=incidencias,
     )
