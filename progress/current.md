@@ -38,6 +38,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T8 hecha: `partes_del_periodo` y `partidas_de_lineas` en el cliente
   (`partes_existentes`, `stmts_crear_parte`, `lineas_existentes` intactos).
   T7 en verde; suite sv5 421 passed.
+- T9 hecha: tests de pipeline de la cuenta en ROJO (11 failed, 7 passed:
+  las caracterizaciones y las guardas de «no leer»).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
