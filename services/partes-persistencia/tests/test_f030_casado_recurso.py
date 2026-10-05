@@ -595,3 +595,53 @@ def test_f030_r10_dos_fichas_de_recurso_de_la_misma_persona() -> None:
 def test_f030_r11_el_nombre_invertido_casa_en_cualquier_orden(leido) -> None:
     emp = _emp(_casar(_parte((leido, None))))
     assert (emp.method, emp.reside, emp.score) == ("recurso_nombre", 950, 1.0)
+
+
+# ====================== R13 · review_required ============================ #
+
+from domain.models.parte_records import TipoHoraMatch  # noqa: E402
+
+
+def _parte_revisable(*empleados: EmpleadoMatch) -> ParteDocumento:
+    parte = _parte(*[("X", None)] * len(empleados))
+    for reg, emp in zip(parte.registros, empleados):
+        reg.empleado = emp
+        reg.hora = TipoHoraMatch(ide=1, codigo="HL01", method="default")
+    return parte
+
+
+@pytest.mark.parametrize("empleado, revisar", [
+    (EmpleadoMatch(ide=None, reside=950, method="recurso_dni"), False),
+    (EmpleadoMatch(ide=None, reside=950, method="recurso_nombre"), False),
+    (EmpleadoMatch(ide=10, reside=900, method="nombre"), False),
+    (EmpleadoMatch(ide=None, method="none"), True),
+    (EmpleadoMatch(ide=None, method="nombre_ambiguo"), True),
+    (EmpleadoMatch(ide=None, method="dni_solo_baja"), True),
+    (EmpleadoMatch(ide=None, method="dni_ambiguo"), True),
+    (EmpleadoMatch(ide=None, method="alias_no_valido"), True),
+])
+def test_f030_r13_review_required_por_el_trabajador(empleado,
+                                                    revisar) -> None:
+    parte = _parte_revisable(empleado)
+    assert PersistPartePipeline._compute_review_required(parte) is revisar
+
+
+def test_f030_r13_un_casado_por_recurso_no_tapa_a_otro_sin_casar() -> None:
+    parte = _parte_revisable(
+        EmpleadoMatch(ide=None, reside=950, method="recurso_dni"),
+        EmpleadoMatch(ide=None, method="none"))
+    assert PersistPartePipeline._compute_review_required(parte) is True
+
+
+def test_f030_r13_el_parte_casado_por_recurso_no_va_a_revision() -> None:
+    parte = _casar(_parte(("Nombre Ilegible", CIF_P),
+                          ("Pedro Gomez Ruiz", None)))
+    assert [_emp(parte, i).method for i in range(2)] == \
+        ["recurso_dni", "recurso_nombre"]
+    assert parte.review is False
+
+
+def test_f030_r13_los_metodos_de_recurso() -> None:
+    from application.pipelines.persist_parte_pipeline import METODOS_RECURSO
+
+    assert METODOS_RECURSO == frozenset({"recurso_dni", "recurso_nombre"})

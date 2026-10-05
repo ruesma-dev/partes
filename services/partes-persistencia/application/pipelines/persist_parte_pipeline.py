@@ -12,7 +12,11 @@ Pasos:
        - obra a nivel de parte (R9-R14) y empresa del parte (R15),
        - por registro: empleado (DNI -> alias -> nombre, R17-R24) +
          codigo de hora ``auxhor`` (normal/extra por ext, o incidencia).
-  5. Calcula ``review_required``.
+         F-030: quien no tiene ficha de empleado se casa con el MISMO
+         proceso contra su «ficha de recurso» (`MO/` con `res.cif`): DNI
+         -> `recurso_dni` antes del alias; en el nombre compiten las dos
+         clases de ficha -> `recurso_nombre`. Sin `empleado_ide`.
+  5. Calcula ``review_required`` (un casado por recurso no lo sube).
   6. Persiste documento + registros.
 """
 from __future__ import annotations
@@ -442,7 +446,11 @@ class PersistPartePipeline:
         if parte.obra.method in OBRA_A_REVISAR:
             return True
         for reg in parte.registros:
-            if reg.empleado.ide is None:
+            # F-030 (R13): casado por recurso cuenta como casado.
+            if (
+                reg.empleado.ide is None
+                and reg.empleado.method not in METODOS_RECURSO
+            ):
                 return True
             if not reg.es_incidencia and reg.hora.ide is None:
                 return True
