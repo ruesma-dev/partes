@@ -351,6 +351,22 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-028-ancho-detalle"
+    },
+    {
+      "id": "F-029",
+      "title": "El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete",
+      "description": "Hallazgo del lider revisando las plantillas J.310 rev. 1 (2026-10-05): el membrete de la plantilla de Ruesma es el texto 'ruΞsma' (Xi griega, como el logotipo real). text_match.normalize convierte toda letra no latina en espacio, asi que 'ruΞsma', 'RUΞSMA' y 'ru≡sma' quedan 'ru sma' y no casan con el alias RUESMA de services/partes-persistencia/config/empresas_membrete.yaml: la empresa del membrete de los partes de Ruesma queda desconocida (sin_alias) y en las obras gemelas (codigo en empresas 1 y 28) el desempate depende solo de los trabajadores. Solucion aprobada por el humano: anadir a la empresa 1 el alias del logotipo (RUΞSMA, normalizado 'ru sma') con comentario, sin tocar codigo ni el prompt de sv2. Solo sv3 (config versionada). La plantilla de Porsan ('PORSAN E HIJOS CONSTRUCCIONES, S.L.') ya casa con 28.",
+      "acceptance": [
+        "ResolutorEmpresa con la tabla versionada real resuelve 'ruΞsma', 'RUΞSMA', 'ru≡sma', 'RUESMA' y 'Construcciones Ruesma S.A.' a la empresa 1",
+        "'PORSAN E HIJOS CONSTRUCCIONES, S.L.' sigue resolviendo a 28",
+        "Un membrete con el logotipo de Ruesma y el nombre de Porsan da 'varias' (empresa desconocida), como hasta ahora",
+        "Suite de sv3 en verde"
+      ],
+      "status": "in_progress",
+      "sdd": false,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-029-alias-logo-ruesma"
     }
   ]
 }

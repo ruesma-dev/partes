@@ -3,7 +3,9 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **27 features**, 8 abiertas, 19 terminadas.
+Resumen: **28 features**, 9 abiertas, 19 terminadas.
+
+En curso: **F-029**.
 
 Bloqueadas: **F-014**.
 
@@ -11,6 +13,7 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-029 | El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete | 1 | en curso | estandar | `feature/F-029-alias-logo-ruesma` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -45,6 +48,12 @@ Bloqueadas: **F-014**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
+
+### F-029 · El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete
+
+estado **en curso** · prioridad 1 · rigor `estandar` · SDD no · rama `feature/F-029-alias-logo-ruesma`
+
+Hallazgo del lider revisando las plantillas J.310 rev. 1 (2026-10-05): el membrete de la plantilla de Ruesma es el texto 'ruΞsma' (Xi griega, como el logotipo real). text_match.normalize convierte toda letra no latina en espacio, asi que 'ruΞsma', 'RUΞSMA' y 'ru≡sma' quedan 'ru sma' y no casan con el alias RUESMA de services/partes-persistencia/config/empresas_membrete.yaml: la empresa del membrete de los partes de Ruesma queda desconocida (sin_alias) y en las obras gemelas (codigo en empresas 1 y 28) el desempate depende solo de los trabajadores. Solucion aprobada por el humano: anadir a la empresa 1 el alias del logotipo (RUΞSMA, normalizado 'ru sma') con comentario, sin tocar codigo ni el prompt de sv2. Solo sv3 (config versionada). La plantilla de Porsan ('PORSAN E HIJOS CONSTRUCCIONES, S.L.') ya casa con 28.
 
 ### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 
