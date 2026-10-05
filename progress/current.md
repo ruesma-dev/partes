@@ -28,6 +28,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T3 hecha: `test_f031_estado_parte.py` en ROJO (modulo inexistente);
   traza para el informe. Textos de aviso y motivo en ASCII sin tildes, como
   el resto de mensajes de sv5 (decision, no cambia el sentido de design §7.1).
+- T4 hecha: `ParteSigrid`, `PartidaCuenta`, campos nuevos de
+  `ParteDestino`/`AccionLinea` y `estado_parte.py`. T3 en verde (15).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
