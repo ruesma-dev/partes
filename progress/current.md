@@ -1,7 +1,10 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-029 · done (2026-10-05): alias del logotipo de Ruesma (ruΞsma), pendiente de desplegar sv3
+## F-029 · done y DESPLEGADA (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
+
+Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005121506`
+(Healthy; arranque limpio, «alias de 2 empresa(s) ... 1, 28»).
 
 APPROVED del reviewer en la primera pasada (`progress/review_F-029.md`);
 resumen en `progress/history.md`. M1 concretado por el reviewer: tras
