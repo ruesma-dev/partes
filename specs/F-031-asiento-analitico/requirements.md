@@ -3,15 +3,15 @@
 
 Humano, 2026-10-05, URGENTE. Rigor **crítico** (sv5 escribe en Sigrid de
 producción). Fuente: correo de Juan Romero (Admon. y Control de Costes,
-2026-09-29). Datos: `progress/spec_F-031.md` (anexo §D1–§D9). Decisiones
-**aprobadas por el humano el 2026-10-05** (design §8); DA6-b, DA6-c y DA3
-quedan pendientes de Juan Romero. Toca **sv5** (lógica) y **sv4** (solo
-pintar avisos). **Modifica F-021** (origen de la cuenta, §D).
+2026-09-29). Datos: `progress/spec_F-031.md` (anexo §D1–§D10). Decisiones
+**aprobadas por el humano el 2026-10-05** (design §8; DA6 en su versión 3).
+Abiertas: DA3 (Juan Romero) y **DA6-e** (humano, R18). Toca **sv5** (lógica)
+y **sv4** (solo pintar avisos). **Modifica F-021** (origen de la cuenta, §D).
 
 Sigrid **ya genera** el asiento analítico de cada parte al «Contabilizar»
 (parte **Imputado**; design §1). sv5 no escribe asientos: no debe escribir
 en un parte Imputado y debe poner en `hmores.caaide` la cuenta de la
-**partida** si cuelga de CI (DA6).
+**partida que la línea tiene en el portal**, sea CI o CD (DA6).
 
 Glosario:
 - **Partes del periodo**: los `hmo` de la obra destino, año y mes, con
@@ -19,11 +19,11 @@ Glosario:
 - **Imputado** = `EST_PARTE_IMPUTADO` (10); **Cerrado** = `EST_PARTE_CERRADO`
   (3); En registro = 1. **Contabilizados**: los Imputados del periodo.
 - **Parte elegido**: el que recibe las líneas del periodo.
-- **Partida de la línea**: `paride` de la acción (la del portal o la que
-  asignó sv3). **Tipo de coste**: `obrparpar.tipcos` (1 indirecto, 2
-  proporcional, 0 directo; §D9). **Cuenta de la partida**: `obrparpar.caaide`.
+- **Partida de la línea**: `paride` de la acción, la del portal (automática
+  de sv3 o corregida por el administrativo); su cuenta, `obrparpar.caaide`.
 - **Rama** de una cuenta: el grupo de nivel 2 del árbol analítico de su
   centro del que cuelga (`caa.padide` → `cag` → `cag.padide`), p. ej. `CI`.
+  **Cuenta de coste**: la de rama `CD`, `CI` o `CP` (no `IN`, ingresos).
 
 ## A. Estado del parte destino (sv5)
 
@@ -78,18 +78,18 @@ Glosario:
 
 ## D. Cuenta analítica según la partida (sv5; modifica F-021, DA6)
 
-- **R17.** SI la partida de una acción `escribir` tiene cuenta y esa cuenta
-  cuelga de la rama `CI`, ENTONCES la subcuenta de la línea debe ser la de la
-  cuenta de la partida (`caa_origen = "partida"`), y la cuenta, la del centro
-  de la obra destino con esa subcuenta (F-021 R4–R6, incluido modo pruebas).
-- **R18.** SI la acción no tiene partida, la partida no está en Sigrid o es
-  de tipo indirecto sin cuenta en la rama `CI`, ENTONCES la subcuenta debe
-  salir de la ficha del recurso como en F-021 R1–R2 (`caa_origen =
-  "recurso"`) con una `caa_nota` que dice por qué.
-- **R19.** SI la partida es de tipo directo (`tipcos` distinto de 1 y 2) o
-  proporcional (2), ENTONCES, hasta que Juan Romero responda (DA6-b/c), la
-  subcuenta debe salir de la ficha del recurso con una `caa_nota` que nombra
-  la partida y su tipo («pendiente de Administración»).
+- **R17.** SI la partida de una acción `escribir` tiene cuenta de coste,
+  ENTONCES la subcuenta de la línea debe ser la de la cuenta de la partida
+  (`caa_origen = "partida"`), y la cuenta, la del centro de la obra destino
+  con esa subcuenta (F-021 R4–R6, incluido modo pruebas).
+- **R18.** SI la acción no tiene partida, la partida no está en Sigrid o no
+  tiene cuenta de coste (ninguna, o solo de ingresos `INGR`), ENTONCES,
+  provisional hasta DA6-e, la subcuenta debe salir de la ficha del recurso
+  como en F-021 R1–R2 (`caa_origen = "recurso"`) con una `caa_nota` que dice
+  por qué y nombra la partida.
+- **R19.** La regla no mira el tipo de coste (`tipcos`) ni el oficio del
+  recurso: una partida CD, CI o CP con cuenta de coste se trata igual (R17),
+  aunque su cuenta difiera de la del recurso, y no hay nota «pendiente».
 - **R20.** SI tampoco el recurso da subcuenta (F-021 R3), ENTONCES la línea va
   sin cuenta con `recurso_sin_cuenta`, `caa_origen = None` y **sin** nota
   (Porsan, empresa 28, sigue igual).
@@ -97,7 +97,7 @@ Glosario:
   preflight (`acciones`) debe incluirlos; `caa_motivo` y `caa_aviso`
   conservan su significado de F-021 (solo línea sin cuenta).
 - **R22.** sv5 debe leer las partidas con **una** consulta por petición
-  (`tipcos`, código de su cuenta y rama), solo si alguna acción `escribir`
+  (código de su cuenta y rama), solo si alguna acción `escribir`
   tiene partida, en `preparar`, fuera del lock; un fallo o `truncated` tumba
   la petición sin escribir (como F-021 R11).
 - **R23.** La lectura de cuentas del centro sigue siendo **una** por petición

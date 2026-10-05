@@ -1,8 +1,8 @@
 <!-- specs/F-031-asiento-analitico/design.md -->
 # F-031 · Diseño técnico
 
-Datos (solo lectura, agregados): `progress/spec_F-031.md`, anexo §D1–§D9.
-Versión 2 (2026-10-05): aplica las decisiones del humano (§8).
+Datos (solo lectura, agregados): `progress/spec_F-031.md`, anexo §D1–§D10.
+Versión 3 (2026-10-05): DA6 según la aclaración del humano (§8).
 
 ## 1. Cómo contabiliza Sigrid un parte (lo que NO hay que construir)
 
@@ -14,33 +14,29 @@ Estados del parte (tipo 35): 1 En registro, 3 Cerrado, 10 Imputado.
 **reabre** un parte. Falla **dónde** escribe sv5 (`partes_existentes` no
 mira `con.est`) y **qué cuenta** pone (F-021: la del recurso; DA6).
 
-## 2. La partida y el árbol analítico (dato para DA6, §D9)
+## 2. La partida y el árbol analítico (dato para DA6, §D9–§D10)
 
-- Árbol del centro (`cag`): `C` → `CD` (materiales, maquinaria,
-  subcontratas, medios auxiliares), `CI` (… **CIMO mano de obra indirecta**
-  …), `CP`; `I` → `IN`. **No hay grupo CD de mano de obra propia** y ninguna
-  línea de horas ha llevado nunca cuenta CD.
-- `obrparpar.tipcos`: 1 = capítulo CI, 2 = CP, 0 = CD. Las partidas CI
-  llevan cuenta CI del centro de la obra; las CD, `INGR..` o ninguna; las
-  CP, `CP00..`. La rama (`cag` abuelo) de esas cuentas es CI / IN / CP.
-- 2026, empresa 1: con partida CI con cuenta, 17.481 líneas llevan la de la
-  partida y 1.139 la del recurso; CD (1.979) y CP (562) van todas a la CI
-  del recurso.
+- Árbol del centro (`cag`): `C` → `CD`, `CI` (… **CIMO mano de obra
+  indirecta** …), `CP`; `I` → `IN` (`INGR..`). La rama de una cuenta es su
+  grupo de nivel 2; **cuenta de coste** = rama `CD`, `CI` o `CP`.
+- `obrparpar.caaide` es la **única** cuenta analítica de la partida: ni
+  `proide`→`pro.gaside`, ni `parcoside`, ni `cosindide`, ni capítulos padre
+  ni `cen.gaside` dan otra en las partidas con horas (§D10).
+- Líneas 2026 (empresa 1) por partida: CI con cuenta CI 18.595; CI sin
+  cuenta 2.811; CD sin cuenta 1.404 o solo `INGR` 575; CP (`CP00..`) 562,
+  tecleadas en Sigrid (sv3 y el portal sugieren CI/CD; a mano, cualquiera).
 
-Deducible: **cuenta de la partida en la rama CI ⇒ esa cuenta**. CD y CP no
-tienen cuenta destino deducible: preguntas a Juan (DA6-b/c).
+Regla (DA6): **cuenta de coste de la partida ⇒ esa**; sin ella, DA6-e (R18).
 
-## 3. Servicios y encaje (límite de servicio)
+## 3–4. Servicios, encaje y límite (ningún paso nuevo fuera de sv5)
 
 - **sv5**: única escritora; elige parte y cuenta. Lee la partida en Sigrid
-  (no se fía del portal, como F-023) por campos estructurales (`tipcos`,
-  rama `cag`): no copia el clasificador por nombre de `partida_catalog.py`.
+  (no se fía del portal, como F-023) por un campo estructural (rama `cag`
+  de su cuenta): no copia el clasificador de `partida_catalog.py`.
   `preparar` (fuera del lock): paso 4b de F-021 + partidas. `_evaluar`
   (dentro del lock): paso 5 con estado y paso 6 bis nuevo.
 - **sv4**: solo pinta `partes[].aviso` y `caa_nota`. Ni sv3, ni base
   `partes`, ni ORM, ni sigrid-api, ni servicio nuevo (DA1, DA4).
-
-## 4. (sin cambios de arquitectura: ningún paso nuevo fuera de sv5)
 
 ## 5. Ficheros a crear
 
@@ -54,7 +50,7 @@ tienen cuenta destino deducible: preguntas a Juan (DA6-b/c).
 
 - `services/partes-transfer/domain/models/registro_models.py`: `ParteSigrid`
   (frozen: `ide`, `cod`, `est`); `PartidaCuenta` (frozen: `ide`, `cod`,
-  `tipcos`, `caa_cod`, `rama`); `ParteDestino` + `estado`, `contabilizados`,
+  `caa_cod`, `rama`); `ParteDestino` + `estado`, `contabilizados`,
   `contabilizados_ide` (`default_factory=list`), `aviso`; `AccionLinea` +
   `caa_origen` y `caa_nota` (`Optional[str] = None`).
 - `.../application/services/cuenta_analitica.py`: `origen_subcuenta` (§7.2)
@@ -103,19 +99,20 @@ def motivo_choque(cod: str) -> str
 ### 7.2 `cuenta_analitica.origen_subcuenta` (pura, F-021 ampliada)
 
 ```python
-RAMA_CI = "CI"; TIPCOS_INDIRECTO, TIPCOS_PROPORCIONAL = 1, 2
+RAMAS_COSTE = frozenset({"CD", "CI", "CP"})
 @dataclass(frozen=True)
 class OrigenSubcuenta: sub: str | None; origen: str | None; nota: str | None
 def origen_subcuenta(paride: int, partidas: dict[int, PartidaCuenta],
                      horas: list[HoraRecurso], horide: int | None) -> OrigenSubcuenta
 ```
 
-- R17: partida conocida, `rama == RAMA_CI` y `subcuenta(caa_cod)` ⇒
-  `(sub, "partida", None)`.
+- R17/R19: partida conocida, `rama in RAMAS_COSTE` y `subcuenta(caa_cod)` ⇒
+  `(sub, "partida", None)`. Sin mirar `tipcos` ni el recurso.
 - Si no, `sub = subcuenta_de_linea(horas, horide)` (F-021 R1–R2): sin `sub`
   ⇒ `(None, None, None)` (R20); con `sub` ⇒ `(sub, "recurso", nota)`. Nota
   (con el código de la partida, nunca nombres): sin partida, partida no
-  encontrada, indirecta sin cuenta CI, proporcional o directa (R18–R19).
+  encontrada, partida sin cuenta, partida con cuenta de ingresos (R18).
+- DA6-e vive solo aquí: si el humano elige otra salida, cambia esta rama.
 - `resolver_cuenta` (F-021) no cambia: recibe la `sub` elegida.
 
 ### 7.3 `RegistroPipeline._resolver_cuentas` (paso 4b)
@@ -146,17 +143,14 @@ recuento por tipo de nota (R24).
 `comparar(lineas_por_cuenta, debe_por_cuenta, n_asientos) -> str`
 (tolerancia 0,01). Del Haber, solo el total (R35).
 
-### 7.6 Contrato JSON
-
-`asdict` de `ParteDestino` y `AccionLinea` ya viaja en preflight y resultado:
-los campos nuevos aparecen solos. `complementario` (versión 1) desaparece.
+### 7.6 Contrato JSON: `asdict` de `ParteDestino` y `AccionLinea` ya viaja
+en preflight y resultado; los campos nuevos aparecen solos.
 
 ## 8. Decisiones (APROBADAS por el humano, 2026-10-05)
 
 Respuesta del humano, literal: «1 reabrir, 2, si, 3, prepara un borrador
 para juan, 4 no. 6 en funcion de la partida elegida en el front o
-automaticamente. Si cuelga de CI o de CD dicha partida. ok a lo demas».
-Interpretación del líder, aplicada aquí:
+automaticamente. Si cuelga de CI o de CD dicha partida. ok a lo demas». Así:
 
 - **DA1 → reabrir.** Periodo todo Imputado: **no** hay parte complementario;
   las líneas se omiten con «reabrir en Sigrid» (R3) y entran normales al
@@ -168,22 +162,27 @@ Interpretación del líder, aplicada aquí:
 - **DA4 → no.** sv5 no contabiliza, no escribe asientos ni cambia estados.
 - **DA5, DA7, DA8 → aprobadas** como se recomendaron (omitir con motivo;
   estados como ajustes 10/3; herramienta de comprobación).
-- **DA6 → la cuenta sale de la partida** (portal o automática). DA6-a
-  (deducida, §2): cuenta de la partida en la rama CI ⇒ esa (R17). DA6-d:
-  sin partida, no encontrada o CI sin cuenta ⇒ la de F-021 con nota (R18).
-  **Preguntas a Juan** (provisional R19: la del recurso con nota): (b)
-  partida de costes directos: el árbol no tiene grupo CD de mano de obra
-  propia, ¿a qué cuenta va (crear `CDMO..`, usar `CDSB..`)? (c) partida
-  proporcional (`CP00..`, p. ej. `CP0007` delegación): ¿CP de la partida o
-  CI del recurso? (a') ¿manda la partida aunque no coincida con el oficio
-  del recurso (1.139 líneas de 2026 llevan hoy la del recurso)? Si responde
-  antes de implementar, se ajusta R19 y `origen_subcuenta`; después, feature
-  nueva.
+- **DA6 → la cuenta es la de la partida del portal** (versión 3; sustituye
+  a la v2). Humano, 2026-10-05, literal: «lo de las partidas esta
+  funcionando bien. se asignan automaticamente si no hay partida indicada en
+  el parte. si lo hay para un recurso indicada en el parte total o
+  parcialmente, esas horas van a esa partida que puede ser cualquiera (por
+  ejemplo mano de obra de ladrillos). a CP no van nunca. la cuenta a la que
+  debe ir es siempre la que queda indicada en el front no te lies. en el
+  front ya se esta casando perfectamente. si el administrativo lo quiere
+  cambiar lo hace. la partida que se ha indicado ahi es a donde debe
+  vincularse el coste». Sin rama CI/CD ni nota «pendiente» (R17, R19); CP,
+  si aparece, es una partida más. Preguntas a Juan sobre CD/CP/oficio: fuera.
+- **DA6-e (ABIERTA, humano).** Partida sin cuenta o solo con `INGR..` (CI
+  2.811, CD 1.979 líneas en 2026; §2, §D10). Provisional (R18): la del
+  recurso (F-021) con nota, como hizo Administración a mano con las 4.790.
+  Pregunta: «¿qué cuenta lleva una línea imputada a una partida que solo
+  tiene cuenta de ingresos o ninguna?». Si responde antes de T6, se ajusta.
 
 **Qué cambia en F-021.** R7 y su DA5 («la partida no interviene») quedan
 sustituidas por R17–R19. **Ningún test de F-021 cambia de aserción**:
-ninguna línea de `test_f021_*.py` (sv5 y sv4) lleva `partida_ide`, así que
-todas caen en DA6-d, que es la regla de F-021; `caa_aviso`, `caa_motivo` y
+ninguna línea de `test_f021_*.py` (sv5 y sv4) lleva `partida_ide`: todas
+caen en R18 (sin partida), la regla de F-021; `caa_aviso`, `caa_motivo` y
 el INFO de F-021 R18 no cambian. Cambian el docstring de
 `cuenta_analitica.py`, `dobles.py` (crece) y la doc de F-021 en
 `ARCHITECTURE.md`. Si un test de F-021 se pone rojo, se para.
@@ -202,8 +201,8 @@ WHERE hmo.obride = ? AND hmo.ano = ? AND hmo.mes = ?
 `partidas_de_lineas` (una por petición; `rama = subcuenta(ramacod)`):
 
 ```sql
-SELECT p.ide AS ide, p.cod AS cod, p.tipcos AS tipcos,
-       pc.cod AS caacod, gc.cod AS ramacod FROM obrparpar p
+SELECT p.ide AS ide, p.cod AS cod, pc.cod AS caacod, gc.cod AS ramacod
+FROM obrparpar p
 LEFT JOIN caa pa ON pa.ide = p.caaide AND ISNULL(p.caaide, 0) <> 0
 LEFT JOIN con pc ON pc.ide = pa.ide
 LEFT JOIN cag g1 ON g1.ide = pa.padide
@@ -218,19 +217,20 @@ parte y cuenta (`SUM(tot)`, `COUNT(*)`, las `partes:%`); `apa` del asiento
 ## 10. Fase RED exigible (traza en `progress/impl_F-031.md`)
 
 En rojo contra el código de hoy: R2, R3, R4, R5, R9, R10, R15, **R17**
-(la partida CI manda sobre el recurso), R19, R21, R26, R27, R34. En verde
+(la partida manda sobre el recurso), R18 (nota), R19 (CD y CP con cuenta
+de coste), R21, R26, R27, R34. En verde
 antes de tocar nada: R6, R11, R20, **R25** (suite F-021 intacta), R30, R31.
 
 ## 11. Verificaciones manuales (humano)
 
-- **M0.** Juan responde DA6-a', b, c y DA3. No bloquea empezar: R19 es
-  provisional y vive solo en `origen_subcuenta`.
+- **M0.** El humano responde DA6-e y Juan, DA3. No bloquea empezar: R18
+  es provisional y vive solo en `origen_subcuenta`.
 - **M1 (solo lectura).** `cd services/partes-transfer && ../../.venv/Scripts/python.exe comprobar_asiento_analitico.py --empresa 1 --obra 0696 --ano 2026 --mes 1`
   ⇒ PT26/00004 Imputado, ANA26/00017, `cuadra`.
 - **M2 (solo lectura).** `--obra 0404 --ano 2026 --mes 7` ⇒ PT26/00296 en
   registro, 0 líneas, sin asiento.
 - **M3 (producción, sin escribir).** Modal de una obra con líneas de agosto
-  y **cancelar**: aviso de Cerrado; partida CI ⇒ `caa_origen = partida`.
+  y **cancelar**: aviso de Cerrado; `caa_cod` = cuenta de la partida.
 - **M4.** Primer parte contabilizado con líneas de sv5: M1 ⇒ `cuadra`.
 
 ## 12. Despliegue, lo que no se toca y riesgos
@@ -242,8 +242,8 @@ antes de tocar nada: R6, R11, R20, **R25** (suite F-021 intacta), R30, R31.
   `transfer_consumer.py`, `prueba_escritura_sigrid.py`, `test_f021_*`,
   `partida_catalog.py`, sv1–sv3, `orm_models.py`, `infra/`.
 - Fuera: asientos y estados (DA4); contrapartida (DA3); los 31 asientos que
-  no cuadran; recalcular líneas ya escritas; Porsan; la cuenta CD/CP.
+  no cuadran; recalcular líneas ya escritas; Porsan.
 - Riesgos: carrera de segundos con un «Contabilizar» (aceptado; M1 la
   detecta); líneas retenidas si se contabiliza antes de aprobar (DA1); la
-  partida automática de sv3 decide ahora la cuenta (un error de partida es
+  partida del portal decide ahora la cuenta (un error de partida es
   contable; se ve en `caa_cod` del preflight); parte↔asiento sin clave.

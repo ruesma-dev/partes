@@ -377,7 +377,7 @@
         "DA1 reabrir: si todos los partes del mes estan Imputados no se crea parte; las lineas salen 'omitir' (parte_contabilizado: reabrir en Sigrid) y entran normales al reaprobar tras la reapertura",
         "DA2: en un parte Cerrado (est 3) se escribe como hoy y el preflight lo avisa; sin partes o en registro, todo igual que hoy",
         "Una linea que choca (recurso+dia+tipo) con una linea ajena de un parte Imputado sale 'omitir' con motivo parte_contabilizado y sin cuenta",
-        "DA6: hmores.caaide sale de la cuenta de la PARTIDA de la linea si cuelga de la rama CI del arbol analitico del centro; sin partida, partida CI sin cuenta, directa (CD) o proporcional (CP): la de la ficha del recurso (F-021) con caa_nota; CD/CP provisional hasta respuesta de Juan Romero",
+        "DA6 (v3, humano 2026-10-05): hmores.caaide es SIEMPRE la cuenta de la PARTIDA que la linea tiene en el portal (automatica de sv3 o corregida por el administrativo) si es cuenta de coste (rama CD, CI o CP), sin mirar tipcos ni el oficio y sin nota; sin partida, partida no encontrada, sin cuenta o solo con cuenta de ingresos (INGR): la de la ficha del recurso (F-021) con caa_nota, provisional hasta DA6-e",
         "F-021 R7 queda sustituida y ningun test test_f021_* cambia de asercion",
         "partes[] lleva estado, contabilizados y aviso; acciones[] lleva caa_origen y caa_nota; el modal de sv4 pinta el aviso del parte y las notas de cuenta",
         "sv5 no escribe en asa/apa/apu/asi ni cambia estados de partes (DA4): reabrir y contabilizar es de Administracion en Sigrid",

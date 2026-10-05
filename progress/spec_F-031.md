@@ -1,98 +1,80 @@
 <!-- progress/spec_F-031.md -->
-# F-031 · Resumen de la spec para el humano (spec-author, 2026-10-05, v2)
+# F-031 · Resumen de la spec para el humano (spec-author, 2026-10-05, v3)
 
 Spec: `specs/F-031-asiento-analitico/` (requirements, design, tasks). Rama
 `feature/F-031-asiento-analitico`. Estado: `spec_ready`. Rigor crítico.
-Versión 2: aplica tus respuestas a la tabla de decisiones del 2026-10-05.
+Versión 3: aplica tu aclaración sobre DA6 del 2026-10-05.
 
 ## En una frase
 
 Sigrid ya genera el asiento analítico de cada parte al «Contabilizar». sv5
 no escribe asientos; tiene que (1) **no meter líneas en un parte ya
-contabilizado** y (2) poner en cada línea **la cuenta analítica de su
-partida** cuando la partida es de costes indirectos.
+contabilizado** y (2) poner en cada línea **la cuenta de la partida que la
+línea tiene en el portal** (automática o corregida por el administrativo).
 
-## Qué cambia respecto a la versión 1
+## Qué cambia respecto a la v2 (solo DA6)
 
-1. **DA1 (reabrir), ya no hay parte complementario.** Si todos los partes
-   del mes están Imputados, sv5 no crea nada: las líneas de ese mes salen
-   como **omitidas** con el motivo «parte PTxx (MM/AAAA) contabilizado: pide
-   a Administración que lo reabra en Sigrid y vuelve a aprobar». En el modal
-   de aprobación el parte aparece con un aviso («N líneas no se registran
-   hasta que Administración lo reabra»), y las líneas, en la lista de «No se
-   registran». Cuando Administración deshace el «Contabilizar» en Sigrid y
-   se vuelven a aprobar, entran normales. sv5 nunca cambia el estado del
-   parte (DA4).
-2. **DA2 (sí):** en partes Cerrados se escribe, con aviso. Sin cambios.
-3. **DA3:** eran **2** recursos sin contrapartida, no 3 (206 líneas,
-   12.169 €). Fuera de alcance hasta que Juan responda al borrador.
-4. **DA6 (nuevo): la cuenta sale de la partida.** Hasta ahora (F-021) la
-   cuenta salía de la ficha de horas del recurso (p. ej. `CIMO08 CAPATAZ`).
-   Ahora, si la partida de la línea (la del portal o la automática) tiene
-   cuenta y esa cuenta cuelga de **CI** en el árbol analítico de la obra,
-   la línea lleva la cuenta de la partida. En los demás casos lleva la del
-   recurso, como hoy, y el modal lo dice con una nota por línea («sin
-   partida», «la partida X es de costes directos…», etc.). Esto **modifica
-   F-021** (su regla R7 decía que la partida no intervenía), pero **ningún
-   test de F-021 cambia**: ninguno usa partida.
-5. Lo demás (DA5 omitir choques, DA7 estados como ajustes, DA8 herramienta
-   de comprobación) igual que en la versión 1.
+- **Regla nueva (R17, R19):** la cuenta analítica de la línea es **siempre**
+  la de su partida del portal, sea CI o CD (o CP si alguien la elige), sin
+  mirar el tipo de coste ni el oficio del trabajador y sin nota. Desaparecen
+  la rama CI/CD, la nota «pendiente de Administración» y el caso CP.
+- **Preguntas a Juan 1–3** (CD, CP, partida frente a oficio): **retiradas**,
+  las has respondido tú. Queda para Juan solo DA3 (contrapartidas).
+- **Única excepción (R18, provisional):** si la línea no tiene partida, o
+  su partida no tiene cuenta de coste, lleva la cuenta del recurso como
+  hoy (F-021) y el modal lo dice con una nota por línea.
+- La lectura de la partida ya no trae `tipcos`: solo su cuenta y la rama
+  del árbol (para distinguir coste de ingreso).
+- Sin cambios: DA1 (reabrir), DA2 (Cerrados con aviso), DA3 (fuera), DA4
+  (sv5 no contabiliza), DA5, DA7, DA8. Ningún test de F-021 cambia.
 
-## Lo que he descubierto de la partida y el árbol analítico
+## Comprobación hecha: ¿tiene la partida otra cuenta de coste? No (§D10)
 
-- El árbol analítico de cada obra tiene **CD** (materiales, maquinaria,
-  subcontratas, medios auxiliares), **CI** (consumos, infraestructura,
-  maquinaria, **mano de obra indirecta CIMO**, otros…) y **CP**. **No hay
-  ninguna cuenta CD para mano de obra propia.** Nunca, en ningún año, una
-  línea de horas ha llevado una cuenta CD.
-- Cada partida del presupuesto sabe si es CI, CD o CP por un campo propio
-  de Sigrid (`tipcos`), y las partidas CI suelen tener su cuenta CI (p. ej.
-  la partida «CAPATAZ» → `CIMO08`). Las CD llevan cuentas de **ingresos**
-  (certificación) o ninguna; las CP, `CP00..`.
-- En 2026, cuando la partida es CI con cuenta, Administración ha puesto la
-  de la partida en 17.481 líneas y la del recurso en 1.139 (p. ej. un
-  oficial imputado a la partida «maquinista»: 433 líneas). Las 1.979 líneas
-  sobre partidas CD y las 562 sobre CP las ha puesto **todas en CI** (la
-  del recurso).
-- Conclusión: la regla para CI se deduce con seguridad; para CD y CP **no**
-  hay cuenta destino que deducir. Hasta que Juan responda, esas líneas
-  llevan la cuenta del recurso con una nota «pendiente de Administración».
+He buscado en Sigrid una cuenta de **coste** de la partida distinta de
+`obrparpar.caaide` (que en las partidas CD es de **ingresos** `INGR..` o
+ninguna): la unidad de obra de la partida (`pro.gaside`), la partida de
+coste relacionada (`parcoside`), el tipo de coste indirecto (`cosindide`),
+los capítulos padre y la cuenta de gastos por defecto del centro. **Ninguna
+existe** en las partidas con horas de 2026. Así que hay líneas cuya
+partida no da cuenta de coste, y hace falta tu decisión:
 
-## Preguntas para Juan Romero
+## Pregunta para ti (DA6-e)
 
-1. **Partidas de costes directos.** El árbol de la obra no tiene cuenta CD
-   de mano de obra propia (solo CDSB «subcontrata mano de obra»). Si un
-   operario se imputa a una partida CD, ¿a qué cuenta va? ¿Hay que crear un
-   grupo (p. ej. `CDMO`) en el árbol, o usar otra?
-2. **Partidas de costes proporcionales** (p. ej. `CP.7 Costes estructura
-   delegación`, cuenta `CP0007`): ¿la línea va a esa cuenta CP o a la CI del
-   recurso, como se hace hoy?
-3. **Partida frente a oficio.** Si la partida es CI pero de otro oficio que
-   el trabajador (oficial en la partida «maquinista»), ¿manda la partida?
-   Hoy, a mano, manda el recurso en esos casos (1.139 líneas en 2026).
-4. **Contrapartidas** (DA3, ya en el borrador del líder): 2 recursos sin
-   cuenta de contrapartida (206 líneas, 12.169 € en 2026).
-5. Para su información: 31 asientos de 2025–26 ya no cuadran con su parte
-   porque el parte se tocó después de contabilizar.
+**¿Qué cuenta lleva una línea imputada a una partida que solo tiene cuenta
+de ingresos o ninguna?** Cifras de 2026, empresa 1 (líneas tecleadas en
+Sigrid):
 
-Si Juan responde 1–2 antes de que el implementer llegue a T6, se ajusta la
-spec; si responde después, es una feature pequeña nueva (solo cambia una
-función pura).
+| Partida de la línea | Líneas | Importe | Cuenta que puso Administración |
+|---|---|---|---|
+| CD sin cuenta | 1.404 | 362 k€ | CI del recurso (todas) |
+| CD con solo `INGR..` (ingresos) | 575 | 105 k€ | CI del recurso (todas) |
+| CI sin cuenta | 2.811 | 1.139 k€ | CI del recurso (todas) |
+
+Lo provisional en la spec (R18) es **la cuenta del recurso, como hoy, con
+una nota en el modal**, que es lo que hizo Administración a mano con esas
+4.790 líneas. La alternativa sería dejarla sin cuenta (`caaide = 0`, con
+aviso, como F-021 cuando no encuentra cuenta), pero entonces esa línea no
+entra en el asiento analítico. Si eliges otra cosa, solo cambia una función
+pura (`origen_subcuenta`).
+
+Para tu información: en 2026 hay 562 líneas (170 k€) sobre partidas CP
+(`CP00..`), todas tecleadas en Sigrid y puestas en la CI del recurso. Por
+el portal no salen (sv3 y la sugerencia asignan CI/CD); si un administrativo
+eligiera a mano una partida CP, con la regla nueva iría a su cuenta CP.
 
 ## Riesgos
 
 Carrera de segundos con un «Contabilizar» simultáneo (aceptado; la
 herramienta lo detectaría). Líneas retenidas si Administración contabiliza
-antes de aprobar (es lo que pide DA1). La partida automática que asigna
-sv3 pasa a decidir la cuenta: un error de partida es ahora un error
-contable (se ve en el preflight).
+antes de aprobar (es lo que pide DA1). La partida del portal pasa a decidir
+la cuenta: un error de partida es ahora un error contable (se ve en el
+preflight, en `caa_cod`).
 
 ## Fuera de alcance
 
-Escribir asientos o cambiar estados; contrapartidas; los 31 asientos que no
-cuadran; recalcular la cuenta de líneas ya escritas; la analítica de
-Porsan; la cuenta CD/CP hasta que Juan responda; sv1–sv3 y la base
-`partes`.
+Escribir asientos o cambiar estados; contrapartidas (DA3, Juan); los 31
+asientos que no cuadran; recalcular la cuenta de líneas ya escritas; la
+analítica de Porsan; sv1–sv3 y la base `partes`.
 
 ## Anexo · datos (solo lectura vía sigrid-api, base `ruesma`, 2026-10-05; agregados, sin nombres ni DNIs)
 
@@ -145,3 +127,13 @@ Porsan; la cuenta CD/CP hasta que Juan responda; sv1–sv3 y la base
   `CIMO12` 433; VEHÍCULOS `CIMJ09` ← `CIMP09` 180; COMBUSTIBLES `CICO01` ←
   VEHÍCULOS `CIMP09` 92. Empresa 28: 207 de 5.178 líneas con partida, 0
   con cuenta.
+- **§D10 Cuenta de coste de la partida (v3).** Líneas 2026 empresa 1 con
+  partida, por `tipcos` y rama de `obrparpar.caaide`: 1/CI 18.595 (7,47
+  M€); 1/sin cuenta 2.811 (1,14 M€); 0/sin cuenta 1.404 (362 k€); 0/IN 575
+  (105 k€); 2/CP 562 (170 k€); todas con cuenta CI en la línea salvo 1. En
+  esas partidas: `proide` 0, `parcoside` 0, `cosindide` 0; capítulo padre y
+  abuelo de las CD/CP: rama IN o sin cuenta; `cen.gaside` e `cen.ingide`
+  vacíos en sus centros. Presupuesto de las obras con horas en 2026:
+  partidas `tipcos` 0 con cuenta IN 33.394, sin cuenta 15.732, CI 1;
+  `tipcos` 2 con CP 504, sin 163. Origen de la partida: sv3 asigna CI/CD,
+  la sugerencia del portal solo CI, el selector manual cualquier hoja.
