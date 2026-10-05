@@ -84,8 +84,9 @@ def _cli(obra=None, **kw) -> SigridFake:
     return SigridFake(obras={obra.codigo: obra}, horas=HORAS, **kw)
 
 
-def _lin(rid, recurso=501, tipo="normal", **kw) -> LineaEntrada:
-    return LineaEntrada(registro_id=rid, fecha_int=FECHA,
+def _lin(rid, recurso=501, tipo="normal", fecha_int=FECHA,
+         **kw) -> LineaEntrada:
+    return LineaEntrada(registro_id=rid, fecha_int=fecha_int,
                         recurso_ide=recurso, nombre=f"Persona {rid}",
                         tipo_hora=tipo, horas=8.0, **kw)
 
