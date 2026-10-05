@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-030 · blocked (2026-10-05): ficha de recurso cuando no hay ficha de empleado
+## F-030 · in_progress (2026-10-05): ficha de recurso cuando no hay ficha de empleado
+
+**Desbloqueada por el lider (2026-10-05)**: retirado el worktree de F-031
+(su spec queda en la rama `feature/F-031-asiento-analitico`, `b3a5cfd`);
+`bash harness/init.sh` en VERDE (raiz 445 passed, cobertura 100 % 59/59,
+tamano OK). Pasa al reviewer. Leccion: un worktree dentro del repo rompe el
+guardian de `.sql` de F-017; los worktrees de agentes, fuera del repo.
 
 **Implementacion TERMINADA (T1-T15), bloqueada SOLO por el portero**:
 `bash harness/init.sh` final (HEAD `24a8448` + informe) da todo en verde
