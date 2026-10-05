@@ -22,6 +22,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   (`test_f031_pipeline_estado.py`: R4, R6, R10, R32, R33;
   `test_f031_pipeline_cuenta_partida.py`: R20, R22) y suite `f021` en verde
   (66 passed, R27).
+- T2 hecha: `dobles.py` crece (partidas, `partes_del_periodo`,
+  `partidas_de_lineas`, fallos inyectables, `partes_existentes` con el de
+  mayor `ide`, `SettingsFake` 1/3/10). Suite sv5: 370 passed.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 

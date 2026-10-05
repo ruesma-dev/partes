@@ -148,7 +148,10 @@ class SettingsFake:
                  blob_transfer: str = "transfer",
                  cola_visibility_s: int = 600,
                  cola_max_dequeue: int = 5,
-                 transfer_workers: int = 3) -> None:
+                 transfer_workers: int = 3,
+                 est_parte_activo: int = 1,
+                 est_parte_cerrado: int = 3,
+                 est_parte_imputado: int = 10) -> None:
         self.obra_pruebas_forzar = obra_pruebas_forzar
         self.obra_pruebas_cod = obra_pruebas_cod
         self.marca_pruebas = marca_pruebas
@@ -159,6 +162,10 @@ class SettingsFake:
         self.cola_visibility_s = cola_visibility_s
         self.cola_max_dequeue = cola_max_dequeue
         self.transfer_workers = transfer_workers
+        # F-031: estados del parte (`conest` tipo 35), como `Settings`.
+        self.est_parte_activo = est_parte_activo
+        self.est_parte_cerrado = est_parte_cerrado
+        self.est_parte_imputado = est_parte_imputado
 
 
 class SigridFake:
@@ -178,7 +185,8 @@ class SigridFake:
     def __init__(self, *, obras=None, horas=None, partes=None, lineas=None,
                  latencia_lectura: float = 0.0,
                  latencia_escritura: float = 0.0,
-                 recursos=None, por_dni=None, cuentas=None) -> None:
+                 recursos=None, por_dni=None, cuentas=None,
+                 partidas=None) -> None:
         from domain.models.registro_models import ObraEntrada, ParteDestino
 
         self._ObraEntrada = ObraEntrada
@@ -201,6 +209,24 @@ class SigridFake:
         self.cuentas_leidas: list[dict] = []
         #: F-021 (R11): excepcion que lanzara `cuentas_de_centro`.
         self.fallo_cuentas: Exception | None = None
+        #: F-031: {paride: PartidaCuenta} que devuelve `partidas_de_lineas`
+        #: (sin el, ninguna partida: los tests anteriores no las usan).
+        self.partidas: dict = dict(partidas or {})
+        #: F-031 (R24): cada llamada a `partidas_de_lineas`, con lo pedido
+        #: y si corrio con el lock de escritura tomado (debe ser que no).
+        self.partidas_leidas: list[dict] = []
+        #: F-031 (R15, R24): excepciones que lanzaran las lecturas.
+        self.fallo_partidas: Exception | None = None
+        self.fallo_partes: Exception | None = None
+        self.fallo_lineas: Exception | None = None
+        #: F-031 (R9): si no son None, el parte que crea `escribir` sale
+        #: con este estado / este codigo (relectura que no cuadra).
+        self.est_al_crear: int | None = None
+        self.cod_al_crear: str | None = None
+        #: F-031: (obra_ide, ano, mes) de cada `partes_del_periodo`.
+        self.periodos_leidos: list[tuple[int, int, int]] = []
+        #: F-031: `hmoide` de cada `lineas_existentes`.
+        self.lineas_leidas: list[int] = []
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -318,9 +344,12 @@ class SigridFake:
         try:
             out = {}
             for ano, mes in sorted(set(periodos)):
-                hit = next((p for p in self.partes
-                            if p["obride"] == int(obra_ide)
-                            and p["ano"] == ano and p["mes"] == mes), None)
+                # Como el SQL real (`ORDER BY hmo.ide DESC`): el de mayor
+                # `ide` del periodo, sin mirar su estado.
+                hits = [p for p in self.partes
+                        if p["obride"] == int(obra_ide)
+                        and p["ano"] == ano and p["mes"] == mes]
+                hit = max(hits, key=lambda p: p["ide"]) if hits else None
                 out[(ano, mes)] = (
                     self._ParteDestino(ano=ano, mes=mes, existe=True,
                                        ide=hit["ide"], cod=hit["cod"])
@@ -329,6 +358,39 @@ class SigridFake:
             return out
         finally:
             self._salir("partes_existentes")
+
+    def partes_del_periodo(self, obra_ide: int, ano: int, mes: int):
+        """F-031 (R1): TODOS los partes de obra y mes con su estado, por
+        `ide` descendente como el SQL real; sin `est`, En registro (1)."""
+        from domain.models.registro_models import ParteSigrid
+
+        self._comprobar_lock("partes_del_periodo")
+        self._entrar("partes_del_periodo", self.latencia_lectura)
+        try:
+            self.periodos_leidos.append((int(obra_ide), int(ano), int(mes)))
+            if self.fallo_partes is not None:
+                raise self.fallo_partes
+            hits = sorted((p for p in self.partes
+                           if p["obride"] == int(obra_ide)
+                           and p["ano"] == int(ano)
+                           and p["mes"] == int(mes)),
+                          key=lambda p: p["ide"], reverse=True)
+            return [ParteSigrid(ide=p["ide"], cod=p["cod"],
+                                est=p.get("est", 1)) for p in hits]
+        finally:
+            self._salir("partes_del_periodo")
+
+    def partidas_de_lineas(self, parides):
+        """F-031 (R24): partidas pedidas -> `PartidaCuenta` (las que haya)."""
+        self._lectura("partidas_de_lineas")
+        ides = sorted({int(i) for i in parides if i})
+        self.partidas_leidas.append({
+            "parides": ides,
+            "bajo_lock": bool(self._verificador_lock is not None
+                              and self._verificador_lock.locked())})
+        if self.fallo_partidas is not None:
+            raise self.fallo_partidas
+        return {i: self.partidas[i] for i in ides if i in self.partidas}
 
     def siguiente_cod_pt(self, ano: int, empresa: int) -> str:
         self._comprobar_lock("siguiente_cod_pt")
@@ -352,6 +414,9 @@ class SigridFake:
     def lineas_existentes(self, hmoide: int, resides, fechas):
         self._comprobar_lock("lineas_existentes")
         self._lectura("lineas_existentes")
+        self.lineas_leidas.append(int(hmoide))
+        if self.fallo_lineas is not None:
+            raise self.fallo_lineas
         res = {int(i) for i in resides if i}
         fec = {int(f) for f in fechas if f}
         if not res or not fec:
@@ -410,10 +475,16 @@ class SigridFake:
             for s in statements:
                 if s["op"] == "crear_parte":
                     self._siguiente_hmoide += 1
-                    self.partes.append({
+                    nuevo = {
                         "ide": self._siguiente_hmoide, "obride": s["obride"],
                         "ano": s["ano"], "mes": s["mes"], "cod": s["cod"],
-                        "emp": s["emp"]})
+                        "emp": s["emp"]}
+                    # F-031 (R9): relectura que no cuadra, a peticion.
+                    if self.est_al_crear is not None:
+                        nuevo["est"] = self.est_al_crear
+                    if self.cod_al_crear is not None:
+                        nuevo["cod"] = self.cod_al_crear
+                    self.partes.append(nuevo)
                 elif s["op"] == "insert":
                     self._siguiente_hmores += 1
                     fila = dict(s)
