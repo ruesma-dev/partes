@@ -10,5 +10,10 @@
 # La mantiene el humano: un alias nuevo es un cambio versionado.
 1:
   - RUESMA
+  # F-029: el logotipo impreso es «ruΞsma» (Xi griega por la E). La
+  # normalizacion convierte toda letra no latina en espacio, asi que el
+  # logotipo (y la variante «ru≡sma») queda «ru sma» y no casa con
+  # RUESMA. Este alias normaliza igual: «ru sma».
+  - RUΞSMA
 28:
   - PORSAN

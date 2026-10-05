@@ -634,3 +634,22 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   apagado, y M3 al encender cuando `porcentajes` lea la bandeja.
   Automejora propuesta: en rigor crítico, relanzar sin caché las suites de
   servicio en la review.
+
+## F-029 · Alias del logotipo de Ruesma en el membrete — done 2026-10-05
+
+- Rama `feature/F-029-alias-logo-ruesma` · rigor estandar · sdd=false ·
+  APPROVED del reviewer en la primera pasada (`progress/review_F-029.md`).
+  Origen: revisión por el líder de las plantillas J.310 rev. 1 de Ruesma y
+  Porsan (petición del humano tras el ejemplo de Porsan de Administración).
+- Hallazgo: `text_match.normalize` convierte la Ξ/≡ del logotipo «ruΞsma»
+  en espacio («ru sma») y no casaba con el alias RUESMA. Entregado: alias
+  `RUΞSMA` para la empresa 1 en `services/partes-persistencia/config/
+  empresas_membrete.yaml`, con comentario; sin código ni cambio de prompt.
+- Verificado: 12 tests `test_f029_*` (RED 4 failed), sv3 666 passed,
+  init.sh en verde; mutación con alcance vacío (sin Python de producción) y
+  campaña manual del YAML (implementer y reviewer). D1: tres asserts de
+  F-023 que fijaban la tabla literal, actualizados sin relajar la vigilancia.
+- Exploración con Gemini real sobre 4 PDFs (0678 y 0694, Ruesma y Porsan,
+  plantilla rev. 0): el logotipo se transcribe `ruesma` (empresa 1) y Porsan
+  como su razón social (empresa 28). El alias es red de seguridad. La
+  plantilla rev. 1 con DNI queda sin probar con un escaneo real.
