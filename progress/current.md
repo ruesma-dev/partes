@@ -35,6 +35,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   y docstring (R7 de F-021 matizada). T5 + `test_f021_cuenta_analitica` en
   verde (60); suite sv5 410 passed.
 - T7 hecha: `test_f031_cliente_partes.py` en ROJO (11 failed).
+- T8 hecha: `partes_del_periodo` y `partidas_de_lineas` en el cliente
+  (`partes_existentes`, `stmts_crear_parte`, `lineas_existentes` intactos).
+  T7 en verde; suite sv5 421 passed.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 

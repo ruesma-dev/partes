@@ -18,6 +18,11 @@ centro de la obra con la subcuenta de la ficha del recurso (regla en
 parametro; `horas_de_recursos` trae la plantilla (`reshor.caaide`) y
 `cuentas_de_centro` las cuentas candidatas del centro.
 
+F-031: `partes_del_periodo` lee TODOS los partes de obra y mes con su
+estado (`con.est`) para que el pipeline no escriba en uno cerrado, y
+`partidas_de_lineas` la cuenta de cada partida (respaldo de la del
+recurso). Solo lecturas; las sentencias de escritura no cambian.
+
 F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
 no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
 y el ``INSERT INTO hmo`` localiza su cabecera por codigo, tipo y empresa.
@@ -35,7 +40,8 @@ import httpx
 
 from application.services.cuenta_analitica import indexar_cuentas
 from domain.models.registro_models import (
-    HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino, RecursoSigrid,
+    HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino, ParteSigrid,
+    PartidaCuenta, RecursoSigrid,
 )
 
 logger = logging.getLogger(__name__)
@@ -288,6 +294,44 @@ class SigridWriteClient:
                     cod=filas[0]["cod"])
             else:
                 out[(ano, mes)] = ParteDestino(ano=ano, mes=mes, existe=False)
+        return out
+
+    def partes_del_periodo(self, obra_ide: int, ano: int,
+                           mes: int) -> list[ParteSigrid]:
+        """F-031 (R1): TODOS los partes de obra (sin recurso) y mes, con su
+        estado, por `ide` descendente. UNA lectura; un `truncated` sube
+        como excepcion (R15)."""
+        filas = self._read(
+            "SELECT hmo.ide AS ide, con.cod AS cod, con.est AS est FROM hmo "
+            "JOIN con ON con.ide = hmo.ide "
+            "WHERE hmo.obride = ? AND hmo.ano = ? AND hmo.mes = ? "
+            "AND ISNULL(hmo.reside, 0) = 0 AND con.tip = ? "
+            "ORDER BY hmo.ide DESC",
+            [int(obra_ide), int(ano), int(mes), self._tip])
+        return [ParteSigrid(ide=int(f["ide"]), cod=f["cod"],
+                            est=None if f["est"] is None else int(f["est"]))
+                for f in filas]
+
+    def partidas_de_lineas(
+        self, parides: Iterable[int | None]
+    ) -> dict[int, PartidaCuenta]:
+        """F-031 (R24): partida -> su cuenta analitica (`obrparpar.caaide`,
+        0 = ninguna), en UNA lectura. Sin partidas no se lee."""
+        ides = sorted({int(i) for i in parides if i})
+        if not ides:
+            return {}
+        marcas = ",".join("?" for _ in ides)
+        filas = self._read(
+            "SELECT p.ide AS ide, p.cod AS cod, pc.cod AS caacod "
+            "FROM obrparpar p LEFT JOIN con pc ON pc.ide = p.caaide "
+            "AND ISNULL(p.caaide, 0) <> 0 "
+            f"WHERE p.ide IN ({marcas})", ides)
+        out: dict[int, PartidaCuenta] = {}
+        for f in filas:
+            ide = int(f["ide"])
+            out[ide] = PartidaCuenta(
+                ide=ide, cod=(f["cod"] or "").strip() or None,
+                caa_cod=(f["caacod"] or "").strip() or None)
         return out
 
     def siguiente_cod_pt(self, ano: int, empresa: int) -> str:
