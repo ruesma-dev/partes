@@ -1,7 +1,10 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-030 · in_progress (2026-10-05): ficha de recurso cuando no hay ficha de empleado
+## F-030 · done (2026-10-05), pendiente de desplegar sv3 -> sv4 y M1-M4
+
+APPROVED del reviewer en la pasada 2 (`progress/review_F-030.md`; la pasada 1
+pidio un test de cableado, T16 `88140da`). Resumen en `progress/history.md`.
 
 **Desbloqueada por el lider (2026-10-05)**: retirado el worktree de F-031
 (su spec queda en la rama `feature/F-031-asiento-analitico`, `b3a5cfd`);

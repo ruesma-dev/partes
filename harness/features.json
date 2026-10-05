@@ -386,7 +386,7 @@
         "R22: ARCHITECTURE.md, partes-proyecto.md y azure-apps/partes.md al dia.",
         "MANUAL: reprocesar los 2 partes de Porsan (papelera + correo de vuelta a la bandeja) y comprobar recurso y cuenta 0 en el preflight; despliegue sv3 -> sv4."
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

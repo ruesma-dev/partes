@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **30 features**, 10 abiertas, 20 terminadas.
-
-En curso: **F-030**.
+Resumen: **30 features**, 9 abiertas, 21 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | en curso | critico | `feature/F-030-recurso-sin-ficha` |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | pendiente | critico | `feature/F-031-asiento-analitico` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -32,6 +29,7 @@ Bloqueadas: **F-014**.
 | F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | critico |
 | F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | 1 | estandar |
 | F-029 | El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete | 1 | estandar |
+| F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -50,12 +48,6 @@ Bloqueadas: **F-014**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-030 · Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-030-recurso-sin-ficha`
-
-Prueba real de Administracion (2026-10-05, partes de Porsan obra 0724 del 25 y 28/09): un trabajador con recurso de mano de obra de alta en la empresa 28 (res.cif = su DNI) pero SIN ficha en `emp` sale 'Sin recurso' en el portal, porque sv3 casa primero contra la ficha de empleado (emp, por DNI o nombre) y llega al recurso por emp.reside. Alcance medido en Sigrid el 2026-10-05: recursos MO/ de alta sin ficha de empleado por DNI: 19 de 229 en la empresa 1 y 18 de 39 en la 28. LO QUE SE PIDE (humano, 2026-10-05): cuando no haya ficha de empleado, sv3 casa el RECURSO directamente por DNI (res.cif) entre los recursos de la empresa de la obra y de alta (los mismos candidatos que ya exige sv5 al escribir), normalizando el DNI con o sin ceros a la izquierda (el parte de prueba lo traia con y sin el 0). A DECIDIR EN LA SPEC: (a) si ademas se casa por nombre contra el recurso (formato 'APELLIDOS, NOMBRE') o solo por DNI; (b) que se guarda como empleado en la linea cuando no hay ficha (empleado_ide nulo, metodo nuevo) y como lo ve el portal (sv4) y el resto del pipeline (jornada, extras, calendario, Sesame, que hoy cuelgan del empleado); (c) la lista cerrada de duplicacion de CLAUDE.md: IndicePersonas.elegir_recurso (sv3) y elegir_por_dni (sv5) son copias vigiladas, quien toque una cambia todas; (d) reprocesar los partes ya entrados sin recurso; (e) CUENTA ANALITICA EN PORSAN: Administracion dice que en Porsan no se pone cuenta analitica; desde F-021 sv5 escribe hmores.caaide con la cuenta del centro de la obra: comprobar si las obras de la empresa 28 la tienen y proponer si para la empresa 28 debe ir 0 (puede ser una DA separada o feature aparte). Servicios previstos: sv3 (casado), quiza sv4 (vista) y sv5 (cuenta analitica). RIGOR critico: cambia que recurso se escribe en Sigrid.
 
 ### F-031 · El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra
 
@@ -134,6 +126,12 @@ Peticion del humano (2026-10-02, captura del detalle de obra): el contenido de t
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD no · rama `feature/F-029-alias-logo-ruesma`
 
 Hallazgo del lider revisando las plantillas J.310 rev. 1 (2026-10-05): el membrete de la plantilla de Ruesma es el texto 'ruΞsma' (Xi griega, como el logotipo real). text_match.normalize convierte toda letra no latina en espacio, asi que 'ruΞsma', 'RUΞSMA' y 'ru≡sma' quedan 'ru sma' y no casan con el alias RUESMA de services/partes-persistencia/config/empresas_membrete.yaml: la empresa del membrete de los partes de Ruesma queda desconocida (sin_alias) y en las obras gemelas (codigo en empresas 1 y 28) el desempate depende solo de los trabajadores. Solucion aprobada por el humano: anadir a la empresa 1 el alias del logotipo (RUΞSMA, normalizado 'ru sma') con comentario, sin tocar codigo ni el prompt de sv2. Solo sv3 (config versionada). La plantilla de Porsan ('PORSAN E HIJOS CONSTRUCCIONES, S.L.') ya casa con 28.
+
+### F-030 · Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-030-recurso-sin-ficha`
+
+Prueba real de Administracion (2026-10-05, partes de Porsan obra 0724 del 25 y 28/09): un trabajador con recurso de mano de obra de alta en la empresa 28 (res.cif = su DNI) pero SIN ficha en `emp` sale 'Sin recurso' en el portal, porque sv3 casa primero contra la ficha de empleado (emp, por DNI o nombre) y llega al recurso por emp.reside. Alcance medido en Sigrid el 2026-10-05: recursos MO/ de alta sin ficha de empleado por DNI: 19 de 229 en la empresa 1 y 18 de 39 en la 28. LO QUE SE PIDE (humano, 2026-10-05): cuando no haya ficha de empleado, sv3 casa el RECURSO directamente por DNI (res.cif) entre los recursos de la empresa de la obra y de alta (los mismos candidatos que ya exige sv5 al escribir), normalizando el DNI con o sin ceros a la izquierda (el parte de prueba lo traia con y sin el 0). A DECIDIR EN LA SPEC: (a) si ademas se casa por nombre contra el recurso (formato 'APELLIDOS, NOMBRE') o solo por DNI; (b) que se guarda como empleado en la linea cuando no hay ficha (empleado_ide nulo, metodo nuevo) y como lo ve el portal (sv4) y el resto del pipeline (jornada, extras, calendario, Sesame, que hoy cuelgan del empleado); (c) la lista cerrada de duplicacion de CLAUDE.md: IndicePersonas.elegir_recurso (sv3) y elegir_por_dni (sv5) son copias vigiladas, quien toque una cambia todas; (d) reprocesar los partes ya entrados sin recurso; (e) CUENTA ANALITICA EN PORSAN: Administracion dice que en Porsan no se pone cuenta analitica; desde F-021 sv5 escribe hmores.caaide con la cuenta del centro de la obra: comprobar si las obras de la empresa 28 la tienen y proponer si para la empresa 28 debe ir 0 (puede ser una DA separada o feature aparte). Servicios previstos: sv3 (casado), quiza sv4 (vista) y sv5 (cuenta analitica). RIGOR critico: cambia que recurso se escribe en Sigrid.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
