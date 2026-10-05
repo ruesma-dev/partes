@@ -43,6 +43,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T10 hecha: `_resolver_cuentas` con respaldo de partida y log `origen
   cuenta`. Corregido de paso el docstring que decia que la cola reintenta
   (observacion O1 del reviewer de F-021). T9, T1 y suite sv5 en verde (437).
+- T11 hecha: tests de pipeline del parte en ROJO (22 failed, 11 passed:
+  caracterizaciones de T1 y guardas que ya cumple el codigo de hoy).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
