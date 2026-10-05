@@ -25,6 +25,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T2 hecha: `dobles.py` crece (partidas, `partes_del_periodo`,
   `partidas_de_lineas`, fallos inyectables, `partes_existentes` con el de
   mayor `ide`, `SettingsFake` 1/3/10). Suite sv5: 370 passed.
+- T3 hecha: `test_f031_estado_parte.py` en ROJO (modulo inexistente);
+  traza para el informe. Textos de aviso y motivo en ASCII sin tildes, como
+  el resto de mensajes de sv5 (decision, no cambia el sentido de design §7.1).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
