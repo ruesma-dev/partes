@@ -1,7 +1,10 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-030 · spec_ready (2026-10-05): ficha de recurso cuando no hay ficha de empleado
+## F-030 · in_progress (2026-10-05): ficha de recurso cuando no hay ficha de empleado
+
+**Implementacion en curso (implementer).** Tarea en curso y desviaciones:
+se anotan en esta seccion; informe final en `progress/impl_F-030.md`.
 
 Spec en `specs/F-030-recurso-sin-ficha/` (requirements 116/150, design
 232/250, 15 tareas), **version 2**: reescrita con las decisiones del humano
