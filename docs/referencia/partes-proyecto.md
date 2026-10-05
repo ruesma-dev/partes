@@ -22,6 +22,9 @@
 > alta), §5.1 (columnas de empresa del parte) y §6.6 (`SIGRID_EMPRESA`
 > deja de usarse; tabla de alias del membrete).
 
+> **Actualizado el 2026-10-05 por F-030**: §4.6 y §7 (DNI canónico y
+> «ficha de recurso» de quien no tiene ficha de empleado).
+
 > Sistema completo de captura, revisión y registro en Sigrid de los partes
 > diarios de trabajo de Construcciones Ruesma. Julio 2026.
 > Estado: **desplegado en Azure y operativo** (sv1–sv4 en producción de
@@ -388,7 +391,10 @@ eso el filtro).
 ### 4.6 Personas: identificación y aprendizaje
 
 La clave de identidad en toda la casa es el **DNI normalizado** (sin
-guiones/espacios, mayúsculas; vale NIE). Como los encargados escriben los
+guiones/espacios, mayúsculas; vale NIE). Desde F-030 el DNI leído del
+papel es además **canónico**: si son de 1 a 7 dígitos y una letra se
+completan con ceros a la izquierda hasta 8, porque Sigrid los guarda
+siempre con 8 y el cero que falta es del papel. Como los encargados escriben los
 nombres «a su manera» («Fco. Javier Roldán»), la primera vez
 Administración concilia a mano en el portal y el sistema **aprende el
 alias** (`empleado_alias`): la siguiente vez casa solo.
@@ -411,6 +417,18 @@ del recurso (`emp.fecbaj` no cuenta). En la ingesta (sv3):
    fichas de alta a la fecha del parte de la empresa del parte. Un DNI con
    varias fichas, solo de baja o de otra empresa queda sin casar (nunca se
    elige al azar).
+   **Sin ficha de empleado (F-030).** Hay trabajadores con recurso de mano
+   de obra (`MO/`, su DNI en `res.cif`) y sin ficha `emp`. Ese recurso es
+   su **ficha de recurso** (DNI = `res.cif`, nombre = el del recurso,
+   empresa y baja las del recurso) y se casa con el **mismo** proceso: si
+   el DNI leído no tiene ficha de empleado, se busca entre las fichas de
+   recurso antes del alias (`recurso_dni`); en el nombre compiten juntas
+   las fichas de empleado y de recurso, con el mismo umbral y los empates a
+   revisión (`recurso_nombre`). El alias solo apunta a fichas de empleado.
+   La línea queda sin `empleado_ide` (no hay ficha), con `empleado_dni` =
+   `res.cif` y `empleado_reside` = el recurso; no va a revisión por eso, el
+   portal la muestra casada y no entra en la cola de conciliación. Las
+   horas se guardan en el recurso, como siempre.
 4. El **recurso** de cada línea: entre los recursos de la persona de alta
    a la fecha de la línea y de la empresa de su obra; `emp.reside` solo
    desempata entre ellos. Si no queda uno, `sin_recurso` y a revisión.
@@ -765,7 +783,9 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 ## 7. Reglas de negocio importantes (resumen)
 
 - **Identificación de trabajadores por DNI** en todo el sistema; nombre
-  solo como último recurso (con alias aprendidos).
+  solo como último recurso (con alias aprendidos). DNI leído canónico (8
+  dígitos); quien no tiene ficha de empleado se casa igual contra su
+  **ficha de recurso** (`recurso_dni`/`recurso_nombre`, F-030).
 - **Horas extra**: solo se registran en Sigrid si el recurso tiene código
   HE en su ficha (`reshor`); el exceso sobre la jornada (`candef`) se
   separa automáticamente como extra en la conciliación.

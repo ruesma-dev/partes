@@ -1,6 +1,88 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-030 · done (2026-10-05), pendiente de desplegar sv3 -> sv4 y M1-M4
+
+APPROVED del reviewer en la pasada 2 (`progress/review_F-030.md`; la pasada 1
+pidio un test de cableado, T16 `88140da`). Resumen en `progress/history.md`.
+
+**Desbloqueada por el lider (2026-10-05)**: retirado el worktree de F-031
+(su spec queda en la rama `feature/F-031-asiento-analitico`, `b3a5cfd`);
+`bash harness/init.sh` en VERDE (raiz 445 passed, cobertura 100 % 59/59,
+tamano OK). Pasa al reviewer. Leccion: un worktree dentro del repo rompe el
+guardian de `.sql` de F-017; los worktrees de agentes, fuera del repo.
+
+**Implementacion TERMINADA (T1-T15), bloqueada SOLO por el portero**:
+`bash harness/init.sh` final (HEAD `24a8448` + informe) da todo en verde
+(sv3 754, sv4 1657, sv5 362, cobertura 100 % 59/59, tamano OK) salvo 1
+test de raiz por causa AJENA (ver «Init en rojo» abajo). Informe en
+`progress/impl_F-030.md`; mutacion 18/18 muertos. Para desbloquear: que se
+retire el worktree `.claude/worktrees/agent-af837e18a30df3345` (F-031) y
+relanzar `bash harness/init.sh`; si sale verde, F-030 vuelve a
+`in_progress` y pasa al reviewer. Sin desviaciones de la spec.
+
+Spec en `specs/F-030-recurso-sin-ficha/` (requirements 116/150, design
+232/250, 15 tareas), **version 2**: reescrita con las decisiones del humano
+del 2026-10-05; DA1-DA9 APROBADAS (design §8). Resumen llano y cambios
+respecto a la v1 en `progress/spec_F-030.md`. Rama
+`feature/F-030-recurso-sin-ficha`. Rigor critico.
+
+- sv3: DNI canonico a 8 digitos (en `parte_normalizer.py`); «fichas de
+  recurso» (MO/ con `res.cif`, sin ficha por DNI ni `conide`) casadas con el
+  MISMO proceso que las de empleado (DNI, alias solo de empleados, nombre con
+  las dos juntas); metodos `recurso_dni`/`recurso_nombre`; sin columnas.
+- sv4 al minimo: `esta_casado` + fuera de la cola de conciliacion.
+- sv5 sin codigo (tests: verificacion y cuenta 0 en la 28).
+- **Implementado** (T1-T13, un commit por tarea, HEAD en la rama): ver
+  `progress/impl_F-030.md`. Lista cerrada, `text_match.py` y sv5 sin
+  tocar (T10). `azure-apps/partes.md`: commit local `1c7238c` (sin push).
+- **Init en rojo por causa AJENA a F-030** (2026-10-05, tarde): el test de
+  raiz `tests/test_f017_r22_sin_reescritura_historica.py::
+  test_f017_r22_no_hay_ficheros_sql_de_migracion` hace `rglob("*.sql")`
+  sobre TODO el repo y encuentra
+  `.claude/worktrees/agent-af837e18a30df3345/infra/sql/01_dedicacion_lectura.sql`:
+  el worktree (bloqueado, `locked`) de OTRO agente que esta escribiendo la
+  spec de F-031 (rama `feature/F-031-asiento-analitico`, creado a las
+  14:42). El implementer de F-030 no lo toca. Se pone verde solo cuando ese
+  worktree se cierre (o si el humano decide que el test excluya
+  `.claude/worktrees/`, cambio de otra feature). Sin el, `init.sh` da el
+  resto en verde (cobertura 100 %, 59/59).
+
+### F-030 · despliegue y verificaciones MANUAL (humano; T14, design §9)
+
+Orden: **sv3 y despues sv4, en la misma sesion**; sv5 NO se despliega. Sin
+schema nuevo. Hasta desplegar sv4, un casado por recurso se ve «Sin casar»:
+no tocarlo en `/conciliacion`. Rollback: imagen anterior de sv3.
+
+```powershell
+.\infra\redeploy_partes.ps1 -Solo sv3
+.\infra\redeploy_partes.ps1 -Solo sv4
+```
+
+- [ ] **M1 · tras sv3**: logs de arranque de `ca-sv3-persistencia`,
+  `[matcher-provider] maestros cargados: ... recursos=N` sin error.
+- [ ] **M2 · lectura en Sigrid antes de aprobar** (solo lectura, desde
+  `services/partes-persistencia`, `PYTHONPATH=. ../../.venv/Scripts/python.exe
+  <script>` con `SigridApiClient(...)._post_sql_read(sql=..., parameters=[],
+  label="m2")`, comprobando `truncated`):
+  `SELECT COUNT(*) FROM reshor rh JOIN con rc ON rc.ide = rh.reside WHERE
+  rc.emp = 28 AND ISNULL(rh.caaide, 0) <> 0` => `0`.
+- [ ] **M3 · reprocesar los 2 partes de Porsan (obra 0724, 25 y 28/09)**:
+  (1) en el portal, si estan aprobados, «Marcar pendiente»; (2) «Mover a la
+  papelera» cada parte (si no, la deduplicacion por sha256 lo ignora); (3)
+  en el buzon `partes@ruesma.es`, mover sus correos de `Procesados` a la
+  bandeja de entrada y marcarlos no leidos; (4) esperar sv1 -> sv2 -> sv3.
+  Comprobar: el trabajador sin ficha sale casado con el nombre de su
+  recurso y sus lineas con recurso y estado `ok`/`sin_parte` (no «Sin
+  recurso»); el de ficha, igual que antes.
+- [ ] **M4 · cuenta analitica, sin escribir**: abrir el modal de aprobacion
+  de esas lineas (preflight, solo lectura) y buscar en los logs de
+  `ca-sv5-transfer` `[registro] cuentas obra=0724 ok=0
+  recurso_sin_cuenta=N` (N = lineas a escribir) y ninguna omitida por
+  recurso. Aprobar de verdad es decision de Administracion; si se aprueba,
+  comprobar por lectura que esas `hmores` (synckey `partes:<registro_id>`)
+  tienen `caaide = 0`.
+
 ## F-029 · done y DESPLEGADA (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
 
 Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005121506`
