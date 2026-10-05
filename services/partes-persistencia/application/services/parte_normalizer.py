@@ -19,12 +19,28 @@ from domain.models.parte_records import (
     ParteDocumento,
     RegistroNormalizado,
 )
+from application.services import text_match as tm
 from application.services.fecha_resolver import FechaParteResolver
 
 logger = logging.getLogger(__name__)
 
 
 _INCIDENCIA_CODES = {"V", "B", "AT", "FJ", "F", "H", "M"}
+
+#: F-030 (R1): DNI leido al que le faltan ceros a la izquierda.
+_DNI_CORTO = re.compile(r"[0-9]{1,7}[A-Z]")
+
+
+def dni_canonico(dni: str | None) -> str:
+    """F-030 (R1): el DNI normalizado (`text_match.normalize_dni`) y, si
+    son de 1 a 7 digitos y una letra, completado con ceros a la izquierda
+    hasta 8 (Sigrid los guarda siempre con 8: el cero que falta es del
+    papel). Cualquier otra forma (8 digitos, NIE, CIF, vacio) queda igual.
+    Va aqui y no en `text_match.py`, que es identico en sv3 y sv4."""
+    n = tm.normalize_dni(dni)
+    if _DNI_CORTO.fullmatch(n):
+        return n[:-1].zfill(8) + n[-1]
+    return n
 
 
 def _opt_str(value: Any) -> str | None:
@@ -137,7 +153,9 @@ class ParteNormalizer:
             if not isinstance(emp, dict):
                 continue
             nombre = _opt_str(emp.get("nombre"))
-            dni_leido = _opt_str(emp.get("dni"))
+            # F-030 (R2): el DNI canonico, unico punto para obra, ficha y
+            # recurso; None si no se leyo nada util.
+            dni_leido = dni_canonico(_opt_str(emp.get("dni"))) or None
             categoria = _opt_str(emp.get("categoria"))
             numero_linea = _opt_int(emp.get("numero_linea"))
             confianza = _opt_float(emp.get("confianza_pct"))
