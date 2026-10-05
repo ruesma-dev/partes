@@ -272,3 +272,232 @@ def test_f030_proveedor_vacio_sin_fichas_de_recurso() -> None:
 
     matchers = _proveedor(Caido()).get()
     assert matchers.recursos.fichas_candidatas(None, HOY) == []
+
+
+# ======================= el casado: utilidades ========================== #
+
+def _parte(*trabajadores, obra="0724", fecha=HOY) -> ParteDocumento:
+    registros = [
+        RegistroNormalizado(line_index=i, trabajador_nombre_leido=nombre,
+                            trabajador_dni_leido=dni, tipo_hora="normal",
+                            horas=8.0)
+        for i, (nombre, dni) in enumerate(trabajadores)
+    ]
+    return ParteDocumento(fecha_int=fecha, obra_numero_leido=obra,
+                          firmado=True, registros=registros)
+
+
+def _pipeline(repo=None, lookup=None, **kw) -> PersistPartePipeline:
+    return PersistPartePipeline(
+        repository=repo or Repo(), normalizer=ParteNormalizer(),
+        matcher_provider=_proveedor(lookup, **kw),
+        hoy=lambda: date(2026, 9, 25))
+
+
+def _casar(parte, repo=None, lookup=None, **kw) -> ParteDocumento:
+    pipeline = _pipeline(repo, lookup, **kw)
+    pipeline._match(parte)
+    parte.review = PersistPartePipeline._compute_review_required(parte)  # type: ignore[attr-defined]
+    return parte
+
+
+def _emp(parte, i=0) -> EmpleadoMatch:
+    return parte.registros[i].empleado
+
+
+def _lookup_con(*recursos, empleados=FICHAS) -> Lookup:
+    return Lookup(empleados=empleados, recursos=[REC_PG, REC_V, *recursos])
+
+
+# ============================ R5 · por DNI ============================== #
+
+def test_f030_r5_dni_de_una_ficha_de_recurso_casa_por_recurso() -> None:
+    parte = _casar(_parte(("Nombre Ilegible", CIF_P)))
+    emp = _emp(parte)
+    assert (emp.method, emp.reside, emp.score) == ("recurso_dni", 950, 1.0)
+    assert parte.empresa == 28
+
+
+def test_f030_r5_dni_leido_sin_cero_por_el_normalizador() -> None:
+    """R2 + R5: el papel dice 9876543-B y la ficha de recurso 09876543B."""
+    datos = {"cabecera": {"fecha": "25/09/2026", "obra_numero": "0724"},
+             "empleados": [{"nombre": "Nombre Ilegible", "dni": "9876543-B",
+                            "horas_ordinarias": 8}]}
+    parte = ParteNormalizer().normalize(datos, email_text="septiembre 2026")
+    _pipeline()._match(parte)
+    assert (_emp(parte).method, _emp(parte).reside) == ("recurso_dni", 950)
+
+
+def test_f030_r5_el_dni_de_recurso_va_antes_que_el_alias() -> None:
+    repo = Repo(alias={"PEDRO GOMEZ": {"ide": 10, "dni": DNI_E}})
+    emp = _emp(_casar(_parte(("PEDRO GOMEZ", CIF_P)), repo=repo))
+    assert (emp.method, emp.reside) == ("recurso_dni", 950)
+
+
+def test_f030_r5_el_dni_de_recurso_va_antes_que_el_nombre() -> None:
+    emp = _emp(_casar(_parte(("Pedro Gomez", CIF_P))))
+    assert (emp.method, emp.reside) == ("recurso_dni", 950)
+
+
+def test_f030_r5_sin_empresa_del_parte_compiten_todas() -> None:
+    parte = _casar(_parte(("Nombre Ilegible", CIF_P), obra=None))
+    assert parte.empresa is None
+    assert (_emp(parte).method, _emp(parte).reside) == ("recurso_dni", 950)
+
+
+def test_f030_r5_el_dni_de_una_ficha_de_empleado_sigue_casando_igual() -> None:
+    emp = _emp(_casar(_parte(("Nombre Ilegible", DNI_E))))
+    assert (emp.ide, emp.method, emp.reside) == (10, "dni", 900)
+
+
+# ===================== R12 · lo que se guarda =========================== #
+
+def test_f030_r12_el_casado_por_recurso_sin_ide_ni_codigo() -> None:
+    cif_sigrid = "09876543-B"         # tal como esta en Sigrid
+    lookup = _lookup_con(_rec(950, cif_sigrid, nombre="GOMEZ RUIZ, PEDRO"))
+    emp = _emp(_casar(_parte(("Nombre Ilegible", CIF_P)), lookup=lookup))
+    assert emp == EmpleadoMatch(ide=None, codigo=None,
+                                nombre="GOMEZ RUIZ, PEDRO", dni=cif_sigrid,
+                                reside=950, score=1.0, method="recurso_dni")
+
+
+def test_f030_r12_se_guarda_en_las_columnas_de_siempre() -> None:
+    """Por el repositorio real (SQLite en memoria): ninguna columna nueva."""
+    from application.pipelines.persist_parte_pipeline import (
+        PersistParteRequest,
+    )
+    from infrastructure.database.orm_models import ParteRegistroOrm
+    from infrastructure.database.sqlalchemy_parte_repository import (
+        SqlAlchemyParteRepository,
+    )
+    from tests.dobles import FabricaSesionSqlite
+
+    fabrica = FabricaSesionSqlite()
+    repo = SqlAlchemyParteRepository(fabrica)  # type: ignore[arg-type]
+    datos = {"cabecera": {"fecha": "25/09/2026", "obra_numero": "0724"},
+             "firma": {"firmado": True},
+             "empleados": [{"nombre": "Nombre Ilegible", "dni": CIF_P,
+                            "horas_ordinarias": 8}]}
+    _pipeline(repo).run(PersistParteRequest(
+        filename="p.pdf", mime_type="application/pdf", file_bytes=b"",
+        extraction_envelope={"meta": {}, "data": datos},
+        context={"document": {"sha256": "sha-f030"},
+                 "email": {"subject": "septiembre 2026"}}))
+    with fabrica.create_session() as s:
+        (fila,) = s.query(ParteRegistroOrm).all()
+        assert (fila.empleado_ide, fila.empleado_codigo, fila.empleado_dni,
+                fila.empleado_nombre, fila.empleado_reside,
+                fila.empleado_match_method, fila.empleado_match_score) == \
+            (None, None, CIF_P, "GOMEZ RUIZ, PEDRO", 950, "recurso_dni", 1.0)
+
+
+# ==================== R6 · ficha de recurso que no vale ================== #
+
+def _lineas_r6(caplog) -> list[str]:
+    return [m for m in caplog.messages if "ficha de recurso" in m]
+
+
+def test_f030_r6_de_baja_sigue_por_el_nombre(caplog) -> None:
+    lookup = _lookup_con(_rec(950, CIF_P, nombre="GOMEZ RUIZ, PEDRO",
+                              fecbaj=20260901))
+    with caplog.at_level(logging.INFO):
+        emp = _emp(_casar(_parte(("Pedro Gomez", CIF_P)), lookup=lookup))
+    assert (emp.ide, emp.method) == (10, "nombre")
+    (linea,) = _lineas_r6(caplog)
+    assert "solo_baja" in linea
+    assert CIF_P not in caplog.text and "Pedro" not in caplog.text
+    assert "GOMEZ" not in caplog.text
+
+
+def test_f030_r6_de_otra_empresa_sigue_por_alias(caplog) -> None:
+    repo = Repo(alias={"PEPE": {"ide": 11, "dni": "22222222J"}})
+    ficha_1 = EmpleadoRow(ide=11, codigo="E11", nombre="JOSE UNO",
+                          dni="22222222J", reside=None, empresa=1, fecbaj=0)
+    lookup = Lookup(empleados=[*FICHAS, ficha_1])
+    with caplog.at_level(logging.INFO):
+        emp = _emp(_casar(_parte(("PEPE", CIF_P), obra="0300"), repo=repo,
+                          lookup=lookup))
+    assert (emp.ide, emp.method) == (11, "alias")
+    (linea,) = _lineas_r6(caplog)
+    assert "otra_empresa" in linea and CIF_P not in linea
+
+
+def test_f030_r6_ambigua_sigue_y_se_loguea(caplog) -> None:
+    lookup = _lookup_con(REC_P, _rec(952, CIF_P, nombre="GOMEZ RUIZ, PEDRO"))
+    with caplog.at_level(logging.INFO):
+        emp = _emp(_casar(_parte(("Pedro Gomez", CIF_P)), lookup=lookup))
+    assert (emp.ide, emp.method) == (10, "nombre")
+    (linea,) = _lineas_r6(caplog)
+    assert "ambiguo" in linea
+
+
+def test_f030_r6_desconocido_no_se_loguea(caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        emp = _emp(_casar(_parte(("Pedro Gomez", "55555555K"))))
+    assert (emp.ide, emp.method) == (10, "nombre")
+    assert _lineas_r6(caplog) == []
+
+
+def test_f030_r6_sin_dni_leido_no_se_mira_el_dni_de_recurso(caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        emp = _emp(_casar(_parte(("Pedro Gomez", None))))
+    assert (emp.ide, emp.method) == (10, "nombre")
+    assert _lineas_r6(caplog) == []
+
+
+# ============ R7 · DNI de ficha de empleado que no vale: igual ========== #
+
+class _Prohibido:
+    """Si el casado mira las fichas de recurso, el test lo dice."""
+
+    def __getattr__(self, nombre):
+        raise AssertionError(f"no se debe mirar recursos.{nombre}")
+
+
+def _casar_sin_recursos(parte, lookup=None) -> ParteDocumento:
+    pipeline = _pipeline(None, lookup)
+    pipeline._matcher_provider.get().recursos = _Prohibido()  # type: ignore[union-attr]
+    pipeline._match(parte)
+    return parte
+
+
+@pytest.mark.parametrize("obra, empleados, metodo", [
+    # De baja a la fecha (y un `MO/` con su DNI que NO es ficha de recurso).
+    ("0724", [EmpleadoRow(ide=10, codigo="E10", nombre="PEDRO GOMEZ",
+                          dni=DNI_E, reside=900, empresa=28,
+                          fecbaj=20260901)], "dni_solo_baja"),
+    # De alta solo en otra empresa.
+    ("0300", FICHAS, "dni_otra_empresa"),
+    # Dos fichas de alta en la empresa del parte.
+    ("0724", [FICHA_PG, EmpleadoRow(ide=12, codigo="E12", nombre="P G",
+                                    dni=DNI_E, reside=None, empresa=28,
+                                    fecbaj=0)], "dni_ambiguo"),
+])
+def test_f030_r7_no_se_mira_ninguna_ficha_de_recurso(obra, empleados,
+                                                     metodo) -> None:
+    lookup = Lookup(empleados=empleados,
+                    recursos=[*RECURSOS, _rec(960, DNI_E)])
+    parte = _casar_sin_recursos(_parte(("Pedro Gomez Ruiz", DNI_E),
+                                       obra=obra), lookup)
+    assert (_emp(parte).ide, _emp(parte).method) == (None, metodo)
+
+
+# ======================= R8 · alias solo de fichas ====================== #
+
+def test_f030_r8_el_alias_de_una_ficha_se_aplica_como_hoy() -> None:
+    repo = Repo(alias={"PEPE": {"ide": 10, "dni": DNI_E}})
+    emp = _emp(_casar(_parte(("PEPE", None)), repo=repo))
+    assert (emp.ide, emp.method, emp.reside) == (10, "alias", 900)
+
+
+def test_f030_r8_no_hay_alias_de_recurso() -> None:
+    repo = Repo(alias={"PEPITO": {"ide": 950, "dni": CIF_P}})
+    emp = _emp(_casar(_parte(("PEPITO", None)), repo=repo))
+    assert (emp.ide, emp.reside, emp.method) == (None, None,
+                                                 "alias_no_valido")
+
+
+def test_f030_r8_el_alias_va_antes_que_el_nombre_del_recurso() -> None:
+    repo = Repo(alias={"PEDRO GOMEZ RUIZ": {"ide": 10, "dni": DNI_E}})
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None)), repo=repo))
+    assert (emp.ide, emp.method) == (10, "alias")

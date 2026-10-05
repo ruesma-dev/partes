@@ -17,6 +17,7 @@ Pasos:
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 import uuid
@@ -26,6 +27,7 @@ from datetime import date
 from typing import Any, Optional
 
 from application.services import text_match as tm
+from application.services.empleado_matcher import EmpleadoMatcher
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.seleccion_sigrid import IndicePersonas
 from application.services.sigrid_matcher_provider import (
@@ -39,6 +41,7 @@ from domain.models.parte_records import (
     PersistParteResult,
     RegistroNormalizado,
 )
+from domain.models.sigrid_models import EmpleadoRow
 from domain.ports.parte_repository import ParteRepository
 
 logger = logging.getLogger(__name__)
@@ -47,6 +50,20 @@ logger = logging.getLogger(__name__)
 OBRA_A_REVISAR: frozenset[str] = frozenset(
     {"codigo_otra_empresa", "codigo_ambiguo", "nombre_ambiguo"}
 )
+
+#: F-030: metodos de un trabajador casado contra su «ficha de recurso» (sin
+#: ficha de empleado): `empleado_ide` NULL y, aun asi, casado (R12-R13).
+METODOS_RECURSO: frozenset[str] = frozenset({"recurso_dni", "recurso_nombre"})
+
+
+def _de_recurso(ficha: EmpleadoRow, score: float, metodo: str) -> EmpleadoMatch:
+    """F-030 (R12): el casado contra una ficha de recurso. Mismas columnas
+    que con ficha, sin `ide` ni `codigo` de empleado: `dni` = `res.cif`,
+    `nombre` = `con.res` y `reside` = `res.ide`."""
+    return dataclasses.replace(
+        EmpleadoMatcher.to_match(ficha, score, metodo), ide=None, codigo=None
+    )
+
 
 #: De donde sale la empresa del parte cuando la da la obra y no hubo
 #: membrete (R15). Lo que no esta aqui (codigo, codigo_padded) es `obra`.
@@ -343,6 +360,24 @@ class PersistPartePipeline:
             )
         if res.motivo != "desconocido":
             return EmpleadoMatch(method=f"dni_{res.motivo}")
+        # F-030 (R5-R6): sin ficha de empleado para el DNI, el MISMO
+        # `elegir_ficha` contra las fichas de recurso, antes del alias y del
+        # nombre. Si no da una, se sigue como siempre.
+        if reg.trabajador_dni_leido:
+            recursos = matchers.recursos
+            res = recursos.elegir_ficha(
+                reg.trabajador_dni_leido, empresa, fecha
+            )
+            if res.motivo == "ok":
+                return _de_recurso(
+                    recursos.ficha(res.ide), 1.0, "recurso_dni"  # type: ignore[arg-type]
+                )
+            if res.motivo != "desconocido":
+                logger.info(
+                    "[persist-parte] linea=%s: DNI leido con ficha de recurso "
+                    "%s (empresa=%s fecha=%s); se sigue por alias y nombre.",
+                    reg.line_index, res.motivo, empresa, fecha,
+                )
         candidatas = indice.fichas_candidatas(empresa, fecha)
         alias = self._repository.find_empleado_alias(
             reg.trabajador_nombre_leido
