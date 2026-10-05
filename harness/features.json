@@ -367,6 +367,26 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-029-alias-logo-ruesma"
+    },
+    {
+      "id": "F-031",
+      "title": "El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra",
+      "description": "Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuente: correo de Juan Romero (Dir. Admon y Control de Costes) del 2026-09-29 «ARBOL ANALITICO OBRAS»: las cuentas analiticas de una obra cuelgan de su CENTRO DE COSTE (p. ej. obra 0702 -> centro 0702, ficha Obra > Contabilidad > «Cuentas analiticas»: 0702 centro de coste asociado, 0702.INGR02 certificacion, 0702.INGR01 produccion). El arbol del centro tiene C·COSTES (CD costes directos, CI costes indirectos, CP costes proporcionales CP0001..CP0010) e I·INGRESOS (INGR01..03). «Dentro del asiento se define el financiero, y la cuenta analitica del gasto (6XX)»: ejemplo de asiento con apunte 6260000000 y Desglose Analitico al centro 0702, cuenta 0702.CP0004 AVALES, 100 %. LO QUE SE PIDE: que el coste de mano de obra de los partes que sv5 registra en Sigrid quede imputado en la analitica de la obra (asiento/desglose analitico al centro de coste de la obra con la cuenta de coste que corresponda). RELACION CON F-021 (done): hoy sv5 escribe hmores.caaide = cuenta del centro de la obra con la subcuenta de la ficha de horas del recurso (reshor.caaide); en Porsan sale 0 (ningun recurso tiene cuenta). A INVESTIGAR EN LA SPEC (solo lectura en Sigrid y en azure-apps/sigrid_tablas.md): si Sigrid genera el asiento analitico a partir de hmores.caaide por algun proceso propio (y por que no aparece), o si hay que escribir el apunte/desglose analitico en otras tablas; que cuenta de coste corresponde a la mano de obra (CD..., por categoria o tipo de hora), importe (horas x precio de reshor), fecha y diario; como lo hace hoy Administracion a mano con partes tecleados (comparar con lineas reales de 2026); idempotencia con synckey y que pasa al borrar o reaprobar (F-024); empresas 1 y 28. Solo sv5 escribe en Sigrid. RIGOR critico: escribe contabilidad en Sigrid. Validar con Juan Romero antes de implementar.",
+      "acceptance": [
+        "sv5 lee el estado (con.est) de todos los partes de la obra y mes y nunca escribe ni borra lineas en un parte Imputado (est 10)",
+        "Si todos los partes del mes estan Imputados, las lineas van a un parte complementario nuevo (salvo que M0 decida otra cosa en DA1)",
+        "En un parte Cerrado (est 3) se escribe como hoy y el preflight lo avisa; sin partes o en registro, todo igual que hoy",
+        "Una linea que choca (recurso+dia+tipo) con una linea ajena de un parte Imputado sale 'omitir' con motivo parte_contabilizado y sin cuenta",
+        "partes[] del preflight y del resultado llevan estado, complementario, contabilizados y aviso; el modal de sv4 pinta el aviso",
+        "sv5 no escribe en asa/apa/apu/asi ni cambia estados de partes: el asiento lo genera Sigrid al Contabilizar",
+        "comprobar_asiento_analitico.py (solo lectura) da 'cuadra' para obra 0696 empresa 1 enero 2026 (M1)",
+        "Fase RED de R2, R3, R4, R5, R8, R9, R13, R15 y R22; mutacion completa con 0 supervivientes; bash harness/init.sh en verde"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-031-asiento-analitico"
     }
   ]
 }

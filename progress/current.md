@@ -1,6 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-031 · spec_ready (2026-10-05): el parte registrado acaba en el asiento analítico
+
+Spec en `specs/F-031-asiento-analitico/`, resumen en `progress/spec_F-031.md`
+(rama `feature/F-031-asiento-analitico`). Hallazgo: Sigrid ya genera el
+asiento al «Contabilizar parte» (estado Imputado); sv5 no escribe asientos,
+solo deja de escribir en partes Imputados. **Pendiente del humano**: M0 —
+validar DA1, DA2, DA5 y DA6 con Juan Romero y aprobar DA1–DA8 antes de
+implementar.
+
 ## F-029 · done y DESPLEGADA (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
 
 Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005121506`
