@@ -1,10 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-030 · in_progress (2026-10-05): ficha de recurso cuando no hay ficha de empleado
+## F-030 · blocked (2026-10-05): ficha de recurso cuando no hay ficha de empleado
 
-**Implementacion en curso (implementer).** Tarea en curso y desviaciones:
-se anotan en esta seccion; informe final en `progress/impl_F-030.md`.
+**Implementacion TERMINADA (T1-T15), bloqueada SOLO por el portero**:
+`bash harness/init.sh` final (HEAD `24a8448` + informe) da todo en verde
+(sv3 754, sv4 1657, sv5 362, cobertura 100 % 59/59, tamano OK) salvo 1
+test de raiz por causa AJENA (ver «Init en rojo» abajo). Informe en
+`progress/impl_F-030.md`; mutacion 18/18 muertos. Para desbloquear: que se
+retire el worktree `.claude/worktrees/agent-af837e18a30df3345` (F-031) y
+relanzar `bash harness/init.sh`; si sale verde, F-030 vuelve a
+`in_progress` y pasa al reviewer. Sin desviaciones de la spec.
 
 Spec en `specs/F-030-recurso-sin-ficha/` (requirements 116/150, design
 232/250, 15 tareas), **version 2**: reescrita con las decisiones del humano
