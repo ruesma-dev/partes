@@ -16,6 +16,13 @@ no hay, sv5 crea uno; el cerrado no se toca) y DA6 → la cuenta sale del
 recurso (F-021), con la partida `CI/CD` solo de respaldo. DA6-e retirada.
 Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 
+### Implementacion (implementer, 2026-10-06)
+
+- T1 hecha: caracterizacion en verde contra el codigo de hoy
+  (`test_f031_pipeline_estado.py`: R4, R6, R10, R32, R33;
+  `test_f031_pipeline_cuenta_partida.py`: R20, R22) y suite `f021` en verde
+  (66 passed, R27).
+
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
 Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005180501`
