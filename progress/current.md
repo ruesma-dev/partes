@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-029 · in_progress (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
+## F-029 · done (2026-10-05): alias del logotipo de Ruesma (ruΞsma), pendiente de desplegar sv3
+
+APPROVED del reviewer en la primera pasada (`progress/review_F-029.md`);
+resumen en `progress/history.md`. M1 concretado por el reviewer: tras
+desplegar sv3, buscar en sus logs `[empresa-membrete]` con `sin_alias` y
+texto `ru…sma` (no debe aparecer). Hoy Gemini transcribe el logotipo como
+`ruesma` (`progress/explore_F-029_membrete.md`): el alias es red de seguridad.
 
 Rama `feature/F-029-alias-logo-ruesma`. sdd=false, rigor estandar, solo
 sv3 (config versionada). Implementada, pendiente de reviewer.
