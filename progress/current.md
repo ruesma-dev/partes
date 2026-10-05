@@ -6,11 +6,12 @@
 Spec en `specs/F-031-asiento-analitico/`, resumen en `progress/spec_F-031.md`
 (rama `feature/F-031-asiento-analitico`). Hallazgo: Sigrid ya genera el
 asiento al «Contabilizar parte» (estado Imputado); sv5 no escribe asientos,
-solo deja de escribir en partes Imputados. Spec v3 (2026-10-05): DA6 según
-la aclaración del humano (la cuenta es siempre la de la partida del portal).
-**Pendiente del humano**: DA6-e (qué cuenta lleva una línea cuya partida
-solo tiene cuenta de ingresos o ninguna; provisional, la del recurso con
-nota) y M0; DA3 sigue con Juan Romero.
+no escribe en partes cerrados. Spec v4 (2026-10-05): DA1/DA2 → parte
+complementario (las líneas van a un parte En registro de la obra y mes; si
+no hay, sv5 crea uno; el cerrado no se toca) y DA6 → la cuenta sale del
+recurso (F-021), con la partida `CI/CD` solo de respaldo. DA6-e retirada.
+**Pendiente del humano**: confirmar la lectura de «cerrado» = todo lo que
+no esté En registro (Cerrado o Imputado) (M0, design §8); DA3 con Juan.
 
 ## F-029 · done y DESPLEGADA (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
 
