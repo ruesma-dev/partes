@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-030 · done (2026-10-05), pendiente de desplegar sv3 -> sv4 y M1-M4
+## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
+
+Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005180501`
+(Running, esquema y alias 1, 28 cargados sin error = M1) y después sv4
+`ca-sv4-front--r20261005180700` (100 % del tráfico, arranque limpio).
+M3 (reprocesar los 2 partes de Porsan) en manos del humano: papelera en el
+portal y correos de vuelta a la bandeja de partes@.
 
 APPROVED del reviewer en la pasada 2 (`progress/review_F-030.md`; la pasada 1
 pidio un test de cableado, T16 `88140da`). Resumen en `progress/history.md`.
