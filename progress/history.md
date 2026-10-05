@@ -653,3 +653,31 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   plantilla rev. 0): el logotipo se transcribe `ruesma` (empresa 1) y Porsan
   como su razón social (empresa 28). El alias es red de seguridad. La
   plantilla rev. 1 con DNI queda sin probar con un escaneo real.
+
+## F-030 · Ficha de recurso cuando no hay ficha de empleado — done 2026-10-05
+
+- Rama `feature/F-030-recurso-sin-ficha` · rigor crítico · sdd=true · spec v2
+  con DA1–DA9 aprobadas por el humano el 2026-10-05 («el proceso es el mismo
+  que con empleado pero contra la ficha de recurso cuando no está la de
+  empleado»; «los partes se guardan siempre en el recurso») · APPROVED del
+  reviewer en la pasada 2 (`progress/review_F-030.md`).
+- Origen: prueba real de Administración con partes de Porsan (obra 0724): un
+  trabajador con recurso `MO/` de alta (`res.cif` = su DNI) y sin ficha en
+  `emp` salía «Sin recurso».
+- Entregado: sv3 completa el DNI leído a 8 dígitos y casa contra «fichas de
+  recurso» (MO/ con `res.cif`, sin ficha por DNI ni `conide`) con el MISMO
+  proceso que las fichas de empleado (DNI y, si no, nombre con las dos
+  juntas; empates a revisión); métodos `recurso_dni`/`recurso_nombre` en el
+  campo existente, sin columnas; sv4 al mínimo (casado y fuera de la cola de
+  conciliación); sv5 sin código (tests: verificación y cuenta 0 en la 28).
+  Lista cerrada y `text_match.py` intactos. `azure-apps/partes.md` `1c7238c`.
+- Verificado: cobertura 100 % (59/59), mutación 18/18, suites sin caché sv3
+  754, sv4 1657, sv5 362; diferencial del reviewer dev vs HEAD en 20.000
+  partes sintéticos: 0 diferencias en lo que ya casaba; oráculo
+  independiente sin discrepancias; 17 roturas deliberadas, la única
+  superviviente (cableado de `Matchers.recursos`) cerrada con T16.
+- Lección: un worktree de agente DENTRO del repo rompe el guardián de `.sql`
+  de F-017 (bloqueó F-030 un rato); los worktrees, fuera del repo.
+- Pendiente: desplegar sv3 → sv4, reprocesar los 2 partes de prueba de
+  Porsan (M3) y M4; Administración puede poner DNI a 2 recursos de la 28 sin
+  `cif`.

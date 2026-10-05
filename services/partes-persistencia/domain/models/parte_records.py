@@ -25,7 +25,11 @@ class EmpleadoMatch:
     dni: Optional[str] = None
     reside: Optional[int] = None
     score: float = 0.0
-    method: str = "none"   # dni | codigo | nombre | none
+    # dni | alias | nombre | none | nombre_ambiguo | alias_no_valido |
+    # dni_<motivo> (F-023) | recurso_dni | recurso_nombre (F-030: casado
+    # contra la ficha de recurso, con `ide`/`codigo` None y `reside` =
+    # `res.ide`).
+    method: str = "none"
 
 
 @dataclass

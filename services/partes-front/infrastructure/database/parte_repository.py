@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
@@ -447,6 +447,34 @@ def _norm(text: str | None) -> str:
     return " ".join(_strip_accents(str(text)).upper().split())
 
 
+#: F-030: metodos de una linea casada por sv3 contra la «ficha de recurso»
+#: de quien no tiene ficha de empleado: `empleado_ide` NULL y casada.
+METODOS_RECURSO: frozenset[str] = frozenset({"recurso_dni", "recurso_nombre"})
+
+
+def esta_casado(reg: ParteRegistroOrm) -> bool:
+    """F-030 (R18): casado con una ficha de empleado (`empleado_ide`) o, sin
+    ficha, con su recurso (`recurso_dni`/`recurso_nombre`). Unico punto de
+    las vistas que pintan «casado»."""
+    return (
+        reg.empleado_ide is not None
+        or reg.empleado_match_method in METODOS_RECURSO
+    )
+
+
+def _sin_casar_en_cola():
+    """F-030 (R19): filtro de la cola de conciliacion y de su confirmacion:
+    sin ficha y no casado por recurso (un metodo NULL sigue en la cola)."""
+    return (
+        ParteRegistroOrm.empleado_ide.is_(None),
+        or_(
+            ParteRegistroOrm.empleado_match_method.is_(None),
+            ParteRegistroOrm.empleado_match_method.not_in(
+                sorted(METODOS_RECURSO)),
+        ),
+    )
+
+
 def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
     """Clave estable y URL-safe para agrupar registros por trabajador."""
     if reg.empleado_ide is not None:
@@ -783,7 +811,7 @@ class ParteReviewRepository:
                     "dni": reg.empleado_dni,
                     "categoria": reg.categoria,
                     "empleado_ide": reg.empleado_ide,
-                    "matched": reg.empleado_ide is not None,
+                    "matched": esta_casado(reg),
                     "docs": set(),
                     "num_registros": 0,
                     "horas_normales": 0.0,
@@ -864,7 +892,7 @@ class ParteReviewRepository:
             codigo=head.empleado_codigo,
             dni=head.empleado_dni,
             empleado_ide=head.empleado_ide,
-            matched=head.empleado_ide is not None,
+            matched=esta_casado(head),
             horas_normales=0.0,
             horas_extra=0.0,
             num_incidencias=0,
@@ -1066,7 +1094,7 @@ class ParteReviewRepository:
                 w = {
                     "nombre": reg.empleado_nombre or reg.trabajador_nombre_leido
                     or "(sin identificar)",
-                    "matched": reg.empleado_ide is not None,
+                    "matched": esta_casado(reg),
                     "days": {},
                     "categoria": None,
                     "recurso_ide": None,
@@ -1334,7 +1362,7 @@ class ParteReviewRepository:
                         categoria=reg.categoria,
                         empleado_ide=reg.empleado_ide,
                         empleado_nombre=reg.empleado_nombre,
-                        matched=reg.empleado_ide is not None,
+                        matched=esta_casado(reg),
                     )
                     order.append(key)
                 by_emp[key].registros.append(_registro_view(reg))
@@ -2065,15 +2093,16 @@ class ParteReviewRepository:
     # Conciliacion de trabajadores SIN CASAR.
     # ----------------------------------------------------------------- #
     def list_unmatched_workers(self) -> list[dict]:
-        """Nombres LEIDOS sin casar (empleado_ide NULL) en registros activos,
-        agrupados por nombre normalizado, con conteo y obras/categorias."""
+        """Nombres LEIDOS sin casar (empleado_ide NULL y no casados por
+        recurso, F-030) en registros activos, agrupados por nombre
+        normalizado, con conteo y obras/categorias."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
                 .join(ParteDocumentOrm)
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
-                .where(ParteRegistroOrm.empleado_ide.is_(None))
+                .where(*_sin_casar_en_cola())
             )
             regs = list(session.execute(stmt).scalars().all())
 
@@ -2149,7 +2178,7 @@ class ParteReviewRepository:
                 .join(ParteDocumentOrm)
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
                 .where(ParteDocumentOrm.is_active.is_(True))
-                .where(ParteRegistroOrm.empleado_ide.is_(None))
+                .where(*_sin_casar_en_cola())
             )
             regs = list(session.execute(stmt).scalars().all())
             candidatos = [

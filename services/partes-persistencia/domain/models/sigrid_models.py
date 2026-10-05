@@ -109,6 +109,10 @@ class RecursoRow:
     horide_def: int | None = None  # res.horide (tipo de hora por defecto)
     empresa: int | None = None     # con.emp del recurso (F-023)
     fecbaj: int | None = None      # con.fecbaj del recurso (F-023)
+    # F-030 (R4): para la «ficha de recurso» de quien no tiene ficha `emp`
+    # (`MO/` + `cif`): el codigo (`con.cod`) y el nombre (`con.res`).
+    codigo: str | None = None      # con.cod del recurso
+    nombre: str | None = None      # con.res del recurso
 
 
 @dataclass(frozen=True)

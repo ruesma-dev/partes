@@ -92,7 +92,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (`hmores.reside`) apuntan al RECURSO. El sistema arrastra ambos ides y
    tiene una red de seguridad que resuelve el recurso por DNI al registrar.
 2. **Identificación por DNI normalizado** en todo el sistema; nombre solo
-   como último recurso, con alias aprendidos (`empleado_alias`).
+   como último recurso, con alias aprendidos (`empleado_alias`). F-030: el
+   DNI leído es **canónico** (de 1 a 7 dígitos y letra, ceros a la
+   izquierda hasta 8, como en Sigrid).
 3. **Horas extra solo con código HE%** en la ficha del recurso (`reshor`).
    Los mensuales (MENC) no registran por horas: sus «extras» del papel se
    omiten con motivo. El exceso se mide contra la **jornada DEL DÍA** y se
@@ -195,7 +197,11 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     la persona de alta a la fecha de la línea en la empresa de su obra
     (`emp.reside` solo desempata). Nada se elige al azar. sv5 firma la
     cabecera con la empresa de la obra y verifica cada recurso. Los
-    listados de Sigrid se paginan y `truncated: true` es error.
+    listados de Sigrid se paginan y `truncated: true` es error. F-030:
+    sin ficha `emp`, el recurso `MO/` con `res.cif` es su **ficha de
+    recurso** y se casa con el mismo proceso (DNI, nombre; el alias solo
+    con fichas): `recurso_dni`/`recurso_nombre`, `empleado_ide` NULL y
+    `empleado_reside` = `res.ide`; sv4 lo da por casado.
 13. **Cuenta analítica de la línea (F-021, sv5)**: `hmores.caaide` = la
     cuenta `caa` del **centro de la obra destino** (`obr.cenide`, su
     empresa) cuya subcuenta (texto tras el primer punto de `con.cod`) es

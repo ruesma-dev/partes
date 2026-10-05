@@ -163,7 +163,7 @@ no. … ok a lo demas». Revisada el mismo día (v4):
 - **DA1/DA2 → parte complementario** (sustituye a «reabrir» y a «escribir en
   Cerrados»). Humano, literal: «juan ha dicho que si hay modificar un parte
   ya cerrado se hace con complementario». **Interpretación del líder
-  (PENDIENTE DE CONFIRMAR por el humano):** «cerrado» = cualquier parte del
+  (CONFIRMADA por el humano el 2026-10-06: «aprobado, se refiere a lo que no este en registro»):** «cerrado» = cualquier parte del
   mes que **no** esté En registro (Cerrado o Imputado). sv5 nunca escribe en
   él: usa un parte En registro de la obra y mes (reutiliza el complementario
   si existe; si no, lo crea con el esquema de hoy) sin tocar el original;
@@ -223,7 +223,7 @@ cuenta), R22, **R27** (suite F-021 intacta), R32, R33.
 
 ## 11. Verificaciones manuales (humano)
 
-- **M0.** El humano confirma «cerrado» (§8); vive en `elegir_parte`.
+- **M0.** Hecho: el humano confirmó «cerrado» = no En registro el 2026-10-06 (§8); vive en `elegir_parte`.
 - **M1 (solo lectura).** `cd services/partes-transfer && ../../.venv/Scripts/python.exe comprobar_asiento_analitico.py --empresa 1 --obra 0696 --ano 2026 --mes 1`
   ⇒ PT26/00004 Imputado, ANA26/00017, `cuadra`.
 - **M2 (solo lectura).** `--obra 0404 --ano 2026 --mes 7` ⇒ PT26/00296 en

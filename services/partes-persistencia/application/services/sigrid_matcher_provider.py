@@ -13,6 +13,10 @@ F-023: carga tambien recursos y empresas, y expone el `IndicePersonas`
 (fichas y recursos de TODAS las empresas, con su baja) y el
 `ResolutorEmpresa` del membrete. El conciliador de recursos usa el MISMO
 indice (`indice()`), asi que no hay una segunda descarga ni dos verdades.
+
+F-030: expone tambien `recursos`, un `IndicePersonas` cuyas «fichas» son
+las fichas de recurso (`fichas_de_recurso`) de quien no tiene ficha de
+empleado, para casarlas con el MISMO codigo que las fichas (R4-R5, R9).
 """
 from __future__ import annotations
 
@@ -23,6 +27,7 @@ from dataclasses import dataclass
 
 from application.services.empleado_matcher import EmpleadoMatcher
 from application.services.empresa_membrete import ResolutorEmpresa
+from application.services.fichas_de_recurso import fichas_de_recurso
 from application.services.obra_matcher import ObraMatcher
 from application.services.seleccion_sigrid import IndicePersonas
 from application.services.tipo_hora_resolver import TipoHoraResolver
@@ -38,6 +43,8 @@ class Matchers:
     tipo_hora: TipoHoraResolver
     indice: IndicePersonas
     empresas: ResolutorEmpresa
+    #: F-030: las fichas de recurso (sin recursos ni obras propios).
+    recursos: IndicePersonas
 
 
 class SigridMatcherProvider:
@@ -123,4 +130,5 @@ class SigridMatcherProvider:
             ),
             indice=IndicePersonas(empleados, recursos, obras),
             empresas=ResolutorEmpresa(self._alias_empresas, empresas),
+            recursos=IndicePersonas(fichas_de_recurso(empleados, recursos), []),
         )
