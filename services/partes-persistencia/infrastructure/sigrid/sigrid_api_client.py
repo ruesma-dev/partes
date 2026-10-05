@@ -137,7 +137,9 @@ SELECT
     auxrestip.res AS restip_res,
     res.horide    AS horide_def,
     rc.emp        AS empresa,
-    rc.fecbaj     AS fecbaj
+    rc.fecbaj     AS fecbaj,
+    rc.cod        AS codigo,
+    rc.res        AS nombre
 FROM res
 JOIN con rc ON rc.ide = res.ide
 LEFT JOIN auxrestip ON auxrestip.ide = res.restipide
@@ -285,7 +287,9 @@ class SigridApiClient:
     def fetch_recursos(self) -> list[RecursoRow]:
         """Maestro de recursos (``res``): ide, cif (DNI/NIF), conide
         (empleado asociado), su CLASIFICACION (restipide + cod/res de
-        ``auxrestip``) y su tipo de hora por defecto (``horide``)."""
+        ``auxrestip``) y su tipo de hora por defecto (``horide``). F-030:
+        tambien su codigo y nombre (``con.cod``/``con.res``), en la misma
+        lectura paginada, para las fichas de recurso."""
         columns, rows = self._leer_paginado(
             sql=_SQL_RECURSOS, parameters=[], orden="res.ide",
             label="recursos",
@@ -305,6 +309,8 @@ class SigridApiClient:
                 horide_def=_opt_int(rm.get("horide_def")),
                 empresa=_opt_int(rm.get("empresa")),
                 fecbaj=_opt_int(rm.get("fecbaj")),
+                codigo=_opt_str(rm.get("codigo")),
+                nombre=_opt_str(rm.get("nombre")),
             ))
         logger.info("%s recursos -> %s filas", _LOG_PREFIX, len(out))
         return out
