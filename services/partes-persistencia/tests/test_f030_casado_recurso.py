@@ -501,3 +501,97 @@ def test_f030_r8_el_alias_va_antes_que_el_nombre_del_recurso() -> None:
     repo = Repo(alias={"PEDRO GOMEZ RUIZ": {"ide": 10, "dni": DNI_E}})
     emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None)), repo=repo))
     assert (emp.ide, emp.method) == (10, "alias")
+
+
+# ============================ R9 · por nombre ============================ #
+
+def test_f030_r9_el_nombre_casa_con_la_ficha_de_recurso() -> None:
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None))))
+    assert emp == EmpleadoMatch(ide=None, codigo=None,
+                                nombre="GOMEZ RUIZ, PEDRO", dni=CIF_P,
+                                reside=950, score=1.0,
+                                method="recurso_nombre")
+
+
+def test_f030_r9_gana_la_ficha_de_empleado_si_puntua_mas() -> None:
+    emp = _emp(_casar(_parte(("Pedro Gomez", None))))
+    assert (emp.ide, emp.method, emp.reside) == (10, "nombre", 900)
+
+
+def test_f030_r9_dni_desconocido_y_nombre_de_ficha_de_recurso() -> None:
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", "55555555K"))))
+    assert (emp.method, emp.reside) == ("recurso_nombre", 950)
+
+
+def test_f030_r9_una_ficha_de_recurso_de_baja_no_compite() -> None:
+    lookup = _lookup_con(_rec(950, CIF_P, nombre="GOMEZ RUIZ, PEDRO",
+                              fecbaj=HOY))
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None)), lookup=lookup))
+    assert (emp.ide, emp.method) == (10, "nombre")
+
+
+def test_f030_r9_una_ficha_de_recurso_de_otra_empresa_no_compite() -> None:
+    ficha_1 = EmpleadoRow(ide=11, codigo="E11", nombre="PEDRO GOMEZ",
+                          dni="22222222J", reside=None, empresa=1, fecbaj=0)
+    lookup = Lookup(empleados=[*FICHAS, ficha_1])
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None), obra="0300"),
+                      lookup=lookup))
+    assert (emp.ide, emp.method) == (11, "nombre")
+
+
+def test_f030_r9_sin_empresa_del_parte_compiten_todas() -> None:
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None), obra=None)))
+    assert (emp.method, emp.reside) == ("recurso_nombre", 950)
+
+
+def test_f030_r9_mismo_umbral_que_las_fichas() -> None:
+    """Con umbral 1.0 el nombre exacto del recurso casa (>=); por debajo
+    del umbral no casa nadie."""
+    emp = _emp(_casar(_parte(("Gomez Ruiz Pedro", None)), min_score=1.0))
+    assert (emp.method, emp.reside) == ("recurso_nombre", 950)
+    lejos = _emp(_casar(_parte(("Xiomara Zeta", None))))
+    assert (lejos.ide, lejos.reside, lejos.method) == (None, None, "none")
+
+
+def test_f030_r9_sin_fichas_de_recurso_el_nombre_decide_igual() -> None:
+    """Caracterizacion: sin ninguna ficha de recurso, lo de hoy."""
+    lookup = Lookup(recursos=[REC_PG, REC_V])
+    emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None)), lookup=lookup))
+    assert (emp.ide, emp.method, emp.score) == (10, "nombre", 0.8667)
+
+
+# ========================= R10 · empates de nombre ======================= #
+
+def test_f030_r10_empate_ficha_de_recurso_y_ficha_de_empleado() -> None:
+    parte = _casar(_parte(("Luis Vega Mora", None)))
+    assert (_emp(parte).ide, _emp(parte).reside, _emp(parte).method) == \
+        (None, None, "nombre_ambiguo")
+    assert parte.review is True
+
+
+def test_f030_r10_empate_entre_dos_fichas_de_recurso() -> None:
+    lookup = _lookup_con(_rec(952, "06543210E", nombre="SANZ GIL, ANA"),
+                         _rec(953, "05432109F", nombre="SANZ GIL, ANA"))
+    parte = _casar(_parte(("Ana Sanz Gil", None)), lookup=lookup)
+    assert (_emp(parte).reside, _emp(parte).method) == \
+        (None, "nombre_ambiguo")
+    assert parte.review is True
+
+
+def test_f030_r10_dos_fichas_de_recurso_de_la_misma_persona() -> None:
+    """Como con dos fichas de un mismo DNI: no se elige (F-023 R24)."""
+    lookup = _lookup_con(_rec(952, "06543210E", nombre="SANZ GIL, ANA"),
+                         _rec(953, "06543210E", nombre="OTRO NOMBRE"))
+    parte = _casar(_parte(("Ana Sanz Gil", None)), lookup=lookup)
+    assert _emp(parte).method == "nombre_ambiguo"
+
+
+# ===================== R11 · «APELLIDOS, NOMBRE» ======================== #
+
+@pytest.mark.parametrize("leido", [
+    "Pedro Gomez Ruiz", "Gomez Ruiz Pedro", "GOMEZ RUIZ, PEDRO",
+    "gómez ruiz, pedro", "Ruiz Pedro Gomez",
+])
+def test_f030_r11_el_nombre_invertido_casa_en_cualquier_orden(leido) -> None:
+    emp = _emp(_casar(_parte((leido, None))))
+    assert (emp.method, emp.reside, emp.score) == ("recurso_nombre", 950, 1.0)

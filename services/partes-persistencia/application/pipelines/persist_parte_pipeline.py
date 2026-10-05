@@ -351,7 +351,12 @@ class PersistPartePipeline:
         """R17-R24: DNI leido -> alias aprendido -> similitud de nombre,
         siempre contra las fichas de alta a la fecha de la empresa del
         parte. Un DNI ambiguo, de baja o de otra empresa CIERRA la linea
-        sin casar (R22): nunca se sigue al alias ni al nombre."""
+        sin casar (R22): nunca se sigue al alias ni al nombre.
+
+        F-030: si el DNI no tiene ficha de empleado, se busca entre las
+        fichas de recurso (`recurso_dni`) antes del alias; en el nombre
+        compiten las dos clases de ficha (`recurso_nombre`). El alias solo
+        apunta a fichas de empleado (R8)."""
         indice = matchers.indice
         res = indice.elegir_ficha(reg.trabajador_dni_leido, empresa, fecha)
         if res.motivo == "ok":
@@ -386,9 +391,18 @@ class PersistPartePipeline:
             return self._casar_alias(
                 alias, indice, matchers, candidatas, empresa, fecha
             )
-        return matchers.empleado.match_nombre(
-            nombre=reg.trabajador_nombre_leido, candidatas=candidatas
+        # F-030 (R9-R11): en el nombre compiten JUNTAS las fichas de empleado
+        # y las de recurso candidatas (mismo umbral y ambiguedad); si gana
+        # una de recurso, el casado es por recurso.
+        recursos = matchers.recursos
+        match = matchers.empleado.match_nombre(
+            nombre=reg.trabajador_nombre_leido,
+            candidatas=candidatas + recursos.fichas_candidatas(empresa, fecha),
         )
+        ficha_recurso = recursos.ficha(match.ide)
+        if ficha_recurso is not None:
+            return _de_recurso(ficha_recurso, match.score, "recurso_nombre")
+        return match
 
     @staticmethod
     def _casar_alias(
