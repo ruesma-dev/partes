@@ -1,6 +1,28 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-029 · in_progress (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
+
+Rama `feature/F-029-alias-logo-ruesma`. sdd=false, rigor estandar, solo
+sv3 (config versionada). Implementada, pendiente de reviewer.
+
+- T1 hecha: `services/partes-persistencia/tests/test_f029_alias_logo.py`
+  contra la tabla versionada real; RED pegado en `progress/impl_F-029.md`.
+- T2 hecha: alias `RUΞSMA` (normaliza «ru sma») en la empresa 1 de
+  `config/empresas_membrete.yaml`, con comentario. Sin tocar código ni el
+  prompt de sv2.
+- **Desviación D1 (declarada)**: tres asserts de F-023 fijaban el
+  contenido literal de la tabla (`test_f023_empresa_membrete.py`, uno;
+  `test_f023_wiring_sv3.py`, dos). Ajustados al mínimo: la 1 pasa a
+  `["RUESMA", "RUΞSMA"]`.
+- Docs: ni `docs/ARCHITECTURE.md`, ni `partes-proyecto.md`, ni
+  `azure-apps/partes.md` listan los alias, solo la ruta de la tabla: no
+  se tocan.
+- Mutación: alcance vacío (sin Python de producción); campaña manual sobre
+  el YAML en el informe (7/8 muertos, el superviviente es equivalente).
+- **M1 manual pendiente**: tras desplegar sv3, el primer parte de Ruesma
+  con el logotipo sale con empresa 1 y origen `membrete`.
+
 ## F-019 · done y DESPLEGADA con el interruptor APAGADO (2026-10-05), pendiente de M3
 
 Desplegada a petición del humano el 2026-10-05, en el orden de la spec:
