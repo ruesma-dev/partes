@@ -77,3 +77,86 @@ def test_f030_r4_lectura_recurso_row_sin_codigo_ni_nombre_por_defecto(
 ) -> None:
     r = RecursoRow(ide=1, cif=None, conide=None)
     assert (r.codigo, r.nombre) == (None, None)
+
+
+# ===================== fichas_de_recurso · R4 =========================== #
+
+import application.services.fichas_de_recurso as fdr  # noqa: E402
+from domain.models.sigrid_models import EmpleadoRow  # noqa: E402
+
+CIF_P = "09876543B"     # persona SIN ficha de empleado (empresa 28)
+CIF_Q = "08765432C"     # otra persona sin ficha (empresa 28)
+DNI_E = "11111111H"     # persona CON ficha de empleado (empresa 28)
+
+FICHA_E = EmpleadoRow(ide=10, codigo="E10", nombre="EVA FICHA", dni=DNI_E,
+                      reside=900, empresa=28, fecbaj=0)
+
+
+def _rec(ide, cif, *, codigo=None, conide=None, nombre="APELLIDOS, NOMBRE",
+         empresa=28, fecbaj=0) -> RecursoRow:
+    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+                      fecbaj=fecbaj, codigo=codigo or f"MO/{ide}",
+                      nombre=nombre)
+
+
+def test_f030_r4_fichas_de_recurso_la_ficha_es_el_recurso() -> None:
+    r = _rec(950, CIF_P, nombre="GOMEZ RUIZ, PEDRO", fecbaj=20261231)
+    assert fdr.fichas_de_recurso([FICHA_E], [r]) == [EmpleadoRow(
+        ide=950, codigo="MO/950", nombre="GOMEZ RUIZ, PEDRO", dni=CIF_P,
+        reside=950, empresa=28, fecbaj=20261231)]
+
+
+def test_f030_r4_fichas_de_recurso_el_dni_es_el_cif_tal_cual() -> None:
+    (f,) = fdr.fichas_de_recurso([], [_rec(950, " 09876543-b ")])
+    assert f.dni == " 09876543-b "
+
+
+def test_f030_r4_fichas_de_recurso_solo_mano_de_obra() -> None:
+    assert fdr.PREFIJO_MANO_DE_OBRA == "MO/"
+    recursos = [_rec(950, CIF_P, codigo="MQ/950"),
+                _rec(951, CIF_Q, codigo="XMO/951")]
+    assert fdr.fichas_de_recurso([], recursos) == []
+    sin_codigo = RecursoRow(ide=952, cif=CIF_P, conide=None, empresa=28)
+    assert fdr.fichas_de_recurso([], [sin_codigo]) == []
+
+
+def test_f030_r4_fichas_de_recurso_sin_cif_no_es_ficha() -> None:
+    assert fdr.fichas_de_recurso([], [_rec(950, None), _rec(951, ""),
+                                      _rec(952, " - ")]) == []
+
+
+def test_f030_r4_fichas_de_recurso_con_ficha_por_dni_no_es_ficha() -> None:
+    """Hay una ficha `emp` con ese DNI (normalizado, de cualquier empresa
+    y de alta o de baja): esa persona casa por su ficha."""
+    de_baja_otra = EmpleadoRow(ide=11, codigo="E11", nombre="X",
+                               dni="08765432-c", reside=None, empresa=1,
+                               fecbaj=20200101)
+    recursos = [_rec(950, DNI_E), _rec(951, CIF_Q)]
+    assert fdr.fichas_de_recurso([FICHA_E, de_baja_otra], recursos) == []
+
+
+def test_f030_r4_fichas_de_recurso_con_conide_a_una_ficha_no_es_ficha(
+) -> None:
+    assert fdr.fichas_de_recurso([FICHA_E], [_rec(950, CIF_P,
+                                                  conide=10)]) == []
+
+
+def test_f030_r4_fichas_de_recurso_conide_que_no_es_ficha_si_es_ficha(
+) -> None:
+    (f,) = fdr.fichas_de_recurso([FICHA_E], [_rec(950, CIF_P, conide=999)])
+    assert f.ide == 950
+
+
+def test_f030_r4_fichas_de_recurso_de_baja_y_de_otra_empresa_tambien() -> None:
+    """De todas las empresas y estados: `elegir_ficha` filtra alta y
+    empresa y da los mismos motivos que con fichas de empleado."""
+    recursos = [_rec(950, CIF_P, fecbaj=20200101),
+                _rec(951, CIF_Q, empresa=1)]
+    assert [f.ide for f in fdr.fichas_de_recurso([], recursos)] == [950, 951]
+
+
+def test_f030_r4_fichas_de_recurso_ficha_sin_dni_no_tapa_nada() -> None:
+    sin_dni = EmpleadoRow(ide=12, codigo="E12", nombre="Y", dni=None,
+                          reside=None, empresa=28, fecbaj=0)
+    assert [f.ide for f in fdr.fichas_de_recurso([sin_dni],
+                                                 [_rec(950, CIF_P)])] == [950]
