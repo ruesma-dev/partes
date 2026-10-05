@@ -34,6 +34,7 @@ test ajeno); suite raiz 445 passed, 1 skipped. Con el visto bueno se cambia
 el token, se commitea T12 y se sigue con T13-T20 (sv4, herramienta, docs,
 mutacion). Si la decision es otra, `git checkout` de esos dos ficheros
 deja la rama en T11.
+Trazas RED de T3-T11 (salida real) en `progress/red_F-031.md`.
 
 
 **Spec v4 APROBADA por el humano el 2026-10-06** («aprobado, se refiere a lo
