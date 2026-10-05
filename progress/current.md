@@ -40,6 +40,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   T7 en verde; suite sv5 421 passed.
 - T9 hecha: tests de pipeline de la cuenta en ROJO (11 failed, 7 passed:
   las caracterizaciones y las guardas de «no leer»).
+- T10 hecha: `_resolver_cuentas` con respaldo de partida y log `origen
+  cuenta`. Corregido de paso el docstring que decia que la cola reintenta
+  (observacion O1 del reviewer de F-021). T9, T1 y suite sv5 en verde (437).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 

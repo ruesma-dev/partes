@@ -42,6 +42,9 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      tipo por defecto) en el centro de la obra destino, con UNA lectura de
      cuentas por peticion. Sin cuenta, `caa_ide = 0` y se escribe igual;
      si la lectura falla, la peticion entera falla (nada se escribe).
+     F-031 (R20-R26): si el recurso no da subcuenta, la de la PARTIDA de
+     la linea si es de coste (`CI*`/`CD*`), con una lectura de partidas
+     por peticion y solo si hace falta.
   5. Localizar el parte de cada periodo; proponer codigo si no existe.
   6. Detectar lineas YA registradas por nosotros (synckey) -> idempotencia.
      Tambien las `dedicacion`: si ya viven en Sigrid, Sigrid manda (R5).
@@ -64,6 +67,7 @@ from application.services.cuenta_analitica import (
     MOTIVO_CUENTA_AMBIGUA,
     MOTIVO_OBRA_SIN_CUENTA,
     MOTIVO_RECURSO_SIN_CUENTA,
+    origen_subcuenta,
     resolver_cuenta,
     subcuenta_de_linea,
 )
@@ -214,35 +218,57 @@ class RegistroPipeline:
                           horas: dict[int, list[HoraRecurso]]) -> None:
         """Paso 4b (F-021, R1-R13, R18): `caa_*` de cada accion `escribir`.
 
-        Las demas se quedan con `caa_ide = 0` y sin motivo (R16). La
-        lectura de cuentas va SIN `try`: si falla, la peticion falla y la
-        cola reintenta (R11, DA7); escribir 0 en silencio es justo el
-        defecto que se corrige."""
+        Las demas se quedan con `caa_ide = 0` y sin motivo (R16). Las
+        lecturas de partidas y de cuentas van SIN `try`: si fallan, la
+        peticion falla y no se escribe nada (R11, DA7; F-031 R24); por cola
+        sv4 marca las lineas en error hasta que se reaprueban. Escribir 0
+        en silencio es justo el defecto que se corrige.
+
+        F-031 (R20-R26): la subcuenta sale del recurso; solo si no da, de
+        la partida de coste de la linea (`origen_subcuenta`). Las partidas
+        se leen UNA vez y solo si alguna accion las necesita."""
         # Una accion `escribir` siempre trae recurso (las reglas omiten las
         # que no lo tienen).
         escribir = [a for a in acciones if a.accion == "escribir"]
         if not escribir:
             return
-        subs = {id(a): subcuenta_de_linea(
-                    horas.get(int(a.recurso_ide), []), a.hora_ide)
-                for a in escribir}
+
+        def horas_de(a: AccionLinea) -> list[HoraRecurso]:
+            return horas.get(int(a.recurso_ide), [])
+
+        parides = {int(a.paride) for a in escribir
+                   if a.paride and not subcuenta_de_linea(horas_de(a),
+                                                          a.hora_ide)}
+        partidas = self._cli.partidas_de_lineas(parides) if parides else {}
+        origenes = {id(a): origen_subcuenta(
+                        horas_de(a), a.hora_ide,
+                        partidas.get(int(a.paride or 0)))
+                    for a in escribir}
         cenide = int(getattr(destino, "cenide", 0) or 0)
-        pedidas = {s for s in subs.values() if s}
+        pedidas = {o.sub for o in origenes.values() if o.sub}
         cuentas = (self._cli.cuentas_de_centro(cenide, empresa, pedidas)
                    if pedidas and cenide else {})
         recuento = {None: 0, MOTIVO_RECURSO_SIN_CUENTA: 0,
                     MOTIVO_OBRA_SIN_CUENTA: 0, MOTIVO_CUENTA_AMBIGUA: 0}
+        por_origen = {"recurso": 0, "partida": 0, None: 0}
         for a in escribir:
-            c = resolver_cuenta(subs[id(a)], cuentas, destino.codigo)
+            o = origenes[id(a)]
+            c = resolver_cuenta(o.sub, cuentas, destino.codigo)
             a.caa_ide, a.caa_cod = c.caa_ide, c.caa_cod
             a.caa_motivo, a.caa_aviso = c.motivo, c.aviso
+            a.caa_origen, a.caa_nota = o.origen, o.nota
             recuento[c.motivo] += 1
+            por_origen[o.origen] += 1
         logger.info(
             "[registro] cuentas obra=%s ok=%s recurso_sin_cuenta=%s "
             "obra_sin_cuenta=%s cuenta_ambigua=%s", destino.codigo,
             recuento[None], recuento[MOTIVO_RECURSO_SIN_CUENTA],
             recuento[MOTIVO_OBRA_SIN_CUENTA],
             recuento[MOTIVO_CUENTA_AMBIGUA])
+        logger.info(
+            "[registro] origen cuenta obra=%s recurso=%s partida=%s "
+            "ninguna=%s", destino.codigo, por_origen["recurso"],
+            por_origen["partida"], por_origen[None])
 
     # ---------------------- FASE 2a: EVALUAR ---------------------- #
     # Pasos 5-7. Leen estado que la escritura modifica: SIEMPRE dentro
