@@ -19,7 +19,6 @@ from __future__ import annotations
 import logging
 
 import httpx
-
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.coherencia_recurso import verificar_recurso
 from application.services.cuenta_analitica import MOTIVO_RECURSO_SIN_CUENTA

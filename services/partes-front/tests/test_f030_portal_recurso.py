@@ -14,9 +14,8 @@ Sin red ni PostgreSQL: SQLite en memoria. Datos SINTETICOS.
 """
 from __future__ import annotations
 
-import pytest
-
 import infrastructure.database.parte_repository as pr
+import pytest
 from infrastructure.database.orm_models import ParteRegistroOrm
 from infrastructure.database.parte_repository import ParteReviewRepository
 from tests.dobles import FabricaSesionSqlite, sembrar_parte
@@ -100,7 +99,7 @@ def test_f030_r18_detalle_del_trabajador() -> None:
     detalle = repo.get_worker(fila.worker_key)
     assert (detalle.nombre, detalle.matched, detalle.dni) == \
         (NOMBRE_RECURSO, True, CIF)
-    sin = [w for w in repo.list_workers() if w.nombre == SIN_CASAR][0]
+    sin = next(w for w in repo.list_workers() if w.nombre == SIN_CASAR)
     assert repo.get_worker(sin.worker_key).matched is False
 
 

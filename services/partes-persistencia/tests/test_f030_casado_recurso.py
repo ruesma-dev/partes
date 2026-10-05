@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 
 import httpx
-
 from domain.models.sigrid_models import RecursoRow
 from infrastructure.sigrid import sigrid_api_client as modulo
 from infrastructure.sigrid.sigrid_api_client import SigridApiClient
@@ -81,8 +80,8 @@ def test_f030_r4_lectura_recurso_row_sin_codigo_ni_nombre_por_defecto(
 
 # ===================== fichas_de_recurso · R4 =========================== #
 
-import application.services.fichas_de_recurso as fdr  # noqa: E402
-from domain.models.sigrid_models import EmpleadoRow  # noqa: E402
+import application.services.fichas_de_recurso as fdr
+from domain.models.sigrid_models import EmpleadoRow
 
 CIF_P = "09876543B"     # persona SIN ficha de empleado (empresa 28)
 CIF_Q = "08765432C"     # otra persona sin ficha (empresa 28)
@@ -164,24 +163,23 @@ def test_f030_r4_fichas_de_recurso_ficha_sin_dni_no_tapa_nada() -> None:
 
 # ========================= el proveedor · T5 ============================ #
 
-import logging  # noqa: E402
-from datetime import date  # noqa: E402
+import logging
+from datetime import date
 
-import pytest  # noqa: E402
-
-from application.pipelines.persist_parte_pipeline import (  # noqa: E402
+import pytest
+from application.pipelines.persist_parte_pipeline import (
     PersistPartePipeline,
 )
-from application.services.parte_normalizer import ParteNormalizer  # noqa: E402
-from application.services.sigrid_matcher_provider import (  # noqa: E402
+from application.services.parte_normalizer import ParteNormalizer
+from application.services.sigrid_matcher_provider import (
     SigridMatcherProvider,
 )
-from domain.models.parte_records import (  # noqa: E402
+from domain.models.parte_records import (
     EmpleadoMatch,
     ParteDocumento,
     RegistroNormalizado,
 )
-from domain.models.sigrid_models import (  # noqa: E402
+from domain.models.sigrid_models import (
     EmpresaRow,
     ObraRow,
     TipoHoraRow,
@@ -599,7 +597,7 @@ def test_f030_r11_el_nombre_invertido_casa_en_cualquier_orden(leido) -> None:
 
 # ====================== R13 · review_required ============================ #
 
-from domain.models.parte_records import TipoHoraMatch  # noqa: E402
+from domain.models.parte_records import TipoHoraMatch
 
 
 def _parte_revisable(*empleados: EmpleadoMatch) -> ParteDocumento:

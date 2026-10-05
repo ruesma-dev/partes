@@ -12,9 +12,8 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 import application.services.parte_normalizer as pn
+import pytest
 from application.pipelines.persist_parte_pipeline import PersistPartePipeline
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.sigrid_matcher_provider import SigridMatcherProvider
