@@ -272,6 +272,27 @@ def test_f030_proveedor_vacio_sin_fichas_de_recurso() -> None:
     assert matchers.recursos.fichas_candidatas(None, HOY) == []
 
 
+def test_f030_proveedor_los_recursos_con_ficha_no_son_fichas_de_recurso(
+) -> None:
+    """Cableado de `Matchers.recursos` con las fichas de empleado REALES.
+
+    En Sigrid es el caso normal: el `MO/` de quien tiene ficha lleva su DNI
+    en `res.cif`. Ni el enlazado a su ficha (`conide`) ni el que solo
+    comparte DNI con una ficha pueden ser fichas de recurso: si lo fueran,
+    competirian por nombre con su propia ficha (misma persona: dos fichas)
+    y el casado de hoy pasaria a `nombre_ambiguo`.
+    """
+    enlazado = _rec(970, DNI_E, conide=10, nombre="GOMEZ, PEDRO")
+    mismo_dni = _rec(971, DNI_V, nombre="VEGA MORA, LUIS")
+    lookup = _lookup_con(REC_P, REC_VP, enlazado, mismo_dni)
+    matchers = _proveedor(lookup).get()
+    ides = [f.ide for f in matchers.recursos.fichas_candidatas(None, HOY)]
+    assert ides == [950, 951]
+    # El empleado, leido solo por nombre, sigue casando con su ficha.
+    emp = _emp(_casar(_parte(("Pedro Gomez", None)), lookup=lookup))
+    assert (emp.ide, emp.method, emp.reside) == (10, "nombre", 900)
+
+
 # ======================= el casado: utilidades ========================== #
 
 def _parte(*trabajadores, obra="0724", fecha=HOY) -> ParteDocumento:

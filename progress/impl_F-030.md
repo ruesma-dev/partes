@@ -144,30 +144,21 @@ test_f030_casado_recurso.py:641: AssertionError: assert True is False   (parte c
 Los 3 en verde son R20 (caracterización, 2) y «la confirmación sigue
 casando lo sin casar». Después: `21 passed`; suite sv4 `1657 passed`.
 
-**Caracterización (T1), contra el código de hoy**: sv3
-`test_f030_conciliador_sin_ficha.py` `7 passed in 0.33s`; sv5
-`test_f030_coherencia_sin_ficha.py` `5 passed in 0.30s`, antes de tocar
-nada de producción.
+**Caracterización (T1)**, sin tocar producción: sv3 conciliador `7 passed
+in 0.33s`; sv5 coherencia `5 passed in 0.30s`.
 
 ## 4. Verificación (resultado real)
 
 - Suites por servicio tras T9: sv3 `754 passed`, sv4 `1657 passed, 1
   warning in 324.32s`, sv5 `362 passed, 1 warning in 12.58s`; sv1/sv2 sin
   cambios (caché).
-- R16 (T10): `git diff dev --stat` de `seleccion_sigrid.py`, los dos
-  `text_match.py`, `coherencia_recurso.py` y `sigrid_lookup_client.py`:
-  **vacío**; tampoco cambian `orm_models.py`, `jornada_resolver.py`,
-  `recurso_conciliador.py`, `empleado_matcher.py`, `obra_matcher.py`, sv5,
-  sv1, sv2, plantillas ni `app.js`. `tests/test_f023_de_alta_gemelos.py`:
-  `14 passed`.
-- ruff: los ficheros de producción tocados tienen los mismos avisos que en
-  `dev` (0/2/1/86/2/0/44, comparados uno a uno); los nuevos, 0.
-- **`bash harness/init.sh`** (HEAD `24a8448` + este informe, T15):
-  `1 comprobaciones fallidas`. Todo `[OK]` (sv3 `754 passed`, sv4 `1657
-  passed, 1 warning in 493.65s`, sv5 `362 passed`, cobertura y tamaño
-  `impl 207/220`, ruff 590 = el de `dev`) **salvo** raíz `1 failed, 141
-  passed` (con `-x`), causa ajena (§6). Sin `-x`: `1 failed, 444 passed, 1
-  skipped`. Por eso F-030 queda `blocked` en `features.json`.
+- R16 (T10): `git diff dev` vacío en la lista cerrada, los dos
+  `text_match.py`, `recurso_conciliador.py`, `empleado_matcher.py`, sv1,
+  sv2, sv5, plantillas y `app.js`; `test_f023_de_alta_gemelos.py` `14 passed`.
+- ruff: producción tocada, mismos avisos que `dev` (uno a uno); nuevos, 0.
+- `bash harness/init.sh` de la pasada 1 (T15): todo `[OK]` salvo un test
+  de raíz por un worktree ajeno (§6, ya resuelto por el líder). El de la
+  pasada 2, en §7.
 
 ## 5. Evidencias
 
@@ -179,25 +170,15 @@ nada de producción.
 | Mutación | `python -m harness.mutacion --feature F-030 --workers 6 --timeout 600` (HEAD `551a1d8`, 8 ficheros, 199 líneas en alcance, campaña **completa**): **18 generados, 18 muertos, 0 supervivientes, 0 timeouts, 0 sin veredicto, 957.2 s** |
 | Tiempo de las suites | raíz 64 s, sv3 ~13–21 s, sv4 324 s, sv5 12.6 s; línea base de mutación sv4 311.7–312.0 s, sv3 9.5–19.0 s |
 
-Mutantes (detalle en `progress/mutacion_F-030.md`): los 4 de
-`fichas_de_recurso.py` (`not`, `or/and`, `-`→`+` de conjuntos), los 4 de
-`dni_canonico` (`zfill(8→9)`, `n[-1→-2]`, `n[:-1→-2]`, `+`→`-`) y el `or
-None`, los 6 del pipeline (`== "ok"`, `!= "desconocido"`, `+` de
-candidatas, `is not None` de la ficha de recurso, las dos condiciones de
-R13) y los 2 de `esta_casado` en sv4. Ninguno sobrevive: no hay nada que
-justificar.
+Detalle de los 18 mutantes en `progress/mutacion_F-030.md`; ninguno
+sobrevive. El mutador no muta argumentos: la rotura de cableado la cubre
+T16 (§7).
 
 ## 6. Pendiente y fuera de alcance
 
-**Bloqueo ajeno de `init.sh`** (anotado en `progress/current.md`): el test
-`tests/test_f017_r22_sin_reescritura_historica.py::test_f017_r22_no_hay_ficheros_sql_de_migracion`
-hace `rglob("*.sql")` sobre todo el repo y encuentra
-`.claude/worktrees/agent-af837e18a30df3345/infra/sql/01_dedicacion_lectura.sql`,
-el worktree de **otro agente** (rama `feature/F-031-asiento-analitico`, creado
-a las 14:42 durante esta implementación). No es de F-030 y no lo toco ni
-cambio el test (es de F-017). Con ese worktree retirado, el resto de
-`init.sh` ya sale verde; el líder decide (cerrar el worktree o que el humano
-acepte excluir `.claude/worktrees/` en ese test, en otra feature).
+**Bloqueo ajeno de la pasada 1 (resuelto):** `test_f017_r22_no_hay_ficheros_sql_de_migracion`
+encontraba el `.sql` del worktree de F-031 en `.claude/worktrees/`; el
+líder lo retiró (`a4a308c`).
 
 **MANUAL (humano)**, con comandos en `progress/current.md`: despliegue sv3 →
 sv4 en la misma sesión (sv5 no), M1 (log `recursos=` de sv3), M2 (lectura
@@ -209,3 +190,31 @@ Fuera (design §7): recursos sin `res.cif` o con `conide` a una ficha, alias
 de recurso, guardar el DNI leído, re-casado en bloque (DA8), alta manual o
 jornada de personas sin ficha en sv4, cuenta 0 forzada por empresa (DA9).
 No hay mejora del arnés que portar a `arnes-base`.
+
+## 7. Pasada 2 (review `901750f`, CHANGES_REQUESTED)
+
+**T16 · test del cableado de `Matchers.recursos`.** Nuevo
+`test_f030_proveedor_los_recursos_con_ficha_no_son_fichas_de_recurso`
+(familia `proveedor`): por el `SigridMatcherProvider` real carga la ficha
+`PEDRO GOMEZ` con su `MO/` (`cif` = su DNI, `conide` = la ficha) y otro
+`MO/` con `cif` = el DNI de `FICHA_V` y `conide` None. Afirma (a) que solo
+salen las fichas de recurso de verdad (`[950, 951]`) y (b) que ese
+empleado, leído solo por nombre, casa `nombre` con su ficha. Sin cambios de
+producción: el test pasa contra el código y solo falla con la rotura.
+
+**RED** con la rotura `fichas_de_recurso([], recursos)` en
+`sigrid_matcher_provider.py:133`, aplicada en una COPIA de
+`services/partes-persistencia` en el scratchpad (fuera del repo, borrada
+después). Comando: `<copia> python -m pytest -q --tb=short
+tests/test_f030_casado_recurso.py -k proveedor`:
+```
+tests	est_f030_casado_recurso.py:290: in test_f030_proveedor_los_recursos_con_ficha_no_son_fichas_de_recurso
+E   assert [950, 951, 970, 971] == [950, 951]
+E     Left contains 2 more items, first extra item: 970
+1 failed, 2 passed, 57 deselected in 0.57s
+```
+Y saltando (a) en la copia, (b) también cae: `E   AssertionError: assert
+(None, 'nombre_ambiguo', None) == (10, 'nombre', 900)`. En el repo: `3
+passed` (`-k proveedor`), suite sv3 `755 passed in 11.74s`; ruff limpio.
+**`bash harness/init.sh`** tras T16: **ENTORNO LISTO**; raíz `445 passed, 1 skipped`,
+sv3 `755 passed`, sv4/sv5 en verde (caché), cobertura 100 % (59/59), impl 220/220.
