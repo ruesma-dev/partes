@@ -188,8 +188,15 @@ original NO se versiona: al repositorio entra solo el Markdown.
   `de_alta` y ese SQL los vigila `tests/test_f023_de_alta_gemelos.py`. La
   elección por DNI no es idéntica a propósito (sv3 desempata con el
   `reside` de la ficha; sv5 exige un único candidato), pero sus candidatos
-  son los mismos: empresa de la obra y alta a la fecha. Solo crece con una
-  decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
+  son los mismos: empresa de la obra y alta a la fecha. Y la regla de
+  congelación de líneas, de hecho duplicada desde F-004 y ampliada por
+  F-024 y F-019 (decisión expresa del humano el 2026-10-05, a propuesta
+  del reviewer de F-019): sv4 `application/services/congelacion.py`
+  (`motivo_congelacion_linea`, candado y edición) y sv3
+  `application/services/recurso_conciliador.py` (`esta_congelado`,
+  `ESTADOS_CONGELADOS`, recálculo de la ingesta); deben dar lo mismo para
+  cada estado y lo vigila `tests/test_f024_borrado_no_congela_gemelos.py`.
+  Solo crece con una decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes NO hacen `git push` ni crean PRs salvo petición explícita del
   humano. Commits locales sí, según protocolo del implementer.
