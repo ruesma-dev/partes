@@ -1,7 +1,35 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-019 · done (2026-10-03), sin desplegar: pendiente de M0 y despliegue
+## F-019 · done y DESPLEGADA con el interruptor APAGADO (2026-10-05), pendiente de M3
+
+Desplegada a petición del humano el 2026-10-05, en el orden de la spec:
+sv3 `ca-sv3-persistencia--r20261005104505` y sv4
+`ca-sv4-front--r20261005104930` (los dos inicializan el esquema sin errores,
+163 sentencias complementarias), M1 y M2, y sv5
+`ca-sv5-transfer--r20261005110655` (Healthy, 100 %, arranque limpio).
+`MENSUALES_A_DEDICACION` no existe en el Container App: interruptor apagado,
+sv5 decide lo de siempre.
+
+- **M0** (líder, solo lectura, 2026-10-05): 12 líneas `omitido` de
+  2026-09, todas con motivo «el recurso no tiene código de hora extra en
+  Sigrid». Contexto de la base: 244 sin enviar, 34 `borrado_sigrid`, 12
+  `omitido`, 1 `registrado`. Son las candidatas a reaprobar tras encender.
+- **M1** (líder): `dedicacion_bandeja` existe, 0 filas, 23 columnas (sin
+  nombre ni DNI), propietario el administrador.
+- **M2** (lo ejecutó el humano; verificado por el líder):
+  `dedicacion_app` conecta a `partes`, lee la bandeja (t), no lee
+  `parte_registros` (f) y no crea en `public` (f).
+- **Pendiente**: cerrar la regla de firewall `partes-puesto-pgris-20261005`
+  si sigue abierta; feature espejo en `porcentajes`; **M3** al encender.
+- **Lecciones de este despliegue** (los comandos de abajo y los de la spec
+  se dejan como están porque un test fija el del `.sql`):
+  `psql` de Windows ignora todo lo que va DETRÁS de la cadena de conexión:
+  `-c`, `-v` y `-f` van delante
+  (`psql -v rol=dedicacion_app -f infra/sql/01_dedicacion_lectura.sql "host=... dbname=partes user=... sslmode=require"`).
+  Con el `az` actual la regla de firewall se nombra con `-n`, no con
+  `--rule-name` (`fase1_infra_partes.ps1` sigue con `--rule-name`: no se
+  cambia porque en versiones antiguas `-n` era el servidor).
 
 APPROVED del reviewer en la primera pasada (`progress/review_F-019.md`);
 D3, D4 y D5 aceptadas por el humano el 2026-10-03. Resumen en
@@ -9,7 +37,7 @@ D3, D4 y D5 aceptadas por el humano el 2026-10-03. Resumen en
 congelación sv3/sv4 (F-004/F-024) a la lista cerrada de `CLAUDE.md`
 (observación del reviewer; no la crea F-019).
 
-Rama `feature/F-019-mensuales-a-dedicacion`. Tarea en curso: ver
+Rama `feature/F-019-mensuales-a-dedicacion` (mergeada y borrada). Historial de tareas: ver
 `specs/F-019-mensuales-a-dedicacion/tasks.md` (las marcadas `[x]` estan
 hechas, un commit por tarea). Decisiones y desviaciones: se anotan aqui y
 en `progress/impl_F-019.md`.
