@@ -5,15 +5,13 @@
 
 Resumen: **30 features**, 9 abiertas, 21 terminadas.
 
-En curso: **F-031**.
-
-Bloqueadas: **F-014**.
+Bloqueadas: **F-014, F-031**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | en curso | critico | `feature/F-031-asiento-analitico` |
+| F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | bloqueada | critico | `feature/F-031-asiento-analitico` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -53,7 +51,7 @@ Bloqueadas: **F-014**.
 
 ### F-031 · El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra
 
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-031-asiento-analitico`
+estado **bloqueada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-031-asiento-analitico`
 
 Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuente: correo de Juan Romero (Dir. Admon y Control de Costes) del 2026-09-29 «ARBOL ANALITICO OBRAS»: las cuentas analiticas de una obra cuelgan de su CENTRO DE COSTE (p. ej. obra 0702 -> centro 0702, ficha Obra > Contabilidad > «Cuentas analiticas»: 0702 centro de coste asociado, 0702.INGR02 certificacion, 0702.INGR01 produccion). El arbol del centro tiene C·COSTES (CD costes directos, CI costes indirectos, CP costes proporcionales CP0001..CP0010) e I·INGRESOS (INGR01..03). «Dentro del asiento se define el financiero, y la cuenta analitica del gasto (6XX)»: ejemplo de asiento con apunte 6260000000 y Desglose Analitico al centro 0702, cuenta 0702.CP0004 AVALES, 100 %. LO QUE SE PIDE: que el coste de mano de obra de los partes que sv5 registra en Sigrid quede imputado en la analitica de la obra (asiento/desglose analitico al centro de coste de la obra con la cuenta de coste que corresponda). RELACION CON F-021 (done): hoy sv5 escribe hmores.caaide = cuenta del centro de la obra con la subcuenta de la ficha de horas del recurso (reshor.caaide); en Porsan sale 0 (ningun recurso tiene cuenta). A INVESTIGAR EN LA SPEC (solo lectura en Sigrid y en azure-apps/sigrid_tablas.md): si Sigrid genera el asiento analitico a partir de hmores.caaide por algun proceso propio (y por que no aparece), o si hay que escribir el apunte/desglose analitico en otras tablas; que cuenta de coste corresponde a la mano de obra (CD..., por categoria o tipo de hora), importe (horas x precio de reshor), fecha y diario; como lo hace hoy Administracion a mano con partes tecleados (comparar con lineas reales de 2026); idempotencia con synckey y que pasa al borrar o reaprobar (F-024); empresas 1 y 28. Solo sv5 escribe en Sigrid. RIGOR critico: escribe contabilidad en Sigrid. Validar con Juan Romero antes de implementar.
 

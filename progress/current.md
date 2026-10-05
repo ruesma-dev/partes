@@ -1,7 +1,40 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-031 · in_progress (2026-10-06): el parte registrado acaba en el asiento analítico
+## F-031 · BLOCKED (2026-10-06, implementer en T12): el parte registrado acaba en el asiento analítico
+
+**Motivo del bloqueo (spec incorrecta en un punto, no improviso).** Al
+implementar T12 (paso 5 con `partes_del_periodo`, design §7.4) se pone ROJO
+un test AJENO: `services/partes-transfer/tests/test_f002_pipeline_fases.py::
+test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock`, que exige por
+NOMBRE que el pipeline llame a `partes_existentes`:
+
+    assert {"partes_existentes", "siguiente_cod_pt", "lineas_por_synckey",
+            "escribir"} <= set(cli.llamadas)
+
+Con F-031 el pipeline ya no llama a `partes_existentes` (lo sustituye
+`partes_del_periodo`, que el doble tambien vigila bajo el lock). design §8
+afirma que ningun test ajeno cambia y tasks.md manda parar si uno se pone
+rojo. Sin alternativa limpia: seguir llamando a `partes_existentes` seria
+una lectura extra por periodo solo para el test (contra R1), y que el doble
+apunte `partes_existentes` al llamar a `partes_del_periodo` enganaria al
+guardian.
+
+**Propuesta (decide el humano):** cambiar en ese assert el nombre
+`"partes_existentes"` por `"partes_del_periodo"` (un token; la intencion de
+R20 de F-002, leer el estado escrito DENTRO del lock, se mantiene y la
+comprueba `vigilar_lock`). Se declararia como desviacion D1 en el informe.
+
+**Estado del trabajo:** T1-T11 hechas y commiteadas (un commit por tarea).
+T12 IMPLEMENTADA en el arbol de trabajo SIN commitear (`registro_pipeline.py`
+pasos 5, 7, 8 y docstring; `settings.py` con `EST_PARTE_CERRADO`/
+`EST_PARTE_IMPUTADO`) y el arreglo del helper `_lin` de
+`test_f031_pipeline_estado.py`: suite sv5 463 passed, 1 failed (solo ese
+test ajeno); suite raiz 445 passed, 1 skipped. Con el visto bueno se cambia
+el token, se commitea T12 y se sigue con T13-T20 (sv4, herramienta, docs,
+mutacion). Si la decision es otra, `git checkout` de esos dos ficheros
+deja la rama en T11.
+
 
 **Spec v4 APROBADA por el humano el 2026-10-06** («aprobado, se refiere a lo
 que no este en registro»): «cerrado» = Cerrado o Imputado. Rama al día con
