@@ -1,23 +1,22 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-030 · spec_ready (2026-10-05): recurso por DNI cuando no hay ficha de empleado
+## F-030 · spec_ready (2026-10-05): ficha de recurso cuando no hay ficha de empleado
 
-Spec escrita por el spec-author en `specs/F-030-recurso-sin-ficha/`
-(requirements 102/150, design 250/250, 13 tareas). Resumen llano para el
-humano en `progress/spec_F-030.md`. Rama `feature/F-030-recurso-sin-ficha`.
-Rigor critico. Toca sv3 (DNI canonico a 8 digitos y casado por `res.cif`
-sin ficha, metodo `recurso_dni`) y sv4 (badge y fuera de la cola de
-conciliacion); sv5 sin codigo (solo tests). Lista cerrada intacta.
+Spec en `specs/F-030-recurso-sin-ficha/` (requirements 116/150, design
+232/250, 15 tareas), **version 2**: reescrita con las decisiones del humano
+del 2026-10-05; DA1-DA9 APROBADAS (design §8). Resumen llano y cambios
+respecto a la v1 en `progress/spec_F-030.md`. Rama
+`feature/F-030-recurso-sin-ficha`. Rigor critico.
 
-**Pendiente de validar por el humano antes de implementar: DA1-DA9**
-(design §8): DA1 solo DNI (no nombre contra recurso); DA2 que se guarda;
-DA3 sin `review_required`; DA4 cambios de sv4; DA5 motivos no-ok siguen a
-alias/nombre; DA6 no tocar los gemelos; DA7 DNI canonico; DA8 reprocesar a
-mano los 2 partes de Porsan; DA9 cuenta analitica de Porsan sin codigo (hoy
-ya sale 0: 0/39 recursos de la 28 con cuenta en `reshor`, 0/5.123 lineas
-manuales de 2026 con cuenta). Datos de Sigrid (solo lectura, agregados) en
-design §1.
+- sv3: DNI canonico a 8 digitos (en `parte_normalizer.py`); «fichas de
+  recurso» (MO/ con `res.cif`, sin ficha por DNI ni `conide`) casadas con el
+  MISMO proceso que las de empleado (DNI, alias solo de empleados, nombre con
+  las dos juntas); metodos `recurso_dni`/`recurso_nombre`; sin columnas.
+- sv4 al minimo: `esta_casado` + fuera de la cola de conciliacion.
+- sv5 sin codigo (tests: verificacion y cuenta 0 en la 28).
+- Pendiente: implementar (implementer) cuando el humano lo pida; despues,
+  despliegue sv3 -> sv4 y M1-M4 de design §9.
 
 ## F-029 · done y DESPLEGADA (2026-10-05): alias del logotipo de Ruesma (ruΞsma)
 

@@ -1,85 +1,54 @@
 <!-- progress/spec_F-030.md -->
-# F-030 · Resumen de la spec para el humano
+# F-030 · Resumen de la spec para el humano (versión 2, con tus decisiones)
 
-Spec: `specs/F-030-recurso-sin-ficha/` (requirements 102 líneas, design 250,
-tasks 13 tareas). Estado `spec_ready`: **falta que apruebes DA1–DA9** antes
-de implementar.
+Spec: `specs/F-030-recurso-sin-ficha/` (requirements 116 líneas, design 232,
+15 tareas). Sigue en `spec_ready`; DA1–DA9 **aprobadas** el 2026-10-05 y
+marcadas así en design §8, con tus palabras citadas.
 
-## Qué pasa hoy y por qué
+## Qué cambia respecto a la versión anterior
 
-sv3 casa primero el trabajador contra las fichas de empleado (`emp`) y llega
-al recurso desde la persona. Si no hay ficha, la línea se queda sin persona
-y sin recurso («Sin recurso»), aunque Sigrid tenga un recurso de alta cuyo
-`res.cif` es ese DNI. Además, el DNI leído sin el cero inicial no casa nunca:
-Sigrid guarda **siempre** 8 dígitos.
+1. **DA1, el proceso es el mismo que con empleados.** Cuando una persona no
+   tiene ficha de empleado, su «ficha» es su recurso (`MO/`, con DNI en
+   `res.cif` y sin ficha enlazada). Se casa con **el mismo código** que hoy
+   casa empleados: primero DNI (con el cero completado) y, si no hay DNI o no
+   casa, alias (solo existen para fichas de empleado) y **nombre**, con el
+   mismo umbral y las mismas reglas de empate. En el nombre compiten juntas
+   las fichas de empleado y las de recurso: gana la mejor y un empate entre
+   dos personas va a revisión. El formato «APELLIDOS, NOMBRE» de los recursos
+   ya lo entiende el algoritmo (compara palabras sin orden y quita la coma).
+   No se duplica nada: no se toca la lista cerrada ni `text_match.py`.
+2. **DA2, nada del modelo cambia.** La línea se guarda en el recurso como
+   siempre y no hay columnas nuevas. Solo se usan dos valores nuevos en el
+   campo de método que ya existe, `recurso_dni` y `recurso_nombre`: son
+   imprescindibles porque, sin ficha, es lo único que distingue a esta
+   persona de un trabajador sin casar.
+3. **DA4, portal al mínimo.** Sin badge ni plantillas: la persona se ve como
+   cualquier trabajador casado. Se queda un helper que la cuenta como casada
+   y el filtro que la saca de la pantalla de conciliación, porque confirmar
+   allí le pondría una ficha ajena y le quitaría el recurso aunque se haya
+   casado por nombre.
+4. Recursos que ahora quedan **fuera**: los que apuntan a una ficha (casan
+   por ella, como hoy; así desaparece el riesgo anterior de 3 omisiones en
+   sv5) y los que no tienen `res.cif` (2 en la 28: casarlos obligaría a
+   cambiar el conciliador).
+5. El completado del cero del DNI se hace al leer el parte, no en
+   `text_match.py` (ese fichero es idéntico en sv3 y sv4).
 
-## Qué propone
+Lo demás (DA3, DA5–DA9), como lo recomendé: sin revisión por esto, motivos
+no válidos siguen a alias y nombre, lista cerrada intacta, reproceso manual
+de los 2 partes de Porsan y cuenta analítica 0 en Porsan sin tocar sv5
+(hoy ya sale 0; queda fijado con un test).
 
-1. **sv3**: el DNI leído se completa a 8 dígitos (con o sin el 0 da igual).
-   Si no hay **ninguna** ficha con ese DNI, antes de probar el alias o el
-   nombre, sv3 busca el recurso por `res.cif` entre los de la empresa del
-   parte y de alta a su fecha. Si hay uno, el trabajador queda «casado por
-   recurso»: sin ficha, con el DNI y el nombre del recurso de Sigrid y el
-   método `recurso_dni`. El parte no va a revisión por eso.
-2. El conciliador **no cambia**: con el DNI ya guardado elige el recurso por
-   línea (empresa de la obra y alta a la fecha), como desde F-023, y aplica
-   jornada, calendario y extras como a cualquiera.
-3. **sv4**: esas personas se ven «Casado por recurso (sin ficha)» y salen de
-   la pantalla de conciliación (donde casarlas por nombre soltaría su recurso).
-4. **sv5**: sin código. Verifica el recurso igual que hoy y ya escribe cuenta
-   analítica 0 en Porsan. Solo gana tests que lo fijan.
+## Riesgo nuevo que importa
 
-## Datos medidos en Sigrid (hoy, solo lectura)
+**Nombre mal casado**: igual que con fichas de empleado, dos personas que
+comparten apellidos pueden rozar el umbral y las horas irían a otra persona
+en Sigrid. Lo mitigan el empate a revisión, el umbral estricto y el «Leído:
+…» del portal junto al nombre del recurso.
 
-- Quién entra por el camino nuevo (`res.cif` con DNI y ninguna ficha con ese
-  DNI): **19 recursos en la empresa 1 y 6 en la 28**. Los otros 12 de la 28
-  del recuento no tienen `cif`: 10 ya casan por su ficha (`conide`) y 2 no
-  son identificables por DNI. 24 de esos recursos suman 1.289 líneas
-  tecleadas a mano en 2026 (707 en la 1, 582 en la 28).
-- Cuenta analítica en Porsan: **0 de 39** recursos de la 28 tienen cuenta en
-  su ficha de horas y **0 de 5.123** líneas de 2026 de obras de la 28 llevan
-  cuenta, aunque las 103 obras sí tienen cuentas en su centro. sv5 escribe
-  hoy `caaide = 0` en la 28 (motivo «recurso sin cuenta», sin aviso).
+## Despliegue y pruebas manuales (sin cambios)
 
-## Decisiones (DA) y mi recomendación
-
-| DA | Pregunta | Recomiendo |
-|---|---|---|
-| DA1 | ¿Casar también por nombre contra el recurso? | **No**, solo DNI. Un nombre mal casado escribe horas a otro en Sigrid; feature aparte si hace falta |
-| DA2 | ¿Qué se guarda? | Ficha vacía, DNI y nombre del recurso, método `recurso_dni`. No tomar la ficha de `res.conide` (3 casos con otro DNI) ni crear columnas |
-| DA3 | ¿Va a revisión? | **No** (el conciliador ya avisa si el recurso no vale a la fecha) |
-| DA4 | ¿Tocar el portal? | **Sí**: badge propio y fuera de la cola de conciliación |
-| DA5 | DNI con recurso de baja, de otra empresa o ambiguo | Seguir como hoy (alias y nombre): no cambia nada de lo que ya casa |
-| DA6 | Lista cerrada de duplicación | **No tocar ninguna copia**: se usa `elegir_recurso` tal cual y el cero se arregla al leer |
-| DA7 | DNI canónico | Completar a 8 solo `1–7 dígitos + letra`; arregla también el casado con ficha |
-| DA8 | Partes ya entrados | El DNI leído no se guarda: **reprocesar a mano** los 2 de Porsan (papelera + correo de vuelta a la bandeja) |
-| DA9 | Cuenta analítica en Porsan | **Sin código**: ya sale 0; se fija con test. Forzarlo por empresa sería feature aparte |
-
-## Riesgos
-
-- Un DNI mal leído que coincida con el de otra persona sin ficha se le
-  imputaría a ella (mismo riesgo que con fichas); el portal enseña el nombre
-  del recurso junto al leído para cazarlo.
-- 3 recursos de la empresa 1 apuntan a una ficha con otro DNI: sv3 los casará
-  y sv5 los **omitirá** con motivo. Falla seguro; se arregla en Sigrid.
-- Más líneas con recurso significa más extras por jornada calculadas.
-- Entre desplegar sv3 y sv4 estas personas se ven «Sin casar»: no tocarlas en
-  conciliación durante ese rato.
-
-## Despliegue y pruebas manuales
-
-Orden **sv3 → sv4** en la misma sesión; sv5 no se despliega; sin cambio de
-esquema. Después: M1 logs de arranque de sv3; M2 lectura en Sigrid de cuentas
-de la 28 (debe dar 0); **M3** reprocesar los 2 partes de Porsan (marcar
-pendiente si están aprobados, papelera, mover sus correos de `Procesados` a la
-bandeja de entrada no leídos) y comprobar la persona sin ficha con recurso y
-estado `ok`/`sin_parte`; **M4** abrir el modal de aprobación (solo lectura) y
-ver en los logs de sv5 `[registro] cuentas obra=0724 ok=0
-recurso_sin_cuenta=N`. Detalle exacto en design §9.
-
-## Fuera
-
-Nombre contra recursos, ficha desde `res.conide`, guardar el DNI leído,
-re-casado automático de lo ya ingerido, alta manual o jornada de personas sin
-ficha en el portal, regla «empresa sin analítica» en sv5, y los 2 recursos de
-la 28 sin `cif` ni ficha.
+sv3 → sv4 en la misma sesión; sv5 no se despliega. Luego M3: reprocesar los
+2 partes de Porsan (papelera + mover sus correos a la bandeja de entrada no
+leídos) y M4: preflight con `[registro] cuentas obra=0724 ok=0
+recurso_sin_cuenta=N` en los logs de sv5. Detalle en design §9.
