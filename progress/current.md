@@ -30,6 +30,7 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   el resto de mensajes de sv5 (decision, no cambia el sentido de design §7.1).
 - T4 hecha: `ParteSigrid`, `PartidaCuenta`, campos nuevos de
   `ParteDestino`/`AccionLinea` y `estado_parte.py`. T3 en verde (15).
+- T5 hecha: `test_f031_cuenta_partida.py` en ROJO (ImportError).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
