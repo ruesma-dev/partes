@@ -13,19 +13,27 @@ Regla medida contra las lineas tecleadas a mano (99,64 % de coincidencia,
   - SIN CUENTA (R3, R5, R6): `caa_ide = 0` y la linea se escribe igual
     (R8). Solo se avisa cuando se puede arreglar en la obra (R5, R6).
 
-Ni `res.caaide`, ni `emp.caaide`, ni la cuenta de la partida, ni
-`auxhor.caacod` intervienen (R7): esta funcion no los recibe.
+Ni `res.caaide`, ni `emp.caaide`, ni `auxhor.caacod` intervienen (R7).
+
+F-031 (DA6, R20-R22) matiza R7: la cuenta SIGUE saliendo del recurso; solo
+si el recurso no da subcuenta (R3) se usa la de la PARTIDA de la linea, y
+solo si es de coste (`CI*`/`CD*`; nunca `CP` ni `INGR`), llevada al mismo
+centro de la obra con R4-R6. Lo decide `origen_subcuenta`; `resolver_cuenta`
+no cambia: recibe la subcuenta elegida.
 """
 from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from domain.models.registro_models import HoraRecurso
+from domain.models.registro_models import HoraRecurso, PartidaCuenta
 
 MOTIVO_RECURSO_SIN_CUENTA = "recurso_sin_cuenta"   # R3 (sin aviso)
 MOTIVO_OBRA_SIN_CUENTA = "obra_sin_cuenta"         # R5 (con aviso)
 MOTIVO_CUENTA_AMBIGUA = "cuenta_ambigua"           # R6 (con aviso)
+
+#: F-031 (R21): prefijos de subcuenta de coste que valen como respaldo.
+SUBCUENTAS_COSTE_PARTIDA = ("CI", "CD")
 
 
 def subcuenta(cod: str | None) -> str | None:
@@ -51,6 +59,38 @@ def subcuenta_de_linea(horas: list[HoraRecurso],
             if sub:
                 return sub
     return None
+
+
+def subcuenta_de_partida(caa_cod: str | None) -> str | None:
+    """F-031 (R21): la subcuenta de la cuenta de la partida si es de coste
+    (empieza, en mayusculas, por `CI` o `CD`); si no, None (R22)."""
+    sub = subcuenta(caa_cod)
+    if sub and sub.upper().startswith(SUBCUENTAS_COSTE_PARTIDA):
+        return sub
+    return None
+
+
+@dataclass(frozen=True)
+class OrigenSubcuenta:
+    """F-031: subcuenta elegida para una linea y de donde sale."""
+    sub: str | None
+    origen: str | None      # "recurso" | "partida" | None
+    nota: str | None        # solo si sale de la partida
+
+
+def origen_subcuenta(horas: list[HoraRecurso], horide: int | None,
+                     partida: PartidaCuenta | None) -> OrigenSubcuenta:
+    """F-031 (R20-R22): el recurso manda; la partida de coste, de respaldo."""
+    sub = subcuenta_de_linea(horas, horide)
+    if sub:
+        return OrigenSubcuenta(sub, "recurso", None)
+    sub = subcuenta_de_partida(partida.caa_cod) if partida else None
+    if sub:
+        return OrigenSubcuenta(
+            sub, "partida",
+            f"el recurso no tiene cuenta para esa hora: se usa la de la "
+            f"partida {partida.cod} (.{sub})")
+    return OrigenSubcuenta(None, None, None)
 
 
 @dataclass(frozen=True)

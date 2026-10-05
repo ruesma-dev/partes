@@ -31,6 +31,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T4 hecha: `ParteSigrid`, `PartidaCuenta`, campos nuevos de
   `ParteDestino`/`AccionLinea` y `estado_parte.py`. T3 en verde (15).
 - T5 hecha: `test_f031_cuenta_partida.py` en ROJO (ImportError).
+- T6 hecha: `subcuenta_de_partida`, `OrigenSubcuenta`, `origen_subcuenta`
+  y docstring (R7 de F-021 matizada). T5 + `test_f021_cuenta_analitica` en
+  verde (60); suite sv5 410 passed.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
