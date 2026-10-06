@@ -136,6 +136,11 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   sv5 503, sv4 1672, cobertura 99,6 %). Informe en `progress/impl_F-031.md`.
   Pasa al reviewer.
 
+#### v5 (alta protegida y dependencia con porcentajes; spec `9ea7c59`)
+
+- T21 hecha: `test_f031_pipeline_alta.py`, caracterizacion de R40 en verde
+  contra el codigo de hoy (3 passed).
+
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
 Despliegue (lo pide el humano): `.\infra\redeploy_partes.ps1 -Solo sv5` y
