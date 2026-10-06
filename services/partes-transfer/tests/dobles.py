@@ -186,7 +186,7 @@ class SigridFake:
                  latencia_lectura: float = 0.0,
                  latencia_escritura: float = 0.0,
                  recursos=None, por_dni=None, cuentas=None,
-                 partidas=None) -> None:
+                 partidas=None, alta_protegida: bool = False) -> None:
         from domain.models.registro_models import ObraEntrada, ParteDestino
 
         self._ObraEntrada = ObraEntrada
@@ -223,6 +223,18 @@ class SigridFake:
         #: con este estado / este codigo (relectura que no cuadra).
         self.est_al_crear: int | None = None
         self.cod_al_crear: str | None = None
+        #: F-031 v5 (R41-R47): con `alta_protegida`, `crear_parte` NO
+        #: inserta (y no cuenta como fila) si el codigo ya existe en la
+        #: empresa o el periodo ya tiene un parte En registro de la obra,
+        #: como el SQL real. Apagada por defecto: los guardas de carrera de
+        #: F-002 necesitan ver el fallo del doble sin lock.
+        self.alta_protegida = alta_protegida
+        #: F-031 v5 (R47): partes que «el otro servicio» (porcentajes) crea
+        #: justo ANTES del primer alta; se vacia al usarse.
+        self.al_alta: list[dict] = []
+        #: F-031 v5 (R46): cada intento de alta {cod, obride, ano, mes,
+        #: insertado}.
+        self.altas: list[dict] = []
         #: F-031: (obra_ide, ano, mes) de cada `partes_del_periodo`.
         self.periodos_leidos: list[tuple[int, int, int]] = []
         #: F-031: `hmoide` de cada `lineas_existentes`.
@@ -467,12 +479,36 @@ class SigridFake:
     def stmt_borrar_linea(ide: int) -> dict:
         return {"op": "borrar", "ide": int(ide)}
 
+    def _alta_libre(self, s: dict) -> bool:
+        """F-031 v5: el «otro servicio» actua antes del primer alta; con
+        `alta_protegida`, el alta solo entra si el codigo esta libre en la
+        empresa y no hay parte En registro del periodo (R41)."""
+        if self.al_alta:
+            for previo in self.al_alta:
+                self._siguiente_hmoide += 1
+                self.partes.append(dict(previo, ide=previo.get(
+                    "ide", self._siguiente_hmoide)))
+            self.al_alta = []
+        libre = True
+        if self.alta_protegida:
+            libre = not any(
+                (p["cod"] == s["cod"] and p.get("emp", 1) == s["emp"])
+                or (p["obride"] == s["obride"] and p["ano"] == s["ano"]
+                    and p["mes"] == s["mes"] and p.get("est", 1) == 1)
+                for p in self.partes)
+        self.altas.append({"cod": s["cod"], "obride": s["obride"],
+                           "ano": s["ano"], "mes": s["mes"],
+                           "insertado": libre})
+        return libre
+
     def escribir(self, statements: list[dict]) -> int:
         self._comprobar_lock("escribir")
         self._entrar("escribir", self.latencia_escritura)
         try:
             n = 0
             for s in statements:
+                if s["op"] == "crear_parte" and not self._alta_libre(s):
+                    continue        # F-031 v5: el alta protegida no entra
                 if s["op"] == "crear_parte":
                     self._siguiente_hmoide += 1
                     nuevo = {

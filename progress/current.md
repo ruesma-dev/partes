@@ -140,6 +140,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 
 - T21 hecha: `test_f031_pipeline_alta.py`, caracterizacion de R40 en verde
   contra el codigo de hoy (3 passed).
+- T22 hecha: `dobles.py` crece (`alta_protegida`, `al_alta`, `altas`);
+  suite sv5 506 passed.
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
