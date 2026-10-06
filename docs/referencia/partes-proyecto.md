@@ -221,8 +221,10 @@ registro**:
    (`con.est`: 1 En registro, 3 Cerrado, 10 Imputado). F-031: sv5 solo
    escribe en un parte **En registro** (el de mayor `ide`); si no hay
    ninguno crea cabecera `con`+`hmo` con código `PT<AA>/NNNNN`
-   correlativo de la empresa y la relee (si no sale En registro con su
-   código, no inserta nada). Si el mes ya tiene partes **cerrados**
+   correlativo de la empresa, relee el mes y usa el parte En registro que
+   haya, propio o de `porcentajes` (si no hay ninguno, un reintento con el
+   siguiente código y, si tampoco, error sin escribir líneas). Si el mes
+   ya tiene partes **cerrados**
    (Cerrado o Imputado), el parte que recibe las líneas es el
    **complementario** (como lo hace Administración a mano): el original
    no se toca y el modal lo rotula y explica a dónde van las líneas.

@@ -275,8 +275,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     Duplicados (synckey) y pisado miran todos los partes del periodo: una
     línea con horas ajenas del mismo recurso, día y tipo en un parte
     cerrado se omite (`parte_cerrado: …`); en otro En registro, conflicto
-    confirmable con su `parte_cod`. El parte creado se relee por código y
-    En registro; si no sale, no se inserta nada. El preflight lleva por
+    confirmable con su `parte_cod`. Tras el alta se relee el periodo y se
+    usa el parte En registro que haya, propio o de `porcentajes`; si no
+    hay ninguno, un reintento con el siguiente código y, si tampoco, error
+    sin insertar líneas. El preflight lleva por
     parte `estado`, `complementario`, `cerrados`, `del_periodo` y `aviso`,
     y el modal rotula «complementario». Comprobación:
     `comprobar_asiento_analitico.py` (Herramientas de consola).
