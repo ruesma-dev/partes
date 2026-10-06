@@ -157,3 +157,31 @@ FAILED tests/test_f031_pipeline_estado.py::test_f031_r19_info_por_periodo_sin_no
 FAILED tests/test_f031_pipeline_estado.py::test_f031_r19_estado_del_elegido_existente
 22 failed, 11 passed, 1 warning in 2.29s
 ```
+
+## T13 · services/partes-front/tests/test_f031_preflight_avisos.py (desde services/partes-front)
+
+```
+E       assert 'notasCuentaHtml(pf.acciones)' in '\n  function resumenHtml(pf) {\n    var r = pf.resumen || {};\n    var partes = (pf.partes || []).map(function (p) {\...o ? " Ya registradas: " + r.ya_registrado + "." : "")\n      + "</p>" 
+E       AssertionError: assert 'complementario</span>' in '<li>Parte <strong>PT26/00350</strong> (05/2026): <em>se creara</em></li>'
+E       assert ('complementario</span>' in "<ul class='ap-list'><li>Parte <strong>PT26/00350</strong> (05/2026): ya existe</li></ul><p>Se registraran <strong>2</...tran 1 linea(s):</strong></p><ul class='ap-list'><li>Persona Tres · 20/05/2
+E       assert 'a &amp; &lt;i&gt;b&lt;/i&gt;' in "<ul class='ap-list'><li>Parte <strong>PT26/00350</strong> (05/2026): <em>se creara</em></li></ul><p>Se registraran <s...tran 1 linea(s):</strong></p><ul class='ap-list'><li>Persona Tres · 2
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+E               subprocess.CalledProcessError: Command '['C:\\Program Files\\nodejs\\node.EXE', '-e', '\n  function esc(v) {\n    return String(v === null || v === undefined ? "" : v)\n      .replace(/&/g, "&amp;").replace(/</g, "&lt;")\n  
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_resumen_html_llama_a_notas_cuenta
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r28_rotula_complementario_y_pinta_el_aviso
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r28_complementario_existente
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r28_escapa_el_aviso - a...
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_una_fila_por_linea_escribir_con_nota
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_escapa_y_cuenta_todas
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_bloque[acciones0]
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_bloque[None]
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_bloque[acciones2]
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_bloque[acciones3]
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_bloque[acciones4]
+11 failed, 3 passed, 1 warning in 5.97s
+```

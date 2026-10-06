@@ -88,6 +88,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   caracterizaciones de T1 y guardas que ya cumple el codigo de hoy).
 - T12 hecha: `settings.py` (`EST_PARTE_CERRADO`, `EST_PARTE_IMPUTADO`) y
   pasos 5, 7 y 8 del pipeline. D1 aplicada en `test_f002_pipeline_fases.py`.
+- T13 hecha: `test_f031_preflight_avisos.py` (sv4) en ROJO (11 failed; el
+  reenvio y el modal de siempre, R30, ya en verde).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
