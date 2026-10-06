@@ -1,7 +1,7 @@
 <!-- progress/mutacion_F-031.md -->
 # F-031 · Campaña de mutación
 
-Generado por `python -m harness.mutacion --feature F-031` el 2026-10-06 11:04.
+Generado por `python -m harness.mutacion --feature F-031` el 2026-10-06 14:23.
 
 ## Alcance
 
@@ -9,34 +9,34 @@ Origen del diff: **rama** (`fccd09946f3eba178e32bc495e1b3a9766c913dd` .. `featur
 
 | Fichero | Líneas en alcance |
 |---|---|
-| `services/partes-transfer/application/pipelines/registro_pipeline.py` | 182 |
-| `services/partes-transfer/application/services/cuenta_analitica.py` | 43 |
-| `services/partes-transfer/application/services/estado_parte.py` | 73 |
+| `services/partes-transfer/application/pipelines/registro_pipeline.py` | 221 |
+| `services/partes-transfer/application/services/cuenta_analitica.py` | 52 |
+| `services/partes-transfer/application/services/estado_parte.py` | 82 |
 | `services/partes-transfer/comprobar_asiento_analitico.py` | 184 |
 | `services/partes-transfer/config/settings.py` | 5 |
 | `services/partes-transfer/domain/models/registro_models.py` | 30 |
-| `services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py` | 45 |
-| **Total** | **562** |
+| `services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py` | 80 |
+| **Total** | **654** |
 
 ## Totales
 
 | Métrica | Valor |
 |---|---|
-| Mutantes generados | 122 |
-| Mutantes evaluados | 122 |
-| Muertos | 122 |
+| Mutantes generados | 129 |
+| Mutantes evaluados | 129 |
+| Muertos | 129 |
 | Supervivientes | 0 |
 | Timeouts | 0 |
 | Sin veredicto (base rota) | 0 |
-| Tiempo total | 304.9 s |
-| SHA de HEAD medido | `bf7da1d314c818aa6039cddeef767dda2cfd605f` |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_kl1bxita/wk_0/services/partes-transfer` | 13.9 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_kl1bxita/wk_1/services/partes-transfer` | 13.9 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_kl1bxita/wk_2/services/partes-transfer` | 13.9 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_kl1bxita/wk_3/services/partes-transfer` | 13.8 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_kl1bxita/wk_4/services/partes-transfer` | 14.1 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_kl1bxita/wk_5/services/partes-transfer` | 13.9 |
-| Media por mutante evaluado (s) | 2.5 |
+| Tiempo total | 427.8 s |
+| SHA de HEAD medido | `31f13f9effa4308bf498296837bff788850e315e` |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_stvngzub/wk_0/services/partes-transfer` | 14.2 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_stvngzub/wk_1/services/partes-transfer` | 14.2 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_stvngzub/wk_2/services/partes-transfer` | 14.4 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_stvngzub/wk_3/services/partes-transfer` | 14.1 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_stvngzub/wk_4/services/partes-transfer` | 14.1 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-031_stvngzub/wk_5/services/partes-transfer` | 14.2 |
+| Media por mutante evaluado (s) | 3.3 |
 | Timeout efectivo por mutante (s) | 600 — fijado a mano con `--timeout`, sin derivar |
 | Suelo configurado (s) | 600 |
 | Workers | 6 |
@@ -47,14 +47,17 @@ Origen del diff: **rama** (`fccd09946f3eba178e32bc495e1b3a9766c913dd` .. `featur
 Ninguno: cada mutación aplicada la cazó al menos un test.
 
 
-## Anexo · primera campaña (2026-10-06 10:57, HEAD `5993599`) y cómo se cerró
+## Historial · campañas anteriores de F-031
+
+Campaña 3 (la de arriba, v5: alta protegida, `_crear_parte`, cabeceras): **129/129 muertos**. Campaña 2 (2026-10-06, HEAD `bf7da1d`, misma orden): 122 mutantes, 122 muertos, 0 supervivientes, 0 timeouts, 304,9 s. La campaña 1 y cómo se cerraron sus 23 supervivientes:
+### Anexo · primera campaña (2026-10-06 10:57, HEAD `5993599`) y cómo se cerró
 
 Misma orden (`--workers 6 --timeout 600`, campaña completa): **126
 mutantes, 103 muertos, 23 supervivientes, 0 timeouts**, 317 s. Ninguno
 se dio por equivalente: cada uno tiene un test en
 `services/partes-transfer/tests/test_f031_mutantes.py` (commit `bf7da1d`)
-salvo dos que desaparecieron al quitar código muerto. Esta campaña (la de
-arriba) es la que vale: 122/122 muertos.
+salvo dos que desaparecieron al quitar código muerto. La campaña 2 dio
+122/122 muertos.
 
 | # | Línea (campaña 1) | Mutación | Por qué sobrevivía | Cierre |
 |---|---|---|---|---|
