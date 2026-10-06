@@ -105,6 +105,11 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T17 hecha: `docs/ARCHITECTURE.md` (semantica 13 matizada, 16 nueva,
   herramienta) y `partes-proyecto.md` §3.5.
 - T18 hecha: `azure-apps/partes.md` §3.5, commit local `ef43cac` (sin push).
+- T19 hecha: cobertura de lineas cambiadas 98,7 % (225/228). Mutacion
+  completa (6 workers, timeout 600): campana 1 126/103/23 supervivientes;
+  cerrados con `test_f031_mutantes.py` (y dos `or 0` muertos quitados);
+  campana 2: 122 mutantes, 122 muertos, 0 supervivientes
+  (`progress/mutacion_F-031.md`).
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
