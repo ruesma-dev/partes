@@ -409,7 +409,7 @@
         "Dependencia con porcentajes documentada en azure-apps/partes.md (que se rompe si cambia), docs/ARCHITECTURE.md y la cabecera de estado_parte.py y cuenta_analitica.py: cambiarlos obliga a avisar a porcentajes en el mismo trabajo; no entra en la lista cerrada de CLAUDE.md (duplicacion entre repositorios)",
         "Fase RED de los R de design §10 (v4 y v5); mutacion completa REPETIDA tras la v5 con 0 supervivientes; bash harness/init.sh en verde"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

@@ -681,3 +681,33 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Pendiente: desplegar sv3 → sv4, reprocesar los 2 partes de prueba de
   Porsan (M3) y M4; Administración puede poner DNI a 2 recursos de la 28 sin
   `cif`.
+
+## F-031 · El parte registrado acaba en el asiento analítico — done 2026-10-06
+
+- Rama `feature/F-031-asiento-analitico` · rigor crítico · sdd=true · spec v5
+  aprobada por el humano el 2026-10-05/06 · APPROVED del reviewer en la pasada
+  2 (`progress/review_F-031.md`).
+- Hallazgo (solo lectura en Sigrid): Sigrid genera un asiento analítico por
+  parte al «Contabilizar parte» (estado Imputado), con Debe = Σ `hmores.tot`
+  por `hmores.caaide` y Haber por `res.caaconide`. sv5 no escribe asientos.
+  La cuenta de la línea sale de la ficha de horas del recurso, nunca de la
+  partida cuando difieren (1.013 casos, 0 a favor de la partida).
+- Entregado (sv5 y modal de sv4): sv5 nunca escribe en un parte que no esté
+  En registro (Cerrado o Imputado, decisión del humano): usa o crea un
+  complementario de la obra y mes; duplicados y pisado contra todos los
+  partes del periodo; choque con un parte cerrado ⇒ omitir con motivo.
+  Cuenta del recurso (F-021) con respaldo de la partida de coste si el
+  recurso no tiene. **Alta protegida** del parte (normal y complementario),
+  idéntica a la de `porcentajes` F-037, con relectura y un reintento.
+  Herramienta de solo lectura `comprobar_asiento_analitico.py`. Cabecera de
+  dependencia en `estado_parte.py` y `cuenta_analitica.py` (copiados por
+  `porcentajes`). Docs y `azure-apps/partes.md`.
+- Desviaciones aprobadas: D1 (test F-002 `partes_existentes` →
+  `partes_del_periodo`), DA10 (tests F-023 r32/r34) y DA11 (cabecera; el test
+  de copias de porcentajes queda rojo hasta que recopien).
+- Verificado: sv5 520+ passed, sv4 1672, raíz 445; cobertura 99,6 %;
+  mutación campaña 3 129/129; pasada 2 añade el test de «una sola escritura»
+  del alta (cabecera + `hmo`).
+- Pendiente: aviso a porcentajes; prueba de escritura en 0404 y despliegue
+  sv5 → sv4 (los decide el humano); DA3 con Juan (2 recursos sin
+  contrapartida).

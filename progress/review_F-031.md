@@ -1,9 +1,9 @@
 <!-- progress/review_F-031.md -->
-Revisión completa (pasada 1) · `dev...HEAD` (HEAD `20420a0`; alcance propio desde `9a00ce3` + commits de spec)
+Revisión incremental desde `372d151` (pasada 2; HEAD `786bb02`) · pasada 1: completa, `dev...20420a0`
 
 # F-031 · Review
 
-**Veredicto: CHANGES_REQUESTED** (dos cambios pequeños; lo demás, verificado, se da por bueno en la pasada 2).
+**Veredicto vigente: APPROVED** (pasada 2, al final). Pasada 1: CHANGES_REQUESTED (dos cambios, ya resueltos).
 **Rigor:** `critico` (declarado): RED, cobertura ≥ 80 %, mutación completa con 0 supervivientes y MANUAL con comando.
 Ninguna escritura en Sigrid ni en `partes`; ni worktrees ni copias dentro del árbol.
 
@@ -19,18 +19,13 @@ Ninguna escritura en Sigrid ni en `partes`; ni worktrees ni copias dentro del á
   con design §11. Cubre la D3 del informe (el implementer no las ejecutó). `git status` limpio después.
 
 ## Roturas deliberadas (copia fuera del repo; `romper.py` en el scratchpad): 32, la suite caza 31
-- **Parte destino (9/9 cazadas):** coger el En registro de menor `ide`; Imputado no contado como cerrado; elegir el
-  último parte sin mirar el estado; no marcar nunca complementario; R11 invertido; pisar también en cerrados; omitida
-  que conserva la cuenta; leer líneas solo del elegido; `parte_cod` del elegido en vez del del choque.
-- **Alta protegida (11/12 cazadas):** quitar el `NOT EXISTS` de En registro; año y mes cambiados de sitio en sus
-  parámetros; quitar el reintento; exigir el código propio al releer; `creado` sin mirar las filas; no fallar tras
-  dos intentos; reintentar con el mismo código; `hmo` sin `NOT EXISTS`; releer aceptando un Cerrado; quitar el
-  `UPDLOCK` del código libre; releer al estilo `partes_existentes`, sin estado. **SOBREVIVE: mandar el alta en dos `escribir`** (`for s in stmts: escribir([s])`, dos transacciones). Ver el cambio 1.
-- **Respaldo de cuenta (8/8 cazadas):** que la partida mande sobre el recurso; admitir `CP`; admitir `IN…`; quitar
-  `upper()`; leer partidas siempre; desactivar el respaldo; respaldo sin nota; envolver en `try` la lectura de
-  partidas.
-- **Herramienta (2/2) y `app.js` (4/4):** tolerancia `>=`; asiento de no-Imputados; sin `esc()` (×2); sin rótulo; notas
-  de no-`escribir`.
+- **Parte destino 9/9:** menor `ide`; Imputado no cerrado; sin mirar estado; nunca complementario; R11 invertido;
+  pisar en cerrados; omitida con cuenta; líneas solo del elegido; `parte_cod` equivocado.
+- **Alta 11/12:** sin `NOT EXISTS` En registro / del `hmo`; año↔mes; sin reintento; mismo código; exigir código propio;
+  `creado` sin filas; sin error; releer aceptando Cerrado o sin estado; sin `UPDLOCK`. **Sobrevivía: el alta en dos
+  `escribir`** (cambio 1).
+- **Cuenta 8/8** (partida manda, `CP`, `IN…`, sin `upper`, partidas siempre, sin respaldo, sin nota, `try`);
+  **herramienta 2/2**; **`app.js` 4/4** (`esc()` ×2, rótulo, filtro de notas).
 
 ## Decisiones del humano verificadas
 
@@ -86,7 +81,7 @@ Ninguna escritura en Sigrid ni en `partes`; ni worktrees ni copias dentro del á
   entrada como `main.py` · [x] primera línea con la ruta · [x] sin prints de debug, secretos ni dependencias nuevas
   · [x] trampas: el recurso sigue en `reside`; incidencias y ORM no se tocan.
 - **C3 bis** [x] solo `partes-proyecto.md` (no es externo nuevo); barrido DNI/GUID/claves del diff: limpio.
-- **C4** [ ] **cada requisito con un test que lo cubra: R40 no** (cambio 1). El resto está trazado (tabla) ·
+- **C4** [x] cada requisito con su test (pasada 1: `[ ]` por R40; cerrado en la pasada 2) ·
   [x] sin red ni BBDD · [x] M1–M6 en `current.md` con su comando.
 - **C4 bis** [x] rigor declarado · [x] RED con trazas reales (`impl` §4, `red_F-031.md`), incluida la v5 contra
   `7276ff3` · [x] cobertura 99,6 % · [x] mutación 129/129 recalculada · [x] muertos: recálculo + RM4 (dicho arriba)
@@ -105,31 +100,17 @@ Ninguna escritura en Sigrid ni en `partes`; ni worktrees ni copias dentro del á
 | R28–R30 | `services/partes-front/tests/test_f031_preflight_avisos.py` (node) |
 | R34 | suites de F-004 y F-024 sin cambios, en verde |
 | R35–R38 | `test_f031_comprobar_asiento.py` |
-| R40 | `test_f031_pipeline_alta.py::r40_*`. **Parcial: no ve el corte en dos `escribir`** |
+| R40 | `test_f031_pipeline_alta.py::r40_*` y (pasada 2) `r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden` |
 | R41, R42 | `test_f031_cliente_alta.py` |
 | R43–R47 | `test_f031_pipeline_alta.py::r43_*` … `r46_*`, `r43_r47_*` |
-| R39, R48, R49 | lectura del reviewer: docs y cabeceras. Frase obsoleta: cambio 2 |
+| R39, R48, R49 | lectura del reviewer: docs y cabeceras (frase obsoleta corregida en la pasada 2) |
 
-## Cambios requeridos
+## Cambios requeridos en la pasada 1 (resueltos en la 2)
 
-1. **R40 sin test real de «una llamada a `escribir`».** `SigridConSql.stmts_crear_parte`
-   (`tests/test_f031_pipeline_estado.py:205-208`) y `SigridFake.stmts_crear_parte` (`tests/dobles.py:461`) meten
-   cabecera y `hmo` en **un único** elemento. Por eso `test_f031_pipeline_alta.py:58-76` no distingue un pipeline que
-   parta la lista en varias `escribir` ni uno que cambie su orden. Si alguien lo hace, en Sigrid queda un `con` sin
-   `hmo` (un huérfano por intento) y el alta acaba en `RuntimeError`. Añadir un test con un doble cuyo
-   `stmts_crear_parte` devuelva **dos** elementos, como el cliente real (vale apuntar los SQL reales de
-   `SigridWriteClient`). Debe exigir que `_crear_parte` los mande en **una sola** llamada a `escribir`, en orden
-   `[con, hmo]` y sin otras sentencias en ese lote. Comprobar que se pone en rojo con la rotura «`for s in sts:
-   escribir([s])`» y anotar la traza en `progress/red_F-031.md`. Solo crecen los tests; `dobles.py` solo crece.
-2. **Frase de la v4 que contradice la v5 (R39).** Hay que reescribirlas con la semántica de R43–R45: se relee el
-   periodo, se usa el parte En registro que haya (propio o de `porcentajes`), un reintento con el siguiente código y,
-   si tampoco, error sin líneas.
-   - `docs/ARCHITECTURE.md:278-279`: «El parte creado se relee por código y En registro; si no sale, no se inserta
-     nada».
-   - `docs/referencia/partes-proyecto.md:224-225`: «y la relee (si no sale En registro con su código, no inserta
-     nada)».
-
-   (`azure-apps/partes.md` ya la quitó en `b09865f`.)
+1. **R40 sin test real de «una llamada a `escribir`»**: los dobles (`dobles.py:461`, `SigridConSql`) juntaban
+   cabecera y `hmo` en un solo elemento, así que partir el lote o invertirlo no se veía. Se pidió un doble con dos
+   sentencias reales que exigiera una llamada, `[con, hmo]` en orden y nada más, con su traza RED.
+2. **Frase de la v4 que contradecía R43–R45** en `docs/ARCHITECTURE.md:278-279` y `partes-proyecto.md:224-225`.
 
 **Observaciones (no bloquean).** O1: dos meses sin parte en una petición reciben el mismo `PT` en el preflight; la
 escritura lo arregla gastando el único reintento del segundo mes (futuro: reservar códigos consecutivos). O2: en M1,
@@ -137,3 +118,20 @@ ANA26/00017 tiene Debe 111.637,21 y Haber 111.577,21 (60 €): contrapartida, fu
 
 **Automejora (propuesta para `reviewer.md`, no aplicada):** si un requisito fija un límite de transacción (una
 llamada, un lote, un orden), comprobar que el doble no junta en un elemento lo que el cliente real da en varios.
+
+## Revisión de delta (pasada 2) · `372d151..786bb02` · **APPROVED**
+
+- Delta: `test_f031_pipeline_alta.py` (+69), `ARCHITECTURE.md`, `partes-proyecto.md` y `progress/`. **Ningún cambio de
+  producción**: `git diff --stat 31f13f9..HEAD` sobre sv5 sin tests y `app.js` está vacío. Alcance de mutación
+  intacto (RM1 sigue valiendo) y cobertura igual (239/240).
+- **Test nuevo** (`SigridAltaEnDos`, parametrizado: primer parte del mes y complementario). Devuelve los dos
+  `stmts_crear_parte` reales y exige un único lote de alta con exactamente `["alta_con", "alta_hmo"]`, SQL `INSERT
+  INTO con` / `INSERT INTO hmo`, el mismo código y las líneas en otro lote posterior. Cubre los tres aspectos pedidos.
+- **Roturas reproducidas** en una copia `git archive HEAD` del scratchpad. Partir el alta (`for s in sts:
+  escribir([s])`) ⇒ **2 failed** (los dos casos del test nuevo; los R40 antiguos siguen verdes, que era el hueco).
+  Invertir el orden ⇒ 2 failed. Añadir una sentencia al lote ⇒ 5 failed.
+- **Docs:** las dos frases ya dicen R43–R45 (relee el periodo, usa el En registro propio o de `porcentajes`, un
+  reintento y error sin líneas). Ya no contradicen la v5.
+- **Ejecutado:** `bash harness/init.sh` tal cual ⇒ **ENTORNO LISTO**, exit 0 (raíz 445 passed y 1 skipped; COBERTURA
+  99,6 %; TAMAÑO OK). sv5 sin caché en la copia: **522 passed**. sv4 no cambia en el delta: vale la pasada 1. Árbol
+  limpio.

@@ -1,7 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-031 · in_progress (2026-10-06): el parte registrado acaba en el asiento analítico
+## F-031 · done (2026-10-06), sin desplegar: el parte registrado acaba en el asiento analítico
+
+APPROVED del reviewer en la pasada 2 (`progress/review_F-031.md`). Resumen en
+`progress/history.md`. Pendiente: aviso a porcentajes (texto abajo),
+prueba de escritura en 0404 o despliegue sv5 -> sv4, a decidir por el humano.
 
 ### Spec v5 escrita (spec-author, 2026-10-06), pendiente de visto bueno
 
