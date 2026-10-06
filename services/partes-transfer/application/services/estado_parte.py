@@ -14,6 +14,15 @@ lo que no esta En registro, confirmado el 2026-10-06).
     elegido (reutilizado o nuevo) recibe las lineas y el cerrado no se toca.
 
 El unico predicado de «cerrado» vive aqui: `est != est_registro`.
+
+DEPENDENCIA CON `porcentajes` (F-031 v5, R48): este fichero es COPIA
+LITERAL en el repositorio `porcentajes`
+(`services/dedicacion-transfer/application/services/`, su F-037), que
+escribe en el MISMO parte de Sigrid y tiene que decidir igual; su
+`tests/test_f037_copias_partes.py` lo compara byte a byte. Cambiarlo, aunque
+sea un comentario, obliga a avisar a `porcentajes` EN EL MISMO TRABAJO para
+que recopie y mueva su `COMMIT_COPIADO`. No entra en la lista cerrada de
+copias de `CLAUDE.md`: la dependencia es entre repositorios.
 """
 from __future__ import annotations
 

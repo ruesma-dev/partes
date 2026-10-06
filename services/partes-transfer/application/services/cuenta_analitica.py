@@ -20,6 +20,15 @@ si el recurso no da subcuenta (R3) se usa la de la PARTIDA de la linea, y
 solo si es de coste (`CI*`/`CD*`; nunca `CP` ni `INGR`), llevada al mismo
 centro de la obra con R4-R6. Lo decide `origen_subcuenta`; `resolver_cuenta`
 no cambia: recibe la subcuenta elegida.
+
+DEPENDENCIA CON `porcentajes` (F-031 v5, R48): este fichero es COPIA
+LITERAL en el repositorio `porcentajes`
+(`services/dedicacion-transfer/application/services/`, su F-037), que
+escribe en el MISMO parte de Sigrid y tiene que decidir igual; su
+`tests/test_f037_copias_partes.py` lo compara byte a byte. Cambiarlo, aunque
+sea un comentario, obliga a avisar a `porcentajes` EN EL MISMO TRABAJO para
+que recopie y mueva su `COMMIT_COPIADO`. No entra en la lista cerrada de
+copias de `CLAUDE.md`: la dependencia es entre repositorios.
 """
 from __future__ import annotations
 
