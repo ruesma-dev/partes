@@ -3,6 +3,28 @@
 
 ## F-031 · in_progress (2026-10-06): el parte registrado acaba en el asiento analítico
 
+### Spec v5 escrita (spec-author, 2026-10-06), pendiente de visto bueno
+
+Decisiones del humano: «si, amplia la spec» y «lo de no pisarse con
+porcentajes vale para una insercion normal no solo complementaria». La v5
+añade el **alta protegida** frente a `porcentajes` (dedicacion-transfer,
+F-037), que escribe en el MISMO parte de Sigrid: R40–R47 y design §13 (SQL
+idéntico al suyo, relectura del periodo y uso del parte En registro que
+haya, un reintento, error sin líneas) y la dependencia documentada
+(R48–R49: cabeceras, `ARCHITECTURE.md`, `azure-apps/partes.md`; NO entra en
+la lista cerrada de `CLAUDE.md`). Tareas nuevas T21–T32 (incluye repetir la
+mutación completa, T31). La v4 (T1–T20) sigue implementada y sin review.
+Resumen y decisiones en `progress/spec_F-031.md`.
+
+**Decisiones abiertas para el humano (antes de T21):** DA9 diseño del alta
+(usar el parte del otro servicio; `creado` por filas insertadas; aviso sin
+recalcular); **DA10** adaptar dos tests ajenos de F-023 (`r32` a
+`parameters[:6]`, `r34` a «contiene»); **DA11** la cabecera nueva pone en
+rojo `porcentajes/.../test_f037_copias_partes.py::…ref_vigilada` hasta que
+`porcentajes` recopie: aviso a `porcentajes` en el mismo trabajo (no se
+edita desde aquí). Manual nueva: **M6** (design §11), tras desplegar sv5 y
+dedicacion-transfer.
+
 **Desbloqueada por decision del humano (2026-10-06, «si»)**: se cambia solo
 el token `"partes_existentes"` por `"partes_del_periodo"` en el assert de
 `test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock` (desviacion D1 del

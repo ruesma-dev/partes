@@ -1,10 +1,50 @@
 <!-- progress/spec_F-031.md -->
-# F-031 · Resumen de la spec para el humano (spec-author, 2026-10-05, v4)
+# F-031 · Resumen de la spec para el humano (spec-author, 2026-10-06, v5)
 
 Spec: `specs/F-031-asiento-analitico/` (requirements, design, tasks). Rama
-`feature/F-031-asiento-analitico`. Estado: `spec_ready`. Rigor crítico.
-Versión 4: aplica las dos decisiones del 2026-10-05 (complementario y
-cuenta del recurso).
+`feature/F-031-asiento-analitico`. Estado: `in_progress` (v4 implementada
+T1–T20, sin review). Rigor crítico. Versión 5: añade el **alta protegida**
+frente a `porcentajes` (R40–R47, design §13, tareas T21–T32) y documenta la
+dependencia (R48–R49). Topes: requirements 148/150, design 249/250.
+
+## Qué añade la v5 (2026-10-06: «si, amplia la spec»; «vale para una insercion normal no solo complementaria»)
+
+- **Dónde se crea hoy el parte**: un solo sitio, el paso 8 de
+  `_registrar_bajo_lock` (`registro_pipeline.py`), para el primer parte del
+  mes y para el complementario. Se extrae a `_crear_parte` y se protege.
+- **Alta protegida** (`stmts_crear_parte`): SQL y parámetros **idénticos** a
+  los de `porcentajes` (`40b9feb`): el `con` solo entra si el código está
+  libre en la empresa y no hay parte En registro de la obra y mes (`WHERE
+  NOT EXISTS` con `UPDLOCK, HOLDLOCK`); el `hmo` solo si ese `con` no lo tiene.
+- **Tras el alta**: relee el periodo y usa el parte En registro que haya, lo
+  cree quien lo cree; si no hay, UN reintento con el siguiente código; si
+  tampoco, error sin insertar líneas (sustituye a R9). Carreras simuladas con
+  `SigridFake` (`alta_protegida`, `al_alta`).
+- **Dependencia**: cabecera de `estado_parte.py` y `cuenta_analitica.py`,
+  `ARCHITECTURE.md` y `azure-apps/partes.md` («qué se rompe si cambia»). No
+  entra en la lista cerrada de `CLAUDE.md` (es entre repositorios).
+- Al final, campaña de mutación completa repetida (T31) e informe (T32).
+
+## DECISIONES ABIERTAS v5 (necesitan tu visto bueno antes de T21)
+
+1. **DA9 · el diseño del alta** (design §13): reutilizar el parte del otro
+   servicio aunque tenga otro código; `creado` solo si nuestro alta insertó
+   filas; el `aviso` del resultado no se recalcula (es el del preflight).
+2. **DA10 · dos tests ajenos de F-023 cambian** (inevitable: el SQL nuevo
+   lleva más parámetros y un filtro más): `test_f023_r32` compara
+   `parameters[:6]` y `test_f023_r34` exige que el SQL del `hmo` *contenga*
+   el filtro por empresa en vez de *terminar* en él. Mismo sentido.
+3. **DA11 · aviso a porcentajes**: la cabecera nueva cambia los bytes de los
+   dos ficheros copiados y pone en ROJO su
+   `test_f037_copias_partes.py::test_f037_copia_igual_a_la_ref_vigilada`
+   (vigila esta rama) hasta que `porcentajes` recopie y mueva
+   `COMMIT_COPIADO`. Su design §12 lo prevé («texto, se recopia»). Desde aquí
+   no se edita `porcentajes`; ¿lo lanzas allí en el mismo trabajo?
+4. Riesgo aceptado: las líneas que el otro servicio ya hubiera metido en el
+   parte reutilizado no entran en la detección de conflictos (paso 7, que
+   se evalúa antes del alta). Ventana de segundos.
+
+## (v4) Resumen anterior
 
 ## En una frase
 
@@ -31,7 +71,7 @@ respaldo.
 - Sin cambios: DA3 (fuera; borrador a Juan hecho), DA4 (sv5 no contabiliza
   ni cambia estados), DA5, DA7, DA8. Ningún test de F-021 cambia.
 
-## PARA CONFIRMAR: qué es un parte «cerrado» (interpretación del líder)
+## CONFIRMADO el 2026-10-06: qué es un parte «cerrado» (era la duda de la v4)
 
 Tu frase: «juan ha dicho que si hay modificar un parte ya cerrado se hace
 con complementario». La spec entiende **«cerrado» = cualquier parte del mes

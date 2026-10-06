@@ -9,13 +9,15 @@ cambiadas ≥ umbral; campaña de mutación **completa** con **0
 supervivientes** sin test o justificación aceptada.
 
 Reglas que no se negocian:
-- Decisiones de design §8 (v4). La lectura de «cerrado» (todo lo que no es
-  En registro) está pendiente de confirmar por el humano (M0): vive solo en
-  el predicado de `elegir_parte`; si la corrige antes de T4, se para.
+- Decisiones de design §8. «Cerrado» = todo lo que no es En registro
+  (confirmado por el humano el 2026-10-06, M0): vive solo en `elegir_parte`.
 - Ninguna escritura en Sigrid ni en la base `partes`; los tests usan
   `SigridFake` y `httpx` simulado.
-- Ningún test ajeno se modifica (tampoco los `test_f021_*`, R27);
-  `dobles.py` solo crece. Si un test ajeno se pone rojo, se para.
+- Ningún test ajeno se modifica (tampoco los `test_f021_*`, R27) salvo los
+  dos de F-023 de design §13 (DA10), y solo con el visto bueno del humano;
+  `dobles.py` solo crece. Si otro test ajeno se pone rojo, se para.
+- **v5 (T21–T31)**: no se empieza sin el visto bueno del humano a la v5
+  (DA9–DA11, design §13). No se edita el repositorio `porcentajes`.
 
 - [x] T1: Caracterización en verde contra el código de hoy en `tests/test_f031_pipeline_estado.py` y `tests/test_f031_pipeline_cuenta_partida.py`: R4, R6 (un parte En registro), R10, R20 (la cuenta del recurso manda aunque la línea traiga partida con otra cuenta), R22 (Porsan sin cuenta ni nota), R32, R33, y suite `test_f021_*` en verde (R27)  |  Verificación: `pytest services/partes-transfer/tests/test_f031_pipeline_estado.py services/partes-transfer/tests/test_f031_pipeline_cuenta_partida.py` en verde
 - [x] T2: `dobles.py`: `SigridFake(partidas=...)`, `partes_del_periodo` (`est`, defecto 1, orden `ide` desc), `partidas_de_lineas` + `partidas_leidas`, `partes_existentes` con el de mayor `ide`; `SettingsFake` con `est_parte_activo=1`, `est_parte_cerrado=3`, `est_parte_imputado=10`  |  Verificación: suite completa de sv5 en verde sin tocar otros tests
@@ -37,3 +39,18 @@ Reglas que no se negocian:
 - [x] T18: `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` §3.5: lectura de `con.est` y de `obrparpar`, complementario, cuenta del recurso con respaldo de partida, herramienta (R39); commit local en ese repo, sin push  |  Verificación: `git -C ../azure-apps log -1`
 - [x] T19: Cobertura de líneas cambiadas y mutación completa sobre `estado_parte.py`, `cuenta_analitica.py`, `registro_models.py`, `sigrid_write_client.py`, `registro_pipeline.py`, `settings.py`, `comprobar_asiento_analitico.py` y `app.js` (si la herramienta lo cubre) en `progress/mutacion_F-031.md`  |  Verificación: 0 supervivientes sin test o justificación aceptada
 - [x] T20: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida en verde; M0, M3, M4 y M5 (design §11) anotados en `progress/current.md` como MANUAL (humano)
+
+### v5 · alta protegida y dependencia con `porcentajes` (design §13; humano, 2026-10-06)
+
+- [ ] T21: Caracterización en verde contra HEAD `7276ff3` en `tests/test_f031_pipeline_alta.py`: R40 (el primer parte del mes y el complementario se crean en una sola función, con `con` y `hmo` en UNA llamada a `escribir`, una alta por periodo)  |  Verificación: `pytest services/partes-transfer/tests/test_f031_pipeline_alta.py` en verde
+- [ ] T22: `dobles.py` (solo crece): `SigridFake(alta_protegida=False)`; activa, `crear_parte` no inserta y `escribir` devuelve 0 si el código existe en la empresa o hay parte En registro de la obra y mes; `al_alta` (partes del «otro servicio» antes del primer alta) y `altas` (cada intento)  |  Verificación: suite completa de sv5 en verde sin tocar otros tests
+- [ ] T23: Tests del cliente `tests/test_f031_cliente_alta.py`: SQL del `con` y del `hmo` igual al literal copiado de `porcentajes` `40b9feb` (design §13), 14 parámetros en orden, dos `NOT EXISTS` fuera del agregado, cuatro `WITH (UPDLOCK, HOLDLOCK)`, `hmo` con `NOT EXISTS (SELECT 1 FROM hmo h WHERE h.ide = con.ide)`, una sola lista `[con, hmo]` (R41, R42) — en rojo  |  Verificación: traza RED en `progress/impl_F-031.md`
+- [ ] T24: Con el visto bueno del humano (DA10): `test_f023_escritura_empresa.py` `r32` compara `parameters[:6]` y `r34` exige que el SQL del `hmo` CONTENGA `FROM con WHERE cod = ? AND tip = ? AND emp = ?`; nada más  |  Verificación: los dos en verde contra el código de hoy; diff de dos aserciones en el informe
+- [ ] T25: `sigrid_write_client.py`: `stmts_crear_parte` con el alta protegida (design §13; misma firma, `TypeError` sin empresa como F-023) y docstring que dice que el alta es común con `porcentajes` (R48)  |  Verificación: T23 y `test_f023_*` en verde; SQL comparado con `git -C ../porcentajes show 40b9feb:services/dedicacion-transfer/infrastructure/sigrid/sigrid_write_client.py`, resultado en el informe
+- [ ] T26: Tests de carrera en `tests/test_f031_pipeline_alta.py` con `alta_protegida=True`: R43 (`al_alta` con un En registro de otro código ⇒ las líneas van a él, `creado=False`, un solo intento; mismo código y periodo ⇒ igual), R44 (código cogido en otra obra ⇒ reintento con el siguiente, `creado=True`), R45 (dos altas bloqueadas ⇒ `RuntimeError` con obra, periodo y código, ninguna línea, dos intentos), R46 (INFO propio/otro, sin nombres), R47 (primer parte del mes y complementario: un único En registro del periodo); y el R9 de `test_f031_pipeline_estado.py` reescrito a R43/R45 — en rojo  |  Verificación: traza RED
+- [ ] T27: `registro_pipeline.py`: `_crear_parte` (relectura con `elegir_parte`, un reintento, error) y docstring del paso 8 (design §13)  |  Verificación: T21, T26 y suite completa de sv5 en verde (incluidos los guardas de carrera de F-002)
+- [ ] T28: Cabecera de dependencia en `estado_parte.py` y `cuenta_analitica.py` (R48), solo texto; aviso a `porcentajes` (DA11: su `test_f037_copias_partes.py` se pone rojo hasta que recopie) anotado en `progress/current.md`  |  Verificación: `git diff` de los dos ficheros solo en el docstring; suite de sv5 en verde
+- [ ] T29: `docs/ARCHITECTURE.md` (semántica 16: alta protegida, parte compartido, copias, aviso obligatorio, fuera de la lista cerrada) y `docs/referencia/partes-proyecto.md` §3.5 (R39, R49)  |  Verificación: lectura del reviewer contra design §13
+- [ ] T30: `C:\Users\pgris\PycharmProjects\azure-apps\partes.md`: §3.5 (alta protegida) y «qué se rompe si cambia» (copias y alta compartidas con `porcentajes`, aviso en el mismo trabajo) (R49); commit local, sin push  |  Verificación: `git -C ../azure-apps log -1`
+- [ ] T31: Cobertura de líneas cambiadas y campaña de mutación COMPLETA repetida sobre los ficheros de T19 (con el `stmts_crear_parte` y `_crear_parte` nuevos); campaña 3 en `progress/mutacion_F-031.md`  |  Verificación: 0 supervivientes sin test o justificación aceptada
+- [ ] T32: `bash harness/init.sh` en verde e informe `progress/impl_F-031.md` actualizado (T21–T32, RED v5, DA10/DA11)  |  Verificación: salida en verde; M6 (design §11) anotada en `progress/current.md` como MANUAL (humano)
