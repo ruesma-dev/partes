@@ -375,17 +375,29 @@ def test_f031_r8_la_segunda_aprobacion_reutiliza_el_complementario() -> None:
     assert _inserts_por_parte(cli) == {comp: [1, 2]}
 
 
-# ------------------------- R9 · relectura del creado ------------------------- #
+# ------------- R9 (v5: R43/R45) · relectura del creado ------------- #
 
-@pytest.mark.parametrize("campo, valor", [("est_al_crear", CERRADO),
-                                          ("cod_al_crear", "PT26/09999")])
-def test_f031_r9_relectura_que_no_cuadra_no_inserta(campo, valor) -> None:
+def test_f031_r45_relectura_sin_parte_en_registro_no_inserta() -> None:
+    """El alta entra pero el parte no sale En registro, dos veces: falla
+    nombrando el ultimo codigo y sin insertar lineas."""
     cli = _cli_sql(partes=[_parte(800, "PT26/00004", est=CERRADO)])
-    setattr(cli, campo, valor)
-    with pytest.raises(RuntimeError, match="PT26/00005"):
+    cli.est_al_crear = CERRADO
+    with pytest.raises(RuntimeError, match="PT26/00006"):
         _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
-    assert [s["op"] for s in cli.enviadas] == ["crear_parte"]
+    assert [s["op"] for s in cli.enviadas] == ["crear_parte", "crear_parte"]
     assert cli.lineas == []
+
+
+def test_f031_r43_relectura_con_otro_codigo_usa_ese_parte() -> None:
+    """La relectura da un parte En registro con otro codigo: se usa (como
+    si fuera del otro servicio) y no cuenta como creado."""
+    cli = _cli_sql(partes=[_parte(800, "PT26/00004", est=CERRADO)])
+    cli.cod_al_crear = "PT26/09999"
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
+    (p,) = r.partes
+    assert (p.cod, p.creado, p.existe) == ("PT26/09999", False, True)
+    assert [s["op"] for s in cli.enviadas] == ["crear_parte", "insert"]
+    assert [l["hmoide"] for l in cli.lineas] == [p.ide]
 
 
 # --------------------- R11, R14 · choque con un cerrado --------------------- #

@@ -151,6 +151,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T25 hecha: `stmts_crear_parte` con el alta protegida. Comparado por AST
   con `git -C ../porcentajes show 40b9feb:services/dedicacion-transfer/infrastructure/sigrid/sigrid_write_client.py`:
   las dos sentencias con SQL y parametros identicos. T23 y F-023 en verde.
+- T26 hecha: carreras (R43-R47) y R9 reescrito a R43/R45, en ROJO (9
+  failed; el alta propia sin carrera ya en verde).
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 

@@ -241,3 +241,30 @@ FAILED tests/test_f031_cliente_alta.py::test_f031_r41_las_condiciones_van_fuera_
 FAILED tests/test_f031_cliente_alta.py::test_f031_r42_hmo_solo_si_el_con_no_lo_tiene
 5 failed, 1 passed in 0.32s
 ```
+
+## T26 (v5) · tests/test_f031_pipeline_alta.py + R9 reescrito en tests/test_f031_pipeline_estado.py
+
+```
+E               RuntimeError: no se pudo crear el parte PT26/00001 en registro (la relectura no lo da): no se inserta ninguna linea
+E               RuntimeError: no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea
+E       AssertionError: assert ('PT26/00001', True) == ('PT26/00001', False)
+E         At index 1 diff: True != False
+E               RuntimeError: no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea
+E               RuntimeError: no se pudo crear el parte PT26/00001 en registro (la relectura no lo da): no se inserta ninguna linea
+E       AssertionError: assert ('obra 0100' in 'no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea')
+E               RuntimeError: no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'PT26/00006'
+E         Actual message: 'no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea'
+E               RuntimeError: no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r43_r47_otro_servicio_crea_un_parte_en_registro[cerrados0]
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r43_r47_otro_servicio_crea_un_parte_en_registro[cerrados1]
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r43_otro_servicio_con_el_mismo_codigo_y_periodo
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r44_codigo_cogido_en_otra_obra_reintenta_con_el_siguiente
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r44_dos_meses_nuevos_no_comparten_codigo
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r45_dos_altas_bloqueadas_fallan_sin_lineas
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r46_info_del_alta_sin_nombres
+FAILED tests/test_f031_pipeline_estado.py::test_f031_r45_relectura_sin_parte_en_registro_no_inserta
+FAILED tests/test_f031_pipeline_estado.py::test_f031_r43_relectura_con_otro_codigo_usa_ese_parte
+9 failed, 35 passed, 1 warning in 1.86s
+```
