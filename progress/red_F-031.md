@@ -268,3 +268,31 @@ FAILED tests/test_f031_pipeline_estado.py::test_f031_r45_relectura_sin_parte_en_
 FAILED tests/test_f031_pipeline_estado.py::test_f031_r43_relectura_con_otro_codigo_usa_ese_parte
 9 failed, 35 passed, 1 warning in 1.86s
 ```
+
+## T33 (pasada 2) · R40 con DOS sentencias reales: tests/test_f031_pipeline_alta.py
+
+Copias de `services/partes-transfer` FUERA del repo (scratchpad, `romper_t33.py`) con `_crear_parte` roto; desde la copia: `../../.venv/Scripts/python.exe -m pytest tests/test_f031_pipeline_alta.py -q -k "cabecera_y_hmo or r40"`. Los 3 tests R40 anteriores siguen verdes con la rotura (el hueco que vio el reviewer); el nuevo cae.
+
+Rotura `partida` (for s in sts: escribir([s])):
+
+```
+>       (lote,) = _lotes_de_alta(cli)
+E       ValueError: too many values to unpack (expected 1)
+>       (lote,) = _lotes_de_alta(cli)
+E       ValueError: too many values to unpack (expected 1)
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden[cerrados0]
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden[cerrados1]
+2 failed, 3 passed, 8 deselected, 1 warning in 3.93s
+```
+
+Rotura `invertida` (escribir(list(reversed(sts)))):
+
+```
+>       (lote,) = _lotes_de_alta(cli)
+E       ValueError: too many values to unpack (expected 1)
+>       (lote,) = _lotes_de_alta(cli)
+E       ValueError: too many values to unpack (expected 1)
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden[cerrados0]
+FAILED tests/test_f031_pipeline_alta.py::test_f031_r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden[cerrados1]
+2 failed, 3 passed, 8 deselected, 1 warning in 4.00s
+```

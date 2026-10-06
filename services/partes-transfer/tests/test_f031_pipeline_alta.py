@@ -19,8 +19,11 @@ from __future__ import annotations
 import logging
 
 import pytest
+from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
+from tests.dobles import SigridFake
 from tests.test_f031_pipeline_estado import (
     CERRADO,
+    HORAS,
     REGISTRO,
     _cli,
     _cli_sql,
@@ -203,3 +206,69 @@ def test_f031_r46_info_del_alta_sin_nombres(caplog) -> None:
         "intento=1 parte=otro servicio"]
     assert all(m.levelno == logging.INFO for m in msgs)
     assert "Persona" not in caplog.text
+
+
+# ============= R40 · una sola escritura con DOS sentencias reales ============= #
+
+class SigridAltaEnDos(SigridFake):
+    """Doble cuyo `stmts_crear_parte` devuelve DOS elementos, como el
+    cliente real (`[con, hmo]` con su SQL de `SigridWriteClient`), para que
+    se vea si el pipeline parte la lista, la reordena o le mezcla otras
+    sentencias. Apunta cada lote que recibe `escribir`. El parte solo
+    existe cuando llegan la cabecera y su `hmo` (en cualquier lote: asi el
+    flujo sigue y el test mira la forma, no un fallo posterior)."""
+
+    def __init__(self, **kw) -> None:
+        super().__init__(**kw)
+        self.real = SigridWriteClient(base_url="http://sigrid.invalid",
+                                      function_key="clave-de-test",
+                                      database="bd")
+        self.lotes: list[list[dict]] = []
+        self._cabeceras: dict[str, dict] = {}
+
+    def stmts_crear_parte(self, **kw):
+        (fila,) = super().stmts_crear_parte(**kw)
+        con, hmo = self.real.stmts_crear_parte(**kw)
+        return [dict(fila, op="alta_con", sql=con["sql"],
+                     parameters=con["parameters"]),
+                dict(fila, op="alta_hmo", sql=hmo["sql"],
+                     parameters=hmo["parameters"])]
+
+    def escribir(self, statements):
+        self.lotes.append([dict(s) for s in statements])
+        resto, filas = [], 0
+        for s in statements:
+            if s["op"] == "alta_con":
+                self._cabeceras[s["cod"]] = s
+            elif s["op"] == "alta_hmo" and s["cod"] in self._cabeceras:
+                cab = self._cabeceras.pop(s["cod"])
+                filas += super().escribir([dict(cab, op="crear_parte")])
+            elif s["op"] not in ("alta_con", "alta_hmo"):
+                resto.append(s)
+        return filas + (super().escribir(resto) if resto else 0)
+
+
+def _lotes_de_alta(cli) -> list[list[dict]]:
+    return [lote for lote in cli.lotes
+            if any(s["op"].startswith("alta_") for s in lote)]
+
+
+@pytest.mark.parametrize("cerrados", [
+    [],                                              # primer parte del mes
+    [_parte(800, "PT26/00004", est=CERRADO)],        # complementario
+])
+def test_f031_r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden(
+        cerrados) -> None:
+    cli = SigridAltaEnDos(obras={"0100": _obra()}, horas=HORAS,
+                          partes=list(cerrados))
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
+    (lote,) = _lotes_de_alta(cli)
+    # UNA llamada a `escribir`, con exactamente [con, hmo] y nada mas.
+    assert [s["op"] for s in lote] == ["alta_con", "alta_hmo"]
+    assert [s["sql"].split()[:3] for s in lote] == \
+        [["INSERT", "INTO", "con"], ["INSERT", "INTO", "hmo"]]
+    assert lote[0]["cod"] == lote[1]["cod"] == r.partes[0].cod
+    assert r.partes[0].creado is True
+    # Las lineas van en OTRO lote, despues del alta.
+    assert cli.lotes.index(lote) == 0
+    assert all(s["op"] == "insert" for s in cli.lotes[1])
