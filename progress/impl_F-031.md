@@ -163,3 +163,32 @@ Despliegue `-Solo sv5` y luego `-Solo sv4` (lo lanza el humano).
 
 `app.js` no lo cubre la mutacion (solo Python): lo cubren los tests de
 `node` de `test_f031_preflight_avisos.py` y M3.
+
+## 8. Pasada 2 (CHANGES_REQUESTED del reviewer, `372d151`)
+
+1. **R40 con dos sentencias reales** (commit `c9871c8`): nuevo
+   `test_f031_r40_cabecera_y_hmo_en_una_sola_escritura_y_en_orden` (primer
+   parte del mes y complementario) en `test_f031_pipeline_alta.py`, con un
+   doble local `SigridAltaEnDos` (subclase de `SigridFake` en el propio
+   test; `dobles.py` no cambia) cuyo `stmts_crear_parte` devuelve DOS
+   elementos con el SQL real de `SigridWriteClient`. Exige UN lote de alta
+   con exactamente `[con, hmo]` en ese orden, el mismo codigo, `creado` y
+   las lineas en un lote posterior. **RED** en copias de
+   `services/partes-transfer` FUERA del repo (scratchpad, borradas
+   despues): con `for s in sts: escribir([s])` y con el orden invertido,
+   el test nuevo cae (`(lote,) = _lotes_de_alta(cli)` ⇒ `ValueError: too
+   many values to unpack (expected 1)`: dos lotes de alta; con el orden
+   invertido el `hmo` llega antes que su cabecera, el primer intento no
+   crea parte y el reintento abre otro lote), 2 failed, mientras los 3
+   R40 anteriores siguen verdes con la rotura (el hueco senalado). Traza
+   en `progress/red_F-031.md` §T33.
+2. **R39, dos frases de la v4** (commit `56e4caf`): `docs/ARCHITECTURE.md`
+   (semantica 16) y `partes-proyecto.md` §3.5 dicen ahora que tras el alta
+   se relee el periodo y se usa el parte En registro que haya, propio o de
+   `porcentajes`; un reintento con el siguiente codigo y, si tampoco, error
+   sin lineas.
+
+Sin cambios de codigo de produccion: **no se repite la mutacion** (la
+campana 3, 129/129 muertos, sigue midiendo el mismo codigo). sv5: 522
+passed. `bash harness/init.sh`: **ENTORNO LISTO** (raiz 445 passed / 1
+skipped, sv5 522, cobertura 99,6 % 239/240, tamano OK).

@@ -197,6 +197,11 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T32 hecha: `bash harness/init.sh` en VERDE (raiz 445 passed/1 skipped,
   sv5 520, sv4 1672, cobertura 99,6 %); M6 anotada abajo; informe
   actualizado en `progress/impl_F-031.md`. Pasa al reviewer.
+- T33 hecha (pasada 2 del reviewer): test de R40 con dos sentencias reales
+  en una sola escritura (`c9871c8`, RED con la rotura en copias fuera del
+  repo) y dos frases de docs alineadas con R43-R45 (`56e4caf`). Sin codigo
+  de produccion: no se repite la mutacion. init.sh en VERDE. Vuelve al
+  reviewer.
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
