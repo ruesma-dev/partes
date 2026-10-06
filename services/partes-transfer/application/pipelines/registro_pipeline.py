@@ -56,8 +56,13 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
      registro, hay que confirmar si se pisan.
-  8. Crear los partes que falten (cabecera + extension) y releerlos: si el
-     creado no sale En registro con su codigo, no se inserta nada.
+  8. Crear los partes que falten (cabecera + extension) con el ALTA
+     PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`): la
+     cabecera solo entra si su codigo esta libre y el periodo no tiene ya
+     un parte En registro; despues se relee el periodo y se usa el parte En
+     registro que haya, propio o del otro servicio. Si no hay ninguno, un
+     reintento con el siguiente codigo; si tampoco, error y no se inserta
+     nada.
   9. Borrar las lineas pisadas confirmadas e insertar las nuevas, solo en
      el parte elegido. sv5 no toca `con`/`hmo` de un parte existente ni
      escribe asientos (F-031, R5, R31).
@@ -521,24 +526,7 @@ class RegistroPipeline:
             marca = (f" ({self._st.marca_pruebas})" if pf.forzada_pruebas
                      else "")
             desc = f"Parte {destino.nombre or destino.codigo}{marca}"
-            cod = p.cod or self._cli.siguiente_cod_pt(
-                p.ano, int(destino.empresa))  # type: ignore[arg-type]
-            self._cli.escribir(self._cli.stmts_crear_parte(
-                obra=destino, ano=p.ano, mes=p.mes, cod=cod, desc=desc))
-            # R9: se relee por codigo; si el creado no sale En registro,
-            # no se inserta ninguna linea (ni de este ni de otro periodo).
-            creado = next(
-                (ps for ps in self._cli.partes_del_periodo(
-                    int(destino.ide), *clave)
-                 if ps.cod == cod and ps.est == self._est_registro()), None)
-            if creado is None:
-                raise RuntimeError(
-                    f"no se pudo crear el parte {cod} en registro (la "
-                    f"relectura no lo da): no se inserta ninguna linea")
-            p.existe, p.ide, p.cod, p.creado = True, creado.ide, creado.cod, True
-            p.estado = creado.est
-            logger.info("[registro] parte creado %s (ide=%s) obra=%s %s/%s",
-                        p.cod, p.ide, destino.codigo, p.ano, p.mes)
+            self._crear_parte(p, destino, desc)
 
         # Paso 9: borrar pisadas + insertar.
         statements: list[dict] = []
@@ -584,6 +572,50 @@ class RegistroPipeline:
             if hit is not None:
                 e["hmores_ide"] = hit.ide
         return res
+
+    #: F-031 v5 (R44): altas por periodo (la primera y UN reintento).
+    INTENTOS_ALTA = 2
+
+    def _crear_parte(self, p: ParteDestino, destino: ObraEntrada,
+                     desc: str) -> None:
+        """Paso 8 (F-031 v5, R40-R47): UNICA alta de parte del pipeline
+        (primer parte del mes y complementario).
+
+        `con` y `hmo` van en UN `escribir` con el alta protegida (comun con
+        `porcentajes`). Despues se relee el periodo y se usa el parte En
+        registro que elija `elegir_parte`, sea propio o del otro servicio
+        (R43); `creado` solo si el alta inserto filas con ese codigo. Sin
+        parte En registro (codigo cogido), un reintento con el siguiente
+        codigo (R44); si tampoco, `RuntimeError` antes de insertar lineas
+        (R45). El `aviso` del preflight no se recalcula."""
+        cod = p.cod or self._cli.siguiente_cod_pt(
+            p.ano, int(destino.empresa))  # type: ignore[arg-type]
+        for intento in range(1, self.INTENTOS_ALTA + 1):
+            if intento > 1:
+                cod = self._cli.siguiente_cod_pt(
+                    p.ano, int(destino.empresa))  # type: ignore[arg-type]
+            filas = self._cli.escribir(self._cli.stmts_crear_parte(
+                obra=destino, ano=p.ano, mes=p.mes, cod=cod, desc=desc))
+            leido = elegir_parte(
+                p.ano, p.mes,
+                self._cli.partes_del_periodo(int(destino.ide), p.ano, p.mes),
+                est_registro=self._est_registro())
+            if leido.existe:
+                propio = bool(filas) and leido.cod == cod
+                p.existe, p.ide, p.cod = True, leido.ide, leido.cod
+                p.estado, p.creado = leido.estado, propio
+                # R46: sin nombres ni DNIs.
+                logger.info(
+                    "[registro] alta obra=%s periodo=%s/%02d cod=%s "
+                    "intento=%s parte=%s", destino.codigo, p.ano, p.mes,
+                    leido.cod, intento,
+                    "propio" if propio else "otro servicio")
+                return
+        raise RuntimeError(
+            f"no se pudo dar de alta el parte de la obra {destino.codigo} "
+            f"{p.ano}/{p.mes:02d}: tras {self.INTENTOS_ALTA} intentos (el "
+            f"ultimo con el codigo {cod}) el periodo no tiene parte en "
+            f"registro; no se inserta ninguna linea")
 
     # ------------------------------------------------------------- #
     def ejecutar(self, *, obra: ObraEntrada, lineas: list[LineaEntrada],

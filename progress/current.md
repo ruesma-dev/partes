@@ -153,6 +153,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   las dos sentencias con SQL y parametros identicos. T23 y F-023 en verde.
 - T26 hecha: carreras (R43-R47) y R9 reescrito a R43/R45, en ROJO (9
   failed; el alta propia sin carrera ya en verde).
+- T27 hecha: `_crear_parte` (alta, relectura con `elegir_parte`, un
+  reintento, error) y docstring del paso 8; suite sv5 520 passed (guardas
+  de carrera de F-002 incluidos).
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
