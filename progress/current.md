@@ -142,6 +142,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   contra el codigo de hoy (3 passed).
 - T22 hecha: `dobles.py` crece (`alta_protegida`, `al_alta`, `altas`);
   suite sv5 506 passed.
+- T23 hecha: `test_f031_cliente_alta.py` en ROJO (5 failed; el `TypeError`
+  sin empresa ya en verde).
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 

@@ -216,3 +216,28 @@ ERROR tests/test_f031_comprobar_asiento.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
 1 error in 0.92s
 ```
+
+## T23 (v5) · tests/test_f031_cliente_alta.py
+
+```
+E       AssertionError: assert 'INSERT INTO ...CK, HOLDLOCK)' == 'INSERT INTO ...ND r.est = ?)'
+E         Skipping 49 identical leading characters in diff, use -v to show
+E         - c) SELECT x.n, ?, ?, ?, ?, ?, ? FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM con WITH (UPDLOCK, HOLDLOCK)) x WHERE NOT EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) WHERE c.cod = ? AND c.emp = ? AND c.tip = ?) AND NOT EXIS
+E         + c) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ? FROM con WITH (UPDLOCK, HOLDLOCK)
+E       AssertionError: assert [28, 35, 1, '...DD', 20260228] == [28, 35, 1, '...20260228, ...]
+E         Right contains 8 more items, first extra item: 'PT26/00122'
+E       IndexError: list index out of range
+E       AssertionError: assert 1 == 4
+E        +  where 1 = <built-in method count of str object at 0x0000029A91819370>('WITH (UPDLOCK, HOLDLOCK)')
+E        +    where <built-in method count of str object at 0x0000029A91819370> = 'INSERT INTO con (ide, emp, tip, est, cod, res, fec) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ? FROM con WITH (UPDLOCK, HOLDLOCK)'.count
+E       AssertionError: assert False
+E        +  where False = <built-in method endswith of str object at 0x0000029A918EC030>('AND NOT EXISTS (SELECT 1 FROM hmo h WHERE h.ide = con.ide)')
+E        +    where <built-in method endswith of str object at 0x0000029A918EC030> = 'INSERT INTO hmo (ide, cenide, obride, ano, mes, reside, cenmul) SELECT ide, ?, ?, ?, ?, 0, 0 FROM con WHERE cod = ? AND tip = ? AND emp = ?'.endswith
+E        +      where 'INSERT INTO hmo (ide, cenide, obride, ano, mes, reside, cenmul) SELECT ide, ?, ?, ?, ?, 0, 0 FROM con WHERE cod = ? AND tip = ? AND emp = ?' = _sql('INSERT INTO hmo (ide, cenide, obride, ano, mes, reside, cenmul) SELE
+FAILED tests/test_f031_cliente_alta.py::test_f031_r41_r42_una_lista_con_cabecera_y_hmo
+FAILED tests/test_f031_cliente_alta.py::test_f031_r41_parametros_de_la_cabecera_en_orden
+FAILED tests/test_f031_cliente_alta.py::test_f031_r41_tipo_y_estado_salen_del_cliente
+FAILED tests/test_f031_cliente_alta.py::test_f031_r41_las_condiciones_van_fuera_del_agregado
+FAILED tests/test_f031_cliente_alta.py::test_f031_r42_hmo_solo_si_el_con_no_lo_tiene
+5 failed, 1 passed in 0.32s
+```
