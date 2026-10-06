@@ -110,6 +110,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   cerrados con `test_f031_mutantes.py` (y dos `or 0` muertos quitados);
   campana 2: 122 mutantes, 122 muertos, 0 supervivientes
   (`progress/mutacion_F-031.md`).
+- T20 hecha: `bash harness/init.sh` en VERDE (raiz 445 passed/1 skipped,
+  sv5 503, sv4 1672, cobertura 99,6 %). Informe en `progress/impl_F-031.md`.
+  Pasa al reviewer.
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 

@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import dataclasses
 
+import comprobar_asiento_analitico as herramienta
 import httpx
 import pytest
-
-import comprobar_asiento_analitico as herramienta
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.cuenta_analitica import OrigenSubcuenta
 from comprobar_asiento_analitico import CUADRA, DESCUADRE, comparar
@@ -48,7 +47,6 @@ from tests.test_f031_pipeline_estado import (
     _parte,
     _pipeline,
 )
-
 
 # ---------------------- registro_pipeline: cuenta ---------------------- #
 

@@ -337,7 +337,7 @@ def test_f031_r5_r31_ni_partes_cerrados_ni_asientos_ni_estados() -> None:
                 _parte(810, "PT26/00006"), _parte(805, "PT26/00005")],
         lineas=[_linea_sigrid(4000, 800, fec=20260303),
                 _linea_sigrid(4001, 805, fec=20260304)])
-    lineas = lambda: [_lin(1), _lin(2, fecha_int=20260303),  # noqa: E731
+    lineas = lambda: [_lin(1), _lin(2, fecha_int=20260303),
                       _lin(3, fecha_int=20260304)]
     pf = _pipeline(cli).preflight(obra=_obra(), lineas=lineas())
     claves = {c.clave for c in pf.conflictos}

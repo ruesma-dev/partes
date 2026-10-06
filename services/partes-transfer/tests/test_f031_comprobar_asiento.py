@@ -12,10 +12,9 @@ SINTETICOS.
 """
 from __future__ import annotations
 
+import comprobar_asiento_analitico as herramienta
 import httpx
 import pytest
-
-import comprobar_asiento_analitico as herramienta
 from comprobar_asiento_analitico import (
     CUADRA,
     DESCUADRE,
@@ -25,7 +24,6 @@ from comprobar_asiento_analitico import (
     comprobar,
 )
 from infrastructure.sigrid import sigrid_write_client as modulo_cliente
-
 
 # ============================ comparar (pura) ============================ #
 
@@ -169,8 +167,8 @@ def test_f031_r36_sin_asiento_y_varios_asientos() -> None:
 def test_f031_r36_lecturas_y_parametros() -> None:
     lector = _lector()
     _salida(lector)
-    (obra_sql, obra_p), (partes_sql, partes_p), (lin_sql, lin_p), \
-        (asi_sql, asi_p), (apa_sql, apa_p) = lector.pedidas
+    (_, obra_p), (partes_sql, partes_p), (lin_sql, lin_p), \
+        (_, asi_p), (_, apa_p) = lector.pedidas
     assert obra_p == ["0696", 1]
     assert partes_p == [696, 2026, 1, 35, 1]
     assert "ORDER BY hmo.ide DESC" in partes_sql
@@ -258,8 +256,8 @@ def test_f031_r38_truncado_es_error(monkeypatch) -> None:
 
 
 def test_f031_r38_el_script_no_escribe() -> None:
-    fuente = herramienta.__file__
-    texto = open(fuente, encoding="utf-8").read()
+    with open(herramienta.__file__, encoding="utf-8") as fichero:
+        texto = fichero.read()
     assert "/api/sql/write" not in texto
     assert ".escribir(" not in texto
     for verbo in ("INSERT ", "UPDATE ", "DELETE "):
