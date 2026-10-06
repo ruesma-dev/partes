@@ -186,6 +186,13 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 > parametros identicos al vuestro de `40b9feb` (alta protegida): si lo
 > cambiais, avisad igual.
 
+- T29 hecha: `docs/ARCHITECTURE.md` (semantica 16: alta protegida, parte
+  compartido, copias, aviso obligatorio, fuera de la lista cerrada) y
+  `partes-proyecto.md` §3.5.
+- T30 hecha: `azure-apps/partes.md` §3.5 (alta protegida) y «que se rompe
+  si cambia» (copias y alta con `porcentajes`), commit local `b09865f` (sin
+  push).
+
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
 Despliegue (lo pide el humano): `.\infra\redeploy_partes.ps1 -Solo sv5` y
