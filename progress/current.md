@@ -1,7 +1,14 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-031 · BLOCKED (2026-10-06, implementer en T12): el parte registrado acaba en el asiento analítico
+## F-031 · in_progress (2026-10-06): el parte registrado acaba en el asiento analítico
+
+**Desbloqueada por decision del humano (2026-10-06, «si»)**: se cambia solo
+el token `"partes_existentes"` por `"partes_del_periodo"` en el assert de
+`test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock` (desviacion D1 del
+informe). Lo de abajo es el historico del bloqueo.
+
+### (historico) bloqueo en T12
 
 **Motivo del bloqueo (spec incorrecta en un punto, no improviso).** Al
 implementar T12 (paso 5 con `partes_del_periodo`, design §7.4) se pone ROJO
@@ -79,6 +86,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   (observacion O1 del reviewer de F-021). T9, T1 y suite sv5 en verde (437).
 - T11 hecha: tests de pipeline del parte en ROJO (22 failed, 11 passed:
   caracterizaciones de T1 y guardas que ya cumple el codigo de hoy).
+- T12 hecha: `settings.py` (`EST_PARTE_CERRADO`, `EST_PARTE_IMPUTADO`) y
+  pasos 5, 7 y 8 del pipeline. D1 aplicada en `test_f002_pipeline_fases.py`.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 

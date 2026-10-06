@@ -407,7 +407,7 @@
         "comprobar_asiento_analitico.py (solo lectura) da 'cuadra' para obra 0696 empresa 1 enero 2026 (M1)",
         "Fase RED de los R de design §10; mutacion completa con 0 supervivientes; bash harness/init.sh en verde"
       ],
-      "status": "blocked",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

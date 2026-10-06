@@ -163,7 +163,9 @@ def test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock():
     r = pipeline.registrar(ctx, usuario="ana")
 
     assert [e["registro_id"] for e in r.escritas] == [1]
-    assert {"partes_existentes", "siguiente_cod_pt", "lineas_por_synckey",
+    # F-031 (D1, decision del humano 2026-10-06): los partes del periodo se
+    # leen con `partes_del_periodo` (antes `partes_existentes`).
+    assert {"partes_del_periodo", "siguiente_cod_pt", "lineas_por_synckey",
             "escribir"} <= set(cli.llamadas)
 
 

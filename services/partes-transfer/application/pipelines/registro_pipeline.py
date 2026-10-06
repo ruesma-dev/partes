@@ -45,13 +45,22 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      F-031 (R20-R26): si el recurso no da subcuenta, la de la PARTIDA de
      la linea si es de coste (`CI*`/`CD*`), con una lectura de partidas
      por peticion y solo si hace falta.
-  5. Localizar el parte de cada periodo; proponer codigo si no existe.
+  5. Elegir el parte de cada periodo (F-031): se leen TODOS los partes de
+     la obra y mes con su estado; sv5 solo escribe en uno En registro (el
+     de mayor `ide`). Si el periodo tiene partes cerrados (Cerrado,
+     Imputado...), el elegido es el COMPLEMENTARIO; si ninguno esta En
+     registro, se propone uno nuevo con el codigo de siempre.
   6. Detectar lineas YA registradas por nosotros (synckey) -> idempotencia.
      Tambien las `dedicacion`: si ya viven en Sigrid, Sigrid manda (R5).
-  7. Detectar CONFLICTOS: ya hay linea(s) en Sigrid para ese parte +
-     recurso + fecha -> hay que confirmar si se pisan.
-  8. Crear los partes que falten (cabecera + extension).
-  9. Borrar las lineas pisadas confirmadas e insertar las nuevas.
+  7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
+     linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
+     CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
+     registro, hay que confirmar si se pisan.
+  8. Crear los partes que falten (cabecera + extension) y releerlos: si el
+     creado no sale En registro con su codigo, no se inserta nada.
+  9. Borrar las lineas pisadas confirmadas e insertar las nuevas, solo en
+     el parte elegido. sv5 no toca `con`/`hmo` de un parte existente ni
+     escribe asientos (F-031, R5, R31).
 """
 from __future__ import annotations
 
@@ -71,6 +80,12 @@ from application.services.cuenta_analitica import (
     resolver_cuenta,
     subcuenta_de_linea,
 )
+from application.services.estado_parte import (
+    aviso_de_parte,
+    elegir_parte,
+    motivo_choque,
+    nombre_estado,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -79,7 +94,9 @@ from domain.models.registro_models import (
     HoraRecurso,
     LineaEntrada,
     ObraEntrada,
+    LineaSigrid,
     ParteDestino,
+    ParteSigrid,
     Preflight,
     ResultadoRegistro,
 )
@@ -279,15 +296,23 @@ class RegistroPipeline:
         acciones = ctx.acciones
         escribir = [a for a in acciones if a.accion == "escribir"]
 
-        # Paso 5: parte de cada periodo (ano/mes de la fecha real).
+        # Paso 5: parte de cada periodo (ano/mes de la fecha real). F-031:
+        # TODOS los partes del periodo con su estado, UNA lectura por
+        # periodo (R1); el elegido es el de mayor `ide` En registro (R2).
+        est_registro = self._est_registro()
         periodos = {(a.ano, a.mes) for a in escribir}
-        partes = self._cli.partes_existentes(int(destino.ide), periodos) \
-            if periodos else {}
+        partes: dict[tuple[int, int], ParteDestino] = {}
         for clave in sorted(periodos):
-            p = partes.get(clave) or ParteDestino(ano=clave[0], mes=clave[1])
-            if not p.existe and not p.cod:
+            p = elegir_parte(
+                clave[0], clave[1],
+                self._cli.partes_del_periodo(int(destino.ide), *clave),
+                est_registro=est_registro)
+            if not p.existe:
                 p.cod = self._cli.siguiente_cod_pt(
                     p.ano, int(destino.empresa))  # type: ignore[arg-type]
+            p.aviso = aviso_de_parte(p, {
+                ps.cod: self._nombre_estado(ps.est) for ps in p.del_periodo
+                if ps.est != est_registro})
             partes[clave] = p
 
         # Paso 6: idempotencia por synckey. F-019 (R5): una `dedicacion`
@@ -305,56 +330,45 @@ class RegistroPipeline:
                 a.motivo = (f"ya registrada en Sigrid (linea {hit.ide}); "
                             f"no se duplica")
 
-        # Paso 7: conflictos (parte + recurso + fecha ya con lineas).
+        # Paso 7: conflictos en TODOS los partes del periodo (F-031). Un
+        # parte nuevo sin partes previos no puede tener conflicto.
         conflictos: list[Conflicto] = []
         pendientes = [a for a in acciones if a.accion == "escribir"]
+        omitidas_cerrado: dict[tuple[int, int], int] = {}
         for clave, parte in sorted(partes.items()):
-            if not parte.existe or not parte.ide:
-                continue        # parte nuevo: no puede haber conflicto
             grupo = [a for a in pendientes if (a.ano, a.mes) == clave]
-            if not grupo:
+            omitidas_cerrado[clave] = 0
+            if not grupo or not parte.del_periodo:
                 continue
-            existentes = self._cli.lineas_existentes(
-                int(parte.ide), [a.recurso_ide for a in grupo],
-                [a.fecha_int for a in grupo])
+            recursos = [a.recurso_ide for a in grupo]
+            fechas = [a.fecha_int for a in grupo]
+            existentes = [(ps, self._cli.lineas_existentes(
+                int(ps.ide), recursos, fechas)) for ps in parte.del_periodo]
             mias = {synckey_de(a.registro_id) for a in grupo}
-            # Un conflicto es por recurso + dia + CODIGO DE HORA: pisar las
-            # ordinarias de un dia NO debe tocar las extra de ese dia.
-            por_clave: dict[str, Conflicto] = {}
+            # R11 (prevalece sobre R12): horas que ya constan en un parte
+            # CERRADO -> esa linea no se registra.
             for a in grupo:
-                k = a.clave_conflicto
-                choques = [
-                    ls for ls in existentes
-                    if ls.reside == a.recurso_ide
-                    and ls.fecha_int == a.fecha_int
-                    and int(ls.horide or 0) == int(a.hora_ide or 0)
-                    and not (ls.synckey and ls.synckey in mias)
-                ]
-                if not choques:
-                    continue        # ese codigo esta libre: nada que pisar
-                c = por_clave.get(k)
-                if c is None:
-                    # Otras lineas del mismo recurso y dia con OTRO codigo:
-                    # solo informativas, NO se tocan.
-                    contexto = [
-                        ls for ls in existentes
-                        if ls.reside == a.recurso_ide
-                        and ls.fecha_int == a.fecha_int
-                        and int(ls.horide or 0) != int(a.hora_ide or 0)
-                    ]
-                    c = Conflicto(
-                        clave=k, recurso_ide=int(a.recurso_ide or 0),
-                        fecha_int=a.fecha_int, ano=parte.ano, mes=parte.mes,
-                        parte_cod=parte.cod, nombre=a.nombre,
-                        horide=a.hora_ide, hora_codigo=a.hora_codigo,
-                        lineas=choques, contexto=contexto)
-                    por_clave[k] = c
-                c.registros.append(a.registro_id)
-                c.nuevas.append({
-                    "registro_id": a.registro_id, "can": a.can, "tot": a.tot,
-                    "hora_codigo": a.hora_codigo, "partida_cod": a.partida_cod,
-                })
-            conflictos.extend(por_clave.values())
+                cerrado = next(
+                    (ps for ps, lineas in existentes
+                     if ps.est != est_registro
+                     and self._choques(lineas, a, mias)), None)
+                if cerrado is not None:
+                    self._omitir_por_cerrado(a, cerrado)
+                    omitidas_cerrado[clave] += 1
+            grupo = [a for a in grupo if a.accion == "escribir"]
+            abiertas = [(ps, lineas) for ps, lineas in existentes
+                        if ps.est == est_registro]
+            conflictos.extend(self._conflictos(parte, grupo, abiertas, mias))
+
+        for clave, parte in sorted(partes.items()):
+            # R19: sin nombres ni DNIs.
+            logger.info(
+                "[registro] parte obra=%s periodo=%s/%02d elegido=%s "
+                "estado=%s complementario=%s cerrados=%s "
+                "omitidas_cerrado=%s", destino.codigo, clave[0], clave[1],
+                parte.cod, parte.estado,
+                "si" if parte.complementario else "no",
+                len(parte.cerrados), omitidas_cerrado[clave])
 
         pf = Preflight(
             obra_destino=destino, obra_origen=ctx.obra_origen,
@@ -366,6 +380,75 @@ class RegistroPipeline:
             "ya=%s conflictos=%s", destino.codigo, len(pf.partes),
             pf.n_escribir, pf.n_omitir, pf.n_ya, len(conflictos))
         return pf
+
+    # ---------------- ayudas de los pasos 5-8 (F-031) ---------------- #
+    def _est_registro(self) -> int:
+        """R7: «En registro» sale de `EST_PARTE_ACTIVO` (un settings sin
+        el ajuste, como los dobles antiguos, es el 1 de siempre)."""
+        return int(getattr(self._st, "est_parte_activo", 1))
+
+    def _nombre_estado(self, est: int | None) -> str:
+        """R7: nombre de un estado cerrado para los textos (DA7)."""
+        return nombre_estado(
+            est, est_cerrado=int(getattr(self._st, "est_parte_cerrado", 3)),
+            est_imputado=int(getattr(self._st, "est_parte_imputado", 10)))
+
+    @staticmethod
+    def _choques(lineas: list[LineaSigrid], a: AccionLinea,
+                 mias: set[str]) -> list[LineaSigrid]:
+        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA: pisar las
+        ordinarias de un dia NO debe tocar las extra de ese dia."""
+        return [ls for ls in lineas
+                if ls.reside == a.recurso_ide
+                and ls.fecha_int == a.fecha_int
+                and int(ls.horide or 0) == int(a.hora_ide or 0)
+                and not (ls.synckey and ls.synckey in mias)]
+
+    def _omitir_por_cerrado(self, a: AccionLinea, ps: ParteSigrid) -> None:
+        """R11, R14: la linea no se registra y no lleva cuenta."""
+        a.accion = "omitir"
+        a.motivo = motivo_choque(ps.cod, self._nombre_estado(ps.est))
+        a.caa_ide, a.caa_cod = 0, None
+        a.caa_motivo = a.caa_aviso = a.caa_origen = a.caa_nota = None
+
+    def _conflictos(
+        self, parte: ParteDestino, grupo: list[AccionLinea],
+        abiertas: list[tuple[ParteSigrid, list[LineaSigrid]]],
+        mias: set[str],
+    ) -> list[Conflicto]:
+        """R12-R13: choques con lineas ajenas de partes En registro (el
+        elegido u otro), confirmables como siempre. `parte_cod` es el del
+        parte donde viven; solo estas lineas se pueden pisar."""
+        por_clave: dict[str, Conflicto] = {}
+        for a in grupo:
+            k = a.clave_conflicto
+            choques = [(ps, ls) for ps, lineas in abiertas
+                       for ls in self._choques(lineas, a, mias)]
+            if not choques:
+                continue        # ese codigo esta libre: nada que pisar
+            c = por_clave.get(k)
+            if c is None:
+                # Otras lineas del mismo recurso y dia con OTRO codigo:
+                # solo informativas, NO se tocan.
+                contexto = [
+                    ls for _ps, lineas in abiertas for ls in lineas
+                    if ls.reside == a.recurso_ide
+                    and ls.fecha_int == a.fecha_int
+                    and int(ls.horide or 0) != int(a.hora_ide or 0)
+                ]
+                c = Conflicto(
+                    clave=k, recurso_ide=int(a.recurso_ide or 0),
+                    fecha_int=a.fecha_int, ano=parte.ano, mes=parte.mes,
+                    parte_cod=choques[0][0].cod, nombre=a.nombre,
+                    horide=a.hora_ide, hora_codigo=a.hora_codigo,
+                    lineas=[ls for _ps, ls in choques], contexto=contexto)
+                por_clave[k] = c
+            c.registros.append(a.registro_id)
+            c.nuevas.append({
+                "registro_id": a.registro_id, "can": a.can, "tot": a.tot,
+                "hora_codigo": a.hora_codigo, "partida_cod": a.partida_cod,
+            })
+        return list(por_clave.values())
 
     # ------------------------------------------------------------- #
     def preflight(self, *, obra: ObraEntrada,
@@ -442,11 +525,18 @@ class RegistroPipeline:
                 p.ano, int(destino.empresa))  # type: ignore[arg-type]
             self._cli.escribir(self._cli.stmts_crear_parte(
                 obra=destino, ano=p.ano, mes=p.mes, cod=cod, desc=desc))
-            nuevos = self._cli.partes_existentes(int(destino.ide), [clave])
-            creado = nuevos.get(clave)
-            if creado is None or not creado.ide:
-                raise RuntimeError(f"no se pudo crear el parte {cod}")
+            # R9: se relee por codigo; si el creado no sale En registro,
+            # no se inserta ninguna linea (ni de este ni de otro periodo).
+            creado = next(
+                (ps for ps in self._cli.partes_del_periodo(
+                    int(destino.ide), *clave)
+                 if ps.cod == cod and ps.est == self._est_registro()), None)
+            if creado is None:
+                raise RuntimeError(
+                    f"no se pudo crear el parte {cod} en registro (la "
+                    f"relectura no lo da): no se inserta ninguna linea")
             p.existe, p.ide, p.cod, p.creado = True, creado.ide, creado.cod, True
+            p.estado = creado.est
             logger.info("[registro] parte creado %s (ide=%s) obra=%s %s/%s",
                         p.cod, p.ide, destino.codigo, p.ano, p.mes)
 
