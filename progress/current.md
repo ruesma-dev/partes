@@ -104,6 +104,7 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   sin ejecutarlas); comandos en la lista MANUAL de abajo.
 - T17 hecha: `docs/ARCHITECTURE.md` (semantica 13 matizada, 16 nueva,
   herramienta) y `partes-proyecto.md` §3.5.
+- T18 hecha: `azure-apps/partes.md` §3.5, commit local `ef43cac` (sin push).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
