@@ -156,6 +156,35 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T27 hecha: `_crear_parte` (alta, relectura con `elegir_parte`, un
   reintento, error) y docstring del paso 8; suite sv5 520 passed (guardas
   de carrera de F-002 incluidos).
+- T28 hecha: cabecera de dependencia (solo docstring, +9 lineas cada uno)
+  en `estado_parte.py` y `cuenta_analitica.py`, commit `e85ef0e`. Suite sv5
+  520 passed. **DA11**: el test de copias de `porcentajes` se pone ROJO
+  hasta que recopien (aviso de abajo; no se edita `porcentajes` desde aqui).
+
+#### AVISO PARA `porcentajes` (DA11; texto exacto para que el humano lo pase)
+
+> **Aviso de `partes` (F-031 v5) para `porcentajes` (F-037).** En la rama
+> `feature/F-031-asiento-analitico` de `partes` han cambiado los dos
+> ficheros que copiais literalmente:
+> `services/partes-transfer/application/services/estado_parte.py` y
+> `services/partes-transfer/application/services/cuenta_analitica.py`.
+> **Que cambia:** SOLO el docstring de cabecera de cada uno: se anade un
+> parrafo «DEPENDENCIA CON `porcentajes`» (9 lineas) que dice que son copia
+> literal vuestra y que cambiarlos obliga a avisaros en el mismo trabajo.
+> Ninguna regla ni linea de codigo cambia (`git diff 9b202e9 e85ef0e` de
+> esos dos ficheros: 18 inserciones, 0 borrados, todas dentro del
+> docstring). Por eso vuestro
+> `services/dedicacion-transfer/tests/test_f037_copias_partes.py::test_f037_copia_igual_a_la_ref_vigilada`
+> esta en ROJO: es «texto, se recopia» (vuestro design §12).
+> **Que hacer:** recopiar los dos ficheros desde
+> `git -C ../partes show e85ef0e833f01f69ff25cd2937dee1e703a03fd3:services/partes-transfer/application/services/<fichero>`
+> y poner `COMMIT_COPIADO = "e85ef0e833f01f69ff25cd2937dee1e703a03fd3"`.
+> Ese commit es el ultimo de la rama que toca los dos ficheros y sigue
+> siendo valido cuando F-031 se mergee a `dev` (merge, no squash); en ese
+> momento, `REF_VIGILADA` pasa a `dev` como ya preve vuestro test. Ademas,
+> el alta del parte (`stmts_crear_parte`) de `partes` es ahora texto y
+> parametros identicos al vuestro de `40b9feb` (alta protegida): si lo
+> cambiais, avisad igual.
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
