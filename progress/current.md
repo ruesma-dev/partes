@@ -148,6 +148,9 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   `test_f023_escritura_empresa.py`, `r32` compara `parameters[:6]` y `r34`
   exige que el SQL del `hmo` CONTENGA el filtro por codigo, tipo y empresa.
   Verde contra el codigo de hoy (54 passed).
+- T25 hecha: `stmts_crear_parte` con el alta protegida. Comparado por AST
+  con `git -C ../porcentajes show 40b9feb:services/dedicacion-transfer/infrastructure/sigrid/sigrid_write_client.py`:
+  las dos sentencias con SQL y parametros identicos. T23 y F-023 en verde.
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
