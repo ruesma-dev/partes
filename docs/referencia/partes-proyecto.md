@@ -193,8 +193,14 @@ registro**:
      subcuenta (p. ej. toda la empresa 28), o la obra no tiene esa cuenta
      o tiene varias, la línea se escribe con `caaide = 0`; en los dos
      últimos casos el modal del preflight lo avisa. Si la lectura de
-     cuentas falla, la petición entera falla (no se escribe nada). Ni la
-     partida, ni `res.caaide`, ni `auxhor.caacod` intervienen.
+     cuentas falla, la petición entera falla (no se escribe nada). Ni
+     `res.caaide` ni `auxhor.caacod` intervienen. **Respaldo de la
+     partida (F-031)**: la cuenta sigue saliendo del recurso; SOLO si el
+     recurso no da subcuenta, se usa la de la cuenta de la partida de la
+     línea (`obrparpar.caaide`) si es de coste (`CI*`/`CD*`; nunca `CP`
+     ni `INGR`), en el mismo centro de la obra (una lectura de partidas
+     por petición, solo si hace falta). La línea lleva entonces
+     `caa_origen = partida` y una nota que el modal lista aparte.
    - **Mensuales a dedicación (F-019)**, solo con el interruptor de sv5
      `MENSUALES_A_DEDICACION=true` (apagado por defecto: con él apagado,
      las reglas de arriba son exactamente las de siempre). Un recurso con
@@ -211,12 +217,38 @@ registro**:
      acción `dedicacion` no abre parte, no pide cuenta ni entra en
      conflictos: viaja en `dedicacion` del resultado y sv4 la publica en
      `dedicacion_bandeja` (§5.5 bis).
-4. **Parte mensual**: busca el `hmo` de la obra+mes; si no existe crea
-   cabecera `con`+`hmo` con código `PT<AA>/NNNNN` correlativo.
+4. **Parte mensual**: lee TODOS los `hmo` de la obra+mes con su estado
+   (`con.est`: 1 En registro, 3 Cerrado, 10 Imputado). F-031: sv5 solo
+   escribe en un parte **En registro** (el de mayor `ide`); si no hay
+   ninguno crea cabecera `con`+`hmo` con código `PT<AA>/NNNNN`
+   correlativo de la empresa, relee el mes y usa el parte En registro que
+   haya, propio o de `porcentajes` (si no hay ninguno, un reintento con el
+   siguiente código y, si tampoco, error sin escribir líneas). Si el mes
+   ya tiene partes **cerrados**
+   (Cerrado o Imputado), el parte que recibe las líneas es el
+   **complementario** (como lo hace Administración a mano): el original
+   no se toca y el modal lo rotula y explica a dónde van las líneas.
+   **Asiento analítico**: lo genera Sigrid al «Contabilizar parte» (pasa
+   a Imputado; Debe = Σ `hmores.tot` por cuenta); sv5 no escribe asientos
+   ni cambia estados. Se comprueba con `comprobar_asiento_analitico.py`
+   (solo lectura).
+   **Alta protegida (F-031 v5)**: `porcentajes` (dedicación) también crea
+   y escribe partes de obra en Sigrid. El alta de sv5 (primer parte del
+   mes y complementario) es la misma que la suya: la cabecera solo entra
+   si el código está libre en la empresa y el mes no tiene ya un parte En
+   registro de la obra; después sv5 relee el mes y usa el parte En
+   registro que haya, suyo o de `porcentajes`. Si el código estaba cogido,
+   reintenta una vez con el siguiente; si tampoco, error y no escribe
+   líneas. `estado_parte.py` y `cuenta_analitica.py` están copiados
+   literalmente en `porcentajes`: si cambian, se les avisa en el mismo
+   trabajo.
 5. **Líneas** `hmores` con `ide = MAX(ide)+1` bajo `UPDLOCK` (por eso
    sv5 va a 1 réplica), importes can×pre, y **synckey** en `tex` para
    idempotencia: reaprobar no duplica; detecta conflictos si alguien
-   modificó la línea en Sigrid y pide confirmación para pisar.
+   modificó la línea en Sigrid y pide confirmación para pisar. F-031:
+   duplicados y conflictos se miran en TODOS los partes del mes; una línea
+   con horas ajenas del mismo recurso, día y tipo en un parte cerrado se
+   omite (`parte_cerrado: …`) y solo se pisan líneas de partes En registro.
 6. Devuelve por línea: escrita (con ide de Sigrid) / ya registrada /
    omitida (motivo) / conflicto / a dedicación (F-019, con su código
    `M*`).

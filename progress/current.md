@@ -1,6 +1,246 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-031 · done (2026-10-06), sin desplegar: el parte registrado acaba en el asiento analítico
+
+APPROVED del reviewer en la pasada 2 (`progress/review_F-031.md`). Resumen en
+`progress/history.md`. Pendiente: aviso a porcentajes (texto abajo),
+prueba de escritura en 0404 o despliegue sv5 -> sv4, a decidir por el humano.
+
+### Spec v5 escrita (spec-author, 2026-10-06), pendiente de visto bueno
+
+Decisiones del humano: «si, amplia la spec» y «lo de no pisarse con
+porcentajes vale para una insercion normal no solo complementaria». La v5
+añade el **alta protegida** frente a `porcentajes` (dedicacion-transfer,
+F-037), que escribe en el MISMO parte de Sigrid: R40–R47 y design §13 (SQL
+idéntico al suyo, relectura del periodo y uso del parte En registro que
+haya, un reintento, error sin líneas) y la dependencia documentada
+(R48–R49: cabeceras, `ARCHITECTURE.md`, `azure-apps/partes.md`; NO entra en
+la lista cerrada de `CLAUDE.md`). Tareas nuevas T21–T32 (incluye repetir la
+mutación completa, T31). La v4 (T1–T20) sigue implementada y sin review.
+Resumen y decisiones en `progress/spec_F-031.md`.
+
+**Decisiones abiertas para el humano (antes de T21):** DA9 diseño del alta
+(usar el parte del otro servicio; `creado` por filas insertadas; aviso sin
+recalcular); **DA10** adaptar dos tests ajenos de F-023 (`r32` a
+`parameters[:6]`, `r34` a «contiene»); **DA11** la cabecera nueva pone en
+rojo `porcentajes/.../test_f037_copias_partes.py::…ref_vigilada` hasta que
+`porcentajes` recopie: aviso a `porcentajes` en el mismo trabajo (no se
+edita desde aquí). Manual nueva: **M6** (design §11), tras desplegar sv5 y
+dedicacion-transfer.
+
+**Desbloqueada por decision del humano (2026-10-06, «si»)**: se cambia solo
+el token `"partes_existentes"` por `"partes_del_periodo"` en el assert de
+`test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock` (desviacion D1 del
+informe). Lo de abajo es el historico del bloqueo.
+
+### (historico) bloqueo en T12
+
+**Motivo del bloqueo (spec incorrecta en un punto, no improviso).** Al
+implementar T12 (paso 5 con `partes_del_periodo`, design §7.4) se pone ROJO
+un test AJENO: `services/partes-transfer/tests/test_f002_pipeline_fases.py::
+test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock`, que exige por
+NOMBRE que el pipeline llame a `partes_existentes`:
+
+    assert {"partes_existentes", "siguiente_cod_pt", "lineas_por_synckey",
+            "escribir"} <= set(cli.llamadas)
+
+Con F-031 el pipeline ya no llama a `partes_existentes` (lo sustituye
+`partes_del_periodo`, que el doble tambien vigila bajo el lock). design §8
+afirma que ningun test ajeno cambia y tasks.md manda parar si uno se pone
+rojo. Sin alternativa limpia: seguir llamando a `partes_existentes` seria
+una lectura extra por periodo solo para el test (contra R1), y que el doble
+apunte `partes_existentes` al llamar a `partes_del_periodo` enganaria al
+guardian.
+
+**Propuesta (decide el humano):** cambiar en ese assert el nombre
+`"partes_existentes"` por `"partes_del_periodo"` (un token; la intencion de
+R20 de F-002, leer el estado escrito DENTRO del lock, se mantiene y la
+comprueba `vigilar_lock`). Se declararia como desviacion D1 en el informe.
+
+**Estado del trabajo:** T1-T11 hechas y commiteadas (un commit por tarea).
+T12 IMPLEMENTADA en el arbol de trabajo SIN commitear (`registro_pipeline.py`
+pasos 5, 7, 8 y docstring; `settings.py` con `EST_PARTE_CERRADO`/
+`EST_PARTE_IMPUTADO`) y el arreglo del helper `_lin` de
+`test_f031_pipeline_estado.py`: suite sv5 463 passed, 1 failed (solo ese
+test ajeno); suite raiz 445 passed, 1 skipped. Con el visto bueno se cambia
+el token, se commitea T12 y se sigue con T13-T20 (sv4, herramienta, docs,
+mutacion). Si la decision es otra, `git checkout` de esos dos ficheros
+deja la rama en T11.
+Trazas RED de T3-T11 (salida real) en `progress/red_F-031.md`.
+
+
+**Spec v4 APROBADA por el humano el 2026-10-06** («aprobado, se refiere a lo
+que no este en registro»): «cerrado» = Cerrado o Imputado. Rama al día con
+`dev` (F-029 y F-030 incluidas). Pasa al implementer.
+
+Spec en `specs/F-031-asiento-analitico/`, resumen en `progress/spec_F-031.md`
+(rama `feature/F-031-asiento-analitico`). Hallazgo: Sigrid ya genera el
+asiento al «Contabilizar parte» (estado Imputado); sv5 no escribe asientos,
+no escribe en partes cerrados. Spec v4 (2026-10-05): DA1/DA2 → parte
+complementario (las líneas van a un parte En registro de la obra y mes; si
+no hay, sv5 crea uno; el cerrado no se toca) y DA6 → la cuenta sale del
+recurso (F-021), con la partida `CI/CD` solo de respaldo. DA6-e retirada.
+Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
+
+### Implementacion (implementer, 2026-10-06)
+
+- T1 hecha: caracterizacion en verde contra el codigo de hoy
+  (`test_f031_pipeline_estado.py`: R4, R6, R10, R32, R33;
+  `test_f031_pipeline_cuenta_partida.py`: R20, R22) y suite `f021` en verde
+  (66 passed, R27).
+- T2 hecha: `dobles.py` crece (partidas, `partes_del_periodo`,
+  `partidas_de_lineas`, fallos inyectables, `partes_existentes` con el de
+  mayor `ide`, `SettingsFake` 1/3/10). Suite sv5: 370 passed.
+- T3 hecha: `test_f031_estado_parte.py` en ROJO (modulo inexistente);
+  traza para el informe. Textos de aviso y motivo en ASCII sin tildes, como
+  el resto de mensajes de sv5 (decision, no cambia el sentido de design §7.1).
+- T4 hecha: `ParteSigrid`, `PartidaCuenta`, campos nuevos de
+  `ParteDestino`/`AccionLinea` y `estado_parte.py`. T3 en verde (15).
+- T5 hecha: `test_f031_cuenta_partida.py` en ROJO (ImportError).
+- T6 hecha: `subcuenta_de_partida`, `OrigenSubcuenta`, `origen_subcuenta`
+  y docstring (R7 de F-021 matizada). T5 + `test_f021_cuenta_analitica` en
+  verde (60); suite sv5 410 passed.
+- T7 hecha: `test_f031_cliente_partes.py` en ROJO (11 failed).
+- T8 hecha: `partes_del_periodo` y `partidas_de_lineas` en el cliente
+  (`partes_existentes`, `stmts_crear_parte`, `lineas_existentes` intactos).
+  T7 en verde; suite sv5 421 passed.
+- T9 hecha: tests de pipeline de la cuenta en ROJO (11 failed, 7 passed:
+  las caracterizaciones y las guardas de «no leer»).
+- T10 hecha: `_resolver_cuentas` con respaldo de partida y log `origen
+  cuenta`. Corregido de paso el docstring que decia que la cola reintenta
+  (observacion O1 del reviewer de F-021). T9, T1 y suite sv5 en verde (437).
+- T11 hecha: tests de pipeline del parte en ROJO (22 failed, 11 passed:
+  caracterizaciones de T1 y guardas que ya cumple el codigo de hoy).
+- T12 hecha: `settings.py` (`EST_PARTE_CERRADO`, `EST_PARTE_IMPUTADO`) y
+  pasos 5, 7 y 8 del pipeline. D1 aplicada en `test_f002_pipeline_fases.py`.
+- T13 hecha: `test_f031_preflight_avisos.py` (sv4) en ROJO (11 failed; el
+  reenvio y el modal de siempre, R30, ya en verde).
+- T14 hecha: `app.js` (rotulo «complementario» + aviso escapado por parte;
+  `notasCuentaHtml`). **Decision D2**: con `notasCuentaHtml` a nivel de
+  modulo se ponia ROJO un test AJENO (`test_f022_vistas_seleccion.py::
+  test_f022_r27_js_seccion_por_obra_con_resumen_y_listado`, que ejecuta
+  `resumenHtml` con una lista cerrada de funciones); se define DENTRO de
+  `resumenHtml` (solo la usa ella) y ningun test ajeno cambia. T13 se
+  ajusto a eso y su RED se volvio a sacar. `node --check` OK; sv4 1672 passed.
+- T15 hecha: `test_f031_comprobar_asiento.py` en ROJO (modulo inexistente).
+- T16 hecha: `comprobar_asiento_analitico.py` (solo `_read`); T15 en verde
+  (19). **Desviacion D3**: M1 y M2 NO se ejecutan (tasks.md T16 lo pedia al
+  implementer, pero el encargo del lider manda dejar las MANUAL documentadas
+  sin ejecutarlas); comandos en la lista MANUAL de abajo.
+- T17 hecha: `docs/ARCHITECTURE.md` (semantica 13 matizada, 16 nueva,
+  herramienta) y `partes-proyecto.md` §3.5.
+- T18 hecha: `azure-apps/partes.md` §3.5, commit local `ef43cac` (sin push).
+- T19 hecha: cobertura de lineas cambiadas 98,7 % (225/228). Mutacion
+  completa (6 workers, timeout 600): campana 1 126/103/23 supervivientes;
+  cerrados con `test_f031_mutantes.py` (y dos `or 0` muertos quitados);
+  campana 2: 122 mutantes, 122 muertos, 0 supervivientes
+  (`progress/mutacion_F-031.md`).
+- T20 hecha: `bash harness/init.sh` en VERDE (raiz 445 passed/1 skipped,
+  sv5 503, sv4 1672, cobertura 99,6 %). Informe en `progress/impl_F-031.md`.
+  Pasa al reviewer.
+
+#### v5 (alta protegida y dependencia con porcentajes; spec `9ea7c59`)
+
+- T21 hecha: `test_f031_pipeline_alta.py`, caracterizacion de R40 en verde
+  contra el codigo de hoy (3 passed).
+- T22 hecha: `dobles.py` crece (`alta_protegida`, `al_alta`, `altas`);
+  suite sv5 506 passed.
+- T23 hecha: `test_f031_cliente_alta.py` en ROJO (5 failed; el `TypeError`
+  sin empresa ya en verde).
+- T24 hecha (DA10, visto bueno del humano 2026-10-06): en
+  `test_f023_escritura_empresa.py`, `r32` compara `parameters[:6]` y `r34`
+  exige que el SQL del `hmo` CONTENGA el filtro por codigo, tipo y empresa.
+  Verde contra el codigo de hoy (54 passed).
+- T25 hecha: `stmts_crear_parte` con el alta protegida. Comparado por AST
+  con `git -C ../porcentajes show 40b9feb:services/dedicacion-transfer/infrastructure/sigrid/sigrid_write_client.py`:
+  las dos sentencias con SQL y parametros identicos. T23 y F-023 en verde.
+- T26 hecha: carreras (R43-R47) y R9 reescrito a R43/R45, en ROJO (9
+  failed; el alta propia sin carrera ya en verde).
+- T27 hecha: `_crear_parte` (alta, relectura con `elegir_parte`, un
+  reintento, error) y docstring del paso 8; suite sv5 520 passed (guardas
+  de carrera de F-002 incluidos).
+- T28 hecha: cabecera de dependencia (solo docstring, +9 lineas cada uno)
+  en `estado_parte.py` y `cuenta_analitica.py`, commit `e85ef0e`. Suite sv5
+  520 passed. **DA11**: el test de copias de `porcentajes` se pone ROJO
+  hasta que recopien (aviso de abajo; no se edita `porcentajes` desde aqui).
+
+#### AVISO PARA `porcentajes` (DA11; texto exacto para que el humano lo pase)
+
+> **Aviso de `partes` (F-031 v5) para `porcentajes` (F-037).** En la rama
+> `feature/F-031-asiento-analitico` de `partes` han cambiado los dos
+> ficheros que copiais literalmente:
+> `services/partes-transfer/application/services/estado_parte.py` y
+> `services/partes-transfer/application/services/cuenta_analitica.py`.
+> **Que cambia:** SOLO el docstring de cabecera de cada uno: se anade un
+> parrafo «DEPENDENCIA CON `porcentajes`» (9 lineas) que dice que son copia
+> literal vuestra y que cambiarlos obliga a avisaros en el mismo trabajo.
+> Ninguna regla ni linea de codigo cambia (`git diff 9b202e9 e85ef0e` de
+> esos dos ficheros: 18 inserciones, 0 borrados, todas dentro del
+> docstring). Por eso vuestro
+> `services/dedicacion-transfer/tests/test_f037_copias_partes.py::test_f037_copia_igual_a_la_ref_vigilada`
+> esta en ROJO: es «texto, se recopia» (vuestro design §12).
+> **Que hacer:** recopiar los dos ficheros desde
+> `git -C ../partes show e85ef0e833f01f69ff25cd2937dee1e703a03fd3:services/partes-transfer/application/services/<fichero>`
+> y poner `COMMIT_COPIADO = "e85ef0e833f01f69ff25cd2937dee1e703a03fd3"`.
+> Ese commit es el ultimo de la rama que toca los dos ficheros y sigue
+> siendo valido cuando F-031 se mergee a `dev` (merge, no squash); en ese
+> momento, `REF_VIGILADA` pasa a `dev` como ya preve vuestro test. Ademas,
+> el alta del parte (`stmts_crear_parte`) de `partes` es ahora texto y
+> parametros identicos al vuestro de `40b9feb` (alta protegida): si lo
+> cambiais, avisad igual.
+
+- T29 hecha: `docs/ARCHITECTURE.md` (semantica 16: alta protegida, parte
+  compartido, copias, aviso obligatorio, fuera de la lista cerrada) y
+  `partes-proyecto.md` §3.5.
+- T30 hecha: `azure-apps/partes.md` §3.5 (alta protegida) y «que se rompe
+  si cambia» (copias y alta con `porcentajes`), commit local `b09865f` (sin
+  push).
+- T31 hecha: mutacion campana 3 completa (6 workers, timeout 600): 129
+  mutantes, 129 muertos, 0 supervivientes (`progress/mutacion_F-031.md`).
+- T32 hecha: `bash harness/init.sh` en VERDE (raiz 445 passed/1 skipped,
+  sv5 520, sv4 1672, cobertura 99,6 %); M6 anotada abajo; informe
+  actualizado en `progress/impl_F-031.md`. Pasa al reviewer.
+- T33 hecha (pasada 2 del reviewer): test de R40 con dos sentencias reales
+  en una sola escritura (`c9871c8`, RED con la rotura en copias fuera del
+  repo) y dos frases de docs alineadas con R43-R45 (`56e4caf`). Sin codigo
+  de produccion: no se repite la mutacion. init.sh en VERDE. Vuelve al
+  reviewer.
+
+### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
+
+Despliegue (lo pide el humano): `.\infra\redeploy_partes.ps1 -Solo sv5` y
+despues `.\infra\redeploy_partes.ps1 -Solo sv4` (aditivo; sin variables
+nuevas obligatorias: `EST_PARTE_CERRADO`=3 y `EST_PARTE_IMPUTADO`=10 por
+defecto). Rollback: imagen anterior.
+
+- [x] **M0**: hecho por el humano el 2026-10-06 («cerrado» = no En registro).
+- [ ] **M1 (solo lectura)**, desde `services/partes-transfer` con su `.env`:
+  `../../.venv/Scripts/python.exe comprobar_asiento_analitico.py --empresa 1 --obra 0696 --ano 2026 --mes 1`
+  Esperado: `PT26/00004 · Imputado · 308 linea(s)` y `asiento ANA26/00017: cuadra`.
+- [ ] **M2 (solo lectura)**: igual con `--empresa 1 --obra 0404 --ano 2026 --mes 7`.
+  Esperado: `PT26/00296 · En registro · 0 linea(s)` y sin linea de asiento.
+- [ ] **M3 (produccion, sin escribir)**, tras desplegar sv5 y sv4 (Ctrl+F5):
+  abrir el modal de aprobacion de lineas de agosto de una obra con partes
+  Cerrados y **Cancelar**. Esperado: el parte rotulado «complementario»,
+  codigo nuevo `PT26/…` «se creara» y el aviso que nombra el parte
+  cerrado; en los logs de `ca-sv5-transfer`, `[registro] parte obra=…
+  complementario=si`.
+- [ ] **M4 (modo pruebas, obra 0404; solo si el humano lo autoriza)**: con
+  PT26/00296 pasado a Cerrado por Administracion, aprobar en modo pruebas
+  (`OBRA_PRUEBAS_FORZAR=true`) ⇒ complementario nuevo En registro con las
+  lineas; comprobar con M2 y limpiar con
+  `python .\prueba_escritura_sigrid.py limpiar --ejecutar`.
+- [ ] **M5**: tras el primer «Contabilizar» de un complementario, M1 sobre
+  su obra y mes ⇒ `cuadra` en el original y en el complementario.
+- [ ] **M6 (v5, solo lectura, tras desplegar sv5 y el `dedicacion-transfer`
+  de `porcentajes`)**: por una obra y mes con lineas de ambos servicios,
+  `../../.venv/Scripts/python.exe comprobar_asiento_analitico.py --empresa 1 --obra <COD> --ano <AAAA> --mes <M>`
+  (desde `services/partes-transfer`) lista UN solo parte `En registro`; en
+  los logs de `ca-sv5-transfer`, `[registro] alta obra=<COD> … parte=propio`
+  u `otro servicio`. Antes de desplegar, `porcentajes` tiene que haber
+  recopiado (AVISO DA11 de arriba).
+
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
 Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005180501`

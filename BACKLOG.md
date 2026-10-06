@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **30 features**, 9 abiertas, 21 terminadas.
+Resumen: **30 features**, 8 abiertas, 22 terminadas.
 
 Bloqueadas: **F-014**.
 
@@ -11,7 +11,6 @@ Bloqueadas: **F-014**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | pendiente | critico | `feature/F-031-asiento-analitico` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -30,6 +29,7 @@ Bloqueadas: **F-014**.
 | F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | 1 | estandar |
 | F-029 | El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete | 1 | estandar |
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
+| F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -48,12 +48,6 @@ Bloqueadas: **F-014**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-031 · El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra
-
-estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-031-asiento-analitico`
-
-Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuente: correo de Juan Romero (Dir. Admon y Control de Costes) del 2026-09-29 «ARBOL ANALITICO OBRAS»: las cuentas analiticas de una obra cuelgan de su CENTRO DE COSTE (p. ej. obra 0702 -> centro 0702, ficha Obra > Contabilidad > «Cuentas analiticas»: 0702 centro de coste asociado, 0702.INGR02 certificacion, 0702.INGR01 produccion). El arbol del centro tiene C·COSTES (CD costes directos, CI costes indirectos, CP costes proporcionales CP0001..CP0010) e I·INGRESOS (INGR01..03). «Dentro del asiento se define el financiero, y la cuenta analitica del gasto (6XX)»: ejemplo de asiento con apunte 6260000000 y Desglose Analitico al centro 0702, cuenta 0702.CP0004 AVALES, 100 %. LO QUE SE PIDE: que el coste de mano de obra de los partes que sv5 registra en Sigrid quede imputado en la analitica de la obra (asiento/desglose analitico al centro de coste de la obra con la cuenta de coste que corresponda). RELACION CON F-021 (done): hoy sv5 escribe hmores.caaide = cuenta del centro de la obra con la subcuenta de la ficha de horas del recurso (reshor.caaide); en Porsan sale 0 (ningun recurso tiene cuenta). A INVESTIGAR EN LA SPEC (solo lectura en Sigrid y en azure-apps/sigrid_tablas.md): si Sigrid genera el asiento analitico a partir de hmores.caaide por algun proceso propio (y por que no aparece), o si hay que escribir el apunte/desglose analitico en otras tablas; que cuenta de coste corresponde a la mano de obra (CD..., por categoria o tipo de hora), importe (horas x precio de reshor), fecha y diario; como lo hace hoy Administracion a mano con partes tecleados (comparar con lineas reales de 2026); idempotencia con synckey y que pasa al borrar o reaprobar (F-024); empresas 1 y 28. Solo sv5 escribe en Sigrid. RIGOR critico: escribe contabilidad en Sigrid. Validar con Juan Romero antes de implementar.
 
 ### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 
@@ -132,6 +126,12 @@ Hallazgo del lider revisando las plantillas J.310 rev. 1 (2026-10-05): el membre
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-030-recurso-sin-ficha`
 
 Prueba real de Administracion (2026-10-05, partes de Porsan obra 0724 del 25 y 28/09): un trabajador con recurso de mano de obra de alta en la empresa 28 (res.cif = su DNI) pero SIN ficha en `emp` sale 'Sin recurso' en el portal, porque sv3 casa primero contra la ficha de empleado (emp, por DNI o nombre) y llega al recurso por emp.reside. Alcance medido en Sigrid el 2026-10-05: recursos MO/ de alta sin ficha de empleado por DNI: 19 de 229 en la empresa 1 y 18 de 39 en la 28. LO QUE SE PIDE (humano, 2026-10-05): cuando no haya ficha de empleado, sv3 casa el RECURSO directamente por DNI (res.cif) entre los recursos de la empresa de la obra y de alta (los mismos candidatos que ya exige sv5 al escribir), normalizando el DNI con o sin ceros a la izquierda (el parte de prueba lo traia con y sin el 0). A DECIDIR EN LA SPEC: (a) si ademas se casa por nombre contra el recurso (formato 'APELLIDOS, NOMBRE') o solo por DNI; (b) que se guarda como empleado en la linea cuando no hay ficha (empleado_ide nulo, metodo nuevo) y como lo ve el portal (sv4) y el resto del pipeline (jornada, extras, calendario, Sesame, que hoy cuelgan del empleado); (c) la lista cerrada de duplicacion de CLAUDE.md: IndicePersonas.elegir_recurso (sv3) y elegir_por_dni (sv5) son copias vigiladas, quien toque una cambia todas; (d) reprocesar los partes ya entrados sin recurso; (e) CUENTA ANALITICA EN PORSAN: Administracion dice que en Porsan no se pone cuenta analitica; desde F-021 sv5 escribe hmores.caaide con la cuenta del centro de la obra: comprobar si las obras de la empresa 28 la tienen y proponer si para la empresa 28 debe ir 0 (puede ser una DA separada o feature aparte). Servicios previstos: sv3 (casado), quiza sv4 (vista) y sv5 (cuenta analitica). RIGOR critico: cambia que recurso se escribe en Sigrid.
+
+### F-031 · El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-031-asiento-analitico`
+
+Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuente: correo de Juan Romero (Dir. Admon y Control de Costes) del 2026-09-29 «ARBOL ANALITICO OBRAS»: las cuentas analiticas de una obra cuelgan de su CENTRO DE COSTE (p. ej. obra 0702 -> centro 0702, ficha Obra > Contabilidad > «Cuentas analiticas»: 0702 centro de coste asociado, 0702.INGR02 certificacion, 0702.INGR01 produccion). El arbol del centro tiene C·COSTES (CD costes directos, CI costes indirectos, CP costes proporcionales CP0001..CP0010) e I·INGRESOS (INGR01..03). «Dentro del asiento se define el financiero, y la cuenta analitica del gasto (6XX)»: ejemplo de asiento con apunte 6260000000 y Desglose Analitico al centro 0702, cuenta 0702.CP0004 AVALES, 100 %. LO QUE SE PIDE: que el coste de mano de obra de los partes que sv5 registra en Sigrid quede imputado en la analitica de la obra (asiento/desglose analitico al centro de coste de la obra con la cuenta de coste que corresponda). RELACION CON F-021 (done): hoy sv5 escribe hmores.caaide = cuenta del centro de la obra con la subcuenta de la ficha de horas del recurso (reshor.caaide); en Porsan sale 0 (ningun recurso tiene cuenta). A INVESTIGAR EN LA SPEC (solo lectura en Sigrid y en azure-apps/sigrid_tablas.md): si Sigrid genera el asiento analitico a partir de hmores.caaide por algun proceso propio (y por que no aparece), o si hay que escribir el apunte/desglose analitico en otras tablas; que cuenta de coste corresponde a la mano de obra (CD..., por categoria o tipo de hora), importe (horas x precio de reshor), fecha y diario; como lo hace hoy Administracion a mano con partes tecleados (comparar con lineas reales de 2026); idempotencia con synckey y que pasa al borrar o reaprobar (F-024); empresas 1 y 28. Solo sv5 escribe en Sigrid. RIGOR critico: escribe contabilidad en Sigrid. Validar con Juan Romero antes de implementar.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

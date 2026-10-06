@@ -93,6 +93,24 @@ class HoraRecurso:
         return (self.cod or "").upper().startswith("M")
 
 
+@dataclass(frozen=True)
+class ParteSigrid:
+    """F-031 (R1): un parte (`hmo`) del periodo tal como esta en Sigrid,
+    con su estado `con.est` (1 En registro, 3 Cerrado, 10 Imputado...)."""
+    ide: int
+    cod: Optional[str]
+    est: Optional[int]
+
+
+@dataclass(frozen=True)
+class PartidaCuenta:
+    """F-031 (R24): partida (`obrparpar`) y el codigo de su cuenta
+    analitica (`con.cod` de `obrparpar.caaide`; None si no tiene)."""
+    ide: int
+    cod: Optional[str]
+    caa_cod: Optional[str]
+
+
 @dataclass
 class ParteDestino:
     """Parte de trabajo (hmo) de una obra y mes."""
@@ -102,6 +120,14 @@ class ParteDestino:
     ide: Optional[int] = None
     cod: Optional[str] = None           # existente o propuesto
     creado: bool = False
+    # F-031 (R17): estado del elegido (None si es nuevo), si es un
+    # complementario (el periodo tiene partes cerrados), los codigos de los
+    # cerrados, todos los partes del periodo y el aviso para el modal.
+    estado: Optional[int] = None
+    complementario: bool = False
+    cerrados: list[str] = field(default_factory=list)
+    del_periodo: list[ParteSigrid] = field(default_factory=list)
+    aviso: Optional[str] = None
 
 
 @dataclass
@@ -132,6 +158,10 @@ class AccionLinea:
     caa_cod: Optional[str] = None
     caa_motivo: Optional[str] = None
     caa_aviso: Optional[str] = None
+    # F-031 (R23): de donde sale la subcuenta ("recurso" | "partida" |
+    # None) y, si sale de la partida, la nota informativa para el modal.
+    caa_origen: Optional[str] = None
+    caa_nota: Optional[str] = None
     # F-019 (R2): el codigo `M*` del recurso de una accion `dedicacion`.
     codigo_mes: Optional[str] = None
 

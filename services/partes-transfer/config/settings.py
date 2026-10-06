@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     # --- Constantes del modelo Sigrid (confirmadas con datos reales) --- #
     tip_parte_trabajo: int = Field(35, alias="TIP_PARTE_TRABAJO")
     est_parte_activo: int = Field(1, alias="EST_PARTE_ACTIVO")
+    # F-031 (R7): nombres de los estados de parte en los textos (Cerrado,
+    # Imputado). «En registro» es `est_parte_activo`; cualquier otro estado
+    # es un parte cerrado en el que sv5 no escribe.
+    est_parte_cerrado: int = Field(3, alias="EST_PARTE_CERRADO")
+    est_parte_imputado: int = Field(10, alias="EST_PARTE_IMPUTADO")
     paso_pos: int = Field(64, alias="PASO_POS")
 
     # --- Servidor --- #
