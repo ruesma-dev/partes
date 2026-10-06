@@ -206,10 +206,16 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     cuenta `caa` del **centro de la obra destino** (`obr.cenide`, su
     empresa) cuya subcuenta (texto tras el primer punto de `con.cod`) es
     la de la ficha del recurso: `reshor.caaide` del tipo de hora escrito o,
-    si no tiene, del tipo por defecto (`res.horide`). Nunca `res.caaide`,
-    la partida ni `auxhor.caacod`. Sin subcuenta, sin esa cuenta en la obra
-    o con varias: `caaide = 0` y la línea se escribe igual (aviso en el
-    preflight solo en los dos últimos). Una lectura de `caa` por petición.
+    si no tiene, del tipo por defecto (`res.horide`). Nunca `res.caaide`
+    ni `auxhor.caacod`. **F-031 (respaldo de partida)**: solo si el recurso
+    no da subcuenta, la de la cuenta de la **partida** de la línea
+    (`obrparpar.caaide`) si es de coste (`CI*`/`CD*`; nunca `CP` ni
+    `INGR`), llevada igual al centro de la obra; la acción lleva
+    `caa_origen` (`recurso`/`partida`/None) y, si es de la partida, una
+    `caa_nota` que el modal lista aparte. Sin subcuenta, sin esa cuenta en
+    la obra o con varias: `caaide = 0` y la línea se escribe igual (aviso
+    en el preflight solo en los dos últimos). Una lectura de `caa` por
+    petición y, solo si hace falta, una de partidas.
 14. **Incidencia y horas el mismo día (F-025, solo sv4)**: Sigrid no
     clasifica sus incidencias; la clase de cada letra vive en la tabla
     versionada `services/partes-front/config/incidencias.yaml`
@@ -254,6 +260,26 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     se reaprueba. La lee dedicación con `GRANT SELECT` solo sobre esa tabla
     (`infra/sql/01_dedicacion_lectura.sql`, lo ejecuta el humano); partes
     no calcula porcentajes ni lee la base de dedicación.
+16. **Parte destino y asiento analítico (F-031, sv5 decide, sv4 pinta)**:
+    Sigrid genera el asiento analítico de un parte al «Contabilizar parte»
+    (Administración, por lotes): lo pasa a **Imputado** (`con.est` 10) y
+    crea un asiento tipo 32 con Debe = Σ `hmores.tot` por `hmores.caaide`.
+    sv5 no escribe asientos ni cambia estados. Estados del parte (`conest`
+    tipo 35): 1 En registro (`EST_PARTE_ACTIVO`), 3 Cerrado, 10 Imputado.
+    **«Cerrado» = cualquier parte que no esté En registro** (humano,
+    2026-10-06): sv5 nunca escribe en él. Lee TODOS los partes de la obra y
+    mes (`partes_del_periodo`) y escribe en el de mayor `ide` En registro;
+    si el periodo tiene partes cerrados, ese es el **complementario**
+    (reutilizado o, si no hay ninguno En registro, creado como siempre:
+    `PT<AA>/NNNNN` de la empresa, `Parte <obra>`), sin tocar el original.
+    Duplicados (synckey) y pisado miran todos los partes del periodo: una
+    línea con horas ajenas del mismo recurso, día y tipo en un parte
+    cerrado se omite (`parte_cerrado: …`); en otro En registro, conflicto
+    confirmable con su `parte_cod`. El parte creado se relee por código y
+    En registro; si no sale, no se inserta nada. El preflight lleva por
+    parte `estado`, `complementario`, `cerrados`, `del_periodo` y `aviso`,
+    y el modal rotula «complementario». Comprobación:
+    `comprobar_asiento_analitico.py` (Herramientas de consola).
 
 ## Acceso a datos y sistemas externos
 
@@ -290,6 +316,11 @@ existen y para qué sirven.
 - `services/partes-transfer/prueba_escritura_sigrid.py` — prueba de
   ESCRITURA de partes en Sigrid por fases, siempre contra la obra de
   pruebas 0404 y con marca `PRUEBA-IA`; dry-run salvo `--ejecutar`.
+- `services/partes-transfer/comprobar_asiento_analitico.py` (F-031) —
+  SOLO LECTURA (`/api/sql/read`): lista los partes de una obra y mes con
+  su estado, líneas y líneas nuestras, y para cada Imputado compara el
+  Debe de su asiento por cuenta con sus líneas (`cuadra`, `descuadre`,
+  `sin_asiento`, `varios_asientos`). Sin nombres ni contrapartidas.
 - `services/partes-front/consulta_reshor_recursos.py` — diagnóstico de
   solo lectura: qué recursos y qué códigos de hora tiene un DNI en Sigrid.
 - `services/partes-front/validar_datos_sesame.py` (F-013) — informe de

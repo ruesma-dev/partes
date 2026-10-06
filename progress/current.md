@@ -102,6 +102,8 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   (19). **Desviacion D3**: M1 y M2 NO se ejecutan (tasks.md T16 lo pedia al
   implementer, pero el encargo del lider manda dejar las MANUAL documentadas
   sin ejecutarlas); comandos en la lista MANUAL de abajo.
+- T17 hecha: `docs/ARCHITECTURE.md` (semantica 13 matizada, 16 nueva,
+  herramienta) y `partes-proyecto.md` §3.5.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
