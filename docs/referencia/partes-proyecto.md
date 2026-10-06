@@ -230,6 +230,16 @@ registro**:
    a Imputado; Debe = Σ `hmores.tot` por cuenta); sv5 no escribe asientos
    ni cambia estados. Se comprueba con `comprobar_asiento_analitico.py`
    (solo lectura).
+   **Alta protegida (F-031 v5)**: `porcentajes` (dedicación) también crea
+   y escribe partes de obra en Sigrid. El alta de sv5 (primer parte del
+   mes y complementario) es la misma que la suya: la cabecera solo entra
+   si el código está libre en la empresa y el mes no tiene ya un parte En
+   registro de la obra; después sv5 relee el mes y usa el parte En
+   registro que haya, suyo o de `porcentajes`. Si el código estaba cogido,
+   reintenta una vez con el siguiente; si tampoco, error y no escribe
+   líneas. `estado_parte.py` y `cuenta_analitica.py` están copiados
+   literalmente en `porcentajes`: si cambian, se les avisa en el mismo
+   trabajo.
 5. **Líneas** `hmores` con `ide = MAX(ide)+1` bajo `UPDLOCK` (por eso
    sv5 va a 1 réplica), importes can×pre, y **synckey** en `tex` para
    idempotencia: reaprobar no duplica; detecta conflictos si alguien

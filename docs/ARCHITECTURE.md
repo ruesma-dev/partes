@@ -280,6 +280,22 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     parte `estado`, `complementario`, `cerrados`, `del_periodo` y `aviso`,
     y el modal rotula «complementario». Comprobación:
     `comprobar_asiento_analitico.py` (Herramientas de consola).
+    **Parte compartido con `porcentajes` (v5)**: su `dedicacion-transfer`
+    (F-037) también da de alta y escribe en los partes de obra de Sigrid.
+    Toda alta de sv5 pasa por `_crear_parte` con el **alta protegida**,
+    texto y parámetros idénticos a los suyos (`stmts_crear_parte`): `con`
+    + `hmo` en una transacción; la cabecera solo entra si el código está
+    libre en la empresa y el periodo no tiene ya un parte En registro
+    (`NOT EXISTS` con `UPDLOCK, HOLDLOCK` fuera de `MAX(ide)`), y el `hmo`
+    solo si ese `con` no lo tiene. Después sv5 relee el periodo y usa el
+    parte En registro que haya, suyo o del otro servicio (`creado` solo si
+    es suyo); si no hay, un reintento con el siguiente código y, si
+    tampoco, error sin insertar líneas. `porcentajes` tiene **copia
+    literal** de `estado_parte.py` y `cuenta_analitica.py` (su test de
+    copias los compara byte a byte): cambiarlos, o cambiar el alta, obliga
+    a **avisar a `porcentajes` en el mismo trabajo**. No entra en la lista
+    cerrada de duplicación de `CLAUDE.md`: es una dependencia entre
+    repositorios, documentada aquí y en `azure-apps/partes.md`.
 
 ## Acceso a datos y sistemas externos
 
