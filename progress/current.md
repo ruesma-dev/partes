@@ -106,6 +106,33 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   herramienta) y `partes-proyecto.md` §3.5.
 - T18 hecha: `azure-apps/partes.md` §3.5, commit local `ef43cac` (sin push).
 
+### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
+
+Despliegue (lo pide el humano): `.\infra\redeploy_partes.ps1 -Solo sv5` y
+despues `.\infra\redeploy_partes.ps1 -Solo sv4` (aditivo; sin variables
+nuevas obligatorias: `EST_PARTE_CERRADO`=3 y `EST_PARTE_IMPUTADO`=10 por
+defecto). Rollback: imagen anterior.
+
+- [x] **M0**: hecho por el humano el 2026-10-06 («cerrado» = no En registro).
+- [ ] **M1 (solo lectura)**, desde `services/partes-transfer` con su `.env`:
+  `../../.venv/Scripts/python.exe comprobar_asiento_analitico.py --empresa 1 --obra 0696 --ano 2026 --mes 1`
+  Esperado: `PT26/00004 · Imputado · 308 linea(s)` y `asiento ANA26/00017: cuadra`.
+- [ ] **M2 (solo lectura)**: igual con `--empresa 1 --obra 0404 --ano 2026 --mes 7`.
+  Esperado: `PT26/00296 · En registro · 0 linea(s)` y sin linea de asiento.
+- [ ] **M3 (produccion, sin escribir)**, tras desplegar sv5 y sv4 (Ctrl+F5):
+  abrir el modal de aprobacion de lineas de agosto de una obra con partes
+  Cerrados y **Cancelar**. Esperado: el parte rotulado «complementario»,
+  codigo nuevo `PT26/…` «se creara» y el aviso que nombra el parte
+  cerrado; en los logs de `ca-sv5-transfer`, `[registro] parte obra=…
+  complementario=si`.
+- [ ] **M4 (modo pruebas, obra 0404; solo si el humano lo autoriza)**: con
+  PT26/00296 pasado a Cerrado por Administracion, aprobar en modo pruebas
+  (`OBRA_PRUEBAS_FORZAR=true`) ⇒ complementario nuevo En registro con las
+  lineas; comprobar con M2 y limpiar con
+  `python .\prueba_escritura_sigrid.py limpiar --ejecutar`.
+- [ ] **M5**: tras el primer «Contabilizar» de un complementario, M1 sobre
+  su obra y mes ⇒ `cuadra` en el original y en el complementario.
+
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
 Desplegada a petición del humano: sv3 `ca-sv3-persistencia--r20261005180501`

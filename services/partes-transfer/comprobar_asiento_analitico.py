@@ -109,8 +109,9 @@ def comprobar(leer: Lector, *, empresa: int, obra: str, ano: int, mes: int,
                       for f in mias if f["cuenta"]}
         salida.append(
             f"{p['cod']} · {estado(p['est'])} · "
-            f"{sum(int(f['n'] or 0) for f in mias)} linea(s) "
-            f"({sum(int(f['nuestras'] or 0) for f in mias)} nuestras) · "
+            # COUNT(*) y SUM(CASE ...) de un grupo nunca son NULL.
+            f"{sum(int(f['n']) for f in mias)} linea(s) "
+            f"({sum(int(f['nuestras']) for f in mias)} nuestras) · "
             f"importe con cuenta {sum(por_cuenta.values()):.2f}")
         if p["est"] == est_imputado:
             salida.extend(_asiento(leer, empresa, p, por_cuenta))
