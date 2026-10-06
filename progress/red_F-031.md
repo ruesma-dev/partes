@@ -185,3 +185,25 @@ FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_
 FAILED tests/test_f031_preflight_avisos.py::test_f031_r30_sin_notas_no_pinta_el_bloque[acciones4]
 11 failed, 3 passed, 1 warning in 5.97s
 ```
+
+## T13 (rehecho tras D2: notasCuentaHtml anidada en resumenHtml) · contra el app.js anterior (git stash)
+
+```
+E       assert '\n    function notasCuentaHtml(acciones) {' in '\n  function resumenHtml(pf) {\n    var r = pf.resumen || {};\n    var partes = (pf.partes || []).map(function (p) {\...o ? " Ya registradas: " + r.ya_registrado + "." : "")\n 
+E       AssertionError: assert 'complementario</span>' in '<li>Parte <strong>PT26/00350</strong> (05/2026): <em>se creara</em></li>'
+E       assert ('complementario</span>' in "<ul class='ap-list'><li>Parte <strong>PT26/00350</strong> (05/2026): ya existe</li></ul><p>Se registraran <strong>2</...tran 1 linea(s):</strong></p><ul class='ap-list'><li>Persona Tres · 20/05/2
+E       assert 'a &amp; &lt;i&gt;b&lt;/i&gt;' in "<ul class='ap-list'><li>Parte <strong>PT26/00350</strong> (05/2026): <em>se creara</em></li></ul><p>Se registraran <s...tran 1 linea(s):</strong></p><ul class='ap-list'><li>Persona Tres · 2
+E       assert False
+E        +  where False = <built-in method startswith of str object at 0x00007FFBBC9F3CA0>("<div class='ap-ctx ap-cuenta-notas'><p><strong>1</strong> linea(s) llevaran la <strong>cuenta analitica de su partida</strong>:</p>")
+E        +    where <built-in method startswith of str object at 0x00007FFBBC9F3CA0> = ''.startswith
+E       ValueError: substring not found
+E       AssertionError: assert ('<strong>2</strong>' in '')
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_resumen_html_llama_a_notas_cuenta
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r28_rotula_complementario_y_pinta_el_aviso
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r28_complementario_existente
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r28_escapa_el_aviso - a...
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_una_fila_por_linea_escribir_con_nota
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_aparte_del_bloque_de_f021
+FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_escapa_y_cuenta_todas
+7 failed, 8 passed, 1 warning in 10.84s
+```

@@ -2841,9 +2841,15 @@ function avisarCambioLineas() {
     var r = pf.resumen || {};
     var partes = (pf.partes || []).map(function (p) {
       var mes = String(p.mes).padStart(2, "0");
+      // F-031 (R28, R30): rotulo y aviso del complementario, solo si sv5
+      // los manda; sin ellos la fila es la de siempre.
+      var rotulo = p.complementario
+        ? " <span class='badge info'>complementario</span>" : "";
+      var avisoParte = p.aviso
+        ? "<div class='ap-warn'>" + esc(p.aviso) + "</div>" : "";
       return p.existe
-        ? "<li>Parte <strong>" + (p.cod || "?") + "</strong> (" + mes + "/" + p.ano + "): ya existe</li>"
-        : "<li>Parte <strong>" + (p.cod || "?") + "</strong> (" + mes + "/" + p.ano + "): <em>se creara</em></li>";
+        ? "<li>Parte <strong>" + (p.cod || "?") + "</strong>" + rotulo + " (" + mes + "/" + p.ano + "): ya existe" + avisoParte + "</li>"
+        : "<li>Parte <strong>" + (p.cod || "?") + "</strong>" + rotulo + " (" + mes + "/" + p.ano + "): <em>se creara</em>" + avisoParte + "</li>";
     }).join("");
     var aviso = pf.forzada_pruebas
       ? '<p class="ap-warn">MODO PRUEBAS: se escribira en la obra <strong>'
@@ -2863,11 +2869,33 @@ function avisarCambioLineas() {
               + " — " + (a.motivo || "") + "</li>";
           }).join("") + "</ul>";
     }
+    /* F-031 (R29-R30): lineas que llevan la cuenta analitica de su
+       PARTIDA porque el recurso no tiene cuenta para esa hora. Informativo
+       y aparte del bloque de F-021: no cambia botones ni lo que se
+       registra. Sin notas (o con un sv5 anterior a F-031) no pinta nada.
+       Vive dentro de `resumenHtml` (solo la usa ella): asi el resumen
+       sigue siendo una unidad con las mismas dependencias externas. */
+    function notasCuentaHtml(acciones) {
+      var conNota = (acciones || []).filter(function (a) {
+        return a.accion === "escribir" && a.caa_nota;
+      });
+      if (!conNota.length) return "";
+      return "<div class='ap-ctx ap-cuenta-notas'><p><strong>"
+        + conNota.length + "</strong> linea(s) llevaran la <strong>cuenta "
+        + "analitica de su partida</strong>:</p><ul class='ap-list'>"
+        + conNota.map(function (a) {
+            return "<li>" + esc(a.nombre || "?") + " · "
+              + esc(fechaLegible(a.fecha_int)) + " — " + esc(a.caa_nota)
+              + "</li>";
+          }).join("")
+        + "</ul></div>";
+    }
     return aviso
       + "<ul class='ap-list'>" + partes + "</ul>"
       + "<p>Se registraran <strong>" + (r.escribir || 0) + "</strong> linea(s)."
       + (r.ya_registrado ? " Ya registradas: " + r.ya_registrado + "." : "")
-      + "</p>" + omHtml + avisosCuentaHtml(pf.acciones);
+      + "</p>" + omHtml + avisosCuentaHtml(pf.acciones)
+      + notasCuentaHtml(pf.acciones);
   }
 
   /* F-021 (R19-R20): lineas que se escribiran SIN cuenta analitica porque

@@ -90,6 +90,13 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   pasos 5, 7 y 8 del pipeline. D1 aplicada en `test_f002_pipeline_fases.py`.
 - T13 hecha: `test_f031_preflight_avisos.py` (sv4) en ROJO (11 failed; el
   reenvio y el modal de siempre, R30, ya en verde).
+- T14 hecha: `app.js` (rotulo «complementario» + aviso escapado por parte;
+  `notasCuentaHtml`). **Decision D2**: con `notasCuentaHtml` a nivel de
+  modulo se ponia ROJO un test AJENO (`test_f022_vistas_seleccion.py::
+  test_f022_r27_js_seccion_por_obra_con_resumen_y_listado`, que ejecuta
+  `resumenHtml` con una lista cerrada de funciones); se define DENTRO de
+  `resumenHtml` (solo la usa ella) y ningun test ajeno cambia. T13 se
+  ajusto a eso y su RED se volvio a sacar. `node --check` OK; sv4 1672 passed.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 

@@ -109,7 +109,10 @@ def _funcion(js: str, nombre: str) -> str:
 
 
 def test_f031_r29_resumen_html_llama_a_notas_cuenta() -> None:
+    """`notasCuentaHtml` vive DENTRO de `resumenHtml` (decision D2 del
+    informe): el resumen conserva sus dependencias externas de siempre."""
     cuerpo = _funcion(_js(), "resumenHtml")
+    assert "\n    function notasCuentaHtml(acciones) {" in cuerpo
     assert "notasCuentaHtml(pf.acciones)" in cuerpo
     assert "avisosCuentaHtml(pf.acciones)" in cuerpo       # F-021 intacto
 
@@ -117,14 +120,12 @@ def test_f031_r29_resumen_html_llama_a_notas_cuenta() -> None:
 # ====================== comportamiento (node) ====================== #
 
 NODE = shutil.which("node")
-FUNCIONES = ("esc", "fechaLegible", "avisosCuentaHtml", "notasCuentaHtml",
-             "resumenHtml")
+FUNCIONES = ("esc", "fechaLegible", "avisosCuentaHtml", "resumenHtml")
 
 
 def _ejecutar(llamada: str, argumento) -> str:
     js = _js()
-    fuente = "".join(_funcion(js, n) for n in FUNCIONES
-                     if re.search(r"\n  function " + n + r"\(", js))
+    fuente = "".join(_funcion(js, n) for n in FUNCIONES)
     programa = (fuente + "\nprocess.stdout.write(" + llamada + "("
                 + json.dumps(argumento) + "));\n")
     salida = subprocess.run([NODE, "-e", programa], capture_output=True,
@@ -167,23 +168,41 @@ def test_f031_r28_escapa_el_aviso() -> None:
     assert "<i>b</i>" not in html
 
 
+def _notas(acciones) -> str:
+    """El bloque de notas que pinta `resumenHtml` ("" si no hay)."""
+    html = _ejecutar("resumenHtml", _pf(acciones=acciones, partes=[]))
+    m = re.search(r"<div class='ap-ctx ap-cuenta-notas'>.*?</ul></div>",
+                  html, re.DOTALL)
+    return m.group(0) if m else ""
+
+
 @pytest.mark.skipif(NODE is None, reason="node no instalado")
 def test_f031_r29_notas_una_fila_por_linea_escribir_con_nota() -> None:
-    html = _ejecutar("notasCuentaHtml", ACCIONES)
-    assert "ap-ctx" in html and "<strong>1</strong>" in html
+    html = _notas(ACCIONES)
+    assert html.startswith("<div class='ap-ctx ap-cuenta-notas'><p><strong>"
+                           "1</strong> linea(s) llevaran la <strong>cuenta "
+                           "analitica de su partida</strong>:</p>")
     assert html.count("<li>") == 1
     assert f"<li>Persona Uno · 18/05/2026 — {NOTA}</li>" in html
     assert "Persona Dos" not in html and "Persona Tres" not in html
-    assert "ap-cuenta-avisos" not in html          # bloque aparte de F-021
     resumen = _ejecutar("resumenHtml", _pf())
-    assert html in resumen
+    assert "ap-cuenta-avisos" not in resumen       # F-021: sin avisos
+    assert resumen.endswith(html)                  # al final del resumen
+
+
+@pytest.mark.skipif(NODE is None, reason="node no instalado")
+def test_f031_r29_notas_aparte_del_bloque_de_f021() -> None:
+    acciones = [dict(ACCIONES[0], caa_aviso="la obra no tiene la cuenta")]
+    resumen = _ejecutar("resumenHtml", _pf(acciones=acciones))
+    assert resumen.index("ap-cuenta-avisos") < \
+        resumen.index("ap-cuenta-notas")
 
 
 @pytest.mark.skipif(NODE is None, reason="node no instalado")
 def test_f031_r29_notas_escapa_y_cuenta_todas() -> None:
     acciones = [dict(ACCIONES[0], nombre="<b>X</b>", caa_nota="n & <i>m</i>"),
                 dict(ACCIONES[0], registro_id=9)]
-    html = _ejecutar("notasCuentaHtml", acciones)
+    html = _notas(acciones)
     assert "<strong>2</strong>" in html and html.count("<li>") == 2
     assert "&lt;b&gt;X&lt;/b&gt;" in html and "n &amp; &lt;i&gt;m&lt;/i&gt;" \
         in html
@@ -195,7 +214,9 @@ def test_f031_r29_notas_escapa_y_cuenta_todas() -> None:
     [{"accion": "escribir", "nombre": "P", "fecha_int": 20260518}],
 ])
 def test_f031_r30_sin_notas_no_pinta_el_bloque(acciones) -> None:
-    assert _ejecutar("notasCuentaHtml", acciones) == ""
+    html = _ejecutar("resumenHtml", _pf(acciones=acciones, partes=[]))
+    assert "ap-cuenta-notas" not in html and "cuenta analitica de su" \
+        not in html
 
 
 #: Lo que pintaba `resumenHtml` ANTES de F-031 para `PF_VIEJO` (sv5 sin los
