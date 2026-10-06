@@ -1,170 +1,165 @@
 <!-- progress/impl_F-031.md -->
-# F-031 · Informe del implementer
+# F-031 · Informe del implementer (v4 + v5)
 
-Rama `feature/F-031-asiento-analitico` (desde `9a00ce3`), rigor **critico**,
-spec v4 aprobada (2026-10-06). T1-T20 hechas, un commit por tarea (mas los
-de bloqueo/desbloqueo y el arreglo de un helper de test). Sin push, sin
-despliegue, sin escrituras en Sigrid ni en la base `partes`.
+Rama `feature/F-031-asiento-analitico` (desde `9a00ce3`), rigor **critico**.
+v4 (T1-T20, spec aprobada 2026-10-06) y v5 (T21-T32, spec `9ea7c59`, alta
+protegida y dependencia con `porcentajes`; DA10 y DA11 aprobadas por el
+humano el 2026-10-06). Un commit por tarea. Sin push, sin despliegue, sin
+escrituras en Sigrid ni en la base `partes`; `porcentajes` no se edita.
 
 ## 1. Que cambio
 
-**sv5 (logica)**
-- `domain/models/registro_models.py`: `ParteSigrid` y `PartidaCuenta`
+**sv5**
+- `domain/models/registro_models.py`: `ParteSigrid`, `PartidaCuenta`
   (frozen); `ParteDestino` + `estado`, `complementario`, `cerrados`,
   `del_periodo`, `aviso`; `AccionLinea` + `caa_origen`, `caa_nota`.
 - `application/services/estado_parte.py` (nuevo, puro): `elegir_parte`
-  (mayor `ide` En registro; «cerrado» = `est != est_registro`, unico
-  predicado), `nombre_estado`, `aviso_de_parte`, `motivo_choque`.
+  (mayor `ide` En registro; «cerrado» = `est != est_registro`),
+  `nombre_estado`, `aviso_de_parte`, `motivo_choque`. v5: cabecera de
+  dependencia con `porcentajes` (R48).
 - `application/services/cuenta_analitica.py`: `subcuenta_de_partida`
   (`CI*`/`CD*`), `OrigenSubcuenta`, `origen_subcuenta` (recurso manda,
-  partida de respaldo); docstring con R7 de F-021 matizada. `resolver_cuenta`
-  y lo demas, intactos.
-- `infrastructure/sigrid/sigrid_write_client.py`: `partes_del_periodo` y
-  `partidas_de_lineas` (SQL de design §9). `partes_existentes`,
-  `stmts_crear_parte`, `lineas_existentes` sin tocar.
+  partida de respaldo); R7 de F-021 matizada; v5: cabecera de dependencia.
+- `infrastructure/sigrid/sigrid_write_client.py`: `partes_del_periodo`,
+  `partidas_de_lineas`; v5: `stmts_crear_parte` con el **alta protegida**
+  (texto y parametros identicos a `porcentajes` `40b9feb`).
 - `application/pipelines/registro_pipeline.py`: paso 4b con respaldo de
-  partida (una lectura solo si hace falta, fuera del lock) y log `origen
-  cuenta`; paso 5 con `partes_del_periodo` + `elegir_parte` + aviso; paso 7
-  sobre TODOS los partes del periodo (choque con cerrado ⇒ `omitir` con
-  `parte_cerrado: …` y `caa_*` a cero; con otro En registro ⇒ conflicto con
-  su `parte_cod`); log R19 por periodo; paso 8 relee por codigo + En
-  registro y si no, `RuntimeError` sin insertar. Docstring de pasos.
+  partida y log `origen cuenta`; paso 5 con todos los partes del periodo,
+  `elegir_parte` y aviso; paso 7 sobre todos los partes (choque con cerrado
+  ⇒ `omitir` `parte_cerrado: …`, `caa_*` a cero; con otro En registro ⇒
+  conflicto con su `parte_cod`); log R19; v5: paso 8 = `_crear_parte`
+  (alta, relectura con `elegir_parte`, propio u otro servicio, un
+  reintento con el siguiente codigo, `RuntimeError` sin lineas; log R46).
 - `config/settings.py`: `EST_PARTE_CERRADO` (3), `EST_PARTE_IMPUTADO` (10).
-- `comprobar_asiento_analitico.py` (nuevo): consola de SOLO LECTURA
-  (`SigridWriteClient._read`), `comparar` pura (tolerancia 0,01).
+- `comprobar_asiento_analitico.py` (nuevo): consola de SOLO LECTURA.
 
-**sv4 (solo pintar)**: `static/app.js` — `resumenHtml` rotula
-«complementario» y pinta `esc(p.aviso)` por parte solo si vienen; bloque
-de notas de cuenta de partida aparte del de F-021. Python de sv4 sin tocar
-(el preflight ya reenviaba `partes`/`acciones` tal cual).
+**sv4**: `static/app.js` — rotulo «complementario» + aviso escapado por
+parte; bloque de notas de cuenta de partida (solo si vienen los campos).
 
-**Tests**: `dobles.py` solo crece; nuevos `test_f031_{estado_parte,
-cuenta_partida,cliente_partes,pipeline_estado,pipeline_cuenta_partida,
-comprobar_asiento,mutantes}.py` (sv5) y `test_f031_preflight_avisos.py`
-(sv4). Un token de `test_f002_pipeline_fases.py` (D1).
+**Tests**: `dobles.py` solo crece (partidas, estados, fallos, v5
+`alta_protegida`/`al_alta`/`altas`); nuevos `test_f031_*` (sv5: estado_parte,
+cuenta_partida, cliente_partes, cliente_alta, pipeline_estado,
+pipeline_cuenta_partida, pipeline_alta, comprobar_asiento, mutantes; sv4:
+preflight_avisos). Tests ajenos tocados: D1 y DA10 (abajo).
 
-**Docs**: `docs/ARCHITECTURE.md` (semantica 13 matizada, 16 nueva,
-herramienta), `docs/referencia/partes-proyecto.md` §3.5,
-`azure-apps/partes.md` §3.5 (commit local `ef43cac` en ese repo).
+**Docs**: `docs/ARCHITECTURE.md` (semantica 13 matizada, 16 nueva con el
+alta protegida y la dependencia, herramienta), `partes-proyecto.md` §3.5,
+`azure-apps/partes.md` §3.5 y «que se rompe si cambia» (commits locales
+`ef43cac` y `b09865f` en ese repo).
 
 ## 2. Decisiones de diseno
 
-1. Textos de aviso y motivo en ASCII sin tildes (como el resto de mensajes
-   de sv5); el contenido es el de design §7.1/§7.2.
-2. Varios partes cerrados: el aviso los lista todos («los partes X
-   (Cerrado), Y (Imputado) de MM/AAAA estan cerrados: …»).
-3. Un conflicto por clave (recurso|dia|tipo) como hoy; si hubiera choques
-   en dos partes En registro, `lineas` lleva todas y `parte_cod` es el del
-   primero (el de mayor `ide`). El contexto sale de los partes En registro.
-4. R11 se evalua antes que R12 (prevalece). R13 sale solo: los conflictos
-   solo contienen lineas de partes En registro.
-5. Tras crear el parte, `ParteDestino.estado` toma el estado releido.
-6. Corregido de paso el docstring de `_resolver_cuentas` que decia que la
-   cola reintenta (observacion O1 del reviewer de F-021).
-7. En `comprobar_asiento_analitico.py` se quito un `or 0` sobre `COUNT(*)` y
-   `SUM(CASE…)` (nunca NULL): era codigo muerto (mutante 97).
+1. Textos de aviso y motivo en ASCII sin tildes, como el resto de sv5.
+2. Varios cerrados: el aviso los lista todos. Un conflicto por clave
+   (recurso|dia|tipo); con choques en dos partes En registro, `parte_cod`
+   es el del primero (mayor `ide`). R11 se evalua antes que R12.
+3. v5: el INFO del alta lleva el `cod` del parte USADO (el propio o el del
+   otro servicio). `INTENTOS_ALTA = 2` como constante de clase.
+4. v5: el alta protegida corrige de paso un caso anterior a F-031: una
+   peticion con dos meses sin parte proponia el mismo `PT..` para ambos;
+   ahora el segundo choca con el codigo y reintenta con el siguiente
+   (`test_f031_r44_dos_meses_nuevos_no_comparten_codigo`).
+5. Corregido el docstring de `_resolver_cuentas` (O1 del reviewer de
+   F-021). Quitado un `or 0` muerto sobre `COUNT(*)` en la herramienta.
 
-## 3. Desviaciones (numeradas)
+## 3. Desviaciones y cambios a tests ajenos (numerados)
 
-- **D1 (aprobada por el humano el 2026-10-06, «si»)**: el test AJENO
-  `test_f002_pipeline_fases.py::test_f002_r20_el_estado_escrito_se_lee_dentro_del_lock`
-  exigia por nombre `partes_existentes`; ahora `partes_del_periodo` (un
-  token + comentario). La intencion (estado leido DENTRO del lock) sigue
-  comprobada por `vigilar_lock`. Bloqueo y propuesta en `progress/current.md`.
-- **D2 (sin tocar tests ajenos)**: con `notasCuentaHtml` a nivel de modulo
-  se ponia rojo `test_f022_vistas_seleccion.py::test_f022_r27_js_seccion_por_obra_con_resumen_y_listado`
-  (ejecuta `resumenHtml` con una lista cerrada de funciones). Se define
-  DENTRO de `resumenHtml` (solo ella la usa); design §6 pedia «añade
-  `notasCuentaHtml(pf.acciones)`» sin fijar el ambito. T13 se ajusto y su
-  RED se volvio a sacar contra el `app.js` anterior.
-- **D3**: tasks.md T16 pedia al implementer ejecutar M1 y M2 (solo
-  lectura); el encargo del lider manda NO ejecutar las MANUAL. No se
-  ejecutaron: comandos exactos en `progress/current.md`.
-
-Fuera de alcance (observado, no tocado): si una peticion abarca DOS meses
-sin parte, el paso 5 propone el mismo `PT..` para ambos (comportamiento
-anterior a F-031, `siguiente_cod_pt` por periodo sin escribir entre medias).
+- **D1 (aprobada, «si», 2026-10-06)**: `test_f002_pipeline_fases.py::
+  test_f002_r20_…` nombraba `partes_existentes`; ahora
+  `partes_del_periodo` (un token + comentario).
+- **D2**: `notasCuentaHtml` vive DENTRO de `resumenHtml`: a nivel de modulo
+  rompia `test_f022_vistas_seleccion.py::test_f022_r27_…` (lista cerrada de
+  funciones). Ningun test ajeno cambia por esto.
+- **D3**: M1/M2 no se ejecutaron (el encargo manda no ejecutar MANUAL;
+  tasks T16 lo pedia).
+- **DA10 (aprobada, 2026-10-06)**: `test_f023_escritura_empresa.py`, solo
+  dos aserciones: `r32` `con["parameters"] == [...]` ⇒
+  `con["parameters"][:6] == [...]`; `r34` `_sql(hmo).endswith("FROM con
+  WHERE cod = ? AND tip = ? AND emp = ?")` ⇒ `"… AND emp = ?" in
+  _sql(hmo)`. Siguen vigilando empresa, tipo, codigo y fecha y el filtro
+  por empresa del `hmo`; verdes antes y despues de T25.
+- **DA11 (aprobada)**: la cabecera de dependencia cambia los bytes de los
+  dos ficheros copiados: `porcentajes` `test_f037_copias_partes.py::
+  test_f037_copia_igual_a_la_ref_vigilada` queda ROJO hasta que recopie.
+  Aviso exacto en `progress/current.md` (recopiar de `e85ef0e`, el ultimo
+  commit que toca los dos ficheros, y poner ahi su `COMMIT_COPIADO`).
+- **T25 · comparacion con `porcentajes`**: por AST contra `git -C
+  ../porcentajes show 40b9feb:services/dedicacion-transfer/infrastructure/
+  sigrid/sigrid_write_client.py`: «sentencia 0: sql identico=True
+  parametros identicos=True; sentencia 1: idem; 2 sentencias». Unica
+  diferencia admitida: obra sin empresa `TypeError` aqui, `ValueError` alli.
 
 ## 4. Fase RED (traza real; completa en `progress/red_F-031.md`)
 
-Comando, desde `services/partes-transfer`:
+Desde `services/partes-transfer` (T13 desde `services/partes-front`):
 `../../.venv/Scripts/python.exe -m pytest <fichero> -q`, contra el codigo
 anterior a cada tarea de implementacion.
 
-T3 · `tests/test_f031_estado_parte.py` (R2, R3, R4, R7, R18, R11 texto):
-```
-E   ModuleNotFoundError: No module named 'application.services.estado_parte'
-1 error in 0.38s
-```
-T5 · `tests/test_f031_cuenta_partida.py` (R21 puro):
-```
-E   ImportError: cannot import name 'SUBCUENTAS_COSTE_PARTIDA' from 'application.services.cuenta_analitica'
-```
-T7 · `tests/test_f031_cliente_partes.py` (R1, R15, R24): `11 failed`
-```
-E       AttributeError: 'SigridWriteClient' object has no attribute 'partes_del_periodo'
-E       AttributeError: 'SigridWriteClient' object has no attribute 'partidas_de_lineas'
-```
-T9 · `tests/test_f031_pipeline_cuenta_partida.py` (R21, R23-R26): `11 failed, 7 passed`
+- T3 `test_f031_estado_parte.py`: `ModuleNotFoundError: No module named
+  'application.services.estado_parte'`.
+- T5 `test_f031_cuenta_partida.py`: `ImportError: cannot import name
+  'SUBCUENTAS_COSTE_PARTIDA'`.
+- T7 `test_f031_cliente_partes.py`: 11 failed, `AttributeError:
+  'SigridWriteClient' object has no attribute 'partes_del_periodo'`.
+- T9 `test_f031_pipeline_cuenta_partida.py`: 11 failed, 7 passed:
 ```
 E         {1: (0, None, 'recurso_sin_cuenta', None, None)} != {1: (702, '0100.CIMO12', None, 'partida', 'el recurso no tiene cuenta para esa hora: se usa la de la partida 01.02 (.CIMO12)')}
-E       AssertionError: assert [] == [{'parides': ...lock': False}]
-E       Failed: DID NOT RAISE RuntimeError
 E       AssertionError: assert (77, 1, ['CIMO09']) == (77, 1, ['CDQ...9', 'CIMO12'])
 ```
-T11 · `tests/test_f031_pipeline_estado.py` (R1-R3, R5, R7-R9, R11-R13,
-R15-R17, R19, R31): `22 failed, 11 passed` (los 11: caracterizacion de T1 y
-guardas que el codigo de hoy ya cumplia). Rehecha tras arreglar el helper
-`_lin` (los tests de varios dias fallaban por `TypeError`, no por la razon
-buena; commit `a8c2011`), con `git stash` de T12:
+- T11 `test_f031_pipeline_estado.py`: 22 failed, 11 passed (rehecha tras
+  arreglar el helper `_lin`, commit `a8c2011`):
 ```
-E       assert [] == [(10, 2026, 3), (10, 2026, 4)]
 E       AssertionError: assert (True, 905, '...ne, False, []) == (True, 900, '...'PT26/00009'])
-E       AssertionError: assert (True, 800, '...ne, False, []) == (False, None,...'PT26/00004'])
 E       AssertionError: assert {'insert'} == {'borrar', 'insert'}
-E       Failed: DID NOT RAISE RuntimeError
 E         {1: ('escribir', None)} != {1: ('omitir', 'parte_cerrado: ya hay horas de ese recurso, dia y tipo en el parte PT26/00004 (Cerrado); no se registran')}
-E         At index 0 diff: ['501|20260302|1'] != []
 ```
-T13 · `services/partes-front/tests/test_f031_preflight_avisos.py` (R28,
-R29; R30 ya verde): `7 failed, 8 passed`
+- T13 `test_f031_preflight_avisos.py`: 7 failed, 8 passed:
+  `assert 'complementario</span>' in '<li>Parte <strong>PT26/00350</strong> (05/2026): <em>se creara</em></li>'`.
+- T15 `test_f031_comprobar_asiento.py`: `ModuleNotFoundError: No module
+  named 'comprobar_asiento_analitico'`.
+- **T23 (v5)** `test_f031_cliente_alta.py`: 5 failed, 1 passed:
 ```
-E       AssertionError: assert 'complementario</span>' in '<li>Parte <strong>PT26/00350</strong> (05/2026): <em>se creara</em></li>'
+E         + c) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ? FROM con WITH (UPDLOCK, HOLDLOCK)
+E         Right contains 8 more items, first extra item: 'PT26/00122'
+E       AssertionError: assert 1 == 4
 ```
-T15 · `tests/test_f031_comprobar_asiento.py` (R35-R38):
+- **T26 (v5)** `test_f031_pipeline_alta.py` + R9 reescrito: 9 failed:
 ```
-E   ModuleNotFoundError: No module named 'comprobar_asiento_analitico'
+E               RuntimeError: no se pudo crear el parte PT26/00005 en registro (la relectura no lo da): no se inserta ninguna linea
+E       AssertionError: assert ('PT26/00001', True) == ('PT26/00001', False)
+E         Expected regex: 'PT26/00006'
 ```
-En verde antes de tocar nada (T1, caracterizacion): R4, R6, R10, R20, R22,
-R32, R33 y la suite `test_f021_*` (66 passed, R27).
+Verde antes de tocar nada (caracterizacion): T1 (R4, R6, R10, R20, R22,
+R32, R33 y `test_f021_*` 66 passed), T21 (R40, 3 passed), T24 (DA10, 54
+passed contra el codigo de hoy).
 
 ## 5. Verificacion (resultado real)
 
-- sv5: **503 passed** (8,9 s). sv4: **1672 passed** (504 s). Raiz:
-  **445 passed, 1 skipped**. `node --check services/partes-front/static/app.js` OK.
-- `test_f021_*` (sv5 y sv4) sin cambiar ni una asercion, en verde (R27).
-- Ningun test toca red, Sigrid ni PostgreSQL (dobles y `httpx` simulado).
-- `bash harness/init.sh`: **ENTORNO LISTO**, cobertura 99,6 %, tamano
-  OK. Ruff (no bloqueante) quedan avisos de estilo en tests nuevos
-  (`ISC004`/`C408`) y `UP045` de los modelos, como la deuda previa.
+- sv5 **520 passed**; sv4 **1672 passed**; raiz **445 passed, 1 skipped**. `node --check
+  services/partes-front/static/app.js` OK.
+- `test_f021_*` sin cambiar ni una asercion, en verde (R27).
+- Ningun test toca red, Sigrid ni PostgreSQL.
+- `bash harness/init.sh`: **ENTORNO LISTO** (cobertura 99,6 %, tamano
+  OK; avisos previos no bloqueantes: F-014 blocked, infra sin tests, ruff).
 
-## 6. Pendiente MANUAL (humano; detalle y comandos en `progress/current.md`)
+## 6. Pendiente MANUAL (humano; comandos en `progress/current.md`)
 
-M1 y M2 (herramienta, solo lectura, obras 0696 y 0404), M3 (modal en
-produccion y Cancelar), M4 (modo pruebas, solo con autorizacion), M5 (tras
-el primer complementario contabilizado). Despliegue `-Solo sv5` y luego
-`-Solo sv4` (lo lanza el humano). M0 hecho por el humano.
+M1, M2 (herramienta, solo lectura), M3 (modal en produccion y Cancelar),
+M4 (modo pruebas, solo con autorizacion), M5 (tras contabilizar un
+complementario), **M6** (v5: un solo parte En registro con ambos servicios
+desplegados). Antes de desplegar: que `porcentajes` recopie (aviso DA11).
+Despliegue `-Solo sv5` y luego `-Solo sv4` (lo lanza el humano).
 
 ## 7. Evidencias
 
 | Evidencia | Valor medido |
 |---|---|
-| Tests ejecutados | sv5 503 passed · sv4 1672 passed · raiz 445 passed, 1 skipped (0 failed) |
-| Cobertura de lineas cambiadas | **99,6 %** (227/228 lineas cambiadas; umbral 80 %, nivel critico; `PUERTA COBERTURA` de init.sh) |
-| Mutantes (campana completa, 6 workers, timeout 600 s) | **122 generados, 122 muertos, 0 supervivientes, 0 timeouts** (304,9 s; HEAD `bf7da1d`) |
-| Primera campana (antes de los tests de `test_f031_mutantes.py`) | 126 generados, 103 muertos, 23 supervivientes, 0 timeouts (317 s); analisis uno a uno en el anexo de `progress/mutacion_F-031.md` |
-| Tiempo de las suites | sv5 8,9 s (16,9 s dentro de init) · sv4 504 s · raiz 86,9 s |
-| `bash harness/init.sh` | **ENTORNO LISTO** (todo OK; avisos previos: F-014 blocked, infra sin tests, ruff no bloqueante) |
+| Tests ejecutados | sv5 520 passed · sv4 1672 passed · raiz 445 passed, 1 skipped (0 failed) |
+| Cobertura de lineas cambiadas | **99,6 %** (239/240; umbral 80 %, nivel critico; `PUERTA COBERTURA`) |
+| Mutacion, campana 3 (completa, 6 workers, `--timeout 600`, HEAD `31f13f9`) | **129 generados, 129 muertos, 0 supervivientes, 0 timeouts** (427,8 s) |
+| Campanas anteriores | 2: 122/122 muertos (HEAD `bf7da1d`); 1: 126 generados, 103 muertos, 23 supervivientes, 0 timeouts, cerrados uno a uno con `test_f031_mutantes.py` (anexo de `progress/mutacion_F-031.md`) |
+| Tiempo de las suites | sv5 ~8 s · sv4 504 s · raiz 114 s |
+| `bash harness/init.sh` | **ENTORNO LISTO** (HEAD final de la rama) |
 
 `app.js` no lo cubre la mutacion (solo Python): lo cubren los tests de
 `node` de `test_f031_preflight_avisos.py` y M3.

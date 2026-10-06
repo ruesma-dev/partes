@@ -192,6 +192,11 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
 - T30 hecha: `azure-apps/partes.md` §3.5 (alta protegida) y «que se rompe
   si cambia» (copias y alta con `porcentajes`), commit local `b09865f` (sin
   push).
+- T31 hecha: mutacion campana 3 completa (6 workers, timeout 600): 129
+  mutantes, 129 muertos, 0 supervivientes (`progress/mutacion_F-031.md`).
+- T32 hecha: `bash harness/init.sh` en VERDE (raiz 445 passed/1 skipped,
+  sv5 520, sv4 1672, cobertura 99,6 %); M6 anotada abajo; informe
+  actualizado en `progress/impl_F-031.md`. Pasa al reviewer.
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
@@ -219,6 +224,13 @@ defecto). Rollback: imagen anterior.
   `python .\prueba_escritura_sigrid.py limpiar --ejecutar`.
 - [ ] **M5**: tras el primer «Contabilizar» de un complementario, M1 sobre
   su obra y mes ⇒ `cuadra` en el original y en el complementario.
+- [ ] **M6 (v5, solo lectura, tras desplegar sv5 y el `dedicacion-transfer`
+  de `porcentajes`)**: por una obra y mes con lineas de ambos servicios,
+  `../../.venv/Scripts/python.exe comprobar_asiento_analitico.py --empresa 1 --obra <COD> --ano <AAAA> --mes <M>`
+  (desde `services/partes-transfer`) lista UN solo parte `En registro`; en
+  los logs de `ca-sv5-transfer`, `[registro] alta obra=<COD> … parte=propio`
+  u `otro servicio`. Antes de desplegar, `porcentajes` tiene que haber
+  recopiado (AVISO DA11 de arriba).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
