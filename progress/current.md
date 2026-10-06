@@ -98,6 +98,10 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   `resumenHtml` (solo la usa ella) y ningun test ajeno cambia. T13 se
   ajusto a eso y su RED se volvio a sacar. `node --check` OK; sv4 1672 passed.
 - T15 hecha: `test_f031_comprobar_asiento.py` en ROJO (modulo inexistente).
+- T16 hecha: `comprobar_asiento_analitico.py` (solo `_read`); T15 en verde
+  (19). **Desviacion D3**: M1 y M2 NO se ejecutan (tasks.md T16 lo pedia al
+  implementer, pero el encargo del lider manda dejar las MANUAL documentadas
+  sin ejecutarlas); comandos en la lista MANUAL de abajo.
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
