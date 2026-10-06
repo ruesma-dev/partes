@@ -205,8 +205,10 @@ def test_f023_r32_cliente_la_cabecera_lleva_la_empresa_de_la_obra() -> None:
                                    cod="PT26/00007", desc="Parte Nave")
     assert _sql(con["sql"]).startswith(
         "INSERT INTO con (ide, emp, tip, est, cod, res, fec)")
-    assert con["parameters"] == [28, 35, 1, "PT26/00007", "Parte Nave",
-                                 20260930]
+    # F-031 v5 (DA10, humano 2026-10-06): el alta protegida anade los
+    # parametros de sus NOT EXISTS; la fila son los seis primeros.
+    assert con["parameters"][:6] == [28, 35, 1, "PT26/00007", "Parte Nave",
+                                     20260930]
 
 
 def test_f023_r32_cliente_ya_no_acepta_empresa_en_el_constructor() -> None:
@@ -228,8 +230,9 @@ def test_f023_r34_cliente_el_insert_de_hmo_filtra_por_empresa() -> None:
                             database="bd", tip_parte=35)
     _, hmo = cli.stmts_crear_parte(obra=OBRA_28, ano=2026, mes=9,
                                    cod="PT26/00007", desc="Parte Nave")
-    assert _sql(hmo["sql"]).endswith(
-        "FROM con WHERE cod = ? AND tip = ? AND emp = ?")
+    # F-031 v5 (DA10): el `hmo` anade un NOT EXISTS detras del filtro.
+    assert "FROM con WHERE cod = ? AND tip = ? AND emp = ?" in _sql(
+        hmo["sql"])
     assert hmo["parameters"][-3:] == ["PT26/00007", 35, 28]
     assert hmo["parameters"][:4] == [0, 200, 2026, 9]
 

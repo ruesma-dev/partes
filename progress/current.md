@@ -144,6 +144,10 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   suite sv5 506 passed.
 - T23 hecha: `test_f031_cliente_alta.py` en ROJO (5 failed; el `TypeError`
   sin empresa ya en verde).
+- T24 hecha (DA10, visto bueno del humano 2026-10-06): en
+  `test_f023_escritura_empresa.py`, `r32` compara `parameters[:6]` y `r34`
+  exige que el SQL del `hmo` CONTENGA el filtro por codigo, tipo y empresa.
+  Verde contra el codigo de hoy (54 passed).
 
 ### F-031 · verificaciones MANUAL (humano; design §11). NO ejecutadas.
 
