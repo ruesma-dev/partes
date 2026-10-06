@@ -207,3 +207,12 @@ FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_aparte_del_bloqu
 FAILED tests/test_f031_preflight_avisos.py::test_f031_r29_notas_escapa_y_cuenta_todas
 7 failed, 8 passed, 1 warning in 10.84s
 ```
+
+## T15 · tests/test_f031_comprobar_asiento.py
+
+```
+E   ModuleNotFoundError: No module named 'comprobar_asiento_analitico'
+ERROR tests/test_f031_comprobar_asiento.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.92s
+```

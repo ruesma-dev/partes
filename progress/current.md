@@ -97,6 +97,7 @@ Pendiente fuera de la feature: DA3 con Juan (borrador en Outlook).
   `resumenHtml` con una lista cerrada de funciones); se define DENTRO de
   `resumenHtml` (solo la usa ella) y ningun test ajeno cambia. T13 se
   ajusto a eso y su RED se volvio a sacar. `node --check` OK; sv4 1672 passed.
+- T15 hecha: `test_f031_comprobar_asiento.py` en ROJO (modulo inexistente).
 
 ## F-030 · done y DESPLEGADA (2026-10-05), pendiente de M3 y M4
 
