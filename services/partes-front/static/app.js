@@ -1578,10 +1578,10 @@ function avisarCambioLineas() {
         document.getElementById("emp-reside").value =
           g.empleado_reside != null ? g.empleado_reside : "";
         // Categoria: viene del trabajador en Sigrid (campo bloqueado).
-        document.getElementById("categoria").value = e.categoria || "";
+        document.getElementById("categoria").value = r.categoria || "";
         // Sugerir la jornada por defecto del trabajador (editable).
-        if (e.jornada_sugerida != null) {
-          document.getElementById("horas-ord").value = e.jornada_sugerida;
+        if (r.jornada_sugerida != null) {
+          document.getElementById("horas-ord").value = r.jornada_sugerida;
         }
         // Su calendario puede tener festivos distintos (F-003).
         calDias = {}; calPedido = ""; cargarCalendario();

@@ -230,3 +230,87 @@ def test_f035_r17_r19_js_combos_sobre_recursos_y_reside_del_modal() -> None:
 def test_f035_plantillas_parsean(plantilla) -> None:
     entorno = Environment(loader=FileSystemLoader(str(PLANTILLAS)))
     entorno.parse(entorno.loader.get_source(entorno, plantilla)[0])
+
+
+# ============== R17/R19: callbacks de los combos, ejecutados ============== #
+
+import json  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+RECURSO_JS = {
+    "ide": 903, "codigo": "MO/0037", "nombre": "TRES SOLO RECURSO",
+    "dni": "00000003A", "empresa": 28, "categoria": "Peon",
+    "jornada_sugerida": 7.5,
+    "guardar": {"empleado_ide": None, "empleado_codigo": "MO/0037",
+                "empleado_nombre": "TRES SOLO RECURSO",
+                "empleado_dni": "00000003A", "empleado_reside": 903},
+}
+
+#: Entorno minimo del callback: `document` falso, los cierres que usa y un
+#: `_comboSimple` que llama al `onPick` con un recurso. Sin navegador ni red.
+ARNES_JS = """\
+"use strict";
+var els = {}, llamadas = [];
+var document = { getElementById: function (id) {
+  return els[id] || (els[id] = { value: "" }); } };
+function g(id) { return document.getElementById(id); }
+var selEmpresa = null, selAddEmpresa = null;
+var empEmpresa = null, addlineEmpEmpresa = null;
+var calDias = { viejo: 1 }, calPedido = "viejo";
+function cargarCalendario() { llamadas.push("calendario"); }
+function updateBtn() { llamadas.push("updateBtn"); }
+function recLabel(r) { return r.nombre; }
+function deLaEmpresaDe() { return null; }
+var RECURSO = %(recurso)s;
+function _comboSimple(root, input, panel, url, render, onPick, filtro) {
+  onPick(RECURSO);
+}
+%(llamada)s
+var valores = {};
+Object.keys(els).forEach(function (k) { valores[k] = els[k].value; });
+console.log(JSON.stringify({ valores: valores, llamadas: llamadas,
+  calPedido: calPedido }));
+"""
+
+
+def _llamada_combo(js: str, combo: str, filtro: str) -> str:
+    """El `_comboSimple("<combo>", …, deLaEmpresaDe(<filtro>));` de app.js."""
+    inicio = js.index(f'_comboSimple("{combo}"')
+    fin = js.index(f"deLaEmpresaDe({filtro}));", inicio) + len(
+        f"deLaEmpresaDe({filtro}));")
+    return js[inicio:fin]
+
+
+def _ejecutar(llamada: str) -> dict:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node no esta instalado: no se puede ejecutar el JS")
+    script = ARNES_JS % {"recurso": json.dumps(RECURSO_JS),
+                         "llamada": llamada}
+    r = subprocess.run([node, "-e", script], capture_output=True, text=True,
+                       timeout=60)
+    assert r.returncode == 0, r.stderr
+    return json.loads(r.stdout)
+
+
+def test_f035_r17_r19_nuevo_parte_al_elegir_recurso_rellena_todo() -> None:
+    """Elegir un recurso en «Nuevo parte» copia los `guardar.*`, la categoria
+    y la jornada sugerida, recarga el calendario y reevalua «Crear»."""
+    salida = _ejecutar(_llamada_combo(_js(), "emp-combo", "selEmpresa"))
+    assert salida["valores"] == {
+        "emp-ide": "", "emp-codigo": "MO/0037",
+        "emp-nombre": "TRES SOLO RECURSO", "emp-dni": "00000003A",
+        "emp-reside": 903, "categoria": "Peon", "horas-ord": 7.5}
+    assert salida["llamadas"] == ["calendario", "updateBtn"]
+    assert salida["calPedido"] == ""
+
+
+def test_f035_r17_r19_modal_al_elegir_recurso_rellena_todo() -> None:
+    salida = _ejecutar(_llamada_combo(_js(), "addline-emp-combo",
+                                      "selAddEmpresa"))
+    assert salida["valores"] == {
+        "addline-emp-ide": "", "addline-emp-codigo": "MO/0037",
+        "addline-emp-nombre": "TRES SOLO RECURSO",
+        "addline-emp-dni": "00000003A", "addline-emp-reside": 903,
+        "addline-categoria": "Peon", "addline-ord": 7.5}
