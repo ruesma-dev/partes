@@ -119,7 +119,10 @@ fila de obra es de una sola (la 0678 existe en Ruesma y en Porsan).
 
 - **R22.** `/api/sigrid/empleados`, `_SQL_EMPLEADOS`, `EmpleadoCatalog` y la
   pantalla de jornadas no cambian; tampoco el schema, sv3 ni sv5. La suite de
-  sv4 sigue en verde sin tocar tests ajenos.
+  sv4 sigue en verde sin tocar tests ajenos. **Única excepción (decisión del
+  humano, 2026-10-07, opción (a) del bloqueo):** el guardián
+  `test_f016_r20_f016_no_anade_ni_cambia_ninguna_ruta_de_sigrid` añade
+  `("/api/sigrid/recursos", ("GET",))` a su lista cerrada, como hizo F-024.
 - **R23.** El guardián `tests/test_f023_de_alta_gemelos.py` debe vigilar
   también la regla de alta de `_SQL_RECURSOS_ACTIVOS` (DA2).
 - **R24.** `docs/ARCHITECTURE.md` (semántica 12) y la lista cerrada de

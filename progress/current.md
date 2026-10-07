@@ -1,9 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-035 · blocked (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
+## F-035 · in_progress (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
 
-### BLOQUEO (implementer, 2026-10-07): test ajeno en rojo por R5
+### Desbloqueada (2026-10-07): el humano eligió la opción (a)
+
+Se añadió la ruta al guardián F-016 con comentario `F-035 (R5)` y la
+excepción quedó anotada en R22; la desviación de `METODOS_RECURSO` quedó
+aceptada y anotada en design §4. Se retoma en T5.
+
+### BLOQUEO previo (implementer, 2026-10-07): test ajeno en rojo por R5
 
 **Qué pasa.** R5 manda crear `GET /api/sigrid/recursos`. El guardián ajeno
 `services/partes-front/tests/test_f016_vista_admin_jornadas.py::test_f016_r20_f016_no_anade_ni_cambia_ninguna_ruta_de_sigrid`

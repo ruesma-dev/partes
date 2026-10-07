@@ -120,8 +120,12 @@ Fallo de refresco: WARNING y se conserva la lista anterior (R6).
 
 `parte_repository.py`:
 
-- `METODO_RECURSO_MANUAL = "recurso_manual"` y `METODOS_RECURSO` lo incluye
-  (así `esta_casado` y `_sin_casar_en_cola` lo cubren sin más cambios).
+- `METODO_RECURSO_MANUAL = "recurso_manual"`. **Desviación en implementación
+  (aceptada por el humano el 2026-10-07):** `METODOS_RECURSO` NO cambia (lo
+  fija el test ajeno `test_f030_r18_metodos_de_recurso`: es el espejo de la
+  constante de sv3); `esta_casado` y `_sin_casar_en_cola` usan una lista aparte
+  `_METODOS_CASADO_SIN_FICHA = METODOS_RECURSO | {recurso_manual}`, con el
+  mismo comportamiento.
 - `_poner_trabajador(r, *, ide, codigo, nombre, dni, reside)`: escribe los
   cuatro `empleado_*`, llama a `_soltar_recurso(r)` y, si `reside` no es
   None, `r.empleado_reside = reside`; si además `ide` es None,
