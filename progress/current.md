@@ -1,7 +1,14 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-037 · spec_ready (2026-10-07, URGENTE): sv3 no duplica la extra automática de una base omitida
+## F-037 · in_progress (2026-10-07, URGENTE): sv3 no duplica la extra automática de una base omitida
+
+**Implementación en curso** (implementer, worktree `partes-wt-f037`). DA1, DA2 y
+DA3 aprobadas por el humano el 2026-10-07 (las recomendadas). Matiz del humano:
+con la extra de la pareja congelada el recálculo no genera ninguna extra, ni
+siquiera transitoria; los tests de dos pasadas lo vigilan con
+`extras_reclasificadas == 0` en cada pasada. Tarea en curso y decisiones: ver
+`progress/impl_F-037.md` al cerrar.
 
 Spec en `specs/F-037-extras-duplicadas-base-omitida/` (spec-author), worktree
 `partes-wt-f037`. Rigor crítico; **solo sv3**. Causa leída en el código:
