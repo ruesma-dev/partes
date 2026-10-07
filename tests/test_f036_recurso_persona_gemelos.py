@@ -1,6 +1,6 @@
 # tests/test_f036_recurso_persona_gemelos.py
-"""Guardian del criterio «recurso persona» (`res.cla = 1`) de sv3 y sv5
-(F-036, DA3, R19).
+"""Guardian del criterio «recurso persona» (`res.cla = 1`) de sv3, sv4 y
+sv5 (F-036, DA3, R19; copia de sv4 de F-035).
 
 sv3 casa el trabajador y elige el recurso de cada linea solo entre los
 recursos PERSONA; sv5, antes de escribir en Sigrid, vuelve a elegir por
@@ -14,6 +14,10 @@ candidatos, asi que el criterio vive duplicado a proposito:
     (`infrastructure/sigrid/sigrid_api_client.py`).
   - sv5 `infrastructure/sigrid/sigrid_write_client.py::recursos_por_dni`:
     `AND res.cla = 1` en sus DOS ramas (DNI de la ficha y `res.cif`).
+  - sv4 `infrastructure/sigrid/sigrid_lookup_client.py`:
+    `WHERE res.cla = 1` en `_SQL_RECURSOS_ACTIVOS`, que usa
+    `fetch_recursos_activos` para el selector de recursos del portal
+    (F-035): ofrece los mismos candidatos que luego casan sv3 y sv5.
 
 Se lee por AST y texto, sin importar (los dos servicios tienen paquetes
 que se llaman igual). Cada comprobacion se prueba ademas contra una copia
@@ -36,6 +40,8 @@ RUTA_SELECCION = SV3 / "application/services/seleccion_sigrid.py"
 RUTA_MAESTRO = SV3 / "infrastructure/sigrid/sigrid_api_client.py"
 RUTA_SV5 = (RAIZ / "services/partes-transfer/infrastructure/sigrid/"
             "sigrid_write_client.py")
+RUTA_SV4 = (RAIZ / "services/partes-front/infrastructure/sigrid/"
+            "sigrid_lookup_client.py")
 
 
 def _leer(ruta: Path) -> str:
@@ -123,6 +129,47 @@ def ramas_sv5(texto: str) -> list[int]:
     return valores
 
 
+def _conjunciones(clausula: str) -> list[str]:
+    """Trocea por `AND` de nivel superior (fuera de parentesis); falla si
+    hay un `OR` de nivel superior, que anularia cualquier filtro."""
+    partes, actual, nivel = [], [], 0
+    for palabra in re.findall(r"\(|\)|[^\s()]+", clausula):
+        nivel += (palabra == "(") - (palabra == ")")
+        if nivel == 0 and palabra.upper() == "OR":
+            raise AssertionError("OR de nivel superior en el WHERE")
+        if nivel == 0 and palabra.upper() == "AND":
+            partes.append(" ".join(actual))
+            actual = []
+        else:
+            actual.append(palabra)
+    partes.append(" ".join(actual))
+    return partes
+
+
+def filtro_sv4(texto: str) -> int:
+    """El `res.cla` que filtra `_SQL_RECURSOS_ACTIVOS` en su WHERE (una
+    conjuncion de nivel superior) y que `fetch_recursos_activos` la use."""
+    arbol = ast.parse(texto)
+    sql = None
+    for nodo in arbol.body:
+        if (isinstance(nodo, ast.Assign)
+                and any(isinstance(t, ast.Name)
+                        and t.id == "_SQL_RECURSOS_ACTIVOS"
+                        for t in nodo.targets)):
+            sql = " ".join(ast.literal_eval(nodo.value).split())
+    assert sql is not None, "no se encuentra _SQL_RECURSOS_ACTIVOS"
+    assert sql.count(" WHERE ") == 1, "_SQL_RECURSOS_ACTIVOS: un solo WHERE"
+    clausula = sql.split(" WHERE ", 1)[1]
+    valores = [int(m.group(1)) for c in _conjunciones(clausula)
+               if (m := re.fullmatch(r"res\.cla = (\d+)", c))]
+    assert len(valores) == 1, \
+        f"el WHERE de _SQL_RECURSOS_ACTIVOS filtra res.cla {len(valores)} veces"
+    fetch = _nodo(arbol, ast.FunctionDef, "fetch_recursos_activos")
+    assert _llama_a(fetch, "_SQL_RECURSOS_ACTIVOS"), \
+        "fetch_recursos_activos ya no usa _SQL_RECURSOS_ACTIVOS"
+    return valores[0]
+
+
 # ---------------------------------- tests ------------------------------ #
 
 def test_f036_r19_sv3_cla_persona_es_1() -> None:
@@ -140,6 +187,11 @@ def test_f036_r19_sv3_lee_res_cla() -> None:
 def test_f036_r19_sv5_las_dos_ramas_con_el_mismo_cla_que_sv3() -> None:
     cla = cla_persona_sv3(_leer(RUTA_SELECCION))
     assert ramas_sv5(_leer(RUTA_SV5)) == [cla, cla]
+
+
+def test_f036_r19_sv4_filtra_con_el_mismo_cla_que_sv3() -> None:
+    cla = cla_persona_sv3(_leer(RUTA_SELECCION))
+    assert filtro_sv4(_leer(RUTA_SV4)) == cla
 
 
 # ------------------- el guardian sabe fallar (copias rotas) ------------ #
@@ -188,3 +240,25 @@ def test_f036_r19_falla_si_una_rama_de_sv5_pierde_el_filtro(rama) -> None:
 def test_f036_r19_falla_si_sv5_usa_otro_cla() -> None:
     roto = _roto(_leer(RUTA_SV5), "AND res.cla = 1", "AND res.cla = 2")
     assert ramas_sv5(roto) != [1, 1]
+
+
+@pytest.mark.parametrize("viejo, nuevo", [
+    # se quita el filtro
+    ("WHERE res.cla = 1\n  AND ", "WHERE "),
+    # sigue escrito, pero ya no filtra (disyuncion a nivel superior)
+    ("WHERE res.cla = 1\n  AND ", "WHERE res.cla = 1\n  OR "),
+    # el filtro baja a un JOIN opcional y deja de restringir `res`
+    ("WHERE res.cla = 1\n  AND ",
+     "AND res.cla = 1\nWHERE "),
+    # fetch_recursos_activos deja de usar la constante
+    ("sql=_SQL_RECURSOS_ACTIVOS,", "sql=_SQL_EMPLEADOS,"),
+])
+def test_f036_r19_falla_si_sv4_pierde_el_filtro(viejo, nuevo) -> None:
+    roto = _roto(_leer(RUTA_SV4), viejo, nuevo)  # fuera: su fallo no cuenta
+    with pytest.raises(AssertionError):
+        filtro_sv4(roto)
+
+
+def test_f036_r19_falla_si_sv4_usa_otro_cla() -> None:
+    roto = _roto(_leer(RUTA_SV4), "WHERE res.cla = 1", "WHERE res.cla = 2")
+    assert filtro_sv4(roto) != 1
