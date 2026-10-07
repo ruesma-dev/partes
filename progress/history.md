@@ -728,3 +728,21 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   12/10/2 (2 equivalentes analizados).
 - Pendiente del humano: desplegar sv4 y comprobar `/obras` (0678 en dos filas
   Ruesma/Porsan, filtro de empresa).
+
+## F-035 · Portal: elegir trabajador entre recursos persona por empresa — done 2026-10-07
+
+- Rama `feature/F-035-selector-recursos-por-empresa` · rigor estandar · sdd=true ·
+  APPROVED del reviewer en la pasada 2 (`progress/review_F-035.md`; la 1 cazó un
+  ReferenceError en el combo de «Nuevo parte»).
+- Origen: los selectores tiraban de empleados y no ofrecían a quien solo tiene
+  recurso (caso F-030, Porsan).
+- Entregado (solo sv4 + CLAUDE.md, ARCHITECTURE.md y guardián raíz): Conciliar,
+  parte nuevo, añadir línea y cambio de trabajador en detalle de obra ofrecen
+  recursos persona (`res.cla = 1`) de alta, con selector de empresa (bloqueado a
+  la de la obra cuando hay obra) y, en detalle de obra, solo los de su empresa;
+  DNI guardado `emp.dni` y, si falta, `res.cif`; sin DNI no se ofrecen. Ruta nueva
+  `/api/sigrid/recursos` (añadida a la lista del guardián F-016). Método
+  `recurso_manual` vía `_METODOS_CASADO_SIN_FICHA` (desviación aceptada).
+- Verificado: init.sh en verde, sv4 1774 passed, cobertura 97,0 % (194/200),
+  mutación muestreada con supervivientes analizados y los 5 nuevos muertos.
+- Pendiente: T9 manual (solo lectura) y desplegar sv4 junto con F-036.
