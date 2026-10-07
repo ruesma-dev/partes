@@ -233,16 +233,16 @@ plantillas.
 - Dos recursos activos de una persona salen dos veces (códigos distintos).
 - Empresas fuera de `NOMBRES_EMPRESA` solo se ven con «Todas».
 
-## 8. Decisiones abiertas (para el humano)
+## 8. Decisiones (todas resueltas por el humano el 2026-10-07)
 
-- **DA1. Empresa con obra elegida**: el selector toma la empresa de la obra y
-  **queda bloqueado** (recomendado: un recurso de otra empresa sería omitido
-  por sv5) vs. editable con aviso.
-- **DA2. Lista cerrada de duplicación**: el nuevo `_SQL_RECURSOS_ACTIVOS`
-  repite en sv4 el filtro de alta; se propone ampliar la entrada de
-  `CLAUDE.md` («el filtro de alta de los SQL de empleados **y de recursos** de
-  sv4») y que el guardián lo vigile (recomendado) vs. filtrar en Python con una
-  tercera copia de `de_alta`.
+- **DA1. Empresa con obra elegida — APROBADA la recomendada (2026-10-07)**:
+  el selector toma la empresa de la obra y **queda bloqueado** (un recurso de
+  otra empresa sería omitido por sv5); descartado «editable con aviso».
+- **DA2. Lista cerrada de duplicación — APROBADA la recomendada
+  (2026-10-07)**: el nuevo `_SQL_RECURSOS_ACTIVOS` repite en sv4 el filtro de
+  alta; se amplía la entrada de `CLAUDE.md` («el filtro de alta de los SQL de
+  empleados **y de recursos** de sv4») y el guardián lo vigila; descartado
+  filtrar en Python con una tercera copia de `de_alta`.
 - **DA3 y DA4: resueltas por el humano (2026-10-07)**: criterio de persona de
   porcentajes (`res.cla = 1`) y DNI `res.cif` con respaldo en la ficha; el
   recurso que siga sin DNI no se ofrece (§1, R3, R4).

@@ -1,7 +1,19 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-035 · spec_ready (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
+## F-035 · in_progress (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
+
+**En implementación (implementer, 2026-10-07).** DA1 y DA2 APROBADAS por el
+humano el 2026-10-07 (empresa bloqueada a la de la obra cuando hay obra;
+ampliar la lista cerrada de `CLAUDE.md` con el filtro de alta del SQL de
+recursos de sv4, vigilado por el guardián). DA3/DA4 como en la spec. Anotado
+en design §8. Tarea en curso: T1.
+
+Nota del arranque: el primer `bash harness/init.sh` de la sesión cayó en
+pytest de la raíz (`sF` hacia el 96 %, salida truncada) con el árbol limpio;
+al relanzar `python -m pytest tests -q` dio 445 passed, 1 skipped. Parece
+intermitente (había otro implementer trabajando en paralelo en
+`partes-wt-f036`); se vigila en las siguientes ejecuciones.
 
 Spec en `specs/F-035-selector-recursos-por-empresa/` (spec-author). Rigor
 estándar. **Solo sv4** (+ guardián `tests/test_f023_de_alta_gemelos.py`,
@@ -16,7 +28,7 @@ recurso (F-023 R42); una línea sin ficha se marca `recurso_manual` para salir
 de la cola de Conciliar. Nuevo endpoint `/api/sigrid/recursos` con su SQL;
 `/api/sigrid/empleados` se queda (lo usa la pantalla de jornadas).
 
-**Decisiones abiertas (design §8):** DA1 empresa bloqueada a la de la obra
+**Decisiones (design §8, ya resueltas):** DA1 empresa bloqueada a la de la obra
 cuando hay obra (recomendado); DA2 ampliar la lista cerrada de `CLAUDE.md` con
 el SQL de recursos de sv4 vigilado por el guardián (recomendado); DA3 y DA4
 **resueltas por el humano (2026-10-07)** y ya en la spec: persona = recurso de
