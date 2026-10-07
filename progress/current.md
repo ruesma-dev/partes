@@ -1,7 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-036 · spec_ready (2026-10-07): sv3 casa contra los recursos persona de la empresa del parte
+## F-036 · in_progress (2026-10-07): sv3 casa contra los recursos persona de la empresa del parte
+
+**Implementación en curso (implementer, worktree `partes-wt-f036`).** DA1, DA2
+y DA3 aprobadas por el humano el 2026-10-07 (las recomendadas). Intérprete:
+el `.venv` del repositorio principal (el worktree no tiene uno propio).
+Tarea en curso: ver `specs/F-036-casado-contra-recursos/tasks.md` (las `[x]`).
 
 Spec en `specs/F-036-casado-contra-recursos/` (spec-author, worktree
 `partes-wt-f036`). Rigor crítico. Toca **sv3** (casado, `res.cla`, herramienta
