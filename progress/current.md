@@ -1,6 +1,37 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-032 · blocked (2026-10-07): activar Sesame en producción (solo festivos)
+
+**Bloqueada por decisión del humano (2026-10-07, «bloquea esta»)** para atender
+incidencias. Pendiente al retomar: P0 (`.env` de sesame-api publicado en GitHub,
+rotar token) y visto bueno de DA1–DA10. La spec no cambia.
+
+Spec en `specs/F-032-sesame-festivos-produccion/` (spec-author). Rigor
+estándar. Toca sv3, sv4, `infra/` y `azure-apps/partes.md`; **sesame-api y
+Azure los hace el humano** (design §2 y §7). Hallazgos: la integración F-003
+ya está entera y apagada; los scripts `create_*` ya cablean `SESAME_*` pero
+solo al crear la app (falta `add_sesame_partes.ps1`); cada mensaje de sv3
+recalcula TODOS los partes activos no congelados, así que encender = recálculo
+inmediato; hoy los respaldos difieren (sv3 nacionales, sv4 Madrid); una lista
+vacía de Sesame se toma hoy por «sin festivos» (borraría los nacionales).
+
+**Bloqueante de seguridad en sesame-api (P0):** su `.env` está versionado y
+publicado en GitHub (`origin/dev`, `origin/pruebas`; commits `d226936`,
+`dcef288`). No se ha leído. El humano debe sacarlo del índice y, si lleva
+`SESAME_TOKEN`, rotarlo antes de cargarlo en el Key Vault.
+
+**Decisiones abiertas para el humano (design §8):** DA1 sesame-api en
+`cae-partes-dev` con ingress interno y secretos en kv-partes (recomendado) vs.
+recursos propios con ingress externo; DA2 1 réplica fija; DA3 script de
+encendido/apagado; DA4 mantener los dos niveles de F-003 (bloqueo del registro
+incluido) en vez de «solo respaldo + log»; DA5 calendario con < 8 festivos ⇒
+degradado (en el cliente gemelo); DA6 herramienta de contraste en sv3;
+DA7 recálculo automático de lo no congelado, lo congelado solo se informa;
+DA8 `/jornada` responde 502 sin contratos (arreglar en sesame-api); DA9
+`azure-apps/sesame-api.md` lo escribe su dueño; DA10 rigor estándar.
+Nota: en local el puerto 8006 lo usa hoy `porcentajes-transfer`.
+
 ## F-031 · done y DESPLEGADA (2026-10-06): el parte registrado acaba en el asiento analítico
 
 APPROVED del reviewer en la pasada 2 (`progress/review_F-031.md`). Resumen en

@@ -5,13 +5,13 @@
 
 Resumen: **31 features**, 9 abiertas, 22 terminadas.
 
-Bloqueadas: **F-014**.
+Bloqueadas: **F-014, F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | pendiente | estandar | `feature/F-032-sesame-festivos-produccion` |
+| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -52,7 +52,7 @@ Bloqueadas: **F-014**.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
-estado **pendiente** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
+estado **bloqueada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
 Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
 
