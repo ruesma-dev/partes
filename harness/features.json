@@ -431,7 +431,7 @@
       "title": "Portal: columna Empresa en las vistas de obra",
       "description": "Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4, templates/obras_list.html, ruta obras_list) la obra 0678 sale «duplicada». Causa verificada en solo lectura: en Sigrid hay dos fichas de obra con codigo 0678 y el mismo nombre, una de Ruesma (empresa 1, ide 2245328) y otra de Porsan (empresa 28, ide 2348888); 103 codigos de obra de Porsan existen tambien en Ruesma. Desde F-023/F-029 cada parte se concilia con la obra de la empresa de su membrete (correcto). El listado agrupa por ficha (obra_key) pero solo pinta «codigo · nombre», asi que las dos filas son identicas. Decision del humano: «hay que añadir una columna donde se vea la empresa»; se mantienen las filas separadas por ficha. Alcance: columna Empresa (nombre corto: Ruesma, Porsan...) con su filtro de columna en el listado de obras; empresa en la cabecera del detalle de obra y en la etiqueta del aviso de borrado de obra; revisar las demas vistas de sv4 donde aparece la obra (partes, parte, trabajador, conciliacion, papelera); que se muestra en partes sin empresa (NULL). Servicio: solo sv4.",
       "acceptance": [],
-      "status": "spec_ready",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
