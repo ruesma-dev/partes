@@ -20,6 +20,7 @@ import json
 
 import httpx
 from domain.models.sigrid_models import RecursoRow
+from tests.dobles import recurso_persona
 from infrastructure.sigrid import sigrid_api_client as modulo
 from infrastructure.sigrid.sigrid_api_client import SigridApiClient
 
@@ -93,7 +94,7 @@ FICHA_E = EmpleadoRow(ide=10, codigo="E10", nombre="EVA FICHA", dni=DNI_E,
 
 def _rec(ide, cif, *, codigo=None, conide=None, nombre="APELLIDOS, NOMBRE",
          empresa=28, fecbaj=0) -> RecursoRow:
-    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+    return recurso_persona(ide=ide, cif=cif, conide=conide, empresa=empresa,
                       fecbaj=fecbaj, codigo=codigo or f"MO/{ide}",
                       nombre=nombre)
 

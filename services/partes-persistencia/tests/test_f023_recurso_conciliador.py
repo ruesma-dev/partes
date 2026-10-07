@@ -25,7 +25,6 @@ from domain.models.sigrid_models import (
     EmpleadoRow,
     HmoRow,
     ObraRow,
-    RecursoRow,
 )
 from infrastructure.database.orm_models import ParteDocumentOrm
 from infrastructure.database.sqlalchemy_parte_repository import (
@@ -35,6 +34,7 @@ from tests.dobles import (
     FabricaSesionSqlite,
     LookupFake,
     RepositorioFake,
+    recurso_persona,
     registro,
     reshor_par,
     sembrar_lineas,
@@ -49,10 +49,10 @@ FICHAS = [
     EmpleadoRow(ide=11, codigo="E11", nombre="P", dni=DNI, reside=902,
                 empresa=31, fecbaj=0),
 ]
-BAJA_2021 = RecursoRow(ide=900, cif=None, conide=10, empresa=1,
+BAJA_2021 = recurso_persona(ide=900, cif=None, conide=10, empresa=1,
                        fecbaj=20210126)
-ALTA_1 = RecursoRow(ide=901, cif=DNI, conide=None, empresa=1, fecbaj=0)
-ALTA_31 = RecursoRow(ide=902, cif=None, conide=11, empresa=31, fecbaj=0)
+ALTA_1 = recurso_persona(ide=901, cif=DNI, conide=None, empresa=1, fecbaj=0)
+ALTA_31 = recurso_persona(ide=902, cif=None, conide=11, empresa=31, fecbaj=0)
 OBRAS = [ObraRow(ide=100, codigo="0100", nombre="Uno", empresa=1),
          ObraRow(ide=300, codigo="0300", nombre="Treintayuno", empresa=31)]
 
@@ -124,7 +124,7 @@ def test_f023_r29_solo_recursos_de_baja(caplog) -> None:
 
 
 def test_f023_r29_ambiguo_queda_sin_recurso_y_a_revision(caplog) -> None:
-    otro = RecursoRow(ide=903, cif=DNI, conide=None, empresa=1, fecbaj=0)
+    otro = recurso_persona(ide=903, cif=DNI, conide=None, empresa=1, fecbaj=0)
     with caplog.at_level(logging.WARNING):
         repo, _ = _conciliar([_linea(reside=None, emp_ide=None)],
                              _indice(recursos=(ALTA_1, otro)))
@@ -197,7 +197,7 @@ def test_f023_r25_sin_obra_ni_empresa_compiten_todas() -> None:
 
 
 def test_f023_r25_la_baja_se_mira_a_la_fecha_de_la_linea() -> None:
-    baja_agosto = RecursoRow(ide=901, cif=DNI, conide=None, empresa=1,
+    baja_agosto = recurso_persona(ide=901, cif=DNI, conide=None, empresa=1,
                              fecbaj=20260801)
     indice = _indice(recursos=(baja_agosto,))
     repo, _ = _conciliar([_linea(1, fecha=20260731),
@@ -207,7 +207,7 @@ def test_f023_r25_la_baja_se_mira_a_la_fecha_de_la_linea() -> None:
 
 
 def test_f023_r25_una_linea_sin_fecha_usa_hoy() -> None:
-    baja_agosto = RecursoRow(ide=901, cif=DNI, conide=None, empresa=1,
+    baja_agosto = recurso_persona(ide=901, cif=DNI, conide=None, empresa=1,
                              fecbaj=20260801)
     indice = _indice(recursos=(baja_agosto,))
     repo, _ = _conciliar([_linea(fecha=None)], indice,
@@ -219,7 +219,7 @@ def test_f023_r25_una_linea_sin_fecha_usa_hoy() -> None:
 
 
 def test_f023_r26_el_reside_desempata_entre_candidatos() -> None:
-    otro = RecursoRow(ide=903, cif=DNI, conide=None, empresa=1, fecbaj=0)
+    otro = recurso_persona(ide=903, cif=DNI, conide=None, empresa=1, fecbaj=0)
     repo, _ = _conciliar([_linea(reside=903)],
                          _indice(recursos=(ALTA_1, otro)))
     assert _update(repo, 1)["recurso_ide"] == 903

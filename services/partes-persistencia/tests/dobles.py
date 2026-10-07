@@ -8,6 +8,9 @@
     para ejercitar la regla de festivos sin Sesame ni JSON.
   - `transporte_json`: `httpx.MockTransport` que responde con lo que se le
     diga por ruta, para probar el cliente Sesame SIN red (R19).
+  - `recurso_persona`: un `RecursoRow` de persona (`res.cla = 1`, F-036):
+    los fixtures de recursos de F-003/F-023/F-030 lo usan desde que sv3
+    solo propone recursos persona.
 """
 from __future__ import annotations
 
@@ -15,8 +18,15 @@ import json
 from typing import Any, Callable
 
 import httpx
-from domain.models.sigrid_models import ReshorRow
+from domain.models.sigrid_models import RecursoRow, ReshorRow
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
+
+# ------------------------------- recursos ------------------------------- #
+
+def recurso_persona(**campos: Any) -> RecursoRow:
+    """F-036: un recurso de persona (`cla = 1`) con el resto de campos dados."""
+    return RecursoRow(cla=1, **campos)
+
 
 # ------------------------------ calendario ------------------------------ #
 

@@ -139,7 +139,8 @@ SELECT
     rc.emp        AS empresa,
     rc.fecbaj     AS fecbaj,
     rc.cod        AS codigo,
-    rc.res        AS nombre
+    rc.res        AS nombre,
+    res.cla       AS cla
 FROM res
 JOIN con rc ON rc.ide = res.ide
 LEFT JOIN auxrestip ON auxrestip.ide = res.restipide
@@ -289,7 +290,8 @@ class SigridApiClient:
         (empleado asociado), su CLASIFICACION (restipide + cod/res de
         ``auxrestip``) y su tipo de hora por defecto (``horide``). F-030:
         tambien su codigo y nombre (``con.cod``/``con.res``), en la misma
-        lectura paginada, para las fichas de recurso."""
+        lectura paginada, para las fichas de recurso. F-036 (R1): y su
+        clase (``res.cla``), que dice que recursos son de persona."""
         columns, rows = self._leer_paginado(
             sql=_SQL_RECURSOS, parameters=[], orden="res.ide",
             label="recursos",
@@ -311,6 +313,7 @@ class SigridApiClient:
                 fecbaj=_opt_int(rm.get("fecbaj")),
                 codigo=_opt_str(rm.get("codigo")),
                 nombre=_opt_str(rm.get("nombre")),
+                cla=_opt_int(rm.get("cla")),
             ))
         logger.info("%s recursos -> %s filas", _LOG_PREFIX, len(out))
         return out

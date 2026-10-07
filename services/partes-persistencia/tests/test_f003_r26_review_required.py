@@ -21,6 +21,7 @@ from tests.dobles import (
     CalendarioSinSenal,
     LookupFake,
     RepositorioFake,
+    recurso_persona,
     registro,
     reshor_par,
 )
@@ -30,7 +31,7 @@ VIERNES = 20260515      # 2026-05-15
 
 
 def _recursos() -> list[RecursoRow]:
-    return [RecursoRow(ide=501, conide=1, cif="12345678Z",
+    return [recurso_persona(ide=501, conide=1, cif="12345678Z",
                        restip_res="Oficial", horide_def=100)]
 
 
@@ -192,13 +193,14 @@ def test_f003_r26_fetch_registros_trae_el_document_id() -> None:
 
 def test_f003_r26_marcar_review_required_solo_sube_el_flag() -> None:
     """Sobre SQLite en memoria con el ORM real."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
     from infrastructure.database.orm_models import Base, ParteDocumentOrm
     from infrastructure.database.sqlalchemy_parte_repository import (
         SqlAlchemyParteRepository,
     )
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from sqlalchemy.pool import StaticPool
 
     class Fabrica:
         def __init__(self) -> None:

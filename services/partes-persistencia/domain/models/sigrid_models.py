@@ -113,6 +113,9 @@ class RecursoRow:
     # (`MO/` + `cif`): el codigo (`con.cod`) y el nombre (`con.res`).
     codigo: str | None = None      # con.cod del recurso
     nombre: str | None = None      # con.res del recurso
+    # F-036 (R1): la clase del recurso (`res.cla`): 1 persona, 0 consumo,
+    # 2 medio. Solo `cla = 1` es recurso persona (`seleccion_sigrid`).
+    cla: int | None = None         # res.cla
 
 
 @dataclass(frozen=True)

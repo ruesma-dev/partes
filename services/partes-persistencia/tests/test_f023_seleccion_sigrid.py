@@ -22,7 +22,8 @@ from application.services.seleccion_sigrid import (
     elegir_obra,
     elegir_por_nombre,
 )
-from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
+from domain.models.sigrid_models import EmpleadoRow, ObraRow
+from tests.dobles import recurso_persona
 
 HOY = 20260915
 DNI = "12345678Z"
@@ -35,7 +36,7 @@ def _ficha(ide, *, dni=DNI, empresa=1, fecbaj=0, reside=None, nombre=None):
 
 
 def _recurso(ide, *, conide=None, cif=None, empresa=1, fecbaj=0):
-    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+    return recurso_persona(ide=ide, cif=cif, conide=conide, empresa=empresa,
                       fecbaj=fecbaj)
 
 

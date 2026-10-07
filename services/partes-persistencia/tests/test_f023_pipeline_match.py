@@ -29,9 +29,9 @@ from domain.models.sigrid_models import (
     EmpleadoRow,
     EmpresaRow,
     ObraRow,
-    RecursoRow,
     TipoHoraRow,
 )
+from tests.dobles import recurso_persona
 
 HOY = 20260915
 DNI_A = "11111111H"      # una ficha, empresa 1
@@ -57,10 +57,10 @@ FICHAS = [
                 reside=None, empresa=1, fecbaj=20260920),
 ]
 RECURSOS = [
-    RecursoRow(ide=910, cif=None, conide=10, empresa=1, fecbaj=0),
-    RecursoRow(ide=920, cif=None, conide=20, empresa=28, fecbaj=0),
-    RecursoRow(ide=930, cif=None, conide=30, empresa=1, fecbaj=0),
-    RecursoRow(ide=931, cif=None, conide=31, empresa=28, fecbaj=0),
+    recurso_persona(ide=910, cif=None, conide=10, empresa=1, fecbaj=0),
+    recurso_persona(ide=920, cif=None, conide=20, empresa=28, fecbaj=0),
+    recurso_persona(ide=930, cif=None, conide=30, empresa=1, fecbaj=0),
+    recurso_persona(ide=931, cif=None, conide=31, empresa=28, fecbaj=0),
 ]
 EMPRESAS = [EmpresaRow(numemp=1, nombre="UNO"),
             EmpresaRow(numemp=28, nombre="VEINTIOCHO")]

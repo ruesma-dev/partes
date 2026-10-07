@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from datetime import date
 
-import application.services.parte_normalizer as pn
 import pytest
+
+import application.services.parte_normalizer as pn
 from application.pipelines.persist_parte_pipeline import PersistPartePipeline
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.sigrid_matcher_provider import SigridMatcherProvider
@@ -21,9 +22,9 @@ from domain.models.sigrid_models import (
     EmpleadoRow,
     EmpresaRow,
     ObraRow,
-    RecursoRow,
     TipoHoraRow,
 )
+from tests.dobles import recurso_persona
 
 # ============================== R1 ====================================== #
 
@@ -92,7 +93,7 @@ class _Lookup:
                             ext=0, pre=None, prenom=None)]
 
     def fetch_recursos(self):
-        return [RecursoRow(ide=910, cif=None, conide=10, empresa=1,
+        return [recurso_persona(ide=910, cif=None, conide=10, empresa=1,
                            fecbaj=0)]
 
     def fetch_empresas(self):
