@@ -1,7 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-032 · spec_ready (2026-10-06): activar Sesame en producción (solo festivos)
+## F-032 · blocked (2026-10-07): activar Sesame en producción (solo festivos)
+
+**Bloqueada por decisión del humano (2026-10-07, «bloquea esta»)** para atender
+incidencias. Pendiente al retomar: P0 (`.env` de sesame-api publicado en GitHub,
+rotar token) y visto bueno de DA1–DA10. La spec no cambia.
 
 Spec en `specs/F-032-sesame-festivos-produccion/` (spec-author). Rigor
 estándar. Toca sv3, sv4, `infra/` y `azure-apps/partes.md`; **sesame-api y
