@@ -61,6 +61,10 @@ RECURSOS = [
     recurso_persona(ide=920, cif=None, conide=20, empresa=28, fecbaj=0),
     recurso_persona(ide=930, cif=None, conide=30, empresa=1, fecbaj=0),
     recurso_persona(ide=931, cif=None, conide=31, empresa=28, fecbaj=0),
+    # F-036: el casado es contra recursos; la baja que cuenta es la del
+    # recurso (`con.fecbaj`), la misma que la de la ficha en este fixture.
+    recurso_persona(ide=940, cif=None, conide=40, empresa=1,
+                    fecbaj=20260920),
 ]
 EMPRESAS = [EmpresaRow(numemp=1, nombre="UNO"),
             EmpresaRow(numemp=28, nombre="VEINTIOCHO")]
@@ -352,10 +356,19 @@ def test_f023_r23_alias_fuera_de_r17_con_dni_de_otra_empresa() -> None:
     assert parte.registros[0].empleado.method == "dni_otra_empresa"
 
 
-def test_f023_r23_alias_sin_dni_fuera_de_r17_no_es_valido() -> None:
+def test_f023_r23_alias_sin_dni_toma_el_de_su_ficha() -> None:
+    """F-036 (R8) cambia este caso: un alias sin DNI toma el de su ficha y
+    se resuelve como un DNI; la ficha 20 solo tiene recurso en la 28."""
     repo = RepoIngesta(alias={"BEITA": _alias(20, None)})
     parte = _casar(_parte(("BEITA", None), obra="300"), repo=repo)
     assert parte.registros[0].empleado.ide is None
+    assert parte.registros[0].empleado.method == "dni_otra_empresa"
+    assert parte.review is True
+
+
+def test_f023_r23_alias_sin_dni_ni_ficha_no_es_valido() -> None:
+    repo = RepoIngesta(alias={"BEITA": _alias(99, None)})
+    parte = _casar(_parte(("BEITA", None), obra="300"), repo=repo)
     assert parte.registros[0].empleado.method == "alias_no_valido"
     assert parte.review is True
 
@@ -399,30 +412,39 @@ def test_f023_r24_empate_con_otra_persona() -> None:
         EmpleadoRow(ide=60, codigo="E60", nombre="PEPE IGUAL", dni="66666666Q",
                     reside=None, empresa=1, fecbaj=0),
     ]
+    recursos = [recurso_persona(ide=950, cif=None, conide=50, empresa=1),
+                recurso_persona(ide=960, cif=None, conide=60, empresa=1)]
     parte = _casar(_parte(("Pepe Igual", None), obra="300"),
-                   lookup=LookupIngesta(empleados=gemelos))
+                   lookup=LookupIngesta(empleados=gemelos, recursos=recursos))
     assert parte.registros[0].empleado.method == "nombre_ambiguo"
 
 
-def test_f023_r24_empate_entre_fichas_sin_dni_de_personas_distintas() -> None:
+def test_f023_r24_fichas_sin_dni_no_compiten_por_nombre() -> None:
+    """F-036 (R3) cambia este caso: un recurso persona sin DNI (ni en su
+    ficha ni en `res.cif`) no es candidato por nombre."""
     sin_dni = [
         EmpleadoRow(ide=50, codigo="E50", nombre="PEPE IGUAL", dni=None,
                     reside=None, empresa=1, fecbaj=0),
         EmpleadoRow(ide=60, codigo="E60", nombre="PEPE IGUAL", dni=None,
                     reside=None, empresa=1, fecbaj=0),
     ]
+    recursos = [recurso_persona(ide=950, cif=None, conide=50, empresa=1),
+                recurso_persona(ide=960, cif=None, conide=60, empresa=1)]
     parte = _casar(_parte(("Pepe Igual", None), obra="300"),
-                   lookup=LookupIngesta(empleados=sin_dni))
-    assert parte.registros[0].empleado.method == "nombre_ambiguo"
+                   lookup=LookupIngesta(empleados=sin_dni, recursos=recursos))
+    assert parte.registros[0].empleado.method == "none"
 
 
-def test_f023_r24_una_sola_ficha_sin_dni_casa_por_nombre() -> None:
+def test_f023_r24_una_sola_ficha_sin_dni_no_casa_por_nombre() -> None:
+    """F-036 (R3) cambia este caso: antes casaba por nombre con la ficha."""
     sin_dni = [EmpleadoRow(ide=50, codigo="E50", nombre="PEPE UNICO",
                            dni=None, reside=None, empresa=1, fecbaj=0)]
     parte = _casar(_parte(("Pepe Unico", None), obra="300"),
-                   lookup=LookupIngesta(empleados=sin_dni))
+                   lookup=LookupIngesta(empleados=sin_dni, recursos=[
+                       recurso_persona(ide=950, cif=None, conide=50,
+                                       empresa=1)]))
     emp = parte.registros[0].empleado
-    assert (emp.ide, emp.method) == (50, "nombre")
+    assert (emp.ide, emp.method) == (None, "none")
 
 
 def test_f023_r24_por_debajo_del_umbral_no_casa() -> None:
@@ -523,12 +545,15 @@ def test_f023_r24_la_otra_ficha_del_mismo_dni_tambien_cuenta_aunque_puntue_menos
         EmpleadoRow(ide=32, codigo="E32", nombre="NOMBRE DISTINTO", dni=DNI_C,
                     reside=None, empresa=1, fecbaj=0),
     ]
+    recursos = [recurso_persona(ide=930, cif=None, conide=30, empresa=1),
+                recurso_persona(ide=932, cif=None, conide=32, empresa=1)]
     parte = _casar(_parte(("Carlos Dos", None), obra="0300"),
-                   lookup=LookupIngesta(empleados=dos_fichas))
+                   lookup=LookupIngesta(empleados=dos_fichas,
+                                        recursos=recursos))
     assert parte.registros[0].empleado.method == "nombre_ambiguo"
 
 
-def test_f023_r24_sin_fichas_candidatas_no_casa() -> None:
+def test_f023_r24_sin_candidatos_no_casa() -> None:
     parte = _casar(_parte(("Ana Uno", None), obra="0300"),
                    lookup=LookupIngesta(empleados=[]))
     assert parte.registros[0].empleado.method == "none"

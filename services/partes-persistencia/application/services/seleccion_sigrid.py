@@ -189,16 +189,6 @@ class IndicePersonas:
             return self.elegir_recurso(dni, ficha.ide, reside, empresa, fecha)
         return self.elegir_recurso(dni, None, None, empresa, fecha)
 
-    def fichas_candidatas(
-        self, empresa: int | None, fecha: int
-    ) -> list[EmpleadoRow]:
-        """R17: fichas de alta a la fecha de la empresa (o de todas)."""
-        return [
-            f for f in self._fichas
-            if de_alta(f.fecbaj, fecha)
-            and (empresa is None or f.empresa == empresa)
-        ]
-
     def elegir_ficha(
         self, dni: str | None, empresa: int | None, fecha: int
     ) -> Resolucion:

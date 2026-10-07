@@ -209,6 +209,6 @@ def test_f036_r3_el_proveedor_cuenta_los_recursos_persona_sin_dni(
         proveedor.get()
     lineas = [r.getMessage() for r in caplog.records
               if "sin DNI" in r.getMessage()]
-    assert lineas == [
+    assert lineas == [(
         "[matcher-provider] recursos persona sin DNI (no casan por nombre): "
-        "2 de 4"]
+        "2 de 4")]

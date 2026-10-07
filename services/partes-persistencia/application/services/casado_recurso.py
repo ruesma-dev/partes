@@ -42,8 +42,12 @@ def casar_trabajador(
     matcher: EmpleadoMatcher,
     empresa: int | None,
     fecha: int,
+    candidatos: Callable[[], list[RecursoRow]] | None = None,
 ) -> EmpleadoMatch:
-    """R4-R14: el casado de una linea (ver cabecera)."""
+    """R4-R14: el casado de una linea (ver cabecera).
+
+    `candidatos` da los candidatos por nombre ya calculados (el pipeline los
+    calcula una vez por parte); sin el, `indice.candidatos_nombre`."""
     # 1. DNI leido (R4-R6).
     if dni_leido:
         res = indice.casar_por_dni(dni_leido, empresa, fecha)
@@ -56,7 +60,12 @@ def casar_trabajador(
     if datos is not None:
         return _casar_alias(datos, indice, empresa, fecha)
     # 3. Similitud de nombre (R10-R12).
-    return _casar_nombre(nombre_leido, indice, matcher, empresa, fecha)
+    if candidatos is None:
+        recursos = indice.candidatos_nombre(empresa, fecha)
+    else:
+        recursos = candidatos()
+    return _casar_nombre(nombre_leido, recursos, indice, matcher, empresa,
+                         fecha)
 
 
 def _casar_alias(
@@ -79,6 +88,7 @@ def _casar_alias(
 
 def _casar_nombre(
     nombre: str | None,
+    recursos: list[RecursoRow],
     indice: IndicePersonas,
     matcher: EmpleadoMatcher,
     empresa: int | None,
@@ -87,7 +97,7 @@ def _casar_nombre(
     """R10-R12: la persona de nombre mas parecido entre los candidatos y,
     de sus recursos, el que da `casar_por_dni` (R11)."""
     candidatos = []
-    for r in indice.candidatos_nombre(empresa, fecha):
+    for r in recursos:
         ficha = indice.ficha_enlazada(r)
         nombres = (r.nombre, ficha.nombre if ficha is not None else None)
         candidatos.append((indice.dni_de_recurso(r), nombres))

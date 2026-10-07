@@ -81,3 +81,42 @@ $ cd services/partes-persistencia && python -m pytest -q tests/test_f036_casado.
 37 failed, 16 passed in 2.99s      (los 16 en verde son los de match_nombre de T5)
 ```
 Tras el código: `53 passed in 0.69s`.
+
+### T7 · R6, R13–R17, R22 (pipeline)
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_pipeline.py
+E       AssertionError: assert (None, None, ...otra_empresa') == (None, 'MO/95...'recurso_dni')     # R7/R14
+E       AssertionError: assert (None, None, ...'recurso_dni') == (None, 'MO/96...'recurso_dni')     # R14 (codigo)
+E       AssertionError: assert (60, 'E60', '...965, 'nombre') == (60, 'E60', '...', 965, 'dni')    # DA1
+E       AssertionError: assert (None, None, ...curso_nombre') == (None, 'MO/96...curso_nombre')    # R14
+E       AssertionError: assert (None, None, ...mbre_ambiguo') == (None, None, ...'dni_ambiguo')    # R5
+E       AssertionError: assert 1 == 0                                                              # R6 alias perezoso
+E       assert [] == [(1, 20260915)]                                                               # memo por parte
+E       AssertionError: assert ModuleSpec(name='application.services.fichas_de_recurso', ...) is None   # R17
+E       AssertionError: assert ['tests\\test...didatas', ...] == []                                # R17
+E       assert (910, 911) == (911, 911)                                                            # R22 (fixture, ver nota)
+10 failed, 10 passed in 6.39s
+```
+Tras el código: `20 passed`; suite sv3 `871 passed`; `git grep -n "fichas_de_recurso\|fichas_candidatas\|matchers.recursos" services/partes-persistencia` vacío.
+
+Nota honesta sobre R22: el fallo de la traza era del fixture (dos partes de la misma obra y día:
+el segundo **sustituye** al primero, `_deactivate_same_day_obra`); se corrigió poniendo el parte
+nuevo otro día. Con eso, R22 pasa también con el código anterior: el casado ya solo corría en
+`_match` de un parte nuevo. Es de caracterización, no de fase RED.
+
+Tests de F-023/F-030 retirados o adaptados (desviación declarada en design §7):
+
+- `test_f030_casado_recurso.py`: **retirados** los de `fichas_de_recurso` (R4, 9), los del
+  proveedor (`Matchers.recursos`, 3), los de logs del respaldo (R6, 5) y los de `_Prohibido`
+  sobre `recursos` (R7, 3). **Adaptados**: R12 (`codigo` = `con.cod` del recurso y `dni`
+  normalizado, R14), R8 «no hay alias de recurso» → `test_f030_r8_alias_de_un_recurso_sin_ficha_casa`
+  (ahora casa, `recurso_nombre`, R8), R9 nombre de recurso (`codigo`), R9 otra empresa (la
+  ficha 11 gana su recurso). Renombrados 3 para quitar «fichas_de_recurso» del nombre.
+- `test_f023_pipeline_match.py`: fixture con recurso 940 de DIANA (baja del recurso);
+  `r23_alias_sin_dni_fuera_de_r17_no_es_valido` → `r23_alias_sin_dni_toma_el_de_su_ficha`
+  (`dni_otra_empresa`, R8) + nuevo `r23_alias_sin_dni_ni_ficha_no_es_valido`; `r24` con fichas
+  sin DNI → `none` (R3: un recurso persona sin DNI no es candidato) en
+  `r24_fichas_sin_dni_no_compiten_por_nombre` y `r24_una_sola_ficha_sin_dni_no_casa_por_nombre`;
+  `r24_empate_con_otra_persona` y `r24_la_otra_ficha_del_mismo_dni...` ganan recursos.
+- `test_f023_seleccion_sigrid.py`: retirado `r17_fichas_candidatas_de_alta_y_de_la_empresa`.

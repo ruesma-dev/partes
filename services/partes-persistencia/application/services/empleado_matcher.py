@@ -20,18 +20,11 @@ from __future__ import annotations
 import logging
 
 from application.services import text_match as tm
-from domain.models.parte_records import EmpleadoMatch
-from domain.models.sigrid_models import EmpleadoRow
 
 logger = logging.getLogger(__name__)
 
 #: Un candidato por nombre: (persona, nombres que puntuan).
 Candidato = tuple[str, tuple[str | None, ...]]
-
-
-def _persona(e: EmpleadoRow) -> str:
-    """Identidad de persona: el DNI normalizado o, sin DNI, la ficha."""
-    return tm.normalize_dni(e.dni) or f"ficha:{e.ide}"
 
 
 class EmpleadoMatcher:
@@ -70,39 +63,3 @@ class EmpleadoMatcher:
                for p, puntos in por_persona.items()):
             return None, 0.0, "nombre_ambiguo"
         return ganadora, round(mejor, 4), "nombre"
-
-    def match_nombre_fichas(
-        self,
-        *,
-        nombre: str | None,
-        candidatas: list[EmpleadoRow],
-    ) -> EmpleadoMatch:
-        """R24 (F-023) sobre fichas: TRANSITORIO hasta que el pipeline
-        delegue en `casar_trabajador` (F-036 T7), que lo retira."""
-        if not candidatas or not tm.normalize(nombre):
-            return EmpleadoMatch()
-        puntuadas = sorted(
-            ((tm.name_similarity(nombre, e.nombre), e) for e in candidatas),
-            key=lambda par: par[0], reverse=True,
-        )
-        mejor, ficha = puntuadas[0]
-        if mejor < self._min_score:
-            return EmpleadoMatch()
-        persona = _persona(ficha)
-        suyas = [e for e in candidatas if _persona(e) == persona]
-        empatadas = [e for score, e in puntuadas if score >= mejor]
-        if len(suyas) > 1 or any(_persona(e) != persona for e in empatadas):
-            return EmpleadoMatch(method="nombre_ambiguo")
-        return self.to_match(ficha, mejor, "nombre")
-
-    @staticmethod
-    def to_match(e: EmpleadoRow, score: float, method: str) -> EmpleadoMatch:
-        return EmpleadoMatch(
-            ide=e.ide,
-            codigo=e.codigo,
-            nombre=e.nombre,
-            dni=e.dni,
-            reside=e.reside,
-            score=round(score, 4),
-            method=method,
-        )
