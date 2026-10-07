@@ -1,6 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
+
+Tercera copia del criterio recurso persona (`res.cla = 1`) en sv4
+`sigrid_lookup_client.py::_SQL_RECURSOS_ACTIVOS` (F-035): casa con sv3/sv5
+(`WHERE res.cla = 1`), sin cambios de comportamiento. Ahora la vigila
+`tests/test_f036_recurso_persona_gemelos.py` y la nombra la lista cerrada de
+`CLAUDE.md`. Informe: `progress/impl_integracion_F-035_F-036.md`. Pendiente:
+revisión y merge a dev (humano).
+
 ## F-037 · done y DESPLEGADA sv3 (2026-10-07, r20261007223505), pendiente de M2–M4: sv3 no duplica la extra automática de una base omitida
 
 **Desplegada** a petición del humano («A, despliega», 2026-10-07): solo sv3, revisión
