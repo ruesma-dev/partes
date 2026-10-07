@@ -42,6 +42,7 @@ from infrastructure.database.orm_models import (
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.jornada_admin import columnas_patron
+from application.services.empresas import empresas_de_fila, texto_empresas
 from application.services.congelacion import (
     ESTADO_BORRADO_SIGRID,
     ESTADO_DEDICACION,
@@ -347,6 +348,9 @@ class ObraRow:
     horas_normales: float
     horas_extra: float
     num_incidencias: int
+    #: F-033: empresas de la fila (ordenadas) y su texto para la columna.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -945,6 +949,14 @@ class ParteReviewRepository:
         def _dni_norm(v):
             return (v or "").replace("-", "").replace(" ", "").upper()
 
+        # F-033 (R4): empresa de cada recurso, deducida de los partes con
+        # empresa donde aparece (cualquier obra). Sin consulta nueva.
+        empresa_por_recurso: dict[int, set[int]] = {}
+        for reg in regs:
+            if reg.recurso_ide is not None and reg.document.empresa is not None:
+                empresa_por_recurso.setdefault(
+                    reg.recurso_ide, set()).add(reg.document.empresa)
+
         groups: dict[str, dict[str, Any]] = {}
         for reg in regs:
             key = obra_key_for_registro(reg)
@@ -961,10 +973,14 @@ class ParteReviewRepository:
                     "horas_normales": 0.0,
                     "horas_extra": 0.0,
                     "num_incidencias": 0,
+                    "empresas_doc": set(),
+                    "recursos": set(),
                 }
                 groups[key] = g
             g["trabajadores"].add(worker_key_for_registro(reg))
             g["docs"].add(reg.document_id)
+            g["empresas_doc"].add(reg.document.empresa)
+            g["recursos"].add(reg.recurso_ide)
             g["num_registros"] += 1
             if reg.es_incidencia:
                 g["num_incidencias"] += 1
@@ -979,8 +995,11 @@ class ParteReviewRepository:
             if not g["obra_nombre"] and reg.obra_nombre:
                 g["obra_nombre"] = reg.obra_nombre
 
-        rows = [
-            ObraRow(
+        rows: list[ObraRow] = []
+        for g in groups.values():
+            empresas = empresas_de_fila(
+                g["empresas_doc"], g["recursos"], empresa_por_recurso)
+            rows.append(ObraRow(
                 obra_key=g["obra_key"],
                 obra_codigo=g["obra_codigo"],
                 obra_nombre=g["obra_nombre"],
@@ -991,9 +1010,9 @@ class ParteReviewRepository:
                 horas_normales=round(g["horas_normales"], 2),
                 horas_extra=round(g["horas_extra"], 2),
                 num_incidencias=g["num_incidencias"],
-            )
-            for g in groups.values()
-        ]
+                empresas=empresas,
+                empresa_texto=texto_empresas(empresas),
+            ))
         if search:
             needle = _norm(search)
             rows = [
@@ -1001,7 +1020,13 @@ class ParteReviewRepository:
                 if needle in _norm(r.obra_codigo)
                 or needle in _norm(r.obra_nombre)
             ]
-        rows.sort(key=lambda r: (_norm(r.obra_codigo) or "~", _norm(r.obra_nombre)))
+        # F-033 (R7): las gemelas (mismo codigo y nombre) por menor
+        # empresa; las de sin empresa, detras.
+        rows.sort(key=lambda r: (
+            _norm(r.obra_codigo) or "~",
+            _norm(r.obra_nombre),
+            r.empresas[0] if r.empresas else 10**9,
+        ))
         return rows
 
     def get_obra(
