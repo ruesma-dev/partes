@@ -1,13 +1,38 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-035 · in_progress (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
+## F-035 · blocked (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
+
+### BLOQUEO (implementer, 2026-10-07): test ajeno en rojo por R5
+
+**Qué pasa.** R5 manda crear `GET /api/sigrid/recursos`. El guardián ajeno
+`services/partes-front/tests/test_f016_vista_admin_jornadas.py::test_f016_r20_f016_no_anade_ni_cambia_ninguna_ruta_de_sigrid`
+fija la lista CERRADA de rutas `/api/sigrid/*` (tipos-hora, obras,
+empleados, partidas, comprobar) y falla con la ruta nueva. R22 prohíbe tocar
+tests ajenos y la orden del líder es parar ante un test ajeno en rojo. La spec
+no lo previó (design §2 no lista ese test).
+
+**Opciones para el humano:**
+- **(a) Recomendada:** añadir `("/api/sigrid/recursos", ("GET",))  # F-035 (R5)`
+  a la lista de ese guardián, como hizo F-024 con `/api/sigrid/comprobar` (su
+  docstring prevé exactamente eso: se amplía de forma explícita, no se afloja),
+  y anotar en R22 la excepción. Una línea en un test ajeno.
+- (b) Sacar el endpoint del prefijo (p. ej. `/api/recursos`): no toca el
+  guardián, pero cambia R5 y esquiva la intención de la lista cerrada.
+
+**Estado al bloquear.** T1–T4 hechos y comiteados (un commit por tarea), T5
+con sus tests escritos en RED (commit `F-035 T5 (en RED)`), T6–T10 sin hacer.
+Suite de sv4 tras T4: solo rojo el guardián F-016 y los tests de vistas de T5
+(esperado). Ningún otro test ajeno afectado: comprobado que T5/T6 no chocan con
+más guardianes (`_comboSimple` se seguirá reutilizando sin modificarlo, como
+exige `test_f016_r20_el_js_cablea_el_combo_sin_tocar_el_componente`).
+Informe parcial con las trazas RED en `progress/impl_F-035.md`.
 
 **En implementación (implementer, 2026-10-07).** DA1 y DA2 APROBADAS por el
 humano el 2026-10-07 (empresa bloqueada a la de la obra cuando hay obra;
 ampliar la lista cerrada de `CLAUDE.md` con el filtro de alta del SQL de
 recursos de sv4, vigilado por el guardián). DA3/DA4 como en la spec. Anotado
-en design §8. Tarea en curso: T4.
+en design §8. Tarea en curso al bloquear: T5 (tests en RED, plantillas sin hacer).
 
 **Desviación justificada (T3):** design §4 decía «`METODOS_RECURSO` incluye
 `recurso_manual`», pero `test_f030_r18_metodos_de_recurso` (test ajeno de
