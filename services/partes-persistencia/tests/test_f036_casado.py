@@ -14,7 +14,11 @@ from __future__ import annotations
 
 import pytest
 
+from application.services.casado_recurso import casar_trabajador
 from application.services.empleado_matcher import EmpleadoMatcher
+from application.services.seleccion_sigrid import IndicePersonas
+from domain.models.parte_records import EmpleadoMatch
+from domain.models.sigrid_models import EmpleadoRow, RecursoRow
 
 UMBRAL = 0.55
 
@@ -113,3 +117,240 @@ def test_f036_r12_nombre_sin_candidatos_none() -> None:
 def test_f036_r12_nombre_candidato_sin_nombres_no_puntua() -> None:
     assert _nombre("Ana Uno", [("A", (None, None))], umbral=0.0) == \
         (None, 0.0, "none")
+
+
+# ======================= casar_trabajador (R4-R14) ======================= #
+
+HOY = 20260915
+DNI_A = "11111111H"      # ficha en la 1, un recurso enlazado
+DNI_B = "22222222J"      # ficha en la 1, dos recursos: desempata el reside
+DNI_C = "33333333P"      # ficha en la 1 y recurso SIN enlazar en la 28 (R7)
+DNI_E = "55555555K"      # sin ficha: recurso por cif en la 28
+DNI_G = "66666666Q"      # solo un recurso que no es de persona (cla 2)
+DNI_H = "77777777B"      # dos recursos por cif en la 1, sin desempate
+DNI_I = "88888888Y"      # solo un recurso de baja
+
+
+def _ficha(ide, nombre, dni, reside, empresa=1):
+    return EmpleadoRow(ide=ide, codigo=f"E{ide}", nombre=nombre, dni=dni,
+                       reside=reside, empresa=empresa, fecbaj=0)
+
+
+def _rec(ide, nombre, *, cif=None, conide=None, empresa=1, fecbaj=0, cla=1):
+    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+                      fecbaj=fecbaj, codigo=f"MO/{ide}", nombre=nombre,
+                      cla=cla)
+
+
+FICHAS = [
+    _ficha(10, "ANA UNO", DNI_A, 910),
+    _ficha(20, "BEA DOS", DNI_B, 921),
+    _ficha(30, "CARLOS TRES", DNI_C, 930),
+]
+RECURSOS = [
+    _rec(910, "ZZZZ QQQQ", conide=10),
+    _rec(920, "BEA DOS", conide=20),
+    _rec(921, "BEA DOS", conide=20),
+    _rec(930, "CARLOS TRES", conide=30),
+    _rec(950, "TRES CARLOS", cif=DNI_C, empresa=28),
+    _rec(960, "EVA SINFICHA", cif=DNI_E, empresa=28),
+    _rec(970, "GRUA", cif=DNI_G, cla=2),
+    _rec(980, "HUGO IGUAL", cif=DNI_H),
+    _rec(981, "HUGO IGUAL", cif=DNI_H),
+    _rec(990, "IRENE BAJA", cif=DNI_I, fecbaj=20200101),
+    _rec(995, "SIN DNI NADIE", cif=None),
+]
+INDICE = IndicePersonas(FICHAS, RECURSOS)
+
+
+class _Alias:
+    """El alias perezoso: cuenta cuantas veces se consulta."""
+
+    def __init__(self, valor=None) -> None:
+        self.valor = valor
+        self.llamadas = 0
+
+    def __call__(self):
+        self.llamadas += 1
+        return self.valor
+
+
+def _casar(dni=None, nombre=None, alias=None, empresa=1, fecha=HOY,
+           indice=INDICE):
+    return casar_trabajador(
+        dni_leido=dni, nombre_leido=nombre, alias=alias or _Alias(),
+        indice=indice, matcher=EmpleadoMatcher(min_score=UMBRAL),
+        empresa=empresa, fecha=fecha)
+
+
+def _clave(m: EmpleadoMatch):
+    return (m.ide, m.codigo, m.nombre, m.dni, m.reside, m.score, m.method)
+
+
+SIN_CASAR = (None, None, None, None, None, 0.0)
+
+
+# ------------------------------ por DNI -------------------------------- #
+
+def test_f036_r4_r13_dni_con_ficha_enlazada() -> None:
+    assert _clave(_casar(DNI_A)) == \
+        (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "dni")
+
+
+def test_f036_r4_dni_leido_se_normaliza_y_se_guarda_canonico() -> None:
+    assert _casar(" 11111111-h ").dni == DNI_A
+
+
+def test_f036_r4_dni_varios_recursos_desempata_el_reside() -> None:
+    assert _clave(_casar(DNI_B))[4:] == (921, 1.0, "dni")
+
+
+def test_f036_r7_r14_ficha_en_a_y_recurso_sin_enlazar_en_b() -> None:
+    assert _clave(_casar(DNI_C, empresa=28)) == \
+        (None, "MO/950", "TRES CARLOS", DNI_C, 950, 1.0, "recurso_dni")
+    assert _clave(_casar(DNI_C, empresa=1))[4:] == (930, 1.0, "dni")
+
+
+def test_f036_r14_dni_sin_ficha_recurso_dni() -> None:
+    assert _clave(_casar(DNI_E, empresa=28)) == \
+        (None, "MO/960", "EVA SINFICHA", DNI_E, 960, 1.0, "recurso_dni")
+
+
+@pytest.mark.parametrize("dni, empresa, metodo", [
+    (DNI_H, 1, "dni_ambiguo"),
+    (DNI_I, 1, "dni_solo_baja"),
+    (DNI_E, 1, "dni_otra_empresa"),
+])
+def test_f036_r5_dni_sin_candidato_cierra_sin_alias_ni_nombre(
+        dni, empresa, metodo) -> None:
+    alias = _Alias({"ide": 10, "dni": DNI_A})
+    m = _casar(dni, nombre="ANA UNO", alias=alias, empresa=empresa)
+    assert _clave(m) == (*SIN_CASAR, metodo)
+    assert alias.llamadas == 0
+
+
+def test_f036_r4_dni_que_decide_no_consulta_el_alias() -> None:
+    alias = _Alias({"ide": 20, "dni": DNI_B})
+    assert _casar(DNI_A, alias=alias).ide == 10
+    assert alias.llamadas == 0
+
+
+@pytest.mark.parametrize("dni", [None, "", DNI_G, "99999999R"])
+def test_f036_r6_sin_dni_o_sin_recurso_persona_sigue_al_alias_y_al_nombre(
+        dni) -> None:
+    alias = _Alias()
+    m = _casar(dni, nombre="Ana Uno", alias=alias)
+    assert _clave(m) == (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "nombre")
+    assert alias.llamadas == 1
+
+
+def test_f036_r6_sin_alias_cableado_va_al_nombre() -> None:
+    m = casar_trabajador(
+        dni_leido=None, nombre_leido="Ana Uno", alias=None, indice=INDICE,
+        matcher=EmpleadoMatcher(min_score=UMBRAL), empresa=1, fecha=HOY)
+    assert m.method == "nombre"
+
+
+# ------------------------------- alias --------------------------------- #
+
+def test_f036_r8_alias_con_dni() -> None:
+    m = _casar(nombre="ANITA", alias=_Alias({"ide": 99, "dni": DNI_A}))
+    assert _clave(m) == (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "alias")
+
+
+@pytest.mark.parametrize("dni", [None, ""])
+def test_f036_r8_alias_sin_dni_toma_el_de_su_ficha(dni) -> None:
+    m = _casar(nombre="BEITA", alias=_Alias({"ide": 20, "dni": dni}))
+    assert _clave(m)[4:] == (921, 1.0, "alias")
+
+
+def test_f036_r8_alias_se_resuelve_en_la_empresa_del_parte() -> None:
+    m = _casar(nombre="CARLITOS", alias=_Alias({"ide": 30, "dni": DNI_C}),
+               empresa=28)
+    assert _clave(m) == \
+        (None, "MO/950", "TRES CARLOS", DNI_C, 950, 1.0, "recurso_nombre")
+
+
+def test_f036_r8_r14_alias_a_un_recurso_sin_ficha_es_recurso_nombre() -> None:
+    m = _casar(nombre="EVITA", alias=_Alias({"ide": None, "dni": DNI_E}),
+               empresa=28)
+    assert _clave(m) == \
+        (None, "MO/960", "EVA SINFICHA", DNI_E, 960, 1.0, "recurso_nombre")
+
+
+@pytest.mark.parametrize("alias", [
+    {"ide": 99, "dni": None},           # sin DNI y su ficha no existe
+    {"ide": None, "dni": ""},
+    {"ide": 99, "dni": "99999999R"},    # DNI sin recursos persona
+    {"ide": 99, "dni": DNI_G},          # solo un recurso que no es persona
+])
+def test_f036_r8_alias_no_valido(alias) -> None:
+    m = _casar(nombre="Ana Uno", alias=_Alias(alias))
+    assert _clave(m) == (*SIN_CASAR, "alias_no_valido")
+
+
+def test_f036_r8_alias_sin_dni_y_ficha_sin_dni_no_valido() -> None:
+    indice = IndicePersonas([_ficha(40, "SIN DNI", None, None)], RECURSOS)
+    m = _casar(nombre="X", alias=_Alias({"ide": 40, "dni": None}),
+               indice=indice)
+    assert m.method == "alias_no_valido"
+
+
+@pytest.mark.parametrize("dni, empresa, metodo", [
+    (DNI_H, 1, "dni_ambiguo"), (DNI_I, 1, "dni_solo_baja"),
+    (DNI_E, 1, "dni_otra_empresa"),
+])
+def test_f036_r8_alias_con_dni_sin_candidato(dni, empresa, metodo) -> None:
+    m = _casar(nombre="Ana Uno", alias=_Alias({"ide": None, "dni": dni}),
+               empresa=empresa)
+    assert _clave(m) == (*SIN_CASAR, metodo)
+
+
+# ------------------------------- nombre -------------------------------- #
+
+def test_f036_r10_r13_nombre_casa_por_el_nombre_de_la_ficha() -> None:
+    """El recurso 910 se llama distinto; la ficha 10 es ANA UNO."""
+    assert _clave(_casar(nombre="Ana Uno")) == \
+        (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "nombre")
+
+
+def test_f036_r10_r14_nombre_de_un_recurso_sin_ficha() -> None:
+    assert _clave(_casar(nombre="Eva Sinficha", empresa=28)) == \
+        (None, "MO/960", "EVA SINFICHA", DNI_E, 960, 1.0, "recurso_nombre")
+
+
+def test_f036_r10_nombre_solo_compite_la_empresa_del_parte() -> None:
+    assert _casar(nombre="Eva Sinficha", empresa=1).method == "none"
+
+
+def test_f036_r11_nombre_varios_recursos_de_una_persona_desempata_el_reside(
+) -> None:
+    assert _clave(_casar(nombre="Bea Dos"))[4:] == (921, 1.0, "nombre")
+
+
+def test_f036_r11_nombre_persona_sin_recurso_unico_es_nombre_ambiguo() -> None:
+    assert _clave(_casar(nombre="Hugo Igual")) == \
+        (*SIN_CASAR, "nombre_ambiguo")
+
+
+def test_f036_r11_nombre_dos_personas_empatan() -> None:
+    gemelo = _rec(985, "ANA UNO", cif="12121212R")
+    indice = IndicePersonas(FICHAS, RECURSOS + [gemelo])
+    assert _casar(nombre="Ana Uno", indice=indice).method == "nombre_ambiguo"
+
+
+def test_f036_r12_nombre_que_no_llega_al_umbral() -> None:
+    assert _clave(_casar(nombre="Xiomara Zeta")) == (*SIN_CASAR, "none")
+
+
+def test_f036_r3_nombre_de_un_recurso_sin_dni_no_casa() -> None:
+    assert _casar(nombre="Sin Dni Nadie").method == "none"
+
+
+def test_f036_r2_nombre_de_un_recurso_que_no_es_persona_no_casa() -> None:
+    assert _casar(nombre="Grua").method == "none"
+
+
+def test_f036_r10_nombre_puntuacion_no_entera_se_guarda() -> None:
+    m = _casar(nombre="Ana Uno Tres")
+    assert m.method == "nombre" and m.ide == 10 and 0.55 <= m.score < 1.0

@@ -68,3 +68,16 @@ $ cd services/partes-persistencia && python -m pytest -q tests/test_f036_casado.
 Tras el código: `16 passed in 0.42s`; suite sv3 `834 passed`. El `match_nombre` de fichas
 de F-023 queda como `match_nombre_fichas` transitorio para que el pipeline siga en verde
 hasta T7, que lo retira.
+
+### T6 · R4–R8, R13, R14 (`casar_trabajador`)
+
+Primero, sin el módulo: `ModuleNotFoundError: No module named 'application.services.casado_recurso'`
+(error de colección). Para ver el fallo test a test, con un esqueleto que solo lanza
+`NotImplementedError`:
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_casado.py
+     37 E       NotImplementedError
+37 failed, 16 passed in 2.99s      (los 16 en verde son los de match_nombre de T5)
+```
+Tras el código: `53 passed in 0.69s`.
