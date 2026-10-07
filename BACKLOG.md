@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **31 features**, 9 abiertas, 22 terminadas.
+Resumen: **33 features**, 11 abiertas, 22 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -11,6 +11,8 @@ Bloqueadas: **F-014, F-032**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
+| F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | pendiente | estandar | `feature/F-035-selector-recursos-por-empresa` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -49,6 +51,18 @@ Bloqueadas: **F-014, F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
+
+### F-034 · sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro)
+
+estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
+
+Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).
+
+### F-035 · Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa
+
+estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-035-selector-recursos-por-empresa`
+
+Pedida por el humano el 2026-10-07. Hoy los selectores de trabajador del portal (sv4) tiran de EMPLEADOS (emp) y no encuentran a quien solo tiene ficha de recurso (ejemplo real: en Conciliar no aparece un trabajador de Porsan que solo tiene recurso, el caso de F-030). LO QUE SE PIDE: (1) en Conciliar y al crear un parte nuevo, el selector de trabajador lista RECURSOS ACTIVOS de Sigrid (de alta a la fecha), no empleados; (2) en Conciliar y en partes se puede ELEGIR LA EMPRESA y el selector solo ofrece recursos de esa empresa; (3) en el detalle de obra, al cambiar el trabajador de una linea, tambien recursos activos y SOLO los de la empresa de esa obra (cada fila de obras es obra+empresa: la 0678 Carmona existe en Ruesma y en Porsan). A REVISAR EN LA SPEC: endpoints /api/sigrid/... de sv4 que alimentan los combos, regla de alta compartida (de_alta, lista cerrada de CLAUDE.md, F-023), que se guarda en la linea al elegir recurso (recurso_ide, empleado_*, DNI) y su efecto en conciliacion y registro (sv3/sv5 eligen recurso por DNI y empresa de la obra).
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
