@@ -162,8 +162,10 @@ relanza la campaña).
 
 ## 7. Cierre y pendientes
 
-- T4: `bash harness/init.sh` final tras el commit de este informe: ver la
-  última línea de §8 (Evidencias).
+- T4: `bash harness/init.sh` final (tras `a8f00fa`): **ENTORNO LISTO**;
+  raíz 445 passed / 1 skipped (46.3 s), sv4 1683 passed (202.1 s), demás
+  servicios en verde (caché), COBERTURA 100.0 % (32/32), TAMAÑO dentro de
+  topes (impl 188/220), ruff 610 avisos (= deuda previa, 0 nuevos).
 - **Verificación MANUAL pendiente (humano, tras desplegar sv4)**: abrir
   `/obras` en el portal, comprobar que la 0678 sale en dos filas con
   «Ruesma» y «Porsan», que el filtro «Filtrar empresa…» filtra y que las
@@ -185,4 +187,4 @@ relanza la campaña).
 | Cobertura de líneas cambiadas | **100.0 %** (32/32), `PUERTA COBERTURA` de `init.sh` |
 | Mutantes | 12 generados/evaluados, 10 muertos, **2 supervivientes (equivalentes, analizados)** |
 | Tiempo de la campaña | 1295.7 s (6 workers, línea base ~303 s por worktree) |
-| `bash harness/init.sh` final (T4) | ENTORNO LISTO (ver commit `F-033 T4`) |
+| `bash harness/init.sh` final (T4) | **ENTORNO LISTO**; ruff 610 (= deuda previa, 0 nuevos) |

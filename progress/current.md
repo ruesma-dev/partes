@@ -3,9 +3,10 @@
 
 ## F-033 · in_progress (2026-10-07): columna Empresa en el listado de obras (URGENTE)
 
-**Implementer en curso** (rama `feature/F-033-columna-empresa`). Tarea en
-curso: T4 (init.sh final). T1-T3 hechas; informe en `progress/impl_F-033.md`, mutación 12/10/2 equivalentes.
-Desviaciones respecto a la spec: ninguna por ahora.
+**Implementer terminado** (rama `feature/F-033-columna-empresa`): T1-T4
+hechas, `bash harness/init.sh` en verde (cobertura 100 % de 32 líneas),
+mutación 12 / 10 muertos / 2 supervivientes equivalentes. Informe en
+`progress/impl_F-033.md`. Sin desviaciones de la spec. Pendiente: reviewer.
 
 Spec **reescrita en mínimo** (el humano rechazó el primer alcance: «te estás
 liando»). Solo sv4 y solo `/obras`: columna «Empresa» con filtro de columna.
