@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **31 features**, 9 abiertas, 22 terminadas.
+Resumen: **32 features**, 10 abiertas, 22 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -11,6 +11,7 @@ Bloqueadas: **F-014, F-032**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-033 | Portal: columna Empresa en las vistas de obra | 1 | spec lista | estandar | `feature/F-033-columna-empresa` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -49,6 +50,12 @@ Bloqueadas: **F-014, F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
+
+### F-033 · Portal: columna Empresa en las vistas de obra
+
+estado **spec lista** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
+
+Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4, templates/obras_list.html, ruta obras_list) la obra 0678 sale «duplicada». Causa verificada en solo lectura: en Sigrid hay dos fichas de obra con codigo 0678 y el mismo nombre, una de Ruesma (empresa 1, ide 2245328) y otra de Porsan (empresa 28, ide 2348888); 103 codigos de obra de Porsan existen tambien en Ruesma. Desde F-023/F-029 cada parte se concilia con la obra de la empresa de su membrete (correcto). El listado agrupa por ficha (obra_key) pero solo pinta «codigo · nombre», asi que las dos filas son identicas. Decision del humano: «hay que añadir una columna donde se vea la empresa»; se mantienen las filas separadas por ficha. Alcance: columna Empresa (nombre corto: Ruesma, Porsan...) con su filtro de columna en el listado de obras; empresa en la cabecera del detalle de obra y en la etiqueta del aviso de borrado de obra; revisar las demas vistas de sv4 donde aparece la obra (partes, parte, trabajador, conciliacion, papelera); que se muestra en partes sin empresa (NULL). Servicio: solo sv4.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
