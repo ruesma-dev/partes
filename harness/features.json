@@ -464,7 +464,7 @@
         "Un trabajador con ficha de recurso y sin ficha de empleado aparece en los selectores",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,

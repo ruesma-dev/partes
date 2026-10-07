@@ -1,6 +1,28 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-035 · spec_ready (2026-10-07): selectores de trabajador sobre recursos activos, por empresa
+
+Spec en `specs/F-035-selector-recursos-por-empresa/` (spec-author). Rigor
+estándar. **Solo sv4** (+ guardián `tests/test_f023_de_alta_gemelos.py`,
+`docs/ARCHITECTURE.md` y la lista cerrada de `CLAUDE.md`); sv3 y sv5 sin
+cambios, sin schema. Hallazgos: los combos (Conciliar, Nuevo parte, modal
+«+ Añadir línea», combo por línea del detalle de obra y «Reasignar a…» del
+listado de trabajadores) tiran de `/api/sigrid/empleados` (`emp`); el detalle
+de parte no tiene combo de trabajador propio (solo el modal). sv3 recalcula el
+recurso de toda línea no congelada por DNI (ficha o `res.cif`) y empresa de la
+obra, así que sv4 guarda los `empleado_*` + `empleado_reside` y suelta el
+recurso (F-023 R42); una línea sin ficha se marca `recurso_manual` para salir
+de la cola de Conciliar. Nuevo endpoint `/api/sigrid/recursos` con su SQL;
+`/api/sigrid/empleados` se queda (lo usa la pantalla de jornadas).
+
+**Decisiones abiertas (design §8):** DA1 empresa bloqueada a la de la obra
+cuando hay obra (recomendado); DA2 ampliar la lista cerrada de `CLAUDE.md` con
+el SQL de recursos de sv4 vigilado por el guardián (recomendado); DA3 no
+ofrecer recursos sin DNI (recomendado); DA4 «recurso de persona» = `MO/` o con
+ficha enlazada (recomendado). T9 es verificación manual del humano en local,
+solo lectura.
+
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
 APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.
