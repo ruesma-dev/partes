@@ -11,6 +11,9 @@ F-023: los listados (tipos de hora, obras, empleados, partidas) se PAGINAN
 igual que en sv3 (``_leer_paginado``) y una respuesta con ``truncated:
 true`` es una excepcion. Obras y empleados traen su empresa (``con.emp``);
 las obras van una por ``ide``: hay codigos en dos empresas.
+
+F-035: ademas, el catalogo de RECURSOS ACTIVOS de clase persona
+(``fetch_recursos_activos``) para los selectores de trabajador.
 """
 from __future__ import annotations
 
@@ -85,6 +88,36 @@ WHERE (con.fecbaj IS NULL OR con.fecbaj = 0 OR con.fecbaj > ?)
 """
 
 
+# F-035: recursos ACTIVOS de clase persona (criterio de `porcentajes`,
+# decision del humano 2026-10-07): `res.cla = 1`, uno por recurso, empresa
+# y alta (regla F-023, a hoy) del concepto del recurso. La ficha enlazada es
+# la de `res.conide` (> 0). El DNI (`res.cif` o el de la ficha) se decide en
+# Python. El predicado de alta es literalmente el de `_SQL_EMPLEADOS`: lo
+# vigila `tests/test_f023_de_alta_gemelos.py` (lista cerrada de CLAUDE.md).
+_SQL_RECURSOS_ACTIVOS = """\
+SELECT
+    res.ide       AS ide,
+    rescon.cod    AS codigo,
+    rescon.res    AS nombre,
+    rescon.emp    AS empresa,
+    res.cif       AS cif,
+    emp.ide       AS empleado_ide,
+    empcon.cod    AS empleado_codigo,
+    emp.res       AS empleado_nombre,
+    emp.dni       AS empleado_dni,
+    auxrestip.res AS categoria,
+    reshor.candef AS candef
+FROM res
+JOIN con rescon ON rescon.ide = res.ide
+LEFT JOIN emp ON emp.ide = res.conide AND res.conide > 0
+LEFT JOIN con empcon ON empcon.ide = emp.ide
+LEFT JOIN auxrestip ON auxrestip.ide = res.restipide
+LEFT JOIN reshor ON reshor.reside = res.ide AND reshor.horide = res.horide
+WHERE res.cla = 1
+  AND (rescon.fecbaj IS NULL OR rescon.fecbaj = 0 OR rescon.fecbaj > ?)
+"""
+
+
 _SQL_PARTIDAS = """\
 SELECT
     obrparpar.ide       AS ide,
@@ -130,6 +163,22 @@ class EmpleadoOption:
     candef: float | None = None
     reside: int | None = None   # recurso (res.ide) del empleado
     empresa: int | None = None  # con.emp de la ficha (F-023)
+
+
+@dataclass(frozen=True)
+class RecursoOption:
+    """Recurso ACTIVO de clase persona (F-035) para los selectores."""
+    ide: int                      # res.ide
+    codigo: str | None            # con.cod del recurso
+    nombre: str | None            # con.res del recurso
+    dni: str | None               # res.cif o, vacio, el de la ficha
+    empresa: int | None           # con.emp del recurso
+    empleado_ide: int | None = None      # ficha enlazada (res.conide)
+    empleado_codigo: str | None = None
+    empleado_nombre: str | None = None
+    empleado_dni: str | None = None
+    categoria: str | None = None
+    candef: float | None = None
 
 
 @dataclass
@@ -274,6 +323,66 @@ class SigridLookupClient:
             por_ide[ide] = emp
             out.append(emp)
         logger.info("%s empleados -> %s filas", _LOG_PREFIX, len(out))
+        return out
+
+    def fetch_recursos_activos(self) -> list[RecursoOption]:
+        """Recursos ACTIVOS de clase persona, uno por ``res.ide`` (F-035).
+
+        La clase (``res.cla = 1``) y el alta a hoy del concepto del
+        recurso van en SQL (R1, R4). El DNI se decide aqui (R2): ``res.cif``
+        y, si esta vacio, el de la ficha enlazada; el recurso que sigue sin
+        DNI no se ofrece (R3), porque sv3 y sv5 identifican por DNI.
+        """
+        hoy = int(datetime.now().strftime("%Y%m%d"))
+        columns, rows = self._leer_paginado(
+            sql=_SQL_RECURSOS_ACTIVOS, parameters=[hoy],
+            orden="res.ide", label="recursos_activos",
+        )
+        out: list[RecursoOption] = []
+        por_ide: dict[int, int] = {}      # ide -> posicion en `out`
+        sin_dni: set[int] = set()
+        for row in rows:
+            rm = dict(zip(columns, row))
+            ide = _opt_int(rm.get("ide"))
+            if ide is None or ide in sin_dni:
+                continue
+            categoria = _opt_str(rm.get("categoria"))
+            candef = _opt_float(rm.get("candef"))
+            pos = por_ide.get(ide)
+            if pos is not None:
+                # Filas repetidas por el JOIN: solo completan categoria/candef.
+                previo = out[pos]
+                cambios: dict[str, Any] = {}
+                if previo.categoria is None and categoria:
+                    cambios["categoria"] = categoria
+                if previo.candef is None and candef is not None:
+                    cambios["candef"] = candef
+                if cambios:
+                    out[pos] = dc_replace(previo, **cambios)
+                continue
+            empleado_dni = _opt_str(rm.get("empleado_dni"))
+            dni = _opt_str(rm.get("cif")) or empleado_dni
+            if not dni:
+                sin_dni.add(ide)
+                continue
+            por_ide[ide] = len(out)
+            out.append(RecursoOption(
+                ide=ide,
+                codigo=_opt_str(rm.get("codigo")),
+                nombre=_opt_str(rm.get("nombre")),
+                dni=dni,
+                empresa=_opt_int(rm.get("empresa")),
+                empleado_ide=_opt_int(rm.get("empleado_ide")),
+                empleado_codigo=_opt_str(rm.get("empleado_codigo")),
+                empleado_nombre=_opt_str(rm.get("empleado_nombre")),
+                empleado_dni=empleado_dni,
+                categoria=categoria,
+                candef=candef,
+            ))
+        logger.info(
+            "%s recursos_activos -> %s recursos (%s sin DNI, no se ofrecen)",
+            _LOG_PREFIX, len(out), len(sin_dni),
+        )
         return out
 
     def fetch_partidas_obra(self, obra_ide: int) -> list[PartidaRowLite]:
