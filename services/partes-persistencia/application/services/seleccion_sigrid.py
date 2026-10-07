@@ -164,6 +164,31 @@ class IndicePersonas:
             if r.empresa is not None and de_alta(r.fecbaj, fecha)
         )
 
+    def candidatos_nombre(
+        self, empresa: int | None, fecha: int
+    ) -> list[RecursoRow]:
+        """F-036 (R3, R10): recursos persona de alta a la fecha, de la
+        empresa (o de todas si es None) y con DNI del recurso."""
+        return [
+            r for r in self._recursos
+            if es_persona(r) and de_alta(r.fecbaj, fecha)
+            and (empresa is None or r.empresa == empresa)
+            and self.dni_de_recurso(r)
+        ]
+
+    def casar_por_dni(
+        self, dni: str | None, empresa: int | None, fecha: int
+    ) -> ResolucionRecurso:
+        """F-036 (R4-R5): el recurso persona de un DNI en la empresa del
+        parte a la fecha. Desempata como ingesta y conciliador juntos: con
+        la ficha del DNI de alta en esa empresa, su `reside` y despues el
+        unico enlazado a ella; sin esa ficha, solo un candidato unico."""
+        ficha = self.elegir_ficha(dni, empresa, fecha)
+        if ficha.motivo == "ok":
+            reside = self._ficha_por_ide[ficha.ide].reside
+            return self.elegir_recurso(dni, ficha.ide, reside, empresa, fecha)
+        return self.elegir_recurso(dni, None, None, empresa, fecha)
+
     def fichas_candidatas(
         self, empresa: int | None, fecha: int
     ) -> list[EmpleadoRow]:

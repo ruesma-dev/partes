@@ -47,3 +47,13 @@ $ cd services/partes-persistencia && python -m pytest -q tests/test_f036_maestro
 21 failed, 4 passed in 1.42s
 ```
 Tras el código: `79 passed` (maestro + F-023 selección); suite sv3 `798 passed`. Nota: `dni_de_recurso` y `ficha_enlazada` (de T4 en `tasks.md`) se adelantan a T3 porque el INFO de R3 los necesita.
+
+### T4 · R3, R4, R5, R7 (`candidatos_nombre`, `casar_por_dni`)
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_seleccion.py
+     17 E       AttributeError: 'IndicePersonas' object has no attribute 'casar_por_dni'
+      3 E       AttributeError: 'IndicePersonas' object has no attribute 'candidatos_nombre'
+20 failed in 0.86s
+```
+Tras el código: `20 passed in 0.23s`.
