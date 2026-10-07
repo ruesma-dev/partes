@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **37 features**, 12 abiertas, 25 terminadas.
+Resumen: **37 features**, 11 abiertas, 26 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -12,7 +12,6 @@ Bloqueadas: **F-014, F-032**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
-| F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | pendiente | estandar | `feature/F-035-selector-recursos-por-empresa` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
@@ -35,6 +34,7 @@ Bloqueadas: **F-014, F-032**.
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
 | F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
+| F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | estandar |
 | F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |
 | F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
@@ -61,12 +61,6 @@ Bloqueadas: **F-014, F-032**.
 estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
 
 Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).
-
-### F-035 · Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa
-
-estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-035-selector-recursos-por-empresa`
-
-Pedida por el humano el 2026-10-07. Hoy los selectores de trabajador del portal (sv4) tiran de EMPLEADOS (emp) y no encuentran a quien solo tiene ficha de recurso (ejemplo real: en Conciliar no aparece un trabajador de Porsan que solo tiene recurso, el caso de F-030). LO QUE SE PIDE: (1) en Conciliar y al crear un parte nuevo, el selector de trabajador lista RECURSOS ACTIVOS de Sigrid (de alta a la fecha), no empleados; (2) en Conciliar y en partes se puede ELEGIR LA EMPRESA y el selector solo ofrece recursos de esa empresa; (3) en el detalle de obra, al cambiar el trabajador de una linea, tambien recursos activos y SOLO los de la empresa de esa obra (cada fila de obras es obra+empresa: la 0678 Carmona existe en Ruesma y en Porsan). A REVISAR EN LA SPEC: endpoints /api/sigrid/... de sv4 que alimentan los combos, regla de alta compartida (de_alta, lista cerrada de CLAUDE.md, F-023), que se guarda en la linea al elegir recurso (recurso_ide, empleado_*, DNI) y su efecto en conciliacion y registro (sv3/sv5 eligen recurso por DNI y empresa de la obra).
 
 ### F-038 · Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes)
 
@@ -169,6 +163,12 @@ Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuen
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
 
 Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.
+
+### F-035 · Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-035-selector-recursos-por-empresa`
+
+Pedida por el humano el 2026-10-07. Hoy los selectores de trabajador del portal (sv4) tiran de EMPLEADOS (emp) y no encuentran a quien solo tiene ficha de recurso (ejemplo real: en Conciliar no aparece un trabajador de Porsan que solo tiene recurso, el caso de F-030). LO QUE SE PIDE: (1) en Conciliar y al crear un parte nuevo, el selector de trabajador lista RECURSOS ACTIVOS de Sigrid (de alta a la fecha), no empleados; (2) en Conciliar y en partes se puede ELEGIR LA EMPRESA y el selector solo ofrece recursos de esa empresa; (3) en el detalle de obra, al cambiar el trabajador de una linea, tambien recursos activos y SOLO los de la empresa de esa obra (cada fila de obras es obra+empresa: la 0678 Carmona existe en Ruesma y en Porsan). A REVISAR EN LA SPEC: endpoints /api/sigrid/... de sv4 que alimentan los combos, regla de alta compartida (de_alta, lista cerrada de CLAUDE.md, F-023), que se guarda en la linea al elegir recurso (recurso_ide, empleado_*, DNI) y su efecto en conciliacion y registro (sv3/sv5 eligen recurso por DNI y empresa de la obra).
 
 ### F-036 · sv3: casar el trabajador leido contra los recursos persona de la empresa del parte
 

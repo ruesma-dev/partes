@@ -9,7 +9,8 @@ La regla (R1): un empleado o recurso esta de alta a la fecha D si su
   - sv5 `application/services/coherencia_recurso.py::de_alta` (verifica
     antes de escribir en Sigrid),
   - sv4 la aplica en SQL, en el filtro de alta a hoy de su catalogo de
-    empleados (`_SQL_EMPLEADOS` de `sigrid_lookup_client.py`).
+    empleados (`_SQL_EMPLEADOS` de `sigrid_lookup_client.py`) y, desde
+    F-035, de su catalogo de recursos activos (`_SQL_RECURSOS_ACTIVOS`).
 
 Si divergen, sv5 omitiria lineas que sv3 da por buenas (o al reves) y el
 portal ofreceria fichas que la ingesta no casa. Esta en la lista cerrada
@@ -106,3 +107,16 @@ def test_f023_de_alta_el_sql_de_sv4_conserva_la_misma_regla() -> None:
     assert "(con.fecbaj IS NULL OR con.fecbaj = 0 OR con.fecbaj > ?)" in sql
     assert ("rescon.fecbaj IS NULL OR rescon.fecbaj = 0 OR "
             "rescon.fecbaj > ?") in sql
+
+
+def test_f035_r23_el_sql_de_recursos_de_sv4_conserva_la_misma_regla() -> None:
+    """F-035 (DA2): el catalogo de recursos activos de sv4 filtra el
+    concepto del recurso con la misma regla, a hoy, y con el mismo texto
+    que `_SQL_EMPLEADOS`."""
+    sql = _constante(RUTA_SV4, "_SQL_RECURSOS_ACTIVOS")
+    regla = ("(rescon.fecbaj IS NULL OR rescon.fecbaj = 0 OR "
+             "rescon.fecbaj > ?)")
+    assert regla in sql
+    assert sql.count("fecbaj > ?") == 1
+    assert ("rescon.fecbaj IS NULL OR rescon.fecbaj = 0 OR "
+            "rescon.fecbaj > ?") in _constante(RUTA_SV4, "_SQL_EMPLEADOS")

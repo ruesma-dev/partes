@@ -197,6 +197,112 @@ sv3 y sv5; F-035 debe usar el mismo criterio en sv4. Las dos tocan
 `CLAUDE.md` (lista cerrada) y la semántica 12 de `ARCHITECTURE.md`: conflicto
 de merge trivial al integrar.
 
+## F-035 · done (2026-10-07), pendiente de T9 y desplegar sv4: selectores de trabajador sobre recursos activos, por empresa
+
+### Desbloqueada (2026-10-07): el humano eligió la opción (a)
+
+Se añadió la ruta al guardián F-016 con comentario `F-035 (R5)` y la
+excepción quedó anotada en R22; la desviación de `METODOS_RECURSO` quedó
+aceptada y anotada en design §4. Se retoma en T5.
+
+**Estado (implementer, 2026-10-07):** T1–T8 y T10 hechos; T9 es la
+verificación MANUAL del humano en local (solo lectura). Informe en
+`progress/impl_F-035.md`, mutación en `progress/mutacion_F-035.md`.
+
+**Revisión 1 (CHANGES_REQUESTED, `progress/review_F-035.md`) aplicada:** bug
+del callback de «Nuevo parte» (`e.` → `r.`) con test que ejecuta el callback
+con node; reasignar a una ficha quita `recurso_manual`; `/api/sigrid/recursos`
+responde `ok: false` si Sigrid nunca cargó. Pendiente de la pasada 2.
+
+### T9 · verificación MANUAL (la lanza el humano; SOLO LECTURA, no aprobar nada)
+
+Con el `.env` local (Sigrid configurado), desde la raíz del repo:
+
+```
+python services/partes-front/main.py
+```
+
+Abrir el portal en el navegador y pulsar **Ctrl+F5** (estáticos nuevos). Tres
+comprobaciones:
+1. **Conciliar** (`/conciliacion`): en una tarjeta con partes de Porsan el
+   selector de empresa sale en «Porsan» y aparece como candidato el
+   trabajador del caso F-030 (solo recurso, `MO/0037`); al cambiar a otra
+   empresa se ocultan los candidatos de Porsan y la búsqueda manual filtra.
+2. **Detalle de obra 0678 de Porsan** (`/obras/obr-<ide de la 0678 Porsan>`):
+   el combo de trabajador de una línea solo ofrece recursos de Porsan (y en la
+   0678 de Ruesma, solo de Ruesma).
+3. **Nuevo parte** (`/nuevo`): al elegir obra, el selector de empresa toma su
+   empresa y queda bloqueado; al elegir trabajador se rellenan categoría y
+   horas sugeridas. El modal «+ Añadir línea» (desde una obra) igual. NO
+   pulsar «Crear» ni «Añadir» contra la base real.
+
+### BLOQUEO previo (implementer, 2026-10-07): test ajeno en rojo por R5
+
+**Qué pasa.** R5 manda crear `GET /api/sigrid/recursos`. El guardián ajeno
+`services/partes-front/tests/test_f016_vista_admin_jornadas.py::test_f016_r20_f016_no_anade_ni_cambia_ninguna_ruta_de_sigrid`
+fija la lista CERRADA de rutas `/api/sigrid/*` (tipos-hora, obras,
+empleados, partidas, comprobar) y falla con la ruta nueva. R22 prohíbe tocar
+tests ajenos y la orden del líder es parar ante un test ajeno en rojo. La spec
+no lo previó (design §2 no lista ese test).
+
+**Opciones para el humano:**
+- **(a) Recomendada:** añadir `("/api/sigrid/recursos", ("GET",))  # F-035 (R5)`
+  a la lista de ese guardián, como hizo F-024 con `/api/sigrid/comprobar` (su
+  docstring prevé exactamente eso: se amplía de forma explícita, no se afloja),
+  y anotar en R22 la excepción. Una línea en un test ajeno.
+- (b) Sacar el endpoint del prefijo (p. ej. `/api/recursos`): no toca el
+  guardián, pero cambia R5 y esquiva la intención de la lista cerrada.
+
+**Estado al bloquear.** T1–T4 hechos y comiteados (un commit por tarea), T5
+con sus tests escritos en RED (commit `F-035 T5 (en RED)`), T6–T10 sin hacer.
+Suite de sv4 tras T4: solo rojo el guardián F-016 y los tests de vistas de T5
+(esperado). Ningún otro test ajeno afectado: comprobado que T5/T6 no chocan con
+más guardianes (`_comboSimple` se seguirá reutilizando sin modificarlo, como
+exige `test_f016_r20_el_js_cablea_el_combo_sin_tocar_el_componente`).
+Informe parcial con las trazas RED en `progress/impl_F-035.md`.
+
+**En implementación (implementer, 2026-10-07).** DA1 y DA2 APROBADAS por el
+humano el 2026-10-07 (empresa bloqueada a la de la obra cuando hay obra;
+ampliar la lista cerrada de `CLAUDE.md` con el filtro de alta del SQL de
+recursos de sv4, vigilado por el guardián). DA3/DA4 como en la spec. Anotado
+en design §8. Tarea en curso al bloquear: T5 (tests en RED, plantillas sin hacer).
+
+**Desviación justificada (T3):** design §4 decía «`METODOS_RECURSO` incluye
+`recurso_manual`», pero `test_f030_r18_metodos_de_recurso` (test ajeno de
+F-030) fija ese conjunto a `{recurso_dni, recurso_nombre}` (es el espejo de la
+constante de sv3) y R22 prohíbe tocar tests ajenos. Se cumple R13 sin tocarlo:
+`METODO_RECURSO_MANUAL` + `_METODOS_CASADO_SIN_FICHA = METODOS_RECURSO |
+{recurso_manual}`, que usan `esta_casado` y `_sin_casar_en_cola`. Mismo
+efecto que pedía el diseño; `METODOS_RECURSO` sin cambios.
+
+Nota del arranque: el primer `bash harness/init.sh` de la sesión cayó en
+pytest de la raíz (`sF` hacia el 96 %, salida truncada) con el árbol limpio;
+al relanzar `python -m pytest tests -q` dio 445 passed, 1 skipped. Parece
+intermitente (había otro implementer trabajando en paralelo en
+`partes-wt-f036`); se vigila en las siguientes ejecuciones.
+
+Spec en `specs/F-035-selector-recursos-por-empresa/` (spec-author). Rigor
+estándar. **Solo sv4** (+ guardián `tests/test_f023_de_alta_gemelos.py`,
+`docs/ARCHITECTURE.md` y la lista cerrada de `CLAUDE.md`); sv3 y sv5 sin
+cambios, sin schema. Hallazgos: los combos (Conciliar, Nuevo parte, modal
+«+ Añadir línea», combo por línea del detalle de obra y «Reasignar a…» del
+listado de trabajadores) tiran de `/api/sigrid/empleados` (`emp`); el detalle
+de parte no tiene combo de trabajador propio (solo el modal). sv3 recalcula el
+recurso de toda línea no congelada por DNI (ficha o `res.cif`) y empresa de la
+obra, así que sv4 guarda los `empleado_*` + `empleado_reside` y suelta el
+recurso (F-023 R42); una línea sin ficha se marca `recurso_manual` para salir
+de la cola de Conciliar. Nuevo endpoint `/api/sigrid/recursos` con su SQL;
+`/api/sigrid/empleados` se queda (lo usa la pantalla de jornadas).
+
+**Decisiones (design §8, ya resueltas):** DA1 empresa bloqueada a la de la obra
+cuando hay obra (recomendado); DA2 ampliar la lista cerrada de `CLAUDE.md` con
+el SQL de recursos de sv4 vigilado por el guardián (recomendado); DA3 y DA4
+**resueltas por el humano (2026-10-07)** y ya en la spec: persona = recurso de
+clase persona (`res.cla = 1`, criterio de `porcentajes`), DNI = `res.cif` o, si
+vacío, el de la ficha (`res.conide > 0`); el que siga sin DNI no se ofrece. El
+casado de sv3 con ese criterio es F-036 (otra spec). T9 es verificación
+manual del humano en local, solo lectura.
+
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
 APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.

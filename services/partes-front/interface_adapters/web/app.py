@@ -105,6 +105,11 @@ from interface_adapters.web.identidad import (
 )
 from application.services.obra_catalog import ObraCatalog
 from application.services.empleado_catalog import EmpleadoCatalog
+from application.services.empresas import NOMBRES_EMPRESA, nombre_empresa
+from application.services.recurso_catalog import (
+    RecursoCatalog,
+    asignacion_de,
+)
 from application.services import empleado_reconciler as recon
 from application.services.reparto_obras import (
     SEPARADOR_CLAVE,
@@ -435,6 +440,8 @@ def build_app(
     catalog = TipoHoraCatalog(client=sigrid_client)
     obra_catalog = ObraCatalog(client=sigrid_client)
     empleado_catalog = EmpleadoCatalog(client=sigrid_client)
+    # F-035: recursos activos de clase persona para los selectores.
+    recurso_catalog = RecursoCatalog(client=sigrid_client)
 
     # Token provider de Graph para el visor de PDF (descarga desde SharePoint).
     graph_token_provider: GraphTokenProvider | None = None
@@ -571,6 +578,7 @@ def build_app(
     app.state.catalog = catalog
     app.state.obra_catalog = obra_catalog
     app.state.empleado_catalog = empleado_catalog
+    app.state.recurso_catalog = recurso_catalog
     app.state.graph_token_provider = graph_token_provider
     app.state.calendario_provider = calendario_provider
     app.state.jornada_provider = jornada_provider
@@ -597,6 +605,9 @@ def build_app(
     # anadirlo al contexto de las diez vistas que ya existen.
     templates.env.globals["jornadas_admin_enabled"] = bool(
         settings.jornadas_admin_enabled)
+    # F-035: opciones de los selectores de empresa (Conciliar, Nuevo parte
+    # y el modal «+ Añadir linea» de base.html).
+    templates.env.globals["EMPRESAS"] = sorted(NOMBRES_EMPRESA.items())
     app.mount(
         "/static",
         StaticFiles(
@@ -1104,6 +1115,15 @@ def build_app(
         _consultas.update((None, ano) for ano in _dias_periodo)
         sesame_degradado = not calendario_provider.fiable_para(_consultas)
 
+        # F-035 (R20): el combo de trabajador ofrece solo recursos de la
+        # empresa de la ficha de obra; sin ella (o sin Sigrid), todos.
+        empresa_obra: int | None = None
+        try:
+            _obra = obra_catalog.get_by_ide(detail.obra_ide)
+            empresa_obra = _obra.empresa if _obra is not None else None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[obra-detail] empresa de la obra: %r", exc)
+
         context = {
             "request": request,
             "title": settings.app_title,
@@ -1122,6 +1142,7 @@ def build_app(
             "preview_enabled": settings.preview_enabled,
             "back": f"/obras/{obra_key}",
             "obra_key": obra_key,
+            "empresa_obra": empresa_obra,
             "message": message,
         }
         return templates.TemplateResponse(
@@ -1129,15 +1150,70 @@ def build_app(
         )
 
     # -------------------- CONCILIACION de trabajadores ---------------- #
+    def _candidato_con_empresa(item: dict[str, Any]) -> dict[str, Any]:
+        """F-035 (R10): empresa del recurso candidato y su nombre corto."""
+        rec = recurso_catalog.get_by_ide(item["ide"])
+        empresa = rec.empresa if rec is not None else None
+        item["empresa"] = empresa
+        item["empresa_nombre"] = (
+            nombre_empresa(empresa) if empresa is not None else "")
+        return item
+
+    def _trabajador_pedido(
+        data: dict,
+    ) -> tuple[dict[str, Any] | None, JSONResponse | None]:
+        """F-035 (R11, R15): el trabajador elegido en el cuerpo.
+
+        Con `recurso_ide` se resuelve en el catalogo de recursos y se
+        usa su `Asignacion` (R12/R13); sin el, el camino de empleados de
+        siempre por `ide`. Devuelve `(datos, None)`, `(None, error)` o
+        `(None, None)` si no viene ninguno. Los datos llevan
+        `ide/codigo/nombre/dni/reside`."""
+        if data.get("recurso_ide") not in (None, ""):
+            rec = recurso_catalog.get_by_ide(_as_int(data.get("recurso_ide")))
+            if rec is None:
+                return None, JSONResponse(
+                    {"ok": False, "error": "Recurso no encontrado entre los "
+                     f"activos (recurso_ide={data.get('recurso_ide')!r}). "
+                     "¿Sigrid configurado en sv4?"},
+                    status_code=404,
+                )
+            a = asignacion_de(rec)
+            return {"ide": a.empleado_ide, "codigo": a.codigo,
+                    "nombre": a.nombre, "dni": a.dni,
+                    "reside": a.reside}, None
+        ide = _as_int(data.get("ide"))
+        if ide is None:
+            return None, None
+        emp = empleado_catalog.get_by_ide(ide)
+        if emp is None:
+            return None, JSONResponse(
+                {"ok": False, "error": "Empleado no encontrado en el maestro "
+                 f"(ide={ide}). ¿Sigrid configurado en sv4?"},
+                status_code=404,
+            )
+        return {"ide": emp.ide, "codigo": emp.codigo, "nombre": emp.nombre,
+                "dni": emp.dni, "reside": None}, None
+
     @app.get("/conciliacion", response_class=HTMLResponse)
     def conciliacion(request: Request) -> HTMLResponse:
         pendientes = repository.list_unmatched_workers()
-        empleados = empleado_catalog.list() if empleado_catalog.enabled else []
+        # F-035 (R7): candidatos entre los RECURSOS activos (tambien quien
+        # no tiene ficha de empleado), de la empresa por defecto de la
+        # tarjeta (R8): la de sus partes si es una sola; si no, todas.
+        recursos = recurso_catalog.list() if recurso_catalog.enabled else []
 
         filas: list[dict] = []
         n_auto = n_rev = n_sin = n_cat = 0
         for p in pendientes:
-            bucket, cands = recon.classify(p["nombre_leido"], empleados, top_n=5)
+            empresas_p = p.get("empresas") or []
+            empresa_defecto = (
+                empresas_p[0] if len(empresas_p) == 1 else None)
+            candidatos_de = (
+                recursos if empresa_defecto is None
+                else [r for r in recursos if r.empresa == empresa_defecto])
+            bucket, cands = recon.classify(
+                p["nombre_leido"], candidatos_de, top_n=5)
             if bucket == "auto":
                 n_auto += 1
             elif bucket == "revisar":
@@ -1153,9 +1229,12 @@ def build_app(
                 "categorias": p["categorias"],
                 "partes": p.get("partes", []),
                 "bucket": bucket,
+                "empresa_defecto": empresa_defecto,
                 "candidates": [
-                    {"ide": c.ide, "codigo": c.codigo, "nombre": c.nombre,
-                     "dni": c.dni, "score": round(c.score * 100)}
+                    _candidato_con_empresa(
+                        {"ide": c.ide, "codigo": c.codigo,
+                         "nombre": c.nombre, "dni": c.dni,
+                         "score": round(c.score * 100)})
                     for c in cands
                 ],
             })
@@ -1165,7 +1244,7 @@ def build_app(
             "title": settings.app_title,
             "sigrid_enabled": settings.sigrid_lookup_enabled,
             "preview_enabled": settings.preview_enabled,
-            "empleados_total": len(empleados),
+            "empleados_total": len(recursos),   # F-035: cuenta recursos
             "filas": filas,
             "n_total": len(filas),
             "n_auto": n_auto,
@@ -1189,24 +1268,23 @@ def build_app(
                 status_code=400,
             )
         nombre_leido = data.get("nombre_leido")
-        ide = _as_int(data.get("ide"))
-        if not nombre_leido or ide is None:
+        emp: dict[str, Any] | None = None
+        if nombre_leido:
+            emp, error = _trabajador_pedido(data)
+            if error is not None:
+                return error
+        if not nombre_leido or emp is None:
             return JSONResponse(
                 {"ok": False, "error": "Faltan datos: "
-                 f"nombre_leido={nombre_leido!r}, ide={data.get('ide')!r}."},
+                 f"nombre_leido={nombre_leido!r}, ide={data.get('ide')!r}, "
+                 f"recurso_ide={data.get('recurso_ide')!r}."},
                 status_code=400,
-            )
-        emp = empleado_catalog.get_by_ide(ide)
-        if emp is None:
-            return JSONResponse(
-                {"ok": False, "error": "Empleado no encontrado en el maestro "
-                 f"(ide={ide}). ¿Sigrid configurado en sv4?"},
-                status_code=404,
             )
         try:
             updated, congeladas = repository.backfill_empleado(
-                nombre_leido=nombre_leido, ide=emp.ide,
-                codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                nombre_leido=nombre_leido, ide=emp["ide"],
+                codigo=emp["codigo"], nombre=emp["nombre"], dni=emp["dni"],
+                reside=emp["reside"],
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("[conciliacion] backfill fallo")
@@ -1216,31 +1294,36 @@ def build_app(
                 status_code=500,
             )
         # El alias es una optimizacion (auto-casado futuro): best-effort.
+        # F-035 (R14): solo de fichas de empleado; un recurso sin ficha no.
         alias_ok = True
-        try:
-            repository.upsert_empleado_alias(
-                nombre_leido=nombre_leido, ide=emp.ide,
-                codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
-                created_by="conciliacion",
-            )
-        except Exception as exc:  # noqa: BLE001
-            alias_ok = False
-            logger.warning("[conciliacion] alias no guardado: %r", exc)
+        if emp["ide"] is not None:
+            try:
+                repository.upsert_empleado_alias(
+                    nombre_leido=nombre_leido, ide=emp["ide"],
+                    codigo=emp["codigo"], nombre=emp["nombre"],
+                    dni=emp["dni"], created_by="conciliacion",
+                )
+            except Exception as exc:  # noqa: BLE001
+                alias_ok = False
+                logger.warning("[conciliacion] alias no guardado: %r", exc)
         return JSONResponse({
             "ok": True, "updated": updated, "alias_ok": alias_ok,
             # F-004 R8: las lineas congeladas se omiten; decirlo evita
             # que el usuario crea que su casado se aplico entero.
             "congeladas": congeladas,
-            "empleado": {"ide": emp.ide, "codigo": emp.codigo,
-                         "nombre": emp.nombre},
+            "empleado": {"ide": emp["ide"], "codigo": emp["codigo"],
+                         "nombre": emp["nombre"]},
         })
 
     @app.get("/api/conciliacion/buscar")
     def conciliacion_buscar(
         q: str = Query(default=""),
         nombre_leido: str | None = Query(default=None),
+        empresa: int | None = Query(default=None),
     ) -> JSONResponse:
-        empleados = empleado_catalog.list() if empleado_catalog.enabled else []
+        # F-035 (R9): entre los recursos activos de `empresa` (o todos).
+        empleados = (recurso_catalog.list(empresa)
+                     if recurso_catalog.enabled else [])
         query = (q or nombre_leido or "").strip()
         if not query:
             return JSONResponse({"ok": True, "items": []})
@@ -1256,7 +1339,7 @@ def build_app(
         scored.sort(key=lambda t: t[0], reverse=True)
         items = [
             {"ide": e.ide, "codigo": e.codigo, "nombre": e.nombre,
-             "dni": e.dni, "score": round(sc * 100)}
+             "dni": e.dni, "score": round(sc * 100), "empresa": e.empresa}
             for sc, e in scored[:15]
         ]
         return JSONResponse({"ok": True, "items": items})
@@ -1272,20 +1355,17 @@ def build_app(
                 {"ok": False, "error": "Body no es JSON válido."},
                 status_code=400,
             )
-        ide = _as_int(data.get("ide"))
-        if ide is None:
+        emp, error = _trabajador_pedido(data)
+        if error is not None:
+            return error
+        if emp is None:
             return JSONResponse(
                 {"ok": False, "error": f"Falta o es inválido 'ide' "
                  f"({data.get('ide')!r})."},
                 status_code=400,
             )
-        emp = empleado_catalog.get_by_ide(ide)
-        if emp is None:
-            return JSONResponse(
-                {"ok": False, "error": "Empleado no encontrado en el maestro "
-                 f"(ide={ide}). ¿Sigrid configurado en sv4?"},
-                status_code=404,
-            )
+        # F-035 (R21): los mismos datos para las cuatro formas de reasignar.
+        quien = dict(emp)
         registro_id = _as_int(data.get("registro_id"))
         registro_ids_in = data.get("registro_ids")
         worker_key = data.get("worker_key")
@@ -1299,8 +1379,7 @@ def build_app(
                 ids = [x for x in ids if x is not None]
                 updated, congeladas = (
                     repository.reassign_empleado_by_registro_ids(
-                        registro_ids=ids, ide=emp.ide, codigo=emp.codigo,
-                        nombre=emp.nombre, dni=emp.dni,
+                        registro_ids=ids, **quien,
                     )
                 )
                 # Acotado a lineas concretas: no se crea alias de mapeo.
@@ -1313,21 +1392,18 @@ def build_app(
                         status_code=400,
                     )
                 updated, congeladas = repository.reassign_empleado_by_leido(
-                    nombre_leido=leido, ide=emp.ide, codigo=emp.codigo,
-                    nombre=emp.nombre, dni=emp.dni,
+                    nombre_leido=leido, **quien,
                 )
                 leidos = [leido]
             elif worker_key:
                 updated, leidos, congeladas = (
                     repository.reassign_empleado_by_worker_key(
-                        worker_key=worker_key, ide=emp.ide,
-                        codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                        worker_key=worker_key, **quien,
                     )
                 )
             elif nombre_leido_in:
                 updated, congeladas = repository.reassign_empleado_by_leido(
-                    nombre_leido=nombre_leido_in, ide=emp.ide,
-                    codigo=emp.codigo, nombre=emp.nombre, dni=emp.dni,
+                    nombre_leido=nombre_leido_in, **quien,
                 )
                 leidos = [nombre_leido_in]
             else:
@@ -1345,12 +1421,14 @@ def build_app(
             )
 
         # Alias (auto-casado futuro): best-effort, no debe tumbar la reasignacion.
+        # F-035 (R14): solo de fichas de empleado; un recurso sin ficha no.
         alias_ok = True
-        for leido in leidos:
+        for leido in (leidos if emp["ide"] is not None else []):
             try:
                 repository.upsert_empleado_alias(
-                    nombre_leido=leido, ide=emp.ide, codigo=emp.codigo,
-                    nombre=emp.nombre, dni=emp.dni, created_by="reasignacion",
+                    nombre_leido=leido, ide=emp["ide"], codigo=emp["codigo"],
+                    nombre=emp["nombre"], dni=emp["dni"],
+                    created_by="reasignacion",
                 )
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False
@@ -1358,8 +1436,8 @@ def build_app(
         return JSONResponse({
             "ok": True, "updated": updated, "alias_ok": alias_ok,
             "congeladas": congeladas,   # F-004 R8
-            "empleado": {"ide": emp.ide, "codigo": emp.codigo,
-                         "nombre": emp.nombre},
+            "empleado": {"ide": emp["ide"], "codigo": emp["codigo"],
+                         "nombre": emp["nombre"]},
         })
 
     # ----------------------------- DESHACER --------------------------- #
@@ -1546,6 +1624,16 @@ def build_app(
             }
         )
 
+    def _jornada_sugerida(cd: float | None) -> float:
+        # CanDefecto no valido (vacio o <= minimo) -> jornada por defecto
+        # (mismo umbral que sv3 al reclasificar extras). La comparten
+        # `/api/sigrid/empleados` y `/api/sigrid/recursos` (F-035).
+        return jornada_efectiva(
+            cd,
+            minimo=settings.candef_minimo_valido,
+            por_defecto=settings.jornada_por_defecto,
+        )
+
     @app.get("/api/sigrid/empleados", include_in_schema=False)
     def sigrid_empleados(
         fecha: str | None = Query(default=None),
@@ -1579,14 +1667,7 @@ def build_app(
                 {"ok": False, "error": f"Error consultando Sigrid: {exc}",
                  "items": []}
             )
-        def _sugerida(cd: float | None) -> float:
-            # CanDefecto no valido (vacio o <= minimo) -> jornada por defecto
-            # (mismo umbral que sv3 al reclasificar extras).
-            return jornada_efectiva(
-                cd,
-                minimo=settings.candef_minimo_valido,
-                por_defecto=settings.jornada_por_defecto,
-            )
+        _sugerida = _jornada_sugerida
 
         def _del_dia(empleado) -> float:
             def _es_laborable(d: date) -> bool:
@@ -1612,6 +1693,43 @@ def build_app(
             if dia is not None:
                 fila["jornada_dia"] = _del_dia(e)
             salida.append(fila)
+        return JSONResponse({"ok": True, "items": salida})
+
+    @app.get("/api/sigrid/recursos", include_in_schema=False)
+    def sigrid_recursos(
+        empresa: int | None = Query(default=None),
+    ) -> JSONResponse:
+        """F-035 (R5): recursos ACTIVOS de clase persona para los selectores
+        de trabajador, de `empresa` (o todos). `guardar` son los
+        `empleado_*` que el portal escribe al elegirlo (R12/R13)."""
+        if not recurso_catalog.enabled:
+            return JSONResponse(
+                {"ok": False, "error": "Sigrid no configurado en el sv4.",
+                 "items": []}
+            )
+        try:
+            items = recurso_catalog.list(empresa)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[sigrid-lookup] recursos fallo: %r", exc)
+            return JSONResponse(
+                {"ok": False, "error": f"Error consultando Sigrid: {exc}",
+                 "items": []}
+            )
+        if not recurso_catalog.cargado:
+            # El catalogo traga el fallo (R6) pero nunca cargo: una lista
+            # vacia aqui pareceria buena. Revision 1 de F-035.
+            return JSONResponse(
+                {"ok": False, "items": [],
+                 "error": "Sigrid no respondio al cargar los recursos."}
+            )
+        salida = [
+            {"ide": r.ide, "codigo": r.codigo, "nombre": r.nombre,
+             "dni": r.dni, "empresa": r.empresa, "categoria": r.categoria,
+             "candef": r.candef,
+             "jornada_sugerida": _jornada_sugerida(r.candef),
+             "guardar": asignacion_de(r).como_guardar()}
+            for r in items
+        ]
         return JSONResponse({"ok": True, "items": salida})
 
     @app.get("/api/sigrid/partidas", include_in_schema=False)

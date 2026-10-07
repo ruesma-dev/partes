@@ -214,7 +214,8 @@
         </td>
         <td class="cell-trabajador">
           {% if sigrid_enabled and not r.congelado %}
-          <div class="combo-emp" data-registro-id="{{ r.id }}">
+          {# F-035 (R20): solo recursos de la empresa de la ficha de obra. #}
+          <div class="combo-emp" data-registro-id="{{ r.id }}"{% if empresa_obra is defined and empresa_obra is not none %} data-empresa="{{ empresa_obra }}"{% endif %}>
             <input type="text" class="combo-input cell-edit" autocomplete="off"
                    value="{{ r.trabajador_nombre or '' }}" placeholder="Trabajador…">
             <div class="combo-panel" hidden></div>

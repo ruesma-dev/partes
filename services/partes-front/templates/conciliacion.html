@@ -55,19 +55,31 @@
     </div>
 
     <div class="recon-body">
+      {# F-035 (R8): empresa por defecto = la de sus partes si es una sola. #}
+      {% set _conocidas = EMPRESAS|map('first')|list %}
+      <div class="recon-empresa-row">
+        <label class="muted small">Empresa
+          <select class="recon-empresa" data-nombre="{{ fila.nombre_leido }}" title="Solo candidatos y búsqueda de esta empresa">
+            <option value=""{% if fila.empresa_defecto is none %} selected{% endif %}>Todas</option>
+            {% for num, nom in EMPRESAS %}<option value="{{ num }}"{% if fila.empresa_defecto == num %} selected{% endif %}>{{ nom }}</option>
+            {% endfor %}{% if fila.empresa_defecto is not none and fila.empresa_defecto not in _conocidas %}<option value="{{ fila.empresa_defecto }}" selected>Empresa {{ fila.empresa_defecto }}</option>{% endif %}
+          </select>
+        </label>
+      </div>
       {% if fila.candidates %}
       <table class="recon-cands">
         <tbody>
           {% for c in fila.candidates %}
-          <tr>
+          <tr class="recon-cand" data-empresa="{{ c.empresa if c.empresa is not none else '' }}">
             <td class="rc-score"><span class="score-pill score-{{ 'hi' if c.score >= 85 else ('mid' if c.score >= 65 else 'lo') }}">{{ c.score }}%</span></td>
             <td class="rc-emp">
               <strong>{% if c.codigo %}{{ c.codigo }} · {% endif %}{{ c.nombre or '(sin nombre)' }}</strong>
               {% if c.dni %}<span class="cell-sub">DNI {{ c.dni }}</span>{% endif %}
+              {% if c.empresa_nombre %}<span class="cell-sub">{{ c.empresa_nombre }}</span>{% endif %}
             </td>
             <td class="rc-act">
               <button type="button" class="btn primary small btn-casar"
-                      data-nombre="{{ fila.nombre_leido }}" data-ide="{{ c.ide }}"
+                      data-nombre="{{ fila.nombre_leido }}" data-recurso-ide="{{ c.ide }}"
                       data-emp="{% if c.codigo %}{{ c.codigo }} · {% endif %}{{ c.nombre or '' }}">Casar</button>
             </td>
           </tr>
@@ -82,7 +94,7 @@
 
       <div class="manual-search">
         <input type="text" class="manual-q cell-edit" data-nombre="{{ fila.nombre_leido }}"
-               placeholder="Buscar otro empleado por nombre o codigo…" autocomplete="off">
+               placeholder="Buscar otro recurso por nombre, código o DNI…" autocomplete="off">
         <div class="manual-results"></div>
       </div>
       <div class="recon-status"></div>

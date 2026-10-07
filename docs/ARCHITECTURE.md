@@ -217,6 +217,13 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     nombre de la ficha; sin ella, `empleado_ide` NULL, código y nombre del
     recurso y `recurso_dni`/`recurso_nombre` (sv4 lo da por casado). El
     conciliador confirma ese mismo recurso. Lo ya ingerido no se re-casa.
+    F-035: los selectores de trabajador del portal (Conciliar, nuevo
+    parte, modal y detalle de obra) ofrecen esos mismos **recursos
+    persona** (`res.cla = 1`, alta a hoy, DNI `emp.dni` de la ficha o, si
+    falta, `res.cif`; sin DNI no salen), filtrados por empresa; elegir uno
+    sin ficha deja la línea en `recurso_manual` (casada, sin alias) con su
+    `empleado_reside`, y sv3/sv5 siguen eligiendo el recurso por DNI y
+    empresa de la obra.
 13. **Cuenta analítica de la línea (F-021, sv5)**: `hmores.caaide` = la
     cuenta `caa` del **centro de la obra destino** (`obr.cenide`, su
     empresa) cuya subcuenta (texto tras el primer punto de `con.cod`) es

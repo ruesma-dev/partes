@@ -441,8 +441,10 @@ def test_f016_r20_f016_no_anade_ni_cambia_ninguna_ruta_de_sigrid() -> None:
     """El selector CONSUME `GET /api/sigrid/empleados` (F-003) tal cual.
 
     F-024 anade `POST /api/sigrid/comprobar` (comprobacion de lineas
-    registradas, no un catalogo): se lista aqui de forma explicita para
-    que el guardian siga cerrando la lista entera en vez de aflojarlo."""
+    registradas, no un catalogo) y F-035 `GET /api/sigrid/recursos`
+    (recursos activos para los selectores; decision del humano
+    2026-10-07): se listan aqui de forma explicita para que el guardian
+    siga cerrando la lista entera en vez de aflojarlo."""
     cliente, _ = _montaje()
     rutas = {(r.path, tuple(sorted(r.methods)))
              for r in cliente.app.routes if hasattr(r, "methods")}
@@ -453,6 +455,7 @@ def test_f016_r20_f016_no_anade_ni_cambia_ninguna_ruta_de_sigrid() -> None:
         ("/api/sigrid/empleados", ("GET",)),
         ("/api/sigrid/partidas", ("GET",)),
         ("/api/sigrid/comprobar", ("POST",)),          # F-024 (R17)
+        ("/api/sigrid/recursos", ("GET",)),            # F-035 (R5)
     }, "F-016 no crea ni modifica endpoints de catalogo"
 
 
