@@ -92,7 +92,10 @@ def medir_maestro(
             cuenta["dni_solo_ficha"] += 1
         elif dni_ficha and dni_ficha != cif:
             cuenta["cif_distinto_ficha"] += 1
-    orden = sorted(por_empresa, key=lambda e: (e is None, e or 0))
+    orden: list[int | None] = sorted(
+        e for e in por_empresa if e is not None)
+    if None in por_empresa:
+        orden.append(None)
     return [
         {"empresa": e, **{c: por_empresa[e][c] for c in COLUMNAS_MAESTRO}}
         for e in orden

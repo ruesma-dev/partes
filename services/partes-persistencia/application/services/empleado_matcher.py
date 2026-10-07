@@ -62,4 +62,4 @@ class EmpleadoMatcher:
         if any(p != ganadora and puntos >= mejor
                for p, puntos in por_persona.items()):
             return None, 0.0, "nombre_ambiguo"
-        return ganadora, round(mejor, 4), "nombre"
+        return ganadora, mejor, "nombre"   # ya a 4 decimales

@@ -103,6 +103,22 @@ def test_f036_r24_cif_distinto_se_compara_normalizado() -> None:
     assert fila["cif_distinto_ficha"] == 0
 
 
+def test_f036_r24_empresas_en_orden_y_la_sin_empresa_al_final() -> None:
+    recursos = [_rec(1, cif=DNI_A, empresa=None), _rec(2, cif=DNI_A, empresa=28),
+                _rec(3, cif=DNI_A, empresa=1), _rec(4, cif=DNI_A, empresa=5)]
+    filas = mc.medir_maestro(IndicePersonas([], recursos), recursos, HOY)
+    assert [f["empresa"] for f in filas] == [1, 5, 28, None]
+    sin_nulos = [r for r in recursos if r.empresa is not None]
+    filas = mc.medir_maestro(IndicePersonas([], sin_nulos), sin_nulos, HOY)
+    assert [f["empresa"] for f in filas] == [1, 5, 28]
+
+
+def test_f036_r28_la_linea_medida_es_inmutable() -> None:
+    import dataclasses
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        _linea().registro_id = 2   # type: ignore[misc]
+
+
 def test_f036_r24_sin_recursos_no_hay_filas() -> None:
     assert mc.medir_maestro(IndicePersonas([], []), [], HOY) == []
 
@@ -334,6 +350,7 @@ def test_f036_r27_markdown_resumen_y_tabla_por_empresa() -> None:
     assert "2026-10-07 09:30" in md
     assert ("| empresa | persona | sin_dni | dni_solo_ficha | "
             "cif_distinto_ficha | mo_no_persona |") in md
+    assert "\n|---|---|---|---|---|---|\n" in md
     assert "| 1 | 5 | 1 | 1 | 1 | 2 |" in md
     assert "| (sin empresa) | 1 | 0 | 0 | 0 | 0 |" in md
     assert "| casado_casado_nuevo | 1 |" in md
@@ -492,7 +509,7 @@ def test_f036_r23_la_herramienta_no_escribe_en_ningun_sistema() -> None:
 def test_f036_r23_r27_escribe_md_y_csv_con_bom(tmp_path) -> None:
     maestro, filas = _todo_el_informe()
     ruta_md, ruta_csv = herramienta.escribir(
-        tmp_path / "logs", "20261007-0930", maestro, filas,
+        tmp_path / "no" / "existe" / "logs", "20261007-0930", maestro, filas,
         mc.resumir(filas), "2026-10-07 09:30")
     assert ruta_md.name == "medicion_casado_20261007-0930.md"
     assert ruta_csv.name == "medicion_casado_20261007-0930.csv"
@@ -525,7 +542,7 @@ def test_f036_r23_main_de_punta_a_punta(monkeypatch, tmp_path, capsys) -> None:
     monkeypatch.setattr(herramienta, "create_engine",
                         lambda url: fabrica.engine)
     monkeypatch.setattr(herramienta, "CARPETA_LOGS", tmp_path)
-    assert herramienta.main([]) == 0
+    assert herramienta.main() == 0
     assert creados == {"base_url": "http://sigrid.invalid",
                        "function_key": "clave-de-test", "database": "bd",
                        "timeout_s": 5.0, "max_rows": 10}
@@ -544,5 +561,5 @@ def test_f036_r23_main_sin_credenciales_de_sigrid(monkeypatch, capsys) -> None:
     monkeypatch.setattr(herramienta, "Settings", _SinSigrid)
     monkeypatch.setattr(herramienta, "create_engine",
                         lambda url: 1 / 0)
-    assert herramienta.main([]) == 2
+    assert herramienta.main() == 2
     assert "SIGRID_API_" in capsys.readouterr().err

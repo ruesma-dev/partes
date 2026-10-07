@@ -199,6 +199,7 @@ def test_f036_r3_el_proveedor_cuenta_los_recursos_persona_sin_dni(
         _rec(902, cif=DNI),                           # con DNI
         _rec(903, cla=2, cif=None),                   # no es persona
         _rec(904, cif=None, conide=11),               # DNI por ficha
+        _rec(905, cif=None, conide=None),             # persona sin DNI
     ]
     fichas = [_ficha(10, dni=None), _ficha(11, dni="87654321X")]
     proveedor = SigridMatcherProvider(
@@ -211,4 +212,4 @@ def test_f036_r3_el_proveedor_cuenta_los_recursos_persona_sin_dni(
               if "sin DNI" in r.getMessage()]
     assert lineas == [(
         "[matcher-provider] recursos persona sin DNI (no casan por nombre): "
-        "2 de 4")]
+        "3 de 5")]

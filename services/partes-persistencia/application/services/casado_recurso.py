@@ -125,5 +125,5 @@ def _a_match(
     return EmpleadoMatch(
         ide=ide, codigo=codigo, nombre=nombre,
         dni=indice.dni_de_recurso(r), reside=r.ide,
-        score=round(score, 4), method=metodo,
+        score=score, method=metodo,
     )

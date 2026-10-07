@@ -154,8 +154,8 @@ def escribir(
     return ruta_md, ruta_csv
 
 
-def main(argv: list[str] | None = None) -> int:
-    del argv   # sin opciones: siempre todo, siempre solo lectura
+def main() -> int:
+    """Sin opciones: siempre todo y siempre solo lectura."""
     settings = Settings()
     if not settings.sigrid_credentials_present:
         print("Faltan SIGRID_API_* en el .env de sv3.", file=sys.stderr)
@@ -186,4 +186,4 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(main())
