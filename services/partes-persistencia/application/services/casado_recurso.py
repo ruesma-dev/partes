@@ -8,7 +8,10 @@ y con DNI del recurso (el de su ficha y, si no, `res.cif`; DA1).
 
 Orden (el de siempre): DNI leido -> alias aprendido -> similitud de
 nombre. Un DNI con recursos persona pero sin candidato unico CIERRA la
-linea sin casar (`dni_<motivo>`), sin seguir al alias ni al nombre (R5).
+linea sin casar (`dni_<motivo>`), sin seguir al alias ni al nombre (R5); y
+tambien el de una persona que Sigrid conoce (ficha o recurso) sin ningun
+recurso persona (`dni_sin_recurso`, R6, decision del humano 2026-10-07).
+Solo un DNI que Sigrid no conoce sigue al alias y al nombre.
 
 Lo que se guarda (R13-R14): con ficha enlazada (`res.conide`), los datos
 de la ficha; sin ella, el codigo y el nombre del recurso con
@@ -55,6 +58,11 @@ def casar_trabajador(
             return _a_match(indice, indice.recurso(res.ide), 1.0, "dni")
         if res.motivo in _MOTIVOS_QUE_CIERRAN:
             return EmpleadoMatch(method=f"dni_{res.motivo}")
+        # R6 (humano, 2026-10-07, opcion A): una persona que Sigrid conoce
+        # pero sin ningun recurso persona tampoco sigue al alias ni al
+        # nombre, que podrian casar a OTRA persona: a Conciliar.
+        if indice.dni_conocido(dni_leido):
+            return EmpleadoMatch(method="dni_sin_recurso")
     # 2. Alias aprendido (R8).
     datos = alias() if alias is not None else None
     if datos is not None:

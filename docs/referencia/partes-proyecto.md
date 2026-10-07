@@ -453,7 +453,10 @@ del recurso (`emp.fecbaj` no cuenta). En la ingesta (sv3):
    `emp` (`res.conide`) y, si está vacío, `res.cif`; el nombre puntúa con el
    mejor entre el del recurso y el de su ficha, y un recurso sin DNI no
    compite por nombre. Un DNI con varios recursos sin desempate, solo de
-   baja o de otra empresa queda sin casar (nunca se elige al azar). Así,
+   baja o de otra empresa queda sin casar (nunca se elige al azar), y
+   también el de una persona que Sigrid conoce (ficha o recurso) sin
+   ningún recurso persona (`dni_sin_recurso`): no se prueba el alias ni
+   el nombre, que podrían casar a otra persona; va a Conciliar. Así,
    quien tiene ficha en una empresa y recurso en otra casa en la segunda.
    Con ficha enlazada, la línea guarda los datos de la ficha; **sin ficha**
    (antes, la «ficha de recurso» de F-030, ya retirada), `empleado_ide`

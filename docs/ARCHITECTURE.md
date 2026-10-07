@@ -204,7 +204,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     trabajador (DNI → alias → nombre) contra los **recursos persona**
     (`res.cla = 1`) de alta a la fecha y de la empresa del parte, con
     **DNI del recurso** = el `emp.dni` de su ficha (`res.conide`) y, si
-    está vacío, `res.cif`; el nombre puntúa con el máximo entre `con.res`
+    está vacío, `res.cif` (un DNI que Sigrid conoce sin ningún recurso
+    persona queda sin casar, `dni_sin_recurso`, sin alias ni nombre);
+    el nombre puntúa con el máximo entre `con.res`
     del recurso y el de su ficha. Se guarda `empleado_reside` = el recurso
     elegido y `empleado_dni` = su DNI; con ficha, `empleado_ide`/código/
     nombre de la ficha; sin ella, `empleado_ide` NULL, código y nombre del

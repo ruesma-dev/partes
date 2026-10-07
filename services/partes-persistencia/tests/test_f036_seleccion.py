@@ -167,3 +167,23 @@ def test_f036_r7_ficha_en_a_y_recurso_sin_enlazar_en_b() -> None:
         _rec(900, conide=10, empresa=1), _rec(950, cif=DNI, empresa=28)])
     assert _res(indice, empresa=28) == (950, "ok")
     assert _res(indice, empresa=1) == (900, "ok")
+
+
+# ====================== dni_conocido (R6, opcion A) ===================== #
+
+@pytest.mark.parametrize("fichas, recursos, dni, esperado", [
+    # ficha de cualquier empresa y estado
+    ([_ficha(10, empresa=28, fecbaj=20200101)], [], DNI, True),
+    # recurso de cualquier clase con ese cif
+    ([], [_rec(900, cif=DNI, cla=2)], DNI, True),
+    ([], [_rec(900, cif=DNI, cla=None, fecbaj=1, empresa=31)], DNI, True),
+    # normalizado
+    ([_ficha(10)], [], " 12345678-z ", True),
+    # desconocido
+    ([_ficha(10, dni=OTRO)], [_rec(900, cif=OTRO, cla=2)], DNI, False),
+    ([], [], DNI, False),
+    ([_ficha(10, dni=None)], [_rec(900, cif=None)], None, False),
+    ([_ficha(10, dni="")], [_rec(900, cif="")], "", False),
+])
+def test_f036_r6_dni_conocido(fichas, recursos, dni, esperado) -> None:
+    assert IndicePersonas(fichas, recursos).dni_conocido(dni) is esperado

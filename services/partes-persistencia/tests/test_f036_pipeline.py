@@ -221,6 +221,29 @@ def test_f036_r5_dni_ambiguo_queda_sin_casar_y_a_revision() -> None:
     assert linea.recurso_ide is None
 
 
+def test_f036_r6_persona_sin_recurso_persona_sin_casar_y_a_revision() -> None:
+    """Humano, 2026-10-07 (opcion A): la ficha 70 existe pero su unico
+    recurso no es de persona; aunque el nombre casaria con ANA, no se sigue.
+    Queda como la cola de Conciliar de sv4 entiende «sin casar»: sin
+    `empleado_ide` y con un metodo fuera de `METODOS_RECURSO`."""
+    from application.pipelines.persist_parte_pipeline import METODOS_RECURSO
+    from infrastructure.database.orm_models import ParteDocumentOrm
+
+    lookup = Lookup(
+        fichas=FICHAS + [_ficha(70, "SIN RECURSO", "70707070X", 970)],
+        recursos=RECURSOS + [_rec(970, "GRUA", conide=70, cla=2)])
+    pipeline, fabrica = _montar(lookup)
+    pipeline.run(_request("0100", ("ANA UNO", "70707070X")))
+    (linea,) = _lineas(fabrica)
+    assert _empleado(linea) == (None, None, None, None, None,
+                                "dni_sin_recurso")
+    assert linea.empleado_match_method not in METODOS_RECURSO
+    assert linea.recurso_ide is None
+    with fabrica.create_session() as s:
+        (doc,) = s.query(ParteDocumentOrm).all()
+        assert doc.review_required is True
+
+
 def test_f036_r14_casado_por_recurso_no_sube_la_revision() -> None:
     pipeline, fabrica = _montar()
     pipeline.run(_request("0200", ("EVA", DNI_E)))

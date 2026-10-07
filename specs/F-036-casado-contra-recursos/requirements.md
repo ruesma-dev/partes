@@ -52,8 +52,8 @@ Porsan. Aquí el casado elige **recurso**, de la lista que ya carga
 - **R5.** SI el DNI tiene recursos persona pero ninguno candidato o varios sin
   desempate, ENTONCES la línea queda sin casar con `dni_ambiguo`,
   `dni_solo_baja` o `dni_otra_empresa`, sin seguir al alias ni al nombre.
-- **R6.** SI no hay DNI leído o no tiene ningún recurso persona, ENTONCES sv3
-  sigue al alias y después al nombre.
+- **R6.** SI no hay DNI leído o es desconocido (sin ficha ni recurso), ENTONCES alias y nombre; SI es
+  de una persona conocida sin recurso persona, `dni_sin_recurso`, sin seguir (humano, 2026-10-07, A).
 - **R7.** Una persona con ficha en una empresa A y recurso persona sin enlazar
   (`res.cif` = DNI) en otra B debe casar por ese recurso en un parte de B.
 

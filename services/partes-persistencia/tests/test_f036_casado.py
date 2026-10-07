@@ -235,13 +235,35 @@ def test_f036_r4_dni_que_decide_no_consulta_el_alias() -> None:
     assert alias.llamadas == 0
 
 
-@pytest.mark.parametrize("dni", [None, "", DNI_G, "99999999R"])
-def test_f036_r6_sin_dni_o_sin_recurso_persona_sigue_al_alias_y_al_nombre(
+@pytest.mark.parametrize("dni", [None, "", "99999999R"])
+def test_f036_r6_sin_dni_o_dni_desconocido_sigue_al_alias_y_al_nombre(
         dni) -> None:
     alias = _Alias()
     m = _casar(dni, nombre="Ana Uno", alias=alias)
     assert _clave(m) == (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "nombre")
     assert alias.llamadas == 1
+
+
+@pytest.mark.parametrize("dni, fichas", [
+    (DNI_G, FICHAS),                    # solo un recurso que no es persona
+    ("12121212R", FICHAS + [_ficha(70, "SIN RECURSO", "12121212R", None)]),
+    (" 12121212-r ", FICHAS + [_ficha(70, "SIN RECURSO", "12121212R", None)]),
+])
+def test_f036_r6_persona_conocida_sin_recurso_persona_queda_sin_casar(
+        dni, fichas) -> None:
+    """Humano, 2026-10-07 (opcion A): DNI de una persona que Sigrid conoce
+    (ficha o recurso) sin ningun recurso persona: sin casar, sin alias ni
+    nombre (que podrian casar a OTRA persona), y a la cola de Conciliar."""
+    alias = _Alias({"ide": 10, "dni": DNI_A})
+    m = _casar(dni, nombre="Ana Uno", alias=alias,
+               indice=IndicePersonas(fichas, RECURSOS))
+    assert _clave(m) == (*SIN_CASAR, "dni_sin_recurso")
+    assert alias.llamadas == 0
+
+
+def test_f036_r6_el_metodo_cabe_en_la_columna() -> None:
+    """`parte_registros.empleado_match_method` es String(24)."""
+    assert len("dni_sin_recurso") <= 24
 
 
 def test_f036_r6_sin_alias_cableado_va_al_nombre() -> None:

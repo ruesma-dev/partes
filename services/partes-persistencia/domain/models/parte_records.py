@@ -26,7 +26,8 @@ class EmpleadoMatch:
     reside: Optional[int] = None
     score: float = 0.0
     # dni | alias | nombre | none | nombre_ambiguo | alias_no_valido |
-    # dni_<motivo> (F-023) | recurso_dni | recurso_nombre (F-030).
+    # dni_<motivo> (F-023; F-036 R6 anade `dni_sin_recurso`: persona
+    # conocida sin recurso persona) | recurso_dni | recurso_nombre (F-030).
     # F-036: el casado elige un RECURSO persona y `reside` es siempre su
     # `res.ide` y `dni` el DNI del recurso. Con ficha enlazada, `ide`,
     # `codigo` y `nombre` son los de la ficha (dni | alias | nombre); sin

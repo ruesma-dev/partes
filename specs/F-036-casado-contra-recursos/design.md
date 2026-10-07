@@ -92,7 +92,8 @@ def casar_trabajador(*, dni_leido: str | None, nombre_leido: str | None,
 
 1. **DNI** (R4–R6): si `dni_leido`, `res = indice.casar_por_dni(...)`. `ok` ⇒
    `_a_match(recurso, 1.0, "dni")`; `ambiguo|solo_baja|otra_empresa` ⇒
-   `EmpleadoMatch(method=f"dni_{motivo}")` y fin; `desconocido` ⇒ sigue.
+   `EmpleadoMatch(method=f"dni_{motivo}")` y fin; `desconocido` ⇒ si `indice.dni_conocido` (ficha `emp`
+   o recurso de cualquier clase con ese DNI), `dni_sin_recurso` y fin (R6, humano 2026-10-07); si no, sigue.
 2. **Alias** (R8): si `alias`, DNI = `alias["dni"]` o, vacío, el de
    `indice.ficha(alias["ide"])`. Sin DNI ⇒ `alias_no_valido`. `casar_por_dni`:
    `ok` ⇒ `_a_match(recurso, 1.0, "alias")`; `desconocido` ⇒ `alias_no_valido`;

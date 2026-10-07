@@ -93,6 +93,9 @@ class IndicePersonas:
         self._recursos_por_conide: dict[int, list[RecursoRow]] = \
             defaultdict(list)
         self._recursos_por_cif: dict[str, list[RecursoRow]] = defaultdict(list)
+        # R6 (humano, 2026-10-07): los DNI de TODOS los recursos, de
+        # cualquier clase, para saber si Sigrid conoce a la persona.
+        self._cifs = {tm.normalize_dni(r.cif) for r in self._recursos} - {""}
         # R2: solo los recursos persona entran en los indices por DNI y por
         # ficha, asi que `_recursos_de` (y con el `elegir_recurso`,
         # `empresas_con_recurso` y el casado) no ve otros. `_recursos`,
@@ -117,6 +120,13 @@ class IndicePersonas:
 
     def empresa_de_obra(self, obra_ide: int | None) -> int | None:
         return self._empresa_obra.get(obra_ide)
+
+    def dni_conocido(self, dni: str | None) -> bool:
+        """R6 (opcion A del humano, 2026-10-07): Sigrid conoce a la persona
+        del DNI: tiene ficha `emp` (de cualquier empresa y estado) o algun
+        recurso de cualquier clase con ese `res.cif`."""
+        dni_n = tm.normalize_dni(dni)
+        return dni_n in self._fichas_por_dni or dni_n in self._cifs
 
     def ficha_enlazada(self, r: RecursoRow) -> EmpleadoRow | None:
         """F-036: la ficha `emp` del recurso (`res.conide`), si esta en el
