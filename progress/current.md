@@ -1,25 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-033 · spec_ready (2026-10-07): columna Empresa en las vistas de obra (URGENTE)
+## F-033 · spec_ready (2026-10-07): columna Empresa en el listado de obras (URGENTE)
 
-Spec en `specs/F-033-columna-empresa/` (spec-author). Rigor estándar, **solo
-sv4**, sin schema ni JS. Incidencia: la 0678 sale «duplicada» en `/obras`
-porque hay dos fichas (Ruesma y Porsan) con mismo código y nombre; las filas
-siguen separadas por ficha y se añade la empresa. Hallazgos: sv4 ya tiene la
-empresa de cada ficha (`ObraCatalog`, `con.emp`) y la del parte
-(`parte_documents.empresa`, NULL en partes anteriores a F-023); el nombre
-corto no está en Sigrid (`auxemp.res` es el largo); `update_parte_obra` no
-actualiza `parte_documents.empresa`.
-
-**Decisiones abiertas para el humano (design §10):** DA1 nombre corto en un
-YAML de sv4 `config/empresas.yaml` (1 Ruesma, 28 Porsan; número desconocido
-⇒ «Empresa N»); DA2 la empresa de la fila sale de la ficha de la obra y, si
-no se conoce, de los partes; DA3 además del listado y detalle de obra, también
-listado y detalle de parte (no trabajador, conciliación, papelera ni combos);
-DA4 YAML roto ⇒ el portal no arranca; DA5 «—» sin empresa y «Ruesma /
-Porsan» si hay varias; DA6 rigor estándar; DA7 fuera re-casar partes
-antiguos y el cambio manual de obra. Manual: M1 tras desplegar sv4.
+Spec **reescrita en mínimo** (el humano rechazó el primer alcance: «te estás
+liando»). Solo sv4 y solo `/obras`: columna «Empresa» con filtro de columna.
+El valor sale de `parte_documents.empresa` de los partes de la fila; si todos
+son NULL (anteriores a F-023), de la empresa de los recursos de sus líneas
+deducida de otros partes con empresa en la BBDD `partes` (sin Sigrid); si no,
+«—». Nombres en un dict de sv4 `{1: Ruesma, 28: Porsan}`, si no «Empresa N».
+Cuatro tareas, rigor estándar. Sin decisiones abiertas.
 
 ## F-032 · blocked (2026-10-07): activar Sesame en producción (solo festivos)
 
