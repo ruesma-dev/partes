@@ -1,7 +1,7 @@
 <!-- progress/mutacion_F-036.md -->
 # F-036 · Campaña de mutación
 
-Generado por `python -m harness.mutacion --feature F-036` el 2026-10-07 20:28.
+Generado por `python -m harness.mutacion --feature F-036` el 2026-10-07 22:52.
 
 ## Alcance
 
@@ -10,37 +10,37 @@ Origen del diff: **rama** (`6e56244ac08b5565bfb18afd45e63c8d7fbb0280` .. `featur
 | Fichero | Líneas en alcance |
 |---|---|
 | `services/partes-persistencia/application/pipelines/persist_parte_pipeline.py` | 38 |
-| `services/partes-persistencia/application/services/casado_recurso.py` | 129 |
+| `services/partes-persistencia/application/services/casado_recurso.py` | 137 |
 | `services/partes-persistencia/application/services/empleado_matcher.py` | 41 |
-| `services/partes-persistencia/application/services/medicion_casado.py` | 237 |
-| `services/partes-persistencia/application/services/seleccion_sigrid.py` | 53 |
+| `services/partes-persistencia/application/services/medicion_casado.py` | 241 |
+| `services/partes-persistencia/application/services/seleccion_sigrid.py` | 62 |
 | `services/partes-persistencia/application/services/sigrid_matcher_provider.py` | 19 |
-| `services/partes-persistencia/domain/models/parte_records.py` | 6 |
+| `services/partes-persistencia/domain/models/parte_records.py` | 7 |
 | `services/partes-persistencia/domain/models/sigrid_models.py` | 3 |
 | `services/partes-persistencia/infrastructure/sigrid/sigrid_api_client.py` | 5 |
 | `services/partes-persistencia/medir_casado_recursos.py` | 189 |
 | `services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py` | 7 |
-| **Total** | **727** |
+| **Total** | **749** |
 
 ## Totales
 
 | Métrica | Valor |
 |---|---|
-| Mutantes generados | 108 |
-| Mutantes evaluados | 108 |
-| Muertos | 108 |
+| Mutantes generados | 110 |
+| Mutantes evaluados | 110 |
+| Muertos | 110 |
 | Supervivientes | 0 |
 | Timeouts | 0 |
 | Sin veredicto (base rota) | 0 |
-| Tiempo total | 882.8 s |
-| SHA de HEAD medido | `ee2c5d14aa06274146c14613f76c2cc1b8b0dad5` |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_emo10cka/wk_0/services/partes-persistencia` | 65.5 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_emo10cka/wk_1/services/partes-persistencia` | 65.1 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_emo10cka/wk_2/services/partes-persistencia` | 66.6 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_emo10cka/wk_3/services/partes-persistencia` | 66.3 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_emo10cka/wk_4/services/partes-persistencia` | 64.8 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_emo10cka/wk_5/services/partes-persistencia` | 65.5 |
-| Media por mutante evaluado (s) | 8.2 |
+| Tiempo total | 680.6 s |
+| SHA de HEAD medido | `a6eeb64963cda9bd1be1d8a65fa1eef4b900998f` |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_21l75w96/wk_0/services/partes-persistencia` | 40.4 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_21l75w96/wk_1/services/partes-persistencia` | 40.1 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_21l75w96/wk_2/services/partes-persistencia` | 41.8 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_21l75w96/wk_3/services/partes-persistencia` | 41.8 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_21l75w96/wk_4/services/partes-persistencia` | 40.9 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-036_21l75w96/wk_5/services/partes-persistencia` | 40.3 |
+| Media por mutante evaluado (s) | 6.2 |
 | Timeout efectivo por mutante (s) | 600 — fijado a mano con `--timeout`, sin derivar |
 | Suelo configurado (s) | 600 |
 | Workers | 6 |
@@ -66,3 +66,7 @@ cada superviviente (commit `eca56bb`) antes de esta segunda campaña:
 | 8 | INFO R3 `not` quitado | Hueco: el fixture daba 2 de 4 con y sin el `not` | Fixture asimétrico: «3 de 5» |
 | 9 | `mkdir(parents=True)` → `False` | Hueco: la carpeta padre ya existía | El test escribe en una ruta anidada inexistente |
 | 10 | `sys.argv[1:]` → `[2:]` | Equivalente: `main` ignoraba los argumentos | `main()` sin parámetros |
+
+## Segunda campaña (HEAD `ee2c5d1`): 108 generados, 108 muertos, 0 supervivientes (882,8 s)
+
+Esta, la tercera, mide tras el cambio de R6 (opción A del humano, `dni_sin_recurso`, commit `a6eeb64`).

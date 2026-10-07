@@ -162,14 +162,26 @@ En el repo `11 passed` (7 de ellos estropean una copia en memoria y exigen el fa
 12 failed, 1 passed (el estático «sin escrituras») -> 42 passed; suite sv3 913 passed
 ```
 
-## Verificaciones MANUAL pendientes (humano; ver `progress/current.md`)
+**T19 · R6, opción A del humano (2026-10-07)** — DNI de una persona que Sigrid conoce (ficha `emp`
+o recurso de cualquier clase) sin ningún recurso persona ⇒ `dni_sin_recurso`, sin alias ni nombre.
+`python -m pytest -q tests/test_f036_casado.py tests/test_f036_seleccion.py tests/test_f036_pipeline.py -k r6`:
+```
+      8 E       AttributeError: 'IndicePersonas' object has no attribute 'dni_conocido'
+      3 E       AssertionError: assert (10, 'E10', '...910, 1.0, ...) == (None, None, ...one, 0.0, ...)
+      1 E       AssertionError: assert (10, 'E10', '...910, 'nombre') == (None, None, ..._sin_recurso')
+12 failed, 15 passed, 78 deselected in 6.06s  -> 27 passed; suite sv3 928 passed
+```
+(los 3 + 1 casaban por **nombre** a ANA, otra persona: justo el riesgo que señaló el reviewer).
+sv4 **no se toca** y ya lo trata como sin casar (comprobado con su código, script en el scratchpad):
+`esta_casado(empleado_ide=None, método 'dni_sin_recurso')` → `False`; filtro de la cola
+`empleado_ide IS NULL AND (método IS NULL OR método NOT IN ('recurso_dni','recurso_nombre'))`;
+la columna es `String(24)` (el método mide 15). Spec (R6, design §4 y T19), `ARCHITECTURE.md`,
+`partes-proyecto.md` y `azure-apps/partes.md` (commit local `de0d1b0`) actualizados.
 
-- **M1** antes de desplegar: `cd services/partes-persistencia && ../../.venv/Scripts/python.exe
-  medir_casado_recursos.py` con el `.env` de sv3; revisar `mo_no_persona`, `cif_distinto_ficha`,
-  `recurso_cambia`/`recurso_pierde`. **No se ha ejecutado** contra producción ni contra `partes`.
-- **M2** tras desplegar (sv3 → sv5): logs de `ca-sv3-persistencia` (`[recurso-concil] …
-  actualizados=`) frente a M1. **M3**: un parte nuevo de Porsan de la 0678 con un trabajador
-  sin ficha casado `recurso_dni` y líneas `ok`/`sin_parte`.
+## Verificaciones MANUAL pendientes (humano; comandos exactos en `progress/current.md`)
+
+M1 (medición, solo lectura, **no ejecutada** por los agentes), despliegue
+`redeploy_partes.ps1 -Solo sv3,sv5`, M2/M2b (Log Analytics y SQL) y M3 (SQL, parte de Porsan 0678).
 
 ## Evidencias
 
@@ -177,22 +189,17 @@ Medidas el 2026-10-07 en el worktree (`bash harness/init.sh` final: **ENTORNO LI
 
 | Evidencia | Valor real |
 |---|---|
-| Tests sv3 (`services/partes-persistencia`) | **915 passed** en 47,09 s (antes de F-036: 776) |
+| Tests sv3 (`services/partes-persistencia`) | **928 passed** (antes de F-036: 776) |
 | Tests sv5 (`services/partes-transfer`) | **524 passed**, 1 warning, en 53,11 s |
-| Tests raíz (`tests/`, con cobertura) | **454 passed, 3 skipped** en 268,87 s |
+| Tests raíz (`tests/`, con cobertura) | **454 passed, 3 skipped** |
 | Tests sv4 / sv1 / sv2 (código sin cambios) | 1682 passed, 1 skipped (1491 s) / 74 passed / 8 passed |
-| Tests nuevos de F-036 | sv3 18+25+20+53+20+44 = 180 (caracterización, maestro, selección, casado, pipeline, medición); sv5 2; raíz 11 |
-| **PUERTA COBERTURA** | **99,7 %** de 309 líneas cambiadas (308/309, umbral 80 %, nivel crítico). La que falta es el `raise AssertionError` de `_nodo` del guardián raíz (línea 49), que solo corre si el guardián detecta un fallo |
-| **Mutación** (`python -m harness.mutacion --feature F-036 --workers 6 --timeout 600`, campaña completa) | 1.ª: 113 generados, 103 muertos, **10 supervivientes**, 0 timeouts (959 s). Resueltos en `eca56bb` (5 huecos con test nuevo, 3 equivalentes eliminando código muerto, 2 de orden reescrito). 2.ª (HEAD `ee2c5d1`): **108 generados, 108 muertos, 0 supervivientes**, 0 timeouts, 0 sin veredicto, 882,8 s. Detalle y tabla de los 10: `progress/mutacion_F-036.md` |
-| PUERTA TAMAÑO | requirements 149/150, design 238/250, impl 174/220 (antes de esta sección) |
-| ruff | 621 avisos en el repo (610 antes): los nuevos son `I001` de los ficheros de test nuevos vistos desde la raíz (el mismo patrón que los tests ya existentes); desde la carpeta del servicio, `ruff check` limpio en todo lo nuevo |
+| Tests nuevos de F-036 | sv3 18+25+28+56+21+45 = 193 (caracterización, maestro, selección, casado, pipeline, medición); sv5 2; raíz 11 |
+| **PUERTA COBERTURA** | ver la última línea de `init.sh` abajo; la única línea sin cubrir es el `raise AssertionError` de `_nodo` del guardián raíz, que solo corre si detecta un fallo |
+| **Mutación** (`--workers 6 --timeout 600`, campaña completa) | 1.ª: 113 generados, **10 supervivientes** (959 s), resueltos en `eca56bb` (5 huecos con test, 3 equivalentes quitando código muerto, 2 de orden reescrito). 2.ª (`ee2c5d1`): 108/108 muertos. **3.ª tras R6 (`a6eeb64`): 110 generados, 110 muertos, 0 supervivientes, 0 timeouts, 0 sin veredicto, 680,6 s.** Detalle: `progress/mutacion_F-036.md` |
+| ruff | avisos del repo ≈ 620 (610 antes): `I001` de los tests nuevos vistos desde la raíz, el patrón de los tests existentes; desde el servicio, limpio |
 
-Fuera de alcance (spec): sv4 (F-035), re-casar lo ingerido, casar recursos sin DNI por
-`reside`, la verificación de sv5 y la escritura en Sigrid. Falta para cerrar: revisión del
-reviewer y las verificaciones M1–M3 del humano.
-
-**Tras la review (pasada 1, `progress/review_F-036.md`, CHANGES_REQUESTED documental):** comandos exactos
-de M1, despliegue (`redeploy_partes.ps1 -Solo sv3,sv5`), M2/M2b (Log Analytics y SQL) y M3 (SQL) en
-`progress/current.md`; `I001` de `seleccion_sigrid.py` corregido; `_METODOS_RECURSO` de `medicion_casado`
-se queda (importarlo del pipeline invertiría la dependencia) con test que lo iguala a `METODOS_RECURSO`.
-R6 sin cambios (lo decide el humano).
+Review pasada 1 (`progress/review_F-036.md`, CHANGES_REQUESTED documental) atendida: comandos de M1–M3
+y del despliegue en `current.md`; `I001` de `seleccion_sigrid.py` corregido; `_METODOS_RECURSO` de
+`medicion_casado` se queda (importarlo del pipeline invertiría la dependencia), con test que lo iguala.
+Fuera de alcance: sv4 (F-035), re-casar lo ingerido, recursos sin DNI por `reside`, la verificación de
+sv5 y la escritura en Sigrid. Falta: nueva pasada del reviewer y M1–M3 del humano.

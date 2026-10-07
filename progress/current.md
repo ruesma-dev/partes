@@ -15,6 +15,11 @@ retirada del respaldo F-030, herramienta de solo lectura
 **sv4 no cambia**, sin schema. Nueva entrada en la lista cerrada de `CLAUDE.md`
 con guardián `tests/test_f036_recurso_persona_gemelos.py`.
 
+**R6, opción A del humano (2026-10-07), ya implementada:** un DNI leído de
+una persona que Sigrid conoce (ficha o recurso) sin ningún recurso persona
+queda sin casar (`dni_sin_recurso`), sin alias ni nombre, y va a Conciliar
+(sv4 ya lo trata como sin casar; sin tocar sv4).
+
 **Desviaciones declaradas** (detalle en el informe): `dni_de_recurso` y
 `ficha_enlazada` adelantados a T3; categoría extra `otro_recurso` en R26; la
 herramienta no usa `SessionFactory` (crea la base si falta) y saca el DNI
