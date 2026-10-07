@@ -98,7 +98,7 @@ congeladas que ya perdieron su extra (M4): solo se cuentan, reposición en
 feature aparte si hay alguna (recomendado). Antes de desplegar sv3: M1 (ningún
 duplicado ya encolado/registrado); después: M2 = 0 parejas con > 1 extra.
 
-## F-036 · in_progress (2026-10-07): sv3 casa contra los recursos persona de la empresa del parte
+## F-036 · done (2026-10-07), pendiente de M1 y desplegar sv3+sv5: sv3 casa contra los recursos persona de la empresa del parte
 
 **Implementación terminada, pendiente del reviewer** (implementer, worktree
 `partes-wt-f036`, rama `feature/F-036-casado-contra-recursos`, sin push).
