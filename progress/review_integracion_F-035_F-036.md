@@ -42,7 +42,7 @@ hacen las copias rotas del guardián, verificadas abajo).
    `infrastructure/sigrid/sigrid_lookup_client.py` (`WHERE res.cla = 1` en
    `_SQL_RECURSOS_ACTIVOS`, el selector de recursos de F-035) …; lo vigila».
    El resto de la lista cerrada, intacto.
-7. **Convenciones**: primera línea con ruta, español, sin secretos ni prints.
+7. **Convenciones**: ruta en primera línea, español, sin secretos ni prints.
 
 ## Checkpoints (aplicables a una integración sin código de producción)
 
@@ -53,12 +53,7 @@ hacen las copias rotas del guardián, verificadas abajo).
 - N/A C5 tasks.md: integración sin spec (`sdd=false` de hecho); validada
   contra los cuatro puntos del encargo.
 
-## Observaciones (no bloquean)
+**Observación** (no bloquea): `filtro_sv4` es conservador; `WHERE (res.cla =
+1)` o un subselect con su `WHERE` lo harían fallar sin cambiar el criterio.
 
-- `filtro_sv4` es conservador: un `WHERE (res.cla = 1)` entre paréntesis o un
-  subselect con su propio `WHERE` lo harían fallar sin que el criterio
-  cambiase. Preferible a un falso verde; si pasa, se ajusta el guardián.
-
-## Cambios requeridos
-
-Ninguno.
+**Cambios requeridos**: ninguno.
