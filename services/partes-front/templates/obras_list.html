@@ -45,6 +45,7 @@
     <thead>
       <tr>
         <th>Obra</th>
+        <th>Empresa</th>
         <th class="num">Trabajadores</th>
         <th class="num">Partes</th>
         <th class="num">Ordinarias</th>
@@ -54,6 +55,7 @@
       </tr>
       <tr class="filter-row">
         <th><input class="col-filter" type="text" placeholder="Filtrar obra…"></th>
+        <th><input class="col-filter" type="text" placeholder="Filtrar empresa…"></th>
         <th><input class="col-filter" type="text" placeholder="…"></th>
         <th><input class="col-filter" type="text" placeholder="…"></th>
         <th><input class="col-filter" type="text" placeholder="…"></th>
@@ -70,6 +72,7 @@
             {% if o.obra_codigo %}{{ o.obra_codigo }} · {% endif %}{{ o.obra_nombre or "(obra sin identificar)" }}
           </a>
         </td>
+        <td>{{ o.empresa_texto }}</td>
         <td class="num">{{ o.num_trabajadores }}</td>
         <td class="num">{{ o.num_partes }}</td>
         <td class="num">{{ o.horas_normales|horas }}</td>
