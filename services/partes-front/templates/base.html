@@ -95,15 +95,25 @@
           </div>
           <input type="hidden" id="addline-obra-ide"><input type="hidden" id="addline-obra-codigo"><input type="hidden" id="addline-obra-nombre">
         </div>
+        <div class="field" id="addline-empresa-field">
+          <label>Empresa</label>
+          {# F-035 (R18): con obra con empresa, la de la obra y bloqueado (DA1). #}
+          <select id="addline-empresa" class="input" title="Solo trabajadores (recursos activos) de esta empresa">
+            <option value="">Todas</option>
+            {% for num, nom in EMPRESAS %}<option value="{{ num }}">{{ nom }}</option>
+            {% endfor %}
+          </select>
+        </div>
         <div class="field" id="addline-emp-field">
           <label>Trabajador</label>
           <div class="addline-locked" id="addline-emp-locked" hidden></div>
           <div class="combo-simple" id="addline-emp-combo">
-            <input type="text" id="addline-emp-input" class="input" placeholder="Trabajador…" autocomplete="off">
+            <input type="text" id="addline-emp-input" class="input" placeholder="Código, nombre o DNI…" autocomplete="off">
             <div class="combo-panel" id="addline-emp-panel" hidden></div>
           </div>
           <input type="hidden" id="addline-emp-ide"><input type="hidden" id="addline-emp-codigo">
           <input type="hidden" id="addline-emp-nombre"><input type="hidden" id="addline-emp-dni">
+          <input type="hidden" id="addline-emp-reside">
         </div>
         <div class="field">
           <label>Categoría</label>

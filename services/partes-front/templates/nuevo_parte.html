@@ -24,10 +24,20 @@
     </div>
 
     <div class="field">
+      <label>Empresa</label>
+      {# F-035 (R18): con obra elegida toma su empresa y se bloquea (DA1). #}
+      <select id="emp-empresa" class="input" title="Solo trabajadores (recursos activos) de esta empresa"{% if not sigrid_enabled %} disabled{% endif %}>
+        <option value="">Todas</option>
+        {% for num, nom in EMPRESAS %}<option value="{{ num }}">{{ nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
       <label>Trabajador</label>
       <div class="combo-simple" id="emp-combo">
         <input type="text" id="emp-input" class="input" autocomplete="off"
-               placeholder="{{ 'Escribe nombre o DNI…' if sigrid_enabled else 'Sigrid no configurado' }}"
+               placeholder="{{ 'Código, nombre o DNI…' if sigrid_enabled else 'Sigrid no configurado' }}"
                {% if not sigrid_enabled %}disabled{% endif %}>
         <div class="combo-panel" id="emp-panel" hidden></div>
       </div>
