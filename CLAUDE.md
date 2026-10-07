@@ -184,8 +184,10 @@ original NO se versiona: al repositorio entra solo el Markdown.
   (`application/services/seleccion_sigrid.py`: `de_alta`,
   `IndicePersonas.elegir_recurso`) y sv5
   (`application/services/coherencia_recurso.py`: `de_alta`,
-  `elegir_por_dni`), más el filtro de alta del SQL de empleados de sv4;
-  `de_alta` y ese SQL los vigila `tests/test_f023_de_alta_gemelos.py`. La
+  `elegir_por_dni`), más el filtro de alta de los SQL de empleados y de
+  recursos de sv4 (`_SQL_EMPLEADOS` y, desde F-035 con decisión expresa
+  del humano el 2026-10-07, `_SQL_RECURSOS_ACTIVOS`); `de_alta` y esos SQL
+  los vigila `tests/test_f023_de_alta_gemelos.py`. La
   elección por DNI no es idéntica a propósito (sv3 desempata con el
   `reside` de la ficha; sv5 exige un único candidato), pero sus candidatos
   son los mismos: empresa de la obra y alta a la fecha. Y la regla de

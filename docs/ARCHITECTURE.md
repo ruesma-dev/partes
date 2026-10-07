@@ -201,7 +201,13 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     sin ficha `emp`, el recurso `MO/` con `res.cif` es su **ficha de
     recurso** y se casa con el mismo proceso (DNI, nombre; el alias solo
     con fichas): `recurso_dni`/`recurso_nombre`, `empleado_ide` NULL y
-    `empleado_reside` = `res.ide`; sv4 lo da por casado.
+    `empleado_reside` = `res.ide`; sv4 lo da por casado. F-035: los
+    selectores de trabajador del portal (Conciliar, nuevo parte, modal y
+    detalle de obra) ofrecen **recursos activos** (`res.cla = 1`, alta a
+    hoy, DNI `res.cif` o el de la ficha; sin DNI no salen), filtrados por
+    empresa; elegir uno sin ficha deja la línea en `recurso_manual`
+    (casada, sin alias) con su `empleado_reside`, y sv3/sv5 siguen
+    eligiendo el recurso por DNI y empresa de la obra.
 13. **Cuenta analítica de la línea (F-021, sv5)**: `hmores.caaide` = la
     cuenta `caa` del **centro de la obra destino** (`obr.cenide`, su
     empresa) cuya subcuenta (texto tras el primer punto de `con.cod`) es
