@@ -455,14 +455,25 @@ def _norm(text: str | None) -> str:
 #: de quien no tiene ficha de empleado: `empleado_ide` NULL y casada.
 METODOS_RECURSO: frozenset[str] = frozenset({"recurso_dni", "recurso_nombre"})
 
+#: F-035 (R13): linea sin ficha de empleado a la que el portal le asigno a
+#: mano un recurso activo (Conciliar, reasignar, nuevo parte). Va aparte de
+#: `METODOS_RECURSO`, que es el espejo de la constante de sv3 (F-030).
+METODO_RECURSO_MANUAL = "recurso_manual"
+
+#: Metodos con los que una linea SIN ficha cuenta como casada: los de sv3
+#: (F-030) y el manual del portal (F-035).
+_METODOS_CASADO_SIN_FICHA: frozenset[str] = (
+    METODOS_RECURSO | {METODO_RECURSO_MANUAL})
+
 
 def esta_casado(reg: ParteRegistroOrm) -> bool:
     """F-030 (R18): casado con una ficha de empleado (`empleado_ide`) o, sin
-    ficha, con su recurso (`recurso_dni`/`recurso_nombre`). Unico punto de
-    las vistas que pintan «casado»."""
+    ficha, con su recurso (`recurso_dni`/`recurso_nombre` de sv3 o
+    `recurso_manual` del portal, F-035). Unico punto de las vistas que
+    pintan «casado»."""
     return (
         reg.empleado_ide is not None
-        or reg.empleado_match_method in METODOS_RECURSO
+        or reg.empleado_match_method in _METODOS_CASADO_SIN_FICHA
     )
 
 
@@ -474,7 +485,7 @@ def _sin_casar_en_cola():
         or_(
             ParteRegistroOrm.empleado_match_method.is_(None),
             ParteRegistroOrm.empleado_match_method.not_in(
-                sorted(METODOS_RECURSO)),
+                sorted(_METODOS_CASADO_SIN_FICHA)),
         ),
     )
 
@@ -524,6 +535,8 @@ _REG_UNDO_FIELDS = (
     "fecha", "fecha_int", "obra_ide", "obra_codigo", "obra_nombre",
     "partida_ide", "partida_cod", "partida_res", "partida_capitulo",
     "partida_match_method",
+    # F-035 (R16): el recurso elegido y la marca `recurso_manual`.
+    "empleado_reside", "empleado_match_method",
 )
 _DOC_UNDO_FIELDS = (
     "fecha", "fecha_int", "obra_ide", "obra_codigo", "obra_nombre",
@@ -742,6 +755,27 @@ def _soltar_recurso(reg: ParteRegistroOrm) -> None:
     reg.recurso_cif = None
     reg.hmo_ide = None
     reg.parte_estado = None
+
+
+def _poner_trabajador(
+    reg: ParteRegistroOrm, *, ide: int | None, codigo: str | None,
+    nombre: str | None, dni: str | None, reside: int | None,
+) -> None:
+    """Escribe el trabajador elegido en una linea NO congelada.
+
+    Suelta el recurso como F-023 (R42). F-035: con `reside` (el recurso
+    elegido en el portal) lo deja como preferido para sv3; sin ficha
+    (`ide` None) marca `recurso_manual`, que cuenta como casada (R13). Sin
+    `reside`, igual que antes de F-035."""
+    reg.empleado_ide = ide
+    reg.empleado_codigo = codigo
+    reg.empleado_nombre = nombre
+    reg.empleado_dni = dni
+    _soltar_recurso(reg)
+    if reside is not None:
+        reg.empleado_reside = reside
+        if ide is None:
+            reg.empleado_match_method = METODO_RECURSO_MANUAL
 
 
 def _tiene_linea_registrada(doc: ParteDocumentOrm) -> bool:
@@ -2145,6 +2179,7 @@ class ParteReviewRepository:
                         "num_registros": 0,
                         "obras": set(),
                         "categorias": set(),
+                        "empresas": set(),
                         "partes": {},
                     }
                     groups[norm] = g
@@ -2155,6 +2190,9 @@ class ParteReviewRepository:
                     g["categorias"].add(r.categoria)
                 if r.document_id and r.document_id not in g["partes"]:
                     doc = r.document  # sesion abierta: lazy load OK
+                    # F-035 (R8): empresas de sus partes (Conciliar).
+                    if doc is not None and doc.empresa is not None:
+                        g["empresas"].add(doc.empresa)
                     g["partes"][r.document_id] = {
                         "document_id": r.document_id,
                         "fecha": r.fecha,
@@ -2175,6 +2213,7 @@ class ParteReviewRepository:
                 "num_registros": g["num_registros"],
                 "obras": sorted(g["obras"]),
                 "categorias": sorted(g["categorias"]),
+                "empresas": sorted(g["empresas"]),
                 "partes": sorted(
                     g["partes"].values(), key=lambda x: x["fecha"] or ""
                 ),
@@ -2186,8 +2225,9 @@ class ParteReviewRepository:
         return len(self.list_unmatched_workers())
 
     def backfill_empleado(
-        self, *, nombre_leido: str, ide: int,
+        self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
+        reside: int | None = None,
     ) -> tuple[int, int]:
         """Asigna el empleado a TODOS los registros activos sin casar cuyo
         nombre leido (normalizado) coincide.
@@ -2216,11 +2256,8 @@ class ParteReviewRepository:
             reg_snaps = [_reg_snapshot(r) for r in affected]
             alias_snaps = [self._alias_snapshot(session, target)]
             for r in affected:
-                r.empleado_ide = ide
-                r.empleado_codigo = codigo
-                r.empleado_nombre = nombre
-                r.empleado_dni = dni
-                _soltar_recurso(r)
+                _poner_trabajador(r, ide=ide, codigo=codigo, nombre=nombre,
+                                  dni=dni, reside=reside)
             self._record_undo(
                 session, action="empleado",
                 description=f"Casar '{nombre_leido}' → "
@@ -2562,8 +2599,9 @@ class ParteReviewRepository:
             return r.trabajador_nombre_leido if r is not None else None
 
     def reassign_empleado_by_leido(
-        self, *, nombre_leido: str, ide: int,
+        self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
+        reside: int | None = None,
     ) -> tuple[int, int]:
         """Reasigna el empleado a TODOS los registros activos cuyo nombre
         leido (normalizado) coincide, ESTEN o no casados (correccion).
@@ -2589,11 +2627,8 @@ class ParteReviewRepository:
             reg_snaps = [_reg_snapshot(r) for r in affected]
             alias_snaps = [self._alias_snapshot(session, target)]
             for r in affected:
-                r.empleado_ide = ide
-                r.empleado_codigo = codigo
-                r.empleado_nombre = nombre
-                r.empleado_dni = dni
-                _soltar_recurso(r)
+                _poner_trabajador(r, ide=ide, codigo=codigo, nombre=nombre,
+                                  dni=dni, reside=reside)
             self._record_undo(
                 session, action="empleado",
                 description=f"Reasignar '{nombre_leido}' → "
@@ -2604,8 +2639,9 @@ class ParteReviewRepository:
         return len(affected), congeladas
 
     def reassign_empleado_by_worker_key(
-        self, *, worker_key: str, ide: int,
+        self, *, worker_key: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
+        reside: int | None = None,
     ) -> tuple[int, list[str], int]:
         """Reasigna todos los registros activos del grupo (worker_key).
 
@@ -2634,11 +2670,8 @@ class ParteReviewRepository:
                 self._alias_snapshot(session, tm.normalize(l)) for l in leidos
             ]
             for r in affected:
-                r.empleado_ide = ide
-                r.empleado_codigo = codigo
-                r.empleado_nombre = nombre
-                r.empleado_dni = dni
-                _soltar_recurso(r)
+                _poner_trabajador(r, ide=ide, codigo=codigo, nombre=nombre,
+                                  dni=dni, reside=reside)
             self._record_undo(
                 session, action="empleado",
                 description=f"Reasignar trabajador → "
@@ -2649,8 +2682,9 @@ class ParteReviewRepository:
         return len(affected), leidos, congeladas
 
     def reassign_empleado_by_registro_ids(
-        self, *, registro_ids: list[int], ide: int,
+        self, *, registro_ids: list[int], ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
+        reside: int | None = None,
     ) -> tuple[int, int]:
         """Reasigna el empleado SOLO a los registros indicados (activos).
 
@@ -2676,11 +2710,8 @@ class ParteReviewRepository:
                 return 0, congeladas
             reg_snaps = [_reg_snapshot(r) for r in affected]
             for r in affected:
-                r.empleado_ide = ide
-                r.empleado_codigo = codigo
-                r.empleado_nombre = nombre
-                r.empleado_dni = dni
-                _soltar_recurso(r)
+                _poner_trabajador(r, ide=ide, codigo=codigo, nombre=nombre,
+                                  dni=dni, reside=reside)
             self._record_undo(
                 session, action="empleado",
                 description=f"Reasignar {len(affected)} línea(s) → "
@@ -3125,6 +3156,12 @@ class ParteReviewRepository:
         if not tipos and not incidencia:
             return {"documentos": 0, "lineas": 0,
                     "error": "Sin horas ni incidencia que crear."}
+        # F-035 (R19): sin ficha y con recurso elegido, casada por recurso.
+        metodo_empleado = (
+            METODO_RECURSO_MANUAL
+            if empleado_ide is None and empleado_reside is not None
+            else None
+        )
 
         with self._session_factory.create_session() as session:
             for iso in dias:
@@ -3174,6 +3211,7 @@ class ParteReviewRepository:
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
+                        empleado_match_method=metodo_empleado,
                         fecha=iso, fecha_int=fint,
                         obra_codigo=obra_codigo, obra_nombre=obra_nombre,
                         obra_ide=obra_ide,
@@ -3211,6 +3249,7 @@ class ParteReviewRepository:
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
+                        empleado_match_method=metodo_empleado,
                         fecha=iso, fecha_int=fint,
                         obra_codigo=obra_codigo, obra_nombre=obra_nombre,
                         obra_ide=obra_ide,

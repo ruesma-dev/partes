@@ -7,7 +7,15 @@
 humano el 2026-10-07 (empresa bloqueada a la de la obra cuando hay obra;
 ampliar la lista cerrada de `CLAUDE.md` con el filtro de alta del SQL de
 recursos de sv4, vigilado por el guardián). DA3/DA4 como en la spec. Anotado
-en design §8. Tarea en curso: T1.
+en design §8. Tarea en curso: T4.
+
+**Desviación justificada (T3):** design §4 decía «`METODOS_RECURSO` incluye
+`recurso_manual`», pero `test_f030_r18_metodos_de_recurso` (test ajeno de
+F-030) fija ese conjunto a `{recurso_dni, recurso_nombre}` (es el espejo de la
+constante de sv3) y R22 prohíbe tocar tests ajenos. Se cumple R13 sin tocarlo:
+`METODO_RECURSO_MANUAL` + `_METODOS_CASADO_SIN_FICHA = METODOS_RECURSO |
+{recurso_manual}`, que usan `esta_casado` y `_sin_casar_en_cola`. Mismo
+efecto que pedía el diseño; `METODOS_RECURSO` sin cambios.
 
 Nota del arranque: el primer `bash harness/init.sh` de la sesión cayó en
 pytest de la raíz (`sF` hacia el 96 %, salida truncada) con el árbol limpio;
