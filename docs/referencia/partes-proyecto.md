@@ -130,7 +130,9 @@ por sigrid-api, cacheados en el wiring):
 - **Cómputo de extras**: si un día trae más horas ordinarias que la
   jornada (`candef`, u 8 h si no es válida), divide la línea: jornada
   como ordinarias + exceso como **extra automática** (`extra_auto`,
-  conservando `horas_orig`); admite ajustes negativos.
+  conservando `horas_orig`); admite ajustes negativos. Base y extra
+  automática se congelan juntas para el recálculo (F-037): si una ya está
+  en Sigrid, la pareja no se vuelve a partir.
 
 Persiste documento + registros en PostgreSQL y sube el PDF a
 **SharePoint** (Graph), guardando drive/item/URL.
@@ -347,7 +349,13 @@ imputar, con su precio. Los relevantes:
 trae más ordinarias que la **jornada de ese día**, se divide la línea:
 jornada como HLOF + exceso como extra automática (`extra_auto=true`,
 conservando `horas_orig`). Admite ajustes negativos (un «8-1» = 8
-ordinarias y −1 de regularización de extra).
+ordinarias y −1 de regularización de extra). La base y sus extras
+automáticas (mismos `document_id`, `line_index`, `empleado_line_no` y
+`fecha_int`) se congelan **juntas** para el recálculo de sv3 (F-037): si
+una ya está en Sigrid, ninguna se revierte ni se vuelve a partir, y una
+extra automática no congelada de una pareja cuya extra ya está congelada
+es un duplicado y se borra. Hasta F-037, una base `omitido` con su extra
+`registrado` generaba otra extra en cada pasada.
 
 **La jornada del día no es plana** (F-015). El `candef` de Sigrid son las
 horas de lunes a jueves; el **último día laborable de la semana** —el
