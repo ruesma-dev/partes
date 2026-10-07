@@ -17,13 +17,16 @@ fila de obra es de una sola (la 0678 existe en Ruesma y en Porsan).
 
 ## Glosario
 
-- **Recurso activo**: fila de `res` cuyo concepto (`con` del recurso) está de
-  alta **hoy** (regla F-023: `fecbaj` NULL, 0 o mayor que hoy), que es de mano
-  de obra (código `MO/…`) **o** está enlazado a una ficha `emp`
-  (`res.conide`), y que tiene **DNI**.
-- **DNI del recurso**: `emp.dni` de su ficha enlazada si no está vacío; si no,
-  `res.cif` (la misma regla que sv5 al verificar).
-- **Ficha enlazada**: la fila `emp` con `emp.ide = res.conide`, si existe.
+- **Recurso activo** (criterio de persona de `porcentajes`, decisión del
+  humano 2026-10-07): fila de `res` de **clase persona** (`res.cla = 1`), una
+  por recurso, cuyo concepto (`con` del recurso) está de alta **hoy** (regla
+  F-023: `fecbaj` NULL, 0 o mayor que hoy) y que tiene **DNI**. Sin filtro por
+  prefijo de código ni por ficha, y sin el filtro de hora mensual (propio de
+  porcentajes). F-036 reutilizará este mismo criterio en sv3.
+- **DNI del recurso**: `res.cif`; si está vacío, `emp.dni` de la ficha
+  enlazada.
+- **Ficha enlazada**: la fila `emp` con `emp.ide = res.conide` y
+  `res.conide > 0`, si existe.
 - **Empresa del recurso**: `con.emp` del recurso.
 - **Selector de empresa**: `<select>` con «Todas» y las empresas de
   `NOMBRES_EMPRESA` (F-033: 1 Ruesma, 28 Porsan).
@@ -36,12 +39,14 @@ fila de obra es de una sola (la 0678 existe en Ruesma y en Porsan).
   sigrid-api (`_SQL_RECURSOS_ACTIVOS`) que aplica la regla de alta F-023 a hoy
   sobre el concepto del recurso, y cachearlos con TTL (como `EmpleadoCatalog`).
 - **R2.** Cada recurso ofrecido debe llevar: `ide` (`res.ide`), `codigo` (código
-  del recurso), `nombre` (el de la ficha enlazada; si no hay, el del recurso),
-  `dni` (DNI del recurso), `empresa`, `empleado_ide` y `empleado_codigo` (de la
-  ficha enlazada o nulos), `categoria` y `candef`.
-- **R3.** SI un recurso no tiene DNI, ENTONCES no se ofrece (DA3).
-- **R4.** SI un recurso no es `MO/` ni tiene ficha enlazada (maquinaria, etc.),
-  ENTONCES no se ofrece (DA4).
+  del recurso), `nombre` (`con.res` del recurso), `dni` (DNI del recurso),
+  `empresa`, y `empleado_ide`, `empleado_codigo`, `empleado_nombre` y
+  `empleado_dni` de la ficha enlazada (nulos sin ficha), `categoria` y `candef`.
+- **R3.** SI un recurso sigue sin DNI tras el respaldo de la ficha (ni
+  `res.cif` ni `emp.dni`), ENTONCES no se ofrece (sv3 y sv5 identifican por
+  DNI: la línea quedaría «sin recurso»).
+- **R4.** SI un recurso no es de clase persona (`res.cla` distinto de 1:
+  consumo, medio), ENTONCES no se ofrece.
 - **R5.** `GET /api/sigrid/recursos?empresa=N` debe devolver solo los recursos
   de la empresa N; sin `empresa`, todos. Cada item añade `jornada_sugerida`
   (misma regla que `/api/sigrid/empleados`). Sin Sigrid configurado o con
@@ -71,7 +76,8 @@ fila de obra es de una sola (la 0678 existe en Ruesma y en Porsan).
   ENTONCES 404 sin tocar nada.
 - **R12.** CUANDO el recurso tiene ficha enlazada, la línea debe quedar con
   `empleado_ide`, `empleado_codigo` y `empleado_nombre` de la ficha (como
-  hoy), `empleado_dni` = DNI del recurso (el de la ficha si lo tiene) y
+  hoy), `empleado_dni` = `emp.dni` de la ficha si no está vacío y, si no, el
+  DNI del recurso (el orden con que sv5 verifica, design §7), y
   `empleado_reside` = `res.ide`; el resto del recurso se suelta como en
   F-023 (R42).
 - **R13.** CUANDO el recurso no tiene ficha enlazada, la línea debe quedar con
@@ -121,7 +127,8 @@ fila de obra es de una sola (la 0678 existe en Ruesma y en Porsan).
 
 ## Fuera de alcance
 
-Cambios en sv3/sv5 (incluido casar por `reside` sin DNI), alias de recursos,
+Cambios en sv3/sv5: el casado de sv3 contra recursos con este criterio es
+F-036 (otra spec); aquí no se copia lógica a sv3. Alias de recursos,
 filtro de empresa en el listado de trabajadores, jornada del día
 (`jornada_dia`) en el nuevo endpoint, reprocesar líneas ya casadas.
 

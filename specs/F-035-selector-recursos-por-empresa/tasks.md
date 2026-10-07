@@ -1,6 +1,6 @@
 # F-035 · Portal: elegir trabajador entre recursos activos de Sigrid, por empresa — Tareas
 
-Rama **`feature/F-035-selector-recursos-por-empresa`**. Un commit local por tarea (`F-035 Tn: …`), por rutas explícitas; sin push ni PR. Rigor **estándar**: fase RED con traza en `progress/impl_F-035.md`, cobertura y mutación muestreada. Rutas bajo `services/partes-front/` salvo indicación. Empezar solo con DA1–DA4 (design §8) aprobadas.
+Rama **`feature/F-035-selector-recursos-por-empresa`**. Un commit local por tarea (`F-035 Tn: …`), por rutas explícitas; sin push ni PR. Rigor **estándar**: fase RED con traza en `progress/impl_F-035.md`, cobertura y mutación muestreada. Rutas bajo `services/partes-front/` salvo indicación. Empezar solo con DA1–DA2 (design §8) aprobadas; DA3–DA4 ya resueltas por el humano.
 
 - [ ] T1: Tests R1–R4 en RED; `RecursoOption`, `_SQL_RECURSOS_ACTIVOS` y `fetch_recursos_activos` en `infrastructure/sigrid/sigrid_lookup_client.py`; `test_f035_r23_...` en `tests/test_f023_de_alta_gemelos.py` (raíz)  |  Verificación: `python -m pytest services/partes-front/tests/test_f035_recursos_cliente.py tests/test_f023_de_alta_gemelos.py -q`
 - [ ] T2: Tests en RED; `application/services/recurso_catalog.py` (`RecursoCatalog`, `Asignacion`, `asignacion_de`)  |  Verificación: `python -m pytest services/partes-front/tests/test_f035_recurso_catalog.py -q`

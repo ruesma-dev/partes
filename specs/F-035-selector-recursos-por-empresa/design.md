@@ -7,11 +7,9 @@ selector y qué escribe en la línea al elegir. Las reglas que deciden el
 recurso escrito en Sigrid **no se mueven**:
 
 - **sv3** (`recurso_conciliador`) recalcula en cada pasada el recurso de toda
-  línea no congelada con `IndicePersonas.elegir_recurso(empleado_dni,
-  empleado_ide, empleado_reside, empresa de la obra, fecha)`. Encuentra el
-  recurso por la ficha **o por `res.cif`** (F-030), así que una línea sin
-  ficha y con `empleado_dni = res.cif` se resuelve; `empleado_reside` actúa de
-  preferido si la persona tiene varios.
+  línea no congelada con `elegir_recurso(empleado_dni, empleado_ide,
+  empleado_reside, empresa de la obra, fecha)`: lo encuentra por la ficha **o
+  por `res.cif`** (F-030); `empleado_reside` es el preferido si hay varios.
 - **sv5** verifica el `recurso_ide` (empresa de la obra, alta a la fecha, DNI)
   o, sin él, lo elige por DNI (`elegir_por_dni`).
 
@@ -19,6 +17,13 @@ Por eso sv4 guarda lo mismo que hoy (`empleado_*`, DNI) **más** el `reside`
 elegido, y suelta el recurso como en F-023 R42. No se copia `de_alta` ni la
 elección por DNI: el filtro de alta va en SQL, igual que `_SQL_EMPLEADOS`
 (DA2). Ninguna responsabilidad nueva fuera de sv4.
+
+**Criterio de persona** (humano, 2026-10-07): el de `porcentajes`
+(`dedicacion-api/config/config.yaml`, `sync.empleados.sql`): recurso de
+clase persona (`res.cla = 1`), uno por recurso, empresa `rcon.emp`, de alta;
+DNI = `res.cif` o, vacío, el de la ficha (`res.conide > 0`). Sin el filtro de
+hora mensual. **F-036** (otra spec) llevará el mismo criterio al casado de
+sv3; F-035 no copia nada a sv3.
 
 ## 2. Ficheros (bajo `services/partes-front/` salvo indicación)
 
@@ -44,43 +49,45 @@ elección por DNI: el filtro de alta va en SQL, igual que `_SQL_EMPLEADOS`
 
 ```sql
 -- _SQL_RECURSOS_ACTIVOS: paginado por res.ide con _leer_paginado
-SELECT res.ide AS ide, rescon.cod AS codigo, rescon.res AS nombre_recurso,
+SELECT res.ide AS ide, rescon.cod AS codigo, rescon.res AS nombre,
        rescon.emp AS empresa, res.cif AS cif,
        emp.ide AS empleado_ide, empcon.cod AS empleado_codigo,
        emp.res AS empleado_nombre, emp.dni AS empleado_dni,
        auxrestip.res AS categoria, reshor.candef AS candef
 FROM res
 JOIN con rescon ON rescon.ide = res.ide
-LEFT JOIN emp ON emp.ide = res.conide
+LEFT JOIN emp ON emp.ide = res.conide AND res.conide > 0
 LEFT JOIN con empcon ON empcon.ide = emp.ide
 LEFT JOIN auxrestip ON auxrestip.ide = res.restipide
 LEFT JOIN reshor ON reshor.reside = res.ide AND reshor.horide = res.horide
-WHERE (rescon.fecbaj IS NULL OR rescon.fecbaj = 0 OR rescon.fecbaj > ?)
+WHERE res.cla = 1
+  AND (rescon.fecbaj IS NULL OR rescon.fecbaj = 0 OR rescon.fecbaj > ?)
 ```
 
 Parámetro: hoy `YYYYMMDD`. Orden de paginación `res.ide`. El predicado de
 alta es literalmente el de `_SQL_EMPLEADOS` (`rescon.…`), que es lo que el
-guardián compara. Todo lo demás se filtra en Python (testeable).
+guardián compara. La clase (R4) va en SQL, como en porcentajes; el DNI se
+decide en Python (testeable).
 
 `fetch_recursos_activos() -> list[RecursoOption]`, en el mismo estilo que
 `fetch_empleados`: una opción por `ide` (filas repetidas solo completan
 `categoria`/`candef`), y además:
 
-- `dni` = `empleado_dni` si no está vacío; si no, `cif` (R2).
-- `nombre` = `empleado_nombre` si hay ficha; si no, `nombre_recurso`.
-- Se descarta la fila sin DNI (R3) y la que no es `MO/` ni tiene ficha (R4),
-  con un INFO de recuento de descartes.
+- `dni` = `cif` si no está vacío; si no, `empleado_dni` (R2).
+- Se descarta la fila que sigue sin DNI (R3), con un INFO de recuento.
 
 ```python
 @dataclass(frozen=True)
 class RecursoOption:
     ide: int                      # res.ide
-    codigo: str | None            # código del recurso (MO/…)
-    nombre: str | None
-    dni: str | None
+    codigo: str | None            # con.cod del recurso
+    nombre: str | None            # con.res del recurso
+    dni: str | None               # cif o, vacío, el de la ficha
     empresa: int | None
-    empleado_ide: int | None = None
+    empleado_ide: int | None = None      # ficha enlazada (o None)
     empleado_codigo: str | None = None
+    empleado_nombre: str | None = None
+    empleado_dni: str | None = None
     categoria: str | None = None
     candef: float | None = None
 ```
@@ -106,8 +113,8 @@ class Asignacion:                           # lo que se escribe en la línea
 def asignacion_de(r: RecursoOption) -> Asignacion
 ```
 
-`asignacion_de`: con ficha → `(r.empleado_ide, r.empleado_codigo, r.nombre,
-r.dni, r.ide)`; sin ficha → `(None, r.codigo, r.nombre, r.dni, r.ide)`.
+`asignacion_de`: con ficha → `(r.empleado_ide, r.empleado_codigo,
+r.empleado_nombre, r.empleado_dni or r.dni, r.ide)`; sin ficha → `(None, r.codigo, r.nombre, r.dni, r.ide)`.
 Es el ÚNICO sitio con esta regla: el endpoint la serializa para el JS (§5).
 Fallo de refresco: WARNING y se conserva la lista anterior (R6).
 
@@ -153,9 +160,8 @@ Fallo de refresco: WARNING y se conserva la lista anterior (R6).
   está) y se pasan `ide/codigo/nombre/dni/reside`; alias solo si
   `empleado_ide` no es None (R14). Sin `recurso_ide`, el camino `ide` de hoy
   intacto (R15). La respuesta mantiene `empleado: {ide, codigo, nombre}`.
-- `GET /obras/{obra_key}`: contexto `empresa_obra` = empresa de
-  `obra_catalog.get_by_ide(detail.obra_ide)` (None si no hay ide, catálogo
-  apagado o excepción).
+- `GET /obras/{obra_key}`: `empresa_obra` = empresa de
+  `obra_catalog.get_by_ide(detail.obra_ide)`, o None (sin ide, error).
 
 **Plantillas**
 
@@ -172,30 +178,28 @@ Fallo de refresco: WARNING y se conserva la lista anterior (R6).
 
 **app.js**
 
-- `RECURSOS_URL = "/api/sigrid/recursos"`, `fetchRecursos()` con caché única
-  (todas las empresas; el filtro es en cliente). `recLabel(r)` = código ·
-  nombre + `empresaSufijo`.
+- `fetchRecursos()` sobre `/api/sigrid/recursos`, caché única (filtro en
+  cliente); `recLabel(r)` = código · nombre + `empresaSufijo`.
 - `wireEmpleadoCombo`: lista `fetchRecursos()` filtrada por
   `wrap.dataset.empresa` si existe; `_empReasignar` envía `recurso_ide`.
 - Conciliar: `_confirmarCasado` envía `{nombre_leido, recurso_ide}`; el
   `change` de `.recon-empresa` oculta filas con otro `data-empresa` y relanza
   la búsqueda; la búsqueda manual añade `&empresa=` si hay valor.
-- Nuevo parte y modal: combo de trabajador sobre `RECURSOS_URL`, filtro =
+- Nuevo parte y modal: combo de trabajador sobre `fetchRecursos()`, filtro =
   valor del selector de empresa (vacío = todas); al elegir obra con empresa,
   el selector toma su valor y se deshabilita (DA1), y se vacía el trabajador
-  si era de otra empresa (lógica F-023 ya existente); al elegir recurso se
-  copian los `guardar.*` a los hidden (`emp-reside` / `addline-emp-reside`
-  incluidos) y `categoria` / `jornada_sugerida` como hoy. El payload del
-  modal añade `empleado_reside`. `mismaEmpresa` se sustituye por la lectura
-  del selector.
+  si era de otra empresa (lógica F-023); al elegir recurso se copian los
+  `guardar.*` a los hidden (con `…-emp-reside`) y `categoria` /
+  `jornada_sugerida` como hoy; el payload del modal añade `empleado_reside`.
 
 ## 6. Tests (sin red ni PostgreSQL)
 
 Cliente con `_post_sql_read` parcheado (patrón `test_f023_catalogo_empresa`);
 portal con `monkeypatch` de `SigridLookupClient` por un doble que añade
 `fetch_recursos_activos`, `FabricaSesionSqlite` + `ParteReviewRepository`
-reales y `TestClient`. Datos sintéticos: empresa 1 y 28, un recurso `MO/`
-con ficha, uno `MO/` sin ficha con `cif`, uno sin DNI, uno `MAQ/` sin ficha.
+reales y `TestClient`. Datos sintéticos (empresas 1 y 28, todos `cla = 1`
+salvo uno): con `cif` y ficha, sin `cif` con ficha con DNI, con `cif` sin
+ficha, sin `cif` ni ficha, y uno `cla = 2` (comprobado en el texto del SQL).
 
 | Fichero | Tests (R) |
 |---|---|
@@ -212,25 +216,21 @@ plantillas.
 
 ## 7. Riesgos y decisiones
 
-- **Rigor estándar** (el de `features.json`): solo sv4, sin schema; lo que
-  llega a Sigrid sigue pasando por la verificación de sv5 (empresa, alta,
-  DNI) y por el recálculo de sv3, que no cambian. Un recurso mal elegido
-  acaba igual que hoy un empleado mal elegido.
+- **Rigor estándar** (`features.json`): solo sv4, sin schema; lo que llega a
+  Sigrid sigue pasando por sv3 (recálculo) y sv5 (verificación), sin cambios.
 - **Se suelta el recurso al reasignar** (F-023 R42) en vez de escribir
-  `recurso_ide` = el elegido: en Conciliar la tarjeta puede mezclar obras de
-  dos empresas y el recurso bueno depende de la obra y la fecha de cada
-  línea. El `reside` queda como preferido para sv3. En «Nuevo parte» sí se
-  escribe `recurso_ide` (como hoy), porque la empresa queda fijada por la
-  obra (DA1).
-- **Alta a hoy**, como el catálogo de empleados: un recurso dado de baja
-  después de la fecha del parte no se ofrece (caso raro; sv5 decide al
-  escribir).
+  `recurso_ide`: en Conciliar una tarjeta puede mezclar obras de dos empresas
+  y el recurso depende de obra y fecha; el `reside` queda de preferido. En
+  «Nuevo parte» sí se escribe (como hoy): la obra fija la empresa (DA1).
+- **Alta a hoy**, como el catálogo de empleados (sv5 decide a la fecha).
+- **DNI guardado con ficha** (R12): `emp.dni` primero, porque sv5 verifica
+  contra `emp.dni` o `res.cif` en ese orden; guardar `cif` con una ficha de
+  DNI escrito distinto (p. ej. cero inicial) haría omitir la línea por «otra
+  persona». El DNI ofrecido y el filtro R3 siguen el criterio del humano.
 - **Ficha enlazada solo por `res.conide`**: un recurso con `cif` igual al DNI
-  de una ficha pero sin `conide` se guarda como «sin ficha» (`empleado_ide`
-  NULL, `recurso_manual`); sv3 lo resuelve igual por DNI. Solo cambia su
-  agrupación en el listado de trabajadores.
-- Una persona con dos recursos activos en la misma empresa sale dos veces
-  (códigos distintos): es lo que hay en Sigrid y el código los distingue.
+  de una ficha pero sin `conide` se guarda «sin ficha» (`recurso_manual`);
+  sv3 lo resuelve igual por DNI; solo cambia su agrupación en el listado.
+- Dos recursos activos de una persona salen dos veces (códigos distintos).
 - Empresas fuera de `NOMBRES_EMPRESA` solo se ven con «Todas».
 
 ## 8. Decisiones abiertas (para el humano)
@@ -243,8 +243,6 @@ plantillas.
   `CLAUDE.md` («el filtro de alta de los SQL de empleados **y de recursos** de
   sv4») y que el guardián lo vigile (recomendado) vs. filtrar en Python con una
   tercera copia de `de_alta`.
-- **DA3. Recursos sin DNI**: no se ofrecen (recomendado: sv3 y sv5 identifican
-  por DNI y la línea quedaría «sin recurso» para siempre) vs. ofrecerlos y
-  cambiar sv3 para casar por `reside` (otra feature, rigor crítico).
-- **DA4. Qué es «recurso de una persona»**: código `MO/` o con ficha enlazada
-  (recomendado; es el criterio de F-030 más los enlazados) vs. solo `MO/`.
+- **DA3 y DA4: resueltas por el humano (2026-10-07)**: criterio de persona de
+  porcentajes (`res.cla = 1`) y DNI `res.cif` con respaldo en la ficha; el
+  recurso que siga sin DNI no se ofrece (§1, R3, R4).

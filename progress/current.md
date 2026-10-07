@@ -18,10 +18,12 @@ de la cola de Conciliar. Nuevo endpoint `/api/sigrid/recursos` con su SQL;
 
 **Decisiones abiertas (design §8):** DA1 empresa bloqueada a la de la obra
 cuando hay obra (recomendado); DA2 ampliar la lista cerrada de `CLAUDE.md` con
-el SQL de recursos de sv4 vigilado por el guardián (recomendado); DA3 no
-ofrecer recursos sin DNI (recomendado); DA4 «recurso de persona» = `MO/` o con
-ficha enlazada (recomendado). T9 es verificación manual del humano en local,
-solo lectura.
+el SQL de recursos de sv4 vigilado por el guardián (recomendado); DA3 y DA4
+**resueltas por el humano (2026-10-07)** y ya en la spec: persona = recurso de
+clase persona (`res.cla = 1`, criterio de `porcentajes`), DNI = `res.cif` o, si
+vacío, el de la ficha (`res.conide > 0`); el que siga sin DNI no se ofrece. El
+casado de sv3 con ese criterio es F-036 (otra spec). T9 es verificación
+manual del humano en local, solo lectura.
 
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
