@@ -169,3 +169,28 @@ $ cd services/partes-persistencia && python -m pytest -q tests/test_f036_medicio
 Tras el código: `29 passed in 1.41s`. Desviación menor (R26): además de `igual`, `otra_persona`,
 `casado_nuevo` y `pierde_casado`, una quinta categoría `otro_recurso` (misma persona, otro
 `reside`), para no contar como «otra persona» a quien solo cambia de recurso.
+
+### T12 · R23 (`medir_casado_recursos.py`, solo lectura)
+
+Con un esqueleto vacío del script:
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_medicion.py -k r23
+      6 E       AttributeError: module 'medir_casado_recursos' has no attribute '_dnis_leidos'
+      2 E       AttributeError: <module 'medir_casado_recursos' ...> has no attribute 'Settings'
+      1 E           AttributeError: module 'medir_casado_recursos' has no attribute 'medir'
+      1 E           AttributeError: module 'medir_casado_recursos' has no attribute 'leer_lineas'
+      1 E       AttributeError: module 'medir_casado_recursos' has no attribute 'escribir'
+      1 E       AttributeError: module 'medir_casado_recursos' has no attribute 'solo_lectura'
+12 failed, 1 passed, 29 deselected in 7.94s
+```
+(el que pasa es el test estático de «sin escrituras», que un esqueleto vacío cumple). Tras el
+código: `42 passed`; suite sv3 `913 passed`.
+
+Decisiones de T12 (no las fija el design): (1) **no se usa `SessionFactory`**, que al
+construirse crea la base si no existe (escritura a nivel de servidor); la herramienta abre su
+propio `create_engine` y una transacción `SET TRANSACTION READ ONLY` que acaba en `rollback`.
+(2) `parte_registros` **no guarda el DNI leído**: se saca del `raw_extraction_json` del parte
+con el mismo `ParteNormalizer` de la ingesta, por `numero_linea` y, si no, por nombre leído.
+(3) Los tests miden las sentencias reales sobre SQLite (todas `SELECT`) y que solo se piden
+`fetch_recursos/empleados/obras` (cliente de sv3, que solo conoce `/api/sql/read`).

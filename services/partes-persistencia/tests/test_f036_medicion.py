@@ -13,13 +13,24 @@ from __future__ import annotations
 
 import csv
 import io
+import json
+import re
+from pathlib import Path
 
 import pytest
+from sqlalchemy import event
 
+import medir_casado_recursos as herramienta
 from application.services import medicion_casado as mc
 from application.services.empleado_matcher import EmpleadoMatcher
 from application.services.seleccion_sigrid import IndicePersonas
 from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
+from infrastructure.database.orm_models import (
+    EmpleadoAliasOrm,
+    ParteDocumentOrm,
+    ParteRegistroOrm,
+)
+from tests.dobles import FabricaSesionSqlite
 
 HOY = 20261007
 DNI_A = "11111111H"
@@ -336,3 +347,202 @@ def test_f036_r27_markdown_resumen_y_tabla_por_empresa() -> None:
 def test_f036_r27_ningun_dato_personal_sale_en_las_filas(campo) -> None:
     _, filas = _todo_el_informe()
     assert all(campo not in f for f in filas)
+
+
+# =============================== R23 ==================================== #
+# La herramienta de consola `medir_casado_recursos.py`: solo lectura.
+
+RAIZ_SV3 = Path(__file__).resolve().parents[1]
+
+
+class _SigridQueSoloLee:
+    """Los maestros, apuntando que se le pide."""
+
+    def __init__(self) -> None:
+        self.llamadas: list[str] = []
+
+    def fetch_recursos(self):
+        self.llamadas.append("fetch_recursos")
+        return list(RECURSOS)
+
+    def fetch_empleados(self):
+        self.llamadas.append("fetch_empleados")
+        return list(FICHAS)
+
+    def fetch_obras(self):
+        self.llamadas.append("fetch_obras")
+        return list(OBRAS)
+
+
+def _sembrar(fabrica) -> None:
+    datos = {"cabecera": {"fecha": "15/09/2026", "obra_numero": "0100"},
+             "empleados": [
+                 {"nombre": "ANA UNO", "dni": DNI_A, "horas_ordinarias": 8},
+                 {"nombre": "Anita", "dni": None, "horas_ordinarias": 8}]}
+    with fabrica.create_session() as s:
+        for doc, aprobado, activo in (("doc-a", False, True),
+                                      ("doc-b", True, True),
+                                      ("doc-c", False, False)):
+            s.add(ParteDocumentOrm(
+                id=doc, source_filename="p.pdf",
+                source_mime_type="application/pdf", source_sha256="s" + doc,
+                created_at_utc="2026-09-15T08:00:00Z", empresa=1,
+                approved=aprobado, is_active=activo,
+                raw_extraction_json=json.dumps({"meta": {}, "data": datos})))
+            for i, (nombre, reside, metodo) in enumerate(
+                    (("ANA UNO", 910, "dni"), ("Anita", 910, "alias"))):
+                s.add(ParteRegistroOrm(
+                    document_id=doc, line_index=i, empleado_line_no=i + 1,
+                    trabajador_nombre_leido=nombre, fecha_int=20260915,
+                    obra_ide=100, empleado_ide=10, empleado_dni=DNI_A,
+                    empleado_reside=reside, empleado_match_method=metodo,
+                    recurso_ide=910))
+        s.add(EmpleadoAliasOrm(nombre_norm="anita", empleado_ide=10,
+                               empleado_dni=None,
+                               created_at_utc="2026-09-01T00:00:00Z"))
+        s.commit()
+
+
+def test_f036_r23_medir_solo_hace_select_en_partes() -> None:
+    fabrica = FabricaSesionSqlite()
+    _sembrar(fabrica)
+    sentencias: list[str] = []
+    event.listen(fabrica.engine, "before_cursor_execute",
+                  lambda _c, _cur, sql, *_a: sentencias.append(sql))
+    sigrid = _SigridQueSoloLee()
+    with fabrica.engine.connect() as conn:
+        maestro, filas, resumen = herramienta.medir(
+            conn, sigrid, hoy=HOY, min_score=0.55)
+    assert sentencias and all(
+        s.lstrip().upper().startswith("SELECT") for s in sentencias)
+    assert sorted(set(sigrid.llamadas)) == \
+        ["fetch_empleados", "fetch_obras", "fetch_recursos"]
+    # doc-c no esta activo; doc-b esta aprobado: congeladas.
+    assert [(f["document_id"], f["recurso"], f["casado"]) for f in filas] == [
+        ("doc-a", "igual", "igual"), ("doc-a", "igual", "igual"),
+        ("doc-b", "congelada", "congelada"),
+        ("doc-b", "congelada", "congelada"),
+    ]
+    assert resumen["congeladas"] == 2
+    assert maestro[0]["empresa"] == 1
+
+
+def test_f036_r23_el_dni_leido_sale_del_json_de_extraccion() -> None:
+    fabrica = FabricaSesionSqlite()
+    _sembrar(fabrica)
+    with fabrica.engine.connect() as conn:
+        lineas = herramienta.leer_lineas(conn)
+    assert [(ln.document_id, ln.dni_leido, ln.congelada) for ln in lineas] == [
+        ("doc-a", DNI_A, False), ("doc-a", None, False),
+        ("doc-b", DNI_A, True), ("doc-b", None, True),
+    ]
+
+
+def test_f036_r23_dni_leido_por_nombre_si_no_casa_la_fila() -> None:
+    datos = {"empleados": [
+        {"nombre": "ANA UNO", "dni": DNI_A, "horas_ordinarias": 8,
+         "numero_linea": 1},
+        {"nombre": "BEA DOS", "dni": DNI_B, "horas_ordinarias": 8}]}
+    dnis = herramienta._dnis_leidos(json.dumps({"data": datos}))
+    assert dnis == {("fila", 1): DNI_A, ("nombre", "ANA UNO"): DNI_A,
+                    ("nombre", "BEA DOS"): DNI_B}
+
+
+@pytest.mark.parametrize("raw", [None, "", "no es json", "[]",
+                                 '{"data": {"empleados": "x"}}'])
+def test_f036_r23_json_raro_sin_dni_leido(raw) -> None:
+    assert herramienta._dnis_leidos(raw) == {}
+
+
+def test_f036_r23_solo_lectura_en_postgresql() -> None:
+    class _Dialecto:
+        def __init__(self, nombre) -> None:
+            self.name = nombre
+
+    class _Conexion:
+        def __init__(self, nombre) -> None:
+            self.dialect = _Dialecto(nombre)
+            self.sql: list[str] = []
+
+        def exec_driver_sql(self, sql) -> None:
+            self.sql.append(sql)
+
+    pg, otra = _Conexion("postgresql"), _Conexion("sqlite")
+    herramienta.solo_lectura(pg)
+    herramienta.solo_lectura(otra)
+    assert (pg.sql, otra.sql) == (["SET TRANSACTION READ ONLY"], [])
+
+
+def test_f036_r23_la_herramienta_no_escribe_en_ningun_sistema() -> None:
+    """Ni metodos de escritura del repositorio, ni sesiones del servicio,
+    ni otra ruta de sigrid-api; el cliente de sv3 solo conoce la lectura."""
+    fuente = (RAIZ_SV3 / "medir_casado_recursos.py").read_text(
+        encoding="utf-8")
+    codigo = fuente.split('"""', 2)[2]          # sin el docstring
+    for prohibido in ("save_parte", "apply_", "marcar_", "revert_",
+                      "commit(", "insert(", "update(", "delete(",
+                      "SessionFactory", "SqlAlchemyParteRepository",
+                      "/api/sql/write", "httpx", "SigridWriteClient"):
+        assert prohibido not in codigo, prohibido
+    cliente = (RAIZ_SV3 / "infrastructure/sigrid/sigrid_api_client.py"
+               ).read_text(encoding="utf-8")
+    assert set(re.findall(r"/api/[a-z/]+", cliente)) == {"/api/sql/read"}
+
+
+def test_f036_r23_r27_escribe_md_y_csv_con_bom(tmp_path) -> None:
+    maestro, filas = _todo_el_informe()
+    ruta_md, ruta_csv = herramienta.escribir(
+        tmp_path / "logs", "20261007-0930", maestro, filas,
+        mc.resumir(filas), "2026-10-07 09:30")
+    assert ruta_md.name == "medicion_casado_20261007-0930.md"
+    assert ruta_csv.name == "medicion_casado_20261007-0930.csv"
+    assert ruta_csv.read_bytes().startswith(b"\xef\xbb\xbfregistro_id;")
+    assert ruta_md.read_bytes().startswith(b"\xef\xbb\xbf# Medicion")
+
+
+class _Ajustes:
+    sigrid_credentials_present = True
+    sigrid_api_base_url = "http://sigrid.invalid"
+    sigrid_api_function_key = "clave-de-test"
+    sigrid_api_database = "bd"
+    sigrid_api_timeout_s = 5.0
+    sigrid_api_max_rows = 10
+    database_url = "sqlite://"
+    empleado_min_score = 0.55
+
+
+def test_f036_r23_main_de_punta_a_punta(monkeypatch, tmp_path, capsys) -> None:
+    fabrica = FabricaSesionSqlite()
+    _sembrar(fabrica)
+    creados: dict = {}
+
+    def cliente(**kw):
+        creados.update(kw)
+        return _SigridQueSoloLee()
+
+    monkeypatch.setattr(herramienta, "Settings", _Ajustes)
+    monkeypatch.setattr(herramienta, "SigridApiClient", cliente)
+    monkeypatch.setattr(herramienta, "create_engine",
+                        lambda url: fabrica.engine)
+    monkeypatch.setattr(herramienta, "CARPETA_LOGS", tmp_path)
+    assert herramienta.main([]) == 0
+    assert creados == {"base_url": "http://sigrid.invalid",
+                       "function_key": "clave-de-test", "database": "bd",
+                       "timeout_s": 5.0, "max_rows": 10}
+    (md,) = tmp_path.glob("medicion_casado_*.md")
+    (csv_,) = tmp_path.glob("medicion_casado_*.csv")
+    assert md.stem == csv_.stem
+    salida = capsys.readouterr().out
+    assert "lineas: 4" in salida and "congeladas: 2" in salida
+    assert DNI_A not in salida and "ANA" not in salida
+
+
+def test_f036_r23_main_sin_credenciales_de_sigrid(monkeypatch, capsys) -> None:
+    class _SinSigrid(_Ajustes):
+        sigrid_credentials_present = False
+
+    monkeypatch.setattr(herramienta, "Settings", _SinSigrid)
+    monkeypatch.setattr(herramienta, "create_engine",
+                        lambda url: 1 / 0)
+    assert herramienta.main([]) == 2
+    assert "SIGRID_API_" in capsys.readouterr().err
