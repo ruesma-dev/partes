@@ -334,3 +334,18 @@ def test_f035_r19_nuevo_parte_con_recurso_sin_ficha(portal) -> None:
         assert (reg.empleado_ide, reg.empleado_reside, reg.recurso_ide,
                 reg.empleado_match_method) == (None, 903, 903,
                                                "recurso_manual")
+
+
+@pytest.mark.parametrize("ruta, extra", [
+    ("/api/conciliacion/confirmar", {"nombre_leido": LEIDO}),
+    ("/api/empleado/reasignar", {"nombre_leido": LEIDO}),
+])
+def test_f035_r15_ide_desconocido_404_ok_false(portal, ruta, extra) -> None:
+    """Camino `ide` (sin `recurso_ide`): un empleado que no esta en el
+    maestro es 404 con `ok: false`, como antes de F-035 (superviviente 1
+    de la campana de mutacion)."""
+    cliente, fabrica, ids, _ = portal
+    r = cliente.post(ruta, json={**extra, "ide": 999})
+    assert r.status_code == 404
+    assert r.json()["ok"] is False
+    assert _filas(fabrica, ids) == [SIN_TOCAR, SIN_TOCAR]

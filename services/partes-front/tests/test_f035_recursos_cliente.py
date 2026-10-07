@@ -137,3 +137,15 @@ def test_f035_r4_solo_clase_persona_en_el_sql(monkeypatch) -> None:
     _, falso = _recursos(monkeypatch, [])
     sql = _sql(falso.peticiones[0]["sql"])
     assert "WHERE res.cla = 1 AND" in sql
+
+
+def test_f035_r2_la_primera_categoria_y_candef_no_nulos_mandan(
+        monkeypatch) -> None:
+    """Filas repetidas solo COMPLETAN lo que falta: no pisan un valor ya
+    leido (timeout de la campana de mutacion, linea del `candef`)."""
+    filas = [[907, "MO/7", "Siete", 1, "00000007Z", None, None, None, None,
+              "Oficial", 8.0],
+             [907, "MO/7", "Siete", 1, "00000007Z", None, None, None, None,
+              "Peon", 6.0]]
+    (siete,), _ = _recursos(monkeypatch, filas)
+    assert (siete.categoria, siete.candef) == ("Oficial", 8.0)
