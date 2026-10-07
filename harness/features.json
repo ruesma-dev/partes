@@ -469,6 +469,24 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-035-selector-recursos-por-empresa"
+    },
+    {
+      "id": "F-037",
+      "title": "sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada",
+      "description": "URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 lineas extra_auto DUPLICADAS en la base partes, todas de la obra 0678 del 01 al 03/10/2026 (Ruesma 4, Porsan 3). Patron: linea base normal con sigrid_estado='omitido' (mensual MCAP sin codigo de hora laborable, o base con 0 horas 'sin horas') + su extra_auto ya 'registrado' en Sigrid + una extra_auto NUEVA identica sin sigrid_estado, mismo document_id/line_index/empleado_line_no/fecha. Mecanismo: revert_extras_auto() de sv3 respeta la extra congelada pero restaura la base no congelada (horas = horas_orig); el calculo de splits del RecursoConciliador la vuelve a partir y apply_extras_splits() inserta otra extra_auto en cada pasada. Riesgo: aprobar la nueva la escribe en Sigrid con otro synckey (extra doble en el ERP). Caso inverso: base registrada y extra no congelada -> la pasada borra la extra y deja la base recortada sin ella. Arreglo: base y extra_auto de la misma pareja se congelan juntas para el recalculo de sv3; la siguiente pasada borra sola los duplicados no congelados.",
+      "acceptance": [
+        "Una base cuya extra_auto (misma pareja) esta congelada no se revierte ni se vuelve a partir: dos pasadas no crean ninguna extra nueva",
+        "Una base congelada conserva su extra_auto aunque esta no este congelada",
+        "La siguiente pasada borra las extra_auto duplicadas no congeladas y no las recrea, sin perder ninguna linea legitima",
+        "La regla compartida esta_congelado / congelacion.py no cambia (lista cerrada de CLAUDE.md)",
+        "Tras desplegar sv3, la consulta de solo lectura de duplicados por pareja da 0 (verificacion manual del humano)",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-037-extras-duplicadas-base-omitida"
     }
   ]
 }
