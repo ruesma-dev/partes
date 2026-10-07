@@ -1,7 +1,6 @@
 # Integración F-035 + F-036 · tercera copia de «recurso persona» (sv4)
 
-Rama `chore/integracion-f035-f036` (sale de dev `e2954c7`), worktree
-`partes-wt-f037`. Commits locales, sin push.
+Rama `chore/integracion-f035-f036` (de dev `e2954c7`). Commits locales, sin push.
 
 ## Qué cambió
 
@@ -15,8 +14,7 @@ Rama `chore/integracion-f035-f036` (sale de dev `e2954c7`), worktree
   `test_f036_r19_falla_si_sv4_pierde_el_filtro` (4 copias rotas: filtro
   quitado, `AND` → `OR`, filtro bajado al `ON` del último `LEFT JOIN`,
   `fetch_recursos_activos` con otra SQL) y `..._falla_si_sv4_usa_otro_cla`.
-  El `_roto` de los casos de sv4 va fuera del `pytest.raises`, para que un
-  texto no encontrado no cuente como fallo del guardián.
+  El `_roto` de sv4 va fuera del `pytest.raises` (texto no hallado ≠ fallo).
 - `CLAUDE.md` (commit `652371c`): la entrada «desde F-036 … recurso persona»
   de la lista cerrada nombra sv4 `infrastructure/sigrid/sigrid_lookup_client.py`
   (`WHERE res.cla = 1` en `_SQL_RECURSOS_ACTIVOS`). El resto, intacto.
@@ -59,6 +57,4 @@ _SQL_RECURSOS_ACTIVOS»; `res.cla = 2` → devuelve 2 (≠ 1). Real → 1.
 | Mutación | no aplica (sin código de producción cambiado); las 4+1 copias rotas hacen ese papel sobre el guardián |
 | ruff del fichero de test | «All checks passed!» |
 
-## Pendiente
-
-Revisión y merge de `chore/integracion-f035-f036` a dev (humano). Nada MANUAL.
+**Pendiente**: revisión y merge a dev (humano). Nada MANUAL.
