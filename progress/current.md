@@ -7,8 +7,21 @@
 DA3 aprobadas por el humano el 2026-10-07 (las recomendadas). Matiz del humano:
 con la extra de la pareja congelada el recálculo no genera ninguna extra, ni
 siquiera transitoria; los tests de dos pasadas lo vigilan con
-`extras_reclasificadas == 0` en cada pasada. Tarea en curso y decisiones: ver
-`progress/impl_F-037.md` al cerrar.
+`extras_reclasificadas == 0` en cada pasada. Implementación terminada (T1–T10):
+informe en `progress/impl_F-037.md`, mutación en `progress/mutacion_F-037.md`
+(21/21 muertos). Pendiente: reviewer.
+
+**Despliegue y verificación MANUAL (humano; design §8), pendientes:**
+- **M1 · antes de desplegar**: la consulta de duplicados por pareja con la línea
+  de estados congelantes descomentada debe dar 0 filas. Si sale alguna, un
+  duplicado ya viajó a Sigrid: arreglo manual antes de nada.
+- Desplegar **solo sv3** (`infra/redeploy_partes.ps1 -Solo sv3`) cuando lo pida
+  el humano; los agentes no lo lanzan.
+- **M2 · tras la primera pasada de sv3**: la consulta tal cual da 0 filas (hoy 7).
+- **M3 · logs** de `ca-sv3-persistencia`: el WARNING «DUPLICADA(S) borrada(s)»
+  sale una vez (7 ids) y no vuelve; ningún WARNING «revisar a mano en Sigrid».
+- **M4 · informativo (DA3)**: bases congeladas con `horas_orig` y sin ninguna
+  `extra_auto` de su clave; se espera 0. Si hay alguna, feature aparte.
 
 Spec en `specs/F-037-extras-duplicadas-base-omitida/` (spec-author), worktree
 `partes-wt-f037`. Rigor crítico; **solo sv3**. Causa leída en el código:
