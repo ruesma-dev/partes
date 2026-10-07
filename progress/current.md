@@ -1,6 +1,29 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-037 · spec_ready (2026-10-07, URGENTE): sv3 no duplica la extra automática de una base omitida
+
+Spec en `specs/F-037-extras-duplicadas-base-omitida/` (spec-author), worktree
+`partes-wt-f037`. Rigor crítico; **solo sv3**. Causa leída en el código:
+`revert_extras_auto` respeta la extra congelada pero restaura su base no
+congelada, y el cálculo de splits la vuelve a partir (el día cuenta la extra
+congelada y las horas restauradas) → una `extra_auto` nueva por pasada. El
+caso inverso (base `registrado`, extra no congelada) pierde la extra.
+Arreglo: «pareja» = `(document_id, line_index, empleado_line_no, fecha_int)`;
+base y extras automáticas se congelan juntas **para el recálculo de sv3**
+(núcleo puro `pareja_extra.py`, reversión y lectura del repositorio,
+`_congelado` del conciliador). La siguiente pasada borra sola los 7
+duplicados (no congelados) y no los recrea. `esta_congelado` /
+`congelacion.py` y la lista cerrada no cambian. Choques con F-036: solo
+`tests/dobles.py` (bloques distintos) y las altas en backlog/progress.
+
+**Decisiones abiertas para el humano (design §10):** DA1 solo sv3 sin tocar
+la regla compartida de congelación (recomendado); DA2 limpieza automática en
+la primera pasada tras desplegar, sin script (recomendado); DA3 bases
+congeladas que ya perdieron su extra (M4): solo se cuentan, reposición en
+feature aparte si hay alguna (recomendado). Antes de desplegar sv3: M1 (ningún
+duplicado ya encolado/registrado); después: M2 = 0 parejas con > 1 extra.
+
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
 APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.
