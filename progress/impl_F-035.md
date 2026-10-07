@@ -151,10 +151,10 @@ casadas.
 
 | Evidencia | Valor real |
 |---|---|
-| Tests ejecutados (suite sv4 en `init.sh`) | **1764 passed**, 1 warning, in 959.07 s (máquina compartida) |
+| Tests ejecutados (suite sv4 en `init.sh`) | **1774 passed** in 748.31 s (tras la revisión 1; antes 1764 in 959.07 s) |
 | Tests de la raíz (`init.sh`) | 446 passed, 1 skipped in 127.92 s |
 | Tests propios de F-035 | 90 en sv4 (cliente 10, catálogo 13, repositorio 31, endpoints 19, vistas 17) + 1 en la raíz (`test_f035_r23_…`), todos en verde |
-| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 96.9% de 193 líneas cambiadas cubiertas (187/193, umbral 80%, nivel estandar)` |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 97.0% de 200 líneas cambiadas cubiertas (194/200, umbral 80%, nivel estandar)` |
 | Mutación (muestreada, 20 de 69, semilla 20260820) | campaña: 11 muertos, 3 supervivientes, 6 timeouts, 5973.8 s (`--workers 6 --timeout 1200`) |
 | Mutación tras análisis | 15 muertos (4 timeouts re-juzgados a mano), 1 equivalente, 2 huecos cerrados con test nuevo, 2 huecos de bajo riesgo/previos sin test. Detalle: `progress/mutacion_F-035.md` |
 | Tamaño del papeleo | `PUERTA TAMAÑO: … requirements 142/150, design 248/250, impl …/220` |
@@ -210,4 +210,8 @@ Tras el arreglo: los 5 ficheros de F-035 + F-023 + F-030 → 113 passed;
 
 ## Cierre
 
-CIERRE_R1
+`bash harness/init.sh` (2026-10-07, tras `cc2949f`): **ENTORNO LISTO**, exit 0.
+Raíz 446 passed, 1 skipped in 120.95 s; **sv4 1774 passed in 748.31 s** (sin
+caché); sv1–sv3 y sv5 en verde por caché; `PUERTA COBERTURA: 97.0% (194/200)`;
+`PUERTA TAMAÑO` OK (impl 213/220). Solo AVISOS previos (ruff, F-014/F-032,
+infra). Pendiente: T9 (MANUAL, humano) y la pasada 2 del reviewer.
