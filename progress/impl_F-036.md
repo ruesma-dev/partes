@@ -120,3 +120,14 @@ Tests de F-023/F-030 retirados o adaptados (desviación declarada en design §7)
   `r24_fichas_sin_dni_no_compiten_por_nombre` y `r24_una_sola_ficha_sin_dni_no_casa_por_nombre`;
   `r24_empate_con_otra_persona` y `r24_la_otra_ficha_del_mismo_dni...` ganan recursos.
 - `test_f023_seleccion_sigrid.py`: retirado `r17_fichas_candidatas_de_alta_y_de_la_empresa`.
+
+### T9 · R18 (sv5 `recursos_por_dni` con `res.cla = 1`)
+
+```
+$ cd services/partes-transfer && python -m pytest -q tests/test_f036_recursos_por_dni_persona.py
+E           AssertionError: SELECT REPLACE(REPLACE(UPPER(ISNULL(emp.dni,'')),'-',''),' ','') AS dnin, res.ide AS reside FROM res JOIN emp ON emp.ide = res.conide WHERE REPLACE(...) IN (?)
+E           assert None
+E            +  where None = <function search ...>('\bAND res\.cla = 1\b', "SELECT ... IN (?)")
+1 failed, 1 passed in 2.90s
+```
+Tras el código: `2 passed`; suite sv5 `524 passed, 1 warning`.

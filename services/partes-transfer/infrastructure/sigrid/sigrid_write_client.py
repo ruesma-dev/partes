@@ -168,7 +168,11 @@ class SigridWriteClient:
         creacion manual antigua): mismo doble camino que la exclusion de
         extras (emp.dni via res.conide, y res.cif). F-023 (R37): ya no se
         elige aqui el de ide mas alto; elige `elegir_por_dni` con la
-        empresa de la obra y la fecha de cada linea."""
+        empresa de la obra y la fecha de cada linea. F-036 (R18): solo
+        recursos PERSONA (`res.cla = 1`) en las dos ramas, los mismos
+        candidatos que sv3 (`CLA_PERSONA` de `seleccion_sigrid`; lista
+        cerrada de `CLAUDE.md`, guardian
+        `tests/test_f036_recurso_persona_gemelos.py`)."""
         norm = {re.sub(r"[^0-9A-Za-z]", "", d or "").upper() for d in dnis}
         norm.discard("")
         if not norm:
@@ -182,11 +186,11 @@ class SigridWriteClient:
             "rc.fecbaj AS fecbaj FROM ("
             f"  SELECT {dni_emp} AS dnin, res.ide AS reside"
             "  FROM res JOIN emp ON emp.ide = res.conide"
-            f"  WHERE {dni_emp} IN ({marcas})"
+            f"  WHERE {dni_emp} IN ({marcas}) AND res.cla = 1"
             "  UNION ALL"
             f"  SELECT {dni_res} AS dnin, res.ide AS reside"
             "  FROM res"
-            f"  WHERE {dni_res} IN ({marcas})"
+            f"  WHERE {dni_res} IN ({marcas}) AND res.cla = 1"
             ") q JOIN con rc ON rc.ide = q.reside"
         )
         out: dict[str, list[RecursoSigrid]] = {}
