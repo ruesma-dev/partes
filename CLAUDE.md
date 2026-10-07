@@ -205,7 +205,10 @@ original NO se versiona: al repositorio entra solo el Markdown.
   `infrastructure/sigrid/sigrid_api_client.py`) y sv5
   `infrastructure/sigrid/sigrid_write_client.py` (`AND res.cla = 1` en las
   dos ramas de `recursos_por_dni`), para que `elegir_recurso` y
-  `elegir_por_dni` sigan teniendo los mismos candidatos; lo vigila
+  `elegir_por_dni` sigan teniendo los mismos candidatos, y sv4
+  `infrastructure/sigrid/sigrid_lookup_client.py` (`WHERE res.cla = 1` en
+  `_SQL_RECURSOS_ACTIVOS`, el selector de recursos de F-035), para que el
+  portal ofrezca esos mismos candidatos; lo vigila
   `tests/test_f036_recurso_persona_gemelos.py`.
   Solo crece con una decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
