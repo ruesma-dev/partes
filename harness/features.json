@@ -91,6 +91,17 @@
       "branch": "feature/F-006-tipo-hora-ext"
     },
     {
+      "id": "F-007",
+      "title": "Revisión del prompt de extracción de sv2 (J.310 rev.1)",
+      "description": "Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.",
+      "acceptance": [],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 11,
+      "branch": "feature/F-007-prompt-sv2-evals"
+    },
+    {
       "id": "F-008",
       "title": "Modelo de roles en el portal (sv4)",
       "description": "Introducir roles en el portal (p. ej. administrador vs revisor) para restringir acciones administrativas: la primera es el reencolado de mensajes poison (F-002), que hoy queda disponible para cualquier usuario autenticado por decisión explícita del humano (2026-08-13). Base: claims de Easy Auth/Entra (grupos o app roles) leídos por sv4.",
@@ -111,17 +122,6 @@
       "rigor": "estandar",
       "priority": 6,
       "branch": "feature/F-010-resincronizar-orm-models"
-    },
-    {
-      "id": "F-007",
-      "title": "Revisión del prompt de extracción de sv2 (J.310 rev.1)",
-      "description": "Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.",
-      "acceptance": [],
-      "status": "pending",
-      "sdd": true,
-      "rigor": "critico",
-      "priority": 11,
-      "branch": "feature/F-007-prompt-sv2-evals"
     },
     {
       "id": "F-011",
@@ -425,6 +425,17 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-032-sesame-festivos-produccion"
+    },
+    {
+      "id": "F-033",
+      "title": "Portal: columna Empresa en el listado de obras",
+      "description": "Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.",
+      "acceptance": [],
+      "status": "done",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-033-columna-empresa"
     },
     {
       "id": "F-034",

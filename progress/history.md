@@ -711,3 +711,20 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Pendiente: aviso a porcentajes; prueba de escritura en 0404 y despliegue
   sv5 → sv4 (los decide el humano); DA3 con Juan (2 recursos sin
   contrapartida).
+
+## F-033 · Portal: columna Empresa en el listado de obras — done 2026-10-07
+
+- Rama `feature/F-033-columna-empresa` · rigor estandar · sdd=true ·
+  APPROVED del reviewer (`progress/review_F-033.md`).
+- Origen: la 0678 salía «duplicada» en `/obras`; en Sigrid son dos fichas
+  (Ruesma y Porsan) y la fila no decía de qué empresa era.
+- Entregado (solo sv4): columna «Empresa» con filtro en `obras_list.html`;
+  el valor sale de `parte_documents.empresa` de los partes de la fila, con
+  respaldo por la empresa de los recursos de sus líneas dentro de la BBDD
+  `partes`; nombres 1 Ruesma, 28 Porsan, si no «Empresa N»; «—» sin dato.
+- Primer alcance (detalle, vistas de parte, YAML de nombres) rechazado por el
+  humano y reescrito en mínimo.
+- Verificado: init.sh en verde, cobertura 100 % (32 líneas), mutación
+  12/10/2 (2 equivalentes analizados).
+- Pendiente del humano: desplegar sv4 y comprobar `/obras` (0678 en dos filas
+  Ruesma/Porsan, filtro de empresa).

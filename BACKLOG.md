@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **33 features**, 11 abiertas, 22 terminadas.
+Resumen: **34 features**, 11 abiertas, 23 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -33,6 +33,7 @@ Bloqueadas: **F-014, F-032**.
 | F-029 | El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete | 1 | estandar |
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
+| F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -153,6 +154,12 @@ Prueba real de Administracion (2026-10-05, partes de Porsan obra 0724 del 25 y 2
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-031-asiento-analitico`
 
 Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuente: correo de Juan Romero (Dir. Admon y Control de Costes) del 2026-09-29 «ARBOL ANALITICO OBRAS»: las cuentas analiticas de una obra cuelgan de su CENTRO DE COSTE (p. ej. obra 0702 -> centro 0702, ficha Obra > Contabilidad > «Cuentas analiticas»: 0702 centro de coste asociado, 0702.INGR02 certificacion, 0702.INGR01 produccion). El arbol del centro tiene C·COSTES (CD costes directos, CI costes indirectos, CP costes proporcionales CP0001..CP0010) e I·INGRESOS (INGR01..03). «Dentro del asiento se define el financiero, y la cuenta analitica del gasto (6XX)»: ejemplo de asiento con apunte 6260000000 y Desglose Analitico al centro 0702, cuenta 0702.CP0004 AVALES, 100 %. LO QUE SE PIDE: que el coste de mano de obra de los partes que sv5 registra en Sigrid quede imputado en la analitica de la obra (asiento/desglose analitico al centro de coste de la obra con la cuenta de coste que corresponda). RELACION CON F-021 (done): hoy sv5 escribe hmores.caaide = cuenta del centro de la obra con la subcuenta de la ficha de horas del recurso (reshor.caaide); en Porsan sale 0 (ningun recurso tiene cuenta). A INVESTIGAR EN LA SPEC (solo lectura en Sigrid y en azure-apps/sigrid_tablas.md): si Sigrid genera el asiento analitico a partir de hmores.caaide por algun proceso propio (y por que no aparece), o si hay que escribir el apunte/desglose analitico en otras tablas; que cuenta de coste corresponde a la mano de obra (CD..., por categoria o tipo de hora), importe (horas x precio de reshor), fecha y diario; como lo hace hoy Administracion a mano con partes tecleados (comparar con lineas reales de 2026); idempotencia con synckey y que pasa al borrar o reaprobar (F-024); empresas 1 y 28. Solo sv5 escribe en Sigrid. RIGOR critico: escribe contabilidad en Sigrid. Validar con Juan Romero antes de implementar.
+
+### F-033 · Portal: columna Empresa en el listado de obras
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
+
+Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

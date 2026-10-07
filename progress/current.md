@@ -1,6 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-033 · done (2026-10-07): columna Empresa en el listado de obras
+
+APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.
+Pendiente: desplegar sv4 (lo pide el humano) y verificación manual: abrir
+`/obras`, ver la 0678 en dos filas «Ruesma» / «Porsan» y probar el filtro de
+empresa (Ctrl+F5).
+
 ## F-032 · blocked (2026-10-07): activar Sesame en producción (solo festivos)
 
 **Bloqueada por decisión del humano (2026-10-07, «bloquea esta»)** para atender
