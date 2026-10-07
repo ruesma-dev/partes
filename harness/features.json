@@ -425,6 +425,39 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-032-sesame-festivos-produccion"
+    },
+    {
+      "id": "F-034",
+      "title": "sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro)",
+      "description": "Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).",
+      "acceptance": [
+        "Ninguna escritura, actualizacion ni borrado de lineas de sv5 llega a un parte de Sigrid con con.est distinto de 1",
+        "El estado se comprueba dentro del lock justo antes de escribir",
+        "El portal muestra un motivo claro cuando una linea no se escribe por estado del parte",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-034-escribir-solo-en-partes-abiertos"
+    },
+    {
+      "id": "F-035",
+      "title": "Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa",
+      "description": "Pedida por el humano el 2026-10-07. Hoy los selectores de trabajador del portal (sv4) tiran de EMPLEADOS (emp) y no encuentran a quien solo tiene ficha de recurso (ejemplo real: en Conciliar no aparece un trabajador de Porsan que solo tiene recurso, el caso de F-030). LO QUE SE PIDE: (1) en Conciliar y al crear un parte nuevo, el selector de trabajador lista RECURSOS ACTIVOS de Sigrid (de alta a la fecha), no empleados; (2) en Conciliar y en partes se puede ELEGIR LA EMPRESA y el selector solo ofrece recursos de esa empresa; (3) en el detalle de obra, al cambiar el trabajador de una linea, tambien recursos activos y SOLO los de la empresa de esa obra (cada fila de obras es obra+empresa: la 0678 Carmona existe en Ruesma y en Porsan). A REVISAR EN LA SPEC: endpoints /api/sigrid/... de sv4 que alimentan los combos, regla de alta compartida (de_alta, lista cerrada de CLAUDE.md, F-023), que se guarda en la linea al elegir recurso (recurso_ide, empleado_*, DNI) y su efecto en conciliacion y registro (sv3/sv5 eligen recurso por DNI y empresa de la obra).",
+      "acceptance": [
+        "Conciliar, parte nuevo y cambio de trabajador en detalle de obra ofrecen recursos activos de Sigrid",
+        "Conciliar y partes permiten elegir empresa y filtran los recursos por ella",
+        "En detalle de obra solo salen recursos de la empresa de esa obra",
+        "Un trabajador con ficha de recurso y sin ficha de empleado aparece en los selectores",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-035-selector-recursos-por-empresa"
     }
   ]
 }
