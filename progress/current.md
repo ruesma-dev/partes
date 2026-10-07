@@ -1,7 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-037 · done (2026-10-07, URGENTE), pendiente de desplegar sv3 y M1–M4: sv3 no duplica la extra automática de una base omitida
+## F-037 · done y DESPLEGADA sv3 (2026-10-07, r20261007223505), pendiente de M2–M4: sv3 no duplica la extra automática de una base omitida
+
+**Desplegada** a petición del humano («A, despliega», 2026-10-07): solo sv3, revisión
+`ca-sv3-persistencia--r20261007223505` (imagen sha256:5dc32ec0…). KEDA min 0: la limpieza
+de los 7 duplicados ocurre en la primera pasada, al llegar el siguiente mensaje a q-persistencia.
+M1 previa (regla de congelación entera): 0.
 
 **Implementación en curso** (implementer, worktree `partes-wt-f037`). DA1, DA2 y
 DA3 aprobadas por el humano el 2026-10-07 (las recomendadas). Matiz del humano:
