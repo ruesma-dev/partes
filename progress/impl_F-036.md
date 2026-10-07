@@ -172,3 +172,21 @@ En el repo `11 passed` (7 de ellos estropean una copia en memoria y exigen el fa
   sin ficha casado `recurso_dni` y líneas `ok`/`sin_parte`.
 
 ## Evidencias
+
+Medidas el 2026-10-07 en el worktree (`bash harness/init.sh` final: **ENTORNO LISTO**, exit 0).
+
+| Evidencia | Valor real |
+|---|---|
+| Tests sv3 (`services/partes-persistencia`) | **915 passed** en 47,09 s (antes de F-036: 776) |
+| Tests sv5 (`services/partes-transfer`) | **524 passed**, 1 warning, en 53,11 s |
+| Tests raíz (`tests/`, con cobertura) | **454 passed, 3 skipped** en 268,87 s |
+| Tests sv4 / sv1 / sv2 (código sin cambios) | 1682 passed, 1 skipped (1491 s) / 74 passed / 8 passed |
+| Tests nuevos de F-036 | sv3 18+25+20+53+20+44 = 180 (caracterización, maestro, selección, casado, pipeline, medición); sv5 2; raíz 11 |
+| **PUERTA COBERTURA** | **99,7 %** de 309 líneas cambiadas (308/309, umbral 80 %, nivel crítico). La que falta es el `raise AssertionError` de `_nodo` del guardián raíz (línea 49), que solo corre si el guardián detecta un fallo |
+| **Mutación** (`python -m harness.mutacion --feature F-036 --workers 6 --timeout 600`, campaña completa) | 1.ª: 113 generados, 103 muertos, **10 supervivientes**, 0 timeouts (959 s). Resueltos en `eca56bb` (5 huecos con test nuevo, 3 equivalentes eliminando código muerto, 2 de orden reescrito). 2.ª (HEAD `ee2c5d1`): **108 generados, 108 muertos, 0 supervivientes**, 0 timeouts, 0 sin veredicto, 882,8 s. Detalle y tabla de los 10: `progress/mutacion_F-036.md` |
+| PUERTA TAMAÑO | requirements 149/150, design 238/250, impl 174/220 (antes de esta sección) |
+| ruff | 621 avisos en el repo (610 antes): los nuevos son `I001` de los ficheros de test nuevos vistos desde la raíz (el mismo patrón que los tests ya existentes); desde la carpeta del servicio, `ruff check` limpio en todo lo nuevo |
+
+Fuera de alcance (spec): sv4 (F-035), re-casar lo ingerido, casar recursos sin DNI por
+`reside`, la verificación de sv5 y la escritura en Sigrid. Falta para cerrar: revisión del
+reviewer y las verificaciones M1–M3 del humano.
