@@ -4,7 +4,9 @@
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
 APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.
-Pendiente: desplegar sv4 (lo pide el humano) y verificación manual: abrir
+**Desplegada** (2026-10-07, a petición del humano): solo sv4, revisión
+`ca-sv4-front--r20261007151555`, Healthy, arranque sin errores en Log Analytics.
+Pendiente: verificación manual: abrir
 `/obras`, ver la 0678 en dos filas «Ruesma» / «Porsan» y probar el filtro de
 empresa (Ctrl+F5).
 
