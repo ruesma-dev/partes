@@ -131,3 +131,26 @@ E            +  where None = <function search ...>('\bAND res\.cla = 1\b', "SELE
 1 failed, 1 passed in 2.90s
 ```
 Tras el código: `2 passed`; suite sv5 `524 passed, 1 warning`.
+
+### T10 · R19 (guardián raíz `tests/test_f036_recurso_persona_gemelos.py`)
+
+El guardián se copió **fuera del repo** (scratchpad) con los tres ficheros vigilados y se
+ejecutó `python -m pytest -q tests/test_f036_recurso_persona_gemelos.py -k "not falla"` en
+cada copia:
+
+```
+== dev (los ficheros de antes de F-036)
+E       AssertionError: CLA_PERSONA = None, se esperaba 1
+E           AssertionError: IndicePersonas.__init__ ya no filtra con es_persona
+E       AssertionError: _SQL_RECURSOS ya no lee res.cla
+E       AssertionError: CLA_PERSONA = None, se esperaba 1
+4 failed, 7 deselected in 1.76s
+== rota_sv5 (segunda rama de recursos_por_dni sin AND res.cla = 1)
+E           AssertionError: una rama de recursos_por_dni perdio res.cla
+1 failed, 3 passed, 7 deselected in 1.29s
+== rota_sv3 (IndicePersonas sin filter(es_persona, ...))
+E           AssertionError: IndicePersonas.__init__ ya no filtra con es_persona
+1 failed, 3 passed, 7 deselected in 1.26s
+```
+En el repo: `11 passed in 0.44s` (incluye 7 tests que estropean una copia en memoria y exigen
+que la comprobación falle).
