@@ -469,6 +469,37 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-035-selector-recursos-por-empresa"
+    },
+    {
+      "id": "F-036",
+      "title": "Portal: el buscador de obra no funciona en la ultima fila de la lista de trabajadores",
+      "description": "Incidencia del humano (2026-10-07). En la lista de trabajadores de un parte, en la ULTIMA fila, al escribir la obra no sale el desplegable ni busca; si se reordena y ese mismo trabajador deja de ser el ultimo, funciona. A INVESTIGAR: combo de obra type-ahead de sv4 (static/app.js wireObraCombo/_comboSimple, ~l.281-300) y su panel; hipotesis a verificar, no confirmada: el panel desplegable de la ultima fila queda recortado u oculto por el contenedor con scroll (overflow) de la tabla (F-028 ensancho el contenedor) o un indice/selector que no alcanza la ultima fila. Reproducir primero y fijar con test.",
+      "acceptance": [
+        "El buscador de obra despliega y busca igual en la ultima fila que en las demas",
+        "Test que reproduce el fallo en RED antes del arreglo",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-036-combo-obra-ultima-fila"
+    },
+    {
+      "id": "F-037",
+      "title": "Portal: selector de partida del modal de registrar con escritura predictiva, ordenado y filtro CI/CD",
+      "description": "Pedida por el humano el 2026-10-07. En el modal de registrar en Sigrid (sv4), el selector de partida es hoy solo un desplegable. Se pide: (1) que se pueda ESCRIBIR con busqueda predictiva (type-ahead) ademas de desplegar; (2) la lista ORDENADA; (3) un selector CI / CD para filtrar por capitulo, igual que el que ya existe en partes y que funciona muy bien (buildPartidaPicker / filtro de capitulo en static/app.js, ~l.1196-1205 y ~l.1980-2017). Reutilizar ese componente en vez de crear otro. La partida elegida sigue mandando la cuenta como hoy (F-031: lo que queda indicado en el front).",
+      "acceptance": [
+        "En el modal de registrar la partida admite escritura con busqueda predictiva",
+        "La lista de partidas sale ordenada",
+        "Hay filtro CI/CD como en partes, reutilizando el mismo componente",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 2,
+      "branch": "feature/F-037-partida-modal-predictivo"
     }
   ]
 }
