@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **36 features**, 13 abiertas, 23 terminadas.
+Resumen: **34 features**, 11 abiertas, 23 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -13,9 +13,7 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | pendiente | estandar | `feature/F-035-selector-recursos-por-empresa` |
-| F-036 | Portal: el buscador de obra no funciona en la ultima fila de la lista de trabajadores | 1 | pendiente | estandar | `feature/F-036-combo-obra-ultima-fila` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
-| F-037 | Portal: selector de partida del modal de registrar con escritura predictiva, ordenado y filtro CI/CD | 2 | pendiente | estandar | `feature/F-037-partida-modal-predictivo` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -67,23 +65,11 @@ estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feat
 
 Pedida por el humano el 2026-10-07. Hoy los selectores de trabajador del portal (sv4) tiran de EMPLEADOS (emp) y no encuentran a quien solo tiene ficha de recurso (ejemplo real: en Conciliar no aparece un trabajador de Porsan que solo tiene recurso, el caso de F-030). LO QUE SE PIDE: (1) en Conciliar y al crear un parte nuevo, el selector de trabajador lista RECURSOS ACTIVOS de Sigrid (de alta a la fecha), no empleados; (2) en Conciliar y en partes se puede ELEGIR LA EMPRESA y el selector solo ofrece recursos de esa empresa; (3) en el detalle de obra, al cambiar el trabajador de una linea, tambien recursos activos y SOLO los de la empresa de esa obra (cada fila de obras es obra+empresa: la 0678 Carmona existe en Ruesma y en Porsan). A REVISAR EN LA SPEC: endpoints /api/sigrid/... de sv4 que alimentan los combos, regla de alta compartida (de_alta, lista cerrada de CLAUDE.md, F-023), que se guarda en la linea al elegir recurso (recurso_ide, empleado_*, DNI) y su efecto en conciliacion y registro (sv3/sv5 eligen recurso por DNI y empresa de la obra).
 
-### F-036 · Portal: el buscador de obra no funciona en la ultima fila de la lista de trabajadores
-
-estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-036-combo-obra-ultima-fila`
-
-Incidencia del humano (2026-10-07). En la lista de trabajadores de un parte, en la ULTIMA fila, al escribir la obra no sale el desplegable ni busca; si se reordena y ese mismo trabajador deja de ser el ultimo, funciona. A INVESTIGAR: combo de obra type-ahead de sv4 (static/app.js wireObraCombo/_comboSimple, ~l.281-300) y su panel; hipotesis a verificar, no confirmada: el panel desplegable de la ultima fila queda recortado u oculto por el contenedor con scroll (overflow) de la tabla (F-028 ensancho el contenedor) o un indice/selector que no alcanza la ultima fila. Reproducir primero y fijar con test.
-
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
 estado **bloqueada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
 Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
-
-### F-037 · Portal: selector de partida del modal de registrar con escritura predictiva, ordenado y filtro CI/CD
-
-estado **pendiente** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-037-partida-modal-predictivo`
-
-Pedida por el humano el 2026-10-07. En el modal de registrar en Sigrid (sv4), el selector de partida es hoy solo un desplegable. Se pide: (1) que se pueda ESCRIBIR con busqueda predictiva (type-ahead) ademas de desplegar; (2) la lista ORDENADA; (3) un selector CI / CD para filtrar por capitulo, igual que el que ya existe en partes y que funciona muy bien (buildPartidaPicker / filtro de capitulo en static/app.js, ~l.1196-1205 y ~l.1980-2017). Reutilizar ese componente en vez de crear otro. La partida elegida sigue mandando la cuenta como hoy (F-031: lo que queda indicado en el front).
 
 ### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 
