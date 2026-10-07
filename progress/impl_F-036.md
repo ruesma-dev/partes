@@ -194,3 +194,10 @@ propio `create_engine` y una transacción `SET TRANSACTION READ ONLY` que acaba 
 con el mismo `ParteNormalizer` de la ingesta, por `numero_linea` y, si no, por nombre leído.
 (3) Los tests miden las sentencias reales sobre SQLite (todas `SELECT`) y que solo se piden
 `fetch_recursos/empleados/obras` (cliente de sv3, que solo conoce `/api/sql/read`).
+
+### T13 · R9, R20 (lo que no se toca)
+
+`git diff dev --stat -- services/partes-front services/partes-transfer/application services/partes-persistencia/infrastructure/database/orm_models.py`
+→ **vacío** (sv4 entero, `coherencia_recurso.py`/`registro_pipeline.py` de sv5 y el ORM sin cambios;
+tampoco `recurso_conciliador.py`, `jornada_resolver.py`, `text_match.py` ni
+`sqlalchemy_parte_repository.py`). Guardianes F-023, F-024 y F-036: `29 passed`.
