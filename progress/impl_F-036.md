@@ -201,3 +201,12 @@ con el mismo `ParteNormalizer` de la ingesta, por `numero_linea` y, si no, por n
 → **vacío** (sv4 entero, `coherencia_recurso.py`/`registro_pipeline.py` de sv5 y el ORM sin cambios;
 tampoco `recurso_conciliador.py`, `jornada_resolver.py`, `text_match.py` ni
 `sqlalchemy_parte_repository.py`). Guardianes F-023, F-024 y F-036: `29 passed`.
+
+### T14 y T15 · R29 (documentación)
+
+- `CLAUDE.md`: nueva entrada en la lista cerrada (criterio `res.cla = 1` de sv3 y sv5, guardián
+  `tests/test_f036_recurso_persona_gemelos.py`). `docs/ARCHITECTURE.md`: semántica 2, semántica 12
+  (sustituye la frase F-030) y Herramientas de consola. `docs/referencia/partes-proyecto.md`:
+  §3.3, §4.6 (puntos 3 y 4) y §7. `pytest tests/test_documentos_del_arnes.py`: `17 passed`.
+- `azure-apps/partes.md`, viñetas Empleado y Recurso: commit local `6355a5f` en `azure-apps`
+  (solo `partes.md`; el `dedicacion.md` modificado que había allí es de otra sesión y no se tocó).
