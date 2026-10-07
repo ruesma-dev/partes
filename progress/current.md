@@ -11,8 +11,34 @@ aceptada y anotada en design §4. Se retoma en T5.
 
 **Estado (implementer, 2026-10-07):** T1–T8 y T10 hechos; T9 es la
 verificación MANUAL del humano en local (solo lectura). Informe en
-`progress/impl_F-035.md`, mutación en `progress/mutacion_F-035.md`. Pendiente
-de reviewer.
+`progress/impl_F-035.md`, mutación en `progress/mutacion_F-035.md`.
+
+**Revisión 1 (CHANGES_REQUESTED, `progress/review_F-035.md`) aplicada:** bug
+del callback de «Nuevo parte» (`e.` → `r.`) con test que ejecuta el callback
+con node; reasignar a una ficha quita `recurso_manual`; `/api/sigrid/recursos`
+responde `ok: false` si Sigrid nunca cargó. Pendiente de la pasada 2.
+
+### T9 · verificación MANUAL (la lanza el humano; SOLO LECTURA, no aprobar nada)
+
+Con el `.env` local (Sigrid configurado), desde la raíz del repo:
+
+```
+python services/partes-front/main.py
+```
+
+Abrir el portal en el navegador y pulsar **Ctrl+F5** (estáticos nuevos). Tres
+comprobaciones:
+1. **Conciliar** (`/conciliacion`): en una tarjeta con partes de Porsan el
+   selector de empresa sale en «Porsan» y aparece como candidato el
+   trabajador del caso F-030 (solo recurso, `MO/0037`); al cambiar a otra
+   empresa se ocultan los candidatos de Porsan y la búsqueda manual filtra.
+2. **Detalle de obra 0678 de Porsan** (`/obras/obr-<ide de la 0678 Porsan>`):
+   el combo de trabajador de una línea solo ofrece recursos de Porsan (y en la
+   0678 de Ruesma, solo de Ruesma).
+3. **Nuevo parte** (`/nuevo`): al elegir obra, el selector de empresa toma su
+   empresa y queda bloqueado; al elegir trabajador se rellenan categoría y
+   horas sugeridas. El modal «+ Añadir línea» (desde una obra) igual. NO
+   pulsar «Crear» ni «Añadir» contra la base real.
 
 ### BLOQUEO previo (implementer, 2026-10-07): test ajeno en rojo por R5
 

@@ -35,12 +35,8 @@ excepción quedó escrita en R22.
   comportamiento con `METODO_RECURSO_MANUAL` y la lista aparte
   `_METODOS_CASADO_SIN_FICHA = METODOS_RECURSO | {recurso_manual}`, que usan
   `esta_casado` y `_sin_casar_en_cola`.
-- **Caché de recursos en JS**: el combo del detalle de obra / listado usa
-  `fetchRecursos()` (una caché). Los combos de «Nuevo parte» y del modal pasan
-  por `_comboSimple`, que tiene su propia caché por combo: no se modificó
-  `_comboSimple` porque `test_f016_r20_el_js_cablea_el_combo_sin_tocar_el_componente`
-  (DA11 de F-016) exige reutilizarlo sin tocarlo. Coste: como mucho una
-  petición más por página, perezosa.
+- **Caché JS**: `fetchRecursos()` (combo de obra/listado) y la caché propia de
+  `_comboSimple` (Nuevo parte, modal), que no se modifica por DA11 de F-016.
 - La regla R12/R13 vive SOLO en `asignacion_de`; el endpoint la serializa con
   `Asignacion.como_guardar()` (`guardar` de cada item) y el JS copia esos
   valores a los hidden. `_trabajador_pedido` (app.py) resuelve el cuerpo de
@@ -56,16 +52,13 @@ excepción quedó escrita en R22.
   opción «Empresa N»); al cambiar obra o empresa se vacía el trabajador de
   otra empresa (lógica F-023). En el modal con trabajador fijado por la
   página, el selector de empresa se oculta.
-- Fuera del repo: `azure-apps/partes.md` (§ F-016) dice que sv4 «no crea ni
-  modifica ningún endpoint `/api/sigrid/*`»; la spec decidió no tocar
-  `azure-apps` y este agente solo trabaja en `partes`. **Queda para el
-  líder/humano** valorar una línea allí sobre `/api/sigrid/recursos`
-  (ruta interna del portal, misma API consumida).
+- Fuera del repo (líder/humano): `azure-apps/partes.md` dice que sv4 no crea
+  rutas `/api/sigrid/*` y lista los métodos «casado»: valorar `/recursos` y `recurso_manual`.
 
 ## Tests (resultado real)
 
 - F-035: 6 ficheros en sv4 + 1 test en la raíz. `test_f035_vistas.py` → 15
-  passed (13 + 2 de cableado JS); `test_f035_endpoints.py` → 18 passed
+  passed (13 + 2 de cableado JS; +2 en la revisión 1); `test_f035_endpoints.py` → 18 passed
   (16 + 2 añadidos tras la mutación); repositorio 25, catálogo 12, cliente 10.
 - **Suite completa de sv4 tras T6: 1761 passed in 1053.57s** (máquina
   compartida con otros dos implementers; tras T3 fue 1730 passed in 534.76s).
@@ -141,20 +134,12 @@ E   AssertionError: el modal sin selector de empresa
 E   assert (['<div class="combo-emp" data-registro-id="4">', ...] and False)
 19 failed, 10 passed in 37.78s
 ```
-Los 10 que ya pasaban: caracterización de R15 (camino `ide`), R19 por el
-endpoint (ya cubierto por T3), el negativo de R7 y el parseo Jinja2. Los dos
-tests de cableado JS (`test_f035_r10_r11_r21_js_…`, `test_f035_r17_r19_js_…`)
-se escribieron tras el JS: son de no regresión, no de fase RED.
+Los 10 que ya pasaban: caracterización (R15, R19 vía T3, negativo de R7,
+parseo Jinja2). Los tests de cableado JS de T6 son de no regresión, no RED.
 
 ## Verificaciones MANUALES pendientes (T9, humano, SOLO LECTURA)
 
-`python services/partes-front/main.py` con el `.env` local y Ctrl+F5:
-1. Conciliar con «Porsan»: aparece el trabajador del caso F-030 (solo recurso
-   MO/0037); al cambiar el selector se ocultan candidatos de otra empresa.
-2. Detalle de la 0678 de Porsan: el combo de trabajador solo ofrece recursos
-   de Porsan (y en la de Ruesma, solo de Ruesma).
-3. «Nuevo parte»: al elegir obra el selector de empresa se fija y bloquea; el
-   modal «+ Añadir línea» igual. No aprobar nada.
+Comando exacto y las tres comprobaciones en `progress/current.md` (§ T9).
 
 ## Fuera de alcance
 
@@ -168,7 +153,7 @@ casadas.
 |---|---|
 | Tests ejecutados (suite sv4 en `init.sh`) | **1764 passed**, 1 warning, in 959.07 s (máquina compartida) |
 | Tests de la raíz (`init.sh`) | 446 passed, 1 skipped in 127.92 s |
-| Tests propios de F-035 | 80 en sv4 (cliente 10, catálogo 12, repositorio 25, endpoints 18, vistas 15) + 1 en la raíz (`test_f035_r23_…`), todos en verde |
+| Tests propios de F-035 | 90 en sv4 (cliente 10, catálogo 13, repositorio 31, endpoints 19, vistas 17) + 1 en la raíz (`test_f035_r23_…`), todos en verde |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 96.9% de 193 líneas cambiadas cubiertas (187/193, umbral 80%, nivel estandar)` |
 | Mutación (muestreada, 20 de 69, semilla 20260820) | campaña: 11 muertos, 3 supervivientes, 6 timeouts, 5973.8 s (`--workers 6 --timeout 1200`) |
 | Mutación tras análisis | 15 muertos (4 timeouts re-juzgados a mano), 1 equivalente, 2 huecos cerrados con test nuevo, 2 huecos de bajo riesgo/previos sin test. Detalle: `progress/mutacion_F-035.md` |
@@ -192,16 +177,37 @@ Tests añadidos tras la campaña (campaña NO relanzada, rigor estándar):
 True is False`, 2 failed) y `test_f035_r2_la_primera_categoria_y_candef_no_nulos_mandan`
 (mata `sigrid_lookup_client.py:358`: `('Oficial', 6.0) == ('Oficial', 8.0)`).
 
-**`bash harness/init.sh`** — primera pasada final: todo OK salvo `PUERTA
-TAMAÑO` (design 252 > 250 por las notas de DA1/DA2); se compactó §8 y la
-pasada siguiente queda en verde (resultado en el bloque «Cierre»).
+## Revisión 1 (CHANGES_REQUESTED, `progress/review_F-035.md`)
+
+| Cambio | Commit | Test (RED → verde) |
+|---|---|---|
+| Bug: callback de «Nuevo parte» con `e.` tras renombrar a `r` (`ReferenceError`: sin categoría, jornada, calendario ni `updateBtn`) | `1d5cbef` | `test_f035_r17_r19_nuevo_parte_al_elegir_recurso_rellena_todo` y su gemelo del modal: aíslan el `_comboSimple(...)` de app.js y lo **ejecutan con node** con un `document` falso (skip si no hay node) |
+| (a) reasignar a una ficha quita `recurso_manual` (otras marcas no se tocan) | `e43a954` | `test_f035_r12_reasignar_a_una_ficha_quita_recurso_manual` (3 reasignaciones × por recurso / por `ide`) |
+| (b) `/api/sigrid/recursos` con `ok: false` si Sigrid nunca cargó (`RecursoCatalog.cargado`) | `e43a954` | `test_f035_r5_cargado_distingue_nunca_cargo_de_lista_vacia`, `test_f035_r5_endpoint_recursos_primera_carga_fallida_ok_false` |
+
+T9 con su comando exacto, en `progress/current.md`. No se tocan el orden del
+DNI de R2 ni `CLAUDE.md` (los resuelve el líder al mergear con F-036).
+
+RED del bug — `python -m pytest tests/test_f035_vistas.py -q --tb=short -k nuevo_parte_al_elegir`
+(el gemelo del modal ya pasaba):
+```
+E   AssertionError: [eval]:34
+E             document.getElementById("categoria").value = e.categoria || "";
+E     ReferenceError: e is not defined
+E         at [eval]:34:54
+FAILED tests/test_f035_vistas.py::test_f035_r17_r19_nuevo_parte_al_elegir_recurso_rellena_todo
+1 failed, 16 deselected in 8.75s
+```
+RED de (a) y (b) — `python -m pytest tests/test_f035_repositorio.py tests/test_f035_recurso_catalog.py tests/test_f035_endpoints.py -q --tb=line -k "quita_recurso_manual or cargado or primera_carga"`:
+```
+E   AssertionError: assert 'recurso_manual' is None          (x6)
+E   AttributeError: 'RecursoCatalog' object has no attribute 'cargado'
+E   assert (True is False)                                   (ok del endpoint)
+8 failed, 55 deselected in 8.81s
+```
+Tras el arreglo: los 5 ficheros de F-035 + F-023 + F-030 → 113 passed;
+`test_f035_vistas.py` → 17 passed; `node --check static/app.js` sin errores.
 
 ## Cierre
 
-`bash harness/init.sh` (2026-10-07, tras `8973e02`): **ENTORNO LISTO**. Raíz
-446 passed, 1 skipped in 170.96 s; sv1–sv5 en verde (sv4 por caché del verde
-anterior, 1764 passed, sobre el mismo árbol de servicios); `PUERTA COBERTURA:
-96.9% (187/193)`; `PUERTA TAMAÑO: requirements 142/150, design 248/250, impl
-…/220`. Solo AVISOS previos (ruff 623, F-014/F-032 bloqueadas, infra sin tests).
-Pendiente: T9 (MANUAL, humano) y el reviewer. Fuera del repo: valorar una
-línea en `azure-apps/partes.md` sobre `/api/sigrid/recursos` (ver Decisiones).
+CIERRE_R1
