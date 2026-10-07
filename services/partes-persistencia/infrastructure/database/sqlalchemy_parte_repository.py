@@ -17,9 +17,70 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.pareja_extra import (
+    FilaPareja,
+    PlanRevert,
+    clave_pareja,
+    es_miembro,
+    plan_revert,
+)
 from application.services.recurso_conciliador import esta_congelado
 
 logger = logging.getLogger(__name__)
+
+
+def _fila_pareja(*, registro_id: int, document_id, line_index,
+                 empleado_line_no, fecha_int, extra_auto, tipo_hora,
+                 sigrid_estado, aprobado) -> FilaPareja:
+    """F-037: una fila de `parte_registros` tal como la ve `pareja_extra`.
+
+    La congelacion por linea sale de `esta_congelado`, la regla compartida
+    de siempre: la pareja solo la extiende.
+    """
+    return FilaPareja(
+        registro_id=registro_id,
+        clave=clave_pareja({
+            "document_id": document_id, "line_index": line_index,
+            "empleado_line_no": empleado_line_no, "fecha_int": fecha_int,
+        }),
+        extra_auto=bool(extra_auto),
+        miembro=es_miembro(extra_auto=bool(extra_auto), tipo_hora=tipo_hora),
+        congelada=esta_congelado(sigrid_estado, aprobado),
+    )
+
+
+def _log_plan_revert(plan: PlanRevert) -> None:
+    """Los avisos de `revert_extras_auto` (F-015 R31; F-037 R6-R8).
+
+    Sin nombres ni DNIs: ids de registro y claves de parte.
+    """
+    if plan.congeladas:
+        logger.info(
+            "[repo] revert de extras: %s linea(s) CONGELADAS respetadas "
+            "(ya registradas/encoladas en Sigrid o en un parte aprobado).",
+            plan.congeladas,
+        )
+    if plan.protegidas:
+        logger.info(
+            "[repo] revert de extras: %s linea(s) protegidas por su pareja "
+            "congelada (F-037).",
+            plan.protegidas,
+        )
+    if plan.duplicadas:
+        logger.warning(
+            "[repo] revert de extras: %s extra(s) automatica(s) "
+            "DUPLICADA(S) borrada(s): su pareja ya tiene la extra congelada "
+            "en Sigrid (F-037); ids: %s",
+            len(plan.duplicadas),
+            ", ".join(str(i) for i in plan.duplicadas[:10]),
+        )
+    for (document_id, line_index, _eln, _fecha), n in plan.dobles:
+        logger.warning(
+            "[repo] revert de extras: la pareja document_id=%s "
+            "line_index=%s tiene %s extras automaticas CONGELADAS; no se "
+            "borra ninguna, revisar a mano en Sigrid (F-037).",
+            document_id, line_index, n,
+        )
 
 
 def _norm_txt(s: str | None) -> str:
@@ -241,8 +302,16 @@ class SqlAlchemyParteRepository:
         recrearla aqui la dejaria descuadrada respecto a Sigrid. El
         contador devuelto sigue siendo el de extras automaticas realmente
         borradas.
+
+        F-037: la base y sus extras automaticas (misma clave de pareja) se
+        congelan JUNTAS. Si un miembro esta congelado, la base no se
+        restaura y sus extras no se borran (R4, R5): restaurar la base de
+        una extra ya registrada hacia que el calculo la volviera a partir
+        y creara otra extra en cada pasada. Las extras automaticas NO
+        congeladas de una pareja cuya extra ya esta congelada son esos
+        duplicados y se borran, con WARNING (R6). El plan lo decide
+        `pareja_extra.plan_revert`.
         """
-        n = 0
         with self._session_factory.create_session() as session:
             filas = session.execute(
                 select(ParteRegistroOrm, ParteDocumentOrm.approved)
@@ -255,25 +324,30 @@ class SqlAlchemyParteRepository:
                     | ParteRegistroOrm.horas_orig.isnot(None)
                 )
             ).all()
-            congeladas = 0
-            for reg, aprobado in filas:
-                if esta_congelado(reg.sigrid_estado, aprobado):
-                    congeladas += 1
-                    continue
-                if reg.extra_auto:
-                    session.delete(reg)
-                    n += 1
-                else:
-                    reg.horas = reg.horas_orig
-                    reg.horas_orig = None
-            session.commit()
-        if congeladas:
-            logger.info(
-                "[repo] revert de extras: %s linea(s) CONGELADAS respetadas "
-                "(ya registradas/encoladas en Sigrid o en un parte aprobado).",
-                congeladas,
+            por_id = {reg.id: reg for reg, _ in filas}
+            plan = plan_revert(
+                _fila_pareja(
+                    registro_id=reg.id,
+                    document_id=reg.document_id,
+                    line_index=reg.line_index,
+                    empleado_line_no=reg.empleado_line_no,
+                    fecha_int=reg.fecha_int,
+                    extra_auto=reg.extra_auto,
+                    tipo_hora=reg.tipo_hora,
+                    sigrid_estado=reg.sigrid_estado,
+                    aprobado=aprobado,
+                )
+                for reg, aprobado in filas
             )
-        return n
+            for rid in plan.borrar:
+                session.delete(por_id[rid])
+            for rid in plan.restaurar:
+                reg = por_id[rid]
+                reg.horas = reg.horas_orig
+                reg.horas_orig = None
+            session.commit()
+        _log_plan_revert(plan)
+        return len(plan.borrar)
 
     def apply_extras_splits(self, splits: list[dict]) -> int:
         """Aplica el paso de exceso de jornada a extra. Por cada split:
