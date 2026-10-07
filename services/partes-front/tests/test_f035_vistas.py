@@ -197,6 +197,32 @@ def test_f035_r20_obra_desconocida_sin_filtro(portal, monkeypatch) -> None:
     assert combos and not any("data-empresa" in c for c in combos)
 
 
+# ===================== JS (cableado, sin navegador) ===================== #
+
+def _js() -> str:
+    return (PLANTILLAS.parent / "static" / "app.js").read_text(
+        encoding="utf-8")
+
+
+def test_f035_r10_r11_r21_js_envia_recurso_ide() -> None:
+    js = _js()
+    assert "body: JSON.stringify({ nombre_leido: nombre, recurso_ide: recursoIde })" in js
+    assert "var body = { recurso_ide: recursoIde };" in js     # reasignar
+    assert 'getAttribute("data-recurso-ide")' in js
+    assert '"&empresa=" + encodeURIComponent(emp)' in js       # buscar
+    assert 'wrap.getAttribute("data-empresa")' in js           # R20
+
+
+def test_f035_r17_r19_js_combos_sobre_recursos_y_reside_del_modal() -> None:
+    js = _js()
+    assert js.count('"/api/sigrid/recursos"') == 3     # 2 combos + REC_URL
+    assert '"/api/sigrid/empleados"' not in js         # jornadas: su plantilla
+    assert 'empleado_reside: g("addline-emp-reside").value || null' in js
+    assert js.count("deLaEmpresaDe(") == 3             # definicion + 2 usos
+    assert js.count("fijarEmpresa(") == 4              # definicion + 3 usos
+    assert js.count("function _comboSimple(") == 1     # F-016 DA11 intacto
+
+
 # ============================ parseo Jinja2 ============================= #
 
 @pytest.mark.parametrize("plantilla", ["conciliacion.html", "nuevo_parte.html",

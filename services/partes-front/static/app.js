@@ -209,11 +209,36 @@ function avisarCambioLineas() {
       + empresaSufijo(o);
   }
 
-  // R41: en un alta manual con obra elegida, solo las fichas de su empresa.
-  function mismaEmpresa(empresaObra) {
-    return function (e) {
-      return empresaObra() == null || e.empresa === empresaObra();
+  // F-035 (R17): los combos de trabajador ofrecen solo los recursos de la
+  // empresa del selector de empresa ("" = todas).
+  function empresaDeSelect(sel) {
+    var v = sel ? sel.value : "";
+    return v ? parseInt(v, 10) : null;
+  }
+  function deLaEmpresaDe(sel) {
+    return function (r) {
+      var emp = empresaDeSelect(sel);
+      return emp == null || r.empresa === emp;
     };
+  }
+  // F-035 (R18, DA1): con obra con empresa, el selector toma esa empresa y
+  // queda bloqueado (un recurso de otra empresa lo omitiria sv5); sin
+  // empresa de obra, libre. Si la empresa no esta entre las opciones, se
+  // anade («Empresa N»).
+  function fijarEmpresa(sel, empresa) {
+    if (!sel) return;
+    if (empresa == null) { sel.disabled = false; return; }
+    var v = String(empresa);
+    var hay = Array.prototype.some.call(sel.options, function (o) {
+      return o.value === v;
+    });
+    if (!hay) {
+      var o = document.createElement("option");
+      o.value = v; o.textContent = "Empresa " + v;
+      sel.appendChild(o);
+    }
+    sel.value = v;
+    sel.disabled = true;
   }
 
   // ---- Fecha (todas las .fecha-edit) ---- //
@@ -633,12 +658,13 @@ function avisarCambioLineas() {
   // ---------------------------------------------------------------- //
   // Conciliacion de trabajadores: casar (confirmar) + buscar manual.
   // ---------------------------------------------------------------- //
-  function _confirmarCasado(nombre, ide, card, statusEl) {
+  // F-035 (R11): se casa con un RECURSO activo (con o sin ficha de empleado).
+  function _confirmarCasado(nombre, recursoIde, card, statusEl) {
     if (statusEl) { statusEl.textContent = "Casando…"; statusEl.className = "recon-status"; }
     return fetch("/api/conciliacion/confirmar", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ nombre_leido: nombre, ide: ide }),
+      body: JSON.stringify({ nombre_leido: nombre, recurso_ide: recursoIde }),
     }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         if (!res.ok || !res.d.ok) throw new Error((res.d && res.d.error) || "Error");
@@ -683,7 +709,25 @@ function avisarCambioLineas() {
       var card = btn.closest(".recon-card");
       var statusEl = card ? card.querySelector(".recon-status") : null;
       _confirmarCasado(btn.getAttribute("data-nombre"),
-        parseInt(btn.getAttribute("data-ide"), 10), card, statusEl);
+        parseInt(btn.getAttribute("data-recurso-ide"), 10), card, statusEl);
+    });
+
+    // F-035 (R10): el selector de empresa de cada tarjeta oculta los
+    // candidatos de otra empresa y relanza la busqueda manual con ella.
+    list.querySelectorAll(".recon-empresa").forEach(function (sel) {
+      var card = sel.closest(".recon-card");
+      function aplicar() {
+        var v = sel.value;
+        card.querySelectorAll("tr.recon-cand").forEach(function (tr) {
+          tr.hidden = !!v && tr.getAttribute("data-empresa") !== v;
+        });
+      }
+      sel.addEventListener("change", function () {
+        aplicar();
+        var q = card.querySelector(".manual-q");
+        if (q && q.value.trim().length >= 2) q.dispatchEvent(new Event("input"));
+      });
+      aplicar();
     });
 
     // Buscadores manuales (uno por tarjeta).
@@ -697,7 +741,10 @@ function avisarCambioLineas() {
         var q = input.value.trim();
         if (q.length < 2) { results.innerHTML = ""; return; }
         timer = setTimeout(function () {
-          fetch("/api/conciliacion/buscar?q=" + encodeURIComponent(q),
+          var selEmp = card.querySelector(".recon-empresa");
+          var emp = selEmp ? selEmp.value : "";
+          fetch("/api/conciliacion/buscar?q=" + encodeURIComponent(q)
+            + (emp ? "&empresa=" + encodeURIComponent(emp) : ""),
             { headers: { Accept: "application/json" } })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -707,7 +754,8 @@ function avisarCambioLineas() {
               items.forEach(function (it) {
                 var row = document.createElement("div");
                 row.className = "manual-item";
-                var label = (it.codigo ? it.codigo + " · " : "") + (it.nombre || "");
+                var label = (it.codigo ? it.codigo + " · " : "") + (it.nombre || "")
+                  + empresaSufijo(it);
                 row.innerHTML = '<span class="mi-score">' + it.score + '%</span>' +
                   '<span class="mi-emp">' + _esc(label) +
                   (it.dni ? ' <span class="cell-sub">DNI ' + _esc(it.dni) + '</span>' : '') + '</span>';
@@ -726,12 +774,13 @@ function avisarCambioLineas() {
   }
 
   // ---------------------------------------------------------------- //
-  // Combo de EMPLEADO (autocompletar sobre el maestro activo de Sigrid)
-  // para reasignar el trabajador de un registro / grupo. Busca en
-  // servidor (/api/conciliacion/buscar). Al elegir, reasigna y recarga.
+  // Combo de TRABAJADOR (autocompletar sobre los RECURSOS activos de
+  // Sigrid, F-035) para reasignar el trabajador de un registro / grupo.
+  // En el detalle de obra, `data-empresa` limita a la empresa de la obra
+  // (R20). Al elegir, reasigna por `recurso_ide` (R21) y recarga.
   // ---------------------------------------------------------------- //
-  function _empReasignar(wrap, ide, label) {
-    var body = { ide: ide };
+  function _empReasignar(wrap, recursoIde, label) {
+    var body = { recurso_ide: recursoIde };
     var regId = wrap.getAttribute("data-registro-id");
     if (regId) {
       // Vista de detalle: acota la reasignacion a la(s) linea(s). Si la fila
@@ -776,22 +825,24 @@ function avisarCambioLineas() {
       });
   }
 
-  var EMP_URL = "/api/sigrid/empleados";
-  var _empCache = null;
+  var REC_URL = "/api/sigrid/recursos";
+  var _recCache = null;
 
-  function fetchEmpleados() {
-    if (_empCache) return Promise.resolve(_empCache);
-    return fetch(EMP_URL, { headers: { Accept: "application/json" } })
+  // F-035 (R5): recursos activos, una sola peticion por pagina; el filtro
+  // por empresa se hace en cliente.
+  function fetchRecursos() {
+    if (_recCache) return Promise.resolve(_recCache);
+    return fetch(REC_URL, { headers: { Accept: "application/json" } })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        _empCache = (data && data.ok && data.items) ? data.items : [];
-        return _empCache;
-      }).catch(function () { _empCache = []; return _empCache; });
+        _recCache = (data && data.ok && data.items) ? data.items : [];
+        return _recCache;
+      }).catch(function () { _recCache = []; return _recCache; });
   }
 
-  function empLabel(e) {
-    return (e.codigo ? e.codigo + " · " : "") + (e.nombre || "")
-      + empresaSufijo(e);
+  function recLabel(r) {
+    return (r.codigo ? r.codigo + " · " : "") + (r.nombre || "")
+      + empresaSufijo(r);
   }
 
   function wireEmpleadoCombo(wrap) {
@@ -822,16 +873,16 @@ function avisarCambioLineas() {
       if (!shown.length) {
         var d = document.createElement("div");
         d.className = "combo-msg";
-        d.textContent = _empCache === null ? "Cargando empleados…" : "Sin coincidencias";
+        d.textContent = _recCache === null ? "Cargando recursos…" : "Sin coincidencias";
         panel.appendChild(d);
       } else {
         shown.forEach(function (e, i) {
           var it = document.createElement("div");
           it.className = "combo-item" + (i === activeIdx ? " active" : "");
-          it.innerHTML = _esc(empLabel(e)) +
+          it.innerHTML = _esc(recLabel(e)) +
             (e.dni ? ' <span class="cell-sub">DNI ' + _esc(e.dni) + '</span>' : '');
           it.addEventListener("mousedown", function (ev) {
-            ev.preventDefault(); _empReasignar(wrap, e.ide, empLabel(e));
+            ev.preventDefault(); _empReasignar(wrap, e.ide, recLabel(e));
           });
           panel.appendChild(it);
         });
@@ -847,11 +898,14 @@ function avisarCambioLineas() {
       }
     }
     function open() {
-      fetchEmpleados().then(function (emps) {
+      fetchRecursos().then(function (recs) {
         var tokens = _norm(input.value).split(/\s+/).filter(Boolean);
-        shown = emps.filter(function (e) {
+        // R20: en el detalle de obra, solo los de la empresa de la obra.
+        var empObra = wrap.getAttribute("data-empresa");
+        shown = recs.filter(function (e) {
+          if (empObra && String(e.empresa) !== empObra) return false;
           if (!tokens.length) return true;
-          var hay = _norm(empLabel(e) + " " + (e.dni || ""));
+          var hay = _norm(recLabel(e) + " " + (e.dni || ""));
           return tokens.every(function (t) { return hay.indexOf(t) !== -1; });
         }).slice(0, 100);
         activeIdx = -1;
@@ -868,7 +922,7 @@ function avisarCambioLineas() {
       else if (e.key === "ArrowUp") { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, 0); render(); }
       else if (e.key === "Enter") {
         e.preventDefault();
-        if (activeIdx >= 0 && shown[activeIdx]) _empReasignar(wrap, shown[activeIdx].ide, empLabel(shown[activeIdx]));
+        if (activeIdx >= 0 && shown[activeIdx]) _empReasignar(wrap, shown[activeIdx].ide, recLabel(shown[activeIdx]));
       } else if (e.key === "Escape") { close(); }
     });
     input.addEventListener("blur", function () { setTimeout(close, 150); });
@@ -1477,40 +1531,52 @@ function avisarCambioLineas() {
       return document.getElementById("obra-ide").value;
     });
 
-    // F-023 (R41): empresa de la obra elegida y de la ficha elegida.
-    var obraEmpresa = null, empEmpresa = null;
+    // F-023 (R41) / F-035 (R17, R18): la empresa del selector filtra los
+    // recursos; con obra con empresa, la toma y se bloquea (DA1).
+    var selEmpresa = document.getElementById("emp-empresa");
+    var empEmpresa = null;
+    function vaciarTrabajador() {
+      ["emp-ide", "emp-codigo", "emp-nombre", "emp-dni", "emp-reside",
+       "emp-input"].forEach(function (id) {
+        document.getElementById(id).value = "";
+      });
+      empEmpresa = null;
+    }
+    function trabajadorDeOtraEmpresa() {
+      // El recurso elegido es de otra empresa: se descarta (logica F-023).
+      var emp = empresaDeSelect(selEmpresa);
+      if (empEmpresa != null && emp != null && empEmpresa !== emp) {
+        vaciarTrabajador();
+      }
+      updateBtn();
+    }
+    if (selEmpresa) selEmpresa.addEventListener("change", trabajadorDeOtraEmpresa);
     _comboSimple("obra-combo", "obra-input", "obra-panel", "/api/sigrid/obras",
       obraLabel,
       function (o) {
         document.getElementById("obra-ide").value = o.ide != null ? o.ide : "";
         document.getElementById("obra-codigo").value = o.codigo || "";
         document.getElementById("obra-nombre").value = o.nombre || "";
-        obraEmpresa = o.empresa != null ? o.empresa : null;
-        if (empEmpresa != null && obraEmpresa != null
-            && empEmpresa !== obraEmpresa) {
-          // La ficha elegida es de otra empresa: se descarta.
-          ["emp-ide", "emp-codigo", "emp-nombre", "emp-dni", "emp-reside",
-           "emp-input"].forEach(function (id) {
-            document.getElementById(id).value = "";
-          });
-          empEmpresa = null;
-        }
-        updateBtn();
+        fijarEmpresa(selEmpresa, o.empresa != null ? o.empresa : null);
+        trabajadorDeOtraEmpresa();
         partidaC.reload();
       });
-    _comboSimple("emp-combo", "emp-input", "emp-panel", "/api/sigrid/empleados",
-      function (e) {
-        return (e.nombre || "") + (e.dni ? " · " + e.dni : "")
-          + empresaSufijo(e);
+    _comboSimple("emp-combo", "emp-input", "emp-panel", "/api/sigrid/recursos",
+      function (r) {
+        return recLabel(r) + (r.dni ? " · " + r.dni : "");
       },
-      function (e) {
-        empEmpresa = e.empresa != null ? e.empresa : null;
-        document.getElementById("emp-ide").value = e.ide != null ? e.ide : "";
-        document.getElementById("emp-codigo").value = e.codigo || "";
-        document.getElementById("emp-nombre").value = e.nombre || "";
-        document.getElementById("emp-dni").value = e.dni || "";
+      function (r) {
+        // R19: se guardan los empleado_* de la asignacion del servidor
+        // (ficha si la hay; si no, el recurso) y su `reside`.
+        var g = r.guardar || {};
+        empEmpresa = r.empresa != null ? r.empresa : null;
+        document.getElementById("emp-ide").value =
+          g.empleado_ide != null ? g.empleado_ide : "";
+        document.getElementById("emp-codigo").value = g.empleado_codigo || "";
+        document.getElementById("emp-nombre").value = g.empleado_nombre || "";
+        document.getElementById("emp-dni").value = g.empleado_dni || "";
         document.getElementById("emp-reside").value =
-          e.reside != null ? e.reside : "";
+          g.empleado_reside != null ? g.empleado_reside : "";
         // Categoria: viene del trabajador en Sigrid (campo bloqueado).
         document.getElementById("categoria").value = e.categoria || "";
         // Sugerir la jornada por defecto del trabajador (editable).
@@ -1520,7 +1586,7 @@ function avisarCambioLineas() {
         // Su calendario puede tener festivos distintos (F-003).
         calDias = {}; calPedido = ""; cargarCalendario();
         updateBtn();
-      }, mismaEmpresa(function () { return obraEmpresa; }));
+      }, deLaEmpresaDe(selEmpresa));
 
     document.getElementById("crear-btn").addEventListener("click", function () {
       var btn = this;
@@ -1618,7 +1684,13 @@ function avisarCambioLineas() {
       g("addline-" + prefix + "-ide").value = (vals && vals.ide) || "";
       g("addline-" + prefix + "-codigo").value = (vals && vals.codigo) || "";
       g("addline-" + prefix + "-nombre").value = (vals && vals.nombre) || "";
-      if (prefix === "emp") g("addline-emp-dni").value = (vals && vals.dni) || "";
+      if (prefix === "emp") {
+        g("addline-emp-dni").value = (vals && vals.dni) || "";
+        g("addline-emp-reside").value = "";
+        // Con el trabajador fijado por la pagina, el selector de empresa
+        // no aplica (F-035).
+        g("addline-empresa-field").hidden = !!locked;
+      }
     }
 
     function todayISO() {
@@ -1630,20 +1702,36 @@ function avisarCambioLineas() {
     var partidaC = _partidaCombo("addline-partida", function () {
       return g("addline-obra-ide").value;
     });
-    // F-023 (R41): empresa de la obra del alta (la fijada por el parte o la
-    // elegida en el combo) para ofrecer solo fichas de esa empresa.
-    var addlineEmpresa = null;
+    // F-023 (R41) / F-035 (R18): empresa de la obra del alta (la fijada por
+    // el parte o la elegida en el combo): el selector la toma y se bloquea
+    // (DA1); sin obra, libre y en «Todas».
+    var selAddEmpresa = g("addline-empresa");
+    var addlineEmpEmpresa = null;
+    function addlineOtraEmpresa() {
+      var emp = empresaDeSelect(selAddEmpresa);
+      if (addlineEmpEmpresa != null && emp != null
+          && addlineEmpEmpresa !== emp && !g("addline-emp-combo").hidden) {
+        ["addline-emp-ide", "addline-emp-codigo", "addline-emp-nombre",
+         "addline-emp-dni", "addline-emp-reside", "addline-emp-input"]
+          .forEach(function (id) { g(id).value = ""; });
+        addlineEmpEmpresa = null;
+      }
+    }
+    selAddEmpresa.addEventListener("change", addlineOtraEmpresa);
 
     function open(btn) {
       var d = btn.dataset;
       var obraLocked = !!(d.obraCodigo || d.obraIde);
-      addlineEmpresa = null;
+      selAddEmpresa.disabled = false;
+      selAddEmpresa.value = "";
+      addlineEmpEmpresa = null;
       if (obraLocked && d.obraIde) {
         fetchObras().then(function (obras) {
           var o = obras.filter(function (x) {
             return String(x.ide) === String(d.obraIde);
           })[0];
-          addlineEmpresa = (o && o.empresa != null) ? o.empresa : null;
+          fijarEmpresa(selAddEmpresa,
+            (o && o.empresa != null) ? o.empresa : null);
         });
       }
       setLock("obra", obraLocked, d.obraLabel, obraLocked
@@ -1674,25 +1762,31 @@ function avisarCambioLineas() {
         g("addline-obra-ide").value = o.ide != null ? o.ide : "";
         g("addline-obra-codigo").value = o.codigo || "";
         g("addline-obra-nombre").value = o.nombre || "";
-        addlineEmpresa = o.empresa != null ? o.empresa : null;
+        fijarEmpresa(selAddEmpresa, o.empresa != null ? o.empresa : null);
+        addlineOtraEmpresa();
         partidaC.reload();
       });
     _comboSimple("addline-emp-combo", "addline-emp-input", "addline-emp-panel",
-      "/api/sigrid/empleados",
-      function (e) {
-        return (e.nombre || "") + (e.dni ? " · " + e.dni : "")
-          + empresaSufijo(e);
+      "/api/sigrid/recursos",
+      function (r) {
+        return recLabel(r) + (r.dni ? " · " + r.dni : "");
       },
-      function (e) {
-        g("addline-emp-ide").value = e.ide != null ? e.ide : "";
-        g("addline-emp-codigo").value = e.codigo || "";
-        g("addline-emp-nombre").value = e.nombre || "";
-        g("addline-emp-dni").value = e.dni || "";
-        g("addline-categoria").value = e.categoria || "";
-        if (e.jornada_sugerida != null) {
-          g("addline-ord").value = e.jornada_sugerida;
+      function (r) {
+        // F-035 (R19): los empleado_* de la asignacion y el `reside`.
+        var gu = r.guardar || {};
+        addlineEmpEmpresa = r.empresa != null ? r.empresa : null;
+        g("addline-emp-ide").value =
+          gu.empleado_ide != null ? gu.empleado_ide : "";
+        g("addline-emp-codigo").value = gu.empleado_codigo || "";
+        g("addline-emp-nombre").value = gu.empleado_nombre || "";
+        g("addline-emp-dni").value = gu.empleado_dni || "";
+        g("addline-emp-reside").value =
+          gu.empleado_reside != null ? gu.empleado_reside : "";
+        g("addline-categoria").value = r.categoria || "";
+        if (r.jornada_sugerida != null) {
+          g("addline-ord").value = r.jornada_sugerida;
         }
-      }, mismaEmpresa(function () { return addlineEmpresa; }));
+      }, deLaEmpresaDe(selAddEmpresa));
     _bindClick("[data-add-line]", function (btn) { open(btn); });
     g("addline-close").addEventListener("click", close);
     g("addline-cancel").addEventListener("click", close);
@@ -1714,6 +1808,7 @@ function avisarCambioLineas() {
         empleado_codigo: g("addline-emp-codigo").value || null,
         empleado_nombre: g("addline-emp-nombre").value || null,
         empleado_dni: g("addline-emp-dni").value || null,
+        empleado_reside: g("addline-emp-reside").value || null,   // F-035 (R19)
         categoria: g("addline-categoria").value || null,
         dias: [fecha],
         horas_ordinaria: g("addline-ord").value || 0,
