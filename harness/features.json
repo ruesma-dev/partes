@@ -469,6 +469,23 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-035-selector-recursos-por-empresa"
+    },
+    {
+      "id": "F-036",
+      "title": "sv3: casar el trabajador leido contra los recursos persona de la empresa del parte",
+      "description": "Pedida por el humano el 2026-10-07: «el macheo de la IA tambien debe hacerlo contra recursos, no empleados»; «en el punto donde sv3 casa, que case contra la lista de recursos de la empresa, que viene de pasos anteriores»; «si no hay dni en el recurso que lo traiga de empleado». sv2 no recibe lista de personas: el casado lo hace sv3 (DNI, alias, nombre) y hoy es contra fichas de empleado (emp) con el respaldo F-030 de fichas de recurso. LO QUE SE PIDE: el casado de sv3 pasa a ser contra los RECURSOS persona (res.cla = 1, criterio de porcentajes) de la empresa del parte y de alta a la fecha; DNI del recurso = res.cif o, si vacio, el de su ficha de empleado (res.conide). A REVISAR EN LA SPEC: que se guarda en empleado_* y recurso_*, alias, respaldo F-030, conciliador de recursos y lista cerrada de CLAUDE.md (elegir_recurso sv3 / elegir_por_dni sv5), efecto en sv5, recalculo de partes activos al desplegar y como medir el impacto antes.",
+      "acceptance": [
+        "sv3 casa el trabajador leido (DNI, alias, nombre) contra los recursos persona de alta de la empresa del parte",
+        "Un trabajador con recurso y sin ficha de empleado, o con ficha en otra empresa, casa por su recurso",
+        "La linea guarda empleado_* coherentes con el recurso elegido y el conciliador mantiene ese recurso",
+        "Herramienta de solo lectura que mide el impacto antes de desplegar",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-036-casado-contra-recursos"
     }
   ]
 }

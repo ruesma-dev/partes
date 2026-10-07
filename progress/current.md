@@ -1,6 +1,34 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-036 · spec_ready (2026-10-07): sv3 casa contra los recursos persona de la empresa del parte
+
+Spec en `specs/F-036-casado-contra-recursos/` (spec-author, worktree
+`partes-wt-f036`). Rigor crítico. Toca **sv3** (casado, `res.cla`, herramienta
+de solo lectura `medir_casado_recursos.py`) y **sv5** (solo `res.cla = 1` en
+`recursos_por_dni`, por la lista cerrada); **sv4 no cambia**, sin schema. El
+casado (DNI → alias → nombre) elige RECURSO persona de alta de la empresa del
+parte; se guardan `empleado_*` de la ficha enlazada (`res.conide`) o, sin ella,
+del recurso con `recurso_dni`/`recurso_nombre` (sv4 ya los da por casados).
+El respaldo F-030 (`fichas_de_recurso`) se retira, subsumido. Sin re-casado de
+lo ya ingerido; la herramienta mide antes de desplegar qué recursos cambiarían
+en la pasada del conciliador y cuántas líneas casarían distinto.
+
+**Decisiones abiertas para el humano (design §9):** DA1 DNI guardado cuando
+`res.cif` y el `emp.dni` de la ficha difieren: `emp.dni` y si vacío `res.cif`
+(recomendado: es la regla de verificación de sv5 y la de F-035; cero cambios en
+sv5) vs. la literal `res.cif` primero (invierte sv5 y F-035); DA2 no re-casar
+lo ingerido (recomendado) vs. herramienta con `--aplicar`; DA3 «recurso
+persona» = `res.cla = 1` en sv3, sv5 y F-035, con guardián y entrada nueva en
+la lista cerrada de `CLAUDE.md` (recomendado) vs. «`MO/` o con ficha».
+
+**Alineación con F-035 (para el líder):** F-035 DA4 define recurso persona
+como «`MO/` o con ficha» y F-036 propone `res.cla = 1` (DA3): conviene decidir
+antes de implementar cualquiera de las dos. El DNI de F-035 (`emp.dni`, si no
+`res.cif`) coincide con la recomendación de DA1. Lo que guarda F-035 R12/R13
+es la misma forma que F-036 R13/R14. Las dos tocan `CLAUDE.md` (lista
+cerrada) y la semántica 12 de `ARCHITECTURE.md`: conflicto de merge trivial.
+
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
 APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.
