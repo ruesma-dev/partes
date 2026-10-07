@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **35 features**, 12 abiertas, 23 terminadas.
+Resumen: **36 features**, 12 abiertas, 24 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -35,6 +35,7 @@ Bloqueadas: **F-014, F-032**.
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
 | F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
+| F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -167,6 +168,12 @@ Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuen
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
 
 Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.
+
+### F-037 · sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-037-extras-duplicadas-base-omitida`
+
+URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 lineas extra_auto DUPLICADAS en la base partes, todas de la obra 0678 del 01 al 03/10/2026 (Ruesma 4, Porsan 3). Patron: linea base normal con sigrid_estado='omitido' (mensual MCAP sin codigo de hora laborable, o base con 0 horas 'sin horas') + su extra_auto ya 'registrado' en Sigrid + una extra_auto NUEVA identica sin sigrid_estado, mismo document_id/line_index/empleado_line_no/fecha. Mecanismo: revert_extras_auto() de sv3 respeta la extra congelada pero restaura la base no congelada (horas = horas_orig); el calculo de splits del RecursoConciliador la vuelve a partir y apply_extras_splits() inserta otra extra_auto en cada pasada. Riesgo: aprobar la nueva la escribe en Sigrid con otro synckey (extra doble en el ERP). Caso inverso: base registrada y extra no congelada -> la pasada borra la extra y deja la base recortada sin ella. Arreglo: base y extra_auto de la misma pareja se congelan juntas para el recalculo de sv3; la siguiente pasada borra sola los duplicados no congelados.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

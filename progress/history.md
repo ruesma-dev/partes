@@ -728,3 +728,21 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   12/10/2 (2 equivalentes analizados).
 - Pendiente del humano: desplegar sv4 y comprobar `/obras` (0678 en dos filas
   Ruesma/Porsan, filtro de empresa).
+
+## F-037 · sv3 no duplica la extra automática de una base omitida — done 2026-10-07
+
+- Rama `feature/F-037-extras-duplicadas-base-omitida` · rigor critico · sdd=true ·
+  APPROVED del reviewer en la pasada 2 (`progress/review_F-037.md`; la 1 pidió
+  solo los comandos exactos de M1–M4).
+- Origen: 7 extra_auto duplicadas en la 0678 (01–03/10): base `omitido`
+  (mensual o 0 h) + extra ya registrada; el revert restauraba la base y el
+  recálculo creaba otra extra.
+- Entregado (solo sv3): base y extra automática se tratan como pareja; si la
+  extra está congelada, la base no se revierte ni se re-parte (no se genera
+  ninguna extra nueva); la primera pasada borra las extra_auto no congeladas
+  duplicadas con WARNING de ids; dobles congeladas solo avisan. Regla de
+  congelación compartida sin cambios.
+- Verificado: init.sh en verde, cobertura 100 % (83/83), mutación completa
+  21/21 muertos, 0 supervivientes. M1 en producción antes de desplegar: 0.
+- Pendiente: desplegar sv3 (lo pide el humano) y M2–M4 (comandos en
+  `current.md`).

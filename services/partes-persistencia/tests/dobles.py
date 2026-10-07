@@ -242,6 +242,11 @@ def sembrar_lineas(fabrica, lineas: list[dict], *, document_id: str = "doc-1",
 
     Cada linea admite `horas`, `horas_orig`, `tipo` (`normal`/`extra`),
     `extra_auto` y `estado` (`sigrid_estado`).
+
+    F-037: admite ademas `line_index` (por defecto, su posicion en la
+    lista, como siempre), `empleado_line_no` y `recurso_ide` (por defecto,
+    None). Con ellos se siembra una base y su extra automatica con la
+    misma clave de pareja, que es lo que deja `apply_extras_splits`.
     """
     from infrastructure.database.orm_models import (
         ParteDocumentOrm,
@@ -260,7 +265,10 @@ def sembrar_lineas(fabrica, lineas: list[dict], *, document_id: str = "doc-1",
         ids: list[int] = []
         for i, linea in enumerate(lineas):
             reg = ParteRegistroOrm(
-                document_id=document_id, line_index=i, fecha=fecha,
+                document_id=document_id,
+                line_index=linea.get("line_index", i),
+                empleado_line_no=linea.get("empleado_line_no"),
+                recurso_ide=linea.get("recurso_ide"), fecha=fecha,
                 fecha_int=fint, obra_ide=obra_ide, obra_codigo="0100",
                 obra_nombre="Obra Uno", empleado_dni="12345678Z",
                 empleado_reside=501, tipo_hora=str(linea.get("tipo")

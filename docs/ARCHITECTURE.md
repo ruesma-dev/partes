@@ -108,7 +108,12 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    plana `5 × candef`. Las excepciones por trabajador viven en
    `empleado_jornada`. Con `candef = 8` y `S = 40` el resto vale 8: idéntico
    a antes de F-015. Lo ya **congelado** (semántica 10) cuenta en el total
-   del día pero no se recalcula.
+   del día pero no se recalcula. **F-037**: la base y sus extras
+   automáticas (mismos `document_id`, `line_index`, `empleado_line_no`,
+   `fecha_int`) se congelan juntas para el recálculo de sv3: si una está
+   congelada, ninguna se revierte ni se vuelve a partir, y las extras
+   automáticas no congeladas de una pareja cuya extra ya está congelada son
+   duplicados y se borran. La regla por línea (semántica 10) no cambia.
 4. **Incidencias sin horas** (`can=0`) y **solo inicio/fin de racha**
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con

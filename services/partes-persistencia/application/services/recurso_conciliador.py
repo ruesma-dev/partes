@@ -109,8 +109,17 @@ def esta_congelado(sigrid_estado: str | None, doc_approved: object) -> bool:
 
 
 def _congelado(reg: dict) -> bool:
-    """`esta_congelado` sobre un registro tal como lo trae el repositorio."""
-    return esta_congelado(reg.get("sigrid_estado"), reg.get("doc_approved"))
+    """`esta_congelado` sobre un registro tal como lo trae el repositorio.
+
+    F-037 (R10): tambien la linea congelada POR SU PAREJA
+    (`congelada_por_pareja`, que calcula el repositorio): la base de una
+    extra automatica ya en Sigrid, o la extra de una base que ya lo esta.
+    Para sv3 cuenta como congelada a todos los efectos (no re-resuelve su
+    recurso, suma en el dia, nunca es candidata a recorte ni pivote). La
+    regla por linea, `esta_congelado`, no cambia.
+    """
+    return (esta_congelado(reg.get("sigrid_estado"), reg.get("doc_approved"))
+            or bool(reg.get("congelada_por_pareja")))
 
 
 def _upd(registro_id, recurso_ide, recurso_cif, hmo_ide, estado) -> dict:
@@ -402,7 +411,9 @@ class RecursoConciliador:
     def conciliar_todos(self) -> dict:
         # Idempotencia: revertir las extras por jornada de pasadas anteriores
         # (restaurar horas originales y borrar los extra auto) para recalcular
-        # el dia completo desde el estado original del parte.
+        # el dia completo desde el estado original del parte. F-037: la
+        # base y sus extras automaticas se congelan JUNTAS; si una ya esta
+        # en Sigrid, la pareja ni se revierte ni se vuelve a partir.
         self._repository.revert_extras_auto()
         # Las marcas son de ESTE calculo, no un residuo del anterior.
         self._docs_degradados = set()
