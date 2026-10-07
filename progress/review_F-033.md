@@ -137,5 +137,4 @@ Ninguno.
 
 ## Automejora (propuesta, no aplicada)
 
-- `CHECKPOINTS.md` C2 «una sola `in_progress`»: aclarar que se cuenta el campo
-  `status`, no la cadena (un `grep -c` da 2 por la lista de estados válidos).
+- `CHECKPOINTS.md` C2: aclarar que se cuenta el campo `status`, no la cadena `in_progress`.
