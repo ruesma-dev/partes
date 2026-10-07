@@ -1,14 +1,29 @@
 <!-- progress/review_F-037.md -->
-Revisión completa (pasada 1): `git diff dev...eb941c8` (merge-base `6e56244`, rama `feature/F-037-extras-duplicadas-base-omitida`)
+Revisión incremental desde eb941c8 (pasada 2): `git diff eb941c8..3cc1ed5`. Pasada 1 completa: `git diff dev...eb941c8`.
 
 # F-037 · Review
 
-**Veredicto: CHANGES_REQUESTED** (solo por las verificaciones MANUAL: el código, los tests y la mutación están bien)
+**Veredicto: APPROVED** (pasada 2). Pasada 1: CHANGES_REQUESTED solo por los comandos de las verificaciones MANUAL.
+
+## Pasada 2 (incremental desde `eb941c8`)
+
+- Delta: `3cc1ed5` toca solo `progress/current.md`, `progress/impl_F-037.md` y `design.md` §8 (más mi `4afa3eb`).
+  **Sin código ni tests**: no invalida nada de lo aprobado (alcance de mutación, cobertura y RED intactos).
+- **Cambio 1 resuelto** [x]: `current.md` trae la SQL completa de M1, M2 y M4 y el comando exacto de M3 (Log
+  Analytics de `ca-sv3-persistencia` con las dos cadenas; workspace leído con `az`, no versionado), con «solo
+  lectura, base `partes`, las lanza el humano». **M1 usa la regla entera** (`estado IN (…) OR d.approved`); M4 con
+  `NOT EXISTS` + `IS NOT DISTINCT FROM`, base ordinaria, `horas_orig`, congelada. `design.md` §8 alineado (249/250).
+  M1 consta como **ya ejecutada por el líder: 0 filas**, los 4 documentos con duplicados sin aprobar (lo anota el
+  delta; no lo he ejecutado yo). Barrido del delta: sin GUID, IP, correos ni credenciales; `cae-partes-dev` y
+  `rg-partes-dev` son nombres ya presentes en `infra/` y `docs/`.
+- `bash harness/init.sh` completo: **exit 0, ENTORNO LISTO**; raíz 443 passed, 3 skipped; sv1–sv5 verdes por caché
+  (el árbol de `services/` no cambió desde mi ejecución sin caché de sv3 de la pasada 1: 825 passed); COBERTURA
+  [OK] 100 % (83/83); TAMAÑO OK.
 
 **Rigor:** `critico` (declarado en `features.json`): fase RED, cobertura de lo cambiado ≥ 80 %, mutación con 0
 supervivientes sin justificar, y verificaciones `MANUAL (humano)` listadas **con su comando exacto**.
 
-## Qué se ejecutó (resultado real)
+## Pasada 1: qué se ejecutó (resultado real)
 
 - `bash harness/init.sh` tal cual desde el worktree: **exit 0**. Raíz 443 passed, 3 skipped; sv1–sv5 en verde (caché);
   **PUERTA COBERTURA [OK] 100,0 % (83/83)**; PUERTA TAMAÑO OK. Avisos previos: blocked F-014/F-032, ruff 617, infra sin tests.
@@ -56,7 +71,7 @@ supervivientes sin justificar, y verificaciones `MANUAL (humano)` listadas **con
   de toda la rama con patrones de correo, IPv4, GUID, `password|secret|token|apikey|AccountKey|Bearer` y DNI
   `\d{8}[A-Z]`: solo `12345678Z`, el DNI sintético de los tests · N/A redacciones: no hubo nada que redactar.
 - **C4** [x] R1–R20 con test `test_f037_rN_*` en verde (tabla abajo; R21 es MANUAL) · [x] sin red ni PostgreSQL:
-  SQLite en memoria y dobles · **[ ] verificaciones MANUAL en `current.md` con su comando exacto**: ver cambio 1.
+  SQLite en memoria y dobles · [x] M1–M4 en `current.md` con su comando exacto (pasada 1 `[ ]`; cerrado en la 2).
 - **C4 bis**
   - [x] `rigor` declarado: `critico`.
   - [x] **Fase RED**: trazas reales en `impl` (T2–T5) y reproducidas por mí (arriba).
@@ -78,7 +93,7 @@ supervivientes sin justificar, y verificaciones `MANUAL (humano)` listadas **con
   - [x] Ningún N/A sin motivo escrito.
 - **C4 ter** N/A: `init.sh` no señaló rutas sensibles para esta rama.
 - **C5** [x] `tasks.md` T1–T10 `[x]`, un commit `F-037 Tn:` por tarea (T8 en dos) · [x] árbol limpio, sin temporales ·
-  [ ] `done`: no se pone hasta cerrar el cambio 1.
+  [x] `features.json`: paso a `done` con este veredicto.
 
 ## Cobertura requisito → test
 
@@ -103,21 +118,8 @@ supervivientes sin justificar, y verificaciones `MANUAL (humano)` listadas **con
 
 ## Cambios requeridos
 
-1. **`progress/current.md` (bloque «Despliegue y verificación MANUAL»): pegar el comando exacto de cada
-   verificación**, no la referencia a `design.md` §8. En rigor `critico` C4 exige el comando en `current.md`, y hoy:
-   - **M1 y M2**: copiar las dos consultas SQL completas (M1 con la línea descomentada).
-   - **M1 debe usar la regla de congelación entera**: `AND (r.sigrid_estado IN ('encolado','registrado','dedicacion')
-     OR d.approved)`. Sin `d.approved`, un duplicado sin estado en un parte **aprobado** no sale en M1, pero F-037 lo
-     trata como congelado (lo congela la aprobación): no lo borra, salta el WARNING de R7 y M2 no llega a 0. Alinear
-     también `design.md` §8.
-   - **M3**: la consulta o el comando exacto de logs de `ca-sv3-persistencia` con las dos cadenas a buscar
-     («DUPLICADA(S) borrada(s)» y «revisar a mano en Sigrid»).
-   - **M4**: escribir la SQL, que hoy no existe en ningún sitio (solo prosa): bases `NOT extra_auto`, `tipo_hora`
-     ordinaria, `horas_orig IS NOT NULL`, congeladas (`d.approved` o estado congelante), sin ninguna `extra_auto` de su
-     clave (`NOT EXISTS` con `document_id`, `line_index` y `IS NOT DISTINCT FROM` en `empleado_line_no` y `fecha_int`).
-   Las cuatro, con la nota «solo lectura, base `partes`, las lanza el humano».
-
-La pasada 2 será incremental desde `eb941c8` y solo mirará ese delta (más `init.sh` entero).
+Ninguno. El de la pasada 1 (comandos exactos de M1–M4 en `current.md`, M1 con `OR d.approved`) está resuelto.
+Pendiente del humano, fuera de esta review: desplegar solo sv3 y ejecutar M2–M4.
 
 ## Automejora (propuesta, no aplicada)
 

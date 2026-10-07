@@ -482,7 +482,7 @@
         "Tras desplegar sv3, la consulta de solo lectura de duplicados por pareja da 0 (verificacion manual del humano)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

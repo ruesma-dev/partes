@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **35 features**, 12 abiertas, 23 terminadas.
-
-En curso: **F-037**.
+Resumen: **35 features**, 11 abiertas, 24 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -15,7 +13,6 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | pendiente | estandar | `feature/F-035-selector-recursos-por-empresa` |
-| F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | en curso | critico | `feature/F-037-extras-duplicadas-base-omitida` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -37,6 +34,7 @@ Bloqueadas: **F-014, F-032**.
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
 | F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
+| F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -67,12 +65,6 @@ Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos 
 estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-035-selector-recursos-por-empresa`
 
 Pedida por el humano el 2026-10-07. Hoy los selectores de trabajador del portal (sv4) tiran de EMPLEADOS (emp) y no encuentran a quien solo tiene ficha de recurso (ejemplo real: en Conciliar no aparece un trabajador de Porsan que solo tiene recurso, el caso de F-030). LO QUE SE PIDE: (1) en Conciliar y al crear un parte nuevo, el selector de trabajador lista RECURSOS ACTIVOS de Sigrid (de alta a la fecha), no empleados; (2) en Conciliar y en partes se puede ELEGIR LA EMPRESA y el selector solo ofrece recursos de esa empresa; (3) en el detalle de obra, al cambiar el trabajador de una linea, tambien recursos activos y SOLO los de la empresa de esa obra (cada fila de obras es obra+empresa: la 0678 Carmona existe en Ruesma y en Porsan). A REVISAR EN LA SPEC: endpoints /api/sigrid/... de sv4 que alimentan los combos, regla de alta compartida (de_alta, lista cerrada de CLAUDE.md, F-023), que se guarda en la linea al elegir recurso (recurso_ide, empleado_*, DNI) y su efecto en conciliacion y registro (sv3/sv5 eligen recurso por DNI y empresa de la obra).
-
-### F-037 · sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-037-extras-duplicadas-base-omitida`
-
-URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 lineas extra_auto DUPLICADAS en la base partes, todas de la obra 0678 del 01 al 03/10/2026 (Ruesma 4, Porsan 3). Patron: linea base normal con sigrid_estado='omitido' (mensual MCAP sin codigo de hora laborable, o base con 0 horas 'sin horas') + su extra_auto ya 'registrado' en Sigrid + una extra_auto NUEVA identica sin sigrid_estado, mismo document_id/line_index/empleado_line_no/fecha. Mecanismo: revert_extras_auto() de sv3 respeta la extra congelada pero restaura la base no congelada (horas = horas_orig); el calculo de splits del RecursoConciliador la vuelve a partir y apply_extras_splits() inserta otra extra_auto en cada pasada. Riesgo: aprobar la nueva la escribe en Sigrid con otro synckey (extra doble en el ERP). Caso inverso: base registrada y extra no congelada -> la pasada borra la extra y deja la base recortada sin ella. Arreglo: base y extra_auto de la misma pareja se congelan juntas para el recalculo de sv3; la siguiente pasada borra sola los duplicados no congelados.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
@@ -169,6 +161,12 @@ Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuen
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
 
 Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.
+
+### F-037 · sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-037-extras-duplicadas-base-omitida`
+
+URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 lineas extra_auto DUPLICADAS en la base partes, todas de la obra 0678 del 01 al 03/10/2026 (Ruesma 4, Porsan 3). Patron: linea base normal con sigrid_estado='omitido' (mensual MCAP sin codigo de hora laborable, o base con 0 horas 'sin horas') + su extra_auto ya 'registrado' en Sigrid + una extra_auto NUEVA identica sin sigrid_estado, mismo document_id/line_index/empleado_line_no/fecha. Mecanismo: revert_extras_auto() de sv3 respeta la extra congelada pero restaura la base no congelada (horas = horas_orig); el calculo de splits del RecursoConciliador la vuelve a partir y apply_extras_splits() inserta otra extra_auto en cada pasada. Riesgo: aprobar la nueva la escribe en Sigrid con otro synckey (extra doble en el ERP). Caso inverso: base registrada y extra no congelada -> la pasada borra la extra y deja la base recortada sin ella. Arreglo: base y extra_auto de la misma pareja se congelan juntas para el recalculo de sv3; la siguiente pasada borra sola los duplicados no congelados.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
