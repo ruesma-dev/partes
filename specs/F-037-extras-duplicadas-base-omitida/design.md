@@ -192,11 +192,12 @@ SELECT r.document_id, r.line_index, r.empleado_line_no, r.fecha_int, COUNT(*)
 FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
 WHERE d.is_active AND r.extra_auto
   -- M1: descomentar la línea siguiente
-  -- AND r.sigrid_estado IN ('encolado', 'registrado', 'dedicacion')
+  -- AND (r.sigrid_estado IN ('encolado','registrado','dedicacion') OR d.approved)
 GROUP BY 1, 2, 3, 4 HAVING COUNT(*) > 1;
 ```
 
-- **M1 · antes de desplegar** (línea descomentada): 0 filas. Si sale
+- **M1 · antes de desplegar** (línea descomentada: la regla de congelación
+  entera, estado **o** parte aprobado): 0 filas. Si sale
   alguna, un duplicado ya viajó; arreglo manual en Sigrid antes de nada (R7
   no lo toca).
 - **M2 · tras desplegar y una pasada de sv3** (tal cual; R21): 0 filas
@@ -205,10 +206,12 @@ GROUP BY 1, 2, 3, 4 HAVING COUNT(*) > 1;
   reparte la extra entre varias bases del mismo día (una por base).
 - **M3 · logs** de `ca-sv3-persistencia`: el WARNING de duplicados borrados
   sale en la primera pasada (7) y no vuelve; ningún WARNING R7.
+  Comando exacto de logs, en `progress/current.md`.
 - **M4 · caso inverso ya dañado** (informativo, DA3): bases congeladas
   (`d.approved` o estado congelante), no `extra_auto`, con `horas_orig`, sin
   ninguna `extra_auto` de su clave (`NOT EXISTS` con `IS NOT DISTINCT FROM`
-  en `empleado_line_no` y `fecha_int`). Se espera 0.
+  en `empleado_line_no` y `fecha_int`). Se espera 0. SQL completa de M1–M4
+  en `progress/current.md`.
 
 ## 9. Riesgos y alternativas
 

@@ -153,6 +153,20 @@ verde contra el código anterior; `test_f015_r31_*`, `test_f015_r32_*`,
   `progress/current.md`.
 - Falta: reviewer (APPROVED) y, tras él, `done`.
 
+## Corrección tras la review (pasada 1, CHANGES_REQUESTED documental)
+
+Sin cambios de código. `progress/current.md` lleva ya el comando exacto de
+M1–M4 (solo lectura, base `partes`, las lanza el humano): M1 con la regla de
+congelación entera `AND (r.sigrid_estado IN ('encolado','registrado','dedicacion')
+OR d.approved)`, M2 tal cual, M3 como consulta de Log Analytics de
+`ca-sv3-persistencia` con «DUPLICADA(S) borrada(s)» y «revisar a mano en
+Sigrid» (workspace leído con `az containerapp env show`, no versionado) y M4
+como SQL (`NOT EXISTS` con `IS NOT DISTINCT FROM`). `design.md` §8 alineado
+(M1 con `OR d.approved`; remite a `current.md` para los comandos; 249/250
+líneas). **M1 ya ejecutada por el líder en producción el 2026-10-07: 0 filas;
+los 4 documentos con duplicados no están aprobados**, así que los 7 duplicados
+son borrables por la primera pasada (R6) y ninguno cae en R7.
+
 ## Evidencias
 
 | Evidencia | Valor medido |

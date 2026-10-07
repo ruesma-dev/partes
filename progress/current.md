@@ -9,19 +9,68 @@ con la extra de la pareja congelada el recálculo no genera ninguna extra, ni
 siquiera transitoria; los tests de dos pasadas lo vigilan con
 `extras_reclasificadas == 0` en cada pasada. Implementación terminada (T1–T10):
 informe en `progress/impl_F-037.md`, mutación en `progress/mutacion_F-037.md`
-(21/21 muertos). Pendiente: reviewer.
+(21/21 muertos). Review pasada 1: CHANGES_REQUESTED solo documental (comandos
+exactos de M1–M4 aquí abajo); pendiente la pasada 2.
 
-**Despliegue y verificación MANUAL (humano; design §8), pendientes:**
-- **M1 · antes de desplegar**: la consulta de duplicados por pareja con la línea
-  de estados congelantes descomentada debe dar 0 filas. Si sale alguna, un
-  duplicado ya viajó a Sigrid: arreglo manual antes de nada.
+**Despliegue y verificación MANUAL (humano; design §8), pendientes.** Las
+cuatro son de **solo lectura, base `partes`, las lanza el humano**; los
+agentes no las ejecutan.
+
+- **M1 · antes de desplegar** — debe dar 0 filas (regla de congelación entera:
+  estado congelante **o** parte aprobado). Si sale alguna, un duplicado ya
+  viajó a Sigrid: arreglo manual antes de nada (R7 no lo toca). **Hecho por el
+  líder el 2026-10-07 en producción: 0 filas**; los 4 documentos con
+  duplicados no están aprobados.
+
+  ```sql
+  SELECT r.document_id, r.line_index, r.empleado_line_no, r.fecha_int, COUNT(*)
+  FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+  WHERE d.is_active AND r.extra_auto
+    AND (r.sigrid_estado IN ('encolado','registrado','dedicacion') OR d.approved)
+  GROUP BY 1, 2, 3, 4 HAVING COUNT(*) > 1;
+  ```
+
 - Desplegar **solo sv3** (`infra/redeploy_partes.ps1 -Solo sv3`) cuando lo pida
   el humano; los agentes no lo lanzan.
-- **M2 · tras la primera pasada de sv3**: la consulta tal cual da 0 filas (hoy 7).
-- **M3 · logs** de `ca-sv3-persistencia`: el WARNING «DUPLICADA(S) borrada(s)»
-  sale una vez (7 ids) y no vuelve; ningún WARNING «revisar a mano en Sigrid».
-- **M4 · informativo (DA3)**: bases congeladas con `horas_orig` y sin ninguna
-  `extra_auto` de su clave; se espera 0. Si hay alguna, feature aparte.
+- **M2 · tras la primera pasada de sv3** (R21) — debe dar 0 filas (antes, 7):
+
+  ```sql
+  SELECT r.document_id, r.line_index, r.empleado_line_no, r.fecha_int, COUNT(*)
+  FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+  WHERE d.is_active AND r.extra_auto
+  GROUP BY 1, 2, 3, 4 HAVING COUNT(*) > 1;
+  ```
+
+- **M3 · logs de `ca-sv3-persistencia`** — «DUPLICADA(S) borrada(s)» sale una
+  vez (7 ids) y no vuelve; «revisar a mano en Sigrid» no sale nunca. En
+  PowerShell, con la sesión de Azure abierta (el workspace se lee del entorno,
+  no se versiona):
+
+  ```powershell
+  $WS = az containerapp env show -n cae-partes-dev -g rg-partes-dev --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv3-persistencia' | where Log_s contains 'DUPLICADA(S) borrada(s)' or Log_s contains 'revisar a mano en Sigrid' | project TimeGenerated, RevisionName_s, Log_s | order by TimeGenerated asc" -o table
+  ```
+
+- **M4 · informativo (DA3)** — bases ordinarias congeladas, recortadas
+  (`horas_orig`) y sin ninguna `extra_auto` de su clave; se espera 0. Si sale
+  alguna, se repone en una feature aparte con el dato en la mano:
+
+  ```sql
+  SELECT b.id, b.document_id, b.line_index, b.empleado_line_no, b.fecha_int,
+         b.horas, b.horas_orig, b.sigrid_estado, d.approved
+  FROM parte_registros b JOIN parte_documents d ON d.id = b.document_id
+  WHERE d.is_active AND NOT b.extra_auto
+    AND COALESCE(TRIM(LOWER(b.tipo_hora)), '') IN ('', 'normal')
+    AND b.horas_orig IS NOT NULL
+    AND (b.sigrid_estado IN ('encolado','registrado','dedicacion') OR d.approved)
+    AND NOT EXISTS (
+      SELECT 1 FROM parte_registros e
+      WHERE e.extra_auto
+        AND e.document_id = b.document_id
+        AND e.line_index = b.line_index
+        AND e.empleado_line_no IS NOT DISTINCT FROM b.empleado_line_no
+        AND e.fecha_int IS NOT DISTINCT FROM b.fecha_int);
+  ```
 
 Spec en `specs/F-037-extras-duplicadas-base-omitida/` (spec-author), worktree
 `partes-wt-f037`. Rigor crítico; **solo sv3**. Causa leída en el código:
