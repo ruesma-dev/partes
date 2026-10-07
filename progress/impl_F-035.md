@@ -198,4 +198,10 @@ pasada siguiente queda en verde (resultado en el bloque «Cierre»).
 
 ## Cierre
 
-INIT_FINAL
+`bash harness/init.sh` (2026-10-07, tras `8973e02`): **ENTORNO LISTO**. Raíz
+446 passed, 1 skipped in 170.96 s; sv1–sv5 en verde (sv4 por caché del verde
+anterior, 1764 passed, sobre el mismo árbol de servicios); `PUERTA COBERTURA:
+96.9% (187/193)`; `PUERTA TAMAÑO: requirements 142/150, design 248/250, impl
+…/220`. Solo AVISOS previos (ruff 623, F-014/F-032 bloqueadas, infra sin tests).
+Pendiente: T9 (MANUAL, humano) y el reviewer. Fuera del repo: valorar una
+línea en `azure-apps/partes.md` sobre `/api/sigrid/recursos` (ver Decisiones).

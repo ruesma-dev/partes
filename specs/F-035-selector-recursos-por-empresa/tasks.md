@@ -11,4 +11,4 @@ Rama **`feature/F-035-selector-recursos-por-empresa`**. Un commit local por tare
 - [x] T7: R24: una frase en `docs/ARCHITECTURE.md` (semántica 12) y la entrada de la lista cerrada de `CLAUDE.md` según DA2  |  Verificación: revisión del reviewer (diff de los dos ficheros)
 - [x] T8: Informe `progress/impl_F-035.md` (≤ 220 líneas) con fase RED, cobertura y mutación muestreada con supervivientes analizados  |  Verificación: `python -m harness.mutacion --feature F-035` y `python -m harness.tamano --feature F-035`
 - [ ] T9: Prueba en local contra Sigrid en SOLO LECTURA (sin aprobar nada): en Conciliar con «Porsan» aparece el trabajador del caso F-030 (solo recurso MO/0037); en el detalle de la 0678 de Porsan el combo solo ofrece recursos de Porsan; en «Nuevo parte» al elegir obra el selector de empresa se fija; Ctrl+F5  |  Verificación: MANUAL (humano): `python services/partes-front/main.py` con el `.env` local y las tres pantallas citadas
-- [ ] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
