@@ -3,36 +3,39 @@
 
 ## F-036 · in_progress (2026-10-07): sv3 casa contra los recursos persona de la empresa del parte
 
-**Implementación en curso (implementer, worktree `partes-wt-f036`).** DA1, DA2
-y DA3 aprobadas por el humano el 2026-10-07 (las recomendadas). Intérprete:
-el `.venv` del repositorio principal (el worktree no tiene uno propio).
-Tarea en curso: ver `specs/F-036-casado-contra-recursos/tasks.md` (las `[x]`).
+**Implementación terminada, pendiente del reviewer** (implementer, worktree
+`partes-wt-f036`, rama `feature/F-036-casado-contra-recursos`, sin push).
+DA1, DA2 y DA3 aprobadas por el humano el 2026-10-07 (las recomendadas).
+Informe: `progress/impl_F-036.md`; mutación: `progress/mutacion_F-036.md`.
+Intérprete: el `.venv` del repositorio principal (el worktree no tiene uno).
 
-Spec en `specs/F-036-casado-contra-recursos/` (spec-author, worktree
-`partes-wt-f036`). Rigor crítico. Toca **sv3** (casado, `res.cla`, herramienta
-de solo lectura `medir_casado_recursos.py`) y **sv5** (solo `res.cla = 1` en
-`recursos_por_dni`, por la lista cerrada); **sv4 no cambia**, sin schema. El
-casado (DNI → alias → nombre) elige RECURSO persona de alta de la empresa del
-parte; se guardan `empleado_*` de la ficha enlazada (`res.conide`) o, sin ella,
-del recurso con `recurso_dni`/`recurso_nombre` (sv4 ya los da por casados).
-El respaldo F-030 (`fichas_de_recurso`) se retira, subsumido. Sin re-casado de
-lo ya ingerido; la herramienta mide antes de desplegar qué recursos cambiarían
-en la pasada del conciliador y cuántas líneas casarían distinto.
+Toca **sv3** (casado contra recursos `res.cla = 1`, `res.cla` en el maestro,
+retirada del respaldo F-030, herramienta de solo lectura
+`medir_casado_recursos.py`) y **sv5** (`res.cla = 1` en `recursos_por_dni`);
+**sv4 no cambia**, sin schema. Nueva entrada en la lista cerrada de `CLAUDE.md`
+con guardián `tests/test_f036_recurso_persona_gemelos.py`.
 
-**Decisiones abiertas para el humano (design §9):** DA1 DNI guardado cuando
-`res.cif` y el `emp.dni` de la ficha difieren: `emp.dni` y si vacío `res.cif`
-(recomendado: es la regla de verificación de sv5 y la de F-035; cero cambios en
-sv5) vs. la literal `res.cif` primero (invierte sv5 y F-035); DA2 no re-casar
-lo ingerido (recomendado) vs. herramienta con `--aplicar`; DA3 «recurso
-persona» = `res.cla = 1` en sv3, sv5 y F-035, con guardián y entrada nueva en
-la lista cerrada de `CLAUDE.md` (recomendado) vs. «`MO/` o con ficha».
+**Desviaciones declaradas** (detalle en el informe): `dni_de_recurso` y
+`ficha_enlazada` adelantados a T3; categoría extra `otro_recurso` en R26; la
+herramienta no usa `SessionFactory` (crea la base si falta) y saca el DNI
+leído del `raw_extraction_json`; R22 resultó de caracterización.
 
-**Alineación con F-035 (para el líder):** F-035 DA4 define recurso persona
-como «`MO/` o con ficha» y F-036 propone `res.cla = 1` (DA3): conviene decidir
-antes de implementar cualquiera de las dos. El DNI de F-035 (`emp.dni`, si no
-`res.cif`) coincide con la recomendación de DA1. Lo que guarda F-035 R12/R13
-es la misma forma que F-036 R13/R14. Las dos tocan `CLAUDE.md` (lista
-cerrada) y la semántica 12 de `ARCHITECTURE.md`: conflicto de merge trivial.
+**Orden de despliegue: sv3 → sv5** (lo pide el humano; los agentes no
+despliegan). **Verificaciones MANUAL pendientes del humano:**
+
+- **M1 (antes de desplegar):** `cd services/partes-persistencia &&
+  ../../.venv/Scripts/python.exe medir_casado_recursos.py` con el `.env` de
+  sv3; revisar el resumen (`mo_no_persona`, `cif_distinto_ficha`,
+  `recurso_cambia`/`recurso_pierde`). Solo lectura; no se ha ejecutado.
+- **M2 (tras desplegar):** logs de `ca-sv3-persistencia`
+  (`[recurso-concil] ... actualizados=`) frente a la predicción de M1.
+- **M3:** un parte nuevo de Porsan de la 0678 con un trabajador sin ficha,
+  casado `recurso_dni`, y líneas `ok`/`sin_parte`.
+
+**Alineación con F-035 (para el líder):** F-036 aplica `res.cla = 1` (DA3) en
+sv3 y sv5; F-035 debe usar el mismo criterio en sv4. Las dos tocan
+`CLAUDE.md` (lista cerrada) y la semántica 12 de `ARCHITECTURE.md`: conflicto
+de merge trivial al integrar.
 
 ## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
