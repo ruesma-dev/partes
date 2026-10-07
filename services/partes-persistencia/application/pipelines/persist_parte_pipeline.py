@@ -399,7 +399,7 @@ class PersistPartePipeline:
         # y las de recurso candidatas (mismo umbral y ambiguedad); si gana
         # una de recurso, el casado es por recurso.
         recursos = matchers.recursos
-        match = matchers.empleado.match_nombre(
+        match = matchers.empleado.match_nombre_fichas(
             nombre=reg.trabajador_nombre_leido,
             candidatas=candidatas + recursos.fichas_candidatas(empresa, fecha),
         )

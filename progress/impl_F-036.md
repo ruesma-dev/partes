@@ -57,3 +57,14 @@ $ cd services/partes-persistencia && python -m pytest -q tests/test_f036_selecci
 20 failed in 0.86s
 ```
 Tras el código: `20 passed in 0.23s`.
+
+### T5 · R10, R11, R12 (`match_nombre` por persona)
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_casado.py -k nombre
+     16 E       TypeError: EmpleadoMatcher.match_nombre() got an unexpected keyword argument 'candidatos'
+16 failed in 0.46s
+```
+Tras el código: `16 passed in 0.42s`; suite sv3 `834 passed`. El `match_nombre` de fichas
+de F-023 queda como `match_nombre_fichas` transitorio para que el pipeline siga en verde
+hasta T7, que lo retira.
