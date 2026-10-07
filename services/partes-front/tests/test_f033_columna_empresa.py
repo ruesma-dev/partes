@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Optional
 
 import pytest
 from config.settings import Settings
@@ -37,11 +36,11 @@ def sembrar_parte(
     fabrica: FabricaSesionSqlite,
     doc: str,
     *,
-    empresa: Optional[int],
-    obra_ide: Optional[int],
-    obra_codigo: Optional[str] = CODIGO_GEMELA,
-    obra_nombre: Optional[str] = NOMBRE_GEMELA,
-    recursos: tuple[Optional[int], ...] = (900,),
+    empresa: int | None,
+    obra_ide: int | None,
+    obra_codigo: str | None = CODIGO_GEMELA,
+    obra_nombre: str | None = NOMBRE_GEMELA,
+    recursos: tuple[int | None, ...] = (900,),
     horas: float = 8.0,
 ) -> None:
     """Un parte activo con una linea normal por recurso."""
