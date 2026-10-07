@@ -1,20 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-033 · in_progress (2026-10-07): columna Empresa en el listado de obras (URGENTE)
+## F-033 · done (2026-10-07): columna Empresa en el listado de obras
 
-**Implementer terminado** (rama `feature/F-033-columna-empresa`): T1-T4
-hechas, `bash harness/init.sh` en verde (cobertura 100 % de 32 líneas),
-mutación 12 / 10 muertos / 2 supervivientes equivalentes. Informe en
-`progress/impl_F-033.md`. Sin desviaciones de la spec. Pendiente: reviewer.
-
-Spec **reescrita en mínimo** (el humano rechazó el primer alcance: «te estás
-liando»). Solo sv4 y solo `/obras`: columna «Empresa» con filtro de columna.
-El valor sale de `parte_documents.empresa` de los partes de la fila; si todos
-son NULL (anteriores a F-023), de la empresa de los recursos de sus líneas
-deducida de otros partes con empresa en la BBDD `partes` (sin Sigrid); si no,
-«—». Nombres en un dict de sv4 `{1: Ruesma, 28: Porsan}`, si no «Empresa N».
-Cuatro tareas, rigor estándar. Sin decisiones abiertas.
+APPROVED del reviewer (pasada 1, `progress/review_F-033.md`). Resumen en `history.md`.
+Pendiente: desplegar sv4 (lo pide el humano) y verificación manual: abrir
+`/obras`, ver la 0678 en dos filas «Ruesma» / «Porsan» y probar el filtro de
+empresa (Ctrl+F5).
 
 ## F-032 · blocked (2026-10-07): activar Sesame en producción (solo festivos)
 

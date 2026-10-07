@@ -428,8 +428,8 @@
     },
     {
       "id": "F-033",
-      "title": "Portal: columna Empresa en las vistas de obra",
-      "description": "Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4, templates/obras_list.html, ruta obras_list) la obra 0678 sale «duplicada». Causa verificada en solo lectura: en Sigrid hay dos fichas de obra con codigo 0678 y el mismo nombre, una de Ruesma (empresa 1, ide 2245328) y otra de Porsan (empresa 28, ide 2348888); 103 codigos de obra de Porsan existen tambien en Ruesma. Desde F-023/F-029 cada parte se concilia con la obra de la empresa de su membrete (correcto). El listado agrupa por ficha (obra_key) pero solo pinta «codigo · nombre», asi que las dos filas son identicas. Decision del humano: «hay que añadir una columna donde se vea la empresa»; se mantienen las filas separadas por ficha. Alcance: columna Empresa (nombre corto: Ruesma, Porsan...) con su filtro de columna en el listado de obras; empresa en la cabecera del detalle de obra y en la etiqueta del aviso de borrado de obra; revisar las demas vistas de sv4 donde aparece la obra (partes, parte, trabajador, conciliacion, papelera); que se muestra en partes sin empresa (NULL). Servicio: solo sv4.",
+      "title": "Portal: columna Empresa en el listado de obras",
+      "description": "Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.",
       "acceptance": [],
       "status": "done",
       "sdd": true,
