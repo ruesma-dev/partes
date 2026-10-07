@@ -76,6 +76,12 @@ class RecursoCatalog:
     def enabled(self) -> bool:
         return self._client is not None
 
+    @property
+    def cargado(self) -> bool:
+        """¿Hubo alguna carga buena? Distingue «Sigrid no respondio nunca»
+        (False) de «lista vacia de verdad» o «ultima lista buena» (R6)."""
+        return self._ever_loaded
+
     def list(self, empresa: int | None = None) -> list[RecursoOption]:
         """Recursos activos; con `empresa`, solo los de esa empresa (R5)."""
         self._ensure_fresh()

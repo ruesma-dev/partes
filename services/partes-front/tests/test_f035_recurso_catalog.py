@@ -135,3 +135,14 @@ def test_f035_r12_r13_como_dict_para_el_js(recurso) -> None:
         "empleado_ide": a.empleado_ide, "empleado_codigo": a.codigo,
         "empleado_nombre": a.nombre, "empleado_dni": a.dni,
         "empleado_reside": a.reside}
+
+
+# ================= revision 1 · ¿se ha cargado alguna vez? ================== #
+
+def test_f035_r5_cargado_distingue_nunca_cargo_de_lista_vacia() -> None:
+    cat, _ = _catalogo([RuntimeError("caida"), [], RuntimeError("otra")],
+                       ttl=0)
+    assert cat.list() == [] and cat.cargado is False   # fallo: nunca cargo
+    assert cat.list() == [] and cat.cargado is True    # vacia, pero cargo
+    assert cat.list() == [] and cat.cargado is True    # R6: ultima buena
+    assert RecursoCatalog(client=None).cargado is False

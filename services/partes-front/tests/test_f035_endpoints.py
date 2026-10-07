@@ -349,3 +349,24 @@ def test_f035_r15_ide_desconocido_404_ok_false(portal, ruta, extra) -> None:
     assert r.status_code == 404
     assert r.json()["ok"] is False
     assert _filas(fabrica, ids) == [SIN_TOCAR, SIN_TOCAR]
+
+
+class LookupCaido(LookupFalso):
+    def fetch_recursos_activos(self) -> list:
+        raise RuntimeError("sigrid-api caida")
+
+
+def test_f035_r5_endpoint_recursos_primera_carga_fallida_ok_false(
+        monkeypatch) -> None:
+    """Si Sigrid falla en la PRIMERA carga, `ok: false` (no una lista vacia
+    que parece buena); R6 sigue sirviendo la ultima buena si la hubo."""
+    cliente, _, _, _ = _montar(monkeypatch)
+    monkeypatch.setattr(app_mod, "SigridLookupClient", LookupCaido)
+    caido = TestClient(build_app(
+        Settings(_env_file=None),
+        repository=ParteReviewRepository(FabricaSesionSqlite())))
+    cuerpo = caido.get("/api/sigrid/recursos").json()
+    assert cuerpo["ok"] is False and cuerpo["items"] == []
+    assert "Sigrid" in cuerpo["error"]
+    # Con Sigrid sano, el mismo endpoint responde ok (control).
+    assert cliente.get("/api/sigrid/recursos").json()["ok"] is True

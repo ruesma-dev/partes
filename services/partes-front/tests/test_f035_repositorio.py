@@ -247,3 +247,22 @@ def test_f035_r8_cada_grupo_trae_las_empresas_de_sus_partes() -> None:
               for g in ParteReviewRepository(fabrica).list_unmatched_workers()}
     assert grupos[LEIDO]["empresas"] == [1, 28]
     assert grupos["Otro"]["empresas"] == []
+
+
+# ============ revision 1 · reasignar a una ficha limpia la marca ============ #
+
+@pytest.mark.parametrize("metodo", METODOS[1:])   # reasignaciones (casadas)
+@pytest.mark.parametrize("reside", [901, None])   # por recurso / por `ide`
+def test_f035_r12_reasignar_a_una_ficha_quita_recurso_manual(
+        metodo, reside) -> None:
+    """Una linea `recurso_manual` reasignada despues a un trabajador CON
+    ficha no conserva la etiqueta (casada por `empleado_ide`)."""
+    repo, fabrica, (libre, congelada, extra) = _montar()
+    _asignar(repo, metodo, [libre, extra], **SIN_FICHA)
+    assert _fila(fabrica, libre).empleado_match_method == "recurso_manual"
+    _asignar(repo, metodo, [libre, extra], **{**CON_FICHA, "reside": reside})
+    for rid in (libre, extra):
+        r = _fila(fabrica, rid)
+        assert r.empleado_ide == 11
+        assert r.empleado_match_method is None
+    # Otra marca (la de sv3) no se toca: ver test_f035_r12_con_ficha_….

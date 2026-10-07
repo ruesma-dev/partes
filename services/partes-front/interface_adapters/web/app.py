@@ -1715,6 +1715,13 @@ def build_app(
                 {"ok": False, "error": f"Error consultando Sigrid: {exc}",
                  "items": []}
             )
+        if not recurso_catalog.cargado:
+            # El catalogo traga el fallo (R6) pero nunca cargo: una lista
+            # vacia aqui pareceria buena. Revision 1 de F-035.
+            return JSONResponse(
+                {"ok": False, "items": [],
+                 "error": "Sigrid no respondio al cargar los recursos."}
+            )
         salida = [
             {"ide": r.ide, "codigo": r.codigo, "nombre": r.nombre,
              "dni": r.dni, "empresa": r.empresa, "categoria": r.categoria,

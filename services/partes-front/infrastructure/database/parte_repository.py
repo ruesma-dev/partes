@@ -765,13 +765,17 @@ def _poner_trabajador(
 
     Suelta el recurso como F-023 (R42). F-035: con `reside` (el recurso
     elegido en el portal) lo deja como preferido para sv3; sin ficha
-    (`ide` None) marca `recurso_manual`, que cuenta como casada (R13). Sin
-    `reside`, igual que antes de F-035."""
+    (`ide` None) marca `recurso_manual`, que cuenta como casada (R13). Con
+    ficha se quita esa marca si la tenia (ya casa por `empleado_ide`; otras
+    marcas, como las de sv3, no se tocan). Sin `reside`, por lo demas igual
+    que antes de F-035."""
     reg.empleado_ide = ide
     reg.empleado_codigo = codigo
     reg.empleado_nombre = nombre
     reg.empleado_dni = dni
     _soltar_recurso(reg)
+    if ide is not None and reg.empleado_match_method == METODO_RECURSO_MANUAL:
+        reg.empleado_match_method = None
     if reside is not None:
         reg.empleado_reside = reside
         if ide is None:
