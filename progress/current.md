@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-037 · in_progress (2026-10-07, URGENTE): sv3 no duplica la extra automática de una base omitida
+## F-037 · done (2026-10-07, URGENTE), pendiente de desplegar sv3 y M1–M4: sv3 no duplica la extra automática de una base omitida
 
 **Implementación en curso** (implementer, worktree `partes-wt-f037`). DA1, DA2 y
 DA3 aprobadas por el humano el 2026-10-07 (las recomendadas). Matiz del humano:
