@@ -9,6 +9,11 @@ Se añadió la ruta al guardián F-016 con comentario `F-035 (R5)` y la
 excepción quedó anotada en R22; la desviación de `METODOS_RECURSO` quedó
 aceptada y anotada en design §4. Se retoma en T5.
 
+**Estado (implementer, 2026-10-07):** T1–T8 y T10 hechos; T9 es la
+verificación MANUAL del humano en local (solo lectura). Informe en
+`progress/impl_F-035.md`, mutación en `progress/mutacion_F-035.md`. Pendiente
+de reviewer.
+
 ### BLOQUEO previo (implementer, 2026-10-07): test ajeno en rojo por R5
 
 **Qué pasa.** R5 manda crear `GET /api/sigrid/recursos`. El guardián ajeno
