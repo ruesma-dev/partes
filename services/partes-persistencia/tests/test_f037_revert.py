@@ -266,3 +266,92 @@ def test_f037_r8_revertir_dos_veces_da_lo_mismo() -> None:
     assert primero[ids[0]] == (True, 8.0, 10.0, False)
     assert repo.revert_extras_auto() == 0
     assert estado_lineas(fabrica, ids) == primero
+
+
+# ========== R9 · la lectura marca lo congelado por su pareja ============ #
+
+def _marcas(fabrica) -> dict[int, bool]:
+    filas = _repo(fabrica).fetch_registros_para_recurso()
+    return {f["registro_id"]: f["congelada_por_pareja"] for f in filas}
+
+
+def test_f037_r9_la_base_de_una_extra_congelada_queda_marcada() -> None:
+    fabrica = FabricaSesionSqlite()
+    base, extra = _sembrar(fabrica, [_base(8.0, 10.0, "omitido"),
+                                     _extra(2.0, "registrado")])
+    # La extra lo esta por si misma: no se marca por pareja.
+    assert _marcas(fabrica) == {base: True, extra: False}
+
+
+def test_f037_r9_la_extra_de_una_base_congelada_queda_marcada() -> None:
+    fabrica = FabricaSesionSqlite()
+    base, extra = _sembrar(fabrica, [_base(8.0, 10.0, "registrado"),
+                                     _extra(2.0, "error")])
+    assert _marcas(fabrica) == {base: False, extra: True}
+
+
+def test_f037_r9_sin_nada_congelado_nada_marcado() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _sembrar(fabrica, [_base(8.0, 10.0), _extra(2.0)])
+    assert _marcas(fabrica) == {ids[0]: False, ids[1]: False}
+
+
+def test_f037_r9_extra_explicita_ni_marca_ni_queda_marcada() -> None:
+    fabrica = FabricaSesionSqlite()
+    explicita_libre = {"horas": 1.0, "tipo": "extra", "line_index": 0,
+                       "empleado_line_no": 1}
+    explicita_congelada = {"horas": 1.0, "tipo": "extra", "line_index": 1,
+                           "empleado_line_no": 1, "estado": "registrado"}
+    ids = _sembrar(fabrica, [
+        _base(8.0, 10.0, "registrado"), explicita_libre,   # pareja 0
+        _base(9.0, None, li=1), explicita_congelada,       # pareja 1
+    ])
+    assert _marcas(fabrica) == {ids[0]: False, ids[1]: False,
+                                ids[2]: False, ids[3]: False}
+
+
+def test_f037_r9_otra_clave_no_queda_marcada() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _sembrar(fabrica, [
+        _base(8.0, 10.0, "omitido"), _extra(2.0, "registrado"),
+        _base(8.0, None, li=1),                 # otra linea del parte
+        _base(8.0, None, eln=2),                # otro trabajador
+    ])
+    marcas = _marcas(fabrica)
+    assert marcas[ids[0]] is True
+    assert marcas[ids[2]] is False
+    assert marcas[ids[3]] is False
+
+
+def test_f037_r9_otro_dia_no_queda_marcado() -> None:
+    fabrica = FabricaSesionSqlite()
+    a = _sembrar(fabrica, [_extra(2.0, "registrado")], document_id="doc-a",
+                 fecha="2026-10-01")
+    b = _sembrar(fabrica, [_base(8.0, 10.0)], document_id="doc-b",
+                 fecha="2026-10-02")
+    c = _sembrar(fabrica, [_base(8.0, 10.0)], document_id="doc-c",
+                 fecha="2026-10-01")
+    assert _marcas(fabrica) == {a[0]: False, b[0]: False, c[0]: False}
+
+
+def test_f037_r9_una_base_sin_horas_orig_tambien_se_marca() -> None:
+    """La lectura mira todas las filas, no solo las que revierte la
+    reversion (design §9, R-b)."""
+    fabrica = FabricaSesionSqlite()
+    base, _ = _sembrar(fabrica, [_base(10.0, None),
+                                 _extra(2.0, "registrado")])
+    assert _marcas(fabrica)[base] is True
+
+
+def test_f037_r9_la_unica_clave_nueva_es_la_marca() -> None:
+    fabrica = FabricaSesionSqlite()
+    _sembrar(fabrica, [_base(8.0, 10.0)])
+    fila, = _repo(fabrica).fetch_registros_para_recurso()
+    assert set(fila) == {
+        "registro_id", "document_id", "obra_ide", "empleado_ide",
+        "empleado_reside", "empleado_dni", "fecha_int", "tipo_hora",
+        "hora_ide", "hora_codigo", "categoria", "horas", "sigrid_estado",
+        "doc_approved", "recurso_ide", "parte_empresa",
+        "congelada_por_pareja",
+    }
+    assert fila["congelada_por_pareja"] is False

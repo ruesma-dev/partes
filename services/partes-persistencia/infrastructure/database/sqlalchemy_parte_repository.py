@@ -21,6 +21,7 @@ from application.services.pareja_extra import (
     FilaPareja,
     PlanRevert,
     clave_pareja,
+    claves_congeladas,
     es_miembro,
     plan_revert,
 )
@@ -204,7 +205,12 @@ class SqlAlchemyParteRepository:
         Desde F-015 trae ademas lo que hace falta para saber si la linea
         esta CONGELADA (R32): su `sigrid_estado` y si el parte del que sale
         esta aprobado. Esas lineas cuentan en el total del dia pero no se
-        pueden recortar."""
+        pueden recortar.
+
+        F-037 (R9): cada fila lleva `congelada_por_pareja`, True si no esta
+        congelada por si misma pero otro miembro de su pareja (base y
+        extras automaticas de la misma clave) si. Se calcula sobre TODAS
+        las filas leidas; el conciliador la trata como congelada."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(
@@ -230,6 +236,11 @@ class SqlAlchemyParteRepository:
                     # (la de una linea sin obra, R25).
                     ParteRegistroOrm.recurso_ide,
                     ParteDocumentOrm.empresa,
+                    # F-037: la clave de pareja (con document_id y
+                    # fecha_int) y si la fila es una extra automatica.
+                    ParteRegistroOrm.line_index,
+                    ParteRegistroOrm.empleado_line_no,
+                    ParteRegistroOrm.extra_auto,
                 )
                 .join(
                     ParteDocumentOrm,
@@ -238,9 +249,18 @@ class SqlAlchemyParteRepository:
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
             out: list[dict] = []
+            parejas: list[FilaPareja] = []
             for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
                  hora_ide, hora_codigo, categoria, horas, sigrid_estado,
-                 aprobado, recurso_ide, empresa) in session.execute(stmt).all():
+                 aprobado, recurso_ide, empresa, line_index, eln,
+                 extra_auto) in session.execute(stmt).all():
+                parejas.append(_fila_pareja(
+                    registro_id=rid, document_id=doc_id,
+                    line_index=line_index, empleado_line_no=eln,
+                    fecha_int=fint, extra_auto=extra_auto,
+                    tipo_hora=tipo_hora, sigrid_estado=sigrid_estado,
+                    aprobado=aprobado,
+                ))
                 out.append({
                     "registro_id": rid,
                     "document_id": doc_id,
@@ -259,6 +279,12 @@ class SqlAlchemyParteRepository:
                     "recurso_ide": recurso_ide,
                     "parte_empresa": empresa,
                 })
+            congeladas = claves_congeladas(parejas)
+            for fila, pareja in zip(out, parejas):
+                fila["congelada_por_pareja"] = (
+                    pareja.miembro and pareja.clave in congeladas
+                    and not pareja.congelada
+                )
             return out
 
     def marcar_review_required(self, document_ids) -> int:
