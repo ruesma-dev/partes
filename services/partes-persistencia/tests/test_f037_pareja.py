@@ -237,3 +237,30 @@ def test_f037_plan_vacio() -> None:
     assert plan_revert([]) == PlanRevert(borrar=(), restaurar=(),
                                          duplicadas=(), congeladas=0,
                                          protegidas=0, dobles=())
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+# `FilaPareja` y `PlanRevert` son valores: el plan se calcula y luego se
+# aplica, y nada en medio puede cambiarlo. Los mutantes `frozen=False`
+# sobrevivian porque ningun test lo miraba.
+
+def test_f037_fila_pareja_es_inmutable_y_hashable() -> None:
+    import dataclasses
+
+    import pytest
+
+    fila = _fila(1)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        fila.congelada = True  # type: ignore[misc]
+    assert {fila, _fila(1)} == {fila}
+
+
+def test_f037_plan_revert_es_inmutable_y_hashable() -> None:
+    import dataclasses
+
+    import pytest
+
+    plan = plan_revert([_fila(1), _fila(2, extra_auto=True)])
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        plan.borrar = ()  # type: ignore[misc]
+    assert {plan, plan_revert([_fila(1), _fila(2, extra_auto=True)])} == {plan}
