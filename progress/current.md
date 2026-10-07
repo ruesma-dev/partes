@@ -4,7 +4,7 @@
 ## F-033 · in_progress (2026-10-07): columna Empresa en el listado de obras (URGENTE)
 
 **Implementer en curso** (rama `feature/F-033-columna-empresa`). Tarea en
-curso: T3 (informe, cobertura y mutación). T1 y T2 hechas.
+curso: T4 (init.sh final). T1-T3 hechas; informe en `progress/impl_F-033.md`, mutación 12/10/2 equivalentes.
 Desviaciones respecto a la spec: ninguna por ahora.
 
 Spec **reescrita en mínimo** (el humano rechazó el primer alcance: «te estás
