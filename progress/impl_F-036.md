@@ -25,3 +25,25 @@ E       AttributeError: 'RecursoRow' object has no attribute 'cla'
 3 failed in 0.75s
 ```
 Tras el código: `3 passed`; suite sv3 `776 passed`.
+
+### T3 · R2, R3 (filtro persona, DNI del recurso, INFO)
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_maestro.py
+      7 E       AttributeError: 'IndicePersonas' object has no attribute 'dni_de_recurso'
+      6 E         Use -v to get more diff
+      6 E         
+      5 E       AttributeError: module 'application.services.seleccion_sigrid' has no attribute 'es_persona'
+      3 E       AssertionError: assert (900, 'ok') == (None, 'desconocido')
+      3 E         At index 0 diff: 900 != None
+      1 E       assert frozenset({1, 28, 31}) == frozenset({28})
+      1 E       AttributeError: module 'application.services.seleccion_sigrid' has no attribute 'CLA_PERSONA'
+      1 E       AttributeError: 'IndicePersonas' object has no attribute 'ficha_enlazada'
+      1 E       AssertionError: assert (None, 'ambiguo') == (901, 'ok')
+      1 E       AssertionError: assert (901, 'ok') == (902, 'ok')
+      1 E         Extra items in the left set:
+      1 E         At index 0 diff: None != 901
+      1 E         At index 0 diff: 901 != 902
+21 failed, 4 passed in 1.42s
+```
+Tras el código: `79 passed` (maestro + F-023 selección); suite sv3 `798 passed`. Nota: `dni_de_recurso` y `ficha_enlazada` (de T4 en `tasks.md`) se adelantan a T3 porque el INFO de R3 los necesita.

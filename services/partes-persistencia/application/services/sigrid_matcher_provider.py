@@ -29,7 +29,7 @@ from application.services.empleado_matcher import EmpleadoMatcher
 from application.services.empresa_membrete import ResolutorEmpresa
 from application.services.fichas_de_recurso import fichas_de_recurso
 from application.services.obra_matcher import ObraMatcher
-from application.services.seleccion_sigrid import IndicePersonas
+from application.services.seleccion_sigrid import IndicePersonas, es_persona
 from application.services.tipo_hora_resolver import TipoHoraResolver
 from domain.ports.sigrid_lookup_port import SigridLookupPort
 
@@ -113,7 +113,20 @@ class SigridMatcherProvider:
             "tipos_hora=%s recursos=%s empresas=%s", len(empleados),
             len(obras), len(tipos), len(recursos), len(empresas),
         )
-        return self._montar(empleados, obras, tipos, recursos, empresas)
+        matchers = self._montar(empleados, obras, tipos, recursos, empresas)
+        self._avisar_personas_sin_dni(matchers.indice)
+        return matchers
+
+    @staticmethod
+    def _avisar_personas_sin_dni(indice: IndicePersonas) -> None:
+        """F-036 (R3): un recurso persona sin DNI (ni en su ficha ni en
+        `res.cif`) no es candidato por nombre; se cuenta para que se vea."""
+        personas = [r for r in indice.recursos if es_persona(r)]
+        sin_dni = sum(1 for r in personas if not indice.dni_de_recurso(r))
+        logger.info(
+            "[matcher-provider] recursos persona sin DNI (no casan por "
+            "nombre): %s de %s", sin_dni, len(personas),
+        )
 
     def _empty(self) -> Matchers:
         return self._montar([], [], [], [], [])

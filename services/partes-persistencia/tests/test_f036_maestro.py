@@ -13,8 +13,18 @@ Sin red: `_post_sql_read` parcheado. Todo SINTETICO.
 """
 from __future__ import annotations
 
-from domain.models.sigrid_models import RecursoRow
+import logging
+
+import pytest
+
+from application.services import seleccion_sigrid as sel
+from application.services.seleccion_sigrid import IndicePersonas
+from application.services.sigrid_matcher_provider import SigridMatcherProvider
+from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
 from infrastructure.sigrid.sigrid_api_client import SigridApiClient
+
+HOY = 20260915
+DNI = "12345678Z"
 
 COLS = ["ide", "cif", "conide", "restipide", "restip_cod", "restip_res",
         "horide_def", "empresa", "fecbaj", "codigo", "nombre", "cla"]
@@ -56,3 +66,149 @@ def test_f036_r1_fetch_recursos_mapea_cla(monkeypatch) -> None:
 def test_f036_r1_recurso_row_cla_por_defecto_none() -> None:
     assert RecursoRow(ide=1, cif=None, conide=None).cla is None
 
+
+
+# =============================== R2 ===================================== #
+
+def _ficha(ide, *, dni=DNI, empresa=1, fecbaj=0, reside=None):
+    return EmpleadoRow(ide=ide, codigo=f"E{ide}", nombre=f"P {ide}", dni=dni,
+                       reside=reside, empresa=empresa, fecbaj=fecbaj)
+
+
+def _rec(ide, *, cla=1, cif=None, conide=None, empresa=1, fecbaj=0,
+         codigo=None, nombre=None):
+    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+                      fecbaj=fecbaj, codigo=codigo, nombre=nombre, cla=cla)
+
+
+def test_f036_r2_cla_persona_es_uno() -> None:
+    assert sel.CLA_PERSONA == 1
+
+
+@pytest.mark.parametrize("cla, esperado", [
+    (1, True), (0, False), (2, False), (None, False), (3, False),
+])
+def test_f036_r2_es_persona_solo_cla_1(cla, esperado) -> None:
+    assert sel.es_persona(_rec(1, cla=cla)) is esperado
+
+
+@pytest.mark.parametrize("cla", [0, 2, None])
+def test_f036_r2_elegir_recurso_no_propone_un_recurso_que_no_es_persona(
+        cla) -> None:
+    """El unico recurso del DNI (por `cif` y por ficha) no es de persona:
+    para la eleccion la persona no tiene recursos."""
+    indice = IndicePersonas(
+        [_ficha(10)], [_rec(900, cla=cla, cif=DNI, conide=10)])
+    res = indice.elegir_recurso(DNI, 10, 900, 1, HOY)
+    assert (res.ide, res.motivo) == (None, "desconocido")
+
+
+def test_f036_r2_entre_dos_recursos_el_de_persona_sin_ambiguedad() -> None:
+    indice = IndicePersonas([_ficha(10)], [
+        _rec(900, cla=2, conide=10), _rec(901, cla=1, conide=10)])
+    res = indice.elegir_recurso(DNI, 10, None, 1, HOY)
+    assert (res.ide, res.motivo) == (901, "ok")
+
+
+def test_f036_r2_el_filtro_vale_por_cif_y_por_ficha() -> None:
+    indice = IndicePersonas([_ficha(10)], [
+        _rec(900, cla=0, cif=DNI), _rec(901, cla=2, conide=10),
+        _rec(902, cla=1, cif=DNI, empresa=28)])
+    res = indice.elegir_recurso(DNI, 10, None, None, HOY)
+    assert (res.ide, res.motivo) == (902, "ok")
+
+
+def test_f036_r2_empresas_con_recurso_solo_de_persona() -> None:
+    indice = IndicePersonas([_ficha(10)], [
+        _rec(900, cla=2, conide=10, empresa=1),
+        _rec(901, cla=None, cif=DNI, empresa=31),
+        _rec(902, cla=1, cif=DNI, empresa=28)])
+    assert indice.empresas_con_recurso(DNI, HOY) == frozenset({28})
+
+
+def test_f036_r2_recurso_por_ide_y_recursos_siguen_viendo_todos() -> None:
+    no_persona = _rec(900, cla=2, conide=10)
+    persona = _rec(901, cla=1, conide=10)
+    indice = IndicePersonas([_ficha(10)], [no_persona, persona],
+                            [ObraRow(ide=1, codigo="1", nombre="O", empresa=1)])
+    assert indice.recurso(900) is no_persona
+    assert indice.recursos == [no_persona, persona]
+
+
+# ======================= DNI del recurso (DA1) ========================== #
+
+@pytest.mark.parametrize("dni_ficha, cif, esperado", [
+    (DNI, "87654321X", DNI),            # DA1: manda el de la ficha
+    (" 12345678-z ", None, DNI),        # normalizado
+    (None, "87654321x", "87654321X"),   # ficha sin DNI: el cif
+    ("", " 87654321-X", "87654321X"),
+    (None, None, ""),                   # ninguno
+    ("", "", ""),
+])
+def test_f036_da1_dni_de_recurso_ficha_y_si_no_cif(dni_ficha, cif,
+                                                   esperado) -> None:
+    indice = IndicePersonas([_ficha(10, dni=dni_ficha)],
+                            [_rec(900, cif=cif, conide=10)])
+    assert indice.dni_de_recurso(indice.recurso(900)) == esperado
+
+
+def test_f036_da1_dni_de_recurso_sin_ficha_enlazada_es_el_cif() -> None:
+    r_sin = _rec(900, cif="87654321-x", conide=None)
+    r_fuera = _rec(901, cif="87654321X", conide=555)    # 555 no esta
+    indice = IndicePersonas([_ficha(10)], [r_sin, r_fuera])
+    assert indice.dni_de_recurso(r_sin) == "87654321X"
+    assert indice.dni_de_recurso(r_fuera) == "87654321X"
+
+
+def test_f036_ficha_enlazada_por_conide() -> None:
+    ficha = _ficha(10)
+    indice = IndicePersonas([ficha], [
+        _rec(900, conide=10), _rec(901, conide=None), _rec(902, conide=77)])
+    assert indice.ficha_enlazada(indice.recurso(900)) is ficha
+    assert indice.ficha_enlazada(indice.recurso(901)) is None
+    assert indice.ficha_enlazada(indice.recurso(902)) is None
+
+
+# =============================== R3 ===================================== #
+
+class _Lookup:
+    def __init__(self, empleados, recursos) -> None:
+        self._e, self._r = empleados, recursos
+
+    def fetch_empleados(self):
+        return list(self._e)
+
+    def fetch_obras(self):
+        return []
+
+    def fetch_tipos_hora(self):
+        return []
+
+    def fetch_recursos(self):
+        return list(self._r)
+
+    def fetch_empresas(self):
+        return []
+
+
+def test_f036_r3_el_proveedor_cuenta_los_recursos_persona_sin_dni(
+        caplog) -> None:
+    recursos = [
+        _rec(900, cif=None, conide=None),             # persona sin DNI
+        _rec(901, cif="", conide=10),                 # ficha sin DNI: sin
+        _rec(902, cif=DNI),                           # con DNI
+        _rec(903, cla=2, cif=None),                   # no es persona
+        _rec(904, cif=None, conide=11),               # DNI por ficha
+    ]
+    fichas = [_ficha(10, dni=None), _ficha(11, dni="87654321X")]
+    proveedor = SigridMatcherProvider(
+        lookup=_Lookup(fichas, recursos), empleado_min_score=0.55,
+        obra_min_score=0.55, default_hora_normal_cod=None,
+        default_hora_extra_cod=None)
+    with caplog.at_level(logging.INFO):
+        proveedor.get()
+    lineas = [r.getMessage() for r in caplog.records
+              if "sin DNI" in r.getMessage()]
+    assert lineas == [
+        "[matcher-provider] recursos persona sin DNI (no casan por nombre): "
+        "2 de 4"]
