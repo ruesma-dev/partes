@@ -746,3 +746,22 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   21/21 muertos, 0 supervivientes. M1 en producción antes de desplegar: 0.
 - Pendiente: desplegar sv3 (lo pide el humano) y M2–M4 (comandos en
   `current.md`).
+
+## F-036 · sv3: casar el trabajador leído contra los recursos persona de la empresa — done 2026-10-07
+
+- Rama `feature/F-036-casado-contra-recursos` · rigor critico · sdd=true ·
+  APPROVED del reviewer en la pasada 2 (`progress/review_F-036.md`; la 1 pidió
+  los comandos exactos de M2/M3 y despliegue).
+- Petición: el casado de sv3 debe ir contra la lista de recursos de la empresa
+  del parte, no contra empleados; DNI del recurso y, si falta, el de su ficha.
+- Entregado (sv3 + una condición en sv5): casado DNI → alias → nombre contra
+  recursos persona (`res.cla = 1`) de alta en la empresa del parte; DNI guardado
+  `emp.dni` y si falta `res.cif` (se busca por ambos); respaldo F-030 retirado;
+  R6 (decisión A del humano): DNI conocido sin recurso persona ⇒ sin casar
+  (`dni_sin_recurso`) y a Conciliar; sv5 `recursos_por_dni` exige `cla = 1`; nueva
+  entrada en la lista cerrada de CLAUDE.md con guardián; herramienta de impacto
+  de solo lectura (no ejecutada contra producción). No se re-casa lo ingerido.
+- Verificado: init.sh en verde, cobertura 99,7 % (314/315), mutación completa
+  0 supervivientes (110 mutantes), sv3 928 passed.
+- Pendiente: M1 (impacto, solo lectura, la autoriza el humano), desplegar sv3 y
+  sv5 (junto con sv4 de F-035) y M2/M3.

@@ -9,6 +9,9 @@ base, para poder probarlo por tablas de casos:
   - `IndicePersonas`: fichas de empleado y recursos de TODAS las empresas,
     indexados por DNI normalizado y por ficha. Elige la ficha de un DNI en
     la empresa del parte (R17-R21) y el recurso de una linea (R25-R28).
+    F-036: solo los recursos PERSONA (`res.cla = 1`, `CLA_PERSONA`) se
+    proponen al casar o al elegir recurso; el casado de la ingesta elige
+    RECURSO (`casar_por_dni`, `candidatos_nombre`).
   - `elegir_obra` (R9-R13): entre las obras que comparten el codigo leido
     (las «gemelas» de dos empresas), cual gana.
 
@@ -24,6 +27,17 @@ from dataclasses import dataclass
 
 from application.services import text_match as tm
 from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
+
+#: F-036 (R2, DA3): `res.cla` de un recurso de PERSONA (0 consumo, 2 medio),
+#: el criterio de `porcentajes`. Esta en la lista cerrada de `CLAUDE.md`:
+#: sv5 lo aplica en `recursos_por_dni` y lo vigila
+#: `tests/test_f036_recurso_persona_gemelos.py`.
+CLA_PERSONA = 1
+
+
+def es_persona(r: RecursoRow) -> bool:
+    """R2: el recurso es de persona (`res.cla = 1`)."""
+    return r.cla == CLA_PERSONA
 
 
 def de_alta(fecbaj: int | None, fecha: int) -> bool:
@@ -79,7 +93,14 @@ class IndicePersonas:
         self._recursos_por_conide: dict[int, list[RecursoRow]] = \
             defaultdict(list)
         self._recursos_por_cif: dict[str, list[RecursoRow]] = defaultdict(list)
-        for r in self._recursos:
+        # R6 (humano, 2026-10-07): los DNI de TODOS los recursos, de
+        # cualquier clase, para saber si Sigrid conoce a la persona.
+        self._cifs = {tm.normalize_dni(r.cif) for r in self._recursos} - {""}
+        # R2: solo los recursos persona entran en los indices por DNI y por
+        # ficha, asi que `_recursos_de` (y con el `elegir_recurso`,
+        # `empresas_con_recurso` y el casado) no ve otros. `_recursos`,
+        # `recurso()` y `recursos` siguen con TODOS.
+        for r in filter(es_persona, self._recursos):
             if r.conide is not None:
                 self._recursos_por_conide[r.conide].append(r)
             cif = tm.normalize_dni(r.cif)
@@ -99,6 +120,25 @@ class IndicePersonas:
 
     def empresa_de_obra(self, obra_ide: int | None) -> int | None:
         return self._empresa_obra.get(obra_ide)
+
+    def dni_conocido(self, dni: str | None) -> bool:
+        """R6 (opcion A del humano, 2026-10-07): Sigrid conoce a la persona
+        del DNI: tiene ficha `emp` (de cualquier empresa y estado) o algun
+        recurso de cualquier clase con ese `res.cif`."""
+        dni_n = tm.normalize_dni(dni)
+        return dni_n in self._fichas_por_dni or dni_n in self._cifs
+
+    def ficha_enlazada(self, r: RecursoRow) -> EmpleadoRow | None:
+        """F-036: la ficha `emp` del recurso (`res.conide`), si esta en el
+        maestro."""
+        return self._ficha_por_ide.get(r.conide)
+
+    def dni_de_recurso(self, r: RecursoRow) -> str:
+        """F-036 (DA1): el DNI de la ficha enlazada si no esta vacio; si
+        no, `res.cif`. Normalizado; cadena vacia si no hay ninguno."""
+        ficha = self.ficha_enlazada(r)
+        dni = tm.normalize_dni(ficha.dni) if ficha is not None else ""
+        return dni or tm.normalize_dni(r.cif)
 
     # ------------------------------------------------------------- #
     def _recursos_de(
@@ -133,15 +173,30 @@ class IndicePersonas:
             if r.empresa is not None and de_alta(r.fecbaj, fecha)
         )
 
-    def fichas_candidatas(
+    def candidatos_nombre(
         self, empresa: int | None, fecha: int
-    ) -> list[EmpleadoRow]:
-        """R17: fichas de alta a la fecha de la empresa (o de todas)."""
+    ) -> list[RecursoRow]:
+        """F-036 (R3, R10): recursos persona de alta a la fecha, de la
+        empresa (o de todas si es None) y con DNI del recurso."""
         return [
-            f for f in self._fichas
-            if de_alta(f.fecbaj, fecha)
-            and (empresa is None or f.empresa == empresa)
+            r for r in self._recursos
+            if es_persona(r) and de_alta(r.fecbaj, fecha)
+            and (empresa is None or r.empresa == empresa)
+            and self.dni_de_recurso(r)
         ]
+
+    def casar_por_dni(
+        self, dni: str | None, empresa: int | None, fecha: int
+    ) -> ResolucionRecurso:
+        """F-036 (R4-R5): el recurso persona de un DNI en la empresa del
+        parte a la fecha. Desempata como ingesta y conciliador juntos: con
+        la ficha del DNI de alta en esa empresa, su `reside` y despues el
+        unico enlazado a ella; sin esa ficha, solo un candidato unico."""
+        ficha = self.elegir_ficha(dni, empresa, fecha)
+        if ficha.motivo == "ok":
+            reside = self._ficha_por_ide[ficha.ide].reside
+            return self.elegir_recurso(dni, ficha.ide, reside, empresa, fecha)
+        return self.elegir_recurso(dni, None, None, empresa, fecha)
 
     def elegir_ficha(
         self, dni: str | None, empresa: int | None, fecha: int

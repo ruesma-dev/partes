@@ -18,11 +18,12 @@ from datetime import date
 
 from application.services.recurso_conciliador import RecursoConciliador
 from application.services.seleccion_sigrid import IndicePersonas
-from domain.models.sigrid_models import HmoRow, ObraRow, RecursoRow
+from domain.models.sigrid_models import HmoRow, ObraRow
 from tests.dobles import (
     CalendarioFake,
     LookupFake,
     RepositorioFake,
+    recurso_persona,
     registro,
     reshor_par,
 )
@@ -33,10 +34,10 @@ OBRA_28 = ObraRow(ide=724, codigo="0724", nombre="Obra Porsan", empresa=28)
 OBRA_1 = ObraRow(ide=725, codigo="0724", nombre="Obra Ruesma", empresa=1)
 
 #: La ficha de recurso de la 28: `MO/`, `cif` y `conide` vacio.
-REC_28 = RecursoRow(ide=950, cif=CIF, conide=None, restip_res="PEON",
+REC_28 = recurso_persona(ide=950, cif=CIF, conide=None, restip_res="PEON",
                     horide_def=100, empresa=28, fecbaj=0)
 #: Otro recurso de la misma persona en la empresa 1 (no compite en la 28).
-REC_1 = RecursoRow(ide=951, cif=CIF, conide=None, restip_res="OFICIAL",
+REC_1 = recurso_persona(ide=951, cif=CIF, conide=None, restip_res="OFICIAL",
                    horide_def=100, empresa=1, fecbaj=0)
 
 
@@ -103,7 +104,7 @@ def test_f030_r14_la_empresa_de_la_obra_elige_entre_sus_recursos() -> None:
 
 
 def test_f030_r14_recurso_de_baja_a_la_fecha_queda_sin_recurso() -> None:
-    baja = RecursoRow(ide=950, cif=CIF, conide=None, empresa=28,
+    baja = recurso_persona(ide=950, cif=CIF, conide=None, empresa=28,
                       fecbaj=FECHA)
     repo = RepositorioFake([_linea()])
     _conciliador(repo, _indice(recursos=(baja,))).conciliar_todos()

@@ -471,6 +471,23 @@
       "branch": "feature/F-035-selector-recursos-por-empresa"
     },
     {
+      "id": "F-036",
+      "title": "sv3: casar el trabajador leido contra los recursos persona de la empresa del parte",
+      "description": "Pedida por el humano el 2026-10-07: «el macheo de la IA tambien debe hacerlo contra recursos, no empleados»; «en el punto donde sv3 casa, que case contra la lista de recursos de la empresa, que viene de pasos anteriores»; «si no hay dni en el recurso que lo traiga de empleado». sv2 no recibe lista de personas: el casado lo hace sv3 (DNI, alias, nombre) y hoy es contra fichas de empleado (emp) con el respaldo F-030 de fichas de recurso. LO QUE SE PIDE: el casado de sv3 pasa a ser contra los RECURSOS persona (res.cla = 1, criterio de porcentajes) de la empresa del parte y de alta a la fecha; DNI del recurso = res.cif o, si vacio, el de su ficha de empleado (res.conide). A REVISAR EN LA SPEC: que se guarda en empleado_* y recurso_*, alias, respaldo F-030, conciliador de recursos y lista cerrada de CLAUDE.md (elegir_recurso sv3 / elegir_por_dni sv5), efecto en sv5, recalculo de partes activos al desplegar y como medir el impacto antes.",
+      "acceptance": [
+        "sv3 casa el trabajador leido (DNI, alias, nombre) contra los recursos persona de alta de la empresa del parte",
+        "Un trabajador con recurso y sin ficha de empleado, o con ficha en otra empresa, casa por su recurso",
+        "La linea guarda empleado_* coherentes con el recurso elegido y el conciliador mantiene ese recurso",
+        "Herramienta de solo lectura que mide el impacto antes de desplegar",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-036-casado-contra-recursos"
+    },
+    {
       "id": "F-037",
       "title": "sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada",
       "description": "URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 lineas extra_auto DUPLICADAS en la base partes, todas de la obra 0678 del 01 al 03/10/2026 (Ruesma 4, Porsan 3). Patron: linea base normal con sigrid_estado='omitido' (mensual MCAP sin codigo de hora laborable, o base con 0 horas 'sin horas') + su extra_auto ya 'registrado' en Sigrid + una extra_auto NUEVA identica sin sigrid_estado, mismo document_id/line_index/empleado_line_no/fecha. Mecanismo: revert_extras_auto() de sv3 respeta la extra congelada pero restaura la base no congelada (horas = horas_orig); el calculo de splits del RecursoConciliador la vuelve a partir y apply_extras_splits() inserta otra extra_auto en cada pasada. Riesgo: aprobar la nueva la escribe en Sigrid con otro synckey (extra doble en el ERP). Caso inverso: base registrada y extra no congelada -> la pasada borra la extra y deja la base recortada sin ella. Arreglo: base y extra_auto de la misma pareja se congelan juntas para el recalculo de sv3; la siguiente pasada borra sola los duplicados no congelados.",

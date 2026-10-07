@@ -1,18 +1,19 @@
 # tests/test_f030_casado_recurso.py
-"""F-030 · R4-R13: casar al trabajador contra la «ficha de recurso».
+"""F-030 · R4-R13: casar al trabajador que no tiene ficha de empleado.
 
 Humano, 2026-10-05: «el proceso es el mismo que con empleado pero contra la
-ficha de recurso cuando no esta la de empleado». Una ficha de recurso es un
-recurso `MO/` con `res.cif`, sin ninguna ficha `emp` con ese DNI y cuyo
-`res.conide` no es una ficha; se trata como una ficha de empleado mas
-(DNI = `res.cif`, nombre = `con.res`, empresa y baja las del recurso) y se
-casa con el MISMO codigo: `IndicePersonas.elegir_ficha`,
-`fichas_candidatas` y `EmpleadoMatcher.match_nombre`.
+ficha de recurso cuando no esta la de empleado».
 
-Familias, por el nombre de los tests: `lectura` (el cliente de Sigrid),
-`fichas_de_recurso` (la construccion), `proveedor` y los requisitos del
-casado (`r5`...`r13`). Proveedor REAL sobre un Sigrid en memoria y
-repositorio falso. Todo SINTETICO: ni DNIs, ni nombres, ni codigos reales.
+F-036 retira la «ficha de recurso» (su modulo y
+`Matchers.recursos`): el casado es ya contra los RECURSOS persona
+(`res.cla = 1`), y quien no tiene ficha es un candidato mas. Aqui quedan
+los comportamientos de F-030 que siguen valiendo, reescritos contra el
+casado nuevo (`casado_recurso.casar_trabajador` via el pipeline); los de
+la construccion de la ficha de recurso, el proveedor y los logs del
+respaldo se retiraron con el (ver `progress/impl_F-036.md`).
+
+Proveedor REAL sobre un Sigrid en memoria y repositorio falso. Todo
+SINTETICO: ni DNIs, ni nombres, ni codigos reales.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ import json
 
 import httpx
 from domain.models.sigrid_models import RecursoRow
+from tests.dobles import recurso_persona
 from infrastructure.sigrid import sigrid_api_client as modulo
 from infrastructure.sigrid.sigrid_api_client import SigridApiClient
 
@@ -78,9 +80,8 @@ def test_f030_r4_lectura_recurso_row_sin_codigo_ni_nombre_por_defecto(
     assert (r.codigo, r.nombre) == (None, None)
 
 
-# ===================== fichas_de_recurso · R4 =========================== #
+# ============================ datos comunes ============================= #
 
-import application.services.fichas_de_recurso as fdr
 from domain.models.sigrid_models import EmpleadoRow
 
 CIF_P = "09876543B"     # persona SIN ficha de empleado (empresa 28)
@@ -93,77 +94,13 @@ FICHA_E = EmpleadoRow(ide=10, codigo="E10", nombre="EVA FICHA", dni=DNI_E,
 
 def _rec(ide, cif, *, codigo=None, conide=None, nombre="APELLIDOS, NOMBRE",
          empresa=28, fecbaj=0) -> RecursoRow:
-    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+    return recurso_persona(ide=ide, cif=cif, conide=conide, empresa=empresa,
                       fecbaj=fecbaj, codigo=codigo or f"MO/{ide}",
                       nombre=nombre)
 
 
-def test_f030_r4_fichas_de_recurso_la_ficha_es_el_recurso() -> None:
-    r = _rec(950, CIF_P, nombre="GOMEZ RUIZ, PEDRO", fecbaj=20261231)
-    assert fdr.fichas_de_recurso([FICHA_E], [r]) == [EmpleadoRow(
-        ide=950, codigo="MO/950", nombre="GOMEZ RUIZ, PEDRO", dni=CIF_P,
-        reside=950, empresa=28, fecbaj=20261231)]
+# ============================ el casado ================================= #
 
-
-def test_f030_r4_fichas_de_recurso_el_dni_es_el_cif_tal_cual() -> None:
-    (f,) = fdr.fichas_de_recurso([], [_rec(950, " 09876543-b ")])
-    assert f.dni == " 09876543-b "
-
-
-def test_f030_r4_fichas_de_recurso_solo_mano_de_obra() -> None:
-    assert fdr.PREFIJO_MANO_DE_OBRA == "MO/"
-    recursos = [_rec(950, CIF_P, codigo="MQ/950"),
-                _rec(951, CIF_Q, codigo="XMO/951")]
-    assert fdr.fichas_de_recurso([], recursos) == []
-    sin_codigo = RecursoRow(ide=952, cif=CIF_P, conide=None, empresa=28)
-    assert fdr.fichas_de_recurso([], [sin_codigo]) == []
-
-
-def test_f030_r4_fichas_de_recurso_sin_cif_no_es_ficha() -> None:
-    assert fdr.fichas_de_recurso([], [_rec(950, None), _rec(951, ""),
-                                      _rec(952, " - ")]) == []
-
-
-def test_f030_r4_fichas_de_recurso_con_ficha_por_dni_no_es_ficha() -> None:
-    """Hay una ficha `emp` con ese DNI (normalizado, de cualquier empresa
-    y de alta o de baja): esa persona casa por su ficha."""
-    de_baja_otra = EmpleadoRow(ide=11, codigo="E11", nombre="X",
-                               dni="08765432-c", reside=None, empresa=1,
-                               fecbaj=20200101)
-    recursos = [_rec(950, DNI_E), _rec(951, CIF_Q)]
-    assert fdr.fichas_de_recurso([FICHA_E, de_baja_otra], recursos) == []
-
-
-def test_f030_r4_fichas_de_recurso_con_conide_a_una_ficha_no_es_ficha(
-) -> None:
-    assert fdr.fichas_de_recurso([FICHA_E], [_rec(950, CIF_P,
-                                                  conide=10)]) == []
-
-
-def test_f030_r4_fichas_de_recurso_conide_que_no_es_ficha_si_es_ficha(
-) -> None:
-    (f,) = fdr.fichas_de_recurso([FICHA_E], [_rec(950, CIF_P, conide=999)])
-    assert f.ide == 950
-
-
-def test_f030_r4_fichas_de_recurso_de_baja_y_de_otra_empresa_tambien() -> None:
-    """De todas las empresas y estados: `elegir_ficha` filtra alta y
-    empresa y da los mismos motivos que con fichas de empleado."""
-    recursos = [_rec(950, CIF_P, fecbaj=20200101),
-                _rec(951, CIF_Q, empresa=1)]
-    assert [f.ide for f in fdr.fichas_de_recurso([], recursos)] == [950, 951]
-
-
-def test_f030_r4_fichas_de_recurso_ficha_sin_dni_no_tapa_nada() -> None:
-    sin_dni = EmpleadoRow(ide=12, codigo="E12", nombre="Y", dni=None,
-                          reside=None, empresa=28, fecbaj=0)
-    assert [f.ide for f in fdr.fichas_de_recurso([sin_dni],
-                                                 [_rec(950, CIF_P)])] == [950]
-
-
-# ========================= el proveedor · T5 ============================ #
-
-import logging
 from datetime import date
 
 import pytest
@@ -247,52 +184,6 @@ def _proveedor(lookup=None, *, min_score=0.55) -> SigridMatcherProvider:
         default_hora_extra_cod=None)
 
 
-def test_f030_proveedor_monta_las_fichas_de_recurso() -> None:
-    matchers = _proveedor().get()
-    recursos = matchers.recursos
-    assert [f.ide for f in recursos.fichas_candidatas(None, HOY)] == \
-        [950, 951]
-    assert recursos.ficha(950).reside == 950
-    assert recursos.elegir_ficha(CIF_P, 28, HOY).ide == 950
-    # Las fichas de recurso no se mezclan con las de empleado ni el indice
-    # de empleados cambia.
-    assert matchers.indice.ficha(950) is None
-    assert recursos.ficha(10) is None
-    assert recursos.recursos == []
-    assert [f.ide for f in matchers.indice.fichas_candidatas(None, HOY)] == \
-        [10, 20]
-
-
-def test_f030_proveedor_vacio_sin_fichas_de_recurso() -> None:
-    class Caido(Lookup):
-        def fetch_empresas(self):
-            raise RuntimeError("sigrid-api caido")
-
-    matchers = _proveedor(Caido()).get()
-    assert matchers.recursos.fichas_candidatas(None, HOY) == []
-
-
-def test_f030_proveedor_los_recursos_con_ficha_no_son_fichas_de_recurso(
-) -> None:
-    """Cableado de `Matchers.recursos` con las fichas de empleado REALES.
-
-    En Sigrid es el caso normal: el `MO/` de quien tiene ficha lleva su DNI
-    en `res.cif`. Ni el enlazado a su ficha (`conide`) ni el que solo
-    comparte DNI con una ficha pueden ser fichas de recurso: si lo fueran,
-    competirian por nombre con su propia ficha (misma persona: dos fichas)
-    y el casado de hoy pasaria a `nombre_ambiguo`.
-    """
-    enlazado = _rec(970, DNI_E, conide=10, nombre="GOMEZ, PEDRO")
-    mismo_dni = _rec(971, DNI_V, nombre="VEGA MORA, LUIS")
-    lookup = _lookup_con(REC_P, REC_VP, enlazado, mismo_dni)
-    matchers = _proveedor(lookup).get()
-    ides = [f.ide for f in matchers.recursos.fichas_candidatas(None, HOY)]
-    assert ides == [950, 951]
-    # El empleado, leido solo por nombre, sigue casando con su ficha.
-    emp = _emp(_casar(_parte(("Pedro Gomez", None)), lookup=lookup))
-    assert (emp.ide, emp.method, emp.reside) == (10, "nombre", 900)
-
-
 # ======================= el casado: utilidades ========================== #
 
 def _parte(*trabajadores, obra="0724", fecha=HOY) -> ParteDocumento:
@@ -371,12 +262,14 @@ def test_f030_r5_el_dni_de_una_ficha_de_empleado_sigue_casando_igual() -> None:
 
 # ===================== R12 · lo que se guarda =========================== #
 
-def test_f030_r12_el_casado_por_recurso_sin_ide_ni_codigo() -> None:
+def test_f030_r12_el_casado_por_recurso_sin_ide() -> None:
+    """F-036 (R14) adapta F-030 R12: sin ficha, `codigo` es el del recurso
+    (`con.cod`) y `dni` el DNI del recurso normalizado."""
     cif_sigrid = "09876543-B"         # tal como esta en Sigrid
     lookup = _lookup_con(_rec(950, cif_sigrid, nombre="GOMEZ RUIZ, PEDRO"))
     emp = _emp(_casar(_parte(("Nombre Ilegible", CIF_P)), lookup=lookup))
-    assert emp == EmpleadoMatch(ide=None, codigo=None,
-                                nombre="GOMEZ RUIZ, PEDRO", dni=cif_sigrid,
+    assert emp == EmpleadoMatch(ide=None, codigo="MO/950",
+                                nombre="GOMEZ RUIZ, PEDRO", dni=CIF_P,
                                 reside=950, score=1.0, method="recurso_dni")
 
 
@@ -407,101 +300,11 @@ def test_f030_r12_se_guarda_en_las_columnas_de_siempre() -> None:
         assert (fila.empleado_ide, fila.empleado_codigo, fila.empleado_dni,
                 fila.empleado_nombre, fila.empleado_reside,
                 fila.empleado_match_method, fila.empleado_match_score) == \
-            (None, None, CIF_P, "GOMEZ RUIZ, PEDRO", 950, "recurso_dni", 1.0)
+            (None, "MO/950", CIF_P, "GOMEZ RUIZ, PEDRO", 950, "recurso_dni",
+             1.0)
 
 
-# ==================== R6 · ficha de recurso que no vale ================== #
-
-def _lineas_r6(caplog) -> list[str]:
-    return [m for m in caplog.messages if "ficha de recurso" in m]
-
-
-def test_f030_r6_de_baja_sigue_por_el_nombre(caplog) -> None:
-    lookup = _lookup_con(_rec(950, CIF_P, nombre="GOMEZ RUIZ, PEDRO",
-                              fecbaj=20260901))
-    with caplog.at_level(logging.INFO):
-        emp = _emp(_casar(_parte(("Pedro Gomez", CIF_P)), lookup=lookup))
-    assert (emp.ide, emp.method) == (10, "nombre")
-    (linea,) = _lineas_r6(caplog)
-    assert "solo_baja" in linea
-    assert CIF_P not in caplog.text and "Pedro" not in caplog.text
-    assert "GOMEZ" not in caplog.text
-
-
-def test_f030_r6_de_otra_empresa_sigue_por_alias(caplog) -> None:
-    repo = Repo(alias={"PEPE": {"ide": 11, "dni": "22222222J"}})
-    ficha_1 = EmpleadoRow(ide=11, codigo="E11", nombre="JOSE UNO",
-                          dni="22222222J", reside=None, empresa=1, fecbaj=0)
-    lookup = Lookup(empleados=[*FICHAS, ficha_1])
-    with caplog.at_level(logging.INFO):
-        emp = _emp(_casar(_parte(("PEPE", CIF_P), obra="0300"), repo=repo,
-                          lookup=lookup))
-    assert (emp.ide, emp.method) == (11, "alias")
-    (linea,) = _lineas_r6(caplog)
-    assert "otra_empresa" in linea and CIF_P not in linea
-
-
-def test_f030_r6_ambigua_sigue_y_se_loguea(caplog) -> None:
-    lookup = _lookup_con(REC_P, _rec(952, CIF_P, nombre="GOMEZ RUIZ, PEDRO"))
-    with caplog.at_level(logging.INFO):
-        emp = _emp(_casar(_parte(("Pedro Gomez", CIF_P)), lookup=lookup))
-    assert (emp.ide, emp.method) == (10, "nombre")
-    (linea,) = _lineas_r6(caplog)
-    assert "ambiguo" in linea
-
-
-def test_f030_r6_desconocido_no_se_loguea(caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        emp = _emp(_casar(_parte(("Pedro Gomez", "55555555K"))))
-    assert (emp.ide, emp.method) == (10, "nombre")
-    assert _lineas_r6(caplog) == []
-
-
-def test_f030_r6_sin_dni_leido_no_se_mira_el_dni_de_recurso(caplog) -> None:
-    with caplog.at_level(logging.INFO):
-        emp = _emp(_casar(_parte(("Pedro Gomez", None))))
-    assert (emp.ide, emp.method) == (10, "nombre")
-    assert _lineas_r6(caplog) == []
-
-
-# ============ R7 · DNI de ficha de empleado que no vale: igual ========== #
-
-class _Prohibido:
-    """Si el casado mira las fichas de recurso, el test lo dice."""
-
-    def __getattr__(self, nombre):
-        raise AssertionError(f"no se debe mirar recursos.{nombre}")
-
-
-def _casar_sin_recursos(parte, lookup=None) -> ParteDocumento:
-    pipeline = _pipeline(None, lookup)
-    pipeline._matcher_provider.get().recursos = _Prohibido()  # type: ignore[union-attr]
-    pipeline._match(parte)
-    return parte
-
-
-@pytest.mark.parametrize("obra, empleados, metodo", [
-    # De baja a la fecha (y un `MO/` con su DNI que NO es ficha de recurso).
-    ("0724", [EmpleadoRow(ide=10, codigo="E10", nombre="PEDRO GOMEZ",
-                          dni=DNI_E, reside=900, empresa=28,
-                          fecbaj=20260901)], "dni_solo_baja"),
-    # De alta solo en otra empresa.
-    ("0300", FICHAS, "dni_otra_empresa"),
-    # Dos fichas de alta en la empresa del parte.
-    ("0724", [FICHA_PG, EmpleadoRow(ide=12, codigo="E12", nombre="P G",
-                                    dni=DNI_E, reside=None, empresa=28,
-                                    fecbaj=0)], "dni_ambiguo"),
-])
-def test_f030_r7_no_se_mira_ninguna_ficha_de_recurso(obra, empleados,
-                                                     metodo) -> None:
-    lookup = Lookup(empleados=empleados,
-                    recursos=[*RECURSOS, _rec(960, DNI_E)])
-    parte = _casar_sin_recursos(_parte(("Pedro Gomez Ruiz", DNI_E),
-                                       obra=obra), lookup)
-    assert (_emp(parte).ide, _emp(parte).method) == (None, metodo)
-
-
-# ======================= R8 · alias solo de fichas ====================== #
+# ============================== R8 · alias ============================== #
 
 def test_f030_r8_el_alias_de_una_ficha_se_aplica_como_hoy() -> None:
     repo = Repo(alias={"PEPE": {"ide": 10, "dni": DNI_E}})
@@ -509,11 +312,13 @@ def test_f030_r8_el_alias_de_una_ficha_se_aplica_como_hoy() -> None:
     assert (emp.ide, emp.method, emp.reside) == (10, "alias", 900)
 
 
-def test_f030_r8_no_hay_alias_de_recurso() -> None:
+def test_f030_r8_alias_de_un_recurso_sin_ficha_casa() -> None:
+    """F-036 (R8, R14) cambia F-030 R8: el alias se resuelve por su DNI
+    contra los recursos persona, tambien los que no tienen ficha."""
     repo = Repo(alias={"PEPITO": {"ide": 950, "dni": CIF_P}})
     emp = _emp(_casar(_parte(("PEPITO", None)), repo=repo))
-    assert (emp.ide, emp.reside, emp.method) == (None, None,
-                                                 "alias_no_valido")
+    assert (emp.ide, emp.reside, emp.method) == (None, 950,
+                                                 "recurso_nombre")
 
 
 def test_f030_r8_el_alias_va_antes_que_el_nombre_del_recurso() -> None:
@@ -526,7 +331,7 @@ def test_f030_r8_el_alias_va_antes_que_el_nombre_del_recurso() -> None:
 
 def test_f030_r9_el_nombre_casa_con_la_ficha_de_recurso() -> None:
     emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None))))
-    assert emp == EmpleadoMatch(ide=None, codigo=None,
+    assert emp == EmpleadoMatch(ide=None, codigo="MO/950",
                                 nombre="GOMEZ RUIZ, PEDRO", dni=CIF_P,
                                 reside=950, score=1.0,
                                 method="recurso_nombre")
@@ -552,7 +357,9 @@ def test_f030_r9_una_ficha_de_recurso_de_baja_no_compite() -> None:
 def test_f030_r9_una_ficha_de_recurso_de_otra_empresa_no_compite() -> None:
     ficha_1 = EmpleadoRow(ide=11, codigo="E11", nombre="PEDRO GOMEZ",
                           dni="22222222J", reside=None, empresa=1, fecbaj=0)
-    lookup = Lookup(empleados=[*FICHAS, ficha_1])
+    lookup = Lookup(empleados=[*FICHAS, ficha_1],
+                    recursos=[*RECURSOS, _rec(911, None, conide=11,
+                                              empresa=1)])
     emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None), obra="0300"),
                       lookup=lookup))
     assert (emp.ide, emp.method) == (11, "nombre")
@@ -572,7 +379,7 @@ def test_f030_r9_mismo_umbral_que_las_fichas() -> None:
     assert (lejos.ide, lejos.reside, lejos.method) == (None, None, "none")
 
 
-def test_f030_r9_sin_fichas_de_recurso_el_nombre_decide_igual() -> None:
+def test_f030_r9_sin_recursos_sin_ficha_el_nombre_decide_igual() -> None:
     """Caracterizacion: sin ninguna ficha de recurso, lo de hoy."""
     lookup = Lookup(recursos=[REC_PG, REC_V])
     emp = _emp(_casar(_parte(("Pedro Gomez Ruiz", None)), lookup=lookup))
@@ -588,7 +395,7 @@ def test_f030_r10_empate_ficha_de_recurso_y_ficha_de_empleado() -> None:
     assert parte.review is True
 
 
-def test_f030_r10_empate_entre_dos_fichas_de_recurso() -> None:
+def test_f030_r10_empate_entre_dos_recursos_sin_ficha() -> None:
     lookup = _lookup_con(_rec(952, "06543210E", nombre="SANZ GIL, ANA"),
                          _rec(953, "05432109F", nombre="SANZ GIL, ANA"))
     parte = _casar(_parte(("Ana Sanz Gil", None)), lookup=lookup)
@@ -597,8 +404,8 @@ def test_f030_r10_empate_entre_dos_fichas_de_recurso() -> None:
     assert parte.review is True
 
 
-def test_f030_r10_dos_fichas_de_recurso_de_la_misma_persona() -> None:
-    """Como con dos fichas de un mismo DNI: no se elige (F-023 R24)."""
+def test_f030_r10_dos_recursos_sin_ficha_de_la_misma_persona() -> None:
+    """F-036 (R11): dos recursos de la persona sin desempate: no se elige."""
     lookup = _lookup_con(_rec(952, "06543210E", nombre="SANZ GIL, ANA"),
                          _rec(953, "06543210E", nombre="OTRO NOMBRE"))
     parte = _casar(_parte(("Ana Sanz Gil", None)), lookup=lookup)

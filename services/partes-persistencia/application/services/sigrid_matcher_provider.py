@@ -14,9 +14,10 @@ F-023: carga tambien recursos y empresas, y expone el `IndicePersonas`
 `ResolutorEmpresa` del membrete. El conciliador de recursos usa el MISMO
 indice (`indice()`), asi que no hay una segunda descarga ni dos verdades.
 
-F-030: expone tambien `recursos`, un `IndicePersonas` cuyas «fichas» son
-las fichas de recurso (`fichas_de_recurso`) de quien no tiene ficha de
-empleado, para casarlas con el MISMO codigo que las fichas (R4-R5, R9).
+F-036: el casado de la ingesta es contra los recursos persona del MISMO
+indice (`casado_recurso.casar_trabajador`); el respaldo F-030 de «fichas
+de recurso» se retira, subsumido. Al cargar, un INFO cuenta los recursos
+persona sin DNI, que no casan por nombre (R3).
 """
 from __future__ import annotations
 
@@ -27,9 +28,8 @@ from dataclasses import dataclass
 
 from application.services.empleado_matcher import EmpleadoMatcher
 from application.services.empresa_membrete import ResolutorEmpresa
-from application.services.fichas_de_recurso import fichas_de_recurso
 from application.services.obra_matcher import ObraMatcher
-from application.services.seleccion_sigrid import IndicePersonas
+from application.services.seleccion_sigrid import IndicePersonas, es_persona
 from application.services.tipo_hora_resolver import TipoHoraResolver
 from domain.ports.sigrid_lookup_port import SigridLookupPort
 
@@ -43,8 +43,6 @@ class Matchers:
     tipo_hora: TipoHoraResolver
     indice: IndicePersonas
     empresas: ResolutorEmpresa
-    #: F-030: las fichas de recurso (sin recursos ni obras propios).
-    recursos: IndicePersonas
 
 
 class SigridMatcherProvider:
@@ -113,7 +111,20 @@ class SigridMatcherProvider:
             "tipos_hora=%s recursos=%s empresas=%s", len(empleados),
             len(obras), len(tipos), len(recursos), len(empresas),
         )
-        return self._montar(empleados, obras, tipos, recursos, empresas)
+        matchers = self._montar(empleados, obras, tipos, recursos, empresas)
+        self._avisar_personas_sin_dni(matchers.indice)
+        return matchers
+
+    @staticmethod
+    def _avisar_personas_sin_dni(indice: IndicePersonas) -> None:
+        """F-036 (R3): un recurso persona sin DNI (ni en su ficha ni en
+        `res.cif`) no es candidato por nombre; se cuenta para que se vea."""
+        personas = [r for r in indice.recursos if es_persona(r)]
+        sin_dni = sum(1 for r in personas if not indice.dni_de_recurso(r))
+        logger.info(
+            "[matcher-provider] recursos persona sin DNI (no casan por "
+            "nombre): %s de %s", sin_dni, len(personas),
+        )
 
     def _empty(self) -> Matchers:
         return self._montar([], [], [], [], [])
@@ -130,5 +141,4 @@ class SigridMatcherProvider:
             ),
             indice=IndicePersonas(empleados, recursos, obras),
             empresas=ResolutorEmpresa(self._alias_empresas, empresas),
-            recursos=IndicePersonas(fichas_de_recurso(empleados, recursos), []),
         )

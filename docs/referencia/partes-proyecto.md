@@ -117,11 +117,13 @@ Worker KEDA con los **matchers** contra los maestros de Sigrid (leídos
 por sigrid-api, cacheados en el wiring):
 
 - **Obra**: código exacto > nombre por similitud.
-- **Empleado**: DNI exacto > código exacto > nombre por similitud
-  (umbral 0.55), con **alias aprendidos** (tabla `empleado_alias`) que
-  Administración confirma desde el portal (vista Conciliar).
-- **Recurso**: `res` de Sigrid por CIF/DNI (`recurso_ide`), que es lo que
-  luego necesita la escritura.
+- **Trabajador** (F-036): DNI exacto > alias > nombre por similitud
+  (umbral 0.55) contra los **recursos persona** (`res.cla = 1`) de alta de
+  la empresa del parte, con **alias aprendidos** (tabla `empleado_alias`)
+  que Administración confirma desde el portal (vista Conciliar). Se guarda
+  la ficha `emp` enlazada al recurso elegido o, si no tiene, el recurso.
+- **Recurso**: el conciliador confirma el recurso elegido por el casado
+  (`recurso_ide`), que es lo que luego necesita la escritura.
 - **Partida**: contra el presupuesto de la obra (`obrparpar`), guardando
   capítulo (CD/CI/…), método y score.
 - **Tipo de hora**: contra `auxhor` (HLOF ordinaria, HEOF extra, CI*
@@ -453,25 +455,28 @@ del recurso (`emp.fecbaj` no cuenta). En la ingesta (sv3):
    tienen recurso de alta los trabajadores con DNI → el nombre (si gana
    con claridad) → si no, sin casar y a revisión. La **empresa del parte**
    es la de la obra (o la del membrete si no hay obra).
-3. El **trabajador**: DNI → alias → nombre (umbral 0,55), siempre entre las
-   fichas de alta a la fecha del parte de la empresa del parte. Un DNI con
-   varias fichas, solo de baja o de otra empresa queda sin casar (nunca se
-   elige al azar).
-   **Sin ficha de empleado (F-030).** Hay trabajadores con recurso de mano
-   de obra (`MO/`, su DNI en `res.cif`) y sin ficha `emp`. Ese recurso es
-   su **ficha de recurso** (DNI = `res.cif`, nombre = el del recurso,
-   empresa y baja las del recurso) y se casa con el **mismo** proceso: si
-   el DNI leído no tiene ficha de empleado, se busca entre las fichas de
-   recurso antes del alias (`recurso_dni`); en el nombre compiten juntas
-   las fichas de empleado y de recurso, con el mismo umbral y los empates a
-   revisión (`recurso_nombre`). El alias solo apunta a fichas de empleado.
-   La línea queda sin `empleado_ide` (no hay ficha), con `empleado_dni` =
-   `res.cif` y `empleado_reside` = el recurso; no va a revisión por eso, el
-   portal la muestra casada y no entra en la cola de conciliación. Las
-   horas se guardan en el recurso, como siempre.
-4. El **recurso** de cada línea: entre los recursos de la persona de alta
-   a la fecha de la línea y de la empresa de su obra; `emp.reside` solo
-   desempata entre ellos. Si no queda uno, `sin_recurso` y a revisión.
+3. El **trabajador** (F-036): DNI → alias → nombre (umbral 0,55), siempre
+   entre los **recursos persona** (`res.cla = 1`) de alta a la fecha del
+   parte de la empresa del parte. El **DNI del recurso** es el de su ficha
+   `emp` (`res.conide`) y, si está vacío, `res.cif`; el nombre puntúa con el
+   mejor entre el del recurso y el de su ficha, y un recurso sin DNI no
+   compite por nombre. Un DNI con varios recursos sin desempate, solo de
+   baja o de otra empresa queda sin casar (nunca se elige al azar), y
+   también el de una persona que Sigrid conoce (ficha o recurso) sin
+   ningún recurso persona (`dni_sin_recurso`): no se prueba el alias ni
+   el nombre, que podrían casar a otra persona; va a Conciliar. Así,
+   quien tiene ficha en una empresa y recurso en otra casa en la segunda.
+   Con ficha enlazada, la línea guarda los datos de la ficha; **sin ficha**
+   (antes, la «ficha de recurso» de F-030, ya retirada), `empleado_ide`
+   NULL, código y nombre del recurso y método `recurso_dni` /
+   `recurso_nombre`: no va a revisión por eso, el portal la muestra casada
+   y no entra en la cola de conciliación. En los dos casos `empleado_dni`
+   es el DNI del recurso y `empleado_reside` el recurso elegido. Lo ya
+   ingerido no se re-casa: solo los partes nuevos.
+4. El **recurso** de cada línea: entre los recursos persona de la persona
+   de alta a la fecha de la línea y de la empresa de su obra; el recurso
+   que eligió el casado (`empleado_reside`) desempata entre ellos y sale
+   el mismo. Si no queda uno, `sin_recurso` y a revisión.
 
 Al registrar, sv5 vuelve a comprobar empresa, alta y persona de cada
 recurso y firma la cabecera con la empresa de la obra. En el portal los
@@ -824,8 +829,9 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 
 - **Identificación de trabajadores por DNI** en todo el sistema; nombre
   solo como último recurso (con alias aprendidos). DNI leído canónico (8
-  dígitos); quien no tiene ficha de empleado se casa igual contra su
-  **ficha de recurso** (`recurso_dni`/`recurso_nombre`, F-030).
+  dígitos). Desde F-036 el trabajador se casa contra los **recursos
+  persona** (`res.cla = 1`) de la empresa del parte; quien no tiene ficha
+  de empleado queda casado por su recurso (`recurso_dni`/`recurso_nombre`).
 - **Horas extra**: solo se registran en Sigrid si el recurso tiene código
   HE en su ficha (`reshor`); el exceso sobre la jornada (`candef`) se
   separa automáticamente como extra en la conciliación.

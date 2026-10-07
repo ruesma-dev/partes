@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **36 features**, 12 abiertas, 24 terminadas.
+Resumen: **37 features**, 12 abiertas, 25 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -35,6 +35,7 @@ Bloqueadas: **F-014, F-032**.
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
 | F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
+| F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |
 | F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
@@ -168,6 +169,12 @@ Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuen
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
 
 Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.
+
+### F-036 · sv3: casar el trabajador leido contra los recursos persona de la empresa del parte
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-036-casado-contra-recursos`
+
+Pedida por el humano el 2026-10-07: «el macheo de la IA tambien debe hacerlo contra recursos, no empleados»; «en el punto donde sv3 casa, que case contra la lista de recursos de la empresa, que viene de pasos anteriores»; «si no hay dni en el recurso que lo traiga de empleado». sv2 no recibe lista de personas: el casado lo hace sv3 (DNI, alias, nombre) y hoy es contra fichas de empleado (emp) con el respaldo F-030 de fichas de recurso. LO QUE SE PIDE: el casado de sv3 pasa a ser contra los RECURSOS persona (res.cla = 1, criterio de porcentajes) de la empresa del parte y de alta a la fecha; DNI del recurso = res.cif o, si vacio, el de su ficha de empleado (res.conide). A REVISAR EN LA SPEC: que se guarda en empleado_* y recurso_*, alias, respaldo F-030, conciliador de recursos y lista cerrada de CLAUDE.md (elegir_recurso sv3 / elegir_por_dni sv5), efecto en sv5, recalculo de partes activos al desplegar y como medir el impacto antes.
 
 ### F-037 · sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada
 

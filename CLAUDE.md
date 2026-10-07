@@ -196,6 +196,15 @@ original NO se versiona: al repositorio entra solo el Markdown.
   `application/services/recurso_conciliador.py` (`esta_congelado`,
   `ESTADOS_CONGELADOS`, recálculo de la ingesta); deben dar lo mismo para
   cada estado y lo vigila `tests/test_f024_borrado_no_congela_gemelos.py`.
+  Y, desde F-036 (DA3, decisión expresa del humano el 2026-10-07), el
+  criterio de **recurso persona** `res.cla = 1`: sv3
+  `application/services/seleccion_sigrid.py` (`CLA_PERSONA`, `es_persona`,
+  que filtra `IndicePersonas`; el maestro lee `res.cla` en
+  `infrastructure/sigrid/sigrid_api_client.py`) y sv5
+  `infrastructure/sigrid/sigrid_write_client.py` (`AND res.cla = 1` en las
+  dos ramas de `recursos_por_dni`), para que `elegir_recurso` y
+  `elegir_por_dni` sigan teniendo los mismos candidatos; lo vigila
+  `tests/test_f036_recurso_persona_gemelos.py`.
   Solo crece con una decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes NO hacen `git push` ni crean PRs salvo petición explícita del

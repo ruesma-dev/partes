@@ -22,7 +22,8 @@ from application.services.seleccion_sigrid import (
     elegir_obra,
     elegir_por_nombre,
 )
-from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
+from domain.models.sigrid_models import EmpleadoRow, ObraRow
+from tests.dobles import recurso_persona
 
 HOY = 20260915
 DNI = "12345678Z"
@@ -35,7 +36,7 @@ def _ficha(ide, *, dni=DNI, empresa=1, fecbaj=0, reside=None, nombre=None):
 
 
 def _recurso(ide, *, conide=None, cif=None, empresa=1, fecbaj=0):
-    return RecursoRow(ide=ide, cif=cif, conide=conide, empresa=empresa,
+    return recurso_persona(ide=ide, cif=cif, conide=conide, empresa=empresa,
                       fecbaj=fecbaj)
 
 
@@ -248,15 +249,6 @@ def test_f023_dni_desconocido_o_vacio() -> None:
         Resolucion(None, "desconocido")
     assert indice.elegir_ficha("  ", 1, HOY) == \
         Resolucion(None, "desconocido")
-
-
-def test_f023_r17_fichas_candidatas_de_alta_y_de_la_empresa() -> None:
-    fichas = [_ficha(10, empresa=1), _ficha(11, empresa=28),
-              _ficha(12, empresa=1, fecbaj=HOY), _ficha(13, dni=OTRO_DNI)]
-    indice = IndicePersonas(fichas, [])
-    assert [f.ide for f in indice.fichas_candidatas(1, HOY)] == [10, 13]
-    assert [f.ide for f in indice.fichas_candidatas(None, HOY)] == \
-        [10, 11, 13]
 
 
 def test_f023_ficha_y_recurso_por_ide() -> None:

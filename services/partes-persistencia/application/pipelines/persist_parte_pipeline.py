@@ -10,18 +10,19 @@ Pasos:
        - empresa del membrete (R7-R8) y discriminantes por los recursos
          de alta de los trabajadores con DNI leido (R11),
        - obra a nivel de parte (R9-R14) y empresa del parte (R15),
-       - por registro: empleado (DNI -> alias -> nombre, R17-R24) +
+       - por registro: trabajador (DNI -> alias -> nombre) +
          codigo de hora ``auxhor`` (normal/extra por ext, o incidencia).
-         F-030: quien no tiene ficha de empleado se casa con el MISMO
-         proceso contra su «ficha de recurso» (`MO/` con `res.cif`): DNI
-         -> `recurso_dni` antes del alias; en el nombre compiten las dos
-         clases de ficha -> `recurso_nombre`. Sin `empleado_ide`.
+         F-036: el trabajador se casa contra los RECURSOS persona
+         (`res.cla = 1`) de alta de la empresa del parte
+         (`casado_recurso.casar_trabajador`); se guardan los datos de la
+         ficha enlazada o, sin ella, los del recurso (`recurso_dni` /
+         `recurso_nombre`, sin `empleado_ide`), y siempre `reside` =
+         el recurso elegido, que el conciliador confirma despues.
   5. Calcula ``review_required`` (un casado por recurso no lo sube).
   6. Persiste documento + registros.
 """
 from __future__ import annotations
 
-import dataclasses
 import json
 import logging
 import uuid
@@ -31,9 +32,8 @@ from datetime import date
 from typing import Any, Optional
 
 from application.services import text_match as tm
-from application.services.empleado_matcher import EmpleadoMatcher
+from application.services.casado_recurso import casar_trabajador
 from application.services.parte_normalizer import ParteNormalizer
-from application.services.seleccion_sigrid import IndicePersonas
 from application.services.sigrid_matcher_provider import (
     Matchers,
     SigridMatcherProvider,
@@ -45,7 +45,7 @@ from domain.models.parte_records import (
     PersistParteResult,
     RegistroNormalizado,
 )
-from domain.models.sigrid_models import EmpleadoRow
+from domain.models.sigrid_models import RecursoRow
 from domain.ports.parte_repository import ParteRepository
 
 logger = logging.getLogger(__name__)
@@ -55,18 +55,10 @@ OBRA_A_REVISAR: frozenset[str] = frozenset(
     {"codigo_otra_empresa", "codigo_ambiguo", "nombre_ambiguo"}
 )
 
-#: F-030: metodos de un trabajador casado contra su «ficha de recurso» (sin
-#: ficha de empleado): `empleado_ide` NULL y, aun asi, casado (R12-R13).
+#: F-030: metodos de un trabajador casado contra un recurso SIN ficha de
+#: empleado: `empleado_ide` NULL y, aun asi, casado (R12-R13). Desde F-036
+#: los da `casar_trabajador` (R14).
 METODOS_RECURSO: frozenset[str] = frozenset({"recurso_dni", "recurso_nombre"})
-
-
-def _de_recurso(ficha: EmpleadoRow, score: float, metodo: str) -> EmpleadoMatch:
-    """F-030 (R12): el casado contra una ficha de recurso. Mismas columnas
-    que con ficha, sin `ide` ni `codigo` de empleado: `dni` = `res.cif`,
-    `nombre` = `con.res` y `reside` = `res.ide`."""
-    return dataclasses.replace(
-        EmpleadoMatcher.to_match(ficha, score, metodo), ide=None, codigo=None
-    )
 
 
 #: De donde sale la empresa del parte cuando la da la obra y no hubo
@@ -304,6 +296,14 @@ class PersistPartePipeline:
         # Cache de casado de empleado por nombre (evita rematchear el mismo
         # trabajador en sus varias filas normal/extra/incidencia).
         emp_cache: dict[str, Any] = {}
+        # F-036: candidatos por nombre, como mucho una vez por parte.
+        memo_nombre: list[list[RecursoRow]] = []
+
+        def candidatos_nombre() -> list[RecursoRow]:
+            if not memo_nombre:
+                memo_nombre.append(
+                    indice.candidatos_nombre(parte.empresa, fecha))
+            return memo_nombre[0]
         # Descripcion del codigo ordinario resuelto por empleado, para derivar
         # el codigo extra de la misma categoria si la extra (creada por la
         # resta >8h) no trae codigo propuesto.
@@ -317,7 +317,7 @@ class PersistPartePipeline:
                 reg.empleado = emp_cache[key]
             else:
                 match = self._casar_trabajador(
-                    reg, matchers, parte.empresa, fecha
+                    reg, matchers, parte.empresa, fecha, candidatos_nombre
                 )
                 emp_cache[key] = match
                 reg.empleado = match
@@ -351,86 +351,25 @@ class PersistPartePipeline:
         matchers: Matchers,
         empresa: int | None,
         fecha: int,
+        candidatos_nombre: Callable[[], list[RecursoRow]],
     ) -> EmpleadoMatch:
-        """R17-R24: DNI leido -> alias aprendido -> similitud de nombre,
-        siempre contra las fichas de alta a la fecha de la empresa del
-        parte. Un DNI ambiguo, de baja o de otra empresa CIERRA la linea
-        sin casar (R22): nunca se sigue al alias ni al nombre.
-
-        F-030: si el DNI no tiene ficha de empleado, se busca entre las
-        fichas de recurso (`recurso_dni`) antes del alias; en el nombre
-        compiten las dos clases de ficha (`recurso_nombre`). El alias solo
-        apunta a fichas de empleado (R8)."""
-        indice = matchers.indice
-        res = indice.elegir_ficha(reg.trabajador_dni_leido, empresa, fecha)
-        if res.motivo == "ok":
-            return matchers.empleado.to_match(
-                indice.ficha(res.ide), 1.0, "dni"  # type: ignore[arg-type]
-            )
-        if res.motivo != "desconocido":
-            return EmpleadoMatch(method=f"dni_{res.motivo}")
-        # F-030 (R5-R6): sin ficha de empleado para el DNI, el MISMO
-        # `elegir_ficha` contra las fichas de recurso, antes del alias y del
-        # nombre. Si no da una, se sigue como siempre.
-        if reg.trabajador_dni_leido:
-            recursos = matchers.recursos
-            res = recursos.elegir_ficha(
-                reg.trabajador_dni_leido, empresa, fecha
-            )
-            if res.motivo == "ok":
-                return _de_recurso(
-                    recursos.ficha(res.ide), 1.0, "recurso_dni"  # type: ignore[arg-type]
-                )
-            if res.motivo != "desconocido":
-                logger.info(
-                    "[persist-parte] linea=%s: DNI leido con ficha de recurso "
-                    "%s (empresa=%s fecha=%s); se sigue por alias y nombre.",
-                    reg.line_index, res.motivo, empresa, fecha,
-                )
-        candidatas = indice.fichas_candidatas(empresa, fecha)
-        alias = self._repository.find_empleado_alias(
-            reg.trabajador_nombre_leido
+        """F-036: DNI leido -> alias aprendido -> similitud de nombre contra
+        los recursos persona de alta a la fecha de la empresa del parte
+        (`casar_trabajador`). Un DNI ambiguo, de baja o de otra empresa
+        CIERRA la linea sin casar: nunca se sigue al alias ni al nombre. El
+        alias se consulta en la base solo si el DNI no decide (R6)."""
+        return casar_trabajador(
+            dni_leido=reg.trabajador_dni_leido,
+            nombre_leido=reg.trabajador_nombre_leido,
+            alias=lambda: self._repository.find_empleado_alias(
+                reg.trabajador_nombre_leido
+            ),
+            indice=matchers.indice,
+            matcher=matchers.empleado,
+            empresa=empresa,
+            fecha=fecha,
+            candidatos=candidatos_nombre,
         )
-        if alias is not None:
-            return self._casar_alias(
-                alias, indice, matchers, candidatas, empresa, fecha
-            )
-        # F-030 (R9-R11): en el nombre compiten JUNTAS las fichas de empleado
-        # y las de recurso candidatas (mismo umbral y ambiguedad); si gana
-        # una de recurso, el casado es por recurso.
-        recursos = matchers.recursos
-        match = matchers.empleado.match_nombre(
-            nombre=reg.trabajador_nombre_leido,
-            candidatas=candidatas + recursos.fichas_candidatas(empresa, fecha),
-        )
-        ficha_recurso = recursos.ficha(match.ide)
-        if ficha_recurso is not None:
-            return _de_recurso(ficha_recurso, match.score, "recurso_nombre")
-        return match
-
-    @staticmethod
-    def _casar_alias(
-        alias: dict,
-        indice: IndicePersonas,
-        matchers: Matchers,
-        candidatas: list,
-        empresa: int | None,
-        fecha: int,
-    ) -> EmpleadoMatch:
-        """R23: el alias vale si su ficha es candidata; si no, se re-resuelve
-        por el DNI del alias. Sin DNI, o con uno que no esta en el maestro,
-        el alias no es valido."""
-        ficha = next((f for f in candidatas if f.ide == alias.get("ide")), None)
-        if ficha is not None:
-            return matchers.empleado.to_match(ficha, 1.0, "alias")
-        res = indice.elegir_ficha(alias.get("dni"), empresa, fecha)
-        if res.motivo == "ok":
-            return matchers.empleado.to_match(
-                indice.ficha(res.ide), 1.0, "alias"  # type: ignore[arg-type]
-            )
-        if res.motivo == "desconocido":
-            return EmpleadoMatch(method="alias_no_valido")
-        return EmpleadoMatch(method=f"dni_{res.motivo}")
 
     # ----------------------------------------------------------------- #
     @staticmethod
