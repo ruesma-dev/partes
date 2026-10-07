@@ -189,12 +189,12 @@ Medidas el 2026-10-07 en el worktree (`bash harness/init.sh` final: **ENTORNO LI
 
 | Evidencia | Valor real |
 |---|---|
-| Tests sv3 (`services/partes-persistencia`) | **928 passed** (antes de F-036: 776) |
+| Tests sv3 (`services/partes-persistencia`) | **928 passed** en 32,53 s (antes de F-036: 776) |
 | Tests sv5 (`services/partes-transfer`) | **524 passed**, 1 warning, en 53,11 s |
-| Tests raíz (`tests/`, con cobertura) | **454 passed, 3 skipped** |
+| Tests raíz (`tests/`, con cobertura) | **454 passed, 3 skipped** en 232,70 s |
 | Tests sv4 / sv1 / sv2 (código sin cambios) | 1682 passed, 1 skipped (1491 s) / 74 passed / 8 passed |
 | Tests nuevos de F-036 | sv3 18+25+28+56+21+45 = 193 (caracterización, maestro, selección, casado, pipeline, medición); sv5 2; raíz 11 |
-| **PUERTA COBERTURA** | ver la última línea de `init.sh` abajo; la única línea sin cubrir es el `raise AssertionError` de `_nodo` del guardián raíz, que solo corre si detecta un fallo |
+| **PUERTA COBERTURA** | **99,7 %** de 315 líneas cambiadas (314/315, umbral 80 %, crítico); la única línea sin cubrir es el `raise AssertionError` de `_nodo` del guardián raíz, que solo corre si detecta un fallo |
 | **Mutación** (`--workers 6 --timeout 600`, campaña completa) | 1.ª: 113 generados, **10 supervivientes** (959 s), resueltos en `eca56bb` (5 huecos con test, 3 equivalentes quitando código muerto, 2 de orden reescrito). 2.ª (`ee2c5d1`): 108/108 muertos. **3.ª tras R6 (`a6eeb64`): 110 generados, 110 muertos, 0 supervivientes, 0 timeouts, 0 sin veredicto, 680,6 s.** Detalle: `progress/mutacion_F-036.md` |
 | ruff | avisos del repo ≈ 620 (610 antes): `I001` de los tests nuevos vistos desde la raíz, el patrón de los tests existentes; desde el servicio, limpio |
 
