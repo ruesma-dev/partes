@@ -154,3 +154,18 @@ E           AssertionError: IndicePersonas.__init__ ya no filtra con es_persona
 ```
 En el repo: `11 passed in 0.44s` (incluye 7 tests que estropean una copia en memoria y exigen
 que la comprobación falle).
+
+### T11 · R24–R28 (`medicion_casado.py`, núcleo puro)
+
+Con el módulo vacío (solo la cabecera de ruta):
+
+```
+$ cd services/partes-persistencia && python -m pytest -q tests/test_f036_medicion.py
+     18 E       AttributeError: module 'application.services.medicion_casado' has no attribute 'LineaMedida'
+     10 E       AttributeError: module 'application.services.medicion_casado' has no attribute 'medir_maestro'
+      1 E       AttributeError: module 'application.services.medicion_casado' has no attribute 'resumir'
+29 failed in 2.25s
+```
+Tras el código: `29 passed in 1.41s`. Desviación menor (R26): además de `igual`, `otra_persona`,
+`casado_nuevo` y `pierde_casado`, una quinta categoría `otro_recurso` (misma persona, otro
+`reside`), para no contar como «otra persona» a quien solo cambia de recurso.
