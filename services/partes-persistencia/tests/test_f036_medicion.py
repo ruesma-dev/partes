@@ -279,6 +279,11 @@ def test_f036_r26_el_alias_cuenta() -> None:
     assert _uno(linea)[1] == "pierde_casado"
 
 
+def test_f036_r26_metodos_recurso_iguales_que_el_pipeline() -> None:
+    from application.pipelines.persist_parte_pipeline import METODOS_RECURSO
+    assert mc._METODOS_RECURSO == METODOS_RECURSO
+
+
 def test_f036_r26_las_congeladas_aparte() -> None:
     linea = _linea(dni=DNI_A, emp_ide=20, emp_dni=DNI_B, reside=999,
                    metodo="nombre", recurso=999, congelada=True)

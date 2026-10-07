@@ -20,17 +20,75 @@ con guardián `tests/test_f036_recurso_persona_gemelos.py`.
 herramienta no usa `SessionFactory` (crea la base si falta) y saca el DNI
 leído del `raw_extraction_json`; R22 resultó de caracterización.
 
-**Orden de despliegue: sv3 → sv5** (lo pide el humano; los agentes no
-despliegan). **Verificaciones MANUAL pendientes del humano:**
+**Despliegue y verificaciones MANUAL: solo lectura, las lanza el humano** (los
+agentes no despliegan ni consultan producción).
 
-- **M1 (antes de desplegar):** `cd services/partes-persistencia &&
-  ../../.venv/Scripts/python.exe medir_casado_recursos.py` con el `.env` de
-  sv3; revisar el resumen (`mo_no_persona`, `cif_distinto_ficha`,
-  `recurso_cambia`/`recurso_pierde`). Solo lectura; no se ha ejecutado.
-- **M2 (tras desplegar):** logs de `ca-sv3-persistencia`
-  (`[recurso-concil] ... actualizados=`) frente a la predicción de M1.
-- **M3:** un parte nuevo de Porsan de la 0678 con un trabajador sin ficha,
-  casado `recurso_dni`, y líneas `ok`/`sin_parte`.
+- **M1 · antes de desplegar** — medición de solo lectura (sigrid-api
+  `/api/sql/read` y SELECT en `partes` en transacción READ ONLY), con el
+  `.env` de sv3 en `services/partes-persistencia/`:
+
+  ```powershell
+  cd services/partes-persistencia
+  ../../.venv/Scripts/python.exe medir_casado_recursos.py
+  ```
+
+  Imprime el resumen y deja `logs/medicion_casado_<fecha>.md` y `.csv`.
+  Revisar `mo_no_persona` y `cif_distinto_ficha` (tabla por empresa) y
+  apuntar **P = `recurso_cambia` + `recurso_pierde` + `recurso_gana`**: las
+  líneas cuyo `recurso_ide` cambiará en la primera pasada del conciliador.
+
+- **Despliegue** (el script ordena sv3 → sv5):
+
+  ```powershell
+  cd infra
+  . .\00_vars_partes.ps1
+  .\redeploy_partes.ps1 -Solo sv3,sv5
+  ```
+
+- **M2 · tras desplegar** — la primera pasada del conciliador de la revisión
+  nueva de sv3 (la dispara el primer parte que entre):
+
+  ```powershell
+  $WS = az containerapp env show -n cae-partes-dev -g rg-partes-dev --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv3-persistencia' | where Log_s contains '[recurso-concil] registros=' or Log_s contains 'recursos persona sin DNI' | project TimeGenerated, RevisionName_s, Log_s | order by TimeGenerated asc" -o table
+  ```
+
+  Esperado: en la revisión nueva, una línea `[matcher-provider] recursos
+  persona sin DNI (no casan por nombre): N de M` y, en la primera
+  `[recurso-concil] registros=… actualizados=…`, `registros` ≈ las líneas no
+  congeladas de M1 (`lineas` − `congeladas`). `actualizados` cuenta todas
+  las líneas que reescribe la pasada (también las que no cambian de
+  recurso): la cifra comparable con **P** de M1 sale de M2b.
+
+- **M2b · el recurso que cambió** (SQL de solo lectura en la base `partes`,
+  tras la primera pasada): con el CSV de M1 a mano, para los `registro_id`
+  marcados `cambia`/`pierde`/`gana` comprobar el recurso nuevo:
+
+  ```sql
+  SELECT r.id, r.document_id, r.empleado_reside, r.recurso_ide, r.parte_estado
+  FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+  WHERE d.is_active AND r.id IN (/* registro_id de M1 con recurso cambia, pierde o gana */);
+  ```
+
+  Esperado: `pierde` ⇒ `recurso_ide` NULL y `parte_estado = 'sin_recurso'`;
+  `gana`/`cambia` ⇒ `recurso_ide` no NULL.
+
+- **M3 · un parte nuevo de Porsan (empresa 28) de la 0678** con un
+  trabajador sin ficha `emp` (SQL de solo lectura en la base `partes`):
+
+  ```sql
+  SELECT d.id AS document_id, d.created_at_utc, r.line_index,
+         r.empleado_match_method, r.empleado_ide, r.empleado_reside,
+         r.recurso_ide, r.parte_estado
+  FROM parte_documents d JOIN parte_registros r ON r.document_id = d.id
+  WHERE d.is_active AND d.empresa = 28 AND d.obra_codigo = '0678'
+    AND d.created_at_utc > '<fecha y hora UTC del despliegue, ISO>'
+  ORDER BY d.created_at_utc DESC, r.line_index;
+  ```
+
+  Esperado: la línea del trabajador sin ficha con `empleado_match_method =
+  'recurso_dni'`, `empleado_ide` NULL y `empleado_reside = recurso_ide`; y
+  `parte_estado` `ok` (si ya hay parte `hmo` del mes) o `sin_parte`.
 
 **Alineación con F-035 (para el líder):** F-036 aplica `res.cla = 1` (DA3) en
 sv3 y sv5; F-035 debe usar el mismo criterio en sv4. Las dos tocan

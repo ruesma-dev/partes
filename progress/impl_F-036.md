@@ -190,3 +190,9 @@ Medidas el 2026-10-07 en el worktree (`bash harness/init.sh` final: **ENTORNO LI
 Fuera de alcance (spec): sv4 (F-035), re-casar lo ingerido, casar recursos sin DNI por
 `reside`, la verificación de sv5 y la escritura en Sigrid. Falta para cerrar: revisión del
 reviewer y las verificaciones M1–M3 del humano.
+
+**Tras la review (pasada 1, `progress/review_F-036.md`, CHANGES_REQUESTED documental):** comandos exactos
+de M1, despliegue (`redeploy_partes.ps1 -Solo sv3,sv5`), M2/M2b (Log Analytics y SQL) y M3 (SQL) en
+`progress/current.md`; `I001` de `seleccion_sigrid.py` corregido; `_METODOS_RECURSO` de `medicion_casado`
+se queda (importarlo del pipeline invertiría la dependencia) con test que lo iguala a `METODOS_RECURSO`.
+R6 sin cambios (lo decide el humano).

@@ -44,7 +44,11 @@ COLUMNAS_MAESTRO = ("persona", "sin_dni", "dni_solo_ficha",
 #: Columnas del CSV por linea (R27), en orden.
 COLUMNAS_LINEA = ("registro_id", "document_id", "empresa", "recurso",
                   "casado")
-#: Metodos guardados de una linea casada sin ficha (F-030/F-036).
+#: Metodos guardados de una linea casada sin ficha (F-030/F-036). Es el
+#: `METODOS_RECURSO` de `persist_parte_pipeline`: no se importa de alli
+#: porque un servicio de aplicacion no depende de un pipeline (la
+#: dependencia va al reves); el test
+#: `test_f036_r26_metodos_recurso_iguales_que_el_pipeline` los mantiene iguales.
 _METODOS_RECURSO = frozenset({"recurso_dni", "recurso_nombre"})
 
 

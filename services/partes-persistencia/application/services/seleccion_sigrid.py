@@ -28,7 +28,6 @@ from dataclasses import dataclass
 from application.services import text_match as tm
 from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
 
-
 #: F-036 (R2, DA3): `res.cla` de un recurso de PERSONA (0 consumo, 2 medio),
 #: el criterio de `porcentajes`. Esta en la lista cerrada de `CLAUDE.md`:
 #: sv5 lo aplica en `recursos_por_dni` y lo vigila
