@@ -278,9 +278,12 @@ def test_f023_r40_endpoint_obras_anade_la_empresa(portal) -> None:
     cuerpo = cliente.get("/api/sigrid/obras").json()
     assert cuerpo["ok"] is True
     assert cuerpo["items"] == [
-        {"ide": 100, "codigo": "0100", "nombre": "Norte", "empresa": 1},
-        {"ide": 200, "codigo": "0100", "nombre": "Sur", "empresa": 28},
-        {"ide": 300, "codigo": "0300", "nombre": "Este", "empresa": 1},
+        {"ide": 100, "codigo": "0100", "nombre": "Norte", "empresa": 1,
+         "empresa_nombre": "Ruesma"},
+        {"ide": 200, "codigo": "0100", "nombre": "Sur", "empresa": 28,
+         "empresa_nombre": "Porsan"},
+        {"ide": 300, "codigo": "0300", "nombre": "Este", "empresa": 1,
+         "empresa_nombre": "Ruesma"},
     ]
 
 

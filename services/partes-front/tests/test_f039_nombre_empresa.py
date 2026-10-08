@@ -17,7 +17,11 @@ nombre), 5 (sin nombre) y ninguna.
 """
 from __future__ import annotations
 
+import json
 import re
+import shutil
+import subprocess
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -38,6 +42,8 @@ from interface_adapters.web import app as app_mod
 from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite, sembrar_parte
 from tests.test_f035_endpoints import ENTORNO, SIGRID, LookupFalso
+
+APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
 
 #: empresa -> nombre esperado (5 no tiene nombre; None, sin empresa).
 ESPERADO = {1: "Ruesma", 28: "Porsan", 5: "Empresa 5", None: ""}
@@ -141,6 +147,73 @@ def test_f039_r5_empresa_sin_nombre_es_empresa_n(cliente) -> None:
                 "/api/sigrid/empleados", "/api/conciliacion/buscar?q=persona"):
         assert _por_empresa(_items(cliente, url))[5]["empresa_nombre"] \
             == "Empresa 5", url
+
+
+# ================= R6-R8 · empresaSufijo (node) ======================== #
+
+NODE = shutil.which("node")
+
+
+def _js() -> str:
+    return APP_JS.read_text(encoding="utf-8")
+
+
+def _funcion(js: str, nombre: str) -> str:
+    m = re.search(r"\n  function " + nombre + r"\(.*?\n  \}\n", js, re.DOTALL)
+    assert m, f"app.js no define {nombre}"
+    return m.group(0)
+
+
+def _sufijos(*casos: str) -> list[str]:
+    """Ejecuta `empresaSufijo` de app.js con cada caso (JS literal)."""
+    programa = (_funcion(_js(), "empresaSufijo")
+                + "\nprocess.stdout.write(JSON.stringify(["
+                + ", ".join(f"empresaSufijo({c})" for c in casos) + "]));\n")
+    salida = subprocess.run([NODE, "-e", programa], capture_output=True,
+                            text=True, encoding="utf-8", timeout=30,
+                            check=True)
+    return json.loads(salida.stdout)
+
+
+@pytest.mark.skipif(NODE is None, reason="node no instalado")
+def test_f039_r6_empresa_sufijo_con_nombre() -> None:
+    assert _sufijos('{empresa: 28, empresa_nombre: "Porsan"}',
+                    '{empresa: 1, empresa_nombre: "Ruesma"}') \
+        == [" · Porsan", " · Ruesma"]
+
+
+@pytest.mark.skipif(NODE is None, reason="node no instalado")
+def test_f039_r7_empresa_sufijo_sin_nombre_es_empresa_n() -> None:
+    assert _sufijos("{empresa: 5}", '{empresa: 5, empresa_nombre: ""}',
+                    "{empresa: 28, empresa_nombre: null}",
+                    "{empresa: 0}") \
+        == [" · Empresa 5", " · Empresa 5", " · Empresa 28", " · Empresa 0"]
+
+
+@pytest.mark.skipif(NODE is None, reason="node no instalado")
+def test_f039_r8_empresa_sufijo_sin_empresa_vacio() -> None:
+    assert _sufijos("", "null", "{}", "{empresa: null}",
+                    '{empresa: null, empresa_nombre: "Ruesma"}',
+                    '{nombre: "X", empresa_nombre: "Porsan"}') \
+        == ["", "", "", "", "", ""]
+
+
+# ======================= R9-R10 · texto de app.js ===================== #
+
+def test_f039_r9_combos_usan_empresa_sufijo() -> None:
+    js = _js()
+    assert "empresaSufijo(o)" in _funcion(js, "obraLabel")
+    assert "empresaSufijo(r)" in _funcion(js, "recLabel")
+    manual = re.search(r"var label = \(it\.codigo.*?;", js, re.DOTALL)
+    assert manual, "no esta la etiqueta de la busqueda manual de Conciliar"
+    assert "empresaSufijo(it)" in manual.group(0)
+    assert " · empresa " not in js
+
+
+def test_f039_r10_app_js_sin_nombres() -> None:
+    js = _js()
+    assert "Ruesma" not in js
+    assert "Porsan" not in js
 
 
 # ===================== R11 · candidatos de Conciliar ================== #

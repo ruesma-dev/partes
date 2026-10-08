@@ -1,45 +1,22 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-039 · BLOCKED (2026-10-08): dos tests ajenos de sv4 contradicen R12
+## F-039 · in_progress (2026-10-08): nombre de la empresa en combos y Conciliar
 
 Implementer en el worktree `partes-wt-f039` (rama
 `feature/F-039-nombre-empresa-en-combos`). Decisiones del humano
-(2026-10-08): todo aprobado, DA1 y R4. `bash harness/init.sh` inicial en
-verde (sv4 1773 passed, 1 skipped).
+(2026-10-08): todo aprobado, DA1 y R4.
 
-**Estado.** T1 hecha y commiteada (`3c8275f`: `nombre_empresa_o_vacio` y
-`empresa_nombre` en los cuatro endpoints y `_candidato_con_empresa`; tests
-R1-R5, R11, R12; 17 passed). T2 hecha en el árbol **sin commitear**
-(`empresaSufijo` en `static/app.js`, tests R6-R10; `node --check` OK; 22/22
-de `test_f039_nombre_empresa.py` en verde), pero su verificación
-`python -m pytest tests -q` (sv4) da **2 failed, 1793 passed, 1 skipped**:
+**Desbloqueada el 2026-10-08 (opción A del humano).** El bloqueo: dos tests
+ajenos de sv4 (`test_f015_r26_sin_fecha_las_claves_son_las_de_siempre`,
+`test_f023_r40_endpoint_obras_anade_la_empresa`) comprueban las claves
+EXACTAS de `/api/sigrid/empleados` y `/api/sigrid/obras`, y R12 prohibía
+tocarlos. Enmienda: R12 (requirements y design §4) admite esa única
+excepción; ambos tests añaden `empresa_nombre` a lo esperado, nada más.
 
-- `tests/test_f015_r26_sugerida_fecha.py::test_f015_r26_sin_fecha_las_claves_son_las_de_siempre`
-  exige el conjunto EXACTO de claves de `/api/sigrid/empleados`
-  (`Extra items in the left set: 'empresa_nombre'`) -> lo rompe R4.
-- `tests/test_f023_catalogo_empresa.py::test_f023_r40_endpoint_obras_anade_la_empresa`
-  exige igualdad exacta de los items de `/api/sigrid/obras`
-  (`{..., 'empresa': 1, 'empresa_nombre': 'Ruesma'} != {..., 'empresa': 1}`)
-  -> lo rompe R1.
-
-**Por qué es bloqueo.** R12 dice «la suite de sv4 sigue en verde **sin tocar
-tests ajenos**», y R1/R4 añaden por fuerza una clave que esos dos tests
-prohíben (comprueban igualdad exacta, no inclusión). La spec no lo previó
-(design §4 no los menciona). No he tocado ninguno de los dos.
-
-**Opciones para el humano (recomendada la A):**
-
-- **A.** Enmendar R12: se permite adaptar esos dos tests ajenos añadiendo
-  `empresa_nombre` a su conjunto/dicts esperados (dos líneas, mismo sentido
-  que cuando F-023 añadió `empresa`). Sin otro cambio de alcance.
-- **B.** Quitar R4 (arregla el de F-015) y adaptar solo el de F-023; R1 es
-  el núcleo de la feature y no se puede quitar.
-- **C.** Otra cosa que decida el humano.
-
-Tras la decisión: commit de T2, T3 (informe + mutación) y T4 (`init.sh`).
-Trazas RED ya tomadas (T1: 16 failed / 1 passed; T2: 3 failed / 2 passed),
-guardadas en el borrador `progress/impl_F-039.md`.
+- T1 commiteada; T2 commiteada con la enmienda. En curso: T3 (informe y
+  mutación muestreada) y T4 (`init.sh`).
+- Desviaciones: solo la enmienda de R12 (decisión del humano).
 
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 

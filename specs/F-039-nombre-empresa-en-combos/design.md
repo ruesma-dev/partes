@@ -98,7 +98,7 @@ recurso con `empresa=None`.
 | R9 | `test_f039_r9_combos_usan_empresa_sufijo` | texto: `obraLabel`, `recLabel` y la búsqueda manual contienen `empresaSufijo(`; `" · empresa "` no aparece en `app.js` |
 | R10 | `test_f039_r10_app_js_sin_nombres` | texto: ni «Ruesma» ni «Porsan» en `app.js` |
 | R11 | `test_f039_r11_candidatos_conciliar_con_nombre` | `GET /conciliacion` con candidato de empresa 28 pinta «Porsan» |
-| R12 | `test_f039_r12_resto_de_campos_intacto` | claves de cada item = las de antes + `empresa_nombre`; suite de sv4 en verde |
+| R12 | `test_f039_r12_resto_de_campos_intacto` | claves de cada item = las de antes + `empresa_nombre`; suite de sv4 en verde (enmienda 2026-10-08: `test_f015_r26_sin_fecha_…` y `test_f023_r40_endpoint_obras_…` añaden `empresa_nombre` a lo esperado) |
 
 Fase RED (rigor estándar): R1–R7 y R9 deben fallar antes del cambio (R9 por
 el literal « · empresa »); R8, R10, R11 y R12 ya pasan hoy y son guardas de

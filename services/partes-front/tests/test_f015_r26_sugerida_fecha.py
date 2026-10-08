@@ -93,7 +93,7 @@ def test_f015_r26_sin_fecha_las_claves_son_las_de_siempre(cliente) -> None:
     for item in _items(cliente):
         assert set(item) == {
             "ide", "codigo", "nombre", "dni", "reside", "categoria",
-            "candef", "jornada_sugerida", "empresa",
+            "candef", "jornada_sugerida", "empresa", "empresa_nombre",
         }
 
 

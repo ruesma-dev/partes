@@ -51,7 +51,13 @@ cortos (`application/services/empresas.py`, F-033), pero el JS no los recibe.
   que R1–R4.
 - **R12.** El sistema no debe cambiar ningún otro campo de esas respuestas
   ni el filtrado por empresa (`deLaEmpresaDe`, `fijarEmpresa`,
-  `data-empresa`); la suite de sv4 sigue en verde sin tocar tests ajenos.
+  `data-empresa`); la suite de sv4 sigue en verde sin tocar tests ajenos,
+  con UNA excepción (enmienda del humano, 2026-10-08, opción A): los dos
+  tests que comprueban las claves EXACTAS de esas respuestas,
+  `test_f015_r26_sin_fecha_las_claves_son_las_de_siempre` (empleados, R4) y
+  `test_f023_r40_endpoint_obras_anade_la_empresa` (obras, R1), añaden
+  `empresa_nombre` a lo que esperan, como hizo F-023 con `empresa`; nada
+  más cambia en ellos. La spec original no los previó.
 
 ## Fuera de alcance
 
