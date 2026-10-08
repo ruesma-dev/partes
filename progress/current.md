@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-040 · in_progress (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+## F-040 · done (2026-10-08), pendiente de M1, desplegar sv3+sv4 y M2/M3: recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
 
 **Implementación terminada (2026-10-08), pendiente de reviewer.** Desbloqueada
 con la opción A del humano (`design.md` §8 enmendado; los tres tests de F-023
