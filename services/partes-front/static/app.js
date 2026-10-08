@@ -198,10 +198,13 @@ function avisarCambioLineas() {
     }
   }
 
-  // F-023 (R41): la empresa (con.emp) acompaña a obras y fichas en los
-  // combos: un mismo código de obra puede existir en dos empresas.
+  // F-023 (R41) / F-039: la empresa (con.emp) acompaña a obras y fichas en
+  // los combos (un mismo código de obra puede existir en dos empresas); el
+  // nombre corto lo manda el servidor (`empresa_nombre`). «Empresa N» es
+  // solo el respaldo de un item sin nombre.
   function empresaSufijo(x) {
-    return (x && x.empresa != null) ? " · empresa " + x.empresa : "";
+    if (!x || x.empresa == null) return "";
+    return " · " + (x.empresa_nombre || ("Empresa " + x.empresa));
   }
 
   function obraLabel(o) {

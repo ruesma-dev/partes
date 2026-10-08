@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **38 features**, 12 abiertas, 26 terminadas.
+Resumen: **39 features**, 12 abiertas, 27 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -38,6 +38,7 @@ Bloqueadas: **F-014, F-032**.
 | F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | estandar |
 | F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |
 | F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
+| F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | estandar |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -188,6 +189,12 @@ Pedida por el humano el 2026-10-07: «el macheo de la IA tambien debe hacerlo co
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-037-extras-duplicadas-base-omitida`
 
 URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 lineas extra_auto DUPLICADAS en la base partes, todas de la obra 0678 del 01 al 03/10/2026 (Ruesma 4, Porsan 3). Patron: linea base normal con sigrid_estado='omitido' (mensual MCAP sin codigo de hora laborable, o base con 0 horas 'sin horas') + su extra_auto ya 'registrado' en Sigrid + una extra_auto NUEVA identica sin sigrid_estado, mismo document_id/line_index/empleado_line_no/fecha. Mecanismo: revert_extras_auto() de sv3 respeta la extra congelada pero restaura la base no congelada (horas = horas_orig); el calculo de splits del RecursoConciliador la vuelve a partir y apply_extras_splits() inserta otra extra_auto en cada pasada. Riesgo: aprobar la nueva la escribe en Sigrid con otro synckey (extra doble en el ERP). Caso inverso: base registrada y extra no congelada -> la pasada borra la extra y deja la base recortada sin ella. Arreglo: base y extra_auto de la misma pareja se congelan juntas para el recalculo de sv3; la siguiente pasada borra sola los duplicados no congelados.
+
+### F-039 · Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-039-nombre-empresa-en-combos`
+
+Incidencia del humano el 2026-10-08 (captura): en Conciliar los resultados de la busqueda manual de recursos salen «MO/0266 · ... · empresa 1», «... · empresa 28». Causa: static/app.js empresaSufijo(x) devuelve « · empresa N» y la usan los combos de obra (obraLabel), de trabajador (recLabel) y la busqueda manual de Conciliar. El portal ya tiene los nombres cortos en application/services/empresas.py (NOMBRES_EMPRESA / nombre_empresa, F-033), global Jinja EMPRESAS (F-035) y empresa_nombre en los candidatos de Conciliar. LO QUE SE PIDE: que todo sitio que hoy pinta «empresa N» pinte el nombre corto y «Empresa N» solo si no hay nombre, con una sola fuente de nombres (sin copiar el dict a JS a mano) y tests. Solo sv4.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
