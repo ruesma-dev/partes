@@ -5,7 +5,8 @@
     hoy sobre el concepto del recurso (`rescon`).
   - R2: cada recurso lleva su codigo/nombre/empresa, el DNI (`res.cif` o,
     vacio, el de la ficha enlazada) y los datos de la ficha (o nulos).
-  - R3: el recurso que sigue sin DNI no se ofrece.
+  - R3: el recurso que sigue sin DNI no se ofrecia; desde F-040 (R14) se
+    ofrece con `dni` None y se cuenta en el log.
   - R4: solo recursos de clase persona (`res.cla = 1`), filtrado en SQL.
 
 Sin red: sigrid-api simulado con `httpx.MockTransport`. Datos SINTETICOS.
@@ -26,7 +27,8 @@ COLS = ["ide", "codigo", "nombre", "empresa", "cif", "empleado_ide",
 
 #: Cinco recursos (todos clase persona: la clase la filtra el SQL):
 #: 1) cif y ficha, 2) sin cif y ficha con DNI, 3) cif sin ficha,
-#: 4) sin cif ni ficha (fuera, R3), 5) sin cif y ficha sin DNI (fuera, R3).
+#: 4) sin cif ni ficha, 5) sin cif y ficha sin DNI (los dos fuera por R3
+#: hasta F-040; desde F-040 R14, dentro con `dni` None).
 FILAS = [
     [901, "MO/0001", "Uno Recurso", 1, "00000001R", 11, "E11", "Uno Ficha",
      "00000001R", "Oficial", 8.0],
@@ -115,7 +117,8 @@ def test_f035_r2_el_cif_manda_sobre_la_ficha(monkeypatch) -> None:
 def test_f035_r2_una_opcion_por_recurso_que_completa_categoria(
         monkeypatch) -> None:
     recursos, _ = _recursos(monkeypatch)
-    assert [r.ide for r in recursos] == [901, 902, 903]
+    # F-040 (R14): 904 y 905 (sin DNI) tambien, una vez cada uno.
+    assert [r.ide for r in recursos] == [901, 902, 903, 904, 905]
     dos = next(r for r in recursos if r.ide == 902)
     assert (dos.categoria, dos.candef) == ("Peon", 7.5)
 
@@ -124,11 +127,13 @@ def test_f035_r2_una_opcion_por_recurso_que_completa_categoria(
 
 def test_f035_r3_sin_dni_ni_en_la_ficha_no_se_ofrece(monkeypatch,
                                                       caplog) -> None:
+    """F-040 (R14) invierte este caso: se ofrecen con `dni` None (el nombre
+    del test se conserva por trazabilidad con F-035)."""
     with caplog.at_level(logging.INFO):
         recursos, _ = _recursos(monkeypatch)
-    ides = {r.ide for r in recursos}
-    assert 904 not in ides and 905 not in ides
-    assert any("sin DNI" in m and "2" in m for m in caplog.messages)
+    por_ide = {r.ide: r for r in recursos}
+    assert por_ide[904].dni is None and por_ide[905].dni is None
+    assert any("2 sin DNI" in m for m in caplog.messages)
 
 
 # ================================ R4 ==================================== #
