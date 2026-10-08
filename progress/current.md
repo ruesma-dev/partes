@@ -1,7 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-040 · spec_ready (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+## F-040 · in_progress (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+
+**Implementer en curso** (worktree `partes-wt-f040`, `.venv` del repositorio
+principal). Tarea en curso y desviaciones: se anotan aquí; informe final en
+`progress/impl_F-040.md`.
 
 Spec en `specs/F-040-recursos-sin-dni-por-nombre/` (rama
 `feature/F-040-recursos-sin-dni-por-nombre`, worktree `partes-wt-f040`).
