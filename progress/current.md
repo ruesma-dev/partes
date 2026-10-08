@@ -20,6 +20,22 @@ excepción; ambos tests añaden `empresa_nombre` a lo esperado, nada más.
   merge, despliegue de sv4 y M1 (humano).
 - Desviaciones: solo la enmienda de R12 (decisión del humano).
 
+**Verificación MANUAL (humano), pendiente.** No toca Sigrid ni la base
+`partes`: es solo mirar el portal.
+
+- **M1 · MANUAL (humano)** — tras desplegar sv4
+  (`.edeploy_partes.ps1 -Solo sv4` desde `infra/`; el despliegue lo pide
+  el humano, los agentes no lo lanzan):
+  1. Abrir el portal y recargar sin caché (**Ctrl+F5**).
+  2. **Conciliar** → en una tarjeta, «Buscar otro recurso» (búsqueda
+     manual): cada resultado termina en «· Ruesma» o «· Porsan», **no** en
+     «· empresa 1» / «· empresa 28».
+  3. **«+ Nuevo parte»**: el combo de obra y el de trabajador muestran
+     «· Ruesma»/«· Porsan» detrás de cada opción, no «empresa N».
+  4. **«+ Añadir línea»** (modal del detalle de un parte): lo mismo en los
+     combos de obra y de trabajador.
+  Una empresa sin nombre en `NOMBRES_EMPRESA` se vería «· Empresa N».
+
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 
 Tercera copia del criterio recurso persona (`res.cla = 1`) en sv4
