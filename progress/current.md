@@ -107,7 +107,17 @@ congeladas que ya perdieron su extra (M4): solo se cuentan, reposición en
 feature aparte si hay alguna (recomendado). Antes de desplegar sv3: M1 (ningún
 duplicado ya encolado/registrado); después: M2 = 0 parejas con > 1 extra.
 
-## F-036 · done (2026-10-07), pendiente de M1 y desplegar sv3+sv5: sv3 casa contra los recursos persona de la empresa del parte
+## F-036 · done y DESPLEGADA (2026-10-08, sv3+sv5 r20261008102337), M1 hecha, pendiente de M2/M3: sv3 casa contra los recursos persona de la empresa del parte
+
+**Despliegue 2026-10-08** (a petición del humano, «si»): sv3, sv5 y sv4 `r20261008102337`;
+sv4 y sv5 Healthy y arranque sin errores; sv3 KEDA a 0 hasta el próximo mensaje.
+M1 (2026-10-08 10:15, solo lectura contra producción, autorizada por el humano):
+242 líneas activas, 33 congeladas, recurso igual 209/209 (P = 0); casado nuevo 4 y
+otro recurso 2, todas Porsan (no se re-casa lo ingerido). Recursos persona de alta
+sin DNI: Porsan 2, otras empresas 7; Ruesma 3 con cif distinto de la ficha.
+Informe local `services/partes-persistencia/logs/medicion_casado_20261008-1015.md`.
+F-037: aún sin pasada de sv3 (último parte 2026-10-07 12:10): M2 = 7 duplicados.
+
 
 **Implementación terminada, pendiente del reviewer** (implementer, worktree
 `partes-wt-f036`, rama `feature/F-036-casado-contra-recursos`, sin push).
@@ -206,7 +216,7 @@ sv3 y sv5; F-035 debe usar el mismo criterio en sv4. Las dos tocan
 `CLAUDE.md` (lista cerrada) y la semántica 12 de `ARCHITECTURE.md`: conflicto
 de merge trivial al integrar.
 
-## F-035 · done (2026-10-07), pendiente de T9 y desplegar sv4: selectores de trabajador sobre recursos activos, por empresa
+## F-035 · done y DESPLEGADA (2026-10-08, sv4 r20261008102337), pendiente de T9 (humano): selectores de trabajador sobre recursos activos, por empresa
 
 ### Desbloqueada (2026-10-07): el humano eligió la opción (a)
 
