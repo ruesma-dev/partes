@@ -16,7 +16,7 @@ porque el worktree no tiene uno. `bash harness/init.sh` en verde al empezar
 |---|---|---|
 | T1 caracterización R13 | `f8143e9` | hecha: 19 tests en verde contra el código de antes; guardianes F-010/F-023/F-024/F-036 de la raíz en verde (52 passed) |
 | T2 esquema sv3+sv4 (R20, R21) | `fd63c6f` | hecha |
-| T3 `elegir_sin_dni` (R9) | `afd07f7` | hecha |
+| T3 `elegir_sin_dni` (R9) | `375a8e0` | hecha |
 | T4 clave, casar_por_clave, R1, R10, R11 | `11a5a11` | código hecho; **bloqueada** (3 tests de F-023 en rojo) |
 | T5–T13 | — | pendientes |
 

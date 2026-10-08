@@ -5,7 +5,7 @@
 
 **Bloqueada en T4 por tests ajenos en rojo** (implementer, worktree
 `partes-wt-f040`, `.venv` del repositorio principal). T1–T3 hechas y T4 hecha
-en código y tests nuevos (commits `f8143e9`, `fd63c6f`, `afd07f7`, `11a5a11`);
+en código y tests nuevos (commits `f8143e9`, `fd63c6f`, `375a8e0`, `11a5a11`);
 informe parcial con las trazas RED en `progress/impl_F-040.md`.
 
 **Motivo.** Tres tests de **F-023** (adaptados ya por F-036) fijan
