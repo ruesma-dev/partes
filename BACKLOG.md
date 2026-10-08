@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **37 features**, 11 abiertas, 26 terminadas.
+Resumen: **38 features**, 12 abiertas, 26 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -13,6 +13,7 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
+| F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | pendiente | estandar | `feature/F-039-nombre-empresa-en-combos` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -67,6 +68,12 @@ Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos 
 estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
 
 Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
+
+### F-039 · Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar
+
+estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-039-nombre-empresa-en-combos`
+
+Incidencia del humano el 2026-10-08 (captura): en Conciliar los resultados de la busqueda manual de recursos salen «MO/0266 · ... · empresa 1», «... · empresa 28». Causa: static/app.js empresaSufijo(x) devuelve « · empresa N» y la usan los combos de obra (obraLabel), de trabajador (recLabel) y la busqueda manual de Conciliar. El portal ya tiene los nombres cortos en application/services/empresas.py (NOMBRES_EMPRESA / nombre_empresa, F-033), global Jinja EMPRESAS (F-035) y empresa_nombre en los candidatos de Conciliar. LO QUE SE PIDE: que todo sitio que hoy pinta «empresa N» pinte el nombre corto y «Empresa N» solo si no hay nombre, con una sola fuente de nombres (sin copiar el dict a JS a mano) y tests. Solo sv4.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
