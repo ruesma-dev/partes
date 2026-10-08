@@ -1,22 +1,63 @@
 <!-- progress/impl_F-039.md -->
-# F-039 · Informe del implementer (BORRADOR: feature blocked)
+# F-039 · Informe del implementer
 
-Rama `feature/F-039-nombre-empresa-en-combos` (worktree `partes-wt-f039`), sin
-push. Intérprete: el `.venv` del repo principal. Motivo del bloqueo y opciones:
-`progress/current.md` (sección F-039). Este borrador guarda las trazas RED
-ya tomadas; se completa al desbloquear (T3).
+Rama `feature/F-039-nombre-empresa-en-combos` (worktree `partes-wt-f039`), un
+commit por tarea, sin push. Intérprete: el `.venv` del repo principal (el
+worktree no tiene). Decisiones del humano (2026-10-08): todo aprobado, DA1
+(nombre por item en la API) y R4 (también en empleados). Rigor estándar.
 
-## Estado
+## Qué cambió (solo sv4, `services/partes-front/`)
 
-- **T1** hecha, commit `3c8275f`: `nombre_empresa_o_vacio` en
-  `application/services/empresas.py`; `empresa_nombre` en
-  `/api/sigrid/obras`, `/recursos`, `/empleados`, `/api/conciliacion/buscar`
-  y en `_candidato_con_empresa` (`interface_adapters/web/app.py`; ya no
-  importa `nombre_empresa`).
-- **T2** hecha en el árbol, **sin commitear** (su verificación de suite sv4
-  está roja por dos tests ajenos): `empresaSufijo` de `static/app.js` y tests
-  R6–R10.
-- T3, T4: pendientes.
+- `application/services/empresas.py`: nueva `nombre_empresa_o_vacio(numero)`
+  (`""` sin empresa; si no, `nombre_empresa`). Sigue siendo la única fuente
+  de nombres (`NOMBRES_EMPRESA`).
+- `interface_adapters/web/app.py`: `empresa_nombre` en cada item de
+  `/api/sigrid/obras` (R1), `/api/sigrid/recursos` (R2),
+  `/api/conciliacion/buscar` (R3) y `/api/sigrid/empleados` (R4);
+  `_candidato_con_empresa` usa la misma función (R11). Ya no importa
+  `nombre_empresa`.
+- `static/app.js`: `empresaSufijo` pinta « · <empresa_nombre>» y, solo si
+  falta, « · Empresa N» (R6–R8). Sus tres usos (`obraLabel`, `recLabel`,
+  búsqueda manual de Conciliar) no cambian. El literal « · empresa » y los
+  nombres «Ruesma»/«Porsan» no están en `app.js` (R9, R10).
+- Tests: nuevo `tests/test_f039_nombre_empresa.py` (23 tests); adaptados por
+  la enmienda de R12 `test_f015_r26_sugerida_fecha.py` y
+  `test_f023_catalogo_empresa.py` (ver desviaciones).
+- Spec: R12 enmendada (requirements y design §4); `tasks.md` marcado.
+
+No se tocan: plantillas, `fijarEmpresa`, `deLaEmpresaDe`, `EMPRESAS`,
+`orm_models.py`, clientes de Sigrid, otros servicios, `azure-apps/`
+(rutas internas del portal, design §1).
+
+## Commits
+
+- `3c8275f` T1: `empresa_nombre` en los cuatro endpoints y candidatos.
+- `400b14a` bloqueo documentado (dos tests ajenos, ver abajo).
+- `409cb1c` T2: `empresaSufijo` + enmienda de R12 + tests R6–R10.
+- T3: test del `score`, campaña de mutación e informe. T4: cierre.
+
+## Decisiones y desviaciones (justificadas)
+
+1. **Enmienda de R12 (opción A del humano, 2026-10-08).** La suite de sv4
+   tras T2 dio `2 failed, 1793 passed, 1 skipped`: dos tests ajenos exigen
+   las claves EXACTAS y R12 prohibía tocarlos. Paré (`blocked`), el humano
+   eligió A: ambos añaden `empresa_nombre` a lo esperado, nada más.
+   - `test_f015_r26_sin_fecha_las_claves_son_las_de_siempre` (empleados, R4):
+     `Extra items in the left set: 'empresa_nombre'`.
+   - `test_f023_r40_endpoint_obras_anade_la_empresa` (obras, R1):
+     `{..., 'empresa': 1, 'empresa_nombre': 'Ruesma'} != {..., 'empresa': 1}`.
+2. **Test extra de R11** `test_f039_r11_misma_funcion_que_los_endpoints`:
+   sustituye `nombre_empresa_o_vacio` en el módulo de la app y comprueba que
+   cambian a la vez la API y los candidatos de Conciliar («misma función»).
+3. **R5 con `0`**: `nombre_empresa_o_vacio(0) == "Empresa 0"` y
+   `empresaSufijo({empresa: 0})` == « · Empresa 0», para que un `if not
+   numero` (o `!x.empresa`) no pase por bueno.
+4. **Test del `score`** `test_f039_r12_buscar_score_intacto`, añadido tras
+   la mutación (dos supervivientes en la línea del item de búsqueda, que
+   F-039 tocó solo para añadir `empresa_nombre`). Ver «Evidencias».
+5. Los tests de node siguen el patrón `_funcion` de
+   `test_f021_preflight_cuenta.py` (extraen la función de `app.js` y la
+   ejecutan con `node -e`; `skipif` sin node).
 
 ## Fase RED (trazas reales; `cd services/partes-front`)
 
@@ -60,16 +101,32 @@ FAILED ...::test_f039_r9_combos_usan_empresa_sufijo
 Pasan las guardas R8 y R10 (design §4). Tras el código: `node --check
 static/app.js` OK y `22 passed in 26.06s` (fichero completo).
 
-## Suite sv4 tras T2 (motivo del bloqueo)
+**Test del `score` (T3)** — RED contra los mutantes, aplicados a mano uno a
+uno, `python -m pytest tests/test_f039_nombre_empresa.py -q -k score --tb=line`:
+```
+E   assert 101 == 100      -> 1 failed   (round(sc * 101))
+E   assert 0 == 100        -> 1 failed   (round(sc // 100))
+```
+Con el código real: `1 passed`. `app.py` restaurado (`git status` limpio).
 
-`python -m pytest tests -q` → **2 failed, 1793 passed, 1 skipped in 949.30s**:
-```
-FAILED tests/test_f015_r26_sugerida_fecha.py::test_f015_r26_sin_fecha_las_claves_son_las_de_siempre
-E     Extra items in the left set: 'empresa_nombre'
-FAILED tests/test_f023_catalogo_empresa.py::test_f023_r40_endpoint_obras_anade_la_empresa
-E     At index 0 diff: {..., 'empresa': 1, 'empresa_nombre': 'Ruesma'} != {..., 'empresa': 1}
-```
+## Verificaciones MANUAL pendientes (humano)
+
+- **M1**: tras desplegar sv4 (lo pide el humano), Ctrl+F5 en el portal;
+  Conciliar → búsqueda manual muestra «· Ruesma»/«· Porsan» (y los combos
+  de obra y trabajador de «+ Nuevo parte» y «+ Añadir línea»).
+
+## Fuera de alcance / lo que falta
+
+- Lo de «Fuera de alcance» de la spec queda igual (selectores de empresa,
+  columna Empresa de `/obras`, `data-obra-label`, `admin_jornadas`).
+- `services/partes-transfer` imprime «Obra 0696 · empresa 1 · …» en la
+  herramienta de consola de F-031: es sv5, fuera de alcance; no se toca.
+- Falta: review, merge a `dev`, despliegue de sv4 y M1.
 
 ## Evidencias
 
-PENDIENTE hasta desbloquear (cobertura, mutación muestreada, `init.sh` final).
+| Evidencia | Valor real |
+|---|---|
+| Tests nuevos de F-039 | 23 en `tests/test_f039_nombre_empresa.py` (23 passed) |
+| Mutación (`python -m harness.mutacion --feature F-039 --workers 6`) | 21 líneas en alcance, **3 mutantes generados** (menos que el tope de 20: muestreo no aplicado), 3 evaluados, **1 muerto, 2 supervivientes**, 0 timeouts, 0 sin veredicto; 1505,7 s; timeout derivado 995 s (línea base sv4 ≈ 487–497 s). Detalle y análisis: `progress/mutacion_F-039.md` |
+| Supervivientes | Los 2 en `app.py:1344` (`round(sc * 101)`, `round(sc // 100)`): hueco real preexistente (nadie comprobaba el valor del `score`), no equivalentes. Matados con `test_f039_r12_buscar_score_intacto`, comprobado aplicando cada mutante a mano. La campaña no se relanza (regla medir-tapar-medir) |

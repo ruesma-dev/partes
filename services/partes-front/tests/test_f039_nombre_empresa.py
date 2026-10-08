@@ -275,3 +275,13 @@ def test_f039_r12_resto_de_campos_intacto(cliente, url, claves) -> None:
     for it in items:
         assert set(it) == claves | {"empresa_nombre"}, url
     assert {it["empresa"] for it in items} == set(ESPERADO)
+
+
+def test_f039_r12_buscar_score_intacto(cliente) -> None:
+    # La linea del item de busqueda se toco para anadir `empresa_nombre`:
+    # el `score` (similitud en %) sigue siendo el de siempre. Mata los dos
+    # supervivientes de la campana (`sc * 101`, `sc // 100`).
+    items = _items(cliente, "/api/conciliacion/buscar?q=persona 1 recurso")
+    assert items[0]["ide"] == 901
+    assert items[0]["score"] == 100
+    assert all(0 < it["score"] < 100 for it in items[1:])
