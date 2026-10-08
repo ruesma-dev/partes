@@ -83,9 +83,10 @@ def _tipo(reg: dict) -> str:
 
 #: Motivos de `elegir_recurso` que dejan la linea sin recurso y el parte a
 #: revision (F-023, R29). `desconocido` (la persona no tiene recursos) es
-#: el `sin_recurso` de siempre y no sube la revision.
+#: el `sin_recurso` de siempre y no sube la revision. F-040 (R11):
+#: `con_dni`, el recurso de una linea sin DNI que ahora tiene DNI.
 MOTIVOS_SIN_RECURSO_A_REVISAR: frozenset[str] = frozenset(
-    {"ambiguo", "solo_baja", "otra_empresa"}
+    {"ambiguo", "solo_baja", "otra_empresa", "con_dni"}
 )
 
 #: Estados de `sigrid_estado` que significan "esto ya viajo al ERP" (F-004).
