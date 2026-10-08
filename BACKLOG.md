@@ -5,6 +5,8 @@
 
 Resumen: **39 features**, 12 abiertas, 27 terminadas.
 
+En curso: **F-040**.
+
 Bloqueadas: **F-014, F-032**.
 
 ## Trabajo abierto
@@ -13,7 +15,7 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | spec lista | critico | `feature/F-040-recursos-sin-dni-por-nombre` |
+| F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | en curso | critico | `feature/F-040-recursos-sin-dni-por-nombre` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -72,7 +74,7 @@ Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con much
 
 ### F-040 · Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos
 
-estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-040-recursos-sin-dni-por-nombre`
+estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-040-recursos-sin-dni-por-nombre`
 
 Pedida por el humano el 2026-10-08: «si no hay DNI en el parte o no hay DNI ni en recurso ni en empleado, que proponga por nombre». Tras F-035/F-036 el trabajador es un RECURSO persona (res.cla = 1) de alta en la empresa del parte; su DNI es emp.dni de la ficha (res.conide) o, si falta, res.cif. Recursos persona de alta SIN DNI en ningun sitio (medido 2026-10-08): Porsan MO/0032 y MO/0033 (obra 0692, el portal no los encuentra), empresa 12 (2), 18 (4), 25 (1). Hoy: (a) sv3 IndicePersonas.candidatos_nombre excluye recursos sin DNI y casar_trabajador agrupa por persona = DNI; (b) sv4 _SQL_RECURSOS_ACTIVOS/RecursoCatalog (F-035, DA3) no los ofrece; (c) el alias aprendido en Conciliar (empleado_alias, empleado_ide NOT NULL) no se guarda para recursos sin ficha de empleado; (d) sv5 verifica recurso_ide por empresa, alta y DNI: un recurso sin DNI no pasa. LO QUE SE PIDE: sv3 propone por nombre entre recursos sin DNI; sv4 los ofrece marcados 'sin DNI' y aprende el alias contra el recurso; sv5 puede registrar una linea con recurso_ide de un recurso sin DNI sin abrir la puerta al recurso equivocado; lista cerrada de CLAUDE.md al dia; medicion de impacto de solo lectura antes de desplegar.
 
