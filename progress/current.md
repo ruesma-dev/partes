@@ -1,6 +1,28 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-040 · spec_ready (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+
+Spec en `specs/F-040-recursos-sin-dni-por-nombre/` (rama
+`feature/F-040-recursos-sin-dni-por-nombre`, worktree `partes-wt-f040`).
+Servicios: sv3 (casado, conciliador, alias, medición), sv4 (catálogo con «sin
+DNI», alias por recurso), sv5 (verificación de líneas sin DNI) y esquema de
+`empleado_alias` (`recurso_ide`, `empleado_ide` nullable, por
+`ddl_complementario`, sin `.sql`). Corrección del contexto: sv5 **ya** acepta
+hoy un `recurso_ide` en una línea sin DNI (solo empresa y alta); F-040 lo
+acota, no lo abre. Despliegue sv3 → sv5 → sv4 tras la medición M1.
+
+**Decisiones abiertas que debe validar el humano** (`design.md` §12):
+
+- **DA1** ¿Casa solo o propone? Recomendado: **propone** (`nombre_sin_dni`, a
+  Conciliar); el alias aprendido al confirmar hace que la siguiente vez case.
+- **DA2** Alias contra el recurso: **columna `recurso_ide`** en
+  `empleado_alias` + `empleado_ide` nullable (no tabla nueva); alias para todo
+  recurso elegido, con o sin ficha.
+- **DA3** sv5, línea sin DNI: exigir **recurso persona y sin DNI** (gemelo de
+  `elegir_sin_dni`, nueva entrada de la lista cerrada con guardián).
+- **DA4** Lo ya ingerido: **no se re-casa**.
+
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 
 Tercera copia del criterio recurso persona (`res.cla = 1`) en sv4

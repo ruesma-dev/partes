@@ -532,7 +532,7 @@
         "Herramienta de solo lectura que mide el impacto antes de desplegar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
