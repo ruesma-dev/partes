@@ -96,7 +96,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    DNI leído es **canónico** (de 1 a 7 dígitos y letra, ceros a la
    izquierda hasta 8, como en Sigrid). F-036: solo es **recurso persona**
    el de `res.cla = 1` (0 consumo, 2 medio), y el casado del trabajador
-   elige un **recurso** persona, no una ficha.
+   elige un **recurso** persona, no una ficha. F-040: el alias se aprende
+   también contra el **recurso** (`empleado_alias.recurso_ide`), con o sin
+   ficha y con o sin DNI; es lo único que identifica a quien no tiene DNI
+   ni ficha (semántica 12).
 3. **Horas extra solo con código HE%** en la ficha del recurso (`reshor`).
    Los mensuales (MENC) no registran por horas: sus «extras» del papel se
    omiten con motivo. El exceso se mide contra la **jornada DEL DÍA** y se
@@ -147,7 +150,11 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    aplican **sv3 y sv4** al arrancar: era la lista escrita a mano en cada
    servicio la que se quedó incompleta y distinta. Desde F-023,
    `parte_documents` lleva `empresa_membrete`, `empresa` y
-   `empresa_origen` (nullables; semántica 12).
+   `empresa_origen` (nullables; semántica 12). Desde F-040,
+   `empleado_alias` lleva `recurso_ide` (nullable) y `empleado_ide` pasa a
+   nullable: el `DROP NOT NULL` va en `DDL_EXTRA_POSTGRES`, única
+   sentencia del DDL de arranque que no es «solo añadir» (idempotente y sin
+   tocar filas; los tests de F-010 la nombran entera).
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
    `deleted_*`; nunca borrado físico desde la aplicación.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
@@ -221,9 +228,20 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     parte, modal y detalle de obra) ofrecen esos mismos **recursos
     persona** (`res.cla = 1`, alta a hoy, DNI `emp.dni` de la ficha o, si
     falta, `res.cif`; sin DNI no salen), filtrados por empresa; elegir uno
-    sin ficha deja la línea en `recurso_manual` (casada, sin alias) con su
+    sin ficha deja la línea en `recurso_manual` (casada) con su
     `empleado_reside`, y sv3/sv5 siguen eligiendo el recurso por DNI y
-    empresa de la obra.
+    empresa de la obra. F-040 (**recursos sin DNI**): quien no tiene DNI
+    del recurso se identifica por su **clave de persona** (`emp:<conide>`
+    con ficha, `res:<res.ide>` sin ella) y compite por nombre, pero si gana
+    solo **se propone** (`nombre_sin_dni`: a Conciliar, sin casar). El
+    portal ofrece esos recursos marcados «sin DNI»; confirmarlos o
+    reasignarlos aprende el alias contra el recurso, y desde entonces esa
+    variante casa sola por alias (`alias`/`recurso_nombre`). El conciliador
+    conserva el recurso de una línea sin DNI ni ficha si sigue siendo
+    persona, sin DNI, de alta y de la empresa (`elegir_sin_dni`; si no, sin
+    recurso y a revisión). sv5 no cambia: escribe una línea sin DNI con
+    recurso casado (existe, empresa de la obra, de alta). Lo ya ingerido
+    no se re-casa.
 13. **Cuenta analítica de la línea (F-021, sv5)**: `hmores.caaide` = la
     cuenta `caa` del **centro de la obra destino** (`obr.cenide`, su
     empresa) cuya subcuenta (texto tras el primer punto de `con.cod`) es
@@ -368,7 +386,8 @@ existen y para qué sirven.
   persona) y, por línea activa, qué hará el conciliador con su recurso y
   qué daría el casado nuevo. Markdown y CSV en
   `services/partes-persistencia/logs/` (ignorada por git), sin nombres ni
-  DNIs.
+  DNIs. F-040 añade la columna `sin_dni_sin_ficha` y la categoría por
+  línea `propone_sin_dni` (se ejecuta desde la rama antes de desplegar).
 - `services/partes-front/consulta_reshor_recursos.py` — diagnóstico de
   solo lectura: qué recursos y qué códigos de hora tiene un DNI en Sigrid.
 - `services/partes-front/validar_datos_sesame.py` (F-013) — informe de

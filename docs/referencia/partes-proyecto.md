@@ -122,6 +122,9 @@ por sigrid-api, cacheados en el wiring):
   la empresa del parte, con **alias aprendidos** (tabla `empleado_alias`)
   que Administración confirma desde el portal (vista Conciliar). Se guarda
   la ficha `emp` enlazada al recurso elegido o, si no tiene, el recurso.
+  F-040: un recurso **sin DNI** (ni en su ficha ni en `res.cif`) también
+  compite por nombre, pero si gana solo se **propone** en Conciliar
+  (`nombre_sin_dni`); su alias aprendido sí casa.
 - **Recurso**: el conciliador confirma el recurso elegido por el casado
   (`recurso_ide`), que es lo que luego necesita la escritura.
 - **Partida**: contra el presupuesto de la obra (`obrparpar`), guardando
@@ -459,8 +462,11 @@ del recurso (`emp.fecbaj` no cuenta). En la ingesta (sv3):
    entre los **recursos persona** (`res.cla = 1`) de alta a la fecha del
    parte de la empresa del parte. El **DNI del recurso** es el de su ficha
    `emp` (`res.conide`) y, si está vacío, `res.cif`; el nombre puntúa con el
-   mejor entre el del recurso y el de su ficha, y un recurso sin DNI no
-   compite por nombre. Un DNI con varios recursos sin desempate, solo de
+   mejor entre el del recurso y el de su ficha. Un recurso **sin DNI**
+   compite por nombre con su clave de persona (`emp:<ficha>` o
+   `res:<recurso>`), pero si gana no se casa: se **propone** en Conciliar
+   (`nombre_sin_dni`, F-040), porque sin DNI nada confirma la identidad
+   salvo el nombre leído. Un DNI con varios recursos sin desempate, solo de
    baja o de otra empresa queda sin casar (nunca se elige al azar), y
    también el de una persona que Sigrid conoce (ficha o recurso) sin
    ningún recurso persona (`dni_sin_recurso`): no se prueba el alias ni
@@ -476,7 +482,17 @@ del recurso (`emp.fecbaj` no cuenta). En la ingesta (sv3):
 4. El **recurso** de cada línea: entre los recursos persona de la persona
    de alta a la fecha de la línea y de la empresa de su obra; el recurso
    que eligió el casado (`empleado_reside`) desempata entre ellos y sale
-   el mismo. Si no queda uno, `sin_recurso` y a revisión.
+   el mismo. Si no queda uno, `sin_recurso` y a revisión. Una línea sin
+   DNI ni ficha conserva el recurso elegido a mano (F-040) mientras siga
+   siendo persona, sin DNI, de alta y de la empresa; si no, sin recurso y
+   a revisión.
+
+**Recursos sin DNI (F-040).** El portal los ofrece en Conciliar y en los
+selectores marcados «sin DNI». Confirmar uno (o reasignar a él por nombre
+leído) aprende el alias **contra el recurso** (`empleado_alias.recurso_ide`,
+con o sin ficha): desde entonces esa variante del nombre casa sola. sv5 los
+escribe como cualquier línea con recurso casado (existe, empresa de la obra,
+de alta), sin pedir DNI.
 
 Al registrar, sv5 vuelve a comprobar empresa, alta y persona de cada
 recurso y firma la cabecera con la empresa de la obra. En el portal los
@@ -563,11 +579,13 @@ delete-orphan"` (borrar el parte se lleva sus líneas). Índices:
 | Columna | Notas |
 |---|---|
 | `nombre_norm` (clave) | nombre leído, normalizado |
-| `empleado_ide`, `empleado_codigo`, `empleado_nombre`, `empleado_dni` | ficha de Sigrid a la que corresponde |
+| `empleado_ide`, `empleado_codigo`, `empleado_nombre`, `empleado_dni` | ficha de Sigrid a la que corresponde; sin ficha (F-040), `empleado_ide` NULL y código/nombre del recurso; `empleado_dni` NULL si no hay DNI |
 | `created_at_utc`, `created_by` | quién lo confirmó en Conciliar |
+| `recurso_ide` (F-040) | recurso elegido en el portal (`res.ide`); NULL si se eligió por ficha. Sin ficha ni DNI es lo único que identifica a la persona |
 
 Cuando Administración concilia un nombre una vez, los siguientes partes
-con ese nombre casan solos.
+con ese nombre casan solos. Nunca hay un alias sin `empleado_ide` ni
+`recurso_ide` (lo impide sv4 al escribir).
 
 ### 5.4 `empleado_jornada` — excepciones de jornada (F-015)
 
