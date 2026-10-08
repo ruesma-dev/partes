@@ -7,7 +7,8 @@
   - R9: `/api/conciliacion/buscar` acepta `empresa`.
   - R11-R15: `confirmar` y `reasignar` aceptan `recurso_ide` (404 si no
     esta, sin tocar nada); con ficha se guarda la ficha y alias, sin ficha
-    el recurso y sin alias; con `ide` y sin `recurso_ide`, como siempre.
+    el recurso y sin alias (desde F-040 R17, tambien con alias contra el
+    recurso); con `ide` y sin `recurso_ide`, como siempre.
   - R19: `POST /api/partes/nuevo` sin ficha y con recurso queda casado.
   - R21: «Reasignar a…» (por lineas y por trabajador) con `recurso_ide`.
 
@@ -242,7 +243,8 @@ def test_f035_r13_r14_confirmar_recurso_sin_ficha(portal) -> None:
     assert cuerpo["empleado"] == {"ide": None, "codigo": "MO/0037",
                                   "nombre": "TRES SOLO RECURSO"}
     assert _filas(fabrica, ids) == [CASADA_903, CASADA_903]
-    assert _aliases(fabrica) == []                      # R14
+    # R14 de F-035 cambiado por F-040 (R17): alias sin ficha.
+    assert _aliases(fabrica) == [("tres solo recurso", None)]
     # Sale de la cola de Conciliar.
     assert LEIDO not in cliente.get("/conciliacion").text
 
@@ -289,13 +291,15 @@ def test_f035_r21_reasignar_lineas_a_un_recurso_sin_ficha(portal) -> None:
 
 def test_f035_r21_r14_reasignar_trabajador_sin_ficha_no_crea_alias(
         portal) -> None:
+    """F-040 (R17) invierte el R14 de F-035: sin ficha tambien hay alias,
+    contra el recurso (el nombre se conserva por trazabilidad)."""
     cliente, fabrica, ids, _ = portal
     r = cliente.post("/api/empleado/reasignar",
                      json={"worker_key": "nom-TRES_SOLO_RECURSO",
                            "recurso_ide": 903})
     assert r.status_code == 200, r.text
     assert _filas(fabrica, ids) == [CASADA_903, CASADA_903]
-    assert _aliases(fabrica) == []
+    assert _aliases(fabrica) == [("tres solo recurso", None)]
 
 
 def test_f035_r21_r12_reasignar_trabajador_con_ficha_crea_alias(

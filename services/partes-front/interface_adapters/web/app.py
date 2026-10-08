@@ -1296,14 +1296,16 @@ def build_app(
                 status_code=500,
             )
         # El alias es una optimizacion (auto-casado futuro): best-effort.
-        # F-035 (R14): solo de fichas de empleado; un recurso sin ficha no.
+        # F-040 (R17): de la ficha o del recurso elegido (`reside`), con o
+        # sin ficha y con o sin DNI.
         alias_ok = True
-        if emp["ide"] is not None:
+        if emp["ide"] is not None or emp["reside"] is not None:
             try:
                 repository.upsert_empleado_alias(
                     nombre_leido=nombre_leido, ide=emp["ide"],
                     codigo=emp["codigo"], nombre=emp["nombre"],
                     dni=emp["dni"], created_by="conciliacion",
+                    recurso_ide=emp["reside"],
                 )
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False
@@ -1424,14 +1426,15 @@ def build_app(
             )
 
         # Alias (auto-casado futuro): best-effort, no debe tumbar la reasignacion.
-        # F-035 (R14): solo de fichas de empleado; un recurso sin ficha no.
+        # F-040 (R17): de la ficha o del recurso elegido, con o sin ficha.
         alias_ok = True
-        for leido in (leidos if emp["ide"] is not None else []):
+        con_alias = emp["ide"] is not None or emp["reside"] is not None
+        for leido in (leidos if con_alias else []):
             try:
                 repository.upsert_empleado_alias(
                     nombre_leido=leido, ide=emp["ide"], codigo=emp["codigo"],
                     nombre=emp["nombre"], dni=emp["dni"],
-                    created_by="reasignacion",
+                    created_by="reasignacion", recurso_ide=emp["reside"],
                 )
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False

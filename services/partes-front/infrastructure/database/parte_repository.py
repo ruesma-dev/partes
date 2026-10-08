@@ -2272,14 +2272,18 @@ class ParteReviewRepository:
         return len(affected), congeladas
 
     def upsert_empleado_alias(
-        self, *, nombre_leido: str, ide: int,
+        self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        created_by: str | None = None,
+        created_by: str | None = None, recurso_ide: int | None = None,
     ) -> None:
         """Persiste/actualiza el alias (nombre leido -> empleado) para que la
-        INGESTA futura case esa variante de forma exacta."""
+        INGESTA futura case esa variante de forma exacta.
+
+        F-040 (R17-R18): tambien de un recurso sin ficha (`ide` None y
+        `recurso_ide` el `res.ide`); sin ninguno de los dos no escribe
+        nada (la regla «ficha o recurso» que la tabla no impone)."""
         norm = tm.normalize(nombre_leido)
-        if not norm:
+        if not norm or (ide is None and recurso_ide is None):
             return
         now = datetime.now(timezone.utc).isoformat()
         with self._session_factory.create_session() as session:
@@ -2291,6 +2295,7 @@ class ParteReviewRepository:
             row.empleado_codigo = codigo
             row.empleado_nombre = nombre
             row.empleado_dni = dni
+            row.recurso_ide = recurso_ide
             row.created_by = created_by
             session.commit()
 
@@ -2307,6 +2312,7 @@ class ParteReviewRepository:
             "empleado_codigo": row.empleado_codigo,
             "empleado_nombre": row.empleado_nombre,
             "empleado_dni": row.empleado_dni,
+            "recurso_ide": row.recurso_ide,      # F-040 (R19)
             "created_at_utc": row.created_at_utc,
             "created_by": row.created_by,
         }
@@ -2331,6 +2337,8 @@ class ParteReviewRepository:
         row.empleado_codigo = snap.get("empleado_codigo")
         row.empleado_nombre = snap.get("empleado_nombre")
         row.empleado_dni = snap.get("empleado_dni")
+        # F-040 (R19): un snapshot anterior a F-040 no trae la clave: NULL.
+        row.recurso_ide = snap.get("recurso_ide")
         row.created_by = snap.get("created_by")
 
     def _record_undo(
