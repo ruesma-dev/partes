@@ -1,17 +1,28 @@
-Revisión completa (pasada 1): `git diff dev...79176fb` (base `3b6790f`).
+Revisión incremental desde 05dd405 (pasada 2): `git diff 05dd405..7792e7a`. Pasada 1 completa: `git diff dev...79176fb`.
 
 # F-039 · Review
 
-**Veredicto: CHANGES_REQUESTED** (pasada 1). Un único `[ ]`, documental: la
-verificación MANUAL M1 no está en `progress/current.md` con su procedimiento
-exacto (C4). El código, los tests y las puertas están bien; ver «Cambios
-requeridos».
+**Veredicto: APPROVED** (pasada 2). Pasada 1: CHANGES_REQUESTED solo por M1
+sin procedimiento en `progress/current.md` (C4); resuelto.
 
 **Nivel de rigor:** `estandar`, declarado en `harness/features.json`. Exige
-fase RED, cobertura ≥ 80 % de lo cambiado y campaña de mutación con
-supervivientes analizados (RM5 N/A por nivel).
+fase RED, cobertura ≥ 80 % de lo cambiado y mutación con supervivientes
+analizados (RM5 N/A por nivel).
 
-## Qué se verificó (por mí, no leído del informe)
+## Pasada 2 (incremental desde `05dd405`)
+
+- Delta (`96c29f2`, `7792e7a`): solo `progress/current.md` (+16, bloque M1)
+  e `impl_F-039.md` (1 línea: «3 workers efectivos», la observación 1).
+  **Sin código ni tests**: no invalida nada de lo aprobado (alcance de
+  mutación, cobertura, RED y suite de sv4 intactos).
+- M1 en `current.md` con procedimiento exacto: `.\redeploy_partes.ps1 -Solo
+  sv4` desde `infra/` (existe y admite `-Solo`; lo pide el humano), Ctrl+F5,
+  Conciliar → búsqueda manual, «+ Nuevo parte», «+ Añadir línea». Cerrado.
+- `bash harness/init.sh`: **ENTORNO LISTO**; raíz 461 passed / 3 skipped;
+  cobertura [OK] 100 % (6/6). sv4 por caché: mismo `services/` que reejecuté
+  entero en la pasada 1.
+
+## Pasada 1 · qué se verificó (por mí, no leído del informe)
 
 - `bash harness/init.sh` desde el worktree (PATH con el `.venv` del repo
   principal): **ENTORNO LISTO, exit 0**; raíz 461 passed / 3 skipped;
@@ -49,8 +60,7 @@ supervivientes analizados (RM5 N/A por nivel).
   búsqueda manual ejecutados en node → «070 · Obra 0 · Ruesma», «MO/0001 ·
   PERSONA 1 RECURSO · Porsan», «… · Empresa 5», sin empresa sin sufijo;
   ninguna etiqueta contiene «empresa ».
-- **Enmienda R12 (opción A)**: los dos tests ajenos solo añaden
-  `empresa_nombre` a lo esperado (diff de 1 y de 6 líneas, nada más).
+- **Enmienda R12 (opción A)**: los dos tests ajenos solo añaden `empresa_nombre`.
 
 ## Mutación (C4 bis)
 
@@ -86,10 +96,8 @@ supervivientes analizados (RM5 N/A por nivel).
 - **C3 bis** N/A: no toca `docs/referencia/`.
 - **C4** [x] cada R1–R12 con test `test_f039_rN_*` en verde (tabla abajo) ·
   [x] sin red ni BBDD (Sigrid simulado, SQLite en memoria, node local) ·
-  **[ ] M1 no está en `current.md` con su procedimiento exacto**: solo «y M1
-  (humano)». Vive en `tasks.md` e `impl_F-039.md`, pero el checkpoint pide
-  `current.md` (mismo motivo que el cambio 3 de F-035 y la pasada 1 de
-  F-036/F-037).
+  [x] M1 MANUAL en `current.md` con su procedimiento (pasada 1 `[ ]`,
+  cerrado en la 2).
 - **C4 bis** [x] `rigor` declarado · [x] fase RED con trazas reales (T1: 16
   failed/1 passed; T2: 3 failed/2 passed; score: 2 mutantes a mano) · [x]
   cobertura [OK] 100 % · [x] totales recalculados · [x] muertos: > 60 s →
@@ -101,7 +109,7 @@ supervivientes analizados (RM5 N/A por nivel).
 - **C4 ter** N/A: no existe `harness/rutas_sensibles.json`.
 - **C5** [x] T1–T4 `[x]` con commit `F-039 Tn:` (M1 `[ ]` es la MANUAL del
   humano, como en F-030/F-031/F-035) · [x] árbol limpio · [x]
-  `features.json` en `in_progress` (pasa a `done` con el APPROVED).
+  `features.json` → `done` en este commit.
 
 ## Cobertura requisito → test (`services/partes-front/tests/test_f039_nombre_empresa.py`)
 
@@ -120,19 +128,11 @@ supervivientes analizados (RM5 N/A por nivel).
 
 ## Cambios requeridos
 
-1. `progress/current.md`, bloque «F-039»: añadir la verificación **M1 ·
-   MANUAL (humano)** con su procedimiento exacto, como en `tasks.md`: tras
-   desplegar sv4 (`infra/redeploy_partes.ps1`, lo pide el humano), Ctrl+F5
-   en el portal; Conciliar → búsqueda manual muestra «· Ruesma»/«· Porsan»
-   (no «empresa N»), y lo mismo en los combos de obra y trabajador de
-   «+ Nuevo parte» y «+ Añadir línea». Sin tocar código ni tests.
+Ninguno (el 1 de la pasada 1, M1 en `current.md`, está resuelto).
 
 ## Observaciones (no bloquean)
 
-- «Evidencias» dice `--workers 6`; el informe de mutación registra 3 (no
-  lanza más workers que mutantes). Conviene decir el efectivo.
-- R6–R8 ejecutan `empresaSufijo` aislada; aquí basta (llamadores sin cambios,
-  misma IIFE, prueba ad hoc arriba).
+- R6–R8 ejecutan `empresaSufijo` aislada; basta (misma IIFE, prueba ad hoc).
 
 **Automejora (propuesta, no aplicada)**: cuarta feature rechazada solo por
 MANUAL fuera de `current.md` (F-035/36/37/39): que `implementer.md` (todos
