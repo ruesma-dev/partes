@@ -34,7 +34,8 @@ No se tocan: plantillas, `fijarEmpresa`, `deLaEmpresaDe`, `EMPRESAS`,
 - `3c8275f` T1: `empresa_nombre` en los cuatro endpoints y candidatos.
 - `400b14a` bloqueo documentado (dos tests ajenos, ver abajo).
 - `409cb1c` T2: `empresaSufijo` + enmienda de R12 + tests R6–R10.
-- T3: test del `score`, campaña de mutación e informe. T4: cierre.
+- `2fbf1d0` T3: test del `score`, campaña de mutación e informe.
+- T4: `init.sh` en verde, «Evidencias» y `BACKLOG.md` regenerado.
 
 ## Decisiones y desviaciones (justificadas)
 
@@ -127,6 +128,13 @@ Con el código real: `1 passed`. `app.py` restaurado (`git status` limpio).
 
 | Evidencia | Valor real |
 |---|---|
-| Tests nuevos de F-039 | 23 en `tests/test_f039_nombre_empresa.py` (23 passed) |
+| `bash harness/init.sh` final (2026-10-08, HEAD `2fbf1d0`) | **ENTORNO LISTO**, exit 0 |
+| Tests sv4 (`services/partes-front`) | **1796 passed, 1 skipped** en 755,94 s (antes de F-039: 1773 passed, 1 skipped) |
+| Tests raíz (`tests/`, con cobertura) | 461 passed, 3 skipped en 97,36 s |
+| sv1 / sv2 / sv3 / sv5 | en verde (caché de `init.sh`: árbol sin cambios desde el último verde) |
+| Tests nuevos de F-039 | 23 en `tests/test_f039_nombre_empresa.py` (23 passed en 9,67 s); 2 ajenos adaptados (enmienda R12) |
+| **PUERTA COBERTURA** | **100,0 %** de 6 líneas cambiadas (6/6, umbral 80 %, nivel estándar) |
+| `node --check static/app.js` | OK |
+| ruff | 647 avisos en el repo (deuda previa, no bloquea). Ficheros de producción tocados: mismos avisos que en `dev` (`app.py` 22/22, `empresas.py` 0); el test nuevo trae 1 (`FURB167`, `re.S`, mismo patrón que `test_f035_vistas.py`) |
 | Mutación (`python -m harness.mutacion --feature F-039 --workers 6`) | 21 líneas en alcance, **3 mutantes generados** (menos que el tope de 20: muestreo no aplicado), 3 evaluados, **1 muerto, 2 supervivientes**, 0 timeouts, 0 sin veredicto; 1505,7 s; timeout derivado 995 s (línea base sv4 ≈ 487–497 s). Detalle y análisis: `progress/mutacion_F-039.md` |
 | Supervivientes | Los 2 en `app.py:1344` (`round(sc * 101)`, `round(sc // 100)`): hueco real preexistente (nadie comprobaba el valor del `score`), no equivalentes. Matados con `test_f039_r12_buscar_score_intacto`, comprobado aplicando cada mutante a mano. La campaña no se relanza (regla medir-tapar-medir) |

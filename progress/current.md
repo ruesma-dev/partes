@@ -14,8 +14,10 @@ EXACTAS de `/api/sigrid/empleados` y `/api/sigrid/obras`, y R12 prohibía
 tocarlos. Enmienda: R12 (requirements y design §4) admite esa única
 excepción; ambos tests añaden `empresa_nombre` a lo esperado, nada más.
 
-- T1, T2 y T3 commiteadas (mutación: 3 mutantes, 2 supervivientes del
-  `score` matados con un test). En curso: T4 (`init.sh`).
+- T1–T4 hechas (mutación: 3 mutantes, 2 supervivientes del `score`
+  matados con un test; `init.sh` final en verde, cobertura 100 % de 6
+  líneas). Informe: `progress/impl_F-039.md`. Siguiente: reviewer; luego
+  merge, despliegue de sv4 y M1 (humano).
 - Desviaciones: solo la enmienda de R12 (decisión del humano).
 
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
