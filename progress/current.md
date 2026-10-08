@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-039 · in_progress (2026-10-08): nombre de la empresa en combos y Conciliar
+## F-039 · done (2026-10-08), pendiente de desplegar sv4 y M1 (humano): nombre de la empresa en combos y Conciliar
 
 Implementer en el worktree `partes-wt-f039` (rama
 `feature/F-039-nombre-empresa-en-combos`). Decisiones del humano
