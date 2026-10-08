@@ -783,3 +783,16 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Verificado: init.sh en verde, sv4 1774 passed, cobertura 97,0 % (194/200),
   mutación muestreada con supervivientes analizados y los 5 nuevos muertos.
 - Pendiente: T9 manual (solo lectura) y desplegar sv4 junto con F-036.
+
+## F-039 · Portal: nombre de empresa en vez de «empresa N» en combos y Conciliar — done 2026-10-08
+
+- Rama `feature/F-039-nombre-empresa-en-combos` · rigor estandar · sdd=true ·
+  APPROVED del reviewer en la pasada 2 (`progress/review_F-039.md`; la 1 pidió
+  solo el procedimiento exacto de M1 en `current.md`).
+- Entregado (solo sv4): cada item con `empresa` de las APIs de obras, empleados,
+  recursos y búsqueda de Conciliar lleva `empresa_nombre` calculado con
+  `empresas.py`; `app.js` pinta « · Ruesma»/« · Porsan» y «Empresa N» solo si no
+  hay nombre; el dict no se copia a JS. R12 enmendada (opción A del humano):
+  dos tests ajenos (F-015 r26, F-023 r40) esperan además `empresa_nombre`.
+- Verificado: init.sh en verde; tests de F-039 ejecutan el JS con node.
+- Pendiente: desplegar sv4 y M1 manual (humano).
