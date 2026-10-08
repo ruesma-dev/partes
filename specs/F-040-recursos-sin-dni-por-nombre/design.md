@@ -10,13 +10,11 @@
   conserva el recurso de una línea sin DNI casada a mano (R9–R11).
 - **sv4** es quien ofrece candidatos y aprende alias. Deja de esconder los
   recursos sin DNI (los marca) y aprende el alias contra el recurso (R14–R19).
-- **sv5** es el último punto antes del ERP. Hoy ya deja pasar una línea sin DNI
-  con `recurso_ide` (solo mira empresa y alta): F-040 no le abre nada, le
-  **acota** esa rama a recursos persona sin DNI (R22–R25, DA3), la gemela de
-  `elegir_sin_dni` de sv3.
+- **sv5 no cambia** (DA3, humano 2026-10-08): ya verifica una línea sin DNI
+  con `recurso_ide` por existencia, empresa de la obra y alta, y la escribe.
+  Un test de caracterización lo fija (R22).
 - **Esquema**: `empleado_alias` (base `partes`) lo completan sv3 y sv4 al
-  arrancar (`ddl_complementario`). sv1 y sv2 no cambian; nada se copia salvo
-  lo de la lista cerrada (§6).
+  arrancar (`ddl_complementario`). sv1 y sv2 no cambian; nada se copia (§6).
 
 ## 2. Ficheros
 
@@ -37,17 +35,12 @@
 | Modificar | sv4 `infrastructure/database/parte_repository.py` | `upsert_empleado_alias(…, ide: int \| None, recurso_ide: int \| None)` con guarda R18; snapshots de alias con `recurso_ide` (R19) |
 | Modificar | sv4 `interface_adapters/web/app.py` | `conciliacion_confirmar` y `empleado_reasignar`: alias con `ide` o `reside` (R17) |
 | Modificar | sv4 `static/app.js`, `templates/conciliacion.html` | marca «sin DNI» en los 4 puntos de JS que pintan `DNI …`/`· dni` y en la plantilla (R15) |
-| Modificar | sv5 `domain/models/registro_models.py` | `RecursoSigrid.cla: Optional[int] = None` |
-| Modificar | sv5 `infrastructure/sigrid/sigrid_write_client.py` | `datos_recursos`: `res.cla AS cla` y mapeo (R22) |
-| Modificar | sv5 `application/services/coherencia_recurso.py` | `CLA_PERSONA = 1`; rama sin DNI de `verificar_recurso` (R23–R25) |
-| Modificar | sv5 `application/services/reglas_registro.py` | `MOTIVO_RECURSO_NO_PERSONA`, `MOTIVO_RECURSO_CON_DNI` |
-| Crear | `tests/test_f040_recurso_sin_dni_gemelos.py` (raíz) | guardián R26 |
-| Modificar | `tests/test_f036_recurso_persona_gemelos.py` (raíz) | también `res.cla` en `datos_recursos` (R27) |
+| Crear | sv5 `tests/test_f040_sv5_sin_dni.py` | caracterización R22, sin código nuevo |
 | Crear/adaptar | tests por servicio (§8) | — |
 | Modificar | `CLAUDE.md`, `docs/ARCHITECTURE.md`, `docs/referencia/partes-proyecto.md`, `azure-apps/partes.md` | R27, R30 (§9) |
 
-**No se tocan**: `de_alta` (sv3 y sv5), `esta_congelado`/`ESTADOS_CONGELADOS`
-y `congelacion.py`, `elegir_por_dni` y `recursos_por_dni` de sv5, los SQL de
+**No se tocan**: **todo el código de sv5**, `de_alta`, `esta_congelado`/
+`ESTADOS_CONGELADOS` y `congelacion.py`, los guardianes de la raíz, los SQL de
 sv4 (`_SQL_EMPLEADOS`, `_SQL_RECURSOS_ACTIVOS`), `jornada_resolver.py`,
 `text_match.py`, `persist_parte_pipeline.py` (R3 ya sube `review_required`
 porque `ide` es None y el método no está en `METODOS_RECURSO`), los
@@ -112,30 +105,18 @@ fila. No se añade `CHECK` (no hay forma idempotente sin bloque `DO`): la regla
 
 ## 6. sv5 y la lista cerrada
 
-`verificar_recurso(r, empresa, fecha, dni)` (orden): no existe ⇒
-`NO_EXISTE`; otra empresa; de baja; **con DNI de línea**: el de hoy
-(`OTRA_PERSONA` si difiere); **sin DNI de línea** (nuevo): `r.cla !=
-CLA_PERSONA` ⇒ `MOTIVO_RECURSO_NO_PERSONA`; `_dni(r.dni)` ⇒
-`MOTIVO_RECURSO_CON_DNI`. Textos para el preflight:
+sv5 no se toca (DA3). `verificar_recurso` sigue: no existe ⇒ `NO_EXISTE`; otra
+empresa; de baja; DNI de la línea distinto ⇒ `OTRA_PERSONA` (solo si la línea
+trae DNI). `sv5 tests/test_f040_sv5_sin_dni.py` fija R22 con dobles: línea sin
+DNI y recurso de la empresa y de alta ⇒ se escribe, sea o no persona y tenga o
+no DNI; de baja u otra empresa ⇒ su motivo de hoy; sin recurso ni DNI ⇒
+`MOTIVO_SIN_RECURSO`.
 
-- `MOTIVO_RECURSO_NO_PERSONA = "la linea no trae DNI y el recurso no es de persona"`
-- `MOTIVO_RECURSO_CON_DNI = "la linea no trae DNI y el recurso si: reasignar el trabajador"`
-
-Gemelos (entrada nueva en la lista cerrada de `CLAUDE.md`): sv3
-`IndicePersonas.elegir_sin_dni` ⇔ sv5 `verificar_recurso` rama sin DNI. Mismo
-criterio (persona, sin DNI, alta, empresa); sv3 elige y sv5 verifica. El
-guardián R26 (AST/texto, sin importar, como F-036):
-
-1. `CASOS_SIN_DNI` (lista literal de tuplas `(cla, tiene_dni, fecbaj,
-   empresa_recurso, empresa, fecha, vale)`) existe **idéntica** en
-   `sv3 tests/test_f040_elegir_sin_dni.py` y `sv5 tests/test_f040_verificar_sin_dni.py`
-   (`ast.literal_eval`), y cada uno la recorre contra su función.
-2. `elegir_sin_dni` llama a `de_alta` y `es_persona`; `verificar_recurso`
-   usa `de_alta` y `CLA_PERSONA`.
-3. Cada comprobación se prueba contra una copia estropeada en memoria.
-
-`datos_recursos` lee `res.cla`: tercera aparición del criterio persona en sv5;
-el guardián F-036 lo comprueba también ahí.
+Lista cerrada: la rama R10 de `elegir_recurso` (sv3) no es elección por DNI y
+no tiene gemela, porque sv5 no elige recurso sin DNI (`elegir_por_dni` solo
+corre con DNI). Los candidatos por DNI de sv3 y sv5 siguen siendo los mismos;
+los guardianes F-023 y F-036 no cambian. `CLAUDE.md` lo anota en la entrada
+de la elección por DNI.
 
 ## 7. Medición (R28–R29, `medicion_casado.py`)
 
@@ -143,11 +124,6 @@ el guardián F-036 lo comprueba también ahí.
   enlazada; sale de las filas de `sin_dni`).
 - `_casado`: si el nuevo casado es `nombre_sin_dni` ⇒ `propone_sin_dni` (antes
   de las demás ramas).
-- `_recurso` pasa a devolver `(categoria, ide_nuevo)`; nueva `_sv5(linea,
-  ide_nuevo, indice)`: `omite_sin_dni` si la línea no está congelada, su
-  `empleado_dni` es vacío, `ide_nuevo` no es None y el recurso no es persona o
-  tiene DNI; si no, `igual`. Columna `sv5` en la fila y en el CSV; `resumir`
-  cuenta `sv5_omite_sin_dni`.
 - `leer_aliases` **no cambia**: columnas explícitas; antes del despliegue
   `recurso_ide` no existe.
 
@@ -158,7 +134,7 @@ Se ejecuta desde la rama de F-040 **antes de desplegar** (M1 en §10).
 | Fichero | Cubre |
 |---|---|
 | sv3 `tests/test_f040_seleccion.py` | `clave_persona`, `casar_por_clave`, `candidatos_nombre` (R1), `elegir_recurso` R10, R11 (conciliador con dobles) |
-| sv3 `tests/test_f040_elegir_sin_dni.py` | R9 por `CASOS_SIN_DNI` |
+| sv3 `tests/test_f040_elegir_sin_dni.py` | R9 por tabla de casos |
 | sv3 `tests/test_f040_casado.py` | R2–R5, R7, R8, R12 por tabla de casos |
 | sv3 `tests/test_f040_alias_repo.py` | R6 (SQLite en memoria), R20 en sv3 |
 | sv3 `tests/test_f040_medicion.py` | R28, R29 (sin columna `recurso_ide` leída) |
@@ -167,43 +143,38 @@ Se ejecuta desde la rama de F-040 **antes de desplegar** (M1 en §10).
 | sv4 `tests/test_f040_catalogo.py` | R14, R16 |
 | sv4 `tests/test_f040_alias.py` | R17–R19 (SQLite en memoria + endpoints con dobles) |
 | sv4 `tests/test_f040_vistas.py` | R15: `node --check`, parseo Jinja2 y la cadena «sin DNI» en los puntos de pintado |
-| sv5 `tests/test_f040_verificar_sin_dni.py` | R23–R25 por `CASOS_SIN_DNI`; R22 con el SQL capturado |
-| raíz `tests/test_f040_recurso_sin_dni_gemelos.py` | R26 |
+| sv5 `tests/test_f040_sv5_sin_dni.py` | R22 (caracterización, en verde sin tocar código) |
 
 Adaptaciones declaradas (se listan en `impl_F-040.md`): sv3
 `test_f036_r3_nombre_de_un_recurso_sin_dni_no_casa` (ahora `nombre_sin_dni`),
 `test_f036_r8_alias_sin_dni_y_ficha_sin_dni_no_valido` (ahora resuelve por
 `emp:`), los de `candidatos_nombre` con DNI obligatorio, el INFO de R3; sv4
 `test_f035_r3_sin_dni_ni_en_la_ficha_no_se_ofrece` (ahora se ofrece con `dni`
-None) y los que esperan que no haya alias sin ficha; sv5 los dobles de
-`RecursoSigrid` de líneas sin DNI (ganan `cla=1`); los recuentos de
+None) y los que esperan que no haya alias sin ficha; los recuentos de
 `test_f010_r6_ddl_complementario*` si cuentan sentencias.
 
 ## 9. Documentación (R27, R30)
 
-- `CLAUDE.md`, lista cerrada: entrada F-040 (`elegir_sin_dni` sv3 ⇔ rama sin
-  DNI de `verificar_recurso` sv5, guardián `test_f040_…`; `datos_recursos` en
-  el criterio persona de sv5).
+- `CLAUDE.md`, lista cerrada: nota en la elección por DNI (rama R10 sin DNI
+  de `elegir_recurso`, sin gemela en sv5; §6).
 - `ARCHITECTURE.md`: semántica 2 (alias también por recurso), 12 (recursos sin
-  DNI: se proponen, no casan solos; alias por recurso; sv5 exige persona y sin
-  DNI a una línea sin DNI; F-035 ya los ofrece marcados), 7 (`empleado_alias`
+  DNI: se proponen, no casan solos; alias por recurso; sv5 escribe una línea
+  sin DNI con recurso casado; el portal los ofrece marcados), 7 (`empleado_alias`
   con `recurso_ide`), Herramientas (la medición amplía columnas).
 - `partes-proyecto.md` §3.3, §4.6 y §5.3; `azure-apps/partes.md` §4.3 y la
   viñeta Empleado (commit local en `azure-apps`).
 
 ## 10. Despliegue y verificación manual (humano)
 
-Orden: **sv3 → sv5 → sv4**. sv3 primero porque añade la columna (DDL) y
-conserva el recurso de una línea sin DNI (R10): con sv4 nuevo y sv3 viejo, un
-casado manual sin DNI perdería su recurso en la siguiente pasada. sv5 antes de
-sv4 para que ninguna línea sin DNI viaje sin la verificación acotada. Un sv4
-viejo con la columna ya creada sigue funcionando (no la lee).
+Orden: **sv3 → sv4** (sv5 no se despliega). sv3 primero porque añade la
+columna (DDL) y conserva el recurso de una línea sin DNI (R10): con sv4 nuevo
+y sv3 viejo, un casado manual sin DNI perdería su recurso en la siguiente
+pasada. Un sv4 viejo con la columna ya creada sigue funcionando (no la lee).
 
 - **M1 · antes de desplegar** (solo lectura): `python medir_casado_recursos.py`
   desde la rama, en `services/partes-persistencia`. Se miran
   `sin_dni`/`sin_dni_sin_ficha` por empresa, `casado_pierde_casado`,
-  `casado_propone_sin_dni` y `sv5_omite_sin_dni`. Si `sv5_omite_sin_dni > 0`,
-  se decide antes (DA3).
+  y `casado_propone_sin_dni`.
 - **M2 · tras sv3** (base `partes`, solo lectura): `SELECT column_name,
   is_nullable FROM information_schema.columns WHERE table_name =
   'empleado_alias' AND column_name IN ('empleado_ide','recurso_ide');` ⇒ dos
@@ -218,9 +189,8 @@ viejo con la columna ya creada sigue funcionando (no la lee).
   hoy casa por nombre con una persona con DNI puede pasar a `nombre_ambiguo` o
   `nombre_sin_dni` si el sin DNI puntúa igual o más. Va a Conciliar, nada se
   elige al azar; M1 lo cuenta (`pierde_casado`).
-- **sv5 más estricto** con líneas sin DNI (DA3): una línea antigua sin DNI con
-  recurso con DNI (ficha sin DNI y `res.cif` lleno) pasa a omitirse con motivo.
-  M1 lo cuenta (`sv5_omite_sin_dni`); se arregla reasignando.
+- **sv5 no comprueba la persona** en una línea sin DNI (DA3): escribe cualquier
+  recurso existente de la empresa y de alta; solo lo acotan sv3 (R10) y sv4.
 - **Alias sin ficha ⇒ `recurso_nombre`**, como decidió F-036: sin método nuevo
   en `METODOS_RECURSO` (sv3 y sv4 no se tocan ahí).
 - **Descartado**: tabla nueva `recurso_alias` (séptima tabla, guardianes
@@ -229,21 +199,20 @@ viejo con la columna ya creada sigue funcionando (no la lee).
 - **Conflicto de merge** con F-039 (sv4 JS, etiquetas de empresa) en
   `static/app.js` junto a `recLabel`: trivial, lo integra el humano.
 
-## 12. Decisiones abiertas (para el humano)
+## 12. Decisiones (humano, 2026-10-08)
 
-- **DA1. ¿Casa solo o solo propone?** Recomendado: **propone** (R3). Sin DNI
+- **DA1. ¿Casa solo o solo propone?** **Propone** (R3; el humano la mantiene). Sin DNI
   nada confirma la identidad salvo el nombre leído (OCR o letra a mano): la
   línea va a Conciliar con el candidato ofrecido y marcado «sin DNI»;
   confirmarlo aprende el alias contra el recurso (R17) y desde entonces esa
   variante casa sola por alias (R8). Alternativa: casar por nombre como si
   tuviera DNI (`recurso_nombre`), más automático y con el riesgo de imputar
   horas a otra persona sin ninguna comprobación.
-- **DA2. Alias contra el recurso.** Recomendado: **columna `recurso_ide` en
+- **DA2. Alias contra el recurso.** Aprobada: **columna `recurso_ide` en
   `empleado_alias` y `empleado_ide` nullable** (§5), y alias para todo recurso
   elegido en Conciliar o al reasignar, con o sin ficha y con o sin DNI (los 8
   de 39 de Porsan sin ficha también aprenden). Alternativa: tabla nueva (§11).
-- **DA3. Acotar sv5 para líneas sin DNI.** Recomendado: **recurso persona y sin
-  DNI** (R23–R24), gemelo de `elegir_sin_dni`. Alternativas: solo persona
-  (R23), o no tocar sv5 (hoy acepta cualquier recurso de la empresa y de alta).
-- **DA4. Lo ya ingerido.** Recomendado: **no se re-casa** (R31); la cola de
+- **DA3. Acotar sv5 para líneas sin DNI.** **No** (humano: «si el recurso
+  está casado, sv5 no deberá poner pega a que no tenga DNI»); R23–R26 retiradas.
+- **DA4. Lo ya ingerido.** Aprobada: **no se re-casa** (R31); la cola de
   Conciliar ya ofrece los recursos sin DNI tras desplegar sv4.

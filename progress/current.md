@@ -5,23 +5,20 @@
 
 Spec en `specs/F-040-recursos-sin-dni-por-nombre/` (rama
 `feature/F-040-recursos-sin-dni-por-nombre`, worktree `partes-wt-f040`).
-Servicios: sv3 (casado, conciliador, alias, medición), sv4 (catálogo con «sin
-DNI», alias por recurso), sv5 (verificación de líneas sin DNI) y esquema de
-`empleado_alias` (`recurso_ide`, `empleado_ide` nullable, por
-`ddl_complementario`, sin `.sql`). Corrección del contexto: sv5 **ya** acepta
-hoy un `recurso_ide` en una línea sin DNI (solo empresa y alta); F-040 lo
-acota, no lo abre. Despliegue sv3 → sv5 → sv4 tras la medición M1.
+Servicios: sv3 (casado, conciliador, alias, medición) y sv4 (catálogo con «sin
+DNI», alias por recurso), más el esquema de `empleado_alias` (`recurso_ide`,
+`empleado_ide` nullable, por `ddl_complementario`, sin `.sql`). **sv5 no
+cambia**: ya escribe una línea sin DNI con recurso casado (existe, empresa,
+alta); solo un test de caracterización (R22). Despliegue sv3 → sv4 tras la
+medición M1.
 
-**Decisiones abiertas que debe validar el humano** (`design.md` §12):
-
-- **DA1** ¿Casa solo o propone? Recomendado: **propone** (`nombre_sin_dni`, a
-  Conciliar); el alias aprendido al confirmar hace que la siguiente vez case.
-- **DA2** Alias contra el recurso: **columna `recurso_ide`** en
-  `empleado_alias` + `empleado_ide` nullable (no tabla nueva); alias para todo
-  recurso elegido, con o sin ficha.
-- **DA3** sv5, línea sin DNI: exigir **recurso persona y sin DNI** (gemelo de
-  `elegir_sin_dni`, nueva entrada de la lista cerrada con guardián).
-- **DA4** Lo ya ingerido: **no se re-casa**.
+**Decisiones del humano (2026-10-08)** (`design.md` §12): DA1 **propone**
+(`nombre_sin_dni`, a Conciliar; el alias aprendido hace que la siguiente vez
+case); DA2 **columna `recurso_ide`** en `empleado_alias` (aprobada); DA3 **no
+acotar sv5** («si el recurso está casado, sv5 no deberá poner pega a que no
+tenga DNI»; R23–R26 retiradas, sin gemela ni guardián nuevos); DA4 **no se
+re-casa** (aprobada). Riesgo anotado (§11): sv5 no comprueba la persona en una
+línea sin DNI; solo la acotan sv3 (R10) y el catálogo de sv4.
 
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 
