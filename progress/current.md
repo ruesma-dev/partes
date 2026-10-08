@@ -10,39 +10,25 @@ de 66 líneas, mutación completa 40/40 muertos (2 timeouts de sv4 comprobados a
 mano). Informe: `progress/impl_F-040.md`; mutación: `progress/mutacion_F-040.md`.
 `azure-apps/partes.md` actualizado (commit local `ec971c2` en `azure-apps`).
 
-**MANUAL (humano), pendiente:** T14/M1 antes de desplegar (`cd
-services/partes-persistencia && ../../.venv/Scripts/python.exe
-medir_casado_recursos.py` desde la rama, solo lectura) y T15 (despliegue sv3 →
-sv4, M2 y M3), según `tasks.md`.
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; las lanza
+el humano, los agentes no:
 
-**Estuvo bloqueada en T4 por tests ajenos en rojo** (implementer, worktree
-`partes-wt-f040`, `.venv` del repositorio principal). T1–T3 hechas y T4 hecha
-en código y tests nuevos (commits `f8143e9`, `fd63c6f`, `375a8e0`, `11a5a11`);
-informe parcial con las trazas RED en `progress/impl_F-040.md`.
+- **T14 · M1, antes de desplegar**: desde la rama, `cd
+  services/partes-persistencia && ../../.venv/Scripts/python.exe
+  medir_casado_recursos.py`; mirar `sin_dni`/`sin_dni_sin_ficha` por empresa,
+  `casado_pierde_casado` y `casado_propone_sin_dni` (informe en `logs/`).
+- **T15 · despliegue**, desde `infra/`: `.\redeploy_partes.ps1 -Solo sv3` y,
+  después, `.\redeploy_partes.ps1 -Solo sv4` (sv5 no se despliega).
+- **M2 · tras sv3** (base `partes`, solo lectura): `SELECT column_name,
+  is_nullable FROM information_schema.columns WHERE table_name =
+  'empleado_alias' AND column_name IN ('empleado_ide','recurso_ide');` ⇒
+  dos filas, las dos `YES`.
+- **M3 · tras sv4** (portal, Ctrl+F5): en Conciliar de Porsan, `MO/0032` y
+  `MO/0033` salen «sin DNI»; al confirmar uno, su alias queda con
+  `recurso_ide` y la línea en `recurso_manual`; el preflight de la obra 0692
+  la da por verificada.
 
-**Motivo.** Tres tests de **F-023** (adaptados ya por F-036) fijan
-justo lo que F-040 cambia por R1–R3 y R10, y `design.md` §8 no los declara
-entre las adaptaciones (solo nombra los de F-036 y F-035). La orden del líder
-para este caso es parar y consultar:
-
-| Test (sv3) | Hoy espera | Con F-040 da | Por |
-|---|---|---|---|
-| `test_f023_seleccion_sigrid.py::test_f023_r25_persona_sin_recursos_es_desconocido` (2.ª aserción: `elegir_recurso(None, None, 950, 1, HOY)`, recurso 950 persona sin DNI, `conide` a una ficha fuera del maestro) | `desconocido` | `ok` (950) | R10 (sin DNI, sin ficha, con preferido ⇒ `elegir_sin_dni`) |
-| `test_f023_pipeline_match.py::test_f023_r24_fichas_sin_dni_no_compiten_por_nombre` (dos fichas sin DNI con el mismo nombre) | `none` | `nombre_ambiguo` | R1–R2 (compiten por clave `emp:50`/`emp:60` y empatan) |
-| `test_f023_pipeline_match.py::test_f023_r24_una_sola_ficha_sin_dni_no_casa_por_nombre` | `(None, "none")` | `(None, "nombre_sin_dni")` | R1, R3 (gana una clave sin DNI: se propone, no se casa) |
-
-Medido con el código de T4 y, en una prueba sin commitear (revertida), el de
-T5–T6: en la suite completa de sv3 solo esos tres son ajenos; los demás rojos
-son los declarados (`test_f036_r3_nombre_de_un_recurso_sin_dni_no_casa`, T5).
-En las tres el «no casa» se mantiene (ninguna línea pasa a casarse sola): solo
-cambia el motivo, o el conciliador conserva el recurso elegido a mano.
-
-**Propuesta (opción A, la del implementer):** enmendar `design.md` §8 para
-declarar esas tres adaptaciones, cambiando SOLO lo esperado (las tres filas
-de arriba) y su docstring; nada más de F-023. **Opción B:** reformular R10
-o R1–R3 para que esos casos sigan como hoy (contradice DA1/R10 tal como se
-aprobaron). Pendiente de decisión del humano; al retomar, seguir por T4
-(adaptar los tres tests) y T5.
+Bloqueada en T4, desbloqueada con la opción A; ver `impl_F-040.md`.
 
 Spec en `specs/F-040-recursos-sin-dni-por-nombre/` (rama
 `feature/F-040-recursos-sin-dni-por-nombre`, worktree `partes-wt-f040`).
