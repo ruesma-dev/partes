@@ -6,13 +6,15 @@ Antes de desplegar F-036 dice, con los datos de hoy:
   - por empresa, cuantos recursos persona (`res.cla = 1`) hay de alta, de
     ellos sin DNI, con DNI solo por su ficha y con `res.cif` distinto del
     DNI de la ficha (DA1), y cuantos `MO/` de alta NO son persona (los que
-    el respaldo F-030 casaba y F-036 deja fuera) (R24);
+    el respaldo F-030 casaba y F-036 deja fuera) (R24) y, desde F-040 (R28),
+    cuantos sin DNI tampoco tienen ficha (`sin_dni_sin_ficha`);
   - para las lineas activas no congeladas, que hara con su recurso la
     pasada del conciliador (`igual` / `cambia` / `pierde` / `gana`, R25) y
     que daria el casado nuevo con lo leido frente al guardado (`igual` /
-    `otro_recurso` / `otra_persona` / `casado_nuevo` / `pierde_casado`, solo
-    informativo: lo ingerido no se re-casa, DA2) (R26). Las congeladas se
-    cuentan aparte.
+    `otro_recurso` / `otra_persona` / `casado_nuevo` / `pierde_casado` y,
+    desde F-040, `propone_sin_dni`; solo informativo: lo ingerido no se
+    re-casa, DA2) (R26). Las congeladas se cuentan aparte. F-040 (R29): el
+    alias se lee sin `recurso_ide` (antes del despliegue no existe).
 
 Solo lee (R23): los maestros por `POST /api/sql/read` de sigrid-api (las
 lecturas paginadas de siempre) y la base `partes` con SELECT dentro de una
