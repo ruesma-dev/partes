@@ -207,6 +207,17 @@ function avisarCambioLineas() {
     return " · " + (x.empresa_nombre || ("Empresa " + x.empresa));
   }
 
+  // F-040 (R15): el DNI de un recurso en los selectores de trabajador. Un
+  // recurso persona sin DNI tambien se ofrece, marcado «sin DNI».
+  function dniHtml(x) {
+    var texto = x && x.dni ? "DNI " + _esc(x.dni) : "sin DNI";
+    return ' <span class="cell-sub">' + texto + "</span>";
+  }
+
+  function dniSufijo(x) {
+    return " · " + (x && x.dni ? x.dni : "sin DNI");
+  }
+
   function obraLabel(o) {
     return (o.codigo ? o.codigo + " · " : "") + (o.nombre || "")
       + empresaSufijo(o);
@@ -760,8 +771,7 @@ function avisarCambioLineas() {
                 var label = (it.codigo ? it.codigo + " · " : "") + (it.nombre || "")
                   + empresaSufijo(it);
                 row.innerHTML = '<span class="mi-score">' + it.score + '%</span>' +
-                  '<span class="mi-emp">' + _esc(label) +
-                  (it.dni ? ' <span class="cell-sub">DNI ' + _esc(it.dni) + '</span>' : '') + '</span>';
+                  '<span class="mi-emp">' + _esc(label) + dniHtml(it) + '</span>';
                 var b = document.createElement("button");
                 b.type = "button"; b.className = "btn primary small"; b.textContent = "Casar";
                 b.addEventListener("click", function () {
@@ -882,8 +892,7 @@ function avisarCambioLineas() {
         shown.forEach(function (e, i) {
           var it = document.createElement("div");
           it.className = "combo-item" + (i === activeIdx ? " active" : "");
-          it.innerHTML = _esc(recLabel(e)) +
-            (e.dni ? ' <span class="cell-sub">DNI ' + _esc(e.dni) + '</span>' : '');
+          it.innerHTML = _esc(recLabel(e)) + dniHtml(e);
           it.addEventListener("mousedown", function (ev) {
             ev.preventDefault(); _empReasignar(wrap, e.ide, recLabel(e));
           });
@@ -1566,7 +1575,7 @@ function avisarCambioLineas() {
       });
     _comboSimple("emp-combo", "emp-input", "emp-panel", "/api/sigrid/recursos",
       function (r) {
-        return recLabel(r) + (r.dni ? " · " + r.dni : "");
+        return recLabel(r) + dniSufijo(r);
       },
       function (r) {
         // R19: se guardan los empleado_* de la asignacion del servidor
@@ -1772,7 +1781,7 @@ function avisarCambioLineas() {
     _comboSimple("addline-emp-combo", "addline-emp-input", "addline-emp-panel",
       "/api/sigrid/recursos",
       function (r) {
-        return recLabel(r) + (r.dni ? " · " + r.dni : "");
+        return recLabel(r) + dniSufijo(r);
       },
       function (r) {
         // F-035 (R19): los empleado_* de la asignacion y el `reside`.
