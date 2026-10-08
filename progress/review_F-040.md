@@ -1,19 +1,24 @@
 <!-- progress/review_F-040.md -->
-Revisión completa (pasada 1) · `git diff dev...HEAD` (merge-base `1a5b795`, HEAD `d099001`)
+Revisión incremental desde 100a4a4 (pasada 2) · delta `100a4a4..7ccdb5f`: `07d5ad1` + merge de dev `1114e33`
 
-# F-040 · Review (pasada 1)
+# F-040 · Review (pasada 2)
 
-**Veredicto: CHANGES_REQUESTED.**
+**Veredicto: APPROVED.** Nivel de rigor `critico` (declarado): fase RED, cobertura, mutación completa
+con 0 supervivientes y MANUAL con comando exacto en `current.md`; todo cumplido.
 
-El código, los tests, la cobertura y la mutación están bien; no hay que tocarlos. El rechazo es solo
-por `progress/current.md`: no trae el comando exacto de las MANUAL de T15 (C4) y arrastra texto que
-ya no es verdad (C2). La pasada 2 será incremental, limitada a ese delta. Si el delta no toca el
-alcance (RM1), no hace falta repetir la campaña de mutación.
+**Pasada 2 (delta):** solo cambia `progress/current.md` (`git diff 100a4a4..HEAD --stat`); el merge de
+dev trae únicamente F-039 `done` en `current.md`. Ningún fichero del alcance de mutación cambia desde
+`0c851f4` (RM1): la campaña y la cobertura siguen valiendo. `bash harness/init.sh` en verde
+(`ENTORNO LISTO`, raíz 461 passed / 3 skipped, COBERTURA [OK] 100 % 66/66, TAMAÑO [OK]).
+- Cambio 1 resuelto: T14/M1, T15 (`.\redeploy_partes.ps1 -Solo sv3` y luego `-Solo sv4`, desde `infra/`;
+  el script acepta `-Solo`), M2 (SQL y esperado: dos `YES`) y M3 (pasos) con su comando exacto. C4 → [x].
+- Cambio 2 resuelto: F-039 aparece `done` (coherente con `features.json`) y el bloqueo de T4 queda en una
+  línea. C2 → [x].
+Lo demás, lo de la pasada 1 (abajo, ya dado por bueno): no se relee.
 
-**Nivel de rigor:** `critico` (declarado). Exige fase RED, cobertura de las líneas cambiadas, mutación
-completa con 0 supervivientes y las MANUAL con su comando exacto en `current.md`.
+Detalle de la pasada 1 (`dev...d099001`, commit `100a4a4`, entonces CHANGES_REQUESTED), vigente:
 
-## Qué ejecuté (resultados reales)
+## Qué ejecuté en la pasada 1 (resultados reales)
 
 - **`bash harness/init.sh`**, dos veces:
   - 1.ª, **roja**: falla `tests/test_mutacion_prueba_de_verdad.py::test_A_antes_la_campania_paralela_daba_cero_supervivientes_falsos`
@@ -32,11 +37,8 @@ completa con 0 supervivientes y las MANUAL con su comando exacto en `current.md`
   - [x] Una sola feature `in_progress`.
   - [x] Rama correcta.
   - [x] `history.md` al día.
-  - [ ] **`current.md` no describe solo la sesión activa.**
-    - Conserva «F-039 · in_progress», pero `features.json` dice `done`. dev lo corrigió en `1114e33`,
-      que la rama no tiene.
-    - En F-040 sigue «Pendiente de decisión del humano; al retomar, seguir por T4», con la opción A
-      ya aplicada.
+  - [x] `current.md` coherente (en la pasada 1 era `[ ]`: F-039 seguía `in_progress` y quedaba el
+    bloqueo de T4; resuelto en la pasada 2).
 - **C3**
   - [x] Hexagonal: la lógica está en `application/services`, el ORM y el repositorio en
     `infrastructure`; el dominio solo cambia un comentario.
@@ -55,8 +57,8 @@ completa con 0 supervivientes y las MANUAL con su comando exacto en `current.md`
 - **C4**
   - [x] Trazabilidad completa (tabla de abajo).
   - [x] Sin red ni BBDD en los tests.
-  - [ ] **T15, M2 y M3 no traen su comando exacto en `current.md`**: dicen «según `tasks.md`». M1 sí
-    lo trae.
+  - [x] MANUAL T14/M1, T15, M2 y M3 con su comando exacto en `current.md` (en la pasada 1 era `[ ]`:
+    T15, M2 y M3 solo remitían a `tasks.md`; resuelto en la pasada 2).
 - **C4 bis**
   - [x] **Fase RED:** trazas reales de T2–T7 y T9–T12. T1 y T8 son caracterización. T11 incluye node
     sobre el `app.js` anterior.
@@ -82,7 +84,7 @@ completa con 0 supervivientes y las MANUAL con su comando exacto en `current.md`
 - **C5**
   - [x] T1–T13 y T16 en `[x]`, cada una con su commit `F-040 Tn:`. T14 y T15 son MANUAL.
   - [x] Árbol limpio.
-  - [x] `features.json` en `in_progress`.
+  - [x] `features.json`: F-040 pasa a `done` con este veredicto.
 
 ## Lo que se pidió comprobar especialmente
 
@@ -120,16 +122,7 @@ R23–R26 se retiraron por DA3.
 
 ## Cambios requeridos
 
-1. **`progress/current.md`, líneas 13–16.** Cambiar «según `tasks.md`» por los comandos exactos:
-   - **T15:** `infra/redeploy_partes.ps1 -Solo sv3`, y después `infra/redeploy_partes.ps1 -Solo sv4`.
-   - **M2:** `SELECT column_name, is_nullable FROM information_schema.columns WHERE table_name =
-     'empleado_alias' AND column_name IN ('empleado_ide','recurso_ide');`. Debe dar dos filas, las
-     dos con `YES`.
-   - **M3:** en Conciliar de Porsan, `MO/0032` y `MO/0033` salen «sin DNI». Al confirmar uno, el alias
-     queda con `recurso_ide` y la línea en `recurso_manual`. El preflight de la obra 0692 la da por
-     verificada.
-2. **`progress/current.md`, C2.** Integrar `dev` (`1114e33`) y dejar el párrafo del bloqueo de T4 en
-   una línea: «bloqueada en T4, desbloqueada con la opción A; ver `impl_F-040.md`».
+Ninguno (los dos de la pasada 1, resueltos en `07d5ad1` y `7ccdb5f`).
 
 ## Automejora (propuesta, no aplicada)
 

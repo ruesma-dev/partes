@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **39 features**, 12 abiertas, 27 terminadas.
-
-En curso: **F-040**.
+Resumen: **39 features**, 11 abiertas, 28 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -15,7 +13,6 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | en curso | critico | `feature/F-040-recursos-sin-dni-por-nombre` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -41,6 +38,7 @@ Bloqueadas: **F-014, F-032**.
 | F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |
 | F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
 | F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | estandar |
+| F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -71,12 +69,6 @@ Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos 
 estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
 
 Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
-
-### F-040 · Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-040-recursos-sin-dni-por-nombre`
-
-Pedida por el humano el 2026-10-08: «si no hay DNI en el parte o no hay DNI ni en recurso ni en empleado, que proponga por nombre». Tras F-035/F-036 el trabajador es un RECURSO persona (res.cla = 1) de alta en la empresa del parte; su DNI es emp.dni de la ficha (res.conide) o, si falta, res.cif. Recursos persona de alta SIN DNI en ningun sitio (medido 2026-10-08): Porsan MO/0032 y MO/0033 (obra 0692, el portal no los encuentra), empresa 12 (2), 18 (4), 25 (1). Hoy: (a) sv3 IndicePersonas.candidatos_nombre excluye recursos sin DNI y casar_trabajador agrupa por persona = DNI; (b) sv4 _SQL_RECURSOS_ACTIVOS/RecursoCatalog (F-035, DA3) no los ofrece; (c) el alias aprendido en Conciliar (empleado_alias, empleado_ide NOT NULL) no se guarda para recursos sin ficha de empleado; (d) sv5 verifica recurso_ide por empresa, alta y DNI: un recurso sin DNI no pasa. LO QUE SE PIDE: sv3 propone por nombre entre recursos sin DNI; sv4 los ofrece marcados 'sin DNI' y aprende el alias contra el recurso; sv5 puede registrar una linea con recurso_ide de un recurso sin DNI sin abrir la puerta al recurso equivocado; lista cerrada de CLAUDE.md al dia; medicion de impacto de solo lectura antes de desplegar.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
@@ -197,6 +189,12 @@ URGENTE. Incidencia verificada en produccion (solo lectura, 2026-10-07): 7 linea
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-039-nombre-empresa-en-combos`
 
 Incidencia del humano el 2026-10-08 (captura): en Conciliar los resultados de la busqueda manual de recursos salen «MO/0266 · ... · empresa 1», «... · empresa 28». Causa: static/app.js empresaSufijo(x) devuelve « · empresa N» y la usan los combos de obra (obraLabel), de trabajador (recLabel) y la busqueda manual de Conciliar. El portal ya tiene los nombres cortos en application/services/empresas.py (NOMBRES_EMPRESA / nombre_empresa, F-033), global Jinja EMPRESAS (F-035) y empresa_nombre en los candidatos de Conciliar. LO QUE SE PIDE: que todo sitio que hoy pinta «empresa N» pinte el nombre corto y «Empresa N» solo si no hay nombre, con una sola fuente de nombres (sin copiar el dict a JS a mano) y tests. Solo sv4.
+
+### F-040 · Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-040-recursos-sin-dni-por-nombre`
+
+Pedida por el humano el 2026-10-08: «si no hay DNI en el parte o no hay DNI ni en recurso ni en empleado, que proponga por nombre». Tras F-035/F-036 el trabajador es un RECURSO persona (res.cla = 1) de alta en la empresa del parte; su DNI es emp.dni de la ficha (res.conide) o, si falta, res.cif. Recursos persona de alta SIN DNI en ningun sitio (medido 2026-10-08): Porsan MO/0032 y MO/0033 (obra 0692, el portal no los encuentra), empresa 12 (2), 18 (4), 25 (1). Hoy: (a) sv3 IndicePersonas.candidatos_nombre excluye recursos sin DNI y casar_trabajador agrupa por persona = DNI; (b) sv4 _SQL_RECURSOS_ACTIVOS/RecursoCatalog (F-035, DA3) no los ofrece; (c) el alias aprendido en Conciliar (empleado_alias, empleado_ide NOT NULL) no se guarda para recursos sin ficha de empleado; (d) sv5 verifica recurso_ide por empresa, alta y DNI: un recurso sin DNI no pasa. LO QUE SE PIDE: sv3 propone por nombre entre recursos sin DNI; sv4 los ofrece marcados 'sin DNI' y aprende el alias contra el recurso; sv5 puede registrar una linea con recurso_ide de un recurso sin DNI sin abrir la puerta al recurso equivocado; lista cerrada de CLAUDE.md al dia; medicion de impacto de solo lectura antes de desplegar.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
