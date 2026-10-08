@@ -3,7 +3,8 @@
 
 Alimenta los selectores de trabajador del portal (Conciliar, Nuevo parte,
 modal «+ Añadir linea», combo del detalle de obra): recursos de clase
-persona de alta hoy, con DNI, filtrables por empresa. Un trabajador con
+persona de alta hoy, con o sin DNI (F-040: el sin DNI llega con `dni`
+None y el portal lo marca), filtrables por empresa. Un trabajador con
 recurso y sin ficha de empleado (caso F-030) tambien sale.
 
 `asignacion_de` es el UNICO sitio con la regla de que se escribe en la
@@ -47,7 +48,8 @@ class Asignacion:
 
 def asignacion_de(r: RecursoOption) -> Asignacion:
     """Con ficha enlazada: la ficha (DNI de la ficha y, si vacio, el del
-    recurso: el orden con que sv5 verifica). Sin ficha: el recurso."""
+    recurso: el orden con que sv5 verifica). Sin ficha: el recurso.
+    F-040 (R16): un recurso sin DNI deja `dni` None en los dos casos."""
     if r.empleado_ide is not None:
         return Asignacion(
             empleado_ide=r.empleado_ide, codigo=r.empleado_codigo,

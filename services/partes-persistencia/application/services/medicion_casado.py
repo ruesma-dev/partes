@@ -9,12 +9,15 @@ antes de desplegar, para saber que cambiara:
     `dni_solo_ficha` (`res.cif` vacio y ficha con DNI) y
     `cif_distinto_ficha` (los dos con DNI y distintos: DA1), y
     `mo_no_persona` (codigo `MO/` que no es persona: los que F-030 casaba
-    y R2 deja fuera).
+    y R2 deja fuera) y, desde F-040 (R28), `sin_dni_sin_ficha` (de los
+    `sin_dni`, los que tampoco tienen ficha enlazada en el maestro).
   - `medir_lineas` (R25-R26): por linea activa, que hara la pasada del
     conciliador con su recurso (`igual`, `cambia`, `pierde`, `gana`) y que
     daria el casado de F-036 con lo leido frente al guardado (`igual`,
-    `otro_recurso`, `otra_persona`, `casado_nuevo`, `pierde_casado`). Solo
-    informativo (DA2: lo ingerido no se re-casa). Las congeladas, aparte.
+    `otro_recurso`, `otra_persona`, `casado_nuevo`, `pierde_casado` y, desde
+    F-040 (R28), `propone_sin_dni`: el casado nuevo propondria un recurso
+    sin DNI en Conciliar). Solo informativo (DA2 de F-036 y DA4 de F-040:
+    lo ingerido no se re-casa). Las congeladas, aparte.
   - `resumir`, `csv_lineas` e `informe_markdown`: los recuentos y los
     textos del informe.
 
@@ -28,7 +31,10 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 
 from application.services import text_match as tm
-from application.services.casado_recurso import casar_trabajador
+from application.services.casado_recurso import (
+    METODO_NOMBRE_SIN_DNI,
+    casar_trabajador,
+)
 from application.services.empleado_matcher import EmpleadoMatcher
 from application.services.seleccion_sigrid import (
     IndicePersonas,
@@ -40,7 +46,8 @@ from domain.models.sigrid_models import RecursoRow
 
 #: Columnas de la tabla por empresa (R24), en orden.
 COLUMNAS_MAESTRO = ("persona", "sin_dni", "dni_solo_ficha",
-                    "cif_distinto_ficha", "mo_no_persona")
+                    "cif_distinto_ficha", "mo_no_persona",
+                    "sin_dni_sin_ficha")
 #: Columnas del CSV por linea (R27), en orden.
 COLUMNAS_LINEA = ("registro_id", "document_id", "empresa", "recurso",
                   "casado")
@@ -92,6 +99,8 @@ def medir_maestro(
         cif = tm.normalize_dni(r.cif)
         if not indice.dni_de_recurso(r):
             cuenta["sin_dni"] += 1
+            if ficha is None:
+                cuenta["sin_dni_sin_ficha"] += 1      # F-040 (R28)
         elif not cif:
             cuenta["dni_solo_ficha"] += 1
         elif dni_ficha and dni_ficha != cif:
@@ -166,6 +175,8 @@ def _casado(
         indice=indice, matcher=matcher, empresa=linea.empresa,
         fecha=linea.fecha_int or hoy,
     )
+    if nuevo.method == METODO_NOMBRE_SIN_DNI:
+        return "propone_sin_dni"        # F-040 (R28), antes que el resto
     antes_casado = (linea.empleado_ide is not None
                     or linea.empleado_match_method in _METODOS_RECURSO)
     ahora_casado = _casado_ok(nuevo)

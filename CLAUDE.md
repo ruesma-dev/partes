@@ -190,7 +190,12 @@ original NO se versiona: al repositorio entra solo el Markdown.
   los vigila `tests/test_f023_de_alta_gemelos.py`. La
   elección por DNI no es idéntica a propósito (sv3 desempata con el
   `reside` de la ficha; sv5 exige un único candidato), pero sus candidatos
-  son los mismos: empresa de la obra y alta a la fecha. Y la regla de
+  son los mismos: empresa de la obra y alta a la fecha. Desde F-040,
+  `elegir_recurso` (sv3) gana una rama SIN DNI (sin DNI, sin ficha y con
+  recurso preferido ⇒ `IndicePersonas.elegir_sin_dni`) que no es elección
+  por DNI y **no tiene gemela** en sv5, porque sv5 no elige recurso sin
+  DNI (`elegir_por_dni` solo corre con DNI; con `recurso_ide` verifica
+  existencia, empresa y alta). Y la regla de
   congelación de líneas, de hecho duplicada desde F-004 y ampliada por
   F-024 y F-019 (decisión expresa del humano el 2026-10-05, a propuesta
   del reviewer de F-019): sv4 `application/services/congelacion.py`

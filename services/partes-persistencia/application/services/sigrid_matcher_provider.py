@@ -17,7 +17,8 @@ indice (`indice()`), asi que no hay una segunda descarga ni dos verdades.
 F-036: el casado de la ingesta es contra los recursos persona del MISMO
 indice (`casado_recurso.casar_trabajador`); el respaldo F-030 de «fichas
 de recurso» se retira, subsumido. Al cargar, un INFO cuenta los recursos
-persona sin DNI, que no casan por nombre (R3).
+persona sin DNI (R3), que desde F-040 se proponen por nombre en Conciliar
+pero no casan solos.
 """
 from __future__ import annotations
 
@@ -118,12 +119,13 @@ class SigridMatcherProvider:
     @staticmethod
     def _avisar_personas_sin_dni(indice: IndicePersonas) -> None:
         """F-036 (R3): un recurso persona sin DNI (ni en su ficha ni en
-        `res.cif`) no es candidato por nombre; se cuenta para que se vea."""
+        `res.cif`) se cuenta para que se vea. F-040: compite por nombre, pero
+        si gana solo se propone (`nombre_sin_dni`)."""
         personas = [r for r in indice.recursos if es_persona(r)]
         sin_dni = sum(1 for r in personas if not indice.dni_de_recurso(r))
         logger.info(
-            "[matcher-provider] recursos persona sin DNI (no casan por "
-            "nombre): %s de %s", sin_dni, len(personas),
+            "[matcher-provider] recursos persona sin DNI (se proponen por "
+            "nombre, no casan solos): %s de %s", sin_dni, len(personas),
         )
 
     def _empty(self) -> Matchers:

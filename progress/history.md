@@ -796,3 +796,21 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   dos tests ajenos (F-015 r26, F-023 r40) esperan además `empresa_nombre`.
 - Verificado: init.sh en verde; tests de F-039 ejecutan el JS con node.
 - Pendiente: desplegar sv4 y M1 manual (humano).
+
+## F-040 · Recursos sin DNI: proponer por nombre y aprender el alias por recurso — done 2026-10-08
+
+- Rama `feature/F-040-recursos-sin-dni-por-nombre` · rigor critico · sdd=true ·
+  APPROVED del reviewer en la pasada 2 (`progress/review_F-040.md`; la 1 pidió
+  los comandos exactos de T15/M2/M3 e integrar dev). Bloqueada una vez en T4 y
+  desbloqueada con la opción A (tres tests de F-023 adaptados).
+- Petición: si no hay DNI en el parte ni en el recurso ni en su ficha, proponer
+  por nombre (Iván y Juan Gaviño, Porsan MO/0032 y MO/0033, no salían).
+- Entregado: sv3 da identidad de persona a quien no tiene DNI (ficha o recurso),
+  compite por nombre y, si gana un recurso sin DNI, PROPONE (`nombre_sin_dni`,
+  a Conciliar; nunca casa solo); alias con `recurso_ide` (empleado_ide nullable,
+  DDL al arrancar en las dos copias de orm_models.py); sv4 ofrece recursos sin
+  DNI marcados «sin DNI» y aprende el alias contra el recurso. sv5 sin cambios
+  (DA3 del humano). Lo ingerido no se re-casa.
+- Verificado: init.sh en verde, mutación completa 40/40, 0 supervivientes.
+- Pendiente: medición M1 (solo lectura, la autoriza el humano), desplegar sv3 y
+  sv4 (con F-039) y M2/M3.

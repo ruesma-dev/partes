@@ -1,9 +1,9 @@
 # tests/test_f036_seleccion.py
 """F-036 · R3-R5, R7: el casado elige RECURSO persona (`IndicePersonas`).
 
-  - `candidatos_nombre` (R3, R10): recursos persona de alta a la fecha, de
-    la empresa del parte (sin empresa, de cualquiera) y con DNI del
-    recurso.
+  - `candidatos_nombre` (R3, R10): recursos persona de alta a la fecha y de
+    la empresa del parte (sin empresa, de cualquiera). F-040 (R1) quito el
+    «con DNI del recurso»: los sin DNI tambien compiten por nombre.
   - `casar_por_dni` (R4, R5, R7): entre los recursos del DNI de alta y de
     la empresa del parte, con el desempate de siempre: uno solo; si no, el
     `reside` de la ficha del DNI de alta en esa empresa; si no, el unico
@@ -42,28 +42,29 @@ def _res(indice, dni=DNI, empresa=1, fecha=HOY):
 
 # ======================= candidatos_nombre (R3) ======================== #
 
-def test_f036_r3_candidatos_nombre_solo_persona_de_alta_empresa_y_con_dni(
+def test_f036_r3_candidatos_nombre_solo_persona_de_alta_y_empresa(
 ) -> None:
     indice = IndicePersonas([_ficha(10), _ficha(11, dni=None)], [
         _rec(900, conide=10),                  # si: DNI por ficha
         _rec(901, cif=OTRO),                   # si: DNI por cif
-        _rec(902, cif=None),                   # no: sin DNI (R3)
-        _rec(903, conide=11),                  # no: ficha sin DNI ni cif
+        _rec(902, cif=None),                   # si: sin DNI (F-040 R1)
+        _rec(903, conide=11),                  # si: ficha sin DNI (F-040 R1)
         _rec(904, cif=OTRO, cla=2),            # no: no es persona (R2)
         _rec(905, cif=OTRO, fecbaj=HOY),       # no: de baja ese dia
         _rec(906, cif=OTRO, empresa=28),       # no: otra empresa
         _rec(907, cif=OTRO, fecbaj=HOY + 1),   # si: baja futura
     ])
     assert [r.ide for r in indice.candidatos_nombre(1, HOY)] == \
-        [900, 901, 907]
+        [900, 901, 902, 903, 907]
 
 
 def test_f036_r3_candidatos_nombre_sin_empresa_de_cualquiera() -> None:
     indice = IndicePersonas([], [
         _rec(900, cif=DNI, empresa=1), _rec(901, cif=OTRO, empresa=28),
         _rec(902, cif=OTRO, empresa=None), _rec(903, cif=None, empresa=28)])
+    # 903 sin DNI tambien compite desde F-040 (R1).
     assert [r.ide for r in indice.candidatos_nombre(None, HOY)] == \
-        [900, 901, 902]
+        [900, 901, 902, 903]
 
 
 def test_f036_r3_candidatos_nombre_vacio() -> None:

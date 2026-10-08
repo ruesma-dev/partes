@@ -366,7 +366,9 @@ def test_f036_r12_nombre_que_no_llega_al_umbral() -> None:
 
 
 def test_f036_r3_nombre_de_un_recurso_sin_dni_no_casa() -> None:
-    assert _casar(nombre="Sin Dni Nadie").method == "none"
+    # F-040 (R3, DA1): compite por nombre, pero solo se propone.
+    m = _casar(nombre="Sin Dni Nadie")
+    assert _clave(m) == (*SIN_CASAR, "nombre_sin_dni")
 
 
 def test_f036_r2_nombre_de_un_recurso_que_no_es_persona_no_casa() -> None:

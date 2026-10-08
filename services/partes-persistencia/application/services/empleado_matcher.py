@@ -6,10 +6,13 @@ alias: los dos los resuelve `casado_recurso.casar_trabajador` contra los
 recursos persona (`seleccion_sigrid.IndicePersonas.casar_por_dni`). Este
 matcher solo resuelve el ultimo paso, el nombre, y SOLO entre los
 candidatos que le pasan (`IndicePersonas.candidatos_nombre`: recursos
-persona de alta a la fecha del parte, de su empresa y con DNI).
+persona de alta a la fecha del parte y de su empresa; desde F-040, con o
+sin DNI).
 
-F-036 (R10-R12): cada candidato es una persona (el DNI del recurso) con
-uno o varios nombres (el del recurso, `con.res`, y el de su ficha); puntua
+F-036 (R10-R12): cada candidato es una persona (desde F-040 su CLAVE de
+persona, `IndicePersonas.clave_persona`: el DNI del recurso o, sin el,
+`emp:<conide>` / `res:<ide>`) con uno o varios nombres (el del recurso,
+`con.res`, y el de su ficha); puntua
 el MAXIMO de ellos. Gana la persona de mayor puntuacion si llega al umbral
 y ninguna OTRA persona la empata o la supera; si no, `nombre_ambiguo`.
 Varios recursos de una misma persona no son ambiguedad: cual de ellos se

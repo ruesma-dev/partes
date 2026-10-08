@@ -74,7 +74,7 @@
             <td class="rc-score"><span class="score-pill score-{{ 'hi' if c.score >= 85 else ('mid' if c.score >= 65 else 'lo') }}">{{ c.score }}%</span></td>
             <td class="rc-emp">
               <strong>{% if c.codigo %}{{ c.codigo }} · {% endif %}{{ c.nombre or '(sin nombre)' }}</strong>
-              {% if c.dni %}<span class="cell-sub">DNI {{ c.dni }}</span>{% endif %}
+              {% if c.dni %}<span class="cell-sub">DNI {{ c.dni }}</span>{% else %}<span class="cell-sub">sin DNI</span>{% endif %}{# F-040 (R15) #}
               {% if c.empresa_nombre %}<span class="cell-sub">{{ c.empresa_nombre }}</span>{% endif %}
             </td>
             <td class="rc-act">

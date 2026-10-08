@@ -78,13 +78,17 @@ def _maestro():
 
 def test_f036_r24_recuentos_por_empresa() -> None:
     indice, recursos = _maestro()
+    # F-040 (R28): + `sin_dni_sin_ficha` (911 tiene ficha; 930 no).
     assert mc.medir_maestro(indice, recursos, HOY) == [
         {"empresa": 1, "persona": 5, "sin_dni": 1, "dni_solo_ficha": 1,
-         "cif_distinto_ficha": 1, "mo_no_persona": 2},
+         "cif_distinto_ficha": 1, "mo_no_persona": 2,
+         "sin_dni_sin_ficha": 0},
         {"empresa": 28, "persona": 2, "sin_dni": 1, "dni_solo_ficha": 1,
-         "cif_distinto_ficha": 0, "mo_no_persona": 0},
+         "cif_distinto_ficha": 0, "mo_no_persona": 0,
+         "sin_dni_sin_ficha": 1},
         {"empresa": None, "persona": 1, "sin_dni": 0, "dni_solo_ficha": 0,
-         "cif_distinto_ficha": 0, "mo_no_persona": 0},
+         "cif_distinto_ficha": 0, "mo_no_persona": 0,
+         "sin_dni_sin_ficha": 0},
     ]
 
 
@@ -355,7 +359,7 @@ def test_f036_r27_markdown_resumen_y_tabla_por_empresa() -> None:
     assert "2026-10-07 09:30" in md
     assert ("| empresa | persona | sin_dni | dni_solo_ficha | "
             "cif_distinto_ficha | mo_no_persona |") in md
-    assert "\n|---|---|---|---|---|---|\n" in md
+    assert "\n|---|---|---|---|---|---|---|\n" in md   # F-040: 7 columnas
     assert "| 1 | 5 | 1 | 1 | 1 | 2 |" in md
     assert "| (sin empresa) | 1 | 0 | 0 | 0 | 0 |" in md
     assert "| casado_casado_nuevo | 1 |" in md

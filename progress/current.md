@@ -1,6 +1,52 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-040 · in_progress (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+
+**Implementación terminada (2026-10-08), pendiente de reviewer.** Desbloqueada
+con la opción A del humano (`design.md` §8 enmendado; los tres tests de F-023
+cambian solo lo esperado). T1–T13 hechas, `init.sh` en verde, cobertura 100 %
+de 66 líneas, mutación completa 40/40 muertos (2 timeouts de sv4 comprobados a
+mano). Informe: `progress/impl_F-040.md`; mutación: `progress/mutacion_F-040.md`.
+`azure-apps/partes.md` actualizado (commit local `ec971c2` en `azure-apps`).
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; las lanza
+el humano, los agentes no:
+
+- **T14 · M1, antes de desplegar**: desde la rama, `cd
+  services/partes-persistencia && ../../.venv/Scripts/python.exe
+  medir_casado_recursos.py`; mirar `sin_dni`/`sin_dni_sin_ficha` por empresa,
+  `casado_pierde_casado` y `casado_propone_sin_dni` (informe en `logs/`).
+- **T15 · despliegue**, desde `infra/`: `.\redeploy_partes.ps1 -Solo sv3` y,
+  después, `.\redeploy_partes.ps1 -Solo sv4` (sv5 no se despliega).
+- **M2 · tras sv3** (base `partes`, solo lectura): `SELECT column_name,
+  is_nullable FROM information_schema.columns WHERE table_name =
+  'empleado_alias' AND column_name IN ('empleado_ide','recurso_ide');` ⇒
+  dos filas, las dos `YES`.
+- **M3 · tras sv4** (portal, Ctrl+F5): en Conciliar de Porsan, `MO/0032` y
+  `MO/0033` salen «sin DNI»; al confirmar uno, su alias queda con
+  `recurso_ide` y la línea en `recurso_manual`; el preflight de la obra 0692
+  la da por verificada.
+
+Bloqueada en T4, desbloqueada con la opción A; ver `impl_F-040.md`.
+
+Spec en `specs/F-040-recursos-sin-dni-por-nombre/` (rama
+`feature/F-040-recursos-sin-dni-por-nombre`, worktree `partes-wt-f040`).
+Servicios: sv3 (casado, conciliador, alias, medición) y sv4 (catálogo con «sin
+DNI», alias por recurso), más el esquema de `empleado_alias` (`recurso_ide`,
+`empleado_ide` nullable, por `ddl_complementario`, sin `.sql`). **sv5 no
+cambia**: ya escribe una línea sin DNI con recurso casado (existe, empresa,
+alta); solo un test de caracterización (R22). Despliegue sv3 → sv4 tras la
+medición M1.
+
+**Decisiones del humano (2026-10-08)** (`design.md` §12): DA1 **propone**
+(`nombre_sin_dni`, a Conciliar; el alias aprendido hace que la siguiente vez
+case); DA2 **columna `recurso_ide`** en `empleado_alias` (aprobada); DA3 **no
+acotar sv5** («si el recurso está casado, sv5 no deberá poner pega a que no
+tenga DNI»; R23–R26 retiradas, sin gemela ni guardián nuevos); DA4 **no se
+re-casa** (aprobada). Riesgo anotado (§11): sv5 no comprueba la persona en una
+línea sin DNI; solo la acotan sv3 (R10) y el catálogo de sv4.
+
 ## F-039 · done (2026-10-08), pendiente de desplegar sv4 y M1 (humano): nombre de la empresa en combos y Conciliar
 
 Implementer en el worktree `partes-wt-f039` (rama

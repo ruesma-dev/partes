@@ -330,8 +330,9 @@ class SigridLookupClient:
 
         La clase (``res.cla = 1``) y el alta a hoy del concepto del
         recurso van en SQL (R1, R4). El DNI se decide aqui (R2): ``res.cif``
-        y, si esta vacio, el de la ficha enlazada; el recurso que sigue sin
-        DNI no se ofrece (R3), porque sv3 y sv5 identifican por DNI.
+        y, si esta vacio, el de la ficha enlazada. F-040 (R14): el recurso
+        que sigue sin DNI TAMBIEN se ofrece, con ``dni`` None (el portal lo
+        marca «sin DNI»); se cuenta en el log.
         """
         hoy = int(datetime.now().strftime("%Y%m%d"))
         columns, rows = self._leer_paginado(
@@ -344,7 +345,7 @@ class SigridLookupClient:
         for row in rows:
             rm = dict(zip(columns, row))
             ide = _opt_int(rm.get("ide"))
-            if ide is None or ide in sin_dni:
+            if ide is None:
                 continue
             categoria = _opt_str(rm.get("categoria"))
             candef = _opt_float(rm.get("candef"))
@@ -364,7 +365,6 @@ class SigridLookupClient:
             dni = _opt_str(rm.get("cif")) or empleado_dni
             if not dni:
                 sin_dni.add(ide)
-                continue
             por_ide[ide] = len(out)
             out.append(RecursoOption(
                 ide=ide,
@@ -380,7 +380,8 @@ class SigridLookupClient:
                 candef=candef,
             ))
         logger.info(
-            "%s recursos_activos -> %s recursos (%s sin DNI, no se ofrecen)",
+            "%s recursos_activos -> %s recursos (%s sin DNI, ofrecidos "
+            "marcados)",
             _LOG_PREFIX, len(out), len(sin_dni),
         )
         return out

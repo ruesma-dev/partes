@@ -7,7 +7,8 @@
     `empresas_con_recurso` no proponen otro; `recurso()` y `recursos`
     siguen viendo todos (el conciliador pisa categoria y hora por ide).
   - R3: un recurso persona sin DNI del recurso no es candidato por nombre
-    y el proveedor lo cuenta en un INFO.
+    y el proveedor lo cuenta en un INFO. F-040 cambio el INFO: desde
+    entonces se PROPONEN por nombre (no casan solos).
 
 Sin red: `_post_sql_read` parcheado. Todo SINTETICO.
 """
@@ -211,5 +212,5 @@ def test_f036_r3_el_proveedor_cuenta_los_recursos_persona_sin_dni(
     lineas = [r.getMessage() for r in caplog.records
               if "sin DNI" in r.getMessage()]
     assert lineas == [(
-        "[matcher-provider] recursos persona sin DNI (no casan por nombre): "
-        "3 de 5")]
+        "[matcher-provider] recursos persona sin DNI (se proponen por "
+        "nombre, no casan solos): 3 de 5")]

@@ -12,6 +12,11 @@ base, para poder probarlo por tablas de casos:
     F-036: solo los recursos PERSONA (`res.cla = 1`, `CLA_PERSONA`) se
     proponen al casar o al elegir recurso; el casado de la ingesta elige
     RECURSO (`casar_por_dni`, `candidatos_nombre`).
+    F-040: quien no tiene DNI se identifica por su **clave de persona**
+    (`clave_persona`: `emp:<conide>` o `res:<res.ide>`); compite por nombre
+    (`candidatos_nombre`), se resuelve por clave (`casar_por_clave`) y el
+    conciliador conserva su recurso (`elegir_sin_dni`, rama R10 de
+    `elegir_recurso`).
   - `elegir_obra` (R9-R13): entre las obras que comparten el codigo leido
     (las «gemelas» de dos empresas), cual gana.
 
@@ -33,6 +38,11 @@ from domain.models.sigrid_models import EmpleadoRow, ObraRow, RecursoRow
 #: sv5 lo aplica en `recursos_por_dni` y lo vigila
 #: `tests/test_f036_recurso_persona_gemelos.py`.
 CLA_PERSONA = 1
+
+
+#: F-040: prefijos de la clave de persona de quien no tiene DNI del
+#: recurso: con ficha enlazada (`emp:<conide>`) o sin ella (`res:<ide>`).
+PREFIJO_FICHA, PREFIJO_RECURSO = "emp:", "res:"
 
 
 def es_persona(r: RecursoRow) -> bool:
@@ -140,6 +150,16 @@ class IndicePersonas:
         dni = tm.normalize_dni(ficha.dni) if ficha is not None else ""
         return dni or tm.normalize_dni(r.cif)
 
+    def clave_persona(self, r: RecursoRow) -> str:
+        """F-040: la persona del recurso. Su DNI; sin el, `emp:<conide>`
+        si la ficha enlazada esta en el maestro y, si no, `res:<ide>`."""
+        dni = self.dni_de_recurso(r)
+        if dni:
+            return dni
+        if self.ficha_enlazada(r) is not None:
+            return f"{PREFIJO_FICHA}{r.conide}"
+        return f"{PREFIJO_RECURSO}{r.ide}"
+
     # ------------------------------------------------------------- #
     def _recursos_de(
         self, dni: str, fichas: Iterable[int]
@@ -176,14 +196,32 @@ class IndicePersonas:
     def candidatos_nombre(
         self, empresa: int | None, fecha: int
     ) -> list[RecursoRow]:
-        """F-036 (R3, R10): recursos persona de alta a la fecha, de la
-        empresa (o de todas si es None) y con DNI del recurso."""
+        """F-036 (R3, R10): recursos persona de alta a la fecha y de la
+        empresa (o de todas si es None). F-040 (R1): con o sin DNI."""
         return [
             r for r in self._recursos
             if es_persona(r) and de_alta(r.fecbaj, fecha)
             and (empresa is None or r.empresa == empresa)
-            and self.dni_de_recurso(r)
         ]
+
+    def casar_por_clave(
+        self, clave: str, empresa: int | None, fecha: int
+    ) -> ResolucionRecurso:
+        """F-040: el recurso de una clave de persona (`clave_persona`).
+
+        `res:N` -> `elegir_sin_dni(N)`; `emp:N` -> el camino por ficha de
+        `elegir_recurso` (ficha fuera del maestro: `desconocido`); un DNI
+        -> `casar_por_dni`."""
+        if clave.startswith(PREFIJO_RECURSO):
+            ide = int(clave[len(PREFIJO_RECURSO):])
+            return self.elegir_sin_dni(ide, empresa, fecha)
+        if clave.startswith(PREFIJO_FICHA):
+            ficha = self.ficha(int(clave[len(PREFIJO_FICHA):]))
+            if ficha is None:
+                return ResolucionRecurso(None, "desconocido")
+            return self.elegir_recurso(None, ficha.ide, ficha.reside,
+                                       empresa, fecha)
+        return self.casar_por_dni(clave, empresa, fecha)
 
     def casar_por_dni(
         self, dni: str | None, empresa: int | None, fecha: int
@@ -197,6 +235,26 @@ class IndicePersonas:
             reside = self._ficha_por_ide[ficha.ide].reside
             return self.elegir_recurso(dni, ficha.ide, reside, empresa, fecha)
         return self.elegir_recurso(dni, None, None, empresa, fecha)
+
+    def elegir_sin_dni(
+        self, ide: int | None, empresa: int | None, fecha: int
+    ) -> ResolucionRecurso:
+        """F-040 (R9): el recurso `ide` de una persona SIN DNI, si vale.
+
+        `ok` solo si existe, es persona, no tiene DNI del recurso, esta de
+        alta a la fecha y es de la empresa (cualquiera si es None). Si no,
+        por este orden: `desconocido` (no esta o no es persona), `con_dni`,
+        `solo_baja` u `otra_empresa`."""
+        r = self.recurso(ide)
+        if r is None or not es_persona(r):
+            return ResolucionRecurso(None, "desconocido")
+        if self.dni_de_recurso(r):
+            return ResolucionRecurso(None, "con_dni")
+        if not de_alta(r.fecbaj, fecha):
+            return ResolucionRecurso(None, "solo_baja")
+        if empresa is not None and r.empresa != empresa:
+            return ResolucionRecurso(None, "otra_empresa")
+        return ResolucionRecurso(r.ide, "ok")
 
     def elegir_ficha(
         self, dni: str | None, empresa: int | None, fecha: int
@@ -232,8 +290,14 @@ class IndicePersonas:
         el `preferido` (el `reside` de la ficha) si es candidato o, si no,
         el unico enlazado a la ficha casada. `preferido` NUNCA se devuelve
         si no es candidato (R27).
+
+        F-040 (R10): sin DNI, sin ficha y con `preferido` (la linea sin DNI
+        casada a un recurso), el resultado es `elegir_sin_dni(preferido)`.
+        Esta rama no tiene gemela en sv5: sv5 no elige recurso sin DNI.
         """
         dni_n = tm.normalize_dni(dni)
+        if not dni_n and empleado_ide is None and preferido is not None:
+            return self.elegir_sin_dni(preferido, empresa, fecha)
         propios = self._recursos_de(dni_n, self._fichas_de(dni_n, empleado_ide))
         if not propios:
             return ResolucionRecurso(None, "desconocido")
