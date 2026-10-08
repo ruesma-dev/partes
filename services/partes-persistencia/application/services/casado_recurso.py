@@ -89,19 +89,44 @@ def casar_trabajador(
 def _casar_alias(
     datos: dict, indice: IndicePersonas, empresa: int | None, fecha: int
 ) -> EmpleadoMatch:
-    """R8: el DNI del alias o, vacio, el de su ficha; resuelto como R4-R5."""
+    """R8: el DNI del alias o, vacio, el de su ficha; resuelto como R4-R5.
+
+    F-040 (R7-R8): si tampoco, el DNI del recurso de su `recurso_ide`; y
+    sin ningun DNI, por su clave de persona (`_casar_alias_sin_dni`)."""
     dni = tm.normalize_dni(datos.get("dni"))
     if not dni:
         ficha = indice.ficha(datos.get("ide"))
         dni = tm.normalize_dni(ficha.dni) if ficha is not None else ""
     if not dni:
-        return EmpleadoMatch(method="alias_no_valido")
+        recurso = indice.recurso(datos.get("recurso_ide"))
+        dni = indice.dni_de_recurso(recurso) if recurso is not None else ""
+    if not dni:
+        return _casar_alias_sin_dni(datos, indice, empresa, fecha)
     res = indice.casar_por_dni(dni, empresa, fecha)
     if res.motivo == "ok":
         return _a_match(indice, indice.recurso(res.ide), 1.0, "alias")
     if res.motivo == "desconocido":
         return EmpleadoMatch(method="alias_no_valido")
     return EmpleadoMatch(method=f"dni_{res.motivo}")
+
+
+def _casar_alias_sin_dni(
+    datos: dict, indice: IndicePersonas, empresa: int | None, fecha: int
+) -> EmpleadoMatch:
+    """F-040 (R8): el alias de quien no tiene DNI, por su clave: `res:` con
+    `recurso_ide`; si no, `emp:` con ficha. `ok` casa con score 1.0
+    (`alias` con ficha, `recurso_nombre` sin ella); cualquier otro motivo
+    es `alias_no_valido`, sin seguir al nombre."""
+    if datos.get("recurso_ide") is not None:
+        clave = f"{PREFIJO_RECURSO}{datos['recurso_ide']}"
+    elif datos.get("ide") is not None:
+        clave = f"{PREFIJO_FICHA}{datos['ide']}"
+    else:
+        return EmpleadoMatch(method="alias_no_valido")
+    res = indice.casar_por_clave(clave, empresa, fecha)
+    if res.motivo != "ok":
+        return EmpleadoMatch(method="alias_no_valido")
+    return _a_match(indice, indice.recurso(res.ide), 1.0, "alias")
 
 
 def _casar_nombre(
@@ -148,6 +173,7 @@ def _a_match(
         metodo = "recurso_dni" if paso == "dni" else "recurso_nombre"
     return EmpleadoMatch(
         ide=ide, codigo=codigo, nombre=nombre,
-        dni=indice.dni_de_recurso(r), reside=r.ide,
+        # F-040 (R12): sin DNI del recurso, NULL y no cadena vacia.
+        dni=indice.dni_de_recurso(r) or None, reside=r.ide,
         score=score, method=metodo,
     )

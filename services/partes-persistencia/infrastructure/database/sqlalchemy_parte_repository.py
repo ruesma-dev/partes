@@ -470,7 +470,9 @@ class SqlAlchemyParteRepository:
 
     def find_empleado_alias(self, nombre_leido: str | None) -> dict | None:
         """Busca un alias aprendido (nombre LEIDO -> empleado). Devuelve los
-        datos del empleado o None. Usado en ingesta antes de la similitud."""
+        datos del empleado o None. Usado en ingesta antes de la similitud.
+        F-040 (R6): tambien `recurso_ide` (el recurso elegido en el portal;
+        `ide` es None si no tiene ficha)."""
         norm = tm.normalize(nombre_leido)
         if not norm:
             return None
@@ -483,6 +485,7 @@ class SqlAlchemyParteRepository:
                 "codigo": row.empleado_codigo,
                 "nombre": row.empleado_nombre,
                 "dni": row.empleado_dni,
+                "recurso_ide": row.recurso_ide,
             }
 
     def get_by_sha256(self, source_sha256: str) -> ExistingParte | None:

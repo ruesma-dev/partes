@@ -14,11 +14,16 @@ corre sobre SQLite en memoria. Datos SINTETICOS.
 """
 from __future__ import annotations
 
+from application.services import text_match as tm
 from infrastructure.database.orm_models import (
     DDL_EXTRA_POSTGRES,
     EmpleadoAliasOrm,
     ddl_complementario,
 )
+from infrastructure.database.sqlalchemy_parte_repository import (
+    SqlAlchemyParteRepository,
+)
+from tests.dobles import FabricaSesionSqlite
 
 RELAJAR = ("ALTER TABLE empleado_alias ALTER COLUMN empleado_ide "
            "DROP NOT NULL")
@@ -57,3 +62,40 @@ def test_f040_r21_ninguna_sentencia_reescribe_filas() -> None:
     for sentencia in ddl_complementario():
         assert "UPDATE " not in sentencia.upper(), sentencia
         assert "DELETE " not in sentencia.upper(), sentencia
+
+
+# =============================== R6 =================================== #
+
+def _repo_con(**alias) -> SqlAlchemyParteRepository:
+    fabrica = FabricaSesionSqlite()
+    with fabrica.create_session() as s:
+        s.add(EmpleadoAliasOrm(nombre_norm=tm.normalize("Pepe Leido"),
+                               created_at_utc="2026-10-01T00:00:00Z",
+                               **alias))
+        s.commit()
+    return SqlAlchemyParteRepository(fabrica)
+
+
+def test_f040_r6_alias_sin_ficha_devuelve_recurso_ide() -> None:
+    repo = _repo_con(empleado_ide=None, empleado_codigo="MO/9001",
+                     empleado_nombre="PEPE RECURSO", empleado_dni=None,
+                     recurso_ide=9001)
+    assert repo.find_empleado_alias("pepe  LEIDO") == {
+        "ide": None, "codigo": "MO/9001", "nombre": "PEPE RECURSO",
+        "dni": None, "recurso_ide": 9001,
+    }
+
+
+def test_f040_r6_alias_de_ficha_devuelve_recurso_ide_none() -> None:
+    repo = _repo_con(empleado_ide=10, empleado_codigo="E10",
+                     empleado_nombre="PEPE FICHA", empleado_dni="00000001R")
+    assert repo.find_empleado_alias("Pepe Leido") == {
+        "ide": 10, "codigo": "E10", "nombre": "PEPE FICHA",
+        "dni": "00000001R", "recurso_ide": None,
+    }
+
+
+def test_f040_r6_sin_alias_none() -> None:
+    repo = _repo_con(empleado_ide=10)
+    assert repo.find_empleado_alias("Otro Nombre") is None
+    assert repo.find_empleado_alias("") is None

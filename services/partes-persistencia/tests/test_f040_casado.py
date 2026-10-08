@@ -155,3 +155,66 @@ def test_f040_r5_dni_con_recurso_casa_por_dni() -> None:
 @pytest.mark.parametrize("dni", [None, "", "   "])
 def test_f040_r5_sin_dni_leido_va_al_nombre(dni) -> None:
     assert _casar(dni=dni, nombre="Rita Sola") == PROPUESTA
+
+
+# ================= R7, R8, R12 · alias contra el recurso =============== #
+
+@pytest.mark.parametrize("alias, esperado", [
+    # R8 sin ficha: `res:970` -> casado sin ficha (`recurso_nombre`).
+    ({"ide": None, "dni": None, "recurso_ide": 970},
+     (None, "MO/970", "RITA SOLA", None, 970, 1.0, "recurso_nombre")),
+    # R8 con recurso de una ficha sin DNI: `res:941` -> la ficha (`alias`).
+    ({"ide": 40, "dni": None, "recurso_ide": 941},
+     (40, "E40", "LUIS SINDNI", None, 941, 1.0, "alias")),
+    # R8 solo ficha: `emp:40` -> desempata el reside de la ficha (941).
+    ({"ide": 40, "dni": None, "recurso_ide": None},
+     (40, "E40", "LUIS SINDNI", None, 941, 1.0, "alias")),
+    ({"ide": 50, "dni": "", "recurso_ide": None},
+     (50, "E50", "PEPE GEMELO", None, 950, 1.0, "alias")),
+    # Con `recurso_ide` manda el recurso, no la ficha.
+    ({"ide": 50, "dni": None, "recurso_ide": 960},
+     (None, "MO/960", "PEPE GEMELO", None, 960, 1.0, "recurso_nombre")),
+    # R7: el DNI del alias, el de su ficha o el de su recurso, por DNI.
+    ({"ide": None, "dni": DNI_A, "recurso_ide": 970},
+     (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "alias")),
+    ({"ide": 10, "dni": None, "recurso_ide": 970},
+     (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "alias")),
+    ({"ide": None, "dni": None, "recurso_ide": 910},
+     (10, "E10", "ANA UNO", DNI_A, 910, 1.0, "alias")),
+])
+def test_f040_r7_r8_r12_alias_casa(alias, esperado) -> None:
+    assert _clave(_casar(nombre="Nadie Parecido", alias=alias)) == esperado
+
+
+@pytest.mark.parametrize("alias, empresa, metodo", [
+    # R7: DNI del recurso con varios recursos: el motivo de hoy.
+    ({"ide": None, "dni": None, "recurso_ide": 990}, EMPRESA, "dni_ambiguo"),
+    # R7: el recurso no es persona pero su cif es un DNI que no casa.
+    ({"ide": None, "dni": None, "recurso_ide": 995}, EMPRESA,
+     "alias_no_valido"),
+    # R8: cualquier motivo que no sea `ok` -> `alias_no_valido`.
+    ({"ide": None, "dni": None, "recurso_ide": 998}, EMPRESA,
+     "alias_no_valido"),                                   # de baja
+    ({"ide": None, "dni": None, "recurso_ide": 970}, 1,
+     "alias_no_valido"),                                   # otra empresa
+    ({"ide": None, "dni": None, "recurso_ide": 12345}, EMPRESA,
+     "alias_no_valido"),                                   # no esta
+    ({"ide": 99, "dni": None, "recurso_ide": None}, EMPRESA,
+     "alias_no_valido"),                                   # ficha no esta
+    ({"ide": 50, "dni": None, "recurso_ide": None}, 1,
+     "alias_no_valido"),                                   # emp: otra empresa
+    ({"ide": None, "dni": None, "recurso_ide": None}, EMPRESA,
+     "alias_no_valido"),                                   # sin nada
+    ({"ide": None, "dni": None}, EMPRESA, "alias_no_valido"),  # alias viejo
+])
+def test_f040_r8_alias_no_valido_no_sigue_al_nombre(alias, empresa,
+                                                    metodo) -> None:
+    """Aunque el nombre leido case de sobra con otra persona."""
+    m = _casar(nombre="Ana Uno", alias=alias, empresa=empresa)
+    assert _clave(m) == (None, None, None, None, None, 0.0, metodo)
+
+
+def test_f040_r12_casado_sin_dni_guarda_dni_none_no_vacio() -> None:
+    m = _casar(alias={"ide": None, "dni": None, "recurso_ide": 970})
+    assert (m.reside, m.method) == (970, "recurso_nombre")
+    assert m.dni is None
