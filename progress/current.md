@@ -1,20 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-039 · spec_ready (2026-10-08): nombre de la empresa en combos y Conciliar
+## F-039 · in_progress (2026-10-08): nombre de la empresa en combos y Conciliar
 
-Spec en `specs/F-039-nombre-empresa-en-combos/` (worktree `partes-wt-f039`,
-rama `feature/F-039-nombre-empresa-en-combos`). Solo sv4: los cuatro
-endpoints de items con `empresa` (`/api/sigrid/obras`, `/recursos`,
-`/empleados`, `/api/conciliacion/buscar`) devuelven `empresa_nombre`
-calculado con `application/services/empresas.py`, y `empresaSufijo` de
-`app.js` pinta « · <nombre>» (fallback «Empresa N»). Decisiones a validar
-por el humano:
+Implementer en el worktree `partes-wt-f039` (rama
+`feature/F-039-nombre-empresa-en-combos`). Decisiones del humano
+(2026-10-08): todo aprobado, DA1 (nombre por item en la API) y R4
+(`empresa_nombre` también en `/api/sigrid/empleados`). Solo sv4.
+`bash harness/init.sh` inicial en verde (sv4 1773 passed, 1 skipped).
 
-- **DA1**: nombre por item en la API (recomendada) frente a exponer el mapa
-  una vez en `base.html` como global JS.
-- **R4**: añadir `empresa_nombre` también a `/api/sigrid/empleados`, que hoy
-  nadie pinta (uniformidad, una línea); quitable sin afectar al resto.
+- Tarea en curso: T1 (API: `nombre_empresa_o_vacio` y `empresa_nombre`).
+- Desviaciones respecto a la spec: ninguna por ahora.
 
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 

@@ -105,7 +105,10 @@ from interface_adapters.web.identidad import (
 )
 from application.services.obra_catalog import ObraCatalog
 from application.services.empleado_catalog import EmpleadoCatalog
-from application.services.empresas import NOMBRES_EMPRESA, nombre_empresa
+from application.services.empresas import (
+    NOMBRES_EMPRESA,
+    nombre_empresa_o_vacio,
+)
 from application.services.recurso_catalog import (
     RecursoCatalog,
     asignacion_de,
@@ -1155,8 +1158,7 @@ def build_app(
         rec = recurso_catalog.get_by_ide(item["ide"])
         empresa = rec.empresa if rec is not None else None
         item["empresa"] = empresa
-        item["empresa_nombre"] = (
-            nombre_empresa(empresa) if empresa is not None else "")
+        item["empresa_nombre"] = nombre_empresa_o_vacio(empresa)  # F-039
         return item
 
     def _trabajador_pedido(
@@ -1339,7 +1341,8 @@ def build_app(
         scored.sort(key=lambda t: t[0], reverse=True)
         items = [
             {"ide": e.ide, "codigo": e.codigo, "nombre": e.nombre,
-             "dni": e.dni, "score": round(sc * 100), "empresa": e.empresa}
+             "dni": e.dni, "score": round(sc * 100), "empresa": e.empresa,
+             "empresa_nombre": nombre_empresa_o_vacio(e.empresa)}  # F-039
             for sc, e in scored[:15]
         ]
         return JSONResponse({"ok": True, "items": items})
@@ -1618,7 +1621,8 @@ def build_app(
                 "ok": True,
                 "items": [
                     {"ide": o.ide, "codigo": o.codigo, "nombre": o.nombre,
-                     "empresa": o.empresa}     # F-023 (R40)
+                     "empresa": o.empresa,     # F-023 (R40)
+                     "empresa_nombre": nombre_empresa_o_vacio(o.empresa)}
                     for o in items
                 ],
             }
@@ -1689,6 +1693,7 @@ def build_app(
                 "candef": e.candef,
                 "jornada_sugerida": _sugerida(e.candef),
                 "empresa": e.empresa,          # F-023 (R40)
+                "empresa_nombre": nombre_empresa_o_vacio(e.empresa),  # F-039
             }
             if dia is not None:
                 fila["jornada_dia"] = _del_dia(e)
@@ -1724,8 +1729,9 @@ def build_app(
             )
         salida = [
             {"ide": r.ide, "codigo": r.codigo, "nombre": r.nombre,
-             "dni": r.dni, "empresa": r.empresa, "categoria": r.categoria,
-             "candef": r.candef,
+             "dni": r.dni, "empresa": r.empresa,
+             "empresa_nombre": nombre_empresa_o_vacio(r.empresa),  # F-039
+             "categoria": r.categoria, "candef": r.candef,
              "jornada_sugerida": _jornada_sugerida(r.candef),
              "guardar": asignacion_de(r).como_guardar()}
             for r in items
