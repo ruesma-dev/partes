@@ -33,6 +33,9 @@ class EmpleadoMatch:
     # `codigo` y `nombre` son los de la ficha (dni | alias | nombre); sin
     # ella, `ide` None y `codigo`/`nombre` los del recurso, con
     # `recurso_dni` (por DNI) o `recurso_nombre` (por alias o nombre).
+    # F-040 (R3): `nombre_sin_dni` = gana por nombre una persona SIN DNI:
+    # se propone en Conciliar, sin `ide` ni `reside` (no casa). Un casado
+    # sin DNI del recurso (por alias) lleva `dni` None (R12).
     method: str = "none"
 
 
