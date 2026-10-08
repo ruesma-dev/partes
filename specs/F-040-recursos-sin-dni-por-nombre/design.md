@@ -151,7 +151,12 @@ Adaptaciones declaradas (se listan en `impl_F-040.md`): sv3
 `emp:`), los de `candidatos_nombre` con DNI obligatorio, el INFO de R3; sv4
 `test_f035_r3_sin_dni_ni_en_la_ficha_no_se_ofrece` (ahora se ofrece con `dni`
 None) y los que esperan que no haya alias sin ficha; los recuentos de
-`test_f010_r6_ddl_complementario*` si cuentan sentencias.
+`test_f010_r6_ddl_complementario*` si cuentan sentencias. **Enmienda (humano,
+2026-10-08, opción A):** también sv3 `test_f023_r25_persona_sin_recursos_es_desconocido`
+(sin DNI ni ficha con preferido ⇒ R10), `test_f023_r24_fichas_sin_dni_no_compiten_por_nombre`
+(⇒ `nombre_ambiguo`) y `test_f023_r24_una_sola_ficha_sin_dni_no_casa_por_nombre`
+(⇒ `nombre_sin_dni`): cambia solo lo esperado; siguen vigilando que ninguna
+línea sin DNI case sola por nombre.
 
 ## 9. Documentación (R27, R30)
 

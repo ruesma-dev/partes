@@ -1,9 +1,14 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-040 · BLOCKED (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+## F-040 · in_progress (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
 
-**Bloqueada en T4 por tests ajenos en rojo** (implementer, worktree
+**Desbloqueada el 2026-10-08: el humano elige la opción A.** `design.md` §8
+enmendado: las tres adaptaciones de F-023 quedan declaradas y se hacen
+cambiando solo lo esperado (siguen vigilando que ninguna línea sin DNI case
+sola). Implementer sigue por T4 → T16.
+
+**Estuvo bloqueada en T4 por tests ajenos en rojo** (implementer, worktree
 `partes-wt-f040`, `.venv` del repositorio principal). T1–T3 hechas y T4 hecha
 en código y tests nuevos (commits `f8143e9`, `fd63c6f`, `375a8e0`, `11a5a11`);
 informe parcial con las trazas RED en `progress/impl_F-040.md`.

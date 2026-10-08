@@ -420,8 +420,10 @@ def test_f023_r24_empate_con_otra_persona() -> None:
 
 
 def test_f023_r24_fichas_sin_dni_no_compiten_por_nombre() -> None:
-    """F-036 (R3) cambia este caso: un recurso persona sin DNI (ni en su
-    ficha ni en `res.cif`) no es candidato por nombre."""
+    """F-036 (R3) cambio este caso: un recurso persona sin DNI (ni en su
+    ficha ni en `res.cif`) no era candidato por nombre. F-040 (R1-R2, opcion
+    A del humano 2026-10-08): compite por su clave (`emp:50`, `emp:60`) y
+    las dos empatan: `nombre_ambiguo`. Sigue sin casar."""
     sin_dni = [
         EmpleadoRow(ide=50, codigo="E50", nombre="PEPE IGUAL", dni=None,
                     reside=None, empresa=1, fecbaj=0),
@@ -432,11 +434,15 @@ def test_f023_r24_fichas_sin_dni_no_compiten_por_nombre() -> None:
                 recurso_persona(ide=960, cif=None, conide=60, empresa=1)]
     parte = _casar(_parte(("Pepe Igual", None), obra="300"),
                    lookup=LookupIngesta(empleados=sin_dni, recursos=recursos))
-    assert parte.registros[0].empleado.method == "none"
+    emp = parte.registros[0].empleado
+    assert (emp.ide, emp.reside, emp.method) == (None, None, "nombre_ambiguo")
+    assert parte.review is True
 
 
 def test_f023_r24_una_sola_ficha_sin_dni_no_casa_por_nombre() -> None:
-    """F-036 (R3) cambia este caso: antes casaba por nombre con la ficha."""
+    """F-036 (R3) cambio este caso: antes casaba por nombre con la ficha.
+    F-040 (R3, DA1; opcion A del humano 2026-10-08): gana por nombre una
+    persona SIN DNI, asi que se propone (`nombre_sin_dni`), no se casa."""
     sin_dni = [EmpleadoRow(ide=50, codigo="E50", nombre="PEPE UNICO",
                            dni=None, reside=None, empresa=1, fecbaj=0)]
     parte = _casar(_parte(("Pepe Unico", None), obra="300"),
@@ -444,7 +450,8 @@ def test_f023_r24_una_sola_ficha_sin_dni_no_casa_por_nombre() -> None:
                        recurso_persona(ide=950, cif=None, conide=50,
                                        empresa=1)]))
     emp = parte.registros[0].empleado
-    assert (emp.ide, emp.method) == (None, "none")
+    assert (emp.ide, emp.reside, emp.method) == (None, None, "nombre_sin_dni")
+    assert parte.review is True
 
 
 def test_f023_r24_por_debajo_del_umbral_no_casa() -> None:

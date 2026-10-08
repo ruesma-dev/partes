@@ -390,7 +390,12 @@ def test_f023_r25_persona_sin_recursos_es_desconocido() -> None:
     indice = IndicePersonas([_ficha(10)], [_recurso(950, conide=20)])
     assert indice.elegir_recurso(DNI, 10, None, 1, HOY) == \
         ResolucionRecurso(None, "desconocido")
+    # F-040 (R10; opcion A del humano 2026-10-08): sin DNI, sin ficha y con
+    # preferido manda `elegir_sin_dni`: 950 es persona, sin DNI, de alta y
+    # de la empresa, asi que se conserva. Sin preferido sigue desconocido.
     assert indice.elegir_recurso(None, None, 950, 1, HOY) == \
+        ResolucionRecurso(950, "ok")
+    assert indice.elegir_recurso(None, None, None, 1, HOY) == \
         ResolucionRecurso(None, "desconocido")
 
 
