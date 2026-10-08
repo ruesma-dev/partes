@@ -519,6 +519,22 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-038-limite-filas-sigrid"
+    },
+    {
+      "id": "F-039",
+      "title": "Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar",
+      "description": "Incidencia del humano el 2026-10-08 (captura): en Conciliar los resultados de la busqueda manual de recursos salen «MO/0266 · ... · empresa 1», «... · empresa 28». Causa: static/app.js empresaSufijo(x) devuelve « · empresa N» y la usan los combos de obra (obraLabel), de trabajador (recLabel) y la busqueda manual de Conciliar. El portal ya tiene los nombres cortos en application/services/empresas.py (NOMBRES_EMPRESA / nombre_empresa, F-033), global Jinja EMPRESAS (F-035) y empresa_nombre en los candidatos de Conciliar. LO QUE SE PIDE: que todo sitio que hoy pinta «empresa N» pinte el nombre corto y «Empresa N» solo si no hay nombre, con una sola fuente de nombres (sin copiar el dict a JS a mano) y tests. Solo sv4.",
+      "acceptance": [
+        "Combos de obra y de trabajador y busqueda manual de Conciliar pintan «Ruesma»/«Porsan» y no «empresa N»",
+        "Un numero de empresa sin nombre se pinta «Empresa N»",
+        "Los nombres viven solo en application/services/empresas.py (app.js no los copia)",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-039-nombre-empresa-en-combos"
     }
   ]
 }

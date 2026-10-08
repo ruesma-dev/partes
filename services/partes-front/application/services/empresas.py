@@ -25,6 +25,14 @@ def nombre_empresa(numero: int) -> str:
     return NOMBRES_EMPRESA.get(numero, f"Empresa {numero}")
 
 
+def nombre_empresa_o_vacio(numero: int | None) -> str:
+    """F-039 · `empresa_nombre` de un item del portal: el nombre corto de
+    `numero` o `""` si el item no trae empresa (lo pinta `empresaSufijo`)."""
+    if numero is None:
+        return ""
+    return nombre_empresa(numero)
+
+
 def texto_empresas(numeros: list[int]) -> str:
     """Nombres unidos por « / » en el orden recibido; «—» si no hay."""
     if not numeros:

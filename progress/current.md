@@ -1,6 +1,41 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-039 · in_progress (2026-10-08): nombre de la empresa en combos y Conciliar
+
+Implementer en el worktree `partes-wt-f039` (rama
+`feature/F-039-nombre-empresa-en-combos`). Decisiones del humano
+(2026-10-08): todo aprobado, DA1 y R4.
+
+**Desbloqueada el 2026-10-08 (opción A del humano).** El bloqueo: dos tests
+ajenos de sv4 (`test_f015_r26_sin_fecha_las_claves_son_las_de_siempre`,
+`test_f023_r40_endpoint_obras_anade_la_empresa`) comprueban las claves
+EXACTAS de `/api/sigrid/empleados` y `/api/sigrid/obras`, y R12 prohibía
+tocarlos. Enmienda: R12 (requirements y design §4) admite esa única
+excepción; ambos tests añaden `empresa_nombre` a lo esperado, nada más.
+
+- T1–T4 hechas (mutación: 3 mutantes, 2 supervivientes del `score`
+  matados con un test; `init.sh` final en verde, cobertura 100 % de 6
+  líneas). Informe: `progress/impl_F-039.md`. Siguiente: reviewer; luego
+  merge, despliegue de sv4 y M1 (humano).
+- Desviaciones: solo la enmienda de R12 (decisión del humano).
+
+**Verificación MANUAL (humano), pendiente.** No toca Sigrid ni la base
+`partes`: es solo mirar el portal.
+
+- **M1 · MANUAL (humano)** — tras desplegar sv4
+  (`.\redeploy_partes.ps1 -Solo sv4` desde `infra/`; el despliegue lo pide
+  el humano, los agentes no lo lanzan):
+  1. Abrir el portal y recargar sin caché (**Ctrl+F5**).
+  2. **Conciliar** → en una tarjeta, «Buscar otro recurso» (búsqueda
+     manual): cada resultado termina en «· Ruesma» o «· Porsan», **no** en
+     «· empresa 1» / «· empresa 28».
+  3. **«+ Nuevo parte»**: el combo de obra y el de trabajador muestran
+     «· Ruesma»/«· Porsan» detrás de cada opción, no «empresa N».
+  4. **«+ Añadir línea»** (modal del detalle de un parte): lo mismo en los
+     combos de obra y de trabajador.
+  Una empresa sin nombre en `NOMBRES_EMPRESA` se vería «· Empresa N».
+
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 
 Tercera copia del criterio recurso persona (`res.cla = 1`) en sv4
