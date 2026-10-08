@@ -68,10 +68,8 @@ supervivientes analizados (RM5 N/A por nivel).
   `tasks.md` y `BACKLOG.md`: el alcance de producción es el revisado.
 - **RM2** coherente: 3 × 501,9 = 1505,7 s; W = 3; `media × W` ≈ 1506 s/mutante
   frente a base ≈ 490 s: más lento, no más rápido; ningún salto a la baja.
-- **RM3** el muerto no es equivalente (invierte la guarda: cambia la salida).
-  **RM6** no se quitó código defensivo (los supervivientes se mataron con un
-  test). Sin «⚠ CAMPAÑA NO VÁLIDA», «Sin veredicto» 0. Supervivientes con
-  análisis completo (hueco real preexistente, test nuevo).
+- **RM3** el muerto no es equivalente. **RM6** no se quitó código defensivo.
+  Sin «⚠ CAMPAÑA NO VÁLIDA», «Sin veredicto» 0. Supervivientes analizados.
 
 ## Checkpoints
 
