@@ -3,8 +3,10 @@
 
 El casado de la ingesta elige recurso, de la misma lista que despues usa
 el conciliador (`IndicePersonas`, recursos con `res.cla = 1`): los de alta
-a la fecha del parte, de la empresa del parte (sin empresa, de cualquiera)
-y con DNI del recurso (el de su ficha y, si no, `res.cif`; DA1).
+a la fecha del parte y de su empresa (sin empresa, de cualquiera), con o
+sin DNI del recurso (el de su ficha y, si no, `res.cif`; DA1). F-040: quien
+no tiene DNI compite por su clave de persona y, si gana, solo se PROPONE
+(`nombre_sin_dni`); su alias aprendido si casa (R7-R8).
 
 Orden (el de siempre): DNI leido -> alias aprendido -> similitud de
 nombre. Un DNI con recursos persona pero sin candidato unico CIERRA la
@@ -28,9 +30,17 @@ from collections.abc import Callable
 
 from application.services import text_match as tm
 from application.services.empleado_matcher import EmpleadoMatcher
-from application.services.seleccion_sigrid import IndicePersonas
+from application.services.seleccion_sigrid import (
+    PREFIJO_FICHA,
+    PREFIJO_RECURSO,
+    IndicePersonas,
+)
 from domain.models.parte_records import EmpleadoMatch
 from domain.models.sigrid_models import RecursoRow
+
+#: F-040 (R3, DA1): gana por nombre una persona SIN DNI: se propone en
+#: Conciliar, no se casa (sin `ide` ni `reside`; la linea sube a revision).
+METODO_NOMBRE_SIN_DNI = "nombre_sin_dni"
 
 #: Motivos de `casar_por_dni` que cierran la linea sin casar (R5).
 _MOTIVOS_QUE_CIERRAN = frozenset({"ambiguo", "solo_baja", "otra_empresa"})
@@ -103,16 +113,22 @@ def _casar_nombre(
     fecha: int,
 ) -> EmpleadoMatch:
     """R10-R12: la persona de nombre mas parecido entre los candidatos y,
-    de sus recursos, el que da `casar_por_dni` (R11)."""
+    de sus recursos, el que da `casar_por_dni` (R11). F-040 (R2-R4): la
+    persona es su clave (`clave_persona`); si gana una sin DNI, se propone
+    (`nombre_sin_dni`) y no se casa."""
     candidatos = []
     for r in recursos:
         ficha = indice.ficha_enlazada(r)
         nombres = (r.nombre, ficha.nombre if ficha is not None else None)
-        candidatos.append((indice.dni_de_recurso(r), nombres))
+        candidatos.append((indice.clave_persona(r), nombres))
     persona, score, metodo = matcher.match_nombre(
         nombre=nombre, candidatos=candidatos)
     if persona is None:
         return EmpleadoMatch(method=metodo)
+    if persona.startswith((PREFIJO_FICHA, PREFIJO_RECURSO)):
+        # F-040 (R3, DA1): sin DNI nada confirma la identidad salvo el
+        # nombre leido: se PROPONE en Conciliar, no se casa.
+        return EmpleadoMatch(method=METODO_NOMBRE_SIN_DNI)
     res = indice.casar_por_dni(persona, empresa, fecha)
     if res.motivo != "ok":
         return EmpleadoMatch(method="nombre_ambiguo")
