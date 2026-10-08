@@ -3,10 +3,17 @@
 
 ## F-040 · in_progress (2026-10-08): recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
 
-**Desbloqueada el 2026-10-08: el humano elige la opción A.** `design.md` §8
-enmendado: las tres adaptaciones de F-023 quedan declaradas y se hacen
-cambiando solo lo esperado (siguen vigilando que ninguna línea sin DNI case
-sola). Implementer sigue por T4 → T16.
+**Implementación terminada (2026-10-08), pendiente de reviewer.** Desbloqueada
+con la opción A del humano (`design.md` §8 enmendado; los tres tests de F-023
+cambian solo lo esperado). T1–T13 hechas, `init.sh` en verde, cobertura 100 %
+de 66 líneas, mutación completa 40/40 muertos (2 timeouts de sv4 comprobados a
+mano). Informe: `progress/impl_F-040.md`; mutación: `progress/mutacion_F-040.md`.
+`azure-apps/partes.md` actualizado (commit local `ec971c2` en `azure-apps`).
+
+**MANUAL (humano), pendiente:** T14/M1 antes de desplegar (`cd
+services/partes-persistencia && ../../.venv/Scripts/python.exe
+medir_casado_recursos.py` desde la rama, solo lectura) y T15 (despliegue sv3 →
+sv4, M2 y M3), según `tasks.md`.
 
 **Estuvo bloqueada en T4 por tests ajenos en rojo** (implementer, worktree
 `partes-wt-f040`, `.venv` del repositorio principal). T1–T3 hechas y T4 hecha
