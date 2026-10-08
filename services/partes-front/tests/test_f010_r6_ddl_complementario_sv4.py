@@ -54,9 +54,18 @@ def test_f010_r6_sv4_genera_el_ddl_de_las_columnas_de_los_dos_servicios() -> Non
     )
 
 
+#: F-040 (R21): la UNICA sentencia que relaja el esquema, nombrada entera
+#: (quitar un `NOT NULL` no toca filas y es idempotente en PostgreSQL).
+RELAJACIONES_PERMITIDAS: frozenset[str] = frozenset({
+    "ALTER TABLE empleado_alias ALTER COLUMN empleado_ide DROP NOT NULL",
+})
+
+
 def test_f010_r6_sv4_todo_es_idempotente_y_solo_aditivo() -> None:
     """El portal arranca muchas veces al dia: el DDL no puede tocar datos."""
     for sentencia in ddl_complementario():
+        if sentencia in RELAJACIONES_PERMITIDAS:
+            continue
         assert "IF NOT EXISTS" in sentencia, sentencia
         for verbo in ("ALTER COLUMN", "DROP ", "RENAME ", "TRUNCATE",
                       "DELETE ", "UPDATE "):
@@ -83,6 +92,8 @@ def test_f010_r6_sv4_el_indice_parcial_va_al_final() -> None:
             "CREATE UNIQUE INDEX IF NOT EXISTS ux_parte_documents_sha256_active "
             "ON parte_documents (source_sha256) WHERE is_active"
         ),
+        # F-040 (R21).
+        "ALTER TABLE empleado_alias ALTER COLUMN empleado_ide DROP NOT NULL",
     )
 
 

@@ -41,6 +41,18 @@ VERBOS_PROHIBIDOS: tuple[str, ...] = (
     "ALTER COLUMN", "DROP ", "RENAME ", "TRUNCATE", "DELETE ", "UPDATE ",
 )
 
+#: F-040 (R21): la UNICA sentencia que relaja el esquema, nombrada entera.
+#: Quitar un `NOT NULL` no toca ninguna fila y es idempotente en PostgreSQL;
+#: cualquier otra sentencia sigue sujeta a las dos reglas de abajo.
+RELAJACIONES_PERMITIDAS: frozenset[str] = frozenset({
+    "ALTER TABLE empleado_alias ALTER COLUMN empleado_ide DROP NOT NULL",
+})
+
+
+def _vigiladas(sentencias) -> list[str]:
+    """Las sentencias del DDL salvo la relajacion permitida de F-040."""
+    return [s for s in sentencias if s not in RELAJACIONES_PERMITIDAS]
+
 
 def _metadata_de_juguete() -> MetaData:
     """Dos tablas mínimas, declaradas en orden inverso al alfabético.
@@ -243,7 +255,7 @@ def test_f010_r6c_dos_llamadas_dan_lo_mismo() -> None:
 
 def test_f010_r6d_toda_sentencia_es_idempotente() -> None:
     """Arrancar dos veces el mismo servicio no puede reventar el arranque."""
-    for sentencia in ddl_complementario():
+    for sentencia in _vigiladas(ddl_complementario()):
         assert "IF NOT EXISTS" in sentencia, sentencia
 
 
@@ -281,12 +293,20 @@ def test_f010_r9_toda_columna_tiene_su_alter() -> None:
 
 def test_f010_r10_ddl_solo_aditivo() -> None:
     """Contra una BBDD que ya lo tiene todo, el DDL entero es un no-op."""
-    for sentencia in ddl_complementario():
+    for sentencia in _vigiladas(ddl_complementario()):
         for verbo in VERBOS_PROHIBIDOS:
             assert verbo not in sentencia.upper(), (
                 f"el DDL de arranque toca lo que ya existe ('{verbo}'): "
                 f"{sentencia}"
             )
+
+
+def test_f040_r21_la_relajacion_permitida_es_solo_la_de_f040() -> None:
+    """La excepcion no crece sola: va en `DDL_EXTRA_POSTGRES` y es esa."""
+    relajadas = [s for s in ddl_complementario()
+                 if s in RELAJACIONES_PERMITIDAS]
+    assert relajadas == sorted(RELAJACIONES_PERMITIDAS)
+    assert set(relajadas) <= set(DDL_EXTRA_POSTGRES)
 
 
 def test_f010_r10_ninguna_tabla_se_crea_sin_if_not_exists() -> None:

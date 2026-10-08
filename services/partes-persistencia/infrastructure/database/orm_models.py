@@ -290,16 +290,23 @@ class EmpleadoAliasOrm(Base):
 
     Lo escribe la conciliacion (sv4) al confirmar un casado manual; lo lee
     la INGESTA (sv3) antes de la similitud para casar de forma exacta las
-    variantes recurrentes de cada trabajador (OCR / caligrafia)."""
+    variantes recurrentes de cada trabajador (OCR / caligrafia).
+
+    F-040: el alias puede ser de un recurso SIN ficha de empleado
+    (`empleado_ide` NULL y `recurso_ide` el `res.ide`); nunca sin los dos
+    (lo impide `upsert_empleado_alias` de sv4)."""
     __tablename__ = "empleado_alias"
 
     nombre_norm: Mapped[str] = mapped_column(String(300), primary_key=True)
-    empleado_ide: Mapped[int] = mapped_column(Integer, nullable=False)
+    empleado_ide: Mapped[int | None] = mapped_column(Integer, nullable=True)
     empleado_codigo: Mapped[str | None] = mapped_column(String(60), nullable=True)
     empleado_nombre: Mapped[str | None] = mapped_column(Text, nullable=True)
     empleado_dni: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at_utc: Mapped[str] = mapped_column(String(40), nullable=False)
     created_by: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    #: F-040: recurso elegido en el portal (con o sin ficha). Sin ficha y sin
+    #: DNI es lo unico que identifica a la persona.
+    recurso_ide: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class EmpleadoJornadaOrm(Base):
@@ -486,14 +493,19 @@ class DedicacionBandejaOrm(Base):
 
 
 #: DDL de PostgreSQL que el ORM no sabe expresar de forma portable y que
-#: ambos servicios aplican al arrancar. Hoy solo el INDICE UNICO PARCIAL de
-#: `source_sha256`: la unicidad vale solo entre partes ACTIVOS, para que un
-#: parte borrado no bloquee la reingesta del mismo PDF.
+#: ambos servicios aplican al arrancar: el INDICE UNICO PARCIAL de
+#: `source_sha256` (la unicidad vale solo entre partes ACTIVOS, para que un
+#: parte borrado no bloquee la reingesta del mismo PDF) y, desde F-040, el
+#: `DROP NOT NULL` de `empleado_alias.empleado_ide`.
 DDL_EXTRA_POSTGRES: tuple[str, ...] = (
     (
         "CREATE UNIQUE INDEX IF NOT EXISTS ux_parte_documents_sha256_active "
         "ON parte_documents (source_sha256) WHERE is_active"
     ),
+    # F-040 (R21): `create_all` no relaja un NOT NULL existente. Idempotente
+    # en PostgreSQL (sobre una columna ya nullable no hace nada) y no toca
+    # ninguna fila: la unica excepcion al DDL «solo aditivo» de F-010.
+    "ALTER TABLE empleado_alias ALTER COLUMN empleado_ide DROP NOT NULL",
 )
 
 
