@@ -24,7 +24,7 @@ excepción; ambos tests añaden `empresa_nombre` a lo esperado, nada más.
 `partes`: es solo mirar el portal.
 
 - **M1 · MANUAL (humano)** — tras desplegar sv4
-  (`.edeploy_partes.ps1 -Solo sv4` desde `infra/`; el despliegue lo pide
+  (`.\redeploy_partes.ps1 -Solo sv4` desde `infra/`; el despliegue lo pide
   el humano, los agentes no lo lanzan):
   1. Abrir el portal y recargar sin caché (**Ctrl+F5**).
   2. **Conciliar** → en una tarjeta, «Buscar otro recurso» (búsqueda
