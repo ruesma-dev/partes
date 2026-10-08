@@ -66,9 +66,8 @@ supervivientes analizados (RM5 N/A por nivel).
   árbol de trabajo no se tocó.
 - **RM1** SHA medido `409cb1c`; desde ahí solo cambian `tests/`, `progress/`,
   `tasks.md` y `BACKLOG.md`: el alcance de producción es el revisado.
-- **RM2** coherente: 3 × 501,9 = 1505,7 s; W = 3; `media × W` ≈ 1506 s por
-  mutante frente a base ≈ 490 s: más lento, no más rápido (3 suites de sv4 en
-  paralelo y timeout 995 s); ningún salto a la baja.
+- **RM2** coherente: 3 × 501,9 = 1505,7 s; W = 3; `media × W` ≈ 1506 s/mutante
+  frente a base ≈ 490 s: más lento, no más rápido; ningún salto a la baja.
 - **RM3** el muerto no es equivalente (invierte la guarda: cambia la salida).
   **RM6** no se quitó código defensivo (los supervivientes se mataron con un
   test). Sin «⚠ CAMPAÑA NO VÁLIDA», «Sin veredicto» 0. Supervivientes con
@@ -132,18 +131,11 @@ supervivientes analizados (RM5 N/A por nivel).
 
 ## Observaciones (no bloquean)
 
-- `impl_F-039.md` «Evidencias» dice `--workers 6`; el informe de mutación
-  registra 3 (la herramienta no lanza más workers que mutantes). Coherente,
-  pero conviene decir el efectivo.
-- R6–R8 ejecutan `empresaSufijo` aislada, no `obraLabel`/`recLabel`; aquí
-  basta (llamadores sin cambios, misma IIFE, prueba ad hoc arriba). Para
-  features que toquen el ensamblado del JS, un test que ejecute la cadena
-  llamador → llamado es lo que habría cazado el ReferenceError de F-035.
+- «Evidencias» dice `--workers 6`; el informe de mutación registra 3 (no
+  lanza más workers que mutantes). Conviene decir el efectivo.
+- R6–R8 ejecutan `empresaSufijo` aislada; aquí basta (llamadores sin cambios,
+  misma IIFE, prueba ad hoc arriba).
 
-**Automejora (propuesta, no aplicada)**: es la cuarta feature rechazada solo
-por MANUAL fuera de `current.md` (F-035, F-036, F-037, F-039). Propongo que
-`.claude/agents/implementer.md` (todos los niveles, no solo `critico` como
-proponía F-036) exija copiar a `current.md` cada `M*`/`T*` MANUAL de
-`tasks.md` con su comando o procedimiento antes de devolver `done`, o que
-`init.sh` avise si una tarea `MANUAL` de la feature en curso no aparece en
-`current.md`.
+**Automejora (propuesta, no aplicada)**: cuarta feature rechazada solo por
+MANUAL fuera de `current.md` (F-035/36/37/39): que `implementer.md` (todos
+los niveles) exija copiarlas allí con su procedimiento, o que `init.sh` avise.
