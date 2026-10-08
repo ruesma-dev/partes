@@ -1,7 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-040 · done (2026-10-08), pendiente de M1, desplegar sv3+sv4 y M2/M3: recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+## F-040 · done y DESPLEGADA (2026-10-08, sv3+sv4 r20261008234617), M1 y M2 hechas, pendiente de M3: recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
+
+**Despliegue 2026-10-08 23:46** (humano: «si, haz las 2»): sv3 y sv4 `r20261008234617`; sv4
+Healthy; sv3 KEDA a 0 hasta el próximo mensaje. M1 (23:42, solo lectura): 303 líneas, 33
+congeladas, recurso igual 270/270; casado nuevo 10, otro recurso 1. M2: `empleado_alias`
+con `empleado_ide` y `recurso_ide` nullable (YES/YES); 0 alias (nunca se usó ninguno).
+Sigrid el 2026-10-08: MO/0032 y MO/0033 de Porsan ya tienen `res.cif`; 16 recursos persona
+de Porsan con baja 20261008 (quedan 23 de alta); Ruesma 205 de alta (ayer 231).
+
 
 **Implementación terminada (2026-10-08), pendiente de reviewer.** Desbloqueada
 con la opción A del humano (`design.md` §8 enmendado; los tres tests de F-023
@@ -47,7 +55,7 @@ tenga DNI»; R23–R26 retiradas, sin gemela ni guardián nuevos); DA4 **no se
 re-casa** (aprobada). Riesgo anotado (§11): sv5 no comprueba la persona en una
 línea sin DNI; solo la acotan sv3 (R10) y el catálogo de sv4.
 
-## F-039 · done (2026-10-08), pendiente de desplegar sv4 y M1 (humano): nombre de la empresa en combos y Conciliar
+## F-039 · done y DESPLEGADA (2026-10-08, sv4 r20261008234617), pendiente de M1 (humano): nombre de la empresa en combos y Conciliar
 
 Implementer en el worktree `partes-wt-f039` (rama
 `feature/F-039-nombre-empresa-en-combos`). Decisiones del humano
