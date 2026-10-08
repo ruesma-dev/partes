@@ -198,6 +198,26 @@ class IndicePersonas:
             return self.elegir_recurso(dni, ficha.ide, reside, empresa, fecha)
         return self.elegir_recurso(dni, None, None, empresa, fecha)
 
+    def elegir_sin_dni(
+        self, ide: int | None, empresa: int | None, fecha: int
+    ) -> ResolucionRecurso:
+        """F-040 (R9): el recurso `ide` de una persona SIN DNI, si vale.
+
+        `ok` solo si existe, es persona, no tiene DNI del recurso, esta de
+        alta a la fecha y es de la empresa (cualquiera si es None). Si no,
+        por este orden: `desconocido` (no esta o no es persona), `con_dni`,
+        `solo_baja` u `otra_empresa`."""
+        r = self.recurso(ide)
+        if r is None or not es_persona(r):
+            return ResolucionRecurso(None, "desconocido")
+        if self.dni_de_recurso(r):
+            return ResolucionRecurso(None, "con_dni")
+        if not de_alta(r.fecbaj, fecha):
+            return ResolucionRecurso(None, "solo_baja")
+        if empresa is not None and r.empresa != empresa:
+            return ResolucionRecurso(None, "otra_empresa")
+        return ResolucionRecurso(r.ide, "ok")
+
     def elegir_ficha(
         self, dni: str | None, empresa: int | None, fecha: int
     ) -> Resolucion:
