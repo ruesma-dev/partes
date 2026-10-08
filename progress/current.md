@@ -1,6 +1,21 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-039 · spec_ready (2026-10-08): nombre de la empresa en combos y Conciliar
+
+Spec en `specs/F-039-nombre-empresa-en-combos/` (worktree `partes-wt-f039`,
+rama `feature/F-039-nombre-empresa-en-combos`). Solo sv4: los cuatro
+endpoints de items con `empresa` (`/api/sigrid/obras`, `/recursos`,
+`/empleados`, `/api/conciliacion/buscar`) devuelven `empresa_nombre`
+calculado con `application/services/empresas.py`, y `empresaSufijo` de
+`app.js` pinta « · <nombre>» (fallback «Empresa N»). Decisiones a validar
+por el humano:
+
+- **DA1**: nombre por item en la API (recomendada) frente a exponer el mapa
+  una vez en `base.html` como global JS.
+- **R4**: añadir `empresa_nombre` también a `/api/sigrid/empleados`, que hoy
+  nadie pinta (uniformidad, una línea); quitable sin afectar al resto.
+
 ## Integración F-035/F-036 (rama `chore/integracion-f035-f036`, 2026-10-07): terminada
 
 Tercera copia del criterio recurso persona (`res.cla = 1`) en sv4

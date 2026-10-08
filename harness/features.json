@@ -530,7 +530,7 @@
         "Los nombres viven solo en application/services/empresas.py (app.js no los copia)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
