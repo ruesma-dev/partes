@@ -47,7 +47,7 @@ tenga DNI»; R23–R26 retiradas, sin gemela ni guardián nuevos); DA4 **no se
 re-casa** (aprobada). Riesgo anotado (§11): sv5 no comprueba la persona en una
 línea sin DNI; solo la acotan sv3 (R10) y el catálogo de sv4.
 
-## F-039 · in_progress (2026-10-08): nombre de la empresa en combos y Conciliar
+## F-039 · done (2026-10-08), pendiente de desplegar sv4 y M1 (humano): nombre de la empresa en combos y Conciliar
 
 Implementer en el worktree `partes-wt-f039` (rama
 `feature/F-039-nombre-empresa-en-combos`). Decisiones del humano
