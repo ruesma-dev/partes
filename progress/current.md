@@ -1,7 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-042 · spec_ready (2026-10-09): recalcular el reparto normal/extra al cambiar la fecha de un parte
+## F-042 · in_progress (2026-10-09): recalcular el reparto normal/extra al cambiar la fecha de un parte
+
+**Implementación en curso (implementer, 2026-10-09)** en el worktree `partes-wt-f042`. DA1–DA6 aprobadas
+por el humano el 2026-10-09 tal como las recomienda `design.md` §10. Tarea en curso: ver `tasks.md`.
+
 
 Spec en `specs/F-042-recalcular-extras-al-cambiar-fecha/` (rama y worktree
 `partes-wt-f042`). sv4 publica `{"tipo": "recalcular", ...}` en
