@@ -230,7 +230,7 @@ ORDER BY r.line_index, r.empleado_line_no, r.extra_auto;
   --account-name stpartespt7m3 --auth-mode login --num-messages 32` ⇒ ningún
   mensaje con `"tipo": "recalcular"`.
 
-## 10. Decisiones abiertas (humano)
+## 10. Decisiones del humano (2026-10-09: «si», aprobadas las seis recomendadas)
 
 - **DA1 · Deshacer un cambio de fecha también pide recálculo** (R7–R9). Sin
   ello, deshacer tras el recálculo deja la fecha vieja con el reparto nuevo
