@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-042 · in_progress (2026-10-09, implementer): recalcular el reparto normal/extra al cambiar la fecha de un parte
+## F-042 · done (2026-10-09, APPROVED pasada 1), pendiente de despliegue y M1–M3: recalcular el reparto normal/extra al cambiar la fecha de un parte
 
 **Desbloqueada el 2026-10-09 por decisión del humano (opción A, respuesta literal «A»).**
 Estuvo blocked en T4: el guardián
@@ -25,7 +25,7 @@ ventana, en la que alguien puede aprobar y congelar el reparto viejo.
 DA1–DA6 aprobadas por el humano el 2026-10-09 (las seis recomendadas). Riesgo
 preexistente anotado (§8 R-b): pasadas concurrentes de sv3 con `maxReplicas=5`.
 
-**Implementación terminada (implementer, 2026-10-09), pendiente de reviewer.**
+**Implementación terminada (implementer, 2026-10-09). Reviewer: APPROVED en la pasada 1** (`progress/review_F-042.md`, sin cambios requeridos).
 Informe: `progress/impl_F-042.md`; mutación: `progress/mutacion_F-042.md`.
 `azure-apps/partes.md` actualizado (commit local `be02869` en `azure-apps`).
 

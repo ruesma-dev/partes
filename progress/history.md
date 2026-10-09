@@ -814,3 +814,22 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
 - Verificado: init.sh en verde, mutación completa 40/40, 0 supervivientes.
 - Pendiente: medición M1 (solo lectura, la autoriza el humano), desplegar sv3 y
   sv4 (con F-039) y M2/M3.
+
+---
+
+## F-042 · Recalcular el reparto normal/extra al cambiar la fecha de un parte — done 2026-10-09
+
+- Rama `feature/F-042-recalcular-extras-al-cambiar-fecha` · rigor critico · sdd=true ·
+  APPROVED del reviewer en la pasada 1 (`progress/review_F-042.md`).
+- Origen: parte de la obra 0694 leído como domingo 11/10; al cambiar la fecha a 01/10 en el
+  portal el reparto de domingo se quedaba hasta la siguiente ingesta.
+- Entregado: sv4 publica `{"tipo": "recalcular", ...}` en `q-persistencia` al guardar o
+  deshacer la fecha (la fecha se guarda aunque la cola falle; el portal avisa); sv3 clasifica
+  el mensaje y ejecuta `conciliar_todos` sin lógica nueva; contrato sv4→sv3 vigilado en la raíz.
+- Decisiones del humano: DA1–DA6 recomendadas; opción A en T4 (guardián de F-017 de 15 a 17).
+- Verificado: init.sh en verde, cobertura 100 % de 105 líneas, mutación 13/13 muertos más 12
+  mutantes manuales del reviewer; azure-apps/partes.md actualizado (commit local `be02869`).
+- Observaciones no bloqueantes: log `peticion_id=None` de `ColaCliente` con cada recálculo; el
+  contrato solo ata `tipo`; avisos de ruff de estilo; el generador de mutantes produce pocos en
+  este diff (propuesta para el arnés: mutar constantes de cadena y orden de tuplas).
+- Pendiente: despliegue sv3 → sv4 cuando lo pida el humano y M1–M3 de `current.md`.
