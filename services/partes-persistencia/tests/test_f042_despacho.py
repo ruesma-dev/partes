@@ -254,3 +254,127 @@ def test_f042_r17_sin_conciliador_avisa_y_da_el_mensaje_por_bueno(
     assert ("[sv3-worker] recalculo pedido pero Sigrid no esta cableado"
             in avisos[0].getMessage())
     assert "doc-9" in avisos[0].getMessage()
+
+
+# ================== R18 · cableado de build_app y del worker ============ #
+# `build_app` monta PostgreSQL: se sustituyen la fabrica de sesiones y los
+# repositorios por dobles (ni driver ni socket) y se ejecuta DE VERDAD.
+
+class _FabricaDoble:
+    def __init__(self, **_kwargs) -> None:
+        pass
+
+
+class _RepoDoble:
+    def __init__(self, _fabrica) -> None:
+        pass
+
+    def initialize(self) -> None:
+        return None
+
+
+@pytest.fixture
+def app_sin_bbdd(monkeypatch):
+    from config.settings import Settings
+    from interface_adapters.api import app as modulo_app
+
+    monkeypatch.setenv("PG_PASSWORD", "irrelevante-en-tests")
+    monkeypatch.setenv("PG_ADMIN_PASSWORD", "irrelevante-en-tests")
+    monkeypatch.setattr(modulo_app, "SessionFactory", _FabricaDoble)
+    monkeypatch.setattr(modulo_app, "SqlAlchemyParteRepository", _RepoDoble)
+    monkeypatch.setattr(modulo_app, "SqlAlchemyJornadaRepository", _RepoDoble)
+
+    def _montar(casado: tuple):
+        monkeypatch.setattr(modulo_app, "construir_casado_sigrid",
+                            lambda *_a, **_k: casado)
+        return modulo_app.build_app(Settings(_env_file=None))
+    return _montar
+
+
+def test_f042_r18_build_app_expone_el_conciliador(app_sin_bbdd) -> None:
+    conciliador = ConciliadorFake()
+    app = app_sin_bbdd((None, None, None, conciliador))
+    assert app.state.recurso_conciliador is conciliador
+    assert app.state.pipeline is not None
+
+
+def test_f042_r18_sin_sigrid_el_conciliador_es_none(app_sin_bbdd) -> None:
+    app = app_sin_bbdd((None, None, None, None))
+    assert app.state.recurso_conciliador is None
+
+
+class _ColaDoble:
+    def __init__(self) -> None:
+        self.consumos: list[tuple[str, object]] = []
+        self.aseguradas: list[list[str]] = []
+
+    def asegurar_colas(self, nombres: list[str]) -> None:
+        self.aseguradas.append(list(nombres))
+
+    def consumir(self, cola: str, handler) -> None:
+        self.consumos.append((cola, handler))
+
+
+class _BlobDoble(BlobFake):
+    def __init__(self) -> None:
+        super().__init__({
+            ("input", "doc-1.pdf"): PDF,
+            ("envelopes", "doc-1.json"): json.dumps(ENVELOPE).encode(),
+        })
+
+    def asegurar_contenedores(self, nombres: list[str]) -> None:
+        pass
+
+
+@pytest.fixture
+def worker(monkeypatch):
+    """`main_worker.main()` con todo lo de fuera sustituido por dobles."""
+    from types import SimpleNamespace
+
+    import main_worker
+
+    cola, blob = _ColaDoble(), _BlobDoble()
+    pipeline, conciliador = PipelineFake(), ConciliadorFake()
+    construcciones: list[object] = []
+
+    def _build_app(settings):
+        construcciones.append(settings)
+        return SimpleNamespace(state=SimpleNamespace(
+            pipeline=pipeline, recurso_conciliador=conciliador))
+
+    ajustes = SimpleNamespace(
+        log_dir="logs", log_level="INFO",
+        colas_connection_string="UseDevelopmentStorage=true",
+        colas_account_url=None, blobs_connection_string=None,
+        blobs_account_url=None)
+    monkeypatch.setattr(main_worker, "Settings", lambda: ajustes)
+    monkeypatch.setattr(main_worker, "configure_logging", lambda *_a: None)
+    monkeypatch.setattr(main_worker, "construir_cola_cliente",
+                        lambda **_k: cola)
+    monkeypatch.setattr(main_worker, "construir_blob_cliente",
+                        lambda **_k: blob)
+    monkeypatch.setattr(main_worker, "build_app", _build_app)
+    return SimpleNamespace(main=main_worker.main, cola=cola, blob=blob,
+                           pipeline=pipeline, conciliador=conciliador,
+                           construcciones=construcciones)
+
+
+def test_f042_r18_el_worker_despacha_los_dos_tipos(worker) -> None:
+    assert worker.main() == 0
+
+    assert len(worker.construcciones) == 1          # build_app UNA vez
+    (cola, handler), = worker.cola.consumos
+    assert cola == "q-persistencia"
+
+    handler(_recalculo())
+    assert worker.conciliador.llamadas == 1
+    assert worker.pipeline.peticiones == [] and worker.blob.llamadas == []
+
+    handler({"document_id": "doc-1"})
+    assert worker.blob.llamadas == [("input", "doc-1.pdf"),
+                                    ("envelopes", "doc-1.json")]
+    assert len(worker.pipeline.peticiones) == 1
+    assert worker.conciliador.llamadas == 1
+
+    with pytest.raises(MensajeDesconocido):
+        handler({"tipo": "otro"})
