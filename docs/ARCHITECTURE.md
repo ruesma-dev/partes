@@ -29,7 +29,10 @@ Pydantic v2, FastAPI donde hay HTTP.
 Puntos de entrada: `main.py` en todos; sv2 y sv3 tienen además
 `main_worker.py` (bucle de cola, KEDA). Comunicación entre servicios:
 sv1→sv2→sv3 por colas de Azure Storage (`q-extraccion`, `q-persistencia`,
-at-least-once); sv4↔sv5 por **doble canal** (ver más abajo);
+at-least-once); desde **F-042**, sv4 también publica en `q-persistencia`
+un mensaje `{"tipo": "recalcular", ...}` al guardar o deshacer la fecha de
+un parte (semántica 3), que sv3 distingue del de sv2 (sin `tipo`);
+sv4↔sv5 por **doble canal** (ver más abajo);
 sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
 librería compartida: los servicios se acoplan únicamente por mensajes,
 HTTP y la BBDD `partes`.
@@ -119,6 +122,15 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    congelada, ninguna se revierte ni se vuelve a partir, y las extras
    automáticas no congeladas de una pareja cuya extra ya está congelada son
    duplicados y se borran. La regla por línea (semántica 10) no cambia.
+   El reparto solo lo calcula sv3 (`conciliar_todos`, que recalcula todo lo
+   activo no congelado) y solo cuando le llega un mensaje por
+   `q-persistencia`. **F-042**: además de cada ingesta de sv2, lo dispara
+   sv4 al **guardar o deshacer la fecha** de un parte (`tipo:
+   "recalcular"`, motivo `cambio_fecha` / `deshacer_cambio_fecha`); la
+   fecha se guarda aunque la cola falle y el portal lo avisa
+   (`recalculo`: `pedido`, `fallo`, `sin_cola`). En sv3 un recálculo
+   fallido se reintenta y acaba en `q-persistencia-poison`. Editar horas,
+   trabajador, obra o líneas sigue esperando a la siguiente pasada.
 4. **Incidencias sin horas** (`can=0`) y **solo inicio/fin de racha**
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
