@@ -22,14 +22,50 @@ assignment list` el 2026-10-09). Hallazgo: el reparto mal calculado se arregla
 solo con la siguiente ingesta (toda pasada recalcula todo); F-042 cierra esa
 ventana, en la que alguien puede aprobar y congelar el reparto viejo.
 
-**Decisiones abiertas para el humano** (`design.md` §10): DA1 deshacer un
-cambio de fecha también pide recálculo (va más allá de la letra del alcance,
-pero sin ello deshacer deja el reparto incoherente); DA2 sin coalescer; DA3 un
-recálculo fallido va a reintento y poison (no best-effort); DA4 no bloquear la
-aprobación durante el recálculo, solo aviso; DA5 publicar aunque la fecha no
-cambie (reguardar = reintento); DA6 contrato de mensaje fuera de la lista
-cerrada de `CLAUDE.md`. Riesgo preexistente anotado (§8 R-b): pasadas
-concurrentes de sv3 con `maxReplicas=5`.
+DA1–DA6 aprobadas por el humano el 2026-10-09 (las seis recomendadas). Riesgo
+preexistente anotado (§8 R-b): pasadas concurrentes de sv3 con `maxReplicas=5`.
+
+**Implementación terminada (implementer, 2026-10-09), pendiente de reviewer.**
+Informe: `progress/impl_F-042.md`; mutación: `progress/mutacion_F-042.md`.
+`azure-apps/partes.md` actualizado (commit local `be02869` en `azure-apps`).
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; las lanza el
+humano, los agentes no:
+
+- **M1 · antes de desplegar** (base `partes`, firewall abierto a mano por el
+  humano): estado del parte de la obra 0694 del 01/10. Puede estar **ya
+  arreglado** si después entró otro parte (cualquier ingesta recalcula todo):
+
+  ```sql
+  SELECT r.line_index, r.empleado_line_no, r.tipo_hora, r.extra_auto,
+         r.horas, r.horas_orig, r.sigrid_estado, d.approved
+  FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+  WHERE d.is_active AND d.obra_codigo = '0694' AND d.fecha_int = 20261001
+    AND r.deleted_at_utc IS NULL
+  ORDER BY r.line_index, r.empleado_line_no, r.extra_auto;
+  ```
+
+- **Despliegue** (lo pide el humano), desde `infra/`, en este orden:
+  `.\redeploy_partes.ps1 -Solo sv3` y después `.\redeploy_partes.ps1 -Solo sv4`.
+- **M2 · tras desplegar sv3 y sv4**: en el portal, volver a guardar la fecha
+  01/10 de ese parte (si no está aprobado; si lo está, otro parte sin congelar)
+  ⇒ «recalculando extras». A los 1–2 min, en Log Analytics:
+
+  ```powershell
+  $WS = az containerapp env show -n cae-partes-dev -g rg-partes-dev --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv3-persistencia' | where Log_s has 'recalculo' | project TimeGenerated, Log_s | order by TimeGenerated desc | take 20"
+  ```
+
+  ⇒ una línea `[sv3-worker] recalculo motivo=cambio_fecha document_id=<el del
+  parte>`. Repetir la SQL de M1: cada base con `horas` = jornada del jueves y
+  su `extra_auto` con el exceso.
+- **M3 · poison**:
+
+  ```powershell
+  az storage message peek --queue-name q-persistencia-poison --account-name stpartespt7m3 --auth-mode login --num-messages 32
+  ```
+
+  ⇒ ningún mensaje con `"tipo": "recalcular"`.
 
 ## F-040 · done y DESPLEGADA (2026-10-08, sv3+sv4 r20261008234617), M1 y M2 hechas, pendiente de M3: recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
 
