@@ -67,8 +67,8 @@ correo partes@ruesma.es
 │ sv1 · email   │ ────────────────▶ │ sv2 · extracción│  (IA: Gemini)
 │ ca-sv1-poller │   (Azure Queue)   │ ca-sv2-extraccion│
 └───────────────┘                   └────────┬───────┘
-                                             │ q-persistencia
-                                             ▼
+                                             │ q-persistencia ◀── sv4 (F-042:
+                                             ▼        «recalcular» al cambiar la fecha)
                                     ┌────────────────────┐
                                     │ sv3 · persistencia │──▶ PostgreSQL `partes`
                                     │ ca-sv3-persistencia│──▶ SharePoint (PDF)
@@ -90,7 +90,9 @@ correo partes@ruesma.es
 | sv5 | `partes-transfer` | Registro en Sigrid (escritura) | **1/1 fijo** |
 
 Comunicación: sv1→sv2→sv3 por **colas de Azure Storage** (patrón
-at-least-once, KEDA despierta a los workers); sv4→sv5 por **HTTP síncrono
+at-least-once, KEDA despierta a los workers); sv4→sv3 también por
+`q-persistencia` desde F-042 (mensaje «recalcular» al guardar o deshacer la
+fecha de un parte); sv4→sv5 por **HTTP síncrono
 interno** (necesario para confirmar conflictos en el mismo modal);
 sv3/sv5→Sigrid a través de **sigrid-api** (Function App pasarela al SQL
 Server on-premises por VPN). sv5 es el ÚNICO con credencial de escritura.
@@ -137,7 +139,8 @@ por sigrid-api, cacheados en el wiring):
   como ordinarias + exceso como **extra automática** (`extra_auto`,
   conservando `horas_orig`); admite ajustes negativos. Base y extra
   automática se congelan juntas para el recálculo (F-037): si una ya está
-  en Sigrid, la pareja no se vuelve a partir.
+  en Sigrid, la pareja no se vuelve a partir. Desde F-042 se repite
+  también cuando sv4 cambia (o deshace) la fecha de un parte.
 
 Persiste documento + registros en PostgreSQL y sube el PDF a
 **SharePoint** (Graph), guardando drive/item/URL.
@@ -361,6 +364,17 @@ una ya está en Sigrid, ninguna se revierte ni se vuelve a partir, y una
 extra automática no congelada de una pareja cuya extra ya está congelada
 es un duplicado y se borra. Hasta F-037, una base `omitido` con su extra
 `registrado` generaba otra extra en cada pasada.
+
+**Cuándo se recalcula** (F-042). El reparto lo calcula solo sv3, en cada
+pasada de `conciliar_todos` (recalcula todo lo activo no congelado), y esa
+pasada solo corre cuando llega un mensaje a `q-persistencia`: cada parte
+que ingiere sv2 y, desde F-042, cada vez que en el portal se **guarda o se
+deshace la fecha** de un parte. sv4 publica entonces `{"tipo":
+"recalcular", ...}` tras guardar; un parte leído en domingo y pasado a
+jueves deja de tener todo a extra en 1–2 minutos (arranque de sv3 desde
+cero réplicas). Si la cola falla, la fecha queda guardada y la pantalla
+pide volver a guardarla. Editar horas, trabajador u obra, o borrar líneas,
+sigue esperando a la siguiente pasada.
 
 **La jornada del día no es plana** (F-015). El `candef` de Sigrid son las
 horas de lunes a jueves; el **último día laborable de la semana** —el

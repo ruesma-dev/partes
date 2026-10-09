@@ -1,19 +1,23 @@
 # main_worker.py
 """Worker de sv3 (persistencia).
 
-Consume 'q-persistencia', lee el PDF de 'input/{document_id}.pdf' y el envelope
-de 'envelopes/{document_id}.json', y persiste (PostgreSQL + SharePoint + Sigrid).
-La idempotencia at-least-once la cubre el dedup por sha256 del propio sv3.
+Consume 'q-persistencia', que trae dos tipos de mensaje (F-042; el handler
+vive en `interface_adapters/workers/despacho.py`):
+
+  - **ingesta** (de sv2, sin `tipo`): lee el PDF de 'input/{document_id}.pdf'
+    y el envelope de 'envelopes/{document_id}.json', y persiste (PostgreSQL +
+    SharePoint + Sigrid). La idempotencia at-least-once la cubre el dedup por
+    sha256 del propio sv3.
+  - **recalculo** (de sv4, `tipo: "recalcular"`, al guardar o deshacer la
+    fecha de un parte): una pasada de `conciliar_todos` sin blobs ni
+    pipeline. Si falla, se reintenta y acaba en la poison.
 """
 from __future__ import annotations
 
-import json
 import logging
 import os
-from dataclasses import asdict
 from pathlib import Path
 
-from application.pipelines.persist_parte_pipeline import PersistParteRequest
 from config.logging_config import configure_logging
 from config.settings import Settings
 from infrastructure.azure.credenciales import (
@@ -21,6 +25,7 @@ from infrastructure.azure.credenciales import (
     construir_cola_cliente,
 )
 from interface_adapters.api.app import build_app
+from interface_adapters.workers.despacho import construir_handler
 
 logger = logging.getLogger(__name__)
 
@@ -58,22 +63,13 @@ def main() -> int:
         # Modo local (Azurite arranca vacio): asegura colas y contenedores.
         cola.asegurar_colas([COLA_ENTRADA])
         blob.asegurar_contenedores([CONTENEDOR_INPUT, CONTENEDOR_ENVELOPES])
-    pipeline = build_app(settings).state.pipeline
-
-    def handler(payload: dict) -> None:
-        document_id = payload["document_id"]
-        filename = payload.get("filename", "document.pdf")
-        mime = payload.get("mime_type", "application/pdf")
-        context = payload.get("context", {})
-        pdf = blob.descargar(CONTENEDOR_INPUT, f"{document_id}.pdf")
-        envelope = json.loads(
-            blob.descargar(CONTENEDOR_ENVELOPES, f"{document_id}.json"))
-        result = pipeline.run(PersistParteRequest(
-            filename=filename, mime_type=mime, file_bytes=pdf,
-            extraction_envelope=envelope,
-            context=context if isinstance(context, dict) else {}))
-        logger.info("[sv3-worker] persistido document_id=%s -> %s",
-                    document_id, asdict(result))
+    app = build_app(settings)
+    handler = construir_handler(
+        blob=blob, pipeline=app.state.pipeline,
+        recurso_conciliador=app.state.recurso_conciliador,
+        contenedor_input=CONTENEDOR_INPUT,
+        contenedor_envelopes=CONTENEDOR_ENVELOPES,
+    )
 
     cola.consumir(COLA_ENTRADA, handler)
     return 0

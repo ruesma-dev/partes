@@ -89,6 +89,13 @@ from infrastructure.database.parte_repository import (
     extras_por_jornada,
 )
 from infrastructure.database.session_factory import SessionFactory
+from infrastructure.persistencia.recalculo_publisher import (
+    MOTIVO_CAMBIO_FECHA,
+    MOTIVO_DESHACER_FECHA,
+    RecalculoPublisher,
+    pedir_recalculo,
+    peor_estado,
+)
 from infrastructure.transfer.resultado_sigrid import aplicar_resultado
 from infrastructure.transfer.transfer_client import TransferClient
 from infrastructure.transfer.transfer_queue_publisher import (
@@ -389,13 +396,14 @@ def build_app(
     cola_cliente=None,
     calendario_provider: CalendarioProvider | None = None,
     jornada_provider: JornadaEmpleadoProvider | None = None,
+    recalculo_publisher: RecalculoPublisher | None = None,
 ) -> FastAPI:
     """Portal de revision.
 
     Los colaboradores se pueden inyectar (repositorio, cliente HTTP de
     sv5, publisher de `q-transfer`, cliente de cola para la gestion de
-    poison, proveedor de calendario y proveedor de excepciones de
-    jornada). Sin inyeccion se construyen desde `settings`, que es lo que
+    poison, proveedor de calendario, proveedor de excepciones de
+    jornada y publisher del recalculo de extras de F-042). Sin inyeccion se construyen desde `settings`, que es lo que
     hace `main.py`; con ella, la suite levanta la app sin PostgreSQL, sin
     red y sin Storage.
     """
@@ -527,6 +535,13 @@ def build_app(
             recientes=RegistroComprobaciones(
                 ttl_s=settings.comprobacion_sigrid_ttl_s),
         )
+
+    # F-042: peticion de recalculo de extras a sv3 por `q-persistencia`,
+    # con el MISMO cliente de cola de la gestion de poison (R10). Sin cola
+    # (local sin Azurite) no hay publicador y la fecha se guarda igual (R4).
+    if recalculo_publisher is None and cola_cliente is not None:
+        recalculo_publisher = RecalculoPublisher(
+            cola=cola_cliente, cola_persistencia=settings.cola_persistencia)
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo
@@ -1457,7 +1472,7 @@ def build_app(
         return JSONResponse({"ok": True, "items": items, "count": len(items)})
 
     @app.post("/api/undo", include_in_schema=False)
-    def undo_apply() -> JSONResponse:
+    def undo_apply(request: Request) -> JSONResponse:
         try:
             res = repository.undo_last()
         except Exception as exc:  # noqa: BLE001
@@ -1466,6 +1481,19 @@ def build_app(
                 {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
                 status_code=500,
             )
+        if res.get("ok") and res.get("action") == "parte_fecha":
+            # F-042 (DA1, R7): deshacer un cambio de fecha es la misma
+            # accion en sentido contrario; sin recalculo, la fecha vieja
+            # quedaria con el reparto nuevo hasta la siguiente ingesta.
+            actor = _actor(request)
+            estados = [
+                pedir_recalculo(recalculo_publisher, document_id=doc_id,
+                                motivo=MOTIVO_DESHACER_FECHA,
+                                solicitado_por=actor)
+                for doc_id in res.get("document_ids") or []
+            ]
+            if estados:
+                res["recalculo"] = peor_estado(estados)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)
@@ -1849,6 +1877,7 @@ def build_app(
     @app.patch("/api/partes/{document_id}/fecha")
     def patch_parte_fecha(
         document_id: str,
+        request: Request,
         payload: FechaPayload = Body(...),
     ) -> dict[str, Any]:
         parsed = _parse_fecha_to_iso_int(payload.fecha)
@@ -1860,7 +1889,15 @@ def build_app(
         )
         if not ok:
             raise HTTPException(status_code=404, detail="Parte no encontrado")
-        return {"ok": True, "fecha": fecha_iso, "fecha_int": fecha_int}
+        # F-042: la fecha YA esta confirmada (R2); el reparto ordinaria/
+        # extra lo recalcula sv3. Se pide aunque la fecha no cambie (DA5:
+        # volver a guardarla es el reintento manual) y un fallo de la
+        # cola no deshace la fecha (R3).
+        recalculo = pedir_recalculo(
+            recalculo_publisher, document_id=document_id,
+            motivo=MOTIVO_CAMBIO_FECHA, solicitado_por=_actor(request))
+        return {"ok": True, "fecha": fecha_iso, "fecha_int": fecha_int,
+                "recalculo": recalculo}
 
     def _norm_grupos(cod: str | None) -> str:
         """Normaliza un codigo de partida por grupos numericos: '3.9' y

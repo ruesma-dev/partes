@@ -277,6 +277,9 @@ def build_app(settings: Settings) -> FastAPI:
     )
     # Expuesto para que el worker (main_worker.py) reutilice el mismo wiring.
     app.state.pipeline = pipeline
+    # F-042 (R18): el worker lo usa para los mensajes de recalculo de sv4;
+    # None sin Sigrid cableado.
+    app.state.recurso_conciliador = recurso_conciliador
 
     @app.get("/health")
     def health() -> Dict[str, Any]:

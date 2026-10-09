@@ -92,6 +92,12 @@ class Settings(BaseSettings):
     cola_transfer_result: str = Field("q-transfer-result",
                                       alias="COLA_TRANSFER_RESULT")
     blob_transfer: str = Field("transfer", alias="BLOB_TRANSFER")
+    # F-042: recalculo de extras tras cambiar la fecha de un parte
+    #   q-persistencia     sv4 -> sv3 (mensaje «recalcular»)
+    # Mismo nombre de variable que sv2 y sv3; en Azure no hace falta
+    # definirla: el defecto es el real.
+    cola_persistencia: str = Field("q-persistencia",
+                                   alias="COLA_PERSISTENCIA")
     cola_visibility_s: int = Field(600, alias="COLA_VISIBILITY_S")
     cola_max_dequeue: int = Field(5, alias="COLA_MAX_DEQUEUE")
 

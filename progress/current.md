@@ -1,6 +1,72 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-042 · done (2026-10-09, APPROVED pasada 1), pendiente de despliegue y M1–M3: recalcular el reparto normal/extra al cambiar la fecha de un parte
+
+**Desbloqueada el 2026-10-09 por decisión del humano (opción A, respuesta literal «A»).**
+Estuvo blocked en T4: el guardián
+`services/partes-front/tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper`
+cuenta `_actor(request)` en `app.py` (15) y F-042 añade dos firmas (guardar fecha, R1;
+deshacer fecha, R7). Opción A: `design.md` §6 enmendado para declarar adaptable ese test,
+que pasa a esperar **17** y nombra en su docstring los dos puntos de F-042; nada más
+cambia en él. Descartadas B (no firmar el mensaje) y C (esquivar el recuento).
+
+
+Spec en `specs/F-042-recalcular-extras-al-cambiar-fecha/` (rama y worktree
+`partes-wt-f042`). sv4 publica `{"tipo": "recalcular", ...}` en
+`q-persistencia` tras guardar (o deshacer) la fecha; sv3 lo distingue del
+mensaje de sv2 por `tipo` y ejecuta `conciliar_todos` sin lógica nueva. Sin
+variables ni roles nuevos: la identidad de sv4 (`id-partes-dev`) ya tiene
+*Storage Queue Data Contributor* sobre la cuenta de colas (leído con `az role
+assignment list` el 2026-10-09). Hallazgo: el reparto mal calculado se arregla
+solo con la siguiente ingesta (toda pasada recalcula todo); F-042 cierra esa
+ventana, en la que alguien puede aprobar y congelar el reparto viejo.
+
+DA1–DA6 aprobadas por el humano el 2026-10-09 (las seis recomendadas). Riesgo
+preexistente anotado (§8 R-b): pasadas concurrentes de sv3 con `maxReplicas=5`.
+
+**Implementación terminada (implementer, 2026-10-09). Reviewer: APPROVED en la pasada 1** (`progress/review_F-042.md`, sin cambios requeridos).
+Informe: `progress/impl_F-042.md`; mutación: `progress/mutacion_F-042.md`.
+`azure-apps/partes.md` actualizado (commit local `be02869` en `azure-apps`).
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; las lanza el
+humano, los agentes no:
+
+- **M1 · antes de desplegar** (base `partes`, firewall abierto a mano por el
+  humano): estado del parte de la obra 0694 del 01/10. Puede estar **ya
+  arreglado** si después entró otro parte (cualquier ingesta recalcula todo):
+
+  ```sql
+  SELECT r.line_index, r.empleado_line_no, r.tipo_hora, r.extra_auto,
+         r.horas, r.horas_orig, r.sigrid_estado, d.approved
+  FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
+  WHERE d.is_active AND d.obra_codigo = '0694' AND d.fecha_int = 20261001
+    AND r.deleted_at_utc IS NULL
+  ORDER BY r.line_index, r.empleado_line_no, r.extra_auto;
+  ```
+
+- **Despliegue** (lo pide el humano), desde `infra/`, en este orden:
+  `.\redeploy_partes.ps1 -Solo sv3` y después `.\redeploy_partes.ps1 -Solo sv4`.
+- **M2 · tras desplegar sv3 y sv4**: en el portal, volver a guardar la fecha
+  01/10 de ese parte (si no está aprobado; si lo está, otro parte sin congelar)
+  ⇒ «recalculando extras». A los 1–2 min, en Log Analytics:
+
+  ```powershell
+  $WS = az containerapp env show -n cae-partes-dev -g rg-partes-dev --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv3-persistencia' | where Log_s has 'recalculo' | project TimeGenerated, Log_s | order by TimeGenerated desc | take 20"
+  ```
+
+  ⇒ una línea `[sv3-worker] recalculo motivo=cambio_fecha document_id=<el del
+  parte>`. Repetir la SQL de M1: cada base con `horas` = jornada del jueves y
+  su `extra_auto` con el exceso.
+- **M3 · poison**:
+
+  ```powershell
+  az storage message peek --queue-name q-persistencia-poison --account-name stpartespt7m3 --auth-mode login --num-messages 32
+  ```
+
+  ⇒ ningún mensaje con `"tipo": "recalcular"`.
+
 ## F-040 · done y DESPLEGADA (2026-10-08, sv3+sv4 r20261008234617), M1 y M2 hechas, pendiente de M3: recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
 
 **Despliegue 2026-10-08 23:46** (humano: «si, haz las 2»): sv3 y sv4 `r20261008234617`; sv4

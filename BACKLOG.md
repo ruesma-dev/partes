@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **39 features**, 11 abiertas, 28 terminadas.
+Resumen: **40 features**, 11 abiertas, 29 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -39,6 +39,7 @@ Bloqueadas: **F-014, F-032**.
 | F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
 | F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | estandar |
 | F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | critico |
+| F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -195,6 +196,12 @@ Incidencia del humano el 2026-10-08 (captura): en Conciliar los resultados de la
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-040-recursos-sin-dni-por-nombre`
 
 Pedida por el humano el 2026-10-08: «si no hay DNI en el parte o no hay DNI ni en recurso ni en empleado, que proponga por nombre». Tras F-035/F-036 el trabajador es un RECURSO persona (res.cla = 1) de alta en la empresa del parte; su DNI es emp.dni de la ficha (res.conide) o, si falta, res.cif. Recursos persona de alta SIN DNI en ningun sitio (medido 2026-10-08): Porsan MO/0032 y MO/0033 (obra 0692, el portal no los encuentra), empresa 12 (2), 18 (4), 25 (1). Hoy: (a) sv3 IndicePersonas.candidatos_nombre excluye recursos sin DNI y casar_trabajador agrupa por persona = DNI; (b) sv4 _SQL_RECURSOS_ACTIVOS/RecursoCatalog (F-035, DA3) no los ofrece; (c) el alias aprendido en Conciliar (empleado_alias, empleado_ide NOT NULL) no se guarda para recursos sin ficha de empleado; (d) sv5 verifica recurso_ide por empresa, alta y DNI: un recurso sin DNI no pasa. LO QUE SE PIDE: sv3 propone por nombre entre recursos sin DNI; sv4 los ofrece marcados 'sin DNI' y aprende el alias contra el recurso; sv5 puede registrar una linea con recurso_ide de un recurso sin DNI sin abrir la puerta al recurso equivocado; lista cerrada de CLAUDE.md al dia; medicion de impacto de solo lectura antes de desplegar.
+
+### F-042 · Recalcular el reparto normal/extra al cambiar la fecha de un parte
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-042-recalcular-extras-al-cambiar-fecha`
+
+Pedida por el humano el 2026-10-09: «en este caso el dia 11 al ser domingo lo puso como extras, al cambiar el dia, no ha recalculado, sino que ha puesto eso mismo como extra pero en el dia 1». Parte de la obra 0694: la IA leyo 1/10/26 como 2026-10-11 (domingo) y sv3 lo repartio como no laborable (bases a 0 con horas_orig y sus extra_auto). Al cambiar la fecha a 2026-10-01 en el portal, sv4 update_parte_fecha cambia la fecha del documento y de sus lineas pero no avisa a nadie: el reparto lo calcula solo sv3 (RecursoConciliador.conciliar_todos, que revierte las extra_auto y recalcula todo lo no congelado) y solo cuando llega un mensaje a q-persistencia, asi que queda mal hasta la siguiente ingesta y alguien puede aprobarlo entretanto. LO QUE SE PIDE (alcance cerrado): sv4, al guardar la fecha de un parte (y al deshacer ese cambio, DA1), publica en q-persistencia un mensaje 'recalcular' tras guardar; la fecha se guarda aunque la cola falle y la pantalla avisa. sv3 distingue ese mensaje del de sv2 por el campo 'tipo' y ejecuta su pasada normal (conciliar_todos), sin logica nueva de extras; las congeladas no se tocan. Editar horas, cambiar trabajador u obra y borrar lineas quedan fuera. Permiso: la identidad de sv4 (id-partes-dev) ya tiene Storage Queue Data Contributor sobre la cuenta de colas.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
