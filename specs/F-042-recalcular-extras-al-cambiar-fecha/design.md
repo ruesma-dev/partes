@@ -152,9 +152,10 @@ importa guardar el parte; aquí la pasada **es** el trabajo y se reintenta (DA3)
 `transfer_queue_publisher.py`, `resultado_consumer.py` y `main.py` de sv4;
 `services/partes-api/` (sv2), `services/partes-transfer/` (sv5),
 `services/partes-email/` (sv1); `infra/`; la lista cerrada de `CLAUDE.md`;
-tests existentes (si uno se rompe por un cambio de forma ⇒ `blocked`).
-Excepción prevista: añadir la clave `recalculo` a la respuesta puede afectar a
-un test que compare el JSON entero; si pasa, se para y se consulta.
+tests existentes (si uno se rompe ⇒ `blocked`), salvo **una enmienda, decisión
+del humano (2026-10-09, opción A)**: `test_f017_punto_unico.py::test_f017_todos_
+los_puntos_de_escritura_usan_el_helper` espera 17 `_actor(request)` (antes 15;
++ guardar y deshacer fecha, R1/R7) y su docstring los nombra; nada más.
 
 ## 7. Infra, permisos y despliegue
 

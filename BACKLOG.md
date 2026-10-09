@@ -5,7 +5,9 @@
 
 Resumen: **40 features**, 12 abiertas, 28 terminadas.
 
-Bloqueadas: **F-014, F-032, F-042**.
+En curso: **F-042**.
+
+Bloqueadas: **F-014, F-032**.
 
 ## Trabajo abierto
 
@@ -13,7 +15,7 @@ Bloqueadas: **F-014, F-032, F-042**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | bloqueada | critico | `feature/F-042-recalcular-extras-al-cambiar-fecha` |
+| F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | en curso | critico | `feature/F-042-recalcular-extras-al-cambiar-fecha` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -73,7 +75,7 @@ Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con much
 
 ### F-042 · Recalcular el reparto normal/extra al cambiar la fecha de un parte
 
-estado **bloqueada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-042-recalcular-extras-al-cambiar-fecha`
+estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-042-recalcular-extras-al-cambiar-fecha`
 
 Pedida por el humano el 2026-10-09: «en este caso el dia 11 al ser domingo lo puso como extras, al cambiar el dia, no ha recalculado, sino que ha puesto eso mismo como extra pero en el dia 1». Parte de la obra 0694: la IA leyo 1/10/26 como 2026-10-11 (domingo) y sv3 lo repartio como no laborable (bases a 0 con horas_orig y sus extra_auto). Al cambiar la fecha a 2026-10-01 en el portal, sv4 update_parte_fecha cambia la fecha del documento y de sus lineas pero no avisa a nadie: el reparto lo calcula solo sv3 (RecursoConciliador.conciliar_todos, que revierte las extra_auto y recalcula todo lo no congelado) y solo cuando llega un mensaje a q-persistencia, asi que queda mal hasta la siguiente ingesta y alguien puede aprobarlo entretanto. LO QUE SE PIDE (alcance cerrado): sv4, al guardar la fecha de un parte (y al deshacer ese cambio, DA1), publica en q-persistencia un mensaje 'recalcular' tras guardar; la fecha se guarda aunque la cola falle y la pantalla avisa. sv3 distingue ese mensaje del de sv2 por el campo 'tipo' y ejecuta su pasada normal (conciliar_todos), sin logica nueva de extras; las congeladas no se tocan. Editar horas, cambiar trabajador u obra y borrar lineas quedan fuera. Permiso: la identidad de sv4 (id-partes-dev) ya tiene Storage Queue Data Contributor sobre la cuenta de colas.
 

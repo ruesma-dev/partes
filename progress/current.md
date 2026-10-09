@@ -1,41 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-042 · BLOCKED (2026-10-09, implementer, en T4): recalcular el reparto normal/extra al cambiar la fecha de un parte
+## F-042 · in_progress (2026-10-09, implementer): recalcular el reparto normal/extra al cambiar la fecha de un parte
 
-**Hechas T1–T3** (sv3: `interface_adapters/workers/{mensajes,despacho}.py`, cableado de
-`main_worker.py` y `app.state.recurso_conciliador`, tests R12–R21 en verde; suite de sv3
-1.147 en verde). **T4 implementada** (sv4: `config/settings.py` `cola_persistencia`,
-`infrastructure/persistencia/recalculo_publisher.py`, `build_app` y `patch_parte_fecha`;
-sus 23 tests R1–R6/R10 en verde) **pero rompe un test existente ajeno a F-042**:
-
-```
-services/partes-front/tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper
->       assert fuente.count("_actor(request)") == 15
-E       assert 16 == 15
-```
-
-Motivo: el guardián de F-017 cuenta textualmente las llamadas a `_actor(request)` en
-`app.py` (15 = 5 de F-016 + 9 de F-017 + 1 de F-019). `design.md` §3 manda firmar el
-mensaje con `solicitado_por=_actor(request)` en `patch_parte_fecha` (R1) y en
-`undo_apply` (R7, T5), así que con F-042 completa el número pasa a **17**. La spec no
-declara adaptable ese test (§6: «tests existentes (si uno se rompe …) ⇒ `blocked`»), así
-que NO se ha tocado. Resto de la suite de sv4: 1.855 en verde; raíz: 461 en verde.
-
-**Decisión que se pide al humano** (una de tres):
-
-- **A (recomendada)** · Enmendar la spec (`design.md` §6) para declarar adaptable
-  `test_f017_todos_los_puntos_de_escritura_usan_el_helper`: 15 → **17**, y su docstring
-  nombra los dos puntos de F-042 (guardar fecha y deshacer fecha). La propiedad que
-  vigila (toda firma sale de `_actor`) se mantiene: las dos llamadas nuevas SON
-  `_actor(request)`. Cambia solo el número esperado.
-- **B** · No firmar el mensaje (`solicitado_por: null` siempre): no toca el test, pero
-  pierde la traza de quién pidió el recálculo en el log de sv3 (R1, R14 y el contrato
-  §2 cambian). No recomendada.
-- **C** · Esquivar el recuento textual (p. ej. `_actor(request=request)`): descartada,
-  sería burlar al guardián en vez de actualizarlo.
-
-Al desbloquear: completar T4 (marcar `[x]`), seguir con T5–T13.
+**Desbloqueada el 2026-10-09 por decisión del humano (opción A, respuesta literal «A»).**
+Estuvo blocked en T4: el guardián
+`services/partes-front/tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper`
+cuenta `_actor(request)` en `app.py` (15) y F-042 añade dos firmas (guardar fecha, R1;
+deshacer fecha, R7). Opción A: `design.md` §6 enmendado para declarar adaptable ese test,
+que pasa a esperar **17** y nombra en su docstring los dos puntos de F-042; nada más
+cambia en él. Descartadas B (no firmar el mensaje) y C (esquivar el recuento).
 
 
 Spec en `specs/F-042-recalcular-extras-al-cambiar-fecha/` (rama y worktree
