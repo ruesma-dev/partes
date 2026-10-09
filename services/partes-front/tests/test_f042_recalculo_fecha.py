@@ -349,3 +349,191 @@ def test_f042_r6_volver_a_guardar_la_misma_fecha_publica(montaje) -> None:
     assert _patch(cliente, fecha="02/03/2026").json()["recalculo"] == "pedido"
     assert len(cola.enviados) == 2
     assert {m["motivo"] for _n, m in cola.enviados} == {"cambio_fecha"}
+
+
+# ================= R7-R9 · deshacer un cambio de fecha (DA1) ============ #
+
+def _undo(cliente):
+    return cliente.post("/api/undo", headers=CABECERA)
+
+
+def _id_linea(fabrica) -> int:
+    from infrastructure.database.orm_models import ParteRegistroOrm
+    with fabrica.create_session() as s:
+        return s.query(ParteRegistroOrm.id).filter(
+            ParteRegistroOrm.document_id == DOC).scalar()
+
+
+def test_f042_r9_undo_last_devuelve_la_accion_y_los_documentos(
+        entorno) -> None:
+    fabrica = FabricaSesionSqlite()
+    sembrar_parte(fabrica, [{"estado": None}])
+    repo = ParteReviewRepository(fabrica)
+    repo.update_parte_fecha(document_id=DOC, fecha_iso="2026-10-01",
+                            fecha_int=20261001)
+    res = repo.undo_last()
+    assert res["ok"] is True
+    assert res["action"] == "parte_fecha"
+    assert res["document_ids"] == [DOC]
+    assert _fecha_doc(fabrica) == "2026-03-02"
+
+
+def test_f042_r9_otra_accion_sin_documentos(entorno) -> None:
+    fabrica = FabricaSesionSqlite()
+    sembrar_parte(fabrica, [{"estado": None}])
+    repo = ParteReviewRepository(fabrica)
+    assert repo.update_registro(registro_id=_id_linea(fabrica), horas=6.0)
+    res = repo.undo_last()
+    assert res["ok"] is True
+    assert res["action"] == "registro_edit"
+    assert res["document_ids"] == []
+
+
+def test_f042_r9_sin_nada_que_deshacer_no_hay_accion(entorno) -> None:
+    fabrica = FabricaSesionSqlite()
+    res = ParteReviewRepository(fabrica).undo_last()
+    assert res["ok"] is False
+    assert "action" not in res
+
+
+def test_f042_r7_deshacer_la_fecha_pide_el_recalculo(montaje) -> None:
+    cliente, cola, fabrica = montaje()
+    _patch(cliente)
+
+    r = _undo(cliente)
+
+    assert r.status_code == 200
+    cuerpo = r.json()
+    assert cuerpo["ok"] is True
+    assert cuerpo["recalculo"] == "pedido"
+    assert _fecha_doc(fabrica) == "2026-03-02"
+    assert [m["motivo"] for _n, m in cola.enviados] == [
+        "cambio_fecha", "deshacer_cambio_fecha"]
+    nombre, mensaje = cola.enviados[1]
+    assert nombre == "q-persistencia"
+    assert mensaje["tipo"] == "recalcular"
+    assert mensaje["document_id"] == DOC
+    assert mensaje["solicitado_por"] == ACTOR
+
+
+def test_f042_r7_deshacer_con_la_cola_caida_avisa(montaje, caplog) -> None:
+    cola = ColaFake()
+    cliente, _c, fabrica = montaje(cola=cola)
+    _patch(cliente)
+    cola._error = ConnectionError("cola caida")
+    caplog.set_level(logging.INFO)
+
+    r = _undo(cliente)
+
+    assert (r.status_code, r.json()["recalculo"]) == (200, "fallo")
+    assert _fecha_doc(fabrica) == "2026-03-02"       # el undo SI se aplico
+    assert any("[recalculo] no se pudo pedir" in x.getMessage()
+               for x in caplog.records if x.levelno == logging.WARNING)
+
+
+def test_f042_r7_deshacer_sin_cola(montaje) -> None:
+    cliente, _cola, fabrica = montaje(sin_cola=True)
+    _patch(cliente)
+    r = _undo(cliente)
+    assert r.json()["recalculo"] == "sin_cola"
+    assert _fecha_doc(fabrica) == "2026-03-02"
+
+
+def test_f042_r8_deshacer_otra_accion_no_publica(montaje) -> None:
+    cliente, cola, fabrica = montaje()
+    linea = _id_linea(fabrica)
+    assert cliente.patch(f"/api/registros/{linea}",
+                         json={"horas": 6.0}).status_code == 200
+
+    r = _undo(cliente)
+
+    assert r.status_code == 200 and r.json()["ok"] is True
+    assert "recalculo" not in r.json()
+    assert cola.enviados == []
+
+
+def test_f042_r8_sin_nada_que_deshacer_no_publica(montaje) -> None:
+    cliente, cola, _f = montaje()
+    r = _undo(cliente)
+    assert r.status_code == 400
+    assert "recalculo" not in r.json()
+    assert cola.enviados == []
+
+
+class RepoUndoFijo(ParteReviewRepository):
+    """`undo_last` devuelve lo que se le diga (varios documentos o ninguno)."""
+
+    def __init__(self, fabrica, resultado: dict) -> None:
+        super().__init__(fabrica)
+        self._resultado = resultado
+
+    def undo_last(self) -> dict:
+        return dict(self._resultado)
+
+
+class PublisherSelectivo:
+    """Falla solo para los documentos indicados."""
+
+    def __init__(self, fallan: set[str]) -> None:
+        self.pedidos: list[tuple[str, str, str | None]] = []
+        self._fallan = fallan
+
+    def pedir(self, *, document_id, motivo, solicitado_por) -> None:
+        self.pedidos.append((document_id, motivo, solicitado_por))
+        if document_id in self._fallan:
+            raise ConnectionError("cola caida")
+
+
+def test_f042_r7_varios_documentos_y_el_peor_estado(montaje) -> None:
+    fabrica = FabricaSesionSqlite()
+    publisher = PublisherSelectivo({"doc-b"})
+    cliente, _c, _f = montaje(
+        fabrica=fabrica, publisher=publisher,
+        repositorio=RepoUndoFijo(fabrica, {
+            "ok": True, "action": "parte_fecha",
+            "document_ids": ["doc-a", "doc-b", "doc-c"]}))
+
+    cuerpo = _undo(cliente).json()
+
+    assert cuerpo["recalculo"] == "fallo"
+    assert publisher.pedidos == [
+        ("doc-a", "deshacer_cambio_fecha", ACTOR),
+        ("doc-b", "deshacer_cambio_fecha", ACTOR),
+        ("doc-c", "deshacer_cambio_fecha", ACTOR)]
+
+
+def test_f042_r7_sin_documentos_no_hay_recalculo(montaje) -> None:
+    fabrica = FabricaSesionSqlite()
+    publisher = PublisherSelectivo(set())
+    cliente, _c, _f = montaje(
+        fabrica=fabrica, publisher=publisher,
+        repositorio=RepoUndoFijo(fabrica, {
+            "ok": True, "action": "parte_fecha", "document_ids": []}))
+    assert "recalculo" not in _undo(cliente).json()
+    assert publisher.pedidos == []
+
+
+def test_f042_r8_un_undo_fallido_de_fecha_no_publica(montaje) -> None:
+    fabrica = FabricaSesionSqlite()
+    publisher = PublisherSelectivo(set())
+    cliente, _c, _f = montaje(
+        fabrica=fabrica, publisher=publisher,
+        repositorio=RepoUndoFijo(fabrica, {
+            "ok": False, "action": "parte_fecha", "document_ids": ["doc-a"],
+            "error": "x"}))
+    r = _undo(cliente)
+    assert r.status_code == 400
+    assert "recalculo" not in r.json()
+    assert publisher.pedidos == []
+
+
+@pytest.mark.parametrize("estados, peor", [
+    (["pedido"], "pedido"), (["sin_cola"], "sin_cola"), (["fallo"], "fallo"),
+    (["pedido", "sin_cola"], "sin_cola"), (["sin_cola", "pedido"], "sin_cola"),
+    (["pedido", "fallo"], "fallo"), (["fallo", "sin_cola"], "fallo"),
+    (["pedido", "pedido"], "pedido"),
+])
+def test_f042_r7_peor_estado(estados, peor) -> None:
+    from infrastructure.persistencia.recalculo_publisher import peor_estado
+    assert peor_estado(estados) == peor
+    assert peor_estado(iter(estados)) == peor

@@ -2551,6 +2551,10 @@ class ParteReviewRepository:
         snapshot es de antes; entre medias la linea pudo irse a Sigrid, y
         restaurar los valores viejos la dejaria divergente para siempre.
         Se aplica el resto y se devuelve cuantos se omitieron (D5).
+
+        F-042 (R9): devuelve ademas la `action` de la entrada deshecha y los
+        `document_ids` de sus snapshots de documento, para que deshacer un
+        cambio de fecha pida el recalculo de extras de esos partes.
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -2563,6 +2567,7 @@ class ParteReviewRepository:
             if row is None:
                 return {"ok": False, "error": "No hay nada que deshacer."}
             description = row.description
+            action = row.action
             try:
                 payload = json.loads(row.payload)
             except Exception:  # noqa: BLE001
@@ -2597,7 +2602,10 @@ class ParteReviewRepository:
                 omitidos, description,
             )
         return {"ok": True, "description": description,
-                "remaining": remaining, "omitidos": omitidos}
+                "remaining": remaining, "omitidos": omitidos,
+                "action": action,
+                "document_ids": [snap.get("id")
+                                 for snap in payload.get("documents", [])]}
 
     def get_registro_recurso(self, registro_id: int) -> int | None:
         """recurso_ide del registro (para resolver su hora extra)."""

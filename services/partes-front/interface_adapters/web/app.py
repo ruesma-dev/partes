@@ -91,8 +91,10 @@ from infrastructure.database.parte_repository import (
 from infrastructure.database.session_factory import SessionFactory
 from infrastructure.persistencia.recalculo_publisher import (
     MOTIVO_CAMBIO_FECHA,
+    MOTIVO_DESHACER_FECHA,
     RecalculoPublisher,
     pedir_recalculo,
+    peor_estado,
 )
 from infrastructure.transfer.resultado_sigrid import aplicar_resultado
 from infrastructure.transfer.transfer_client import TransferClient
@@ -1470,7 +1472,7 @@ def build_app(
         return JSONResponse({"ok": True, "items": items, "count": len(items)})
 
     @app.post("/api/undo", include_in_schema=False)
-    def undo_apply() -> JSONResponse:
+    def undo_apply(request: Request) -> JSONResponse:
         try:
             res = repository.undo_last()
         except Exception as exc:  # noqa: BLE001
@@ -1479,6 +1481,19 @@ def build_app(
                 {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
                 status_code=500,
             )
+        if res.get("ok") and res.get("action") == "parte_fecha":
+            # F-042 (DA1, R7): deshacer un cambio de fecha es la misma
+            # accion en sentido contrario; sin recalculo, la fecha vieja
+            # quedaria con el reparto nuevo hasta la siguiente ingesta.
+            actor = _actor(request)
+            estados = [
+                pedir_recalculo(recalculo_publisher, document_id=doc_id,
+                                motivo=MOTIVO_DESHACER_FECHA,
+                                solicitado_por=actor)
+                for doc_id in res.get("document_ids") or []
+            ]
+            if estados:
+                res["recalculo"] = peor_estado(estados)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)

@@ -267,8 +267,11 @@ def test_f017_la_firma_de_actor_sigue_siendo_la_de_f016() -> None:
 
 
 def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
-    """Quince llamadas al helper: las cinco de F-016, las nueve de F-017 y
-    la de «Retirar de dedicacion» de F-019 (R24).
+    """Diecisiete llamadas al helper: las cinco de F-016, las nueve de
+    F-017, la de «Retirar de dedicacion» de F-019 (R24) y las dos de F-042
+    (quien pide el recalculo de extras al guardar la fecha de un parte, R1,
+    y al deshacer ese cambio de fecha, R7; enmienda de `design.md` §6 por
+    decision del humano, 2026-10-09).
 
     Las nueve: aprobar documento, borrar documento, borrar linea, borrar
     obra, borrar trabajador, alta manual, preflight, aprobar sincrono y
@@ -281,4 +284,4 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     encargan los tests de R11.
     """
     fuente = _fuente(APP)
-    assert fuente.count("_actor(request)") == 15
+    assert fuente.count("_actor(request)") == 17
