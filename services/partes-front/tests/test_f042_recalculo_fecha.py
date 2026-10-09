@@ -537,3 +537,185 @@ def test_f042_r7_peor_estado(estados, peor) -> None:
     from infrastructure.persistencia.recalculo_publisher import peor_estado
     assert peor_estado(estados) == peor
     assert peor_estado(iter(estados)) == peor
+
+
+# ================== R11 · el portal pinta el estado (node) ============== #
+# Se EJECUTAN las funciones reales de `static/app.js` (`wireFechaInput`,
+# `wireUndo`, `setStatus`...) con un DOM y un `fetch` falsos.
+
+import json as _json  # noqa: E402
+import re  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
+NODE = shutil.which("node")
+
+TEXTO_PEDIDO = "✓ Guardado · recalculando extras (recarga en 1–2 min)"
+TEXTO_FALLO = ("Fecha guardada, pero no se pudo pedir el recálculo de "
+               "extras: vuelve a guardar la fecha")
+TEXTO_SIN_COLA = "✓ Guardado (sin recálculo automático)"
+
+
+def _js() -> str:
+    return APP_JS.read_text(encoding="utf-8")
+
+
+def _funcion(js: str, nombre: str) -> str:
+    m = re.search(r"\n  function " + nombre + r"\(.*?\n  \}\n", js, re.DOTALL)
+    assert m, f"app.js no define {nombre}"
+    return m.group(0)
+
+
+def _motivo_http(js: str) -> str:
+    m = re.search(r"\nvar MotivoHttp = \(function \(\) \{.*?\n\}\)\(\);\n",
+                  js, re.DOTALL)
+    assert m, "app.js no define MotivoHttp"
+    return m.group(0)
+
+
+DOM_JS = r"""
+"use strict";
+var eventos = [];
+globalThis.setTimeout = function (f, ms) { eventos.push("timer:" + ms); };
+function El(id) {
+  this.id = id; this.textContent = ""; this.className = ""; this.title = "";
+  this.value = ""; this.disabled = false; this.attrs = {}; this.on = {};
+  var self = this;
+  this.classList = {
+    add: function (c) { self.className = (self.className + " " + c).trim(); },
+    remove: function () {},
+  };
+}
+El.prototype.getAttribute = function (k) { return this.attrs[k] || null; };
+El.prototype.addEventListener = function (t, f) { this.on[t] = f; };
+var els = {};
+function el(id) { return (els[id] = els[id] || new El(id)); }
+globalThis.document = {
+  getElementById: function (id) { return els[id] || null; },
+  querySelectorAll: function () { return []; },
+};
+globalThis.alert = function (m) { eventos.push("alert:" + m); };
+globalThis.window = {location: {reload: function () {
+  eventos.push("reload"); }}};
+function refreshUndo() { eventos.push("refreshUndo"); }
+var respuesta = null, peticiones = [];
+globalThis.fetch = function (url, opts) {
+  peticiones.push([url, opts && opts.method]);
+  return Promise.resolve({ok: true, status: 200,
+    json: function () { return Promise.resolve(respuesta); }});
+};
+function tic() { return new Promise(function (r) { setImmediate(r); }); }
+async function drenar() { for (var i = 0; i < 10; i++) { await tic(); } }
+"""
+
+FECHA_JS = r"""
+(async function () {
+  var casos = %(casos)s, salida = [];
+  for (var i = 0; i < casos.length; i++) {
+    respuesta = casos[i]; eventos = []; els = {};
+    var inp = el("fecha"), st = el("st-fecha");
+    inp.attrs = {"data-document-id": "doc-1", "data-status": "st-fecha"};
+    inp.value = "2026-10-01";
+    wireFechaInput(inp);
+    inp.on.change();
+    await drenar();
+    salida.push([st.textContent, st.className, eventos.slice()]);
+  }
+  process.stdout.write(JSON.stringify({salida: salida,
+                                       peticiones: peticiones}));
+})();
+"""
+
+UNDO_JS = r"""
+(async function () {
+  var casos = %(casos)s, salida = [];
+  for (var i = 0; i < casos.length; i++) {
+    respuesta = casos[i]; eventos = []; els = {};
+    el("undo-widget"); var btn = el("undo-btn");
+    wireUndo();
+    eventos = [];
+    btn.on.click();
+    await drenar();
+    salida.push(eventos.slice());
+  }
+  process.stdout.write(JSON.stringify(salida));
+})();
+"""
+
+
+def _node(programa: str):
+    if NODE is None:
+        pytest.skip("node no esta instalado: no se puede ejecutar el JS")
+    r = subprocess.run([NODE, "-e", programa], capture_output=True,
+                       text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    return _json.loads(r.stdout)
+
+
+def _guardar_fecha(casos: list) -> dict:
+    js = _js()
+    programa = (DOM_JS + _motivo_http(js)
+                + "".join(_funcion(js, f) for f in (
+                    "flashEl", "setStatus", "estadoRecalculo",
+                    "wireFechaInput"))
+                + FECHA_JS % {"casos": _json.dumps(casos)})
+    return _node(programa)
+
+
+def _deshacer(casos: list) -> list:
+    js = _js()
+    programa = (DOM_JS + "".join(_funcion(js, f) for f in (
+        "estadoRecalculo", "wireUndo"))
+        + UNDO_JS % {"casos": _json.dumps(casos)})
+    return _node(programa)
+
+
+BASE = {"ok": True, "fecha": "2026-10-01", "fecha_int": 20261001}
+
+
+def test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo() -> None:
+    res = _guardar_fecha([
+        dict(BASE, recalculo="pedido"), dict(BASE, recalculo="fallo"),
+        dict(BASE, recalculo="sin_cola"), dict(BASE)])
+    pedido, fallo, sin_cola, viejo = res["salida"]
+    # `saved` se borra solo a los 1,8 s (`setStatus`); `error` se queda
+    # (persistente). El 1,6 s es el destello del input (`flashEl`).
+    assert pedido == [TEXTO_PEDIDO, "edit-status saved",
+                      ["timer:1600", "timer:1800"]]
+    assert fallo == [TEXTO_FALLO, "edit-status error", ["timer:1600"]]
+    assert sin_cola == [TEXTO_SIN_COLA, "edit-status saved",
+                        ["timer:1600", "timer:1800"]]
+    assert viejo == ["✓ Guardado", "edit-status saved",
+                     ["timer:1600", "timer:1800"]]
+    assert res["peticiones"][0] == ["/api/partes/doc-1/fecha", "PATCH"]
+
+
+def test_f042_r11_tras_deshacer_con_fallo_avisa_antes_de_recargar() -> None:
+    fallo, pedido, sin_clave, sin_cola, con_omitidos = _deshacer([
+        {"ok": True, "recalculo": "fallo"},
+        {"ok": True, "recalculo": "pedido"},
+        {"ok": True},
+        {"ok": True, "recalculo": "sin_cola"},
+        {"ok": True, "omitidos": 2, "recalculo": "fallo"},
+    ])
+    assert fallo == ["alert:" + TEXTO_FALLO, "reload"]
+    assert pedido == ["reload"]
+    assert sin_clave == ["reload"]
+    assert sin_cola == ["reload"]
+    assert con_omitidos[1:] == ["alert:" + TEXTO_FALLO, "reload"]
+    assert con_omitidos[0].startswith("alert:2 fila(s) no se han deshecho")
+
+
+def test_f042_r11_deshacer_que_falla_no_recarga_ni_avisa() -> None:
+    assert _deshacer([{"ok": False, "error": "No hay nada que deshacer."}]) \
+        == [["refreshUndo"]]
+
+
+def test_f042_r11_app_js_es_sintacticamente_valido() -> None:
+    if NODE is None:
+        pytest.skip("node no esta instalado")
+    r = subprocess.run([NODE, "--check", str(APP_JS)], capture_output=True,
+                       text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr

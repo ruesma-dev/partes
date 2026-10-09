@@ -255,6 +255,25 @@ function avisarCambioLineas() {
     sel.disabled = true;
   }
 
+  // F-042 (R11): que dice la pantalla segun el recalculo de extras que sv4
+  // ha pedido a sv3 tras guardar (o deshacer) la fecha. [texto, clase]:
+  // `saved` se borra solo; `error` se queda, porque hay que reintentar.
+  // Sin `recalculo` (sv4 anterior a F-042), lo de siempre.
+  function estadoRecalculo(recalculo) {
+    if (recalculo === "pedido") {
+      return ["✓ Guardado · recalculando extras (recarga en 1–2 min)",
+              "saved"];
+    }
+    if (recalculo === "fallo") {
+      return ["Fecha guardada, pero no se pudo pedir el recálculo de " +
+              "extras: vuelve a guardar la fecha", "error"];
+    }
+    if (recalculo === "sin_cola") {
+      return ["✓ Guardado (sin recálculo automático)", "saved"];
+    }
+    return ["✓ Guardado", "saved"];
+  }
+
   // ---- Fecha (todas las .fecha-edit) ---- //
   function wireFechaInput(inp) {
     inp.addEventListener("change", function () {
@@ -270,7 +289,8 @@ function avisarCambioLineas() {
         body: JSON.stringify({ fecha: val }),
       }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
         flashEl(inp, "saved");
-        setStatus(statusId, "✓ Guardado", "saved");
+        var estado = estadoRecalculo(data.recalculo);   // F-042 (R11)
+        setStatus(statusId, estado[0], estado[1]);
         // Propaga a filas hermanas del mismo documento.
         document.querySelectorAll(
           '.fecha-edit[data-document-id="' + docId + '"]'
@@ -1058,6 +1078,9 @@ function avisarCambioLineas() {
             if (res && res.omitidos) {   // F-004 R9
               alert(res.omitidos + " fila(s) no se han deshecho: hoy estan "
                     + "aprobadas o registradas en Sigrid.");
+            }
+            if (res && res.recalculo === "fallo") {   // F-042 (R11)
+              alert(estadoRecalculo("fallo")[0]);
             }
             if (res && res.ok) {
               window.location.reload();  // refleja el cambio revertido
