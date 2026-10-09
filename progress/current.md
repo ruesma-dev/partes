@@ -1,6 +1,27 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-042 · spec_ready (2026-10-09): recalcular el reparto normal/extra al cambiar la fecha de un parte
+
+Spec en `specs/F-042-recalcular-extras-al-cambiar-fecha/` (rama y worktree
+`partes-wt-f042`). sv4 publica `{"tipo": "recalcular", ...}` en
+`q-persistencia` tras guardar (o deshacer) la fecha; sv3 lo distingue del
+mensaje de sv2 por `tipo` y ejecuta `conciliar_todos` sin lógica nueva. Sin
+variables ni roles nuevos: la identidad de sv4 (`id-partes-dev`) ya tiene
+*Storage Queue Data Contributor* sobre la cuenta de colas (leído con `az role
+assignment list` el 2026-10-09). Hallazgo: el reparto mal calculado se arregla
+solo con la siguiente ingesta (toda pasada recalcula todo); F-042 cierra esa
+ventana, en la que alguien puede aprobar y congelar el reparto viejo.
+
+**Decisiones abiertas para el humano** (`design.md` §10): DA1 deshacer un
+cambio de fecha también pide recálculo (va más allá de la letra del alcance,
+pero sin ello deshacer deja el reparto incoherente); DA2 sin coalescer; DA3 un
+recálculo fallido va a reintento y poison (no best-effort); DA4 no bloquear la
+aprobación durante el recálculo, solo aviso; DA5 publicar aunque la fecha no
+cambie (reguardar = reintento); DA6 contrato de mensaje fuera de la lista
+cerrada de `CLAUDE.md`. Riesgo preexistente anotado (§8 R-b): pasadas
+concurrentes de sv3 con `maxReplicas=5`.
+
 ## F-040 · done y DESPLEGADA (2026-10-08, sv3+sv4 r20261008234617), M1 y M2 hechas, pendiente de M3: recursos sin DNI — proponer por nombre, alias por recurso, registrarlos
 
 **Despliegue 2026-10-08 23:46** (humano: «si, haz las 2»): sv3 y sv4 `r20261008234617`; sv4

@@ -553,6 +553,25 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-040-recursos-sin-dni-por-nombre"
+    },
+    {
+      "id": "F-042",
+      "title": "Recalcular el reparto normal/extra al cambiar la fecha de un parte",
+      "description": "Pedida por el humano el 2026-10-09: «en este caso el dia 11 al ser domingo lo puso como extras, al cambiar el dia, no ha recalculado, sino que ha puesto eso mismo como extra pero en el dia 1». Parte de la obra 0694: la IA leyo 1/10/26 como 2026-10-11 (domingo) y sv3 lo repartio como no laborable (bases a 0 con horas_orig y sus extra_auto). Al cambiar la fecha a 2026-10-01 en el portal, sv4 update_parte_fecha cambia la fecha del documento y de sus lineas pero no avisa a nadie: el reparto lo calcula solo sv3 (RecursoConciliador.conciliar_todos, que revierte las extra_auto y recalcula todo lo no congelado) y solo cuando llega un mensaje a q-persistencia, asi que queda mal hasta la siguiente ingesta y alguien puede aprobarlo entretanto. LO QUE SE PIDE (alcance cerrado): sv4, al guardar la fecha de un parte (y al deshacer ese cambio, DA1), publica en q-persistencia un mensaje 'recalcular' tras guardar; la fecha se guarda aunque la cola falle y la pantalla avisa. sv3 distingue ese mensaje del de sv2 por el campo 'tipo' y ejecuta su pasada normal (conciliar_todos), sin logica nueva de extras; las congeladas no se tocan. Editar horas, cambiar trabajador u obra y borrar lineas quedan fuera. Permiso: la identidad de sv4 (id-partes-dev) ya tiene Storage Queue Data Contributor sobre la cuenta de colas.",
+      "acceptance": [
+        "Al guardar la fecha de un parte, sv4 publica tras el commit un mensaje 'recalcular' en q-persistencia y responde recalculo=pedido",
+        "Si la cola falla, la fecha queda guardada y la respuesta y la pantalla avisan (recalculo=fallo); sin cola, recalculo=sin_cola",
+        "sv3 distingue el mensaje de recalculo del de sv2 y ejecuta conciliar_todos sin pipeline ni blobs; los fallos van a reintento y poison",
+        "Un parte de domingo pasado a jueves acaba con el reparto del jueves; las lineas congeladas no cambian",
+        "Un test de contrato de la raiz vigila el formato del mensaje sv4 -> sv3",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-042-recalcular-extras-al-cambiar-fecha"
     }
   ]
 }
