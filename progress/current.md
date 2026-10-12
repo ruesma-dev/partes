@@ -1,6 +1,29 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-043 · spec_ready (2026-10-12, spec-author): fecha del parte — rótulo, confirmación y recarga al terminar el recálculo
+
+Spec en `specs/F-043-fecha-del-parte-confirmar-y-recargar/` (rama y worktree
+`partes-wt-f043`). Servicios: **sv4** (rótulo «Fecha del parte», `GET
+/api/partes/{id}/alcance` + `window.confirm` con N trabajadores y M líneas antes
+del PATCH, marca `recalculo_pedido_id` antes de publicar, `GET
+/api/partes/{id}/recalculo`, sondeo cada 5 s hasta 5 min y recarga) y **sv3**
+(tras `conciliar_todos`, copia a `recalculo_terminado_id` el pedido que leyó
+antes de la pasada, UPDATE condicional). Esquema: 4 columnas nullables en
+`parte_documents` (las dos copias de `orm_models.py`). El mensaje y las
+respuestas de F-042 no cambian (sus tests pasan sin tocarlos). Rigor **crítico**.
+
+**Decisiones abiertas que debe validar el humano** (`design.md` §12, todas con
+recomendación): DA1 marca en `parte_documents` (frente a tabla nueva, longitud
+de cola o temporizador); DA2 sv3 marca lo que leyó, sin id en el mensaje; DA3
+confirmar al salir del campo o con Enter (no en cada tecla); DA4 confirmar
+también en el detalle del parte; DA5 cabecera «Fecha del parte» + `title`; DA6
+recarga automática salvo si se está editando (botón «Recargar»); DA7 si sv3 no
+puede marcar, WARNING y mensaje consumido; DA8 deshacer también espera
+(`sessionStorage`); DA9 tras un error del PATCH el input vuelve a la fecha
+guardada. Punto de contacto con **F-044** (otra rama): `design.md` §10; choques
+de merge previsibles en `app.js`, plantillas, `features.json` y este fichero.
+
 ## F-042 · done (2026-10-09, APPROVED pasada 1), pendiente de despliegue y M1–M3: recalcular el reparto normal/extra al cambiar la fecha de un parte
 
 **Desbloqueada el 2026-10-09 por decisión del humano (opción A, respuesta literal «A»).**
