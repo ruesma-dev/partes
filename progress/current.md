@@ -144,7 +144,14 @@ mitad de pasada **sí se pisa** (sv3 lee, calcula y escribe después; design §9
 R-a); el mismo riesgo existe hoy para cualquier parte en cada ingesta (R-g,
 anterior a F-043, fuera de alcance). Punto de contacto con **F-044**: §10.
 
-## F-042 · done (2026-10-09, APPROVED pasada 1), pendiente de despliegue y M1–M3: recalcular el reparto normal/extra al cambiar la fecha de un parte
+## F-042 · done y DESPLEGADA (sv3 r20261009161345, sv4 r20261009161525), M2 y M3 hechas: recalcular el reparto normal/extra al cambiar la fecha de un parte
+
+**Cierre de verificaciones (líder, solo lectura)**: M2 vista en los logs el 2026-10-12 (sv4
+pidió el recálculo a las 10:26:05 UTC y sv3 lo hizo a las 10:27:08 con `motivo=cambio_fecha`).
+M3 el 2026-10-13: el humano no tiene rol de lectura de colas, así que se miró en Log Analytics
+desde el 2026-10-09 14:00 UTC: en sv3, 3 líneas `recalculo`, **ninguna** `-> poison` (la escribe
+`cola_cliente.py` al pasar un mensaje a la cola de poison) y ningún `ERROR`/`Traceback`. M1
+queda superada: el parte del 01/10 está recalculado y registrado.
 
 **Desbloqueada el 2026-10-09 por decisión del humano (opción A, respuesta literal «A»).**
 Estuvo blocked en T4: el guardián
