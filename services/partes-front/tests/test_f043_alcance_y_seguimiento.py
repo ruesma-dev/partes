@@ -412,3 +412,257 @@ def test_f043_r17_el_modulo_no_depende_de_infraestructura() -> None:
     assert not [m for m in modulos if m and (
         m.startswith("infrastructure") or m.startswith("interface_adapters")
         or m.startswith("sqlalchemy") or m.startswith("fastapi"))]
+
+
+# ================ R12-R16 · marca de «pedido» de sv4 =================== #
+
+import logging  # noqa: E402
+import re  # noqa: E402
+
+UUID4 = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+
+
+def _marca(fabrica, document_id: str = DOC) -> tuple:
+    with fabrica.create_session() as s:
+        doc = s.get(ParteDocumentOrm, document_id)
+        return (doc.recalculo_pedido_id, doc.recalculo_pedido_at_utc,
+                doc.recalculo_terminado_id, doc.recalculo_terminado_at_utc)
+
+
+def _patch(cliente, fecha: str = "2026-10-01", doc: str = DOC):
+    return cliente.patch(f"/api/partes/{doc}/fecha", json={"fecha": fecha},
+                         headers=CABECERA)
+
+
+def _undo(cliente):
+    return cliente.post("/api/undo", headers=CABECERA)
+
+
+@pytest.fixture
+def parte(entorno, fabrica):
+    sembrar_parte(fabrica, [{"horas": 8.5}])
+    return fabrica
+
+
+def test_f043_r12_guardar_la_fecha_marca_el_pedido(parte) -> None:
+    cola = ColaFake()
+    r = _patch(_cliente(parte, cola=cola))
+    assert r.status_code == 200
+    assert r.json()["recalculo"] == "pedido"
+    pedido, pedido_at, terminado, terminado_at = _marca(parte)
+    assert UUID4.match(pedido)
+    assert pedido_at == AHORA.isoformat()
+    assert (terminado, terminado_at) == (None, None)
+    assert ParteReviewRepository(parte).documentos_en_espera([DOC]) == {DOC}
+
+
+def test_f043_r12_la_marca_esta_confirmada_antes_de_publicar(parte) -> None:
+    vistas: list = []
+    cola = ColaFake()
+    # Lo que veria sv3 al leer la cola: otra sesion, solo lo confirmado.
+    cola.al_enviar = lambda: vistas.append(_marca(parte)[0])
+    _patch(_cliente(parte, cola=cola))
+    assert len(vistas) == 1 and vistas[0] is not None
+    assert vistas[0] == _marca(parte)[0]
+
+
+def test_f043_r12_cada_peticion_es_un_pedido_nuevo(parte) -> None:
+    cliente = _cliente(parte, cola=ColaFake())
+    _patch(cliente)
+    primero = _marca(parte)[0]
+    _patch(cliente)
+    segundo = _marca(parte)[0]
+    assert UUID4.match(primero) and UUID4.match(segundo)
+    assert primero != segundo
+
+
+def test_f043_r12_un_pedido_nuevo_deja_en_espera_un_parte_terminado(
+        parte) -> None:
+    _poner_marca(parte, DOC, pedido=PID, pedido_at=_hace(100),
+                 terminado=PID, terminado_at=_hace(50))
+    _patch(_cliente(parte, cola=ColaFake()))
+    pedido, _at, terminado, terminado_at = _marca(parte)
+    assert pedido != PID
+    assert (terminado, terminado_at) == (PID, _hace(50))   # de sv3, intacto
+    assert ParteReviewRepository(parte).estados_recalculo([DOC])[DOC][
+        "estado"] == "pendiente"
+
+
+def test_f043_r12_deshacer_la_fecha_marca_otro_pedido(parte) -> None:
+    cola = ColaFake()
+    cliente = _cliente(parte, cola=cola)
+    _patch(cliente)
+    del_patch = _marca(parte)[0]
+    r = _undo(cliente)
+    assert r.status_code == 200 and r.json()["recalculo"] == "pedido"
+    del_undo = _marca(parte)[0]
+    assert UUID4.match(del_undo) and del_undo != del_patch
+    assert [m["motivo"] for _n, m in cola.enviados] == [
+        "cambio_fecha", "deshacer_cambio_fecha"]
+
+
+def test_f043_r12_deshacer_otra_accion_no_marca(parte) -> None:
+    cliente = _cliente(parte, cola=ColaFake())
+    with parte.create_session() as s:
+        reg_id = s.execute(select(ParteRegistroOrm.id)).scalar_one()
+    assert cliente.patch(f"/api/registros/{reg_id}", json={"horas": 6.0},
+                         headers=CABECERA).status_code == 200
+    _undo(cliente)
+    assert _marca(parte) == (None, None, None, None)
+
+
+def test_f043_r12_marcar_en_el_repositorio(parte) -> None:
+    repo = ParteReviewRepository(parte)
+    antes = _foto(parte)[2]
+    assert repo.marcar_recalculo_pedido(DOC, peticion_id=PID) is True
+    assert _marca(parte) == (PID, AHORA.isoformat(), None, None)
+    assert _foto(parte)[2] == antes                  # sin undo_log
+    otra_hora = AHORA + timedelta(seconds=7)
+    assert repo.marcar_recalculo_pedido(DOC, peticion_id=PID2,
+                                        ahora_utc=otra_hora) is True
+    assert _marca(parte) == (PID2, otra_hora.isoformat(), None, None)
+    assert repo.marcar_recalculo_pedido("no-existe", peticion_id=PID) is False
+
+
+def test_f043_r12_marcar_no_mira_la_congelacion(entorno, fabrica) -> None:
+    """La marca no es una edicion del usuario: sin guarda de F-004."""
+    sembrar_parte(fabrica, [{"horas": 8.0, "estado": "registrado"}],
+                  aprobado=True)
+    assert ParteReviewRepository(fabrica).marcar_recalculo_pedido(
+        DOC, peticion_id=PID) is True
+
+
+def test_f043_r13_si_publicar_falla_se_anula_la_marca(parte) -> None:
+    cola = ColaFake(error=RuntimeError("cola caida"))
+    r = _patch(_cliente(parte, cola=cola))
+    assert r.status_code == 200
+    assert r.json()["recalculo"] == "fallo"
+    assert _marca(parte) == (None, None, None, None)
+    assert ParteReviewRepository(parte).documentos_en_espera([DOC]) == set()
+
+
+def test_f043_r13_si_falla_deshacer_tambien_se_anula(parte) -> None:
+    cola = ColaFake()
+    cliente = _cliente(parte, cola=cola)
+    _patch(cliente)
+    cola._error = RuntimeError("cola caida")
+    r = _undo(cliente)
+    assert r.json()["recalculo"] == "fallo"
+    assert _marca(parte)[:2] == (None, None)
+
+
+def test_f043_r13_anular_solo_si_sigue_siendo_suya(parte) -> None:
+    repo = ParteReviewRepository(parte)
+    _poner_marca(parte, DOC, pedido=PID2, pedido_at=_hace(1),
+                 terminado=PID, terminado_at=_hace(9))
+    repo.anular_recalculo_pedido(DOC, peticion_id=PID)
+    assert _marca(parte) == (PID2, _hace(1), PID, _hace(9))
+    repo.anular_recalculo_pedido(DOC, peticion_id=PID2)
+    assert _marca(parte) == (None, None, PID, _hace(9))
+    repo.anular_recalculo_pedido("no-existe", peticion_id=PID2)
+
+
+class RepoMarcaRota(ParteReviewRepository):
+    def __init__(self, fabrica, *, marcar=None, anular=None) -> None:
+        super().__init__(fabrica)
+        self._err_marcar = marcar
+        self._err_anular = anular
+
+    def marcar_recalculo_pedido(self, document_id, **kw):
+        if self._err_marcar is not None:
+            raise self._err_marcar
+        return super().marcar_recalculo_pedido(document_id, **kw)
+
+    def anular_recalculo_pedido(self, document_id, **kw):
+        if self._err_anular is not None:
+            raise self._err_anular
+        return super().anular_recalculo_pedido(document_id, **kw)
+
+
+def _avisos(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records
+            if r.levelno == logging.WARNING]
+
+
+def test_f043_r14_si_marcar_lanza_avisa_y_sigue_como_f042(parte,
+                                                          caplog) -> None:
+    cola = ColaFake()
+    repo = RepoMarcaRota(parte, marcar=OSError("bd caida"))
+    with caplog.at_level(logging.WARNING):
+        r = _patch(_cliente(parte, cola=cola, repositorio=repo))
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "fecha": "2026-10-01",
+                        "fecha_int": 20261001, "recalculo": "pedido"}
+    assert len(cola.enviados) == 1
+    avisos = _avisos(caplog)
+    assert len(avisos) == 1
+    assert avisos[0].startswith("[recalculo]")
+    assert DOC in avisos[0] and "OSError" in avisos[0]
+    assert "bd caida" not in avisos[0]
+    assert _marca(parte)[:2] == (None, None)
+
+
+def test_f043_r14_si_marcar_lanza_y_publicar_falla_no_se_anula(
+        parte, caplog) -> None:
+    cola = ColaFake(error=RuntimeError("cola caida"))
+    repo = RepoMarcaRota(parte, marcar=OSError("bd caida"),
+                         anular=AssertionError("no hay marca que anular"))
+    with caplog.at_level(logging.WARNING):
+        r = _patch(_cliente(parte, cola=cola, repositorio=repo))
+    assert r.json()["recalculo"] == "fallo"
+    assert len(_avisos(caplog)) == 2      # marcar + publicar (F-042)
+
+
+def test_f043_r14_si_anular_lanza_avisa(parte, caplog) -> None:
+    cola = ColaFake(error=RuntimeError("cola caida"))
+    repo = RepoMarcaRota(parte, anular=OSError("bd caida"))
+    with caplog.at_level(logging.WARNING):
+        r = _patch(_cliente(parte, cola=cola, repositorio=repo))
+    assert r.status_code == 200
+    assert r.json()["recalculo"] == "fallo"
+    avisos = [a for a in _avisos(caplog) if "anular" in a]
+    assert len(avisos) == 1
+    assert avisos[0].startswith("[recalculo]")
+    assert DOC in avisos[0] and "OSError" in avisos[0]
+
+
+def test_f043_r14_parte_inexistente_en_deshacer_no_anula(parte) -> None:
+    """`marcar` da False (no hay fila): con fallo no se intenta anular."""
+    cola = ColaFake(error=RuntimeError("cola caida"))
+    repo = RepoMarcaRota(parte, anular=AssertionError("no debe anular"))
+
+    class RepoUndoAjeno(RepoMarcaRota):
+        def undo_last(self) -> dict:
+            return {"ok": True, "action": "parte_fecha",
+                    "document_ids": ["no-existe"], "description": "x"}
+
+    repo = RepoUndoAjeno(parte, anular=AssertionError("no debe anular"))
+    r = _undo(_cliente(parte, cola=cola, repositorio=repo))
+    assert r.json()["recalculo"] == "fallo"
+
+
+def test_f043_r15_sin_cola_no_marca(parte) -> None:
+    r = _patch(_cliente(parte, cola=None))
+    assert r.json()["recalculo"] == "sin_cola"
+    assert _marca(parte) == (None, None, None, None)
+
+
+def test_f043_r15_sin_cola_deshacer_no_marca(parte) -> None:
+    cliente = _cliente(parte, cola=None)
+    _patch(cliente)
+    assert _undo(cliente).json()["recalculo"] == "sin_cola"
+    assert _marca(parte) == (None, None, None, None)
+
+
+def test_f043_r16_las_respuestas_y_el_mensaje_no_cambian(parte) -> None:
+    cola = ColaFake()
+    cliente = _cliente(parte, cola=cola)
+    assert set(_patch(cliente).json()) == {"ok", "fecha", "fecha_int",
+                                           "recalculo"}
+    assert set(_undo(cliente).json()) == {
+        "ok", "description", "remaining", "omitidos", "action",
+        "document_ids", "recalculo"}
+    for _nombre, mensaje in cola.enviados:
+        assert set(mensaje) == {"tipo", "motivo", "document_id",
+                                "solicitado_por", "solicitado_at_utc"}

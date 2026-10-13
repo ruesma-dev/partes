@@ -20,6 +20,7 @@ import html
 import logging
 import os
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
@@ -90,6 +91,7 @@ from infrastructure.database.parte_repository import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from infrastructure.persistencia.recalculo_publisher import (
+    ESTADO_FALLO,
     MOTIVO_CAMBIO_FECHA,
     MOTIVO_DESHACER_FECHA,
     RecalculoPublisher,
@@ -545,6 +547,43 @@ def build_app(
     if recalculo_publisher is None and cola_cliente is not None:
         recalculo_publisher = RecalculoPublisher(
             cola=cola_cliente, cola_persistencia=settings.cola_persistencia)
+
+    def _pedir_recalculo_seguido(document_id: str, motivo: str,
+                                 solicitado_por: str | None) -> str:
+        """F-043 (R12-R15): `pedir_recalculo` de F-042 con seguimiento.
+
+        Con publicador, ANTES de publicar se confirma en el documento un
+        `recalculo_pedido_id` nuevo: sv3 lo lee antes de su pasada y lo
+        marca «terminado» al acabar; mientras tanto el parte esta en
+        espera. Si publicar falla, la marca se quita (si sigue siendo
+        esta). Marcar o anular que fallan solo dejan un WARNING: la
+        respuesta es la de F-042 (R14, R16).
+        """
+        marcado: str | None = None
+        if recalculo_publisher is not None:
+            peticion_id = str(uuid.uuid4())
+            try:
+                if repository.marcar_recalculo_pedido(
+                        document_id, peticion_id=peticion_id):
+                    marcado = peticion_id
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[recalculo] no se pudo marcar el pedido de recalculo "
+                    "document_id=%s (%s); el parte no quedara en espera.",
+                    document_id, type(exc).__name__)
+        estado = pedir_recalculo(
+            recalculo_publisher, document_id=document_id, motivo=motivo,
+            solicitado_por=solicitado_por)
+        if estado == ESTADO_FALLO and marcado is not None:
+            try:
+                repository.anular_recalculo_pedido(document_id,
+                                                   peticion_id=marcado)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[recalculo] no se pudo anular la marca del recalculo "
+                    "document_id=%s (%s); el parte esperara hasta vencer.",
+                    document_id, type(exc).__name__)
+        return estado
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo
@@ -1490,9 +1529,7 @@ def build_app(
             # quedaria con el reparto nuevo hasta la siguiente ingesta.
             actor = _actor(request)
             estados = [
-                pedir_recalculo(recalculo_publisher, document_id=doc_id,
-                                motivo=MOTIVO_DESHACER_FECHA,
-                                solicitado_por=actor)
+                _pedir_recalculo_seguido(doc_id, MOTIVO_DESHACER_FECHA, actor)
                 for doc_id in res.get("document_ids") or []
             ]
             if estados:
@@ -1919,9 +1956,8 @@ def build_app(
         # extra lo recalcula sv3. Se pide aunque la fecha no cambie (DA5:
         # volver a guardarla es el reintento manual) y un fallo de la
         # cola no deshace la fecha (R3).
-        recalculo = pedir_recalculo(
-            recalculo_publisher, document_id=document_id,
-            motivo=MOTIVO_CAMBIO_FECHA, solicitado_por=_actor(request))
+        recalculo = _pedir_recalculo_seguido(
+            document_id, MOTIVO_CAMBIO_FECHA, _actor(request))
         return {"ok": True, "fecha": fecha_iso, "fecha_int": fecha_int,
                 "recalculo": recalculo}
 

@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
@@ -1499,6 +1499,41 @@ class ParteReviewRepository:
                 "terminado_at_utc": fila.recalculo_terminado_at_utc,
             }
         return estados
+
+    def marcar_recalculo_pedido(self, document_id: str, *, peticion_id: str,
+                                ahora_utc: datetime | None = None) -> bool:
+        """R12: anota en el documento el recalculo que sv4 va a pedir.
+
+        Se confirma ANTES de publicar: sv3 lee este id antes de su pasada
+        y lo copia a `recalculo_terminado_id` al acabar. Sin guarda de
+        congelacion ni `undo_log`: no es una edicion del usuario, es
+        seguimiento. `ahora_utc` por defecto es el reloj del modulo (el
+        mismo con el que se decide el estado). True si toco el documento.
+        """
+        ahora = ahora_utc or _ahora_utc()
+        with self._session_factory.create_session() as session:
+            resultado = session.execute(
+                update(ParteDocumentOrm)
+                .where(ParteDocumentOrm.id == document_id)
+                .values(recalculo_pedido_id=peticion_id,
+                        recalculo_pedido_at_utc=ahora.isoformat())
+                .execution_options(synchronize_session=False))
+            session.commit()
+            return resultado.rowcount == 1
+
+    def anular_recalculo_pedido(self, document_id: str, *,
+                                peticion_id: str) -> None:
+        """R13: si publicar fallo, quita la marca SOLO si sigue siendo
+        `peticion_id` (otra peticion posterior pudo escribir la suya)."""
+        with self._session_factory.create_session() as session:
+            session.execute(
+                update(ParteDocumentOrm)
+                .where(ParteDocumentOrm.id == document_id,
+                       ParteDocumentOrm.recalculo_pedido_id == peticion_id)
+                .values(recalculo_pedido_id=None,
+                        recalculo_pedido_at_utc=None)
+                .execution_options(synchronize_session=False))
+            session.commit()
 
     def documentos_en_espera(self, ids) -> set[str]:
         """Los documentos `pendiente` de entre `ids` (R37): las vistas los

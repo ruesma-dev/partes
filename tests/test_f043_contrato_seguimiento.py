@@ -136,3 +136,22 @@ def test_f043_r35_el_adaptador_de_sv3_lee_el_pedido_y_marca_el_terminado(
             "recalculo_terminado_at_utc"} <= usados
     # sv3 nunca escribe el pedido: eso es de sv4.
     assert "recalculo_pedido_at_utc" not in usados
+
+
+def test_f043_r35_el_repositorio_de_sv4_escribe_el_pedido_y_lee_los_dos(
+        ) -> None:
+    usados = _nombres_usados(RUTA_REPO_SV4)
+    assert set(COLUMNAS) <= usados
+
+
+# ============ R16 · el mensaje de F-042 no gana ni pierde claves ======== #
+
+def test_f043_r16_el_mensaje_de_f042_esta_intacto() -> None:
+    sv4 = _cargar(RUTA_PUBLISHER_SV4, "f043_contrato_sv4_publisher")
+    mensaje = sv4.mensaje_recalculo(
+        document_id="doc-1", motivo=sv4.MOTIVO_CAMBIO_FECHA,
+        solicitado_por=None,
+        ahora=datetime(2026, 10, 13, 9, 0, tzinfo=timezone.utc))
+    assert set(mensaje) == {"tipo", "motivo", "document_id",
+                            "solicitado_por", "solicitado_at_utc"}
+    assert mensaje["tipo"] == "recalcular"
