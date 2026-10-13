@@ -64,3 +64,387 @@ def test_f043_r1_r37_las_plantillas_parsean(plantilla) -> None:
 
     entorno = Environment(loader=FileSystemLoader(str(PLANTILLAS)))
     entorno.parse(entorno.loader.get_source(entorno, plantilla)[0])
+
+
+# ====================== app.js ejecutado con node ======================= #
+
+import json as _json  # noqa: E402
+import shutil  # noqa: E402
+import subprocess  # noqa: E402
+
+NODE = shutil.which("node")
+
+
+def _js() -> str:
+    return APP_JS.read_text(encoding="utf-8")
+
+
+def _funcion(js: str, nombre: str) -> str:
+    m = re.search(r"\n  function " + nombre + r"\(.*?\n  \}\n", js, re.DOTALL)
+    assert m, f"app.js no define {nombre}"
+    return m.group(0)
+
+
+def _motivo_http(js: str) -> str:
+    m = re.search(r"\nvar MotivoHttp = \(function \(\) \{.*?\n\}\)\(\);\n",
+                  js, re.DOTALL)
+    assert m, "app.js no define MotivoHttp"
+    return m.group(0)
+
+
+def _variables(js: str, prefijos: tuple[str, ...]) -> str:
+    """Las `var` de nivel IIFE (dos espacios) que empiezan por esos nombres."""
+    lineas = [l for l in js.split("\n")
+              if re.match(r"  var (" + "|".join(prefijos) + r")\w* = ", l)]
+    assert lineas, prefijos
+    return "\n".join(lineas) + "\n"
+
+
+#: DOM minimo: elementos con atributos, clases, hijos y selectores
+#: compuestos (`tag.clase[attr="v"]`, listas con coma; sin descendientes).
+DOM_JS = r"""
+"use strict";
+var eventos = [], timers = [], peticiones = [], rutas = {};
+var ahora = 1000000, confirmar = true, almacen = {}, sinAlmacen = false;
+Date.now = function () { return ahora; };
+globalThis.setTimeout = function (f, ms) {
+  eventos.push("timer:" + ms); timers.push([f, ms]); return timers.length; };
+globalThis.clearTimeout = function () {};
+function E(tag, attrs) {
+  this.tagName = (tag || "div").toUpperCase(); this.attrs = {};
+  this.children = []; this.parentNode = null; this.disabled = false;
+  this.value = ""; this.defaultValue = ""; this.textContent = "";
+  this.title = ""; this.hidden = false; this.scrollTop = 0;
+  this.scrollLeft = 0; this.on = {}; this.style = {};
+  var self = this;
+  this.classList = {
+    add: function (c) { var l = self._clases();
+      if (l.indexOf(c) < 0) l.push(c); self.attrs["class"] = l.join(" "); },
+    remove: function () { var q = [].slice.call(arguments);
+      self.attrs["class"] = self._clases().filter(function (c) {
+        return q.indexOf(c) < 0; }).join(" "); },
+    contains: function (c) { return self._clases().indexOf(c) >= 0; },
+  };
+  for (var k in (attrs || {})) this.setAttribute(k, attrs[k]);
+}
+E.prototype._clases = function () {
+  return (this.attrs["class"] || "").split(/\s+/).filter(Boolean); };
+Object.defineProperty(E.prototype, "className", {
+  get: function () { return this.attrs["class"] || ""; },
+  set: function (v) { this.attrs["class"] = v; } });
+E.prototype.getAttribute = function (k) {
+  return Object.prototype.hasOwnProperty.call(this.attrs, k)
+    ? this.attrs[k] : null; };
+E.prototype.setAttribute = function (k, v) {
+  v = String(v);
+  if (k === "value") { this.value = v; this.defaultValue = v; return; }
+  if (k === "disabled") { this.disabled = true; return; }
+  if (k === "title") { this.title = v; return; }
+  this.attrs[k] = v; };
+E.prototype.hasAttribute = function (k) { return this.getAttribute(k) !== null; };
+E.prototype.removeAttribute = function (k) { delete this.attrs[k]; };
+E.prototype.appendChild = function (c) {
+  if (c.parentNode) c.remove(); c.parentNode = this; this.children.push(c);
+  return c; };
+E.prototype.remove = function () {
+  var p = this.parentNode; if (!p) return;
+  p.children.splice(p.children.indexOf(this), 1); this.parentNode = null; };
+E.prototype.addEventListener = function (t, f) {
+  (this.on[t] = this.on[t] || []).push(f); };
+E.prototype.disparar = function (t, ev) {
+  ev = ev || {type: t, key: null, preventDefault: function () {}};
+  (this.on[t] || []).forEach(function (f) { f(ev); }); };
+E.prototype.dispatchEvent = function (ev) {
+  eventos.push("evento:" + ev.type); this.disparar(ev.type, ev); return true; };
+E.prototype._todos = function () {
+  var out = [];
+  this.children.forEach(function (c) { out.push(c); out.push.apply(out, c._todos()); });
+  return out; };
+function casa(el, sel) {
+  var tag = /^[a-zA-Z]*/.exec(sel)[0], resto = sel.slice(tag.length), x;
+  if (tag && el.tagName !== tag.toUpperCase()) return false;
+  var re = /\.([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g;
+  while ((x = re.exec(resto))) {
+    if (x[1]) { if (!el.classList.contains(x[1])) return false; }
+    else if (x[3] === undefined) { if (!el.hasAttribute(x[2])) return false; }
+    else if (el.getAttribute(x[2]) !== x[3]) return false;
+  }
+  return true; }
+E.prototype.matches = function (sel) {
+  var self = this;
+  return sel.split(",").some(function (s) { return casa(self, s.trim()); }); };
+E.prototype.querySelectorAll = function (sel) {
+  return this._todos().filter(function (e) { return e.matches(sel); }); };
+E.prototype.querySelector = function (sel) {
+  return this.querySelectorAll(sel)[0] || null; };
+E.prototype.closest = function (sel) {
+  for (var e = this; e; e = e.parentNode) { if (e.matches && e.matches(sel)) return e; }
+  return null; };
+function el(tag, attrs, hijos) {
+  var e = new E(tag, attrs);
+  (hijos || []).forEach(function (h) { e.appendChild(h); });
+  return e; }
+var body = new E("body");
+globalThis.document = {
+  body: body, activeElement: null,
+  createElement: function (t) { return new E(t); },
+  getElementById: function (id) {
+    return body._todos().filter(function (e) {
+      return e.getAttribute("id") === id; })[0] || null; },
+  querySelectorAll: function (s) { return body.querySelectorAll(s); },
+  querySelector: function (s) { return body.querySelector(s); },
+  addEventListener: function () {},
+};
+globalThis.Event = function (t, o) { this.type = t; this.bubbles = !!(o && o.bubbles); };
+var ventana = {
+  confirm: function (m) { eventos.push("confirm:" + m); return confirmar; },
+  alert: function (m) { eventos.push("alert:" + m); },
+  location: {href: "https://portal.example/obras/obr-10?period=2026-03",
+             reload: function () { eventos.push("reload"); }},
+  scrollX: 0, scrollY: 0,
+  scrollTo: function (x, y) { eventos.push("scrollTo:" + x + "," + y); },
+};
+Object.defineProperty(ventana, "sessionStorage", {get: function () {
+  if (sinAlmacen) throw new Error("sin sessionStorage");
+  return {getItem: function (k) { return k in almacen ? almacen[k] : null; },
+          setItem: function (k, v) { almacen[k] = String(v); },
+          removeItem: function (k) { delete almacen[k]; }}; }});
+globalThis.window = ventana;
+globalThis.fetch = function (url, opts) {
+  peticiones.push([url, (opts && opts.method) || "GET"]);
+  var clave = Object.keys(rutas).filter(function (k) {
+    return url.indexOf(k) >= 0; })[0];
+  var r = clave ? rutas[clave] : {status: 200, json: {ok: true}};
+  if (typeof r === "function") r = r(url);
+  if (r === "red") return Promise.reject(new TypeError("Failed to fetch"));
+  return Promise.resolve({ok: r.status < 400, status: r.status,
+    json: function () { return Promise.resolve(r.json); }});
+};
+function tic() { return new Promise(function (r) { setImmediate(r); }); }
+async function drenar() { for (var i = 0; i < 15; i++) { await tic(); } }
+function salir(x) { process.stdout.write(JSON.stringify(x)); }
+"""
+
+#: Funciones de `app.js` que necesita el portal de fecha y espera.
+FUNCIONES = ("flashEl", "setStatus", "estadoRecalculo", "fmtFechaEs",
+             "textoConfirmacionFecha", "wireFechaInput")
+
+
+def _programa(cuerpo: str, funciones: tuple[str, ...] = FUNCIONES,
+              variables: tuple[str, ...] = ()) -> str:
+    js = _js()
+    return (DOM_JS + _motivo_http(js)
+            + (_variables(js, variables) if variables else "")
+            + "".join(_funcion(js, f) for f in funciones)
+            + "(async function () {\n" + cuerpo + "\n})();\n")
+
+
+def _node(programa: str):
+    if NODE is None:
+        pytest.skip("node no esta instalado: no se puede ejecutar el JS")
+    r = subprocess.run([NODE, "-e", programa], capture_output=True,
+                       text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
+    return _json.loads(r.stdout)
+
+
+# ======================= R6/R7 · textos puros ========================== #
+
+def test_f043_r6_fmt_fecha_es() -> None:
+    assert _node(_programa(
+        'salir([fmtFechaEs("2026-10-01"), fmtFechaEs("2026-03-20T00:00"),'
+        ' fmtFechaEs(""), fmtFechaEs(null), fmtFechaEs("raro")]);',
+        ("fmtFechaEs",))) == ["01/10/2026", "20/03/2026", "", "", "raro"]
+
+
+def test_f043_r6_r7_texto_de_la_confirmacion() -> None:
+    casos = [
+        [{"trabajadores": 4, "lineas": 9}, "2026-10-11", "2026-10-01"],
+        [{"trabajadores": 2, "lineas": 1}, "2026-10-11", "2026-10-01"],
+        [{"trabajadores": 1, "lineas": 3}, "2026-10-11", "2026-10-01"],
+        [{"trabajadores": 1, "lineas": 1}, "2026-10-11", "2026-10-01"],
+        [{"trabajadores": 0, "lineas": 0}, "2026-10-11", "2026-10-01"],
+        [None, "2026-10-11", "2026-10-01"],
+    ]
+    textos = _node(_programa(
+        "var c = " + _json.dumps(casos) + "; salir(c.map(function (x) {"
+        " return textoConfirmacionFecha(x[0], x[1], x[2]); }));",
+        ("fmtFechaEs", "textoConfirmacionFecha")))
+    assert textos == [
+        "Vas a cambiar la fecha del PARTE entero: sus 4 trabajadores "
+        "(9 líneas) pasan del 11/10/2026 al 01/10/2026. ¿Seguro?",
+        "Vas a cambiar la fecha del PARTE entero: sus 2 trabajadores "
+        "(1 línea) pasan del 11/10/2026 al 01/10/2026. ¿Seguro?",
+        "Vas a cambiar la fecha del PARTE entero: su único trabajador "
+        "(3 líneas) pasa del 11/10/2026 al 01/10/2026. ¿Seguro?",
+        "Vas a cambiar la fecha del PARTE entero: su único trabajador "
+        "(1 línea) pasa del 11/10/2026 al 01/10/2026. ¿Seguro?",
+        "El parte no tiene líneas activas; su fecha pasa del 11/10/2026 "
+        "al 01/10/2026. ¿Seguro?",
+        "Vas a cambiar la fecha del PARTE entero (todas sus líneas y "
+        "trabajadores) al 01/10/2026. ¿Seguro?",
+    ]
+
+
+# ===================== R5-R11 · wireFechaInput ========================= #
+
+#: Una vista con dos filas del mismo parte y una de otro.
+VISTA_JS = r"""
+function fila(doc, reg, fecha) {
+  var inp = el("input", {"class": "fecha-edit cell-edit", type: "date",
+    "data-document-id": doc, value: fecha,
+    title: "Es la fecha del PARTE", "data-status": "st-" + reg});
+  return el("tr", {"data-registro-id": reg, "data-document-id": doc,
+                   "data-fecha": fecha},
+    [el("td", {"class": "cell-fecha"}, [inp])]);
+}
+var tabla = el("table", {}, [fila("doc-1", "1", "2026-10-11"),
+  fila("doc-1", "2", "2026-10-11"), fila("doc-2", "3", "2026-10-12")]);
+body.appendChild(tabla);
+body.appendChild(el("span", {id: "st-1"}));
+var inps = document.querySelectorAll(".fecha-edit");
+inps.forEach(function (i) { wireFechaInput(i); });
+var inp = inps[0];
+rutas["/alcance"] = {status: 200, json: {ok: true, document_id: "doc-1",
+  fecha: "2026-10-11", trabajadores: 2, lineas: 2}};
+rutas["/fecha"] = {status: 200, json: {ok: true, fecha: "2026-10-01",
+  fecha_int: 20261001, recalculo: "sin_cola"}};
+function estado() {
+  return {valores: inps.map(function (i) { return [i.value, i.defaultValue,
+    i.disabled]; }), st: document.getElementById("st-1").textContent,
+    titulo: inp.title, eventos: eventos.slice(), peticiones: peticiones.slice()};
+}
+"""
+
+CONFIRMA = ("confirm:Vas a cambiar la fecha del PARTE entero: sus 2 "
+            "trabajadores (2 líneas) pasan del 11/10/2026 al 01/10/2026. "
+            "¿Seguro?")
+ALCANCE = ["/api/partes/doc-1/alcance", "GET"]
+PATCH = ["/api/partes/doc-1/fecha", "PATCH"]
+
+
+def _vista(acciones: str) -> dict:
+    return _node(_programa(VISTA_JS + acciones + "\nsalir(estado());"))
+
+
+def test_f043_r5_change_sin_foco_confirma_con_el_alcance_y_guarda() -> None:
+    r = _vista('inp.value = "2026-10-01"; inp.disparar("change"); '
+               "await drenar();")
+    assert r["peticiones"] == [ALCANCE, PATCH]
+    assert [e for e in r["eventos"] if e.startswith("confirm:")] == [CONFIRMA]
+    assert r["st"] == "✓ Guardado (sin recálculo automático)"
+
+
+def test_f043_r5_con_foco_espera_a_salir_del_campo() -> None:
+    r = _vista('document.activeElement = inp; inp.value = "2026-10-01";'
+               ' inp.disparar("change"); await drenar();'
+               " var antes = peticiones.length;"
+               ' document.activeElement = null; inp.disparar("blur");'
+               " await drenar(); eventos.unshift(\"antes:\" + antes);")
+    assert r["eventos"][0] == "antes:0"
+    assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+def test_f043_r5_con_foco_confirma_con_enter() -> None:
+    r = _vista('document.activeElement = inp; inp.value = "2026-10-01";'
+               ' inp.disparar("change");'
+               ' inp.disparar("keydown", {type: "keydown", key: "Tab",'
+               " preventDefault: function () {}});"
+               " await drenar(); var antes = peticiones.length;"
+               ' inp.disparar("keydown", {type: "keydown", key: "Enter",'
+               ' preventDefault: function () { eventos.push("pd"); }});'
+               ' await drenar(); eventos.unshift("antes:" + antes);')
+    assert r["eventos"][0] == "antes:0"
+    assert "pd" in r["eventos"]
+    assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+@pytest.mark.parametrize("valor", ["", "2026-10-11"])
+def test_f043_r5_vacia_o_la_misma_no_pregunta(valor) -> None:
+    r = _vista(f'inp.value = "{valor}"; inp.disparar("change");'
+               ' inp.disparar("blur"); await drenar();')
+    assert r["peticiones"] == []
+    assert not [e for e in r["eventos"] if e.startswith("confirm:")]
+
+
+def test_f043_r5_las_tres_plantillas_cablean_fecha_edit() -> None:
+    js = _js()
+    assert '_cablear(".fecha-edit", wireFechaInput);' in js
+    cuerpo = _funcion(js, "wireFechaInput")
+    for trozo in ('"/alcance"', "window.confirm(", "textoConfirmacionFecha(",
+                  'addEventListener("change"', 'addEventListener("blur"',
+                  'addEventListener("keydown"', '"Enter"',
+                  "document.activeElement !== inp"):
+        assert trozo in cuerpo, trozo
+
+
+def test_f043_r7_si_el_alcance_falla_pregunta_sin_cifras() -> None:
+    r = _vista('rutas["/alcance"] = {status: 404, json: {detail: "x"}};'
+               ' inp.value = "2026-10-01"; inp.disparar("change");'
+               " await drenar();")
+    assert [e for e in r["eventos"] if e.startswith("confirm:")] == [
+        "confirm:Vas a cambiar la fecha del PARTE entero (todas sus líneas"
+        " y trabajadores) al 01/10/2026. ¿Seguro?"]
+    assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+def test_f043_r7_si_el_alcance_no_llega_tambien() -> None:
+    r = _vista('rutas["/alcance"] = "red"; inp.value = "2026-10-01";'
+               ' inp.disparar("change"); await drenar();')
+    assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+def test_f043_r8_cancelar_vuelve_a_la_guardada_y_no_envia() -> None:
+    r = _vista('confirmar = false; inp.value = "2026-10-01";'
+               ' inp.disparar("change"); await drenar();'
+               ' inp.disparar("blur"); await drenar();')
+    assert r["peticiones"] == [ALCANCE]
+    assert r["valores"][0] == ["2026-10-11", "2026-10-11", False]
+
+
+def test_f043_r9_si_el_patch_falla_vuelve_y_dice_por_que() -> None:
+    r = _vista('rutas["/fecha"] = {status: 409, json: {ok: false,'
+               ' congelado: true, error: "El parte se está recalculando'
+               ' (extras): espera a que termine."}};'
+               ' inp.value = "2026-10-01"; inp.disparar("change");'
+               " await drenar();")
+    motivo = "El parte se está recalculando (extras): espera a que termine."
+    assert r["valores"][0] == ["2026-10-11", "2026-10-11", False]
+    assert r["st"] == "✗ " + motivo
+    assert r["titulo"] == motivo
+
+
+def test_f043_r10_la_nueva_es_la_guardada_en_el_y_sus_hermanos() -> None:
+    r = _vista('inp.value = "2026-10-01"; inp.disparar("change");'
+               " await drenar();")
+    assert r["valores"] == [["2026-10-01", "2026-10-01", False],
+                            ["2026-10-01", "2026-10-01", False],
+                            ["2026-10-12", "2026-10-12", False]]
+    assert r["titulo"] == "Es la fecha del PARTE"
+
+
+def test_f043_r10_tras_guardar_salir_del_campo_no_repite() -> None:
+    r = _vista('inp.value = "2026-10-01"; inp.disparar("change");'
+               ' await drenar(); inp.disparar("blur"); await drenar();')
+    assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+def test_f043_r11_el_blur_del_dialogo_no_abre_otro() -> None:
+    """`window.confirm` quita el foco: ese blur no cuenta."""
+    r = _vista('window.confirm = function (m) { eventos.push("confirm");'
+               ' inp.disparar("blur"); inp.disparar("change"); return true; };'
+               ' inp.value = "2026-10-01"; inp.disparar("change");'
+               " await drenar();")
+    assert r["eventos"].count("confirm") == 1
+    assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+def test_f043_r11_con_el_patch_en_vuelo_no_se_abre_otro() -> None:
+    r = _vista('rutas["/fecha"] = function () {'
+               ' inp.value = "2026-10-02"; inp.disparar("blur");'
+               ' inp.disparar("change"); eventos.push("en-vuelo:" + inp.disabled);'
+               ' return {status: 200, json: {ok: true, fecha: "2026-10-01"}}; };'
+               ' inp.value = "2026-10-01"; inp.disparar("change");'
+               " await drenar();")
+    assert "en-vuelo:true" in r["eventos"]
+    assert r["peticiones"] == [ALCANCE, PATCH]

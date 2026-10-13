@@ -274,13 +274,46 @@ function avisarCambioLineas() {
     return ["✓ Guardado", "saved"];
   }
 
+  // ---- F-043 · fecha del PARTE: confirmar antes de moverlo ---- //
+  // La fecha de una fila es la del PARTE entero: cambiarla mueve todas sus
+  // lineas y trabajadores. Antes de guardar se dice cuantos (alcance).
+  function fmtFechaEs(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+    return m ? m[3] + "/" + m[2] + "/" + m[1] : (iso || "");
+  }
+
+  // R6/R7: texto del `window.confirm`; `alcance` null si no se pudo pedir.
+  function textoConfirmacionFecha(alcance, vieja, nueva) {
+    var d1 = fmtFechaEs(vieja), d2 = fmtFechaEs(nueva);
+    if (!alcance) {
+      return "Vas a cambiar la fecha del PARTE entero (todas sus líneas y " +
+        "trabajadores) al " + d2 + ". ¿Seguro?";
+    }
+    var n = alcance.trabajadores || 0, m = alcance.lineas || 0;
+    var lineas = m + (m === 1 ? " línea" : " líneas");
+    if (n === 0) {
+      return "El parte no tiene líneas activas; su fecha pasa del " + d1 +
+        " al " + d2 + ". ¿Seguro?";
+    }
+    if (n === 1) {
+      return "Vas a cambiar la fecha del PARTE entero: su único trabajador (" +
+        lineas + ") pasa del " + d1 + " al " + d2 + ". ¿Seguro?";
+    }
+    return "Vas a cambiar la fecha del PARTE entero: sus " + n +
+      " trabajadores (" + lineas + ") pasan del " + d1 + " al " + d2 +
+      ". ¿Seguro?";
+  }
+
   // ---- Fecha (todas las .fecha-edit) ---- //
+  // F-043 (R5-R11): la fecha GUARDADA es el `defaultValue` del input (el
+  // `value` que pinto el servidor); se confirma con el alcance del parte
+  // al salir del campo, con Enter o con un `change` sin foco (DA3), nunca
+  // por tecla. Cancelar o un error devuelven la guardada.
   function wireFechaInput(inp) {
-    inp.addEventListener("change", function () {
-      var docId = inp.getAttribute("data-document-id");
-      var statusId = inp.getAttribute("data-status");
-      var val = inp.value;
-      if (!val) return;
+    var ocupado = false;                  // R11: confirmacion o PATCH en curso
+    var tituloBase = inp.title || "";
+    function guardada() { return inp.defaultValue || ""; }
+    function guardar(docId, statusId, val) {
       setStatus(statusId, "Guardando…", null);
       inp.disabled = true;
       fetch("/api/partes/" + docId + "/fecha", {
@@ -288,19 +321,49 @@ function avisarCambioLineas() {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ fecha: val }),
       }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
+        var fecha = data.fecha || val;
         flashEl(inp, "saved");
+        inp.title = tituloBase;
         var estado = estadoRecalculo(data.recalculo);   // F-042 (R11)
         setStatus(statusId, estado[0], estado[1]);
-        // Propaga a filas hermanas del mismo documento.
+        // R10: la nueva fecha es la guardada en el y en sus hermanos.
         document.querySelectorAll(
           '.fecha-edit[data-document-id="' + docId + '"]'
-        ).forEach(function (o) { if (o !== inp) o.value = data.fecha; });
+        ).forEach(function (o) { o.value = fecha; o.defaultValue = fecha; });
+        inp.value = fecha; inp.defaultValue = fecha;
       }).catch(function (e) {
         flashEl(inp, "error");
+        inp.value = guardada();                         // R9
         // F-004 R16: el motivo del servidor, no un "✗ Error" mudo.
         setStatus(statusId, "✗ " + (e.message || "Error"), "error");
         inp.title = e.message || "";
-      }).finally(function () { inp.disabled = false; });
+      }).finally(function () { inp.disabled = false; ocupado = false; });
+    }
+    function intentar() {
+      var val = inp.value;
+      if (ocupado || !val || val === guardada()) return;    // R5, R11
+      ocupado = true;
+      var docId = inp.getAttribute("data-document-id");
+      var statusId = inp.getAttribute("data-status");
+      var vieja = guardada();
+      fetch("/api/partes/" + docId + "/alcance", {
+        headers: { Accept: "application/json" },
+      }).then(MotivoHttp.lanzarSiFalla).then(null, function () { return null; })
+        .then(function (alcance) {
+          if (!window.confirm(textoConfirmacionFecha(alcance, vieja, val))) {
+            inp.value = guardada();                       // R8
+            ocupado = false;
+            return;
+          }
+          guardar(docId, statusId, val);
+        });
+    }
+    inp.addEventListener("change", function () {
+      if (document.activeElement !== inp) intentar();     // sin foco
+    });
+    inp.addEventListener("blur", intentar);
+    inp.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); intentar(); }
     });
   }
 

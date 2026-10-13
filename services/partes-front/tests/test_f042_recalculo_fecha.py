@@ -595,16 +595,22 @@ function el(id) { return (els[id] = els[id] || new El(id)); }
 globalThis.document = {
   getElementById: function (id) { return els[id] || null; },
   querySelectorAll: function () { return []; },
+  activeElement: null,                                 // F-043 (enmienda A)
 };
 globalThis.alert = function (m) { eventos.push("alert:" + m); };
 globalThis.window = {location: {reload: function () {
-  eventos.push("reload"); }}};
+  eventos.push("reload"); }},
+  confirm: function () { return true; }};             // F-043 (enmienda A)
 function refreshUndo() { eventos.push("refreshUndo"); }
 var respuesta = null, peticiones = [];
+// F-043 (enmienda A): el alcance del parte se pide antes del PATCH.
+var ALCANCE = {ok: true, document_id: "doc-1", fecha: "2026-10-11",
+               trabajadores: 2, lineas: 3};
 globalThis.fetch = function (url, opts) {
   peticiones.push([url, opts && opts.method]);
+  var json = /\/alcance$/.test(url) ? ALCANCE : respuesta;
   return Promise.resolve({ok: true, status: 200,
-    json: function () { return Promise.resolve(respuesta); }});
+    json: function () { return Promise.resolve(json); }});
 };
 function tic() { return new Promise(function (r) { setImmediate(r); }); }
 async function drenar() { for (var i = 0; i < 10; i++) { await tic(); } }
@@ -659,6 +665,7 @@ def _guardar_fecha(casos: list) -> dict:
     programa = (DOM_JS + _motivo_http(js)
                 + "".join(_funcion(js, f) for f in (
                     "flashEl", "setStatus", "estadoRecalculo",
+                    "fmtFechaEs", "textoConfirmacionFecha",   # F-043
                     "wireFechaInput"))
                 + FECHA_JS % {"casos": _json.dumps(casos)})
     return _node(programa)
@@ -676,6 +683,12 @@ BASE = {"ok": True, "fecha": "2026-10-01", "fecha_int": 20261001}
 
 
 def test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo() -> None:
+    """Adaptado por F-043 (enmienda del humano, opcion A, 2026-10-13):
+    `wireFechaInput` confirma con el alcance del parte ANTES del PATCH, asi
+    que el doble de DOM gana `window.confirm` (acepta), la respuesta del
+    alcance, `activeElement` y las funciones nuevas, y cambian el orden de
+    peticiones y los temporizadores. Los textos de `estadoRecalculo`, NO.
+    """
     res = _guardar_fecha([
         dict(BASE, recalculo="pedido"), dict(BASE, recalculo="fallo"),
         dict(BASE, recalculo="sin_cola"), dict(BASE)])
@@ -689,7 +702,8 @@ def test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo() -> None:
                         ["timer:1600", "timer:1800"]]
     assert viejo == ["✓ Guardado", "edit-status saved",
                      ["timer:1600", "timer:1800"]]
-    assert res["peticiones"][0] == ["/api/partes/doc-1/fecha", "PATCH"]
+    assert res["peticiones"][:2] == [["/api/partes/doc-1/alcance", None],
+                                     ["/api/partes/doc-1/fecha", "PATCH"]]
 
 
 def test_f042_r11_tras_deshacer_con_fallo_avisa_antes_de_recargar() -> None:
