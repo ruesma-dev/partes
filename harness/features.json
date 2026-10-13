@@ -572,6 +572,26 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-042-recalcular-extras-al-cambiar-fecha"
+    },
+    {
+      "id": "F-043",
+      "title": "Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras",
+      "description": "Pedida por el humano el 2026-10-12 (opcion A) y enmendada el 2026-10-13: «tengo que seguir usando la plataforma para el resto de partes, solo queda en espera el que esta recalculando». En el detalle de obra y de trabajador cada fila lleva un input de fecha (.fecha-edit) que hace PATCH /api/partes/{id}/fecha, y update_parte_fecha mueve el PARTE ENTERO: el humano lo cambio en la fila de un trabajador y movio a los cuatro del parte. Tras el cambio sv3 recalcula el reparto (F-042) en ~1-2 min y el portal no lo refleja. LO QUE SE PIDE: (1) rotular el campo como fecha del parte; (2) antes de guardar, window.confirm con cuantos trabajadores y lineas se mueven y a que dia; cancelar deja la fecha anterior; (3) mientras sv3 recalcula, SOLO ese parte queda en espera (filas marcadas y deshabilitadas, y el servidor rechaza sus ediciones salvo fecha y deshacer, porque una edicion a mitad de pasada se pisa) y el resto del portal sigue usable; al terminar, una tarjeta ofrece Actualizar (recarga conservando scroll y filtros): nada recarga solo. Seguimiento: sv4 marca recalculo_pedido_id antes de publicar, sv3 copia a recalculo_terminado_id el pedido que leyo antes de su pasada (UPDATE condicional), el estado lo pinta el servidor y vence a los 10 min. Cuatro columnas nullables en parte_documents (las dos copias de orm_models.py). Mover una sola linea es F-044. La logica de recalculo de sv3 no cambia.",
+      "acceptance": [
+        "El campo de fecha de las filas se rotula como fecha del parte (cabecera, title y aria-label)",
+        "Antes de guardar, una confirmacion dice cuantos trabajadores y lineas del parte se mueven y a que dia; cancelar deja la fecha anterior",
+        "Mientras sv3 recalcula, solo ese parte queda en espera (marcado, deshabilitado y con 409 en el servidor salvo fecha y deshacer) en cualquier pestaña, y el resto del portal sigue usable",
+        "Al terminar, una tarjeta ofrece Actualizar, que recarga conservando scroll y filtros; ninguna recarga ocurre sin un clic; la espera vence a los 10 min",
+        "sv3 marca terminado solo el pedido que leyo antes de su pasada; un pedido posterior queda pendiente",
+        "El mensaje y las respuestas de F-042 no cambian y sus tests siguen pasando sin tocarlos, salvo el doble de DOM de test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo, enmendado por decision del humano (opcion A, 2026-10-13)",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-043-fecha-del-parte-confirmar-y-recargar"
     }
   ]
 }

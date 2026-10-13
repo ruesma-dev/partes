@@ -274,13 +274,314 @@ function avisarCambioLineas() {
     return ["✓ Guardado", "saved"];
   }
 
+  // ---- F-043 · fecha del PARTE: confirmar antes de moverlo ---- //
+  // La fecha de una fila es la del PARTE entero: cambiarla mueve todas sus
+  // lineas y trabajadores. Antes de guardar se dice cuantos (alcance).
+  function fmtFechaEs(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || "");
+    return m ? m[3] + "/" + m[2] + "/" + m[1] : (iso || "");
+  }
+
+  // R6/R7: texto del `window.confirm`; `alcance` null si no se pudo pedir.
+  function textoConfirmacionFecha(alcance, vieja, nueva) {
+    var d1 = fmtFechaEs(vieja), d2 = fmtFechaEs(nueva);
+    if (!alcance) {
+      return "Vas a cambiar la fecha del PARTE entero (todas sus líneas y " +
+        "trabajadores) al " + d2 + ". ¿Seguro?";
+    }
+    var n = alcance.trabajadores || 0, m = alcance.lineas || 0;
+    var lineas = m + (m === 1 ? " línea" : " líneas");
+    if (n === 0) {
+      return "El parte no tiene líneas activas; su fecha pasa del " + d1 +
+        " al " + d2 + ". ¿Seguro?";
+    }
+    if (n === 1) {
+      return "Vas a cambiar la fecha del PARTE entero: su único trabajador (" +
+        lineas + ") pasa del " + d1 + " al " + d2 + ". ¿Seguro?";
+    }
+    return "Vas a cambiar la fecha del PARTE entero: sus " + n +
+      " trabajadores (" + lineas + ") pasan del " + d1 + " al " + d2 +
+      ". ¿Seguro?";
+  }
+
+  // ---- F-043 · el parte «en espera» mientras sv3 recalcula ---- //
+  // SOLO ese parte se deshabilita; el resto de la pagina sigue usable y
+  // nada recarga solo (R19, R40): al terminar, una tarjeta ofrece
+  // «Actualizar», que recarga conservando scroll y filtros (DA10).
+  // Punto de entrada de F-044: `ponerEnEspera` + `vigilarRecalculo`.
+  var RECALCULO_SONDEO_MS = 5000;
+  var RECALCULO_SIN_RESPUESTA_MS = 720000;
+  var VISTA_CLAVE = "partes.vista.restaurar";
+  var VISTA_MAX_MS = 60000;
+  var recalculoVigilados = {};        // document_id -> fecha (ISO)
+  var recalculoSondeo = null;         // {ultimaValida: ms} mientras sondea
+
+  // R25: que hacer con el estado de `GET /api/recalculo`.
+  function accionPorEstado(estado) {
+    if (estado === "terminado") return "terminado";
+    if (estado === "vencido") return "vencido";
+    if (estado === "sin_seguimiento") return "soltar";
+    if (estado === "no_existe") return "quitar";
+    return "esperar";                 // pendiente o respuesta rara
+  }
+
+  // R21: la vista guardada, solo si es de esta URL y de hace < 60 s.
+  function vistaRestaurable(guardada, url, ahoraMs) {
+    if (!guardada || typeof guardada !== "object") return null;
+    if (guardada.url !== url || typeof guardada.t !== "number") return null;
+    var edad = ahoraMs - guardada.t;
+    return (edad >= 0 && edad < VISTA_MAX_MS) ? guardada : null;
+  }
+
+  function textoAvisoRecalculo(tipo, fecha) {
+    var d = fmtFechaEs(fecha);
+    if (tipo === "espera") {
+      return "Recalculando extras del parte del " + d + " (suele tardar " +
+        "1–2 min). Puedes seguir trabajando con el resto.";
+    }
+    if (tipo === "terminado") return "Extras del parte del " + d + " recalculadas.";
+    if (tipo === "vencido") {
+      return "No se ha podido confirmar el recálculo de extras del parte del " +
+        d + ". Pulsa Actualizar; si las extras no cambian, vuelve a guardar " +
+        "la fecha.";
+    }
+    if (tipo === "soltar") return estadoRecalculo("pedido")[0];
+    return estadoRecalculo("fallo")[0];
+  }
+
+  // Filas del parte (vistas de obra y trabajador) y contenedores del
+  // detalle del parte (R37).
+  function contenedoresEspera(docId) {
+    return Array.prototype.slice.call(document.querySelectorAll(
+      'tr[data-document-id="' + docId + '"], ' +
+      '[data-parte-contenido][data-document-id="' + docId + '"]'));
+  }
+
+  // La marca junto a la fecha (o al final de la primera celda); `texto`
+  // null la quita.
+  function marcarEspera(cont, texto) {
+    var marcas = cont.querySelectorAll(".recalculando-marca");
+    if (texto === null) {
+      Array.prototype.forEach.call(marcas, function (m) { m.remove(); });
+      return;
+    }
+    var marca = marcas[0];
+    if (!marca) {
+      var fecha = cont.querySelector(".fecha-edit");
+      var sitio = fecha ? fecha.parentNode : cont.querySelector("td");
+      if (!sitio) return;
+      marca = document.createElement("span");
+      marca.className = "recalculando-marca";
+      sitio.appendChild(marca);
+    }
+    marca.textContent = texto;
+  }
+
+  // R18: deshabilita los controles del parte recordando cuales ya lo
+  // estaban, para que `soltarEspera` los devuelva tal cual (R23).
+  function ponerEnEspera(docId) {
+    contenedoresEspera(docId).forEach(function (cont) {
+      cont.setAttribute("data-recalculando", "1");
+      Array.prototype.forEach.call(
+        cont.querySelectorAll("input,select,textarea,button"), function (c) {
+          if (c.hasAttribute("data-espera-previo")) return;
+          c.setAttribute("data-espera-previo", c.disabled ? "1" : "0");
+          c.disabled = true;
+        });
+      marcarEspera(cont, "recalculando…");
+    });
+  }
+
+  function soltarEspera(docId) {
+    contenedoresEspera(docId).forEach(function (cont) {
+      cont.removeAttribute("data-recalculando");
+      Array.prototype.forEach.call(
+        cont.querySelectorAll("input,select,textarea,button"), function (c) {
+          var previo = c.getAttribute("data-espera-previo");
+          if (previo === null) return;
+          c.disabled = previo === "1";
+          c.removeAttribute("data-espera-previo");
+        });
+      marcarEspera(cont, null);
+    });
+  }
+
+  // Tarjeta no modal y descartable por documento (R18, R20, R22-R24);
+  // `tipo` null la quita.
+  function avisoRecalculo(docId, tipo, fecha) {
+    if (!document.body) return;
+    var caja = document.getElementById("recalculo-avisos");
+    var vieja = caja && caja.querySelector(
+      '.recalculo-tarjeta[data-document-id="' + docId + '"]');
+    if (vieja) vieja.remove();
+    if (tipo === null) return;
+    if (!caja) {
+      caja = document.createElement("div");
+      caja.setAttribute("id", "recalculo-avisos");
+      caja.setAttribute("role", "status");
+      caja.setAttribute("aria-live", "polite");
+      document.body.appendChild(caja);
+    }
+    var tarjeta = document.createElement("div");
+    tarjeta.className = "recalculo-tarjeta" +
+      (tipo === "vencido" || tipo === "fallo" ? " aviso" : "");
+    tarjeta.setAttribute("data-document-id", docId);
+    var texto = document.createElement("span");
+    texto.className = "recalculo-texto";
+    texto.textContent = textoAvisoRecalculo(tipo, fecha);
+    tarjeta.appendChild(texto);
+    if (tipo === "terminado" || tipo === "vencido") {
+      var actualizar = document.createElement("button");
+      actualizar.setAttribute("type", "button");
+      actualizar.setAttribute("data-recalculo-actualizar", "");
+      actualizar.className = "btn small primary";
+      actualizar.textContent = "Actualizar";
+      actualizar.addEventListener("click", actualizarVista);
+      tarjeta.appendChild(actualizar);
+    }
+    var cerrar = document.createElement("button");
+    cerrar.setAttribute("type", "button");
+    cerrar.setAttribute("aria-label", "Descartar aviso");
+    cerrar.className = "recalculo-cerrar";
+    cerrar.textContent = "×";
+    cerrar.addEventListener("click", function () { tarjeta.remove(); });
+    tarjeta.appendChild(cerrar);
+    caja.appendChild(tarjeta);
+  }
+
+  // Anade el parte a los vigilados y, si no hay ya, arranca UN sondeo
+  // para todos (R18). Nunca recarga.
+  function vigilarRecalculo(docId, fecha) {
+    recalculoVigilados[docId] = fecha || recalculoVigilados[docId] || "";
+    if (recalculoSondeo) return;
+    recalculoSondeo = { ultimaValida: Date.now() };
+    setTimeout(sondearRecalculo, RECALCULO_SONDEO_MS);
+  }
+
+  function sondearRecalculo() {
+    var ids = Object.keys(recalculoVigilados);
+    fetch("/api/recalculo?ids=" + ids.map(encodeURIComponent).join(","), {
+      headers: { Accept: "application/json" },
+    }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (d) {
+      if (!d || !d.ok || !d.estados) throw new Error("respuesta sin estados");
+      recalculoSondeo.ultimaValida = Date.now();
+      ids.forEach(function (id) {
+        aplicarEstadoRecalculo(id, (d.estados[id] || {}).estado);
+      });
+    }).catch(function () {}).then(function () {
+      // R23: un fallo de red o un 5xx no corta nada... salvo 12 min seguidos.
+      if (Date.now() - recalculoSondeo.ultimaValida >= RECALCULO_SIN_RESPUESTA_MS) {
+        Object.keys(recalculoVigilados).forEach(function (id) {
+          aplicarEstadoRecalculo(id, "vencido");
+        });
+      }
+      if (!Object.keys(recalculoVigilados).length) {
+        recalculoSondeo = null;
+        return;
+      }
+      setTimeout(sondearRecalculo, RECALCULO_SONDEO_MS);
+    });
+  }
+
+  function aplicarEstadoRecalculo(docId, estado) {
+    var accion = accionPorEstado(estado);
+    if (accion === "esperar") return;
+    var fecha = recalculoVigilados[docId];
+    delete recalculoVigilados[docId];
+    if (accion === "terminado" || accion === "vencido") {
+      // R20/R22: siguen deshabilitadas: sus datos estan viejos.
+      contenedoresEspera(docId).forEach(function (cont) {
+        marcarEspera(cont, accion === "terminado"
+          ? "recalculado · pulsa Actualizar" : "sin confirmar · pulsa Actualizar");
+      });
+      avisoRecalculo(docId, accion, fecha);
+      return;
+    }
+    soltarEspera(docId);
+    avisoRecalculo(docId, accion === "soltar" ? "soltar" : null, fecha);
+  }
+
+  // R21: «Actualizar». Guarda la vista (si se puede) y recarga: es la
+  // unica recarga de F-043 y siempre la pide un clic (R40).
+  function actualizarVista() {
+    try {
+      var vista = {
+        url: window.location.href, t: Date.now(),
+        x: window.scrollX || 0, y: window.scrollY || 0,
+        scrolls: Array.prototype.map.call(
+          document.querySelectorAll(".table-scroll, .matrix-scroll"),
+          function (e) { return [e.scrollTop, e.scrollLeft]; }),
+        filtros: Array.prototype.map.call(
+          document.querySelectorAll(".col-filter"),
+          function (e) { return e.value; }),
+      };
+      window.sessionStorage.setItem(VISTA_CLAVE, JSON.stringify(vista));
+    } catch (e) { /* sin sessionStorage: recarga sin mas */ }
+    window.location.reload();
+  }
+
+  // Al cargar: la vista que guardo «Actualizar», una sola vez.
+  function restaurarVista() {
+    var vista = null;
+    try {
+      var cruda = window.sessionStorage.getItem(VISTA_CLAVE);
+      window.sessionStorage.removeItem(VISTA_CLAVE);
+      vista = vistaRestaurable(JSON.parse(cruda), window.location.href,
+                               Date.now());
+    } catch (e) { return; }
+    if (!vista) return;
+    Array.prototype.forEach.call(document.querySelectorAll(".col-filter"),
+      function (f, i) {
+        var valor = (vista.filtros || [])[i];
+        if (typeof valor !== "string" || valor === f.value) return;
+        f.value = valor;
+        f.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    Array.prototype.forEach.call(
+      document.querySelectorAll(".table-scroll, .matrix-scroll"),
+      function (e, i) {
+        var pos = (vista.scrolls || [])[i];
+        if (!pos) return;
+        e.scrollTop = pos[0]; e.scrollLeft = pos[1];
+      });
+    window.scrollTo(vista.x || 0, vista.y || 0);
+  }
+
+  // R18/R26: los partes que el servidor pinta en espera (R37) esperan al
+  // cargar, con su aviso y un unico sondeo.
+  function esperasDeLaPagina() {
+    var vistos = {};
+    Array.prototype.forEach.call(document.querySelectorAll(
+      '[data-recalculando="1"][data-document-id]'), function (cont) {
+        var docId = cont.getAttribute("data-document-id");
+        var fecha = cont.getAttribute("data-fecha");
+        if (!fecha) {
+          var inp = cont.querySelector(".fecha-edit");
+          fecha = inp ? inp.defaultValue : "";
+        }
+        if (!vistos[docId]) vistos[docId] = fecha || "";
+      });
+    Object.keys(vistos).forEach(function (docId) {
+      ponerEnEspera(docId);
+      avisoRecalculo(docId, "espera", vistos[docId]);
+      vigilarRecalculo(docId, vistos[docId]);
+    });
+  }
+
   // ---- Fecha (todas las .fecha-edit) ---- //
+  // F-043 (R5-R11): la fecha GUARDADA es el `defaultValue` del input (el
+  // `value` que pinto el servidor); se confirma con el alcance del parte
+  // al salir del campo, con Enter o con un `change` sin foco (DA3), nunca
+  // por tecla. Cancelar o un error devuelven la guardada.
   function wireFechaInput(inp) {
-    inp.addEventListener("change", function () {
-      var docId = inp.getAttribute("data-document-id");
-      var statusId = inp.getAttribute("data-status");
-      var val = inp.value;
-      if (!val) return;
+    var ocupado = false;                  // R11: confirmacion o PATCH en curso
+    var tituloBase = inp.title || "";
+    function guardada() { return inp.defaultValue || ""; }
+    function guardar(docId, statusId, val) {
+      var despues = null;     // tras rehabilitar el input (R18, R24)
       setStatus(statusId, "Guardando…", null);
       inp.disabled = true;
       fetch("/api/partes/" + docId + "/fecha", {
@@ -288,19 +589,61 @@ function avisarCambioLineas() {
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({ fecha: val }),
       }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
+        var fecha = data.fecha || val;
         flashEl(inp, "saved");
+        inp.title = tituloBase;
         var estado = estadoRecalculo(data.recalculo);   // F-042 (R11)
         setStatus(statusId, estado[0], estado[1]);
-        // Propaga a filas hermanas del mismo documento.
+        // R10: la nueva fecha es la guardada en el y en sus hermanos.
         document.querySelectorAll(
           '.fecha-edit[data-document-id="' + docId + '"]'
-        ).forEach(function (o) { if (o !== inp) o.value = data.fecha; });
+        ).forEach(function (o) { o.value = fecha; o.defaultValue = fecha; });
+        inp.value = fecha; inp.defaultValue = fecha;
+        if (data.recalculo === "pedido") {
+          despues = function () {
+            ponerEnEspera(docId);
+            avisoRecalculo(docId, "espera", fecha);
+            vigilarRecalculo(docId, fecha);
+          };
+        } else if (data.recalculo === "fallo") {
+          despues = function () { avisoRecalculo(docId, "fallo", fecha); };
+        }
       }).catch(function (e) {
         flashEl(inp, "error");
+        inp.value = guardada();                         // R9
         // F-004 R16: el motivo del servidor, no un "✗ Error" mudo.
         setStatus(statusId, "✗ " + (e.message || "Error"), "error");
         inp.title = e.message || "";
-      }).finally(function () { inp.disabled = false; });
+      }).finally(function () {
+        inp.disabled = false; ocupado = false;
+        if (despues) despues();
+      });
+    }
+    function intentar() {
+      var val = inp.value;
+      if (ocupado || !val || val === guardada()) return;    // R5, R11
+      ocupado = true;
+      var docId = inp.getAttribute("data-document-id");
+      var statusId = inp.getAttribute("data-status");
+      var vieja = guardada();
+      fetch("/api/partes/" + docId + "/alcance", {
+        headers: { Accept: "application/json" },
+      }).then(MotivoHttp.lanzarSiFalla).then(null, function () { return null; })
+        .then(function (alcance) {
+          if (!window.confirm(textoConfirmacionFecha(alcance, vieja, val))) {
+            inp.value = guardada();                       // R8
+            ocupado = false;
+            return;
+          }
+          guardar(docId, statusId, val);
+        });
+    }
+    inp.addEventListener("change", function () {
+      if (document.activeElement !== inp) intentar();     // sin foco
+    });
+    inp.addEventListener("blur", intentar);
+    inp.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter") { ev.preventDefault(); intentar(); }
     });
   }
 
@@ -2345,7 +2688,11 @@ function avisarCambioLineas() {
     if (todas) {
       todas.addEventListener("click", function () {
         document.querySelectorAll("#lines-table tbody tr[data-registro-id]")
-          .forEach(function (tr) { if (PartidaSel.visible(tr)) toggle(tr, true); });
+          .forEach(function (tr) {
+            // F-043 (R18): el parte en espera queda fuera.
+            if (PartidaSel.visible(tr)
+                && tr.getAttribute("data-recalculando") !== "1") toggle(tr, true);
+          });
         renderBar();
       });
     }
@@ -2482,6 +2829,9 @@ function avisarCambioLineas() {
     wireBulkSelect();
     wireNuevoParte();
     wireAddLine();
+    // F-043: la vista que guardo «Actualizar» y los partes en espera.
+    restaurarVista();
+    esperasDeLaPagina();
 
     var combos = Array.prototype.slice.call(
       document.querySelectorAll(".combo-hora")

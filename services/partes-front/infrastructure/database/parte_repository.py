@@ -26,7 +26,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
-from sqlalchemy import func, or_, select, text
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
@@ -56,6 +56,12 @@ from application.services.congelacion import (
     motivo_congelacion_documento,
     motivo_congelacion_linea,
     vive_fuera,
+)
+from application.services.seguimiento_recalculo import (
+    ESTADO_NO_EXISTE,
+    ESTADO_PENDIENTE,
+    RecalculandoError,
+    estado_seguimiento,
 )
 from application.services.incidencias_horas import (
     NIVEL_AVISO,
@@ -490,6 +496,11 @@ def _sin_casar_en_cola():
     )
 
 
+def _ahora_utc() -> datetime:
+    """Reloj del seguimiento del recalculo (F-043); los tests lo parchean."""
+    return datetime.now(timezone.utc)
+
+
 def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
     """Clave estable y URL-safe para agrupar registros por trabajador."""
     if reg.empleado_ide is not None:
@@ -712,6 +723,24 @@ def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
     exigir_documento_editable(
         aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
     )
+
+
+def _exigir_sin_recalculo(doc: ParteDocumentOrm | None) -> None:
+    """F-043 (R38): rechaza la edicion de un parte EN ESPERA.
+
+    Mientras sv3 recalcula (estado `pendiente`), una edicion confirmada
+    entre su lectura y su escritura se pisa (design §9 R-a). Va DETRAS de
+    cada guarda de congelacion de F-004 (su motivo manda si los dos
+    aplican) salvo en `update_parte_fecha`, y deshacer no la usa: los dos
+    piden su propia pasada (DA11). `RecalculandoError` es un
+    `CongeladoError`: el 409 y los `except` de F-004 la tratan igual.
+    """
+    if doc is None:
+        return
+    if estado_seguimiento(doc.recalculo_pedido_id, doc.recalculo_terminado_id,
+                          doc.recalculo_pedido_at_utc,
+                          _ahora_utc()) == ESTADO_PENDIENTE:
+        raise RecalculandoError()
 
 
 def _reg_de_celda(reg: ParteRegistroOrm, tipo: str) -> dict:
@@ -1433,6 +1462,106 @@ class ParteReviewRepository:
             return detail
 
     # ----------------------------------------------------------------- #
+    # F-043: alcance del parte y seguimiento del recalculo (solo lectura).
+    # ----------------------------------------------------------------- #
+    def alcance_parte(self, document_id: str) -> dict | None:
+        """Trabajadores y lineas ACTIVAS del parte (R2); None si no existe
+        o esta en papelera (R3). No escribe nada (R4)."""
+        with self._session_factory.create_session() as session:
+            doc = session.execute(
+                select(ParteDocumentOrm)
+                .options(selectinload(ParteDocumentOrm.registros))
+                .where(ParteDocumentOrm.id == document_id)
+            ).scalar_one_or_none()
+            if doc is None or not doc.is_active:
+                return None
+            activas = [r for r in doc.registros if r.deleted_at_utc is None]
+            return {
+                "document_id": doc.id,
+                "fecha": doc.fecha,
+                "trabajadores": len({worker_key_for_registro(r)
+                                     for r in activas}),
+                "lineas": len(activas),
+            }
+
+    def estados_recalculo(self, ids: list[str]) -> dict[str, dict]:
+        """Estado del seguimiento de cada documento (R17), en UNA consulta.
+
+        Un id desconocido o de un parte en papelera da `no_existe`.
+        """
+        if not ids:
+            return {}
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(ParteDocumentOrm.id, ParteDocumentOrm.is_active,
+                       ParteDocumentOrm.recalculo_pedido_id,
+                       ParteDocumentOrm.recalculo_pedido_at_utc,
+                       ParteDocumentOrm.recalculo_terminado_id,
+                       ParteDocumentOrm.recalculo_terminado_at_utc)
+                .where(ParteDocumentOrm.id.in_(ids))
+            ).all()
+        por_id = {f.id: f for f in filas if f.is_active}
+        ahora = _ahora_utc()
+        estados: dict[str, dict] = {}
+        for doc_id in ids:
+            fila = por_id.get(doc_id)
+            if fila is None:
+                estados[doc_id] = {"estado": ESTADO_NO_EXISTE,
+                                   "pedido_at_utc": None,
+                                   "terminado_at_utc": None}
+                continue
+            estados[doc_id] = {
+                "estado": estado_seguimiento(
+                    fila.recalculo_pedido_id, fila.recalculo_terminado_id,
+                    fila.recalculo_pedido_at_utc, ahora),
+                "pedido_at_utc": fila.recalculo_pedido_at_utc,
+                "terminado_at_utc": fila.recalculo_terminado_at_utc,
+            }
+        return estados
+
+    def marcar_recalculo_pedido(self, document_id: str, *, peticion_id: str,
+                                ahora_utc: datetime | None = None) -> bool:
+        """R12: anota en el documento el recalculo que sv4 va a pedir.
+
+        Se confirma ANTES de publicar: sv3 lee este id antes de su pasada
+        y lo copia a `recalculo_terminado_id` al acabar. Sin guarda de
+        congelacion ni `undo_log`: no es una edicion del usuario, es
+        seguimiento. `ahora_utc` por defecto es el reloj del modulo (el
+        mismo con el que se decide el estado). True si toco el documento.
+        """
+        ahora = ahora_utc or _ahora_utc()
+        with self._session_factory.create_session() as session:
+            resultado = session.execute(
+                update(ParteDocumentOrm)
+                .where(ParteDocumentOrm.id == document_id)
+                .values(recalculo_pedido_id=peticion_id,
+                        recalculo_pedido_at_utc=ahora.isoformat())
+                .execution_options(synchronize_session=False))
+            session.commit()
+            return resultado.rowcount == 1
+
+    def anular_recalculo_pedido(self, document_id: str, *,
+                                peticion_id: str) -> None:
+        """R13: si publicar fallo, quita la marca SOLO si sigue siendo
+        `peticion_id` (otra peticion posterior pudo escribir la suya)."""
+        with self._session_factory.create_session() as session:
+            session.execute(
+                update(ParteDocumentOrm)
+                .where(ParteDocumentOrm.id == document_id,
+                       ParteDocumentOrm.recalculo_pedido_id == peticion_id)
+                .values(recalculo_pedido_id=None,
+                        recalculo_pedido_at_utc=None)
+                .execution_options(synchronize_session=False))
+            session.commit()
+
+    def documentos_en_espera(self, ids) -> set[str]:
+        """Los documentos `pendiente` de entre `ids` (R37): las vistas los
+        pintan en espera. Ignora None y repetidos."""
+        unicos = list(dict.fromkeys(i for i in ids if i))
+        return {doc_id for doc_id, e in self.estados_recalculo(unicos).items()
+                if e["estado"] == ESTADO_PENDIENTE}
+
+    # ----------------------------------------------------------------- #
     # Edicion de registros.
     # ----------------------------------------------------------------- #
     def crear_extra_desde(
@@ -1460,6 +1589,7 @@ class ParteReviewRepository:
             # decision y el popup no ofrece crear extra, asi que el
             # servidor tiene que decir lo mismo.
             _exigir_reg_editable(base)
+            _exigir_sin_recalculo(base.document)   # F-043 R38
             h = hora or {}
             nuevo = ParteRegistroOrm(
                 document_id=base.document_id,
@@ -2048,6 +2178,7 @@ class ParteReviewRepository:
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             if tipo_hora is not None:
@@ -2077,6 +2208,7 @@ class ParteReviewRepository:
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.hora_ide = hora_ide
@@ -2137,6 +2269,7 @@ class ParteReviewRepository:
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.partida_ide = partida_ide
@@ -2801,6 +2934,7 @@ class ParteReviewRepository:
             if doc is None:
                 return False
             _exigir_doc_editable(doc)   # F-004 R6
+            _exigir_sin_recalculo(doc)   # F-043 R38
             doc_snap = _doc_snapshot(doc)
             reg_snaps = [_reg_snapshot(r) for r in doc.registros]
             doc.obra_ide = obra_ide
@@ -2886,6 +3020,7 @@ class ParteReviewRepository:
             if doc is None:
                 return False
             _exigir_doc_editable(doc)   # F-004 R7
+            _exigir_sin_recalculo(doc)   # F-043 R38
             doc.is_active = False
             doc.deleted_at_utc = now_iso
             doc.deleted_by = deleted_by
@@ -2914,6 +3049,7 @@ class ParteReviewRepository:
             if reg is None or reg.deleted_at_utc:
                 return False
             _exigir_reg_editable(reg)   # F-004 R4
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             reg.deleted_at_utc = now_iso
             reg.deleted_by = by
             session.commit()

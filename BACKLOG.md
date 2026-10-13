@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **40 features**, 11 abiertas, 29 terminadas.
+Resumen: **41 features**, 11 abiertas, 30 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -40,6 +40,7 @@ Bloqueadas: **F-014, F-032**.
 | F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | estandar |
 | F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | critico |
 | F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | critico |
+| F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -202,6 +203,12 @@ Pedida por el humano el 2026-10-08: «si no hay DNI en el parte o no hay DNI ni 
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-042-recalcular-extras-al-cambiar-fecha`
 
 Pedida por el humano el 2026-10-09: «en este caso el dia 11 al ser domingo lo puso como extras, al cambiar el dia, no ha recalculado, sino que ha puesto eso mismo como extra pero en el dia 1». Parte de la obra 0694: la IA leyo 1/10/26 como 2026-10-11 (domingo) y sv3 lo repartio como no laborable (bases a 0 con horas_orig y sus extra_auto). Al cambiar la fecha a 2026-10-01 en el portal, sv4 update_parte_fecha cambia la fecha del documento y de sus lineas pero no avisa a nadie: el reparto lo calcula solo sv3 (RecursoConciliador.conciliar_todos, que revierte las extra_auto y recalcula todo lo no congelado) y solo cuando llega un mensaje a q-persistencia, asi que queda mal hasta la siguiente ingesta y alguien puede aprobarlo entretanto. LO QUE SE PIDE (alcance cerrado): sv4, al guardar la fecha de un parte (y al deshacer ese cambio, DA1), publica en q-persistencia un mensaje 'recalcular' tras guardar; la fecha se guarda aunque la cola falle y la pantalla avisa. sv3 distingue ese mensaje del de sv2 por el campo 'tipo' y ejecuta su pasada normal (conciliar_todos), sin logica nueva de extras; las congeladas no se tocan. Editar horas, cambiar trabajador u obra y borrar lineas quedan fuera. Permiso: la identidad de sv4 (id-partes-dev) ya tiene Storage Queue Data Contributor sobre la cuenta de colas.
+
+### F-043 · Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-043-fecha-del-parte-confirmar-y-recargar`
+
+Pedida por el humano el 2026-10-12 (opcion A) y enmendada el 2026-10-13: «tengo que seguir usando la plataforma para el resto de partes, solo queda en espera el que esta recalculando». En el detalle de obra y de trabajador cada fila lleva un input de fecha (.fecha-edit) que hace PATCH /api/partes/{id}/fecha, y update_parte_fecha mueve el PARTE ENTERO: el humano lo cambio en la fila de un trabajador y movio a los cuatro del parte. Tras el cambio sv3 recalcula el reparto (F-042) en ~1-2 min y el portal no lo refleja. LO QUE SE PIDE: (1) rotular el campo como fecha del parte; (2) antes de guardar, window.confirm con cuantos trabajadores y lineas se mueven y a que dia; cancelar deja la fecha anterior; (3) mientras sv3 recalcula, SOLO ese parte queda en espera (filas marcadas y deshabilitadas, y el servidor rechaza sus ediciones salvo fecha y deshacer, porque una edicion a mitad de pasada se pisa) y el resto del portal sigue usable; al terminar, una tarjeta ofrece Actualizar (recarga conservando scroll y filtros): nada recarga solo. Seguimiento: sv4 marca recalculo_pedido_id antes de publicar, sv3 copia a recalculo_terminado_id el pedido que leyo antes de su pasada (UPDATE condicional), el estado lo pinta el servidor y vence a los 10 min. Cuatro columnas nullables en parte_documents (las dos copias de orm_models.py). Mover una sola linea es F-044. La logica de recalculo de sv3 no cambia.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

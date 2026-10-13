@@ -140,7 +140,8 @@ por sigrid-api, cacheados en el wiring):
   conservando `horas_orig`); admite ajustes negativos. Base y extra
   automática se congelan juntas para el recálculo (F-037): si una ya está
   en Sigrid, la pareja no se vuelve a partir. Desde F-042 se repite
-  también cuando sv4 cambia (o deshace) la fecha de un parte.
+  también cuando sv4 cambia (o deshace) la fecha de un parte; desde F-043
+  sv3 marca en el documento el recálculo pedido que ha terminado.
 
 Persiste documento + registros en PostgreSQL y sube el PDF a
 **SharePoint** (Graph), guardando drive/item/URL.
@@ -376,6 +377,20 @@ cero réplicas). Si la cola falla, la fecha queda guardada y la pantalla
 pide volver a guardarla. Editar horas, trabajador u obra, o borrar líneas,
 sigue esperando a la siguiente pasada.
 
+**El parte en espera** (F-043). Antes de guardar la fecha, el portal dice
+cuántos trabajadores y líneas del parte se mueven y a qué día (la fecha de
+una fila es la del PARTE entero). Al pedir el recálculo, sv4 escribe en
+`parte_documents.recalculo_pedido_id` un id nuevo; sv3 lo lee antes de su
+pasada y, al acabar, lo copia a `recalculo_terminado_id` (solo si sigue
+siendo el pedido vigente). Mientras difieran y el pedido tenga menos de
+10 min, **solo ese parte** queda en espera: sus filas salen marcadas
+«recalculando…» y deshabilitadas en cualquier pestaña, y el servidor
+rechaza sus ediciones (409) salvo cambiar la fecha y deshacer, porque una
+edición a mitad de pasada se pisaría. El resto del portal sigue usable y
+nada recarga solo: al terminar, una tarjeta ofrece «Actualizar», que
+recarga conservando scroll y filtros. Pasados 10 min sin confirmar, el
+parte se edita como siempre y el aviso pide actualizar.
+
 **La jornada del día no es plana** (F-015). El `candef` de Sigrid son las
 horas de lunes a jueves; el **último día laborable de la semana** —el
 mayor L–V que sea laborable en el calendario de ESE trabajador— recibe el
@@ -558,6 +573,7 @@ y distintas entre servicios.
 | Obra leída/casada | `obra_numero_leido`, `obra_nombre_leido`, `obra_codigo`, `obra_ide`, `obra_nombre`, `obra_match_method`, `obra_match_score` | ide = `con.ide`/`obr` en Sigrid. Métodos de F-023: `codigo_membrete`, `codigo_trabajadores`, `codigo_nombre`; sin casar: `codigo_otra_empresa`, `codigo_ambiguo`, `nombre_ambiguo` |
 | Empresa del parte (F-023) | `empresa_membrete`, `empresa`, `empresa_origen` | nullables: el texto del membrete tal cual, la empresa (`con.emp`) y de dónde sale (`membrete`, `obra`, `trabajadores`, `nombre`). NULL en los partes anteriores a F-023 |
 | Día del parte | `fecha` (ISO), `fecha_int` (YYYYMMDD) | |
+| Seguimiento del recálculo (F-043) | `recalculo_pedido_id`, `recalculo_pedido_at_utc`, `recalculo_terminado_id`, `recalculo_terminado_at_utc` | nullables; el pedido lo escribe sv4 al pedir el recálculo de F-042 y el terminado, sv3 al acabar la pasada. Iguales = recalculado; distintos y < 10 min = parte en espera. No entran en deshacer |
 | Personas del parte | `encargado_nombre`, `jefe_obra_nombre` | |
 | Firmas | `firma_encargado`, `firma_jefe_obra`, `firma_administracion`, `firmado`, `firmante_nombre`, `firmante_rol`, `firma_confianza_pct` | |
 | Extracción IA | `provider`, `model_name`, `prompt_key`, `schema_name`, `review_required`, `raw_extraction_json`, `raw_context_json` | trazabilidad completa. La confianza por línea vive en `parte_registros.confianza_pct`; aquí solo hay `firma_confianza_pct` (fila «Firmas») |

@@ -10,7 +10,9 @@ vive en `interface_adapters/workers/despacho.py`):
     sha256 del propio sv3.
   - **recalculo** (de sv4, `tipo: "recalcular"`, al guardar o deshacer la
     fecha de un parte): una pasada de `conciliar_todos` sin blobs ni
-    pipeline. Si falla, se reintenta y acaba en la poison.
+    pipeline. Si falla, se reintenta y acaba en la poison. Desde F-043,
+    al terminar marca el documento como recalculado (sv4 lo deja de
+    pintar «en espera»).
 """
 from __future__ import annotations
 
@@ -67,6 +69,9 @@ def main() -> int:
     handler = construir_handler(
         blob=blob, pipeline=app.state.pipeline,
         recurso_conciliador=app.state.recurso_conciliador,
+        # F-043 (R33): marca «terminado» el recalculo pedido por sv4.
+        recalculo_seguimiento=getattr(app.state, "recalculo_seguimiento",
+                                      None),
         contenedor_input=CONTENEDOR_INPUT,
         contenedor_envelopes=CONTENEDOR_ENVELOPES,
     )

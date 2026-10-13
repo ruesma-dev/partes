@@ -595,16 +595,22 @@ function el(id) { return (els[id] = els[id] || new El(id)); }
 globalThis.document = {
   getElementById: function (id) { return els[id] || null; },
   querySelectorAll: function () { return []; },
+  activeElement: null,                                 // F-043 (enmienda A)
 };
 globalThis.alert = function (m) { eventos.push("alert:" + m); };
 globalThis.window = {location: {reload: function () {
-  eventos.push("reload"); }}};
+  eventos.push("reload"); }},
+  confirm: function () { return true; }};             // F-043 (enmienda A)
 function refreshUndo() { eventos.push("refreshUndo"); }
 var respuesta = null, peticiones = [];
+// F-043 (enmienda A): el alcance del parte se pide antes del PATCH.
+var ALCANCE = {ok: true, document_id: "doc-1", fecha: "2026-10-11",
+               trabajadores: 2, lineas: 3};
 globalThis.fetch = function (url, opts) {
   peticiones.push([url, opts && opts.method]);
+  var json = /\/alcance$/.test(url) ? ALCANCE : respuesta;
   return Promise.resolve({ok: true, status: 200,
-    json: function () { return Promise.resolve(respuesta); }});
+    json: function () { return Promise.resolve(json); }});
 };
 function tic() { return new Promise(function (r) { setImmediate(r); }); }
 async function drenar() { for (var i = 0; i < 10; i++) { await tic(); } }
@@ -654,12 +660,26 @@ def _node(programa: str):
     return _json.loads(r.stdout)
 
 
+#: F-043 (enmienda A): lo que `wireFechaInput` usa tras un `pedido`.
+F043_ESPERA = ("accionPorEstado", "textoAvisoRecalculo", "contenedoresEspera",
+               "marcarEspera", "ponerEnEspera", "soltarEspera",
+               "avisoRecalculo", "vigilarRecalculo", "sondearRecalculo",
+               "aplicarEstadoRecalculo", "actualizarVista",
+               "vistaRestaurable")
+
+
+def _f043_variables(js: str) -> str:
+    return "\n".join(l for l in js.split("\n") if re.match(
+        r"  var (RECALCULO_|VISTA_|recalculo)\w* = ", l)) + "\n"
+
+
 def _guardar_fecha(casos: list) -> dict:
     js = _js()
-    programa = (DOM_JS + _motivo_http(js)
+    programa = (DOM_JS + _motivo_http(js) + _f043_variables(js)
                 + "".join(_funcion(js, f) for f in (
                     "flashEl", "setStatus", "estadoRecalculo",
-                    "wireFechaInput"))
+                    "fmtFechaEs", "textoConfirmacionFecha",   # F-043
+                    "wireFechaInput") + F043_ESPERA)
                 + FECHA_JS % {"casos": _json.dumps(casos)})
     return _node(programa)
 
@@ -676,6 +696,12 @@ BASE = {"ok": True, "fecha": "2026-10-01", "fecha_int": 20261001}
 
 
 def test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo() -> None:
+    """Adaptado por F-043 (enmienda del humano, opcion A, 2026-10-13):
+    `wireFechaInput` confirma con el alcance del parte ANTES del PATCH, asi
+    que el doble de DOM gana `window.confirm` (acepta), la respuesta del
+    alcance, `activeElement` y las funciones nuevas, y cambian el orden de
+    peticiones y los temporizadores. Los textos de `estadoRecalculo`, NO.
+    """
     res = _guardar_fecha([
         dict(BASE, recalculo="pedido"), dict(BASE, recalculo="fallo"),
         dict(BASE, recalculo="sin_cola"), dict(BASE)])
@@ -683,13 +709,14 @@ def test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo() -> None:
     # `saved` se borra solo a los 1,8 s (`setStatus`); `error` se queda
     # (persistente). El 1,6 s es el destello del input (`flashEl`).
     assert pedido == [TEXTO_PEDIDO, "edit-status saved",
-                      ["timer:1600", "timer:1800"]]
+                      ["timer:1600", "timer:1800", "timer:5000"]]
     assert fallo == [TEXTO_FALLO, "edit-status error", ["timer:1600"]]
     assert sin_cola == [TEXTO_SIN_COLA, "edit-status saved",
                         ["timer:1600", "timer:1800"]]
     assert viejo == ["✓ Guardado", "edit-status saved",
                      ["timer:1600", "timer:1800"]]
-    assert res["peticiones"][0] == ["/api/partes/doc-1/fecha", "PATCH"]
+    assert res["peticiones"][:2] == [["/api/partes/doc-1/alcance", None],
+                                     ["/api/partes/doc-1/fecha", "PATCH"]]
 
 
 def test_f042_r11_tras_deshacer_con_fallo_avisa_antes_de_recargar() -> None:

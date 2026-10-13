@@ -41,6 +41,9 @@ from infrastructure.calendario.sesame_calendario_laboral import (
     SesameCalendarioLaboral,
 )
 from infrastructure.sesame.sesame_api_client import SesameApiClient
+from infrastructure.database.recalculo_seguimiento import (
+    SqlAlchemyRecalculoSeguimiento,
+)
 from infrastructure.database.session_factory import SessionFactory
 from infrastructure.database.sqlalchemy_jornada_repository import (
     SqlAlchemyJornadaRepository,
@@ -280,6 +283,9 @@ def build_app(settings: Settings) -> FastAPI:
     # F-042 (R18): el worker lo usa para los mensajes de recalculo de sv4;
     # None sin Sigrid cableado.
     app.state.recurso_conciliador = recurso_conciliador
+    # F-043 (R33): el worker marca con el el recalculo «terminado».
+    app.state.recalculo_seguimiento = SqlAlchemyRecalculoSeguimiento(
+        session_factory)
 
     @app.get("/health")
     def health() -> Dict[str, Any]:

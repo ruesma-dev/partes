@@ -1,6 +1,143 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-043 · done (2026-10-13, APPROVED pasada 1), pendiente de despliegue sv3 → sv4 y M1–M4: fecha del parte — rótulo, confirmación y parte «en espera»
+
+**Desbloqueada el 2026-10-13 por decisión del humano (opción A, respuesta
+literal «a»).** design §6/§7 enmendado: el único test existente adaptable es
+`test_f042_recalculo_fecha.py::test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo`
+(su doble de DOM gana `window.confirm`, alcance, `activeElement` y las
+funciones nuevas; cambian el orden de peticiones y los temporizadores; los
+textos de `estadoRecalculo` no). `acceptance` ajustado en `features.json`.
+Descartadas B (confirmación en otro manejador en captura) y C (sin R5). El
+`getattr` de T3 queda validado por el coordinador. Lo que sigue es el
+registro del bloqueo, conservado como historia.
+
+**Implementación terminada (implementer, 2026-10-13), T1–T15.** Informe:
+`progress/impl_F-043.md`; mutación: `progress/mutacion_F-043.md`.
+`azure-apps/partes.md` actualizado (commit local `61d1688` en `azure-apps`).
+Pendiente: reviewer.
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; las lanza
+el humano, los agentes no:
+
+- **Despliegue** (lo pide el humano), desde `infra/`, en este orden:
+  `.\redeploy_partes.ps1 -Solo sv3` y después `.\redeploy_partes.ps1 -Solo sv4`
+  (con sv4 antes, un sv3 viejo no marca y el parte espera hasta vencer a los
+  10 min: inocuo). Si F-042 sigue sin desplegar, va en el mismo despliegue.
+- **M1 · tras desplegar sv3 y sv4** (base `partes`):
+
+  ```sql
+  SELECT column_name FROM information_schema.columns
+  WHERE table_name = 'parte_documents' AND column_name LIKE 'recalculo%';
+  ```
+  ⇒ 4 filas.
+- **M2 · portal (Chrome/Edge)**, vista de obra con dos partes sin congelar:
+  teclear la fecha no abre un diálogo por tecla; al salir del campo sale el
+  texto con sus N trabajadores; Cancelar restaura; Aceptar ⇒ ese parte
+  «recalculando…» y el otro se sigue editando, filtrando y desplazando; a
+  los 1–2 min, tarjeta «Actualizar»; al pulsarla, misma posición y filtros
+  con el reparto nuevo.
+- **M3 · otra pestaña** con el mismo parte durante la espera ⇒ sale en espera
+  (y una edición suya da «El parte se está recalculando (extras)…»).
+- **M4 · base `partes`**, con el `id` del parte de M2:
+
+  ```sql
+  SELECT recalculo_pedido_id, recalculo_pedido_at_utc, recalculo_terminado_id,
+         recalculo_terminado_at_utc FROM parte_documents WHERE id = '<id>';
+  ```
+  ⇒ `recalculo_pedido_id` = `recalculo_terminado_id`.
+
+
+**Estuvo BLOCKED en T8 (implementer, 2026-10-13): la spec choca con un test
+existente de F-042 que design §7 prohíbe tocar** («todos los tests
+existentes; si uno se rompe ⇒ blocked, sin enmiendas previstas») y que el
+`acceptance` de `features.json` exige mantener («sus tests siguen pasando sin
+tocarlos»). T1–T7 hechas y en verde (commits `641c8cb`..`c5ca97f`); T8–T15
+sin empezar. Nada en `static/app.js` está tocado.
+
+El test: `services/partes-front/tests/test_f042_recalculo_fecha.py::
+test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo`. Extrae
+`wireFechaInput` (más `flashEl`, `setStatus`, `estadoRecalculo` y `MotivoHttp`)
+y lo ejecuta en node con un DOM mínimo: llama a `inp.on.change()` y exige
+(a) que la **primera** petición sea `PATCH /api/partes/doc-1/fecha`,
+(b) que los temporizadores sean exactamente `["timer:1600", "timer:1800"]`
+(o `["timer:1600"]` con `fallo`) y (c) no hay `window.confirm`,
+`document.activeElement` ni ninguna función de F-043 en ese programa.
+
+Lo que pide la spec para `wireFechaInput` es incompatible con eso, sea cual sea
+la implementación:
+- **R5**: con `change` sin foco se pide `GET …/alcance` y `window.confirm`
+  **antes** del PATCH ⇒ la primera petición es el alcance (falla (a)) y
+  `window.confirm` no existe en el doble (TypeError, node sale con error).
+- **R18/R24 y design §4**: con `pedido`, `wireFechaInput` llama a
+  `ponerEnEspera` + `vigilarRecalculo` (sondeo cada 5 s); con `fallo`, a la
+  tarjeta fija ⇒ funciones no definidas en el programa extraído
+  (ReferenceError) y un temporizador más (falla (b)).
+
+La única forma de dejarlo en verde sin tocarlo sería detectar el doble
+(p. ej. «si no hay `window.confirm`, guardar sin confirmar») o partir la
+confirmación en otro manejador que intercepte `change` en captura y
+re-dispare el evento: un apaño a medida del test o una arquitectura frágil
+(orden de escuchas en el objetivo) que contradice design §4. No lo improviso.
+
+**Opciones para el humano** (decide; el implementer no sigue sin respuesta):
+- **A · Recomendada.** Enmendar design §6/§7 (como F-042 hizo con el guardián
+  de F-017) para declarar adaptable ese único test: su doble de DOM gana
+  `window.confirm` (acepta), respuesta del alcance, `activeElement` y las
+  funciones nuevas en la lista extraída; **sus aserciones de textos de
+  `estadoRecalculo` no cambian** (lo que F-042 R11 vigila de verdad), solo
+  el orden de peticiones (alcance, luego PATCH) y los temporizadores del
+  sondeo. Ajustar a la vez el `acceptance` «sus tests siguen pasando sin
+  tocarlos» a «… salvo ese doble de DOM, enmendado».
+- **B.** Dejar `wireFechaInput` como en F-042 (guarda sin confirmar) y
+  poner la confirmación en un manejador aparte en fase de captura que corta
+  el `change` y lo re-dispara tras aceptar; la espera y el aviso, en otro
+  escuchador de la respuesta. Sin tocar el test, pero se aparta de design §4
+  y depende del orden de escuchas del navegador.
+- **C.** Renunciar a R5 (confirmación) en las filas: no recomendable, es la
+  razón de ser de la feature.
+
+Punto adicional para validar (no bloquea): en T3, `main_worker.py` pasa
+`getattr(app.state, "recalculo_seguimiento", None)` porque el test existente
+`test_f042_despacho.py::test_f042_r18_el_worker_despacha_los_dos_tipos`
+simula `app.state` sin ese atributo; sin él el handler es el de F-042 (R31).
+
+
+**Implementación en curso (implementer, 2026-10-13)** en el worktree
+`partes-wt-f043`. Tarea en curso y decisiones: ver abajo «Bitácora del
+implementer»; informe final en `progress/impl_F-043.md`.
+
+Bitácora del implementer:
+- T1–T7 hechas (esquema; adaptador y handler de sv3; estado, alcance, GET
+  de estados, marca de pedido, guarda 409 y vistas de sv4). T8 estuvo
+  bloqueada; T8–T15 hechas tras la opción A.
+- Decisión T3: `main_worker.py` pasa
+  `getattr(app.state, "recalculo_seguimiento", None)` y no el atributo a
+  pelo: el test existente `test_f042_despacho.py::test_f042_r18_el_worker_despacha_los_dos_tipos`
+  simula `app.state` sin ese atributo y design §7 prohíbe tocarlo; sin él,
+  el handler es el de F-042 (R31).
+
+Spec en `specs/F-043-fecha-del-parte-confirmar-y-recargar/` (rama y worktree
+`partes-wt-f043`). El humano aprobó la spec el 2026-10-13 con una enmienda:
+«tengo que seguir usando la plataforma para el resto de partes, solo queda en
+espera el que está recalculando». Spec reescrita: **solo** el parte que sv3
+recalcula queda en espera (filas marcadas y deshabilitadas; el servidor
+rechaza sus ediciones con 409 salvo fecha y deshacer), el resto del portal
+sigue usable y **nada recarga solo**: al terminar, una tarjeta ofrece
+«Actualizar» (recarga conservando scroll y filtros). El estado lo pinta el
+servidor (vale en cualquier pestaña) y vence a los 10 min. sv3 y el esquema
+(4 columnas nullables en `parte_documents`) no cambian respecto a lo aprobado.
+
+**Para el humano: revisar solo lo marcado en `design.md` §12** — DA6 y DA8
+CAMBIADAS (sin recarga automática; deshacer conserva su recarga de hoy) y
+DA10–DA13 NUEVAS (tarjeta «Actualizar» frente a refresco en el sitio; guarda
+409 en el servidor; aprobación sin bloquear en F-043; espera pintada por el
+servidor con vencimiento de 10 min). Respuesta a su pregunta: una edición a
+mitad de pasada **sí se pisa** (sv3 lee, calcula y escribe después; design §9
+R-a); el mismo riesgo existe hoy para cualquier parte en cada ingesta (R-g,
+anterior a F-043, fuera de alcance). Punto de contacto con **F-044**: §10.
+
 ## F-042 · done (2026-10-09, APPROVED pasada 1), pendiente de despliegue y M1–M3: recalcular el reparto normal/extra al cambiar la fecha de un parte
 
 **Desbloqueada el 2026-10-09 por decisión del humano (opción A, respuesta literal «A»).**
