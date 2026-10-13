@@ -60,6 +60,7 @@ from application.services.congelacion import (
 from application.services.seguimiento_recalculo import (
     ESTADO_NO_EXISTE,
     ESTADO_PENDIENTE,
+    RecalculandoError,
     estado_seguimiento,
 )
 from application.services.incidencias_horas import (
@@ -722,6 +723,24 @@ def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
     exigir_documento_editable(
         aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
     )
+
+
+def _exigir_sin_recalculo(doc: ParteDocumentOrm | None) -> None:
+    """F-043 (R38): rechaza la edicion de un parte EN ESPERA.
+
+    Mientras sv3 recalcula (estado `pendiente`), una edicion confirmada
+    entre su lectura y su escritura se pisa (design §9 R-a). Va DETRAS de
+    cada guarda de congelacion de F-004 (su motivo manda si los dos
+    aplican) salvo en `update_parte_fecha`, y deshacer no la usa: los dos
+    piden su propia pasada (DA11). `RecalculandoError` es un
+    `CongeladoError`: el 409 y los `except` de F-004 la tratan igual.
+    """
+    if doc is None:
+        return
+    if estado_seguimiento(doc.recalculo_pedido_id, doc.recalculo_terminado_id,
+                          doc.recalculo_pedido_at_utc,
+                          _ahora_utc()) == ESTADO_PENDIENTE:
+        raise RecalculandoError()
 
 
 def _reg_de_celda(reg: ParteRegistroOrm, tipo: str) -> dict:
@@ -1570,6 +1589,7 @@ class ParteReviewRepository:
             # decision y el popup no ofrece crear extra, asi que el
             # servidor tiene que decir lo mismo.
             _exigir_reg_editable(base)
+            _exigir_sin_recalculo(base.document)   # F-043 R38
             h = hora or {}
             nuevo = ParteRegistroOrm(
                 document_id=base.document_id,
@@ -2158,6 +2178,7 @@ class ParteReviewRepository:
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             if tipo_hora is not None:
@@ -2187,6 +2208,7 @@ class ParteReviewRepository:
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.hora_ide = hora_ide
@@ -2247,6 +2269,7 @@ class ParteReviewRepository:
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.partida_ide = partida_ide
@@ -2911,6 +2934,7 @@ class ParteReviewRepository:
             if doc is None:
                 return False
             _exigir_doc_editable(doc)   # F-004 R6
+            _exigir_sin_recalculo(doc)   # F-043 R38
             doc_snap = _doc_snapshot(doc)
             reg_snaps = [_reg_snapshot(r) for r in doc.registros]
             doc.obra_ide = obra_ide
@@ -2996,6 +3020,7 @@ class ParteReviewRepository:
             if doc is None:
                 return False
             _exigir_doc_editable(doc)   # F-004 R7
+            _exigir_sin_recalculo(doc)   # F-043 R38
             doc.is_active = False
             doc.deleted_at_utc = now_iso
             doc.deleted_by = deleted_by
@@ -3024,6 +3049,7 @@ class ParteReviewRepository:
             if reg is None or reg.deleted_at_utc:
                 return False
             _exigir_reg_editable(reg)   # F-004 R4
+            _exigir_sin_recalculo(reg.document)   # F-043 R38
             reg.deleted_at_utc = now_iso
             reg.deleted_by = by
             session.commit()
