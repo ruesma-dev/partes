@@ -1,14 +1,70 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-043 · in_progress (spec y enmienda aprobadas el 2026-10-13): fecha del parte — rótulo, confirmación y parte «en espera»
+## F-043 · BLOCKED en T8 (2026-10-13): fecha del parte — rótulo, confirmación y parte «en espera»
+
+**BLOCKED en T8 (implementer, 2026-10-13): la spec choca con un test
+existente de F-042 que design §7 prohíbe tocar** («todos los tests
+existentes; si uno se rompe ⇒ blocked, sin enmiendas previstas») y que el
+`acceptance` de `features.json` exige mantener («sus tests siguen pasando sin
+tocarlos»). T1–T7 hechas y en verde (commits `641c8cb`..`c5ca97f`); T8–T15
+sin empezar. Nada en `static/app.js` está tocado.
+
+El test: `services/partes-front/tests/test_f042_recalculo_fecha.py::
+test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo`. Extrae
+`wireFechaInput` (más `flashEl`, `setStatus`, `estadoRecalculo` y `MotivoHttp`)
+y lo ejecuta en node con un DOM mínimo: llama a `inp.on.change()` y exige
+(a) que la **primera** petición sea `PATCH /api/partes/doc-1/fecha`,
+(b) que los temporizadores sean exactamente `["timer:1600", "timer:1800"]`
+(o `["timer:1600"]` con `fallo`) y (c) no hay `window.confirm`,
+`document.activeElement` ni ninguna función de F-043 en ese programa.
+
+Lo que pide la spec para `wireFechaInput` es incompatible con eso, sea cual sea
+la implementación:
+- **R5**: con `change` sin foco se pide `GET …/alcance` y `window.confirm`
+  **antes** del PATCH ⇒ la primera petición es el alcance (falla (a)) y
+  `window.confirm` no existe en el doble (TypeError, node sale con error).
+- **R18/R24 y design §4**: con `pedido`, `wireFechaInput` llama a
+  `ponerEnEspera` + `vigilarRecalculo` (sondeo cada 5 s); con `fallo`, a la
+  tarjeta fija ⇒ funciones no definidas en el programa extraído
+  (ReferenceError) y un temporizador más (falla (b)).
+
+La única forma de dejarlo en verde sin tocarlo sería detectar el doble
+(p. ej. «si no hay `window.confirm`, guardar sin confirmar») o partir la
+confirmación en otro manejador que intercepte `change` en captura y
+re-dispare el evento: un apaño a medida del test o una arquitectura frágil
+(orden de escuchas en el objetivo) que contradice design §4. No lo improviso.
+
+**Opciones para el humano** (decide; el implementer no sigue sin respuesta):
+- **A · Recomendada.** Enmendar design §6/§7 (como F-042 hizo con el guardián
+  de F-017) para declarar adaptable ese único test: su doble de DOM gana
+  `window.confirm` (acepta), respuesta del alcance, `activeElement` y las
+  funciones nuevas en la lista extraída; **sus aserciones de textos de
+  `estadoRecalculo` no cambian** (lo que F-042 R11 vigila de verdad), solo
+  el orden de peticiones (alcance, luego PATCH) y los temporizadores del
+  sondeo. Ajustar a la vez el `acceptance` «sus tests siguen pasando sin
+  tocarlos» a «… salvo ese doble de DOM, enmendado».
+- **B.** Dejar `wireFechaInput` como en F-042 (guarda sin confirmar) y
+  poner la confirmación en un manejador aparte en fase de captura que corta
+  el `change` y lo re-dispara tras aceptar; la espera y el aviso, en otro
+  escuchador de la respuesta. Sin tocar el test, pero se aparta de design §4
+  y depende del orden de escuchas del navegador.
+- **C.** Renunciar a R5 (confirmación) en las filas: no recomendable, es la
+  razón de ser de la feature.
+
+Punto adicional para validar (no bloquea): en T3, `main_worker.py` pasa
+`getattr(app.state, "recalculo_seguimiento", None)` porque el test existente
+`test_f042_despacho.py::test_f042_r18_el_worker_despacha_los_dos_tipos`
+simula `app.state` sin ese atributo; sin él el handler es el de F-042 (R31).
+
 
 **Implementación en curso (implementer, 2026-10-13)** en el worktree
 `partes-wt-f043`. Tarea en curso y decisiones: ver abajo «Bitácora del
 implementer»; informe final en `progress/impl_F-043.md`.
 
 Bitácora del implementer:
-- T1–T3 hechas (esquema, adaptador y handler de sv3).
+- T1–T7 hechas (esquema; adaptador y handler de sv3; estado, alcance, GET
+  de estados, marca de pedido, guarda 409 y vistas de sv4). T8 bloqueada.
 - Decisión T3: `main_worker.py` pasa
   `getattr(app.state, "recalculo_seguimiento", None)` y no el atributo a
   pelo: el test existente `test_f042_despacho.py::test_f042_r18_el_worker_despacha_los_dos_tipos`
