@@ -91,6 +91,16 @@ class ParteDocumentOrm(Base):
     fecha: Mapped[str | None] = mapped_column(String(16))    # ISO
     fecha_int: Mapped[int | None] = mapped_column(Integer)   # YYYYMMDD
 
+    # --- Seguimiento del recalculo (F-043) --- #
+    # sv4 escribe el «pedido» (uuid4 y hora UTC) antes de publicar el
+    # recalculo de F-042; sv3 copia ese id a «terminado» al acabar la
+    # pasada. Iguales => terminado; distintos y en plazo => parte en espera.
+    # Nullables: los partes anteriores quedan a NULL (sin seguimiento).
+    recalculo_pedido_id: Mapped[str | None] = mapped_column(String(36))        # sv4
+    recalculo_pedido_at_utc: Mapped[str | None] = mapped_column(String(64))    # sv4
+    recalculo_terminado_id: Mapped[str | None] = mapped_column(String(36))     # sv3
+    recalculo_terminado_at_utc: Mapped[str | None] = mapped_column(String(64)) # sv3
+
     # --- Obra LEIDA + CASADA --- #
     obra_numero_leido: Mapped[str | None] = mapped_column(String(64))
     obra_nombre_leido: Mapped[str | None] = mapped_column(String(255))
