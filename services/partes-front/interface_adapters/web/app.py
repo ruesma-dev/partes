@@ -248,6 +248,9 @@ class PartidaPayload(BaseModel):
 #: Tope de ids por peticion de comprobacion y de estado (F-024, R17/R28).
 MAX_IDS_COMPROBAR = 5000
 
+#: F-043 (R17): documentos por consulta de `GET /api/recalculo`.
+MAX_IDS_RECALCULO = 50
+
 #: Origenes admitidos en el log de la comprobacion (R21). Cualquier otro
 #: valor del navegador se registra como `boton`: el log no repite texto
 #: libre que llegue de fuera.
@@ -1872,6 +1875,29 @@ def build_app(
                 message=str(exc),
                 external_url=external,
             ))
+
+    # ------- F-043: alcance del parte y estado del recalculo ---------- #
+    @app.get("/api/partes/{document_id}/alcance", include_in_schema=False)
+    def get_parte_alcance(document_id: str) -> dict[str, Any]:
+        """Trabajadores y lineas activas del parte, para el texto de la
+        confirmacion del cambio de fecha (R2-R4). Solo lectura."""
+        alcance = repository.alcance_parte(document_id)
+        if alcance is None:
+            raise HTTPException(status_code=404, detail="Parte no encontrado")
+        return {"ok": True, **alcance}
+
+    @app.get("/api/recalculo", include_in_schema=False)
+    def get_recalculo(ids: str = Query(default="")) -> JSONResponse:
+        """Estado del recalculo de 1 a 50 documentos (R17); lo sondea el
+        portal mientras un parte esta en espera. Solo lectura."""
+        pedidos = list(dict.fromkeys(
+            i.strip() for i in ids.split(",") if i.strip()))
+        if not 1 <= len(pedidos) <= MAX_IDS_RECALCULO:
+            return JSONResponse(
+                {"ok": False, "error": "Pide entre 1 y 50 documentos."},
+                status_code=422)
+        return JSONResponse({"ok": True,
+                             "estados": repository.estados_recalculo(pedidos)})
 
     # ---------------- Edicion de cabecera del parte ------------------ #
     @app.patch("/api/partes/{document_id}/fecha")

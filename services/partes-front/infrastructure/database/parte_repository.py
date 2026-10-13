@@ -57,6 +57,11 @@ from application.services.congelacion import (
     motivo_congelacion_linea,
     vive_fuera,
 )
+from application.services.seguimiento_recalculo import (
+    ESTADO_NO_EXISTE,
+    ESTADO_PENDIENTE,
+    estado_seguimiento,
+)
 from application.services.incidencias_horas import (
     NIVEL_AVISO,
     NIVEL_BLOQUEO,
@@ -488,6 +493,11 @@ def _sin_casar_en_cola():
                 sorted(_METODOS_CASADO_SIN_FICHA)),
         ),
     )
+
+
+def _ahora_utc() -> datetime:
+    """Reloj del seguimiento del recalculo (F-043); los tests lo parchean."""
+    return datetime.now(timezone.utc)
 
 
 def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
@@ -1431,6 +1441,71 @@ class ParteReviewRepository:
                 by_emp[key].registros.append(_registro_view(reg))
             detail.empleados = [by_emp[k] for k in order]
             return detail
+
+    # ----------------------------------------------------------------- #
+    # F-043: alcance del parte y seguimiento del recalculo (solo lectura).
+    # ----------------------------------------------------------------- #
+    def alcance_parte(self, document_id: str) -> dict | None:
+        """Trabajadores y lineas ACTIVAS del parte (R2); None si no existe
+        o esta en papelera (R3). No escribe nada (R4)."""
+        with self._session_factory.create_session() as session:
+            doc = session.execute(
+                select(ParteDocumentOrm)
+                .options(selectinload(ParteDocumentOrm.registros))
+                .where(ParteDocumentOrm.id == document_id)
+            ).scalar_one_or_none()
+            if doc is None or not doc.is_active:
+                return None
+            activas = [r for r in doc.registros if r.deleted_at_utc is None]
+            return {
+                "document_id": doc.id,
+                "fecha": doc.fecha,
+                "trabajadores": len({worker_key_for_registro(r)
+                                     for r in activas}),
+                "lineas": len(activas),
+            }
+
+    def estados_recalculo(self, ids: list[str]) -> dict[str, dict]:
+        """Estado del seguimiento de cada documento (R17), en UNA consulta.
+
+        Un id desconocido o de un parte en papelera da `no_existe`.
+        """
+        if not ids:
+            return {}
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(ParteDocumentOrm.id, ParteDocumentOrm.is_active,
+                       ParteDocumentOrm.recalculo_pedido_id,
+                       ParteDocumentOrm.recalculo_pedido_at_utc,
+                       ParteDocumentOrm.recalculo_terminado_id,
+                       ParteDocumentOrm.recalculo_terminado_at_utc)
+                .where(ParteDocumentOrm.id.in_(ids))
+            ).all()
+        por_id = {f.id: f for f in filas if f.is_active}
+        ahora = _ahora_utc()
+        estados: dict[str, dict] = {}
+        for doc_id in ids:
+            fila = por_id.get(doc_id)
+            if fila is None:
+                estados[doc_id] = {"estado": ESTADO_NO_EXISTE,
+                                   "pedido_at_utc": None,
+                                   "terminado_at_utc": None}
+                continue
+            estados[doc_id] = {
+                "estado": estado_seguimiento(
+                    fila.recalculo_pedido_id, fila.recalculo_terminado_id,
+                    fila.recalculo_pedido_at_utc, ahora),
+                "pedido_at_utc": fila.recalculo_pedido_at_utc,
+                "terminado_at_utc": fila.recalculo_terminado_at_utc,
+            }
+        return estados
+
+    def documentos_en_espera(self, ids) -> set[str]:
+        """Los documentos `pendiente` de entre `ids` (R37): las vistas los
+        pintan en espera. Ignora None y repetidos."""
+        unicos = list(dict.fromkeys(i for i in ids if i))
+        return {doc_id for doc_id, e in self.estados_recalculo(unicos).items()
+                if e["estado"] == ESTADO_PENDIENTE}
 
     # ----------------------------------------------------------------- #
     # Edicion de registros.
