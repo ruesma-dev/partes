@@ -131,6 +131,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (`recalculo`: `pedido`, `fallo`, `sin_cola`). En sv3 un recálculo
    fallido se reintenta y acaba en `q-persistencia-poison`. Editar horas,
    trabajador, obra o líneas sigue esperando a la siguiente pasada.
+   **F-043**: el portal confirma el cambio de fecha con el alcance del parte
+   (`GET /api/partes/{id}/alcance`: trabajadores y líneas activas) y sigue el
+   recálculo: antes de publicar, sv4 escribe en el documento
+   `recalculo_pedido_id` (uuid4) y su hora; sv3 lo lee **antes** de su pasada
+   y, al acabar sin excepción, lo copia a `recalculo_terminado_id` solo si el
+   documento sigue con ese pedido (UPDATE condicional: un pedido posterior no
+   se marca). Distintos y con menos de 600 s (`ESPERA_MAX_S`) = parte **en
+   espera** (semántica 10); `GET /api/recalculo?ids=…` (1–50) da el estado
+   (`sin_seguimiento`, `pendiente`, `terminado`, `vencido`, `no_existe`) y el
+   portal lo sondea cada 5 s sin recargar nunca solo: al terminar ofrece
+   «Actualizar», que recarga conservando scroll y filtros.
 4. **Incidencias sin horas** (`can=0`) y **solo inicio/fin de racha**
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
@@ -162,7 +173,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    aplican **sv3 y sv4** al arrancar: era la lista escrita a mano en cada
    servicio la que se quedó incompleta y distinta. Desde F-023,
    `parte_documents` lleva `empresa_membrete`, `empresa` y
-   `empresa_origen` (nullables; semántica 12). Desde F-040,
+   `empresa_origen` (nullables; semántica 12). Desde F-043,
+   `parte_documents` lleva `recalculo_pedido_id` / `recalculo_pedido_at_utc`
+   (los escribe sv4) y `recalculo_terminado_id` / `recalculo_terminado_at_utc`
+   (los escribe sv3), nullables y fuera de deshacer (semántica 3). Desde F-040,
    `empleado_alias` lleva `recurso_ide` (nullable) y `empleado_ide` pasa a
    nullable: el `DROP NOT NULL` va en `DDL_EXTRA_POSTGRES`, única
    sentencia del DDL de arranque que no es «solo añadir» (idempotente y sin
@@ -191,6 +205,14 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     reaprobar una línea editada NO actualiza el ERP. Las acciones masivas
     (undo, reasignaciones, borrados por obra/persona, vaciar papelera)
     omiten lo congelado y devuelven el recuento en vez de abortar.
+    **Parte en espera (F-043)**: no es congelación (la regla de arriba no
+    cambia) sino una guarda aparte, `_exigir_sin_recalculo`, detrás de cada
+    guarda de congelación del repositorio: mientras sv3 recalcula un parte
+    (`pendiente`, semántica 3) sus ediciones dan 409 con «El parte se está
+    recalculando (extras): espera a que termine.» (`RecalculandoError`,
+    subclase de `CongeladoError`), salvo cambiar la fecha y deshacer, que
+    piden su propia pasada. Lo pinta el servidor (`data-recalculando`), así
+    que vale en cualquier pestaña, y vence a los 10 min.
 11. **Identidad del portal (F-017, sv4)**: quién firma una escritura se
     resuelve en **un único punto**, `_actor(request)` en
     `interface_adapters/web/app.py`, que delega en las funciones puras de
