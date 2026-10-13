@@ -1,9 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-043 · BLOCKED en T8 (2026-10-13): fecha del parte — rótulo, confirmación y parte «en espera»
+## F-043 · in_progress (desbloqueada el 2026-10-13, opción A): fecha del parte — rótulo, confirmación y parte «en espera»
 
-**BLOCKED en T8 (implementer, 2026-10-13): la spec choca con un test
+**Desbloqueada el 2026-10-13 por decisión del humano (opción A, respuesta
+literal «a»).** design §6/§7 enmendado: el único test existente adaptable es
+`test_f042_recalculo_fecha.py::test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo`
+(su doble de DOM gana `window.confirm`, alcance, `activeElement` y las
+funciones nuevas; cambian el orden de peticiones y los temporizadores; los
+textos de `estadoRecalculo` no). `acceptance` ajustado en `features.json`.
+Descartadas B (confirmación en otro manejador en captura) y C (sin R5). El
+`getattr` de T3 queda validado por el coordinador. Lo que sigue es el
+registro del bloqueo, conservado como historia.
+
+
+**Estuvo BLOCKED en T8 (implementer, 2026-10-13): la spec choca con un test
 existente de F-042 que design §7 prohíbe tocar** («todos los tests
 existentes; si uno se rompe ⇒ blocked, sin enmiendas previstas») y que el
 `acceptance` de `features.json` exige mantener («sus tests siguen pasando sin

@@ -583,11 +583,11 @@
         "Mientras sv3 recalcula, solo ese parte queda en espera (marcado, deshabilitado y con 409 en el servidor salvo fecha y deshacer) en cualquier pestaña, y el resto del portal sigue usable",
         "Al terminar, una tarjeta ofrece Actualizar, que recarga conservando scroll y filtros; ninguna recarga ocurre sin un clic; la espera vence a los 10 min",
         "sv3 marca terminado solo el pedido que leyo antes de su pasada; un pedido posterior queda pendiente",
-        "El mensaje y las respuestas de F-042 no cambian y sus tests siguen pasando sin tocarlos",
+        "El mensaje y las respuestas de F-042 no cambian y sus tests siguen pasando sin tocarlos, salvo el doble de DOM de test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo, enmendado por decision del humano (opcion A, 2026-10-13)",
         "Mutacion completa con 0 supervivientes sin resolver",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "blocked",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

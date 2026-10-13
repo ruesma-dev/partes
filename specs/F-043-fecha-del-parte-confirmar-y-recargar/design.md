@@ -148,12 +148,12 @@ nuevo no se pisa (UPDATE condicional). Sin relojes comparados.
   de los siete métodos da 409 con el motivo sobre un documento `pendiente` y
   funciona con `vencido`/`terminado`/`sin_seguimiento`; `update_parte_fecha` y
   deshacer pasan; un documento ajeno en la misma vista se edita sin trabas.
-- `services/partes-front/tests/test_f043_portal_fecha.py` — R1, R5–R11 y
-  R18–R26, R40: funciones puras **con node** (`skipif` sin node) y cableado
-  leído de `app.js` (URLs, `window.confirm` en `wireFechaInput`, ningún
-  `location.reload` fuera de `actualizarVista`, `wireUndo` y los de antes de
-  F-043 —se cuentan—, `restaurarVista` en `DOMContentLoaded`, textos de F-042
-  intactos) + `node --check`.
+- `…/tests/test_f043_portal_fecha.py` — R1, R5–R11, R18–R26, R40: puras **con node** (`skipif` sin node),
+  cableado de `app.js` (URLs, `window.confirm` en `wireFechaInput`, `location.reload` solo en `actualizarVista`,
+  `wireUndo` y los previos —se cuentan—, `restaurarVista` en `DOMContentLoaded`, textos F-042) + `node --check`.
+- **Enmienda (opción A del humano, 2026-10-13)**: `test_f042_recalculo_fecha.py::test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo`
+  es ADAPTABLE: su doble de DOM gana `window.confirm` (acepta), alcance, `activeElement` y las funciones nuevas;
+  cambian el orden de peticiones (alcance, PATCH) y los temporizadores; los textos de `estadoRecalculo`, NO.
 - `services/partes-persistencia/tests/test_f043_seguimiento_sv3.py` — adaptador
   sobre SQLite (R28, R32), handler con dobles (R27, R29–R31), R33 por AST.
 - `tests/test_f043_contrato_seguimiento.py` (raíz) — R35 y mensaje F-042 intacto.
@@ -164,8 +164,8 @@ nuevo no se pisa (UPDATE condicional). Sin relojes comparados.
 vistas (`get_obra`, `get_worker`, `get_parte`) y `congelacion.py` de sv4;
 `recalculo_publisher.py` (sv4) y `mensajes.py` (sv3); `recurso_conciliador.py`,
 `pareja_extra.py` y `sqlalchemy_parte_repository.py` de sv3; `cola_cliente.py`
-(las dos) y `main.py` de sv4; sv1, sv2, sv5; `infra/`; `CLAUDE.md`; **todos
-los tests existentes** (si uno se rompe ⇒ `blocked`, sin enmiendas previstas).
+(las dos) y `main.py` de sv4; sv1, sv2, sv5; `infra/`; `CLAUDE.md`; **todos los tests existentes**
+salvo el de la enmienda de §6 (otro que se rompa ⇒ `blocked`).
 
 ## 8. Despliegue
 
