@@ -463,3 +463,17 @@ def test_f043_r33_main_worker_entrega_el_seguimiento_al_handler(
     monkeypatch.setattr(main_worker, "construir_handler", _construir)
     assert main_worker.main() == 0
     assert recibido["recalculo_seguimiento"] is seg
+
+
+# ===== R34 · la copia de sv3 de orm_models.py (la que arranca el worker) ===== #
+
+@pytest.mark.parametrize("columna,largo", [
+    ("recalculo_pedido_id", 36), ("recalculo_pedido_at_utc", 64),
+    ("recalculo_terminado_id", 36), ("recalculo_terminado_at_utc", 64)])
+def test_f043_r34_el_ddl_de_sv3_trae_las_cuatro_columnas(columna,
+                                                          largo) -> None:
+    """El guardian de la raiz no corre en la suite de sv3: esta copia se
+    comprueba aqui tambien."""
+    from infrastructure.database.orm_models import ddl_complementario
+    assert (f"ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS {columna} "
+            f"VARCHAR({largo})") in ddl_complementario()

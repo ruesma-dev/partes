@@ -13,6 +13,41 @@ Descartadas B (confirmación en otro manejador en captura) y C (sin R5). El
 `getattr` de T3 queda validado por el coordinador. Lo que sigue es el
 registro del bloqueo, conservado como historia.
 
+**Implementación terminada (implementer, 2026-10-13), T1–T15.** Informe:
+`progress/impl_F-043.md`; mutación: `progress/mutacion_F-043.md`.
+`azure-apps/partes.md` actualizado (commit local `61d1688` en `azure-apps`).
+Pendiente: reviewer.
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; las lanza
+el humano, los agentes no:
+
+- **Despliegue** (lo pide el humano), desde `infra/`, en este orden:
+  `.\redeploy_partes.ps1 -Solo sv3` y después `.\redeploy_partes.ps1 -Solo sv4`
+  (con sv4 antes, un sv3 viejo no marca y el parte espera hasta vencer a los
+  10 min: inocuo). Si F-042 sigue sin desplegar, va en el mismo despliegue.
+- **M1 · tras desplegar sv3 y sv4** (base `partes`):
+
+  ```sql
+  SELECT column_name FROM information_schema.columns
+  WHERE table_name = 'parte_documents' AND column_name LIKE 'recalculo%';
+  ```
+  ⇒ 4 filas.
+- **M2 · portal (Chrome/Edge)**, vista de obra con dos partes sin congelar:
+  teclear la fecha no abre un diálogo por tecla; al salir del campo sale el
+  texto con sus N trabajadores; Cancelar restaura; Aceptar ⇒ ese parte
+  «recalculando…» y el otro se sigue editando, filtrando y desplazando; a
+  los 1–2 min, tarjeta «Actualizar»; al pulsarla, misma posición y filtros
+  con el reparto nuevo.
+- **M3 · otra pestaña** con el mismo parte durante la espera ⇒ sale en espera
+  (y una edición suya da «El parte se está recalculando (extras)…»).
+- **M4 · base `partes`**, con el `id` del parte de M2:
+
+  ```sql
+  SELECT recalculo_pedido_id, recalculo_pedido_at_utc, recalculo_terminado_id,
+         recalculo_terminado_at_utc FROM parte_documents WHERE id = '<id>';
+  ```
+  ⇒ `recalculo_pedido_id` = `recalculo_terminado_id`.
+
 
 **Estuvo BLOCKED en T8 (implementer, 2026-10-13): la spec choca con un test
 existente de F-042 que design §7 prohíbe tocar** («todos los tests
@@ -75,7 +110,8 @@ implementer»; informe final en `progress/impl_F-043.md`.
 
 Bitácora del implementer:
 - T1–T7 hechas (esquema; adaptador y handler de sv3; estado, alcance, GET
-  de estados, marca de pedido, guarda 409 y vistas de sv4). T8 bloqueada.
+  de estados, marca de pedido, guarda 409 y vistas de sv4). T8 estuvo
+  bloqueada; T8–T15 hechas tras la opción A.
 - Decisión T3: `main_worker.py` pasa
   `getattr(app.state, "recalculo_seguimiento", None)` y no el atributo a
   pelo: el test existente `test_f042_despacho.py::test_f042_r18_el_worker_despacha_los_dos_tipos`

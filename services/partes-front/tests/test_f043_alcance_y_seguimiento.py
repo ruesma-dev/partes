@@ -765,3 +765,26 @@ def test_f043_r37_la_vista_pregunta_por_sus_documentos(entorno,
         cliente.get(url, headers=CABECERA)
     cliente.get(f"/partes/{DOC}", headers=CABECERA)
     assert preguntas == [[DOC, OTRO], [DOC, OTRO], [DOC]]
+
+
+# ===== R34 · la copia de sv4 de orm_models.py (la que arranca el portal) ===== #
+
+@pytest.mark.parametrize("columna,largo", [
+    ("recalculo_pedido_id", 36), ("recalculo_pedido_at_utc", 64),
+    ("recalculo_terminado_id", 36), ("recalculo_terminado_at_utc", 64)])
+def test_f043_r34_el_ddl_de_sv4_trae_las_cuatro_columnas(columna,
+                                                          largo) -> None:
+    """El guardian de la raiz no corre en la suite de sv4: esta copia se
+    comprueba aqui tambien (patron de `test_f010_r6_..._sv4`)."""
+    from infrastructure.database.orm_models import ddl_complementario
+    assert (f"ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS {columna} "
+            f"VARCHAR({largo})") in ddl_complementario()
+
+
+def test_f043_r2_r17_los_endpoints_no_salen_en_el_esquema(entorno,
+                                                          fabrica) -> None:
+    """Internos del portal, como el resto de `/api/...` de F-042/F-024
+    (design §3: `include_in_schema=False`)."""
+    rutas = _cliente(fabrica).app.openapi()["paths"]
+    assert "/api/recalculo" not in rutas
+    assert "/api/partes/{document_id}/alcance" not in rutas
