@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-043 · done (2026-10-13, APPROVED pasada 1), pendiente de despliegue sv3 → sv4 y M1–M4: fecha del parte — rótulo, confirmación y parte «en espera»
+## F-043 · done y DESPLEGADA (2026-10-13, sv3 r20261013185439 + sv4 r20261013185623), M1 hecha, pendiente de M2–M4: fecha del parte — rótulo, confirmación y parte «en espera»
+
+**Despliegue (2026-10-13)**: el humano desplegó sv3 y después sv4 e hizo el push de `dev`.
+Revisiones activas y sanas: `ca-sv3-persistencia--r20261013185439` y
+`ca-sv4-front--r20261013185623`. **M1 hecha** (líder, solo lectura, base `partes`): las 4
+columnas `recalculo_*` existen en `parte_documents`, `character varying`, nullables. El parte
+de la página 1 de la 0694 vuelve a estar en el 01/10, con sus líneas ya registradas en Sigrid.
 
 **Desbloqueada el 2026-10-13 por decisión del humano (opción A, respuesta
 literal «a»).** design §6/§7 enmendado: el único test existente adaptable es
