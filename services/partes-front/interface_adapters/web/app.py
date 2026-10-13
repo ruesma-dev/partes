@@ -1063,6 +1063,9 @@ def build_app(
             "back": f"/trabajadores/{worker_key}",
             "worker_key": worker_key,
             "message": message,
+            # F-043 (R37): documentos de la vista en espera de sv3.
+            "recalculando": repository.documentos_en_espera(
+                r.document_id for r in detail.registros),
         }
         return templates.TemplateResponse(
             request=request, name="trabajador_detail.html", context=context
@@ -1204,6 +1207,9 @@ def build_app(
             "obra_key": obra_key,
             "empresa_obra": empresa_obra,
             "message": message,
+            # F-043 (R37): documentos de la vista en espera de sv3.
+            "recalculando": repository.documentos_en_espera(
+                r.document_id for r in detail.registros),
         }
         return templates.TemplateResponse(
             request=request, name="obra_detail.html", context=context
@@ -1579,6 +1585,9 @@ def build_app(
             "preview_url": f"/partes/{document_id}/preview",
             "back": f"/partes/{document_id}",
             "message": message,
+            # F-043 (R37): el parte, si esta en espera de sv3.
+            "recalculando": repository.documentos_en_espera(
+                [detail.document_id]),
         }
         return templates.TemplateResponse(
             request=request, name="parte_detail.html", context=context

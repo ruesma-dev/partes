@@ -30,14 +30,16 @@
 <div class="alert warn parte-congelado">🔒 {{ parte.congelado_doc }}</div>
 {% endif %}
 
-<div class="info-grid">
+<div class="info-grid" data-parte-contenido data-document-id="{{ parte.document_id }}"{% if parte.document_id in recalculando %} data-recalculando="1"{% endif %}>
   <div class="info-item">
     <span class="info-k">Fecha</span>
     <span class="info-v">
       <input type="date" class="fecha-edit" id="fechaEdit"
              data-document-id="{{ parte.document_id }}"
              data-status="fechaStatus"
+             title="Es la fecha del PARTE: cambiarla mueve todas sus líneas y trabajadores" aria-label="Fecha del parte"
              value="{{ parte.fecha or '' }}"{% if parte.congelado_doc %} disabled{% endif %}>
+      {% if parte.document_id in recalculando %}<span class="recalculando-marca">recalculando…</span>{% endif %}
       <span class="edit-status" id="fechaStatus"></span>
     </span>
   </div>
@@ -116,7 +118,7 @@
   {% endif %}
 </div>
 
-<div class="panel">
+<div class="panel" data-parte-contenido data-document-id="{{ parte.document_id }}"{% if parte.document_id in recalculando %} data-recalculando="1"{% endif %}>
   <div class="panel-header"><h2>Personal ({{ parte.empleados|length }})</h2></div>
   {% if parte.empleados %}
     {% for emp in parte.empleados %}

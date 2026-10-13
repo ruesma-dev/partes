@@ -13,6 +13,7 @@ sinteticos.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -417,7 +418,6 @@ def test_f043_r17_el_modulo_no_depende_de_infraestructura() -> None:
 # ================ R12-R16 · marca de «pedido» de sv4 =================== #
 
 import logging  # noqa: E402
-import re  # noqa: E402
 
 UUID4 = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
@@ -666,3 +666,102 @@ def test_f043_r16_las_respuestas_y_el_mensaje_no_cambian(parte) -> None:
     for _nombre, mensaje in cola.enviados:
         assert set(mensaje) == {"tipo", "motivo", "document_id",
                                 "solicitado_por", "solicitado_at_utc"}
+
+
+# ================= R37 · las vistas pintan el parte en espera ========== #
+
+URL_OBRA = "/obras/obr-10?period=2026-03&modo=natural"
+URL_PERSONA = "/trabajadores/emp-77?period=2026-03&modo=natural"
+MARCA_ESPERA = '<span class="recalculando-marca">recalculando…</span>'
+
+
+def _fila_html(html: str, registro_id: int) -> str:
+    ini = html.index(f'<tr data-registro-id="{registro_id}"')
+    return html[ini:html.index("</tr>", ini)]
+
+
+def _celda_fecha_html(fila: str) -> str:
+    ini = fila.index('<td class="cell-fecha">')
+    return fila[ini:fila.index("</td>", ini)]
+
+
+@pytest.fixture
+def dos_partes(entorno, fabrica):
+    """Mismo trabajador y obra: DOC en espera (pendiente), OTRO no."""
+    ids_doc = sembrar_parte(fabrica, [{"horas": 8.0}], fecha="2026-03-02")
+    ids_otro = sembrar_parte(fabrica, [{"horas": 7.0}], document_id=OTRO,
+                             fecha="2026-03-03")
+    _poner_marca(fabrica, DOC, pedido=PID2, pedido_at=_hace(30),
+                 terminado=PID)
+    _poner_marca(fabrica, OTRO, pedido=PID, pedido_at=_hace(30),
+                 terminado=PID)
+    return _cliente(fabrica), ids_doc[0], ids_otro[0]
+
+
+@pytest.mark.parametrize("url", [URL_OBRA, URL_PERSONA])
+def test_f043_r37_las_filas_del_parte_en_espera_salen_marcadas(
+        dos_partes, url) -> None:
+    cliente, reg_doc, reg_otro = dos_partes
+    html = cliente.get(url, headers=CABECERA).text
+    fila = _fila_html(html, reg_doc)
+    assert 'data-recalculando="1"' in fila.split(">", 1)[0]
+    assert MARCA_ESPERA in _celda_fecha_html(fila)
+    otra = _fila_html(html, reg_otro)
+    assert "data-recalculando" not in otra
+    assert "recalculando-marca" not in otra
+
+
+@pytest.mark.parametrize("url", [URL_OBRA, URL_PERSONA])
+def test_f043_r37_sin_espera_no_hay_marca(entorno, fabrica, url) -> None:
+    sembrar_parte(fabrica, [{"horas": 8.0}])
+    _poner_marca(fabrica, DOC, pedido=PID, pedido_at=_hace(601))  # vencido
+    html = _cliente(fabrica).get(url, headers=CABECERA).text
+    assert "data-recalculando=" not in html
+    assert MARCA_ESPERA not in html
+
+
+def _contenedores(html: str) -> list[str]:
+    return re.findall(r"<div[^>]*data-parte-contenido[^>]*>", html)
+
+
+def test_f043_r37_el_detalle_del_parte_en_espera(dos_partes) -> None:
+    cliente, _r1, _r2 = dos_partes
+    html = cliente.get(f"/partes/{DOC}", headers=CABECERA).text
+    contenedores = _contenedores(html)
+    assert len(contenedores) == 2          # cabecera y lineas
+    for c in contenedores:
+        assert f'data-document-id="{DOC}"' in c
+        assert 'data-recalculando="1"' in c
+    assert MARCA_ESPERA in html
+
+
+def test_f043_r37_el_detalle_de_un_parte_que_no_espera(dos_partes) -> None:
+    cliente, _r1, _r2 = dos_partes
+    html = cliente.get(f"/partes/{OTRO}", headers=CABECERA).text
+    contenedores = _contenedores(html)
+    assert len(contenedores) == 2
+    for c in contenedores:
+        assert f'data-document-id="{OTRO}"' in c
+        assert "data-recalculando" not in c
+    assert MARCA_ESPERA not in html
+
+
+def test_f043_r37_la_vista_pregunta_por_sus_documentos(entorno,
+                                                       fabrica) -> None:
+    """Una consulta por vista con los documentos que pinta."""
+    sembrar_parte(fabrica, [{"horas": 8.0}], fecha="2026-03-02")
+    sembrar_parte(fabrica, [{"horas": 7.0}], document_id=OTRO,
+                  fecha="2026-03-03")
+    preguntas: list = []
+
+    class Espia(ParteReviewRepository):
+        def documentos_en_espera(self, ids):
+            ids = list(ids)
+            preguntas.append(sorted(set(ids)))
+            return super().documentos_en_espera(ids)
+
+    cliente = _cliente(fabrica, repositorio=Espia(fabrica))
+    for url in (URL_OBRA, URL_PERSONA):
+        cliente.get(url, headers=CABECERA)
+    cliente.get(f"/partes/{DOC}", headers=CABECERA)
+    assert preguntas == [[DOC, OTRO], [DOC, OTRO], [DOC]]
