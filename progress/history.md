@@ -833,3 +833,28 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   contrato solo ata `tipo`; avisos de ruff de estilo; el generador de mutantes produce pocos en
   este diff (propuesta para el arnés: mutar constantes de cadena y orden de tuplas).
 - Pendiente: despliegue sv3 → sv4 cuando lo pida el humano y M1–M3 de `current.md`.
+
+## F-043 · Fecha del parte: rótulo, confirmación y parte «en espera» mientras sv3 recalcula — done 2026-10-13
+
+- Rama `feature/F-043-fecha-del-parte-confirmar-y-recargar` · rigor critico · sdd=true ·
+  APPROVED del reviewer en la pasada 1 (`progress/review_F-043.md`).
+- Origen: el input de fecha de una fila mueve el parte entero (el humano movió a los cuatro
+  trabajadores de un parte de la 0694 creyendo mover a uno) y el portal no reflejaba el fin
+  del recálculo de F-042.
+- Entregado: rótulo «Fecha del parte»; confirmación con los trabajadores y líneas que se
+  mueven; 4 columnas nullables de seguimiento en `parte_documents` (sv4 marca el pedido antes
+  de publicar, sv3 marca terminado el pedido que leyó antes de su pasada, UPDATE condicional);
+  solo ese parte queda en espera (filas deshabilitadas, 409 en el servidor salvo fecha y
+  deshacer, vence a los 10 min); nada recarga solo: tarjeta «Actualizar» que conserva scroll y
+  filtros.
+- Decisiones del humano: DA1–DA13 recomendadas, con la enmienda «tengo que seguir usando la
+  plataforma para el resto de partes, solo queda en espera el que está recalculando»; opción A
+  en T8 (adaptar el doble de DOM de `test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo`).
+- Verificado: init.sh en verde (sv3 1.180, sv4 2.068 passed), cobertura 99,4 %, mutación
+  60 mutantes con los 10 supervivientes cazados por 5 tests nuevos; azure-apps/partes.md
+  actualizado (commit local `61d1688`).
+- Observaciones no bloqueantes del reviewer: las ediciones en bloque (reasignar, borrar obra o
+  trabajador) no miran la espera; el deshacer encadenado puede revertir otra edición del parte
+  en espera sin pedir recálculo.
+- Pendiente: despliegue sv3 → sv4 cuando lo pida el humano y M1–M4 de `current.md`. F-044
+  (mover a un solo trabajador) queda aparcada con su spec en su rama.

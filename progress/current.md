@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-043 · in_progress (desbloqueada el 2026-10-13, opción A): fecha del parte — rótulo, confirmación y parte «en espera»
+## F-043 · done (2026-10-13, APPROVED pasada 1), pendiente de despliegue sv3 → sv4 y M1–M4: fecha del parte — rótulo, confirmación y parte «en espera»
 
 **Desbloqueada el 2026-10-13 por decisión del humano (opción A, respuesta
 literal «a»).** design §6/§7 enmendado: el único test existente adaptable es
