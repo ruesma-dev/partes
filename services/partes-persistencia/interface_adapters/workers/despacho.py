@@ -16,9 +16,16 @@ con cada mensaje. Segun su clase (`mensajes.clasificar`):
     lo que importa es haber guardado el parte.
   - **desconocido**: ERROR en el log y se relanza (mismo camino).
 
-El `document_id` del recalculo es solo traza: `conciliar_todos` recalcula
-siempre todo lo activo, porque la jornada se mide por trabajador y dia
-entre obras y partes.
+El `document_id` del recalculo no acota la pasada: `conciliar_todos`
+recalcula siempre todo lo activo, porque la jornada se mide por trabajador
+y dia entre obras y partes.
+
+Seguimiento (F-043, R27-R32): con `recalculo_seguimiento`, un recalculo
+lee ANTES de la pasada el `recalculo_pedido_id` que sv4 escribio en ese
+documento y, si la pasada acaba sin excepcion, lo marca «terminado» (el
+adaptador solo lo hace si el documento sigue con ese pedido). Leer o
+marcar que fallan dejan un WARNING y el mensaje se consume (DA7): la
+pasada ya esta hecha y sv4 da el parte por `vencido` a los 10 min.
 """
 from __future__ import annotations
 
@@ -44,9 +51,11 @@ def construir_handler(
     recurso_conciliador: Any,
     contenedor_input: str,
     contenedor_envelopes: str,
+    recalculo_seguimiento: Any = None,
 ) -> Callable[[dict], None]:
     """El handler de `q-persistencia`. `recurso_conciliador` es None
-    cuando sv3 arranca sin Sigrid cableado (R17)."""
+    cuando sv3 arranca sin Sigrid cableado (R17); sin
+    `recalculo_seguimiento`, el recalculo es el de F-042 (R31)."""
 
     def _ingerir(payload: dict) -> None:
         document_id = payload["document_id"]
@@ -73,9 +82,41 @@ def construir_handler(
                 "se da por consumido sin recalcular (motivo=%s "
                 "document_id=%s por=%s)", motivo, document_id, por)
             return
+        pedido = _pedido_leido(document_id)
         res = recurso_conciliador.conciliar_todos()
         logger.info("[sv3-worker] recalculo motivo=%s document_id=%s por=%s "
                     "-> %s", motivo, document_id, por, res)
+        if pedido is not None:
+            _marcar_terminado(document_id, pedido)
+
+    def _pedido_leido(document_id: Any) -> str | None:
+        """El pedido de sv4 antes de la pasada (R27); None si no se
+        sigue o si leerlo falla (R30: se recalcula igual, sin marcar)."""
+        if recalculo_seguimiento is None or not isinstance(document_id, str):
+            return None
+        try:
+            return recalculo_seguimiento.pedido_actual(document_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[sv3-worker] no se pudo leer el pedido de recalculo "
+                "document_id=%s (%s): se recalcula sin marcar terminado.",
+                document_id, type(exc).__name__)
+            return None
+
+    def _marcar_terminado(document_id: str, pedido: str) -> None:
+        """R28/R30: marca el pedido leido; si falla, WARNING y se
+        consume el mensaje."""
+        try:
+            marcado = recalculo_seguimiento.marcar_terminado(document_id,
+                                                             pedido)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[sv3-worker] no se pudo marcar el recalculo terminado "
+                "document_id=%s (%s): sv4 lo dara por vencido.",
+                document_id, type(exc).__name__)
+            return
+        logger.info("[sv3-worker] recalculo terminado document_id=%s "
+                    "marcado=%s", document_id, marcado)
 
     def handler(payload: dict) -> None:
         try:

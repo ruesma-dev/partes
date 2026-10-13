@@ -1,7 +1,19 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-043 · spec_ready (enmienda 2026-10-13, pendiente de aprobar): fecha del parte — rótulo, confirmación y parte «en espera»
+## F-043 · in_progress (spec y enmienda aprobadas el 2026-10-13): fecha del parte — rótulo, confirmación y parte «en espera»
+
+**Implementación en curso (implementer, 2026-10-13)** en el worktree
+`partes-wt-f043`. Tarea en curso y decisiones: ver abajo «Bitácora del
+implementer»; informe final en `progress/impl_F-043.md`.
+
+Bitácora del implementer:
+- T1–T3 hechas (esquema, adaptador y handler de sv3).
+- Decisión T3: `main_worker.py` pasa
+  `getattr(app.state, "recalculo_seguimiento", None)` y no el atributo a
+  pelo: el test existente `test_f042_despacho.py::test_f042_r18_el_worker_despacha_los_dos_tipos`
+  simula `app.state` sin ese atributo y design §7 prohíbe tocarlo; sin él,
+  el handler es el de F-042 (R31).
 
 Spec en `specs/F-043-fecha-del-parte-confirmar-y-recargar/` (rama y worktree
 `partes-wt-f043`). El humano aprobó la spec el 2026-10-13 con una enmienda:
