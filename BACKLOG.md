@@ -5,6 +5,8 @@
 
 Resumen: **41 features**, 12 abiertas, 29 terminadas.
 
+En curso: **F-043**.
+
 Bloqueadas: **F-014, F-032**.
 
 ## Trabajo abierto
@@ -13,7 +15,7 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | spec lista | critico | `feature/F-043-fecha-del-parte-confirmar-y-recargar` |
+| F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | en curso | critico | `feature/F-043-fecha-del-parte-confirmar-y-recargar` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -74,7 +76,7 @@ Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con much
 
 ### F-043 · Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras
 
-estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-043-fecha-del-parte-confirmar-y-recargar`
+estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-043-fecha-del-parte-confirmar-y-recargar`
 
 Pedida por el humano el 2026-10-12 (opcion A) y enmendada el 2026-10-13: «tengo que seguir usando la plataforma para el resto de partes, solo queda en espera el que esta recalculando». En el detalle de obra y de trabajador cada fila lleva un input de fecha (.fecha-edit) que hace PATCH /api/partes/{id}/fecha, y update_parte_fecha mueve el PARTE ENTERO: el humano lo cambio en la fila de un trabajador y movio a los cuatro del parte. Tras el cambio sv3 recalcula el reparto (F-042) en ~1-2 min y el portal no lo refleja. LO QUE SE PIDE: (1) rotular el campo como fecha del parte; (2) antes de guardar, window.confirm con cuantos trabajadores y lineas se mueven y a que dia; cancelar deja la fecha anterior; (3) mientras sv3 recalcula, SOLO ese parte queda en espera (filas marcadas y deshabilitadas, y el servidor rechaza sus ediciones salvo fecha y deshacer, porque una edicion a mitad de pasada se pisa) y el resto del portal sigue usable; al terminar, una tarjeta ofrece Actualizar (recarga conservando scroll y filtros): nada recarga solo. Seguimiento: sv4 marca recalculo_pedido_id antes de publicar, sv3 copia a recalculo_terminado_id el pedido que leyo antes de su pasada (UPDATE condicional), el estado lo pinta el servidor y vence a los 10 min. Cuatro columnas nullables en parte_documents (las dos copias de orm_models.py). Mover una sola linea es F-044. La logica de recalculo de sv3 no cambia.
 
