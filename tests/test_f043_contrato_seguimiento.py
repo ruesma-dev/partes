@@ -114,3 +114,25 @@ def test_f043_r34_las_columnas_no_entran_en_deshacer() -> None:
                             "_DOC_UNDO_FIELDS")
     assert campos, "_DOC_UNDO_FIELDS vacio"
     assert not set(campos) & set(COLUMNAS)
+
+
+# ============ R35 · los nombres que usan sv3 y sv4 son esos ============ #
+
+def _nombres_usados(ruta: Path) -> set[str]:
+    """Atributos y argumentos con nombre que aparecen en el fichero."""
+    usados: set[str] = set()
+    for nodo in ast.walk(ast.parse(ruta.read_text(encoding="utf-8"))):
+        if isinstance(nodo, ast.Attribute):
+            usados.add(nodo.attr)
+        elif isinstance(nodo, ast.keyword) and nodo.arg:
+            usados.add(nodo.arg)
+    return usados
+
+
+def test_f043_r35_el_adaptador_de_sv3_lee_el_pedido_y_marca_el_terminado(
+        ) -> None:
+    usados = _nombres_usados(RUTA_ADAPTADOR_SV3)
+    assert {"recalculo_pedido_id", "recalculo_terminado_id",
+            "recalculo_terminado_at_utc"} <= usados
+    # sv3 nunca escribe el pedido: eso es de sv4.
+    assert "recalculo_pedido_at_utc" not in usados
