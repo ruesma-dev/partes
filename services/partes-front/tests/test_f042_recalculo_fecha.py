@@ -660,13 +660,26 @@ def _node(programa: str):
     return _json.loads(r.stdout)
 
 
+#: F-043 (enmienda A): lo que `wireFechaInput` usa tras un `pedido`.
+F043_ESPERA = ("accionPorEstado", "textoAvisoRecalculo", "contenedoresEspera",
+               "marcarEspera", "ponerEnEspera", "soltarEspera",
+               "avisoRecalculo", "vigilarRecalculo", "sondearRecalculo",
+               "aplicarEstadoRecalculo", "actualizarVista",
+               "vistaRestaurable")
+
+
+def _f043_variables(js: str) -> str:
+    return "\n".join(l for l in js.split("\n") if re.match(
+        r"  var (RECALCULO_|VISTA_|recalculo)\w* = ", l)) + "\n"
+
+
 def _guardar_fecha(casos: list) -> dict:
     js = _js()
-    programa = (DOM_JS + _motivo_http(js)
+    programa = (DOM_JS + _motivo_http(js) + _f043_variables(js)
                 + "".join(_funcion(js, f) for f in (
                     "flashEl", "setStatus", "estadoRecalculo",
                     "fmtFechaEs", "textoConfirmacionFecha",   # F-043
-                    "wireFechaInput"))
+                    "wireFechaInput") + F043_ESPERA)
                 + FECHA_JS % {"casos": _json.dumps(casos)})
     return _node(programa)
 
@@ -696,7 +709,7 @@ def test_f042_r11_tras_guardar_pinta_el_estado_del_recalculo() -> None:
     # `saved` se borra solo a los 1,8 s (`setStatus`); `error` se queda
     # (persistente). El 1,6 s es el destello del input (`flashEl`).
     assert pedido == [TEXTO_PEDIDO, "edit-status saved",
-                      ["timer:1600", "timer:1800"]]
+                      ["timer:1600", "timer:1800", "timer:5000"]]
     assert fallo == [TEXTO_FALLO, "edit-status error", ["timer:1600"]]
     assert sin_cola == [TEXTO_SIN_COLA, "edit-status saved",
                         ["timer:1600", "timer:1800"]]

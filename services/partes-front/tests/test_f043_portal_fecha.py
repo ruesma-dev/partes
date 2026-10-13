@@ -448,3 +448,426 @@ def test_f043_r11_con_el_patch_en_vuelo_no_se_abre_otro() -> None:
                " await drenar();")
     assert "en-vuelo:true" in r["eventos"]
     assert r["peticiones"] == [ALCANCE, PATCH]
+
+
+# ============ R18-R26, R40 · el parte en espera y su aviso ============== #
+
+#: Todo lo que necesita la espera (ademas de `FUNCIONES`).
+ESPERA = FUNCIONES + (
+    "accionPorEstado", "vistaRestaurable", "textoAvisoRecalculo",
+    "contenedoresEspera", "marcarEspera", "ponerEnEspera", "soltarEspera",
+    "avisoRecalculo", "vigilarRecalculo", "sondearRecalculo",
+    "aplicarEstadoRecalculo", "actualizarVista", "restaurarVista",
+    "esperasDeLaPagina")
+VARIABLES = ("RECALCULO_", "VISTA_", "recalculo")
+
+#: Dos filas del parte doc-1 (una con un control ya deshabilitado), una de
+#: doc-2 y el contenedor del detalle de doc-1.
+PAGINA_JS = r"""
+function fila(doc, reg, fecha, extra) {
+  var hijos = [el("input", {"class": "sel-linea", type: "checkbox"}),
+    el("input", {"class": "fecha-edit cell-edit", type: "date",
+      "data-document-id": doc, value: fecha, "data-status": "st-" + reg}),
+    el("button", {"class": "line-del"})];
+  var tr = el("tr", Object.assign({"data-registro-id": reg,
+    "data-document-id": doc, "data-fecha": fecha}, extra || {}),
+    [el("td", {"class": "cell-fecha"}, hijos),
+     el("td", {}, [el("input", {"class": "horas-edit", value: "8"}),
+                   el("select", {"class": "combo-hora"}),
+                   el("textarea", {}),
+                   el("button", {"class": "ya", disabled: "disabled"})])]);
+  return tr;
+}
+var tabla = el("table", {}, [fila("doc-1", "1", "2026-10-11"),
+  fila("doc-1", "2", "2026-10-11"), fila("doc-2", "3", "2026-10-12")]);
+var cabecera = el("div", {"class": "info-grid", "data-parte-contenido": "",
+  "data-document-id": "doc-1"}, [el("input", {"class": "fecha-edit",
+  "data-document-id": "doc-1", value: "2026-10-11"})]);
+body.appendChild(tabla); body.appendChild(cabecera);
+body.appendChild(el("div", {"class": "table-scroll"}, []));
+body.appendChild(el("div", {"class": "matrix-scroll"}, []));
+body.appendChild(el("input", {"class": "col-filter", value: ""}));
+body.appendChild(el("input", {"class": "col-filter", value: ""}));
+body.appendChild(el("span", {id: "st-1"}));
+function controles(doc) {
+  return document.querySelectorAll('tr[data-document-id="' + doc + '"],' +
+    ' [data-parte-contenido][data-document-id="' + doc + '"]')
+    .map(function (c) {
+      return {esp: c.getAttribute("data-recalculando"),
+              dis: c.querySelectorAll("input,select,textarea,button")
+                .map(function (x) { return x.disabled; }),
+              marcas: c.querySelectorAll(".recalculando-marca")
+                .map(function (m) { return m.textContent; })};
+    });
+}
+function tarjetas() {
+  return document.querySelectorAll(".recalculo-tarjeta").map(function (t) {
+    return {doc: t.getAttribute("data-document-id"),
+            texto: t.querySelector(".recalculo-texto").textContent,
+            actualizar: !!t.querySelector("[data-recalculo-actualizar]")};
+  });
+}
+function caja() {
+  var c = document.getElementById("recalculo-avisos");
+  return c && [c.getAttribute("role"), c.getAttribute("aria-live")];
+}
+async function correrTimers() {
+  var t = timers; timers = [];
+  t.forEach(function (x) { x[0](); }); await drenar();
+}
+function foto() {
+  return {d1: controles("doc-1"), d2: controles("doc-2"), tarjetas: tarjetas(),
+          caja: caja(), eventos: eventos.slice(), peticiones: peticiones.slice(),
+          vigilados: Object.keys(recalculoVigilados),
+          sondeo: !!recalculoSondeo, almacen: almacen};
+}
+"""
+
+LIBRES = [False, False, False, False, False, False, True]
+ESPERANDO = [True] * 7
+TEXTO_ESPERA = ("Recalculando extras del parte del 01/10/2026 (suele tardar "
+                "1–2 min). Puedes seguir trabajando con el resto.")
+TEXTO_TERMINADO = "Extras del parte del 01/10/2026 recalculadas."
+TEXTO_VENCIDO = ("No se ha podido confirmar el recálculo de extras del parte "
+                 "del 01/10/2026. Pulsa Actualizar; si las extras no cambian, "
+                 "vuelve a guardar la fecha.")
+TEXTO_SOLTAR = "✓ Guardado · recalculando extras (recarga en 1–2 min)"
+TEXTO_FALLO = ("Fecha guardada, pero no se pudo pedir el recálculo de "
+               "extras: vuelve a guardar la fecha")
+
+
+def _pagina(acciones: str) -> dict:
+    return _node(_programa(PAGINA_JS + acciones + "\nsalir(foto());",
+                           ESPERA, VARIABLES))
+
+
+def _estado(estados: dict) -> str:
+    return ('rutas["/api/recalculo"] = {status: 200, json: {ok: true, '
+            "estados: " + _json.dumps({k: {"estado": v}
+                                       for k, v in estados.items()}) + "}};")
+
+
+def test_f043_r25_accion_por_estado() -> None:
+    assert _node(_programa(
+        "salir(['pendiente', 'error', undefined, 'raro', 'terminado', "
+        "'vencido', 'sin_seguimiento', 'no_existe'].map(accionPorEstado));",
+        ("accionPorEstado",))) == [
+        "esperar", "esperar", "esperar", "esperar", "terminado", "vencido",
+        "soltar", "quitar"]
+
+
+def test_f043_r21_vista_restaurable() -> None:
+    url = "https://portal.example/obras/obr-10?period=2026-03"
+    casos = [
+        [{"url": url, "t": 1000}, url, 1000 + 59999],
+        [{"url": url, "t": 1000}, url, 1000 + 60000],
+        [{"url": url, "t": 1000}, url + "&x=1", 1001],
+        [{"url": url, "t": 1000}, url, 999],
+        [{"url": url}, url, 1001],
+        [None, url, 1001],
+        ["texto", url, 1001],
+    ]
+    r = _node(_programa(
+        "var c = " + _json.dumps(casos) + "; salir(c.map(function (x) {"
+        " return vistaRestaurable(x[0], x[1], x[2]); }));",
+        ("vistaRestaurable",), ("VISTA_",)))
+    assert r == [{"url": url, "t": 1000}, None, None, None, None, None, None]
+
+
+def test_f043_r18_constantes() -> None:
+    r = _node(_programa(
+        "salir([RECALCULO_SONDEO_MS, RECALCULO_SIN_RESPUESTA_MS, VISTA_CLAVE,"
+        " VISTA_MAX_MS]);", (), ("RECALCULO_", "VISTA_")))
+    assert r == [5000, 720000, "partes.vista.restaurar", 60000]
+
+
+def test_f043_r18_poner_en_espera_solo_ese_parte() -> None:
+    r = _pagina('ponerEnEspera("doc-1"); ponerEnEspera("doc-1");')
+    assert [c["esp"] for c in r["d1"]] == ["1", "1", "1"]
+    assert [c["dis"] for c in r["d1"]] == [ESPERANDO, ESPERANDO, [True]]
+    assert [c["marcas"] for c in r["d1"]] == [["recalculando…"]] * 3
+    assert r["d2"] == [{"esp": None, "dis": LIBRES, "marcas": []}]
+    assert not [e for e in r["eventos"] if e in ("reload",)
+                or e.startswith("scrollTo")]
+
+
+def test_f043_r23_soltar_espera_devuelve_cada_control() -> None:
+    r = _pagina('ponerEnEspera("doc-1"); soltarEspera("doc-1");'
+                ' soltarEspera("doc-2");')
+    assert r["d1"] == [{"esp": None, "dis": LIBRES, "marcas": []},
+                       {"esp": None, "dis": LIBRES, "marcas": []},
+                       {"esp": None, "dis": [False], "marcas": []}]
+    assert r["d2"] == [{"esp": None, "dis": LIBRES, "marcas": []}]
+
+
+def _guardar_con(recalculo: str) -> str:
+    return ('rutas["/alcance"] = {status: 200, json: {ok: true,'
+            ' trabajadores: 2, lineas: 2}};'
+            ' rutas["/fecha"] = {status: 200, json: {ok: true,'
+            ' fecha: "2026-10-01", fecha_int: 20261001, recalculo: "'
+            + recalculo + '"}};'
+            ' var inps = document.querySelectorAll(".fecha-edit");'
+            " inps.forEach(function (i) { wireFechaInput(i); });"
+            ' inps[0].value = "2026-10-01"; inps[0].disparar("change");'
+            " await drenar();")
+
+
+def test_f043_r18_tras_pedir_el_recalculo_el_parte_espera() -> None:
+    r = _pagina(_guardar_con("pedido"))
+    assert [c["dis"] for c in r["d1"]] == [ESPERANDO, ESPERANDO, [True]]
+    assert [c["marcas"] for c in r["d1"]] == [["recalculando…"]] * 3
+    assert r["d2"] == [{"esp": None, "dis": LIBRES, "marcas": []}]
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_ESPERA,
+                              "actualizar": False}]
+    assert r["caja"] == ["status", "polite"]
+    assert r["vigilados"] == ["doc-1"] and r["sondeo"] is True
+    assert "timer:5000" in r["eventos"]
+    assert "reload" not in r["eventos"]
+
+
+def test_f043_r18_sondea_todos_en_una_peticion_y_sigue_si_pendiente() -> None:
+    r = _pagina(_estado({"doc-1": "pendiente", "doc-2": "pendiente"})
+                + ' vigilarRecalculo("doc-1", "2026-10-01");'
+                ' vigilarRecalculo("doc-2", "2026-10-02");'
+                " await correrTimers();")
+    assert r["peticiones"] == [["/api/recalculo?ids=doc-1,doc-2", "GET"]]
+    assert r["eventos"] == ["timer:5000", "timer:5000"]
+    assert r["vigilados"] == ["doc-1", "doc-2"]
+
+
+def test_f043_r20_terminado_ofrece_actualizar_y_sigue_deshabilitado() -> None:
+    r = _pagina(_guardar_con("pedido") + _estado({"doc-1": "terminado"})
+                + " eventos = []; await correrTimers();")
+    assert [c["dis"] for c in r["d1"]] == [ESPERANDO, ESPERANDO, [True]]
+    assert [c["marcas"] for c in r["d1"]] == [
+        ["recalculado · pulsa Actualizar"]] * 3
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_TERMINADO,
+                              "actualizar": True}]
+    assert r["vigilados"] == [] and r["sondeo"] is False
+    assert r["eventos"] == []            # ni otro sondeo ni recarga
+
+
+def test_f043_r21_actualizar_guarda_la_vista_y_recarga() -> None:
+    r = _pagina('window.scrollX = 3; window.scrollY = 420;'
+                ' document.querySelector(".table-scroll").scrollTop = 77;'
+                ' document.querySelector(".matrix-scroll").scrollLeft = 15;'
+                ' document.querySelectorAll(".col-filter")[1].value = "pepe";'
+                ' avisoRecalculo("doc-1", "terminado", "2026-10-01");'
+                ' document.querySelector("[data-recalculo-actualizar]")'
+                '.disparar("click");')
+    assert r["eventos"] == ["reload"]
+    vista = _json.loads(r["almacen"]["partes.vista.restaurar"])
+    assert vista == {"url": "https://portal.example/obras/obr-10?"
+                            "period=2026-03",
+                     "t": 1000000, "x": 3, "y": 420,
+                     "scrolls": [[77, 0], [0, 15]], "filtros": ["", "pepe"]}
+
+
+def test_f043_r21_sin_session_storage_recarga_sin_mas() -> None:
+    r = _pagina('sinAlmacen = true; actualizarVista();')
+    assert r["eventos"] == ["reload"]
+
+
+def test_f043_r21_restaurar_la_vista_y_borrarla() -> None:
+    vista = {"url": "https://portal.example/obras/obr-10?period=2026-03",
+             "t": 1000000 - 5000, "x": 3, "y": 420,
+             "scrolls": [[77, 0], [0, 15]], "filtros": ["", "pepe"]}
+    r = _node(_programa(
+        PAGINA_JS + "almacen['partes.vista.restaurar'] = "
+        + _json.dumps(_json.dumps(vista)) + "; restaurarVista();"
+        " var ts = document.querySelector('.table-scroll'),"
+        " ms = document.querySelector('.matrix-scroll');"
+        " salir({eventos: eventos, almacen: almacen,"
+        " scrolls: [[ts.scrollTop, ts.scrollLeft], [ms.scrollTop, ms.scrollLeft]],"
+        " filtros: document.querySelectorAll('.col-filter').map(function (f)"
+        " { return f.value; })});", ESPERA, VARIABLES))
+    assert r["almacen"] == {}
+    assert r["filtros"] == ["", "pepe"]
+    assert r["scrolls"] == [[77, 0], [0, 15]]
+    assert r["eventos"] == ["evento:input", "scrollTo:3,420"]
+
+
+@pytest.mark.parametrize("cambio", [
+    "vista.t = ahora - 60000;", 'vista.url = "https://portal.example/otra";'])
+def test_f043_r21_no_se_restaura_vieja_ni_de_otra_pagina(cambio) -> None:
+    r = _node(_programa(
+        PAGINA_JS + "var vista = {url: window.location.href, t: ahora,"
+        " x: 1, y: 2, scrolls: [[5, 5]], filtros: ['x']}; " + cambio
+        + " almacen['partes.vista.restaurar'] = JSON.stringify(vista);"
+        " restaurarVista(); salir({eventos: eventos, almacen: almacen});",
+        ESPERA, VARIABLES))
+    assert r == {"eventos": [], "almacen": {}}
+
+
+def test_f043_r21_restaurar_sin_session_storage_no_rompe() -> None:
+    r = _node(_programa(PAGINA_JS + "sinAlmacen = true; restaurarVista();"
+                        " salir(eventos);", ESPERA, VARIABLES))
+    assert r == []
+
+
+def test_f043_r22_vencido_deja_de_sondear_con_aviso_fijo() -> None:
+    r = _pagina(_guardar_con("pedido") + _estado({"doc-1": "vencido"})
+                + " eventos = []; await correrTimers();")
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_VENCIDO,
+                              "actualizar": True}]
+    assert r["vigilados"] == [] and r["sondeo"] is False
+    assert r["eventos"] == []
+
+
+def test_f043_r23_sin_seguimiento_suelta_el_parte() -> None:
+    r = _pagina(_guardar_con("pedido") + _estado({"doc-1": "sin_seguimiento"})
+                + " await correrTimers();")
+    assert [c["dis"] for c in r["d1"]] == [LIBRES, LIBRES, [False]]
+    assert [c["esp"] for c in r["d1"]] == [None, None, None]
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_SOLTAR,
+                              "actualizar": False}]
+    assert r["vigilados"] == []
+
+
+def test_f043_r23_no_existe_suelta_y_quita_el_aviso() -> None:
+    r = _pagina(_guardar_con("pedido") + _estado({"doc-1": "no_existe"})
+                + " await correrTimers();")
+    assert [c["dis"] for c in r["d1"]] == [LIBRES, LIBRES, [False]]
+    assert r["tarjetas"] == []
+    assert r["vigilados"] == [] and r["sondeo"] is False
+
+
+@pytest.mark.parametrize("fallo", [
+    'rutas["/api/recalculo"] = "red";',
+    'rutas["/api/recalculo"] = {status: 503, json: {}};',
+    'rutas["/api/recalculo"] = {status: 200, json: {ok: false}};'])
+def test_f043_r23_un_sondeo_fallido_no_corta_nada(fallo) -> None:
+    r = _pagina(_guardar_con("pedido") + fallo
+                + " eventos = []; await correrTimers();")
+    assert r["eventos"] == ["timer:5000"]
+    assert r["vigilados"] == ["doc-1"]
+    assert [c["dis"] for c in r["d1"]] == [ESPERANDO, ESPERANDO, [True]]
+
+
+def test_f043_r23_doce_minutos_sin_respuesta_valida_vence() -> None:
+    r = _pagina(_guardar_con("pedido") + 'vigilarRecalculo("doc-2", "");'
+                ' rutas["/api/recalculo"] = "red";'
+                " ahora += 719999; eventos = []; await correrTimers();"
+                ' eventos.push("|"); ahora += 1; await correrTimers();')
+    assert r["eventos"] == ["timer:5000", "|"]
+    textos = {t["doc"]: t["texto"] for t in r["tarjetas"]}
+    assert textos["doc-1"] == TEXTO_VENCIDO
+    assert textos["doc-2"].startswith("No se ha podido confirmar")
+    assert r["vigilados"] == [] and r["sondeo"] is False
+
+
+def test_f043_r23_una_respuesta_valida_reinicia_el_plazo() -> None:
+    r = _pagina(_guardar_con("pedido") + _estado({"doc-1": "pendiente"})
+                + " ahora += 700000; await correrTimers();"
+                ' rutas["/api/recalculo"] = "red"; ahora += 700000;'
+                " eventos = []; await correrTimers();")
+    assert r["eventos"] == ["timer:5000"]
+    assert r["vigilados"] == ["doc-1"]
+
+
+def test_f043_r24_si_no_se_pudo_pedir_aviso_fijo_y_sin_espera() -> None:
+    r = _pagina(_guardar_con("fallo"))
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_FALLO,
+                              "actualizar": False}]
+    assert [c["esp"] for c in r["d1"]] == [None, None, None]
+    assert r["vigilados"] == [] and "timer:5000" not in r["eventos"]
+
+
+@pytest.mark.parametrize("recalculo", ["sin_cola", None])
+def test_f043_r18_sin_pedido_no_hay_espera_ni_aviso(recalculo) -> None:
+    r = _pagina(_guardar_con(str(recalculo)))
+    assert r["tarjetas"] == [] and r["vigilados"] == []
+
+
+def test_f043_r18_la_tarjeta_se_descarta_y_no_se_duplica() -> None:
+    r = _pagina('avisoRecalculo("doc-1", "espera", "2026-10-01");'
+                ' avisoRecalculo("doc-1", "terminado", "2026-10-01");'
+                ' avisoRecalculo("doc-2", "espera", "2026-10-02");'
+                ' document.querySelector(\'.recalculo-tarjeta[data-document-id="doc-2"]\')'
+                '.querySelector(".recalculo-cerrar").disparar("click");')
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_TERMINADO,
+                              "actualizar": True}]
+
+
+def test_f043_r18_r26_al_cargar_los_partes_marcados_esperan() -> None:
+    """La vista (R37) pinta `data-recalculando="1"`: al cargar, en espera
+    con su aviso y un unico sondeo para todos. Vale tras deshacer (R26)."""
+    r = _pagina('document.querySelectorAll(\'[data-document-id="doc-1"]\')'
+                '.forEach(function (c) { if (!c.matches(".fecha-edit"))'
+                ' c.setAttribute("data-recalculando", "1"); });'
+                " esperasDeLaPagina();")
+    assert [c["dis"] for c in r["d1"]] == [ESPERANDO, ESPERANDO, [True]]
+    assert r["d2"] == [{"esp": None, "dis": LIBRES, "marcas": []}]
+    assert r["tarjetas"] == [{"doc": "doc-1", "texto": TEXTO_ESPERA.replace(
+        "01/10/2026", "11/10/2026"), "actualizar": False}]
+    assert r["vigilados"] == ["doc-1"]
+    assert r["eventos"] == ["timer:5000"]
+
+
+def test_f043_r18_sin_partes_marcados_no_sondea() -> None:
+    r = _pagina("esperasDeLaPagina();")
+    assert r["eventos"] == [] and r["tarjetas"] == []
+
+
+# ------------------------ cableado (fuente) ---------------------------- #
+
+def _manejador_principal(js: str) -> str:
+    ini = js.index('  document.addEventListener("DOMContentLoaded", function () {\n'
+                   "    // Toggle del visor de PDF.")
+    return js[ini:js.index("\n  });\n", ini)]
+
+
+def test_f043_r18_r21_r26_al_cargar_restaura_y_pone_en_espera() -> None:
+    cuerpo = _manejador_principal(_js())
+    assert "restaurarVista();" in cuerpo
+    assert "esperasDeLaPagina();" in cuerpo
+    # Antes del `return` temprano sin combos de hora, y tras los filtros.
+    assert cuerpo.index("esperasDeLaPagina();") < cuerpo.index(
+        "if (!combos.length) return;")
+    assert cuerpo.index("wireColumnFilters") < cuerpo.index("restaurarVista();")
+
+
+def test_f043_r18_seleccionar_visibles_salta_el_parte_en_espera() -> None:
+    cuerpo = _funcion(_js(), "wireBulkSelect")
+    ini = cuerpo.index('querySelector("[data-sel-visibles]")')
+    trozo = cuerpo[ini:cuerpo.index("renderBar();", ini)]
+    assert 'getAttribute("data-recalculando") !== "1"' in trozo
+
+
+#: `location.reload` en `app.js` ANTES de F-043 (rama dev, 2026-10-13).
+RECARGAS_PREVIAS = 22
+
+
+def test_f043_r19_r40_ninguna_recarga_nueva_salvo_actualizar() -> None:
+    js = _js()
+    assert js.count("location.reload") == RECARGAS_PREVIAS + 1
+    assert "window.location.reload();" in _funcion(js, "actualizarVista")
+    for nombre in ESPERA:
+        if nombre in ("actualizarVista",):
+            continue
+        cuerpo = _funcion(js, nombre)
+        assert "reload" not in cuerpo, nombre
+        assert ".focus(" not in cuerpo, nombre
+        if nombre != "restaurarVista":
+            assert "scrollTo" not in cuerpo, nombre
+
+
+def test_f043_r26_deshacer_no_cambia() -> None:
+    cuerpo = _funcion(_js(), "wireUndo")
+    assert cuerpo.count("window.location.reload();") == 1
+    assert "Espera" not in cuerpo and "vigilar" not in cuerpo
+
+
+def test_f043_r18_estilos() -> None:
+    css = STYLES.read_text(encoding="utf-8")
+    for selector in ("#recalculo-avisos", ".recalculo-tarjeta",
+                     ".recalculando-marca", 'tr[data-recalculando="1"]'):
+        assert selector in css, selector
+
+
+def test_f043_app_js_es_sintacticamente_valido() -> None:
+    if NODE is None:
+        pytest.skip("node no esta instalado")
+    r = subprocess.run([NODE, "--check", str(APP_JS)], capture_output=True,
+                       text=True, encoding="utf-8", timeout=60)
+    assert r.returncode == 0, r.stderr
