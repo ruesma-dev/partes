@@ -1,28 +1,27 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-043 · spec_ready (2026-10-12, spec-author): fecha del parte — rótulo, confirmación y recarga al terminar el recálculo
+## F-043 · spec_ready (enmienda 2026-10-13, pendiente de aprobar): fecha del parte — rótulo, confirmación y parte «en espera»
 
 Spec en `specs/F-043-fecha-del-parte-confirmar-y-recargar/` (rama y worktree
-`partes-wt-f043`). Servicios: **sv4** (rótulo «Fecha del parte», `GET
-/api/partes/{id}/alcance` + `window.confirm` con N trabajadores y M líneas antes
-del PATCH, marca `recalculo_pedido_id` antes de publicar, `GET
-/api/partes/{id}/recalculo`, sondeo cada 5 s hasta 5 min y recarga) y **sv3**
-(tras `conciliar_todos`, copia a `recalculo_terminado_id` el pedido que leyó
-antes de la pasada, UPDATE condicional). Esquema: 4 columnas nullables en
-`parte_documents` (las dos copias de `orm_models.py`). El mensaje y las
-respuestas de F-042 no cambian (sus tests pasan sin tocarlos). Rigor **crítico**.
+`partes-wt-f043`). El humano aprobó la spec el 2026-10-13 con una enmienda:
+«tengo que seguir usando la plataforma para el resto de partes, solo queda en
+espera el que está recalculando». Spec reescrita: **solo** el parte que sv3
+recalcula queda en espera (filas marcadas y deshabilitadas; el servidor
+rechaza sus ediciones con 409 salvo fecha y deshacer), el resto del portal
+sigue usable y **nada recarga solo**: al terminar, una tarjeta ofrece
+«Actualizar» (recarga conservando scroll y filtros). El estado lo pinta el
+servidor (vale en cualquier pestaña) y vence a los 10 min. sv3 y el esquema
+(4 columnas nullables en `parte_documents`) no cambian respecto a lo aprobado.
 
-**Decisiones abiertas que debe validar el humano** (`design.md` §12, todas con
-recomendación): DA1 marca en `parte_documents` (frente a tabla nueva, longitud
-de cola o temporizador); DA2 sv3 marca lo que leyó, sin id en el mensaje; DA3
-confirmar al salir del campo o con Enter (no en cada tecla); DA4 confirmar
-también en el detalle del parte; DA5 cabecera «Fecha del parte» + `title`; DA6
-recarga automática salvo si se está editando (botón «Recargar»); DA7 si sv3 no
-puede marcar, WARNING y mensaje consumido; DA8 deshacer también espera
-(`sessionStorage`); DA9 tras un error del PATCH el input vuelve a la fecha
-guardada. Punto de contacto con **F-044** (otra rama): `design.md` §10; choques
-de merge previsibles en `app.js`, plantillas, `features.json` y este fichero.
+**Para el humano: revisar solo lo marcado en `design.md` §12** — DA6 y DA8
+CAMBIADAS (sin recarga automática; deshacer conserva su recarga de hoy) y
+DA10–DA13 NUEVAS (tarjeta «Actualizar» frente a refresco en el sitio; guarda
+409 en el servidor; aprobación sin bloquear en F-043; espera pintada por el
+servidor con vencimiento de 10 min). Respuesta a su pregunta: una edición a
+mitad de pasada **sí se pisa** (sv3 lee, calcula y escribe después; design §9
+R-a); el mismo riesgo existe hoy para cualquier parte en cada ingesta (R-g,
+anterior a F-043, fuera de alcance). Punto de contacto con **F-044**: §10.
 
 ## F-042 · done (2026-10-09, APPROVED pasada 1), pendiente de despliegue y M1–M3: recalcular el reparto normal/extra al cambiar la fecha de un parte
 
