@@ -58,6 +58,13 @@ conviven dos caminos, y cuál se usa depende de lo que la acción necesita:
   **comprobación de solo lectura** `POST /api/registro/comprobar` (¿siguen
   en Sigrid las líneas `registrado`?), que sv4 pide al abrir una obra o una
   persona y con el botón «Comprobar en Sigrid».
+- **HTTP interno síncrono también para el reajuste (F-046)**:
+  `POST /api/reajuste/comprobar` (solo lectura, sin lock: ¿se pueden editar
+  estas líneas?) y `POST /api/reajuste/ejecutar` (escribe bajo el **mismo
+  lock** que el registro). Es destructivo —edita horas ya registradas—, así
+  que nunca va por cola; un rechazo es `ok: false` sin nada escrito y un
+  502 o un timeout es «no se sabe» (sv4 lo deja `aplicando` y el reintento
+  es seguro: lo ya aplicado vuelve como `ya_aplicada`).
 - **Sin colas configuradas, sv4 degrada al HTTP síncrono de siempre**: es
   lo que permite trabajar en local sin Azurite y desplegar el código antes
   que la infraestructura. Quitar `COLAS_ACCOUNT_URL` es también el
@@ -133,6 +140,23 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    reparte lo que queda de jornada; si el reparto ideal lo cambiaría, sv3
    lo avisa (WARNING y `repartos_con_congeladas`) para el reajuste de F-046.
    Las líneas en la papelera no pesan en el día.
+   **F-046 · reajuste en Sigrid al aprobar** (interruptor `REPARTO_REAJUSTE`
+   de sv3, apagado por defecto: apagado, todo es F-045). Lo congelado se
+   divide en **reajustable** (`registrado`, o solo por parte aprobado) y
+   **duro** (`encolado`, `dedicacion`, ordinaria sin horas, pareja con más
+   de una extra automática). Si el ideal del día cambia algo reajustable y
+   hay al menos una ordinaria libre, sv3 da el ideal a lo libre y deja el
+   reparto `pendiente` en `reparto_pendiente` (con la firma del grupo; si
+   el día cambia, `obsoleto` y otro). Al aprobar, sv4 lo avisa: «Aplicar»
+   (CAS a `aplicando`, sv5 edita Sigrid, `aplicado`, y sv3 lleva los
+   valores a `partes` antes de repartir: `materializado`) o «Mantener lo
+   registrado» (`rechazado`; sv3 reparte en residual: `mantenido`). sv5
+   solo hace `UPDATE` de `can` y `tot = can × pre` (con el `pre` de la
+   línea) e `INSERT` de extras nuevas, en un lote con guardia; **nunca
+   borra** (una línea a 0 queda `can = 0`). Sin decisión las líneas del día
+   no viajan y no se aprueba el parte. La pasada de sv3 corre bajo un
+   candado consultivo de PostgreSQL (`pg_try_advisory_lock`, sesión propia,
+   ≤ `CANDADO_CONCILIAR_ESPERA_S`).
    El reparto solo lo calcula sv3 (`conciliar_todos`, que recalcula todo lo
    activo no congelado) y solo cuando le llega un mensaje por
    `q-persistencia`. **F-042**: además de cada ingesta de sv2, lo dispara
@@ -171,12 +195,14 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    **byte-idéntico** en sv3 y sv4, y desde F-010 lo comprueba el guardián
    `tests/test_f010_orm_models_gemelos.py` de la raíz en cada
    `bash harness/init.sh` (antes era una promesa, y llevaba meses rota). Un
-   cambio de schema modifica los DOS ficheros en la misma feature. **Seis
+   cambio de schema modifica los DOS ficheros en la misma feature. **Siete
    tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
    `empleado_jornada` (excepciones de jornada por trabajador, F-015; nace
    vacía), `undo_log` (esta solo la usa sv4, pero la declaran las dos
    copias porque la base es una) y `dedicacion_bandeja` (F-019, la bandeja
-   de salida hacia dedicación; la escribe solo sv4, semántica 15) — detalle
+   de salida hacia dedicación; la escribe solo sv4, semántica 15) y
+   `reparto_pendiente` (F-046: la propone y materializa sv3, la decide sv4
+   por CAS sobre `estado`; sin nombres ni DNIs) — detalle
    en `partes-proyecto.md` §5. El DDL
    complementario de arranque (`ALTER TABLE … ADD COLUMN IF NOT EXISTS` +
    `CREATE INDEX IF NOT EXISTS`, que `create_all` no hace sobre tablas ya
@@ -224,6 +250,12 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     subclase de `CongeladoError`), salvo cambiar la fecha y deshacer, que
     piden su propia pasada. Lo pinta el servidor (`data-recalculando`), así
     que vale en cualquier pestaña, y vence a los 10 min.
+    **Reparto pendiente (F-046)**: tampoco cambia la regla. Las líneas de un
+    día con reparto `pendiente`, `aplicando` o `rechazado` no se registran
+    sin decidir («Aplicar» / «Mantener lo registrado») y su parte no se
+    aprueba (`RepartoPendienteError`); las vistas lo marcan
+    (`data-reparto`). La única escritura de sv3 sobre líneas congeladas es
+    materializar un reparto `aplicado` (los valores que sv5 ya escribió).
 11. **Identidad del portal (F-017, sv4)**: quién firma una escritura se
     resuelve en **un único punto**, `_actor(request)` en
     `interface_adapters/web/app.py`, que delega en las funciones puras de

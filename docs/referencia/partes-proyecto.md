@@ -144,6 +144,13 @@ por sigrid-api, cacheados en el wiring):
   en Sigrid, la pareja no se vuelve a partir. Desde F-042 se repite
   también cuando sv4 cambia (o deshace) la fecha de un parte; desde F-043
   sv3 marca en el documento el recálculo pedido que ha terminado.
+- **Reajuste del reparto** (F-046, con `REPARTO_REAJUSTE=true`; apagado
+  por defecto): si el reparto ideal del día cambiaría líneas ya en Sigrid
+  o de parte aprobado y queda alguna ordinaria libre, sv3 da el ideal a lo
+  libre y deja un **reparto pendiente** (`reparto_pendiente`) para que lo
+  decida el humano al aprobar. Si se aplicó en Sigrid, la pasada siguiente
+  lleva esos valores a `partes` antes de repartir. La pasada corre bajo un
+  candado consultivo de la base `partes` (una réplica a la vez).
 
 Persiste documento + registros en PostgreSQL y sube el PDF a
 **SharePoint** (Graph), guardando drive/item/URL.
@@ -164,6 +171,17 @@ con calendario multi-día, incidencias exclusivas con horas, y flujo
 encadenado (tras crear se queda en la página con los días vacíos);
 aprobación con **preflight** (modal con qué se registrará y qué no, y
 por qué) → registro vía sv5 → estado por línea.
+
+Reparto pendiente (F-046): si las líneas aprobadas cambian el reparto de
+un día con líneas ya registradas o aprobadas, el modal lo avisa antes de
+registrar, con las líneas afectadas (obra, parte de Sigrid, horas antes →
+después), y pide decidir cada día: **«Aplicar»** (sv5 edita Sigrid y las
+líneas del día se registran con el reparto nuevo) o **«Mantener lo
+registrado»** (no se toca Sigrid; el día se recalcula y sus líneas se
+registran en otra aprobación). Si alguna línea no se puede editar en
+Sigrid (parte cerrado, enlazada, cambiada a mano), solo se ofrece
+«Mantener», con el motivo. Sin decisión, esas líneas no viajan y el parte
+no se puede aprobar; la matriz, el calendario y las líneas lo marcan.
 
 Incidencia y horas el mismo día (F-025): si una persona tiene en un día
 una incidencia de **día completo** y horas (de cualquier obra), las
@@ -265,6 +283,16 @@ registro**:
 6. Devuelve por línea: escrita (con ide de Sigrid) / ya registrada /
    omitida (motivo) / conflicto / a dedicación (F-019, con su código
    `M*`).
+
+**Reajuste** (F-046, `POST /api/reajuste/comprobar` y `/ejecutar`, HTTP
+síncrono desde sv4): edita líneas ya registradas por nosotros (synckey),
+solo si su parte está En registro, no las enlaza nada (albarán, factura,
+dedicación, nómina) y `can` sigue valiendo lo que el portal cree. En un
+único lote (una transacción): guardia, `UPDATE hmores SET can, tot = can ×
+pre` (con el `pre` de la propia línea; cuenta, partida y código de hora no
+cambian) e `INSERT` de la extra nueva de una base registrada sin extra.
+**Nunca borra**: una línea que queda a 0 se queda con `can = 0`, `tot = 0`.
+Repetirlo es `ya_aplicada`. Va bajo el mismo lock que el registro.
 
 Modo pruebas (apagado por defecto): desvía todo a la obra 0404 y marca
 `PRUEBA-IA` en `tex`; el script `prueba_escritura_sigrid.py` permite
@@ -576,8 +604,9 @@ y jornada (completa/reducida) del contrato — con lo que los avisos de
 (compartido con albaranes) · **Base de datos**: `partes` · ORM:
 SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`,
 **byte-idéntico** en sv3 y sv4, con guardián automático desde F-010).
-**Seis tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
-`empleado_jornada`, `undo_log` y `dedicacion_bandeja` (F-019).
+**Siete tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
+`empleado_jornada`, `undo_log`, `dedicacion_bandeja` (F-019) y
+`reparto_pendiente` (F-046).
 
 Al arrancar, sv3 y sv4 ejecutan el mismo DDL complementario —`ALTER TABLE
 … ADD COLUMN IF NOT EXISTS` por columna y `CREATE INDEX IF NOT EXISTS`—
@@ -748,6 +777,27 @@ borra; sin FK a `parte_registros` a propósito; sin nombres ni DNIs.
 «Retirar de dedicación» (botón de las vistas, `POST /api/dedicacion/
 retirar`) deja la fila `vigente = false` con `version + 1` y la línea
 libre; reaprobarla la vuelve a `vigente` con otra versión.
+
+### 5.5 ter `reparto_pendiente` — reajuste del reparto de un día (F-046)
+
+Una fila por propuesta de reajuste de un (recurso, día). La **crea sv3**
+(`pendiente`) cuando el reparto ideal cambiaría líneas ya en Sigrid o de
+parte aprobado; la **decide sv4** («Aplicar» / «Mantener lo registrado»)
+por CAS sobre `estado`; sv3 la **materializa** tras aplicarse. Sin nombres
+ni DNIs; toda `NOT NULL` lleva `server_default`; fuera de `undo_log` (no
+hay deshacer en Sigrid).
+
+| Columna | Notas |
+|---|---|
+| `id` (PK) | serie |
+| `recurso_ide`, `fecha_int` | el grupo; índice `ix_reparto_pendiente_grupo` |
+| `estado` | `pendiente` → `aplicando` → `aplicado` → `materializado`; `rechazado` → `mantenido`; `obsoleto` si el día cambia. Índice `ix_reparto_pendiente_estado` |
+| `firma` | sha256 del grupo (líneas, horas, `horas_orig`, estados, aprobación) |
+| `cambios` | JSON `{ids_grupo, cambios[]}`: por línea, antes → después, tipo, obra, documento, estado en Sigrid y, si es una extra nueva, su código de hora extra |
+| `resultado` | JSON: ids reservados para las extras nuevas (secuencia de `parte_registros`) y la respuesta de sv5 |
+| `error` | último error (sv5 rechazó o no respondió, o descuadre al materializar) |
+| `decision`, `decidido_por`, `decidido_at_utc` | `aplicar` / `mantener`, quién (`_actor`) y cuándo |
+| `creado_at_utc`, `actualizado_at_utc`, `materializado_at_utc` | trazabilidad |
 
 ### 5.6 Datos que NO están en esta BBDD
 
