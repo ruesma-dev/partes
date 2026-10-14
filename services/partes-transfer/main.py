@@ -21,6 +21,7 @@ import threading
 from pathlib import Path
 
 import uvicorn
+from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.comprobacion_lineas import ComprobadorLineas
 from config.logging_config import configure_logging
@@ -94,9 +95,15 @@ def main() -> int:
                     "atiende solo por HTTP y sv4 registrara en modo "
                     "sincrono.")
 
+    # F-046: el reajuste escribe con el MISMO cliente y bajo el MISMO lock
+    # que el registro (lo toma de `pipeline`, R20).
+    reajuste = ReajustePipeline(cliente=cliente, settings=settings,
+                                registro=pipeline)
+
     # F-024: la comprobacion de lineas usa el MISMO cliente, solo para leer.
     app = build_app(settings, pipeline=pipeline,
-                    comprobador=ComprobadorLineas(cliente=cliente))
+                    comprobador=ComprobadorLineas(cliente=cliente),
+                    reajuste=reajuste)
     uvicorn.run(app, host=settings.api_host, port=settings.api_port,
                 log_level=settings.log_level.lower())
     return 0
