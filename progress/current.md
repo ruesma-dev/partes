@@ -3,6 +3,8 @@
 
 ## F-046 · spec_ready (2026-10-14, spec-author): reajuste en Sigrid al aprobar — pendiente del visto bueno del humano
 
+**Spec APROBADA por el humano el 2026-10-14** (respuesta literal «si»): DA1–DA17 recomendadas más la enmienda [E] (sin borrados en Sigrid; candef 9). Sigue en `spec_ready` hasta que F-045 se fusione en `dev`; entonces se rebasa esta rama y se pasa a `in_progress`.
+
 Spec en `specs/F-046-reajuste-en-sigrid-al-aprobar/` (worktree `partes-wt-f046`, rama
 `feature/F-046-reajuste-en-sigrid-al-aprobar`). **Depende de F-045** (en implementación en
 `partes-wt-f045`): se implementa sobre `dev` con F-045 fusionada. Prioridad 2, rigor crítico.
