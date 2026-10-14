@@ -6,7 +6,10 @@
 del ORM): por qué cada uno, en design §1. Rigor **crítico**: edita horas ya registradas en
 el ERP de producción (nómina y coste de obra) y añade estado compartido en la base `partes`.
 Pedido por el humano el 2026-10-14: si el primer parte del día ya está aprobado o registrado
-en Sigrid, se edita al aprobar el segundo, con aviso previo. Decisiones: design §6 (DA1–DA16).
+en Sigrid, se edita al aprobar el segundo, con aviso previo. Decisiones: design §6 (DA1–DA17).
+
+> **Enmienda del humano (2026-10-14), marcada «[E]»**: Sigrid no se borra nunca, solo se
+> editan líneas (R24, R47); y el viernes de candef 9 tiene otra jornada (R9a–R9c, R46).
 
 ## Glosario
 
@@ -39,6 +42,14 @@ en Sigrid, se edita al aprobar el segundo, con aviso previo. Decisiones: design 
   **2 + 0**; 0678 ordinaria **8 → 6** y extra **−2 → 0**.
 - **R9 · Dura.** El caso de R6 con la 0678 `encolado` ⇒ sin propuesta y 0704 **0 + 8** (F-045).
 
+**[E] Candef 9** (F-015: 9 h de lunes a jueves; último laborable 42 − 4 × 9 = 6 h):
+
+- **R9a · Viernes, J = 6.** A 5 h y B 4 h, sin congelar ⇒ A **3,5 + 1,5**; B **2,5 + 1,5**
+  (cuotas 3,33 y 2,67 ⇒ suelos 3 y 2,5; el medio paso que falta va al mayor resto, A).
+- **R9b · Jueves, J = 9.** Mismas horas ⇒ A **5 + 0**; B **4 + 0** (sin splits).
+- **R9c · Reajuste en viernes.** A registrada sola **6 + (−1)** (`horas_orig` 5) y B nueva
+  4 h ⇒ B **2,5 + 1,5**; cambios A: ordinaria **6 → 3,5**, extra **−1 → 1,5**.
+
 ## sv3: propuesta y materialización
 
 - **R10.** MIENTRAS el interruptor esté apagado, sv3 debe comportarse exactamente como F-045
@@ -67,6 +78,9 @@ en Sigrid, se edita al aprobar el segundo, con aviso previo. Decisiones: design 
   `repartos_materializados`, `repartos_mantenidos` y `repartos_descuadrados`, con un INFO por
   reparto (fecha, recurso, ids, antes → después), sin nombres ni DNIs.
 
+- **R46 · [E] Jornada de sv3.** `J` de cada grupo debe ser la que F-045 obtiene de
+  `_detalle_jornada` (F-015, `jornada_resolver.py`); F-046 no calcula jornada por su cuenta.
+
 ## sv5: reajuste en Sigrid
 
 - **R20.** `POST /api/reajuste/comprobar` (solo lectura, sin lock) debe dar por línea
@@ -85,7 +99,9 @@ en Sigrid, se edita al aprobar el segundo, con aviso previo. Decisiones: design 
 - **R24.** Debe escribir en UNA llamada a `sql/write` (un lote, una transacción): `UPDATE` de
   `can` y `tot = ROUND(can × pre, 2)` con el `pre` de la propia línea (nunca `caaide`, `paride`
   ni `horide`) y `INSERT` de cada extra nueva en el `hmoide` de su base (pos, cuenta, `tex`
-  como el registro). Una línea a 0 se actualiza a 0, nunca se borra.
+  como el registro). **[E]** Una línea que queda a 0 se actualiza a `can = 0`, `tot = 0`.
+- **R47 · [E] Sin borrados.** Los lotes de reajuste de sv5 no deben contener ningún `DELETE`
+  ni pasar por `stmt_borrar_linea`: solo `UPDATE` de líneas existentes e `INSERT` de extras nuevas.
 - **R25.** Cada sentencia debe llevar en su `WHERE` la condición optimista (synckey, `can` =
   «antes», parte En registro) y el lote debe abortar entero si alguna no se cumple (DA6).
 - **R26.** Repetir `ejecutar` con lo ya aplicado debe ser `ya_aplicada` sin escribir.

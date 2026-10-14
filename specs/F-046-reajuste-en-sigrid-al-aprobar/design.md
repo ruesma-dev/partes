@@ -1,6 +1,9 @@
 <!-- specs/F-046-reajuste-en-sigrid-al-aprobar/design.md -->
 # F-046 · Reajuste en Sigrid al aprobar — Diseño
 
+> **Enmienda del humano (2026-10-14), marcada «[E]»**: H2, H3, DA7, R-b, §4 sv3 (jornada),
+> §8 (R9a–R9c, R46, R47) y M1 (hecha). Nada más cambia.
+
 ## 1. Encaje, límite de servicio y rigor
 
 - **Dependencia**: F-045 fusionada en `dev` (`reparto_ponderado.py`: `repartir_dia`,
@@ -21,9 +24,9 @@ Se mantienen DA11–DA14 de F-045, con estos hallazgos:
 
 - **H1** · La extra nueva de una base registrada sin extra (R7) no existe en `partes` cuando
   sv5 necesita su synckey `partes:<registro_id>` ⇒ reserva por secuencia (DA5).
-- **H2** · `sql/write` admite `UPDATE` con `WHERE` obligatorio y lote = una transacción
-  (`sigrid_api.md` §7.3, §8.2); el valor real de `ALLOWED_WRITE_PREFIXES` no consta ⇒ M1.
-- **H3** · §7.7: `user_rw` sin `DELETE` general ⇒ una línea que queda a 0 se actualiza (DA7).
+- **H2 [E]** · `sql/write` admite `UPDATE` con `WHERE` obligatorio y lote = una transacción
+  (§7.3, §8.2); M1 (hecha): `ALLOWED_WRITE_PREFIXES` = `INSERT`, `UPDATE`, `DELETE`.
+- **H3 [E]** · Regla del humano: F-046 no borra en Sigrid aunque la API lo admita (R47, DA7).
 - **H4** · `escribir` trocea en lotes de `SIGRID_MAX_STATEMENTS` (15), cada uno su transacción
   ⇒ el reajuste debe caber en uno (R27) y lleva guardia (DA6).
 - **H5** · `hmores` enlaza con albarán, factura, dedicación y nómina (`dvaproide`, `dvfproide`,
@@ -69,7 +72,8 @@ solo aprobadas no van, DA11); (3) `aplicado` + resultado, o `pendiente` + error;
   paso, ajustes: tuple[Ajuste, ...], cambios: tuple[CambioCongelada, ...])`, frozen;
   `proponer_dia(lineas, jornada) -> PropuestaDia` (R1–R4): duras fijas, reajustables con peso
   `horas_orig or horas` y extra de pareja = trabajado − cuota, sobre `repartir`/`elegir_paso`.
-  `repartir_dia` y `diferencias_ideal` no cambian.
+  `repartir_dia` y `diferencias_ideal` no cambian. **[E]** `jornada` es la `J` que F-045 saca
+  de `_detalle_jornada` (F-015; candef 9 ⇒ 6 h el último laborable): F-046 no la calcula (R46).
 - **Crear `application/services/reajuste_reparto.py`** (puro): `clase_linea(reg) -> str`
   (`libre | reajustable | dura`); `firma_grupo(regs) -> str` (sha256 de las tuplas ordenadas
   `registro_id, tipo_hora, extra_auto, horas, horas_orig, sigrid_estado, doc_approved`);
@@ -177,7 +181,8 @@ Constantes en el ORM: `ESTADOS_REPARTO` y una por estado.
   revierte el lote; además `WHERE` optimista y `affected_rows` = 1 por sentencia. Si M3e la
   rechaza: sin guardia, y un descuadre queda `aplicando` con ERROR para comprobar y
   reintentar. *Recomendado guardia.*
-- **DA7 · A 0 se actualiza, no se borra** (H3; F-024 sigue viendo la línea). *Recomendado.*
+- **DA7 [E] · Regla del humano, ya no DA**: ningún `DELETE` ni `stmt_borrar_linea`; a 0 ⇒
+  `can = 0`, `tot = 0` (R24, R47; F-024 sigue viendo la línea).
 - **DA8 · Pendiente = lo libre con el ideal** (F-045 §8): «Aplicar» registra en el mismo
   clic. Coste: el día sobrecuenta en `partes` hasta decidir y «Mantener» necesita una pasada
   antes de registrar (dos pasos, con la espera de F-043). Alternativa: residual hasta decidir
@@ -206,22 +211,21 @@ Constantes en el ORM: `ESTADOS_REPARTO` y una por estado.
 
 - **R-a · Escritura nueva en producción.** Mitigan: interruptor, `comprobar` previo, guardia,
   CAS, M3 en 0404 antes de encender y una decisión humana por reajuste.
-- **R-b · `ALLOWED_WRITE_PREFIXES` sin `UPDATE`**: todo «no editable»; abrirlo es
-  configuración de **sigrid-api** (otro proyecto) y lo decide el humano.
+- **R-b [E] · Borrar por descuido**: la API admite `DELETE` (M1); lo impide el código de
+  F-046, que no lo genera, y lo vigila el test de R47 sobre las sentencias del lote.
 - **R-c · Sobrecuenta temporal** mientras está pendiente (DA8). **R-d · sv3 caído tras sv5
   ok**: queda `aplicado` y se materializa en la pasada siguiente; R16 protege.
-- **R-e · Despliegue sv5 → sv4 → sv3** (distinto del habitual) y encender después.
-- **R-f · Imputación entre comprobar y ejecutar**: el `WHERE` exige En registro.
-- **R-g · `porcentajes`**: ni alta ni copias literales; solo líneas con nuestra synckey.
-- **R-h · Tamaño** (DA1); **sv4 a dos réplicas**: CAS en BBDD, nunca un lock de proceso.
+- **R-e · Despliegue sv5 → sv4 → sv3** (distinto del habitual) y encender después. **R-f · Imputación entre comprobar y ejecutar**: el `WHERE` exige En registro.
+- **R-g · `porcentajes`**: ni alta ni copias literales; solo líneas con nuestra synckey. **R-h · Tamaño** (DA1); **sv4 a dos réplicas**: CAS en BBDD, nunca un lock de proceso.
 
 ## 8. Tests (sin red ni BBDD; sintéticos, sin nombres ni DNIs)
 
-sv3: `test_f046_proponer_dia.py` (R1–R9; propiedades: suma = J, sin duras = F-045),
+sv3: `test_f046_proponer_dia.py` (R1–R9c [E]; propiedades: suma = J, sin duras = F-045),
 `test_f046_reajuste_reparto.py` (firma, clases, estados), `test_f046_conciliar.py` (R10–R19
-con `RepositorioFake`; R10 = tests de F-045 intactos), `test_f046_candado.py` (R18, conexión
-falsa). sv5: `test_f046_reajuste_lineas.py` (R21, R22, R26), `test_f046_reajuste_pipeline.py`
-(R20, R23–R29, cliente falso), `test_f046_cliente_reajuste.py` (SQL), `…api_reajuste.py`. sv4:
+con `RepositorioFake`; R10 = tests de F-045 intactos; R46 [E] con `_detalle_jornada` falso que
+da J = 6), `test_f046_candado.py` (R18). sv5: `test_f046_reajuste_lineas.py` (R21, R22, R26), `test_f046_reajuste_pipeline.py`
+(R20, R23–R29; R47 [E]: ningún `DELETE` en las sentencias grabadas), `…cliente_reajuste.py`
+(SQL), `…api_reajuste.py`. sv4:
 `test_f046_reparto_aviso.py` (R30–R32), `test_f046_aplicar.py` (R33–R35, R38; SQLite de
 `dobles.py`, CAS con dos llamadas), `test_f046_aprobar_documento.py` (R36),
 `test_f046_marcas.py` (R37); `node --check`. Raíz: guardianes de tablas (R39), F-024 y F-042
@@ -230,8 +234,8 @@ Cualquier otro test existente que falle ⇒ `blocked`.
 
 ## 9. Verificación MANUAL (humano)
 
-- **M1** (lectura): `az functionapp config appsettings list -g rg-sigrid-dev-data-api -n
-  func-sigridapi-dev-huyke --query "[?name=='ALLOWED_WRITE_PREFIXES'].value" -o tsv` ⇒ `UPDATE`.
+- **M1 [E] · HECHA** (líder, 2026-10-14, solo lectura de las App Settings de sigrid-api):
+  `ALLOWED_WRITE_PREFIXES` = `INSERT`, `UPDATE`, `DELETE`. El `DELETE` no se usa (R47).
 - **M2** (lectura, `/api/sql/read`): `SELECT TOP 50 ide, dvaproide, dvfproide, hdereside,
   emprccide, empdpreide, empabside FROM hmores WHERE synckey LIKE 'partes:%' ORDER BY ide DESC` ⇒ 0/NULL.
 - **M3** (escritura, sv5 local con `OBRA_PRUEBAS_FORZAR=true`, `registro_id` sintéticos
@@ -240,9 +244,7 @@ Cualquier otro test existente que falle ⇒ `blocked`.
   `can × pre` (`prueba_escritura_sigrid.py verificar`); (d) repetir ⇒ `ya_aplicada`; (e) una
   línea con «antes» falso y otra buena ⇒ nada escrito; (f) base 8 sin extra ⇒ 5,5 + extra
   nueva 2,5 con `PRUEBA-IA`; (g) extra a 0; (h) `limpiar`, `limpiar --ejecutar` y `verificar`
-  ⇒ sin `PRUEBA-IA` (ANO/MES del script = mes de la prueba).
+  ⇒ sin `PRUEBA-IA` (ANO/MES del script = mes de la prueba; [E] esa limpieza de la 0404 es la herramienta de consola de siempre, no F-046).
 - **M4** tras desplegar sv5 → sv4 → sv3 (apagado): `SELECT count(*) FROM reparto_pendiente` ⇒ 0.
-- **M5** con `REPARTO_REAJUSTE=true`: `SELECT estado, count(*) FROM reparto_pendiente GROUP
-  BY estado`; Log Analytics de sv3 con `Log_s has 'reparto'`.
-- **M6** (escritura en producción; la autoriza y la hace el humano en el portal): el 14/10
-  (0678/0704) con «Aplicar» ⇒ R6 en Sigrid y en `partes`.
+- **M5** con `REPARTO_REAJUSTE=true`: `SELECT estado, count(*) FROM reparto_pendiente GROUP BY estado`; Log Analytics de sv3 con `Log_s has 'reparto'`.
+- **M6** (escritura en producción; la autoriza y la hace el humano en el portal): el 14/10 (0678/0704) con «Aplicar» ⇒ R6 en Sigrid y en `partes`.

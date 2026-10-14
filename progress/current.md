@@ -16,8 +16,12 @@ propuesta de F-045 §8 no lo resolvía); DA6 sentencia guardia para la atomicida
 DA8 lo libre lleva el ideal mientras está pendiente («Mantener» pasa a dos pasos); DA13
 bloquear aprobar el documento con un reparto vivo; DA14 `CLAUDE.md` no cambia.
 
-**Antes de encender nada**, MANUAL (humano): M1 `ALLOWED_WRITE_PREFIXES` de sigrid-api
-incluye `UPDATE` (si no, abrirlo es configuración de otro proyecto); M2 enlaces de nuestras
+**Enmienda del humano (2026-10-14), marcada «[E]» en la spec**: Sigrid no se borra nunca (solo
+`UPDATE` e `INSERT`; a 0 ⇒ `can = 0`, `tot = 0`; R47) y casos de candef 9 con la jornada de
+sv3 (viernes J = 6, R9a–R9c, R46). M1 hecha por el líder: `ALLOWED_WRITE_PREFIXES` = `INSERT`,
+`UPDATE`, `DELETE` (el `DELETE` no se usa).
+
+**Antes de encender nada**, MANUAL (humano): M2 enlaces de nuestras
 líneas `hmores` a 0; M3 prueba de escritura en modo pruebas (0404, `PRUEBA-IA`) y limpieza
 con `prueba_escritura_sigrid.py`. Despliegue en orden **sv5 → sv4 → sv3** con el interruptor
 apagado (design §7 R-e, §9).
