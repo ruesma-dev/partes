@@ -22,8 +22,9 @@ rigor **crítico**, solo sv3. Bloqueada en T4 y desbloqueada el mismo día
 | T10 | `cc3f910`, `f9931a2` | refuerzo tras la mutación e informe `progress/mutacion_F-045.md` |
 | T13 | `3143e5d` | R33 candef 9 (`requirements.md`, `tests/test_f045_conciliar.py`) |
 
-Tests nuevos: 207 en total, repartidos en `test_f045_reparto_puro.py` (128),
-`test_f045_reparto_dia.py` (52) y `test_f045_conciliar.py` (27).
+Tests nuevos: 211 en total, repartidos en `test_f045_reparto_puro.py` (130),
+`test_f045_reparto_dia.py` (53) y `test_f045_conciliar.py` (28); 4 de ellos son
+de la pasada 2.
 
 ## Decisiones de diseño
 
@@ -152,8 +153,8 @@ jornada. Ese es el valor real del código. Ningún esperado discrepó.
 - **Despliegue solo de sv3**: `.\redeploy_partes.ps1 -Solo sv3` desde `infra/`.
 - **M2**: Log Analytics de `ca-sv3-persistencia` con `Log_s has 'reparto'`;
   después, la SQL de F-042 M1 sobre un día con dos obras sin aprobar.
-- **Aceptar las 9 justificaciones de mutantes equivalentes** (rigor crítico).
-  Detalle en `progress/mutacion_F-045.md`.
+- **Aceptar las 8 justificaciones de mutantes equivalentes** (rigor crítico),
+  cada una con su demostración ejecutable (`progress/equivalentes_F-045.py`).
 
 ## Fuera de alcance
 
@@ -161,21 +162,49 @@ jornada. Ese es el valor real del código. Ningún esperado discrepó.
   entonces el caso real de la 0678 sigue en 0 + 8 (R24); F-045 solo lo mide.
 - Pasadas concurrentes (DA10).
 
+## Pasada 2 (review del 2026-10-14: CHANGES_REQUESTED, ciclo 1)
+
+`progress/review_F-045.md` se commiteó tal cual (`6c2f94b`). Arreglos en
+`259e609`:
+
+1. **Superviviente `_RESOLUCION = 10_000 → 10001`: no era equivalente** (el
+   análisis anterior era erróneo). Tests nuevos: el caso del reviewer en
+   `repartir` (2 h entre 1,5 y 2,5 → 0,5 y 1,5) y en `repartir_dia`
+   (congelada 6 + A 1,5 + B 2,5, J 8 → A 0,5 + 1 y B 1,5 + 1), más un
+   **modelo exacto con fracciones** comparado en 3.000 repartos con horas de
+   parte. Los tres fallan con 10 001 (`3 failed`, comprobado a mano).
+   Revisión del código: con una escala potencia de 10 y horas de ≤ 4
+   decimales, `peso × 10 000` es entero salvo ruido ≪ 0,5 y `round` nunca cae
+   en un .5. Por eso no hace falta cambiar el cálculo: se documenta la
+   condición en `_RESOLUCION` y la vigila el test del modelo.
+2. **Guarda de `base_id` repuesta** (`extra_auto and tipo_linea == EXTRA`):
+   cubre una `extra_auto` reclasificada a normal en sv4 y congelada. Test
+   `test_f045_r25_extra_auto_reclasificada_a_normal_pesa_por_si_misma`, con
+   su RED contra la versión sin guarda:
+   ```
+   E       AssertionError: assert 'registro 1 8.00 -> 5.00' in '[recurso-concil] reparto 2026-03-02 (recurso=501): el reparto ideal cambiaria lineas ya en Sigrid o de parte aprobado (se mantienen; F-046): registro 1 8.00 -> 5.50, registro 2 2.00 -> 0.00.'
+   1 failed, 27 deselected in 1.77s
+   ```
+3. **`progress/current.md`**: restaurado el literal `.edeploy_partes.ps1
+   -Solo sv3` (había un byte CR que hacía que git tratara el fichero como
+   binario) y vuelto a LF. `git diff dev --stat` del fichero: +55, solo la
+   sección de F-045.
+4. **Mutación relanzada** en `259e609` (campaña 3): 84 mutantes, 76 muertos,
+   **8 supervivientes**, todos equivalentes y con **demostración ejecutable**
+   (RM5) en `progress/equivalentes_F-045.py`. El script carga el módulo
+   mutado y lo compara con el original en 20.000 días y 3.000 grupos con
+   horas de parte: `8 mutantes, 0 distintos`, exit 0. Como control, con el
+   mutante 10 001 sale DISTINTO. La campaña 3 ya incluye los tests de R33.
+
 ## Evidencias
 
 | Evidencia | Valor real |
 |---|---|
-| Tests sv3 | **1387 passed** en 42,67 s (`bash harness/init.sh`) |
-| Tests raíz | **487 passed, 3 skipped** en 119,02 s |
-| Tests nuevos de F-045 | 207 passed en 4,17 s |
-| Cobertura de líneas cambiadas | **100,0 %** (162/162; umbral 80 %, crítico), según `PUERTA COBERTURA` |
-| Mutación, campaña 1 (HEAD `4960287`) | 88 generados, 64 muertos, **24 supervivientes**, 442,9 s |
-| Mutación, campaña 2 (HEAD `cc3f910`, la del informe) | 82 generados, **73 muertos**, **9 supervivientes**, 0 timeouts, 383,4 s; completa, 6 workers, `--timeout 600` |
-| Supervivientes | 9, todos analizados como **equivalentes**: 6 son `>`/`>=` o `<`/`<=` contra una tolerancia de 1e-9 o 1e-6; 2 son constantes de escala o redondeo; 1 es `peso > 0` → `>= 0`, y un peso 0 nunca recibe paso. Ninguno queda sin analizar |
-| `bash harness/init.sh` | **ENTORNO LISTO**, todas las puertas en verde (tamaño: requirements 135/150, design 249/250) |
-
-De los 24 supervivientes de la campaña 1, 15 se resolvieron en `cc3f910`:
-11 con tests nuevos y 4 quitando condiciones redundantes que no cambian el
-comportamiento. Uno de los 9 que quedan (`total_ord <= 1e-9`) tiene además
-un test de R20 que no lo distingue, porque es equivalente. Los tests de R33
-llegaron después de la campaña 2 y no se relanzó.
+| Tests sv3 | **1391 passed** en 22,13 s (suite completa a mano; `init.sh` la relanza) |
+| Tests raíz | **487 passed, 3 skipped** (`bash harness/init.sh`) |
+| Tests nuevos de F-045 | 211 passed en 2,97 s |
+| Cobertura de líneas cambiadas | **100,0 %** según `PUERTA COBERTURA` (ver salida de init.sh) |
+| Mutación, campaña 3 (HEAD `259e609`, la del informe) | 84 generados, **76 muertos**, **8 supervivientes**, 0 timeouts, 0 sin veredicto, 387,1 s; completa, 6 workers, `--timeout 600` |
+| Campañas anteriores | 1: 88/64/24 (442,9 s) · 2: 82/73/9 (383,4 s) |
+| Supervivientes | 8 equivalentes, cada uno con su demostración ejecutable (`8 mutantes, 0 distintos`): 6 son `>`/`>=` o `<`/`<=` contra una tolerancia; 1 es el redondeo a 6/7 decimales; 1 es `peso > 0` → `>= 0`. Pendientes de que el humano los acepte |
+| `bash harness/init.sh` | **ENTORNO LISTO** (ver final de la pasada 2) |
