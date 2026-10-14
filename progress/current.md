@@ -1,6 +1,22 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-047 · spec_ready (spec-author, 2026-10-14): parte nuevo «en espera» hasta que sv3 lo reparta
+
+Spec en `specs/F-047-parte-nuevo-en-espera/` (rama `feature/F-047-parte-nuevo-en-espera`,
+worktree `partes-wt-f047`). Rigor **crítico**. Toca **sv3** (pedido = id del documento en el
+mismo commit del guardado; terminado tras conciliar) y **sv4** (motivo `nuevo`, textos,
+listado `/partes`, exclusión de la aprobación). Sin columnas nuevas; la lista cerrada de
+`CLAUDE.md` no crece; ningún test existente cambia.
+
+**Decisiones que debe validar el humano antes de implementar** (design §11, cada una con su
+recomendación): DA1 pedido = `document_id` escrito en `save_parte`; DA2 si la conciliación de
+la ingesta falla, no se marca ni se propaga (al contrario que F-042/F-043); **DA3 la aprobación
+excluye los partes en espera de los dos motivos (revisa F-043 DA12)**; DA4 sin columnas; DA5 la
+lista cerrada no crece; DA6 textos «procesando…» y avisos propios, 409 igual; DA7 listado sí,
+`/obras`, `/trabajadores` y `/conciliacion` no; DA8 tests existentes intactos; DA9 reentrega
+tras caída, fuera; DA10 botones del detalle deshabilitados en la espera. Despliegue sv4 → sv3.
+
 ## F-043 · done y DESPLEGADA (2026-10-13, sv3 r20261013185439 + sv4 r20261013185623), M1 hecha, pendiente de M2–M4: fecha del parte — rótulo, confirmación y parte «en espera»
 
 **Despliegue (2026-10-13)**: el humano desplegó sv3 y después sv4 e hizo el push de `dev`.

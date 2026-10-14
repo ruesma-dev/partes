@@ -592,6 +592,26 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-043-fecha-del-parte-confirmar-y-recargar"
+    },
+    {
+      "id": "F-047",
+      "title": "Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra)",
+      "description": "Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.",
+      "acceptance": [
+        "sv3 escribe el pedido (id del documento) en el mismo commit que guarda el parte nuevo y lo marca terminado tras conciliar sin excepcion; un sha256 repetido ni guarda ni marca",
+        "Si la conciliacion de recurso falla, el parte no se marca, el mensaje se consume y el parte vence a los 10 min",
+        "Las vistas de obra, trabajador, detalle y el listado de partes pintan el parte nuevo en espera con textos propios; el resto del portal sigue usable y nada recarga sin un clic",
+        "Las ediciones del parte en espera dan 409 y la aprobacion (individual y en bloque) lo excluye",
+        "Sin columnas nuevas: orm_models.py documenta la semantica ampliada en las dos copias byte-identicas",
+        "Ningun test existente se modifica",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-047-parte-nuevo-en-espera"
     }
   ]
 }
