@@ -2,7 +2,7 @@
 """ORM de partes de trabajo (SQLAlchemy 2.0).
 
 Modelo real (un documento = un parte DIARIO de una obra, con varios
-empleados). SEIS tablas en la base ``partes``:
+empleados). SIETE tablas en la base ``partes``:
 
   - ``parte_documents``: cabecera del parte diario (fecha, obra leida +
     casada, encargado, jefe de obra, FIRMA) + metadatos de email/IA +
@@ -24,6 +24,9 @@ empleados). SEIS tablas en la base ``partes``:
     Una fila por linea de un mensual que sv5 mando a dedicacion; la
     escribe sv4 al volcar el resultado y la LEE el rol de dedicacion (solo
     esta tabla). Es un contrato publicado: no se cambia sin avisar.
+  - ``reparto_pendiente``: reajuste del reparto de jornada de un dia que
+    cambiaria lineas ya en Sigrid o de parte aprobado (F-046). Lo propone
+    y materializa sv3; sv4 lo ensena y recoge la decision del humano.
 
 La unicidad por ``source_sha256`` es un INDICE UNICO PARCIAL
 ``WHERE is_active`` (``DDL_EXTRA_POSTGRES``): un parte borrado no ocupa el
@@ -500,6 +503,80 @@ class DedicacionBandejaOrm(Base):
     actualizado_at_utc: Mapped[str] = mapped_column(
         String(64), nullable=False, server_default=""
     )
+
+
+#: Estados de `reparto_pendiente` (F-046, design §3). sv3 crea `pendiente`,
+#: lo pasa a `materializado` (tras `aplicado`), `mantenido` (tras
+#: `rechazado`) u `obsoleto` (si el dia cambia); sv4 lo pasa a `aplicando`,
+#: `aplicado`, de vuelta a `pendiente` o a `rechazado`, siempre por CAS
+#: sobre `estado`.
+REPARTO_PENDIENTE = "pendiente"
+REPARTO_APLICANDO = "aplicando"
+REPARTO_APLICADO = "aplicado"
+REPARTO_MATERIALIZADO = "materializado"
+REPARTO_RECHAZADO = "rechazado"
+REPARTO_MANTENIDO = "mantenido"
+REPARTO_OBSOLETO = "obsoleto"
+ESTADOS_REPARTO: tuple[str, ...] = (
+    REPARTO_PENDIENTE, REPARTO_APLICANDO, REPARTO_APLICADO,
+    REPARTO_MATERIALIZADO, REPARTO_RECHAZADO, REPARTO_MANTENIDO,
+    REPARTO_OBSOLETO,
+)
+
+
+class RepartoPendienteOrm(Base):
+    """Reajuste del reparto de un (recurso, dia) pendiente de decision
+    (F-046, design §3 y §5).
+
+    Una fila por propuesta: sv3 la crea `pendiente` cuando el reparto
+    ideal del dia (F-045) cambiaria lineas ya en Sigrid o de parte
+    aprobado. ``firma`` es la huella del grupo (lineas, horas, estados):
+    si el dia cambia, la fila pasa a `obsoleto` y nace otra. ``cambios``
+    es JSON ``{ids_grupo, cambios[]}`` con, por linea, antes y despues;
+    ``resultado`` guarda las reservas de ids de las extras nuevas y la
+    respuesta de sv5. La decision (`aplicar` | `mantener`), quien y
+    cuando quedan aqui: no entra en ``undo_log`` (no hay deshacer en
+    Sigrid).
+
+    Sin nombres ni DNIs: el trabajador es su ``recurso_ide`` de Sigrid.
+    TODA columna ``NOT NULL`` lleva ``server_default`` (centinelas para el
+    DDL complementario, como en ``dedicacion_bandeja``).
+    """
+    __tablename__ = "reparto_pendiente"
+    __table_args__ = (
+        Index("ix_reparto_pendiente_grupo", "recurso_ide", "fecha_int"),
+        Index("ix_reparto_pendiente_estado", "estado"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    recurso_ide: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    fecha_int: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    estado: Mapped[str] = mapped_column(
+        String(16), nullable=False, server_default="pendiente"
+    )
+    firma: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default=""
+    )
+    cambios: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default="{}"
+    )
+    resultado: Mapped[str | None] = mapped_column(Text)
+    error: Mapped[str | None] = mapped_column(String(255))
+    #: aplicar | mantener.
+    decision: Mapped[str | None] = mapped_column(String(16))
+    decidido_por: Mapped[str | None] = mapped_column(String(120))
+    decidido_at_utc: Mapped[str | None] = mapped_column(String(64))
+    creado_at_utc: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default=""
+    )
+    actualizado_at_utc: Mapped[str] = mapped_column(
+        String(64), nullable=False, server_default=""
+    )
+    materializado_at_utc: Mapped[str | None] = mapped_column(String(64))
 
 
 #: DDL de PostgreSQL que el ORM no sabe expresar de forma portable y que
