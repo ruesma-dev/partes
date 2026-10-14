@@ -195,6 +195,8 @@ jornada. Ese es el valor real del código. Ningún esperado discrepó.
    mutado y lo compara con el original en 20.000 días y 3.000 grupos con
    horas de parte: `8 mutantes, 0 distintos`, exit 0. Como control, con el
    mutante 10 001 sale DISTINTO. La campaña 3 ya incluye los tests de R33.
+   Después de `259e609` solo cambian tests (avisos de ruff) y `progress/`;
+   nada del alcance de la mutación, así que la campaña sigue valiendo (RM1).
 
 ## Evidencias
 
