@@ -1,6 +1,63 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
+
+**Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.
+
+**Desbloqueada el 2026-10-14 por decisión del humano (opción A, respuesta literal «a»);
+descartadas B (sin vínculo extra↔base) y C (otro método de lectura).** Enmiendas:
+design §4 (`LineaDia.extra_auto`/`base_id`; la lectura trae `horas_orig`, `extra_auto`,
+`deleted_at_utc`, `line_index`, `empleado_line_no`), design §5 (se suma
+`test_f037_revert.py::test_f037_r9_la_unica_clave_nueva_es_la_marca`, solo con las 5
+claves nuevas), R27 y T4.
+
+**Implementación terminada (implementer, 2026-10-14), T1–T13.** Informe:
+`progress/impl_F-045.md`; mutación: `progress/mutacion_F-045.md` (82 mutantes, 73
+muertos, **9 supervivientes justificados como equivalentes: pendiente de que el humano
+acepte las justificaciones**, rigor crítico). R33 (candef 9, viernes J 6) añadido a
+petición del humano. `azure-apps/partes.md` §3.3 con commit local en `azure-apps`.
+Pendiente: reviewer.
+
+**MANUAL (humano), pendiente**, solo lectura salvo el despliegue:
+
+- **M1 · antes de desplegar**: SQL de `design.md` §9 en la base `partes` (grupos que
+  F-045 reparte de nuevo, con y sin congeladas).
+- **Despliegue solo de sv3**: `.\redeploy_partes.ps1 -Solo sv3` desde `infra/`.
+- **M2 · tras desplegar**: Log Analytics de `ca-sv3-persistencia` con
+  `Log_s has 'reparto'` (INFO de reparto y, si los hay, WARNING «reparto ideal», que dice
+  cuántos días tocaría F-046); repetir la SQL de F-042 M1 sobre un día con dos obras sin
+  aprobar y comprobar las cifras de §3.
+
+Registro del bloqueo (historia): en T4, `test_f037_r9` (fuera de §5) afirmaba el conjunto
+exacto de claves de `fetch_registros_para_recurso`, que R27 obliga a ampliar; y R25 necesitaba
+enlazar la `extra_auto` congelada con su base, cosa que el `LineaDia` del design no llevaba.
+
+## F-045 · spec_ready (2026-10-14): reparto ponderado de la jornada entre obras
+
+Spec escrita por el spec-author en `specs/F-045-reparto-ponderado-entre-obras/`
+(rama `feature/F-045-reparto-ponderado-entre-obras`, worktree `partes-wt-f045`).
+Solo sv3, sin esquema ni Sigrid; rigor **crítico**. Pendiente: PARADA 1 (el humano
+valida las DA antes de implementar).
+
+**Decisiones abiertas que necesita validar el humano** (`design.md` §6 y §8):
+
+- **DA1 · Partir en dos**: F-045 = reparto ponderado en sv3; **F-046** = reajuste
+  en Sigrid de lo ya registrado con aviso al aprobar. Con solo F-045, el caso real
+  (0678 ya registrada) sigue 0+8: lo arregla F-046.
+- DA2 dos niveles (obra por sus horas, incluidas extras explícitas; luego líneas);
+  DA3 también dentro de una misma obra; DA4 desempate (mayor resto, mayor peso, el
+  que llegó antes); DA5 paso 0,5 con respaldo 0,25/0,01.
+- **DA6 · Extras negativas**: se mantienen y se reparten en proporción (pregunta
+  abierta del humano; alternativa: suprimirlas).
+- DA7 congeladas en modo residual + WARNING de medición; DA8 incidencias sin
+  cambios; **DA9 hallazgo**: las líneas en la papelera pesan hoy en el reparto (se
+  sacan); DA10 concurrencia fuera.
+- §8 (dirección de F-046, DA11–DA14): tabla `reparto_pendiente`, reajuste por HTTP
+  síncrono a sv5 (`UPDATE hmores` nuevo, solo partes En registro), «Mantener lo
+  registrado» si el parte está cerrado, candado consultivo en sv3.
+- Tests existentes que cambian de cifras: lista cerrada en `design.md` §5.
+
 ## F-043 · done y DESPLEGADA (2026-10-13, sv3 r20261013185439 + sv4 r20261013185623), M1 hecha, pendiente de M2–M4: fecha del parte — rótulo, confirmación y parte «en espera»
 
 **Despliegue (2026-10-13)**: el humano desplegó sv3 y después sv4 e hizo el push de `dev`.

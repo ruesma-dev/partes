@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **41 features**, 11 abiertas, 30 terminadas.
+Resumen: **42 features**, 11 abiertas, 31 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -41,6 +41,7 @@ Bloqueadas: **F-014, F-032**.
 | F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | critico |
 | F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | critico |
 | F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |
+| F-045 | Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -209,6 +210,12 @@ Pedida por el humano el 2026-10-09: «en este caso el dia 11 al ser domingo lo p
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-043-fecha-del-parte-confirmar-y-recargar`
 
 Pedida por el humano el 2026-10-12 (opcion A) y enmendada el 2026-10-13: «tengo que seguir usando la plataforma para el resto de partes, solo queda en espera el que esta recalculando». En el detalle de obra y de trabajador cada fila lleva un input de fecha (.fecha-edit) que hace PATCH /api/partes/{id}/fecha, y update_parte_fecha mueve el PARTE ENTERO: el humano lo cambio en la fila de un trabajador y movio a los cuatro del parte. Tras el cambio sv3 recalcula el reparto (F-042) en ~1-2 min y el portal no lo refleja. LO QUE SE PIDE: (1) rotular el campo como fecha del parte; (2) antes de guardar, window.confirm con cuantos trabajadores y lineas se mueven y a que dia; cancelar deja la fecha anterior; (3) mientras sv3 recalcula, SOLO ese parte queda en espera (filas marcadas y deshabilitadas, y el servidor rechaza sus ediciones salvo fecha y deshacer, porque una edicion a mitad de pasada se pisa) y el resto del portal sigue usable; al terminar, una tarjeta ofrece Actualizar (recarga conservando scroll y filtros): nada recarga solo. Seguimiento: sv4 marca recalculo_pedido_id antes de publicar, sv3 copia a recalculo_terminado_id el pedido que leyo antes de su pasada (UPDATE condicional), el estado lo pinta el servidor y vence a los 10 min. Cuatro columnas nullables en parte_documents (las dos copias de orm_models.py). Mover una sola linea es F-044. La logica de recalculo de sv3 no cambia.
+
+### F-045 · Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-045-reparto-ponderado-entre-obras`
+
+Pedida por el humano el 2026-10-14. Hoy sv3 (_reclasificar_extras_jornada) agrupa por recurso y dia cruzando obras pero recorta las extras desde el registro_id mayor y, si falta jornada, sube solo la ultima ordinaria con una extra negativa: el ultimo parte en llegar se queda todas las extras (10 h + 4 h con jornada 8 = 8+2 y 0+4). F-045 (fase 1, solo sv3, sin esquema ni Sigrid) reparte la jornada del dia entre las obras en proporcion a sus horas (ordinarias + extras explicitas) y dentro de cada obra entre sus lineas, por mayor resto a pasos de 0,5 h (0,25 o 0,01 si las horas no lo permiten) conservando los totales exactos; las extras negativas se mantienen y se reparten igual. Lo congelado sigue fijo (modo residual) y se mide con un WARNING cuando el reparto ideal lo cambiaria. Las lineas en la papelera dejan de pesar. El reajuste en Sigrid de lo ya registrado, con aviso previo al aprobar el segundo parte, se propone como F-046 (design.md §8). Spec: specs/F-045-reparto-ponderado-entre-obras/.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

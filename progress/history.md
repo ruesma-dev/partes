@@ -858,3 +858,20 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   en espera sin pedir recálculo.
 - Pendiente: despliegue sv3 → sv4 cuando lo pida el humano y M1–M4 de `current.md`. F-044
   (mover a un solo trabajador) queda aparcada con su spec en su rama.
+
+## F-045 · Reparto ponderado de la jornada entre obras — done 2026-10-14
+
+- Rama `feature/F-045-reparto-ponderado-entre-obras` · rigor critico · sdd=true ·
+  CHANGES_REQUESTED en la pasada 1 y APPROVED en la pasada 2 (`progress/review_F-045.md`).
+- Origen: con partes del mismo día en varias obras, sv3 cargaba la jornada en la primera y el
+  ajuste entero en la última línea (caso 0678/0704 del 14/10).
+- Entregado (solo sv3): `reparto_ponderado.py` (mayor resto en pasos de 0,5, respaldo 0,25/0,01)
+  y `_reclasificar_extras_jornada` reparte ordinarias y extras en proporción a las horas de cada
+  obra y, dentro, de cada línea; extras negativas repartidas igual; congeladas en modo residual
+  con WARNING y contador de lo que cambiaría (para F-046); líneas en papelera fuera del reparto.
+- Decisiones del humano: DA1–DA10 recomendadas; opción A en T4 (`test_f037_r9` y vínculo
+  extra↔base); casos de candef 9 (viernes J 6) añadidos; 8 mutantes equivalentes aceptados.
+- Verificado: init.sh en verde, sv3 1391 passed, cobertura 100 %, mutación 84/76/8 con
+  demostración ejecutable de los 8; azure-apps/partes.md actualizado (commit local).
+- Pendiente: despliegue solo sv3 cuando lo pida el humano y M2. F-046 (reajuste en Sigrid)
+  aprobada, se implementa sobre esta.

@@ -122,6 +122,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    congelada, ninguna se revierte ni se vuelve a partir, y las extras
    automáticas no congeladas de una pareja cuya extra ya está congelada son
    duplicados y se borran. La regla por línea (semántica 10) no cambia.
+   **F-045 · reparto ponderado**: las ordinarias del día (recurso y fecha,
+   todas las obras) suman la jornada del día, repartida entre las obras en
+   proporción a sus horas (ordinarias + extras explícitas) y, dentro de cada
+   obra, entre sus líneas, por mayor resto a medias horas (0,25 o 0,01 si
+   las horas no lo permiten; desempate: mayor resto, mayor peso, el que llegó
+   antes). Ya no hay «último parte en llegar»: 10 h + 4 h con jornada 8 dan
+   5,5 + 4,5 y 2,5 + 1,5. Las extras negativas se mantienen y se reparten
+   igual. Lo congelado va en **modo residual**: no cambia, cuenta, y se
+   reparte lo que queda de jornada; si el reparto ideal lo cambiaría, sv3
+   lo avisa (WARNING y `repartos_con_congeladas`) para el reajuste de F-046.
+   Las líneas en la papelera no pesan en el día.
    El reparto solo lo calcula sv3 (`conciliar_todos`, que recalcula todo lo
    activo no congelado) y solo cuando le llega un mensaje por
    `q-persistencia`. **F-042**: además de cada ingesta de sv2, lo dispara
