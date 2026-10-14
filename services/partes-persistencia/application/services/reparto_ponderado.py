@@ -124,6 +124,7 @@ class LineaDia:
     fija: bool = False
     extra_auto: bool = False
     base_id: int | None = None
+    reajustable: bool = False
 
 
 @dataclass(frozen=True)
@@ -261,3 +262,105 @@ def diferencias_ideal(
             if ln.fija and abs(despues_ln - ln.horas) > _EPS:
                 diferencias.append((ln.registro_id, ln.horas, despues_ln))
     return tuple(sorted(diferencias))
+
+
+
+# ----------------------- el reajuste (F-046) ----------------------- #
+
+@dataclass(frozen=True)
+class CambioCongelada:
+    """Una linea congelada REAJUSTABLE cuyo ideal difiere (R1).
+
+    `registro_id` None = extra nueva de la base `base_registro_id` (la
+    base estaba registrada sin extra y el ideal le da una). `tipo` es
+    `ordinaria` o `extra`; `antes` y `despues`, sus horas.
+    """
+
+    registro_id: int | None
+    base_registro_id: int
+    tipo: str
+    antes: float
+    despues: float
+
+
+@dataclass(frozen=True)
+class PropuestaDia:
+    """R1: los `Ajuste` de las libres y los cambios de las reajustables.
+
+    `cuadra` falso: con las duras fijas el dia no cuadra (R4) y no hay
+    ni ajustes ni cambios."""
+
+    cuadra: bool
+    paso: float
+    ajustes: tuple[Ajuste, ...]
+    cambios: tuple[CambioCongelada, ...]
+
+
+def proponer_dia(lineas: Sequence[LineaDia], jornada: float) -> PropuestaDia:
+    """R1-R4: el reparto ideal del dia con lo REAJUSTABLE como ajustable.
+
+    Clases de linea: libre (no `fija`), reajustable (`fija` y
+    `reajustable`) y dura (`fija` y no `reajustable`). Una pareja (base y
+    sus extras automaticas) es dura entera si algun miembro lo es o si
+    tiene mas de una extra automatica; una ordinaria reajustable sin
+    trabajo (<= 0) tambien es dura.
+
+    El ideal es `repartir_dia` con las duras fijas (cuentan como siempre)
+    y las reajustables como ajustables: la base de una pareja pesa lo
+    trabajado (`horas_orig` si no es nulo) y su extra automatica no pesa
+    por separado. Las extras explicitas pesan (no fijas) y nunca cambian
+    (R3). Cada base reajustable cuyo ideal difiere da un cambio de su
+    ordinaria y otro de su extra (= trabajado - cuota): la existente, o una
+    NUEVA (`registro_id` None) si no tenia y no sale 0. Sin duras, los
+    cambios de lineas existentes son los de `diferencias_ideal` (R2).
+    """
+    ordinarias = {ln.registro_id: ln for ln in lineas if ln.tipo == ORDINARIA}
+    extras_de: dict[int, list[LineaDia]] = {}
+    for ln in sorted(lineas, key=lambda x: x.registro_id):
+        if ln.extra_auto and ln.base_id in ordinarias:
+            extras_de.setdefault(ln.base_id, []).append(ln)  # type: ignore[arg-type]
+
+    def _dura(ln: LineaDia) -> bool:
+        return ln.fija and not ln.reajustable
+
+    duras: set[int] = {ln.registro_id for ln in lineas if _dura(ln)}
+    for base in ordinarias.values():
+        miembros = [base, *extras_de.get(base.registro_id, [])]
+        if (len(miembros) > 2 or any(_dura(m) for m in miembros)
+                or (base.fija and _trabajado(base) <= 0)):
+            duras.update(m.registro_id for m in miembros)
+    emparejadas = {e.registro_id for es in extras_de.values() for e in es}
+    reajustables = {ln.registro_id for ln in lineas
+                    if ln.fija and ln.registro_id not in duras}
+    ideal = [
+        LineaDia(registro_id=ln.registro_id, obra_ide=ln.obra_ide,
+                 tipo=ln.tipo,
+                 horas=(_trabajado(ln) if ln.registro_id in reajustables
+                        else ln.horas),
+                 fija=ln.registro_id in duras)
+        for ln in lineas if ln.registro_id not in emparejadas
+    ]
+    resultado = repartir_dia(ideal, jornada)
+    if not resultado.cuadra:
+        return PropuestaDia(False, resultado.paso, (), ())
+    cuota = {a.registro_id: a.horas_norm for a in resultado.ajustes}
+    ajustes = tuple(a for a in resultado.ajustes
+                    if not ordinarias[a.registro_id].fija)
+    cambios: list[CambioCongelada] = []
+    for rid in sorted(rid for rid in reajustables if rid in ordinarias):
+        base = ordinarias[rid]
+        trabajado = _trabajado(base)
+        despues = cuota.get(rid, trabajado)
+        if abs(despues - base.horas) > _EPS:
+            cambios.append(CambioCongelada(rid, rid, ORDINARIA, base.horas,
+                                           despues))
+        extra = round(trabajado - despues, 2)
+        actuales = extras_de.get(rid, [])
+        if actuales:
+            if abs(extra - actuales[0].horas) > _EPS:
+                cambios.append(CambioCongelada(
+                    actuales[0].registro_id, rid, EXTRA, actuales[0].horas,
+                    extra))
+        elif abs(extra) > _EPS:
+            cambios.append(CambioCongelada(None, rid, EXTRA, 0.0, extra))
+    return PropuestaDia(True, resultado.paso, ajustes, tuple(cambios))
