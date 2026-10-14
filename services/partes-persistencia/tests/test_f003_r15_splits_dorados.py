@@ -63,8 +63,9 @@ def test_f003_r15_exceso_recorta_desde_el_registro_de_mayor_id() -> None:
     regs = [registro(1, fecha_int=LUNES, horas=5.0),
             registro(2, fecha_int=LUNES, horas=5.0)]
     splits = _splits(regs)
+    # F-045: reparto ponderado (design §5); antes [(2, 3.0, 2.0)].
     assert [(s["normal_id"], s["horas_norm"], s["extra_horas"])
-            for s in splits] == [(2, 3.0, 2.0)]
+            for s in splits] == [(1, 4.0, 1.0), (2, 4.0, 1.0)]
 
 
 def test_f003_r15_exceso_desborda_al_siguiente_registro() -> None:
@@ -77,8 +78,9 @@ def test_f003_r15_exceso_desborda_al_siguiente_registro() -> None:
             registro(2, fecha_int=LUNES, horas=5.0),
             registro(3, fecha_int=LUNES, horas=5.0)]
     splits = _splits(regs)
+    # F-045: reparto ponderado (design §5); antes [(3, 0.0, 5.0), (2, 3.0, 2.0)].
     assert [(s["normal_id"], s["horas_norm"], s["extra_horas"])
-            for s in splits] == [(3, 0.0, 5.0), (2, 3.0, 2.0)]
+            for s in splits] == [(1, 3.0, 2.0), (2, 2.5, 2.5), (3, 2.5, 2.5)]
 
 
 # ------------------------ dia laborable: defecto ------------------------ #
@@ -189,8 +191,9 @@ def test_f003_r15_agrupa_por_recurso_y_dia_across_obras() -> None:
     regs = [registro(1, fecha_int=LUNES, horas=4.0, obra_ide=10),
             registro(2, fecha_int=LUNES, horas=6.0, obra_ide=20)]
     splits = _splits(regs)
+    # F-045: reparto ponderado (design §5); antes [(2, 4.0, 2.0)].
     assert [(s["normal_id"], s["horas_norm"], s["extra_horas"])
-            for s in splits] == [(2, 4.0, 2.0)]
+            for s in splits] == [(1, 3.0, 1.0), (2, 5.0, 1.0)]
 
 
 def test_f003_r15_dias_distintos_no_se_mezclan() -> None:
