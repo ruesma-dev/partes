@@ -12,14 +12,13 @@ from __future__ import annotations
 import logging
 import random
 
-from sqlalchemy import select
-
 from application.services.recurso_conciliador import RecursoConciliador
 from application.services.seleccion_sigrid import ResolucionRecurso
 from infrastructure.database.orm_models import ParteRegistroOrm
 from infrastructure.database.sqlalchemy_parte_repository import (
     SqlAlchemyParteRepository,
 )
+from sqlalchemy import select
 from tests.dobles import (
     CalendarioFake,
     FabricaSesionSqlite,
@@ -204,12 +203,12 @@ def test_f045_r30_una_sola_linea_no_ensucia_el_log(caplog) -> None:
 class IndiceFijo:
     """Siempre el recurso 501 (como en los tests de F-037)."""
 
-    recursos: list = []
+    recursos: tuple = ()
 
-    def empresa_de_obra(self, obra_ide):  # noqa: ARG002
+    def empresa_de_obra(self, obra_ide):
         return None
 
-    def elegir_recurso(self, *args, **kwargs):  # noqa: ARG002
+    def elegir_recurso(self, *args, **kwargs):
         return ResolucionRecurso(ide=RECURSO, motivo="ok")
 
 

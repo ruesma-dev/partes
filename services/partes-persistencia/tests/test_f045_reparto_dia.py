@@ -13,7 +13,6 @@ from __future__ import annotations
 import itertools
 
 import pytest
-
 from application.services.reparto_ponderado import (
     Ajuste,
     LineaDia,

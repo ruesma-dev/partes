@@ -200,11 +200,11 @@ jornada. Ese es el valor real del código. Ningún esperado discrepó.
 
 | Evidencia | Valor real |
 |---|---|
-| Tests sv3 | **1391 passed** en 22,13 s (suite completa a mano; `init.sh` la relanza) |
+| Tests sv3 | **1391 passed** en 31,57 s (`bash harness/init.sh`) |
 | Tests raíz | **487 passed, 3 skipped** (`bash harness/init.sh`) |
 | Tests nuevos de F-045 | 211 passed en 2,97 s |
-| Cobertura de líneas cambiadas | **100,0 %** según `PUERTA COBERTURA` (ver salida de init.sh) |
+| Cobertura de líneas cambiadas | **100,0 %** (162/162; umbral 80 %, crítico), según `PUERTA COBERTURA` |
 | Mutación, campaña 3 (HEAD `259e609`, la del informe) | 84 generados, **76 muertos**, **8 supervivientes**, 0 timeouts, 0 sin veredicto, 387,1 s; completa, 6 workers, `--timeout 600` |
 | Campañas anteriores | 1: 88/64/24 (442,9 s) · 2: 82/73/9 (383,4 s) |
 | Supervivientes | 8 equivalentes, cada uno con su demostración ejecutable (`8 mutantes, 0 distintos`): 6 son `>`/`>=` o `<`/`<=` contra una tolerancia; 1 es el redondeo a 6/7 decimales; 1 es `peso > 0` → `>= 0`. Pendientes de que el humano los acepte |
-| `bash harness/init.sh` | **ENTORNO LISTO** (ver final de la pasada 2) |
+| `bash harness/init.sh` | **ENTORNO LISTO**, todas las puertas en verde. ruff: 698 avisos, los mismos que `dev`; los de los ficheros nuevos se corrigieron |

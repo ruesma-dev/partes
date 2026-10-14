@@ -10,12 +10,11 @@ para comprobar las propiedades.
 from __future__ import annotations
 
 import ast
-import random
 import itertools
+import random
 from pathlib import Path
 
 import pytest
-
 from application.services.reparto_ponderado import (
     PASOS,
     Participante,

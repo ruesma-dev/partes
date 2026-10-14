@@ -30,9 +30,9 @@ from pathlib import Path
 RAIZ = Path.cwd()
 sys.path.insert(0, str(RAIZ))
 
-from application.services import reparto_ponderado as rp_orig  # noqa: E402
-from application.services import recurso_conciliador as rc_orig  # noqa: E402
-from tests.dobles import (  # noqa: E402
+from application.services import recurso_conciliador as rc_orig
+from application.services import reparto_ponderado as rp_orig
+from tests.dobles import (
     CalendarioFake,
     LookupFake,
     RepositorioFake,
@@ -46,10 +46,10 @@ RC = "application/services/recurso_conciliador.py"
 #: (fichero, linea original, linea mutada) de cada superviviente.
 MUTANTES: list[tuple[str, str, str]] = [
     # La guarda del dia NO laborable (la seguida de `jornada = 0.0`).
-    (RC, "                if total_ord <= 1e-9:\n                    continue\n"
-         "                jornada = 0.0",
-         "                if total_ord < 1e-9:\n                    continue\n"
-         "                jornada = 0.0"),
+    (RC, ("                if total_ord <= 1e-9:\n                    continue\n"
+          "                jornada = 0.0"),
+         ("                if total_ord < 1e-9:\n                    continue\n"
+          "                jornada = 0.0")),
     (RP, "round(valor / paso)) <= _TOLERANCIA",
          "round(valor / paso)) < _TOLERANCIA"),
     (RP, "return round(unidades * paso, 6)", "return round(unidades * paso, 7)"),
@@ -73,13 +73,15 @@ def _mutar(fichero: str, original: str, mutada: str) -> types.ModuleType:
     nombre = f"_mutante_{_n}"
     modulo = types.ModuleType(nombre)
     sys.modules[nombre] = modulo
-    exec(compile(fuente.replace(original, mutada), nombre, "exec"),
+    # exec deliberado: el fuente es el del propio repositorio con UNA
+    # sustitucion conocida, no entrada externa.
+    exec(compile(fuente.replace(original, mutada), nombre, "exec"),  # noqa: S102
          modulo.__dict__)
     return modulo
 
 
-_REJILLAS = ([k / 2 for k in range(0, 25)], [k / 4 for k in range(0, 49)],
-             [round(k / 100, 2) for k in range(0, 1201)])
+_REJILLAS = ([k / 2 for k in range(25)], [k / 4 for k in range(49)],
+             [round(k / 100, 2) for k in range(1201)])
 _JORNADAS = (0.0, 6.0, 7.75, 8.0, 8.4, 9.0)
 
 
