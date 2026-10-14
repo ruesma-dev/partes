@@ -365,3 +365,60 @@ def test_f045_r20_sabado_sin_horas_ordinarias_no_se_toca(caplog) -> None:
     with caplog.at_level(logging.INFO):
         assert _splits([registro(1, fecha_int=SABADO, horas=0.0)]) == []
     assert "dia NO laborable" not in caplog.text
+
+
+# ============ candef 9: la jornada del dia de F-015 (pedido 14/10) ======= #
+# El humano (2026-10-14): «los viernes cuando son 9h en candef son
+# diferentes». Regimen 42 h: 9 de lunes a jueves y el resto (42 - 36 = 6)
+# el ultimo laborable de la semana. La J sale de `_detalle_jornada`, no de
+# un numero fijo. Semana del 2026-03-16 (L) al 2026-03-20 (V).
+JUEVES_C9 = 20260319
+VIERNES_C9 = 20260320
+
+
+def _splits_c9(regs, *, no_laborables=()):
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(),
+        calendario=CalendarioFake(set(no_laborables)),
+        jornada_ordinaria_horas=8.0, candef_minimo=2.0,
+    )
+    return conciliador._reclasificar_extras_jornada(
+        regs, {r["registro_id"]: RECURSO for r in regs},
+        indice_reshor(RECURSO, candef=9.0))
+
+
+def _dos_obras(fecha_int):
+    return [registro(1, fecha_int=fecha_int, horas=5.0, obra_ide=10),
+            registro(2, fecha_int=fecha_int, horas=4.0, obra_ide=20,
+                     document_id="doc-2")]
+
+
+def test_f045_r33_candef_9_viernes_jornada_6(caplog) -> None:
+    """Viernes laborable, J = 6: A 5 h y B 4 h dan A 3,5 + 1,5 y B 2,5 +
+    1,5 (6 x 5/9 = 3,33 y 2,67; el medio paso que falta va al mayor resto,
+    A)."""
+    with caplog.at_level(logging.INFO):
+        splits = _splits_c9(_dos_obras(VIERNES_C9))
+    assert _resumen(splits) == [(1, 3.5, 1.5), (2, 2.5, 1.5)]
+    assert "jornada=6.00" in caplog.text
+    assert "jornada_dia=6.00" in caplog.text
+    assert "ultimo_laborable=si" in caplog.text
+
+
+def test_f045_r33_candef_9_jueves_jornada_9_sin_extras() -> None:
+    """Jueves, J = 9: 5 + 4 = 9 justas, ningun split."""
+    assert _splits_c9(_dos_obras(JUEVES_C9)) == []
+
+
+def test_f045_r33_candef_9_viernes_festivo_el_jueves_es_el_ultimo(
+        caplog) -> None:
+    """Viernes festivo: el ULTIMO laborable pasa a ser el jueves y recibe el
+    resto de la semana, S - 4c = 42 - 36 = 6 (F-015: los festivos entre
+    semana cuentan como jornada; NO 9 + 6 = 15). Mismo reparto que el
+    viernes normal."""
+    with caplog.at_level(logging.INFO):
+        splits = _splits_c9(_dos_obras(JUEVES_C9),
+                            no_laborables={"2026-03-20"})
+    assert _resumen(splits) == [(1, 3.5, 1.5), (2, 2.5, 1.5)]
+    assert "jornada_dia=6.00" in caplog.text
+    assert "ultimo_laborable=si" in caplog.text

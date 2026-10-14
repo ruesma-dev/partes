@@ -86,6 +86,11 @@ lo ya registrado queda propuesto como **F-046** (design §8) y aquí solo se mid
   explícita 2 h ⇒ pesos 6 y 6: A **4 + 2** (`extra_auto`); B ordinaria **4**,
   sin split, y su extra explícita 2 intacta.
 
+- **R33 · Candef 9 (pedido por el humano el 2026-10-14)**, con la J real de
+  `_detalle_jornada` (régimen 42 h): viernes laborable (J 6), A 5 h y B 4 h ⇒
+  A **3,5 + 1,5**; B **2,5 + 1,5**. Jueves (J 9) ⇒ sin extras. Viernes festivo:
+  el jueves es el último laborable con J = 42 − 36 = **6** ⇒ como el viernes.
+
 ## Lo que no cambia
 
 - **R20.** Día no laborable (fin de semana o festivo del trabajador): todas las
