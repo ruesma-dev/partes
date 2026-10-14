@@ -210,7 +210,13 @@ class SqlAlchemyParteRepository:
         F-037 (R9): cada fila lleva `congelada_por_pareja`, True si no esta
         congelada por si misma pero otro miembro de su pareja (base y
         extras automaticas de la misma clave) si. Se calcula sobre TODAS
-        las filas leidas; el conciliador la trata como congelada."""
+        las filas leidas; el conciliador la trata como congelada.
+
+        F-045 (R27): cada fila lleva ademas `horas_orig` (lo trabajado por
+        la base de una pareja ya partida), `extra_auto`, `deleted_at_utc`
+        (las de la papelera no entran en el reparto del dia, pero si en el
+        casado de recurso) y la clave de pareja (`line_index`,
+        `empleado_line_no`) para medir el reparto ideal de lo congelado."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(
@@ -241,6 +247,9 @@ class SqlAlchemyParteRepository:
                     ParteRegistroOrm.line_index,
                     ParteRegistroOrm.empleado_line_no,
                     ParteRegistroOrm.extra_auto,
+                    # F-045: lo trabajado y la papelera.
+                    ParteRegistroOrm.horas_orig,
+                    ParteRegistroOrm.deleted_at_utc,
                 )
                 .join(
                     ParteDocumentOrm,
@@ -253,7 +262,8 @@ class SqlAlchemyParteRepository:
             for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
                  hora_ide, hora_codigo, categoria, horas, sigrid_estado,
                  aprobado, recurso_ide, empresa, line_index, eln,
-                 extra_auto) in session.execute(stmt).all():
+                 extra_auto, horas_orig, borrada
+                 ) in session.execute(stmt).all():
                 parejas.append(_fila_pareja(
                     registro_id=rid, document_id=doc_id,
                     line_index=line_index, empleado_line_no=eln,
@@ -278,6 +288,11 @@ class SqlAlchemyParteRepository:
                     "doc_approved": bool(aprobado),
                     "recurso_ide": recurso_ide,
                     "parte_empresa": empresa,
+                    "horas_orig": horas_orig,
+                    "extra_auto": bool(extra_auto),
+                    "deleted_at_utc": borrada,
+                    "line_index": line_index,
+                    "empleado_line_no": eln,
                 })
             congeladas = claves_congeladas(parejas)
             for fila, pareja in zip(out, parejas):

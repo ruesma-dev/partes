@@ -112,7 +112,8 @@ lo ya registrado queda propuesto como **F-046** (design §8) y aquí solo se mid
   `conciliar_todos`.
 - **R26.** Una línea `congelada_por_pareja` (F-037) es fija a todos los efectos.
 - **R27.** Una línea en la papelera no debe tener peso, ni contar en `J'`, ni
-  recibir split; la lectura del repositorio debe traer `deleted_at_utc` (DA9).
+  recibir split; la lectura del repositorio debe traer `deleted_at_utc` (DA9)
+  y, para R25, `horas_orig`, `extra_auto` y la clave de pareja (enmienda A).
 
 ## Integración y robustez
 

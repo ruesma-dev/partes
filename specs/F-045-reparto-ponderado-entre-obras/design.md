@@ -73,7 +73,10 @@ difiere de lo congelado ⇒ WARNING y contador; **no** se aplica.
 - `repartir(total: float, participantes: Sequence[Participante], paso: float)
   -> dict[Hashable, float]` (R1, R2, R4, R5).
 - `@dataclass(frozen=True) LineaDia(registro_id, obra_ide, tipo: str, horas:
-  float, horas_orig: float | None, fija: bool)` — `tipo` `'ordinaria'` o `'extra'`.
+  float, horas_orig: float | None, fija: bool, extra_auto: bool = False,
+  base_id: int | None = None)` — `tipo` `'ordinaria'` o `'extra'`. Los dos
+  opcionales (enmienda A, 2026-10-14) los usa solo R25: una `extra_auto` con
+  el `registro_id` de su base no pesa aparte en el ideal y se informa con su id.
 - `@dataclass(frozen=True) Ajuste(registro_id, horas_norm, extra_horas,
   horas_orig)`; `@dataclass(frozen=True) ResultadoDia(cuadra: bool, paso:
   float, ajustes: tuple[Ajuste, ...], n_obras: int, n_lineas: int)`.
@@ -98,12 +101,11 @@ difiere de lo congelado ⇒ WARNING y contador; **no** se aplica.
 - El docstring de `_reclasificar_extras_jornada` se reescribe (sin «mayor id»).
 
 **Modificar** `services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py`:
-`fetch_registros_para_recurso` añade al dict `horas_orig`, `extra_auto` (ya
-leído) y `deleted_at_utc` (columna nueva en el `select`). Sin otro cambio:
-`revert_extras_auto` y `apply_extras_splits` intactos.
-
-**Modificar `tests/dobles.py`** (sv3): `registro(...)` acepta `horas_orig`,
-`extra_auto`, `deleted_at_utc` y `congelada_por_pareja` con defecto neutro.
+`fetch_registros_para_recurso` añade al dict `horas_orig`, `deleted_at_utc`
+(columnas nuevas en el `select`), `extra_auto`, `line_index` y `empleado_line_no`
+(ya leídos por F-037): el conciliador saca `base_id` con `pareja_extra.clave_pareja`.
+`revert_extras_auto` y `apply_extras_splits` intactos. **`tests/dobles.py`**:
+`registro(...)` acepta esas claves y `congelada_por_pareja`, con defecto neutro.
 
 **Documentación**: `docs/ARCHITECTURE.md` semántica 3, `docs/referencia/partes-proyecto.md`
 «Cómputo de extras», `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` §3.3
@@ -133,8 +135,10 @@ antes → después en `progress/impl_F-045.md`:
 `test_f015_r20_computo_ultimo_laborable.py` (las tres homónimas),
 `test_f015_r32_congelados_cuentan_no_se_tocan.py` y
 `test_f037_dos_pasadas.py::test_f037_r10_no_es_pivote_de_una_jornada_incompleta`
-solo si sus grupos tienen ≥ 2 ajustables. **Cualquier otro test existente que
-falle ⇒ `blocked`** y se consulta (no se toca).
+solo si sus grupos tienen ≥ 2 ajustables. Además (enmienda A del humano,
+2026-10-14), `test_f037_revert.py::test_f037_r9_la_unica_clave_nueva_es_la_marca`:
+solo añade las 5 claves nuevas de la lectura al conjunto esperado y nombra F-045.
+**Cualquier otro test existente que falle ⇒ `blocked`** (no se toca).
 
 ## 6. Decisiones (DA, con recomendación)
 
@@ -182,15 +186,11 @@ falle ⇒ `blocked`** y se consulta (no se toca).
 - **R-a · Redistribución al desplegar.** La primera pasada reparte de nuevo
   todo grupo no congelado con ≥ 2 ordinarias: cambian cifras de partes aún no
   aprobados que alguien pudo mirar. Se mide antes (M1).
-- **R-b · Pasadas concurrentes** (preexistente): con más splits por grupo, una
-  doble pasada puede duplicar `extra_auto` hasta la siguiente; igual que hoy.
-- **R-c · Partes de otras obras cambian sin aviso**: una ingesta mueve las
-  extras de partes ya revisados de otra obra (hoy también, pero solo en el
-  último). Sin espera de F-043 (solo cambio de fecha). Si molesta, feature aparte.
-- **R-d · Reingestas / duplicados**: un parte duplicado pesa doble, como hoy.
-- **R-e · Deshacer**: sin cambios; el snapshot no incluye `extra_auto` y la
-  siguiente pasada recalcula (F-042 DA1).
-- **R-f · Descartado**: repartir en sv4 al aprobar (duplicaría el cómputo).
+- **R-b · Pasadas concurrentes** (preexistente): una doble pasada puede duplicar
+  `extra_auto` hasta la siguiente, igual que hoy. **R-d**: un duplicado pesa doble.
+- **R-c · Partes de otras obras cambian sin aviso**: una ingesta mueve extras de
+  partes revisados de otra obra (hoy solo del último). Si molesta, feature aparte.
+- **R-e · Deshacer** sin cambios (F-042 DA1). **R-f · Descartado**: repartir en sv4.
 
 ## 8. Fase 2 · F-046 propuesta (para validar la dirección; spec aparte)
 
