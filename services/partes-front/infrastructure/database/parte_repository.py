@@ -30,12 +30,17 @@ from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
+    REPARTO_APLICADO,
+    REPARTO_APLICANDO,
+    REPARTO_PENDIENTE,
+    REPARTO_RECHAZADO,
     Base,
     DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
+    RepartoPendienteOrm,
     UndoLogOrm,
     ddl_complementario,
 )
@@ -56,6 +61,14 @@ from application.services.congelacion import (
     motivo_congelacion_documento,
     motivo_congelacion_linea,
     vive_fuera,
+)
+from application.services.reparto_aviso import (
+    DECISION_APLICAR,
+    DECISION_MANTENER,
+    ESTADOS_BLOQUEAN,
+    RepartoCambiadoError,
+    RepartoPendienteError,
+    excluidas_por_reparto,
 )
 from application.services.seguimiento_recalculo import (
     ESTADO_NO_EXISTE,
@@ -91,6 +104,9 @@ logger = logging.getLogger(__name__)
 #   dedicacion           -> F-019: de un mensual, publicada en la bandeja
 #                           de dedicacion (veredicto final, congela)
 ESTADO_ENCOLADO = "encolado"
+#: F-046 (R32): clave de `excluidas` de las lineas de un dia con reparto
+#: pendiente de decidir (solo existe si es > 0, como `incompatible`).
+EXCLUIDA_REPARTO = "reparto_pendiente"
 ESTADO_CONFLICTO = "conflicto"
 ESTADO_ERROR = "error"
 
@@ -1640,6 +1656,7 @@ class ParteReviewRepository:
     def lineas_para_registro(
         self, registro_ids: list[int], *, incluir_borradas: bool = False,
         incidencias: TablaIncidencias | None = None,
+        repartos_decididos: frozenset[int] = frozenset(),
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
 
@@ -1663,6 +1680,12 @@ class ParteReviewRepository:
         posible. Las extras positivas de un dia en `aviso` viajan y se
         listan en `avisos_incidencia` de su grupo. Sin `incidencias`, como
         antes de F-025 (R23).
+
+        F-046 (R32): las lineas de un dia con reparto `pendiente`,
+        `aplicando` o `rechazado` no viajan salvo que su reparto este en
+        `repartos_decididos` (decidido «Aplicar» en esta peticion): cuentan
+        en `excluidas["reparto_pendiente"]` (solo si es > 0) y salen en el
+        detalle con su motivo.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -1675,6 +1698,8 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.id.in_(ids))
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
             ).scalars().all())
+            excl_reparto = self._excluidas_reparto(
+                session, regs, repartos_decididos)
             incompat: dict[int, Incompatibilidad] = {}
             if incidencias is not None:
                 incompat = detectar(
@@ -1698,6 +1723,13 @@ class ParteReviewRepository:
                     excluidas[estado] = excluidas.get(estado, 0) + 1
                     detalle.append(_excluida_detalle(
                         r, estado, MOTIVO_EXCLUIDA_DEDICACION))
+                    continue
+                if r.id in excl_reparto:
+                    # F-046 (R32): sin decision sobre su reparto, no viaja.
+                    excluidas[EXCLUIDA_REPARTO] = excluidas.get(
+                        EXCLUIDA_REPARTO, 0) + 1
+                    detalle.append(_excluida_detalle(
+                        r, EXCLUIDA_REPARTO, excl_reparto[r.id]))
                     continue
                 nivel = incompat.get(r.id)
                 if nivel is not None and nivel.nivel == NIVEL_BLOQUEO:
@@ -2977,7 +3009,333 @@ class ParteReviewRepository:
     # Estado del parte (documento).
     # ----------------------------------------------------------------- #
     def approve_document(self, *, document_id: str, approved_by: str | None) -> bool:
+        """F-046 (R36, DA13): no se aprueba un parte con lineas de un dia
+        con reparto `pendiente`, `aplicando` o `rechazado`: aprobarlo
+        congelaria el ideal sin que nadie lo decidiera."""
+        with self._session_factory.create_session() as session:
+            doc = session.get(ParteDocumentOrm, document_id)
+            if doc is not None:
+                activas = [r for r in doc.registros if not r.deleted_at_utc]
+                if self._filas_reparto(session, self._claves_de(activas),
+                                       ESTADOS_BLOQUEAN):
+                    raise RepartoPendienteError()
         return self._set_approval(document_id, True, approved_by)
+
+    # ----------------------------------------------------------------- #
+    # F-046: reparto pendiente (aviso, decision humana y CAS).
+    # sv3 crea y materializa `reparto_pendiente`; el portal lo ensena y
+    # recoge «Aplicar» / «Mantener lo registrado». Toda transicion es CAS
+    # sobre `estado` (sv4 corre con varias replicas: nunca un lock de
+    # proceso, R-h). Las decisiones NO entran en `undo_log` (DA16).
+    # ----------------------------------------------------------------- #
+    @staticmethod
+    def _claves_de(regs) -> set[tuple[int, int]]:
+        """(recurso, fecha) de esas lineas: la clave del grupo de sv3."""
+        return {(int(r.recurso_ide), int(r.fecha_int)) for r in regs
+                if r.recurso_ide and r.fecha_int}
+
+    @staticmethod
+    def _filas_reparto(session, claves: set[tuple[int, int]],
+                       estados) -> list[RepartoPendienteOrm]:
+        """Los repartos de esos grupos en esos estados."""
+        if not claves:
+            return []
+        filas = session.execute(
+            select(RepartoPendienteOrm)
+            .where(RepartoPendienteOrm.recurso_ide.in_(
+                sorted({c[0] for c in claves})))
+            .where(RepartoPendienteOrm.fecha_int.in_(
+                sorted({c[1] for c in claves})))
+            .where(RepartoPendienteOrm.estado.in_(list(estados)))
+            .order_by(RepartoPendienteOrm.id)).scalars().all()
+        return [f for f in filas if (f.recurso_ide, f.fecha_int) in claves]
+
+    @staticmethod
+    def _lineas_activas(session, ids) -> list[ParteRegistroOrm]:
+        """Las lineas de esos ids fuera de la papelera y de un parte
+        activo, en lotes de `LOTE_IDS_CONSULTA`."""
+        orden = sorted({int(i) for i in ids if i})
+        out: list[ParteRegistroOrm] = []
+        for i in range(0, len(orden), LOTE_IDS_CONSULTA):
+            out.extend(session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.id.in_(
+                    orden[i:i + LOTE_IDS_CONSULTA]))).scalars().all())
+        return out
+
+    @staticmethod
+    def _json(texto: str | None) -> dict:
+        try:
+            datos = json.loads(texto or "{}")
+        except (TypeError, ValueError):
+            return {}
+        return datos if isinstance(datos, dict) else {}
+
+    def _reparto_dict(self, session, fila: RepartoPendienteOrm,
+                      registro_ids=()) -> dict[str, Any]:
+        """El reparto para el aviso y para sv5: cada cambio con el parte de
+        Sigrid de su linea (`parte_cod`) y, si es una extra nueva, lo que
+        el registro necesita de su base (recurso, fecha, partida, obra y
+        codigo de hora extra)."""
+        datos = self._json(fila.cambios)
+        cambios: list[dict] = []
+        for c in datos.get("cambios") or []:
+            c = dict(c)
+            rid, base = c.get("registro_id"), c.get("base_registro_id")
+            ref = session.get(ParteRegistroOrm,
+                              int(rid if rid is not None else base or 0))
+            if ref is not None:
+                c.setdefault("parte_cod", ref.sigrid_parte_cod)
+                if rid is None:
+                    for campo in ("recurso_ide", "fecha_int", "partida_ide",
+                                  "partida_cod", "obra_ide", "obra_codigo"):
+                        c.setdefault(campo, getattr(ref, campo))
+            if rid is None:
+                hora = c.get("hora_ext") or {}
+                c.setdefault("hora_ide", hora.get("ide"))
+                c.setdefault("hora_codigo", hora.get("cod"))
+            cambios.append(c)
+        ids_grupo = [int(i) for i in datos.get("ids_grupo") or []]
+        docs = {reg.document_id for reg in
+                (session.get(ParteRegistroOrm, i) for i in ids_grupo)
+                if reg is not None}
+        return {
+            "id": fila.id, "estado": fila.estado,
+            "recurso_ide": fila.recurso_ide, "fecha_int": fila.fecha_int,
+            "firma": fila.firma, "error": fila.error,
+            "decision": fila.decision, "decidido_por": fila.decidido_por,
+            "cambios": cambios, "ids_grupo": ids_grupo,
+            "registro_ids": sorted(int(i) for i in registro_ids),
+            "reservas": dict(self._json(fila.resultado).get("reservas")
+                             or {}),
+            "document_ids": sorted(docs),
+        }
+
+    def repartos_de_registros(self, ids,
+                              estados=ESTADOS_BLOQUEAN) -> list[dict]:
+        """R30: los repartos vivos (por defecto los que bloquean el
+        registro) de los grupos de esas lineas; `registro_ids` son las de
+        `ids` que caen en cada uno."""
+        with self._session_factory.create_session() as session:
+            regs = self._lineas_activas(session, ids)
+            out = []
+            for f in self._filas_reparto(session, self._claves_de(regs),
+                                         estados):
+                propias = [r.id for r in regs
+                           if (r.recurso_ide, r.fecha_int)
+                           == (f.recurso_ide, f.fecha_int)]
+                out.append(self._reparto_dict(session, f, propias))
+            return out
+
+    def registros_con_reparto(self, ids) -> set[int]:
+        """R37: las de esas lineas cuyo dia tiene un reparto `pendiente`,
+        `aplicando` o `rechazado` (las vistas las marcan)."""
+        with self._session_factory.create_session() as session:
+            regs = self._lineas_activas(session, ids)
+            claves = {(f.recurso_ide, f.fecha_int) for f in
+                      self._filas_reparto(session, self._claves_de(regs),
+                                          ESTADOS_BLOQUEAN)}
+            return {r.id for r in regs
+                    if (r.recurso_ide, r.fecha_int) in claves}
+
+    def _excluidas_reparto(self, session, regs,
+                           decididos: frozenset[int]) -> dict[int, str]:
+        """R32: las lineas de `regs` que no viajan por su reparto."""
+        filas = self._filas_reparto(session, self._claves_de(regs),
+                                    ESTADOS_BLOQUEAN)
+        return excluidas_por_reparto(
+            [{"id": f.id, "estado": f.estado,
+              "registro_ids": [r.id for r in regs
+                               if (r.recurso_ide, r.fecha_int)
+                               == (f.recurso_ide, f.fecha_int)]}
+             for f in filas],
+            {int(i): DECISION_APLICAR for i in decididos})
+
+    @staticmethod
+    def _reservar_id(session, ya: dict) -> int:
+        """R33 (DA5): un `registro_id` para la extra nueva, de la secuencia
+        de `parte_registros` (sv3 la creara con el, R15). Sin PostgreSQL
+        (SQLite de los tests) no hay secuencia: el siguiente al mayor id de
+        las lineas y de las reservas ya hechas."""
+        if session.get_bind().dialect.name == "postgresql":
+            return int(session.execute(text(
+                "SELECT nextval(pg_get_serial_sequence("
+                "'parte_registros', 'id'))")).scalar())
+        maximo = session.execute(
+            select(func.max(ParteRegistroOrm.id))).scalar() or 0
+        return max([int(maximo), *(int(v) for v in ya.values())]) + 1
+
+    def iniciar_aplicacion(self, reparto_id: int, *,
+                           actor: str | None) -> dict:
+        """R33 (1-2): `pendiente` (o `aplicando`, reintento de R34) ->
+        `aplicando` por CAS, SOLO si sus lineas siguen con las horas y el
+        estado «antes», el dia no tiene lineas nuevas ni le faltan, y
+        ningun parte del dia esta en espera de sv3 (F-043). Reserva los ids
+        de las extras nuevas (los de un intento anterior se conservan). Si
+        algo no cuadra, `RepartoCambiadoError` (409) sin tocar nada."""
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None:
+                raise RepartoCambiadoError("el reparto ya no existe")
+            if fila.estado not in (REPARTO_PENDIENTE, REPARTO_APLICANDO):
+                raise RepartoCambiadoError(
+                    f"el reparto ya no esta pendiente (esta {fila.estado}): "
+                    "recarga la pagina")
+            datos = self._json(fila.cambios)
+            for c in datos.get("cambios") or []:
+                if c.get("registro_id") is None:
+                    continue
+                reg = session.get(ParteRegistroOrm, int(c["registro_id"]))
+                if reg is None or reg.deleted_at_utc:
+                    raise RepartoCambiadoError(
+                        f"la linea {c['registro_id']} ya no esta en el "
+                        "portal: recarga la pagina")
+                if abs(float(reg.horas or 0.0) - float(c["antes"])) > 1e-6:
+                    raise RepartoCambiadoError(
+                        f"la linea {reg.id} cambio: tiene "
+                        f"{float(reg.horas or 0.0):g} h y el aviso decia "
+                        f"{float(c['antes']):g} h; recarga la pagina")
+                if _estado_norm(reg.sigrid_estado) != _estado_norm(
+                        c.get("sigrid_estado")):
+                    raise RepartoCambiadoError(
+                        f"la linea {reg.id} cambio de estado en Sigrid: "
+                        "recarga la pagina")
+            actuales = session.execute(
+                select(ParteRegistroOrm).join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.recurso_ide == fila.recurso_ide)
+                .where(ParteRegistroOrm.fecha_int == fila.fecha_int)
+            ).scalars().all()
+            grupo = {int(i) for i in datos.get("ids_grupo") or []}
+            # Las extras automaticas de lo libre las rehace sv3 en cada
+            # pasada (ids nuevos): no son lineas nuevas del dia.
+            nuevas = sorted(r.id for r in actuales
+                            if r.id not in grupo and not r.extra_auto)
+            if nuevas:
+                raise RepartoCambiadoError(
+                    f"el dia tiene lineas nuevas ({', '.join(map(str, nuevas))}"
+                    "): recarga la pagina y vuelve a decidir")
+            faltan = sorted(grupo - {r.id for r in actuales})
+            if faltan:
+                raise RepartoCambiadoError(
+                    f"faltan lineas del dia ({', '.join(map(str, faltan))}): "
+                    "recarga la pagina")
+            documentos = {r.document_id for r in actuales}
+        if self.documentos_en_espera(documentos):
+            raise RepartoCambiadoError(
+                "un parte de ese dia se esta recalculando: espera unos "
+                "segundos y vuelve a intentarlo")
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            res = session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id,
+                       RepartoPendienteOrm.estado.in_(
+                           [REPARTO_PENDIENTE, REPARTO_APLICANDO]))
+                .values(estado=REPARTO_APLICANDO, decision=DECISION_APLICAR,
+                        decidido_por=actor, decidido_at_utc=ahora,
+                        error=None, actualizado_at_utc=ahora)
+                .execution_options(synchronize_session=False))
+            if res.rowcount != 1:
+                session.rollback()
+                raise RepartoCambiadoError(
+                    "otro usuario decidio este reparto: recarga la pagina")
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            resultado = self._json(fila.resultado)
+            reservas = dict(resultado.get("reservas") or {})
+            for c in self._json(fila.cambios).get("cambios") or []:
+                clave = str(c.get("base_registro_id"))
+                if c.get("registro_id") is None and clave not in reservas:
+                    reservas[clave] = self._reservar_id(session, reservas)
+            resultado["reservas"] = reservas
+            session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id)
+                .values(resultado=json.dumps(resultado))
+                .execution_options(synchronize_session=False))
+            session.commit()
+            logger.info("[reparto] reparto %s -> aplicando (por %s, "
+                        "reservas=%s)", reparto_id, actor, reservas)
+            session.expire_all()
+            return self._reparto_dict(
+                session, session.get(RepartoPendienteOrm, reparto_id))
+
+    def cerrar_aplicacion(self, reparto_id: int, *, ok: bool | None,
+                          sv5: dict | None, error: str | None,
+                          actor: str | None) -> str:
+        """R33 (4), R34: `aplicando` -> `aplicado` (ok), -> `pendiente` con
+        el error (sv5 lo rechazo: nada escrito) o se queda `aplicando` con
+        el error (sin respuesta: el reintento es seguro, R26). Guarda la
+        respuesta de sv5 junto a las reservas. Devuelve el estado final."""
+        nuevo = (REPARTO_APLICADO if ok is True
+                 else REPARTO_PENDIENTE if ok is False else REPARTO_APLICANDO)
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None:
+                return ""
+            resultado = self._json(fila.resultado)
+            if sv5 is not None:
+                resultado["sv5"] = sv5
+            res = session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id,
+                       RepartoPendienteOrm.estado == REPARTO_APLICANDO)
+                .values(estado=nuevo, resultado=json.dumps(resultado),
+                        error=None if ok else ((error or "")[:255] or None),
+                        actualizado_at_utc=ahora)
+                .execution_options(synchronize_session=False))
+            session.commit()
+            if res.rowcount != 1:
+                session.expire_all()
+                return session.get(RepartoPendienteOrm, reparto_id).estado
+        logger.info("[reparto] reparto %s -> %s (por %s)%s", reparto_id,
+                    nuevo, actor, f": {error}" if error and not ok else "")
+        return nuevo
+
+    def rechazar_reparto(self, reparto_id: int, *,
+                         actor: str | None) -> dict:
+        """R35: «Mantener lo registrado». `pendiente` -> `rechazado` por CAS
+        (repetirlo no hace nada). Devuelve el reparto con
+        `documentos_libres`: los partes de sus lineas NO congeladas, a los
+        que hay que pedir el recalculo seguido."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None:
+                raise RepartoCambiadoError("el reparto ya no existe")
+            if fila.estado != REPARTO_RECHAZADO:
+                res = session.execute(
+                    update(RepartoPendienteOrm)
+                    .where(RepartoPendienteOrm.id == reparto_id,
+                           RepartoPendienteOrm.estado == REPARTO_PENDIENTE)
+                    .values(estado=REPARTO_RECHAZADO,
+                            decision=DECISION_MANTENER, decidido_por=actor,
+                            decidido_at_utc=ahora, actualizado_at_utc=ahora)
+                    .execution_options(synchronize_session=False))
+                if res.rowcount != 1:
+                    session.rollback()
+                    raise RepartoCambiadoError(
+                        f"el reparto ya no esta pendiente (esta "
+                        f"{fila.estado}): recarga la pagina")
+                session.commit()
+                logger.info("[reparto] reparto %s -> rechazado (por %s)",
+                            reparto_id, actor)
+            session.expire_all()
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            libres = set()
+            for i in self._json(fila.cambios).get("ids_grupo") or []:
+                reg = session.get(ParteRegistroOrm, int(i))
+                if reg is not None and motivo_congelacion_linea(
+                        doc_aprobado=bool(reg.document.approved),
+                        sigrid_estado=reg.sigrid_estado) is None:
+                    libres.add(reg.document_id)
+            return dict(self._reparto_dict(session, fila),
+                        documentos_libres=sorted(libres))
 
     def unapprove_document(self, *, document_id: str) -> bool:
         """Desaprobar («Marcar pendiente») ES la via explicita de F-004.

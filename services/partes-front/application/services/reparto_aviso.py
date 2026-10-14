@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 
+from application.services.congelacion import CongeladoError
+
 DECISION_APLICAR = "aplicar"
 DECISION_MANTENER = "mantener"
 DECISIONES = (DECISION_APLICAR, DECISION_MANTENER)
@@ -42,6 +44,25 @@ MOTIVO_APLICANDO = (
 MOTIVO_RECHAZADO = (
     "se mantuvo lo registrado: falta el recalculo del dia antes de registrar")
 MOTIVO_SIN_COMPROBAR = "no se pudo comprobar en Sigrid"
+
+MOTIVO_APROBAR_CON_REPARTO = (
+    "este parte tiene lineas de un dia con un reparto pendiente de decidir "
+    "(o en curso): decide «Aplicar» o «Mantener lo registrado» al aprobar "
+    "sus lineas antes de aprobar el parte")
+
+
+class RepartoCambiadoError(CongeladoError):
+    """R33, R35: el reparto ya no esta como cuando se ensento (otro usuario
+    decidio, cambio una linea, hay lineas nuevas o un parte esta en
+    espera). La capa web lo traduce a 409 (como toda `CongeladoError`)."""
+
+
+class RepartoPendienteError(CongeladoError):
+    """R36 (DA13): no se aprueba un documento con un reparto vivo."""
+
+    def __init__(self) -> None:
+        super().__init__(MOTIVO_APROBAR_CON_REPARTO)
+
 
 #: `sigrid_estado` de una linea que esta en Sigrid (la edita sv5).
 REGISTRADO = "registrado"
