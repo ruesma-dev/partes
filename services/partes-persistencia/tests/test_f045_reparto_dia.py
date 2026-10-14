@@ -356,3 +356,51 @@ def test_f045_r25_ideal_no_depende_del_orden() -> None:
     for perm in itertools.permutations(lineas):
         assert diferencias_ideal(list(perm), 8.0) == (
             (1, 8.0, 2.5), (2, -4.0, 1.5))
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+
+def test_f045_r7_repartir_dia_resultados_inmutables() -> None:
+    import dataclasses
+
+    res = repartir_dia([_o(1, A, 10.0), _o(2, B, 4.0)], 8.0)
+    for obj in (res, res.ajustes[0], _o(1, A, 1.0)):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            obj.registro_id = 9  # type: ignore[misc,attr-defined]
+
+
+def test_f045_r22_repartir_dia_ordinaria_a_cero_de_la_misma_obra_no_cuenta(
+) -> None:
+    """Una linea de 0 h es fija aunque comparta obra con una ajustable: no
+    es una linea del reparto."""
+    res = repartir_dia([_o(1, A, 0.0), _o(2, A, 10.0)], 8.0)
+    assert _aj(res) == {2: (8.0, 2.0)}
+    assert res.n_lineas == 1
+
+
+def test_f045_r28_repartir_dia_la_extra_se_redondea_a_centesimas() -> None:
+    """Como hoy: horas que no son de centesimas dan una extra a 2 decimales."""
+    res = repartir_dia([_o(1, A, 7.333)], 8.0)
+    assert res.paso == 0.01
+    assert _aj(res) == {1: (8.0, -0.67)}
+
+
+def test_f045_r25_ideal_la_extra_explicita_con_base_no_es_de_la_pareja(
+) -> None:
+    """`base_id` sin `extra_auto` no empareja: la extra explicita pesa en su
+    obra (A = 10 + 2 frente a B 4 da a A 6) y nunca cambia."""
+    lineas = [_o(1, A, 8.0, fija=True, horas_orig=10.0),
+              LineaDia(registro_id=2, obra_ide=A, tipo="extra", horas=2.0,
+                       fija=True, base_id=1),
+              _o(3, B, 4.0)]
+    assert diferencias_ideal(lineas, 8.0) == ((1, 8.0, 6.0),)
+
+
+def test_f045_r25_ideal_la_extra_de_la_pareja_a_centesimas() -> None:
+    """Trabajado 7,333 y 8 (paso 0,01): la base ideal es 3,83 y la extra
+    de la pareja 7,333 - 3,83 = 3,503, que se da a centesimas (3,5)."""
+    lineas = [_o(1, A, 8.0, fija=True, horas_orig=7.333),
+              _e(2, A, -0.667, fija=True, extra_auto=True, base_id=1),
+              _o(3, B, 8.0)]
+    assert diferencias_ideal(lineas, 8.0) == (
+        (1, 8.0, 3.83), (2, -0.667, 3.5))

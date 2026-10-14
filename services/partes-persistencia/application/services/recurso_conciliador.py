@@ -708,8 +708,10 @@ class RecursoConciliador:
                     fecha_iso, ride, abs(total_ord - jornada), disponible,
                 )
                 continue
-            if resultado.n_obras >= 2 or resultado.n_lineas >= 2 or marca:
-                # R30: traza del reparto (sin nombres ni DNIs).
+            if resultado.n_lineas >= 2 or marca:
+                # R30: traza del reparto (sin nombres ni DNIs). Cada obra
+                # repartida tiene al menos una linea, asi que >= 2 obras
+                # implica >= 2 lineas.
                 logger.info(
                     "[recurso-concil] reparto %s (recurso=%s): jornada=%.2f "
                     "paso=%.2f obras=%s lineas=%s.%s",
@@ -761,8 +763,7 @@ class RecursoConciliador:
                 horas_orig=x.get("horas_orig"),
                 fija=_congelado(x),
                 extra_auto=extra_auto,
-                base_id=(bases.get(clave_pareja(x))
-                         if extra_auto and tipo_linea == EXTRA else None),
+                base_id=bases.get(clave_pareja(x)) if extra_auto else None,
             ))
         return lineas
 

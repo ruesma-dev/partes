@@ -200,7 +200,7 @@ def repartir_dia(lineas: Sequence[LineaDia], jornada: float) -> ResultadoDia:
             if abs(cuota - ln.horas) > _EPS:
                 ajustes.append(Ajuste(
                     registro_id=ln.registro_id,
-                    horas_norm=round(cuota, 2),
+                    horas_norm=cuota,
                     extra_horas=round(ln.horas - cuota, 2),
                     horas_orig=ln.horas,
                 ))

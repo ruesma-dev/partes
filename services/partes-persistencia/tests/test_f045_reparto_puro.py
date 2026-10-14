@@ -192,3 +192,24 @@ def test_f045_r6_modulo_puro_sin_infraestructura_ni_red() -> None:
                   "psycopg", "socket", "urllib", "domain.ports")
     assert not [m for m in importados
                 if any(m == p or m.startswith(p + ".") for p in prohibidos)]
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+
+def test_f045_r5_un_peso_minimo_se_lleva_todo() -> None:
+    """Una diezmilesima de hora de peso es peso: recibe el total entero."""
+    assert repartir(0.5, [_p("A", 0.0001, 1)], 0.01) == {"A": 0.5}
+
+
+def test_f045_r5_un_peso_por_debajo_de_la_resolucion_no_rompe() -> None:
+    """Un peso positivo que redondea a 0 no reparte nada (ni divide por 0)."""
+    assert repartir(8.0, [_p("A", 0.00001, 1)], 0.5) == {"A": 0.0}
+
+
+def test_f045_r1_los_participantes_son_inmutables() -> None:
+    import dataclasses
+
+    p = _p("A", 1.0, 1)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        p.peso = 2.0  # type: ignore[misc]
+    assert hash(p) == hash(_p("A", 1.0, 1))

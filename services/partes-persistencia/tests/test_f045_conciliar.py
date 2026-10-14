@@ -342,3 +342,26 @@ def test_f045_r29_no_depende_del_orden_de_los_registros() -> None:
         copia = list(regs)
         azar.shuffle(copia)
         assert _resumen(_splits(copia)) == esperado
+
+
+# ================= refuerzo tras la campana de mutacion ================= #
+
+def test_f045_r25_el_contador_empieza_en_cero() -> None:
+    """Fuera de `conciliar_todos` (que lo vacia), un conciliador recien
+    construido cuenta desde 0."""
+    conciliador = RecursoConciliador(
+        repository=RepositorioFake(), lookup=LookupFake(),
+        calendario=CalendarioFake(set()),
+    )
+    regs = [registro(1, fecha_int=LUNES, horas=8.0, obra_ide=678,
+                     sigrid_estado="registrado", horas_orig=4.0),
+            registro(2, fecha_int=LUNES, horas=8.0, obra_ide=704)]
+    conciliador._reclasificar_extras_jornada(
+        regs, {1: RECURSO, 2: RECURSO}, indice_reshor(RECURSO))
+    assert conciliador._repartos_con_congeladas == 1
+
+
+def test_f045_r20_sabado_sin_horas_ordinarias_no_se_toca(caplog) -> None:
+    with caplog.at_level(logging.INFO):
+        assert _splits([registro(1, fecha_int=SABADO, horas=0.0)]) == []
+    assert "dia NO laborable" not in caplog.text
