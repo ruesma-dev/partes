@@ -12,7 +12,6 @@ import logging
 import threading
 
 import pytest
-
 from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.reajuste_lineas import (
@@ -78,10 +77,10 @@ def _caso_real():
 
 
 def _nueva(despues=2.5, **kw) -> OpReajuste:
-    args = dict(registro_id=NUEVA, despues=despues, base_registro_id=11,
-                recurso_ide=501, fecha_int=FECHA, hora_ide=HE,
-                hora_codigo="HE01", partida_ide=33, partida_cod="P-33",
-                obra_ide=OBRA, obra_codigo="9999")
+    args = {"registro_id": NUEVA, "despues": despues, "base_registro_id": 11,
+            "recurso_ide": 501, "fecha_int": FECHA, "hora_ide": HE,
+            "hora_codigo": "HE01", "partida_ide": 33, "partida_cod": "P-33",
+            "obra_ide": OBRA, "obra_codigo": "9999"}
     args.update(kw)
     return OpReajuste(**args)
 

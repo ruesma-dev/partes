@@ -40,11 +40,6 @@ from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from application.pipelines.registro_pipeline import RegistroPipeline
-from application.services.reajuste_lineas import (
-    veredicto_existente,
-    veredicto_nueva,
-)
 from domain.models.registro_models import (
     AccionLinea,
     LineaEntrada,
@@ -55,6 +50,12 @@ from domain.models.registro_models import (
     VeredictoReajuste,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_de
+
+from application.pipelines.registro_pipeline import RegistroPipeline
+from application.services.reajuste_lineas import (
+    veredicto_existente,
+    veredicto_nueva,
+)
 
 logger = logging.getLogger(__name__)
 

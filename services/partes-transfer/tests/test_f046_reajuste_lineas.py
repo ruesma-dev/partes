@@ -8,7 +8,6 @@ Datos sinteticos: ni nombres ni DNIs; ides, recursos y codigos inventados.
 from __future__ import annotations
 
 import pytest
-
 from application.services.reajuste_lineas import (
     MOTIVO_BASE_NO_EDITABLE,
     MOTIVO_CAN_DISTINTA,
@@ -148,8 +147,8 @@ def _accion(accion: str = "escribir", motivo: str | None = None):
 
 
 def _nueva(**kw) -> VeredictoReajuste:
-    args = dict(existente=None, base=_base_ok(), accion=_accion(),
-                choques=[], misma_obra=True)
+    args = {"existente": None, "base": _base_ok(), "accion": _accion(),
+            "choques": [], "misma_obra": True}
     args.update(kw)
     return veredicto_nueva(_op(rid=990000001, antes=None, despues=2.5,
                                base=11), **args)

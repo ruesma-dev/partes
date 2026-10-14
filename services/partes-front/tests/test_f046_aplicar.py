@@ -151,7 +151,7 @@ def test_f046_r37_repositorio_registros_con_reparto(fabrica):
 # ------------------------------- R33 ------------------------------- #
 
 def test_f046_r33_repositorio_iniciar_pasa_a_aplicando(fabrica):
-    rid, base, *_ = _caso_real(fabrica)
+    rid, _base, *_ = _caso_real(fabrica)
     f = _repo(fabrica).iniciar_aplicacion(rid, actor="admin@test")
     fila = _fila(fabrica, rid)
     assert (fila.estado, fila.decision, fila.decidido_por) == (
@@ -312,7 +312,7 @@ def test_f046_r38_repositorio_la_decision_no_entra_en_undo_log(fabrica):
 # ------------------------------- R32 ------------------------------- #
 
 def test_f046_r32_repositorio_sin_decision_no_viajan(fabrica):
-    rid, base, extra, libre, libre_extra = _caso_real(fabrica)
+    _rid, _base, _extra, libre, libre_extra = _caso_real(fabrica)
     (otro,) = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="doc-x",
                             fecha="2026-03-03")
     datos = _repo(fabrica).lineas_para_registro([libre, libre_extra, otro])
@@ -352,9 +352,9 @@ def test_f046_r32_repositorio_sin_reparto_igual_que_siempre(fabrica):
 # `build_app` con el repositorio REAL sobre SQLite y dobles de sv5 y del
 # publicador del recalculo: ni PostgreSQL, ni red, ni Storage.
 
-from config.settings import Settings  # noqa: E402
-from fastapi.testclient import TestClient  # noqa: E402
-from interface_adapters.web.app import build_app  # noqa: E402
+from config.settings import Settings
+from fastapi.testclient import TestClient
+from interface_adapters.web.app import build_app
 
 ACTOR = "local:ana"
 
@@ -463,7 +463,7 @@ def test_f046_r30_preflight_trae_el_bloque_de_repartos(fabrica, portal):
 
 
 def test_f046_r31_preflight_no_editable_solo_mantener(fabrica, portal):
-    rid, base, extra, libre, _le = _caso_real(fabrica)
+    _rid, base, extra, libre, _le = _caso_real(fabrica)
     sv5 = Sv5Fake(comprobar={"ok": False, "veredictos": [
         {"registro_id": base, "editable": True, "motivo": None},
         {"registro_id": extra, "editable": False,
@@ -579,7 +579,7 @@ def test_f046_r32_decisiones_mal_formadas_son_422(fabrica, portal,
 
 def test_f046_r34_sv5_rechaza_vuelve_a_pendiente_y_no_registra(fabrica,
                                                                portal):
-    rid, base, extra, libre, _le = _caso_real(fabrica)
+    rid, base, _extra, libre, _le = _caso_real(fabrica)
     sv5 = Sv5Fake(reajuste={"ok": False, "error": "hay lineas que no se "
                             "pueden reajustar", "veredictos": [
                                 {"registro_id": base, "editable": False,

@@ -108,9 +108,8 @@ def test_f046_r18_sin_candado_a_tiempo_lanza_y_no_entra(monkeypatch):
     con = ConexionFalsa([False] * 100)
     repo, _, reloj = _repo(monkeypatch, con, espera=10.0)
     entro = []
-    with pytest.raises(TimeoutError, match="candado"):
-        with repo.candado_pasada():
-            entro.append(True)
+    with pytest.raises(TimeoutError, match="candado"), repo.candado_pasada():
+        entro.append(True)
     assert entro == []
     assert sum(reloj.esperas) == pytest.approx(10.0)
     assert all(e <= 8.0 for e in reloj.esperas)
@@ -121,9 +120,8 @@ def test_f046_r18_sin_candado_a_tiempo_lanza_y_no_entra(monkeypatch):
 def test_f046_r18_suelta_aunque_la_pasada_falle(monkeypatch):
     con = ConexionFalsa([True])
     repo, _, _ = _repo(monkeypatch, con)
-    with pytest.raises(ValueError):
-        with repo.candado_pasada():
-            raise ValueError("fallo de la pasada")
+    with pytest.raises(ValueError), repo.candado_pasada():
+        raise ValueError("fallo de la pasada")
     assert any("pg_advisory_unlock" in s for s, _ in con.sentencias)
     assert con.cerrada
 

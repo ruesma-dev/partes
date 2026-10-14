@@ -10,11 +10,10 @@ from __future__ import annotations
 import threading
 
 import pytest
-from fastapi.testclient import TestClient
-
 from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from domain.models.registro_models import ResultadoReajuste, VeredictoReajuste
+from fastapi.testclient import TestClient
 from interface_adapters.api import app as modulo_app
 from interface_adapters.api.app import MAX_LINEAS_REAJUSTE, build_app
 from tests.dobles import SettingsFake

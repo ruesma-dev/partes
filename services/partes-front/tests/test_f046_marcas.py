@@ -158,7 +158,7 @@ def _node(cuerpo: str):
                 + "process.stdout.write(JSON.stringify((function () {\n"
                 + cuerpo + "\n})()));\n")
     r = subprocess.run([NODE, "-e", programa], capture_output=True,
-                       text=True, encoding="utf-8", timeout=60)
+                       text=True, encoding="utf-8", timeout=60, check=False)
     assert r.returncode == 0, r.stderr
     return json.loads(r.stdout)
 

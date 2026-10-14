@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from domain.models.registro_models import LineaSigrid, ObraEntrada
 from infrastructure.sigrid import sigrid_write_client as modulo
 from infrastructure.sigrid.sigrid_write_client import (
@@ -62,7 +61,7 @@ def _sql(texto: str) -> str:
 def _obra() -> ObraEntrada:
     o = ObraEntrada(ide=10, codigo="9999", nombre="obra sintetica",
                     empresa=1)
-    setattr(o, "cenide", 77)
+    o.cenide = 77
     return o
 
 

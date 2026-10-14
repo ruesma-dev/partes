@@ -344,18 +344,18 @@ def fabrica() -> FabricaSesionSqlite:
 # ============================ conciliador ============================ #
 # Ciclo completo: `conciliar_todos` con el repositorio REAL sobre SQLite.
 
-from application.services.jornada_resolver import DetalleJornada  # noqa: E402
-from application.services.recurso_conciliador import (  # noqa: E402
+from application.services.jornada_resolver import DetalleJornada
+from application.services.recurso_conciliador import (
     RecursoConciliador,
 )
-from sqlalchemy import select  # noqa: E402
-from tests.dobles import (  # noqa: E402
+from sqlalchemy import select
+from tests.dobles import (
     CalendarioFake,
     LookupFake,
     RepositorioFake,
     reshor_par,
 )
-from tests.test_f045_conciliar import IndiceFijo  # noqa: E402
+from tests.test_f045_conciliar import IndiceFijo
 
 LUNES = 20260302
 DNI_SINTETICO = "12345678Z"
@@ -531,7 +531,7 @@ def test_f046_r13_aplicando_no_se_toca_y_lo_libre_va_al_ideal(fabrica):
 
 
 def test_f046_r13_un_reparto_cuyo_grupo_desaparece_pasa_a_obsoleto(fabrica):
-    _b, _e, nueva = _caso_real_ciclo(fabrica)
+    _b, _e, _nueva = _caso_real_ciclo(fabrica)
     c = _conciliador(fabrica)
     c.conciliar_todos()
     with fabrica.create_session() as s:
