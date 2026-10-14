@@ -1,18 +1,28 @@
 # infrastructure/database/sqlalchemy_parte_repository.py
 from __future__ import annotations
 
+import json
 import logging
+import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 
 from domain.models.parte_records import ExistingParte, ParteDocumento
 from infrastructure.database.orm_models import (
+    REPARTO_APLICADO,
+    REPARTO_MANTENIDO,
+    REPARTO_MATERIALIZADO,
+    REPARTO_OBSOLETO,
+    REPARTO_PENDIENTE,
+    REPARTO_RECHAZADO,
     Base,
     EmpleadoAliasOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
+    RepartoPendienteOrm,
     ddl_complementario,
 )
 from infrastructure.database.session_factory import SessionFactory
@@ -25,9 +35,23 @@ from application.services.pareja_extra import (
     es_miembro,
     plan_revert,
 )
+from application.services.reajuste_reparto import (
+    cambios_a_json,
+    json_a_cambios,
+)
 from application.services.recurso_conciliador import esta_congelado
 
 logger = logging.getLogger(__name__)
+
+#: F-046 (R18, DA15): clave del candado consultivo de PostgreSQL que
+#: serializa las pasadas de `conciliar_todos` entre replicas de sv3. Es de
+#: SESION y PostgreSQL la etiqueta con la base (`partes`): no ve a los
+#: otros proyectos del servidor compartido ni toca nada de servidor.
+CLAVE_CANDADO_CONCILIAR = 460460001
+
+#: Reloj y espera del candado (sustituibles en los tests).
+_reloj = time.monotonic
+_dormir = time.sleep
 
 
 def _fila_pareja(*, registro_id: int, document_id, line_index,
@@ -111,8 +135,11 @@ def _emp_signals(
 
 
 class SqlAlchemyParteRepository:
-    def __init__(self, session_factory: SessionFactory) -> None:
+    def __init__(self, session_factory: SessionFactory, *,
+                 candado_espera_s: float = 300.0) -> None:
         self._session_factory = session_factory
+        #: F-046 (R18): espera maxima por el candado de la pasada.
+        self.candado_espera_s = float(candado_espera_s)
 
     def initialize(self) -> None:
         """Crea lo que falte del esquema y lo completa (idempotente).
@@ -390,11 +417,68 @@ class SqlAlchemyParteRepository:
         _log_plan_revert(plan)
         return len(plan.borrar)
 
+    @staticmethod
+    def _extra_de(normal: ParteRegistroOrm, s: dict) -> ParteRegistroOrm:
+        """La extra automatica de un split, CLONADA de su ordinaria con la
+        hora extra del recurso. F-046 (R15, R17): `id` opcional (el
+        `registro_id` que reservo sv4 para la extra nueva) y `sigrid`
+        opcional (los `sigrid_*` con que nace, si su base ya estaba en
+        Sigrid)."""
+        extra = ParteRegistroOrm(
+            document_id=normal.document_id,
+            line_index=normal.line_index,
+            empleado_line_no=normal.empleado_line_no,
+            categoria=normal.categoria,
+            trabajador_nombre_leido=normal.trabajador_nombre_leido,
+            empleado_ide=normal.empleado_ide,
+            empleado_codigo=normal.empleado_codigo,
+            empleado_nombre=normal.empleado_nombre,
+            empleado_dni=normal.empleado_dni,
+            empleado_reside=normal.empleado_reside,
+            empleado_match_score=normal.empleado_match_score,
+            empleado_match_method=normal.empleado_match_method,
+            fecha=normal.fecha,
+            fecha_int=normal.fecha_int,
+            obra_codigo=normal.obra_codigo,
+            obra_nombre=normal.obra_nombre,
+            obra_ide=normal.obra_ide,
+            tipo_hora="extra",
+            es_incidencia=False,
+            horas=s["extra_horas"],
+            partida=normal.partida,
+            partida_ide=normal.partida_ide,
+            partida_cod=normal.partida_cod,
+            partida_res=normal.partida_res,
+            partida_capitulo=normal.partida_capitulo,
+            partida_match_method=normal.partida_match_method,
+            partida_match_score=normal.partida_match_score,
+            recurso_ide=normal.recurso_ide,
+            recurso_cif=normal.recurso_cif,
+            hmo_ide=normal.hmo_ide,
+            parte_estado=normal.parte_estado,
+            hora_ide=s["hora_ext_ide"],
+            hora_codigo=s["hora_ext_cod"],
+            hora_descripcion=s["hora_ext_desc"],
+            hora_ext=s["hora_ext_ext"],
+            hora_candef=s["hora_candef"],
+            hora_match_method="extra_jornada",
+            extra_auto=True,
+            confianza_pct=normal.confianza_pct,
+        )
+        if s.get("id") is not None:
+            extra.id = int(s["id"])
+        for campo, valor in (s.get("sigrid") or {}).items():
+            if campo.startswith("sigrid_"):
+                setattr(extra, campo, valor)
+        return extra
+
     def apply_extras_splits(self, splits: list[dict]) -> int:
         """Aplica el paso de exceso de jornada a extra. Por cada split:
         recorta el registro normal (horas -> horas_norm, guardando horas_orig)
         e inserta un registro EXTRA (extra_auto) clonando el normal con la
-        hora extra del recurso. Devuelve el numero de registros extra creados."""
+        hora extra del recurso. Devuelve el numero de registros extra creados.
+
+        F-046: cada split admite `id` y `sigrid` opcionales (`_extra_de`)."""
         if not splits:
             return 0
         n = 0
@@ -406,48 +490,7 @@ class SqlAlchemyParteRepository:
                 if normal.horas_orig is None:
                     normal.horas_orig = s["horas_orig"]
                 normal.horas = s["horas_norm"]
-                extra = ParteRegistroOrm(
-                    document_id=normal.document_id,
-                    line_index=normal.line_index,
-                    empleado_line_no=normal.empleado_line_no,
-                    categoria=normal.categoria,
-                    trabajador_nombre_leido=normal.trabajador_nombre_leido,
-                    empleado_ide=normal.empleado_ide,
-                    empleado_codigo=normal.empleado_codigo,
-                    empleado_nombre=normal.empleado_nombre,
-                    empleado_dni=normal.empleado_dni,
-                    empleado_reside=normal.empleado_reside,
-                    empleado_match_score=normal.empleado_match_score,
-                    empleado_match_method=normal.empleado_match_method,
-                    fecha=normal.fecha,
-                    fecha_int=normal.fecha_int,
-                    obra_codigo=normal.obra_codigo,
-                    obra_nombre=normal.obra_nombre,
-                    obra_ide=normal.obra_ide,
-                    tipo_hora="extra",
-                    es_incidencia=False,
-                    horas=s["extra_horas"],
-                    partida=normal.partida,
-                    partida_ide=normal.partida_ide,
-                    partida_cod=normal.partida_cod,
-                    partida_res=normal.partida_res,
-                    partida_capitulo=normal.partida_capitulo,
-                    partida_match_method=normal.partida_match_method,
-                    partida_match_score=normal.partida_match_score,
-                    recurso_ide=normal.recurso_ide,
-                    recurso_cif=normal.recurso_cif,
-                    hmo_ide=normal.hmo_ide,
-                    parte_estado=normal.parte_estado,
-                    hora_ide=s["hora_ext_ide"],
-                    hora_codigo=s["hora_ext_cod"],
-                    hora_descripcion=s["hora_ext_desc"],
-                    hora_ext=s["hora_ext_ext"],
-                    hora_candef=s["hora_candef"],
-                    hora_match_method="extra_jornada",
-                    extra_auto=True,
-                    confianza_pct=normal.confianza_pct,
-                )
-                session.add(extra)
+                session.add(self._extra_de(normal, s))
                 n += 1
             session.commit()
         return n
@@ -482,6 +525,307 @@ class SqlAlchemyParteRepository:
                 n += 1
             session.commit()
         return n
+
+    # ----------------------------------------------------------------- #
+    # F-046: reajuste del reparto (candado, propuestas y materializacion).
+    # ----------------------------------------------------------------- #
+    @contextmanager
+    def candado_pasada(self):
+        """R18 (DA15): la pasada de `conciliar_todos` bajo un candado
+        consultivo de SESION de PostgreSQL, en una conexion propia en
+        autocommit (no deja ninguna transaccion abierta mientras dura).
+
+        Lo intenta con `pg_try_advisory_lock` y espera con backoff (0,5 s,
+        doblando hasta 8 s) hasta `candado_espera_s`; si no lo obtiene,
+        `TimeoutError`. Lo suelta al salir pase lo que pase; si no puede
+        soltarlo, invalida la conexion para que no vuelva al pool con el
+        candado tomado. Fuera de PostgreSQL (SQLite de los tests) no hay
+        candado."""
+        motor = self._session_factory.engine
+        if motor.dialect.name != "postgresql":
+            yield
+            return
+        conexion = motor.connect().execution_options(
+            isolation_level="AUTOCOMMIT")
+        tomado = False
+        try:
+            inicio = _reloj()
+            espera = 0.5
+            while True:
+                tomado = bool(conexion.execute(
+                    text("SELECT pg_try_advisory_lock(:k)"),
+                    {"k": CLAVE_CANDADO_CONCILIAR}).scalar())
+                if tomado:
+                    break
+                pasado = _reloj() - inicio
+                if pasado >= self.candado_espera_s:
+                    raise TimeoutError(
+                        f"no se obtuvo el candado de la pasada de "
+                        f"conciliacion en {self.candado_espera_s:.0f} s")
+                _dormir(min(espera, self.candado_espera_s - pasado))
+                espera = min(espera * 2, 8.0)
+            yield
+        finally:
+            if tomado:
+                try:
+                    conexion.execute(text("SELECT pg_advisory_unlock(:k)"),
+                                     {"k": CLAVE_CANDADO_CONCILIAR})
+                except Exception:  # noqa: BLE001
+                    logger.warning("[repo] no se pudo soltar el candado de "
+                                   "la pasada: se invalida la conexion.")
+                    conexion.invalidate()
+            conexion.close()
+
+    def repartos_vigentes(self) -> dict[tuple[int, int], dict]:
+        """(recurso, fecha) -> su reparto vivo (todo lo que no es
+        `obsoleto`). Si hubiera dos, el de `id` mayor."""
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.estado != REPARTO_OBSOLETO)
+                .order_by(RepartoPendienteOrm.id)
+            ).scalars().all()
+            return {(f.recurso_ide, f.fecha_int): {
+                "id": f.id, "estado": f.estado, "firma": f.firma,
+                "recurso_ide": f.recurso_ide, "fecha_int": f.fecha_int,
+                "cambios": f.cambios} for f in filas}
+
+    @staticmethod
+    def _ahora() -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def materializar_repartos(self) -> dict:
+        """R15-R17: lleva a `partes` los valores «despues» de cada reparto
+        `aplicado` y lo pasa a `materializado`, todo en UNA transaccion por
+        reparto (con CAS sobre `estado`).
+
+        Es la unica escritura de sv3 sobre lineas congeladas (R40). Si una
+        linea ya no tiene horas = «antes» ni «despues» (o falta la reserva
+        o la respuesta de sv5 de una extra nueva), no toca NINGUNA linea de
+        ese reparto: ERROR, `error` en la fila y se cuenta (R16)."""
+        materializados = descuadrados = 0
+        with self._session_factory.create_session() as session:
+            ids = session.execute(
+                select(RepartoPendienteOrm.id)
+                .where(RepartoPendienteOrm.estado == REPARTO_APLICADO)
+                .order_by(RepartoPendienteOrm.id)).scalars().all()
+        for rid in ids:
+            if self._materializar_uno(rid):
+                materializados += 1
+            else:
+                descuadrados += 1
+        return {"materializados": materializados,
+                "descuadrados": descuadrados}
+
+    def _materializar_uno(self, reparto_id: int) -> bool:
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None or fila.estado != REPARTO_APLICADO:
+                return True
+            datos = json_a_cambios(fila.cambios)
+            try:
+                resultado = json.loads(fila.resultado or "{}") or {}
+            except ValueError:
+                resultado = {}
+            reservas = {str(k): int(v) for k, v in
+                        (resultado.get("reservas") or {}).items()}
+            sv5 = {int(x["registro_id"]): x for x in
+                   ((resultado.get("sv5") or {}).get("lineas") or [])}
+            plan, motivo = self._plan_materializar(session, datos, reservas,
+                                                   sv5, fila)
+            if motivo is not None:
+                fila.error = f"descuadre al materializar: {motivo}"[:255]
+                fila.actualizado_at_utc = self._ahora()
+                session.commit()
+                logger.error(
+                    "[repo] reparto %s (recurso=%s fecha=%s) NO se "
+                    "materializa: %s. No se toca ninguna linea.",
+                    reparto_id, fila.recurso_ide, fila.fecha_int, motivo)
+                return False
+            for accion in plan:
+                accion()
+            ahora = self._ahora()
+            cas = session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id,
+                       RepartoPendienteOrm.estado == REPARTO_APLICADO)
+                .values(estado=REPARTO_MATERIALIZADO,
+                        materializado_at_utc=ahora, actualizado_at_utc=ahora,
+                        error=None))
+            if cas.rowcount != 1:
+                session.rollback()
+                return True
+            session.commit()
+            logger.info(
+                "[repo] reparto %s materializado (recurso=%s fecha=%s): %s",
+                reparto_id, fila.recurso_ide, fila.fecha_int,
+                ", ".join(f"{c.get('tipo')} {c.get('registro_id') or 'nueva'} "
+                          f"{c.get('antes')} -> {c.get('despues')}"
+                          for c in datos["cambios"]))
+            return True
+
+    def _plan_materializar(self, session, datos: dict,
+                           reservas: dict[str, int], sv5: dict[int, dict],
+                           fila: RepartoPendienteOrm):
+        """Lo que hay que escribir, o el motivo del descuadre (R16). No
+        escribe nada: devuelve funciones que se ejecutan solo si TODO el
+        reparto cuadra."""
+        plan = []
+        tol = 1e-6
+        for c in datos["cambios"]:
+            antes, despues = float(c["antes"]), float(c["despues"])
+            if c.get("registro_id") is not None:
+                reg = session.get(ParteRegistroOrm, int(c["registro_id"]))
+                if reg is None:
+                    return [], f"la linea {c['registro_id']} no existe"
+                horas = float(reg.horas or 0.0)
+                if abs(horas - despues) <= tol:
+                    continue
+                if abs(horas - antes) > tol:
+                    return [], (f"la linea {reg.id} tiene {horas:g} h "
+                                f"(ni {antes:g} ni {despues:g})")
+
+                def _poner(reg=reg, c=c, antes=antes, despues=despues):
+                    if (c.get("tipo") == "ordinaria"
+                            and reg.horas_orig is None):
+                        reg.horas_orig = antes
+                    reg.horas = despues
+                plan.append(_poner)
+                continue
+            base_rid = int(c["base_registro_id"])
+            nueva_id = reservas.get(str(base_rid))
+            if nueva_id is None:
+                return [], f"sin id reservado para la extra de {base_rid}"
+            hecha = session.get(ParteRegistroOrm, nueva_id)
+            if hecha is not None:
+                if abs(float(hecha.horas or 0.0) - despues) > tol:
+                    return [], f"la extra {nueva_id} ya existe con otras horas"
+                continue
+            base = session.get(ParteRegistroOrm, base_rid)
+            if base is None:
+                return [], f"la base {base_rid} no existe"
+            sigrid = None
+            if (base.sigrid_estado or "").strip().lower() == "registrado":
+                r = sv5.get(nueva_id)
+                if r is None or not r.get("hmores_ide"):
+                    return [], (f"sv5 no devolvio la linea de la extra "
+                                f"{nueva_id}")
+                sigrid = {
+                    "sigrid_estado": "registrado",
+                    "sigrid_hmores_ide": int(r["hmores_ide"]),
+                    "sigrid_hmoide": r.get("hmoide"),
+                    "sigrid_parte_cod": r.get("parte_cod"),
+                    "sigrid_registrado_by": fila.decidido_por,
+                    "sigrid_registrado_at_utc": fila.decidido_at_utc,
+                }
+            hora = c.get("hora_ext") or {}
+
+            def _crear(base=base, nueva_id=nueva_id, despues=despues,
+                       hora=hora, sigrid=sigrid):
+                session.add(self._extra_de(base, {
+                    "extra_horas": despues, "hora_ext_ide": hora.get("ide"),
+                    "hora_ext_cod": hora.get("cod"),
+                    "hora_ext_desc": hora.get("desc"),
+                    "hora_ext_ext": hora.get("ext"),
+                    "hora_candef": base.hora_candef, "id": nueva_id,
+                    "sigrid": sigrid}))
+            plan.append(_crear)
+        return plan, None
+
+    #: Estados de un reparto que la pasada puede pasar a `obsoleto` (R13):
+    #: nunca `aplicando` ni `aplicado`.
+    _VIVOS_OBSOLETABLES = (REPARTO_PENDIENTE, REPARTO_RECHAZADO,
+                           REPARTO_MANTENIDO, REPARTO_MATERIALIZADO)
+
+    def guardar_repartos(self, propuestas: list[dict],
+                         mantenidos: list[int]) -> dict:
+        """R11, R13, R14: deja la tabla como dice la pasada.
+
+        `propuestas`: un dict por grupo evaluado en modo «proponer» o
+        «residual» (`recurso_ide`, `fecha_int`, `firma`, `cambios` =
+        `{ids_grupo, cambios[]}` o None si no hay propuesta). Los vivos del
+        grupo con otra firma (y, sin propuesta, tambien el `pendiente` o
+        `materializado` de la misma) pasan a `obsoleto` por CAS; si queda
+        propuesta y no hay ya un `pendiente` con esa firma, nace otro. Nunca
+        se toca un `aplicando`/`aplicado`, ni nace un pendiente mientras el
+        grupo tenga uno de esos. `mantenidos`: ids `rechazado` que la pasada
+        repartio en residual (R14)."""
+        propuestos = obsoletos = n_mant = 0
+        with self._session_factory.create_session() as session:
+            for p in propuestas:
+                filas = session.execute(
+                    select(RepartoPendienteOrm)
+                    .where(RepartoPendienteOrm.recurso_ide == p["recurso_ide"],
+                           RepartoPendienteOrm.fecha_int == p["fecha_int"],
+                           RepartoPendienteOrm.estado != REPARTO_OBSOLETO)
+                ).scalars().all()
+                cambios = p.get("cambios")
+                if any(f.estado not in self._VIVOS_OBSOLETABLES
+                       for f in filas):
+                    continue          # aplicando/aplicado: no se toca nada
+                quedan = []
+                for f in filas:
+                    misma = f.firma == p["firma"]
+                    se_queda = misma and (
+                        (cambios is not None
+                         and f.estado == REPARTO_PENDIENTE)
+                        or (cambios is None and f.estado in (
+                            REPARTO_RECHAZADO, REPARTO_MANTENIDO)))
+                    if se_queda or not self._cas(
+                            session, f.id, self._VIVOS_OBSOLETABLES,
+                            REPARTO_OBSOLETO):
+                        quedan.append(f)
+                    else:
+                        obsoletos += 1
+                if cambios is None or quedan:
+                    continue
+                ahora = self._ahora()
+                session.add(RepartoPendienteOrm(
+                    recurso_ide=int(p["recurso_ide"]),
+                    fecha_int=int(p["fecha_int"]),
+                    estado=REPARTO_PENDIENTE, firma=p["firma"],
+                    cambios=cambios_a_json(self._enriquecer(session,
+                                                            cambios)),
+                    creado_at_utc=ahora, actualizado_at_utc=ahora))
+                propuestos += 1
+            for rid in mantenidos:
+                if self._cas(session, int(rid), (REPARTO_RECHAZADO,),
+                             REPARTO_MANTENIDO):
+                    n_mant += 1
+            session.commit()
+        return {"propuestos": propuestos, "obsoletos": obsoletos,
+                "mantenidos": n_mant}
+
+    def _cas(self, session, reparto_id: int, desde: tuple[str, ...],
+             hasta: str) -> bool:
+        """`estado` de `desde` a `hasta` solo si sigue en `desde` (sv4
+        tambien lo cambia: CAS, nunca un lock de proceso)."""
+        res = session.execute(
+            update(RepartoPendienteOrm)
+            .where(RepartoPendienteOrm.id == reparto_id,
+                   RepartoPendienteOrm.estado.in_(desde))
+            .values(estado=hasta, actualizado_at_utc=self._ahora()))
+        return res.rowcount == 1
+
+    @staticmethod
+    def _enriquecer(session, cambios: dict) -> dict:
+        """Completa cada cambio con lo que sv4 ensena y sv5 necesita y no
+        viaja en la lectura del conciliador: documento, obra (ide y codigo)
+        y la linea de Sigrid (`hmores_ide`) de la linea o de su base."""
+        out = []
+        for c in cambios.get("cambios") or []:
+            c = dict(c)
+            rid = c.get("registro_id") or c.get("base_registro_id")
+            reg = session.get(ParteRegistroOrm, int(rid)) if rid else None
+            if reg is not None:
+                c.setdefault("document_id", reg.document_id)
+                c.setdefault("obra_ide", reg.obra_ide)
+                c.setdefault("obra_codigo", reg.obra_codigo)
+                if c.get("registro_id") is not None:
+                    c.setdefault("hmores_ide", reg.sigrid_hmores_ide)
+            out.append(c)
+        return {"ids_grupo": list(cambios.get("ids_grupo") or []),
+                "cambios": out}
 
     def find_empleado_alias(self, nombre_leido: str | None) -> dict | None:
         """Busca un alias aprendido (nombre LEIDO -> empleado). Devuelve los

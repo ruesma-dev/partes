@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from typing import Any, Callable
 
 import httpx
@@ -121,12 +122,24 @@ class RepositorioFake:
         self.matches: list[dict] = []
         self.revertidos = 0
         self.review_required: list[list[str]] = []
+        # F-046 (solo los usa el conciliador con REPARTO_REAJUSTE): los
+        # repartos vigentes, lo que devuelve la materializacion, lo
+        # guardado, cuantas veces se tomo el candado y el orden de las
+        # llamadas del reajuste.
+        self.repartos: dict = {}
+        self.resultado_materializar = {"materializados": 0,
+                                       "descuadrados": 0}
+        self.guardados: list[tuple[list, list]] = []
+        self.candados = 0
+        self.orden: list[str] = []
 
     def revert_extras_auto(self) -> int:
         self.revertidos += 1
+        self.orden.append("revert")
         return 0
 
     def fetch_registros_para_recurso(self) -> list[dict]:
+        self.orden.append("fetch")
         return list(self.registros)
 
     def apply_recurso_matches(self, updates: list[dict]) -> int:
@@ -141,6 +154,30 @@ class RepositorioFake:
         ids = sorted({str(d) for d in document_ids if d})
         self.review_required.append(ids)
         return len(ids)
+
+    # ---- F-046: reajuste del reparto ---- #
+    @contextmanager
+    def candado_pasada(self):
+        self.candados += 1
+        self.orden.append("candado")
+        try:
+            yield
+        finally:
+            self.orden.append("suelta")
+
+    def repartos_vigentes(self) -> dict:
+        self.orden.append("vigentes")
+        return dict(self.repartos)
+
+    def materializar_repartos(self) -> dict:
+        self.orden.append("materializar")
+        return dict(self.resultado_materializar)
+
+    def guardar_repartos(self, propuestas, mantenidos) -> dict:
+        self.orden.append("guardar")
+        self.guardados.append((list(propuestas), list(mantenidos)))
+        return {"propuestos": sum(1 for p in propuestas if p.get("cambios")),
+                "obsoletos": 0, "mantenidos": len(mantenidos)}
 
 
 class LookupFake:
