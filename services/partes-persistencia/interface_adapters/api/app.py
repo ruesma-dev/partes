@@ -217,8 +217,9 @@ def build_app(settings: Settings) -> FastAPI:
         admin_database_url=settings.admin_database_url,
         target_database_name=settings.pg_db,
     )
-    repository = SqlAlchemyParteRepository(
-        session_factory, candado_espera_s=settings.candado_espera_s)
+    repository = SqlAlchemyParteRepository(session_factory)
+    # F-046 (R18): espera maxima por el candado de la pasada.
+    repository.candado_espera_s = settings.candado_espera_s
     repository.initialize()
 
     # ----------------------------------------------------------- #

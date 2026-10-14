@@ -54,6 +54,4 @@ def test_f046_r18_espera_del_candado(entorno):
 
 def test_f046_r18_build_app_pasa_la_espera_al_repositorio():
     fuente = inspect.getsource(modulo_app.build_app)
-    assert ("SqlAlchemyParteRepository(\n        session_factory, "
-            "candado_espera_s=settings.candado_espera_s)") in fuente.replace(
-        "\r\n", "\n")
+    assert "repository.candado_espera_s = settings.candado_espera_s" in fuente
