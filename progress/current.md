@@ -1,9 +1,34 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-046 · spec_ready (2026-10-14, spec-author): reajuste en Sigrid al aprobar — pendiente del visto bueno del humano
+## F-046 · in_progress (2026-10-14, implementer): reajuste en Sigrid al aprobar
 
-**Spec APROBADA por el humano el 2026-10-14** (respuesta literal «si»): DA1–DA17 recomendadas más la enmienda [E] (sin borrados en Sigrid; candef 9). Sigue en `spec_ready` hasta que F-045 se fusione en `dev`; entonces se rebasa esta rama y se pasa a `in_progress`.
+**Implementación (implementer, 2026-10-14)**: rama rebasada sobre `dev` con F-045 (`9c5b7a1`).
+Bloque sv5 (T2–T6) hecho: `reajuste_lineas.py`, SQL nuevo del cliente (guardia, `UPDATE`
+optimista, `INSERT` condicionado, lote único, **sin ningún `DELETE`**), `ReajustePipeline` y
+rutas `/api/reajuste/comprobar|ejecutar`; suite sv5 en verde. Detalle y desviaciones en
+`progress/impl_F-046.md`.
+
+**MANUAL (humano) del bloque sv5, pendientes** (design §9; M1 ya hecha por el líder):
+
+- **M2** (solo lectura, `POST /api/sql/read` de sigrid-api, base `ruesma`):
+  `SELECT TOP 50 ide, dvaproide, dvfproide, hdereside, emprccide, empdpreide, empabside FROM hmores WHERE synckey LIKE 'partes:%' ORDER BY ide DESC`
+  ⇒ todo 0 o NULL (si no, DA17 deja esas líneas sin reajuste).
+- **M3** (escritura en la obra de pruebas): sv5 local con `OBRA_PRUEBAS_FORZAR=true`,
+  `registro_id` sintéticos ≥ 990000001 y el recurso de pruebas del script; `ANO`/`MES` de
+  `prueba_escritura_sigrid.py` = mes de la prueba. (a) `POST /api/registro/ejecutar` 8 h y
+  extra −4; (b) `POST /api/reajuste/comprobar` 8 → 2,5 y −4 → 1,5 ⇒ `ok: true`, editables;
+  (c) `POST /api/reajuste/ejecutar` ⇒ `can` 2,5 / 1,5 y `tot = can × pre`
+  (`python prueba_escritura_sigrid.py verificar`); (d) repetir ⇒ `ya_aplicada: true`, sin
+  escribir; (e) una línea con «antes» falso y otra buena ⇒ `ok: false` y nada escrito;
+  **(e bis)** cambiar a mano `can` de una línea entre `comprobar` y `ejecutar` ⇒ la guardia
+  aborta el lote con el error de conversión `reajuste-descuadrado-<ide>` (confirma que
+  sigrid-api revierte la transacción); (f) base 8 sin extra ⇒ 5,5 + extra nueva 2,5 con
+  `PRUEBA-IA`; (g) extra a 0 ⇒ `can = 0`, `tot = 0`, la línea sigue; (h)
+  `python prueba_escritura_sigrid.py limpiar`, `limpiar --ejecutar` y `verificar` ⇒ sin
+  `PRUEBA-IA`.
+
+**Spec APROBADA por el humano el 2026-10-14** (respuesta literal «si»): DA1–DA17 recomendadas más la enmienda [E] (sin borrados en Sigrid; candef 9).
 
 Spec en `specs/F-046-reajuste-en-sigrid-al-aprobar/` (worktree `partes-wt-f046`, rama
 `feature/F-046-reajuste-en-sigrid-al-aprobar`). **Depende de F-045** (en implementación en
