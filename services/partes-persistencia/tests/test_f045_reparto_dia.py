@@ -277,3 +277,82 @@ def test_f045_r3_repartir_dia_paso_por_jornada_de_centesimas() -> None:
     res = repartir_dia([_o(1, A, 6.0), _o(2, B, 4.0)], 8.4)
     assert res.paso == 0.01
     assert round(sum(a.horas_norm for a in res.ajustes), 6) == 8.4
+
+
+# ========================== R25 · el ideal ============================== #
+# Lo que cambiaria en las lineas CONGELADAS si se repartiera el dia entero
+# como si nada estuviera en Sigrid. Solo se mide (F-046 lo aplicara).
+
+def test_f045_r25_ideal_caso_real_0678_0704() -> None:
+    """0678 congelada con 8 + (-4) (trabajo 4) y 0704 con 8: el ideal da a
+    0678 2,5 + 1,5, asi que su base pasaria de 8 a 2,5 y su extra de -4 a
+    1,5. La 0704 no se mide: no esta congelada."""
+    lineas = [_o(1, 678, 8.0, fija=True, horas_orig=4.0),
+              _e(2, 678, -4.0, fija=True, extra_auto=True, base_id=1),
+              _o(3, 704, 8.0)]
+    assert diferencias_ideal(lineas, 8.0) == ((1, 8.0, 2.5), (2, -4.0, 1.5))
+
+
+def test_f045_r25_ideal_sin_congeladas_no_mide_nada() -> None:
+    assert diferencias_ideal([_o(1, A, 10.0), _o(2, B, 4.0)], 8.0) == ()
+
+
+def test_f045_r25_ideal_que_coincide_no_da_diferencias() -> None:
+    lineas = [_o(1, A, 4.0, fija=True), _o(2, B, 4.0)]
+    assert diferencias_ideal(lineas, 8.0) == ()
+
+
+def test_f045_r25_ideal_pareja_que_ya_es_ideal() -> None:
+    lineas = [_o(1, A, 8.0, fija=True, horas_orig=10.0),
+              _e(2, A, 2.0, fija=True, extra_auto=True, base_id=1)]
+    assert diferencias_ideal(lineas, 8.0) == ()
+
+
+def test_f045_r25_ideal_congelada_sin_pareja() -> None:
+    lineas = [_o(1, A, 8.0, fija=True), _o(2, B, 2.0)]
+    assert diferencias_ideal(lineas, 8.0) == ((1, 8.0, 6.5),)
+
+
+def test_f045_r25_ideal_la_extra_explicita_congelada_no_se_mide() -> None:
+    """Pesa en su obra (B 4 + 2) pero nunca cambia."""
+    lineas = [_o(1, A, 6.0, fija=True), _o(2, B, 4.0),
+              _e(3, B, 2.0, fija=True)]
+    assert diferencias_ideal(lineas, 8.0) == ((1, 6.0, 4.0),)
+
+
+def test_f045_r25_ideal_extra_huerfana_pesa_como_explicita() -> None:
+    """Una extra automatica sin su base en el grupo pesa con sus horas:
+    A = 2 + 6 = 8 frente a B 4 da a A 5,5 (sin ella, 5)."""
+    lineas = [_e(1, A, 2.0, fija=True, extra_auto=True, base_id=99),
+              _o(2, A, 6.0, fija=True), _o(3, B, 4.0)]
+    assert diferencias_ideal(lineas, 8.0) == ((2, 6.0, 5.5),)
+
+
+def test_f045_r25_ideal_extra_duplicada_de_la_pareja_iria_a_cero() -> None:
+    """Dos extras congeladas de la misma base (F-037 R7): la primera es la
+    de la pareja; la segunda sobra en el ideal."""
+    lineas = [_o(1, A, 8.0, fija=True, horas_orig=10.0),
+              _e(2, A, 2.0, fija=True, extra_auto=True, base_id=1),
+              _e(3, A, 2.0, fija=True, extra_auto=True, base_id=1)]
+    assert diferencias_ideal(lineas, 8.0) == ((3, 2.0, 0.0),)
+
+
+def test_f045_r25_ideal_que_no_cuadra_no_mide() -> None:
+    """Base congelada sin trabajo (horas_orig 0): el ideal no tiene nada
+    ajustable con J' 8, no cuadra y no hay nada que comparar."""
+    lineas = [_o(1, A, 2.0, fija=True, horas_orig=0.0)]
+    assert diferencias_ideal(lineas, 8.0) == ()
+
+
+def test_f045_r25_ideal_dia_no_laborable() -> None:
+    lineas = [_o(1, A, 6.0, fija=True)]
+    assert diferencias_ideal(lineas, 0.0) == ((1, 6.0, 0.0),)
+
+
+def test_f045_r25_ideal_no_depende_del_orden() -> None:
+    lineas = [_o(1, 678, 8.0, fija=True, horas_orig=4.0),
+              _e(2, 678, -4.0, fija=True, extra_auto=True, base_id=1),
+              _o(3, 704, 8.0)]
+    for perm in itertools.permutations(lineas):
+        assert diferencias_ideal(list(perm), 8.0) == (
+            (1, 8.0, 2.5), (2, -4.0, 1.5))

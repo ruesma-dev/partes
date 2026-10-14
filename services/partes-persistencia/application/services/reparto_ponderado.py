@@ -208,7 +208,51 @@ def repartir_dia(lineas: Sequence[LineaDia], jornada: float) -> ResultadoDia:
     return ResultadoDia(True, paso, tuple(ajustes), len(por_obra), n_lineas)
 
 
+def _trabajado(linea: LineaDia) -> float:
+    """Lo trabajado: la base de una pareja ya partida guarda en
+    `horas_orig` sus horas de antes del split."""
+    if linea.tipo == ORDINARIA and linea.horas_orig is not None:
+        return linea.horas_orig
+    return linea.horas
+
+
 def diferencias_ideal(
     lineas: Sequence[LineaDia], jornada: float
 ) -> tuple[tuple[int, float, float], ...]:
-    return ()
+    """R25: `(registro_id, antes, despues)` de las lineas FIJAS que
+    cambiaria el reparto ideal del dia. Solo mide; no aplica nada.
+
+    El ideal trata todo el grupo como ajustable: la base de una pareja
+    pesa lo trabajado y su extra automatica no pesa por separado (la
+    extra ideal de la pareja es lo trabajado menos la cuota; una segunda
+    extra de la misma base iria a 0). Una extra automatica sin su base en
+    el grupo pesa como una explicita. Las extras explicitas nunca cambian.
+    Si el ideal tampoco cuadra, no hay nada que comparar.
+    """
+    ordinarias = {ln.registro_id: ln for ln in lineas if ln.tipo == ORDINARIA}
+    extras_de: dict[int, list[LineaDia]] = {}
+    for ln in sorted(lineas, key=lambda x: x.registro_id):
+        if ln.extra_auto and ln.base_id in ordinarias:
+            extras_de.setdefault(ln.base_id, []).append(ln)
+    emparejadas = {e.registro_id for es in extras_de.values() for e in es}
+    ideal = [
+        LineaDia(registro_id=ln.registro_id, obra_ide=ln.obra_ide,
+                 tipo=ln.tipo, horas=_trabajado(ln))
+        for ln in lineas if ln.registro_id not in emparejadas
+    ]
+    resultado = repartir_dia(ideal, jornada)
+    if not resultado.cuadra:
+        return ()
+    cuota = {a.registro_id: a.horas_norm for a in resultado.ajustes}
+    diferencias: list[tuple[int, float, float]] = []
+    for base in ordinarias.values():
+        trabajado = _trabajado(base)
+        despues = cuota.get(base.registro_id, trabajado)
+        candidatas = [(base, despues)]
+        for i, extra in enumerate(extras_de.get(base.registro_id, [])):
+            candidatas.append(
+                (extra, round(trabajado - despues, 2) if i == 0 else 0.0))
+        for ln, despues_ln in candidatas:
+            if ln.fija and abs(despues_ln - ln.horas) > _EPS:
+                diferencias.append((ln.registro_id, ln.horas, despues_ln))
+    return tuple(sorted(diferencias))
