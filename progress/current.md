@@ -1,6 +1,48 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-045 · BLOCKED (2026-10-14, implementer): un test fuera de design §5 choca con la spec
+
+**Hecho y commiteado** (rama `feature/F-045-reparto-ponderado-entre-obras`): T1 `f500429`
+(núcleo `reparto_ponderado.py`: `repartir`, `elegir_paso`), T2 `1ca0ab8` (`repartir_dia`),
+T3 `4c9d3ae` (`diferencias_ideal`). 172 tests nuevos en verde; trazas RED en
+`progress/impl_F-045.md` (borrador).
+
+**Sin commitear, en el árbol del worktree** (T4 y el código de T5, sin sus tests): `tests/dobles.py`,
+`sqlalchemy_parte_repository.py` (`fetch_registros_para_recurso` con las claves nuevas) y la
+integración en `recurso_conciliador.py`. Con todo ello: sv3 **1345 passed, 7 failed**; raíz
+**487 passed**. Seis de los fallos son los de design §5 (`test_f003_r15_splits_dorados` ×3,
+`test_f015_r20_computo_ultimo_laborable` ×3; `test_f015_r32` y `test_f037_dos_pasadas` NO
+cambian). El séptimo NO está en §5:
+
+**Bloqueo 1 · `tests/test_f037_revert.py::test_f037_r9_la_unica_clave_nueva_es_la_marca`.**
+Afirma el conjunto EXACTO de claves del dict de `fetch_registros_para_recurso`. R27 y design §4
+obligan a añadir `horas_orig`, `extra_auto` y `deleted_at_utc`: el choque es inevitable con la
+spec tal cual (falla con solo T4, antes de tocar el conciliador). No lo he tocado.
+
+**Bloqueo 2 · ambigüedad en R25 / T3 (misma decisión).** Para medir el ideal hay que saber qué
+extra automática congelada es de qué base: si no, la `extra_auto` −4 de la 0678 pesaría como
+extra explícita (obra 0678 = 4 − 4 = 0) y no se podría informar «−4 → 1,5» con su
+`registro_id`. El `LineaDia` del design no lo lleva. He implementado (T3 commiteada): `LineaDia`
+gana `extra_auto` y `base_id` opcionales (defecto neutro), y el dict del repositorio lleva además
+`line_index` y `empleado_line_no` (ya estaban en el `select` por F-037) para que el conciliador
+calcule la base con `pareja_extra.clave_pareja` (que no se toca).
+
+**Opciones para el humano:**
+
+- **A (recomendada)**: añadir a `design.md` §5 ese test como enmendable y ampliar su conjunto
+  esperado con las 5 claves (`horas_orig`, `extra_auto`, `deleted_at_utc`, `line_index`,
+  `empleado_line_no`); aceptar la ampliación de `LineaDia` y del dict de la lectura. Sin cambio
+  de cifras: el test sigue vigilando que no entren claves sin querer.
+- **B**: igual que A pero sin `line_index`/`empleado_line_no` ni `base_id`: el WARNING de R25
+  solo informaría de las bases (8 → 2,5), no de su extra (−4 → 1,5). Sigue haciendo falta
+  `extra_auto` y, por tanto, enmendar el mismo test (3 claves).
+- **C**: no ampliar el dict y leer papelera y `horas_orig` por otro método del repositorio:
+  más código y más SQL, el mismo resultado; y `test_f037_r9` no se tocaría.
+
+Para retomar: con la decisión, enmendar el test, commitear T4, escribir los tests de T5
+(`tests/test_f045_conciliar.py`) y seguir con T6–T12.
+
 ## F-045 · spec_ready (2026-10-14): reparto ponderado de la jornada entre obras
 
 Spec escrita por el spec-author en `specs/F-045-reparto-ponderado-entre-obras/`
