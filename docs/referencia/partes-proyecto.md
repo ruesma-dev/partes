@@ -137,7 +137,9 @@ por sigrid-api, cacheados en el wiring):
 - **Cómputo de extras**: si un día trae más horas ordinarias que la
   jornada (`candef`, u 8 h si no es válida), divide la línea: jornada
   como ordinarias + exceso como **extra automática** (`extra_auto`,
-  conservando `horas_orig`); admite ajustes negativos. Base y extra
+  conservando `horas_orig`); admite ajustes negativos. Desde F-045 la
+  jornada se **reparte en proporción** entre las obras y líneas del día
+  (mayor resto, a medias horas), no al último parte en llegar. Base y extra
   automática se congelan juntas para el recálculo (F-037): si una ya está
   en Sigrid, la pareja no se vuelve a partir. Desde F-042 se repite
   también cuando sv4 cambia (o deshace) la fecha de un parte; desde F-043
@@ -366,6 +368,21 @@ extra automática no congelada de una pareja cuya extra ya está congelada
 es un duplicado y se borra. Hasta F-037, una base `omitido` con su extra
 `registrado` generaba otra extra en cada pasada.
 
+**Reparto ponderado entre obras** (F-045). La jornada del día se reparte
+entre todas las líneas ordinarias del trabajador ese día, de cualquier
+obra: primero entre las obras, en proporción a sus horas (ordinarias +
+extras explícitas), y dentro de cada obra entre sus líneas, en proporción
+a las horas de cada una. Las cuotas van a **medias horas** (a cuartos o
+centésimas si las horas o la jornada no son múltiplos de media hora) por
+**mayor resto**: suelo de cada cuota y la media hora que falte al de mayor
+resto; empate, al de más horas; luego al que llegó antes. La suma de
+ordinarias es exactamente la jornada. Ejemplo con jornada 8: 10 h en A y
+4 h en B dan A 5,5 + 4,5 y B 2,5 + 1,5 (hasta F-045, A 8 + 2 y B 0 + 4).
+Con menos horas que la jornada, la extra negativa también se reparte
+(4 h y 3 h dan 4,5 − 0,5 y 3,5 − 0,5). Una sola línea da lo de siempre.
+Las extras explícitas no cambian y las incidencias ni pesan ni restan.
+Las líneas en la **papelera** no pesan en el día.
+
 **Cuándo se recalcula** (F-042). El reparto lo calcula solo sv3, en cada
 pasada de `conciliar_todos` (recalcula todo lo activo no congelado), y esa
 pasada solo corre cuando llega un mensaje a `q-persistencia`: cada parte
@@ -414,6 +431,12 @@ generaba una extra negativa de −3 h todas las semanas.
 - Lo que ya viajó a Sigrid (línea `encolado`/`registrado` o parte
   aprobado) **cuenta en el total del día pero no se recalcula**: si el día
   no se puede cuadrar sin tocarlo, no se genera ningún ajuste y se avisa.
+  Desde F-045 lo que queda de jornada se reparte en proporción entre lo no
+  congelado (**modo residual**); si el reparto ideal cambiaría lo ya
+  registrado, sv3 lo avisa (WARNING con los `registro_id` y horas antes →
+  después, y `repartos_con_congeladas`), sin tocarlo: el reajuste en
+  Sigrid es F-046. Ej.: 0678 ya registrada con 8 + (−4) y 0704 con 8 →
+  la 0704 queda 0 + 8 hasta F-046.
 
 El portal (sv4) usa la misma jornada del día para los avisos de «jornada
 incompleta», para el KPI de jornada de la vista trabajador y —cuando se le
