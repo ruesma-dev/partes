@@ -1025,3 +1025,19 @@ tr[data-recalculando="1"] td { background: var(--info-soft); }
 .recalculo-tarjeta.aviso { background: #fff3d6; border-color: #e7c66b; color: #6b4500; }
 .recalculo-tarjeta .recalculo-texto { flex: 1; }
 .recalculo-tarjeta .recalculo-cerrar { border: 0; background: transparent; color: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 2px 4px; }
+
+/* F-046 · reparto de la jornada pendiente de decidir (R31, R37): marca en
+   las lineas, en las casillas de la matriz y en los dias del calendario, y
+   el aviso del modal de aprobar con su decision por dia. */
+tr[data-reparto="pendiente"] td { box-shadow: inset 3px 0 0 var(--warn-border); }
+.mx-cell[data-reparto="pendiente"], .cal-day[data-reparto="pendiente"] { outline: 2px dashed var(--warn-border); outline-offset: -2px; }
+.reparto-marca { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; font-size: 11px; font-weight: 600; color: var(--warn); background: var(--warn-soft); border: 1px solid var(--warn-border); white-space: nowrap; }
+.ap-repartos { margin: 10px 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--warn-soft); border: 1px solid var(--warn-border); }
+.ap-reparto { margin-top: 10px; }
+.ap-reparto h4 { margin: 4px 0; }
+.ap-reparto-lineas { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.ap-reparto-lineas th, .ap-reparto-lineas td { padding: 3px 6px; border-bottom: 1px solid var(--warn-border); text-align: left; }
+.ap-reparto-lineas .num { text-align: right; }
+.ap-reparto-lineas tr.ap-no-editable td { color: var(--warn); }
+.ap-decision { display: block; margin: 4px 0; cursor: pointer; }
+.ap-repartos-res { margin-bottom: 10px; }

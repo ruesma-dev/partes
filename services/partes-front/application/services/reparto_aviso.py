@@ -156,6 +156,9 @@ def bloque_repartos(filas: Iterable[Mapping],
             "recurso_ide": fila.get("recurso_ide"),
             "editable": editable, "motivo": motivo, "opciones": opciones,
             "error": fila.get("error"), "lineas": lineas,
+            # Las lineas de la peticion que caen en este dia: el modal
+            # manda la decision en la llamada que las lleva.
+            "registro_ids": [int(i) for i in fila.get("registro_ids") or []],
         })
     return bloques
 

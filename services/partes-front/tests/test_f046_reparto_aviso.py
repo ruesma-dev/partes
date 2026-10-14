@@ -59,6 +59,7 @@ def test_f046_r30_bloque_por_reparto_con_sus_lineas():
             b["editable"], b["motivo"]) == (7, "2026-10-14", 501,
                                             "pendiente", True, None)
     assert b["opciones"] == [DECISION_APLICAR, DECISION_MANTENER]
+    assert b["registro_ids"] == [LIBRE]
     assert [(x["registro_id"], x["tipo"], x["obra_codigo"], x["parte_cod"],
              x["antes"], x["despues"], x["en_sigrid"], x["editable"],
              x["nueva"]) for x in b["lineas"]] == [

@@ -3578,17 +3578,26 @@ function avisarCambioLineas() {
   /* Confirmar: primero lo sincrono (pisar o forzar es una decision humana
      que no viaja por la cola) y luego lo encolado; cada llamada lleva los
      ids de SUS obras y el mismo `ambito`, y el servidor reparte igual. */
-  function confirmar(peticion, plan, claves, forzado, boton, contexto) {
+  function confirmar(peticion, plan, claves, forzado, boton, contexto,
+                     decisiones) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var base = { ambito: peticion.ambito,
                  incluir_borradas: peticion.incluir_borradas };
+    // F-046 (R32): cada decision de reparto va con la llamada que lleva
+    // sus lineas (y una sola vez).
+    var enviadas = {};
+    function conDecisiones(cuerpo) {
+      var dec = decisionesPara(decisiones, cuerpo.registro_ids, enviadas);
+      if (dec.length) cuerpo.repartos = dec;
+      return cuerpo;
+    }
     var respuestas = { sincrono: null, cola: null };
     var paso = Promise.resolve();
     if (plan.sincronos.length) {
       paso = paso.then(function () {
-        var cuerpo = Object.assign({}, base, {
+        var cuerpo = conDecisiones(Object.assign({}, base, {
           registro_ids: idsDe(plan.sincronos),
-          pisar_claves: clavesDe(plan.sincronos, claves) });
+          pisar_claves: clavesDe(plan.sincronos, claves) }));
         if (forzado) cuerpo.forzar_sin_sesame = true;
         return post("/api/aprobar/ejecutar", cuerpo).then(function (r) {
           respuestas.sincrono = r;
@@ -3597,8 +3606,8 @@ function avisarCambioLineas() {
     }
     if (plan.cola.length) {
       paso = paso.then(function () {
-        return post("/api/aprobar/encolar", Object.assign({}, base, {
-          registro_ids: idsDe(plan.cola) })).then(function (r) {
+        return post("/api/aprobar/encolar", conDecisiones(Object.assign({},
+          base, { registro_ids: idsDe(plan.cola) }))).then(function (r) {
             respuestas.cola = r;
           });
       });
@@ -3644,6 +3653,8 @@ function avisarCambioLineas() {
     var html = "", sondeos = [], pendientes = [];
     [respuestas.sincrono, respuestas.cola].forEach(function (r) {
       if (!r) return;
+      html += resultadoRepartosHtml(r.repartos);           // F-046
+      if (r.aviso) html += "<p class='ap-ctx'>" + esc(r.aviso) + "</p>";
       if (!r.grupos) {
         html += "<p class='ap-warn'>" + esc(r.error || "error desconocido")
           + "</p>";
@@ -4178,6 +4189,101 @@ function avisarCambioLineas() {
     return html;
   }
 
+  /* F-046 (R30, R31): el aviso de reparto del dia en el modal de aprobar.
+     Por dia, sus lineas ya en Sigrid o de parte aprobado (antes ->
+     despues) y la decision: «Aplicar» (sv5 edita Sigrid y las lineas del
+     dia se registran con el reparto nuevo) o «Mantener lo registrado». Un
+     reparto no editable solo ofrece «Mantener», con su motivo. */
+  var TEXTO_DECISION_REPARTO = {
+    aplicar: "Aplicar: editar Sigrid y registrar con el reparto nuevo",
+    mantener: "Mantener lo registrado",
+  };
+
+  function repartosHtml(repartos) {
+    if (!repartos || !repartos.length) return "";
+    var html = "<div class='ap-repartos'><p class='ap-warn'><strong>Reparto "
+      + "de la jornada pendiente.</strong> Estas lineas cambian el reparto "
+      + "de dias que ya tienen lineas en Sigrid o en partes aprobados. "
+      + "Decide cada dia antes de registrar:</p>";
+    repartos.forEach(function (r) {
+      html += "<section class='ap-reparto' data-reparto-id=\"" + esc(r.id)
+        + "\"><h4>" + esc(r.fecha) + " · recurso " + esc(r.recurso_ide)
+        + "</h4><table class='ap-reparto-lineas'><thead><tr><th>Obra</th>"
+        + "<th>Parte Sigrid</th><th>Tipo</th><th class='num'>Antes</th>"
+        + "<th class='num'>Despues</th><th></th></tr></thead><tbody>"
+        + (r.lineas || []).map(function (l) {
+          return "<tr" + (l.editable ? "" : " class='ap-no-editable'")
+            + "><td>" + esc(l.obra_codigo) + "</td><td>"
+            + esc(l.parte_cod || (l.en_sigrid ? "?" : "sin registrar"))
+            + "</td><td>" + esc(l.tipo) + (l.nueva ? " (nueva)" : "")
+            + "</td><td class='num'>" + esc(l.nueva ? "—" : l.antes)
+            + "</td><td class='num'>" + esc(l.despues) + "</td><td>"
+            + esc(l.editable ? "" : (l.motivo || "")) + "</td></tr>";
+        }).join("") + "</tbody></table>";
+      if (r.motivo) html += "<p class='ap-warn'>" + esc(r.motivo) + "</p>";
+      if (r.error) {
+        html += "<p class='ap-ctx'>Ultimo intento: " + esc(r.error) + "</p>";
+      }
+      (r.opciones || []).forEach(function (op) {
+        html += "<label class='ap-decision'><input type='radio' "
+          + "name=\"reparto-" + esc(r.id) + "\" value=\"" + esc(op) + "\""
+          + (r.opciones.length === 1 ? " checked" : "") + "> "
+          + esc(TEXTO_DECISION_REPARTO[op] || op) + "</label>";
+      });
+      html += "</section>";
+    });
+    return html + "</div>";
+  }
+
+  /* F-046 (R32): las decisiones marcadas en el modal, o null si falta la
+     de algun dia que admite decision. */
+  function decisionesReparto(caja, repartos) {
+    var out = [];
+    for (var i = 0; i < (repartos || []).length; i++) {
+      var r = repartos[i];
+      if (!(r.opciones || []).length) continue;
+      var marcada = caja.querySelector(
+        "input[name=\"reparto-" + r.id + "\"]:checked");
+      if (!marcada) return null;
+      out.push({ id: r.id, decision: marcada.value,
+                 registro_ids: r.registro_ids || [] });
+    }
+    return out;
+  }
+
+  /* F-046 (R32): las decisiones que viajan en una llamada: las de los
+     repartos con alguna linea entre `ids`, y cada una UNA sola vez (el
+     servidor rechaza la de un reparto ajeno a la seleccion). */
+  function decisionesPara(decisiones, ids, enviadas) {
+    var de = {};
+    (ids || []).forEach(function (i) { de[i] = true; });
+    return (decisiones || []).filter(function (d) {
+      if (enviadas[d.id]) return false;
+      var mia = (d.registro_ids || []).some(function (i) { return de[i]; });
+      if (mia) enviadas[d.id] = true;
+      return mia;
+    }).map(function (d) { return { id: d.id, decision: d.decision }; });
+  }
+
+  /* F-046 (R33-R35): lo que paso con cada reparto decidido. */
+  var TEXTO_ESTADO_REPARTO = {
+    aplicado: "aplicado en Sigrid",
+    pendiente: "NO aplicado: sigue pendiente",
+    aplicando: "sin confirmar (Sigrid no respondio): vuelve a aprobar para "
+      + "reintentarlo",
+    rechazado: "se mantiene lo registrado; el dia se recalculara antes de "
+      + "registrar sus lineas",
+  };
+
+  function resultadoRepartosHtml(repartos) {
+    if (!repartos || !repartos.length) return "";
+    return "<div class='ap-repartos-res'>" + repartos.map(function (r) {
+      return "<p class='" + (r.ok ? "ap-ctx" : "ap-warn") + "'>Reparto "
+        + esc(r.id) + ": " + esc(TEXTO_ESTADO_REPARTO[r.estado] || r.estado)
+        + (r.error ? " — " + esc(r.error) : "") + "</p>";
+    }).join("") + "</div>";
+  }
+
   function aprobar(peticion, contexto) {
     modal("Comprobando en Sigrid…", "<p>Analizando el parte, el mes y las "
           + "lineas existentes…</p>", []);
@@ -4208,6 +4314,7 @@ function avisarCambioLineas() {
         return todos.concat(g.avisos_incidencia || []);
       }, []);
       var html = cabeceraHtml(pf, contexto)
+        + repartosHtml(pf.repartos)                          // F-046 (R31)
         + incompatiblesHtml(excl.incompatible)
         + avisosIncidenciaHtml(avisosIncid)
         + grupos.map(function (g) { return grupoHtml(g, plegar); }).join("")
@@ -4235,6 +4342,8 @@ function avisarCambioLineas() {
         titulo = "Bloqueado: Sesame no disponible";
       } else if (conflictos.length) {
         titulo = "Confirmar: hay lineas que se pisarian";
+      } else if ((pf.repartos || []).length) {
+        titulo = "Confirmar: hay un reparto de jornada pendiente";
       }
       var cajaPf = modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
@@ -4246,6 +4355,13 @@ function avisarCambioLineas() {
                 });
               var casilla = cj.querySelector("#ap-forzar-sesame");
               var forzado = !!(casilla && casilla.checked);
+              // F-046 (R32): sin decision, las lineas del dia no viajan.
+              var decisiones = decisionesReparto(cj, pf.repartos);
+              if (decisiones === null) {
+                window.alert("Elige «Aplicar» o «Mantener lo registrado» en "
+                  + "cada dia con reparto pendiente.");
+                return;
+              }
               var plan = planEnvio(grupos, claves, forzado);
               if (!plan.sincronos.length && !plan.cola.length) {
                 // El servidor lo rechazaria igual (F-003 R24); avisar aqui
@@ -4254,7 +4370,8 @@ function avisarCambioLineas() {
                   + "calendario de Sesame, o espera a que vuelva.");
                 return;
               }
-              confirmar(peticion, plan, claves, forzado, b, contexto);
+              confirmar(peticion, plan, claves, forzado, b, contexto,
+                        decisiones);
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);

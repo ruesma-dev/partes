@@ -124,6 +124,7 @@
       {% for day in week %}
       <div class="cal-day{% if not day.in_period %} cal-out{% endif %}{% if day.in_period and (day.is_weekend or day.is_holiday) %} cal-off{% endif %}{% if day.in_period %} cal-pick{% endif %}{% if day.in_period and day.date_iso in dias_incompletos %} cal-warn{% endif %}{% set incompat = dias_incompatibles.get(day.date_iso) if day.in_period else none %}{% if incompat and incompat.nivel == 'bloqueo' %} cal-incompat{% elif incompat %} cal-incompat-aviso{% endif %}"
            {% if day.in_period %}data-fecha="{{ day.date_iso }}"{% endif %}
+           {% if day.in_period and day.date_iso in (dias_reparto or []) %}data-reparto="pendiente"{% endif %}
            {% if day.is_holiday and day.holiday_name %}title="{{ day.holiday_name }}"{% endif %}>
         <span class="cal-num">{{ day.day }}</span>{% if day.in_period and day.date_iso in dias_incompletos %}<span class="cal-warn-mark" title="Jornada ordinaria por debajo de la cantidad por defecto">⚠</span>{% endif %}{% if incompat %}<span class="cal-incompat-mark cal-incompat-mark-{{ incompat.nivel }}" title="{{ incompat.motivo }}">{% if incompat.nivel == 'bloqueo' %}⛔{% else %}⚠{% endif %}</span>{% endif %}
         {% if day.in_period %}
@@ -212,7 +213,7 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}>
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
         <td class="cell-fecha">
           <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
@@ -220,6 +221,7 @@
                  title="Es la fecha del PARTE: cambiarla mueve todas sus líneas y trabajadores" aria-label="Fecha del parte"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
           {% if r.document_id in recalculando %}<span class="recalculando-marca">recalculando…</span>{% endif %}
+          {% if r.id in (con_reparto or []) %}<span class="reparto-marca" title="Reparto de la jornada pendiente de decidir: decide «Aplicar» o «Mantener lo registrado» al aprobar">reparto pendiente</span>{% endif %}
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}
           {% if r.congelado %}<span class="congelado-motivo" title="{{ r.congelado_motivo }}">🔒</span>{% else %}<button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>{% endif %}
