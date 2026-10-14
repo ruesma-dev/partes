@@ -3,6 +3,8 @@
 
 ## F-047 · spec_ready (spec-author, 2026-10-14): parte nuevo «en espera» hasta que sv3 lo reparta
 
+**Spec APROBADA por el humano el 2026-10-14** (respuesta literal «si»): DA1–DA10 recomendadas, tope de espera 10 min (`ESPERA_MAX_S` de F-043) confirmado tras explicarle por qué. Queda en `spec_ready` mientras F-046 esté `in_progress` (máximo una a la vez).
+
 Spec en `specs/F-047-parte-nuevo-en-espera/` (rama `feature/F-047-parte-nuevo-en-espera`,
 worktree `partes-wt-f047`). Rigor **crítico**. Toca **sv3** (pedido = id del documento en el
 mismo commit del guardado; terminado tras conciliar) y **sv4** (motivo `nuevo`, textos,
