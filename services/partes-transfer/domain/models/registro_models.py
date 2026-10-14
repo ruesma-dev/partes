@@ -342,11 +342,14 @@ class VeredictoReajuste:
 class ResultadoReajuste:
     """Respuesta de `comprobar` y `ejecutar` (R20, R23, R26).
 
-    `escritas`: una por linea escrita, con `registro_id`, `hmores_ide`,
-    `hmoide`, `parte_cod`, `can` y, en las nuevas, `nueva: True`."""
+    `lineas` (solo si `ok`): una por linea pedida, escrita ahora o ya
+    aplicada antes, con `registro_id`, `hmores_ide`, `hmoide`,
+    `parte_cod`, `can`, `nueva` y `escrita`. sv4 las necesita tambien en
+    un reintento: la extra nueva nace `registrado` con su `hmores_ide`
+    (R17)."""
     ok: bool
     ya_aplicada: bool = False
     veredictos: list[VeredictoReajuste] = field(default_factory=list)
-    escritas: list[dict] = field(default_factory=list)
+    lineas: list[dict] = field(default_factory=list)
     error: Optional[str] = None
     forzada_pruebas: bool = False
