@@ -20,7 +20,12 @@ PASOS: tuple[float, ...] = (0.5, 0.25, 0.01)
 
 #: Resolucion con la que se comparan los pesos (diezmilesimas de hora): el
 #: reparto trabaja en ENTEROS para que la suma salga exacta, sin floats
-#: acumulados.
+#: acumulados. TIENE que ser una potencia de 10 con al menos tantos ceros
+#: como decimales traen las horas (2 en los partes): asi `peso x escala` es
+#: entero salvo ruido de coma flotante y `round` nunca cae en un .5, de
+#: modo que la escala conserva las proporciones y los empates de resto
+#: (R2) siguen siendo empates. Con otra escala (p. ej. 10 001), 1,5 y 2,5
+#: redondean hacia lados distintos y el desempate cambia (review F-045).
 _RESOLUCION = 10_000
 
 #: Tolerancia para decidir si un valor es multiplo de un paso.

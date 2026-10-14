@@ -404,3 +404,10 @@ def test_f045_r25_ideal_la_extra_de_la_pareja_a_centesimas() -> None:
               _o(3, B, 8.0)]
     assert diferencias_ideal(lineas, 8.0) == (
         (1, 8.0, 3.83), (2, -0.667, 3.5))
+
+
+def test_f045_r2_repartir_dia_empate_de_restos_con_congelada() -> None:
+    """Review pasada 1: congelada 6 h en C + A 1,5 y B 2,5, J 8 -> J' 2.
+    Restos empatados: el paso va a B (mas peso). A 0,5 + 1 y B 1,5 + 1."""
+    lineas = [_o(1, C, 6.0, fija=True), _o(2, A, 1.5), _o(3, B, 2.5)]
+    assert _aj(repartir_dia(lineas, 8.0)) == {2: (0.5, 1.0), 3: (1.5, 1.0)}

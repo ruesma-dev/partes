@@ -422,3 +422,27 @@ def test_f045_r33_candef_9_viernes_festivo_el_jueves_es_el_ultimo(
     assert _resumen(splits) == [(1, 3.5, 1.5), (2, 2.5, 1.5)]
     assert "jornada_dia=6.00" in caplog.text
     assert "ultimo_laborable=si" in caplog.text
+
+
+# ================== review pasada 1 (2026-10-14) ======================== #
+
+def test_f045_r25_extra_auto_reclasificada_a_normal_pesa_por_si_misma(
+        caplog) -> None:
+    """sv4 puede cambiar `tipo_hora` de una `extra_auto` a normal; aprobada,
+    queda congelada y la reversion ya no la borra. Es una ORDINARIA: no es
+    la extra de la pareja de su base y en el ideal pesa sus 2 h. Base 8
+    (trabajo 10) + esa linea 2 en la obra 10 y 4 h en la 20, J 8: obra 10
+    = 12 -> 6, repartidas 5 y 1 (sin el cuidado saldria 5,5 y 0)."""
+    regs = [registro(1, fecha_int=LUNES, horas=8.0, obra_ide=10,
+                     sigrid_estado="registrado", horas_orig=10.0,
+                     line_index=0),
+            registro(2, fecha_int=LUNES, horas=2.0, obra_ide=10,
+                     sigrid_estado="registrado", extra_auto=True,
+                     line_index=0),
+            registro(3, fecha_int=LUNES, horas=4.0, obra_ide=20,
+                     document_id="doc-2")]
+    with caplog.at_level(logging.WARNING):
+        _splits(regs)
+    aviso = next(m for m in caplog.messages if "reparto ideal" in m)
+    assert "registro 1 8.00 -> 5.00" in aviso
+    assert "registro 2 2.00 -> 1.00" in aviso

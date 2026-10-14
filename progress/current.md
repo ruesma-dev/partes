@@ -21,7 +21,7 @@ Pendiente: reviewer.
 
 - **M1 · antes de desplegar**: SQL de `design.md` §9 en la base `partes` (grupos que
   F-045 reparte de nuevo, con y sin congeladas).
-- **Despliegue solo de sv3**: `.edeploy_partes.ps1 -Solo sv3` desde `infra/`.
+- **Despliegue solo de sv3**: `.\redeploy_partes.ps1 -Solo sv3` desde `infra/`.
 - **M2 · tras desplegar**: Log Analytics de `ca-sv3-persistencia` con
   `Log_s has 'reparto'` (INFO de reparto y, si los hay, WARNING «reparto ideal», que dice
   cuántos días tocaría F-046); repetir la SQL de F-042 M1 sobre un día con dos obras sin

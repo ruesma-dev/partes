@@ -763,7 +763,11 @@ class RecursoConciliador:
                 horas_orig=x.get("horas_orig"),
                 fija=_congelado(x),
                 extra_auto=extra_auto,
-                base_id=bases.get(clave_pareja(x)) if extra_auto else None,
+                # Solo una extra automatica que SIGUE siendo extra tiene base:
+                # sv4 puede reclasificar una `extra_auto` a ordinaria, y
+                # entonces es una linea normal (pesa por si misma, R25).
+                base_id=(bases.get(clave_pareja(x))
+                         if extra_auto and tipo_linea == EXTRA else None),
             ))
         return lineas
 

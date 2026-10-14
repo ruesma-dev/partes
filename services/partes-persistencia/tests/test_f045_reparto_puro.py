@@ -10,6 +10,7 @@ para comprobar las propiedades.
 from __future__ import annotations
 
 import ast
+import random
 import itertools
 from pathlib import Path
 
@@ -213,3 +214,64 @@ def test_f045_r1_los_participantes_son_inmutables() -> None:
     with pytest.raises(dataclasses.FrozenInstanceError):
         p.peso = 2.0  # type: ignore[misc]
     assert hash(p) == hash(_p("A", 1.0, 1))
+
+
+# ================== review pasada 1 (2026-10-14) ======================== #
+# El desempate de R2 depende de comparar restos EXACTOS. Si la escala con
+# la que se pasan los pesos a enteros no conserva sus proporciones (p. ej.
+# 10 001, donde `round(1,5 x 10 001)` y `round(2,5 x 10 001)` redondean
+# hacia lados distintos), un empate de restos deja de serlo y el paso cae
+# del otro lado.
+
+def test_f045_r2_empate_de_restos_con_pesos_de_media_hora() -> None:
+    """2 h entre 1,5 y 2,5: suelos 0,5 y 1, restos iguales (0,5 paso); el
+    paso que falta va al de mas peso (B), no al que llego antes."""
+    assert repartir(2.0, [_p("A", 1.5, 1), _p("B", 2.5, 2)], 0.5) == {
+        "A": 0.5, "B": 1.5}
+
+
+def _referencia(total, participantes, paso):
+    """Mayor resto con aritmetica EXACTA (fracciones de los decimales de
+    cada peso): el modelo contra el que se mide `repartir`."""
+    import math
+    from fractions import Fraction
+
+    cuotas = {p.clave: 0.0 for p in participantes}
+    pesos = {p.clave: Fraction(str(p.peso)) for p in participantes
+             if p.peso > 0}
+    if not pesos:
+        return cuotas
+    objetivo = round(total / paso)
+    suma = sum(pesos.values())
+    ideal = {k: objetivo * w / suma for k, w in pesos.items()}
+    suelos = {k: math.floor(v) for k, v in ideal.items()}
+    faltan = objetivo - sum(suelos.values())
+    orden = sorted((p for p in participantes if p.clave in pesos),
+                   key=lambda p: (-(ideal[p.clave] - suelos[p.clave]),
+                                  -pesos[p.clave], p.llegada))
+    for p in orden[:faltan]:
+        suelos[p.clave] += 1
+    cuotas.update({k: round(u * paso, 6) for k, u in suelos.items()})
+    return cuotas
+
+
+def test_f045_r2_coincide_con_el_modelo_exacto_en_horas_de_parte() -> None:
+    """3.000 repartos con horas de parte (medias, cuartos y centesimas; muchos
+    empates a proposito) dan EXACTAMENTE lo mismo que el modelo con
+    fracciones. Con pesos de hasta 4 decimales, `peso x 10 000` es entero
+    salvo ruido de coma flotante muy por debajo de 0,5: el redondeo no
+    llega nunca a un empate .5 y la escala conserva las proporciones."""
+    azar = random.Random(20261014)
+    rejillas = ([k / 2 for k in range(1, 25)], [k / 4 for k in range(1, 49)],
+                [round(k / 100, 2) for k in range(1, 1201)])
+    for _ in range(3000):
+        rejilla = azar.choice(rejillas)
+        n = azar.randint(1, 5)
+        parts = [_p(i, azar.choice(rejilla[:12] if azar.random() < 0.5
+                                   else rejilla), azar.randint(1, 9))
+                 for i in range(n)]
+        total = azar.choice([0.0, 2.0, 6.0, 7.75, 8.0, 8.4, 9.0, 12.5])
+        paso = elegir_paso(total, [p.peso for p in parts])
+        assert repartir(total, parts, paso) == _referencia(total, parts,
+                                                           paso), (
+            total, parts)
