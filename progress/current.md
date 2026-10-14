@@ -1,6 +1,26 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-046 · spec_ready (2026-10-14, spec-author): reajuste en Sigrid al aprobar — pendiente del visto bueno del humano
+
+Spec en `specs/F-046-reajuste-en-sigrid-al-aprobar/` (worktree `partes-wt-f046`, rama
+`feature/F-046-reajuste-en-sigrid-al-aprobar`). **Depende de F-045** (en implementación en
+`partes-wt-f045`): se implementa sobre `dev` con F-045 fusionada. Prioridad 2, rigor crítico.
+Toca sv3 (propuesta, materialización, candado consultivo), sv5 (`UPDATE hmores` bajo el lock)
+y sv4 (aviso y decisión), más la tabla `reparto_pendiente` en las dos copias del ORM.
+
+**Decisiones abiertas para el humano** (design §6, todas con recomendación): DA1 una feature
+en tres bloques o partir en F-046/F-047; DA2 interruptor `REPARTO_REAJUSTE` en sv3; DA4 quién
+materializa (sv3); DA5 reserva `nextval` para la synckey de la extra nueva (hallazgo H1: la
+propuesta de F-045 §8 no lo resolvía); DA6 sentencia guardia para la atomicidad en Sigrid;
+DA8 lo libre lleva el ideal mientras está pendiente («Mantener» pasa a dos pasos); DA13
+bloquear aprobar el documento con un reparto vivo; DA14 `CLAUDE.md` no cambia.
+
+**Antes de encender nada**, MANUAL (humano): M1 `ALLOWED_WRITE_PREFIXES` de sigrid-api
+incluye `UPDATE` (si no, abrirlo es configuración de otro proyecto); M2 enlaces de nuestras
+líneas `hmores` a 0; M3 prueba de escritura en modo pruebas (0404, `PRUEBA-IA`) y limpieza
+con `prueba_escritura_sigrid.py`. Despliegue en orden **sv5 → sv4 → sv3** con el interruptor
+apagado (design §7 R-e, §9).
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
 **Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.

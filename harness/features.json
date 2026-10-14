@@ -612,6 +612,31 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-045-reparto-ponderado-entre-obras"
+    },
+    {
+      "id": "F-046",
+      "title": "Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045",
+      "description": "Pedida por el humano el 2026-10-14 junto con F-045, de la que DEPENDE (se implementa sobre dev con F-045 fusionada y usa su API pura reparto_ponderado.py). Caso real: el 14/10 un recurso tenia la 0678 registrada como 8 normales y -4 extra (4 h trabajadas); llega la 0704 con 8 h y el reparto ideal es 0678 2,5+1,5 y 0704 5,5+2,5, pero F-045 deja la 0678 congelada (0704 0+8). F-046: sv3 (con el interruptor REPARTO_REAJUSTE) aplica el ideal a lo no congelado y guarda la propuesta de lo congelado en la tabla nueva reparto_pendiente (las dos copias del ORM); sv4, al aprobar, avisa con obra, dia, linea y horas antes -> despues y ofrece Aplicar o Mantener lo registrado; sv5 reajusta en Sigrid las lineas hmores ya escritas (UPDATE can/tot con el pre de la linea, INSERT de la extra nueva, nunca DELETE) bajo el lock, en un lote atomico con concurrencia optimista y solo en partes En registro y lineas sin enlaces; sv3 materializa lo aplicado en partes (excepcion acotada a la congelacion) bajo un candado consultivo de la base partes. Toca sv3, sv4 y sv5. Spec: specs/F-046-reajuste-en-sigrid-al-aprobar/.",
+      "acceptance": [
+        "Depende de F-045: se implementa sobre dev con F-045 fusionada",
+        "Caso real: 0678 registrada 8+(-4) y 0704 nueva 8 h dan, al Aplicar, 0678 2,5+1,5 en Sigrid y en partes y 0704 5,5+2,5 registrada",
+        "Base registrada sin extra: ordinaria 8 -> 5,5 y extra nueva 2,5 con synckey del registro reservado; extra que queda a 0 se actualiza a 0, no se borra",
+        "Aviso previo en el modal de aprobar con obra, dia, linea y horas antes -> despues; Aplicar y Mantener lo registrado; sin decision las lineas del grupo no viajan",
+        "Parte de Sigrid cerrado o imputado, linea encolada, en dedicacion o enlazada: no se edita y solo cabe Mantener",
+        "sv5 reajusta en un lote atomico con concurrencia optimista e idempotente; con el interruptor apagado sv3 se comporta como F-045",
+        "Tabla reparto_pendiente en las dos copias del ORM; reglas gemelas de congelacion intactas; candado consultivo solo en la base partes",
+        "Verificaciones MANUAL M1-M6 (escritura en Sigrid solo en modo pruebas, obra 0404, PRUEBA-IA, y limpieza con prueba_escritura_sigrid.py)",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 2,
+      "branch": "feature/F-046-reajuste-en-sigrid-al-aprobar",
+      "depends_on": [
+        "F-045"
+      ]
     }
   ]
 }
