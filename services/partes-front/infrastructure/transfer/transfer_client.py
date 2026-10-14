@@ -67,3 +67,53 @@ class TransferClient:
         una vista que espera."""
         return self._post("/api/registro/comprobar", payload,
                           timeout_s=timeout_s)
+
+    # ----------------------- F-046: reajuste ----------------------- #
+    def _post_reajuste(self, ruta: str, payload: dict[str, Any],
+                       timeout_s: float | None = None) -> dict[str, Any]:
+        """Como `_post`, pero distingue «sv5 dijo que no» (nada escrito) de
+        «no se sabe» (`sin_respuesta: True`, R34): timeout, error de red a
+        mitad o un 5xx (sv5 contesta 502 cuando no puede decir que paso
+        en Sigrid). Sin conexion la peticion no llego a salir: es un no."""
+        url = f"{self._base}{ruta}"
+        plazo = self._timeout if timeout_s is None else float(timeout_s)
+        try:
+            r = httpx.post(url, json=payload, timeout=plazo)
+        except httpx.ConnectError:
+            logger.warning("[transfer] sin conexion con %s", url)
+            return {"ok": False, "error": (
+                f"no se puede conectar con el servicio de registro "
+                f"(partes-transfer) en {self._base}")}
+        except httpx.TimeoutException:
+            logger.warning("[transfer] timeout en %s", url)
+            return {"ok": False, "sin_respuesta": True, "error": (
+                f"el servicio de registro no respondio en {plazo:.0f}s: "
+                f"no se sabe si el reajuste llego a Sigrid")}
+        except httpx.HTTPError as exc:
+            logger.warning("[transfer] error de red en %s: %s", url, exc)
+            return {"ok": False, "sin_respuesta": True,
+                    "error": f"error de red hacia {self._base}: {exc}"}
+        if r.status_code >= 400:
+            logger.warning("[transfer] %s HTTP %s: %s", ruta, r.status_code,
+                           r.text[:300])
+            try:
+                body = r.json()
+            except Exception:  # noqa: BLE001
+                body = {}
+            out = {"ok": False,
+                   "error": body.get("error") or f"HTTP {r.status_code}"}
+            if r.status_code >= 500:
+                out["sin_respuesta"] = True
+            return out
+        return r.json()
+
+    def reajuste_comprobar(self, payload: dict[str, Any], *,
+                           timeout_s: float | None = None
+                           ) -> dict[str, Any]:
+        """F-046 (R30): se pueden reajustar estas lineas? Solo lectura."""
+        return self._post_reajuste("/api/reajuste/comprobar", payload,
+                                   timeout_s=timeout_s)
+
+    def reajuste_ejecutar(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """F-046 (R33): el reajuste en Sigrid (HTTP sincrono, nunca cola)."""
+        return self._post_reajuste("/api/reajuste/ejecutar", payload)
