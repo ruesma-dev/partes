@@ -592,6 +592,26 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-043-fecha-del-parte-confirmar-y-recargar"
+    },
+    {
+      "id": "F-045",
+      "title": "Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas",
+      "description": "Pedida por el humano el 2026-10-14. Hoy sv3 (_reclasificar_extras_jornada) agrupa por recurso y dia cruzando obras pero recorta las extras desde el registro_id mayor y, si falta jornada, sube solo la ultima ordinaria con una extra negativa: el ultimo parte en llegar se queda todas las extras (10 h + 4 h con jornada 8 = 8+2 y 0+4). F-045 (fase 1, solo sv3, sin esquema ni Sigrid) reparte la jornada del dia entre las obras en proporcion a sus horas (ordinarias + extras explicitas) y dentro de cada obra entre sus lineas, por mayor resto a pasos de 0,5 h (0,25 o 0,01 si las horas no lo permiten) conservando los totales exactos; las extras negativas se mantienen y se reparten igual. Lo congelado sigue fijo (modo residual) y se mide con un WARNING cuando el reparto ideal lo cambiaria. Las lineas en la papelera dejan de pesar. El reajuste en Sigrid de lo ya registrado, con aviso previo al aprobar el segundo parte, se propone como F-046 (design.md §8). Spec: specs/F-045-reparto-ponderado-entre-obras/.",
+      "acceptance": [
+        "Ejemplo 1 (jornada 8): A 10 h y B 4 h dan A 5,5+4,5 y B 2,5+1,5",
+        "Ejemplo 2: A 5 h y B 4 h dan A 4,5+0,5 y B 3,5+0,5; una sola linea da lo mismo que hoy",
+        "Caso real sin congelar: 0678 4 h y 0704 8 h dan 2,5+1,5 y 5,5+2,5; con la 0678 congelada en 8+(-4), la 0704 sigue 0+8 y sale el WARNING de reparto pendiente",
+        "Reparto por mayor resto a 0,5 h con desempate determinista; la suma de ordinarias es la jornada exacta y ninguna obra recibe extras de signo cruzado",
+        "No cambian: dia no laborable, recurso sin codigo extra, incidencias, calculo de la jornada del dia, congelacion (gemelas intactas), esquema, sv4 y sv5",
+        "Solo cambian de cifras los tests existentes listados en design.md §5",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-045-reparto-ponderado-entre-obras"
     }
   ]
 }

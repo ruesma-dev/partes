@@ -1,6 +1,31 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-045 · spec_ready (2026-10-14): reparto ponderado de la jornada entre obras
+
+Spec escrita por el spec-author en `specs/F-045-reparto-ponderado-entre-obras/`
+(rama `feature/F-045-reparto-ponderado-entre-obras`, worktree `partes-wt-f045`).
+Solo sv3, sin esquema ni Sigrid; rigor **crítico**. Pendiente: PARADA 1 (el humano
+valida las DA antes de implementar).
+
+**Decisiones abiertas que necesita validar el humano** (`design.md` §6 y §8):
+
+- **DA1 · Partir en dos**: F-045 = reparto ponderado en sv3; **F-046** = reajuste
+  en Sigrid de lo ya registrado con aviso al aprobar. Con solo F-045, el caso real
+  (0678 ya registrada) sigue 0+8: lo arregla F-046.
+- DA2 dos niveles (obra por sus horas, incluidas extras explícitas; luego líneas);
+  DA3 también dentro de una misma obra; DA4 desempate (mayor resto, mayor peso, el
+  que llegó antes); DA5 paso 0,5 con respaldo 0,25/0,01.
+- **DA6 · Extras negativas**: se mantienen y se reparten en proporción (pregunta
+  abierta del humano; alternativa: suprimirlas).
+- DA7 congeladas en modo residual + WARNING de medición; DA8 incidencias sin
+  cambios; **DA9 hallazgo**: las líneas en la papelera pesan hoy en el reparto (se
+  sacan); DA10 concurrencia fuera.
+- §8 (dirección de F-046, DA11–DA14): tabla `reparto_pendiente`, reajuste por HTTP
+  síncrono a sv5 (`UPDATE hmores` nuevo, solo partes En registro), «Mantener lo
+  registrado» si el parte está cerrado, candado consultivo en sv3.
+- Tests existentes que cambian de cifras: lista cerrada en `design.md` §5.
+
 ## F-043 · done y DESPLEGADA (2026-10-13, sv3 r20261013185439 + sv4 r20261013185623), M1 hecha, pendiente de M2–M4: fecha del parte — rótulo, confirmación y parte «en espera»
 
 **Despliegue (2026-10-13)**: el humano desplegó sv3 y después sv4 e hizo el push de `dev`.
