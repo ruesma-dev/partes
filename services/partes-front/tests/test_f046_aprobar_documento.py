@@ -75,3 +75,42 @@ def test_f046_r36_repositorio_linea_en_papelera_no_bloquea(fabrica):
     _reparto(fabrica)
     repo = ParteReviewRepository(fabrica)  # type: ignore[arg-type]
     assert repo.approve_document(document_id="doc-704", approved_by="a")
+
+
+# ------------------------------- ruta ------------------------------- #
+
+@pytest.fixture
+def cliente(monkeypatch, fabrica):
+    from config.settings import Settings
+    from fastapi.testclient import TestClient
+    from interface_adapters.web.app import build_app
+
+    for clave, valor in {"PG_PASSWORD": "x", "PG_ADMIN_PASSWORD": "x",
+                         "DEFAULT_REVIEWER": "ana"}.items():
+        monkeypatch.setenv(clave, valor)
+    app = build_app(Settings(_env_file=None),
+                    repository=ParteReviewRepository(fabrica))
+    return TestClient(app, follow_redirects=False)
+
+
+def _destino(r) -> str:
+    from urllib.parse import unquote_plus
+    return unquote_plus(r.headers["location"])
+
+
+def test_f046_r36_aprobar_por_la_web_redirige_con_el_motivo(cliente,
+                                                            fabrica):
+    sembrar_parte(fabrica, [{"horas": 5.5}], document_id="doc-704")
+    _reparto(fabrica)
+    r = cliente.post("/documents/doc-704/approve", data={"back": "/partes"})
+    assert r.status_code in (302, 303)
+    assert MOTIVO_APROBAR_CON_REPARTO in _destino(r)
+    assert not _aprobado(fabrica, "doc-704")
+
+
+def test_f046_r36_aprobar_por_la_web_sin_reparto_aprueba(cliente, fabrica):
+    sembrar_parte(fabrica, [{"horas": 5.5}], document_id="doc-704")
+    r = cliente.post("/documents/doc-704/approve", data={"back": "/partes"})
+    assert r.status_code in (302, 303)
+    assert "Parte aprobado" in _destino(r)
+    assert _aprobado(fabrica, "doc-704")
