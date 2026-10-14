@@ -1,7 +1,9 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-045 · in_progress (2026-10-14): desbloqueada, opción A del humano
+## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
+
+**Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.
 
 **Desbloqueada el 2026-10-14 por decisión del humano (opción A, respuesta literal «a»);
 descartadas B (sin vínculo extra↔base) y C (otro método de lectura).** Enmiendas:
