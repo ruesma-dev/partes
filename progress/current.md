@@ -8,7 +8,24 @@ descartadas B (sin vínculo extra↔base) y C (otro método de lectura).** Enmie
 design §4 (`LineaDia.extra_auto`/`base_id`; la lectura trae `horas_orig`, `extra_auto`,
 `deleted_at_utc`, `line_index`, `empleado_line_no`), design §5 (se suma
 `test_f037_revert.py::test_f037_r9_la_unica_clave_nueva_es_la_marca`, solo con las 5
-claves nuevas), R27 y T4. Implementer en curso, T4 en adelante.
+claves nuevas), R27 y T4.
+
+**Implementación terminada (implementer, 2026-10-14), T1–T13.** Informe:
+`progress/impl_F-045.md`; mutación: `progress/mutacion_F-045.md` (82 mutantes, 73
+muertos, **9 supervivientes justificados como equivalentes: pendiente de que el humano
+acepte las justificaciones**, rigor crítico). R33 (candef 9, viernes J 6) añadido a
+petición del humano. `azure-apps/partes.md` §3.3 con commit local en `azure-apps`.
+Pendiente: reviewer.
+
+**MANUAL (humano), pendiente**, solo lectura salvo el despliegue:
+
+- **M1 · antes de desplegar**: SQL de `design.md` §9 en la base `partes` (grupos que
+  F-045 reparte de nuevo, con y sin congeladas).
+- **Despliegue solo de sv3**: `.edeploy_partes.ps1 -Solo sv3` desde `infra/`.
+- **M2 · tras desplegar**: Log Analytics de `ca-sv3-persistencia` con
+  `Log_s has 'reparto'` (INFO de reparto y, si los hay, WARNING «reparto ideal», que dice
+  cuántos días tocaría F-046); repetir la SQL de F-042 M1 sobre un día con dos obras sin
+  aprobar y comprobar las cifras de §3.
 
 Registro del bloqueo (historia): en T4, `test_f037_r9` (fuera de §5) afirmaba el conjunto
 exacto de claves de `fetch_registros_para_recurso`, que R27 obliga a ampliar; y R25 necesitaba

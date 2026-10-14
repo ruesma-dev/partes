@@ -182,7 +182,11 @@ commit `cc3f910` (T10):
   - `round(cuota, 2)` en `horas_norm`: la cuota ya es múltiplo del paso.
 
 **Segunda campaña** (la de este informe, HEAD `cc3f910`): 82 mutantes, 73
-muertos y 9 supervivientes. Los 9 son mutantes de igualdad exacta contra
-una tolerancia, o de constantes de escala o de redondeo, y los 9 se
-justifican arriba como equivalentes. **Pendiente: que el humano acepte esas
+muertos y 9 supervivientes. De los 9, seis son de igualdad exacta contra
+una tolerancia, dos de constantes de escala o redondeo, y uno es `peso > 0`
+→ `>= 0`. Los 9 se justifican arriba como equivalentes. **Pendiente: que el humano acepte esas
 justificaciones** (rigor crítico).
+
+Tras esta campaña se añadieron los tests de R33 (candef 9, pedidos por el
+humano el 2026-10-14). Son tests nuevos sobre el mismo código, así que la
+campaña no se relanzó.
