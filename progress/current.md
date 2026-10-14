@@ -3,11 +3,27 @@
 
 ## F-046 · in_progress (2026-10-14, implementer): reajuste en Sigrid al aprobar
 
-**Implementación (implementer, 2026-10-14)**: rama rebasada sobre `dev` con F-045 (`9c5b7a1`).
-Bloque sv5 (T2–T6) hecho: `reajuste_lineas.py`, SQL nuevo del cliente (guardia, `UPDATE`
-optimista, `INSERT` condicionado, lote único, **sin ningún `DELETE`**), `ReajustePipeline` y
-rutas `/api/reajuste/comprobar|ejecutar`; suite sv5 en verde. Detalle y desviaciones en
-`progress/impl_F-046.md`.
+**Implementación (implementer, 2026-10-14)**: T1–T21 hechas en los tres bloques (sv5, sv3 +
+ORM, sv4), docs y `azure-apps/partes.md` (commit local). Interruptor `REPARTO_REAJUSTE`
+apagado por defecto. Detalle, desviaciones justificadas y evidencias en `progress/impl_F-046.md`;
+mutación en `progress/mutacion_F-046.md`.
+
+**MANUAL (humano) · despliegue y encendido (T23), pendientes**, en este orden:
+
+1. Antes: M2 y M3 (abajo).
+2. **Despliegue sv5 → sv4 → sv3** (distinto del habitual), con el interruptor apagado, desde
+   `infra/`: `.\redeploy_partes.ps1 -Solo sv5`, `.\redeploy_partes.ps1 -Solo sv4`,
+   `.\redeploy_partes.ps1 -Solo sv3`.
+3. **M4** (base `partes`, solo lectura): `SELECT count(*) FROM reparto_pendiente` ⇒ 0 (la tabla
+   la crean sv3/sv4 al arrancar).
+4. Encender: `az containerapp update -n ca-sv3-persistencia -g rg-partes-dev --set-env-vars REPARTO_REAJUSTE=true`.
+5. **M5**: `SELECT estado, count(*) FROM reparto_pendiente GROUP BY estado`; Log Analytics de
+   `ca-sv3-persistencia` con `Log_s has 'reparto'` (líneas «reparto propuesto» y
+   «reajuste: propuestos=…»).
+6. **M6** (escritura en producción, la autoriza y la hace el humano en el portal): el 14/10
+   (0678/0704) con «Aplicar» ⇒ en Sigrid 0678 ordinaria 2,5 y extra 1,5; en `partes`, tras la
+   pasada siguiente, el reparto `materializado` y los mismos valores.
+7. Aceptar o rechazar los mutantes equivalentes de `progress/mutacion_F-046.md`, si los hay.
 
 **MANUAL (humano) del bloque sv5, pendientes** (design §9; M1 ya hecha por el líder):
 
