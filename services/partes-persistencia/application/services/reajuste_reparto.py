@@ -104,6 +104,12 @@ def decidir_grupo(fila: Mapping | None, firma: str, hay_libres: bool) -> str:
     return PROPONER if hay_libres else RESIDUAL
 
 
+def es_rechazado(fila: Mapping | None) -> bool:
+    """R14: el reparto lo rechazo el humano y la pasada aun no lo ha
+    repartido en residual (pasara a `mantenido`)."""
+    return (fila or {}).get("estado") == REPARTO_RECHAZADO
+
+
 def cambios_a_json(datos: Mapping) -> str:
     """`{ids_grupo, cambios[]}` a texto determinista (claves ordenadas)."""
     return json.dumps(datos, sort_keys=True, ensure_ascii=False,
