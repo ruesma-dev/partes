@@ -90,3 +90,125 @@ def repartir(
     for clave, unidades in suelos.items():
         cuotas[clave] = _horas(unidades, paso)
     return cuotas
+
+
+# ------------------------------ el dia --------------------------------- #
+
+#: Tipos de linea que participan en el reparto (las incidencias, no).
+ORDINARIA = "ordinaria"
+EXTRA = "extra"
+
+#: Tolerancia en horas para comparar cuotas con horas.
+_EPS = 1e-9
+
+
+@dataclass(frozen=True)
+class LineaDia:
+    """Una linea ordinaria o extra del grupo (recurso, fecha).
+
+    `fija`: congelada (F-004, o por su pareja de F-037); el reparto no la
+    toca. `extra_auto` y `base_id` solo los usa `diferencias_ideal` (R25):
+    una extra automatica y el `registro_id` de la base de su pareja.
+    """
+
+    registro_id: int
+    obra_ide: Hashable | None
+    tipo: str
+    horas: float
+    horas_orig: float | None = None
+    fija: bool = False
+    extra_auto: bool = False
+    base_id: int | None = None
+
+
+@dataclass(frozen=True)
+class Ajuste:
+    """Split de una ordinaria: `horas_norm` de jornada y `extra_horas`."""
+
+    registro_id: int
+    horas_norm: float
+    extra_horas: float
+    horas_orig: float
+
+
+@dataclass(frozen=True)
+class ResultadoDia:
+    """`cuadra` falso: el dia no se puede cuadrar sin tocar lo fijo (R23)."""
+
+    cuadra: bool
+    paso: float
+    ajustes: tuple[Ajuste, ...]
+    n_obras: int
+    n_lineas: int
+
+
+def _es_fija(linea: LineaDia) -> bool:
+    """Congelada, u ordinaria sin horas que repartir (<= 0)."""
+    return linea.fija or (linea.tipo == ORDINARIA and linea.horas <= 0)
+
+
+def repartir_dia(lineas: Sequence[LineaDia], jornada: float) -> ResultadoDia:
+    """R7-R19, R22, R23: reparte la jornada del dia entre obras y lineas.
+
+    Las fijas no cambian y sus ordinarias cuentan: se reparte `J'` = la
+    jornada menos esas ordinarias. Primero entre las obras ajustables por
+    su peso (ordinarias y extras explicitas no fijas) y, dentro de cada
+    una, entre sus ordinarias ajustables por sus horas. Cada ordinaria
+    cuya cuota no sea su horas da un `Ajuste` (la extra puede salir
+    negativa, DA6). Con `J' < 0`, o `J' != 0` sin nada ajustable, el dia
+    no cuadra y no hay ajustes (R23).
+    """
+    peso_obra: dict[Hashable | None, float] = {}
+    llegada_obra: dict[Hashable | None, int] = {}
+    for ln in lineas:
+        llegada_obra[ln.obra_ide] = min(
+            llegada_obra.get(ln.obra_ide, ln.registro_id), ln.registro_id)
+        if not _es_fija(ln):
+            peso_obra[ln.obra_ide] = peso_obra.get(ln.obra_ide, 0.0) + ln.horas
+    por_obra: dict[Hashable | None, list[LineaDia]] = {}
+    for ln in sorted(lineas, key=lambda x: x.registro_id):
+        if (ln.tipo == ORDINARIA and not _es_fija(ln)
+                and peso_obra[ln.obra_ide] > 0):
+            por_obra.setdefault(ln.obra_ide, []).append(ln)
+    ajustables = {ln.registro_id for ls in por_obra.values() for ln in ls}
+    residuo = jornada - sum(
+        ln.horas for ln in lineas
+        if ln.tipo == ORDINARIA and ln.registro_id not in ajustables)
+    n_lineas = len(ajustables)
+    paso = elegir_paso(
+        residuo,
+        [peso_obra[o] for o in por_obra]
+        + [ln.horas for ls in por_obra.values() for ln in ls],
+    )
+    if residuo < -_EPS or (abs(residuo) > _EPS and not por_obra):
+        return ResultadoDia(False, paso, (), len(por_obra), n_lineas)
+    cuotas_obra = repartir(
+        residuo,
+        [Participante(o, peso_obra[o], llegada_obra[o]) for o in por_obra],
+        paso,
+    )
+    ajustes: list[Ajuste] = []
+    for obra, ls in por_obra.items():
+        cuotas = repartir(
+            cuotas_obra[obra],
+            [Participante(ln.registro_id, ln.horas, ln.registro_id)
+             for ln in ls],
+            paso,
+        )
+        for ln in ls:
+            cuota = cuotas[ln.registro_id]
+            if abs(cuota - ln.horas) > _EPS:
+                ajustes.append(Ajuste(
+                    registro_id=ln.registro_id,
+                    horas_norm=round(cuota, 2),
+                    extra_horas=round(ln.horas - cuota, 2),
+                    horas_orig=ln.horas,
+                ))
+    ajustes.sort(key=lambda a: a.registro_id)
+    return ResultadoDia(True, paso, tuple(ajustes), len(por_obra), n_lineas)
+
+
+def diferencias_ideal(
+    lineas: Sequence[LineaDia], jornada: float
+) -> tuple[tuple[int, float, float], ...]:
+    return ()
