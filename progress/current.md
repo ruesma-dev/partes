@@ -1,7 +1,27 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-048 · spec_ready (2026-10-15): ordinarias + extras leídas en laborable siguen la regla de jornada
+## F-048 · in_progress (2026-10-15): ordinarias + extras leídas en laborable siguen la regla de jornada
+
+**PARADA 1 superada (2026-10-15).** El humano aprueba la implementación con TODAS las
+decisiones DA1–DA10 tal como las recomienda `design.md` §6 (A en DA2: sumar en la
+ingesta; DA3; DA4 sin umbral; DA6 sin retroactivo; rigor crítico). Aclaración literal
+del humano sobre DA2: «lo que no quiero es que salgan 3 líneas en el front por ejemplo
+en el caso 4+2. es decir por día solo hay una fila de extras y otra de ordinarias». La
+opción A lo cumple (4+2 ⇒ `normal` 8 + `extra_auto` −2); se añade un test explícito de
+que los casos 1, 2 y 4+2 dejan EXACTAMENTE dos líneas activas (una `normal` y una
+`extra_auto`).
+
+**Excepción a «una sola feature en curso» (decidida por el humano):** F-046 sigue
+`in_progress` en su rama (`partes-wt-f046`) con una campaña de mutación en marcha que no
+se perturba. F-048 trabaja sobre `dev` actual (dc03468), SIN F-046 ni F-047 (T0 no se
+puede hacer aún). **Riesgo anotado**: al fusionar habrá conflictos en las dos copias de
+`orm_models.py` (F-046 añade una tabla) y en `save_parte` (F-047 cambia su firma); se
+resuelven al fusionar. La mutación de F-048 espera a que termine la de F-046.
+
+**Implementación (implementer)**: en curso. Tarea actual: ver `tasks.md`.
+
+### Antecedente: spec_ready
 
 Spec escrita por el spec-author en `specs/F-048-solo-extras-en-laborable-como-jornada/`
 (rama `feature/F-048-solo-extras-en-laborable-como-jornada`, worktree `partes-wt-f048`),
