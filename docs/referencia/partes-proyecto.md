@@ -143,7 +143,10 @@ por sigrid-api, cacheados en el wiring):
   automática se congelan juntas para el recálculo (F-037): si una ya está
   en Sigrid, la pareja no se vuelve a partir. Desde F-042 se repite
   también cuando sv4 cambia (o deshace) la fecha de un parte; desde F-043
-  sv3 marca en el documento el recálculo pedido que ha terminado.
+  sv3 marca en el documento el recálculo pedido que ha terminado. Desde
+  F-048 las **extras leídas** > 0 de una fila se suman en la ingesta a su
+  ordinaria (se guarda lo leído en `horas_extra_leidas`), así que también
+  siguen la regla de jornada: solo 10 extras en laborable ⇒ 8 + 2.
 
 Persiste documento + registros en PostgreSQL y sube el PDF a
 **SharePoint** (Graph), guardando drive/item/URL.
@@ -382,6 +385,20 @@ Con menos horas que la jornada, la extra negativa también se reparte
 (4 h y 3 h dan 4,5 − 0,5 y 3,5 − 0,5). Una sola línea da lo de siempre.
 Las extras explícitas no cambian y las incidencias ni pesan ni restan.
 Las líneas en la **papelera** no pesan en el día.
+
+**Extras leídas en laborable** (F-048, pedido el 2026-10-15: «cuando sea
+laborable, aunque las horas sean extras se usa la regla de 8+x»). Si el
+encargado apunta horas en la columna de extras, la ingesta de sv3 las
+**suma a las ordinarias de esa fila** y el cómputo de extras por exceso
+reparte el total como cualquier ordinaria: 10 extras solas ⇒ 8 + 2;
+4 + 5 ⇒ 8 + 1 (hasta F-048, tres líneas: 8, −4 automática y 5 explícita);
+4 + 2 ⇒ 8 + (−2); 6 + 2 ⇒ 8 sin extra. En sábado o festivo va todo a la
+extra automática (4 + 5 ⇒ 0 + 9, los mismos importes que antes con una
+línea menos). Con partidas, las ordinarias consumen primero. Lo leído como
+extra queda en `horas_extra_leidas` de cada línea (el portal lo enseña como
+«incl. X h extra leídas»); la extra **negativa** leída no se suma y sigue
+explícita. Vale para lo que se ingiere desde el despliegue: lo ya guardado
+no se recalcula solo.
 
 **Cuándo se recalcula** (F-042). El reparto lo calcula solo sv3, en cada
 pasada de `conciliar_todos` (recalcula todo lo activo no congelado), y esa
