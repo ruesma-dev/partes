@@ -8,6 +8,17 @@ ORM, sv4), docs y `azure-apps/partes.md` (commit local). Interruptor `REPARTO_RE
 apagado por defecto. Detalle, desviaciones justificadas y evidencias en `progress/impl_F-046.md`;
 mutación en `progress/mutacion_F-046.md`.
 
+**T22 · campaña de mutación PENDIENTE (implementer, 2026-10-15)**: la campaña completa (565
+mutantes: sv4 191, sv3 190, sv5 184) se interrumpió en 79/565 (sesión caída); log parcial en
+`progress/mutacion_F-046_parcial.log`, sin `progress/mutacion_F-046.md`. Hay que relanzarla
+sobre HEAD `676c0e7` (ya incluye los tests contra los supervivientes vistos). **Ojo con
+`--timeout 600`**: con 6 workers la línea base de sv4 midió 608–645 s y luego 859–864 s,
+así que con 600 s todo mutante de sv4 que no muera pronto sale `timeout` (con el suelo por
+defecto, la propia base tiene solo 600 s y aborta). Se lanzó con `--timeout 1300`. Los
+`timeout` y supervivientes se re-evalúan con `progress/redirigir_mutantes_F-046.py <log> HEAD
+{timeout|superviviente}`: los 6 timeouts y 13 supervivientes vistos mueren con los tests de
+F-046 de su servicio.
+
 **MANUAL (humano) · despliegue y encendido (T23), pendientes**, en este orden:
 
 1. Antes: M2 y M3 (abajo).
