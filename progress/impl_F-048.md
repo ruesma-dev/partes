@@ -158,6 +158,9 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
 - Avisos previos, ajenos a F-048: F-014 y F-032 `blocked`, 700 avisos de ruff de deuda
   previa, e `infra` sin tests. El normalizador tiene los mismos 2 avisos de ruff que en
   `dev` (I001 y C408, previos).
+- Tras cerrar T8 (commit `0913f4d`), init.sh otra vez: **ENTORNO LISTO**. Raíz 487
+  passed / 3 skipped (193 s); servicios en verde por caché (árbol de código sin cambios);
+  cobertura 100 % (16/16); tamaño `impl 186/220`.
 - Nota: init.sh se lanzó una vez con la salida redirigida a un fichero del scratchpad
   para poder leerla; el comando fue el de siempre.
 
