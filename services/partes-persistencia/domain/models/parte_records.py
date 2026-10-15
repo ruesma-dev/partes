@@ -92,6 +92,9 @@ class RegistroNormalizado:
 
     horas: Optional[float] = None
     partida: Optional[str] = None                # reparto por partida (opcional)
+    # F-048: horas de este registro que la IA leyo como extra y la ingesta
+    # sumo a la ordinaria de su fila (None si ninguna). Solo traza.
+    horas_extra_leidas: Optional[float] = None
 
     # Codigo de hora de Sigrid PROPUESTO por la IA (del catalogo). El
     # resolver lo prioriza si existe en el maestro auxhor.

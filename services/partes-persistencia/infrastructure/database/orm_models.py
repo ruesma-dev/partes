@@ -280,6 +280,9 @@ class ParteRegistroOrm(Base):
     # extra (para poder revertir y recalcular de forma idempotente). NULL si
     # el registro no ha sido recortado.
     horas_orig: Mapped[float | None] = mapped_column(Float)
+    # F-048: horas de esta linea que la IA leyo como extra y la ingesta sumo
+    # a la ordinaria; solo traza. NULL si ninguna (y en las extra_auto).
+    horas_extra_leidas: Mapped[float | None] = mapped_column(Float)
     # Marca un registro EXTRA generado automaticamente por el calculo de
     # exceso de jornada (no venia en el parte). Se borra y recrea en cada
     # conciliacion. Los extra EXPLICITOS del parte tienen extra_auto=False.

@@ -19,7 +19,37 @@ puede hacer aún). **Riesgo anotado**: al fusionar habrá conflictos en las dos 
 `orm_models.py` (F-046 añade una tabla) y en `save_parte` (F-047 cambia su firma); se
 resuelven al fusionar. La mutación de F-048 espera a que termine la de F-046.
 
-**Implementación (implementer)**: en curso. Tarea actual: ver `tasks.md`.
+**BLOQUEADA en T1 (implementer, 2026-10-15): seis tests existentes fuera de design §5
+fallan al añadir la columna.** design §5 dice «Ningún test existente cambia … Si alguno
+falla ⇒ parar y anotarlo». Al declarar `horas_extra_leidas` en las dos copias del ORM
+(byte-idénticas, `cmp` sin diferencias) fallan los guardianes que fijan las columnas de
+`parte_registros` en 56:
+
+| Test | Qué afirma |
+|---|---|
+| `tests/test_f010_orm_models_gemelos.py::test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas` | lista literal `COLUMNAS_PARTE_REGISTROS` (56) + `len == 56`; su comentario pide declararla ahí al añadir una columna |
+| `tests/test_f010_orm_models_gemelos.py::test_f010_r29_parte_registros_no_gana_ni_pierde_columnas` | F-015 no toca la tabla: igual a la lista y 56 |
+| `tests/test_f010_orm_models_gemelos.py::test_f019_r29_parte_registros_no_gana_ni_pierde_columnas` | F-019 no toca la tabla: igual a la lista |
+| `services/partes-persistencia/tests/test_f015_r18_orm_empleado_jornada.py::test_f015_r18_parte_registros_no_gana_ni_pierde_columnas` | `len == 56` |
+| `services/partes-persistencia/tests/test_f015_r21_hora_candef_intacto.py::test_f015_r21_parte_registros_sigue_teniendo_56_columnas` | `len == 56` |
+| `services/partes-front/tests/test_f015_r18_orm_empleado_jornada_sv4.py::test_f015_r18_sv4_parte_registros_no_gana_ni_pierde_columnas` | `len == 56` |
+
+Es inevitable con cualquier columna nueva (DA10): el guardián está hecho para obligar a
+declararla. **Propuesta para el humano** (enmienda de design §5 y T1):
+
+- **A (recomendada)**: añadir `"horas_extra_leidas"` tras `"horas_orig"` en
+  `COLUMNAS_PARTE_REGISTROS` y pasar las cinco cuentas de 56 a 57 (textos «56» de sus
+  mensajes y docstrings incluidos). La intención de los tests de F-015/F-019 («esa
+  feature no tocó la tabla») se conserva: comparan con la lista vigente. Es lo que
+  hicieron F-015 y F-019 con `TABLAS` al añadir sus tablas.
+- B: guardar la traza fuera de `parte_registros` (otra tabla o JSON en el documento):
+  contradice DA10 y complica sv4. No recomendada.
+
+Estado del trabajo: T1 hecho salvo ese verde (dominio, dos ORM, `save_parte` y
+`tests/test_f048_esquema.py` con fase RED registrada y ya en verde: 5 tests). Commit
+`F-048 T1 (parcial)`. T2–T10 sin empezar. La campaña de F-046 sigue viva (7 procesos
+`harness.mutacion` a las 18:10 del 2026-10-15), así que la mutación de F-048 esperaría
+en cualquier caso.
 
 ### Antecedente: spec_ready
 

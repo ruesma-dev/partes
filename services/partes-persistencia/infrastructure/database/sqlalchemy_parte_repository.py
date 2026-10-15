@@ -700,6 +700,7 @@ class SqlAlchemyParteRepository:
                         incidencia_texto=reg.incidencia.texto_leido,
                         incidencia_dias=reg.incidencia.dias,
                         horas=reg.horas,
+                        horas_extra_leidas=reg.horas_extra_leidas,
                         partida=reg.partida,
                         hora_ide=hora.ide,
                         hora_codigo=hora.codigo,
