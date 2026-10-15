@@ -1,0 +1,100 @@
+F-046: 19 fichero(s), 2671 línea(s) de producción (origen rama, dc034684d39b64ddfb505ec2afedcfd0506d171e..feature/F-046-reajuste-en-sigrid-al-aprobar)
+Timeout FIJADO a mano: 1300 s por mutante. El cálculo automático a partir de la línea base queda ANULADO.
+Campaña paralela: hasta 6 workers, uno por worktree.
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_3/services/partes-front: en verde (858.8 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_0/services/partes-front: en verde (859.1 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_1/services/partes-front: en verde (860.8 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_4/services/partes-front: en verde (862.9 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_5/services/partes-front: en verde (863.1 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_2/services/partes-front: en verde (864.1 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_3/services/partes-persistencia: en verde (50.4 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_5/services/partes-persistencia: en verde (47.4 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_0/services/partes-persistencia: en verde (51.2 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_4/services/partes-persistencia: en verde (47.7 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_1/services/partes-persistencia: en verde (50.2 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_2/services/partes-persistencia: en verde (49.0 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_1/services/partes-transfer: en verde (25.3 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_3/services/partes-transfer: en verde (28.3 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_5/services/partes-transfer: en verde (27.3 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_0/services/partes-transfer: en verde (27.4 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_4/services/partes-transfer: en verde (27.3 s)
+[base] C:/Users/pgris/AppData/Local/Temp/mutacion_F-046_riugbwe5/wk_2/services/partes-transfer: en verde (26.5 s)
+[1/565] muerto        services/partes-front/application/services/reparto_aviso.py:87 [comparacion] if cambio.get("registro_id") is not None: -> if cambio.get("registro_id") is None:
+[2/565] muerto        services/partes-front/application/services/reparto_aviso.py:99 [aritmetico] return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}" -> return f"{f * 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}"
+[3/565] muerto        services/partes-front/application/services/reparto_aviso.py:81 [logico] return (cambio.get("sigrid_estado") or "").strip().lower() == REGISTRADO -> return (cambio.get("sigrid_estado") and "").strip().lower() == REGISTRADO
+[4/565] muerto        services/partes-front/application/services/reparto_aviso.py:81 [comparacion] return (cambio.get("sigrid_estado") or "").strip().lower() == REGISTRADO -> return (cambio.get("sigrid_estado") or "").strip().lower() != REGISTRADO
+[5/565] muerto        services/partes-front/application/services/reparto_aviso.py:91 [comparacion] return int(reservado) if reservado is not None else id_provisional(base) -> return int(reservado) if reservado is None else id_provisional(base)
+[6/565] muerto        services/partes-front/application/services/reparto_aviso.py:90 [logico] reservado = (reservas or {}).get(str(base)) -> reservado = (reservas and {}).get(str(base))
+[7/565] muerto        services/partes-front/application/services/reparto_aviso.py:99 [aritmetico] return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}" -> return f"{f // 10000:04d}-{(f * 100) % 100:02d}-{f % 100:02d}"
+[8/565] muerto        services/partes-front/application/services/reparto_aviso.py:115 [logico] v = veredictos.get(fila["id"]) or {} -> v = veredictos.get(fila["id"]) and {}
+[9/565] muerto        services/partes-front/application/services/reparto_aviso.py:99 [entero] return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}" -> return f"{f // 10001:04d}-{(f // 100) % 100:02d}-{f % 100:02d}"
+[10/565] muerto        services/partes-front/application/services/reparto_aviso.py:99 [entero] return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}" -> return f"{f // 10000:04d}-{(f // 101) % 100:02d}-{f % 100:02d}"
+[11/565] muerto        services/partes-front/application/services/reparto_aviso.py:99 [entero] return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}" -> return f"{f // 10000:04d}-{(f // 100) % 101:02d}-{f % 100:02d}"
+[12/565] muerto        services/partes-front/application/services/reparto_aviso.py:99 [entero] return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 100:02d}" -> return f"{f // 10000:04d}-{(f // 100) % 100:02d}-{f % 101:02d}"
+[13/565] muerto        services/partes-front/application/services/reparto_aviso.py:121 [logico] for c in fila.get("cambios") or []: -> for c in fila.get("cambios") and []:
+[14/565] muerto        services/partes-front/application/services/reparto_aviso.py:125 [logico] editable = bool(r and r.get("editable")) -> editable = bool(r or r.get("editable"))
+[15/565] muerto        services/partes-front/application/services/reparto_aviso.py:116 [logico] por_linea = v.get("lineas") or {} -> por_linea = v.get("lineas") and {}
+[16/565] muerto        services/partes-front/application/services/reparto_aviso.py:126 [logico] motivo_linea = ((r or {}).get("motivo") -> motivo_linea = ((r and {}).get("motivo")
+[17/565] muerto        services/partes-front/application/services/reparto_aviso.py:127 [logico] or (None if editable else MOTIVO_SIN_COMPROBAR)) -> and (None if editable else MOTIVO_SIN_COMPROBAR))
+[18/565] muerto        services/partes-front/application/services/reparto_aviso.py:129 [booleano] editable, motivo_linea = True, None -> editable, motivo_linea = False, None
+[19/565] muerto        services/partes-front/application/services/reparto_aviso.py:130 [comparacion] if not editable and motivo is None: -> if not editable and motivo is not None:
+[20/565] muerto        services/partes-front/application/services/reparto_aviso.py:130 [not] if not editable and motivo is None: -> if editable and motivo is None:
+[21/565] muerto        services/partes-front/application/services/reparto_aviso.py:143 [comparacion] editable = motivo is None -> editable = motivo is not None
+[22/565] muerto        services/partes-front/application/services/reparto_aviso.py:145 [comparacion] if estado == ESTADO_RECHAZADO: -> if estado != ESTADO_RECHAZADO:
+[23/565] muerto        services/partes-front/application/services/reparto_aviso.py:130 [logico] if not editable and motivo is None: -> if not editable or motivo is None:
+[24/565] muerto        services/partes-front/application/services/reparto_aviso.py:135 [comparacion] "nueva": c.get("registro_id") is None, -> "nueva": c.get("registro_id") is not None,
+[25/565] timeout       services/partes-front/application/services/reparto_aviso.py:179 [comparacion] if decisiones.get(fila["id"]) == DECISION_APLICAR: -> if decisiones.get(fila["id"]) != DECISION_APLICAR:
+[26/565] timeout       services/partes-front/application/services/reparto_aviso.py:148 [comparacion] elif estado == ESTADO_APLICANDO: -> elif estado != ESTADO_APLICANDO:
+[27/565] timeout       services/partes-front/application/services/reparto_aviso.py:193 [logico] for c in fila.get("cambios") or []: -> for c in fila.get("cambios") and []:
+[28/565] timeout       services/partes-front/application/services/reparto_aviso.py:194 [not] if not _en_sigrid(c): -> if _en_sigrid(c):
+[29/565] timeout       services/partes-front/application/services/reparto_aviso.py:161 [logico] "registro_ids": [int(i) for i in fila.get("registro_ids") or []], -> "registro_ids": [int(i) for i in fila.get("registro_ids") and []],
+[30/565] timeout       services/partes-front/application/services/reparto_aviso.py:181 [logico] for rid in fila.get("registro_ids") or []: -> for rid in fila.get("registro_ids") and []:
+[31/565] muerto        services/partes-front/infrastructure/database/orm_models.py:551 [booleano] id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True) -> id: Mapped[int] = mapped_column(Integer, primary_key=False, autoincrement=True)
+[32/565] muerto        services/partes-front/infrastructure/database/orm_models.py:551 [booleano] id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True) -> id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=False)
+[33/565] muerto        services/partes-front/application/services/reparto_aviso.py:196 [comparacion] if c.get("registro_id") is not None: -> if c.get("registro_id") is None:
+[34/565] timeout       services/partes-front/infrastructure/database/orm_models.py:556 [booleano] Integer, nullable=False, server_default="0" -> Integer, nullable=True, server_default="0"
+[35/565] timeout       services/partes-front/infrastructure/database/orm_models.py:559 [entero] String(16), nullable=False, server_default="pendiente" -> String(17), nullable=False, server_default="pendiente"
+[36/565] timeout       services/partes-front/infrastructure/database/orm_models.py:553 [booleano] Integer, nullable=False, server_default="0" -> Integer, nullable=True, server_default="0"
+[37/565] timeout       services/partes-front/infrastructure/database/orm_models.py:562 [entero] String(64), nullable=False, server_default="" -> String(65), nullable=False, server_default=""
+[38/565] superviviente services/partes-front/infrastructure/database/orm_models.py:562 [booleano] String(64), nullable=False, server_default="" -> String(64), nullable=True, server_default=""
+[39/565] superviviente services/partes-front/infrastructure/database/orm_models.py:559 [booleano] String(16), nullable=False, server_default="pendiente" -> String(16), nullable=True, server_default="pendiente"
+[40/565] superviviente services/partes-front/infrastructure/database/orm_models.py:568 [entero] error: Mapped[str | None] = mapped_column(String(255)) -> error: Mapped[str | None] = mapped_column(String(256))
+[41/565] superviviente services/partes-front/infrastructure/database/orm_models.py:570 [entero] decision: Mapped[str | None] = mapped_column(String(16)) -> decision: Mapped[str | None] = mapped_column(String(17))
+[42/565] superviviente services/partes-front/infrastructure/database/orm_models.py:565 [booleano] Text, nullable=False, server_default="{}" -> Text, nullable=True, server_default="{}"
+[43/565] superviviente services/partes-front/infrastructure/database/orm_models.py:572 [entero] decidido_at_utc: Mapped[str | None] = mapped_column(String(64)) -> decidido_at_utc: Mapped[str | None] = mapped_column(String(65))
+[44/565] superviviente services/partes-front/infrastructure/database/orm_models.py:574 [entero] String(64), nullable=False, server_default="" -> String(65), nullable=False, server_default=""
+[45/565] superviviente services/partes-front/infrastructure/database/orm_models.py:571 [entero] decidido_por: Mapped[str | None] = mapped_column(String(120)) -> decidido_por: Mapped[str | None] = mapped_column(String(121))
+[46/565] superviviente services/partes-front/infrastructure/database/orm_models.py:577 [entero] String(64), nullable=False, server_default="" -> String(65), nullable=False, server_default=""
+[47/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:1730 [entero] EXCLUIDA_REPARTO, 0) + 1 -> EXCLUIDA_REPARTO, 1) + 1
+[48/565] superviviente services/partes-front/infrastructure/database/orm_models.py:577 [booleano] String(64), nullable=False, server_default="" -> String(64), nullable=True, server_default=""
+[49/565] superviviente services/partes-front/infrastructure/database/orm_models.py:574 [booleano] String(64), nullable=False, server_default="" -> String(64), nullable=True, server_default=""
+[50/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:1730 [aritmetico] EXCLUIDA_REPARTO, 0) + 1 -> EXCLUIDA_REPARTO, 0) - 1
+[51/565] superviviente services/partes-front/infrastructure/database/orm_models.py:579 [entero] materializado_at_utc: Mapped[str | None] = mapped_column(String(64)) -> materializado_at_utc: Mapped[str | None] = mapped_column(String(65))
+[52/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3041 [not] if not claves: -> if claves:
+[53/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:1730 [entero] EXCLUIDA_REPARTO, 0) + 1 -> EXCLUIDA_REPARTO, 0) + 2
+[54/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3017 [comparacion] if doc is not None: -> if doc is None:
+[55/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3018 [not] activas = [r for r in doc.registros if not r.deleted_at_utc] -> activas = [r for r in doc.registros if r.deleted_at_utc]
+[56/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3048 [entero] sorted({c[1] for c in claves}))) -> sorted({c[2] for c in claves})))
+[57/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3035 [logico] if r.recurso_ide and r.fecha_int} -> if r.recurso_ide or r.fecha_int}
+[58/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3046 [entero] sorted({c[0] for c in claves}))) -> sorted({c[1] for c in claves})))
+[59/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3072 [logico] datos = json.loads(texto or "{}") -> datos = json.loads(texto and "{}")
+[60/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3059 [entero] for i in range(0, len(orden), LOTE_IDS_CONSULTA): -> for i in range(1, len(orden), LOTE_IDS_CONSULTA):
+[61/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3063 [booleano] .where(ParteDocumentOrm.is_active.is_(True)) -> .where(ParteDocumentOrm.is_active.is_(False))
+[62/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3089 [comparacion] int(rid if rid is not None else base or 0)) -> int(rid if rid is None else base or 0))
+[63/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3066 [aritmetico] orden[i:i + LOTE_IDS_CONSULTA]))).scalars().all()) -> orden[i:i - LOTE_IDS_CONSULTA]))).scalars().all())
+[64/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3085 [logico] for c in datos.get("cambios") or []: -> for c in datos.get("cambios") and []:
+[65/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3092 [comparacion] if rid is None: -> if rid is not None:
+[66/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3089 [logico] int(rid if rid is not None else base or 0)) -> int(rid if rid is not None else base and 0))
+[67/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3097 [logico] hora = c.get("hora_ext") or {} -> hora = c.get("hora_ext") and {}
+[68/565] superviviente services/partes-front/infrastructure/database/parte_repository.py:3089 [entero] int(rid if rid is not None else base or 0)) -> int(rid if rid is not None else base or 1))
+[69/565] timeout       services/partes-front/infrastructure/database/parte_repository.py:3090 [comparacion] if ref is not None: -> if ref is None:
+[70/565] timeout       services/partes-front/infrastructure/database/parte_repository.py:3096 [comparacion] if rid is None: -> if rid is not None:
+[71/565] timeout       services/partes-front/infrastructure/database/parte_repository.py:3129 [comparacion] == (f.recurso_ide, f.fecha_int)] -> != (f.recurso_ide, f.fecha_int)]
+[72/565] timeout       services/partes-front/infrastructure/database/parte_repository.py:3101 [logico] ids_grupo = [int(i) for i in datos.get("ids_grupo") or []] -> ids_grupo = [int(i) for i in datos.get("ids_grupo") and []]
+[73/565] timeout       services/partes-front/infrastructure/database/parte_repository.py:3104 [comparacion] if reg is not None} -> if reg is None}
+[74/565] timeout       services/partes-front/infrastructure/database/parte_repository.py:3163 [comparacion] if session.get_bind().dialect.name == "postgresql": -> if session.get_bind().dialect.name != "postgresql":
+[75/565] muerto        services/partes-front/infrastructure/database/parte_repository.py:3113 [logico] or {}), -> and {}),
+[76/565] base_rota     services/partes-front/infrastructure/database/parte_repository.py:3188 [logico] for c in datos.get("cambios") or []: -> for c in datos.get("cambios") and []:
+[77/565] base_rota     services/partes-front/infrastructure/database/parte_repository.py:3153 [comparacion] == (f.recurso_ide, f.fecha_int)]} -> != (f.recurso_ide, f.fecha_int)]}[78/565] base_rota     services/partes-front/infrastructure/database/parte_repository.py:3168 [entero] select(func.max(ParteRegistroOrm.id))).scalar() or 0 -> select(func.max(ParteRegistroOrm.id))).scalar() or 1
+
+[79/565] base_rota     services/partes-front/infrastructure/database/parte_repository.py:3168 [logico] select(func.max(ParteRegistroOrm.id))).scalar() or 0 -> select(func.max(ParteRegistroOrm.id))).scalar() and 0

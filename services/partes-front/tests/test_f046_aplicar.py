@@ -134,6 +134,24 @@ def test_f046_r30_repositorio_completa_la_extra_nueva_con_su_base(fabrica):
         RECURSO, FECHA, 33, "P-33", 678, "0678", 9, "HE01", "PT26/00001")
 
 
+def test_f046_r30_repositorio_cambio_sin_ids_no_toma_datos_ajenos(fabrica):
+    """Un cambio mal formado (sin linea ni base) no se completa con los
+    datos de ninguna otra linea (la de id 1 existe en esta base)."""
+    rid, _b, _e, libre, _le = _caso_real(fabrica)
+    with fabrica.create_session() as s:
+        fila = s.get(RepartoPendienteOrm, rid)
+        datos = json.loads(fila.cambios)
+        datos["cambios"].append({"registro_id": None, "base_registro_id": None,
+                                 "tipo": "extra", "antes": 0.0,
+                                 "despues": 1.0})
+        fila.cambios = json.dumps(datos)
+        s.commit()
+    assert _repo(fabrica).repartos_de_registros([libre])
+    (f,) = _repo(fabrica).repartos_de_registros([libre])
+    roto = f["cambios"][-1]
+    assert "parte_cod" not in roto and "recurso_ide" not in roto
+
+
 def test_f046_r37_repositorio_registros_con_reparto(fabrica):
     rid, base, extra, libre, libre_extra = _caso_real(fabrica)
     (otro,) = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="doc-x",

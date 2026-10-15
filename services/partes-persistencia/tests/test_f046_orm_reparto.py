@@ -43,3 +43,37 @@ def test_f046_r39_sin_nombres_ni_dnis():
     columnas = {c.name for c in RepartoPendienteOrm.__table__.columns}
     assert not any(p in c for c in columnas
                    for p in ("nombre", "dni", "cif"))
+
+
+# F-046 (mutacion): la copia de sv3, columna a columna, por si sola.
+PREFIJO = "ALTER TABLE reparto_pendiente ADD COLUMN IF NOT EXISTS "
+
+DDL_REPARTO_PENDIENTE = (
+    PREFIJO + "recurso_ide INTEGER DEFAULT '0' NOT NULL",
+    PREFIJO + "fecha_int INTEGER DEFAULT '0' NOT NULL",
+    PREFIJO + "estado VARCHAR(16) DEFAULT 'pendiente' NOT NULL",
+    PREFIJO + "firma VARCHAR(64) DEFAULT '' NOT NULL",
+    PREFIJO + "cambios TEXT DEFAULT '{}' NOT NULL",
+    PREFIJO + "resultado TEXT",
+    PREFIJO + "error VARCHAR(255)",
+    PREFIJO + "decision VARCHAR(16)",
+    PREFIJO + "decidido_por VARCHAR(120)",
+    PREFIJO + "decidido_at_utc VARCHAR(64)",
+    PREFIJO + "creado_at_utc VARCHAR(64) DEFAULT '' NOT NULL",
+    PREFIJO + "actualizado_at_utc VARCHAR(64) DEFAULT '' NOT NULL",
+    PREFIJO + "materializado_at_utc VARCHAR(64)",
+    ("CREATE INDEX IF NOT EXISTS ix_reparto_pendiente_estado "
+     "ON reparto_pendiente (estado)"),
+    ("CREATE INDEX IF NOT EXISTS ix_reparto_pendiente_grupo "
+     "ON reparto_pendiente (recurso_ide, fecha_int)"),
+)
+
+
+def test_f046_r39_ddl_literal_de_reparto_pendiente_sv3():
+    assert tuple(d for d in ddl_complementario()
+                 if "reparto_pendiente" in d) == DDL_REPARTO_PENDIENTE
+
+
+def test_f046_r39_clave_primaria_con_serie_sv3():
+    col = RepartoPendienteOrm.__table__.c.id
+    assert col.primary_key is True and col.autoincrement is True

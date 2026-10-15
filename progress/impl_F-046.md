@@ -81,7 +81,118 @@ Interruptor `REPARTO_REAJUSTE` (sv3) **apagado por defecto**: apagado, sv3 es F-
 
 ## Fase RED (trazas reales; comando `python -m pytest -q <fichero>` desde cada servicio)
 
-RED_AQUI
+Sin «ModuleNotFound» como RED: antes del código se dejó un stub o solo las constantes, para que
+fallaran las aserciones. T16 y T18 se escribieron antes que su test: su RED es una copia aislada
+(scratchpad) con lo de `dev`. T6, T13, T19 son suites; T7, T20, T21, T23 no tienen código.
+
+**T2 (sv5) R21 R22 R26 — `-m pytest -q tests/test_f046_reajuste_lineas.py` con stub que devuelve siempre editable**
+```
+E       assert (True, False, None) == (True, True, None)          # r26 ya_aplicada
+E       assert (not True)  where True = VeredictoReajuste(registro_id=11, editable=True, ...).editable   # r21 parte cerrado / enlazada / can distinta
+20 failed, 4 passed in 0.55s   (los 4 que pasan: los casos «editable»)
+Verde: 24 passed in 0.39s
+```
+**T3 (sv5) R21 R24 R25 R27 R47 — `tests/test_f046_cliente_reajuste.py`, solo con ENLACES_HMORES añadido**
+```
+E       AttributeError: 'SigridWriteClient' object has no attribute 'escribir_lote'          (x7)
+E       AttributeError: 'SigridWriteClient' object has no attribute 'stmt_guardia_reajuste'  (x4)
+E       AttributeError: 'SigridWriteClient' object has no attribute 'lineas_para_reajuste'   (x4)
+E       AttributeError: 'SigridWriteClient' object has no attribute 'stmt_insertar_extra'. Did you mean: 'stmt_insert_linea'?
+E       AttributeError: 'SigridWriteClient' object has no attribute 'stmt_actualizar_linea'
+21 failed, 2 passed in 0.78s
+Verde: 23 passed in 0.31s
+```
+**T4 (sv5) R20 R22-R29 R47 — `tests/test_f046_reajuste_pipeline.py` con un ReajustePipeline vacío (ok=True siempre, sin escribir)**
+```
+E       assert (8.0, 160.0) == (2.5, 50.0)                 # r24 caso real: nada escrito
+E       assert (not True) where True = ResultadoReajuste(ok=True, ...).ok   # r23 / r27 / r22: no rechaza
+E       Failed: DID NOT RAISE RuntimeError                   # r23 fallo de lectura
+E       assert (True and False) ... .ya_aplicada             # r26
+E       assert False where False = ResultadoReajuste(...).forzada_pruebas   # r28
+Verde: 23 passed in 0.28s
+```
+**T5 (sv5) R20 R23 — `tests/test_f046_api_reajuste.py` con solo MAX_LINEAS_REAJUSTE y el parámetro `reajuste`**
+```
+E       AssertionError: assert 404 == 422          (rutas inexistentes)
+E       assert 404 == 502
+E       KeyError: 'reajuste'                         (main no compone el reajuste)
+```
+**T8 (raíz) R39 — guardianes con TABLAS a siete y COLUMNAS_REPARTO_PENDIENTE, ORM sin la tabla**
+```
+E       AssertionError: la base 'partes' tiene SIETE tablas (...)
+E         At index 5 diff: 'undo_log' != 'reparto_pendiente'
+E       KeyError: 'reparto_pendiente'
+FAILED test_f010_orm_models_gemelos.py::test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas
+FAILED test_f010_orm_models_gemelos.py::test_f046_r39_reparto_pendiente_declara_sus_columnas_literales (+ atributos, + f015_r29 lista)
+Verde: 28 passed in 11.18s; sv3 test_f046_orm_reparto.py 3 passed
+```
+**T9 (sv3) R1-R9c — `tests/test_f046_proponer_dia.py` con un proponer_dia que hace lo de F-045 (repartir_dia, sin cambios)**
+```
+FAILED test_f046_r6_caso_real_0678_registrada_y_0704_nueva
+E       assert {3: (0.0, 8.0)} == {3: (5.5, 2.5)}
+FAILED test_f046_r7_extra_nueva_de_una_base_registrada_sin_extra
+E       assert {3: (0.0, 4.0)} == {3: (2.5, 1.5)}
+FAILED r8, r9c_e, r1 orden, r3 dura, r4 no laborable + 264 casos de las propiedades R2/R1
+271 failed, 353 passed in 7.09s  (pasan R9 —0678 encolada = F-045—, R9a/R9b sin congeladas, R5)
+```
+**T10 (sv3) R11-R15 — `tests/test_f046_reajuste_reparto.py` con un stub (todo libre, firma vacía, siempre proponer)**
+```
+E       AssertionError: assert 'libre' == 'reajustable'      (x8)
+E       AssertionError: assert '' != ''                      (firma, x8)
+E       AssertionError: assert 'proponer' == 'residual'      (x6)
+```
+**T11 (sv3) R15-R18 — `tests/test_f046_candado.py tests/test_f046_conciliar.py`, solo con CLAVE_CANDADO_CONCILIAR y `candado_espera_s`**
+```
+E       AttributeError: 'SqlAlchemyParteRepository' object has no attribute 'materializar_repartos'  (x8)
+E       AttributeError: 'SqlAlchemyParteRepository' object has no attribute 'guardar_repartos'       (x8)
+E       AttributeError: 'SqlAlchemyParteRepository' object has no attribute 'candado_pasada'          (x6)
+E       AttributeError: 'SqlAlchemyParteRepository' object has no attribute 'repartos_vigentes'
+E       AttributeError: 'NoneType' object has no attribute 'horas'     (apply_extras_splits sin `id`)
+```
+**T12 (sv3) R10-R14 R18 R19 R46 — `tests/test_f046_conciliar.py` con solo el parámetro `reajuste` (sin comportamiento)**
+```
+E       assert (0.0, 8.0) == (5.5, 8.0)                     # r11: lo libre sigue en 0 + 8 (F-045)
+E       ValueError: not enough values to unpack (expected 1, got 0)   # r11/r46: no nace el reparto
+E       sqlalchemy.exc.NoResultFound: No row was found when one was required   (r13/r14/r15)
+E       KeyError: 'repartos_propuestos'                     # r19
+E       AssertionError: assert ('revert' == 'candado'       # r18: sin candado
+E       Failed: DID NOT RAISE TimeoutError                   # r18
+E       assert 0.0 == 2.5                                    # r46
+```
+**T14 (sv4) R30-R33 — `tests/test_f046_reparto_aviso.py` con un reparto_aviso vacío**
+```
+E       KeyError: 'opciones'  (x4) · KeyError: 'editable' (x3) · KeyError: 'fecha'
+E       assert 0 == -11                                      # id provisional
+E       AssertionError: assert {} == {20: 'p'}               # r32 exclusiones
+E       IndexError: list index out of range                  # r33 payload vacío
+```
+**T15 (sv4) R32-R36 R38 — `tests/test_f046_aplicar.py tests/test_f046_aprobar_documento.py` sin los métodos del repositorio**
+```
+E       AttributeError: 'ParteReviewRepository' object has no attribute 'iniciar_aplicacion'   (x16)
+E       AttributeError: ... 'repartos_de_registros' (x3) · 'rechazar_reparto' (x3) · 'registros_con_reparto'
+E       Failed: DID NOT RAISE RepartoPendienteError          (x3, r36)
+E       assert [3, 4, 5] == [5]                              # r32: las del reparto viajan
+E       TypeError: ... lineas_para_registro() got an unexpected keyword argument 'repartos_decididos'
+```
+**T16 (sv4) R34 — código escrito antes que el test: RED sobre una copia aislada de `dev` (git archive en el scratchpad) con solo MOTIVO_REAJUSTE añadido**
+```
+E       AttributeError: 'TransferClient' object has no attribute 'reajuste_ejecutar'   (x8)
+E       AttributeError: 'TransferClient' object has no attribute 'reajuste_comprobar'
+```
+**T17 (sv4) rutas R30-R35 R38 — `tests/test_f046_aplicar.py` (sección rutas) con el repositorio ya hecho y las rutas de `dev`**
+```
+E       KeyError: 'repartos'                                 # r30: el preflight no trae el bloque
+E       AssertionError: {"ok":false,"error":"no hay lineas activas que registrar","excluidas":{...,"reparto_pendiente":2}}   # r33/r35: la decisión no se procesa
+E       assert 422 == 409                                    # r33: reparto ajeno
+E       AssertionError: assert ('pendiente', None) == ('aplicando', 'timeout')   # r34
+```
+**T18 (sv4) R31 R37 — código antes que el test: RED en una copia aislada del sv4 actual con plantillas, app.js y styles.css de `dev`**
+```
+E       AssertionError: app.js no define TEXTO_DECISION_REPARTO          (x5, R31)
+E       assert 'data-reparto="pendiente"' in 'data-registro-id="1" ...'  (x3, R37 líneas)
+E       assert 0 == 1  where 0 = len([])                                  (x2, matriz y calendario)
+E       assert None                                                       (x5, estilos y cableado del modal)
+```
 
 ## MANUAL pendiente (humano) — también en `progress/current.md`
 
