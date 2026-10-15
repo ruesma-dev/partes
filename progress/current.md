@@ -674,6 +674,33 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
+## F-049 · spec_ready (2026-10-15): editor de celda de la matriz con ordinarias y extra siempre
+
+Spec escrita por el spec-author en `specs/F-049-editor-calendario-normal-y-extra/`
+(rama `feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`).
+Solo sv4, sin esquema ni Sigrid; rigor **crítico** propuesto (DA9). Va **después de
+F-046 y F-047** (T1 fusiona `dev` antes de tocar código). Pendiente: PARADA 1.
+
+**Hallazgos** (design §2): el «calendario» es el popup de doble clic de la matriz de
+obra; con solo ordinarias ya ofrece la extra nueva, pero con solo extras no ofrece la
+ordinaria; y editar un miembro de la pareja base + `extra_auto` se pierde en la
+siguiente pasada de sv3 (F-037 R-c). M1 (humano, antes de implementar) confirma la
+pantalla y el caso «solo ordinarias».
+
+**Decisiones abiertas que necesita validar el humano** (`design.md` §13):
+
+- DA1 alcance: solo la matriz de obra; ni calendario de trabajador, ni celda vacía o
+  solo incidencia. DA2 ruta atómica nueva `POST /api/matriz/celda` con comprobación
+  de «nada cambió» (`antes`); `/extra` y `PATCH` se quedan.
+- **DA3 · lo escrito manda**: materializar las parejas tocadas (`horas_orig` NULL,
+  `extra_auto` False); sv3 sigue ajustando la jornada (8 (orig 10)+2 → «Ord. 7» da 8+1).
+- **DA4 · recálculo al guardar**: A) seguido con espera de F-043 (recomendado; otra
+  celda del mismo parte da 409 durante 22–39 s), B) ninguno, C) sin espera.
+- DA5 a 0 no va a la papelera; DA6 plantilla = primera no congelada y `line_index`
+  nuevo; DA7 la línea nueva clona también la partida; **DA8 deshacer** manda las
+  creadas a la papelera (obliga a tocar dos dobles de `undo_last` de F-042/F-043,
+  lista cerrada en design §3); DA9 rigor crítico; DA10 rangos 0–24 / −24–24.
+
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
 **Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.
