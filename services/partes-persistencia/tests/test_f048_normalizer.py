@@ -123,6 +123,14 @@ def test_f048_r2_sin_residuo_de_coma_flotante(fila, esperado) -> None:
     assert [r.horas_extra_leidas for r in _registros(fila)] == esperado
 
 
+def test_f048_r2_la_traza_va_a_dos_decimales() -> None:
+    """El criterio es el del conciliador: 2 decimales, ni 3 ni ninguno.
+    Mata el mutante `round(..., 3)` de la campana de la pasada 2."""
+    (reg,) = _registros(_fila(4, 1.234))
+    assert reg.horas_extra_leidas == 1.23
+    assert reg.horas == 5.234
+
+
 # --------------------------------- R3 ----------------------------------- #
 
 @pytest.mark.parametrize(("fila", "esperado"), [
