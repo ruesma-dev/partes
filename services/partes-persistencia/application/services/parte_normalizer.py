@@ -287,9 +287,12 @@ class ParteNormalizer:
 
             acumulado = 0.0
             for p_horas, p_cod in ord_parts:
-                # F-048 (R2): lo que cae mas alla de las ordinarias leidas.
+                # F-048 (R2): lo que cae mas alla de las ordinarias leidas,
+                # a 2 decimales (el criterio del conciliador) para no guardar
+                # residuo de coma flotante; lo que queda en 0 va como None.
                 acumulado += p_horas
-                leidas = min(p_horas, acumulado - ord_leidas) if suma else 0.0
+                leidas = (round(min(p_horas, acumulado - ord_leidas), 2)
+                          if suma else 0.0)
                 parte.registros.append(
                     RegistroNormalizado(
                         line_index=line_index,

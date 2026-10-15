@@ -110,6 +110,19 @@ def test_f048_r2_partida_que_excede_se_capa_al_total(caplog) -> None:
     assert "solo tiene 9.0 h" in caplog.text
 
 
+@pytest.mark.parametrize(("fila", "esperado"), [
+    (_fila(4.3, 5, [("P1", 2.1), ("P2", 2.2), ("P3", None)]),
+     [None, None, 5.0]),
+    (_fila(4.3, 5), [5.0]),
+    (_fila(8.1, 0.2), [0.2]),
+], ids=["4,3+5-tres-partidas", "4,3+5", "8,1+0,2"])
+def test_f048_r2_sin_residuo_de_coma_flotante(fila, esperado) -> None:
+    """Review pasada 1: la resta del acumulado dejaba 8,88e-16,
+    5,000000000000001 o 0,1999999999999993. Se redondea a 2 decimales (el
+    criterio del conciliador) y lo que queda en 0 es None (R2)."""
+    assert [r.horas_extra_leidas for r in _registros(fila)] == esperado
+
+
 # --------------------------------- R3 ----------------------------------- #
 
 @pytest.mark.parametrize(("fila", "esperado"), [
