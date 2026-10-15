@@ -161,15 +161,37 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
 - Tras cerrar T8 (commit `0913f4d`), init.sh otra vez: **ENTORNO LISTO**. Raíz 487
   passed / 3 skipped (193 s); servicios en verde por caché (árbol de código sin cambios);
   cobertura 100 % (16/16); tamaño `impl 186/220`.
-- Nota: init.sh se lanzó una vez con la salida redirigida a un fichero del scratchpad
-  para poder leerla; el comando fue el de siempre.
+
+## Pasada 2 (review pasada 1, CHANGES_REQUESTED: residuo de coma flotante)
+
+- **Cambio** (`parte_normalizer.py`, bucle de `horas_extra_leidas`): se usa
+  `round(min(p_horas, acumulado − ord_leidas), 2)` (el criterio del conciliador) y lo que
+  queda en ≤ 0 va como `None`. No cambian `horas`, el bucle de partidas, R3 ni R5.
+- **Tests** (`test_f048_normalizer.py`): `test_f048_r2_sin_residuo_de_coma_flotante` con
+  los tres casos del reviewer y `test_f048_r2_la_traza_va_a_dos_decimales` (4 + 1,234 ⇒
+  1,23). Este último mata el superviviente `round(…, 3)` de la primera campaña de esta
+  pasada.
+- **RED** (`python -m pytest -q --tb=line -p no:cacheprovider tests/test_f048_normalizer.py -k coma_flotante`,
+  antes del cambio):
+  ```
+  E   assert [None, 8.8817...0000000000001] == [None, None, 5.0]
+  E   assert [5.000000000000001] == [5.0]
+  E   assert [0.1999999999999993] == [0.2]
+  3 failed, 28 deselected in 0.40s
+  ```
+  Con el mutante `round(…, 3)` aplicado a mano: `E   AssertionError: assert 1.234 == 1.23`
+  (`1 failed, 31 passed`). Después se restauró el original.
+- Verde: `test_f048_normalizer.py` ⇒ 32 passed; suite de sv3 ⇒ 1450 passed.
+- **Mutación**, las dos campañas lanzadas por el implementer con
+  `python -m harness.mutacion --feature F-048 --workers 6`:
+  - sobre `6166ab1`: 12 mutantes, 11 muertos, **1 superviviente** (`round(…, 3)`), 206,4 s;
+  - sobre `72b1c7f`, ya con el test nuevo: **12 mutantes, 12 muertos, 0 supervivientes, 0
+    timeouts**, 199,2 s. Su informe es el que queda en `progress/mutacion_F-048.md`.
 
 ## Lo que falta y fuera de alcance
 
-- **Mutación (T8)**: hecha, lanzada por el líder el 2026-10-16 con
-  `python -m harness.mutacion --feature F-048 --workers 6` (HEAD medido `8b616b3`).
-  Resultado: 11 mutantes, 11 muertos, 0 supervivientes y 0 timeouts, así que no hay
-  ningún superviviente que analizar. Detalle en `progress/mutacion_F-048.md`.
+- **Mutación (T8)**: la primera campaña la lanzó el líder (`8b616b3`, 11/11 muertos);
+  la vigente es la de la pasada 2 (arriba): 12/12 muertos.
 - **T0 / fusión con F-046 y F-047**: hay conflictos previstos en las dos copias de
   `orm_models.py` (F-046 añade una tabla y puede tocar `TABLAS` del guardián) y en
   `save_parte` (F-047 cambia la firma; F-048 solo añade un argumento al constructor de
@@ -183,7 +205,7 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
 
 | Evidencia | Valor real |
 |---|---|
-| Tests ejecutados | raíz 487 ok / 3 skip; sv3 1447 ok; sv4 2080 ok / 1 skip (init.sh); nuevos de F-048: 68 (5 + 28 + 23 + 12) |
+| Tests ejecutados | raíz 487 ok / 3 skip; sv3 1447 ok; sv4 2080 ok / 1 skip (init.sh); nuevos de F-048: 72 (5 + 32 + 23 + 12) |
 | Cobertura de líneas cambiadas | **100,0 %** (16/16), puerta de init.sh, umbral 80 % |
-| Mutantes generados / supervivientes | **11 generados, 11 muertos, 0 supervivientes, 0 timeouts** (`progress/mutacion_F-048.md`; 6 workers, timeout por mutante 120 s, 235,4 s en total; HEAD medido `8b616b3`) |
+| Mutantes generados / supervivientes | **12 generados, 12 muertos, 0 supervivientes, 0 timeouts** (`progress/mutacion_F-048.md`; 6 workers, timeout por mutante 120 s, 199,2 s en total; HEAD medido `72b1c7f`) |
 | Tiempo de las suites | raíz 222 s; sv3 65 s; sv4 1463 s |
