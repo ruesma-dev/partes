@@ -1,6 +1,35 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-048 · spec_ready (2026-10-15): ordinarias + extras leídas en laborable siguen la regla de jornada
+
+Spec escrita por el spec-author en `specs/F-048-solo-extras-en-laborable-como-jornada/`
+(rama `feature/F-048-solo-extras-en-laborable-como-jornada`, worktree `partes-wt-f048`),
+ya con la ampliación del humano del 2026-10-15 (filas con ordinarias Y extras: se suman).
+sv3 (normalizador de la ingesta) + sv4 (ORM gemelo y etiqueta); columna nueva
+`parte_registros.horas_extra_leidas`; rigor **crítico**. **Después de F-046 y F-047**
+(T0 fusiona `dev`; conflictos pequeños: `orm_models.py` y `save_parte`).
+Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
+
+**Decisiones abiertas que necesita validar el humano** (`design.md` §6):
+
+- **DA2 · Mecanismo**: A (recomendado) = la ingesta suma las extras leídas > 0 de cada
+  fila a su ordinaria y guarda lo leído en `horas_extra_leidas`; conciliador, F-045,
+  F-037 y F-046 no cambian; casos 1 (10 ⇒ 8 + 2) y 2 (4 + 5 ⇒ 8 + 1) en dos líneas.
+  B = marcar y convertir en cada pasada (reversible, umbral posible, pero el caso 2 exige
+  un vínculo nuevo entre líneas que F-037 y F-046 no conocen).
+- **DA3 · No laborable**: con A, mismos importes que hoy y una línea menos (4 + 5 en
+  sábado ⇒ 0 + 9 `extra_auto`, hoy 0 + 4 + 5). «Como hoy» literal exigiría B.
+- **DA4 · Sin umbral**: una fila solo extra que no llega a J sale con extra negativa
+  (6 ⇒ 8 + (−2)), como las ordinarias; el umbral solo es posible con B.
+- DA5 por fila (A ordinaria 8 + B solo extra 2 ⇒ 6,5+1,5 / 1,5+0,5); **DA6 sin
+  retroactivo**: lo congelado como el caso 2 (ya en Sigrid) se propone como feature aparte
+  sobre F-046 (solo `UPDATE`, extra a 0, nunca borrar); DA7 edición humana como hoy;
+  DA8 extras negativas como hoy; DA9 mensuales MENC también se suman (no cambia Sigrid);
+  DA10 traza en columna, rigor crítico.
+- Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
+  al desplegar.
+
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
 **Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.
