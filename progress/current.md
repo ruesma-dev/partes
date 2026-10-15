@@ -24,7 +24,10 @@ pide continuar («continua la implementacion»).** Enmienda en design §5 y T1. 
 A apareció un séptimo guardián, `tests/test_f015_r29_guardian_cinco_tablas.py::
 test_f015_r29_la_lista_de_parte_registros_sigue_siendo_de_56` (cuenta la longitud de la
 lista; solo falla cuando la lista crece, por eso no salió en el bloqueo): mismo cambio
-de 56 a 57, dentro de la decisión A. La campaña de F-046 murió; la mutación de F-048
+de 56 a 57, dentro de la decisión A. Igual con los dos guardianes de F-019
+(`test_f019_r29_sv3_…_56_columnas` en sv3 y `test_f019_r29_sv4_…_56_columnas` en sv4),
+que el `grep` del bloqueo no cazó (aserción `== 56` sin la palabra «columnas» en la
+línea): nueve tests en total, solo cuentas y lista. La campaña de F-046 murió; la mutación de F-048
 la lanzará el líder (hay campañas de otros proyectos en la máquina).
 
 Registro del bloqueo (historia): **BLOQUEADA en T1 (implementer, 2026-10-15): seis tests

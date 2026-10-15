@@ -80,8 +80,11 @@ de 56 a 57, con mensajes y docstrings, en `tests/test_f010_orm_models_gemelos.py
 (`test_f010_r4_…_56_columnas`, `test_f010_r29_…` y `test_f019_r29_…`),
 `tests/test_f015_r29_guardian_cinco_tablas.py` (`…_sigue_siendo_de_56`, que solo falla
 al crecer la lista), `services/partes-persistencia/tests/test_f015_r18_orm_empleado_jornada.py`,
-`…/test_f015_r21_hora_candef_intacto.py` y
-`services/partes-front/tests/test_f015_r18_orm_empleado_jornada_sv4.py`. Los nombres de
+`…/test_f015_r21_hora_candef_intacto.py`,
+`services/partes-front/tests/test_f015_r18_orm_empleado_jornada_sv4.py` y los dos de F-019
+`services/partes-persistencia/tests/test_f019_orm_bandeja.py::test_f019_r29_sv3_…_56_columnas`
+y `services/partes-front/tests/test_f019_bandeja.py::test_f019_r29_sv4_…_56_columnas`
+(estos tres últimos no salieron en el bloqueo: aparecieron al aplicar A; mismo cambio). Los nombres de
 las funciones no cambian (conservan la cuenta de su feature; el docstring lo dice).
 Solo cambian cuentas y la lista: ninguna aserción de comportamiento.
 
