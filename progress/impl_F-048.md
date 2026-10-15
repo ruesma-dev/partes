@@ -187,6 +187,8 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
   - sobre `6166ab1`: 12 mutantes, 11 muertos, **1 superviviente** (`round(…, 3)`), 206,4 s;
   - sobre `72b1c7f`, ya con el test nuevo: **12 mutantes, 12 muertos, 0 supervivientes, 0
     timeouts**, 199,2 s. Su informe es el que queda en `progress/mutacion_F-048.md`.
+- `bash harness/init.sh` tras `d574119`: **ENTORNO LISTO**. Raíz 487 passed / 3 skipped
+  (165 s), sv3 **1451 passed** (46 s), resto en verde por caché, cobertura 100 % (16/16).
 
 ## Lo que falta y fuera de alcance
 
@@ -205,7 +207,7 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
 
 | Evidencia | Valor real |
 |---|---|
-| Tests ejecutados | raíz 487 ok / 3 skip; sv3 1447 ok; sv4 2080 ok / 1 skip (init.sh); nuevos de F-048: 72 (5 + 32 + 23 + 12) |
+| Tests ejecutados | raíz 487 ok / 3 skip; sv3 1451 ok (pasada 2); sv4 2080 ok / 1 skip (init.sh); nuevos de F-048: 72 (5 + 32 + 23 + 12) |
 | Cobertura de líneas cambiadas | **100,0 %** (16/16), puerta de init.sh, umbral 80 % |
 | Mutantes generados / supervivientes | **12 generados, 12 muertos, 0 supervivientes, 0 timeouts** (`progress/mutacion_F-048.md`; 6 workers, timeout por mutante 120 s, 199,2 s en total; HEAD medido `72b1c7f`) |
-| Tiempo de las suites | raíz 222 s; sv3 65 s; sv4 1463 s |
+| Tiempo de las suites | raíz 165 s; sv3 46 s (pasada 2); sv4 1463 s (pasada 1, sin cambios después) |
