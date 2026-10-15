@@ -8,7 +8,8 @@ efectivo y la jornada del dia) y la tentacion era guardar alguno de ellos
 ahi: seria perder el unico rastro de lo que decia el ERP.
 
 Ademas, F-015 no anade ni una columna a `parte_registros` (la huella de
-56 columnas del guardian de F-010 no se mueve).
+56 columnas del guardian de F-010 no se movio; F-048 la llevo a 57 con
+`horas_extra_leidas`).
 """
 from __future__ import annotations
 
@@ -71,4 +72,5 @@ def test_f015_r21_las_claves_del_split_no_cambian() -> None:
 
 
 def test_f015_r21_parte_registros_sigue_teniendo_56_columnas() -> None:
-    assert len(Base.metadata.tables["parte_registros"].columns) == 56
+    """El nombre conserva la cuenta de F-015; desde F-048 son 57."""
+    assert len(Base.metadata.tables["parte_registros"].columns) == 57

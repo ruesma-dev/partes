@@ -50,8 +50,10 @@ def test_f015_r29_el_guardian_declara_cinco_tablas() -> None:
 
 
 def test_f015_r29_la_lista_de_parte_registros_sigue_siendo_de_56() -> None:
-    """R21: F-015 no toca la tabla grande, así que su lista tampoco cambia."""
-    assert len(COLUMNAS_PARTE_REGISTROS) == 56
+    """R21: F-015 no toca la tabla grande, así que su lista tampoco cambia.
+    El nombre conserva la cuenta de F-015; desde F-048 (`horas_extra_leidas`)
+    son 57."""
+    assert len(COLUMNAS_PARTE_REGISTROS) == 57
     assert COLUMNAS_PARTE_REGISTROS[0] == "id"
     assert COLUMNAS_PARTE_REGISTROS[-1] == "confianza_pct"
 

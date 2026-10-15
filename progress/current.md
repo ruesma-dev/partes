@@ -19,8 +19,16 @@ puede hacer aún). **Riesgo anotado**: al fusionar habrá conflictos en las dos 
 `orm_models.py` (F-046 añade una tabla) y en `save_parte` (F-047 cambia su firma); se
 resuelven al fusionar. La mutación de F-048 espera a que termine la de F-046.
 
-**BLOQUEADA en T1 (implementer, 2026-10-15): seis tests existentes fuera de design §5
-fallan al añadir la columna.** design §5 dice «Ningún test existente cambia … Si alguno
+**DESBLOQUEADA (2026-10-15): el humano elige la opción A (literal «en f48 opcion A») y
+pide continuar («continua la implementacion»).** Enmienda en design §5 y T1. Al aplicar
+A apareció un séptimo guardián, `tests/test_f015_r29_guardian_cinco_tablas.py::
+test_f015_r29_la_lista_de_parte_registros_sigue_siendo_de_56` (cuenta la longitud de la
+lista; solo falla cuando la lista crece, por eso no salió en el bloqueo): mismo cambio
+de 56 a 57, dentro de la decisión A. La campaña de F-046 murió; la mutación de F-048
+la lanzará el líder (hay campañas de otros proyectos en la máquina).
+
+Registro del bloqueo (historia): **BLOQUEADA en T1 (implementer, 2026-10-15): seis tests
+existentes fuera de design §5 fallan al añadir la columna.** design §5 dice «Ningún test existente cambia … Si alguno
 falla ⇒ parar y anotarlo». Al declarar `horas_extra_leidas` en las dos copias del ORM
 (byte-idénticas, `cmp` sin diferencias) fallan los guardianes que fijan las columnas de
 `parte_registros` en 56:

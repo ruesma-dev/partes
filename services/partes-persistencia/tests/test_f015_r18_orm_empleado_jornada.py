@@ -75,9 +75,10 @@ def test_f015_r18_el_patron_son_siete_columnas_opcionales() -> None:
 
 
 def test_f015_r18_parte_registros_no_gana_ni_pierde_columnas() -> None:
-    """R21: F-015 no toca la tabla grande."""
+    """R21: F-015 no toca la tabla grande (57 columnas desde F-048, que
+    añadió `horas_extra_leidas`)."""
     columnas = Base.metadata.tables["parte_registros"].columns
-    assert len(columnas) == 56
+    assert len(columnas) == 57
 
 
 # ------------------------------ create_all ------------------------------ #

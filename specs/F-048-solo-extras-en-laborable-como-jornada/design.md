@@ -72,6 +72,19 @@ suma las extras leídas a la ordinaria de su fila»), `docs/referencia/partes-pr
 **Ninguno** (ningún test actual pasa extras > 0 por el normalizador; comprobado con
 `grep extraordinarias` el 2026-10-15). Si alguno falla ⇒ parar y anotarlo.
 
+**Enmienda (2026-10-15, decisión del humano «en f48 opcion A», tras el bloqueo de T1).**
+La columna nueva obliga a tocar los guardianes que fijan las columnas de
+`parte_registros` en 56 (están hechos para que quien añada una columna la declare):
+`"horas_extra_leidas"` tras `"horas_orig"` en `COLUMNAS_PARTE_REGISTROS` y las cuentas
+de 56 a 57, con mensajes y docstrings, en `tests/test_f010_orm_models_gemelos.py`
+(`test_f010_r4_…_56_columnas`, `test_f010_r29_…` y `test_f019_r29_…`),
+`tests/test_f015_r29_guardian_cinco_tablas.py` (`…_sigue_siendo_de_56`, que solo falla
+al crecer la lista), `services/partes-persistencia/tests/test_f015_r18_orm_empleado_jornada.py`,
+`…/test_f015_r21_hora_candef_intacto.py` y
+`services/partes-front/tests/test_f015_r18_orm_empleado_jornada_sv4.py`. Los nombres de
+las funciones no cambian (conservan la cuenta de su feature; el docstring lo dice).
+Solo cambian cuentas y la lista: ninguna aserción de comportamiento.
+
 ## 6. Decisiones (con recomendación; las valida el humano en la PARADA 1)
 
 - **DA1 · Dónde.** En la ingesta de sv3. No en el prompt de sv2: la IA leyó bien el
