@@ -1,6 +1,38 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-050 · spec_ready (2026-10-15): misma fila para el mismo trabajador
+
+Spec escrita por el spec-author en `specs/F-050-misma-fila-para-el-mismo-trabajador/`
+(rama `feature/F-050-misma-fila-para-el-mismo-trabajador`, worktree `partes-wt-f050`).
+Solo sv4, sin esquema, sin Sigrid ni migración; rigor propuesto **estándar**. Pendiente:
+PARADA 1 (el humano valida las DA antes de implementar).
+
+Causa verificada: `worker_key_for_registro` agrupa sin ficha por el nombre leído, y el alta
+manual escribe como leído el nombre de Sigrid; el detalle y el listado de partes usan otra
+variante, y la vista del trabajador da de alta sin el recurso (línea sin casar).
+
+**Decisiones abiertas que necesita validar el humano** (`design.md` §8):
+
+- **DA1 · Clave**: `emp-` > `rec-{recurso}` (solo casadas sin ficha) > `nom-` >
+  `sin-trabajador`. Descartados DNI primero o recurso primero para todos (cambian todas
+  las URL) y un paso `dni-` (M1 confirma que no hace falta).
+- DA2 una sola función también para el detalle y el listado de partes.
+- **DA3 · Alta manual** hereda `empleado_line_no` y leído de la persona en ese parte; sin
+  ella, fila nueva al final (hoy fila 1 fija).
+- DA4 sin migración; **DA5** redirección solo en el GET de `/trabajadores/nom-…` (se puede
+  quitar); **DA6** la vista del trabajador pasa el recurso al modal (segundo camino al
+  mismo síntoma).
+- **DA7 · Cambio visible**: casada sin ficha y sin casar con el mismo leído dejan de
+  compartir fila (como ya pasa con ficha); homónimos casados con recursos distintos dejan
+  de fusionarse.
+- DA8 rigor estándar; **DA9** orden: F-050 antes de F-049 (el editor de celda usa la misma
+  clave); con F-046/F-047 solo conflictos textuales.
+
+**MANUAL (humano)**: M1 antes de desplegar (SQL de solo lectura de `design.md` §6:
+personas partidas por parte y por obra); M2–M5 tras desplegar sv4.
+
+
 ## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila
 
 **Decisión del humano (2026-10-19, «haz la recomendación»)**: se cierra F-051 tal cual (prompt

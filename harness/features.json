@@ -680,6 +680,25 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-051-extraccion-fila-a-fila"
+    },
+    {
+      "id": "F-050",
+      "title": "Misma fila para el mismo trabajador: la clave de trabajador del portal usa el recurso de las lineas casadas sin ficha, y el alta manual hereda la fila del papel",
+      "description": "Pedida por el humano el 2026-10-15: al anadir con «+ Anadir linea» una ordinaria a un trabajador que solo tenia extras, el calendario de la obra lo pinta en dos filas. Causa (verificada en sv4, dev dc03468): worker_key_for_registro agrupa por emp-{empleado_ide} y, sin ficha, por el nombre leido; la linea de la IA guarda el leido del papel (orden nombre-apellidos) y crear_parte_manual escribe como leido el nombre de Sigrid (orden apellidos-nombre), asi que un trabajador sin ficha casado por su recurso queda partido en dos claves; el detalle y el listado de partes agrupan con otra variante con el mismo fallo, y la vista del trabajador da de alta sin el recurso (linea sin casar, otra fila). F-050 (solo sv4, sin esquema ni Sigrid ni migracion): clave emp- > rec-{recurso} (casada sin ficha) > nom- > sin-trabajador en una sola funcion para todas las vistas y acciones; el alta manual hereda empleado_line_no y leido de la persona en ese parte (si no esta, fila nueva al final); la vista del trabajador pasa el recurso al modal; las URL nom- antiguas redirigen si el destino es unico. Spec: specs/F-050-misma-fila-para-el-mismo-trabajador/.",
+      "acceptance": [
+        "Caso real (0678, 15/10): la linea de la IA (extra 2) y la manual (normal 8) del mismo recurso salen en UNA fila con 8+2 en el calendario, un bloque en el detalle del parte y una persona en las listas",
+        "Las claves emp- y nom- de las lineas con ficha o no casadas no cambian; homonimos casados con recursos distintos dejan de fusionarse",
+        "Reasignar, papelera y ambito de aprobar por clave rec- actuan sobre las lineas de ese recurso y ninguna otra",
+        "El alta manual hereda empleado_line_no y leido de la persona en el parte; sin ella, maximo + 1",
+        "Una URL /trabajadores/nom-... antigua redirige a la clave nueva si es unica; si no, 404",
+        "No cambian sv3, sv5, esquema, orm_models, congelacion ni los tests existentes",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-050-misma-fila-para-el-mismo-trabajador"
     }
   ]
 }
