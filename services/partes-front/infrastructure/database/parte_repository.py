@@ -267,6 +267,10 @@ class RegistroView:
     # o None; el motivo va en el `title` de la insignia.
     incompat_nivel: str | None = None
     incompat_motivo: str | None = None
+    # --- Traza de la ingesta (F-048 R22) --- #
+    # Horas de la linea que la IA leyo como extra y sv3 sumo a la
+    # ordinaria; solo se ensenan, el portal nunca las cambia (R23).
+    horas_extra_leidas: Optional[float] = None
 
 
 @dataclass
@@ -3523,4 +3527,5 @@ def _registro_view(
         congelado_motivo=motivo,
         incompat_nivel=incompat.nivel if incompat else None,
         incompat_motivo=incompat.motivo if incompat else None,
+        horas_extra_leidas=reg.horas_extra_leidas,
     )
