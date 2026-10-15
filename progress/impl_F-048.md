@@ -1,9 +1,9 @@
 # F-048 · Informe del implementer
 
 Rama `feature/F-048-solo-extras-en-laborable-como-jornada` (worktree `partes-wt-f048`),
-sobre `dev` dc03468. Rigor **crítico**. Estado: **T1–T7, T9 y T10 hechas; T8 a medias**:
-la cobertura está medida, pero **la campaña de mutación queda PENDIENTE DE LANZAR por el
-líder** (orden del líder: había campañas de otros proyectos en la máquina). T0
+sobre `dev` dc03468. Rigor **crítico**. Estado: **T1–T10 hechas**. La campaña de mutación (T8) la lanzó el
+líder en este worktree: 11 mutantes, **11 muertos, 0 supervivientes**
+(`progress/mutacion_F-048.md`). T0
 **aplazada**: `dev` no tiene F-046 ni F-047 (ver «Lo que falta»).
 
 ## Qué cambió
@@ -163,10 +163,10 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
 
 ## Lo que falta y fuera de alcance
 
-- **Mutación (T8), pendiente de lanzar por el líder**:
-  `python -m harness.mutacion --feature F-048` desde la raíz del worktree ⇒
-  `progress/mutacion_F-048.md`. Después hay que analizar cada superviviente (rigor
-  crítico: 0 sin test o sin justificación).
+- **Mutación (T8)**: hecha, lanzada por el líder el 2026-10-16 con
+  `python -m harness.mutacion --feature F-048 --workers 6` (HEAD medido `8b616b3`).
+  Resultado: 11 mutantes, 11 muertos, 0 supervivientes y 0 timeouts, así que no hay
+  ningún superviviente que analizar. Detalle en `progress/mutacion_F-048.md`.
 - **T0 / fusión con F-046 y F-047**: hay conflictos previstos en las dos copias de
   `orm_models.py` (F-046 añade una tabla y puede tocar `TABLAS` del guardián) y en
   `save_parte` (F-047 cambia la firma; F-048 solo añade un argumento al constructor de
@@ -182,5 +182,5 @@ nuevo» y R23 (las ediciones no la tocan). Son caracterizaciones de lo que no de
 |---|---|
 | Tests ejecutados | raíz 487 ok / 3 skip; sv3 1447 ok; sv4 2080 ok / 1 skip (init.sh); nuevos de F-048: 68 (5 + 28 + 23 + 12) |
 | Cobertura de líneas cambiadas | **100,0 %** (16/16), puerta de init.sh, umbral 80 % |
-| Mutantes generados / supervivientes | **PENDIENTE: la campaña la lanza el líder** (no se ha ejecutado) |
+| Mutantes generados / supervivientes | **11 generados, 11 muertos, 0 supervivientes, 0 timeouts** (`progress/mutacion_F-048.md`; 6 workers, timeout por mutante 120 s, 235,4 s en total; HEAD medido `8b616b3`) |
 | Tiempo de las suites | raíz 222 s; sv3 65 s; sv4 1463 s |

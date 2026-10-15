@@ -31,10 +31,10 @@ línea): nueve tests en total, solo cuentas y lista. La campaña de F-046 murió
 la lanzará el líder (hay campañas de otros proyectos en la máquina).
 
 **Implementación (implementer, 2026-10-16)**: T1–T7 hechas, T9 y T10 abajo; T0 aplazada
-(dev sin F-046/F-047). **T8: la campaña de mutación de F-048 queda PENDIENTE DE LANZAR
-por el líder** (hay campañas de otros proyectos en la máquina; orden del líder: no
-lanzarla). Comando: `python -m harness.mutacion --feature F-048` desde la raíz del
-worktree; informe en `progress/mutacion_F-048.md`. Informe: `progress/impl_F-048.md`.
+(dev sin F-046/F-047). **T8 cerrada (2026-10-16)**: el líder lanzó la campaña
+(`--workers 6`): 11 mutantes, 11 muertos, 0 supervivientes, 0 timeouts, 235,4 s
+(`progress/mutacion_F-048.md`). init.sh en verde. Informe: `progress/impl_F-048.md`.
+Pendiente: reviewer.
 
 **MANUAL (humano), pendiente** — solo lectura salvo el despliegue; los agentes no:
 
