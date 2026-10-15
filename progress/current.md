@@ -16,8 +16,10 @@ sobre HEAD `676c0e7` (ya incluye los tests contra los supervivientes vistos). **
 así que con 600 s todo mutante de sv4 que no muera pronto sale `timeout` (con el suelo por
 defecto, la propia base tiene solo 600 s y aborta). Se lanzó con `--timeout 1300`. Los
 `timeout` y supervivientes se re-evalúan con `progress/redirigir_mutantes_F-046.py <log> HEAD
-{timeout|superviviente}`: los 6 timeouts y 13 supervivientes vistos mueren con los tests de
-F-046 de su servicio.
+{timeout|superviviente}`: hasta la interrupción, los 6 primeros timeouts y 6 supervivientes
+(columnas del ORM de sv4) mueren con los tests de F-046 de su servicio; el resto queda por
+re-evaluar sobre la campaña nueva (una re-evaluación se colgó más de 900 s y el script ya lo
+registra como COLGADO).
 
 **MANUAL (humano) · despliegue y encendido (T23), pendientes**, en este orden:
 
