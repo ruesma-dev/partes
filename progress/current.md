@@ -30,6 +30,27 @@ que el `grep` del bloqueo no cazó (aserción `== 56` sin la palabra «columnas�
 línea): nueve tests en total, solo cuentas y lista. La campaña de F-046 murió; la mutación de F-048
 la lanzará el líder (hay campañas de otros proyectos en la máquina).
 
+**Implementación (implementer, 2026-10-16)**: T1–T7 hechas, T9 y T10 abajo; T0 aplazada
+(dev sin F-046/F-047). **T8: la campaña de mutación de F-048 queda PENDIENTE DE LANZAR
+por el líder** (hay campañas de otros proyectos en la máquina; orden del líder: no
+lanzarla). Comando: `python -m harness.mutacion --feature F-048` desde la raíz del
+worktree; informe en `progress/mutacion_F-048.md`. Informe: `progress/impl_F-048.md`.
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; los agentes no:
+
+- **M1 · antes de desplegar** (solo lectura, base `partes`): SQL de `design.md` §9
+  (líneas `extra` explícitas > 0 sin congelar que se quedan como hoy; aproximada).
+- **Despliegue** de sv3 y sv4 con `redeploy_partes.ps1` desde `infra/` (los dos aplican
+  `ddl_complementario`; cualquier orden vale). Antes, fusionar F-046/F-047 si van juntos
+  (conflictos previstos en las dos copias de `orm_models.py` y en `save_parte`).
+- **M2 · columna**: `information_schema.columns` de `horas_extra_leidas` ⇒
+  `double precision`, `YES`.
+- **M3 · Log Analytics** (`ca-sv3-persistencia`): `Log_s has 'filas_extra_sumadas'` y
+  `Log_s has 'reparto'` en el mismo documento.
+- **M4 · primer caso real**: parte con extras leídas en laborable ⇒ `normal` J con la
+  etiqueta «incl. X h extra leídas» y su `extra_auto` (SQL de design §9).
+- **M5 · opcional, solo con autorización expresa**: reingestar partes sin congelar de M1.
+
 Registro del bloqueo (historia): **BLOQUEADA en T1 (implementer, 2026-10-15): seis tests
 existentes fuera de design §5 fallan al añadir la columna.** design §5 dice «Ningún test existente cambia … Si alguno
 falla ⇒ parar y anotarlo». Al declarar `horas_extra_leidas` en las dos copias del ORM
