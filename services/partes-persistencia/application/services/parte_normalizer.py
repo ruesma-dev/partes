@@ -3,7 +3,9 @@
 SIN casar todavia, EXPANDIENDO cada empleado en registros horarios:
 
   - una fila de horas ORDINARIAS  -> registro tipo_hora="normal"
-  - una fila de horas EXTRAORDIN.  -> registro tipo_hora="extra"
+  - extras leidas > 0 (F-048)     -> SUMADAS a la ordinaria de su fila
+    (registro "normal"; lo leido como extra en `horas_extra_leidas`)
+  - extras leidas < 0             -> registro tipo_hora="extra"
   - una INCIDENCIA (V/B/AT/...)     -> registro es_incidencia=True
 
 El casado (empleado / obra / codigo de hora) lo aplica el pipeline despues.
@@ -149,6 +151,9 @@ class ParteNormalizer:
         )
 
         line_index = 0
+        # F-048 (R7): filas cuyas extras leidas se sumaron a la ordinaria.
+        filas_extra_sumadas = 0
+        horas_extra_sumadas = 0.0
         for emp in empleados_raw:
             if not isinstance(emp, dict):
                 continue
@@ -205,11 +210,13 @@ class ParteNormalizer:
                 confianza_pct=confianza,
             )
 
-            # El split por jornada se hace ahora en sv3 tras la conciliacion
-            # de recurso (con el CanDefecto real del recurso y la vision del
-            # dia completo across obras). Aqui se respetan las horas tal cual:
-            # las ordinarias del parte como normal y las extra EXPLICITAS como
-            # extra. (self._jornada queda sin uso; ver recurso_conciliador.)
+            # El split por jornada se hace en sv3 tras la conciliacion de
+            # recurso (con el CanDefecto real del recurso y la vision del dia
+            # completo across obras). F-048: las extras leidas > 0 se SUMAN a
+            # la ordinaria de su fila (es trabajo de ese dia) y el reparto de
+            # jornada decide J + exceso; lo leido como extra queda en
+            # `horas_extra_leidas`. Solo la extra NEGATIVA leida sigue como
+            # registro extra explicito. (self._jornada queda sin uso.)
             ord_eff = horas_ord
             extra_eff = horas_extra
 
@@ -223,6 +230,15 @@ class ParteNormalizer:
             extra_parts: list[tuple[float, str | None]] = []
             ord_pos = float(ord_eff) if ord_eff and ord_eff > 0 else 0.0
             extra_pos = float(extra_eff) if extra_eff and extra_eff > 0 else 0.0
+            # F-048 (R1): fila sumable = extras leidas > 0. Sus primeras
+            # `ord_leidas` horas son las ordinarias leidas; el resto, extras.
+            suma = extra_pos > 0
+            ord_leidas = ord_pos
+            if suma:
+                ord_pos += extra_pos
+                filas_extra_sumadas += 1
+                horas_extra_sumadas += extra_pos
+                extra_pos = 0.0
 
             if asignaciones and (ord_pos > 0 or extra_pos > 0):
                 explicitas = [(c, float(h)) for c, h in asignaciones
@@ -269,7 +285,14 @@ class ParteNormalizer:
                 if extra_eff and (extra_pos > 0 or extra_eff < 0):
                     extra_parts.append((float(extra_eff), None))
 
+            acumulado = 0.0
             for p_horas, p_cod in ord_parts:
+                # F-048 (R2): lo que cae mas alla de las ordinarias leidas,
+                # a 2 decimales (el criterio del conciliador) para no guardar
+                # residuo de coma flotante; lo que queda en 0 va como None.
+                acumulado += p_horas
+                leidas = (round(min(p_horas, acumulado - ord_leidas), 2)
+                          if suma else 0.0)
                 parte.registros.append(
                     RegistroNormalizado(
                         line_index=line_index,
@@ -278,6 +301,7 @@ class ParteNormalizer:
                         horas=p_horas,
                         partida=p_cod,
                         codigo_hora_propuesto=cod_ord,
+                        horas_extra_leidas=leidas if leidas > 0 else None,
                         **base,
                     )
                 )
@@ -315,11 +339,13 @@ class ParteNormalizer:
 
         logger.info(
             "[parte-normalizer] fecha=%s obra=%r empleados=%s registros=%s "
-            "firmado=%s",
+            "firmado=%s filas_extra_sumadas=%s horas_extra_sumadas=%.2f",
             parte.fecha_iso,
             parte.obra_numero_leido,
             sum(1 for _ in {r.trabajador_nombre_leido for r in parte.registros}),
             len(parte.registros),
             parte.firmado,
+            filas_extra_sumadas,
+            horas_extra_sumadas,
         )
         return parte

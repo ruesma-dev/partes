@@ -81,4 +81,6 @@ def test_f019_r29_sv3_create_all_crea_la_bandeja_y_admite_una_fila() -> None:
 
 
 def test_f019_r29_sv3_parte_registros_sigue_con_56_columnas() -> None:
-    assert len(Base.metadata.tables["parte_registros"].columns) == 56
+    """El nombre conserva la cuenta de F-019; desde F-048
+    (`horas_extra_leidas`) son 57."""
+    assert len(Base.metadata.tables["parte_registros"].columns) == 57

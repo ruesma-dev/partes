@@ -133,6 +133,16 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    reparte lo que queda de jornada; si el reparto ideal lo cambiaría, sv3
    lo avisa (WARNING y `repartos_con_congeladas`) para el reajuste de F-046.
    Las líneas en la papelera no pesan en el día.
+   **F-048 · extras leídas en la ordinaria**: la ingesta de sv3 suma las
+   extras leídas > 0 de cada fila del papel a la ordinaria de esa fila (un
+   registro `normal` con lo trabajado; ordinarias primero en el reparto por
+   partidas) y guarda lo leído como extra en `horas_extra_leidas` (solo
+   traza; sv4 la enseña como «incl. X h extra leídas» y no la edita). El
+   reparto de arriba hace el resto: en laborable, jornada + exceso (solo 10
+   extras ⇒ 8 + 2; 4 + 5 ⇒ 8 + 1; 4 + 2 ⇒ 8 + (−2), sin umbral), dos líneas
+   por fila y nunca una `extra` explícita al lado; en no laborable, todo a
+   `extra_auto` (mismos importes, una línea menos). La extra negativa leída
+   sigue explícita. Solo ingestas nuevas: lo guardado antes no cambia.
    El reparto solo lo calcula sv3 (`conciliar_todos`, que recalcula todo lo
    activo no congelado) y solo cuando le llega un mensaje por
    `q-persistencia`. **F-042**: además de cada ingesta de sv2, lo dispara
@@ -191,7 +201,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `empleado_alias` lleva `recurso_ide` (nullable) y `empleado_ide` pasa a
    nullable: el `DROP NOT NULL` va en `DDL_EXTRA_POSTGRES`, única
    sentencia del DDL de arranque que no es «solo añadir» (idempotente y sin
-   tocar filas; los tests de F-010 la nombran entera).
+   tocar filas; los tests de F-010 la nombran entera). Desde F-048,
+   `parte_registros` lleva `horas_extra_leidas` (`Float`, nullable, sin
+   defecto; la escribe solo la ingesta de sv3, semántica 3): 57 columnas.
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
    `deleted_*`; nunca borrado físico desde la aplicación.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol

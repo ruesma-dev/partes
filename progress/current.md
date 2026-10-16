@@ -1,6 +1,117 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-048 · done (2026-10-16, APPROVED pasada 2): ordinarias + extras leídas en laborable siguen la regla de jornada
+
+**PARADA 1 superada (2026-10-15).** El humano aprueba la implementación con TODAS las
+decisiones DA1–DA10 tal como las recomienda `design.md` §6 (A en DA2: sumar en la
+ingesta; DA3; DA4 sin umbral; DA6 sin retroactivo; rigor crítico). Aclaración literal
+del humano sobre DA2: «lo que no quiero es que salgan 3 líneas en el front por ejemplo
+en el caso 4+2. es decir por día solo hay una fila de extras y otra de ordinarias». La
+opción A lo cumple (4+2 ⇒ `normal` 8 + `extra_auto` −2); se añade un test explícito de
+que los casos 1, 2 y 4+2 dejan EXACTAMENTE dos líneas activas (una `normal` y una
+`extra_auto`).
+
+**Excepción a «una sola feature en curso» (decidida por el humano):** F-046 sigue
+`in_progress` en su rama (`partes-wt-f046`) con una campaña de mutación en marcha que no
+se perturba. F-048 trabaja sobre `dev` actual (dc03468), SIN F-046 ni F-047 (T0 no se
+puede hacer aún). **Riesgo anotado**: al fusionar habrá conflictos en las dos copias de
+`orm_models.py` (F-046 añade una tabla) y en `save_parte` (F-047 cambia su firma); se
+resuelven al fusionar. La mutación de F-048 espera a que termine la de F-046.
+
+**DESBLOQUEADA (2026-10-15): el humano elige la opción A (literal «en f48 opcion A») y
+pide continuar («continua la implementacion»).** Enmienda en design §5 y T1. Al aplicar
+A apareció un séptimo guardián, `tests/test_f015_r29_guardian_cinco_tablas.py::
+test_f015_r29_la_lista_de_parte_registros_sigue_siendo_de_56` (cuenta la longitud de la
+lista; solo falla cuando la lista crece, por eso no salió en el bloqueo): mismo cambio
+de 56 a 57, dentro de la decisión A. Igual con los dos guardianes de F-019
+(`test_f019_r29_sv3_…_56_columnas` en sv3 y `test_f019_r29_sv4_…_56_columnas` en sv4),
+que el `grep` del bloqueo no cazó (aserción `== 56` sin la palabra «columnas» en la
+línea): nueve tests en total, solo cuentas y lista. La campaña de F-046 murió; la mutación de F-048
+la lanzará el líder (hay campañas de otros proyectos en la máquina).
+
+**Implementación (implementer, 2026-10-16)**: T1–T7 hechas, T9 y T10 abajo; T0 aplazada
+(dev sin F-046/F-047). **T8 cerrada (2026-10-16)**: el líder lanzó la campaña
+(`--workers 6`): 11 mutantes, 11 muertos, 0 supervivientes, 0 timeouts, 235,4 s
+(`progress/mutacion_F-048.md`). init.sh en verde. Informe: `progress/impl_F-048.md`.
+Pendiente: reviewer.
+
+**MANUAL (humano), pendiente** — solo lectura salvo el despliegue; los agentes no:
+
+- **M1 · antes de desplegar** (solo lectura, base `partes`): SQL de `design.md` §9
+  (líneas `extra` explícitas > 0 sin congelar que se quedan como hoy; aproximada).
+- **Despliegue** de sv3 y sv4 con `redeploy_partes.ps1` desde `infra/` (los dos aplican
+  `ddl_complementario`; cualquier orden vale). Antes, fusionar F-046/F-047 si van juntos
+  (conflictos previstos en las dos copias de `orm_models.py` y en `save_parte`).
+- **M2 · columna**: `information_schema.columns` de `horas_extra_leidas` ⇒
+  `double precision`, `YES`.
+- **M3 · Log Analytics** (`ca-sv3-persistencia`): `Log_s has 'filas_extra_sumadas'` y
+  `Log_s has 'reparto'` en el mismo documento.
+- **M4 · primer caso real**: parte con extras leídas en laborable ⇒ `normal` J con la
+  etiqueta «incl. X h extra leídas» y su `extra_auto` (SQL de design §9).
+- **M5 · opcional, solo con autorización expresa**: reingestar partes sin congelar de M1.
+
+Registro del bloqueo (historia): **BLOQUEADA en T1 (implementer, 2026-10-15): seis tests
+existentes fuera de design §5 fallan al añadir la columna.** design §5 dice «Ningún test existente cambia … Si alguno
+falla ⇒ parar y anotarlo». Al declarar `horas_extra_leidas` en las dos copias del ORM
+(byte-idénticas, `cmp` sin diferencias) fallan los guardianes que fijan las columnas de
+`parte_registros` en 56:
+
+| Test | Qué afirma |
+|---|---|
+| `tests/test_f010_orm_models_gemelos.py::test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas` | lista literal `COLUMNAS_PARTE_REGISTROS` (56) + `len == 56`; su comentario pide declararla ahí al añadir una columna |
+| `tests/test_f010_orm_models_gemelos.py::test_f010_r29_parte_registros_no_gana_ni_pierde_columnas` | F-015 no toca la tabla: igual a la lista y 56 |
+| `tests/test_f010_orm_models_gemelos.py::test_f019_r29_parte_registros_no_gana_ni_pierde_columnas` | F-019 no toca la tabla: igual a la lista |
+| `services/partes-persistencia/tests/test_f015_r18_orm_empleado_jornada.py::test_f015_r18_parte_registros_no_gana_ni_pierde_columnas` | `len == 56` |
+| `services/partes-persistencia/tests/test_f015_r21_hora_candef_intacto.py::test_f015_r21_parte_registros_sigue_teniendo_56_columnas` | `len == 56` |
+| `services/partes-front/tests/test_f015_r18_orm_empleado_jornada_sv4.py::test_f015_r18_sv4_parte_registros_no_gana_ni_pierde_columnas` | `len == 56` |
+
+Es inevitable con cualquier columna nueva (DA10): el guardián está hecho para obligar a
+declararla. **Propuesta para el humano** (enmienda de design §5 y T1):
+
+- **A (recomendada)**: añadir `"horas_extra_leidas"` tras `"horas_orig"` en
+  `COLUMNAS_PARTE_REGISTROS` y pasar las cinco cuentas de 56 a 57 (textos «56» de sus
+  mensajes y docstrings incluidos). La intención de los tests de F-015/F-019 («esa
+  feature no tocó la tabla») se conserva: comparan con la lista vigente. Es lo que
+  hicieron F-015 y F-019 con `TABLAS` al añadir sus tablas.
+- B: guardar la traza fuera de `parte_registros` (otra tabla o JSON en el documento):
+  contradice DA10 y complica sv4. No recomendada.
+
+Estado del trabajo: T1 hecho salvo ese verde (dominio, dos ORM, `save_parte` y
+`tests/test_f048_esquema.py` con fase RED registrada y ya en verde: 5 tests). Commit
+`F-048 T1 (parcial)`. T2–T10 sin empezar. La campaña de F-046 sigue viva (7 procesos
+`harness.mutacion` a las 18:10 del 2026-10-15), así que la mutación de F-048 esperaría
+en cualquier caso.
+
+### Antecedente: spec_ready
+
+Spec escrita por el spec-author en `specs/F-048-solo-extras-en-laborable-como-jornada/`
+(rama `feature/F-048-solo-extras-en-laborable-como-jornada`, worktree `partes-wt-f048`),
+ya con la ampliación del humano del 2026-10-15 (filas con ordinarias Y extras: se suman).
+sv3 (normalizador de la ingesta) + sv4 (ORM gemelo y etiqueta); columna nueva
+`parte_registros.horas_extra_leidas`; rigor **crítico**. **Después de F-046 y F-047**
+(T0 fusiona `dev`; conflictos pequeños: `orm_models.py` y `save_parte`).
+Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
+
+**Decisiones abiertas que necesita validar el humano** (`design.md` §6):
+
+- **DA2 · Mecanismo**: A (recomendado) = la ingesta suma las extras leídas > 0 de cada
+  fila a su ordinaria y guarda lo leído en `horas_extra_leidas`; conciliador, F-045,
+  F-037 y F-046 no cambian; casos 1 (10 ⇒ 8 + 2) y 2 (4 + 5 ⇒ 8 + 1) en dos líneas.
+  B = marcar y convertir en cada pasada (reversible, umbral posible, pero el caso 2 exige
+  un vínculo nuevo entre líneas que F-037 y F-046 no conocen).
+- **DA3 · No laborable**: con A, mismos importes que hoy y una línea menos (4 + 5 en
+  sábado ⇒ 0 + 9 `extra_auto`, hoy 0 + 4 + 5). «Como hoy» literal exigiría B.
+- **DA4 · Sin umbral**: una fila solo extra que no llega a J sale con extra negativa
+  (6 ⇒ 8 + (−2)), como las ordinarias; el umbral solo es posible con B.
+- DA5 por fila (A ordinaria 8 + B solo extra 2 ⇒ 6,5+1,5 / 1,5+0,5); **DA6 sin
+  retroactivo**: lo congelado como el caso 2 (ya en Sigrid) se propone como feature aparte
+  sobre F-046 (solo `UPDATE`, extra a 0, nunca borrar); DA7 edición humana como hoy;
+  DA8 extras negativas como hoy; DA9 mensuales MENC también se suman (no cambia Sigrid);
+  DA10 traza en columna, rigor crítico.
+- Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
+  al desplegar.
+
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
 **Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.

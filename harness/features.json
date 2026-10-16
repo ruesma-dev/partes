@@ -612,6 +612,27 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-045-reparto-ponderado-entre-obras"
+    },
+    {
+      "id": "F-048",
+      "title": "Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso",
+      "description": "Pedida por el humano el 2026-10-15 (literal: «cuando sea laborable, aunque las horas sean extras se usa la regla de 8+x») y ampliada el mismo dia a las filas con ordinarias Y extras: se suman y el total sigue la regla de jornada (J normales + exceso extra, o extra negativa si no llega). Caso 1: 15/10/2026, obra 0678, fila con ordinarias nulas y 10 extras quedo como una extra de 10 h (esperado 8 + 2). Caso 2: 02/10/2026, obra 0686, fila 4 + 5 extras quedo en tres lineas (normal 8, extra_auto -4, extra 5; esperado 8 + 1, dos lineas). Diseno recomendado (DA2, opcion A): el normalizador de sv3 suma las extras leidas > 0 de cada fila a su ordinaria (por partida, ordinarias primero) y guarda lo leido como extra en la columna nueva parte_registros.horas_extra_leidas (dos copias del ORM); el conciliador, F-045, F-037 y F-046 no cambian. En no laborable salen los mismos importes con una linea menos (DA3); sin umbral (DA4). Solo ingestas nuevas; lo congelado (caso 2, ya en Sigrid) seria feature aparte sobre F-046 (solo UPDATE). Toca sv3 y sv4 (ORM gemelo y etiqueta en el portal); sv2 y sv5 no. Se implementa despues de F-046 y F-047. Spec: specs/F-048-solo-extras-en-laborable-como-jornada/.",
+      "acceptance": [
+        "Caso 1: ordinarias nulas y 10 extras en laborable (J 8) dan dos lineas: normal 8 (horas_orig 10, horas_extra_leidas 10) + extra_auto 2",
+        "Caso 2: 4 ordinarias + 5 extras dan dos lineas: normal 8 (horas_orig 9, horas_extra_leidas 5) + extra_auto 1, sin extra explicita",
+        "No llega: 4 + 2 da 8 + (-2); candef 9 viernes (J 6) 4 + 5 da 6 + 3 y jueves (J 9) da 9 sin split",
+        "Sabado: 4 + 5 da normal 0 + extra_auto 9 (mismos importes que hoy); extras negativas leidas, como hoy",
+        "Dos obras con F-045: A 4 + 5 y B 3 dan A 6 + 3 y B 2 + 1",
+        "Columna horas_extra_leidas en las dos copias del ORM (gemelos byte-identicos) y etiqueta en el portal; conciliador, sv2 y sv5 sin cambios",
+        "Ningun test existente cambia",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-048-solo-extras-en-laborable-como-jornada"
     }
   ]
 }
