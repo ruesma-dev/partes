@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **43 features**, 12 abiertas, 31 terminadas.
-
-En curso: **F-048**.
+Resumen: **43 features**, 11 abiertas, 32 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -15,7 +13,6 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | en curso | critico | `feature/F-048-solo-extras-en-laborable-como-jornada` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -45,6 +42,7 @@ Bloqueadas: **F-014, F-032**.
 | F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | critico |
 | F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |
 | F-045 | Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas | 1 | critico |
+| F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | critico |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -75,12 +73,6 @@ Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos 
 estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
 
 Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
-
-### F-048 · Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-048-solo-extras-en-laborable-como-jornada`
-
-Pedida por el humano el 2026-10-15 (literal: «cuando sea laborable, aunque las horas sean extras se usa la regla de 8+x») y ampliada el mismo dia a las filas con ordinarias Y extras: se suman y el total sigue la regla de jornada (J normales + exceso extra, o extra negativa si no llega). Caso 1: 15/10/2026, obra 0678, fila con ordinarias nulas y 10 extras quedo como una extra de 10 h (esperado 8 + 2). Caso 2: 02/10/2026, obra 0686, fila 4 + 5 extras quedo en tres lineas (normal 8, extra_auto -4, extra 5; esperado 8 + 1, dos lineas). Diseno recomendado (DA2, opcion A): el normalizador de sv3 suma las extras leidas > 0 de cada fila a su ordinaria (por partida, ordinarias primero) y guarda lo leido como extra en la columna nueva parte_registros.horas_extra_leidas (dos copias del ORM); el conciliador, F-045, F-037 y F-046 no cambian. En no laborable salen los mismos importes con una linea menos (DA3); sin umbral (DA4). Solo ingestas nuevas; lo congelado (caso 2, ya en Sigrid) seria feature aparte sobre F-046 (solo UPDATE). Toca sv3 y sv4 (ORM gemelo y etiqueta en el portal); sv2 y sv5 no. Se implementa despues de F-046 y F-047. Spec: specs/F-048-solo-extras-en-laborable-como-jornada/.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
@@ -225,6 +217,12 @@ Pedida por el humano el 2026-10-12 (opcion A) y enmendada el 2026-10-13: «tengo
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-045-reparto-ponderado-entre-obras`
 
 Pedida por el humano el 2026-10-14. Hoy sv3 (_reclasificar_extras_jornada) agrupa por recurso y dia cruzando obras pero recorta las extras desde el registro_id mayor y, si falta jornada, sube solo la ultima ordinaria con una extra negativa: el ultimo parte en llegar se queda todas las extras (10 h + 4 h con jornada 8 = 8+2 y 0+4). F-045 (fase 1, solo sv3, sin esquema ni Sigrid) reparte la jornada del dia entre las obras en proporcion a sus horas (ordinarias + extras explicitas) y dentro de cada obra entre sus lineas, por mayor resto a pasos de 0,5 h (0,25 o 0,01 si las horas no lo permiten) conservando los totales exactos; las extras negativas se mantienen y se reparten igual. Lo congelado sigue fijo (modo residual) y se mide con un WARNING cuando el reparto ideal lo cambiaria. Las lineas en la papelera dejan de pesar. El reajuste en Sigrid de lo ya registrado, con aviso previo al aprobar el segundo parte, se propone como F-046 (design.md §8). Spec: specs/F-045-reparto-ponderado-entre-obras/.
+
+### F-048 · Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-048-solo-extras-en-laborable-como-jornada`
+
+Pedida por el humano el 2026-10-15 (literal: «cuando sea laborable, aunque las horas sean extras se usa la regla de 8+x») y ampliada el mismo dia a las filas con ordinarias Y extras: se suman y el total sigue la regla de jornada (J normales + exceso extra, o extra negativa si no llega). Caso 1: 15/10/2026, obra 0678, fila con ordinarias nulas y 10 extras quedo como una extra de 10 h (esperado 8 + 2). Caso 2: 02/10/2026, obra 0686, fila 4 + 5 extras quedo en tres lineas (normal 8, extra_auto -4, extra 5; esperado 8 + 1, dos lineas). Diseno recomendado (DA2, opcion A): el normalizador de sv3 suma las extras leidas > 0 de cada fila a su ordinaria (por partida, ordinarias primero) y guarda lo leido como extra en la columna nueva parte_registros.horas_extra_leidas (dos copias del ORM); el conciliador, F-045, F-037 y F-046 no cambian. En no laborable salen los mismos importes con una linea menos (DA3); sin umbral (DA4). Solo ingestas nuevas; lo congelado (caso 2, ya en Sigrid) seria feature aparte sobre F-046 (solo UPDATE). Toca sv3 y sv4 (ORM gemelo y etiqueta en el portal); sv2 y sv5 no. Se implementa despues de F-046 y F-047. Spec: specs/F-048-solo-extras-en-laborable-como-jornada/.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

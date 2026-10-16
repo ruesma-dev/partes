@@ -875,3 +875,28 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   demostración ejecutable de los 8; azure-apps/partes.md actualizado (commit local).
 - Pendiente: despliegue solo sv3 cuando lo pida el humano y M2. F-046 (reajuste en Sigrid)
   aprobada, se implementa sobre esta.
+
+## F-048 · Ordinarias + extras leídas en laborable siguen la regla de jornada — done 2026-10-16
+
+- Rama `feature/F-048-solo-extras-en-laborable-como-jornada` · rigor critico · sdd=true ·
+  CHANGES_REQUESTED en la pasada 1 (residuo de coma flotante en `horas_extra_leidas`) y
+  APPROVED en la pasada 2 (`progress/review_F-048.md`).
+- Origen: fila de solo 10 extras en laborable que quedaba como una extra de 10 h (0678,
+  15/10) y fila 4 + 5 que quedaba en tres líneas (0686, 02/10; correo de administración).
+- Entregado: el normalizador de sv3 suma las extras leídas > 0 de cada fila a su ordinaria
+  (por partida, ordinarias primero) y guarda lo leído en la columna nueva
+  `parte_registros.horas_extra_leidas` (dos copias del ORM, redondeada a 2 decimales); el
+  reparto de siempre da J + exceso (o extra negativa). sv4 muestra «incl. X h extra
+  leídas». Conciliador, sv2 y sv5 sin cambios.
+- Decisiones del humano: DA1–DA10 recomendadas (A en DA2: «por día solo hay una fila de
+  extras y otra de ordinarias»); opción A en T1 (guardianes de `parte_registros` de 56 a
+  57 columnas, nueve tests, solo cuentas y lista). Excepción a la regla de una sola
+  feature en curso, pedida por el humano, con F-046 en su rama.
+- Verificado: init.sh en verde (sv3 1451, sv4 2080 passed), cobertura 100 % de las líneas
+  cambiadas, mutación 12/12 muertos; azure-apps/partes.md actualizado (commit local
+  `2cf42ec`).
+- Pendiente: M1 antes de desplegar, despliegue de sv3 y sv4 cuando lo pida el humano y
+  M2–M4. Sin retroactivo: lo ya registrado (caso del 02/10) sería feature aparte sobre
+  F-046. Al fusionar F-046/F-047 habrá conflictos textuales en las dos `orm_models.py` y
+  en `save_parte`.
+

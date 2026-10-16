@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-048 · in_progress (2026-10-15): ordinarias + extras leídas en laborable siguen la regla de jornada
+## F-048 · done (2026-10-16, APPROVED pasada 2): ordinarias + extras leídas en laborable siguen la regla de jornada
 
 **PARADA 1 superada (2026-10-15).** El humano aprueba la implementación con TODAS las
 decisiones DA1–DA10 tal como las recomienda `design.md` §6 (A en DA2: sumar en la
