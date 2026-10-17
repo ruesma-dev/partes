@@ -1250,14 +1250,14 @@ efectivo era ~1040 s; un mutante que solo matan los tests de F-046 (que van casi
 suite) cruza ese límite en cuanto la máquina, compartida con campañas de otros proyectos, se
 carga. Se cuentan como **muertos**.
 
-## Equivalentes (PENDIENTES de aceptación del humano)
+## Equivalentes (ACEPTADOS por el humano el 2026-10-18)
 
 Once mutantes en siete grupos (RM5). Ninguno puede matarse: la línea mutada solo cambia algo en
 una situación que el código no alcanza. Cada uno tiene una **demostración ejecutable** que fija
 esa imposibilidad (pasa con el original y con el mutante, por construcción; si un cambio futuro la
 hiciera alcanzable, fallaría). Ficheros: `services/partes-transfer/tests/test_f046_t22_equivalentes.py`,
 `services/partes-persistencia/tests/test_f046_t22_equivalentes.py` y
-`services/partes-front/tests/test_f046_t22_equivalentes.py`. **No se dan por aceptados.**
+`services/partes-front/tests/test_f046_t22_equivalentes.py`. **Aceptados por el humano el 2026-10-18** («acepto los equivalentes»).
 
 | Id | Mutante(s) | Por qué ningún test puede distinguirlo | Demostración |
 |---|---|---|---|
@@ -1278,7 +1278,7 @@ hiciera alcanzable, fallaría). Ficheros: `services/partes-transfer/tests/test_f
 | Timeouts re-evaluados ⇒ muertos | 14 |
 | Supervivientes matados por tests nuevos (re-evaluados uno a uno) | 104 |
 | **Muertos en total** | **554 / 565 (98,1 %)** |
-| Equivalentes con demostración, PENDIENTES del humano | 11 (E1–E7) |
+| Equivalentes con demostración, ACEPTADOS por el humano (2026-10-18) | 11 (E1–E7) |
 | Supervivientes sin resolver | 0 |
 | Bugs o desviaciones de la spec revelados | 0 |
 

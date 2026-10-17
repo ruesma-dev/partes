@@ -1,7 +1,26 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-046 · in_progress (2026-10-14, implementer): reajuste en Sigrid al aprobar
+## F-046 · done (2026-10-18, APPROVED pasada 2), M1–M3 hechas, pendiente de despliegue y M4–M6: reajuste en Sigrid al aprobar
+
+**Cierre (líder, 2026-10-18).** Reviewer: CHANGES_REQUESTED en la pasada 1 (solo T24 sin
+marcar) y APPROVED en la pasada 2 (`progress/review_F-046.md`). **El humano acepta los 11
+equivalentes E1–E7** (respuesta literal «acepto los equivalentes», 2026-10-18).
+
+- **M2 · hecha (líder, 2026-10-17, solo lectura)**: las 50 últimas `hmores` con synckey
+  `partes:` (ides 410669–410906) tienen los 6 enlaces a 0/NULL.
+- **M3 · hecha (líder, 2026-10-18, autorizada por el humano)**: sv5 local del worktree con
+  `OBRA_PRUEBAS_FORZAR=true`, recurso de pruebas del script, `registro_id` 990000001–004,
+  octubre (los partes 2026 de la 0404 son de pruebas de `porcentajes`, «PRUEBA-PORC», y no se
+  tocaron: sv5 creó el parte de pruebas **PT26/00373**, `hmo` 2855815). (a)–(g) bien,
+  comprobados leyendo `hmores`: 8 / −4 → 2,5 / 1,5 con `tot = can × pre` (73,75 y 42), mismo
+  ide, `pos`, marca y synckey; repetir ⇒ `ya_aplicada` sin escribir; «antes» falso ⇒ lote
+  rechazado sin escribir; **(e bis)** guardia descuadrada mandada en un lote con una sentencia
+  válida ⇒ SQL Server da el error de conversión `reajuste-descuadrado-411030` y revierte el
+  lote entero (la válida no se aplicó); base 8 ⇒ 5,5 y extra nueva 411033 de 2,5 (HEGR, su
+  `pre`, la misma cuenta, `PRUEBA-IA`); extra a 0 ⇒ `can = 0`, `tot = 0`, la línea sigue.
+  **(h) por decisión del humano NO se borra**: las 4 líneas (411030–411033) quedaron a 0 con
+  el propio reajuste; el parte PT26/00373 sigue existiendo, vacío de horas e importe.
 
 **Implementación (implementer, 2026-10-14)**: T1–T21 hechas en los tres bloques (sv5, sv3 +
 ORM, sv4), docs y `azure-apps/partes.md` (commit local). Interruptor `REPARTO_REAJUSTE`
@@ -17,7 +36,7 @@ ejecutable; 0 bugs. Detalle en `progress/mutacion_F-046.md`; resumen en `progres
 
 **MANUAL (humano) · despliegue y encendido (T23), pendientes**, en este orden:
 
-1. Antes: M2 y M3 (abajo).
+1. ~~Antes: M2 y M3 (abajo).~~ Hechas (ver «Cierre»).
 2. **Despliegue sv5 → sv4 → sv3** (distinto del habitual), con el interruptor apagado, desde
    `infra/`: `.\redeploy_partes.ps1 -Solo sv5`, `.\redeploy_partes.ps1 -Solo sv4`,
    `.\redeploy_partes.ps1 -Solo sv3`.
@@ -30,7 +49,7 @@ ejecutable; 0 bugs. Detalle en `progress/mutacion_F-046.md`; resumen en `progres
 6. **M6** (escritura en producción, la autoriza y la hace el humano en el portal): el 14/10
    (0678/0704) con «Aplicar» ⇒ en Sigrid 0678 ordinaria 2,5 y extra 1,5; en `partes`, tras la
    pasada siguiente, el reparto `materializado` y los mismos valores.
-7. Aceptar o rechazar los 11 mutantes equivalentes E1–E7 de `progress/mutacion_F-046.md`.
+7. ~~Aceptar o rechazar los 11 mutantes equivalentes E1–E7.~~ Aceptados el 2026-10-18.
 
 **MANUAL (humano) del bloque sv5, pendientes** (design §9; M1 ya hecha por el líder):
 

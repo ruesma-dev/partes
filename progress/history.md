@@ -875,3 +875,26 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   demostración ejecutable de los 8; azure-apps/partes.md actualizado (commit local).
 - Pendiente: despliegue solo sv3 cuando lo pida el humano y M2. F-046 (reajuste en Sigrid)
   aprobada, se implementa sobre esta.
+
+## F-046 · Reajuste en Sigrid al aprobar — done 2026-10-18
+
+- Rama `feature/F-046-reajuste-en-sigrid-al-aprobar` · rigor critico · sdd=true ·
+  CHANGES_REQUESTED en la pasada 1 (solo T24 sin marcar) y APPROVED en la pasada 2
+  (`progress/review_F-046.md`).
+- Origen: F-045 deja congeladas las líneas ya aprobadas o registradas, así que el segundo parte
+  del día carga todo el ajuste (caso 0678/0704 del 14/10).
+- Entregado: sv3 (interruptor `REPARTO_REAJUSTE`, apagado por defecto) aplica el reparto ideal
+  a lo libre y guarda la propuesta de lo congelado en `reparto_pendiente` (las dos copias del
+  ORM); sv4 avisa al aprobar (obra, día, línea, antes → después) con «Aplicar» o «Mantener»;
+  sv5 reajusta en Sigrid bajo el lock en un lote atómico con guardia (DA6), concurrencia
+  optimista e idempotencia, solo `UPDATE`/`INSERT` (a 0 nunca se borra); sv3 materializa lo
+  aplicado bajo un candado consultivo de la base `partes`.
+- Decisiones del humano: DA1–DA17 recomendadas más la enmienda [E] (sin borrados en Sigrid;
+  casos de candef 9); 11 mutantes equivalentes E1–E7 aceptados el 2026-10-18.
+- Verificado: init.sh en verde; mutación completa 565 mutantes, 554 muertos (436 en campaña, 14
+  timeouts re-evaluados y 104 con tests nuevos `test_f046_t22_*`) y 11 equivalentes con
+  demostración ejecutable. M1 y M2 (solo lectura) y M3 (escritura en la obra de pruebas 0404,
+  parte PT26/00373, incluida la guardia en SQL Server) hechas por el líder; las 4 líneas de
+  prueba se dejaron a 0, sin borrar, por decisión del humano.
+- Pendiente: despliegue sv5 → sv4 → sv3 con el interruptor apagado, M4, encendido, M5 y M6
+  (el primer «Aplicar» real lo hace el humano).
