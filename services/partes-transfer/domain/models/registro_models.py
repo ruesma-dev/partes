@@ -187,6 +187,14 @@ class LineaSigrid:
     tot: Optional[float]
     synckey: Optional[str]
     nuestra: bool = False               # la escribimos nosotros (synckey)
+    # F-046: lo que el reajuste necesita de la linea (con defecto: las
+    # lecturas de siempre no lo traen). `pre` es el precio de la propia
+    # linea (el `tot` se recalcula con el, R24), `hmoide` su parte y
+    # `enlazada` si algun enlace de `hmores` (albaran, factura,
+    # dedicacion, nomina) no es 0 (R21, DA17).
+    pre: Optional[float] = None
+    hmoide: Optional[int] = None
+    enlazada: bool = False
 
 
 @dataclass
@@ -286,3 +294,62 @@ class ResultadoRegistro:
     # F-019 (R8): {registro_id, recurso_ide, codigo_mes} de cada linea que
     # va a dedicacion; vacia con el interruptor apagado.
     dedicacion: list[dict] = field(default_factory=list)
+
+
+# ----------------------------- reajuste (F-046) ----------------------------- #
+
+@dataclass
+class OpReajuste:
+    """Una linea del reajuste que pide sv4 (R20).
+
+    Existente: `registro_id`, `antes` (las horas que DEBE tener hoy en
+    Sigrid) y `despues`. Nueva (extra que nace de una base registrada sin
+    extra, R7): `antes` None, `base_registro_id` y lo que el registro
+    necesita para escribirla (recurso, fecha, codigo de hora extra,
+    partida y obra). El `registro_id` de la nueva lo reservo sv4 (DA5).
+    """
+    registro_id: int
+    despues: float
+    antes: Optional[float] = None
+    base_registro_id: Optional[int] = None
+    recurso_ide: Optional[int] = None
+    fecha_int: Optional[int] = None
+    hora_ide: Optional[int] = None
+    hora_codigo: Optional[str] = None
+    partida_ide: Optional[int] = None
+    partida_cod: Optional[str] = None
+    obra_ide: Optional[int] = None
+    obra_codigo: Optional[str] = None
+
+    @property
+    def es_nueva(self) -> bool:
+        return self.base_registro_id is not None
+
+
+@dataclass
+class VeredictoReajuste:
+    """R21, R22, R26: si esa linea se puede escribir.
+
+    `ya_aplicada`: Sigrid ya tiene «despues» (un `ejecutar` anterior
+    llego a escribir); se cuenta como editable y no se escribe."""
+    registro_id: int
+    editable: bool
+    ya_aplicada: bool = False
+    motivo: Optional[str] = None
+
+
+@dataclass
+class ResultadoReajuste:
+    """Respuesta de `comprobar` y `ejecutar` (R20, R23, R26).
+
+    `lineas` (solo si `ok`): una por linea pedida, escrita ahora o ya
+    aplicada antes, con `registro_id`, `hmores_ide`, `hmoide`,
+    `parte_cod`, `can`, `nueva` y `escrita`. sv4 las necesita tambien en
+    un reintento: la extra nueva nace `registrado` con su `hmores_ide`
+    (R17)."""
+    ok: bool
+    ya_aplicada: bool = False
+    veredictos: list[VeredictoReajuste] = field(default_factory=list)
+    lineas: list[dict] = field(default_factory=list)
+    error: Optional[str] = None
+    forzada_pruebas: bool = False

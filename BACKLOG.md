@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **43 features**, 11 abiertas, 32 terminadas.
+Resumen: **44 features**, 11 abiertas, 33 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -47,6 +47,7 @@ Bloqueadas: **F-014, F-032**.
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | critico |
+| F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
@@ -247,6 +248,12 @@ Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv
 estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
 
 Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar. ACLARADO 2026-09-30 (correo de Juan Romero 'RV: CAPTURAS'): 'opcion de seleccionar varias lineas y aprobarlas, por si quiero dejar alguna pendiente' => seleccion explicita de lineas (casillas) en la vista detallada; el humano lo describio tambien como 'las visibles': la spec debe cubrir ambos (lo filtrado y lo marcado) y confirmarlo.
+
+### F-046 · Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045
+
+estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-046-reajuste-en-sigrid-al-aprobar`
+
+Pedida por el humano el 2026-10-14 junto con F-045, de la que DEPENDE (se implementa sobre dev con F-045 fusionada y usa su API pura reparto_ponderado.py). Caso real: el 14/10 un recurso tenia la 0678 registrada como 8 normales y -4 extra (4 h trabajadas); llega la 0704 con 8 h y el reparto ideal es 0678 2,5+1,5 y 0704 5,5+2,5, pero F-045 deja la 0678 congelada (0704 0+8). F-046: sv3 (con el interruptor REPARTO_REAJUSTE) aplica el ideal a lo no congelado y guarda la propuesta de lo congelado en la tabla nueva reparto_pendiente (las dos copias del ORM); sv4, al aprobar, avisa con obra, dia, linea y horas antes -> despues y ofrece Aplicar o Mantener lo registrado; sv5 reajusta en Sigrid las lineas hmores ya escritas (UPDATE can/tot con el pre de la linea, INSERT de la extra nueva; por regla del humano nunca DELETE: a 0 se pone can=0, tot=0) bajo el lock, en un lote atomico con concurrencia optimista y solo en partes En registro y lineas sin enlaces; sv3 materializa lo aplicado en partes (excepcion acotada a la congelacion) bajo un candado consultivo de la base partes. Toca sv3, sv4 y sv5. Spec: specs/F-046-reajuste-en-sigrid-al-aprobar/.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 

@@ -17,6 +17,7 @@ APIs / acciones:
 from __future__ import annotations
 
 import html
+import json
 import logging
 import os
 import time
@@ -45,6 +46,16 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.reparto_aviso import (
+    DECISION_APLICAR,
+    DECISIONES,
+    ESTADO_APLICANDO,
+    ESTADO_PENDIENTE,
+    RepartoCambiadoError,
+    RepartoPendienteError,
+    bloque_repartos,
+    payload_reajuste,
+)
 from application.services.incidencias_horas import (
     Incompatibilidad,
     TablaIncidencias,
@@ -94,6 +105,7 @@ from infrastructure.persistencia.recalculo_publisher import (
     ESTADO_FALLO,
     MOTIVO_CAMBIO_FECHA,
     MOTIVO_DESHACER_FECHA,
+    MOTIVO_REAJUSTE,
     RecalculoPublisher,
     pedir_recalculo,
     peor_estado,
@@ -1067,6 +1079,12 @@ def build_app(
             "recalculando": repository.documentos_en_espera(
                 r.document_id for r in detail.registros),
         }
+        # F-046 (R37): lineas (y dias) con reparto pendiente de decidir.
+        context["con_reparto"] = repository.registros_con_reparto(
+            r.id for r in detail.registros)
+        context["dias_reparto"] = {
+            r.fecha for r in detail.registros
+            if r.id in context["con_reparto"] and r.fecha}
         return templates.TemplateResponse(
             request=request, name="trabajador_detail.html", context=context
         )
@@ -1210,6 +1228,9 @@ def build_app(
             # F-043 (R37): documentos de la vista en espera de sv3.
             "recalculando": repository.documentos_en_espera(
                 r.document_id for r in detail.registros),
+            # F-046 (R37): lineas con reparto pendiente de decidir.
+            "con_reparto": repository.registros_con_reparto(
+                r.id for r in detail.registros),
         }
         return templates.TemplateResponse(
             request=request, name="obra_detail.html", context=context
@@ -2114,7 +2135,9 @@ def build_app(
     # APROBAR -> registrar en Sigrid (delegado en partes-transfer, sv5)
     # ------------------------------------------------------------------ #
 
-    def _preparar_registro(body: dict) -> Preparado | JSONResponse:
+    def _preparar_registro(
+            body: dict, repartos_decididos: frozenset[int] = frozenset(),
+    ) -> Preparado | JSONResponse:
         """Las lineas a registrar, repartidas por obra (F-022 §D).
 
         F-024 (R22, R23): las lineas `registrado` no viajan nunca y las
@@ -2149,7 +2172,8 @@ def build_app(
         # incidencia de dia completo y horas se quedan fuera, sin override.
         datos = repository.lineas_para_registro(
             ids, incluir_borradas=bool(body.get("incluir_borradas")),
-            incidencias=tabla_incidencias)
+            incidencias=tabla_incidencias,
+            repartos_decididos=repartos_decididos)   # F-046 (R32)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
@@ -2319,6 +2343,179 @@ def build_app(
                 consultas.add((linea.get("dni"), d.year))
         return calendario_provider.fiable_para(consultas)
 
+    # ------------------------------------------------------------------ #
+    # F-046: reajuste del reparto al aprobar (aviso y decision humana).
+    # ------------------------------------------------------------------ #
+    def _ids_pedidos(body: dict) -> list[int]:
+        """Los `registro_ids` de la peticion (vacio si no son validos: la
+        validacion de verdad la hace `_preparar_registro`)."""
+        try:
+            return list(dict.fromkeys(
+                int(i) for i in (body.get("registro_ids") or []) if i))
+        except (TypeError, ValueError):
+            return []
+
+    def _veredictos_reparto(filas: list[dict]) -> dict[int, dict]:
+        """R30: sv5 `comprobar` de cada reparto con lineas en Sigrid (las
+        solo aprobadas no van a sv5, DA11). Solo lectura; un fallo deja el
+        reparto sin poder aplicarse, con su motivo."""
+        out: dict[int, dict] = {}
+        for f in filas:
+            if f["estado"] not in (ESTADO_PENDIENTE, ESTADO_APLICANDO):
+                continue
+            payload = payload_reajuste(f, f.get("reservas"))
+            if not payload["lineas"]:
+                continue
+            if transfer_client is None:
+                out[f["id"]] = {"error": "registro en Sigrid no configurado "
+                                         "(TRANSFER_BASE_URL)", "lineas": {}}
+                continue
+            try:
+                r = transfer_client.reajuste_comprobar(
+                    payload, timeout_s=settings.comprobacion_sigrid_timeout_s)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[reparto] comprobar el reparto %s fallo",
+                               f["id"], exc_info=True)
+                r = {"ok": False, "error": str(exc)}
+            veredictos = r.get("veredictos")
+            if veredictos is None:
+                out[f["id"]] = {"error": r.get("error") or "sin respuesta",
+                                "lineas": {}}
+            else:
+                out[f["id"]] = {"error": None, "lineas": {
+                    int(v["registro_id"]): v for v in veredictos}}
+        return out
+
+    def _con_repartos(respuesta: JSONResponse,
+                      bloque: list[dict] | None) -> JSONResponse:
+        """El rechazo de siempre, con el aviso de repartos si lo hay."""
+        if not bloque:
+            return respuesta
+        cuerpo = json.loads(respuesta.body)
+        cuerpo["repartos"] = bloque
+        return JSONResponse(cuerpo, status_code=respuesta.status_code)
+
+    def _decisiones(body: dict) -> list[tuple[int, str]] | JSONResponse:
+        """R32: `repartos: [{id, decision}]` validado (422 si no)."""
+        crudo = body.get("repartos") or []
+        if not isinstance(crudo, list):
+            return _rechazo_ambito("repartos no validos")
+        out: list[tuple[int, str]] = []
+        for d in crudo:
+            try:
+                rid = int(d["id"])
+            except (KeyError, TypeError, ValueError):
+                return _rechazo_ambito("repartos no validos: falta el id")
+            decision = d.get("decision")
+            if decision not in DECISIONES:
+                return _rechazo_ambito(
+                    f"decision de reparto no valida ({decision!r})")
+            out.append((rid, decision))
+        return out
+
+    def _procesar_repartos(body: dict,
+                           actor: str | None) -> list[dict] | JSONResponse:
+        """R33, R35: aplica las decisiones de reparto de la peticion.
+
+        Primero se valida TODO (formato, ambito de los ids y que cada
+        reparto sea de un dia de la seleccion); despues, una a una. Un
+        reparto que cambio (`RepartoCambiadoError`) es 409 con su motivo.
+        El actor llega por parametro (F-017)."""
+        decisiones = _decisiones(body)
+        if isinstance(decisiones, JSONResponse) or not decisiones:
+            return decisiones
+        ids = _ids_pedidos(body)
+        if body.get("ambito") is not None:
+            rechazo = _validar_ambito(body["ambito"], ids)
+            if rechazo is not None:
+                return rechazo
+        vivos = {f["id"] for f in repository.repartos_de_registros(ids)}
+        ajenos = [rid for rid, _d in decisiones if rid not in vivos]
+        if ajenos:
+            return JSONResponse(
+                {"ok": False, "error": (
+                    f"el reparto {ajenos[0]} no es de un dia de estas lineas "
+                    "o ya no esta pendiente: recarga la pagina")},
+                status_code=409)
+        resultados = []
+        for rid, decision in decisiones:
+            if decision == DECISION_APLICAR:
+                resultados.append(_aplicar_reparto(rid, actor))
+            else:
+                resultados.append(_mantener_reparto(rid, actor))
+        return resultados
+
+    def _aplicar_reparto(reparto_id: int, actor: str | None) -> dict:
+        """R33-R34: CAS a `aplicando` (con sus comprobaciones y la reserva
+        de ids), sv5 `ejecutar` con lo que esta en Sigrid y cierre:
+        `aplicado` (+ recalculo seguido de sus partes), `pendiente` si sv5
+        lo rechazo (nada escrito) o `aplicando` si no hubo respuesta."""
+        fila = repository.iniciar_aplicacion(reparto_id, actor=actor)
+        payload = payload_reajuste(fila, fila["reservas"])
+        r: dict | None = None
+        if not payload["lineas"]:
+            ok, error = True, None          # DA11: solo aprobadas, sin sv5
+        elif transfer_client is None:
+            ok, error = False, ("registro en Sigrid no configurado "
+                                "(TRANSFER_BASE_URL)")
+        else:
+            try:
+                r = dict(transfer_client.reajuste_ejecutar(
+                    dict(payload, usuario=actor)))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("[reparto] reajuste %s fallo", reparto_id,
+                               exc_info=True)
+                r = {"ok": False, "sin_respuesta": True, "error": str(exc)}
+            ok = True if r.get("ok") else (
+                None if r.get("sin_respuesta") else False)
+            error = None if ok else _motivo_reajuste(r)
+        estado = repository.cerrar_aplicacion(reparto_id, ok=ok, sv5=r,
+                                              error=error, actor=actor)
+        if estado == "aplicado":
+            for doc in fila["document_ids"]:
+                _pedir_recalculo_seguido(doc, MOTIVO_REAJUSTE, actor)
+        return {"id": reparto_id, "decision": DECISION_APLICAR,
+                "estado": estado, "ok": estado == "aplicado",
+                "error": error}
+
+    def _motivo_reajuste(r: dict) -> str:
+        """El primer motivo de una linea no editable, o el error de sv5."""
+        for v in r.get("veredictos") or []:
+            if not v.get("editable") and v.get("motivo"):
+                return f"{r.get('error') or 'sv5 rechazo el reajuste'}: " \
+                       f"{v['motivo']}"
+        return r.get("error") or "sv5 rechazo el reajuste"
+
+    def _mantener_reparto(reparto_id: int, actor: str | None) -> dict:
+        """R35: `rechazado` (CAS) y recalculo seguido de los partes de sus
+        lineas no congeladas; esas lineas no se registran en este clic."""
+        fila = repository.rechazar_reparto(reparto_id, actor=actor)
+        for doc in fila["documentos_libres"]:
+            _pedir_recalculo_seguido(doc, MOTIVO_REAJUSTE, actor)
+        return {"id": reparto_id, "decision": "mantener",
+                "estado": fila["estado"], "ok": True, "error": None}
+
+    def _aplicados(repartos: list[dict]) -> frozenset[int]:
+        return frozenset(r["id"] for r in repartos
+                         if r["decision"] == DECISION_APLICAR
+                         and r["estado"] == "aplicado")
+
+    def _con_decisiones(respuesta: dict, repartos: list[dict]) -> dict:
+        if repartos:
+            respuesta["repartos"] = repartos
+        return respuesta
+
+    def _sin_lineas_tras_repartos(rechazo: JSONResponse,
+                                  repartos: list[dict]) -> JSONResponse:
+        """Si se decidio algun reparto y ya no queda nada que registrar, la
+        peticion SI hizo algo: 200 con lo decidido y el aviso."""
+        if not repartos:
+            return rechazo
+        cuerpo = json.loads(rechazo.body)
+        return JSONResponse({"ok": True, "repartos": repartos, "grupos": [],
+                             "excluidas": cuerpo.get("excluidas") or {},
+                             "aviso": cuerpo.get("error")})
+
     @app.post("/api/aprobar/preflight", include_in_schema=False)
     async def aprobar_preflight(request: Request) -> JSONResponse:
         if transfer_client is None:
@@ -2327,18 +2524,28 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         actor = _actor(request)
-        preparado = _preparar_registro(await request.json())
+        body = await request.json()
+        # F-046 (R30): el preflight evalua las lineas de un dia con reparto
+        # pendiente COMO SI se aplicara (es consultivo) y trae el aviso.
+        filas = repository.repartos_de_registros(_ids_pedidos(body))
+        preparado = _preparar_registro(body, frozenset(
+            f["id"] for f in filas if f["estado"] == ESTADO_PENDIENTE))
+        bloque = (bloque_repartos(filas, _veredictos_reparto(filas))
+                  if filas else None)
         if isinstance(preparado, JSONResponse):
-            return preparado
+            return _con_repartos(preparado, bloque)
         evaluados = [
             _evaluar_grupo(g, preparado.claves[g.clave], actor)
             for g in preparado.grupos]
         datos = preparado.datos
-        return JSONResponse(dict(
+        respuesta = dict(
             agregar_preflight(evaluados), grupos=evaluados,
             excluidas=datos["excluidas"],
             excluidas_detalle=datos["excluidas_detalle"],
-            umbral_plegado=UMBRAL_PLEGADO))
+            umbral_plegado=UMBRAL_PLEGADO)
+        if bloque:
+            respuesta["repartos"] = bloque
+        return JSONResponse(respuesta)
 
     def _evaluar_grupo(grupo: GrupoObra, claves: list[str],
                        actor: str | None) -> dict:
@@ -2393,9 +2600,14 @@ def build_app(
                 status_code=503)
         body = await request.json()
         actor = _actor(request)
-        preparado = _preparar_registro(body)
+        # F-046 (R32, R33, R35): las decisiones de reparto ANTES de las
+        # lineas: «Aplicar» edita Sigrid y deja viajar las del dia.
+        repartos = _procesar_repartos(body, actor)
+        if isinstance(repartos, JSONResponse):
+            return repartos
+        preparado = _preparar_registro(body, _aplicados(repartos))
         if isinstance(preparado, JSONResponse):
-            return preparado
+            return _sin_lineas_tras_repartos(preparado, repartos)
         # F-003 R24: la guarda la impone el SERVIDOR, no el modal. Una
         # peticion a pelo, sin pasar por el preflight, se para igual.
         # F-022 (R18, R22): por obra y una tras otra; una obra bloqueada o
@@ -2427,9 +2639,9 @@ def build_app(
                 {"ok": False, "error": MOTIVO_BLOQUEO_SESAME,
                  "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
                 status_code=422)
-        return JSONResponse(dict(agregar_ejecucion(ejecutados),
-                                 grupos=ejecutados,
-                                 excluidas=preparado.datos["excluidas"]))
+        return JSONResponse(_con_decisiones(
+            dict(agregar_ejecucion(ejecutados), grupos=ejecutados,
+                 excluidas=preparado.datos["excluidas"]), repartos))
 
     def _bloqueado_sesame(grupo: GrupoObra) -> dict:
         """F-022 (R18): una obra con el calendario no fiable y sin override
@@ -2480,9 +2692,14 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         actor = _actor(request)
-        preparado = _preparar_registro(body)
+        # F-046: decisiones de reparto ANTES de publicar (HTTP sincrono a
+        # sv5: destructivo, nunca por cola).
+        repartos = _procesar_repartos(body, actor)
+        if isinstance(repartos, JSONResponse):
+            return repartos
+        preparado = _preparar_registro(body, _aplicados(repartos))
         if isinstance(preparado, JSONResponse):
-            return preparado
+            return _sin_lineas_tras_repartos(preparado, repartos)
         excluidas = preparado.datos["excluidas"]
         # F-022 (R20, R21): una peticion por obra. Una obra bloqueada o que
         # no se pudo publicar no para a las demas.
@@ -2512,9 +2729,9 @@ def build_app(
                  "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
                 status_code=422)
         if publisher is None:
-            return JSONResponse(dict(agregar_ejecucion(grupos),
-                                     modo="sincrono", excluidas=excluidas,
-                                     grupos=grupos))
+            return JSONResponse(_con_decisiones(
+                dict(agregar_ejecucion(grupos), modo="sincrono",
+                     excluidas=excluidas, grupos=grupos), repartos))
         encolados = [g for g in grupos if g["estado"] == "encolado"]
         if not encolados:
             return JSONResponse(
@@ -2527,12 +2744,12 @@ def build_app(
         ids = [i for g in encolados for i in g["registro_ids"]]
         # F-024 (R27): los ids encolados, para que el modal sondee su
         # estado (R29) en vez de recargar antes de que llegue el resultado.
-        return JSONResponse({
+        return JSONResponse(_con_decisiones({
             "ok": True, "modo": "asincrono",
             "peticion_id": encolados[0]["peticion_id"],
             "peticiones": [g["peticion_id"] for g in encolados],
             "encoladas": len(ids), "registro_ids": ids,
-            "excluidas": excluidas, "grupos": grupos})
+            "excluidas": excluidas, "grupos": grupos}, repartos))
 
     def _publicar_grupo(grupo: GrupoObra, actor: str | None) -> dict:
         """F-022 (R20, R21): encola UNA obra y marca sus lineas.
@@ -3018,10 +3235,13 @@ def build_app(
         # estaban: FastAPI inyecta `Request` por anotacion de tipo y no lo
         # trata como parametro de query, path ni body, asi que el contrato
         # HTTP y el JS no cambian.
-        repository.approve_document(
-            document_id=document_id,
-            approved_by=_actor(request),
-        )
+        try:
+            repository.approve_document(
+                document_id=document_id,
+                approved_by=_actor(request),
+            )
+        except RepartoPendienteError as exc:   # F-046 (R36, DA13)
+            return _redirect(back, exc.motivo)
         return _redirect(back, "Parte aprobado")
 
     @app.post("/documents/{document_id}/unapprove", include_in_schema=False)

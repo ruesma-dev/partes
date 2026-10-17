@@ -1,6 +1,100 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-046 · done (2026-10-18, APPROVED pasada 2), M1–M3 hechas, pendiente de despliegue y M4–M6: reajuste en Sigrid al aprobar
+
+**Cierre (líder, 2026-10-18).** Reviewer: CHANGES_REQUESTED en la pasada 1 (solo T24 sin
+marcar) y APPROVED en la pasada 2 (`progress/review_F-046.md`). **El humano acepta los 11
+equivalentes E1–E7** (respuesta literal «acepto los equivalentes», 2026-10-18).
+
+- **M2 · hecha (líder, 2026-10-17, solo lectura)**: las 50 últimas `hmores` con synckey
+  `partes:` (ides 410669–410906) tienen los 6 enlaces a 0/NULL.
+- **M3 · hecha (líder, 2026-10-18, autorizada por el humano)**: sv5 local del worktree con
+  `OBRA_PRUEBAS_FORZAR=true`, recurso de pruebas del script, `registro_id` 990000001–004,
+  octubre (los partes 2026 de la 0404 son de pruebas de `porcentajes`, «PRUEBA-PORC», y no se
+  tocaron: sv5 creó el parte de pruebas **PT26/00373**, `hmo` 2855815). (a)–(g) bien,
+  comprobados leyendo `hmores`: 8 / −4 → 2,5 / 1,5 con `tot = can × pre` (73,75 y 42), mismo
+  ide, `pos`, marca y synckey; repetir ⇒ `ya_aplicada` sin escribir; «antes» falso ⇒ lote
+  rechazado sin escribir; **(e bis)** guardia descuadrada mandada en un lote con una sentencia
+  válida ⇒ SQL Server da el error de conversión `reajuste-descuadrado-411030` y revierte el
+  lote entero (la válida no se aplicó); base 8 ⇒ 5,5 y extra nueva 411033 de 2,5 (HEGR, su
+  `pre`, la misma cuenta, `PRUEBA-IA`); extra a 0 ⇒ `can = 0`, `tot = 0`, la línea sigue.
+  **(h) por decisión del humano NO se borra**: las 4 líneas (411030–411033) quedaron a 0 con
+  el propio reajuste; el parte PT26/00373 sigue existiendo, vacío de horas e importe.
+
+**Implementación (implementer, 2026-10-14)**: T1–T21 hechas en los tres bloques (sv5, sv3 +
+ORM, sv4), docs y `azure-apps/partes.md` (commit local). Interruptor `REPARTO_REAJUSTE`
+apagado por defecto. Detalle, desviaciones justificadas y evidencias en `progress/impl_F-046.md`;
+mutación en `progress/mutacion_F-046.md`.
+
+**T22 · hecha (implementer, 2026-10-17)**: campaña completa de 565 mutantes (la lanzó el
+humano, HEAD `6b9ceed`): 436 muertos, 115 supervivientes y 14 timeouts. Re-evaluados uno a uno
+con `progress/redirigir_mutantes_F-046.py`: 104 supervivientes mueren con 89 tests nuevos
+`test_f046_t22_*` y los 14 timeouts mueren (contención de la máquina, no un bucle). **554/565
+muertos; 11 equivalentes (E1–E7) PENDIENTES de aceptación del humano**, cada uno con demostración
+ejecutable; 0 bugs. Detalle en `progress/mutacion_F-046.md`; resumen en `progress/impl_F-046.md`.
+
+**MANUAL (humano) · despliegue y encendido (T23), pendientes**, en este orden:
+
+1. ~~Antes: M2 y M3 (abajo).~~ Hechas (ver «Cierre»).
+2. **Despliegue sv5 → sv4 → sv3** (distinto del habitual), con el interruptor apagado, desde
+   `infra/`: `.\redeploy_partes.ps1 -Solo sv5`, `.\redeploy_partes.ps1 -Solo sv4`,
+   `.\redeploy_partes.ps1 -Solo sv3`.
+3. **M4** (base `partes`, solo lectura): `SELECT count(*) FROM reparto_pendiente` ⇒ 0 (la tabla
+   la crean sv3/sv4 al arrancar).
+4. Encender: `az containerapp update -n ca-sv3-persistencia -g rg-partes-dev --set-env-vars REPARTO_REAJUSTE=true`.
+5. **M5**: `SELECT estado, count(*) FROM reparto_pendiente GROUP BY estado`; Log Analytics de
+   `ca-sv3-persistencia` con `Log_s has 'reparto'` (líneas «reparto propuesto» y
+   «reajuste: propuestos=…»).
+6. **M6** (escritura en producción, la autoriza y la hace el humano en el portal): el 14/10
+   (0678/0704) con «Aplicar» ⇒ en Sigrid 0678 ordinaria 2,5 y extra 1,5; en `partes`, tras la
+   pasada siguiente, el reparto `materializado` y los mismos valores.
+7. ~~Aceptar o rechazar los 11 mutantes equivalentes E1–E7.~~ Aceptados el 2026-10-18.
+
+**MANUAL (humano) del bloque sv5, pendientes** (design §9; M1 ya hecha por el líder):
+
+- **M2** (solo lectura, `POST /api/sql/read` de sigrid-api, base `ruesma`):
+  `SELECT TOP 50 ide, dvaproide, dvfproide, hdereside, emprccide, empdpreide, empabside FROM hmores WHERE synckey LIKE 'partes:%' ORDER BY ide DESC`
+  ⇒ todo 0 o NULL (si no, DA17 deja esas líneas sin reajuste).
+- **M3** (escritura en la obra de pruebas): sv5 local con `OBRA_PRUEBAS_FORZAR=true`,
+  `registro_id` sintéticos ≥ 990000001 y el recurso de pruebas del script; `ANO`/`MES` de
+  `prueba_escritura_sigrid.py` = mes de la prueba. (a) `POST /api/registro/ejecutar` 8 h y
+  extra −4; (b) `POST /api/reajuste/comprobar` 8 → 2,5 y −4 → 1,5 ⇒ `ok: true`, editables;
+  (c) `POST /api/reajuste/ejecutar` ⇒ `can` 2,5 / 1,5 y `tot = can × pre`
+  (`python prueba_escritura_sigrid.py verificar`); (d) repetir ⇒ `ya_aplicada: true`, sin
+  escribir; (e) una línea con «antes» falso y otra buena ⇒ `ok: false` y nada escrito;
+  **(e bis)** cambiar a mano `can` de una línea entre `comprobar` y `ejecutar` ⇒ la guardia
+  aborta el lote con el error de conversión `reajuste-descuadrado-<ide>` (confirma que
+  sigrid-api revierte la transacción); (f) base 8 sin extra ⇒ 5,5 + extra nueva 2,5 con
+  `PRUEBA-IA`; (g) extra a 0 ⇒ `can = 0`, `tot = 0`, la línea sigue; (h)
+  `python prueba_escritura_sigrid.py limpiar`, `limpiar --ejecutar` y `verificar` ⇒ sin
+  `PRUEBA-IA`.
+
+**Spec APROBADA por el humano el 2026-10-14** (respuesta literal «si»): DA1–DA17 recomendadas más la enmienda [E] (sin borrados en Sigrid; candef 9).
+
+Spec en `specs/F-046-reajuste-en-sigrid-al-aprobar/` (worktree `partes-wt-f046`, rama
+`feature/F-046-reajuste-en-sigrid-al-aprobar`). **Depende de F-045** (en implementación en
+`partes-wt-f045`): se implementa sobre `dev` con F-045 fusionada. Prioridad 2, rigor crítico.
+Toca sv3 (propuesta, materialización, candado consultivo), sv5 (`UPDATE hmores` bajo el lock)
+y sv4 (aviso y decisión), más la tabla `reparto_pendiente` en las dos copias del ORM.
+
+**Decisiones abiertas para el humano** (design §6, todas con recomendación): DA1 una feature
+en tres bloques o partir en F-046/F-047; DA2 interruptor `REPARTO_REAJUSTE` en sv3; DA4 quién
+materializa (sv3); DA5 reserva `nextval` para la synckey de la extra nueva (hallazgo H1: la
+propuesta de F-045 §8 no lo resolvía); DA6 sentencia guardia para la atomicidad en Sigrid;
+DA8 lo libre lleva el ideal mientras está pendiente («Mantener» pasa a dos pasos); DA13
+bloquear aprobar el documento con un reparto vivo; DA14 `CLAUDE.md` no cambia.
+
+**Enmienda del humano (2026-10-14), marcada «[E]» en la spec**: Sigrid no se borra nunca (solo
+`UPDATE` e `INSERT`; a 0 ⇒ `can = 0`, `tot = 0`; R47) y casos de candef 9 con la jornada de
+sv3 (viernes J = 6, R9a–R9c, R46). M1 hecha por el líder: `ALLOWED_WRITE_PREFIXES` = `INSERT`,
+`UPDATE`, `DELETE` (el `DELETE` no se usa).
+
+**Antes de encender nada**, MANUAL (humano): M2 enlaces de nuestras
+líneas `hmores` a 0; M3 prueba de escritura en modo pruebas (0404, `PRUEBA-IA`) y limpieza
+con `prueba_escritura_sigrid.py`. Despliegue en orden **sv5 → sv4 → sv3** con el interruptor
+apagado (design §7 R-e, §9).
+
 ## F-048 · done (2026-10-16, APPROVED pasada 2): ordinarias + extras leídas en laborable siguen la regla de jornada
 
 **PARADA 1 superada (2026-10-15).** El humano aprueba la implementación con TODAS las

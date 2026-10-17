@@ -129,6 +129,16 @@ class Settings(BaseSettings):
     # trabajador). La tabla nace vacia y se lee entera de una vez.
     jornada_cache_ttl_s: int = Field(600, alias="JORNADA_CACHE_TTL_S")
 
+    # ------------------------------------------------------------ #
+    # F-046 · reajuste en Sigrid al aprobar. INTERRUPTOR (DA2): apagado
+    # por defecto, sv3 reparte exactamente como F-045 y no lee ni escribe
+    # `reparto_pendiente`. Se enciende DESPUES de desplegar sv5 y sv4 y de
+    # la prueba M3. `CANDADO_CONCILIAR_ESPERA_S`: espera maxima por el
+    # candado consultivo de la pasada (R18).
+    # ------------------------------------------------------------ #
+    reparto_reajuste: bool = Field(False, alias="REPARTO_REAJUSTE")
+    candado_espera_s: float = Field(300.0, alias="CANDADO_CONCILIAR_ESPERA_S")
+
     # Calendario laboral (fin de semana + festivos). En fin de semana o
     # festivo no hay horas ordinarias: el reparto las manda todas a extra.
     # Con SESAME_API_* configurado manda Sesame y este JSON queda de
