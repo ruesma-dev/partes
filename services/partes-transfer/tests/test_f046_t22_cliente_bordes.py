@@ -17,16 +17,18 @@ import logging
 
 import httpx
 import pytest
+
 from domain.models.registro_models import ObraEntrada
 from tests.test_f046_cliente_reajuste import COLS_LINEAS, ApiFalsa, _cli
 
 
 def _insertar(cli, obra, **kw):
-    args = dict(hmoide=7001, obra=obra, reside=501, pos=64,
-                fecha_int=20261014, horide=9, can=1.5, pre=10.0, paride=33,
-                ano=2026, mes=10, synckey="partes:990000002", tex=None,
-                caaide=0, base_ide=4001, base_synckey="partes:11",
-                base_despues=6.5)
+    args = {"hmoide": 7001, "obra": obra, "reside": 501, "pos": 64,
+            "fecha_int": 20261014, "horide": 9, "can": 1.5, "pre": 10.0,
+            "paride": 33, "ano": 2026, "mes": 10,
+            "synckey": "partes:990000002", "tex": None, "caaide": 0,
+            "base_ide": 4001, "base_synckey": "partes:11",
+            "base_despues": 6.5}
     args.update(kw)
     return cli.stmt_insertar_extra(**args)["parameters"]
 

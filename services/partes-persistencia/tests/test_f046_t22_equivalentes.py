@@ -19,7 +19,6 @@ from application.services.reparto_ponderado import _EPS
 from tests.dobles import RepositorioFake
 from tests.test_f046_conciliar import _conciliador
 
-
 # --- recurso_conciliador.py:468 y :553 (valores iniciales de los contadores) --- #
 
 def _pasada() -> tuple[ast.AST, set[int]]:

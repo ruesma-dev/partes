@@ -21,12 +21,13 @@ import logging
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
+
 from application.services.reparto_aviso import (
     MOTIVO_SIN_COMPROBAR,
     RepartoCambiadoError,
 )
 from config.settings import Settings
-from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
 from infrastructure.transfer import transfer_client as modulo_transfer
 from infrastructure.transfer.transfer_client import TransferClient
@@ -41,8 +42,8 @@ from tests.test_f046_aplicar import (
     _dia,
     _fila,
     _marcar,
-    _repo,
     _reparto,
+    _repo,
 )
 
 

@@ -12,6 +12,7 @@ test lo diria. Datos SINTETICOS.
 from __future__ import annotations
 
 import pytest
+
 from application.services.reajuste_lineas import (
     MOTIVO_BASE_NO_EDITABLE,
     MOTIVO_NO_REGISTRABLE,
@@ -37,7 +38,6 @@ from tests.test_f046_reajuste_pipeline import (
     _pipe,
     _sigrid,
 )
-
 
 # ---- reajuste_pipeline.py:182 y :316 (`hmoide or 0` -> `or 1`) ---- #
 
