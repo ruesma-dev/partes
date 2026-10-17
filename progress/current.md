@@ -8,18 +8,12 @@ ORM, sv4), docs y `azure-apps/partes.md` (commit local). Interruptor `REPARTO_RE
 apagado por defecto. Detalle, desviaciones justificadas y evidencias en `progress/impl_F-046.md`;
 mutación en `progress/mutacion_F-046.md`.
 
-**T22 · campaña de mutación PENDIENTE (implementer, 2026-10-15)**: la campaña completa (565
-mutantes: sv4 191, sv3 190, sv5 184) se interrumpió en 79/565 (sesión caída); log parcial en
-`progress/mutacion_F-046_parcial.log`, sin `progress/mutacion_F-046.md`. Hay que relanzarla
-sobre HEAD `676c0e7` (ya incluye los tests contra los supervivientes vistos). **Ojo con
-`--timeout 600`**: con 6 workers la línea base de sv4 midió 608–645 s y luego 859–864 s,
-así que con 600 s todo mutante de sv4 que no muera pronto sale `timeout` (con el suelo por
-defecto, la propia base tiene solo 600 s y aborta). Se lanzó con `--timeout 1300`. Los
-`timeout` y supervivientes se re-evalúan con `progress/redirigir_mutantes_F-046.py <log> HEAD
-{timeout|superviviente}`: hasta la interrupción, los 6 primeros timeouts y 6 supervivientes
-(columnas del ORM de sv4) mueren con los tests de F-046 de su servicio; el resto queda por
-re-evaluar sobre la campaña nueva (una re-evaluación se colgó más de 900 s y el script ya lo
-registra como COLGADO).
+**T22 · hecha (implementer, 2026-10-17)**: campaña completa de 565 mutantes (la lanzó el
+humano, HEAD `6b9ceed`): 436 muertos, 115 supervivientes y 14 timeouts. Re-evaluados uno a uno
+con `progress/redirigir_mutantes_F-046.py`: 104 supervivientes mueren con 89 tests nuevos
+`test_f046_t22_*` y los 14 timeouts mueren (contención de la máquina, no un bucle). **554/565
+muertos; 11 equivalentes (E1–E7) PENDIENTES de aceptación del humano**, cada uno con demostración
+ejecutable; 0 bugs. Detalle en `progress/mutacion_F-046.md`; resumen en `progress/impl_F-046.md`.
 
 **MANUAL (humano) · despliegue y encendido (T23), pendientes**, en este orden:
 
@@ -36,7 +30,7 @@ registra como COLGADO).
 6. **M6** (escritura en producción, la autoriza y la hace el humano en el portal): el 14/10
    (0678/0704) con «Aplicar» ⇒ en Sigrid 0678 ordinaria 2,5 y extra 1,5; en `partes`, tras la
    pasada siguiente, el reparto `materializado` y los mismos valores.
-7. Aceptar o rechazar los mutantes equivalentes de `progress/mutacion_F-046.md`, si los hay.
+7. Aceptar o rechazar los 11 mutantes equivalentes E1–E7 de `progress/mutacion_F-046.md`.
 
 **MANUAL (humano) del bloque sv5, pendientes** (design §9; M1 ya hecha por el líder):
 

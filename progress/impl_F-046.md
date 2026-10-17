@@ -27,57 +27,36 @@ Interruptor `REPARTO_REAJUSTE` (sv3) **apagado por defecto**: apagado, sv3 es F-
 
 ## Decisiones y desviaciones (justificadas)
 
-1. **Guardia (DA6)**: en vez de `can / 0`, `can = CONVERT(INT, 'reajuste-descuadrado-' + CAST(ide…))`.
-   Con `ANSI_WARNINGS` apagado, dividir por 0 da NULL (dejaría `can` a NULL y confirmaría); el
-   error de conversión salta siempre y nombra la línea. La guardia **cuenta** las líneas en su
+1. **Guardia (DA6)**: `can = CONVERT(INT, 'reajuste-descuadrado-' + CAST(ide…))` en vez de `can / 0`
+   (con `ANSI_WARNINGS` apagado dividir por 0 da NULL y confirmaría). **Cuenta** las líneas en su
    estado esperado (synckey, `can` = «antes», sin enlaces, parte En registro) y falla si no son
    todas o si alguna extra nueva ya existe. M3 (e bis) lo comprueba contra la API real.
-2. **INSERT de la extra nueva condicionado** (`stmt_insertar_extra`, método nuevo): mismas columnas
-   que `stmt_insert_linea` (que no se toca), pero solo entra si la base ya tiene «después» y su
-   synckey no existe; `MAX(ide)+1` en subconsulta (la trampa del agregado con `WHERE` falso que
-   ya evita `stmts_crear_parte`). Así una base borrada a mano entre leer y escribir no deja una
-   extra huérfana.
-3. **sv5 decide releyendo**: tras escribir (o si la escritura lanza) relee: todo con «después» =
-   hecho; nada = rechazo `ok:false` (nada escrito); a medias = excepción → 502 → sv4 lo deja
-   `aplicando` con ERROR (DA6). Un 5xx/timeout de sigrid-api no se toma por rechazo.
-4. **R26 antes que el estado del parte**: una línea con «después» es `ya_aplicada` aunque luego
-   cerraran el parte (el reintento de un timeout no debe quedar «no editable»).
-5. **R22 · otra obra**: la extra nueva exige que el parte de su base sea de la obra destino de
-   `preparar` (en modo pruebas, una base real con destino 0404 no es editable).
-6. **`fetch_registros_para_recurso` sin claves nuevas**: design §4 pedía añadir
-   `sigrid_hmores_ide` y `obra_codigo`, pero `test_f037_r9` fija el conjunto exacto de claves y la
-   spec no prevé tocarlo. Esos dos datos los rellena `guardar_repartos` desde `parte_registros`
-   al crear el pendiente (mismo resultado, ningún test existente tocado).
-7. **`clase_linea(reg, *, congelada)`**: recibe la congelación hecha (`_congelado`) en vez de
-   calcularla: importar `recurso_conciliador` desde `reajuste_reparto` sería circular.
-8. **Wiring de sv3 en `interface_adapters/api/app.py`** (no en `main_worker.py`, que reutiliza
-   `build_app`). `candado_espera_s` se asigna tras construir el repositorio: pasarlo al
-   constructor rompía los dobles `_RepoDoble(fabrica)` de `test_f042`/`test_f043` (lo vi en T13
-   y lo corregí en el código, sin tocar esos tests).
-9. **Candado (R18)** siempre que el repositorio lo tenga (también con el interruptor apagado:
-   R18 no depende de él); conexión propia en `AUTOCOMMIT`; si no puede soltarlo, invalida la
-   conexión. Con un repositorio sin candado (dobles antiguos) la pasada corre sin él.
-   *Nota*: `conciliar_todos` lanza `TimeoutError`; en el recálculo de la cola el mensaje se
-   reintenta, en la ingesta el `try` best-effort existente de `persist_parte_pipeline` lo deja en
-   WARNING y la pasada siguiente recalcula todo (fichero fuera del alcance de la spec).
-10. **Máquina de estados**: `decidir_grupo` devuelve también `residual` (sin ordinarias libres,
-    R12). `aplicando`/`aplicado`: la fila y lo congelado no se tocan; lo libre recibe el ideal
-    calculado con el estado actual. Un reparto vivo cuyo grupo desaparece entero pasa a
-    `obsoleto`; uno cuyo grupo existe pero la pasada no reparte (p. ej. recurso sin hora extra)
-    no se toca. Con el interruptor encendido no se emite el WARNING de medición de F-045.
-11. **sv4**: errores `RepartoCambiadoError`/`RepartoPendienteError` subclases de
-    `CongeladoError` (409 por el manejador global). `iniciar_aplicacion` admite `aplicando`
-    (reintento R34) y conserva las reservas; las extras automáticas de lo libre (sv3 las rehace
-    con id nuevo) no cuentan como «líneas nuevas». Reserva: `nextval(pg_get_serial_sequence(
-    'parte_registros','id'))`; en SQLite (tests) el siguiente al mayor id.
-12. **Preflight**: evalúa las líneas del día como si se aplicara (consultivo) y trae
-    `repartos`; la extra nueva aún sin reserva se comprueba en sv5 con id provisional
-    `-base` (synckey `partes:-N`, que no existe). **Cliente sv4**: `reajuste_*` distinguen
-    rechazo (`ok:false`, nada escrito; también sin conexión) de `sin_respuesta` (timeout, error
-    a mitad, 5xx).
-13. **Modal**: la aprobación puede ir en dos llamadas (síncrona y cola); cada decisión viaja en
-    la llamada que lleva líneas de su día, una sola vez (`decisionesPara`), porque el servidor
-    rechaza (409) la decisión de un reparto ajeno a la selección. Sin decisión → alerta.
+2. **INSERT de la extra condicionado** (`stmt_insertar_extra`, nuevo; `stmt_insert_linea` no se
+   toca): solo entra si la base ya tiene «después» y su synckey no existe; `MAX(ide)+1` en
+   subconsulta. Una base borrada a mano entre leer y escribir no deja extra huérfana.
+3. **sv5 decide releyendo**: todo con «después» = hecho; nada = rechazo `ok:false`; a medias =
+   excepción → 502 → sv4 lo deja `aplicando` con ERROR (DA6). Un 5xx/timeout no es rechazo.
+4. **R26 antes que el estado del parte**: con «después» es `ya_aplicada` aunque cerraran el parte.
+5. **R22 · otra obra**: la extra nueva exige que el parte de su base sea de la obra destino.
+6. **`fetch_registros_para_recurso` sin claves nuevas** (design §4): `test_f037_r9` fija el
+   conjunto exacto; `sigrid_hmores_ide` y `obra_codigo` los rellena `guardar_repartos`.
+7. **`clase_linea(reg, *, congelada)`** recibe la congelación hecha (evita un import circular).
+8. **Wiring de sv3 en `interface_adapters/api/app.py`** (`main_worker.py` reutiliza `build_app`);
+   `candado_espera_s` se asigna tras construir el repositorio (no rompe los dobles de F-042/F-043).
+9. **Candado (R18)** siempre que el repositorio lo tenga, también apagado; conexión propia en
+   `AUTOCOMMIT`; si no puede soltarlo, invalida la conexión. `TimeoutError`: la cola reintenta; la
+   ingesta lo deja en WARNING (`persist_parte_pipeline`, fuera de alcance) y recalcula después.
+10. **Máquina de estados**: `decidir_grupo` añade `residual` (R12). `aplicando`/`aplicado`: fila y
+    congelado intactos, lo libre al ideal. Grupo desaparecido ⇒ `obsoleto`; grupo presente que la
+    pasada no reparte ⇒ no se toca. Encendido, sin el WARNING de medición de F-045.
+11. **sv4**: `RepartoCambiadoError`/`RepartoPendienteError` ⊂ `CongeladoError` (409).
+    `iniciar_aplicacion` admite `aplicando` (R34) y conserva las reservas; las extras automáticas
+    de lo libre no son «líneas nuevas». Reserva por `nextval(pg_get_serial_sequence(...))`.
+12. **Preflight** consultivo «como si se aplicara», con `repartos`; la extra sin reserva va a sv5
+    con id provisional `-base`. **Cliente sv4**: rechazo (`ok:false`, también sin conexión) frente
+    a `sin_respuesta` (timeout, error a mitad, 5xx).
+13. **Modal**: cada decisión viaja una vez, en la llamada (síncrona o cola) que lleva líneas de su
+    día (`decisionesPara`); el servidor rechaza (409) un reparto ajeno. Sin decisión → alerta.
 
 ## Fase RED (trazas reales; comando `python -m pytest -q <fichero>` desde cada servicio)
 
@@ -202,7 +181,8 @@ E       assert None                                                       (x5, e
   `reajuste-descuadrado-<ide>` y nada escrito (confirma que sigrid-api revierte el lote).
 - **Despliegue sv5 → sv4 → sv3** (interruptor apagado), **M4**, encender `REPARTO_REAJUSTE`,
   **M5** y **M6** (caso real del 14/10 con «Aplicar»): comandos en `progress/current.md`.
-- Aceptar los mutantes equivalentes que declare `progress/mutacion_F-046.md` (si los hay).
+- **Aceptar o rechazar los 11 mutantes equivalentes E1–E7** (sección «Equivalentes» de
+  `progress/mutacion_F-046.md`, cada uno con su demostración ejecutable). Siguen PENDIENTES.
 
 ## Fuera de alcance
 
@@ -210,6 +190,27 @@ E       assert None                                                       (x5, e
 - Repartos de recursos sin código de hora extra o en grupos que la pasada no reparte: no se
   proponen (como F-045).
 
+## T22 · cierre de la campaña de mutación (2026-10-17)
+
+Campaña completa (la lanzó el humano; HEAD `6b9ceed`): 565 mutantes, 436 muertos, 115
+supervivientes, 14 timeouts, 25 666 s con 6 workers. Re-evaluación DIRIGIDA, mutante a mutante,
+con `progress/redirigir_mutantes_F-046.py` (tests `test_f046_*` del servicio, árbol con los
+tests nuevos): **104 supervivientes mueren** con 89 tests nuevos `test_f046_t22_*` (sv5 35,
+sv3 32, sv4 22) y **los 14 timeouts mueren** (~37 s por mutante, ninguno colgado: contención de
+la máquina, no un bucle). Quedan **11 equivalentes (E1–E7) PENDIENTES del humano**, con
+demostración en `tests/test_f046_t22_equivalentes.py` de cada servicio. **0 sin resolver, 0
+bugs.** Por qué sobrevivía cada uno, qué test lo mata y su re-evaluación: `progress/mutacion_F-046.md`
+(análisis por superviviente, «Equivalentes», «Cierre de T22» y observaciones O1–O3, ninguna
+es un bug ni cambia el comportamiento).
+
 ## Evidencias
 
-EVIDENCIAS_AQUI
+Medido con `bash harness/init.sh` el 2026-10-17 tras T22 (HEAD con los tests `test_f046_t22_*`).
+
+| Evidencia | Valor real |
+|---|---|
+| Tests (raíz / sv3 / sv4 / sv5) | 493 + 3 skipped / 2150 / 2196 + 1 skipped / 656, todo en verde |
+| Tiempo de la suite (raíz / sv3 / sv4 / sv5) | 132,6 s / 56,5 s / 826,0 s / 19,1 s |
+| Cobertura de líneas cambiadas | 98,0 % (1176/1200; umbral 80 %, nivel crítico) |
+| Mutación (completa, 565) | 554 muertos (436 + 14 timeouts + 104 con tests nuevos), 0 sin resolver, 11 equivalentes PENDIENTES del humano |
+| `bash harness/init.sh` | exit 0, «ENTORNO LISTO»; PUERTA TAMAÑO impl 216/220 |
