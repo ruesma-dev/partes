@@ -213,4 +213,4 @@ Medido con `bash harness/init.sh` el 2026-10-17 tras T22 (HEAD con los tests `te
 | Tiempo de la suite (raíz / sv3 / sv4 / sv5) | 132,6 s / 56,5 s / 826,0 s / 19,1 s |
 | Cobertura de líneas cambiadas | 98,0 % (1176/1200; umbral 80 %, nivel crítico) |
 | Mutación (completa, 565) | 554 muertos (436 + 14 timeouts + 104 con tests nuevos), 0 sin resolver, 11 equivalentes PENDIENTES del humano |
-| `bash harness/init.sh` | exit 0, «ENTORNO LISTO»; PUERTA TAMAÑO impl 216/220 |
+| `bash harness/init.sh` | exit 0, «ENTORNO LISTO»; PUERTA TAMAÑO impl 216/220. Repetido en T24 (tras arreglar ruff de T22, `a0c3d26`): 493+3s / 2150 / 2196+1s / 656 en verde, cobertura 98,0 % |
