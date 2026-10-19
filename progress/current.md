@@ -11,8 +11,12 @@ página en M1 (si no se alcanza: `blocked` con la tabla, sin iterar el prompt).
 **Dato de la DA2 (líder, solo lectura, partes activos desde 2026-06-01)**: `tabla_dispersa`
 habría marcado 8 de 108 partes laborables y 9 de 17 de fin de semana.
 
-**Implementación (implementer, 2026-10-19)**: en curso; tarea actual y desviaciones en
-`progress/impl_F-051.md`. M1 y M2 quedan para el líder (PDF real, no versionado).
+**Implementación (implementer, 2026-10-19)**: T1–T9 y T12 hechas, `init.sh` en verde
+(cobertura 100 % de 66 líneas, mutación 17/20 muertos + 2 cazados con tests nuevos y 1
+equivalente). Detalle en `progress/impl_F-051.md`. **Pendiente del líder**: M1 (T10, PDF
+real de la 0686 contra el modelo de producción, 3 de 3 por página) y M2 (T11, ≥ 5
+laborables); y una línea en `azure-apps/partes.md` para `REVISAR_TABLA_DISPERSA`
+(desviación de `design.md` §1 por la regla de `CLAUDE.md`; texto propuesto en el informe).
 
 **Spec (spec-author, 2026-10-19)** en `specs/F-051-extraccion-fila-a-fila/`, rama
 `feature/F-051-extraccion-fila-a-fila` (worktree `partes-wt-f051`). Caso: obra 0686, 17 y

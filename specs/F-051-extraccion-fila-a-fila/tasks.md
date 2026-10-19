@@ -15,4 +15,4 @@
 - [x] T9: Campaña de mutación muestreada (rigor `estandar`) sobre `parte_models.py` y `lectura_dudosa.py`; analizar supervivientes en `progress/impl_F-051.md`  |  Verificación: `python -m harness.mutacion` con el nivel de `harness/rigor.json`, supervivientes documentados
 - [ ] T10: M1 · PDF real de la 0686 troceado en 3 páginas contra el modelo de producción, según la DA3 (por defecto 3 de 3 por página); tabla de resultados sin nombres ni DNIs  |  Verificación: MANUAL (humano o líder), comandos de `design.md` §9; si no se alcanza, `blocked` (DA3)
 - [ ] T11: M2 · ≥ 5 partes laborables bien leídos hoy, mismas horas por fila que lo aprobado en el portal  |  Verificación: MANUAL (humano o líder), `design.md` §9
-- [ ] T12: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T12: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
