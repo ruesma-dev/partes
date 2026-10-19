@@ -23,7 +23,6 @@ import json
 import logging
 
 import pytest
-
 from application.pipelines.persist_parte_pipeline import (
     PersistPartePipeline,
     PersistParteRequest,

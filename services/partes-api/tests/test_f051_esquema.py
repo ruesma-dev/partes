@@ -12,9 +12,8 @@ Sin red ni modelo de IA: solo el esquema Pydantic.
 from __future__ import annotations
 
 import pytest
-from pydantic import ValidationError
-
 from domain.models.parte_models import EmpleadoParte, ParteTrabajo
+from pydantic import ValidationError
 
 
 def _parte(empleados: list[dict]) -> dict:

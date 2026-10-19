@@ -17,7 +17,6 @@ import re
 from pathlib import Path
 
 import pytest
-
 from infrastructure.prompts.yaml_prompt_repository import YamlPromptRepository
 
 RUTA_PROMPTS = Path(__file__).resolve().parents[1] / "config" / "prompts.yaml"
