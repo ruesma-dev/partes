@@ -4,7 +4,8 @@
 > para que cada cifra manuscrita se asigne a la FILA en la que está escrita, no
 > a la más cercana. Servicios: **sv2** (prompt y esquema, siempre) y **sv3**
 > (red de seguridad, solo si la DA2 lo aprueba). sv1, sv4 y sv5 no se tocan.
-> Diseño en `design.md`; decisiones abiertas DA1–DA3 en `design.md` §7.
+> Diseño en `design.md`; DA1–DA3 (§7) resueltas por el humano el 2026-10-19:
+> A, C y 3 de 3. Dato DA2: `tabla_dispersa` marcaría 8/108 laborables y 9/17 de finde.
 
 ## Caso real que lo motiva
 

@@ -1,7 +1,18 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-051 · spec_ready (2026-10-19): extracción fila a fila, cada número a su fila
+## F-051 · in_progress (2026-10-19): extracción fila a fila, cada número a su fila
+
+**Aprobación del humano (2026-10-19, «ok apruebo»)** con las opciones recomendadas:
+**DA1 = A** (campo por fila `numero_linea_horas`, antes de las horas), **DA2 = C**
+(`autocomprobacion_fila` + `tabla_dispersa` en sv3 con el interruptor
+`REVISAR_TABLA_DISPERSA`, defecto `true`), **DA3 = 3 de 3** ejecuciones correctas por
+página en M1 (si no se alcanza: `blocked` con la tabla, sin iterar el prompt).
+**Dato de la DA2 (líder, solo lectura, partes activos desde 2026-06-01)**: `tabla_dispersa`
+habría marcado 8 de 108 partes laborables y 9 de 17 de fin de semana.
+
+**Implementación (implementer, 2026-10-19)**: en curso; tarea actual y desviaciones en
+`progress/impl_F-051.md`. M1 y M2 quedan para el líder (PDF real, no versionado).
 
 **Spec (spec-author, 2026-10-19)** en `specs/F-051-extraccion-fila-a-fila/`, rama
 `feature/F-051-extraccion-fila-a-fila` (worktree `partes-wt-f051`). Caso: obra 0686, 17 y
