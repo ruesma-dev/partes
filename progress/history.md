@@ -922,3 +922,13 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   prueba se dejaron a 0, sin borrar, por decisión del humano.
 - Pendiente: despliegue sv5 → sv4 → sv3 con el interruptor apagado, M4, encendido, M5 y M6
   (el primer «Aplicar» real lo hace el humano).
+
+## F-051 · Extracción fila a fila — done 2026-10-19
+
+Prompt `parte_trabajo_es` con lectura fila a fila y campo `numero_linea_horas` (DA1 = A);
+red de seguridad en sv3 (`autocomprobacion_fila` + `tabla_dispersa`, interruptor
+`REVISAR_TABLA_DISPERSA`, DA2 = C). Review APPROVED pasada 1. La M1 con
+`gemini-3.7-flash` falló (0 de 3 en 17/10 y 18/10 de la 0686): el prompt no corrige el
+desplazamiento con ese modelo; con `gemini-4-argon` M1 y M2 bien 3 de 3. Decisión del
+humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2, cambiar
+`GEMINI_MODEL` en Azure y la comparativa con Claude y OpenAI (faltan claves).

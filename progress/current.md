@@ -1,7 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-051 · blocked (2026-10-19, M1 no alcanza 3 de 3 con el modelo de producción): extracción fila a fila, cada número a su fila
+## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila
+
+**Decisión del humano (2026-10-19, «haz la recomendación»)**: se cierra F-051 tal cual (prompt
+reforzado + red de la DA2) y sv2 pasa a `GEMINI_MODEL=gemini-4-argon` (cambio de variable en
+Azure, lo lanza el humano; `infra/create_capps_partes.ps1` actualizado y documentado en
+`azure-apps/partes.md`). Con Argon y el prompt de F-051: **M1** 17/10 y 18/10 de la 0686 bien
+3 de 3; **M2** las 7 páginas laborables de la batería (5 obras) perfectas 3 de 3. Queda
+pendiente la comparativa con Claude Opus 5.5 y OpenAI GPT-6 Luna / GPT-6.1 Sol (faltan sus
+claves en el Key Vault); si alguno lee mejor, el cambio de modelo es solo de variable.
+Despliegue: sv3 y sv2 (sin orden obligado, design §10) y la variable del modelo.
 
 **Review**: APPROVED (pasada 1, `progress/review_F-051.md`).
 **M1 (líder, 2026-10-19) NO superada con el modelo de producción ⇒ `blocked` (DA3).**
