@@ -1,7 +1,29 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-051 · in_progress (2026-10-19): extracción fila a fila, cada número a su fila
+## F-051 · blocked (2026-10-19, M1 no alcanza 3 de 3 con el modelo de producción): extracción fila a fila, cada número a su fila
+
+**Review**: APPROVED (pasada 1, `progress/review_F-051.md`).
+**M1 (líder, 2026-10-19) NO superada con el modelo de producción ⇒ `blocked` (DA3).**
+Batería fuera del repo (código real de sv2 y catálogo auxhor de Sigrid en lectura;
+respuesta correcta leída a mano del PDF; 14 páginas: las 3 de la 0686 16–18/10, 7 de
+fin de semana o festivo con tabla casi vacía y 6 laborables de 5 obras):
+
+| Prompt · modelo | 17/10 bien | 18/10 bien | Páginas perfectas | Difíciles perfectas | $/parte real |
+|---|---|---|---|---|---|
+| actual · gemini-3.7-flash (2 runs) | 1/2 | 0/2 | 22/28 | 9/14 | 0,021 |
+| F-051 · gemini-3.7-flash (3 runs) | **0/3** | **0/3** | 34/42 | 14/21 | 0,016 |
+| actual · gemini-4-argon (2 runs) | 2/2 | 2/2 | 27/28 | 13/14 | 0,019 |
+| F-051 · gemini-4-argon (3 runs) | **3/3** | **3/3** | 41/42 | 20/21 | 0,020 |
+
+Con Flash 3.7 el refuerzo del prompt no corrige el desplazamiento (17/10 sigue en fila 1
+y 2; también falla el 03/10 de la 0686, que en producción se leyó mal y nadie lo había
+detectado). Gemini 4 Argon no desplaza ninguna fila con ninguno de los dos prompts; su
+único fallo (0686 10/10, 1 de 5 runs) es otro: copia las horas de la columna de
+partidas en «Ord.». La red de la DA2 (`tabla_dispersa`) sí mandaría a revisión los
+partes que Flash lee mal (son tablas dispersas). Decide el humano (DA3): cambio de
+modelo, aceptar con la red de la DA2, o esperar a la comparativa con Claude y OpenAI
+(faltan sus claves en el Key Vault). M2 no se ha hecho.
 
 **Aprobación del humano (2026-10-19, «ok apruebo»)** con las opciones recomendadas:
 **DA1 = A** (campo por fila `numero_linea_horas`, antes de las horas), **DA2 = C**

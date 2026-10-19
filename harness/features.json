@@ -675,7 +675,7 @@
         "Mutacion muestreada (estandar) con supervivientes analizados",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "blocked",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
