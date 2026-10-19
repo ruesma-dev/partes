@@ -1,6 +1,30 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-051 · spec_ready (2026-10-19): extracción fila a fila, cada número a su fila
+
+**Spec (spec-author, 2026-10-19)** en `specs/F-051-extraccion-fila-a-fila/`, rama
+`feature/F-051-extraccion-fila-a-fila` (worktree `partes-wt-f051`). Caso: obra 0686, 17 y
+18/10/2026, Gemini subió cada cifra una fila en una tabla casi vacía (confianza 95). Toca sv2
+(prompt `parte_trabajo_es`, y el esquema con DA1 = A) y, con DA2 ≠ A, sv3. Rigor `estandar`.
+De paso: el `schema_hint` no lista `dni` (el esquema lo tiene desde F-030); la spec lo añade.
+
+**Decisiones abiertas para el humano** (detalle en `design.md` §7):
+
+- **DA1** autocomprobación: A) campo `numero_linea_horas` por fila, antes de las horas
+  (recomendada); B) lista `filas_con_horas` en la raíz; C) solo prompt.
+- **DA2** red de seguridad en sv3 (dueño de `review_required`): A) ninguna; B) solo
+  autocomprobación incoherente; C) B + «tabla dispersa» con interruptor
+  `REVISAR_TABLA_DISPERSA` (recomendada). Hay una consulta de solo lectura sobre
+  `raw_extraction_json` para medir cuántos partes marcaría C antes de decidir.
+- **DA3** aceptación de M1: 3 de 3 ejecuciones correctas por página; si no, `blocked` y decide
+  el humano.
+
+**Manual pendiente tras implementar**: M1 (PDF real troceado, no versionado, con el modelo de
+producción) y M2 (≥ 5 partes laborables bien leídos hoy). Repetibles con otro proveedor/modelo
+vía el `.env` local de sv2: es el enganche de la comparativa de modelos, que va aparte.
+
+
 ## F-046 · done (2026-10-18, APPROVED pasada 2), M1–M3 hechas, pendiente de despliegue y M4–M6: reajuste en Sigrid al aprobar
 
 **Cierre (líder, 2026-10-18).** Reviewer: CHANGES_REQUESTED en la pasada 1 (solo T24 sin
