@@ -5,7 +5,7 @@
 > la decisión es otra. Cada tarea = un commit `F-051 Tn: ...`.
 
 - [x] T1: (DA1 = A) Escribir `services/partes-api/tests/test_f051_esquema.py` (R9–R12) y verlo en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f051_esquema.py` falla por el campo ausente (traza RED en impl)
-- [ ] T2: (DA1 = A) Añadir `numero_linea_horas` a `EmpleadoParte` en `services/partes-api/domain/models/parte_models.py` tras `numero_linea`  |  Verificación: `python -m pytest tests/test_f051_esquema.py tests/test_f023_empresa_membrete.py` en verde
+- [x] T2: (DA1 = A) Añadir `numero_linea_horas` a `EmpleadoParte` en `services/partes-api/domain/models/parte_models.py` tras `numero_linea`  |  Verificación: `python -m pytest tests/test_f051_esquema.py tests/test_f023_empresa_membrete.py` en verde
 - [ ] T3: Escribir `services/partes-api/tests/test_f051_prompt.py` (R1–R7, palabras clave de `design.md` §6) y verlo en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f051_prompt.py` falla (traza RED en impl)
 - [ ] T4: Reforzar `services/partes-api/config/prompts.yaml` según `design.md` §5 (regla en `system`, bloque «LECTURA FILA A FILA», viñeta `numero_linea_horas` si DA1 = A, `dni` y `numero_linea_horas` en `schema_hint`)  |  Verificación: `python -m pytest` de sv2 en verde y `git diff dev -- services/partes-api/config/prompts.yaml` solo toca `system`, punto 3 y `schema_hint` (R8)
 - [ ] T5: (DA2 ≠ A) Escribir `services/partes-persistencia/tests/test_f051_lectura_dudosa.py` (R13–R17, casos de `design.md` §6) y verlo en ROJO  |  Verificación: `cd services/partes-persistencia && python -m pytest tests/test_f051_lectura_dudosa.py` falla (traza RED en impl)
