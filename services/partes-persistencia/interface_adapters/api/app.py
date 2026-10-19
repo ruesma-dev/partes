@@ -268,6 +268,8 @@ def build_app(settings: Settings) -> FastAPI:
         repository=repository,
         normalizer=ParteNormalizer(
             jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
+            # F-051 (R14): interruptor de la tabla dispersa.
+            revisar_tabla_dispersa=settings.revisar_tabla_dispersa,
         ),
         matcher_provider=matcher_provider,
         sharepoint_uploader=sharepoint_uploader,
