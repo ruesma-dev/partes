@@ -1,36 +1,45 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · spec_ready (2026-10-15): misma fila para el mismo trabajador
+## F-050 · spec_ready (revisada 2026-10-20): misma fila para el mismo trabajador
 
-Spec escrita por el spec-author en `specs/F-050-misma-fila-para-el-mismo-trabajador/`
-(rama `feature/F-050-misma-fila-para-el-mismo-trabajador`, worktree `partes-wt-f050`).
-Solo sv4, sin esquema, sin Sigrid ni migración; rigor propuesto **estándar**. Pendiente:
-PARADA 1 (el humano valida las DA antes de implementar).
+Spec en `specs/F-050-misma-fila-para-el-mismo-trabajador/` (rama
+`feature/F-050-misma-fila-para-el-mismo-trabajador`, worktree `partes-wt-f050`, sobre
+`dc03468`; el rebase sobre `dev` es del implementer). Solo sv4, sin esquema, sin Sigrid ni
+migración; rigor **estándar**. Revisada por el spec-author el 2026-10-20 con la regla del
+humano, literal: «es una linea por obra empresa y persona. puede estar en varias obras, o
+en 2 empresas».
 
-Causa verificada: `worker_key_for_registro` agrupa sin ficha por el nombre leído, y el alta
-manual escribe como leído el nombre de Sigrid; el detalle y el listado de partes usan otra
-variante, y la vista del trabajador da de alta sin el recurso (línea sin casar).
+**Aprobadas por el humano el 2026-10-20 («ok a lo demás»)**: DA2 (una sola función),
+DA3 (alta manual hereda fila y leído), DA4 (sin migración), DA5 (redirección de enlaces),
+DA6 (la vista del trabajador pasa el recurso), DA7 (E5), DA8 (rigor estándar), DA9 (F-050
+antes de F-049).
 
-**Decisiones abiertas que necesita validar el humano** (`design.md` §8):
+**Abiertas, las valida el humano antes de implementar** (`design.md` §8):
 
-- **DA1 · Clave**: `emp-` > `rec-{recurso}` (solo casadas sin ficha) > `nom-` >
-  `sin-trabajador`. Descartados DNI primero o recurso primero para todos (cambian todas
-  las URL) y un paso `dni-` (M1 confirma que no hace falta).
-- DA2 una sola función también para el detalle y el listado de partes.
-- **DA3 · Alta manual** hereda `empleado_line_no` y leído de la persona en ese parte; sin
-  ella, fila nueva al final (hoy fila 1 fija).
-- DA4 sin migración; **DA5** redirección solo en el GET de `/trabajadores/nom-…` (se puede
-  quitar); **DA6** la vista del trabajador pasa el recurso al modal (segundo camino al
-  mismo síntoma).
-- **DA7 · Cambio visible**: casada sin ficha y sin casar con el mismo leído dejan de
-  compartir fila (como ya pasa con ficha); homónimos casados con recursos distintos dejan
-  de fusionarse.
-- DA8 rigor estándar; **DA9** orden: F-050 antes de F-049 (el editor de celda usa la misma
-  clave); con F-046/F-047 solo conflictos textuales.
+- **DA1 · Clave**: verificado en el código que una persona puede tener en una obra líneas
+  con ficha (`emp-`) y sin ficha del mismo recurso (casos C1–C3 de design §1). Recomendada
+  **A**: `rec-{recurso}` para toda línea casada con recurso, con o sin ficha (recurso =
+  `recurso_ide`, si no `empleado_reside`), > `emp-` (ficha sin recurso) > `nom-` >
+  `sin-trabajador`. Descartadas la del 15/10 (`emp-` primero), empresa + DNI (la línea no
+  guarda la empresa; DNI en la URL) y un mapa ficha↔recurso. Coste: cambian las URL `emp-`
+  (DA5 se amplía a redirigirlas) y DA6 se amplía (pasar también la ficha; enlace «Ver» de
+  «Nuevo parte»); en tests existentes, **119 tests de 21 ficheros** esperan `emp-77` con
+  recurso 501 y cambian solo el literal (experimento en memoria, árbol intacto; la suite
+  base da 2068 passed).
+- **DA1b**: dos recursos persona del mismo DNI en una empresa (E11) salen en dos filas;
+  recomendado aceptarlo como anomalía y reasignar.
+- **DA10**: la lista «Por persona» choca con la regla literal; recomendado una fila por
+  (empresa, persona) con sus obras dentro, y la fila por obra en «Por obra».
 
-**MANUAL (humano)**: M1 antes de desplegar (SQL de solo lectura de `design.md` §6:
-personas partidas por parte y por obra); M2–M5 tras desplegar sv4.
+**MANUAL (humano)**: M1 (SQL de solo lectura de `design.md` §6) mejor **antes de
+implementar**: sus cifras (filas que se unen, fichas sin recurso, DNIs con dos recursos en
+una obra) apoyan DA1 y DA1b. M2–M5 tras desplegar sv4.
+
+**Lo fusionado en `dev` tras `dc03468`** (F-046, F-048, F-051) no cambia la clave ni el alta
+manual; F-046 agrupa el reparto por `recurso_ide`, igual que la clave A. Tras el rebase,
+repetir el recuento de tests de R22 (en `dev` se suman `test_f046_marcas` y
+`test_f048_traza_portal`).
 
 
 ## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila

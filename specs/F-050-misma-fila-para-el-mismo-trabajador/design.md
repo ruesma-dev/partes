@@ -1,246 +1,250 @@
 <!-- specs/F-050-misma-fila-para-el-mismo-trabajador/design.md -->
 # F-050 · Misma fila para el mismo trabajador — Diseño
 
-**Servicio: solo sv4** (`services/partes-front/`). La agrupación por trabajador es de
-presentación y de las acciones del portal; sv3 y sv5 no tienen clave de trabajador (§7).
-Sin esquema, sin SQL nuevo en la base, sin Sigrid. Rama
-`feature/F-050-misma-fila-para-el-mismo-trabajador` (worktree `partes-wt-f050`).
+**Solo sv4** (`services/partes-front/`): la agrupación por trabajador es del portal (§7).
+Sin esquema, SQL nuevo ni Sigrid. Revisada el 2026-10-20 con la regla del humano «una línea
+por obra, empresa y persona» (requirements).
 
-## 1. Diagnóstico verificado (líneas de `dev` `dc03468`)
-
-Fichero `infrastructure/database/parte_repository.py` salvo indicación:
+## 1. Diagnóstico (`infrastructure/database/parte_repository.py` salvo indicación; líneas de `dc03468`, §10)
 
 - `worker_key_for_registro` (l.504): `emp-{empleado_ide}`, si no `nom-` + `_norm(leído)`,
-  si no `sin-trabajador`. **No mira el recurso**: dos líneas casadas sin ficha del mismo
-  recurso con leídos distintos dan dos claves.
-- `crear_parte_manual` (l.3279; altas en l.3364 y l.3402) escribe
-  `trabajador_nombre_leido = empleado_nombre` (el nombre de Sigrid, orden apellidos-nombre)
-  y `empleado_line_no = 1` fijo. La línea de la IA guarda el leído del papel (orden
-  nombre-apellidos). Caso real (base `partes`, 15/10, obra 0678): línea IA `recurso_dni`,
-  extra 2; línea manual `recurso_manual`, normal 8; mismo recurso y DNI ⇒ dos filas.
-- Usuarios de la clave (todos heredan el arreglo al cambiar la función): `list_workers`
-  (l.873), `get_worker` (l.951), `list_obras` (conteo, l.1047), `get_obra` (matriz, l.1183),
-  `alcance_parte` (F-043, l.1482), `registro_ids_de_trabajador` (ámbito de aprobar, l.1850
-  vía `get_worker`), `reassign_empleado_by_worker_key` (l.2813), `soft_delete_worker`
-  (l.3134) y `persona_de` (F-025, l.523, solo sin DNI).
-- **Variantes escritas a mano** con el mismo fallo: `get_parte` (l.1449:
-  `empleado_ide or leído or empleado_line_no`, sin normalizar) y `list_partes` (l.1361:
-  `empleado_ide or leído`).
-- **Segundo camino al mismo síntoma**: en `templates/trabajador_detail.html` (l.22–27) el
-  botón «+ Añadir línea» solo pasa `data-emp-ide` (sacado de una clave `emp-`), y
-  `static/app.js` `wireAddLine.setLock` (l.2065) pone `addline-emp-reside` a vacío. Para una
-  persona sin ficha la línea nace **sin casar** (sin `reside` ni método) con clave
-  `nom-{nombre de Sigrid}`: otra fila y además a Conciliar.
-- Revisado y sin el problema: el JS de la matriz no agrupa (pinta las filas del servidor);
-  `extras_por_jornada` ya agrupa por `recurso_ide`; `persona_de` con DNI; la clave de obra.
-- `empleado_line_no = 1` fijo: solo afecta al **orden** del detalle del parte (se ordena por
-  `(empleado_line_no, line_index)`: la persona añadida sale arriba, junto a la fila 1 del
-  papel) y a la herramienta de diagnóstico `partes-persistencia/medir_casado_recursos.py`
-  (`("fila", n)`). No choca con la pareja de F-037 (`document_id, line_index,
-  empleado_line_no, fecha_int`): el `line_index` de la línea manual es nuevo.
+  si no `sin-trabajador`. **No mira el recurso.**
+- `crear_parte_manual` (l.3279) escribe `trabajador_nombre_leido = empleado_nombre` (nombre
+  de Sigrid) y `empleado_line_no = 1` fijo; la IA guarda el leído del papel. Caso real
+  (base `partes`, 15/10, obra 0678): IA `recurso_dni` extra 2, manual `recurso_manual`
+  normal 8, mismo recurso y DNI ⇒ dos filas.
+- **Quién pone ficha y recurso en una línea casada.** sv3 casa contra recursos persona y
+  guarda la ficha enlazada (`res.conide`) si la hay, siempre con `reside` = recurso
+  (`casado_recurso._a_match`); el portal hace lo mismo al elegir recurso
+  (`recurso_catalog.asignacion_de`); el conciliador de sv3 (`recurso_conciliador.
+  _resuelve_recurso` → `elegir_recurso` con DNI, ficha y `reside`) escribe `recurso_ide` en
+  toda línea no congelada. Por eso **el recurso es lo común a toda línea casada**, y la
+  ficha no: una persona puede tener en la misma obra líneas con y sin ficha del mismo
+  recurso:
+  - **C1** — el enlace ficha↔recurso cambia en Sigrid (un recurso sin ficha al que luego se
+    le crea): las líneas viejas quedan `recurso_*` sin ficha y las nuevas con ficha.
+  - **C2** — líneas anteriores a F-035/F-036 (sv3 casaba por ficha; reasignar por empleado
+    soltaba el recurso, `_soltar_recurso`) junto a líneas casadas por recurso.
+  - **C3** — la vista del trabajador da de alta sin recurso: `templates/trabajador_detail.
+    html` (l.22–27) solo pasa `data-emp-ide` sacado de una clave `emp-`, y `static/app.js`
+    `wireAddLine.setLock` (l.2065) vacía `addline-emp-reside`; sin ficha la línea nace sin
+    casar (`nom-{nombre de Sigrid}`, otra fila y a Conciliar).
+- **E11**: un DNI con dos recursos persona en la misma empresa. sv3 desempata con el
+  `reside` de la ficha (gemela F-023), pero el selector del portal ofrece los dos (F-035).
+- Heredan el arreglo: `list_workers`, `get_worker`, `list_obras`, `get_obra`,
+  `alcance_parte`, `registro_ids_de_trabajador`, `reassign_empleado_by_worker_key`,
+  `soft_delete_worker` y `persona_de` (sin DNI). A mano con el mismo fallo: `get_parte`
+  (l.1449), `list_partes` (l.1361) y el enlace «Ver» de «Nuevo parte» (`app.js` l.2017).
+- Sin el problema: el JS de la matriz, `extras_por_jornada` y el reparto de F-045/F-046
+  (agrupan por `recurso_ide`), la clave de obra.
 
 ## 2. Ficheros a modificar
 
 | Fichero | Cambio |
 |---|---|
-| `services/partes-front/infrastructure/database/parte_repository.py` | §3: clave nueva, `get_parte`, `list_partes`, `crear_parte_manual`, método de compatibilidad |
-| `services/partes-front/interface_adapters/web/app.py` | `trabajador_detail`: redirección de R12 antes del 404 |
-| `services/partes-front/templates/trabajador_detail.html` | botón «+ Añadir línea»: `data-emp-reside` (R17) |
-| `services/partes-front/static/app.js` | `wireAddLine`: `open` pasa `reside: d.empReside`; `setLock` lo escribe en `addline-emp-reside` |
+| `services/partes-front/infrastructure/database/parte_repository.py` | §3: clave nueva, `get_parte`, `list_partes`, `get_worker` (ficha del grupo), `crear_parte_manual`, compatibilidad |
+| `services/partes-front/interface_adapters/web/app.py` | `trabajador_detail`: redirección de R14 antes del 404 |
+| `services/partes-front/templates/trabajador_detail.html` | botón «+ Añadir línea»: `data-emp-ide` de `detail.empleado_ide` y `data-emp-reside` (R19) |
+| `services/partes-front/static/app.js` | `wireAddLine` (`open` y `setLock` con `reside`); enlace «Ver» de «Nuevo parte» (R20) |
 | `docs/ARCHITECTURE.md` | semántica 14: una frase con el orden de la clave de trabajador (R1) |
+| Tests existentes de sv4 (R22) | solo el literal de la clave esperada; lista en §5 |
 
 **Ficheros a crear**: los cuatro tests de §5.
 
-**Ficheros que NO se tocan**: `services/partes-persistencia/**`, `services/partes-transfer/**`,
-`services/partes-api/**`, `services/partes-email/**`, ambas `orm_models.py`,
-`application/services/congelacion.py`, `application/services/jornada_resolver.py`,
-`infrastructure/sigrid/**`, `templates/obra_detail.html`, `templates/parte_detail.html`
-(ya pintan lo que les da el repositorio), `crear_extra_desde` (ya clona leído y fila),
-`list_unmatched_workers`/Conciliar, `obra_key_for_registro`, `infra/`. `azure-apps/partes.md`
-no cambia: no cambia lo que sv4 expone a otros servicios (la URL es interna del portal).
+**NO se tocan**: sv1, sv2, sv3, sv5, `infra/`, ambas `orm_models.py`, `application/**` de
+sv4, `infrastructure/sigrid/**`, `templates/obra_detail.html`, `parte_detail.html` y
+`trabajadores_list.html` (pintan lo del repositorio), `crear_extra_desde`,
+`list_unmatched_workers`, `obra_key_for_registro`. `azure-apps/partes.md` no cambia.
 
 ## 3. Funciones (todas en `parte_repository.py`, capa infrastructure)
 
 ```python
-def _clave_trabajador(*, empleado_ide: int | None, metodo: str | None,
-                      reside: int | None, recurso_ide: int | None,
-                      nombre_leido: str | None) -> str:
-    """R1-R2: emp- > rec- (casada sin ficha con recurso) > nom- > sin-trabajador."""
+def _clave_trabajador(*, casada: bool, empleado_ide: int | None,
+                      recurso: int | None, nombre_leido: str | None) -> str:
+    """R1-R2: rec- (casada con recurso) > emp- > nom- > sin-trabajador."""
 
 def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
-    """Misma firma de hoy; delega en _clave_trabajador con los campos de la linea."""
+    """Misma firma de hoy; delega con casada=esta_casado(reg) y
+    recurso = reg.recurso_ide si no es None, si no reg.empleado_reside."""
 ```
 
-- `rec-` solo si `empleado_ide is None and metodo in _METODOS_CASADO_SIN_FICHA` (el mismo
-  criterio que `esta_casado`) y `reside` (si no, `recurso_ide`) no es None.
-- La rama `nom-` y `sin-trabajador` se quedan byte a byte como hoy (R3).
-- `persona_de` no cambia de código: hereda la clave nueva en su rama sin DNI (R9).
+- `rec-` exige `casada`; con ficha y sin recurso ⇒ `emp-` (E12); la rama `nom-` y
+  `sin-trabajador` byte a byte como hoy (R3). `persona_de` no cambia de código (R11).
+- `get_worker`: `empleado_ide` del detalle = el de la línea más reciente
+  (`fecha_int`, `line_index`) que lo tenga, o None (R19); el resto, como hoy.
 
 ```python
 def fila_para_alta_manual(regs_doc: list[ParteRegistroOrm], clave: str,
                           nombre: str | None) -> tuple[int | None, str | None]:
-    """R14-R15: (empleado_line_no, trabajador_nombre_leido) de una linea nueva."""
+    """R16-R17: (empleado_line_no, trabajador_nombre_leido) de una linea nueva."""
 ```
 
 - Herencia: entre `regs_doc` con `deleted_at_utc` NULL y clave = `clave`, la de menor
-  `line_index` ⇒ `(su empleado_line_no, su trabajador_nombre_leido)`.
-- Si no hay: `(max(empleado_line_no no nulos de regs_doc) + 1, nombre)`, o `(1, nombre)`.
-- En `crear_parte_manual`, por cada día, **después** de resolver `doc` y antes de añadir:
-  leer las líneas del documento (todas, papelera incluida; documento recién creado ⇒
-  lista vacía), calcular la clave de la línea nueva con `_clave_trabajador(empleado_ide,
-  metodo_empleado, empleado_reside, empleado_reside, empleado_nombre)` y usar el par
-  devuelto en la incidencia y en cada tipo de ese día (las de un mismo día comparten fila).
-- `get_parte`: `key = worker_key_for_registro(reg)`; si es `sin-trabajador`,
-  `key = ("sin-trabajador", reg.empleado_line_no)` (R6). El orden de los grupos sigue siendo
-  el de aparición tras ordenar por `(empleado_line_no or 0, line_index)`.
-- `list_partes`: `empleados = {worker_key_for_registro(r) for r in doc.registros}` (mismo
-  conjunto de líneas que hoy, papelera incluida, para no cambiar otra cosa).
+  `line_index` ⇒ `(su empleado_line_no, su trabajador_nombre_leido)`. Si no hay:
+  `(max(empleado_line_no no nulos de regs_doc) + 1, nombre)`, o `(1, nombre)`.
+- En `crear_parte_manual`, por cada día, tras resolver `doc`: leer sus líneas (todas,
+  papelera incluida; documento nuevo ⇒ vacía), clave de la línea nueva con
+  `_clave_trabajador(casada=empleado_ide is not None or metodo_empleado is not None,
+  empleado_ide, recurso=empleado_reside, nombre_leido=empleado_nombre)` y usar el par en la
+  incidencia y en cada tipo de ese día (comparten fila).
+- `get_parte`: `key = worker_key_for_registro(reg)`, o `("sin-trabajador",
+  empleado_line_no)` (R6). `list_partes`: `{worker_key_for_registro(r) for r in
+  doc.registros}` (mismas líneas que hoy, papelera incluida).
 
 ```python
-def clave_actual_de_clave_nombre(self, clave: str) -> str | None:
-    """R12-R13: la clave de hoy de las lineas cuyo leido normalizado da `clave` (nom-)."""
+def clave_actual_de_clave_antigua(self, clave: str) -> str | None:
+    """R14-R15: la clave de hoy de las lineas que con la regla anterior daban `clave`."""
 ```
 
-- Lee las líneas activas (documento activo, sin papelera) como `get_worker`; filtra las que
-  cumplen `"nom-" + _norm(leído).replace(" ", "_") == clave`; si sus claves actuales son
-  exactamente una y distinta de `clave`, la devuelve; si no, `None`.
-- `app.py` `trabajador_detail`: si `detail is None` y la clave empieza por `nom-` y el
-  método devuelve destino ⇒ `RedirectResponse(f"/trabajadores/{destino}" + query, 307)`;
-  si no, el 404 de hoy. Las acciones POST no tienen compatibilidad (R11).
-- Plantilla: `data-emp-reside="{{ worker_key[4:] if worker_key.startswith('rec-') else '' }}"`
-  junto a `data-emp-ide` (mismo patrón). JS: `setLock` escribe
-  `(vals && vals.reside) || ""`; `open` añade `reside: d.empReside` a `vals`.
+- Lee las líneas activas como `get_worker`; con `nom-X` filtra
+  `"nom-" + _norm(leído).replace(" ", "_") == clave`; con `emp-E`, `empleado_ide == E`
+  (E entero; si no lo es, None). Si sus claves actuales son exactamente una y distinta de
+  `clave`, la devuelve; si no, None.
+- `app.py` `trabajador_detail`: si `detail is None`, la clave empieza por `nom-` o `emp-` y
+  hay destino ⇒ `RedirectResponse(f"/trabajadores/{destino}" + query, 307)`; si no, 404.
+  Las acciones POST no tienen compatibilidad (R13).
+- Plantilla: `data-emp-ide="{{ detail.empleado_ide or '' }}"` y `data-emp-reside="{{
+  worker_key[4:] if worker_key.startswith('rec-') else '' }}"`. JS: `open` añade
+  `reside: d.empReside` a `vals`; `setLock` escribe `(vals && vals.reside) || ""`. «Nuevo
+  parte»: `verHref` = `rec-` + `emp-reside` si tiene valor; si no, `emp-` + `emp-ide`; si
+  no, `/partes` (R20).
 
 ## 4. SQL
 
-No hay SQL nuevo en el código ni cambios de esquema. Solo la consulta de solo lectura de
-M1 (§6), que ejecuta el humano.
+No hay SQL nuevo en el código ni cambios de esquema. Solo la consulta de M1 (§6).
 
-## 5. Tests previstos (desde `services/partes-front`, SQLite de `tests/dobles.py`)
+## 5. Tests (desde `services/partes-front`, SQLite de `tests/dobles.py`)
 
-- `tests/test_f050_clave.py`: R1 (los cuatro órdenes, `empleado_reside` antes que
-  `recurso_ide`), R2 (no casada con `reside` ⇒ `nom-`; `nombre_sin_dni` sin reside), R3
-  (tabla de líneas con ficha y no casadas: clave igual a la de una copia literal de la
-  función de `dc03468` incluida en el test), R4 (`get_parte`/`list_partes` sin agrupación
-  a mano: inspección del fuente con `inspect.getsource`), R9 (`persona_de`).
-- `tests/test_f050_vistas.py`: E1 sembrado (dos líneas, leídos distintos, mismo recurso) ⇒
-  `get_obra` una fila «8+2» con los dos `edit_*_id` (R5); `get_parte` un grupo, y dos
-  `sin-trabajador` con filas distintas siguen separadas (R6); `list_partes` cuenta 1 (R7);
-  `list_workers`, `get_worker('rec-R')`, `list_obras`, `alcance_parte` (R8); E4a da dos
-  filas; reasignar, papelera y `registro_ids_de_trabajador` por `rec-R` tocan las dos
-  líneas y no las de R2 (R10); una `nom-` antigua actúa sobre 0 (R11).
-- `tests/test_f050_alta_manual.py`: E6 (hereda fila y leído de la de menor `line_index`,
-  ignorando las de la papelera), E7 (máximo + 1, papelera incluida), documento nuevo ⇒ 1,
-  incidencia + horas del mismo día comparten fila (R14–R15); el resto de campos igual que
-  hoy, comparando con una llamada equivalente (R16).
-- `tests/test_f050_portal.py` (TestClient como `test_f035_endpoints.py`): R12 redirección
-  307 con `?modo=natural` conservado; R13 404 sin líneas y con dos claves; R17 plantilla
-  con `data-emp-reside` para `rec-` y vacío para `emp-`/`nom-`, y aserciones textuales del
-  JS (`reside: d.empReside`, `(vals && vals.reside)`), más `node --check static/app.js`.
-- Tests existentes con claves `nom-` (`test_f004_endpoints_congelados.py`,
-  `test_f035_repositorio.py`, `test_f035_endpoints.py`, `test_f040_alias.py`,
-  `test_f025_*`): usan líneas **no casadas**, así que deben seguir verdes **sin tocarlos**.
-  Si alguno falla, el implementer para y consulta (`blocked`), no lo reescribe.
+- `tests/test_f050_clave.py`: R1 (cada rama; `recurso_ide` antes que `empleado_reside`;
+  con y sin ficha da `rec-`), R2 (no casada con `reside` ⇒ `nom-`; `nombre_sin_dni`), R3
+  (tabla de líneas no casadas: igual que una copia literal de la función de `dc03468` en el
+  test), R4 (`inspect.getsource` de `get_parte`/`list_partes` sin agrupación a mano), R11.
+- `tests/test_f050_vistas.py`: E1 y E8 sembrados ⇒ `get_obra` una fila con los dos
+  `edit_*_id` (R5); `get_parte` un bloque y dos `sin-trabajador` de filas distintas
+  separadas (R6); `list_partes` cuenta 1 (R7); `list_obras` y `alcance_parte` (R8);
+  `list_workers`: E9 una fila, E10 dos (R9); `get_worker('rec-R')` con las dos obras de E9
+  (R10); E4a y E11 dos filas; reasignar, papelera y `registro_ids_de_trabajador` por
+  `rec-R` tocan las líneas de R con y sin ficha y ninguna de R2 (R12); `nom-` y `emp-`
+  antiguas actúan sobre 0 (R13).
+- `tests/test_f050_alta_manual.py`: E6 (hereda de la de menor `line_index`, ignora la
+  papelera), E7 (máximo + 1, papelera incluida), documento nuevo ⇒ 1, incidencia y horas
+  del mismo día comparten fila (R16–R17); resto de campos como hoy (R18).
+- `tests/test_f050_portal.py` (TestClient como `test_f035_endpoints.py`): R14 307 desde
+  `nom-` y desde `emp-` con `?modo=natural` conservado; R15 404 sin líneas y con dos claves;
+  R19 plantilla (`data-emp-ide` de la ficha más reciente, `data-emp-reside` con `rec-`,
+  vacío con `emp-`/`nom-`) y aserciones textuales del JS; R20 `verHref`; `node --check`.
+- **Tests existentes (R22).** Experimento del spec-author (2026-10-20, `dc03468`, función
+  parcheada en memoria, árbol intacto): **119 tests de 21 ficheros** fallan, porque sus
+  fixtures casan con ficha y recurso (ficha 77, recurso 501) y esperan `emp-77` (f003 ×5,
+  f004 ×2, f015 ×3, f019, f022 ×2, f023, f024 ×2, f025 ×2, f028, `test_f035_repositorio`,
+  f043; en `dev`, también `test_f046_marcas` y `test_f048_traza_portal`). Se cambia
+  **solo** el literal de la clave (`emp-N` → `rec-R` de su fixture) y la esperanza de
+  `persona_de` sin DNI; otro cambio ⇒ `blocked`. El reviewer lo mira con `git diff -U0`.
 
 ## 6. Verificaciones manuales (humano)
 
-**M1 · antes de desplegar** (base `partes`, solo lectura). Personas casadas sin ficha
-partidas hoy en dos claves `nom-` por parte y por obra, homónimos casados fusionados hoy y
-casadas sin ficha sin recurso (se espera 0; si no, ver DA1). Tildes aproximadas:
+**M1 · antes de implementar** (base `partes`, solo lectura, cifras aproximadas). Decide DA1
+y DA1b: filas que F-050 une por obra, fichas sin recurso (E12), casadas sin ficha ni recurso
+(se espera 0) y DNIs con más de un recurso en una obra (E11):
 
 ```sql
 WITH l AS (
-  SELECT r.document_id, r.obra_ide,
-         COALESCE(r.empleado_reside, r.recurso_ide) AS recurso,
-         COALESCE(regexp_replace(translate(upper(trim(r.trabajador_nombre_leido)),
-           'ÁÀÉÈÍÌÓÒÚÙÜÑÇ', 'AAEEIIOOUUUNC'), '\s+', ' ', 'g'), '') AS leido
+  SELECT r.obra_ide, r.empleado_ide AS ficha,
+         COALESCE(r.recurso_ide, r.empleado_reside) AS recurso,
+         upper(replace(replace(COALESCE(r.empleado_dni, ''), '-', ''), ' ', '')) AS dni,
+         COALESCE(upper(trim(r.trabajador_nombre_leido)), '') AS leido
   FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id
-  WHERE d.is_active AND r.deleted_at_utc IS NULL AND r.empleado_ide IS NULL
-    AND r.empleado_match_method IN ('recurso_dni', 'recurso_nombre', 'recurso_manual'))
+  WHERE d.is_active AND r.deleted_at_utc IS NULL
+    AND (r.empleado_ide IS NOT NULL OR r.empleado_match_method IN
+         ('recurso_dni', 'recurso_nombre', 'recurso_manual')))
 SELECT
- (SELECT count(*) FROM (SELECT 1 FROM l WHERE recurso IS NOT NULL
-   GROUP BY document_id, recurso HAVING count(DISTINCT leido) > 1) a) AS partidas_por_parte,
- (SELECT count(*) FROM (SELECT 1 FROM l WHERE recurso IS NOT NULL
-   GROUP BY obra_ide, recurso HAVING count(DISTINCT leido) > 1) b) AS partidas_por_obra,
- (SELECT count(*) FROM (SELECT 1 FROM l WHERE recurso IS NOT NULL AND leido <> ''
-   GROUP BY leido HAVING count(DISTINCT recurso) > 1) c) AS homonimos_fusionados,
- (SELECT count(*) FROM l WHERE recurso IS NULL) AS casadas_sin_recurso;
+ (SELECT count(*) FROM (SELECT 1 FROM l WHERE recurso IS NOT NULL GROUP BY obra_ide, recurso
+   HAVING count(DISTINCT COALESCE('emp-' || ficha::text, 'nom-' || leido)) > 1) a)
+   AS filas_que_se_unen,
+ (SELECT count(*) FROM l WHERE ficha IS NOT NULL AND recurso IS NULL) AS ficha_sin_recurso,
+ (SELECT count(*) FROM l WHERE ficha IS NULL AND recurso IS NULL) AS sin_ficha_sin_recurso,
+ (SELECT count(*) FROM (SELECT 1 FROM l WHERE recurso IS NOT NULL AND dni <> ''
+   GROUP BY obra_ide, dni HAVING count(DISTINCT recurso) > 1) b) AS dni_con_varios_recursos;
 ```
 
 Tras desplegar sv4 (`.\redeploy_partes.ps1 -Solo sv4` desde `infra/`, lo pide el humano):
 
-- **M2**: obra 0678, periodo que incluye el 15/10: el trabajador del caso sale en **una**
-  fila con «8+2» el 15; su nombre enlaza a `/trabajadores/rec-…`.
-- **M3**: detalle del parte del 15/10 (`/partes/d2141256…`): un solo bloque con las dos
-  líneas; la cabecera «Partes» cuenta un trabajador menos que antes.
-- **M4**: abrir la URL antigua `/trabajadores/nom-…` (la del nombre leído, se ve en el
-  historial del navegador) ⇒ redirige a la `rec-`.
-- **M5** (opcional; escribe en la base `partes`, no en Sigrid; lo decide el humano): desde
-  la vista de un trabajador sin ficha, «+ Añadir línea» en un parte donde ya está ⇒ la
-  línea sale en su fila, casada; SQL de solo lectura: `SELECT id, empleado_line_no,
-  trabajador_nombre_leido, empleado_match_method, empleado_reside FROM parte_registros
-  WHERE document_id = '<id>' ORDER BY line_index;` ⇒ fila y leído heredados. Luego se
-  manda a la papelera si no era una línea real.
+- **M2**: obra 0678, periodo con el 15/10: el trabajador del caso en **una** fila «8+2»; su
+  nombre enlaza a `/trabajadores/rec-…`.
+- **M3**: detalle del parte del 15/10 de la 0678: un solo bloque con las dos líneas; el
+  listado de partes cuenta un trabajador menos que antes.
+- **M4**: una URL antigua `/trabajadores/emp-…` y una `/trabajadores/nom-…` (historial del
+  navegador) redirigen a la `rec-`.
+- **M5** (opcional; escribe en la base `partes`, no en Sigrid): desde la vista de un
+  trabajador, «+ Añadir línea» en un parte donde ya está ⇒ sale en su fila, casada y con su
+  ficha si la tiene (`SELECT id, empleado_line_no, trabajador_nombre_leido, empleado_ide,
+  empleado_reside FROM parte_registros WHERE document_id = '<id>' ORDER BY line_index;`).
 
 ## 7. Límite de servicio y gemelos
 
-sv3 no tiene clave de trabajador: agrupa por recurso y día para el reparto (F-045) y sus
-únicos conjuntos por `empleado.ide or leído` son el contador del resultado de la ingesta
-(`persist_parte_pipeline.py` l.197) y un log del normalizador, sobre el parte de la IA, donde
-no hay líneas manuales: no se tocan. sv5 no agrupa por trabajador. **No crece la lista de
-duplicación tolerada del `CLAUDE.md`.** El aviso de jornada incompleta de la vista de obra
-(`app.py` l.1131–1144) va por el **nombre** de la fila; en E1 las dos líneas llevan el mismo
-nombre de Sigrid, así que funciona; homónimos con distinta clave es un caso previo, fuera.
+sv3 no tiene clave de trabajador: agrupa por recurso y día (F-045/F-046), y sus conjuntos por
+`empleado.ide or leído` (contador de la ingesta, log del normalizador) son del parte de la
+IA: no se tocan. sv5 no agrupa por trabajador. **No crece la lista de duplicación tolerada
+del `CLAUDE.md`.** El aviso de jornada incompleta de la vista de obra (`app.py`
+l.1131–1144) va por el **nombre** de la fila: con una fila por clave sigue valiendo;
+homónimos con distinta clave es un caso previo, fuera.
 
-## 8. Decisiones (con recomendación) y alternativas descartadas
+## 8. Decisiones
 
-- **DA1 · Orden de la clave** — `emp-` > `rec-` > `nom-` > `sin-trabajador`. Recomendado:
-  cambia solo la clave de las casadas sin ficha (las URL de todos los demás siguen
-  valiendo) y un recurso persona (`res.cla = 1`) es una persona. Descartadas: **DNI
-  primero** para todos (cambia todas las URL `emp-` y fusiona fichas de dos empresas: otra
-  feature); **recurso primero** también con ficha (mismo coste); **`dni-` como tercer
-  paso** (toda casada sin ficha lleva recurso: F-036 en sv3, F-035 en el portal y
-  `_soltar_recurso` + `reside` al reasignar; M1 `casadas_sin_recurso` lo confirma; si no
-  diera 0, se reconsidera); clave por **nombre de Sigrid** (homónimos).
-- **DA2 · Una sola función** — `get_parte` y `list_partes` pasan a `worker_key_for_registro`;
-  la del detalle conserva la separación por fila de las `sin-trabajador`. Ventaja añadida:
-  el detalle del parte normaliza tildes y mayúsculas como el calendario.
-- **DA3 · Alta manual hereda fila y leído** de la persona en ese parte (R14) y, si no está,
-  va a una fila nueva al final (R15) en vez de la 1 fija. Con la clave nueva la agrupación
-  ya no depende de esto, pero: el detalle del parte pone la línea junto a su fila del
-  papel; reasignar por clave aprende alias de los leídos (`reassign_empleado_by_worker_key`)
-  y un «leído» que es el nombre de Sigrid enseñaría un alias que nadie leyó; y es lo que ya
-  hace `crear_extra_desde`. Descartado heredar `line_index` (rompería la pareja de F-037).
-- **DA4 · Sin migración** — es agrupación en lectura; lo ya guardado se ve bien en cuanto se
-  despliegue. Las líneas manuales antiguas conservan fila 1 y el leído de Sigrid (solo
-  orden del detalle); corregirlas es fuera de alcance.
-- **DA5 · Compatibilidad de enlaces** — solo en el `GET` de la vista (R12) y solo si el
-  destino es único; las acciones POST fallan seguro con 0 líneas (R11), igual que una
-  página desfasada hoy. Alternativa: sin redirección (404); se puede quitar si el humano
-  prefiere menos código.
-- **DA6 · Vista del trabajador pasa el recurso** (R17) — mismo síntoma por otro camino (§1).
-  Riesgo: la persona fijada salta el filtro por empresa del selector (F-035); sv3 y sv5 ya
-  verifican empresa y alta del recurso al conciliar y al registrar.
-- **DA7 · E5 es un cambio visible**: una casada sin ficha y una sin casar con el mismo
-  leído dejan de compartir fila (hoy coinciden por casualidad del nombre). Es lo que ya pasa
-  con quien tiene ficha, y la fila sin casar es la tarea de Conciliar.
-- **DA8 · Rigor estándar** — solo sv4, sin esquema, sin Sigrid, todo deshacible (reasignar
-  tiene deshacer, la papelera se restaura). Lo más delicado es que la clave define el
-  conjunto de las acciones masivas y el bloqueo de F-025 sin DNI; los tests de R10 y R9 lo
-  cubren. Si el humano lo quiere crítico, solo cambia la campaña de mutación (completa).
-- **DA9 · Orden con otras ramas** — **F-046** (reajuste) y **F-047** (parte en espera) no
-  usan la clave; conflictos solo textuales (`parte_repository.py`, `app.py`,
-  `trabajador_detail.html` en líneas lejanas, `features.json`, `BACKLOG.md`). **F-049**
-  (editor de celda, en especificación) define la celda con `worker_key_for_registro` y
-  clona `empleado_line_no` en sus líneas nuevas: con F-050 primero, la celda de E1 ya es
-  una y su «Ord. (nueva)» cae en la misma fila; recomendado **F-050 antes de F-049**. Si
-  F-049 entra antes, F-050 no cambia: la celda hereda la clave nueva sin tocar F-049.
+- **DA1 · Clave — ABIERTA (revisada el 2026-10-20).** Recomendada **A**: `rec-{recurso}`
+  para **toda** línea casada con recurso (con o sin ficha) > `emp-` (ficha sin recurso) >
+  `nom-` > `sin-trabajador`. El recurso persona es de una sola empresa y es lo común a toda
+  línea casada (§1): da una fila por (obra, empresa, persona) en E1, E8, E9 y E10, y es el
+  mismo grupo que ya usan sv3 y el reparto de F-046 (`recurso_ide`, día). Coste: cambian
+  las URL `emp-` de casi todos (R14 las redirige) y 21 ficheros de tests (solo literales,
+  R22). Descartadas: **la de la spec del 15/10** (`emp-` antes que `rec-`: deja en dos
+  filas C1–C3, contra la regla); **empresa + DNI** (la línea no guarda la empresa del
+  recurso y el documento manual nace sin `empresa`; pondría el DNI en la URL y en los logs;
+  sin DNI hace falta igualmente el recurso); **ficha antes, con un mapa ficha↔recurso
+  sacado de las demás líneas o del catálogo de Sigrid** (la clave de una línea dependería
+  de otras o de que Sigrid responda); nombre de Sigrid (homónimos).
+- **DA1b · Dos recursos persona del mismo DNI en una empresa (E11) — ABIERTA.** Con A
+  salen dos filas, una por recurso, como en Sigrid (cada recurso lleva su parte y su
+  reparto). Recomendado: anomalía visible que se arregla reasignando; si M1 da casos y el
+  humano quiere una fila, otra feature (unir por DNI dentro de la obra).
+- **DA10 · Lista «Por persona» — ABIERTA.** La regla literal («una línea por obra») choca
+  con esta lista, que hoy agrega todas las obras de una persona. Recomendado **(a)**: una
+  fila por (empresa, persona) = clave, con sus obras dentro (`/trabajadores/{clave}` las
+  separa por día y obra); la vista «Por obra» ya da una fila por (obra, persona).
+  Alternativa (b): una fila por (obra, clave) también aquí; duplica «Por obra» y pierde el
+  total por persona.
+- **Aprobadas por el humano el 2026-10-20 («ok a lo demás»)**, sin cambio con la revisión:
+  **DA2** una sola función (`get_parte` y `list_partes` incluidas; las `sin-trabajador` del
+  detalle siguen por fila); **DA3** el alta manual hereda fila y leído (R16) o va al final
+  (R17), como `crear_extra_desde`, sin heredar `line_index` (pareja de F-037); **DA4** sin
+  migración; **DA7** E5 es un cambio visible; **DA8** rigor estándar (lo delicado, las
+  acciones masivas y F-025 sin DNI, lo cubren R12 y R11); **DA9** F-050 antes de F-049.
+- **DA5 · Compatibilidad de enlaces** — aprobada para `nom-`; con A **se amplía a `emp-`**
+  (R14), lo que el humano confirma junto con DA1. Solo el `GET` y solo con destino único;
+  las acciones POST fallan seguras con 0 líneas (R13).
+- **DA6 · La vista del trabajador pasa el recurso** (R19) — aprobada; con A **se amplía** a
+  pasar también la ficha del grupo (antes salía de la clave `emp-`) y al enlace de «Nuevo
+  parte» (R20). Riesgo: la persona fijada salta el filtro por empresa del selector (F-035);
+  sv3 y sv5 verifican empresa y alta.
 
 ## 9. Riesgos
 
-- **R-a** Persona con recursos en dos empresas: dos `rec-` en la lista global (como hoy dos
-  `emp-` con dos fichas). Fuera de alcance.
-- **R-b** Un casado erróneo (dos personas en el mismo recurso) se ve en una fila: igual que
-  hoy con `emp-`; se corrige reasignando.
-- **R-c** Páginas abiertas antes del despliegue con una clave `nom-` vieja: la aprobación por
-  ámbito se rechaza («página desfasada») y borrar o reasignar no hace nada; se recarga.
+- **Dos empresas (E10) ya no es un riesgo**: dos filas es lo correcto por la regla.
+- **R-b** Un casado erróneo (dos personas en un recurso) sale en una fila; se reasigna.
+- **R-c** Páginas abiertas con una clave vieja: aprobar por ámbito se rechaza («página
+  desfasada»), borrar o reasignar no hace nada; se recarga.
+- **R-d** En «Por persona», E10 da dos filas con el mismo nombre (se distinguen por código,
+  no por empresa, que la línea no guarda). Fuera de alcance.
+- **R-e** E12 (ficha sin recurso) queda en `emp-` y separada de sus `rec-` hasta que el
+  conciliador de sv3 le pone `recurso_ide`; M1 mide cuántas hay.
+
+## 10. Lo fusionado en `dev` después de `dc03468` (hasta `ff2ed8e`)
+
+- **F-046** (reajuste al aprobar): `RepartoPendienteOrm` por (`recurso_ide`, `fecha_int`),
+  `registros_con_reparto` y `con_reparto`/`dias_reparto` en el contexto de
+  `trabajador_detail`; toca filas de `trabajador_detail.html`, no el botón «+ Añadir
+  línea». No usa la clave de trabajador y agrupa por recurso, igual que la clave A.
+- **F-048** (`horas_extra_leidas` y su etiqueta) y **F-051** (solo sv2/sv3) no tocan la
+  clave ni `empleado_line_no` de sv4. `worker_key_for_registro`, `persona_de` y
+  `crear_parte_manual` son idénticas en `dev` (l.524, l.534, l.3641). Tras el rebase
+  (implementer), repetir el recuento de R22 sobre `dev`.
