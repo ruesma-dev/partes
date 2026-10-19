@@ -29,12 +29,18 @@ function Run-Az($argList) {
 # ====================================================== sv2 (worker) =========
 Write-Host "`n=== sv2 (extraccion, worker q-extraccion, Gemini) ===" -ForegroundColor Green
 $sv2Secrets = @("gemini-key=$(KvRef 'GEMINI-API-KEY')",
+                "openai-key=$(KvRef 'OPENAI-API-KEY')",
                 "sigrid-key=$(KvRef 'SIGRID-API-FUNCTION-KEY')")
 $sv2Env = @(
     "AZURE_CLIENT_ID=$MI_CLIENTID",
     "COLAS_ACCOUNT_URL=$QUEUE_URL", "BLOBS_ACCOUNT_URL=$BLOB_URL",
     "LOG_DIR=/tmp/logs", "COLA_VISIBILITY_S=600",
-    "IA_PROVIDER=gemini", "ENABLE_GEMINI=true",
+    # F-051 (2026-10-19): lee GPT-6.1 Sol (unico sin fallos en la bateria de 14
+    # paginas); Gemini 4 Argon queda como alternativa (IA_PROVIDER=gemini).
+    "IA_PROVIDER=openai", "ENABLE_OPENAI=true",
+    "OPENAI_MODEL=gpt-6.1-sol", "OPENAI_API_KEY=secretref:openai-key",
+    "OPENAI_TIMEOUT_S=180",
+    "ENABLE_GEMINI=true",
     "GEMINI_MODEL=gemini-4-argon",
     "GEMINI_API_KEY=secretref:gemini-key",
     "ENABLE_CLAUDE=false",
