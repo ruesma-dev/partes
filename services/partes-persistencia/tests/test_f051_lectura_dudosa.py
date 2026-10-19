@@ -186,6 +186,20 @@ def test_f051_r14_sin_ninguna_fila_con_horas_no_es_dispersa() -> None:
     assert _motivos([_fila(1), _fila(2), _fila(3, ord_=0)]) == {}
 
 
+def test_f051_r14_una_fila_cero_se_ordena_antes_que_la_uno() -> None:
+    """Mutacion: la clave de orden no puede confundir la fila 0 con la 1."""
+    assert _motivos([_fila(2, ord_=8), _fila(1), _fila(0)]) == {
+        MOTIVO_TABLA_DISPERSA: (0, 1)}
+
+
+def test_f051_r15_el_motivo_es_inmutable_y_hashable() -> None:
+    """Mutacion: `MotivoLectura` es un valor (frozen), no un registro editable."""
+    motivo = MotivoLectura(MOTIVO_TABLA_DISPERSA, (1,))
+    with pytest.raises(AttributeError):
+        motivo.filas = (2,)  # type: ignore[misc]
+    assert len({motivo, MotivoLectura(MOTIVO_TABLA_DISPERSA, (1,))}) == 1
+
+
 def test_f051_r14_fila_vacia_sin_numero_linea_va_al_final() -> None:
     sin_numero = _fila(2)
     sin_numero["numero_linea"] = None
