@@ -105,6 +105,18 @@ class RegistroNormalizado:
 
 
 # ------------------------------------------------------------------ #
+# F-051: motivo por el que la LECTURA de sv2 es dudosa (el parte va a
+# revision). `motivo`: autocomprobacion_fila | tabla_dispersa; `filas`:
+# los `numero_linea` implicados, ordenados (None al final). Vive en
+# domain para que ParteDocumento no importe de application.
+# ------------------------------------------------------------------ #
+@dataclass(frozen=True)
+class MotivoLectura:
+    motivo: str
+    filas: tuple[Optional[int], ...] = ()
+
+
+# ------------------------------------------------------------------ #
 # Parte diario normalizado.
 # ------------------------------------------------------------------ #
 @dataclass
@@ -141,6 +153,11 @@ class ParteDocumento:
     empresa_origen: Optional[str] = None
 
     registros: list[RegistroNormalizado] = field(default_factory=list)
+
+    # F-051 (R13-R15): motivos de lectura dudosa que detecto la ingesta
+    # sobre el payload de sv2. No vacia => review_required. Vacia en los
+    # partes sin nada que objetar y en los anteriores a F-051.
+    lectura_dudosa: list[MotivoLectura] = field(default_factory=list)
 
 
 # ------------------------------------------------------------------ #
