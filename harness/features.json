@@ -660,6 +660,26 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-048-solo-extras-en-laborable-como-jornada"
+    },
+    {
+      "id": "F-051",
+      "title": "Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana",
+      "description": "Pedida por el humano el 2026-10-19 («reforzar el prompt»). Caso real: obra 0686, partes del 17 y 18/10/2026 (fin de semana, escaneo girado, tabla de 5 filas casi vacia): en el papel fila 2 = 12 y fila 3 = 10 extra (17/10) y fila 2 = 14 extra (18/10); Gemini subio cada cifra una fila (fila 1 = 12, fila 2 = 10; fila 1 = 14) con confianza 95. sv3 caso bien por DNI: el error nace en la lectura. Diseno: sv2 refuerza el prompt parte_trabajo_es (lectura fila a fila por el Nº y el DNI impresos, celda vacia = null, sin mover cifras entre filas, escaneos girados, cifras que invaden la fila vecina) y anade dni al schema_hint; DA1 (recomendada A): campo de autocomprobacion numero_linea_horas por fila en EmpleadoParte, antes de las horas. DA2 (recomendada C): red de seguridad en sv3 (dueno de review_required): lectura dudosa por autocomprobacion incoherente y por tabla dispersa, con interruptor REVISAR_TABLA_DISPERSA. DA3: M1 aceptada con 3 de 3 ejecuciones por pagina. Verificacion manual con el PDF real (no versionado) repetible con otro proveedor/modelo via el .env de sv2; la comparativa de modelos va aparte. Toca sv2 y, con DA2 distinta de A, sv3; sv1, sv4, sv5 y el ORM no. Spec: specs/F-051-extraccion-fila-a-fila/.",
+      "acceptance": [
+        "Prompt parte_trabajo_es con la regla fila a fila en system, el bloque LECTURA FILA A FILA en el punto 3 y dni (y numero_linea_horas con DA1 = A) en schema_hint; el resto del prompt igual y los tests de F-023 sin tocar",
+        "DA1 = A: EmpleadoParte.numero_linea_horas opcional, sin cotas, entre numero_linea y las horas en el JSON Schema; respuestas sin el campo siguen validando; extra=forbid intacto",
+        "DA2 distinta de A: sv3 pone review_required por autocomprobacion incoherente (y por tabla dispersa con DA2 = C e interruptor), con WARNING sin nombres ni DNIs; sin el campo no salta; ninguna otra condicion ni cifra cambia",
+        "M1 (manual): PDF real de la 0686 en 3 paginas con el modelo de produccion: 16/10 igual que hoy, 17/10 fila 2 = 12 y fila 3 = 10 extra, 18/10 fila 2 = 14 extra, segun la DA3",
+        "M2 (manual): al menos 5 partes laborables bien leidos hoy dan las mismas horas por fila que lo aprobado",
+        "La verificacion manual se repite con otro proveedor o modelo cambiando solo el .env local de sv2; la comparativa de modelos no entra",
+        "Mutacion muestreada (estandar) con supervivientes analizados",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-051-extraccion-fila-a-fila"
     }
   ]
 }

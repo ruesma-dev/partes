@@ -1,6 +1,76 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila
+
+**Decisión del humano (2026-10-19, «haz la recomendación»)**: se cierra F-051 tal cual (prompt
+reforzado + red de la DA2) y sv2 pasa a `GEMINI_MODEL=gemini-4-argon` (cambio de variable en
+Azure, lo lanza el humano; `infra/create_capps_partes.ps1` actualizado y documentado en
+`azure-apps/partes.md`). Con Argon y el prompt de F-051: **M1** 17/10 y 18/10 de la 0686 bien
+3 de 3; **M2** las 7 páginas laborables de la batería (5 obras) perfectas 3 de 3. Queda
+pendiente la comparativa con Claude Opus 5.5 y OpenAI GPT-6 Luna / GPT-6.1 Sol (faltan sus
+claves en el Key Vault); si alguno lee mejor, el cambio de modelo es solo de variable.
+Despliegue: sv3 y sv2 (sin orden obligado, design §10) y la variable del modelo.
+
+**Review**: APPROVED (pasada 1, `progress/review_F-051.md`).
+**M1 (líder, 2026-10-19) NO superada con el modelo de producción ⇒ `blocked` (DA3).**
+Batería fuera del repo (código real de sv2 y catálogo auxhor de Sigrid en lectura;
+respuesta correcta leída a mano del PDF; 14 páginas: las 3 de la 0686 16–18/10, 7 de
+fin de semana o festivo con tabla casi vacía y 6 laborables de 5 obras):
+
+| Prompt · modelo | 17/10 bien | 18/10 bien | Páginas perfectas | Difíciles perfectas | $/parte real |
+|---|---|---|---|---|---|
+| actual · gemini-3.7-flash (2 runs) | 1/2 | 0/2 | 22/28 | 9/14 | 0,021 |
+| F-051 · gemini-3.7-flash (3 runs) | **0/3** | **0/3** | 34/42 | 14/21 | 0,016 |
+| actual · gemini-4-argon (2 runs) | 2/2 | 2/2 | 27/28 | 13/14 | 0,019 |
+| F-051 · gemini-4-argon (3 runs) | **3/3** | **3/3** | 41/42 | 20/21 | 0,020 |
+
+Con Flash 3.7 el refuerzo del prompt no corrige el desplazamiento (17/10 sigue en fila 1
+y 2; también falla el 03/10 de la 0686, que en producción se leyó mal y nadie lo había
+detectado). Gemini 4 Argon no desplaza ninguna fila con ninguno de los dos prompts; su
+único fallo (0686 10/10, 1 de 5 runs) es otro: copia las horas de la columna de
+partidas en «Ord.». La red de la DA2 (`tabla_dispersa`) sí mandaría a revisión los
+partes que Flash lee mal (son tablas dispersas). Decide el humano (DA3): cambio de
+modelo, aceptar con la red de la DA2, o esperar a la comparativa con Claude y OpenAI
+(faltan sus claves en el Key Vault). M2 no se ha hecho.
+
+**Aprobación del humano (2026-10-19, «ok apruebo»)** con las opciones recomendadas:
+**DA1 = A** (campo por fila `numero_linea_horas`, antes de las horas), **DA2 = C**
+(`autocomprobacion_fila` + `tabla_dispersa` en sv3 con el interruptor
+`REVISAR_TABLA_DISPERSA`, defecto `true`), **DA3 = 3 de 3** ejecuciones correctas por
+página en M1 (si no se alcanza: `blocked` con la tabla, sin iterar el prompt).
+**Dato de la DA2 (líder, solo lectura, partes activos desde 2026-06-01)**: `tabla_dispersa`
+habría marcado 8 de 108 partes laborables y 9 de 17 de fin de semana.
+
+**Implementación (implementer, 2026-10-19)**: T1–T9 y T12 hechas, `init.sh` en verde
+(cobertura 100 % de 66 líneas, mutación 17/20 muertos + 2 cazados con tests nuevos y 1
+equivalente). Detalle en `progress/impl_F-051.md`. **Pendiente del líder**: M1 (T10, PDF
+real de la 0686 contra el modelo de producción, 3 de 3 por página) y M2 (T11, ≥ 5
+laborables); y una línea en `azure-apps/partes.md` para `REVISAR_TABLA_DISPERSA`
+(desviación de `design.md` §1 por la regla de `CLAUDE.md`; texto propuesto en el informe).
+
+**Spec (spec-author, 2026-10-19)** en `specs/F-051-extraccion-fila-a-fila/`, rama
+`feature/F-051-extraccion-fila-a-fila` (worktree `partes-wt-f051`). Caso: obra 0686, 17 y
+18/10/2026, Gemini subió cada cifra una fila en una tabla casi vacía (confianza 95). Toca sv2
+(prompt `parte_trabajo_es`, y el esquema con DA1 = A) y, con DA2 ≠ A, sv3. Rigor `estandar`.
+De paso: el `schema_hint` no lista `dni` (el esquema lo tiene desde F-030); la spec lo añade.
+
+**Decisiones abiertas para el humano** (detalle en `design.md` §7):
+
+- **DA1** autocomprobación: A) campo `numero_linea_horas` por fila, antes de las horas
+  (recomendada); B) lista `filas_con_horas` en la raíz; C) solo prompt.
+- **DA2** red de seguridad en sv3 (dueño de `review_required`): A) ninguna; B) solo
+  autocomprobación incoherente; C) B + «tabla dispersa» con interruptor
+  `REVISAR_TABLA_DISPERSA` (recomendada). Hay una consulta de solo lectura sobre
+  `raw_extraction_json` para medir cuántos partes marcaría C antes de decidir.
+- **DA3** aceptación de M1: 3 de 3 ejecuciones correctas por página; si no, `blocked` y decide
+  el humano.
+
+**Manual pendiente tras implementar**: M1 (PDF real troceado, no versionado, con el modelo de
+producción) y M2 (≥ 5 partes laborables bien leídos hoy). Repetibles con otro proveedor/modelo
+vía el `.env` local de sv2: es el enganche de la comparativa de modelos, que va aparte.
+
+
 ## F-046 · done (2026-10-18, APPROVED pasada 2), M1–M3 hechas, pendiente de despliegue y M4–M6: reajuste en Sigrid al aprobar
 
 **Cierre (líder, 2026-10-18).** Reviewer: CHANGES_REQUESTED en la pasada 1 (solo T24 sin

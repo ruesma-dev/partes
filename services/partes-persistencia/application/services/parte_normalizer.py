@@ -23,6 +23,7 @@ from domain.models.parte_records import (
 )
 from application.services import text_match as tm
 from application.services.fecha_resolver import FechaParteResolver
+from application.services.lectura_dudosa import detectar_lectura_dudosa
 
 logger = logging.getLogger(__name__)
 
@@ -97,11 +98,14 @@ class ParteNormalizer:
         *,
         fecha_resolver: FechaParteResolver | None = None,
         jornada_ordinaria_horas: float = 8.0,
+        revisar_tabla_dispersa: bool = True,
     ) -> None:
         self._fecha_resolver = fecha_resolver or FechaParteResolver()
         # Jornada ordinaria estandar: lo que exceda pasa a extra (determinista).
         # Configurable para preparar la jornada de verano.
         self._jornada = float(jornada_ordinaria_horas)
+        # F-051 (R14): interruptor REVISAR_TABLA_DISPERSA.
+        self._revisar_tabla_dispersa = revisar_tabla_dispersa
 
     def normalize(
         self,
@@ -149,6 +153,23 @@ class ParteNormalizer:
             firmante_nombre=_opt_str(firma.get("firmante_nombre")),
             firma_confianza_pct=_opt_float(firma.get("confianza_pct")),
         )
+
+        # F-051 (R13-R15): lectura dudosa sobre el payload de sv2, sin tocar
+        # nada mas del parte. El aviso lleva motivo y filas, nunca nombres
+        # ni DNIs.
+        parte.lectura_dudosa = detectar_lectura_dudosa(
+            empleados_raw, tabla_dispersa=self._revisar_tabla_dispersa)
+        if parte.lectura_dudosa:
+            logger.warning(
+                "[parte-normalizer] lectura dudosa, el parte va a revision: "
+                "fecha=%s obra=%r %s",
+                parte.fecha_iso,
+                parte.obra_numero_leido,
+                "; ".join(
+                    f"{m.motivo} filas={', '.join(str(f) for f in m.filas)}"
+                    for m in parte.lectura_dudosa
+                ),
+            )
 
         line_index = 0
         # F-048 (R7): filas cuyas extras leidas se sumaron a la ordinaria.

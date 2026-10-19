@@ -139,6 +139,14 @@ class Settings(BaseSettings):
     reparto_reajuste: bool = Field(False, alias="REPARTO_REAJUSTE")
     candado_espera_s: float = Field(300.0, alias="CANDADO_CONCILIAR_ESPERA_S")
 
+    # ------------------------------------------------------------ #
+    # F-051 · lectura dudosa (DA2 = C). INTERRUPTOR encendido por
+    # defecto: un parte con alguna fila con horas y alguna fila con
+    # trabajador sin horas ni incidencia va a revision (`tabla_dispersa`).
+    # Apagarlo deja solo la autocomprobacion de fila (siempre activa).
+    # ------------------------------------------------------------ #
+    revisar_tabla_dispersa: bool = Field(True, alias="REVISAR_TABLA_DISPERSA")
+
     # Calendario laboral (fin de semana + festivos). En fin de semana o
     # festivo no hay horas ordinarias: el reparto las manda todas a extra.
     # Con SESAME_API_* configurado manda Sesame y este JSON queda de

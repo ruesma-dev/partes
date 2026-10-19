@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **44 features**, 11 abiertas, 33 terminadas.
+Resumen: **45 features**, 11 abiertas, 34 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -43,6 +43,7 @@ Bloqueadas: **F-014, F-032**.
 | F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |
 | F-045 | Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas | 1 | critico |
 | F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | critico |
+| F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
@@ -224,6 +225,12 @@ Pedida por el humano el 2026-10-14. Hoy sv3 (_reclasificar_extras_jornada) agrup
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-048-solo-extras-en-laborable-como-jornada`
 
 Pedida por el humano el 2026-10-15 (literal: «cuando sea laborable, aunque las horas sean extras se usa la regla de 8+x») y ampliada el mismo dia a las filas con ordinarias Y extras: se suman y el total sigue la regla de jornada (J normales + exceso extra, o extra negativa si no llega). Caso 1: 15/10/2026, obra 0678, fila con ordinarias nulas y 10 extras quedo como una extra de 10 h (esperado 8 + 2). Caso 2: 02/10/2026, obra 0686, fila 4 + 5 extras quedo en tres lineas (normal 8, extra_auto -4, extra 5; esperado 8 + 1, dos lineas). Diseno recomendado (DA2, opcion A): el normalizador de sv3 suma las extras leidas > 0 de cada fila a su ordinaria (por partida, ordinarias primero) y guarda lo leido como extra en la columna nueva parte_registros.horas_extra_leidas (dos copias del ORM); el conciliador, F-045, F-037 y F-046 no cambian. En no laborable salen los mismos importes con una linea menos (DA3); sin umbral (DA4). Solo ingestas nuevas; lo congelado (caso 2, ya en Sigrid) seria feature aparte sobre F-046 (solo UPDATE). Toca sv3 y sv4 (ORM gemelo y etiqueta en el portal); sv2 y sv5 no. Se implementa despues de F-046 y F-047. Spec: specs/F-048-solo-extras-en-laborable-como-jornada/.
+
+### F-051 · Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-051-extraccion-fila-a-fila`
+
+Pedida por el humano el 2026-10-19 («reforzar el prompt»). Caso real: obra 0686, partes del 17 y 18/10/2026 (fin de semana, escaneo girado, tabla de 5 filas casi vacia): en el papel fila 2 = 12 y fila 3 = 10 extra (17/10) y fila 2 = 14 extra (18/10); Gemini subio cada cifra una fila (fila 1 = 12, fila 2 = 10; fila 1 = 14) con confianza 95. sv3 caso bien por DNI: el error nace en la lectura. Diseno: sv2 refuerza el prompt parte_trabajo_es (lectura fila a fila por el Nº y el DNI impresos, celda vacia = null, sin mover cifras entre filas, escaneos girados, cifras que invaden la fila vecina) y anade dni al schema_hint; DA1 (recomendada A): campo de autocomprobacion numero_linea_horas por fila en EmpleadoParte, antes de las horas. DA2 (recomendada C): red de seguridad en sv3 (dueno de review_required): lectura dudosa por autocomprobacion incoherente y por tabla dispersa, con interruptor REVISAR_TABLA_DISPERSA. DA3: M1 aceptada con 3 de 3 ejecuciones por pagina. Verificacion manual con el PDF real (no versionado) repetible con otro proveedor/modelo via el .env de sv2; la comparativa de modelos va aparte. Toca sv2 y, con DA2 distinta de A, sv3; sv1, sv4, sv5 y el ORM no. Spec: specs/F-051-extraccion-fila-a-fila/.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

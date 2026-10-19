@@ -384,6 +384,10 @@ class PersistPartePipeline:
         # F-023: obra sin casar por empresa o por ambiguedad (R10, R13, R14).
         if parte.obra.method in OBRA_A_REVISAR:
             return True
+        # F-051 (R15): la lectura de sv2 es dudosa (autocomprobacion de fila
+        # incoherente o tabla dispersa); el motivo ya lo avisa el normalizer.
+        if parte.lectura_dudosa:
+            return True
         for reg in parte.registros:
             # F-030 (R13): casado por recurso cuenta como casado.
             if (

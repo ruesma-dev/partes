@@ -427,6 +427,23 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     a **avisar a `porcentajes` en el mismo trabajo**. No entra en la lista
     cerrada de duplicación de `CLAUDE.md`: es una dependencia entre
     repositorios, documentada aquí y en `azure-apps/partes.md`.
+17. **Lectura fila a fila y lectura dudosa (F-051, sv2 lee, sv3 juzga)**:
+    el prompt `parte_trabajo_es` ordena asignar cada cifra a la fila en
+    cuya franja está escrita (por su «Nº» y su DNI/nombre impresos, nunca a
+    la más cercana ni a la de arriba), celda vacía = `null`, sin mover
+    cifras entre filas, y avisa de los escaneos girados y de las tablas con
+    pocas cifras sueltas (fin de semana), donde el modelo las desplazaba.
+    Cada fila trae además la **autocomprobación** `numero_linea_horas` (el
+    «Nº» leído partiendo de la cifra), declarada en el JSON Schema antes de
+    las horas. sv3 marca la **lectura dudosa** (`review_required`, WARNING
+    con motivo y filas, sin nombres ni DNIs) por dos motivos, puros sobre
+    el payload: `autocomprobacion_fila` (fila con horas y
+    `numero_linea_horas` ≠ `numero_linea`; sin el campo no salta) y
+    `tabla_dispersa` (alguna fila con horas y alguna con trabajador sin
+    horas ni incidencia), esta con el interruptor `REVISAR_TABLA_DISPERSA`
+    (encendido por defecto; medido el 2026-10-19: habría marcado 8 de 108
+    partes laborables y 9 de 17 de fin de semana). El campo viaja en
+    `raw_extraction_json` (sin columna). Solo afecta a ingestas nuevas.
 
 ## Acceso a datos y sistemas externos
 

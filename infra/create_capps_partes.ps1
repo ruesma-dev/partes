@@ -35,7 +35,7 @@ $sv2Env = @(
     "COLAS_ACCOUNT_URL=$QUEUE_URL", "BLOBS_ACCOUNT_URL=$BLOB_URL",
     "LOG_DIR=/tmp/logs", "COLA_VISIBILITY_S=600",
     "IA_PROVIDER=gemini", "ENABLE_GEMINI=true",
-    "GEMINI_MODEL=gemini-3.1-pro-preview",
+    "GEMINI_MODEL=gemini-4-argon",
     "GEMINI_API_KEY=secretref:gemini-key",
     "ENABLE_CLAUDE=false",
     "PROMPT_KEY=parte_trabajo_es", "PROMPTS_YAML_PATH=config/prompts.yaml",
