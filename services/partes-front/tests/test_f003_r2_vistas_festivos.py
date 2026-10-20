@@ -103,7 +103,7 @@ def test_f003_r3_el_calendario_marca_los_festivos_del_trabajador(
     proveedor = ProveedorFake(por_dni={"12345678Z": {SAN_ISIDRO}})
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0,
                                 "candef": 8.0}], proveedor)
-    html = cliente.get("/trabajadores/emp-77?modo=natural").text
+    html = cliente.get("/trabajadores/rec-501?modo=natural").text
     assert "cal-fest" in html
     assert "Fiesta de prueba" in html
 
@@ -112,7 +112,7 @@ def test_f003_r3_pregunta_por_el_dni_del_trabajador(entorno) -> None:
     proveedor = ProveedorFake(por_dni={"12345678Z": {SAN_ISIDRO}})
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
-    cliente.get("/trabajadores/emp-77?modo=natural")
+    cliente.get("/trabajadores/rec-501?modo=natural")
     assert ("holiday_name", "12345678Z") in proveedor.consultas
 
 
@@ -122,7 +122,7 @@ def test_f003_r3_otro_trabajador_no_hereda_la_fiesta(entorno) -> None:
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
     assert "cal-fest" not in cliente.get(
-        "/trabajadores/emp-77?modo=natural").text
+        "/trabajadores/rec-501?modo=natural").text
 
 
 # ---------------- R2 · avisos de jornada incompleta por DNI ------------- #
@@ -133,7 +133,7 @@ def test_f003_r2_el_festivo_del_trabajador_no_genera_aviso(entorno) -> None:
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 4.0,
                                 "candef": 8.0}], proveedor)
     assert "cal-warn" not in cliente.get(
-        "/trabajadores/emp-77?modo=natural").text
+        "/trabajadores/rec-501?modo=natural").text
 
 
 def test_f003_r2_sin_ese_festivo_el_mismo_dia_si_avisa(entorno) -> None:
@@ -141,7 +141,7 @@ def test_f003_r2_sin_ese_festivo_el_mismo_dia_si_avisa(entorno) -> None:
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 4.0,
                                 "candef": 8.0}], proveedor)
     assert "cal-warn" in cliente.get(
-        "/trabajadores/emp-77?modo=natural").text
+        "/trabajadores/rec-501?modo=natural").text
 
 
 def test_f003_r2_la_matriz_de_obra_evalua_con_el_dni_de_la_fila(
@@ -184,7 +184,7 @@ def test_f003_r22_la_vista_trabajador_avisa_si_la_resolucion_degrado(
     proveedor = ProveedorFake(por_dni={"12345678Z": set()}, fiable=False)
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
-    html = cliente.get("/trabajadores/emp-77?modo=natural").text
+    html = cliente.get("/trabajadores/rec-501?modo=natural").text
     assert "sesame-degradado" in html
     assert "Sesame no disponible" in html
 
@@ -203,7 +203,7 @@ def test_f003_r22_sin_degradacion_no_hay_banner(entorno) -> None:
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
     assert "sesame-degradado" not in cliente.get(
-        "/trabajadores/emp-77?modo=natural").text
+        "/trabajadores/rec-501?modo=natural").text
     assert "sesame-degradado" not in cliente.get(
         "/obras/obr-10?period=2026-05&modo=natural").text
 
@@ -214,7 +214,7 @@ def test_f003_r22_la_vista_se_sirve_igual_estando_degradada(entorno) -> None:
     proveedor = ProveedorFake(por_dni={"12345678Z": set()}, fiable=False)
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
-    assert cliente.get("/trabajadores/emp-77?modo=natural").status_code == 200
+    assert cliente.get("/trabajadores/rec-501?modo=natural").status_code == 200
     assert cliente.get(
         "/obras/obr-10?period=2026-05&modo=natural").status_code == 200
 
@@ -223,7 +223,7 @@ def test_f003_r22_la_consulta_de_fiabilidad_lleva_dni_y_ano(entorno) -> None:
     proveedor = ProveedorFake(por_dni={"12345678Z": set()})
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
-    cliente.get("/trabajadores/emp-77?modo=natural")
+    cliente.get("/trabajadores/rec-501?modo=natural")
     consultas = [c for c in proveedor.consultas if c[0] == "fiable_para"]
     assert consultas and consultas[0][1] == [("12345678Z", 2026)]
 
@@ -235,7 +235,7 @@ def test_f003_r22_solo_cuentan_los_dias_del_periodo(entorno) -> None:
     proveedor = ProveedorFake(por_dni={"12345678Z": set()})
     cliente = _monta(entorno, [{"fecha": "2026-01-05", "horas": 8.0}],
                      proveedor)
-    cliente.get("/trabajadores/emp-77?period=2026-01&modo=natural")
+    cliente.get("/trabajadores/rec-501?period=2026-01&modo=natural")
     consultas = [c for c in proveedor.consultas if c[0] == "fiable_para"]
     assert consultas and consultas[0][1] == [("12345678Z", 2026)]
 

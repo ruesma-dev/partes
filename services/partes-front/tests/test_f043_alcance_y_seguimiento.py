@@ -671,7 +671,7 @@ def test_f043_r16_las_respuestas_y_el_mensaje_no_cambian(parte) -> None:
 # ================= R37 · las vistas pintan el parte en espera ========== #
 
 URL_OBRA = "/obras/obr-10?period=2026-03&modo=natural"
-URL_PERSONA = "/trabajadores/emp-77?period=2026-03&modo=natural"
+URL_PERSONA = "/trabajadores/rec-501?period=2026-03&modo=natural"
 MARCA_ESPERA = '<span class="recalculando-marca">recalculando…</span>'
 
 

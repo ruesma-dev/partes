@@ -393,7 +393,7 @@ def test_f023_r42_soltar_al_reasignar_por_nombre_leido() -> None:
 def test_f023_r42_soltar_al_reasignar_el_trabajador() -> None:
     repo, fabrica, ids = _montar_soltar()
     assert repo.reassign_empleado_by_worker_key(
-        worker_key="emp-77", ide=4242, codigo=None, nombre=None,
+        worker_key="rec-501", ide=4242, codigo=None, nombre=None,
         dni=None) == (2, ["Pepe Perez"], 1)
     _comprobar(fabrica, ids)
 

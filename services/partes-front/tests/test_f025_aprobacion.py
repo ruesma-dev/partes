@@ -344,7 +344,7 @@ def test_f025_r11_preflight_lleva_los_avisos_por_grupo(portal25) -> None:
     pedidas = ids["aviso"] + ids["libre"]
     r = cliente.post("/api/aprobar/preflight", json={
         "registro_ids": pedidas,
-        "ambito": {"vista": "trabajador", "worker_key": "emp-77"}})
+        "ambito": {"vista": "trabajador", "worker_key": "rec-501"}})
     assert r.status_code == 200
     assert _enviadas(sv5.preflights) == sorted(pedidas)
     (grupo,) = r.json()["grupos"]

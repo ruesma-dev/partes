@@ -261,7 +261,7 @@ def test_f003_r25_la_marca_se_ve_en_las_vistas(montaje) -> None:
     cliente, _f, ids, _sv5, _p, _prov = montaje(fiable=False)
     cliente.post("/api/aprobar/ejecutar",
                  json={"registro_ids": ids, "forzar_sin_sesame": True})
-    trabajador = cliente.get("/trabajadores/emp-77?modo=natural").text
+    trabajador = cliente.get("/trabajadores/rec-501?modo=natural").text
     obra = cliente.get("/obras/obr-10?period=2026-05&modo=natural").text
     assert "badge-sin-sesame" in trabajador
     assert "badge-sin-sesame" in obra
@@ -271,7 +271,7 @@ def test_f003_r25_una_linea_normal_no_lleva_badge(montaje) -> None:
     cliente, _f, ids, _sv5, _p, _prov = montaje(fiable=True)
     cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
     assert "badge-sin-sesame" not in cliente.get(
-        "/trabajadores/emp-77?modo=natural").text
+        "/trabajadores/rec-501?modo=natural").text
 
 
 def test_f003_r25_la_marca_cabe_en_el_campo(montaje) -> None:

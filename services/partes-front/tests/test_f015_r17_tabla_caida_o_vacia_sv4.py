@@ -122,7 +122,7 @@ def test_f015_r17_sv4_la_vista_del_trabajador_se_sirve_con_la_tabla_caida(
     )
     cliente = TestClient(app)
     assert cliente.get(
-        "/trabajadores/emp-77?modo=natural").status_code == 200
+        "/trabajadores/rec-501?modo=natural").status_code == 200
 
 
 def test_f015_r17_sv4_la_matriz_de_obra_se_sirve_con_la_tabla_caida(

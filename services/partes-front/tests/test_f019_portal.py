@@ -286,7 +286,7 @@ from tests.test_f019_bandeja import (  # noqa: E402
     sembrar_mensual,
 )
 
-PERSONA = {"vista": "trabajador", "worker_key": "emp-77"}
+PERSONA = {"vista": "trabajador", "worker_key": "rec-501"}
 
 
 @pytest.fixture
@@ -450,7 +450,7 @@ def test_f019_r24_el_autor_es_el_actor_de_la_peticion(publicado) -> None:
 import re  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-VISTAS = ["/obras/obr-10", "/trabajadores/emp-77"]
+VISTAS = ["/obras/obr-10", "/trabajadores/rec-501"]
 APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
 
 
