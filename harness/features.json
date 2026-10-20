@@ -447,7 +447,7 @@
         "El portal muestra un motivo claro cuando una linea no se escribe por estado del parte",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

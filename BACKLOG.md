@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **49 features**, 14 abiertas, 35 terminadas.
+Resumen: **49 features**, 13 abiertas, 36 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -11,7 +11,6 @@ Bloqueadas: **F-014, F-032**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 2 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 3 | spec lista | critico | `feature/F-049-editor-calendario-normal-y-extra` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 4 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -37,6 +36,7 @@ Bloqueadas: **F-014, F-032**.
 | F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
 | F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
 | F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
+| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | critico |
 | F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | estandar |
 | F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |
 | F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
@@ -67,12 +67,6 @@ Bloqueadas: **F-014, F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-034 · sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro)
-
-estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
-
-Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).
 
 ### F-014 · Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h
 
@@ -193,6 +187,12 @@ Peticion del humano (2026-10-05), URGENTE, inmediatamente despues de F-030. Fuen
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-033-columna-empresa`
 
 Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (sv4) la obra 0678 salia «duplicada»: en Sigrid hay dos fichas de obra 0678, una de Ruesma (empresa 1) y otra de Porsan (empresa 28), y la fila solo pintaba «codigo · nombre». Alcance final decidido por el humano («lo unico que hay que hacer es que busque la empresa a la que esta vinculada cada linea»): columna «Empresa» con su filtro SOLO en el listado de obras; el dato sale de parte_documents.empresa de los partes de la fila, con respaldo por la empresa de los recursos de sus lineas dentro de la BBDD partes; nombres 1 Ruesma, 28 Porsan; sin Sigrid ni configuracion nueva. El alcance inicial (detalle de obra, vistas de parte, YAML de nombres) se descarto.
+
+### F-034 · sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro)
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
+
+Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).
 
 ### F-035 · Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa
 

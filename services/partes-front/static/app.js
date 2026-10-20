@@ -3516,7 +3516,23 @@ function avisarCambioLineas() {
       html += "<p>" + r.borradas + " linea(s) anteriores borradas (pisadas).</p>";
     }
     if ((r.omitidas || []).length) {
-      html += "<p>" + r.omitidas.length + " linea(s) no registradas (reglas).</p>";
+      // F-034 (R19): agrupadas por motivo (lo de antes de los primeros dos
+      // puntos, o el motivo entero) en orden de aparicion; el texto
+      // completo sigue en el title del badge «omitido».
+      var claves = [], cuenta = {};
+      r.omitidas.forEach(function (o) {
+        var m = String((o && o.motivo) || ""), i = m.indexOf(":");
+        var k = i >= 0 ? m.slice(0, i) : m;
+        if (!Object.prototype.hasOwnProperty.call(cuenta, k)) {
+          claves.push(k);
+          cuenta[k] = 0;
+        }
+        cuenta[k] += 1;
+      });
+      html += "<p>" + r.omitidas.length + " linea(s) no registradas:</p>"
+        + "<ul class='ap-list'>" + claves.map(function (k) {
+          return "<li>" + esc(k) + " · " + cuenta[k] + "</li>";
+        }).join("") + "</ul>";
     }
     if ((r.ya_registradas || []).length) {
       html += "<p>" + r.ya_registradas.length

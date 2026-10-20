@@ -154,8 +154,8 @@ def test_f046_r24_r25_actualizar_linea_where_optimista(monkeypatch):
     assert sql.startswith(
         "UPDATE hmores SET can = ?, tot = ROUND(? * ISNULL(pre, 0), 2) "
         "WHERE ide = ? AND synckey = ? AND ABS(ISNULL(can, 0) - ?) <= 0.001 "
-        "AND EXISTS (SELECT 1 FROM con c WHERE c.ide = hmores.hmoide "
-        "AND c.est = ?)")
+        "AND EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) "
+        "WHERE c.ide = hmores.hmoide AND c.est = ?)")   # F-034 R5: UPDLOCK
     for campo in ENLACES_HMORES:
         assert f"AND ISNULL({campo}, 0) = 0" in sql
     assert st["parameters"] == [2.5, 2.5, 4001, "partes:11", 8.0, 1]
@@ -185,9 +185,9 @@ def test_f046_r25_guardia_cuenta_las_lineas_en_su_estado(monkeypatch):
         "AND ABS(ISNULL(h.can, 0) - ?) <= 0.001))")
     for campo in ENLACES_HMORES:
         assert f"AND ISNULL(h.{campo}, 0) = 0" in sql
-    assert sql.endswith(
-        "AND EXISTS (SELECT 1 FROM con c WHERE c.ide = h.hmoide AND "
-        "c.est = ?)) <> ?)")
+    assert sql.endswith(                               # F-034 R5: UPDLOCK
+        "AND EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) WHERE "
+        "c.ide = h.hmoide AND c.est = ?)) <> ?)")
     assert st["parameters"] == [4001, 4002, 4001, "partes:11", 8.0,
                                 4002, "partes:12", -4.0, 1, 2]
 
@@ -222,11 +222,14 @@ def test_f046_r24_insertar_extra_condicionada_a_la_base(monkeypatch):
         "0, ?, ?, ? FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores WITH "
         "(UPDLOCK, HOLDLOCK)) x WHERE EXISTS (SELECT 1 FROM hmores b WHERE "
         "b.ide = ? AND b.synckey = ? AND ABS(ISNULL(b.can, 0) - ?) <= 0.001) "
-        "AND NOT EXISTS (SELECT 1 FROM hmores s WHERE s.synckey = ?)")
+        "AND NOT EXISTS (SELECT 1 FROM hmores s WHERE s.synckey = ?) "
+        # F-034 R6: la guarda de parte abierto sobre su `hmoide`.
+        "AND EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) "
+        "WHERE c.ide = ? AND c.est = ?)")
     assert st["parameters"] == [
         7001, 501, 77, 10, 33, 192, 20261014, 9, 2.5, 25.0, 62.5, 2026, 10,
         55, "PRUEBA-IA", "partes:990000001",
-        4001, "partes:11", 5.5, "partes:990000001"]
+        4001, "partes:11", 5.5, "partes:990000001", 7001, 1]
 
 
 def test_f046_r28_insertar_extra_sin_marca_lleva_tex_vacio(monkeypatch):

@@ -1,6 +1,127 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-034 · done (2026-10-21, APPROVED pasada 2), pendiente de desplegar sv5 y sv4 y M2–M4: sv5 solo escribe en partes de Sigrid abiertos
+
+Spec en `specs/F-034-escribir-solo-en-partes-abiertos/` (rama
+`feature/F-034-escribir-solo-en-partes-abiertos`, worktree `partes-wt-f034`); informe de spec
+en `progress/spec_F-034.md`. **Spec aprobada entera** por el humano el 2026-10-20 («Ok a las
+2»): DA1–DA9 con la recomendación de `design.md` §11; DA4 = A (aquí solo la guarda y R4; «pisar
+= poner a 0» en F-053, detrás de F-034). **M1 (líder, 2026-10-20, solo lectura)**: mes 9 → 16
+partes en estado 1 y 37 en estado 3; mes 10 → 37 en estado 1; 358 líneas `partes:%`, todas en
+2026/10 y en partes En registro; 0 periodos con más de un parte En registro (`design.md` §9).
+
+**Implementer (2026-10-20/21)**: T1–T13 hechas, un commit por tarea; `bash harness/init.sh` en
+verde (cobertura 100 % de 75 líneas; mutación 22/22 detectados). Detalle en `progress/impl_F-034.md`. Desviaciones respecto a la
+spec, justificadas:
+
+- `parte_abierto.py` importa `synckey_de` de `infrastructure.sigrid.sigrid_write_client`
+  (design §5 decía «imports solo de `domain`»): sin ella `confirmar_escritas` no puede tener
+  la firma de design §5 sin duplicar el prefijo `partes:`. Mismo precedente que
+  `reajuste_lineas.py` y `comprobacion_lineas.py` (application/services, F-046 y F-024).
+- `SigridFake` gana, además de `cerrar_al_escribir` (design §6), `cerrar_tras_sentencias`
+  (cuántas sentencias de líneas pasan antes del cierre): el doble recibe la lista entera, no
+  los lotes de 15 del cliente real, y sin ello no se puede probar «cierre entre lotes» (§7).
+- sv4: un motivo vacío o nulo agrupa bajo la clave vacía (literal de R19, «el motivo
+  entero»); sv5 siempre manda motivo en las omitidas.
+- `test_f046_t22_cliente_bordes.py` no se toca: sus índices de parámetros no cambian (la
+  guarda va al final); el texto nuevo lo fijan `test_f046_cliente_reajuste.py` (ampliado) y
+  `test_f034_cliente_guarda.py`.
+
+**Review pasada 1 (2026-10-21): CHANGES_REQUESTED** solo por C4 (faltaban aquí M2–M4 con
+comando exacto); código, SQL, tests y mutación aprobados. Corregido abajo (sin tocar código);
+M3 reformulada en algo observable, alineada en `design.md` §9. **Siguiente: reviewer
+(pasada 2).**
+
+### F-034 · verificaciones MANUAL (humano; `design.md` §9). NO ejecutadas.
+
+Todo desde el repo principal `C:\Users\pgris\PycharmProjects\partes` con F-034 ya fusionada
+en `dev` (el worktree no tiene `.venv` ni `.env`). Los `registro_id` 990000341–342 son
+sintéticos de F-034 (los de F-046 son 990000001–004). `<FECHA>` y `<FECHA2>` (AAAAMMDD) = dos
+días de un mismo mes `<AAAA>/<MM>` **sin partes de la 0404**: lo dice la preflight de M2
+(`partes[0].existe: False` y `del_periodo` vacío); si no, otro mes. **No usar 10/2026**: ahí
+está PT26/00373 con las 4 líneas `PRUEBA-IA` de F-046 que el humano decidió conservar, y
+`limpiar` las borraría.
+
+- **Preparación · sv5 local en modo pruebas** (solo HTTP: el `.env` de sv5 no trae
+  `COLAS_*`, así que no consume `q-transfer`):
+  ```powershell
+  cd C:\Users\pgris\PycharmProjects\partes\services\partes-transfer
+  ..\..\.venv\Scripts\Activate.ps1
+  $env:OBRA_PRUEBAS_FORZAR = 'true'; python main.py
+  ```
+  En otra consola: `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`,
+  `obra_pruebas: 0404`, `database: ruesma`. **Si `modo_pruebas` no es `True`, PARA**: el
+  `.env` local trae `OBRA_PRUEBAS_FORZAR=false` y escribiría en la obra real.
+- [ ] **M2 · registro con la guarda (escritura en 0404; antes de desplegar, para que un SQL
+  inválido no llegue a producción)**. Línea A del gruista de pruebas (2717792, HLGR + HEGR):
+  ```powershell
+  $a = @{ registro_id = 990000341; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 8 }
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($a); usuario = 'M2-F034' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/preflight -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/ejecutar -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  ```
+  **Esperado**: preflight (solo lectura) ⇒ `forzada_pruebas: True`, `partes[0].existe:
+  False`; ejecutar ⇒ `ok: True`, `escritas` = `[{registro_id: 990000341, hmoide: …}]`,
+  `omitidas` vacía y `partes[0].cod` = un `PT26/…` nuevo (apuntarlo: es **P1**). Es decir: el
+  `INSERT` guardado es SQL válido en SQL Server y la guarda deja pasar (el parte nace En
+  registro, R18). Comprobación (solo lectura), en la misma carpeta: `python
+  comprobar_asiento_analitico.py --empresa 1 --obra 0404 --ano <AAAA> --mes <MM>` ⇒ `<P1> ·
+  En registro · 1 linea(s) (1 nuestras)`. **Reajuste F-046** sobre A (R5: guardia y `UPDATE`
+  con `UPDLOCK, HOLDLOCK`):
+  ```powershell
+  $r = @{ lineas = @(@{ registro_id = 990000341; antes = 8; despues = 6 }); usuario = 'M2-F034' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/reajuste/ejecutar -ContentType 'application/json' -Body $r | ConvertTo-Json -Depth 6
+  ```
+  ⇒ `ok: True` y en `lineas` la de 990000341 con `can: 6` y `escrita: True`. La extra nueva
+  del reajuste (R6) no se prueba a mano: la fija `test_f034_r6_*`. Después, el **despliegue**
+  desde `infra/`:
+  `.\redeploy_partes.ps1 -Solo sv5` y `.\redeploy_partes.ps1 -Solo sv4` ⇒ revisión nueva de
+  cada uno en marcha; aprobar en el portal registra como siempre (`registrado`).
+- [ ] **M3 · parte cerrado (solo con autorización expresa; solo 0404)**. (1) Administración
+  pasa P1 a **Cerrado** (estado 3) en Sigrid; **no** Contabilizar (Imputado crea asiento).
+  (2) Con el mismo sv5 local, A otra vez más una línea B nueva:
+  ```powershell
+  $b = @{ registro_id = 990000342; fecha_int = <FECHA2>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 8 }
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($a, $b); usuario = 'M3-F034' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/ejecutar -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  ```
+  **Esperado**: `ya_registradas` = `[990000341]` (R16, sin sentencia); `escritas` =
+  `[{registro_id: 990000342, hmoide: …}]`; `partes[0]` con `complementario: True`,
+  `cerrados` = `[<P1>]` y un `PT26/…` nuevo (**P2**) (R15). `comprobar_asiento_analitico.py`
+  como en M2 ⇒ `<P1> · Cerrado · 1 linea(s)` y `<P2> · En registro · 1 linea(s)`. El
+  reajuste de A en P1 cerrado (`$r` de M2 con `antes = 6; despues = 5`, a
+  `/api/reajuste/comprobar`, solo lectura) ⇒ `ok: False`, veredicto `editable: False` con
+  «su parte de Sigrid no esta En registro» (R17).
+  **Lo que NO se verifica a mano**: el `omitido` `parte_no_abierto` y el `affected_rows = 0`
+  del `INSERT` guardado solo se dan si el cierre cae en los milisegundos entre la elección
+  del parte (bajo el lock) y el `commit`; con P1 ya cerrado, sv5 elige el complementario y no
+  manda nada a P1. Forzarlo exigiría un `sql/write` a mano fuera de sv5, que no se propone.
+  Lo fijan `test_f034_r2_*`, `r4_*`, `r9_*` (ejemplo 1) y `r11_*`, y M2 prueba que ese SQL es
+  válido. (3) **Limpieza**: `limpiar` actúa sobre UN parte del mes (el primero que devuelve
+  `parte_mes`) y borra su cabecera si la creó sv5 y queda vacía; por eso va dos veces. Antes,
+  en `prueba_escritura_sigrid.py`, `ANO, MES = <AAAA>, <MM>` (cambio local, no se commitea):
+  ```powershell
+  cd C:\Users\pgris\PycharmProjects\partes\services\partes-transfer
+  python prueba_escritura_sigrid.py limpiar
+  python prueba_escritura_sigrid.py limpiar --ejecutar
+  python prueba_escritura_sigrid.py limpiar
+  python prueba_escritura_sigrid.py limpiar --ejecutar
+  python prueba_escritura_sigrid.py estado
+  git checkout -- prueba_escritura_sigrid.py
+  ```
+  **Esperado**: cada `limpiar` sin `--ejecutar` (DRY-RUN) imprime los `DELETE` sobre el ide
+  de P1 o de P2 (si sale otro ide, PARA y no lances el `--ejecutar`); el `estado` final ⇒
+  `NO existe parte <AAAA>/<MM> de obra 0404`. Parar sv5 local (Ctrl+C) y cerrar esa consola,
+  que lleva `OBRA_PRUEBAS_FORZAR=true`.
+- [ ] **M4 · modal de resultado (tras desplegar sv4; sin escritura propia)**: portal con
+  **Ctrl+F5** y, en la próxima aprobación real en la que alguna línea salga omitida (p. ej.
+  un encargado sin hora extra), mirar el modal de resultado. **Esperado**: «N linea(s) no
+  registradas:» y debajo una fila por motivo, «<texto antes de los primeros dos puntos> ·
+  <n>» (el encargado: «el recurso no tiene codigo de hora extra en Sigrid · 1»); ya no sale
+  «(reglas)»; el `title` del badge `omitido` de la línea sigue con el motivo entero. Sin
+  omitidas, el modal es el de siempre.
+
 ## F-050 · done (2026-10-20, APPROVED pasada 1), pendiente de despliegue de sv4 y M2–M6: misma fila para el mismo trabajador
 
 ### T11 · desbloqueada (2026-10-20)
