@@ -157,13 +157,22 @@ E       assert 0.061 == 0.06
 
 ## Verificaciones MANUAL pendientes (humano)
 
-- **M2**: tras `redeploy_partes.ps1 -Solo sv5` y `-Solo sv4`, en modo pruebas (0404,
-  `PRUEBA-IA`): aprobar una línea ⇒ `registrado` en el parte En registro de 0404 (el SQL
-  nuevo es válido en SQL Server y la guarda deja pasar); si hay caso, un reajuste F-046.
-- **M3** (autorización expresa, solo 0404): parte de pruebas Cerrado ⇒ complementario; un
-  `stmt_insert_linea` sobre el parte cerrado ⇒ `affected_rows = 0`; limpiar con
-  `prueba_escritura_sigrid.py`.
-- **M4**: el modal de resultado agrupa los motivos (Ctrl+F5).
+**Corrección de la review pasada 1 (2026-10-21, solo documental, C4)**: M2–M4 copiadas a
+`progress/current.md` (sección F-034) con su comando exacto y el resultado esperado; M3
+reformulada en algo observable y alineada en `design.md` §9 y `tasks.md`. Sin cambios de
+código. Resumen:
+
+- **M2**: sv5 local (`$env:OBRA_PRUEBAS_FORZAR = 'true'`, `/health` ⇒ `modo_pruebas: True`)
+  en un mes sin partes de la 0404 (no 10/2026: PT26/00373 guarda líneas de F-046): preflight
+  y `POST /api/registro/ejecutar` de una línea (990000341) ⇒ `escritas`, parte P1 nuevo; un
+  reajuste 8 → 6 ⇒ aplicado (R5); luego `.\redeploy_partes.ps1 -Solo sv5` y `-Solo sv4`.
+- **M3** (autorización expresa, solo 0404): P1 Cerrado ⇒ reaprobar ⇒ `ya_registradas`
+  (R16), reajuste no editable (R17), línea nueva ⇒ complementario P2 (R15). El
+  `affected_rows = 0` / `parte_no_abierto` no es observable a mano (ventana de ms): lo fijan
+  los tests R2, R4, R9, R11. Limpieza: `limpiar` (DRY-RUN) y `limpiar --ejecutar` dos veces
+  (un parte por pasada) y `estado` ⇒ sin parte.
+- **M4**: Ctrl+F5 y, en la próxima aprobación con omitidas, «N linea(s) no registradas:» y
+  una fila «<motivo> · <n>» por motivo, sin «(reglas)».
 - Aviso a `porcentajes`: queda la nota en `azure-apps/partes.md`; su `dedicacion-transfer`
   sigue sin guarda (fuera de alcance de este repositorio).
 

@@ -179,14 +179,17 @@ Fase RED con traza para R1–R6, R9–R13 y R19; R15–R18 y R20 son de caracter
   obra de 2026: mes 9 → 16 en estado 1 y 37 en estado 3; mes 10 → 37 en estado 1; (b) líneas
   con synckey `partes:%`: 358, todas en 2026/10 y en partes en estado 1 (ninguna en partes no
   abiertos); (c) periodos (obra, año, mes) de 2026 con más de un parte En registro: 0.
-- **M2 (humano, tras `redeploy_partes.ps1 -Solo sv5` y `-Solo sv4`)**: desde local, modo
-  pruebas (`OBRA_PRUEBAS_FORZAR=true`, obra 0404, `PRUEBA-IA`): aprobar una línea ⇒
-  `registrado` en el parte En registro de 0404 (el SQL nuevo es válido y la guarda deja
-  pasar). Si hay caso, un reajuste F-046 en 0404 ⇒ aplicado.
-- **M3 (humano, con autorización expresa; solo obra 0404)**: con el parte de pruebas de
-  0404 Cerrado en Sigrid, reaprobar una línea nueva ⇒ complementario (R15); y un
-  `stmt_insert_linea` sobre el parte cerrado ⇒ `affected_rows = 0`. Limpiar con
-  `prueba_escritura_sigrid.py`.
+- **M2 (humano; sv5 local en modo pruebas, antes de `redeploy_partes.ps1 -Solo sv5` y
+  `-Solo sv4`)**: `OBRA_PRUEBAS_FORZAR=true`, obra 0404, `PRUEBA-IA`, un mes sin partes de
+  la 0404: registrar una línea ⇒ `registrado` en el parte que crea sv5 (el SQL nuevo es
+  válido y la guarda deja pasar) y un reajuste F-046 de esa línea ⇒ aplicado (R5).
+- **M3 (humano, con autorización expresa; solo obra 0404)**: con ese parte Cerrado en
+  Sigrid, reaprobar la línea ⇒ `ya_registrado` (R16) y su reajuste ⇒ no editable (R17);
+  una nueva ⇒ complementario (R15). El `affected_rows = 0` / `parte_no_abierto` no se observa a
+  mano (el cierre tendría que caer en la ventana de milisegundos; con el parte ya cerrado
+  sv5 elige el complementario): lo fijan los tests de R2, R4, R9 y R11. Limpiar con
+  `prueba_escritura_sigrid.py limpiar --ejecutar` (dos veces: un parte por pasada).
+  Comandos exactos y resultado esperado en `progress/current.md`.
 - **M4 (humano)**: el modal de resultado agrupa los motivos (vale una omitida por regla).
 
 ## 10. Riesgos y alternativas descartadas
