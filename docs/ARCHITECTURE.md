@@ -415,6 +415,20 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     parte `estado`, `complementario`, `cerrados`, `del_periodo` y `aviso`,
     y el modal rotula «complementario». Comprobación:
     `comprobar_asiento_analitico.py` (Herramientas de consola).
+    **Guarda de parte abierto (F-034)**: toda sentencia de sv5 que toca
+    `hmores` —alta de línea, pisado y, en el reajuste F-046, la guardia,
+    el `UPDATE` y la extra nueva— lleva `EXISTS (SELECT 1 FROM con c WITH
+    (UPDLOCK, HOLDLOCK) WHERE c.ide = <parte> AND c.est = ?)`: si
+    Administración cierra o contabiliza el parte entre la elección (dentro
+    del lock) y el `commit`, la sentencia afecta 0 filas y el cierre espera
+    a nuestro `commit`. El `INSERT` de una línea que pisa solo entra si
+    ninguna de sus pisadas sigue con horas (no duplica si el `DELETE` no
+    entró). Tras escribir, sv5 **relee por synckey**: lo que no está en el
+    parte elegido sale `omitido` con `parte_no_abierto: el parte <cod> ya
+    no esta En registro (<estado>)…` y se reaprueba (irá al
+    complementario); `borradas` cuenta las pisadas que ya no están. El
+    modal de resultado de sv4 agrupa las omitidas por motivo y el badge
+    `omitido` lleva el texto entero.
     **Parte compartido con `porcentajes` (v5)**: su `dedicacion-transfer`
     (F-037) también da de alta y escribe en los partes de obra de Sigrid.
     Toda alta de sv5 pasa por `_crear_parte` con el **alta protegida**,

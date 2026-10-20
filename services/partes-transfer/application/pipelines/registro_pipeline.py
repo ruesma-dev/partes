@@ -57,7 +57,8 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
      registro, hay que confirmar si se pisan.
   8. Crear los partes que falten (cabecera + extension) con el ALTA
-     PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`): la
+     PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`; F-034 no
+     la cambia: un parte que sv5 crea nace En registro): la
      cabecera solo entra si su codigo esta libre y el periodo no tiene ya
      un parte En registro; despues se relee el periodo y se usa el parte En
      registro que haya, propio o del otro servicio. Si no hay ninguno, un
@@ -65,7 +66,15 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      nada.
   9. Borrar las lineas pisadas confirmadas e insertar las nuevas, solo en
      el parte elegido. sv5 no toca `con`/`hmo` de un parte existente ni
-     escribe asientos (F-031, R5, R31).
+     escribe asientos (F-031, R5, R31). F-034: cada sentencia lleva la
+     GUARDA DE PARTE ABIERTO (SQL Server comprueba `con.est` al escribir,
+     con `UPDLOCK, HOLDLOCK`) y el INSERT de una linea que pisa solo entra
+     si ninguna pisada sigue con horas (R4). Despues se RELEE por synckey:
+     solo es `escrita` lo que esta en el parte elegido; lo demas sale
+     `omitida` `parte_no_abierto` (o `no_escrita` + ERROR si ningun parte
+     cerrado lo explica), con una lectura de partes por periodo afectado,
+     y `borradas` cuenta las pisadas que ya no estan (R9-R13). Todo bajo
+     el lock; una relectura que falla tumba la peticion (R14).
 """
 from __future__ import annotations
 
