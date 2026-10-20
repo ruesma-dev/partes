@@ -45,7 +45,8 @@ CLAVES_LINEA = {"registro_id", "fecha_int", "recurso_ide", "dni", "nombre",
 def sembrar(fabrica, lineas: list[dict], *, doc: str,
             fecha: str = "2026-03-02", obra: dict = OBRA_10,
             dni: str | None = DNI_A, empleado_ide: int | None = 77,
-            nombre: str = "Persona A", doc_activo: bool = True) -> list[int]:
+            nombre: str = "Persona A", doc_activo: bool = True,
+            recurso_ide: int = 501) -> list[int]:
     """Un parte con lineas de una persona. Cada linea admite: `inc` (la
     letra), `ci` (codigo de hora de la incidencia), `tipo` (`normal` o
     `extra`), `horas`, `estado` (`sigrid_estado`) y `borrada`."""
@@ -69,7 +70,7 @@ def sembrar(fabrica, lineas: list[dict], *, doc: str,
                 obra_codigo=obra["codigo"], obra_nombre=obra["nombre"],
                 empleado_ide=empleado_ide, empleado_dni=dni,
                 empleado_nombre=nombre, trabajador_nombre_leido=nombre,
-                recurso_ide=501, recurso_cif=dni, tipo_hora=tipo,
+                recurso_ide=recurso_ide, recurso_cif=dni, tipo_hora=tipo,
                 horas=linea.get("horas", 0.0 if es_inc else 8.0),
                 es_incidencia=es_inc, incidencia_codigo=linea.get("inc"),
                 hora_ide=1,
@@ -344,7 +345,7 @@ def test_f025_r11_preflight_lleva_los_avisos_por_grupo(portal25) -> None:
     pedidas = ids["aviso"] + ids["libre"]
     r = cliente.post("/api/aprobar/preflight", json={
         "registro_ids": pedidas,
-        "ambito": {"vista": "trabajador", "worker_key": "emp-77"}})
+        "ambito": {"vista": "trabajador", "worker_key": "rec-501"}})
     assert r.status_code == 200
     assert _enviadas(sv5.preflights) == sorted(pedidas)
     (grupo,) = r.json()["grupos"]

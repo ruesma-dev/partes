@@ -534,7 +534,7 @@ import re
 MOTIVO_BORRADA = ('Borrada en Sigrid: la linea 4001 del parte PT26/09001 '
                   'ya no existe (comprobado 2026-10-01 09:30 UTC)')
 VISTAS = [("/obras/obr-10", "vista-obra"),
-          ("/trabajadores/emp-77", "vista-trabajador")]
+          ("/trabajadores/rec-501", "vista-trabajador")]
 
 
 def _html_vistas(portal):

@@ -352,7 +352,11 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (falta una letra, clase desconocida, código que no empieza por `CI`).
     Día completo: V, B, M, F, H; parcial: AT, FJ. La persona es el DNI
     normalizado (si no hay, la clave de trabajador) y se miran todas sus
-    líneas activas de ese día, de cualquier obra y estado. **Bloqueo**:
+    líneas activas de ese día, de cualquier obra y estado. La clave de
+    trabajador del portal (F-050, `worker_key_for_registro`) es
+    `rec-{recurso}` en toda línea casada con recurso (con o sin ficha); si
+    no, `emp-{ficha}`, `nom-` + leído normalizado o `sin-trabajador`: una
+    fila por obra, empresa y persona. **Bloqueo**:
     incidencia de día completo + horas (|h| > 0) ⇒ las líneas de ese
     día-trabajador no viajan a sv5 (`excluidas.incompatible`, con motivo en
     `excluidas_detalle`; ni `incluir_borradas`, ni `pisar_claves`, ni

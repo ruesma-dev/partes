@@ -39,7 +39,7 @@ def _sembrar(fabrica, obra: dict, estados: list, *, doc: str,
 
 def _tres_obras():
     """obr-20: [nueva, error]; obr-10: [nueva, registrado];
-    cod-0300: [borrado_sigrid, nueva]. Todas de la persona emp-77."""
+    cod-0300: [borrado_sigrid, nueva]. Todas de la persona rec-501."""
     fabrica = FabricaSesionSqlite()
     a = _sembrar(fabrica, OBRA_20, [None, "error"], doc="doc-a")
     b = _sembrar(fabrica, OBRA_10, [None, "registrado"], doc="doc-b",
@@ -56,14 +56,14 @@ def _tres_obras():
 def test_f022_r10_repo_ids_de_trabajador_son_los_de_su_tabla() -> None:
     repo, fabrica, a, b, c = _tres_obras()
     otra = _sembrar(fabrica, OBRA_10, [None], doc="doc-otra",
-                    empleado_ide=88, empleado_dni="00000001R")
+                    empleado_ide=88, empleado_dni="00000001R", recurso_ide=502)
     papelera = _sembrar(fabrica, OBRA_10, [None], doc="doc-pap",
                         doc_en_papelera=True)
     borrada = sembrar_parte(fabrica, [{"borrada": True}], document_id="doc-bo",
                             obra_ide=10, obra_codigo="0100")
-    ids = repo.registro_ids_de_trabajador("emp-77")
+    ids = repo.registro_ids_de_trabajador("rec-501")
     assert sorted(ids) == sorted(a + b + c)
-    assert ids == [v.id for v in repo.get_worker("emp-77").registros]
+    assert ids == [v.id for v in repo.get_worker("rec-501").registros]
     assert not set(ids) & set(otra + papelera + borrada)
 
 
@@ -304,11 +304,11 @@ class CalendarioFalso(ProveedorFake):
         return not any(d in self._no_fiables for d, _a in consultas)
 
 
-DNI_A = "12345678Z"      # emp-77
-DNI_B = "00000001R"      # emp-88
+DNI_A = "12345678Z"      # rec-501
+DNI_B = "00000001R"      # rec-502
 MARZO = {"vista": "obra", "obra_key": "obr-10", "period": "2026-03",
          "mode": "nomina"}
-PERSONA_A = {"vista": "trabajador", "worker_key": "emp-77"}
+PERSONA_A = {"vista": "trabajador", "worker_key": "rec-501"}
 ENDPOINTS = ("/api/aprobar/preflight", "/api/aprobar/ejecutar",
              "/api/aprobar/encolar")
 
@@ -320,7 +320,8 @@ def _escenario(fabrica) -> dict[str, list[int]]:
         "o10_a": _sembrar(fabrica, OBRA_10, [None, None], doc="d-10a"),
         "o10_b": _sembrar(fabrica, OBRA_10, [None], doc="d-10b",
                           fecha="2026-03-04", empleado_ide=88,
-                          empleado_dni=DNI_B, empleado_nombre="Persona B"),
+                          empleado_dni=DNI_B, empleado_nombre="Persona B",
+                          recurso_ide=502),
         "o10_abril": _sembrar(fabrica, OBRA_10, [None], doc="d-10abr",
                               fecha="2026-04-02"),
         "o20_a": _sembrar(fabrica, OBRA_20, [None, "error"], doc="d-20a",

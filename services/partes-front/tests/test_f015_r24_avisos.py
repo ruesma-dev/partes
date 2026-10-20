@@ -88,7 +88,7 @@ def _cliente(dias, *, festivos=(), excepciones=(), **kw):
 
 def _incompletos_trabajador(dias, **kw) -> set[str]:
     respuesta = _cliente(dias, **kw).get(
-        "/trabajadores/emp-77?period=2026-03&modo=natural")
+        "/trabajadores/rec-501?period=2026-03&modo=natural")
     assert respuesta.status_code == 200
     return respuesta.context["dias_incompletos"]
 
@@ -300,7 +300,7 @@ def test_f015_r25_el_kpi_resuelve_la_excepcion_con_el_periodo_que_se_ve(
     respuesta = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": 10.0}],
         excepciones=[EXCEPCION_SOLO_MARZO],
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural")
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural")
     kpi = respuesta.context["jornada_kpi"]
     assert (kpi["origen"], kpi["semanal"], kpi["ultimo_laborable"]) == (
         "excepcion", 48.0, 8.0)
@@ -311,7 +311,7 @@ def test_f015_r25_fuera_de_la_vigencia_el_kpi_vuelve_al_mapa() -> None:
     respuesta = _cliente(
         [{"fecha": "2026-05-15", "horas": 6.0, "candef": 10.0}],
         excepciones=[EXCEPCION_SOLO_MARZO],
-    ).get("/trabajadores/emp-77?period=2026-05&modo=natural")
+    ).get("/trabajadores/rec-501?period=2026-05&modo=natural")
     assert respuesta.context["jornada_kpi"]["origen"] == "plana"
 
 
@@ -338,6 +338,6 @@ def test_f015_r24_ese_mismo_dia_si_avisa_en_SU_periodo() -> None:
     respuesta = _cliente([
         {"fecha": VIERNES, "horas": 6.0, "candef": 9.0},
         {"fecha": FEBRERO_ARRASTRADO, "horas": 4.0, "candef": 9.0},
-    ]).get("/trabajadores/emp-77?period=2026-02&modo=natural")
+    ]).get("/trabajadores/rec-501?period=2026-02&modo=natural")
     assert respuesta.status_code == 200
     assert respuesta.context["dias_incompletos"] == {FEBRERO_ARRASTRADO}

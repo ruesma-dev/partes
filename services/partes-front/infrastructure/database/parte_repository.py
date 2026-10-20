@@ -219,6 +219,9 @@ class WorkerRow:
     horas_normales: float
     horas_extra: float
     num_incidencias: int
+    #: F-050 (R23): empresas de la persona (regla de F-033) y su texto.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -301,6 +304,9 @@ class WorkerDetail:
     horas_extra: float
     num_incidencias: int
     registros: list[RegistroView] = field(default_factory=list)
+    #: F-050 (R24): empresas de la persona (regla de F-033) y su texto.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -521,14 +527,83 @@ def _ahora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
-    """Clave estable y URL-safe para agrupar registros por trabajador."""
-    if reg.empleado_ide is not None:
-        return f"emp-{reg.empleado_ide}"
-    nombre = _norm(reg.trabajador_nombre_leido)
+def _clave_trabajador(*, casada: bool, empleado_ide: int | None,
+                      recurso: int | None, nombre_leido: str | None) -> str:
+    """F-050 (R1-R2): clave estable y URL-safe de la persona de una linea.
+
+    Orden: casada y con recurso, `rec-{recurso}` (con o sin ficha: el
+    recurso persona es de UNA empresa y comun a toda linea casada, asi que
+    una fila es (obra, empresa, persona)); con ficha y sin recurso,
+    `emp-{ficha}`; si no, `nom-` + leido normalizado; si no,
+    `sin-trabajador`. Una linea sin casar nunca es `rec-` (R2) y las suyas
+    son byte a byte las de antes de F-050 (R3)."""
+    if casada and recurso is not None:
+        return f"rec-{recurso}"
+    if empleado_ide is not None:
+        return f"emp-{empleado_ide}"
+    nombre = _norm(nombre_leido)
     if nombre:
         return "nom-" + nombre.replace(" ", "_")
     return "sin-trabajador"
+
+
+def _recurso_de(reg: ParteRegistroOrm) -> int | None:
+    """Recurso de la linea: `recurso_ide` y, si es NULL, `empleado_reside`."""
+    if reg.recurso_ide is not None:
+        return reg.recurso_ide
+    return reg.empleado_reside
+
+
+def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
+    """Clave de trabajador de una linea (F-050): la UNICA agrupacion por
+    trabajador del portal (vistas, acciones por clave y URL)."""
+    return _clave_trabajador(
+        casada=esta_casado(reg), empleado_ide=reg.empleado_ide,
+        recurso=_recurso_de(reg), nombre_leido=reg.trabajador_nombre_leido)
+
+
+def _empresa_por_recurso(regs: list[ParteRegistroOrm]) -> dict[int, set[int]]:
+    """F-033 (R4): empresa de cada recurso, deducida de los partes con
+    empresa donde aparece (cualquier obra). Sin consulta nueva."""
+    empresa_por_recurso: dict[int, set[int]] = {}
+    for reg in regs:
+        if reg.recurso_ide is not None and reg.document.empresa is not None:
+            empresa_por_recurso.setdefault(
+                reg.recurso_ide, set()).add(reg.document.empresa)
+    return empresa_por_recurso
+
+
+def _empresas_de_lineas(
+    regs: list[ParteRegistroOrm], empresa_por_recurso: dict[int, set[int]],
+) -> list[int]:
+    """F-050 (R23-R25, DA11): empresas de las lineas de una persona con la
+    regla de «Por obra»: las de sus partes o, si ninguno la tiene, las de
+    su recurso deducidas de otros partes."""
+    return empresas_de_fila(
+        {r.document.empresa for r in regs},
+        {_recurso_de(r) for r in regs}, empresa_por_recurso)
+
+
+def fila_para_alta_manual(
+    regs_doc: list[ParteRegistroOrm], clave: str, nombre: str | None,
+) -> tuple[int | None, str | None]:
+    """F-050 (R16-R17): `(empleado_line_no, trabajador_nombre_leido)` de una
+    linea dada de alta a mano en un parte con las lineas `regs_doc`
+    (papelera incluida).
+
+    Si la persona (`clave`) ya tiene lineas activas en el parte, hereda la
+    fila y el leido de la de menor `line_index`: asi cae en su fila del
+    papel. Si no, fila nueva al final (maximo del parte + 1, o 1) con el
+    nombre que manda el alta."""
+    suyas = [r for r in regs_doc
+             if r.deleted_at_utc is None
+             and worker_key_for_registro(r) == clave]
+    if suyas:
+        ref = min(suyas, key=lambda r: r.line_index)
+        return ref.empleado_line_no, ref.trabajador_nombre_leido
+    filas = [r.empleado_line_no for r in regs_doc
+             if r.empleado_line_no is not None]
+    return (max(filas) + 1 if filas else 1), nombre
 
 
 def persona_de(reg: ParteRegistroOrm) -> str:
@@ -908,9 +983,11 @@ class ParteReviewRepository:
                     "horas_normales": 0.0,
                     "horas_extra": 0.0,
                     "num_incidencias": 0,
+                    "lineas": [],
                 }
                 groups[key] = g
             g["docs"].add(reg.document_id)
+            g["lineas"].append(reg)
             g["num_registros"] += 1
             if reg.es_incidencia:
                 g["num_incidencias"] += 1
@@ -920,6 +997,11 @@ class ParteReviewRepository:
                 g["horas_normales"] += reg.horas or 0.0
             if not g["categoria"] and reg.categoria:
                 g["categoria"] = reg.categoria
+
+        # F-050 (R23, DA11): empresa de cada persona, con lo ya cargado.
+        empresa_por_recurso = _empresa_por_recurso(regs)
+        for g in groups.values():
+            g["empresas"] = _empresas_de_lineas(g["lineas"], empresa_por_recurso)
 
         rows = [
             WorkerRow(
@@ -935,6 +1017,8 @@ class ParteReviewRepository:
                 horas_normales=round(g["horas_normales"], 2),
                 horas_extra=round(g["horas_extra"], 2),
                 num_incidencias=g["num_incidencias"],
+                empresas=g["empresas"],
+                empresa_texto=texto_empresas(g["empresas"]),
             )
             for g in groups.values()
         ]
@@ -947,7 +1031,11 @@ class ParteReviewRepository:
                 or needle in _norm(r.dni)
                 or needle in _norm(r.codigo)
             ]
-        rows.sort(key=lambda r: (0 if r.matched else 1, _norm(r.nombre)))
+        # F-050 (R26): los homonimos, por menor empresa; sin empresa, detras.
+        rows.sort(key=lambda r: (
+            0 if r.matched else 1, _norm(r.nombre),
+            r.empresas[0] if r.empresas else 10**9,
+        ))
         return rows
 
     def get_worker(
@@ -989,6 +1077,14 @@ class ParteReviewRepository:
             num_incidencias=0,
         )
         regs.sort(key=lambda r: (r.fecha_int or 0, r.line_index))
+        # F-050 (R19): la ficha es la de su linea mas reciente que la tenga
+        # (con la clave `rec-` puede haber lineas sin ficha).
+        detail.empleado_ide = next(
+            (r.empleado_ide for r in reversed(regs)
+             if r.empleado_ide is not None), None)
+        # F-050 (R24, DA11): su empresa, con las lineas ya cargadas.
+        detail.empresas = _empresas_de_lineas(regs, _empresa_por_recurso(todas))
+        detail.empresa_texto = texto_empresas(detail.empresas)
         for reg in regs:
             if reg.es_incidencia:
                 detail.num_incidencias += 1
@@ -1001,6 +1097,32 @@ class ParteReviewRepository:
         detail.horas_normales = round(detail.horas_normales, 2)
         detail.horas_extra = round(detail.horas_extra, 2)
         return detail
+
+    def clave_actual_de_clave_antigua(self, clave: str) -> str | None:
+        """F-050 (R14, R15): a donde redirigir un enlace `nom-…` o `emp-{E}`
+        de antes de F-050 que ya no tiene lineas.
+
+        Toma las lineas activas que con la regla anterior (ficha ⇒ `emp-`;
+        si no, leido ⇒ `nom-`) daban `clave`. Si hoy tienen todas una misma
+        clave distinta, la devuelve; si no hay ninguna o dan varias, None."""
+        if not clave.startswith(("nom-", "emp-")):
+            return None
+        with self._session_factory.create_session() as session:
+            activas = session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteDocumentOrm.is_active.is_(True))
+            ).scalars().all()
+            actuales = {
+                worker_key_for_registro(r) for r in activas
+                if _clave_trabajador(
+                    casada=False, empleado_ide=r.empleado_ide, recurso=None,
+                    nombre_leido=r.trabajador_nombre_leido) == clave
+            }
+        if len(actuales) == 1 and clave not in actuales:
+            return actuales.pop()
+        return None
 
     # ----------------------------------------------------------------- #
     # Vista por OBRA.
@@ -1038,11 +1160,7 @@ class ParteReviewRepository:
 
         # F-033 (R4): empresa de cada recurso, deducida de los partes con
         # empresa donde aparece (cualquier obra). Sin consulta nueva.
-        empresa_por_recurso: dict[int, set[int]] = {}
-        for reg in regs:
-            if reg.recurso_ide is not None and reg.document.empresa is not None:
-                empresa_por_recurso.setdefault(
-                    reg.recurso_ide, set()).add(reg.document.empresa)
+        empresa_por_recurso = _empresa_por_recurso(regs)
 
         groups: dict[str, dict[str, Any]] = {}
         for reg in regs:
@@ -1377,10 +1495,8 @@ class ParteReviewRepository:
 
         rows: list[ParteRow] = []
         for doc in docs:
-            empleados = {
-                r.empleado_ide or r.trabajador_nombre_leido
-                for r in doc.registros
-            }
+            # F-050 (R7): claves de trabajador distintas del parte.
+            empleados = {worker_key_for_registro(r) for r in doc.registros}
             horas_n = sum(
                 (r.horas or 0.0) for r in doc.registros
                 if not r.es_incidencia and not _is_extra(r)
@@ -1458,7 +1574,8 @@ class ParteReviewRepository:
                 congelado_doc=_motivo_congelado_doc(doc),   # F-004 R17
             )
 
-            # Agrupar registros por empleado (linea de la tabla PERSONAL).
+            # Agrupar registros por trabajador (F-050 R6): la clave unica;
+            # las `sin-trabajador`, por su fila del papel.
             by_emp: dict[Any, ParteEmpleadoView] = {}
             order: list[Any] = []
             for reg in sorted(
@@ -1466,8 +1583,9 @@ class ParteReviewRepository:
             ):
                 if reg.deleted_at_utc:
                     continue  # linea en papelera
-                key = reg.empleado_ide or (reg.trabajador_nombre_leido or "") \
-                    or reg.empleado_line_no
+                key: Any = worker_key_for_registro(reg)
+                if key == "sin-trabajador":
+                    key = (key, reg.empleado_line_no)
                 if key not in by_emp:
                     by_emp[key] = ParteEmpleadoView(
                         nombre_leido=reg.trabajador_nombre_leido,
@@ -3680,6 +3798,12 @@ class ParteReviewRepository:
             if empleado_ide is None and empleado_reside is not None
             else None
         )
+        # F-050: la clave que tendran las lineas nuevas (su recurso es el
+        # `empleado_reside` elegido).
+        clave = _clave_trabajador(
+            casada=empleado_ide is not None or metodo_empleado is not None,
+            empleado_ide=empleado_ide, recurso=empleado_reside,
+            nombre_leido=empleado_nombre)
 
         with self._session_factory.create_session() as session:
             for iso in dias:
@@ -3720,12 +3844,19 @@ class ParteReviewRepository:
                     )
                 ).scalar()
                 nli = (maxli if maxli is not None else -1) + 1
+                # F-050 (R16-R17): fila y leido de la persona en este parte
+                # (los comparten la incidencia y cada tipo del dia).
+                regs_doc = list(session.execute(
+                    select(ParteRegistroOrm).where(
+                        ParteRegistroOrm.document_id == doc.id)
+                ).scalars().all())
+                fila, leido = fila_para_alta_manual(regs_doc, clave, empleado_nombre)
                 if incidencia:
                     hm = hora_incidencia
                     session.add(ParteRegistroOrm(
-                        document_id=doc.id, line_index=nli, empleado_line_no=1,
+                        document_id=doc.id, line_index=nli, empleado_line_no=fila,
                         categoria=categoria,
-                        trabajador_nombre_leido=empleado_nombre,
+                        trabajador_nombre_leido=leido,
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
@@ -3761,9 +3892,9 @@ class ParteReviewRepository:
                 for tipo, horas in tipos:
                     hm = hora_extra if tipo == "extra" else hora_normal
                     session.add(ParteRegistroOrm(
-                        document_id=doc.id, line_index=nli, empleado_line_no=1,
+                        document_id=doc.id, line_index=nli, empleado_line_no=fila,
                         categoria=categoria,
-                        trabajador_nombre_leido=empleado_nombre,
+                        trabajador_nombre_leido=leido,
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,

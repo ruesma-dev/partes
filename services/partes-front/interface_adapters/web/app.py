@@ -858,11 +858,20 @@ def build_app(
         period: str | None = Query(default=None),
         modo: str | None = Query(default=None),
         message: str | None = Query(default=None),
-    ) -> HTMLResponse:
+    ) -> Response:
         mode = normalize_mode(modo)
         detail = repository.get_worker(worker_key,
                                        incidencias=tabla_incidencias)
         if detail is None:
+            # F-050 (R14, R15): un enlace `nom-`/`emp-` de antes de la clave
+            # por recurso redirige a la de hoy si es unica; si no, 404.
+            destino = repository.clave_actual_de_clave_antigua(worker_key)
+            if destino is not None:
+                query = request.url.query
+                return RedirectResponse(
+                    url=f"/trabajadores/{destino}"
+                    + (f"?{query}" if query else ""),
+                    status_code=307)
             raise HTTPException(status_code=404, detail="Trabajador no encontrado")
 
         # Agregado por dia y OBRA (para la tarjeta del calendario: el codigo

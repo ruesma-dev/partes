@@ -576,7 +576,7 @@ def test_f024_r21_endpoint_log_con_el_origen(portal, caplog, origen,
 def test_f024_r18_endpoint_servir_las_vistas_no_llama_a_sv5(portal) -> None:
     cliente, _f, _ids, sv5 = portal(["registrado", "borrado_sigrid"])
     assert cliente.get("/obras/obr-10").status_code == 200
-    assert cliente.get("/trabajadores/emp-77").status_code == 200
+    assert cliente.get("/trabajadores/rec-501").status_code == 200
     assert sv5.llamadas == [] and sv5.otras == []
 
 

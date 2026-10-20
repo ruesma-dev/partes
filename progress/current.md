@@ -1,6 +1,131 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-050 · done (2026-10-20, APPROVED pasada 1), pendiente de despliegue de sv4 y M2–M6: misma fila para el mismo trabajador
+
+### T11 · desbloqueada (2026-10-20)
+
+**Decisión del humano del 2026-10-20 («si») sobre la opción B**: el suelo
+`mutacion.timeout_por_mutante_s` de `harness/rigor.json` sube de 120 a 300 s (commit
+`04613e6` del líder; tests de harness/mutación `110 passed`). **No se porta a `arnes-base`**:
+responde al tamaño de la suite de sv4, no es una mejora genérica. El líder lanzó
+`python -m harness.mutacion --feature F-050 --workers 1` (sin `--timeout`): línea base en
+verde 519,6 s, timeout por mutante 1040 s; **20 evaluados: 13 muertos, 4 supervivientes
+(#7, #9, #11, #16), 3 timeouts (#12, #13, #20)**, 14175,8 s. Informe en
+`progress/mutacion_F-050.md`.
+
+**T11 cerrada (implementer, 2026-10-20)**, sin relanzar la campaña: #7 y #11 equivalentes
+estrictos; #9 equivalente en el dominio (centinela `10**9` frente a `10**10`); **#16 hueco
+real** (alta con ficha y recurso, caso de R19/M5) ⇒ test nuevo
+`test_f050_r16_con_ficha_y_recurso_hereda_de_su_rec`, RED contra el mutante y verde; los 3
+timeouts reproducidos: los matan 13, 9 y 4 tests de R14/R15 de `test_f050_portal.py`, sin
+bucle (contención de la máquina con `-x` y los tests de F-050 al final). Balance: 17
+detectados y 3 equivalentes de 20. `bash harness/init.sh` en verde. **Siguiente: reviewer.**
+
+**Nota de despliegue (líder, 2026-10-20)**: en Azure, `REPARTO_REAJUSTE=true` está
+**encendido en sv3 desde el 2026-10-18** (paso 4 de T23 de F-046, abajo).
+
+### Motivo del `blocked` (T11, historia)
+
+T1–T10, T12 y T13 hechas; `bash harness/init.sh` en verde (PUERTA COBERTURA 100 % de 60
+líneas cambiadas). La mutación muestreada que exige el nivel **estándar** no ha evaluado
+ningún mutante: `python -m harness.mutacion --feature F-050 --workers 3` (sin `--timeout`)
+sale con código 3 en la **línea base**: «la suite SIN MUTAR agotó los 600 s que se le
+concedieron (el suelo `mutacion.timeout_por_mutante_s` × holgura 5), con 3 worker(s)
+compitiendo por la máquina». La suite de sv4 sola tarda **569 s** (2347 tests); tres a la
+vez no caben. No es un fallo de F-050 (la suite sin mutar está en verde), sino del tamaño de
+la suite de sv4 frente al reloj de la campaña. La herramienta propone bajar workers o subir
+el suelo; las dos cosas se salen de lo que se me pidió (`--workers 3`, sin tocar el arnés).
+
+**Propuesta (decide el líder/humano)**:
+
+- **A (recomendada)**: lanzar la campaña con `--workers 1` (en serie sobre el worktree, con
+  la máquina libre). La línea base sola (569 s) cabe en 600 s, aunque con poco margen; el
+  timeout por mutante sería ~1140 s y la campaña de 20 mutantes, unas 3–3,5 h. Si la lanza el
+  líder (como en F-048), el implementer analiza después los supervivientes.
+- **B**: mantener `--workers 3` y subir en `harness/rigor.json` el suelo
+  `mutacion.timeout_por_mutante_s` (p. ej. de 120 a 300: 1500 s para la línea base). Es
+  configuración del arnés que vale para todas las features; quizá también para `arnes-base`.
+- **C**: lo que el líder prefiera; el resto de F-050 no cambia.
+
+
+**Desbloqueada el 2026-10-20 por decisión del humano** (respuesta literal «apruebo») sobre la
+propuesta de T2 de abajo: se corrige el DATO de los fixtures, no las aserciones. R22 queda
+ampliada a «literal y, donde el fixture comparte recurso entre personas, el recurso de la
+persona B» (anotado en `requirements.md` R22 y `tasks.md` T2). Lo que sigue del bloqueo es historia.
+
+Implementer en la rama `feature/F-050-misma-fila-para-el-mismo-trabajador` (worktree
+`partes-wt-f050`), rebasada sobre `dev` (`ff2ed8e`; conflictos solo en `BACKLOG.md`,
+`harness/features.json` y `progress/current.md`, resueltos conservando las dos partes).
+Solo sv4, sin esquema, sin Sigrid ni migración; rigor **estándar**.
+
+**Spec aprobada entera.** DA2–DA10 el 2026-10-20 («ok a lo demás», DA10 opción a) y
+**DA1 (opción A), DA1b y DA11 el 2026-10-20 («ok»)**; DA5 y DA6 ampliadas, confirmadas
+con DA1. **M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas, 38 filas
+(obra, recurso), **1 fila que se une**, 0 fichas sin recurso, 0 casadas sin ficha ni
+recurso, 0 DNIs con varios recursos en una obra, 36 recursos, 0 sin empresa, 0 DNIs en dos
+empresas.
+
+**Implementación (implementer, 2026-10-20)**: T1–T13 hechas, un commit por tarea;
+detalle, fases RED y evidencias en `progress/impl_F-050.md`. Pendiente: el reviewer.
+
+**MANUAL (humano), pendiente** (`design.md` §6; M1 ya medida por el líder). Solo lectura
+salvo el despliegue y M5; los agentes no los lanzan:
+
+- **Despliegue solo de sv4**: `.\redeploy_partes.ps1 -Solo sv4` desde `infra/`.
+- **M2**: obra 0678, periodo con el 15/10: el trabajador del caso en **una** fila «8+2»,
+  enlazada a `/trabajadores/rec-…`.
+- **M3**: detalle de ese parte: un bloque con las dos líneas; el listado de partes cuenta
+  un trabajador menos.
+- **M4**: una URL antigua `/trabajadores/emp-…` y una `nom-…` redirigen (307) a la `rec-`.
+- **M5 (opcional; escribe en la base `partes`, no en Sigrid)**: «+ Añadir línea» desde la
+  vista de un trabajador en un parte donde ya está ⇒ su fila, casada y con su ficha
+  (`empleado_line_no`, leído, `empleado_ide`, `empleado_reside`).
+- **M6**: «Por persona» con la columna «Empresa»: una persona de Ruesma y de Porsan en dos
+  filas con su empresa, y cada vista con la suya en la cabecera; anotar cuántas «—».
+
+### Motivo del `blocked` (historia; T2, regla R22 / tasks.md: «otro cambio ⇒ blocked y se consulta»)
+
+16 tests de 4 ficheros no se arreglan cambiando solo el literal de la clave, porque sus
+**fixtures** dan el mismo recurso a dos personas o dos recursos a una, algo que con la
+clave A (recurso primero) cambia quién es quién. No es un fallo del código: es el dato
+sintético, que antes no importaba porque la clave miraba la ficha.
+
+1. **Dos fichas en el mismo recurso 501** (f019 portal ×2 de 8, f022 aprobar ×4, f025
+   vistas ×3): la persona B (ficha 88) se siembra con los helpers
+   `tests/dobles.py::sembrar_parte` y `tests/test_f025_aprobacion.py::sembrar`, que fijan
+   `recurso_ide=501` para cualquier ficha; con A, A y B son la misma `rec-501` (riesgo R-b
+   de design §9; en Sigrid un recurso persona es de una sola persona).
+2. **Una ficha con dos recursos** (f019 portal, 6 de 8): el mensual de
+   `test_f019_bandeja.sembrar_mensual` es ficha 77 con recurso 602 y el fixture
+   `publicado` siembra sus otras líneas (ficha 77) con el 501 fijo: con A son dos claves.
+3. **Clave calculada en un helper** (f035 repositorio ×2): `_asignar` arma la clave
+   `nom-…` del leído; tras la primera reasignación (sin ficha, recurso 903) la clave de
+   esas líneas es `rec-903` y la segunda llamada por clave (método `worker_key`) actúa
+   sobre 0 líneas (R13, comportamiento esperado).
+
+**Propuesta (verificada: los 6 ficheros afectados dan `296 passed`; diff aplicable en
+`progress/propuesta_T2_F-050.diff`)**: corregir el DATO, no ninguna aserción:
+
+- `tests/dobles.py::sembrar_parte` y `tests/test_f025_aprobacion.py::sembrar` ganan
+  `recurso_ide: int = 501` (por defecto, igual que hoy para todos los demás tests).
+- Persona B (ficha 88) sembrada con `recurso_ide=502` en f019 (1 sitio), f022 (2) y f025
+  vistas (1); su literal `emp-88` → `rec-502` (f022 ×1 comentario, f025 vistas ×4).
+- f019 `publicado`: las líneas libre y registrada de la ficha 77 con `recurso_ide=602` (el
+  del mensual) y su literal `rec-501` → `rec-602` (4 sitios).
+- f035 `_asignar` gana `clave` opcional (por defecto el `nom-…` de hoy) y
+  `test_f035_r12_reasignar_a_una_ficha_quita_recurso_manual` pasa `clave="rec-903"` en
+  la segunda reasignación.
+
+Alternativa: mantener los fixtures y cambiar las aserciones (perderían su intención: dejan
+de distinguir a A de B). No se recomienda.
+
+**Decide el humano**: aprobar la propuesta (amplía R22 a «literal y, donde el fixture
+comparte recurso entre personas, el recurso de la persona B») o indicar otra cosa. Con el
+visto bueno, el implementer aplica el diff, cierra T2 y sigue con T3–T13.
+
+
+
 ## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila
 
 **Decisión del humano (2026-10-19, «haz la recomendación»)**: se cierra F-051 tal cual (prompt
@@ -112,7 +237,9 @@ ejecutable; 0 bugs. Detalle en `progress/mutacion_F-046.md`; resumen en `progres
    `.\redeploy_partes.ps1 -Solo sv3`.
 3. **M4** (base `partes`, solo lectura): `SELECT count(*) FROM reparto_pendiente` ⇒ 0 (la tabla
    la crean sv3/sv4 al arrancar).
-4. Encender: `az containerapp update -n ca-sv3-persistencia -g rg-partes-dev --set-env-vars REPARTO_REAJUSTE=true`.
+4. ~~Encender: `az containerapp update -n ca-sv3-persistencia -g rg-partes-dev --set-env-vars REPARTO_REAJUSTE=true`.~~
+   **Hecho**: `REPARTO_REAJUSTE=true` encendido en sv3 en Azure desde el 2026-10-18 (dato del
+   líder, anotado el 2026-10-20).
 5. **M5**: `SELECT estado, count(*) FROM reparto_pendiente GROUP BY estado`; Log Analytics de
    `ca-sv3-persistencia` con `Log_s has 'reparto'` (líneas «reparto propuesto» y
    «reajuste: propuestos=…»).

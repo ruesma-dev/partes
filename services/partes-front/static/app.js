@@ -1708,6 +1708,14 @@ function avisarCambioLineas() {
     return { reload: reload, clear: clear };
   }
 
+  // F-050 (R20): el «Ver» de «Nuevo parte» lleva a la clave que tendran las
+  // lineas creadas: `rec-` si se eligio recurso, `emp-` si solo ficha.
+  function verHrefNuevoParte(reside, emp) {
+    if (reside) return "/trabajadores/rec-" + reside;
+    if (emp) return "/trabajadores/emp-" + emp;
+    return "/partes";
+  }
+
   function wireNuevoParte() {
     var grid = document.getElementById("cal-grid");
     if (!grid) return;
@@ -2013,8 +2021,8 @@ function avisarCambioLineas() {
       }).then(function (r) { return r.json(); }).then(function (d) {
         if (d && d.ok) {
           st.className = "form-status ok";
-          var emp = document.getElementById("emp-ide").value;
-          var verHref = emp ? ("/trabajadores/emp-" + emp) : "/partes";
+          var verHref = verHrefNuevoParte(document.getElementById("emp-reside").value,
+                                          document.getElementById("emp-ide").value);
           st.innerHTML = "Creado: " + d.lineas + " línea(s) en "
             + dias.length + " día(s). "
             + '<a href="' + verHref + '">Ver</a> · listo para otro parte.';
@@ -2064,7 +2072,8 @@ function avisarCambioLineas() {
       g("addline-" + prefix + "-nombre").value = (vals && vals.nombre) || "";
       if (prefix === "emp") {
         g("addline-emp-dni").value = (vals && vals.dni) || "";
-        g("addline-emp-reside").value = "";
+        // F-050 (R19): el recurso del trabajador fijado por la pagina.
+        g("addline-emp-reside").value = (vals && vals.reside) || "";
         // Con el trabajador fijado por la pagina, el selector de empresa
         // no aplica (F-035).
         g("addline-empresa-field").hidden = !!locked;
@@ -2116,7 +2125,8 @@ function avisarCambioLineas() {
         ? { ide: d.obraIde, codigo: d.obraCodigo, nombre: d.obraNombre } : null);
       var empLocked = !!d.empNombre;
       setLock("emp", empLocked, d.empLabel, empLocked
-        ? { ide: d.empIde, codigo: d.empCodigo, nombre: d.empNombre, dni: d.empDni } : null);
+        ? { ide: d.empIde, codigo: d.empCodigo, nombre: d.empNombre, dni: d.empDni,
+            reside: d.empReside } : null);
       g("addline-categoria").value = d.categoria || "";
       g("addline-fecha").value = d.fecha || todayISO();
       g("addline-ord").value = "8";

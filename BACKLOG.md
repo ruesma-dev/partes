@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **45 features**, 11 abiertas, 34 terminadas.
+Resumen: **46 features**, 11 abiertas, 35 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -43,6 +43,7 @@ Bloqueadas: **F-014, F-032**.
 | F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |
 | F-045 | Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas | 1 | critico |
 | F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | critico |
+| F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | estandar |
 | F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
@@ -225,6 +226,12 @@ Pedida por el humano el 2026-10-14. Hoy sv3 (_reclasificar_extras_jornada) agrup
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-048-solo-extras-en-laborable-como-jornada`
 
 Pedida por el humano el 2026-10-15 (literal: «cuando sea laborable, aunque las horas sean extras se usa la regla de 8+x») y ampliada el mismo dia a las filas con ordinarias Y extras: se suman y el total sigue la regla de jornada (J normales + exceso extra, o extra negativa si no llega). Caso 1: 15/10/2026, obra 0678, fila con ordinarias nulas y 10 extras quedo como una extra de 10 h (esperado 8 + 2). Caso 2: 02/10/2026, obra 0686, fila 4 + 5 extras quedo en tres lineas (normal 8, extra_auto -4, extra 5; esperado 8 + 1, dos lineas). Diseno recomendado (DA2, opcion A): el normalizador de sv3 suma las extras leidas > 0 de cada fila a su ordinaria (por partida, ordinarias primero) y guarda lo leido como extra en la columna nueva parte_registros.horas_extra_leidas (dos copias del ORM); el conciliador, F-045, F-037 y F-046 no cambian. En no laborable salen los mismos importes con una linea menos (DA3); sin umbral (DA4). Solo ingestas nuevas; lo congelado (caso 2, ya en Sigrid) seria feature aparte sobre F-046 (solo UPDATE). Toca sv3 y sv4 (ORM gemelo y etiqueta en el portal); sv2 y sv5 no. Se implementa despues de F-046 y F-047. Spec: specs/F-048-solo-extras-en-laborable-como-jornada/.
+
+### F-050 · Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-050-misma-fila-para-el-mismo-trabajador`
+
+Pedida por el humano el 2026-10-15: al añadir con «+ Añadir línea» una ordinaria a un trabajador que solo tenía extras, el calendario de la obra lo pinta en dos filas. Causa (verificada en sv4): worker_key_for_registro agrupa por emp-{empleado_ide} y, sin ficha, por el nombre leído; la línea de la IA guarda el leído del papel y crear_parte_manual escribe como leído el nombre de Sigrid; además una persona puede tener en una obra líneas con y sin ficha del mismo recurso; el detalle y el listado de partes agrupan con otra variante, y la vista del trabajador da de alta sin el recurso. Reglas del humano (2026-10-20): «es una linea por obra empresa y persona. puede estar en varias obras, o en 2 empresas» y «en la vista por persona, se juntan las obras. lo que es importante es que en 2 empresas son 2 personas con vistas diferenciadas». F-050 (solo sv4, sin esquema ni Sigrid ni migración): clave rec-{recurso} para toda línea casada con recurso (con o sin ficha) > emp- (ficha sin recurso) > nom- > sin-trabajador, en una sola función para todas las vistas y acciones; «Por persona» una fila por (empresa, persona) con todas sus obras y la empresa a la vista (columna «Empresa» y cabecera del trabajador, con la regla de F-033 sobre la base partes); el alta manual hereda empleado_line_no y leído de la persona en ese parte (si no está, fila nueva al final); la vista del trabajador pasa ficha y recurso al modal; las URL emp- y nom- antiguas redirigen si el destino es único; en los tests existentes solo cambia el literal de la clave. DA1 (opción A), DA1b y DA11 aprobadas por el humano el 2026-10-20, junto con DA2-DA10. M1 (líder, 2026-10-20): 1 fila que se une, 0 fichas sin recurso, 0 DNIs con varios recursos en una obra. Spec: specs/F-050-misma-fila-para-el-mismo-trabajador/.
 
 ### F-051 · Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana
 

@@ -13,6 +13,7 @@
       {% else %}
         <span class="badge danger">Sin casar en Sigrid</span>
       {% endif %}
+      {% if detail.empresas %} · {{ detail.empresa_texto }}{% endif %}
       {% if detail.dni %} · DNI {{ detail.dni }}{% endif %}
       {% set _vh = (detail.registros | selectattr('recurso_precio_hora') | map(attribute='recurso_precio_hora') | first) %}
       {% if _vh %} · <strong>valor hora {{ ("%.2f"|format(_vh))|replace(".", ",") }} &euro;</strong>{% endif %}
@@ -20,7 +21,8 @@
   </div>
   <div class="header-actions">
     <button type="button" class="btn primary" data-add-line
-            data-emp-ide="{{ worker_key[4:] if worker_key.startswith('emp-') else '' }}"
+            data-emp-ide="{{ detail.empleado_ide or '' }}"
+            data-emp-reside="{{ worker_key[4:] if worker_key.startswith('rec-') else '' }}"
             data-emp-codigo="{{ detail.codigo or '' }}"
             data-emp-nombre="{{ detail.nombre or '' }}"
             data-emp-dni="{{ detail.dni or '' }}"
