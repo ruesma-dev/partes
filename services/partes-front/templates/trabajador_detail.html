@@ -20,7 +20,8 @@
   </div>
   <div class="header-actions">
     <button type="button" class="btn primary" data-add-line
-            data-emp-ide="{{ worker_key[4:] if worker_key.startswith('emp-') else '' }}"
+            data-emp-ide="{{ detail.empleado_ide or '' }}"
+            data-emp-reside="{{ worker_key[4:] if worker_key.startswith('rec-') else '' }}"
             data-emp-codigo="{{ detail.codigo or '' }}"
             data-emp-nombre="{{ detail.nombre or '' }}"
             data-emp-dni="{{ detail.dni or '' }}"

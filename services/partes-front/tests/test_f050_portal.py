@@ -7,9 +7,16 @@ red, ni Sigrid, ni PostgreSQL. Datos SINTETICOS.
 """
 from __future__ import annotations
 
+import re
+import shutil
+import subprocess
+from html.parser import HTMLParser
+from pathlib import Path
+
 import pytest
-from config.settings import Settings
 from fastapi.testclient import TestClient
+
+from config.settings import Settings
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite
@@ -74,6 +81,13 @@ def _escenario(fabrica) -> dict[str, int]:
             s, "d-c", O_C, 4, fecha="2026-03-06", empleado_line_no=5,
             empleado_ide=95, recurso_ide=9501,
             trabajador_nombre_leido="Nombre Apellido")
+        # R19: otra ficha (78) del recurso 501, mas reciente que la 77 y
+        # anterior a la linea sin ficha del 05/03.
+        _doc(s, "d-d", 40, fecha="2026-03-04")
+        ids["ficha78"] = _reg(
+            s, "d-d", 40, 0, fecha="2026-03-04", empleado_line_no=1,
+            empleado_ide=78, recurso_ide=501, empleado_nombre="Persona Siete",
+            trabajador_nombre_leido="Persona Siete")
         # En la papelera: no cuenta para redirigir.
         _reg(s, "d-c", O_C, 5, fecha="2026-03-06", empleado_line_no=6,
              empleado_ide=96, recurso_ide=9601, deleted_at_utc="2026-03-07")
@@ -187,3 +201,103 @@ def test_f050_r15_la_misma_clave_no_es_destino(repo_ids) -> None:
     repo, _ids = repo_ids
     assert repo.clave_actual_de_clave_antigua("emp-90") is None
     assert repo.clave_actual_de_clave_antigua("nom-PEPE_PEREZ") is None
+
+
+# ===================================================================== #
+# R19 · «+ Añadir linea» desde la vista del trabajador
+# ===================================================================== #
+
+class _Botones(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.alta: list[dict] = []
+
+    def handle_starttag(self, tag, attrs) -> None:
+        a = dict(attrs)
+        if tag == "button" and "data-add-line" in a:
+            self.alta.append(a)
+
+
+def _boton_alta(html: str) -> dict:
+    p = _Botones()
+    p.feed(html)
+    (boton,) = p.alta
+    return boton
+
+
+def test_f050_r19_repo_ficha_de_la_linea_mas_reciente_con_ficha(
+        repo_ids) -> None:
+    repo, _ids = repo_ids
+    assert repo.get_worker("rec-501").empleado_ide == 78
+    assert repo.get_worker("rec-6001").empleado_ide is None
+    assert repo.get_worker("emp-90").empleado_ide == 90
+
+
+@pytest.mark.parametrize("clave,ide,reside", [
+    ("rec-501", "78", "501"),
+    ("rec-6001", "", "6001"),
+    ("emp-90", "90", ""),
+    ("nom-PEPE_PEREZ", "", ""),
+])
+def test_f050_r19_boton_pasa_ficha_y_recurso(portal, clave, ide,
+                                            reside) -> None:
+    cliente, _ids = portal
+    boton = _boton_alta(cliente.get(f"/trabajadores/{clave}").text)
+    assert (boton["data-emp-ide"], boton["data-emp-reside"]) == (ide, reside)
+
+
+APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
+NODE = shutil.which("node")
+
+
+def _js() -> str:
+    return APP_JS.read_text(encoding="utf-8")
+
+
+def _funcion(js: str, nombre: str) -> str:
+    m = re.search(r"\n  function " + nombre + r"\(.*?\n  \}\n", js,
+                  re.DOTALL)
+    assert m, f"app.js no define {nombre}"
+    return m.group(0)
+
+
+def test_f050_r19_el_modal_guarda_el_recurso_del_boton() -> None:
+    """`open` pasa `data-emp-reside` y `setLock` lo escribe en el campo
+    oculto del recurso (antes lo vaciaba siempre)."""
+    fuente = _funcion(_js(), "wireAddLine")
+    assert "reside: d.empReside" in fuente
+    assert ('g("addline-emp-reside").value = (vals && vals.reside) || "";'
+            in fuente)
+    assert 'g("addline-emp-reside").value = "";' not in fuente
+
+
+# ===================================================================== #
+# R20 · el «Ver» de «Nuevo parte»
+# ===================================================================== #
+
+def test_f050_r20_nuevo_parte_usa_ver_href() -> None:
+    fuente = _funcion(_js(), "wireNuevoParte")
+    assert ("verHrefNuevoParte(document.getElementById(\"emp-reside\").value,"
+            in fuente)
+    assert "/trabajadores/emp-\" + emp" not in fuente
+
+
+@pytest.mark.skipif(NODE is None, reason="node no instalado")
+@pytest.mark.parametrize("reside,emp,esperado", [
+    ("6001", "77", "/trabajadores/rec-6001"),
+    ("6001", "", "/trabajadores/rec-6001"),
+    ("", "77", "/trabajadores/emp-77"),
+    ("", "", "/partes"),
+])
+def test_f050_r20_ver_href(reside, emp, esperado) -> None:
+    programa = (_funcion(_js(), "verHrefNuevoParte")
+                + f"process.stdout.write(verHrefNuevoParte({reside!r}, {emp!r}));")
+    salida = subprocess.run([NODE, "-e", programa], capture_output=True,
+                            text=True, timeout=60, check=True)
+    assert salida.stdout == esperado
+
+
+@pytest.mark.skipif(NODE is None, reason="node no instalado")
+def test_f050_r19_r20_app_js_compila() -> None:
+    subprocess.run([NODE, "--check", str(APP_JS)], check=True,
+                   capture_output=True, timeout=60)

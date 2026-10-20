@@ -1036,6 +1036,11 @@ class ParteReviewRepository:
             num_incidencias=0,
         )
         regs.sort(key=lambda r: (r.fecha_int or 0, r.line_index))
+        # F-050 (R19): la ficha es la de su linea mas reciente que la tenga
+        # (con la clave `rec-` puede haber lineas sin ficha).
+        detail.empleado_ide = next(
+            (r.empleado_ide for r in reversed(regs)
+             if r.empleado_ide is not None), None)
         for reg in regs:
             if reg.es_incidencia:
                 detail.num_incidencias += 1
