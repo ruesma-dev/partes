@@ -1,7 +1,31 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · in_progress (2026-10-20, desbloqueada en T2): misma fila para el mismo trabajador
+## F-050 · blocked (2026-10-20, en T11: la campaña de mutación no arranca): misma fila para el mismo trabajador
+
+### Motivo del `blocked` (T11)
+
+T1–T10, T12 y T13 hechas; `bash harness/init.sh` en verde (PUERTA COBERTURA 100 % de 60
+líneas cambiadas). La mutación muestreada que exige el nivel **estándar** no ha evaluado
+ningún mutante: `python -m harness.mutacion --feature F-050 --workers 3` (sin `--timeout`)
+sale con código 3 en la **línea base**: «la suite SIN MUTAR agotó los 600 s que se le
+concedieron (el suelo `mutacion.timeout_por_mutante_s` × holgura 5), con 3 worker(s)
+compitiendo por la máquina». La suite de sv4 sola tarda **569 s** (2347 tests); tres a la
+vez no caben. No es un fallo de F-050 (la suite sin mutar está en verde), sino del tamaño de
+la suite de sv4 frente al reloj de la campaña. La herramienta propone bajar workers o subir
+el suelo; las dos cosas se salen de lo que se me pidió (`--workers 3`, sin tocar el arnés).
+
+**Propuesta (decide el líder/humano)**:
+
+- **A (recomendada)**: lanzar la campaña con `--workers 1` (en serie sobre el worktree, con
+  la máquina libre). La línea base sola (569 s) cabe en 600 s, aunque con poco margen; el
+  timeout por mutante sería ~1140 s y la campaña de 20 mutantes, unas 3–3,5 h. Si la lanza el
+  líder (como en F-048), el implementer analiza después los supervivientes.
+- **B**: mantener `--workers 3` y subir en `harness/rigor.json` el suelo
+  `mutacion.timeout_por_mutante_s` (p. ej. de 120 a 300: 1500 s para la línea base). Es
+  configuración del arnés que vale para todas las features; quizá también para `arnes-base`.
+- **C**: lo que el líder prefiera; el resto de F-050 no cambia.
+
 
 **Desbloqueada el 2026-10-20 por decisión del humano** (respuesta literal «apruebo») sobre la
 propuesta de T2 de abajo: se corrige el DATO de los fixtures, no las aserciones. R22 queda
@@ -20,9 +44,24 @@ con DA1. **M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas,
 recurso, 0 DNIs con varios recursos en una obra, 36 recursos, 0 sin empresa, 0 DNIs en dos
 empresas.
 
-**Hecho**: paso 0, T1 (clave nueva, con fase RED) y T2 parcial (literal `emp-77` →
-`rec-501` en 22 ficheros: 106 de 122 tests vuelven a verde). Detalle en
-`progress/impl_F-050.md`.
+**Implementación (implementer, 2026-10-20)**: T1–T10, T12 y T13 hechas, un commit por tarea;
+detalle, fases RED y evidencias en `progress/impl_F-050.md`. Pendiente: T11 (mutación, arriba)
+y después el reviewer.
+
+**MANUAL (humano), pendiente** (`design.md` §6; M1 ya medida por el líder). Solo lectura
+salvo el despliegue y M5; los agentes no los lanzan:
+
+- **Despliegue solo de sv4**: `.\redeploy_partes.ps1 -Solo sv4` desde `infra/`.
+- **M2**: obra 0678, periodo con el 15/10: el trabajador del caso en **una** fila «8+2»,
+  enlazada a `/trabajadores/rec-…`.
+- **M3**: detalle de ese parte: un bloque con las dos líneas; el listado de partes cuenta
+  un trabajador menos.
+- **M4**: una URL antigua `/trabajadores/emp-…` y una `nom-…` redirigen (307) a la `rec-`.
+- **M5 (opcional; escribe en la base `partes`, no en Sigrid)**: «+ Añadir línea» desde la
+  vista de un trabajador en un parte donde ya está ⇒ su fila, casada y con su ficha
+  (`empleado_line_no`, leído, `empleado_ide`, `empleado_reside`).
+- **M6**: «Por persona» con la columna «Empresa»: una persona de Ruesma y de Porsan en dos
+  filas con su empresa, y cada vista con la suya en la cabecera; anotar cuántas «—».
 
 ### Motivo del `blocked` (historia; T2, regla R22 / tasks.md: «otro cambio ⇒ blocked y se consulta»)
 
@@ -64,7 +103,6 @@ de distinguir a A de B). No se recomienda.
 comparte recurso entre personas, el recurso de la persona B») o indicar otra cosa. Con el
 visto bueno, el implementer aplica el diff, cierra T2 y sigue con T3–T13.
 
-**MANUAL (humano)** tras desplegar sv4: M2–M6 (`design.md` §6).
 
 
 ## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila
