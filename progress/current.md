@@ -674,32 +674,29 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
-## F-049 · spec_ready (2026-10-15): editor de celda de la matriz con ordinarias y extra siempre
+## F-049 · spec_ready (revisada el 2026-10-20 sobre dev `ff2ed8e` + F-050): editor de celda de la matriz con ordinarias y extra siempre
 
-Spec escrita por el spec-author en `specs/F-049-editor-calendario-normal-y-extra/`
-(rama `feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`).
-Solo sv4, sin esquema ni Sigrid; rigor **crítico** propuesto (DA9). Va **después de
-F-046 y F-047** (T1 fusiona `dev` antes de tocar código). Pendiente: PARADA 1.
+Spec en `specs/F-049-editor-calendario-normal-y-extra/` (rama
+`feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`, rebasada sobre
+dev). Solo sv4, sin esquema ni Sigrid; rigor **crítico** propuesto. Orden del humano:
+F-050 → **F-049** → F-014 → F-047; **no depende de F-047** (hereda su 409 del parte nuevo
+por `_exigir_sin_recalculo`). Detalle de la revisión en `progress/spec_F-049.md`.
+Pendiente: PARADA 1 y M1 (humano). T1 exige F-050 fusionada en dev.
 
-**Hallazgos** (design §2): el «calendario» es el popup de doble clic de la matriz de
-obra; con solo ordinarias ya ofrece la extra nueva, pero con solo extras no ofrece la
-ordinaria; y editar un miembro de la pareja base + `extra_auto` se pierde en la
-siguiente pasada de sv3 (F-037 R-c). M1 (humano, antes de implementar) confirma la
-pantalla y el caso «solo ordinarias».
+**Cambios por F-050 y lo fusionado**: la ruta `POST /api/matriz/celda` identifica la celda
+por (`obra_key`, clave de trabajador de F-050, fecha) y exige que los ids enviados sean sus
+líneas no congeladas (si no, 409 «recarga»); la línea nueva toma fila del papel y leído de
+`fila_para_alta_manual` y conserva la clave de la celda; la fila `sin-trabajador` no admite
+nuevas; aviso si el día tiene reparto pendiente (F-046) y 409 si está `aplicando`;
+`horas_extra_leidas` (F-048) no se toca.
 
-**Decisiones abiertas que necesita validar el humano** (`design.md` §13):
-
-- DA1 alcance: solo la matriz de obra; ni calendario de trabajador, ni celda vacía o
-  solo incidencia. DA2 ruta atómica nueva `POST /api/matriz/celda` con comprobación
-  de «nada cambió» (`antes`); `/extra` y `PATCH` se quedan.
-- **DA3 · lo escrito manda**: materializar las parejas tocadas (`horas_orig` NULL,
-  `extra_auto` False); sv3 sigue ajustando la jornada (8 (orig 10)+2 → «Ord. 7» da 8+1).
-- **DA4 · recálculo al guardar**: A) seguido con espera de F-043 (recomendado; otra
-  celda del mismo parte da 409 durante 22–39 s), B) ninguno, C) sin espera.
-- DA5 a 0 no va a la papelera; DA6 plantilla = primera no congelada y `line_index`
-  nuevo; DA7 la línea nueva clona también la partida; **DA8 deshacer** manda las
-  creadas a la papelera (obliga a tocar dos dobles de `undo_last` de F-042/F-043,
-  lista cerrada en design §3); DA9 rigor crítico; DA10 rangos 0–24 / −24–24.
+**Decisiones que necesita validar el humano** (`design.md` §13, todas propuestas,
+recomendación A): DA1 alcance solo matriz de obra; **DA2 celda por claves (cambia por
+F-050)**; DA3 materializar las parejas tocadas; DA4 recálculo seguido con espera; DA5 a 0
+sin papelera; **DA6 fila de `fila_para_alta_manual` (cambia por F-050)**; DA7 clona la
+partida; DA8 deshacer manda las creadas a la papelera (dos dobles de `undo_last`); DA9 rigor
+crítico; DA10 rangos; **DA11 reparto vivo (nueva, F-046)**; **DA12 `sin-trabajador` (nueva,
+F-050)**.
 
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
