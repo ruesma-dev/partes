@@ -171,3 +171,95 @@ def test_f034_r7_ninguna_escritura_en_con_ni_hmo_salvo_el_alta() -> None:
                       fuente) == ["con", "hmo"]
     alta = inspect.getsource(SigridWriteClient.stmts_crear_parte)
     assert "INSERT INTO con " in alta and "INSERT INTO hmo " in alta
+
+
+# ---------------------- R5 · reajuste F-046: guardia ---------------------- #
+
+def test_f034_r5_guardia_reajuste_lee_con_con_updlock() -> None:
+    st = _cli().stmt_guardia_reajuste([(4001, "partes:11", 8.0)])
+    sql = _sql(st["sql"])
+    assert sql.endswith(
+        "AND EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) WHERE "
+        "c.ide = h.hmoide AND c.est = ?)) <> ?)")
+    assert "FROM con c WHERE" not in sql
+    # Sus parametros de estado no cambian (R5).
+    assert st["parameters"] == [4001, 4001, "partes:11", 8.0, 1, 1]
+
+
+def test_f034_r5_actualizar_linea_lee_con_con_updlock() -> None:
+    st = _cli().stmt_actualizar_linea(ide=4001, synckey="partes:11",
+                                      antes=8.0, despues=2.5,
+                                      est_registro=1)
+    sql = _sql(st["sql"])
+    assert sql.startswith(
+        "UPDATE hmores SET can = ?, tot = ROUND(? * ISNULL(pre, 0), 2) "
+        "WHERE ide = ? AND synckey = ? AND ABS(ISNULL(can, 0) - ?) <= 0.001 "
+        "AND EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) WHERE "
+        "c.ide = hmores.hmoide AND c.est = ?) AND ISNULL(dvaproide, 0) = 0")
+    assert "FROM con c WHERE" not in sql
+    assert st["parameters"] == [2.5, 2.5, 4001, "partes:11", 8.0, 1]
+
+
+def test_f034_r5_actualizar_conserva_su_est_registro() -> None:
+    st = _cli(est_parte=1).stmt_actualizar_linea(
+        ide=4001, synckey="partes:11", antes=8.0, despues=2.5,
+        est_registro=6)
+    assert st["parameters"][-1] == 6
+
+
+# -------------------- R6 · reajuste F-046: extra nueva -------------------- #
+
+def _extra(cli=None, **kw) -> dict:
+    args = {"hmoide": 7001, "obra": _obra(), "reside": 501, "pos": 192,
+            "fecha_int": 20261014, "horide": 9, "can": 2.5, "pre": 25.0,
+            "paride": 33, "ano": 2026, "mes": 10,
+            "synckey": "partes:990000001", "tex": "PRUEBA-IA", "caaide": 55,
+            "base_ide": 4001, "base_synckey": "partes:11",
+            "base_despues": 5.5}
+    args.update(kw)
+    return (cli or _cli()).stmt_insertar_extra(**args)
+
+
+def test_f034_r6_insertar_extra_lleva_la_guarda_sobre_su_parte() -> None:
+    st = _extra()
+    assert _sql(st["sql"]) == (
+        "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
+        "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
+        "tex, synckey) SELECT x.n, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, "
+        "0, ?, ?, ? FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores WITH "
+        "(UPDLOCK, HOLDLOCK)) x WHERE EXISTS (SELECT 1 FROM hmores b WHERE "
+        "b.ide = ? AND b.synckey = ? AND ABS(ISNULL(b.can, 0) - ?) <= 0.001) "
+        "AND NOT EXISTS (SELECT 1 FROM hmores s WHERE s.synckey = ?) "
+        "AND " + GUARDA_Q)
+    assert st["parameters"] == [
+        7001, 501, 77, 200, 33, 192, 20261014, 9, 2.5, 25.0, 62.5, 2026, 10,
+        55, "PRUEBA-IA", "partes:990000001",
+        4001, "partes:11", 5.5, "partes:990000001", 7001, 1]
+    assert _sql(st["sql"]).count("?") == len(st["parameters"])
+
+
+def test_f034_r6_insertar_extra_guarda_con_su_hmoide_y_est_activo() -> None:
+    st = _extra(_cli(est_parte=8), hmoide="7404")
+    assert st["parameters"][-2:] == [7404, 8]
+    assert isinstance(st["parameters"][-2], int)
+
+
+# --------------- R1 · todas las sentencias de lineas, guardadas --------------- #
+
+def test_f034_r1_toda_sentencia_que_toca_hmores_lleva_la_guarda() -> None:
+    cli = _cli()
+    sentencias = [
+        _insert(cli), _insert(cli, pisadas=[4001]),
+        cli.stmt_borrar_linea(4001),
+        cli.stmt_guardia_reajuste([(4001, "partes:11", 8.0)]),
+        cli.stmt_actualizar_linea(ide=4001, synckey="partes:11", antes=8.0,
+                                  despues=0.0, est_registro=1),
+        _extra(cli),
+    ]
+    for st in sentencias:
+        sql = _sql(st["sql"])
+        assert re.match(r"(INSERT INTO|UPDATE|DELETE FROM) hmores\b", sql)
+        assert re.search(r"EXISTS \(SELECT 1 FROM con c WITH \(UPDLOCK, "
+                         r"HOLDLOCK\) WHERE c\.ide = (\?|hmores\.hmoide|"
+                         r"h\.hmoide) AND c\.est = \?\)", sql), sql
+        assert "FROM con c WHERE" not in sql

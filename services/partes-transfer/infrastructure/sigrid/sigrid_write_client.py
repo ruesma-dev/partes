@@ -656,7 +656,8 @@ class SigridWriteClient:
         """Primera sentencia del lote (DA6): si alguna linea existente ya no
         esta como se leyo (synckey, `can` = «antes», sin enlaces, parte En
         registro) o alguna extra nueva ya existe, FALLA y la API revierte
-        el lote entero.
+        el lote entero. F-034 (R5): el parte se lee con la guarda de parte
+        abierto (`UPDLOCK, HOLDLOCK`).
 
         Cuenta las lineas en su estado esperado y, si no son todas, intenta
         convertir a entero un texto: el error de conversion salta siempre
@@ -678,8 +679,8 @@ class SigridWriteClient:
             "UPDATE hmores SET can = CONVERT(INT, 'reajuste-descuadrado-' + "
             f"CAST(ide AS VARCHAR(20))) WHERE ide IN ({marcas}) AND (("
             f"SELECT COUNT(*) FROM hmores h WHERE ({por_linea}) "
-            f"{self._sin_enlaces('h')} AND EXISTS (SELECT 1 FROM con c "
-            "WHERE c.ide = h.hmoide AND c.est = ?)) <> ?")
+            f"{self._sin_enlaces('h')} AND "
+            f"{self._guarda_parte_abierto('h.hmoide')}) <> ?")
         claves = [sk for sk in nuevas if sk]
         if claves:
             sql += (" OR EXISTS (SELECT 1 FROM hmores n WHERE n.synckey IN "
@@ -694,12 +695,15 @@ class SigridWriteClient:
         """R24, R25: `can` = «despues» y `tot = ROUND(can x pre, 2)` con el
         `pre` de la PROPIA linea; cuenta, partida y codigo de hora no se
         tocan. El `WHERE` repite la condicion optimista: si la linea cambio
-        afecta 0 filas. [E] A 0 es `can = 0` y `tot = 0`, nunca un borrado."""
+        afecta 0 filas. [E] A 0 es `can = 0` y `tot = 0`, nunca un borrado.
+        F-034 (R5): el parte se lee con la guarda de parte abierto; el
+        estado sigue siendo el parametro `est_registro`."""
         return {"sql": (
             "UPDATE hmores SET can = ?, tot = ROUND(? * ISNULL(pre, 0), 2) "
             "WHERE ide = ? AND synckey = ? AND ABS(ISNULL(can, 0) - ?) "
-            "<= 0.001 AND EXISTS (SELECT 1 FROM con c WHERE "
-            "c.ide = hmores.hmoide AND c.est = ?) " + self._sin_enlaces()),
+            "<= 0.001 AND "
+            f"{self._guarda_parte_abierto('hmores.hmoide')} "
+            + self._sin_enlaces()),
             "parameters": [float(despues), float(despues), int(ide), synckey,
                            float(antes), int(est_registro)]}
 
@@ -715,7 +719,9 @@ class SigridWriteClient:
         de la base va antes en el mismo lote) y su synckey no existe. El
         `MAX(ide)+1` va en una subconsulta: un agregado con `WHERE` falso
         devolveria fila igualmente (la trampa que ya evita
-        `stmts_crear_parte`)."""
+        `stmts_crear_parte`). F-034 (R6): ademas, la guarda de parte abierto
+        sobre su `hmoide` (antes solo la protegia, de forma indirecta, el
+        `UPDATE` de su base)."""
         cenide = int(getattr(obra, "cenide", 0) or 0)
         return {"sql": (
             "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
@@ -725,14 +731,15 @@ class SigridWriteClient:
             "WITH (UPDLOCK, HOLDLOCK)) x WHERE EXISTS (SELECT 1 FROM hmores b "
             "WHERE b.ide = ? AND b.synckey = ? AND ABS(ISNULL(b.can, 0) - ?) "
             "<= 0.001) AND NOT EXISTS (SELECT 1 FROM hmores s "
-            "WHERE s.synckey = ?)"),
+            "WHERE s.synckey = ?) "
+            f"AND {self._guarda_parte_abierto('?')}"),
             "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
                            int(paride or 0), int(pos), int(fecha_int),
                            int(horide), float(can), float(pre),
                            round(float(can) * float(pre), 2), int(ano),
                            int(mes), int(caaide), (tex or ""), synckey,
                            int(base_ide), base_synckey, float(base_despues),
-                           synckey]}
+                           synckey, int(hmoide), self._est]}
 
     def escribir_lote(self, statements: list[dict]) -> list[int]:
         """R24, R27: el lote ENTERO en una sola llamada a `sql/write` (una
