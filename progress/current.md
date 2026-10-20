@@ -1,15 +1,18 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-034 · spec_ready (2026-10-20): sv5 solo escribe en partes de Sigrid abiertos
+## F-034 · in_progress (2026-10-20): sv5 solo escribe en partes de Sigrid abiertos
 
 Spec en `specs/F-034-escribir-solo-en-partes-abiertos/` (rama
-`feature/F-034-escribir-solo-en-partes-abiertos`, worktree `partes-wt-f034`); informe en
-`progress/spec_F-034.md`. Hallazgo principal: el `INSERT` de líneas del registro y el
-`DELETE` del pisado no comprueban `con.est` al escribir (el lock solo serializa sv5), y
-el pisado borra contra la regla «no borrar en Sigrid». **Pendiente del humano**: DA1–DA9
-(`design.md` §11; DA4 = pisado a 0 en feature aparte, recomendado). **Pendiente del
-líder**: M1 de solo lectura (`design.md` §9) antes de implementar.
+`feature/F-034-escribir-solo-en-partes-abiertos`, worktree `partes-wt-f034`); informe de spec
+en `progress/spec_F-034.md`. **Spec aprobada entera** por el humano el 2026-10-20 («Ok a las
+2»): DA1–DA9 con la recomendación de `design.md` §11; DA4 = A (aquí solo la guarda y R4; «pisar
+= poner a 0» en F-053, detrás de F-034). **M1 (líder, 2026-10-20, solo lectura)**: mes 9 → 16
+partes en estado 1 y 37 en estado 3; mes 10 → 37 en estado 1; 358 líneas `partes:%`, todas en
+2026/10 y en partes En registro; 0 periodos con más de un parte En registro (`design.md` §9).
+
+**Implementer (2026-10-20)**: en curso, un commit por tarea; tarea en curso y desviaciones,
+aquí; detalle en `progress/impl_F-034.md`.
 
 ## F-050 · done (2026-10-20, APPROVED pasada 1), pendiente de despliegue de sv4 y M2–M6: misma fila para el mismo trabajador
 

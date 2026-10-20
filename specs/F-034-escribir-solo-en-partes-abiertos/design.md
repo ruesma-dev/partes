@@ -175,6 +175,10 @@ Fase RED con traza para R1–R6, R9–R13 y R19; R15–R18 y R20 son de caracter
   ON c.ide = h.ide WHERE r.synckey LIKE 'partes:%' GROUP BY h.ano, h.mes, c.est` (que estén
   en partes cerrados es normal: se cerraron después); (c) periodos con más de un parte En
   registro (`HAVING SUM(CASE WHEN c.est = 1 THEN 1 ELSE 0 END) > 1`), esperado 0.
+  **Resultado (líder, 2026-10-20, `sql/read` contra `ruesma`, solo lectura)**: (a) partes de
+  obra de 2026: mes 9 → 16 en estado 1 y 37 en estado 3; mes 10 → 37 en estado 1; (b) líneas
+  con synckey `partes:%`: 358, todas en 2026/10 y en partes en estado 1 (ninguna en partes no
+  abiertos); (c) periodos (obra, año, mes) de 2026 con más de un parte En registro: 0.
 - **M2 (humano, tras `redeploy_partes.ps1 -Solo sv5` y `-Solo sv4`)**: desde local, modo
   pruebas (`OBRA_PRUEBAS_FORZAR=true`, obra 0404, `PRUEBA-IA`): aprobar una línea ⇒
   `registrado` en el parte En registro de 0404 (el SQL nuevo es válido y la guarda deja
@@ -196,7 +200,12 @@ Fase RED con traza para R1–R6, R9–R13 y R19; R15–R18 y R20 son de caracter
   ventana pero no la cierra. Reintento automático al complementario (DA2 B): segunda alta
   bajo el lock y más superficie para un caso raro.
 
-## 11. Decisiones abiertas (para el humano)
+## 11. Decisiones (cerradas por el humano el 2026-10-20)
+
+**Decisión del humano del 2026-10-20, literal: «Ok a las 2»** ⇒ spec aprobada entera con las
+recomendaciones de la tabla (DA1–DA9). En particular **DA4 = A**: aquí solo la guarda del
+estado y R4 sobre el pisado; «pisar = poner a 0» va en una feature aparte que abre el líder
+(**F-053**, detrás de F-034).
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|

@@ -5,13 +5,15 @@
 
 Resumen: **49 features**, 14 abiertas, 35 terminadas.
 
+En curso: **F-034**.
+
 Bloqueadas: **F-014, F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | spec lista | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
+| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | en curso | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 2 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 3 | spec lista | critico | `feature/F-049-editor-calendario-normal-y-extra` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 4 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -70,7 +72,7 @@ Bloqueadas: **F-014, F-032**.
 
 ### F-034 · sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro)
 
-estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
+estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
 
 Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).
 
