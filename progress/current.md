@@ -1,54 +1,27 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · spec_ready (revisada 2026-10-20): misma fila para el mismo trabajador
+## F-050 · in_progress (2026-10-20): misma fila para el mismo trabajador
 
-Spec en `specs/F-050-misma-fila-para-el-mismo-trabajador/` (rama
-`feature/F-050-misma-fila-para-el-mismo-trabajador`, worktree `partes-wt-f050`, sobre
-`dc03468`; el rebase sobre `dev` es del implementer). Solo sv4, sin esquema, sin Sigrid ni
-migración; rigor **estándar**. Revisada por el spec-author el 2026-10-20 con la regla del
-humano, literal: «es una linea por obra empresa y persona. puede estar en varias obras, o
-en 2 empresas».
+Implementer en la rama `feature/F-050-misma-fila-para-el-mismo-trabajador` (worktree
+`partes-wt-f050`), rebasada sobre `dev` (`ff2ed8e`; conflictos solo en `BACKLOG.md`,
+`harness/features.json` y `progress/current.md`, resueltos conservando las dos partes).
+Solo sv4, sin esquema, sin Sigrid ni migración; rigor **estándar**.
 
-**Aprobadas por el humano el 2026-10-20 («ok a lo demás»)**: DA2 (una sola función),
-DA3 (alta manual hereda fila y leído), DA4 (sin migración), DA5 (redirección de enlaces),
-DA6 (la vista del trabajador pasa el recurso), DA7 (E5), DA8 (rigor estándar), DA9 (F-050
-antes de F-049) y, con la segunda regla del humano del mismo día («en la vista por persona,
-se juntan las obras. lo que es importante es que en 2 empresas son 2 personas con vistas
-diferenciadas»), **DA10 opción (a)**: «Por persona», una fila por (empresa, persona) con
-todas sus obras. Esa regla mete en alcance mostrar la empresa (R23–R26, DA11). Detalle de
-la revisión: `progress/spec_F-050.md`.
+**Spec aprobada entera.** DA2–DA10 el 2026-10-20 («ok a lo demás», DA10 opción a) y
+**DA1 (opción A, clave `rec-` primero), DA1b (dos filas, anomalía que se reasigna) y DA11
+(empresa con la regla de F-033 sobre la base `partes`) el 2026-10-20 («ok»)**; DA5 y DA6
+ampliadas, confirmadas con DA1.
 
-**Abiertas, las valida el humano antes de implementar** (`design.md` §8):
+**M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas, 38 filas (obra,
+recurso), **1 fila que se une**, 0 fichas sin recurso, 0 casadas sin ficha ni recurso,
+0 DNIs con varios recursos en una obra (E11), 36 recursos, 0 recursos sin empresa en sus
+partes, 0 DNIs en dos empresas.
 
-- **DA1 · Clave**: verificado en el código que una persona puede tener en una obra líneas
-  con ficha (`emp-`) y sin ficha del mismo recurso (casos C1–C3 de design §1). Recomendada
-  **A**: `rec-{recurso}` para toda línea casada con recurso, con o sin ficha (recurso =
-  `recurso_ide`, si no `empleado_reside`), > `emp-` (ficha sin recurso) > `nom-` >
-  `sin-trabajador`. Descartadas la del 15/10 (`emp-` primero), empresa + DNI (la línea no
-  guarda la empresa; DNI en la URL) y un mapa ficha↔recurso. Coste: cambian las URL `emp-`
-  (DA5 se amplía a redirigirlas) y DA6 se amplía (pasar también la ficha; enlace «Ver» de
-  «Nuevo parte»); en tests existentes, **119 tests de 21 ficheros** esperan `emp-77` con
-  recurso 501 y cambian solo el literal (experimento en memoria, árbol intacto; la suite
-  base da 2068 passed).
-- **DA1b**: dos recursos persona del mismo DNI en una empresa (E11) salen en dos filas;
-  recomendado aceptarlo como anomalía y reasignar.
-- **DA11 · Empresa de la persona** (nueva): columna «Empresa» en «Por persona» y empresa
-  en la cabecera de `/trabajadores/{clave}`. Recomendada la regla de F-033 sobre la base
-  `partes` (empresa de los partes de la clave o, si ninguno la tiene, la deducida por su
-  recurso de otros partes): sin Sigrid ni consultas nuevas, solo sv4. Sin empresa ⇒ «—»
-  (partes manuales o anteriores a F-023 sin recurso deducible); en `nom-`/`sin-trabajador`
-  se pinta la empresa de sus partes. Descartados el catálogo de recursos de Sigrid, Sigrid
-  por fila, guardar la empresa en la línea (sv3 y esquema) y el respaldo por obra.
+**Tarea en curso**: T1. Decisiones y desviaciones: se anotan aquí y en
+`progress/impl_F-050.md`.
 
-**MANUAL (humano)**: M1 (SQL de solo lectura de `design.md` §6) mejor **antes de
-implementar**: sus cifras (filas que se unen, fichas sin recurso, DNIs con dos recursos en
-una obra) apoyan DA1 y DA1b. M2–M6 tras desplegar sv4 (M6: columna «Empresa»).
-
-**Lo fusionado en `dev` tras `dc03468`** (F-046, F-048, F-051) no cambia la clave ni el alta
-manual; F-046 agrupa el reparto por `recurso_ide`, igual que la clave A. Tras el rebase,
-repetir el recuento de tests de R22 (en `dev` se suman `test_f046_marcas` y
-`test_f048_traza_portal`).
+**MANUAL (humano)** tras desplegar sv4: M2–M6 (`design.md` §6).
 
 
 ## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila

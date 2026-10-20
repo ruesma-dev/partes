@@ -2,8 +2,8 @@
 # F-050 · Misma fila para el mismo trabajador — Requisitos
 
 **Solo sv4** (`services/partes-front/`). Sin esquema, sin sv3, sin sv5, sin Sigrid. Rigor
-**estándar**. Decisiones: design §8 (DA2–DA10 aprobadas por el humano el 2026-10-20; **DA1,
-DA1b y DA11 abiertas**).
+**estándar**. Decisiones: design §8 (todas aprobadas por el humano; DA1 opción A, DA1b y DA11 el
+2026-10-20).
 
 Petición del humano (2026-10-15): «cuando añado la línea con "añadir línea", si el
 trabajador ya tiene extras y solo extras, al añadir ordinario me duplica en el calendario
