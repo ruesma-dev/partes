@@ -168,11 +168,8 @@ SELECT
    GROUP BY obra_ide, dni HAVING count(DISTINCT recurso) > 1) b) AS dni_con_varios_recursos;
 ```
 
-**Resultado de M1 (líder, 2026-10-20, solo lectura sobre la base `partes`)**: 560 líneas
-casadas activas en 38 filas (obra, recurso); **1 fila que se une**; 0 fichas sin recurso
-(E12); 0 casadas sin ficha ni recurso; 0 DNIs con varios recursos en una obra (E11); 36
-recursos; 0 recursos sin empresa en sus partes (hoy no saldría ninguna «—», R25); 0 DNIs
-en dos empresas.
+**M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas en 38 filas (obra, recurso);
+**1 se une**; 0 en E11, E12 o sin ficha ni recurso; 36 recursos, 0 sin empresa y 0 DNIs en dos empresas.
 
 Tras desplegar sv4 (`.\redeploy_partes.ps1 -Solo sv4` desde `infra/`, lo pide el humano):
 **M2** obra 0678, periodo con el 15/10: el trabajador del caso en **una** fila «8+2»,
@@ -195,50 +192,45 @@ sigue valiendo (homónimos con distinta clave, caso previo, fuera).
 
 ## 8. Decisiones
 
-- **DA1 · Clave — APROBADA por el humano el 2026-10-20 («ok»), opción A.** Recomendada **A**: `rec-{recurso}`
-  para **toda** línea casada con recurso (con o sin ficha) > `emp-` (ficha sin recurso) >
-  `nom-` > `sin-trabajador`. El recurso persona es de una sola empresa y común a toda línea
-  casada (§1): una fila por (obra, empresa, persona) en E1, E8, E9 y E10, el grupo de sv3 y
-  del reparto de F-046. La decisión del humano de hoy («en 2 empresas son 2 personas») es
-  justo lo que A garantiza: dos recursos, dos claves. Coste: cambian las URL `emp-` (R14) y
-  21 ficheros de tests (literales, R22). Descartadas: **la del 15/10** (`emp-` primero: C1–C3
-  en dos filas); **empresa + DNI** (la línea no guarda la empresa y el documento manual
-  nace sin ella; DNI en la URL y los logs; sin DNI hace falta el recurso); **ficha antes
-  con un mapa ficha↔recurso** (la clave dependería de otras líneas o de Sigrid); nombre de
-  Sigrid (homónimos).
-- **DA1b · Dos recursos del mismo DNI en una empresa (E11) — APROBADA por el humano el
-  2026-10-20 («ok»): dos filas, anomalía que se reasigna.** Con A, dos filas,
-  como en Sigrid (cada recurso, su parte y su reparto). Recomendado: anomalía visible que se
-  reasigna; si M1 da casos y el humano quiere una fila, otra feature (unir por DNI).
+- **DA1 · Clave — APROBADA el 2026-10-20 («ok»), opción A**: `rec-{recurso}` para **toda**
+  línea casada con recurso (con o sin ficha) > `emp-` (ficha sin recurso) > `nom-` >
+  `sin-trabajador`. El recurso persona es de una sola empresa y común a toda línea casada
+  (§1): una fila por (obra, empresa, persona) en E1, E8, E9 y E10, el grupo de sv3 y del
+  reparto de F-046; «en 2 empresas son 2 personas» es justo lo que A garantiza. Coste:
+  cambian las URL `emp-` (R14) y 21 ficheros de tests (literales, R22). Descartadas: **la
+  del 15/10** (`emp-` primero: C1–C3 en dos filas); **empresa + DNI** (la línea no guarda
+  la empresa y el manual nace sin ella; DNI en la URL y los logs; sin DNI hace falta el
+  recurso); **ficha antes con un mapa ficha↔recurso** (dependería de otras líneas o de
+  Sigrid); nombre de Sigrid (homónimos).
+- **DA1b · Dos recursos del mismo DNI en una empresa (E11) — APROBADA el 2026-10-20 («ok»).**
+  Dos filas, como en Sigrid: anomalía visible que se reasigna (M1: 0 casos hoy).
 - **DA10 · Lista «Por persona» — APROBADA el 2026-10-20, opción (a)** («en la vista por
   persona, se juntan las obras»): una fila por clave = (empresa, persona) con todas sus
   obras (R9); `/trabajadores/{clave}` las separa por día y obra y «Por obra» da la fila por
   (obra, persona). Descartada (b): una fila por (obra, clave) también aquí.
-- **DA11 · Empresa de la persona — APROBADA por el humano el 2026-10-20 («ok»): regla de
-  F-033 sobre la base `partes`.** Recomendada **la
-  regla de F-033 sobre la base `partes`** (§3): empresas no nulas de los partes de las
-  líneas de la clave o, si ninguno la tiene, la de su recurso deducida de otros partes
-  (un recurso persona es de una sola empresa). Fiable (sv3 fija `parte_documents.empresa`
-  por membrete, obra o trabajadores, F-023, y sv3 y el selector eligen el recurso en la
-  empresa de la obra), barata (datos ya cargados), sin Sigrid y probada en «Por obra». Sin
-  empresa ⇒ «—» (R25): persona solo en partes manuales o anteriores a F-023 cuyo recurso no
-  sale en partes con empresa, o `emp-` sin recurso en esos partes. En `nom-`/
-  `sin-trabajador` es la de sus partes: dos («Ruesma / Porsan») avisan de homónimos o de
-  líneas por casar. Descartadas: **catálogo de Sigrid** (`RecursoCatalog`,
-  `_SQL_RECURSOS_ACTIVOS` trae `rescon.emp`): solo recursos de alta hoy, carga de toda la
-  tabla con TTL y vacía si sigrid-api falla; **Sigrid por fila** (N llamadas); **empresa
-  en la línea** (esquema, migración y sv3: fuera del límite); **`recurso_cif`** (es el
-  DNI); **respaldo por obra** (cambia `empresas_de_fila` de F-033; R-d); **«—» siempre en
-  `nom-`/`sin-trabajador`** (oculta un dato cierto y rompe la regla única con «Por obra»).
+- **DA11 · Empresa de la persona — APROBADA el 2026-10-20 («ok»): la regla de F-033 sobre
+  la base `partes`** (§3): empresas no nulas de los partes de las líneas de la clave o, si
+  ninguno la tiene, la de su recurso deducida de otros partes (un recurso persona es de una
+  sola empresa). Fiable (sv3 fija `parte_documents.empresa` por membrete, obra o
+  trabajadores, F-023, y sv3 y el selector eligen el recurso en la empresa de la obra),
+  barata (datos ya cargados), sin Sigrid y probada en «Por obra». Sin empresa ⇒ «—» (R25):
+  persona solo en partes manuales o anteriores a F-023 cuyo recurso no sale en partes con
+  empresa, o `emp-` sin recurso en esos partes. En `nom-`/`sin-trabajador` es la de sus
+  partes: dos («Ruesma / Porsan») avisan de homónimos o de líneas por casar. Descartadas:
+  **catálogo de Sigrid** (`RecursoCatalog`; solo recursos de alta hoy, carga con TTL y vacío
+  si sigrid-api falla); **Sigrid por fila** (N llamadas); **empresa en la línea** (esquema,
+  migración y sv3); **`recurso_cif`** (es el DNI); **respaldo por obra** (cambia
+  `empresas_de_fila` de F-033; R-d); **«—» siempre en `nom-`/`sin-trabajador`** (oculta un
+  dato cierto y rompe la regla única con «Por obra»).
 - **Aprobadas por el humano el 2026-10-20 («ok a lo demás»)**: **DA2** una sola función
   (`get_parte` y `list_partes` incluidas; las `sin-trabajador` del detalle, por fila); **DA3**
   el alta manual hereda fila y leído (R16) o va al final (R17), sin heredar `line_index`
   (F-037); **DA4** sin migración; **DA7** E5 visible; **DA8** estándar; **DA9** antes de F-049.
-- **DA5 · Enlaces** — aprobada para `nom-`; con A **se amplía a `emp-`** (R14), **confirmada
-  con DA1 el 2026-10-20**. Solo el `GET` y con destino único; las POST fallan seguras con 0 líneas (R13).
-- **DA6 · La vista del trabajador pasa el recurso** (R19) — aprobada; con A **se amplía** (confirmada con DA1 el 2026-10-20) a
-  la ficha y al «Ver» de «Nuevo parte» (R20). La persona fijada salta el filtro por empresa
-  del selector (F-035); sv3 y sv5 verifican empresa y alta.
+- **DA5 · Enlaces** — aprobada para `nom-` y ampliada a `emp-` (R14), confirmada con DA1.
+  Solo el `GET` y con destino único; las POST fallan seguras con 0 líneas (R13).
+- **DA6 · La vista del trabajador pasa el recurso** (R19) — aprobada y ampliada, confirmada
+  con DA1, a la ficha y al «Ver» de «Nuevo parte» (R20). La persona fijada salta el filtro
+  por empresa del selector (F-035); sv3 y sv5 verifican empresa y alta.
 
 ## 9. Riesgos
 

@@ -3,7 +3,9 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **45 features**, 11 abiertas, 34 terminadas.
+Resumen: **46 features**, 12 abiertas, 34 terminadas.
+
+En curso: **F-050**.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -13,7 +15,7 @@ Bloqueadas: **F-014, F-032**.
 |---|---|---|---|---|---|
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | spec lista | estandar | `feature/F-050-misma-fila-para-el-mismo-trabajador` |
+| F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | en curso | estandar | `feature/F-050-misma-fila-para-el-mismo-trabajador` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
@@ -79,9 +81,9 @@ Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con much
 
 ### F-050 · Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel
 
-estado **spec lista** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-050-misma-fila-para-el-mismo-trabajador`
+estado **en curso** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-050-misma-fila-para-el-mismo-trabajador`
 
-Pedida por el humano el 2026-10-15: al anadir con «+ Anadir linea» una ordinaria a un trabajador que solo tenia extras, el calendario de la obra lo pinta en dos filas. Causa (verificada en sv4): worker_key_for_registro agrupa por emp-{empleado_ide} y, sin ficha, por el nombre leido; la linea de la IA guarda el leido del papel y crear_parte_manual escribe como leido el nombre de Sigrid; ademas una persona puede tener en una obra lineas con y sin ficha del mismo recurso; el detalle y el listado de partes agrupan con otra variante, y la vista del trabajador da de alta sin el recurso. Regla del humano (2026-10-20): «es una linea por obra empresa y persona. puede estar en varias obras, o en 2 empresas». F-050 (solo sv4, sin esquema ni Sigrid ni migracion), propuesta revisada el 2026-10-20: clave rec-{recurso} para toda linea casada con recurso (con o sin ficha) > emp- (ficha sin recurso) > nom- > sin-trabajador, en una sola funcion para todas las vistas y acciones; el alta manual hereda empleado_line_no y leido de la persona en ese parte (si no esta, fila nueva al final); la vista del trabajador pasa ficha y recurso al modal; las URL emp- y nom- antiguas redirigen si el destino es unico; en los tests existentes solo cambia el literal de la clave. DA2-DA9 aprobadas por el humano el 2026-10-20; abiertas DA1 (clave), DA1b (dos recursos del mismo DNI en una empresa) y DA10 (lista Por persona). Spec: specs/F-050-misma-fila-para-el-mismo-trabajador/.
+Pedida por el humano el 2026-10-15: al añadir con «+ Añadir línea» una ordinaria a un trabajador que solo tenía extras, el calendario de la obra lo pinta en dos filas. Causa (verificada en sv4): worker_key_for_registro agrupa por emp-{empleado_ide} y, sin ficha, por el nombre leído; la línea de la IA guarda el leído del papel y crear_parte_manual escribe como leído el nombre de Sigrid; además una persona puede tener en una obra líneas con y sin ficha del mismo recurso; el detalle y el listado de partes agrupan con otra variante, y la vista del trabajador da de alta sin el recurso. Reglas del humano (2026-10-20): «es una linea por obra empresa y persona. puede estar en varias obras, o en 2 empresas» y «en la vista por persona, se juntan las obras. lo que es importante es que en 2 empresas son 2 personas con vistas diferenciadas». F-050 (solo sv4, sin esquema ni Sigrid ni migración): clave rec-{recurso} para toda línea casada con recurso (con o sin ficha) > emp- (ficha sin recurso) > nom- > sin-trabajador, en una sola función para todas las vistas y acciones; «Por persona» una fila por (empresa, persona) con todas sus obras y la empresa a la vista (columna «Empresa» y cabecera del trabajador, con la regla de F-033 sobre la base partes); el alta manual hereda empleado_line_no y leído de la persona en ese parte (si no está, fila nueva al final); la vista del trabajador pasa ficha y recurso al modal; las URL emp- y nom- antiguas redirigen si el destino es único; en los tests existentes solo cambia el literal de la clave. DA1 (opción A), DA1b y DA11 aprobadas por el humano el 2026-10-20, junto con DA2-DA10. M1 (líder, 2026-10-20): 1 fila que se une, 0 fichas sin recurso, 0 DNIs con varios recursos en una obra. Spec: specs/F-050-misma-fila-para-el-mismo-trabajador/.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
