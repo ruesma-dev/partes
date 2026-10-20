@@ -1,9 +1,31 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · blocked (2026-10-20, en T11: la campaña de mutación no arranca): misma fila para el mismo trabajador
+## F-050 · in_progress (2026-10-20, T1–T13 hechas, lista para el reviewer): misma fila para el mismo trabajador
 
-### Motivo del `blocked` (T11)
+### T11 · desbloqueada (2026-10-20)
+
+**Decisión del humano del 2026-10-20 («si») sobre la opción B**: el suelo
+`mutacion.timeout_por_mutante_s` de `harness/rigor.json` sube de 120 a 300 s (commit
+`04613e6` del líder; tests de harness/mutación `110 passed`). **No se porta a `arnes-base`**:
+responde al tamaño de la suite de sv4, no es una mejora genérica. El líder lanzó
+`python -m harness.mutacion --feature F-050 --workers 1` (sin `--timeout`): línea base en
+verde 519,6 s, timeout por mutante 1040 s; **20 evaluados: 13 muertos, 4 supervivientes
+(#7, #9, #11, #16), 3 timeouts (#12, #13, #20)**, 14175,8 s. Informe en
+`progress/mutacion_F-050.md`.
+
+**T11 cerrada (implementer, 2026-10-20)**, sin relanzar la campaña: #7 y #11 equivalentes
+estrictos; #9 equivalente en el dominio (centinela `10**9` frente a `10**10`); **#16 hueco
+real** (alta con ficha y recurso, caso de R19/M5) ⇒ test nuevo
+`test_f050_r16_con_ficha_y_recurso_hereda_de_su_rec`, RED contra el mutante y verde; los 3
+timeouts reproducidos: los matan 13, 9 y 4 tests de R14/R15 de `test_f050_portal.py`, sin
+bucle (contención de la máquina con `-x` y los tests de F-050 al final). Balance: 17
+detectados y 3 equivalentes de 20. `bash harness/init.sh` en verde. **Siguiente: reviewer.**
+
+**Nota de despliegue (líder, 2026-10-20)**: en Azure, `REPARTO_REAJUSTE=true` está
+**encendido en sv3 desde el 2026-10-18** (paso 4 de T23 de F-046, abajo).
+
+### Motivo del `blocked` (T11, historia)
 
 T1–T10, T12 y T13 hechas; `bash harness/init.sh` en verde (PUERTA COBERTURA 100 % de 60
 líneas cambiadas). La mutación muestreada que exige el nivel **estándar** no ha evaluado
@@ -44,9 +66,8 @@ con DA1. **M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas,
 recurso, 0 DNIs con varios recursos en una obra, 36 recursos, 0 sin empresa, 0 DNIs en dos
 empresas.
 
-**Implementación (implementer, 2026-10-20)**: T1–T10, T12 y T13 hechas, un commit por tarea;
-detalle, fases RED y evidencias en `progress/impl_F-050.md`. Pendiente: T11 (mutación, arriba)
-y después el reviewer.
+**Implementación (implementer, 2026-10-20)**: T1–T13 hechas, un commit por tarea;
+detalle, fases RED y evidencias en `progress/impl_F-050.md`. Pendiente: el reviewer.
 
 **MANUAL (humano), pendiente** (`design.md` §6; M1 ya medida por el líder). Solo lectura
 salvo el despliegue y M5; los agentes no los lanzan:
@@ -216,7 +237,9 @@ ejecutable; 0 bugs. Detalle en `progress/mutacion_F-046.md`; resumen en `progres
    `.\redeploy_partes.ps1 -Solo sv3`.
 3. **M4** (base `partes`, solo lectura): `SELECT count(*) FROM reparto_pendiente` ⇒ 0 (la tabla
    la crean sv3/sv4 al arrancar).
-4. Encender: `az containerapp update -n ca-sv3-persistencia -g rg-partes-dev --set-env-vars REPARTO_REAJUSTE=true`.
+4. ~~Encender: `az containerapp update -n ca-sv3-persistencia -g rg-partes-dev --set-env-vars REPARTO_REAJUSTE=true`.~~
+   **Hecho**: `REPARTO_REAJUSTE=true` encendido en sv3 en Azure desde el 2026-10-18 (dato del
+   líder, anotado el 2026-10-20).
 5. **M5**: `SELECT estado, count(*) FROM reparto_pendiente GROUP BY estado`; Log Analytics de
    `ca-sv3-persistencia` con `Log_s has 'reparto'` (líneas «reparto propuesto» y
    «reajuste: propuestos=…»).

@@ -136,6 +136,25 @@ def test_f050_r16_con_ficha_hereda_de_su_clave() -> None:
         4, "Ficha Cincuenta")
 
 
+def test_f050_r16_con_ficha_y_recurso_hereda_de_su_rec() -> None:
+    """T11 (mutante #16): el alta desde la vista del trabajador manda ficha
+    Y recurso (R19). Su clave es `rec-{recurso}`, no `emp-{ficha}`: hereda
+    la fila y el leido de la linea casada con ese recurso."""
+    fabrica = FabricaSesionSqlite()
+    with fabrica.create_session() as s:
+        _doc(s, "d-fr")
+        _reg(s, "d-fr", 0, 1, trabajador_nombre_leido="Sin Casar")
+        _reg(s, "d-fr", 1, 4, empleado_ide=56, recurso_ide=5601,
+             trabajador_nombre_leido="Ficha Cincuentaiseis")
+        s.commit()
+    repo = ParteReviewRepository(fabrica)
+    antes = _ids(fabrica)
+    _alta(repo, ide=56, reside=5601, nombre="CINCUENTAISEIS, FICHA")
+    (nueva,) = _nuevas(fabrica, antes)
+    assert (nueva.empleado_line_no, nueva.trabajador_nombre_leido) == (
+        4, "Ficha Cincuentaiseis")
+
+
 # ===================================================================== #
 # R17 · la persona no esta: fila nueva al final
 # ===================================================================== #

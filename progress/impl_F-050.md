@@ -2,8 +2,9 @@
 # F-050 · Informe del implementer
 
 Rama `feature/F-050-misma-fila-para-el-mismo-trabajador` (worktree `partes-wt-f050`), sobre
-`dev` (`ff2ed8e`). Solo sv4. Estado: **T1–T10, T12 y T13 hechas; `blocked` en T11**: la
-campaña de mutación no pasa de la línea base (motivo y propuesta en `progress/current.md`).
+`dev` (`ff2ed8e`). Solo sv4. Estado: **T1–T13 hechas; lista para el reviewer**. T11 estuvo
+`blocked` (la campaña no pasaba de la línea base) hasta que el humano subió el suelo de
+mutación a 300 s el 2026-10-20 (commit `04613e6` del líder).
 
 ## Qué cambió (un commit por tarea)
 
@@ -20,7 +21,8 @@ campaña de mutación no pasa de la línea base (motivo y propuesta en `progress
 | T8 | `d7e965e` | `_empresa_por_recurso` extraída de `list_obras`; `empresas`/`empresa_texto` en `WorkerRow` y `WorkerDetail`; orden; columna «Empresa» y cabecera (R23–R26) |
 | T9 | `12e4092` | `docs/ARCHITECTURE.md` semántica 14: orden de la clave |
 | T10 | `6519b1e` | comprobación de R21 (Evidencias) |
-| T12, T13 | este cierre | M2–M6 y despliegue en `progress/current.md`; `init.sh` en verde |
+| T11 | ver `git log` (`F-050 T11: …`) | análisis de la campaña en `progress/mutacion_F-050.md` y test nuevo de R16 que mata el #16 |
+| T12, T13 | `28e7aac` y el de T11 | M2–M6 y despliegue en `progress/current.md`; `init.sh` en verde |
 
 **Producción** (todo sv4): `infrastructure/database/parte_repository.py`,
 `interface_adapters/web/app.py`, `templates/trabajador_detail.html`,
@@ -149,11 +151,21 @@ test_f050_empresa.py:265: assert '· Ruesma' in '<div class="page-header"> ... C
 Los 2 que pasan («sin consultas nuevas» y «sin empresa, la cabecera no la pinta») exigen lo
 de hoy. Después, con `test_f033_columna_empresa.py` y `test_f050_vistas.py`: `53 passed`.
 
+**T11** (`tests/test_f050_alta_manual.py`, test nuevo
+`test_f050_r16_con_ficha_y_recurso_hereda_de_su_rec`, contra el mutante #16 aplicado a mano,
+`casada=empleado_ide is None or …`, y restaurado después):
+```
+test_f050_alta_manual.py:154: AssertionError: assert (5, 'CINCUENTAISEIS, FICHA') == (4, 'Ficha Cincuentaiseis')
+FAILED tests/test_f050_alta_manual.py::test_f050_r16_con_ficha_y_recurso_hereda_de_su_rec
+1 failed, 11 passed in 3.58s
+```
+Con el código real: `12 passed in 5.99s`.
+
 ## Fuera de alcance y pendiente
 
 - Fuera (requirements «Fuera de alcance»): unir E11, respaldo de empresa por obra, corregir
   líneas manuales ya guardadas y el aviso de jornada incompleta por nombre.
-- **Pendiente: T11** (mutación, `blocked`); después, reviewer.
+- **Pendiente: reviewer.**
 - **MANUAL (humano)**: despliegue solo de sv4 y M2–M6 (`design.md` §6; pasos en
   `progress/current.md`).
 
@@ -161,29 +173,32 @@ de hoy. Después, con `test_f033_columna_empresa.py` y `test_f050_vistas.py`: `5
 
 | Evidencia | Valor medido |
 |---|---|
-| Tests de F-050 | 139 en 5 ficheros (`clave` 57, `vistas` 23, `alta_manual` 11, `portal` 29, `empresa` 19), todos verdes |
+| Tests de F-050 | 140 en 5 ficheros (`clave` 57, `vistas` 23, `alta_manual` 12, `portal` 29, `empresa` 19), todos verdes |
 | Suite de sv4 (tras T8, sin cobertura) | `2347 passed, 1 skipped, 1 warning in 569.06s (0:09:29)` |
-| Suite de sv4 dentro de `init.sh` (con cobertura) | `2347 passed, 1 skipped, 1 warning in 1879.78s (0:31:19)` |
-| Suite raíz dentro de `init.sh` | `493 passed, 3 skipped in 63.80s` |
+| Suite de sv4 dentro de `init.sh` (con cobertura) | tras T8: `2347 passed, 1 skipped, 1 warning in 1879.78s (0:31:19)`; tras T11: `2348 passed, 1 skipped, 1 warning in 1451.73s (0:24:11)` |
+| Suite raíz dentro de `init.sh` | tras T8: `493 passed, 3 skipped in 63.80s`; tras T11: `493 passed, 3 skipped in 256.70s` |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 60 líneas cambiadas cubiertas (60/60, umbral 80%, nivel estandar)` |
 | R21 (T10) | `git diff dev --stat` de sv1/sv2/sv3/sv5, `infra`, `CLAUDE.md`, `orm_models.py`, `application/`, `infrastructure/sigrid/`, `obra_detail.html`, `parte_detail.html`: **vacío**; en tests solo las `A` de F-050 y las `M` de T2; `crear_extra_desde`, `list_unmatched_workers`, `obra_key_for_registro`, `esta_casado` y `persona_de` idénticas a `dev` (comparación por AST) |
-| Mutantes generados / supervivientes | **ninguno evaluado**: la campaña aborta en la línea base (abajo) |
-| `bash harness/init.sh` | `ENTORNO LISTO. Puedes trabajar.` (exit 0); PUERTA TAMAÑO dentro de topes (requirements 150/150, design 250/250) |
+| Mutantes generados / supervivientes | **35 generados, 20 evaluados** (muestreo estándar, semilla `20260820`, `--workers 1`, HEAD `04613e6`): 13 muertos, 4 supervivientes, 3 timeouts, 14175,8 s; línea base 519,6 s, timeout 1040 s. Tras el análisis: **17 detectados** (13 + 3 timeouts que matan los tests de R14/R15 + #16 con test nuevo) y **3 equivalentes** (#7, #9, #11) |
+| `bash harness/init.sh` (tras T11) | `ENTORNO LISTO. Puedes trabajar.` (exit 0); `PUERTA COBERTURA: 100.0% de 60 líneas cambiadas cubiertas (60/60, umbral 80%, nivel estandar)`; `PUERTA TAMAÑO: F-050 dentro de los topes (requirements 150/150, design 250/250, impl 204/220)` |
 
-### Mutación (T11): `blocked`
+### Mutación (T11)
 
-`C:/Users/pgris/PycharmProjects/partes/.venv/Scripts/python.exe -m harness.mutacion --feature F-050 --workers 3`
-(sin `--timeout`; log en el scratchpad, fuera del worktree), exit 3:
+Campaña lanzada por el líder: `python -m harness.mutacion --feature F-050 --workers 1` (sin
+`--timeout`, suelo 300 s). Detalle y análisis de cada caso en `progress/mutacion_F-050.md`:
 
-```
-F-050: 2 fichero(s), 163 línea(s) de producción (origen rama, ff2ed8e..feature/F-050-misma-fila-para-el-mismo-trabajador)
-Muestreo: hasta 20 mutantes, semilla 20260820 (nivel estandar).
-Timeout por mutante: se derivará de la línea base medida, con suelo 120 s y margen 2.0. La propia línea base dispone de 600 s.
-Campaña paralela: hasta 3 workers, uno por worktree.
-LÍNEA BASE SIN TERMINAR en …/mutacion_F-050_bm_dyzup/wk_1/services/partes-front: la suite SIN MUTAR agotó los 600 s que se le concedieron (el suelo 'mutacion.timeout_por_mutante_s' multiplicado por la holgura de 5), con 3 worker(s) compitiendo por la máquina.
-```
+- **#7** (`else 1` → `else 2` en el orden de R26) y **#11** (`casada=False` → `True` con
+  `recurso=None` en R14): **equivalentes** estrictos (mismo orden; rama inalcanzable).
+- **#9** (centinela `10**9` → `10**10`): **equivalente en el dominio** (ningún código de
+  empresa entre 10^9 y 10^10); observación al reviewer sobre `float("inf")`, sin cambio.
+- **#16** (`empleado_ide is not None` → `is None` en la clave del alta): **hueco real**; el
+  alta con ficha **y** recurso (el caso de R19/M5) no tenía test de R16. Lo mata el test
+  nuevo (fase RED arriba). Sin relanzar la campaña.
+- **Timeouts #12, #13, #20** (umbral de R14, construcción de la URL del 307): **detectados**.
+  Reproducidos sobre los 23 ficheros que piden `/trabajadores/…`: 13, 9 y 4 fallos en
+  `test_f050_portal.py`, sin bucle ni cuelgue. Con `-x` solo los matan los tests de F-050,
+  que van al final, y la carga de la máquina los pasó de 1040 s (el mismo subconjunto tardó
+  entre 337 y 598 s).
 
-La suite de sv4 sola tarda 569 s; tres a la vez no caben en 600 s. Bajar los workers o subir
-el suelo de `harness/rigor.json` se sale de lo pedido (`--workers 3`, sin tocar el arnés): no
-lo improviso. Opciones A/B/C en `progress/current.md`. Los worktrees de la campaña se
-borraron solos; queda `progress/mutacion_F-050.md` por hacer.
+La primera campaña (`--workers 3`, suelo 120 s) abortó en la línea base, con 600 s para tres
+suites de 569 s a la vez; de ahí el `blocked` y la decisión del humano.
