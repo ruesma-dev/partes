@@ -13,6 +13,7 @@
       {% else %}
         <span class="badge danger">Sin casar en Sigrid</span>
       {% endif %}
+      {% if detail.empresas %} · {{ detail.empresa_texto }}{% endif %}
       {% if detail.dni %} · DNI {{ detail.dni }}{% endif %}
       {% set _vh = (detail.registros | selectattr('recurso_precio_hora') | map(attribute='recurso_precio_hora') | first) %}
       {% if _vh %} · <strong>valor hora {{ ("%.2f"|format(_vh))|replace(".", ",") }} &euro;</strong>{% endif %}

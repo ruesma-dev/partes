@@ -219,6 +219,9 @@ class WorkerRow:
     horas_normales: float
     horas_extra: float
     num_incidencias: int
+    #: F-050 (R23): empresas de la persona (regla de F-033) y su texto.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -301,6 +304,9 @@ class WorkerDetail:
     horas_extra: float
     num_incidencias: int
     registros: list[RegistroView] = field(default_factory=list)
+    #: F-050 (R24): empresas de la persona (regla de F-033) y su texto.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -554,6 +560,28 @@ def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
     return _clave_trabajador(
         casada=esta_casado(reg), empleado_ide=reg.empleado_ide,
         recurso=_recurso_de(reg), nombre_leido=reg.trabajador_nombre_leido)
+
+
+def _empresa_por_recurso(regs: list[ParteRegistroOrm]) -> dict[int, set[int]]:
+    """F-033 (R4): empresa de cada recurso, deducida de los partes con
+    empresa donde aparece (cualquier obra). Sin consulta nueva."""
+    empresa_por_recurso: dict[int, set[int]] = {}
+    for reg in regs:
+        if reg.recurso_ide is not None and reg.document.empresa is not None:
+            empresa_por_recurso.setdefault(
+                reg.recurso_ide, set()).add(reg.document.empresa)
+    return empresa_por_recurso
+
+
+def _empresas_de_lineas(
+    regs: list[ParteRegistroOrm], empresa_por_recurso: dict[int, set[int]],
+) -> list[int]:
+    """F-050 (R23-R25, DA11): empresas de las lineas de una persona con la
+    regla de «Por obra»: las de sus partes o, si ninguno la tiene, las de
+    su recurso deducidas de otros partes."""
+    return empresas_de_fila(
+        {r.document.empresa for r in regs},
+        {_recurso_de(r) for r in regs}, empresa_por_recurso)
 
 
 def fila_para_alta_manual(
@@ -955,9 +983,11 @@ class ParteReviewRepository:
                     "horas_normales": 0.0,
                     "horas_extra": 0.0,
                     "num_incidencias": 0,
+                    "lineas": [],
                 }
                 groups[key] = g
             g["docs"].add(reg.document_id)
+            g["lineas"].append(reg)
             g["num_registros"] += 1
             if reg.es_incidencia:
                 g["num_incidencias"] += 1
@@ -967,6 +997,11 @@ class ParteReviewRepository:
                 g["horas_normales"] += reg.horas or 0.0
             if not g["categoria"] and reg.categoria:
                 g["categoria"] = reg.categoria
+
+        # F-050 (R23, DA11): empresa de cada persona, con lo ya cargado.
+        empresa_por_recurso = _empresa_por_recurso(regs)
+        for g in groups.values():
+            g["empresas"] = _empresas_de_lineas(g["lineas"], empresa_por_recurso)
 
         rows = [
             WorkerRow(
@@ -982,6 +1017,8 @@ class ParteReviewRepository:
                 horas_normales=round(g["horas_normales"], 2),
                 horas_extra=round(g["horas_extra"], 2),
                 num_incidencias=g["num_incidencias"],
+                empresas=g["empresas"],
+                empresa_texto=texto_empresas(g["empresas"]),
             )
             for g in groups.values()
         ]
@@ -994,7 +1031,11 @@ class ParteReviewRepository:
                 or needle in _norm(r.dni)
                 or needle in _norm(r.codigo)
             ]
-        rows.sort(key=lambda r: (0 if r.matched else 1, _norm(r.nombre)))
+        # F-050 (R26): los homonimos, por menor empresa; sin empresa, detras.
+        rows.sort(key=lambda r: (
+            0 if r.matched else 1, _norm(r.nombre),
+            r.empresas[0] if r.empresas else 10**9,
+        ))
         return rows
 
     def get_worker(
@@ -1041,6 +1082,9 @@ class ParteReviewRepository:
         detail.empleado_ide = next(
             (r.empleado_ide for r in reversed(regs)
              if r.empleado_ide is not None), None)
+        # F-050 (R24, DA11): su empresa, con las lineas ya cargadas.
+        detail.empresas = _empresas_de_lineas(regs, _empresa_por_recurso(todas))
+        detail.empresa_texto = texto_empresas(detail.empresas)
         for reg in regs:
             if reg.es_incidencia:
                 detail.num_incidencias += 1
@@ -1116,11 +1160,7 @@ class ParteReviewRepository:
 
         # F-033 (R4): empresa de cada recurso, deducida de los partes con
         # empresa donde aparece (cualquier obra). Sin consulta nueva.
-        empresa_por_recurso: dict[int, set[int]] = {}
-        for reg in regs:
-            if reg.recurso_ide is not None and reg.document.empresa is not None:
-                empresa_por_recurso.setdefault(
-                    reg.recurso_ide, set()).add(reg.document.empresa)
+        empresa_por_recurso = _empresa_por_recurso(regs)
 
         groups: dict[str, dict[str, Any]] = {}
         for reg in regs:
