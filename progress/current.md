@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · in_progress (2026-10-20, T1–T13 hechas, lista para el reviewer): misma fila para el mismo trabajador
+## F-050 · done (2026-10-20, APPROVED pasada 1), pendiente de despliegue de sv4 y M2–M6: misma fila para el mismo trabajador
 
 ### T11 · desbloqueada (2026-10-20)
 
