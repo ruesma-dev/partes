@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-034 · in_progress (2026-10-20): sv5 solo escribe en partes de Sigrid abiertos
+## F-034 · done (2026-10-21, APPROVED pasada 2), pendiente de desplegar sv5 y sv4 y M2–M4: sv5 solo escribe en partes de Sigrid abiertos
 
 Spec en `specs/F-034-escribir-solo-en-partes-abiertos/` (rama
 `feature/F-034-escribir-solo-en-partes-abiertos`, worktree `partes-wt-f034`); informe de spec
