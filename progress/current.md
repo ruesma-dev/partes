@@ -678,10 +678,23 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 
 Spec en `specs/F-049-editor-calendario-normal-y-extra/` (rama
 `feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`, rebasada sobre
-dev). Solo sv4, sin esquema ni Sigrid; rigor **crítico** propuesto. Orden del humano:
+dev). sv4 (sv3 solo con DA13-C), sin esquema ni Sigrid; rigor **crítico** propuesto. Orden del humano:
 F-050 → **F-049** → F-014 → F-047; **no depende de F-047** (hereda su 409 del parte nuevo
 por `_exigir_sin_recalculo`). Detalle de la revisión en `progress/spec_F-049.md`.
-Pendiente: PARADA 1 y M1 (humano). T1 exige F-050 fusionada en dev.
+**M1 superada el 2026-10-20** (el humano confirma la pantalla: popup de doble clic de la
+matriz «Horas por día» de la vista de obra). Pendiente: PARADA 1 con **DA13 nueva**. T1 exige
+F-050 fusionada en dev y DA13 decidida.
+
+**Otras obras del mismo día (pregunta del humano del 2026-10-20, design §8 bis)**: la pasada
+de sv3 es completa (`conciliar_todos`) y reparte por (recurso, día) entre todas las obras, así
+que guardar en la obra Y recalcula sola la X del mismo día; **otros días no cambian** (la
+jornada semanal sale del calendario, no de las horas). La espera de F-043 solo cubre el parte
+pedido. Líneas de X congeladas: interruptor apagado ⇒ Y absorbe (E12b); encendido ⇒ reparto
+`pendiente` en X, decidido al aprobar (E12c). Nuevos R36–R40 (aviso al abrir con `GET
+/api/matriz/celda/otras`, lista con enlaces tras guardar, `afectadas`, caracterización en sv3).
+**DA13** (abierta): A avisar sin más espera; **B (recomendada, solo sv4)** además recálculo
+seguido de cada parte afectado (N pasadas); C una sola pasada tocando sv3
+(`recalculo_seguimiento.marcar_terminado`); D nada.
 
 **Cambios por F-050 y lo fusionado**: la ruta `POST /api/matriz/celda` identifica la celda
 por (`obra_key`, clave de trabajador de F-050, fecha) y exige que los ids enviados sean sus
@@ -696,7 +709,7 @@ F-050)**; DA3 materializar las parejas tocadas; DA4 recálculo seguido con esper
 sin papelera; **DA6 fila de `fila_para_alta_manual` (cambia por F-050)**; DA7 clona la
 partida; DA8 deshacer manda las creadas a la papelera (dos dobles de `undo_last`); DA9 rigor
 crítico; DA10 rangos; **DA11 reparto vivo (nueva, F-046)**; **DA12 `sin-trabajador` (nueva,
-F-050)**.
+F-050)**; **DA13 otras obras del mismo día (nueva, recomendación B)**.
 
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
