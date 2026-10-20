@@ -87,7 +87,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 10,
+      "priority": 11,
       "branch": "feature/F-006-tipo-hora-ext"
     },
     {
@@ -98,7 +98,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 11,
+      "priority": 12,
       "branch": "feature/F-007-prompt-sv2-evals"
     },
     {
@@ -109,7 +109,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 12,
+      "priority": 13,
       "branch": "feature/F-008-roles-portal"
     },
     {
@@ -172,7 +172,7 @@
       "status": "blocked",
       "sdd": false,
       "rigor": "documental",
-      "priority": 5,
+      "priority": 2,
       "branch": "feature/F-014-candef-9-sigrid"
     },
     {
@@ -216,7 +216,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 9,
+      "priority": 10,
       "branch": "feature/F-018-log-auditoria-portal"
     },
     {
@@ -318,7 +318,7 @@
       "status": "pending",
       "sdd": false,
       "rigor": "estandar",
-      "priority": 6,
+      "priority": 9,
       "branch": "feature/F-026-visor-fotos"
     },
     {
@@ -333,7 +333,7 @@
       "status": "pending",
       "sdd": false,
       "rigor": "estandar",
-      "priority": 3,
+      "priority": 8,
       "branch": "feature/F-027-escape-modales"
     },
     {
@@ -423,7 +423,7 @@
       "status": "blocked",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 2,
+      "priority": 7,
       "branch": "feature/F-032-sesame-festivos-produccion"
     },
     {
@@ -517,7 +517,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 1,
+      "priority": 6,
       "branch": "feature/F-038-limite-filas-sigrid"
     },
     {
@@ -702,6 +702,68 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-050-misma-fila-para-el-mismo-trabajador"
+    },
+    {
+      "id": "F-047",
+      "title": "Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra)",
+      "description": "Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.",
+      "acceptance": [
+        "sv3 escribe el pedido (id del documento) en el mismo commit que guarda el parte nuevo y lo marca terminado tras conciliar sin excepcion; un sha256 repetido ni guarda ni marca",
+        "Si la conciliacion de recurso falla, el parte no se marca, el mensaje se consume y el parte vence a los 10 min",
+        "Las vistas de obra, trabajador, detalle y el listado de partes pintan el parte nuevo en espera con textos propios; el resto del portal sigue usable y nada recarga sin un clic",
+        "Las ediciones del parte en espera dan 409 y la aprobacion (individual y en bloque) lo excluye",
+        "Sin columnas nuevas: orm_models.py documenta la semantica ampliada en las dos copias byte-identicas",
+        "Ningun test existente se modifica",
+        "Mutacion completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 4,
+      "branch": "feature/F-047-parte-nuevo-en-espera"
+    },
+    {
+      "id": "F-049",
+      "title": "Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta",
+      "description": "Pedida por el humano el 2026-10-15 («si solo hay extras u ordinarias edita pero no me sale 0+2 para poder añadir línea»). Hoy el popup de doble clic de la matriz Horas por día (vista de obra) solo ofrece crear la extra si hay una ordinaria; con solo extras no deja añadir la ordinaria, y editar un miembro de la pareja base + extra_auto se pierde en la siguiente pasada de sv3. F-049 (sv4 partes-front y, por la DA13-C, sv3 solo en marcar_terminado; sin esquema, sv5 ni Sigrid): el popup ofrece siempre la ordinaria y la extra que falten («(nueva)»), guarda la celda entera en una ruta atómica nueva (POST /api/matriz/celda) que identifica la celda por (obra_key, clave de trabajador de F-050, fecha) y comprueba que nada cambió desde que se abrió, clona el contexto de la plantilla (incluida la partida; fila del papel y leído con fila_para_alta_manual de F-050), materializa las parejas tocadas (horas_orig NULL, extra_auto False), avisa de las otras obras del mismo día (al abrir y, tras guardar, con enlaces) y pide UN recálculo seguido (F-043) con un pedido compartido escrito en los partes tocados y en los de otras obras de ese día, que sv3 da por terminado en todos (marcar_terminado por pedido, no por documento), respeta la congelación y el reparto de F-046 (aviso si pendiente, 409 si aplicando) y se puede deshacer. Revisada el 2026-10-20 sobre dev ff2ed8e + F-050: va DESPUÉS de F-050 y ANTES de F-047 (de la que no depende). Aprobada por el humano el 2026-10-20: DA1–DA12 opción A y DA13 opción C. Despliegue sv3 antes que sv4. Spec: specs/F-049-editor-calendario-normal-y-extra/.",
+      "acceptance": [
+        "Depende de F-050 fusionada en dev (clave de trabajador rec-/emp-/nom- y fila_para_alta_manual); no depende de F-047",
+        "Solo extras 10 en laborable: el popup ofrece Ord. (nueva); 8 + 2 crea la ordinaria con contexto, partida, código y la fila del papel de la persona y queda 8+2 en una sola fila tras el recálculo",
+        "Solo ordinarias 8: Extra (nueva) 2 da 8+2 estable",
+        "Pareja 8 (orig 10) + 2 automática: cambiar la extra a 3 deja 8+3 (materializada) tras el recálculo",
+        "Celda de F-050 con línea manual e IA: se editan las dos y la nueva hereda la clave de la celda",
+        "Congelada, parte en espera o reparto aplicando: 409 sin escribir nada; celda cambiada desde que se abrió: 409 sin escribir nada",
+        "Una sola petición por guardado, todo o nada, con UN recálculo seguido (motivo edicion_celda) cuyo pedido compartido deja en espera los partes tocados y los de otras obras del mismo día hasta que sv3 lo marca en todos",
+        "Deshacer restaura horas y marcas, manda las creadas a la papelera y pide recálculo con pedido compartido",
+        "sv3: marcar_terminado marca todo documento con ese pedido y ninguno con otro; pedidos de un solo documento y de F-047 como hoy",
+        "Sin cambios en sv5, en sv3 fuera de marcar_terminado, orm_models.py, congelacion.py, la clave de F-050 ni reglas gemelas; tests existentes intactos salvo la lista cerrada de design §3 (dos dobles de undo_last y el test F-043 R28 invertido)",
+        "Mutación completa con 0 supervivientes sin resolver",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 3,
+      "branch": "feature/F-049-editor-calendario-normal-y-extra"
+    },
+    {
+      "id": "F-052",
+      "title": "Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa",
+      "description": "Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, paginado, truncated = error, sin lock) y sv4 clasifica cada línea en 11 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual). Primera entrega (DA1 = A recomendada): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050. Decisiones DA1-DA10 y M1 de dimensionado (solo lectura) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. Hallazgo H1 (fuera de alcance): el pisado de conflictos de sv5 hace DELETE y el candado de línea registrada dice «borra la línea en Sigrid».",
+      "acceptance": [
+        "POST /api/sincronizar/leer de sv5 de solo lectura: paginado, truncated y tope como error, sin lock ni escritura, sin nombres, DNIs ni tex",
+        "Botón «Sincronizar con Sigrid» en las vistas de obra y persona que clasifica cada línea del periodo en una de las 11 clases de la spec",
+        "Acciones hacia el portal con confirmación previa, revalidación por firma, ámbito F-022 y actor de _actor(request); ninguna escritura en Sigrid",
+        "congelacion.py, esta_congelado de sv3, el ORM y los gemelos sin cambios",
+        "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "spec_ready",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 5,
+      "branch": "feature/F-052-sincronizar-con-sigrid"
     }
   ]
 }
