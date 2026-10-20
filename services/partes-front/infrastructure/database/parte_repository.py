@@ -521,14 +521,39 @@ def _ahora_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
-    """Clave estable y URL-safe para agrupar registros por trabajador."""
-    if reg.empleado_ide is not None:
-        return f"emp-{reg.empleado_ide}"
-    nombre = _norm(reg.trabajador_nombre_leido)
+def _clave_trabajador(*, casada: bool, empleado_ide: int | None,
+                      recurso: int | None, nombre_leido: str | None) -> str:
+    """F-050 (R1-R2): clave estable y URL-safe de la persona de una linea.
+
+    Orden: casada y con recurso, `rec-{recurso}` (con o sin ficha: el
+    recurso persona es de UNA empresa y comun a toda linea casada, asi que
+    una fila es (obra, empresa, persona)); con ficha y sin recurso,
+    `emp-{ficha}`; si no, `nom-` + leido normalizado; si no,
+    `sin-trabajador`. Una linea sin casar nunca es `rec-` (R2) y las suyas
+    son byte a byte las de antes de F-050 (R3)."""
+    if casada and recurso is not None:
+        return f"rec-{recurso}"
+    if empleado_ide is not None:
+        return f"emp-{empleado_ide}"
+    nombre = _norm(nombre_leido)
     if nombre:
         return "nom-" + nombre.replace(" ", "_")
     return "sin-trabajador"
+
+
+def _recurso_de(reg: ParteRegistroOrm) -> int | None:
+    """Recurso de la linea: `recurso_ide` y, si es NULL, `empleado_reside`."""
+    if reg.recurso_ide is not None:
+        return reg.recurso_ide
+    return reg.empleado_reside
+
+
+def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
+    """Clave de trabajador de una linea (F-050): la UNICA agrupacion por
+    trabajador del portal (vistas, acciones por clave y URL)."""
+    return _clave_trabajador(
+        casada=esta_casado(reg), empleado_ide=reg.empleado_ide,
+        recurso=_recurso_de(reg), nombre_leido=reg.trabajador_nombre_leido)
 
 
 def persona_de(reg: ParteRegistroOrm) -> str:
