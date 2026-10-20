@@ -14,9 +14,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-
 from config.settings import Settings
+from fastapi.testclient import TestClient
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite
