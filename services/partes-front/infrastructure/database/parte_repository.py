@@ -1049,6 +1049,32 @@ class ParteReviewRepository:
         detail.horas_extra = round(detail.horas_extra, 2)
         return detail
 
+    def clave_actual_de_clave_antigua(self, clave: str) -> str | None:
+        """F-050 (R14, R15): a donde redirigir un enlace `nom-…` o `emp-{E}`
+        de antes de F-050 que ya no tiene lineas.
+
+        Toma las lineas activas que con la regla anterior (ficha ⇒ `emp-`;
+        si no, leido ⇒ `nom-`) daban `clave`. Si hoy tienen todas una misma
+        clave distinta, la devuelve; si no hay ninguna o dan varias, None."""
+        if not clave.startswith(("nom-", "emp-")):
+            return None
+        with self._session_factory.create_session() as session:
+            activas = session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteDocumentOrm.is_active.is_(True))
+            ).scalars().all()
+            actuales = {
+                worker_key_for_registro(r) for r in activas
+                if _clave_trabajador(
+                    casada=False, empleado_ide=r.empleado_ide, recurso=None,
+                    nombre_leido=r.trabajador_nombre_leido) == clave
+            }
+        if len(actuales) == 1 and clave not in actuales:
+            return actuales.pop()
+        return None
+
     # ----------------------------------------------------------------- #
     # Vista por OBRA.
     # ----------------------------------------------------------------- #
