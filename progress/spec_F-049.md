@@ -1,6 +1,61 @@
 <!-- progress/spec_F-049.md -->
 # F-049 · Informe del spec-author
 
+## Cierre del 2026-10-20: spec aprobada (DA1–DA12 = A, DA13 = C)
+
+Decisiones del humano (2026-10-20, chat con el líder, citas literales): a la DA13, «c»; a las
+demás, «apruebo las DA con los comentarios que te he hecho anteriormente» (los comentarios:
+la confirmación de la pantalla, M1 superada, y el caso de otras obras del mismo día). Estado
+`spec_ready`; se implementa cuando F-050 esté en dev.
+
+### Comprobado en el código (rama en `f0c4fc5`)
+
+- sv3 `recalculo_seguimiento.py`: `marcar_terminado` hace hoy `UPDATE … WHERE id ==
+  document_id AND recalculo_pedido_id == peticion_id` y devuelve `rowcount == 1`. Con DA13-C
+  el filtro pasa a ser solo el pedido y devuelve `rowcount >= 1`; misma firma; `despacho.py`
+  (`_pedido_leido`, `_marcar_terminado`), `mensajes.py` y la pasada no cambian.
+- Compatibilidad: los pedidos de sv4 son uuid4 (`_pedir_recalculo_seguido`) y el de F-047
+  (rama `feature/F-047-parte-nuevo-en-espera`, requirements R1 y R4) es el id del propio
+  documento: ningún pedido coincide con el de otro documento, así que los marcados de un
+  documento siguen igual (R42). El desorden de F-043 R32 se conserva (filtro por pedido).
+- Test existente a invertir: `test_f043_r28_adaptador_solo_toca_su_documento`
+  (`services/partes-persistencia/tests/test_f043_seguimiento_sv3.py`, ~l. 122) afirma lo
+  contrario de R41. Va a la lista cerrada de design §3 (invertido y renombrado
+  `test_f043_r28_adaptador_marca_todo_documento_con_su_pedido`). Los demás tests del
+  adaptador (más nuevo, idempotente, viejo no pisa, inexistente, reloj UTC) siguen valiendo.
+  El contrato de la raíz `tests/test_f043_contrato_seguimiento.py` solo ata nombres: sin cambio.
+- sv4 `parte_repository.py`: `marcar_recalculo_pedido` / `anular_recalculo_pedido` son por
+  documento; se añaden `marcar_recalculo_pedido_compartido(ids, *, peticion_id)` (`UPDATE … id
+  IN`, un commit) y `anular_recalculo_pedido_compartido` (solo donde siga ese pedido). `app.py`
+  gana `_pedir_recalculo_compartido` (UN mensaje con `document_id` = primer documento tocado);
+  `_pedir_recalculo_seguido` no cambia.
+- Despliegue: `infra/redeploy_partes.ps1` ordena `$ORDEN = sv2, sv3, sv5, sv4, sv1`; sv3 es
+  KEDA con mínimo 0 réplicas. Con sv4 nuevo y sv3 viejo los afectados esperarían hasta
+  `ESPERA_MAX_S` = 600 (`seguimiento_recalculo.py` de sv4 ⇒ `vencido`), bloqueando edición y
+  «Aplicar» de F-046. Mitigación en design §10: `-Solo sv3`, comprobar que su revisión nueva
+  está activa y luego `-Solo sv4`. Sin variable de entorno nueva.
+
+### Qué cambia en la spec
+
+- requirements: cabecera (sv4 y sv3, aprobada); glosario «pedido compartido»; R23, R26, R27,
+  R29 y R39 reescritos para DA13-C; R41–R42 nuevos (sv3); E12a con el pedido y E12d nuevo
+  (riesgo residual); M2–M8 tras desplegar sv3 y luego sv4. 149 líneas.
+- design (250 líneas, reorganizado para caber): §1 límite con el porqué de sv3; §2 absorbe el
+  antiguo §11 (orden y F-047); §3 añade el adaptador de sv3, el test sv3 nuevo y la lista
+  cerrada (b); §4 absorbe «por qué materializar»; §5–§6 las funciones de pedido compartido;
+  §8 (antes 8 bis) la espera con DA13-C; §9 tests de R39 y R41–R42; §10 orden de despliegue y
+  M8; §11 riesgos (despliegue mixto, E12d, B descartada); §12 decisiones APROBADAS con cita.
+- tasks: T1 sin condición de DA13; T6–T9 con el pedido compartido; T14 (RED sv3 + test F-043
+  invertido) y T15 (`marcar_terminado`) dejan de ser condicionales; T16–T19 renumeradas; la
+  mutación (T17) incluye `recalculo_seguimiento.py`.
+- `harness/features.json` (description y acceptance de F-049: sv3 + sv4, aprobada, despliegue
+  sv3 → sv4) y `progress/current.md` (sección de F-049).
+
+### Decisiones abiertas
+
+Ninguna. Queda para el humano: el orden de despliegue sv3 → sv4 y las verificaciones M2–M8.
+
+
 ## Revisión acotada del 2026-10-20 (tarde): M1 y otras obras del mismo día
 
 Respuesta del humano (2026-10-20, literal): «confirmo que e esa pantalla. al añadir horas
