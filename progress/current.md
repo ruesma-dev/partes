@@ -11,8 +11,8 @@ en `progress/spec_F-034.md`. **Spec aprobada entera** por el humano el 2026-10-2
 partes en estado 1 y 37 en estado 3; mes 10 → 37 en estado 1; 358 líneas `partes:%`, todas en
 2026/10 y en partes En registro; 0 periodos con más de un parte En registro (`design.md` §9).
 
-**Implementer (2026-10-20/21)**: T1–T11 hechas, un commit por tarea; en curso T12 (campaña
-de mutación completa) y T13. Detalle en `progress/impl_F-034.md`. Desviaciones respecto a la
+**Implementer (2026-10-20/21)**: T1–T13 hechas, un commit por tarea; `bash harness/init.sh` en
+verde (cobertura 100 % de 75 líneas; mutación 22/22 detectados). **Siguiente: reviewer.** Detalle en `progress/impl_F-034.md`. Desviaciones respecto a la
 spec, justificadas:
 
 - `parte_abierto.py` importa `synckey_de` de `infrastructure.sigrid.sigrid_write_client`

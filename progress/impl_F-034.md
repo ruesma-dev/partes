@@ -178,8 +178,9 @@ E       assert 0.061 == 0.06
 |---|---|
 | Tests sv5 (`services/partes-transfer/tests`) | **736 passed** en 17,1 s (antes de F-034: 698) |
 | Tests nuevos de F-034 | sv5: 21 (`parte_abierto`) + 23 (`cliente_guarda`) + 36 (`pipeline_cierre`) = 80; sv4: 11 |
-| Tests sv4 / raíz y `bash harness/init.sh` | ver «Resultado de init.sh» |
-| Cobertura de líneas cambiadas | ver «Resultado de init.sh» (`PUERTA COBERTURA`) |
+| Tests sv4 (`services/partes-front/tests`) | **2359 passed, 1 skipped** en 1138,9 s (máquina cargada) |
+| Tests raíz (`tests/`, con cobertura) | **493 passed, 3 skipped** en 145,6 s |
+| Cobertura de líneas cambiadas | **100,0 % de 75 líneas** (75/75, umbral 80 %, nivel crítico) |
 | Mutación (campaña completa, 4 workers, sin `--timeout`) | **22 generados, 18 muertos, 4 supervivientes, 0 timeouts**, 227,0 s; línea base 29,5–31,2 s, timeout 300 s. Los 4, huecos reales con test nuevo que los mata: **22/22 detectados**, 0 equivalentes (`progress/mutacion_F-034.md`) |
 | JS (`app.js`) | sin mutación ni cobertura de líneas (no es Python): lo cubren 9 tests con `node` |
 
@@ -188,4 +189,12 @@ La herramienta de mutación no muta el texto de las cadenas SQL: ese texto lo fi
 
 ### Resultado de init.sh
 
-PENDIENTE_INIT
+`bash harness/init.sh` tal cual, sobre `HEAD` con este informe: **ENTORNO LISTO** (código 0).
+pytest raíz en verde; sv1–sv3 en verde por caché (árbol sin cambios); sv4 `2359 passed, 1
+skipped`; sv5 `736 passed`; `PUERTA COBERTURA: 100.0% de 75 líneas cambiadas cubiertas`;
+`PUERTA TAMAÑO: … impl 191/220`. Avisos no bloqueantes y previos: ruff (deuda), features
+`blocked` (F-014, F-032), infra sin tests y «coverage no pudo escribir coverage.json» (la
+puerta de cobertura se calculó igualmente). La primera ejecución de la sesión cayó por un
+`0xC0000005` (access violation de Windows) en un subproceso de
+`tests/test_f024_borrado_no_congela_gemelos.py`; repetido aislado `4 passed` y la segunda
+ejecución completa, en verde: transitorio de la máquina, no de F-034.
