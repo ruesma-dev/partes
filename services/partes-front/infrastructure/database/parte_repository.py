@@ -1402,10 +1402,8 @@ class ParteReviewRepository:
 
         rows: list[ParteRow] = []
         for doc in docs:
-            empleados = {
-                r.empleado_ide or r.trabajador_nombre_leido
-                for r in doc.registros
-            }
+            # F-050 (R7): claves de trabajador distintas del parte.
+            empleados = {worker_key_for_registro(r) for r in doc.registros}
             horas_n = sum(
                 (r.horas or 0.0) for r in doc.registros
                 if not r.es_incidencia and not _is_extra(r)
@@ -1483,7 +1481,8 @@ class ParteReviewRepository:
                 congelado_doc=_motivo_congelado_doc(doc),   # F-004 R17
             )
 
-            # Agrupar registros por empleado (linea de la tabla PERSONAL).
+            # Agrupar registros por trabajador (F-050 R6): la clave unica;
+            # las `sin-trabajador`, por su fila del papel.
             by_emp: dict[Any, ParteEmpleadoView] = {}
             order: list[Any] = []
             for reg in sorted(
@@ -1491,8 +1490,9 @@ class ParteReviewRepository:
             ):
                 if reg.deleted_at_utc:
                     continue  # linea en papelera
-                key = reg.empleado_ide or (reg.trabajador_nombre_leido or "") \
-                    or reg.empleado_line_no
+                key: Any = worker_key_for_registro(reg)
+                if key == "sin-trabajador":
+                    key = (key, reg.empleado_line_no)
                 if key not in by_emp:
                     by_emp[key] = ParteEmpleadoView(
                         nombre_leido=reg.trabajador_nombre_leido,

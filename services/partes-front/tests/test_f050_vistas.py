@@ -330,3 +330,67 @@ def test_f050_r13_las_acciones_usan_la_clave_unica() -> None:
             inspect.getsource(metodo)
     assert "self.get_worker(worker_key)" in inspect.getsource(
         repo.registro_ids_de_trabajador)
+
+
+# ===================================================================== #
+# R6 · detalle del parte: un bloque por clave
+# ===================================================================== #
+
+def _bloques(repo, doc_id: str) -> list[list[int]]:
+    return [[v.id for v in e.registros]
+            for e in repo.get_parte(doc_id).empleados]
+
+
+def test_f050_r6_e1_un_bloque_con_las_dos_lineas() -> None:
+    repo, _f, ids = _escenario()
+    assert _bloques(repo, "d-e1") == [[ids["e1_manual"], ids["e1_ia"]]]
+
+
+def test_f050_r6_e8_un_bloque_por_persona() -> None:
+    repo, _f, ids = _escenario()
+    assert _bloques(repo, "d-e8") == [
+        [ids["e8_ficha"], ids["e8_sin_ficha"]], [ids["e8_otra"]]]
+
+
+def test_f050_r6_sin_trabajador_separadas_por_fila_del_papel() -> None:
+    """Las `sin-trabajador` no se juntan entre si: un bloque por
+    `empleado_line_no`, como hoy (DA2). Las de la papelera no salen."""
+    fabrica = FabricaSesionSqlite()
+    with fabrica.create_session() as s:
+        _doc(s, "d-sin", 90)
+        a1 = _reg(s, "d-sin", 90, 0, empleado_line_no=1)
+        b = _reg(s, "d-sin", 90, 1, empleado_line_no=2)
+        a2 = _reg(s, "d-sin", 90, 2, tipo="extra", horas=1.0,
+                  empleado_line_no=1, trabajador_nombre_leido="   ")
+        _reg(s, "d-sin", 90, 3, empleado_line_no=3,
+             deleted_at_utc=AHORA)
+        s.commit()
+    repo = ParteReviewRepository(fabrica)
+    assert _bloques(repo, "d-sin") == [[a1, a2], [b]]
+
+
+def test_f050_r6_leidos_que_normalizan_igual_un_bloque() -> None:
+    """E3: sin casar, «Pepe Perez» y «PEPE  PÉREZ» son la misma clave
+    `nom-PEPE_PEREZ` y por tanto el mismo bloque."""
+    fabrica = FabricaSesionSqlite()
+    with fabrica.create_session() as s:
+        _doc(s, "d-e3", 91)
+        a = _reg(s, "d-e3", 91, 0, empleado_line_no=1,
+                 trabajador_nombre_leido="Pepe Perez")
+        b = _reg(s, "d-e3", 91, 1, empleado_line_no=2,
+                 trabajador_nombre_leido="PEPE  PÉREZ")
+        s.commit()
+    assert _bloques(ParteReviewRepository(fabrica), "d-e3") == [[a, b]]
+
+
+# ===================================================================== #
+# R7 · listado de partes: claves distintas
+# ===================================================================== #
+
+def test_f050_r7_list_partes_cuenta_claves_distintas() -> None:
+    repo, _f, _ids = _escenario()
+    cuenta = {p.document_id: p.num_empleados for p in repo.list_partes()}
+    assert cuenta["d-e1"] == 1
+    assert cuenta["d-e8"] == 2
+    assert cuenta["d-e4a"] == 2
+    assert cuenta["d-e11"] == 2

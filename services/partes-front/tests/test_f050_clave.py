@@ -216,3 +216,33 @@ def test_f050_r11_persona_de_sin_codigo_propio() -> None:
     from infrastructure.database import parte_repository
     fuente = inspect.getsource(parte_repository.persona_de)
     assert "return worker_key_for_registro(reg)" in fuente
+
+
+# ===================================================================== #
+# R4 · una sola funcion: sin agrupaciones por trabajador a mano
+# ===================================================================== #
+
+def test_f050_r4_detalle_y_listado_de_partes_usan_la_clave_unica() -> None:
+    from infrastructure.database.parte_repository import ParteReviewRepository
+    for metodo in (ParteReviewRepository.get_parte,
+                   ParteReviewRepository.list_partes):
+        fuente = inspect.getsource(metodo)
+        assert "worker_key_for_registro(" in fuente, metodo.__name__
+
+
+def test_f050_r4_no_queda_agrupacion_a_mano_en_el_repositorio() -> None:
+    """Las variantes de antes de F-050 (`empleado_ide or leido`) ya no
+    aparecen en ningun sitio del repositorio."""
+    from infrastructure.database import parte_repository
+    fuente = inspect.getsource(parte_repository)
+    for variante in ("r.empleado_ide or r.trabajador_nombre_leido",
+                     "reg.empleado_ide or (reg.trabajador_nombre_leido"):
+        assert variante not in fuente
+    # `_clave_trabajador` es la unica que arma claves `emp-`/`nom-` de
+    # trabajador (las `nom-` de obra son de las dos claves de obra).
+    for obra in (parte_repository.obra_key_for_registro,
+                 parte_repository.ParteReviewRepository._obra_key_for_doc):
+        fuente = fuente.replace(inspect.getsource(obra), "")
+    clave = inspect.getsource(parte_repository._clave_trabajador)
+    for literal in ('f"emp-{', '"nom-" + ', 'return "sin-trabajador"'):
+        assert fuente.count(literal) == clave.count(literal) == 1, literal
