@@ -556,6 +556,28 @@ def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
         recurso=_recurso_de(reg), nombre_leido=reg.trabajador_nombre_leido)
 
 
+def fila_para_alta_manual(
+    regs_doc: list[ParteRegistroOrm], clave: str, nombre: str | None,
+) -> tuple[int | None, str | None]:
+    """F-050 (R16-R17): `(empleado_line_no, trabajador_nombre_leido)` de una
+    linea dada de alta a mano en un parte con las lineas `regs_doc`
+    (papelera incluida).
+
+    Si la persona (`clave`) ya tiene lineas activas en el parte, hereda la
+    fila y el leido de la de menor `line_index`: asi cae en su fila del
+    papel. Si no, fila nueva al final (maximo del parte + 1, o 1) con el
+    nombre que manda el alta."""
+    suyas = [r for r in regs_doc
+             if r.deleted_at_utc is None
+             and worker_key_for_registro(r) == clave]
+    if suyas:
+        ref = min(suyas, key=lambda r: r.line_index)
+        return ref.empleado_line_no, ref.trabajador_nombre_leido
+    filas = [r.empleado_line_no for r in regs_doc
+             if r.empleado_line_no is not None]
+    return (max(filas) + 1 if filas else 1), nombre
+
+
 def persona_de(reg: ParteRegistroOrm) -> str:
     """F-025 (R4, DA11): quien es la persona de una linea para cruzar sus
     lineas de un mismo dia. El DNI normalizado (sin espacios ni guiones,
@@ -3705,6 +3727,12 @@ class ParteReviewRepository:
             if empleado_ide is None and empleado_reside is not None
             else None
         )
+        # F-050: la clave que tendran las lineas nuevas (su recurso es el
+        # `empleado_reside` elegido).
+        clave = _clave_trabajador(
+            casada=empleado_ide is not None or metodo_empleado is not None,
+            empleado_ide=empleado_ide, recurso=empleado_reside,
+            nombre_leido=empleado_nombre)
 
         with self._session_factory.create_session() as session:
             for iso in dias:
@@ -3745,12 +3773,19 @@ class ParteReviewRepository:
                     )
                 ).scalar()
                 nli = (maxli if maxli is not None else -1) + 1
+                # F-050 (R16-R17): fila y leido de la persona en este parte
+                # (los comparten la incidencia y cada tipo del dia).
+                regs_doc = list(session.execute(
+                    select(ParteRegistroOrm).where(
+                        ParteRegistroOrm.document_id == doc.id)
+                ).scalars().all())
+                fila, leido = fila_para_alta_manual(regs_doc, clave, empleado_nombre)
                 if incidencia:
                     hm = hora_incidencia
                     session.add(ParteRegistroOrm(
-                        document_id=doc.id, line_index=nli, empleado_line_no=1,
+                        document_id=doc.id, line_index=nli, empleado_line_no=fila,
                         categoria=categoria,
-                        trabajador_nombre_leido=empleado_nombre,
+                        trabajador_nombre_leido=leido,
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
@@ -3786,9 +3821,9 @@ class ParteReviewRepository:
                 for tipo, horas in tipos:
                     hm = hora_extra if tipo == "extra" else hora_normal
                     session.add(ParteRegistroOrm(
-                        document_id=doc.id, line_index=nli, empleado_line_no=1,
+                        document_id=doc.id, line_index=nli, empleado_line_no=fila,
                         categoria=categoria,
-                        trabajador_nombre_leido=empleado_nombre,
+                        trabajador_nombre_leido=leido,
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
