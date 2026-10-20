@@ -1,97 +1,99 @@
 <!-- progress/review_F-034.md -->
-Revisión completa (pasada 1), `git diff 4bda57e...HEAD` con dev `4bda57e` y HEAD `a6040ad`.
+Revisión incremental desde 33472c3 (pasada 2), `git diff 33472c3..ffc62b9`; la pasada 1 fue completa sobre `a6040ad` (`git diff 4bda57e...a6040ad`).
 
 # F-034 · sv5 solo escribe en partes de Sigrid abiertos — review
 
-- **Veredicto: CHANGES_REQUESTED** por un único `[ ]`, documental (C4: las verificaciones
-  MANUAL no están en `progress/current.md` con su comando exacto). Código, SQL, tests y
-  campaña de mutación, bien: ningún hallazgo de código bloqueante.
-- **Nivel de rigor:** `critico` (declarado en `features.json`): fase RED, cobertura ≥ 80 %,
-  mutación completa con cero supervivientes sin test o justificación, RM5 y MANUAL listadas.
+## Pasada 2 (2026-10-21) · HEAD `ffc62b9`
 
-## Verificación ejecutada por el reviewer
+- **Veredicto: APPROVED.** El único `[ ]` de la pasada 1 (C4: M2–M4 sin comando exacto en
+  `progress/current.md`) queda resuelto, y nada más ha cambiado.
+- **Nivel de rigor:** `critico` (declarado). Puertas: fase RED, cobertura ≥ 80 %, mutación
+  completa sin supervivientes sin test o justificación, RM5 y MANUAL listadas con comando.
+- **Delta sin código**: `git diff --name-only 33472c3..ffc62b9` = `progress/current.md`,
+  `progress/impl_F-034.md`, `specs/F-034-…/design.md` y `…/tasks.md`. Ningún fichero de
+  `services/`, `infra/`, `tests/` ni `harness/`: lo aprobado en la pasada 1 (código, SQL,
+  tests, campaña de mutación y su SHA medido, RM1–RM6) sigue valiendo y el alcance medido no
+  se mueve.
+- **`bash harness/init.sh`** tal cual sobre `ffc62b9`: exit 0, «ENTORNO LISTO»; raíz `493
+  passed, 3 skipped`; suites sv1–sv5 en verde por caché (árbol sin cambios desde el último
+  verde); `PUERTA COBERTURA: 100.0% de 75 líneas`; `PUERTA TAMAÑO` en topes (requirements
+  125/150, design 223/250, impl 209/220).
 
-- **`bash harness/init.sh`** tal cual sobre `a6040ad`: exit 0, «ENTORNO LISTO»; raíz `493
-  passed, 3 skipped`; `PUERTA COBERTURA: 100.0% de 75 líneas`; tamaño en topes. **El
-  `0xC0000005` de `test_f024_borrado_no_congela_gemelos.py` NO se repitió.** Las suites de
-  servicio salieron por caché, así que las reejecuté aparte sin caché: **sv5 `736 passed`**;
-  **sv4 `2359 passed, 1 skipped`** (5 min 36 s); `test_f034_resultado_omitidas.py` `11 passed` con `node` v24.
-- **Recálculo puro** (`alcance_de_feature("F-034", base="4bda57e")` + `generar_mutantes`):
-  3 ficheros, **252 líneas** (99 + 87 + 66), **22 mutantes**: igual que el informe. Los 4
-  supervivientes existen con el mismo operador y texto (`registro_pipeline.py:599` ×2,
-  `sigrid_write_client.py:569` y `:571`).
-- **Campaña no reejecutada: 227,0 s según el informe (> 60 s).** **RM4** sí: copia de
-  `services/partes-transfer` en el scratchpad, cada superviviente aplicado con
-  `aplicar_mutante` y los tests F-034 de cliente y pipeline: `1 failed`, `2 failed`, `1
-  failed`, `1 failed`; sin mutante `59 passed`. `git status` del worktree, limpio.
-- **Gemelos con `porcentajes`**: `git diff --quiet 4bda57e HEAD` sobre `estado_parte.py`,
-  `cuenta_analitica.py`, `reajuste_lineas.py`, `reglas_registro.py` → 0. `stmts_crear_parte`
-  textualmente igual (solo aparece detrás el helper nuevo); `_crear_parte` idéntico. Su
-  `test_f037_copias_partes.py` vigila solo `estado_parte.py` y `cuenta_analitica.py`.
+### M2–M4 contrastadas con el código (no ejecutadas: son del humano)
 
-## Revisión del SQL y del flujo
+- **Preparación**: `/health` devuelve `modo_pruebas`, `obra_pruebas` y `database`
+  (`app.py:187`); `API_PORT` = 8005 (`settings.py:55`); `..\..\.venv` existe en el repo
+  principal. El `.env` de sv5 del repo principal trae `OBRA_PRUEBAS_FORZAR=false` y **0 claves
+  `COLAS_*`** (contadas sin leer valores): el «si `modo_pruebas` no es `True`, PARA» y el «no
+  consume `q-transfer`» son ciertos.
+- **M2**: los cuerpos de `preflight`/`ejecutar` encajan en `PeticionIn`/`LineaIn`, y el del
+  reajuste en `ReajusteIn`/`LineaReajusteIn`; los campos esperados (`forzada_pruebas`,
+  `partes[].existe/cod/complementario/cerrados/del_periodo`, `escritas` `{registro_id,
+  hmoide}`, `omitidas`, `ya_registradas`; `lineas[].can/escrita`) existen en
+  `resultado_a_dict`, `ParteDestino` y `ResultadoReajuste`. `comprobar_asiento_analitico.py
+  --empresa --obra --ano --mes` imprime «`cod · En registro · N linea(s) (M nuestras) · …`».
+  `redeploy_partes.ps1 -Solo sv5|sv4`, válido (`ValidateSet`). Probar el SQL guardado en local
+  **antes** de desplegar es mejor orden que el de la pasada 1.
+- **M3**: reformulada en lo observable: R15 (complementario), R16 (`ya_registradas`) y R17
+  (`comprobar` da `ok = all(editable)` y el motivo «su parte de Sigrid no esta En registro»,
+  `reajuste_lineas.py:44`). Lo no observable (`parte_no_abierto`, `affected_rows = 0`) queda
+  declarado y remitido a los tests de R2, R4, R9 y R11, con su motivo; es la alternativa que la
+  pasada 1 aceptaba. **Limpieza**: `fase_limpiar` actúa sobre el primer parte de `parte_mes`
+  (sin `ORDER BY`), borra solo `tex = 'PRUEBA-IA'` y la cabecera si `con.res` lleva la marca,
+  que sv5 pone en modo pruebas («Parte … (PRUEBA-IA)», `registro_pipeline.py:541`): dos
+  pasadas cubren P1 y P2 en cualquier orden. DRY-RUN previo, `git checkout` del `ANO, MES`
+  local y veto a 10/2026 (líneas de F-046 en PT26/00373), presentes.
+- **M4**: «N linea(s) no registradas:» existe (`static/app.js:3532`); Ctrl+F5 y lo esperado,
+  concretos.
+- **Coherencia**: `design.md` §9 y `tasks.md` (M2–M4 `[ ]`, del humano) dicen lo mismo que
+  `current.md`; `impl_F-034.md` lo resume y remite.
 
-- Sentencias de sv5 sobre `hmores` (grep fuera de tests): `stmt_insert_linea`,
-  `stmt_borrar_linea`, `stmt_guardia_reajuste`, `stmt_actualizar_linea`,
-  `stmt_insertar_extra`. **Las cinco** llevan `EXISTS (SELECT 1 FROM con c WITH (UPDLOCK,
-  HOLDLOCK) WHERE c.ide = <?|hmores.hmoide|h.hmoide> AND c.est = ?)`, fijado con texto y
-  parámetros exactos. `prueba_escritura_sigrid.py`, fuera por diseño (§1.5).
-- **Sin trampa del agregado**: `SELECT x.n, … FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM
-  hmores WITH (UPDLOCK, HOLDLOCK)) x WHERE <guarda> [AND NOT EXISTS …]` ⇒ 0 filas si la
-  guarda falla. 19 columnas = 19 valores; `?` = parámetros (16 + `hmoide, est` + pisadas).
-- La guarda mira el parte correcto (`hmores.hmoide` = `hmo.ide` = `con.ide`); `self._est` =
-  `settings.est_parte_activo` (`main.py:85`, `app.py:131`), el mismo que `_est_registro`.
-- Relectura: escrita = synckey releída **y** `hmoide` del elegido (int contra int);
-  `borradas` por `lineas_por_ide`; una `partes_del_periodo` por periodo con no escritas;
-  `parte_no_abierto` (pisada viva primero, luego elegido) o `no_escrita` + ERROR; sin `try`
-  (R14); todo bajo `self._lock` (R8).
-- **Sin escrituras reales**: el cliente de los tests apunta a `http://sigrid.invalid` y solo
-  construye sentencias; los pipelines usan `SigridFake`/`SigridReajusteFake`.
-- **Modal sv4**: `esc(k)` sobre la clave, números en lo demás, sin nombres ni `registro_id`.
+### Checkpoints afectados por el delta
 
-## Nivel de rigor (C4 bis)
+- **C4** [x] R1–R21 con test en verde (sin cambios) · [x] sin red ni BBDD · **[x] MANUAL en
+  `current.md` con comando exacto y resultado esperado** (M2, M3, M4).
+- **C5** [x] T1–T13 y M1 `[x]`; M2–M4 `[ ]` por ser del humano · [x] commit `F-034: …` del
+  arreglo · [x] sin temporales (`services/partes-transfer/coverage.json` lo ignora
+  `.gitignore`) · [x] `features.json` = `in_progress`.
+- **Topes de tamaño** [x] los de `init.sh`; este informe, ≤ 140 líneas.
+- C1–C3, C3 bis, C4 bis y C4 ter: sin cambios respecto a la pasada 1 (abajo).
 
-- [x] Fase RED con trazas reales: T2 (R9, R11), T3 (R1–R4, R7), T4 (R5, R6), T6 (R4, R12),
-  T7 (R8–R11, R13), T8 (R19); R15–R18 y R20, caracterización en verde previa (`6 passed`).
-- [x] Cobertura `[OK] 100.0%`. [x] Informe de mutación de la herramienta, totales
-  verificados, sin «⚠ CAMPAÑA NO VÁLIDA», «Sin veredicto» = 0, línea base por worker.
-- [x] Coste por mutante 227,0 × 4 ÷ 22 = 41,3 s. [x] **RM1**: SHA medido `2afb1ae`; de ahí a
-  HEAD solo cambian tests, `progress/` y `tasks.md`: el alcance medido es el revisado.
-- [x] **RM2**: media 10,3 s × 4 workers = 41,2 s frente a base 29,5–31,2 s, coherente.
-- [x] **RM3**: ninguno de los 18 muertos es equivalente (`sum(2 …)`, `or`→`and`, `!=`↔`==`,
-  `is not`, `grupo[1]`, `LIMITE_MOTIVO = 256`, `sql -=`, `//`, `tex and ""`, `- str`…).
-- **RM5** N/A justificado: crítico, pero **0 equivalentes declarados** (los 4 supervivientes
-  son huecos con test nuevo, comprobados por RM4): no hay muestra que reproducir.
-- [x] **RM6**: no se quitó ninguna guarda (`hit is not None` sigue en `confirmar_escritas`).
-- Campaña manual / cero mutantes: N/A (automática, 22). [x] Ningún análisis `PENDIENTE`.
-- [x] «Evidencias» con los cuatro números y los workers (4).
+## Pasada 1 (2026-10-21) · HEAD `a6040ad` · CHANGES_REQUESTED (resumen)
 
-## Checkpoints
+- **Verificación**: `init.sh` exit 0, raíz `493 passed, 3 skipped`, cobertura 100,0 % de 75
+  líneas; sin caché, sv5 `736 passed` y sv4 `2359 passed, 1 skipped`;
+  `test_f034_resultado_omitidas.py` `11 passed` (node v24).
+- **Mutación**: recálculo puro igual al informe (3 ficheros, 252 líneas, 22 mutantes; los 4
+  supervivientes existen con mismo operador y texto). Campaña no reejecutada: 227,0 s según
+  el informe (> 60 s). **RM4** en copia del scratchpad: los 4 mueren con sus tests nuevos.
+- **SQL**: las cinco sentencias de sv5 sobre `hmores` llevan `EXISTS (… con c WITH (UPDLOCK,
+  HOLDLOCK) … c.est = ?)`; sin trampa del agregado; relectura por synckey + `hmoide`; todo
+  bajo `self._lock`. Gemelos con `porcentajes`, intactos.
+
+### Nivel de rigor (C4 bis)
+
+- [x] Fase RED con trazas reales (T2–T4, T6–T8); R15–R18 y R20, caracterización previa.
+- [x] Cobertura `[OK] 100.0%`. [x] Informe de la herramienta, sin «⚠ CAMPAÑA NO VÁLIDA»,
+  «Sin veredicto» = 0, línea base por worker. [x] **RM1**: SHA medido `2afb1ae`; desde ahí
+  solo tests, `progress/` y specs (también en la pasada 2). [x] **RM2**: 10,3 s × 4 workers =
+  41,2 s frente a base 29,5–31,2 s. [x] **RM3**: ningún muerto equivalente.
+- **RM5** N/A justificado: crítico, pero 0 equivalentes declarados (los 4 supervivientes son
+  huecos con test nuevo, comprobados por RM4). [x] **RM6**: no se quitó ninguna guarda.
+- Campaña manual / cero mutantes: N/A (automática, 22). [x] Sin `PENDIENTE`. [x] «Evidencias».
+
+### Checkpoints
 
 - **C1** [x] `init.sh` exit 0 · [x] ficheros base.
-- **C2** [x] solo F-034 `in_progress` · [x] rama `feature/F-034-…` · [x] `current.md`:
-  F-034 arriba; el resto es el registro acumulado previo de `dev` (criterio de las reviews de
-  F-046 y F-050) · [x] `history.md` (F-034 aún no es `done`).
-- **C3** [x] hexagonal (el import de `synckey_de` desde infraestructura en
-  `parte_abierto.py` es deuda con precedente en `reajuste_lineas.py` y
-  `comprobacion_lineas.py`, justificada en `current.md`) · [x] primera línea con ruta · [x]
-  sin prints, TODOs, secretos ni dependencias; solo el DNI sintético `00000000T`, con
-  precedente en F-015 · [x] trampas: `reside` sigue siendo el recurso; incidencias y ORM
-  sin tocar.
+- **C2** [x] solo F-034 `in_progress` · [x] rama `feature/F-034-…` · [x] `current.md` con
+  F-034 arriba · [x] `history.md` (aún no `done`).
+- **C3** [x] hexagonal (import de `synckey_de` en `parte_abierto.py`: deuda con precedente,
+  justificada) · [x] primera línea con ruta · [x] sin prints, TODOs, secretos ni
+  dependencias · [x] trampas del dominio respetadas.
 - **C3 bis** N/A: no toca `docs/referencia/`. **C4 ter** N/A: no hay
   `harness/rutas_sensibles.json`.
-- **C4** [x] R1–R21 con test trazable en verde · [x] sin red ni BBDD · **[ ] MANUAL en
-  `current.md` con comando exacto**: la sección F-034 de `progress/current.md` no nombra M2,
-  M3 ni M4 (acaba en «Siguiente: reviewer»). Están en `design.md` §9 y en el informe, sin
-  comando exacto: M3 no dice cómo se lanza «un `stmt_insert_linea` sobre el parte cerrado»
-  ni con qué se ve `affected_rows = 0`.
-- **C4 bis** [x] (arriba).
-- **C5** [x] T1–T13 `[x]`, 13 commits `F-034 Tn:`; M2–M4 abiertas por ser del humano · [x]
-  sin temporales · [x] `features.json` = `in_progress`.
+- **C4** [ ] en la pasada 1 (MANUAL sin comando) → [x] en la pasada 2. **C4 bis** [x]. **C5** [x].
 - **Límite de servicio**: sv5 + `resultadoHtml` de sv4; lista cerrada sin cambios (DA8).
-  **azure-apps `5e95d6e`**: solo `partes.md` (pasos 5–6, «Qué se rompe», nota a
-  `porcentajes`), sin secretos, árbol limpio. Tildes en docs y spec; los motivos y
-  comentarios de sv5 van sin tildes por DA3 y el estilo de esos ficheros.
+  `azure-apps` `5e95d6e`: solo `partes.md`, sin secretos.
 
 ## Cobertura requisito → test
 
@@ -110,29 +112,23 @@ Revisión completa (pasada 1), `git diff 4bda57e...HEAD` con dev `4bda57e` y HEA
 
 ## Cambios requeridos
 
-1. `progress/current.md`, sección «F-034 · in_progress»: añadir M2, M3 y M4 con su comando
-   exacto y el resultado esperado. M2: `.\infra\redeploy_partes.ps1 -Solo sv5` y `-Solo sv4`
-   y el registro en modo pruebas (`OBRA_PRUEBAS_FORZAR=true`, obra 0404, `PRUEBA-IA`) ⇒
-   `registrado` en el parte En registro de 0404. M3: cómo se cierra el parte de pruebas, qué
-   se reaprueba y **con qué herramienta y comando** se ve que un INSERT guardado sobre el parte
-   cerrado afecta 0 filas (o reformularla en algo observable desde el portal: `omitido`
-   `parte_no_abierto` y complementario al reaprobar), con la limpieza (`cd
-   services/partes-transfer` y `python prueba_escritura_sigrid.py limpiar --ejecutar`). M4:
-   Ctrl+F5 en el portal y qué debe verse en el modal. Commit `F-034: …`.
+Ninguno. (Pasada 1: añadir M2–M4 con comando exacto a `current.md`; hecho en `ffc62b9`.)
 
 ## Observaciones (no bloquean)
 
 - **O1 · Pisado parcial** (hueco de la spec, no del código): si un conflicto pisa líneas de
-  dos partes En registro y solo uno se cierra en la ventana, el `DELETE` del abierto entra,
-  el del cerrado no y la nueva tampoco (R4): quedan menos horas, no duplicadas
-  (`test_f034_r12_borradas_cuenta_varias_pisadas_por_relectura` lo fija). Igual si `DELETE`
-  e `INSERT` caen en lotes distintos. Hoy improbable (M1: 0 periodos con dos partes En
-  registro). Propuesta: que F-053 («pisar = poner a 0») lo trate.
-- **O2**: `design.md` §2 preveía ampliar `test_f046_t22_cliente_bordes.py`; no hizo falta
-  (índices intactos) y está justificado en `current.md`.
+  dos partes En registro y solo uno se cierra en la ventana, entra el `DELETE` del abierto y
+  ni el del cerrado ni la nueva (R4): quedan menos horas, no duplicadas (lo fija
+  `test_f034_r12_borradas_cuenta_varias_pisadas_por_relectura`). Hoy improbable (M1: 0
+  periodos con dos partes En registro). Propuesta: que F-053 («pisar = poner a 0») lo trate.
+- **O2**: `test_f046_t22_cliente_bordes.py` no se amplió (índices intactos), justificado.
+- **O3 (pasada 2)**: en M3, «`$r` de M2 con `antes = 6; despues = 5`» obliga a rehacer `$r`
+  a mano (es la cadena JSON ya serializada); ejecutable, pero una línea copiable lo haría a
+  prueba de despistes. M2 y M3 escriben en Sigrid (0404): siguen necesitando la autorización
+  del humano en el momento, como dice la propia sección.
 
 ## Automejora (propuesta, no aplicada)
 
 - `.claude/agents/implementer.md`, paso 4: exigir que al cerrar se copien a
   `progress/current.md` las tareas `MANUAL (humano)` con su comando exacto; C4 lo pide y hoy
-  depende de que el implementer lo recuerde (aquí quedó solo en `design.md` §9 y el informe).
+  depende de que el implementer lo recuerde (en F-034 costó una pasada de review).
