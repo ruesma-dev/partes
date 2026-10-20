@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · in_progress (2026-10-20): misma fila para el mismo trabajador
+## F-050 · blocked (2026-10-20, en T2): misma fila para el mismo trabajador
 
 Implementer en la rama `feature/F-050-misma-fila-para-el-mismo-trabajador` (worktree
 `partes-wt-f050`), rebasada sobre `dev` (`ff2ed8e`; conflictos solo en `BACKLOG.md`,
@@ -9,17 +9,55 @@ Implementer en la rama `feature/F-050-misma-fila-para-el-mismo-trabajador` (work
 Solo sv4, sin esquema, sin Sigrid ni migración; rigor **estándar**.
 
 **Spec aprobada entera.** DA2–DA10 el 2026-10-20 («ok a lo demás», DA10 opción a) y
-**DA1 (opción A, clave `rec-` primero), DA1b (dos filas, anomalía que se reasigna) y DA11
-(empresa con la regla de F-033 sobre la base `partes`) el 2026-10-20 («ok»)**; DA5 y DA6
-ampliadas, confirmadas con DA1.
+**DA1 (opción A), DA1b y DA11 el 2026-10-20 («ok»)**; DA5 y DA6 ampliadas, confirmadas
+con DA1. **M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas, 38 filas
+(obra, recurso), **1 fila que se une**, 0 fichas sin recurso, 0 casadas sin ficha ni
+recurso, 0 DNIs con varios recursos en una obra, 36 recursos, 0 sin empresa, 0 DNIs en dos
+empresas.
 
-**M1 (líder, 2026-10-20, solo lectura)**: 560 líneas casadas activas, 38 filas (obra,
-recurso), **1 fila que se une**, 0 fichas sin recurso, 0 casadas sin ficha ni recurso,
-0 DNIs con varios recursos en una obra (E11), 36 recursos, 0 recursos sin empresa en sus
-partes, 0 DNIs en dos empresas.
-
-**Tarea en curso**: T1. Decisiones y desviaciones: se anotan aquí y en
+**Hecho**: paso 0, T1 (clave nueva, con fase RED) y T2 parcial (literal `emp-77` →
+`rec-501` en 22 ficheros: 106 de 122 tests vuelven a verde). Detalle en
 `progress/impl_F-050.md`.
+
+### Motivo del `blocked` (T2, regla R22 / tasks.md: «otro cambio ⇒ blocked y se consulta»)
+
+16 tests de 4 ficheros no se arreglan cambiando solo el literal de la clave, porque sus
+**fixtures** dan el mismo recurso a dos personas o dos recursos a una, algo que con la
+clave A (recurso primero) cambia quién es quién. No es un fallo del código: es el dato
+sintético, que antes no importaba porque la clave miraba la ficha.
+
+1. **Dos fichas en el mismo recurso 501** (f019 portal ×2 de 8, f022 aprobar ×4, f025
+   vistas ×3): la persona B (ficha 88) se siembra con los helpers
+   `tests/dobles.py::sembrar_parte` y `tests/test_f025_aprobacion.py::sembrar`, que fijan
+   `recurso_ide=501` para cualquier ficha; con A, A y B son la misma `rec-501` (riesgo R-b
+   de design §9; en Sigrid un recurso persona es de una sola persona).
+2. **Una ficha con dos recursos** (f019 portal, 6 de 8): el mensual de
+   `test_f019_bandeja.sembrar_mensual` es ficha 77 con recurso 602 y el fixture
+   `publicado` siembra sus otras líneas (ficha 77) con el 501 fijo: con A son dos claves.
+3. **Clave calculada en un helper** (f035 repositorio ×2): `_asignar` arma la clave
+   `nom-…` del leído; tras la primera reasignación (sin ficha, recurso 903) la clave de
+   esas líneas es `rec-903` y la segunda llamada por clave (método `worker_key`) actúa
+   sobre 0 líneas (R13, comportamiento esperado).
+
+**Propuesta (verificada: los 6 ficheros afectados dan `296 passed`; diff aplicable en
+`progress/propuesta_T2_F-050.diff`)**: corregir el DATO, no ninguna aserción:
+
+- `tests/dobles.py::sembrar_parte` y `tests/test_f025_aprobacion.py::sembrar` ganan
+  `recurso_ide: int = 501` (por defecto, igual que hoy para todos los demás tests).
+- Persona B (ficha 88) sembrada con `recurso_ide=502` en f019 (1 sitio), f022 (2) y f025
+  vistas (1); su literal `emp-88` → `rec-502` (f022 ×1 comentario, f025 vistas ×4).
+- f019 `publicado`: las líneas libre y registrada de la ficha 77 con `recurso_ide=602` (el
+  del mensual) y su literal `rec-501` → `rec-602` (4 sitios).
+- f035 `_asignar` gana `clave` opcional (por defecto el `nom-…` de hoy) y
+  `test_f035_r12_reasignar_a_una_ficha_quita_recurso_manual` pasa `clave="rec-903"` en
+  la segunda reasignación.
+
+Alternativa: mantener los fixtures y cambiar las aserciones (perderían su intención: dejan
+de distinguir a A de B). No se recomienda.
+
+**Decide el humano**: aprobar la propuesta (amplía R22 a «literal y, donde el fixture
+comparte recurso entre personas, el recurso de la persona B») o indicar otra cosa. Con el
+visto bueno, el implementer aplica el diff, cierra T2 y sigue con T3–T13.
 
 **MANUAL (humano)** tras desplegar sv4: M2–M6 (`design.md` §6).
 
