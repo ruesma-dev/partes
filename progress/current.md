@@ -1,7 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-050 · blocked (2026-10-20, en T2): misma fila para el mismo trabajador
+## F-050 · in_progress (2026-10-20, desbloqueada en T2): misma fila para el mismo trabajador
+
+**Desbloqueada el 2026-10-20 por decisión del humano** (respuesta literal «apruebo») sobre la
+propuesta de T2 de abajo: se corrige el DATO de los fixtures, no las aserciones. R22 queda
+ampliada a «literal y, donde el fixture comparte recurso entre personas, el recurso de la
+persona B» (anotado en `requirements.md` R22 y `tasks.md` T2). Lo que sigue del bloqueo es historia.
 
 Implementer en la rama `feature/F-050-misma-fila-para-el-mismo-trabajador` (worktree
 `partes-wt-f050`), rebasada sobre `dev` (`ff2ed8e`; conflictos solo en `BACKLOG.md`,
@@ -19,7 +24,7 @@ empresas.
 `rec-501` en 22 ficheros: 106 de 122 tests vuelven a verde). Detalle en
 `progress/impl_F-050.md`.
 
-### Motivo del `blocked` (T2, regla R22 / tasks.md: «otro cambio ⇒ blocked y se consulta»)
+### Motivo del `blocked` (historia; T2, regla R22 / tasks.md: «otro cambio ⇒ blocked y se consulta»)
 
 16 tests de 4 ficheros no se arreglan cambiando solo el literal de la clave, porque sus
 **fixtures** dan el mismo recurso a dos personas o dos recursos a una, algo que con la

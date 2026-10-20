@@ -56,7 +56,7 @@ def _tres_obras():
 def test_f022_r10_repo_ids_de_trabajador_son_los_de_su_tabla() -> None:
     repo, fabrica, a, b, c = _tres_obras()
     otra = _sembrar(fabrica, OBRA_10, [None], doc="doc-otra",
-                    empleado_ide=88, empleado_dni="00000001R")
+                    empleado_ide=88, empleado_dni="00000001R", recurso_ide=502)
     papelera = _sembrar(fabrica, OBRA_10, [None], doc="doc-pap",
                         doc_en_papelera=True)
     borrada = sembrar_parte(fabrica, [{"borrada": True}], document_id="doc-bo",
@@ -305,7 +305,7 @@ class CalendarioFalso(ProveedorFake):
 
 
 DNI_A = "12345678Z"      # rec-501
-DNI_B = "00000001R"      # emp-88
+DNI_B = "00000001R"      # rec-502
 MARZO = {"vista": "obra", "obra_key": "obr-10", "period": "2026-03",
          "mode": "nomina"}
 PERSONA_A = {"vista": "trabajador", "worker_key": "rec-501"}
@@ -320,7 +320,8 @@ def _escenario(fabrica) -> dict[str, list[int]]:
         "o10_a": _sembrar(fabrica, OBRA_10, [None, None], doc="d-10a"),
         "o10_b": _sembrar(fabrica, OBRA_10, [None], doc="d-10b",
                           fecha="2026-03-04", empleado_ide=88,
-                          empleado_dni=DNI_B, empleado_nombre="Persona B"),
+                          empleado_dni=DNI_B, empleado_nombre="Persona B",
+                          recurso_ide=502),
         "o10_abril": _sembrar(fabrica, OBRA_10, [None], doc="d-10abr",
                               fecha="2026-04-02"),
         "o20_a": _sembrar(fabrica, OBRA_20, [None, "error"], doc="d-20a",

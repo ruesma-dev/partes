@@ -693,11 +693,11 @@
         "Reasignar, papelera y ámbito de aprobar por clave rec- actúan sobre las líneas de ese recurso y ninguna otra",
         "El alta manual hereda empleado_line_no y leído de la persona en el parte; sin ella, máximo + 1; la vista del trabajador pasa ficha y recurso al modal",
         "Una URL /trabajadores/emp-... o /trabajadores/nom-... antigua redirige a la clave nueva si es única; si no, 404",
-        "No cambian sv3, sv5, esquema, orm_models ni congelación; en los tests existentes solo el literal de la clave",
+        "No cambian sv3, sv5, esquema, orm_models ni congelación; en los tests existentes solo el literal de la clave y, donde el fixture comparte recurso entre personas, el recurso de la persona B (decisión del humano 2026-10-20)",
         "Mutación muestreada (estándar) con supervivientes analizados",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "blocked",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,

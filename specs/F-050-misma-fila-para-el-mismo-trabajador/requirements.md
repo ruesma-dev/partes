@@ -108,7 +108,8 @@ recurso (C1–C3). El detalle y el listado de partes agrupan con otra variante.
   `CLAUDE.md`, la clave de obra, `crear_extra_desde`, Conciliar (`list_unmatched_workers`)
   ni los datos guardados (no hay migración).
 - **R22.** En los tests existentes solo cambia el literal de la clave esperada de las líneas
-  casadas con recurso (`emp-N` → `rec-R` de su fixture) y nada más (design §5).
+  casadas con recurso (`emp-N` → `rec-R` de su fixture) y, donde el fixture comparte recurso
+  entre personas, el recurso de la persona B (humano, 2026-10-20; T2); nada más (design §5).
 
 ## Ejemplos
 
@@ -137,8 +138,7 @@ R19–R20) y `test_f050_empresa.py` (R23–R26). Sin red ni PostgreSQL (SQLite d
 
 ## Verificaciones manuales (humano)
 
-M1–M6 en design §6. M1 (SQL de solo lectura) **antes de implementar**: filas que se unen,
-fichas sin recurso y DNIs con dos recursos en una obra; sus cifras deciden DA1 y DA1b.
+M1–M6 en design §6. M1 (solo lectura, antes de implementar): medida el 2026-10-20 (§6).
 M2–M6 tras desplegar sv4 (M6: la columna «Empresa» de «Por persona»).
 
 ## Fuera de alcance

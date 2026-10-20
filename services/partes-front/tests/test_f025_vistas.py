@@ -36,7 +36,7 @@ MOTIVO_M = ("Maternidad/Paternidad (M) es de día completo y ese día hay 9 h "
 def _escenario(fabrica) -> dict[str, list[int]]:
     """Persona A (rec-501): dia 02 con M en la obra 20 y horas en la 10
     (bloqueo); dia 03 con FJ y 2 h extra en la 10 (aviso); dia 04 normal.
-    Persona B (emp-88): dia 02 normal en la obra 10."""
+    Persona B (rec-502): dia 02 normal en la obra 10."""
     return {
         "inc_m": sembrar(fabrica, [{"inc": "M"}], doc="v-m", obra=OBRA_20),
         "bloq": sembrar(fabrica, [{"horas": 8.0},
@@ -48,7 +48,7 @@ def _escenario(fabrica) -> dict[str, list[int]]:
         "libre": sembrar(fabrica, [{"horas": 8.0}], doc="v-libre",
                          fecha="2026-03-04"),
         "otra": sembrar(fabrica, [{"horas": 8.0}], doc="v-otra", dni=DNI_B,
-                        empleado_ide=88, nombre="Persona B"),
+                        empleado_ide=88, nombre="Persona B", recurso_ide=502),
     }
 
 
@@ -81,7 +81,7 @@ def test_f025_r15_repo_celdas_de_la_matriz_de_obra() -> None:
     aviso = _celda(det, "rec-501", "2026-03-03")
     assert aviso.incompat_nivel == "aviso"
     assert "(FJ) y 2 h extra" in aviso.incompat_motivo
-    for wk, dia in (("rec-501", "2026-03-04"), ("emp-88", "2026-03-02"),
+    for wk, dia in (("rec-501", "2026-03-04"), ("rec-502", "2026-03-02"),
                     ("rec-501", "2026-03-05")):
         celda = _celda(det, wk, dia)
         assert (celda.incompat_nivel, celda.incompat_motivo) == (None, None)
@@ -117,7 +117,7 @@ def test_f025_r17_r18_repo_lineas_de_la_vista_de_trabajador() -> None:
         ["bloqueo"] * 3
     assert [niveles[i] for i in ids["aviso"]] == ["aviso"] * 3
     assert niveles[ids["libre"][0]] is None
-    otra = repo.get_worker("emp-88", incidencias=TABLA)
+    otra = repo.get_worker("rec-502", incidencias=TABLA)
     assert _niveles(otra.registros) == {ids["otra"][0]: None}
 
 
@@ -266,7 +266,7 @@ def test_f025_r16_r17_html_vista_de_trabajador(portal) -> None:
 
 def test_f025_r16_html_sin_conflictos_no_hay_marcas(portal) -> None:
     cliente, _ids = portal
-    html = cliente.get(f"/trabajadores/emp-88?period={MARZO}").text
+    html = cliente.get(f"/trabajadores/rec-502?period={MARZO}").text
     assert "cal-incompat" not in html
     assert _insignias(html) == {}
 
