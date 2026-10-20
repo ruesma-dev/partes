@@ -13,7 +13,11 @@ en 2 empresas».
 **Aprobadas por el humano el 2026-10-20 («ok a lo demás»)**: DA2 (una sola función),
 DA3 (alta manual hereda fila y leído), DA4 (sin migración), DA5 (redirección de enlaces),
 DA6 (la vista del trabajador pasa el recurso), DA7 (E5), DA8 (rigor estándar), DA9 (F-050
-antes de F-049).
+antes de F-049) y, con la segunda regla del humano del mismo día («en la vista por persona,
+se juntan las obras. lo que es importante es que en 2 empresas son 2 personas con vistas
+diferenciadas»), **DA10 opción (a)**: «Por persona», una fila por (empresa, persona) con
+todas sus obras. Esa regla mete en alcance mostrar la empresa (R23–R26, DA11). Detalle de
+la revisión: `progress/spec_F-050.md`.
 
 **Abiertas, las valida el humano antes de implementar** (`design.md` §8):
 
@@ -29,12 +33,17 @@ antes de F-049).
   base da 2068 passed).
 - **DA1b**: dos recursos persona del mismo DNI en una empresa (E11) salen en dos filas;
   recomendado aceptarlo como anomalía y reasignar.
-- **DA10**: la lista «Por persona» choca con la regla literal; recomendado una fila por
-  (empresa, persona) con sus obras dentro, y la fila por obra en «Por obra».
+- **DA11 · Empresa de la persona** (nueva): columna «Empresa» en «Por persona» y empresa
+  en la cabecera de `/trabajadores/{clave}`. Recomendada la regla de F-033 sobre la base
+  `partes` (empresa de los partes de la clave o, si ninguno la tiene, la deducida por su
+  recurso de otros partes): sin Sigrid ni consultas nuevas, solo sv4. Sin empresa ⇒ «—»
+  (partes manuales o anteriores a F-023 sin recurso deducible); en `nom-`/`sin-trabajador`
+  se pinta la empresa de sus partes. Descartados el catálogo de recursos de Sigrid, Sigrid
+  por fila, guardar la empresa en la línea (sv3 y esquema) y el respaldo por obra.
 
 **MANUAL (humano)**: M1 (SQL de solo lectura de `design.md` §6) mejor **antes de
 implementar**: sus cifras (filas que se unen, fichas sin recurso, DNIs con dos recursos en
-una obra) apoyan DA1 y DA1b. M2–M5 tras desplegar sv4.
+una obra) apoyan DA1 y DA1b. M2–M6 tras desplegar sv4 (M6: columna «Empresa»).
 
 **Lo fusionado en `dev` tras `dc03468`** (F-046, F-048, F-051) no cambia la clave ni el alta
 manual; F-046 agrupa el reparto por `recurso_ide`, igual que la clave A. Tras el rebase,
