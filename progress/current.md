@@ -1,6 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-034 · spec_ready (2026-10-20): sv5 solo escribe en partes de Sigrid abiertos
+
+Spec en `specs/F-034-escribir-solo-en-partes-abiertos/` (rama
+`feature/F-034-escribir-solo-en-partes-abiertos`, worktree `partes-wt-f034`); informe en
+`progress/spec_F-034.md`. Hallazgo principal: el `INSERT` de líneas del registro y el
+`DELETE` del pisado no comprueban `con.est` al escribir (el lock solo serializa sv5), y
+el pisado borra contra la regla «no borrar en Sigrid». **Pendiente del humano**: DA1–DA9
+(`design.md` §11; DA4 = pisado a 0 en feature aparte, recomendado). **Pendiente del
+líder**: M1 de solo lectura (`design.md` §9) antes de implementar.
+
 ## F-050 · done (2026-10-20, APPROVED pasada 1), pendiente de despliegue de sv4 y M2–M6: misma fila para el mismo trabajador
 
 ### T11 · desbloqueada (2026-10-20)
