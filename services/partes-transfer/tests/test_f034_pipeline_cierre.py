@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import threading
 
+import pytest
 from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.reajuste_lineas import MOTIVO_PARTE_NO_EN_REGISTRO
@@ -347,3 +348,193 @@ def test_f034_r12_conflicto_no_confirmado_no_cuenta_ni_se_relee() -> None:
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
     assert [c.clave for c in r.pendientes_confirmacion] == [CLAVE]
     assert r.borradas == 0 and cli.ides_leidos == []
+
+
+# ======== Relectura tras escribir: lo que no entra (T7, R8-R11, R13-R14) ======== #
+
+MOTIVO_314_CERRADO = (
+    "parte_no_abierto: el parte PT26/00314 ya no esta En registro "
+    "(Cerrado); no se registra. Reaprueba para llevarla al parte En "
+    "registro del mes")
+
+
+def _tres() -> list[LineaEntrada]:
+    return [_lin(1), _lin(2, fecha_int=20261015), _lin(3, fecha_int=20261016)]
+
+
+def test_f034_r9_r11_ejemplo_1_cierre_en_la_ventana() -> None:
+    """Ejemplo 1: las 3 INSERT afectan 0 filas; ninguna sale `registrado`
+    y las 3 son `omitidas` con el motivo de DA3."""
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")], alta_protegida=True)
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=_tres())
+    assert r.ok and r.escritas == []
+    assert r.omitidas == [{"registro_id": i, "motivo": MOTIVO_314_CERRADO}
+                          for i in (1, 2, 3)]
+    assert _sincronizadas(cli) == {}
+    # Al reaprobar, F-031 crea el complementario y las lineas entran.
+    r2 = _pipeline(cli).ejecutar(obra=_obra(), lineas=_tres())
+    (nuevo,) = [p for p in cli.partes if p["ide"] != HMO]
+    assert nuevo["cod"] == "PT26/00315"
+    assert [e["registro_id"] for e in r2.escritas] == [1, 2, 3]
+    assert r2.omitidas == []
+    assert _sincronizadas(cli) == {nuevo["ide"]: [1, 2, 3]}
+
+
+def test_f034_r11_el_motivo_nombra_imputado() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    cli.cerrar_al_escribir = {HMO: IMPUTADO}
+    (om,) = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)]).omitidas
+    assert om["motivo"] == MOTIVO_314_CERRADO.replace("Cerrado", "Imputado")
+
+
+def test_f034_r11_el_motivo_nombra_otro_estado() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    cli.cerrar_al_escribir = {HMO: 7}
+    (om,) = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)]).omitidas
+    assert "(estado 7)" in om["motivo"]
+
+
+def test_f034_r11_ejemplo_2_la_nueva_sale_con_el_parte_de_su_pisada() -> None:
+    """El elegido (PT26/00400) sigue abierto: lo impidio PT26/00314, el
+    parte de la pisada que se cerro."""
+    cli = _pisado(cerrar={HMO: CERRADO})
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
+                                pisar_claves={CLAVE})
+    assert r.escritas == [] and r.borradas == 0
+    assert r.omitidas == [{"registro_id": 1, "motivo": MOTIVO_314_CERRADO}]
+
+
+def test_f034_r11_elegido_cerrado_y_pisada_abierta_nombra_el_elegido() -> None:
+    cli = _pisado(cerrar={905: IMPUTADO})
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
+                                pisar_claves={CLAVE})
+    (om,) = r.omitidas
+    assert om["motivo"].startswith(
+        "parte_no_abierto: el parte PT26/00400 ya no esta En registro "
+        "(Imputado)")
+    assert r.borradas == 1            # la pisada de 900 si se borro
+
+
+def test_f034_r9_dos_periodos_uno_cerrado() -> None:
+    """Solo las lineas del periodo cerrado salen; la relectura de partes
+    es UNA y solo de ese periodo (R10)."""
+    cli = _cli(partes=[_parte(HMO, "PT26/00314"),
+                       _parte(800, "PT26/00200", mes=9)])
+    cli.cerrar_al_escribir = {800: CERRADO}
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[
+        _lin(1), _lin(2, fecha_int=20260915), _lin(3, fecha_int=20260916)])
+    assert [e["registro_id"] for e in r.escritas] == [1]
+    assert [o["registro_id"] for o in r.omitidas] == [2, 3]
+    assert all("PT26/00200" in o["motivo"] for o in r.omitidas)
+    assert cli.periodos_leidos == [(OBRA, 2026, 9), (OBRA, 2026, 10),
+                                   (OBRA, 2026, 9)]
+
+
+def test_f034_r9_cierre_entre_lotes_decide_linea_a_linea() -> None:
+    """Cierre tras 15 sentencias (entre dos lotes del cliente real): las
+    15 primeras entran, las demas no; la relectura decide, no la
+    respuesta de `escribir`."""
+    lineas = [_lin(i, fecha_int=20261001 + i) for i in range(1, 21)]
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    cli.cerrar_tras_sentencias = 15
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=lineas)
+    assert [e["registro_id"] for e in r.escritas] == list(range(1, 16))
+    assert all(e["hmores_ide"] for e in r.escritas)
+    assert [o["registro_id"] for o in r.omitidas] == list(range(16, 21))
+    assert _sincronizadas(cli) == {HMO: list(range(1, 16))}
+
+
+def test_f034_r10_sin_no_escritas_no_relee_los_partes() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=_tres())
+    assert [e["registro_id"] for e in r.escritas] == [1, 2, 3]
+    assert cli.periodos_leidos == [(OBRA, 2026, 10)]
+    assert r.omitidas == []
+
+
+def test_f034_r13_warning_sin_nombres(caplog) -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    with caplog.at_level("INFO"):
+        _pipeline(cli).ejecutar(obra=_obra(), lineas=_tres())
+    (w,) = [r for r in caplog.records
+            if "no escritas por parte no abierto" in r.getMessage()]
+    assert w.levelname == "WARNING"
+    assert w.getMessage() == (
+        "[registro] no escritas por parte no abierto obra=0100 "
+        "periodo=2026/10 partes=PT26/00314 (Cerrado) registro_ids=[1, 2, 3]")
+    assert not [r for r in caplog.records if r.levelname == "ERROR"]
+    assert "Persona" not in caplog.text
+
+
+def test_f034_r11_no_escrita_sin_parte_cerrado_es_error(caplog) -> None:
+    """Sigrid no confirma la linea pero su parte sigue abierto: no deberia
+    ocurrir; motivo `no_escrita` y un ERROR."""
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    original = cli.escribir
+    cli.escribir = lambda sts: original(
+        [s for s in sts if s.get("synckey") != synckey_de(2)])
+    with caplog.at_level("INFO"):
+        r = _pipeline(cli).ejecutar(obra=_obra(), lineas=_tres())
+    assert [e["registro_id"] for e in r.escritas] == [1, 3]
+    assert r.omitidas == [{"registro_id": 2, "motivo": (
+        "no_escrita: Sigrid no confirmo la linea en el parte PT26/00314; "
+        "reaprueba")}]
+    (e,) = [x for x in caplog.records if x.levelname == "ERROR"]
+    assert e.getMessage() == (
+        "[registro] no escritas sin parte cerrado que lo explique obra=0100 "
+        "periodo=2026/10 parte=PT26/00314 registro_ids=[2]")
+    assert not [x for x in caplog.records
+                if "no escritas por parte no abierto" in x.getMessage()]
+    assert "Persona" not in caplog.text
+
+
+def _falla_en(cli, metodo: str, llamada: int):
+    original = getattr(cli, metodo)
+    n = {"v": 0}
+
+    def envoltura(*a, **k):
+        n["v"] += 1
+        if n["v"] == llamada:
+            raise RuntimeError(f"{metodo} caido")
+        return original(*a, **k)
+    setattr(cli, metodo, envoltura)
+
+
+def test_f034_r14_falla_la_relectura_por_synckey() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    _falla_en(cli, "lineas_por_synckey", 2)        # la primera es el paso 6
+    with pytest.raises(RuntimeError, match="lineas_por_synckey caido"):
+        _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
+
+
+def test_f034_r14_falla_la_relectura_de_partes() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    _falla_en(cli, "partes_del_periodo", 2)
+    with pytest.raises(RuntimeError, match="partes_del_periodo caido"):
+        _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
+
+
+def test_f034_r14_falla_la_relectura_por_ide() -> None:
+    cli = _pisado()
+    _falla_en(cli, "lineas_por_ide", 1)
+    with pytest.raises(RuntimeError, match="lineas_por_ide caido"):
+        _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
+                                pisar_claves={CLAVE})
+
+
+def test_f034_r8_todo_corre_bajo_el_lock() -> None:
+    """`vigilar_lock`: elegir, escribir y releer (synckey, ide y partes),
+    con el lock del pipeline tomado; si no, el doble lanza."""
+    cli = _pisado(cerrar={HMO: CERRADO})
+    lock = threading.Lock()
+    cli.vigilar_lock(lock)
+    r = _pipeline(cli, lock=lock).ejecutar(obra=_obra(), lineas=[_lin(1)],
+                                           pisar_claves={CLAVE})
+    assert [o["registro_id"] for o in r.omitidas] == [1]
+    assert cli.llamadas.count("partes_del_periodo") == 2
+    assert "lineas_por_ide" in cli.llamadas
+    assert not lock.locked()

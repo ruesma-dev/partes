@@ -91,6 +91,12 @@ from application.services.estado_parte import (
     motivo_choque,
     nombre_estado,
 )
+from application.services.parte_abierto import (
+    confirmar_escritas,
+    motivo_no_escrita,
+    motivo_parte_no_abierto,
+    parte_que_impidio,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -566,23 +572,83 @@ class RegistroPipeline:
                                  "caa_cod": a.caa_cod})
 
         afectadas = self._cli.escribir(statements)
-        # R12: las pisadas que ya no estan en Sigrid tras escribir.
+
+        # F-034: RELECTURA (R9, R12). Lo que decide si una linea entro es
+        # releerla por synckey en el parte elegido, no la respuesta de
+        # `escribir` (cada lote es una transaccion y la guarda de parte
+        # abierto pudo dejar sentencias a 0 filas). Sin `try`: si una
+        # relectura falla, la peticion falla entera (R14).
+        mapa = self._cli.lineas_por_synckey(
+            [synckey_de(e["registro_id"]) for e in res.escritas])
+        res.escritas, no_escritas = confirmar_escritas(res.escritas, mapa)
         pisadas = sorted({i for ides in pisadas_de.values() for i in ides})
+        vivas: dict[int, LineaSigrid] = {}
         if pisadas:
             siguen = self._cli.lineas_por_ide(pisadas)
             res.borradas = sum(1 for i in pisadas if i not in siguen)
-        logger.info("[registro] escritas=%s borradas=%s filas=%s usuario=%s "
-                    "ts=%s", len(res.escritas), res.borradas, afectadas,
-                    usuario, datetime.now(timezone.utc).isoformat())
-
-        # Devolver el ide real de cada linea creada (para trazabilidad).
-        mapa = self._cli.lineas_por_synckey(
-            [synckey_de(e["registro_id"]) for e in res.escritas])
-        for e in res.escritas:
-            hit = mapa.get(synckey_de(e["registro_id"]))
-            if hit is not None:
-                e["hmores_ide"] = hit.ide
+            vivas = {i: ls for i, ls in siguen.items()
+                     if float(ls.can or 0) != 0}
+        if no_escritas:
+            self._omitir_no_escritas(res, destino, no_escritas, a_escribir,
+                                     pisadas_de, vivas)
+        logger.info("[registro] escritas=%s no_escritas=%s borradas=%s "
+                    "filas=%s usuario=%s ts=%s", len(res.escritas),
+                    len(no_escritas), res.borradas, afectadas, usuario,
+                    datetime.now(timezone.utc).isoformat())
         return res
+
+    def _omitir_no_escritas(
+        self, res: ResultadoRegistro, destino: ObraEntrada,
+        no_escritas: list[dict], a_escribir: list[AccionLinea],
+        pisadas_de: dict[int, list[int]], vivas: dict[int, LineaSigrid],
+    ) -> None:
+        """F-034 (R10, R11, R13): cada linea que no entro sale `omitida`.
+
+        UNA relectura de partes por periodo afectado (dentro del lock) para
+        nombrar el parte que lo impidio: el de una pisada que sigue viva
+        primero (por R4 la nueva no entra), luego el elegido. Sin parte
+        cerrado que lo explique, `no_escrita` y un ERROR. Sin nombres."""
+        est_registro = self._est_registro()
+        periodo_de = {a.registro_id: (a.ano, a.mes) for a in a_escribir}
+        por_periodo: dict[tuple[int, int], list[dict]] = {}
+        for e in no_escritas:
+            por_periodo.setdefault(periodo_de[e["registro_id"]], []).append(e)
+        for (ano, mes), grupo in sorted(por_periodo.items()):
+            partes = self._cli.partes_del_periodo(int(destino.ide), ano, mes)
+            estados = {ps.ide: ps.est for ps in partes}
+            codigos = {ps.ide: ps.cod for ps in partes}
+            impedidas: dict[int, list[int]] = {}
+            sin_explicar: list[int] = []
+            for e in grupo:
+                rid = e["registro_id"]
+                h = parte_que_impidio(
+                    e["hmoide"],
+                    [vivas[i].hmoide for i in pisadas_de.get(rid, ())
+                     if i in vivas],
+                    estados, est_registro=est_registro)
+                if h is None:
+                    motivo = motivo_no_escrita(e.get("parte_cod"))
+                    sin_explicar.append(rid)
+                else:
+                    motivo = motivo_parte_no_abierto(
+                        codigos[h], self._nombre_estado(estados[h]))
+                    impedidas.setdefault(h, []).append(rid)
+                res.omitidas.append({"registro_id": rid, "motivo": motivo})
+            if impedidas:
+                nombres = ", ".join(
+                    f"{codigos[h]} ({self._nombre_estado(estados[h])})"
+                    for h in sorted(impedidas))
+                logger.warning(
+                    "[registro] no escritas por parte no abierto obra=%s "
+                    "periodo=%s/%02d partes=%s registro_ids=%s",
+                    destino.codigo, ano, mes, nombres,
+                    sorted(r for rs in impedidas.values() for r in rs))
+            if sin_explicar:
+                logger.error(
+                    "[registro] no escritas sin parte cerrado que lo explique "
+                    "obra=%s periodo=%s/%02d parte=%s registro_ids=%s",
+                    destino.codigo, ano, mes, grupo[0].get("parte_cod"),
+                    sin_explicar)
 
     #: F-031 v5 (R44): altas por periodo (la primera y UN reintento).
     INTENTOS_ALTA = 2
