@@ -263,3 +263,16 @@ def test_f034_r1_toda_sentencia_que_toca_hmores_lleva_la_guarda() -> None:
                          r"HOLDLOCK\) WHERE c\.ide = (\?|hmores\.hmoide|"
                          r"h\.hmoide) AND c\.est = \?\)", sql), sql
         assert "FROM con c WHERE" not in sql
+
+
+# ------------- T12 · bordes del INSERT que la mutacion dejo vivos ------------- #
+
+def test_f034_t12_insert_linea_sin_partida_va_con_paride_0() -> None:
+    """Mutante #20 (`paride or 1`): una linea sin partida no inventa la 1."""
+    assert _insert(paride=None)["parameters"][4] == 0
+    assert _insert(paride=0)["parameters"][4] == 0
+
+
+def test_f034_t12_insert_linea_tot_redondeado_a_2_decimales() -> None:
+    """Mutante #19 (`round(..., 3)`): `tot` va a 2 decimales."""
+    assert _insert(can=0.5, pre=0.123)["parameters"][10] == 0.06

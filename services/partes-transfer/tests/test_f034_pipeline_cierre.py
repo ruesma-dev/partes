@@ -538,3 +538,29 @@ def test_f034_r8_todo_corre_bajo_el_lock() -> None:
     assert cli.llamadas.count("partes_del_periodo") == 2
     assert "lineas_por_ide" in cli.llamadas
     assert not lock.locked()
+
+
+# ------- T12 · que pisada cuenta como «viva» (mutantes #4 y #5) ------- #
+
+def test_f034_t12_pisada_con_can_nulo_no_esta_viva() -> None:
+    """`can` NULL es 0, como `ISNULL(p.can, 0)` del SQL: esa pisada no
+    explica nada; con los dos partes cerrados, lo impidio el elegido."""
+    cli = _pisado(cerrar={HMO: CERRADO, 905: IMPUTADO},
+                  lineas=[dict(_linea_sigrid(4001, HMO), can=None)])
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
+                                pisar_claves={CLAVE})
+    (om,) = r.omitidas
+    assert om["motivo"].startswith(
+        "parte_no_abierto: el parte PT26/00400 ya no esta En registro "
+        "(Imputado)")
+    assert r.borradas == 0
+
+
+def test_f034_t12_pisada_con_una_hora_si_esta_viva() -> None:
+    """Una pisada con `can = 1` sigue con horas: es la que lo impidio."""
+    cli = _pisado(cerrar={HMO: CERRADO},
+                  lineas=[_linea_sigrid(4001, HMO, can=1.0)])
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
+                                pisar_claves={CLAVE})
+    assert r.omitidas == [{"registro_id": 1, "motivo": MOTIVO_314_CERRADO}]
+    assert _sincronizadas(cli) == {}

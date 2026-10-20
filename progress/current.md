@@ -11,8 +11,22 @@ en `progress/spec_F-034.md`. **Spec aprobada entera** por el humano el 2026-10-2
 partes en estado 1 y 37 en estado 3; mes 10 → 37 en estado 1; 358 líneas `partes:%`, todas en
 2026/10 y en partes En registro; 0 periodos con más de un parte En registro (`design.md` §9).
 
-**Implementer (2026-10-20)**: en curso, un commit por tarea; tarea en curso y desviaciones,
-aquí; detalle en `progress/impl_F-034.md`.
+**Implementer (2026-10-20/21)**: T1–T11 hechas, un commit por tarea; en curso T12 (campaña
+de mutación completa) y T13. Detalle en `progress/impl_F-034.md`. Desviaciones respecto a la
+spec, justificadas:
+
+- `parte_abierto.py` importa `synckey_de` de `infrastructure.sigrid.sigrid_write_client`
+  (design §5 decía «imports solo de `domain`»): sin ella `confirmar_escritas` no puede tener
+  la firma de design §5 sin duplicar el prefijo `partes:`. Mismo precedente que
+  `reajuste_lineas.py` y `comprobacion_lineas.py` (application/services, F-046 y F-024).
+- `SigridFake` gana, además de `cerrar_al_escribir` (design §6), `cerrar_tras_sentencias`
+  (cuántas sentencias de líneas pasan antes del cierre): el doble recibe la lista entera, no
+  los lotes de 15 del cliente real, y sin ello no se puede probar «cierre entre lotes» (§7).
+- sv4: un motivo vacío o nulo agrupa bajo la clave vacía (literal de R19, «el motivo
+  entero»); sv5 siempre manda motivo en las omitidas.
+- `test_f046_t22_cliente_bordes.py` no se toca: sus índices de parámetros no cambian (la
+  guarda va al final); el texto nuevo lo fijan `test_f046_cliente_reajuste.py` (ampliado) y
+  `test_f034_cliente_guarda.py`.
 
 ## F-050 · done (2026-10-20, APPROVED pasada 1), pendiente de despliegue de sv4 y M2–M6: misma fila para el mismo trabajador
 

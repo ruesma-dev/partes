@@ -19,7 +19,7 @@ Reglas que no se negocian:
 - [x] T9: Comprobar que no cambian los ficheros vigilados por `porcentajes` (R7, DA6)  |  Verificación: `git diff --quiet dev -- services/partes-transfer/application/services/estado_parte.py services/partes-transfer/application/services/cuenta_analitica.py` (código 0) y `test_f031_cliente_alta.py` en verde
 - [x] T10: Documentación: `docs/ARCHITECTURE.md` semántica 16 y docstrings de los pasos 8–9 de `registro_pipeline.py` (R21)  |  Verificación: `pytest tests/test_documentos_del_arnes.py` y lectura del reviewer
 - [x] T11: `azure-apps/partes.md` (pasos 5–6, «Qué se rompe» y nota a `porcentajes`), commit local en el repositorio `azure-apps` (R21)  |  Verificación: `git -C C:/Users/pgris/PycharmProjects/azure-apps log -1 --stat` muestra solo `partes.md`
-- [ ] T12: Campaña de mutación completa y análisis de supervivientes  |  Verificación: `python -m harness.mutacion --feature F-034` con 0 supervivientes sin test o justificación
+- [x] T12: Campaña de mutación completa y análisis de supervivientes  |  Verificación: `python -m harness.mutacion --feature F-034` con 0 supervivientes sin test o justificación
 - [ ] T13: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
 - [x] M1: Líder, solo lectura, antes de T1 (hecha el 2026-10-20; cifras en `design.md` §9): las tres consultas de `design.md` §9 por `sql/read` contra `ruesma`  |  Verificación: MANUAL (líder), cifras en `progress/current.md`
 - [ ] M2: Humano, tras desplegar sv5 y sv4: registro en modo pruebas (0404, `PRUEBA-IA`) y, si hay caso, reajuste  |  Verificación: MANUAL (humano), `design.md` §9
