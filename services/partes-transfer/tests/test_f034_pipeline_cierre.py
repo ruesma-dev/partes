@@ -174,3 +174,76 @@ def test_f034_r18_el_parte_que_crea_sv5_nace_en_registro_y_recibe() -> None:
     assert {e["parte_cod"] for e in r.escritas} == {nuevo["cod"]}
     assert all(e.get("hmores_ide") for e in r.escritas)
     assert r.omitidas == []
+
+
+# ============ El doble cumple la semantica del SQL real (T5) ============ #
+# El SQL lo fija `test_f034_cliente_guarda.py`; aqui, que `SigridFake` lo
+# evalua igual, para que los tests del pipeline no prueben un doble falso.
+
+def _st_insert(cli, rid, hmoide=HMO, pisadas=()):
+    return cli.stmt_insert_linea(
+        hmoide=hmoide, obra=_obra(), reside=501, pos=64, fecha_int=FECHA,
+        horide=HL, can=8.0, pre=10.0, paride=0, ano=2026, mes=10,
+        synckey=synckey_de(rid), tex=None, caaide=0, pisadas=pisadas)
+
+
+def test_f034_doble_insert_en_parte_cerrado_no_entra() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314", est=CERRADO),
+                       _parte(905, "PT26/00400")])
+    assert cli.escribir([_st_insert(cli, 1), _st_insert(cli, 2, 905)]) == 1
+    assert _sincronizadas(cli) == {905: [2]}
+    (fila,) = cli.lineas
+    assert "guarda_hmoide" not in fila and "pisadas" not in fila
+
+
+def test_f034_doble_insert_en_parte_inexistente_no_entra() -> None:
+    cli = _cli()
+    assert cli.escribir([_st_insert(cli, 1, 999)]) == 0 and cli.lineas == []
+
+
+def test_f034_doble_borrar_solo_en_parte_abierto() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314", est=CERRADO),
+                       _parte(905, "PT26/00400")],
+               lineas=[_linea_sigrid(4001, HMO), _linea_sigrid(4002, 905)])
+    assert cli.escribir([cli.stmt_borrar_linea(4001),
+                         cli.stmt_borrar_linea(4002)]) == 1
+    assert [l["ide"] for l in cli.lineas] == [4001]
+
+
+def test_f034_doble_pisada_con_horas_bloquea_el_insert() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")],
+               lineas=[_linea_sigrid(4001, HMO),
+                       _linea_sigrid(4002, HMO, can=0.0)])
+    assert cli.escribir([_st_insert(cli, 1, pisadas=[4001])]) == 0
+    assert cli.escribir([_st_insert(cli, 2, pisadas=[4002])]) == 1
+    assert _sincronizadas(cli) == {HMO: [2]}
+
+
+def test_f034_doble_cierra_en_la_ventana_una_sola_vez() -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")])
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    cli.cerrar_tras_sentencias = 1
+    assert cli.escribir([_st_insert(cli, 1), _st_insert(cli, 2)]) == 1
+    assert _sincronizadas(cli) == {HMO: [1]}
+    assert cli.partes[0]["est"] == CERRADO and cli.cerrar_al_escribir == {}
+
+
+def test_f034_doble_el_alta_no_dispara_el_cierre() -> None:
+    cli = _cli()
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    cli.escribir(cli.stmts_crear_parte(obra=_obra(), ano=2026, mes=10,
+                                       cod="PT26/00001", desc="Parte"))
+    assert cli.cerrar_al_escribir == {HMO: CERRADO}
+
+
+def test_f034_doble_lineas_por_ide_bajo_lock() -> None:
+    cli = _cli(lineas=[_linea_sigrid(4001, HMO), _linea_sigrid(4002, HMO)])
+    assert set(cli.lineas_por_ide([4002, None, 4003])) == {4002}
+    assert cli.ides_leidos == [[4002, 4003]]
+    cli.vigilar_lock(threading.Lock())
+    try:
+        cli.lineas_por_ide([4001])
+    except AssertionError as err:
+        assert "FUERA del lock" in str(err)
+    else:
+        raise AssertionError("lineas_por_ide no vigila el lock")

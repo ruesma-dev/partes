@@ -239,6 +239,15 @@ class SigridFake:
         self.periodos_leidos: list[tuple[int, int, int]] = []
         #: F-031: `hmoide` de cada `lineas_existentes`.
         self.lineas_leidas: list[int] = []
+        #: F-034 (design §6): {hmoide: est} que «Administracion» aplica a
+        #: los partes en la ventana: al entrar en el PRIMER `escribir` que
+        #: lleve `insert` o `borrar`, tras `cerrar_tras_sentencias` de esas
+        #: sentencias (0 = antes de la primera; 15 = entre dos lotes del
+        #: cliente real). Se aplica una sola vez.
+        self.cerrar_al_escribir: dict[int, int] = {}
+        self.cerrar_tras_sentencias = 0
+        #: F-034: `ides` de cada `lineas_por_ide`.
+        self.ides_leidos: list[list[int]] = []
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -447,6 +456,15 @@ class SigridFake:
                 out[l["synckey"]] = self._a_linea_sigrid(l)
         return out
 
+    def lineas_por_ide(self, ides):
+        """F-034 (R12): como el cliente real (F-024), bajo el lock."""
+        self._comprobar_lock("lineas_por_ide")
+        self._lectura("lineas_por_ide")
+        ks = sorted({int(i) for i in ides if i})
+        self.ides_leidos.append(ks)
+        return {l["ide"]: self._a_linea_sigrid(l) for l in self.lineas
+                if l["ide"] in ks}
+
     def _a_linea_sigrid(self, l: dict):
         from domain.models.registro_models import LineaSigrid
         ls = LineaSigrid(
@@ -466,18 +484,34 @@ class SigridFake:
 
     def stmt_insert_linea(self, *, hmoide, obra, reside, pos, fecha_int,
                           horide, can, pre, paride, ano, mes, synckey,
-                          tex, caaide) -> dict:
+                          tex, caaide, pisadas=()) -> dict:
         # F-021: `caaide` obligatorio, igual que en el cliente real (DA9).
+        # F-034: la guarda (R2) y las pisadas (R4), como el SQL real.
         return {"op": "insert", "hmoide": int(hmoide), "reside": int(reside),
                 "pos": int(pos), "fec": int(fecha_int), "horide": int(horide),
                 "can": float(can), "pre": float(pre),
                 "tot": round(float(can) * float(pre), 2),
                 "paride": int(paride or 0), "ano": int(ano), "mes": int(mes),
-                "synckey": synckey, "tex": tex, "caaide": int(caaide)}
+                "synckey": synckey, "tex": tex, "caaide": int(caaide),
+                "guarda_hmoide": int(hmoide),
+                "pisadas": [int(i) for i in pisadas]}
 
-    @staticmethod
-    def stmt_borrar_linea(ide: int) -> dict:
+    def stmt_borrar_linea(self, ide: int) -> dict:
+        # F-034 (R3): de instancia, como el cliente real.
         return {"op": "borrar", "ide": int(ide)}
+
+    def _abierto(self, hmoide) -> bool:
+        """F-034: la guarda de parte abierto (`EXISTS` sobre `con` con
+        `est = 1`): un parte que no existe tampoco esta abierto."""
+        return any(p["ide"] == hmoide and p.get("est", 1) == 1
+                   for p in self.partes)
+
+    def _cerrar_si_toca(self, hechas: int) -> None:
+        if self.cerrar_al_escribir and hechas >= self.cerrar_tras_sentencias:
+            for p in self.partes:
+                if p["ide"] in self.cerrar_al_escribir:
+                    p["est"] = self.cerrar_al_escribir[p["ide"]]
+            self.cerrar_al_escribir = {}
 
     def _alta_libre(self, s: dict) -> bool:
         """F-031 v5: el «otro servicio» actua antes del primer alta; con
@@ -506,7 +540,11 @@ class SigridFake:
         self._entrar("escribir", self.latencia_escritura)
         try:
             n = 0
+            de_lineas = 0
             for s in statements:
+                if s["op"] in ("insert", "borrar"):
+                    self._cerrar_si_toca(de_lineas)
+                    de_lineas += 1
                 if s["op"] == "crear_parte" and not self._alta_libre(s):
                     continue        # F-031 v5: el alta protegida no entra
                 if s["op"] == "crear_parte":
@@ -522,13 +560,24 @@ class SigridFake:
                         nuevo["cod"] = self.cod_al_crear
                     self.partes.append(nuevo)
                 elif s["op"] == "insert":
+                    # F-034 (R2, R4): la guarda y las pisadas con horas.
+                    if not self._abierto(s["guarda_hmoide"]) or any(
+                            float(l.get("can") or 0) != 0
+                            for l in self.lineas if l["ide"] in s["pisadas"]):
+                        continue
                     self._siguiente_hmores += 1
                     fila = dict(s)
-                    fila.pop("op")
+                    for k in ("op", "guarda_hmoide", "pisadas"):
+                        fila.pop(k)
                     fila["ide"] = self._siguiente_hmores
                     fila["hora_codigo"] = None
                     self.lineas.append(fila)
                 elif s["op"] == "borrar":
+                    # F-034 (R3): solo si el parte de la fila esta abierto.
+                    borrar = [l for l in self.lineas if l["ide"] == s["ide"]
+                              and self._abierto(l["hmoide"])]
+                    if not borrar:
+                        continue
                     self.lineas = [l for l in self.lineas
                                    if l["ide"] != s["ide"]]
                 n += 1
