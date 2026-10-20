@@ -528,14 +528,19 @@ class RegistroPipeline:
             desc = f"Parte {destino.nombre or destino.codigo}{marca}"
             self._crear_parte(p, destino, desc)
 
-        # Paso 9: borrar pisadas + insertar.
+        # Paso 9: borrar pisadas + insertar. F-034: cada sentencia lleva la
+        # guarda de parte abierto y el INSERT de una linea que pisa, sus
+        # pisadas (R4): si un DELETE no entra, la nueva tampoco. `borradas`
+        # se cuenta al releer, no al construir (R12).
         statements: list[dict] = []
+        pisadas_de: dict[int, list[int]] = {}
         for c in pf.conflictos:
             if c.clave not in pisar:
                 continue
             for ls in c.lineas:
                 statements.append(self._cli.stmt_borrar_linea(ls.ide))
-                res.borradas += 1
+            for rid in c.registros:
+                pisadas_de[rid] = [ls.ide for ls in c.lineas]
 
         pos_por_parte: dict[int, int] = {}
         tex = self._st.marca_pruebas if pf.forzada_pruebas else None
@@ -552,7 +557,8 @@ class RegistroPipeline:
                 horide=int(a.hora_ide), can=float(a.can), pre=float(a.pre),
                 paride=int(a.paride or 0), ano=a.ano, mes=a.mes,
                 synckey=synckey_de(a.registro_id), tex=tex,
-                caaide=int(a.caa_ide)))
+                caaide=int(a.caa_ide),
+                pisadas=pisadas_de.get(a.registro_id, ())))
             res.escritas.append({"registro_id": a.registro_id,
                                  "hmoide": hmoide, "parte_cod": p.cod,
                                  "hora_codigo": a.hora_codigo,
@@ -560,6 +566,11 @@ class RegistroPipeline:
                                  "caa_cod": a.caa_cod})
 
         afectadas = self._cli.escribir(statements)
+        # R12: las pisadas que ya no estan en Sigrid tras escribir.
+        pisadas = sorted({i for ides in pisadas_de.values() for i in ides})
+        if pisadas:
+            siguen = self._cli.lineas_por_ide(pisadas)
+            res.borradas = sum(1 for i in pisadas if i not in siguen)
         logger.info("[registro] escritas=%s borradas=%s filas=%s usuario=%s "
                     "ts=%s", len(res.escritas), res.borradas, afectadas,
                     usuario, datetime.now(timezone.utc).isoformat())
