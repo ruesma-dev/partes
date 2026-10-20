@@ -23,6 +23,13 @@ estado (`con.est`) para que el pipeline no escriba en uno cerrado, y
 `partidas_de_lineas` la cuenta de cada partida (respaldo de la del
 recurso). Solo lecturas; las sentencias de escritura no cambian.
 
+F-034: toda sentencia que inserta, actualiza o borra una fila de `hmores`
+lleva la GUARDA DE PARTE ABIERTO (`_guarda_parte_abierto`): `EXISTS` sobre
+`con` del parte de esa fila con `est = EST_PARTE_ACTIVO` y `UPDLOCK,
+HOLDLOCK`, que retiene la fila de `con` hasta el `commit`. Si
+Administracion cierra o contabiliza el parte en la ventana, la sentencia
+afecta 0 filas y el pipeline lo descubre al releer (no por la respuesta).
+
 F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
 no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
 y el ``INSERT INTO hmo`` localiza su cabecera por codigo, tipo y empresa.
@@ -34,7 +41,7 @@ from __future__ import annotations
 import calendar
 import logging
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import httpx
 
@@ -520,31 +527,58 @@ class SigridWriteClient:
                             cod, self._tip, empresa]},
         ]
 
+    def _guarda_parte_abierto(self, col: str) -> str:
+        """F-034 (R1): la guarda de parte abierto sobre el parte `col` (un
+        `?` o una columna como `hmores.hmoide`). El estado va como
+        parametro (`EST_PARTE_ACTIVO`) y la lectura de `con` con `UPDLOCK,
+        HOLDLOCK`: el cierre en Sigrid espera a nuestro `commit`, asi que
+        comprobar y escribir es atomico."""
+        return ("EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) "
+                f"WHERE c.ide = {col} AND c.est = ?)")
+
     def stmt_insert_linea(
         self, *, hmoide: int, obra: ObraEntrada, reside: int, pos: int,
         fecha_int: int, horide: int, can: float, pre: float, paride: int,
         ano: int, mes: int, synckey: str, tex: str | None, caaide: int,
+        pisadas: Sequence[int] = (),
     ) -> dict:
         """Linea `hmores`. F-021 (R14): `caaide` es la cuenta analitica
         resuelta (0 = sin cuenta) y es OBLIGATORIO (DA9): un 0 por defecto
-        esconderia una llamada que lo olvide."""
+        esconderia una llamada que lo olvide.
+
+        F-034 (R2): el `ide` sale de la subconsulta `x` (un agregado con
+        `WHERE` falso devolveria fila igualmente) y la linea solo entra si
+        su parte sigue En registro. R4: con `pisadas` (las lineas de un
+        conflicto confirmado), solo si ninguna sigue con horas: si la
+        guarda impidio su `DELETE`, la nueva no duplica horas."""
         cenide = int(getattr(obra, "cenide", 0) or 0)
-        return {"sql": (
+        ides_pisadas = [int(i) for i in pisadas]
+        sql = (
             "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
             "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
-            "tex, synckey) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ?, ?, "
-            "?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ? "
-            "FROM hmores WITH (UPDLOCK, HOLDLOCK)"),
-            "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
-                           int(paride or 0), int(pos), int(fecha_int),
-                           int(horide), float(can), float(pre),
-                           round(float(can) * float(pre), 2), int(ano),
-                           int(mes), int(caaide), (tex or ""), synckey]}
+            "tex, synckey) SELECT x.n, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+            "0, 0, ?, ?, ? FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores "
+            "WITH (UPDLOCK, HOLDLOCK)) x "
+            f"WHERE {self._guarda_parte_abierto('?')}")
+        if ides_pisadas:
+            sql += (" AND NOT EXISTS (SELECT 1 FROM hmores p WHERE p.ide IN "
+                    f"({','.join('?' for _ in ides_pisadas)}) "
+                    "AND ISNULL(p.can, 0) <> 0)")
+        return {"sql": sql,
+                "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
+                               int(paride or 0), int(pos), int(fecha_int),
+                               int(horide), float(can), float(pre),
+                               round(float(can) * float(pre), 2), int(ano),
+                               int(mes), int(caaide), (tex or ""), synckey,
+                               int(hmoide), self._est, *ides_pisadas]}
 
-    @staticmethod
-    def stmt_borrar_linea(ide: int) -> dict:
-        return {"sql": "DELETE FROM hmores WHERE ide = ?",
-                "parameters": [int(ide)]}
+    def stmt_borrar_linea(self, ide: int) -> dict:
+        """Pisado de un conflicto confirmado. F-034 (R3): solo si el parte
+        de la fila sigue En registro. Es el UNICO `DELETE` del cliente; que
+        el pisado deje la linea a 0 en vez de borrarla va aparte (DA4)."""
+        return {"sql": ("DELETE FROM hmores WHERE ide = ? AND "
+                        f"{self._guarda_parte_abierto('hmores.hmoide')}"),
+                "parameters": [int(ide), self._est]}
 
     # ------------------ reajuste (F-046): lecturas ------------------ #
 
