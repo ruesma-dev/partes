@@ -1,6 +1,24 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-052 · spec_ready (2026-10-20): sincronizar con Sigrid desde una obra o una persona
+
+**Spec (spec-author, 2026-10-20)** en `specs/F-052-sincronizar-con-sigrid/`, rama
+`feature/F-052-sincronizar-con-sigrid` (worktree `partes-wt-f052`). Informe:
+`progress/spec_F-052.md`. **Depende de F-050** (clave `rec-`). Toca sv5 (lectura nueva, solo
+lectura) y sv4 (comparación, panel, acciones hacia el portal); sin sv3, sin esquema, sin
+escritura en Sigrid. Rigor propuesto **crítico**.
+
+**Decisiones abiertas para el humano** (detalle en `design.md` §8): DA1 alcance (A: comparar +
+acciones hacia el portal; Sigrid en otra feature), DA2 periodo (el visible), DA3 qué trae
+`traer_de_sigrid` (A: solo horas), DA4 qué se compara, DA5 resultado efímero, DA6 sin «marcar
+revisada», DA7 traza en `sigrid_motivo` + log, DA8 rigor crítico, DA9 cola F-050 → F-049 →
+**F-052** → F-014 → F-047, DA10 lectura de `hmores` en sv5. **M1 antes de implementar** (solo
+lectura): volumen y tiempo de `hmores` por obra y por recurso en un mes y en un periodo de
+nómina. **Hallazgo H1** (fuera de alcance): el pisado de conflictos de sv5 hace `DELETE` y el
+candado de línea registrada dice «borra la línea en Sigrid», contra la regla «en Sigrid no se
+borra».
+
 ## F-051 · done (2026-10-19, APPROVED pasada 1; M1 y M2 superadas con gemini-4-argon), pendiente de despliegue: extracción fila a fila, cada número a su fila
 
 **Decisión del humano (2026-10-19, «haz la recomendación»)**: se cierra F-051 tal cual (prompt

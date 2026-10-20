@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **45 features**, 11 abiertas, 34 terminadas.
+Resumen: **46 features**, 12 abiertas, 34 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -14,6 +14,7 @@ Bloqueadas: **F-014, F-032**.
 | F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | pendiente | critico | `feature/F-034-escribir-solo-en-partes-abiertos` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 1 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
+| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 2 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 3 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 5 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 6 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -81,6 +82,12 @@ Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con much
 estado **bloqueada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
 Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
+
+### F-052 · Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa
+
+estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
+
+Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, paginado, truncated = error, sin lock) y sv4 clasifica cada línea en 11 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual). Primera entrega (DA1 = A recomendada): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050. Decisiones DA1-DA10 y M1 de dimensionado (solo lectura) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. Hallazgo H1 (fuera de alcance): el pisado de conflictos de sv5 hace DELETE y el candado de línea registrada dice «borra la línea en Sigrid».
 
 ### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 
