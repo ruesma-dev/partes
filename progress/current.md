@@ -15,8 +15,9 @@ la opción A** (`design.md` §12). **M1 ejecutada por el líder el 2026-10-20** 
 resultados en `design.md` §9): DA1 A confirmada (ninguna línea con venta) y DA4 A relevante
 (5.096 líneas enlazadas sin synckey en 2026 que hoy el pisado podría borrar).
 
-**Implementer (2026-10-21)**: T1–T13 hechas, un commit por tarea (T14 es MANUAL, abajo).
-Detalle en `progress/impl_F-053.md`. Desviaciones respecto a la spec, justificadas:
+**Implementer (2026-10-21)**: T1–T13 y T15 hechas, un commit por tarea (T14 es MANUAL,
+abajo); `bash harness/init.sh` en verde (cobertura 100 % de 86 líneas; mutación 57/57
+muertos). Detalle en `progress/impl_F-053.md`. **Siguiente: reviewer.** Desviaciones respecto a la spec, justificadas:
 
 - `transfer_consumer.py` (design §2 lo pone en «NO se tocan»): su `_resultado_fallido` lleva
   la clave `anuladas` en vez de `borradas` y su docstring dice «pisar pone a 0». Lo exigen

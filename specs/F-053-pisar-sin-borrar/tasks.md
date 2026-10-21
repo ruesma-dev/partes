@@ -17,4 +17,4 @@ Precondición: F-034 fusionada en `dev` y la rama `feature/F-053-pisar-sin-borra
 - [x] T12: `docs/ARCHITECTURE.md` (doble canal, semánticas 5 y 16) y `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (paso 5, «Qué se rompe», nota a `porcentajes`), commit local en `azure-apps` sin push (R23)  |  Verificación: revisión del reviewer contra `design.md` §10
 - [x] T13: cobertura de líneas cambiadas y campaña de mutación COMPLETA (rigor crítico), con análisis de cada superviviente  |  Verificación: `python -m harness.mutacion --feature F-053` y la puerta de cobertura de `bash harness/init.sh`
 - [ ] T14: M1 de solo lectura (`design.md` §9) la lanza el líder antes de implementar; M2–M4 tras desplegar sv5 y sv4, solo en modo pruebas (obra 0404, `PRUEBA-IA`) y limpiando con `prueba_escritura_sigrid.py`  |  Verificación: MANUAL (humano)
-- [ ] T15: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T15: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
