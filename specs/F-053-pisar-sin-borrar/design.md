@@ -189,16 +189,15 @@ Fase RED con traza para R1, R2, R4–R12, R19–R21; R15–R18 son de caracteriz
 
 ## 9. Verificaciones manuales
 
-- **M1 (líder, solo lectura, antes de implementar; sigrid-api `sql/read`, base `ruesma`,
-  agregados)**, sobre partes de obra (`con.tip = 35`, `ISNULL(hmo.reside, 0) = 0`) de 2026:
-  (a) líneas por origen (`partes:%`, otra synckey, sin synckey), cuántas sin horas que no
-  son `CI%` y cuántas enlazadas (`ENLACES_HMORES`) o con `ISNULL(canven, 0) <> 0` (DA1, DA4);
-  (b) grupos `(hmoide, reside, fec, horide)` con más de una línea con horas, y los de `CI%`
-  con más de una (DA6); (c) prefijos de synckey ajenos (`LEFT(synckey, CHARINDEX(':',
-  synckey))`). **No es medible en Sigrid** cuántas se borraron al pisar (un `DELETE` no deja
-  fila); sí en los logs de sv5, opcional: `ContainerAppConsoleLogs` de `partes-transfer` con
-  `[sigrid-write] DELETE FROM hmores` y `[registro] escritas=… borradas=`, y en la base
-  `partes` `COUNT(*)` de `sigrid_estado = 'borrado_sigrid'` (sin saber quién borró).
+- **M1 (líder, 2026-10-20, solo lectura: sigrid-api `sql/read`, base `ruesma`)**, partes de
+  obra (`con.tip = 35`, sin recurso) de 2026. (a) Líneas por origen: `partes:` 358 (4 sin
+  horas no `CI`, 0 enlazadas, 0 con venta); otra synckey 16 (todas `porcentajes:`; 0 sin
+  horas, 0 enlazadas, 0 venta); sin synckey 31.645 (89 sin horas no `CI`, **5.096
+  enlazadas**, 0 con venta) ⇒ DA1 A confirmada (nadie tiene `canven`) y DA4 A relevante (hoy
+  el pisado podría borrar líneas enlazadas). (b) 461 grupos `(hmoide, reside, fec, horide)`
+  con más de una línea con horas y 2 grupos de `CI` repetidos. (c) Prefijos de synckey:
+  `partes:` 358, `porcentajes:` 16. Cuántas se borraron al pisar no es medible en Sigrid (un
+  `DELETE` no deja fila); sí, opcional, en los logs de sv5 (`DELETE FROM hmores`).
 - **M2 (humano, tras `redeploy_partes.ps1 -Solo sv5` y `-Solo sv4`)**: desde local, modo
   pruebas (`OBRA_PRUEBAS_FORZAR=true`, obra 0404, `PRUEBA-IA`): con una línea manual de
   pruebas en 0404 (mismo recurso, día y código), aprobar la del portal ⇒ conflicto ⇒ pisar ⇒
@@ -229,7 +228,10 @@ Fase RED con traza para R1, R2, R4–R12, R19–R21; R15–R18 son de caracteriz
 - **Descartado**: limpiar la synckey de una pisada `partes:<id>` para poder reaprobarla
   (DA2 B): rompe la idempotencia y F-024; el arreglo de esas líneas es F-052.
 
-## 12. Decisiones abiertas (para el humano)
+## 12. Decisiones (aprobadas)
+
+**DA1–DA12 APROBADAS con la opción A** por el humano el 2026-10-21: «Lanza la siguiente luego
+despliego», dicho tras presentarle esta spec con sus DA y la recomendación A en todas.
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|

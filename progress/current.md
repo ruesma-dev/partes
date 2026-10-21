@@ -1,18 +1,21 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-053 · spec_ready (2026-10-20): pisar sin borrar (el pisado de sv5 pone a 0)
+## F-053 · in_progress (2026-10-21): pisar sin borrar (el pisado de sv5 pone a 0)
 
 Spec en `specs/F-053-pisar-sin-borrar/` (rama `feature/F-053-pisar-sin-borrar`, worktree
-`partes-wt-f053`); informe en `progress/spec_F-053.md`. Prioridad 2, justo detrás de F-034
-(aprobado por el humano el 2026-10-20, «Ok a las 2»); las no terminadas de prioridad ≥ 2
-suben 1. **Depende de F-034**: se implementa sobre `dev` con F-034 fusionada. sv5: el pisado
-pasa de `DELETE` a `UPDATE can = 0, tot = 0`; una línea a 0 ya no choca; incidencias y
-líneas enlazadas se omiten con motivo; `anuladas` sustituye a `borradas`. sv4: textos.
-**Pendiente del humano**: DA1–DA12 (`design.md` §12; DA8 = texto del candado de línea
-registrada ya o con F-052). **Pendiente del líder**: M1 de solo lectura (`design.md` §9).
-**Aviso a F-052**: tras F-053 las pisadas quedan a 0 (clase `anulada_en_sigrid`), no
-borradas.
+`partes-wt-f053`, **rebasada sobre `dev` 12e1f23**, que ya trae F-034 fusionada: la
+precondición de `tasks.md` se cumple y F-034 llegó con la forma que la spec supone
+—`_guarda_parte_abierto`, R4 en `stmt_insert_linea`, relectura y `parte_abierto.py`—).
+Informe de spec en `progress/spec_F-053.md`.
+
+**Decisión del humano del 2026-10-21**, literal: «Lanza la siguiente luego despliego», dada
+tras presentarle la spec con sus DA y la recomendación A en todas ⇒ **DA1–DA12 APROBADAS con
+la opción A** (`design.md` §12). **M1 ejecutada por el líder el 2026-10-20** (solo lectura,
+resultados en `design.md` §9): DA1 A confirmada (ninguna línea con venta) y DA4 A relevante
+(5.096 líneas enlazadas sin synckey en 2026 que hoy el pisado podría borrar).
+
+**Implementer**: en curso (tareas de `tasks.md` en orden, un commit por tarea).
 
 ## F-034 · done (2026-10-21, APPROVED pasada 2), pendiente de desplegar sv5 y sv4 y M2–M4: sv5 solo escribe en partes de Sigrid abiertos
 
