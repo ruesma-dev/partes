@@ -11,8 +11,9 @@ un fallo entre ambos pasos dejaria en la cola un mensaje que apunta a un
 blob inexistente, y sv5 lo reintentaria hasta acabar en poison. Asi, el
 fallo deja como mucho un blob huerfano que nadie lee.
 
-`pisar_claves` se vacia siempre: pisar borra lineas de Sigrid, es una
-decision humana del modal y viaja por HTTP sincrono (R5/R10).
+`pisar_claves` se vacia siempre: pisar pone a 0 lineas de Sigrid (F-053:
+alli no se borra), es una decision humana del modal y viaja por HTTP
+sincrono (R5/R10).
 """
 from __future__ import annotations
 

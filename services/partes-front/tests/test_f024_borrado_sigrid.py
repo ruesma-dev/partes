@@ -108,10 +108,15 @@ def test_f024_r15_vuelo_ya_registrada_devuelve_la_linea_a_registrado() -> None:
 
 
 def test_f024_r16_motivo_explica_la_via_nueva() -> None:
+    """Enmienda de F-053 (R21, DA8): la via de F-024 (borrar en Sigrid y
+    reaprobar) sigue existiendo, pero el texto ya no la aconseja: en
+    Sigrid no se borran lineas; se corrigen alli y «Comprobar en Sigrid»
+    ensena la diferencia."""
     texto = MOTIVO_LINEA_REGISTRADA
     assert "Comprobar en Sigrid" in texto
-    assert "borra" in texto.lower()
-    assert "aprob" in texto.lower()
+    assert "En Sigrid no se borran lineas" in texto
+    assert "borra la linea en Sigrid" not in texto
+    assert "Administracion la edite alli" in texto
     assert motivo_congelacion_linea(
         doc_aprobado=False, sigrid_estado="registrado") == texto
 

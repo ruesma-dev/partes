@@ -2688,8 +2688,9 @@ def build_app(
         codigo antes que la infraestructura.
         """
         body = await request.json()
-        # R5/R10: pisar borra lineas de Sigrid. Es una decision humana del
-        # modal y no puede viajar por una cola con reentregas.
+        # R5/R10: pisar pone a 0 lineas de Sigrid (F-053: alli no se
+        # borra). Es una decision humana del modal y no puede viajar por
+        # una cola con reentregas.
         if body.get("pisar_claves"):
             return JSONResponse(
                 {"ok": False, "error": "pisar conflictos no viaja por la "
