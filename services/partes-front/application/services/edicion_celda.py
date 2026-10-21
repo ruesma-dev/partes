@@ -107,7 +107,7 @@ def _numero(horas: object) -> float:
     return valor
 
 
-def validar_horas(tipo: str, horas: object, *, nueva: bool) -> float:
+def validar_horas(tipo: str, horas: object, *, nueva: bool = False) -> float:
     """R13 (DA10): ordinaria en [0, 24] (la nueva, en (0, 24]); extra en
     [−24, 24]. Lo que no es un número finito, 422."""
     valor = _numero(horas)
@@ -127,7 +127,7 @@ def plantilla(celda: Sequence[LineaCelda]) -> LineaCelda | None:
     libres = [linea for linea in celda if not linea.congelada]
     if not libres:
         return None
-    return min(libres, key=lambda l: (0 if l.tipo == ORDINARIA else 1, l.id))
+    return min(libres, key=lambda l: (l.tipo != ORDINARIA, l.id))
 
 
 def _sin_repetir(valores) -> tuple:
@@ -160,7 +160,7 @@ def planificar_celda(
         if linea is None:
             _numero(horas)
             continue
-        valores[c.id] = validar_horas(linea.tipo, horas, nueva=False)
+        valores[c.id] = validar_horas(linea.tipo, horas)
 
     crear_ordinaria = None
     if nueva_ordinaria is not None:
@@ -168,8 +168,8 @@ def planificar_celda(
                                         nueva=True)
     crear_extra = None
     if nueva_extra is not None:
-        crear_extra = validar_horas(EXTRA, nueva_extra, nueva=True)
-        if abs(crear_extra) < EPSILON:
+        crear_extra = validar_horas(EXTRA, nueva_extra)
+        if crear_extra == 0.0:
             crear_extra = None          # DA5: una nueva a 0 no crea
     if not admite_nuevas and (crear_ordinaria is not None
                               or crear_extra is not None):

@@ -9,11 +9,13 @@ cuándo la petición es inválida (422) o la celda cambió desde que se abrió
 """
 from __future__ import annotations
 
+import dataclasses
 import math
 
 import pytest
 
 from application.services.edicion_celda import (
+    EPSILON,
     EXTRA,
     MOTIVO_CELDA_CAMBIADA,
     ORDINARIA,
@@ -437,3 +439,41 @@ def test_f049_celda_invalida_es_value_error_con_status():
     e = CeldaInvalida("motivo", 409)
     assert isinstance(e, ValueError)
     assert (str(e), e.status) == ("motivo", 409)
+
+
+# ================ bordes exactos (los mata la mutación) ================= #
+
+def test_f049_r12_tolerancia_de_antes_en_el_borde_exacto():
+    """Una diferencia de exactamente `EPSILON` aún es «igual» (`>`)."""
+    plan = _plan([_l(1, ORDINARIA, 0.0)], [Cambio(1, EPSILON, 0.0)])
+    assert plan.cambios == ()
+
+
+def test_f049_r12_cambio_en_el_borde_exacto_no_es_cambio():
+    plan = _plan([_l(1, ORDINARIA, 0.0)], [Cambio(1, 0.0, EPSILON)])
+    assert plan.cambios == ()
+    assert _plan([_l(1, ORDINARIA, 0.0)],
+                 [Cambio(1, 0.0, 2 * EPSILON)]).cambios == ((1, 2e-9),)
+
+
+def test_f049_r7_extra_nueva_minima_si_crea():
+    assert _plan([_l(1, ORDINARIA, 8.0)], [Cambio(1, 8.0, 8.0)],
+                 nueva_extra=EPSILON).crear_extra == EPSILON
+
+
+@pytest.mark.parametrize("valor", [
+    LineaCelda(id=1, tipo=ORDINARIA, horas=1.0, congelada=False,
+               extra_auto=False, con_orig=False, clave=(), document_id="d"),
+    Cambio(1, 1.0, 2.0),
+    PlanCelda(cambios=(), materializar=(), plantilla_id=1,
+              crear_ordinaria=None, crear_extra=None, documentos=()),
+])
+def test_f049_los_datos_del_plan_son_inmutables(valor):
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        valor.id = 2
+
+
+def test_f049_r13_validar_horas_por_defecto_no_es_nueva():
+    assert validar_horas(ORDINARIA, 0.0) == 0.0
+    with pytest.raises(CeldaInvalida):
+        validar_horas(ORDINARIA, 0.0, nueva=True)

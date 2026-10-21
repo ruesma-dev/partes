@@ -1349,3 +1349,64 @@ def test_f049_r31_la_clave_va_escapada(montaje):
     cliente, _repo, _fabrica, _ids, _cola = montaje(sembrar)
     html = _html_obra(cliente)
     assert 'data-wk="nom-A&#34;B&lt;C"' in html
+
+
+# ======================================================================= #
+# T17 · huecos que señala la campaña de mutación
+# ======================================================================= #
+
+def test_f049_r11_claves_de_un_caracter_valen(montaje):
+    """`min_length=1`: una clave de un carácter no es un 422 (no hay
+    celda: 409 de R12) y el GET responde vacío."""
+    cliente, _repo, _fabrica, ids, _cola = montaje(_solo_ordinaria)
+    _recarga(_post(cliente, [(ids["ord"], 8.0, 7.0)], obra_key="x"))
+    _recarga(_post(cliente, [(ids["ord"], 8.0, 7.0)], wk="x"))
+    assert _otras(cliente, obra_key="x").json() == {"ok": True,
+                                                    "afectadas": []}
+    assert _otras(cliente, wk="x").json() == {"ok": True, "afectadas": []}
+    assert _otras(cliente, obra_key="").status_code == 422
+    assert _otras(cliente, wk="").status_code == 422
+
+
+def test_f049_rutas_internas_fuera_del_esquema(montaje):
+    cliente, _repo, _fabrica, _ids, _cola = montaje(_solo_ordinaria)
+    rutas = cliente.get("/openapi.json").json()["paths"]
+    assert "/api/matriz/celda" not in rutas
+    assert "/api/matriz/celda/otras" not in rutas
+
+
+def test_f049_r28_deshacer_la_fecha_sigue_pidiendo_su_recalculo(montaje):
+    cliente, _repo, _fabrica, _ids, cola = montaje(_solo_ordinaria)
+    assert cliente.patch("/api/partes/d-y/fecha", json={"fecha": "2026-10-13"},
+                         headers=CABECERA).status_code == 200
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["action"] == "parte_fecha"
+    assert "afectadas" not in cuerpo
+    assert [(m["document_id"], m["motivo"]) for _c, m in cola.enviados] == [
+        ("d-y", "cambio_fecha"), ("d-y", "deshacer_cambio_fecha")]
+
+
+def test_f049_r26_creada_borrada_definitivamente(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_ordinaria)
+    r = _post(cliente, [(ids["ord"], 8.0, 7.0)], nueva_extra=2.0)
+    (nueva,) = r.json()["creadas"]
+    with fabrica.create_session() as s:
+        s.delete(s.get(ParteRegistroOrm, nueva))
+        s.commit()
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["ok"] is True and cuerpo["omitidos"] == 0
+    assert cuerpo["document_ids"] == ["d-y"]
+    assert _fila(fabrica, ids["ord"]).horas == 8.0
+
+
+def test_f049_r21_ordinaria_nueva_sin_sigrid_configurado(montaje, caplog):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_extra,
+                                                  con_sigrid=False)
+    with caplog.at_level(logging.WARNING):
+        r = _post(cliente, [(ids["extra"], 10.0, 10.0)],
+                  nueva_ordinaria=8.0)
+    assert r.status_code == 200, r.text
+    n = _fila(fabrica, r.json()["creadas"][0])
+    assert (n.tipo_hora, n.horas, n.hora_codigo) == ("normal", 8.0, None)
+    assert any("[celda] la ordinaria nueva" in m.getMessage()
+               for m in caplog.records)
