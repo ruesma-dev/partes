@@ -1,6 +1,18 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-014 · retirada del backlog (decisión del humano 2026-10-21)
+
+El humano, literal: «la peticion la hago yo, quitalo de la feature». La petición a RRHH
+(candef 9 para MO/0006, 0007, 0008, 0031, 0366, 0405, 0456 y DNI de MO/0037) la gestiona él
+directamente; F-014 sale de `harness/features.json`. Su texto y la línea base de agosto
+siguen en la rama `feature/F-014-candef-9-sigrid` (`progress/peticion_F-014.md`), sin
+fusionar, por si se quiere la comprobación posterior en solo lectura (V1–V3). A 2026-10-21
+Sigrid sigue sin el cambio. La regla de F-015 ya está activa en producción (mapa por defecto
+`8:40,9:42`): con candef 9 da 9 h de lunes a jueves y 6 h el último laborable, y lo que pase
+de ahí es extra (medido en la base `partes` desde agosto: candef 9 lunes 9 ord., viernes 6
+ord. + 3 extra; candef 8 de lunes a viernes 8).
+
 ## F-053 · done (2026-10-21, APPROVED pasada 1), pendiente de M2 en local y desplegar sv5 y sv4: pisar sin borrar (el pisado de sv5 pone a 0)
 
 Spec en `specs/F-053-pisar-sin-borrar/` (rama `feature/F-053-pisar-sin-borrar`, worktree

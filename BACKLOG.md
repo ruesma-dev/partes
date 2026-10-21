@@ -3,15 +3,14 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **50 features**, 13 abiertas, 37 terminadas.
+Resumen: **49 features**, 12 abiertas, 37 terminadas.
 
-Bloqueadas: **F-014, F-032**.
+Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 3 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | spec lista | critico | `feature/F-049-editor-calendario-normal-y-extra` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
@@ -68,12 +67,6 @@ Bloqueadas: **F-014, F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-014 · Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h
-
-estado **bloqueada** · prioridad 3 · rigor `documental` · SDD no · rama `feature/F-014-candef-9-sigrid`
-
-Pedida por el humano el 2026-08-18 a raíz del estudio F-012 (design.md H5): la jornada semanal se derivará del candef (8→40 h, 9→42 h), así que todo trabajador con jornada de 9 h L–J DEBE tener candef=9 en su hora por defecto (HLOF) de Sigrid. El estudio encontró 7 recursos que registran 9-9-9-9-6 (42 h) desde 2026-05 y 10-10-10-10-8 antes, todos OFIC. 1ª ALBAÑIL con DNI en emp y código HE, y todos con candef=8 hoy: MO/0006, MO/0007, MO/0008, MO/0031, MO/0366, MO/0405, MO/0456. MO/0037 (OFIC. 2ª) ya tiene candef=9 pero NO tiene DNI en emp: corregirlo a la vez. Es un cambio de DATOS MAESTROS en Sigrid que hace RRHH/Administración a mano (los agentes NO escriben en Sigrid fuera de sv5): la feature entrega la petición redactada con la lista y la comprobación posterior por sigrid-api en solo lectura (candef del recurso), sin código nuevo. Los DNIs no se versionan: los recursos se citan por código MO/NNNN. Debe cerrarse ANTES de implementar la regla de jornada semanal que propone F-012.
 
 ### F-049 · Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta
 
