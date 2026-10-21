@@ -851,6 +851,10 @@ def _reg_de_celda(reg: ParteRegistroOrm, tipo: str) -> dict:
     }
     if _motivo_congelado_reg(reg) is not None:
         fila["c"] = 1
+    if reg.extra_auto:
+        # F-049 (R10): extra calculada por sv3 por exceso de jornada; el
+        # popup la rotula «Extra (jornada)».
+        fila["a"] = 1
     return fila
 
 
