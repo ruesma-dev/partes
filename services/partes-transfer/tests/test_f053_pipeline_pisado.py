@@ -502,3 +502,137 @@ def test_f053_r1_todo_bajo_el_lock() -> None:
     cli.vigilar_lock(lock)
     assert _pisar(cli, lock=lock).anuladas == 1
     assert cli.ides_leidos == [[9001]]
+
+
+# ============ Relectura: la pisada que no se puso a 0 (T6, R10) ============ #
+
+MOTIVO_NO_ANULADA_9001 = (
+    "pisada_no_anulada: la linea 9001 del parte PT26/00314 cambio antes de "
+    "ponerla a 0; no se registra. Vuelve a aprobar para revisar el "
+    "conflicto")
+
+
+def test_f053_r10_motivo_texto_exacto() -> None:
+    from application.services.parte_abierto import (
+        MOTIVO_PISADA_NO_ANULADA,
+        motivo_pisada_no_anulada,
+    )
+    assert MOTIVO_PISADA_NO_ANULADA == "pisada_no_anulada"
+    assert motivo_pisada_no_anulada([9001], "PT26/00314") == (
+        MOTIVO_NO_ANULADA_9001)
+    assert motivo_pisada_no_anulada([9002, 9001], None) == (
+        "pisada_no_anulada: las lineas 9001, 9002 del parte ? cambiaron "
+        "antes de ponerlas a 0; no se registra. Vuelve a aprobar para "
+        "revisar el conflicto")
+
+
+@pytest.mark.parametrize("cod", ["PT26/" + "9" * 400, "x" * 300],
+                         ids=["codigo-400", "texto-300"])
+def test_f053_r10_r11_motivo_cabe_en_255(cod) -> None:
+    from application.services.parte_abierto import motivo_pisada_no_anulada
+    m = motivo_pisada_no_anulada([9001], cod)
+    assert len(m) == 255 and m.startswith("pisada_no_anulada: la linea 9001")
+    corto = motivo_pisada_no_anulada([9001], "PT26/00314")
+    assert len(corto) < 255 and corto.isascii()
+
+
+def test_f053_r10_pisadas_no_anuladas_solo_vivas_en_partes_abiertos() -> None:
+    from application.services.parte_abierto import pisadas_no_anuladas
+    from domain.models.registro_models import LineaSigrid
+
+    def viva(ide, hmoide):
+        return LineaSigrid(ide=ide, reside=REC, fecha_int=FECHA, horide=HN,
+                           hora_codigo=None, can=8.0, tot=None, synckey=None,
+                           hmoide=hmoide)
+    vivas = {9001: viva(9001, HMO), 9002: viva(9002, 905),
+             9003: viva(9003, 999), 9005: viva(9005, HMO)}
+    estados = {HMO: REGISTRO, 905: CERRADO}
+    assert pisadas_no_anuladas([9005, 9001, 9002, 9003, 9004], vivas,
+                               estados, est_registro=REGISTRO) == [9005, 9001]
+    assert pisadas_no_anuladas([9001], vivas, estados, est_registro=7) == []
+    assert pisadas_no_anuladas([], vivas, estados,
+                               est_registro=REGISTRO) == []
+
+
+def test_f053_r10_ejemplo_5_la_pisada_cambio_en_la_ventana(caplog) -> None:
+    """Ejemplo 5: Administracion cambia 9001 a 6 h entre la lectura y la
+    escritura: el `UPDATE` afecta 0 filas, la nueva no entra y sale
+    `pisada_no_anulada`; reaprobar vuelve a ensenar el conflicto con 6 h."""
+    cli = _abierto(_fila(9001))
+    original = cli.escribir
+
+    def escribir(sts):
+        cli.lineas[0]["can"] = 6.0
+        return original(sts)
+    cli.escribir = escribir
+    with caplog.at_level("INFO"):
+        r = _pisar(cli)
+    assert r.escritas == [] and r.anuladas == 0
+    assert r.omitidas == [{"registro_id": 501,
+                           "motivo": MOTIVO_NO_ANULADA_9001}]
+    (w,) = [rec for rec in caplog.records
+            if rec.getMessage().startswith("[registro] pisada no anulada")]
+    assert w.levelname == "WARNING"
+    assert w.getMessage() == (
+        "[registro] pisada no anulada obra=0100 periodo=2026/10 "
+        "ides=[9001] registro_ids=[501]")
+    assert not [rec for rec in caplog.records if rec.levelname == "ERROR"]
+    assert "Persona" not in caplog.text
+    cli.escribir = original
+    (c,) = _pf(cli, [_lin(501)]).conflictos
+    assert [(ls.ide, ls.can) for ls in c.lineas] == [(9001, 6.0)]
+
+
+def test_f053_r10_pisada_enlazada_en_la_ventana() -> None:
+    cli = _abierto(_fila(9001))
+    original = cli.escribir
+
+    def escribir(sts):
+        cli.lineas[0]["enlazada"] = True
+        return original(sts)
+    cli.escribir = escribir
+    (om,) = _pisar(cli).omitidas
+    assert om["motivo"] == MOTIVO_NO_ANULADA_9001
+
+
+def test_f053_r10_parte_de_la_pisada_cerrado_manda_parte_no_abierto() -> None:
+    """F-034 R11 prevalece: si el parte de la pisada se cerro, el motivo es
+    `parte_no_abierto`, no `pisada_no_anulada`."""
+    cli = _abierto(_fila(9001))
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    (om,) = _pisar(cli).omitidas
+    assert om["motivo"].startswith(
+        "parte_no_abierto: el parte PT26/00314 ya no esta En registro "
+        "(Cerrado)")
+
+
+def test_f053_r10_pisada_viva_en_otro_parte_abierto_nombra_ese_parte() -> None:
+    """La pisada vive en PT26/00400 (En registro) y cambio: el motivo nombra
+    su parte, no el elegido."""
+    cli = _cli(partes=[_parte(HMO, "PT26/00314"), _parte(905, "PT26/00400")],
+               lineas=[_fila(9001, 905)])
+    original = cli.escribir
+
+    def escribir(sts):
+        cli.lineas[0]["can"] = 7.5
+        return original(sts)
+    cli.escribir = escribir
+    (om,) = _pisar(cli).omitidas
+    assert om["motivo"].startswith(
+        "pisada_no_anulada: la linea 9001 del parte PT26/00400 cambio ")
+
+
+def test_f053_r10_sin_pisada_viva_sigue_no_escrita(caplog) -> None:
+    """La pisada si se puso a 0 pero la nueva no entro sin parte cerrado
+    que lo explique: `no_escrita` de F-034 y su ERROR."""
+    cli = _abierto(_fila(9001))
+    original = cli.escribir
+    cli.escribir = lambda sts: original(
+        [s for s in sts if s["op"] != "insert"])
+    with caplog.at_level("INFO"):
+        r = _pisar(cli)
+    (om,) = r.omitidas
+    assert om["motivo"].startswith("no_escrita: ")
+    assert r.anuladas == 1
+    assert [rec for rec in caplog.records if rec.levelname == "ERROR"]
+    assert "pisada no anulada" not in caplog.text

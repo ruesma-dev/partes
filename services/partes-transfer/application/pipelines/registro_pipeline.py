@@ -104,7 +104,9 @@ from application.services.parte_abierto import (
     confirmar_escritas,
     motivo_no_escrita,
     motivo_parte_no_abierto,
+    motivo_pisada_no_anulada,
     parte_que_impidio,
+    pisadas_no_anuladas,
 )
 from application.services.pisado import (
     choques,
@@ -668,8 +670,10 @@ class RegistroPipeline:
 
         UNA relectura de partes por periodo afectado (dentro del lock) para
         nombrar el parte que lo impidio: el de una pisada que sigue viva
-        primero (por R4 la nueva no entra), luego el elegido. Sin parte
-        cerrado que lo explique, `no_escrita` y un ERROR. Sin nombres."""
+        primero (por R4 la nueva no entra), luego el elegido. F-053 (R10):
+        sin parte cerrado, si alguna pisada sigue con horas en un parte En
+        registro (cambio antes de ponerla a 0), `pisada_no_anulada` y un
+        WARNING. Si nada lo explica, `no_escrita` y un ERROR. Sin nombres."""
         est_registro = self._est_registro()
         periodo_de = {a.registro_id: (a.ano, a.mes) for a in a_escribir}
         por_periodo: dict[tuple[int, int], list[dict]] = {}
@@ -680,6 +684,7 @@ class RegistroPipeline:
             estados = {ps.ide: ps.est for ps in partes}
             codigos = {ps.ide: ps.cod for ps in partes}
             impedidas: dict[int, list[int]] = {}
+            no_anuladas: dict[int, list[int]] = {}
             sin_explicar: list[int] = []
             for e in grupo:
                 rid = e["registro_id"]
@@ -688,7 +693,14 @@ class RegistroPipeline:
                     [vivas[i].hmoide for i in pisadas_de.get(rid, ())
                      if i in vivas],
                     estados, est_registro=est_registro)
-                if h is None:
+                cambiadas = pisadas_no_anuladas(
+                    pisadas_de.get(rid, ()), vivas, estados,
+                    est_registro=est_registro)
+                if h is None and cambiadas:
+                    motivo = motivo_pisada_no_anulada(
+                        cambiadas, codigos[vivas[cambiadas[0]].hmoide])
+                    no_anuladas[rid] = cambiadas
+                elif h is None:
                     motivo = motivo_no_escrita(e.get("parte_cod"))
                     sin_explicar.append(rid)
                 else:
@@ -705,6 +717,12 @@ class RegistroPipeline:
                     "periodo=%s/%02d partes=%s registro_ids=%s",
                     destino.codigo, ano, mes, nombres,
                     sorted(r for rs in impedidas.values() for r in rs))
+            if no_anuladas:
+                logger.warning(
+                    "[registro] pisada no anulada obra=%s periodo=%s/%02d "
+                    "ides=%s registro_ids=%s", destino.codigo, ano, mes,
+                    sorted({i for ides in no_anuladas.values() for i in ides}),
+                    sorted(no_anuladas))
             if sin_explicar:
                 logger.error(
                     "[registro] no escritas sin parte cerrado que lo explique "
