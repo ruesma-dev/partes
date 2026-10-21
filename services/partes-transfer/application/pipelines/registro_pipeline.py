@@ -111,6 +111,8 @@ from application.services.pisado import (
     es_incidencia,
     motivo_incidencia_en_sigrid,
     motivo_linea_enlazada,
+    origen_linea,
+    tiene_horas,
 )
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
@@ -578,17 +580,22 @@ class RegistroPipeline:
             desc = f"Parte {destino.nombre or destino.codigo}{marca}"
             self._crear_parte(p, destino, desc)
 
-        # Paso 9: borrar pisadas + insertar. F-034: cada sentencia lleva la
-        # guarda de parte abierto y el INSERT de una linea que pisa, sus
-        # pisadas (R4): si un DELETE no entra, la nueva tampoco. `borradas`
-        # se cuenta al releer, no al construir (R12).
+        # Paso 9: poner a 0 las pisadas + insertar (F-053: en Sigrid no se
+        # borra). F-034: cada sentencia lleva la guarda de parte abierto y
+        # el INSERT de una linea que pisa, sus pisadas (R4): si una puesta
+        # a 0 no entra, la nueva tampoco. `anuladas` se cuenta al releer,
+        # no al construir (R12).
         statements: list[dict] = []
         pisadas_de: dict[int, list[int]] = {}
+        pisada_de: dict[int, tuple[LineaSigrid, list[int]]] = {}
         for c in pf.conflictos:
             if c.clave not in pisar:
                 continue
             for ls in c.lineas:
-                statements.append(self._cli.stmt_borrar_linea(ls.ide))
+                statements.append(self._cli.stmt_anular_linea(
+                    ide=ls.ide, reside=ls.reside, fecha_int=ls.fecha_int,
+                    horide=ls.horide, antes=ls.can))
+                pisada_de[ls.ide] = (ls, c.registros)
             for rid in c.registros:
                 pisadas_de[rid] = [ls.ide for ls in c.lineas]
 
@@ -629,17 +636,28 @@ class RegistroPipeline:
         vivas: dict[int, LineaSigrid] = {}
         if pisadas:
             siguen = self._cli.lineas_por_ide(pisadas)
-            res.borradas = sum(1 for i in pisadas if i not in siguen)
-            vivas = {i: ls for i, ls in siguen.items()
-                     if float(ls.can or 0) != 0}
+            vivas = {i: ls for i, ls in siguen.items() if tiene_horas(ls)}
+            anuladas = [i for i in pisadas if i not in vivas]
+            res.anuladas = len(anuladas)
+            for i in anuladas:
+                self._log_pisada_a_cero(*pisada_de[i])
         if no_escritas:
             self._omitir_no_escritas(res, destino, no_escritas, a_escribir,
                                      pisadas_de, vivas)
-        logger.info("[registro] escritas=%s no_escritas=%s borradas=%s "
+        logger.info("[registro] escritas=%s no_escritas=%s anuladas=%s "
                     "filas=%s usuario=%s ts=%s", len(res.escritas),
-                    len(no_escritas), res.borradas, afectadas, usuario,
+                    len(no_escritas), res.anuladas, afectadas, usuario,
                     datetime.now(timezone.utc).isoformat())
         return res
+
+    @staticmethod
+    def _log_pisada_a_cero(ls: LineaSigrid, registros: list[int]) -> None:
+        """F-053 (R13): una linea por pisada puesta a 0, con lo leido antes
+        de escribir. Sin nombres, DNIs ni `tex` (que no es nuestro)."""
+        logger.info(
+            "[registro] pisada a 0 ide=%s hmoide=%s can_antes=%s origen=%s "
+            "registro_id=%s", ls.ide, ls.hmoide, ls.can,
+            origen_linea(ls.synckey), ",".join(str(r) for r in registros))
 
     def _omitir_no_escritas(
         self, res: ResultadoRegistro, destino: ObraEntrada,

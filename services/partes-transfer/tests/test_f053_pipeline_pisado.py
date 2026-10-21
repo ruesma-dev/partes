@@ -49,7 +49,7 @@ def _parte(ide, cod, est=REGISTRO, ano=2026, mes=10) -> dict:
 
 
 def _fila(ide, hmoide=HMO, *, reside=REC, horide=HN, synckey=None,
-          fec=FECHA, can=8.0, enlazada=False, tex="manual") -> dict:
+          fec=FECHA, can=8.0, enlazada=False, tex="nota-adm") -> dict:
     return {"ide": ide, "hmoide": hmoide, "reside": reside, "fec": fec,
             "horide": horide, "hora_codigo": None, "can": can,
             "tot": None if can is None else can * 15.0, "pos": 64,
@@ -338,3 +338,167 @@ def test_f053_r8_la_enlazada_de_un_parte_cerrado_sin_horas_no_cuenta() -> None:
     cli = _abierto(_fila(9002, 905, can=0.0, enlazada=True),
                    cerrado=CERRADO)
     assert _accion(_pf(cli, [_lin(1)]), 1).accion == "escribir"
+
+
+# ============ Paso 9: anular en vez de borrar y relectura (T5) ============ #
+
+def _espiar(cli) -> list[dict]:
+    """Apunta cada sentencia que llega a `escribir`."""
+    enviadas: list[dict] = []
+    original = cli.escribir
+    cli.escribir = lambda sts: (enviadas.extend(sts), original(sts))[1]
+    return enviadas
+
+
+def _pisar(cli, lineas=None, claves=(CLAVE,), lock=None):
+    return _pipeline(cli, lock=lock).ejecutar(
+        obra=_obra(), lineas=lineas or [_lin(501)], pisar_claves=set(claves))
+
+
+def _sk(cli) -> dict[int, list[int]]:
+    out: dict[int, list[int]] = {}
+    for fila in cli.lineas:
+        if (fila.get("synckey") or "").startswith("partes:"):
+            out.setdefault(fila["hmoide"], []).append(
+                int(fila["synckey"].split(":")[1]))
+    return out
+
+
+def test_f053_r1_ejemplo_1_pisar_pone_a_cero_y_no_borra() -> None:
+    """Ejemplo 1: la manual 9001 queda en Sigrid a 0 h / 0 EUR con su `tex`
+    y su cuenta; entra `partes:501`; `anuladas = 1`."""
+    previa = _fila(9001)
+    cli = _abierto(previa)
+    enviadas = _espiar(cli)
+    r = _pisar(cli)
+    assert [s["op"] for s in enviadas] == ["anular", "insert"]
+    assert enviadas[0] == {"op": "anular", "ide": 9001, "reside": REC,
+                           "fec": FECHA, "horide": HN, "antes": 8.0}
+    assert enviadas[1]["pisadas"] == [9001]
+    assert cli.lineas[0] == dict(previa, can=0.0, tot=0.0)
+    assert _sk(cli) == {HMO: [501]}
+    assert r.pisadas == [CLAVE] and r.anuladas == 1
+    assert [e["registro_id"] for e in r.escritas] == [501]
+    assert r.omitidas == []
+
+
+def test_f053_r1_cada_pisada_con_lo_que_se_leyo() -> None:
+    """Dos pisadas (manual con horas negativas y una ajena) de dos partes
+    En registro: una sentencia `anular` por pisada con su `can` leido."""
+    cli = _cli(partes=[_parte(HMO, "PT26/00314"), _parte(905, "PT26/00400")],
+               lineas=[_fila(9001, can=-2.0),
+                       _fila(9002, 905, synckey="porcentajes:7")])
+    enviadas = _espiar(cli)
+    r = _pisar(cli)
+    anular = [s for s in enviadas if s["op"] == "anular"]
+    assert [(s["ide"], s["antes"]) for s in anular] == [(9002, 8.0),
+                                                        (9001, -2.0)]
+    assert r.anuladas == 2
+    assert [(l["ide"], l["can"]) for l in cli.lineas[:2]] == [(9001, 0.0),
+                                                              (9002, 0.0)]
+
+
+def test_f053_r1_sin_confirmar_no_se_anula_nada() -> None:
+    cli = _abierto(_fila(9001))
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(501)])
+    assert [c.clave for c in r.pendientes_confirmacion] == [CLAVE]
+    assert r.anuladas == 0 and "escribir" not in cli.llamadas
+    assert cli.lineas == [_fila(9001)]
+
+
+def test_f053_r12_anuladas_por_relectura_no_por_sentencia() -> None:
+    """La pisada cambio a 6 h en la ventana: el `UPDATE` no entra, la nueva
+    tampoco (F-034 R4) y `anuladas` = 0."""
+    cli = _abierto(_fila(9001))
+    original = cli.escribir
+
+    def escribir(sts):
+        cli.lineas[0]["can"] = 6.0      # Administracion, en la ventana
+        return original(sts)
+    cli.escribir = escribir
+    r = _pisar(cli)
+    assert r.anuladas == 0 and r.escritas == []
+    assert cli.lineas[0]["can"] == 6.0 and _sk(cli) == {}
+
+
+def test_f053_r12_pisada_ausente_al_releer_cuenta_como_anulada() -> None:
+    cli = _abierto(_fila(9001))
+    original = cli.escribir
+
+    def escribir(sts):
+        n = original(sts)
+        cli.lineas = [l for l in cli.lineas if l["ide"] != 9001]
+        return n
+    cli.escribir = escribir
+    assert _pisar(cli).anuladas == 1
+
+
+def test_f053_r12_json_de_los_dos_canales_lleva_anuladas() -> None:
+    from interface_adapters.queue.transfer_consumer import _resultado_fallido
+    from interface_adapters.resultado_json import resultado_a_dict
+
+    d = resultado_a_dict(_pisar(_abierto(_fila(9001))))
+    assert d["anuladas"] == 1 and "borradas" not in d
+    fallido = _resultado_fallido("sigrid caido")
+    assert fallido["anuladas"] == 0 and "borradas" not in fallido
+    assert set(fallido) - {"error"} <= set(d)
+
+
+def test_f053_r13_info_por_pisada_sin_nombres_ni_tex(caplog) -> None:
+    cli = _cli(partes=[_parte(HMO, "PT26/00314")],
+               lineas=[_fila(9001), _fila(9002, synckey="partes:480"),
+                       _fila(9003, synckey="porcentajes:7")])
+    with caplog.at_level("INFO"):
+        r = _pisar(cli)
+    assert r.anuladas == 3
+    infos = sorted(rec.getMessage() for rec in caplog.records
+                   if rec.getMessage().startswith("[registro] pisada a 0"))
+    assert infos == [
+        "[registro] pisada a 0 ide=9001 hmoide=900 can_antes=8.0 "
+        "origen=manual registro_id=501",
+        "[registro] pisada a 0 ide=9002 hmoide=900 can_antes=8.0 "
+        "origen=partes registro_id=501",
+        "[registro] pisada a 0 ide=9003 hmoide=900 can_antes=8.0 "
+        "origen=ajena registro_id=501"]
+    assert all(rec.levelname == "INFO" for rec in caplog.records
+               if rec.getMessage().startswith("[registro] pisada a 0"))
+    assert "Persona" not in caplog.text and "nota-adm" not in caplog.text
+    assert "anuladas=3" in caplog.text and "borradas" not in caplog.text
+
+
+def test_f053_r13_sin_info_si_no_se_anula(caplog) -> None:
+    cli = _abierto(_fila(9001))
+    cli.cerrar_al_escribir = {HMO: CERRADO}
+    with caplog.at_level("INFO"):
+        _pisar(cli)
+    assert "pisada a 0" not in caplog.text
+
+
+def test_f053_r13_varios_registros_del_mismo_conflicto(caplog) -> None:
+    """Dos lineas del portal con la misma clave: un conflicto, una
+    pisada; el INFO nombra los dos `registro_id`."""
+    cli = _abierto(_fila(9001))
+    with caplog.at_level("INFO"):
+        r = _pisar(cli, lineas=[_lin(501, horas=4.0), _lin(502, horas=4.0)])
+    assert r.anuladas == 1
+    assert ("[registro] pisada a 0 ide=9001 hmoide=900 can_antes=8.0 "
+            "origen=manual registro_id=501,502") in caplog.text
+
+
+def test_f053_r14_falla_la_relectura_por_ide() -> None:
+    cli = _abierto(_fila(9001))
+
+    def falla(_ides):
+        raise RuntimeError("sigrid-api caido al releer")
+    cli.lineas_por_ide = falla
+    with pytest.raises(RuntimeError, match="caido al releer"):
+        _pisar(cli)
+
+
+def test_f053_r1_todo_bajo_el_lock() -> None:
+    import threading
+    lock = threading.Lock()
+    cli = _abierto(_fila(9001))
+    cli.vigilar_lock(lock)
+    assert _pisar(cli, lock=lock).anuladas == 1
+    assert cli.ides_leidos == [[9001]]

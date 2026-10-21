@@ -143,6 +143,14 @@ def test_f053_r4_fuente_cliente_sin_delete_ni_borrar() -> None:
     assert not hasattr(SigridWriteClient, "stmt_borrar_linea")
 
 
+def test_f053_r4_fuente_pipeline_sin_delete_ni_borrar() -> None:
+    fuente = (RAIZ / "application" / "pipelines"
+              / "registro_pipeline.py").read_text(encoding="utf-8")
+    assert "DELETE" not in fuente.upper()
+    assert "stmt_borrar_linea" not in fuente
+    assert "stmt_anular_linea" in fuente
+
+
 def test_f053_r4_el_cliente_no_escribe_en_con_ni_hmo_salvo_el_alta() -> None:
     fuente = inspect.getsource(SigridWriteClient)
     assert re.findall(r"(?:INSERT INTO|UPDATE|DELETE FROM) (con|hmo)\b",

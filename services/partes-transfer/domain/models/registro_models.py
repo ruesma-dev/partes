@@ -288,7 +288,9 @@ class ResultadoRegistro:
     omitidas: list[dict] = field(default_factory=list)   # {registro_id, motivo}
     ya_registradas: list[int] = field(default_factory=list)
     pisadas: list[str] = field(default_factory=list)     # claves pisadas
-    borradas: int = 0
+    # F-053 (R12, DA7): pisadas que, releidas por `ide` tras escribir, ya
+    # no tienen horas (puestas a 0; sustituye a `borradas`).
+    anuladas: int = 0
     pendientes_confirmacion: list[Conflicto] = field(default_factory=list)
     error: Optional[str] = None
     # F-019 (R8): {registro_id, recurso_ide, codigo_mes} de cada linea que

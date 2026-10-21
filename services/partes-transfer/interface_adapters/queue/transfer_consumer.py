@@ -60,7 +60,7 @@ def _a_dominio(peticion: dict) -> tuple[ObraEntrada, list[LineaEntrada]]:
 def _resultado_fallido(error: str) -> dict:
     """Mismo esqueleto que el resultado normal, en negativo (R14)."""
     return {"ok": False, "error": error, "escritas": [], "omitidas": [],
-            "ya_registradas": [], "pisadas": [], "borradas": 0,
+            "ya_registradas": [], "pisadas": [], "anuladas": 0,
             "pendientes_confirmacion": [], "dedicacion": []}
 
 
