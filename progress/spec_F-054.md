@@ -63,3 +63,19 @@ Spec en `specs/F-054-sin-obra-o-fecha-a-revision/` (rama
 ## Estado
 
 `bash harness/init.sh` en verde. Un commit local en la rama; sin push.
+
+## Aprobación (2026-10-21)
+
+Humano, 2026-10-21, literal: «apruebo F-054 y la DA5» ⇒ **DA1–DA7 APROBADAS con la
+recomendación** (A en todas salvo DA3 = B), anotado en `design.md` §9. DA5 = A: la guarda aguas
+abajo se especifica en **F-055** («sv5 omite las líneas sin fecha válida», rama propia).
+
+- **M1 hecha por el líder el 2026-10-21** (solo lectura; resultado en `design.md` §8): 3
+  documentos activos no aprobados y sin revisar sin obra o sin fecha (los 2 del 2026-10-21 y
+  uno del 2026-10-14 con obra y sin fecha) ⇒ M2 afectará a 3. Las 25 líneas sin obra o sin
+  fecha tienen `sigrid_estado` vacío: ninguna llegó a Sigrid, F-055 no es urgente. T7 marcada.
+- **Cola**: DA6 se aprobó con prioridad 2, pero F-049 está `in_progress` desde hoy («lanza
+  f49») y solo cabe una. F-054 pasa a **prioridad 4**, la misma que F-049: el backlog desempata
+  por id, así que sale F-049 → F-054 → F-047 (5) sin renumerar ninguna otra.
+- Estado `spec_ready`. Topes: design 235/250, requirements 108/150.
+

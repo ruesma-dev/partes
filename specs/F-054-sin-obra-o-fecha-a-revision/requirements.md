@@ -102,7 +102,7 @@ fecha (F-043) y la obra (`PATCH /api/partes/{id}/obra`).
 ## Fuera de alcance
 
 - Bloquear la aprobación o el envío a sv5 de las líneas sin obra o sin fecha (DA5: hoy una
-  línea sin fecha viaja con `fecha_int = 0` y sv5 no la rechaza; se propone feature aparte).
+  línea sin fecha viaja con `fecha_int = 0` y sv5 no la rechaza; es **F-055**).
 - Guardar o enseñar en el portal los motivos de revisión (DA4 B/C).
 - Revisar fechas corregidas o lejanas (`futuro_corregido`, `leido_pasado`: DA2 B/C).
 - Bajar `review_required` cuando el usuario arregla la obra o la fecha.

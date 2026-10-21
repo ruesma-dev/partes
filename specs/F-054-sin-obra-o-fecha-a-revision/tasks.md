@@ -1,8 +1,7 @@
 # F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión — tareas
 
-> Antes de T1, el humano resuelve DA1–DA7 (`design.md` §9). M1 (T7) es de solo lectura y
-> puede hacerse antes de aprobar, para decidir DA3 y DA5. Las tareas «(DA3 = B)» se saltan,
-> anotándolo en `progress/impl_F-054.md`, si la decisión es otra. Cada tarea = un commit `F-054 Tn: ...`.
+> DA1–DA7 aprobadas el 2026-10-21 (`design.md` §9; DA3 = B, así que T8 se hace). M1 (T7) ya
+> la ejecutó el líder el 2026-10-21 (resultado en `design.md` §8): M2 afectará a 3 documentos. Cada tarea = un commit `F-054 Tn: ...`.
 
 - [ ] T1: Enmiendas neutras de fixtures (`design.md` §6.2): `_parte_revisable` de `test_f030_casado_recurso.py` con obra casada y `_parte_casado` de `test_f051_lectura_dudosa.py` con `fecha_int`, sin cambiar ningún `assert`  |  Verificación: `cd services/partes-persistencia && python -m pytest tests/test_f030_casado_recurso.py tests/test_f051_lectura_dudosa.py` en verde ANTES del cambio de código
 - [ ] T2: Escribir `services/partes-persistencia/tests/test_f054_revision_cabecera.py` (R1–R7, R9; casos de `design.md` §6.1) y la enmienda de `test_f023_review_required_por_la_obra` (§6.2), y verlos en ROJO  |  Verificación: `cd services/partes-persistencia && python -m pytest tests/test_f054_revision_cabecera.py tests/test_f023_pipeline_match.py` falla por la regla ausente (traza RED en impl)
@@ -10,7 +9,7 @@
 - [ ] T4: Comprobar que no se ha tocado ni sv4 ni sv5 ni el esquema (R8)  |  Verificación: `git diff dev --stat -- services/partes-front services/partes-transfer services/partes-persistencia/infrastructure` vacío
 - [ ] T5: Semántica 18 en `docs/ARCHITECTURE.md` (texto de `design.md` §7; con DA3 ≠ B, sin la última frase)  |  Verificación: revisión del reviewer; `python -m harness.tamano --feature F-054` en verde
 - [ ] T6: Campaña de mutación muestreada (rigor `estandar`) sobre `persist_parte_pipeline.py`; analizar supervivientes en `progress/impl_F-054.md`  |  Verificación: `python -m harness.mutacion` con el nivel de `harness/rigor.json`, supervivientes documentados
-- [ ] T7: M1 · recuento de solo lectura en la base `partes` (documentos activos sin obra o sin fecha, por aprobado y revisión; líneas sin fecha por `sigrid_estado`)  |  Verificación: MANUAL (humano o líder), comando y resultado esperado en `design.md` §8
+- [x] T7: M1 · recuento de solo lectura en la base `partes` (documentos activos sin obra o sin fecha, por aprobado y revisión; líneas sin fecha por `sigrid_estado`)  |  Verificación: MANUAL (humano o líder), comando y resultado esperado en `design.md` §8
 - [ ] T8: (DA3 = B) M2 · `UPDATE` único que solo sube `review_required` en los activos no aprobados sin obra o sin fecha, tras desplegar sv3 (`redeploy_partes.ps1 -Solo sv3`, lo pide el humano)  |  Verificación: MANUAL (humano, autorización expresa para esta escritura), `design.md` §8: `UPDATE n` con `n` de M1 y `UPDATE 0` al repetir
 - [ ] T9: M3 · tras unos días con sv3 desplegado, ningún documento nuevo sin obra o sin fecha con `review_required = false`  |  Verificación: MANUAL (humano o líder), `design.md` §8
 - [ ] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»

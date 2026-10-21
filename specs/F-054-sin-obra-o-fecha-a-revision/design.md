@@ -199,6 +199,12 @@ Desde una consola con la regla de firewall de `psql-albaranes-rs9k2`; `<servidor
   2026-10-21 (si no se han arreglado ya); el total de filas `approved = f` y `revisar = f`
   es lo que corregiría M2. (b) Ninguna línea sin fecha en `registrado`, `encolado`,
   `dedicacion` o `conflicto`; si aparece alguna, DA5 pasa a urgente y se avisa al humano.
+  **Resultado M1 (líder, 2026-10-21, solo lectura).** (a) Activos: sin obra y sin fecha,
+  `approved f`, `revisar f`, `none`: 2 (2026-10-21); con obra (`codigo_membrete`) y sin fecha,
+  `approved f`, `revisar f`: 1 (2026-10-14); con obra (`codigo_padded`) y sin fecha, `revisar t`: 2 (2026-07-23
+  a 2026-10-14); sin obra y con fecha, `revisar t`, `none`: 1 (2026-07-16) ⇒ M2 afectará a
+  **3**. (b) Líneas: 15 con obra y sin fecha y 10 sin obra y sin fecha, **todas con
+  `sigrid_estado` vacío**: ninguna llegó a Sigrid ⇒ la guarda de sv5 (F-055) no es urgente.
 - **M2 · escritura en la base `partes` (solo si DA3 = B y con autorización expresa del
   humano para esta acción; tras desplegar sv3)**:
   ```powershell
@@ -211,7 +217,12 @@ Desde una consola con la regla de firewall de `psql-albaranes-rs9k2`; `<servidor
   `GROUP BY`. Esperado: ninguna fila con `revisar = f`; y en el log de sv3, un WARNING
   «cabecera incompleta» por cada parte que salga.
 
-## 9. Decisiones abiertas (las aprueba el humano)
+## 9. Decisiones (APROBADAS el 2026-10-21)
+
+Humano, 2026-10-21, literal: «apruebo F-054 y la DA5» ⇒ **DA1–DA7 APROBADAS con la
+recomendación** (A en todas salvo DA3 = B). DA5 = A: la guarda aguas abajo es **F-055** (sv5
+omite las líneas sin fecha válida). DA6: F-049 pasó a `in_progress` ese día («lanza f49») y
+solo cabe una, así que F-054 va **justo detrás**: prioridad 4, como F-049 (desempata el id).
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|
