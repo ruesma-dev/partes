@@ -1621,8 +1621,9 @@ def build_app(
 
     @app.post("/api/undo", include_in_schema=False)
     def undo_apply(request: Request) -> JSONResponse:
+        actor = _actor(request)
         try:
-            res = repository.undo_last(actor=_actor(request))
+            res = repository.undo_last(actor=actor)
         except Exception as exc:  # noqa: BLE001
             logger.exception("[undo] fallo al deshacer")
             return JSONResponse(
@@ -1633,7 +1634,6 @@ def build_app(
             # F-042 (DA1, R7): deshacer un cambio de fecha es la misma
             # accion en sentido contrario; sin recalculo, la fecha vieja
             # quedaria con el reparto nuevo hasta la siguiente ingesta.
-            actor = _actor(request)
             estados = [
                 _pedir_recalculo_seguido(doc_id, MOTIVO_DESHACER_FECHA, actor)
                 for doc_id in res.get("document_ids") or []
@@ -1647,7 +1647,7 @@ def build_app(
                    + [a["document_id"] for a in res.get("afectadas") or []])
             if ids:
                 res["recalculo"], _pedido = _pedir_recalculo_compartido(
-                    ids, MOTIVO_DESHACER_CELDA, _actor(request))
+                    ids, MOTIVO_DESHACER_CELDA, actor)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)

@@ -3171,8 +3171,9 @@ function avisarCambioLineas() {
   }
 
   // F-049 (R37): tras guardar con otras obras afectadas, el popup enseña
-  // la lista con enlaces y «Cerrar», que recarga (R8 si el recálculo falló).
-  function mostrarAfectadas(pop, data) {
+  // la lista con enlaces y «Cerrar», que recarga con `recargar` (la única
+  // recarga del editor, R8 si el recálculo falló).
+  function mostrarAfectadas(pop, data, recargar) {
     pop.replaceChildren();
     var titulo = document.createElement("div");
     titulo.className = "mxe-title";
@@ -3199,7 +3200,7 @@ function avisarCambioLineas() {
     bar.className = "mxe-actions";
     var cerrar = document.createElement("button");
     cerrar.type = "button"; cerrar.className = "btn small"; cerrar.textContent = "Cerrar";
-    cerrar.addEventListener("click", function () { window.location.reload(); });
+    cerrar.addEventListener("click", recargar);
     bar.appendChild(cerrar);
     pop.appendChild(bar);
   }
@@ -3281,6 +3282,7 @@ function avisarCambioLineas() {
     bar.appendChild(cancel);
     pop.appendChild(bar);
     cancel.addEventListener("click", cerrar);
+    function recargar() { window.location.reload(); }
 
     ok.addEventListener("click", function () {
       var cuerpo = cuerpoCelda(campos, inputs.map(function (i) { return String(i.value); }), celda);
@@ -3291,12 +3293,15 @@ function avisarCambioLineas() {
         headers: {"Content-Type": "application/json", Accept: "application/json"},
         body: JSON.stringify(cuerpo),
       }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
-        if (data.afectadas && data.afectadas.length) { mostrarAfectadas(pop, data); return; }
+        if (data.afectadas && data.afectadas.length) {
+          mostrarAfectadas(pop, data, recargar);
+          return;
+        }
         if (data.recalculo === "fallo") {
           window.alert("Horas guardadas, pero no se pudo pedir el recálculo de "
             + "extras: se hará en la siguiente pasada.");
         }
-        window.location.reload();
+        recargar();
       }).catch(function (e) {
         ok.disabled = false;
         // F-004 R16: el motivo real del servidor.
