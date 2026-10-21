@@ -60,7 +60,16 @@ la línea pisada es otra línea del portal escrita por sv5 en modo pruebas (ejem
   ```
   En otra consola: `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`,
   `obra_pruebas: 0404`, `database: ruesma`. **Si `modo_pruebas` no es `True`, PARA.**
-- [ ] **M2 · pisar pone a 0 (escritura en 0404; antes de desplegar, para que un SQL inválido
+- [x] **HECHA por el líder el 2026-10-21, autorizada por el humano («haz las pruebas m2 en
+  local»)**: sv5 local con `modo_pruebas: true`, obra 0404, base `ruesma`; mes 06/2026 (sin
+  partes antes). A (990000531, 8 h) ⇒ `PT26/00376` nuevo (ide 2857943), línea IA = 411591.
+  Preflight de B (990000532, 6 h) ⇒ 1 conflicto con IA (`nuestra`, no enlazada). Ejecutar
+  pisando ⇒ `ok`, `anuladas: 1`, **sin clave `borradas`**, IB = 411592. Consola de sv5:
+  `UPDATE hmores SET can = 0, tot = 0 WHERE ide = ? AND reside = ? AND fec = ? …` y
+  `pisada a 0 ide=411591 … can_antes=8.0 origen=partes`; **0 `DELETE`**. Sigrid (lectura):
+  411591 `can 0 / tot 0` (sigue ahí) y 411592 `can 6 / tot 177`, ambas `PRUEBA-IA`.
+  Sin limpiar todavía (decide el humano).
+- [x] **M2 · pisar pone a 0 (escritura en 0404; antes de desplegar, para que un SQL inválido
   no llegue a producción)**. (1) Línea A, 8 h:
   ```powershell
   $a = @{ registro_id = 990000531; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 8 }
@@ -89,7 +98,11 @@ la línea pisada es otra línea del portal escrita por sv5 en modo pruebas (ejem
   `python prueba_escritura_sigrid.py verificar` ⇒ 2 líneas en P1: la de A con `can` 0 y `tot`
   0 (sigue ahí) y la de B con `can` 6. Después, despliegue desde `infra/`:
   `.\redeploy_partes.ps1 -Solo sv5` y `.\redeploy_partes.ps1 -Solo sv4`.
-- [ ] **M3 · una línea a 0 ya no choca; reaprobar la pisada (solo lectura, mismo sv5 local)**:
+- [x] **HECHA por el líder el 2026-10-21 (solo lectura, mismo sv5 local, 06/2026)**: C
+  (990000533, 4 h) ⇒ 1 conflicto solo con IB 411592 (`can 6`): IA a 0 ya no sale (R5). A
+  (990000531) ⇒ `ya_registrado`, 0 conflictos (R15). Limpieza **no hecha** (pendiente del
+  humano: borra con `DELETE` las `PRUEBA-IA` de la 0404 en 06/2026 y 08/2026).
+- [x] **M3 · una línea a 0 ya no choca; reaprobar la pisada (solo lectura, mismo sv5 local)**:
   ```powershell
   $c = @{ registro_id = 990000533; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 4 }
   $p = @{ obra = @{ codigo = '0404' }; lineas = @($c); usuario = 'M3-F053' } | ConvertTo-Json -Depth 5
@@ -170,7 +183,15 @@ está PT26/00373 con las 4 líneas `PRUEBA-IA` de F-046 que el humano decidió c
   En otra consola: `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`,
   `obra_pruebas: 0404`, `database: ruesma`. **Si `modo_pruebas` no es `True`, PARA**: el
   `.env` local trae `OBRA_PRUEBAS_FORZAR=false` y escribiría en la obra real.
-- [ ] **M2 · registro con la guarda (escritura en 0404; antes de desplegar, para que un SQL
+- [x] **HECHA por el líder el 2026-10-21, autorizada por el humano («haz las pruebas m2 en
+  local»)**: sv5 local con `modo_pruebas: true`, obra 0404, base `ruesma`; mes 08/2026 (julio
+  ya tenía PT26/00296). Preflight ⇒ `forzada_pruebas: True`, `existe: False`, escribir 1.
+  Ejecutar ⇒ `ok`, **P1 = `PT26/00375`** (ide 2857940, estado 1, creado), A escrita en la
+  línea 411586, `omitidas` vacía. Reajuste 8 → 6 ⇒ `ok`, `can 6`, `escrita: True`.
+  `comprobar_asiento_analitico.py` ⇒ `PT26/00375 · En registro · 1 linea(s) (1 nuestras) ·
+  importe con cuenta 177.00`. **P1 se conserva para la M3** (cerrarlo en Sigrid, con
+  autorización expresa).
+- [x] **M2 · registro con la guarda (escritura en 0404; antes de desplegar, para que un SQL
   inválido no llegue a producción)**. Línea A del gruista de pruebas (2717792, HLGR + HEGR):
   ```powershell
   $a = @{ registro_id = 990000341; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 8 }
