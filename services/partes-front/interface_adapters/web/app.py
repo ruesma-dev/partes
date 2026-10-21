@@ -1622,7 +1622,7 @@ def build_app(
     @app.post("/api/undo", include_in_schema=False)
     def undo_apply(request: Request) -> JSONResponse:
         try:
-            res = repository.undo_last()
+            res = repository.undo_last(actor=_actor(request))
         except Exception as exc:  # noqa: BLE001
             logger.exception("[undo] fallo al deshacer")
             return JSONResponse(
@@ -1640,6 +1640,14 @@ def build_app(
             ]
             if estados:
                 res["recalculo"] = peor_estado(estados)
+        if res.get("ok") and res.get("action") == "celda_edit":
+            # F-049 (R27): UN recálculo con pedido compartido de los partes
+            # de la celda y de las otras obras de ese día.
+            ids = (list(res.get("document_ids") or [])
+                   + [a["document_id"] for a in res.get("afectadas") or []])
+            if ids:
+                res["recalculo"], _pedido = _pedir_recalculo_compartido(
+                    ids, MOTIVO_DESHACER_CELDA, _actor(request))
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)

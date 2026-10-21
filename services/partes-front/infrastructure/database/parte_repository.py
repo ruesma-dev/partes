@@ -673,7 +673,8 @@ def _reg_snapshot(reg: ParteRegistroOrm) -> dict:
 
 
 def _apply_reg_snapshot(reg: ParteRegistroOrm, snap: dict) -> None:
-    for f in _REG_UNDO_FIELDS:
+    # F-049 (R25, R28): las marcas solo vienen en las entradas `celda_edit`.
+    for f in _REG_UNDO_FIELDS + _REG_UNDO_MARCAS:
         if f in snap:
             setattr(reg, f, snap[f])
 
@@ -3126,7 +3127,7 @@ class ParteReviewRepository:
             stmt = select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
             return len(list(session.execute(stmt).scalars().all()))
 
-    def undo_last(self) -> dict:
+    def undo_last(self, *, actor: str | None = None) -> dict:
         """Deshace la accion no-deshecha mas reciente: restaura el estado
         anterior de registros/documento/alias y la marca como deshecha.
 
@@ -3138,6 +3139,11 @@ class ParteReviewRepository:
         F-042 (R9): devuelve ademas la `action` de la entrada deshecha y los
         `document_ids` de sus snapshots de documento, para que deshacer un
         cambio de fecha pida el recalculo de extras de esos partes.
+
+        F-049 (R26): en una `celda_edit`, además, las líneas que creó van a
+        la papelera (`deleted_by` = `actor`; las hoy congeladas se omiten),
+        `document_ids` son los partes de sus líneas y `afectadas`, las otras
+        obras del mismo día en ese momento (R38), para su recálculo (R27).
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -3174,6 +3180,11 @@ class ParteReviewRepository:
                 _apply_reg_snapshot(reg, snap)
             for snap in payload.get("aliases", []):
                 self._apply_alias_snapshot(session, snap)
+            celda = None
+            if action == "celda_edit":
+                celda, creadas_omitidas = self._deshacer_creadas(
+                    session, payload, actor=actor)
+                omitidos += creadas_omitidas
             row.undone = True
             session.commit()
             remaining = len(list(session.execute(
@@ -3184,11 +3195,57 @@ class ParteReviewRepository:
                 "[undo] %s fila(s) omitidas por congelacion (%s)",
                 omitidos, description,
             )
-        return {"ok": True, "description": description,
-                "remaining": remaining, "omitidos": omitidos,
-                "action": action,
-                "document_ids": [snap.get("id")
-                                 for snap in payload.get("documents", [])]}
+        res = {"ok": True, "description": description,
+               "remaining": remaining, "omitidos": omitidos,
+               "action": action,
+               "document_ids": [snap.get("id")
+                                for snap in payload.get("documents", [])]}
+        if celda is not None:
+            res.update(celda)
+        return res
+
+    def _deshacer_creadas(self, session, payload: dict, *,
+                          actor: str | None) -> tuple[dict, int]:
+        """F-049 (R26): papelera de las creadas de una `celda_edit` que
+        siguen activas y libres, y `document_ids` y `afectadas` de esa
+        celda ahora. Devuelve `(campos de la respuesta, omitidas)`."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        omitidas = 0
+        regs: list[ParteRegistroOrm] = []
+        for rid in payload.get("creadas") or []:
+            reg = session.get(ParteRegistroOrm, rid)
+            if reg is None:
+                continue
+            regs.append(reg)
+            if reg.deleted_at_utc:
+                continue
+            if _motivo_congelado_reg(reg) is not None:
+                omitidas += 1
+                continue
+            reg.deleted_at_utc = ahora
+            reg.deleted_by = actor
+        for snap in payload.get("registros", []):
+            reg = session.get(ParteRegistroOrm, snap.get("id"))
+            if reg is not None:
+                regs.append(reg)
+        documentos = list(dict.fromkeys(
+            [snap.get("document_id") for snap in payload.get("registros", [])]
+            + [r.document_id for r in regs]))
+        session.flush()
+        celda = self._celdas_de(session, regs)
+        return ({"document_ids": [d for d in documentos if d],
+                 "afectadas": self._afectadas(session, celda)}, omitidas)
+
+    def _celdas_de(self, session, regs) -> list[ParteRegistroOrm]:
+        """F-049: las celdas actuales de esas líneas (normalmente una) más
+        las propias líneas, para calcular sus afectadas (R26)."""
+        claves = {(obra_key_for_registro(r), worker_key_for_registro(r),
+                   r.fecha_int) for r in regs if r.fecha_int}
+        celda = {r.id: r for r in regs}
+        for obra_key, worker_key, fecha_int in sorted(claves):
+            for r in self._celda(session, obra_key, worker_key, fecha_int):
+                celda.setdefault(r.id, r)
+        return list(celda.values())
 
     def get_registro_recurso(self, registro_id: int) -> int | None:
         """recurso_ide del registro (para resolver su hora extra)."""

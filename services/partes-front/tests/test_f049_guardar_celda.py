@@ -1101,3 +1101,199 @@ def test_f049_otras_de_celda_del_repositorio(montaje):
                                fecha_iso=FECHA) == [
         {"obra_key": KEY_Y, "obra_codigo": f"0{OBRA_Y}",
          "document_id": "d-y", "congelada": False}]
+
+
+# ======================================================================= #
+# T9 · deshacer `celda_edit` (R25-R28)
+# ======================================================================= #
+
+import json  # noqa: E402
+
+
+def _undo(cliente):
+    return cliente.post("/api/undo", headers=CABECERA)
+
+
+def _payload_undo(fabrica) -> dict:
+    (entrada,) = _undos(fabrica)
+    return json.loads(entrada.payload)
+
+
+def _guardar_pareja(cliente, ids):
+    r = _post(cliente, [(ids["base"], 8.0, 8.0), (ids["auto"], 2.0, 3.0),
+                        (ids["base2"], 1.0, 1.0), (ids["auto2"], 0.5, 0.5)])
+    assert r.status_code == 200, r.text
+    return r
+
+
+def test_f049_r25_entrada_con_marcas_documento_y_creadas(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_pareja)
+    _guardar_pareja(cliente, ids)
+    payload = _payload_undo(fabrica)
+    por_id = {s["id"]: s for s in payload["registros"]}
+    assert set(por_id) == {ids["base"], ids["auto"]}
+    assert (por_id[ids["base"]]["horas"], por_id[ids["base"]]["horas_orig"],
+            por_id[ids["base"]]["extra_auto"],
+            por_id[ids["base"]]["document_id"]) == (8.0, 10.0, False, "d-y")
+    assert (por_id[ids["auto"]]["horas"], por_id[ids["auto"]]["horas_orig"],
+            por_id[ids["auto"]]["extra_auto"]) == (2.0, None, True)
+    assert por_id[ids["auto"]]["hora_codigo"] == "HL01"     # los de siempre
+    assert payload["creadas"] == []
+
+
+def test_f049_r25_entrada_con_las_creadas(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_extra)
+    r = _post(cliente, [(ids["extra"], 10.0, 2.0)], nueva_ordinaria=8.0)
+    payload = _payload_undo(fabrica)
+    assert payload["creadas"] == r.json()["creadas"]
+    assert [s["id"] for s in payload["registros"]] == [ids["extra"]]
+    assert (_undos(fabrica)[0].description
+            == "Editar celda · Persona Siete (2026-10-14)")
+
+
+def test_f049_r26_deshacer_restaura_horas_y_marcas(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_pareja)
+    _guardar_pareja(cliente, ids)
+    r = _undo(cliente)
+    assert r.status_code == 200, r.text
+    base, auto = _fila(fabrica, ids["base"]), _fila(fabrica, ids["auto"])
+    assert (base.horas, base.horas_orig, base.extra_auto) == (8.0, 10.0,
+                                                              False)
+    assert (auto.horas, auto.horas_orig, auto.extra_auto) == (2.0, None,
+                                                              True)
+    cuerpo = r.json()
+    assert cuerpo["action"] == "celda_edit"
+    assert cuerpo["document_ids"] == ["d-y"]
+    assert cuerpo["afectadas"] == []
+    assert cuerpo["omitidos"] == 0
+
+
+def test_f049_r26_deshacer_manda_las_creadas_a_la_papelera(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_extra)
+    r = _post(cliente, [(ids["extra"], 10.0, 2.0)], nueva_ordinaria=8.0)
+    (nueva,) = r.json()["creadas"]
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["ok"] is True
+    linea = _fila(fabrica, nueva)
+    assert linea.deleted_at_utc is not None
+    assert linea.deleted_by == ACTOR
+    assert _fila(fabrica, ids["extra"]).horas == 10.0
+    assert cuerpo["document_ids"] == ["d-y"]
+
+
+def test_f049_r26_solo_creada_da_su_documento(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_ordinaria)
+    r = _post(cliente, [(ids["ord"], 8.0, 8.0)], nueva_extra=2.0)
+    (nueva,) = r.json()["creadas"]
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["document_ids"] == ["d-y"]
+    assert _fila(fabrica, nueva).deleted_at_utc is not None
+
+
+def test_f049_r26_creada_hoy_congelada_no_se_toca(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_ordinaria)
+    r = _post(cliente, [(ids["ord"], 8.0, 7.0)], nueva_extra=2.0)
+    (nueva,) = r.json()["creadas"]
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, nueva).sigrid_estado = "registrado"
+        s.commit()
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["omitidos"] == 1
+    assert _fila(fabrica, nueva).deleted_at_utc is None
+    assert _fila(fabrica, ids["ord"]).horas == 8.0
+
+
+def test_f049_r26_creada_ya_borrada_no_se_vuelve_a_borrar(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_solo_ordinaria)
+    r = _post(cliente, [(ids["ord"], 8.0, 8.0)], nueva_extra=2.0)
+    (nueva,) = r.json()["creadas"]
+    with fabrica.create_session() as s:
+        linea = s.get(ParteRegistroOrm, nueva)
+        linea.deleted_at_utc, linea.deleted_by = AHORA, "otra"
+        s.commit()
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["omitidos"] == 0
+    assert (_fila(fabrica, nueva).deleted_at_utc,
+            _fila(fabrica, nueva).deleted_by) == (AHORA, "otra")
+
+
+def test_f049_r26_snapshot_hoy_congelado_se_omite(montaje):
+    cliente, _repo, fabrica, ids, _cola = montaje(_pareja)
+    _guardar_pareja(cliente, ids)
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["auto"]).sigrid_estado = "registrado"
+        s.commit()
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["omitidos"] == 1
+    auto = _fila(fabrica, ids["auto"])
+    assert (auto.horas, auto.extra_auto) == (3.0, False)
+    assert _fila(fabrica, ids["base"]).horas_orig == 10.0
+
+
+def test_f049_r26_r27_deshacer_e12_pide_un_recalculo_compartido(montaje):
+    cliente, _repo, fabrica, ids, cola = montaje(_e12)
+    _post(cliente, [(ids["y"], 2.0, 2.0)], nueva_ordinaria=2.0)
+    pedido_guardar, _ = _seguimiento(fabrica, "d-y")
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["afectadas"] == [AFECTADA_X]
+    assert cuerpo["recalculo"] == "pedido"
+    assert len(cola.enviados) == 2
+    _nombre, mensaje = cola.enviados[1]
+    assert (mensaje["document_id"], mensaje["motivo"]) == (
+        "d-y", "deshacer_edicion_celda")
+    pedido_y, _ = _seguimiento(fabrica, "d-y")
+    pedido_x, _ = _seguimiento(fabrica, "d-x")
+    assert pedido_y == pedido_x and pedido_y != pedido_guardar
+    assert _seguimiento(fabrica, "d-z") == (None, None)
+
+
+def test_f049_r27_deshacer_sin_cola(montaje):
+    cliente, _repo, _fabrica, ids, _cola = montaje(_solo_ordinaria,
+                                                   sin_cola=True)
+    _post(cliente, [(ids["ord"], 8.0, 7.0)])
+    assert _undo(cliente).json()["recalculo"] == "sin_cola"
+
+
+def test_f049_r27_deshacer_todo_congelado_pide_igual_su_documento(montaje):
+    """Todo hoy congelado: nada se restaura, pero el documento de la
+    entrada se recalcula igual (deshacer no mira la congelación)."""
+    cliente, _repo, fabrica, ids, cola = montaje(_solo_ordinaria)
+    _post(cliente, [(ids["ord"], 8.0, 7.0)])
+    with fabrica.create_session() as s:
+        s.get(ParteDocumentOrm, "d-y").approved = True
+        s.commit()
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["omitidos"] == 1
+    assert cuerpo["document_ids"] == ["d-y"]
+    assert cuerpo["recalculo"] == "pedido"
+    assert len(cola.enviados) == 2
+
+
+def test_f049_r28_deshacer_otra_accion_no_restaura_marcas(montaje):
+    cliente, _repo, fabrica, ids, cola = montaje(_pareja)
+    assert cliente.patch(f"/api/registros/{ids['base']}",
+                         json={"horas": 7.0},
+                         headers=CABECERA).status_code == 200
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["base"]).horas_orig = 5.0
+        s.commit()
+    cuerpo = _undo(cliente).json()
+    base = _fila(fabrica, ids["base"])
+    assert (base.horas, base.horas_orig) == (8.0, 5.0)
+    assert cuerpo["action"] == "registro_edit"
+    assert "recalculo" not in cuerpo and "afectadas" not in cuerpo
+    assert cola.enviados == []
+    assert "creadas" not in json.loads(_undos(fabrica)[0].payload)
+
+
+def test_f049_r28_undo_last_sin_actor_sigue_valiendo(montaje):
+    _cliente, repo, fabrica, ids, _cola = montaje(_solo_ordinaria)
+    repo.guardar_celda(
+        obra_key=KEY_Y, worker_key=WK, fecha_iso=FECHA,
+        cambios=[Cambio(ids["ord"], 8.0, 8.0)], nueva_ordinaria=None,
+        nueva_extra=2.0, hora_ordinaria=None, hora_extra=None,
+        plantilla_esperada=ids["ord"], by=None)
+    res = repo.undo_last()
+    assert res["ok"] is True and res["action"] == "celda_edit"
+    nueva = _lineas_doc(fabrica, "d-y")[-1]
+    assert nueva.deleted_at_utc is not None and nueva.deleted_by is None

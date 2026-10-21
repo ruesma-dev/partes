@@ -633,7 +633,7 @@ def test_f043_r14_parte_inexistente_en_deshacer_no_anula(parte) -> None:
     repo = RepoMarcaRota(parte, anular=AssertionError("no debe anular"))
 
     class RepoUndoAjeno(RepoMarcaRota):
-        def undo_last(self) -> dict:
+        def undo_last(self, **_kw) -> dict:
             return {"ok": True, "action": "parte_fecha",
                     "document_ids": ["no-existe"], "description": "x"}
 
