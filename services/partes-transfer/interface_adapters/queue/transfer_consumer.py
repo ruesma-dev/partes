@@ -21,9 +21,9 @@ Dos clases de fallo, tratadas distinto a proposito:
     reaparece tras el visibility timeout; superados los reintentos va a
     `q-transfer-poison` con su blob intacto (R9).
 
-`pisar_claves` se ignora SIEMPRE: pisar pone a 0 lineas de Sigrid (F-053) y es una
-decision humana que viaja por HTTP sincrono, nunca por una cola con
-reentregas (R10).
+`pisar_claves` se ignora SIEMPRE: pisar pone a 0 lineas de Sigrid (F-053)
+y es una decision humana que viaja por HTTP sincrono, nunca por una cola
+con reentregas (R10).
 """
 from __future__ import annotations
 
