@@ -31,7 +31,8 @@ Puntos de entrada: `main.py` en todos; sv2 y sv3 tienen además
 sv1→sv2→sv3 por colas de Azure Storage (`q-extraccion`, `q-persistencia`,
 at-least-once); desde **F-042**, sv4 también publica en `q-persistencia`
 un mensaje `{"tipo": "recalcular", ...}` al guardar o deshacer la fecha de
-un parte (semántica 3), que sv3 distingue del de sv2 (sin `tipo`);
+un parte o (F-049) una celda de la matriz de obra (semántica 3), que sv3
+distingue del de sv2 (sin `tipo`);
 sv4↔sv5 por **doble canal** (ver más abajo);
 sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
 librería compartida: los servicios se acoplan únicamente por mensajes,
@@ -176,7 +177,8 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    fecha se guarda aunque la cola falle y el portal lo avisa
    (`recalculo`: `pedido`, `fallo`, `sin_cola`). En sv3 un recálculo
    fallido se reintenta y acaba en `q-persistencia-poison`. Editar horas,
-   trabajador, obra o líneas sigue esperando a la siguiente pasada.
+   trabajador, obra o líneas sigue esperando a la siguiente pasada (salvo
+   el editor de celda de F-049, abajo).
    **F-043**: el portal confirma el cambio de fecha con el alcance del parte
    (`GET /api/partes/{id}/alcance`: trabajadores y líneas activas) y sigue el
    recálculo: antes de publicar, sv4 escribe en el documento
@@ -188,6 +190,26 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (`sin_seguimiento`, `pendiente`, `terminado`, `vencido`, `no_existe`) y el
    portal lo sondea cada 5 s sin recargar nunca solo: al terminar ofrece
    «Actualizar», que recarga conservando scroll y filtros.
+   **F-049 · editor de celda de la matriz de obra**: el doble clic en la
+   matriz «Horas por día» edita la celda entera (obra, clave de trabajador
+   de F-050 y fecha) y ofrece la ordinaria o la extra que falte; se guarda
+   en UNA transacción con comprobación de que nada cambió desde que se abrió
+   (`POST /api/matriz/celda`) y se deshace como una sola acción (las líneas
+   creadas van a la papelera). Lo escrito manda: las parejas automáticas
+   tocadas se **materializan** (`horas_orig` NULL, `extra_auto` falso), así
+   que sv3 ya no restaura esa base ni borra esa extra; la jornada la sigue
+   aplicando sv3 en la pasada. La pasada es **completa** y reparte por
+   (recurso, día) entre obras, así que guardar puede cambiar ese día en
+   otras obras (nunca otros días, que solo dependen del calendario): sv4 lo
+   avisa al abrir (`GET /api/matriz/celda/otras`) y tras guardar, y escribe
+   UN **pedido compartido** (uuid4) en los partes tocados y en los de esas
+   otras obras, en una sentencia, antes de publicar UN mensaje (motivos
+   `edicion_celda` / `deshacer_edicion_celda`, `document_id` = el primer
+   parte tocado). sv3 marca terminado **todo** documento que lleve ese
+   pedido (`marcar_terminado` filtra por pedido, no por documento); un
+   pedido de un solo parte (uuid4) o el de F-047 (el id del parte) nunca
+   coincide con el de otro. Despliegue: **sv3 antes que sv4** (con sv4
+   nuevo y sv3 viejo, las otras obras esperarían hasta vencer).
 4. **Incidencias sin horas** (`can=0`) y **solo inicio/fin de racha**
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
@@ -265,13 +287,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     recalculando (extras): espera a que termine.» (`RecalculandoError`,
     subclase de `CongeladoError`), salvo cambiar la fecha y deshacer, que
     piden su propia pasada. Lo pinta el servidor (`data-recalculando`), así
-    que vale en cualquier pestaña, y vence a los 10 min.
+    que vale en cualquier pestaña, y vence a los 10 min. Desde F-049 también
+    esperan los partes de otras obras del mismo día de una celda guardada
+    (pedido compartido, semántica 3).
     **Reparto pendiente (F-046)**: tampoco cambia la regla. Las líneas de un
     día con reparto `pendiente`, `aplicando` o `rechazado` no se registran
     sin decidir («Aplicar» / «Mantener lo registrado») y su parte no se
     aprueba (`RepartoPendienteError`); las vistas lo marcan
     (`data-reparto`). La única escritura de sv3 sobre líneas congeladas es
     materializar un reparto `aplicado` (los valores que sv5 ya escribió).
+    Guardar una celda de la matriz (F-049) da 409 si su día tiene un reparto
+    `aplicando`; con uno `pendiente` lo avisa y se vuelve a calcular.
 11. **Identidad del portal (F-017, sv4)**: quién firma una escritura se
     resuelve en **un único punto**, `_actor(request)` en
     `interface_adapters/web/app.py`, que delega en las funciones puras de
