@@ -106,6 +106,12 @@ from application.services.parte_abierto import (
     motivo_parte_no_abierto,
     parte_que_impidio,
 )
+from application.services.pisado import (
+    choques,
+    es_incidencia,
+    motivo_incidencia_en_sigrid,
+    motivo_linea_enlazada,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -373,11 +379,19 @@ class RegistroPipeline:
                      if ps.est != est_registro
                      and self._choques(lineas, a, mias)), None)
                 if cerrado is not None:
-                    self._omitir_por_cerrado(a, cerrado)
+                    self._omitir(a, motivo_choque(
+                        cerrado.cod, self._nombre_estado(cerrado.est)))
                     omitidas_cerrado[clave] += 1
             grupo = [a for a in grupo if a.accion == "escribir"]
             abiertas = [(ps, lineas) for ps, lineas in existentes
                         if ps.est == est_registro]
+            # F-053 (R6-R8): lo que no se puede pisar se omite con motivo
+            # antes de ofrecerlo como conflicto.
+            for a in grupo:
+                motivo = self._motivo_sin_pisado(a, abiertas, mias)
+                if motivo is not None:
+                    self._omitir(a, motivo)
+            grupo = [a for a in grupo if a.accion == "escribir"]
             conflictos.extend(self._conflictos(parte, grupo, abiertas, mias))
 
         for clave, parte in sorted(partes.items()):
@@ -416,20 +430,41 @@ class RegistroPipeline:
     @staticmethod
     def _choques(lineas: list[LineaSigrid], a: AccionLinea,
                  mias: set[str]) -> list[LineaSigrid]:
-        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA: pisar las
-        ordinarias de un dia NO debe tocar las extra de ese dia."""
-        return [ls for ls in lineas
-                if ls.reside == a.recurso_ide
-                and ls.fecha_int == a.fecha_int
-                and int(ls.horide or 0) == int(a.hora_ide or 0)
-                and not (ls.synckey and ls.synckey in mias)]
+        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA (pisar las
+        ordinarias de un dia NO toca las extra de ese dia) y, desde F-053
+        (R5), con horas salvo para incidencias: `pisado.choques`."""
+        return choques(lineas, a, mias)
 
-    def _omitir_por_cerrado(self, a: AccionLinea, ps: ParteSigrid) -> None:
-        """R11, R14: la linea no se registra y no lleva cuenta."""
+    @staticmethod
+    def _omitir(a: AccionLinea, motivo: str) -> None:
+        """F-031 R11, R14 y F-053 R6-R7: la linea no se registra y no lleva
+        cuenta."""
         a.accion = "omitir"
-        a.motivo = motivo_choque(ps.cod, self._nombre_estado(ps.est))
+        a.motivo = motivo
         a.caa_ide, a.caa_cod = 0, None
         a.caa_motivo = a.caa_aviso = a.caa_origen = a.caa_nota = None
+
+    def _motivo_sin_pisado(
+        self, a: AccionLinea,
+        abiertas: list[tuple[ParteSigrid, list[LineaSigrid]]],
+        mias: set[str],
+    ) -> str | None:
+        """F-053 (R6-R8), sobre los choques en partes En registro: una
+        incidencia que ya consta (`incidencia_en_sigrid`) y, si no, alguna
+        linea enlazada (`linea_enlazada`). None = conflicto confirmable
+        (o nada que pisar)."""
+        chocan = [(ps, ls) for ps, lineas in abiertas
+                  for ls in self._choques(lineas, a, mias)]
+        if not chocan:
+            return None
+        if es_incidencia(a.hora_codigo):
+            return motivo_incidencia_en_sigrid(
+                [ls.ide for _ps, ls in chocan], chocan[0][0].cod)
+        enlazadas = [(ps, ls) for ps, ls in chocan if ls.enlazada]
+        if enlazadas:
+            return motivo_linea_enlazada(
+                [ls.ide for _ps, ls in enlazadas], enlazadas[0][0].cod)
+        return None
 
     def _conflictos(
         self, parte: ParteDestino, grupo: list[AccionLinea],
