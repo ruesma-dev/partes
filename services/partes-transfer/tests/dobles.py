@@ -241,7 +241,7 @@ class SigridFake:
         self.lineas_leidas: list[int] = []
         #: F-034 (design §6): {hmoide: est} que «Administracion» aplica a
         #: los partes en la ventana: al entrar en el PRIMER `escribir` que
-        #: lleve `insert` o `borrar`, tras `cerrar_tras_sentencias` de esas
+        #: lleve `insert` o `anular` (F-053), tras `cerrar_tras_sentencias` de esas
         #: sentencias (0 = antes de la primera; 15 = entre dos lotes del
         #: cliente real). Se aplica una sola vez.
         self.cerrar_al_escribir: dict[int, int] = {}
@@ -471,7 +471,10 @@ class SigridFake:
             ide=l["ide"], reside=l["reside"], fecha_int=l["fec"],
             horide=l.get("horide"), hora_codigo=l.get("hora_codigo"),
             can=l.get("can"), tot=l.get("tot"), synckey=l.get("synckey"),
-            nuestra=bool(l.get("synckey")))
+            nuestra=bool(l.get("synckey")),
+            # F-053 (R9): las filas admiten `enlazada` (y `tex`, que se
+            # queda en la fila: el pipeline no lo lee, R13).
+            enlazada=bool(l.get("enlazada")))
         ls.hmoide = l["hmoide"]
         return ls
 
@@ -496,9 +499,22 @@ class SigridFake:
                 "guarda_hmoide": int(hmoide),
                 "pisadas": [int(i) for i in pisadas]}
 
-    def stmt_borrar_linea(self, ide: int) -> dict:
-        # F-034 (R3): de instancia, como el cliente real.
-        return {"op": "borrar", "ide": int(ide)}
+    def stmt_anular_linea(self, *, ide, reside, fecha_int, horide,
+                          antes) -> dict:
+        # F-053 (R2): de instancia y con los parametros del cliente real.
+        return {"op": "anular", "ide": int(ide), "reside": int(reside),
+                "fec": int(fecha_int), "horide": int(horide or 0),
+                "antes": float(antes or 0)}
+
+    def _anulable(self, l: dict, s: dict) -> bool:
+        """F-053: el `WHERE` de `stmt_anular_linea` como SQL Server: la
+        fila tal como se leyo (`ide`, recurso, dia, codigo y `can` con
+        tolerancia 0,001), sin enlaces y con su parte En registro."""
+        return (l["ide"] == s["ide"] and l["reside"] == s["reside"]
+                and l["fec"] == s["fec"]
+                and int(l.get("horide") or 0) == s["horide"]
+                and abs(float(l.get("can") or 0) - s["antes"]) <= 0.001 + 1e-9
+                and not l.get("enlazada") and self._abierto(l["hmoide"]))
 
     def _abierto(self, hmoide) -> bool:
         """F-034: la guarda de parte abierto (`EXISTS` sobre `con` con
@@ -542,7 +558,7 @@ class SigridFake:
             n = 0
             de_lineas = 0
             for s in statements:
-                if s["op"] in ("insert", "borrar"):
+                if s["op"] in ("insert", "anular"):
                     self._cerrar_si_toca(de_lineas)
                     de_lineas += 1
                 if s["op"] == "crear_parte" and not self._alta_libre(s):
@@ -572,14 +588,17 @@ class SigridFake:
                     fila["ide"] = self._siguiente_hmores
                     fila["hora_codigo"] = None
                     self.lineas.append(fila)
-                elif s["op"] == "borrar":
-                    # F-034 (R3): solo si el parte de la fila esta abierto.
-                    borrar = [l for l in self.lineas if l["ide"] == s["ide"]
-                              and self._abierto(l["hmoide"])]
-                    if not borrar:
+                elif s["op"] == "anular":
+                    # F-053 (R2): pone a 0 la fila; nada mas cambia.
+                    filas = [l for l in self.lineas if self._anulable(l, s)]
+                    if not filas:
                         continue
-                    self.lineas = [l for l in self.lineas
-                                   if l["ide"] != s["ide"]]
+                    for l in filas:
+                        l["can"], l["tot"] = 0.0, 0.0
+                else:
+                    # F-053: no hay op `borrar`; una op desconocida es un
+                    # fallo del test, no una fila escrita.
+                    raise AssertionError(f"op desconocida: {s['op']}")
                 n += 1
             return n
         finally:
