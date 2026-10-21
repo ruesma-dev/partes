@@ -674,7 +674,33 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
-## F-049 · in_progress (implementer, 2026-10-21), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+## F-049 · BLOCKED (implementer, 2026-10-22: test de F-017 fuera de la lista cerrada), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+
+**BLOQUEO (2026-10-22, implementer) · decisión del humano necesaria.** La campaña de mutación
+(T17) abortó en la línea base: la suite de sv4 sin mutar tenía dos fallos, los dos guardas de
+recuento de features anteriores. Uno resuelto sin tocar tests; el otro exige tocar un test
+existente que **no** está en la lista cerrada de design §3 ni en el `acceptance` («tests
+existentes intactos salvo los dos dobles…»), así que no se improvisa:
+
+- `tests/test_f043_portal_fecha.py::test_f043_r19_r40_ninguna_recarga_nueva_salvo_actualizar`
+  (cuenta `location.reload` = 23): **resuelto** en `4889e1e`, el editor recarga desde un solo
+  sitio (`recargar()` dentro de `abrirPopupCelda`, que usa también el «Cerrar» de R37), como
+  el popup de antes.
+- `tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper`
+  (cuenta `_actor(request)` = 17): **sigue en rojo con 18**. La llamada nueva es la de
+  `POST /api/matriz/celda` (el actor firma el pedido de recálculo, `solicitado_por`, design
+  §6); deshacer se dejó en una sola llamada (se calcula `actor` una vez al principio). No hay
+  forma honrada de no llamar a `_actor` en una escritura nueva: saltarse el helper es lo que el
+  propio test de F-017 R10/R11 prohíbe.
+- Comprobado: suite entera de sv4 sin `-x` → `1 failed, 2580 passed, 1 skipped` (solo ese).
+
+**Propuesta (recomendada)**: ampliar la lista cerrada de design §3 con ese test y pasar su
+recuento a **18**, añadiendo a su docstring «y la de F-049 (`POST /api/matriz/celda`, que firma
+el pedido de recálculo de la celda; deshacer reutiliza la llamada que ya hacía)», igual que se
+enmendó para F-019 y F-042. Alternativa: que el POST no mande `solicitado_por` (el mensaje de
+sv3 lo trae en las demás rutas; perdería la traza de quién pidió el recálculo). Con la decisión,
+se retoma: test enmendado, campaña de mutación completa (`--workers` por defecto; si la base
+paralela vuelve a fallar, `--workers 1`), informe y portero.
 
 **Implementer (2026-10-21/22)**: lanzada por el humano («lanza f49»). Rama rebasada sobre `dev`
 2bfeab7 (trae F-050, F-034, F-053 y F-014 retirada): conflictos solo en `harness/features.json`
@@ -682,9 +708,8 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 (regenerado). Revisado `git diff ff2ed8e..dev` de sv4 y sv3: `worker_key_for_registro`,
 `fila_para_alta_manual`, `_claves_de`, `_filas_reparto`, `ESTADOS_BLOQUEAN`, `data-reparto`,
 `_exigir_sin_recalculo` y `marcar_terminado` de sv3 tienen la forma que supone el design §2.
-T1–T16 hechas (un commit por tarea); **en curso: T17** (campaña de mutación completa,
-`python -m harness.mutacion --feature F-049`, 167 mutantes, 4 workers). Informe en
-`progress/impl_F-049.md`.
+T1–T16 hechas (un commit por tarea); **T17 parada** por el bloqueo de arriba (167 mutantes
+en alcance). Informe parcial en `progress/impl_F-049.md`.
 
 **Decisiones y desviaciones respecto a la spec (justificadas)**:
 
