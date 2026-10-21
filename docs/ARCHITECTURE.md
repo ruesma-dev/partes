@@ -53,8 +53,9 @@ conviven dos caminos, y cuál se usa depende de lo que la acción necesita:
   para que sv5 siga sin BBDD y la duplicación de `orm_models.py` no crezca
   a una tercera copia.
 - **HTTP interno síncrono** para lo que exige respuesta inmediata: el
-  preflight del modal, la confirmación de pisar conflictos (destructiva,
-  y por eso nunca viaja por una cola con reentregas) y, desde F-024, la
+  preflight del modal, la confirmación de pisar conflictos (edita líneas
+  ajenas de Sigrid: desde F-053 las pone a 0, nunca las borra; por eso
+  nunca viaja por una cola con reentregas) y, desde F-024, la
   **comprobación de solo lectura** `POST /api/registro/comprobar` (¿siguen
   en Sigrid las líneas `registrado`?), que sv4 pide al abrir una obra o una
   persona y con el botón «Comprobar en Sigrid».
@@ -194,7 +195,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
-   idempotencia (reaprobar no duplica) y detección de conflictos. **Una
+   idempotencia (reaprobar no duplica) y detección de conflictos.
+   **Pisar** un conflicto confirmado **pone la línea existente a 0**
+   (F-053: `can = 0`, `tot = 0`; synckey, `tex`, cuenta y lo demás
+   intactos) y escribe la nueva: en Sigrid no se borra. **Una
    petición a sv5 = una obra** (F-022): sv4 reparte cada aprobación por
    `obra_key_for_registro` y manda una petición por obra (tope
    `APROBACION_MAX_OBRAS`, 10), sin «todo o nada»; sv5 no agrupa obras.
@@ -422,13 +426,29 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     Administración cierra o contabiliza el parte entre la elección (dentro
     del lock) y el `commit`, la sentencia afecta 0 filas y el cierre espera
     a nuestro `commit`. El `INSERT` de una línea que pisa solo entra si
-    ninguna de sus pisadas sigue con horas (no duplica si el `DELETE` no
-    entró). Tras escribir, sv5 **relee por synckey**: lo que no está en el
+    ninguna de sus pisadas sigue con horas (no duplica si su puesta a 0
+    no entró). Tras escribir, sv5 **relee por synckey**: lo que no está en el
     parte elegido sale `omitido` con `parte_no_abierto: el parte <cod> ya
     no esta En registro (<estado>)…` y se reaprueba (irá al
-    complementario); `borradas` cuenta las pisadas que ya no están. El
+    complementario); `anuladas` (antes `borradas`) cuenta las pisadas
+    que ya no tienen horas. El
     modal de resultado de sv4 agrupa las omitidas por motivo y el badge
     `omitido` lleva el texto entero.
+    **Pisar sin borrar (F-053)**: ninguna sentencia de sv5 borra en Sigrid
+    (el único `DELETE` que queda es el `limpiar` manual de
+    `prueba_escritura_sigrid.py`, solo líneas `PRUEBA-IA` de la obra de
+    pruebas). El pisado es `stmt_anular_linea`: `UPDATE hmores SET can = 0,
+    tot = 0` con `WHERE` optimista (`ide`, recurso, día, código y `can`
+    leído), sin enlaces y con la guarda de parte abierto. Solo choca una
+    línea **con horas** (una a 0 no es conflicto ni `parte_cerrado`), salvo
+    para incidencias; en un parte En registro, una incidencia que ya consta
+    se omite (`incidencia_en_sigrid: …`) y un choque con una línea enlazada
+    (albarán, factura, dedicación o nómina) también (`linea_enlazada: …`).
+    Si una pisada cambió antes de ponerla a 0, la nueva sale
+    `pisada_no_anulada: …` y se reaprueba. Una línea del portal pisada
+    queda a 0 con su synckey: reaprobarla es `ya_registrado` y la
+    comprobación de F-024 la da `presente` con «horas: portal X, Sigrid 0».
+    `porcentajes` sigue borrando al pisar: aviso en `azure-apps/partes.md`.
     **Parte compartido con `porcentajes` (v5)**: su `dedicacion-transfer`
     (F-037) también da de alta y escribe en los partes de obra de Sigrid.
     Toda alta de sv5 pasa por `_crear_parte` con el **alta protegida**,
