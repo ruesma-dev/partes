@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **50 features**, 14 abiertas, 36 terminadas.
-
-En curso: **F-053**.
+Resumen: **50 features**, 13 abiertas, 37 terminadas.
 
 Bloqueadas: **F-014, F-032**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-014, F-032**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | en curso | critico | `feature/F-053-pisar-sin-borrar` |
 | F-014 | Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h | 3 | bloqueada | documental | `feature/F-014-candef-9-sigrid` |
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | spec lista | critico | `feature/F-049-editor-calendario-normal-y-extra` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -56,6 +53,7 @@ Bloqueadas: **F-014, F-032**.
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | critico |
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico |
+| F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
@@ -70,12 +68,6 @@ Bloqueadas: **F-014, F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
 
 ## Detalle
-
-### F-053 · Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE
-
-estado **en curso** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-053-pisar-sin-borrar`
-
-Regla del humano: «no se debe borrar en sigrid, así que solo editará líneas, por lo que si una hora extra se queda a cero no se borrará sino se pondrá a cero.» Hallazgo del 2026-10-20 (specs de F-052 y F-034): al registrar con un conflicto confirmado sv5 hace DELETE FROM hmores WHERE ide = ? (stmt_borrar_linea) y el portal dice que borra. Aprobado abrirla aparte el 2026-10-20 («Ok a las 2»), justo detrás de F-034, que toca la misma sentencia: se implementa sobre dev con F-034 fusionada (su guarda de parte abierto, su R4 y su relectura). sv5: el pisado pasa a stmt_anular_linea (UPDATE can = 0, tot = 0 con WHERE optimista, sin enlaces y con la guarda de F-034; synckey, tex y demás intactos), sin ningún DELETE en el cliente ni en el pipeline; una línea a 0 ya no choca (salvo incidencias); incidencia contra la misma incidencia ⇒ omitido incidencia_en_sigrid; choque con línea enlazada (albarán, factura, dedicación, nómina) ⇒ omitido linea_enlazada; pisada que cambió ⇒ pisada_no_anulada; el resultado cuenta anuladas en vez de borradas. sv4: textos del modal de conflictos y del resultado («se pone a 0, no se borra») y MOTIVO_LINEA_REGISTRADA sin aconsejar borrar. Sin esquema ni colas. Aviso a porcentajes (su dedicacion-transfer tiene el mismo DELETE) en azure-apps/partes.md, sin tocar su repositorio. Decisiones DA1-DA12 y M1 de solo lectura en specs/F-053-pisar-sin-borrar/design.md §9 y §12.
 
 ### F-014 · Poner candef=9 en Sigrid a los recursos que registran jornada de 9 h
 
@@ -298,6 +290,12 @@ Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la 
 estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-046-reajuste-en-sigrid-al-aprobar`
 
 Pedida por el humano el 2026-10-14 junto con F-045, de la que DEPENDE (se implementa sobre dev con F-045 fusionada y usa su API pura reparto_ponderado.py). Caso real: el 14/10 un recurso tenia la 0678 registrada como 8 normales y -4 extra (4 h trabajadas); llega la 0704 con 8 h y el reparto ideal es 0678 2,5+1,5 y 0704 5,5+2,5, pero F-045 deja la 0678 congelada (0704 0+8). F-046: sv3 (con el interruptor REPARTO_REAJUSTE) aplica el ideal a lo no congelado y guarda la propuesta de lo congelado en la tabla nueva reparto_pendiente (las dos copias del ORM); sv4, al aprobar, avisa con obra, dia, linea y horas antes -> despues y ofrece Aplicar o Mantener lo registrado; sv5 reajusta en Sigrid las lineas hmores ya escritas (UPDATE can/tot con el pre de la linea, INSERT de la extra nueva; por regla del humano nunca DELETE: a 0 se pone can=0, tot=0) bajo el lock, en un lote atomico con concurrencia optimista y solo en partes En registro y lineas sin enlaces; sv3 materializa lo aplicado en partes (excepcion acotada a la congelacion) bajo un candado consultivo de la base partes. Toca sv3, sv4 y sv5. Spec: specs/F-046-reajuste-en-sigrid-al-aprobar/.
+
+### F-053 · Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE
+
+estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-053-pisar-sin-borrar`
+
+Regla del humano: «no se debe borrar en sigrid, así que solo editará líneas, por lo que si una hora extra se queda a cero no se borrará sino se pondrá a cero.» Hallazgo del 2026-10-20 (specs de F-052 y F-034): al registrar con un conflicto confirmado sv5 hace DELETE FROM hmores WHERE ide = ? (stmt_borrar_linea) y el portal dice que borra. Aprobado abrirla aparte el 2026-10-20 («Ok a las 2»), justo detrás de F-034, que toca la misma sentencia: se implementa sobre dev con F-034 fusionada (su guarda de parte abierto, su R4 y su relectura). sv5: el pisado pasa a stmt_anular_linea (UPDATE can = 0, tot = 0 con WHERE optimista, sin enlaces y con la guarda de F-034; synckey, tex y demás intactos), sin ningún DELETE en el cliente ni en el pipeline; una línea a 0 ya no choca (salvo incidencias); incidencia contra la misma incidencia ⇒ omitido incidencia_en_sigrid; choque con línea enlazada (albarán, factura, dedicación, nómina) ⇒ omitido linea_enlazada; pisada que cambió ⇒ pisada_no_anulada; el resultado cuenta anuladas en vez de borradas. sv4: textos del modal de conflictos y del resultado («se pone a 0, no se borra») y MOTIVO_LINEA_REGISTRADA sin aconsejar borrar. Sin esquema ni colas. Aviso a porcentajes (su dedicacion-transfer tiene el mismo DELETE) en azure-apps/partes.md, sin tocar su repositorio. Decisiones DA1-DA12 y M1 de solo lectura en specs/F-053-pisar-sin-borrar/design.md §9 y §12.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 

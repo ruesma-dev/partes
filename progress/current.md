@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-053 · in_progress (2026-10-21): pisar sin borrar (el pisado de sv5 pone a 0)
+## F-053 · done (2026-10-21, APPROVED pasada 1), pendiente de M2 en local y desplegar sv5 y sv4: pisar sin borrar (el pisado de sv5 pone a 0)
 
 Spec en `specs/F-053-pisar-sin-borrar/` (rama `feature/F-053-pisar-sin-borrar`, worktree
 `partes-wt-f053`, **rebasada sobre `dev` 12e1f23**, que ya trae F-034 fusionada: la
