@@ -130,12 +130,12 @@ def test_f034_r19_no_pinta_nombres_ni_ids() -> None:
 def test_f034_r19_sin_omitidas_el_modal_no_cambia(omitidas) -> None:
     r = {"escritas": [{"parte_cod": "PT26/00314", "hora_codigo": "HL01",
                        "can": 8, "hmores_ide": 5001}],
-         "ya_registradas": [7], "borradas": 1}
+         "ya_registradas": [7], "anuladas": 1}   # F-053: antes `borradas`
     if omitidas is not None:
         r["omitidas"] = omitidas
     assert _resultado(r) == (
         "<p><strong>1</strong> linea(s) registradas en Sigrid.</p>"
-        "<p>1 linea(s) anteriores borradas (pisadas).</p>"
+        "<p>1 linea(s) anteriores puestas a 0 en Sigrid (pisadas).</p>"
         "<p>1 linea(s) ya estaban registradas (no se duplican).</p>"
         "<ul class='ap-list'><li>PT26/00314 · HL01 · 8 h → linea 5001</li>"
         "</ul>")
