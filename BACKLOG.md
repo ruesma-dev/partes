@@ -5,13 +5,15 @@
 
 Resumen: **49 features**, 12 abiertas, 37 terminadas.
 
+En curso: **F-049**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | spec lista | critico | `feature/F-049-editor-calendario-normal-y-extra` |
+| F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | en curso | critico | `feature/F-049-editor-calendario-normal-y-extra` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 7 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
@@ -70,7 +72,7 @@ Bloqueadas: **F-032**.
 
 ### F-049 · Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta
 
-estado **spec lista** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-049-editor-calendario-normal-y-extra`
+estado **en curso** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-049-editor-calendario-normal-y-extra`
 
 Pedida por el humano el 2026-10-15 («si solo hay extras u ordinarias edita pero no me sale 0+2 para poder añadir línea»). Hoy el popup de doble clic de la matriz Horas por día (vista de obra) solo ofrece crear la extra si hay una ordinaria; con solo extras no deja añadir la ordinaria, y editar un miembro de la pareja base + extra_auto se pierde en la siguiente pasada de sv3. F-049 (sv4 partes-front y, por la DA13-C, sv3 solo en marcar_terminado; sin esquema, sv5 ni Sigrid): el popup ofrece siempre la ordinaria y la extra que falten («(nueva)»), guarda la celda entera en una ruta atómica nueva (POST /api/matriz/celda) que identifica la celda por (obra_key, clave de trabajador de F-050, fecha) y comprueba que nada cambió desde que se abrió, clona el contexto de la plantilla (incluida la partida; fila del papel y leído con fila_para_alta_manual de F-050), materializa las parejas tocadas (horas_orig NULL, extra_auto False), avisa de las otras obras del mismo día (al abrir y, tras guardar, con enlaces) y pide UN recálculo seguido (F-043) con un pedido compartido escrito en los partes tocados y en los de otras obras de ese día, que sv3 da por terminado en todos (marcar_terminado por pedido, no por documento), respeta la congelación y el reparto de F-046 (aviso si pendiente, 409 si aplicando) y se puede deshacer. Revisada el 2026-10-20 sobre dev ff2ed8e + F-050: va DESPUÉS de F-050 y ANTES de F-047 (de la que no depende). Aprobada por el humano el 2026-10-20: DA1–DA12 opción A y DA13 opción C. Despliegue sv3 antes que sv4. Spec: specs/F-049-editor-calendario-normal-y-extra/.
 

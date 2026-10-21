@@ -674,7 +674,15 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
-## F-049 · spec_ready, APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+## F-049 · in_progress (implementer, 2026-10-21), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+
+**Implementer (2026-10-21)**: lanzada por el humano («lanza f49»). Rama rebasada sobre `dev`
+2bfeab7 (trae F-050, F-034, F-053 y F-014 retirada): conflictos solo en `harness/features.json`
+(se conserva la entrada de dev, idéntica a la de la rama salvo la prioridad 4) y `BACKLOG.md`
+(regenerado). Revisado `git diff ff2ed8e..dev` de sv4 y sv3: `worker_key_for_registro`,
+`fila_para_alta_manual`, `_claves_de`, `_filas_reparto`, `ESTADOS_BLOQUEAN`, `data-reparto`,
+`_exigir_sin_recalculo` y `marcar_terminado` de sv3 tienen la forma que supone el design §2.
+Tarea en curso: T1.
 
 Spec en `specs/F-049-editor-calendario-normal-y-extra/` (rama
 `feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`, rebasada sobre
