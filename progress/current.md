@@ -676,13 +676,82 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 
 ## F-049 · in_progress (implementer, 2026-10-21), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
 
-**Implementer (2026-10-21)**: lanzada por el humano («lanza f49»). Rama rebasada sobre `dev`
+**Implementer (2026-10-21/22)**: lanzada por el humano («lanza f49»). Rama rebasada sobre `dev`
 2bfeab7 (trae F-050, F-034, F-053 y F-014 retirada): conflictos solo en `harness/features.json`
 (se conserva la entrada de dev, idéntica a la de la rama salvo la prioridad 4) y `BACKLOG.md`
 (regenerado). Revisado `git diff ff2ed8e..dev` de sv4 y sv3: `worker_key_for_registro`,
 `fila_para_alta_manual`, `_claves_de`, `_filas_reparto`, `ESTADOS_BLOQUEAN`, `data-reparto`,
 `_exigir_sin_recalculo` y `marcar_terminado` de sv3 tienen la forma que supone el design §2.
-Tarea en curso: T1.
+T1–T16 hechas (un commit por tarea); **en curso: T17** (campaña de mutación completa,
+`python -m harness.mutacion --feature F-049`, 167 mutantes, 4 workers). Informe en
+`progress/impl_F-049.md`.
+
+**Decisiones y desviaciones respecto a la spec (justificadas)**:
+
+- `_pedir_recalculo_compartido` devuelve `(estado, pedido)` y no solo el estado (design §6):
+  el INFO `[celda]` de R24 tiene que llevar el pedido.
+- R14/R15 sobre la plantilla no se repiten aparte: la plantilla es siempre una de las líneas
+  enviadas (R12 exige que sean exactamente las libres) y sus guardas ya corren; repetirlas
+  sería código muerto (mutante equivalente).
+- `nueva_extra` a 0 no crea y no es error (DA5, «una nueva a 0 no crea»); `nueva_ordinaria`
+  ≤ 0 sí es 422 (R13 literal). La extra nueva admite negativos (rango −24…24 de DA10).
+- Deshacer (R26): `document_ids` = partes de los snapshots **y de las creadas**; con una
+  entrada que solo creó (E1) los snapshots están vacíos y su parte se quedaría sin recálculo
+  (R27). `afectadas`, sobre las celdas actuales de las líneas de la entrada. Con todo
+  congelado hoy, se recalcula igual el parte de la entrada.
+- R20: la nueva clona también `partida` (la leída) además de `partida_*`; R21: el recurso
+  para la hora extra es el de la plantilla con `empleado_reside` de respaldo (`_recurso_de`;
+  la línea manual de F-050 solo lo trae ahí). Sigrid solo se consulta si se pide una nueva.
+- `afectadas` va ordenada por (`obra_key`, `document_id`). El 409 de «celda vacía» de la ruta
+  tiene la misma forma que el de `CeldaInvalida` (`{ok: false, error}`).
+- JS: además de las puras de design §7, `abrirPopupCelda(td, cerrar)` y
+  `mostrarAfectadas(pop, data)` van a dos espacios para probarlas en node; el IIFE pierde
+  `patchHoras`/`crearExtra` (las rutas `PATCH` y `/extra` del servidor no cambian, R29).
+- Simplificaciones para no dejar mutantes equivalentes: clave de la plantilla
+  `(tipo != ORDINARIA, id)`, `validar_horas(..., nueva=False)` por defecto y `crear_extra ==
+  0.0` en vez de `abs(...) < EPSILON`.
+- T1: el `bash harness/init.sh` de T1 corrió a la vez que se editaba `parte_repository.py`
+  (T4–T7) y sv4 cayó en `test_f050_r11_persona_de_sin_codigo_propio` (lee la fuente con
+  `inspect` y los números de línea habían cambiado bajo sus pies); ese fichero, relanzado,
+  57 passed. Raíz, sv1, sv2, sv3 y sv5 en verde en esa misma pasada. El portero final (T19)
+  se lanza sin tocar nada.
+
+### F-049 · verificaciones MANUAL (humano; design §10). NO ejecutadas.
+
+Todo con F-049 fusionada en `dev`. **Despliegue** (lo lanza el humano, desde `infra/` con los
+tres dot-source y el login de `infra/README_partes.md`), **sv3 antes que sv4**:
+
+1. `.\redeploy_partes.ps1 -Solo sv3` → en su resumen, `ca-sv3-persistencia imagen=…:r<fecha
+   de hoy>` y la revisión con el sufijo nuevo. Comprobar que está ACTIVA (KEDA mínimo 0: activa
+   aunque no corra): `az containerapp revision list -n $($APPS['sv3']) -g $RG --query
+   "[?properties.active].name" -o tsv` → solo la revisión nueva.
+2. Solo entonces `.\redeploy_partes.ps1 -Solo sv4` → resumen con `ca-sv4-front` en la imagen
+   nueva. Sin variables de entorno nuevas.
+
+En el portal (Ctrl+F5), vista de una obra, matriz «Horas por día», doble clic en la celda:
+
+- **M2**: celda con solo una extra de 10 (laborable) → filas «Extra 10» y «Ord. (nueva) 0»,
+  nota de jornada → poner Ord. 8 y Extra 2, «Guardar» → recarga; tras la pasada de sv3
+  (≤ 1 min, «Actualizar»), la celda dice `8+2` en **una sola fila** y en «Líneas del periodo»
+  la ordinaria nueva tiene código de hora, la partida de la extra y su fila del papel.
+- **M3**: celda con solo 8 → «Extra (nueva)» 2 → `8+2` estable tras la pasada.
+- **M4**: pareja 8 + 2 «Extra (jornada)» → Extra 3 → `8+3` tras la pasada. Solo lectura en
+  `partes`: `SELECT id, tipo_hora, horas, horas_orig, extra_auto FROM parte_registros WHERE id
+  IN (<ids de la celda>);` → las dos con `horas_orig` NULL y `extra_auto` false, horas 8 y 3.
+- **M5**: celda de un parte aprobado → solo lectura, sin «Guardar»; justo después de guardar
+  otra celda del mismo parte (en espera), guardar otra vez → «✗ El parte se está recalculando
+  (extras): espera a que termine.».
+- **M6**: tras M2, «Deshacer» → la extra vuelve a 10 y la ordinaria creada pasa a la papelera.
+- **M7**: un trabajador con horas el mismo día en dos obras: al abrir la celda, aviso «Este
+  trabajador tiene horas ese día en otras obras (<código>)…»; al guardar, «Guardado. Este
+  cambio recalcula también ese día en:» con el enlace a la otra obra; tras la pasada, la otra
+  obra con su reparto nuevo (o, si estaba aprobada y `REPARTO_REAJUSTE` encendido, reparto
+  pendiente de decidir).
+- **M8**: en M7, solo lectura: `SELECT id, recalculo_pedido_id, recalculo_terminado_id FROM
+  parte_documents WHERE id IN ('<parte de la celda>', '<parte de la otra obra>');` → mismo
+  pedido en los dos y, tras la pasada, `recalculo_terminado_id` = ese pedido en los dos; en el
+  log de sv3 UNA sola línea `[sv3-worker] recalculo motivo=edicion_celda document_id=<parte
+  de la celda>` y una `recalculo terminado … marcado=True`.
 
 Spec en `specs/F-049-editor-calendario-normal-y-extra/` (rama
 `feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`, rebasada sobre
