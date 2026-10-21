@@ -7,6 +7,10 @@ de publicar el recalculo de F-042. sv3:
   1. lee ese pedido antes de la pasada (`pedido_actual`);
   2. tras una pasada sin excepcion, lo copia a `recalculo_terminado_id`
      (`marcar_terminado`) SOLO si el documento sigue con ese pedido.
+     Desde F-049 (R41, DA13-C), en TODO documento que lo lleve: sv4 puede
+     escribir el mismo pedido en varios partes (los de una celda y los de
+     otras obras del mismo día) y publicar UN mensaje; la pasada es
+     completa, así que los deja recalculados a todos.
 
 El UPDATE condicional es lo que hace correcto el desorden (R32): si sv4
 escribio un pedido mas nuevo durante la pasada, esta no lo marca (la
@@ -47,17 +51,22 @@ class SqlAlchemyRecalculoSeguimiento:
             ).scalar_one_or_none()
 
     def marcar_terminado(self, document_id: str, peticion_id: str) -> bool:
-        """Copia `peticion_id` a terminado si sigue siendo el pedido.
+        """Copia `peticion_id` a terminado en todo documento que siga con
+        ese pedido (F-049 R41), y en ninguno con otro (F-043 R32).
 
-        True si toco una fila (repetirlo vuelve a dar True: idempotente).
+        `document_id` es el del mensaje: se conserva la firma (F-043) y el
+        filtro ya no lo usa, porque un pedido compartido lo llevan varios
+        partes. Un pedido de un solo documento (uuid4 de sv4) o el de
+        F-047 (el id del propio parte) nunca coincide con el de otro, así
+        que se marcan como antes (R42). True si tocó alguna fila
+        (repetirlo vuelve a dar True: idempotente).
         """
         with self._session_factory.create_session() as session:
             resultado = session.execute(
                 update(ParteDocumentOrm)
-                .where(ParteDocumentOrm.id == document_id,
-                       ParteDocumentOrm.recalculo_pedido_id == peticion_id)
+                .where(ParteDocumentOrm.recalculo_pedido_id == peticion_id)
                 .values(recalculo_terminado_id=peticion_id,
                         recalculo_terminado_at_utc=self._reloj())
                 .execution_options(synchronize_session=False))
             session.commit()
-            return resultado.rowcount == 1
+            return resultado.rowcount >= 1
