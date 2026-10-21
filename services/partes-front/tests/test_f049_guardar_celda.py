@@ -1297,3 +1297,55 @@ def test_f049_r28_undo_last_sin_actor_sigue_valiendo(montaje):
     assert res["ok"] is True and res["action"] == "celda_edit"
     nueva = _lineas_doc(fabrica, "d-y")[-1]
     assert nueva.deleted_at_utc is not None and nueva.deleted_by is None
+
+
+# ======================================================================= #
+# T12 · plantilla de la matriz (R9, R31)
+# ======================================================================= #
+
+import re  # noqa: E402
+
+LEYENDA = ("Doble clic en una celda: editar ordinarias y extra (se puede "
+           "añadir la que falte).")
+
+
+def _html_obra(cliente, obra_key: str = KEY_Y) -> str:
+    r = cliente.get(f"/obras/{obra_key}",
+                    params={"period": "2026-10", "modo": "natural"})
+    assert r.status_code == 200, r.text
+    return r.text
+
+
+def test_f049_r9_leyenda_de_la_matriz(montaje):
+    cliente, _repo, _fabrica, _ids, _cola = montaje(_solo_ordinaria)
+    html = _html_obra(cliente)
+    assert LEYENDA in html
+    assert "Doble clic en una celda: editar horas." not in html
+
+
+def test_f049_r31_tabla_con_obra_y_filas_con_su_clave(montaje):
+    def sembrar(s):
+        ids = _f050_e1(s)
+        ids["otra"] = _reg(s, "d-e1", OBRA_Y, 2, recurso=502,
+                           empleado_ide=78, empleado_line_no=4,
+                           trabajador_nombre_leido="Otra")
+        return ids
+    cliente, _repo, _fabrica, _ids, _cola = montaje(sembrar)
+    html = _html_obra(cliente)
+    tablas = re.findall(r'<table class="matrix filterable"[^>]*>', html)
+    assert tablas == [f'<table class="matrix filterable" '
+                      f'data-obra-key="{KEY_Y}">']
+    claves = re.findall(r'<tr data-sin-extra="[01]" data-wk="([^"]*)">',
+                        html)
+    assert sorted(claves) == ["rec-502", "rec-6001"]
+
+
+def test_f049_r31_la_clave_va_escapada(montaje):
+    def sembrar(s):
+        _doc(s, "d-y", OBRA_Y)
+        return {"ord": _reg(s, "d-y", OBRA_Y, 0, recurso=None,
+                            empleado_ide=None, empleado_dni=None,
+                            trabajador_nombre_leido='A"B<C')}
+    cliente, _repo, _fabrica, _ids, _cola = montaje(sembrar)
+    html = _html_obra(cliente)
+    assert 'data-wk="nom-A&#34;B&lt;C"' in html
