@@ -132,35 +132,44 @@ def test_f034_r4_pisadas_es_opcional() -> None:
     assert _insert() == _insert(pisadas=())
 
 
-# ------------------------ R3 · DELETE de la pisada ------------------------ #
+# ------------------ R3 · la pisada (F-053: puesta a 0) ------------------ #
+# Enmienda de F-053 (T2): el `DELETE` de la pisada (`stmt_borrar_linea`) es
+# ahora `stmt_anular_linea`; la guarda de R3 se exige igual, sobre el parte
+# de la propia fila, y al final de la sentencia.
 
-def test_f034_r3_borrar_linea_con_guarda_sobre_su_parte() -> None:
-    st = _cli().stmt_borrar_linea("4001")
-    assert _sql(st["sql"]) == (
-        "DELETE FROM hmores WHERE ide = ? AND EXISTS (SELECT 1 FROM con c "
-        "WITH (UPDLOCK, HOLDLOCK) WHERE c.ide = hmores.hmoide AND "
-        "c.est = ?)")
-    assert st["parameters"] == [4001, 1]
+def _anular(cli=None) -> dict:
+    return (cli or _cli()).stmt_anular_linea(
+        ide="4001", reside=77, fecha_int=20260915, horide=11, antes=8.0)
+
+
+def test_f034_r3_anular_linea_con_guarda_sobre_su_parte() -> None:
+    st = _anular()
+    assert _sql(st["sql"]).startswith("UPDATE hmores SET can = 0, tot = 0 "
+                                      "WHERE ide = ? AND ")
+    assert _sql(st["sql"]).endswith(
+        "AND EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) WHERE "
+        "c.ide = hmores.hmoide AND c.est = ?)")
+    assert st["parameters"][0] == 4001 and st["parameters"][-1] == 1
     assert isinstance(st["parameters"][0], int)
 
 
-def test_f034_r3_borrar_usa_el_estado_del_cliente() -> None:
-    assert _cli(est_parte=4).stmt_borrar_linea(4001)["parameters"] == [
-        4001, 4]
+def test_f034_r3_anular_usa_el_estado_del_cliente() -> None:
+    assert _anular(_cli(est_parte=4))["parameters"][-1] == 4
 
 
-def test_f034_r3_borrar_es_metodo_de_instancia() -> None:
+def test_f034_r3_anular_es_metodo_de_instancia() -> None:
     assert not isinstance(
-        inspect.getattr_static(SigridWriteClient, "stmt_borrar_linea"),
+        inspect.getattr_static(SigridWriteClient, "stmt_anular_linea"),
         staticmethod)
 
 
 # ----------------------------- R7 · sin mas ----------------------------- #
 
-def test_f034_r7_el_cliente_tiene_un_solo_delete() -> None:
+def test_f034_r7_el_cliente_no_tiene_ningun_delete() -> None:
+    """Enmienda de F-053 (R4): de «un solo `DELETE`» a ninguno."""
     fuente = inspect.getsource(SigridWriteClient)
-    assert len(re.findall(r"DELETE\s", fuente)) == 1
-    assert "DELETE FROM hmores WHERE ide = ? AND " in fuente
+    assert re.findall(r"DELETE\s", fuente) == []
+    assert not hasattr(SigridWriteClient, "stmt_borrar_linea")
 
 
 def test_f034_r7_ninguna_escritura_en_con_ni_hmo_salvo_el_alta() -> None:
@@ -250,7 +259,7 @@ def test_f034_r1_toda_sentencia_que_toca_hmores_lleva_la_guarda() -> None:
     cli = _cli()
     sentencias = [
         _insert(cli), _insert(cli, pisadas=[4001]),
-        cli.stmt_borrar_linea(4001),
+        _anular(cli),
         cli.stmt_guardia_reajuste([(4001, "partes:11", 8.0)]),
         cli.stmt_actualizar_linea(ide=4001, synckey="partes:11", antes=8.0,
                                   despues=0.0, est_registro=1),
