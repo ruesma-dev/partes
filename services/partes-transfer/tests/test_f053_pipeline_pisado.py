@@ -636,3 +636,95 @@ def test_f053_r10_sin_pisada_viva_sigue_no_escrita(caplog) -> None:
     assert r.anuladas == 1
     assert [rec for rec in caplog.records if rec.levelname == "ERROR"]
     assert "pisada no anulada" not in caplog.text
+
+
+# ============ Caracterizacion: lo que no cambia (T7, R15-R18) ============ #
+
+def _ejemplo_6():
+    """Ejemplo 6: la pisada es `partes:480` (otra linea del portal,
+    `registrado`); al pisarla con 501 queda a 0 con su synckey."""
+    cli = _abierto(_fila(9002, synckey="partes:480", tex=""))
+    r = _pisar(cli)
+    assert r.anuladas == 1
+    return cli
+
+
+def test_f053_r15_reaprobar_la_pisada_es_ya_registrado() -> None:
+    cli = _ejemplo_6()
+    antes = [dict(l) for l in cli.lineas]
+    llamadas = len(cli.llamadas)
+    r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(480)])
+    assert r.ya_registradas == [480]
+    assert r.escritas == [] and r.omitidas == []
+    assert r.pendientes_confirmacion == []
+    assert "escribir" not in cli.llamadas[llamadas:]
+    assert cli.lineas == antes
+    assert cli.lineas[0]["synckey"] == "partes:480"
+    assert (cli.lineas[0]["can"], cli.lineas[0]["tot"]) == (0.0, 0.0)
+
+
+def test_f053_r16_comprobar_en_sigrid_la_da_presente_con_diferencia() -> None:
+    from application.services.comprobacion_lineas import (
+        LineaComprobar,
+        clasificar,
+    )
+    cli = _ejemplo_6()
+    linea = LineaComprobar(registro_id=480, hmores_ide=9002, hmoide=HMO,
+                           recurso_ide=REC, fecha_int=FECHA, horas=8.0)
+    (v,) = clasificar([linea], cli.lineas_por_synckey(["partes:480"]),
+                      cli.lineas_por_ide([9002]), {HMO: "PT26/00314"})
+    assert v.estado == "presente" and v.hmores_ide == 9002
+    assert v.diferencias == ["horas: portal 8, Sigrid 0"]
+    assert v.motivo is None
+
+
+def test_f053_r17_otro_codigo_del_dia_no_se_toca() -> None:
+    extra = _fila(9003, horide=HE, can=2.0)
+    cli = _abierto(_fila(9001), extra)
+    enviadas = _espiar(cli)
+    _pisar(cli)
+    assert [s["ide"] for s in enviadas if s["op"] == "anular"] == [9001]
+    assert cli.lineas[1] == extra
+
+
+def test_f053_r17_pisar_no_viaja_por_la_cola(monkeypatch) -> None:
+    """La cola ignora `pisar_claves`: nada se pone a 0 desde ella."""
+    from tests.test_f002_transfer_consumer import Montaje, _peticion
+    from tests.test_f002_pipeline_fases import _sigrid
+
+    cli = _sigrid()
+    cli.partes.append({"ide": 700, "obride": 10, "ano": 2026, "mes": 3,
+                       "cod": "PT26/00007"})
+    cli.lineas.append({"ide": 4000, "hmoide": 700, "reside": 501,
+                       "fec": 20260302, "horide": 1, "hora_codigo": "HL01",
+                       "can": 5.0, "tot": 50.0, "pos": 64, "synckey": None})
+    m = Montaje(monkeypatch, cli,
+                peticion=_peticion(pisar_claves=["501|20260302|1"]))
+    m.handler(m.mensaje)
+    r = m.resultado_publicado()["resultado"]
+    assert r["pisadas"] == [] and r["anuladas"] == 0
+    assert next(l for l in cli.lineas if l["ide"] == 4000)["can"] == 5.0
+
+
+def test_f053_r18_la_pisada_aporta_0_al_asiento_analitico() -> None:
+    """Sigma `tot` por `caaide` (F-021/F-031): la pisada (cuenta 702) queda
+    con 0; su cuenta no se cambia."""
+    cli = _abierto(_fila(9001), _fila(9003, horide=HE, can=2.0))
+    _pisar(cli)
+    suma: dict[int, float] = {}
+    for l in cli.lineas:
+        suma[l["caaide"]] = suma.get(l["caaide"], 0.0) + float(l["tot"] or 0)
+    assert suma[702] == 2.0 * 15.0          # solo la extra que no se piso
+    assert cli.lineas[0]["caaide"] == 702
+
+
+def test_f053_r18_reajuste_no_usa_el_pisado() -> None:
+    """El reajuste de F-046 sigue con sus sentencias (sin `anular`)."""
+    import inspect
+
+    from application.pipelines import reajuste_pipeline
+    from application.services import reajuste_lineas
+    for modulo in (reajuste_pipeline, reajuste_lineas):
+        fuente = inspect.getsource(modulo)
+        assert "stmt_anular_linea" not in fuente
+        assert "pisado" not in fuente
