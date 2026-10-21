@@ -201,7 +201,8 @@ class LineaSigrid:
 class Conflicto:
     """Ya hay linea(s) en Sigrid para ese parte + recurso + fecha + CODIGO.
 
-    ``lineas`` son las que se BORRARIAN al pisar (mismo codigo de hora).
+    ``lineas`` son las que se PONDRIAN A 0 al pisar (mismo codigo de hora
+    y con horas; F-053: en Sigrid no se borra, `stmt_anular_linea`).
     ``contexto`` son otras lineas de ese recurso y dia con OTRO codigo: se
     muestran solo como informacion y NO se tocan.
     ``nuevas`` es lo que se escribiria en su lugar (para comparar).

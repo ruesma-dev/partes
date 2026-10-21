@@ -211,3 +211,29 @@ def test_f053_r9_reajuste_usa_la_misma_expresion(monkeypatch) -> None:
     for metodo in ("lineas_existentes", "lineas_para_reajuste"):
         assert "self._expr_enlazada()" in inspect.getsource(
             getattr(SigridWriteClient, metodo))
+
+
+# ------------------- R22 · los textos dicen «pone a 0» ------------------- #
+
+def test_f053_r22_fuente_conflicto_dice_que_se_pondrian_a_0() -> None:
+    from domain.models.registro_models import Conflicto
+    doc = " ".join(Conflicto.__doc__.split())
+    assert "se PONDRIAN A 0 al pisar" in doc
+    assert "BORRARIAN" not in doc.upper()
+
+
+def test_f053_r22_fuente_docstring_del_pipeline_pasos_7_y_9() -> None:
+    from application.pipelines import registro_pipeline
+    doc = " ".join(registro_pipeline.__doc__.split())
+    assert "9. Poner a 0 las lineas pisadas confirmadas" in doc
+    assert "Borrar" not in doc and "borradas" not in doc
+    assert "`anuladas` cuenta las pisadas" in doc
+    for texto in ("con horas", "incidencia_en_sigrid", "linea_enlazada",
+                  "pisada_no_anulada"):
+        assert texto in doc
+
+
+def test_f053_r22_fuente_docstring_del_cliente() -> None:
+    doc = " ".join(modulo.__doc__.split())
+    assert "F-053: en Sigrid no se borra" in doc
+    assert "inserta, actualiza o borra" not in doc

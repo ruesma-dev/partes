@@ -55,7 +55,12 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
   7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
-     registro, hay que confirmar si se pisan.
+     registro, hay que confirmar si se pisan. F-053: solo choca una linea
+     con horas (una a 0 no es conflicto), salvo si la nueva es una
+     incidencia; en un parte En registro, una incidencia que ya consta se
+     omite (`incidencia_en_sigrid: ...`) y, si no, un choque con una linea
+     enlazada (albaran, factura, dedicacion o nomina) tambien
+     (`linea_enlazada: ...`). Lo demas es conflicto confirmable.
   8. Crear los partes que falten (cabecera + extension) con el ALTA
      PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`; F-034 no
      la cambia: un parte que sv5 crea nace En registro): la
@@ -64,7 +69,8 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      registro que haya, propio o del otro servicio. Si no hay ninguno, un
      reintento con el siguiente codigo; si tampoco, error y no se inserta
      nada.
-  9. Borrar las lineas pisadas confirmadas e insertar las nuevas, solo en
+  9. Poner a 0 las lineas pisadas confirmadas (F-053: `can = 0`,
+     `tot = 0`; en Sigrid no se borra) e insertar las nuevas, solo en
      el parte elegido. sv5 no toca `con`/`hmo` de un parte existente ni
      escribe asientos (F-031, R5, R31). F-034: cada sentencia lleva la
      GUARDA DE PARTE ABIERTO (SQL Server comprueba `con.est` al escribir,
@@ -73,8 +79,10 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      solo es `escrita` lo que esta en el parte elegido; lo demas sale
      `omitida` `parte_no_abierto` (o `no_escrita` + ERROR si ningun parte
      cerrado lo explica), con una lectura de partes por periodo afectado,
-     y `borradas` cuenta las pisadas que ya no estan (R9-R13). Todo bajo
-     el lock; una relectura que falla tumba la peticion (R14).
+     y `anuladas` cuenta las pisadas que ya no tienen horas (R9-R13).
+     F-053: si una pisada cambio antes de ponerla a 0 (sigue con horas en
+     un parte En registro), la nueva sale `pisada_no_anulada: ...`. Todo
+     bajo el lock; una relectura que falla tumba la peticion (R14).
 """
 from __future__ import annotations
 
