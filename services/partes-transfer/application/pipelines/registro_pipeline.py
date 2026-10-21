@@ -55,7 +55,12 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
   7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
-     registro, hay que confirmar si se pisan.
+     registro, hay que confirmar si se pisan. F-053: solo choca una linea
+     con horas (una a 0 no es conflicto), salvo si la nueva es una
+     incidencia; en un parte En registro, una incidencia que ya consta se
+     omite (`incidencia_en_sigrid: ...`) y, si no, un choque con una linea
+     enlazada (albaran, factura, dedicacion o nomina) tambien
+     (`linea_enlazada: ...`). Lo demas es conflicto confirmable.
   8. Crear los partes que falten (cabecera + extension) con el ALTA
      PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`; F-034 no
      la cambia: un parte que sv5 crea nace En registro): la
@@ -64,7 +69,8 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      registro que haya, propio o del otro servicio. Si no hay ninguno, un
      reintento con el siguiente codigo; si tampoco, error y no se inserta
      nada.
-  9. Borrar las lineas pisadas confirmadas e insertar las nuevas, solo en
+  9. Poner a 0 las lineas pisadas confirmadas (F-053: `can = 0`,
+     `tot = 0`; en Sigrid no se borra) e insertar las nuevas, solo en
      el parte elegido. sv5 no toca `con`/`hmo` de un parte existente ni
      escribe asientos (F-031, R5, R31). F-034: cada sentencia lleva la
      GUARDA DE PARTE ABIERTO (SQL Server comprueba `con.est` al escribir,
@@ -73,8 +79,10 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      solo es `escrita` lo que esta en el parte elegido; lo demas sale
      `omitida` `parte_no_abierto` (o `no_escrita` + ERROR si ningun parte
      cerrado lo explica), con una lectura de partes por periodo afectado,
-     y `borradas` cuenta las pisadas que ya no estan (R9-R13). Todo bajo
-     el lock; una relectura que falla tumba la peticion (R14).
+     y `anuladas` cuenta las pisadas que ya no tienen horas (R9-R13).
+     F-053: si una pisada cambio antes de ponerla a 0 (sigue con horas en
+     un parte En registro), la nueva sale `pisada_no_anulada: ...`. Todo
+     bajo el lock; una relectura que falla tumba la peticion (R14).
 """
 from __future__ import annotations
 
@@ -104,7 +112,17 @@ from application.services.parte_abierto import (
     confirmar_escritas,
     motivo_no_escrita,
     motivo_parte_no_abierto,
+    motivo_pisada_no_anulada,
     parte_que_impidio,
+    pisadas_no_anuladas,
+)
+from application.services.pisado import (
+    choques,
+    es_incidencia,
+    motivo_incidencia_en_sigrid,
+    motivo_linea_enlazada,
+    origen_linea,
+    tiene_horas,
 )
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
@@ -373,11 +391,19 @@ class RegistroPipeline:
                      if ps.est != est_registro
                      and self._choques(lineas, a, mias)), None)
                 if cerrado is not None:
-                    self._omitir_por_cerrado(a, cerrado)
+                    self._omitir(a, motivo_choque(
+                        cerrado.cod, self._nombre_estado(cerrado.est)))
                     omitidas_cerrado[clave] += 1
             grupo = [a for a in grupo if a.accion == "escribir"]
             abiertas = [(ps, lineas) for ps, lineas in existentes
                         if ps.est == est_registro]
+            # F-053 (R6-R8): lo que no se puede pisar se omite con motivo
+            # antes de ofrecerlo como conflicto.
+            for a in grupo:
+                motivo = self._motivo_sin_pisado(a, abiertas, mias)
+                if motivo is not None:
+                    self._omitir(a, motivo)
+            grupo = [a for a in grupo if a.accion == "escribir"]
             conflictos.extend(self._conflictos(parte, grupo, abiertas, mias))
 
         for clave, parte in sorted(partes.items()):
@@ -416,20 +442,41 @@ class RegistroPipeline:
     @staticmethod
     def _choques(lineas: list[LineaSigrid], a: AccionLinea,
                  mias: set[str]) -> list[LineaSigrid]:
-        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA: pisar las
-        ordinarias de un dia NO debe tocar las extra de ese dia."""
-        return [ls for ls in lineas
-                if ls.reside == a.recurso_ide
-                and ls.fecha_int == a.fecha_int
-                and int(ls.horide or 0) == int(a.hora_ide or 0)
-                and not (ls.synckey and ls.synckey in mias)]
+        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA (pisar las
+        ordinarias de un dia NO toca las extra de ese dia) y, desde F-053
+        (R5), con horas salvo para incidencias: `pisado.choques`."""
+        return choques(lineas, a, mias)
 
-    def _omitir_por_cerrado(self, a: AccionLinea, ps: ParteSigrid) -> None:
-        """R11, R14: la linea no se registra y no lleva cuenta."""
+    @staticmethod
+    def _omitir(a: AccionLinea, motivo: str) -> None:
+        """F-031 R11, R14 y F-053 R6-R7: la linea no se registra y no lleva
+        cuenta."""
         a.accion = "omitir"
-        a.motivo = motivo_choque(ps.cod, self._nombre_estado(ps.est))
+        a.motivo = motivo
         a.caa_ide, a.caa_cod = 0, None
         a.caa_motivo = a.caa_aviso = a.caa_origen = a.caa_nota = None
+
+    def _motivo_sin_pisado(
+        self, a: AccionLinea,
+        abiertas: list[tuple[ParteSigrid, list[LineaSigrid]]],
+        mias: set[str],
+    ) -> str | None:
+        """F-053 (R6-R8), sobre los choques en partes En registro: una
+        incidencia que ya consta (`incidencia_en_sigrid`) y, si no, alguna
+        linea enlazada (`linea_enlazada`). None = conflicto confirmable
+        (o nada que pisar)."""
+        chocan = [(ps, ls) for ps, lineas in abiertas
+                  for ls in self._choques(lineas, a, mias)]
+        if not chocan:
+            return None
+        if es_incidencia(a.hora_codigo):
+            return motivo_incidencia_en_sigrid(
+                [ls.ide for _ps, ls in chocan], chocan[0][0].cod)
+        enlazadas = [(ps, ls) for ps, ls in chocan if ls.enlazada]
+        if enlazadas:
+            return motivo_linea_enlazada(
+                [ls.ide for _ps, ls in enlazadas], enlazadas[0][0].cod)
+        return None
 
     def _conflictos(
         self, parte: ParteDestino, grupo: list[AccionLinea],
@@ -543,17 +590,22 @@ class RegistroPipeline:
             desc = f"Parte {destino.nombre or destino.codigo}{marca}"
             self._crear_parte(p, destino, desc)
 
-        # Paso 9: borrar pisadas + insertar. F-034: cada sentencia lleva la
-        # guarda de parte abierto y el INSERT de una linea que pisa, sus
-        # pisadas (R4): si un DELETE no entra, la nueva tampoco. `borradas`
-        # se cuenta al releer, no al construir (R12).
+        # Paso 9: poner a 0 las pisadas + insertar (F-053: en Sigrid no se
+        # borra). F-034: cada sentencia lleva la guarda de parte abierto y
+        # el INSERT de una linea que pisa, sus pisadas (R4): si una puesta
+        # a 0 no entra, la nueva tampoco. `anuladas` se cuenta al releer,
+        # no al construir (R12).
         statements: list[dict] = []
         pisadas_de: dict[int, list[int]] = {}
+        pisada_de: dict[int, tuple[LineaSigrid, list[int]]] = {}
         for c in pf.conflictos:
             if c.clave not in pisar:
                 continue
             for ls in c.lineas:
-                statements.append(self._cli.stmt_borrar_linea(ls.ide))
+                statements.append(self._cli.stmt_anular_linea(
+                    ide=ls.ide, reside=ls.reside, fecha_int=ls.fecha_int,
+                    horide=ls.horide, antes=ls.can))
+                pisada_de[ls.ide] = (ls, c.registros)
             for rid in c.registros:
                 pisadas_de[rid] = [ls.ide for ls in c.lineas]
 
@@ -594,17 +646,28 @@ class RegistroPipeline:
         vivas: dict[int, LineaSigrid] = {}
         if pisadas:
             siguen = self._cli.lineas_por_ide(pisadas)
-            res.borradas = sum(1 for i in pisadas if i not in siguen)
-            vivas = {i: ls for i, ls in siguen.items()
-                     if float(ls.can or 0) != 0}
+            vivas = {i: ls for i, ls in siguen.items() if tiene_horas(ls)}
+            anuladas = [i for i in pisadas if i not in vivas]
+            res.anuladas = len(anuladas)
+            for i in anuladas:
+                self._log_pisada_a_cero(*pisada_de[i])
         if no_escritas:
             self._omitir_no_escritas(res, destino, no_escritas, a_escribir,
                                      pisadas_de, vivas)
-        logger.info("[registro] escritas=%s no_escritas=%s borradas=%s "
+        logger.info("[registro] escritas=%s no_escritas=%s anuladas=%s "
                     "filas=%s usuario=%s ts=%s", len(res.escritas),
-                    len(no_escritas), res.borradas, afectadas, usuario,
+                    len(no_escritas), res.anuladas, afectadas, usuario,
                     datetime.now(timezone.utc).isoformat())
         return res
+
+    @staticmethod
+    def _log_pisada_a_cero(ls: LineaSigrid, registros: list[int]) -> None:
+        """F-053 (R13): una linea por pisada puesta a 0, con lo leido antes
+        de escribir. Sin nombres, DNIs ni `tex` (que no es nuestro)."""
+        logger.info(
+            "[registro] pisada a 0 ide=%s hmoide=%s can_antes=%s origen=%s "
+            "registro_id=%s", ls.ide, ls.hmoide, ls.can,
+            origen_linea(ls.synckey), ",".join(str(r) for r in registros))
 
     def _omitir_no_escritas(
         self, res: ResultadoRegistro, destino: ObraEntrada,
@@ -615,8 +678,10 @@ class RegistroPipeline:
 
         UNA relectura de partes por periodo afectado (dentro del lock) para
         nombrar el parte que lo impidio: el de una pisada que sigue viva
-        primero (por R4 la nueva no entra), luego el elegido. Sin parte
-        cerrado que lo explique, `no_escrita` y un ERROR. Sin nombres."""
+        primero (por R4 la nueva no entra), luego el elegido. F-053 (R10):
+        sin parte cerrado, si alguna pisada sigue con horas en un parte En
+        registro (cambio antes de ponerla a 0), `pisada_no_anulada` y un
+        WARNING. Si nada lo explica, `no_escrita` y un ERROR. Sin nombres."""
         est_registro = self._est_registro()
         periodo_de = {a.registro_id: (a.ano, a.mes) for a in a_escribir}
         por_periodo: dict[tuple[int, int], list[dict]] = {}
@@ -627,6 +692,7 @@ class RegistroPipeline:
             estados = {ps.ide: ps.est for ps in partes}
             codigos = {ps.ide: ps.cod for ps in partes}
             impedidas: dict[int, list[int]] = {}
+            no_anuladas: dict[int, list[int]] = {}
             sin_explicar: list[int] = []
             for e in grupo:
                 rid = e["registro_id"]
@@ -635,7 +701,14 @@ class RegistroPipeline:
                     [vivas[i].hmoide for i in pisadas_de.get(rid, ())
                      if i in vivas],
                     estados, est_registro=est_registro)
-                if h is None:
+                cambiadas = pisadas_no_anuladas(
+                    pisadas_de.get(rid, ()), vivas, estados,
+                    est_registro=est_registro)
+                if h is None and cambiadas:
+                    motivo = motivo_pisada_no_anulada(
+                        cambiadas, codigos[vivas[cambiadas[0]].hmoide])
+                    no_anuladas[rid] = cambiadas
+                elif h is None:
                     motivo = motivo_no_escrita(e.get("parte_cod"))
                     sin_explicar.append(rid)
                 else:
@@ -652,6 +725,12 @@ class RegistroPipeline:
                     "periodo=%s/%02d partes=%s registro_ids=%s",
                     destino.codigo, ano, mes, nombres,
                     sorted(r for rs in impedidas.values() for r in rs))
+            if no_anuladas:
+                logger.warning(
+                    "[registro] pisada no anulada obra=%s periodo=%s/%02d "
+                    "ides=%s registro_ids=%s", destino.codigo, ano, mes,
+                    sorted({i for ides in no_anuladas.values() for i in ides}),
+                    sorted(no_anuladas))
             if sin_explicar:
                 logger.error(
                     "[registro] no escritas sin parte cerrado que lo explique "

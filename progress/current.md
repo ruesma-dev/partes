@@ -1,6 +1,123 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-053 · done (2026-10-21, APPROVED pasada 1), pendiente de M2 en local y desplegar sv5 y sv4: pisar sin borrar (el pisado de sv5 pone a 0)
+
+Spec en `specs/F-053-pisar-sin-borrar/` (rama `feature/F-053-pisar-sin-borrar`, worktree
+`partes-wt-f053`, **rebasada sobre `dev` 12e1f23**, que ya trae F-034 fusionada: la
+precondición de `tasks.md` se cumple y F-034 llegó con la forma que la spec supone
+—`_guarda_parte_abierto`, R4 en `stmt_insert_linea`, relectura y `parte_abierto.py`—).
+Informe de spec en `progress/spec_F-053.md`.
+
+**Decisión del humano del 2026-10-21**, literal: «Lanza la siguiente luego despliego», dada
+tras presentarle la spec con sus DA y la recomendación A en todas ⇒ **DA1–DA12 APROBADAS con
+la opción A** (`design.md` §12). **M1 ejecutada por el líder el 2026-10-20** (solo lectura,
+resultados en `design.md` §9): DA1 A confirmada (ninguna línea con venta) y DA4 A relevante
+(5.096 líneas enlazadas sin synckey en 2026 que hoy el pisado podría borrar).
+
+**Implementer (2026-10-21)**: T1–T13 y T15 hechas, un commit por tarea (T14 es MANUAL,
+abajo); `bash harness/init.sh` en verde (cobertura 100 % de 86 líneas; mutación 57/57
+muertos). Detalle en `progress/impl_F-053.md`. **Siguiente: reviewer.** Desviaciones respecto a la spec, justificadas:
+
+- `transfer_consumer.py` (design §2 lo pone en «NO se tocan»): su `_resultado_fallido` lleva
+  la clave `anuladas` en vez de `borradas` y su docstring dice «pisar pone a 0». Lo exigen
+  R12/DA7 («el JSON de los dos canales») y la propia enmienda que la spec lista de
+  `test_f002_mutantes.py` l.157, que prueba justo `_resultado_fallido`; la lógica no cambia.
+- `lineas_existentes` rellena además `hmoide` (es su parámetro, sin lectura nueva): lo pide
+  el INFO de R13 (`hmoide` de cada pisada).
+- `pisado.py` repite `PREFIJO_PARTES = "partes:"` y `LIMITE_MOTIVO = 255` para importar solo
+  de `domain` (design §5); dos tests los atan a `PREFIJO_SYNCKEY` del cliente y a
+  `parte_abierto.LIMITE_MOTIVO`. `nombrar_lineas` concuerda singular/plural: con una línea,
+  los textos son los de §6 al pie de la letra. `parte_abierto.py` importa `nombrar_lineas` y
+  gana la función pura `pisadas_no_anuladas` (la elección de §5.3).
+- Motivos con varias líneas: `incidencia_en_sigrid` nombra todos los choques En registro
+  (código del parte del primero); `linea_enlazada`, solo las enlazadas.
+- Doble (§7): `tex` se queda en la fila (R3 se comprueba sobre ella); `LineaSigrid` no gana
+  `tex` (R13 prohíbe registrarlo y el pipeline no lo usa). Una op desconocida en `escribir`
+  es `AssertionError` (antes contaba como fila).
+- sv4: los campos de cada pisada del modal van con `esc` (no lo pedía la spec; el resto del
+  modal no cambia). Test de fuente de R19: ningún «se borra» afirmativo («(no se borra)» es
+  el texto de §6).
+- Orden de tareas: entre T2 y T8 los tests de pisado de F-002/F-021/F-031/F-034 quedan rojos
+  (el pipeline y los dobles cambian antes que sus enmiendas, como ordena `tasks.md`); T10 se
+  verificó con `-k "r19 or r20"` porque R21/R22, del mismo fichero, son de T11.
+
+### F-053 · verificaciones MANUAL (humano; `design.md` §9). NO ejecutadas.
+
+M1 la hizo el líder (§9). Todo desde el repo principal `C:\Users\pgris\PycharmProjects\partes`
+con F-053 fusionada en `dev`. `registro_id` 990000531–533 son sintéticos de F-053. `<FECHA>`
+(AAAAMMDD) = un día de un mes `<AAAA>/<MM>` **sin partes de la 0404** (lo dice la preflight
+de M2: `partes[0].existe: False`). **No usar 10/2026**: ahí está PT26/00373 con las 4 líneas
+`PRUEBA-IA` de F-046 que el humano decidió conservar, y `limpiar` las borraría. Recurso: el
+gruista de pruebas 2717792 (HLGR + HEGR), como en F-034. Variante sin tocar Sigrid a mano:
+la línea pisada es otra línea del portal escrita por sv5 en modo pruebas (ejemplo 6).
+
+- **Preparación · sv5 local en modo pruebas** (solo HTTP):
+  ```powershell
+  cd C:\Users\pgris\PycharmProjects\partes\services\partes-transfer
+  ..\..\.venv\Scripts\Activate.ps1
+  $env:OBRA_PRUEBAS_FORZAR = 'true'; python main.py
+  ```
+  En otra consola: `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`,
+  `obra_pruebas: 0404`, `database: ruesma`. **Si `modo_pruebas` no es `True`, PARA.**
+- [ ] **M2 · pisar pone a 0 (escritura en 0404; antes de desplegar, para que un SQL inválido
+  no llegue a producción)**. (1) Línea A, 8 h:
+  ```powershell
+  $a = @{ registro_id = 990000531; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 8 }
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($a); usuario = 'M2-F053' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/preflight -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/ejecutar -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  ```
+  ⇒ preflight: `forzada_pruebas: True` y `partes[0].existe: False` (si no, otro mes y no
+  ejecutes); ejecutar: `ok: True`, `escritas` con 990000531 y su `hmores_ide` (**IA**) y un
+  `PT26/…` nuevo (**P1**).
+  (2) Línea B, 6 h, mismo recurso, día y código; preflight y ejecutar pisando:
+  ```powershell
+  $b = @{ registro_id = 990000532; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 6 }
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($b); usuario = 'M2-F053' } | ConvertTo-Json -Depth 5
+  $pf = Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/preflight -ContentType 'application/json' -Body $p
+  $pf.conflictos | ConvertTo-Json -Depth 6
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($b); pisar_claves = @($pf.conflictos[0].clave); usuario = 'M2-F053' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/ejecutar -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  ```
+  **Esperado**: preflight ⇒ un conflicto con `lineas` = `[{ide: IA, can: 8, synckey:
+  partes:990000531}]`. Ejecutar ⇒ `ok: True`, `pisadas` = `[<clave>]`, **`anuladas: 1`**, sin
+  clave `borradas`, `escritas` con 990000532 (`hmores_ide` **IB**). En la consola de sv5: `[sigrid-write]
+  UPDATE hmores SET can = 0, tot = 0 WHERE ide = ? …` (ningún `DELETE`) y `[registro] pisada a
+  0 ide=IA hmoide=<P1> can_antes=8.0 origen=partes registro_id=990000532`. Solo lectura, con
+  `ANO, MES = <AAAA>, <MM>` en `prueba_escritura_sigrid.py` (cambio local, no se commitea):
+  `python prueba_escritura_sigrid.py verificar` ⇒ 2 líneas en P1: la de A con `can` 0 y `tot`
+  0 (sigue ahí) y la de B con `can` 6. Después, despliegue desde `infra/`:
+  `.\redeploy_partes.ps1 -Solo sv5` y `.\redeploy_partes.ps1 -Solo sv4`.
+- [ ] **M3 · una línea a 0 ya no choca; reaprobar la pisada (solo lectura, mismo sv5 local)**:
+  ```powershell
+  $c = @{ registro_id = 990000533; fecha_int = <FECHA>; recurso_ide = 2717792; tipo_hora = 'normal'; horas = 4 }
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($c); usuario = 'M3-F053' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/preflight -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  $p = @{ obra = @{ codigo = '0404' }; lineas = @($a); usuario = 'M3-F053' } | ConvertTo-Json -Depth 5
+  Invoke-RestMethod -Method Post -Uri http://localhost:8005/api/registro/preflight -ContentType 'application/json' -Body $p | ConvertTo-Json -Depth 6
+  ```
+  **Esperado**: primera preflight ⇒ un conflicto para 990000533 con `lineas` = solo IB (la de
+  6 h): IA, a 0, ya no sale (R5). Segunda ⇒ la acción de 990000531 (A, a 0) es
+  `ya_registrado` y `conflictos` vacío (R15). **Limpieza** (un solo
+  parte en el mes):
+  ```powershell
+  python prueba_escritura_sigrid.py limpiar
+  python prueba_escritura_sigrid.py limpiar --ejecutar
+  python prueba_escritura_sigrid.py estado
+  git checkout -- prueba_escritura_sigrid.py
+  ```
+  **Esperado**: el DRY-RUN imprime el `DELETE` de las líneas `PRUEBA-IA` del ide de P1 (si
+  sale otro ide, PARA); `estado` ⇒ `NO existe parte <AAAA>/<MM> de obra 0404`. Parar sv5
+  local (Ctrl+C) y cerrar esa consola.
+- [ ] **M4 · textos del portal (tras desplegar sv4; sin escritura propia)**: portal con
+  **Ctrl+F5**. (1) El candado de cualquier línea `registrado` dice «… En Sigrid no se borran
+  lineas: para corregirla, que Administracion la edite alli (si sobra, a 0 horas);
+  «Comprobar en Sigrid» enseña la diferencia.» (DA8). (2) En la próxima aprobación real con
+  conflicto, el modal dice «la linea actual se pone a 0 en Sigrid (no se borra)» y cada
+  pisada «linea N · código · X h · Y € → 0 h  nueva: …»; si se pisa, el resultado dice «N
+  linea(s) anteriores puestas a 0 en Sigrid (pisadas).». Sin conflictos, nada cambia.
+
 ## F-034 · done (2026-10-21, APPROVED pasada 2), pendiente de desplegar sv5 y sv4 y M2–M4: sv5 solo escribe en partes de Sigrid abiertos
 
 Spec en `specs/F-034-escribir-solo-en-partes-abiertos/` (rama

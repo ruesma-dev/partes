@@ -388,7 +388,7 @@ def _resultado(ids, *, forzada=True, escritas=()) -> dict:
                           "hmores_ide": 1000 + i, "parte_cod": "PT26/00009"}
                          for i in escritas],
             "omitidas": [], "ya_registradas": [], "pisadas": [],
-            "borradas": 0, "pendientes_confirmacion": [],
+            "anuladas": 0, "pendientes_confirmacion": [],
             "dedicacion": _ded(ids)}
 
 

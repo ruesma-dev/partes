@@ -87,7 +87,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 11,
+      "priority": 12,
       "branch": "feature/F-006-tipo-hora-ext"
     },
     {
@@ -98,7 +98,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 12,
+      "priority": 13,
       "branch": "feature/F-007-prompt-sv2-evals"
     },
     {
@@ -109,7 +109,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 13,
+      "priority": 14,
       "branch": "feature/F-008-roles-portal"
     },
     {
@@ -131,7 +131,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 14,
+      "priority": 15,
       "branch": "feature/F-011-jornada-reducida-dias"
     },
     {
@@ -172,7 +172,7 @@
       "status": "blocked",
       "sdd": false,
       "rigor": "documental",
-      "priority": 2,
+      "priority": 3,
       "branch": "feature/F-014-candef-9-sigrid"
     },
     {
@@ -216,7 +216,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 10,
+      "priority": 11,
       "branch": "feature/F-018-log-auditoria-portal"
     },
     {
@@ -318,7 +318,7 @@
       "status": "pending",
       "sdd": false,
       "rigor": "estandar",
-      "priority": 9,
+      "priority": 10,
       "branch": "feature/F-026-visor-fotos"
     },
     {
@@ -333,7 +333,7 @@
       "status": "pending",
       "sdd": false,
       "rigor": "estandar",
-      "priority": 8,
+      "priority": 9,
       "branch": "feature/F-027-escape-modales"
     },
     {
@@ -423,7 +423,7 @@
       "status": "blocked",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 7,
+      "priority": 8,
       "branch": "feature/F-032-sesame-festivos-produccion"
     },
     {
@@ -517,7 +517,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 6,
+      "priority": 7,
       "branch": "feature/F-038-limite-filas-sigrid"
     },
     {
@@ -720,7 +720,7 @@
       "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
-      "priority": 4,
+      "priority": 5,
       "branch": "feature/F-047-parte-nuevo-en-espera"
     },
     {
@@ -744,7 +744,7 @@
       "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
-      "priority": 3,
+      "priority": 4,
       "branch": "feature/F-049-editor-calendario-normal-y-extra"
     },
     {
@@ -762,8 +762,25 @@
       "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
-      "priority": 5,
+      "priority": 6,
       "branch": "feature/F-052-sincronizar-con-sigrid"
+    },
+    {
+      "id": "F-053",
+      "title": "Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE",
+      "description": "Regla del humano: «no se debe borrar en sigrid, así que solo editará líneas, por lo que si una hora extra se queda a cero no se borrará sino se pondrá a cero.» Hallazgo del 2026-10-20 (specs de F-052 y F-034): al registrar con un conflicto confirmado sv5 hace DELETE FROM hmores WHERE ide = ? (stmt_borrar_linea) y el portal dice que borra. Aprobado abrirla aparte el 2026-10-20 («Ok a las 2»), justo detrás de F-034, que toca la misma sentencia: se implementa sobre dev con F-034 fusionada (su guarda de parte abierto, su R4 y su relectura). sv5: el pisado pasa a stmt_anular_linea (UPDATE can = 0, tot = 0 con WHERE optimista, sin enlaces y con la guarda de F-034; synckey, tex y demás intactos), sin ningún DELETE en el cliente ni en el pipeline; una línea a 0 ya no choca (salvo incidencias); incidencia contra la misma incidencia ⇒ omitido incidencia_en_sigrid; choque con línea enlazada (albarán, factura, dedicación, nómina) ⇒ omitido linea_enlazada; pisada que cambió ⇒ pisada_no_anulada; el resultado cuenta anuladas en vez de borradas. sv4: textos del modal de conflictos y del resultado («se pone a 0, no se borra») y MOTIVO_LINEA_REGISTRADA sin aconsejar borrar. Sin esquema ni colas. Aviso a porcentajes (su dedicacion-transfer tiene el mismo DELETE) en azure-apps/partes.md, sin tocar su repositorio. Decisiones DA1-DA12 y M1 de solo lectura en specs/F-053-pisar-sin-borrar/design.md §9 y §12.",
+      "acceptance": [
+        "Ninguna sentencia de sv5 sobre Sigrid es un DELETE: el pisado pone la línea a can = 0 y tot = 0 y no cambia ninguna otra columna",
+        "Una línea a 0 no genera conflicto ni omisión parte_cerrado; las incidencias y las líneas enlazadas se omiten con motivo en vez de pisarse",
+        "El portal dice que pisar pone a 0 en Sigrid y no aconseja borrar en ningún texto",
+        "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 2,
+      "branch": "feature/F-053-pisar-sin-borrar"
     }
   ]
 }

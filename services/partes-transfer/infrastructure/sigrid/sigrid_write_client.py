@@ -23,12 +23,17 @@ estado (`con.est`) para que el pipeline no escriba en uno cerrado, y
 `partidas_de_lineas` la cuenta de cada partida (respaldo de la del
 recurso). Solo lecturas; las sentencias de escritura no cambian.
 
-F-034: toda sentencia que inserta, actualiza o borra una fila de `hmores`
-lleva la GUARDA DE PARTE ABIERTO (`_guarda_parte_abierto`): `EXISTS` sobre
+F-034: toda sentencia que inserta o actualiza una fila de `hmores` lleva
+la GUARDA DE PARTE ABIERTO (`_guarda_parte_abierto`): `EXISTS` sobre
 `con` del parte de esa fila con `est = EST_PARTE_ACTIVO` y `UPDLOCK,
 HOLDLOCK`, que retiene la fila de `con` hasta el `commit`. Si
 Administracion cierra o contabiliza el parte en la ventana, la sentencia
 afecta 0 filas y el pipeline lo descubre al releer (no por la respuesta).
+
+F-053: en Sigrid no se borra. Pisar un conflicto confirmado pone la linea a
+0 (`stmt_anular_linea`: `can = 0`, `tot = 0`, nada mas) y ninguna sentencia
+de este cliente elimina filas; `lineas_existentes` dice si cada linea esta
+enlazada (`_expr_enlazada`, la misma expresion que el reajuste).
 
 F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
 no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
@@ -373,6 +378,9 @@ class SigridWriteClient:
     def lineas_existentes(
         self, hmoide: int, resides: Iterable[int], fechas: Iterable[int]
     ) -> list[LineaSigrid]:
+        """Lineas del parte `hmoide` de esos recursos y dias (choques del
+        paso 7). F-053 (R9): con `enlazada` (la misma expresion que
+        `lineas_para_reajuste`) y su `hmoide`, para el INFO de R13."""
         res = sorted({int(i) for i in resides if i})
         fec = sorted({int(f) for f in fechas if f})
         if not res or not fec:
@@ -383,7 +391,9 @@ class SigridWriteClient:
             "SELECT hmores.ide AS ide, hmores.reside AS reside, "
             "hmores.fec AS fec, hmores.horide AS horide, "
             "auxhor.cod AS hora, hmores.can AS can, "
-            "hmores.tot AS tot, hmores.synckey AS synckey FROM hmores "
+            "hmores.tot AS tot, hmores.synckey AS synckey, "
+            f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+            "AS enlazada FROM hmores "
             "LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
             f"WHERE hmores.hmoide = ? AND hmores.reside IN ({m_r}) "
             f"AND hmores.fec IN ({m_f}) ORDER BY hmores.pos",
@@ -396,7 +406,8 @@ class SigridWriteClient:
                 fecha_int=int(f["fec"] or 0),
                 horide=int(f["horide"] or 0) or None,
                 hora_codigo=f["hora"], can=f["can"], tot=f["tot"], synckey=sk,
-                nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY))))
+                nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY)),
+                hmoide=int(hmoide), enlazada=bool(f["enlazada"])))
         return out
 
     def lineas_por_synckey(self, claves: Iterable[str]) -> dict[str, LineaSigrid]:
@@ -549,8 +560,8 @@ class SigridWriteClient:
         F-034 (R2): el `ide` sale de la subconsulta `x` (un agregado con
         `WHERE` falso devolveria fila igualmente) y la linea solo entra si
         su parte sigue En registro. R4: con `pisadas` (las lineas de un
-        conflicto confirmado), solo si ninguna sigue con horas: si la
-        guarda impidio su `DELETE`, la nueva no duplica horas."""
+        conflicto confirmado), solo si ninguna sigue con horas: si su
+        puesta a 0 no entro (F-053), la nueva no duplica horas."""
         cenide = int(getattr(obra, "cenide", 0) or 0)
         ides_pisadas = [int(i) for i in pisadas]
         sql = (
@@ -572,15 +583,31 @@ class SigridWriteClient:
                                int(mes), int(caaide), (tex or ""), synckey,
                                int(hmoide), self._est, *ides_pisadas]}
 
-    def stmt_borrar_linea(self, ide: int) -> dict:
-        """Pisado de un conflicto confirmado. F-034 (R3): solo si el parte
-        de la fila sigue En registro. Es el UNICO `DELETE` del cliente; que
-        el pisado deje la linea a 0 en vez de borrarla va aparte (DA4)."""
-        return {"sql": ("DELETE FROM hmores WHERE ide = ? AND "
-                        f"{self._guarda_parte_abierto('hmores.hmoide')}"),
-                "parameters": [int(ide), self._est]}
+    def stmt_anular_linea(self, *, ide: int, reside: int, fecha_int: int,
+                          horide: int | None, antes: float | None) -> dict:
+        """F-053 (R2, R3, DA12): pisar un conflicto confirmado pone la linea
+        a 0 en vez de borrarla. Solo `can` y `tot` (`tot = 0` literal: no
+        depende de un `pre` nulo); synckey, `tex`, cuenta y lo demas no se
+        tocan. `WHERE` optimista con lo que la hizo chocar (`ide`, recurso,
+        dia, codigo y `can` leido), sin enlaces y con la guarda de parte
+        abierto de F-034: si algo cambio, afecta 0 filas."""
+        return {"sql": (
+            "UPDATE hmores SET can = 0, tot = 0 WHERE ide = ? AND reside = ? "
+            "AND fec = ? AND ISNULL(horide, 0) = ? "
+            "AND ABS(ISNULL(can, 0) - ?) <= 0.001 "
+            + self._sin_enlaces() + " AND "
+            + self._guarda_parte_abierto("hmores.hmoide")),
+            "parameters": [int(ide), int(reside), int(fecha_int),
+                           int(horide or 0), float(antes or 0), self._est]}
 
     # ------------------ reajuste (F-046): lecturas ------------------ #
+
+    @staticmethod
+    def _expr_enlazada() -> str:
+        """R21 de F-046 y R9 de F-053: alguno de `ENLACES_HMORES` distinto
+        de 0. La comparten `lineas_para_reajuste` y `lineas_existentes`."""
+        return " OR ".join(f"ISNULL(hmores.{c}, 0) <> 0"
+                           for c in ENLACES_HMORES)
 
     def lineas_para_reajuste(
         self, claves: Iterable[str | None]
@@ -590,8 +617,6 @@ class SigridWriteClient:
         (`hmoide`) y si algun enlace de `ENLACES_HMORES` no es 0. En lotes
         de `LOTE_COMPROBACION`; un `truncated` es una excepcion."""
         ks = sorted({k for k in claves if k})
-        enlaces = " OR ".join(f"ISNULL(hmores.{c}, 0) <> 0"
-                              for c in ENLACES_HMORES)
         out: dict[str, LineaSigrid] = {}
         for i in range(0, len(ks), LOTE_COMPROBACION):
             trozo = ks[i:i + LOTE_COMPROBACION]
@@ -602,7 +627,8 @@ class SigridWriteClient:
                 "hmores.horide AS horide, auxhor.cod AS hora, "
                 "hmores.can AS can, hmores.tot AS tot, hmores.pre AS pre, "
                 "hmores.synckey AS synckey, "
-                f"CASE WHEN {enlaces} THEN 1 ELSE 0 END AS enlazada "
+                f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+                "AS enlazada "
                 "FROM hmores LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
                 f"WHERE hmores.synckey IN ({marcas})", trozo)
             for f in filas:
@@ -641,8 +667,8 @@ class SigridWriteClient:
 
     # ------------------ reajuste (F-046): sentencias ------------------ #
     # [E] R47: el reajuste NUNCA borra en Sigrid. Solo `UPDATE` de lineas
-    # existentes (a 0 si hace falta) e `INSERT` de extras nuevas; ninguna
-    # de estas sentencias es un `DELETE` ni usa `stmt_borrar_linea`.
+    # existentes (a 0 si hace falta) e `INSERT` de extras nuevas. Desde
+    # F-053 tampoco el pisado: el cliente no tiene sentencias de borrado.
 
     @staticmethod
     def _sin_enlaces(alias: str = "") -> str:

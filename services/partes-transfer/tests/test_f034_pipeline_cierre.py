@@ -202,13 +202,18 @@ def test_f034_doble_insert_en_parte_inexistente_no_entra() -> None:
     assert cli.escribir([_st_insert(cli, 1, 999)]) == 0 and cli.lineas == []
 
 
-def test_f034_doble_borrar_solo_en_parte_abierto() -> None:
+def test_f034_doble_anular_solo_en_parte_abierto() -> None:
+    """Enmienda de F-053: la pisada se pone a 0 (op `anular`) en vez de
+    borrarse; la guarda de R3 sigue: solo en su parte abierto."""
     cli = _cli(partes=[_parte(HMO, "PT26/00314", est=CERRADO),
                        _parte(905, "PT26/00400")],
                lineas=[_linea_sigrid(4001, HMO), _linea_sigrid(4002, 905)])
-    assert cli.escribir([cli.stmt_borrar_linea(4001),
-                         cli.stmt_borrar_linea(4002)]) == 1
-    assert [l["ide"] for l in cli.lineas] == [4001]
+    anular = [cli.stmt_anular_linea(ide=i, reside=501, fecha_int=FECHA,
+                                    horide=HL, antes=8.0)
+              for i in (4001, 4002)]
+    assert cli.escribir(anular) == 1
+    assert [(l["ide"], l["can"]) for l in cli.lineas] == [(4001, 8.0),
+                                                          (4002, 0.0)]
 
 
 def test_f034_doble_pisada_con_horas_bloquea_el_insert() -> None:
@@ -250,7 +255,7 @@ def test_f034_doble_lineas_por_ide_bajo_lock() -> None:
         raise AssertionError("lineas_por_ide no vigila el lock")
 
 
-# ============ Pisado confirmado: R4 y `borradas` por relectura (T6) ============ #
+# ======= Pisado confirmado: R4 y `anuladas` por relectura (T6; F-053) ======= #
 
 CLAVE = f"501|{FECHA}|{HL}"
 
@@ -268,15 +273,16 @@ def _pisado(cerrar=None, lineas=None):
 
 def test_f034_r4_pisada_en_parte_que_se_cierra_no_duplica_horas() -> None:
     """Ejemplo 2: Administracion cierra el parte de la pisada en la
-    ventana: su `DELETE` no entra y la linea nueva TAMPOCO (R4), aunque su
-    parte (el elegido) siga En registro. Sin R4 habria horas duplicadas."""
+    ventana: su puesta a 0 (F-053) no entra y la linea nueva TAMPOCO (R4),
+    aunque su parte (el elegido) siga En registro. Sin R4 habria horas
+    duplicadas."""
     cli = _pisado(cerrar={HMO: CERRADO})
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={CLAVE})
     assert r.pisadas == [CLAVE]
-    assert [l["ide"] for l in cli.lineas] == [4001]       # la ajena sigue
+    assert [(l["ide"], l["can"]) for l in cli.lineas] == [(4001, 8.0)]
     assert _sincronizadas(cli) == {}                      # la nueva no
-    assert r.borradas == 0                                # R12
+    assert r.anuladas == 0                                # R12
 
 
 def test_f034_r4_el_insert_lleva_las_pisadas_de_su_conflicto() -> None:
@@ -289,57 +295,51 @@ def test_f034_r4_el_insert_lleva_las_pisadas_de_su_conflicto() -> None:
     inserts = {s["synckey"]: s for s in enviadas if s["op"] == "insert"}
     assert inserts[synckey_de(1)]["pisadas"] == [4001]
     assert inserts[synckey_de(2)]["pisadas"] == []      # sin conflicto
-    assert [s["op"] for s in enviadas] == ["borrar", "insert", "insert"]
+    assert [s["op"] for s in enviadas] == ["anular", "insert", "insert"]
 
 
-def test_f034_r12_borradas_cuenta_lo_que_ya_no_esta() -> None:
-    """Sin cierre, el pisado borra la ajena: `borradas` = 1 por relectura."""
+def test_f034_r12_anuladas_cuenta_lo_que_ya_no_tiene_horas() -> None:
+    """Sin cierre, el pisado pone a 0 la ajena (F-053): `anuladas` = 1 por
+    relectura; la ajena sigue en Sigrid."""
     cli = _pisado()
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={CLAVE})
-    assert r.borradas == 1
+    assert r.anuladas == 1
     assert _sincronizadas(cli) == {905: [1]}
-    assert 4001 not in {l["ide"] for l in cli.lineas}
+    assert next(l for l in cli.lineas if l["ide"] == 4001)["can"] == 0.0
     assert cli.ides_leidos == [[4001]]
 
 
-def test_f034_r12_borradas_cuenta_varias_pisadas_por_relectura() -> None:
+def test_f034_r12_anuladas_cuenta_varias_pisadas_por_relectura() -> None:
     """Dos ajenas del mismo recurso, dia y tipo (en 900 y en 905): se
     pisan las dos; si 900 se cierra, solo cuenta la de 905."""
     lineas = [_linea_sigrid(4001, HMO), _linea_sigrid(4002, 905)]
     cli = _pisado(cerrar={HMO: CERRADO}, lineas=lineas)
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={CLAVE})
-    assert r.borradas == 1
-    assert [l["ide"] for l in cli.lineas] == [4001]
+    assert r.anuladas == 1
+    assert [(l["ide"], l["can"]) for l in cli.lineas] == [(4001, 8.0),
+                                                          (4002, 0.0)]
     assert _sincronizadas(cli) == {}                  # R4: 4001 sigue viva
     assert cli.ides_leidos == [[4001, 4002]]
 
 
-def test_f034_r12_pisada_que_queda_a_cero_cuenta_como_viva_no_borrada() -> None:
-    """R12 cuenta las que YA NO ESTAN; una que siguiera con `can = 0` no se
-    ha borrado (y, por R4, no bloquea la nueva)."""
+def test_f034_r12_pisada_que_queda_a_cero_cuenta_como_anulada() -> None:
+    """Enmienda de F-053 (R12): desde F-053 el pisado deja la fila a 0;
+    `anuladas` cuenta las pisadas sin horas al releer (antes `borradas`
+    contaba las que ya no estaban) y, por R4, no bloquean la nueva."""
     cli = _pisado()
-    # Simula un pisado que deja la fila a 0 en vez de borrarla (F-053).
-    cli.stmt_borrar_linea = lambda ide: {"op": "a_cero", "ide": ide}
-    original = cli.escribir
-
-    def escribir(sts):
-        for s in sts:
-            if s["op"] == "a_cero":
-                next(l for l in cli.lineas if l["ide"] == s["ide"])["can"] = 0
-        return original([s for s in sts if s["op"] != "a_cero"])
-    cli.escribir = escribir
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={CLAVE})
-    assert r.borradas == 0
+    assert r.anuladas == 1
     assert _sincronizadas(cli) == {905: [1]}
+    assert 4001 in {l["ide"] for l in cli.lineas}
 
 
 def test_f034_r12_sin_pisadas_no_relee_por_ide() -> None:
     cli = _cli(partes=[_parte(HMO, "PT26/00314")])
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
-    assert r.borradas == 0 and cli.ides_leidos == []
+    assert r.anuladas == 0 and cli.ides_leidos == []
     assert "lineas_por_ide" not in cli.llamadas
 
 
@@ -347,7 +347,7 @@ def test_f034_r12_conflicto_no_confirmado_no_cuenta_ni_se_relee() -> None:
     cli = _pisado()
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)])
     assert [c.clave for c in r.pendientes_confirmacion] == [CLAVE]
-    assert r.borradas == 0 and cli.ides_leidos == []
+    assert r.anuladas == 0 and cli.ides_leidos == []
 
 
 # ======== Relectura tras escribir: lo que no entra (T7, R8-R11, R13-R14) ======== #
@@ -401,7 +401,7 @@ def test_f034_r11_ejemplo_2_la_nueva_sale_con_el_parte_de_su_pisada() -> None:
     cli = _pisado(cerrar={HMO: CERRADO})
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={CLAVE})
-    assert r.escritas == [] and r.borradas == 0
+    assert r.escritas == [] and r.anuladas == 0
     assert r.omitidas == [{"registro_id": 1, "motivo": MOTIVO_314_CERRADO}]
 
 
@@ -413,7 +413,7 @@ def test_f034_r11_elegido_cerrado_y_pisada_abierta_nombra_el_elegido() -> None:
     assert om["motivo"].startswith(
         "parte_no_abierto: el parte PT26/00400 ya no esta En registro "
         "(Imputado)")
-    assert r.borradas == 1            # la pisada de 900 si se borro
+    assert r.anuladas == 1            # la pisada de 900 si se puso a 0
 
 
 def test_f034_r9_dos_periodos_uno_cerrado() -> None:
@@ -544,7 +544,9 @@ def test_f034_r8_todo_corre_bajo_el_lock() -> None:
 
 def test_f034_t12_pisada_con_can_nulo_no_esta_viva() -> None:
     """`can` NULL es 0, como `ISNULL(p.can, 0)` del SQL: esa pisada no
-    explica nada; con los dos partes cerrados, lo impidio el elegido."""
+    explica nada; con los dos partes cerrados, lo impidio el elegido.
+    Enmienda de F-053 (R5): sin horas ni siquiera choca (no hay pisado);
+    el criterio de «viva» lo fija `test_f053_r5_tiene_horas`."""
     cli = _pisado(cerrar={HMO: CERRADO, 905: IMPUTADO},
                   lineas=[dict(_linea_sigrid(4001, HMO), can=None)])
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
@@ -553,7 +555,7 @@ def test_f034_t12_pisada_con_can_nulo_no_esta_viva() -> None:
     assert om["motivo"].startswith(
         "parte_no_abierto: el parte PT26/00400 ya no esta En registro "
         "(Imputado)")
-    assert r.borradas == 0
+    assert r.anuladas == 0 and r.pisadas == []
 
 
 def test_f034_t12_pisada_con_una_hora_si_esta_viva() -> None:

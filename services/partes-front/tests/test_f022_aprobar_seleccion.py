@@ -273,7 +273,7 @@ def ej_por_defecto(payload: dict) -> dict:
                       "parte_cod": f"PT-{_codigo(payload)}"}
                      for l in payload["lineas"]],
         "omitidas": [], "ya_registradas": [],
-        "pisadas": list(payload["pisar_claves"]), "borradas": 0,
+        "pisadas": list(payload["pisar_claves"]), "anuladas": 0,
         "pendientes_confirmacion": [],
     }
 

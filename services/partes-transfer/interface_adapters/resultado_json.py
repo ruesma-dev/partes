@@ -23,7 +23,8 @@ def resultado_a_dict(r: ResultadoRegistro) -> dict:
         "omitidas": r.omitidas,
         "ya_registradas": r.ya_registradas,
         "pisadas": r.pisadas,
-        "borradas": r.borradas,
+        # F-053 (DA7): pisadas puestas a 0 (antes `borradas`).
+        "anuladas": r.anuladas,
         "pendientes_confirmacion": [asdict(c)
                                     for c in r.pendientes_confirmacion],
         # F-019 (R8): {registro_id, recurso_ide, codigo_mes} por linea.

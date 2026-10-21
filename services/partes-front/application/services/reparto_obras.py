@@ -142,7 +142,8 @@ def agregar_ejecucion(ejecutados: list[dict]) -> dict:
     for campo in ("escritas", "omitidas", "ya_registradas", "pisadas",
                   "pendientes_confirmacion", "partes"):
         plano[campo] = _concatenar(ejecutados, campo)
-    plano["borradas"] = sum(int(g.get("borradas") or 0) for g in ejecutados)
+    # F-053 (R20, DA7): pisadas puestas a 0 en Sigrid (antes `borradas`).
+    plano["anuladas"] = sum(int(g.get("anuladas") or 0) for g in ejecutados)
     if bien:
         plano["obra_destino"] = bien[0].get("obra_destino")
         plano["forzada_pruebas"] = bien[0].get("forzada_pruebas")

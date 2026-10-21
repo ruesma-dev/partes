@@ -3460,11 +3460,12 @@ function avisarCambioLineas() {
   }
 
   function conflictosHtml(conflictos, grupo) {
+    // F-053 (R19): en Sigrid no se borra; pisar pone a 0 la actual.
     return "<p class='ap-warn'>Ya hay lineas en Sigrid con el <strong>mismo "
       + "codigo de hora</strong> para ese parte, recurso y fecha. Marca las "
-      + "que quieras <strong>pisar</strong> (se borra la linea actual y se "
-      + "escribe la nueva). Las lineas con OTRO codigo de ese dia no se "
-      + "tocan.</p>"
+      + "que quieras <strong>pisar</strong>: la linea actual <strong>se pone "
+      + "a 0 en Sigrid</strong> (no se borra) y se escribe la nueva. Las "
+      + "lineas con OTRO codigo de ese dia no se tocan.</p>"
       + conflictos.map(function (c) {
           var nuevoTxt = num(c.nueva_can) + " h · " + num(c.nueva_tot) + " €";
           var detalle = "";
@@ -3473,14 +3474,14 @@ function avisarCambioLineas() {
               return num(n.can) + " h" + (n.partida_cod ? " " + n.partida_cod : "");
             }).join(" + ") + ")</span>";
           }
-          // Lineas que SE PISAN, con la comparacion a la derecha.
+          // Lineas que SE PISAN (F-053: quedan a 0 h en Sigrid), con la
+          // nueva a la derecha.
           var lineas = (c.lineas || []).map(function (l) {
-            return "<li><span class='ap-old'>linea " + l.ide + " · "
-              + (l.hora_codigo || "?") + " · " + num(l.can) + " h · "
-              + num(l.tot) + " €"
+            return "<li><span class='ap-old'>linea " + esc(l.ide) + " · "
+              + esc(l.hora_codigo || "?") + " · " + esc(num(l.can)) + " h · "
+              + esc(num(l.tot)) + " € → 0 h"
               + (l.nuestra ? " <em>(escrita por esta app)</em>" : "")
-              + "</span> <span class='ap-arrow'>→</span> "
-              + "<span class='ap-new'>actualizacion a " + nuevoTxt + "</span>"
+              + "</span> <span class='ap-new'>nueva: " + nuevoTxt + "</span>"
               + detalle + "</li>";
           }).join("");
           // Lineas de ese dia con OTRO codigo: informativas.
@@ -3512,8 +3513,10 @@ function avisarCambioLineas() {
       html += "<p>Parte(s) creado(s): <strong>" + partes.join(", ")
         + "</strong></p>";
     }
-    if (r.borradas) {
-      html += "<p>" + r.borradas + " linea(s) anteriores borradas (pisadas).</p>";
+    if (r.anuladas) {
+      // F-053 (R20): pisar pone a 0 en Sigrid; no se borra nada.
+      html += "<p>" + esc(r.anuladas)
+        + " linea(s) anteriores puestas a 0 en Sigrid (pisadas).</p>";
     }
     if ((r.omitidas || []).length) {
       // F-034 (R19): agrupadas por motivo (lo de antes de los primeros dos

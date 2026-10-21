@@ -200,14 +200,14 @@ def test_f022_r22_agregar_ejecucion_todos_bien() -> None:
     a = _grupo_ej("obr-10", "0100", ok=True,
                   obra_destino={"codigo": "0100"}, forzada_pruebas=False,
                   escritas=[{"registro_id": 1}], omitidas=[],
-                  ya_registradas=[7], pisadas=["k1"], borradas=1,
+                  ya_registradas=[7], pisadas=["k1"], anuladas=1,
                   pendientes_confirmacion=[{"clave": "c1"}],
                   partes=[{"cod": "P1"}])
     b = _grupo_ej("obr-20", "0200", ok=True,
                   obra_destino={"codigo": "0200"}, forzada_pruebas=True,
                   escritas=[{"registro_id": 2}],
                   omitidas=[{"registro_id": 3}], ya_registradas=[8, 9],
-                  pisadas=[], borradas=2, pendientes_confirmacion=[],
+                  pisadas=[], anuladas=2, pendientes_confirmacion=[],
                   partes=[{"cod": "P2"}])
     plano = agregar_ejecucion([a, b])
     assert plano == {
@@ -215,7 +215,7 @@ def test_f022_r22_agregar_ejecucion_todos_bien() -> None:
         "escritas": [{"registro_id": 1}, {"registro_id": 2}],
         "omitidas": [{"registro_id": 3}], "ya_registradas": [7, 8, 9],
         "pisadas": ["k1"], "pendientes_confirmacion": [{"clave": "c1"}],
-        "partes": [{"cod": "P1"}, {"cod": "P2"}], "borradas": 3,
+        "partes": [{"cod": "P1"}, {"cod": "P2"}], "anuladas": 3,
         "obra_destino": {"codigo": "0100"}, "forzada_pruebas": False,
     }
 
@@ -224,13 +224,13 @@ def test_f022_r22_agregar_ejecucion_parcial_sin_todo_o_nada() -> None:
     malo = _grupo_ej("obr-10", "0100", ok=False, error="sigrid caido")
     bueno = _grupo_ej("obr-20", "0200", ok=True,
                       obra_destino={"codigo": "0200"}, forzada_pruebas=True,
-                      escritas=[{"registro_id": 2}], borradas=None)
+                      escritas=[{"registro_id": 2}], anuladas=None)
     plano = agregar_ejecucion([malo, bueno])
     assert plano["ok"] is False
     assert plano["parcial"] is True
     assert plano["error"] == "0100: sigrid caido"
     assert plano["escritas"] == [{"registro_id": 2}]
-    assert plano["borradas"] == 0
+    assert plano["anuladas"] == 0 and "borradas" not in plano  # F-053
     assert plano["obra_destino"] == {"codigo": "0200"}
     assert plano["forzada_pruebas"] is True
 

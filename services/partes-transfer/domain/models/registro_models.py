@@ -201,7 +201,8 @@ class LineaSigrid:
 class Conflicto:
     """Ya hay linea(s) en Sigrid para ese parte + recurso + fecha + CODIGO.
 
-    ``lineas`` son las que se BORRARIAN al pisar (mismo codigo de hora).
+    ``lineas`` son las que se PONDRIAN A 0 al pisar (mismo codigo de hora
+    y con horas; F-053: en Sigrid no se borra, `stmt_anular_linea`).
     ``contexto`` son otras lineas de ese recurso y dia con OTRO codigo: se
     muestran solo como informacion y NO se tocan.
     ``nuevas`` es lo que se escribiria en su lugar (para comparar).
@@ -288,7 +289,9 @@ class ResultadoRegistro:
     omitidas: list[dict] = field(default_factory=list)   # {registro_id, motivo}
     ya_registradas: list[int] = field(default_factory=list)
     pisadas: list[str] = field(default_factory=list)     # claves pisadas
-    borradas: int = 0
+    # F-053 (R12, DA7): pisadas que, releidas por `ide` tras escribir, ya
+    # no tienen horas (puestas a 0; sustituye a `borradas`).
+    anuladas: int = 0
     pendientes_confirmacion: list[Conflicto] = field(default_factory=list)
     error: Optional[str] = None
     # F-019 (R8): {registro_id, recurso_ide, codigo_mes} de cada linea que
