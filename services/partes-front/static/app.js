@@ -3085,9 +3085,12 @@ function avisarCambioLineas() {
 
 /* ==================================================================== *
  * Matriz de obra: (a) filtro 'sin codigo de hora extra' (ON por defecto)
- * y (b) edicion inline de TODAS las lineas de una celda con DOBLE CLIC,
- * incluida la creacion de la linea extra si no existe.
- * Autonomo: no depende del init principal.
+ * y (b) editor de la celda con DOBLE CLIC (F-049): una fila por línea de
+ * horas y la ordinaria o la extra que falte («(nueva)»); se guarda la
+ * celda entera en UNA petición (`POST /api/matriz/celda`) y se avisa de
+ * las otras obras del mismo día, que el recálculo también toca.
+ * Autónomo: no depende del init principal. Las funciones a dos espacios
+ * son puras o casi (las ejecuta en node `tests/test_f049_editor_js.py`).
  * ==================================================================== */
 (function () {
   "use strict";
@@ -3097,10 +3100,217 @@ function avisarCambioLineas() {
     else document.addEventListener("DOMContentLoaded", fn);
   }
 
+  // F-049 (R1-R3, R10, R35): los campos del popup. Una fila por línea y,
+  // si no todas están congeladas y la fila tiene trabajador, la ordinaria
+  // (delante) y la extra (detras) que falten, a 0.
+  function camposCelda(regs, admiteNuevas) {
+    var campos = (regs || []).map(function (r) {
+      var base = r.t === "n" ? "Ord." : (r.a ? "Extra (jornada)" : "Extra");
+      return {id: r.id, tipo: r.t, etiqueta: r.p ? (base + " · " + r.p) : base,
+              valor: r.h, congelada: !!r.c, nueva: false};
+    });
+    var libres = campos.some(function (c) { return !c.congelada; });
+    if (!libres || !admiteNuevas) return campos;
+    var hay = function (t) { return campos.some(function (c) { return c.tipo === t; }); };
+    if (!hay("n")) {
+      campos.unshift({id: null, tipo: "n", etiqueta: "Ord. (nueva)", valor: 0,
+                      congelada: false, nueva: true});
+    }
+    if (!hay("e")) {
+      campos.push({id: null, tipo: "e", etiqueta: "Extra (nueva)", valor: 0,
+                   congelada: false, nueva: true});
+    }
+    return campos;
+  }
+
+  // F-049 (R6, R7): el cuerpo de la POST o null si no cambia nada. Un
+  // valor vacío (o que no es un número) vale lo que había; una nueva a 0
+  // o vacia no se pide.
+  function cuerpoCelda(campos, valores, celda) {
+    var lineas = [], nuevas = {n: null, e: null}, cambia = false;
+    campos.forEach(function (c, i) {
+      if (c.congelada) return;
+      var v = valores[i], n = parseFloat(v);
+      if (c.nueva) {
+        if (v !== "" && !isNaN(n) && n !== 0) { nuevas[c.tipo] = n; cambia = true; }
+        return;
+      }
+      var horas = (v === "" || isNaN(n)) ? c.valor : n;
+      if (horas !== c.valor) cambia = true;
+      lineas.push({id: c.id, antes: c.valor, horas: horas});
+    });
+    if (!cambia) return null;
+    return {obra_key: celda.obraKey, worker_key: celda.wk, fecha: celda.fecha,
+            lineas: lineas, nueva_ordinaria: nuevas.n, nueva_extra: nuevas.e};
+  }
+
+  // F-049 (R36): aviso al abrir si el trabajador tiene horas ese día en
+  // otras obras; null si no.
+  function textoOtras(afectadas) {
+    if (!afectadas || !afectadas.length) return null;
+    var codigos = [];
+    afectadas.forEach(function (a) {
+      var c = a.obra_codigo || a.obra_key;
+      if (codigos.indexOf(c) < 0) codigos.push(c);
+    });
+    return "Este trabajador tiene horas ese día en otras obras ("
+      + codigos.join(", ") + "): al guardar se recalcula el reparto del día en todas.";
+  }
+
+  // F-049 (R37): un enlace por obra afectada, con el aviso si está
+  // aprobada o en Sigrid.
+  function avisoAfectadas(afectadas) {
+    return (afectadas || []).map(function (a) {
+      var texto = a.obra_codigo || a.obra_key;
+      if (a.congelada) {
+        texto += " (aprobada o en Sigrid: si su reparto cambia, quedará "
+          + "pendiente de decidir al aprobar)";
+      }
+      return {href: "/obras/" + encodeURIComponent(a.obra_key), texto: texto};
+    });
+  }
+
+  // F-049 (R37): tras guardar con otras obras afectadas, el popup enseña
+  // la lista con enlaces y «Cerrar», que recarga (R8 si el recálculo falló).
+  function mostrarAfectadas(pop, data) {
+    pop.replaceChildren();
+    var titulo = document.createElement("div");
+    titulo.className = "mxe-title";
+    titulo.textContent = "Guardado. Este cambio recalcula también ese día en:";
+    pop.appendChild(titulo);
+    var lista = document.createElement("ul");
+    lista.className = "mxe-afectadas";
+    avisoAfectadas(data.afectadas).forEach(function (x) {
+      var li = document.createElement("li"), a = document.createElement("a");
+      a.href = x.href;
+      a.textContent = x.texto;
+      li.appendChild(a);
+      lista.appendChild(li);
+    });
+    pop.appendChild(lista);
+    if (data.recalculo === "fallo") {
+      var aviso = document.createElement("div");
+      aviso.className = "mxe-aviso";
+      aviso.textContent = "Horas guardadas, pero no se pudo pedir el recálculo de "
+        + "extras: se hará en la siguiente pasada.";
+      pop.appendChild(aviso);
+    }
+    var bar = document.createElement("div");
+    bar.className = "mxe-actions";
+    var cerrar = document.createElement("button");
+    cerrar.type = "button"; cerrar.className = "btn small"; cerrar.textContent = "Cerrar";
+    cerrar.addEventListener("click", function () { window.location.reload(); });
+    bar.appendChild(cerrar);
+    pop.appendChild(bar);
+  }
+
+  // F-049: el popup de una celda (`td` con `data-regs`), o null si la
+  // celda no tiene líneas de horas (R4). `cerrar` lo quita de la pagina.
+  // La obra sale de `data-obra-key` de la tabla y la persona de `data-wk`
+  // de la fila (R31).
+  function abrirPopupCelda(td, cerrar) {
+    var regs;
+    try { regs = JSON.parse(td.dataset.regs || "[]"); } catch (e) { return null; }
+    if (!regs || !regs.length) return null;
+    var tr = td.closest("tr"), tabla = td.closest("table");
+    var celda = {obraKey: (tabla && tabla.dataset.obraKey) || "",
+                 wk: (tr && tr.dataset.wk) || "", fecha: td.dataset.fecha || ""};
+    var campos = camposCelda(regs, celda.wk !== "sin-trabajador");
+    var todasCongeladas = campos.every(function (c) { return c.congelada; });
+
+    var pop = document.createElement("div");
+    pop.className = "mx-edit-pop";
+    var title = document.createElement("div");
+    title.className = "mxe-title";
+    title.textContent = (td.dataset.trabajador || "") + " · " + celda.fecha;
+    pop.appendChild(title);
+
+    var inputs = campos.map(function (c) {
+      var wrap = document.createElement("label");
+      wrap.className = "mxe-field" + (c.congelada ? " mxe-congelada" : "")
+        + (c.nueva ? " mxe-nueva" : "");
+      var span = document.createElement("span");
+      span.textContent = c.congelada ? (c.etiqueta + " 🔒") : c.etiqueta;
+      if (c.congelada) span.title = "Línea congelada: aprobada o ya registrada en Sigrid";
+      else if (c.nueva) span.title = "Se creará una línea nueva";
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.step = "0.5";
+      inp.value = c.valor;
+      if (c.congelada) { inp.readOnly = true; inp.disabled = true; }
+      wrap.appendChild(span);
+      wrap.appendChild(inp);
+      pop.appendChild(wrap);
+      return inp;
+    });
+
+    var nota = document.createElement("div");
+    nota.className = "mxe-nota";
+    nota.textContent = "En día laborable, las ordinarias del día se ajustan a la "
+      + "jornada y la diferencia pasa a extra. Las extras que escribas se respetan.";
+    pop.appendChild(nota);
+    if (td.dataset.reparto) {
+      var reparto = document.createElement("div");
+      reparto.className = "mxe-aviso";
+      reparto.textContent = "Este día tiene un reparto entre obras pendiente de "
+        + "decidir: al guardar se vuelve a calcular.";
+      pop.appendChild(reparto);
+    }
+    var otras = document.createElement("div");
+    otras.className = "mxe-aviso";
+    otras.hidden = true;
+    pop.appendChild(otras);
+    fetch("/api/matriz/celda/otras?obra_key=" + encodeURIComponent(celda.obraKey)
+          + "&worker_key=" + encodeURIComponent(celda.wk)
+          + "&fecha=" + encodeURIComponent(celda.fecha),
+          {headers: {Accept: "application/json"}})
+      .then(MotivoHttp.lanzarSiFalla)
+      .then(function (d) {
+        var texto = textoOtras(d && d.afectadas);
+        if (texto) { otras.textContent = texto; otras.hidden = false; }
+      }, function () { /* R36: si falla, sin aviso */ });
+
+    var bar = document.createElement("div");
+    bar.className = "mxe-actions";
+    var ok = document.createElement("button");
+    ok.type = "button"; ok.className = "btn small"; ok.textContent = "Guardar";
+    var cancel = document.createElement("button");
+    cancel.type = "button"; cancel.className = "btn secondary small";
+    cancel.textContent = todasCongeladas ? "Cerrar" : "Cancelar";
+    if (!todasCongeladas) bar.appendChild(ok);
+    bar.appendChild(cancel);
+    pop.appendChild(bar);
+    cancel.addEventListener("click", cerrar);
+
+    ok.addEventListener("click", function () {
+      var cuerpo = cuerpoCelda(campos, inputs.map(function (i) { return String(i.value); }), celda);
+      if (!cuerpo) { cerrar(); return; }
+      ok.disabled = true;
+      fetch("/api/matriz/celda", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", Accept: "application/json"},
+        body: JSON.stringify(cuerpo),
+      }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
+        if (data.afectadas && data.afectadas.length) { mostrarAfectadas(pop, data); return; }
+        if (data.recalculo === "fallo") {
+          window.alert("Horas guardadas, pero no se pudo pedir el recálculo de "
+            + "extras: se hará en la siguiente pasada.");
+        }
+        window.location.reload();
+      }).catch(function (e) {
+        ok.disabled = false;
+        // F-004 R16: el motivo real del servidor.
+        title.textContent = "✗ " + (e.message || "Error guardando.");
+        title.title = e.message || "";
+      });
+    });
+    return pop;
+  }
+
   ready(function () {
     var matrix = document.querySelector("table.matrix");
 
-    // ---- (a) Ocultar trabajadores sin codigo de hora extra ---- //
+    // ---- (a) Ocultar trabajadores sin código de hora extra ---- //
     var toggle = document.getElementById("hide-sin-extra");
     function applySinExtra() {
       if (!matrix) return;
@@ -3111,7 +3321,7 @@ function avisarCambioLineas() {
     if (toggle) toggle.addEventListener("change", applySinExtra);
     applySinExtra(); // por defecto: ocultos
 
-    // ---- (b) Editor de horas de celda (doble clic) ---- //
+    // ---- (b) Editor de la celda (doble clic) ---- //
     if (!matrix) return;
     var pop = null;
 
@@ -3122,119 +3332,13 @@ function avisarCambioLineas() {
       if (pop && !pop.contains(ev.target)) closePop();
     });
 
-    function patchHoras(regId, val) {
-      return fetch("/api/registros/" + regId, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ horas: val }),
-      }).then(MotivoHttp.lanzarSiFalla);
-    }
-
-    function crearExtra(baseOrdId, val) {
-      return fetch("/api/registros/" + baseOrdId + "/extra", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ horas: val }),
-      }).then(MotivoHttp.lanzarSiFalla);
-    }
-
-    function fila(labelTxt, sub, value, congelada) {
-      var wrap = document.createElement("label");
-      wrap.className = "mxe-field" + (congelada ? " mxe-congelada" : "");
-      var span = document.createElement("span");
-      span.textContent = congelada ? (labelTxt + " 🔒") : labelTxt;
-      if (sub) span.title = sub;
-      var inp = document.createElement("input");
-      inp.type = "number";
-      inp.step = "0.5";
-      inp.value = value;
-      if (congelada) { inp.readOnly = true; inp.disabled = true; }
-      wrap.appendChild(span);
-      wrap.appendChild(inp);
-      return { wrap: wrap, inp: inp };
-    }
-
     matrix.addEventListener("dblclick", function (ev) {
       var td = ev.target.closest("td.mx-cell");
       if (!td || !td.dataset || !td.dataset.regs) return;
       ev.preventDefault();
       closePop();
-
-      var regs;
-      try { regs = JSON.parse(td.dataset.regs); } catch (e) { return; }
-      if (!regs || !regs.length) return;
-
-      pop = document.createElement("div");
-      pop.className = "mx-edit-pop";
-      var title = document.createElement("div");
-      title.className = "mxe-title";
-      title.textContent = (td.dataset.trabajador || "") + " \u00b7 "
-        + (td.dataset.fecha || "");
-      pop.appendChild(title);
-
-      // Una fila editable POR LINEA de la celda (con su partida si la
-      // tiene). F-004 R15: las que traen `c` salen solo-lectura.
-      var campos = [];
-      regs.forEach(function (r) {
-        var base = r.t === "n" ? "Ord." : "Extra";
-        var lab = r.p ? (base + " \u00b7 " + r.p) : base;
-        var sub = r.c
-          ? "Linea congelada: aprobada o ya registrada en Sigrid"
-          : (r.p ? ("Partida " + r.p) : null);
-        var f = fila(lab, sub, r.h, !!r.c);
-        campos.push({ f: f, reg: r });
-        pop.appendChild(f.wrap);
-      });
-
-      // Sin linea extra aun: permitir CREARLA (clona contexto del 1er Ord.).
-      // R15: si TODAS las lineas estan congeladas no se ofrece ni crear
-      // la extra ni guardar (el servidor las rechazaria con un 409).
-      var todasCongeladas = regs.every(function (r) { return !!r.c; });
-      var nueva = null;
-      var hayExtra = regs.some(function (r) { return r.t === "e"; });
-      var primerOrd = regs.filter(function (r) {
-        return r.t === "n" && !r.c;
-      })[0];
-      if (!hayExtra && primerOrd && !todasCongeladas) {
-        nueva = fila("Extra", "Se creara una linea extra nueva", 0, false);
-        pop.appendChild(nueva.wrap);
-      }
-
-      var bar = document.createElement("div");
-      bar.className = "mxe-actions";
-      var ok = document.createElement("button");
-      ok.type = "button"; ok.className = "btn small"; ok.textContent = "Guardar";
-      var cancel = document.createElement("button");
-      cancel.type = "button"; cancel.className = "btn secondary small";
-      cancel.textContent = todasCongeladas ? "Cerrar" : "Cancelar";
-      if (!todasCongeladas) bar.appendChild(ok);
-      bar.appendChild(cancel);
-      pop.appendChild(bar);
-
-      cancel.addEventListener("click", closePop);
-      ok.addEventListener("click", function () {
-        var jobs = [];
-        campos.forEach(function (it) {
-          var v = it.f.inp.value;
-          if (it.reg.c) return;   // F-004 R15: congelada, no se envia
-          if (v === "" || parseFloat(v) === it.reg.h) return;
-          jobs.push(patchHoras(it.reg.id, v));
-        });
-        if (nueva && nueva.inp.value !== "" && parseFloat(nueva.inp.value) !== 0) {
-          jobs.push(crearExtra(primerOrd.id, nueva.inp.value));
-        }
-        if (!jobs.length) { closePop(); return; }
-        ok.disabled = true;
-        Promise.all(jobs)
-          .then(function () { window.location.reload(); })
-          .catch(function (e) {
-            ok.disabled = false;
-            // F-004 R16: el motivo real del servidor.
-            title.textContent = "\u2717 " + (e.message || "Error guardando.");
-            title.title = e.message || "";
-          });
-      });
-
+      pop = abrirPopupCelda(td, closePop);
+      if (!pop) return;
       document.body.appendChild(pop);
       var r = td.getBoundingClientRect();
       pop.style.left = Math.max(8, window.scrollX + r.left - 40) + "px";
