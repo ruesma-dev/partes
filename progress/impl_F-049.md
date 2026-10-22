@@ -1,10 +1,10 @@
 <!-- progress/impl_F-049.md -->
-# F-049 · Informe del implementer (PARCIAL: feature `blocked`)
+# F-049 · Informe del implementer (PARCIAL: pendiente de la campaña de mutación)
 
-**Estado (2026-10-22)**: T1–T16 hechas, un commit por tarea; T17 (mutación) parada por un test
-de recuento de F-017 que queda fuera de la lista cerrada de design §3. Motivo y propuesta en
-`progress/current.md` (sección F-049, «BLOQUEO»). T18 (este informe completo) y T19 (portero),
-pendientes de la decisión. Rama `feature/F-049-editor-calendario-normal-y-extra`, worktree
+**Estado (2026-10-22)**: T1–T16 hechas, un commit por tarea. El bloqueo de T17 (recuento de
+`_actor` del guardián de F-017) quedó resuelto por decisión del humano (opción A, literal «a»):
+recuento 17 → 18 y test añadido a la lista cerrada de design §3. T17 queda pendiente SOLO de la
+campaña de mutación, que lanza el líder; luego T18 (este informe completo) y T19 (portero). Rama `feature/F-049-editor-calendario-normal-y-extra`, worktree
 `partes-wt-f049`, rebasada sobre `dev` 2bfeab7.
 
 ## Qué cambió
@@ -18,7 +18,7 @@ pendientes de la decisión. Rama `feature/F-049-editor-calendario-normal-y-extra
 | sv4 | `static/app.js`, `static/styles.css` | IIFE «Matriz de obra» reescrito: `camposCelda`, `cuerpoCelda`, `textoOtras`, `avisoAfectadas`, `mostrarAfectadas`, `abrirPopupCelda`; una POST, sin `Promise.all` |
 | sv4 | `templates/obra_detail.html` | leyenda (R9), `data-obra-key` y `data-wk` (R31) |
 | sv3 | `infrastructure/database/recalculo_seguimiento.py` | `marcar_terminado` filtra solo por pedido y devuelve `rowcount >= 1` (R41–R42) |
-| tests | lista cerrada | dobles `undo_last(self, **_kw)` de F-042/F-043; `test_f043_r28_…` invertido y renombrado |
+| tests | lista cerrada | dobles `undo_last(self, **_kw)` de F-042/F-043; `test_f043_r28_…` invertido y renombrado; `test_f017_…usan_el_helper` a 18 (decisión del humano 2026-10-22) |
 | docs | `docs/ARCHITECTURE.md`; `azure-apps/partes.md` (commit local `08b5755`) | semánticas 3 y 10, rutas, motivos, pedido compartido, orden sv3 → sv4 |
 
 Tests nuevos: `services/partes-front/tests/test_f049_plan_celda.py` (82),
@@ -54,9 +54,11 @@ T13 (caracterización de sv3, R40) pasa a la primera a propósito: no toca códi
 
 ## Verificaciones hechas (resultado real)
 
-- sv4 completo sin `-x` (tras `4889e1e`): `1 failed, 2580 passed, 1 skipped in 281.62s` — el
-  único fallo es el del bloqueo (`test_f017_…usan_el_helper`, `assert 18 == 17`).
-- sv3 completo: `2271 passed in 20.94s`. Raíz: contratos F-042/F-043/F-046/F-049 en verde.
+- `bash harness/init.sh` tras la enmienda de F-017 (2026-10-22): verde. sv4 `2581 passed,
+  1 skipped, 1 warning in 1016.31s`; sv3 `2271 passed in 76.73s`; raíz `498 passed, 3 skipped
+  in 161.06s`; `PUERTA COBERTURA: 100.0% de 362 líneas cambiadas cubiertas`.
+- Antes (tras `4889e1e`, sin `-x`): sv4 `1 failed, 2580 passed, 1 skipped in 281.62s`, el único
+  fallo era el del bloqueo (`test_f017_…usan_el_helper`, `assert 18 == 17`).
 - `node --check services/partes-front/static/app.js`: OK; plantilla parseada con Jinja2.
 - Cobertura de las líneas cambiadas con los tests de F-049: 100 % en `edicion_celda.py`;
   las dos líneas sin cubrir de repositorio y `app.py` tienen test desde `b4f61d2`.
@@ -65,14 +67,14 @@ T13 (caracterización de sv3, R40) pasa a la primera a propósito: no toca códi
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | sv4 2581 (1 en rojo, el del bloqueo), sv3 2271, raíz de contratos 24 |
-| Cobertura líneas cambiadas | PENDIENTE del portero (T19) |
-| Mutantes | 167 en alcance; campaña abortada en la línea base (exit 3), PENDIENTE |
-| Tiempo de la suite sv4 | 281,6 s |
+| Tests ejecutados | sv4 2581 + 1 skipped, sv3 2271, raíz 498 + 3 skipped: todo en verde |
+| Cobertura líneas cambiadas | 100,0 % (362/362, PUERTA COBERTURA de `init.sh`, 2026-10-22) |
+| Mutantes | 167 en alcance; suite sin mutar ya en verde; campaña PENDIENTE (la lanza el líder) |
+| Tiempo de la suite sv4 | 281,6 s sin cobertura; 1016,3 s con cobertura (`init.sh`) |
 
 ## Pendiente
 
-Decisión del humano sobre el test de F-017 (`progress/current.md`); después T17 (campaña
-completa, análisis de supervivientes en `progress/mutacion_F-049.md`), T18 (este informe
+Campaña de mutación de T17 (la lanza el líder; `--workers` por defecto, o `--workers 1` si la
+base paralela falla), análisis de supervivientes en `progress/mutacion_F-049.md`; después T18 (este informe
 completo) y T19 (`bash harness/init.sh`). MANUAL M2–M8 y despliegue sv3 → sv4: en
 `progress/current.md`.

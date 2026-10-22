@@ -674,9 +674,19 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
-## F-049 · BLOCKED (implementer, 2026-10-22: test de F-017 fuera de la lista cerrada), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+## F-049 · IN_PROGRESS (desbloqueada el 2026-10-22; T17 pendiente SOLO de la campaña de mutación, que lanza el líder), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
 
-**BLOQUEO (2026-10-22, implementer) · decisión del humano necesaria.** La campaña de mutación
+**Desbloqueada el 2026-10-22 por decisión del humano (opción A, respuesta literal «a»):** el
+guardián de F-017 sube a 18 llamadas a `_actor(request)` y su docstring nombra la del editor de
+celda (`POST /api/matriz/celda`, firma `solicitado_por`); el test entra en la lista cerrada de
+design §3 (apartado c) y el `acceptance` de `features.json` lo recoge. Verificado con
+`bash harness/init.sh` en verde (sv4 `2581 passed, 1 skipped` en 1016 s; sv3 `2271 passed`;
+raíz `498 passed, 3 skipped`; PUERTA COBERTURA 100 % de 362 líneas). Para que design.md siga
+en el tope de 250 líneas, la lista cerrada se reflotó (mismo contenido, (b) abreviado).
+**Queda T17 SOLO a falta de la campaña de mutación, que lanza el líder** (no el implementer);
+después T18 (informe completo con supervivientes) y T19 (portero).
+
+Registro del bloqueo (historia): La campaña de mutación
 (T17) abortó en la línea base: la suite de sv4 sin mutar tenía dos fallos, los dos guardas de
 recuento de features anteriores. Uno resuelto sin tocar tests; el otro exige tocar un test
 existente que **no** está en la lista cerrada de design §3 ni en el `acceptance` («tests

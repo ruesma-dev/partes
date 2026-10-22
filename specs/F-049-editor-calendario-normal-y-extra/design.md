@@ -57,12 +57,12 @@ ofrece «Extra» si hay ordinaria no congelada y guarda con `PATCH` + `/extra` e
 - `services/partes-persistencia/infrastructure/database/recalculo_seguimiento.py` —
   `marcar_terminado`: el UPDATE filtra solo `recalculo_pedido_id == peticion_id` (sin
   `id == document_id`) y devuelve `rowcount >= 1`; misma firma; docstring con F-049 R41.
-- **Lista cerrada de tests existentes**: (a) por `undo_last(actor=…)` (DA8), los dobles
-  `undo_last(self)` de `test_f042_recalculo_fecha.py` (~l. 470) y
-  `test_f043_alcance_y_seguimiento.py` (~l. 636) pasan a `undo_last(self, **_kw)`; (b) por
-  DA13-C, `test_f043_r28_adaptador_solo_toca_su_documento` (sv3, `test_f043_seguimiento_sv3.py`
-  ~l. 122) afirma lo contrario de R41: se invierte y se renombra
-  `test_f043_r28_adaptador_marca_todo_documento_con_su_pedido`. Nada más.
+- **Lista cerrada de tests existentes**: (a) por `undo_last(actor=…)` (DA8), los dobles `undo_last(self)` de
+  `test_f042_recalculo_fecha.py` (~l. 470) y `test_f043_alcance_y_seguimiento.py` (~l. 636) pasan a
+  `undo_last(self, **_kw)`; (b) por DA13-C, `test_f043_r28_adaptador_solo_toca_su_documento` (sv3, ~l. 122
+  de `test_f043_seguimiento_sv3.py`) contradice R41: se invierte y se renombra `…_marca_todo_documento_con_su_pedido`;
+  (c) `test_f017_punto_unico.py`: `_actor(request)` de 17 a 18 por `POST /api/matriz/celda`, que firma
+  `solicitado_por` (decisión del humano 2026-10-22, opción A, literal «a»). Nada más.
 - `docs/ARCHITECTURE.md` (semánticas 3 y 10, pedido compartido) y
   `PycharmProjects/azure-apps/partes.md` (motivos, rutas; commit local en `azure-apps`).
 
