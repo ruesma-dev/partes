@@ -680,9 +680,11 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 guardián de F-017 sube a 18 llamadas a `_actor(request)` y su docstring nombra la del editor de
 celda (`POST /api/matriz/celda`, firma `solicitado_por`); el test entra en la lista cerrada de
 design §3 (apartado c) y el `acceptance` de `features.json` lo recoge. Verificado con
-`bash harness/init.sh` en verde (sv4 `2581 passed, 1 skipped` en 1016 s; sv3 `2271 passed`;
-raíz `498 passed, 3 skipped`; PUERTA COBERTURA 100 % de 362 líneas). Para que design.md siga
-en el tope de 250 líneas, la lista cerrada se reflotó (mismo contenido, (b) abreviado).
+`bash harness/init.sh` en verde tras `8d383e8` («ENTORNO LISTO»: sv4 `2581 passed, 1 skipped`
+en 842 s; sv3 `2271 passed`; raíz `498 passed, 3 skipped`; COBERTURA 100 % de 362 líneas;
+TAMAÑO design 250/250). Una primera pasada dio rojo solo por la PUERTA TAMAÑO (design.md
+255 > 250): la lista cerrada se reflotó (mismo contenido; en (b), «afirma lo contrario de» →
+«contradice» y el nombre nuevo abreviado como `…_marca_todo_documento_con_su_pedido`).
 **Queda T17 SOLO a falta de la campaña de mutación, que lanza el líder** (no el implementer);
 después T18 (informe completo con supervivientes) y T19 (portero).
 

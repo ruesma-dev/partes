@@ -54,9 +54,10 @@ T13 (caracterización de sv3, R40) pasa a la primera a propósito: no toca códi
 
 ## Verificaciones hechas (resultado real)
 
-- `bash harness/init.sh` tras la enmienda de F-017 (2026-10-22): verde. sv4 `2581 passed,
-  1 skipped, 1 warning in 1016.31s`; sv3 `2271 passed in 76.73s`; raíz `498 passed, 3 skipped
-  in 161.06s`; `PUERTA COBERTURA: 100.0% de 362 líneas cambiadas cubiertas`.
+- `bash harness/init.sh` tras `8d383e8` (2026-10-22): `ENTORNO LISTO`. sv4 `2581 passed,
+  1 skipped, 1 warning in 842.04s`; sv3 `2271 passed in 76.73s` (pasada anterior; en esta,
+  caché de árbol sin cambios); raíz `498 passed, 3 skipped in 140.54s`; `PUERTA COBERTURA:
+  100.0% de 362 líneas cambiadas cubiertas`; `PUERTA TAMAÑO` dentro (design 250/250).
 - Antes (tras `4889e1e`, sin `-x`): sv4 `1 failed, 2580 passed, 1 skipped in 281.62s`, el único
   fallo era el del bloqueo (`test_f017_…usan_el_helper`, `assert 18 == 17`).
 - `node --check services/partes-front/static/app.js`: OK; plantilla parseada con Jinja2.
@@ -70,7 +71,7 @@ T13 (caracterización de sv3, R40) pasa a la primera a propósito: no toca códi
 | Tests ejecutados | sv4 2581 + 1 skipped, sv3 2271, raíz 498 + 3 skipped: todo en verde |
 | Cobertura líneas cambiadas | 100,0 % (362/362, PUERTA COBERTURA de `init.sh`, 2026-10-22) |
 | Mutantes | 167 en alcance; suite sin mutar ya en verde; campaña PENDIENTE (la lanza el líder) |
-| Tiempo de la suite sv4 | 281,6 s sin cobertura; 1016,3 s con cobertura (`init.sh`) |
+| Tiempo de la suite sv4 | 281,6 s sin cobertura; 842,0 s con cobertura (`init.sh`) |
 
 ## Pendiente
 
