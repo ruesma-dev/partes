@@ -253,3 +253,224 @@ def test_f060_doble_mover_cuenta_para_el_cierre_en_la_ventana() -> None:
     cli.cerrar_al_escribir = {HMO_OCT: CERRADO}
     assert cli.escribir([_stmt_mover(cli, linea)]) == 0
     assert cli.lineas[0]["fec"] == 20261003
+
+
+# ======================= Pipeline · paso 6 bis ======================= #
+
+def _st(*, mover=True, pruebas=False) -> SettingsFake:
+    st = SettingsFake(obra_pruebas_forzar=pruebas)
+    st.mover_ciz = mover
+    return st
+
+
+def _pipe(cli, *, mover=True, pruebas=False, lock=None) -> RegistroPipeline:
+    return RegistroPipeline(cliente=cli, settings=_st(mover=mover,
+                                                      pruebas=pruebas),
+                            lock=lock)
+
+
+def _fin(rid, fecha_int, racha=(), *, rec=REC) -> LineaEntrada:
+    return LineaEntrada(registro_id=rid, fecha_int=fecha_int, recurso_ide=rec,
+                        nombre=f"Persona {rid}", es_incidencia=True,
+                        incidencia_codigo="V", incidencia_rol="fin",
+                        hora_ide=CIV, hora_codigo="CIV",
+                        racha_registro_ids=list(racha))
+
+
+def _ini(rid, fecha_int, racha=()) -> LineaEntrada:
+    linea = _fin(rid, fecha_int, racha)
+    linea.incidencia_rol = "inicio"
+    return linea
+
+
+def _trabajo(rid, fecha_int) -> LineaEntrada:
+    return LineaEntrada(registro_id=rid, fecha_int=fecha_int,
+                        recurso_ide=REC, nombre=f"Persona {rid}",
+                        tipo_hora="normal", horas=8.0, hora_ide=HN)
+
+
+def _pf(cli, lineas, **kw):
+    return _pipe(cli, **kw).preflight(obra=_obra(), lineas=lineas)
+
+
+def _acc(pf, rid) -> AccionLinea:
+    return next(a for a in pf.acciones if a.registro_id == rid)
+
+
+def test_f060_r13_mueve_el_ciz_de_la_racha_con_una_lectura() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    pf = _pf(cli, [_fin(4, 20261004, [1, 2, 3])])
+    a = _acc(pf, 4)
+    assert a.accion == "escribir" and a.hora_codigo == "CIZ"
+    assert a.mover is not None and a.mover.ide == 7001
+    assert cli.racha_leidas == [["partes:1", "partes:2", "partes:3"]]
+    assert cli.estados_leidos == [[HMO_OCT]]
+
+
+def test_f060_r13_una_sola_lectura_para_todas_las_acciones() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3),
+               _fila(7101, fec=20261013, rid=13, reside=REC + 1))
+    otro = _fin(14, 20261014, [13], rec=REC + 1)
+    cli.horas[REC + 1] = HORAS[REC]
+    pf = _pf(cli, [_fin(4, 20261004, [3]), otro, _trabajo(5, 20261005)])
+    assert len(cli.racha_leidas) == 1 and len(cli.estados_leidos) == 1
+    assert cli.racha_leidas[0] == ["partes:13", "partes:3"]
+    assert _acc(pf, 4).mover.ide == 7001 and _acc(pf, 14).mover.ide == 7101
+    assert _acc(pf, 5).mover is None
+
+
+def test_f060_r13_solo_el_ciz_del_mismo_recurso() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3, reside=999))
+    a = _acc(_pf(cli, [_fin(4, 20261004, [3])]), 4)
+    assert a.accion == "escribir" and a.mover is None
+
+
+def test_f060_r13_sin_candidatas_no_lee_partes() -> None:
+    cli = _cli()
+    a = _acc(_pf(cli, [_fin(4, 20261004, [3])]), 4)
+    assert a.accion == "escribir" and a.mover is None
+    assert cli.racha_leidas == [["partes:3"]] and cli.estados_leidos == []
+
+
+def test_f060_r13_despues_de_la_idempotencia() -> None:
+    """Una `fin` que ya esta en Sigrid es `ya_registrado`: no se busca su
+    racha."""
+    cli = _cli(_fila(7001, fec=20261003, rid=3),
+               _fila(7002, fec=20261004, rid=4))
+    a = _acc(_pf(cli, [_fin(4, 20261004, [3])]), 4)
+    assert a.accion == "ya_registrado" and a.mover is None
+    assert cli.racha_leidas == []
+
+
+def test_f060_r13_dentro_del_lock_al_registrar() -> None:
+    import threading
+    lock = threading.Lock()
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    cli.vigilar_lock(lock)
+    r = _pipe(cli, lock=lock).ejecutar(obra=_obra(),
+                                       lineas=[_fin(4, 20261004, [3])])
+    assert r.ok and [e["registro_id"] for e in r.escritas] == [4]
+    assert "lineas_de_racha" in cli.llamadas
+
+
+def test_f060_r13_solo_las_acciones_ciz() -> None:
+    """Un inicio (CI*) con ids no busca nada."""
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    pf = _pf(cli, [_ini(4, 20261004, [3])])
+    assert _acc(pf, 4).hora_codigo == "CIV" and _acc(pf, 4).mover is None
+    assert cli.racha_leidas == []
+
+
+def test_f060_r14_ciz_posterior_es_intermedio() -> None:
+    cli = _cli(_fila(7001, fec=20261006, rid=6))
+    pf = _pf(cli, [_fin(4, 20261004, [3, 5, 6])])
+    a = _acc(pf, 4)
+    assert a.accion == "omitir" and a.mover is None
+    assert a.motivo.startswith("dia intermedio de la incidencia")
+    assert "2026-10-06" in a.motivo and a.caa_ide == 0
+
+
+def test_f060_r14_al_ejecutar_no_escribe_nada() -> None:
+    cli = _cli(_fila(7001, fec=20261006, rid=6))
+    r = _pipe(cli).ejecutar(obra=_obra(), lineas=[_fin(4, 20261004, [6])])
+    assert r.escritas == [] and [o["registro_id"] for o in r.omitidas] == [4]
+    assert "escribir" not in cli.llamadas
+    assert cli.lineas[0]["fec"] == 20261006
+
+
+def test_f060_r15_duplicados_warning_sin_nombres(caplog) -> None:
+    cli = _cli(_fila(7001, fec=20261002, rid=2),
+               _fila(7002, fec=20261003, rid=3))
+    with caplog.at_level("WARNING"):
+        pf = _pf(cli, [_fin(4, 20261004, [2, 3])])
+    assert _acc(pf, 4).mover.ide == 7002
+    avisos = [r.getMessage() for r in caplog.records
+              if "ciz_duplicados" in r.getMessage()]
+    assert avisos == ["[registro] ciz_duplicados registro_id=4 ide=7002 "
+                      "duplicados=1"]
+    assert "Persona" not in caplog.text
+
+
+def test_f060_r15_sin_duplicados_no_avisa(caplog) -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    with caplog.at_level("WARNING"):
+        _pf(cli, [_fin(4, 20261004, [3])])
+    assert "ciz_duplicados" not in caplog.text
+
+
+def test_f060_r17_ciz_en_parte_cerrado_se_omite() -> None:
+    cli = _cli(_fila(7001, fec=20260930, rid=3, hmoide=HMO_SEP),
+               partes=[_parte(HMO_SEP, "PT26/00009", mes=9, est=CERRADO),
+                       _parte(HMO_OCT, "PT26/00010")])
+    r = _pipe(cli).ejecutar(obra=_obra(), lineas=[_fin(4, 20261001, [3])])
+    assert r.escritas == []
+    (o,) = r.omitidas
+    assert o["motivo"].startswith("ciz_en_parte_cerrado: ")
+    assert "PT26/00009 (Cerrado)" in o["motivo"]
+    assert len(cli.lineas) == 1 and cli.lineas[0]["fec"] == 20260930
+
+
+def test_f060_r18_ciz_enlazado_se_omite() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3, enlazada=True))
+    r = _pipe(cli).ejecutar(obra=_obra(), lineas=[_fin(4, 20261004, [3])])
+    assert r.escritas == []
+    (o,) = r.omitidas
+    assert o["motivo"].startswith("linea_enlazada: ")
+    assert "linea 7001" in o["motivo"] and "PT26/00010" in o["motivo"]
+    assert len(cli.lineas) == 1
+
+
+def _cli_pruebas(*filas) -> SigridFake:
+    cli = _cli(*filas)
+    cli.obras["0404"] = _obra(cod="0404")
+    return cli
+
+
+def test_f060_r19_en_pruebas_sin_marca_no_se_mueve() -> None:
+    cli = _cli_pruebas(_fila(7001, fec=20261003, rid=3, tex=None))
+    a = _acc(_pf(cli, [_fin(4, 20261004, [3])], pruebas=True), 4)
+    assert a.accion == "escribir" and a.mover is None
+
+
+def test_f060_r19_en_pruebas_con_marca_se_mueve() -> None:
+    cli = _cli_pruebas(_fila(7001, fec=20261003, rid=3, tex="PRUEBA-IA"))
+    a = _acc(_pf(cli, [_fin(4, 20261004, [3])], pruebas=True), 4)
+    assert a.mover is not None and a.mover.ide == 7001
+
+
+def test_f060_r19_fuera_de_pruebas_la_marca_da_igual() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3, tex=None))
+    assert _acc(_pf(cli, [_fin(4, 20261004, [3])]), 4).mover.ide == 7001
+
+
+def test_f060_r25_preflight_consultivo_no_escribe() -> None:
+    cli = _cli(_fila(7001, fec=20261006, rid=6),
+               _fila(7002, fec=20261013, rid=13))
+    pf = _pf(cli, [_fin(4, 20261004, [6]), _fin(14, 20261014, [13])])
+    assert _acc(pf, 4).accion == "omitir"
+    assert _acc(pf, 14).mover.ide == 7002
+    assert "escribir" not in cli.llamadas
+    assert [f["fec"] for f in cli.lineas] == [20261006, 20261013]
+
+
+@pytest.mark.parametrize("mover,racha", [(False, [3]), (True, [])])
+def test_f060_r26_apagado_o_sin_ids_como_hoy(mover, racha) -> None:
+    """Apagado (o sin ids): el `fin` escribe un CIZ nuevo aunque la racha
+    ya tenga uno, y no se lee nada de mas."""
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    pf = _pf(cli, [_fin(4, 20261004, racha)], mover=mover)
+    assert _acc(pf, 4).accion == "escribir" and _acc(pf, 4).mover is None
+    assert cli.racha_leidas == [] and cli.estados_leidos == []
+    r = _pipe(cli, mover=mover).ejecutar(obra=_obra(),
+                                         lineas=[_fin(4, 20261004, racha)])
+    assert [e["registro_id"] for e in r.escritas] == [4]
+    assert "movida_de" not in r.escritas[0]
+    assert sorted(f["fec"] for f in cli.lineas) == [20261003, 20261004]
+
+
+def test_f060_r26_settings_sin_el_ajuste_es_apagado() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    pipe = RegistroPipeline(cliente=cli, settings=SettingsFake())
+    a = _acc(pipe.preflight(obra=_obra(), lineas=[_fin(4, 20261004, [3])]),
+             4)
+    assert a.mover is None and cli.racha_leidas == []

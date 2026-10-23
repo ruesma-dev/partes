@@ -52,6 +52,11 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      registro, se propone uno nuevo con el codigo de siempre.
   6. Detectar lineas YA registradas por nosotros (synckey) -> idempotencia.
      Tambien las `dedicacion`: si ya viven en Sigrid, Sigrid manda (R5).
+  6 bis. F-060, solo con el interruptor MOVER_CIZ: el `fin` de una racha
+     (codigo `CIZ` con `racha_registro_ids`) busca el CIZ de la racha por
+     las synckeys de sus lineas (`lineas_de_racha`) y `decidir_fin` decide:
+     moverlo al dia nuevo (paso 9), omitir (el CIZ ya esta despues, en un
+     parte cerrado o enlazado) o crearlo como siempre.
   7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
@@ -124,6 +129,7 @@ from application.services.pisado import (
     origen_linea,
     tiene_horas,
 )
+from application.services.racha_ciz import CODIGO_FIN, CREAR, MOVER, decidir_fin
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -368,6 +374,9 @@ class RegistroPipeline:
                 a.motivo = (f"ya registrada en Sigrid (linea {hit.ide}); "
                             f"no se duplica")
 
+        # Paso 6 bis (F-060): el CIZ de la racha se mueve, no se duplica.
+        self._ciz_de_racha(ctx)
+
         # Paso 7: conflictos en TODOS los partes del periodo (F-031). Un
         # parte nuevo sin partes previos no puede tener conflicto.
         conflictos: list[Conflicto] = []
@@ -426,6 +435,54 @@ class RegistroPipeline:
             "ya=%s conflictos=%s", destino.codigo, len(pf.partes),
             pf.n_escribir, pf.n_omitir, pf.n_ya, len(conflictos))
         return pf
+
+    def _ciz_de_racha(self, ctx: ContextoRegistro) -> None:
+        """Paso 6 bis (F-060, R13-R19, R25, R26): con `MOVER_CIZ`, cada
+        accion `escribir` con codigo `CIZ` que trae `racha_registro_ids`
+        busca en Sigrid el CIZ de su racha por las synckeys de esas lineas
+        (UNA lectura para todas y UNA de los partes de las candidatas) y
+        `decidir_fin` dice que hacer: moverlo (`a.mover`), omitir la accion
+        (posterior, parte cerrado o enlazada) o crear como siempre.
+
+        Va despues de la idempotencia (una `fin` ya escrita no busca nada)
+        y antes de los conflictos, que corren igual para la accion. Bajo el
+        lock en `registrar`; en `preflight`, consultivo (R25). Apagado (o
+        un settings sin el ajuste), no lee nada: como antes (R26)."""
+        if not bool(getattr(self._st, "mover_ciz", False)):
+            return
+        racha = {l.registro_id: list(l.racha_registro_ids or [])
+                 for l in ctx.lineas}
+        fines = [a for a in ctx.acciones
+                 if a.accion == "escribir"
+                 and (a.hora_codigo or "").strip().upper() == CODIGO_FIN
+                 and racha.get(a.registro_id)]
+        if not fines:
+            return
+        leidas = self._cli.lineas_de_racha(
+            [synckey_de(i) for a in fines for i in racha[a.registro_id]])
+        hmoides = {int(ls.hmoide) for ls in leidas.values() if ls.hmoide}
+        partes = {h: ParteSigrid(ide=h, cod=d.get("cod"), est=d.get("est"))
+                  for h, d in (self._cli.estados_de_partes(hmoides)
+                               if hmoides else {}).items()}
+        marca = self._st.marca_pruebas if ctx.forzada_pruebas else None
+        for a in fines:
+            candidatas = [leidas[sk] for sk in
+                          (synckey_de(i) for i in racha[a.registro_id])
+                          if sk in leidas]
+            d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0), candidatas,
+                            partes=partes, est_registro=self._est_registro(),
+                            marca_pruebas=marca,
+                            nombre_estado=self._nombre_estado)
+            if d.tipo == MOVER:
+                a.mover = d.linea
+                if d.duplicados:
+                    # R15 (DA8): las demas no se tocan. Sin nombres ni DNIs.
+                    logger.warning(
+                        "[registro] ciz_duplicados registro_id=%s ide=%s "
+                        "duplicados=%s", a.registro_id, d.linea.ide,
+                        d.duplicados)
+            elif d.tipo != CREAR:
+                self._omitir(a, d.motivo)
 
     # ---------------- ayudas de los pasos 5-8 (F-031) ---------------- #
     def _est_registro(self) -> int:
