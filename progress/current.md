@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-059 · IN_PROGRESS 2026-10-23 (implementer, T1–T8 y T11): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 
 **Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
 dices que sí, lanzo el implementer» sobre DA1–DA4 respondió «a». DA1 = A (solo OpenAI, lista

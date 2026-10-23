@@ -964,3 +964,18 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
 - Observaciones del reviewer: quitar de la semántica 18 la corrección a mano si se descarta la
   M2; repetir la M1 antes de la M2 (pueden ser 7 documentos, no 3).
 - Pendiente: desplegar sv3 y la M2 con autorización expresa.
+
+## F-059 · La IA no lee bien el PDF con /Rotate: sv2 le manda la página ya derecha — done 2026-10-23
+
+- Rama `feature/F-059-pagina-como-imagen-derecha` · rigor estándar · sdd=true · APPROVED del
+  reviewer en la pasada 2 (`progress/review_F-059.md`; pasada 1: falta el comando de la M4).
+- Entregado: sv2 — la página escaneada (un JPEG a página completa) se manda a OpenAI como imagen
+  girada según /Rotate, con `detail: high`; si no aplica o falla, el PDF como hoy (WARNING sin
+  datos). `meta.adjunto_ia` con la traza; `meta.source_*` y sha256 del original. Interruptor
+  `PAGINA_COMO_IMAGEN` (encendido), `PAGINA_COMO_IMAGEN_PROVEEDORES=openai`,
+  `OPENAI_IMAGE_DETAIL=high`. Dependencias pypdf y Pillow. azure-apps `7cc2e66`.
+- Decisiones del humano: DA1–DA4 = A («a», 2026-10-23).
+- Verificado: init.sh en verde; sv2 148 passed; cobertura 99,4 %; mutación 20 mutantes, 2
+  huecos reales cerrados con tests y 1 equivalente demostrado; banco del líder M0 22/22,
+  M1 12/12 (antes 0/12), M2 4/4, M3 sin regresión (42/42, 123/123 filas).
+- Pendiente: desplegar sv2, M4 y releer los 6 partes sin obra del 21 y 23/10.
