@@ -221,8 +221,10 @@ escrituras en ningún sistema.
   `sincab_gemini.jsonl`. **M2**: `paginas_control`, 2 pasadas ⇒ 4/4 como en PDF.
 - **M3**: `paginas` (14) × 3 en imagen y en PDF, `corregir.py` contra
   `verdad.json` ⇒ aciertos por fila ≥ PDF y ninguna cabecera vacía nueva.
-- **M4** (humano, tras desplegar): SELECT de solo lectura en la base `partes` sobre
-  `raw_extraction_json` de las ingestas nuevas ⇒ `adjunto_ia.conversion = convertida`.
+- **M4** (humano, tras `.\infra\redeploy_partes.ps1 -Solo sv2`; solo lectura en la base `partes`,
+  `raw_extraction_json` es `Text` y `created_at_utc` varchar ISO):
+  `SELECT id, created_at_utc, raw_extraction_json::jsonb #>> '{meta,adjunto_ia,conversion}' AS conversion, raw_extraction_json::jsonb #>> '{meta,adjunto_ia,motivo}' AS motivo FROM parte_documents WHERE created_at_utc >= '<instante del despliegue, ISO UTC>' ORDER BY created_at_utc DESC LIMIT 20;`
+  ⇒ páginas escaneadas `convertida`, ningún `error`.
 
 Resultados (tablas sin nombres ni DNIs) en `progress/banco_F-059.md`. Si M1–M3
 no se cumplen, la feature queda `blocked` y se vuelve a proponer.

@@ -138,7 +138,9 @@ def test_f059_r12_no_aplica_manda_el_pdf_byte_a_byte_e_info(caplog) -> None:
     assert enviado.mime_type == "application/pdf"
     assert enviado.data == PDF
     info = [r.getMessage() for r in _registros(caplog, logging.INFO)]
-    assert any(MOTIVO_IMAGEN_NO_JPEG in m and SHA_PDF[:12] in m for m in info), info
+    # El «:» fija el final: un corte a 13 caracteres no pasaría (sha256[:13]).
+    assert any(MOTIVO_IMAGEN_NO_JPEG in m and f"sha256={SHA_PDF[:12]}:" in m
+               for m in info), info
     assert env["meta"]["adjunto_ia"] == {
         "conversion": "no_aplica", "motivo": MOTIVO_IMAGEN_NO_JPEG,
         "kind": "pdf", "mime_type": "application/pdf", "size_bytes": len(PDF),
@@ -165,7 +167,7 @@ def test_f059_r13_fallo_manda_el_pdf_con_warning_sin_datos(
     assert len(avisos) == 1
     texto = avisos[0].getMessage()
     assert type(error).__name__ in texto
-    assert f"sha256={SHA_PDF[:12]}" in texto
+    assert f"sha256={SHA_PDF[:12]}:" in texto, "corte exacto a 12 caracteres"
     assert SHA_PDF not in texto, "solo los 12 primeros caracteres"
     assert "Fulano" not in texto and "12345678Z" not in texto
     assert NOMBRE_FICHERO not in texto

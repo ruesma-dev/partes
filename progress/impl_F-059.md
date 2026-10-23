@@ -6,8 +6,8 @@ solo sv2. Aprobación del humano (2026-10-23), literal: a «¿A en las cuatro? S
 lanzo el implementer» respondió «a» ⇒ DA1–DA4 = A, anotado en `design.md` §7 y en
 `progress/current.md`.
 
-**Estado: T1–T8 y T11 hechas. Pendientes: T9 (banco M0–M3, líder), T10 (M4 tras desplegar
-sv2, humano) y la review.**
+**Estado: T1–T9 y T11 hechas; pasada 1 del reviewer (CHANGES_REQUESTED, C4) corregida: M4 con
+comando exacto y observación 1 aplicada. Pendientes: T10 (M4 tras desplegar, humano), pasada 2.**
 
 ## Qué cambió
 
@@ -157,17 +157,22 @@ pytest` ⇒ `144 passed in 2.25s`.
   300 ppp (MediaBox 841,68 × 595,2, `cm 841.68 0 0 595.2 0 0`) con `/Rotate 270` ⇒
   `convertida`, giro 270, 2480 × 3507, 137 KB (blanca), 0,09 s.
 - `python -m harness.tamano --feature F-059` ⇒ dentro de los topes (requirements 148/150,
-  design 248/250).
+  design 250/250, tras la pasada 1).
 - `bash harness/init.sh` ⇒ **ENTORNO LISTO** (detalle en «Evidencias»).
 
 ## Verificaciones MANUAL pendientes (no son de esta tanda)
 
 - **T9 (líder)**: M0–M3 en el banco con el código de la rama (`design.md` §9). Si no se cumplen,
   `blocked`.
-- **T10 (humano)**: desplegar sv2 (`redeploy_partes.ps1 -Solo sv2`) y comprobar con un SELECT de
-  solo lectura que las ingestas nuevas de páginas escaneadas llevan
-  `meta.adjunto_ia.conversion = "convertida"`. Con DA3 = A no hay cambio de entorno en Azure;
-  volver atrás: `az containerapp update -n ca-sv2-extraccion -g rg-partes-dev --set-env-vars
+- **T10 · M4 (humano)**: desplegar sv2 con `.\infra\redeploy_partes.ps1 -Solo sv2` (lo lanza el
+  humano; con DA3 = A no hay cambio de entorno), anotar el instante UTC del despliegue y, en la
+  base `partes`, solo lectura (`raw_extraction_json` es `Text` ⇒ `::jsonb`; `created_at_utc` es
+  varchar ISO ⇒ se compara con una cadena ISO):
+  `SELECT id, created_at_utc, raw_extraction_json::jsonb #>> '{meta,adjunto_ia,conversion}' AS
+  conversion, raw_extraction_json::jsonb #>> '{meta,adjunto_ia,motivo}' AS motivo FROM
+  parte_documents WHERE created_at_utc >= '<instante del despliegue, ISO UTC>' ORDER BY
+  created_at_utc DESC LIMIT 20;` ⇒ páginas escaneadas `convertida`, **ningún `error`**. Vuelta
+  atrás: `az containerapp update -n ca-sv2-extraccion -g rg-partes-dev --set-env-vars
   PAGINA_COMO_IMAGEN=false`.
 
 ## T8 · mutación (la lanzó el líder) y supervivientes
@@ -185,6 +190,17 @@ completo en `progress/mutacion_F-059.md`; resumen:
 Mutantes [16] y [20] aplicados a mano: `2 failed, 5 passed` (tolerancias) y `2 failed`
 (wiring); revertidos, en verde. Sin cambios de código de producción. Campaña no relanzada.
 
+**Observación 1 de la pasada 1**: `sha256[:12]` → `[:13]` (`extract_parte_pipeline.py:116`, fuera
+de la muestra) sobrevivía porque R12/R13 buscaban el sha12 como subcadena; ahora fijan el final
+(`f"sha256={SHA_PDF[:12]}:"`). Mutante aplicado a mano en `services/partes-api` (revertido con
+`git checkout` ⇒ `python -m pytest -q`: 148 passed in 1.71s; caen R12 y las 4 de R13):
+```
+$ python -m pytest tests/test_f059_pipeline.py -q   # con sha256[:13]
+FAILED tests/test_f059_pipeline.py::test_f059_r12_no_aplica_manda_el_pdf_byte_a_byte_e_info
+FAILED tests/test_f059_pipeline.py::test_f059_r13_fallo_manda_el_pdf_con_warning_sin_datos[ValueError]
+5 failed, 17 passed in 1.11s
+```
+
 ## Fuera de alcance
 
 Corte del escáner y sv1; render de PDF que no son página escaneada (DA2); EXIF de fotos del móvil
@@ -199,6 +215,6 @@ datos» de `ARCHITECTURE.md` que el proveedor de producción es OpenAI (dice Gem
 | Suite de la raíz (`init.sh`) | 498 passed, 3 skipped; sv1, sv3, sv4, sv5 en verde (caché) |
 | Cobertura de líneas cambiadas | **99,4 %** (164/165, umbral 80 %); la única sin cubrir es el `raise NotImplementedError` del método abstracto del puerto (`conversor_pagina.py:16`) |
 | Cobertura por fichero nuevo | `pagina_pdf_imagen.py` 100 %, `conversion_adjunto.py` 100 % |
-| Mutantes generados / supervivientes | 49 generados, 20 evaluados: 17 muertos, 3 supervivientes (2 huecos cerrados con 4 tests, 1 equivalente demostrado), 0 timeouts |
+| Mutantes generados / supervivientes | 49 generados, 20 evaluados: 17 muertos, 3 supervivientes (2 huecos cerrados con 4 tests, 1 equivalente demostrado), 0 timeouts; campaña lanzada con **4 workers** (42,2 s). Fuera de la muestra, `sha256[:13]` muere desde la pasada 1 (5 failed) |
 | Tiempo de la suite de sv2 | 2,13 s sola; 21,1 s dentro de `init.sh` (bajo `coverage`); suite de la raíz 69,1 s (tras T8) |
-| `bash harness/init.sh` | **ENTORNO LISTO**; PUERTA COBERTURA 99,4 %; PUERTA TAMAÑO en verde (impl 204/220; tras T8, 2026-10-23); ruff 772 avisos, los mismos que en `dev` (los ficheros nuevos, sin avisos) |
+| `bash harness/init.sh` | **ENTORNO LISTO**; PUERTA COBERTURA 99,4 %; PUERTA TAMAÑO en verde (impl 220/220, design 250/250; tras la pasada 1, 2026-10-23); ruff 772 avisos, los mismos que en `dev` (los ficheros nuevos, sin avisos) |
