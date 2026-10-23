@@ -1,27 +1,32 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-060 · PENDING 2026-10-23 (spec escrita, falta validar DA1–DA11): racha de incidencia con CIZ móvil
+## F-060 · IN_PROGRESS 2026-10-24 (implementer): racha de incidencia con CIZ móvil
 
 Spec en `specs/F-060-racha-incidencia-ciz-movil/` (rama `feature/F-060-racha-incidencia-ciz-movil`,
-worktree `partes-wt-f060`, desde `dev` 0926857). Alta en `harness/features.json`: `sdd: true`,
-rigor crítico, prioridad 3 (detrás de F-058 por orden de id). Servicios: sv4 decide el rol con
-el histórico de `partes` (ventana del mes anterior, todas las obras, letra, sin papelera) y
-manda `racha_registro_ids`; sv5 busca el CIZ de la racha por synckey y lo mueve con un
-`UPDATE` (nunca `DELETE`), con el interruptor `MOVER_CIZ` apagado por defecto. Sin esquema.
+worktree `partes-wt-f060`). Rigor crítico. Servicios: sv4 decide el rol con el histórico de
+`partes` y manda `racha_registro_ids`; sv5 busca el CIZ de la racha por synckey y lo mueve con
+un `UPDATE` (nunca `DELETE`), con `MOVER_CIZ` apagado por defecto. Sin esquema.
 
-Decisiones que tiene que validar el humano (`design.md` §12; recomendada A en todas):
-DA1 ventana (del día 1 del mes anterior al de D hasta D − 1; sin nada en ella ⇒ CI*, riesgo de abrir a mitad
-de una racha larga o manual; leer Sigrid descartado), DA2 sin tabla nueva y la synckey pasa
-al día nuevo (el anterior queda `omitido` `fin_movido`), DA3 mover también entre partes (otra
-obra u otro mes) y no duplicar si el origen está cerrado — **pedir visto bueno de
-Administración**, DA4 letra distinta abre racha, DA5 papelera fuera, DA6 CI* suelto sin CIZ —
-**pendiente de Administración**, DA7 desorden: intermedio o aviso `racha_desordenada`, nada
-hacia atrás, DA8 rachas viejas con varios CIZ fuera (informe M0), DA9 impacto en F-019 y
-F-024, DA10 identidad `persona_de`, DA11 interruptor `MOVER_CIZ`.
+**Aprobación del humano (2026-10-23, literal)**: «a en todo, lanza implementer y spec de la
+sigueinte feature» ⇒ DA1–DA11 = A. DA3 y DA6 siguen pendientes del visto bueno de
+Administración para ENCENDER `MOVER_CIZ` (no para implementar). M0 hecha por el líder (2 CIZ
+de partes en 2026/10, 0 enlazados, 0 recursos-mes con más de uno).
 
-- [ ] **M0 (líder, antes de implementar, solo lectura)**: las dos consultas de `design.md` §9
-  (CIZ de partes por mes, enlazados y recursos-mes con más de un CIZ).
+- [x] T1–T7 (sv5) hechas, un commit por tarea, fase RED con traza (se pegan en `impl_F-060.md`).
+- [ ] T8–T11 (sv4), T12 (docs), T15 (`init.sh`). T13 (mutación) la lanza el líder; T14 humano.
+
+**Decisiones y desviaciones (justificadas)**:
+- `decidir_fin` recibe `partes: Mapping[int, ParteSigrid]` (código y estado) y
+  `nombre_estado` en vez de `estados: Mapping[int, int|None]`: el motivo de R17 tiene que
+  nombrar el código y el estado del parte, y el de R18 (F-053) el código. Un parte que no se
+  pudo leer cuenta como cerrado (no se escribe a ciegas).
+- Un CIZ de la racha con fecha = D no es anterior ni posterior: `crear`, y el paso 7 lo
+  omite como `incidencia_en_sigrid` (no puede llegar: R9 excluye el día D).
+- `LineaSigrid.tex/pos` entraron en el commit de T1 (los necesita la regla pura de R19).
+- R23 en carrera por el parte de ORIGEN cerrado: la relectura de F-034 solo lee los partes
+  del periodo de D, así que sale `no_escrita` (con su ERROR) y no `parte_no_abierto`.
+  Aceptado: «sale omitida con los motivos de F-034 y nada más cambia».
 
 ## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 

@@ -665,3 +665,85 @@ def test_f060_ejemplo_todo_de_una_vez() -> None:
         == [(1, "CIV"), (4, "CIZ")]
     assert sorted(o["registro_id"] for o in r.omitidas) == [2, 3]
     assert all("movida_de" not in e for e in r.escritas)
+
+
+# ================= R27 · lo que NO cambia (caracterizacion) ================= #
+
+def test_f060_r27_r0_de_f019_manda_sobre_la_racha() -> None:
+    """Un mensual con el interruptor de F-019 encendido: su `fin` va a
+    dedicacion y no se busca ningun CIZ."""
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    cli.horas[REC] = HORAS[REC] + [_h(90, "MENC")]
+    st = _st()
+    st.mensuales_a_dedicacion = True
+    r = RegistroPipeline(cliente=cli, settings=st).ejecutar(
+        obra=_obra(), lineas=[_fin(4, 20261004, [3])])
+    assert [d["registro_id"] for d in r.dedicacion] == [4]
+    assert r.escritas == [] and cli.racha_leidas == []
+    assert cli.lineas[0]["fec"] == 20261003
+
+
+def test_f060_r27_el_inicio_sigue_con_su_ci() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    r = _ejecutar(cli, [_ini(4, 20261004, [3])])
+    (e,) = r.escritas
+    assert e["hora_codigo"] == "CIV" and "movida_de" not in e
+    assert _por_sk(cli)["partes:4"]["horide"] == CIV
+    assert _por_sk(cli)["partes:3"]["fec"] == 20261003
+
+
+def test_f060_r27_las_incidencias_siguen_con_can_cero() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    r = _ejecutar(cli, [_fin(4, 20261004, [3]), _ini(9, 20261009)])
+    assert [(e["can"], e["tot"]) for e in r.escritas] == [(0.0, 0.0),
+                                                         (0.0, 0.0)]
+    assert all(f["can"] == 0.0 for f in cli.lineas)
+
+
+def test_f060_r27_paso_7_un_ciz_ajeno_el_dia_d_se_omite() -> None:
+    """Un CIZ manual (sin synckey) el dia D: `incidencia_en_sigrid` como
+    siempre, aunque la racha tenga su CIZ para mover."""
+    manual = _fila(7100, fec=20261004, rid=0)
+    manual["synckey"] = None
+    cli = _cli(_fila(7001, fec=20261003, rid=3), manual)
+    r = _ejecutar(cli, [_fin(4, 20261004, [3])])
+    assert r.escritas == []
+    (o,) = r.omitidas
+    assert o["motivo"].startswith("incidencia_en_sigrid: ")
+    assert _por_sk(cli)["partes:3"]["fec"] == 20261003
+
+
+def test_f060_r27_conflicto_confirmable_no_cambia() -> None:
+    """Un trabajo de la misma peticion que choca sigue siendo conflicto
+    confirmable; el CIZ de la racha se mueve igual."""
+    ajena = _fila(7200, fec=20261005, rid=0, horide=HN, can=6.0)
+    ajena["synckey"] = None
+    cli = _cli(_fila(7001, fec=20261003, rid=3), ajena)
+    r = _ejecutar(cli, [_fin(4, 20261004, [3]), _trabajo(5, 20261005)])
+    assert [c.registros for c in r.pendientes_confirmacion] == [[5]]
+    assert [e["registro_id"] for e in r.escritas] == [4]
+
+
+@pytest.mark.parametrize("modulo", [
+    "application/services/estado_parte.py",
+    "application/services/cuenta_analitica.py",
+    "application/services/comprobacion_lineas.py",
+    "application/services/reajuste_lineas.py",
+    "application/pipelines/reajuste_pipeline.py",
+    "application/services/pisado.py",
+    "application/services/parte_abierto.py",
+])
+def test_f060_r27_modulos_que_no_saben_de_la_racha(modulo) -> None:
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parents[1]
+    fuente = (raiz / modulo).read_text(encoding="utf-8")
+    for nuevo in ("racha", "mover_ciz", "stmt_mover_linea", "movida_de",
+                  "F-060"):
+        assert nuevo not in fuente
+
+
+def test_f060_r27_docstring_de_r1_cuenta_el_ciz_movil() -> None:
+    from application.services import reglas_registro
+    doc = " ".join((reglas_registro.__doc__ or "").split())
+    assert "MOVER_CIZ" in doc and "mes anterior" in doc
+    assert "UPDATE" in doc and "racha_registro_ids" in doc
