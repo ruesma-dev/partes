@@ -6,7 +6,7 @@
 > `progress/impl_F-059.md`. Cada tarea = un commit `F-059 Tn: ...`.
 
 - [x] T1: Instalar Pillow en el `.venv` de la raíz (`python -m pip install "Pillow>=10.0"`) y añadir `pypdf>=4.2` y `Pillow>=10.0` a `infra/manifests/sv2/requirements.txt`  |  Verificación: `python -c "import PIL, pypdf"` sin error; `git diff dev -- infra/manifests/sv2/requirements.txt` solo añade esas dos líneas
-- [ ] T2: Escribir `services/partes-api/tests/f059_pdf_sinteticos.py` y `tests/test_f059_conversor.py` (R1–R10, `design.md` §8) y verlos en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f059_conversor.py` falla por el módulo ausente (traza RED en impl)
+- [x] T2: Escribir `services/partes-api/tests/f059_pdf_sinteticos.py` y `tests/test_f059_conversor.py` (R1–R10, `design.md` §8) y verlos en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f059_conversor.py` falla por el módulo ausente (traza RED en impl)
 - [ ] T3: Crear `domain/models/conversion_adjunto.py`, `domain/ports/conversor_pagina.py` e `infrastructure/document/pagina_pdf_imagen.py` según `design.md` §4 bis y §5  |  Verificación: `python -m pytest tests/test_f059_conversor.py` en verde
 - [ ] T4: Escribir `tests/test_f059_pipeline.py` (R11–R19) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f059_pipeline.py` falla (traza RED en impl)
 - [ ] T5: Añadir `conversor`, `proveedores_imagen`, `_preparar_para_ia` y `meta.adjunto_ia` a `application/pipelines/extract_parte_pipeline.py` (`design.md` §6)  |  Verificación: `python -m pytest tests/test_f059_pipeline.py tests/test_f023_empresa_membrete.py tests/test_f051_esquema.py tests/test_f051_prompt.py` en verde
