@@ -52,6 +52,9 @@ ESTADO_REGISTRADO = "registrado"
 MOTIVO_DESORDENADA = "racha_desordenada"
 LIMITE_MOTIVO = 255
 
+#: Prefijo del motivo de la linea cuyo CIZ se movio a otro dia (R28).
+MOTIVO_FIN_MOVIDO = "fin_movido"
+
 #: Por debajo de esto, una cantidad de horas es cero (como F-025).
 _EPSILON = 1e-9
 
@@ -225,6 +228,17 @@ def aviso_desordenada(hist: Sequence[LineaHist],
               and l.es_incidencia and l.sigrid_estado == ESTADO_REGISTRADO
               for l in hist)
     return siguiente if hay else None
+
+
+def motivo_fin_movido(hmores_ide: object, fecha_int: object) -> str:
+    """R28: el motivo de la linea X cuyo CIZ (`hmores_ide`) paso al dia D."""
+    try:
+        f = f"{int(fecha_int):08d}"
+        dia = f"{f[:4]}-{f[4:6]}-{f[6:]}"
+    except (TypeError, ValueError):
+        dia = "?"
+    return (f"{MOTIVO_FIN_MOVIDO}: el fin de la incidencia (CIZ, linea "
+            f"{hmores_ide}) paso al dia {dia}")[:LIMITE_MOTIVO]
 
 
 def motivo_desordenada(fecha_int: int) -> str:

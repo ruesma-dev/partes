@@ -311,3 +311,15 @@ def test_f060_regla_pura_sin_bbdd() -> None:
     fuente = inspect.getsource(racha_incidencia)
     for prohibido in ("sqlalchemy", "session", "select(", "httpx"):
         assert prohibido not in fuente
+
+
+# ===================== R28 · motivo de la linea movida ===================== #
+
+def test_f060_r28_motivo_fin_movido() -> None:
+    from application.services.racha_incidencia import motivo_fin_movido
+    assert motivo_fin_movido(9000, 20261004) == (
+        "fin_movido: el fin de la incidencia (CIZ, linea 9000) paso al dia "
+        "2026-10-04")
+    # Sin fecha legible no rompe: el dia sale como «?».
+    assert motivo_fin_movido(9000, None).endswith("paso al dia ?")
+    assert len(motivo_fin_movido("9" * 400, 20261004)) == 255

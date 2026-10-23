@@ -336,3 +336,251 @@ def test_f060_r12_sin_lineas_de_trabajo_ni_incidencia_no_consulta() -> None:
     vistos = _contar_historicos(f)
     _datos(f, [t])
     assert vistos == []
+
+
+# ================ R28-R29 · el dia que tenia el CIZ ================ #
+
+from infrastructure.database.orm_models import ParteRegistroOrm  # noqa: E402
+from infrastructure.transfer.resultado_sigrid import (  # noqa: E402
+    aplicar_resultado,
+)
+from tests.dobles import estados_sigrid  # noqa: E402
+
+MOTIVO_X = ("fin_movido: el fin de la incidencia (CIZ, linea 9000) paso al "
+            "dia 2026-10-04")
+
+
+def _con_ciz(fabrica, rid: int, ide: int = 9000) -> int:
+    """La linea `rid` quedo `registrado` con su CIZ en la linea `ide`."""
+    with fabrica.create_session() as s:
+        reg = s.get(ParteRegistroOrm, rid)
+        reg.sigrid_estado = "registrado"
+        reg.sigrid_hmores_ide = ide
+        s.commit()
+    return rid
+
+
+def _movido(fabrica):
+    """X (dia 3) tenia el CIZ (linea 9000); D (dia 4) se aprueba."""
+    x = _con_ciz(fabrica, _v(fabrica, 3))
+    d = _v(fabrica, 4)
+    return x, d
+
+
+def _resultado(d, x, *, ide=9000, **extra) -> dict:
+    e = {"registro_id": d, "hmoide": 901, "parte_cod": "PT26/00010",
+         "hora_codigo": "CIZ", "can": 0.0, "tot": 0.0, "hmores_ide": ide,
+         "movida_de": x}
+    e.update(extra)
+    return {"ok": True, "escritas": [e], "omitidas": [],
+            "ya_registradas": [], "pendientes_confirmacion": [],
+            "dedicacion": [], "forzada_pruebas": False}
+
+
+def _marcar(fabrica, resultado, usuario="ana") -> int:
+    return aplicar_resultado(ParteReviewRepository(fabrica), resultado,
+                             registro_ids=None, usuario=usuario)
+
+
+def test_f060_r28_movida_de_deja_el_dia_anterior_omitido() -> None:
+    f = _fabrica()
+    x, d = _movido(f)
+    _marcar(f, _resultado(d, x))
+    est = estados_sigrid(f, [x, d])
+    assert est[d] == ("registrado", None, 901, 9000, "PT26/00010")
+    assert est[x][0] == "omitido" and est[x][1] == MOTIVO_X
+    # Las referencias de X se quedan como traza.
+    assert est[x][3] == 9000
+    with f.create_session() as s:
+        rx = s.get(ParteRegistroOrm, x)
+        assert rx.sigrid_registrado_by == "ana"
+        assert rx.sigrid_registrado_at_utc > "2026-10-01"
+
+
+def test_f060_r28_motivo_cabe_en_la_columna() -> None:
+    f = _fabrica()
+    x, d = _movido(f)
+    _marcar(f, _resultado(d, x))
+    assert len(estados_sigrid(f, [x])[x][1]) <= 255
+
+
+@pytest.mark.parametrize("cambio", [
+    {"sigrid_estado": "omitido", "sigrid_motivo": "otro motivo"},
+    {"sigrid_estado": "borrado_sigrid"},
+    {"sigrid_hmores_ide": 8888},
+])
+def test_f060_r28_sin_cas_no_toca_y_avisa(cambio, caplog) -> None:
+    f = _fabrica()
+    x, d = _movido(f)
+    with f.create_session() as s:
+        reg = s.get(ParteRegistroOrm, x)
+        for k, v in cambio.items():
+            setattr(reg, k, v)
+        s.commit()
+    antes = estados_sigrid(f, [x])
+    with caplog.at_level("WARNING"):
+        _marcar(f, _resultado(d, x))
+    assert estados_sigrid(f, [x]) == antes
+    assert estados_sigrid(f, [d])[d][0] == "registrado"
+    avisos = [r.getMessage() for r in caplog.records
+              if "fin_movido_sin_cas" in r.getMessage()]
+    assert avisos == [f"[repo] fin_movido_sin_cas registro_id={d} "
+                      f"movida_de={x} hmores_ide=9000"]
+    assert "Persona" not in caplog.text
+
+
+def test_f060_r28_movida_de_inexistente_avisa() -> None:
+    f = _fabrica()
+    _x, d = _movido(f)
+    _marcar(f, _resultado(d, 999999))
+    assert estados_sigrid(f, [d])[d][0] == "registrado"
+
+
+def test_f060_r28_movida_de_a_si_misma_no_hace_nada(caplog) -> None:
+    f = _fabrica()
+    _x, d = _movido(f)
+    with caplog.at_level("WARNING"):
+        _marcar(f, _resultado(d, d))
+    assert estados_sigrid(f, [d])[d][0] == "registrado"
+    assert "fin_movido_sin_cas" not in caplog.text
+
+
+def test_f060_r28_sin_movida_de_como_antes(caplog) -> None:
+    f = _fabrica()
+    x, d = _movido(f)
+    r = _resultado(d, x)
+    del r["escritas"][0]["movida_de"]
+    with caplog.at_level("WARNING"):
+        _marcar(f, r)
+    assert estados_sigrid(f, [x])[x][0] == "registrado"
+    assert "fin_movido" not in caplog.text
+
+
+def test_f060_r28_movida_de_nula_como_antes() -> None:
+    f = _fabrica()
+    x, d = _movido(f)
+    _marcar(f, _resultado(d, x, movida_de=None))
+    assert estados_sigrid(f, [x])[x][0] == "registrado"
+
+
+def test_f060_r28_en_la_misma_transaccion(monkeypatch) -> None:
+    """Si el commit falla, ni D ni X cambian (y la cola reintenta)."""
+    f = _fabrica()
+    x, d = _movido(f)
+    antes = estados_sigrid(f, [x, d])
+    original = f.create_session
+
+    def sesion_que_falla():
+        s = original()
+
+        def commit():
+            raise RuntimeError("commit KO")
+        s.commit = commit
+        return s
+    monkeypatch.setattr(f, "create_session", sesion_que_falla)
+    with pytest.raises(RuntimeError, match="commit KO"):
+        _marcar(f, _resultado(d, x))
+    monkeypatch.setattr(f, "create_session", original)
+    assert estados_sigrid(f, [x, d]) == antes
+
+
+def test_f060_r29_aplicar_dos_veces_deja_lo_mismo(caplog) -> None:
+    f = _fabrica()
+    x, d = _movido(f)
+    _marcar(f, _resultado(d, x))
+    primero = estados_sigrid(f, [x, d])
+    with caplog.at_level("WARNING"):
+        _marcar(f, _resultado(d, x))
+    assert estados_sigrid(f, [x, d]) == primero
+    assert "fin_movido_sin_cas" not in caplog.text
+
+
+def test_f060_r29_cadena_de_movimientos() -> None:
+    """Dia 2 tenia el CIZ, paso al 3 y luego al 4: 2 y 3 quedan omitidos."""
+    f = _fabrica()
+    x2 = _con_ciz(f, _v(f, 2))
+    d3 = _v(f, 3)
+    d4 = _v(f, 4)
+    _marcar(f, _resultado(d3, x2))
+    _marcar(f, _resultado(d4, d3))
+    est = estados_sigrid(f, [x2, d3, d4])
+    assert [est[i][0] for i in (x2, d3, d4)] == ["omitido", "omitido",
+                                                  "registrado"]
+    assert est[x2][1].endswith("paso al dia 2026-10-03")
+    assert est[d3][1].endswith("paso al dia 2026-10-04")
+
+
+def test_f060_r29_por_el_consumidor_de_la_cola() -> None:
+    """El canal de `q-transfer-result` usa el mismo `aplicar_resultado`."""
+    from interface_adapters.workers import resultado_consumer
+    import inspect
+    assert "aplicar_resultado(" in inspect.getsource(resultado_consumer)
+
+
+# ===================== R30 · reparto por obras ===================== #
+
+def test_f060_r30_agregar_ejecucion_conserva_movida_de() -> None:
+    from application.services.reparto_obras import agregar_ejecucion
+    a = dict(_resultado(4, 3), clave="obr-10")
+    b = {"ok": True, "clave": "obr-20", "escritas": [
+        {"registro_id": 9, "hmoide": 902, "hmores_ide": 5}]}
+    plano = agregar_ejecucion([a, b])
+    assert [e.get("movida_de") for e in plano["escritas"]] == [3, None]
+    assert agregar_ejecucion([a])["escritas"][0]["movida_de"] == 3
+
+
+# ================== R10 · avisos_racha en el preflight ================== #
+
+@pytest.fixture
+def portal(monkeypatch):
+    from config.settings import Settings
+    from fastapi.testclient import TestClient
+    from interface_adapters.web.app import build_app
+    from tests.test_f022_aprobar_seleccion import (
+        CalendarioFalso,
+        PublisherFalso,
+        Sv5Falso,
+    )
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana",
+                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+        monkeypatch.setenv(clave, valor)
+    monkeypatch.delenv("INCIDENCIAS_PATH", raising=False)
+
+    def _levantar(fabrica):
+        sv5 = Sv5Falso()
+        app = build_app(Settings(_env_file=None),
+                        repository=ParteReviewRepository(fabrica),
+                        transfer_client=sv5, publisher=PublisherFalso(),
+                        calendario_provider=CalendarioFalso())
+        return TestClient(app), sv5
+    return _levantar
+
+
+def test_f060_r10_preflight_lleva_avisos_racha_por_grupo(portal) -> None:
+    f = _fabrica()
+    _v(f, 5, estado="registrado")
+    t = _t(f, 4)
+    cliente, sv5 = portal(f)
+    r = cliente.post("/api/aprobar/preflight", json={"registro_ids": [t]})
+    assert r.status_code == 200
+    (grupo,) = r.json()["grupos"]
+    assert [a["registro_id"] for a in grupo["avisos_racha"]] == [t]
+    assert grupo["avisos_racha"][0]["motivo"].startswith("racha_desordenada")
+    # Nunca al payload de sv5.
+    (payload,) = sv5.preflights
+    assert set(payload) == {"obra", "lineas", "pisar_claves", "usuario"}
+    assert "avisos_racha" not in payload["lineas"][0]
+
+
+def test_f060_r9_payload_de_sv5_lleva_la_racha(portal) -> None:
+    f = _fabrica()
+    d1 = _v(f, 1, estado="registrado")
+    d2 = _v(f, 2)
+    cliente, sv5 = portal(f)
+    cliente.post("/api/aprobar/ejecutar", json={"registro_ids": [d2]})
+    (payload,) = sv5.ejecutadas
+    (linea,) = payload["lineas"]
+    assert (linea["incidencia_rol"], linea["racha_registro_ids"]) == (
+        "fin", [d1])

@@ -105,6 +105,7 @@ from application.services.racha_incidencia import (
     decidir,
     hasta_delante,
     motivo_desordenada,
+    motivo_fin_movido,
     ventana,
 )
 from application.services.calendar_builder import (
@@ -2245,6 +2246,39 @@ class ParteReviewRepository:
             ).scalars().all())
         return out
 
+    @staticmethod
+    def _fin_movido(session, reg: ParteRegistroOrm, e: dict, *,
+                    usuario: str | None, ahora: str) -> None:
+        """F-060 (R28, R29): la linea X que tenia el CIZ movido a `reg` (D).
+
+        CAS: solo si X sigue `registrado` con ese mismo `hmores_ide`; sus
+        referencias (`sigrid_hmores_ide`, parte) se quedan como traza.
+        Sin CAS no se toca nada: si X ya esta `omitido` con este mismo
+        motivo (reentrega del resultado por el otro canal) es silencio; si
+        no, un WARNING sin datos personales."""
+        x = e.get("movida_de")
+        if x is None or int(x) == reg.id:
+            return
+        motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
+        cambiadas = session.execute(
+            update(ParteRegistroOrm)
+            .where(ParteRegistroOrm.id == int(x),
+                   ParteRegistroOrm.sigrid_estado == "registrado",
+                   ParteRegistroOrm.sigrid_hmores_ide == e.get("hmores_ide"))
+            .values(sigrid_estado="omitido", sigrid_motivo=motivo,
+                    sigrid_registrado_at_utc=ahora,
+                    sigrid_registrado_by=usuario)
+            .execution_options(synchronize_session="fetch")).rowcount
+        if cambiadas:
+            return
+        previa = session.get(ParteRegistroOrm, int(x))
+        if (previa is not None and previa.sigrid_estado == "omitido"
+                and previa.sigrid_motivo == motivo):
+            return
+        logger.warning(
+            "[repo] fin_movido_sin_cas registro_id=%s movida_de=%s "
+            "hmores_ide=%s", reg.id, x, e.get("hmores_ide"))
+
     @classmethod
     def _roles_de_racha(
         cls, session, regs: list[ParteRegistroOrm],
@@ -2516,6 +2550,10 @@ class ParteReviewRepository:
         falla, no se marca nada y la excepcion sube (la cola reintenta).
         `prueba` es el `forzada_pruebas` del resultado; con `incidencias`,
         la fila lleva la clase de la incidencia.
+
+        F-060 (R28, R29): una escrita con `movida_de` = X (sv5 movio a la
+        linea D el CIZ que tenia X) deja X `omitido` con motivo
+        `fin_movido`, en ESTA MISMA transaccion y con CAS (`_fin_movido`).
         """
         ahora = datetime.now(timezone.utc).isoformat()
         n = 0
@@ -2534,6 +2572,7 @@ class ParteReviewRepository:
                 logger.warning("[repo] registro FALLIDO en %s linea(s): %s",
                                n, error_global)
                 return n
+            movidas: list[tuple[ParteRegistroOrm, dict]] = []
             for e in escritas or []:
                 reg = session.get(ParteRegistroOrm, int(e["registro_id"]))
                 if reg is None:
@@ -2546,6 +2585,10 @@ class ParteReviewRepository:
                 reg.sigrid_parte_cod = e.get("parte_cod")
                 reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                 n += 1
+                movidas.append((reg, e))
+            for reg, e in movidas:
+                self._fin_movido(session, reg, e, usuario=usuario,
+                                 ahora=ahora)
             for o in omitidas or []:
                 reg = session.get(ParteRegistroOrm, int(o["registro_id"]))
                 if reg is None:
