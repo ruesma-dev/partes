@@ -199,8 +199,8 @@ datos» de `ARCHITECTURE.md` que el proveedor de producción es OpenAI (dice Gem
 |---|---|
 | Tests de sv2 | **144 passed** (32 previos + 112 nuevos: 70 conversor, 22 pipeline, 20 config), 0 fallos |
 | Suite de la raíz (`init.sh`) | 498 passed, 3 skipped; sv1, sv3, sv4, sv5 en verde (caché) |
-| Cobertura de líneas cambiadas | **99,4 %** (165/166, umbral 80 %); la única sin cubrir es el `raise NotImplementedError` del método abstracto del puerto (`conversor_pagina.py:16`) |
+| Cobertura de líneas cambiadas | **99,4 %** (164/165, umbral 80 %); la única sin cubrir es el `raise NotImplementedError` del método abstracto del puerto (`conversor_pagina.py:16`) |
 | Cobertura por fichero nuevo | `pagina_pdf_imagen.py` 100 %, `conversion_adjunto.py` 100 % |
 | Mutantes generados / supervivientes | no medido en esta tanda: T8 la lanza el líder (comando arriba) |
-| Tiempo de la suite de sv2 | 2,25 s sola; 21,3 s dentro de `init.sh` (bajo `coverage`) |
-| `bash harness/init.sh` | **ENTORNO LISTO**; PUERTA COBERTURA 99,4 %; PUERTA TAMAÑO en verde; ruff 779 avisos de deuda (no bloquea; los ficheros nuevos, sin avisos) |
+| Tiempo de la suite de sv2 | 2,25 s sola; 23,1 s dentro de `init.sh` (bajo `coverage`); suite de la raíz 63,5 s |
+| `bash harness/init.sh` | **ENTORNO LISTO**; PUERTA COBERTURA 99,4 %; PUERTA TAMAÑO en verde (impl 206/220); ruff 772 avisos, los mismos que en `dev` (los ficheros nuevos, sin avisos) |

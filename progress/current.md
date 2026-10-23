@@ -9,7 +9,7 @@ configurable), DA2 = A (imagen incrustada girada), DA3 = A (`PAGINA_COMO_IMAGEN`
 defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
 
 - **T1–T7 y T11 hechas** (implementer, 2026-10-23; un commit por tarea, fase RED con trazas):
-  sv2 144 passed (112 nuevos), cobertura 99,4 % de 166 líneas cambiadas, `init.sh` en verde.
+  sv2 144 passed (112 nuevos), cobertura 99,4 % de 165 líneas cambiadas, `init.sh` en verde.
   Informe: `progress/impl_F-059.md`. azure-apps: commit local 7cc2e66 (sin push).
 - **Pendiente**: T8 (mutación, la lanza el líder; comando en el informe), T9 (banco M0–M3,
   líder), T10 (M4 tras desplegar sv2, humano), review.
