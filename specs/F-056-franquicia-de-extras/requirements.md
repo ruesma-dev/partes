@@ -16,6 +16,8 @@ resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.
 **Regla del humano (F-053, literal)**: «no se debe borrar en sigrid, así que solo editará
 líneas, por lo que si una hora extra se queda a cero no se borrará sino se pondrá a cero.»
 
+**Aprobación del humano (2026-10-23, literal)**: «a a todo, actualzia backlog para que refleje lo que tien spec y estado real de todo» ⇒ DA1–DA20 = A. En espera de turno: detrás de F-060 y F-058 (máximo una feature en curso).
+
 Las decisiones abiertas (DA1–DA20) y su recomendación están en `design.md` §7; estos
 requisitos asumen la recomendación **A** de todas. Si el humano elige otra, se reescriben.
 
