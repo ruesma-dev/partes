@@ -876,7 +876,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa con 0 supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 3,

@@ -15,6 +15,10 @@ del mes anterior». Regla de Sigrid: «no se debe borrar en sigrid, así que sol
 líneas». Ejemplo aprobado: día 1 V ⇒ CIV; día 2 V ⇒ CIZ el día 2; días 3 y 4 V ⇒ ese CIZ
 pasa al 3 y al 4; día 5 con horas ⇒ el CIZ se queda en el 4. En Sigrid, CIV y un CIZ.
 
+**Aprobación del humano (2026-10-23, literal)**: «a en todo, lanza implementer y spec de la sigueinte feature» ⇒ DA1–DA11 = A. DA3 y DA6 siguen pendientes del visto bueno de Administración antes de encender `MOVER_CIZ` (no bloquean la implementación).
+
+**M0 (líder, 2026-10-23, solo lectura en `ruesma`)**: CIZ con synckey `partes:%`: 2 líneas (2026/10), 2 recursos, 0 enlazadas; 0 recursos-mes con más de un CIZ. DA3 no cambia; el legado de DA8 es nulo.
+
 ## Contexto (dev 0926857; detalle en `design.md` §1)
 
 sv4 `_rol_incidencia` (`parte_repository.py`) da `fin` a todo día de incidencia que sigue a
