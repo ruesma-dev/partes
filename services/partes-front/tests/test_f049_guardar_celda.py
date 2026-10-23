@@ -1410,3 +1410,39 @@ def test_f049_r21_ordinaria_nueva_sin_sigrid_configurado(montaje, caplog):
     assert (n.tipo_hora, n.horas, n.hora_codigo) == ("normal", 8.0, None)
     assert any("[celda] la ordinaria nueva" in m.getMessage()
                for m in caplog.records)
+
+
+def test_f049_r26_r38_deshacer_sin_creadas_da_las_afectadas(montaje):
+    """Superviviente 125 de la campaña: sin creadas, las afectadas del
+    deshacer salen de las líneas del snapshot (`registros`), no de nada
+    más; un E12 que solo edita sigue dando la otra obra del día."""
+    cliente, _repo, fabrica, ids, _cola = montaje(_e12)
+    r = _post(cliente, [(ids["y"], 2.0, 3.0)])
+    assert r.status_code == 200, r.text
+    assert r.json()["creadas"] == []
+    cuerpo = _undo(cliente).json()
+    assert cuerpo["ok"] is True and cuerpo["action"] == "celda_edit"
+    assert _fila(fabrica, ids["y"]).horas == 2.0
+    assert cuerpo["document_ids"] == ["d-y"]
+    assert cuerpo["afectadas"] == [AFECTADA_X]
+
+
+def test_f049_r21_extra_nueva_sin_recurso_no_pregunta_a_sigrid(montaje):
+    """Superviviente 143 de la campaña: con ficha y sin recurso (clave
+    `emp-`), la extra nueva se crea sin código y Sigrid no se consulta
+    con un recurso vacío."""
+    def sembrar(s):
+        _doc(s, "d-y", OBRA_Y)
+        return {"ord": _reg(s, "d-y", OBRA_Y, 0, recurso=None)}
+    cliente, repo, fabrica, ids, _cola = montaje(sembrar)
+    assert repo.contexto_celda(obra_key=KEY_Y, worker_key="emp-77",
+                               fecha_iso=FECHA) == {
+        "plantilla_id": ids["ord"], "reside": None,
+        "categoria": "OFICIAL 1ª"}
+    r = _post(cliente, [(ids["ord"], 8.0, 8.0)], nueva_extra=1.5,
+              wk="emp-77")
+    assert r.status_code == 200, r.text
+    n = _fila(fabrica, r.json()["creadas"][0])
+    assert (n.tipo_hora, n.horas, n.hora_ide, n.hora_codigo) == (
+        "extra", 1.5, None, None)
+    assert SigridFake.llamadas == []
