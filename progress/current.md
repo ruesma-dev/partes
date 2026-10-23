@@ -14,7 +14,10 @@ Administración para ENCENDER `MOVER_CIZ` (no para implementar). M0 hecha por el
 de partes en 2026/10, 0 enlazados, 0 recursos-mes con más de uno).
 
 - [x] T1–T7 (sv5) hechas, un commit por tarea, fase RED con traza (se pegan en `impl_F-060.md`).
-- [ ] T8–T11 (sv4), T12 (docs), T15 (`init.sh`). T13 (mutación) la lanza el líder; T14 humano.
+- [x] T8–T11 (sv4) y T12 (docs; azure-apps commit local c914caa, sin push) hechas.
+- [x] T15: `bash harness/init.sh` en verde (resultado en `impl_F-060.md`).
+- [ ] T13: campaña de mutación, la lanza el líder (`python -m harness.mutacion --feature F-060`).
+- [ ] T14: M1–M3 (humano, local, modo pruebas) y M4 (abajo).
 
 **Decisiones y desviaciones (justificadas)**:
 - `decidir_fin` recibe `partes: Mapping[int, ParteSigrid]` (código y estado) y
@@ -27,6 +30,37 @@ de partes en 2026/10, 0 enlazados, 0 recursos-mes con más de uno).
 - R23 en carrera por el parte de ORIGEN cerrado: la relectura de F-034 solo lee los partes
   del periodo de D, así que sale `no_escrita` (con su ERROR) y no `parte_no_abierto`.
   Aceptado: «sale omitida con los motivos de F-034 y nada más cambia».
+- T8: `colapsar` recibe `LineaRol` (con `racha_registro_ids`) en vez de una tupla de 5: dos
+  `fin` son de la misma racha si son del mismo día o uno está en la racha del otro (R7);
+  con solo persona y clave, dos rachas distintas de la misma letra en una aprobación se
+  colapsarían en una.
+- T8: una línea de la papelera solo entra en `racha_registro_ids` si es incidencia de la
+  MISMA clave y está `registrado` o `encolado` (su synckey puede seguir en Sigrid).
+- T9: `GrupoObra` gana el campo `avisos_racha` en T9 (no en T10): sin él,
+  `GrupoObra(**g)` revienta en cuanto el grupo lleva la clave.
+- T10: el CAS de `fin_movido` exige `sigrid_estado = 'registrado'` y el mismo
+  `sigrid_hmores_ide`; sin CAS, silencio si X ya está `omitido` con ese mismo motivo
+  (reentrega) y WARNING `fin_movido_sin_cas` (sin datos personales) en otro caso, también
+  si X no existe. `movida_de` igual a D no hace nada.
+- T11: estilo `.ap-racha-avisos` en `static/styles.css` (el mismo que `.ap-incid-avisos`).
+
+- [ ] **M4 (humano, producción, solo lectura, tras desplegar sv5 → sv4 y encender)**.
+  Encendido (lo lanza el humano, con el visto bueno de Administración a DA3/DA6):
+  `az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MOVER_CIZ=true`.
+  Anotar `<AAAAMMDD>` (día del encendido) y `<ISO UTC>` (instante). Con `$KEY` sacada del
+  Key Vault (nunca en un fichero):
+  ```powershell
+  $q = @{ database = 'ruesma'; max_rows = 200; parameters = @('CIZ', 'partes:%', <AAAAMMDD>);
+    sql = 'SELECT COUNT(*) AS grupos FROM (SELECT h.reside, h.ano, h.mes FROM hmores h JOIN auxhor a ON a.ide = h.horide WHERE a.cod = ? AND h.synckey LIKE ? AND h.fec >= ? GROUP BY h.reside, h.ano, h.mes HAVING COUNT(*) > 1) x' } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
+  ```
+  Esperado: `grupos = 0` (ningún recurso-mes nuevo con dos CIZ de partes). En la base `partes`:
+  ```sql
+  SELECT COUNT(*) FROM parte_registros
+  WHERE sigrid_motivo LIKE 'fin_movido:%' AND sigrid_registrado_at_utc >= '<ISO UTC>';
+  ```
+  Esperado: > 0 cuando se hayan aprobado rachas de varios días. Vuelta atrás:
+  `az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MOVER_CIZ=false`.
 
 ## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 
