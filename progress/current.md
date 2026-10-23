@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-059 · IN_PROGRESS 2026-10-23 (implementer, T1–T7 y T11): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+## F-059 · IN_PROGRESS 2026-10-23 (implementer, T1–T8 y T11): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 
 **Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
 dices que sí, lanzo el implementer» sobre DA1–DA4 respondió «a». DA1 = A (solo OpenAI, lista
@@ -11,8 +11,12 @@ defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
 - **T1–T7 y T11 hechas** (implementer, 2026-10-23; un commit por tarea, fase RED con trazas):
   sv2 144 passed (112 nuevos), cobertura 99,4 % de 165 líneas cambiadas, `init.sh` en verde.
   Informe: `progress/impl_F-059.md`. azure-apps: commit local 7cc2e66 (sin push).
-- **Pendiente**: T8 (mutación, la lanza el líder; comando en el informe), T9 (banco M0–M3,
-  líder), T10 (M4 tras desplegar sv2, humano), review.
+- **T8 hecha** (implementer, 2026-10-23): campaña del líder 20 evaluados, 17 muertos, 3
+  supervivientes. [16] y [20] eran huecos reales: 4 tests nuevos (borde exacto de 1 pt; INFO
+  de wiring con `caplog`), comprobados aplicando el mutante a mano. [19] es equivalente
+  (frontera del 2 % inalcanzable en float). Sin cambios de producción. Detalle en
+  `progress/mutacion_F-059.md`; sv2 148 passed.
+- **Pendiente**: T9 (banco M0–M3, líder), T10 (M4 tras desplegar sv2, humano), review.
 - Decisiones y desviaciones (justificadas en el informe): (1) con `PAGINA_COMO_IMAGEN=false`
   `app.py` no crea el conversor (además de pasar `frozenset()`), para que la traza diga
   `interruptor` y no `proveedor_fuera_de_lista`; (2) el `.venv` de la raíz NO tiene `openai`,

@@ -6,8 +6,8 @@ solo sv2. Aprobación del humano (2026-10-23), literal: a «¿A en las cuatro? S
 lanzo el implementer» respondió «a» ⇒ DA1–DA4 = A, anotado en `design.md` §7 y en
 `progress/current.md`.
 
-**Estado: T1–T7 y T11 hechas. Pendientes: T8 (mutación, la lanza el líder), T9 (banco M0–M3,
-líder), T10 (M4 tras desplegar sv2, humano) y la review.**
+**Estado: T1–T8 y T11 hechas. Pendientes: T9 (banco M0–M3, líder), T10 (M4 tras desplegar
+sv2, humano) y la review.**
 
 ## Qué cambió
 
@@ -23,9 +23,9 @@ líder), T10 (M4 tras desplegar sv2, humano) y la review.**
 | `services/partes-api/interface_adapters/api/app.py` | crea el conversor si el interruptor está encendido, pasa la lista y `image_detail`; log de wiring |
 | `services/partes-api/tests/f059_pdf_sinteticos.py` (nuevo) | fábrica de PDF sintéticos (Pillow + pypdf, sin datos reales) |
 | `services/partes-api/tests/f059_sdk_falsos.py` (nuevo) | dobles de `openai`/`anthropic`/`google.genai`, solo si el SDK real falta (ver desviación 2) |
-| `services/partes-api/tests/test_f059_conversor.py` (nuevo) | 70 tests, R1–R10 y el lado del conversor de R13 |
+| `services/partes-api/tests/test_f059_conversor.py` (nuevo) | 72 tests, R1–R10 y el lado del conversor de R13 (2 de T8) |
 | `services/partes-api/tests/test_f059_pipeline.py` (nuevo) | 22 tests, R11–R19 y uno de extremo a extremo con el conversor real |
-| `services/partes-api/tests/test_f059_config.py` (nuevo) | 20 tests, R20–R22, R24 y el cableado de `build_app` |
+| `services/partes-api/tests/test_f059_config.py` (nuevo) | 22 tests, R20–R22, R24, el cableado de `build_app` y su INFO (2 de T8) |
 | `docs/ARCHITECTURE.md` | semántica 19 |
 | `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` | §3.2 (qué recibe la IA) y fila de sv2 de §5.6 (variables, dependencias); commit local **7cc2e66** en `master` de azure-apps, sin push |
 | `harness/features.json`, `BACKLOG.md`, `progress/current.md`, `design.md` §7, `tasks.md` | `in_progress`, aprobación, tareas marcadas |
@@ -170,22 +170,20 @@ pytest` ⇒ `144 passed in 2.25s`.
   volver atrás: `az containerapp update -n ca-sv2-extraccion -g rg-partes-dev --set-env-vars
   PAGINA_COMO_IMAGEN=false`.
 
-## T8 · mutación (la lanza el líder)
+## T8 · mutación (la lanzó el líder) y supervivientes
 
-Nivel `estandar` (`harness/rigor.json`: 20 mutantes, semilla 20260820, que `--feature` aplica
-solo). Comando, desde la raíz del worktree:
+`python -m harness.mutacion --feature F-059` (nivel `estandar`, muestreo 20 de 49, semilla
+20260820) ⇒ **20 evaluados, 17 muertos, 3 supervivientes, 0 timeouts**, 42,2 s. Análisis
+completo en `progress/mutacion_F-059.md`; resumen:
 
-```
-python -m harness.mutacion --feature F-059
-```
+| Mutante | Veredicto | Qué se hizo |
+|---|---|---|
+| [16] `pagina_pdf_imagen.py:146` `>` → `>=` | hueco real (nadie probaba el borde exacto de 1 pt) | 2 casos nuevos en `..._dentro_de_las_tolerancias_si_aplica`: `301 0 0 200 0 0` y `300 0 0 199 -1 1` |
+| [19] `pagina_pdf_imagen.py:149` `<=` → `<` | **equivalente**: `abs(q-1)` es múltiplo de 2^-53 (Sterbenz) y el double 0.02 = impar/2^58 | sin test; demostración y ejemplo en el informe de mutación |
+| [20] `app.py:144` `or` → `and` | hueco real (INFO de wiring, evidencia de DA3/T10) | 2 tests `caplog` en `test_f059_config.py` (encendido ⇒ `['openai']`, apagado ⇒ `(ninguno)`) |
 
-Ese alcance es el de las líneas cambiadas (incluye las de `pagina_pdf_imagen.py` y
-`extract_parte_pipeline.py`, más `settings.py`, `app.py` y el cliente OpenAI). Si se quiere el
-alcance literal de T8 (los dos ficheros enteros, con el código previo del pipeline):
-
-```
-python -m harness.mutacion --feature F-059 --ficheros services/partes-api/infrastructure/document/pagina_pdf_imagen.py,services/partes-api/application/pipelines/extract_parte_pipeline.py
-```
+Mutantes [16] y [20] aplicados a mano: `2 failed, 5 passed` (tolerancias) y `2 failed`
+(wiring); revertidos, en verde. Sin cambios de código de producción. Campaña no relanzada.
 
 ## Fuera de alcance
 
@@ -197,10 +195,10 @@ datos» de `ARCHITECTURE.md` que el proveedor de producción es OpenAI (dice Gem
 
 | Evidencia | Valor medido |
 |---|---|
-| Tests de sv2 | **144 passed** (32 previos + 112 nuevos: 70 conversor, 22 pipeline, 20 config), 0 fallos |
+| Tests de sv2 | **148 passed** (32 previos + 116 nuevos: 72 conversor, 22 pipeline, 22 config), 0 fallos, 2,13 s |
 | Suite de la raíz (`init.sh`) | 498 passed, 3 skipped; sv1, sv3, sv4, sv5 en verde (caché) |
 | Cobertura de líneas cambiadas | **99,4 %** (164/165, umbral 80 %); la única sin cubrir es el `raise NotImplementedError` del método abstracto del puerto (`conversor_pagina.py:16`) |
 | Cobertura por fichero nuevo | `pagina_pdf_imagen.py` 100 %, `conversion_adjunto.py` 100 % |
-| Mutantes generados / supervivientes | no medido en esta tanda: T8 la lanza el líder (comando arriba) |
-| Tiempo de la suite de sv2 | 2,25 s sola; 23,1 s dentro de `init.sh` (bajo `coverage`); suite de la raíz 63,5 s |
-| `bash harness/init.sh` | **ENTORNO LISTO**; PUERTA COBERTURA 99,4 %; PUERTA TAMAÑO en verde (impl 206/220); ruff 772 avisos, los mismos que en `dev` (los ficheros nuevos, sin avisos) |
+| Mutantes generados / supervivientes | 49 generados, 20 evaluados: 17 muertos, 3 supervivientes (2 huecos cerrados con 4 tests, 1 equivalente demostrado), 0 timeouts |
+| Tiempo de la suite de sv2 | 2,13 s sola; 21,1 s dentro de `init.sh` (bajo `coverage`); suite de la raíz 69,1 s (tras T8) |
+| `bash harness/init.sh` | **ENTORNO LISTO**; PUERTA COBERTURA 99,4 %; PUERTA TAMAÑO en verde (impl 204/220; tras T8, 2026-10-23); ruff 772 avisos, los mismos que en `dev` (los ficheros nuevos, sin avisos) |

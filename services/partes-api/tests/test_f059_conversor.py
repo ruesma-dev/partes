@@ -292,6 +292,10 @@ def test_f059_r9_imagen_que_no_cubre_la_pagina(kwargs: dict) -> None:
     [
         {"contenido": _contenido("300.9 0 0 199.1 0.9 -0.9 cm")},
         {"contenido": _contenido("299.1 0 0 200.9 -0.9 0.9 cm")},
+        # T8: desvío de EXACTAMENTE 1 pt (entero: la resta es exacta en float);
+        # «tolerancia 1 pt» incluye el borde (mata `>` -> `>=`).
+        {"contenido": _contenido("301 0 0 200 0 0 cm")},
+        {"contenido": _contenido("300 0 0 199 -1 1 cm")},
         {"mediabox": (10, 10, 310, 210),
          "contenido": _contenido("300 0 0 200 10 10 cm")},
         {"imagen": Image.new("RGB", (300, 204), "white"),
@@ -299,7 +303,8 @@ def test_f059_r9_imagen_que_no_cubre_la_pagina(kwargs: dict) -> None:
         {"imagen": Image.new("RGB", (305, 200), "white"),
          "mediabox": (0, 0, 300, 200), "contenido": _contenido()},
     ],
-    ids=["tolerancia-1pt", "tolerancia-1pt-al-reves", "mediabox-desplazada",
+    ids=["tolerancia-1pt", "tolerancia-1pt-al-reves", "tolerancia-1pt-exacta-ancho",
+         "tolerancia-1pt-exacta-alto-y-origen", "mediabox-desplazada",
          "proporcion-1.96pc", "proporcion-1.7pc-ancha"],
 )
 def test_f059_r9_dentro_de_las_tolerancias_si_aplica(kwargs: dict) -> None:

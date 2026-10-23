@@ -171,6 +171,35 @@ def test_f059_r20_app_pasa_la_lista_configurada(monkeypatch) -> None:
     assert pipeline._proveedores_imagen == frozenset({"gemini", "claude"})
 
 
+# T8: el INFO de wiring es la prueba, en Log Analytics, de qué lista quedó
+# activa tras desplegar o tras apagar el interruptor (DA3): debe nombrarla, y
+# decir «(ninguno)» solo cuando está vacía (mata `or` -> `and`).
+LOGGER_APP = "interface_adapters.api.app"
+
+
+def _log_wiring_imagen(caplog) -> str:
+    lineas = [r.getMessage() for r in caplog.records
+              if r.name == LOGGER_APP and "página como imagen=" in r.getMessage()]
+    assert len(lineas) == 1, lineas
+    return lineas[0]
+
+
+def test_f059_r20_el_log_de_wiring_nombra_los_proveedores(caplog) -> None:
+    with caplog.at_level("INFO", logger=LOGGER_APP):
+        build_app(_settings())
+    linea = _log_wiring_imagen(caplog)
+    assert "página como imagen=True proveedores=['openai'] " in linea, linea
+    assert "(ninguno)" not in linea, linea
+
+
+def test_f059_r20_el_log_de_wiring_apagado_dice_ninguno(monkeypatch, caplog) -> None:
+    monkeypatch.setenv("PAGINA_COMO_IMAGEN", "false")
+    with caplog.at_level("INFO", logger=LOGGER_APP):
+        build_app(_settings())
+    linea = _log_wiring_imagen(caplog)
+    assert "página como imagen=False proveedores=(ninguno) " in linea, linea
+
+
 # ----------------------- R24 · manifiesto de sv2 ------------------------- #
 
 def test_f059_r24_requirements_de_sv2_declara_pypdf_y_pillow() -> None:
