@@ -156,7 +156,7 @@ adjunto enviado, más `giro_grados`, `ancho_px`, `alto_px` si `convertida`.
 `meta.source_*` siguen saliendo de `original` (R16). `debug` no cambia de forma:
 `_attachment_debug` ya recibe el adjunto enviado.
 
-## 7. Decisiones abiertas (las valida el humano)
+## 7. Decisiones (aprobadas por el humano el 2026-10-23: A en las cuatro; respuesta literal «a» a «¿A en las cuatro?»)
 
 **DA1 · A qué proveedores se aplica.** A) solo OpenAI por defecto, lista
 configurable (`PAGINA_COMO_IMAGEN_PROVEEDORES=openai`); B) todos; C) OpenAI y

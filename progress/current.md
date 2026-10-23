@@ -1,7 +1,14 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-059 · SPEC_READY 2026-10-23 (pendiente de aprobación del humano): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+## F-059 · IN_PROGRESS 2026-10-23 (implementer, T1–T7 y T11): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+
+**Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
+dices que sí, lanzo el implementer» sobre DA1–DA4 respondió «a». DA1 = A (solo OpenAI, lista
+configurable), DA2 = A (imagen incrustada girada), DA3 = A (`PAGINA_COMO_IMAGEN` encendido por
+defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
+
+- Tarea en curso: T1 (Pillow y requirements de sv2). T8 (mutación) la lanza el líder; T9 y T10, líder y humano.
 
 Spec en `specs/F-059-pagina-como-imagen-derecha/` (rama `feature/F-059-pagina-como-imagen-derecha`,
 worktree `partes-wt-f059`); resumen en `progress/spec_F-059.md`. Solo sv2: la página escaneada
