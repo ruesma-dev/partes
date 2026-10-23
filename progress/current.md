@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-054 · DONE 2026-10-23 (review APPROVED pasada 1; pendiente desplegar sv3 y M2): un parte sin obra o sin fecha va siempre a revisión
+## F-054 · DONE 2026-10-23 (review APPROVED pasada 1; sv3 desplegado r20261023153823; M2 descartada): un parte sin obra o sin fecha va siempre a revisión
+
+**2026-10-23, decisión del humano sobre la M2** (literal): «hay que corregir solo los que salen
+en obra sin identificar». La M2 no se hace. M1 repetida ese día (solo lectura): 7 activos no
+aprobados sin bandera, los 6 sin obra de los escaneos del 21 y 23/10 y uno del 14/10 con obra y
+sin fecha (fuera de lo que pide corregir). Los 6 se releerán tras desplegar F-059 (papelera en
+el portal y correo devuelto a la bandeja de entrada sin leer), o se corrigen a mano.
 
 Rama `feature/F-054-sin-obra-o-fecha-a-revision` (worktree `partes-wt-f054`), **rebasada sobre
 `dev` 38f273a**: conflictos solo en `harness/features.json`, `BACKLOG.md` y este fichero; se
