@@ -1,6 +1,21 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-054 · in_progress (2026-10-23, implementer): un parte sin obra o sin fecha va siempre a revisión
+
+Rama `feature/F-054-sin-obra-o-fecha-a-revision` (worktree `partes-wt-f054`), **rebasada sobre
+`dev` 38f273a**: conflictos solo en `harness/features.json`, `BACKLOG.md` y este fichero; se
+quedó la versión de `dev` (su entrada de F-054 es idéntica a la de la rama, comprobado) y
+`BACKLOG.md` se regeneró con `python harness/backlog.py`. Aprobación del humano: 2026-10-21
+(«apruebo F-054 y la DA5») y 2026-10-23 («si, lanza f54 y la spec de relectura con gemini»).
+Contexto nuevo del líder (2026-10-23): 4 páginas más del escaneo de hoy con la cabecera a null;
+la causa en sv2 es F-058, el alcance de F-054 no cambia.
+
+- Tarea en curso: ver `progress/impl_F-054.md`.
+- **M2 NO ejecutada**: necesita autorización expresa del humano para esa escritura concreta
+  (comando exacto en `specs/F-054-sin-obra-o-fecha-a-revision/design.md` §8 y en el informe).
+- La campaña de mutación (T6) la lanza el líder.
+
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
 El humano, literal: «la peticion la hago yo, quitalo de la feature». La petición a RRHH
