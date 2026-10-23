@@ -1,6 +1,17 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-058 · spec_ready (2026-10-23): relectura de la cabecera vacía con Gemini en sv2
+
+Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
+worktree `partes-wt-f058`); resumen en `progress/spec_F-058.md`. Solo sv2: con obra y fecha
+vacías y al menos una fila, relee el adjunto una vez con `gemini` y toma su cabecera entera;
+sin cambios de entorno (Gemini ya está habilitado y con clave en `ca-sv2-extraccion`).
+**Pendiente del humano**: validar DA1–DA8 (`design.md` §10; recomendadas B, A, A, A, A, A, A,
+A) y, en particular, DA5 (encendida por defecto o la enciende él) y DA8 (los 6 documentos ya
+guardados: por defecto, a mano en el portal; reprocesar solo con autorización). Ninguna
+verificación manual ejecutada.
+
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
 El humano, literal: «la peticion la hago yo, quitalo de la feature». La petición a RRHH
