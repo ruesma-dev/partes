@@ -1,6 +1,19 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-056 · spec_ready (2026-10-23): franquicia de extras, pendiente de que el humano apruebe DA1–DA20
+
+Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
+worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en
+`progress/spec_F-056.md`. Toca sv5 (cálculo contra Sigrid, alta y edición de la línea `HE*`
+negativa, exclusión en los choques) y sv4 (tabla `empleado_franquicia`, aviso en el modal de
+aprobar, `franquicia_ajuste`, aplicar al terminar el registro); sv3 solo la copia del ORM.
+**Decisiones abiertas para el humano**: DA1–DA20 de `design.md` §7, con recomendación A en
+todas (las más de fondo: DA2 periodo = mes de nómina 16 → 15, DA3 extras netas `HE*` de
+Sigrid, DA4 una línea en la obra de más horas, DA8 recalcular editando, DA12 sin bloqueo de
+servidor, DA20 una feature con corte tras T7). M1 (solo lectura) hecha por el spec-author:
+`design.md` §2 H5. M2–M4 son del humano (§10).
+
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
 El humano, literal: «la peticion la hago yo, quitalo de la feature». La petición a RRHH
