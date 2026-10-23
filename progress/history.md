@@ -950,3 +950,17 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
 - Observación del reviewer: una celda con líneas de dos partes de la misma obra solo pide el
   recálculo al parte tocado (hueco de la spec, abierto como feature aparte).
 - Pendiente: desplegar sv3 → sv4 y MANUAL M2–M8 (`progress/current.md`).
+
+## F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión — done 2026-10-23
+
+- Rama `feature/F-054-sin-obra-o-fecha-a-revision` · rigor estándar · sdd=true · APPROVED del
+  reviewer en la pasada 1 (`progress/review_F-054.md`).
+- Entregado: sv3 — `motivos_cabecera` (sin_obra si la obra no casa, con cualquier método;
+  sin_fecha si no hay fecha) sube `review_required`, sustituye a OBRA_A_REVISAR y deja un
+  WARNING con document_id y motivos, sin nombres ni DNIs. Sin esquema, colas, sv4 ni sv5.
+- Decisiones del humano: DA1–DA7 con la recomendación salvo DA3 = B (2026-10-21).
+- Verificado: init.sh en verde; sv3 2.305 passed; cobertura 100 % de 13 líneas; mutación 5
+  mutantes, 5 muertos.
+- Observaciones del reviewer: quitar de la semántica 18 la corrección a mano si se descarta la
+  M2; repetir la M1 antes de la M2 (pueden ser 7 documentos, no 3).
+- Pendiente: desplegar sv3 y la M2 con autorización expresa.
