@@ -30,6 +30,7 @@ from application.services.racha_ciz import (
     decidir_fin,
     motivo_ciz_en_parte_cerrado,
     motivo_intermedio_ciz,
+    registro_de_synckey,
 )
 from application.services.reglas_registro import MOTIVO_INTERMEDIO
 from domain.models.registro_models import LineaSigrid, ParteSigrid
@@ -253,3 +254,11 @@ def test_f060_regla_pura_sin_lecturas_ni_escrituras() -> None:
     fuente = inspect.getsource(racha_ciz)
     for prohibido in ("httpx", "_read(", "escribir(", "DELETE", "import os"):
         assert prohibido not in fuente
+
+
+@pytest.mark.parametrize("sk,esperado", [
+    ("partes:3", 3), (" partes:120 ", 120), ("partes:x", None),
+    ("porcentajes:3", None), ("", None), (None, None), ("partes:", None),
+])
+def test_f060_r23_registro_de_synckey(sk, esperado) -> None:
+    assert registro_de_synckey(sk) == esperado

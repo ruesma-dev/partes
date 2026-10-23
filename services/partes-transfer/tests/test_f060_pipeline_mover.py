@@ -474,3 +474,194 @@ def test_f060_r26_settings_sin_el_ajuste_es_apagado() -> None:
     a = _acc(pipe.preflight(obra=_obra(), lineas=[_fin(4, 20261004, [3])]),
              4)
     assert a.mover is None and cli.racha_leidas == []
+
+
+# ========================= Pipeline · paso 9 ========================= #
+
+def _espiar(cli) -> list[dict]:
+    enviadas: list[dict] = []
+    original = cli.escribir
+    cli.escribir = lambda sts: (enviadas.extend(sts), original(sts))[1]
+    return enviadas
+
+
+def _ejecutar(cli, lineas, **kw):
+    return _pipe(cli, **kw).ejecutar(obra=_obra(), lineas=lineas)
+
+
+def _por_sk(cli) -> dict[str, dict]:
+    return {f["synckey"]: f for f in cli.lineas}
+
+
+def test_f060_r20_mueve_la_misma_linea_con_un_update() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3, tex="nota", pos=192))
+    enviadas = _espiar(cli)
+    linea = _fin(4, 20261004, [3])
+    linea.partida_ide = 34
+    r = _ejecutar(cli, [linea])
+    assert [s["op"] for s in enviadas] == ["mover"]      # R22: sin INSERT
+    (fila,) = cli.lineas
+    assert (fila["ide"], fila["fec"], fila["synckey"], fila["hmoide"],
+            fila["pos"], fila["paride"], fila["ano"], fila["mes"]) == (
+        7001, 20261004, "partes:4", HMO_OCT, 192, 34, 2026, 10)
+    assert (fila["can"], fila["tot"], fila["tex"], fila["horide"],
+            fila["reside"]) == (0.0, 0.0, "nota", CIZ, REC)
+    assert enviadas[0]["set"]["caaide"] == 0      # la cuenta de la accion
+    assert enviadas[0]["set"]["cenide"] == 77 and enviadas[0]["set"][
+        "obride"] == OBRA
+    assert "max_pos" not in cli.llamadas          # mismo parte: misma pos
+    assert r.ok and r.omitidas == []
+
+
+def test_f060_r20_cambio_de_mes_mueve_de_parte_con_pos_nueva() -> None:
+    cli = _cli(_fila(7001, fec=20260930, rid=30, hmoide=HMO_SEP, pos=192),
+               _fila(7500, fec=20261002, rid=900, hmoide=HMO_OCT, pos=640,
+                     horide=HN, can=8.0, reside=REC + 7))
+    r = _ejecutar(cli, [_fin(31, 20261001, [30])])
+    fila = _por_sk(cli)["partes:31"]
+    assert (fila["ide"], fila["hmoide"], fila["fec"], fila["ano"],
+            fila["mes"], fila["pos"]) == (7001, HMO_OCT, 20261001, 2026, 10,
+                                          704)
+    assert "partes:30" not in _por_sk(cli)
+    (e,) = r.escritas
+    assert (e["hmoide"], e["parte_cod"], e["movida_de"],
+            e["hmores_ide"]) == (HMO_OCT, "PT26/00010", 30, 7001)
+
+
+def test_f060_r20_pos_nueva_comparte_contador_con_los_insert() -> None:
+    cli = _cli(_fila(7001, fec=20260930, rid=30, hmoide=HMO_SEP, pos=192))
+    _ejecutar(cli, [_fin(31, 20261001, [30]), _trabajo(32, 20261002)])
+    sk = _por_sk(cli)
+    assert (sk["partes:31"]["pos"], sk["partes:32"]["pos"]) == (64, 128)
+
+
+def test_f060_r20_cambio_de_mes_a_un_parte_que_se_crea() -> None:
+    cli = _cli(_fila(7001, fec=20260930, rid=30, hmoide=HMO_SEP),
+               partes=[_parte(HMO_SEP, "PT26/00009", mes=9)])
+    r = _ejecutar(cli, [_fin(31, 20261001, [30])])
+    (e,) = r.escritas
+    nuevo = next(p for p in cli.partes if p["mes"] == 10)
+    assert e["hmoide"] == nuevo["ide"] and e["movida_de"] == 30
+    assert _por_sk(cli)["partes:31"]["hmoide"] == nuevo["ide"]
+    assert len(cli.lineas) == 1
+
+
+def test_f060_r22_mover_no_inserta_ni_borra() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    enviadas = _espiar(cli)
+    _ejecutar(cli, [_fin(4, 20261004, [3]), _trabajo(5, 20261005)])
+    assert sorted(s["op"] for s in enviadas) == ["insert", "mover"]
+    assert next(s for s in enviadas if s["op"] == "insert")["synckey"] == (
+        "partes:5")
+    assert len(cli.lineas) == 2
+
+
+def test_f060_r23_escrita_lleva_movida_de_y_hmores_ide() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    r = _ejecutar(cli, [_fin(4, 20261004, [3])])
+    (e,) = r.escritas
+    assert e["registro_id"] == 4 and e["movida_de"] == 3
+    assert e["hmores_ide"] == 7001 and e["hora_codigo"] == "CIZ"
+
+
+def test_f060_r23_crear_no_lleva_movida_de() -> None:
+    cli = _cli()
+    (e,) = _ejecutar(cli, [_fin(4, 20261004, [3])]).escritas
+    assert "movida_de" not in e and e["hmores_ide"] == cli.lineas[0]["ide"]
+
+
+def test_f060_r23_carrera_la_fila_cambio_sale_omitida() -> None:
+    """Entre la lectura y el UPDATE alguien le pone horas: 0 filas; la
+    relectura no la encuentra y sale omitida con el motivo de F-034."""
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    original = cli.escribir
+
+    def escribir(sts):
+        cli.lineas[0]["can"] = 1.0
+        return original(sts)
+    cli.escribir = escribir
+    r = _ejecutar(cli, [_fin(4, 20261004, [3])])
+    assert r.escritas == []
+    (o,) = r.omitidas
+    assert o["registro_id"] == 4 and o["motivo"].startswith("no_escrita")
+    assert cli.lineas[0]["fec"] == 20261003 and len(cli.lineas) == 1
+
+
+def test_f060_r23_carrera_cierre_del_parte_destino() -> None:
+    cli = _cli(_fila(7001, fec=20260930, rid=30, hmoide=HMO_SEP))
+    cli.cerrar_al_escribir = {HMO_OCT: CERRADO}
+    r = _ejecutar(cli, [_fin(31, 20261001, [30])])
+    assert r.escritas == []
+    (o,) = r.omitidas
+    assert o["motivo"].startswith("parte_no_abierto: el parte PT26/00010")
+    assert cli.lineas[0]["synckey"] == "partes:30"
+
+
+def test_f060_r23_reentrega_es_ya_registrado() -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    _ejecutar(cli, [_fin(4, 20261004, [3])])
+    enviadas = _espiar(cli)
+    r = _ejecutar(cli, [_fin(4, 20261004, [3])])
+    assert r.ya_registradas == [4] and r.escritas == [] and enviadas == []
+    assert cli.lineas[0]["synckey"] == "partes:4"
+
+
+def test_f060_r24_info_del_movimiento_sin_nombres(caplog) -> None:
+    cli = _cli(_fila(7001, fec=20260930, rid=30, hmoide=HMO_SEP))
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_fin(31, 20261001, [30])])
+    movidos = [r.getMessage() for r in caplog.records
+               if "ciz movido" in r.getMessage()]
+    assert movidos == ["[registro] ciz movido ide=7001 hmoide=900->901 "
+                       "fecha=20260930->20261001 registro_id=30->31"]
+    assert "Persona" not in "".join(movidos)
+
+
+def test_f060_r24_sin_info_si_no_se_movio(caplog) -> None:
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    original = cli.escribir
+    cli.escribir = lambda sts: (cli.lineas[0].update(can=1.0),
+                                original(sts))[1]
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_fin(4, 20261004, [3])])
+    assert "ciz movido" not in caplog.text
+
+
+def test_f060_ejemplo_del_humano_dia_a_dia() -> None:
+    """Dia 1 V => CIV; dia 2 V => CIZ el 2; dias 3 y 4 V => ese CIZ pasa
+    al 3 y al 4; dia 5 con horas => el CIZ se queda en el 4. En Sigrid,
+    CIV y UN CIZ (el mismo `ide` desde el dia 2)."""
+    cli = _cli()
+    r1 = _ejecutar(cli, [_ini(1, 20261001)])
+    assert [e["hora_codigo"] for e in r1.escritas] == ["CIV"]
+    r2 = _ejecutar(cli, [_fin(2, 20261002, [1])])
+    (e2,) = r2.escritas
+    assert e2["hora_codigo"] == "CIZ" and "movida_de" not in e2
+    ide_ciz = e2["hmores_ide"]
+    r3 = _ejecutar(cli, [_fin(3, 20261003, [1, 2])])
+    assert [(e["movida_de"], e["hmores_ide"]) for e in r3.escritas] == [
+        (2, ide_ciz)]
+    r4 = _ejecutar(cli, [_fin(4, 20261004, [1, 2, 3])])
+    assert [(e["movida_de"], e["hmores_ide"]) for e in r4.escritas] == [
+        (3, ide_ciz)]
+    r5 = _ejecutar(cli, [_trabajo(5, 20261005)])
+    assert [e["hora_codigo"] for e in r5.escritas] == ["HL01"]
+    sk = _por_sk(cli)
+    assert sorted(sk) == ["partes:1", "partes:4", "partes:5"]
+    assert sk["partes:4"]["ide"] == ide_ciz
+    assert sk["partes:4"]["fec"] == 20261004
+    ciz = [f for f in cli.lineas if f["horide"] == CIZ]
+    assert len(ciz) == 1
+
+
+def test_f060_ejemplo_todo_de_una_vez() -> None:
+    """M3 en sv5: sv4 manda 1 inicio, 2 y 3 intermedio, 4 fin."""
+    cli = _cli()
+    lineas = [_ini(1, 20261001), _fin(2, 20261002), _fin(3, 20261003),
+              _fin(4, 20261004, [1, 2, 3])]
+    lineas[1].incidencia_rol = lineas[2].incidencia_rol = "intermedio"
+    r = _ejecutar(cli, lineas)
+    assert sorted((e["registro_id"], e["hora_codigo"]) for e in r.escritas) \
+        == [(1, "CIV"), (4, "CIZ")]
+    assert sorted(o["registro_id"] for o in r.omitidas) == [2, 3]
+    assert all("movida_de" not in e for e in r.escritas)

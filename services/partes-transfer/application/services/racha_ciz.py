@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 
-from application.services.pisado import motivo_linea_enlazada
+from application.services.pisado import PREFIJO_PARTES, motivo_linea_enlazada
 from application.services.reglas_registro import MOTIVO_INTERMEDIO
 from domain.models.registro_models import LineaSigrid, ParteSigrid
 
@@ -74,6 +74,18 @@ def motivo_ciz_en_parte_cerrado(ide: int, cod: str | None,
             f"linea {ide}) esta en el parte {cod or '?'} ({estado}), que ya "
             f"no esta En registro; no se mueve ni se escribe otro. "
             f"Corrigelo en Sigrid")[:LIMITE_MOTIVO]
+
+
+def registro_de_synckey(synckey: str | None) -> int | None:
+    """«partes:3» -> 3 (R23: el `movida_de` de la escrita); None si la
+    synckey no es de este proyecto."""
+    sk = (synckey or "").strip()
+    if not sk.startswith(PREFIJO_PARTES):
+        return None
+    try:
+        return int(sk[len(PREFIJO_PARTES):])
+    except ValueError:
+        return None
 
 
 def _es_ciz_del_recurso(ls: LineaSigrid, recurso_ide: int,

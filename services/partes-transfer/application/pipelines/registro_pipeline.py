@@ -85,6 +85,9 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      `omitida` `parte_no_abierto` (o `no_escrita` + ERROR si ningun parte
      cerrado lo explica), con una lectura de partes por periodo afectado,
      y `anuladas` cuenta las pisadas que ya no tienen horas (R9-R13).
+     F-060: una accion con `mover` no inserta: `stmt_mover_linea` lleva el
+     CIZ de la racha a este dia y a este parte (UPDATE, nunca un borrado)
+     y su escrita sale con `movida_de` (el registro que lo tenia).
      F-053: si una pisada cambio antes de ponerla a 0 (sigue con horas en
      un parte En registro), la nueva sale `pisada_no_anulada: ...`. Todo
      bajo el lock; una relectura que falla tumba la peticion (R14).
@@ -129,7 +132,13 @@ from application.services.pisado import (
     origen_linea,
     tiene_horas,
 )
-from application.services.racha_ciz import CODIGO_FIN, CREAR, MOVER, decidir_fin
+from application.services.racha_ciz import (
+    CODIGO_FIN,
+    CREAR,
+    MOVER,
+    decidir_fin,
+    registro_de_synckey,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -668,26 +677,45 @@ class RegistroPipeline:
 
         pos_por_parte: dict[int, int] = {}
         tex = self._st.marca_pruebas if pf.forzada_pruebas else None
+
+        def pos_nueva(hmoide: int) -> int:
+            if hmoide not in pos_por_parte:
+                pos_por_parte[hmoide] = self._cli.max_pos(hmoide)
+            pos_por_parte[hmoide] += int(self._st.paso_pos)
+            return pos_por_parte[hmoide]
+
+        movidas: dict[int, LineaSigrid] = {}
         for a in sorted(a_escribir, key=lambda x: (x.ano, x.mes, x.fecha_int,
                                                    x.registro_id)):
             p = por_periodo[(a.ano, a.mes)]
             hmoide = int(p.ide)
-            if hmoide not in pos_por_parte:
-                pos_por_parte[hmoide] = self._cli.max_pos(hmoide)
-            pos_por_parte[hmoide] += int(self._st.paso_pos)
+            escrita = {"registro_id": a.registro_id, "hmoide": hmoide,
+                       "parte_cod": p.cod, "hora_codigo": a.hora_codigo,
+                       "can": a.can, "tot": a.tot, "caa_cod": a.caa_cod}
+            if a.mover is not None:
+                # F-060 (R20, R22): el CIZ de la racha pasa a este dia con
+                # UN `UPDATE`; conserva su `pos` si no cambia de parte.
+                ls = a.mover
+                pos = (int(ls.pos) if int(ls.hmoide or 0) == hmoide
+                       and ls.pos is not None else pos_nueva(hmoide))
+                statements.append(self._cli.stmt_mover_linea(
+                    linea=ls, destino=destino, hmoide=hmoide, pos=pos,
+                    fecha_int=a.fecha_int, synckey=synckey_de(a.registro_id),
+                    paride=int(a.paride or 0), caaide=int(a.caa_ide),
+                    ano=a.ano, mes=a.mes))
+                escrita["movida_de"] = registro_de_synckey(ls.synckey)
+                movidas[a.registro_id] = ls
+                res.escritas.append(escrita)
+                continue
             statements.append(self._cli.stmt_insert_linea(
                 hmoide=hmoide, obra=destino, reside=int(a.recurso_ide),
-                pos=pos_por_parte[hmoide], fecha_int=a.fecha_int,
+                pos=pos_nueva(hmoide), fecha_int=a.fecha_int,
                 horide=int(a.hora_ide), can=float(a.can), pre=float(a.pre),
                 paride=int(a.paride or 0), ano=a.ano, mes=a.mes,
                 synckey=synckey_de(a.registro_id), tex=tex,
                 caaide=int(a.caa_ide),
                 pisadas=pisadas_de.get(a.registro_id, ())))
-            res.escritas.append({"registro_id": a.registro_id,
-                                 "hmoide": hmoide, "parte_cod": p.cod,
-                                 "hora_codigo": a.hora_codigo,
-                                 "can": a.can, "tot": a.tot,
-                                 "caa_cod": a.caa_cod})
+            res.escritas.append(escrita)
 
         afectadas = self._cli.escribir(statements)
 
@@ -699,6 +727,15 @@ class RegistroPipeline:
         mapa = self._cli.lineas_por_synckey(
             [synckey_de(e["registro_id"]) for e in res.escritas])
         res.escritas, no_escritas = confirmar_escritas(res.escritas, mapa)
+        for e in res.escritas:
+            ls = movidas.get(e["registro_id"])
+            if ls is not None:
+                # F-060 (R24): sin nombres ni DNIs.
+                logger.info(
+                    "[registro] ciz movido ide=%s hmoide=%s->%s fecha=%s->%s "
+                    "registro_id=%s->%s", ls.ide, ls.hmoide, e["hmoide"],
+                    ls.fecha_int, mapa[synckey_de(e["registro_id"])].fecha_int,
+                    e["movida_de"], e["registro_id"])
         pisadas = sorted({i for ides in pisadas_de.values() for i in ides})
         vivas: dict[int, LineaSigrid] = {}
         if pisadas:
