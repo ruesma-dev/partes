@@ -94,6 +94,19 @@ from application.services.incidencias_horas import (
     TablaIncidencias,
     detectar,
 )
+from application.services.racha_incidencia import (
+    FIN,
+    INICIO,
+    LineaHist,
+    LineaRol,
+    aviso_desordenada,
+    clave_incidencia,
+    colapsar,
+    decidir,
+    hasta_delante,
+    motivo_desordenada,
+    ventana,
+)
 from application.services.calendar_builder import (
     build_period_options,
     is_future_fecha,
@@ -2098,6 +2111,12 @@ class ParteReviewRepository:
         `repartos_decididos` (decidido «Aplicar» en esta peticion): cuentan
         en `excluidas["reparto_pendiente"]` (solo si es > 0) y salen en el
         detalle con su motivo.
+
+        F-060 (R1-R12): el rol de cada incidencia que viaja sale del
+        historico de su persona (`_roles_de_racha`, una consulta por
+        persona) y, con `fin`, lleva `racha_registro_ids`; las demas lineas
+        la llevan vacia. Cada grupo lleva `avisos_racha` (R10): lineas de
+        trabajo o `inicio` antes de una incidencia ya registrada.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -2122,6 +2141,7 @@ class ParteReviewRepository:
             obra: dict[str, Any] = {}
             grupos: dict[str, dict[str, Any]] = {}
             detalle: list[dict[str, Any]] = []
+            viajan: list[tuple[ParteRegistroOrm, dict, dict]] = []
             for r in regs:
                 estado = _estado_norm(r.sigrid_estado)
                 if estado == ESTADO_REGISTRADO or (
@@ -2154,7 +2174,7 @@ class ParteReviewRepository:
                     obra = _obra_de(r)
                 grupo = grupos.setdefault(obra_key_for_registro(r), {
                     "obra": {}, "lineas": [], "estado_previo": {},
-                    "avisos_incidencia": []})
+                    "avisos_incidencia": [], "avisos_racha": []})
                 if not grupo["obra"] and (r.obra_ide or r.obra_codigo):
                     grupo["obra"] = _obra_de(r)
                 grupo["estado_previo"][r.id] = estado
@@ -2173,12 +2193,12 @@ class ParteReviewRepository:
                     "partida_cod": r.partida_cod,
                     "candef": r.hora_candef,
                     "incidencia_codigo": r.incidencia_codigo,
-                    "incidencia_rol": (
-                        self._rol_incidencia(session, r)
-                        if r.es_incidencia else None
-                    ),
+                    # F-060: los rellena `_roles_de_racha` al final.
+                    "incidencia_rol": None,
+                    "racha_registro_ids": [],
                 })
                 grupo["lineas"].append(lineas[-1])
+                viajan.append((r, lineas[-1], grupo))
                 if (nivel is not None and nivel.nivel == NIVEL_AVISO
                         and _is_extra(r) and (r.horas or 0.0) > 0.0):
                     grupo["avisos_incidencia"].append({
@@ -2186,6 +2206,17 @@ class ParteReviewRepository:
                         "nombre": lineas[-1]["nombre"], "horas": r.horas,
                         "motivo": nivel.motivo,
                     })
+            roles_de, rachas, avisos = self._roles_de_racha(
+                session, [r for r, _l, _g in viajan], incidencias)
+            for r, linea, grupo in viajan:
+                if r.es_incidencia:
+                    linea["incidencia_rol"] = roles_de[r.id]
+                    linea["racha_registro_ids"] = rachas.get(r.id, [])
+                if r.id in avisos:
+                    grupo["avisos_racha"].append({
+                        "registro_id": r.id, "fecha": r.fecha,
+                        "nombre": linea["nombre"],
+                        "motivo": motivo_desordenada(avisos[r.id])})
             roles = {l["registro_id"]: l["incidencia_rol"]
                      for l in lineas if l["es_incidencia"]}
             if roles:
@@ -2214,70 +2245,98 @@ class ParteReviewRepository:
             ).scalars().all())
         return out
 
+    @classmethod
+    def _roles_de_racha(
+        cls, session, regs: list[ParteRegistroOrm],
+        incidencias: TablaIncidencias | None,
+    ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int]]:
+        """F-060 (R1-R12): para las lineas que viajan, el rol de cada
+        incidencia, la racha de cada `fin` y la fecha del aviso
+        `racha_desordenada` de cada linea que lo merece.
+
+        Por persona (`persona_de`: DNI normalizado o, sin DNI, la clave de
+        trabajador, R6) con alguna linea de trabajo o de incidencia, UNA
+        consulta del historico (R12) desde el inicio de la ventana mas
+        temprana hasta el ultimo dia del mes siguiente al de su linea mas
+        tardia, de cualquier obra y estado, con la papelera marcada
+        (`activa`, R5). `decidir` da el rol de cada incidencia y `colapsar`
+        los ajusta sobre TODA la aprobacion (R7, R8), antes del reparto por
+        obra de F-022. Una incidencia sin fecha es `inicio`, como antes."""
+        por_persona: dict[str, list[ParteRegistroOrm]] = {}
+        for r in regs:
+            trabajo = (not r.es_incidencia
+                       and abs(float(r.horas or 0.0)) > 1e-9)
+            if r.fecha_int and (r.es_incidencia or trabajo):
+                por_persona.setdefault(persona_de(r), []).append(r)
+        roles: dict[int, str] = {r.id: INICIO for r in regs
+                                 if r.es_incidencia}
+        historicos: dict[str, list[LineaHist]] = {}
+        lineas_rol: list[LineaRol] = []
+        for persona, suyas in por_persona.items():
+            hist = cls._historico(session, persona, suyas, incidencias)
+            historicos[persona] = hist
+            for r in suyas:
+                if not r.es_incidencia:
+                    continue
+                clave = clave_incidencia(r.incidencia_codigo, r.hora_codigo,
+                                         incidencias)
+                d = decidir(hist, int(r.fecha_int), clave)
+                lineas_rol.append(LineaRol(
+                    registro_id=r.id, persona=persona,
+                    fecha_int=int(r.fecha_int), clave=clave, rol=d.rol,
+                    racha_registro_ids=d.racha_registro_ids))
+        roles.update(colapsar(lineas_rol))
+        rachas = {l.registro_id: list(l.racha_registro_ids)
+                  for l in lineas_rol if roles[l.registro_id] == FIN}
+        avisos: dict[int, int] = {}
+        for persona, suyas in por_persona.items():
+            for r in suyas:
+                if r.es_incidencia and roles[r.id] != INICIO:
+                    continue
+                f = aviso_desordenada(historicos[persona], int(r.fecha_int))
+                if f is not None:
+                    avisos[r.id] = f
+        return roles, rachas, avisos
+
     @staticmethod
-    def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:
-        """Rol de una incidencia: 'inicio', 'fin' o 'intermedio'.
-
-        En Sigrid solo se registran el PRIMER dia de la racha (con su
-        codigo CI*) y el ULTIMO (fin); los INTERMEDIOS no se registran.
-        La racha se mira en el historico del trabajador cruzando partes y
-        obras, saltando dias sin lineas:
-          - hacia ATRAS: dia anterior con lineas trabajado (o sin
-            historico) -> candidata a inicio; con incidencia -> continua.
-          - hacia DELANTE: siguiente dia con lineas con incidencia ->
-            la racha sigue; trabajado o sin nada -> aqui termina.
-        inicio si el anterior fue trabajo; si no, intermedio cuando la
-        racha continua por delante, y fin cuando termina aqui. Un dia
-        suelto (trabajo antes y despues) es inicio, con su codigo.
-        """
-        if not reg.fecha_int:
-            return "inicio"
-        base = select(ParteRegistroOrm).where(
-            ParteRegistroOrm.deleted_at_utc.is_(None),
-            ParteRegistroOrm.fecha_int.isnot(None),
-        )
-        # Identidad del trabajador: DNI si lo hay; si no, empleado_ide.
-        if reg.empleado_dni:
-            base = base.where(
-                ParteRegistroOrm.empleado_dni == reg.empleado_dni)
-        elif reg.empleado_ide:
-            base = base.where(
-                ParteRegistroOrm.empleado_ide == reg.empleado_ide)
+    def _historico(session, persona: str, suyas: list[ParteRegistroOrm],
+                   incidencias: TablaIncidencias | None) -> list[LineaHist]:
+        """F-060 (R6, R12): las lineas de la persona en la ventana de sus
+        lineas, en UNA consulta. El prefiltro SQL (DNI normalizado,
+        recurso, ficha o sin ficha) solo acota: decide `persona_de`."""
+        desde = min(ventana(int(r.fecha_int))[0] for r in suyas)
+        hasta = max(hasta_delante(int(r.fecha_int)) for r in suyas)
+        q = (select(ParteRegistroOrm, ParteDocumentOrm.is_active)
+             .join(ParteDocumentOrm)
+             .where(ParteRegistroOrm.fecha_int.between(desde, hasta)))
+        tipo, _sep, valor = persona.partition(":")
+        if tipo == "dni":
+            q = q.where(func.upper(func.replace(func.replace(
+                ParteRegistroOrm.empleado_dni, "-", ""), " ", "")) == valor)
+        elif persona.startswith("rec-"):
+            rec = int(persona[len("rec-"):])
+            q = q.where(or_(
+                ParteRegistroOrm.recurso_ide == rec,
+                (ParteRegistroOrm.recurso_ide.is_(None))
+                & (ParteRegistroOrm.empleado_reside == rec)))
+        elif persona.startswith("emp-"):
+            q = q.where(ParteRegistroOrm.empleado_ide
+                        == int(persona[len("emp-"):]))
         else:
-            return "inicio"
-
-        def _dia_es_incidencia(regs: list) -> bool:
-            # Si ese dia hubo CUALQUIER linea de trabajo, fue trabajado.
-            return not any(not p.es_incidencia for p in regs)
-
-        # --- hacia atras ---
-        previos = list(session.execute(
-            base.where(ParteRegistroOrm.fecha_int < int(reg.fecha_int))
-            .order_by(ParteRegistroOrm.fecha_int.desc()).limit(50)
-        ).scalars().all())
-        if previos:
-            ult = previos[0].fecha_int
-            atras_incidencia = _dia_es_incidencia(
-                [p for p in previos if p.fecha_int == ult])
-        else:
-            atras_incidencia = False
-
-        if not atras_incidencia:
-            return "inicio"
-
-        # --- hacia delante (solo si la racha viene de atras) ---
-        siguientes = list(session.execute(
-            base.where(ParteRegistroOrm.fecha_int > int(reg.fecha_int))
-            .order_by(ParteRegistroOrm.fecha_int.asc()).limit(50)
-        ).scalars().all())
-        if siguientes:
-            prim = siguientes[0].fecha_int
-            delante_incidencia = _dia_es_incidencia(
-                [p for p in siguientes if p.fecha_int == prim])
-        else:
-            delante_incidencia = False
-
-        return "intermedio" if delante_incidencia else "fin"
+            q = q.where(ParteRegistroOrm.empleado_ide.is_(None))
+        out: list[LineaHist] = []
+        for reg, doc_activo in session.execute(q).all():
+            if persona_de(reg) != persona:
+                continue
+            out.append(LineaHist(
+                registro_id=reg.id, fecha_int=int(reg.fecha_int),
+                es_incidencia=bool(reg.es_incidencia),
+                clave=(clave_incidencia(reg.incidencia_codigo,
+                                        reg.hora_codigo, incidencias)
+                       if reg.es_incidencia else ""),
+                horas=reg.horas, sigrid_estado=_estado_norm(reg.sigrid_estado),
+                activa=reg.deleted_at_utc is None and bool(doc_activo)))
+        return out
 
     def registro_ids_de_obra(
         self, obra_key: str, *, period_key: str | None = None,
