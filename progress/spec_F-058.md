@@ -1,64 +1,62 @@
 <!-- progress/spec_F-058.md -->
-# F-058 · spec_ready, enmendada (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+# F-058 · spec_ready, enmendada otra vez (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
-worktree `partes-wt-f058`). Primera versión en f8f3062; esta enmienda aplica las respuestas del
-humano del 2026-10-23. Rigor **estándar**. Tamaños: requirements 149/150, design 249/250,
-tasks 21 tareas (puerta de tamaño en verde).
+worktree `partes-wt-f058`). Primera versión en f8f3062, primera enmienda en a631600 (DA1,
+comprobación de obra en sv2 y prompt); esta segunda enmienda aplica la respuesta del humano a
+la DA10. Rigor **estándar**. Tamaños: requirements 150/150, design 250/250, tasks 22 tareas.
 
-## Respuestas del humano que aplica (literales)
+## Respuesta del humano que aplica (literal, 2026-10-23)
 
-1. DA1: «da1, vacia o no casa con ninguna obra».
-2. «para el tema de la cabecera podemos mejorar el prompt diciendole que hay una cabecera y que
-   debera obtener la obra el dia mes, etc... añadelo a f58, lo demas ok» ⇒ DA2–DA8 aprobadas con
-   la recomendación (A en todas, DA5 incluida) y la comprobación de existencia en sv2 (opción A).
+«da10, vamos a poner una consulta en el momento al vuelo, y vemos tiempos. si la obra no existe
+se manda a relectura a gemini»
 
-## Qué cambia respecto a f8f3062
+## Qué cambia respecto a a631600
 
-- **DA1 enmendada**: con al menos una fila, se relee si (a) `obra_numero` y `fecha` vacíos
-  (`cabecera_vacia`) **o** (b) la obra leída no está en la lista de obras de Sigrid
-  (`obra_inexistente`). Fecha sin obra no relee (F-054 la manda a revisión).
-- **Comprobación de existencia en sv2**: lista de códigos `SELECT DISTINCT con.cod FROM obr JOIN
-  con` por `sql/read` con el `SigridLookupClient` que ya usa el catálogo auxhor, cacheada
-  `OBRAS_CACHE_TTL_S` (600). Clave: sin acentos, mayúsculas, sin blancos ni guiones y sin ceros a
-  la izquierda; cualquier empresa, con o sin baja. `truncated: true` o 0 códigos = fallo; si
-  sigrid-api falla o no está cableado, no se relee por obra, no se propaga y no se reintenta
-  hasta pasado el TTL. No es la conciliación de sv3 (la clave es más gruesa: todo lo que sv3
-  casaría por código está en la lista) y la lista cerrada de duplicados no crece.
-- **Relectura útil por motivo** y resultado nuevo `no_casa` (la releída trae otra obra que
-  tampoco está en la lista). Traza `meta.relectura_cabecera.motivo` ∈ `cabecera_vacia` |
-  `obra_inexistente`.
-- **Prompt**: párrafo nuevo al inicio del punto 1 de `parte_trabajo_es` (toda página tiene
-  cabecera; de ella salen obra, día, mes, año, membrete y el resto; búscala aunque el escaneo
-  salga desplazado; con trabajadores, cabecera entera a null = no localizada; nunca inventar) y
-  una frase en la viñeta de fecha (casillas separadas día/mes/año). Texto exacto en
-  `design.md` §5. Afecta a todas las extracciones de ambos proveedores.
-- **Banco MB** (T3, lo lanza el líder con `lanzar.ps1` y `-Repo` al worktree, sobre el commit de
-  T2): (a) sincab con `gpt-6.1-sol` ×2 ⇒ cuántas de 12 traen obra y fecha (antes 0; se mide, no
-  es puerta); (b) control con `gpt-6.1-sol`; (c) sincab con `gemini-4-argon`; (d) batería de
-  F-051 ×3 con `corregir.py`. Puerta: (b)–(d) sin regresión. Resultado en
-  `progress/banco_F-058.md`. Que el prompt mejore no quita la relectura.
-- `azure-apps/partes.md`: sv2 consume Gemini para releer y sigrid-api (catálogo auxhor, que ya
-  consumía sin estar documentado, y lista de obras). M0 comprueba también las `SIGRID_API_*`.
-  Sin cambios de entorno en Azure.
+- **DA10 = B (decidida)**: fuera la lista de códigos cacheada, `OBRAS_CACHE_TTL_S`, `ObrasSigrid`,
+  `CodigosObraPort`, `fetch_codigos_obra` y el riesgo de «obra nueva dentro del TTL». En su
+  lugar, por cada página con trabajadores, obra leída y relectura activa, sv2 hace en ese
+  momento una consulta `sql/read` de existencia de esa obra (`SigridLookupClient.existe_obra`,
+  `_SQL_EXISTE_OBRA` con un solo `?`: la clave va en `parameters`, nunca en el texto). El SQL
+  calcula sobre `con.cod` la misma clave que Python (sin espacios ni guiones, sin ceros a la
+  izquierda si son solo dígitos, mayúsculas y acentos por `COLLATE Latin1_General_CI_AI`), en
+  cualquier empresa y también de baja; `TOP 1`, `max_rows` 2 y `truncated` = fallo.
+- **Como mucho dos consultas por página**: la de la primaria y, si la releída por
+  `obra_inexistente` trae otra clave, la de la releída (misma clave ⇒ `no_casa` sin consultar).
+  Con `cabecera_vacia` no se consulta nada.
+- **«Vemos tiempos»**: `ComprobadorObra` (application, sin estado) mide cada consulta con reloj
+  monotónico y deja INFO `[obra-sigrid] document_id=… resultado=existe|no_existe ms=…` (WARNING
+  con `error=<tipo>` si falla), sin código, nombres ni DNIs. Al releer, además,
+  `meta.relectura_cabecera.consulta_obra_ms` (lista); sin relectura, meta y debug como hoy
+  (DA6). Para tener `document_id` en el log, `ExtractParteRequest` gana `document_id` opcional y
+  `main_worker.py` lo pasa (R15). Nueva verificación **M4** (T20): KQL en Log Analytics sobre
+  `ca-sv2-extraccion` con número, mediana, p95, máximo y errores por día (`design.md` §10).
+- **«Si la obra no existe se manda a relectura a gemini»**: confirma la DA1 enmendada
+  (`obra_inexistente` ⇒ relectura); anotado en §11.
+- **Fallo o lentitud (DA12, nueva, pendiente)**: propuesta `OBRA_EXISTE_TIMEOUT_S` = 5 s
+  (`httpx` y `timeout_seconds` de sigrid-api); fallo, `truncated` o tope = «no se sabe»: no relee
+  por obra, WARNING, la extracción sigue; en la segunda consulta, «no se sabe» da `no_casa`.
 
-## Decisiones abiertas para el humano (`design.md` §11)
+## Decisiones pendientes de confirmar por el humano (`design.md` §11)
 
 | DA | Tema | Recomendación |
 |---|---|---|
 | DA9 | Puerta del prompt | Si MB (b)–(d) empeora, se quita el párrafo y queda la relectura |
-| DA10 | Comprobación de existencia | A: lista cacheada (1 consulta por TTL; truncated o vacía = fallo; fallo = no releer por obra). B: consulta por página. C: fallo = releer |
-| DA11 | Cabecera con obra inexistente | A: la releída entera si su obra está en la lista (como DA3). B: conservar la fecha primaria si la releída no la trae |
+| DA11 | Cabecera con obra inexistente | A: la releída entera si su obra existe (como DA3). B: conservar la fecha primaria si la releída no la trae |
+| DA12 | Consulta de obra que falla o tarda | A: tope 5 s; fallo, `truncated` o tope = no releer por obra, WARNING y seguir. B: fallo = releer (Gemini en todas las páginas con obra mientras sigrid-api falle). Se revisa con los tiempos de M4 |
 
 ## Hallazgos del spec-author que conviene saber
 
-- `SigridLookupClient` de sv2 no mira `truncated` hoy (pide `max_rows` 10.000 para auxhor);
-  la spec lo exige solo para la lista de obras (`exigir_completo`), sin cambiar auxhor.
-- `azure-apps/partes.md` no documentaba que sv2 ya lee sigrid-api (catálogo auxhor); T15 lo
-  corrige. `azure-apps/sigrid_api.md` (de sigrid-api) no lista a partes entre sus consumidores:
-  no se toca aquí por la regla de propiedad; lo decide el humano.
-- `docs/ARCHITECTURE.md` dice «máx. 1.000 filas por petición» de sigrid-api; la instancia sirve
-  500.000 (CLAUDE.md raíz). T13 lo corrige de paso.
-- sv3 también casa por nombre cuando el código no existe: una relectura por `obra_inexistente`
-  solo sustituye la cabecera si la obra releída está en la lista; si no, `no_casa` y sv3 sigue
-  como hoy.
+- **Sin medir**: la clave calculada sobre `con.cod` impide usar un índice, así que cada consulta
+  recorre `obr ⨝ con`. El agente no tiene acceso a sigrid-api; los primeros tiempos salen de M1
+  (local) y los reales de M4. Casi todas las páginas traen obra y filas: casi todas consultan.
+- **El tope de 5 s no es total**: `httpx` lo aplica por fase y `HTTPTransport(retries=1)`
+  reintenta la conexión; el peor caso ronda 2–3 veces el tope. Un arranque en frío de
+  sigrid-api puede pasarlo: esa página no relee por obra y F-054 es la red.
+- Si sigrid-api rechazara la sentencia (`CROSS APPLY`, `COLLATE`), M1 lo verá como `error`
+  sin romper la extracción; el implementer no puede comprobarlo sin red.
+- Siguen valiendo: `SigridLookupClient` de sv2 no mira `truncated` hoy (solo se exige para la
+  consulta nueva); `azure-apps/partes.md` no documentaba que sv2 ya lee sigrid-api (T15);
+  `azure-apps/sigrid_api.md` no lista a partes entre sus consumidores (no se toca por la regla
+  de propiedad; lo decide el humano); `docs/ARCHITECTURE.md` dice 1.000 filas y son 500.000
+  (T13).

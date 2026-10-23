@@ -1,17 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-058 · spec_ready, enmendada (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+## F-058 · spec_ready, enmendada otra vez (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
-worktree `partes-wt-f058`); resumen en `progress/spec_F-058.md`. Enmendada con las respuestas
-del humano del 2026-10-23 («da1, vacia o no casa con ninguna obra» y «...mejorar el prompt...
-añadelo a f58, lo demas ok»): DA1 enmendada (cabecera vacía **o** obra leída fuera de la lista
-de obras de Sigrid, comprobada en sv2 con una lista cacheada por sigrid-api) y DA2–DA8
-aprobadas (A); el punto 1 del prompt avisa de la cabecera (banco MB del líder en T3). Solo sv2,
-sin cambios de entorno. **Pendiente del humano**: DA9 (puerta del banco), DA10 (lista cacheada,
-recomendada A) y DA11 (cabecera entera también con obra inexistente, recomendada A),
-`design.md` §11. Ninguna verificación manual ejecutada.
+worktree `partes-wt-f058`); resumen en `progress/spec_F-058.md`. Primera enmienda (a631600): DA1
+(cabecera vacía **o** obra leída inexistente en Sigrid), DA2–DA8 aprobadas (A) y el punto 1 del
+prompt avisa de la cabecera (banco MB del líder en T3). Segunda enmienda, con «da10, vamos a
+poner una consulta en el momento al vuelo, y vemos tiempos. si la obra no existe se manda a
+relectura a gemini»: **DA10 = B**, sin lista cacheada; sv2 consulta en el momento la existencia
+de la obra (parametrizada, como mucho dos por página) y deja sus milisegundos en el log
+(`[obra-sigrid]`, con `document_id`) y en `meta.relectura_cabecera.consulta_obra_ms`; M4 los lee
+en Log Analytics tras desplegar. DA1 confirmada. Solo sv2, sin cambios de entorno.
+**Pendiente del humano**: DA9 (puerta del banco), DA11 (cabecera entera también con obra
+inexistente) y DA12 (fallo o lentitud de la consulta: tope 5 s y no releer por obra), las tres
+recomendadas A, `design.md` §11. Ninguna verificación manual ejecutada.
 
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
