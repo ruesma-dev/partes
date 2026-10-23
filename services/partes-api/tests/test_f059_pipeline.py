@@ -18,8 +18,6 @@ from io import BytesIO
 from pathlib import Path
 
 import pytest
-from PIL import Image, ImageStat
-
 from application.pipelines.extract_parte_pipeline import (
     ExtractPartePipeline,
     ExtractParteRequest,
@@ -38,6 +36,7 @@ from domain.ports.conversor_pagina import ConversorPaginaImagen
 from domain.ports.llm_client import LlmVisionClient
 from infrastructure.document.pagina_pdf_imagen import PaginaPdfImagenConversor
 from infrastructure.prompts.yaml_prompt_repository import YamlPromptRepository
+from PIL import Image, ImageStat
 from tests.f059_pdf_sinteticos import pdf_escaneado
 
 RUTA_PROMPTS = Path(__file__).resolve().parents[1] / "config" / "prompts.yaml"

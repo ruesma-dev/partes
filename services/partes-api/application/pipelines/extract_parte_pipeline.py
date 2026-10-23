@@ -5,8 +5,8 @@ Valida el adjunto, ejecuta el proveedor LLM configurado y devuelve un
 envelope ``{meta, data, debug}`` con la misma forma que el sv2 de
 albaranes, para que sv3 lo consuma de forma homogenea.
 
-F-059: con la conversion activa (interruptor ``PAGINA_COMO_IMAGEN`` y el
-proveedor en ``PAGINA_COMO_IMAGEN_PROVEEDORES``), una pagina escaneada viaja
+F-059: con la conversión activa (interruptor ``PAGINA_COMO_IMAGEN`` y el
+proveedor en ``PAGINA_COMO_IMAGEN_PROVEEDORES``), una página escaneada viaja
 a la IA como imagen derecha (``_preparar_para_ia``); si no aplica o falla,
 va el PDF original byte a byte. ``meta.source_*`` siguen siendo del
 documento recibido y ``meta.adjunto_ia`` deja la traza de lo enviado.
@@ -95,15 +95,15 @@ class ExtractPartePipeline:
         )
 
     # --------------------------------------------------------------- #
-    # F-059: pagina escaneada -> imagen derecha.
+    # F-059: página escaneada -> imagen derecha.
     # --------------------------------------------------------------- #
     def _preparar_para_ia(
         self, original: LlmAttachment, sha256: str
     ) -> Tuple[LlmAttachment, Dict[str, Any]]:
         """Devuelve (adjunto a enviar, meta.adjunto_ia).
 
-        Nunca lanza por la conversion: si el conversor falla, se manda el
-        PDF original y se avisa con el tipo de excepcion y el sha256 corto,
+        Nunca lanza por la conversión: si el conversor falla, se manda el
+        PDF original y se avisa con el tipo de excepción y el sha256 corto,
         sin nombre de fichero ni nada del contenido (R13).
         """
         if self._conversor is None:

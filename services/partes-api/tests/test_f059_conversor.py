@@ -15,10 +15,6 @@ from __future__ import annotations
 from io import BytesIO
 
 import pytest
-from PIL import Image, ImageStat
-from pypdf import PdfReader
-from pypdf.generic import ArrayObject, NameObject, NumberObject
-
 from domain.models.conversion_adjunto import (
     MOTIVO_COLOR_NO_SOPORTADO,
     MOTIVO_CONTENIDO_NO_ES_UNA_IMAGEN,
@@ -30,6 +26,10 @@ from domain.models.conversion_adjunto import (
 )
 from domain.models.llm_attachment import LlmAttachment
 from infrastructure.document.pagina_pdf_imagen import PaginaPdfImagenConversor
+from PIL import Image, ImageStat, UnidentifiedImageError
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
+from pypdf.generic import ArrayObject, NameObject, NumberObject
 from tests.f059_pdf_sinteticos import (
     ALTO_DERECHA,
     ANCHO_DERECHA,
@@ -191,7 +191,7 @@ def test_f059_r6_varias_paginas_no_aplica() -> None:
         _contenido() + b" " + _contenido(),
         f"{CM_COMPLETO} /image Do".encode("ascii"),
         f"q {CM_COMPLETO} /image Do".encode("ascii"),
-        f"q /image Do Q".encode("ascii"),
+        "q /image Do Q".encode("ascii"),
         f"q {CM_COMPLETO} {CM_COMPLETO} /image Do Q".encode("ascii"),
         f"q {CM_COMPLETO} Q".encode("ascii"),
         b"",
@@ -318,16 +318,16 @@ def test_f059_r10_giro_que_no_es_multiplo_de_90(rotate_pdf: int) -> None:
 # ------------------ R13 (lado del conversor) · se lanza ------------------ #
 
 def test_f059_r13_bytes_que_no_son_pdf_lanzan() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(PdfReadError):
         _convertir(b"esto no es un PDF")
 
 
 def test_f059_r13_jpeg_truncado_lanza() -> None:
     entero = jpeg_de(pagina_derecha())
-    with pytest.raises(Exception):
+    with pytest.raises(OSError, match="truncated"):
         _convertir(pdf_escaneado(0, jpeg=entero[: len(entero) // 2]))
 
 
 def test_f059_r13_bytes_de_imagen_que_no_son_jpeg_lanzan() -> None:
-    with pytest.raises(Exception):
+    with pytest.raises(UnidentifiedImageError):
         _convertir(pdf_escaneado(0, jpeg=b"no es un jpeg" * 10))

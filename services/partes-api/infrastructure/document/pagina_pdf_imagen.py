@@ -18,10 +18,6 @@ from io import BytesIO
 from pathlib import PurePath
 from typing import Any
 
-from PIL import Image
-from pypdf import PdfReader
-from pypdf.generic import ContentStream
-
 from domain.models.conversion_adjunto import (
     MOTIVO_COLOR_NO_SOPORTADO,
     MOTIVO_CONTENIDO_NO_ES_UNA_IMAGEN,
@@ -33,6 +29,9 @@ from domain.models.conversion_adjunto import (
 )
 from domain.models.llm_attachment import LlmAttachment
 from domain.ports.conversor_pagina import ConversorPaginaImagen
+from PIL import Image
+from pypdf import PdfReader
+from pypdf.generic import ContentStream
 
 #: Tolerancia, en puntos, entre la matriz ``cm`` y la MediaBox (R9).
 TOLERANCIA_PT = 1.0
