@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **52 features**, 14 abiertas, 38 terminadas.
+Resumen: **53 features**, 15 abiertas, 38 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -11,12 +11,13 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 1 | pendiente | critico | `feature/F-056-franquicia-de-extras` |
 | F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | spec lista | estandar | `feature/F-054-sin-obra-o-fecha-a-revision` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 7 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 7 | pendiente | critico | `feature/F-056-franquicia-de-extras` |
+| F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | pendiente | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | estandar | `feature/F-027-escape-modales` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 10 | pendiente | estandar | `feature/F-026-visor-fotos` |
@@ -71,6 +72,12 @@ Bloqueadas: **F-032**.
 
 ## Detalle
 
+### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
+
+estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
+
+Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe. Decisión del humano del 2026-10-22/23 («si a todo, pon la nueva feature como primera y lanza spec»): primera de la cola, spec en marcha.
+
 ### F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión
 
 estado **spec lista** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-054-sin-obra-o-fecha-a-revision`
@@ -101,11 +108,11 @@ estado **pendiente** · prioridad 7 · rigor `estandar` · SDD sí · rama `feat
 
 Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
 
-### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
+### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
-estado **pendiente** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
+estado **pendiente** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-057-pedido-celda-todos-los-partes`
 
-Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe.
+Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como feature por decisión del humano del 2026-10-23 («si a todo»). Si una celda de la matriz junta líneas de dos partes de la MISMA obra (F-050, varios partes) y solo cambia una, el otro parte no recibe el pedido compartido de recálculo: no es «tocado» (R23 de F-049) ni «afectado» (R38 excluye las líneas de la celda), pero la pasada completa de sv3 sí puede reescribir sus extra_auto; queda el residual R-g de F-043 en ese parte durante la pasada (~30 s). Propuesta: incluir en el pedido todo documento con líneas en la celda. Pendiente de spec.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
