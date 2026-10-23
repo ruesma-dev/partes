@@ -13,9 +13,9 @@ la causa en sv2 es F-058, el alcance de F-054 no cambia.
 
 - **T1–T5 hechas** (un commit por tarea, fase RED con trazas) y `bash harness/init.sh` en
   verde (sv3: 2.305 passed; cobertura 100 % de 13 líneas cambiadas). Informe:
-  `progress/impl_F-054.md`. **Siguiente: T6, la campaña de mutación, que lanza el líder**
-  (`python -m harness.mutacion --feature F-054`); luego el análisis de supervivientes en el
-  informe y el reviewer.
+  `progress/impl_F-054.md`. **T6 hecha** (mutación lanzada por el líder el 2026-10-23: 5
+  mutantes, 5 muertos, 0 supervivientes; `progress/mutacion_F-054.md`). **Siguiente:
+  reviewer.**
 - Desviaciones (justificadas en el informe): 4 tests de más para fronteras y formato del
   WARNING; la semántica 18 va en presente («se corrige una sola vez a mano») porque la M2
   aún no se ha hecho; sv3 tiene 2.271 tests en `dev`, no los 2.254 de la spec.

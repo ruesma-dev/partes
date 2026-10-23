@@ -8,7 +8,8 @@ relectura con gemini». Contexto del líder del 2026-10-23: 4 páginas más del 
 con la cabecera a null, `obra_match_method = 'none'` y `review_required = false`; la causa
 (sv2) es F-058 y el alcance de F-054 no cambia.
 
-**Estado: T1–T5 hechas; T6 (mutación) la lanza el líder; T8 (M2) y T9 (M3) son MANUAL.**
+**Estado: T1–T7 y T10 hechas (T6, la mutación, la lanzó el líder: 5/5 muertos); T8 (M2) y T9
+(M3) son MANUAL y siguen pendientes.**
 
 ## Rebase
 
@@ -156,11 +157,19 @@ $ python -m pytest -q
   de deuda previa (desde la configuración de sv3, los ficheros tocados pasan `ruff`; el
   único aviso, UP045 en `__init__`, ya estaba), infra sin tests.
 
+## Mutación (T6, lanzada por el líder el 2026-10-23)
+
+`python -m harness.mutacion --feature F-054 --workers 3` (sin `--timeout`), desde el
+worktree con el `.venv` de partes, sobre HEAD 9764fad. Alcance: 1 fichero
+(`persist_parte_pipeline.py`), 31 líneas. Nivel `estandar` (muestreo hasta 20, semilla
+20260820): solo salieron 5 mutantes, así que la campaña fue **completa**. Resultado: **5
+muertos, 0 supervivientes**, 0 timeouts, 0 sin veredicto; 106,4 s en total, línea base de
+sv3 33,5–33,7 s, 21,3 s de media por mutante, timeout efectivo 300 s (el suelo). No hay
+supervivientes que analizar. Informe: `progress/mutacion_F-054.md`; log completo fuera del
+repositorio (scratchpad de la sesión del líder, `mutacion_F-054.log`).
+
 ## Verificaciones MANUAL pendientes (NO ejecutadas)
 
-- **T6 · mutación**: la lanza el líder (`python -m harness.mutacion --feature F-054`, nivel
-  `estandar`: muestreada a 20 mutantes, semilla 20260820) ⇒ `progress/mutacion_F-054.md`;
-  el análisis de supervivientes se añade aquí después.
 - **T8 · M2** (DA3 = B): escritura en la base `partes`; **solo con autorización expresa del
   humano para esta acción y tras `redeploy_partes.ps1 -Solo sv3`** (lo pide el humano).
   Comando exacto (`design.md` §8; `<servidor>` y `<usuario>` del Key Vault):
@@ -188,5 +197,5 @@ bajar la bandera al arreglar obra o fecha.
 | Tests ejecutados (sv3) | **2.305 passed**, 0 fallos (2.271 de `dev` + 34 de F-054), 22,12 s |
 | Tests nuevos de F-054 | 34 en `test_f054_revision_cabecera.py` (+ 1 caso cambiado en `test_f023`) |
 | Cobertura de las líneas cambiadas | **100,0 %** de 13 líneas cambiadas (13/13), `PUERTA COBERTURA` de `init.sh` |
-| Mutantes generados / supervivientes | **PENDIENTE: la campaña la lanza el líder** (T6) |
+| Mutantes generados / supervivientes | **5 generados, 5 evaluados, 5 muertos, 0 supervivientes**, 0 timeouts, 0 sin veredicto (106,4 s) |
 | Tiempo de la suite | sv3: 22,12 s; dentro de `init.sh`, sv3 39,71 s y tests de raíz 95,95 s |
