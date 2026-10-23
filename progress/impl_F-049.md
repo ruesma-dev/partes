@@ -1,11 +1,13 @@
 <!-- progress/impl_F-049.md -->
-# F-049 · Informe del implementer (PARCIAL: pendiente de la campaña de mutación)
+# F-049 · Informe del implementer
 
-**Estado (2026-10-22)**: T1–T16 hechas, un commit por tarea. El bloqueo de T17 (recuento de
-`_actor` del guardián de F-017) quedó resuelto por decisión del humano (opción A, literal «a»):
-recuento 17 → 18 y test añadido a la lista cerrada de design §3. T17 queda pendiente SOLO de la
-campaña de mutación, que lanza el líder; luego T18 (este informe completo) y T19 (portero). Rama `feature/F-049-editor-calendario-normal-y-extra`, worktree
-`partes-wt-f049`, rebasada sobre `dev` 2bfeab7.
+**Estado (2026-10-23)**: T1–T19 hechas, un commit por tarea; lista para el reviewer. El
+bloqueo de T17 (recuento de `_actor` del guardián de F-017) se resolvió por decisión del humano
+(opción A, literal «a»): recuento 17 → 18 y test añadido a la lista cerrada de design §3. La
+campaña de mutación completa (la lanzó el líder) dejó 2 supervivientes; los dos eran huecos
+reales y los mata un test nuevo cada uno (T17, `3a2d296`). Rama
+`feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`, rebasada sobre
+`dev` 2bfeab7.
 
 ## Qué cambió
 
@@ -22,7 +24,7 @@ campaña de mutación, que lanza el líder; luego T18 (este informe completo) y 
 | docs | `docs/ARCHITECTURE.md`; `azure-apps/partes.md` (commit local `08b5755`) | semánticas 3 y 10, rutas, motivos, pedido compartido, orden sv3 → sv4 |
 
 Tests nuevos: `services/partes-front/tests/test_f049_plan_celda.py` (82),
-`test_f049_guardar_celda.py` (95), `test_f049_editor_js.py` (32), `tests/test_f049_contrato_motivos.py`
+`test_f049_guardar_celda.py` (97, dos de ellos de T17), `test_f049_editor_js.py` (32), `tests/test_f049_contrato_motivos.py`
 (5), sv3 `test_f049_e12_otra_obra.py` (9) y `test_f049_pedido_compartido.py` (8).
 
 Decisiones y desviaciones (justificadas): ver `progress/current.md`, sección F-049.
@@ -52,30 +54,69 @@ Decisiones y desviaciones (justificadas): ver `progress/current.md`, sección F-
 
 T13 (caracterización de sv3, R40) pasa a la primera a propósito: no toca código de sv3.
 
+## T17 · campaña de mutación completa (resultado real)
+
+Comando (lo lanzó el líder): `python -m harness.mutacion --feature F-049 --workers 1` (sin
+`--timeout`), sobre HEAD `4f73add`. Detalle por superviviente en `progress/mutacion_F-049.md`.
+
+| Métrica | Valor |
+|---|---|
+| Alcance | 775 líneas en 5 ficheros (`edicion_celda.py`, `parte_repository.py`, `app.py`, `recalculo_publisher.py` de sv4; `recalculo_seguimiento.py` de sv3) |
+| Mutantes generados / evaluados | 164 / 164 (muestreo: no) |
+| Muertos / supervivientes / timeouts | 162 / 2 / 0 |
+| Tiempo total | 44.292,9 s (base sv4 413,9 s, sv3 37,0 s; timeout por mutante 828 s) |
+
+Supervivientes (los dos, hueco real; test nuevo en `test_f049_guardar_celda.py`):
+
+1. `parte_repository.py:3229` `if reg is not None:` → `if reg is None:` (`_deshacer_creadas`).
+   Las afectadas de un deshacer salen también de las líneas del snapshot; todos los tests con
+   afectadas no vacías creaban línea y las `creadas` bastaban para hallar la celda. Test:
+   `test_f049_r26_r38_deshacer_sin_creadas_da_las_afectadas` (E12 que solo edita). Mutante a
+   mano: `E       AssertionError: assert [] == [{'obra_key':...lada': False}]` · `1 failed`.
+2. `app.py:2245` `if sigrid_client is None or not reside:` → `... and not reside:`
+   (`_hora_extra_celda`). Faltaba la celda con plantilla y sin recurso (clave `emp-`): el
+   mutante consulta `fetch_hora_extra_recurso(None)` y la extra nueva sale con un código que no
+   es del recurso. Test: `test_f049_r21_extra_nueva_sin_recurso_no_pregunta_a_sigrid`. Mutante
+   a mano: `E       AssertionError: assert ('extra', 1.5, 31, 'HE01') == ('extra', 1.5, None, None)`
+   · `1 failed`.
+
+Cada mutante se aplicó con `sed` sobre la línea, se lanzó
+`python -m pytest tests/test_f049_guardar_celda.py -q -k <test>` (sv4) y se revirtió con
+`git checkout --` (diff vacío comprobado); sin mutar, el fichero entero da `97 passed`. No se
+relanzó la campaña completa. **0 supervivientes sin resolver.**
+
 ## Verificaciones hechas (resultado real)
 
-- `bash harness/init.sh` tras `8d383e8` (2026-10-22): `ENTORNO LISTO`. sv4 `2581 passed,
-  1 skipped, 1 warning in 842.04s`; sv3 `2271 passed in 76.73s` (pasada anterior; en esta,
-  caché de árbol sin cambios); raíz `498 passed, 3 skipped in 140.54s`; `PUERTA COBERTURA:
-  100.0% de 362 líneas cambiadas cubiertas`; `PUERTA TAMAÑO` dentro (design 250/250).
-- Antes (tras `4889e1e`, sin `-x`): sv4 `1 failed, 2580 passed, 1 skipped in 281.62s`, el único
-  fallo era el del bloqueo (`test_f017_…usan_el_helper`, `assert 18 == 17`).
+- **T19** · `bash harness/init.sh` tras `3a2d296` (2026-10-23): `ENTORNO LISTO. Puedes trabajar.`,
+  exit 0. Raíz `498 passed, 3 skipped in 48.68s`; sv4 `2583 passed, 1 skipped, 1 warning in
+  243.32s`; sv1, sv2, sv3 y sv5 en verde por caché (árbol sin cambios desde su último verde; la
+  última pasada real de sv3 dio `2271 passed in 76.73s`); `PUERTA COBERTURA: 100.0% de 362
+  líneas cambiadas cubiertas (362/362, umbral 80%, nivel critico)`; `PUERTA TAMAÑO` dentro
+  (requirements 149/150, design 250/250, impl dentro de 220); ruff 771 avisos de deuda previa,
+  no bloquea. Log completo fuera del repo, en el scratchpad de la sesión (`init_f049_t19.log`).
+- Antes (tras `8d383e8`, 2026-10-22): `ENTORNO LISTO`, sv4 `2581 passed, 1 skipped`.
+- T17 · cada superviviente: mutante aplicado a mano → su test nuevo falla; revertido → pasa
+  (trazas arriba).
 - `node --check services/partes-front/static/app.js`: OK; plantilla parseada con Jinja2.
-- Cobertura de las líneas cambiadas con los tests de F-049: 100 % en `edicion_celda.py`;
-  las dos líneas sin cubrir de repositorio y `app.py` tienen test desde `b4f61d2`.
 
-## Evidencias (parciales)
+## Evidencias
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | sv4 2581 + 1 skipped, sv3 2271, raíz 498 + 3 skipped: todo en verde |
-| Cobertura líneas cambiadas | 100,0 % (362/362, PUERTA COBERTURA de `init.sh`, 2026-10-22) |
-| Mutantes | 167 en alcance; suite sin mutar ya en verde; campaña PENDIENTE (la lanza el líder) |
-| Tiempo de la suite sv4 | 281,6 s sin cobertura; 842,0 s con cobertura (`init.sh`) |
+| Tests ejecutados | sv4 2583 + 1 skipped, raíz 498 + 3 skipped (pasada real de T19); sv3 2271 (última pasada real, caché en T19); sv1, sv2, sv5 por caché: todo en verde |
+| Cobertura líneas cambiadas | 100,0 % (362/362, PUERTA COBERTURA de `init.sh`, 2026-10-23) |
+| Mutantes | 164 generados, 162 muertos, 2 supervivientes (los dos huecos reales, muertos ahora por tests nuevos), 0 timeouts; `progress/mutacion_F-049.md` |
+| Tiempo de la suite | sv4 243,3 s y raíz 48,7 s con cobertura (`init.sh`, T19); línea base de la campaña: sv4 413,9 s, sv3 37,0 s |
 
-## Pendiente
+## Fuera del alcance
 
-Campaña de mutación de T17 (la lanza el líder; `--workers` por defecto, o `--workers 1` si la
-base paralela falla), análisis de supervivientes en `progress/mutacion_F-049.md`; después T18 (este informe
-completo) y T19 (`bash harness/init.sh`). MANUAL M2–M8 y despliegue sv3 → sv4: en
-`progress/current.md`.
+Lo congelado no se edita en el editor (como hoy); sv5, Sigrid y el esquema de `partes` no se
+tocan; las rutas `PATCH` y `/extra` del servidor siguen igual (R29). Desviaciones justificadas en
+`progress/current.md`, sección F-049.
+
+## MANUAL pendiente (humano; design §10) y despliegue
+
+Con F-049 fusionada en `dev`, el humano despliega **sv3 antes que sv4**
+(`.edeploy_partes.ps1 -Solo sv3`, comprobar su revisión nueva ACTIVA, y luego `-Solo sv4`) y
+recorre **M2–M8** en el portal (M1 superada el 2026-10-20). Pasos y consultas de solo lectura,
+en `progress/current.md` («F-049 · verificaciones MANUAL»). NO ejecutadas.
