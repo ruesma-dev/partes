@@ -15,4 +15,4 @@
 - [ ] T8: Campaña de mutación muestreada (rigor `estandar`) sobre `infrastructure/document/pagina_pdf_imagen.py` y `application/pipelines/extract_parte_pipeline.py`; supervivientes analizados en `progress/impl_F-059.md`  |  Verificación: `python -m harness.mutacion` con el nivel de `harness/rigor.json`
 - [ ] T9: M0–M3 en el banco del líder con el código de la rama (`design.md` §9); tablas sin nombres ni DNIs en `progress/banco_F-059.md`  |  Verificación: MANUAL (líder): M0 22/22 `convertida`; M1 12/12; M2 4/4; M3 sin regresión frente a PDF. Si no, `blocked`
 - [ ] T10: M4 tras desplegar sv2 (`redeploy_partes.ps1 -Solo sv2`, lo lanza el humano): `meta.adjunto_ia.conversion` de las ingestas nuevas  |  Verificación: MANUAL (humano), SELECT de solo lectura sobre `raw_extraction_json` en la base `partes`
-- [ ] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»

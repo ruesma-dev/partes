@@ -8,7 +8,19 @@ dices que sí, lanzo el implementer» sobre DA1–DA4 respondió «a». DA1 = A 
 configurable), DA2 = A (imagen incrustada girada), DA3 = A (`PAGINA_COMO_IMAGEN` encendido por
 defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
 
-- Tarea en curso: T1 (Pillow y requirements de sv2). T8 (mutación) la lanza el líder; T9 y T10, líder y humano.
+- **T1–T7 y T11 hechas** (implementer, 2026-10-23; un commit por tarea, fase RED con trazas):
+  sv2 144 passed (112 nuevos), cobertura 99,4 % de 166 líneas cambiadas, `init.sh` en verde.
+  Informe: `progress/impl_F-059.md`. azure-apps: commit local 7cc2e66 (sin push).
+- **Pendiente**: T8 (mutación, la lanza el líder; comando en el informe), T9 (banco M0–M3,
+  líder), T10 (M4 tras desplegar sv2, humano), review.
+- Decisiones y desviaciones (justificadas en el informe): (1) con `PAGINA_COMO_IMAGEN=false`
+  `app.py` no crea el conversor (además de pasar `frozenset()`), para que la traza diga
+  `interruptor` y no `proveedor_fuera_de_lista`; (2) el `.venv` de la raíz NO tiene `openai`,
+  `anthropic` ni `google-genai` (la spec solo contaba con que faltaba Pillow): los tests de
+  R22 y del cableado importan los clientes con dobles de esos SDK
+  (`tests/f059_sdk_falsos.py`), que solo se registran si el SDK real no se puede importar.
+  No se instaló nada más que Pillow. Si se prefiere instalar los SDK en el `.venv`, los
+  dobles dejan de activarse solos.
 
 Spec en `specs/F-059-pagina-como-imagen-derecha/` (rama `feature/F-059-pagina-como-imagen-derecha`,
 worktree `partes-wt-f059`); resumen en `progress/spec_F-059.md`. Solo sv2: la página escaneada
