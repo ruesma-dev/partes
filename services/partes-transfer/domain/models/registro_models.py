@@ -195,6 +195,11 @@ class LineaSigrid:
     pre: Optional[float] = None
     hmoide: Optional[int] = None
     enlazada: bool = False
+    # F-060 (R19, R20): lo que el CIZ movil necesita de la linea que se
+    # mueve: `tex` (la marca de pruebas) y `pos` (se conserva si no cambia
+    # de parte). Solo los trae `lineas_de_racha`.
+    tex: Optional[str] = None
+    pos: Optional[int] = None
 
 
 @dataclass

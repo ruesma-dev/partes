@@ -3,7 +3,7 @@
 
 Precondición: DA1–DA11 de `design.md` §12 validadas por el humano y M0 hecha por el líder (si M0 da CIZ de partes enlazados o DA3 cambia, PARA y `blocked`). Servicios: sv4 (`services/partes-front/`) y sv5 (`services/partes-transfer/`). Rutas relativas a cada servicio salvo indicación.
 
-- [ ] T1: sv5 `application/services/racha_ciz.py` (`DecisionFin`, `decidir_fin`, motivos) con `tests/test_f060_racha_ciz.py`, fase RED con traza (R14–R19)  |  Verificación: `python -m pytest tests/test_f060_racha_ciz.py` en `services/partes-transfer`
+- [x] T1: sv5 `application/services/racha_ciz.py` (`DecisionFin`, `decidir_fin`, motivos) con `tests/test_f060_racha_ciz.py`, fase RED con traza (R14–R19)  |  Verificación: `python -m pytest tests/test_f060_racha_ciz.py` en `services/partes-transfer`
 - [ ] T2: sv5 modelos (`LineaEntrada.racha_registro_ids`, `AccionLinea.mover`, `LineaSigrid.tex/pos`), `LineaIn` de la API y `Settings.mover_ciz` (`MOVER_CIZ`, por defecto false)  |  Verificación: `python -m pytest tests/test_f060_pipeline_mover.py -k "contrato or settings" tests/test_f002_settings_y_app.py`
 - [ ] T3: sv5 `SigridWriteClient.lineas_de_racha` y `stmt_mover_linea` (§5) con texto y parámetros exactos y test de fuente sin `DELETE` (R20–R22)  |  Verificación: `python -m pytest tests/test_f060_cliente_mover.py tests/test_f053_cliente_anular.py tests/test_f034_cliente_guarda.py`
 - [ ] T4: sv5 `tests/dobles.py` (`SigridFake`): lectura `lineas_de_racha` y op `mover` con la semántica del SQL (WHERE optimista, guardas de origen y destino)  |  Verificación: `python -m pytest tests/test_f060_pipeline_mover.py -k doble`
