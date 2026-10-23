@@ -1,52 +1,64 @@
 <!-- progress/spec_F-058.md -->
-# F-058 · spec_ready (2026-10-23): relectura de la cabecera vacía con Gemini en sv2
+# F-058 · spec_ready, enmendada (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
-worktree `partes-wt-f058`, desde `dev` 38f273a). Rigor **estándar**. Tamaños: requirements
-125/150, design ~249/250, tasks 16 tareas.
+worktree `partes-wt-f058`). Primera versión en f8f3062; esta enmienda aplica las respuestas del
+humano del 2026-10-23. Rigor **estándar**. Tamaños: requirements 149/150, design 249/250,
+tasks 21 tareas (puerta de tamaño en verde).
 
-## Qué propone
+## Respuestas del humano que aplica (literales)
 
-- **Solo sv2.** Si la lectura primaria (`gpt-6.1-sol`) trae `obra_numero` y `fecha` vacíos
-  (null o blancos) con al menos una fila de empleados, el pipeline relee el mismo adjunto
-  **una vez** con `RELECTURA_CABECERA_PROVIDER` (`gemini`; modelo `GEMINI_MODEL`, en Azure
-  `gemini-4-argon`) con el mismo prompt, esquema y catálogo auxhor, y toma su **cabecera
-  entera** si trae obra o fecha. Firma y empleados siguen siendo de la primaria.
-- Si la relectura falla o sale vacía, se queda la primaria (sin propagar el error) y F-054
-  la manda a revisión.
-- Traza solo cuando se dispara: `meta.relectura_cabecera` (`motivo`, `provider`, `model`,
-  `resultado` aplicada|vacia|error, `error_tipo`) y `debug.relectura_cabecera`
-  (`cabecera_primaria` + petición/respuesta). `meta.provider/model` siguen siendo del primario.
-  Queda en `raw_extraction_json` sin migración. Logs sin nombres, DNIs, valores de cabecera
-  ni mensaje de excepción.
-- Interruptor `RELECTURA_CABECERA` (encendido por defecto). Gemini **ya está habilitado y con
-  clave** en `ca-sv2-extraccion` (`ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`,
-  `GEMINI_API_KEY` por secretref; según `infra/create_capps_partes.ps1` y
-  `azure-apps/partes.md`): **sin cambios de entorno**; M0 lo confirma en solo lectura.
-- sv1, sv3, sv4, sv5, ORM y `prompts.yaml` no cambian. Se actualizan `ARCHITECTURE.md`,
-  `azure-apps/partes.md` (sv2 consume Gemini en producción) y un comentario de
-  `create_capps_partes.ps1`.
+1. DA1: «da1, vacia o no casa con ninguna obra».
+2. «para el tema de la cabecera podemos mejorar el prompt diciendole que hay una cabecera y que
+   debera obtener la obra el dia mes, etc... añadelo a f58, lo demas ok» ⇒ DA2–DA8 aprobadas con
+   la recomendación (A en todas, DA5 incluida) y la comprobación de existencia en sv2 (opción A).
 
-## Decisiones abiertas para el humano (`design.md` §10)
+## Qué cambia respecto a f8f3062
+
+- **DA1 enmendada**: con al menos una fila, se relee si (a) `obra_numero` y `fecha` vacíos
+  (`cabecera_vacia`) **o** (b) la obra leída no está en la lista de obras de Sigrid
+  (`obra_inexistente`). Fecha sin obra no relee (F-054 la manda a revisión).
+- **Comprobación de existencia en sv2**: lista de códigos `SELECT DISTINCT con.cod FROM obr JOIN
+  con` por `sql/read` con el `SigridLookupClient` que ya usa el catálogo auxhor, cacheada
+  `OBRAS_CACHE_TTL_S` (600). Clave: sin acentos, mayúsculas, sin blancos ni guiones y sin ceros a
+  la izquierda; cualquier empresa, con o sin baja. `truncated: true` o 0 códigos = fallo; si
+  sigrid-api falla o no está cableado, no se relee por obra, no se propaga y no se reintenta
+  hasta pasado el TTL. No es la conciliación de sv3 (la clave es más gruesa: todo lo que sv3
+  casaría por código está en la lista) y la lista cerrada de duplicados no crece.
+- **Relectura útil por motivo** y resultado nuevo `no_casa` (la releída trae otra obra que
+  tampoco está en la lista). Traza `meta.relectura_cabecera.motivo` ∈ `cabecera_vacia` |
+  `obra_inexistente`.
+- **Prompt**: párrafo nuevo al inicio del punto 1 de `parte_trabajo_es` (toda página tiene
+  cabecera; de ella salen obra, día, mes, año, membrete y el resto; búscala aunque el escaneo
+  salga desplazado; con trabajadores, cabecera entera a null = no localizada; nunca inventar) y
+  una frase en la viñeta de fecha (casillas separadas día/mes/año). Texto exacto en
+  `design.md` §5. Afecta a todas las extracciones de ambos proveedores.
+- **Banco MB** (T3, lo lanza el líder con `lanzar.ps1` y `-Repo` al worktree, sobre el commit de
+  T2): (a) sincab con `gpt-6.1-sol` ×2 ⇒ cuántas de 12 traen obra y fecha (antes 0; se mide, no
+  es puerta); (b) control con `gpt-6.1-sol`; (c) sincab con `gemini-4-argon`; (d) batería de
+  F-051 ×3 con `corregir.py`. Puerta: (b)–(d) sin regresión. Resultado en
+  `progress/banco_F-058.md`. Que el prompt mejore no quita la relectura.
+- `azure-apps/partes.md`: sv2 consume Gemini para releer y sigrid-api (catálogo auxhor, que ya
+  consumía sin estar documentado, y lista de obras). M0 comprueba también las `SIGRID_API_*`.
+  Sin cambios de entorno en Azure.
+
+## Decisiones abiertas para el humano (`design.md` §11)
 
 | DA | Tema | Recomendación |
 |---|---|---|
-| DA1 | Qué es «cabecera vacía» | B: obra y fecha vacías, con ≥ 1 fila |
-| DA2 | Qué se relee | A: página entera, mismo prompt y esquema (lo medido) |
-| DA3 | Qué se toma | A: la cabecera entera si trae obra o fecha |
-| DA4 | Relectura falla o vacía | A: se queda la primaria; F-054 a revisión |
-| DA5 | Configuración | A: encendida por defecto, sin cambios de entorno (B: apagada y la enciende el humano) |
-| DA6 | Trazabilidad | A: `meta`/`debug` del envelope, sin columna |
-| DA7 | Coste y latencia | A: aceptar (~7 k tokens y ~8 s solo cuando se dispara) |
-| DA8 | Los 6 ya guardados | A: corrección a mano en el portal tras F-054 M2; B (reproceso) solo con autorización |
+| DA9 | Puerta del prompt | Si MB (b)–(d) empeora, se quita el párrafo y queda la relectura |
+| DA10 | Comprobación de existencia | A: lista cacheada (1 consulta por TTL; truncated o vacía = fallo; fallo = no releer por obra). B: consulta por página. C: fallo = releer |
+| DA11 | Cabecera con obra inexistente | A: la releída entera si su obra está en la lista (como DA3). B: conservar la fecha primaria si la releída no la trae |
 
 ## Hallazgos del spec-author que conviene saber
 
-- El `.venv` del arnés no tiene `openai`, `anthropic` ni `google-genai`: los tests de
-  cableado importan `app.py` con módulos falsos en `sys.modules` (`design.md` §7).
-- Medido en la batería del líder: la relectura cuesta ~6,5 k tokens de entrada y ~0,4–0,6 k
-  de salida y tarda 7–11 s (una de 32 s); las filas de Gemini coinciden con las de
-  `gpt-6.1-sol` en las 6 páginas.
-- Reprocesar los 6 no basta con reenviar: sv3 descarta por `source_sha256` de un documento
-  activo; por eso la alternativa B desactiva antes (`design.md` §9 M3).
-- Sin F-054 desplegada, una relectura `vacia`/`error` sigue guardándose sin revisión.
+- `SigridLookupClient` de sv2 no mira `truncated` hoy (pide `max_rows` 10.000 para auxhor);
+  la spec lo exige solo para la lista de obras (`exigir_completo`), sin cambiar auxhor.
+- `azure-apps/partes.md` no documentaba que sv2 ya lee sigrid-api (catálogo auxhor); T15 lo
+  corrige. `azure-apps/sigrid_api.md` (de sigrid-api) no lista a partes entre sus consumidores:
+  no se toca aquí por la regla de propiedad; lo decide el humano.
+- `docs/ARCHITECTURE.md` dice «máx. 1.000 filas por petición» de sigrid-api; la instancia sirve
+  500.000 (CLAUDE.md raíz). T13 lo corrige de paso.
+- sv3 también casa por nombre cuando el código no existe: una relectura por `obra_inexistente`
+  solo sustituye la cabecera si la obra releída está en la lista; si no, `no_casa` y sv3 sigue
+  como hoy.

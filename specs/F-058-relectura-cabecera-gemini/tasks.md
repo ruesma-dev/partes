@@ -1,24 +1,29 @@
 <!-- specs/F-058-relectura-cabecera-gemini/tasks.md -->
-# F-058 · Relectura de la cabecera vacía con Gemini — tareas
+# F-058 · Relectura de la cabecera con Gemini y prompt de cabecera — tareas
 
-> Antes de T1, el humano resuelve DA1–DA8 (`design.md` §10); las tareas suponen la
-> recomendación. Si DA5 = B, T5 cambia el valor por defecto a `false` y M0 incluye el
-> `az containerapp update` que ejecuta el humano. Cada tarea = un commit `F-058 Tn: ...`,
-> con rutas explícitas. Las rutas sin prefijo son de `services/partes-api/`.
+> DA1–DA8 aprobadas por el humano el 2026-10-23 (DA1 enmendada); antes de T1 el humano valida
+> DA10 y DA11 (`design.md` §11; las tareas suponen la recomendación A). Cada tarea = un commit
+> `F-058 Tn: ...` con rutas explícitas. Rutas sin prefijo: `services/partes-api/`. Los tests se
+> lanzan desde `services/partes-api` con `python -m pytest`.
 
-- [ ] T1: Escribir los tests puros de `tests/test_f058_relectura_cabecera.py` (R2–R4: `es_vacio`, `cabecera_vacia`, `necesita_relectura`, `relectura_util`) y verlos en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f058_relectura_cabecera.py` falla por el módulo ausente (traza RED en `progress/impl_F-058.md`)
-- [ ] T2: Crear `application/services/relectura_cabecera.py` según `design.md` §4.1  |  Verificación: los tests puros de T1 en verde
-- [ ] T3: Añadir a `tests/test_f058_relectura_cabecera.py` los tests del pipeline con dobles (R1, R5–R14, casos de `design.md` §7) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f058_relectura_cabecera.py` falla en los casos del pipeline (traza RED)
-- [ ] T4: Implementar la relectura en `application/pipelines/extract_parte_pipeline.py` (kwarg `relectura_provider`, `_releer_cabecera`, `_envelope` desde `data`) y `ParteExtractionService.model_name` en `application/services/parte_extraction_service.py` (§4.2, §4.3)  |  Verificación: `python -m pytest` de sv2 en verde, con `test_f023_*` y `test_f051_*` sin tocar
-- [ ] T5: Escribir `tests/test_f058_settings_wiring.py` (R15–R18: `Settings` con `_env_file=None`, `build_app` con SDK falsos en `sys.modules`, `/health` con `TestClient`) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f058_settings_wiring.py` falla (traza RED)
-- [ ] T6: Añadir `RELECTURA_CABECERA`, `RELECTURA_CABECERA_PROVIDER`, `relectura_cabecera_activa` y `relectura_cabecera_motivo_inactiva` a `config/settings.py` (§5) y el cableado, el log y `/health` a `interface_adapters/api/app.py` (§6)  |  Verificación: `python -m pytest` de sv2 en verde
-- [ ] T7: Actualizar los docstrings que dicen «un solo proveedor» / «Gemini primario» (`config/settings.py`, `parte_extraction_service.py`, `extract_parte_pipeline.py`, `main_worker.py`)  |  Verificación: revisión del reviewer; `python -m pytest` de sv2 en verde
-- [ ] T8: Documentar en `docs/ARCHITECTURE.md` el punto 18 (relectura de la cabecera, F-058, sv2) y la línea «Google Gemini (sv2)» de «Acceso a datos»  |  Verificación: revisión del reviewer; `python -m harness.tamano --feature F-058` en verde
-- [ ] T9: Actualizar el comentario de sv2 en `infra/create_capps_partes.ps1` (l. 38–39; sin BOM y CRLF, sin variables nuevas)  |  Verificación: `git diff dev -- infra/create_capps_partes.ps1` solo cambia comentarios; encoding comprobado con `file infra/create_capps_partes.ps1`
-- [ ] T10: Actualizar `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (fila de sv2, l. 927, y §3.2): sv2 consume Gemini para la relectura; commit local en ese repositorio con ruta explícita  |  Verificación: `git -C C:\Users\pgris\PycharmProjects\azure-apps log -1 --stat` muestra solo `partes.md`
-- [ ] T11: Campaña de mutación muestreada (rigor `estandar`) y análisis de supervivientes en `progress/impl_F-058.md`  |  Verificación: `python -m harness.mutacion --feature F-058` con el nivel de `harness/rigor.json`, supervivientes documentados
-- [ ] T12: M0 · comprobar en solo lectura el entorno de `ca-sv2-extraccion` (`design.md` §9)  |  Verificación: MANUAL (humano o líder), comando `az containerapp show` de §9; si falta Gemini, `blocked`
-- [ ] T13: M1 · pipeline de la rama sobre las 6 páginas sin cabecera y las 2 de control, sin escrituras  |  Verificación: MANUAL (humano o líder), §9; esperado 6/6 `aplicada` con filas idénticas y control sin relectura
-- [ ] T14: M2 · tras desplegar sv2 (lo pide el humano), recuento de `meta.relectura_cabecera.resultado` en las ingestas nuevas  |  Verificación: MANUAL (humano), SELECT de §9 en transacción READ ONLY
-- [ ] T15: M3 · los 6 documentos ya guardados según la DA8 (por defecto, corrección en el portal)  |  Verificación: MANUAL (humano); la alternativa B solo con autorización expresa y el SELECT previo de §9
-- [ ] T16: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [ ] T1: Escribir `tests/test_f058_prompt.py` (R20–R21, `design.md` §8) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f058_prompt.py` falla por el párrafo ausente (traza RED en `progress/impl_F-058.md`)
+- [ ] T2: Añadir a `config/prompts.yaml` el párrafo de cabecera y la frase de la viñeta `cabecera.fecha` de `design.md` §5 (solo el punto 1 de `task`; UTF-8 y CRLF)  |  Verificación: `python -m pytest tests/test_f058_prompt.py tests/test_f023_empresa_membrete.py tests/test_f051_prompt.py` en verde; `git diff dev -- services/partes-api/config/prompts.yaml` solo toca el punto 1 (R22, R27)
+- [ ] T3: MB · banco del prompt antes/después (`design.md` §10), lo lanza el LÍDER sobre el commit de T2 mientras siguen T4+  |  Verificación: MANUAL (líder); resultado en `progress/banco_F-058.md`; si (b), (c) o (d) empeoran, `blocked` y decide el humano (DA9)
+- [ ] T4: Escribir los tests puros de `tests/test_f058_relectura_cabecera.py` (`es_vacio`, `clave_obra`, `cabecera_vacia`, `con_trabajadores`, `motivo_relectura`, `resultado_relectura`; R2–R5) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f058_relectura_cabecera.py` falla por el módulo ausente (traza RED)
+- [ ] T5: Crear `application/services/relectura_cabecera.py` (§4.1)  |  Verificación: los tests puros de T4 en verde
+- [ ] T6: Escribir `tests/test_f058_obras_sigrid.py` (R7–R9: caché, TTL con reloj falso, fallo, lista vacía; `fetch_codigos_obra` y `truncated` con `httpx.MockTransport`) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f058_obras_sigrid.py` falla (traza RED)
+- [ ] T7: Crear `domain/ports/codigos_obra_port.py` y `application/services/obras_sigrid.py` y ampliar `infrastructure/sigrid/sigrid_lookup_client.py` (`_SQL_CODIGOS_OBRA`, `fetch_codigos_obra`, `max_rows`/`exigir_completo`, `transport`; §4.2–§4.3)  |  Verificación: T6 en verde y `python -m pytest` de sv2 en verde
+- [ ] T8: Añadir a `tests/test_f058_relectura_cabecera.py` los tests del pipeline (R1, R3, R4, R6, R10–R19 con los dos motivos; §8) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f058_relectura_cabecera.py` falla en los casos del pipeline (traza RED)
+- [ ] T9: Implementar la relectura en `application/pipelines/extract_parte_pipeline.py` (kwargs `relectura_provider` y `obras`, `_releer_cabecera`, `_envelope` desde `data`) y `model_name` en `application/services/parte_extraction_service.py` (§4.4)  |  Verificación: `python -m pytest` de sv2 en verde, con `test_f023_*` y `test_f051_*` sin tocar
+- [ ] T10: Escribir `tests/test_f058_settings_wiring.py` (R23–R26) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f058_settings_wiring.py` falla (traza RED)
+- [ ] T11: Añadir `RELECTURA_CABECERA`, `RELECTURA_CABECERA_PROVIDER`, `OBRAS_CACHE_TTL_S` y las dos propiedades a `config/settings.py` (§6) y el cableado, los logs y `/health` a `interface_adapters/api/app.py` (§7)  |  Verificación: `python -m pytest` de sv2 en verde
+- [ ] T12: Actualizar los docstrings de «un solo proveedor» / «Gemini primario» / «para el portal» (`config/settings.py`, `parte_extraction_service.py`, `extract_parte_pipeline.py`, `main_worker.py`, `sigrid_lookup_client.py`)  |  Verificación: revisión del reviewer; `python -m pytest` de sv2 en verde
+- [ ] T13: Documentar en `docs/ARCHITECTURE.md` el punto 18 (relectura de la cabecera, comprobación de obra y prompt de cabecera, F-058, sv2) y las líneas de Gemini y sigrid-api de «Acceso a datos» (§3)  |  Verificación: revisión del reviewer; `python -m harness.tamano --feature F-058` en verde
+- [ ] T14: Actualizar el comentario de sv2 en `infra/create_capps_partes.ps1` (sin BOM, CRLF, sin variables nuevas)  |  Verificación: `git diff dev -- infra/create_capps_partes.ps1` solo cambia comentarios; `file infra/create_capps_partes.ps1` sin BOM y con CRLF
+- [ ] T15: Actualizar `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (diagrama sv2 → sigrid-api, §3.2 y fila sv2 de §5.6: relectura con Gemini, catálogo auxhor y lista de obras por `sql/read`, `truncated` = fallo); commit local en ese repositorio con ruta explícita  |  Verificación: `git -C C:\Users\pgris\PycharmProjects\azure-apps log -1 --stat` muestra solo `partes.md`
+- [ ] T16: Campaña de mutación muestreada (rigor `estandar`) y análisis de supervivientes en `progress/impl_F-058.md`  |  Verificación: `python -m harness.mutacion --feature F-058` con el nivel de `harness/rigor.json`, supervivientes documentados
+- [ ] T17: M0 · entorno de `ca-sv2-extraccion` en solo lectura (§10)  |  Verificación: MANUAL (humano o líder), comando `az containerapp show` de §10; si falta Gemini o `SIGRID_API_*`, `blocked`
+- [ ] T18: M1 · pipeline de la rama sobre `paginas_sincab` y `paginas_control`, sin escrituras (§10)  |  Verificación: MANUAL (líder); obra y fecha en las 6, filas iguales, control sin relectura, lista de obras cargada sin truncar
+- [ ] T19: M2 · tras desplegar sv2 (lo pide el humano), recuento por motivo y resultado de `meta.relectura_cabecera`  |  Verificación: MANUAL (humano), SELECT de §10 en transacción READ ONLY
+- [ ] T20: M3 · los 6 documentos ya guardados según la DA8 (corrección en el portal)  |  Verificación: MANUAL (humano); sin escrituras de agentes
+- [ ] T21: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»

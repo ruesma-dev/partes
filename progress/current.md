@@ -1,16 +1,17 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-058 · spec_ready (2026-10-23): relectura de la cabecera vacía con Gemini en sv2
+## F-058 · spec_ready, enmendada (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
-worktree `partes-wt-f058`); resumen en `progress/spec_F-058.md`. Solo sv2: con obra y fecha
-vacías y al menos una fila, relee el adjunto una vez con `gemini` y toma su cabecera entera;
-sin cambios de entorno (Gemini ya está habilitado y con clave en `ca-sv2-extraccion`).
-**Pendiente del humano**: validar DA1–DA8 (`design.md` §10; recomendadas B, A, A, A, A, A, A,
-A) y, en particular, DA5 (encendida por defecto o la enciende él) y DA8 (los 6 documentos ya
-guardados: por defecto, a mano en el portal; reprocesar solo con autorización). Ninguna
-verificación manual ejecutada.
+worktree `partes-wt-f058`); resumen en `progress/spec_F-058.md`. Enmendada con las respuestas
+del humano del 2026-10-23 («da1, vacia o no casa con ninguna obra» y «...mejorar el prompt...
+añadelo a f58, lo demas ok»): DA1 enmendada (cabecera vacía **o** obra leída fuera de la lista
+de obras de Sigrid, comprobada en sv2 con una lista cacheada por sigrid-api) y DA2–DA8
+aprobadas (A); el punto 1 del prompt avisa de la cabecera (banco MB del líder en T3). Solo sv2,
+sin cambios de entorno. **Pendiente del humano**: DA9 (puerta del banco), DA10 (lista cacheada,
+recomendada A) y DA11 (cabecera entera también con obra inexistente, recomendada A),
+`design.md` §11. Ninguna verificación manual ejecutada.
 
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 

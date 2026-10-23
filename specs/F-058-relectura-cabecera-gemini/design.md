@@ -1,249 +1,249 @@
 <!-- specs/F-058-relectura-cabecera-gemini/design.md -->
-# F-058 · Relectura de la cabecera vacía con Gemini — diseño técnico
+# F-058 · Relectura de la cabecera con Gemini y prompt de cabecera — diseño técnico
 
 ## 1. Encaje y límite de servicio
 
-- **Solo sv2 (`services/partes-api/`)**: es quien lee el papel y el único que llama a la IA.
-  La relectura es una segunda lectura del mismo adjunto, dentro del mismo mensaje de
-  `q-extraccion`, antes de escribir el envelope y publicar `q-persistencia`.
-- **sv3 no cambia**: recibe el envelope con la misma forma (`data` conforme a `ParteTrabajo`)
-  y guarda `raw_extraction_json` entero, así que la traza nueva de `meta`/`debug` queda en la
-  base sin columna ni migración. `meta.provider`/`meta.model` siguen siendo los del primario
-  (sv3 los copia a `provider`/`model_name`). La red cuando la relectura no basta es F-054.
-- Descartado en sv3 (no llama a la IA: repartiría la lectura entre dos servicios) y en un
-  servicio nuevo. Nada de la lista cerrada de duplicación de `CLAUDE.md` se toca.
+- **Solo sv2**: lee el papel, es el único que llama a la IA y ya lee sigrid-api (auxhor).
+  **sv3 no cambia**: recibe `data` conforme a `ParteTrabajo` y guarda `raw_extraction_json`
+  entero (traza sin columna ni migración); `meta.provider/model` siguen siendo del primario.
+- **Comprobación de existencia (opción A, aprobada)**: sv2 solo pregunta «¿hay alguna obra en
+  Sigrid con esta clave?», en cualquier empresa. **No es la conciliación de sv3**
+  (`obra_matcher.py`, `seleccion_sigrid.py`): no la importa ni la copia, no elige obra ni
+  empresa y solo dispara la relectura. Su clave es más gruesa (cualquier número de ceros), así
+  que todo código que sv3 casaría por código está en la lista: nunca relee un parte que sv3
+  casaría por código. La lista cerrada de duplicados de `CLAUDE.md` **no crece**. Descartado
+  releer en sv3 (no llama a la IA) o en un servicio nuevo.
 
 ## 2. Lo que hay hoy (`dev` 38f273a)
 
-- `ExtractPartePipeline.run` (`application/pipelines/extract_parte_pipeline.py`) valida el
-  adjunto, compone el catálogo auxhor (`dynamic_context`), llama **una vez** a
-  `ParteExtractionService.extract(provider=IA_PROVIDER, ...)` y arma
-  `{meta, data: parsed.model_dump(), debug: debug_payload}`.
-- `ParteExtractionService` ya tiene un diccionario de proveedores instanciados por nombre y
-  `extract(..., provider=...)` elige cualquiera: releer con otro proveedor no exige tocar
-  clientes. Su `debug_payload` lleva `<provider>_request` / `<provider>_response` (hash del
-  adjunto y claves parseadas; sin contenido).
-- `build_app` instancia los proveedores con `ENABLE_*` a `true`. En Azure
-  (`infra/create_capps_partes.ps1`, l. 31–45, y `azure-apps/partes.md`): `IA_PROVIDER=openai`,
-  `OPENAI_MODEL=gpt-6.1-sol`, **`ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon` y
-  `GEMINI_API_KEY=secretref:gemini-key`** (KV `GEMINI-API-KEY`). Gemini ya está instanciado y
-  con clave: con los valores por defecto de §5 **no hace falta tocar el entorno** (M0 lo
-  confirma en solo lectura).
-- `Settings._ensure_provider_enabled_and_keyed` solo valida el primario. El cliente OpenAI usa
-  `responses.parse`: la cabecera a `null` la elige el modelo, no es un fallo de parseo. Los
-  clientes reintentan con `RetryPolicy` (hasta 3 intentos); el de Gemini no fija timeout.
-- El intérprete del arnés (`.venv` de la raíz) **no tiene** `openai`, `anthropic` ni
-  `google-genai`: los tests no pueden importar `infrastructure/llm/*` ni, por tanto,
-  `interface_adapters/api/app.py` tal cual (§7).
+- `ExtractPartePipeline.run` llama **una vez** a `extract(provider=IA_PROVIDER, ...)` con el
+  catálogo auxhor; el servicio ya tiene los proveedores por nombre (releer no toca clientes).
+- Azure (`infra/create_capps_partes.ps1` l. 31–53): `IA_PROVIDER=openai`, **Gemini habilitado
+  con `gemini-4-argon` y clave por secretref** y las tres `SIGRID_API_*` (base `ruesma`): **sin
+  cambios de entorno**. `SigridLookupClient` pide `max_rows` 10.000, **no mira `truncated`** y
+  crea su `httpx.Client` dentro. `con.cod` es «Texto de 24» (`DISTINCT` vale).
+- El punto 1 del prompt (UTF-8, CRLF) lista los seis campos, pero no dice que la cabecera
+  existe ni qué hacer con un escaneo desplazado. El `.venv` del arnés no tiene los SDK de IA.
 
-## 3. Ficheros
+## 3. Ficheros (sin prefijo: `services/partes-api/`)
 
-### A crear
+**A crear**: `application/services/relectura_cabecera.py` (§4.1),
+`application/services/obras_sigrid.py` (§4.2), `domain/ports/codigos_obra_port.py`
+(`CodigosObraPort(Protocol)` con `fetch_codigos_obra() -> list[str]`: application no importa
+infraestructura) y los tests `tests/test_f058_relectura_cabecera.py`,
+`tests/test_f058_obras_sigrid.py`, `tests/test_f058_prompt.py` y
+`tests/test_f058_settings_wiring.py` (§8).
 
-- `services/partes-api/application/services/relectura_cabecera.py` — reglas puras (§4).
-- `services/partes-api/tests/test_f058_relectura_cabecera.py` — reglas puras y pipeline.
-- `services/partes-api/tests/test_f058_settings_wiring.py` — `Settings`, `build_app`, `/health`.
+**A modificar**:
 
-### A modificar
+- `infrastructure/sigrid/sigrid_lookup_client.py` (§4.3, docstring: ya no es solo del portal),
+  `application/pipelines/extract_parte_pipeline.py` (§4.4), `parte_extraction_service.py`
+  (`model_name`), `config/settings.py` (§6), `interface_adapters/api/app.py` (§7),
+  `config/prompts.yaml` (solo el punto 1 de `task`, §5) y los docstrings de «un proveedor» /
+  «Gemini primario» (`settings.py`, servicio, pipeline, `main_worker.py`).
+- `docs/ARCHITECTURE.md`: punto 18 de «Semántica de dominio»; en «Acceso a datos», Gemini (sv2
+  relee) y sigrid-api (sv2 lee auxhor y obras; el tope de la instancia es 500.000, no 1.000).
+- `infra/create_capps_partes.ps1`: solo el comentario de sv2 (sin BOM, CRLF, sin variables).
+- `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (commit local allí): diagrama (sv2 →
+  sigrid-api), §3.2 (relectura y comprobación de obra) y la fila sv2 de §5.6.
 
-- `application/pipelines/extract_parte_pipeline.py` — kwarg `relectura_provider`, paso de
-  relectura, envelope desde `data` (dict) con los bloques de traza (§4.2).
-- `application/services/parte_extraction_service.py` — método público `model_name(provider)`
-  (el modelo del proveedor de relectura para la traza también cuando la llamada falla) y
-  docstring (deja de ser «un solo proveedor»).
-- `config/settings.py` — dos variables, dos propiedades y docstring (§5).
-- `interface_adapters/api/app.py` — pasa el proveedor activo al pipeline, log de cableado,
-  `/health` (§6).
-- `main_worker.py` — solo el docstring («Gemini primario» ya no es cierto). `docs/ARCHITECTURE.md` — punto 18 en «Semántica de dominio» y la línea «Google Gemini (sv2)»
-  de «Acceso a datos».
-- `infra/create_capps_partes.ps1` — solo el comentario de sv2 (l. 38–39): Gemini relee la
-  cabecera; no se apaga `ENABLE_GEMINI` sin apagar `RELECTURA_CABECERA`. Encoding de `infra/`:
-  sin BOM y CRLF. Sin variables nuevas (el script crea, no actualiza; DA5).
-- `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (otro repositorio, commit local allí)
-  — fila de sv2 (l. 927) y §3.2: sv2 consume Gemini en producción para la relectura.
-
-### NO se tocan
-
-- `config/prompts.yaml` y `domain/models/parte_models.py` (mismo prompt y mismo esquema).
-- `infrastructure/llm/*` (clientes, `retry_policy.py`): la relectura usa los que hay.
-- sv1, sv3 (`persist_parte_pipeline.py`, `parte_normalizer.py`), sv4, sv5, los dos
-  `orm_models.py`, `infra/add_secrets_partes.ps1` (la clave de Gemini ya está en el KV) y
-  `infra/redeploy_partes.ps1`.
+**NO se tocan**: `domain/models/parte_models.py`, `infrastructure/llm/*`,
+`auxhor_catalog_provider.py`; sv1, sv3 (`obra_matcher.py`, `seleccion_sigrid.py`), sv4, sv5,
+los dos `orm_models.py`, `infra/add_secrets_partes.ps1`, `infra/redeploy_partes.ps1`; y
+`azure-apps/sigrid_api.md`, que es de sigrid-api (su tabla de consumidores no lista partes:
+se avisa al humano).
 
 ## 4. Clases y funciones
 
-### 4.1 `application/services/relectura_cabecera.py` (application, puro, sin dependencias)
+### 4.1 `application/services/relectura_cabecera.py` (application, puro)
 
 ```python
-MOTIVO_CABECERA_VACIA = "cabecera_vacia"
-RESULTADO_APLICADA, RESULTADO_VACIA, RESULTADO_ERROR = "aplicada", "vacia", "error"
+MOTIVO_CABECERA_VACIA, MOTIVO_OBRA_INEXISTENTE = "cabecera_vacia", "obra_inexistente"
+RESULTADO_APLICADA, RESULTADO_VACIA, RESULTADO_NO_CASA, RESULTADO_ERROR = (
+    "aplicada", "vacia", "no_casa", "error")
+ExisteObra = Callable[[str], bool | None]        # True / False / None = «no se sabe»
 
-def es_vacio(valor: object) -> bool              # None o str con solo espacios (R4)
-def cabecera_vacia(data: Mapping[str, Any]) -> bool
-    # obra_numero y fecha de data["cabecera"] vacíos; cabecera ausente o no dict = vacía
-def con_trabajadores(data: Mapping[str, Any]) -> bool   # list con len >= 1 (R3)
-def necesita_relectura(data: Mapping[str, Any]) -> bool  # cabecera_vacia and con_trabajadores
-def relectura_util(data_relectura: Mapping[str, Any]) -> bool  # not cabecera_vacia (R4, R7)
+def es_vacio(valor: object) -> bool              # None o str con solo espacios (R5)
+def clave_obra(codigo: object) -> str            # "" si vacío; NFKD sin marcas, upper, sin
+    # blancos ni "-"; si isdigit(): lstrip("0") or "0"
+def cabecera_vacia(data) -> bool                 # obra_numero y fecha vacíos; sin dict = vacía
+def con_trabajadores(data) -> bool               # list con len >= 1
+def motivo_relectura(data, existe: ExisteObra) -> str | None
+    # sin trabajadores -> None y cabecera vacía -> cabecera_vacia, los dos SIN llamar a existe;
+    # obra no vacía y existe(obra) is False -> obra_inexistente; si no, None
+def resultado_relectura(motivo: str, data_relectura, existe: ExisteObra) -> str
+    # cabecera_vacia: aplicada si no cabecera_vacia(rel), si no vacia
+    # obra_inexistente: obra vacía -> vacia; existe(obra) is True -> aplicada; si no, no_casa
 ```
 
-Trabajan sobre el `dict` de `model_dump()`, no sobre `ParteTrabajo`: el pipeline no conoce el
-esquema concreto, y un esquema sin `cabecera` simplemente no dispara (`con_trabajadores` o
-`cabecera_vacia` lo resuelven sin `KeyError`).
+### 4.2 `application/services/obras_sigrid.py` (application)
 
-### 4.2 `ExtractPartePipeline` (application)
+```python
+class ObrasSigrid:
+    def __init__(self, *, client: CodigosObraPort, ttl_seconds: int = 600,
+                 reloj: Callable[[], float] = time.monotonic) -> None
+        # no carga nada; dos hilos de la API podrían cargar a la vez (solo dos consultas)
+    def existe(self, codigo: str) -> bool | None
+        # clave vacía -> None; caducada o sin cargar -> _cargar(); sin claves -> None;
+        # si no, clave_obra(codigo) in claves. Nunca lanza.
+    def _cargar(self) -> None   # éxito con >= 1 clave: claves = {clave_obra(c)} - {""} e INFO
+        # "[obras-sigrid] %d claves"; excepción (también truncated) o 0 claves: WARNING con
+        # type(exc).__name__ o "lista_vacia" y se conservan las anteriores (o None).
+        # Siempre ts = reloj(): no reintenta hasta pasado el TTL (R9, DA10).
+```
 
-- Constructor: kwarg nuevo `relectura_provider: str | None = None` (sin él, nada cambia).
-- `run`: tras la primaria, `data = result.parsed.model_dump()`; si `relectura_provider` y
-  `necesita_relectura(data)`, llama a `self._releer_cabecera(...)`, que devuelve
-  `(data, meta_relectura, debug_relectura)`; si no, los dos bloques son `None`.
-- `_releer_cabecera(*, attachment, dynamic_context, data, filename)`:
+### 4.3 `SigridLookupClient` (infrastructure)
+
+- `_SQL_CODIGOS_OBRA` = `SELECT DISTINCT con.cod AS codigo FROM obr JOIN con ON obr.ide =
+  con.ide WHERE con.cod IS NOT NULL`; `_MAX_CODIGOS_OBRA = 50_000`; `fetch_codigos_obra(self)
+  -> list[str]` (`_opt_str` de cada fila, sin `None`; INFO con el número).
+- `_post_sql_read(..., max_rows: int | None = None, exigir_completo: bool = False)`: con
+  `exigir_completo` y `body.get("truncated") is True` ⇒ `RuntimeError("sigrid-api trunco la
+  respuesta (<label>)")`. `fetch_tipos_hora` no cambia (por defecto `False`).
+- Constructor: `transport: httpx.BaseTransport | None = None` (por defecto el
+  `HTTPTransport(retries=1)` de hoy), para probar con `httpx.MockTransport`.
+- Misma base que el catálogo (`SIGRID_API_DATABASE`, `ruesma`); sentencia constante, sin `?`.
+
+### 4.4 `ExtractPartePipeline` (application)
+
+- Kwargs `relectura_provider: str | None = None` y `obras: ObrasSigrid | None = None` (sin ellos
+  nada cambia); `self._existe = obras.existe if obras else (lambda _c: None)`. En `run`, si hay
+  `relectura_provider` y `motivo := motivo_relectura(data, self._existe)`, `_releer_cabecera`
+  devuelve `(data, meta_relectura, debug_relectura)`:
 
 ```python
 model = self._service.model_name(self._relectura_provider)
-logger.info("[sv2][relectura] cabecera vacia con %d filas file=%s -> %s/%s", ...)
-debug = {"cabecera_primaria": data.get("cabecera")}
+logger.info("[sv2][relectura] motivo=%s filas=%d file=%s -> %s/%s", ...)  # sin valores (R19)
+debug, error_tipo = {"cabecera_primaria": data.get("cabecera")}, None
 try:
     rel = self._service.extract(attachment=attachment, provider=self._relectura_provider,
                                 prompt_key=self._prompt_key, dynamic_context=dynamic_context)
-except Exception as exc:          # best-effort a propósito (R8); solo el tipo (R14)
+except Exception as exc:          # best-effort a propósito (R13); solo el tipo (R19)
     resultado, error_tipo = RESULTADO_ERROR, type(exc).__name__
 else:
     debug.update(rel.debug_payload)
     rel_data = rel.parsed.model_dump()
-    if relectura_util(rel_data):
-        data = {**data, "cabecera": rel_data.get("cabecera")}   # R6: firma/empleados intactos
-        resultado = RESULTADO_APLICADA
-    else:
-        resultado = RESULTADO_VACIA
-# log INFO (aplicada) o WARNING (vacia/error) con file, provider, model, resultado, error_tipo
-meta = {"motivo": MOTIVO_CABECERA_VACIA, "provider": self._relectura_provider,
-        "model": model, "resultado": resultado, "error_tipo": error_tipo}
+    resultado = resultado_relectura(motivo, rel_data, self._existe)
+    if resultado == RESULTADO_APLICADA:
+        data = {**data, "cabecera": rel_data.get("cabecera")}   # R11: firma/empleados intactos
+# INFO si aplicada, WARNING si no: file, provider, model, motivo, resultado, error_tipo
+meta = {"motivo": motivo, "provider": self._relectura_provider, "model": model,
+        "resultado": resultado, "error_tipo": error_tipo}
 ```
 
-- `_envelope` pasa a recibir `data: dict` (en vez de leer `provider_result.parsed`) y los
-  dos bloques opcionales; solo si no son `None` añade `meta["relectura_cabecera"]` y
-  `debug["relectura_cabecera"]` (R13). El resto de `meta` no cambia (R11).
-- El `except Exception` es la única captura amplia: un fallo de la relectura nunca debe
-  costar la lectura primaria (DA4). `KeyboardInterrupt`/`SystemExit` no son `Exception`.
+- `_envelope` recibe `data: dict` y los dos bloques; solo si no son `None` añade
+  `meta/debug["relectura_cabecera"]` (R18). Es la única captura amplia.
+- `ParteExtractionService.model_name(provider)` = `self._require_provider(provider).model_name`
+  (mismo `KeyError`): el modelo va a la traza también cuando la llamada falla.
 
-### 4.3 `ParteExtractionService.model_name(provider: str) -> str`
+## 5. Prompt (`parte_trabajo_es.task`, punto 1; DA9)
 
-Devuelve `self._require_provider(provider).model_name` (mismo `KeyError` explicativo).
+Tras `1) CABECERA (datos del dia/obra):` se inserta este párrafo (sangría de 7 espacios, como
+las viñetas; estilo del fichero, sin tildes salvo `Nº` y `año`) y se amplía la viñeta de fecha:
 
-## 5. Configuración (`config/settings.py`)
+```text
+       TODA pagina del parte tiene una CABECERA en su parte superior, por
+       encima de la tabla "PERSONAL": el membrete o logotipo de la empresa,
+       el "Nº OBRA", el "NOMBRE Y UBICACION DE OBRA", la FECHA (dia, mes y
+       año), el ENCARGADO y el JEFE DE OBRA. Localizala SIEMPRE antes de
+       leer la tabla y saca de ella el numero de la obra, el dia, el mes y
+       el año de la fecha, la empresa del membrete y el resto de campos de
+       este punto. Si el escaneo sale desplazado, girado, recortado o con
+       bandas grises, la cabecera sigue en la pagina: buscala en el borde
+       que corresponda segun la orientacion de la tabla. Si la tabla tiene
+       trabajadores y la cabecera te sale entera a null, casi siempre es que
+       no la has localizado: buscala de nuevo antes de responder. Aun asi,
+       NUNCA inventes un valor: null solo en el campo que de verdad no se lea.
+       - cabecera.fecha: <texto de hoy hasta ...como "6-abril-26").> Si el
+         dia, el mes y el año van en casillas separadas, copialos juntos en
+         ese orden (dia/mes/año) tal cual se leen. No la conviertas; si es
+         ilegible, null.
+```
+
+Nada más cambia (R22): `system` («Fechas: ... NO la conviertas ni reordenes» sigue valiendo:
+juntar casillas en su orden no es reordenar), puntos 2–6 y `schema_hint`. Vale para la primaria
+y la relectura: de ahí el banco MB (§10).
+
+## 6. Configuración (`config/settings.py`)
 
 ```python
 relectura_cabecera_enabled: bool = Field(True, alias="RELECTURA_CABECERA")
 relectura_cabecera_provider: ProviderName = Field("gemini", alias="RELECTURA_CABECERA_PROVIDER")
-
-@property
-def relectura_cabecera_motivo_inactiva(self) -> str | None
-    # None si está apagada o activa; si encendida e inactiva, en este orden:
-    # "mismo_proveedor" (== ia_provider), "no_habilitado" (ENABLE_* false), "sin_clave"
-@property
-def relectura_cabecera_activa(self) -> str | None
-    # el proveedor si enabled y sin motivo; None en otro caso
+obras_cache_ttl_s: int = Field(600, alias="OBRAS_CACHE_TTL_S")
+# @property relectura_cabecera_motivo_inactiva -> str | None: None si apagada o activa; si
+#   encendida e inactiva, por orden "mismo_proveedor", "no_habilitado", "sin_clave"
+# @property relectura_cabecera_activa -> str | None: el proveedor si enabled y sin motivo
 ```
 
-- La clave de cada proveedor se mira igual que en el validador actual (`strip()` no vacío);
-  se extrae a un helper privado `_clave_de(provider)` que usan los dos, sin cambiar los
-  mensajes de error del validador (R16).
-- Sin variable de modelo propia (DA5 = A): el modelo es el del proveedor (`GEMINI_MODEL`).
-- `extra="ignore"` ya está: un `.env` local sin las variables nuevas sigue valiendo.
+La clave se mira como en el validador (`strip()` no vacío), con un helper `_clave_de(provider)`
+que usan los dos sin cambiar sus mensajes (R24). Sin variable de modelo propia (DA5).
 
-## 6. Cableado (`interface_adapters/api/app.py`)
+## 7. Cableado (`interface_adapters/api/app.py`)
 
-- `relectura = settings.relectura_cabecera_activa` (exige `ENABLE_*`, así que el proveedor
-  siempre está instanciado).
-- Log: `INFO "[partes-sv2][wiring] relectura cabecera ACTIVA provider=%s model=%s"`, o
-  `WARNING "... relectura cabecera INACTIVA motivo=%s"` si está encendida e inactiva, o
-  `INFO "... DESACTIVADA (RELECTURA_CABECERA=false)"`.
-- `ExtractPartePipeline(..., relectura_provider=relectura)`.
-- `/health`: `"relectura_cabecera": {"provider": ..., "model": ...}` o `None`.
+- `relectura = settings.relectura_cabecera_activa`; `sigrid_client` como hoy; `obras =
+  ObrasSigrid(client=sigrid_client, ttl_seconds=settings.obras_cache_ttl_s)` solo con los dos,
+  si no `None`; ambos al `ExtractPartePipeline`. `/health`: `"relectura_cabecera"` o `None`.
+- Log `INFO "[partes-sv2][wiring] relectura cabecera ACTIVA provider=%s model=%s
+  comprueba_obra=%s"`, `WARNING "... INACTIVA motivo=%s"` o `INFO "... DESACTIVADA"`.
 
-## 7. Tests (sin red ni BBDD)
+## 8. Tests (sin red ni BBDD; `test_f058_rN_...`; fixtures inventadas, obra `"9999"`)
 
-`test_f058_relectura_cabecera.py` (nombres `test_f058_rN_...`):
+- `test_f058_relectura_cabecera.py`. Puros: `es_vacio`, `cabecera_vacia`, `clave_obra`
+  (`"0672"`/`"00672"` → `"672"`, `"000"` → `"0"`, `" a-12 "` → `"A12"`, acento),
+  `motivo_relectura` (con un `existe` doble que apunta llamadas) y `resultado_relectura`.
+  Pipeline con un `FakeVisionClient(LlmVisionClient)` por proveedor (devuelve o lanza; guarda
+  proveedor, `instructions` y adjunto), servicio, prompts y esquemas reales y dobles del
+  catálogo y del puerto: R1, R3, R4, R6, R11–R18 y R19 (`caplog` sin nombre, DNI, obra, fecha
+  ni mensaje de excepción).
+- `test_f058_obras_sigrid.py`: carga perezosa, una por TTL (reloj falso), fallo o lista vacía
+  sin reintentar (R7, R9); `fetch_codigos_obra` con `httpx.MockTransport` (`max_rows` 50.000,
+  filas sin `None`, `truncated` ⇒ `RuntimeError`, R8); `fetch_tipos_hora` igual que hoy.
+- `test_f058_prompt.py` (estilo F-051): el párrafo va entre el título del punto 1 y
+  `- cabecera.fecha:` y nombra `"personal"`, `nº obra`, `dia`, `mes`, `año`, `membrete`,
+  `desplazado`, `null` y `nunca inventes`; la viñeta de fecha, `casillas separadas` (R20, R21).
+- `test_f058_settings_wiring.py`: `Settings(_env_file=None, ...)` (R23, R24); `build_app` con
+  SDK falsos en `sys.modules` e import de `app.py` dentro del test: pipeline, `obras` con y sin
+  `SIGRID_API_*`, logs y `/health` con `TestClient` (R25, R26).
 
-- **Puros** (R2–R4): tabla de casos de `cabecera_vacia` (los dos nulos, solo obra, solo
-  fecha, blancos `"  "`, cabecera ausente) y de `necesita_relectura` (sin empleados).
-- **Pipeline** con un `FakeVisionClient(LlmVisionClient)` por proveedor que devuelve un
-  `ParteTrabajo` preparado o lanza, y guarda cada llamada (proveedor, `instructions`,
-  adjunto); `ParteExtractionService` real con `YamlPromptRepository(config/prompts.yaml)` y
-  `SchemaRegistry` reales; catálogo con un doble de `AuxhorCatalogProvider` (`enabled`,
-  `prompt_block`). Casos: R1 (segunda llamada con el mismo adjunto e `instructions` idénticas,
-  una sola vez), R2/R3/R5 (una sola llamada; con `relectura_provider=None`), R6 (cabecera
-  entera de la relectura, también un `encargado_nombre` nulo; firma y empleados iguales a la
-  primaria), R7 (`vacia`), R8 (lanza `ValueError` y un `RuntimeError` propio: no propaga,
-  `error_tipo`), R9 (`ParteTrabajo.model_validate(envelope["data"])`), R10–R13 (claves y
-  valores exactos de `meta`/`debug`; sin relectura, mismo conjunto de claves que hoy), R14
-  (`caplog`: hay INFO y WARNING; ningún registro contiene el nombre ni el DNI de la fixture,
-  la obra o la fecha releídas ni el mensaje de la excepción).
-- Fixtures con datos inventados (`"TRABAJADOR PRUEBA"`, DNI ficticio): nada real.
+## 9. Riesgos
 
-`test_f058_settings_wiring.py`:
+- **Latencia, cola y coste**: una relectura suma ~8 s (7–11 s, una de 32 s) y ~7 k tokens;
+  en el peor caso roza `COLA_VISIBILITY_S=600` (ya pasa hoy; sv3 descarta por `source_sha256`).
+  La lista de obras: ~1–3 s en la primera página tras arrancar y una consulta por TTL.
+- **Obra nueva dentro del TTL**: relee sin necesidad; si Gemini lee la misma, `no_casa` y se
+  queda la primaria; solo si leyera otro código existente se tomaría su cabecera (sv3 sigue
+  validando con membrete y trabajadores). Se acepta: TTL corto y caso preventivo.
+- **Fecha** con `obra_inexistente`: si la releída trae obra sin fecha, se pierde la primaria y
+  F-054 manda a revisión (DA11). **Prompt**: cambia todas las extracciones; puerta MB (DA9).
 
-- `Settings(_env_file=None, **{alias: valor})` (no lee el `.env` local): por defecto
-  encendida con `gemini`; combinaciones de R15 (`mismo_proveedor`, `no_habilitado`,
-  `sin_clave`, apagada) y R16 (arranca con Gemini sin clave).
-- `build_app` (R17, R18): `monkeypatch.setitem(sys.modules, ...)` con módulos falsos de
-  `google`, `google.genai` (`Client`, `types`), `openai` (`OpenAI` con `.responses.parse`) y
-  `anthropic`, e importación de `interface_adapters.api.app` dentro del test (retirándolo de
-  `sys.modules` al acabar). Se comprueba el `relectura_provider` del pipeline, el log de
-  cableado con `caplog` y `/health` con `fastapi.testclient.TestClient` (fastapi y httpx están
-  en el `.venv`). Ningún cliente real se construye ni llama a nadie.
+## 10. Verificación manual (humano o líder)
 
-Mutación muestreada (estándar) sobre el alcance de la feature; los supervivientes se analizan
-en `progress/impl_F-058.md`.
+- **M0** (solo lectura): `az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query
+  "properties.template.containers[0].env[?starts_with(name,'GEMINI_') || starts_with(name,
+  'ENABLE_GEMINI') || starts_with(name,'SIGRID_API_')]" -o table` ⇒ Gemini con
+  `gemini-4-argon`, claves por `secretRef`, base `ruesma`. Si no, decide el humano.
+- **MB** (banco del prompt; **lo lanza el líder** tras el commit del prompt, con `lanzar.ps1` del
+  scratchpad y `-Repo C:\Users\pgris\PycharmProjects\partes-wt-f058`, que lee el prompt de la
+  rama, sin relectura): (a) `-Paginas paginas_sincab -Runs 2 openai:gpt-6.1-sol` ⇒ cuántas de
+  12 traen obra y fecha, y si son las de Gemini (antes 0; se mide, no es puerta); (b)
+  `paginas_control` con `gpt-6.1-sol` ⇒ como `control.jsonl`; (c) `paginas_sincab` con
+  `gemini:gemini-4-argon` ⇒ 6 de 6; (d) batería de F-051 (`paginas`, 3 pasadas, `corregir.py`)
+  ⇒ 42 de 42. Puerta: (b)–(d) sin regresión, o para y decide el humano. Va a `progress/banco_F-058.md`.
+- **M1** (local, sin escrituras): script fuera del repo con `build_app(Settings())` (claves del
+  KV solo en el proceso) sobre las dos carpetas, volcando por página motivo, resultado, si hay
+  obra y fecha y filas, sin nombres ni DNIs ⇒ obra y fecha en las 6 (primaria o `aplicada`),
+  filas iguales, control sin relectura e INFO `[obras-sigrid]`.
+- **M2** (solo lectura, tras desplegar, READ ONLY): `SELECT j->>'motivo', j->>'resultado',
+  count(*) FROM (SELECT raw_extraction_json::jsonb->'meta'->'relectura_cabecera' j FROM
+  parte_documents WHERE created_at_utc >= '<FECHA_DESPLIEGUE>') s GROUP BY 1, 2;`.
+- **M3** (DA8 = A): ningún agente escribe; Administración pone obra y fecha en el portal.
 
-## 8. Riesgos y decisiones
+## 11. Decisiones
 
-- **Latencia y visibilidad de la cola**: una relectura suma ~8 s (batería: 7–11 s, una de
-  32 s). En el peor caso (primaria con 3 intentos a 180 s y relectura lenta) se acerca a
-  `COLA_VISIBILITY_S=600` y el mensaje podría reaparecer; ya pasa hoy con la primaria sola y
-  sv3 descarta el duplicado por `source_sha256`. Se acepta (DA7); no se toca el cliente.
-- **Coste**: solo cuando se dispara, ~6,5 k tokens de entrada y ~0,5 k de salida (batería).
-- **Membrete distinto**: la relectura trae su `empresa_membrete`; sv3 decide la empresa con
-  él como siempre (F-023). Tomar la cabecera entera evita mezclar obra de un modelo y membrete
-  de otro (DA3).
-- **Si se apaga Gemini** (`ENABLE_GEMINI=false`), la relectura queda inactiva con WARNING en
-  el arranque, sin caer (R16), y F-054 sigue mandando a revisión.
-- Descartados: reforzar el prompt (sin medir; obligaría a repetir la batería de F-051) y
-  cambiar el modelo primario (F-051 lo eligió por las filas).
-
-## 9. Verificación manual (humano o líder)
-
-- **M0** (solo lectura, antes de desplegar):
-  `az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?starts_with(name,'ENABLE_GEMINI') || starts_with(name,'GEMINI_') || starts_with(name,'RELECTURA')]" -o table`
-  ⇒ `ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`, `GEMINI_API_KEY` con `secretRef`
-  (no imprime valores) y ninguna `RELECTURA_*`. Si falta algo, se para y decide el humano.
-- **M1** (local, sin escrituras; repetible con la batería del líder en el scratchpad,
-  `bench/`, claves del KV solo en el proceso como `lanzar.ps1`): un script fuera del repo que
-  construya el pipeline de la rama con `build_app(Settings())` y lo ejecute sobre las 6 PDF de
-  `paginas_sincab/` y las 2 de `paginas_control/`, volcando por página `resultado`, si hay
-  obra y fecha y las filas (nº y horas), sin nombres ni DNIs. Esperado: 6/6 `aplicada` con
-  obra y fecha, filas idénticas a la primaria; control 2/2 sin `relectura_cabecera`.
-- **M2** (solo lectura, tras desplegar sv2; base `partes`, transacción READ ONLY):
-  `SELECT raw_extraction_json::jsonb->'meta'->'relectura_cabecera'->>'resultado' AS r, count(*) FROM parte_documents WHERE created_at_utc >= '<FECHA_DESPLIEGUE>' GROUP BY 1;`
-  ⇒ la mayoría `NULL` (sin relectura); cada `vacia`/`error` debe tener `review_required`
-  (con F-054 desplegada).
-- **M3** (los 6 ya guardados; DA8). Por defecto (A): ningún agente escribe; con F-054 M2 ya
-  marcados a revisión, Administración pone obra (`PATCH /api/partes/{id}/obra`) y fecha
-  (F-043) en el portal. Alternativa B, solo con autorización expresa y tras un SELECT que
-  confirme que ninguna línea está aprobada, editada ni en Sigrid: `UPDATE parte_documents
-  SET is_active = false` de esos 6 `id` en una transacción y devolver los 2 correos a la
-  bandeja como no leídos para que sv1 los reingiera (las páginas aún activas se omiten por
-  `source_sha256`).
-
-## 10. Decisiones abiertas (las valida el humano)
-
-| DA | Pregunta | Alternativas | Recomendación |
-|---|---|---|---|
-| DA1 | ¿Qué es «cabecera vacía»? | A) los seis campos nulos; **B) `obra_numero` y `fecha` vacíos (con blancos), con ≥ 1 fila**; C) obra **o** fecha vacía | **B**: cubre los 6 casos, son los dos campos que importan (F-054) y no relee partes con solo la fecha sin escribir (C costaría llamadas y mezclaría una obra buena con otra lectura). A falla si el modelo rellena, p. ej., el encargado |
-| DA2 | ¿Qué se relee? | **A) la página entera con el mismo prompt y esquema**; B) prompt y esquema solo de cabecera; C) recorte de la imagen | **A**: es lo medido (6/6) y no añade prompt que mantener; B ahorra ~0,4 k tokens de salida sin medir; C es preproceso nuevo |
-| DA3 | ¿Qué se toma de la relectura? | **A) la cabecera entera si trae obra o fecha**; B) campo a campo, solo los nulos de la primaria; C) el parte entero de Gemini | **A**: una cabecera coherente de una sola lectura (obra y membrete del mismo modelo); C tira las filas, que es por lo que se usa `gpt-6.1-sol` |
-| DA4 | ¿Y si la relectura falla o sale vacía? | **A) se queda la primaria, traza y WARNING; F-054 la manda a revisión**; B) propagar el error (reintento de cola y `-poison`); C) probar un tercer proveedor | **A**: B perdería una lectura de filas buena y multiplicaría coste; C no está medido |
-| DA5 | Configuración | **A) `RELECTURA_CABECERA` (sí por defecto) y `RELECTURA_CABECERA_PROVIDER` (`gemini`), modelo y clave del proveedor ya desplegados, sin cambios de entorno en Azure**; B) apagada por defecto y el humano la enciende con `az containerapp update --set-env-vars RELECTURA_CABECERA=true`; C) variable de modelo propia | **A**: Gemini ya está habilitado y con clave en sv2 (M0 lo confirma); para apagarla basta `RELECTURA_CABECERA=false`. Si el humano prefiere estrenarla a mano, B (la ejecuta él) |
-| DA6 | Trazabilidad | **A) `meta.relectura_cabecera` + `debug.relectura_cabecera`, solo cuando se dispara; `meta.provider/model` del primario**; B) columna en `parte_documents`; C) solo log | **A**: queda en `raw_extraction_json` sin migración; B toca el ORM duplicado de sv3 y sv4 por un dato de auditoría |
-| DA7 | Coste y latencia | **A) aceptar (~7 k tokens y ~8 s solo cuando se dispara)**; B) relectura sin reintentos (`RetryPolicy` propia) | **A**: es raro y el reintento protege de un 429 puntual; B exige otro cliente Gemini en el cableado |
-| DA8 | ¿Los 6 ya guardados? | **A) corrección a mano en el portal (obra y fecha), tras F-054 M2**; B) reproceso autorizado (desactivar y reingerir, §9 M3); C) nada | **A**: sin escrituras de agentes ni riesgo de pisar ediciones; B solo si el humano lo pide y el SELECT previo sale limpio |
+| DA | Tema | Estado y decisión |
+|---|---|---|
+| DA1 | Cuándo releer | **Enmendada y aprobada**: cabecera vacía (obra y fecha) **o** obra leída fuera de la lista de Sigrid, con ≥ 1 fila. Fecha sin obra no relee (F-054 la manda a revisión) |
+| DA2–DA8 | Relectura, toma, fallo, configuración, traza, coste, los 6 guardados | Aprobadas, todas A: página entera con el mismo prompt y esquema; cabecera entera si es útil; si falla o no es útil, la primaria con traza y WARNING; `RELECTURA_CABECERA` encendida y `RELECTURA_CABECERA_PROVIDER=gemini` sin cambios de entorno; `meta`/`debug.relectura_cabecera` solo al releer; coste aceptado; los 6, a mano en el portal |
+| DA9 | Prompt de cabecera | **Pedido por el humano**; texto de §5, solo el punto 1. Abierto: la puerta de MB (si (b)–(d) empeoran, se quita el párrafo y queda la relectura) |
+| DA10 | Comprobación de existencia | **Abierta. Recomendada A**: lista de códigos cacheada (una consulta por TTL; `truncated` o 0 códigos = fallo; fallo = no releer por obra, sin bloquear). B) consulta por página: una llamada y un punto de fallo más en cada página. C) fallo = releer: Gemini en todas las páginas con Sigrid caído |
+| DA11 | Cabecera con `obra_inexistente` | **Abierta. Recomendada A**: la releída entera si su obra está en la lista (como DA3). B) la releída con la fecha primaria si la releída no trae: mezcla dos lecturas de una cabecera ya dudosa |
