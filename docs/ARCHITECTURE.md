@@ -513,8 +513,8 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     y los sin casar de F-023) o sin fecha (`fecha_int` nulo o ≤ 0), con un
     WARNING `sin_obra` / `sin_fecha` sin nombres. La bandera no bloquea la
     aprobación ni la baja nadie al poner obra o fecha en el portal. Solo
-    ingestas nuevas; lo guardado antes se corrige una sola vez a mano (M2 de
-    F-054: un `UPDATE` que solo sube la bandera en los activos no aprobados).
+    ingestas nuevas; lo guardado antes no se toca (el humano descartó la M2
+    de F-054 el 2026-10-23: los partes sin obra se corrigen en el portal).
 
 ## Acceso a datos y sistemas externos
 
