@@ -24,7 +24,11 @@ from application.pipelines.persist_parte_pipeline import (
 )
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.sigrid_matcher_provider import SigridMatcherProvider
-from domain.models.parte_records import ParteDocumento, RegistroNormalizado
+from domain.models.parte_records import (
+    ObraMatch,
+    ParteDocumento,
+    RegistroNormalizado,
+)
 from domain.models.sigrid_models import (
     EmpleadoRow,
     EmpresaRow,
@@ -479,14 +483,20 @@ def test_f023_r24_sin_nombre_leido_no_casa() -> None:
 
 # ====================== review_required y persistencia ================== #
 
-@pytest.mark.parametrize("metodo, esperado", [
-    ("codigo_otra_empresa", True), ("codigo_ambiguo", True),
-    ("nombre_ambiguo", True), ("codigo", False), ("none", False),
+@pytest.mark.parametrize("metodo, con_obra, esperado", [
+    ("codigo_otra_empresa", False, True), ("codigo_ambiguo", False, True),
+    ("nombre_ambiguo", False, True), ("codigo", True, False),
+    # F-054 (R1): sin obra casada por `none` tambien va a revision.
+    ("none", False, True),
 ])
-def test_f023_review_required_por_la_obra(metodo, esperado) -> None:
+def test_f023_review_required_por_la_obra(metodo, con_obra, esperado) -> None:
     parte = _parte(("ANA UNO", DNI_A), obra="300")
     _pipeline()._match(parte)
-    parte.obra.method = metodo
+    if con_obra:
+        parte.obra.method = metodo
+    else:
+        # Sin `ide`, como lo deja `ObraMatcher` cuando no casa.
+        parte.obra = ObraMatch(method=metodo)
     assert PersistPartePipeline._compute_review_required(parte) is esperado
 
 

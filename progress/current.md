@@ -1,6 +1,29 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-054 · DONE 2026-10-23 (review APPROVED pasada 1; pendiente desplegar sv3 y M2): un parte sin obra o sin fecha va siempre a revisión
+
+Rama `feature/F-054-sin-obra-o-fecha-a-revision` (worktree `partes-wt-f054`), **rebasada sobre
+`dev` 38f273a**: conflictos solo en `harness/features.json`, `BACKLOG.md` y este fichero; se
+quedó la versión de `dev` (su entrada de F-054 es idéntica a la de la rama, comprobado) y
+`BACKLOG.md` se regeneró con `python harness/backlog.py`. Aprobación del humano: 2026-10-21
+(«apruebo F-054 y la DA5») y 2026-10-23 («si, lanza f54 y la spec de relectura con gemini»).
+Contexto nuevo del líder (2026-10-23): 4 páginas más del escaneo de hoy con la cabecera a null;
+la causa en sv2 es F-058, el alcance de F-054 no cambia.
+
+- **T1–T5 hechas** (un commit por tarea, fase RED con trazas) y `bash harness/init.sh` en
+  verde (sv3: 2.305 passed; cobertura 100 % de 13 líneas cambiadas). Informe:
+  `progress/impl_F-054.md`. **T6 hecha** (mutación lanzada por el líder el 2026-10-23: 5
+  mutantes, 5 muertos, 0 supervivientes; `progress/mutacion_F-054.md`). **Review APPROVED
+  (pasada 1, `progress/review_F-054.md`)**; fusionada en `dev` el 2026-10-23. Falta:
+  desplegar sv3 y, con autorización expresa, la M2 (repetir antes la M1).
+- Desviaciones (justificadas en el informe): 4 tests de más para fronteras y formato del
+  WARNING; la semántica 18 va en presente («se corrige una sola vez a mano») porque la M2
+  aún no se ha hecho; sv3 tiene 2.271 tests en `dev`, no los 2.254 de la spec.
+- **M2 NO ejecutada**: necesita autorización expresa del humano para esa escritura concreta
+  y el despliegue de sv3 antes (comando exacto en `design.md` §8 y en el informe). M1 daba 3
+  documentos; con las 4 páginas del 23/10 podrían ser 7: repetir M1 justo antes.
+
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
 El humano, literal: «la peticion la hago yo, quitalo de la feature». La petición a RRHH

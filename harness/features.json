@@ -779,7 +779,7 @@
         "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "spec_ready",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 4,

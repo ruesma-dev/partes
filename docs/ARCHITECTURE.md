@@ -508,6 +508,13 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (encendido por defecto; medido el 2026-10-19: habría marcado 8 de 108
     partes laborables y 9 de 17 de fin de semana). El campo viaja en
     `raw_extraction_json` (sin columna). Solo afecta a ingestas nuevas.
+18. **Parte sin obra o sin fecha (F-054, sv3)**: sv3 manda a revisión
+    (`review_required`) todo parte sin obra casada (`obra.ide` nulo: `none`
+    y los sin casar de F-023) o sin fecha (`fecha_int` nulo o ≤ 0), con un
+    WARNING `sin_obra` / `sin_fecha` sin nombres. La bandera no bloquea la
+    aprobación ni la baja nadie al poner obra o fecha en el portal. Solo
+    ingestas nuevas; lo guardado antes se corrige una sola vez a mano (M2 de
+    F-054: un `UPDATE` que solo sube la bandera en los activos no aprobados).
 
 ## Acceso a datos y sistemas externos
 
