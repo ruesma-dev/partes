@@ -1,6 +1,32 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-038 · SPEC ESCRITA 2026-10-23 (pendiente de validar DA1–DA7): límite de filas de Sigrid a 200.000 y `truncated` siempre error
+
+Spec en `specs/F-038-limite-filas-sigrid/` (rama `feature/F-038-limite-filas-sigrid`, worktree
+`partes-wt-f038`, desde `dev` 0926857). Toca sv2, sv3, sv4 y sv5 (cada uno su cliente y su
+settings) más un guardián de raíz. Inventario completo de lecturas en `design.md` §1.
+
+- Hallazgos: la queja de `porcentajes` (partidas de obras grandes) **no se reproduce en partes**
+  (sv3/sv4 paginan las partidas; sv5 las lee por `ide`). Truncan **en silencio** solo sv2
+  `fetch_tipos_hora` y dos scripts manuales. sv5 pide 1.000 fijo en lecturas sin lote
+  (`lineas_existentes`, `horas_de_recursos`, `recursos_por_dni`): hoy un parte grande haría
+  **fallar** el registro (con error, no en silencio).
+- Decisiones para el humano (`design.md` §7, recomendada A en las siete): DA1 200.000 por
+  defecto; DA2 `SIGRID_API_MAX_ROWS` opcional en sv2–sv5 (1–500.000, fuera de manifiestos);
+  DA3 `truncated` = error siempre (en sv2 lo absorbe el catálogo como hoy); DA4 validar
+  `SIGRID_API_TIMEOUT_S` en (0, 200]; DA5 páginas siguen en 5.000; DA6 borrar
+  `services/partes-front/consulta_reshor_recursos.py` (obsoleto y **con DNIs y nombres reales
+  en claro**; el historial de git los conserva, purgarlo es decisión aparte); DA7 el límite de
+  ~2.100 parámetros de las lecturas `IN` sin lote de sv5 queda fuera.
+- Choque con F-060 (`design.md` §8): mismos ficheros de sv5 (`sigrid_write_client.py`,
+  `settings.py`, `api/app.py`) en trozos distintos y la fila sv5 de `azure-apps/partes.md` §5.6
+  (conflicto probable). `parte_repository.py` de sv4 no se toca. Recomendado implementar F-038
+  tras mezclar F-060 en `dev`.
+- Verificación manual de solo lectura: M0 (env de las cuatro apps antes de desplegar), M1
+  (tamaños reales sin nombres por sigrid-api, comando exacto en `design.md` §9), M2 (log tras
+  desplegar).
+
 ## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 
 **Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
