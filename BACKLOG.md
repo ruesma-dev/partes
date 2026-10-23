@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **53 features**, 15 abiertas, 38 terminadas.
+Resumen: **54 features**, 16 abiertas, 38 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -12,6 +12,7 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 1 | pendiente | critico | `feature/F-056-franquicia-de-extras` |
+| F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 2 | pendiente | estandar | `feature/F-058-relectura-cabecera-gemini` |
 | F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | spec lista | estandar | `feature/F-054-sin-obra-o-fecha-a-revision` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -77,6 +78,12 @@ Bloqueadas: **F-032**.
 estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
 
 Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe. Decisión del humano del 2026-10-22/23 («si a todo, pon la nueva feature como primera y lanza spec»): primera de la cola, spec en marcha.
+
+### F-058 · sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera
+
+estado **pendiente** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-058-relectura-cabecera-gemini`
+
+Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local sin escrituras): 6 páginas de dos escaneos (21/10 y 23/10) se guardaron sin obra ni fecha porque gpt-6.1-sol (IA_PROVIDER=openai en sv2) devolvió la cabecera entera a null (fecha, obra_numero, obra_nombre, empresa_membrete...) aunque leyó las filas de trabajadores. El papel se lee bien; el escaneo sale desplazado (lado derecho cortado, bandas grises). Reproducido: 12 de 12 lecturas con gpt-6.1-sol dan cabecera vacía; las mismas 6 páginas con gemini-4-argon dan obra y fecha correctas 6 de 6; páginas de las mismas obras escaneadas normalmente salen bien con gpt-6.1-sol. No es el código de obra de 3 cifras (sv3 los rellena: codigo_padded/codigo_membrete). Decisión del humano del 2026-10-23 («si, lanza f54 y la spec de relectura con gemini»): sv2 mantiene gpt-6.1-sol para las filas y, si la cabecera llega vacía con trabajadores, relee la página con gemini-4-argon y toma su cabecera. Complementa F-054 (que manda a revisión el parte sin obra o sin fecha). Pendiente de spec.
 
 ### F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión
 
