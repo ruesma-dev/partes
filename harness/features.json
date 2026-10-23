@@ -863,6 +863,24 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-059-pagina-como-imagen-derecha"
+    },
+    {
+      "id": "F-060",
+      "title": "Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas",
+      "description": "Petición del humano del 2026-10-23: «el primer dia de unas vacaciones siempre debe marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse fin de vacaciones. este fin se va moviendo segun aparzcan dias de vacaciones hasta que aparezca un dia laborable en cuyo caso ya no se mueve. [...] hay que ver si ese recurso tiene vacaciones en algun parte de alguna obra (no solo la suya) y si lo tiene cerrar. si no hay se abre. lo mismo para bajas.» Aprobó la tabla del líder («la propuesta es lo correcto [...] debe buscar siempre en todos sus partes del mes anterior»): incidencia sin racha abierta ⇒ abre con su CI*; con racha abierta ⇒ mueve el CIZ a ese día editando la línea existente (si no hay CIZ, lo crea); horas ⇒ la racha queda cerrada. Regla de Sigrid: «no se debe borrar en sigrid, así que solo editará líneas». Hoy (sv4 `_rol_incidencia`, sv5 R1) cada día de incidencia que sigue a otro sale «fin» y escribe un CIZ nuevo; además no distingue la letra, no tiene ventana y no excluye la papelera. Diseño: sv4 decide el rol con la ventana (día 1 del mes anterior a D−1, todas las obras) y manda los ids de la racha; sv5 localiza el CIZ por synckey y lo mueve con un UPDATE (fecha, synckey y, si cambia de parte, parte, obra, centro, cuenta, año y mes), con guarda de parte abierto, sin DELETE ni INSERT. Interruptor MOVER_CIZ en sv5, apagado por defecto. Sin tabla ni columna nueva. Spec: specs/F-060-racha-incidencia-ciz-movil/.",
+      "acceptance": [
+        "sv4: rol inicio/fin con la ventana del mes anterior, todas las obras, misma letra y sin papelera; colapso dentro de una aprobación; racha_registro_ids en el payload; aviso racha_desordenada (R1–R12)",
+        "sv5: con MOVER_CIZ, el CIZ de la racha se mueve con un UPDATE (nunca DELETE ni INSERT), se omite como intermedio si ya está más adelante y no se duplica si está en un parte cerrado; apagado o sin ids, como hoy (R13–R27)",
+        "sv4 pasa a omitido el día que tenía el CIZ cuando sv5 lo mueve (CAS, idempotente) (R28–R30)",
+        "M1–M3 en modo pruebas (obra 0404, PRUEBA-IA) y M4 de solo lectura en producción tras encender MOVER_CIZ",
+        "Rigor crítico: fase RED, cobertura y mutación completa con 0 supervivientes sin justificar",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 3,
+      "branch": "feature/F-060-racha-incidencia-ciz-movil"
     }
   ]
 }

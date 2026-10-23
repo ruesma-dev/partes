@@ -1,6 +1,28 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-060 · PENDING 2026-10-23 (spec escrita, falta validar DA1–DA11): racha de incidencia con CIZ móvil
+
+Spec en `specs/F-060-racha-incidencia-ciz-movil/` (rama `feature/F-060-racha-incidencia-ciz-movil`,
+worktree `partes-wt-f060`, desde `dev` 0926857). Alta en `harness/features.json`: `sdd: true`,
+rigor crítico, prioridad 3 (detrás de F-058 por orden de id). Servicios: sv4 decide el rol con
+el histórico de `partes` (ventana del mes anterior, todas las obras, letra, sin papelera) y
+manda `racha_registro_ids`; sv5 busca el CIZ de la racha por synckey y lo mueve con un
+`UPDATE` (nunca `DELETE`), con el interruptor `MOVER_CIZ` apagado por defecto. Sin esquema.
+
+Decisiones que tiene que validar el humano (`design.md` §12; recomendada A en todas):
+DA1 ventana (del día 1 del mes anterior al de D hasta D − 1; sin nada en ella ⇒ CI*, riesgo de abrir a mitad
+de una racha larga o manual; leer Sigrid descartado), DA2 sin tabla nueva y la synckey pasa
+al día nuevo (el anterior queda `omitido` `fin_movido`), DA3 mover también entre partes (otra
+obra u otro mes) y no duplicar si el origen está cerrado — **pedir visto bueno de
+Administración**, DA4 letra distinta abre racha, DA5 papelera fuera, DA6 CI* suelto sin CIZ —
+**pendiente de Administración**, DA7 desorden: intermedio o aviso `racha_desordenada`, nada
+hacia atrás, DA8 rachas viejas con varios CIZ fuera (informe M0), DA9 impacto en F-019 y
+F-024, DA10 identidad `persona_de`, DA11 interruptor `MOVER_CIZ`.
+
+- [ ] **M0 (líder, antes de implementar, solo lectura)**: las dos consultas de `design.md` §9
+  (CIZ de partes por mes, enlazados y recursos-mes con más de un CIZ).
+
 ## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 
 **Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
