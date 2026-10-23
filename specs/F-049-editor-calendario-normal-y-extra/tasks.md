@@ -18,4 +18,4 @@
 - [x] T16: `docs/ARCHITECTURE.md` (semánticas 3 y 10, pasada completa, otras obras del día y pedido compartido) y `azure-apps/partes.md` (motivos, rutas y orden de despliegue sv3 → sv4; commit local en `azure-apps`)  |  Verificación: `git -C C:\Users\pgris\PycharmProjects\azure-apps log -1` y diff revisado
 - [x] T17: Campaña de mutación completa (rigor crítico) sobre `edicion_celda.py`, lo cambiado en `parte_repository.py` y `app.py` y `recalculo_seguimiento.py` de sv3; tests nuevos o justificación por superviviente  |  Verificación: `progress/mutacion_F-049.md` con 0 supervivientes sin resolver
 - [x] T18: Informe `progress/impl_F-049.md` con trazas RED, cobertura y M2–M8 como MANUAL (humano) tras desplegar sv3 y, con su revisión nueva activa, sv4 (`.\redeploy_partes.ps1 -Solo sv3` y luego `-Solo sv4`; los lanza el humano; design §10)  |  Verificación: MANUAL (humano)
-- [ ] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`

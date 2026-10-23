@@ -674,7 +674,16 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
-## F-049 · IN_PROGRESS (desbloqueada el 2026-10-22; T17 pendiente SOLO de la campaña de mutación, que lanza el líder), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+## F-049 · IN_PROGRESS (T1–T19 hechas el 2026-10-23: lista para el reviewer), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+
+**Cierre del implementer (2026-10-23)**: campaña de mutación completa (la lanzó el líder,
+`--workers 1`): 164 mutantes, 162 muertos, 2 supervivientes, 0 timeouts, 44.292,9 s. Los dos
+eran huecos reales y los mata un test nuevo cada uno, comprobado aplicando el mutante a mano
+(`parte_repository.py:3229`, deshacer sin creadas da las afectadas;
+`app.py:2245`, extra nueva sin recurso no consulta Sigrid); no se relanzó la campaña. T17
+`3a2d296`; T18 informe completo en `progress/impl_F-049.md`; T19 `bash harness/init.sh` en
+verde («ENTORNO LISTO»: sv4 `2583 passed, 1 skipped`, raíz `498 passed, 3 skipped`, COBERTURA
+100 % de 362). **Siguiente paso: reviewer.** Después, MANUAL M2–M8 tras desplegar sv3 → sv4.
 
 **Desbloqueada el 2026-10-22 por decisión del humano (opción A, respuesta literal «a»):** el
 guardián de F-017 sube a 18 llamadas a `_actor(request)` y su docstring nombra la del editor de
