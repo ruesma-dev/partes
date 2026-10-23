@@ -814,7 +814,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 1,
+      "priority": 2,
       "branch": "feature/F-056-franquicia-de-extras"
     },
     {
@@ -842,8 +842,26 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 2,
+      "priority": 3,
       "branch": "feature/F-058-relectura-cabecera-gemini"
+    },
+    {
+      "id": "F-059",
+      "title": "sv2 manda a la IA la página escaneada como imagen derecha, no como PDF",
+      "description": "Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto». Hallazgo del líder el 2026-10-23 (banco fuera del repo, gpt-6.1-sol): las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son un JPEG apaisado 3507×2480 con el formulario apaisado girado dentro (cortado por el borde, ya desde el escáner: sv1 parte con pypdf y copia la imagen byte a byte) y /Rotate 270. Mandadas como PDF (input_file): cabecera vacía 12 de 12, también con reasoning.effort = high (0 de 12; el esfuerzo por defecto es medium). Mandadas como imagen JPEG derecha (la incrustada girada según /Rotate, detail high): obra y fecha bien 12 de 12, las mismas que lee gemini-4-argon; control 4 de 4 bien. sv2: antes de llamar a la IA, convertir la página PDF en imagen derecha y mandarla como imagen. Lo que corta el escáner no se recupera; la obra y la fecha quedan dentro. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec pendiente: proveedores a los que aplica, conversión (imagen incrustada o render), dependencia nueva, interruptor y banco de regresión con la batería de F-051.",
+      "acceptance": [
+        "Una página PDF escaneada llega a la IA como imagen derecha (girada según /Rotate) en vez de como PDF",
+        "Las 6 páginas del banco con la cabecera vacía se leen con obra y fecha con gpt-6.1-sol",
+        "Sin regresión en las páginas de control ni en la batería de F-051",
+        "Si la conversión falla, se manda el PDF como hoy, con WARNING sin nombres ni DNIs",
+        "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-059-pagina-como-imagen-derecha"
     }
   ]
 }
