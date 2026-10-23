@@ -726,7 +726,7 @@
         "Mutación completa con 0 supervivientes sin resolver",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 4,
