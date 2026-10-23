@@ -5,6 +5,8 @@
 
 Resumen: **54 features**, 16 abiertas, 38 terminadas.
 
+En curso: **F-054**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
@@ -13,7 +15,7 @@ Bloqueadas: **F-032**.
 |---|---|---|---|---|---|
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 1 | pendiente | critico | `feature/F-056-franquicia-de-extras` |
 | F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 2 | pendiente | estandar | `feature/F-058-relectura-cabecera-gemini` |
-| F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | spec lista | estandar | `feature/F-054-sin-obra-o-fecha-a-revision` |
+| F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | en curso | estandar | `feature/F-054-sin-obra-o-fecha-a-revision` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
@@ -87,7 +89,7 @@ Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local
 
 ### F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión
 
-estado **spec lista** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-054-sin-obra-o-fecha-a-revision`
+estado **en curso** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-054-sin-obra-o-fecha-a-revision`
 
 Petición del humano del 2026-10-21 («2 si»): «abro una feature pequeña para que un parte sin obra o sin fecha vaya siempre a revisión». Hallazgo del líder el 2026-10-21 (solo lectura en producción): las dos páginas de un escaneo de ese día llegaron con la cabecera vacía (fecha, obra_numero y empresa_membrete null), firmadas y con 4 y 6 trabajadores casados, y se guardaron con review_required = false, obra_match_method = 'none' y obra_ide, obra_codigo y fecha_int NULL: _compute_review_required de sv3 no miraba la obra sin casar por 'none' ni la fecha. sv3: motivos_cabecera (sin_obra si obra.ide es None, sea cual sea el método; sin_fecha si fecha_int es None o <= 0) sube review_required, sustituye a OBRA_A_REVISAR (que desaparece) y deja un WARNING con document_id y motivos, sin nombres ni DNIs. Solo ingestas nuevas; sin esquema, sin colas, sin cambios en sv4 ni sv5. Lo ya guardado: M1 de solo lectura en la base partes y, si se aprueba DA3 = B, un UPDATE único manual que solo sube la bandera en los activos no aprobados. Hallazgo aparte (DA5, feature propuesta): una línea sin fecha viaja a sv5 con fecha_int = 0 y sv5 no la rechaza. Decisiones DA1-DA7 APROBADAS el 2026-10-21 con la recomendación (A salvo DA3 = B; «apruebo F-054 y la DA5»); la guarda de DA5 es F-055. M1 hecha el 2026-10-21 (M2 afectará a 3 documentos; ninguna línea sin fecha llegó a Sigrid). Va justo detrás de F-049 (en curso): prioridad 4, desempata el id. Detalle en specs/F-054-sin-obra-o-fecha-a-revision/design.md §8 y §9.
 
