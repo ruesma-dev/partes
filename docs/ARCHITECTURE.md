@@ -515,6 +515,27 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     aprobación ni la baja nadie al poner obra o fecha en el portal. Solo
     ingestas nuevas; lo guardado antes no se toca (el humano descartó la M2
     de F-054 el 2026-10-23: los partes sin obra se corrigen en el portal).
+19. **Página escaneada como imagen derecha (F-059, sv2)**: OpenAI, con el
+    PDF como `input_file`, no aplica el `/Rotate` de la página y lee de lado
+    el JPEG que el escáner guarda girado (cabecera vacía 12/12 en el banco).
+    Si el PDF es una **página escaneada** (una página cuyo contenido es solo
+    `q cm Do Q` de un JPEG `DCTDecode` de 8 bits en RGB o grises, a página
+    completa, sin giro en la matriz), sv2 le manda en su lugar esa imagen
+    girada en sentido horario los grados del `/Rotate`, como la enseña un
+    visor (JPEG RGB calidad 90, sin EXIF; `infrastructure/document/
+    pagina_pdf_imagen.py`, puerto en `domain/ports/conversor_pagina.py`).
+    Lo que no es página escaneada va como PDF (`no_aplica`, INFO con el
+    motivo cerrado) y si la conversión lanza, también (`error`, WARNING con
+    el tipo y el sha256 corto, sin nombre de fichero). Interruptor
+    `PAGINA_COMO_IMAGEN` (encendido por defecto) y lista
+    `PAGINA_COMO_IMAGEN_PROVEEDORES` (`openai` por defecto; un nombre
+    desconocido no arranca); OpenAI manda `detail` = `OPENAI_IMAGE_DETAIL`
+    (`high`) en toda `input_image`, fotos del móvil incluidas. El original
+    no cambia: sv1 lo guarda tal cual, `meta.source_*` (y la deduplicación
+    de sv3 por sha256) siguen siendo suyos, y `meta.adjunto_ia` (en
+    `raw_extraction_json`, sin columna) dice qué se mandó: `conversion`
+    (`convertida` / `no_aplica` / `error` / `apagada`), `motivo`, tipo y
+    tamaño, y giro y medidas si se convirtió.
 
 ## Acceso a datos y sistemas externos
 

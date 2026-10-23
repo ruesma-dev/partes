@@ -1,6 +1,62 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+
+**Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
+dices que sí, lanzo el implementer» sobre DA1–DA4 respondió «a». DA1 = A (solo OpenAI, lista
+configurable), DA2 = A (imagen incrustada girada), DA3 = A (`PAGINA_COMO_IMAGEN` encendido por
+defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
+
+- **T1–T7 y T11 hechas** (implementer, 2026-10-23; un commit por tarea, fase RED con trazas):
+  sv2 144 passed (112 nuevos), cobertura 99,4 % de 165 líneas cambiadas, `init.sh` en verde.
+  Informe: `progress/impl_F-059.md`. azure-apps: commit local 7cc2e66 (sin push).
+- **T8 hecha** (implementer, 2026-10-23): campaña del líder 20 evaluados, 17 muertos, 3
+  supervivientes. [16] y [20] eran huecos reales: 4 tests nuevos (borde exacto de 1 pt; INFO
+  de wiring con `caplog`), comprobados aplicando el mutante a mano. [19] es equivalente
+  (frontera del 2 % inalcanzable en float). Sin cambios de producción. Detalle en
+  `progress/mutacion_F-059.md`; sv2 148 passed.
+- **Review pasada 1 (2026-10-23): CHANGES_REQUESTED** solo por C4 (la M4 sin comando exacto).
+  Corregido (implementer, 2026-10-23): M4 abajo con su SELECT literal; además, observación 1:
+  R12/R13 fijan el final del sha12 (`sha256=<12>:`) y el mutante `sha256[:13]` muere (5 failed).
+- **Pendiente**: T10 (M4 tras desplegar sv2, humano) y la review pasada 2 (T9 hecha, banco).
+- [ ] **M4 · T10 (humano, tras desplegar; solo lectura)**. Despliegue, lo lanza el humano:
+  `.\infra\redeploy_partes.ps1 -Solo sv2`. Anotar el instante UTC del despliegue (ISO,
+  p. ej. `2026-10-24T08:00:00`) y, cuando hayan entrado partes escaneados, en la base `partes`:
+
+  ```sql
+  SELECT id, created_at_utc,
+         raw_extraction_json::jsonb #>> '{meta,adjunto_ia,conversion}' AS conversion,
+         raw_extraction_json::jsonb #>> '{meta,adjunto_ia,motivo}' AS motivo
+  FROM parte_documents
+  WHERE created_at_utc >= '<instante del despliegue, ISO UTC>'
+  ORDER BY created_at_utc DESC LIMIT 20;
+  ```
+  (`raw_extraction_json` es `Text`, de ahí el `::jsonb`; `created_at_utc` es varchar ISO y se
+  compara con una cadena ISO). Esperado: las páginas escaneadas, `conversion = convertida`
+  (motivo vacío); las fotos `no_aplica` / `no_es_pdf`; **ninguna fila `error`**. Si sale
+  `error` o la lectura empeora, vuelta atrás: `az containerapp update -n ca-sv2-extraccion
+  -g rg-partes-dev --set-env-vars PAGINA_COMO_IMAGEN=false`.
+- Decisiones y desviaciones (justificadas en el informe): (1) con `PAGINA_COMO_IMAGEN=false`
+  `app.py` no crea el conversor (además de pasar `frozenset()`), para que la traza diga
+  `interruptor` y no `proveedor_fuera_de_lista`; (2) el `.venv` de la raíz NO tiene `openai`,
+  `anthropic` ni `google-genai` (la spec solo contaba con que faltaba Pillow): los tests de
+  R22 y del cableado importan los clientes con dobles de esos SDK
+  (`tests/f059_sdk_falsos.py`), que solo se registran si el SDK real no se puede importar.
+  No se instaló nada más que Pillow. Si se prefiere instalar los SDK en el `.venv`, los
+  dobles dejan de activarse solos.
+
+Spec en `specs/F-059-pagina-como-imagen-derecha/` (rama `feature/F-059-pagina-como-imagen-derecha`,
+worktree `partes-wt-f059`); resumen en `progress/spec_F-059.md`. Solo sv2: la página escaneada
+(una imagen JPEG a página completa) viaja como imagen derecha; lo demás y los fallos, como PDF.
+Diagnóstico corregido por el humano el 2026-10-23: el PDF viene bien orientado (el `/Rotate` lo
+endereza en cualquier visor); el fallo es de lectura de OpenAI con `input_file`.
+
+Decisiones que tiene que validar el humano (`design.md` §7, recomendada A en las cuatro):
+DA1 proveedores (solo OpenAI por defecto), DA2 conversión (imagen incrustada, sin render),
+DA3 interruptor (encendido por defecto, sin tocar el entorno de Azure), DA4 `detail=high` en
+toda imagen de OpenAI (también fotos del móvil). F-058 no se toca: queda como red de seguridad.
+
 ## F-054 · DONE 2026-10-23 (review APPROVED pasada 1; sv3 desplegado r20261023153823; M2 descartada): un parte sin obra o sin fecha va siempre a revisión
 
 **2026-10-23, decisión del humano sobre la M2** (literal): «hay que corregir solo los que salen
