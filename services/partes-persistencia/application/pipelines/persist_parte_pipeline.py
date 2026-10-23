@@ -18,7 +18,8 @@ Pasos:
          ficha enlazada o, sin ella, los del recurso (`recurso_dni` /
          `recurso_nombre`, sin `empleado_ide`), y siempre `reside` =
          el recurso elegido, que el conciliador confirma despues.
-  5. Calcula ``review_required`` (un casado por recurso no lo sube).
+  5. Calcula ``review_required`` (un casado por recurso no lo sube; sin
+     obra casada o sin fecha => revision, F-054, con un WARNING).
   6. Persiste documento + registros.
 """
 from __future__ import annotations
@@ -50,11 +51,6 @@ from domain.ports.parte_repository import ParteRepository
 
 logger = logging.getLogger(__name__)
 
-#: Obras sin casar por F-023 que mandan el parte a revision (R10, R13, R14).
-OBRA_A_REVISAR: frozenset[str] = frozenset(
-    {"codigo_otra_empresa", "codigo_ambiguo", "nombre_ambiguo"}
-)
-
 #: F-030: metodos de un trabajador casado contra un recurso SIN ficha de
 #: empleado: `empleado_ide` NULL y, aun asi, casado (R12-R13). Desde F-036
 #: los da `casar_trabajador` (R14).
@@ -68,6 +64,23 @@ _ORIGEN_POR_METODO: dict[str, str] = {
     "codigo_nombre": "nombre",
     "nombre": "nombre",
 }
+
+
+#: F-054 (R3): motivos de cabecera que mandan el parte a revision.
+MOTIVO_SIN_OBRA = "sin_obra"
+MOTIVO_SIN_FECHA = "sin_fecha"
+
+
+def motivos_cabecera(parte: ParteDocumento) -> tuple[str, ...]:
+    """F-054 (R1-R3): `sin_obra` si no hay obra casada (`obra.ide` None, sea
+    cual sea el metodo) y `sin_fecha` si `fecha_int` es None o <= 0, en ese
+    orden y sin repetir. Vacia si la cabecera esta completa."""
+    motivos: list[str] = []
+    if parte.obra.ide is None:
+        motivos.append(MOTIVO_SIN_OBRA)
+    if parte.fecha_int is None or parte.fecha_int <= 0:
+        motivos.append(MOTIVO_SIN_FECHA)
+    return tuple(motivos)
 
 
 def empresa_del_parte(
@@ -188,6 +201,15 @@ class PersistPartePipeline:
             raw_context_json=json.dumps(context, ensure_ascii=False),
             review_required=review_required,
         )
+        motivos = motivos_cabecera(parte)
+        if motivos:
+            # F-054 (R7): sin nombres ni DNIs; solo lo que explica el motivo.
+            logger.warning(
+                "[persist-parte] cabecera incompleta, el parte va a revision: "
+                "document_id=%s motivos=%s obra_match_method=%s obra_leida=%r",
+                document_id, ",".join(motivos), parte.obra.method,
+                parte.obra_numero_leido,
+            )
 
         # ---- Conciliacion automatica (todos los partes): partida + recurso ----
         self._conciliar_partidas_safely()
@@ -381,8 +403,9 @@ class PersistPartePipeline:
             return True
         if not parte.firmado:
             return True
-        # F-023: obra sin casar por empresa o por ambiguedad (R10, R13, R14).
-        if parte.obra.method in OBRA_A_REVISAR:
+        # F-054 (R1-R3): sin obra casada (cualquier metodo, tambien los sin
+        # casar de F-023) o sin fecha.
+        if motivos_cabecera(parte):
             return True
         # F-051 (R15): la lectura de sv2 es dudosa (autocomprobacion de fila
         # incoherente o tabla dispersa); el motivo ya lo avisa el normalizer.
