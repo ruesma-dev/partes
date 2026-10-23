@@ -467,7 +467,7 @@ class RepoUndoFijo(ParteReviewRepository):
         super().__init__(fabrica)
         self._resultado = resultado
 
-    def undo_last(self) -> dict:
+    def undo_last(self, **_kw) -> dict:
         return dict(self._resultado)
 
 

@@ -674,6 +674,158 @@ Pendiente: PARADA 1 (el humano valida las DA antes de implementar).
 - Los casos reales del 15/10 (0678) y del 02/10 (0686, registrado) no se arreglan solos
   al desplegar.
 
+## F-049 · DONE 2026-10-23 (review APPROVED pasada 1; pendiente desplegar sv3 → sv4 y MANUAL M2–M8), APROBADA por el humano el 2026-10-20 (DA1–DA12 = A, DA13 = C): editor de celda de la matriz con ordinarias y extra siempre
+
+**Cierre del implementer (2026-10-23)**: campaña de mutación completa (la lanzó el líder,
+`--workers 1`): 164 mutantes, 162 muertos, 2 supervivientes, 0 timeouts, 44.292,9 s. Los dos
+eran huecos reales y los mata un test nuevo cada uno, comprobado aplicando el mutante a mano
+(`parte_repository.py:3229`, deshacer sin creadas da las afectadas;
+`app.py:2245`, extra nueva sin recurso no consulta Sigrid); no se relanzó la campaña. T17
+`3a2d296`; T18 informe completo en `progress/impl_F-049.md`; T19 `bash harness/init.sh` en
+verde («ENTORNO LISTO»: sv4 `2583 passed, 1 skipped`, raíz `498 passed, 3 skipped`, COBERTURA
+100 % de 362). **Review APPROVED (pasada 1, `progress/review_F-049.md`)**; fusionada en `dev`
+el 2026-10-23. Falta: desplegar sv3 → sv4 y MANUAL M2–M8.
+
+**Desbloqueada el 2026-10-22 por decisión del humano (opción A, respuesta literal «a»):** el
+guardián de F-017 sube a 18 llamadas a `_actor(request)` y su docstring nombra la del editor de
+celda (`POST /api/matriz/celda`, firma `solicitado_por`); el test entra en la lista cerrada de
+design §3 (apartado c) y el `acceptance` de `features.json` lo recoge. Verificado con
+`bash harness/init.sh` en verde tras `8d383e8` («ENTORNO LISTO»: sv4 `2581 passed, 1 skipped`
+en 842 s; sv3 `2271 passed`; raíz `498 passed, 3 skipped`; COBERTURA 100 % de 362 líneas;
+TAMAÑO design 250/250). Una primera pasada dio rojo solo por la PUERTA TAMAÑO (design.md
+255 > 250): la lista cerrada se reflotó (mismo contenido; en (b), «afirma lo contrario de» →
+«contradice» y el nombre nuevo abreviado como `…_marca_todo_documento_con_su_pedido`).
+**Queda T17 SOLO a falta de la campaña de mutación, que lanza el líder** (no el implementer);
+después T18 (informe completo con supervivientes) y T19 (portero).
+
+Registro del bloqueo (historia): La campaña de mutación
+(T17) abortó en la línea base: la suite de sv4 sin mutar tenía dos fallos, los dos guardas de
+recuento de features anteriores. Uno resuelto sin tocar tests; el otro exige tocar un test
+existente que **no** está en la lista cerrada de design §3 ni en el `acceptance` («tests
+existentes intactos salvo los dos dobles…»), así que no se improvisa:
+
+- `tests/test_f043_portal_fecha.py::test_f043_r19_r40_ninguna_recarga_nueva_salvo_actualizar`
+  (cuenta `location.reload` = 23): **resuelto** en `4889e1e`, el editor recarga desde un solo
+  sitio (`recargar()` dentro de `abrirPopupCelda`, que usa también el «Cerrar» de R37), como
+  el popup de antes.
+- `tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper`
+  (cuenta `_actor(request)` = 17): **sigue en rojo con 18**. La llamada nueva es la de
+  `POST /api/matriz/celda` (el actor firma el pedido de recálculo, `solicitado_por`, design
+  §6); deshacer se dejó en una sola llamada (se calcula `actor` una vez al principio). No hay
+  forma honrada de no llamar a `_actor` en una escritura nueva: saltarse el helper es lo que el
+  propio test de F-017 R10/R11 prohíbe.
+- Comprobado: suite entera de sv4 sin `-x` → `1 failed, 2580 passed, 1 skipped` (solo ese).
+
+**Propuesta (recomendada)**: ampliar la lista cerrada de design §3 con ese test y pasar su
+recuento a **18**, añadiendo a su docstring «y la de F-049 (`POST /api/matriz/celda`, que firma
+el pedido de recálculo de la celda; deshacer reutiliza la llamada que ya hacía)», igual que se
+enmendó para F-019 y F-042. Alternativa: que el POST no mande `solicitado_por` (el mensaje de
+sv3 lo trae en las demás rutas; perdería la traza de quién pidió el recálculo). Con la decisión,
+se retoma: test enmendado, campaña de mutación completa (`--workers` por defecto; si la base
+paralela vuelve a fallar, `--workers 1`), informe y portero.
+
+**Implementer (2026-10-21/22)**: lanzada por el humano («lanza f49»). Rama rebasada sobre `dev`
+2bfeab7 (trae F-050, F-034, F-053 y F-014 retirada): conflictos solo en `harness/features.json`
+(se conserva la entrada de dev, idéntica a la de la rama salvo la prioridad 4) y `BACKLOG.md`
+(regenerado). Revisado `git diff ff2ed8e..dev` de sv4 y sv3: `worker_key_for_registro`,
+`fila_para_alta_manual`, `_claves_de`, `_filas_reparto`, `ESTADOS_BLOQUEAN`, `data-reparto`,
+`_exigir_sin_recalculo` y `marcar_terminado` de sv3 tienen la forma que supone el design §2.
+T1–T16 hechas (un commit por tarea); **T17 parada** por el bloqueo de arriba (167 mutantes
+en alcance). Informe parcial en `progress/impl_F-049.md`.
+
+**Decisiones y desviaciones respecto a la spec (justificadas)**:
+
+- `_pedir_recalculo_compartido` devuelve `(estado, pedido)` y no solo el estado (design §6):
+  el INFO `[celda]` de R24 tiene que llevar el pedido.
+- R14/R15 sobre la plantilla no se repiten aparte: la plantilla es siempre una de las líneas
+  enviadas (R12 exige que sean exactamente las libres) y sus guardas ya corren; repetirlas
+  sería código muerto (mutante equivalente).
+- `nueva_extra` a 0 no crea y no es error (DA5, «una nueva a 0 no crea»); `nueva_ordinaria`
+  ≤ 0 sí es 422 (R13 literal). La extra nueva admite negativos (rango −24…24 de DA10).
+- Deshacer (R26): `document_ids` = partes de los snapshots **y de las creadas**; con una
+  entrada que solo creó (E1) los snapshots están vacíos y su parte se quedaría sin recálculo
+  (R27). `afectadas`, sobre las celdas actuales de las líneas de la entrada. Con todo
+  congelado hoy, se recalcula igual el parte de la entrada.
+- R20: la nueva clona también `partida` (la leída) además de `partida_*`; R21: el recurso
+  para la hora extra es el de la plantilla con `empleado_reside` de respaldo (`_recurso_de`;
+  la línea manual de F-050 solo lo trae ahí). Sigrid solo se consulta si se pide una nueva.
+- `afectadas` va ordenada por (`obra_key`, `document_id`). El 409 de «celda vacía» de la ruta
+  tiene la misma forma que el de `CeldaInvalida` (`{ok: false, error}`).
+- JS: además de las puras de design §7, `abrirPopupCelda(td, cerrar)` y
+  `mostrarAfectadas(pop, data)` van a dos espacios para probarlas en node; el IIFE pierde
+  `patchHoras`/`crearExtra` (las rutas `PATCH` y `/extra` del servidor no cambian, R29).
+- Simplificaciones para no dejar mutantes equivalentes: clave de la plantilla
+  `(tipo != ORDINARIA, id)`, `validar_horas(..., nueva=False)` por defecto y `crear_extra ==
+  0.0` en vez de `abs(...) < EPSILON`.
+- T1: el `bash harness/init.sh` de T1 corrió a la vez que se editaba `parte_repository.py`
+  (T4–T7) y sv4 cayó en `test_f050_r11_persona_de_sin_codigo_propio` (lee la fuente con
+  `inspect` y los números de línea habían cambiado bajo sus pies); ese fichero, relanzado,
+  57 passed. Raíz, sv1, sv2, sv3 y sv5 en verde en esa misma pasada. El portero final (T19)
+  se lanza sin tocar nada.
+
+### F-049 · verificaciones MANUAL (humano; design §10). NO ejecutadas.
+
+Todo con F-049 fusionada en `dev`. **Despliegue** (lo lanza el humano, desde `infra/` con los
+tres dot-source y el login de `infra/README_partes.md`), **sv3 antes que sv4**:
+
+1. `.\redeploy_partes.ps1 -Solo sv3` → en su resumen, `ca-sv3-persistencia imagen=…:r<fecha
+   de hoy>` y la revisión con el sufijo nuevo. Comprobar que está ACTIVA (KEDA mínimo 0: activa
+   aunque no corra): `az containerapp revision list -n $($APPS['sv3']) -g $RG --query
+   "[?properties.active].name" -o tsv` → solo la revisión nueva.
+2. Solo entonces `.\redeploy_partes.ps1 -Solo sv4` → resumen con `ca-sv4-front` en la imagen
+   nueva. Sin variables de entorno nuevas.
+
+En el portal (Ctrl+F5), vista de una obra, matriz «Horas por día», doble clic en la celda:
+
+- **M2**: celda con solo una extra de 10 (laborable) → filas «Extra 10» y «Ord. (nueva) 0»,
+  nota de jornada → poner Ord. 8 y Extra 2, «Guardar» → recarga; tras la pasada de sv3
+  (≤ 1 min, «Actualizar»), la celda dice `8+2` en **una sola fila** y en «Líneas del periodo»
+  la ordinaria nueva tiene código de hora, la partida de la extra y su fila del papel.
+- **M3**: celda con solo 8 → «Extra (nueva)» 2 → `8+2` estable tras la pasada.
+- **M4**: pareja 8 + 2 «Extra (jornada)» → Extra 3 → `8+3` tras la pasada. Solo lectura en
+  `partes`: `SELECT id, tipo_hora, horas, horas_orig, extra_auto FROM parte_registros WHERE id
+  IN (<ids de la celda>);` → las dos con `horas_orig` NULL y `extra_auto` false, horas 8 y 3.
+- **M5**: celda de un parte aprobado → solo lectura, sin «Guardar»; justo después de guardar
+  otra celda del mismo parte (en espera), guardar otra vez → «✗ El parte se está recalculando
+  (extras): espera a que termine.».
+- **M6**: tras M2, «Deshacer» → la extra vuelve a 10 y la ordinaria creada pasa a la papelera.
+- **M7**: un trabajador con horas el mismo día en dos obras: al abrir la celda, aviso «Este
+  trabajador tiene horas ese día en otras obras (<código>)…»; al guardar, «Guardado. Este
+  cambio recalcula también ese día en:» con el enlace a la otra obra; tras la pasada, la otra
+  obra con su reparto nuevo (o, si estaba aprobada y `REPARTO_REAJUSTE` encendido, reparto
+  pendiente de decidir).
+- **M8**: en M7, solo lectura: `SELECT id, recalculo_pedido_id, recalculo_terminado_id FROM
+  parte_documents WHERE id IN ('<parte de la celda>', '<parte de la otra obra>');` → mismo
+  pedido en los dos y, tras la pasada, `recalculo_terminado_id` = ese pedido en los dos; en el
+  log de sv3 UNA sola línea `[sv3-worker] recalculo motivo=edicion_celda document_id=<parte
+  de la celda>` y una `recalculo terminado … marcado=True`.
+
+Spec en `specs/F-049-editor-calendario-normal-y-extra/` (rama
+`feature/F-049-editor-calendario-normal-y-extra`, worktree `partes-wt-f049`, rebasada sobre
+dev). **sv4 y sv3** (sv3 solo `marcar_terminado`), sin esquema, sv5 ni Sigrid; rigor
+**crítico** (DA9). Orden del humano: F-050 → **F-049** → F-014 → F-047; **no depende de
+F-047**. Se implementa cuando F-050 esté en dev (T1 lo exige). Detalle en
+`progress/spec_F-049.md`. **M1 superada el 2026-10-20** (popup de doble clic de la matriz
+«Horas por día» de la vista de obra).
+
+**Decisiones del humano (2026-10-20, citas literales en el chat con el líder)**: a la DA13,
+«c»; a las demás, «apruebo las DA con los comentarios que te he hecho anteriormente» (los
+comentarios: la confirmación de M1 y el caso de otras obras del mismo día). Recogidas en
+design §12.
+
+**DA13-C, otras obras del mismo día (design §8)**: la pasada de sv3 es completa y reparte por
+(recurso, día) entre obras; otros días no cambian. sv4 avisa al abrir (R36) y tras guardar con
+enlaces (R37) y escribe UN pedido compartido (uuid4) en los partes tocados y en los de otras
+obras de ese día en una sentencia antes de publicar UN mensaje (R39); sv3 marca terminado todo
+documento con ese pedido (R41: el UPDATE de `marcar_terminado` filtra solo por pedido, misma
+firma; `despacho.py` y el mensaje no cambian). Compatible con F-042/F-043 y F-047 (R42). El
+test `test_f043_r28_adaptador_solo_toca_su_documento` se invierte (lista cerrada, design §3).
+
+**Para el humano al desplegar**: **sv3 antes que sv4** (`-Solo sv3`, comprobar que su revisión
+nueva está activa, luego `-Solo sv4`); con sv4 nuevo y sv3 viejo los partes de otras obras
+esperarían 10 min (vencido). Riesgo residual E12d: si la otra obra recibe otro pedido antes de
+la pasada, espera a la de ese pedido; los datos quedan bien. M2–M8 manuales tras desplegar.
+
 ## F-045 · done (2026-10-14, APPROVED pasada 2), pendiente de M1, despliegue solo sv3 y M2: reparto ponderado de la jornada entre obras
 
 **Cierre (2026-10-14)**: reviewer CHANGES_REQUESTED en la pasada 1 (4 cambios) y **APPROVED en la pasada 2** (`progress/review_F-045.md`). Campaña 3 de mutación: 84 mutantes, 76 muertos, 8 supervivientes equivalentes con demostración ejecutable (`progress/equivalentes_F-045.py`: 0 distintos). **El humano ACEPTÓ los 8 equivalentes el 2026-10-14** (respuesta literal «1, si»). M1 la midió el líder el 2026-10-14 (solo lectura): 5 grupos sin congeladas se reparten de nuevo (3 de varias obras, 2 de una), ninguno con congeladas.

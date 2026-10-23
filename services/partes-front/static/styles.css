@@ -815,10 +815,18 @@ tr.row-selected > td:first-child { box-shadow: inset 3px 0 0 var(--brand, #9f284
   max-width: 230px; }
 .mx-edit-pop .mxe-field { display: flex; align-items: center; gap: 8px;
   margin-bottom: 6px; font-size: 12px; }
-.mx-edit-pop .mxe-field span { width: 40px; color: #444; }
+.mx-edit-pop .mxe-field span { min-width: 40px; flex: 1; color: #444; }
 .mx-edit-pop .mxe-field input { width: 90px; }
 .mx-edit-pop .mxe-actions { display: flex; gap: 8px; justify-content: flex-end;
   margin-top: 8px; }
+/* F-049: «(nueva)», nota de la jornada, avisos y lista de otras obras. */
+.mx-edit-pop { max-width: 320px; }
+.mx-edit-pop .mxe-nueva span { color: #1d4ed8; font-style: italic; }
+.mx-edit-pop .mxe-nota { font-size: 11px; color: #555; margin-top: 6px; }
+.mx-edit-pop .mxe-aviso { font-size: 11px; color: #92400e; background: #fef3c7;
+  border-radius: 4px; padding: 4px 6px; margin-top: 6px; }
+.mx-edit-pop .mxe-aviso[hidden] { display: none; }
+.mx-edit-pop .mxe-afectadas { margin: 4px 0 0 16px; padding: 0; font-size: 12px; }
 
 
 /* ---- Aprobar / registrar en Sigrid: modal de confirmacion ---- */

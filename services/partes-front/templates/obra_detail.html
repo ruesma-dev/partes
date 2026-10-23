@@ -95,13 +95,13 @@
 
   {% if detail.rows %}
   <div class="matrix-legend">
-    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar horas.</span>
+    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar ordinarias y extra (se puede añadir la que falte).</span>
     <label class="mx-toggle" title="Trabajadores cuyo recurso NO tiene codigo de hora extra en Sigrid (p. ej. mensuales tipo encargado). Sus horas no cuentan en los totales.">
       <input type="checkbox" id="hide-sin-extra" checked> Ocultar trabajadores sin código de hora extra
     </label>
   </div>
   <div class="matrix-scroll">
-    <table class="matrix filterable">
+    <table class="matrix filterable" data-obra-key="{{ detail.obra_key }}">
       <thead>
         <tr>
           <th class="mx-name">Trabajador</th>
@@ -121,7 +121,7 @@
       </thead>
       <tbody>
         {% for row in detail.rows %}
-        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}">
+        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}" data-wk="{{ row.worker_key }}">
           <td class="mx-name">
             <a class="link-strong" href="/trabajadores/{{ row.worker_key }}">{{ row.nombre }}</a>
             {% if not row.matched %}<span class="badge danger mx-badge">sin casar</span>{% endif %}

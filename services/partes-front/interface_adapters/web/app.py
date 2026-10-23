@@ -46,6 +46,12 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.edicion_celda import (
+    MOTIVO_CELDA_CAMBIADA,
+    Cambio,
+    CeldaInvalida,
+)
+from application.services.tipo_hora_matcher import TipoHoraMatcher
 from application.services.reparto_aviso import (
     DECISION_APLICAR,
     DECISIONES,
@@ -104,7 +110,9 @@ from infrastructure.database.session_factory import SessionFactory
 from infrastructure.persistencia.recalculo_publisher import (
     ESTADO_FALLO,
     MOTIVO_CAMBIO_FECHA,
+    MOTIVO_DESHACER_CELDA,
     MOTIVO_DESHACER_FECHA,
+    MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
     RecalculoPublisher,
     pedir_recalculo,
@@ -321,6 +329,27 @@ def _parse_fecha_to_iso_int(value: str) -> tuple[str, int] | None:
     except (TypeError, ValueError):
         return None
     return f"{yi:04d}-{mi:02d}-{di:02d}", yi * 10000 + mi * 100 + di
+
+
+class CeldaLinea(BaseModel):
+    """F-049 (R7): una línea no congelada de la celda, como se abrió
+    (`antes`) y como queda (`horas`; None vale `antes`)."""
+
+    id: int
+    antes: float
+    horas: float | None = None
+
+
+class CeldaPayload(BaseModel):
+    """F-049 (R7, R11): el guardado de una celda de la matriz de obra.
+    Pydantic da el 422 si falta una clave o la fecha no es ISO."""
+
+    obra_key: str = Field(min_length=1)
+    worker_key: str = Field(min_length=1)
+    fecha: date
+    lineas: list[CeldaLinea]
+    nueva_ordinaria: float | None = None
+    nueva_extra: float | None = None
 
 
 class RegistroEditPayload(BaseModel):
@@ -596,6 +625,47 @@ def build_app(
                     "document_id=%s (%s); el parte esperara hasta vencer.",
                     document_id, type(exc).__name__)
         return estado
+
+    def _pedir_recalculo_compartido(
+            ids: list[str], motivo: str,
+            solicitado_por: str | None) -> tuple[str, str | None]:
+        """F-049 (R23, R39, DA13-C): UN recálculo para varios partes.
+
+        Con la forma de `_pedir_recalculo_seguido`: con publicador, un
+        pedido nuevo (uuid4) se confirma en TODOS los documentos en una
+        sentencia antes de publicar UN mensaje con `document_id` = el
+        primero (los tocados van delante); sv3 hace una pasada completa y
+        marca terminado todo documento con ese pedido (R41). Si publicar
+        falla, se quita donde siga siendo ese. Marcar o anular que fallan
+        solo dejan un WARNING. Devuelve `(estado, pedido)`; el pedido es
+        None si no se marcó ningún documento.
+        """
+        unicos = list(dict.fromkeys(i for i in ids if i))
+        marcado: str | None = None
+        if recalculo_publisher is not None:
+            peticion_id = str(uuid.uuid4())
+            try:
+                if repository.marcar_recalculo_pedido_compartido(
+                        unicos, peticion_id=peticion_id):
+                    marcado = peticion_id
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[recalculo] no se pudo marcar el pedido compartido en "
+                    "%s documento(s) (%s); no quedaran en espera.",
+                    len(unicos), type(exc).__name__)
+        estado = pedir_recalculo(
+            recalculo_publisher, document_id=unicos[0], motivo=motivo,
+            solicitado_por=solicitado_por)
+        if estado == ESTADO_FALLO and marcado is not None:
+            try:
+                repository.anular_recalculo_pedido_compartido(
+                    unicos, peticion_id=marcado)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "[recalculo] no se pudo anular el pedido compartido "
+                    "%s (%s); los partes esperaran hasta vencer.",
+                    marcado, type(exc).__name__)
+        return estado, marcado
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo
@@ -1551,8 +1621,9 @@ def build_app(
 
     @app.post("/api/undo", include_in_schema=False)
     def undo_apply(request: Request) -> JSONResponse:
+        actor = _actor(request)
         try:
-            res = repository.undo_last()
+            res = repository.undo_last(actor=actor)
         except Exception as exc:  # noqa: BLE001
             logger.exception("[undo] fallo al deshacer")
             return JSONResponse(
@@ -1563,13 +1634,20 @@ def build_app(
             # F-042 (DA1, R7): deshacer un cambio de fecha es la misma
             # accion en sentido contrario; sin recalculo, la fecha vieja
             # quedaria con el reparto nuevo hasta la siguiente ingesta.
-            actor = _actor(request)
             estados = [
                 _pedir_recalculo_seguido(doc_id, MOTIVO_DESHACER_FECHA, actor)
                 for doc_id in res.get("document_ids") or []
             ]
             if estados:
                 res["recalculo"] = peor_estado(estados)
+        if res.get("ok") and res.get("action") == "celda_edit":
+            # F-049 (R27): UN recálculo con pedido compartido de los partes
+            # de la celda y de las otras obras de ese día.
+            ids = (list(res.get("document_ids") or [])
+                   + [a["document_id"] for a in res.get("afectadas") or []])
+            if ids:
+                res["recalculo"], _pedido = _pedir_recalculo_compartido(
+                    ids, MOTIVO_DESHACER_CELDA, actor)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)
@@ -2139,6 +2217,115 @@ def build_app(
             return JSONResponse({"ok": False, "error": "registro no valido"},
                                 status_code=404)
         return JSONResponse({"ok": True, "id": nuevo_id})
+
+    # ------------- F-049: editor de celda de la matriz de obra -------- #
+    def _hora_ordinaria_celda(categoria: str | None) -> dict | None:
+        """R21: el código de la ordinaria nueva por categoría, con el mismo
+        matcher que «+ Nuevo». None si Sigrid no está, falla o no casa."""
+        if sigrid_client is None:
+            return None
+        try:
+            match = TipoHoraMatcher(sigrid_client.fetch_tipos_hora()).match(
+                categoria, extra=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[celda] fallo consultando los tipos de hora "
+                           "(%s)", type(exc).__name__)
+            return None
+        if match is None:
+            return None
+        return {"hora_ide": match.ide, "hora_codigo": match.codigo,
+                "hora_descripcion": match.descripcion,
+                "hora_ext": match.ext, "hora_precio_coste": match.pre,
+                "hora_precio_nomina": match.prenom,
+                "hora_match_method": match.method}
+
+    def _hora_extra_celda(reside: int | None) -> dict | None:
+        """R21: la primera hora `HE%` del recurso (la de `/extra`). None si
+        Sigrid no está, falla o el recurso no la tiene."""
+        if sigrid_client is None or not reside:
+            return None
+        try:
+            hora = sigrid_client.fetch_hora_extra_recurso(reside)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[celda] fallo consultando la hora extra del "
+                           "recurso (%s)", type(exc).__name__)
+            return None
+        if not hora:
+            return None
+        return {"hora_ide": hora.get("ide"), "hora_codigo": hora.get("cod"),
+                "hora_descripcion": hora.get("res"), "hora_ext": 1,
+                "hora_precio_coste": hora.get("pre"),
+                "hora_precio_nomina": None, "hora_match_method": "manual"}
+
+    @app.post("/api/matriz/celda", include_in_schema=False)
+    def matriz_celda_guardar(
+        request: Request, payload: CeldaPayload = Body(...),
+    ) -> JSONResponse:
+        """F-049 (R7, R11-R24, R33-R35, R38, R39): guarda la celda entera
+        en una transacción y pide UN recálculo con pedido compartido de los
+        partes tocados y de los de otras obras del mismo día."""
+        fecha_iso = payload.fecha.isoformat()
+        ctx = repository.contexto_celda(obra_key=payload.obra_key,
+                                        worker_key=payload.worker_key,
+                                        fecha_iso=fecha_iso)
+        if ctx is None:
+            return JSONResponse({"ok": False, "error": MOTIVO_CELDA_CAMBIADA},
+                                status_code=409)
+        hora_ordinaria = hora_extra = None
+        if ctx["plantilla_id"] is not None:
+            if payload.nueva_ordinaria:
+                hora_ordinaria = _hora_ordinaria_celda(ctx["categoria"])
+                if hora_ordinaria is None:
+                    logger.warning("[celda] la ordinaria nueva se crea sin "
+                                   "código de hora (obra=%s fecha=%s)",
+                                   payload.obra_key, fecha_iso)
+            if payload.nueva_extra:
+                hora_extra = _hora_extra_celda(ctx["reside"])
+                if hora_extra is None:
+                    logger.warning("[celda] la extra nueva se crea sin "
+                                   "código de hora (obra=%s fecha=%s)",
+                                   payload.obra_key, fecha_iso)
+        actor = _actor(request)
+        try:
+            res = repository.guardar_celda(
+                obra_key=payload.obra_key, worker_key=payload.worker_key,
+                fecha_iso=fecha_iso,
+                cambios=[Cambio(l.id, l.antes, l.horas)
+                         for l in payload.lineas],
+                nueva_ordinaria=payload.nueva_ordinaria,
+                nueva_extra=payload.nueva_extra,
+                hora_ordinaria=hora_ordinaria, hora_extra=hora_extra,
+                plantilla_esperada=ctx["plantilla_id"], by=actor)
+        except CeldaInvalida as exc:
+            return JSONResponse({"ok": False, "error": str(exc)},
+                                status_code=exc.status)
+        recalculo = None
+        if res["editadas"] or res["creadas"]:
+            afectados = [a["document_id"] for a in res["afectadas"]]
+            recalculo, pedido = _pedir_recalculo_compartido(
+                res["documentos"] + afectados, MOTIVO_EDICION_CELDA, actor)
+            logger.info(
+                "[celda] guardada obra=%s fecha=%s editadas=%s "
+                "materializadas=%s creadas=%s documentos=%s afectados=%s "
+                "pedido=%s recalculo=%s", payload.obra_key, fecha_iso,
+                res["editadas"], res["materializadas"], res["creadas"],
+                res["documentos"], afectados, pedido, recalculo)
+        return JSONResponse({"ok": True, "editadas": res["editadas"],
+                             "creadas": res["creadas"],
+                             "recalculo": recalculo,
+                             "afectadas": res["afectadas"]})
+
+    @app.get("/api/matriz/celda/otras", include_in_schema=False)
+    def matriz_celda_otras(
+        obra_key: str = Query(min_length=1),
+        worker_key: str = Query(min_length=1),
+        fecha: date = Query(),
+    ) -> JSONResponse:
+        """F-049 (R36, R38): otras obras del mismo (recurso, día), solo
+        lectura; el popup las avisa al abrirse."""
+        return JSONResponse({"ok": True, "afectadas": repository.otras_de_celda(
+            obra_key=obra_key, worker_key=worker_key,
+            fecha_iso=fecha.isoformat())})
 
     # ------------------------------------------------------------------ #
     # APROBAR -> registrar en Sigrid (delegado en partes-transfer, sv5)

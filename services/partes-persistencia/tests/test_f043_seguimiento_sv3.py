@@ -119,13 +119,16 @@ def test_f043_r28_adaptador_documento_inexistente_no_marca(fabrica) -> None:
     assert seg.marcar_terminado("no-existe", PEDIDO_A) is False
 
 
-def test_f043_r28_adaptador_solo_toca_su_documento(fabrica) -> None:
+def test_f043_r28_adaptador_marca_todo_documento_con_su_pedido(
+        fabrica) -> None:
+    """Invertido por F-049 (R41, DA13-C; lista cerrada de su design §3):
+    el pedido compartido se marca en TODO documento que lo lleve."""
     sembrar_lineas(fabrica, [{"horas": 8.0}], document_id="doc-otro")
     _poner_pedido(fabrica, PEDIDO_A)
     _poner_pedido(fabrica, PEDIDO_A, document_id="doc-otro")
     seg = SqlAlchemyRecalculoSeguimiento(fabrica, reloj=_reloj)
     assert seg.marcar_terminado(DOC, PEDIDO_A) is True
-    assert _marca(fabrica, "doc-otro") == (PEDIDO_A, None, None)
+    assert _marca(fabrica, "doc-otro") == (PEDIDO_A, PEDIDO_A, AHORA)
 
 
 def test_f043_r28_adaptador_reloj_por_defecto_es_utc_iso(fabrica) -> None:

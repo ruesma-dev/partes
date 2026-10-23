@@ -932,3 +932,21 @@ red de seguridad en sv3 (`autocomprobacion_fila` + `tabla_dispersa`, interruptor
 desplazamiento con ese modelo; con `gemini-4-argon` M1 y M2 bien 3 de 3. Decisión del
 humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2, cambiar
 `GEMINI_MODEL` en Azure y la comparativa con Claude y OpenAI (faltan claves).
+
+## F-049 · Editor de celda de la matriz con ordinarias y extra siempre — done 2026-10-23
+
+- Rama `feature/F-049-editor-calendario-normal-y-extra` · rigor critico · sdd=true · APPROVED
+  del reviewer en la pasada 1 (`progress/review_F-049.md`).
+- Entregado: sv4 — el popup de doble clic de «Horas por día» ofrece siempre la ordinaria y la
+  extra que falten, `POST /api/matriz/celda` atómica con control de cambios, clonado del contexto
+  de la plantilla, materialización de las parejas tocadas, aviso de otras obras del mismo día y
+  deshacer; un recálculo seguido con pedido compartido. sv3 — `marcar_terminado` por pedido.
+  azure-apps `08b5755`.
+- Decisiones del humano: DA1–DA12 = A y DA13 = C (2026-10-20); guardián de F-017 a 18 llamadas
+  a `_actor` (opción A, «a», 2026-10-22).
+- Verificado: init.sh en verde; sv4 2583 passed, sv3 2271 passed; cobertura 100 % (362/362);
+  mutación completa 164 mutantes, 162 muertos y 2 supervivientes que eran huecos reales, muertos
+  por tests nuevos (reproducido por el reviewer).
+- Observación del reviewer: una celda con líneas de dos partes de la misma obra solo pide el
+  recálculo al parte tocado (hueco de la spec, abierto como feature aparte).
+- Pendiente: desplegar sv3 → sv4 y MANUAL M2–M8 (`progress/current.md`).
