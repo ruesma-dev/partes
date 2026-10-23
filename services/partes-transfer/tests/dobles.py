@@ -241,13 +241,17 @@ class SigridFake:
         self.lineas_leidas: list[int] = []
         #: F-034 (design §6): {hmoide: est} que «Administracion» aplica a
         #: los partes en la ventana: al entrar en el PRIMER `escribir` que
-        #: lleve `insert` o `anular` (F-053), tras `cerrar_tras_sentencias` de esas
+        #: lleve `insert`, `anular` (F-053) o `mover` (F-060), tras `cerrar_tras_sentencias` de esas
         #: sentencias (0 = antes de la primera; 15 = entre dos lotes del
         #: cliente real). Se aplica una sola vez.
         self.cerrar_al_escribir: dict[int, int] = {}
         self.cerrar_tras_sentencias = 0
         #: F-034: `ides` de cada `lineas_por_ide`.
         self.ides_leidos: list[list[int]] = []
+        #: F-060: synckeys de cada `lineas_de_racha` y `hmoide` de cada
+        #: `estados_de_partes`.
+        self.racha_leidas: list[list[str]] = []
+        self.estados_leidos: list[list[int]] = []
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -465,6 +469,42 @@ class SigridFake:
         return {l["ide"]: self._a_linea_sigrid(l) for l in self.lineas
                 if l["ide"] in ks}
 
+    def _cod_hora(self, horide) -> str | None:
+        """F-060: `auxhor.cod` de un `horide` (el JOIN del cliente real),
+        sacado de los tipos de hora de los recursos del doble."""
+        for horas in self.horas.values():
+            for h in horas:
+                if h.horide == horide:
+                    return h.cod
+        return None
+
+    def lineas_de_racha(self, claves):
+        """F-060 (R13): como el cliente real, con `tex`, `pos`, parte,
+        `enlazada` y el codigo de hora de `auxhor`. Bajo el lock."""
+        self._comprobar_lock("lineas_de_racha")
+        self._lectura("lineas_de_racha")
+        ks = sorted({k for k in claves if k})
+        self.racha_leidas.append(ks)
+        out = {}
+        for l in self.lineas:
+            if l.get("synckey") in ks:
+                ls = self._a_linea_sigrid(l)
+                ls.hora_codigo = (l.get("hora_codigo")
+                                  or self._cod_hora(l.get("horide")))
+                ls.tex, ls.pos = l.get("tex"), l.get("pos")
+                out[l["synckey"]] = ls
+        return out
+
+    def estados_de_partes(self, hmoides):
+        """F-060: `hmo.ide` -> `{cod, est, obride}`, como el cliente real
+        (F-046); un parte que no existe no sale."""
+        self._lectura("estados_de_partes")
+        ks = sorted({int(i) for i in hmoides if i})
+        self.estados_leidos.append(ks)
+        return {p["ide"]: {"cod": p["cod"], "est": p.get("est", 1),
+                           "obride": p["obride"]}
+                for p in self.partes if p["ide"] in ks}
+
     def _a_linea_sigrid(self, l: dict):
         from domain.models.registro_models import LineaSigrid
         ls = LineaSigrid(
@@ -498,6 +538,31 @@ class SigridFake:
                 "synckey": synckey, "tex": tex, "caaide": int(caaide),
                 "guarda_hmoide": int(hmoide),
                 "pisadas": [int(i) for i in pisadas]}
+
+    def stmt_mover_linea(self, *, linea, destino, hmoide, pos, fecha_int,
+                         synckey, paride, caaide, ano, mes) -> dict:
+        # F-060 (R20, R21): lo leido (WHERE) y lo nuevo (SET), como el SQL.
+        return {"op": "mover", "ide": int(linea.ide),
+                "reside": int(linea.reside), "fec_antes": int(linea.fecha_int),
+                "horide_antes": int(linea.horide or 0),
+                "synckey_antes": linea.synckey,
+                "set": {"fec": int(fecha_int), "synckey": synckey,
+                        "hmoide": int(hmoide), "obride": int(destino.ide),
+                        "cenide": int(getattr(destino, "cenide", 0) or 0),
+                        "paride": int(paride or 0), "caaide": int(caaide),
+                        "ano": int(ano), "mes": int(mes), "pos": int(pos)}}
+
+    def _movible(self, l: dict, s: dict) -> bool:
+        """F-060 (R21): el `WHERE` de `stmt_mover_linea` como SQL Server
+        (sobre la fila ANTES del `UPDATE`): lo leido, sin horas, sin
+        enlaces, su parte (origen) En registro y el destino tambien."""
+        return (l["ide"] == s["ide"] and l["reside"] == s["reside"]
+                and l["fec"] == s["fec_antes"]
+                and int(l.get("horide") or 0) == s["horide_antes"]
+                and l.get("synckey") == s["synckey_antes"]
+                and float(l.get("can") or 0) == 0
+                and not l.get("enlazada") and self._abierto(l["hmoide"])
+                and self._abierto(s["set"]["hmoide"]))
 
     def stmt_anular_linea(self, *, ide, reside, fecha_int, horide,
                           antes) -> dict:
@@ -558,7 +623,7 @@ class SigridFake:
             n = 0
             de_lineas = 0
             for s in statements:
-                if s["op"] in ("insert", "anular"):
+                if s["op"] in ("insert", "anular", "mover"):
                     self._cerrar_si_toca(de_lineas)
                     de_lineas += 1
                 if s["op"] == "crear_parte" and not self._alta_libre(s):
@@ -595,6 +660,13 @@ class SigridFake:
                         continue
                     for l in filas:
                         l["can"], l["tot"] = 0.0, 0.0
+                elif s["op"] == "mover":
+                    # F-060 (R20): la MISMA fila cambia de dia y de parte.
+                    filas = [l for l in self.lineas if self._movible(l, s)]
+                    if not filas:
+                        continue
+                    for l in filas:
+                        l.update(s["set"])
                 else:
                     # F-053: no hay op `borrar`; una op desconocida es un
                     # fallo del test, no una fila escrita.
