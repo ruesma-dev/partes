@@ -1,6 +1,19 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-059 · SPEC_READY 2026-10-23 (pendiente de aprobación del humano): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+
+Spec en `specs/F-059-pagina-como-imagen-derecha/` (rama `feature/F-059-pagina-como-imagen-derecha`,
+worktree `partes-wt-f059`); resumen en `progress/spec_F-059.md`. Solo sv2: la página escaneada
+(una imagen JPEG a página completa) viaja como imagen derecha; lo demás y los fallos, como PDF.
+Diagnóstico corregido por el humano el 2026-10-23: el PDF viene bien orientado (el `/Rotate` lo
+endereza en cualquier visor); el fallo es de lectura de OpenAI con `input_file`.
+
+Decisiones que tiene que validar el humano (`design.md` §7, recomendada A en las cuatro):
+DA1 proveedores (solo OpenAI por defecto), DA2 conversión (imagen incrustada, sin render),
+DA3 interruptor (encendido por defecto, sin tocar el entorno de Azure), DA4 `detail=high` en
+toda imagen de OpenAI (también fotos del móvil). F-058 no se toca: queda como red de seguridad.
+
 ## F-054 · DONE 2026-10-23 (review APPROVED pasada 1; pendiente desplegar sv3 y M2): un parte sin obra o sin fecha va siempre a revisión
 
 Rama `feature/F-054-sin-obra-o-fecha-a-revision` (worktree `partes-wt-f054`), **rebasada sobre

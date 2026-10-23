@@ -11,7 +11,7 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-059 | sv2 manda a la IA la página escaneada como imagen derecha, no como PDF | 1 | pendiente | estandar | `feature/F-059-pagina-como-imagen-derecha` |
+| F-059 | La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor | 1 | spec lista | estandar | `feature/F-059-pagina-como-imagen-derecha` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 2 | pendiente | critico | `feature/F-056-franquicia-de-extras` |
 | F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 3 | pendiente | estandar | `feature/F-058-relectura-cabecera-gemini` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
@@ -74,11 +74,11 @@ Bloqueadas: **F-032**.
 
 ## Detalle
 
-### F-059 · sv2 manda a la IA la página escaneada como imagen derecha, no como PDF
+### F-059 · La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor
 
-estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-059-pagina-como-imagen-derecha`
+estado **spec lista** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-059-pagina-como-imagen-derecha`
 
-Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto». Hallazgo del líder el 2026-10-23 (banco fuera del repo, gpt-6.1-sol): las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son un JPEG apaisado 3507×2480 con el formulario apaisado girado dentro (cortado por el borde, ya desde el escáner: sv1 parte con pypdf y copia la imagen byte a byte) y /Rotate 270. Mandadas como PDF (input_file): cabecera vacía 12 de 12, también con reasoning.effort = high (0 de 12; el esfuerzo por defecto es medium). Mandadas como imagen JPEG derecha (la incrustada girada según /Rotate, detail high): obra y fecha bien 12 de 12, las mismas que lee gemini-4-argon; control 4 de 4 bien. sv2: antes de llamar a la IA, convertir la página PDF en imagen derecha y mandarla como imagen. Lo que corta el escáner no se recupera; la obra y la fecha quedan dentro. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec pendiente: proveedores a los que aplica, conversión (imagen incrustada o render), dependencia nueva, interruptor y banco de regresión con la batería de F-051.
+Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto», precisada el mismo día: «el parte viene cortado del escaner pero viene bien orientado y la obra se lee perfectamente. el problema no es del giro, es de lectura. de hecho imagen girada esta bien orientado y tal cual esta mal orientado». El fallo es de lectura de la IA, no del escáner ni de sv1: las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son PDF de una página (sv1 las copia tal cual con pypdf) con un JPEG 3507×2480 guardado de lado y /Rotate 270, que las deja derechas en cualquier visor; la obra y la fecha se leen bien. Todo apunta a que OpenAI, con el PDF como input_file, no aplica el /Rotate y lee la imagen cruda de lado. Banco del líder (2026-10-23, fuera del repo, gpt-6.1-sol, 2 pasadas): PDF tal cual, cabecera vacía 12 de 12, también con reasoning.effort = high; JPEG incrustado girado según /Rotate con detail high, obra y fecha bien 12 de 12 (las mismas que gemini-4-argon) y control 4 de 4. Diseño: solo sv2; el pipeline pide a un conversor (puerto en domain, adaptador pypdf + Pillow en infrastructure/document) la página derecha cuando el PDF es una sola imagen JPEG a página completa y la manda como imagen; si no aplica o falla, PDF como hoy (WARNING sin nombres ni DNIs en el fallo). meta.adjunto_ia deja la traza; meta.source_* siguen siendo del original. DA1 (recomendada A): solo OpenAI por defecto, lista PAGINA_COMO_IMAGEN_PROVEEDORES. DA2 (A): imagen incrustada, sin render. DA3 (A): PAGINA_COMO_IMAGEN encendido por defecto, sin cambio de entorno en Azure. DA4 (A): OPENAI_IMAGE_DETAIL=high para toda imagen. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec: specs/F-059-pagina-como-imagen-derecha/.
 
 ### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
 
