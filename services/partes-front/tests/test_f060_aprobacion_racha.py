@@ -584,3 +584,58 @@ def test_f060_r9_payload_de_sv5_lleva_la_racha(portal) -> None:
     (linea,) = payload["lineas"]
     assert (linea["incidencia_rol"], linea["racha_registro_ids"]) == (
         "fin", [d1])
+
+
+# ==================== R11 · avisos_racha en el modal ==================== #
+
+import json  # noqa: E402
+import re  # noqa: E402
+import shutil  # noqa: E402
+
+from tests.test_f022_vistas_seleccion import (  # noqa: E402
+    _ejecutar_js,
+    _funcion,
+    _js,
+)
+
+sin_node = pytest.mark.skipif(shutil.which("node") is None,
+                              reason="node no instalado")
+
+
+def test_f060_r11_js_cableado_en_el_modal() -> None:
+    js = _js()
+    aprobar = _funcion(js, "aprobar")
+    # Todos los grupos, juntos y fuera del pliegue de cada obra, en su
+    # propio bloque, aparte de los avisos de incidencia de F-025.
+    assert "g.avisos_racha" in aprobar
+    assert "avisosRachaHtml(avisosRacha)" in aprobar
+    assert (aprobar.index("avisosIncidenciaHtml(")
+            < aprobar.index("avisosRachaHtml(")
+            < aprobar.index("grupoHtml(g, plegar)"))
+    assert "innerHTML" not in _funcion(js, "avisosRachaHtml")
+
+
+@sin_node
+def test_f060_r11_js_avisos_de_racha_escapados() -> None:
+    avisos = [{"registro_id": 7, "fecha": "2026-10-04",
+               "nombre": "<script>x</script>",
+               "motivo": "racha_desordenada: el 2026-10-05 & <i>y</i>"}]
+    html = _ejecutar_js(["esc", "avisosRachaHtml"],
+                        f"avisosRachaHtml({json.dumps(avisos)})")
+    assert "ap-racha-avisos" in html and "ap-incid-avisos" not in html
+    assert "<script>" not in html and "&lt;script&gt;x" in html
+    assert "<i>" not in html and "&amp; &lt;i&gt;y" in html
+    assert "<strong>1</strong>" in html
+    texto = re.sub(r"<[^>]+>", "", html)
+    assert texto.startswith(
+        "Hay 1 linea(s) aprobadas antes de una incidencia ya registrada en "
+        "Sigrid. Se registran, pero no mueven el inicio ni el fin de esa "
+        "racha: revísala a mano:")
+    assert "2026-10-04" in texto
+
+
+@sin_node
+@pytest.mark.parametrize("avisos", [[], None])
+def test_f060_r11_js_sin_avisos_no_pinta_nada(avisos) -> None:
+    assert _ejecutar_js(["esc", "avisosRachaHtml"],
+                        f"avisosRachaHtml({json.dumps(avisos)})") == ""

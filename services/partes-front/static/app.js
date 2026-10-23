@@ -3562,6 +3562,22 @@ function avisarCambioLineas() {
       + "</ul></div>";
   }
 
+  /* F-060 (R11): lineas aprobadas antes de una incidencia ya registrada
+     (`racha_desordenada`). No bloquean: se avisa para revisar a mano. */
+  function avisosRachaHtml(avisos) {
+    if (!avisos || !avisos.length) return "";
+    return "<div class='ap-ctx ap-racha-avisos'><p>Hay <strong>"
+      + esc(avisos.length) + "</strong> linea(s) aprobadas antes de una "
+      + "incidencia ya registrada en Sigrid. Se registran, pero no mueven "
+      + "el inicio ni el fin de esa racha: revísala a mano:</p>"
+      + "<ul class='ap-list'>"
+      + avisos.map(function (a) {
+          return "<li>" + esc(a.nombre || "?") + " · " + esc(a.fecha || "")
+            + " — " + esc(a.motivo || "") + "</li>";
+        }).join("")
+      + "</ul></div>";
+  }
+
   /* F-022 (R19): la clave de sv5 no lleva la obra; con varias obras cada
      casilla de pisar lleva delante la de su grupo. */
   function claveConGrupo(grupo, clave) {
@@ -4451,10 +4467,15 @@ function avisarCambioLineas() {
       var avisosIncid = grupos.reduce(function (todos, g) {
         return todos.concat(g.avisos_incidencia || []);
       }, []);
+      // F-060 (R11): los de racha desordenada, en su propio bloque.
+      var avisosRacha = grupos.reduce(function (todos, g) {
+        return todos.concat(g.avisos_racha || []);
+      }, []);
       var html = cabeceraHtml(pf, contexto)
         + repartosHtml(pf.repartos)                          // F-046 (R31)
         + incompatiblesHtml(excl.incompatible)
         + avisosIncidenciaHtml(avisosIncid)
+        + avisosRachaHtml(avisosRacha)                       // F-060 (R11)
         + grupos.map(function (g) { return grupoHtml(g, plegar); }).join("")
         + excluidasDetalleHtml(pf.excluidas_detalle,
                                contexto ? contexto.ocultas : 0);
