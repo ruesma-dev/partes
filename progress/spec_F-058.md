@@ -60,3 +60,9 @@ se manda a relectura a gemini»
   `azure-apps/sigrid_api.md` no lista a partes entre sus consumidores (no se toca por la regla
   de propiedad; lo decide el humano); `docs/ARCHITECTURE.md` dice 1.000 filas y son 500.000
   (T13).
+
+## Aprobación del humano (2026-10-23)
+
+Literal: «a a todo» ⇒ DA9, DA11 y DA12 = A. Con DA1–DA8 (aprobadas antes) y DA10 = B, todas las
+decisiones están cerradas: F-058 queda aprobada, a la espera de su turno (prioridad 3, detrás de
+F-059 y F-056).
