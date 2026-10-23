@@ -146,7 +146,7 @@ class Settings(BaseSettings):
         )
 
     @model_validator(mode="after")
-    def _validar_proveedores_pagina_como_imagen(self) -> "Settings":
+    def _validar_proveedores_pagina_como_imagen(self) -> Settings:
         desconocidos = sorted(
             self.proveedores_pagina_como_imagen - set(PROVEEDORES_VALIDOS)
         )

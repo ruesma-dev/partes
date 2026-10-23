@@ -18,7 +18,7 @@ import logging
 import mimetypes
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Tuple
+from typing import Any, Dict
 
 from application.services.parte_extraction_service import (
     ParteExtractionService,
@@ -99,7 +99,7 @@ class ExtractPartePipeline:
     # --------------------------------------------------------------- #
     def _preparar_para_ia(
         self, original: LlmAttachment, sha256: str
-    ) -> Tuple[LlmAttachment, Dict[str, Any]]:
+    ) -> tuple[LlmAttachment, dict[str, Any]]:
         """Devuelve (adjunto a enviar, meta.adjunto_ia).
 
         Nunca lanza por la conversión: si el conversor falla, se manda el
@@ -116,7 +116,7 @@ class ExtractPartePipeline:
         sha_corto = sha256[:12]
         try:
             resultado = self._conversor.convertir(original)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - R13: la conversión nunca tumba
             tipo = type(exc).__name__
             logger.warning(
                 "[partes-sv2][imagen] conversión fallida (%s) en sha256=%s: "
@@ -151,7 +151,7 @@ class ExtractPartePipeline:
         return imagen, traza
 
     @staticmethod
-    def _traza(conversion: str, motivo: str, enviado: LlmAttachment) -> Dict[str, Any]:
+    def _traza(conversion: str, motivo: str, enviado: LlmAttachment) -> dict[str, Any]:
         """``meta.adjunto_ia`` del adjunto enviado, sin nombre de fichero."""
         return {
             "conversion": conversion,
@@ -210,7 +210,7 @@ class ExtractPartePipeline:
         provider_result: ProviderExtractionResult,
         attachment: LlmAttachment,
         sha256: str,
-        adjunto_ia: Dict[str, Any],
+        adjunto_ia: dict[str, Any],
     ) -> Dict[str, Any]:
         meta = {
             "phase": "extract",
