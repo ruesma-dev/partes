@@ -12,4 +12,4 @@
 - [x] T7: M1 · recuento de solo lectura en la base `partes` (documentos activos sin obra o sin fecha, por aprobado y revisión; líneas sin fecha por `sigrid_estado`)  |  Verificación: MANUAL (humano o líder), comando y resultado esperado en `design.md` §8
 - [ ] T8: (DA3 = B) M2 · `UPDATE` único que solo sube `review_required` en los activos no aprobados sin obra o sin fecha, tras desplegar sv3 (`redeploy_partes.ps1 -Solo sv3`, lo pide el humano)  |  Verificación: MANUAL (humano, autorización expresa para esta escritura), `design.md` §8: `UPDATE n` con `n` de M1 y `UPDATE 0` al repetir
 - [ ] T9: M3 · tras unos días con sv3 desplegado, ningún documento nuevo sin obra o sin fecha con `review_required = false`  |  Verificación: MANUAL (humano o líder), `design.md` §8
-- [ ] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»

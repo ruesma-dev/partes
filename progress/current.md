@@ -11,10 +11,17 @@ quedó la versión de `dev` (su entrada de F-054 es idéntica a la de la rama, c
 Contexto nuevo del líder (2026-10-23): 4 páginas más del escaneo de hoy con la cabecera a null;
 la causa en sv2 es F-058, el alcance de F-054 no cambia.
 
-- Tarea en curso: ver `progress/impl_F-054.md`.
+- **T1–T5 hechas** (un commit por tarea, fase RED con trazas) y `bash harness/init.sh` en
+  verde (sv3: 2.305 passed; cobertura 100 % de 13 líneas cambiadas). Informe:
+  `progress/impl_F-054.md`. **Siguiente: T6, la campaña de mutación, que lanza el líder**
+  (`python -m harness.mutacion --feature F-054`); luego el análisis de supervivientes en el
+  informe y el reviewer.
+- Desviaciones (justificadas en el informe): 4 tests de más para fronteras y formato del
+  WARNING; la semántica 18 va en presente («se corrige una sola vez a mano») porque la M2
+  aún no se ha hecho; sv3 tiene 2.271 tests en `dev`, no los 2.254 de la spec.
 - **M2 NO ejecutada**: necesita autorización expresa del humano para esa escritura concreta
-  (comando exacto en `specs/F-054-sin-obra-o-fecha-a-revision/design.md` §8 y en el informe).
-- La campaña de mutación (T6) la lanza el líder.
+  y el despliegue de sv3 antes (comando exacto en `design.md` §8 y en el informe). M1 daba 3
+  documentos; con las 4 páginas del 23/10 podrían ser 7: repetir M1 justo antes.
 
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
