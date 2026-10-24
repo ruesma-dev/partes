@@ -190,9 +190,14 @@ T17 `-k r9` ⇒ 25 passed. T18 `-k r26` (sv5) ⇒ 10 passed.
 invariante de #12 (200.000 llamadas, 11.467 `mover`, todos con `hmoide`) ⇒ «2 mutantes, 0
 distintos», exit 0. El diferencial sí caza mutantes no equivalentes (comprobado con 5).
 
+**T23** (campaña del líder solo sobre la enmienda, `--base 4f102aa`; análisis en
+`progress/mutacion_F-060_enmienda.md`): 6 supervivientes ⇒ 5 tests nuevos, cada uno verificado
+aplicando su mutante a mano (falla; revertido byte a byte): borde superior de DA13 en `decidir`
+y 4 de caracterización de `_rol_incidencia_anterior` (sin DNI, tope de 50 filas atrás y
+delante, sin día posterior), **sin tocar la copia**; el 6.º es el equivalente #6 ya aceptado.
+
 ## Pendiente (MANUAL y del líder)
 
-- **T23 (líder)**: campaña de mutación de nuevo (el código de producción cambió tras T13).
 - **T14 · M1–M3** (humano, local, modo pruebas) y **M4** (producción, solo lectura, tras
   encender sv5→sv4): comandos exactos en `progress/current.md` (sección F-060).
 - **T13**: hecha; 6 equivalentes aceptados por el humano (2026-10-24, «acepto»).
@@ -201,9 +206,9 @@ distintos», exit 0. El diferencial sí caza mutantes no equivalentes (comprobad
 
 | Evidencia | Valor medido |
 |---|---|
-| Tests ejecutados (init.sh, T24) | raíz 498 passed, 3 skipped · sv4 **2717 passed**, 1 skipped · sv5 **982 passed** · sv1–sv3 en verde (caché, árbol sin cambios) |
+| Tests ejecutados (init.sh, T23) | raíz 498 passed, 3 skipped · sv4 **2722 passed**, 1 skipped · sv5 **982 passed** (caché) · sv1–sv3 en verde (caché, árbol sin cambios) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.7% de 339 líneas cambiadas cubiertas (338/339, umbral 80%, nivel critico)` |
-| Mutantes generados / supervivientes | Campaña de T13 (sobre `1009cdb`): 221 evaluados, 204 muertos, 16 supervivientes, 1 timeout; 22.626 s, **workers 4**; tras el análisis, 10 muertos con test nuevo y 6 equivalentes aceptados por el humano (2026-10-24, «acepto»), timeout detectado (`progress/mutacion_F-060.md`). **T23 pendiente** (la lanza el líder): T16 y T17 cambian producción |
-| Tiempo de la suite | raíz 89,59 s · sv4 656,39 s (10:56) · sv5 12,90 s |
-| `bash harness/init.sh` (T24) | **verde**, exit 0 («ENTORNO LISTO. Puedes trabajar.»); `PUERTA TAMAÑO` OK (requirements 150/150, design 249/250, review 137/140; impl medido antes de este informe); AVISOS de siempre (F-032 `blocked`, ruff 796 de deuda, `infra` sin tests) |
+| Mutantes generados / supervivientes | Campaña de T13 (sobre `1009cdb`): 221 evaluados, 204 muertos, 16 supervivientes, 1 timeout; 22.626 s, **workers 4**; tras el análisis, 10 muertos con test nuevo y 6 equivalentes aceptados por el humano (2026-10-24, «acepto»), timeout detectado (`progress/mutacion_F-060.md`). Campaña de T23 (enmienda, `--base 4f102aa`, 120 líneas): 30 evaluados, 24 muertos, 6 supervivientes, 0 timeouts; 5.517 s, **workers 4**; tras el análisis, 5 muertos con test nuevo y 1 = el #6 ya aceptado (`progress/mutacion_F-060_enmienda.md`) |
+| Tiempo de la suite (T23) | raíz 124,48 s · sv4 1.049,90 s (17:29) · sv5 12,90 s (T24, caché en T23) |
+| `bash harness/init.sh` (T23) | **verde**, exit 0 («ENTORNO LISTO. Puedes trabajar.»); `PUERTA TAMAÑO` OK (requirements 150/150, design 249/250, impl 214/220, review 137/140; dos pasadas, la 2.ª sobre el árbol final: raíz 143,00 s, sv4 2722 passed en 912,75 s); AVISOS de siempre (F-032 `blocked`, ruff 796 de deuda, `infra` sin tests) |
 | Antes de la enmienda (T15 y tras T13) | verde: raíz 498 passed, 3 skipped · sv4 2698 passed, 1 skipped (472,61 s) · sv5 980 passed (9,58 s) · cobertura 99,7 % (323/324) |

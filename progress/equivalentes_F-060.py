@@ -9,7 +9,9 @@ original y compara:
 
   sv4 (`racha_incidencia.py`), diferencial puro: #4 (`_dias`), #6 (el
       `f = int(l.fecha_int or 0)` de `viaja` en `decidir`; con T17 (DA13)
-      la condicion de la linea 172 paso a esa funcion), #7 (`colapsar`) y
+      la condicion de la linea 172 paso a esa funcion; es tambien el
+      superviviente 1 de `progress/mutacion_F-060_enmienda.md`, T23),
+      #7 (`colapsar`) y
       #8 (`aviso_desordenada`). 20.000 entradas al azar por mutante con
       fechas `None`/`0`/`1`, papelera, 1e-9 h e ids repetidos, sobre
       `decidir`, `aviso_desordenada` y `colapsar`.

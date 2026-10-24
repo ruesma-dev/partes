@@ -253,6 +253,15 @@ a byte (script `mutar_a_mano.py` en el scratchpad de la sesión).
 
 Sin cambios de código de producción: ningún análisis reveló un defecto.
 
+## Segunda campaña: la enmienda (T23)
+
+La enmienda tras la review pasada 1 (T16 interruptor de sv4, DA12; T17 papelera de DA13)
+cambió producción después de esta campaña. La campaña de T23 (líder, `--base 4f102aa`, solo
+lo que cambió la enmienda: 5 ficheros, 120 líneas, 4 workers) y su análisis están en
+**`progress/mutacion_F-060_enmienda.md`**: 30 evaluados, 24 muertos, 6 supervivientes,
+0 timeouts; tras el análisis, 5 muertos con test nuevo y 1 equivalente que es este mismo #6
+(ya aceptado por el humano). Esta campaña no se relanza.
+
 ## Timeouts
 
 - `services/partes-front/application/services/racha_incidencia.py:191` [comparacion] while padre[i] != i: -> while padre[i] == i:

@@ -156,6 +156,74 @@ def test_f060_r26bis_rol_anterior_linea_a_linea() -> None:
     assert roles == ["inicio", "intermedio", "intermedio", "fin"]
 
 
+# ---- caracterizacion de `_rol_incidencia_anterior` (dev 0926857, T23) ---- #
+# Copia LITERAL del rol de dev 0926857 (DA12): estos tests fijan su
+# comportamiento tal cual, incluidos sus topes, no lo que deberia hacer.
+
+def _rol_anterior(fabrica, rid) -> str:
+    from infrastructure.database.orm_models import ParteRegistroOrm
+    with fabrica.create_session() as s:
+        return ParteReviewRepository._rol_incidencia_anterior(
+            s, s.get(ParteRegistroOrm, rid))
+
+
+def test_f060_r26bis_rol_anterior_sin_dia_posterior_es_fin() -> None:
+    """Racha que viene de atras y nada despues de D: `fin` (sin
+    siguientes, la racha termina aqui), no `intermedio`."""
+    f = FabricaSesionSqlite()
+    _v(f, 1)
+    d2 = _v(f, 2)
+    assert _rol_anterior(f, d2) == "fin"
+
+
+def test_f060_r26bis_rol_anterior_sin_dni_solo_cuenta_su_empleado() -> None:
+    """Sin DNI la identidad es `empleado_ide`: los dias trabajados de OTRO
+    empleado (sin DNI) en la misma obra y fechas no cuentan; su V del 1 si."""
+    f = FabricaSesionSqlite()
+    _v(f, 1, dni=None, empleado_ide=77)
+    _t(f, 1, dni=None, empleado_ide=88, doc="otro1", nombre="Persona B")
+    _t(f, 3, dni=None, empleado_ide=88, doc="otro3", nombre="Persona B")
+    d2 = _v(f, 2, dni=None, empleado_ide=77)
+    assert _rol_anterior(f, d2) == "fin"
+
+
+def _dia_de(fabrica, n, total: int, *, trabajo_primero: bool) -> None:
+    """Un parte del dia `n` con `total` lineas de la persona: todas V
+    salvo UNA de trabajo, la primera o la ultima en orden de insercion."""
+    lineas = [{"inc": "V"} for _ in range(total - 1)]
+    lineas.insert(0 if trabajo_primero else total - 1, {"horas": 8.0})
+    sembrar(fabrica, lineas, doc=f"d{n}", fecha=_dia(n))
+
+
+def test_f060_r26bis_rol_anterior_tope_de_50_filas_hacia_atras() -> None:
+    """dev 0926857 lee como mucho 50 filas hacia atras. Con 50 lineas el
+    dia anterior las ve todas: la de trabajo lo hace trabajado (`inicio`)
+    este donde este. Con 51, una se queda fuera: segun el orden de las
+    empatadas en fecha sera la primera o la ultima insertada, asi que al
+    menos una de las dos colocaciones ve el dia solo con V (la racha
+    viene de atras y no hay nada delante => `fin`)."""
+    def rol(total: int, trabajo_primero: bool) -> str:
+        f = FabricaSesionSqlite()
+        _dia_de(f, 1, total, trabajo_primero=trabajo_primero)
+        return _rol_anterior(f, _v(f, 2))
+    assert {rol(50, p) for p in (True, False)} == {"inicio"}
+    assert "fin" in {rol(51, p) for p in (True, False)}
+
+
+def test_f060_r26bis_rol_anterior_tope_de_50_filas_hacia_delante() -> None:
+    """Igual hacia delante: con 50 lineas el dia siguiente es trabajado
+    (`fin`); con 51, al menos una colocacion lo ve solo con V
+    (`intermedio`)."""
+    def rol(total: int, trabajo_primero: bool) -> str:
+        f = FabricaSesionSqlite()
+        _v(f, 1)
+        d2 = _v(f, 2)
+        _dia_de(f, 3, total, trabajo_primero=trabajo_primero)
+        return _rol_anterior(f, d2)
+    assert {rol(50, p) for p in (True, False)} == {"fin"}
+    assert "intermedio" in {rol(51, p) for p in (True, False)}
+
+
 # ============== Settings y app.py (MOVER_CIZ de sv4) ============== #
 
 @pytest.fixture

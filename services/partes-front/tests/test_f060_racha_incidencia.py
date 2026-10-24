@@ -243,6 +243,20 @@ def test_f060_r9_da13_el_tramo_llega_hasta_d_si_la_racha_queda_atras() -> None:
     assert decidir(hist, 20261004, "V").racha_registro_ids == (1, 2, 3)
 
 
+def test_f060_r9_da13_papelera_del_ultimo_dia_del_tramo_viaja() -> None:
+    """DA13, borde superior: el tramo acaba en el ultimo dia de la racha
+    hacia delante (el 3, posterior a D = 2) y la papelera de ESE dia, con
+    su CIZ `registrado`, viaja; la del dia siguiente al tramo, no."""
+    hist = [
+        inc(1, 20261001),
+        inc(30, 20261003),
+        inc(31, 20261003, activa=False, estado="registrado"),
+        trab(40, 20261004),
+        inc(41, 20261004, activa=False, estado="registrado"),
+    ]
+    assert decidir(hist, 20261002, "V") == DecisionRacha("fin", (1, 30, 31))
+
+
 def test_f060_r9_da13_el_inicio_no_lleva_papelera() -> None:
     hist = [trab(1, 20261001),
             inc(2, 20261002, activa=False, estado="registrado")]
