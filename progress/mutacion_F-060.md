@@ -96,7 +96,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (implementer, 2026-10-24)
 
 > Por qué ningún test lo caza: `int(fecha_int or 0)` frente a `or 1` solo difiere con fecha `None`/`0`.
-> Decisión: **mutante equivalente — PENDIENTE DE ACEPTAR POR EL HUMANO.** `LineaHist.fecha_int` nunca es `None` ni `0`: el único productor es `ParteReviewRepository._historico` (`parte_repository.py:2366`, `fecha_int=int(reg.fecha_int)`) sobre filas filtradas por `fecha_int.between(desde, hasta)` (`:2345`), que excluye el NULL. Y aunque llegara una línea sin fecha a la regla pura, `0` y `1` caen fuera de todo rango que la regla compara: `ventana`/`hasta_delante` pasan D por `_fecha` (fecha válida, año >= 1), así que `desde >= 10101` atrás y `D + 1 >= 10102` delante. Ninguna salida de `decidir` ni de `aviso_desordenada` cambia.
+> Decisión: **mutante equivalente — ACEPTADO POR EL HUMANO (2026-10-24, «acepto»).** `LineaHist.fecha_int` nunca es `None` ni `0`: el único productor es `ParteReviewRepository._historico` (`parte_repository.py:2366`, `fecha_int=int(reg.fecha_int)`) sobre filas filtradas por `fecha_int.between(desde, hasta)` (`:2345`), que excluye el NULL. Y aunque llegara una línea sin fecha a la regla pura, `0` y `1` caen fuera de todo rango que la regla compara: `ventana`/`hasta_delante` pasan D por `_fecha` (fecha válida, año >= 1), así que `desde >= 10101` atrás y `D + 1 >= 10102` delante. Ninguna salida de `decidir` ni de `aviso_desordenada` cambia.
 > Comprobación: diferencial de 20.000 entradas al azar (fechas `None`/`0`/`1`, papelera, 1e-9 h, ids repetidos) original frente a mutante, `decidir` + `aviso_desordenada` (y `colapsar` para el 197): 80.000 comparaciones, todas iguales (script `diferencial.py` en el scratchpad de la sesión).
 
 ### 5. `services/partes-front/application/services/racha_incidencia.py:141` [comparacion]
@@ -119,7 +119,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (implementer, 2026-10-24)
 
 > Por qué ningún test lo caza: `int(l.fecha_int or 0) in racha` solo difiere con fecha `None`/`0`.
-> Decisión: **mutante equivalente — PENDIENTE DE ACEPTAR POR EL HUMANO.** `LineaHist.fecha_int` nunca es `None` ni `0`: el único productor es `ParteReviewRepository._historico` (`parte_repository.py:2366`, `fecha_int=int(reg.fecha_int)`) sobre filas filtradas por `fecha_int.between(desde, hasta)` (`:2345`), que excluye el NULL. Y aunque llegara una línea sin fecha a la regla pura, `0` y `1` caen fuera de todo rango que la regla compara: `ventana`/`hasta_delante` pasan D por `_fecha` (fecha válida, año >= 1), así que `desde >= 10101` atrás y `D + 1 >= 10102` delante. `racha` solo contiene días de esos rangos, así que ni `0` ni `1` están nunca en ella.
+> Decisión: **mutante equivalente — ACEPTADO POR EL HUMANO (2026-10-24, «acepto»).** `LineaHist.fecha_int` nunca es `None` ni `0`: el único productor es `ParteReviewRepository._historico` (`parte_repository.py:2366`, `fecha_int=int(reg.fecha_int)`) sobre filas filtradas por `fecha_int.between(desde, hasta)` (`:2345`), que excluye el NULL. Y aunque llegara una línea sin fecha a la regla pura, `0` y `1` caen fuera de todo rango que la regla compara: `ventana`/`hasta_delante` pasan D por `_fecha` (fecha válida, año >= 1), así que `desde >= 10101` atrás y `D + 1 >= 10102` delante. `racha` solo contiene días de esos rangos, así que ni `0` ni `1` están nunca en ella.
 > Comprobación: diferencial de 20.000 entradas al azar (fechas `None`/`0`/`1`, papelera, 1e-9 h, ids repetidos) original frente a mutante, `decidir` + `aviso_desordenada` (y `colapsar` para el 197): 80.000 comparaciones, todas iguales (script `diferencial.py` en el scratchpad de la sesión).
 
 ### 7. `services/partes-front/application/services/racha_incidencia.py:197` [comparacion]
@@ -130,7 +130,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (implementer, 2026-10-24)
 
 > Por qué ningún test lo caza: `<` frente a `<=` solo difiere cuando `a.registro_id == b.registro_id`.
-> Decisión: **mutante equivalente — PENDIENTE DE ACEPTAR POR EL HUMANO.** Con ids iguales (sea la misma línea o dos con el mismo id) `raiz(b.registro_id)` y `raiz(a.registro_id)` consultan la MISMA clave de `padre`, así que la unión hace `padre[r] = r`: no cambia nada. Vale para cualquier entrada, no depende de invariantes de quien llama.
+> Decisión: **mutante equivalente — ACEPTADO POR EL HUMANO (2026-10-24, «acepto»).** Con ids iguales (sea la misma línea o dos con el mismo id) `raiz(b.registro_id)` y `raiz(a.registro_id)` consultan la MISMA clave de `padre`, así que la unión hace `padre[r] = r`: no cambia nada. Vale para cualquier entrada, no depende de invariantes de quien llama.
 > Comprobación: diferencial de 20.000 entradas al azar (fechas `None`/`0`/`1`, papelera, 1e-9 h, ids repetidos) original frente a mutante, `decidir` + `aviso_desordenada` (y `colapsar` para el 197): 80.000 comparaciones, todas iguales (script `diferencial.py` en el scratchpad de la sesión).
 
 ### 8. `services/partes-front/application/services/racha_incidencia.py:227` [entero]
@@ -141,7 +141,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (implementer, 2026-10-24)
 
 > Por qué ningún test lo caza: `int(l.fecha_int or 0) == siguiente` solo difiere con fecha `None`/`0`.
-> Decisión: **mutante equivalente — PENDIENTE DE ACEPTAR POR EL HUMANO.** `LineaHist.fecha_int` nunca es `None` ni `0`: el único productor es `ParteReviewRepository._historico` (`parte_repository.py:2366`, `fecha_int=int(reg.fecha_int)`) sobre filas filtradas por `fecha_int.between(desde, hasta)` (`:2345`), que excluye el NULL. Y aunque llegara una línea sin fecha a la regla pura, `0` y `1` caen fuera de todo rango que la regla compara: `ventana`/`hasta_delante` pasan D por `_fecha` (fecha válida, año >= 1), así que `desde >= 10101` atrás y `D + 1 >= 10102` delante. `siguiente = min(delante) >= D + 1 >= 10102`, nunca `0` ni `1`.
+> Decisión: **mutante equivalente — ACEPTADO POR EL HUMANO (2026-10-24, «acepto»).** `LineaHist.fecha_int` nunca es `None` ni `0`: el único productor es `ParteReviewRepository._historico` (`parte_repository.py:2366`, `fecha_int=int(reg.fecha_int)`) sobre filas filtradas por `fecha_int.between(desde, hasta)` (`:2345`), que excluye el NULL. Y aunque llegara una línea sin fecha a la regla pura, `0` y `1` caen fuera de todo rango que la regla compara: `ventana`/`hasta_delante` pasan D por `_fecha` (fecha válida, año >= 1), así que `desde >= 10101` atrás y `D + 1 >= 10102` delante. `siguiente = min(delante) >= D + 1 >= 10102`, nunca `0` ni `1`.
 > Comprobación: diferencial de 20.000 entradas al azar (fechas `None`/`0`/`1`, papelera, 1e-9 h, ids repetidos) original frente a mutante, `decidir` + `aviso_desordenada` (y `colapsar` para el 197): 80.000 comparaciones, todas iguales (script `diferencial.py` en el scratchpad de la sesión).
 
 ### 9. `services/partes-front/infrastructure/database/parte_repository.py:2302` [comparacion]
@@ -176,7 +176,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (implementer, 2026-10-24)
 
 > Por qué ningún test lo caza: `int(a.recurso_ide or 0)` frente a `or 1` solo difiere con recurso nulo o 0.
-> Decisión: **mutante equivalente — PENDIENTE DE ACEPTAR POR EL HUMANO.** Las acciones que mira el paso 6 bis son `escribir` (`registro_pipeline.py:465`) y toda acción `escribir` sale de `ReglasRegistro.decidir` DESPUÉS de `if not linea.recurso_ide: return omitir(...)` (`reglas_registro.py:141` para trabajo, `:217` para incidencias, incluido el `fin` con CIZ); la de `dedicacion` no es `escribir`, y nada reasigna `a.recurso_ide` después (`base` lo copia, `:122`). Así que ahí `a.recurso_ide` siempre es verdadero y `x or 0 == x or 1 == x`. No hay entrada de `ejecutar`/`preflight` que lo distinga; matarlo exigiría montar a mano una acción imposible.
+> Decisión: **mutante equivalente — ACEPTADO POR EL HUMANO (2026-10-24, «acepto»).** Las acciones que mira el paso 6 bis son `escribir` (`registro_pipeline.py:465`) y toda acción `escribir` sale de `ReglasRegistro.decidir` DESPUÉS de `if not linea.recurso_ide: return omitir(...)` (`reglas_registro.py:141` para trabajo, `:217` para incidencias, incluido el `fin` con CIZ); la de `dedicacion` no es `escribir`, y nada reasigna `a.recurso_ide` después (`base` lo copia, `:122`). Así que ahí `a.recurso_ide` siempre es verdadero y `x or 0 == x or 1 == x`. No hay entrada de `ejecutar`/`preflight` que lo distinga; matarlo exigiría montar a mano una acción imposible.
 
 ### 12. `services/partes-transfer/application/pipelines/registro_pipeline.py:699` [entero]
 
@@ -186,7 +186,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (implementer, 2026-10-24)
 
 > Por qué ningún test lo caza: `int(ls.hmoide or 0) == hmoide` frente a `or 1` solo difiere con `hmoide` nulo o 0 en la línea que se mueve.
-> Decisión: **mutante equivalente — PENDIENTE DE ACEPTAR POR EL HUMANO.** `a.mover` solo se asigna con `decidir_fin` = `mover` (`registro_pipeline.py:486`), que exige `partes.get(int(elegida.hmoide or 0))` no nulo y En registro (`racha_ciz.py:128-133`). `partes` sale de `estados_de_partes(hmoides)` con `hmoides` solo verdaderos (`registro_pipeline.py:472`) y el cliente solo devuelve filas de `hmo.ide IN (...)` de ids verdaderos (`sigrid_write_client.py:730`): la clave 0 no existe, así que un CIZ sin parte es `parte_cerrado` (lo fija el test nuevo del superviviente 16) y nunca llega a la línea 699. Ahí `ls.hmoide` siempre es verdadero.
+> Decisión: **mutante equivalente — ACEPTADO POR EL HUMANO (2026-10-24, «acepto»).** `a.mover` solo se asigna con `decidir_fin` = `mover` (`registro_pipeline.py:486`), que exige `partes.get(int(elegida.hmoide or 0))` no nulo y En registro (`racha_ciz.py:128-133`). `partes` sale de `estados_de_partes(hmoides)` con `hmoides` solo verdaderos (`registro_pipeline.py:472`) y el cliente solo devuelve filas de `hmo.ide IN (...)` de ids verdaderos (`sigrid_write_client.py:730`): la clave 0 no existe, así que un CIZ sin parte es `parte_cerrado` (lo fija el test nuevo del superviviente 16) y nunca llega a la línea 699. Ahí `ls.hmoide` siempre es verdadero.
 
 ### 13. `services/partes-transfer/application/pipelines/registro_pipeline.py:704` [entero]
 
@@ -246,7 +246,7 @@ a byte (script `mutar_a_mano.py` en el scratchpad de la sesión).
 | Resultado | Supervivientes |
 |---|---|
 | Muertos con test nuevo (10) | 1, 2, 3, 5, 9, 10, 13, 14, 15, 16 |
-| Equivalentes **PENDIENTES DE ACEPTAR POR EL HUMANO** (6) | 4, 6, 8 (`fecha_int or 0`, sv4), 7 (`<` / `<=`, sv4), 11 (`recurso_ide or 0`, sv5), 12 (`hmoide or 0`, sv5) |
+| Equivalentes **ACEPTADOS POR EL HUMANO** (6; 2026-10-24, literal: «acepto») | 4, 6, 8 (`fecha_int or 0`, sv4), 7 (`<` / `<=`, sv4), 11 (`recurso_ide or 0`, sv5), 12 (`hmoide or 0`, sv5) |
 | Timeout (1) | `racha_incidencia.py:191`: detectado (bucle infinito), ver «Timeouts» |
 
 Sin cambios de código de producción: ningún análisis reveló un defecto.
