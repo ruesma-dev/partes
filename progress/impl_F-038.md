@@ -153,7 +153,7 @@ Tras el código: `42 passed`.
   fuera de rango en Azure haría que ese servicio NO arrancara tras desplegar.
 - **M1** (no bloquea) y **M2** (tras desplegar sv2–sv5; esperado
   `max_rows=500000` en el log de arranque de sv4 y sv5): `design.md` §9.
-- **T9 · mutación**: la lanza el líder (`python -m harness.mutacion --feature F-038`).
+- **T9 · mutación**: hecha (ver Evidencias y `progress/mutacion_F-038.md`).
 
 ## Fuera de alcance (sin cambios)
 
@@ -176,7 +176,7 @@ Números medidos con `bash harness/init.sh` (ejecución completa sobre db01cc6, 
 | sv1 | sin cambios (caché de verde del arnés) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 19 líneas cambiadas cubiertas (19/19, umbral 80%, nivel estandar)` |
 | Tamaño | `PUERTA TAMAÑO: ... impl 166/220` |
-| Mutantes | **no lanzada por el implementer**: T9 la lanza el líder (`python -m harness.mutacion --feature F-038`, estándar: 20 muestreados, semilla 20260820); los supervivientes se analizarán en `progress/mutacion_F-038.md` |
+| Mutantes | campaña del líder (estándar, 20 de 26, semilla 20260820): **26 generados, 20 evaluados, 17 muertos, 3 supervivientes** (`gt=0`→`gt=1` del timeout en sv3/sv4/sv5); los 3 mueren con el test añadido, verificado a mano (`progress/mutacion_F-038.md`) |
 
 Tras ese `init.sh`, `ruff` contaba 9 avisos nuevos en los tests de F-038 (orden de imports,
 `noqa` sobrantes y un `ClassVar`); corregidos en el commit de cierre (solo tests, sin
@@ -187,3 +187,5 @@ se relanzó `bash harness/init.sh` completo: resultado en la línea siguiente.
 passed, 3 skipped (197,98 s); sv2 168 (54,31 s); sv3 2338 (71,01 s); sv4 2607 passed, 1 skipped
 (1021,49 s); sv5 897 (25,18 s); cobertura 100,0 % (19/19); tamaño impl 186/220; ruff 772 avisos
 (los mismos de antes de F-038: cero nuevos).
+
+**Añadido tras la mutación (2026-10-24):** test `test_f038_r14_timeout_por_debajo_de_1_vale` (0.5 y 1) en sv2–sv5, que mata los 3 supervivientes `gt=0`→`gt=1` (verificado a mano). `bash harness/init.sh`: «ENTORNO LISTO» — raíz 522 passed, 3 skipped; sv2 170; sv3 2340; sv4 2609 passed, 1 skipped (1367 s); sv5 899; cobertura 100,0 % (19/19); ruff 772 (sin nuevos).

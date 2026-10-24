@@ -140,6 +140,14 @@ def test_f038_r14_timeout_200_vale_y_el_defecto_sigue_en_30() -> None:
     assert _settings(SIGRID_API_TIMEOUT_S="200").sigrid_api_timeout_s == 200.0
 
 
+# Mutación F-038: el límite inferior es `gt=0` (exclusivo); `gt=1` dejaría
+# fuera 0.5 y 1, timeouts válidos que ningún test probaba.
+@pytest.mark.parametrize("valor, esperado", [("0.5", 0.5), ("1", 1.0)])
+def test_f038_r14_timeout_por_debajo_de_1_vale(valor, esperado) -> None:
+    timeout = _settings(SIGRID_API_TIMEOUT_S=valor).sigrid_api_timeout_s
+    assert timeout == esperado
+
+
 # --------------------------------- R5 ----------------------------------- #
 
 def test_f038_r5_build_app_cablea_max_rows(monkeypatch) -> None:
