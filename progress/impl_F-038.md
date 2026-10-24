@@ -183,4 +183,7 @@ Tras ese `init.sh`, `ruff` contaba 9 avisos nuevos en los tests de F-038 (orden 
 cambio de producción), las cinco baterías de F-038 vuelven a dar 24/20/33/24/42 passed y
 se relanzó `bash harness/init.sh` completo: resultado en la línea siguiente.
 
-INIT_FINAL
+**`bash harness/init.sh` final (sobre 29f71d8): «ENTORNO LISTO. Puedes trabajar.»** — raíz 522
+passed, 3 skipped (197,98 s); sv2 168 (54,31 s); sv3 2338 (71,01 s); sv4 2607 passed, 1 skipped
+(1021,49 s); sv5 897 (25,18 s); cobertura 100,0 % (19/19); tamaño impl 186/220; ruff 772 avisos
+(los mismos de antes de F-038: cero nuevos).
