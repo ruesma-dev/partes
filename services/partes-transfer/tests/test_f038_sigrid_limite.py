@@ -227,3 +227,52 @@ def test_f038_r15_timeout_200_plazo_http_230(monkeypatch) -> None:
     _cliente(monkeypatch, falso, timeout_s=200).max_pos(9)
     assert falso.plazos == [230]
     assert falso.lecturas[0]["timeout_seconds"] == 200
+
+
+# ------------------------- R10 · script de pruebas ---------------------- #
+
+#: `.env` que lee `prueba_escritura_sigrid.py` al importarse (ruta fija).
+RUTA_ENV_SCRIPT = (r"C:\Users\pgris\PycharmProjects\partes-transfer"
+                   r"\.env")
+
+
+def _importar_script():
+    """Importa el script con su `.env` sustituido en memoria (sin red)."""
+    import importlib
+    import sys
+    from pathlib import Path
+    from unittest import mock
+
+    existe, leer = Path.exists, Path.read_text
+
+    def _existe(self, *a, **k):
+        return True if str(self) == RUTA_ENV_SCRIPT else existe(self, *a, **k)
+
+    def _leer(self, *a, **k):
+        if str(self) == RUTA_ENV_SCRIPT:
+            return ("SIGRID_API_BASE_URL=http://sigrid.invalid\n"
+                    f"SIGRID_API_FUNCTION_KEY={CLAVE}\n")
+        return leer(self, *a, **k)
+
+    sys.modules.pop("prueba_escritura_sigrid", None)
+    with mock.patch.object(Path, "exists", _existe), \
+            mock.patch.object(Path, "read_text", _leer):
+        modulo_script = importlib.import_module("prueba_escritura_sigrid")
+    sys.modules.pop("prueba_escritura_sigrid", None)
+    return modulo_script
+
+
+def test_f038_r10_script_truncated_termina_sin_filas(monkeypatch) -> None:
+    script = _importar_script()
+    falso = SigridApiFalso(truncated=True)
+    monkeypatch.setattr(script.httpx, "post", falso)
+    with pytest.raises(SystemExit, match="truncada"):
+        script.sql_read("SELECT 1", [])
+    assert falso.lecturas[0]["max_rows"] == 500_000
+
+
+def test_f038_r10_script_sin_truncated_devuelve_filas(monkeypatch) -> None:
+    script = _importar_script()
+    falso = SigridApiFalso()
+    monkeypatch.setattr(script.httpx, "post", falso)
+    assert script.sql_read("SELECT 1", []) == []
