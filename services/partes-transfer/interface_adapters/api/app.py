@@ -129,6 +129,7 @@ def _cliente_sigrid(settings) -> SigridWriteClient:
         max_statements=settings.sigrid_max_statements,
         tip_parte=settings.tip_parte_trabajo,
         est_parte=settings.est_parte_activo,
+        max_rows=settings.sigrid_api_max_rows,
     )
 
 

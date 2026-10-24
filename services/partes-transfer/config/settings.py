@@ -19,7 +19,14 @@ class Settings(BaseSettings):
     sigrid_api_database: str = Field("ruesma", alias="SIGRID_API_DATABASE")
     # F-023 (DA5): SIGRID_EMPRESA ya no existe. La empresa de la cabecera
     # es la de la obra destino; si la variable sigue en Azure, se ignora.
-    sigrid_api_timeout_s: float = Field(60.0, alias="SIGRID_API_TIMEOUT_S")
+    # F-038 (R14, DA4): (0, 200]; el plazo HTTP suma 30 s y el balanceador
+    # de sigrid-api corta a los 230 s.
+    sigrid_api_timeout_s: float = Field(60.0, alias="SIGRID_API_TIMEOUT_S",
+                                        gt=0, le=200)
+    # F-038 (R2, R3; DA1 = B, DA2 = A): opcional, 1..500.000 (tope de la
+    # instancia); el defecto es el MAX_ROWS_DEFECTO del cliente.
+    sigrid_api_max_rows: int = Field(500_000, alias="SIGRID_API_MAX_ROWS",
+                                     ge=1, le=500_000)
     # Tope de sentencias por batch de sigrid-api (MAX_STATEMENTS_PER_BATCH=20).
     sigrid_max_statements: int = Field(15, alias="SIGRID_MAX_STATEMENTS")
 

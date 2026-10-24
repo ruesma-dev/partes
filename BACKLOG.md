@@ -5,6 +5,8 @@
 
 Resumen: **55 features**, 15 abiertas, 40 terminadas.
 
+En curso: **F-038**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
@@ -16,7 +18,7 @@ Bloqueadas: **F-032**.
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
-| F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 7 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
+| F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 7 | en curso | estandar | `feature/F-038-limite-filas-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | pendiente | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | estandar | `feature/F-027-escape-modales` |
@@ -106,7 +108,7 @@ Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma q
 
 ### F-038 · Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes)
 
-estado **pendiente** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
+estado **en curso** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
 
 Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
 
