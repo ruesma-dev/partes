@@ -155,6 +155,31 @@ def test_f060_r9_hacia_delante_tambien() -> None:
     assert _linea(_datos(f, [d2]), d2)["racha_registro_ids"] == [d1, d3]
 
 
+def test_f060_r9_da13_papelera_de_un_dia_saltado_viaja() -> None:
+    """`design.md` §8 (DA13): 1 trabajado, 2 y 4 V, el 3 todo en la
+    papelera (linea borrada y documento inactivo) con su CIZ `registrado`,
+    D = 5 V: los ids del 3 viajan; la papelera `pendiente`, de otra letra
+    o anterior al tramo, no."""
+    f = _fabrica()
+    (fuera,) = sembrar(f, [{"inc": "V", "estado": "registrado",
+                            "borrada": True}], doc="v30", fecha=_dia(30, 9))
+    _t(f, 1)
+    d2 = _v(f, 2)
+    (b3, p3, o3) = sembrar(f, [
+        {"inc": "V", "estado": "registrado", "borrada": True},
+        {"inc": "V", "borrada": True},
+        {"inc": "B", "estado": "registrado", "borrada": True}],
+        doc="v3", fecha=_dia(3))
+    (i3,) = sembrar(f, [{"inc": "V", "estado": "encolado"}], doc="v3i",
+                    fecha=_dia(3), doc_activo=False)
+    d4 = _v(f, 4)
+    d5 = _v(f, 5)
+    l5 = _linea(_datos(f, [d5]), d5)
+    assert l5["incidencia_rol"] == "fin"
+    assert l5["racha_registro_ids"] == sorted([d2, b3, i3, d4])
+    assert not {fuera, p3, o3} & set(l5["racha_registro_ids"])
+
+
 def test_f060_r9_las_demas_lineas_van_con_lista_vacia() -> None:
     f = _fabrica()
     ids = sembrar(f, [{"inc": "V"}, {"tipo": "extra", "horas": 0.0}],

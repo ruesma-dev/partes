@@ -18,8 +18,10 @@ sv4:
     incidencia de la misma clave => `fin`; si no (trabajado, otra clave o
     nada) => `inicio`. Con `fin`, `racha_registro_ids` son las
     incidencias de esa clave de la racha hacia atras y hacia delante (sin
-    el dia D) y las de la papelera de esos dias `registrado` o
-    `encolado`: entre sus synckeys busca sv5 el CIZ.
+    el dia D) y las de la papelera de esa clave `registrado` o
+    `encolado` de cualquier dia distinto de D entre el primero y el
+    ultimo del tramo que forman la racha y D, tambien de los dias
+    saltados (DA13): entre sus synckeys busca sv5 el CIZ.
   - `colapsar` (R7, R8): en una aprobacion, un solo `fin` por racha (el
     de mayor fecha) y un solo `inicio` por dia, persona y clave (el de
     menor `registro_id`); los demas, `intermedio`.
@@ -168,10 +170,21 @@ def decidir(hist: Sequence[LineaHist], fecha_int: int,
         if not _de_la_racha(delante[f], clave):
             break
         racha.add(f)
-    ids = {l.registro_id for l in hist
-           if int(l.fecha_int or 0) in racha and l.es_incidencia
-           and l.clave == clave
-           and (l.activa or (l.sigrid_estado or "") in ESTADOS_EN_SIGRID)}
+    # DA13: la papelera viaja desde el primer dia hasta el ultimo del
+    # tramo que forman la racha y D, tambien la de los dias saltados.
+    d = int(fecha_int)
+    primero, ultimo = min(racha | {d}), max(racha | {d})
+
+    def viaja(l: LineaHist) -> bool:
+        f = int(l.fecha_int or 0)
+        if not l.es_incidencia or l.clave != clave:
+            return False
+        if l.activa:
+            return f in racha
+        return (primero <= f <= ultimo and f != d
+                and (l.sigrid_estado or "") in ESTADOS_EN_SIGRID)
+
+    ids = {l.registro_id for l in hist if viaja(l)}
     return DecisionRacha(FIN, tuple(sorted(ids)))
 
 

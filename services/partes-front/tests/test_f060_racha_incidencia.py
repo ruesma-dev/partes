@@ -199,6 +199,56 @@ def test_f060_r9_ids_sin_repetir_y_ordenados() -> None:
     assert decidir(hist, 20261004, "V").racha_registro_ids == (4, 9)
 
 
+# ------------- decidir: la papelera de los dias saltados (DA13) ------------- #
+
+def test_f060_r9_da13_papelera_de_un_dia_saltado_hacia_atras() -> None:
+    """`design.md` §8: 1 trabajado, 2 y 4 V, 3 todo en la papelera con su
+    CIZ `registrado`, D = 5 V => el id del 3 viaja; uno de la papelera
+    anterior al tramo, `pendiente`, de otra letra o del dia D, no."""
+    hist = [
+        inc(1, 20260930, activa=False, estado="registrado"),   # mes ant.
+        trab(10, 20261001),
+        inc(11, 20261001, activa=False, estado="registrado"),  # dia 1
+        inc(20, 20261002),
+        inc(30, 20261003, activa=False, estado="registrado"),
+        inc(31, 20261003, activa=False, estado="pendiente"),
+        inc(32, 20261003, "B", activa=False, estado="registrado"),
+        trab(33, 20261003, activa=False, estado="registrado"),
+        inc(40, 20261004),
+        inc(50, 20261005, activa=False, estado="registrado"),  # dia D
+    ]
+    assert decidir(hist, 20261005, "V") == DecisionRacha("fin", (20, 30, 40))
+
+
+def test_f060_r9_da13_papelera_de_un_dia_saltado_hacia_delante() -> None:
+    hist = [
+        inc(1, 20261001),
+        inc(30, 20261003, activa=False, estado="encolado"),
+        inc(40, 20261004),
+        trab(50, 20261005),
+        inc(60, 20261006, activa=False, estado="registrado"),  # tras el 5
+    ]
+    assert decidir(hist, 20261002, "V") == DecisionRacha("fin", (1, 30, 40))
+
+
+def test_f060_r9_da13_el_tramo_llega_hasta_d_si_la_racha_queda_atras() -> None:
+    """Sin racha hacia delante, el tramo acaba en D: la papelera de un
+    dia saltado entre el ultimo de la racha y D viaja; la de despues, no."""
+    hist = [
+        inc(1, 20261001),
+        inc(2, 20261002, activa=False, estado="registrado"),
+        inc(3, 20261003, activa=False, estado="registrado"),
+        inc(5, 20261005, activa=False, estado="registrado"),
+    ]
+    assert decidir(hist, 20261004, "V").racha_registro_ids == (1, 2, 3)
+
+
+def test_f060_r9_da13_el_inicio_no_lleva_papelera() -> None:
+    hist = [trab(1, 20261001),
+            inc(2, 20261002, activa=False, estado="registrado")]
+    assert decidir(hist, 20261003, "V") == DecisionRacha("inicio", ())
+
+
 # ------------------------------ colapsar ------------------------------ #
 
 def rol(rid, fecha, r, racha=(), persona="dni:A", clave="V") -> LineaRol:
