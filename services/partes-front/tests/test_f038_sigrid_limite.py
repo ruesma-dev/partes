@@ -21,8 +21,6 @@ import logging
 
 import httpx
 import pytest
-from pydantic import ValidationError
-
 from config.settings import Settings
 from infrastructure.sigrid import sigrid_lookup_client as modulo
 from infrastructure.sigrid.sigrid_lookup_client import (
@@ -30,6 +28,7 @@ from infrastructure.sigrid.sigrid_lookup_client import (
     SigridLookupClient,
 )
 from interface_adapters.web import app as modulo_app
+from pydantic import ValidationError
 
 CLAVE = "clave-de-test-f038"
 

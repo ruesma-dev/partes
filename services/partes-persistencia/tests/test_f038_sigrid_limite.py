@@ -20,10 +20,8 @@ import json
 import logging
 
 import httpx
-import pytest
-from pydantic import ValidationError
-
 import medir_casado_recursos as medir
+import pytest
 from config.settings import Settings
 from infrastructure.sigrid import sigrid_api_client as modulo
 from infrastructure.sigrid.sigrid_api_client import (
@@ -31,6 +29,7 @@ from infrastructure.sigrid.sigrid_api_client import (
     SigridApiClient,
 )
 from interface_adapters.api import app as modulo_app
+from pydantic import ValidationError
 
 CLAVE = "clave-de-test-f038"
 

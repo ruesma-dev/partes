@@ -27,15 +27,15 @@ from tests.f059_sdk_falsos import instalar_si_faltan
 # Los SDK de IA no están en el .venv de la raíz: dobles solo si faltan.
 instalar_si_faltan()
 
-from application.services.auxhor_catalog_provider import (  # noqa: E402
+from application.services.auxhor_catalog_provider import (
     AuxhorCatalogProvider,
 )
-from config.settings import Settings  # noqa: E402
-from infrastructure.sigrid import sigrid_lookup_client as modulo  # noqa: E402
-from infrastructure.sigrid.sigrid_lookup_client import (  # noqa: E402
+from config.settings import Settings
+from infrastructure.sigrid import sigrid_lookup_client as modulo
+from infrastructure.sigrid.sigrid_lookup_client import (
     SigridLookupClient,
 )
-from interface_adapters.api import app as modulo_app  # noqa: E402
+from interface_adapters.api import app as modulo_app
 
 RAIZ_SERVICIO = Path(__file__).resolve().parents[1]
 CLAVE = "clave-de-test-f038"

@@ -18,17 +18,17 @@ Sin red: `httpx.post` del módulo cliente se sustituye por un falso.
 from __future__ import annotations
 
 import logging
-
-import httpx
-import pytest
-from pydantic import ValidationError
+from typing import ClassVar
 
 import comprobar_asiento_analitico as herramienta
+import httpx
 import main as modulo_main
+import pytest
 from config.settings import Settings
 from infrastructure.sigrid import sigrid_write_client as modulo_cliente
 from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
 from interface_adapters.api import app as modulo_app
+from pydantic import ValidationError
 
 CLAVE = "clave-de-test-f038"
 
@@ -153,7 +153,7 @@ class _Parada(Exception):
 
 
 class _ClienteEspia:
-    capturados: list[dict] = []
+    capturados: ClassVar[list[dict]] = []
 
     def __init__(self, **kwargs) -> None:
         _ClienteEspia.capturados.append(kwargs)
