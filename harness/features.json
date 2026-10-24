@@ -499,7 +499,7 @@
         "Toda lectura comprueba truncated y lo trata como error",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 7,

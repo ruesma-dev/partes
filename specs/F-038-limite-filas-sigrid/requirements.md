@@ -5,6 +5,8 @@
 > `harness/features.json`). Toca **sv2, sv3, sv4 y sv5** (los cuatro leen Sigrid por
 > `sigrid-api`); sv1 no lee Sigrid. Inventario, diseño y DA1–DA7 en `design.md`.
 
+> **Aprobación del humano (2026-10-24, literal)**: «sigrid lee 500k, hay que cambiar donde este ese limite de 100 ya mismo. se supone que estaba arreglado» y, a la propuesta del líder (tope 500.000, resto A, en paralelo con F-060), «si». ⇒ **DA1 = B: 500.000** (donde esta spec dice 200.000 como valor por defecto, léase 500.000; el rango de DA2 sigue 1–500.000); DA2–DA7 = A (DA6: se borra `consulta_reshor_recursos.py`; la purga del historial es aparte y no está decidida). Excepción expresa a «una feature en curso»: F-060 sigue en mutación y review.
+
 ## Qué hay hoy (resumen; inventario completo en `design.md` §1)
 
 - `sigrid-api` desplegada admite hasta **500.000 filas** por petición
