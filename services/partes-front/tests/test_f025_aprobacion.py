@@ -36,10 +36,11 @@ DNI_A = "12345678Z"
 DNI_B = "00000001R"
 
 #: Las claves de cada linea del payload de sv5 (R33 de F-022, R14).
+#: F-060 (R9): enmienda, gana `racha_registro_ids`.
 CLAVES_LINEA = {"registro_id", "fecha_int", "recurso_ide", "dni", "nombre",
                 "tipo_hora", "es_incidencia", "horas", "hora_ide",
                 "hora_codigo", "partida_ide", "partida_cod", "candef",
-                "incidencia_codigo", "incidencia_rol"}
+                "incidencia_codigo", "incidencia_rol", "racha_registro_ids"}
 
 
 def sembrar(fabrica, lineas: list[dict], *, doc: str,

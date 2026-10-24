@@ -900,12 +900,12 @@
         "Rigor crítico: fase RED, cobertura y mutación completa con 0 supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-060-racha-incidencia-ciz-movil",
-      "spec": "aprobada (DA1–DA11 = A), en implementación · `partes-wt-f060`"
+      "pendiente": "desplegar sv4 y sv5 con MOVER_CIZ apagado; antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender"
     }
   ]
 }

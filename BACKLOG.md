@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **56 features**, 15 abiertas, 41 terminadas.
-
-En curso: **F-060**.
+Resumen: **56 features**, 14 abiertas, 42 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | en curso | aprobada (DA1–DA11 = A), en implementación · `partes-wt-f060` | critico | `feature/F-060-racha-incidencia-ciz-movil` |
 | F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 2 | spec lista | aprobada (todas las DA) · `partes-wt-f058` | estandar | `feature/F-058-relectura-cabecera-gemini` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
@@ -53,6 +50,7 @@ Bloqueadas: **F-032**.
 | F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | estandar | M2–M6 en el portal |
 | F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |  |
 | F-059 | La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor | 1 | estandar | M4; después releer los 6 partes sin obra (sv2 desplegada el 2026-10-24, r20261024215445) |
+| F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | desplegar sv4 y sv5 con MOVER_CIZ apagado; antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
@@ -76,14 +74,6 @@ Bloqueadas: **F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
-
-### F-060 · Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-060-racha-incidencia-ciz-movil`
-
-**Spec**: aprobada (DA1–DA11 = A), en implementación · `partes-wt-f060`
-
-Petición del humano del 2026-10-23: «el primer dia de unas vacaciones siempre debe marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse fin de vacaciones. este fin se va moviendo segun aparzcan dias de vacaciones hasta que aparezca un dia laborable en cuyo caso ya no se mueve. [...] hay que ver si ese recurso tiene vacaciones en algun parte de alguna obra (no solo la suya) y si lo tiene cerrar. si no hay se abre. lo mismo para bajas.» Aprobó la tabla del líder («la propuesta es lo correcto [...] debe buscar siempre en todos sus partes del mes anterior»): incidencia sin racha abierta ⇒ abre con su CI*; con racha abierta ⇒ mueve el CIZ a ese día editando la línea existente (si no hay CIZ, lo crea); horas ⇒ la racha queda cerrada. Regla de Sigrid: «no se debe borrar en sigrid, así que solo editará líneas». Hoy (sv4 `_rol_incidencia`, sv5 R1) cada día de incidencia que sigue a otro sale «fin» y escribe un CIZ nuevo; además no distingue la letra, no tiene ventana y no excluye la papelera. Diseño: sv4 decide el rol con la ventana (día 1 del mes anterior a D−1, todas las obras) y manda los ids de la racha; sv5 localiza el CIZ por synckey y lo mueve con un UPDATE (fecha, synckey y, si cambia de parte, parte, obra, centro, cuenta, año y mes), con guarda de parte abierto, sin DELETE ni INSERT. Interruptor MOVER_CIZ en sv5, apagado por defecto. Sin tabla ni columna nueva. Spec: specs/F-060-racha-incidencia-ciz-movil/.
 
 ### F-058 · sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera
 
@@ -324,6 +314,14 @@ estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feat
 **Pendiente**: M4; después releer los 6 partes sin obra (sv2 desplegada el 2026-10-24, r20261024215445)
 
 Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto», precisada el mismo día: «el parte viene cortado del escaner pero viene bien orientado y la obra se lee perfectamente. el problema no es del giro, es de lectura. de hecho imagen girada esta bien orientado y tal cual esta mal orientado». El fallo es de lectura de la IA, no del escáner ni de sv1: las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son PDF de una página (sv1 las copia tal cual con pypdf) con un JPEG 3507×2480 guardado de lado y /Rotate 270, que las deja derechas en cualquier visor; la obra y la fecha se leen bien. Todo apunta a que OpenAI, con el PDF como input_file, no aplica el /Rotate y lee la imagen cruda de lado. Banco del líder (2026-10-23, fuera del repo, gpt-6.1-sol, 2 pasadas): PDF tal cual, cabecera vacía 12 de 12, también con reasoning.effort = high; JPEG incrustado girado según /Rotate con detail high, obra y fecha bien 12 de 12 (las mismas que gemini-4-argon) y control 4 de 4. Diseño: solo sv2; el pipeline pide a un conversor (puerto en domain, adaptador pypdf + Pillow en infrastructure/document) la página derecha cuando el PDF es una sola imagen JPEG a página completa y la manda como imagen; si no aplica o falla, PDF como hoy (WARNING sin nombres ni DNIs en el fallo). meta.adjunto_ia deja la traza; meta.source_* siguen siendo del original. DA1 (recomendada A): solo OpenAI por defecto, lista PAGINA_COMO_IMAGEN_PROVEEDORES. DA2 (A): imagen incrustada, sin render. DA3 (A): PAGINA_COMO_IMAGEN encendido por defecto, sin cambio de entorno en Azure. DA4 (A): OPENAI_IMAGE_DETAIL=high para toda imagen. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec: specs/F-059-pagina-como-imagen-derecha/.
+
+### F-060 · Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-060-racha-incidencia-ciz-movil`
+
+**Pendiente**: desplegar sv4 y sv5 con MOVER_CIZ apagado; antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender
+
+Petición del humano del 2026-10-23: «el primer dia de unas vacaciones siempre debe marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse fin de vacaciones. este fin se va moviendo segun aparzcan dias de vacaciones hasta que aparezca un dia laborable en cuyo caso ya no se mueve. [...] hay que ver si ese recurso tiene vacaciones en algun parte de alguna obra (no solo la suya) y si lo tiene cerrar. si no hay se abre. lo mismo para bajas.» Aprobó la tabla del líder («la propuesta es lo correcto [...] debe buscar siempre en todos sus partes del mes anterior»): incidencia sin racha abierta ⇒ abre con su CI*; con racha abierta ⇒ mueve el CIZ a ese día editando la línea existente (si no hay CIZ, lo crea); horas ⇒ la racha queda cerrada. Regla de Sigrid: «no se debe borrar en sigrid, así que solo editará líneas». Hoy (sv4 `_rol_incidencia`, sv5 R1) cada día de incidencia que sigue a otro sale «fin» y escribe un CIZ nuevo; además no distingue la letra, no tiene ventana y no excluye la papelera. Diseño: sv4 decide el rol con la ventana (día 1 del mes anterior a D−1, todas las obras) y manda los ids de la racha; sv5 localiza el CIZ por synckey y lo mueve con un UPDATE (fecha, synckey y, si cambia de parte, parte, obra, centro, cuenta, año y mes), con guarda de parte abierto, sin DELETE ni INSERT. Interruptor MOVER_CIZ en sv5, apagado por defecto. Sin tabla ni columna nueva. Spec: specs/F-060-racha-incidencia-ciz-movil/.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 

@@ -35,6 +35,11 @@ F-053: en Sigrid no se borra. Pisar un conflicto confirmado pone la linea a
 de este cliente elimina filas; `lineas_existentes` dice si cada linea esta
 enlazada (`_expr_enlazada`, la misma expresion que el reajuste).
 
+F-060: el CIZ de una racha de incidencia se MUEVE al dia nuevo con
+`stmt_mover_linea` (un `UPDATE` de fecha, synckey y parte de la misma
+linea, con guarda en el parte de origen y en el de destino); lo localiza
+`lineas_de_racha` por las synckeys de la racha que manda sv4.
+
 F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
 no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
 y el ``INSERT INTO hmo`` localiza su cabecera por codigo, tipo y empresa.
@@ -448,6 +453,43 @@ class SigridWriteClient:
                 out[sk] = ls
         return out
 
+    def lineas_de_racha(
+        self, claves: Iterable[str | None]
+    ) -> dict[str, LineaSigrid]:
+        """F-060 (R13): nuestras lineas por synckey con lo que el CIZ movil
+        necesita: codigo de hora, `can`, `tex` (marca de pruebas, R19),
+        `pos`, su parte y si esta enlazada (`_expr_enlazada`, la misma
+        expresion que el reajuste y los choques). En lotes de
+        `LOTE_COMPROBACION`; un `truncated` es una excepcion."""
+        ks = sorted({k for k in claves if k})
+        out: dict[str, LineaSigrid] = {}
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT hmores.ide AS ide, hmores.hmoide AS hmoide, "
+                "hmores.reside AS reside, hmores.fec AS fec, "
+                "hmores.horide AS horide, auxhor.cod AS hora, "
+                "hmores.can AS can, hmores.tot AS tot, "
+                "hmores.synckey AS synckey, hmores.tex AS tex, "
+                "hmores.pos AS pos, "
+                f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+                "AS enlazada "
+                "FROM hmores LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
+                f"WHERE hmores.synckey IN ({marcas})", trozo)
+            for f in filas:
+                sk = (f["synckey"] or "").strip()
+                out[sk] = LineaSigrid(
+                    ide=int(f["ide"]), reside=int(f["reside"] or 0),
+                    fecha_int=int(f["fec"] or 0),
+                    horide=int(f["horide"] or 0) or None,
+                    hora_codigo=f["hora"], can=f["can"], tot=f["tot"],
+                    synckey=sk, nuestra=True,
+                    hmoide=int(f["hmoide"] or 0) or None,
+                    enlazada=bool(f["enlazada"]), tex=f["tex"],
+                    pos=None if f["pos"] is None else int(f["pos"]))
+        return out
+
     # ------------------ comprobacion (F-024, solo lectura) ------------------ #
 
     def lineas_por_ide(self, ides: Iterable[int | None]) -> dict[int, LineaSigrid]:
@@ -608,6 +650,42 @@ class SigridWriteClient:
             + self._guarda_parte_abierto("hmores.hmoide")),
             "parameters": [int(ide), int(reside), int(fecha_int),
                            int(horide or 0), float(antes or 0), self._est]}
+
+    def stmt_mover_linea(
+        self, *, linea: LineaSigrid, destino: ObraEntrada, hmoide: int,
+        pos: int, fecha_int: int, synckey: str, paride: int | None,
+        caaide: int, ano: int, mes: int,
+    ) -> dict:
+        """F-060 (R20, R21, DA3): el CIZ de la racha pasa al dia D con UN
+        `UPDATE` de esa misma linea (en Sigrid no se borra): fecha,
+        synckey del registro de D y, del parte elegido para D (F-031), su
+        `hmoide`, la obra y el centro de `destino` (como
+        `stmt_insert_linea`), la partida y la cuenta de la accion de D, el
+        periodo y la `pos`. `can`, `tot`, `pre`, `horide`, `reside`, `tex`
+        y los enlaces no cambian.
+
+        `WHERE` optimista con lo leido (`ide`, recurso, fecha, codigo y
+        synckey), sin horas y sin enlaces, y la guarda de parte abierto de
+        F-034 dos veces: SQL Server evalua el `WHERE` sobre la fila ANTES
+        del `UPDATE`, asi que la primera mira el parte de ORIGEN
+        (`hmores.hmoide`) y la segunda el de DESTINO (parametro). Si algo
+        cambio, 0 filas: lo descubre la relectura por synckey (R23)."""
+        cenide = int(getattr(destino, "cenide", 0) or 0)
+        return {"sql": (
+            "UPDATE hmores SET fec = ?, synckey = ?, hmoide = ?, obride = ?, "
+            "cenide = ?, paride = ?, caaide = ?, ano = ?, mes = ?, pos = ? "
+            "WHERE ide = ? AND reside = ? AND fec = ? "
+            "AND ISNULL(horide, 0) = ? AND synckey = ? "
+            "AND ISNULL(can, 0) = 0 "
+            f"AND NOT ({self._expr_enlazada()}) "
+            f"AND {self._guarda_parte_abierto('hmores.hmoide')} "
+            f"AND {self._guarda_parte_abierto('?')}"),
+            "parameters": [int(fecha_int), synckey, int(hmoide),
+                           int(destino.ide), cenide, int(paride or 0),
+                           int(caaide), int(ano), int(mes), int(pos),
+                           int(linea.ide), int(linea.reside),
+                           int(linea.fecha_int), int(linea.horide or 0),
+                           linea.synckey, self._est, int(hmoide), self._est]}
 
     # ------------------ reajuste (F-046): lecturas ------------------ #
 

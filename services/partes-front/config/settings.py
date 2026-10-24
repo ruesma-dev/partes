@@ -80,6 +80,16 @@ class Settings(BaseSettings):
     # peticion por obra, una tras otra; el tope acota la espera del modal.
     aprobacion_max_obras: int = Field(
         10, alias="APROBACION_MAX_OBRAS", ge=1, le=50)
+    # F-060 (DA12, R26 bis): racha de incidencia con CIZ movil. Encendido,
+    # el rol de cada incidencia sale del historico de su persona (ventana
+    # del mes anterior, letra, papelera) y cada `fin` lleva
+    # `racha_registro_ids` para que sv5 MUEVA el CIZ de la racha (UPDATE,
+    # nunca DELETE). APAGADO por defecto: el rol de dev 0926857 tal cual,
+    # sin `racha_registro_ids` ni `avisos_racha`. Mismo nombre que en sv5:
+    # se enciende en sv5 y LUEGO aqui; se apaga aqui y LUEGO en sv5.
+    # Apagar los DOS es la vuelta atras completa (lo ya movido en Sigrid
+    # no se deshace). Este encendido con sv5 apagado da un CIZ por dia.
+    mover_ciz: bool = Field(False, alias="MOVER_CIZ")
 
     # ------------------------------------------------------------ #
     # Colas de aprobacion asincrona (F-002). TODAS opcionales: sin

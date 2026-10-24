@@ -47,6 +47,18 @@ class Settings(BaseSettings):
     mensuales_a_dedicacion: bool = Field(False,
                                          alias="MENSUALES_A_DEDICACION")
 
+    # --- F-060 (DA11, DA12): el CIZ de una racha se mueve, no se duplica --- #
+    # false (por defecto) -> cada `fin` escribe un CIZ nuevo, como siempre.
+    # true -> si la racha ya tiene su CIZ en Sigrid (synckey de una de sus
+    #         lineas), se mueve al dia nuevo con un UPDATE. Se enciende
+    #         tras las verificaciones M1-M3.
+    # La MISMA variable gobierna sv4 (rol de la racha y `racha_registro_ids`):
+    # se enciende aqui y LUEGO en sv4; se apaga en sv4 y LUEGO aqui. La
+    # vuelta atras completa es apagarla en los DOS (lo ya movido en Sigrid
+    # no se deshace): apagada solo aqui, sv4 sigue con la regla nueva y la
+    # aprobacion dia a dia escribe un CIZ por dia de la racha.
+    mover_ciz: bool = Field(False, alias="MOVER_CIZ")
+
     # --- Constantes del modelo Sigrid (confirmadas con datos reales) --- #
     tip_parte_trabajo: int = Field(35, alias="TIP_PARTE_TRABAJO")
     est_parte_activo: int = Field(1, alias="EST_PARTE_ACTIVO")

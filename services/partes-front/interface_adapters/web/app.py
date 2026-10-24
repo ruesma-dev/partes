@@ -2370,7 +2370,8 @@ def build_app(
         datos = repository.lineas_para_registro(
             ids, incluir_borradas=bool(body.get("incluir_borradas")),
             incidencias=tabla_incidencias,
-            repartos_decididos=repartos_decididos)   # F-046 (R32)
+            repartos_decididos=repartos_decididos,   # F-046 (R32)
+            mover_ciz=settings.mover_ciz)            # F-060 (R26 bis)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
@@ -2762,7 +2763,8 @@ def build_app(
         evaluado = dict(pf, clave=grupo.clave, obra=grupo.obra,
                         registro_ids=grupo.registro_ids,
                         avisos_calendario=_avisos_calendario(grupo.lineas),
-                        avisos_incidencia=grupo.avisos_incidencia)  # F-025
+                        avisos_incidencia=grupo.avisos_incidencia,  # F-025
+                        avisos_racha=grupo.avisos_racha)  # F-060 (R10)
         # F-003 R23: el preflight se sirve igual (el humano tiene que poder
         # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
         if not _calendario_fiable(grupo.lineas):
