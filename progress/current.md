@@ -1,6 +1,49 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-038 · DONE 2026-10-24 (review APPROVED pasada 2; pendiente: despliegue sv2–sv5 y M2, M1 no bloquea): límite de filas de Sigrid a 500.000 y `truncated` siempre error
+
+**Aprobación del humano (2026-10-24, literal)**: «sigrid lee 500k, hay que cambiar donde este ese
+limite de 100 ya mismo. se supone que estaba arreglado» y «si» a la propuesta del líder ⇒ DA1 = B
+(500.000), DA2–DA7 = A. En paralelo con F-060 (excepción expresa a «una feature en curso»).
+
+- **Hecho (implementer, 2026-10-24)**: T1–T8, un commit por tarea, fase RED con trazas. sv2–sv5
+  piden `SIGRID_API_MAX_ROWS` (opcional, 500.000, 1–500.000) en toda lectura no paginada; sv5 ya no
+  pide 1.000 fijo (lo urgente: `lineas_existentes`, `horas_de_recursos`, `recursos_por_dni`).
+  `truncated` es error también en sv2 (el catálogo cae a caché/vacío) y en
+  `prueba_escritura_sigrid.py`. `SIGRID_API_TIMEOUT_S` en (0, 200] en los cuatro. Guardián de raíz
+  `tests/test_f038_lectores_sigrid.py`. Borrado `consulta_reshor_recursos.py` (DA6; el historial
+  NO se purga). Informe: `progress/impl_F-038.md`. azure-apps: commit local c581115 (sin push).
+- **Decisión anotada**: el umbral de R13 (guardián) es 500.000, no el 200.000 escrito en la spec:
+  con DA1 = B un literal menor sería un límite por debajo del acordado.
+- **T9 hecha**: campaña del líder (26 generados, 20 evaluados, 3 supervivientes, que mueren con el
+  test del límite inferior del timeout añadido); detalle en `progress/mutacion_F-038.md`.
+- **Review pasada 1**: CHANGES_REQUESTED solo por papeleo (este bloque, T9/T12, workers).
+- **Pendiente**: review pasada 2, merge a `dev`, despliegue sv2–sv5 (humano), M2 (humano).
+- [x] **M0 hecha por el líder (2026-10-24, solo lectura)**: `SIGRID_API_TIMEOUT_S` = 30 en sv4 y 60 en sv5; sv2 y sv3 sin la variable (defecto 30); `SIGRID_API_MAX_ROWS` en ninguna. Todo dentro de (0, 200]: el despliegue no se cae por DA4.
+- [ ] **M2 · T11 (humano, tras desplegar sv2–sv5 con `.\infra\redeploy_partes.ps1`; solo lectura)**:
+
+  ```
+  az containerapp logs show -n ca-sv5-transfer -g rg-partes-dev --tail 80
+  az containerapp logs show -n ca-sv4-front -g rg-partes-dev --tail 80
+  ```
+  Esperado: en la línea `Instanciado` del cliente de Sigrid, `max_rows=500000` en las dos, con
+  `timeout_s=60` en sv5 y `timeout_s=30` en sv4.
+- [ ] **M1 · T10 (humano o líder, cuando se quiera; NO BLOQUEA; solo lectura)**: tamaños reales, sin
+  nombres. Desde `services/partes-persistencia` (con su `.env`):
+
+  ```
+  ../../.venv/Scripts/python.exe -c "from config.settings import Settings as S; from infrastructure.sigrid.sigrid_api_client import SigridApiClient as C; s=S(); c=C(base_url=s.sigrid_api_base_url, function_key=s.sigrid_api_function_key, database=s.sigrid_api_database, timeout_s=120); print(c._post_sql_read(sql='<SQL>', parameters=[], label='m1', max_rows=10))"
+  ```
+  con cada `<SQL>`:
+  (a) `SELECT TOP 5 obride, COUNT(*) AS n FROM obrparpar GROUP BY obride ORDER BY COUNT(*) DESC`
+  (partidas de las obras más grandes);
+  (b) `SELECT TOP 5 hmoide, COUNT(*) AS n FROM hmores GROUP BY hmoide ORDER BY COUNT(*) DESC`
+  (líneas del parte más grande: cota de `lineas_existentes`);
+  (c) `SELECT MAX(n) AS m FROM (SELECT reside, COUNT(*) AS n FROM reshor GROUP BY reside) q`
+  (horas por recurso: cota de `horas_de_recursos`).
+  Salen `ide` y cuentas, nunca nombres. Anotar en `progress/impl_F-038.md`.
+
 ## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 
 **Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me

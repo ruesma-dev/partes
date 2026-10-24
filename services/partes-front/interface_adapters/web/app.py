@@ -484,6 +484,7 @@ def build_app(
             function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
             database=settings.sigrid_api_database,          # type: ignore[arg-type]
             timeout_s=settings.sigrid_api_timeout_s,
+            max_rows=settings.sigrid_api_max_rows,
         )
         logger.info(
             "[sigrid-lookup][wiring] CABLEADO base_url=%s database=%s",

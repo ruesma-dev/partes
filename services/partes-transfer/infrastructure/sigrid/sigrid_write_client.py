@@ -66,6 +66,10 @@ LOTE_RECURSOS = 500
 #: `ide` por lectura en la comprobacion de lineas (F-024, R7).
 LOTE_COMPROBACION = 200
 
+#: F-038 (R2, DA1 = B): `max_rows` de toda lectura si no se pasa otro; el
+#: tope de la instancia de sigrid-api. Igual que `SIGRID_API_MAX_ROWS`.
+MAX_ROWS_DEFECTO = 500_000
+
 #: F-046 (R21, DA17): enlaces de `hmores` con albaran, factura, dedicacion
 #: y nomina. Una linea con alguno distinto de 0 no se reajusta.
 ENLACES_HMORES: tuple[str, ...] = (
@@ -91,6 +95,7 @@ class SigridWriteClient:
         max_statements: int = 15,
         tip_parte: int = 35,
         est_parte: int = 1,
+        max_rows: int = MAX_ROWS_DEFECTO,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._headers = {"x-functions-key": function_key,
@@ -100,6 +105,10 @@ class SigridWriteClient:
         self._max_st = int(max_statements)
         self._tip = int(tip_parte)
         self._est = int(est_parte)
+        self._max_rows = int(max_rows)
+        # F-038 (R6): limites efectivos, sin la clave.
+        logger.info("[sigrid-write] Instanciado. database=%s timeout_s=%s "
+                    "max_rows=%s", self._db, self._timeout, self._max_rows)
 
     # ----------------------------- HTTP ----------------------------- #
 
@@ -109,7 +118,7 @@ class SigridWriteClient:
                            "database": self._db, "sql": sql,
                            "parameters": params,
                            "timeout_seconds": int(self._timeout),
-                           "max_rows": 1000})
+                           "max_rows": self._max_rows})
         if r.status_code >= 400:
             raise RuntimeError(f"sigrid-api read HTTP {r.status_code}: "
                                f"{r.text[:400]}")

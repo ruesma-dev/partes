@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 
 _LOG_PREFIX = "[sigrid-lookup]"
 
+#: F-038 (R2, DA1 = B): `max_rows` de la lectura si no se pasa otro; el tope
+#: de la instancia de sigrid-api. Igual que `SIGRID_API_MAX_ROWS`.
+MAX_ROWS_DEFECTO = 500_000
+
 _SQL_TIPOS_HORA = """\
 SELECT
     auxhor.ide    AS ide,
@@ -52,7 +56,7 @@ class SigridLookupClient:
         function_key: str,
         database: str,
         timeout_s: float = 30.0,
-        max_rows: int = 10000,
+        max_rows: int = MAX_ROWS_DEFECTO,
     ) -> None:
         if not base_url:
             raise ValueError("SigridLookupClient requiere base_url no vacio")
@@ -66,8 +70,10 @@ class SigridLookupClient:
         self._timeout_s = float(timeout_s)
         self._max_rows = int(max_rows)
         logger.info(
-            "%s Instanciado. base_url=%s database=%s",
-            _LOG_PREFIX, self._base_url, self._database,
+            "%s Instanciado. base_url=%s database=%s timeout_s=%s "
+            "max_rows=%s",
+            _LOG_PREFIX, self._base_url, self._database, self._timeout_s,
+            self._max_rows,
         )
 
     def fetch_tipos_hora(self) -> list[TipoHoraOption]:
@@ -123,6 +129,10 @@ class SigridLookupClient:
             ) from exc
         if not body.get("ok", False):
             raise RuntimeError(f"sigrid-api devolvio ok=false: {body!r}")
+        if body.get("truncated"):
+            # F-038 (R7): nunca se devuelven filas parciales.
+            raise RuntimeError(
+                f"sigrid-api devolvio una respuesta truncada [{label}]")
         columns: list[str] = list(body.get("columns") or [])
         rows: list[list[Any]] = list(body.get("rows") or [])
         return columns, rows

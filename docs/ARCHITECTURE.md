@@ -539,9 +539,19 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
 
 ## Acceso a datos y sistemas externos
 
-- **sigrid-api** (Function App): ÚNICA vía a Sigrid; máx. 1.000 filas por
-  petición y corte del balanceador a 230 s. Lecturas contra `ruesma_rep` o
-  `ruesma`; la ESCRITURA (solo sv5) siempre contra `ruesma`.
+- **sigrid-api** (Function App): ÚNICA vía a Sigrid; la instancia admite
+  hasta **500.000 filas** por petición (`MAX_ALLOWED_ROWS`) y el balanceador
+  corta a los 230 s. Lecturas contra `ruesma_rep` o `ruesma`; la ESCRITURA
+  (solo sv5) siempre contra `ruesma`.
+- **Límite de filas de las lecturas (F-038)**: sv3 y sv4 paginan los
+  listados a 5.000 filas (`PAGINA_FILAS`, pedidas con `max_rows` 5.001);
+  toda otra lectura de sv2, sv3, sv4 y sv5 pide `SIGRID_API_MAX_ROWS`
+  (opcional, **500.000** por defecto, 1–500.000; fuera de rango el servicio
+  no arranca). `truncated: true` es **siempre error**: nunca se decide con
+  filas parciales (en sv2 el catálogo `auxhor` cae a la caché o vacío con
+  WARNING y la extracción sigue). `SIGRID_API_TIMEOUT_S` tiene que estar en
+  (0, 200] (sv5 suma 30 s al plazo HTTP: ≤ 230 s). La lista cerrada de
+  lectores la vigila `tests/test_f038_lectores_sigrid.py`.
 - **PostgreSQL** `psql-albaranes-rs9k2` (servidor COMPARTIDO con otros
   proyectos): solo la base `partes`; nada a nivel de servidor.
 - **Microsoft Graph**: buzón (sv1) y SharePoint (sv3).
@@ -586,8 +596,6 @@ existen y para qué sirven.
   `services/partes-persistencia/logs/` (ignorada por git), sin nombres ni
   DNIs. F-040 añade la columna `sin_dni_sin_ficha` y la categoría por
   línea `propone_sin_dni` (se ejecuta desde la rama antes de desplegar).
-- `services/partes-front/consulta_reshor_recursos.py` — diagnóstico de
-  solo lectura: qué recursos y qué códigos de hora tiene un DNI en Sigrid.
 - `services/partes-front/validar_datos_sesame.py` (F-013) — informe de
   solo lectura contra `sesame-api`: por cada trabajador, sus festivos del
   año, el tipo de jornada y el flag de reducida, más el calendario por
