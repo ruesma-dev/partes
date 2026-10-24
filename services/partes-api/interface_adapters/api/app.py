@@ -113,6 +113,7 @@ def build_app(settings: Settings) -> FastAPI:
             function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
             database=settings.sigrid_api_database,          # type: ignore[arg-type]
             timeout_s=settings.sigrid_api_timeout_s,
+            max_rows=settings.sigrid_api_max_rows,
         )
         catalog_provider = AuxhorCatalogProvider(
             client=sigrid_client,
