@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-038 · IMPLEMENTADA 2026-10-24 (mutación y M0 hechas; pendiente: review pasada 2, merge, despliegue sv2–sv5, M2): límite de filas de Sigrid a 500.000 y `truncated` siempre error
+## F-038 · DONE 2026-10-24 (review APPROVED pasada 2; pendiente: despliegue sv2–sv5 y M2, M1 no bloquea): límite de filas de Sigrid a 500.000 y `truncated` siempre error
 
 **Aprobación del humano (2026-10-24, literal)**: «sigrid lee 500k, hay que cambiar donde este ese
 limite de 100 ya mismo. se supone que estaba arreglado» y «si» a la propuesta del líder ⇒ DA1 = B
