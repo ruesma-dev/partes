@@ -476,6 +476,32 @@ def test_f060_r26_settings_sin_el_ajuste_es_apagado() -> None:
     assert a.mover is None and cli.racha_leidas == []
 
 
+@pytest.mark.parametrize("mover", [False, True])
+def test_f060_r26_extremo_a_extremo_con_sv4_apagado(mover) -> None:
+    """R26 bis (DA12), escenario de la review pasada 1: V los dias 1-4 y
+    8 h el 5 ya ingeridos, aprobando el 2, luego el 3 y luego el 4. sv4
+    apagado manda `intermedio`, `intermedio` y `fin` con las listas
+    vacias (= dev 0926857): con `MOVER_CIZ` de sv5 apagado, UN solo CIZ,
+    el del 4, como en dev 0926857. Con sv5 encendido y sv4 apagado,
+    tampoco se mueve nada (la lista viaja vacia)."""
+    cli = _cli()
+    roles = {2: "intermedio", 3: "intermedio", 4: "fin"}
+    resultados = []
+    for rid in (2, 3, 4):
+        linea = _fin(rid, 20261000 + rid)
+        linea.incidencia_rol = roles[rid]
+        resultados.append(_ejecutar(cli, [linea], mover=mover))
+    assert [[o["registro_id"] for o in r.omitidas]
+            for r in resultados] == [[2], [3], []]
+    assert [[(e["registro_id"], e["hora_codigo"]) for e in r.escritas]
+            for r in resultados] == [[], [], [(4, "CIZ")]]
+    assert all("movida_de" not in e for r in resultados for e in r.escritas)
+    ciz = [f for f in cli.lineas if f["horide"] == CIZ]
+    assert [(f["synckey"], f["fec"]) for f in ciz] == [("partes:4",
+                                                       20261004)]
+    assert cli.racha_leidas == [] and cli.estados_leidos == []
+
+
 # ========================= Pipeline · paso 9 ========================= #
 
 def _espiar(cli) -> list[dict]:
