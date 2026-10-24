@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-038 · IMPLEMENTADA 2026-10-24 (pendiente: mutación del líder, M0, review): límite de filas de Sigrid a 500.000 y `truncated` siempre error
+## F-038 · IMPLEMENTADA 2026-10-24 (mutación y M0 hechas; pendiente: review pasada 2, merge, despliegue sv2–sv5, M2): límite de filas de Sigrid a 500.000 y `truncated` siempre error
 
 **Aprobación del humano (2026-10-24, literal)**: «sigrid lee 500k, hay que cambiar donde este ese
 limite de 100 ya mismo. se supone que estaba arreglado» y «si» a la propuesta del líder ⇒ DA1 = B
@@ -16,21 +16,33 @@ limite de 100 ya mismo. se supone que estaba arreglado» y «si» a la propuesta
   NO se purga). Informe: `progress/impl_F-038.md`. azure-apps: commit local c581115 (sin push).
 - **Decisión anotada**: el umbral de R13 (guardián) es 500.000, no el 200.000 escrito en la spec:
   con DA1 = B un literal menor sería un límite por debajo del acordado.
-- **Pendiente**: T9 (mutación, la lanza el líder), T10/T11 (M0, M1, M2, humano), review.
+- **T9 hecha**: campaña del líder (26 generados, 20 evaluados, 3 supervivientes, que mueren con el
+  test del límite inferior del timeout añadido); detalle en `progress/mutacion_F-038.md`.
+- **Review pasada 1**: CHANGES_REQUESTED solo por papeleo (este bloque, T9/T12, workers).
+- **Pendiente**: review pasada 2, merge a `dev`, despliegue sv2–sv5 (humano), M2 (humano).
 - [x] **M0 hecha por el líder (2026-10-24, solo lectura)**: `SIGRID_API_TIMEOUT_S` = 30 en sv4 y 60 en sv5; sv2 y sv3 sin la variable (defecto 30); `SIGRID_API_MAX_ROWS` en ninguna. Todo dentro de (0, 200]: el despliegue no se cae por DA4.
-- [ ] **M0 · T10 (líder o humano, ANTES de desplegar; solo lectura en Azure)**. Por cada app:
+- [ ] **M2 · T11 (humano, tras desplegar sv2–sv5 con `.\infra\redeploy_partes.ps1`; solo lectura)**:
 
   ```
-  az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_TIMEOUT_S' || name=='SIGRID_API_MAX_ROWS'].{n:name,v:value}" -o table
-  az containerapp show -n ca-sv3-persistencia -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_TIMEOUT_S' || name=='SIGRID_API_MAX_ROWS'].{n:name,v:value}" -o table
-  az containerapp show -n ca-sv4-front -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_TIMEOUT_S' || name=='SIGRID_API_MAX_ROWS'].{n:name,v:value}" -o table
-  az containerapp show -n ca-sv5-transfer -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_TIMEOUT_S' || name=='SIGRID_API_MAX_ROWS'].{n:name,v:value}" -o table
+  az containerapp logs show -n ca-sv5-transfer -g rg-partes-dev --tail 80
+  az containerapp logs show -n ca-sv4-front -g rg-partes-dev --tail 80
   ```
-  Esperado (por `infra/`): sv4 `SIGRID_API_TIMEOUT_S=30`, sv5 `60`, el resto sin definir; ningún
-  timeout ≤ 0 o > 200 y ningún `SIGRID_API_MAX_ROWS` fuera de 1–500.000 (si lo hubiera, ese
-  servicio NO arrancaría con F-038). Anotar el resultado en `progress/impl_F-038.md`.
-- [ ] **M1** (cuando se quiera, no bloquea) y **M2** (tras desplegar sv2–sv5: el log de arranque de
-  sv4 y sv5 muestra `max_rows=500000`): comandos exactos en `specs/F-038-limite-filas-sigrid/design.md` §9.
+  Esperado: en la línea `Instanciado` del cliente de Sigrid, `max_rows=500000` en las dos, con
+  `timeout_s=60` en sv5 y `timeout_s=30` en sv4.
+- [ ] **M1 · T10 (humano o líder, cuando se quiera; NO BLOQUEA; solo lectura)**: tamaños reales, sin
+  nombres. Desde `services/partes-persistencia` (con su `.env`):
+
+  ```
+  ../../.venv/Scripts/python.exe -c "from config.settings import Settings as S; from infrastructure.sigrid.sigrid_api_client import SigridApiClient as C; s=S(); c=C(base_url=s.sigrid_api_base_url, function_key=s.sigrid_api_function_key, database=s.sigrid_api_database, timeout_s=120); print(c._post_sql_read(sql='<SQL>', parameters=[], label='m1', max_rows=10))"
+  ```
+  con cada `<SQL>`:
+  (a) `SELECT TOP 5 obride, COUNT(*) AS n FROM obrparpar GROUP BY obride ORDER BY COUNT(*) DESC`
+  (partidas de las obras más grandes);
+  (b) `SELECT TOP 5 hmoide, COUNT(*) AS n FROM hmores GROUP BY hmoide ORDER BY COUNT(*) DESC`
+  (líneas del parte más grande: cota de `lineas_existentes`);
+  (c) `SELECT MAX(n) AS m FROM (SELECT reside, COUNT(*) AS n FROM reshor GROUP BY reside) q`
+  (horas por recurso: cota de `horas_de_recursos`).
+  Salen `ide` y cuentas, nunca nombres. Anotar en `progress/impl_F-038.md`.
 
 ## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
 

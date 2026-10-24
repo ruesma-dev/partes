@@ -207,7 +207,7 @@ segundo resuelve la fila sv5 de `partes.md` uniendo las dos frases.
   Salen `ide` y cuentas, nunca nombres. Anotar en `progress/impl_F-038.md`.
 - **M2 (humano, tras desplegar)**: el log de arranque de sv4 y sv5 (`az
   containerapp logs show -n ca-sv5-transfer -g rg-partes-dev --tail 80`) muestra
-  `max_rows=200000`.
+  `max_rows=500000` (DA1 = B).
 
 ## 10. Tests (sin red ni BBDD; `httpx` sustituido como en los tests F-023/F-024)
 

@@ -176,7 +176,7 @@ Números medidos con `bash harness/init.sh` (ejecución completa sobre db01cc6, 
 | sv1 | sin cambios (caché de verde del arnés) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 19 líneas cambiadas cubiertas (19/19, umbral 80%, nivel estandar)` |
 | Tamaño | `PUERTA TAMAÑO: ... impl 166/220` |
-| Mutantes | campaña del líder (estándar, 20 de 26, semilla 20260820): **26 generados, 20 evaluados, 17 muertos, 3 supervivientes** (`gt=0`→`gt=1` del timeout en sv3/sv4/sv5); los 3 mueren con el test añadido, verificado a mano (`progress/mutacion_F-038.md`) |
+| Mutantes | campaña del líder (estándar, 20 de 26, semilla 20260820, workers: 1): **26 generados, 20 evaluados, 17 muertos, 3 supervivientes** (`gt=0`→`gt=1` del timeout en sv3/sv4/sv5); los 3 mueren con el test añadido, verificado a mano (`progress/mutacion_F-038.md`) |
 
 Tras ese `init.sh`, `ruff` contaba 9 avisos nuevos en los tests de F-038 (orden de imports,
 `noqa` sobrantes y un `ClassVar`); corregidos en el commit de cierre (solo tests, sin
