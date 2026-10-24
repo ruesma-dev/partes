@@ -7,7 +7,7 @@
 > rebasar esta rama (`design.md` §8). Cada tarea = un commit `F-038 Tn: ...`.
 
 - [x] T1: Escribir `tests/test_f038_lectores_sigrid.py` (R11–R13 y su prueba de verdad, `design.md` §6) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f038_lectores_sigrid.py` falla por sv2 sin `truncated`, `prueba_escritura_sigrid.py` y los literales 1.000/10.000 (traza RED en impl)
-- [ ] T2: Escribir `services/partes-api/tests/test_f038_sigrid_limite.py` (R1–R3, R5–R8, R14) y verlo en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f038_sigrid_limite.py` falla (traza RED)
+- [x] T2: Escribir `services/partes-api/tests/test_f038_sigrid_limite.py` (R1–R3, R5–R8, R14) y verlo en ROJO  |  Verificación: `cd services/partes-api && python -m pytest tests/test_f038_sigrid_limite.py` falla (traza RED)
 - [ ] T3: sv2: `SIGRID_API_MAX_ROWS` y rango de `SIGRID_API_TIMEOUT_S` en `config/settings.py`, `MAX_ROWS_DEFECTO`, log y `truncated` en `sigrid_lookup_client.py`, `max_rows` en `app.py` (`design.md` §3)  |  Verificación: `cd services/partes-api && python -m pytest` en verde
 - [ ] T4: Escribir `services/partes-persistencia/tests/test_f038_sigrid_limite.py` (R2–R6, R9, R14) en ROJO y cambiar settings (200.000, rangos) y el defecto del cliente de sv3  |  Verificación: `cd services/partes-persistencia && python -m pytest` en verde (traza RED en impl)
 - [ ] T5: Escribir `services/partes-front/tests/test_f038_sigrid_limite.py` (R1–R6, R9, R14) en ROJO; cambiar settings, cliente y cableado de sv4 y enmendar `tests/test_f023_catalogo_empresa.py` l.169 (10000 → 200000)  |  Verificación: `cd services/partes-front && python -m pytest` en verde (traza RED en impl)
