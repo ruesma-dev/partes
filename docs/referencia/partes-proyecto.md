@@ -213,16 +213,20 @@ registro**:
      omite con motivo (los mensuales con MENC no registran por horas).
    - **Incidencias**: van SIN horas (can=0). Solo se registran el
      **inicio** de la racha (con su código CI*) y el **fin** (código
-     CIZ); los días intermedios se omiten. El rol lo calcula sv4 con el
-     histórico de la persona (F-060): del día 1 del mes anterior hasta el
-     día anterior, saltando días vacíos, cruzando partes/obras, por la
-     letra de la incidencia y sin la papelera. Último día con la misma
-     letra ⇒ fin (con `racha_registro_ids`); si no ⇒ inicio. Con
-     `MOVER_CIZ` encendido en sv5, un fin cuya racha ya tiene su CIZ en
-     Sigrid **lo mueve** (un `UPDATE` de fecha, synckey y parte de la
-     misma línea, nunca un borrado) en vez de escribir otro, y la línea
-     que lo tenía queda `omitido` (`fin_movido`). Sigrid pinta el tramo
-     completo en su vista calendario a partir del par inicio/fin.
+     CIZ); los días intermedios se omiten. El rol lo calcula sv4. Con
+     `MOVER_CIZ` encendido en sv4 y en sv5 (F-060), con el histórico de
+     la persona: del día 1 del mes anterior hasta el día anterior,
+     saltando días vacíos, cruzando partes/obras, por la letra de la
+     incidencia y sin la papelera. Último día con la misma letra ⇒ fin
+     (con `racha_registro_ids`); si no ⇒ inicio. Un fin cuya racha ya
+     tiene su CIZ en Sigrid **lo mueve** (un `UPDATE` de fecha, synckey y
+     parte de la misma línea, nunca un borrado) en vez de escribir otro,
+     y la línea que lo tenía queda `omitido` (`fin_movido`). Con
+     `MOVER_CIZ` apagado en los dos, como antes de F-060: sv4 mira el
+     histórico hacia atrás y hacia delante (`intermedio` si el siguiente
+     día ya ingerido es incidencia) y cada fin escribe su CIZ. Sigrid
+     pinta el tramo completo en su vista calendario a partir del par
+     inicio/fin.
    - 3b. **Cuenta analítica** (F-021): de la ficha del recurso sale la
      **subcuenta** (lo que va tras el primer punto de la cuenta de
      `reshor.caaide` para el tipo de hora escrito; si ese tipo no tiene,
@@ -532,7 +536,9 @@ Sigrid, un CIV y un CIZ. Igual para bajas y el resto de letras.
   racha anterior al sistema o puesta a mano, abre un CI\* nuevo).
 - **Letra**: V seguida de B cierra la V y abre la B con su CI\*.
 - **Papelera**: no cuenta para decidir; sí se buscan por synckey los CIZ
-  de líneas suyas que llegaron a registrarse.
+  de líneas suyas de la misma letra que llegaron a registrarse, de
+  cualquier día del tramo de la racha hasta el día aprobado, también de
+  los días que se saltan por tener todo en la papelera.
 - **Mover sin borrar**: sv5 busca el CIZ por las synckeys de las líneas
   de la racha y hace UN `UPDATE` de esa línea: fecha, synckey y, si el
   día nuevo cae en otro mes u obra, el parte (con guarda de parte
@@ -543,10 +549,14 @@ Sigrid, un CIV y un CIZ. Igual para bajas y el resto de letras.
   se duplica: se corrige a mano. Un trabajo o un inicio aprobado antes de
   una incidencia ya registrada no mueve nada hacia atrás: el modal avisa
   (`racha_desordenada`).
-- **Interruptor**: `MOVER_CIZ` en sv5, apagado por defecto (cada fin
-  escribe su CIZ, como antes). Encenderlo está pendiente del visto bueno
-  de Administración (mover una línea de parte es nuevo en Sigrid, y el
-  CI\* suelto de un solo día sigue sin CIZ).
+- **Interruptor**: `MOVER_CIZ`, la misma variable en sv4 (el rol y la
+  lista de la racha) y en sv5 (mover el CIZ), apagada por defecto en los
+  dos. Se enciende en sv5 y luego en sv4; se apaga en sv4 y luego en sv5.
+  **La vuelta atrás completa es apagarla en los dos** (lo ya movido no se
+  deshace): apagada solo en sv5, sv4 sigue con la regla nueva y la
+  aprobación día a día escribe un CIZ por día. Encenderlo está pendiente
+  del visto bueno de Administración (mover una línea de parte es nuevo
+  en Sigrid, y el CI\* suelto de un solo día sigue sin CIZ).
 
 ### 4.5 Partidas de imputación (a qué se atribuye el coste)
 
@@ -994,8 +1004,8 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 | sv1 | Graph (tenant/client/secret ref), buzón, QUEUE_URL |
 | sv2 | GEMINI (secreto), colas, prompts/schema |
 | sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
-| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro, §4.4; fuera del manifiesto, se cambia con `az containerapp update`), API_PORT=8005 |
+| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`) |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), API_PORT=8005 |
 
 ---
 
@@ -1011,8 +1021,8 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
   separa automáticamente como extra en la conciliación.
 - **Incidencias sin horas** (can=0) y **solo inicio/fin de racha** (CI* /
   CIZ); intermedios ni se registran — Sigrid pinta el tramo. Desde F-060,
-  con `MOVER_CIZ`, el CIZ de una racha se mueve (UPDATE) en vez de
-  duplicarse (§4.4).
+  con `MOVER_CIZ` encendido en sv4 y sv5, el CIZ de una racha se mueve
+  (UPDATE) en vez de duplicarse (§4.4).
 - **Parte mensual por obra**: código `PT<AA>/NNNNN`; las líneas llevan
   synckey para idempotencia y detección de pisados.
 - **Papelera** en todo (documentos y líneas): borrado lógico recuperable.

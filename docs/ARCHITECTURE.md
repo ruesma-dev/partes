@@ -214,21 +214,27 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
    solo 2 líneas físicas es correcto. La racha cruza partes y obras.
-   **Desde F-060** el rol lo decide sv4 con el histórico de la persona
-   (`persona_de`) en una **ventana** del día 1 del mes anterior hasta el
-   día anterior, de todas las obras, **por la letra** (V seguida de B
-   abre una racha nueva) y **sin la papelera**: último día con líneas
-   de la misma letra ⇒ `fin`, si no ⇒ `inicio`; con `fin` manda
-   `racha_registro_ids` (las líneas de la racha). Varios `fin` de una
-   racha en una aprobación: solo el último. Con el interruptor
-   **`MOVER_CIZ`** de sv5 (apagado por defecto), si la racha ya tiene su
-   CIZ en Sigrid (synckey de una de esas líneas), sv5 lo **mueve** al día
-   nuevo con un `UPDATE` de esa misma línea (fecha, synckey y, si cambia
-   de mes u obra, parte), nunca `DELETE` ni otro CIZ; la línea que lo
-   tenía queda `omitido` con motivo `fin_movido`. Un CIZ ya posterior ⇒
-   `intermedio`; en un parte cerrado ⇒ `ciz_en_parte_cerrado`; enlazado ⇒
-   `linea_enlazada`. Un trabajo o un inicio aprobado antes de una
-   incidencia ya registrada solo avisa (`racha_desordenada`).
+   **Desde F-060**, con el interruptor **`MOVER_CIZ`** encendido (la misma
+   variable en sv4 y en sv5, apagada por defecto), el rol lo decide sv4 con
+   el histórico de la persona (`persona_de`) en una **ventana** del día 1
+   del mes anterior hasta el día anterior, de todas las obras, **por la
+   letra** (V seguida de B abre una racha nueva) y **sin la papelera**:
+   último día con líneas de la misma letra ⇒ `fin`, si no ⇒ `inicio`; con
+   `fin` manda `racha_registro_ids` (las líneas de la racha y las de la
+   papelera `registrado`/`encolado` del tramo, también de los días
+   saltados). Varios `fin` de una racha en una aprobación: solo el último.
+   Si la racha ya tiene su CIZ en Sigrid (synckey de una de esas líneas),
+   sv5 lo **mueve** al día nuevo con un `UPDATE` de esa misma línea (fecha,
+   synckey y, si cambia de mes u obra, parte), nunca `DELETE` ni otro CIZ;
+   la línea que lo tenía queda `omitido` con motivo `fin_movido`. Un CIZ ya
+   posterior ⇒ `intermedio`; en un parte cerrado ⇒ `ciz_en_parte_cerrado`;
+   enlazado ⇒ `linea_enlazada`. Un trabajo o un inicio aprobado antes de
+   una incidencia ya registrada solo avisa (`racha_desordenada`). Apagado
+   en sv4, el rol es el de antes de F-060 (`intermedio` si el siguiente día
+   ya ingerido es incidencia; sin listas ni avisos); apagado en sv5, cada
+   `fin` escribe su CIZ. Se enciende sv5 y luego sv4; se apaga sv4 y luego
+   sv5: **apagar los dos es la vuelta atrás completa** (lo ya movido no se
+   deshace).
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
