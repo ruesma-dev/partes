@@ -3,15 +3,17 @@
 
 ## 1. Contexto y límite de servicio
 
-Hoy (dev 0926857): sv4 `_rol_incidencia` (`parte_repository.py` l.2218) busca por
-`empleado_dni` o `empleado_ide`, 50 filas atrás y delante, sin `is_active` del documento ni
-letra; sv5 `_decidir_incidencia` (R1): `intermedio` ⇒ omitir, `fin` ⇒ CIZ nuevo, resto ⇒ CI*.
+Hoy (dev 0926857): sv4 `_rol_incidencia` (l.2218) busca por `empleado_dni` o `empleado_ide`, 50
+filas atrás y delante, sin `is_active` del documento ni letra; sv5 (R1): `intermedio` ⇒ omitir,
+`fin` ⇒ CIZ nuevo, resto ⇒ CI*.
 
 Límite de servicio (sin duplicar lógica): **sv4** sabe qué días trabajó o faltó la persona
-(base `partes`, todas las obras, también mensuales cuyas horas no llegan a Sigrid) y decide
-el rol y qué líneas forman la racha; no lee Sigrid. **sv5** sabe qué hay en Sigrid: busca el
-CIZ de esas líneas por synckey y lo mueve; no lee `partes`. Cada lado tiene su mitad: nada
-entra en la lista cerrada de duplicaciones. sv1, sv2 y sv3 no se tocan.
+(`partes`, todas las obras, también mensuales) y decide el rol y las líneas de la racha; no lee
+Sigrid. **sv5** sabe qué hay en Sigrid: busca el CIZ de esas líneas por synckey y lo mueve; no
+lee `partes`. Nada entra en la lista cerrada de duplicaciones. sv1, sv2 y sv3 no se tocan.
+
+**Enmienda (DA12, DA13; humano 2026-10-24, «c y si a 2»)**: `MOVER_CIZ` existe también en sv4
+y gobierna su regla (§3.1): apagado, sv4 es dev 0926857; la papelera del tramo viaja (§3).
 
 ## 2. Ficheros
 
@@ -20,31 +22,33 @@ entra en la lista cerrada de duplicaciones. sv1, sv2 y sv3 no se tocan.
 - `services/partes-transfer/application/services/racha_ciz.py` (application, puro).
 - Tests: `services/partes-front/tests/test_f060_racha_incidencia.py` (puro),
   `test_f060_aprobacion_racha.py` (repositorio con `FabricaSesionSqlite`, modal con node),
+  `test_f060_interruptor_sv4.py` (R26 bis: caracterización contra dev 0926857, §3.1),
   `services/partes-transfer/tests/test_f060_racha_ciz.py` (puro),
   `test_f060_cliente_mover.py` (texto y parámetros SQL), `test_f060_pipeline_mover.py`.
 
 **Modificar**
-- sv4 `infrastructure/database/parte_repository.py`: `_rol_incidencia` sustituido por
-  `_roles_de_racha(session, regs, incidencias)` (una consulta por persona, §3);
-  `lineas_para_registro` añade `racha_registro_ids` a cada línea y `avisos_racha` a cada
-  grupo; `marcar_registros_sigrid` aplica `movida_de` (§6).
+- sv4 `infrastructure/database/parte_repository.py`: `_roles_de_racha(session, regs,
+  incidencias)` (una consulta por persona, §3) y `_rol_incidencia_anterior` (§3.1);
+  `lineas_para_registro(..., mover_ciz: bool = False)` añade `racha_registro_ids` a cada
+  línea y `avisos_racha` a cada grupo; `marcar_registros_sigrid` aplica `movida_de` (§6).
+- sv4 `config/settings.py`: `mover_ciz: bool = Field(False, alias="MOVER_CIZ")` y comentario;
+  `interface_adapters/web/app.py` pasa `mover_ciz=settings.mover_ciz`. Los tests de F-060 de la
+  regla nueva la piden (`mover_ciz=True` o el portal con `MOVER_CIZ=true`).
 - sv4 `application/services/reparto_obras.py`: `escritas` ya se concatena tal cual (test,
   R30); `avisos_racha` por grupo como `avisos_incidencia`. `static/app.js`:
   `avisosRachaHtml` junto a `avisosIncidenciaHtml` (R11).
-- sv4 `tests/test_f025_aprobacion.py`: `CLAVES_LINEA` gana `racha_registro_ids` (enmienda
-  citada en el informe).
+- sv4 `tests/test_f025_aprobacion.py`: `CLAVES_LINEA` gana `racha_registro_ids`.
 - sv5 `domain/models/registro_models.py`: `LineaEntrada.racha_registro_ids: list[int]`;
   `AccionLinea.mover: LineaSigrid | None`; `LineaSigrid` gana `tex` y `pos` opcionales.
 - sv5 `interface_adapters/api/app.py`: `LineaIn.racha_registro_ids: list[int] = []`;
-  `config/settings.py`: `mover_ciz: bool = Field(False, alias="MOVER_CIZ")`.
-- sv5 `infrastructure/sigrid/sigrid_write_client.py`: `lineas_de_racha` y
-  `stmt_mover_linea` (§5).
+  `config/settings.py`: `mover_ciz` (DA11); el comentario dice que la vuelta atrás es
+  apagarlo en sv4 y en sv5 (R31).
+- sv5 `infrastructure/sigrid/sigrid_write_client.py`: `lineas_de_racha`, `stmt_mover_linea` (§5).
 - sv5 `application/pipelines/registro_pipeline.py`: paso 6 bis en `_evaluar`; paso 9 usa
   `stmt_mover_linea` para las acciones con `mover`; `escritas` con `movida_de` (§5).
 - sv5 `reglas_registro.py`: solo el docstring de R1. `tests/dobles.py` (`SigridFake`):
   `lineas_de_racha` y op `mover` con la semántica del SQL (WHERE optimista y guardas).
-- Docs: `docs/ARCHITECTURE.md` semántica 4, `docs/referencia/partes-proyecto.md` §3.5 y
-  §4.4, `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (commit local, sin push).
+- Docs: los de §10 (`C:\Users\pgris\PycharmProjects\azure-apps\partes.md`, commit local).
 
 **No se tocan**: `orm_models.py` (sin esquema), sv3, `incidencias_horas.py` (se reutilizan
 `normalizar_codigo` y `TablaIncidencias`), `congelacion.py`, `pisado.py`, `parte_abierto.py`,
@@ -53,30 +57,17 @@ el reajuste de F-046, `resultado_json.py`, `prueba_escritura_sigrid.py`, `incide
 
 ## 3. sv4 · `racha_incidencia.py` y su uso
 
-```python
-@dataclass(frozen=True)
-class LineaHist:            # lo que la regla necesita de una línea del portal
-    registro_id: int; fecha_int: int; es_incidencia: bool; clave: str
-    horas: float | None; sigrid_estado: str | None; activa: bool
-
-@dataclass(frozen=True)
-class DecisionRacha:
-    rol: str                         # inicio | fin
-    racha_registro_ids: tuple[int, ...]
-
-def ventana(fecha_int: int) -> tuple[int, int]          # (día 1 del mes anterior, D − 1)
-def hasta_delante(fecha_int: int) -> int                 # último día del mes siguiente
-def decidir(hist: Sequence[LineaHist], fecha_int: int, clave: str) -> DecisionRacha
-def colapsar(lineas: Sequence[tuple[int, str, int, str, str]]) -> dict[int, str]
-    # (registro_id, persona, fecha, clave, rol) -> rol final (R7, R8)
-def aviso_desordenada(hist, fecha_int: int) -> bool       # R10
-```
+Puro (firmas exactas en el fichero; `colapsar` recibe `LineaRol`, desviación de T8):
+`ventana(D)` = (día 1 del mes anterior, D − 1); `hasta_delante(D)` = último día del mes
+siguiente; `decidir(hist: Sequence[LineaHist], D, clave) -> DecisionRacha(rol: inicio|fin,
+racha_registro_ids)`; `colapsar` (R7, R8); `aviso_desordenada(hist, D) -> bool` (R10).
 
 `decidir`: agrupa `hist` (solo `activa`) por día; recorre hacia atrás desde D − 1 dentro de
 la ventana saltando días sin líneas que cuenten; el primero que cuenta decide (R2–R4). Con
 `fin`, sigue hacia atrás mientras los días sean de incidencia de la misma clave y hacia
-delante (D + 1 … `hasta_delante`) igual; `racha_registro_ids` = las incidencias de esa clave
-de esos días, más las inactivas `registrado`/`encolado` de esos días (R9). Clave de una
+delante (D + 1 … `hasta_delante`) igual; `racha_registro_ids` = las incidencias activas de
+esa clave de esos días, más las de la papelera de esa clave `registrado`/`encolado` con fecha
+≠ D en `[min(racha ∪ {D}), max(racha ∪ {D})]`, saltados incluidos (R9, DA13). Clave de una
 línea: `tabla.clase_de(incidencia_codigo, hora_codigo).letra` si hay tabla y la reconoce;
 si no, `normalizar_codigo(incidencia_codigo) or normalizar_codigo(hora_codigo)`.
 
@@ -89,29 +80,35 @@ sobre todas las líneas de la aprobación (antes del reparto por obra de F-022).
 roles no cambia (solo ids). El aviso de R10 usa la misma consulta por persona, que se hace
 para toda persona de la aprobación con alguna línea de trabajo o de incidencia.
 
+### 3.1 Interruptor de sv4 (DA12, R26 bis)
+
+`_rol_incidencia_anterior(session, reg) -> str` (staticmethod) es el `_rol_incidencia` de dev
+0926857 (`parte_repository.py` l.2217–2280) copiado tal cual: solo cambian el nombre y una
+línea del docstring que cita DA12 (T16 lo comprueba con `diff` contra `git show 0926857`).
+Con `mover_ciz` falso, `lineas_para_registro` da a cada incidencia que viaja
+`_rol_incidencia_anterior(session, r)` (consultas por línea, como antes) y no llama a
+`_roles_de_racha`, `colapsar` ni `aviso_desordenada`; `racha_registro_ids` = `[]` en toda línea
+(la clave se queda, `CLAVES_LINEA` de F-025) y `avisos_racha` = `[]` en todo grupo (el modal no
+pinta nada). El INFO de roles no cambia. Con `mover_ciz` verdadero, lo de arriba.
+`marcar_registros_sigrid` aplica `movida_de` siempre (R28): un resultado en vuelo puede llegar
+con sv4 ya apagado. sv5 con la lista vacía decide como hoy (R26), así que con sv4 apagado nada
+se mueve aunque sv5 esté encendido: por eso se enciende sv5 y luego sv4, y se apaga al revés.
+
 ## 4. Contrato sv4 ↔ sv5
 
 - Línea del payload (los dos canales de F-002): `racha_registro_ids: list[int]` nuevo.
   sv5 viejo lo ignora (pydantic ignora extras; el consumidor filtra por `fields`).
 - `escritas[i]` gana `movida_de: int` y `hmores_ide: int` cuando se movió. Sin la clave,
   sv4 se comporta como hoy. `resultado_json.py` no cambia (pasa `escritas` tal cual).
-- Despliegue: **sv5 y luego sv4**, `MOVER_CIZ` apagado; se enciende tras M1–M3 (§9).
+- Despliegue: **sv5 y luego sv4**, los dos con `MOVER_CIZ` apagado (= dev 0926857); se
+  enciende tras M1–M3 (§9), **sv5 y luego sv4**; vuelta atrás: apagar **sv4 y luego sv5**.
 
 ## 5. sv5 · decidir y mover
 
-`racha_ciz.py` (puro):
-```python
-@dataclass(frozen=True)
-class DecisionFin:
-    tipo: str             # crear | mover | intermedio | parte_cerrado | enlazada
-    linea: LineaSigrid | None = None
-    motivo: str | None = None
-    duplicados: int = 0
-
-def decidir_fin(fecha_int: int, recurso_ide: int, candidatas: Iterable[LineaSigrid], *,
-                estados: Mapping[int, int | None], est_registro: int,
-                marca_pruebas: str | None) -> DecisionFin
-```
+`racha_ciz.py` (puro; firma exacta en el fichero, `partes` y `nombre_estado` en vez de
+`estados`, desviación de T1): `decidir_fin(D, recurso_ide, candidatas, *, partes,
+est_registro, marca_pruebas, nombre_estado) -> DecisionFin(tipo: crear|mover|intermedio|
+parte_cerrado|enlazada, linea, motivo, duplicados)`.
 Filtra recurso, código `CIZ`, `can` nulo o 0 y, con `marca_pruebas`, `tex` que la contenga
 (R19). Posterior a D ⇒ `intermedio` (R14); anterior ⇒ la de mayor (fecha, ide): enlazada ⇒
 `enlazada` (R18), su parte no En registro ⇒ `parte_cerrado` (R17), si no ⇒ `mover` con
@@ -159,9 +156,8 @@ incidencia (CIZ, linea <ide>) paso al dia <AAAA-MM-DD>`. Reaplicar: la segunda v
 
 ## 7. Interacciones
 
-- **F-019 (R0)**: dedicación manda antes que R1; con el interruptor de mensuales encendido
-  sus incidencias no llegan a Sigrid y no hay nada que mover. Sus días trabajados sí están
-  en `partes` y cierran la racha.
+- **F-019 (R0)**: dedicación manda antes que R1; con mensuales a dedicación sus incidencias
+  no llegan a Sigrid (nada que mover), pero sus días trabajados están en `partes` y cierran.
 - **F-024**: X deja de ser `registrado` ⇒ no se comprueba; D se comprueba por su synckey y
   da `presente` sin diferencia de fecha. Si el resultado no llega, X saldría `borrado_sigrid`
   en la comprobación (editable y reaprobable: da `intermedio`). Riesgo aceptado.
@@ -181,6 +177,14 @@ pipeline con `SigridFake`: el ejemplo del humano día a día (CIV; CIZ día 2; m
 día 5 nada), cambio de mes (mueve de parte), interruptor apagado y sin ids ⇒ como hoy,
 modo pruebas sin marca ⇒ crea, carrera (WHERE falla ⇒ omitido), reentrega ⇒
 `ya_registrado`. Fase RED con traza para R1–R30 salvo R27 (caracterización).
+**R26 bis / DA12** (`test_f060_interruptor_sv4.py`, `test_f060_r26_*`): V los días 1–4 y 8 h
+el 5 ingeridos, aprobando el 2, luego el 3, luego el 4: apagado ⇒ `intermedio`, `intermedio`,
+`fin`, listas vacías (= dev 0926857, review pasada 1); encendido ⇒ `fin` [1,3,4], [1,2,4],
+[1,2,3]. Apagado: 1–4 de una vez ⇒ `inicio`, `intermedio`, `intermedio`, `fin`; trabajo antes
+de una incidencia `registrado` ⇒ sin `avisos_racha`; `Settings` lee `MOVER_CIZ` (false por
+defecto) y `app.py` lo pasa. Con `SigridFake`, los dos apagados ⇒ un solo CIZ (el del 4).
+**DA13**: 1 trabajado, 2 y 4 V, 3 todo en la papelera con su CIZ `registrado`, D = 5 V ⇒ el id
+del 3 viaja; uno de la papelera anterior al día 1, o `pendiente`, o de otra clave, no.
 
 ## 9. Verificaciones manuales
 
@@ -188,50 +192,45 @@ modo pruebas sin marca ⇒ crea, carrera (WHERE falla ⇒ omitido), reentrega �
 Lectura: `Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read"
 -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q`.
 
-- **M0 (líder, antes de implementar, solo lectura)**: legado y enlaces de los CIZ de partes.
-  ```powershell
-  $q = @{ database = 'ruesma'; max_rows = 200; parameters = @('CIZ', 'partes:%');
-    sql = 'SELECT h.ano, h.mes, COUNT(*) AS lineas, COUNT(DISTINCT h.reside) AS recursos, SUM(CASE WHEN ISNULL(h.dvaproide,0)<>0 OR ISNULL(h.dvfproide,0)<>0 OR ISNULL(h.hdereside,0)<>0 OR ISNULL(h.emprccide,0)<>0 OR ISNULL(h.empdpreide,0)<>0 OR ISNULL(h.empabside,0)<>0 THEN 1 ELSE 0 END) AS enlazadas FROM hmores h JOIN auxhor a ON a.ide = h.horide WHERE a.cod = ? AND h.synckey LIKE ? GROUP BY h.ano, h.mes ORDER BY h.ano, h.mes' } | ConvertTo-Json
-  ```
-  Y los recursos-mes con más de un CIZ: el mismo `$q` con `sql = 'SELECT COUNT(*) AS grupos
-  FROM (SELECT h.reside, h.ano, h.mes FROM hmores h JOIN auxhor a ON a.ide = h.horide WHERE
-  a.cod = ? AND h.synckey LIKE ? GROUP BY h.reside, h.ano, h.mes HAVING COUNT(*) > 1) x'`.
-  Anotar cifras sin nombres. `enlazadas` > 0 cambia DA3 (R18 deja esos CIZ sin mover).
-- **M1 (humano, local, sv5 con `OBRA_PRUEBAS_FORZAR=true` y `MOVER_CIZ=true`)**: en el
-  portal local, partes de prueba de un recurso de `prueba_escritura_sigrid.py`: V los días
-  1–4 y 8 h el 5 de un mes; aprobar día a día. Tras cada uno, `python
-  .\prueba_escritura_sigrid.py verificar` (ANO/MES del bloque CONFIG): día 1 un CIV; día 2
-  CIV + CIZ el 2; días 3 y 4 el MISMO `ide` de CIZ con fecha 3 y 4; día 5 sin cambio en la
-  incidencia. En el portal, los días 2 y 3 `omitido` con `fin_movido`. Administración mira
-  la «Vista calendario» de la 0404: tramo 1–4. Partes de prueba a la papelera y
-  `limpiar --ejecutar`.
-- **M2 (humano, igual que M1)**: V el 30 y 31 de un mes y el 1 del siguiente: el CIZ pasa del
-  parte de un mes al del otro (mismo `ide`, `verificar` con los dos meses); limpiar ambos.
+- **M0 (líder, hecha el 2026-10-23, solo lectura)**: legado y enlaces de los CIZ de partes;
+  resultado en `requirements.md`, consultas literales en esta sección en el commit d5d7431.
+- **M1 (humano, local, sv4 y sv5 con `MOVER_CIZ=true`, sv5 con `OBRA_PRUEBAS_FORZAR=true`)**:
+  partes de prueba de un recurso de `prueba_escritura_sigrid.py`, V los días 1–4 y 8 h el 5;
+  aprobar día a día y tras cada uno `verificar` (ANO/MES del CONFIG): día 1 CIV; día 2 + CIZ el
+  2; días 3 y 4 el MISMO `ide` de CIZ con fecha 3 y 4; día 5 nada; 2 y 3 `omitido`
+  `fin_movido`. Administración mira la «Vista calendario» de la 0404. Limpieza: `limpiar`.
+- **M2 (humano, como M1)**: V el 30 y 31 de un mes y el 1 del siguiente: el CIZ pasa al parte
+  del otro mes (mismo `ide`, `verificar` con los dos meses); limpiar ambos.
 - **M3 (humano)**: aprobar los días 1–4 de una vez ⇒ CIV el 1, CIZ el 4, 2 y 3 `intermedio`.
-- **M4 (humano, producción, tras `az containerapp update -n ca-sv5-transfer -g
-  rg-partes-dev --set-env-vars MOVER_CIZ=true`, solo lectura)**: con `<AAAAMMDD>` = día del
-  encendido, el segundo `$q` de M0 añadiendo `AND h.fec >= ?` (parámetro `<AAAAMMDD>`)
-  debe dar 0 grupos nuevos; en la base `partes`: `SELECT COUNT(*) FROM parte_registros
-  WHERE sigrid_motivo LIKE 'fin_movido:%' AND sigrid_registrado_at_utc >= '<ISO UTC>';`.
-  Vuelta atrás: `--set-env-vars MOVER_CIZ=false`.
+- **M4 (humano, producción, solo lectura)**: tras encender `MOVER_CIZ=true` con `az
+  containerapp update … --set-env-vars` en `ca-sv5-transfer` y LUEGO en `ca-sv4-front`
+  (`-g rg-partes-dev`): 0 recursos-mes nuevos con dos CIZ de partes y `fin_movido` > 0 en
+  `partes` (comandos literales en `progress/current.md`). Vuelta atrás completa (para lo que se
+  apruebe desde entonces; lo ya movido no se deshace): `MOVER_CIZ=false` en `ca-sv4-front` y
+  LUEGO en `ca-sv5-transfer`.
 
 ## 10. Documentación
 
 ARCHITECTURE semántica 4 y `partes-proyecto.md` §3.5 y §4.4 (el papel, §4.1, no cambia):
-ventana, letra, papelera, CIZ móvil por `UPDATE`, `MOVER_CIZ`, `fin_movido`.
-`azure-apps/partes.md` (paso 3 de sv5, `MOVER_CIZ`, «Qué se rompe»): **sí cambia lo que el
-proyecto escribe en Sigrid** (edita fecha y parte de sus CIZ), por eso se actualiza.
+ventana, letra, papelera, CIZ móvil por `UPDATE`, `MOVER_CIZ`, `fin_movido`. `azure-apps/
+partes.md` (paso 3 de sv5, `MOVER_CIZ`, «Qué se rompe»): **sí cambia lo que partes escribe en
+Sigrid**. Enmienda DA12 (hoy dicen que apagar sv5 es «como antes de F-060»): `settings.py` de
+sv5 (l.44-47) y sv4, `partes-proyecto.md` l.221, l.546-547 y variables (l.998, fila de sv4),
+`azure-apps/partes.md` l.499, l.601-607 y variables (l.979): `MOVER_CIZ` en sv4 y sv5, orden
+de encendido y apagado, y apagar los dos es la vuelta atrás completa.
 
 ## 11. Riesgos y alternativas descartadas
 
-- Ventana corta: una baja con el papel marcando solo el primer y el último día a más de un
-  mes, o una racha anterior al sistema o puesta a mano en Sigrid, abre un CI* nuevo a mitad
-  de racha (DA1). Mover entre partes es nuevo en Sigrid: M2 y Administración (DA3).
+- Interruptores en orden equivocado (sv4 encendido con sv5 apagado): un CIZ por día aprobado
+  de la racha, como la divergencia de la review pasada 1. Mitigación: orden de §4 y M4.
+- Ventana corta: una baja con papel solo del primer y el último día a más de un mes, o una
+  racha anterior al sistema o manual en Sigrid, abre un CI* a mitad (DA1). Mover entre partes
+  es nuevo en Sigrid: M2 y Administración (DA3).
 - Descartado: tabla `incidencia_racha` (DA2 B); conservar la synckey de X (F-024 vería otra
   fecha y D no sería idempotente); mover solo `fec` entre meses (línea de agosto en un parte
   de julio); buscar el CIZ por recurso y código (editaría líneas ajenas o manuales).
 
-## 12. Decisiones abiertas (las valida el humano)
+## 12. Decisiones (validadas por el humano: DA1–DA11 el 2026-10-23, DA12–DA13 el 2026-10-24)
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|
@@ -246,3 +245,5 @@ proyecto escribe en Sigrid** (edita fecha y parte de sus CIZ), por eso se actual
 | DA9 | Mensuales (F-019) y F-024 | Impacto en §7, sin cambios en esas reglas | **Aceptar §7** |
 | DA10 | Identidad | A: `persona_de` (DNI; sin DNI, clave de trabajador) para decidir; sv5 solo mueve un CIZ del mismo recurso. B: por recurso | **A** (un cambio de empresa con otro recurso abre CIZ nuevo) |
 | DA11 | Encendido | A: `MOVER_CIZ` en sv5, apagado, se enciende tras M1–M3. B: sin interruptor | **A** (rigor crítico; rollback sin redesplegar) |
+| DA12 | Divergencia de R26 (review pasada 1): con sv5 apagado, sv4 ya usaba la regla nueva y la aprobación día a día con días posteriores ingeridos daba más CIZ que hoy | A: aceptarla. B: sv4 vuelve a mirar adelante. C: el mismo `MOVER_CIZ` gobierna sv4 (apagado ⇒ `_rol_incidencia` de dev 0926857 tal cual, sin `racha_registro_ids` ni `avisos_racha`); se enciende en los dos | **C** — humano, 2026-10-24: «c y si a 2» |
+| DA13 | Papelera entre días de la racha (observación de la review): un día con todo en la papelera se salta y su CIZ `registrado` no viajaba | Sí: viajan los ids `registrado`/`encolado` de la papelera de los días saltados del tramo (R9). No: como estaba | **Sí** — humano, 2026-10-24: «c y si a 2» |

@@ -13,6 +13,21 @@ sigueinte feature» ⇒ DA1–DA11 = A. DA3 y DA6 siguen pendientes del visto bu
 Administración para ENCENDER `MOVER_CIZ` (no para implementar). M0 hecha por el líder (2 CIZ
 de partes en 2026/10, 0 enlazados, 0 recursos-mes con más de uno).
 
+**Review pasada 1: CHANGES_REQUESTED** (`progress/review_F-060.md`). El líder llevó al humano
+la divergencia de R26 (con `MOVER_CIZ` apagado, sv4 ya usaba la regla nueva: aprobando día a
+día con días posteriores ya ingeridos salían más CIZ que en dev 0926857) con las opciones A
+(aceptarla), B (sv4 vuelve a mirar adelante) y C (el mismo `MOVER_CIZ` gobierna sv4: apagado,
+el `_rol_incidencia` de dev 0926857 tal cual, sin `racha_registro_ids` ni `avisos_racha`; se
+enciende en los dos), y la propuesta de que la papelera de los días saltados del tramo de la
+racha viaje en `racha_registro_ids`.
+**Decisión del humano (2026-10-24, literal)**: «c y si a 2» ⇒ **DA12 = C** y **DA13 = sí**.
+Spec enmendada por el spec-author (R9, R26, R26 bis, R28–R30 siempre, R31, R32; `design.md`
+§3.1, §4, §8–§12; `tasks.md` T16–T24). Orden: encender `MOVER_CIZ` en sv5 y luego en sv4;
+apagar en sv4 y luego en sv5 (apagar los dos = vuelta atrás completa; lo ya movido no se
+deshace). Pendiente: implementer T16–T22 y T24; T23 (campaña de mutación de nuevo, el código
+de producción cambia tras la de T13) la lanza el líder: decidir con el humano su coste (la de
+T13 fueron ~377 min con 4 workers).
+
 - [x] T1–T7 (sv5) hechas, un commit por tarea, fase RED con traza (se pegan en `impl_F-060.md`).
 - [x] T8–T11 (sv4) y T12 (docs; azure-apps commit local c914caa, sin push) hechas.
 - [x] T15: `bash harness/init.sh` en verde (resultado en `impl_F-060.md`).

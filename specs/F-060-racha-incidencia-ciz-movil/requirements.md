@@ -1,10 +1,9 @@
 <!-- specs/F-060-racha-incidencia-ciz-movil/requirements.md -->
 # F-060 · Racha de incidencia con CIZ móvil — Requisitos
 
-**Servicios: sv4** (decide el rol de cada incidencia con el histórico de `partes` y aplica el
-resultado) **y sv5** (localiza en Sigrid el CIZ de la racha y lo mueve editándolo). Sin
-tabla ni columna nueva, sin colas nuevas. Rigor **crítico**: cambia lo que se escribe en
-Sigrid de producción. Interruptor `MOVER_CIZ` en sv5, apagado por defecto (DA11).
+**Servicios: sv4** (rol de cada incidencia con el histórico de `partes`; aplica el resultado) **y
+sv5** (busca en Sigrid el CIZ de la racha y lo mueve editándolo). Sin esquema ni colas nuevas. Rigor
+**crítico** (cambia lo que se escribe en Sigrid). `MOVER_CIZ` en sv5 (DA11) y sv4 (DA12), apagado.
 
 **Petición del humano (2026-10-23, literal)**: «el primer dia de unas vacaciones siempre debe
 marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse
@@ -17,14 +16,14 @@ pasa al 3 y al 4; día 5 con horas ⇒ el CIZ se queda en el 4. En Sigrid, CIV y
 
 **Aprobación del humano (2026-10-23, literal)**: «a en todo, lanza implementer y spec de la sigueinte feature» ⇒ DA1–DA11 = A. DA3 y DA6 siguen pendientes del visto bueno de Administración antes de encender `MOVER_CIZ` (no bloquean la implementación).
 
-**M0 (líder, 2026-10-23, solo lectura en `ruesma`)**: CIZ con synckey `partes:%`: 2 líneas (2026/10), 2 recursos, 0 enlazadas; 0 recursos-mes con más de un CIZ. DA3 no cambia; el legado de DA8 es nulo.
+**Enmienda tras la review pasada 1 (humano, 2026-10-24, literal)**: «c y si a 2» ⇒ DA12 = C (el mismo
+`MOVER_CIZ` gobierna sv4; R26 bis) y DA13 = sí (la papelera de los días saltados viaja; R9).
 
+**M0 (líder, 2026-10-23, solo lectura en `ruesma`)**: 2 CIZ con synckey `partes:%` (2026/10), 2 recursos, 0 enlazados, 0 recursos-mes con más de uno. DA3 no cambia; el legado de DA8 es nulo.
 ## Contexto (dev 0926857; detalle en `design.md` §1)
 
-sv4 `_rol_incidencia` (`parte_repository.py`) da `fin` a todo día de incidencia que sigue a
-otro (no hay partes futuros) y sv5 (`reglas_registro.py`, R1) escribe un CIZ nuevo por cada
-`fin`: hoy quedan varios CIZ por racha. Además no distingue la letra, mira 50 filas sin
-límite de fechas y cuenta partes en la papelera.
+sv4 `_rol_incidencia` da `intermedio` si el siguiente día ya ingerido es incidencia y si no `fin`, y sv5
+escribe un CIZ por `fin`: sin los días siguientes ingeridos, varios CIZ por racha. Sin letra ni límite.
 
 ## Glosario
 
@@ -42,7 +41,7 @@ límite de fechas y cuenta partes en la papelera.
 
 ## Requisitos
 
-### sv4 · rol de cada incidencia al aprobar
+### sv4 · rol de cada incidencia al aprobar (R1–R10 y R12: DONDE `MOVER_CIZ` de sv4 está encendido)
 
 R1. CUANDO sv4 prepara una aprobación (`lineas_para_registro`), el sistema debe calcular el
 rol de cada línea de incidencia del día D solo con las líneas activas de su persona en la
@@ -64,8 +63,9 @@ R9. sv4 debe enviar en cada línea de incidencia con rol `fin` la lista `racha_r
 los ids de las líneas de incidencia de esa persona y clave de la racha hacia atrás (desde
 D − 1 hasta el primer día de la ventana que no es de la racha) y hacia delante (desde D + 1
 hasta el primer día con líneas que no es de la racha, como mucho el último día del mes
-siguiente a D), más las de la papelera de esos días que estén `registrado` o `encolado`;
-ordenada y sin repetidos. En las demás líneas debe ir vacía.
+siguiente a D), más las de incidencia de esa clave en la papelera, `registrado` o
+`encolado`, de cualquier día ≠ D entre el primero y el último del tramo que forman la racha y
+D, también de los días saltados (DA13); ordenada y sin repetidos. En las demás, vacía.
 R10. CUANDO se aprueba una línea del día D que es de trabajo (|horas| > 0) o de incidencia
 con rol `inicio`, y el siguiente día con líneas de la persona tras D (hasta el último día
 del mes siguiente) tiene alguna incidencia `registrado`, sv4 debe añadir a su grupo un
@@ -109,13 +109,18 @@ y `hmores_ide`; si no la encuentra, sale omitida con los motivos de F-034 y nada
 R24. CUANDO sv5 mueve un CIZ debe dejar un INFO con `ide`, parte y fecha antes y después y
 los `registro_id`, sin nombres ni DNIs.
 R25. El preflight (sin lock) debe aplicar R13–R19 de forma consultiva.
-R26. DONDE `MOVER_CIZ` está apagado, o la línea no trae `racha_registro_ids`, sv5 debe
-decidir exactamente como hoy (`fin` ⇒ CIZ nuevo). Por defecto, apagado.
+R26. DONDE `MOVER_CIZ` de sv5 está apagado, o la línea no trae `racha_registro_ids` (o la
+trae vacía), sv5 debe decidir exactamente como hoy (`fin` ⇒ CIZ nuevo). Por defecto, apagado.
+R26 bis. DONDE `MOVER_CIZ` de sv4 (variable de entorno, mismo nombre, apagado por defecto)
+está apagado, sv4 debe dar a cada incidencia el rol de `_rol_incidencia` de dev 0926857, tal
+cual y línea a línea (con `intermedio` si el siguiente día ya ingerido es incidencia), sin
+R7/R8, con `racha_registro_ids` vacía en toda línea y `avisos_racha` vacía en todo grupo
+(DA12): con los dos apagados, en Sigrid queda lo mismo que en dev 0926857.
 R27. No deben cambiar: R0 de F-019 (dedicación manda sobre la racha), el código CI* del
 `inicio`, `can = 0`, los conflictos del paso 7, F-024, F-046, `estado_parte.py` ni
 `cuenta_analitica.py` (copias literales de `porcentajes`).
 
-### sv4 · el día que tenía el CIZ
+### sv4 · el día que tenía el CIZ (R28–R30 rigen con el interruptor de sv4 en cualquier posición)
 
 R28. CUANDO un resultado de sv5 trae en `escritas` una entrada con `movida_de` = X, sv4
 debe, en la misma transacción que marca la línea de D, pasar X a `omitido` con motivo
@@ -127,16 +132,19 @@ R30. `reparto_obras.agregar_ejecucion` debe conservar `movida_de` al juntar vari
 
 ### Documentación y verificación
 
-R31. `docs/ARCHITECTURE.md` (semántica 4), `docs/referencia/partes-proyecto.md` (§3.5 y
-§4.4) y `azure-apps/partes.md` (paso 3 de sv5, `MOVER_CIZ`, «Qué se rompe») deben contar
-la racha con CIZ móvil en el mismo trabajo (cambia lo que partes escribe en Sigrid).
-R32. Verificaciones manuales M0–M4 de `design.md` §9: M0 de solo lectura antes de
-implementar; M1–M3 en modo pruebas (obra 0404, `OBRA_PRUEBAS_FORZAR=true`, `PRUEBA-IA`),
-limpiando con `prueba_escritura_sigrid.py`; M4 de solo lectura en producción.
+R31. `docs/ARCHITECTURE.md` (semántica 4), `docs/referencia/partes-proyecto.md` (§3.5, §4.4,
+variables), `azure-apps/partes.md` (paso 3 de sv5, `MOVER_CIZ` de sv4 y sv5, «Qué se rompe»,
+variables) y los comentarios de `config/settings.py` de sv4 y sv5 deben contar la racha con CIZ
+móvil y que la vuelta atrás completa es apagar `MOVER_CIZ` en los DOS (sv4 y luego sv5; se
+enciende sv5 y luego sv4).
+R32. Verificaciones manuales M0–M4 de `design.md` §9, con comando exacto en
+`progress/current.md`: M0 de solo lectura (hecha); M1–M3 en modo pruebas (obra 0404,
+`OBRA_PRUEBAS_FORZAR=true`, `PRUEBA-IA`, `MOVER_CIZ=true` en sv4 y sv5), limpiando con
+`prueba_escritura_sigrid.py`; M4 de solo lectura en producción.
 
 ## Fuera de alcance
 
-Corregir las rachas ya escritas con varios CIZ (DA8: como mucho, el informe M0); mover el
-CI* hacia atrás o el CIZ hacia atrás por llegadas desordenadas, desaprobaciones o papelera
-(DA7: aviso y corrección manual); leer CI*/CIZ ajenos en Sigrid (DA1); un CIZ el mismo día
-de un CI* suelto (DA6); rotular «mueve» en el listado del modal.
+Corregir las rachas ya escritas con varios CIZ (DA8); mover el CI* o el CIZ hacia atrás por
+llegadas desordenadas, desaprobaciones o papelera (DA7: aviso y corrección manual); leer
+CI*/CIZ ajenos en Sigrid (DA1); un CIZ el mismo día de un CI* suelto (DA6); rotular «mueve»
+en el modal; deshacer en Sigrid lo ya movido al apagar `MOVER_CIZ`.
