@@ -150,7 +150,7 @@ ficheros de sv5; T8–T11: 109 passed en los dos de sv4). `node --check static/a
 
 ## Pendiente (MANUAL y del líder)
 
-- **T13**: campaña hecha (líder, 4 workers) y analizada; falta que el humano acepte los 6 equivalentes de `progress/mutacion_F-060.md`.
+- **T13**: campaña hecha (líder, 4 workers) y analizada; los 6 equivalentes de `progress/mutacion_F-060.md`, aceptados por el humano (2026-10-24, «acepto»).
 - **T14 · M1–M3** (humano, local, `OBRA_PRUEBAS_FORZAR=true`, `MOVER_CIZ=true`, obra 0404,
   `PRUEBA-IA`, limpiar con `prueba_escritura_sigrid.py limpiar --ejecutar`): día a día,
   cambio de mes y todo de una vez (`design.md` §9).
@@ -163,7 +163,7 @@ ficheros de sv5; T8–T11: 109 passed en los dos de sv4). `node --check static/a
 |---|---|
 | Tests ejecutados (init.sh) | raíz 498 passed, 3 skipped · sv4 2692 passed, 1 skipped · sv5 976 passed · sv1–sv3 en verde (caché, árbol sin cambios) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.4% de 324 líneas cambiadas cubiertas (322/324, umbral 80%, nivel critico)` |
-| Mutantes generados / supervivientes | 221 evaluados, 204 muertos, 16 supervivientes, 1 timeout, 0 sin veredicto; 22.626 s, **workers 4** (lanzada por el líder, no relanzada). Tras el análisis: 10 muertos con test nuevo verificado a mano, 6 equivalentes PENDIENTES DE ACEPTAR POR EL HUMANO, timeout detectado. Detalle en `progress/mutacion_F-060.md` |
+| Mutantes generados / supervivientes | 221 evaluados, 204 muertos, 16 supervivientes, 1 timeout, 0 sin veredicto; 22.626 s, **workers 4** (lanzada por el líder, no relanzada). Tras el análisis: 10 muertos con test nuevo verificado a mano, 6 equivalentes aceptados por el humano (2026-10-24, «acepto»), timeout detectado. Detalle en `progress/mutacion_F-060.md` |
 | Tiempo de la suite | raíz 113,94 s · sv4 784,03 s (13:04) · sv5 25,47 s |
 | `bash harness/init.sh` | **verde** («ENTORNO LISTO. Puedes trabajar.»); `PUERTA TAMAÑO` OK (requirements 142/150, design 248/250, impl 168/220); único AVISO, el de siempre de `infra` sin tests |
 | `bash harness/init.sh` tras el análisis de mutación | **verde**: raíz 498 passed, 3 skipped · sv4 2698 passed, 1 skipped (472,61 s) · sv5 980 passed (9,58 s) · `PUERTA COBERTURA: 99.7% de 324 líneas cambiadas cubiertas (323/324)` |
