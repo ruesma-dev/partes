@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-060 · IN_PROGRESS 2026-10-24 (implementer): racha de incidencia con CIZ móvil
+## F-060 · DONE 2026-10-25 (review APPROVED pasada 2; pendiente: desplegar sv4 y sv5 con `MOVER_CIZ` apagado; antes de encender, visto bueno de Administración a DA3 y DA6 y M1–M3): racha de incidencia con CIZ móvil
 
 Spec en `specs/F-060-racha-incidencia-ciz-movil/` (rama `feature/F-060-racha-incidencia-ciz-movil`,
 worktree `partes-wt-f060`). Rigor crítico. Servicios: sv4 decide el rol con el histórico de
