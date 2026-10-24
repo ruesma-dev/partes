@@ -17,6 +17,7 @@ limite de 100 ya mismo. se supone que estaba arreglado» y «si» a la propuesta
 - **Decisión anotada**: el umbral de R13 (guardián) es 500.000, no el 200.000 escrito en la spec:
   con DA1 = B un literal menor sería un límite por debajo del acordado.
 - **Pendiente**: T9 (mutación, la lanza el líder), T10/T11 (M0, M1, M2, humano), review.
+- [x] **M0 hecha por el líder (2026-10-24, solo lectura)**: `SIGRID_API_TIMEOUT_S` = 30 en sv4 y 60 en sv5; sv2 y sv3 sin la variable (defecto 30); `SIGRID_API_MAX_ROWS` en ninguna. Todo dentro de (0, 200]: el despliegue no se cae por DA4.
 - [ ] **M0 · T10 (líder o humano, ANTES de desplegar; solo lectura en Azure)**. Por cada app:
 
   ```
