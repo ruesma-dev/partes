@@ -46,8 +46,9 @@ def _t(fabrica, n, *, doc=None, horas=8.0, mes=10, estado=None, **kw):
 
 
 def _datos(fabrica, ids, tabla=TABLA) -> dict:
+    """La regla nueva: `MOVER_CIZ` encendido (R26 bis, DA12)."""
     return ParteReviewRepository(fabrica).lineas_para_registro(
-        ids, incidencias=tabla)
+        ids, incidencias=tabla, mover_ciz=True)
 
 
 def _linea(datos, rid) -> dict:
@@ -544,7 +545,8 @@ def portal(monkeypatch):
     for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
                          "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
                          "DEFAULT_REVIEWER": "ana",
-                         "TRANSFER_BASE_URL": "http://sv5.interno"}.items():
+                         "TRANSFER_BASE_URL": "http://sv5.interno",
+                         "MOVER_CIZ": "true"}.items():    # R26 bis
         monkeypatch.setenv(clave, valor)
     monkeypatch.delenv("INCIDENCIAS_PATH", raising=False)
 

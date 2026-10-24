@@ -2083,6 +2083,7 @@ class ParteReviewRepository:
         self, registro_ids: list[int], *, incluir_borradas: bool = False,
         incidencias: TablaIncidencias | None = None,
         repartos_decididos: frozenset[int] = frozenset(),
+        mover_ciz: bool = False,
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
 
@@ -2113,11 +2114,14 @@ class ParteReviewRepository:
         en `excluidas["reparto_pendiente"]` (solo si es > 0) y salen en el
         detalle con su motivo.
 
-        F-060 (R1-R12): el rol de cada incidencia que viaja sale del
-        historico de su persona (`_roles_de_racha`, una consulta por
-        persona) y, con `fin`, lleva `racha_registro_ids`; las demas lineas
-        la llevan vacia. Cada grupo lleva `avisos_racha` (R10): lineas de
-        trabajo o `inicio` antes de una incidencia ya registrada.
+        F-060 (R1-R12): con `mover_ciz`, el rol de cada incidencia que
+        viaja sale del historico de su persona (`_roles_de_racha`, una
+        consulta por persona) y, con `fin`, lleva `racha_registro_ids`; las
+        demas lineas la llevan vacia. Cada grupo lleva `avisos_racha`
+        (R10): lineas de trabajo o `inicio` antes de una incidencia ya
+        registrada. Sin `mover_ciz` (R26 bis, DA12; `MOVER_CIZ` apagado),
+        el rol de dev 0926857 linea a linea (`_rol_incidencia_anterior`),
+        con `racha_registro_ids` y `avisos_racha` vacias.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -2207,8 +2211,14 @@ class ParteReviewRepository:
                         "nombre": lineas[-1]["nombre"], "horas": r.horas,
                         "motivo": nivel.motivo,
                     })
-            roles_de, rachas, avisos = self._roles_de_racha(
-                session, [r for r, _l, _g in viajan], incidencias)
+            if mover_ciz:
+                roles_de, rachas, avisos = self._roles_de_racha(
+                    session, [r for r, _l, _g in viajan], incidencias)
+            else:
+                # R26 bis (DA12): el rol de dev 0926857, linea a linea.
+                roles_de = {r.id: self._rol_incidencia_anterior(session, r)
+                            for r, _l, _g in viajan if r.es_incidencia}
+                rachas, avisos = {}, {}
             for r, linea, grupo in viajan:
                 if r.es_incidencia:
                     linea["incidencia_rol"] = roles_de[r.id]
@@ -2278,6 +2288,71 @@ class ParteReviewRepository:
         logger.warning(
             "[repo] fin_movido_sin_cas registro_id=%s movida_de=%s "
             "hmores_ide=%s", reg.id, x, e.get("hmores_ide"))
+
+    @staticmethod
+    def _rol_incidencia_anterior(session, reg: ParteRegistroOrm) -> str:
+        """Rol de una incidencia (dev 0926857; MOVER_CIZ apagado, DA12).
+
+        En Sigrid solo se registran el PRIMER dia de la racha (con su
+        codigo CI*) y el ULTIMO (fin); los INTERMEDIOS no se registran.
+        La racha se mira en el historico del trabajador cruzando partes y
+        obras, saltando dias sin lineas:
+          - hacia ATRAS: dia anterior con lineas trabajado (o sin
+            historico) -> candidata a inicio; con incidencia -> continua.
+          - hacia DELANTE: siguiente dia con lineas con incidencia ->
+            la racha sigue; trabajado o sin nada -> aqui termina.
+        inicio si el anterior fue trabajo; si no, intermedio cuando la
+        racha continua por delante, y fin cuando termina aqui. Un dia
+        suelto (trabajo antes y despues) es inicio, con su codigo.
+        """
+        if not reg.fecha_int:
+            return "inicio"
+        base = select(ParteRegistroOrm).where(
+            ParteRegistroOrm.deleted_at_utc.is_(None),
+            ParteRegistroOrm.fecha_int.isnot(None),
+        )
+        # Identidad del trabajador: DNI si lo hay; si no, empleado_ide.
+        if reg.empleado_dni:
+            base = base.where(
+                ParteRegistroOrm.empleado_dni == reg.empleado_dni)
+        elif reg.empleado_ide:
+            base = base.where(
+                ParteRegistroOrm.empleado_ide == reg.empleado_ide)
+        else:
+            return "inicio"
+
+        def _dia_es_incidencia(regs: list) -> bool:
+            # Si ese dia hubo CUALQUIER linea de trabajo, fue trabajado.
+            return not any(not p.es_incidencia for p in regs)
+
+        # --- hacia atras ---
+        previos = list(session.execute(
+            base.where(ParteRegistroOrm.fecha_int < int(reg.fecha_int))
+            .order_by(ParteRegistroOrm.fecha_int.desc()).limit(50)
+        ).scalars().all())
+        if previos:
+            ult = previos[0].fecha_int
+            atras_incidencia = _dia_es_incidencia(
+                [p for p in previos if p.fecha_int == ult])
+        else:
+            atras_incidencia = False
+
+        if not atras_incidencia:
+            return "inicio"
+
+        # --- hacia delante (solo si la racha viene de atras) ---
+        siguientes = list(session.execute(
+            base.where(ParteRegistroOrm.fecha_int > int(reg.fecha_int))
+            .order_by(ParteRegistroOrm.fecha_int.asc()).limit(50)
+        ).scalars().all())
+        if siguientes:
+            prim = siguientes[0].fecha_int
+            delante_incidencia = _dia_es_incidencia(
+                [p for p in siguientes if p.fecha_int == prim])
+        else:
+            delante_incidencia = False
+
+        return "intermedio" if delante_incidencia else "fin"
 
     @classmethod
     def _roles_de_racha(

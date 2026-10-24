@@ -2369,7 +2369,8 @@ def build_app(
         datos = repository.lineas_para_registro(
             ids, incluir_borradas=bool(body.get("incluir_borradas")),
             incidencias=tabla_incidencias,
-            repartos_decididos=repartos_decididos)   # F-046 (R32)
+            repartos_decididos=repartos_decididos,   # F-046 (R32)
+            mover_ciz=settings.mover_ciz)            # F-060 (R26 bis)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
