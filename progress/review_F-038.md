@@ -114,3 +114,26 @@ Borrado de `consulta_reshor_recursos.py` sin purgar el historial: decisión del 
 
 - `CHECKPOINTS.md` C4: decir explícitamente que «comando exacto en `current.md`» excluye remitir a
   `design.md`; es el segundo rechazo por lo mismo (F-059, F-038).
+
+---
+Revisión incremental desde c7aaa1e (pasada 2) · `git diff c7aaa1e..4ef9d3c` (HEAD 4ef9d3c)
+
+# Pasada 2 · **Veredicto: APPROVED** (rigor `estandar`, declarado)
+
+- **Delta solo Markdown**: `current.md`, `impl_F-038.md`, `design.md`, `tasks.md`; ni producción ni
+  tests. Lo aprobado en la pasada 1 (código, tests, mutación con RM1–RM4) queda por bueno.
+- **C1** [x] `bash harness/init.sh` reejecutado por este reviewer sobre 4ef9d3c: exit 0, «ENTORNO
+  LISTO»; raíz 522 passed + 3 skipped; sv1–sv5 en verde por caché del arnés («árbol sin cambios desde
+  el último verde», coherente con un delta solo Markdown); cobertura 19/19; tamaño review 116/140.
+- **Cambio 1** [x] `current.md`: M2 con comando exacto (`az containerapp logs show` de sv5 y sv4),
+  esperado `max_rows=500000` y `timeout_s` 60/30; M1 con su comando y los tres SQL, «NO BLOQUEA»;
+  quitada la `[ ] M0` contradictoria; cabecera al día. Así queda resuelto C4 MANUAL.
+- **Cambio 2** [x] `tasks.md` T9 y T12 en `[x]`; commit `4ef9d3c F-038 T12: ...`. T10 (M1) y T11
+  (M2) siguen `[ ]`: son MANUAL del humano, legítimo. C5 resuelto.
+- **Cambio 3** [x] «Evidencias» con «workers: 1». C4 bis resuelto.
+- La observación de la pasada 1 también está resuelta: `design.md` §9 y T11 esperan ya `max_rows=500000`.
+- `.pyc` del script con DNI: ya no está en el worktree. **Sigue en el árbol principal**
+  (`partes/services/partes-front/__pycache__/consulta_reshor_recursos.cpython-312.pyc`, ignorado por
+  git) junto al `.py`, que se va con el merge. El líder lo borra tras el merge (no bloquea).
+- C2, C3, C3 bis, C4 ter: sin cambios desde la pasada 1. El `[AVISO]` de features `blocked` es ajeno a F-038.
+- **Cambios requeridos**: ninguno. Pendiente fuera de review: merge, despliegue sv2–sv5, M2 y M1.
