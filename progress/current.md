@@ -16,7 +16,10 @@ de partes en 2026/10, 0 enlazados, 0 recursos-mes con más de uno).
 - [x] T1–T7 (sv5) hechas, un commit por tarea, fase RED con traza (se pegan en `impl_F-060.md`).
 - [x] T8–T11 (sv4) y T12 (docs; azure-apps commit local c914caa, sin push) hechas.
 - [x] T15: `bash harness/init.sh` en verde (resultado en `impl_F-060.md`).
-- [ ] T13: campaña de mutación, la lanza el líder (`python -m harness.mutacion --feature F-060`).
+- [x] T13: campaña de mutación lanzada por el líder (4 workers, 16 supervivientes, 1 timeout)
+  y analizada por el implementer sin relanzarla: 10 muertos con test nuevo (verificados a
+  mano), 6 equivalentes PENDIENTES DE ACEPTAR POR EL HUMANO, timeout detectado. Detalle en
+  `progress/mutacion_F-060.md`.
 - [ ] T14: M1–M3 (humano, local, modo pruebas) y M4 (abajo).
 
 **Decisiones y desviaciones (justificadas)**:

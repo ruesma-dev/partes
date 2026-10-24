@@ -262,3 +262,32 @@ def test_f060_regla_pura_sin_lecturas_ni_escrituras() -> None:
 ])
 def test_f060_r23_registro_de_synckey(sk, esperado) -> None:
     assert registro_de_synckey(sk) == esperado
+
+
+# ============ Mutacion (rigor critico): huecos que cerro la campaña ============ #
+
+def test_f060_decision_inmutable() -> None:
+    """`DecisionFin` es un valor: el pipeline la lee, no la cambia."""
+    import dataclasses
+    d = _decidir([_ls(1, 20261003)])
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        d.tipo = "crear"  # type: ignore[misc]
+
+
+def test_f060_motivo_recortado_a_255_exactos() -> None:
+    """`parte_registro.sigrid_motivo` de sv4 es de 255: el motivo largo se
+    corta justo ahi, ni un caracter mas."""
+    largo = "PT26/" + "9" * 400
+    texto = motivo_ciz_en_parte_cerrado(7001, largo, "Cerrado")
+    assert len(texto) == 255
+    assert texto == ("ciz_en_parte_cerrado: el fin de la incidencia (CIZ, "
+                     f"linea 7001) esta en el parte {largo}")[:255]
+
+
+def test_f060_r17_ciz_sin_parte_no_se_cruza_con_otro_parte() -> None:
+    """Un CIZ sin `hmoide` no tiene parte leido: cuenta como cerrado
+    (R17) aunque exista un parte En registro con ide 1."""
+    partes = {1: ParteSigrid(ide=1, cod="PT26/00001", est=1)}
+    d = _decidir([_ls(1, 20261003, hmoide=None)], partes=partes)
+    assert d.tipo == "parte_cerrado" and d.linea is None
+    assert "parte ?" in d.motivo

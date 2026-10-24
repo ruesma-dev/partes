@@ -323,3 +323,29 @@ def test_f060_r28_motivo_fin_movido() -> None:
     # Sin fecha legible no rompe: el dia sale como «?».
     assert motivo_fin_movido(9000, None).endswith("paso al dia ?")
     assert len(motivo_fin_movido("9" * 400, 20261004)) == 255
+
+
+# ============ Mutacion (rigor critico): huecos que cerro la campaña ============ #
+
+@pytest.mark.parametrize("objeto,campo", [
+    (inc(1, 20261001), "clave"),
+    (DecisionRacha("fin", (1, 2)), "racha_registro_ids"),
+    (LineaRol(registro_id=1, persona="dni:X", fecha_int=20261001, clave="V",
+              rol="fin"), "rol"),
+])
+def test_f060_valores_inmutables(objeto, campo) -> None:
+    """`LineaHist`, `DecisionRacha` y `LineaRol` son valores: `colapsar` y
+    el repositorio los comparten entre personas y lineas, y nadie puede
+    cambiar el rol o la racha de una linea por detras."""
+    import dataclasses
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        setattr(objeto, campo, "otro")
+
+
+def test_f060_r4_horas_en_el_epsilon_no_es_trabajado() -> None:
+    """Como F-025, |horas| <= 1e-9 es cero: una linea de trabajo con
+    exactamente 1e-9 h no corta la racha; por encima, si."""
+    hist = [inc(1, 20261002), trab(2, 20261003, 1e-9)]
+    assert decidir(hist, 20261004, "V").rol == "fin"
+    hist = [inc(1, 20261002), trab(2, 20261003, 2e-9)]
+    assert decidir(hist, 20261004, "V").rol == "inicio"

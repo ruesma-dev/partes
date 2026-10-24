@@ -639,3 +639,31 @@ def test_f060_r11_js_avisos_de_racha_escapados() -> None:
 def test_f060_r11_js_sin_avisos_no_pinta_nada(avisos) -> None:
     assert _ejecutar_js(["esc", "avisosRachaHtml"],
                         f"avisosRachaHtml({json.dumps(avisos)})") == ""
+
+
+# ============ Mutacion (rigor critico): huecos que cerro la campaña ============ #
+
+def test_f060_r6_sin_dni_ni_recurso_por_la_ficha() -> None:
+    """Sin DNI y sin recurso, la persona es la ficha (`emp-77`): el
+    historico trae SUS lineas y no las de otra ficha (`emp-78`)."""
+    from infrastructure.database.orm_models import ParteRegistroOrm
+    from infrastructure.database.parte_repository import persona_de
+    f = _fabrica()
+    d1 = _v(f, 1, dni=None, recurso_ide=None)
+    _v(f, 1, dni=None, recurso_ide=None, empleado_ide=78, doc="otra1")
+    _t(f, 1, dni=None, recurso_ide=None, empleado_ide=78, doc="otra1t")
+    d2 = _v(f, 2, dni=None, recurso_ide=None)
+    with f.create_session() as s:
+        assert persona_de(s.get(ParteRegistroOrm, d2)) == "emp-77"
+    l2 = _linea(_datos(f, [d2]), d2)
+    assert (l2["incidencia_rol"], l2["racha_registro_ids"]) == ("fin", [d1])
+
+
+def test_f060_r10_trabajo_en_el_epsilon_no_avisa() -> None:
+    """Una linea de trabajo con |horas| = 1e-9 es cero (como F-025): no
+    pide historico ni lleva aviso `racha_desordenada`."""
+    f = _fabrica()
+    _v(f, 5, estado="registrado")
+    vistos = _contar_historicos(f)
+    assert _avisos(_datos(f, [_t(f, 4, horas=1e-9)])) == []
+    assert vistos == []

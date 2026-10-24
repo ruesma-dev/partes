@@ -747,3 +747,16 @@ def test_f060_r27_docstring_de_r1_cuenta_el_ciz_movil() -> None:
     doc = " ".join((reglas_registro.__doc__ or "").split())
     assert "MOVER_CIZ" in doc and "mes anterior" in doc
     assert "UPDATE" in doc and "racha_registro_ids" in doc
+
+
+def test_f060_r20_mover_sin_partida_escribe_paride_0() -> None:
+    """Sin partida, el `UPDATE` deja `paride` = 0, como el INSERT de
+    siempre (`int(paride or 0)`), y no la partida de la linea movida."""
+    cli = _cli(_fila(7001, fec=20261003, rid=3))
+    enviadas = _espiar(cli)
+    linea = _fin(4, 20261004, [3])
+    assert linea.partida_ide is None
+    r = _ejecutar(cli, [linea])
+    assert [s["op"] for s in enviadas] == ["mover"]
+    assert enviadas[0]["set"]["paride"] == 0
+    assert cli.lineas[0]["paride"] == 0 and r.ok
