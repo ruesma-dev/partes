@@ -20,7 +20,7 @@ Administración) · DA8 desaprobar/papelera/`borrado_sigrid` (A: nada se mueve) 
 CIZ (A: solo CI* + WARNING) · DA10 cuenta del hermano (A: la del CIZ) · DA11 impacto en
 F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
 
-- [ ] M0 (líder, antes de T1, solo lectura en producción): comandos exactos en `design.md` §9;
+- [x] **M0 hecha por el líder (2026-10-25, solo lectura)**: (a) `partes:%:%` ⇒ n = 0; (b) rachas abiertas heredadas ⇒ 0 (también 0 desde 20261001). Receta original:: comandos exactos en `design.md` §9;
   si (a) da `n > 0` (alguna synckey `partes:%:%`), PARA y `blocked`.
 - [ ] M1–M6: se copian con comando exacto a este bloque en T13 (`design.md` §9).
 
