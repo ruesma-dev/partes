@@ -47,14 +47,14 @@ implementer, justificadas)**:
   humano (DA9). Resultado en `progress/banco_F-058.md`.
 - [x] **T16 · mutación** (líder): `python -m harness.mutacion --feature F-058`; análisis del
   único superviviente hecho en `progress/mutacion_F-058.md` y en el informe.
-- [ ] **T17 · M0** (solo lectura, antes de desplegar):
+- [x] **T17 · M0 OK (líder, 2026-10-25)**: `ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`, claves por `secretRef`, `SIGRID_API_DATABASE=ruesma`. Receta:
   ```powershell
   az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?starts_with(name,'GEMINI_') || starts_with(name,'ENABLE_GEMINI') || starts_with(name,'SIGRID_API_')]" -o table
   ```
   ⇒ `ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`, `GEMINI_API_KEY` y
   `SIGRID_API_FUNCTION_KEY` por `secretRef`, `SIGRID_API_DATABASE=ruesma`. Si falta algo, decide
   el humano.
-- [ ] **T18 · M1** (líder, local, sin escrituras; la rama, no `dev`). Entorno con los SDK de IA
+- [ ] **T18 · M1 FALLA (líder, 2026-10-25)**: obra y fecha True en las 8 páginas (6 sincab + 2 control, sin relectura: ya lo resuelve el prompt), filas iguales, pero las 8 `[obra-sigrid]` salen `resultado=error error=ReadTimeout` (5,6–6,2 s con tope 5 s). Medido aparte en sigrid-api (solo lectura): `_SQL_EXISTE_OBRA` tarda 12–16 s (sigrid-api SÍ acepta `CROSS APPLY`/`COLLATE`); `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegar así: toda consulta de obra = «no se sabe», ~6 s más por parte y ~13 s de consulta en el SQL de Sigrid por parte. **No desplegar sv2 hasta que decida el humano.** Receta original: Entorno con los SDK de IA
   (el `.venv` de la raíz no los trae), las claves del KV solo en el proceso:
   ```powershell
   python -m venv $env:TEMP\venv-sv2-f058

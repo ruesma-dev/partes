@@ -874,7 +874,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-058-relectura-cabecera-gemini",
-      "pendiente": "M0 (solo lectura) antes de desplegar sv2; desplegar sv2; M1–M4 tras desplegar (comandos en progress/current.md)"
+      "pendiente": "M0 OK. M1 FALLA: la consulta de obra tarda 12–16 s en sigrid-api y el tope es 5 s (todas «no se sabe»). No desplegar sv2 hasta que decida el humano (progress/current.md)"
     },
     {
       "id": "F-059",
