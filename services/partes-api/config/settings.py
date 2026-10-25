@@ -9,14 +9,23 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 ProviderName = Literal["gemini", "claude", "openai"]
 #: Nombres válidos de proveedor (los de ``ProviderName``).
 PROVEEDORES_VALIDOS = ("gemini", "claude", "openai")
+#: Variable de la clave de cada proveedor (mensajes del validador).
+_VARIABLE_CLAVE = {
+    "gemini": "GEMINI_API_KEY",
+    "claude": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+}
 
 
 class Settings(BaseSettings):
     """Configuracion del servicio 2 de partes (partes-extractor).
 
     Version simplificada respecto al sv2 de albaranes: una sola fase de
-    extraccion con UN proveedor (gemini por defecto, claude opcional).
-    El proveedor activo lo elige ``IA_PROVIDER`` y debe estar habilitado.
+    extraccion con el proveedor primario que elige ``IA_PROVIDER`` (gemini
+    por defecto; en Azure, openai), que debe estar habilitado y con clave.
+    F-058: si la cabecera sale vacia o su obra no existe en Sigrid, la
+    pagina se relee una vez con ``RELECTURA_CABECERA_PROVIDER`` (gemini por
+    defecto), si esta habilitado, con clave y es otro que el primario.
     """
 
     # --- Flags de proveedor --- #
@@ -73,6 +82,22 @@ class Settings(BaseSettings):
     pagina_como_imagen: bool = Field(True, alias="PAGINA_COMO_IMAGEN")
     pagina_como_imagen_proveedores: str = Field(
         "openai", alias="PAGINA_COMO_IMAGEN_PROVEEDORES"
+    )
+
+    # --- F-058: relectura de la cabecera con otro proveedor --- #
+    # Interruptor (DA5: encendido; volver atrás es ponerlo a false en la
+    # Container App) y proveedor de relectura, con su modelo ya configurado
+    # (sin variable de modelo propia). Solo relee si ese proveedor es otro
+    # que IA_PROVIDER, está habilitado y tiene clave; si no, sv2 arranca
+    # igual y lo avisa en el log de cableado.
+    relectura_cabecera_enabled: bool = Field(True, alias="RELECTURA_CABECERA")
+    relectura_cabecera_provider: ProviderName = Field(
+        "gemini", alias="RELECTURA_CABECERA_PROVIDER"
+    )
+    # DA12 = A: tope de la consulta de obra a sigrid-api, en segundos (> 0).
+    # Independiente de SIGRID_API_TIMEOUT_S, que sigue siendo el del catálogo.
+    obra_existe_timeout_s: float = Field(
+        5.0, gt=0, alias="OBRA_EXISTE_TIMEOUT_S"
     )
 
     # --- Reintentos LLM --- #
@@ -151,6 +176,47 @@ class Settings(BaseSettings):
             if p.strip()
         )
 
+    def _habilitado(self, provider: str) -> bool:
+        return {
+            "gemini": self.gemini_enabled,
+            "claude": self.claude_enabled,
+            "openai": self.openai_enabled,
+        }.get(provider, False)
+
+    def _clave_de(self, provider: str) -> str:
+        """Clave del proveedor sin espacios ("" si falta)."""
+        return ({
+            "gemini": self.gemini_api_key,
+            "claude": self.anthropic_api_key,
+            "openai": self.openai_api_key,
+        }.get(provider) or "").strip()
+
+    @property
+    def relectura_cabecera_motivo_inactiva(self) -> str | None:
+        """F-058: por qué la relectura encendida no puede releer.
+
+        ``None`` si está apagada o activa; si no, por orden,
+        ``mismo_proveedor``, ``no_habilitado`` o ``sin_clave``.
+        """
+        if not self.relectura_cabecera_enabled:
+            return None
+        proveedor = self.relectura_cabecera_provider
+        if proveedor == self.ia_provider:
+            return "mismo_proveedor"
+        if not self._habilitado(proveedor):
+            return "no_habilitado"
+        if not self._clave_de(proveedor):
+            return "sin_clave"
+        return None
+
+    @property
+    def relectura_cabecera_activa(self) -> str | None:
+        """F-058: el proveedor de relectura si puede releer, o ``None``."""
+        if (self.relectura_cabecera_enabled
+                and self.relectura_cabecera_motivo_inactiva is None):
+            return self.relectura_cabecera_provider
+        return None
+
     @model_validator(mode="after")
     def _validar_proveedores_pagina_como_imagen(self) -> Settings:
         desconocidos = sorted(
@@ -165,20 +231,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _ensure_provider_enabled_and_keyed(self) -> "Settings":
-        flag_by_provider = {
-            "gemini": self.gemini_enabled,
-            "claude": self.claude_enabled,
-            "openai": self.openai_enabled,
-        }
-        if not flag_by_provider.get(self.ia_provider, False):
+        """Solo el proveedor primario impide arrancar (la relectura, no)."""
+        if not self._habilitado(self.ia_provider):
             raise ValueError(
                 f"IA_PROVIDER='{self.ia_provider}' pero "
                 f"ENABLE_{self.ia_provider.upper()} no esta a true."
             )
-        if self.ia_provider == "gemini" and not (self.gemini_api_key or "").strip():
-            raise ValueError("IA_PROVIDER=gemini requiere GEMINI_API_KEY.")
-        if self.ia_provider == "claude" and not (self.anthropic_api_key or "").strip():
-            raise ValueError("IA_PROVIDER=claude requiere ANTHROPIC_API_KEY.")
-        if self.ia_provider == "openai" and not (self.openai_api_key or "").strip():
-            raise ValueError("IA_PROVIDER=openai requiere OPENAI_API_KEY.")
+        if not self._clave_de(self.ia_provider):
+            raise ValueError(
+                f"IA_PROVIDER={self.ia_provider} requiere "
+                f"{_VARIABLE_CLAVE[self.ia_provider]}."
+            )
         return self

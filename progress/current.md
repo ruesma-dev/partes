@@ -1,6 +1,118 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-058 · DONE 2026-10-25 (review APPROVED pasada 1; MB sin regresión; pendiente: M0 antes de desplegar sv2, desplegar sv2 y M1–M4 tras desplegar): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+
+Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
+worktree `partes-wt-f058`), aprobada entera (DA1 enmendada, DA2–DA8 = A, DA9 = A, DA10 = B,
+DA11 = A, DA12 = A; «a a todo»). Orden de implementar del humano (2026-10-25): «lazna f58».
+Rigor estándar; solo sv2. La rama se puso al día con `git merge dev` (9b1a7e3; conflictos solo
+en `BACKLOG.md`, regenerado, y en este fichero). Informe: `progress/impl_F-058.md`.
+
+- [x] T1, T2 (prompt), T4–T15 (código, tests, docs; azure-apps commit local 7470cf2, sin push)
+  y T22 (`bash harness/init.sh` en verde). Un commit por tarea, fase RED con traza.
+- [x] T16 (mutación lanzada por el líder: 20 de 63, 1 superviviente `settings.py:100`
+  `gt=0`→`gt=1`, muerto con un test nuevo de 0.5 y 1; ver `progress/mutacion_F-058.md`).
+- [x] T3 (MB, líder: sin regresión, `progress/banco_F-058.md`). Quedan T17–T21 (MANUAL, abajo).
+- Aviso: `dev` avanzó a 776f923 después del merge (solo `progress/`, `BACKLOG.md` y
+  `features.json`; entre ello «F-059: M4 OK, 6 partes reprocesados, obra y fecha leídas»).
+
+**Encaje con F-038 y F-059 (llegaron a `dev` después de escribir la spec; decisiones del
+implementer, justificadas)**:
+- `existe_obra` NO pasa `max_rows=2` (`design.md` §4.3): F-038 (R13, guardián
+  `tests/test_f038_lectores_sigrid.py`) prohíbe en todo lector un `max_rows` literal bajo el
+  tope, y `docs/ARCHITECTURE.md` fija que toda lectura pide `SIGRID_API_MAX_ROWS`. La consulta
+  es `SELECT TOP 1`, así que el `max_rows` no cambia el resultado: se pide el del cliente.
+- Sin parámetro `exigir_completo`: desde F-038 `_post_sql_read` ya trata `truncated: true` como
+  error en TODA lectura (incluido `fetch_tipos_hora`), que es lo que R9 pide para la de obra.
+- `OBRA_EXISTE_TIMEOUT_S` es independiente de `SIGRID_API_TIMEOUT_S` (rango (0, 200] de
+  F-038): se pasa por llamada solo a `existe_obra`; el catálogo auxhor sigue con el suyo.
+- F-059 (página como imagen): la relectura aplica la MISMA regla por proveedor que la primaria
+  (`PAGINA_COMO_IMAGEN_PROVEEDORES`): con la configuración de hoy (`openai`) Gemini recibe el
+  PDF original, que es con lo que se midió el 6 de 6 de la spec. `meta.adjunto_ia` sigue siendo
+  de la primaria (R16 fija las claves de `meta.relectura_cabecera`); lo enviado en la relectura
+  queda en `debug.relectura_cabecera` (`<proveedor>_request.attachment`).
+- El punto de `docs/ARCHITECTURE.md` es el **20** (el 18 es F-054 y el 19, F-059).
+- Otras menores: `model_name` del proveedor de relectura que no está instanciado (`KeyError`)
+  cuenta como fallo de la relectura (R14: `error`, `model` null), no tumba; `consulta_obra_ms`
+  solo apunta las consultas hechas (una obra con clave vacía, p. ej. `" - "`, no consulta).
+
+**MANUAL pendiente (comandos exactos; ninguna escribe en Sigrid ni en `partes`)**:
+- [x] **T3 · MB hecha (2026-10-25)**: (a) 12/12, (b) 4/4, (c) 6/6, (d) 42/42 sin errores; detalle en `progress/banco_F-058.md`. Receta: (líder, banco del prompt sobre el commit c67c253): el `lanzar.ps1` del banco
+  del líder con `-Repo C:\Users\pgris\PycharmProjects\partes-wt-f058`, sin relectura:
+  (a) `-Paginas paginas_sincab -Runs 2 openai:gpt-6.1-sol` ⇒ cuántas de 12 traen obra y fecha
+  (antes 0; no es puerta); (b) `-Paginas paginas_control openai:gpt-6.1-sol` ⇒ como
+  `control.jsonl`; (c) `-Paginas paginas_sincab gemini:gemini-4-argon` ⇒ 6 de 6; (d) batería de
+  F-051 (3 pasadas, `corregir.py`) ⇒ 42 de 42. Si (b), (c) o (d) empeoran: `blocked`, decide el
+  humano (DA9). Resultado en `progress/banco_F-058.md`.
+- [x] **T16 · mutación** (líder): `python -m harness.mutacion --feature F-058`; análisis del
+  único superviviente hecho en `progress/mutacion_F-058.md` y en el informe.
+- [ ] **T17 · M0** (solo lectura, antes de desplegar):
+  ```powershell
+  az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?starts_with(name,'GEMINI_') || starts_with(name,'ENABLE_GEMINI') || starts_with(name,'SIGRID_API_')]" -o table
+  ```
+  ⇒ `ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`, `GEMINI_API_KEY` y
+  `SIGRID_API_FUNCTION_KEY` por `secretRef`, `SIGRID_API_DATABASE=ruesma`. Si falta algo, decide
+  el humano.
+- [ ] **T18 · M1** (líder, local, sin escrituras; la rama, no `dev`). Entorno con los SDK de IA
+  (el `.venv` de la raíz no los trae), las claves del KV solo en el proceso:
+  ```powershell
+  python -m venv $env:TEMP\venv-sv2-f058
+  & $env:TEMP\venv-sv2-f058\Scripts\pip install -r C:\Users\pgris\PycharmProjects\partes-wt-f058\infra\manifests\sv2\requirements.txt
+  cd C:\Users\pgris\PycharmProjects\partes-wt-f058\services\partes-api
+  $env:IA_PROVIDER = 'openai'; $env:ENABLE_OPENAI = 'true'; $env:OPENAI_MODEL = 'gpt-6.1-sol'; $env:OPENAI_TIMEOUT_S = '180'
+  $env:ENABLE_GEMINI = 'true'; $env:GEMINI_MODEL = 'gemini-4-argon'; $env:ENABLE_CLAUDE = 'false'
+  $env:OPENAI_API_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n OPENAI-API-KEY --query value -o tsv
+  $env:GEMINI_API_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n GEMINI-API-KEY --query value -o tsv
+  $env:SIGRID_API_FUNCTION_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n SIGRID-API-FUNCTION-KEY --query value -o tsv
+  $env:SIGRID_API_BASE_URL = az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_BASE_URL'].value | [0]" -o tsv
+  $env:SIGRID_API_DATABASE = 'ruesma'
+  @'
+  import logging, sys, time
+  from pathlib import Path
+  from application.pipelines.extract_parte_pipeline import ExtractParteRequest
+  from config.settings import Settings
+  from interface_adapters.api.app import build_app
+  logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+  for n in ("application.services.obra_sigrid", "application.pipelines.extract_parte_pipeline", "interface_adapters.api.app"):
+      logging.getLogger(n).setLevel(logging.INFO)
+  pipeline = build_app(Settings(_env_file=None)).state.pipeline
+  for carpeta in sys.argv[1:]:
+      for pdf in sorted(Path(carpeta).glob("*.pdf")):
+          t0 = time.perf_counter()
+          s = pipeline.run(ExtractParteRequest(filename=pdf.name, mime_type="application/pdf", file_bytes=pdf.read_bytes(), document_id=pdf.stem))
+          r, c = s["meta"].get("relectura_cabecera") or {}, s["data"]["cabecera"]
+          print("RESUMEN", Path(carpeta).name, pdf.stem, "motivo=%s resultado=%s obra=%s fecha=%s filas=%d ms=%s s=%.1f" % (r.get("motivo", "-"), r.get("resultado", "-"), bool(c.get("obra_numero")), bool(c.get("fecha")), len(s["data"]["empleados"]), r.get("consulta_obra_ms", "-"), time.perf_counter() - t0))
+  '@ | & $env:TEMP\venv-sv2-f058\Scripts\python - <CARPETA_paginas_sincab> <CARPETA_paginas_control>
+  ```
+  ⇒ las 6 de `paginas_sincab` con `obra=True fecha=True` (por relectura o ya por el prompt),
+  `filas` iguales a las de la primaria, `paginas_control` sin `motivo` (sin relectura), ninguna
+  línea `[obra-sigrid] ... resultado=error`; los `ms=` de esas líneas son los primeros tiempos
+  (anotarlos en `progress/impl_F-058.md`). Los nombres de fichero del banco no deben llevar
+  nombres ni DNIs (se imprimen).
+- [ ] **T19 · M2** (humano, tras desplegar sv2; solo lectura en la base `partes` de Azure, con
+  el cliente PostgreSQL habitual; `<FECHA_DESPLIEGUE>` = AAAA-MM-DD HH:MM UTC):
+  ```sql
+  BEGIN TRANSACTION READ ONLY;
+  SELECT j->>'motivo' AS motivo, j->>'resultado' AS resultado, count(*)
+  FROM (SELECT raw_extraction_json::jsonb->'meta'->'relectura_cabecera' AS j
+        FROM parte_documents WHERE created_at_utc >= '<FECHA_DESPLIEGUE>') s
+  GROUP BY 1, 2 ORDER BY 1, 2;
+  ROLLBACK;
+  ```
+  ⇒ la fila `NULL, NULL` son los que no releyeron; el resto, por motivo y resultado.
+- [ ] **T20 · M4** (humano o líder, tras desplegar; tiempos de la consulta de obra):
+  ```powershell
+  $WS = az containerapp env show -n cae-partes-dev -g rg-partes-dev --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv2-extraccion' and Log_s has '[obra-sigrid]' | extend ms = toint(extract('ms=([0-9]+)', 1, Log_s)), res = extract('resultado=([a-z_]+)', 1, Log_s) | summarize n=count(), p50=percentile(ms,50), p95=percentile(ms,95), max_ms=max(ms) by bin(TimeGenerated, 1d), res" -o table
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv2-extraccion' and Log_s has '[sv2][relectura]' and Log_s has 'resultado=' | extend res = extract('resultado=([a-z_]+)', 1, Log_s), motivo = extract('motivo=([a-z_]+)', 1, Log_s) | summarize n=count() by bin(TimeGenerated, 1d), motivo, res" -o table
+  ```
+  ⇒ consultas, mediana, p95, máximo y `error` por día, y relecturas por motivo y resultado; con
+  eso el humano cierra DA12 (tope de 5 s).
+- [ ] **T21 · M3** (humano, DA8 = A): los 6 documentos ya guardados sin obra ni fecha se corrigen
+  a mano en el portal (ningún agente escribe). Según `dev` 0833170, F-059 M4 ya los reprocesó con
+  obra y fecha: comprobar si queda alguno.
+
 ## F-060 · DONE y DESPLEGADA 2026-10-25 (sv5 r20261025093550, sv4 r20261025093906; `MOVER_CIZ` sin definir en los dos = apagado; arranque sano en Log Analytics, sin Traceback). Antes de encender: visto bueno de Administración a DA3 y DA6 y M1–M3. Racha de incidencia con CIZ móvil
 
 Spec en `specs/F-060-racha-incidencia-ciz-movil/` (rama `feature/F-060-racha-incidencia-ciz-movil`,
