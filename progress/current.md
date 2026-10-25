@@ -1,6 +1,29 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-062 · SPEC_READY 2026-10-25 (pendiente de aprobación del humano). El inicio de una incidencia escribe CI* y CIZ el mismo día
+
+Spec en `specs/F-062-ciz-el-mismo-dia-del-inicio/` (rama `feature/F-062-ciz-el-mismo-dia-del-inicio`,
+worktree `partes-wt-f062`, sale de `dev` f313407). Rigor crítico. Servicios: **sv5** escribe el
+CI* y su CIZ hermano (synckey `partes:<id>:ciz`) en UNA sentencia de dos filas y lo encuentra
+para moverlo con la mecánica de F-060; **sv4** marca `ciz_mismo_dia` en el `inicio` y manda su
+tramo delante. Sin esquema ni colas nuevas. Sustituye a DA6 de F-060.
+
+**Decisiones abiertas para el humano** (`design.md` §12, recomendación entre paréntesis):
+DA1 interruptor (A: el mismo `MOVER_CIZ`; encender sv5→sv4, apagar sv4→sv5) · DA2 escritura
+(A: una sentencia, dos filas) · DA3 synckey y qué guarda sv4 (A: `partes:<id>:ciz`, sin columna
+nueva) · DA4 cómo lo encuentra el día siguiente (A: sv5 deriva la synckey; sin `movida_de`) ·
+DA5 inicio con la racha ya escrita delante o con su fin en la misma aprobación (A: sin hermano)
+· DA6 rachas abiertas al encender (A: el siguiente fin crea su CIZ, nada retroactivo) · DA7
+hermano en parte cerrado (A: `ciz_en_parte_cerrado`; B: cortar la racha como los 12 cortes de
+Administración) · DA8 desaprobar/papelera/`borrado_sigrid` (A: nada se mueve) · DA9 recurso sin
+CIZ (A: solo CI* + WARNING) · DA10 cuenta del hermano (A: la del CIZ) · DA11 impacto en
+F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
+
+- [ ] M0 (líder, antes de T1, solo lectura en producción): comandos exactos en `design.md` §9;
+  si (a) da `n > 0` (alguna synckey `partes:%:%`), PARA y `blocked`.
+- [ ] M1–M6: se copian con comando exacto a este bloque en T13 (`design.md` §9).
+
 ## F-060 · DONE y DESPLEGADA 2026-10-25 (sv5 r20261025093550, sv4 r20261025093906; `MOVER_CIZ` sin definir en los dos = apagado; arranque sano en Log Analytics, sin Traceback). Antes de encender: visto bueno de Administración a DA3 y DA6 y M1–M3. Racha de incidencia con CIZ móvil
 
 Spec en `specs/F-060-racha-incidencia-ciz-movil/` (rama `feature/F-060-racha-incidencia-ciz-movil`,
