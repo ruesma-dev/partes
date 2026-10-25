@@ -69,7 +69,8 @@ la lanza el líder: decidir con el humano su coste (la de T13 fueron ~377 min co
   resultado. La copia se comprobó con `diff` contra `git show 0926857` (solo nombre y una
   línea del docstring).
 
-- [ ] **M1–M3 · preparación (humano, local; solo escribe en la obra 0404, modo pruebas)**.
+- [x] **M1–M3 hechas el 2026-10-25: M1 OK, M2 OK, M3 OK** (meses 2026/01, 2026/03→04 y 2026/12; limpiado con `estado` ⇒ NO existe; PT26/00373, 00375 y 00376 intactos). Informe: `progress/m1_m3_F-060.md`. Falta solo la mirada de Administración a la «Vista calendario».
+- [x] **M1–M3 · preparación (humano, local; solo escribe en la obra 0404, modo pruebas)**.
   Desde el repo principal con F-060 en `dev` (los `.env` locales viven ahí, no en el
   worktree). El sv4 local usa el PostgreSQL LOCAL (`PG_HOST` local) y llama al sv5 local
   (`TRANSFER_BASE_URL` a `127.0.0.1:8005`), sin colas. Recurso: el gruista de pruebas
@@ -111,7 +112,7 @@ la lanza el líder: decidir con el humano su coste (la de T13 fueron ~377 min co
   **V** (`verificar`/`estado`/`limpiar`): en `services\partes-transfer\prueba_escritura_sigrid.py`,
   `ANO, MES = <AAAA>, <MM>` (cambio local, no se commitea) y
   `python .\prueba_escritura_sigrid.py verificar` (o `estado`).
-- [ ] **M1 · día a día (`<M1>`)**. En «+ Nuevo parte» (`/nuevo`): una obra cualquiera (sv5
+- [x] **M1 · día a día (`<M1>`)**. En «+ Nuevo parte» (`/nuevo`): una obra cualquiera (sv5
   en pruebas escribe en la 0404), trabajador 2717792, incidencia **V**, días 1, 2, 3 y 4 ⇒
   «Crear parte»; otro con **8 h** ordinarias el día 5. En la vista del trabajador, «Aprobar»
   la línea del día 1 ⇒ «Registrar»; luego la del 2, la del 3, la del 4 y la del 5, de una en
@@ -134,7 +135,7 @@ la lanza el líder: decidir con el humano su coste (la de T13 fueron ~377 min co
   ```
   El DRY-RUN imprime los `DELETE` sobre el ide del parte de `<M1>` (si sale otro, **PARA** y
   no lances el `--ejecutar`); `estado` ⇒ `NO existe parte <AAAA>/<MM> de obra 0404`.
-- [ ] **M2 · cambio de mes (`<M2a>` 30 y 31, `<M2b>` 1)**. «+ Nuevo parte» con V los días 30
+- [x] **M2 · cambio de mes (`<M2a>` 30 y 31, `<M2b>` 1)**. «+ Nuevo parte» con V los días 30
   y 31 de `<M2a>` y 1 de `<M2b>`; aprobar el 30, luego el 31 y luego el 1. Esperado: tras el
   31, V de `<M2a>` ⇒ CIV el 30 y CIZ el 31 (S ⇒ su `ide` IZ y su `hmoide` **Pa**); tras el 1,
   V de `<M2a>` ⇒ solo el CIV del 30; V de `<M2b>` ⇒ un parte nuevo con el CIZ el 01; S
@@ -142,7 +143,7 @@ la lanza el líder: decidir con el humano su coste (la de T13 fueron ~377 min co
   `ciz movido ide=<IZ> hmoide=<Pa>-><Pb> fecha=<M2a>31-><M2b>01`. L ⇒ el 31 `omitido`
   `fin_movido`. **Limpieza**: los tres comandos de M1 con V en `<M2b>` y después en `<M2a>`
   (cada DRY-RUN, sobre el ide de su parte; si no, **PARA**); `estado` ⇒ `NO existe` en los dos.
-- [ ] **M3 · todo de una vez (`<M3>`)**. «+ Nuevo parte» con V los días 1–4; en la vista del
+- [x] **M3 · todo de una vez (`<M3>`)**. «+ Nuevo parte» con V los días 1–4; en la vista del
   trabajador, marcar las cuatro líneas ⇒ «Aprobar seleccionadas» ⇒ «Registrar». Esperado: V
   de `<M3>` ⇒ CIV el 01 y CIZ el 04 (2 líneas); L ⇒ 1 y 4 `registrado`; 2 y 3 `omitido` con
   `dia intermedio de la incidencia: solo se registran el inicio y el fin`; consola 1 sin
