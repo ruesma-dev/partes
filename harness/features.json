@@ -869,12 +869,12 @@
         "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-058-relectura-cabecera-gemini",
-      "spec": "aprobada (todas las DA) · `partes-wt-f058`"
+      "pendiente": "M0 (solo lectura) antes de desplegar sv2; desplegar sv2; M1–M4 tras desplegar (comandos en progress/current.md)"
     },
     {
       "id": "F-059",

@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-058 · in_progress, implementación terminada (implementer, 2026-10-25; T16 mutación cerrada; pendiente review y T3 MB del líder): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+## F-058 · DONE 2026-10-25 (review APPROVED pasada 1; MB sin regresión; pendiente: M0 antes de desplegar sv2, desplegar sv2 y M1–M4 tras desplegar): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
 worktree `partes-wt-f058`), aprobada entera (DA1 enmendada, DA2–DA8 = A, DA9 = A, DA10 = B,
@@ -13,7 +13,7 @@ en `BACKLOG.md`, regenerado, y en este fichero). Informe: `progress/impl_F-058.m
   y T22 (`bash harness/init.sh` en verde). Un commit por tarea, fase RED con traza.
 - [x] T16 (mutación lanzada por el líder: 20 de 63, 1 superviviente `settings.py:100`
   `gt=0`→`gt=1`, muerto con un test nuevo de 0.5 y 1; ver `progress/mutacion_F-058.md`).
-- [ ] T3 (MB, líder) y T17–T21 (MANUAL, abajo).
+- [x] T3 (MB, líder: sin regresión, `progress/banco_F-058.md`). Quedan T17–T21 (MANUAL, abajo).
 - Aviso: `dev` avanzó a 776f923 después del merge (solo `progress/`, `BACKLOG.md` y
   `features.json`; entre ello «F-059: M4 OK, 6 partes reprocesados, obra y fecha leídas»).
 
@@ -38,7 +38,7 @@ implementer, justificadas)**:
   solo apunta las consultas hechas (una obra con clave vacía, p. ej. `" - "`, no consulta).
 
 **MANUAL pendiente (comandos exactos; ninguna escribe en Sigrid ni en `partes`)**:
-- [ ] **T3 · MB** (líder, banco del prompt sobre el commit c67c253): el `lanzar.ps1` del banco
+- [x] **T3 · MB hecha (2026-10-25)**: (a) 12/12, (b) 4/4, (c) 6/6, (d) 42/42 sin errores; detalle en `progress/banco_F-058.md`. Receta: (líder, banco del prompt sobre el commit c67c253): el `lanzar.ps1` del banco
   del líder con `-Repo C:\Users\pgris\PycharmProjects\partes-wt-f058`, sin relectura:
   (a) `-Paginas paginas_sincab -Runs 2 openai:gpt-6.1-sol` ⇒ cuántas de 12 traen obra y fecha
   (antes 0; no es puerta); (b) `-Paginas paginas_control openai:gpt-6.1-sol` ⇒ como
