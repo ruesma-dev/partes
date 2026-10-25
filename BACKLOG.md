@@ -12,7 +12,7 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | pendiente | en redacción · `partes-wt-f062` | critico | `feature/F-062-ciz-el-mismo-dia-del-inicio` |
-| F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | pendiente | en redacción · `partes-wt-f063` | estandar | `feature/F-063-consulta-obra-rapida` |
+| F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | spec lista | escrita, pendiente de aprobación (DA1–DA5) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063` | estandar | `feature/F-063-consulta-obra-rapida` |
 | F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | pendiente | sin spec | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
@@ -88,9 +88,9 @@ Petición del humano del 2026-10-25: «da de alta f62 la primera, y lanza spec»
 
 ### F-063 · sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s)
 
-estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-063-consulta-obra-rapida`
+estado **spec lista** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-063-consulta-obra-rapida`
 
-**Spec**: en redacción · `partes-wt-f063`
+**Spec**: escrita, pendiente de aprobación (DA1–DA5) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063`
 
 Petición del humano del 2026-10-25 («1a») tras la M1 de F-058 (líder, local, solo lectura): las 8 consultas `[obra-sigrid]` salieron `resultado=error error=ReadTimeout` (5,6–6,2 s, tope `OBRA_EXISTE_TIMEOUT_S` = 5 s). Medido aparte en sigrid-api: `_SQL_EXISTE_OBRA` (sv2 `infrastructure/sigrid/sigrid_lookup_client.py`, normaliza `con.cod` fila a fila con `CROSS APPLY` + `COLLATE`) tarda 12–16 s; `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegada así, toda consulta de obra sería «no se sabe» (la relectura por obra inexistente nunca saltaría), +~6 s por parte y ~13 s de consulta en el SQL de producción de Sigrid por parte. Objetivo: misma semántica de F-058 (clave normalizada: sin espacios ni guiones, sin ceros a la izquierda si es numérica, sin distinguir mayúsculas ni acentos) con una consulta que use el índice de `con.cod` y quepa holgada en el tope. sv2 NO se despliega hasta cerrar esta feature (F-058 está en dev sin desplegar).
 

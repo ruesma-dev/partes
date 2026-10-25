@@ -1,6 +1,35 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-063 · SPEC_READY 2026-10-25 (spec-author; pendiente de aprobación del humano): consulta de obra de sv2 que use el índice
+
+Spec en `specs/F-063-consulta-obra-rapida/` (rama `feature/F-063-consulta-obra-rapida`,
+worktree `partes-wt-f063`, sale de `dev` bbc3172). Petición del humano: «1a». Solo sv2 (más
+`docs/ARCHITECTURE.md` y `azure-apps/partes.md`). Rigor estándar (solo lecturas; sin motivo
+para subirlo). sv2 sigue sin desplegarse hasta cerrar F-063.
+
+- **Estrategia**: `SELECT DISTINCT con.cod FROM obr JOIN con ON obr.ide = con.ide WHERE
+  con.cod LIKE ?` con el patrón `%c1%c2%…%cn%` (cada carácter con su clase de variantes:
+  minúscula, acentuadas, `ª º ¹ ² ³`; escapes de `% _ [`) y filtro exacto en Python con la
+  misma `clave_obra`. Superconjunto garantizado: no se pierden guiones, espacios, ceros ni
+  letras. Prototipo del spec-author (fuera del repo): 20.000 códigos aleatorios, cero fallos.
+- `es_vacio`/`clave_obra` pasan a `domain/models/clave_obra.py` (sin cambios): puerto,
+  `ComprobadorObra`, su log, pipeline, `Settings` y tope de 5 s intactos; de los tests de F-058
+  solo cambian dos aserciones del SQL.
+- Verificación del líder antes de desplegar (solo lectura, `ruesma`): **M-EQ** exhaustiva
+  (cada obra casa con el patrón de su clave, en lotes por `ide`, con par trampa; vieja = nueva
+  en ≤ 7 claves) y **M-T** (60 consultas reales: 60/60, 0 errores, puerta DA3).
+
+**Decisiones abiertas para el humano** (`design.md` §10; las tareas suponen A en todas):
+
+| DA | Tema | Recomendación |
+|---|---|---|
+| DA1 | Estrategia | **A** `LIKE` con `%` entre caracteres + filtro exacto en Python (B `IN` con ceros pierde `06-92`; C `IN` + `LIKE` de respaldo, dos consultas) |
+| DA2 | Dónde vive la clave | **A** `clave_obra` al dominio y filtra el cliente (B: el puerto devuelve candidatos; más cambio en F-058) |
+| DA3 | Puerta de tiempos M-T | **A** mediana ≤ 0,5 s, máximo ≤ 2 s, 0 errores, 60/60 (B: solo < 5 s) |
+| DA4 | Equivalencia M-EQ | **A** exhaustiva por `ide` + 7 claves contra la consulta vieja (B: solo la muestra de M-T) |
+| DA5 | `OBRA_EXISTE_TIMEOUT_S` | **A** sigue en 5 s y se revisa con M4 de F-058 (B: bajarlo ya) |
+
 ## F-058 · DONE 2026-10-25 (review APPROVED pasada 1; MB sin regresión; pendiente: M0 antes de desplegar sv2, desplegar sv2 y M1–M4 tras desplegar): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
