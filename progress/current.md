@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-058 · in_progress, implementación terminada (implementer, 2026-10-25; pendiente review, T3 MB y T16 mutación del líder): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+## F-058 · in_progress, implementación terminada (implementer, 2026-10-25; T16 mutación cerrada; pendiente review y T3 MB del líder): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
 worktree `partes-wt-f058`), aprobada entera (DA1 enmendada, DA2–DA8 = A, DA9 = A, DA10 = B,
@@ -11,7 +11,9 @@ en `BACKLOG.md`, regenerado, y en este fichero). Informe: `progress/impl_F-058.m
 
 - [x] T1, T2 (prompt), T4–T15 (código, tests, docs; azure-apps commit local 7470cf2, sin push)
   y T22 (`bash harness/init.sh` en verde). Un commit por tarea, fase RED con traza.
-- [ ] T3 (MB, líder), T16 (mutación, líder) y T17–T21 (MANUAL, abajo).
+- [x] T16 (mutación lanzada por el líder: 20 de 63, 1 superviviente `settings.py:100`
+  `gt=0`→`gt=1`, muerto con un test nuevo de 0.5 y 1; ver `progress/mutacion_F-058.md`).
+- [ ] T3 (MB, líder) y T17–T21 (MANUAL, abajo).
 - Aviso: `dev` avanzó a 776f923 después del merge (solo `progress/`, `BACKLOG.md` y
   `features.json`; entre ello «F-059: M4 OK, 6 partes reprocesados, obra y fecha leídas»).
 
@@ -43,8 +45,8 @@ implementer, justificadas)**:
   `control.jsonl`; (c) `-Paginas paginas_sincab gemini:gemini-4-argon` ⇒ 6 de 6; (d) batería de
   F-051 (3 pasadas, `corregir.py`) ⇒ 42 de 42. Si (b), (c) o (d) empeoran: `blocked`, decide el
   humano (DA9). Resultado en `progress/banco_F-058.md`.
-- [ ] **T16 · mutación** (líder): `python -m harness.mutacion --feature F-058`; el análisis de
-  supervivientes va a `progress/mutacion_F-058.md` y al informe.
+- [x] **T16 · mutación** (líder): `python -m harness.mutacion --feature F-058`; análisis del
+  único superviviente hecho en `progress/mutacion_F-058.md` y en el informe.
 - [ ] **T17 · M0** (solo lectura, antes de desplegar):
   ```powershell
   az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?starts_with(name,'GEMINI_') || starts_with(name,'ENABLE_GEMINI') || starts_with(name,'SIGRID_API_')]" -o table

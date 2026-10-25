@@ -105,6 +105,19 @@ def test_f058_r24_tope_de_la_consulta_no_positivo_no_arranca(
         _settings()
 
 
+@pytest.mark.parametrize("tope", ["0.5", "1"])
+def test_f058_r24_tope_de_la_consulta_positivo_menor_o_igual_a_1_se_acepta(
+    monkeypatch, tope: str,
+) -> None:
+    """La frontera es «> 0», no «> 1»: medio segundo y un segundo valen.
+
+    Mata el superviviente de T16 (``gt=0`` → ``gt=1``), el mismo hueco que
+    tuvo F-038: ningún test probaba un tope válido entre 0 y 1.
+    """
+    monkeypatch.setenv("OBRA_EXISTE_TIMEOUT_S", tope)
+    assert _settings().obra_existe_timeout_s == float(tope)
+
+
 def test_f058_r24_proveedor_de_relectura_desconocido_no_arranca(
     monkeypatch,
 ) -> None:

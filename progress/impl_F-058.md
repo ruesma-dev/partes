@@ -155,8 +155,8 @@ del worker, ya implementado en T9.) Tras T11: `29 passed, 1 warning in 5.62s`.
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados (sv2) | 329 passed, 0 failed (159 de F-058) |
+| Tests ejecutados (sv2) | 331 passed, 0 failed (161 de F-058; +2 de T16), 59.11 s en `init.sh` tras T16 |
 | Tiempo de la suite de sv2 | 13.45 s (pytest); en `init.sh`: 48.09 s |
 | Cobertura de líneas cambiadas | **100.0 %** (214/214 líneas cambiadas, umbral 80 %; `PUERTA COBERTURA` de `init.sh`) |
 | Cobertura de los ficheros tocados (coverage local de sv2) | `relectura_cabecera.py` 100 %, `obra_sigrid.py` 100 %, `settings.py` 100 %, `extract_parte_pipeline.py` 99 %, `sigrid_lookup_client.py` 89 %, `app.py` 80 % (lo no cubierto es previo: endpoint `/v1/partes/extract` y CORS) |
-| Mutantes generados / supervivientes | No lanzada por el implementer (T16, la lanza el líder): pendiente de `progress/mutacion_F-058.md` |
+| Mutantes generados / supervivientes | 63 generados, 20 evaluados (muestreo `estandar`, semilla `20260820`, workers: 1), 19 muertos, **1 superviviente** (`settings.py:100`, `gt=0` → `gt=1`), 0 timeouts; 242.9 s. Hueco real: test nuevo con 0.5 y 1, mutante muerto a mano (2 failed); campaña no relanzada. Detalle en `progress/mutacion_F-058.md` |
