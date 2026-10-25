@@ -1,16 +1,24 @@
 # infrastructure/sigrid/sigrid_lookup_client.py
-"""Cliente HTTP de SOLO LECTURA contra ``sigrid-api`` para el portal.
+"""Cliente HTTP de SOLO LECTURA contra ``sigrid-api`` para sv2 (extracción).
 
-Unico lookup necesario en sv4: la lista de tipos de hora (``auxhor``)
-para el desplegable de codigo de hora del detalle del trabajador. El
-casado inicial lo hace el sv3; aqui solo poblamos el selector y, al
-guardar, resolvemos el ``auxhor`` elegido por ``ide`` para no confiar
-en el cliente con los precios.
+Dos lecturas, ambas por ``POST /api/sql/read`` contra la base configurada:
+
+- ``fetch_tipos_hora``: el catálogo de tipos de hora (``auxhor``) que se
+  inyecta en el prompt para que la IA proponga el código de hora (lo cachea
+  ``AuxhorCatalogProvider``).
+- ``existe_obra`` (F-058, DA10 = B): si hay en Sigrid alguna obra con una
+  clave dada, de cualquier empresa y también de baja; una consulta en el
+  momento por página, con su propio tope de tiempo, para decidir si se
+  relee la cabecera. No casa la obra: eso lo hace sv3.
+
+``truncated: true`` es siempre error (F-038): nunca se decide con filas
+parciales.
 """
 from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,6 +45,20 @@ WHERE (auxhor.fecbaj IS NULL OR auxhor.fecbaj = 0)
 ORDER BY auxhor.ext, auxhor.cod
 """
 
+#: F-058 (R7, DA10 = B): ¿hay alguna obra con esta clave? La clave llega como
+#: el único parámetro ``?`` (nunca concatenada) y se calcula igual sobre
+#: ``con.cod``: sin espacios ni guiones y, si queda solo de dígitos, sin ceros
+#: a la izquierda; mayúsculas y acentos los iguala la intercalación. Sin
+#: filtro de empresa ni de baja. ``TOP 1``: basta saber si hay alguna.
+_SQL_EXISTE_OBRA = """SELECT TOP 1 con.cod AS codigo
+FROM obr JOIN con ON obr.ide = con.ide
+CROSS APPLY (SELECT REPLACE(REPLACE(con.cod, ' ', ''), '-', '') AS n) a
+CROSS APPLY (SELECT CASE WHEN a.n <> '' AND a.n NOT LIKE '%[^0-9]%'
+    THEN ISNULL(NULLIF(SUBSTRING(a.n, PATINDEX('%[^0]%', a.n + 'X'), 24), ''), '0')
+    ELSE a.n END AS clave) k
+WHERE con.cod IS NOT NULL AND k.clave COLLATE Latin1_General_CI_AI = ?
+"""
+
 
 @dataclass(frozen=True)
 class TipoHoraOption:
@@ -57,6 +79,7 @@ class SigridLookupClient:
         database: str,
         timeout_s: float = 30.0,
         max_rows: int = MAX_ROWS_DEFECTO,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         if not base_url:
             raise ValueError("SigridLookupClient requiere base_url no vacio")
@@ -69,6 +92,8 @@ class SigridLookupClient:
         self._database = database
         self._timeout_s = float(timeout_s)
         self._max_rows = int(max_rows)
+        # Solo los tests lo pasan (httpx.MockTransport); si no, el de siempre.
+        self._transport = transport
         logger.info(
             "%s Instanciado. base_url=%s database=%s timeout_s=%s "
             "max_rows=%s",
@@ -99,23 +124,44 @@ class SigridLookupClient:
         logger.info("%s tipos_hora -> %s filas", _LOG_PREFIX, len(out))
         return out
 
+    def existe_obra(self, clave: str, *, timeout_s: float) -> bool:
+        """F-058: ``True`` si hay alguna obra con esa clave (ya normalizada).
+
+        Con su propio tope (``OBRA_EXISTE_TIMEOUT_S``), no el del catálogo.
+        Un error HTTP, ``ok=false``, ``truncated`` o el tope superado lanzan:
+        los recoge ``ComprobadorObra`` como «no se sabe».
+        """
+        _, rows = self._post_sql_read(
+            sql=_SQL_EXISTE_OBRA, parameters=[clave], label="existe_obra",
+            timeout_s=timeout_s,
+        )
+        return len(rows) >= 1
+
     def _post_sql_read(
-        self, *, sql: str, parameters: list[Any], label: str
+        self, *, sql: str, parameters: list[Any], label: str,
+        timeout_s: float | None = None,
     ) -> tuple[list[str], list[list[Any]]]:
+        """``timeout_s`` (F-058): tope de esta lectura; sin él, el del cliente."""
         url = f"{self._base_url}/api/sql/read"
+        if timeout_s is None:
+            plazo = self._timeout_s
+            timeout_seconds = int(self._timeout_s)
+        else:
+            plazo = float(timeout_s)
+            timeout_seconds = max(1, math.ceil(plazo))
         payload = {
             "database": self._database,
             "sql": sql,
             "parameters": parameters,
-            "timeout_seconds": int(self._timeout_s),
+            "timeout_seconds": timeout_seconds,
             "max_rows": self._max_rows,
         }
         headers = {
             "x-functions-key": self._function_key,
             "Content-Type": "application/json",
         }
-        transport = httpx.HTTPTransport(retries=1)
-        with httpx.Client(timeout=self._timeout_s, transport=transport) as client:
+        transport = self._transport or httpx.HTTPTransport(retries=1)
+        with httpx.Client(timeout=plazo, transport=transport) as client:
             response = client.post(url, json=payload, headers=headers)
         status = response.status_code
         body_text = response.text or ""

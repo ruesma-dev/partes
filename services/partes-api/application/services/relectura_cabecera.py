@@ -18,7 +18,8 @@ conciliación de sv3: no elige obra ni empresa (R11).
 from __future__ import annotations
 
 import unicodedata
-from typing import Any, Callable, Mapping
+from collections.abc import Callable, Mapping
+from typing import Any
 
 MOTIVO_CABECERA_VACIA = "cabecera_vacia"
 MOTIVO_OBRA_INEXISTENTE = "obra_inexistente"
