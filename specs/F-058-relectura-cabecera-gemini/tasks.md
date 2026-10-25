@@ -28,4 +28,4 @@
 - [ ] T19: M2 · tras desplegar sv2 (lo pide el humano), recuento por motivo y resultado de `meta.relectura_cabecera`  |  Verificación: MANUAL (humano), SELECT de §10 en transacción READ ONLY
 - [ ] T20: M4 · tras desplegar, tiempos de la consulta de obra en Log Analytics (consulta KQL de §10)  |  Verificación: MANUAL (humano o líder); número, mediana, p95, máximo y errores por día; con ellos el humano cierra DA12
 - [ ] T21: M3 · los 6 documentos ya guardados según la DA8 (corrección en el portal)  |  Verificación: MANUAL (humano); sin escrituras de agentes
-- [ ] T22: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T22: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»

@@ -5,13 +5,15 @@
 
 Resumen: **56 features**, 14 abiertas, 42 terminadas.
 
+En curso: **F-058**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | spec lista | aprobada (todas las DA) · `partes-wt-f058` | estandar | `feature/F-058-relectura-cabecera-gemini` |
+| F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | en curso | aprobada (todas las DA) · `partes-wt-f058` | estandar | `feature/F-058-relectura-cabecera-gemini` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -77,7 +79,7 @@ Bloqueadas: **F-032**.
 
 ### F-058 · sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera
 
-estado **spec lista** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-058-relectura-cabecera-gemini`
+estado **en curso** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-058-relectura-cabecera-gemini`
 
 **Spec**: aprobada (todas las DA) · `partes-wt-f058`
 
