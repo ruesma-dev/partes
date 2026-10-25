@@ -67,7 +67,8 @@ def main() -> int:
         mime = payload.get("mime_type", "application/pdf")
         pdf = blob.descargar(CONTENEDOR_INPUT, f"{document_id}.pdf")
         envelope = pipeline.run(ExtractParteRequest(
-            filename=filename, mime_type=mime, file_bytes=pdf))
+            filename=filename, mime_type=mime, file_bytes=pdf,
+            document_id=document_id))
         blob.subir(
             CONTENEDOR_ENVELOPES, f"{document_id}.json",
             json.dumps(envelope, ensure_ascii=False).encode("utf-8"),

@@ -118,6 +118,10 @@ class ParteExtractionService:
             debug_payload=debug_payload,
         )
 
+    def model_name(self, provider: str) -> str:
+        """F-058: modelo de un proveedor instanciado (``KeyError`` si no)."""
+        return self._require_provider(provider).model_name
+
     # --------------------------------------------------------------- #
     # Helpers.
     # --------------------------------------------------------------- #
