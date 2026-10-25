@@ -7,7 +7,7 @@
 > `F-058 Tn: ...` con rutas explícitas. Rutas sin prefijo: `services/partes-api/`. Los tests se
 > lanzan desde `services/partes-api` con `python -m pytest`.
 
-- [ ] T1: Escribir `tests/test_f058_prompt.py` (R21–R22, `design.md` §8) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f058_prompt.py` falla por el párrafo ausente (traza RED en `progress/impl_F-058.md`)
+- [x] T1: Escribir `tests/test_f058_prompt.py` (R21–R22, `design.md` §8) y verlo en ROJO  |  Verificación: `python -m pytest tests/test_f058_prompt.py` falla por el párrafo ausente (traza RED en `progress/impl_F-058.md`)
 - [ ] T2: Añadir a `config/prompts.yaml` el párrafo de cabecera y la frase de la viñeta `cabecera.fecha` de `design.md` §5 (solo el punto 1 de `task`; UTF-8 y CRLF)  |  Verificación: `python -m pytest tests/test_f058_prompt.py tests/test_f023_empresa_membrete.py tests/test_f051_prompt.py` en verde; `git diff dev -- services/partes-api/config/prompts.yaml` solo toca el punto 1 (R23, R27)
 - [ ] T3: MB · banco del prompt antes/después (`design.md` §10), lo lanza el LÍDER sobre el commit de T2 mientras siguen T4+  |  Verificación: MANUAL (líder); resultado en `progress/banco_F-058.md`; si (b), (c) o (d) empeoran, `blocked` y decide el humano (DA9)
 - [ ] T4: Escribir los tests puros de `tests/test_f058_relectura_cabecera.py` (`es_vacio`, `clave_obra`, `cabecera_vacia`, `con_trabajadores`, `motivo_relectura`, `resultado_relectura` con la misma clave sin consultar; R2–R5, R8) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f058_relectura_cabecera.py` falla por el módulo ausente (traza RED)
