@@ -905,7 +905,7 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-060-racha-incidencia-ciz-movil",
-      "pendiente": "desplegar sv4 y sv5 con MOVER_CIZ apagado; antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender"
+      "pendiente": "desplegada sv5 r20261025093550 y sv4 r20261025093906 el 2026-10-25 con MOVER_CIZ apagado (arranque sano); antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender"
     }
   ]
 }
