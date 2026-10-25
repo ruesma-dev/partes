@@ -1,20 +1,32 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-058 · spec_ready, enmendada otra vez (2026-10-23): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+## F-058 · in_progress (implementer, 2026-10-25): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
-worktree `partes-wt-f058`); resumen en `progress/spec_F-058.md`. Primera enmienda (a631600): DA1
-(cabecera vacía **o** obra leída inexistente en Sigrid), DA2–DA8 aprobadas (A) y el punto 1 del
-prompt avisa de la cabecera (banco MB del líder en T3). Segunda enmienda, con «da10, vamos a
-poner una consulta en el momento al vuelo, y vemos tiempos. si la obra no existe se manda a
-relectura a gemini»: **DA10 = B**, sin lista cacheada; sv2 consulta en el momento la existencia
-de la obra (parametrizada, como mucho dos por página) y deja sus milisegundos en el log
-(`[obra-sigrid]`, con `document_id`) y en `meta.relectura_cabecera.consulta_obra_ms`; M4 los lee
-en Log Analytics tras desplegar. DA1 confirmada. Solo sv2, sin cambios de entorno.
-**Pendiente del humano**: DA9 (puerta del banco), DA11 (cabecera entera también con obra
-inexistente) y DA12 (fallo o lentitud de la consulta: tope 5 s y no releer por obra), las tres
-recomendadas A, `design.md` §11. Ninguna verificación manual ejecutada.
+worktree `partes-wt-f058`), aprobada entera (DA1 enmendada, DA2–DA8 = A, DA9 = A, DA10 = B,
+DA11 = A, DA12 = A; «a a todo»). Orden de implementar del humano (2026-10-25): «lazna f58».
+Rigor estándar; solo sv2. La rama se puso al día con `git merge dev` (9b1a7e3; conflictos solo
+en `BACKLOG.md`, regenerado, y en este fichero).
+
+**Tarea en curso**: ver `tasks.md` (se marcan `[x]` al cerrarlas).
+
+**Encaje con F-038 y F-059 (llegaron a `dev` después de escribir la spec; decisiones del
+implementer, justificadas)**:
+- `existe_obra` NO pasa `max_rows=2` (`design.md` §4.3): F-038 (R13, guardián
+  `tests/test_f038_lectores_sigrid.py`) prohíbe en todo lector un `max_rows` literal bajo el
+  tope, y `docs/ARCHITECTURE.md` fija que toda lectura pide `SIGRID_API_MAX_ROWS`. La consulta
+  es `SELECT TOP 1`, así que el `max_rows` no cambia el resultado: se pide el del cliente.
+- Sin parámetro `exigir_completo`: desde F-038 `_post_sql_read` ya trata `truncated: true` como
+  error en TODA lectura (incluido `fetch_tipos_hora`), que es lo que R9 pide para la de obra.
+- `OBRA_EXISTE_TIMEOUT_S` es independiente de `SIGRID_API_TIMEOUT_S` (rango (0, 200] de
+  F-038): se pasa por llamada solo a `existe_obra`; el catálogo auxhor sigue con el suyo.
+- F-059 (página como imagen): la relectura aplica la MISMA regla por proveedor que la primaria
+  (`PAGINA_COMO_IMAGEN_PROVEEDORES`): con la configuración de hoy (`openai`) Gemini recibe el
+  PDF original, que es con lo que se midió el 6 de 6 de la spec. `meta.adjunto_ia` sigue siendo
+  de la primaria (R16 fija las claves de `meta.relectura_cabecera`); lo enviado en la relectura
+  queda en `debug.relectura_cabecera` (`<proveedor>_request.attachment`).
+- El punto de `docs/ARCHITECTURE.md` es el **20** (el 18 es F-054 y el 19, F-059).
 
 ## F-060 · DONE y DESPLEGADA 2026-10-25 (sv5 r20261025093550, sv4 r20261025093906; `MOVER_CIZ` sin definir en los dos = apagado; arranque sano en Log Analytics, sin Traceback). Antes de encender: visto bueno de Administración a DA3 y DA6 y M1–M3. Racha de incidencia con CIZ móvil
 
