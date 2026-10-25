@@ -60,6 +60,8 @@ class LineaIn(BaseModel):
     candef: Optional[float] = None
     incidencia_codigo: Optional[str] = None
     incidencia_rol: Optional[str] = None
+    # F-060 (R9): las lineas de la racha de un `fin` (vacia si no hay).
+    racha_registro_ids: list[int] = Field(default_factory=list)
 
 
 class PeticionIn(BaseModel):
@@ -129,6 +131,7 @@ def _cliente_sigrid(settings) -> SigridWriteClient:
         max_statements=settings.sigrid_max_statements,
         tip_parte=settings.tip_parte_trabajo,
         est_parte=settings.est_parte_activo,
+        max_rows=settings.sigrid_api_max_rows,
     )
 
 

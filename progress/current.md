@@ -16,6 +16,309 @@ en Log Analytics tras desplegar. DA1 confirmada. Solo sv2, sin cambios de entorn
 inexistente) y DA12 (fallo o lentitud de la consulta: tope 5 s y no releer por obra), las tres
 recomendadas A, `design.md` §11. Ninguna verificación manual ejecutada.
 
+## F-060 · DONE y DESPLEGADA 2026-10-25 (sv5 r20261025093550, sv4 r20261025093906; `MOVER_CIZ` sin definir en los dos = apagado; arranque sano en Log Analytics, sin Traceback). Antes de encender: visto bueno de Administración a DA3 y DA6 y M1–M3. Racha de incidencia con CIZ móvil
+
+Spec en `specs/F-060-racha-incidencia-ciz-movil/` (rama `feature/F-060-racha-incidencia-ciz-movil`,
+worktree `partes-wt-f060`). Rigor crítico. Servicios: sv4 decide el rol con el histórico de
+`partes` y manda `racha_registro_ids`; sv5 busca el CIZ de la racha por synckey y lo mueve con
+un `UPDATE` (nunca `DELETE`), con `MOVER_CIZ` apagado por defecto. Sin esquema.
+
+**Aprobación del humano (2026-10-23, literal)**: «a en todo, lanza implementer y spec de la
+sigueinte feature» ⇒ DA1–DA11 = A. DA3 y DA6 siguen pendientes del visto bueno de
+Administración para ENCENDER `MOVER_CIZ` (no para implementar). M0 hecha por el líder (2 CIZ
+de partes en 2026/10, 0 enlazados, 0 recursos-mes con más de uno).
+
+**Review pasada 1: CHANGES_REQUESTED** (`progress/review_F-060.md`). El líder llevó al humano
+la divergencia de R26 (con `MOVER_CIZ` apagado, sv4 ya usaba la regla nueva: aprobando día a
+día con días posteriores ya ingeridos salían más CIZ que en dev 0926857) con las opciones A
+(aceptarla), B (sv4 vuelve a mirar adelante) y C (el mismo `MOVER_CIZ` gobierna sv4: apagado,
+el `_rol_incidencia` de dev 0926857 tal cual, sin `racha_registro_ids` ni `avisos_racha`; se
+enciende en los dos), y la propuesta de que la papelera de los días saltados del tramo de la
+racha viaje en `racha_registro_ids`.
+**Decisión del humano (2026-10-24, literal)**: «c y si a 2» ⇒ **DA12 = C** y **DA13 = sí**.
+Spec enmendada por el spec-author (R9, R26, R26 bis, R28–R30 siempre, R31, R32; `design.md`
+§3.1, §4, §8–§12; `tasks.md` T16–T24). Orden: encender `MOVER_CIZ` en sv5 y luego en sv4;
+apagar en sv4 y luego en sv5 (apagar los dos = vuelta atrás completa; lo ya movido no se
+deshace). T23 (campaña de mutación de nuevo, el código de producción cambia tras la de T13)
+la lanza el líder: decidir con el humano su coste (la de T13 fueron ~377 min con 4 workers).
+
+- [x] T1–T7 (sv5) hechas, un commit por tarea, fase RED con traza (se pegan en `impl_F-060.md`).
+- [x] T8–T11 (sv4) y T12 (docs; azure-apps commit local c914caa, sin push) hechas.
+- [x] T15: `bash harness/init.sh` en verde (resultado en `impl_F-060.md`).
+- [x] T13: campaña de mutación lanzada por el líder (4 workers, 16 supervivientes, 1 timeout)
+  y analizada por el implementer sin relanzarla: 10 muertos con test nuevo (verificados a
+  mano), 6 equivalentes aceptados por el humano (2026-10-24, «acepto»), timeout detectado.
+  Detalle en `progress/mutacion_F-060.md`; demostraciones en `progress/equivalentes_F-060.py`.
+- [x] **Enmienda (implementer, 2026-10-24)**: T16 (`MOVER_CIZ` en sv4; apagado = rol de dev
+  0926857 tal cual), T17 (DA13), T18 (sv5 extremo a extremo de R26), T19 (docs; azure-apps
+  commit local 44886eb, sin push), T20–T22 (papeleo) y T24 (`init.sh` en verde). Detalle en
+  `progress/impl_F-060.md`. **Pendiente**: T23 (líder) y T14 (humano, abajo).
+- [ ] T14: M1–M3 (humano, local, modo pruebas) y M4 (abajo, con comando exacto).
+
+**Decisiones y desviaciones (justificadas)**:
+- `decidir_fin` recibe `partes: Mapping[int, ParteSigrid]` (código y estado) y
+  `nombre_estado` en vez de `estados: Mapping[int, int|None]`: el motivo de R17 tiene que
+  nombrar el código y el estado del parte, y el de R18 (F-053) el código. Un parte que no se
+  pudo leer cuenta como cerrado (no se escribe a ciegas).
+- Un CIZ de la racha con fecha = D no es anterior ni posterior: `crear`, y el paso 7 lo
+  omite como `incidencia_en_sigrid` (no puede llegar: R9 excluye el día D).
+- `LineaSigrid.tex/pos` entraron en el commit de T1 (los necesita la regla pura de R19).
+- R23 en carrera por el parte de ORIGEN cerrado: la relectura de F-034 solo lee los partes
+  del periodo de D, así que sale `no_escrita` (con su ERROR) y no `parte_no_abierto`.
+  Aceptado: «sale omitida con los motivos de F-034 y nada más cambia».
+- T8: `colapsar` recibe `LineaRol` (con `racha_registro_ids`) en vez de una tupla de 5: dos
+  `fin` son de la misma racha si son del mismo día o uno está en la racha del otro (R7);
+  con solo persona y clave, dos rachas distintas de la misma letra en una aprobación se
+  colapsarían en una.
+- T8: una línea de la papelera solo entra en `racha_registro_ids` si es incidencia de la
+  MISMA clave y está `registrado` o `encolado` (su synckey puede seguir en Sigrid).
+- T9: `GrupoObra` gana el campo `avisos_racha` en T9 (no en T10): sin él,
+  `GrupoObra(**g)` revienta en cuanto el grupo lleva la clave.
+- T10: el CAS de `fin_movido` exige `sigrid_estado = 'registrado'` y el mismo
+  `sigrid_hmores_ide`; sin CAS, silencio si X ya está `omitido` con ese mismo motivo
+  (reentrega) y WARNING `fin_movido_sin_cas` (sin datos personales) en otro caso, también
+  si X no existe. `movida_de` igual a D no hace nada.
+- T11: estilo `.ap-racha-avisos` en `static/styles.css` (el mismo que `.ap-incid-avisos`).
+- T16: apagado, sv4 calcula el rol con `_rol_incidencia_anterior` DESPUÉS del bucle de las
+  líneas (dev 0926857 lo hacía dentro): mismas consultas, sin escrituras entre medias, mismo
+  resultado. La copia se comprobó con `diff` contra `git show 0926857` (solo nombre y una
+  línea del docstring).
+
+- [ ] **M1–M3 · preparación (humano, local; solo escribe en la obra 0404, modo pruebas)**.
+  Desde el repo principal con F-060 en `dev` (los `.env` locales viven ahí, no en el
+  worktree). El sv4 local usa el PostgreSQL LOCAL (`PG_HOST` local) y llama al sv5 local
+  (`TRANSFER_BASE_URL` a `127.0.0.1:8005`), sin colas. Recurso: el gruista de pruebas
+  2717792 de `prueba_escritura_sigrid.py`. Meses (los elige el humano): `<M1>`, `<M3>` y dos
+  seguidos `<M2a>` (de 31 días) y `<M2b>`. Ninguno 10/2026 (PT26/00373 guarda las líneas
+  `PRUEBA-IA` de F-046 que el humano decidió conservar; `limpiar` las borraría); cada uno
+  sin parte de la 0404 (`estado` ⇒ `NO existe parte`) y sin líneas locales del 2717792 en
+  ese mes ni en el anterior (lectura L ⇒ nada; la ventana de F-060 las vería).
+  Consola 1, sv5:
+  ```powershell
+  cd C:\Users\pgris\PycharmProjects\partes\services\partes-transfer
+  ..\..\.venv\Scripts\Activate.ps1
+  $env:OBRA_PRUEBAS_FORZAR = 'true'; $env:MOVER_CIZ = 'true'; python main.py
+  ```
+  Consola 2: `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`,
+  `obra_pruebas: 0404`, `database: ruesma` (**si `modo_pruebas` no es `True`, PARA**). sv4:
+  ```powershell
+  cd C:\Users\pgris\PycharmProjects\partes\services\partes-front
+  ..\..\.venv\Scripts\Activate.ps1
+  $env:MOVER_CIZ = 'true'; python main.py
+  ```
+  Portal en `http://127.0.0.1:8014` (Ctrl+F5). Consola 3 (`.venv` activado), lecturas:
+  **L** (base `partes` LOCAL), desde `services\partes-front`, con `<DESDE>`/`<HASTA>` AAAAMMDD:
+  ```powershell
+  @'
+  from sqlalchemy import create_engine, text
+  from config.settings import Settings
+  with create_engine(Settings().database_url).connect() as c:
+      for f in c.execute(text("SELECT id, fecha_int, incidencia_codigo, horas, sigrid_estado, sigrid_hmores_ide, sigrid_motivo FROM parte_registros WHERE (recurso_ide = 2717792 OR empleado_reside = 2717792) AND fecha_int BETWEEN :d AND :h AND deleted_at_utc IS NULL ORDER BY fecha_int, id"), {"d": <DESDE>, "h": <HASTA>}):
+          print(tuple(f))
+  '@ | python -
+  ```
+  **S** (Sigrid, `ruesma`, solo lectura; `$env:SIGRID_API_BASE_URL` y `$KEY` como en M4):
+  ```powershell
+  $q = @{ database = 'ruesma'; max_rows = 50; parameters = @(2717792, <DESDE>, <HASTA>);
+    sql = "SELECT h.ide, h.hmoide, h.fec, a.cod AS hora, h.can, h.pos, h.synckey FROM hmores h JOIN auxhor a ON a.ide = h.horide WHERE h.reside = ? AND h.fec BETWEEN ? AND ? AND h.synckey LIKE 'partes:%' ORDER BY h.fec, h.ide" } | ConvertTo-Json
+  (Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q).rows | ConvertTo-Json -Compress
+  ```
+  **V** (`verificar`/`estado`/`limpiar`): en `services\partes-transfer\prueba_escritura_sigrid.py`,
+  `ANO, MES = <AAAA>, <MM>` (cambio local, no se commitea) y
+  `python .\prueba_escritura_sigrid.py verificar` (o `estado`).
+- [ ] **M1 · día a día (`<M1>`)**. En «+ Nuevo parte» (`/nuevo`): una obra cualquiera (sv5
+  en pruebas escribe en la 0404), trabajador 2717792, incidencia **V**, días 1, 2, 3 y 4 ⇒
+  «Crear parte»; otro con **8 h** ordinarias el día 5. En la vista del trabajador, «Aprobar»
+  la línea del día 1 ⇒ «Registrar»; luego la del 2, la del 3, la del 4 y la del 5, de una en
+  una. Tras cada una, V (`verificar`, ANO/MES de `<M1>`) y S (`<M1>01`–`<M1>31`):
+  - día 1 ⇒ 1 línea: CIV el 01, `can` 0.
+  - día 2 ⇒ CIV el 01 y **CIZ el 02**; anotar con S su `ide` (**IZ**) y su `pos`.
+  - día 3 ⇒ 2 líneas: CIV el 01 y CIZ el **03** con el MISMO `pos`; S ⇒ IZ con `fec` 03 y
+    `synckey` `partes:<id del día 3>`; consola 1: `[registro] ciz movido ide=<IZ>
+    hmoide=<P>-><P> fecha=<M1>02-><M1>03 registro_id=<id 2>-><id 3>`.
+  - día 4 ⇒ igual con el **04** (IZ, `registro_id=<id 3>-><id 4>`).
+  - día 5 ⇒ 3 líneas: CIV el 01, CIZ (IZ) el 04 y HLGR de 8 h el 05: el CIZ no se mueve.
+  L (`<M1>01`–`<M1>31`) ⇒ días 1, 4 y 5 `registrado` (el 4 con `sigrid_hmores_ide` = IZ); 2
+  y 3 `omitido` con `fin_movido: el fin de la incidencia (CIZ, linea <IZ>) paso al dia
+  <AAAA-MM>-03` (y `-04`). Administración mira la «Vista calendario» de la 0404 (CIV el 1,
+  fin el 4). **Limpieza** (V con `<M1>`):
+  ```powershell
+  python .\prueba_escritura_sigrid.py limpiar
+  python .\prueba_escritura_sigrid.py limpiar --ejecutar
+  python .\prueba_escritura_sigrid.py estado
+  ```
+  El DRY-RUN imprime los `DELETE` sobre el ide del parte de `<M1>` (si sale otro, **PARA** y
+  no lances el `--ejecutar`); `estado` ⇒ `NO existe parte <AAAA>/<MM> de obra 0404`.
+- [ ] **M2 · cambio de mes (`<M2a>` 30 y 31, `<M2b>` 1)**. «+ Nuevo parte» con V los días 30
+  y 31 de `<M2a>` y 1 de `<M2b>`; aprobar el 30, luego el 31 y luego el 1. Esperado: tras el
+  31, V de `<M2a>` ⇒ CIV el 30 y CIZ el 31 (S ⇒ su `ide` IZ y su `hmoide` **Pa**); tras el 1,
+  V de `<M2a>` ⇒ solo el CIV del 30; V de `<M2b>` ⇒ un parte nuevo con el CIZ el 01; S
+  (`<M2a>30`–`<M2b>01`) ⇒ el MISMO IZ con `fec` `<M2b>01` y otro `hmoide` (**Pb**); consola 1:
+  `ciz movido ide=<IZ> hmoide=<Pa>-><Pb> fecha=<M2a>31-><M2b>01`. L ⇒ el 31 `omitido`
+  `fin_movido`. **Limpieza**: los tres comandos de M1 con V en `<M2b>` y después en `<M2a>`
+  (cada DRY-RUN, sobre el ide de su parte; si no, **PARA**); `estado` ⇒ `NO existe` en los dos.
+- [ ] **M3 · todo de una vez (`<M3>`)**. «+ Nuevo parte» con V los días 1–4; en la vista del
+  trabajador, marcar las cuatro líneas ⇒ «Aprobar seleccionadas» ⇒ «Registrar». Esperado: V
+  de `<M3>` ⇒ CIV el 01 y CIZ el 04 (2 líneas); L ⇒ 1 y 4 `registrado`; 2 y 3 `omitido` con
+  `dia intermedio de la incidencia: solo se registran el inicio y el fin`; consola 1 sin
+  `ciz movido`. **Limpieza**: los tres comandos de M1 con V en `<M3>`. Al terminar, Ctrl+C
+  en las consolas 1 y 2 y cerrarlas (llevan `OBRA_PRUEBAS_FORZAR` y `MOVER_CIZ`); deshacer
+  el cambio de `ANO, MES` con `git checkout -- prueba_escritura_sigrid.py`.
+
+- [ ] **M4 (humano, producción, solo lectura, tras desplegar sv5 → sv4 y encender)**.
+  Encendido (lo lanza el humano, con el visto bueno de Administración a DA3/DA6), **primero
+  sv5 y LUEGO sv4**:
+  ```powershell
+  az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MOVER_CIZ=true
+  az containerapp update -n ca-sv4-front -g rg-partes-dev --set-env-vars MOVER_CIZ=true
+  ```
+  Anotar `<AAAAMMDD>` (día del encendido) y `<ISO UTC>` (instante). Con `$KEY` sacada del
+  Key Vault (nunca en un fichero):
+  ```powershell
+  $q = @{ database = 'ruesma'; max_rows = 200; parameters = @('CIZ', 'partes:%', <AAAAMMDD>);
+    sql = 'SELECT COUNT(*) AS grupos FROM (SELECT h.reside, h.ano, h.mes FROM hmores h JOIN auxhor a ON a.ide = h.horide WHERE a.cod = ? AND h.synckey LIKE ? AND h.fec >= ? GROUP BY h.reside, h.ano, h.mes HAVING COUNT(*) > 1) x' } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
+  ```
+  Esperado: `grupos = 0` (ningún recurso-mes nuevo con dos CIZ de partes). En la base `partes`:
+  ```sql
+  SELECT COUNT(*) FROM parte_registros
+  WHERE sigrid_motivo LIKE 'fin_movido:%' AND sigrid_registrado_at_utc >= '<ISO UTC>';
+  ```
+  Esperado: > 0 cuando se hayan aprobado rachas de varios días. **Vuelta atrás completa**
+  (para lo que se apruebe desde entonces; lo ya movido no se deshace), **primero sv4 y LUEGO
+  sv5** (apagar solo sv5 deja sv4 con la regla nueva: un CIZ por día aprobado de la racha):
+  ```powershell
+  az containerapp update -n ca-sv4-front -g rg-partes-dev --set-env-vars MOVER_CIZ=false
+  az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MOVER_CIZ=false
+  ```
+## F-038 · DONE y DESPLEGADA 2026-10-24 (sv2–sv5, revisión r20261024215445). M2 OK: `[sigrid-lookup] Instanciado … timeout_s=30.0 max_rows=500000` (sv4) y `[sigrid-write] Instanciado … timeout_s=60.0 max_rows=500000` (sv5), leído en Log Analytics. Pendiente solo M1 (no bloquea): límite de filas de Sigrid a 500.000 y `truncated` siempre error
+
+**Aprobación del humano (2026-10-24, literal)**: «sigrid lee 500k, hay que cambiar donde este ese
+limite de 100 ya mismo. se supone que estaba arreglado» y «si» a la propuesta del líder ⇒ DA1 = B
+(500.000), DA2–DA7 = A. En paralelo con F-060 (excepción expresa a «una feature en curso»).
+
+- **Hecho (implementer, 2026-10-24)**: T1–T8, un commit por tarea, fase RED con trazas. sv2–sv5
+  piden `SIGRID_API_MAX_ROWS` (opcional, 500.000, 1–500.000) en toda lectura no paginada; sv5 ya no
+  pide 1.000 fijo (lo urgente: `lineas_existentes`, `horas_de_recursos`, `recursos_por_dni`).
+  `truncated` es error también en sv2 (el catálogo cae a caché/vacío) y en
+  `prueba_escritura_sigrid.py`. `SIGRID_API_TIMEOUT_S` en (0, 200] en los cuatro. Guardián de raíz
+  `tests/test_f038_lectores_sigrid.py`. Borrado `consulta_reshor_recursos.py` (DA6; el historial
+  NO se purga). Informe: `progress/impl_F-038.md`. azure-apps: commit local c581115 (sin push).
+- **Decisión anotada**: el umbral de R13 (guardián) es 500.000, no el 200.000 escrito en la spec:
+  con DA1 = B un literal menor sería un límite por debajo del acordado.
+- **T9 hecha**: campaña del líder (26 generados, 20 evaluados, 3 supervivientes, que mueren con el
+  test del límite inferior del timeout añadido); detalle en `progress/mutacion_F-038.md`.
+- **Review pasada 1**: CHANGES_REQUESTED solo por papeleo (este bloque, T9/T12, workers).
+- **Pendiente**: review pasada 2, merge a `dev`, despliegue sv2–sv5 (humano), M2 (humano).
+- [x] **M0 hecha por el líder (2026-10-24, solo lectura)**: `SIGRID_API_TIMEOUT_S` = 30 en sv4 y 60 en sv5; sv2 y sv3 sin la variable (defecto 30); `SIGRID_API_MAX_ROWS` en ninguna. Todo dentro de (0, 200]: el despliegue no se cae por DA4.
+- [ ] **M2 · T11 (humano, tras desplegar sv2–sv5 con `.\infra\redeploy_partes.ps1`; solo lectura)**:
+
+  ```
+  az containerapp logs show -n ca-sv5-transfer -g rg-partes-dev --tail 80
+  az containerapp logs show -n ca-sv4-front -g rg-partes-dev --tail 80
+  ```
+  Esperado: en la línea `Instanciado` del cliente de Sigrid, `max_rows=500000` en las dos, con
+  `timeout_s=60` en sv5 y `timeout_s=30` en sv4.
+- [ ] **M1 · T10 (humano o líder, cuando se quiera; NO BLOQUEA; solo lectura)**: tamaños reales, sin
+  nombres. Desde `services/partes-persistencia` (con su `.env`):
+
+  ```
+  ../../.venv/Scripts/python.exe -c "from config.settings import Settings as S; from infrastructure.sigrid.sigrid_api_client import SigridApiClient as C; s=S(); c=C(base_url=s.sigrid_api_base_url, function_key=s.sigrid_api_function_key, database=s.sigrid_api_database, timeout_s=120); print(c._post_sql_read(sql='<SQL>', parameters=[], label='m1', max_rows=10))"
+  ```
+  con cada `<SQL>`:
+  (a) `SELECT TOP 5 obride, COUNT(*) AS n FROM obrparpar GROUP BY obride ORDER BY COUNT(*) DESC`
+  (partidas de las obras más grandes);
+  (b) `SELECT TOP 5 hmoide, COUNT(*) AS n FROM hmores GROUP BY hmoide ORDER BY COUNT(*) DESC`
+  (líneas del parte más grande: cota de `lineas_existentes`);
+  (c) `SELECT MAX(n) AS m FROM (SELECT reside, COUNT(*) AS n FROM reshor GROUP BY reside) q`
+  (horas por recurso: cota de `horas_de_recursos`).
+  Salen `ide` y cuentas, nunca nombres. Anotar en `progress/impl_F-038.md`.
+
+## F-059 · DONE 2026-10-23 (review APPROVED pasada 2; pendiente desplegar sv2 y M4): la IA no lee bien el PDF con /Rotate, sv2 le manda la página ya derecha
+
+**Aprobación del humano (2026-10-23), literal**: a la pregunta del líder «¿A en las cuatro? Si me
+dices que sí, lanzo el implementer» sobre DA1–DA4 respondió «a». DA1 = A (solo OpenAI, lista
+configurable), DA2 = A (imagen incrustada girada), DA3 = A (`PAGINA_COMO_IMAGEN` encendido por
+defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
+
+- **T1–T7 y T11 hechas** (implementer, 2026-10-23; un commit por tarea, fase RED con trazas):
+  sv2 144 passed (112 nuevos), cobertura 99,4 % de 165 líneas cambiadas, `init.sh` en verde.
+  Informe: `progress/impl_F-059.md`. azure-apps: commit local 7cc2e66 (sin push).
+- **T8 hecha** (implementer, 2026-10-23): campaña del líder 20 evaluados, 17 muertos, 3
+  supervivientes. [16] y [20] eran huecos reales: 4 tests nuevos (borde exacto de 1 pt; INFO
+  de wiring con `caplog`), comprobados aplicando el mutante a mano. [19] es equivalente
+  (frontera del 2 % inalcanzable en float). Sin cambios de producción. Detalle en
+  `progress/mutacion_F-059.md`; sv2 148 passed.
+- **Review pasada 1 (2026-10-23): CHANGES_REQUESTED** solo por C4 (la M4 sin comando exacto).
+  Corregido (implementer, 2026-10-23): M4 abajo con su SELECT literal; además, observación 1:
+  R12/R13 fijan el final del sha12 (`sha256=<12>:`) y el mutante `sha256[:13]` muere (5 failed).
+- **Pendiente**: T10 (M4 tras desplegar sv2, humano) y la review pasada 2 (T9 hecha, banco).
+- [ ] **M4 · T10 (humano, tras desplegar; solo lectura)**. Despliegue, lo lanza el humano:
+  `.\infra\redeploy_partes.ps1 -Solo sv2`. Anotar el instante UTC del despliegue (ISO,
+  p. ej. `2026-10-24T08:00:00`) y, cuando hayan entrado partes escaneados, en la base `partes`:
+
+  ```sql
+  SELECT id, created_at_utc,
+         raw_extraction_json::jsonb #>> '{meta,adjunto_ia,conversion}' AS conversion,
+         raw_extraction_json::jsonb #>> '{meta,adjunto_ia,motivo}' AS motivo
+  FROM parte_documents
+  WHERE created_at_utc >= '<instante del despliegue, ISO UTC>'
+  ORDER BY created_at_utc DESC LIMIT 20;
+  ```
+  (`raw_extraction_json` es `Text`, de ahí el `::jsonb`; `created_at_utc` es varchar ISO y se
+  compara con una cadena ISO). Esperado: las páginas escaneadas, `conversion = convertida`
+  (motivo vacío); las fotos `no_aplica` / `no_es_pdf`; **ninguna fila `error`**. Si sale
+  `error` o la lectura empeora, vuelta atrás: `az containerapp update -n ca-sv2-extraccion
+  -g rg-partes-dev --set-env-vars PAGINA_COMO_IMAGEN=false`.
+- Decisiones y desviaciones (justificadas en el informe): (1) con `PAGINA_COMO_IMAGEN=false`
+  `app.py` no crea el conversor (además de pasar `frozenset()`), para que la traza diga
+  `interruptor` y no `proveedor_fuera_de_lista`; (2) el `.venv` de la raíz NO tiene `openai`,
+  `anthropic` ni `google-genai` (la spec solo contaba con que faltaba Pillow): los tests de
+  R22 y del cableado importan los clientes con dobles de esos SDK
+  (`tests/f059_sdk_falsos.py`), que solo se registran si el SDK real no se puede importar.
+  No se instaló nada más que Pillow. Si se prefiere instalar los SDK en el `.venv`, los
+  dobles dejan de activarse solos.
+
+Spec en `specs/F-059-pagina-como-imagen-derecha/` (rama `feature/F-059-pagina-como-imagen-derecha`,
+worktree `partes-wt-f059`); resumen en `progress/spec_F-059.md`. Solo sv2: la página escaneada
+(una imagen JPEG a página completa) viaja como imagen derecha; lo demás y los fallos, como PDF.
+Diagnóstico corregido por el humano el 2026-10-23: el PDF viene bien orientado (el `/Rotate` lo
+endereza en cualquier visor); el fallo es de lectura de OpenAI con `input_file`.
+
+Decisiones que tiene que validar el humano (`design.md` §7, recomendada A en las cuatro):
+DA1 proveedores (solo OpenAI por defecto), DA2 conversión (imagen incrustada, sin render),
+DA3 interruptor (encendido por defecto, sin tocar el entorno de Azure), DA4 `detail=high` en
+toda imagen de OpenAI (también fotos del móvil). F-058 no se toca: queda como red de seguridad.
+
+## F-054 · DONE 2026-10-23 (review APPROVED pasada 1; sv3 desplegado r20261023153823; M2 descartada): un parte sin obra o sin fecha va siempre a revisión
+
+**2026-10-23, decisión del humano sobre la M2** (literal): «hay que corregir solo los que salen
+en obra sin identificar». La M2 no se hace. M1 repetida ese día (solo lectura): 7 activos no
+aprobados sin bandera, los 6 sin obra de los escaneos del 21 y 23/10 y uno del 14/10 con obra y
+sin fecha (fuera de lo que pide corregir). Los 6 se releerán tras desplegar F-059 (papelera en
+el portal y correo devuelto a la bandeja de entrada sin leer), o se corrigen a mano.
+
+Rama `feature/F-054-sin-obra-o-fecha-a-revision` (worktree `partes-wt-f054`), **rebasada sobre
+`dev` 38f273a**: conflictos solo en `harness/features.json`, `BACKLOG.md` y este fichero; se
+quedó la versión de `dev` (su entrada de F-054 es idéntica a la de la rama, comprobado) y
+`BACKLOG.md` se regeneró con `python harness/backlog.py`. Aprobación del humano: 2026-10-21
+(«apruebo F-054 y la DA5») y 2026-10-23 («si, lanza f54 y la spec de relectura con gemini»).
+Contexto nuevo del líder (2026-10-23): 4 páginas más del escaneo de hoy con la cabecera a null;
+la causa en sv2 es F-058, el alcance de F-054 no cambia.
+
+- **T1–T5 hechas** (un commit por tarea, fase RED con trazas) y `bash harness/init.sh` en
+  verde (sv3: 2.305 passed; cobertura 100 % de 13 líneas cambiadas). Informe:
+  `progress/impl_F-054.md`. **T6 hecha** (mutación lanzada por el líder el 2026-10-23: 5
+  mutantes, 5 muertos, 0 supervivientes; `progress/mutacion_F-054.md`). **Review APPROVED
+  (pasada 1, `progress/review_F-054.md`)**; fusionada en `dev` el 2026-10-23. Falta:
+  desplegar sv3 y, con autorización expresa, la M2 (repetir antes la M1).
+- Desviaciones (justificadas en el informe): 4 tests de más para fronteras y formato del
+  WARNING; la semántica 18 va en presente («se corrige una sola vez a mano») porque la M2
+  aún no se ha hecho; sv3 tiene 2.271 tests en `dev`, no los 2.254 de la spec.
+- **M2 NO ejecutada**: necesita autorización expresa del humano para esa escritura concreta
+  y el despliegue de sv3 antes (comando exacto en `design.md` §8 y en el informe). M1 daba 3
+  documentos; con las 4 páginas del 23/10 podrían ser 7: repetir M1 justo antes.
+
 ## F-014 · retirada del backlog (decisión del humano 2026-10-21)
 
 El humano, literal: «la peticion la hago yo, quitalo de la feature». La petición a RRHH

@@ -88,7 +88,8 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 12,
-      "branch": "feature/F-006-tipo-hora-ext"
+      "branch": "feature/F-006-tipo-hora-ext",
+      "spec": "sin spec"
     },
     {
       "id": "F-007",
@@ -99,7 +100,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 13,
-      "branch": "feature/F-007-prompt-sv2-evals"
+      "branch": "feature/F-007-prompt-sv2-evals",
+      "spec": "sin spec"
     },
     {
       "id": "F-008",
@@ -110,7 +112,8 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 14,
-      "branch": "feature/F-008-roles-portal"
+      "branch": "feature/F-008-roles-portal",
+      "spec": "sin spec"
     },
     {
       "id": "F-010",
@@ -132,7 +135,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 15,
-      "branch": "feature/F-011-jornada-reducida-dias"
+      "branch": "feature/F-011-jornada-reducida-dias",
+      "spec": "sin spec"
     },
     {
       "id": "F-012",
@@ -202,7 +206,8 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 11,
-      "branch": "feature/F-018-log-auditoria-portal"
+      "branch": "feature/F-018-log-auditoria-portal",
+      "spec": "borrador en la rama `worktree-agent-ad862e62640d64553`, sin presentar"
     },
     {
       "id": "F-019",
@@ -224,7 +229,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 9,
-      "branch": "feature/F-019-mensuales-a-dedicacion"
+      "branch": "feature/F-019-mensuales-a-dedicacion",
+      "pendiente": "interruptor MENSUALES_A_DEDICACION apagado: falta la feature espejo en porcentajes y la M3"
     },
     {
       "id": "F-020",
@@ -304,7 +310,8 @@
       "sdd": false,
       "rigor": "estandar",
       "priority": 10,
-      "branch": "feature/F-026-visor-fotos"
+      "branch": "feature/F-026-visor-fotos",
+      "spec": "no lleva (sdd: false)"
     },
     {
       "id": "F-027",
@@ -319,7 +326,8 @@
       "sdd": false,
       "rigor": "estandar",
       "priority": 9,
-      "branch": "feature/F-027-escape-modales"
+      "branch": "feature/F-027-escape-modales",
+      "spec": "no lleva (sdd: false)"
     },
     {
       "id": "F-028",
@@ -409,7 +417,8 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 8,
-      "branch": "feature/F-032-sesame-festivos-produccion"
+      "branch": "feature/F-032-sesame-festivos-produccion",
+      "spec": "en `dev`; feature bloqueada por decisión del humano (2026-10-07)"
     },
     {
       "id": "F-033",
@@ -436,7 +445,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
-      "branch": "feature/F-034-escribir-solo-en-partes-abiertos"
+      "branch": "feature/F-034-escribir-solo-en-partes-abiertos",
+      "pendiente": "M3 (Administración cierra PT26/00375) y M4"
     },
     {
       "id": "F-035",
@@ -492,18 +502,19 @@
     },
     {
       "id": "F-038",
-      "title": "Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes)",
+      "title": "Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto)",
       "description": "Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.",
       "acceptance": [
         "Ninguna lectura de Sigrid de partes queda limitada por debajo de 200.000 filas salvo las paginadas",
         "Toda lectura comprueba truncated y lo trata como error",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 7,
-      "branch": "feature/F-038-limite-filas-sigrid"
+      "branch": "feature/F-038-limite-filas-sigrid",
+      "pendiente": "M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK"
     },
     {
       "id": "F-039",
@@ -623,7 +634,8 @@
       "branch": "feature/F-046-reajuste-en-sigrid-al-aprobar",
       "depends_on": [
         "F-045"
-      ]
+      ],
+      "pendiente": "M6"
     },
     {
       "id": "F-048",
@@ -644,7 +656,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
-      "branch": "feature/F-048-solo-extras-en-laborable-como-jornada"
+      "branch": "feature/F-048-solo-extras-en-laborable-como-jornada",
+      "pendiente": "M4"
     },
     {
       "id": "F-051",
@@ -686,7 +699,8 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
-      "branch": "feature/F-050-misma-fila-para-el-mismo-trabajador"
+      "branch": "feature/F-050-misma-fila-para-el-mismo-trabajador",
+      "pendiente": "M2–M6 en el portal"
     },
     {
       "id": "F-047",
@@ -706,7 +720,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 5,
-      "branch": "feature/F-047-parte-nuevo-en-espera"
+      "branch": "feature/F-047-parte-nuevo-en-espera",
+      "spec": "aprobada (DA1–DA10) · `partes-wt-f047`"
     },
     {
       "id": "F-049",
@@ -730,7 +745,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 4,
-      "branch": "feature/F-049-editor-calendario-normal-y-extra"
+      "branch": "feature/F-049-editor-calendario-normal-y-extra",
+      "pendiente": "M2–M8 en el portal"
     },
     {
       "id": "F-052",
@@ -748,7 +764,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 6,
-      "branch": "feature/F-052-sincronizar-con-sigrid"
+      "branch": "feature/F-052-sincronizar-con-sigrid",
+      "spec": "escrita, pendiente de aprobación · `partes-wt-f052`"
     },
     {
       "id": "F-053",
@@ -765,7 +782,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 2,
-      "branch": "feature/F-053-pisar-sin-borrar"
+      "branch": "feature/F-053-pisar-sin-borrar",
+      "pendiente": "M4"
     },
     {
       "id": "F-054",
@@ -779,11 +797,12 @@
         "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "spec_ready",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 4,
-      "branch": "feature/F-054-sin-obra-o-fecha-a-revision"
+      "branch": "feature/F-054-sin-obra-o-fecha-a-revision",
+      "pendiente": "releer los 6 partes sin obra cuando F-059 esté desplegada"
     },
     {
       "id": "F-055",
@@ -801,7 +820,8 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 4,
-      "branch": "feature/F-055-sv5-omite-lineas-sin-fecha"
+      "branch": "feature/F-055-sv5-omite-lineas-sin-fecha",
+      "spec": "escrita, pendiente de aprobación · `partes-wt-f055`"
     },
     {
       "id": "F-056",
@@ -811,11 +831,12 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
-      "priority": 1,
-      "branch": "feature/F-056-franquicia-de-extras"
+      "priority": 3,
+      "branch": "feature/F-056-franquicia-de-extras",
+      "spec": "aprobada (DA1–DA20 = A) · `partes-wt-f056`"
     },
     {
       "id": "F-057",
@@ -825,11 +846,12 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "estandar",
       "priority": 7,
-      "branch": "feature/F-057-pedido-celda-todos-los-partes"
+      "branch": "feature/F-057-pedido-celda-todos-los-partes",
+      "spec": "aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057`"
     },
     {
       "id": "F-058",
@@ -851,7 +873,47 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 2,
-      "branch": "feature/F-058-relectura-cabecera-gemini"
+      "branch": "feature/F-058-relectura-cabecera-gemini",
+      "spec": "aprobada (todas las DA) · `partes-wt-f058`"
+    },
+    {
+      "id": "F-059",
+      "title": "La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor",
+      "description": "Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto», precisada el mismo día: «el parte viene cortado del escaner pero viene bien orientado y la obra se lee perfectamente. el problema no es del giro, es de lectura. de hecho imagen girada esta bien orientado y tal cual esta mal orientado». El fallo es de lectura de la IA, no del escáner ni de sv1: las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son PDF de una página (sv1 las copia tal cual con pypdf) con un JPEG 3507×2480 guardado de lado y /Rotate 270, que las deja derechas en cualquier visor; la obra y la fecha se leen bien. Todo apunta a que OpenAI, con el PDF como input_file, no aplica el /Rotate y lee la imagen cruda de lado. Banco del líder (2026-10-23, fuera del repo, gpt-6.1-sol, 2 pasadas): PDF tal cual, cabecera vacía 12 de 12, también con reasoning.effort = high; JPEG incrustado girado según /Rotate con detail high, obra y fecha bien 12 de 12 (las mismas que gemini-4-argon) y control 4 de 4. Diseño: solo sv2; el pipeline pide a un conversor (puerto en domain, adaptador pypdf + Pillow en infrastructure/document) la página derecha cuando el PDF es una sola imagen JPEG a página completa y la manda como imagen; si no aplica o falla, PDF como hoy (WARNING sin nombres ni DNIs en el fallo). meta.adjunto_ia deja la traza; meta.source_* siguen siendo del original. DA1 (recomendada A): solo OpenAI por defecto, lista PAGINA_COMO_IMAGEN_PROVEEDORES. DA2 (A): imagen incrustada, sin render. DA3 (A): PAGINA_COMO_IMAGEN encendido por defecto, sin cambio de entorno en Azure. DA4 (A): OPENAI_IMAGE_DETAIL=high para toda imagen. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec: specs/F-059-pagina-como-imagen-derecha/.",
+      "acceptance": [
+        "Una página PDF escaneada (una sola imagen JPEG a página completa) llega a la IA como imagen derecha, girada según /Rotate como la muestra un visor, si la conversión está activa para el proveedor (R1–R11, R14, R20, R21)",
+        "Lo que no es página escaneada, las fotos y la conversión apagada van como hoy; si la conversión falla, se manda el PDF con WARNING sin nombres ni DNIs (R12–R15)",
+        "meta.source_* del original y meta.adjunto_ia con la traza de lo enviado; OpenAI manda detail en input_image; prompt, esquema y clientes de Gemini y Claude sin cambios (R16–R24)",
+        "Banco del líder: M0 22/22 convertidas, M1 las 6 páginas con la cabecera vacía con obra y fecha 12/12 con gpt-6.1-sol, M2 control 4/4, M3 batería de F-051 sin regresión frente a PDF (R25–R28)",
+        "M4 (humano, tras desplegar sv2): ingestas nuevas con meta.adjunto_ia.conversion = convertida",
+        "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 1,
+      "branch": "feature/F-059-pagina-como-imagen-derecha",
+      "pendiente": "M4; después releer los 6 partes sin obra (sv2 desplegada el 2026-10-24, r20261024215445)"
+    },
+    {
+      "id": "F-060",
+      "title": "Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas",
+      "description": "Petición del humano del 2026-10-23: «el primer dia de unas vacaciones siempre debe marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse fin de vacaciones. este fin se va moviendo segun aparzcan dias de vacaciones hasta que aparezca un dia laborable en cuyo caso ya no se mueve. [...] hay que ver si ese recurso tiene vacaciones en algun parte de alguna obra (no solo la suya) y si lo tiene cerrar. si no hay se abre. lo mismo para bajas.» Aprobó la tabla del líder («la propuesta es lo correcto [...] debe buscar siempre en todos sus partes del mes anterior»): incidencia sin racha abierta ⇒ abre con su CI*; con racha abierta ⇒ mueve el CIZ a ese día editando la línea existente (si no hay CIZ, lo crea); horas ⇒ la racha queda cerrada. Regla de Sigrid: «no se debe borrar en sigrid, así que solo editará líneas». Hoy (sv4 `_rol_incidencia`, sv5 R1) cada día de incidencia que sigue a otro sale «fin» y escribe un CIZ nuevo; además no distingue la letra, no tiene ventana y no excluye la papelera. Diseño: sv4 decide el rol con la ventana (día 1 del mes anterior a D−1, todas las obras) y manda los ids de la racha; sv5 localiza el CIZ por synckey y lo mueve con un UPDATE (fecha, synckey y, si cambia de parte, parte, obra, centro, cuenta, año y mes), con guarda de parte abierto, sin DELETE ni INSERT. Interruptor MOVER_CIZ en sv5, apagado por defecto. Sin tabla ni columna nueva. Spec: specs/F-060-racha-incidencia-ciz-movil/.",
+      "acceptance": [
+        "sv4: rol inicio/fin con la ventana del mes anterior, todas las obras, misma letra y sin papelera; colapso dentro de una aprobación; racha_registro_ids en el payload; aviso racha_desordenada (R1–R12)",
+        "sv5: con MOVER_CIZ, el CIZ de la racha se mueve con un UPDATE (nunca DELETE ni INSERT), se omite como intermedio si ya está más adelante y no se duplica si está en un parte cerrado; apagado o sin ids, como hoy (R13–R27)",
+        "sv4 pasa a omitido el día que tenía el CIZ cuando sv5 lo mueve (CAS, idempotente) (R28–R30)",
+        "M1–M3 en modo pruebas (obra 0404, PRUEBA-IA) y M4 de solo lectura en producción tras encender MOVER_CIZ",
+        "Rigor crítico: fase RED, cobertura y mutación completa con 0 supervivientes sin justificar",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "done",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 1,
+      "branch": "feature/F-060-racha-incidencia-ciz-movil",
+      "pendiente": "desplegada sv5 r20261025093550 y sv4 r20261025093906 el 2026-10-25 con MOVER_CIZ apagado (arranque sano); antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender"
     }
   ]
 }

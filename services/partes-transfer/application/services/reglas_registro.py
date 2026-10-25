@@ -17,8 +17,16 @@ Reglas (definidas por Administracion; R1 actualizada el 25/07/2026):
       dia de INICIO y el de FIN (los partes no marcan los intermedios):
       el inicio con su codigo CI* (CIV, CIE, CIP, CIH...) y el fin con
       CIZ (Fin de Incidencia). El rol lo determina sv4 mirando el
-      historico del trabajador (dia anterior trabajado -> inicio; dia
-      anterior en incidencia -> fin). Las incidencias van SIN HORAS
+      historico de la persona (F-060: del dia 1 del mes anterior al dia
+      anterior, todas las obras, sin papelera y por la letra de la
+      incidencia): ultimo dia con lineas trabajado, de otra letra o sin
+      nada -> inicio; de la misma letra -> fin, con `racha_registro_ids`
+      (las lineas de la racha). Varios `fin` de una racha en la misma
+      aprobacion: solo el ultimo; los demas, intermedio. F-060, con el
+      interruptor MOVER_CIZ: si la racha ya tiene su CIZ en Sigrid (por la
+      synckey de una de sus lineas), el pipeline lo MUEVE al dia nuevo con
+      un UPDATE (`racha_ciz.decidir_fin`, paso 6 bis) en vez de escribir
+      otro; aqui solo se decide el codigo. Las incidencias van SIN HORAS
       (can=0): en Sigrid la linea marca el hecho, no una cantidad.
       Aplica a TODOS los trabajadores cuyo recurso tenga el codigo en su
       ficha (tambien mensuales: R2 no aplica aqui).

@@ -291,7 +291,7 @@ def _parte_casado(lectura_dudosa=()) -> ParteDocumento:
         empleado=EmpleadoMatch(ide=1, method="dni"),
         hora=TipoHoraMatch(ide=1, codigo="HL01"))
     return ParteDocumento(
-        firmado=True, obra=ObraMatch(ide=1, method="codigo"),
+        firmado=True, fecha_int=20261017, obra=ObraMatch(ide=1, method="codigo"),
         registros=[registro], lectura_dudosa=list(lectura_dudosa))
 
 

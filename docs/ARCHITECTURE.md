@@ -214,6 +214,27 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
    solo 2 líneas físicas es correcto. La racha cruza partes y obras.
+   **Desde F-060**, con el interruptor **`MOVER_CIZ`** encendido (la misma
+   variable en sv4 y en sv5, apagada por defecto), el rol lo decide sv4 con
+   el histórico de la persona (`persona_de`) en una **ventana** del día 1
+   del mes anterior hasta el día anterior, de todas las obras, **por la
+   letra** (V seguida de B abre una racha nueva) y **sin la papelera**:
+   último día con líneas de la misma letra ⇒ `fin`, si no ⇒ `inicio`; con
+   `fin` manda `racha_registro_ids` (las líneas de la racha y las de la
+   papelera `registrado`/`encolado` del tramo, también de los días
+   saltados). Varios `fin` de una racha en una aprobación: solo el último.
+   Si la racha ya tiene su CIZ en Sigrid (synckey de una de esas líneas),
+   sv5 lo **mueve** al día nuevo con un `UPDATE` de esa misma línea (fecha,
+   synckey y, si cambia de mes u obra, parte), nunca `DELETE` ni otro CIZ;
+   la línea que lo tenía queda `omitido` con motivo `fin_movido`. Un CIZ ya
+   posterior ⇒ `intermedio`; en un parte cerrado ⇒ `ciz_en_parte_cerrado`;
+   enlazado ⇒ `linea_enlazada`. Un trabajo o un inicio aprobado antes de
+   una incidencia ya registrada solo avisa (`racha_desordenada`). Apagado
+   en sv4, el rol es el de antes de F-060 (`intermedio` si el siguiente día
+   ya ingerido es incidencia; sin listas ni avisos); apagado en sv5, cada
+   `fin` escribe su CIZ. Se enciende sv5 y luego sv4; se apaga sv4 y luego
+   sv5: **apagar los dos es la vuelta atrás completa** (lo ya movido no se
+   deshace).
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
@@ -508,12 +529,50 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (encendido por defecto; medido el 2026-10-19: habría marcado 8 de 108
     partes laborables y 9 de 17 de fin de semana). El campo viaja en
     `raw_extraction_json` (sin columna). Solo afecta a ingestas nuevas.
+18. **Parte sin obra o sin fecha (F-054, sv3)**: sv3 manda a revisión
+    (`review_required`) todo parte sin obra casada (`obra.ide` nulo: `none`
+    y los sin casar de F-023) o sin fecha (`fecha_int` nulo o ≤ 0), con un
+    WARNING `sin_obra` / `sin_fecha` sin nombres. La bandera no bloquea la
+    aprobación ni la baja nadie al poner obra o fecha en el portal. Solo
+    ingestas nuevas; lo guardado antes no se toca (el humano descartó la M2
+    de F-054 el 2026-10-23: los partes sin obra se corrigen en el portal).
+19. **Página escaneada como imagen derecha (F-059, sv2)**: OpenAI, con el
+    PDF como `input_file`, no aplica el `/Rotate` de la página y lee de lado
+    el JPEG que el escáner guarda girado (cabecera vacía 12/12 en el banco).
+    Si el PDF es una **página escaneada** (una página cuyo contenido es solo
+    `q cm Do Q` de un JPEG `DCTDecode` de 8 bits en RGB o grises, a página
+    completa, sin giro en la matriz), sv2 le manda en su lugar esa imagen
+    girada en sentido horario los grados del `/Rotate`, como la enseña un
+    visor (JPEG RGB calidad 90, sin EXIF; `infrastructure/document/
+    pagina_pdf_imagen.py`, puerto en `domain/ports/conversor_pagina.py`).
+    Lo que no es página escaneada va como PDF (`no_aplica`, INFO con el
+    motivo cerrado) y si la conversión lanza, también (`error`, WARNING con
+    el tipo y el sha256 corto, sin nombre de fichero). Interruptor
+    `PAGINA_COMO_IMAGEN` (encendido por defecto) y lista
+    `PAGINA_COMO_IMAGEN_PROVEEDORES` (`openai` por defecto; un nombre
+    desconocido no arranca); OpenAI manda `detail` = `OPENAI_IMAGE_DETAIL`
+    (`high`) en toda `input_image`, fotos del móvil incluidas. El original
+    no cambia: sv1 lo guarda tal cual, `meta.source_*` (y la deduplicación
+    de sv3 por sha256) siguen siendo suyos, y `meta.adjunto_ia` (en
+    `raw_extraction_json`, sin columna) dice qué se mandó: `conversion`
+    (`convertida` / `no_aplica` / `error` / `apagada`), `motivo`, tipo y
+    tamaño, y giro y medidas si se convirtió.
 
 ## Acceso a datos y sistemas externos
 
-- **sigrid-api** (Function App): ÚNICA vía a Sigrid; máx. 1.000 filas por
-  petición y corte del balanceador a 230 s. Lecturas contra `ruesma_rep` o
-  `ruesma`; la ESCRITURA (solo sv5) siempre contra `ruesma`.
+- **sigrid-api** (Function App): ÚNICA vía a Sigrid; la instancia admite
+  hasta **500.000 filas** por petición (`MAX_ALLOWED_ROWS`) y el balanceador
+  corta a los 230 s. Lecturas contra `ruesma_rep` o `ruesma`; la ESCRITURA
+  (solo sv5) siempre contra `ruesma`.
+- **Límite de filas de las lecturas (F-038)**: sv3 y sv4 paginan los
+  listados a 5.000 filas (`PAGINA_FILAS`, pedidas con `max_rows` 5.001);
+  toda otra lectura de sv2, sv3, sv4 y sv5 pide `SIGRID_API_MAX_ROWS`
+  (opcional, **500.000** por defecto, 1–500.000; fuera de rango el servicio
+  no arranca). `truncated: true` es **siempre error**: nunca se decide con
+  filas parciales (en sv2 el catálogo `auxhor` cae a la caché o vacío con
+  WARNING y la extracción sigue). `SIGRID_API_TIMEOUT_S` tiene que estar en
+  (0, 200] (sv5 suma 30 s al plazo HTTP: ≤ 230 s). La lista cerrada de
+  lectores la vigila `tests/test_f038_lectores_sigrid.py`.
 - **PostgreSQL** `psql-albaranes-rs9k2` (servidor COMPARTIDO con otros
   proyectos): solo la base `partes`; nada a nivel de servidor.
 - **Microsoft Graph**: buzón (sv1) y SharePoint (sv3).
@@ -558,8 +617,6 @@ existen y para qué sirven.
   `services/partes-persistencia/logs/` (ignorada por git), sin nombres ni
   DNIs. F-040 añade la columna `sin_dni_sin_ficha` y la categoría por
   línea `propone_sin_dni` (se ejecuta desde la rama antes de desplegar).
-- `services/partes-front/consulta_reshor_recursos.py` — diagnóstico de
-  solo lectura: qué recursos y qué códigos de hora tiene un DNI en Sigrid.
 - `services/partes-front/validar_datos_sesame.py` (F-013) — informe de
   solo lectura contra `sesame-api`: por cada trabajador, sus festivos del
   año, el tipo de jornada y el flag de reducida, más el calendario por

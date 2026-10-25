@@ -52,7 +52,14 @@ class Settings(BaseSettings):
         None, alias="SIGRID_API_FUNCTION_KEY"
     )
     sigrid_api_database: str | None = Field(None, alias="SIGRID_API_DATABASE")
-    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S")
+    # F-038 (R14, DA4): (0, 200]; el balanceador de sigrid-api corta a 230 s.
+    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S",
+                                        gt=0, le=200)
+    # F-038 (R2, R3; DA1 = B, DA2 = A): opcional, 1..500.000 (tope de la
+    # instancia); el defecto es el MAX_ROWS_DEFECTO del cliente. Las
+    # lecturas paginadas no lo usan (piden PAGINA_FILAS + 1).
+    sigrid_api_max_rows: int = Field(500_000, alias="SIGRID_API_MAX_ROWS",
+                                     ge=1, le=500_000)
 
     # ------------------------------------------------------------ #
     # partes-transfer (sv5) — registro de los partes APROBADOS en
@@ -73,6 +80,16 @@ class Settings(BaseSettings):
     # peticion por obra, una tras otra; el tope acota la espera del modal.
     aprobacion_max_obras: int = Field(
         10, alias="APROBACION_MAX_OBRAS", ge=1, le=50)
+    # F-060 (DA12, R26 bis): racha de incidencia con CIZ movil. Encendido,
+    # el rol de cada incidencia sale del historico de su persona (ventana
+    # del mes anterior, letra, papelera) y cada `fin` lleva
+    # `racha_registro_ids` para que sv5 MUEVA el CIZ de la racha (UPDATE,
+    # nunca DELETE). APAGADO por defecto: el rol de dev 0926857 tal cual,
+    # sin `racha_registro_ids` ni `avisos_racha`. Mismo nombre que en sv5:
+    # se enciende en sv5 y LUEGO aqui; se apaga aqui y LUEGO en sv5.
+    # Apagar los DOS es la vuelta atras completa (lo ya movido en Sigrid
+    # no se deshace). Este encendido con sv5 apagado da un CIZ por dia.
+    mover_ciz: bool = Field(False, alias="MOVER_CIZ")
 
     # ------------------------------------------------------------ #
     # Colas de aprobacion asincrona (F-002). TODAS opcionales: sin

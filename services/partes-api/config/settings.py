@@ -7,6 +7,8 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ProviderName = Literal["gemini", "claude", "openai"]
+#: Nombres válidos de proveedor (los de ``ProviderName``).
+PROVEEDORES_VALIDOS = ("gemini", "claude", "openai")
 
 
 class Settings(BaseSettings):
@@ -55,11 +57,23 @@ class Settings(BaseSettings):
         None, alias="OPENAI_MAX_OUTPUT_TOKENS"
     )
     openai_timeout_s: int = Field(120, alias="OPENAI_TIMEOUT_S")
+    # F-059 (DA4): "detail" de toda input_image de OpenAI (páginas convertidas
+    # y fotos del móvil). Vacío = no se manda y OpenAI aplica su "auto".
+    openai_image_detail: str = Field("high", alias="OPENAI_IMAGE_DETAIL")
 
     # --- Proveedor activo y prompt --- #
     ia_provider: ProviderName = Field("gemini", alias="IA_PROVIDER")
     prompt_key: str = Field("parte_trabajo_es", alias="PROMPT_KEY")
     prompts_yaml_path: str = Field("config/prompts.yaml", alias="PROMPTS_YAML_PATH")
+
+    # --- F-059: página escaneada a la IA como imagen derecha --- #
+    # Interruptor (DA3: encendido por defecto; volver atrás es ponerlo a
+    # false en la Container App) y proveedores a los que se aplica (DA1: CSV,
+    # solo openai por defecto; vacío = ninguno).
+    pagina_como_imagen: bool = Field(True, alias="PAGINA_COMO_IMAGEN")
+    pagina_como_imagen_proveedores: str = Field(
+        "openai", alias="PAGINA_COMO_IMAGEN_PROVEEDORES"
+    )
 
     # --- Reintentos LLM --- #
     llm_max_retries: int = Field(2, alias="LLM_MAX_RETRIES")
@@ -79,7 +93,13 @@ class Settings(BaseSettings):
         None, alias="SIGRID_API_FUNCTION_KEY"
     )
     sigrid_api_database: str | None = Field(None, alias="SIGRID_API_DATABASE")
-    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S")
+    # F-038 (R14, DA4): (0, 200]; el balanceador de sigrid-api corta a 230 s.
+    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S",
+                                        gt=0, le=200)
+    # F-038 (R2, R3; DA1 = B, DA2 = A): opcional, 1..500.000 (tope de la
+    # instancia); el defecto es el MAX_ROWS_DEFECTO del cliente.
+    sigrid_api_max_rows: int = Field(500_000, alias="SIGRID_API_MAX_ROWS",
+                                     ge=1, le=500_000)
     auxhor_cache_ttl_s: int = Field(600, alias="AUXHOR_CACHE_TTL_S")
     # Palabras clave (en la descripcion/codigo) a EXCLUIR del catalogo antes
     # de mandarlo a la IA. CSV. Por defecto maquinaria + becario.
@@ -122,6 +142,26 @@ class Settings(BaseSettings):
             c.strip() for c in (self.auxhor_exclude_codes or "").split(",")
             if c.strip()
         )
+
+    @property
+    def proveedores_pagina_como_imagen(self) -> frozenset[str]:
+        return frozenset(
+            p.strip().lower()
+            for p in (self.pagina_como_imagen_proveedores or "").split(",")
+            if p.strip()
+        )
+
+    @model_validator(mode="after")
+    def _validar_proveedores_pagina_como_imagen(self) -> Settings:
+        desconocidos = sorted(
+            self.proveedores_pagina_como_imagen - set(PROVEEDORES_VALIDOS)
+        )
+        if desconocidos:
+            raise ValueError(
+                "PAGINA_COMO_IMAGEN_PROVEEDORES con proveedor(es) desconocido(s): "
+                f"{', '.join(desconocidos)}. Válidos: {', '.join(PROVEEDORES_VALIDOS)}."
+            )
+        return self
 
     @model_validator(mode="after")
     def _ensure_provider_enabled_and_keyed(self) -> "Settings":

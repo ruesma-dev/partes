@@ -18,6 +18,7 @@ from application.services.parte_extraction_service import (
 from application.services.auxhor_catalog_provider import AuxhorCatalogProvider
 from application.services.schema_registry import SchemaRegistry
 from config.settings import Settings
+from infrastructure.document.pagina_pdf_imagen import PaginaPdfImagenConversor
 from infrastructure.llm.claude_messages_client import ClaudeMessagesVisionClient
 from infrastructure.llm.gemini_genai_client import GeminiGenAiVisionClient
 from infrastructure.llm.openai_responses_client import OpenAiResponsesVisionClient
@@ -85,6 +86,7 @@ def build_app(settings: Settings) -> FastAPI:
                     timeout_s=settings.openai_timeout_s,
                     retry_policy=retry_policy,
                     call_logger=call_logger,
+                    image_detail=settings.openai_image_detail,
                 ),
             )
         )
@@ -111,6 +113,7 @@ def build_app(settings: Settings) -> FastAPI:
             function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
             database=settings.sigrid_api_database,          # type: ignore[arg-type]
             timeout_s=settings.sigrid_api_timeout_s,
+            max_rows=settings.sigrid_api_max_rows,
         )
         catalog_provider = AuxhorCatalogProvider(
             client=sigrid_client,
@@ -128,6 +131,21 @@ def build_app(settings: Settings) -> FastAPI:
             "SIGRID_API_*); la IA no propondra codigo de hora."
         )
 
+    # F-059: página escaneada a la IA como imagen derecha. Con el interruptor
+    # apagado no hay conversor ni lista: el pipeline manda el PDF como antes.
+    conversor: PaginaPdfImagenConversor | None = None
+    proveedores_imagen: frozenset[str] = frozenset()
+    if settings.pagina_como_imagen:
+        conversor = PaginaPdfImagenConversor()
+        proveedores_imagen = settings.proveedores_pagina_como_imagen
+    logger.info(
+        "[partes-sv2][wiring] página como imagen=%s proveedores=%s "
+        "openai_image_detail=%s",
+        settings.pagina_como_imagen,
+        sorted(proveedores_imagen) or "(ninguno)",
+        settings.openai_image_detail or "(sin detail)",
+    )
+
     pipeline = ExtractPartePipeline(
         extraction_service=extraction_service,
         max_file_mb=settings.max_file_mb,
@@ -135,6 +153,8 @@ def build_app(settings: Settings) -> FastAPI:
         provider=settings.ia_provider,
         prompt_key=settings.prompt_key,
         catalog_provider=catalog_provider,
+        conversor=conversor,
+        proveedores_imagen=proveedores_imagen,
     )
 
     app = FastAPI(title="Partes de Trabajo Extractor API", version=settings.service_version)

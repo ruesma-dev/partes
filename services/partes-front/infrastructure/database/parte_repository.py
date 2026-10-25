@@ -94,6 +94,20 @@ from application.services.incidencias_horas import (
     TablaIncidencias,
     detectar,
 )
+from application.services.racha_incidencia import (
+    FIN,
+    INICIO,
+    LineaHist,
+    LineaRol,
+    aviso_desordenada,
+    clave_incidencia,
+    colapsar,
+    decidir,
+    hasta_delante,
+    motivo_desordenada,
+    motivo_fin_movido,
+    ventana,
+)
 from application.services.calendar_builder import (
     build_period_options,
     is_future_fecha,
@@ -2069,6 +2083,7 @@ class ParteReviewRepository:
         self, registro_ids: list[int], *, incluir_borradas: bool = False,
         incidencias: TablaIncidencias | None = None,
         repartos_decididos: frozenset[int] = frozenset(),
+        mover_ciz: bool = False,
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
 
@@ -2098,6 +2113,15 @@ class ParteReviewRepository:
         `repartos_decididos` (decidido «Aplicar» en esta peticion): cuentan
         en `excluidas["reparto_pendiente"]` (solo si es > 0) y salen en el
         detalle con su motivo.
+
+        F-060 (R1-R12): con `mover_ciz`, el rol de cada incidencia que
+        viaja sale del historico de su persona (`_roles_de_racha`, una
+        consulta por persona) y, con `fin`, lleva `racha_registro_ids`; las
+        demas lineas la llevan vacia. Cada grupo lleva `avisos_racha`
+        (R10): lineas de trabajo o `inicio` antes de una incidencia ya
+        registrada. Sin `mover_ciz` (R26 bis, DA12; `MOVER_CIZ` apagado),
+        el rol de dev 0926857 linea a linea (`_rol_incidencia_anterior`),
+        con `racha_registro_ids` y `avisos_racha` vacias.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -2122,6 +2146,7 @@ class ParteReviewRepository:
             obra: dict[str, Any] = {}
             grupos: dict[str, dict[str, Any]] = {}
             detalle: list[dict[str, Any]] = []
+            viajan: list[tuple[ParteRegistroOrm, dict, dict]] = []
             for r in regs:
                 estado = _estado_norm(r.sigrid_estado)
                 if estado == ESTADO_REGISTRADO or (
@@ -2154,7 +2179,7 @@ class ParteReviewRepository:
                     obra = _obra_de(r)
                 grupo = grupos.setdefault(obra_key_for_registro(r), {
                     "obra": {}, "lineas": [], "estado_previo": {},
-                    "avisos_incidencia": []})
+                    "avisos_incidencia": [], "avisos_racha": []})
                 if not grupo["obra"] and (r.obra_ide or r.obra_codigo):
                     grupo["obra"] = _obra_de(r)
                 grupo["estado_previo"][r.id] = estado
@@ -2173,12 +2198,12 @@ class ParteReviewRepository:
                     "partida_cod": r.partida_cod,
                     "candef": r.hora_candef,
                     "incidencia_codigo": r.incidencia_codigo,
-                    "incidencia_rol": (
-                        self._rol_incidencia(session, r)
-                        if r.es_incidencia else None
-                    ),
+                    # F-060: los rellena `_roles_de_racha` al final.
+                    "incidencia_rol": None,
+                    "racha_registro_ids": [],
                 })
                 grupo["lineas"].append(lineas[-1])
+                viajan.append((r, lineas[-1], grupo))
                 if (nivel is not None and nivel.nivel == NIVEL_AVISO
                         and _is_extra(r) and (r.horas or 0.0) > 0.0):
                     grupo["avisos_incidencia"].append({
@@ -2186,6 +2211,23 @@ class ParteReviewRepository:
                         "nombre": lineas[-1]["nombre"], "horas": r.horas,
                         "motivo": nivel.motivo,
                     })
+            if mover_ciz:
+                roles_de, rachas, avisos = self._roles_de_racha(
+                    session, [r for r, _l, _g in viajan], incidencias)
+            else:
+                # R26 bis (DA12): el rol de dev 0926857, linea a linea.
+                roles_de = {r.id: self._rol_incidencia_anterior(session, r)
+                            for r, _l, _g in viajan if r.es_incidencia}
+                rachas, avisos = {}, {}
+            for r, linea, grupo in viajan:
+                if r.es_incidencia:
+                    linea["incidencia_rol"] = roles_de[r.id]
+                    linea["racha_registro_ids"] = rachas.get(r.id, [])
+                if r.id in avisos:
+                    grupo["avisos_racha"].append({
+                        "registro_id": r.id, "fecha": r.fecha,
+                        "nombre": linea["nombre"],
+                        "motivo": motivo_desordenada(avisos[r.id])})
             roles = {l["registro_id"]: l["incidencia_rol"]
                      for l in lineas if l["es_incidencia"]}
             if roles:
@@ -2215,8 +2257,41 @@ class ParteReviewRepository:
         return out
 
     @staticmethod
-    def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:
-        """Rol de una incidencia: 'inicio', 'fin' o 'intermedio'.
+    def _fin_movido(session, reg: ParteRegistroOrm, e: dict, *,
+                    usuario: str | None, ahora: str) -> None:
+        """F-060 (R28, R29): la linea X que tenia el CIZ movido a `reg` (D).
+
+        CAS: solo si X sigue `registrado` con ese mismo `hmores_ide`; sus
+        referencias (`sigrid_hmores_ide`, parte) se quedan como traza.
+        Sin CAS no se toca nada: si X ya esta `omitido` con este mismo
+        motivo (reentrega del resultado por el otro canal) es silencio; si
+        no, un WARNING sin datos personales."""
+        x = e.get("movida_de")
+        if x is None or int(x) == reg.id:
+            return
+        motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
+        cambiadas = session.execute(
+            update(ParteRegistroOrm)
+            .where(ParteRegistroOrm.id == int(x),
+                   ParteRegistroOrm.sigrid_estado == "registrado",
+                   ParteRegistroOrm.sigrid_hmores_ide == e.get("hmores_ide"))
+            .values(sigrid_estado="omitido", sigrid_motivo=motivo,
+                    sigrid_registrado_at_utc=ahora,
+                    sigrid_registrado_by=usuario)
+            .execution_options(synchronize_session="fetch")).rowcount
+        if cambiadas:
+            return
+        previa = session.get(ParteRegistroOrm, int(x))
+        if (previa is not None and previa.sigrid_estado == "omitido"
+                and previa.sigrid_motivo == motivo):
+            return
+        logger.warning(
+            "[repo] fin_movido_sin_cas registro_id=%s movida_de=%s "
+            "hmores_ide=%s", reg.id, x, e.get("hmores_ide"))
+
+    @staticmethod
+    def _rol_incidencia_anterior(session, reg: ParteRegistroOrm) -> str:
+        """Rol de una incidencia (dev 0926857; MOVER_CIZ apagado, DA12).
 
         En Sigrid solo se registran el PRIMER dia de la racha (con su
         codigo CI*) y el ULTIMO (fin); los INTERMEDIOS no se registran.
@@ -2278,6 +2353,99 @@ class ParteReviewRepository:
             delante_incidencia = False
 
         return "intermedio" if delante_incidencia else "fin"
+
+    @classmethod
+    def _roles_de_racha(
+        cls, session, regs: list[ParteRegistroOrm],
+        incidencias: TablaIncidencias | None,
+    ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int]]:
+        """F-060 (R1-R12): para las lineas que viajan, el rol de cada
+        incidencia, la racha de cada `fin` y la fecha del aviso
+        `racha_desordenada` de cada linea que lo merece.
+
+        Por persona (`persona_de`: DNI normalizado o, sin DNI, la clave de
+        trabajador, R6) con alguna linea de trabajo o de incidencia, UNA
+        consulta del historico (R12) desde el inicio de la ventana mas
+        temprana hasta el ultimo dia del mes siguiente al de su linea mas
+        tardia, de cualquier obra y estado, con la papelera marcada
+        (`activa`, R5). `decidir` da el rol de cada incidencia y `colapsar`
+        los ajusta sobre TODA la aprobacion (R7, R8), antes del reparto por
+        obra de F-022. Una incidencia sin fecha es `inicio`, como antes."""
+        por_persona: dict[str, list[ParteRegistroOrm]] = {}
+        for r in regs:
+            trabajo = (not r.es_incidencia
+                       and abs(float(r.horas or 0.0)) > 1e-9)
+            if r.fecha_int and (r.es_incidencia or trabajo):
+                por_persona.setdefault(persona_de(r), []).append(r)
+        roles: dict[int, str] = {r.id: INICIO for r in regs
+                                 if r.es_incidencia}
+        historicos: dict[str, list[LineaHist]] = {}
+        lineas_rol: list[LineaRol] = []
+        for persona, suyas in por_persona.items():
+            hist = cls._historico(session, persona, suyas, incidencias)
+            historicos[persona] = hist
+            for r in suyas:
+                if not r.es_incidencia:
+                    continue
+                clave = clave_incidencia(r.incidencia_codigo, r.hora_codigo,
+                                         incidencias)
+                d = decidir(hist, int(r.fecha_int), clave)
+                lineas_rol.append(LineaRol(
+                    registro_id=r.id, persona=persona,
+                    fecha_int=int(r.fecha_int), clave=clave, rol=d.rol,
+                    racha_registro_ids=d.racha_registro_ids))
+        roles.update(colapsar(lineas_rol))
+        rachas = {l.registro_id: list(l.racha_registro_ids)
+                  for l in lineas_rol if roles[l.registro_id] == FIN}
+        avisos: dict[int, int] = {}
+        for persona, suyas in por_persona.items():
+            for r in suyas:
+                if r.es_incidencia and roles[r.id] != INICIO:
+                    continue
+                f = aviso_desordenada(historicos[persona], int(r.fecha_int))
+                if f is not None:
+                    avisos[r.id] = f
+        return roles, rachas, avisos
+
+    @staticmethod
+    def _historico(session, persona: str, suyas: list[ParteRegistroOrm],
+                   incidencias: TablaIncidencias | None) -> list[LineaHist]:
+        """F-060 (R6, R12): las lineas de la persona en la ventana de sus
+        lineas, en UNA consulta. El prefiltro SQL (DNI normalizado,
+        recurso, ficha o sin ficha) solo acota: decide `persona_de`."""
+        desde = min(ventana(int(r.fecha_int))[0] for r in suyas)
+        hasta = max(hasta_delante(int(r.fecha_int)) for r in suyas)
+        q = (select(ParteRegistroOrm, ParteDocumentOrm.is_active)
+             .join(ParteDocumentOrm)
+             .where(ParteRegistroOrm.fecha_int.between(desde, hasta)))
+        tipo, _sep, valor = persona.partition(":")
+        if tipo == "dni":
+            q = q.where(func.upper(func.replace(func.replace(
+                ParteRegistroOrm.empleado_dni, "-", ""), " ", "")) == valor)
+        elif persona.startswith("rec-"):
+            rec = int(persona[len("rec-"):])
+            q = q.where(or_(
+                ParteRegistroOrm.recurso_ide == rec,
+                (ParteRegistroOrm.recurso_ide.is_(None))
+                & (ParteRegistroOrm.empleado_reside == rec)))
+        elif persona.startswith("emp-"):
+            q = q.where(ParteRegistroOrm.empleado_ide
+                        == int(persona[len("emp-"):]))
+        else:
+            q = q.where(ParteRegistroOrm.empleado_ide.is_(None))
+        out: list[LineaHist] = []
+        for reg, doc_activo in session.execute(q).all():
+            if persona_de(reg) != persona:
+                continue
+            out.append(LineaHist(
+                registro_id=reg.id, fecha_int=int(reg.fecha_int),
+                es_incidencia=bool(reg.es_incidencia),
+                clave=(clave_incidencia(reg.incidencia_codigo,
+                                        reg.hora_codigo, incidencias)
+                       if reg.es_incidencia else ""),
+                horas=reg.horas, sigrid_estado=_estado_norm(reg.sigrid_estado),
+                activa=reg.deleted_at_utc is None and bool(doc_activo)))
+        return out
 
     def registro_ids_de_obra(
         self, obra_key: str, *, period_key: str | None = None,
@@ -2457,6 +2625,10 @@ class ParteReviewRepository:
         falla, no se marca nada y la excepcion sube (la cola reintenta).
         `prueba` es el `forzada_pruebas` del resultado; con `incidencias`,
         la fila lleva la clase de la incidencia.
+
+        F-060 (R28, R29): una escrita con `movida_de` = X (sv5 movio a la
+        linea D el CIZ que tenia X) deja X `omitido` con motivo
+        `fin_movido`, en ESTA MISMA transaccion y con CAS (`_fin_movido`).
         """
         ahora = datetime.now(timezone.utc).isoformat()
         n = 0
@@ -2475,6 +2647,7 @@ class ParteReviewRepository:
                 logger.warning("[repo] registro FALLIDO en %s linea(s): %s",
                                n, error_global)
                 return n
+            movidas: list[tuple[ParteRegistroOrm, dict]] = []
             for e in escritas or []:
                 reg = session.get(ParteRegistroOrm, int(e["registro_id"]))
                 if reg is None:
@@ -2487,6 +2660,10 @@ class ParteReviewRepository:
                 reg.sigrid_parte_cod = e.get("parte_cod")
                 reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                 n += 1
+                movidas.append((reg, e))
+            for reg, e in movidas:
+                self._fin_movido(session, reg, e, usuario=usuario,
+                                 ahora=ahora)
             for o in omitidas or []:
                 reg = session.get(ParteRegistroOrm, int(o["registro_id"]))
                 if reg is None:

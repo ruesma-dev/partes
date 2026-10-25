@@ -19,7 +19,14 @@ class Settings(BaseSettings):
     sigrid_api_database: str = Field("ruesma", alias="SIGRID_API_DATABASE")
     # F-023 (DA5): SIGRID_EMPRESA ya no existe. La empresa de la cabecera
     # es la de la obra destino; si la variable sigue en Azure, se ignora.
-    sigrid_api_timeout_s: float = Field(60.0, alias="SIGRID_API_TIMEOUT_S")
+    # F-038 (R14, DA4): (0, 200]; el plazo HTTP suma 30 s y el balanceador
+    # de sigrid-api corta a los 230 s.
+    sigrid_api_timeout_s: float = Field(60.0, alias="SIGRID_API_TIMEOUT_S",
+                                        gt=0, le=200)
+    # F-038 (R2, R3; DA1 = B, DA2 = A): opcional, 1..500.000 (tope de la
+    # instancia); el defecto es el MAX_ROWS_DEFECTO del cliente.
+    sigrid_api_max_rows: int = Field(500_000, alias="SIGRID_API_MAX_ROWS",
+                                     ge=1, le=500_000)
     # Tope de sentencias por batch de sigrid-api (MAX_STATEMENTS_PER_BATCH=20).
     sigrid_max_statements: int = Field(15, alias="SIGRID_MAX_STATEMENTS")
 
@@ -39,6 +46,18 @@ class Settings(BaseSettings):
     #         (salvo las extras de un mensual con HE*, que siguen igual).
     mensuales_a_dedicacion: bool = Field(False,
                                          alias="MENSUALES_A_DEDICACION")
+
+    # --- F-060 (DA11, DA12): el CIZ de una racha se mueve, no se duplica --- #
+    # false (por defecto) -> cada `fin` escribe un CIZ nuevo, como siempre.
+    # true -> si la racha ya tiene su CIZ en Sigrid (synckey de una de sus
+    #         lineas), se mueve al dia nuevo con un UPDATE. Se enciende
+    #         tras las verificaciones M1-M3.
+    # La MISMA variable gobierna sv4 (rol de la racha y `racha_registro_ids`):
+    # se enciende aqui y LUEGO en sv4; se apaga en sv4 y LUEGO aqui. La
+    # vuelta atras completa es apagarla en los DOS (lo ya movido en Sigrid
+    # no se deshace): apagada solo aqui, sv4 sigue con la regla nueva y la
+    # aprobacion dia a dia escribe un CIZ por dia de la racha.
+    mover_ciz: bool = Field(False, alias="MOVER_CIZ")
 
     # --- Constantes del modelo Sigrid (confirmadas con datos reales) --- #
     tip_parte_trabajo: int = Field(35, alias="TIP_PARTE_TRABAJO")
