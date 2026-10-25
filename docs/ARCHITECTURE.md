@@ -34,7 +34,7 @@ un mensaje `{"tipo": "recalcular", ...}` al guardar o deshacer la fecha de
 un parte o (F-049) una celda de la matriz de obra (semántica 3), que sv3
 distingue del de sv2 (sin `tipo`);
 sv4↔sv5 por **doble canal** (ver más abajo);
-sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
+sv2/sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
 librería compartida: los servicios se acoplan únicamente por mensajes,
 HTTP y la BBDD `partes`.
 
@@ -557,13 +557,49 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `raw_extraction_json`, sin columna) dice qué se mandó: `conversion`
     (`convertida` / `no_aplica` / `error` / `apagada`), `motivo`, tipo y
     tamaño, y giro y medidas si se convirtió.
+20. **Relectura de la cabecera y prompt de cabecera (F-058, sv2)**: si la
+    lectura primaria (`IA_PROVIDER`, hoy OpenAI) trae trabajadores y su
+    cabecera sale **vacía** (sin obra ni fecha) o su **obra no existe en
+    Sigrid**, sv2 relee el mismo documento **una vez** con
+    `RELECTURA_CABECERA_PROVIDER` (`gemini` por defecto, con su modelo), el
+    mismo prompt, esquema y catálogo auxhor; el adjunto sigue la regla de
+    F-059 con ese proveedor (hoy Gemini recibe el PDF). Si la releída es
+    útil (con cabecera vacía: trae obra o fecha; con obra inexistente: trae
+    una obra que existe y no es la misma clave), se toma su **cabecera
+    entera** y firma y empleados siguen siendo los de la primaria; si no, o
+    si la relectura falla, queda la primaria (F-054 la manda a revisión).
+    La existencia de la obra se pregunta **en el momento** a sigrid-api
+    (`SigridLookupClient.existe_obra`, sin caché, como mucho dos consultas
+    por página: la obra leída y la releída), con la clave como parámetro
+    `?` (sin acentos, mayúsculas, sin espacios ni guiones y sin ceros a la
+    izquierda si es numérica), de cualquier empresa y también de baja; no
+    casa la obra (eso sigue en sv3). Tope `OBRA_EXISTE_TIMEOUT_S` (5 s); un
+    fallo, `truncated` o el tope superado son «no se sabe»: no se relee por
+    obra y la extracción sigue. Cada consulta deja un INFO `[obra-sigrid]`
+    con `document_id`, resultado y ms (para medir los tiempos en Log
+    Analytics), sin el código. Traza solo cuando se relee:
+    `meta.relectura_cabecera` (`motivo` `cabecera_vacia` |
+    `obra_inexistente`, `provider`, `model`, `resultado` `aplicada` |
+    `vacia` | `no_casa` | `error`, `error_tipo`, `consulta_obra_ms`) y
+    `debug.relectura_cabecera` (la cabecera primaria y el `debug` de la
+    relectura), en `raw_extraction_json` sin columna; `meta.provider` y
+    `meta.model` siguen siendo los de la primaria. Interruptor
+    `RELECTURA_CABECERA` (encendido); si el proveedor de relectura es el
+    primario, no está habilitado o no tiene clave, sv2 arranca igual y lo
+    avisa en el log de cableado; `/health` enseña `relectura_cabecera`.
+    Además, el punto 1 del prompt `parte_trabajo_es` avisa de que toda
+    página tiene una cabecera encima de la tabla «PERSONAL» de la que salen
+    la obra, el día, el mes y el año, el membrete y el resto, que se busque
+    aunque el escaneo salga desplazado y que nunca se invente un valor.
 
 ## Acceso a datos y sistemas externos
 
 - **sigrid-api** (Function App): ÚNICA vía a Sigrid; la instancia admite
   hasta **500.000 filas** por petición (`MAX_ALLOWED_ROWS`) y el balanceador
   corta a los 230 s. Lecturas contra `ruesma_rep` o `ruesma`; la ESCRITURA
-  (solo sv5) siempre contra `ruesma`.
+  (solo sv5) siempre contra `ruesma`. sv2 lee el catálogo `auxhor` y, desde
+  F-058, consulta en el momento si existe la obra leída (una `sql/read`
+  parametrizada por página que la necesite, tope `OBRA_EXISTE_TIMEOUT_S`).
 - **Límite de filas de las lecturas (F-038)**: sv3 y sv4 paginan los
   listados a 5.000 filas (`PAGINA_FILAS`, pedidas con `max_rows` 5.001);
   toda otra lectura de sv2, sv3, sv4 y sv5 pide `SIGRID_API_MAX_ROWS`
@@ -576,7 +612,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
 - **PostgreSQL** `psql-albaranes-rs9k2` (servidor COMPARTIDO con otros
   proyectos): solo la base `partes`; nada a nivel de servidor.
 - **Microsoft Graph**: buzón (sv1) y SharePoint (sv3).
-- **Google Gemini** (sv2): extracción estructurada.
+- **Google Gemini** (sv2): extracción estructurada; hoy el primario es
+  OpenAI (`IA_PROVIDER=openai`) y Gemini relee la cabecera cuando sale
+  vacía o su obra no existe (F-058, `RELECTURA_CABECERA_PROVIDER`).
 - Desde local se apunta a los backends reales (ver `partes-proyecto.md`
   §9): escritura en Sigrid SOLO en modo pruebas (obra 0404, `PRUEBA-IA`).
 - Los unit tests NO tocan ninguno de estos sistemas: mocks, fixtures y
