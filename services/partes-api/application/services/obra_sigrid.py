@@ -81,4 +81,4 @@ class ComprobadorObra:
         return ConsultaObra(existe=existe, ms=ms, error_tipo=None)
 
     def _ms_desde(self, inicio: float) -> int:
-        return int(round((self._reloj() - inicio) * 1000))
+        return round((self._reloj() - inicio) * 1000)
