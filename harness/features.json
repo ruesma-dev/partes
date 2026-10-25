@@ -886,7 +886,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-059-pagina-como-imagen-derecha",
-      "pendiente": "M4; después releer los 6 partes sin obra (sv2 desplegada el 2026-10-24, r20261024215445)"
+      "pendiente": "M4 casi cerrada: el 2026-10-25 sv2 convirtió las 6 páginas (convertida, 0 error) y la IA leyó obra y fecha en las 6; falta que entren en la base tras la papelera (F-061)"
     },
     {
       "id": "F-060",
@@ -906,6 +906,21 @@
       "priority": 1,
       "branch": "feature/F-060-racha-incidencia-ciz-movil",
       "pendiente": "desplegada sv5 r20261025093550 y sv4 r20261025093906 el 2026-10-25 con MOVER_CIZ apagado (arranque sano); antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender"
+    },
+    {
+      "id": "F-061",
+      "title": "Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso",
+      "description": "Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 2,
+      "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
+      "spec": "sin spec"
     }
   ]
 }
