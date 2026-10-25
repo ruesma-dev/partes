@@ -886,7 +886,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-059-pagina-como-imagen-derecha",
-      "pendiente": "M4 casi cerrada: el 2026-10-25 sv2 convirtió las 6 páginas (convertida, 0 error) y la IA leyó obra y fecha en las 6; falta que entren en la base tras la papelera (F-061)"
+      "pendiente": "nada: M4 OK el 2026-10-25 (los 6 partes sin obra reprocesados: 6 convertida, 0 error, obra y fecha leídas en los 6; partes nuevos 0ef28361, b7599bcb, f1e8900d, e8ff17d2, fc892aaf, 7b26d9df)"
     },
     {
       "id": "F-060",

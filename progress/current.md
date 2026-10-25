@@ -239,7 +239,8 @@ defecto), DA4 = A (`OPENAI_IMAGE_DETAIL=high`). Anotada en `design.md` §7.
   Corregido (implementer, 2026-10-23): M4 abajo con su SELECT literal; además, observación 1:
   R12/R13 fijan el final del sha12 (`sha256=<12>:`) y el mutante `sha256[:13]` muere (5 failed).
 - **Pendiente**: T10 (M4 tras desplegar sv2, humano) y la review pasada 2 (T9 hecha, banco).
-- [ ] **M4 · T10 (humano, tras desplegar; solo lectura)**. Despliegue, lo lanza el humano:
+- [x] **M4 OK (2026-10-25)**: reprocesados los 6 partes sin obra (doc002836 y doc021390) ⇒ 6 `convertida`, 0 `error`, obra (0678/0692) y fecha leídas en los 6; partes nuevos 0ef28361, b7599bcb, f1e8900d, e8ff17d2, fc892aaf y 7b26d9df. Receta original:
+- [x] **M4 · T10 (humano, tras desplegar; solo lectura)**. Despliegue, lo lanza el humano:
   `.\infra\redeploy_partes.ps1 -Solo sv2`. Anotar el instante UTC del despliegue (ISO,
   p. ej. `2026-10-24T08:00:00`) y, cuando hayan entrado partes escaneados, en la base `partes`:
 
