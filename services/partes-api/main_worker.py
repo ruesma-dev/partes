@@ -2,9 +2,12 @@
 """Worker de sv2 (extraccion).
 
 Consume 'q-extraccion', lee el PDF de blob 'input/{document_id}.pdf', extrae
-con el pipeline (Gemini primario), escribe el envelope en
-'envelopes/{document_id}.json' y encola 'q-persistencia'. Auth a cola/blob por
-managed identity. Reutiliza el wiring de build_app via app.state.pipeline.
+con el pipeline (proveedor de ``IA_PROVIDER`` y, si hace falta, relectura de
+la cabecera con el de ``RELECTURA_CABECERA_PROVIDER``, F-058), escribe el
+envelope en 'envelopes/{document_id}.json' y encola 'q-persistencia'. El
+``document_id`` del mensaje viaja en la peticion solo para la traza. Auth a
+cola/blob por managed identity. Reutiliza el wiring de build_app via
+app.state.pipeline.
 """
 from __future__ import annotations
 

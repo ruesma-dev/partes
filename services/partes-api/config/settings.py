@@ -21,8 +21,11 @@ class Settings(BaseSettings):
     """Configuracion del servicio 2 de partes (partes-extractor).
 
     Version simplificada respecto al sv2 de albaranes: una sola fase de
-    extraccion con UN proveedor (gemini por defecto, claude opcional).
-    El proveedor activo lo elige ``IA_PROVIDER`` y debe estar habilitado.
+    extraccion con el proveedor primario que elige ``IA_PROVIDER`` (gemini
+    por defecto; en Azure, openai), que debe estar habilitado y con clave.
+    F-058: si la cabecera sale vacia o su obra no existe en Sigrid, la
+    pagina se relee una vez con ``RELECTURA_CABECERA_PROVIDER`` (gemini por
+    defecto), si esta habilitado, con clave y es otro que el primario.
     """
 
     # --- Flags de proveedor --- #

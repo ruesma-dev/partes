@@ -1,9 +1,9 @@
 # application/pipelines/extract_parte_pipeline.py
 """Pipeline de extraccion de un parte de trabajo (sv2, una fase).
 
-Valida el adjunto, ejecuta el proveedor LLM configurado y devuelve un
-envelope ``{meta, data, debug}`` con la misma forma que el sv2 de
-albaranes, para que sv3 lo consuma de forma homogenea.
+Valida el adjunto, ejecuta el proveedor LLM primario (``IA_PROVIDER``) y
+devuelve un envelope ``{meta, data, debug}`` con la misma forma que el sv2
+de albaranes, para que sv3 lo consuma de forma homogenea.
 
 F-059: con la conversión activa (interruptor ``PAGINA_COMO_IMAGEN`` y el
 proveedor en ``PAGINA_COMO_IMAGEN_PROVEEDORES``), una página escaneada viaja
