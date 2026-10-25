@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **56 features**, 14 abiertas, 42 terminadas.
+Resumen: **57 features**, 15 abiertas, 42 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -12,6 +12,7 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 2 | spec lista | aprobada (todas las DA) · `partes-wt-f058` | estandar | `feature/F-058-relectura-cabecera-gemini` |
+| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | pendiente | sin spec | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -49,7 +50,7 @@ Bloqueadas: **F-032**.
 | F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | critico | M4 |
 | F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | estandar | M2–M6 en el portal |
 | F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |  |
-| F-059 | La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor | 1 | estandar | M4; después releer los 6 partes sin obra (sv2 desplegada el 2026-10-24, r20261024215445) |
+| F-059 | La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor | 1 | estandar | M4 casi cerrada: el 2026-10-25 sv2 convirtió las 6 páginas (convertida, 0 error) y la IA leyó obra y fecha en las 6; falta que entren en la base tras la papelera (F-061) |
 | F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | desplegada sv5 r20261025093550 y sv4 r20261025093906 el 2026-10-25 con MOVER_CIZ apagado (arranque sano); antes de encender (sv5→sv4): visto bueno de Administración a DA3 y DA6 y M1–M3 en 0404; M4 tras encender |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
@@ -82,6 +83,14 @@ estado **spec lista** · prioridad 2 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: aprobada (todas las DA) · `partes-wt-f058`
 
 Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local sin escrituras): 6 páginas de dos escaneos (21/10 y 23/10) se guardaron sin obra ni fecha porque gpt-6.1-sol (IA_PROVIDER=openai en sv2) devolvió la cabecera entera a null (fecha, obra_numero, obra_nombre, empresa_membrete...) aunque leyó las filas de trabajadores. El papel se lee bien; el escaneo sale desplazado (lado derecho cortado, bandas grises). Reproducido: 12 de 12 lecturas con gpt-6.1-sol dan cabecera vacía; las mismas 6 páginas con gemini-4-argon dan obra y fecha correctas 6 de 6; páginas de las mismas obras escaneadas normalmente salen bien con gpt-6.1-sol. No es el código de obra de 3 cifras (sv3 los rellena: codigo_padded/codigo_membrete). Decisión del humano del 2026-10-23 («si, lanza f54 y la spec de relectura con gemini»): sv2 mantiene gpt-6.1-sol para las filas y, si la cabecera llega vacía con trabajadores, relee la página con gemini-4-argon y toma su cabecera. Complementa F-054 (que manda a revisión el parte sin obra o sin fecha). Pendiente de spec.
+
+### F-061 · Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso
+
+estado **pendiente** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
+
+**Spec**: sin spec
+
+Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 
 ### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
 
@@ -311,7 +320,7 @@ Pedida por el humano el 2026-10-19 («reforzar el prompt»). Caso real: obra 068
 
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-059-pagina-como-imagen-derecha`
 
-**Pendiente**: M4; después releer los 6 partes sin obra (sv2 desplegada el 2026-10-24, r20261024215445)
+**Pendiente**: M4 casi cerrada: el 2026-10-25 sv2 convirtió las 6 páginas (convertida, 0 error) y la IA leyó obra y fecha en las 6; falta que entren en la base tras la papelera (F-061)
 
 Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto», precisada el mismo día: «el parte viene cortado del escaner pero viene bien orientado y la obra se lee perfectamente. el problema no es del giro, es de lectura. de hecho imagen girada esta bien orientado y tal cual esta mal orientado». El fallo es de lectura de la IA, no del escáner ni de sv1: las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son PDF de una página (sv1 las copia tal cual con pypdf) con un JPEG 3507×2480 guardado de lado y /Rotate 270, que las deja derechas en cualquier visor; la obra y la fecha se leen bien. Todo apunta a que OpenAI, con el PDF como input_file, no aplica el /Rotate y lee la imagen cruda de lado. Banco del líder (2026-10-23, fuera del repo, gpt-6.1-sol, 2 pasadas): PDF tal cual, cabecera vacía 12 de 12, también con reasoning.effort = high; JPEG incrustado girado según /Rotate con detail high, obra y fecha bien 12 de 12 (las mismas que gemini-4-argon) y control 4 de 4. Diseño: solo sv2; el pipeline pide a un conversor (puerto en domain, adaptador pypdf + Pillow en infrastructure/document) la página derecha cuando el PDF es una sola imagen JPEG a página completa y la manda como imagen; si no aplica o falla, PDF como hoy (WARNING sin nombres ni DNIs en el fallo). meta.adjunto_ia deja la traza; meta.source_* siguen siendo del original. DA1 (recomendada A): solo OpenAI por defecto, lista PAGINA_COMO_IMAGEN_PROVEEDORES. DA2 (A): imagen incrustada, sin render. DA3 (A): PAGINA_COMO_IMAGEN encendido por defecto, sin cambio de entorno en Azure. DA4 (A): OPENAI_IMAGE_DETAIL=high para toda imagen. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec: specs/F-059-pagina-como-imagen-derecha/.
 
