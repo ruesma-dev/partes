@@ -905,7 +905,7 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-060-racha-incidencia-ciz-movil",
-      "pendiente": "M1–M3 OK en local el 2026-10-25 (progress/m1_m3_F-060.md). Para encender MOVER_CIZ (sv5→sv4) falta solo el visto bueno de Administración a DA3 y DA6; M4 tras encender"
+      "pendiente": "MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062"
     },
     {
       "id": "F-061",
