@@ -186,7 +186,7 @@ hermano en parte cerrado: ni se escribe ni corta la racha (DA7 A).
 ## Resultado de `bash harness/init.sh`
 
 Ejecutado tal cual (2026-10-26). La primera pasada falló solo en el tope de este informe
-(236 > 220); se recortó. Tras los tests de mutación: **`ENTORNO LISTO`, 0 fallidas**; `PUERTA COBERTURA` 135/135 (100 %) y `PUERTA TAMAÑO` impl 218/220.
+(236 > 220); se recortó. Tras la review 1 (acf952a): **`ENTORNO LISTO`, 0 fallidas**; `PUERTA COBERTURA` 135/135 (100 %) y `PUERTA TAMAÑO` impl 217/220.
 
 ## Evidencias
 
