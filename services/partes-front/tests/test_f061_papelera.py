@@ -16,7 +16,7 @@ from __future__ import annotations
 import warnings
 
 import pytest
-from config.settings import Settings
+from dobles import FabricaSesionSqlite, sembrar_parte
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.exc import SAWarning
@@ -25,7 +25,7 @@ from application.services.parte_vacio import (
     MOTIVO_DUPLICADO_ACTIVO,
     DuplicadoActivoError,
 )
-from dobles import FabricaSesionSqlite, sembrar_parte
+from config.settings import Settings
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,
     ParteRegistroOrm,

@@ -60,3 +60,23 @@ tests\test_f061_portal.py:184: assert 0 == 1                (la plantilla no pin
 
 Tras el cambio: `12 passed`; `node --check static/app.js` sin errores; `partes_list.html` parsea
 en Jinja2 (test `test_f061_r13_partes_list_parsea_en_jinja2`).
+
+### T8 · R14–R18 (`tests/test_f061_limpieza.py`, script y repositorio)
+
+Comando: `python -m pytest tests/test_f061_limpieza.py -q --tb=line`. Primero, sin el script:
+
+```
+E   ModuleNotFoundError: No module named 'limpiar_partes_vacios'
+!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.96s
+```
+
+Con el script y sin los métodos del repositorio (5 failed, 38 passed):
+
+```
+limpiar_partes_vacios.py:92: AttributeError: 'ParteReviewRepository' object has no attribute 'partes_vacios_activos'   (x4)
+tests	est_f061_limpieza.py:286: AttributeError: 'ParteReviewRepository' object has no attribute 'limpiar_vacios'
+```
+
+Tras `partes_vacios_activos` y `limpiar_vacios`: `43 passed`. `python limpiar_partes_vacios.py
+--ejecutar` (sin `--esperados`) ⇒ `error: --ejecutar exige --esperados N`, código 2, sin tocar la base.

@@ -19,11 +19,11 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from config.settings import Settings
+from dobles import FabricaSesionSqlite, sembrar_parte
 from fastapi.testclient import TestClient
 from jinja2 import Environment, FileSystemLoader
 
-from dobles import FabricaSesionSqlite, sembrar_parte
+from config.settings import Settings
 from infrastructure.database.parte_repository import (
     ParteReviewRepository,
     ParteRow,
@@ -53,7 +53,7 @@ def _node(programa: str):
     if NODE is None:
         pytest.skip("node no esta instalado: no se puede ejecutar el JS")
     r = subprocess.run([NODE, "-e", programa], capture_output=True,
-                       text=True, encoding="utf-8", timeout=60)
+                       check=False, text=True, encoding="utf-8", timeout=60)
     assert r.returncode == 0, r.stderr
     return json.loads(r.stdout)
 
@@ -120,7 +120,7 @@ def test_f061_r12_app_js_pasa_node_check() -> None:
     if NODE is None:
         pytest.skip("node no esta instalado")
     r = subprocess.run([NODE, "--check", str(APP_JS)], capture_output=True,
-                       text=True, encoding="utf-8", timeout=60)
+                       check=False, text=True, encoding="utf-8", timeout=60)
     assert r.returncode == 0, r.stderr
 
 

@@ -64,8 +64,10 @@ from application.services.congelacion import (
 )
 from application.services.parte_vacio import (
     DuplicadoActivoError,
+    empleados_leidos,
     es_retirado,
     marca_retirado,
+    motivo_exclusion_limpieza,
 )
 from application.services.reparto_aviso import (
     DECISION_APLICAR,
@@ -4488,6 +4490,78 @@ class ParteReviewRepository:
         if partes_borrados:
             res["partes_borrados"] = partes_borrados
         return res
+
+    # ---- F-061 (DA4): los partes vacios que ya existian ---- #
+    def partes_vacios_activos(self) -> list[dict]:
+        """Partes ACTIVOS sin ninguna linea viva, con lo que el informe de
+        `limpiar_partes_vacios.py` necesita (R14). Solo `SELECT`.
+
+        Sin nombres ni DNIs: de la extraccion guardada solo sale cuantos
+        empleados traia.
+        """
+        viva = (select(ParteRegistroOrm.id)
+                .where(ParteRegistroOrm.document_id == ParteDocumentOrm.id)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .exists())
+        with self._session_factory.create_session() as session:
+            docs = session.execute(
+                select(ParteDocumentOrm)
+                .options(selectinload(ParteDocumentOrm.registros))
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(~viva)
+                .order_by(ParteDocumentOrm.id)
+            ).scalars().all()
+            return [{
+                "document_id": d.id,
+                "fecha": d.fecha,
+                "obra_codigo": d.obra_codigo,
+                "created_at_utc": d.created_at_utc,
+                "approved": bool(d.approved),
+                "filas": len(d.registros),
+                "manual": d.source_mime_type == "manual",
+                "empleados_leidos": empleados_leidos(d.raw_extraction_json),
+                "estados": [r.sigrid_estado for r in d.registros],
+                "partes_sigrid": [r.sigrid_parte_cod for r in d.registros],
+            } for d in docs]
+
+    def limpiar_vacios(self, document_ids, *, by: str) -> dict:
+        """Aplica la regla de F-061 a esos partes (R17), en UNA transaccion.
+
+        Bloquea los partes por `id` y recomprueba cada uno: activo, sin
+        lineas vivas y sin motivo de exclusion. El que lo cumple se retira
+        (`_retirar_si_vacios`) y, si no conserva ninguna fila, se borra
+        fisicamente (`_borrar_retirados_sin_filas`): ninguna fila de
+        `parte_registros` se borra. El resto se salta.
+        Devuelve `{"borrados", "retirados", "saltados"}` (listas de ids).
+        """
+        pedidos = list(dict.fromkeys(i for i in document_ids if i))
+        with self._session_factory.create_session() as session:
+            docs = {d.id: d for d in
+                    self._bloquear_documentos(session, pedidos)}
+            validos: list[str] = []
+            saltados: list[str] = []
+            for did in pedidos:
+                doc = docs.get(did)
+                if (doc is None or not doc.is_active
+                        or any(not r.deleted_at_utc for r in doc.registros)
+                        or motivo_exclusion_limpieza(
+                            aprobado=bool(doc.approved),
+                            estados=[r.sigrid_estado for r in doc.registros],
+                            partes_sigrid=[r.sigrid_parte_cod
+                                           for r in doc.registros],
+                        ) is not None):
+                    saltados.append(did)
+                    continue
+                validos.append(did)
+            retirados = self._retirar_si_vacios(session, validos, by=by)
+            self._borrar_retirados_sin_filas(session, retirados)
+            session.flush()
+            borrados = [did for did in retirados
+                        if session.get(ParteDocumentOrm, did) is None]
+            session.commit()
+        return {"borrados": borrados,
+                "retirados": [d for d in retirados if d not in borrados],
+                "saltados": saltados}
 
     # ----------------------------------------------------------------- #
     # CREAR parte manualmente (un dia o un periodo).

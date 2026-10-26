@@ -11,13 +11,13 @@ PostgreSQL. Datos sintéticos.
 from __future__ import annotations
 
 import pytest
-from config.settings import Settings
+from dobles import FabricaSesionSqlite, sembrar_parte
 from fastapi.testclient import TestClient
 from sqlalchemy.dialects import postgresql
 
 from application.services.congelacion import CongeladoError
 from application.services.parte_vacio import MARCA_RETIRADO
-from dobles import FabricaSesionSqlite, sembrar_parte
+from config.settings import Settings
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,
     ParteRegistroOrm,
@@ -207,7 +207,7 @@ def test_f061_r3_sql_de_bloqueo_es_for_update_ordenado_por_id() -> None:
 def test_f061_r3_borrar_linea_bloquea_el_parte_antes_de_las_guardas(
         monkeypatch) -> None:
     """La guarda de congelación salta DESPUÉS de bloquear el parte."""
-    fabrica, repo, ids = _montaje([{}], aprobado=True)
+    _fabrica, repo, ids = _montaje([{}], aprobado=True)
     llamadas: list[list[str]] = []
     original = ParteReviewRepository._bloquear_documentos
 
