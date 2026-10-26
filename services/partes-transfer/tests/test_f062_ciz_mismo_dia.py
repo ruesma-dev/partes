@@ -306,3 +306,55 @@ def test_f062_r8_settings_sin_el_ajuste_es_apagado() -> None:
     pipe = RegistroPipeline(cliente=_cli(), settings=SettingsFake())
     a = _acc(pipe.preflight(obra=_obra(), lineas=[_inicio(4, D)]), 4)
     assert a.fin_mismo_dia is None
+
+
+# ================================ Doble ================================ #
+
+def _stmt_inicio(cli, *, hmoide=HMO_OCT, rid=4, fecha_int=D, pos=64) -> dict:
+    return cli.stmt_insert_inicio_con_fin(
+        hmoide=hmoide, obra=_obra(), reside=REC, fecha_int=fecha_int,
+        paride=33, ano=fecha_int // 10000, mes=(fecha_int // 100) % 100,
+        tex="nota", pos=pos, horide=H_CIV, pre=PRE_CIV, caaide=702,
+        synckey=synckey_de(rid), pos_fin=pos + 64, horide_fin=H_CIZ,
+        pre_fin=PRE_CIZ, caaide_fin=703, synckey_fin=synckey_ciz_de(rid))
+
+
+def test_f062_doble_inserta_dos_filas_con_ide_consecutivo() -> None:
+    cli = _cli()
+    assert cli.escribir([_stmt_inicio(cli)]) == 2
+    ci, ciz = cli.lineas
+    assert ciz["ide"] == ci["ide"] + 1
+    assert (ci["synckey"], ci["horide"], ci["pre"], ci["caaide"],
+            ci["pos"]) == ("partes:4", H_CIV, PRE_CIV, 702, 64)
+    assert (ciz["synckey"], ciz["horide"], ciz["pre"], ciz["caaide"],
+            ciz["pos"]) == ("partes:4:ciz", H_CIZ, PRE_CIZ, 703, 128)
+    for f in (ci, ciz):
+        assert (f["hmoide"], f["reside"], f["fec"], f["can"], f["tot"],
+                f["paride"], f["ano"], f["mes"], f["tex"]) == (
+            HMO_OCT, REC, D, 0.0, 0.0, 33, 2026, 10, "nota")
+
+
+def test_f062_doble_parte_cerrado_ninguna_fila() -> None:
+    cli = _cli(partes=[_parte(HMO_OCT, "PT26/00010", est=3)])
+    assert cli.escribir([_stmt_inicio(cli)]) == 0
+    assert cli.lineas == []
+
+
+def test_f062_doble_parte_inexistente_ninguna_fila() -> None:
+    cli = _cli(partes=[])
+    assert cli.escribir([_stmt_inicio(cli)]) == 0 and cli.lineas == []
+
+
+def test_f062_doble_hermano_ya_existe_solo_el_ci() -> None:
+    previo = {"ide": 7001, "hmoide": HMO_OCT, "reside": REC, "fec": D,
+              "horide": H_CIZ, "can": 0.0, "tot": 0.0, "pos": 10,
+              "synckey": "partes:4:ciz"}
+    cli = _cli(previo)
+    assert cli.escribir([_stmt_inicio(cli)]) == 1
+    assert [f["synckey"] for f in cli.lineas] == ["partes:4:ciz", "partes:4"]
+
+
+def test_f062_doble_cuenta_para_el_cierre_en_la_ventana() -> None:
+    cli = _cli()
+    cli.cerrar_al_escribir = {HMO_OCT: 3}
+    assert cli.escribir([_stmt_inicio(cli)]) == 0 and cli.lineas == []
