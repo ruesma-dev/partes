@@ -645,6 +645,46 @@ class SigridWriteClient:
                                int(mes), int(caaide), (tex or ""), synckey,
                                int(hmoide), self._est, *ides_pisadas]}
 
+    def stmt_insert_inicio_con_fin(
+        self, *, hmoide: int, obra: ObraEntrada, reside: int, fecha_int: int,
+        paride: int | None, ano: int, mes: int, tex: str | None,
+        pos: int, horide: int, pre: float, caaide: int, synckey: str,
+        pos_fin: int, horide_fin: int, pre_fin: float, caaide_fin: int,
+        synckey_fin: str,
+    ) -> dict:
+        """F-062 (R13, DA2): el CI* del `inicio` y su CIZ hermano en UNA
+        sentencia de dos filas, atomica en SQL Server (las dos o ninguna),
+        sin depender del corte en lotes de `escribir`.
+
+        Columnas y valores de `stmt_insert_linea`; `can` y `tot` literales
+        0 (las incidencias van sin horas). La fila `k` = 0 es el CI* y la
+        `k` = 1 el hermano (`horide`, `pre`, cuenta, `pos` y synckey
+        propios; su `ide` es el siguiente al del CI*). La guarda de parte
+        abierto de F-034 vale para las dos filas y, solo en la del hermano,
+        que no exista ya una linea con su synckey (reentrega o carrera)."""
+        cenide = int(getattr(obra, "cenide", 0) or 0)
+        sql = (
+            "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
+            "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
+            "tex, synckey) SELECT x.n + v.k, ?, ?, ?, ?, ?, v.pos, ?, "
+            "v.horide, 0, v.pre, 0, ?, ?, 0, 0, v.caaide, ?, v.synckey "
+            "FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores "
+            "WITH (UPDLOCK, HOLDLOCK)) x "
+            "CROSS JOIN (VALUES (0, ?, ?, ?, ?, ?), (1, ?, ?, ?, ?, ?)) "
+            "v(k, pos, horide, pre, caaide, synckey) "
+            f"WHERE {self._guarda_parte_abierto('?')} "
+            "AND (v.k = 0 OR NOT EXISTS (SELECT 1 FROM hmores s "
+            "WHERE s.synckey = ?))")
+        return {"sql": sql,
+                "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
+                               int(paride or 0), int(fecha_int), int(ano),
+                               int(mes), (tex or ""),
+                               int(pos), int(horide), float(pre), int(caaide),
+                               synckey,
+                               int(pos_fin), int(horide_fin), float(pre_fin),
+                               int(caaide_fin), synckey_fin,
+                               int(hmoide), self._est, synckey_fin]}
+
     def stmt_anular_linea(self, *, ide: int, reside: int, fecha_int: int,
                           horide: int | None, antes: float | None) -> dict:
         """F-053 (R2, R3, DA12): pisar un conflicto confirmado pone la linea
