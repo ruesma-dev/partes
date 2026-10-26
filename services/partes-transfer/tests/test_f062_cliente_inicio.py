@@ -107,3 +107,10 @@ def test_f062_r13_una_sola_sentencia() -> None:
     st = _inicio()
     assert set(st) == {"sql", "parameters"}
     assert _sql(st["sql"]).count("INSERT INTO") == 1
+
+
+def test_f062_mut_r13_obra_sin_cenide_va_con_cero() -> None:
+    """Superviviente 9 de la campana de mutacion: una obra sin `cenide`
+    escribe `cenide` 0 (como `stmt_insert_linea`)."""
+    obra = ObraEntrada(ide=10, codigo="0100", nombre="Obra", empresa=1)
+    assert _inicio(obra=obra)["parameters"][2] == 0

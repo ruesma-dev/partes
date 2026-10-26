@@ -1073,3 +1073,72 @@ def test_f062_docstrings_cuentan_el_ciz_del_inicio() -> None:
         assert "F-062" in doc and "ciz_mismo_dia" in doc, modulo.__name__
     doc = " ".join((reglas_registro.__doc__ or "").split())
     assert "partes:<id>:ciz" in doc and "mismo dia" in doc
+
+
+# ============ Huecos de la campana de mutacion (progress/mutacion_F-062.md) ============ #
+
+def test_f062_mut_r20_synckey_ajena_con_digitos_no_es_registro() -> None:
+    """Superviviente 8: una synckey ajena cuya cola tras 7 caracteres es un
+    entero no es de ningun registro (no se parsea como `partes:<n>`)."""
+    assert registro_de_synckey("ALB0000123") is None
+    assert registro_de_synckey("abcdefg42") is None
+
+
+def test_f062_mut_r9_hermano_con_subcuenta_propia_no_pide_partida() -> None:
+    """Superviviente 2: con subcuenta propia en el CI* y en el CIZ, la
+    partida no se lee aunque la linea la tenga."""
+    cli = _cli_cuentas(partida=PartidaCuenta(ide=33, cod="P33",
+                                             caa_cod="P.CI55"))
+    a = _acc(_pf(cli, [_inicio_partida()]), 4)
+    assert (a.fin_mismo_dia.caa_ide, a.fin_mismo_dia.caa_cod) == (703,
+                                                                 "C.CIZ1")
+    assert cli.partidas_leidas == []
+
+
+def test_f062_mut_r9_hermano_sin_partida_no_toma_la_de_otra_linea() -> None:
+    """Superviviente 3: el hermano de una linea sin partida (`paride` 0) no
+    hereda la partida de otra linea de la peticion."""
+    cli = _cli_cuentas(caa_ciz=None)
+    cli.partidas = {1: PartidaCuenta(ide=1, cod="P1", caa_cod="P.CI55")}
+    con_partida = _inicio(4, D)
+    con_partida.partida_ide = 1
+    sin_partida = _inicio(5, D + 2)
+    pf = _pf(cli, [con_partida, sin_partida])
+    assert (_acc(pf, 4).fin_mismo_dia.caa_ide,
+            _acc(pf, 4).fin_mismo_dia.caa_cod) == (704, "C.CI55")
+    assert (_acc(pf, 5).fin_mismo_dia.caa_ide,
+            _acc(pf, 5).fin_mismo_dia.caa_cod) == (0, None)
+
+
+def test_f062_mut_r12_linea_sin_codigo_no_es_ciz_ajeno() -> None:
+    """Superviviente 6: una linea de Sigrid sin `horide` no es el CIZ del
+    dia, aunque el CIZ del recurso tenga un `horide` bajo."""
+    from application.pipelines.registro_pipeline import RegistroPipeline
+    from domain.models.registro_models import FinMismoDia
+
+    def accion() -> AccionLinea:
+        return AccionLinea(registro_id=4, accion="escribir", ano=2026,
+                           mes=10, fecha_int=D, recurso_ide=REC,
+                           fin_mismo_dia=FinMismoDia(horide=1,
+                                                     hora_codigo="CIZ",
+                                                     pre=0.0))
+
+    def existentes(horide) -> list:
+        return [(None, [LineaSigrid(ide=9, reside=REC, fecha_int=D,
+                                    horide=horide, hora_codigo=None,
+                                    can=0.0, tot=0.0, synckey=None)])]
+
+    assert RegistroPipeline._ciz_ajeno(accion(), existentes(None),
+                                       set()) is False
+    assert RegistroPipeline._ciz_ajeno(accion(), existentes(1),
+                                       set()) is True
+
+
+def test_f062_mut_r13_inicio_sin_partida_escribe_paride_cero() -> None:
+    """Superviviente 7: un `inicio` sin partida escribe las dos filas con
+    `paride` 0."""
+    cli = _cli()
+    enviadas = _espiar(cli)
+    _ejecutar(cli, [_inicio(4, D)])
+    ci, ciz = enviadas[0]["filas"]
+    assert (ci["paride"], ciz["paride"]) == (0, 0)
