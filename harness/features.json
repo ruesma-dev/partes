@@ -974,7 +974,12 @@
       "title": "El filtro del portal se mantiene durante la sesión de cada usuario",
       "description": "Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.",
       "acceptance": [
-        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "Solo sv4 (más docs/ARCHITECTURE.md punto 11): <body data-filtros-usuario> con los 16 hex del SHA-256 del actor de _resolver_identidad (clave_filtros pura en identidad.py); vacío con sin-identidad desplegado; guardianes de F-017 sin tocar",
+        "Filtros guardados en localStorage bajo partes.filtros.v1:<clave>, por pantalla (ruta): .col-filter por (tabla, columna), días con su periodo, casilla «sin código de hora extra» y search/pendientes de /partes, /obras y /trabajadores; caducan a las 8 h sin actividad (M0), máx. 50 pantallas, barrido de caducados; sin clave o sin localStorage, como hoy",
+        "Al cargar se reponen antes de restaurarVista (F-043) con una sola escritura; aviso «Filtros recuperados de tu sesión» con «Quitar filtros»; una lista sin consulta con búsqueda guardada hace location.replace; «Limpiar» de las tres listas apunta a ?search=",
+        "La selección de líneas nunca se guarda ni restaura; conjuntoAprobacion, restaurarVista, vistaRestaurable y _ctKey sin cambios: con un filtro repuesto solo se aprueba lo visible",
+        "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados; tests de node de las funciones puras y del cableado",
+        "M0 (cookieExpiration de Easy Auth, líder, solo lectura), M1 (recorrido local) y M2 tras desplegar sv4 (dos usuarios de Entra en el mismo navegador)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
       "status": "pending",
@@ -982,7 +987,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-064-filtro-en-sesion",
-      "spec": "sin spec"
+      "spec": "escrita, pendiente de aprobación (DA1–DA7, recomendada A) · `partes-wt-f064`"
     }
   ]
 }

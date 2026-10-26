@@ -1,6 +1,37 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-064 · spec escrita 2026-10-26, pendiente de aprobación: el filtro del portal se mantiene durante la sesión de cada usuario
+
+Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
+`partes-wt-f064`, sale de `dev` ec7111d). Rigor estándar. **Solo sv4**: `identidad.py` (clave
+pura), `app.py` (global de Jinja), `base.html` (`data-filtros-usuario`), las tres listas
+(«Limpiar» ⇒ `?search=`) y `static/app.js` (IIFE `FiltrosSesion` + manejador de días). Sin
+esquema, endpoints ni colas; `azure-apps/partes.md` no cambia. `status` sigue `pending`.
+
+**Corrección al encargo**: «Actualizar» con `VISTA_CLAVE` es de **F-043** (R21, DA10), no de F-022.
+
+**Decisiones abiertas para el humano** (`design.md` §9; recomendada A en todas):
+DA1 qué entra (A: columnas de todas las tablas, días, casilla «sin código de hora extra» y
+`search`/`pendientes` de las tres listas; sin mes ni modo de los detalles) · DA2 dónde y qué es
+«sesión» (A: `localStorage` con clave por usuario —hash del actor de Easy Auth— y caducidad de 8 h
+sin actividad; B: `sessionStorage` por pestaña; C: servidor) · DA3 ámbito (A: por pantalla
+concreta, cada obra/trabajador los suyos, días además por periodo) · DA4 limpieza (A: «Limpiar»
+guarda el vacío, aviso «Filtros recuperados» con «Quitar filtros», caducidad y barrido) · DA5
+«Actualizar» de F-043 (A: no se toca, F-064 repone antes) · DA6 selección de líneas (A: nunca se
+guarda; con filtro repuesto solo se aprueba lo visible) · DA7 sin identidad desplegado (A: no se
+guarda nada).
+
+- [ ] **M0 (líder, solo lectura, antes de T1)**: `az containerapp auth show -n ca-sv4-front -g
+  rg-partes-dev --query login.cookieExpiration`; si no es 8 h (o vacío = 8 h por defecto),
+  `SESION_MS` toma ese valor. Anotarlo aquí.
+- [ ] M1 (local, `design.md` §8) y M2 tras desplegar sv4 (dos usuarios de Entra, mismo navegador).
+
+**Solape con F-061** (`partes-wt-f061`, para la fusión): `static/app.js` (F-061 ≈ l. 1457–1561 y
+2753; F-064 ≈ l. 82, 893–990 y 2829–2846), `partes_list.html` (l. 66 frente a l. 34), `app.py`
+(rutas frente a junto a `_actor`) y `docs/ARCHITECTURE.md` (semántica 8 frente a punto 11). Trozos
+distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardada (se mira en M1).
+
 ## F-062 · DONE y DESPLEGADA 2026-10-26 (sv5 r20261026140625 13:07:34Z, sv4 r20261026140755 13:09:17Z; `MOVER_CIZ=true` en los dos; arranque sano; M1–M5 OK; M6 a repetir cuando se aprueben incidencias). El inicio de una incidencia escribe CI* y CIZ el mismo día
 
 Spec en `specs/F-062-ciz-el-mismo-dia-del-inicio/` (rama `feature/F-062-ciz-el-mismo-dia-del-inicio`,
