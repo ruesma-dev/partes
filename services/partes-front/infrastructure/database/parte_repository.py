@@ -4237,12 +4237,15 @@ class ParteReviewRepository:
         Con `ids=None` barre todos; si no, solo esos. Es el UNICO sitio de
         este borrado: un parte con filas, o que no este retirado (activo,
         en la papelera de partes, desactivado por sv3 con `deleted_by`
-        NULL), nunca entra. Devuelve cuantos borro.
+        NULL), nunca entra. Un parte APROBADO tampoco (observacion 1 de la
+        review, decision del humano): una pestaña abierta puede aprobar un
+        parte ya retirado. Devuelve cuantos borro.
         """
         session.flush()
         stmt = (select(ParteDocumentOrm)
                 .where(ParteDocumentOrm.is_active.is_(False))
-                .where(ParteDocumentOrm.deleted_at_utc.is_(None)))
+                .where(ParteDocumentOrm.deleted_at_utc.is_(None))
+                .where(ParteDocumentOrm.approved.is_(False)))
         if ids is not None:
             ids = [i for i in ids if i]
             if not ids:

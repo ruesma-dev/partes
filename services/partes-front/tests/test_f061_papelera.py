@@ -288,3 +288,35 @@ def test_f061_r10_r11_solo_el_parte_de_esa_fila() -> None:
     repo.hard_delete_registro(registro_id=ids[0])
     assert _doc(fabrica) is None
     assert _doc(fabrica, "d-otro-retirado") is not None
+
+
+# ============ Observación 1 del reviewer (decisión del humano) ========== #
+# Un parte retirado que alguien aprobó después (una pestaña abierta puede
+# aprobar un parte ya retirado) NUNCA se borra físicamente.
+
+def _retirado_aprobado(fabrica, lineas, document_id: str = DOC) -> list[int]:
+    ids = sembrar_parte(fabrica, lineas, document_id=document_id,
+                        aprobado=True)
+    _marcar(fabrica, document_id, is_active=False,
+            deleted_by="sin-lineas · ana")
+    return ids
+
+
+def test_f061_obs1_vaciar_no_borra_un_retirado_aprobado() -> None:
+    fabrica = FabricaSesionSqlite()
+    _retirado_aprobado(fabrica, [{"borrada": True}])
+    _retirado_aprobado(fabrica, [], document_id="d-sin-filas")
+    res = ParteReviewRepository(fabrica).vaciar_papelera()
+    assert res.get("partes_borrados", 0) == 0
+    assert _doc(fabrica) is not None
+    assert _doc(fabrica, "d-sin-filas") is not None
+
+
+def test_f061_obs1_eliminar_su_ultima_fila_no_borra_un_retirado_aprobado(
+        ) -> None:
+    fabrica = FabricaSesionSqlite()
+    (rid,) = _retirado_aprobado(fabrica, [{"borrada": True}])
+    assert ParteReviewRepository(fabrica).hard_delete_registro(
+        registro_id=rid) is True
+    assert _filas(fabrica) == 0
+    assert _doc(fabrica) is not None
