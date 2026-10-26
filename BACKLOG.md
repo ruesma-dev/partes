@@ -11,7 +11,7 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | spec lista | escrita, pendiente de aprobación (DA1–DA11) · `partes-wt-f062` | critico | `feature/F-062-ciz-el-mismo-dia-del-inicio` |
+| F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | spec lista | aprobada 2026-10-25 («f62 ok a todo», DA1–DA11 = A) · `specs/F-062-ciz-el-mismo-dia-del-inicio/` | critico | `feature/F-062-ciz-el-mismo-dia-del-inicio` |
 | F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 2 | spec lista | aprobada (todas las DA) · `partes-wt-f058` | estandar | `feature/F-058-relectura-cabecera-gemini` |
 | F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | pendiente | sin spec | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
@@ -81,7 +81,7 @@ Bloqueadas: **F-032**.
 
 estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-062-ciz-el-mismo-dia-del-inicio`
 
-**Spec**: escrita, pendiente de aprobación (DA1–DA11) · `partes-wt-f062`
+**Spec**: aprobada 2026-10-25 («f62 ok a todo», DA1–DA11 = A) · `specs/F-062-ciz-el-mismo-dia-del-inicio/`
 
 Petición del humano del 2026-10-25: «da de alta f62 la primera, y lanza spec», tras la lectura del líder en Sigrid (solo lectura, ruesma, líneas NO escritas por partes desde 2025-01-01) sobre DA3 y DA6 de F-060. DA6 (F-060, DA6 = A: una incidencia de un solo día deja solo su CI*) NO coincide con la práctica de Administración: de los inicios CI* manuales, 306 llevan CI* y CIZ el MISMO día (CIV 184, CIP 99, CIF 13, CIE 7, CIA 2, CIH 1) frente a 34 sin CIZ (casi todos rachas aún abiertas, sobre todo CIE). DA3 sí coincide (816 rachas con el CIZ en el mismo parte, 224 en el parte del mes siguiente de la misma obra, 65 en el parte de otra obra; solo 12 cortes a fin de mes). Propuesta del líder, aceptada por el humano como feature: al registrar el `inicio` de una racha, sv5 escribe el CI* y además un CIZ (can 0) el mismo día; si llega otro día de la misma racha, ese CIZ se mueve con la mecánica de F-060 (UPDATE optimista, sin DELETE). Así un día suelto queda CI*+CIZ y ninguna racha queda abierta sin CIZ. Depende de F-060 (desplegada, MOVER_CIZ apagado); a decidir en la spec: si va bajo el mismo interruptor MOVER_CIZ, qué pasa con las rachas ya abiertas (solo CI*), el `fin` que hoy escribe un CIZ nuevo cuando no encuentra el de la racha, y el impacto en sv4 (roles, racha_registro_ids, aviso de racha desordenada).
 
