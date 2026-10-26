@@ -874,7 +874,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-058-relectura-cabecera-gemini",
-      "pendiente": "Desplegar sv2 junto con F-063 (M0 OK; M1 de F-058 superada por F-063: M-EQ y M-T); tras desplegar, M2–M4"
+      "pendiente": "Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes"
     },
     {
       "id": "F-059",
@@ -963,7 +963,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-063-consulta-obra-rapida",
-      "pendiente": "Desplegar sv2 (lleva F-058 y F-063); tras desplegar, M2 y M4 de F-058 (tiempos reales de [obra-sigrid])"
+      "pendiente": "Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes"
     }
   ]
 }

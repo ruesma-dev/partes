@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-063 · DONE 2026-10-26 (review APPROVED pasada 1; equivalente aceptado por el humano; pendiente: desplegar sv2 junto con F-058 y M2/M4 de F-058): consulta de obra de sv2 que use el índice
+## F-063 · DONE y DESPLEGADA 2026-10-26 (sv2 r20261026094916, creada 08:51:31Z, junto con F-058; arranque sano: relectura ACTIVA gemini-4-argon, comprueba_obra=True, timeout 5 s; pendiente M2/M4 de F-058): consulta de obra de sv2 que use el índice
 
 **Aprobación del humano (2026-10-25, literal)**: «f63 ok a todo» ⇒ DA1–DA5 = A (la
 recomendación de `design.md` §10). Implementer en marcha en el worktree `partes-wt-f063`.
@@ -84,7 +84,7 @@ para subirlo). sv2 sigue sin desplegarse hasta cerrar F-063.
 | DA4 | Equivalencia M-EQ | **A** exhaustiva por `ide` + 7 claves contra la consulta vieja (B: solo la muestra de M-T) |
 | DA5 | `OBRA_EXISTE_TIMEOUT_S` | **A** sigue en 5 s y se revisa con M4 de F-058 (B: bajarlo ya) |
 
-## F-058 · DONE 2026-10-25 (review APPROVED pasada 1; MB sin regresión; pendiente: M0 antes de desplegar sv2, desplegar sv2 y M1–M4 tras desplegar): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+## F-058 · DONE y DESPLEGADA 2026-10-26 (sv2 r20261026094916, 08:51:31Z, con la consulta de obra de F-063; pendiente M2–M4 tras desplegar): relectura de la cabecera con Gemini y prompt de cabecera en sv2
 
 Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
 worktree `partes-wt-f058`), aprobada entera (DA1 enmendada, DA2–DA8 = A, DA9 = A, DA10 = B,
