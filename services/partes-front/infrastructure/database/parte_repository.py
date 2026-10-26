@@ -3409,14 +3409,18 @@ class ParteReviewRepository:
                           actor: str | None) -> tuple[dict, int]:
         """F-049 (R26): papelera de las creadas de una `celda_edit` que
         siguen activas y libres, y `document_ids` y `afectadas` de esa
-        celda ahora. Devuelve `(campos de la respuesta, omitidas)`."""
+        celda ahora. Devuelve `(campos de la respuesta, omitidas)`.
+
+        F-061 (R2, R3): bloquea los partes de las creadas antes de
+        tocarlas y retira el que se queda sin lineas vivas."""
         ahora = datetime.now(timezone.utc).isoformat()
         omitidas = 0
+        creadas = [reg for rid in payload.get("creadas") or []
+                   if (reg := session.get(ParteRegistroOrm, rid)) is not None]
+        self._bloquear_documentos(session, {r.document_id for r in creadas})
         regs: list[ParteRegistroOrm] = []
-        for rid in payload.get("creadas") or []:
-            reg = session.get(ParteRegistroOrm, rid)
-            if reg is None:
-                continue
+        borradas: list[ParteRegistroOrm] = []
+        for reg in creadas:
             regs.append(reg)
             if reg.deleted_at_utc:
                 continue
@@ -3425,6 +3429,9 @@ class ParteReviewRepository:
                 continue
             reg.deleted_at_utc = ahora
             reg.deleted_by = actor
+            borradas.append(reg)
+        self._retirar_si_vacios(
+            session, {r.document_id for r in borradas}, by=actor)
         for snap in payload.get("registros", []):
             reg = session.get(ParteRegistroOrm, snap.get("id"))
             if reg is not None:
@@ -4227,40 +4234,40 @@ class ParteReviewRepository:
     ) -> tuple[int, int]:
         """Manda a la papelera las lineas del trabajador.
 
+        F-061 (R2, R3): bloquea sus partes (por `id`) ANTES de tocar
+        lineas, vuelve a leer las candidatas —pudieron cambiar mientras
+        esperaba— y retira el parte que se queda sin lineas vivas, en vez
+        de mandarlo a la papelera de partes.
+
         Devuelve (lineas movidas, lineas omitidas por congelacion: R13).
         """
         now_iso = datetime.now(timezone.utc).isoformat()
         n = 0
         with self._session_factory.create_session() as session:
-            rows = session.execute(
-                select(ParteRegistroOrm)
-                .join(ParteDocumentOrm)
-                .where(ParteDocumentOrm.is_active.is_(True))
-                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
-            ).scalars().all()
-            suyas = [r for r in rows
-                     if worker_key_for_registro(r) == worker_key]
+            def _suyas() -> list[ParteRegistroOrm]:
+                rows = session.execute(
+                    select(ParteRegistroOrm)
+                    .join(ParteDocumentOrm)
+                    .where(ParteDocumentOrm.is_active.is_(True))
+                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                    .execution_options(populate_existing=True)
+                ).scalars().all()
+                return [r for r in rows
+                        if worker_key_for_registro(r) == worker_key]
+
+            suyas = _suyas()
+            if suyas:
+                bloqueados = {r.document_id for r in suyas}
+                self._bloquear_documentos(session, bloqueados)
+                # Solo las de partes bloqueados: no se toca ninguno sin él.
+                suyas = [r for r in _suyas() if r.document_id in bloqueados]
             libres, congelados = _separar_congeladas(suyas)
-            docs_tocados: set[str] = set()
             for reg in libres:
                 reg.deleted_at_utc = now_iso
                 reg.deleted_by = by
                 n += 1
-                docs_tocados.add(reg.document_id)
-            # Documentos que quedan sin lineas activas -> a papelera tambien.
-            for did in docs_tocados:
-                queda = session.execute(
-                    select(ParteRegistroOrm.id)
-                    .where(ParteRegistroOrm.document_id == did)
-                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
-                    .limit(1)
-                ).first()
-                if queda is None:
-                    doc = session.get(ParteDocumentOrm, did)
-                    if doc is not None and doc.is_active:
-                        doc.is_active = False
-                        doc.deleted_at_utc = now_iso
-                        doc.deleted_by = by
+            self._retirar_si_vacios(
+                session, {r.document_id for r in libres}, by=by)
             session.commit()
         return n, congelados
 
