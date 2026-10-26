@@ -275,7 +275,9 @@ class RegistroPipeline:
         reglas = ReglasRegistro(
             horas, omisiones=omisiones,
             mensuales_a_dedicacion=bool(getattr(
-                self._st, "mensuales_a_dedicacion", False)))
+                self._st, "mensuales_a_dedicacion", False)),
+            # F-062 (R6, R8): el mismo interruptor que el CIZ movil.
+            mover_ciz=self._mover_ciz())
         acciones: list[AccionLinea] = [reglas.decidir(l) for l in lineas]
         # Paso 4b: cuenta analitica (F-021). Datos maestros: fuera del lock.
         self._resolver_cuentas(destino, empresa, acciones, horas)
@@ -457,7 +459,7 @@ class RegistroPipeline:
         y antes de los conflictos, que corren igual para la accion. Bajo el
         lock en `registrar`; en `preflight`, consultivo (R25). Apagado (o
         un settings sin el ajuste), no lee nada: como antes (R26)."""
-        if not bool(getattr(self._st, "mover_ciz", False)):
+        if not self._mover_ciz():
             return
         racha = {l.registro_id: list(l.racha_registro_ids or [])
                  for l in ctx.lineas}
@@ -492,6 +494,11 @@ class RegistroPipeline:
                         d.duplicados)
             elif d.tipo != CREAR:
                 self._omitir(a, d.motivo)
+
+    def _mover_ciz(self) -> bool:
+        """F-060 (R26) y F-062 (R8): `MOVER_CIZ`; un settings sin el
+        ajuste es el interruptor apagado."""
+        return bool(getattr(self._st, "mover_ciz", False))
 
     # ---------------- ayudas de los pasos 5-8 (F-031) ---------------- #
     def _est_registro(self) -> int:

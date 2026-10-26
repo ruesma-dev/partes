@@ -62,6 +62,8 @@ class LineaIn(BaseModel):
     incidencia_rol: Optional[str] = None
     # F-060 (R9): las lineas de la racha de un `fin` (vacia si no hay).
     racha_registro_ids: list[int] = Field(default_factory=list)
+    # F-062 (R1, R6): el `inicio` que escribe ademas su CIZ el mismo dia.
+    ciz_mismo_dia: bool = False
 
 
 class PeticionIn(BaseModel):

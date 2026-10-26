@@ -45,7 +45,12 @@ from __future__ import annotations
 
 import logging
 
-from domain.models.registro_models import AccionLinea, HoraRecurso, LineaEntrada
+from domain.models.registro_models import (
+    AccionLinea,
+    FinMismoDia,
+    HoraRecurso,
+    LineaEntrada,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,14 +110,20 @@ class ReglasRegistro:
 
     `mensuales_a_dedicacion` (F-019, DA8): el interruptor de R0. Apagado,
     las reglas son las de siempre.
+
+    `mover_ciz` (F-062, DA1): el interruptor `MOVER_CIZ`. Encendido, el
+    `inicio` que sv4 marca con `ciz_mismo_dia` lleva ademas su CIZ hermano
+    (R6). Apagado, las reglas son las de antes de F-062 (R8).
     """
 
     def __init__(self, horas_por_recurso: dict[int, list[HoraRecurso]],
                  omisiones: dict[int, str] | None = None,
-                 mensuales_a_dedicacion: bool = False) -> None:
+                 mensuales_a_dedicacion: bool = False,
+                 mover_ciz: bool = False) -> None:
         self._horas = horas_por_recurso
         self._omisiones = omisiones or {}
         self._a_dedicacion = mensuales_a_dedicacion
+        self._mover_ciz = mover_ciz
 
     # ------------------------------------------------------------- #
     def decidir(self, linea: LineaEntrada) -> AccionLinea:
@@ -220,10 +231,10 @@ class ReglasRegistro:
         cis = [h for h in disponibles if h.es_incidencia]
         if not cis:
             return omitir(MOTIVO_SIN_CI)
+        ciz = next((h for h in cis if (h.cod or "").upper() == "CIZ"),
+                   None)
         # FIN de incidencia: se registra con CIZ, no con el codigo leido.
         if rol == "fin":
-            ciz = next((h for h in cis
-                        if (h.cod or "").upper() == "CIZ"), None)
             if ciz is None:
                 return omitir(MOTIVO_SIN_CIZ)
             # Las incidencias van SIN horas (como en los partes reales).
@@ -247,8 +258,24 @@ class ReglasRegistro:
         # linea marca el hecho, no una cantidad).
         return AccionLinea(
             accion="escribir", hora_ide=hora.horide, hora_codigo=hora.cod,
-            can=0.0, pre=float(hora.pre or 0.0), tot=0.0, **base,
+            can=0.0, pre=float(hora.pre or 0.0), tot=0.0,
+            fin_mismo_dia=self._fin_mismo_dia(linea, rol, ciz), **base,
         )
+
+    def _fin_mismo_dia(self, linea: LineaEntrada, rol: str,
+                       ciz: HoraRecurso | None) -> FinMismoDia | None:
+        """F-062 (R6-R8): el CIZ hermano del `inicio` que sv4 marca con
+        `ciz_mismo_dia`, con `MOVER_CIZ` encendido. Sin el codigo CIZ en
+        el recurso, solo el CI* y un WARNING sin nombres ni DNIs (R7, DA9).
+        """
+        if not (self._mover_ciz and linea.ciz_mismo_dia and rol == "inicio"):
+            return None
+        if ciz is None:
+            logger.warning("[registro] sin_ciz_mismo_dia registro_id=%s",
+                           linea.registro_id)
+            return None
+        return FinMismoDia(horide=ciz.horide, hora_codigo=ciz.cod,
+                           pre=float(ciz.pre or 0.0))
 
     # ------------------------------------------------------------- #
     @staticmethod
