@@ -361,6 +361,8 @@ class ParteRow:
     review_required: Optional[bool]
     approved: bool
     es_futuro: bool = False
+    #: F-061 (R13): parte activo sin ninguna linea viva («Sin lineas»).
+    sin_lineas: bool = False
 
 
 @dataclass
@@ -1585,14 +1587,16 @@ class ParteReviewRepository:
 
         rows: list[ParteRow] = []
         for doc in docs:
+            # F-061 (R13): solo cuentan las lineas vivas (semantica 3).
+            vivas = [r for r in doc.registros if not r.deleted_at_utc]
             # F-050 (R7): claves de trabajador distintas del parte.
-            empleados = {worker_key_for_registro(r) for r in doc.registros}
+            empleados = {worker_key_for_registro(r) for r in vivas}
             horas_n = sum(
-                (r.horas or 0.0) for r in doc.registros
+                (r.horas or 0.0) for r in vivas
                 if not r.es_incidencia and not _is_extra(r)
             )
             horas_e = sum(
-                (r.horas or 0.0) for r in doc.registros
+                (r.horas or 0.0) for r in vivas
                 if not r.es_incidencia and _is_extra(r)
             )
             rows.append(
@@ -1603,7 +1607,7 @@ class ParteReviewRepository:
                     obra_nombre=doc.obra_nombre or doc.obra_nombre_leido,
                     encargado_nombre=doc.encargado_nombre,
                     num_empleados=len(empleados),
-                    num_registros=len(doc.registros),
+                    num_registros=len(vivas),
                     horas_normales=round(horas_n, 2),
                     horas_extra=round(horas_e, 2),
                     firmado=doc.firmado,
@@ -1611,6 +1615,7 @@ class ParteReviewRepository:
                     review_required=doc.review_required,
                     approved=doc.approved,
                     es_futuro=_doc_es_futuro(doc),
+                    sin_lineas=not vivas,
                 )
             )
 

@@ -43,3 +43,20 @@ tests\test_f061_papelera.py:204: assert False            (restore_document no de
 
 Su ROJO es el de T1 (`ModuleNotFoundError: No module named 'application.services.parte_vacio'`).
 Tras crear el módulo: `python -m pytest tests/test_f061_limpieza.py -q` ⇒ `35 passed in 0.27s`.
+
+### T7 · `tests/test_f061_portal.py` (R12, R13 y el aviso de R7)
+
+Comando: `python -m pytest tests/test_f061_portal.py -q --tb=line` (10 failed, 2 passed):
+
+```
+tests\test_f061_portal.py:48: AssertionError: app.js no define destinoTrasBorrar   (x4)
+tests\test_f061_portal.py:102: assert (<re.Match ...'_bindClick(".line-del", ...> and '_irTrasBorrar([d])' in ...
+tests\test_f061_portal.py:116: AssertionError: [data-restore-doc]
+tests\test_f061_portal.py:148: assert (2, 3) == (1, 2)      (list_partes contaba las de la papelera)
+tests\test_f061_portal.py:160: AttributeError: 'ParteRow' object has no attribute 'sin_lineas'
+tests\test_f061_portal.py:171: AttributeError: 'ParteRow' object has no attribute 'sin_lineas'
+tests\test_f061_portal.py:184: assert 0 == 1                (la plantilla no pinta «Sin líneas»)
+```
+
+Tras el cambio: `12 passed`; `node --check static/app.js` sin errores; `partes_list.html` parsea
+en Jinja2 (test `test_f061_r13_partes_list_parsea_en_jinja2`).

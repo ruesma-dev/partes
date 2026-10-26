@@ -1457,6 +1457,30 @@ function avisarCambioLineas() {
     });
   }
 
+  // F-061 (R12): tras borrar líneas, ¿se retiró algún parte por quedarse
+  // sin líneas vivas? Si estamos en su detalle, recargar daría 404: se va
+  // a /partes. `respuestas` son los JSON de cada borrado (en bloque, N).
+  function destinoTrasBorrar(respuestas, ruta) {
+    var aviso = "El parte se ha quedado sin líneas y se ha retirado; " +
+      "sus líneas siguen en la papelera.";
+    var retirados = (respuestas || []).filter(function (d) {
+      return d && d.parte_retirado;
+    });
+    if (!retirados.length) return { aviso: null, destino: null };
+    var aqui = String(ruta || "").replace(/\/+$/, "");
+    var enSuDetalle = retirados.some(function (d) {
+      return aqui === "/partes/" + d.document_id;
+    });
+    return { aviso: aviso, destino: enSuDetalle ? "/partes" : null };
+  }
+
+  function _irTrasBorrar(respuestas) {
+    var r = destinoTrasBorrar(respuestas, window.location.pathname);
+    if (r.aviso) alert(r.aviso);
+    if (r.destino) window.location.href = r.destino;
+    else window.location.reload();
+  }
+
   function wireBorrado() {
     // Borrar LINEA (✕ en filas) -> soft delete -> papelera.
     _bindClick(".line-del", function (btn) {
@@ -1466,7 +1490,7 @@ function avisarCambioLineas() {
       if (!confirm("¿Mover esta línea a la papelera?")) return;
       btn.disabled = true;
       _postJSON("/api/registro/" + id + "/delete").then(function (d) {
-        if (d && d.ok) { window.location.reload(); }
+        if (d && d.ok) { _irTrasBorrar([d]); }
         else {
           btn.disabled = false;
           // F-004 R16: si el 409 es de congelacion, trae el motivo.
@@ -1514,7 +1538,11 @@ function avisarCambioLineas() {
     _bindClick("[data-restore-doc]", function (btn) {
       btn.disabled = true;
       _postJSON("/api/documento/" + btn.getAttribute("data-restore-doc") + "/restore")
-        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+        .then(function (d) {
+          if (d && d.ok) { window.location.reload(); return; }
+          btn.disabled = false;
+          if (d && d.error) alert(d.error);   // F-061 R7
+        });
     });
     _bindClick("[data-hard-doc]", function (btn) {
       var label = btn.getAttribute("data-label") || "este parte";
@@ -1530,7 +1558,11 @@ function avisarCambioLineas() {
     _bindClick("[data-restore-line]", function (btn) {
       btn.disabled = true;
       _postJSON("/api/registro/" + btn.getAttribute("data-restore-line") + "/restore")
-        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+        .then(function (d) {
+          if (d && d.ok) { window.location.reload(); return; }
+          btn.disabled = false;
+          if (d && d.error) alert(d.error);   // F-061 R7
+        });
     });
     _bindClick("[data-hard-line]", function (btn) {
       var label = btn.getAttribute("data-label") || "esta línea";
@@ -2753,8 +2785,8 @@ function avisarCambioLineas() {
       var ids = PartidaSel.ids(); if (!ids.length) return;
       if (!confirm("\u00bfMover " + ids.length + " l\u00ednea(s) a la papelera?")) return;
       Promise.all(ids.map(function (id) {
-        return fetch("/api/registro/" + id + "/delete", { method: "POST" });
-      })).then(function () { window.location.reload(); })
+        return _postJSON("/api/registro/" + id + "/delete");
+      })).then(function (respuestas) { _irTrasBorrar(respuestas); })   // F-061 R12
         .catch(function () { alert("Error al borrar en bloque."); });
     }
     function closePicker() {
