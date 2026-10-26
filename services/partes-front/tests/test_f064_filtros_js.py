@@ -404,7 +404,7 @@ def test_f064_r3_ruta_normal_sin_barra_final(entrada, salida) -> None:
 FOTO = {"cols": {"lines-table": {"Tipo": "extra"}}}
 
 
-def test_f064_r10_con_pantalla_pone_la_foto_con_su_t() -> None:
+def test_f064_r4_r10_con_pantalla_pone_la_foto_con_su_t() -> None:
     est = _pura("conPantalla", None, "/obras/obr-10", FOTO, AHORA)
     assert est == {"v": 1, "t": AHORA, "pantallas": {
         "/obras/obr-10": {"cols": {"lines-table": {"Tipo": "extra"}},
