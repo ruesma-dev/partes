@@ -206,11 +206,11 @@ pasa sin él (`python matar.py .` en el scratchpad ⇒ `red_mut.txt`; commit a7e
 
 | # | Lugar | Mutación | Clasificación | Test añadido / razón |
 |---|---|---|---|---|
-| 1 | sv4 `racha_incidencia.py:262` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | `d` es una fecha real: ni 0 ni 1 están en el tramo ni son > `d`; demostrado en `equivalentes_F-062.py sv4` |
+| 1 | sv4 `racha_incidencia.py:262` | `or 0`→`or 1` | **equivalente aceptado por el humano el 2026-10-26 («acepto»)** | `d` es una fecha real: ni 0 ni 1 están en el tramo ni son > `d`; demostrado en `equivalentes_F-062.py sv4` |
 | 2 | sv5 `registro_pipeline.py:335` | `and`→`or` | hueco | `test_f062_mut_r9_hermano_con_subcuenta_propia_no_pide_partida` (mutante: lee `[33]`) |
 | 3 | sv5 `registro_pipeline.py:344` | `or 0`→`or 1` | hueco | `test_f062_mut_r9_hermano_sin_partida_no_toma_la_de_otra_linea` (mutante: `704`) |
-| 4 | sv5 `registro_pipeline.py:533` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | un `escribir` nunca tiene `recurso_ide` falso: las reglas omiten antes la línea sin recurso; demostrado en `equivalentes_F-062.py sv5` |
-| 5 | sv5 `registro_pipeline.py:547` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | igual que el 4, para los `fines`; es el #11 de F-060, que el humano ya aceptó; demostrado en `equivalentes_F-062.py sv5` |
+| 4 | sv5 `registro_pipeline.py:533` | `or 0`→`or 1` | **equivalente aceptado por el humano el 2026-10-26 («acepto»)** | un `escribir` nunca tiene `recurso_ide` falso: las reglas omiten antes la línea sin recurso; demostrado en `equivalentes_F-062.py sv5` |
+| 5 | sv5 `registro_pipeline.py:547` | `or 0`→`or 1` | **equivalente aceptado por el humano el 2026-10-26 («acepto»)** | igual que el 4, para los `fines`; es el #11 de F-060, que el humano ya aceptó; demostrado en `equivalentes_F-062.py sv5` |
 | 6 | sv5 `registro_pipeline.py:586` | `or 0`→`or 1` | hueco | `test_f062_mut_r12_linea_sin_codigo_no_es_ciz_ajeno` (mutante: `True`) |
 | 7 | sv5 `registro_pipeline.py:817` | `or 0`→`or 1` | hueco | `test_f062_mut_r13_inicio_sin_partida_escribe_paride_cero` (mutante: `(1, 1)`) |
 | 8 | sv5 `racha_ciz.py:102` | `or`→`and` | hueco | `test_f062_mut_r20_synckey_ajena_con_digitos_no_es_registro` (mutante: `123`) |

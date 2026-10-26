@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-062 · IN_PROGRESS desde 2026-10-26 (aprobada 2026-10-25, DA1–DA11 = A; implementer en `partes-wt-f062`). El inicio de una incidencia escribe CI* y CIZ el mismo día
+## F-062 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalentes 1, 4 y 5 aceptados por el humano; pendiente: M1–M5 en local antes de desplegar sv4, despliegue sv5 → sv4 y M6). El inicio de una incidencia escribe CI* y CIZ el mismo día
 
 Spec en `specs/F-062-ciz-el-mismo-dia-del-inicio/` (rama `feature/F-062-ciz-el-mismo-dia-del-inicio`,
 worktree `partes-wt-f062`, sale de `dev` f313407). Rigor crítico. Servicios: **sv5** escribe el
@@ -37,7 +37,7 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
 
 - [x] **M0 hecha por el líder (2026-10-25, solo lectura)**: (a) `partes:%:%` ⇒ n = 0; (b) rachas abiertas heredadas ⇒ 0 (también 0 desde 20261001). Receta original:: comandos exactos en `design.md` §9;
   si (a) da `n > 0` (alguna synckey `partes:%:%`), PARA y `blocked`.
-- [x] **T12 · mutación (lanzada por el líder: 84 mutantes, 9 supervivientes analizados; equivalentes 1, 4 y 5 pendientes de aceptación del humano)**: desde la raíz
+- [x] **T12 · mutación (lanzada por el líder: 84 mutantes, 9 supervivientes analizados; equivalentes 1, 4 y 5 aceptados por el humano)**: **Aceptación del humano (2026-10-26, literal)**: «acepto» (equivalentes #1 `racha_incidencia.py:262`, #4 `registro_pipeline.py:533` y #5 `registro_pipeline.py:547`; demostración en `progress/equivalentes_F-062.py`). desde la raíz
   del worktree, `python -m harness.mutacion --feature F-062` ⇒ `progress/mutacion_F-062.md`;
   el implementer analiza cada superviviente (test o justificación). Cobertura de líneas
   cambiadas: la da `bash harness/init.sh` (ver `progress/impl_F-062.md`).
@@ -115,7 +115,7 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
   Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
   ```
   ⇒ `n > 0` cuando se aprueben incidencias (inicios con su CIZ el mismo día).
-- **Implementer (2026-10-26, `partes-wt-f062`)**: terminado (`progress/impl_F-062.md`). Tareas hechas: T1–T8 (sv5 completo), T9–T11 (azure-apps a9d3b5b, local), T13 (comandos de M1–M6 abajo), T14 (`init.sh` verde, cobertura 135/135). T12 (mutación del líder: 84/75/9; 6 huecos cerrados con test en a7e22ed y 3 equivalentes propuestos, pendientes de aceptación del humano: `progress/mutacion_F-062.md`). Review 1 (CHANGES_REQUESTED) corregida: RM5 en `progress/equivalentes_F-062.py` (66ce1a3), `equivalentes_F-060.py` reparado (430412f) y los workers en «Evidencias». Pendientes: aceptar los equivalentes 1, 4 y 5 y M1–M6 (humano). Desviaciones y
+- **Implementer (2026-10-26, `partes-wt-f062`)**: terminado (`progress/impl_F-062.md`). Tareas hechas: T1–T8 (sv5 completo), T9–T11 (azure-apps a9d3b5b, local), T13 (comandos de M1–M6 abajo), T14 (`init.sh` verde, cobertura 135/135). T12 (mutación del líder: 84/75/9; 6 huecos cerrados con test en a7e22ed y 3 equivalentes propuestos, pendientes de aceptación del humano: `progress/mutacion_F-062.md`). Review 1 (CHANGES_REQUESTED) corregida: RM5 en `progress/equivalentes_F-062.py` (66ce1a3), `equivalentes_F-060.py` reparado (430412f) y los workers en «Evidencias». Equivalentes 1, 4 y 5 aceptados por el humano («acepto», 2026-10-26). Review pasada 2: APPROVED. Pendientes: M1–M5 (el humano pide el 2026-10-26 que las haga el líder: «las verificaciones hazlas tu»), despliegue y M6. Desviaciones y
   decisiones: se anotan aquí y en `progress/impl_F-062.md`.
 
 ## F-063 · DONE 2026-10-26 (review APPROVED pasada 1; equivalente aceptado por el humano; pendiente: desplegar sv2 junto con F-058 y M2/M4 de F-058): consulta de obra de sv2 que use el índice

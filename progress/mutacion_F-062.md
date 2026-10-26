@@ -59,7 +59,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `l.fecha_int` vacío da `f` = 0 o 1, y los dos dan el mismo resultado. `f in tramo` es falso para ambos, porque el tramo solo tiene fechas reales ≥ D + 1. `d < f <= ultimo` también es falso para ambos: `d` es la fecha AAAAMMDD del `inicio`, y `racha_delante` solo se llama para líneas con `LineaRol`, que exige fecha.
-> Decisión: **equivalente propuesto, pendiente de aceptación del humano**. Ningún valor alcanzable de `d` es < 1.
+> Decisión: **equivalente aceptado por el humano el 2026-10-26 («acepto»)**. Ningún valor alcanzable de `d` es < 1.
 > Demostración ejecutable (RM5): `progress/equivalentes_F-062.py sv4`, lanzado desde `services/partes-front`. Salida (2026-10-26): «racha_delante: 50000 llamadas, 11726 con tramo, 8279 con tramo y alguna fecha None/0/1 · EQUIVALENTE: #1 · 1 mutantes, 0 distintos». Exit 0. El control `and 0` de la misma línea sale **distinto, como debe**, así que el diferencial no es ciego.
 
 ### 2. `services/partes-transfer/application/pipelines/registro_pipeline.py:335` [logico]
@@ -90,7 +90,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `inicios` son acciones `escribir` con `fin_mismo_dia`, y `fin_mismo_dia` solo lo pone `ReglasRegistro._decidir_incidencia` después de omitir la línea sin recurso (`if not linea.recurso_ide: return omitir(...)`). El paso de coherencia solo reasigna `recurso_ide` a un `reside` elegido, que nunca es 0. Por tanto `a.recurso_ide` nunca es falso aquí, y el `or 0` / `or 1` no llega a evaluarse.
-> Decisión: **equivalente propuesto, pendiente de aceptación del humano**.
+> Decisión: **equivalente aceptado por el humano el 2026-10-26 («acepto»)**.
 > Demostración ejecutable (RM5): `progress/equivalentes_F-062.py sv5`, lanzado desde `services/partes-transfer`. Salida (2026-10-26): «pipeline: 4000 escenarios, 1390 con un CIZ hermano escrito, 2190 con alguna línea sin recurso o con recurso 0 · EQUIVALENTE: #4 · EQUIVALENTE: #5 · 2 mutantes, 0 distintos». Exit 0. El control `and 0` de la misma línea sale **distinto, como debe**, así que el diferencial no es ciego. El diferencial recorre el pipeline completo (`preflight` y `ejecutar`) con `MOVER_CIZ` encendido.
 
 ### 5. `services/partes-transfer/application/pipelines/registro_pipeline.py:547` [entero]
@@ -101,7 +101,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: es la misma razón que en el 4. `fines` son acciones `escribir` con código CIZ, y toda acción `escribir` sale de una rama de `ReglasRegistro` que antes omite la línea sin recurso (incidencia, normal o extra, y mensual). El `or` nunca se evalúa. F-062 reescribió la línea en T6 (03bdafb) al reordenar el paso 6 bis; el `or 0` ya venía de F-060.
-> Decisión: **equivalente propuesto, pendiente de aceptación del humano**. **Es el mutante #11 de F-060**: mismo texto, operador y expresión. El humano lo aceptó el 2026-10-24 («acepto»); F-062 solo partió la línea en dos.
+> Decisión: **equivalente aceptado por el humano el 2026-10-26 («acepto»)**. **Es el mutante #11 de F-060**: mismo texto, operador y expresión. El humano lo aceptó el 2026-10-24 («acepto»); F-062 solo partió la línea en dos.
 > Demostración ejecutable (RM5): `progress/equivalentes_F-062.py sv5`, lanzado desde `services/partes-transfer`. Salida (2026-10-26): «pipeline: 4000 escenarios, 1390 con un CIZ hermano escrito, 2190 con alguna línea sin recurso o con recurso 0 · EQUIVALENTE: #4 · EQUIVALENTE: #5 · 2 mutantes, 0 distintos». Exit 0. El control `and 0` de la misma línea sale **distinto, como debe**, así que el diferencial no es ciego. `progress/equivalentes_F-060.py sv5` vuelve a dar «2 mutantes, 0 distintos».
 
 ### 6. `services/partes-transfer/application/pipelines/registro_pipeline.py:586` [entero]
