@@ -206,8 +206,7 @@ def test_f058_r7_existe_obra_sin_filtro_de_empresa_ni_de_baja() -> None:
 
 
 def test_f058_r7_existe_obra_pide_el_max_rows_del_cliente() -> None:
-    """F-038 (R13): ningún lector fija un ``max_rows`` bajo; el ``TOP 1``
-    acota la respuesta."""
+    """F-038 (R13): ningún lector fija un ``max_rows`` bajo."""
     grabadora = Grabadora()
     _cliente(grabadora, max_rows=1234).existe_obra(CLAVE, timeout_s=5.0)
     assert grabadora.payload["max_rows"] == 1234

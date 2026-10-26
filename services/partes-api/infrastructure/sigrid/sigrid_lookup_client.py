@@ -10,8 +10,9 @@ Dos lecturas, ambas por ``POST /api/sql/read`` contra la base configurada:
   clave dada, de cualquier empresa y también de baja; una consulta en el
   momento por página, con su propio tope de tiempo, para decidir si se
   relee la cabecera. No casa la obra: eso lo hace sv3. Desde F-063 es un
-  ``LIKE`` parametrizado sobre ``con.cod`` sin funciones (usa el índice:
-  ~0,1 s frente a 12–16 s) que trae candidatos distintos, y el resultado
+  ``LIKE`` parametrizado sobre ``con.cod`` sin funciones (un recorrido
+  sin funciones por fila, ~0,1 s frente a 12–16 s; con el ``%`` inicial no
+  es una búsqueda por índice) que trae candidatos distintos, y el resultado
   exacto lo da ``clave_obra`` sobre cada uno, la misma que calcula la clave.
 
 ``truncated: true`` es siempre error (F-038): nunca se decide con filas

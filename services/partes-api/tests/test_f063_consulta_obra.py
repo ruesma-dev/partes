@@ -1,5 +1,5 @@
 # tests/test_f063_consulta_obra.py
-"""F-063 · La consulta de obra de sv2 que usa el índice de ``con.cod``.
+"""F-063 · La consulta de obra de sv2 sin funciones sobre ``con.cod`` (~0,1 s).
 
 - ``patron_like(clave)``: ``%`` y, tras cada carácter de la clave, su clase
   de variantes (minúscula, acentuadas, volados) y otro ``%``. Todo código

@@ -137,6 +137,14 @@ Con `SELECT DISTINCT con.cod FROM obr JOIN con ON obr.ide = con.ide WHERE con.co
 (353 filas), `%0%` 108 ms (822 filas). La primera llamada en frío a sigrid-api (`SELECT 1`)
 tardó 4,5 s: M-T lleva una consulta de calentamiento aparte. Frente a 12–16 s de la de F-058.
 
+## Tras la review (pasada 1, APPROVED)
+
+Aplicadas O1 (docstring de `test_f058_r7_existe_obra_pide_el_max_rows_del_cliente` sin la frase
+del `TOP 1`), O2 («usa el índice» ⇒ «recorrido sin funciones por fila, ~0,1 s» en el docstring
+del cliente, el del test de F-063, `ARCHITECTURE.md` y `azure-apps/partes.md`, commit local
+72205c6 allí), O6 y O7 (ajuste de línea en `ARCHITECTURE.md`). Solo texto: ningún cambio de
+comportamiento.
+
 ## Pendiente (no lo ejecuta el implementer)
 
 - **T12** (humano): tras el APPROVED y la fusión, pedir el despliegue de sv2; después M2/M4 de
@@ -155,7 +163,7 @@ casa con su clase; M-EQ lo cuenta (`con_caracter_de_clave_multiple`) y lo detect
 |---|---|
 | Tests ejecutados | sv2: 422 passed (91 de F-063, 2 añadidos en T8); raíz: 522 passed, 3 skipped; F-038: 24 passed |
 | Cobertura de las líneas cambiadas | **100,0 %** (43/43, umbral 80 %, `PUERTA COBERTURA` de `init.sh`) |
-| Mutantes generados / supervivientes | 23 generados, 20 evaluados (muestreo `estandar`), 16 muertos, 4 supervivientes, 191 s (líder). Análisis (implementer): 3 muertos con `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica`, 1 equivalente (`range(161, …)`: U+00A0 tiene clave vacía) ⇒ **19/20 muertos**. Detalle: `progress/mutacion_F-063.md` |
+| Mutantes generados / supervivientes | 23 generados, 20 evaluados (muestreo `estandar`), 16 muertos, 4 supervivientes, 191 s con 4 workers (líder). Análisis (implementer): 3 muertos con `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica`, 1 equivalente (`range(161, …)`: U+00A0 tiene clave vacía) ⇒ **19/20 muertos**. Detalle: `progress/mutacion_F-063.md` |
 | Tiempo de la suite | sv2: 11,39 s (44,98 s con cobertura dentro de `init.sh`); `test_f063_consulta_obra.py`: 1,96 s |
 | M-EQ (T9) | **OK** en dos pasadas (líder, 2026-10-26, solo lectura, `ruesma`): ver abajo |
 | M-T (T10) | **60/60, 0 errores**; puerta DA3 cumplida midiendo la consulta (decisión «a» del humano): ver abajo |

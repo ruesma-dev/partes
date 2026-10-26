@@ -574,15 +574,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     mayúsculas, sin espacios ni guiones y sin ceros a la izquierda si es
     numérica), de cualquier empresa y también de baja; no casa la obra (eso
     sigue en sv3). Desde F-063 es un `SELECT DISTINCT con.cod … WHERE
-    con.cod LIKE ?` parametrizado, sin funciones sobre `con.cod` (usa el
-    índice: ~0,1 s), con el patrón `%c1%c2%…%` de la clave (cada carácter
-    con sus variantes de mayúscula y acento) como único parámetro; trae
-    candidatos distintos y el resultado exacto lo da sv2 con la misma
-    `clave_obra` (`domain/models/clave_obra.py`) sobre cada uno. Tope `OBRA_EXISTE_TIMEOUT_S` (5 s); un
-    fallo, `truncated` o el tope superado son «no se sabe»: no se relee por
-    obra y la extracción sigue. Cada consulta deja un INFO `[obra-sigrid]`
-    con `document_id`, resultado y ms (para medir los tiempos en Log
-    Analytics), sin el código. Traza solo cuando se relee:
+    con.cod LIKE ?` parametrizado, sin funciones sobre `con.cod` (un
+    recorrido sin funciones por fila, ~0,1 s; con el `%` inicial no es una
+    búsqueda por índice), con el patrón `%c1%c2%…%` de la clave (cada
+    carácter con sus variantes de mayúscula y acento) como único parámetro;
+    trae candidatos distintos y el resultado exacto lo da sv2 con la misma
+    `clave_obra` (`domain/models/clave_obra.py`) sobre cada uno. Tope
+    `OBRA_EXISTE_TIMEOUT_S` (5 s); un fallo, `truncated` o el tope superado
+    son «no se sabe»: no se relee por obra y la extracción sigue. Cada
+    consulta deja un INFO `[obra-sigrid]` con `document_id`, resultado y ms
+    (para medir los tiempos en Log Analytics), sin el código. Traza solo
+    cuando se relee:
     `meta.relectura_cabecera` (`motivo` `cabecera_vacia` |
     `obra_inexistente`, `provider`, `model`, `resultado` `aplicada` |
     `vacia` | `no_casa` | `error`, `error_tipo`, `consulta_obra_ms`) y
