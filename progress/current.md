@@ -1,13 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-064 · spec APROBADA 2026-10-26 (DA1–DA7 = A, «ok a f64»; `status` `pending` hasta cerrar F-061, que está `in_progress`): el filtro del portal se mantiene durante la sesión de cada usuario
+## F-064 · IN_PROGRESS desde 2026-10-26 (spec aprobada: DA1–DA7 = A, «ok a f64»; F-061 ya cerrada y fusionada en dev f940e67; implementer en `partes-wt-f064`): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
 `partes-wt-f064`, sale de `dev` ec7111d). Rigor estándar. **Solo sv4**: `identidad.py` (clave
 pura), `app.py` (global de Jinja), `base.html` (`data-filtros-usuario`), las tres listas
 («Limpiar» ⇒ `?search=`) y `static/app.js` (IIFE `FiltrosSesion` + manejador de días). Sin
-esquema, endpoints ni colas; `azure-apps/partes.md` no cambia. `status` sigue `pending`.
+esquema, endpoints ni colas; `azure-apps/partes.md` no cambia.
 
 **Aprobación del humano (2026-10-26, literal)**: «ok a f64» ⇒ DA1–DA7 = A (la recomendación de `design.md` §9).
 
@@ -33,6 +33,138 @@ guarda nada).
 2753; F-064 ≈ l. 82, 893–990 y 2829–2846), `partes_list.html` (l. 66 frente a l. 34), `app.py`
 (rutas frente a junto a `_actor`) y `docs/ARCHITECTURE.md` (semántica 8 frente a punto 11). Trozos
 distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardada (se mira en M1).
+
+## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
+
+**Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree
+`partes-wt-f061`, rama `feature/F-061-parte-vacio-tras-borrar-lineas`, sacada de `dev`
+843ff13:
+- La versión 1 está en el commit `02da480`. Su `design.md` §9 guarda la consulta M0.
+- La versión 2, enmendada, está en `specs/F-061-parte-vacio-tras-borrar-lineas/`. Tiene R1–R20
+  (`requirements.md`, 125 líneas), `design.md` (250 líneas) y las tareas T0–T15.
+
+**Alcance.** Toca **solo sv4**. No toca sv3, ni Sigrid, ni el DDL, ni la lista cerrada de
+duplicación.
+
+**Decisión del humano (2026-10-26), literal**: «f61 al borrar todas la slineas de un parte se
+deb borrar el parte. el parte como entidad no hace falta que vaya a paperlera porque es
+confuso. habra una logica que borre el parte en si, al quedarse sin lineas». A las preguntas
+del líder eligió «Oculto y luego borrado» y, para los existentes, «Lo mismo que la regla».
+
+**Causa real** (`design.md` §2):
+- `soft_delete_registro` no mira si el parte se queda sin líneas vivas.
+- `soft_delete_worker` sí lo mira, pero sin bloqueo, y manda el parte a la papelera de
+  partes.
+- `vaciar_papelera` borra las líneas sueltas sin mirar su parte.
+- `restore_document` devuelve activo y vacío un parte que se vació por borrado.
+- El borrado en bloque del portal lanza N peticiones a la vez y provoca una carrera.
+
+**Decididas por el humano:**
+- **DA1.** El parte que se queda sin líneas vivas se **retira**: `is_active=false`, sin
+  `deleted_at_utc` y con la marca `sin-lineas` en `deleted_by`.
+  - No sale en `/partes` ni en la papelera de partes, y libera su sha256.
+  - Se aplica al borrar líneas, al borrar una persona y al deshacer una celda.
+  - Borrar una obra y «Borrar parte» no cambian.
+  - Sus líneas siguen en la papelera de líneas (`list_papelera` ya las incluye).
+- **DA2.** Restaurar una de esas líneas devuelve el parte.
+  - Si ya hay otro parte activo con el mismo sha256, el portal responde 409 sin escribir.
+  - `restore_document` sobre un parte sin líneas vivas devuelve también sus líneas.
+- **DA3.** Al vaciar la papelera, el parte retirado que no conserva ninguna fila se borra
+  **físicamente**; también al «Eliminar» su última fila. Es el único borrado físico nuevo y
+  lo decidió el humano.
+- **DA4.** Para los existentes, el script `limpiar_partes_vacios.py`, que aplica la regla:
+  - Sin argumentos saca un informe de solo lectura.
+  - Con `--ejecutar --esperados N`, que lanza el humano, borra los partes sin filas y retira
+    los que tienen filas.
+  - Excluye los aprobados, los que tienen líneas que viven fuera y los de PT26/00373, 00375 y
+    00376.
+
+**Abiertas, que valida el humano** (la recomendación es A en todas):
+- **DA5.** `/partes` cuenta solo las líneas vivas y añade la insignia «Sin líneas».
+- **DA6.** No se toca la deduplicación de sv3: el parte retirado ya no bloquea. Solo queda el
+  parte que **nace** vacío, que se quita con «Borrar parte».
+- **DA7.** Marca `sin-lineas` en `deleted_by` en vez de una columna nueva. Así se distingue
+  del parte desactivado por el reemplazo de sv3, que deja `deleted_by` en NULL.
+- **DA8.** Rigor `estandar`.
+
+**M0 · HECHA por el líder el 2026-10-26**, en solo lectura sobre la base `partes` de
+producción:
+
+| Categoría | Partes | Fechas | `approved` | `vive_fuera` | `protegido` |
+|---|---|---|---|---|---|
+| `sin_filas_leidos` | 29 | 2026-07-15 a 2026-10-22 | f | f | f |
+| `sin_filas_nada_leido` | 1 | 2026-07-16 | f | f | f |
+| `todas_en_papelera` | 0 | | | | |
+
+`restaurables_que_chocarian` = 0. Según la regla, los 30 se borran.
+
+**Aprobación del humano (2026-10-26, literal)**: «f61 ok» ⇒ DA5–DA8 = A (la recomendación). F-062 ya está `done` y desplegada: F-061 pasa a `in_progress` (rama puesta al día con `git merge dev`).
+
+**Pendiente (ya no).** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
+autoriza el humano de forma literal.
+
+**Implementer (2026-10-26).** T1–T13 hechas (un commit por tarea); `init.sh` en verde.
+Informe en `progress/impl_F-061.md`. Mutación (lanzada por el líder: 20 evaluados, 16
+muertos y 4 supervivientes, con 4 workers):
+- #2, #3 y #4 eran huecos y ya los matan tests nuevos.
+- #1 (`.limit(1)` → `.limit(2)` en `_borrar_retirados_sin_filas`) es un **equivalente
+  aceptado por el humano** (2026-10-26, literal: «acepto»). Demostración:
+  `python progress/equivalentes_F-061.py`.
+
+Pendiente: T14 (M1) y T15 (M2).
+
+**Arreglo de la observación 1 de la review, hecho el 2026-10-26** (commit `229c30c`). El humano
+dijo «si». Un parte retirado y aprobado ya nunca se borra físicamente: está probado con test,
+con su fase RED en `progress/impl_F-061.md`. Además, el humano aceptó el equivalente #1
+(«acepto»).
+
+**PUERTA TAMAÑO**: el líder recortó `progress/review_F-061.md` a 139 líneas (`a3dba3c`); tests y
+cobertura del 96,9 % en verde. `azure-apps`: commit local `86640b4` (solo `partes.md`).
+**Review pasada 2 (2026-10-26): APPROVED** (`progress/review_F-061.md`). Observaciones 2–4 fuera
+por decisión del humano.
+
+**M1 · humano, tras desplegar sv4** (`design.md` §9; ningún agente lanza `redeploy_partes.ps1`).
+En el portal, parte manual de prueba de la obra 0404, un día sin nada en Sigrid, con dos
+líneas, y sin aprobar nada:
+1. Borrar una línea ⇒ el parte sigue en `/partes`.
+2. Borrar la otra ⇒ aviso «El parte se ha quedado sin líneas y se ha retirado; sus líneas
+   siguen en la papelera.» y salto a `/partes`. El parte no sale en `/partes` ni en «Partes
+   borrados»; sus dos líneas sí, en «Líneas sueltas borradas».
+3. Restaurar una ⇒ el parte vuelve con ella.
+4. Borrarla otra vez y «Vaciar papelera». El líder comprueba, en solo lectura sobre la base
+   `partes` (nunca a nivel de servidor):
+   ```sql
+   BEGIN TRANSACTION READ ONLY;
+   SELECT count(*) FROM parte_documents WHERE id = '<document_id del parte de prueba>';
+   ROLLBACK;
+   ```
+   ⇒ `0`. Nada registrado en Sigrid; PT26/00373, 00375 y 00376 intactos.
+
+**M2 · limpieza de los existentes, solo con autorización literal del humano** (la lanza él).
+Desde `services/partes-front`, con el `.env` de sv4:
+1. `../../.venv/Scripts/python.exe limpiar_partes_vacios.py` ⇒ informe en
+   `services/partes-front/logs/limpieza_partes_vacios_<AAAAMMDD-HHMM>.md` y `.csv` (solo
+   lee; la M0 esperaba 30 `borrar` y 0 excluidos).
+2. Leído el informe: `../../.venv/Scripts/python.exe limpiar_partes_vacios.py --ejecutar
+   --esperados <N>`, con N = «Candidatos no excluidos» del informe. Si no coincide, sale con
+   código 2 sin escribir.
+3. Se repite la consulta M0 (`design.md` §9 del commit `02da480`) ⇒ 0 candidatos no
+   excluidos. Los agregados, a este fichero.
+
+Desviaciones y decisiones del implementer (justificadas):
+- **`tests/test_f017_endpoints_firmados.py` tocado (3 líneas).** R1 cambia la respuesta de
+  `POST /api/registro/{id}/delete` y la ruta llama a `borrar_linea` (design §4.3). El test de
+  F-017 comparaba la respuesta con `{"ok": True}` exacto y espiaba `soft_delete_registro`. Se
+  adapta: comprueba `["ok"] is True` y espía `borrar_linea`. Lo que vigila (que el actor llega
+  a `deleted_by`) no cambia. La spec no lo listaba; no hay otra forma de cumplir R1.
+- **`partes_borrados` solo aparece si es > 0** (como `EXCLUIDA_REPARTO`). Así el resultado
+  de `vaciar_papelera` no cambia cuando no hay retirados que borrar, y
+  `test_f010_r11_…` y `test_f019_r16_vaciar_la_papelera_respeta_dedicacion`, que comparan el
+  dict exacto, siguen verdes sin tocarlos (verificación de T5).
+- **Bloqueos además de los de la spec:** `restore_registro` y `restore_document` también
+  bloquean el parte (`_bloquear_documentos`), para que restaurar no se cruce con un borrado de
+  la última línea. `_deshacer_creadas` bloquea los partes de las creadas antes de marcarlas.
+
 
 ## F-062 · DONE y DESPLEGADA 2026-10-26 (sv5 r20261026140625 13:07:34Z, sv4 r20261026140755 13:09:17Z; `MOVER_CIZ=true` en los dos; arranque sano; M1–M5 OK; M6 a repetir cuando se aprueben incidencias). El inicio de una incidencia escribe CI* y CIZ el mismo día
 

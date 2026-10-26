@@ -292,7 +292,25 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `parte_registros` lleva `horas_extra_leidas` (`Float`, nullable, sin
    defecto; la escribe solo la ingesta de sv3, semántica 3): 57 columnas.
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
-   `deleted_*`; nunca borrado físico desde la aplicación.
+   `deleted_*`; el único borrado físico es vaciar la papelera o «Eliminar»
+   en ella. **Parte retirado (F-061, sv4)**: cuando un parte se queda sin
+   ninguna línea viva (borrar la última línea, borrar una persona o
+   deshacer una celda) no va a la papelera de partes: se **retira**
+   (`is_active = false`, `deleted_at_utc` NULL y `deleted_by` con la marca
+   `sin-lineas`), en la misma transacción y con su fila de
+   `parte_documents` bloqueada (`FOR UPDATE`, por `id`). No sale en
+   `/partes` ni en «Partes borrados», sus líneas siguen en «Líneas sueltas
+   borradas» y su sha256 queda libre para que sv3 reingiera el PDF. La
+   marca lo distingue del parte desactivado por el reemplazo de sv3
+   (`deleted_by` NULL). Restaurar una de sus líneas lo devuelve; si ya hay
+   otro parte activo del mismo sha256 (se reprocesó), restaurar responde
+   409 sin escribir. Restaurar un parte de la papelera sin líneas vivas
+   devuelve también sus líneas. Al vaciar la papelera, y al «Eliminar» su
+   última fila, el parte retirado que no conserva **ninguna** fila se
+   borra físicamente (decisión del humano); el que conserva filas que
+   viven fuera sigue retirado. Borrar una obra y «Borrar parte» siguen
+   mandando el parte a la papelera de partes. `/partes` cuenta solo las
+   líneas vivas y marca con «Sin líneas» el parte activo sin ninguna.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
    del que solo las hojas admiten imputación; CD = costes directos
    (códigos numéricos), CI = indirectos (códigos con letras).
@@ -676,6 +694,17 @@ existen y para qué sirven.
   `services/partes-persistencia/logs/` (ignorada por git), sin nombres ni
   DNIs. F-040 añade la columna `sin_dni_sin_ficha` y la categoría por
   línea `propone_sin_dni` (se ejecuta desde la rama antes de desplegar).
+- `services/partes-front/limpiar_partes_vacios.py` (F-061) — los partes
+  ACTIVOS que ya estaban vacíos antes de F-061 reciben la misma regla. Sin
+  argumentos SOLO LEE (transacción READ ONLY en `partes`) y deja un
+  Markdown y un CSV en `services/partes-front/logs/`, sin nombres ni DNIs:
+  por parte, categoría (`todas_en_papelera`, `sin_filas_leidos`,
+  `sin_filas_nada_leido`, `sin_filas_manual`), acción prevista (`borrar`
+  sin filas, `retirar` con filas) y motivo de exclusión (aprobado, línea
+  que vive fuera o en vuelo, PT26/00373, 00375 y 00376). Con `--ejecutar
+  --esperados N` (N = candidatos del informe; si no coincide, código 2 sin
+  escribir) aplica la regla bajo bloqueo y con la marca
+  `sin-lineas · F-061-limpieza`. Lo lanza el humano; sin `SessionFactory`.
 - `services/partes-front/validar_datos_sesame.py` (F-013) — informe de
   solo lectura contra `sesame-api`: por cada trabajador, sus festivos del
   año, el tipo de jornada y el flag de reducida, más el calendario por

@@ -82,9 +82,11 @@ class RepositorioEspia(ParteReviewRepository):
         return super().delete_document(document_id=document_id,
                                        deleted_by=deleted_by)
 
-    def soft_delete_registro(self, *, registro_id: int, by=None):
-        self.firmas.append(("soft_delete_registro", by))
-        return super().soft_delete_registro(registro_id=registro_id, by=by)
+    def borrar_linea(self, *, registro_id: int, by=None):
+        # F-061 (R1): la ruta de borrar línea llama a `borrar_linea`, que
+        # devuelve además si el parte se retiró (antes, soft_delete_registro).
+        self.firmas.append(("borrar_linea", by))
+        return super().borrar_linea(registro_id=registro_id, by=by)
 
     def soft_delete_obra(self, *, obra_key: str, by=None):
         self.firmas.append(("soft_delete_obra", by))
@@ -204,14 +206,14 @@ def test_f017_r14_borrar_linea_sella_deleted_by() -> None:
     respuesta = cliente.post(f"/api/registro/{ids[0]}/delete",
                              headers=_como(USUARIO))
 
-    assert respuesta.json() == {"ok": True}
+    assert respuesta.json()["ok"] is True   # F-061 R1 añade campos
     registro = _registro(fabrica, ids[0])
     assert registro.deleted_at_utc is not None
     assert registro.deleted_by == USUARIO
 
 
 @pytest.mark.parametrize("ruta, metodo", [
-    ("/api/registro/{id}/delete", "soft_delete_registro"),
+    ("/api/registro/{id}/delete", "borrar_linea"),
     ("/api/obra/0100/delete", "soft_delete_obra"),
     ("/api/trabajador/cualquiera/delete", "soft_delete_worker"),
 ])

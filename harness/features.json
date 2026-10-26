@@ -920,15 +920,22 @@
       "title": "Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso",
       "description": "Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.",
       "acceptance": [
-        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "Spec en specs/F-061-parte-vacio-tras-borrar-lineas/ (R1–R20); DA1–DA4 decididas por el humano el 2026-10-26 («Oculto y luego borrado», «Lo mismo que la regla»), DA5–DA8 confirmadas",
+        "sv4: borrar la última línea viva de un parte (una a una, en bloque, por persona o deshaciendo una celda) lo RETIRA en la misma transacción (is_active=false, sin deleted_at_utc, marca sin-lineas en deleted_by), con el parte bloqueado FOR UPDATE; no sale en /partes ni en la papelera de partes y libera su sha256 (R1–R4)",
+        "sv4: las líneas de un parte retirado siguen en la papelera de líneas; restaurar una devuelve el parte; con otro activo del mismo sha256, 409 legible sin escribir; restore_document de un parte sin vivas devuelve sus líneas (R5–R8)",
+        "sv4: vaciar la papelera (y «Eliminar» su última fila) borra físicamente el parte retirado sin filas, decidido por el humano; nunca un parte con filas ni uno no retirado (R9–R11)",
+        "sv4: el portal avisa y lleva a /partes al retirar un parte desde su detalle; /partes cuenta solo líneas vivas y marca «Sin líneas» (R12–R13)",
+        "sv4: limpiar_partes_vacios.py informa en solo lectura (sin nombres ni DNIs) y con --ejecutar --esperados N aplica la regla a los no excluidos (borra los sin filas, retira los que tienen filas); excluye aprobados, líneas que viven fuera y PT26/00373/00375/00376; sin SessionFactory (R14–R18)",
+        "Sin tocar sv1/sv2/sv3/sv5, Sigrid, orm_models.py ni la lista cerrada de duplicación (R19); ARCHITECTURE semántica 8 y azure-apps/partes.md al día (R20)",
+        "M0 hecha (30 vacíos sin filas, ninguno excluido); M1 tras desplegar sv4 y M2 (limpieza) autorizada por el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
-      "spec": "sin spec"
+      "pendiente": "desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N"
     },
     {
       "id": "F-062",
@@ -982,7 +989,7 @@
         "M0 (cookieExpiration de Easy Auth, líder, solo lectura), M1 (recorrido local) y M2 tras desplegar sv4 (dos usuarios de Entra en el mismo navegador)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
