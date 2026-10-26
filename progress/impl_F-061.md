@@ -2,8 +2,8 @@
 
 Rama `feature/F-061-parte-vacio-tras-borrar-lineas`, worktree `partes-wt-f061`. Solo sv4
 (`services/partes-front`). Rigor `estandar`. Spec: `specs/F-061-parte-vacio-tras-borrar-lineas/`.
-T1–T11 y T13 hechas, un commit por tarea (`git log --oneline dev..`). T12 (mutación) la lanza
-el líder; T14 y T15 son MANUAL (M1 y M2, comandos en `progress/current.md`).
+T1–T13 hechas, un commit por tarea (`git log --oneline dev..`). La mutación (T12) la lanzó
+el líder y el implementer analizó sus supervivientes; T14 y T15 son MANUAL (M1 y M2, comandos en `progress/current.md`).
 
 ## Qué cambió
 
@@ -44,7 +44,7 @@ Fuera de sv4: `docs/ARCHITECTURE.md` (semántica 8 y «Herramientas de consola»
 ## Fuera de alcance y pendiente
 
 - Lo de `requirements.md` «Fuera de alcance» (reprocesar, F-042, el parte que nace vacío).
-- **T12**: mutación, la lanza el líder (`python -m harness.mutacion --feature F-061`).
+- **T12**: el humano tiene que aceptar el equivalente #1 de la mutación (ver «Evidencias»).
 - **T14 (M1)** tras desplegar sv4 y **T15 (M2)** con autorización literal del humano.
 
 ## Fase RED
@@ -137,11 +137,24 @@ No se tocó el test de F-043. La segunda pasada termina en `ENTORNO LISTO. Puede
 
 | Evidencia | Valor real |
 |---|---|
-| Tests de F-061 | 91 (`test_f061_borrado` 18, `_papelera` 18, `_portal` 12, `_limpieza` 43), todos en verde |
+| Tests de F-061 | 93 (`test_f061_borrado` 18, `_papelera` 18, `_portal` 12, `_limpieza` 45), todos en verde |
 | Suite sv4 (`init.sh`) | `2882 passed, 1 skipped, 2 warnings in 830.39s (0:13:50)` |
 | Suite raíz (`init.sh`) | `522 passed, 3 skipped in 116.44s (0:01:56)` |
 | sv1, sv2, sv3 y sv5 | en verde (caché de `init.sh`: árbol sin cambios) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 95.2% de 289 líneas cambiadas cubiertas (275/289, umbral 80%, nivel estandar)` |
-| Mutantes generados / supervivientes | PENDIENTE DEL LÍDER: T12, `python -m harness.mutacion --feature F-061`. El implementer no la lanza por orden del líder |
+| Mutación (lanzada por el líder, sin relanzar) | 110 generados y 20 evaluados (muestreo `estandar`, semilla `20260820`): 16 muertos, 4 supervivientes y 0 timeouts, en 4373 s con **4 workers**. Detalle en `progress/mutacion_F-061.md` |
 | Tiempo de la suite | sv4 830,39 s; raíz 116,44 s |
 | Verificaciones MANUAL | M1 (T14) y M2 (T15), con sus comandos exactos en `progress/current.md` |
+
+### Supervivientes de la mutación
+
+| # | Línea | Mutante | Clasificación | Cómo se cierra |
+|---|---|---|---|---|
+| 1 | `parte_repository.py:4258` (`_borrar_retirados_sin_filas`) | `.limit(1)` → `.limit(2)` | **Equivalente propuesto, pendiente de aceptación del humano** | `.first()` es None si y solo si no hay filas, con LIMIT 1 o 2. `python progress/equivalentes_F-061.py` ⇒ `#1 equivalente en 6125 casos; el control .limit(0) difiere.` (salida 0) |
+| 2 | `limpiar_partes_vacios.py:78` | `create_engine(future=False)` | **Hueco** | `test_f061_r18_fabrica_de_sesiones_del_script_funciona`; a mano: `1 failed, 44 passed` (`ArgumentError` de SQLAlchemy 2) |
+| 3 | `limpiar_partes_vacios.py:83` | `sessionmaker(future=False)` | **Hueco** | El mismo test; a mano: `1 failed, 44 passed` (`ArgumentError` en `Session()`) |
+| 4 | `limpiar_partes_vacios.py:127` | `if not f["motivo_exclusion"]` → `if f[...]` | **Hueco**: la tabla de categorías del informe contaría los excluidos | `test_f061_r14_markdown_cuenta_categorias_y_acciones_de_candidatos` (las tres tablas); a mano: `1 failed, 44 passed` |
+
+El #4 no cambia qué cuenta ni qué borra el script: el nº de candidatos, el `--esperados` y
+`limpiar_vacios` salen de `candidatos()`, que ya estaba cubierta. Lo que cambiaba es la tabla
+del informe que el humano lee antes de autorizar la M2. Ahora la tabla queda vigilada.
