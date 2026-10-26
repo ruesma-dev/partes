@@ -158,3 +158,29 @@ No se tocó el test de F-043. La segunda pasada termina en `ENTORNO LISTO. Puede
 El #4 no cambia qué cuenta ni qué borra el script: el nº de candidatos, el `--esperados` y
 `limpiar_vacios` salen de `candidatos()`, que ya estaba cubierta. Lo que cambiaba es la tabla
 del informe que el humano lee antes de autorizar la M2. Ahora la tabla queda vigilada.
+
+## Arreglo de la observación 1 de la review (el humano dijo «si» el 2026-10-26)
+
+El problema: un parte retirado que alguien aprueba después (una pestaña abierta) se borraba
+físicamente al vaciar la papelera o al eliminar su última fila.
+
+**RED.** Comando: `python -m pytest tests/test_f061_papelera.py -q --tb=line -k obs1` ⇒
+`2 failed`:
+```
+tests	est_f061_papelera.py:310: AssertionError: assert 2 == 0      (vaciar borraba los 2 retirados aprobados)
+tests	est_f061_papelera.py:322: assert None is not None           (eliminar su última fila borraba el parte)
+```
+
+**Cambio** (commit `229c30c`): `_borrar_retirados_sin_filas` filtra además
+`ParteDocumentOrm.approved.is_(False)`. No se tocan `approve_document` ni `_set_approval`, ni las
+observaciones 2–4. **Verde:** los dos `test_f061_obs1_*` pasan, junto a F-061, F-004, F-010 y
+F-019 (`222 passed`). La demostración del equivalente #1 (aceptado por el humano) sigue igual:
+`python progress/equivalentes_F-061.py` ⇒ `#1 equivalente en 6125 casos; el control .limit(0)
+difiere.` (salida 0; su `.limit(1)` sigue siendo único en el ámbito).
+
+**`bash harness/init.sh`:**
+- Suites: raíz `522 passed, 3 skipped in 225.97s`; sv4 `2886 passed, 1 skipped in 1166.32s`.
+- `PUERTA COBERTURA: 96.9% de 289 líneas cambiadas cubiertas (280/289)`.
+- **KO** en `PUERTA TAMAÑO`: `progress/review_F-061.md: 141 líneas > tope 140`. Ese fichero es
+  del reviewer y del líder; ya tenía 141 líneas en `2a3cf8c`, antes de este arreglo, y el
+  implementer no lo toca.

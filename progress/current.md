@@ -78,7 +78,17 @@ muertos y 4 supervivientes, con 4 workers):
   propuesto, pendiente de aceptación del humano**. Demostración:
   `python progress/equivalentes_F-061.py`.
 
-Pendiente: esa aceptación, review, T14 (M1) y T15 (M2). `azure-apps`: commit local `86640b4` (solo `partes.md`).
+Pendiente: esa aceptación, review, T14 (M1) y T15 (M2).
+
+**Arreglo de la observación 1 de la review, hecho el 2026-10-26** (commit `229c30c`). El humano
+dijo «si». Un parte retirado y aprobado ya nunca se borra físicamente: está probado con test,
+con su fase RED en `progress/impl_F-061.md`. Además, el humano aceptó el equivalente #1
+(«acepto»).
+
+**init.sh está en ROJO solo por `PUERTA TAMAÑO`**: `progress/review_F-061.md` tiene 141 líneas y
+el tope es 140. El fichero es del reviewer y del líder; el implementer no lo toca. Hay que
+recortar una línea para dejarlo en verde. Todo lo demás está en verde: tests y cobertura del
+96,9 %. `azure-apps`: commit local `86640b4` (solo `partes.md`).
 
 **M1 · humano, tras desplegar sv4** (`design.md` §9; ningún agente lanza `redeploy_partes.ps1`).
 En el portal, parte manual de prueba de la obra 0404, un día sin nada en Sigrid, con dos
