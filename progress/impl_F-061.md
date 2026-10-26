@@ -124,3 +124,24 @@ tests	est_f061_limpieza.py:286: AttributeError: 'ParteReviewRepository' object h
 
 Tras `partes_vacios_activos` y `limpiar_vacios`: `43 passed`. `python limpiar_partes_vacios.py
 --ejecutar` (sin `--esperados`) ⇒ `error: --ejecutar exige --esperados N`, código 2, sin tocar la base.
+
+## Resultado de `bash harness/init.sh` (T13)
+
+Primera pasada en ROJO: `test_f043_r19_r40_ninguna_recarga_nueva_salvo_actualizar` cuenta las
+`location.reload` de `app.js` (esperaba 23 y había 22, porque T7 juntaba las dos recargas de
+los borrados en `_irTrasBorrar`). Por la parada en el primer fallo, la cobertura salió en 46,7 %.
+Arreglo en `057afc3`: la recarga vuelve a cada llamada y `_irTrasBorrar` solo avisa y navega.
+No se tocó el test de F-043. La segunda pasada termina en `ENTORNO LISTO. Puedes trabajar.`
+
+## Evidencias
+
+| Evidencia | Valor real |
+|---|---|
+| Tests de F-061 | 91 (`test_f061_borrado` 18, `_papelera` 18, `_portal` 12, `_limpieza` 43), todos en verde |
+| Suite sv4 (`init.sh`) | `2882 passed, 1 skipped, 2 warnings in 830.39s (0:13:50)` |
+| Suite raíz (`init.sh`) | `522 passed, 3 skipped in 116.44s (0:01:56)` |
+| sv1, sv2, sv3 y sv5 | en verde (caché de `init.sh`: árbol sin cambios) |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 95.2% de 289 líneas cambiadas cubiertas (275/289, umbral 80%, nivel estandar)` |
+| Mutantes generados / supervivientes | PENDIENTE DEL LÍDER: T12, `python -m harness.mutacion --feature F-061`. El implementer no la lanza por orden del líder |
+| Tiempo de la suite | sv4 830,39 s; raíz 116,44 s |
+| Verificaciones MANUAL | M1 (T14) y M2 (T15), con sus comandos exactos en `progress/current.md` |
