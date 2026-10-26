@@ -40,7 +40,9 @@ DNI_B = "00000001R"
 CLAVES_LINEA = {"registro_id", "fecha_int", "recurso_ide", "dni", "nombre",
                 "tipo_hora", "es_incidencia", "horas", "hora_ide",
                 "hora_codigo", "partida_ide", "partida_cod", "candef",
-                "incidencia_codigo", "incidencia_rol", "racha_registro_ids"}
+                "incidencia_codigo", "incidencia_rol", "racha_registro_ids",
+                # F-062 (R1-R4): el `inicio` que escribe su CIZ el mismo dia.
+                "ciz_mismo_dia"}
 
 
 def sembrar(fabrica, lineas: list[dict], *, doc: str,

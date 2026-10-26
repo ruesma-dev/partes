@@ -154,3 +154,186 @@ def test_f062_r2_puro_varios_inicios() -> None:
               _rol(12, FIN, fecha=D + 11, racha=[10, 11])]
     assert inicios_con_ciz(lineas, {1: INICIO, 10: INICIO,
                                     12: FIN}) == {1}
+
+
+# ====================== Repositorio (R1-R5, R24) ====================== #
+
+from sqlalchemy import event  # noqa: E402
+
+from infrastructure.database.parte_repository import (  # noqa: E402
+    ParteReviewRepository,
+)
+from tests.dobles import estados_sigrid  # noqa: E402
+from tests.test_f025_aprobacion import CLAVES_LINEA, DNI_B, OBRA_20  # noqa: E402
+from tests.test_f025_deteccion import TABLA  # noqa: E402
+from tests.test_f060_aprobacion_racha import (  # noqa: E402
+    _con_ciz,
+    _fabrica,
+    _linea,
+    _marcar,
+    _resultado,
+    _roles,
+    _t,
+    _v,
+)
+
+
+def _datos(fabrica, ids, *, mover=True) -> dict:
+    return ParteReviewRepository(fabrica).lineas_para_registro(
+        ids, incidencias=TABLA, mover_ciz=mover)
+
+
+def _ciz(datos) -> dict[int, bool]:
+    return {l["registro_id"]: l["ciz_mismo_dia"] for l in datos["lineas"]}
+
+
+def test_f062_r1_un_dia_suelto_lleva_ciz_y_lista_vacia() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    _t(f, 2)
+    l1 = _linea(_datos(f, [d1]), d1)
+    assert (l1["incidencia_rol"], l1["ciz_mismo_dia"],
+            l1["racha_registro_ids"]) == ("inicio", True, [])
+
+
+def test_f062_r1_aprobar_el_inicio_con_la_racha_ingerida_delante() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    d2, d3, d4 = (_v(f, n) for n in (2, 3, 4))
+    _t(f, 5)
+    l1 = _linea(_datos(f, [d1]), d1)
+    assert (l1["incidencia_rol"], l1["ciz_mismo_dia"],
+            l1["racha_registro_ids"]) == ("inicio", True, [d2, d3, d4])
+
+
+def test_f062_r1_tramo_con_papelera_registrada() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    d2 = _v(f, 2, estado="registrado")
+    with f.create_session() as s:
+        from datetime import datetime, timezone
+        from infrastructure.database.orm_models import ParteRegistroOrm
+        s.get(ParteRegistroOrm, d2).deleted_at_utc = datetime.now(
+            timezone.utc)
+        s.commit()
+    d3 = _v(f, 3)
+    l1 = _linea(_datos(f, [d1]), d1)
+    assert l1["racha_registro_ids"] == [d2, d3]
+
+
+def test_f062_r2_todo_de_una_vez_el_inicio_sin_ciz() -> None:
+    """M4: dias 1-4 en una aprobacion: el 1 sin hermano (su `fin`, el 4,
+    escribe el CIZ); la lista del 4 no cambia (R3)."""
+    f = _fabrica()
+    d1, d2, d3, d4 = (_v(f, n) for n in (1, 2, 3, 4))
+    datos = _datos(f, [d1, d2, d3, d4])
+    assert _roles(datos) == {d1: "inicio", d2: "intermedio",
+                             d3: "intermedio", d4: "fin"}
+    assert _ciz(datos) == {d1: False, d2: False, d3: False, d4: False}
+    assert _linea(datos, d4)["racha_registro_ids"] == [d1, d2, d3]
+    assert _linea(datos, d1)["racha_registro_ids"] == [d2, d3, d4]
+    assert _linea(datos, d2)["racha_registro_ids"] == []
+
+
+def test_f062_r2_el_fin_de_otra_obra_tambien_cuenta() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    d2 = _v(f, 2, obra=OBRA_20)
+    datos = _datos(f, [d1, d2])
+    assert _roles(datos) == {d1: "inicio", d2: "fin"}
+    assert _ciz(datos) == {d1: False, d2: False}
+    assert len(datos["grupos"]) == 2
+
+
+def test_f062_r2_el_fin_de_otra_persona_no_cuenta() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    b1 = _v(f, 1, dni=DNI_B, doc="b1")
+    b2 = _v(f, 2, dni=DNI_B, doc="b2")
+    datos = _datos(f, [d1, b2])
+    assert _ciz(datos) == {d1: True, b2: False}
+    assert _linea(datos, b2)["racha_registro_ids"] == [b1]
+
+
+def test_f062_r3_trabajo_fin_e_intermedio_sin_ciz() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1, estado="registrado")
+    d2 = _v(f, 2)
+    t3 = _t(f, 3)
+    datos = _datos(f, [d2, t3])
+    assert _roles(datos) == {d2: "fin"}
+    assert _ciz(datos) == {d2: False, t3: False}
+    assert _linea(datos, d2)["racha_registro_ids"] == [d1]
+    assert _linea(datos, t3)["racha_registro_ids"] == []
+
+
+def test_f062_r4_apagado_sin_ciz_y_listas_vacias() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    d2, d3 = _v(f, 2), _v(f, 3)
+    datos = _datos(f, [d1], mover=False)
+    assert _ciz(datos) == {d1: False}
+    assert _linea(datos, d1)["racha_registro_ids"] == []
+    datos = _datos(f, [d1, d2, d3], mover=False)
+    assert set(_ciz(datos).values()) == {False}
+    assert all(l["racha_registro_ids"] == [] for l in datos["lineas"])
+
+
+def test_f062_r4_por_defecto_apagado() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    datos = ParteReviewRepository(f).lineas_para_registro(
+        [d1], incidencias=TABLA)
+    assert _ciz(datos) == {d1: False}
+
+
+def test_f062_r1_claves_de_la_linea() -> None:
+    f = _fabrica()
+    d1 = _v(f, 1)
+    for mover in (True, False):
+        datos = _datos(f, [d1], mover=mover)
+        assert all(set(l) == CLAVES_LINEA for l in datos["lineas"])
+        assert "ciz_mismo_dia" in CLAVES_LINEA
+
+
+def test_f062_r5_sin_consultas_nuevas() -> None:
+    """La misma consulta por persona que F-060 (R12) y el mismo numero de
+    sentencias que con F-060 (5, medido en la rama antes de T10)."""
+    f = _fabrica()
+    ids = [_v(f, n) for n in (1, 2, 3, 4)] + [_t(f, 5)]
+    ids += [_v(f, n, dni=DNI_B, doc=f"b{n}") for n in (1, 2)]
+    vistos: list[str] = []
+
+    @event.listens_for(f.engine, "before_cursor_execute")
+    def _apuntar(conn, cursor, statement, params, context, many):
+        vistos.append(statement)
+    datos = _datos(f, [ids[0], ids[5]])
+    assert _ciz(datos) == {ids[0]: True, ids[5]: True}
+    assert len(vistos) == 5
+    assert sum("BETWEEN" in v for v in vistos) == 2
+
+
+def test_f062_r24_el_hermano_movido_no_toca_el_inicio() -> None:
+    """El siguiente dia mueve el hermano: la escrita no trae `movida_de`;
+    X sigue `registrado` con el `ide` de su CI* y D queda `registrado` con
+    el del CIZ."""
+    f = _fabrica()
+    x = _con_ciz(f, _v(f, 1), ide=8000)
+    d = _v(f, 2)
+    r = _resultado(d, x, ide=8001)
+    del r["escritas"][0]["movida_de"]
+    _marcar(f, r)
+    est = estados_sigrid(f, [x, d])
+    assert est[x][0] == "registrado" and est[x][3] == 8000
+    assert est[d][0] == "registrado" and est[d][3] == 8001
+
+
+def test_f062_r24_ciz_hmores_ide_no_se_guarda() -> None:
+    f = _fabrica()
+    x = _v(f, 1)
+    r = _resultado(x, None, ide=8000, hora_codigo="CIV",
+                   ciz_hmores_ide=8001)
+    del r["escritas"][0]["movida_de"]
+    _marcar(f, r)
+    est = estados_sigrid(f, [x])
+    assert est[x] == ("registrado", None, 901, 8000, "PT26/00010")

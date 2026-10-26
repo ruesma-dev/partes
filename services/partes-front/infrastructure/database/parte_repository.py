@@ -104,8 +104,10 @@ from application.services.racha_incidencia import (
     colapsar,
     decidir,
     hasta_delante,
+    inicios_con_ciz,
     motivo_desordenada,
     motivo_fin_movido,
+    racha_delante,
     ventana,
 )
 from application.services.calendar_builder import (
@@ -2122,6 +2124,12 @@ class ParteReviewRepository:
         registrada. Sin `mover_ciz` (R26 bis, DA12; `MOVER_CIZ` apagado),
         el rol de dev 0926857 linea a linea (`_rol_incidencia_anterior`),
         con `racha_registro_ids` y `avisos_racha` vacias.
+
+        F-062 (R1-R4): con `mover_ciz`, cada `inicio` final lleva en
+        `racha_registro_ids` su tramo delante y `ciz_mismo_dia` verdadero
+        (sv5 escribe su CI* y un CIZ el mismo dia) salvo que su `fin` viaje
+        en la misma aprobacion, de esta obra o de otra (R2). Toda otra linea,
+        y todas sin `mover_ciz`, con `ciz_mismo_dia` falso.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -2201,6 +2209,8 @@ class ParteReviewRepository:
                     # F-060: los rellena `_roles_de_racha` al final.
                     "incidencia_rol": None,
                     "racha_registro_ids": [],
+                    # F-062 (R1-R4): lo rellena `_roles_de_racha`.
+                    "ciz_mismo_dia": False,
                 })
                 grupo["lineas"].append(lineas[-1])
                 viajan.append((r, lineas[-1], grupo))
@@ -2212,17 +2222,18 @@ class ParteReviewRepository:
                         "motivo": nivel.motivo,
                     })
             if mover_ciz:
-                roles_de, rachas, avisos = self._roles_de_racha(
+                roles_de, rachas, avisos, ciz = self._roles_de_racha(
                     session, [r for r, _l, _g in viajan], incidencias)
             else:
                 # R26 bis (DA12): el rol de dev 0926857, linea a linea.
                 roles_de = {r.id: self._rol_incidencia_anterior(session, r)
                             for r, _l, _g in viajan if r.es_incidencia}
-                rachas, avisos = {}, {}
+                rachas, avisos, ciz = {}, {}, set()
             for r, linea, grupo in viajan:
                 if r.es_incidencia:
                     linea["incidencia_rol"] = roles_de[r.id]
                     linea["racha_registro_ids"] = rachas.get(r.id, [])
+                    linea["ciz_mismo_dia"] = r.id in ciz
                 if r.id in avisos:
                     grupo["avisos_racha"].append({
                         "registro_id": r.id, "fecha": r.fecha,
@@ -2358,10 +2369,14 @@ class ParteReviewRepository:
     def _roles_de_racha(
         cls, session, regs: list[ParteRegistroOrm],
         incidencias: TablaIncidencias | None,
-    ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int]]:
+    ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int],
+               set[int]]:
         """F-060 (R1-R12): para las lineas que viajan, el rol de cada
         incidencia, la racha de cada `fin` y la fecha del aviso
-        `racha_desordenada` de cada linea que lo merece.
+        `racha_desordenada` de cada linea que lo merece. F-062 (R1, R2):
+        tambien el tramo delante de cada `inicio` final (`racha_delante`,
+        con el mismo historico: ninguna consulta nueva) y los `inicio` que
+        escriben su CIZ el mismo dia (`inicios_con_ciz`).
 
         Por persona (`persona_de`: DNI normalizado o, sin DNI, la clave de
         trabajador, R6) con alguna linea de trabajo o de incidencia, UNA
@@ -2397,6 +2412,12 @@ class ParteReviewRepository:
         roles.update(colapsar(lineas_rol))
         rachas = {l.registro_id: list(l.racha_registro_ids)
                   for l in lineas_rol if roles[l.registro_id] == FIN}
+        # F-062 (R1): el `inicio` final lleva su tramo delante.
+        rachas.update({
+            l.registro_id: list(racha_delante(historicos[l.persona],
+                                              l.fecha_int, l.clave))
+            for l in lineas_rol if roles[l.registro_id] == INICIO})
+        ciz = inicios_con_ciz(lineas_rol, roles)
         avisos: dict[int, int] = {}
         for persona, suyas in por_persona.items():
             for r in suyas:
@@ -2405,7 +2426,7 @@ class ParteReviewRepository:
                 f = aviso_desordenada(historicos[persona], int(r.fecha_int))
                 if f is not None:
                     avisos[r.id] = f
-        return roles, rachas, avisos
+        return roles, rachas, avisos, ciz
 
     @staticmethod
     def _historico(session, persona: str, suyas: list[ParteRegistroOrm],
