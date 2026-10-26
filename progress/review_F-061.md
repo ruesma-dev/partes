@@ -121,9 +121,7 @@ es ciega. Reproducida en verde. **Recomiendo aceptarlo.**
 
    No viola R11, y la papelera de partes ya borra hoy un aprobado sin líneas `registrado`. Si el
    humano lo quiere, basta con `.where(ParteDocumentOrm.approved.is_(False))` en
-   `_borrar_retirados_sin_filas` y un test.
-
-   **Decisión del humano (2026-10-26): «si»**, aplicar el arreglo antes de cerrar F-061.
+   `_borrar_retirados_sin_filas` y un test. **El humano (2026-10-26): «si»**, aplicarlo.
 2. **Carrera anterior en `vaciar_papelera`.** Si se restaura una línea durante el vaciado, se
    borra igualmente y el parte queda activo y vacío; se ve con «Sin líneas». `vaciar_papelera` y
    `hard_delete_registro` no bloquean el parte, aunque el design §7 dice «todo camino». El peor
