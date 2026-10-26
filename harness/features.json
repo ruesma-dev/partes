@@ -987,7 +987,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-064-filtro-en-sesion",
-      "spec": "escrita, pendiente de aprobación (DA1–DA7, recomendada A) · `partes-wt-f064`"
+      "spec": "aprobada 2026-10-26 («ok a f64»: DA1–DA7 = A; M0 OK) · `specs/F-064-filtro-en-sesion/` · `partes-wt-f064`"
     }
   ]
 }

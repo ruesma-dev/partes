@@ -1,13 +1,15 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-064 · spec escrita 2026-10-26, pendiente de aprobación: el filtro del portal se mantiene durante la sesión de cada usuario
+## F-064 · spec APROBADA 2026-10-26 (DA1–DA7 = A, «ok a f64»; `status` `pending` hasta cerrar F-061, que está `in_progress`): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
 `partes-wt-f064`, sale de `dev` ec7111d). Rigor estándar. **Solo sv4**: `identidad.py` (clave
 pura), `app.py` (global de Jinja), `base.html` (`data-filtros-usuario`), las tres listas
 («Limpiar» ⇒ `?search=`) y `static/app.js` (IIFE `FiltrosSesion` + manejador de días). Sin
 esquema, endpoints ni colas; `azure-apps/partes.md` no cambia. `status` sigue `pending`.
+
+**Aprobación del humano (2026-10-26, literal)**: «ok a f64» ⇒ DA1–DA7 = A (la recomendación de `design.md` §9).
 
 **Corrección al encargo**: «Actualizar» con `VISTA_CLAVE` es de **F-043** (R21, DA10), no de F-022.
 
@@ -22,7 +24,7 @@ guarda el vacío, aviso «Filtros recuperados» con «Quitar filtros», caducida
 guarda; con filtro repuesto solo se aprueba lo visible) · DA7 sin identidad desplegado (A: no se
 guarda nada).
 
-- [ ] **M0 (líder, solo lectura, antes de T1)**: `az containerapp auth show -n ca-sv4-front -g
+- [x] **M0 hecha por el líder (2026-10-26, solo lectura)**: `login.cookieExpiration` ⇒ `null` (sin configurar: defecto de Easy Auth, 8 h) ⇒ la caducidad de 8 h de DA2 se queda. Receta original: `az containerapp auth show -n ca-sv4-front -g
   rg-partes-dev --query login.cookieExpiration`; si no es 8 h (o vacío = 8 h por defecto),
   `SESION_MS` toma ese valor. Anotarlo aquí.
 - [ ] M1 (local, `design.md` §8) y M2 tras desplegar sv4 (dos usuarios de Entra, mismo navegador).

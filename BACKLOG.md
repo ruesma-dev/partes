@@ -11,7 +11,7 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | pendiente | escrita, pendiente de aprobación (DA1–DA7, recomendada A) · `partes-wt-f064` | estandar | `feature/F-064-filtro-en-sesion` |
+| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | pendiente | aprobada 2026-10-26 («ok a f64»: DA1–DA7 = A; M0 OK) · `specs/F-064-filtro-en-sesion/` · `partes-wt-f064` | estandar | `feature/F-064-filtro-en-sesion` |
 | F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | pendiente | sin spec | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
@@ -83,7 +83,7 @@ Bloqueadas: **F-032**.
 
 estado **pendiente** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-064-filtro-en-sesion`
 
-**Spec**: escrita, pendiente de aprobación (DA1–DA7, recomendada A) · `partes-wt-f064`
+**Spec**: aprobada 2026-10-26 («ok a f64»: DA1–DA7 = A; M0 OK) · `specs/F-064-filtro-en-sesion/` · `partes-wt-f064`
 
 Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.
 
