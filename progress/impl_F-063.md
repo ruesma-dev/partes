@@ -158,7 +158,7 @@ casa con su clase; M-EQ lo cuenta (`con_caracter_de_clave_multiple`) y lo detect
 | Mutantes generados / supervivientes | 23 generados, 20 evaluados (muestreo `estandar`), 16 muertos, 4 supervivientes, 191 s (líder). Análisis (implementer): 3 muertos con `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica`, 1 equivalente (`range(161, …)`: U+00A0 tiene clave vacía) ⇒ **19/20 muertos**. Detalle: `progress/mutacion_F-063.md` |
 | Tiempo de la suite | sv2: 11,39 s (44,98 s con cobertura dentro de `init.sh`); `test_f063_consulta_obra.py`: 1,96 s |
 | M-EQ (T9) | **OK** en dos pasadas (líder, 2026-10-26, solo lectura, `ruesma`): ver abajo |
-| M-T (T10) | PENDIENTE del líder |
+| M-T (T10) | **60/60, 0 errores**; puerta DA3 cumplida midiendo la consulta (decisión «a» del humano): ver abajo |
 
 ### M-EQ · equivalencia exhaustiva (T9, líder, 2026-10-26, dos pasadas, mismo resultado)
 
@@ -168,3 +168,20 @@ casa con su clase; M-EQ lo cuenta (`con_caracter_de_clave_multiple`) y lo detect
   `trampa_vuelve=True`** (el control sabe fallar). Toda obra de Sigrid casa con el patrón de su
   clave, así que `existe_obra` da la verdad para todas (`design.md` §8).
 - Vieja (F-058) contra nueva: **iguales en 7 de 7** claves (5 con separadores, 2 simples).
+
+### M-T · tiempos (T10, líder, 2026-10-26, desde local, solo lectura, `ruesma`)
+
+- 60 consultas con `ComprobadorObra` de la rama (tope 5 s) tras una de calentamiento:
+  **60/60 aciertos con la verdad de M-EQ, 0 errores**, candidatos máximos **822** (obra `0`).
+- Tiempos de `[obra-sigrid]`: 1.ª pasada mediana **1.163 ms**, p95 1.730, máx 4.809; 2.ª pasada
+  **1.076 / 1.223 / 1.589 ms**. Con la puerta original de DA3 (mediana ≤ 500 ms, máx ≤ 2 s) **no
+  pasaba**: F-063 quedó `blocked` y decidió el humano.
+- Diagnóstico (líder, `httpx` desde local, 8 llamadas por caso): con conexión **nueva** por
+  llamada (lo que hace `_post_sql_read` desde F-058) `SELECT 1` 1.145 ms, obra 692 1.146 ms,
+  obra 0 1.073 ms; con la conexión **reutilizada** 88 / 92 / 122 ms. El segundo largo es abrir la
+  conexión TLS desde local, no la consulta (un `SELECT 1` tarda lo mismo); dentro de Azure se
+  espera mucho menor, sin medir.
+- **Decisión del humano (2026-10-26, literal): «a»** ⇒ la puerta DA3 se da por cumplida midiendo
+  solo la consulta (conexión reutilizada: mediana 92 ms; obra 0 con 822 candidatos, 122 ms); los
+  tiempos reales se vigilan en producción con la M4 de F-058 tras desplegar; reutilizar la
+  conexión en sv2 queda para otra feature si la M4 lo pide. DA3 enmendada en `design.md` §10.
