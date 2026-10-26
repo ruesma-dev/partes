@@ -139,13 +139,8 @@ tardó 4,5 s: M-T lleva una consulta de calentamiento aparte. Frente a 12–16 s
 
 ## Pendiente (no lo ejecuta el implementer)
 
-- **T8 · mutación** (la lanza el líder): `python -m harness.mutacion --feature F-063` desde la
-  raíz del worktree ⇒ `progress/mutacion_F-063.md`, con el análisis de cada superviviente.
-- **T9 · M-EQ y T10 · M-T** (líder, solo lectura, `ruesma`): script fuera del repo, probado en
-  seco con dobles (M-EQ OK y M-T 60/60 sobre datos inventados), comando exacto en
-  `progress/current.md`. Sus agregados van a la sección siguiente. Fallo ⇒ `blocked`.
 - **T12** (humano): tras el APPROVED y la fusión, pedir el despliegue de sv2; después M2/M4 de
-  F-058.
+  F-058 (M4 vigila los tiempos reales de `[obra-sigrid]`, decisión «a» de DA3).
 
 ## Fuera de alcance
 
@@ -160,7 +155,16 @@ casa con su clase; M-EQ lo cuenta (`con_caracter_de_clave_multiple`) y lo detect
 |---|---|
 | Tests ejecutados | sv2: 420 passed (89 de F-063); raíz: 522 passed, 3 skipped; F-038: 24 passed |
 | Cobertura de las líneas cambiadas | **100,0 %** (43/43, umbral 80 %, `PUERTA COBERTURA` de `init.sh`) |
-| Mutantes generados / supervivientes | **PENDIENTE del líder** (T8): `python -m harness.mutacion --feature F-063` ⇒ `progress/mutacion_F-063.md` |
+| Mutantes generados / supervivientes | 23 generados, 20 evaluados (muestreo `estandar`), 16 muertos, 4 supervivientes, 191 s (líder). Análisis (implementer): 3 muertos con `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica`, 1 equivalente (`range(161, …)`: U+00A0 tiene clave vacía) ⇒ **19/20 muertos**. Detalle: `progress/mutacion_F-063.md` |
 | Tiempo de la suite | sv2: 11,39 s (44,98 s con cobertura dentro de `init.sh`); `test_f063_consulta_obra.py`: 1,96 s |
-| M-EQ (T9) | PENDIENTE del líder |
+| M-EQ (T9) | **OK** en dos pasadas (líder, 2026-10-26, solo lectura, `ruesma`): ver abajo |
 | M-T (T10) | PENDIENTE del líder |
+
+### M-EQ · equivalencia exhaustiva (T9, líder, 2026-10-26, dos pasadas, mismo resultado)
+
+- Censo: **924 obras**, **843 claves** distintas, 19 códigos con blanco o guion, 663 con ceros a
+  la izquierda, **0** con caracteres fuera de `[0-9A-Za-z -]` (ninguno con clave múltiple).
+- Lotes de 500 por `ide` con `VALUES` (sigrid-api los acepta): **924 comprobadas, `fallos=0`,
+  `trampa_vuelve=True`** (el control sabe fallar). Toda obra de Sigrid casa con el patrón de su
+  clave, así que `existe_obra` da la verdad para todas (`design.md` §8).
+- Vieja (F-058) contra nueva: **iguales en 7 de 7** claves (5 con separadores, 2 simples).
