@@ -308,16 +308,27 @@ class RegistroPipeline:
         def horas_de(a: AccionLinea) -> list[HoraRecurso]:
             return horas.get(int(a.recurso_ide), [])
 
+        # F-062 (R9, DA10): el CIZ hermano de un `inicio` toma la cuenta
+        # del codigo CIZ, como un `fin`, en estas MISMAS lecturas.
+        hermanos = [a for a in escribir if a.fin_mismo_dia is not None]
         parides = {int(a.paride) for a in escribir
                    if a.paride and not subcuenta_de_linea(horas_de(a),
                                                           a.hora_ide)}
+        parides |= {int(a.paride) for a in hermanos
+                    if a.paride and not subcuenta_de_linea(
+                        horas_de(a), a.fin_mismo_dia.horide)}
         partidas = self._cli.partidas_de_lineas(parides) if parides else {}
         origenes = {id(a): origen_subcuenta(
                         horas_de(a), a.hora_ide,
                         partidas.get(int(a.paride or 0)))
                     for a in escribir}
+        origenes_fin = {id(a): origen_subcuenta(
+                            horas_de(a), a.fin_mismo_dia.horide,
+                            partidas.get(int(a.paride or 0)))
+                        for a in hermanos}
         cenide = int(getattr(destino, "cenide", 0) or 0)
-        pedidas = {o.sub for o in origenes.values() if o.sub}
+        pedidas = {o.sub for o in [*origenes.values(),
+                                   *origenes_fin.values()] if o.sub}
         cuentas = (self._cli.cuentas_de_centro(cenide, empresa, pedidas)
                    if pedidas and cenide else {})
         recuento = {None: 0, MOTIVO_RECURSO_SIN_CUENTA: 0,
@@ -331,6 +342,12 @@ class RegistroPipeline:
             a.caa_origen, a.caa_nota = o.origen, o.nota
             recuento[c.motivo] += 1
             por_origen[o.origen] += 1
+        for a in hermanos:
+            # Los recuentos del log son de acciones: el hermano no cuenta.
+            c = resolver_cuenta(origenes_fin[id(a)].sub, cuentas,
+                                destino.codigo)
+            a.fin_mismo_dia.caa_ide, a.fin_mismo_dia.caa_cod = (c.caa_ide,
+                                                                c.caa_cod)
         logger.info(
             "[registro] cuentas obra=%s ok=%s recurso_sin_cuenta=%s "
             "obra_sin_cuenta=%s cuenta_ambigua=%s", destino.codigo,

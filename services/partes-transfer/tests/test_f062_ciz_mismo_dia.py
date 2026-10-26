@@ -358,3 +358,77 @@ def test_f062_doble_cuenta_para_el_cierre_en_la_ventana() -> None:
     cli = _cli()
     cli.cerrar_al_escribir = {HMO_OCT: 3}
     assert cli.escribir([_stmt_inicio(cli)]) == 0 and cli.lineas == []
+
+
+# ===================== Paso 4b · cuenta del hermano (R9) ===================== #
+
+from domain.models.registro_models import HoraRecurso, PartidaCuenta  # noqa: E402
+
+
+def _hc(horide, cod, caa=None, pre=0.0) -> HoraRecurso:
+    return HoraRecurso(horide=horide, cod=cod, res=None, pre=pre, caa_cod=caa,
+                       defecto=False)
+
+
+def _cli_cuentas(*, caa_ciz="R.CIZ1", partida=None) -> SigridFake:
+    cli = _cli()
+    cli.horas[REC] = [_hc(H_CIV, "CIV", "R.CIV1", PRE_CIV),
+                      _hc(H_CIZ, "CIZ", caa_ciz, PRE_CIZ)]
+    cli.cuentas = [(77, 1, 702, "C.CIV1"), (77, 1, 703, "C.CIZ1"),
+                   (77, 1, 704, "C.CI55")]
+    if partida is not None:
+        cli.partidas = {33: partida}
+    return cli
+
+
+def _inicio_partida(rid=4, fecha_int=D, **kw) -> LineaEntrada:
+    linea = _inicio(rid, fecha_int, **kw)
+    linea.partida_ide = 33
+    return linea
+
+
+def test_f062_r9_cuenta_del_hermano_la_del_codigo_ciz() -> None:
+    cli = _cli_cuentas()
+    a = _acc(_pf(cli, [_inicio(4, D)]), 4)
+    assert (a.caa_ide, a.caa_cod) == (702, "C.CIV1")
+    assert (a.fin_mismo_dia.caa_ide, a.fin_mismo_dia.caa_cod) == (703,
+                                                                 "C.CIZ1")
+    # R9: en la MISMA lectura de cuentas.
+    assert [c["subcuentas"] for c in cli.cuentas_leidas] == [["CIV1",
+                                                             "CIZ1"]]
+
+
+def test_f062_r9_respaldo_de_la_partida_en_la_misma_lectura() -> None:
+    cli = _cli_cuentas(caa_ciz=None,
+                       partida=PartidaCuenta(ide=33, cod="P33",
+                                             caa_cod="P.CI55"))
+    a = _acc(_pf(cli, [_inicio_partida()]), 4)
+    assert (a.caa_ide, a.caa_origen) == (702, "recurso")
+    assert (a.fin_mismo_dia.caa_ide, a.fin_mismo_dia.caa_cod) == (704,
+                                                                 "C.CI55")
+    assert [p["parides"] for p in cli.partidas_leidas] == [[33]]
+    assert [c["subcuentas"] for c in cli.cuentas_leidas] == [["CI55",
+                                                             "CIV1"]]
+
+
+def test_f062_r9_sin_cuenta_el_hermano_va_con_cero() -> None:
+    cli = _cli_cuentas(caa_ciz=None)
+    a = _acc(_pf(cli, [_inicio(4, D)]), 4)
+    assert a.caa_ide == 702
+    assert (a.fin_mismo_dia.caa_ide, a.fin_mismo_dia.caa_cod) == (0, None)
+
+
+def test_f062_r9_sin_hermano_no_pide_su_subcuenta() -> None:
+    cli = _cli_cuentas()
+    _pf(cli, [_inicio(4, D, ciz=False)])
+    assert [c["subcuentas"] for c in cli.cuentas_leidas] == [["CIV1"]]
+
+
+def test_f062_r9_los_recuentos_del_log_no_cuentan_el_hermano(caplog) -> None:
+    cli = _cli_cuentas()
+    with caplog.at_level("INFO"):
+        _pf(cli, [_inicio(4, D)])
+    assert ("[registro] cuentas obra=0100 ok=1 recurso_sin_cuenta=0 "
+            "obra_sin_cuenta=0 cuenta_ambigua=0") in caplog.text
+    assert ("[registro] origen cuenta obra=0100 recurso=1 partida=0 "
+            "ninguna=0") in caplog.text

@@ -38,7 +38,7 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
 - [x] **M0 hecha por el líder (2026-10-25, solo lectura)**: (a) `partes:%:%` ⇒ n = 0; (b) rachas abiertas heredadas ⇒ 0 (también 0 desde 20261001). Receta original:: comandos exactos en `design.md` §9;
   si (a) da `n > 0` (alguna synckey `partes:%:%`), PARA y `blocked`.
 - [ ] M1–M6: se copian con comando exacto a este bloque en T13 (`design.md` §9).
-- **Implementer (2026-10-26, `partes-wt-f062`)**: en curso. Tareas hechas: T1–T4. Desviaciones y
+- **Implementer (2026-10-26, `partes-wt-f062`)**: en curso. Tareas hechas: T1–T5. Desviaciones y
   decisiones: se anotan aquí y en `progress/impl_F-062.md`.
 
 ## F-063 · DONE 2026-10-26 (review APPROVED pasada 1; equivalente aceptado por el humano; pendiente: desplegar sv2 junto con F-058 y M2/M4 de F-058): consulta de obra de sv2 que use el índice
