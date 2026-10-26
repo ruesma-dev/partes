@@ -9,7 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}?v={{ asset_version }}">
 </head>
-<body>
+<body data-filtros-usuario="{{ clave_filtros_de(request) }}">
   <header class="topbar">
     <div class="container topbar-inner">
       <a class="topbar__brand" href="/trabajadores">

@@ -34,6 +34,14 @@ guarda nada).
 (rutas frente a junto a `_actor`) y `docs/ARCHITECTURE.md` (semántica 8 frente a punto 11). Trozos
 distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardada (se mira en M1).
 
+**Implementación (implementer, 2026-10-26)** — tarea en curso y decisiones; detalle en
+`progress/impl_F-064.md`.
+- T1 hecha (b85b574): `tests/test_f064_clave_usuario.py` y `tests/test_f064_filtros_js.py` en
+  ROJO (92 fallan por `clave_filtros`/`FiltrosSesion` ausentes; los 6 guardianes de huella de
+  R22/R23 pasan a propósito: fijan el texto de `dev`).
+- T2 hecha: `clave_filtros` (identidad.py), global `clave_filtros_de` (app.py, tras `_actor`) y
+  `<body data-filtros-usuario>`; tests de R1–R3 y los de F-017 en verde sin tocarlos.
+
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 
 **Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree

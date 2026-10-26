@@ -131,6 +131,7 @@ from interface_adapters.web.identidad import (
     CABECERA_NOMBRE,
     CABECERA_TOKEN,
     actor_desde_cabeceras,
+    clave_filtros,
     senal_de_despliegue,
 )
 from application.services.obra_catalog import ObraCatalog
@@ -823,6 +824,12 @@ def build_app(
         """
         actor, _origen = _resolver_identidad(request)
         return actor
+
+    # F-064 (R1-R3): la clave de filtros que `base.html` pinta en
+    # `<body data-filtros-usuario>`. Delega en el resolutor: no lee
+    # cabeceras por su cuenta, y el actor en claro no llega al HTML.
+    templates.env.globals["clave_filtros_de"] = (
+        lambda request: clave_filtros(*_resolver_identidad(request)))
 
     def _exigir_admin_jornadas() -> None:
         """Puerta UNICA de la pantalla de jornadas (R15).
