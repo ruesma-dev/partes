@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **60 features**, 14 abiertas, 46 terminadas.
+Resumen: **61 features**, 15 abiertas, 46 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -25,6 +25,7 @@ Bloqueadas: **F-032**.
 | F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 13 | pendiente | sin spec | critico | `feature/F-007-prompt-sv2-evals` |
 | F-008 | Modelo de roles en el portal (sv4) | 14 | pendiente | sin spec | estandar | `feature/F-008-roles-portal` |
 | F-011 | Jornada reducida por días desde Sesame sustituye al candef | 15 | pendiente | sin spec | critico | `feature/F-011-jornada-reducida-dias` |
+| F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | 16 | pendiente | sin spec | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
 ## Terminadas
 
@@ -190,6 +191,14 @@ estado **pendiente** · prioridad 15 · rigor `critico` · SDD sí · rama `feat
 **Spec**: sin spec
 
 Corrección de alcance sobre F-003, pedida por el humano el 2026-08-16 (entonces urgente): el candef sigue siendo la jornada teórica como hasta ahora (con el fallback de 8h si falta o es bajo), PERO en los días que Sesame indique jornada reducida para un trabajador, el candef se sustituye SOLO esos días por la jornada reducida (previsiblemente 7h). Afecta al cómputo de extras (sv3) y a los avisos de jornada incompleta (sv4), vía el resolutor único jornada_efectiva que F-003 dejó preparado. OJO: la spec debe verificar qué puede exponer sesame-api sobre días/periodos de jornada reducida (hoy /jornada solo da un booleano heurístico sin fechas) — probablemente amplía la petición P1 a ese proyecto; como F-003, valorar si se implementa apagada con el enchufe listo. REPRIORIZADA A BAJA por el humano el 2026-08-18, tras el informe de F-013: Sesame HR no tiene NINGÚN contrato cargado (0 de 218 empleados; /contract/v1/.../current-contract da contract_not_found para todos), así que hoy no existe fuente de jornada ni de reducida en Sesame. La spec deberá partir de decidir la fuente (contratos en Sesame cuando RRHH los cargue, módulo de horarios de Sesame, o tabla propia). Mientras tanto el candef sigue mandando (F-003 apagada; y encendida, sin contrato Sesame devuelve None y cae al candef). NOTA F-012 (2026-08-18): su fuente candidata es la tabla empleado_jornada (patrón explícito con vigencia) + emphis.porjorlab de Sigrid (% de jornada: 87,5/75/50…, con datos reales), no los contratos de Sesame.
+
+### F-065 · sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa
+
+estado **pendiente** · prioridad 16 · rigor `estandar` · SDD sí · rama `feature/F-065-buzon-por-aviso-de-graph`
+
+**Spec**: sin spec
+
+Alta pedida por el humano el 2026-10-26 (respuesta literal «si» a la propuesta del líder), a raíz de un aviso de la sesión de `facturas`: al aprobar el despliegue de su F-008, el humano eligió copiar nuestro sv1 (`create_sv1_poller.ps1`, una réplica siempre activa que mira el buzón cada 60 s), dijo «ya arreglaremos lo del hook» y pidió la misma feature en `facturas` (su F-077), `albaranes` y `partes`. Objetivo: sustituir el sondeo por notificaciones de cambio de Microsoft Graph sobre el buzón `partes@ruesma.es`, para que el contenedor escale desde cero en vez de pagar una réplica 24/7 (coste fijo estimado por `facturas` en 10-35 USD/mes por servicio, sin confirmar). A resolver en la spec: endpoint público nuevo (validationToken en el alta, clientState en cada aviso) y su autenticación; renovación de la suscripción (la de correo caduca en ~3 días); barrido de respaldo (Graph no garantiza la entrega); arranque en frío frente al plazo de respuesta de Graph; idempotencia (no procesar dos veces el mismo correo); coste real medido. Coordinación: diseño común con `facturas` (F-077) y `albaranes`, documentado en `azure-apps`, no tres distintos.
 
 ### F-001 · Test de estructura del monorepo (calentamiento)
 
