@@ -63,6 +63,8 @@ from application.services.congelacion import (
     vive_fuera,
 )
 from application.services.parte_vacio import (
+    DuplicadoActivoError,
+    es_retirado,
     marca_retirado,
 )
 from application.services.reparto_aviso import (
@@ -4170,21 +4172,89 @@ class ParteReviewRepository:
     def soft_delete_registro(self, *, registro_id: int, by: str | None = None) -> bool:
         return self.borrar_linea(registro_id=registro_id, by=by)["ok"]
 
+    @staticmethod
+    def _exigir_sin_duplicado_activo(session, doc: ParteDocumentOrm) -> None:
+        """F-061 (R7): devolver activo un parte cuyo sha256 ya tiene OTRO
+        parte activo (se reproceso) chocaria con el indice unico parcial
+        `WHERE is_active`. Se rechaza antes de escribir nada."""
+        otro = session.execute(
+            select(ParteDocumentOrm.id)
+            .where(ParteDocumentOrm.source_sha256 == doc.source_sha256)
+            .where(ParteDocumentOrm.is_active.is_(True))
+            .where(ParteDocumentOrm.id != doc.id)
+            .limit(1)
+        ).first()
+        if otro is not None:
+            raise DuplicadoActivoError()
+
+    @staticmethod
+    def _es_retirado(doc: ParteDocumentOrm | None) -> bool:
+        return doc is not None and es_retirado(
+            is_active=doc.is_active, deleted_at_utc=doc.deleted_at_utc,
+            deleted_by=doc.deleted_by)
+
     def restore_registro(self, *, registro_id: int) -> bool:
+        """Saca la linea de la papelera y devuelve su parte si estaba en la
+        papelera de partes o RETIRADO por quedarse sin lineas (F-061 R6).
+        Con otro parte activo del mismo sha256, `DuplicadoActivoError` sin
+        escribir nada (R7)."""
         with self._session_factory.create_session() as session:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            docs = self._bloquear_documentos(session, [reg.document_id])
+            doc = docs[0] if docs else None
+            en_papelera = bool(doc is not None and doc.deleted_at_utc
+                               and not doc.is_active)
+            retirado = self._es_retirado(doc)
+            if en_papelera or retirado:
+                self._exigir_sin_duplicado_activo(session, doc)
             reg.deleted_at_utc = None
             reg.deleted_by = None
             # Si su documento estaba en papelera (p.ej. quedo vacio), recuperarlo.
-            doc = session.get(ParteDocumentOrm, reg.document_id)
-            if doc is not None and doc.deleted_at_utc and not doc.is_active:
+            if en_papelera:
                 doc.is_active = True
                 doc.deleted_at_utc = None
                 doc.deleted_by = None
+            elif retirado:   # F-061 R6: vuelve con su linea.
+                doc.is_active = True
+                doc.deleted_by = None
             session.commit()
         return True
+
+    @classmethod
+    def _borrar_retirados_sin_filas(cls, session, ids=None) -> int:
+        """Borra FISICAMENTE cada parte retirado que no conserva ninguna
+        fila (F-061 R9–R11, DA3, decidido por el humano).
+
+        Con `ids=None` barre todos; si no, solo esos. Es el UNICO sitio de
+        este borrado: un parte con filas, o que no este retirado (activo,
+        en la papelera de partes, desactivado por sv3 con `deleted_by`
+        NULL), nunca entra. Devuelve cuantos borro.
+        """
+        session.flush()
+        stmt = (select(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(False))
+                .where(ParteDocumentOrm.deleted_at_utc.is_(None)))
+        if ids is not None:
+            ids = [i for i in ids if i]
+            if not ids:
+                return 0
+            stmt = stmt.where(ParteDocumentOrm.id.in_(ids))
+        borrados = 0
+        for doc in session.execute(stmt).scalars().all():
+            if not cls._es_retirado(doc):
+                continue
+            fila = session.execute(
+                select(ParteRegistroOrm.id)
+                .where(ParteRegistroOrm.document_id == doc.id)
+                .limit(1)
+            ).first()
+            if fila is not None:
+                continue
+            session.delete(doc)
+            borrados += 1
+        return borrados
 
     def hard_delete_registro(self, *, registro_id: int) -> bool:
         with self._session_factory.create_session() as session:
@@ -4194,7 +4264,10 @@ class ParteReviewRepository:
             motivo = motivo_borrado_definitivo([reg.sigrid_estado])
             if motivo is not None:   # F-004 R12, F-019 R16
                 raise CongeladoError(motivo)
+            document_id = reg.document_id
             session.delete(reg)
+            # F-061 R10: el parte retirado que se queda sin filas, tambien.
+            self._borrar_retirados_sin_filas(session, [document_id])
             session.commit()
         return True
 
@@ -4315,10 +4388,25 @@ class ParteReviewRepository:
         return len(p["documentos"]) + len(p["registros"])
 
     def restore_document(self, *, document_id: str) -> bool:
+        """Saca el parte de la papelera de partes.
+
+        F-061: con otro parte activo del mismo sha256,
+        `DuplicadoActivoError` sin escribir nada (R7). Si no le queda
+        ninguna linea viva (el legado del `soft_delete_worker` anterior),
+        vuelven tambien todas sus lineas de la papelera (R8): si no,
+        volveria activo y vacio.
+        """
         with self._session_factory.create_session() as session:
-            doc = session.get(ParteDocumentOrm, document_id)
+            docs = self._bloquear_documentos(session, [document_id])
+            doc = docs[0] if docs else None
             if doc is None:
                 return False
+            if not doc.is_active:
+                self._exigir_sin_duplicado_activo(session, doc)
+            if all(r.deleted_at_utc for r in doc.registros):
+                for r in doc.registros:
+                    r.deleted_at_utc = None
+                    r.deleted_by = None
             doc.is_active = True
             doc.deleted_at_utc = None
             doc.deleted_by = None
@@ -4379,14 +4467,22 @@ class ParteReviewRepository:
                     continue
                 session.delete(r)
                 regs_borrados += 1
+            # F-061 R9: el parte retirado que ya no conserva ninguna fila
+            # se borra fisicamente (barrido global, DA3).
+            partes_borrados = self._borrar_retirados_sin_filas(session)
             session.commit()
         if omitidos:
             logger.info(
                 "[papelera] %s elemento(s) omitidos por estar en Sigrid",
                 omitidos,
             )
-        return {"documentos": docs_borrados, "registros": regs_borrados,
-                "omitidos": omitidos}
+        res = {"documentos": docs_borrados, "registros": regs_borrados,
+               "omitidos": omitidos}
+        # Solo si es > 0, como `EXCLUIDA_REPARTO`: el resultado de siempre
+        # no cambia cuando no hay partes retirados que borrar.
+        if partes_borrados:
+            res["partes_borrados"] = partes_borrados
+        return res
 
     # ----------------------------------------------------------------- #
     # CREAR parte manualmente (un dia o un periodo).

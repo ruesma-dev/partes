@@ -70,7 +70,7 @@ producción:
 **Pendiente (ya no).** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
 autoriza el humano de forma literal.
 
-**Implementer (2026-10-26).** T1–T4 hechas; en curso: T5. Informe en
+**Implementer (2026-10-26).** T1–T5 hechas; en curso: T6. Informe en
 `progress/impl_F-061.md`.
 
 
