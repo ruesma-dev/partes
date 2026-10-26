@@ -990,6 +990,21 @@
       "priority": 1,
       "branch": "feature/F-064-filtro-en-sesion",
       "spec": "sin spec"
+    },
+    {
+      "id": "F-065",
+      "title": "sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa",
+      "description": "Alta pedida por el humano el 2026-10-26 (respuesta literal «si» a la propuesta del líder), a raíz de un aviso de la sesión de `facturas`: al aprobar el despliegue de su F-008, el humano eligió copiar nuestro sv1 (`create_sv1_poller.ps1`, una réplica siempre activa que mira el buzón cada 60 s), dijo «ya arreglaremos lo del hook» y pidió la misma feature en `facturas` (su F-077), `albaranes` y `partes`. Objetivo: sustituir el sondeo por notificaciones de cambio de Microsoft Graph sobre el buzón `partes@ruesma.es`, para que el contenedor escale desde cero en vez de pagar una réplica 24/7 (coste fijo estimado por `facturas` en 10-35 USD/mes por servicio, sin confirmar). A resolver en la spec: endpoint público nuevo (validationToken en el alta, clientState en cada aviso) y su autenticación; renovación de la suscripción (la de correo caduca en ~3 días); barrido de respaldo (Graph no garantiza la entrega); arranque en frío frente al plazo de respuesta de Graph; idempotencia (no procesar dos veces el mismo correo); coste real medido. Coordinación: diseño común con `facturas` (F-077) y `albaranes`, documentado en `azure-apps`, no tres distintos.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "estandar",
+      "priority": 16,
+      "branch": "feature/F-065-buzon-por-aviso-de-graph",
+      "spec": "sin spec"
     }
   ]
 }
