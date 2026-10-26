@@ -4,7 +4,10 @@
 **Servicios: sv5** (escribe el CIZ del inicio y lo encuentra para moverlo) **y sv4** (marca qué
 `inicio` lleva CIZ y manda los días de la racha hacia delante). Sin esquema ni colas nuevas; el
 payload gana `ciz_mismo_dia`. Rigor **crítico** (cambia lo que se escribe en Sigrid de
-producción). Depende de F-060 (en `dev`, desplegada con `MOVER_CIZ` apagado). DA en `design.md` §12.
+producción). Depende de F-060, con `MOVER_CIZ` **encendido en producción** desde el 2026-10-25
+(sv5 12:08:43Z, sv4 12:09:28Z; `dev` 463869d): F-062 se activa al desplegarse (`design.md` §4).
+
+**Aprobación del humano (2026-10-25, literal)**: «f62 ok a todo» ⇒ DA1–DA11 = A.
 
 **Petición del humano (2026-10-25, literal)**: «da3 y da6 revisa en sigrid como esta ahaora.» y,
 tras la propuesta del líder, «da de alta f62 la primera, y lanza spec». Regla de Sigrid: «no se
@@ -18,6 +21,12 @@ DA6 de F-060 («un día suelto deja solo su CI*») no es su práctica. DA3 sí l
 el CIZ en el mismo parte, 224 en el del mes siguiente, 65 en el de otra obra; 12 cortes a fin de
 mes). Propuesta aceptada: el `inicio` escribe su CI* y un CIZ (`can` 0) el mismo día; si la
 racha sigue, ese CIZ se mueve con la mecánica de F-060 (`UPDATE`, nunca `DELETE`).
+
+**Pares CI* + CIZ manuales del mismo recurso y día desde 2025 (líder, solo lectura)**: 315; 305
+en el mismo parte; 304 con el CIZ grabado después (`ide` mayor), 213 con `ide` consecutivo; 303
+con `pos` del CIZ mayor, solo 3 con `pos` + 1 (distancias más frecuentes: 64 (168), 21 (32), 32
+(31), 12 (11), 16 (11)). Administración graba el CI* y enseguida su CIZ en el mismo parte; la
+`pos` la pone la pantalla de Sigrid: sv5 no la imita, solo deja el CIZ detrás (R13).
 
 ## Contexto (dev f313407; detalle en `design.md` §1)
 
@@ -75,7 +84,7 @@ R12. SI en algún parte del periodo de D hay ya una línea del recurso, el día 
 que no es de la petición, ENTONCES no debe escribirse el hermano (el CI* sigue su regla).
 R13. El CI* y su hermano deben escribirse con UNA sentencia `INSERT` de dos filas (`design.md`
 §5): mismas columnas y valores que `stmt_insert_linea` salvo, en el hermano, `horide` y `pre`
-del CIZ, su cuenta, `pos` = la siguiente a la del CI* y synckey `partes:<X>:ciz`; la guarda de
+del CIZ, su cuenta, `pos` = la del CI* + `PASO_POS`, synckey `partes:<X>:ciz`; la guarda de
 parte abierto de F-034 para las dos filas y, solo en la del hermano, que no exista ya una línea
 con esa synckey (DA2).
 R14. Ninguna sentencia de esta feature debe ser `DELETE`.
@@ -130,7 +139,7 @@ variables), `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (paso 3c de sv
 que el inicio escribe CI* y CIZ el mismo día y que el CIZ se mueve si la racha sigue.
 R28. Verificaciones M0–M6 de `design.md` §9 con comando exacto en `progress/current.md`: M0 de
 solo lectura; M1–M5 en modo pruebas (obra 0404, `PRUEBA-IA`, `MOVER_CIZ=true` en sv4 y sv5),
-limpiando con `prueba_escritura_sigrid.py`; M6 de solo lectura en producción tras encender.
+limpiando con `prueba_escritura_sigrid.py`, ANTES de desplegar sv4; M6 de solo lectura después.
 
 ## Fuera de alcance
 

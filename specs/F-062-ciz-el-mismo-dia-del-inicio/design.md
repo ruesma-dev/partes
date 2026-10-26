@@ -3,12 +3,10 @@
 
 ## 1. Contexto y límite de servicio
 
-Hoy (dev f313407, F-060 con `MOVER_CIZ` encendido): sv4 da `inicio`/`fin` con la ventana; sv5
-escribe CI* en el `inicio` y, en el `fin`, busca el CIZ de la racha por `partes:<id>` de
-`racha_registro_ids` y lo mueve (`decidir_fin`) o lo crea. Un día suelto queda solo con su CI*.
-Con F-062 el `inicio` escribe además un **CIZ hermano** (`partes:<X>:ciz`) el mismo día, y el
-siguiente `fin` lo encuentra y lo mueve. Ejemplo del humano: día 1 V ⇒ CIV + CIZ el 1; día 2 V
-⇒ ese CIZ pasa al 2; 3 y 4 ⇒ al 3 y al 4; día 5 con horas ⇒ nada. En Sigrid, un CIV y un CIZ.
+Hoy (F-060, `MOVER_CIZ` encendido en producción): el `inicio` escribe su CI*; el `fin` busca
+el CIZ por `partes:<id>` de `racha_registro_ids` y lo mueve o lo crea; un día suelto queda solo
+con su CI*. Con F-062 el `inicio` escribe además un **CIZ hermano** (`partes:<X>:ciz`) y el
+siguiente `fin` lo mueve: día 1 V ⇒ CIV + CIZ el 1; días 2, 3 y 4 ⇒ el CIZ al 2, 3 y 4; día 5.
 
 **Límite de servicio** (sin duplicar lógica, nada entra en la lista cerrada): **sv4** sabe qué
 días hay en `partes` y qué viaja en la aprobación: decide qué `inicio` lleva CIZ (R1–R3) y
@@ -22,9 +20,8 @@ pipeline con `SigridFake`), `test_f062_cliente_inicio.py` (texto y parámetros S
 `services/partes-front/tests/test_f062_inicio_con_ciz.py` (puro y repositorio).
 
 **Modificar — sv5** (`services/partes-transfer/`):
-- `domain/models/registro_models.py`: `LineaEntrada.ciz_mismo_dia: bool = False`;
-  `FinMismoDia` (dataclass: `horide`, `hora_codigo`, `pre`, `caa_ide = 0`, `caa_cod`);
-  `AccionLinea.fin_mismo_dia: FinMismoDia | None = None`.
+- `domain/models/registro_models.py`: `LineaEntrada.ciz_mismo_dia: bool = False`; `FinMismoDia`
+  (`horide`, `hora_codigo`, `pre`, `caa_ide = 0`, `caa_cod`); `AccionLinea.fin_mismo_dia = None`.
 - `interface_adapters/api/app.py`: `LineaIn.ciz_mismo_dia: bool = False`. La cola construye
   `LineaEntrada` filtrando por `fields`: el campo nuevo entra solo.
 - `application/services/reglas_registro.py`: `ReglasRegistro(..., mover_ciz=False)`; en
@@ -43,14 +40,13 @@ pipeline con `SigridFake`), `test_f062_cliente_inicio.py` (texto y parámetros S
 - `infrastructure/database/parte_repository.py`: `lineas_para_registro` añade
   `"ciz_mismo_dia": False` a cada línea; `_roles_de_racha` devuelve también el tramo delante y
   los `inicio` con CIZ (§3). `config/settings.py`: comentario de `MOVER_CIZ`.
-- `tests/test_f025_aprobacion.py`: `CLAVES_LINEA` gana `ciz_mismo_dia`; las aserciones de
-  F-060 que fijan lista vacía en un `inicio` con el interruptor encendido se enmiendan (R1
-  enmienda R9 de F-060), cada una citada en el informe.
+- `tests/test_f025_aprobacion.py`: `CLAVES_LINEA` gana `ciz_mismo_dia`; las aserciones de F-060
+  con lista vacía en un `inicio` encendido se enmiendan (R1 enmienda R9 de F-060), citadas.
 
-**Docs**: los de §10. **No se tocan**: `orm_models.py`, sv1–sv3, `decidir`, `colapsar`, `aviso_desordenada`,
-`_rol_incidencia_anterior`, `_fin_movido`, `marcar_registros_sigrid`, `reparto_obras.py`,
-`static/app.js` y plantillas, `decidir_fin`, `stmt_mover_linea`, `stmt_insert_linea`,
-`comprobacion_lineas.py`, `pisado.py`, `parte_abierto.py`, `estado_parte.py`,
+**Docs**: §10. **No se tocan**: `orm_models.py`, sv1–sv3, `decidir`, `colapsar`,
+`aviso_desordenada`, `_rol_incidencia_anterior`, `_fin_movido`, `marcar_registros_sigrid`,
+`reparto_obras.py`, `static/app.js`, plantillas, `decidir_fin`, `stmt_mover_linea`,
+`stmt_insert_linea`, `comprobacion_lineas.py`, `pisado.py`, `parte_abierto.py`, `estado_parte.py`,
 `cuenta_analitica.py`, `congelacion.py`, `reajuste_pipeline.py`, `resultado_json.py`,
 `prueba_escritura_sigrid.py` e `incidencias.yaml`.
 
@@ -68,9 +64,8 @@ Puro, en `racha_incidencia.py`:
 En `_roles_de_racha` (solo con `mover_ciz`), tras `colapsar`: por cada `inicio` final, su lista
 es `racha_delante(historicos[persona], D, clave)`; `ciz` = `inicios_con_ciz(...)`. Devuelve
 `(roles, rachas, avisos, ciz)` y `lineas_para_registro` pone `ciz_mismo_dia = r.id in ciz` y la
-lista de `rachas` (ahora también para `inicio`). Apagado (R4): `False` y listas vacías. Antes del
-reparto por obra de F-022: un `fin` de otra obra en la misma aprobación cuenta (R2). La consulta
-del histórico ya cubre hasta `hasta_delante` (R12 de F-060): ninguna consulta nueva.
+lista de `rachas` (también del `inicio`). Apagado (R4): `False` y listas vacías. Antes del
+reparto por obra (F-022): cuenta un `fin` de otra obra (R2). Ninguna consulta nueva.
 
 ## 4. Contrato sv4 ↔ sv5
 
@@ -78,8 +73,15 @@ del histórico ya cubre hasta `hasta_delante` (R12 de F-060): ninguna consulta n
   también en el `inicio` (su tramo delante). Un sv5 anterior lo ignora (extras ignorados).
 - `escritas[i]` del inicio gana `ciz_hmores_ide` (informativa, sv4 no la guarda, DA3); una
   escrita de un hermano movido lleva `hmores_ide` y no `movida_de` (R19).
-- Despliegue: **sv5 y luego sv4**, con `MOVER_CIZ` apagado (= dev f313407). Encendido tras
-  M1–M5: **sv5 y luego sv4**; vuelta atrás: **sv4 y luego sv5** (como F-060; DA1).
+- **Despliegue con `MOVER_CIZ` YA encendido** (producción, 2026-10-25: sv5 `ca-sv5-transfer--
+  0000003` 12:08:43Z, sv4 `ca-sv4-front--0000002` 12:09:28Z; `dev` 463869d). Con DA1 = A,
+  F-062 se activa al desplegar, sin tocar variables: **sv5 y luego sv4**, con M0 y M1–M5 hechas
+  ANTES de desplegar sv4. sv5 nuevo con sv4 viejo es F-060 por R8 (sv4 viejo no manda
+  `ciz_mismo_dia`; `partes:<i>:ciz` no existe aún); el orden inverso también (sv5 viejo ignora
+  el campo). **Quitar solo F-062**: volver sv4 a su revisión anterior y dejar sv5 nuevo (R8),
+  que sigue moviendo los hermanos ya escritos; NO volver sv5 a la imagen de F-060 con hermanos
+  vivos (no lee `:ciz`: el siguiente `fin` escribiría otro CIZ). **Vuelta atrás completa**:
+  `MOVER_CIZ=false` en sv4 y luego en sv5 (R4, R8); lo escrito no se deshace.
 
 ## 5. sv5
 
@@ -88,27 +90,25 @@ del histórico ya cubre hasta `hasta_delante` (R12 de F-060): ninguna consulta n
 de siempre con `fin_mismo_dia = FinMismoDia(ciz.horide, ciz.cod, ciz.pre)` (R6); sin CIZ ⇒
 WARNING (R7). En `_resolver_cuentas`, el hermano se resuelve con
 `origen_subcuenta(horas_de(a), fin.horide, partida)` y `resolver_cuenta`, en las MISMAS lecturas
-de partidas y cuentas (sus `sub` entran en `pedidas`); los recuentos del log no lo cuentan (R9).
+(sus `sub` entran en `pedidas`); los recuentos del log no lo cuentan (R9).
 
 ### 5.2 Pasos 6 y 6 bis (bajo el lock; consultivo en `preflight`)
 Paso 6: si la acción del CI* pasa a `ya_registrado`, `fin_mismo_dia = None` (R10). Paso 6 bis
 (`_ciz_de_racha`, solo con `mover_ciz`): `fines` como hoy; `inicios` = acciones `escribir` con
 `fin_mismo_dia`. UNA llamada a `lineas_de_racha` con, por cada id i de las listas de `fines` e
 `inicios`, `synckey_de(i)` y `synckey_ciz_de(i)`, más `synckey_ciz_de(a.registro_id)` de cada
-inicio (R11, R18). Los `fines` siguen con `decidir_fin` sobre sus candidatas ampliadas (sin
-cambios en la regla). Por cada inicio, puro en `racha_ciz.py`:
-
+inicio (R11, R18). Los `fines`, `decidir_fin` sin cambios sobre sus candidatas ampliadas. Por
+cada inicio, puro en `racha_ciz.py`,
 `decidir_mismo_dia(fecha_int, recurso_ide, candidatas, propia, *, marca_pruebas) -> str | None`:
 `"ya_existe"` si `propia` (la de `partes:<D>:ciz`) no es None; `"posterior"` si alguna candidata
 cumple `es_ciz_del_recurso` con fecha > D; si no, None (se escribe). Con motivo ⇒
 `fin_mismo_dia = None` e INFO `ciz_mismo_dia_omitido registro_id=… motivo=…` (R16).
 
 ### 5.3 Paso 7
-Para cada acción con `fin_mismo_dia` que sigue `escribir` tras las omisiones del CI*: si en
-`existentes` de cualquier parte del periodo hay una línea con mismo `reside`, `fecha_int` y
-`horide == fin.horide` cuya synckey no está en `mias` ⇒ `fin_mismo_dia = None`, INFO motivo
-`ciz_en_sigrid` (R12). Las acciones bloqueadas por un conflicto no se escriben (R10): no hay
-hermano sin CI*.
+Acción con `fin_mismo_dia` que sigue `escribir` tras las omisiones del CI*: si en `existentes`
+de algún parte del periodo hay una línea con su `reside`, `fecha_int` y `horide == fin.horide`
+y synckey fuera de `mias` ⇒ `fin_mismo_dia = None`, INFO `ciz_en_sigrid` (R12). Bloqueada por
+un conflicto, no se escribe (R10): no hay hermano sin CI*.
 
 ### 5.4 Paso 9: una sentencia, dos filas (DA2)
 Acción con `fin_mismo_dia` ⇒ `stmt_insert_inicio_con_fin` en lugar de `stmt_insert_linea`;
@@ -126,15 +126,18 @@ WHERE <_guarda_parte_abierto('?')>
 Parámetros, en orden: `hmoide, reside, cenide, obride, paride, fecha_int, ano, mes, tex`;
 `pos_ci, horide_ci, pre_ci, caaide_ci, partes:<X>`; `pos_ciz, horide_ciz, pre_ciz, caaide_ciz,
 partes:<X>:ciz`; `hmoide, est` (guarda); `partes:<X>:ciz`. `can` y `tot` literales 0 (las
-incidencias van sin horas, R1 de reglas). Una sentencia es atómica en SQL Server: las dos filas o
-ninguna (salvo la del hermano por su `NOT EXISTS`), sin depender del corte en lotes de 15 de
-`escribir`. `SigridFake` reproduce esa semántica (guarda, `NOT EXISTS`, `ide` n y n + 1).
+incidencias van sin horas). Una sentencia es atómica en SQL Server: las dos filas o ninguna
+(salvo el hermano por su `NOT EXISTS`), sin depender del corte en lotes de 15. `SigridFake` la
+reproduce (guarda, `NOT EXISTS`, `ide` n y n + 1: el del hermano, consecutivo).
+**`pos`**: dos `pos_nueva` seguidas del parte (`max_pos` + `PASO_POS` y + 2 × `PASO_POS`; 64
+por defecto), como dos líneas cualesquiera de sv5: el CIZ queda detrás de su CI*, que es lo que
+hace Administración (`requirements.md`, 303 de 315 pares). Su distancia la pone la pantalla de
+Sigrid y no hay que imitarla: que la de sv5 sea también 64 es casualidad de `PASO_POS`.
 
 ### 5.5 Relectura y escritas
-La lectura por synckey de F-034 pide también `synckey_ciz_de(X)` de cada escrita con hermano.
-`confirmar_escritas` no cambia (decide el CI*). Confirmado el CI*: con el hermano en el mapa,
-`ciz_hmores_ide` en la escrita e INFO `ciz mismo dia ide=… hmoide=… fecha=… registro_id=…`;
-sin él, WARNING `ciz_mismo_dia_no_escrito registro_id=…` (R15, R16). Mover (R19): en el paso 9,
+La relectura de F-034 pide también `synckey_ciz_de(X)`; `confirmar_escritas` no cambia (decide
+el CI*). Confirmado el CI*: con el hermano, `ciz_hmores_ide` en la escrita e INFO `ciz mismo dia
+ide=… hmoide=… fecha=… registro_id=…`; sin él, WARNING `ciz_mismo_dia_no_escrito registro_id=…` (R15, R16). Mover (R19): en el paso 9,
 si `registro_de_synckey(ls.synckey)` es None no se pone `movida_de`; el INFO «ciz movido»
 imprime `synckey=<anterior>-><nueva>` en lugar de `registro_id=…->…`.
 
@@ -163,13 +166,10 @@ otra persona, otra clave). Repositorio con `FabricaSesionSqlite`: payload con `c
 lista delante; días 1–4 de una vez ⇒ el 1 falso; aprobar el 1 con 2–4 ingeridos ⇒ verdadero y
 [2, 3, 4]; apagado ⇒ falso y listas vacías; contador de `execute` igual que en F-060.
 sv5 puros: `decidir_mismo_dia`, `synckey_ciz_de`, `registro_de_synckey`. Cliente: texto y
-parámetros exactos de §5.4 y fuente sin `DELETE`. Pipeline con `SigridFake`, el ejemplo del
-humano día a día (CIV + CIZ el 1; el MISMO `ide` de CIZ al 2, 3 y 4; día 5 nada; 1 sigue
-`registrado`), un día suelto, cambio de mes (mueve de parte), todo de una vez (CIV 1 + CIZ 4,
-sin `:ciz`), desordenado (2 antes que 1 ⇒ el 1 sin hermano), `borrado_sigrid` reaprobado,
-CIZ ajeno el día D, recurso sin CIZ, parte cerrado al mover (R23), carrera (guarda ⇒ 0 filas),
-reentrega ⇒ `ya_registrado` sin hermano, modo pruebas sin marca, interruptor apagado o sin
-`ciz_mismo_dia` ⇒ idéntico a dev f313407 (sentencias comparadas).
+parámetros de §5.4, fuente sin `DELETE`. Pipeline con `SigridFake`: los casos M1–M5 de §9 (1
+sigue `registrado`), `borrado_sigrid` reaprobado, CIZ ajeno el día D, recurso sin CIZ, parte
+cerrado (R23), carrera, reentrega, modo pruebas sin marca, y apagado o sin `ciz_mismo_dia` ⇒
+sentencias idénticas a dev f313407 (R8).
 
 ## 9. Verificaciones manuales
 
@@ -187,7 +187,8 @@ reentrega ⇒ `ya_registrado` sin hermano, modo pruebas sin marca, interruptor a
 - **Preparación M1–M5 (humano, local)**: la de F-060 en `progress/current.md` («M1–M3 ·
   preparación»: sv5 con `$env:OBRA_PRUEBAS_FORZAR = 'true'; $env:MOVER_CIZ = 'true'; python
   main.py`, `/health` ⇒ `modo_pruebas: True` o **PARA**; sv4 con `$env:MOVER_CIZ = 'true';
-  python main.py`; lecturas L, S y V), con la rama de F-062 en `dev`. Recurso 2717792. Meses que
+  python main.py`; lecturas L, S y V), con F-062 en `dev`, ANTES de desplegar sv4, recurso
+  2717792. Meses que
   elige el humano, con `estado` ⇒ `NO existe parte` de la 0404 y **nunca 2026/06–2026/11**
   (PT26/00373, 00375 y 00376 se conservan). Antes, con S: `synckey LIKE 'partes:%:ciz'` ⇒ 0 y
   ninguna `partes:<id>` de los ids locales siguientes (colisión con producción, como en F-060).
@@ -208,10 +209,10 @@ reentrega ⇒ `ya_registrado` sin hermano, modo pruebas sin marca, interruptor a
   `python .\prueba_escritura_sigrid.py limpiar`, revisar que el DRY-RUN va sobre el ide de su
   parte (si no, **PARA**), `limpiar --ejecutar` y `estado` ⇒ `NO existe parte`; al final
   `git checkout -- prueba_escritura_sigrid.py` y cerrar las consolas.
-- **M6 (humano, producción, solo lectura, tras encender sv5 → sv4)**: la M4 de F-060 (`grupos =
-  0`) y `$q = @{ database='ruesma'; max_rows=10; parameters=@('partes:%:ciz', <AAAAMMDD>);
+- **M6 (humano, producción, solo lectura, tras desplegar sv5 → sv4)**: la M4 de F-060 (`grupos
+  = 0`) y `$q = @{ database='ruesma'; max_rows=10; parameters=@('partes:%:ciz', <AAAAMMDD>);
   sql='SELECT COUNT(*) AS n FROM hmores WHERE synckey LIKE ? AND fec >= ?' } | ConvertTo-Json`
-  ⇒ `n > 0` cuando se aprueben incidencias. Vuelta atrás: la de F-060 (sv4 y luego sv5).
+  ⇒ `n > 0` cuando se aprueben incidencias. Vuelta atrás: §4.
 
 ## 10. Documentación
 
@@ -228,11 +229,11 @@ local en `azure-apps`, sin push.
   demás, el aviso `racha_desordenada` de F-060. Un `fin` de otra obra que falla deja el
   `inicio` sin hermano (R2): racha abierta hasta reaprobar, como hoy.
 - Hermano en un parte cerrado al llegar el mes siguiente (DA7): más frecuente que en F-060.
-- Descartados: dos sentencias en el mismo lote (el corte de 15 puede separarlas); dar al
-  hermano la synckey `partes:<X>` (rompe idempotencia y F-024); un campo nuevo en vez de
-  reutilizar `racha_registro_ids` en el `inicio` (sv5 solo trata como `fin` lo que es CIZ).
+- Descartados: dos sentencias en un lote (el corte de 15 puede separarlas); la synckey
+  `partes:<X>` en el hermano (rompe idempotencia y F-024); un campo nuevo en vez de
+  `racha_registro_ids` en el `inicio` (sv5 solo trata como `fin` lo que es CIZ).
 
-## 12. Decisiones (pendientes del humano)
+## 12. Decisiones (humano, 2026-10-25, literal: «f62 ok a todo» ⇒ DA1–DA11 = A)
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|

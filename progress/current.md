@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-062 · SPEC_READY 2026-10-25 (pendiente de aprobación del humano). El inicio de una incidencia escribe CI* y CIZ el mismo día
+## F-062 · SPEC_READY y APROBADA 2026-10-25 (DA1–DA11 = A; sigue en `spec_ready`: la feature en curso es F-063). El inicio de una incidencia escribe CI* y CIZ el mismo día
 
 Spec en `specs/F-062-ciz-el-mismo-dia-del-inicio/` (rama `feature/F-062-ciz-el-mismo-dia-del-inicio`,
 worktree `partes-wt-f062`, sale de `dev` f313407). Rigor crítico. Servicios: **sv5** escribe el
@@ -9,7 +9,21 @@ CI* y su CIZ hermano (synckey `partes:<id>:ciz`) en UNA sentencia de dos filas y
 para moverlo con la mecánica de F-060; **sv4** marca `ciz_mismo_dia` en el `inicio` y manda su
 tramo delante. Sin esquema ni colas nuevas. Sustituye a DA6 de F-060.
 
-**Decisiones abiertas para el humano** (`design.md` §12, recomendación entre paréntesis):
+**Aprobación del humano (2026-10-25, literal)**: «f62 ok a todo» ⇒ **DA1–DA11 = A**. F-062 NO
+pasa a `in_progress` hasta que termine F-063 (la feature en curso).
+
+**Enmienda tras la aprobación (2026-10-25)**: `MOVER_CIZ` ya está ENCENDIDO en producción (sv5
+`ca-sv5-transfer--0000003` 12:08:43Z, sv4 `ca-sv4-front--0000002` 12:09:28Z; `dev` 463869d). Con
+DA1 = A, F-062 se activa al desplegarse: sv5 y luego sv4, con M1–M5 hechas ANTES de desplegar
+sv4. Comprobado contra R4/R8: sv5 nuevo con sv4 viejo = F-060 (R8, no llega `ciz_mismo_dia`); el
+orden inverso también. Quitar solo F-062 = volver sv4 a su revisión anterior y dejar sv5 nuevo;
+NO volver sv5 a la imagen de F-060 con hermanos escritos (no lee `:ciz` y el siguiente `fin`
+escribiría otro CIZ). Vuelta atrás completa: `MOVER_CIZ=false` en sv4 y luego en sv5
+(`design.md` §4). Añadida la lectura del líder de 315 pares CI* + CIZ manuales (`requirements.md`):
+el hermano toma `pos` = la del CI* + `PASO_POS` (64) y no imita la `pos` de la pantalla de
+Sigrid; su `ide` es el siguiente al del CI* (§5.4). Sin DA nueva.
+
+**Decisiones (aprobadas, todas A)** (`design.md` §12):
 DA1 interruptor (A: el mismo `MOVER_CIZ`; encender sv5→sv4, apagar sv4→sv5) · DA2 escritura
 (A: una sentencia, dos filas) · DA3 synckey y qué guarda sv4 (A: `partes:<id>:ciz`, sin columna
 nueva) · DA4 cómo lo encuentra el día siguiente (A: sv5 deriva la synckey; sin `movida_de`) ·
