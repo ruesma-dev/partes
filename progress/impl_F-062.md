@@ -169,8 +169,6 @@ FAILED tests/test_f062_inicio_con_ciz.py::test_f062_r5_sin_consultas_nuevas
 11 failed, 32 passed, 2 warnings in 3.25s
 ```
 
-Después de cada tarea, el mismo comando quedó en verde antes del commit.
-
 ## Verificaciones MANUAL pendientes (comandos exactos en `progress/current.md`)
 
 - **M0** hecha por el líder (2026-10-25): `partes:%:%` ⇒ 0 y rachas abiertas ⇒ 0.
@@ -199,7 +197,8 @@ Ejecutado tal cual (2026-10-26). La primera pasada falló solo en el tope de est
 | Tests raíz del monorepo | 522 passed, 3 skipped |
 | Tests nuevos de F-062 | sv5: 131 (`test_f062_ciz_mismo_dia.py`) + 7 (`test_f062_cliente_inicio.py`); sv4: 43 |
 | Cobertura de líneas cambiadas | **100,0 %** (135/135; umbral 80 %, nivel crítico) |
-| Mutación (campaña completa, lanzada por el líder) | **84 mutantes, 75 muertos, 9 supervivientes**, 0 timeouts, 4185 s ⇒ 6 huecos cerrados con test y 3 equivalentes propuestos |
+| Mutación (campaña completa, lanzada por el líder, **4 workers**) | **84 mutantes, 75 muertos, 9 supervivientes**, 0 timeouts, 4185 s (49,8 s/mutante) ⇒ 6 huecos cerrados con test y 3 equivalentes propuestos |
+| Equivalentes (RM5, review 1) | `progress/equivalentes_F-062.py`: sv4 «1 mutantes, 0 distintos», sv5 «2 mutantes, 0 distintos», exit 0, con el control `and 0` distinto. `progress/equivalentes_F-060.py` (roto por F-062, arreglado en 430412f): sv4 «4, 0 distintos», sv5 «2, 0 distintos» |
 
 **Supervivientes** (análisis completo en `progress/mutacion_F-062.md`; la campaña NO se ha
 relanzado). Cada test añadido se verificó a mano aplicando su mutante: el test falla con él y
@@ -207,11 +206,11 @@ pasa sin él (`python matar.py .` en el scratchpad ⇒ `red_mut.txt`; commit a7e
 
 | # | Lugar | Mutación | Clasificación | Test añadido / razón |
 |---|---|---|---|---|
-| 1 | sv4 `racha_incidencia.py:262` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | `d` es una fecha real: ni 0 ni 1 están en el tramo ni son > `d` |
+| 1 | sv4 `racha_incidencia.py:262` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | `d` es una fecha real: ni 0 ni 1 están en el tramo ni son > `d`; demostrado en `equivalentes_F-062.py sv4` |
 | 2 | sv5 `registro_pipeline.py:335` | `and`→`or` | hueco | `test_f062_mut_r9_hermano_con_subcuenta_propia_no_pide_partida` (mutante: lee `[33]`) |
 | 3 | sv5 `registro_pipeline.py:344` | `or 0`→`or 1` | hueco | `test_f062_mut_r9_hermano_sin_partida_no_toma_la_de_otra_linea` (mutante: `704`) |
-| 4 | sv5 `registro_pipeline.py:533` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | un `escribir` nunca tiene `recurso_ide` falso: las reglas omiten antes la línea sin recurso |
-| 5 | sv5 `registro_pipeline.py:547` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | igual que el 4, para los `fines` |
+| 4 | sv5 `registro_pipeline.py:533` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | un `escribir` nunca tiene `recurso_ide` falso: las reglas omiten antes la línea sin recurso; demostrado en `equivalentes_F-062.py sv5` |
+| 5 | sv5 `registro_pipeline.py:547` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | igual que el 4, para los `fines`; es el #11 de F-060, que el humano ya aceptó; demostrado en `equivalentes_F-062.py sv5` |
 | 6 | sv5 `registro_pipeline.py:586` | `or 0`→`or 1` | hueco | `test_f062_mut_r12_linea_sin_codigo_no_es_ciz_ajeno` (mutante: `True`) |
 | 7 | sv5 `registro_pipeline.py:817` | `or 0`→`or 1` | hueco | `test_f062_mut_r13_inicio_sin_partida_escribe_paride_cero` (mutante: `(1, 1)`) |
 | 8 | sv5 `racha_ciz.py:102` | `or`→`and` | hueco | `test_f062_mut_r20_synckey_ajena_con_digitos_no_es_registro` (mutante: `123`) |
