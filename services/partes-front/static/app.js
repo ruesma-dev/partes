@@ -128,6 +128,15 @@ var FiltrosSesion = (function () {
     if (!_esObjeto(est) || est.v !== VERSION) return null;
     if (typeof est.t !== "number" || !_esObjeto(est.pantallas)) return null;
     if (ahoraMs - est.t >= SESION_MS || est.t > ahoraMs + FUTURO_MS) return null;
+    // Una entrada de pantalla mal formada (null, no objeto o sin `t`
+    // numérico) se descarta: el código nunca la escribe y, si llega,
+    // no puede tumbar el init de la página.
+    var pantallas = {};
+    Object.keys(est.pantallas).forEach(function (r) {
+      var p = est.pantallas[r];
+      if (_esObjeto(p) && typeof p.t === "number") pantallas[r] = p;
+    });
+    est.pantallas = pantallas;
     return est;
   }
 

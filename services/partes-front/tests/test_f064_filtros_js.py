@@ -717,6 +717,54 @@ salir({antes: antes, lineas: filtrosDe(t), matriz: filtrosDe(mx),
     assert r["est"] is None or "/obras/obr-10" not in r["est"]["pantallas"]
 
 
+# ========= observacion 4 · entradas mal formadas en el almacen ========= #
+
+def test_f064_r6_entradas_de_pantalla_mal_formadas_se_descartan() -> None:
+    crudo = json.dumps({"v": 1, "t": AHORA, "pantallas": {
+        "/a": None, "/b": {"t": 5, "query": "search=x"}, "/c": 7,
+        "/d": [], "/e": {"query": "sin-t"}, "/f": "texto",
+        "/g": {"t": "ayer"}}})
+    est = _pura("estadoVigente", crudo, AHORA)
+    assert est == {"v": 1, "t": AHORA,
+                   "pantallas": {"/b": {"t": 5, "query": "search=x"}}}
+
+
+def _cola_del_init(js: str) -> str:
+    """Las lineas reales del `DOMContentLoaded` principal desde
+    `FiltrosSesion.restaurar(dias);` hasta `esperasDeLaPagina();`."""
+    bloque = _bloque_principal(js)
+    ini = bloque.index("    FiltrosSesion.restaurar(dias);\n")
+    fin = bloque.index("    esperasDeLaPagina();\n", ini)
+    return bloque[ini:fin + len("    esperasDeLaPagina();\n")]
+
+
+def test_f064_r6_pantalla_null_no_corta_el_init_de_f043() -> None:
+    """Observacion 4: una pantalla `null` (u otra basura) en el almacen no
+    puede lanzar dentro de `restaurar` y dejar sin correr `restaurarVista`
+    ni `esperasDeLaPagina` (F-043)."""
+    r = _dom("""
+almacen["partes.filtros.v1:u-ana"] = JSON.stringify({v: 1, t: ahora - 1000,
+  pantallas: {"/otra": null, "/rota": 7,
+              "/obras/obr-10": {t: ahora - 5000,
+                                cols: {"lines-table": {"Tipo": "extra"}}}}});
+var corridas = [], error = null;
+function restaurarVista() { corridas.push("restaurarVista"); }
+function esperasDeLaPagina() { corridas.push("esperasDeLaPagina"); }
+var cont = pagina("/obras/obr-10");
+var t = lineas(cont);
+try {
+  var dias = wireDayFilters();
+""" + _cola_del_init(_js()) + """
+} catch (e) { error = String(e); }
+salir({error: error, corridas: corridas, filtros: filtrosDe(t),
+       pantallas: Object.keys(estado().pantallas)});
+""")
+    assert r["error"] is None
+    assert r["corridas"] == ["restaurarVista", "esperasDeLaPagina"]
+    assert r["filtros"] == ["", "", "extra"]
+    assert r["pantallas"] == ["/obras/obr-10"]
+
+
 # ===================== DOM falso · R5, R6, R8, R9 ====================== #
 
 def test_f064_r5_sin_clave_de_usuario_no_guarda_ni_repone() -> None:
