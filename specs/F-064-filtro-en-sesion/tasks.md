@@ -16,6 +16,6 @@
 - [x] T7: `docs/ARCHITECTURE.md`, punto 11: clave de filtros, guardado por usuario y pantalla, caducidad de 8 h y selección nunca guardada (R25)  |  Verificación: revisión del reviewer; `git diff dev -- docs/ARCHITECTURE.md` solo toca ese punto
 - [x] T8: Comprobar el límite (R24)  |  Verificación: `git diff --stat dev` lista solo `services/partes-front/{interface_adapters/web/identidad.py,interface_adapters/web/app.py,static/app.js,templates/base.html,templates/partes_list.html,templates/obras_list.html,templates/trabajadores_list.html,tests/test_f064_clave_usuario.py,tests/test_f064_filtros_js.py}`, `docs/ARCHITECTURE.md`, `specs/`, `progress/`, `harness/features.json` y `BACKLOG.md`
 - [ ] T9: Campaña de mutación muestreada (rigor `estandar`) y análisis de supervivientes en `progress/impl_F-064.md`  |  Verificación: `python -m harness.mutacion --feature F-064` con el nivel de `harness/rigor.json`, supervivientes documentados
-- [ ] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T10: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
 - [ ] T11: M1 · recorrido del portal en local (design.md §8)  |  Verificación: MANUAL (humano o líder); los seis puntos anotados en `progress/impl_F-064.md`; no se aprueba nada fuera de la obra 0404
 - [ ] T12: Tras el APPROVED y la fusión, despliegue de sv4 y M2 con dos usuarios de Entra  |  Verificación: MANUAL (humano: pide el despliegue; ningún agente lanza `redeploy_partes.ps1`); resultado en `progress/current.md`
