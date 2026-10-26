@@ -37,7 +37,84 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
 
 - [x] **M0 hecha por el líder (2026-10-25, solo lectura)**: (a) `partes:%:%` ⇒ n = 0; (b) rachas abiertas heredadas ⇒ 0 (también 0 desde 20261001). Receta original:: comandos exactos en `design.md` §9;
   si (a) da `n > 0` (alguna synckey `partes:%:%`), PARA y `blocked`.
-- [ ] M1–M6: se copian con comando exacto a este bloque en T13 (`design.md` §9).
+- [ ] **T12 · mutación (la lanza el líder; rigor crítico, campaña COMPLETA)**: desde la raíz
+  del worktree, `python -m harness.mutacion --feature F-062` ⇒ `progress/mutacion_F-062.md`;
+  el implementer analiza cada superviviente (test o justificación). Cobertura de líneas
+  cambiadas: la da `bash harness/init.sh` (ver `progress/impl_F-062.md`).
+- [ ] **M1–M5 · preparación (humano, local; solo escribe en la obra 0404, modo pruebas)**.
+  Con F-062 ya fusionada en `dev` y ANTES de desplegar sv4 (`MOVER_CIZ` ya está encendido en
+  producción: desplegar sv4 = activar F-062, `design.md` §4). Consolas, lecturas **L**, **S**
+  y **V** y recurso 2717792: exactamente las de «M1–M3 · preparación» del bloque de F-060
+  (más abajo), con F-062 en el repo principal. Consola 1 (sv5):
+  `$env:OBRA_PRUEBAS_FORZAR = 'true'; $env:MOVER_CIZ = 'true'; python main.py`; consola 2:
+  `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True` (**si no, PARA**);
+  sv4: `$env:MOVER_CIZ = 'true'; python main.py`. Meses `<M1>`, `<M2>`, `<M3a>` (de 31 días)
+  y `<M3b>` (el siguiente), `<M4>`, `<M5>`: los elige el humano, cada uno con `estado` ⇒
+  `NO existe parte` de la 0404 y **nunca 2026/06–2026/11** (PT26/00373, 00375 y 00376 se
+  conservan). Antes de empezar, con S (sin `reside` ni fechas):
+  ```powershell
+  $q = @{ database = 'ruesma'; max_rows = 10; parameters = @('partes:%:ciz');
+    sql = 'SELECT COUNT(*) AS n FROM hmores WHERE synckey LIKE ?' } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
+  ```
+  ⇒ `n = 0` (si no, **PARA**). Y tras crear los partes locales de cada M, con S y los ids
+  locales `<id…>` (`parameters = @('partes:<id1>', 'partes:<id2>', …)`, `sql = 'SELECT
+  COUNT(*) AS n FROM hmores WHERE synckey IN (?, ?, …)'`) ⇒ `n = 0` (colisión con
+  producción, como en F-060: si no, **PARA**).
+- [ ] **M1 · un día (`<M1>`)**. «+ Nuevo parte»: trabajador 2717792, **V** el día 1; otro con
+  **8 h** el día 2. Aprobar el 1 ⇒ V (`verificar`, `<M1>`) ⇒ **CIV y CIZ el 01**; S
+  (`<M1>01`–`<M1>31`) ⇒ synckeys `partes:<id1>` y `partes:<id1>:ciz`, `pos` seguidas (la del
+  CIZ = la del CIV + 64) e `ide` consecutivos; consola 1: `[registro] ciz mismo dia
+  ide=<IZ> hmoide=<P> fecha=<M1>01 registro_id=<id1>`; L ⇒ el 1 `registrado` con
+  `sigrid_hmores_ide` = `ide` del CIV. Aprobar el 2 ⇒ HL de 8 h el 02; el CIZ sigue el 01.
+  **Limpieza** (V con `<M1>`):
+  ```powershell
+  python .\prueba_escritura_sigrid.py limpiar
+  python .\prueba_escritura_sigrid.py limpiar --ejecutar
+  python .\prueba_escritura_sigrid.py estado
+  ```
+  El DRY-RUN va sobre el ide del parte de `<M1>` (si sale otro, **PARA** y no lances el
+  `--ejecutar`); `estado` ⇒ `NO existe parte <AAAA>/<MM> de obra 0404`.
+- [ ] **M2 · día a día (`<M2>`)**. V los días 1–4 y 8 h el 5; aprobar de uno en uno, V y S
+  tras cada uno: 1 ⇒ CIV + CIZ el 01 (anotar el `ide` del CIZ, **IZ**); 2 ⇒ IZ con `fec` 02 y
+  synckey `partes:<id2>` (consola 1: `ciz movido ide=<IZ> hmoide=<P>-><P>
+  fecha=<M2>01-><M2>02 synckey=partes:<id1>:ciz->partes:<id2>`); 3 y 4 ⇒ IZ al 03 y al 04
+  (`registro_id=<id2>-><id3>` y `<id3>-><id4>`); 5 ⇒ HL el 05 y el CIZ sigue el 04. L ⇒ 1
+  y 4 `registrado` (el 1 con el `ide` del CIV), 2 y 3 `omitido` `fin_movido`, 5 `registrado`.
+  Administración mira la «Vista calendario» de la 0404 (CIV el 1, fin el 4). **Limpieza**:
+  los tres comandos de M1 con V en `<M2>`.
+- [ ] **M3 · cambio de mes (`<M3a>` 31, `<M3b>` 1)**. V el 31 de `<M3a>` y el 1 de `<M3b>`;
+  aprobar el 31 ⇒ CIV + CIZ el 31 (S ⇒ IZ y su `hmoide` **Pa**); aprobar el 1 ⇒ IZ con `fec`
+  `<M3b>01` y otro `hmoide` (**Pb**, parte nuevo de `<M3b>`); V de `<M3a>` ⇒ solo el CIV del
+  31; L ⇒ el 31 sigue `registrado`. **Limpieza**: los tres comandos de M1 con V en `<M3b>` y
+  luego en `<M3a>` (cada DRY-RUN sobre el ide de su parte; si no, **PARA**).
+- [ ] **M4 · todo de una vez (`<M4>`)**. V los días 1–4 ⇒ marcar las cuatro ⇒ «Aprobar
+  seleccionadas» ⇒ «Registrar». V ⇒ exactamente CIV el 01 y CIZ el 04; S ⇒ synckey del CIZ
+  `partes:<id4>` y **ninguna** `…:ciz`; L ⇒ 2 y 3 `omitido` con `dia intermedio de la
+  incidencia: solo se registran el inicio y el fin`. **Limpieza**: los tres comandos con `<M4>`.
+- [ ] **M5 · desordenado (`<M5>`)**. V los días 1–3; aprobar el **2** ⇒ CIZ el 02 (synckey
+  `partes:<id2>`); aprobar el **1** ⇒ solo CIV el 01 (consola 1: `[registro]
+  ciz_mismo_dia_omitido registro_id=<id1> motivo=posterior`; el modal puede avisar
+  `racha_desordenada`); aprobar el **3** ⇒ el CIZ pasa al 03 (`registro_id=<id2>-><id3>`).
+  **Limpieza**: los tres comandos con `<M5>`. Al terminar, Ctrl+C en las consolas 1 y 2 y
+  cerrarlas; `git checkout -- prueba_escritura_sigrid.py`.
+- [ ] **Despliegue (lo pide el humano)**: **sv5 y luego sv4**, sin tocar variables
+  (`MOVER_CIZ` ya está a `true` en los dos). Quitar solo F-062: volver sv4 a su revisión
+  anterior y dejar sv5 nuevo; **NO** volver sv5 a la imagen de F-060 con hermanos escritos.
+  Vuelta atrás completa: `MOVER_CIZ=false` en sv4 y LUEGO en sv5:
+  ```powershell
+  az containerapp update -n ca-sv4-front -g rg-partes-dev --set-env-vars MOVER_CIZ=false
+  az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MOVER_CIZ=false
+  ```
+- [ ] **M6 (humano, producción, solo lectura, tras desplegar sv5 → sv4)**. Anotar
+  `<AAAAMMDD>` (día del despliegue de sv4). La M4 de F-060 (bloque de F-060, más abajo) ⇒
+  `grupos = 0`, y:
+  ```powershell
+  $q = @{ database = 'ruesma'; max_rows = 10; parameters = @('partes:%:ciz', <AAAAMMDD>);
+    sql = 'SELECT COUNT(*) AS n FROM hmores WHERE synckey LIKE ? AND fec >= ?' } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
+  ```
+  ⇒ `n > 0` cuando se aprueben incidencias (inicios con su CIZ el mismo día).
 - **Implementer (2026-10-26, `partes-wt-f062`)**: en curso. Tareas hechas: T1–T8 (sv5 completo), T9–T11 (azure-apps a9d3b5b, local). Desviaciones y
   decisiones: se anotan aquí y en `progress/impl_F-062.md`.
 
