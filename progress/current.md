@@ -115,7 +115,7 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
   Invoke-RestMethod -Method Post -Uri "$env:SIGRID_API_BASE_URL/api/sql/read" -Headers @{ 'x-functions-key' = $KEY } -ContentType 'application/json' -Body $q
   ```
   ⇒ `n > 0` cuando se aprueben incidencias (inicios con su CIZ el mismo día).
-- **Implementer (2026-10-26, `partes-wt-f062`)**: en curso. Tareas hechas: T1–T8 (sv5 completo), T9–T11 (azure-apps a9d3b5b, local). Desviaciones y
+- **Implementer (2026-10-26, `partes-wt-f062`)**: terminado (`progress/impl_F-062.md`). Tareas hechas: T1–T8 (sv5 completo), T9–T11 (azure-apps a9d3b5b, local), T13 (comandos de M1–M6 abajo), T14 (`init.sh` verde, cobertura 135/135). Pendientes: T12 mutación (la lanza el líder) y M1–M6 (humano). Desviaciones y
   decisiones: se anotan aquí y en `progress/impl_F-062.md`.
 
 ## F-063 · DONE 2026-10-26 (review APPROVED pasada 1; equivalente aceptado por el humano; pendiente: desplegar sv2 junto con F-058 y M2/M4 de F-058): consulta de obra de sv2 que use el índice
