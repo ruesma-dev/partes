@@ -46,6 +46,7 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.parte_vacio import DuplicadoActivoError
 from application.services.edicion_celda import (
     MOTIVO_CELDA_CAMBIADA,
     Cambio,
@@ -3478,19 +3479,27 @@ def build_app(
     # ----------------------------------------------------------- #
     # BORRADO: linea / obra / persona  (soft -> papelera -> hard).
     # ----------------------------------------------------------- #
+    def _duplicado_activo(exc: DuplicadoActivoError) -> JSONResponse:
+        """F-061 (R7): 409 legible en vez del 500 del indice unico."""
+        return JSONResponse(status_code=409,
+                            content={"ok": False, "error": exc.motivo})
+
     @app.post("/api/registro/{registro_id}/delete", include_in_schema=False)
     def api_registro_delete(request: Request,
                             registro_id: int) -> JSONResponse:
-        ok = repository.soft_delete_registro(
+        # F-061 (R1): `parte_retirado` y `document_id` le dicen al portal
+        # que el parte se quedo sin lineas (el detalle daria 404).
+        return JSONResponse(repository.borrar_linea(
             registro_id=registro_id, by=_actor(request)
-        )
-        return JSONResponse({"ok": ok})
+        ))
 
     @app.post("/api/registro/{registro_id}/restore", include_in_schema=False)
     def api_registro_restore(registro_id: int) -> JSONResponse:
-        return JSONResponse(
-            {"ok": repository.restore_registro(registro_id=registro_id)}
-        )
+        try:
+            ok = repository.restore_registro(registro_id=registro_id)
+        except DuplicadoActivoError as exc:   # F-061 R7
+            return _duplicado_activo(exc)
+        return JSONResponse({"ok": ok})
 
     @app.post("/api/registro/{registro_id}/hard-delete", include_in_schema=False)
     def api_registro_hard(registro_id: int) -> JSONResponse:
@@ -3519,9 +3528,11 @@ def build_app(
 
     @app.post("/api/documento/{document_id}/restore", include_in_schema=False)
     def api_documento_restore(document_id: str) -> JSONResponse:
-        return JSONResponse(
-            {"ok": repository.restore_document(document_id=document_id)}
-        )
+        try:
+            ok = repository.restore_document(document_id=document_id)
+        except DuplicadoActivoError as exc:   # F-061 R7
+            return _duplicado_activo(exc)
+        return JSONResponse({"ok": ok})
 
     @app.post("/api/documento/{document_id}/hard-delete", include_in_schema=False)
     def api_documento_hard(document_id: str) -> JSONResponse:

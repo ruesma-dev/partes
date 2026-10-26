@@ -212,8 +212,10 @@ def test_f061_r3_borrar_linea_bloquea_el_parte_antes_de_las_guardas(
     original = ParteReviewRepository._bloquear_documentos
 
     def espia(self, session, document_ids):
-        llamadas.append(list(document_ids))
-        return original(self, session, document_ids)
+        # Lo que de verdad se bloquea, y en qué orden.
+        docs = original(self, session, document_ids)
+        llamadas.append([d.id for d in docs])
+        return docs
 
     monkeypatch.setattr(ParteReviewRepository, "_bloquear_documentos", espia)
     with pytest.raises(CongeladoError):
@@ -231,8 +233,10 @@ def test_f061_r3_soft_delete_worker_bloquea_sus_partes_por_id(
     original = ParteReviewRepository._bloquear_documentos
 
     def espia(self, session, document_ids):
-        llamadas.append(list(document_ids))
-        return original(self, session, document_ids)
+        # Lo que de verdad se bloquea, y en qué orden.
+        docs = original(self, session, document_ids)
+        llamadas.append([d.id for d in docs])
+        return docs
 
     monkeypatch.setattr(ParteReviewRepository, "_bloquear_documentos", espia)
     repo.soft_delete_worker(worker_key=_clave(fabrica, a), by="ana")

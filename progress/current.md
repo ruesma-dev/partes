@@ -70,8 +70,22 @@ producción:
 **Pendiente (ya no).** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
 autoriza el humano de forma literal.
 
-**Implementer (2026-10-26).** T1–T5 hechas; en curso: T6. Informe en
+**Implementer (2026-10-26).** T1–T6 hechas; en curso: T7. Informe en
 `progress/impl_F-061.md`.
+
+Desviaciones y decisiones del implementer (justificadas):
+- **`tests/test_f017_endpoints_firmados.py` tocado (3 líneas).** R1 cambia la respuesta de
+  `POST /api/registro/{id}/delete` y la ruta llama a `borrar_linea` (design §4.3). El test de
+  F-017 comparaba la respuesta con `{"ok": True}` exacto y espiaba `soft_delete_registro`. Se
+  adapta: comprueba `["ok"] is True` y espía `borrar_linea`. Lo que vigila (que el actor llega
+  a `deleted_by`) no cambia. La spec no lo listaba; no hay otra forma de cumplir R1.
+- **`partes_borrados` solo aparece si es > 0** (como `EXCLUIDA_REPARTO`). Así el resultado
+  de `vaciar_papelera` no cambia cuando no hay retirados que borrar, y
+  `test_f010_r11_…` y `test_f019_r16_vaciar_la_papelera_respeta_dedicacion`, que comparan el
+  dict exacto, siguen verdes sin tocarlos (verificación de T5).
+- **Bloqueos además de los de la spec:** `restore_registro` y `restore_document` también
+  bloquean el parte (`_bloquear_documentos`), para que restaurar no se cruce con un borrado de
+  la última línea. `_deshacer_creadas` bloquea los partes de las creadas antes de marcarlas.
 
 
 ## F-062 · DONE y DESPLEGADA 2026-10-26 (sv5 r20261026140625 13:07:34Z, sv4 r20261026140755 13:09:17Z; `MOVER_CIZ=true` en los dos; arranque sano; M1–M5 OK; M6 a repetir cuando se aprueben incidencias). El inicio de una incidencia escribe CI* y CIZ el mismo día
