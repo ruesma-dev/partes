@@ -47,6 +47,16 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
 - T4 hecha: `_setupDaySelection` devuelve `{claves, disponibles, seleccionar, limpiar}` y
   `wireDayFilters` el de la página o uno nulo. El DOM falso del test gana selectores con
   descendientes (`wireColumnFilters` usa `thead tr.filter-row`).
+- T5 hecha: DOM de `FiltrosSesion` (leer/escribir/barrer, foto, guardar, redirigir, restaurar,
+  aviso, quitarTodo) y sus líneas en el `DOMContentLoaded` principal.
+  **Desviación 1** (justificada): `tests/test_f043_portal_fecha.py::_manejador_principal`
+  localizaba el manejador por `{` + «// Toggle del visor de PDF.» pegados; con `redirigir()` como
+  1.ª línea (R19) dejaba de encontrarlo. Se cambia SOLO el ancla (busca el `addEventListener`
+  que precede al comentario); sus aserciones no cambian. Fuera de la lista de T8.
+  **Decisión** (hueco de la spec, lo exige M1.2 «otro mes ⇒ sin días; de vuelta ⇒ días»): la
+  foto conserva los días guardados de OTRO periodo si ahora no hay ninguno marcado, y la búsqueda
+  guardada si la consulta trae otro parámetro (R19 «ni guarda»).
+  `node` se lanza desde un fichero temporal: con `node -e` el programa pasa del límite de Windows.
 
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 

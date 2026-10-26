@@ -204,7 +204,235 @@ var FiltrosSesion = (function () {
     });
   }
 
+  // ---- Con DOM. Todo acceso a localStorage va en try/catch (R5). ---- //
+  var AVISO_ID = "filtros-sesion-aviso";
+  var DIAS_NULOS = {
+    claves: function () { return []; },
+    disponibles: function () { return []; },
+    seleccionar: function () {},
+    limpiar: function () {},
+  };
+  var dias = DIAS_NULOS;
+  var restaurando = false;            // sin escrituras mientras se repone
+
+  function usuario() {
+    try { return (document.body && document.body.dataset.filtrosUsuario) || ""; }
+    catch (e) { return ""; }
+  }
+  function almacen() {
+    try { return window.localStorage || null; } catch (e) { return null; }
+  }
+  function ruta() { return rutaNormal(window.location.pathname); }
+
+  // R6, R9: el estado vigente de ESTE usuario; si no lo es, se borra.
+  function leer() {
+    var clave = claveAlmacen(usuario()), ls = almacen();
+    if (!clave || !ls) return null;
+    try {
+      var crudo = ls.getItem(clave);
+      if (crudo === null) return null;
+      var est = estadoVigente(crudo, Date.now());
+      if (!est) ls.removeItem(clave);
+      return est;
+    } catch (e) { return null; }
+  }
+  function escribir(estado) {
+    var clave = claveAlmacen(usuario()), ls = almacen();
+    if (!clave || !ls) return;
+    try {
+      if (!Object.keys(estado.pantallas).length) ls.removeItem(clave);
+      else ls.setItem(clave, JSON.stringify(estado));
+    } catch (e) { /* almacen lleno o bloqueado: se sigue sin guardar */ }
+  }
+  // R8: borra las claves caducadas o rotas de CUALQUIER usuario.
+  function barrerCaducados(ahora) {
+    var ls = almacen();
+    if (!ls) return;
+    try {
+      var claves = [];
+      for (var i = 0; i < ls.length; i++) claves.push(ls.key(i));
+      claves.forEach(function (k) {
+        if (k && k.indexOf(PREFIJO) === 0 &&
+            !estadoVigente(ls.getItem(k), ahora)) ls.removeItem(k);
+      });
+    } catch (e) { /* sin almacen: nada que barrer */ }
+  }
+
+  // R11: tabla por id (o «matriz»/«tabla») y columna por su cabecera.
+  function claveTabla(table) {
+    if (table.id) return table.id;
+    return table.classList.contains("matrix") ? "matriz" : "tabla";
+  }
+  function claveColumna(table, input) {
+    var th = input.closest("th");
+    var thead = table.querySelector("thead");
+    var fila = thead ? thead.querySelector("tr") : null;
+    var cab = (th && fila) ? fila.children[th.cellIndex] : null;
+    if (!cab) return "";
+    return (cab.getAttribute("data-col-key") || cab.textContent || "").trim();
+  }
+  function tablasConFiltro() {
+    return Array.prototype.filter.call(document.querySelectorAll("table"),
+      function (t) { return !!t.querySelector("thead tr.filter-row"); });
+  }
+  function filtrosDe(table) {
+    return Array.prototype.slice.call(table.querySelector("thead tr.filter-row")
+      .querySelectorAll(".col-filter"));
+  }
+  // R12: valor de #period + "|" + modo del formulario; "" sin formulario.
+  function periodo() {
+    var form = document.querySelector("form.cal-period");
+    if (!form) return "";
+    var p = document.getElementById("period");
+    var m = form.querySelector('input[name="modo"]');
+    return (p ? p.value : "") + "|" + (m ? m.value : "");
+  }
+  function casillaSinExtra() { return document.getElementById("hide-sin-extra"); }
+
+  // La foto de la pantalla. Conserva de `previa` lo que esta pagina no
+  // puede ver: la busqueda si la consulta trae otro parametro (R19) y los
+  // dias de OTRO periodo si ahora no hay ninguno marcado (R12).
+  function foto(previa) {
+    var f = { cols: {} };
+    tablasConFiltro().forEach(function (table) {
+      filtrosDe(table).forEach(function (inp) {
+        var col = claveColumna(table, inp);
+        if (!col || !String(inp.value || "").trim()) return;
+        var t = claveTabla(table);
+        (f.cols[t] = f.cols[t] || {})[col] = inp.value;
+      });
+    });
+    var per = periodo(), claves = dias.claves();
+    if (claves.length) f.dias = { periodo: per, claves: claves };
+    else if (previa && previa.dias && previa.dias.periodo !== per) f.dias = previa.dias;
+    var casilla = casillaSinExtra();
+    if (casilla && !casilla.checked) f.sinExtra = false;
+    var q = consultaDeLista(ruta(), window.location.search);
+    if (q === null) q = (previa && previa.query) || "";
+    if (q) f.query = q;
+    return f;
+  }
+
+  // R7, R10: guarda la foto de la pantalla (y renueva `t`).
+  function guardar() {
+    if (restaurando || !usuario() || !almacen()) return;
+    var estado = leer(), r = ruta();
+    var previa = estado ? estado.pantallas[r] : null;
+    escribir(conPantalla(estado, r, foto(previa), Date.now()));
+  }
+
+  // R19: lista sin consulta con busqueda guardada => vuelve a ella.
+  function redirigir() {
+    try {
+      if (!usuario()) return false;
+      var estado = leer(), r = ruta();
+      var destino = destinoRestaurar(r, window.location.search,
+                                     estado ? estado.pantallas[r] : null);
+      if (!destino) return false;
+      window.location.replace(destino);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function quitarAviso() {
+    var a = document.getElementById(AVISO_ID);
+    if (a) a.remove();
+  }
+  // R17: el aviso con «Quitar filtros», al principio del contenido.
+  function pintarAviso() {
+    quitarAviso();
+    var aviso = document.createElement("div");
+    aviso.id = AVISO_ID;
+    aviso.className = "alert info";
+    aviso.setAttribute("role", "status");
+    var texto = document.createElement("span");
+    texto.textContent = "Filtros recuperados de tu sesión. ";
+    var boton = document.createElement("button");
+    boton.setAttribute("type", "button");
+    boton.className = "btn secondary small";
+    boton.textContent = "Quitar filtros";
+    boton.addEventListener("click", quitarTodo);
+    aviso.appendChild(texto);
+    aviso.appendChild(boton);
+    var shell = document.querySelector("main.page-shell");
+    var cont = (shell && shell.querySelector(".container")) || document.body;
+    cont.insertBefore(aviso, cont.firstChild);
+  }
+
+  // R17: vacia columnas y dias, vuelve a marcar la casilla y borra la
+  // entrada de la pantalla.
+  function quitarTodo() {
+    restaurando = true;
+    try {
+      tablasConFiltro().forEach(function (table) {
+        var limpiar = table.querySelector("thead tr.filter-row .filter-clear");
+        if (limpiar) { limpiar.click(); return; }
+        filtrosDe(table).forEach(function (inp) {
+          if (inp.value === "") return;
+          inp.value = "";
+          inp.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      });
+      dias.limpiar();
+      var casilla = casillaSinExtra();
+      if (casilla && !casilla.checked) {
+        casilla.checked = true;
+        casilla.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    } finally { restaurando = false; }
+    var estado = leer();
+    if (estado) escribir(conPantalla(estado, ruta(), null, Date.now()));
+    quitarAviso();
+  }
+
+  // R15-R18: repone la foto guardada de esta pantalla (columnas, dias del
+  // mismo periodo y casilla), hace UNA escritura y engancha el guardado.
+  function restaurar(manejador) {
+    dias = manejador || DIAS_NULOS;
+    barrerCaducados(Date.now());
+    if (!usuario() || !almacen()) return;           // R5
+    var estado = leer();
+    var previa = estado ? estado.pantallas[ruta()] : null;
+    var repuesto = { cols: {}, dias: null };
+    restaurando = true;
+    try {
+      if (previa) {
+        tablasConFiltro().forEach(function (table) {
+          var t = claveTabla(table);
+          var guardadas = (previa.cols || {})[t];
+          if (!guardadas) return;
+          filtrosDe(table).forEach(function (inp) {
+            var col = claveColumna(table, inp);
+            var valor = col ? guardadas[col] : undefined;
+            if (typeof valor !== "string" || !valor.trim()) return;  // R16
+            (repuesto.cols[t] = repuesto.cols[t] || {})[col] = valor;
+            if (inp.value === valor) return;
+            inp.value = valor;
+            inp.dispatchEvent(new Event("input", { bubbles: true }));  // R18
+          });
+        });
+        var lista = diasRestaurables(previa.dias, periodo(), dias.disponibles());
+        if (lista.length) {
+          dias.seleccionar(lista);
+          repuesto.dias = { periodo: periodo(), claves: lista };
+        }
+        var casilla = casillaSinExtra();
+        if (previa.sinExtra === false && casilla && casilla.checked) {
+          casilla.checked = false;
+          casilla.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+    } finally { restaurando = false; }
+    guardar();                                      // la UNICA escritura
+    if (filtrosRepuestos(repuesto)) pintarAviso();
+    document.addEventListener("lineas:cambio", guardar);
+    var casillaSE = casillaSinExtra();
+    if (casillaSE) casillaSE.addEventListener("change", guardar);
+  }
+
   return {
+    redirigir: redirigir,
+    restaurar: restaurar,
     puras: {
       claveAlmacen: claveAlmacen, rutaNormal: rutaNormal,
       estadoVigente: estadoVigente, fotoVacia: fotoVacia,
@@ -3002,6 +3230,7 @@ var FiltrosSesion = (function () {
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    if (FiltrosSesion.redirigir()) return;      // F-064 (R19): lista con busqueda guardada
     // Toggle del visor de PDF.
     var pdfBtn = document.getElementById("pdfToggle");
     var pdfWrap = document.getElementById("pdfWrap");
@@ -3034,7 +3263,7 @@ var FiltrosSesion = (function () {
     _cablear(".combo-obra", wireObraCombo);
     document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireColumnTools);
     document.querySelectorAll("table").forEach(wireColumnFilters);
-    wireDayFilters();
+    var dias = wireDayFilters();
     document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireSortable);
     _cablear(".combo-emp", wireEmpleadoCombo);
     wireNameEditToggles();
@@ -3046,7 +3275,9 @@ var FiltrosSesion = (function () {
     wireBulkSelect();
     wireNuevoParte();
     wireAddLine();
+    // F-064 (R15): los filtros de la sesion del usuario, ANTES que F-043.
     // F-043: la vista que guardo «Actualizar» y los partes en espera.
+    FiltrosSesion.restaurar(dias);
     restaurarVista();
     esperasDeLaPagina();
 

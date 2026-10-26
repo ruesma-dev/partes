@@ -21,6 +21,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -61,10 +62,15 @@ def _avisar(js: str) -> str:
 
 
 def _node(programa: str):
+    """Ejecuta el programa desde un fichero temporal: con `node -e`, el de
+    los tests de DOM pasa del limite de la linea de ordenes de Windows."""
     if NODE is None:
         pytest.skip("node no esta instalado: no se puede ejecutar el JS")
-    r = subprocess.run([NODE, "-e", programa], capture_output=True,
-                       text=True, encoding="utf-8", timeout=60)
+    with tempfile.TemporaryDirectory() as carpeta:
+        fichero = Path(carpeta) / "programa.js"
+        fichero.write_text(programa, encoding="utf-8")
+        r = subprocess.run([NODE, str(fichero)], capture_output=True,
+                           text=True, encoding="utf-8", timeout=60)
     assert r.returncode == 0, r.stderr
     return json.loads(r.stdout)
 
