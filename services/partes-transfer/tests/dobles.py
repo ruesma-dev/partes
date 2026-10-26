@@ -539,6 +539,24 @@ class SigridFake:
                 "guarda_hmoide": int(hmoide),
                 "pisadas": [int(i) for i in pisadas]}
 
+    def stmt_insert_inicio_con_fin(self, *, hmoide, obra, reside, fecha_int,
+                                   paride, ano, mes, tex, pos, horide, pre,
+                                   caaide, synckey, pos_fin, horide_fin,
+                                   pre_fin, caaide_fin, synckey_fin) -> dict:
+        """F-062 (R13, DA2): las dos filas del SQL real (CI* y su CIZ
+        hermano), con `can` y `tot` 0 y lo comun en las dos."""
+        comun = {"hmoide": int(hmoide), "reside": int(reside),
+                 "fec": int(fecha_int), "can": 0.0, "tot": 0.0,
+                 "paride": int(paride or 0), "ano": int(ano), "mes": int(mes),
+                 "tex": tex}
+        return {"op": "insert_inicio_con_fin", "guarda_hmoide": int(hmoide),
+                "filas": [
+                    dict(comun, pos=int(pos), horide=int(horide),
+                         pre=float(pre), caaide=int(caaide), synckey=synckey),
+                    dict(comun, pos=int(pos_fin), horide=int(horide_fin),
+                         pre=float(pre_fin), caaide=int(caaide_fin),
+                         synckey=synckey_fin)]}
+
     def stmt_mover_linea(self, *, linea, destino, hmoide, pos, fecha_int,
                          synckey, paride, caaide, ano, mes) -> dict:
         # F-060 (R20, R21): lo leido (WHERE) y lo nuevo (SET), como el SQL.
@@ -623,7 +641,8 @@ class SigridFake:
             n = 0
             de_lineas = 0
             for s in statements:
-                if s["op"] in ("insert", "anular", "mover"):
+                if s["op"] in ("insert", "anular", "mover",
+                               "insert_inicio_con_fin"):
                     self._cerrar_si_toca(de_lineas)
                     de_lineas += 1
                 if s["op"] == "crear_parte" and not self._alta_libre(s):
@@ -653,6 +672,23 @@ class SigridFake:
                     fila["ide"] = self._siguiente_hmores
                     fila["hora_codigo"] = None
                     self.lineas.append(fila)
+                elif s["op"] == "insert_inicio_con_fin":
+                    # F-062 (R13): UNA sentencia, dos filas con `ide` n y
+                    # n + 1; la guarda vale para las dos y el hermano solo
+                    # entra si su synckey no existe. Cuenta sus filas.
+                    if not self._abierto(s["guarda_hmoide"]):
+                        continue
+                    ci, ciz = s["filas"]
+                    existentes = {l.get("synckey") for l in self.lineas}
+                    for k, fila in enumerate((ci, ciz)):
+                        if k == 1 and fila["synckey"] in existentes:
+                            continue
+                        self._siguiente_hmores += 1
+                        self.lineas.append(dict(
+                            fila, ide=self._siguiente_hmores,
+                            hora_codigo=None))
+                        n += 1
+                    continue
                 elif s["op"] == "anular":
                     # F-053 (R2): pone a 0 la fila; nada mas cambia.
                     filas = [l for l in self.lineas if self._anulable(l, s)]

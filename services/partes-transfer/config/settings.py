@@ -57,6 +57,12 @@ class Settings(BaseSettings):
     # vuelta atras completa es apagarla en los DOS (lo ya movido en Sigrid
     # no se deshace): apagada solo aqui, sv4 sigue con la regla nueva y la
     # aprobacion dia a dia escribe un CIZ por dia de la racha.
+    # F-062 (DA1): con el mismo interruptor, el `inicio` que sv4 marca con
+    # `ciz_mismo_dia` escribe su CI* y un CIZ el mismo dia (synckey
+    # `partes:<id>:ciz`, una sola sentencia de dos filas) y el siguiente
+    # `fin` lo encuentra por esa synckey y lo mueve. NO volver sv5 a una
+    # imagen anterior a F-062 con hermanos escritos: no leeria `:ciz` y el
+    # siguiente `fin` escribiria otro CIZ.
     mover_ciz: bool = Field(False, alias="MOVER_CIZ")
 
     # --- Constantes del modelo Sigrid (confirmadas con datos reales) --- #

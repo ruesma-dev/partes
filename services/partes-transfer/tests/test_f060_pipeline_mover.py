@@ -303,7 +303,10 @@ def test_f060_r13_mueve_el_ciz_de_la_racha_con_una_lectura() -> None:
     a = _acc(pf, 4)
     assert a.accion == "escribir" and a.hora_codigo == "CIZ"
     assert a.mover is not None and a.mover.ide == 7001
-    assert cli.racha_leidas == [["partes:1", "partes:2", "partes:3"]]
+    # F-062 (R18) enmienda R13: por cada id se lee tambien `partes:<i>:ciz`.
+    assert cli.racha_leidas == [["partes:1", "partes:1:ciz", "partes:2",
+                                 "partes:2:ciz", "partes:3",
+                                 "partes:3:ciz"]]
     assert cli.estados_leidos == [[HMO_OCT]]
 
 
@@ -314,7 +317,9 @@ def test_f060_r13_una_sola_lectura_para_todas_las_acciones() -> None:
     cli.horas[REC + 1] = HORAS[REC]
     pf = _pf(cli, [_fin(4, 20261004, [3]), otro, _trabajo(5, 20261005)])
     assert len(cli.racha_leidas) == 1 and len(cli.estados_leidos) == 1
-    assert cli.racha_leidas[0] == ["partes:13", "partes:3"]
+    # F-062 (R18) enmienda R13: tambien `partes:<i>:ciz`.
+    assert cli.racha_leidas[0] == ["partes:13", "partes:13:ciz", "partes:3",
+                                   "partes:3:ciz"]
     assert _acc(pf, 4).mover.ide == 7001 and _acc(pf, 14).mover.ide == 7101
     assert _acc(pf, 5).mover is None
 
@@ -329,7 +334,9 @@ def test_f060_r13_sin_candidatas_no_lee_partes() -> None:
     cli = _cli()
     a = _acc(_pf(cli, [_fin(4, 20261004, [3])]), 4)
     assert a.accion == "escribir" and a.mover is None
-    assert cli.racha_leidas == [["partes:3"]] and cli.estados_leidos == []
+    # F-062 (R18) enmienda R13: tambien `partes:<i>:ciz`.
+    assert cli.racha_leidas == [["partes:3", "partes:3:ciz"]]
+    assert cli.estados_leidos == []
 
 
 def test_f060_r13_despues_de_la_idempotencia() -> None:

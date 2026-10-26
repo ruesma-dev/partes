@@ -221,7 +221,12 @@ registro**:
      (con `racha_registro_ids`); si no ⇒ inicio. Un fin cuya racha ya
      tiene su CIZ en Sigrid **lo mueve** (un `UPDATE` de fecha, synckey y
      parte de la misma línea, nunca un borrado) en vez de escribir otro,
-     y la línea que lo tenía queda `omitido` (`fin_movido`). Con
+     y la línea que lo tenía queda `omitido` (`fin_movido`). Desde
+     F-062, con el mismo interruptor, el inicio escribe su CI* **y un CIZ
+     el mismo día** (sv4 lo marca con `ciz_mismo_dia`; synckey
+     `partes:<id>:ciz`, las dos filas en una sola sentencia); si la racha
+     sigue, el siguiente fin mueve ese CIZ y el inicio conserva su CI*
+     (§4.4). Con
      `MOVER_CIZ` apagado en los dos, como antes de F-060: sv4 mira el
      histórico hacia atrás y hacia delante (`intermedio` si el siguiente
      día ya ingerido es incidencia) y cada fin escribe su CIZ. Sigrid
@@ -519,7 +524,9 @@ partes/obras (una racha puede empezar en una obra y seguir tras un
 traslado). La **Vista calendario** de Sigrid pinta el tramo completo
 entre el par inicio/fin — ver 12 M seguidas en pantalla con solo 2
 líneas físicas es el comportamiento correcto. Un día suelto (trabajo
-antes y después) lleva su código, como la «A» de un accidente puntual.
+antes y después) lleva su código, como la «A» de un accidente puntual;
+desde F-062 (con `MOVER_CIZ`) lleva además su CIZ ese mismo día, como lo
+graba Administración.
 
 **El CIZ se mueve (F-060)**. Como los partes se aprueban día a día, el
 fin de una racha no se conoce hasta que aparece un día trabajado. Regla
@@ -554,9 +561,34 @@ Sigrid, un CIV y un CIZ. Igual para bajas y el resto de letras.
   dos. Se enciende en sv5 y luego en sv4; se apaga en sv4 y luego en sv5.
   **La vuelta atrás completa es apagarla en los dos** (lo ya movido no se
   deshace): apagada solo en sv5, sv4 sigue con la regla nueva y la
-  aprobación día a día escribe un CIZ por día. Encenderlo está pendiente
-  del visto bueno de Administración (mover una línea de parte es nuevo
-  en Sigrid, y el CI\* suelto de un solo día sigue sin CIZ).
+  aprobación día a día escribe un CIZ por día. Encendido en producción
+  desde el 2026-10-25 (sv5 y luego sv4).
+
+**El CIZ del mismo día (F-062)**. Administración graba el CI\* de un
+inicio y enseguida su CIZ el MISMO día (306 de 340 inicios desde 2025).
+Con `MOVER_CIZ` encendido, el inicio hace lo mismo y el CIZ se mueve si
+la racha sigue. Ejemplo: día 1 V ⇒ CIV **y CIZ** el 1; días 2, 3 y 4 V ⇒
+ese CIZ pasa al 2, al 3 y al 4; día 5 con horas ⇒ el CIZ se queda en el 4.
+Un día suelto queda con su CIV y su CIZ.
+
+- **Quién lo decide**: sv4 marca el inicio con `ciz_mismo_dia` y le manda
+  en `racha_registro_ids` su **tramo delante** (los días ya ingeridos de
+  la misma letra, hasta el último del mes siguiente). No lo marca si el
+  fin de esa racha viaja en la misma aprobación (de esa obra u otra): el
+  CIZ lo escribe ese fin.
+- **Cómo se escribe**: sv5 escribe el CI\* y el CIZ («hermano», synckey
+  `partes:<id>:ciz`, `pos` detrás del CI\*, cuenta del código CIZ) con
+  **una sola sentencia de dos filas**: entran los dos o ninguno.
+- **Cuándo no**: si la racha ya tiene un CIZ posterior en Sigrid (llegada
+  desordenada), si el hermano ya existe (reaprobación), si hay un CIZ
+  ajeno de ese recurso ese día o si el recurso no tiene el código CIZ
+  (WARNING `sin_ciz_mismo_dia`): solo el CI\*.
+- **Cómo se mueve**: el siguiente fin busca también `partes:<id>:ciz` de
+  cada línea de su racha y lo mueve con el `UPDATE` de F-060; la línea
+  del inicio conserva su CI\* y sigue `registrado` (no hay `fin_movido`).
+- **Nada es retroactivo**: una racha que quedó abierta antes (solo CI\*)
+  recibe su CIZ con su siguiente fin. Quitar solo F-062 = volver sv4 a su
+  revisión anterior (sv5 sigue moviendo los hermanos ya escritos).
 
 ### 4.5 Partidas de imputación (a qué se atribuye el coste)
 
@@ -1004,8 +1036,8 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 | sv1 | Graph (tenant/client/secret ref), buzón, QUEUE_URL |
 | sv2 | GEMINI (secreto), colas, prompts/schema |
 | sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
-| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`) |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), API_PORT=8005 |
+| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`; F-062: marca el inicio con `ciz_mismo_dia` y le manda su tramo delante, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`) |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro; F-062: el inicio marcado escribe su CI* y un CIZ `partes:<id>:ciz` el mismo día, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), API_PORT=8005 |
 
 ---
 
@@ -1022,7 +1054,8 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 - **Incidencias sin horas** (can=0) y **solo inicio/fin de racha** (CI* /
   CIZ); intermedios ni se registran — Sigrid pinta el tramo. Desde F-060,
   con `MOVER_CIZ` encendido en sv4 y sv5, el CIZ de una racha se mueve
-  (UPDATE) en vez de duplicarse (§4.4).
+  (UPDATE) en vez de duplicarse (§4.4); desde F-062, el inicio escribe su
+  CI* y un CIZ el mismo día y es ese CIZ el que se mueve.
 - **Parte mensual por obra**: código `PT<AA>/NNNNN`; las líneas llevan
   synckey para idempotencia y detección de pisados.
 - **Papelera** en todo (documentos y líneas): borrado lógico recuperable.

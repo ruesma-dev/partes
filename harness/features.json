@@ -935,15 +935,19 @@
       "title": "Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración)",
       "description": "Petición del humano del 2026-10-25: «da de alta f62 la primera, y lanza spec», tras la lectura del líder en Sigrid (solo lectura, ruesma, líneas NO escritas por partes desde 2025-01-01) sobre DA3 y DA6 de F-060. DA6 (F-060, DA6 = A: una incidencia de un solo día deja solo su CI*) NO coincide con la práctica de Administración: de los inicios CI* manuales, 306 llevan CI* y CIZ el MISMO día (CIV 184, CIP 99, CIF 13, CIE 7, CIA 2, CIH 1) frente a 34 sin CIZ (casi todos rachas aún abiertas, sobre todo CIE). DA3 sí coincide (816 rachas con el CIZ en el mismo parte, 224 en el parte del mes siguiente de la misma obra, 65 en el parte de otra obra; solo 12 cortes a fin de mes). Propuesta del líder, aceptada por el humano como feature: al registrar el `inicio` de una racha, sv5 escribe el CI* y además un CIZ (can 0) el mismo día; si llega otro día de la misma racha, ese CIZ se mueve con la mecánica de F-060 (UPDATE optimista, sin DELETE). Así un día suelto queda CI*+CIZ y ninguna racha queda abierta sin CIZ. Depende de F-060 (desplegada, MOVER_CIZ apagado); a decidir en la spec: si va bajo el mismo interruptor MOVER_CIZ, qué pasa con las rachas ya abiertas (solo CI*), el `fin` que hoy escribe un CIZ nuevo cuando no encuentra el de la racha, y el impacto en sv4 (roles, racha_registro_ids, aviso de racha desordenada).",
       "acceptance": [
-        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "sv4: con MOVER_CIZ, el inicio final viaja con ciz_mismo_dia y su tramo delante en racha_registro_ids; falso si su fin viaja en la misma aprobación; apagado, falso y listas vacías (R1–R5)",
+        "sv5: con MOVER_CIZ, el inicio escribe CI* y su CIZ hermano (synckey partes:<id>:ciz) en UNA sentencia de dos filas, salvo CIZ posterior, hermano ya existente o CIZ ajeno ese día; nunca DELETE; apagado, como dev f313407 (R6–R17)",
+        "sv5: el fin siguiente encuentra el hermano por partes:<i>:ciz y lo mueve con la mecánica de F-060, sin movida_de; parte cerrado ⇒ ciz_en_parte_cerrado (R18–R24)",
+        "M0 de solo lectura, M1–M5 en modo pruebas (obra 0404, PRUEBA-IA) y M6 de solo lectura tras encender sv5 → sv4",
+        "Rigor crítico: fase RED, cobertura y mutación completa con 0 supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-062-ciz-el-mismo-dia-del-inicio",
-      "spec": "en redacción · `partes-wt-f062`"
+      "pendiente": "M1–M5 en local, modo pruebas (obra 0404), ANTES de desplegar sv4; luego desplegar sv5 → sv4 y M6 (solo lectura)"
     },
     {
       "id": "F-063",

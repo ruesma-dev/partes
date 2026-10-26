@@ -89,6 +89,11 @@ class Settings(BaseSettings):
     # se enciende en sv5 y LUEGO aqui; se apaga aqui y LUEGO en sv5.
     # Apagar los DOS es la vuelta atras completa (lo ya movido en Sigrid
     # no se deshace). Este encendido con sv5 apagado da un CIZ por dia.
+    # F-062 (DA1): con el mismo interruptor, el `inicio` lleva
+    # `ciz_mismo_dia` (sv5 escribe su CI* y un CIZ el mismo dia; si la
+    # racha sigue, el siguiente `fin` mueve ese CIZ) y en
+    # `racha_registro_ids` su tramo delante. Quitar solo F-062 es volver
+    # sv4 a su revision anterior; sv5 sigue moviendo lo ya escrito.
     mover_ciz: bool = Field(False, alias="MOVER_CIZ")
 
     # ------------------------------------------------------------ #

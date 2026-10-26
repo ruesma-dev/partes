@@ -29,11 +29,21 @@ sv4:
     una incidencia ya registrada (DA7: aviso, nada se mueve hacia atras).
   - `clave_incidencia` (DA4): la letra de la tabla de F-025 o, si no la
     reconoce, el codigo de la incidencia o el de hora, normalizados.
+
+F-062 · el `inicio` escribe su CI* y un CIZ el mismo dia (el «hermano»):
+
+  - `racha_delante` (R1): el tramo delante del inicio (los dias de su
+    clave desde D + 1, como mucho el ultimo del mes siguiente, con su
+    papelera `registrado`/`encolado`): sv5 mira ahi si la racha ya tiene
+    su CIZ despues de D (llegada desordenada) y no escribe otro.
+  - `inicios_con_ciz` (R2): los `inicio` finales que llevan
+    `ciz_mismo_dia`; no lo lleva el que tiene su `fin` en la misma
+    aprobacion (ese `fin` escribe el CIZ).
 """
 from __future__ import annotations
 
 import calendar
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
 
@@ -226,6 +236,52 @@ def colapsar(lineas: Sequence[LineaRol]) -> dict[int, str]:
             if l is not queda:
                 roles[l.registro_id] = INTERMEDIO
     return roles
+
+
+def racha_delante(hist: Sequence[LineaHist], fecha_int: int,
+                  clave: str) -> tuple[int, ...]:
+    """F-062 (R1): los ids del tramo delante del `inicio` del dia D.
+
+    Los dias que cuentan desde D + 1 hasta `hasta_delante(D)`, en orden,
+    mientras sean de incidencia `clave`: sus incidencias activas de esa
+    clave, mas las de la papelera de esa clave `registrado` o `encolado`
+    con fecha en (D, ultimo dia del tramo], tambien de los dias saltados.
+    Sin tramo, nada. Ordenada y sin repetidos."""
+    d = int(fecha_int)
+    delante = _dias(hist, d + 1, hasta_delante(d))
+    tramo: set[int] = set()
+    for f in sorted(delante):
+        if not _de_la_racha(delante[f], clave):
+            break
+        tramo.add(f)
+    if not tramo:
+        return ()
+    ultimo = max(tramo)
+
+    def viaja(l: LineaHist) -> bool:
+        f = int(l.fecha_int or 0)
+        if not l.es_incidencia or l.clave != clave:
+            return False
+        if l.activa:
+            return f in tramo
+        return (d < f <= ultimo
+                and (l.sigrid_estado or "") in ESTADOS_EN_SIGRID)
+
+    return tuple(sorted({l.registro_id for l in hist if viaja(l)}))
+
+
+def inicios_con_ciz(lineas: Sequence[LineaRol],
+                    roles: Mapping[int, str]) -> set[int]:
+    """F-062 (R1, R2): los `registro_id` con rol final `inicio` que
+    escriben su CIZ el mismo dia: los que ningun `fin` final de la misma
+    persona y clave tiene en su `racha_registro_ids` (si su `fin` viaja en
+    la misma aprobacion, el CIZ lo escribe ese `fin`, DA5)."""
+    con_fin = {(l.persona, l.clave, i) for l in lineas
+               if roles.get(l.registro_id) == FIN
+               for i in l.racha_registro_ids}
+    return {l.registro_id for l in lineas
+            if roles.get(l.registro_id) == INICIO
+            and (l.persona, l.clave, l.registro_id) not in con_fin}
 
 
 def aviso_desordenada(hist: Sequence[LineaHist],
