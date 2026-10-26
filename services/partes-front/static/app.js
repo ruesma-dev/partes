@@ -1474,11 +1474,14 @@ function avisarCambioLineas() {
     return { aviso: aviso, destino: enSuDetalle ? "/partes" : null };
   }
 
+  // Avisa y, si toca, navega a /partes. Devuelve false si quien llama
+  // debe recargar como siempre.
   function _irTrasBorrar(respuestas) {
     var r = destinoTrasBorrar(respuestas, window.location.pathname);
     if (r.aviso) alert(r.aviso);
-    if (r.destino) window.location.href = r.destino;
-    else window.location.reload();
+    if (!r.destino) return false;
+    window.location.href = r.destino;
+    return true;
   }
 
   function wireBorrado() {
@@ -1490,7 +1493,7 @@ function avisarCambioLineas() {
       if (!confirm("¿Mover esta línea a la papelera?")) return;
       btn.disabled = true;
       _postJSON("/api/registro/" + id + "/delete").then(function (d) {
-        if (d && d.ok) { _irTrasBorrar([d]); }
+        if (d && d.ok) { if (!_irTrasBorrar([d])) window.location.reload(); }
         else {
           btn.disabled = false;
           // F-004 R16: si el 409 es de congelacion, trae el motivo.
@@ -2786,7 +2789,9 @@ function avisarCambioLineas() {
       if (!confirm("\u00bfMover " + ids.length + " l\u00ednea(s) a la papelera?")) return;
       Promise.all(ids.map(function (id) {
         return _postJSON("/api/registro/" + id + "/delete");
-      })).then(function (respuestas) { _irTrasBorrar(respuestas); })   // F-061 R12
+      })).then(function (respuestas) {   // F-061 R12
+        if (!_irTrasBorrar(respuestas)) window.location.reload();
+      })
         .catch(function () { alert("Error al borrar en bloque."); });
     }
     function closePicker() {

@@ -70,8 +70,38 @@ producción:
 **Pendiente (ya no).** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
 autoriza el humano de forma literal.
 
-**Implementer (2026-10-26).** T1–T9 hechas; en curso: T10. Informe en
-`progress/impl_F-061.md`.
+**Implementer (2026-10-26).** T1–T11 y T13 hechas (un commit por tarea); `init.sh` en verde.
+Informe en `progress/impl_F-061.md`. Pendiente: T12 (mutación, la lanza el líder:
+`python -m harness.mutacion --feature F-061` desde la raíz del worktree), review, T14 (M1) y
+T15 (M2). `azure-apps`: commit local `86640b4` (solo `partes.md`).
+
+**M1 · humano, tras desplegar sv4** (`design.md` §9; ningún agente lanza `redeploy_partes.ps1`).
+En el portal, parte manual de prueba de la obra 0404, un día sin nada en Sigrid, con dos
+líneas, y sin aprobar nada:
+1. Borrar una línea ⇒ el parte sigue en `/partes`.
+2. Borrar la otra ⇒ aviso «El parte se ha quedado sin líneas y se ha retirado; sus líneas
+   siguen en la papelera.» y salto a `/partes`. El parte no sale en `/partes` ni en «Partes
+   borrados»; sus dos líneas sí, en «Líneas sueltas borradas».
+3. Restaurar una ⇒ el parte vuelve con ella.
+4. Borrarla otra vez y «Vaciar papelera». El líder comprueba, en solo lectura sobre la base
+   `partes` (nunca a nivel de servidor):
+   ```sql
+   BEGIN TRANSACTION READ ONLY;
+   SELECT count(*) FROM parte_documents WHERE id = '<document_id del parte de prueba>';
+   ROLLBACK;
+   ```
+   ⇒ `0`. Nada registrado en Sigrid; PT26/00373, 00375 y 00376 intactos.
+
+**M2 · limpieza de los existentes, solo con autorización literal del humano** (la lanza él).
+Desde `services/partes-front`, con el `.env` de sv4:
+1. `../../.venv/Scripts/python.exe limpiar_partes_vacios.py` ⇒ informe en
+   `services/partes-front/logs/limpieza_partes_vacios_<AAAAMMDD-HHMM>.md` y `.csv` (solo
+   lee; la M0 esperaba 30 `borrar` y 0 excluidos).
+2. Leído el informe: `../../.venv/Scripts/python.exe limpiar_partes_vacios.py --ejecutar
+   --esperados <N>`, con N = «Candidatos no excluidos» del informe. Si no coincide, sale con
+   código 2 sin escribir.
+3. Se repite la consulta M0 (`design.md` §9 del commit `02da480`) ⇒ 0 candidatos no
+   excluidos. Los agregados, a este fichero.
 
 Desviaciones y decisiones del implementer (justificadas):
 - **`tests/test_f017_endpoints_firmados.py` tocado (3 líneas).** R1 cambia la respuesta de

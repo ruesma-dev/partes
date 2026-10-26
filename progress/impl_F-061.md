@@ -2,6 +2,50 @@
 
 Rama `feature/F-061-parte-vacio-tras-borrar-lineas`, worktree `partes-wt-f061`. Solo sv4
 (`services/partes-front`). Rigor `estandar`. Spec: `specs/F-061-parte-vacio-tras-borrar-lineas/`.
+T1–T11 y T13 hechas, un commit por tarea (`git log --oneline dev..`). T12 (mutación) la lanza
+el líder; T14 y T15 son MANUAL (M1 y M2, comandos en `progress/current.md`).
+
+## Qué cambió
+
+| Fichero (`services/partes-front/`) | Cambio |
+|---|---|
+| `application/services/parte_vacio.py` (nuevo) | Marca `sin-lineas`, `marca_retirado`, `es_retirado`, `DuplicadoActivoError` y su motivo, `PARTES_SIGRID_PROTEGIDOS`, `motivo_exclusion_limpieza`, `categoria_vacio` y `empleados_leidos`. Todo puro |
+| `infrastructure/database/parte_repository.py` | `_sql_bloqueo_documentos` (`FOR UPDATE … ORDER BY id`, `populate_existing`), `_bloquear_documentos`, `_retirar_si_vacios` (el único que escribe la regla), `borrar_linea` (con `soft_delete_registro` delegando), `soft_delete_worker` (bloquea, relee, retira), `_deshacer_creadas` (bloquea y retira), `restore_registro` (R6/R7), `restore_document` (R7/R8), `_borrar_retirados_sin_filas` (el único borrado físico nuevo) en `vaciar_papelera` y `hard_delete_registro`, `list_partes` con solo las vivas y `ParteRow.sin_lineas`, `partes_vacios_activos` y `limpiar_vacios` |
+| `interface_adapters/web/app.py` | `api_registro_delete` devuelve el dict de `borrar_linea`; los dos restaurar dan 409 `{"ok": false, "error"}` con `DuplicadoActivoError` |
+| `static/app.js` | `destinoTrasBorrar` (pura) y `_irTrasBorrar`: aviso de R12 y `/partes` si se está en el detalle del parte retirado, en `.line-del` y en `doBorrar` (que pasa a `_postJSON` para leer cada JSON); los dos restaurar enseñan `d.error` |
+| `templates/partes_list.html` | Insignia `badge warn` «Sin líneas» |
+| `limpiar_partes_vacios.py` (nuevo) | Informe READ ONLY (MD + CSV en `logs/`) y `--ejecutar --esperados N` |
+| `tests/test_f061_{borrado,papelera,portal,limpieza}.py` (nuevos) | 91 tests |
+| `tests/test_f017_endpoints_firmados.py` | Espía `borrar_linea` y compara `["ok"]` (desviación justificada en `progress/current.md`) |
+
+Fuera de sv4: `docs/ARCHITECTURE.md` (semántica 8 y «Herramientas de consola») y
+`azure-apps/partes.md` (filas `source_sha256` y papelera, commit local `86640b4` en
+`azure-apps`, solo `partes.md`). No cambian sv1, sv2, sv3, sv5, `orm_models.py` ni
+`congelacion.py` (`git diff --stat dev`).
+
+## Decisiones de diseño y desviaciones
+
+- **`partes_borrados` solo si es > 0**, como `EXCLUIDA_REPARTO`: el dict de `vaciar_papelera`
+  no cambia sin retirados que borrar, y los tests de F-010 R11 y F-019 R16 que lo comparan
+  exacto siguen verdes sin tocarlos.
+- **F-017**: su test comparaba `{"ok": True}` exacto y espiaba `soft_delete_registro`, que la
+  ruta ya no llama. Se adapta (3 líneas); lo que vigila (el actor en `deleted_by`) no cambia.
+- **Bloqueos añadidos a los de la spec**: los dos restaurar y `_deshacer_creadas` también
+  bloquean el parte antes de tocar líneas (R3: ningún camino cambia líneas sin él).
+- `borrar_linea` relee la línea tras el bloqueo (`session.refresh`): si otro la borró mientras
+  esperaba, devuelve `{"ok": False}`. `soft_delete_worker` relee las candidatas y solo toca las
+  de partes que bloqueó.
+- `categoria_vacio`: con filas manda `todas_en_papelera`; sin filas, `manual` va antes que
+  `leídos` (igual que la consulta M0 de `design.md` §9 del commit `02da480`).
+- `limpiar_vacios` devuelve listas de ids (no nombres) para que el script imprima los saltados.
+- El script no se ha ejecutado contra ninguna base: solo en tests (SQLite) y `--help` /
+  `--ejecutar` sin `--esperados` (error de uso antes de conectar).
+
+## Fuera de alcance y pendiente
+
+- Lo de `requirements.md` «Fuera de alcance» (reprocesar, F-042, el parte que nace vacío).
+- **T12**: mutación, la lanza el líder (`python -m harness.mutacion --feature F-061`).
+- **T14 (M1)** tras desplegar sv4 y **T15 (M2)** con autorización literal del humano.
 
 ## Fase RED
 
