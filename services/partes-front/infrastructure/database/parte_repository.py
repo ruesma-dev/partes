@@ -62,6 +62,9 @@ from application.services.congelacion import (
     motivo_congelacion_linea,
     vive_fuera,
 )
+from application.services.parte_vacio import (
+    marca_retirado,
+)
 from application.services.reparto_aviso import (
     DECISION_APLICAR,
     DECISION_MANTENER,
@@ -4072,19 +4075,93 @@ class ParteReviewRepository:
             return "nom-" + nombre.replace(" ", "_")
         return "sin-obra"
 
+    # ---- F-061: el parte que se queda sin lineas vivas se RETIRA ---- #
+    @staticmethod
+    def _sql_bloqueo_documentos(ids):
+        """`SELECT ... FOR UPDATE` de esos partes, por `id` ascendente (R3).
+
+        Todo camino que borra lineas bloquea antes su parte y, si son
+        varios, siempre en el mismo orden: asi dos borrados simultaneos de
+        las dos ultimas lineas no dejan el parte activo y vacio, y no hay
+        abrazo mortal. En SQLite el `FOR UPDATE` desaparece al compilar.
+        `populate_existing` relee el parte ya cargado en la sesion: tras
+        esperar el bloqueo, lo que vale es lo que dejo el otro.
+        """
+        return (
+            select(ParteDocumentOrm)
+            .where(ParteDocumentOrm.id.in_(list(ids)))
+            .order_by(ParteDocumentOrm.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def _bloquear_documentos(self, session, ids) -> list[ParteDocumentOrm]:
+        ids = sorted({i for i in ids if i})
+        if not ids:
+            return []
+        return list(session.execute(
+            self._sql_bloqueo_documentos(ids)).scalars().all())
+
+    @staticmethod
+    def _retirar_si_vacios(session, ids, *, by: str | None) -> list[str]:
+        """Retira cada parte ACTIVO de `ids` sin ninguna linea viva (R1).
+
+        Es el UNICO sitio que escribe la regla: `is_active = False` y la
+        marca `sin-lineas` en `deleted_by`; `deleted_at_utc` sigue a NULL,
+        asi que no sale en la papelera de partes (DA1, DA7). Quien llama ya
+        tiene esos partes bloqueados. Devuelve los ids retirados.
+        """
+        session.flush()
+        retirados: list[str] = []
+        for did in sorted({i for i in ids if i}):
+            doc = session.get(ParteDocumentOrm, did)
+            if doc is None or not doc.is_active:
+                continue
+            viva = session.execute(
+                select(ParteRegistroOrm.id)
+                .where(ParteRegistroOrm.document_id == did)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .limit(1)
+            ).first()
+            if viva is not None:
+                continue
+            doc.is_active = False
+            doc.deleted_by = marca_retirado(by)
+            retirados.append(did)
+        return retirados
+
     # ---- LINEA (registro) ---- #
-    def soft_delete_registro(self, *, registro_id: int, by: str | None = None) -> bool:
+    def borrar_linea(self, *, registro_id: int,
+                     by: str | None = None) -> dict:
+        """Manda la linea a la papelera y retira su parte si se queda sin
+        lineas vivas, en la misma transaccion (F-061 R1).
+
+        Devuelve `{"ok": False}` si la linea no existe o ya estaba borrada;
+        si no, `{"ok": True, "parte_retirado": bool, "document_id": id}`.
+        """
         now_iso = datetime.now(timezone.utc).isoformat()
         with self._session_factory.create_session() as session:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None or reg.deleted_at_utc:
-                return False
+                return {"ok": False}
+            # R3: el parte, bloqueado ANTES de las guardas y de la linea.
+            self._bloquear_documentos(session, [reg.document_id])
+            session.refresh(reg)
+            if reg.deleted_at_utc:   # la borro otro mientras esperabamos
+                return {"ok": False}
             _exigir_reg_editable(reg)   # F-004 R4
             _exigir_sin_recalculo(reg.document)   # F-043 R38
             reg.deleted_at_utc = now_iso
             reg.deleted_by = by
+            retirados = self._retirar_si_vacios(
+                session, [reg.document_id], by=by)
+            document_id = reg.document_id
             session.commit()
-        return True
+        return {"ok": True, "parte_retirado": bool(retirados),
+                "document_id": document_id}
+
+    def soft_delete_registro(self, *, registro_id: int, by: str | None = None) -> bool:
+        return self.borrar_linea(registro_id=registro_id, by=by)["ok"]
 
     def restore_registro(self, *, registro_id: int) -> bool:
         with self._session_factory.create_session() as session:
