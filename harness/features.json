@@ -930,12 +930,12 @@
         "M0 hecha (30 vacíos sin filas, ninguno excluido); M1 tras desplegar sv4 y M2 (limpieza) autorizada por el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
-      "spec": "aprobada 2026-10-26 (DA1–DA4 decididas por el humano; «f61 ok»: DA5–DA8 = A) · `specs/F-061-parte-vacio-tras-borrar-lineas/` · `partes-wt-f061`"
+      "pendiente": "desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N"
     },
     {
       "id": "F-062",

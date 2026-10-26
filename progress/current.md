@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-061 · IN_PROGRESS desde 2026-10-26 (spec aprobada: DA1–DA4 del humano, DA5–DA8 = A con «f61 ok»; implementer en `partes-wt-f061`): un parte que se queda sin líneas no puede seguir activo
+## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 
 **Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree
 `partes-wt-f061`, rama `feature/F-061-parte-vacio-tras-borrar-lineas`, sacada de `dev`
@@ -75,20 +75,20 @@ Informe en `progress/impl_F-061.md`. Mutación (lanzada por el líder: 20 evalua
 muertos y 4 supervivientes, con 4 workers):
 - #2, #3 y #4 eran huecos y ya los matan tests nuevos.
 - #1 (`.limit(1)` → `.limit(2)` en `_borrar_retirados_sin_filas`) es un **equivalente
-  propuesto, pendiente de aceptación del humano**. Demostración:
+  aceptado por el humano** (2026-10-26, literal: «acepto»). Demostración:
   `python progress/equivalentes_F-061.py`.
 
-Pendiente: esa aceptación, review, T14 (M1) y T15 (M2).
+Pendiente: T14 (M1) y T15 (M2).
 
 **Arreglo de la observación 1 de la review, hecho el 2026-10-26** (commit `229c30c`). El humano
 dijo «si». Un parte retirado y aprobado ya nunca se borra físicamente: está probado con test,
 con su fase RED en `progress/impl_F-061.md`. Además, el humano aceptó el equivalente #1
 («acepto»).
 
-**init.sh está en ROJO solo por `PUERTA TAMAÑO`**: `progress/review_F-061.md` tiene 141 líneas y
-el tope es 140. El fichero es del reviewer y del líder; el implementer no lo toca. Hay que
-recortar una línea para dejarlo en verde. Todo lo demás está en verde: tests y cobertura del
-96,9 %. `azure-apps`: commit local `86640b4` (solo `partes.md`).
+**PUERTA TAMAÑO**: el líder recortó `progress/review_F-061.md` a 139 líneas (`a3dba3c`); tests y
+cobertura del 96,9 % en verde. `azure-apps`: commit local `86640b4` (solo `partes.md`).
+**Review pasada 2 (2026-10-26): APPROVED** (`progress/review_F-061.md`). Observaciones 2–4 fuera
+por decisión del humano.
 
 **M1 · humano, tras desplegar sv4** (`design.md` §9; ningún agente lanza `redeploy_partes.ps1`).
 En el portal, parte manual de prueba de la obra 0404, un día sin nada en Sigrid, con dos

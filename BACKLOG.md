@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **59 features**, 14 abiertas, 45 terminadas.
-
-En curso: **F-061**.
+Resumen: **59 features**, 13 abiertas, 46 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | en curso | aprobada 2026-10-26 (DA1–DA4 decididas por el humano; «f61 ok»: DA5–DA8 = A) · `specs/F-061-parte-vacio-tras-borrar-lineas/` · `partes-wt-f061` | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -62,6 +59,7 @@ Bloqueadas: **F-032**.
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico | M6 |
 | F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico | M4 |
 | F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
+| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |  |
@@ -79,14 +77,6 @@ Bloqueadas: **F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
-
-### F-061 · Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso
-
-estado **en curso** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
-
-**Spec**: aprobada 2026-10-26 (DA1–DA4 decididas por el humano; «f61 ok»: DA5–DA8 = A) · `specs/F-061-parte-vacio-tras-borrar-lineas/` · `partes-wt-f061`
-
-Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 
 ### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
 
@@ -391,6 +381,14 @@ estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feat
 **Pendiente**: Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes
 
 Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local sin escrituras): 6 páginas de dos escaneos (21/10 y 23/10) se guardaron sin obra ni fecha porque gpt-6.1-sol (IA_PROVIDER=openai en sv2) devolvió la cabecera entera a null aunque leyó las filas. El escaneo sale desplazado. Reproducido: 12 de 12 lecturas con gpt-6.1-sol dan cabecera vacía; gemini-4-argon da obra y fecha correctas 6 de 6 con las mismas filas. Decisiones del humano del 2026-10-23: «si, lanza f54 y la spec de relectura con gemini»; DA1 enmendada, «da1, vacia o no casa con ninguna obra»; y «para el tema de la cabecera podemos mejorar el prompt diciendole que hay una cabecera y que debera obtener la obra el dia mes, etc... añadelo a f58, lo demas ok» (DA2–DA8 aprobadas con la recomendación; comprobación de existencia en sv2). Spec enmendada (specs/F-058-relectura-cabecera-gemini/): solo sv2. Con al menos una fila de empleados, relee el mismo adjunto una vez con RELECTURA_CABECERA_PROVIDER (gemini, modelo GEMINI_MODEL) y el mismo prompt, esquema y catálogo si (a) obra_numero y fecha vienen vacíos o (b) la obra leída no existe en Sigrid (DA10 = B, «da10, vamos a poner una consulta en el momento al vuelo, y vemos tiempos. si la obra no existe se manda a relectura a gemini»: una consulta sql/read parametrizada a sigrid-api por página, sin caché, clave sin ceros a la izquierda, cualquier empresa y también de baja; truncated = fallo; cada consulta deja en el log INFO [obra-sigrid] con document_id y milisegundos, y en meta.relectura_cabecera.consulta_obra_ms al releer; si sigrid-api falla o pasa de OBRA_EXISTE_TIMEOUT_S = 5 s, no se relee por obra y la extracción sigue, propuesta pendiente DA12). No es la conciliación de sv3 ni amplía la lista de duplicados. Toma la cabecera entera de la relectura si es útil (con obra o fecha; con obra inexistente, si su obra existe); firma y empleados de la primaria; si falla o no es útil, la primaria (F-054 la manda a revisión). Traza en meta/debug.relectura_cabecera (motivo cabecera_vacia|obra_inexistente, resultado aplicada|vacia|no_casa|error). Interruptor RELECTURA_CABECERA encendido; sin cambios de entorno en Azure (Gemini y SIGRID_API_* ya están en ca-sv2-extraccion; M0 en solo lectura). Además, el punto 1 del prompt parte_trabajo_es dice que toda página tiene una cabecera y que de ella salen la obra, el día, el mes y el año, el membrete y el resto; vale para ambos proveedores y se mide con el banco del líder (MB: sincab con gpt-6.1-sol antes 0 de 12; sin regresión en control, Gemini ni batería de F-051). De 157 documentos con obra leída, los 157 casaron: el motivo obra inexistente es preventivo. Pendientes de confirmar DA9 (puerta del banco), DA11 (cabecera entera también con obra inexistente) y DA12 (fallo o lentitud de la consulta: no releer por obra, tope 5 s), recomendadas A. Tiempos de la consulta en Log Analytics tras desplegar (M4). Se actualizan ARCHITECTURE.md, azure-apps/partes.md (sv2 consume Gemini y sigrid-api) y el comentario de create_capps_partes.ps1.
+
+### F-061 · Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso
+
+estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
+
+**Pendiente**: desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N
+
+Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 
