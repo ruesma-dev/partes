@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-063 · IN_PROGRESS 2026-10-26 (M-T aceptada por el humano: DA3 enmendada, opción A): consulta de obra de sv2 que use el índice
+## F-063 · DONE 2026-10-26 (review APPROVED pasada 1; equivalente aceptado por el humano; pendiente: desplegar sv2 junto con F-058 y M2/M4 de F-058): consulta de obra de sv2 que use el índice
 
 **Aprobación del humano (2026-10-25, literal)**: «f63 ok a todo» ⇒ DA1–DA5 = A (la
 recomendación de `design.md` §10). Implementer en marcha en el worktree `partes-wt-f063`.

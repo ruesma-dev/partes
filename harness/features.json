@@ -874,7 +874,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-058-relectura-cabecera-gemini",
-      "pendiente": "M0 OK. M1 FALLA: la consulta de obra tarda 12–16 s en sigrid-api y el tope es 5 s (todas «no se sabe»). No desplegar sv2 hasta que decida el humano (progress/current.md)"
+      "pendiente": "Desplegar sv2 junto con F-063 (M0 OK; M1 de F-058 superada por F-063: M-EQ y M-T); tras desplegar, M2–M4"
     },
     {
       "id": "F-059",
@@ -958,12 +958,12 @@
         "M-EQ (equivalencia exhaustiva en lotes por ide, solo lectura) y M-T (60 consultas reales, puerta DA3) del líder antes de desplegar sv2; después el humano pide el despliegue y siguen M2/M4 de F-058",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-063-consulta-obra-rapida",
-      "spec": "aprobada 2026-10-25 («f63 ok a todo»: DA1–DA5 = A) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063`"
+      "pendiente": "Desplegar sv2 (lleva F-058 y F-063); tras desplegar, M2 y M4 de F-058 (tiempos reales de [obra-sigrid])"
     }
   ]
 }
