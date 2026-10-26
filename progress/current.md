@@ -1,6 +1,74 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-064 · DONE 2026-10-27 (review APPROVED pasada 2: observaciones 1, 2 y 4 arregladas a petición del humano, «arregla»; mutación 4/4; pendiente: desplegar sv4, M1 y M2): el filtro del portal se mantiene durante la sesión de cada usuario
+
+Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
+`partes-wt-f064`, sale de `dev` ec7111d). Rigor estándar. **Solo sv4**: `identidad.py` (clave
+pura), `app.py` (global de Jinja), `base.html` (`data-filtros-usuario`), las tres listas
+(«Limpiar» ⇒ `?search=`) y `static/app.js` (IIFE `FiltrosSesion` + manejador de días). Sin
+esquema, endpoints ni colas; `azure-apps/partes.md` no cambia.
+
+**Aprobación del humano (2026-10-26, literal)**: «ok a f64» ⇒ DA1–DA7 = A (la recomendación de `design.md` §9).
+
+**Corrección al encargo**: «Actualizar» con `VISTA_CLAVE` es de **F-043** (R21, DA10), no de F-022.
+
+**Decididas por el humano** («ok a f64», todas = A; `design.md` §9):
+DA1 qué entra (A: columnas de todas las tablas, días, casilla «sin código de hora extra» y
+`search`/`pendientes` de las tres listas; sin mes ni modo de los detalles) · DA2 dónde y qué es
+«sesión» (A: `localStorage` con clave por usuario —hash del actor de Easy Auth— y caducidad de 8 h
+sin actividad; B: `sessionStorage` por pestaña; C: servidor) · DA3 ámbito (A: por pantalla
+concreta, cada obra/trabajador los suyos, días además por periodo) · DA4 limpieza (A: «Limpiar»
+guarda el vacío, aviso «Filtros recuperados» con «Quitar filtros», caducidad y barrido) · DA5
+«Actualizar» de F-043 (A: no se toca, F-064 repone antes) · DA6 selección de líneas (A: nunca se
+guarda; con filtro repuesto solo se aprueba lo visible) · DA7 sin identidad desplegado (A: no se
+guarda nada).
+
+- [x] **M0 hecha por el líder (2026-10-26, solo lectura)**: `login.cookieExpiration` ⇒ `null` (sin configurar: defecto de Easy Auth, 8 h) ⇒ la caducidad de 8 h de DA2 se queda. Receta original: `az containerapp auth show -n ca-sv4-front -g
+  rg-partes-dev --query login.cookieExpiration`; si no es 8 h (o vacío = 8 h por defecto),
+  `SESION_MS` toma ese valor. Anotarlo aquí.
+- [ ] M1 (local, `design.md` §8) y M2 tras desplegar sv4 (dos usuarios de Entra, mismo navegador).
+
+**Solape con F-061** (`partes-wt-f061`, para la fusión): `static/app.js` (F-061 ≈ l. 1457–1561 y
+2753; F-064 ≈ l. 82, 893–990 y 2829–2846), `partes_list.html` (l. 66 frente a l. 34), `app.py`
+(rutas frente a junto a `_actor`) y `docs/ARCHITECTURE.md` (semántica 8 frente a punto 11). Trozos
+distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardada (se mira en M1).
+
+**Implementación (implementer, 2026-10-26)** — tarea en curso y decisiones; detalle en
+`progress/impl_F-064.md`.
+- T1 hecha (b85b574): `tests/test_f064_clave_usuario.py` y `tests/test_f064_filtros_js.py` en
+  ROJO (92 fallan por `clave_filtros`/`FiltrosSesion` ausentes; los 6 guardianes de huella de
+  R22/R23 pasan a propósito: fijan el texto de `dev`).
+- T2 hecha: `clave_filtros` (identidad.py), global `clave_filtros_de` (app.py, tras `_actor`) y
+  `<body data-filtros-usuario>`; tests de R1–R3 y los de F-017 en verde sin tocarlos.
+- T3 hecha: IIFE global `FiltrosSesion` tras `avisarCambioLineas` con constantes y puras
+  (API `puras`); tests puros en verde. Nota: el `init.sh` previo a T1 dio un rojo transitorio en
+  sv4 (`clave_filtros_de` indefinido) por editar `base.html` mientras corría; no es del arnés.
+- T4 hecha: `_setupDaySelection` devuelve `{claves, disponibles, seleccionar, limpiar}` y
+  `wireDayFilters` el de la página o uno nulo. El DOM falso del test gana selectores con
+  descendientes (`wireColumnFilters` usa `thead tr.filter-row`).
+- T5 hecha: DOM de `FiltrosSesion` (leer/escribir/barrer, foto, guardar, redirigir, restaurar,
+  aviso, quitarTodo) y sus líneas en el `DOMContentLoaded` principal.
+  **Desviación 1** (justificada): `tests/test_f043_portal_fecha.py::_manejador_principal`
+  localizaba el manejador por `{` + «// Toggle del visor de PDF.» pegados; con `redirigir()` como
+  1.ª línea (R19) dejaba de encontrarlo. Se cambia SOLO el ancla (busca el `addEventListener`
+  que precede al comentario); sus aserciones no cambian. Fuera de la lista de T8.
+  **Decisión** (hueco de la spec, lo exige M1.2 «otro mes ⇒ sin días; de vuelta ⇒ días»): la
+  foto conserva los días guardados de OTRO periodo si ahora no hay ninguno marcado, y la búsqueda
+  guardada si la consulta trae otro parámetro (R19 «ni guarda»).
+  `node` se lanza desde un fichero temporal: con `node -e` el programa pasa del límite de Windows.
+- T6 hecha: «Limpiar» de las tres listas ⇒ `?search=`; parseo Jinja2 de las tres y de `base.html` OK.
+- T7 hecha: `docs/ARCHITECTURE.md` punto 11, párrafo «Filtros por usuario (F-064)».
+- T8 hecha: `git diff --stat dev` = la lista de T8 + `tests/test_f043_portal_fecha.py` (desviación 1).
+  Nada de sv1/sv2/sv3/sv5, `infra/`, `orm_models.py` ni `azure-apps/`.
+- [x] T9 (mutación, lanzada por el líder el 2026-10-26, 4 workers, 1875 s): 4 mutantes, 4 muertos, 0 supervivientes (`progress/mutacion_F-064.md`). Solo alcanza el Python (`identidad.py`); el JS no se muta.
+- T10 hecha: `bash harness/init.sh` ⇒ ENTORNO LISTO (sv4 2984 passed; COBERTURA 100 % 7/7).
+- Review pasada 1 APPROVED con 6 observaciones; el humano pidió «arregla» para la 1, la 2 y la 4
+  (hechas en 6be5c0b, ec7297d y 430274e) y aprobó la automejora del reviewer (dev 755f5f6,
+  encargo en `arnes-base` 6eb331d). Review pasada 2: APPROVED (`progress/review_F-064.md`).
+- Pendiente: T11/M1 (pasos en `design.md` §8 y resumidos en `impl_F-064.md`) y
+  T12/M2 tras desplegar. Informe: `progress/impl_F-064.md`.
+
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 
 **Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree

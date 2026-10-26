@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
 from collections.abc import Mapping
@@ -270,3 +271,27 @@ def actor_desde_cabeceras(
     if not etiqueta or es_actor_reservado(etiqueta):
         return ACTOR_LOCAL_SIN_NOMBRE, "local"
     return (PREFIJO_LOCAL + etiqueta)[:ACTOR_MAX_LEN], "local"
+
+
+#: F-064 · cuantos hexadecimales del SHA-256 forman la clave de filtros.
+CLAVE_FILTROS_LEN = 16
+
+
+def clave_filtros(actor: str, origen: str) -> str:
+    """F-064 (R1-R3): la clave con la que el navegador guarda los filtros.
+
+    Los 16 primeros hexadecimales del SHA-256 (UTF-8) del actor que
+    devuelve `actor_desde_cabeceras`. Separa en `localStorage` los filtros
+    de cada usuario sin dejar su UPN en claro ni en el HTML ni en el
+    navegador. Sin sal a proposito: no protege nada que no sepa ya quien
+    usa ese navegador.
+
+    Vacia (= no se guarda nada) si el actor esta vacio o si el origen es
+    `sin-identidad-desplegado`: con la autenticacion caida todos los
+    usuarios compartirian la misma clave (R2, DA7). En local, `local:...`
+    da su clave como cualquier otro actor.
+    """
+    if not actor or origen == "sin-identidad-desplegado":
+        return ""
+    return hashlib.sha256(actor.encode("utf-8")).hexdigest()[
+        :CLAVE_FILTROS_LEN]
