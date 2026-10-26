@@ -135,8 +135,10 @@ from application.services.pisado import (
 from application.services.racha_ciz import (
     CODIGO_FIN,
     CREAR,
+    MOTIVO_CIZ_EN_SIGRID,
     MOVER,
     decidir_fin,
+    decidir_mismo_dia,
     registro_de_synckey,
 )
 from application.services.reglas_registro import ReglasRegistro
@@ -153,7 +155,10 @@ from domain.models.registro_models import (
     Preflight,
     ResultadoRegistro,
 )
-from infrastructure.sigrid.sigrid_write_client import synckey_de
+from infrastructure.sigrid.sigrid_write_client import (
+    synckey_ciz_de,
+    synckey_de,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -399,6 +404,7 @@ class RegistroPipeline:
             if hit is not None:
                 a.accion = "ya_registrado"
                 a.hmores_ide = hit.ide
+                a.fin_mismo_dia = None       # F-062 (R10): sin hermano
                 a.motivo = (f"ya registrada en Sigrid (linea {hit.ide}); "
                             f"no se duplica")
 
@@ -441,6 +447,11 @@ class RegistroPipeline:
                 if motivo is not None:
                     self._omitir(a, motivo)
             grupo = [a for a in grupo if a.accion == "escribir"]
+            # F-062 (R12): un CIZ ajeno del recurso el dia D, en cualquier
+            # parte del periodo => el CI* sigue su regla, sin hermano.
+            for a in grupo:
+                if self._ciz_ajeno(a, existentes, mias):
+                    self._sin_hermano(a, MOTIVO_CIZ_EN_SIGRID)
             conflictos.extend(self._conflictos(parte, grupo, abiertas, mias))
 
         for clave, parte in sorted(partes.items()):
@@ -484,20 +495,45 @@ class RegistroPipeline:
                  if a.accion == "escribir"
                  and (a.hora_codigo or "").strip().upper() == CODIGO_FIN
                  and racha.get(a.registro_id)]
+        # F-062 (R11): los `inicio` que escriben su CIZ hermano.
+        inicios = [a for a in ctx.acciones
+                   if a.accion == "escribir" and a.fin_mismo_dia is not None]
+        if not fines and not inicios:
+            return
+
+        def claves(rid: int) -> list[str]:
+            # F-062 (R11, R18): `partes:<i>` y `partes:<i>:ciz` de la lista.
+            return [sk for i in racha[rid]
+                    for sk in (synckey_de(i), synckey_ciz_de(i))]
+
+        leidas = self._cli.lineas_de_racha(
+            [sk for a in fines for sk in claves(a.registro_id)]
+            + [sk for a in inicios
+               for sk in (*claves(a.registro_id),
+                          synckey_ciz_de(a.registro_id))])
+
+        def candidatas(rid: int) -> list[LineaSigrid]:
+            return [leidas[sk] for sk in claves(rid) if sk in leidas]
+
+        marca = self._st.marca_pruebas if ctx.forzada_pruebas else None
+        for a in inicios:
+            motivo = decidir_mismo_dia(
+                a.fecha_int, int(a.recurso_ide or 0),
+                candidatas(a.registro_id),
+                leidas.get(synckey_ciz_de(a.registro_id)),
+                marca_pruebas=marca)
+            if motivo is not None:
+                self._sin_hermano(a, motivo)
         if not fines:
             return
-        leidas = self._cli.lineas_de_racha(
-            [synckey_de(i) for a in fines for i in racha[a.registro_id]])
-        hmoides = {int(ls.hmoide) for ls in leidas.values() if ls.hmoide}
+        hmoides = {int(ls.hmoide) for a in fines
+                   for ls in candidatas(a.registro_id) if ls.hmoide}
         partes = {h: ParteSigrid(ide=h, cod=d.get("cod"), est=d.get("est"))
                   for h, d in (self._cli.estados_de_partes(hmoides)
                                if hmoides else {}).items()}
-        marca = self._st.marca_pruebas if ctx.forzada_pruebas else None
         for a in fines:
-            candidatas = [leidas[sk] for sk in
-                          (synckey_de(i) for i in racha[a.registro_id])
-                          if sk in leidas]
-            d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0), candidatas,
+            d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0),
+                            candidatas(a.registro_id),
                             partes=partes, est_registro=self._est_registro(),
                             marca_pruebas=marca,
                             nombre_estado=self._nombre_estado)
@@ -516,6 +552,28 @@ class RegistroPipeline:
         """F-060 (R26) y F-062 (R8): `MOVER_CIZ`; un settings sin el
         ajuste es el interruptor apagado."""
         return bool(getattr(self._st, "mover_ciz", False))
+
+    @staticmethod
+    def _sin_hermano(a: AccionLinea, motivo: str) -> None:
+        """F-062 (R11, R12, R16): el `inicio` escribe solo su CI*. INFO sin
+        nombres ni DNIs."""
+        a.fin_mismo_dia = None
+        logger.info("[registro] ciz_mismo_dia_omitido registro_id=%s "
+                    "motivo=%s", a.registro_id, motivo)
+
+    @staticmethod
+    def _ciz_ajeno(a: AccionLinea,
+                   existentes: list[tuple[ParteSigrid, list[LineaSigrid]]],
+                   mias: set[str]) -> bool:
+        """F-062 (R12): con hermano, si en algun parte del periodo hay ya
+        una linea del recurso, el dia D y el codigo del CIZ que no es de la
+        peticion."""
+        fin = a.fin_mismo_dia
+        return fin is not None and any(
+            ls.reside == a.recurso_ide and ls.fecha_int == a.fecha_int
+            and int(ls.horide or 0) == int(fin.horide)
+            and ls.synckey not in mias
+            for _ps, lineas in existentes for ls in lineas)
 
     # ---------------- ayudas de los pasos 5-8 (F-031) ---------------- #
     def _est_registro(self) -> int:
@@ -540,9 +598,10 @@ class RegistroPipeline:
     @staticmethod
     def _omitir(a: AccionLinea, motivo: str) -> None:
         """F-031 R11, R14 y F-053 R6-R7: la linea no se registra y no lleva
-        cuenta."""
+        cuenta. F-062 (R10): ni su CIZ hermano."""
         a.accion = "omitir"
         a.motivo = motivo
+        a.fin_mismo_dia = None
         a.caa_ide, a.caa_cod = 0, None
         a.caa_motivo = a.caa_aviso = a.caa_origen = a.caa_nota = None
 

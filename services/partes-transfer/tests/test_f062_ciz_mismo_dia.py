@@ -172,6 +172,7 @@ PETICION = {
     "lineas": [
         {"registro_id": 4, "fecha_int": D, "recurso_ide": REC,
          "es_incidencia": True, "incidencia_rol": "inicio",
+         "hora_ide": H_CIV, "hora_codigo": "CIV",
          "racha_registro_ids": [5, 6], "ciz_mismo_dia": True},
         {"registro_id": 5, "fecha_int": D + 1, "recurso_ide": REC,
          "tipo_hora": "normal", "horas": 8.0}],
@@ -432,3 +433,189 @@ def test_f062_r9_los_recuentos_del_log_no_cuentan_el_hermano(caplog) -> None:
             "obra_sin_cuenta=0 cuenta_ambigua=0") in caplog.text
     assert ("[registro] origen cuenta obra=0100 recurso=1 partida=0 "
             "ninguna=0") in caplog.text
+
+
+# ================= Pasos 6, 6 bis y 7 (R10-R12, R17, R18) ================= #
+
+def _fila(ide, *, fec=D, sk=None, rid=None, hmoide=HMO_OCT, horide=H_CIZ,
+          can=0.0, tex=None, reside=REC, pos=192, enlazada=False) -> dict:
+    """Una linea de Sigrid. `sk` manda; si no, `partes:<rid>`; sin los dos,
+    manual (sin synckey)."""
+    if sk is None and rid is not None:
+        sk = synckey_de(rid)
+    return {"ide": ide, "hmoide": hmoide, "reside": reside, "fec": fec,
+            "horide": horide, "hora_codigo": None, "can": can, "tot": 0.0,
+            "pos": pos, "synckey": sk, "caaide": 703, "paride": 33,
+            "tex": tex, "enlazada": enlazada, "ano": fec // 10000,
+            "mes": (fec // 100) % 100, "obride": OBRA, "cenide": 77}
+
+
+def _fin(rid, fecha_int, racha=(), *, rec=REC) -> LineaEntrada:
+    return _inicio(rid, fecha_int, racha, ciz=False, rol="fin", rec=rec)
+
+
+def test_f062_r10_ci_ya_registrado_sin_hermano_ni_lectura() -> None:
+    cli = _cli(_fila(7001, rid=4, horide=H_CIV))
+    a = _acc(_pf(cli, [_inicio(4, D, [5])]), 4)
+    assert (a.accion, a.fin_mismo_dia) == ("ya_registrado", None)
+    assert cli.racha_leidas == []
+
+
+def test_f062_r10_ci_omitido_en_el_paso_7_sin_hermano() -> None:
+    """Un CIV manual el dia D: el CI* se omite (`incidencia_en_sigrid`) y
+    con el su hermano."""
+    cli = _cli(_fila(7100, horide=H_CIV))
+    a = _acc(_pf(cli, [_inicio(4, D)]), 4)
+    assert a.accion == "omitir"
+    assert a.motivo.startswith("incidencia_en_sigrid: ")
+    assert a.fin_mismo_dia is None
+
+
+def test_f062_r11_una_lectura_con_el_tramo_y_la_propia() -> None:
+    cli = _cli()
+    a = _acc(_pf(cli, [_inicio(4, D, [5, 6])]), 4)
+    assert a.fin_mismo_dia is not None and a.fin_mismo_dia.horide == H_CIZ
+    assert cli.racha_leidas == [["partes:4:ciz", "partes:5", "partes:5:ciz",
+                                 "partes:6", "partes:6:ciz"]]
+    assert cli.estados_leidos == []          # sin `fin`, no hacen falta
+
+
+def test_f062_r11_sin_tramo_lee_solo_la_propia() -> None:
+    cli = _cli()
+    _pf(cli, [_inicio(4, D)])
+    assert cli.racha_leidas == [["partes:4:ciz"]]
+
+
+def test_f062_r11_la_misma_lectura_que_los_fines() -> None:
+    cli = _cli(_fila(7001, fec=D + 10, rid=13, reside=REC + 1))
+    cli.horas[REC + 1] = list(HORAS_F062[REC])
+    pf = _pf(cli, [_inicio(4, D, [5]), _fin(14, D + 11, [13], rec=REC + 1)])
+    assert len(cli.racha_leidas) == 1 and len(cli.estados_leidos) == 1
+    assert cli.racha_leidas[0] == ["partes:13", "partes:13:ciz",
+                                   "partes:4:ciz", "partes:5",
+                                   "partes:5:ciz"]
+    assert cli.estados_leidos == [[HMO_OCT]]
+    assert _acc(pf, 14).mover.ide == 7001
+    assert _acc(pf, 4).fin_mismo_dia is not None
+
+
+@pytest.mark.parametrize("fila", [
+    _fila(7001, fec=D + 2, rid=6),
+    _fila(7001, fec=D + 1, sk="partes:5:ciz")])
+def test_f062_r11_ciz_posterior_sin_hermano(fila, caplog) -> None:
+    cli = _cli(fila)
+    with caplog.at_level("INFO"):
+        a = _acc(_pf(cli, [_inicio(4, D, [5, 6])]), 4)
+    assert (a.accion, a.hora_codigo, a.fin_mismo_dia) == ("escribir", "CIV",
+                                                          None)
+    assert ("[registro] ciz_mismo_dia_omitido registro_id=4 "
+            "motivo=posterior") in caplog.text
+    assert "Persona" not in caplog.text
+
+
+def test_f062_r11_propia_ya_existe_sin_hermano(caplog) -> None:
+    """El CI* no esta (borrado en Sigrid) pero su hermano si."""
+    cli = _cli(_fila(7001, sk="partes:4:ciz"))
+    with caplog.at_level("INFO"):
+        a = _acc(_pf(cli, [_inicio(4, D)]), 4)
+    assert (a.accion, a.fin_mismo_dia) == ("escribir", None)
+    assert ("[registro] ciz_mismo_dia_omitido registro_id=4 "
+            "motivo=ya_existe") in caplog.text
+
+
+@pytest.mark.parametrize("fila", [
+    _fila(7001, fec=D + 1, rid=5, reside=REC + 1),
+    _fila(7001, fec=D + 1, rid=5, horide=H_CIV),
+    _fila(7001, fec=D + 1, rid=5, can=4.0),
+    _fila(7001, fec=D - 1, rid=5)])
+def test_f062_r11_lo_que_no_es_ciz_posterior_no_lo_impide(fila,
+                                                          caplog) -> None:
+    cli = _cli(fila)
+    with caplog.at_level("INFO"):
+        a = _acc(_pf(cli, [_inicio(4, D, [5])]), 4)
+    assert a.fin_mismo_dia is not None
+    assert "ciz_mismo_dia_omitido" not in caplog.text
+
+
+@pytest.mark.parametrize("tex,hermano", [(None, True), ("PRUEBA-IA", False)])
+def test_f062_r11_en_pruebas_solo_cuenta_con_la_marca(tex, hermano) -> None:
+    cli = _cli(_fila(7001, fec=D + 1, rid=5, tex=tex))
+    pipe = _pipe(cli, pruebas=True)
+    a = _acc(pipe.preflight(obra=_obra(), lineas=[_inicio(4, D, [5])]), 4)
+    assert (a.fin_mismo_dia is not None) is hermano
+
+
+def test_f062_r11_apagado_no_lee() -> None:
+    cli = _cli(_fila(7001, fec=D + 1, rid=5))
+    _pf(cli, [_inicio(4, D, [5])], mover=False)
+    assert cli.racha_leidas == []
+
+
+def test_f062_r12_ciz_ajeno_el_dia_d_sin_hermano(caplog) -> None:
+    cli = _cli(_fila(7100))                 # CIZ manual, sin synckey
+    with caplog.at_level("INFO"):
+        a = _acc(_pf(cli, [_inicio(4, D)]), 4)
+    assert (a.accion, a.hora_codigo, a.fin_mismo_dia) == ("escribir", "CIV",
+                                                          None)
+    assert ("[registro] ciz_mismo_dia_omitido registro_id=4 "
+            "motivo=ciz_en_sigrid") in caplog.text
+
+
+def test_f062_r12_ciz_ajeno_en_un_parte_cerrado_del_periodo() -> None:
+    cli = _cli(_fila(7100, hmoide=HMO_SEP + 50),
+               partes=[_parte(HMO_SEP + 50, "PT26/00008", est=3),
+                       _parte(HMO_OCT, "PT26/00010")])
+    a = _acc(_pf(cli, [_inicio(4, D)]), 4)
+    assert (a.accion, a.fin_mismo_dia) == ("escribir", None)
+
+
+def test_f062_r12_ciz_de_otra_synckey_nuestra_tambien_cuenta() -> None:
+    cli = _cli(_fila(7100, rid=99))
+    assert _acc(_pf(cli, [_inicio(4, D)]), 4).fin_mismo_dia is None
+
+
+@pytest.mark.parametrize("fila", [
+    _fila(7100, horide=HN, can=8.0), _fila(7100, fec=D + 1),
+    _fila(7100, reside=REC + 1)])
+def test_f062_r12_otra_hora_otro_dia_u_otro_recurso_no_cuenta(fila) -> None:
+    cli = _cli(fila)
+    assert _acc(_pf(cli, [_inicio(4, D)]), 4).fin_mismo_dia is not None
+
+
+def test_f062_r17_preflight_igual_con_y_sin_hermano() -> None:
+    respuestas = []
+    for ciz in (True, False):
+        cli = _cli()
+        app = build_app(_st(), pipeline=_pipe(cli))  # type: ignore[arg-type]
+        cuerpo = dict(PETICION, lineas=[dict(PETICION["lineas"][0],
+                                             ciz_mismo_dia=ciz),
+                                        PETICION["lineas"][1]])
+        r = TestClient(app).post("/api/registro/preflight", json=cuerpo)
+        assert r.status_code == 200
+        respuestas.append(r.json())
+    con, sin = respuestas
+    assert con == sin
+    assert con["resumen"] == {"escribir": 2, "omitir": 0, "ya_registrado": 0,
+                              "conflictos": 0}
+    assert all("fin_mismo_dia" not in a for a in con["acciones"])
+    assert [(a["registro_id"], a["hora_codigo"]) for a in con["acciones"]]         == [(4, "CIV"), (5, "HL01")]
+
+
+def test_f062_r17_el_hermano_no_es_una_accion() -> None:
+    pf = _pf(_cli(), [_inicio(4, D)])
+    assert (pf.n_escribir, pf.n_omitir, pf.n_ya, len(pf.acciones)) == (
+        1, 0, 0, 1)
+
+
+def test_f062_r18_el_fin_mueve_el_hermano_del_inicio() -> None:
+    cli = _cli(_fila(7001, fec=D, rid=4, horide=H_CIV),
+               _fila(7002, fec=D, sk="partes:4:ciz"))
+    a = _acc(_pf(cli, [_fin(5, D + 1, [4])]), 5)
+    assert a.accion == "escribir" and a.mover.ide == 7002
+    assert cli.racha_leidas == [["partes:4", "partes:4:ciz"]]
+
+
+def test_f062_r18_hermano_posterior_es_intermedio() -> None:
+    cli = _cli(_fila(7002, fec=D + 2, sk="partes:6:ciz"))
+    a = _acc(_pf(cli, [_fin(5, D + 1, [4, 6])]), 5)
+    assert a.accion == "omitir" and "2026-10-06" in a.motivo

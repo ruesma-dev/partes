@@ -216,7 +216,10 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
             "obra_destino": asdict(pf.obra_destino),
             "forzada_pruebas": pf.forzada_pruebas,
             "partes": [asdict(x) for x in pf.partes],
-            "acciones": [asdict(a) for a in pf.acciones],
+            # F-062 (R17): el CIZ hermano no es una accion ni cambia la
+            # respuesta del preflight.
+            "acciones": [{k: v for k, v in asdict(a).items()
+                          if k != "fin_mismo_dia"} for a in pf.acciones],
             "conflictos": [asdict(c) for c in pf.conflictos],
             "resumen": resumen,
         })
