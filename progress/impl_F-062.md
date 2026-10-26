@@ -91,9 +91,7 @@ Después se añadió el modelo vacío y se relanzó:
 `python -m pytest tests/test_f062_ciz_mismo_dia.py -k "r6 or r7 or r8" -q 2>&1 | tail -22 | tee $S/red_T2b.txt`
 ```
 E        +  where None = AccionLinea(registro_id=4, accion='escribir', ... mover=None, fin_mismo_dia=None).fin_mismo_dia
-tests\test_f062_ciz_mismo_dia.py:302: AssertionError
 FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r6_reglas_el_inicio_lleva_su_ciz_hermano
-FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r6_preparar_pasa_mover_ciz_a_las_reglas[True]
 11 failed, 7 passed, 29 deselected, 1 warning in 1.70s
 ```
 
@@ -102,7 +100,6 @@ FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r6_preparar_pasa_mover_ciz_a_
 ```
 tests\test_f062_cliente_inicio.py:52: AttributeError
 FAILED tests/test_f062_cliente_inicio.py::test_f062_r13_inicio_con_fin_texto_exacto
-FAILED tests/test_f062_cliente_inicio.py::test_f062_r13_una_sola_sentencia - ...
 6 failed in 0.41s
 ```
 
@@ -127,7 +124,6 @@ FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r9_respaldo_de_la_partida_en_
 ```
 FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r10_ci_ya_registrado_sin_hermano_ni_lectura
 FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r11_una_lectura_con_el_tramo_y_la_propia
-FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r18_hermano_posterior_es_intermedio
 15 failed, 29 passed, 38 deselected, 1 warning in 2.01s
 ```
 
@@ -144,7 +140,6 @@ E         {'acciones': [{'registro_id': 4, 'accion': 'escribir', ...}, ...]} != 
 ```
 FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r13_una_sentencia_con_las_dos_filas
 FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r15_escrita_con_ciz_hmores_ide
-FAILED tests/test_f062_ciz_mismo_dia.py::test_f062_r19_en_pruebas_mueve_el_hermano_con_marca
 14 failed, 94 passed, 1 warning in 2.01s
 ```
 
@@ -170,7 +165,6 @@ FAILED tests/test_f062_inicio_con_ciz.py::test_f062_r2_puro_varios_inicios - ...
 ```
 FAILED tests/test_f062_inicio_con_ciz.py::test_f062_r1_un_dia_suelto_lleva_ciz_y_lista_vacia
 FAILED tests/test_f062_inicio_con_ciz.py::test_f062_r2_todo_de_una_vez_el_inicio_sin_ciz
-FAILED tests/test_f062_inicio_con_ciz.py::test_f062_r4_apagado_sin_ciz_y_listas_vacias
 FAILED tests/test_f062_inicio_con_ciz.py::test_f062_r5_sin_consultas_nuevas
 11 failed, 32 passed, 2 warnings in 3.25s
 ```
@@ -179,41 +173,46 @@ Después de cada tarea, el mismo comando quedó en verde antes del commit.
 
 ## Verificaciones MANUAL pendientes (comandos exactos en `progress/current.md`)
 
-- **M0**: hecha por el líder el 2026-10-25. `partes:%:%` dio 0 y las rachas abiertas, 0.
-- **M1–M5**: local, en modo pruebas sobre la obra 0404. Hay que hacerlas tras el merge en
-  `dev` y ANTES de desplegar sv4, porque con `MOVER_CIZ` encendido desplegar es activar.
-  Escenarios: un día, día a día, cambio de mes, todo de una vez y desordenado. Cada uno lleva
-  su limpieza con `prueba_escritura_sigrid.py`.
-- **M6**: producción, solo lectura, después de desplegar sv5 y luego sv4. La M4 de F-060
-  debe dar `grupos = 0` y la cuenta de `partes:%:ciz` debe ser `> 0`.
-- **Despliegue / vuelta atrás**: sv5 → sv4; quitar solo F-062 = sv4 a su revisión anterior
-  (nunca sv5 a la imagen de F-060 con hermanos escritos).
+- **M0** hecha por el líder (2026-10-25): `partes:%:%` ⇒ 0 y rachas abiertas ⇒ 0.
+- **M1–M5** (local, modo pruebas, obra 0404, tras el merge y ANTES de desplegar sv4: con
+  `MOVER_CIZ` encendido, desplegar es activar): un día, día a día, cambio de mes, todo de una
+  vez y desordenado, cada uno con su limpieza (`prueba_escritura_sigrid.py`).
+- **M6** (producción, solo lectura, tras sv5 → sv4): M4 de F-060 ⇒ `grupos = 0`;
+  `partes:%:ciz` ⇒ `> 0`. Quitar solo F-062 = sv4 a su revisión anterior (nunca sv5 a F-060).
 
 ## Fuera del alcance
 
-Nada retroactivo (DA6 A: las rachas abiertas las cierra el siguiente `fin`); desaprobar,
-papelera y `borrado_sigrid` no mueven nada (DA8 A); hermano en parte cerrado: no se escribe
-ni se corta la racha (DA7 A).
+Nada retroactivo (DA6 A); desaprobar, papelera y `borrado_sigrid` no mueven nada (DA8 A);
+hermano en parte cerrado: ni se escribe ni corta la racha (DA7 A).
 
 ## Resultado de `bash harness/init.sh`
 
-Ejecutado tal cual (2026-10-26). Única comprobación fallida en la primera pasada: este
-informe en borrador (236 líneas > 220); recortado y relanzado. Resto en `[OK]`, entre ellas:
-`pytest en verde (con medición de cobertura)` (raíz: 522 passed, 3 skipped, 91 s), sv4 y sv5
-en verde, sv1–sv3 en verde por caché (árbol sin cambios), `PUERTA COBERTURA: 100.0% de 135
-líneas cambiadas cubiertas (135/135, umbral 80%, nivel critico)` y rama
-`feature/F-062-ciz-el-mismo-dia-del-inicio`. Resultado final de la segunda pasada: **verde, 0 comprobaciones fallidas** (commit del informe).
+Ejecutado tal cual (2026-10-26). La primera pasada falló solo en el tope de este informe
+(236 > 220); se recortó. Tras los tests de mutación: INIT_FINAL
 
 ## Evidencias
 
 | Evidencia | Valor real |
 |---|---|
-| Tests sv5 (`partes-transfer`) | **1158 passed**, 1 warning, en 19,75 s (dentro de `init.sh`) |
-| Tests sv4 (`partes-front`) | **2791 passed, 1 skipped**, 2 warnings, en 736,86 s dentro de `init.sh` (370,40 s en la corrida suelta) |
-| Tests raíz del monorepo | 522 passed, 3 skipped, en 91,31 s |
-| Tests nuevos de F-062 | sv5: 126 (`test_f062_ciz_mismo_dia.py`) + los de `test_f062_cliente_inicio.py`; sv4: 43 (`test_f062_inicio_con_ciz.py`) |
+| Tests sv5 (`partes-transfer`) | SV5_FINAL |
+| Tests sv4 (`partes-front`) | **2791 passed, 1 skipped** en 736,86 s (dentro de `init.sh`) |
+| Tests raíz del monorepo | 522 passed, 3 skipped |
+| Tests nuevos de F-062 | sv5: 131 (`test_f062_ciz_mismo_dia.py`) + 7 (`test_f062_cliente_inicio.py`); sv4: 43 |
 | Cobertura de líneas cambiadas | **100,0 %** (135/135; umbral 80 %, nivel crítico) |
-| Mutación | **PENDIENTE DEL LÍDER** por instrucción expresa: `python -m harness.mutacion --feature F-062` ⇒ `progress/mutacion_F-062.md`. El análisis de supervivientes lo completa el implementer cuando exista ese informe |
+| Mutación (campaña completa, lanzada por el líder) | **84 mutantes, 75 muertos, 9 supervivientes**, 0 timeouts, 4185 s ⇒ 6 huecos cerrados con test y 3 equivalentes propuestos |
 
-La campaña de mutación es la única evidencia sin número, y está así por indicación del
-líder, no por omisión.
+**Supervivientes** (análisis completo en `progress/mutacion_F-062.md`; la campaña NO se ha
+relanzado). Cada test añadido se verificó a mano aplicando su mutante: el test falla con él y
+pasa sin él (`python matar.py .` en el scratchpad ⇒ `red_mut.txt`; commit a7e22ed).
+
+| # | Lugar | Mutación | Clasificación | Test añadido / razón |
+|---|---|---|---|---|
+| 1 | sv4 `racha_incidencia.py:262` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | `d` es una fecha real: ni 0 ni 1 están en el tramo ni son > `d` |
+| 2 | sv5 `registro_pipeline.py:335` | `and`→`or` | hueco | `test_f062_mut_r9_hermano_con_subcuenta_propia_no_pide_partida` (mutante: lee `[33]`) |
+| 3 | sv5 `registro_pipeline.py:344` | `or 0`→`or 1` | hueco | `test_f062_mut_r9_hermano_sin_partida_no_toma_la_de_otra_linea` (mutante: `704`) |
+| 4 | sv5 `registro_pipeline.py:533` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | un `escribir` nunca tiene `recurso_ide` falso: las reglas omiten antes la línea sin recurso |
+| 5 | sv5 `registro_pipeline.py:547` | `or 0`→`or 1` | **equivalente propuesto, pendiente de aceptación del humano** | igual que el 4, para los `fines` |
+| 6 | sv5 `registro_pipeline.py:586` | `or 0`→`or 1` | hueco | `test_f062_mut_r12_linea_sin_codigo_no_es_ciz_ajeno` (mutante: `True`) |
+| 7 | sv5 `registro_pipeline.py:817` | `or 0`→`or 1` | hueco | `test_f062_mut_r13_inicio_sin_partida_escribe_paride_cero` (mutante: `(1, 1)`) |
+| 8 | sv5 `racha_ciz.py:102` | `or`→`and` | hueco | `test_f062_mut_r20_synckey_ajena_con_digitos_no_es_registro` (mutante: `123`) |
+| 9 | sv5 `sigrid_write_client.py:665` | defecto `0`→`1` | hueco | `test_f062_mut_r13_obra_sin_cenide_va_con_cero` (mutante: `1`) |
