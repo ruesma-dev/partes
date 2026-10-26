@@ -26,7 +26,12 @@ Reglas (definidas por Administracion; R1 actualizada el 25/07/2026):
       interruptor MOVER_CIZ: si la racha ya tiene su CIZ en Sigrid (por la
       synckey de una de sus lineas), el pipeline lo MUEVE al dia nuevo con
       un UPDATE (`racha_ciz.decidir_fin`, paso 6 bis) en vez de escribir
-      otro; aqui solo se decide el codigo. Las incidencias van SIN HORAS
+      otro; aqui solo se decide el codigo. F-062, con el mismo interruptor:
+      el `inicio` que sv4 marca con `ciz_mismo_dia` escribe su CI* y un CIZ
+      el mismo dia (el «hermano», synckey `partes:<id>:ciz`, en la misma
+      sentencia); si la racha sigue, el siguiente `fin` lo mueve. Aqui se
+      decide el codigo del hermano (`fin_mismo_dia`); sin CIZ en el
+      recurso, solo el CI* y un WARNING. Las incidencias van SIN HORAS
       (can=0): en Sigrid la linea marca el hecho, no una cantidad.
       Aplica a TODOS los trabajadores cuyo recurso tenga el codigo en su
       ficha (tambien mensuales: R2 no aplica aqui).

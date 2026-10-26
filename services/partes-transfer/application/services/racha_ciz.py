@@ -18,6 +18,17 @@ las lineas de esa racha. sv5 lee de Sigrid las lineas con esas synckeys y
     anteriores mas habia (`duplicados`, R15);
   - nada => `crear`: el `INSERT` de siempre (R16).
 
+F-062 · el `inicio` escribe su CI* y un CIZ el mismo dia (el «hermano»,
+synckey `partes:<X>:ciz`) cuando sv4 lo marca con `ciz_mismo_dia`:
+
+  - `decidir_mismo_dia` (R11, DA5): sin hermano si ya existe
+    (`ya_existe`, una reaprobacion) o si la racha ya tiene un CIZ del
+    recurso despues de D en su tramo delante (`posterior`);
+  - el siguiente `fin` lee tambien `partes:<i>:ciz` de cada id de su lista
+    y `decidir_fin`, sin cambios, mueve el hermano como cualquier CIZ;
+    `registro_de_synckey` da None para la synckey de un hermano, asi que
+    moverlo no deja `movida_de` (X conserva su CI*, R19).
+
 En Sigrid no se borra (regla del humano): mover es un `UPDATE` de la linea
 (`stmt_mover_linea`), nunca un borrado y un alta. Motivos sin tildes como
 el resto de sv5, sin nombres ni DNIs y de 255 caracteres como mucho

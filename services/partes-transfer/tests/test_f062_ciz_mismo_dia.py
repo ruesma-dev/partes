@@ -3,6 +3,10 @@
 
   - Puro: `synckey_ciz_de`, `registro_de_synckey` con el sufijo `:ciz`
     (R20), `es_ciz_del_recurso` y `decidir_mismo_dia` (R11).
+  - Contrato y reglas (R6-R8), doble (la sentencia de dos filas), paso 4b
+    (R9), pasos 6, 6 bis y 7 (R10-R12, R17, R18), paso 9 y relectura
+    (R13, R15, R16, R19), escenarios M1-M5 de design §9 (R19-R23, R26) y
+    caracterizacion de lo que no cambia (R8, R14, R25).
 
 Sin red: `SigridFake` de `tests/dobles.py`. Datos SINTETICOS.
 """
@@ -962,3 +966,110 @@ def test_f062_r19_en_pruebas_sin_marca_crea_otro() -> None:
     (e,) = r.escritas
     assert e["hmores_ide"] != 7002
     assert _por_sk(cli)["partes:1:ciz"]["fec"] == 20261001
+
+
+# ============ R8 y R25 · lo que NO cambia (caracterizacion) ============ #
+
+#: La sentencia del `inicio` de dev f313407 (`stmt_insert_linea` del doble).
+INSERT_CI_F313407 = {
+    "op": "insert", "hmoide": HMO_OCT, "reside": REC, "pos": 64, "fec": D,
+    "horide": H_CIV, "can": 0.0, "pre": PRE_CIV, "tot": 0.0, "paride": 0,
+    "ano": 2026, "mes": 10, "synckey": "partes:4", "tex": None,
+    "caaide": 0, "guarda_hmoide": HMO_OCT, "pisadas": []}
+
+
+@pytest.mark.parametrize("mover,ciz", [(False, True), (True, False),
+                                       (False, False)])
+def test_f062_r8_sentencias_identicas_a_dev_f313407(mover, ciz) -> None:
+    cli = _cli()
+    enviadas = _espiar(cli)
+    r = _ejecutar(cli, [_inicio(4, D, [5], ciz=ciz)], mover=mover)
+    assert enviadas == [INSERT_CI_F313407]
+    (e,) = r.escritas
+    assert set(e) == {"registro_id", "hmoide", "parte_cod", "hora_codigo",
+                      "can", "tot", "caa_cod", "hmores_ide"}
+    assert sorted(_por_sk(cli)) == ["partes:4"]
+
+
+@pytest.mark.parametrize("mover,ciz", [(False, True), (True, False)])
+def test_f062_r8_sin_lecturas_ni_logs_de_f062(mover, ciz, caplog) -> None:
+    cli = _cli()
+    pedidas: list[list[str]] = []
+    original = cli.lineas_por_synckey
+    cli.lineas_por_synckey = lambda ks: (pedidas.append(sorted(ks)),
+                                         original(ks))[1]
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_inicio(4, D, [5], ciz=ciz)], mover=mover)
+    assert all(not any(k.endswith(":ciz") for k in ks) for ks in pedidas)
+    assert cli.racha_leidas == []
+    assert "ciz_mismo_dia" not in caplog.text
+    assert "ciz mismo dia" not in caplog.text
+
+
+def test_f062_r8_dia_a_dia_apagado_como_f060() -> None:
+    """Con sv4 encendido pero sv5 apagado (orden equivocado): sv5 ignora
+    `ciz_mismo_dia` y cada `fin` escribe su CIZ como en dev f313407."""
+    cli = _cli()
+    _ejecutar(cli, [_inicio(1, 20261001, [])], mover=False)
+    _ejecutar(cli, [_fin(2, 20261002, [1])], mover=False)
+    assert sorted(_por_sk(cli)) == ["partes:1", "partes:2"]
+    assert [f["horide"] for f in cli.lineas] == [H_CIV, H_CIZ]
+
+
+def test_f062_r25_r0_de_f019_dedicacion_sin_ci_ni_hermano() -> None:
+    cli = _cli()
+    cli.horas[REC] = cli.horas[REC] + [_h(90, "MENC")]
+    st = _st()
+    st.mensuales_a_dedicacion = True
+    enviadas = _espiar(cli)
+    r = RegistroPipeline(cliente=cli, settings=st).ejecutar(
+        obra=_obra(), lineas=[_inicio(4, D, [5])])
+    assert [d["registro_id"] for d in r.dedicacion] == [4]
+    assert r.escritas == [] and enviadas == [] and cli.racha_leidas == []
+
+
+@pytest.mark.parametrize("modulo", [
+    "application/services/estado_parte.py",
+    "application/services/cuenta_analitica.py",
+    "application/services/comprobacion_lineas.py",
+    "application/services/reajuste_lineas.py",
+    "application/pipelines/reajuste_pipeline.py",
+    "application/services/pisado.py",
+    "application/services/parte_abierto.py",
+    "interface_adapters/resultado_json.py",
+])
+def test_f062_r25_modulos_que_no_saben_del_hermano(modulo) -> None:
+    """F-024 (solo `partes:<id>`), F-034, F-046, F-053, `estado_parte` y
+    `cuenta_analitica` no cambian."""
+    from pathlib import Path
+    raiz = Path(__file__).resolve().parents[1]
+    fuente = (raiz / modulo).read_text(encoding="utf-8")
+    for nuevo in ("ciz_mismo_dia", "fin_mismo_dia", "synckey_ciz_de",
+                  "SUFIJO_CIZ", ":ciz", "F-062"):
+        assert nuevo not in fuente
+
+
+def test_f062_r25_f024_comprueba_solo_el_ci() -> None:
+    """La comprobacion de F-024 busca por `partes:<id>`: la linea X es su
+    CI*, el hermano no se comprueba."""
+    from application.services import comprobacion_lineas
+    import inspect as _inspect
+    fuente = _inspect.getsource(comprobacion_lineas)
+    assert "synckey_de(" in fuente and "ciz" not in fuente.lower()
+
+
+def test_f062_r14_el_pipeline_no_borra() -> None:
+    from application.pipelines import registro_pipeline
+    import inspect as _inspect
+    fuente = _inspect.getsource(registro_pipeline)
+    assert "DELETE" not in fuente.upper().replace("NO SE BORRA", "")
+
+
+def test_f062_docstrings_cuentan_el_ciz_del_inicio() -> None:
+    from application.pipelines import registro_pipeline
+    from application.services import reglas_registro
+    for modulo in (reglas_registro, racha_ciz, registro_pipeline):
+        doc = " ".join((modulo.__doc__ or "").split())
+        assert "F-062" in doc and "ciz_mismo_dia" in doc, modulo.__name__
+    doc = " ".join((reglas_registro.__doc__ or "").split())
+    assert "partes:<id>:ciz" in doc and "mismo dia" in doc

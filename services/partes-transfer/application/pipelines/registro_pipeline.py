@@ -44,7 +44,9 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      si la lectura falla, la peticion entera falla (nada se escribe).
      F-031 (R20-R26): si el recurso no da subcuenta, la de la PARTIDA de
      la linea si es de coste (`CI*`/`CD*`), con una lectura de partidas
-     por peticion y solo si hace falta.
+     por peticion y solo si hace falta. F-062 (R9): el CIZ hermano de un
+     `inicio` con `ciz_mismo_dia` toma la cuenta del codigo CIZ, en esas
+     mismas lecturas.
   5. Elegir el parte de cada periodo (F-031): se leen TODOS los partes de
      la obra y mes con su estado; sv5 solo escribe en uno En registro (el
      de mayor `ide`). Si el periodo tiene partes cerrados (Cerrado,
@@ -56,7 +58,11 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      (codigo `CIZ` con `racha_registro_ids`) busca el CIZ de la racha por
      las synckeys de sus lineas (`lineas_de_racha`) y `decidir_fin` decide:
      moverlo al dia nuevo (paso 9), omitir (el CIZ ya esta despues, en un
-     parte cerrado o enlazado) o crearlo como siempre.
+     parte cerrado o enlazado) o crearlo como siempre. F-062: en la MISMA
+     lectura, `partes:<i>:ciz` de cada id (el hermano tambien se mueve) y,
+     para cada `inicio` con `ciz_mismo_dia`, su tramo delante y su propia
+     `partes:<D>:ciz`: `decidir_mismo_dia` quita el hermano si ya existe o
+     si la racha ya tiene un CIZ posterior.
   7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
@@ -65,7 +71,8 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      incidencia; en un parte En registro, una incidencia que ya consta se
      omite (`incidencia_en_sigrid: ...`) y, si no, un choque con una linea
      enlazada (albaran, factura, dedicacion o nomina) tambien
-     (`linea_enlazada: ...`). Lo demas es conflicto confirmable.
+     (`linea_enlazada: ...`). Lo demas es conflicto confirmable. F-062
+     (R12): un CIZ ajeno del recurso el dia D quita el hermano del inicio.
   8. Crear los partes que falten (cabecera + extension) con el ALTA
      PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`; F-034 no
      la cambia: un parte que sv5 crea nace En registro): la
@@ -87,7 +94,12 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      y `anuladas` cuenta las pisadas que ya no tienen horas (R9-R13).
      F-060: una accion con `mover` no inserta: `stmt_mover_linea` lleva el
      CIZ de la racha a este dia y a este parte (UPDATE, nunca un borrado)
-     y su escrita sale con `movida_de` (el registro que lo tenia).
+     y su escrita sale con `movida_de` (el registro que lo tenia; no la
+     lleva si lo movido es un hermano, F-062 R19). F-062: una accion con
+     `fin_mismo_dia` (`ciz_mismo_dia` de sv4) escribe el CI* y su CIZ
+     hermano con UNA sentencia de dos filas (`stmt_insert_inicio_con_fin`);
+     la relectura lee tambien `partes:<X>:ciz` y la escrita gana
+     `ciz_hmores_ide` (o un WARNING si el hermano no esta).
      F-053: si una pisada cambio antes de ponerla a 0 (sigue con horas en
      un parte En registro), la nueva sale `pisada_no_anulada: ...`. Todo
      bajo el lock; una relectura que falla tumba la peticion (R14).
