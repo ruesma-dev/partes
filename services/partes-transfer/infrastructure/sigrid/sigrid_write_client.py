@@ -85,8 +85,19 @@ ENLACES_HMORES: tuple[str, ...] = (
 _DNI_SQL = "REPLACE(REPLACE(UPPER(ISNULL({campo},'')),'-',''),' ','')"
 
 
+#: F-062 (DA3): sufijo de la synckey del CIZ que el `inicio` escribe el
+#: mismo dia que su CI* (el «hermano»): `partes:<id>:ciz`.
+SUFIJO_CIZ = ":ciz"
+
+
 def synckey_de(registro_id: int) -> str:
     return f"{PREFIJO_SYNCKEY}{int(registro_id)}"
+
+
+def synckey_ciz_de(registro_id: int) -> str:
+    """F-062 (R20): la synckey del CIZ hermano del inicio `registro_id`.
+    Al moverse, el hermano pasa a la synckey del dia nuevo (`partes:<D>`)."""
+    return f"{synckey_de(registro_id)}{SUFIJO_CIZ}"
 
 
 class SigridWriteClient:

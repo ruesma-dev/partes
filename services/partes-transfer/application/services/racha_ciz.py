@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from application.services.pisado import PREFIJO_PARTES, motivo_linea_enlazada
 from application.services.reglas_registro import MOTIVO_INTERMEDIO
 from domain.models.registro_models import LineaSigrid, ParteSigrid
+from infrastructure.sigrid.sigrid_write_client import SUFIJO_CIZ
 
 #: Codigo de hora del fin de incidencia en Sigrid.
 CODIGO_FIN = "CIZ"
@@ -44,6 +45,11 @@ LIMITE_MOTIVO = 255
 #: Tipos de decision.
 CREAR, MOVER, INTERMEDIO = "crear", "mover", "intermedio"
 PARTE_CERRADO, ENLAZADA = "parte_cerrado", "enlazada"
+
+#: F-062 (R11, R12, R16): por que un inicio no escribe su CIZ hermano.
+MOTIVO_POSTERIOR = "posterior"          # la racha ya tiene su CIZ despues
+MOTIVO_YA_EXISTE = "ya_existe"          # `partes:<D>:ciz` ya esta escrito
+MOTIVO_CIZ_EN_SIGRID = "ciz_en_sigrid"  # CIZ ajeno del recurso el dia D
 
 
 @dataclass(frozen=True)
@@ -78,9 +84,11 @@ def motivo_ciz_en_parte_cerrado(ide: int, cod: str | None,
 
 def registro_de_synckey(synckey: str | None) -> int | None:
     """«partes:3» -> 3 (R23: el `movida_de` de la escrita); None si la
-    synckey no es de este proyecto."""
+    synckey no es de este proyecto. F-062 (R20): None tambien para la de un
+    CIZ hermano («partes:3:ciz»): no es la synckey de ningun registro, asi
+    que moverlo no deja `movida_de` (la linea 3 conserva su CI*)."""
     sk = (synckey or "").strip()
-    if not sk.startswith(PREFIJO_PARTES):
+    if not sk.startswith(PREFIJO_PARTES) or sk.endswith(SUFIJO_CIZ):
         return None
     try:
         return int(sk[len(PREFIJO_PARTES):])
@@ -88,10 +96,10 @@ def registro_de_synckey(synckey: str | None) -> int | None:
         return None
 
 
-def _es_ciz_del_recurso(ls: LineaSigrid, recurso_ide: int,
-                        marca_pruebas: str | None) -> bool:
+def es_ciz_del_recurso(ls: LineaSigrid, recurso_ide: int,
+                       marca_pruebas: str | None) -> bool:
     """R13 y R19: mismo recurso, codigo `CIZ`, sin horas y, en pruebas, con
-    la marca en `tex`."""
+    la marca en `tex`. F-062 (R11) la usa tambien para el inicio."""
     return (ls.reside == recurso_ide
             and (ls.hora_codigo or "").strip().upper() == CODIGO_FIN
             and float(ls.can or 0) == 0
@@ -115,7 +123,7 @@ def decidir_fin(
     escribe a ciegas). `nombre_estado` da el nombre del estado para el
     motivo de R17 (el `_nombre_estado` del pipeline)."""
     ciz = [ls for ls in candidatas
-           if _es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)]
+           if es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)]
     posteriores = [ls for ls in ciz if ls.fecha_int > fecha_int]
     if posteriores:
         ultima = max(posteriores, key=lambda ls: (ls.fecha_int, ls.ide))
@@ -137,3 +145,23 @@ def decidir_fin(
                                         nombre_estado(est))))
     return DecisionFin(tipo=MOVER, linea=elegida,
                        duplicados=len(anteriores) - 1)
+
+
+def decidir_mismo_dia(
+    fecha_int: int, recurso_ide: int, candidatas: Iterable[LineaSigrid],
+    propia: LineaSigrid | None, *, marca_pruebas: str | None,
+) -> str | None:
+    """F-062 (R11, DA5): si el `inicio` del dia D escribe su CIZ hermano.
+
+    `candidatas` son las lineas leidas por las synckeys `partes:<i>` y
+    `partes:<i>:ciz` del tramo delante del inicio (sv4); `propia`, la de
+    `partes:<D>:ciz`. `MOTIVO_YA_EXISTE` si el hermano ya esta escrito (una
+    reaprobacion); `MOTIVO_POSTERIOR` si la racha ya tiene un CIZ del
+    recurso despues de D (llegada desordenada: no se escribe otro); None =
+    se escribe."""
+    if propia is not None:
+        return MOTIVO_YA_EXISTE
+    if any(es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)
+           and ls.fecha_int > fecha_int for ls in candidatas):
+        return MOTIVO_POSTERIOR
+    return None
