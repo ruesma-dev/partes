@@ -989,12 +989,12 @@
         "M0 (cookieExpiration de Easy Auth, líder, solo lectura), M1 (recorrido local) y M2 tras desplegar sv4 (dos usuarios de Entra en el mismo navegador)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-064-filtro-en-sesion",
-      "spec": "aprobada 2026-10-26 («ok a f64»: DA1–DA7 = A; M0 OK) · `specs/F-064-filtro-en-sesion/` · `partes-wt-f064`"
+      "pendiente": "desplegar sv4 (humano); M1 (design.md §8: en local o, al ser solo mirar, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)"
     }
   ]
 }

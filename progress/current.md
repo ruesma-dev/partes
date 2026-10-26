@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-064 · IN_PROGRESS desde 2026-10-26 (spec aprobada: DA1–DA7 = A, «ok a f64»; F-061 ya cerrada y fusionada en dev f940e67; implementer en `partes-wt-f064`): el filtro del portal se mantiene durante la sesión de cada usuario
+## F-064 · DONE 2026-10-27 (review APPROVED pasada 2: observaciones 1, 2 y 4 arregladas a petición del humano, «arregla»; mutación 4/4; pendiente: desplegar sv4, M1 y M2): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
 `partes-wt-f064`, sale de `dev` ec7111d). Rigor estándar. **Solo sv4**: `identidad.py` (clave
@@ -13,7 +13,7 @@ esquema, endpoints ni colas; `azure-apps/partes.md` no cambia.
 
 **Corrección al encargo**: «Actualizar» con `VISTA_CLAVE` es de **F-043** (R21, DA10), no de F-022.
 
-**Decisiones abiertas para el humano** (`design.md` §9; recomendada A en todas):
+**Decididas por el humano** («ok a f64», todas = A; `design.md` §9):
 DA1 qué entra (A: columnas de todas las tablas, días, casilla «sin código de hora extra» y
 `search`/`pendientes` de las tres listas; sin mes ni modo de los detalles) · DA2 dónde y qué es
 «sesión» (A: `localStorage` con clave por usuario —hash del actor de Easy Auth— y caducidad de 8 h
@@ -63,6 +63,9 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
   Nada de sv1/sv2/sv3/sv5, `infra/`, `orm_models.py` ni `azure-apps/`.
 - [x] T9 (mutación, lanzada por el líder el 2026-10-26, 4 workers, 1875 s): 4 mutantes, 4 muertos, 0 supervivientes (`progress/mutacion_F-064.md`). Solo alcanza el Python (`identidad.py`); el JS no se muta.
 - T10 hecha: `bash harness/init.sh` ⇒ ENTORNO LISTO (sv4 2984 passed; COBERTURA 100 % 7/7).
+- Review pasada 1 APPROVED con 6 observaciones; el humano pidió «arregla» para la 1, la 2 y la 4
+  (hechas en 6be5c0b, ec7297d y 430274e) y aprobó la automejora del reviewer (dev 755f5f6,
+  encargo en `arnes-base` 6eb331d). Review pasada 2: APPROVED (`progress/review_F-064.md`).
 - Pendiente: T11/M1 (pasos en `design.md` §8 y resumidos en `impl_F-064.md`) y
   T12/M2 tras desplegar. Informe: `progress/impl_F-064.md`.
 

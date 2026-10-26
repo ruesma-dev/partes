@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **60 features**, 14 abiertas, 46 terminadas.
-
-En curso: **F-064**.
+Resumen: **60 features**, 13 abiertas, 47 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | en curso | aprobada 2026-10-26 («ok a f64»: DA1–DA7 = A; M0 OK) · `specs/F-064-filtro-en-sesion/` · `partes-wt-f064` | estandar | `feature/F-064-filtro-en-sesion` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
@@ -55,6 +52,7 @@ Bloqueadas: **F-032**.
 | F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062 |
 | F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | critico | Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración |
 | F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
+| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | estandar | desplegar sv4 (humano); M1 (design.md §8: en local o, al ser solo mirar, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador) |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
@@ -80,14 +78,6 @@ Bloqueadas: **F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
-
-### F-064 · El filtro del portal se mantiene durante la sesión de cada usuario
-
-estado **en curso** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-064-filtro-en-sesion`
-
-**Spec**: aprobada 2026-10-26 («ok a f64»: DA1–DA7 = A; M0 OK) · `specs/F-064-filtro-en-sesion/` · `partes-wt-f064`
-
-Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.
 
 ### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
 
@@ -344,6 +334,14 @@ estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feat
 **Pendiente**: Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes
 
 Petición del humano del 2026-10-25 («1a») tras la M1 de F-058 (líder, local, solo lectura): las 8 consultas `[obra-sigrid]` salieron `resultado=error error=ReadTimeout` (5,6–6,2 s, tope `OBRA_EXISTE_TIMEOUT_S` = 5 s). Medido aparte en sigrid-api: `_SQL_EXISTE_OBRA` (sv2 `infrastructure/sigrid/sigrid_lookup_client.py`, normaliza `con.cod` fila a fila con `CROSS APPLY` + `COLLATE`) tarda 12–16 s; `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegada así, toda consulta de obra sería «no se sabe» (la relectura por obra inexistente nunca saltaría), +~6 s por parte y ~13 s de consulta en el SQL de producción de Sigrid por parte. Objetivo: misma semántica de F-058 (clave normalizada: sin espacios ni guiones, sin ceros a la izquierda si es numérica, sin distinguir mayúsculas ni acentos) con una consulta que use el índice de `con.cod` y quepa holgada en el tope. sv2 NO se despliega hasta cerrar esta feature (F-058 está en dev sin desplegar).
+
+### F-064 · El filtro del portal se mantiene durante la sesión de cada usuario
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-064-filtro-en-sesion`
+
+**Pendiente**: desplegar sv4 (humano); M1 (design.md §8: en local o, al ser solo mirar, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)
+
+Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
