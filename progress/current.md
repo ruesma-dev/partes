@@ -6,7 +6,51 @@
 **Aprobación del humano (2026-10-25, literal)**: «f63 ok a todo» ⇒ DA1–DA5 = A (la
 recomendación de `design.md` §10). Implementer en marcha en el worktree `partes-wt-f063`.
 
-- Tarea en curso: T1 (tests en rojo).
+- [x] T1–T7 y T11 (implementer, 2026-10-26; un commit por tarea, fase RED con traza; informe
+  `progress/impl_F-063.md`). `bash harness/init.sh` en verde (cobertura 100 % de 43 líneas).
+- [ ] **T8 · mutación (la lanza el líder)**, desde la raíz del worktree:
+  `python -m harness.mutacion --feature F-063` ⇒ `progress/mutacion_F-063.md`; analizar los
+  supervivientes allí y resumirlos en `progress/impl_F-063.md` («Evidencias»).
+- [ ] **T9 · M-EQ y T10 · M-T (líder, solo lectura, base `ruesma`)**. Script fuera del repo
+  (`design.md` §9), probado en seco con dobles:
+  `C:\Users\pgris\AppData\Local\Temp\claude\C--Users-pgris-PycharmProjects-partes\4823be6f-e68f-4ae1-886d-e1c67c71a605\scratchpad\verificar_f063.py`
+  (importa del worktree `partes-wt-f063`; solo imprime agregados, ni códigos ni claves). Con el
+  `.venv` de la raíz (trae `httpx`) y las credenciales solo en el proceso:
+  ```powershell
+  $env:SIGRID_API_FUNCTION_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n SIGRID-API-FUNCTION-KEY --query value -o tsv
+  $env:SIGRID_API_BASE_URL = az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_BASE_URL'].value | [0]" -o tsv
+  $env:SIGRID_API_DATABASE = 'ruesma'
+  $script = 'C:\Users\pgris\AppData\Local\Temp\claude\C--Users-pgris-PycharmProjects-partes\4823be6f-e68f-4ae1-886d-e1c67c71a605\scratchpad\verificar_f063.py'
+  python $script meq
+  python $script mt
+  ```
+  `meq`: censo (obras, claves, con blancos o guiones, con ceros, fuera de `[0-9A-Za-z -]` por
+  categoría Unicode, con carácter de clave múltiple), lotes de 500 por `ide` con `VALUES` (una a
+  una si sigrid-api lo rechaza) ⇒ `fallos=0 trampa_vuelve=True`, y vieja = nueva en 7 de 7 (la
+  vieja tarda ~15 s cada una). `mt`: calentamiento + 60 consultas con `ComprobadorObra` (tope
+  5 s) ⇒ `aciertos=60 errores=0`, mediana ≤ 500 ms y máximo ≤ 2000 ms (DA3), con p95 y
+  candidatos máximos. Cualquier fallo ⇒ `blocked`. Copiar la salida a `progress/impl_F-063.md`.
+- [ ] T12 (humano): tras el APPROVED y la fusión, pedir el despliegue de sv2 y seguir con M2/M4
+  de F-058.
+
+**Desviaciones respecto a la spec (implementer, justificadas)**:
+- `docs/ARCHITECTURE.md`: la consulta de F-058 está en el **punto 20**, no en el 18 que cita la
+  spec (el 18 es F-054); se actualizó el 20.
+- Tabla de variantes: la base es **cualquier letra o dígito único**, no solo ASCII (`design.md`
+  §5.2 decía ASCII). Lo pide R5 al pie de la letra: `µ` (U+00B5) tiene la clave `Μ` griega y
+  sin esto un código con `µ` no casaría con su patrón. Las clases de las bases ASCII son las
+  mismas; dentro de `[...]` siguen yendo solo letras y dígitos.
+- Emulador de `LIKE` de los tests por programación dinámica, no con `re` (§7 decía
+  `re.fullmatch`): compilar miles de clases Unicode con `re.IGNORECASE` llevaba el corpus a
+  12 s; ahora el fichero entero tarda ~3 s. Misma semántica (CI, AS), con sus propios tests.
+- T2: los tests de R9/R12 no pueden correr hasta T3 (el fichero importa `patron_like`); en T2
+  se verificó la identidad de `clave_obra`/`es_vacio` a mano y los tests de F-058 en verde.
+- `tests/test_f058_obra_sigrid.py`: el docstring de
+  `test_f058_r7_existe_obra_pide_el_max_rows_del_cliente` sigue diciendo «el `TOP 1` acota la
+  respuesta»; no se toca porque §7 limita el cambio a las aserciones de
+  `test_f058_r7_existe_obra_parametrizada`. Lo decide el reviewer.
+- `azure-apps`: commit local a5f739e (solo `partes.md`); allí había un `datamart_seg_anual.md`
+  modificado ajeno a F-063, sin tocar.
 
 Spec en `specs/F-063-consulta-obra-rapida/` (rama `feature/F-063-consulta-obra-rapida`,
 worktree `partes-wt-f063`, sale de `dev` bbc3172). Petición del humano: «1a». Solo sv2 (más

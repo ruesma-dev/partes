@@ -16,5 +16,5 @@
 - [ ] T8: Campaña de mutación muestreada (rigor `estandar`) y análisis de supervivientes en `progress/impl_F-063.md`  |  Verificación: `python -m harness.mutacion --feature F-063` con el nivel de `harness/rigor.json`, supervivientes documentados
 - [ ] T9: M-EQ · equivalencia exhaustiva contra `ruesma` en solo lectura (§9)  |  Verificación: MANUAL (líder); cero filas en todos los lotes, el par trampa vuelve, vieja = nueva en las claves elegidas; agregados en `progress/impl_F-063.md`; si falla, `blocked`
 - [ ] T10: M-T · 60 consultas reales con el cliente de la rama (§9)  |  Verificación: MANUAL (líder); 60/60 con la verdad, 0 errores, mediana y máximo dentro de la puerta de DA3; mediana, p95, máximo y candidatos máximos en `progress/impl_F-063.md`; si no pasa, `blocked` y decide el humano
-- [ ] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
 - [ ] T12: Tras el APPROVED y la fusión, despliegue de sv2 y M2/M4 de F-058  |  Verificación: MANUAL (humano: pide el despliegue; ningún agente lanza `redeploy_partes.ps1`); M4 con la KQL de F-058 `design.md` §10
