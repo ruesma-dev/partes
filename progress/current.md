@@ -44,6 +44,9 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
 - T3 hecha: IIFE global `FiltrosSesion` tras `avisarCambioLineas` con constantes y puras
   (API `puras`); tests puros en verde. Nota: el `init.sh` previo a T1 dio un rojo transitorio en
   sv4 (`clave_filtros_de` indefinido) por editar `base.html` mientras corría; no es del arnés.
+- T4 hecha: `_setupDaySelection` devuelve `{claves, disponibles, seleccionar, limpiar}` y
+  `wireDayFilters` el de la página o uno nulo. El DOM falso del test gana selectores con
+  descendientes (`wireColumnFilters` usa `thead tr.filter-row`).
 
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 

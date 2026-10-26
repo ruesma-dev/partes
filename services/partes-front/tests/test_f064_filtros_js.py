@@ -71,7 +71,7 @@ def _node(programa: str):
 
 #: DOM minimo: elementos con atributos, clases, hijos, `rows`/`cells`/
 #: `cellIndex`, eventos sin burbuja y selectores compuestos
-#: (`tag.clase[attr="v"]`, listas con coma; sin descendientes).
+#: (`tag.clase[attr="v"]`, listas con coma y descendientes con espacio).
 DOM_JS = r"""
 "use strict";
 var escrituras = [], reemplazos = [], almacen = {}, sinAlmacen = false;
@@ -163,12 +163,18 @@ function casa(el, sel) {
     else if (el.getAttribute(x[2]) !== x[3]) return false;
   }
   return true; }
+function casaCadena(el, partes) {           // descendientes: "a b.c"
+  if (!casa(el, partes[partes.length - 1])) return false;
+  var i = partes.length - 2;
+  for (var e = el.parentNode; e && i >= 0; e = e.parentNode) {
+    if (e.matches && casa(e, partes[i])) i--;
+  }
+  return i < 0; }
 E.prototype.matches = function (sel) {
   var self = this;
-  return sel.split(",").some(function (s) { return casa(self, s.trim()); }); };
+  return sel.split(",").some(function (s) {
+    return casaCadena(self, s.trim().split(/\s+/)); }); };
 E.prototype.querySelectorAll = function (sel) {
-  if (/\S\s+\S/.test(sel.replace(/\s*,\s*/g, ",")))
-    throw new Error("el DOM falso no admite descendientes: " + sel);
   return this._todos().filter(function (e) { return e.matches(sel); }); };
 E.prototype.querySelector = function (sel) {
   return this.querySelectorAll(sel)[0] || null; };

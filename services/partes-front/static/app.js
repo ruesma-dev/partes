@@ -1030,9 +1030,9 @@ var FiltrosSesion = (function () {
   // filtro por columnas (que usa display inline) gracias al !important.
   // ---------------------------------------------------------------- //
   function _setupDaySelection(cells, table, keyFromCell, keyFromRow, stopProp) {
-    if (!cells.length || !table) return;
+    if (!cells.length || !table) return null;
     var tbody = table.querySelector("tbody");
-    if (!tbody) return;
+    if (!tbody) return null;
     var selected = new Set();
     var badge = document.querySelector("[data-day-badge]");
     var countEl = badge ? badge.querySelector("[data-count]") : null;
@@ -1075,17 +1075,53 @@ var FiltrosSesion = (function () {
       });
     });
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+    // F-064 (R12, R15-R17): el manejador con el que FiltrosSesion lee,
+    // repone y limpia la seleccion de dias. El clic y «Quitar filtro»
+    // siguen como estaban.
+    function disponibles() {
+      var vistas = [];
+      cells.forEach(function (c) {
+        var k = keyFromCell(c);
+        if (k && vistas.indexOf(k) < 0) vistas.push(k);
+      });
+      return vistas;
+    }
+    return {
+      claves: function () { return Array.from(selected); },
+      disponibles: disponibles,
+      seleccionar: function (lista) {
+        var hay = disponibles();
+        (lista || []).forEach(function (k) {
+          if (hay.indexOf(k) >= 0) selected.add(k);
+        });
+        cells.forEach(function (c) {
+          if (selected.has(keyFromCell(c))) c.classList.add("day-selected");
+        });
+        apply();
+      },
+      limpiar: clearAll,
+    };
   }
 
+  // F-064: devuelve el manejador de dias de la pagina (calendario o
+  // matriz; una pagina tiene uno o ninguno) o uno nulo que no hace nada.
   function wireDayFilters() {
+    var nulo = {
+      claves: function () { return []; },
+      disponibles: function () { return []; },
+      seleccionar: function () {},
+      limpiar: function () {},
+    };
+    var manejador = null;
     var table = document.getElementById("lines-table");
-    if (!table) return;
+    if (!table) return nulo;
     // Vista TRABAJADOR: calendario .cal-grid, casillas .cal-pick[data-fecha].
     var cal = document.querySelector(".cal-grid");
     if (cal) {
       var calCells = Array.prototype.slice.call(
         cal.querySelectorAll(".cal-pick[data-fecha]"));
-      _setupDaySelection(
+      manejador = _setupDaySelection(
         calCells, table,
         function (c) { return c.getAttribute("data-fecha") || ""; },
         function (r) { return r.getAttribute("data-fecha") || ""; },
@@ -1096,7 +1132,7 @@ var FiltrosSesion = (function () {
     if (matrix) {
       var mxCells = Array.prototype.slice.call(
         matrix.querySelectorAll("td.mx-pick[data-fecha]"));
-      _setupDaySelection(
+      manejador = _setupDaySelection(
         mxCells, table,
         function (c) {
           return _norm(c.getAttribute("data-trabajador")) + "|" +
@@ -1106,8 +1142,9 @@ var FiltrosSesion = (function () {
           return _norm(r.getAttribute("data-trabajador")) + "|" +
                  (r.getAttribute("data-fecha") || "");
         },
-        true);
+        true) || manejador;
     }
+    return manejador || nulo;
   }
 
   // ---------------------------------------------------------------- //
