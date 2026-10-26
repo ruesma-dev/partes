@@ -59,6 +59,9 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
   `node` se lanza desde un fichero temporal: con `node -e` el programa pasa del límite de Windows.
 - T6 hecha: «Limpiar» de las tres listas ⇒ `?search=`; parseo Jinja2 de las tres y de `base.html` OK.
 - T7 hecha: `docs/ARCHITECTURE.md` punto 11, párrafo «Filtros por usuario (F-064)».
+- T8 hecha: `git diff --stat dev` = la lista de T8 + `tests/test_f043_portal_fecha.py` (desviación 1).
+  Nada de sv1/sv2/sv3/sv5, `infra/`, `orm_models.py` ni `azure-apps/`.
+- T9 (mutación): la lanza el líder, no el implementer (encargo del 2026-10-26).
 
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 
