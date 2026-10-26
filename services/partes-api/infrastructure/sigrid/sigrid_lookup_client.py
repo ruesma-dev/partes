@@ -9,7 +9,11 @@ Dos lecturas, ambas por ``POST /api/sql/read`` contra la base configurada:
 - ``existe_obra`` (F-058, DA10 = B): si hay en Sigrid alguna obra con una
   clave dada, de cualquier empresa y también de baja; una consulta en el
   momento por página, con su propio tope de tiempo, para decidir si se
-  relee la cabecera. No casa la obra: eso lo hace sv3.
+  relee la cabecera. No casa la obra: eso lo hace sv3. Desde F-063 es un
+  ``LIKE`` parametrizado sobre ``con.cod`` sin funciones (un recorrido
+  sin funciones por fila, ~0,1 s frente a 12–16 s; con el ``%`` inicial no
+  es una búsqueda por índice) que trae candidatos distintos, y el resultado
+  exacto lo da ``clave_obra`` sobre cada uno, la misma que calcula la clave.
 
 ``truncated: true`` es siempre error (F-038): nunca se decide con filas
 parciales.
@@ -23,6 +27,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from domain.models.clave_obra import clave_obra
 
 logger = logging.getLogger(__name__)
 
@@ -45,19 +50,76 @@ WHERE (auxhor.fecbaj IS NULL OR auxhor.fecbaj = 0)
 ORDER BY auxhor.ext, auxhor.cod
 """
 
-#: F-058 (R7, DA10 = B): ¿hay alguna obra con esta clave? La clave llega como
-#: el único parámetro ``?`` (nunca concatenada) y se calcula igual sobre
-#: ``con.cod``: sin espacios ni guiones y, si queda solo de dígitos, sin ceros
-#: a la izquierda; mayúsculas y acentos los iguala la intercalación. Sin
-#: filtro de empresa ni de baja. ``TOP 1``: basta saber si hay alguna.
-_SQL_EXISTE_OBRA = """SELECT TOP 1 con.cod AS codigo
+#: F-063 (R1, R2; antes F-058 R7): candidatos de una clave. El único
+#: parámetro ``?`` es ``patron_like(clave)`` (nunca concatenado). Sin
+#: funciones ni ``COLLATE`` sobre ``con.cod`` (el optimizador usa el plan
+#: barato), sin ``TOP`` (cortaría el superconjunto antes del filtro) y sin
+#: filtro de empresa ni de baja. ``DISTINCT``: una fila por código aunque
+#: esté en varias empresas. El filtro exacto lo hace ``existe_obra``.
+_SQL_EXISTE_OBRA = """SELECT DISTINCT con.cod AS codigo
 FROM obr JOIN con ON obr.ide = con.ide
-CROSS APPLY (SELECT REPLACE(REPLACE(con.cod, ' ', ''), '-', '') AS n) a
-CROSS APPLY (SELECT CASE WHEN a.n <> '' AND a.n NOT LIKE '%[^0-9]%'
-    THEN ISNULL(NULLIF(SUBSTRING(a.n, PATINDEX('%[^0]%', a.n + 'X'), 24), ''), '0')
-    ELSE a.n END AS clave) k
-WHERE con.cod IS NOT NULL AND k.clave COLLATE Latin1_General_CI_AI = ?
+WHERE con.cod LIKE ?
 """
+
+
+# --------------------- F-063 · patrón LIKE de una clave --------------------- #
+
+#: R6: los especiales de ``LIKE`` de T-SQL van como literales.
+_ESPECIALES_LIKE = {"%": "[%]", "_": "[_]", "[": "[[]"}
+
+#: Rango de caracteres cuyas variantes se buscan (Latin-1 y Latin Extended-A).
+_RANGO_VARIANTES = range(0x00A0, 0x0180)
+
+
+def _tabla_variantes() -> dict[str, frozenset[str]]:
+    """Para cada carácter de U+00A0–U+017F cuya ``clave_obra`` es UNA letra
+    o dígito, lo apunta bajo esa base: ``"A"`` → {ª, À, Á, …, à, á, …},
+    ``"N"`` → {Ñ, ñ, Ń, …}, ``"2"`` → {²}, ``"O"`` → {º, Ò, …}.
+
+    R5 lo pide para toda base con variantes del rango; casi todas son ASCII,
+    pero también ``µ`` (clave ``Μ``, griega). Solo letras y dígitos: dentro
+    de ``[...]`` nunca va ``^``, ``-`` ni ``]``.
+    """
+    tabla: dict[str, set[str]] = {}
+    for punto in _RANGO_VARIANTES:
+        caracter = chr(punto)
+        base = clave_obra(caracter)
+        if len(base) == 1 and base.isalnum() and caracter.isalnum():
+            tabla.setdefault(base, set()).add(caracter)
+    return {base: frozenset(variantes) for base, variantes in tabla.items()}
+
+
+#: Se calcula una vez al importar el módulo.
+_VARIANTES = _tabla_variantes()
+
+
+def _clase(caracter: str) -> str:
+    """Un carácter de la clave como elemento del patrón ``LIKE`` (R5, R6)."""
+    if caracter in _ESPECIALES_LIKE:
+        return _ESPECIALES_LIKE[caracter]
+    opciones = {caracter} | _VARIANTES.get(caracter, frozenset())
+    minuscula = caracter.lower()
+    if len(minuscula) == 1:
+        opciones.add(minuscula)
+    if len(opciones) == 1:
+        return caracter
+    return "[" + "".join(sorted(opciones)) + "]"
+
+
+def patron_like(clave: str) -> str:
+    """F-063 (R4–R7): patrón ``LIKE`` que casa con todo código de esa clave.
+
+    ``%`` y, tras cada carácter de la clave, su clase y otro ``%``: un código
+    cuya clave es ``clave`` contiene sus caracteres en orden con cualquier
+    cosa entre ellos (blancos, guiones, ceros a la izquierda, espacio duro),
+    así que casa siempre, distinga o no la intercalación mayúsculas y
+    acentos. Trae un superconjunto: el filtro exacto lo hace ``existe_obra``.
+    ``"692"`` → ``"%6%9%[2²]%"``. Una clave vacía lanza ``ValueError``
+    (nunca un ``%`` suelto que traiga todas las obras).
+    """
+    if not clave:
+        raise ValueError("patron_like requiere una clave no vacía")
+    return "%" + "".join(_clase(c) + "%" for c in clave)
 
 
 @dataclass(frozen=True)
@@ -127,15 +189,19 @@ class SigridLookupClient:
     def existe_obra(self, clave: str, *, timeout_s: float) -> bool:
         """F-058: ``True`` si hay alguna obra con esa clave (ya normalizada).
 
+        F-063 (R8): la consulta trae los códigos que casan con
+        ``patron_like(clave)`` (un superconjunto) y cuenta solo el candidato
+        cuya ``clave_obra`` es exactamente ``clave``; nulos y otras claves no.
         Con su propio tope (``OBRA_EXISTE_TIMEOUT_S``), no el del catálogo.
         Un error HTTP, ``ok=false``, ``truncated`` o el tope superado lanzan:
-        los recoge ``ComprobadorObra`` como «no se sabe».
+        los recoge ``ComprobadorObra`` como «no se sabe». Clave vacía:
+        ``ValueError`` sin consultar (R7).
         """
         _, rows = self._post_sql_read(
-            sql=_SQL_EXISTE_OBRA, parameters=[clave], label="existe_obra",
-            timeout_s=timeout_s,
+            sql=_SQL_EXISTE_OBRA, parameters=[patron_like(clave)],
+            label="existe_obra", timeout_s=timeout_s,
         )
-        return len(rows) >= 1
+        return any(clave_obra(row[0]) == clave for row in rows if row)
 
     def _post_sql_read(
         self, *, sql: str, parameters: list[Any], label: str,

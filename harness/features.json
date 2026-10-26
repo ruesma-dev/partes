@@ -874,7 +874,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-058-relectura-cabecera-gemini",
-      "pendiente": "M0 OK. M1 FALLA: la consulta de obra tarda 12–16 s en sigrid-api y el tope es 5 s (todas «no se sabe»). No desplegar sv2 hasta que decida el humano (progress/current.md)"
+      "pendiente": "Desplegar sv2 junto con F-063 (M0 OK; M1 de F-058 superada por F-063: M-EQ y M-T); tras desplegar, M2–M4"
     },
     {
       "id": "F-059",
@@ -950,15 +950,20 @@
       "title": "sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s)",
       "description": "Petición del humano del 2026-10-25 («1a») tras la M1 de F-058 (líder, local, solo lectura): las 8 consultas `[obra-sigrid]` salieron `resultado=error error=ReadTimeout` (5,6–6,2 s, tope `OBRA_EXISTE_TIMEOUT_S` = 5 s). Medido aparte en sigrid-api: `_SQL_EXISTE_OBRA` (sv2 `infrastructure/sigrid/sigrid_lookup_client.py`, normaliza `con.cod` fila a fila con `CROSS APPLY` + `COLLATE`) tarda 12–16 s; `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegada así, toda consulta de obra sería «no se sabe» (la relectura por obra inexistente nunca saltaría), +~6 s por parte y ~13 s de consulta en el SQL de producción de Sigrid por parte. Objetivo: misma semántica de F-058 (clave normalizada: sin espacios ni guiones, sin ceros a la izquierda si es numérica, sin distinguir mayúsculas ni acentos) con una consulta que use el índice de `con.cod` y quepa holgada en el tope. sv2 NO se despliega hasta cerrar esta feature (F-058 está en dev sin desplegar).",
       "acceptance": [
-        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "Consulta de obra en sv2: una sola sql/read `SELECT DISTINCT con.cod FROM obr JOIN con ON obr.ide = con.ide WHERE con.cod LIKE ?`, sin funciones ni COLLATE sobre con.cod, sin CROSS APPLY ni TOP, sin filtro de empresa ni de baja; el único parámetro es el patrón de la clave; max_rows del cliente (F-038) y truncated = error",
+        "patron_like(clave): % y, tras cada carácter, su clase de variantes (minúscula, acentuadas, ª º ¹ ² ³) y otro %; escapa % _ [; ValueError con clave vacía; todo código casa con el patrón de su propia clave (blancos, guiones, ceros, espacio duro, acentos), probado con un emulador de LIKE y un corpus aleatorio con semilla",
+        "existe_obra es True si y solo si algún candidato tiene clave_obra igual a la clave; es_vacio y clave_obra pasan a domain/models/clave_obra.py sin cambiar (una sola función a los dos lados); puerto, ComprobadorObra, su log [obra-sigrid], pipeline, Settings y OBRA_EXISTE_TIMEOUT_S sin cambios",
+        "Solo sv2 (más ARCHITECTURE.md punto 18 y azure-apps/partes.md §3.2); de los tests de F-058 solo cambian las aserciones del SQL sustituido; guardián de F-038 en verde",
+        "Rigor estándar: fase RED, cobertura y mutación muestreada con supervivientes analizados",
+        "M-EQ (equivalencia exhaustiva en lotes por ide, solo lectura) y M-T (60 consultas reales, puerta DA3) del líder antes de desplegar sv2; después el humano pide el despliegue y siguen M2/M4 de F-058",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "done",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-063-consulta-obra-rapida",
-      "spec": "en redacción · `partes-wt-f063`"
+      "pendiente": "Desplegar sv2 (lleva F-058 y F-063); tras desplegar, M2 y M4 de F-058 (tiempos reales de [obra-sigrid])"
     }
   ]
 }

@@ -20,7 +20,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from application.services.relectura_cabecera import clave_obra
+from domain.models.clave_obra import clave_obra
 from domain.ports.existencia_obra_port import ExistenciaObraPort
 
 logger = logging.getLogger(__name__)

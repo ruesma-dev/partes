@@ -23,6 +23,7 @@ from application.services.obra_sigrid import ComprobadorObra, ConsultaObra
 from infrastructure.sigrid.sigrid_lookup_client import (
     MAX_ROWS_DEFECTO,
     SigridLookupClient,
+    patron_like,
 )
 
 LOGGER_OBRA = "application.services.obra_sigrid"
@@ -189,10 +190,10 @@ def test_f058_r7_existe_obra_parametrizada() -> None:
     assert peticion.url.path == "/api/sql/read"
     assert peticion.headers["x-functions-key"] == CLAVE_FALSA
     payload = grabadora.payload
-    assert payload["parameters"] == [CLAVE]
+    assert payload["parameters"] == [patron_like(CLAVE)]  # F-063
     assert CLAVE not in payload["sql"]
     assert payload["sql"].count("?") == 1
-    assert "TOP 1" in payload["sql"]
+    assert "LIKE ?" in payload["sql"]  # F-063: sustituye a «TOP 1»
     assert payload["database"] == "ruesma"
 
 
@@ -205,8 +206,7 @@ def test_f058_r7_existe_obra_sin_filtro_de_empresa_ni_de_baja() -> None:
 
 
 def test_f058_r7_existe_obra_pide_el_max_rows_del_cliente() -> None:
-    """F-038 (R13): ningún lector fija un ``max_rows`` bajo; el ``TOP 1``
-    acota la respuesta."""
+    """F-038 (R13): ningún lector fija un ``max_rows`` bajo."""
     grabadora = Grabadora()
     _cliente(grabadora, max_rows=1234).existe_obra(CLAVE, timeout_s=5.0)
     assert grabadora.payload["max_rows"] == 1234

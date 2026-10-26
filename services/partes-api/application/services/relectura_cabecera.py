@@ -17,9 +17,12 @@ conciliación de sv3: no elige obra ni empresa (R11).
 """
 from __future__ import annotations
 
-import unicodedata
 from collections.abc import Callable, Mapping
 from typing import Any
+
+# F-063 (R9, DA2 = A): la clave vive en el dominio; se reexporta con el
+# mismo nombre para quien la importe de aquí.
+from domain.models.clave_obra import clave_obra, es_vacio
 
 MOTIVO_CABECERA_VACIA = "cabecera_vacia"
 MOTIVO_OBRA_INEXISTENTE = "obra_inexistente"
@@ -31,28 +34,6 @@ RESULTADO_ERROR = "error"
 
 #: Dice si existe una obra con ese código: True / False / None = «no se sabe».
 ExisteObra = Callable[[str], bool | None]
-
-
-def es_vacio(valor: object) -> bool:
-    """``None`` o una cadena con solo espacios (R5)."""
-    return valor is None or (isinstance(valor, str) and not valor.strip())
-
-
-def clave_obra(codigo: object) -> str:
-    """Clave con la que se compara un código de obra.
-
-    Sin acentos, en mayúsculas y sin espacios ni guiones; si queda solo de
-    dígitos, sin ceros a la izquierda (``"00672"`` → ``"672"``, ``"000"`` →
-    ``"0"``). ``""`` si el código es vacío.
-    """
-    if es_vacio(codigo):
-        return ""
-    texto = unicodedata.normalize("NFKD", str(codigo))
-    texto = "".join(c for c in texto if not unicodedata.combining(c))
-    texto = "".join(texto.upper().split()).replace("-", "")
-    if texto.isdigit():
-        return texto.lstrip("0") or "0"
-    return texto
 
 
 def _cabecera(data: Mapping[str, Any]) -> Mapping[str, Any] | None:
