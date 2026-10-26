@@ -227,7 +227,8 @@ function salir(x) { process.stdout.write(JSON.stringify(x)); }
 PAGINA_JS = r"""
 var DATOS = {Fecha: ["2026-10-01", "2026-10-02", "2026-10-03"],
              Trabajador: ["López", "Pérez", "López"],
-             Tipo: ["extra", "normal", "normal"], "": ["", "", ""]};
+             Tipo: ["extra", "normal", "normal"], "": ["", "", ""],
+             "~Sel": ["", "", ""]};
 function pagina(ruta, search, usuario) {
   window.location.pathname = ruta; window.location.search = search || "";
   if (usuario !== null) body.dataset.filtrosUsuario =
@@ -236,10 +237,12 @@ function pagina(ruta, search, usuario) {
   body.appendChild(el("main", {"class": "page-shell"}, [cont]));
   return cont;
 }
+// Una cabecera "~Nombre" es una columna con titulo y SIN filtro.
 function tablaFiltrable(attrs, cabeceras, filas, conLimpiar) {
   var cab = el("tr", {}, cabeceras.map(function (c) {
-    return el("th", {}, [], c); }));
+    return el("th", {}, [], c.replace(/^~/, "")); }));
   var filtro = el("tr", {"class": "filter-row"}, cabeceras.map(function (c) {
+    if (c && c.charAt(0) === "~") return el("th");
     if (c) return el("th", {}, [el("input", {"class": "col-filter"})]);
     return el("th", {}, conLimpiar
       ? [el("button", {"class": "filter-clear"}, [], "Limpiar")] : []);
@@ -547,6 +550,27 @@ salir({lineas: filtrosDe(t), matriz: filtrosDe(mx), visibles: visibles(t),
     assert pantalla["cols"] == {"lines-table": {"Tipo": "extra"},
                                 "matriz": {"Trabajador": "lopez"}}
     assert pantalla["t"] == AHORA and r["est"]["t"] == AHORA   # R7
+
+
+def test_f064_r11_columna_sin_filtro_delante_cuenta_por_cellindex() -> None:
+    """Observacion 2 de la review: con una columna SIN filtro antes de las
+    filtrables, la columna se identifica por la posicion de su `th`
+    (`cellIndex`), no por el orden entre los `.col-filter`."""
+    r = _dom("""
+guardado("u-ana", {"/obras/obr-10": {t: ahora - 5000, cols: {
+  "lines-table": {"Tipo": "extra"}}}});
+var cont = pagina("/obras/obr-10");
+var t = lineas(cont, ["~Sel", "Fecha", "Trabajador", "Tipo", ""]);
+FiltrosSesion.restaurar(wireDayFilters());
+var repuesto = {filtros: filtrosDe(t), visibles: visibles(t)};
+var f = t.querySelector("tr.filter-row").querySelectorAll(".col-filter");
+f[0].value = "2026-10"; f[0].dispatchEvent(new Event("input", {bubbles: true}));
+salir({repuesto: repuesto,
+       cols: estado().pantallas["/obras/obr-10"].cols["lines-table"]});
+""")
+    assert r["repuesto"] == {"filtros": ["", "", "extra"],
+                             "visibles": ["2026-10-01Lópezextra"]}
+    assert r["cols"] == {"Fecha": "2026-10", "Tipo": "extra"}
 
 
 def test_f064_r11_tabla_sin_id_es_tabla_y_columna_por_data_col_key() -> None:
