@@ -236,6 +236,30 @@ def test_f063_r5_letra_no_latina_con_variante_del_rango() -> None:
     assert "µ" in _clase_de(clave_obra("µ"))
 
 
+def test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica() -> None:
+    """Invariante de la tabla (R5, design §5.2; mata mutantes de T8): cada
+    base es UNA letra o dígito y cada variante es una letra o dígito de
+    U+00A0–U+017F cuya clave es esa base. Sin entradas muertas: ni bases de
+    varios caracteres (``ß`` → ``SS``), ni signos (``°``), ni ``ƀ`` (U+0180)."""
+    variantes = sigrid_lookup_client._VARIANTES
+    assert variantes
+    for base, conjunto in variantes.items():
+        assert len(base) == 1 and base.isalnum(), base
+        for variante in conjunto:
+            assert 0x00A0 <= ord(variante) <= 0x017F, variante
+            assert variante.isalnum() and clave_obra(variante) == base, variante
+
+
+def test_f063_r5_tabla_de_variantes_completa() -> None:
+    """Toda letra o dígito de U+00A0–U+017F cuya clave es una sola letra o
+    dígito está en la clase de esa base."""
+    for punto in range(0x00A0, 0x0180):
+        caracter = chr(punto)
+        base = clave_obra(caracter)
+        if caracter.isalnum() and len(base) == 1 and base.isalnum():
+            assert caracter in _clase_de(base), caracter
+
+
 # ------------------------------ R6 · escapes ------------------------------- #
 
 @pytest.mark.parametrize(("especial", "escape"), [

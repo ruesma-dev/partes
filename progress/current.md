@@ -8,9 +8,12 @@ recomendación de `design.md` §10). Implementer en marcha en el worktree `parte
 
 - [x] T1–T7 y T11 (implementer, 2026-10-26; un commit por tarea, fase RED con traza; informe
   `progress/impl_F-063.md`). `bash harness/init.sh` en verde (cobertura 100 % de 43 líneas).
-- [ ] **T8 · mutación LANZADA por el líder (2026-10-26)**: 20 evaluados, 16 muertos, 4 supervivientes (`sigrid_lookup_client.py:70` ×2 `_RANGO_VARIANTES`, `:86` ×2 `and`→`or`), 0 timeouts, 191 s; informe `progress/mutacion_F-063.md`. Falta el análisis del implementer. Receta:, desde la raíz del worktree:
-  `python -m harness.mutacion --feature F-063` ⇒ `progress/mutacion_F-063.md`; analizar los
-  supervivientes allí y resumirlos en `progress/impl_F-063.md` («Evidencias»).
+- [x] **T8 · mutación (lanzada por el líder 2026-10-26; analizada por el implementer)**: 20
+  evaluados, 16 muertos, 4 supervivientes en `sigrid_lookup_client.py` (`:70` ×2
+  `_RANGO_VARIANTES`, `:86` ×2 `and`→`or`). Análisis en `progress/mutacion_F-063.md`: el de
+  `range(161, …)` es equivalente (U+00A0 tiene clave vacía); los otros tres, muertos con
+  `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica` (comprobado aplicando cada
+  mutante a mano, sin relanzar la campaña). 19 de 20 muertos, 1 equivalente.
 - [x] **T9 · M-EQ OK (líder, 2026-10-26, dos pasadas)**: censo 924 obras, 843 claves, 19 con blanco o guion, 663 con ceros a la izquierda, 0 fuera de `[0-9A-Za-z -]`; lotes de 500 con `VALUES`: 924 comprobadas, `fallos=0`, `trampa_vuelve=True`; vieja = nueva en 7 de 7.
 - [ ] **T10 · M-T NO PASA la puerta DA3 (líder, 2026-10-26)**: 60/60 aciertos, 0 errores, pero mediana 1.163 ms, p95 1.730, máx 4.809 (2.ª pasada: 1.076 / 1.223 / 1.589), candidatos máx 822. Diagnóstico (solo lectura, `httpx` desde local, 8 llamadas por caso): con conexión NUEVA por llamada (lo que hace `_post_sql_read` desde F-058) `SELECT 1` 1.145 ms, obra 692 1.146 ms, obra 0 1.073 ms; con la conexión REUTILIZADA 88 / 92 / 122 ms. El segundo largo es abrir la conexión TLS desde local, no la consulta; dentro de Azure se espera mucho menor, sin medir. `blocked`: decide el humano. **Decisión del humano (2026-10-26, literal)**: «a» ⇒ la puerta DA3 se da por cumplida midiendo solo la consulta (conexión reutilizada: mediana 92 ms, obra 0 122 ms); los tiempos reales se vigilan en producción con la M4 de F-058 tras desplegar; reutilizar la conexión en sv2 (opción B) queda para otra feature si la M4 lo pide. Receta: Script fuera del repo
   (`design.md` §9), probado en seco con dobles:
