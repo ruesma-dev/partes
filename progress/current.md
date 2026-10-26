@@ -70,6 +70,9 @@ producción:
 **Pendiente (ya no).** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
 autoriza el humano de forma literal.
 
+**Implementer (2026-10-26).** T1–T2 hechas; en curso: T3. Informe en
+`progress/impl_F-061.md`.
+
 
 ## F-062 · DONE y DESPLEGADA 2026-10-26 (sv5 r20261026140625 13:07:34Z, sv4 r20261026140755 13:09:17Z; `MOVER_CIZ=true` en los dos; arranque sano; M1–M5 OK; M6 a repetir cuando se aprueben incidencias). El inicio de una incidencia escribe CI* y CIZ el mismo día
 
