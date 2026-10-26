@@ -958,12 +958,12 @@
         "M-EQ (equivalencia exhaustiva en lotes por ide, solo lectura) y M-T (60 consultas reales, puerta DA3) del líder antes de desplegar sv2; después el humano pide el despliegue y siguen M2/M4 de F-058",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "spec_ready",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-063-consulta-obra-rapida",
-      "spec": "escrita, pendiente de aprobación (DA1–DA5) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063`"
+      "spec": "aprobada 2026-10-25 («f63 ok a todo»: DA1–DA5 = A) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063`"
     }
   ]
 }

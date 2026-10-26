@@ -1,7 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-063 · SPEC_READY 2026-10-25 (spec-author; pendiente de aprobación del humano): consulta de obra de sv2 que use el índice
+## F-063 · IN_PROGRESS 2026-10-25 (implementer): consulta de obra de sv2 que use el índice
+
+**Aprobación del humano (2026-10-25, literal)**: «f63 ok a todo» ⇒ DA1–DA5 = A (la
+recomendación de `design.md` §10). Implementer en marcha en el worktree `partes-wt-f063`.
+
+- Tarea en curso: T1 (tests en rojo).
 
 Spec en `specs/F-063-consulta-obra-rapida/` (rama `feature/F-063-consulta-obra-rapida`,
 worktree `partes-wt-f063`, sale de `dev` bbc3172). Petición del humano: «1a». Solo sv2 (más
@@ -20,7 +25,7 @@ para subirlo). sv2 sigue sin desplegarse hasta cerrar F-063.
   (cada obra casa con el patrón de su clave, en lotes por `ide`, con par trampa; vieja = nueva
   en ≤ 7 claves) y **M-T** (60 consultas reales: 60/60, 0 errores, puerta DA3).
 
-**Decisiones abiertas para el humano** (`design.md` §10; las tareas suponen A en todas):
+**Decisiones (aprobadas: A en todas, «f63 ok a todo»)** (`design.md` §10):
 
 | DA | Tema | Recomendación |
 |---|---|---|
