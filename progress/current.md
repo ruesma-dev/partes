@@ -70,10 +70,15 @@ producción:
 **Pendiente (ya no).** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
 autoriza el humano de forma literal.
 
-**Implementer (2026-10-26).** T1–T11 y T13 hechas (un commit por tarea); `init.sh` en verde.
-Informe en `progress/impl_F-061.md`. Pendiente: T12 (mutación, la lanza el líder:
-`python -m harness.mutacion --feature F-061` desde la raíz del worktree), review, T14 (M1) y
-T15 (M2). `azure-apps`: commit local `86640b4` (solo `partes.md`).
+**Implementer (2026-10-26).** T1–T13 hechas (un commit por tarea); `init.sh` en verde.
+Informe en `progress/impl_F-061.md`. Mutación (lanzada por el líder: 20 evaluados, 16
+muertos y 4 supervivientes, con 4 workers):
+- #2, #3 y #4 eran huecos y ya los matan tests nuevos.
+- #1 (`.limit(1)` → `.limit(2)` en `_borrar_retirados_sin_filas`) es un **equivalente
+  propuesto, pendiente de aceptación del humano**. Demostración:
+  `python progress/equivalentes_F-061.py`.
+
+Pendiente: esa aceptación, review, T14 (M1) y T15 (M2). `azure-apps`: commit local `86640b4` (solo `partes.md`).
 
 **M1 · humano, tras desplegar sv4** (`design.md` §9; ningún agente lanza `redeploy_partes.ps1`).
 En el portal, parte manual de prueba de la obra 0404, un día sin nada en Sigrid, con dos
