@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-062 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalentes 1, 4 y 5 aceptados por el humano; M1–M5 OK; pendiente: despliegue sv5 → sv4 y M6). El inicio de una incidencia escribe CI* y CIZ el mismo día
+## F-062 · DONE y DESPLEGADA 2026-10-26 (sv5 r20261026140625 13:07:34Z, sv4 r20261026140755 13:09:17Z; `MOVER_CIZ=true` en los dos; arranque sano; M1–M5 OK; M6 a repetir cuando se aprueben incidencias). El inicio de una incidencia escribe CI* y CIZ el mismo día
 
 Spec en `specs/F-062-ciz-el-mismo-dia-del-inicio/` (rama `feature/F-062-ciz-el-mismo-dia-del-inicio`,
 worktree `partes-wt-f062`, sale de `dev` f313407). Rigor crítico. Servicios: **sv5** escribe el
@@ -99,7 +99,8 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
   `racha_desordenada`); aprobar el **3** ⇒ el CIZ pasa al 03 (`registro_id=<id2>-><id3>`).
   **Limpieza**: los tres comandos con `<M5>`. Al terminar, Ctrl+C en las consolas 1 y 2 y
   cerrarlas; `git checkout -- prueba_escritura_sigrid.py`.
-- [ ] **Despliegue (lo pide el humano)**: **sv5 y luego sv4**, sin tocar variables
+- [x] **Desplegada por el humano el 2026-10-26**: sv5 `ca-sv5-transfer--r20261026140625` (creada 13:07:34Z) y luego sv4 `ca-sv4-front--r20261026140755` (13:09:17Z), las dos Healthy al 100 %, `MOVER_CIZ=true` leído en las dos. Log Analytics: Uvicorn arriba, sv4 «esquema inicializado (185 sentencias complementarias)», sin Traceback ni ERROR.
+- [x] **Despliegue (lo pide el humano)**: **sv5 y luego sv4**, sin tocar variables
   (`MOVER_CIZ` ya está a `true` en los dos). Quitar solo F-062: volver sv4 a su revisión
   anterior y dejar sv5 nuevo; **NO** volver sv5 a la imagen de F-060 con hermanos escritos.
   Vuelta atrás completa: `MOVER_CIZ=false` en sv4 y LUEGO en sv5:
@@ -107,6 +108,7 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
   az containerapp update -n ca-sv4-front -g rg-partes-dev --set-env-vars MOVER_CIZ=false
   az containerapp update -n ca-sv5-transfer -g rg-partes-dev --set-env-vars MOVER_CIZ=false
   ```
+- [ ] **M6 · primera lectura del líder (2026-10-26, solo lectura, recién desplegado)**: M4 de F-060 ⇒ `grupos = 0` (OK); `partes:%:ciz` ⇒ `n = 0` (aún no se ha aprobado ninguna incidencia con sv4 nuevo). Repetir cuando se aprueben incidencias: esperado `n > 0` y `grupos = 0` (script de solo lectura del líder en su scratchpad, `m6_f062.ps1`).
 - [ ] **M6 (humano, producción, solo lectura, tras desplegar sv5 → sv4)**. Anotar
   `<AAAAMMDD>` (día del despliegue de sv4). La M4 de F-060 (bloque de F-060, más abajo) ⇒
   `grupos = 0`, y:

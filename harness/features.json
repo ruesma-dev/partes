@@ -947,7 +947,7 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-062-ciz-el-mismo-dia-del-inicio",
-      "pendiente": "M1–M5 OK (2026-10-26, progress/m1_m5_F-062.md); desplegar sv5 → sv4 y M6 (solo lectura)"
+      "pendiente": "Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración"
     },
     {
       "id": "F-063",
