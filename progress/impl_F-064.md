@@ -165,8 +165,32 @@ la suite corría con el `app.py` ya importado. No es un fallo del código: el fi
 |---|---|
 | Tests ejecutados | sv4: **2984 passed, 1 skipped**; raíz: 522 passed, 3 skipped; F-064: **98** (9 + 89), todos en verde |
 | Cobertura de líneas cambiadas | **100.0 %** (7/7 líneas Python; umbral 80 %, estándar) |
-| Mutantes generados / supervivientes | **PENDIENTE del líder** por encargo (T9): no la lanza el implementer |
+| Mutantes generados / supervivientes | 4 / 0 (la campaña la lanzó el líder en T9, 5778ad0: `progress/mutacion_F-064.md`) |
 | Tiempo de la suite | sv4 862.99 s; raíz 124.63 s; los 98 de F-064, 29.08 s |
 
 La cobertura de líneas cambiadas solo mide Python: las ≈ 400 líneas de `static/app.js` no entran
 en la puerta. Su cobertura es la de los 89 tests de node (puras + DOM falso + fuente).
+
+## Arreglo de observaciones 1, 2 y 4 (review pasada 1; el humano: «arregla»)
+
+- **Obs. 1** (6be5c0b): `test_f064_r10_con_pantalla_…` pasa a `test_f064_r4_r10_con_pantalla_pone_la_foto_con_su_t`.
+- **Obs. 2** (ec7297d): el DOM falso admite columnas `~Nombre` (con título y sin filtro) y
+  `test_f064_r11_columna_sin_filtro_delante_cuenta_por_cellindex` pone una delante de las
+  filtrables. Mutante «índice entre inputs» aplicado a mano sobre una **copia** (scratchpad
+  `f064/mut2`: `fila.children[filtrosDe(table).indexOf(input)]`), con el fichero de tests copiado
+  y apuntando a ella: `1 failed, 89 passed`; solo lo mata el test nuevo. Árbol sin tocar.
+- **Obs. 4** (430274e): `estadoVigente` descarta las entradas de pantalla que no son objeto o no
+  tienen `t` numérico. RED con `python -m pytest tests/test_f064_filtros_js.py -q -p no:cacheprovider -k "mal_formadas or pantalla_null"`:
+
+  ```
+  E         {'pantallas': {'/a': None, '/b': {'t': 5, 'query': 'search=x'}, '/c': 7, '/d': [], ...}} != {'pantallas': {'/b': {'t': 5, 'query': 'search=x'}}}
+  E       assert "TypeError: Cannot read properties of null (reading 't')" is None
+  2 failed, 90 deselected in 1.64s
+  ```
+
+  `test_f064_r6_pantalla_null_no_corta_el_init_de_f043` ejecuta las líneas **reales** del
+  `DOMContentLoaded` principal, desde `FiltrosSesion.restaurar(dias);` hasta
+  `esperasDeLaPagina();`, con espías. Ya en verde, corren `restaurarVista` y `esperasDeLaPagina`,
+  y el filtro válido se repone. F-064 + F-043: `159 passed`. Las huellas de R22/R23 siguen igual.
+- `bash harness/init.sh` ⇒ **ENTORNO LISTO**. sv4 corrió entera, no de caché: **2987 passed,
+  1 skipped** (1124.83 s). COBERTURA 100 % (7/7). TAMAÑO `[OK]`. Tests de F-064: 101 (9 + 92).
