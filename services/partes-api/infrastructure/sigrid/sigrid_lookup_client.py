@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from domain.models.clave_obra import clave_obra
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,66 @@ CROSS APPLY (SELECT CASE WHEN a.n <> '' AND a.n NOT LIKE '%[^0-9]%'
     ELSE a.n END AS clave) k
 WHERE con.cod IS NOT NULL AND k.clave COLLATE Latin1_General_CI_AI = ?
 """
+
+
+# --------------------- F-063 · patrón LIKE de una clave --------------------- #
+
+#: R6: los especiales de ``LIKE`` de T-SQL van como literales.
+_ESPECIALES_LIKE = {"%": "[%]", "_": "[_]", "[": "[[]"}
+
+#: Rango de caracteres cuyas variantes se buscan (Latin-1 y Latin Extended-A).
+_RANGO_VARIANTES = range(0x00A0, 0x0180)
+
+
+def _tabla_variantes() -> dict[str, frozenset[str]]:
+    """Para cada carácter de U+00A0–U+017F cuya ``clave_obra`` es UNA letra
+    o dígito, lo apunta bajo esa base: ``"A"`` → {ª, À, Á, …, à, á, …},
+    ``"N"`` → {Ñ, ñ, Ń, …}, ``"2"`` → {²}, ``"O"`` → {º, Ò, …}.
+
+    R5 lo pide para toda base con variantes del rango; casi todas son ASCII,
+    pero también ``µ`` (clave ``Μ``, griega). Solo letras y dígitos: dentro
+    de ``[...]`` nunca va ``^``, ``-`` ni ``]``.
+    """
+    tabla: dict[str, set[str]] = {}
+    for punto in _RANGO_VARIANTES:
+        caracter = chr(punto)
+        base = clave_obra(caracter)
+        if len(base) == 1 and base.isalnum() and caracter.isalnum():
+            tabla.setdefault(base, set()).add(caracter)
+    return {base: frozenset(variantes) for base, variantes in tabla.items()}
+
+
+#: Se calcula una vez al importar el módulo.
+_VARIANTES = _tabla_variantes()
+
+
+def _clase(caracter: str) -> str:
+    """Un carácter de la clave como elemento del patrón ``LIKE`` (R5, R6)."""
+    if caracter in _ESPECIALES_LIKE:
+        return _ESPECIALES_LIKE[caracter]
+    opciones = {caracter} | _VARIANTES.get(caracter, frozenset())
+    minuscula = caracter.lower()
+    if len(minuscula) == 1:
+        opciones.add(minuscula)
+    if len(opciones) == 1:
+        return caracter
+    return "[" + "".join(sorted(opciones)) + "]"
+
+
+def patron_like(clave: str) -> str:
+    """F-063 (R4–R7): patrón ``LIKE`` que casa con todo código de esa clave.
+
+    ``%`` y, tras cada carácter de la clave, su clase y otro ``%``: un código
+    cuya clave es ``clave`` contiene sus caracteres en orden con cualquier
+    cosa entre ellos (blancos, guiones, ceros a la izquierda, espacio duro),
+    así que casa siempre, distinga o no la intercalación mayúsculas y
+    acentos. Trae un superconjunto: el filtro exacto lo hace ``existe_obra``.
+    ``"692"`` → ``"%6%9%[2²]%"``. Una clave vacía lanza ``ValueError``
+    (nunca un ``%`` suelto que traiga todas las obras).
+    """
+    if not clave:
+        raise ValueError("patron_like requiere una clave no vacía")
+    return "%" + "".join(_clase(c) + "%" for c in clave)
 
 
 @dataclass(frozen=True)

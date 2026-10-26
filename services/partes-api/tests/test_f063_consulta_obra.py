@@ -19,7 +19,6 @@ from __future__ import annotations
 import ast
 import json
 import random
-import re
 from pathlib import Path
 
 import httpx
@@ -46,42 +45,70 @@ CODIGOS_A12 = ["a-12", "Á 12", "A12"]
 
 # ------------------------- emulador de LIKE (T-SQL) ------------------------ #
 
-def _clase_regex(contenido: str) -> str:
+def _minuscula(caracter: str) -> str:
+    """Minúscula de un carácter si es uno solo (``İ`` daría dos)."""
+    minuscula = caracter.lower()
+    return minuscula if len(minuscula) == 1 else caracter
+
+
+def _conjunto(contenido: str) -> tuple[bool, frozenset[str]]:
+    """Contenido de ``[...]``: (negada, caracteres), con rangos ``x-y``."""
     negada = contenido.startswith("^")
     if negada:
         contenido = contenido[1:]
-    partes: list[str] = []
+    caracteres: set[str] = set()
     i = 0
     while i < len(contenido):
         if i + 2 < len(contenido) and contenido[i + 1] == "-":
-            partes.append(f"{re.escape(contenido[i])}-{re.escape(contenido[i + 2])}")
+            caracteres.update(chr(p) for p in range(ord(contenido[i]),
+                                                    ord(contenido[i + 2]) + 1))
             i += 3
         else:
-            partes.append(re.escape(contenido[i]))
+            caracteres.add(contenido[i])
             i += 1
-    return "[" + ("^" if negada else "") + "".join(partes) + "]"
+    return negada, frozenset(_minuscula(c) for c in caracteres)
+
+
+def _fichas(patron: str) -> list[tuple[str, bool, frozenset[str]]]:
+    """El patrón en fichas: ``("%"…)``, ``("_"…)`` o ``("c", negada, set)``."""
+    fichas: list[tuple[str, bool, frozenset[str]]] = []
+    i = 0
+    while i < len(patron):
+        c = patron[i]
+        if c in "%_":
+            fichas.append((c, False, frozenset()))
+        elif c == "[" and "]" in patron[i + 1:]:
+            fin = patron.index("]", i + 1)
+            fichas.append(("c", *_conjunto(patron[i + 1:fin])))
+            i = fin
+        else:
+            fichas.append(("c", False, frozenset({_minuscula(c)})))
+        i += 1
+    return fichas
 
 
 def _like(cadena: str, patron: str) -> bool:
     """``cadena LIKE patron`` de T-SQL (``%``, ``_``, ``[...]``, ``[^...]``),
-    sin distinguir mayúsculas y distinguiendo acentos."""
-    regex: list[str] = []
-    i = 0
-    while i < len(patron):
-        c = patron[i]
-        if c == "%":
-            regex.append(".*")
-        elif c == "_":
-            regex.append(".")
-        elif c == "[" and "]" in patron[i + 1:]:
-            fin = patron.index("]", i + 1)
-            regex.append(_clase_regex(patron[i + 1:fin]))
-            i = fin
-        else:
-            regex.append(re.escape(c))
-        i += 1
-    return re.fullmatch("".join(regex), cadena,
-                        re.IGNORECASE | re.DOTALL) is not None
+    sin distinguir mayúsculas y distinguiendo acentos.
+
+    Programación dinámica sobre las fichas del patrón (sin ``re``: compilar
+    miles de clases Unicode distintas es lento); las mayúsculas se igualan
+    pasando cadena y patrón a minúsculas."""
+    texto = [_minuscula(c) for c in cadena]
+    # casa[j]: el prefijo de fichas ya procesado casa con texto[:j].
+    casa = [True] + [False] * len(texto)
+    for tipo, negada, conjunto in _fichas(patron):
+        if tipo == "%":
+            for j in range(1, len(texto) + 1):
+                casa[j] = casa[j] or casa[j - 1]
+            continue
+        nueva = [False] * (len(texto) + 1)
+        for j in range(1, len(texto) + 1):
+            if casa[j - 1] and (tipo == "_"
+                                or (texto[j - 1] in conjunto) != negada):
+                nueva[j] = True
+        casa = nueva
+    return casa[-1]
 
 
 def test_f063_emulador_like_escape_de_guion_bajo() -> None:
