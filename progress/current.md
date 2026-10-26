@@ -58,6 +58,7 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
   guardada si la consulta trae otro parámetro (R19 «ni guarda»).
   `node` se lanza desde un fichero temporal: con `node -e` el programa pasa del límite de Windows.
 - T6 hecha: «Limpiar» de las tres listas ⇒ `?search=`; parseo Jinja2 de las tres y de `base.html` OK.
+- T7 hecha: `docs/ARCHITECTURE.md` punto 11, párrafo «Filtros por usuario (F-064)».
 
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 

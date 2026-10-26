@@ -373,6 +373,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `GET /whoami` permite comprobar la identidad resuelta sin escribir
     ninguna fila. `DEFAULT_REVIEWER` sobrevive con otro significado: ya no
     es «quién firma el portal» sino la etiqueta de la sesión local.
+    **Filtros por usuario (F-064)**: con ese mismo actor, `clave_filtros`
+    (pura, en `identidad.py`) da una **clave de filtros** —16 hex del
+    SHA-256, sin el UPN en claro— que `base.html` pinta en
+    `<body data-filtros-usuario>`; vacía con `sin-identidad` desplegado.
+    `FiltrosSesion` (`static/app.js`) guarda en `localStorage`
+    (`partes.filtros.v1:<clave>`) los filtros **por usuario y pantalla**
+    (filtros por columna, días con su periodo, la casilla de la matriz y la
+    búsqueda de las tres listas) y los repone al volver, con el aviso
+    «Quitar filtros». Caducan a las **8 h** sin cargar ninguna página (la
+    cookie de Easy Auth). La **selección de líneas nunca se guarda**: con
+    un filtro repuesto, aprobar sigue enviando solo lo visible (F-022).
 12. **Empresa y alta (F-023)**: maestros de TODAS las empresas (`con.emp`;
     `SIGRID_EMPRESA` ya no se usa). «De alta a D» = `con.fecbaj` NULL, 0 o
     `> D` (nunca `emp.fecbaj`). Hay códigos de obra en dos empresas: la
