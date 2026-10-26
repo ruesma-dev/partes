@@ -1,42 +1,72 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-061 · spec escrita 2026-10-26, pendiente de aprobación (status `pending`): un parte que se queda sin líneas no puede seguir activo
+## F-061 · spec ENMENDADA 2026-10-26 (DA1–DA4 decididas por el humano), pendiente de DA5–DA8 (status `pending`): un parte que se queda sin líneas no puede seguir activo
 
-El spec-author escribió la spec el 2026-10-26 en el worktree `partes-wt-f061`, rama
-`feature/F-061-parte-vacio-tras-borrar-lineas`, desde `dev` 843ff13. Está en
-`specs/F-061-parte-vacio-tras-borrar-lineas/`: `requirements.md` R1–R20 (119 líneas),
-`design.md` (250) y `tasks.md` T0–T17. Servicios: **sv4 y sv3**. No toca Sigrid, ni el DDL
-ni la lista cerrada de duplicación.
+**Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree
+`partes-wt-f061`, rama `feature/F-061-parte-vacio-tras-borrar-lineas`, sacada de `dev`
+843ff13:
+- La versión 1 está en el commit `02da480`. Su `design.md` §9 guarda la consulta M0.
+- La versión 2, enmendada, está en `specs/F-061-parte-vacio-tras-borrar-lineas/`. Tiene R1–R20
+  (`requirements.md`, 125 líneas), `design.md` (250 líneas) y las tareas T0–T15.
+
+**Alcance.** Toca **solo sv4**. No toca sv3, ni Sigrid, ni el DDL, ni la lista cerrada de
+duplicación.
+
+**Decisión del humano (2026-10-26), literal**: «f61 al borrar todas la slineas de un parte se
+deb borrar el parte. el parte como entidad no hace falta que vaya a paperlera porque es
+confuso. habra una logica que borre el parte en si, al quedarse sin lineas». A las preguntas
+del líder eligió «Oculto y luego borrado» y, para los existentes, «Lo mismo que la regla».
 
 **Causa real** (`design.md` §2):
-- `soft_delete_registro` de sv4 no mira si el parte se queda sin líneas vivas.
-  `soft_delete_worker` sí lo mira, pero sin bloqueo.
-- `vaciar_papelera` borra físicamente las líneas sueltas sin mirar su parte.
+- `soft_delete_registro` no mira si el parte se queda sin líneas vivas.
+- `soft_delete_worker` sí lo mira, pero sin bloqueo, y manda el parte a la papelera de
+  partes.
+- `vaciar_papelera` borra las líneas sueltas sin mirar su parte.
 - `restore_document` devuelve activo y vacío un parte que se vació por borrado.
-- sv3 `get_by_sha256` filtra solo `is_active`.
-- El borrado en bloque del portal lanza N peticiones a la vez, y eso abre una carrera.
+- El borrado en bloque del portal lanza N peticiones a la vez y provoca una carrera.
 
-**Decisiones abiertas que valida el humano** (`design.md` §10). La recomendación es A en
-todas:
-- **DA1.** El parte que se queda vacío va a la papelera de documento; no se desactiva.
-- **DA2.** Restaurar un parte vaciado devuelve sus líneas. Si hay otro parte activo con el
-  mismo sha256, devuelve un 409.
-- **DA3.** Vaciar la papelera manda a la papelera el parte que se queda sin filas; no lo
-  borra.
-- **DA4.** Para los existentes, un script de sv4 `limpiar_partes_vacios.py`: primero un
-  informe de solo lectura y luego `--ejecutar --esperados N`. Excluye los aprobados, los que
-  tienen líneas que viven fuera y los de PT26/00373, 00375 y 00376.
-- **DA5.** En `/partes`, contar solo las líneas vivas y poner la insignia «Sin líneas».
-- **DA6.** sv3 manda a la papelera el parte activo, vacío y no aprobado con el mismo sha256,
-  y guarda el nuevo.
-- **DA7.** «Parte vacío» como definición única en ARCHITECTURE; no entra en la lista cerrada.
-- **DA8.** Rigor `estandar`, sin subirlo.
+**Decididas por el humano:**
+- **DA1.** El parte que se queda sin líneas vivas se **retira**: `is_active=false`, sin
+  `deleted_at_utc` y con la marca `sin-lineas` en `deleted_by`.
+  - No sale en `/partes` ni en la papelera de partes, y libera su sha256.
+  - Se aplica al borrar líneas, al borrar una persona y al deshacer una celda.
+  - Borrar una obra y «Borrar parte» no cambian.
+  - Sus líneas siguen en la papelera de líneas (`list_papelera` ya las incluye).
+- **DA2.** Restaurar una de esas líneas devuelve el parte.
+  - Si ya hay otro parte activo con el mismo sha256, el portal responde 409 sin escribir.
+  - `restore_document` sobre un parte sin líneas vivas devuelve también sus líneas.
+- **DA3.** Al vaciar la papelera, el parte retirado que no conserva ninguna fila se borra
+  **físicamente**; también al «Eliminar» su última fila. Es el único borrado físico nuevo y
+  lo decidió el humano.
+- **DA4.** Para los existentes, el script `limpiar_partes_vacios.py`, que aplica la regla:
+  - Sin argumentos saca un informe de solo lectura.
+  - Con `--ejecutar --esperados N`, que lanza el humano, borra los partes sin filas y retira
+    los que tienen filas.
+  - Excluye los aprobados, los que tienen líneas que viven fuera y los de PT26/00373, 00375 y
+    00376.
 
-**Pendiente antes de T1**: la M0 del líder, de solo lectura sobre la base `partes`. La
-consulta exacta está en `design.md` §9 y cuenta los partes vacíos por categoría y exclusión,
-y los que hoy chocarían al restaurar. La limpieza (M2) la autoriza el humano de forma
-literal.
+**Abiertas, que valida el humano** (la recomendación es A en todas):
+- **DA5.** `/partes` cuenta solo las líneas vivas y añade la insignia «Sin líneas».
+- **DA6.** No se toca la deduplicación de sv3: el parte retirado ya no bloquea. Solo queda el
+  parte que **nace** vacío, que se quita con «Borrar parte».
+- **DA7.** Marca `sin-lineas` en `deleted_by` en vez de una columna nueva. Así se distingue
+  del parte desactivado por el reemplazo de sv3, que deja `deleted_by` en NULL.
+- **DA8.** Rigor `estandar`.
+
+**M0 · HECHA por el líder el 2026-10-26**, en solo lectura sobre la base `partes` de
+producción:
+
+| Categoría | Partes | Fechas | `approved` | `vive_fuera` | `protegido` |
+|---|---|---|---|---|---|
+| `sin_filas_leidos` | 29 | 2026-07-15 a 2026-10-22 | f | f | f |
+| `sin_filas_nada_leido` | 1 | 2026-07-16 | f | f | f |
+| `todas_en_papelera` | 0 | | | | |
+
+`restaurables_que_chocarian` = 0. Según la regla, los 30 se borran.
+
+**Pendiente.** Que el humano valide DA5–DA8. Después, T1 y siguientes. La limpieza (M2) la
+autoriza el humano de forma literal.
 
 ## F-063 · DONE y DESPLEGADA 2026-10-26 (sv2 r20261026094916, creada 08:51:31Z, junto con F-058; arranque sano: relectura ACTIVA gemini-4-argon, comprueba_obra=True, timeout 5 s; pendiente M2/M4 de F-058): consulta de obra de sv2 que use el índice
 

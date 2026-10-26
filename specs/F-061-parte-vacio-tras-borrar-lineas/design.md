@@ -3,10 +3,10 @@
 
 ## 1. Encaje y límite de servicio
 
-**sv4** lleva el ciclo de vida del parte en el portal: ahí está la causa y el arreglo.
-**sv3** es el único que deduplica por sha256: la red de seguridad (R11–R13) solo cabe ahí.
-Nada de sv1, sv2, sv5 ni Sigrid; sin DDL (`orm_models.py` intacto). La congelación (lista
-cerrada) solo se **usa** (`_separar_congeladas`, `vive_fuera`). «Parte vacío»: DA7.
+**sv4** lleva el ciclo de vida del parte en el portal: ahí está la causa y el arreglo. Con
+el parte retirado (`is_active = false`) el sha256 queda libre y sv3 reingiere sin cambios
+(DA6). Nada de sv1, sv2, sv3, sv5 ni Sigrid; sin DDL (`orm_models.py` intacto). La
+congelación (lista cerrada) solo se **usa** (`_separar_congeladas`, `vive_fuera`).
 
 ## 2. Lo que hay hoy (`dev` 843ff13)
 
@@ -15,236 +15,236 @@ sv4, `infrastructure/database/parte_repository.py`:
 | Camino | Qué hace con el parte |
 |---|---|
 | `soft_delete_registro` (:4055) | marca la línea; **no mira el parte** ⇒ activo y vacío |
-| `soft_delete_worker` (:4127) | manda a la papelera los que se vacían, pero **sin bloqueo** (carrera) |
-| `soft_delete_obra` / `delete_document` | mandan el parte entero a la papelera (bien) |
-| `_deshacer_creadas` (:3384, F-049) | marca líneas; no mira el parte (hoy casi imposible vaciarlo) |
+| `soft_delete_worker` (:4127) | manda a la **papelera de partes** los que se vacían, **sin bloqueo** (carrera) |
+| `soft_delete_obra` / `delete_document` | mandan el parte entero a la papelera de partes (no cambia) |
+| `_deshacer_creadas` (:3384, F-049) | marca líneas; no mira el parte |
 | `vaciar_papelera` (:4239) | `session.delete` de las líneas sueltas; **no mira el parte** ⇒ activo con 0 filas |
-| `restore_registro` (:4068) | devuelve el parte si estaba en la papelera (bien) |
-| `restore_document` (:4212) | solo el parte: si se vació por borrado, **vuelve activo y vacío** |
+| `hard_delete_registro` (:4084) | borra la línea; no mira el parte |
+| `restore_registro` (:4068) | devuelve el parte solo si estaba en la papelera de partes (`deleted_at_utc`) |
+| `restore_document` (:4212) | solo el parte: si se vació, **vuelve activo y vacío**; sha repetido ⇒ 500 por el índice |
+| `list_papelera` (:4170) | «líneas sueltas» = líneas borradas de partes con `deleted_at_utc IS NULL`: **ya incluye** las de un parte retirado (R5 sin cambio de consulta) |
 | `list_partes` (:1564) | cuenta empleados y horas de **todas** las filas, también las de la papelera |
 
 El borrado en bloque (`app.js`, `doBorrar`) lanza N `POST …/delete` a la vez (`Promise.all`):
-de ahí R3. En sv3, `get_by_sha256` (`sqlalchemy_parte_repository.py:850`) filtra solo
-`is_active` y el pipeline (`:152`) descarta la reingesta; el índice
-`ux_parte_documents_sha256_active` es único parcial `WHERE is_active`, así que insertar sin
-retirar antes el vacío choca. Hay partes que **nacen vacíos** (sv3 guarda sin empleados).
+de ahí R3. El índice `ux_parte_documents_sha256_active` es único parcial `WHERE is_active`.
+La única FK a `parte_documents` es la de `parte_registros`, y `undo_last` salta los partes
+que ya no existen (`session.get` ⇒ `None` ⇒ `continue`): borrar un parte sin filas no deja
+referencias rotas.
 
-## 3. Ficheros
-
-**sv4** (`services/partes-front/`)
+## 3. Ficheros (todos en `services/partes-front/`)
 
 | Fichero | Cambio |
 |---|---|
-| `application/services/parte_vacio.py` (**nuevo**) | §4.1: motivos, excepción y predicados puros |
-| `infrastructure/database/parte_repository.py` | §4.2: bloqueo, vaciado, caminos de §2, `ParteRow.sin_lineas` |
-| `interface_adapters/web/app.py` | `api_registro_delete` devuelve R1; restaurar captura `DuplicadoActivoError` (409) |
+| `application/services/parte_vacio.py` (**nuevo**) | §4.1: marca, motivos, excepción y predicados puros |
+| `infrastructure/database/parte_repository.py` | §4.2: bloqueo, retirar, borrar sin filas, restaurar, `ParteRow.sin_lineas`, métodos del script |
+| `interface_adapters/web/app.py` | `api_registro_delete` devuelve R1; los dos restaurar capturan `DuplicadoActivoError` (409) |
 | `static/app.js` | §4.3 |
-| `templates/partes_list.html` | insignia «Sin líneas» (`badge warn`) si `p.sin_lineas` (R10) |
-| `limpiar_partes_vacios.py` (**nuevo**, raíz de sv4) | §4.5 |
+| `templates/partes_list.html` | insignia «Sin líneas» (`badge warn`) si `p.sin_lineas` (R13) |
+| `limpiar_partes_vacios.py` (**nuevo**, raíz de sv4) | §4.4 |
 | `tests/test_f061_*.py` (**nuevos**) | §6 |
 
-**sv3** (`services/partes-persistencia/`)
+**Docs**: `docs/ARCHITECTURE.md` (semántica 8, «Herramientas de consola») y
+`C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (filas `source_sha256` y papelera).
 
-| Fichero | Cambio |
-|---|---|
-| `domain/models/parte_records.py` | `ExistingParte` + `registros_vivos: int \| None = None`, `aprobado: bool = False`; excepción `ParteYaNoVacio` |
-| `domain/ports/parte_repository.py` | `save_parte(..., reemplaza_vacio: str \| None = None)` |
-| `infrastructure/database/sqlalchemy_parte_repository.py` | §4.4 |
-| `application/pipelines/persist_parte_pipeline.py` | decisión de dedup (§4.4) y docstring del paso 2 |
-| `tests/test_f061_*.py` (**nuevos**) | §6 |
-
-**Documentación**: `docs/ARCHITECTURE.md` (semántica 8 y «Herramientas de consola») y
-`C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (fila `source_sha256`: «ni uno vacío»).
-
-**No se tocan**: `orm_models.py` (sv3, sv4), `congelacion.py` (sv4), `recurso_conciliador.py`
-y `_deactivate_same_day_obra` (sv3), `hard_delete_*`, `soft_delete_obra`, `delete_document`,
-`crear_parte_manual`, `guardar_celda`, sv1, sv2 y sv5.
+**No se tocan**: sv3 entero (incluidos `get_by_sha256` y `_deactivate_same_day_obra`),
+`orm_models.py`, `congelacion.py`, `soft_delete_obra`, `delete_document`,
+`hard_delete_document`, `crear_parte_manual`, `guardar_celda`, sv1, sv2 y sv5.
 
 ## 4. Funciones
 
 ### 4.1 `application/services/parte_vacio.py` (application, puro)
 
+- `MARCA_RETIRADO = "sin-lineas"`. `marca_retirado(actor: str | None) -> str` devuelve
+  `"sin-lineas"`, o `"sin-lineas · <actor>"` recortado a 255 caracteres.
+  `es_retirado(*, is_active, deleted_at_utc, deleted_by) -> bool`: no activo, sin
+  `deleted_at_utc` y `deleted_by` que empieza por la marca. Distingue al retirado del parte
+  desactivado por el reemplazo de sv3 (`_deactivate_same_day_obra`), que deja `deleted_by`
+  a `NULL` (DA7).
 - `PARTES_SIGRID_PROTEGIDOS = frozenset({"PT26/00373", "PT26/00375", "PT26/00376"})`.
-- `MOTIVO_DUPLICADO_ACTIVO = "Ya hay un parte activo del mismo PDF (se volvió a leer).
-  Restaurar este crearía un duplicado: elimínalo de la papelera o borra antes el otro."`
-- `class DuplicadoActivoError(Exception)` con `motivo`; no hereda de `CongeladoError`.
-- `motivo_exclusion_limpieza(*, aprobado, estados, partes_sigrid) -> str | None`:
+- `MOTIVO_DUPLICADO_ACTIVO = "Ya hay un parte activo del mismo PDF (se volvió a procesar).
+  Restaurar esto crearía un duplicado: elimínalo de la papelera."`.
+  `class DuplicadoActivoError(Exception)`, con `motivo`. No hereda de `CongeladoError`.
+- `motivo_exclusion_limpieza(*, aprobado, estados, partes_sigrid) -> str | None`. Devuelve
   `"aprobado"`, `"vive_fuera"` (`vive_fuera(e)` o `encolado`) o `"protegido"`, en ese orden.
-- `categoria_vacio(*, filas: int, manual: bool, empleados_leidos: int) -> str` (R15) y
-  `empleados_leidos(raw_extraction_json: str | None) -> int`: `len(data.empleados)` si es
-  lista; JSON inválido o ausente ⇒ 0, sin lanzar.
+- `categoria_vacio(*, filas, manual, empleados_leidos) -> str` (R15).
+- `empleados_leidos(raw_extraction_json) -> int`: `len(data.empleados)` si es una lista.
+  Con el JSON inválido o ausente da 0, sin lanzar.
 
 ### 4.2 `ParteReviewRepository` (infrastructure)
 
 - **`_sql_bloqueo_documentos(ids) -> Select`** (estático): `select(ParteDocumentOrm)
-  .where(id.in_(ids)).order_by(ParteDocumentOrm.id).with_for_update()`. Aparte para testear
-  el SQL compilado; `_bloquear_documentos(session, ids)` lo ejecuta. En SQLite el
-  `FOR UPDATE` desaparece al compilar: es lo esperado.
-- **`_a_papelera_si_vacios(session, ids, *, ahora, by) -> list[str]`**: `flush`; cada parte
-  activo sin ninguna línea viva (`select … limit(1)`, como hoy en `soft_delete_worker`) va a
-  la papelera; devuelve los ids. Único sitio de sv4 que escribe la regla.
-- **`borrar_linea(*, registro_id, by) -> dict`** (nuevo): línea inexistente o ya borrada ⇒
-  `{"ok": False}`; si no, bloquea su parte **antes** de las guardas (`_exigir_reg_editable`,
-  `_exigir_sin_recalculo`, como hoy), marca la línea, `_a_papelera_si_vacios`, `commit` y
-  devuelve `{"ok": True, "documento_a_papelera": bool, "document_id": id}`.
-  `soft_delete_registro` queda como `return self.borrar_linea(...)["ok"]` (8 usos en tests).
-- **`soft_delete_worker`**: selecciona las líneas, bloquea sus partes por `id`, **vuelve a
-  leer** las candidatas (pudieron cambiar mientras esperaba), separa congeladas, marca y
-  `_a_papelera_si_vacios`. Bloquear el parte antes de tocar líneas, igual que `borrar_linea`,
-  evita el abrazo mortal. Devuelve lo mismo que hoy.
-- **`_deshacer_creadas`**: al final, `_a_papelera_si_vacios` sobre los partes de las
-  creadas (R2). Sin bloqueo nuevo.
-- **`vaciar_papelera`**: guarda los `document_id` de las líneas sueltas que borra y después
-  `_a_papelera_si_vacios` sobre ellos; añade `documentos_a_papelera: int` (R5).
-- **`restore_registro` / `restore_document`**: antes de escribir, si el parte no está activo
-  y hay otro activo con el mismo `source_sha256`, `DuplicadoActivoError` (R8).
-  `restore_document` restaura además todas sus líneas de la papelera si ninguna está viva (R7).
-- **`list_partes`**: empleados, `num_registros` y horas solo con líneas vivas, y
-  `sin_lineas = not vivas` (campo nuevo de `ParteRow`, defecto `False`) (R10).
-- **`partes_vacios_activos() -> list[dict]`** (solo `SELECT`) y
-  **`vacios_a_papelera(document_ids, *, by) -> dict`** (bloquea por `id`, recomprueba que
-  sigue activo, vacío y sin exclusión, y usa `_a_papelera_si_vacios`;
-  `{"a_papelera": n, "saltados": m}`): los usa el script de §4.5.
+  .where(id.in_(ids)).order_by(ParteDocumentOrm.id).with_for_update()`. Va aparte para
+  poder testear el SQL compilado. `_bloquear_documentos(session, ids)` lo ejecuta. En SQLite
+  el `FOR UPDATE` desaparece al compilar, y es lo esperado.
+- **`_retirar_si_vacios(session, ids, *, by) -> list[str]`**. Hace `flush`. Cada parte
+  activo sin ninguna línea viva pasa a `is_active = False` y
+  `deleted_by = marca_retirado(by)`; `deleted_at_utc` sigue en `NULL`. Devuelve los ids. Es
+  el único sitio que escribe la regla.
+- **`_borrar_retirados_sin_filas(session, ids=None) -> int`**. Hace `flush` y
+  `session.delete` de cada parte retirado (`es_retirado`) sin ninguna fila. Con `ids=None`
+  barre todos; si no, solo esos. Es el único sitio del borrado físico decidido por el humano
+  (R9–R11): un parte con filas o no retirado nunca entra.
+- **`borrar_linea(*, registro_id, by) -> dict`** (nuevo).
+  1. Si la línea no existe o ya está borrada, devuelve `{"ok": False}`.
+  2. Bloquea su parte **antes** de las guardas, que siguen como hoy
+     (`_exigir_reg_editable`, `_exigir_sin_recalculo`).
+  3. Marca la línea, llama a `_retirar_si_vacios` y hace `commit`.
+  4. Devuelve `{"ok": True, "parte_retirado": bool, "document_id": id}`.
+
+  `soft_delete_registro` queda como `return self.borrar_linea(...)["ok"]`: tiene 8 usos en
+  tests.
+- **`soft_delete_worker`**. Selecciona las líneas y bloquea sus partes por `id`. Después
+  **vuelve a leer** las candidatas, porque pudieron cambiar mientras esperaba. Separa las
+  congeladas, marca el resto y llama a `_retirar_si_vacios`, que sustituye a su bloque actual
+  «a papelera». Bloquear el parte antes de tocar líneas, como hace `borrar_linea`, evita el
+  abrazo mortal. Devuelve lo mismo que hoy.
+- **`_deshacer_creadas`**: al final, `_retirar_si_vacios` sobre los partes de las creadas
+  (R2).
+- **`restore_registro`**.
+  1. Si el parte está retirado o en la papelera de partes y existe otro parte activo con el
+     mismo `source_sha256`, lanza `DuplicadoActivoError` antes de escribir (R7).
+  2. Restaura la línea.
+  3. Si el parte estaba retirado, lo devuelve: `is_active = True` y `deleted_by = None`
+     (R6). La rama actual de la papelera de partes no cambia.
+- **`restore_document`**: la misma comprobación de sha (R7). Si el parte no tiene ninguna
+  línea viva, restaura además todas sus líneas de la papelera (R8): es el legado del
+  `soft_delete_worker` anterior.
+- **`hard_delete_registro`**: tras borrar, llama a `_borrar_retirados_sin_filas(session,
+  [document_id])` (R10).
+- **`vaciar_papelera`**: tras su bucle actual, `partes_borrados =
+  _borrar_retirados_sin_filas(session)`, el barrido global (R9). La clave se añade al
+  resultado.
+- **`list_partes`**: empleados, `num_registros` y horas solo con las líneas vivas.
+  `sin_lineas = not vivas` es un campo nuevo de `ParteRow`, con defecto `False` (R13).
+- **Para el script** (§4.4):
+  - `partes_vacios_activos() -> list[dict]`: solo `SELECT`.
+  - `limpiar_vacios(document_ids, *, by) -> dict`: bloquea por `id` y recomprueba que cada
+    parte sigue activo, vacío y sin exclusión. Si lo cumple, llama a `_retirar_si_vacios` y
+    luego a `_borrar_retirados_sin_filas(ids)`: el parte sin filas acaba borrado y el que
+    tiene filas, retirado. Devuelve `{"borrados", "retirados", "saltados"}`.
 
 ### 4.3 Portal (`static/app.js`, `app.py`)
 
-- `.line-del`: si `d.documento_a_papelera`, avisa «El parte se ha quedado sin líneas y ha
-  ido a la papelera.» y, si la página es `/partes/<document_id>`, va a `/partes`; si no,
-  recarga. `doBorrar` (bloque) lee el JSON de cada respuesta y aplica lo mismo.
-- `[data-restore-doc]` y `[data-restore-line]`: con `d.error`, `alert(d.error)`. Vaciar: con
-  `d.documentos_a_papelera`, avisa de que N partes se quedaron sin líneas y siguen en la
-  papelera.
-- `app.py`: los dos restaurar capturan `DuplicadoActivoError` ⇒ 409 `{"ok": false, "error"}`;
-  `api_registro_delete` devuelve el dict de `borrar_linea` (el 409 de congelación sigue
-  llegando por su manejador global).
+- **`.line-del`**: si `d.parte_retirado`, enseña el aviso de R12. Si la página es
+  `/partes/<document_id>`, va a `/partes`; si no, recarga. **`doBorrar`** lee el JSON de
+  cada respuesta y aplica lo mismo.
+- **`[data-restore-doc]` y `[data-restore-line]`**: con `d.error`, `alert(d.error)`.
+- **Vaciar**: el aviso de hoy no cambia (`omitidos`). `partes_borrados` no se enseña: el
+  parte ya no se veía.
+- **`app.py`**:
+  - Los dos endpoints de restaurar capturan `DuplicadoActivoError` y devuelven 409
+    `{"ok": false, "error"}`.
+  - `api_registro_delete` devuelve el dict de `borrar_linea`.
+  - El 409 de congelación sigue llegando por su manejador global.
 
-### 4.4 sv3 · deduplicación
+### 4.4 `limpiar_partes_vacios.py` (script de consola de sv4; uso en §9 M2)
 
-- `get_by_sha256` rellena `registros_vivos` (`deleted_at_utc IS NULL`) y `aprobado`; sigue
-  devolviendo solo partes activos.
-- Pipeline, si hay `existing`: con `registros_vivos == 0` y no aprobado, INFO
-  «`[persist-parte] sha256=… ya existe pero el parte está vacío (document_id=…): se
-  reemplaza.`» y sigue con `reemplaza_vacio=existing.document_id`; si no, dedup como hoy. Si
-  `save_parte` lanza `ParteYaNoVacio`, devuelve el `already_existed` de hoy sin conciliar (R13).
-- `save_parte(..., reemplaza_vacio)`: al principio de su sesión, `select … with_for_update`
-  del parte; si no existe, no está activo, tiene alguna línea viva o está aprobado ⇒
-  `ParteYaNoVacio` sin escribir. Si no, papelera (`deleted_by="sv3-reingesta"`),
-  `session.flush()` **antes** de crear el `ParteDocumentOrm` nuevo, e INFO `[parte-repo]
-  reingesta: parte vacío <viejo> a la papelera, nuevo <nuevo>`. El resto (incluido
-  `_deactivate_same_day_obra`) no cambia.
-
-### 4.5 `limpiar_partes_vacios.py` (script de consola de sv4; uso en §9 M2)
-
-- Conexión: `create_engine(settings.database_url)` + `sessionmaker` en una clase mínima con
-  `create_session()`. **Sin `SessionFactory`**, que crea la base y entra en la de
+- **Conexión**: `create_engine(settings.database_url)` + `sessionmaker`, en una clase mínima
+  con `create_session()`. **Sin `SessionFactory`**, que crea la base y entra en la de
   administración del servidor compartido (R18).
-- Informe: en PostgreSQL, `SET TRANSACTION READ ONLY`; `partes_vacios_activos()` con
-  `categoria_vacio` y `motivo_exclusion_limpieza`; escribe
+- **Informe**: en PostgreSQL, `SET TRANSACTION READ ONLY`. Usa `partes_vacios_activos()`
+  con `categoria_vacio`, la acción prevista y `motivo_exclusion_limpieza`, y escribe
   `logs/limpieza_partes_vacios_<AAAAMMDD-HHMM>.md` y `.csv`.
-- `--ejecutar --esperados N`: si los candidatos no son N, código 2 sin escribir; si lo son,
-  `vacios_a_papelera(ids, by="F-061-limpieza")` y lo imprime (script: `print` permitido).
+- **`--ejecutar --esperados N`**: si los candidatos no son N, sale con código 2 sin
+  escribir. Si lo son, llama a `limpiar_vacios(ids, by="F-061-limpieza")` e imprime el
+  resultado (es un script: `print` permitido).
 
 ## 5. SQL
 
-Sin `.sql`, DDL ni tablas: ORM sobre la base `partes`. Nuevo: `FOR UPDATE` de filas de
-`parte_documents` (nada de servidor) y la consulta de vacíos (la de la M0 de §9).
+Sin `.sql`, DDL ni tablas: ORM sobre la base `partes`. Lo nuevo:
+- `FOR UPDATE` sobre filas de `parte_documents` (nada a nivel de servidor);
+- `DELETE` de filas de `parte_documents` sin filas hijas, solo para los partes retirados;
+- la consulta de vacíos, la de la M0 de §9.
 
 ## 6. Tests (sin red ni BBDD; SQLite en memoria con `dobles.py`; `test_f061_rN_…`)
 
-**sv4** (`services/partes-front/tests/`):
-- `test_f061_borrado.py`: **R1** (última línea ⇒ papelera con actor y dict; con vivas
-  ⇒ `false`; también por `TestClient`); **R2** (persona con congeladas ⇒ activo; persona o
-  `_deshacer_creadas` que vacían ⇒ papelera); **R3** (`_sql_bloqueo_documentos` compilado en
-  `postgresql` lleva `FOR UPDATE` y `ORDER BY parte_documents.id`; espía en `borrar_linea` y
-  `soft_delete_worker`; dos borrados seguidos ⇒ papelera); **R4** (regresión).
-- `test_f061_papelera.py`: **R5** (vaciar con un parte de líneas todas sueltas ⇒
-  `documentos_a_papelera` = 1, parte inactivo con `deleted_at_utc`, sin `SAWarning` como
-  F-010 R11); **R6–R8** (restaurar línea; parte vaciado ⇒ líneas vivas; otro activo con el
-  mismo sha ⇒ 409 y nada escrito).
-- `test_f061_portal.py`: **R9** (`app.js` maneja `documento_a_papelera`; `node --check`
-  en la verificación); **R10** (`list_partes` cuenta solo vivas y `sin_lineas`; la plantilla
-  pinta «Sin líneas»).
-- `test_f061_limpieza.py`: **R14–R18** (categorías; las tres exclusiones; `--esperados`
-  distinto ⇒ código 2 y nada escrito; `--ejecutar` sin `--esperados` ⇒ error de uso;
-  ejecución ⇒ papelera con `F-061-limpieza` y ningún `DELETE`, con `before_cursor_execute`;
-  no importa `SessionFactory`; el CSV no lleva nombres) y funciones puras de §4.1.
-
-**sv3** (`services/partes-persistencia/tests/`):
-- `test_f061_dedup_vacio.py`: **R11–R13** con el repositorio falso del pipeline (vacío
-  ⇒ `reemplaza_vacio`; con vivas o aprobado ⇒ `already_existed`; `ParteYaNoVacio` ⇒
-  `already_existed`) y con el repositorio real sobre SQLite (viejo en papelera con
-  `sv3-reingesta`, nuevo activo y, por `before_cursor_execute`, el `UPDATE parte_documents`
-  **antes** del `INSERT INTO parte_documents`).
-
-**R19–R20**: tarea de límite (`git diff --stat dev`) y reviewer, no pytest.
+- **`tests/test_f061_borrado.py`**:
+  - **R1**: la última línea retira el parte (inactivo, sin `deleted_at_utc`, con la marca) y
+    devuelve el dict. Con líneas vivas, `false`. También por `TestClient`.
+  - **R2**: persona con congeladas ⇒ el parte sigue activo. Persona o `_deshacer_creadas`
+    que lo vacían ⇒ retirado.
+  - **R3**: `_sql_bloqueo_documentos` compilado en `postgresql` lleva `FOR UPDATE` y
+    `ORDER BY parte_documents.id`. Espía en `borrar_linea` y `soft_delete_worker`. Dos
+    borrados seguidos ⇒ retirado.
+  - **R4**: obra y «Borrar parte» siguen a la papelera de partes (regresión).
+- **`tests/test_f061_papelera.py`**:
+  - **R5**: `list_papelera` lista las líneas de un parte retirado y no el parte.
+  - **R6–R8**: restaurar una línea devuelve el parte; otro activo con el mismo sha ⇒ 409 y
+    nada escrito (línea y parte); restaurar un parte sin vivas devuelve sus líneas.
+  - **R9–R11**: vaciar borra el retirado sin filas (`partes_borrados`), sin `SAWarning` como
+    F-010 R11. Un retirado con una fila `registrado` omitida sigue. No borra un parte de la
+    papelera de partes, ni uno activo vacío, ni uno desactivado por sv3 (`deleted_by NULL`).
+    «Eliminar» la última fila de un retirado borra el parte.
+- **`tests/test_f061_portal.py`**:
+  - **R12**: `app.js` maneja `parte_retirado`, con `node --check` en la verificación.
+  - **R13**: `list_partes` cuenta solo las vivas y pone `sin_lineas`; la plantilla pinta
+    «Sin líneas».
+- **`tests/test_f061_limpieza.py`**:
+  - **R14–R18**: las categorías y la acción prevista; las tres exclusiones; `--esperados`
+    distinto ⇒ código 2 y nada escrito; `--ejecutar` sin `--esperados` ⇒ error de uso. La
+    ejecución borra el parte sin filas y retira el que tiene filas, con la marca
+    `F-061-limpieza`, y no lanza ningún `DELETE` sobre `parte_registros`
+    (`before_cursor_execute`). No importa `SessionFactory` y el CSV no lleva nombres.
+  - Las funciones puras de §4.1.
+- **R19–R20**: tarea de límite (`git diff --stat dev`) y reviewer, no pytest.
 
 ## 7. Riesgos y decisiones
 
-- **Abrazo mortal**: todo camino bloquea el parte antes de tocar líneas; varios, por `id`.
-- **Restaurar contra el índice único**: ya podía pasar y F-061 lo hace más probable; R8 da
-  un 409 legible en vez de un 500.
-- **Parte nacido vacío y reentregado** (at-least-once): sv3 manda el primero a la papelera y
-  guarda otro igual. Ruido, nada perdido; raro, se acepta.
-- **`list_partes` cambia cifras** con líneas en la papelera: es corrección (semántica 3). Si
+- **Abrazo mortal**: todo camino bloquea el parte antes de tocar líneas (varios, por `id`).
+- **Restaurar con el sha ya reprocesado**: es el caso esperable, porque retirar libera el
+  sha para eso. R7 responde con un 409 legible, en vez del 500 del índice, y la línea vieja
+  se elimina desde la papelera.
+- **La marca vive en `deleted_by`** sin `deleted_at_utc`: no hace falta DDL. Un parte
+  desactivado por sv3 (`deleted_by NULL`) nunca se confunde con un retirado y nunca se borra
+  (DA7).
+- **El borrado físico es irreversible**: solo afecta a partes retirados y sin ninguna fila,
+  por decisión del humano. Lo que se pierde es la fila del documento (su lectura IA y sus
+  metadatos); el PDF sigue en SharePoint y en el buzón, y se puede reprocesar.
+- **`list_partes` cambia cifras** con líneas en la papelera: es corrección (semántica 3); si
   un test viejo contaba con lo anterior, `blocked` y se consulta, sin tocarlo.
-- **Vaciar deja partes en la papelera** (R5): red de seguridad, solo para partes previos.
 - **El script escribe en producción**: lee por defecto, exige `--esperados`, recomprueba
   bajo bloqueo y lo autoriza el humano (§9).
 
 ## 8. Despliegue
 
-**sv3 → sv4** (`redeploy_partes.ps1 -Solo svX`), a petición del humano. Sin variables ni
-interruptor; rollback = imagen anterior (lo escrito es papelera lógica).
+Solo **sv4** (`redeploy_partes.ps1 -Solo sv4`), a petición del humano; sin variables ni
+interruptor; rollback = imagen anterior (lo borrado físicamente no vuelve).
 
 ## 9. Verificación manual (base `partes`, nunca el servidor `psql-albaranes-rs9k2`)
 
-**M0 · líder, antes de implementar, SOLO LECTURA**: partes vacíos de hoy por categoría y
-exclusión, y restaurables que hoy chocarían.
+**M0 · HECHA por el líder el 2026-10-26** (solo lectura; consulta en `design.md` §9 del
+commit `02da480`):
 
-```sql
-BEGIN TRANSACTION READ ONLY;
-WITH d AS (
-  SELECT pd.id, COUNT(r.id) AS filas,
-         COUNT(r.id) FILTER (WHERE r.deleted_at_utc IS NULL) AS vivas,
-         COUNT(r.id) FILTER (WHERE lower(r.sigrid_estado) IN ('registrado','dedicacion','encolado')) AS fuera,
-         COUNT(r.id) FILTER (WHERE r.sigrid_parte_cod IN ('PT26/00373','PT26/00375','PT26/00376')) AS protegidas
-  FROM parte_documents pd LEFT JOIN parte_registros r ON r.document_id = pd.id
-  WHERE pd.is_active GROUP BY pd.id)
-SELECT CASE WHEN d.filas > 0 THEN 'todas_en_papelera'
-            WHEN pd.source_mime_type = 'manual' THEN 'sin_filas_manual'
-            WHEN jsonb_typeof(pd.raw_extraction_json::jsonb -> 'data' -> 'empleados') = 'array'
-             AND jsonb_array_length(pd.raw_extraction_json::jsonb -> 'data' -> 'empleados') > 0
-            THEN 'sin_filas_leidos' ELSE 'sin_filas_nada_leido' END AS categoria,
-       pd.approved, d.fuera > 0 AS vive_fuera, d.protegidas > 0 AS protegido,
-       COUNT(*) AS partes, MIN(pd.created_at_utc) AS primero, MAX(pd.created_at_utc) AS ultimo
-FROM d JOIN parte_documents pd ON pd.id = d.id
-WHERE d.vivas = 0 GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4;
-SELECT COUNT(*) AS restaurables_que_chocarian
-FROM parte_documents p JOIN parte_documents a
-  ON a.source_sha256 = p.source_sha256 AND a.is_active AND a.id <> p.id
-WHERE NOT p.is_active AND p.deleted_at_utc IS NOT NULL;
-ROLLBACK;
-```
-
-Agregados (sin ids) a `progress/current.md`; algún aprobado o protegido ⇒ aviso antes de T1.
-
-**M1 · humano, tras desplegar**: parte manual de prueba (obra 0404, día sin nada en
-Sigrid, dos líneas): borrar una (sigue), la otra (aviso, `/partes`, papelera), restaurar el
-parte (vuelve con las dos), borrarlo y vaciar. Sin registrar; PT26/00373/75/76 intactos.
-
-**M2 · limpieza, autorizada por el humano de forma literal**, desde `services/partes-front`
-con su `.env`: `../../.venv/Scripts/python.exe limpiar_partes_vacios.py` (informe en `logs/`)
-y, leído, `… limpiar_partes_vacios.py --ejecutar --esperados <N>`; se repite la M0.
-
-## 10. Decisiones abiertas
-
-| DA | Tema | Opciones | Recomendación |
+| Categoría | Partes | Fechas | Aprobado / vive fuera / protegido |
 |---|---|---|---|
-| DA1 | Parte que se queda sin líneas vivas | A) a la papelera de documento, como ya hace el borrado por persona. B) desactivarlo (`is_active=false` sin `deleted_at_utc`, como el reemplazo de sv3): invisible, sin restaurar desde el portal. C) dejarlo activo y que solo sv3 lo ignore | **A**: visible y recuperable (semántica 8); era ya la intención del código (`soft_delete_worker`, `restore_registro`) |
-| DA2 | Restaurar | A) restaurar una línea devuelve el parte (como hoy); restaurar un parte vaciado devuelve también sus líneas; con otro activo del mismo sha, 409. B) restaurar el parte, solo el parte | **A**: con B, restaurar recrea el parte activo y vacío |
-| DA3 | Vaciar la papelera | A) el parte que se queda sin filas va a la papelera y se avisa. B) borrarlo físicamente en la misma pasada. C) nada | **A**: no añade borrado físico y con R1 casi nunca ocurre |
-| DA4 | Los existentes (36 el 2026-10-25) | A) script de sv4: informe y `--ejecutar --esperados N` a la papelera, con exclusiones. B) `UPDATE` a mano del líder. C) dejarlos | **A**, con las cuatro categorías: el informe las separa y el humano fija N; si quiere dejar fuera `sin_filas_nada_leido`, se añade un filtro |
-| DA5 | Portal | A) contar solo vivas en `/partes` e insignia «Sin líneas». B) además, aviso en la cabecera con el número. C) nada | **A**: tras R1 y la limpieza casi no habrá; B es papeleo para un caso residual |
-| DA6 | sv3 ante un parte vacío con el mismo sha | A) mandarlo a la papelera y guardar el nuevo, en la misma transacción. B) desactivarlo sin papelera. C) no tocar sv3 | **A**: la reingesta no depende de que el portal lo haya hecho bien; B esconde sus líneas en un parte invisible |
-| DA7 | «Parte vacío» en dos servicios | A) definición única en ARCHITECTURE semántica 8; cada servicio la expresa como consulta (como los filtros `is_active` / `deleted_at_utc IS NULL` que ya repiten); no entra en la lista cerrada. B) entra en la lista cerrada con test gemelo | **A**: es un predicado del esquema compartido, no lógica de negocio |
-| DA8 | Rigor | A) `estandar`. B) `critico` | **A**: papelera lógica, sin Sigrid ni cambios de servidor; la escritura en producción (M2) va por un script que lee por defecto y autoriza el humano |
+| `sin_filas_leidos` | 29 | 2026-07-15 a 2026-10-22 | ninguno |
+| `sin_filas_nada_leido` | 1 | 2026-07-16 | ninguno |
+| `todas_en_papelera` | 0 | — | — |
+
+`restaurables_que_chocarian` = 0. Los 30 son `borrar` según la regla.
+
+**M1 · humano, tras desplegar.** Parte manual de prueba (obra 0404, día sin nada en Sigrid,
+dos líneas): (1) borrar una ⇒ sigue; (2) borrar la otra ⇒ aviso, `/partes`, el parte no sale
+ni en `/partes` ni en «Partes borrados» y sus dos líneas sí en «Líneas sueltas»; (3)
+restaurar una ⇒ el parte vuelve con ella; (4) borrarla y vaciar. El líder comprueba en solo lectura `SELECT count(*) FROM parte_documents WHERE id =
+'<id>'` ⇒ 0. No se registra nada en Sigrid, y PT26/00373, 00375 y 00376 quedan intactos.
+
+**M2 · limpieza, autorizada por el humano de forma literal.** Desde `services/partes-front`
+y con su `.env`:
+1. `../../.venv/Scripts/python.exe limpiar_partes_vacios.py` deja el informe en `logs/`.
+   Hoy esperaría 30 `borrar`.
+2. Una vez leído, `… limpiar_partes_vacios.py --ejecutar --esperados <N>`.
+3. Se repite la M0: 0 candidatos no excluidos.
+
+## 10. Decisiones
+
+| DA | Tema | Estado | Decisión / recomendación |
+|---|---|---|---|
+| DA1 | Parte que se queda sin líneas vivas | **Decidida por el humano** (2026-10-26): «el parte como entidad no hace falta que vaya a paperlera porque es confuso. habra una logica que borre el parte en si, al quedarse sin lineas»; opción «Oculto y luego borrado» | Se **retira**: inactivo, sin `deleted_at_utc`, con marca. No sale en `/partes` ni en la papelera de partes. Libera el sha. Vale para el borrado de líneas, de persona y el deshacer de celda. Obra y «Borrar parte» no cambian (R4) |
+| DA2 | Restaurar | **Decidida por el humano** («Si se restaura una de sus líneas, el parte vuelve») | Restaurar una línea devuelve el parte retirado. Con otro activo del mismo sha, 409 sin escribir (R7). `restore_document` devuelve las líneas si no tiene vivas (R8) |
+| DA3 | Vaciar la papelera | **Decidida por el humano** («Cuando se vacía la papelera y no le queda ninguna fila, el parte se borra de verdad») | Borrado **físico** del parte retirado sin filas, al vaciar y al «Eliminar» su última fila (R9–R11). Es el único borrado físico nuevo |
+| DA4 | Los existentes (M0: 30) | **Decidida por el humano**: «Lo mismo que la regla»; el script lo lanza el humano | Script con informe y `--ejecutar --esperados N`: borra el parte sin filas y retira el que tiene filas. Excluye aprobados, los que viven fuera y PT26/00373, 00375 y 00376 |
+| DA5 | Portal | Abierta | **A** (recomendada): contar solo las vivas en `/partes` e insignia «Sin líneas». B: además, un aviso en la cabecera. C: nada |
+| DA6 | ¿Tocar la deduplicación de sv3? | Abierta | **A** (recomendada): no. El parte retirado ya no bloquea, y los 30 se limpian. Solo queda el parte que **nace** vacío, que se quita con «Borrar parte». B: que sv3 trate un activo vacío como inexistente (otro servicio y otro despliegue para un caso residual) |
+| DA7 | Cómo se reconoce un parte retirado | Abierta | **A** (recomendada): marca `sin-lineas` en `deleted_by` con `deleted_at_utc NULL`, sin DDL. B: una columna nueva en `orm_models.py` de sv3 y sv4 (lista cerrada, DDL). C: sin marca, «inactivo y sin vivas»; se confunde con el reemplazo de sv3 |
+| DA8 | Rigor | Abierta | **A** (recomendada): `estandar`. Aunque hay borrado físico, se limita a partes retirados sin filas, no toca Sigrid ni el servidor, y la limpieza la autoriza el humano. B: `critico` |
