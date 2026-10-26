@@ -82,6 +82,139 @@ function avisarCambioLineas() {
   document.dispatchEvent(new CustomEvent("lineas:cambio"));
 }
 
+/* F-064: los filtros de cada pantalla se guardan por usuario en
+   `localStorage` (`partes.filtros.v1:<clave>`, la clave la pinta el
+   servidor en `<body data-filtros-usuario>`) y se reponen al volver
+   durante 8 h sin actividad. La seleccion de lineas NO se guarda nunca
+   (R21). Las funciones a dos espacios son puras (las ejecuta en node
+   `tests/test_f064_filtros_js.py`). */
+var FiltrosSesion = (function () {
+  "use strict";
+
+  var PREFIJO = "partes.filtros.v1:";
+  var VERSION = 1;
+  var SESION_MS = 8 * 3600 * 1000;    // la cookie de Easy Auth (DA2, M0)
+  var FUTURO_MS = 60000;              // reloj algo adelantado: se tolera
+  var MAX_PANTALLAS = 50;
+  var LISTAS_SERVIDOR = {
+    "/partes": ["search", "pendientes"],
+    "/obras": ["search"],
+    "/trabajadores": ["search"],
+  };
+
+  function _tiene(obj, k) {
+    return !!obj && Object.prototype.hasOwnProperty.call(obj, k);
+  }
+
+  function _esObjeto(x) {
+    return !!x && typeof x === "object" && !Array.isArray(x);
+  }
+
+  // R4, R5, R9: la clave de almacen de un usuario; "" = no se guarda.
+  function claveAlmacen(usuario) {
+    return usuario ? PREFIJO + usuario : "";
+  }
+
+  // La pantalla: la ruta sin barras finales (DA3).
+  function rutaNormal(pathname) {
+    return String(pathname || "").replace(/\/+$/, "") || "/";
+  }
+
+  // R6: el estado leido, o null si es invalido, de otra version, caducado
+  // (8 h o mas sin actividad) o con `t` en el futuro.
+  function estadoVigente(crudo, ahoraMs) {
+    var est;
+    try { est = JSON.parse(crudo); } catch (e) { return null; }
+    if (!_esObjeto(est) || est.v !== VERSION) return null;
+    if (typeof est.t !== "number" || !_esObjeto(est.pantallas)) return null;
+    if (ahoraMs - est.t >= SESION_MS || est.t > ahoraMs + FUTURO_MS) return null;
+    return est;
+  }
+
+  // R14: sin columnas, ni dias, ni casilla desmarcada, ni busqueda.
+  function fotoVacia(foto) {
+    if (!foto) return true;
+    var cols = foto.cols || {};
+    var conCols = Object.keys(cols).some(function (t) {
+      return Object.keys(cols[t] || {}).length > 0;
+    });
+    var conDias = !!(foto.dias && foto.dias.claves && foto.dias.claves.length);
+    return !conCols && !conDias && foto.sinExtra !== false && !foto.query;
+  }
+
+  // R17: el aviso solo se enciende si se repuso alguna columna o algun dia.
+  function filtrosRepuestos(foto) {
+    return !fotoVacia({ cols: (foto && foto.cols) || {},
+                        dias: (foto && foto.dias) || null });
+  }
+
+  // R7, R10, R14: estado NUEVO con la foto de `ruta` (o sin ella si esta
+  // vacia), `t` renovado y como mucho las 50 pantallas mas recientes.
+  function conPantalla(estado, ruta, foto, ahoraMs) {
+    var previas = (estado && _esObjeto(estado.pantallas)) ? estado.pantallas : {};
+    var pantallas = {};
+    Object.keys(previas).forEach(function (r) {
+      if (r !== ruta) pantallas[r] = previas[r];
+    });
+    if (!fotoVacia(foto)) {
+      var nueva = JSON.parse(JSON.stringify(foto));
+      nueva.t = ahoraMs;
+      pantallas[ruta] = nueva;
+    }
+    var orden = Object.keys(pantallas).sort(function (a, b) {
+      return (pantallas[b].t || 0) - (pantallas[a].t || 0);
+    });
+    orden.slice(MAX_PANTALLAS).forEach(function (r) { delete pantallas[r]; });
+    return { v: VERSION, t: ahoraMs, pantallas: pantallas };
+  }
+
+  // R19: la busqueda de una lista del servidor, normalizada (permitidos en
+  // orden fijo y sin vacios; "" si no queda ninguno). null si la ruta no
+  // es una de las tres listas o la consulta trae otro parametro.
+  function consultaDeLista(ruta, search) {
+    if (!_tiene(LISTAS_SERVIDOR, ruta)) return null;
+    var permitidos = LISTAS_SERVIDOR[ruta];
+    var params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+    var ajeno = false;
+    params.forEach(function (_v, k) {
+      if (permitidos.indexOf(k) < 0) ajeno = true;
+    });
+    if (ajeno) return null;
+    return permitidos.filter(function (k) { return !!params.get(k); })
+      .map(function (k) {
+        return encodeURIComponent(k) + "=" + encodeURIComponent(params.get(k));
+      }).join("&");
+  }
+
+  // R19: a donde volver al llegar a una lista SIN consulta con una
+  // busqueda guardada no vacia; null si no toca.
+  function destinoRestaurar(ruta, search, pantalla) {
+    if (!_tiene(LISTAS_SERVIDOR, ruta) || search !== "") return null;
+    if (!pantalla || !pantalla.query) return null;
+    return ruta + "?" + pantalla.query;
+  }
+
+  // R12, R16: los dias guardados que existen en la pagina, en su orden,
+  // y solo si son del mismo periodo.
+  function diasRestaurables(guardados, periodo, disponibles) {
+    if (!guardados || guardados.periodo !== periodo) return [];
+    var claves = Array.isArray(guardados.claves) ? guardados.claves : [];
+    return (disponibles || []).filter(function (k) {
+      return claves.indexOf(k) >= 0;
+    });
+  }
+
+  return {
+    puras: {
+      claveAlmacen: claveAlmacen, rutaNormal: rutaNormal,
+      estadoVigente: estadoVigente, fotoVacia: fotoVacia,
+      filtrosRepuestos: filtrosRepuestos, conPantalla: conPantalla,
+      consultaDeLista: consultaDeLista, destinoRestaurar: destinoRestaurar,
+      diasRestaurables: diasRestaurables,
+    },
+  };
+})();
+
 (function () {
   "use strict";
 

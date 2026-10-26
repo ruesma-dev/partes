@@ -41,6 +41,9 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
   R22/R23 pasan a propósito: fijan el texto de `dev`).
 - T2 hecha: `clave_filtros` (identidad.py), global `clave_filtros_de` (app.py, tras `_actor`) y
   `<body data-filtros-usuario>`; tests de R1–R3 y los de F-017 en verde sin tocarlos.
+- T3 hecha: IIFE global `FiltrosSesion` tras `avisarCambioLineas` con constantes y puras
+  (API `puras`); tests puros en verde. Nota: el `init.sh` previo a T1 dio un rojo transitorio en
+  sv4 (`clave_filtros_de` indefinido) por editar `base.html` mientras corría; no es del arnés.
 
 ## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
 
