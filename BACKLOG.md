@@ -5,16 +5,14 @@
 
 Resumen: **59 features**, 16 abiertas, 43 terminadas.
 
-En curso: **F-063**.
-
-Bloqueadas: **F-032**.
+Bloqueadas: **F-032, F-063**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | pendiente | en redacción · `partes-wt-f062` | critico | `feature/F-062-ciz-el-mismo-dia-del-inicio` |
-| F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | en curso | aprobada 2026-10-25 («f63 ok a todo»: DA1–DA5 = A) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063` | estandar | `feature/F-063-consulta-obra-rapida` |
+| F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | bloqueada | aprobada 2026-10-25 («f63 ok a todo»: DA1–DA5 = A) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063` | estandar | `feature/F-063-consulta-obra-rapida` |
 | F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | pendiente | sin spec | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
@@ -90,7 +88,7 @@ Petición del humano del 2026-10-25: «da de alta f62 la primera, y lanza spec»
 
 ### F-063 · sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s)
 
-estado **en curso** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-063-consulta-obra-rapida`
+estado **bloqueada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-063-consulta-obra-rapida`
 
 **Spec**: aprobada 2026-10-25 («f63 ok a todo»: DA1–DA5 = A) · `specs/F-063-consulta-obra-rapida/` · `partes-wt-f063`
 
