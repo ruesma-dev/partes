@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-062 · SPEC_READY y APROBADA 2026-10-25 (DA1–DA11 = A; sigue en `spec_ready`: la feature en curso es F-063). El inicio de una incidencia escribe CI* y CIZ el mismo día
+## F-062 · IN_PROGRESS desde 2026-10-26 (aprobada 2026-10-25, DA1–DA11 = A; implementer en `partes-wt-f062`). El inicio de una incidencia escribe CI* y CIZ el mismo día
 
 Spec en `specs/F-062-ciz-el-mismo-dia-del-inicio/` (rama `feature/F-062-ciz-el-mismo-dia-del-inicio`,
 worktree `partes-wt-f062`, sale de `dev` f313407). Rigor crítico. Servicios: **sv5** escribe el
@@ -9,8 +9,9 @@ CI* y su CIZ hermano (synckey `partes:<id>:ciz`) en UNA sentencia de dos filas y
 para moverlo con la mecánica de F-060; **sv4** marca `ciz_mismo_dia` en el `inicio` y manda su
 tramo delante. Sin esquema ni colas nuevas. Sustituye a DA6 de F-060.
 
-**Aprobación del humano (2026-10-25, literal)**: «f62 ok a todo» ⇒ **DA1–DA11 = A**. F-062 NO
-pasa a `in_progress` hasta que termine F-063 (la feature en curso).
+**Aprobación del humano (2026-10-25, literal)**: «f62 ok a todo» ⇒ **DA1–DA11 = A**. F-063 ya
+está `done`: F-062 pasa a `in_progress` el 2026-10-26 (rama puesta al día con `git merge dev`;
+conflictos solo en `BACKLOG.md`, regenerado, `features.json` y este fichero).
 
 **Enmienda tras la aprobación (2026-10-25)**: `MOVER_CIZ` ya está ENCENDIDO en producción (sv5
 `ca-sv5-transfer--0000003` 12:08:43Z, sv4 `ca-sv4-front--0000002` 12:09:28Z; `dev` 463869d). Con
@@ -37,6 +38,201 @@ F-019/F-024/F-034/F-046/F-053/avisos/modal (aceptar §7).
 - [x] **M0 hecha por el líder (2026-10-25, solo lectura)**: (a) `partes:%:%` ⇒ n = 0; (b) rachas abiertas heredadas ⇒ 0 (también 0 desde 20261001). Receta original:: comandos exactos en `design.md` §9;
   si (a) da `n > 0` (alguna synckey `partes:%:%`), PARA y `blocked`.
 - [ ] M1–M6: se copian con comando exacto a este bloque en T13 (`design.md` §9).
+
+## F-063 · DONE 2026-10-26 (review APPROVED pasada 1; equivalente aceptado por el humano; pendiente: desplegar sv2 junto con F-058 y M2/M4 de F-058): consulta de obra de sv2 que use el índice
+
+**Aprobación del humano (2026-10-25, literal)**: «f63 ok a todo» ⇒ DA1–DA5 = A (la
+recomendación de `design.md` §10). Implementer en marcha en el worktree `partes-wt-f063`.
+
+- [x] T1–T7 y T11 (implementer, 2026-10-26; un commit por tarea, fase RED con traza; informe
+  `progress/impl_F-063.md`). `bash harness/init.sh` en verde (cobertura 100 % de 43 líneas).
+- [x] **T8 · mutación (lanzada por el líder 2026-10-26; analizada por el implementer)**: 20
+  evaluados, 16 muertos, 4 supervivientes en `sigrid_lookup_client.py` (`:70` ×2
+  `_RANGO_VARIANTES`, `:86` ×2 `and`→`or`). Análisis en `progress/mutacion_F-063.md`: el de
+  `range(161, …)` es equivalente (U+00A0 tiene clave vacía); los otros tres, muertos con
+  `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica` (comprobado aplicando cada
+  mutante a mano, sin relanzar la campaña). 19 de 20 muertos, 1 equivalente.
+  **Equivalente aceptado por el humano (2026-10-26, literal)**: «si» (`range(161, 0x0180)`; U+00A0 tiene clave vacía).
+- [x] **T9 · M-EQ OK (líder, 2026-10-26, dos pasadas)**: censo 924 obras, 843 claves, 19 con blanco o guion, 663 con ceros a la izquierda, 0 fuera de `[0-9A-Za-z -]`; lotes de 500 con `VALUES`: 924 comprobadas, `fallos=0`, `trampa_vuelve=True`; vieja = nueva en 7 de 7.
+- [x] **T10 · M-T aceptada (DA3 enmendada, «a»; registrada en `progress/impl_F-063.md` y `design.md` §10). Antes: M-T NO PASA la puerta DA3 (líder, 2026-10-26)**: 60/60 aciertos, 0 errores, pero mediana 1.163 ms, p95 1.730, máx 4.809 (2.ª pasada: 1.076 / 1.223 / 1.589), candidatos máx 822. Diagnóstico (solo lectura, `httpx` desde local, 8 llamadas por caso): con conexión NUEVA por llamada (lo que hace `_post_sql_read` desde F-058) `SELECT 1` 1.145 ms, obra 692 1.146 ms, obra 0 1.073 ms; con la conexión REUTILIZADA 88 / 92 / 122 ms. El segundo largo es abrir la conexión TLS desde local, no la consulta; dentro de Azure se espera mucho menor, sin medir. `blocked`: decide el humano. **Decisión del humano (2026-10-26, literal)**: «a» ⇒ la puerta DA3 se da por cumplida midiendo solo la consulta (conexión reutilizada: mediana 92 ms, obra 0 122 ms); los tiempos reales se vigilan en producción con la M4 de F-058 tras desplegar; reutilizar la conexión en sv2 (opción B) queda para otra feature si la M4 lo pide. Receta: Script fuera del repo
+  (`design.md` §9), probado en seco con dobles:
+  `C:\Users\pgris\AppData\Local\Temp\claude\C--Users-pgris-PycharmProjects-partes\4823be6f-e68f-4ae1-886d-e1c67c71a605\scratchpad\verificar_f063.py`
+  (importa del worktree `partes-wt-f063`; solo imprime agregados, ni códigos ni claves). Con el
+  `.venv` de la raíz (trae `httpx`) y las credenciales solo en el proceso:
+  ```powershell
+  $env:SIGRID_API_FUNCTION_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n SIGRID-API-FUNCTION-KEY --query value -o tsv
+  $env:SIGRID_API_BASE_URL = az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_BASE_URL'].value | [0]" -o tsv
+  $env:SIGRID_API_DATABASE = 'ruesma'
+  $script = 'C:\Users\pgris\AppData\Local\Temp\claude\C--Users-pgris-PycharmProjects-partes\4823be6f-e68f-4ae1-886d-e1c67c71a605\scratchpad\verificar_f063.py'
+  python $script meq
+  python $script mt
+  ```
+  `meq`: censo (obras, claves, con blancos o guiones, con ceros, fuera de `[0-9A-Za-z -]` por
+  categoría Unicode, con carácter de clave múltiple), lotes de 500 por `ide` con `VALUES` (una a
+  una si sigrid-api lo rechaza) ⇒ `fallos=0 trampa_vuelve=True`, y vieja = nueva en 7 de 7 (la
+  vieja tarda ~15 s cada una). `mt`: calentamiento + 60 consultas con `ComprobadorObra` (tope
+  5 s) ⇒ `aciertos=60 errores=0`, mediana ≤ 500 ms y máximo ≤ 2000 ms (DA3), con p95 y
+  candidatos máximos. Cualquier fallo ⇒ `blocked`. Copiar la salida a `progress/impl_F-063.md`.
+- [ ] T12 (humano): tras el APPROVED y la fusión, pedir el despliegue de sv2 y seguir con M2/M4
+  de F-058.
+
+**Desviaciones respecto a la spec (implementer, justificadas)**:
+- `docs/ARCHITECTURE.md`: la consulta de F-058 está en el **punto 20**, no en el 18 que cita la
+  spec (el 18 es F-054); se actualizó el 20.
+- Tabla de variantes: la base es **cualquier letra o dígito único**, no solo ASCII (`design.md`
+  §5.2 decía ASCII). Lo pide R5 al pie de la letra: `µ` (U+00B5) tiene la clave `Μ` griega y
+  sin esto un código con `µ` no casaría con su patrón. Las clases de las bases ASCII son las
+  mismas; dentro de `[...]` siguen yendo solo letras y dígitos.
+- Emulador de `LIKE` de los tests por programación dinámica, no con `re` (§7 decía
+  `re.fullmatch`): compilar miles de clases Unicode con `re.IGNORECASE` llevaba el corpus a
+  12 s; ahora el fichero entero tarda ~3 s. Misma semántica (CI, AS), con sus propios tests.
+- T2: los tests de R9/R12 no pueden correr hasta T3 (el fichero importa `patron_like`); en T2
+  se verificó la identidad de `clave_obra`/`es_vacio` a mano y los tests de F-058 en verde.
+- `tests/test_f058_obra_sigrid.py`: el docstring de
+  `test_f058_r7_existe_obra_pide_el_max_rows_del_cliente` sigue diciendo «el `TOP 1` acota la
+  respuesta»; no se toca porque §7 limita el cambio a las aserciones de
+  `test_f058_r7_existe_obra_parametrizada`. Lo decide el reviewer.
+- `azure-apps`: commit local a5f739e (solo `partes.md`); allí había un `datamart_seg_anual.md`
+  modificado ajeno a F-063, sin tocar.
+
+Spec en `specs/F-063-consulta-obra-rapida/` (rama `feature/F-063-consulta-obra-rapida`,
+worktree `partes-wt-f063`, sale de `dev` bbc3172). Petición del humano: «1a». Solo sv2 (más
+`docs/ARCHITECTURE.md` y `azure-apps/partes.md`). Rigor estándar (solo lecturas; sin motivo
+para subirlo). sv2 sigue sin desplegarse hasta cerrar F-063.
+
+- **Estrategia**: `SELECT DISTINCT con.cod FROM obr JOIN con ON obr.ide = con.ide WHERE
+  con.cod LIKE ?` con el patrón `%c1%c2%…%cn%` (cada carácter con su clase de variantes:
+  minúscula, acentuadas, `ª º ¹ ² ³`; escapes de `% _ [`) y filtro exacto en Python con la
+  misma `clave_obra`. Superconjunto garantizado: no se pierden guiones, espacios, ceros ni
+  letras. Prototipo del spec-author (fuera del repo): 20.000 códigos aleatorios, cero fallos.
+- `es_vacio`/`clave_obra` pasan a `domain/models/clave_obra.py` (sin cambios): puerto,
+  `ComprobadorObra`, su log, pipeline, `Settings` y tope de 5 s intactos; de los tests de F-058
+  solo cambian dos aserciones del SQL.
+- Verificación del líder antes de desplegar (solo lectura, `ruesma`): **M-EQ** exhaustiva
+  (cada obra casa con el patrón de su clave, en lotes por `ide`, con par trampa; vieja = nueva
+  en ≤ 7 claves) y **M-T** (60 consultas reales: 60/60, 0 errores, puerta DA3).
+
+**Decisiones (aprobadas: A en todas, «f63 ok a todo»)** (`design.md` §10):
+
+| DA | Tema | Recomendación |
+|---|---|---|
+| DA1 | Estrategia | **A** `LIKE` con `%` entre caracteres + filtro exacto en Python (B `IN` con ceros pierde `06-92`; C `IN` + `LIKE` de respaldo, dos consultas) |
+| DA2 | Dónde vive la clave | **A** `clave_obra` al dominio y filtra el cliente (B: el puerto devuelve candidatos; más cambio en F-058) |
+| DA3 | Puerta de tiempos M-T | **A** mediana ≤ 0,5 s, máximo ≤ 2 s, 0 errores, 60/60 (B: solo < 5 s) |
+| DA4 | Equivalencia M-EQ | **A** exhaustiva por `ide` + 7 claves contra la consulta vieja (B: solo la muestra de M-T) |
+| DA5 | `OBRA_EXISTE_TIMEOUT_S` | **A** sigue en 5 s y se revisa con M4 de F-058 (B: bajarlo ya) |
+
+## F-058 · DONE 2026-10-25 (review APPROVED pasada 1; MB sin regresión; pendiente: M0 antes de desplegar sv2, desplegar sv2 y M1–M4 tras desplegar): relectura de la cabecera con Gemini y prompt de cabecera en sv2
+
+Spec en `specs/F-058-relectura-cabecera-gemini/` (rama `feature/F-058-relectura-cabecera-gemini`,
+worktree `partes-wt-f058`), aprobada entera (DA1 enmendada, DA2–DA8 = A, DA9 = A, DA10 = B,
+DA11 = A, DA12 = A; «a a todo»). Orden de implementar del humano (2026-10-25): «lazna f58».
+Rigor estándar; solo sv2. La rama se puso al día con `git merge dev` (9b1a7e3; conflictos solo
+en `BACKLOG.md`, regenerado, y en este fichero). Informe: `progress/impl_F-058.md`.
+
+- [x] T1, T2 (prompt), T4–T15 (código, tests, docs; azure-apps commit local 7470cf2, sin push)
+  y T22 (`bash harness/init.sh` en verde). Un commit por tarea, fase RED con traza.
+- [x] T16 (mutación lanzada por el líder: 20 de 63, 1 superviviente `settings.py:100`
+  `gt=0`→`gt=1`, muerto con un test nuevo de 0.5 y 1; ver `progress/mutacion_F-058.md`).
+- [x] T3 (MB, líder: sin regresión, `progress/banco_F-058.md`). Quedan T17–T21 (MANUAL, abajo).
+- Aviso: `dev` avanzó a 776f923 después del merge (solo `progress/`, `BACKLOG.md` y
+  `features.json`; entre ello «F-059: M4 OK, 6 partes reprocesados, obra y fecha leídas»).
+
+**Encaje con F-038 y F-059 (llegaron a `dev` después de escribir la spec; decisiones del
+implementer, justificadas)**:
+- `existe_obra` NO pasa `max_rows=2` (`design.md` §4.3): F-038 (R13, guardián
+  `tests/test_f038_lectores_sigrid.py`) prohíbe en todo lector un `max_rows` literal bajo el
+  tope, y `docs/ARCHITECTURE.md` fija que toda lectura pide `SIGRID_API_MAX_ROWS`. La consulta
+  es `SELECT TOP 1`, así que el `max_rows` no cambia el resultado: se pide el del cliente.
+- Sin parámetro `exigir_completo`: desde F-038 `_post_sql_read` ya trata `truncated: true` como
+  error en TODA lectura (incluido `fetch_tipos_hora`), que es lo que R9 pide para la de obra.
+- `OBRA_EXISTE_TIMEOUT_S` es independiente de `SIGRID_API_TIMEOUT_S` (rango (0, 200] de
+  F-038): se pasa por llamada solo a `existe_obra`; el catálogo auxhor sigue con el suyo.
+- F-059 (página como imagen): la relectura aplica la MISMA regla por proveedor que la primaria
+  (`PAGINA_COMO_IMAGEN_PROVEEDORES`): con la configuración de hoy (`openai`) Gemini recibe el
+  PDF original, que es con lo que se midió el 6 de 6 de la spec. `meta.adjunto_ia` sigue siendo
+  de la primaria (R16 fija las claves de `meta.relectura_cabecera`); lo enviado en la relectura
+  queda en `debug.relectura_cabecera` (`<proveedor>_request.attachment`).
+- El punto de `docs/ARCHITECTURE.md` es el **20** (el 18 es F-054 y el 19, F-059).
+- Otras menores: `model_name` del proveedor de relectura que no está instanciado (`KeyError`)
+  cuenta como fallo de la relectura (R14: `error`, `model` null), no tumba; `consulta_obra_ms`
+  solo apunta las consultas hechas (una obra con clave vacía, p. ej. `" - "`, no consulta).
+
+**MANUAL pendiente (comandos exactos; ninguna escribe en Sigrid ni en `partes`)**:
+- [x] **T3 · MB hecha (2026-10-25)**: (a) 12/12, (b) 4/4, (c) 6/6, (d) 42/42 sin errores; detalle en `progress/banco_F-058.md`. Receta: (líder, banco del prompt sobre el commit c67c253): el `lanzar.ps1` del banco
+  del líder con `-Repo C:\Users\pgris\PycharmProjects\partes-wt-f058`, sin relectura:
+  (a) `-Paginas paginas_sincab -Runs 2 openai:gpt-6.1-sol` ⇒ cuántas de 12 traen obra y fecha
+  (antes 0; no es puerta); (b) `-Paginas paginas_control openai:gpt-6.1-sol` ⇒ como
+  `control.jsonl`; (c) `-Paginas paginas_sincab gemini:gemini-4-argon` ⇒ 6 de 6; (d) batería de
+  F-051 (3 pasadas, `corregir.py`) ⇒ 42 de 42. Si (b), (c) o (d) empeoran: `blocked`, decide el
+  humano (DA9). Resultado en `progress/banco_F-058.md`.
+- [x] **T16 · mutación** (líder): `python -m harness.mutacion --feature F-058`; análisis del
+  único superviviente hecho en `progress/mutacion_F-058.md` y en el informe.
+- [x] **T17 · M0 OK (líder, 2026-10-25)**: `ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`, claves por `secretRef`, `SIGRID_API_DATABASE=ruesma`. Receta:
+  ```powershell
+  az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?starts_with(name,'GEMINI_') || starts_with(name,'ENABLE_GEMINI') || starts_with(name,'SIGRID_API_')]" -o table
+  ```
+  ⇒ `ENABLE_GEMINI=true`, `GEMINI_MODEL=gemini-4-argon`, `GEMINI_API_KEY` y
+  `SIGRID_API_FUNCTION_KEY` por `secretRef`, `SIGRID_API_DATABASE=ruesma`. Si falta algo, decide
+  el humano.
+- [ ] **T18 · M1 FALLA (líder, 2026-10-25)**: obra y fecha True en las 8 páginas (6 sincab + 2 control, sin relectura: ya lo resuelve el prompt), filas iguales, pero las 8 `[obra-sigrid]` salen `resultado=error error=ReadTimeout` (5,6–6,2 s con tope 5 s). Medido aparte en sigrid-api (solo lectura): `_SQL_EXISTE_OBRA` tarda 12–16 s (sigrid-api SÍ acepta `CROSS APPLY`/`COLLATE`); `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegar así: toda consulta de obra = «no se sabe», ~6 s más por parte y ~13 s de consulta en el SQL de Sigrid por parte. **No desplegar sv2 hasta que decida el humano.** Receta original: Entorno con los SDK de IA
+  (el `.venv` de la raíz no los trae), las claves del KV solo en el proceso:
+  ```powershell
+  python -m venv $env:TEMP\venv-sv2-f058
+  & $env:TEMP\venv-sv2-f058\Scripts\pip install -r C:\Users\pgris\PycharmProjects\partes-wt-f058\infra\manifests\sv2\requirements.txt
+  cd C:\Users\pgris\PycharmProjects\partes-wt-f058\services\partes-api
+  $env:IA_PROVIDER = 'openai'; $env:ENABLE_OPENAI = 'true'; $env:OPENAI_MODEL = 'gpt-6.1-sol'; $env:OPENAI_TIMEOUT_S = '180'
+  $env:ENABLE_GEMINI = 'true'; $env:GEMINI_MODEL = 'gemini-4-argon'; $env:ENABLE_CLAUDE = 'false'
+  $env:OPENAI_API_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n OPENAI-API-KEY --query value -o tsv
+  $env:GEMINI_API_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n GEMINI-API-KEY --query value -o tsv
+  $env:SIGRID_API_FUNCTION_KEY = az keyvault secret show --vault-name kv-partes-pt7m3 -n SIGRID-API-FUNCTION-KEY --query value -o tsv
+  $env:SIGRID_API_BASE_URL = az containerapp show -n ca-sv2-extraccion -g rg-partes-dev --query "properties.template.containers[0].env[?name=='SIGRID_API_BASE_URL'].value | [0]" -o tsv
+  $env:SIGRID_API_DATABASE = 'ruesma'
+  @'
+  import logging, sys, time
+  from pathlib import Path
+  from application.pipelines.extract_parte_pipeline import ExtractParteRequest
+  from config.settings import Settings
+  from interface_adapters.api.app import build_app
+  logging.basicConfig(level=logging.WARNING, format="%(levelname)s %(message)s")
+  for n in ("application.services.obra_sigrid", "application.pipelines.extract_parte_pipeline", "interface_adapters.api.app"):
+      logging.getLogger(n).setLevel(logging.INFO)
+  pipeline = build_app(Settings(_env_file=None)).state.pipeline
+  for carpeta in sys.argv[1:]:
+      for pdf in sorted(Path(carpeta).glob("*.pdf")):
+          t0 = time.perf_counter()
+          s = pipeline.run(ExtractParteRequest(filename=pdf.name, mime_type="application/pdf", file_bytes=pdf.read_bytes(), document_id=pdf.stem))
+          r, c = s["meta"].get("relectura_cabecera") or {}, s["data"]["cabecera"]
+          print("RESUMEN", Path(carpeta).name, pdf.stem, "motivo=%s resultado=%s obra=%s fecha=%s filas=%d ms=%s s=%.1f" % (r.get("motivo", "-"), r.get("resultado", "-"), bool(c.get("obra_numero")), bool(c.get("fecha")), len(s["data"]["empleados"]), r.get("consulta_obra_ms", "-"), time.perf_counter() - t0))
+  '@ | & $env:TEMP\venv-sv2-f058\Scripts\python - <CARPETA_paginas_sincab> <CARPETA_paginas_control>
+  ```
+  ⇒ las 6 de `paginas_sincab` con `obra=True fecha=True` (por relectura o ya por el prompt),
+  `filas` iguales a las de la primaria, `paginas_control` sin `motivo` (sin relectura), ninguna
+  línea `[obra-sigrid] ... resultado=error`; los `ms=` de esas líneas son los primeros tiempos
+  (anotarlos en `progress/impl_F-058.md`). Los nombres de fichero del banco no deben llevar
+  nombres ni DNIs (se imprimen).
+- [ ] **T19 · M2** (humano, tras desplegar sv2; solo lectura en la base `partes` de Azure, con
+  el cliente PostgreSQL habitual; `<FECHA_DESPLIEGUE>` = AAAA-MM-DD HH:MM UTC):
+  ```sql
+  BEGIN TRANSACTION READ ONLY;
+  SELECT j->>'motivo' AS motivo, j->>'resultado' AS resultado, count(*)
+  FROM (SELECT raw_extraction_json::jsonb->'meta'->'relectura_cabecera' AS j
+        FROM parte_documents WHERE created_at_utc >= '<FECHA_DESPLIEGUE>') s
+  GROUP BY 1, 2 ORDER BY 1, 2;
+  ROLLBACK;
+  ```
+  ⇒ la fila `NULL, NULL` son los que no releyeron; el resto, por motivo y resultado.
+- [ ] **T20 · M4** (humano o líder, tras desplegar; tiempos de la consulta de obra):
+  ```powershell
+  $WS = az containerapp env show -n cae-partes-dev -g rg-partes-dev --query properties.appLogsConfiguration.logAnalyticsConfiguration.customerId -o tsv
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv2-extraccion' and Log_s has '[obra-sigrid]' | extend ms = toint(extract('ms=([0-9]+)', 1, Log_s)), res = extract('resultado=([a-z_]+)', 1, Log_s) | summarize n=count(), p50=percentile(ms,50), p95=percentile(ms,95), max_ms=max(ms) by bin(TimeGenerated, 1d), res" -o table
+  az monitor log-analytics query -w $WS --analytics-query "ContainerAppConsoleLogs_CL | where ContainerAppName_s == 'ca-sv2-extraccion' and Log_s has '[sv2][relectura]' and Log_s has 'resultado=' | extend res = extract('resultado=([a-z_]+)', 1, Log_s), motivo = extract('motivo=([a-z_]+)', 1, Log_s) | summarize n=count() by bin(TimeGenerated, 1d), motivo, res" -o table
+  ```
+  ⇒ consultas, mediana, p95, máximo y `error` por día, y relecturas por motivo y resultado; con
+  eso el humano cierra DA12 (tope de 5 s).
+- [ ] **T21 · M3** (humano, DA8 = A): los 6 documentos ya guardados sin obra ni fecha se corrigen
+  a mano en el portal (ningún agente escribe). Según `dev` 0833170, F-059 M4 ya los reprocesó con
+  obra y fecha: comprobar si queda alguno.
 
 ## F-060 · DONE y DESPLEGADA 2026-10-25 (sv5 r20261025093550, sv4 r20261025093906; `MOVER_CIZ` sin definir en los dos = apagado; arranque sano en Log Analytics, sin Traceback). Antes de encender: visto bueno de Administración a DA3 y DA6 y M1–M3. Racha de incidencia con CIZ móvil
 

@@ -3,7 +3,9 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **58 features**, 16 abiertas, 42 terminadas.
+Resumen: **59 features**, 15 abiertas, 44 terminadas.
+
+En curso: **F-062**.
 
 Bloqueadas: **F-032**.
 
@@ -11,8 +13,7 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | spec lista | aprobada 2026-10-25 («f62 ok a todo», DA1–DA11 = A) · `specs/F-062-ciz-el-mismo-dia-del-inicio/` | critico | `feature/F-062-ciz-el-mismo-dia-del-inicio` |
-| F-058 | sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera | 2 | spec lista | aprobada (todas las DA) · `partes-wt-f058` | estandar | `feature/F-058-relectura-cabecera-gemini` |
+| F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | en curso | aprobada 2026-10-25 («f62 ok a todo», DA1–DA11 = A) · `specs/F-062-ciz-el-mismo-dia-del-inicio/` | critico | `feature/F-062-ciz-el-mismo-dia-del-inicio` |
 | F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | pendiente | sin spec | estandar | `feature/F-061-parte-vacio-tras-borrar-lineas` |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | spec lista | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
@@ -52,13 +53,15 @@ Bloqueadas: **F-032**.
 | F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | estandar | M2–M6 en el portal |
 | F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |  |
 | F-059 | La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor | 1 | estandar | nada: M4 OK el 2026-10-25 (los 6 partes sin obra reprocesados: 6 convertida, 0 error, obra y fecha leídas en los 6; partes nuevos 0ef28361, b7599bcb, f1e8900d, e8ff17d2, fc892aaf, 7b26d9df) |
-| F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | M1–M3 OK en local el 2026-10-25 (progress/m1_m3_F-060.md). Para encender MOVER_CIZ (sv5→sv4) falta solo el visto bueno de Administración a DA3 y DA6; M4 tras encender |
+| F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062 |
+| F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | estandar | Desplegar sv2 (lleva F-058 y F-063); tras desplegar, M2 y M4 de F-058 (tiempos reales de [obra-sigrid]) |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | critico |  |
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico | M6 |
 | F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico | M4 |
+| F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | estandar | Desplegar sv2 junto con F-063 (M0 OK; M1 de F-058 superada por F-063: M-EQ y M-T); tras desplegar, M2–M4 |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |  |
@@ -79,19 +82,11 @@ Bloqueadas: **F-032**.
 
 ### F-062 · Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración)
 
-estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-062-ciz-el-mismo-dia-del-inicio`
+estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-062-ciz-el-mismo-dia-del-inicio`
 
 **Spec**: aprobada 2026-10-25 («f62 ok a todo», DA1–DA11 = A) · `specs/F-062-ciz-el-mismo-dia-del-inicio/`
 
 Petición del humano del 2026-10-25: «da de alta f62 la primera, y lanza spec», tras la lectura del líder en Sigrid (solo lectura, ruesma, líneas NO escritas por partes desde 2025-01-01) sobre DA3 y DA6 de F-060. DA6 (F-060, DA6 = A: una incidencia de un solo día deja solo su CI*) NO coincide con la práctica de Administración: de los inicios CI* manuales, 306 llevan CI* y CIZ el MISMO día (CIV 184, CIP 99, CIF 13, CIE 7, CIA 2, CIH 1) frente a 34 sin CIZ (casi todos rachas aún abiertas, sobre todo CIE). DA3 sí coincide (816 rachas con el CIZ en el mismo parte, 224 en el parte del mes siguiente de la misma obra, 65 en el parte de otra obra; solo 12 cortes a fin de mes). Propuesta del líder, aceptada por el humano como feature: al registrar el `inicio` de una racha, sv5 escribe el CI* y además un CIZ (can 0) el mismo día; si llega otro día de la misma racha, ese CIZ se mueve con la mecánica de F-060 (UPDATE optimista, sin DELETE). Así un día suelto queda CI*+CIZ y ninguna racha queda abierta sin CIZ. Depende de F-060 (desplegada, MOVER_CIZ apagado); a decidir en la spec: si va bajo el mismo interruptor MOVER_CIZ, qué pasa con las rachas ya abiertas (solo CI*), el `fin` que hoy escribe un CIZ nuevo cuando no encuentra el de la racha, y el impacto en sv4 (roles, racha_registro_ids, aviso de racha desordenada).
-
-### F-058 · sv2: si la cabecera sale vacía con trabajadores leídos, relee la página con Gemini y se queda con su cabecera
-
-estado **spec lista** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-058-relectura-cabecera-gemini`
-
-**Spec**: aprobada (todas las DA) · `partes-wt-f058`
-
-Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local sin escrituras): 6 páginas de dos escaneos (21/10 y 23/10) se guardaron sin obra ni fecha porque gpt-6.1-sol (IA_PROVIDER=openai en sv2) devolvió la cabecera entera a null (fecha, obra_numero, obra_nombre, empresa_membrete...) aunque leyó las filas de trabajadores. El papel se lee bien; el escaneo sale desplazado (lado derecho cortado, bandas grises). Reproducido: 12 de 12 lecturas con gpt-6.1-sol dan cabecera vacía; las mismas 6 páginas con gemini-4-argon dan obra y fecha correctas 6 de 6; páginas de las mismas obras escaneadas normalmente salen bien con gpt-6.1-sol. No es el código de obra de 3 cifras (sv3 los rellena: codigo_padded/codigo_membrete). Decisión del humano del 2026-10-23 («si, lanza f54 y la spec de relectura con gemini»): sv2 mantiene gpt-6.1-sol para las filas y, si la cabecera llega vacía con trabajadores, relee la página con gemini-4-argon y toma su cabecera. Complementa F-054 (que manda a revisión el parte sin obra o sin fecha). Pendiente de spec.
 
 ### F-061 · Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso
 
@@ -337,9 +332,17 @@ Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el
 
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-060-racha-incidencia-ciz-movil`
 
-**Pendiente**: M1–M3 OK en local el 2026-10-25 (progress/m1_m3_F-060.md). Para encender MOVER_CIZ (sv5→sv4) falta solo el visto bueno de Administración a DA3 y DA6; M4 tras encender
+**Pendiente**: MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062
 
 Petición del humano del 2026-10-23: «el primer dia de unas vacaciones siempre debe marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse fin de vacaciones. este fin se va moviendo segun aparzcan dias de vacaciones hasta que aparezca un dia laborable en cuyo caso ya no se mueve. [...] hay que ver si ese recurso tiene vacaciones en algun parte de alguna obra (no solo la suya) y si lo tiene cerrar. si no hay se abre. lo mismo para bajas.» Aprobó la tabla del líder («la propuesta es lo correcto [...] debe buscar siempre en todos sus partes del mes anterior»): incidencia sin racha abierta ⇒ abre con su CI*; con racha abierta ⇒ mueve el CIZ a ese día editando la línea existente (si no hay CIZ, lo crea); horas ⇒ la racha queda cerrada. Regla de Sigrid: «no se debe borrar en sigrid, así que solo editará líneas». Hoy (sv4 `_rol_incidencia`, sv5 R1) cada día de incidencia que sigue a otro sale «fin» y escribe un CIZ nuevo; además no distingue la letra, no tiene ventana y no excluye la papelera. Diseño: sv4 decide el rol con la ventana (día 1 del mes anterior a D−1, todas las obras) y manda los ids de la racha; sv5 localiza el CIZ por synckey y lo mueve con un UPDATE (fecha, synckey y, si cambia de parte, parte, obra, centro, cuenta, año y mes), con guarda de parte abierto, sin DELETE ni INSERT. Interruptor MOVER_CIZ en sv5, apagado por defecto. Sin tabla ni columna nueva. Spec: specs/F-060-racha-incidencia-ciz-movil/.
+
+### F-063 · sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s)
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-063-consulta-obra-rapida`
+
+**Pendiente**: Desplegar sv2 (lleva F-058 y F-063); tras desplegar, M2 y M4 de F-058 (tiempos reales de [obra-sigrid])
+
+Petición del humano del 2026-10-25 («1a») tras la M1 de F-058 (líder, local, solo lectura): las 8 consultas `[obra-sigrid]` salieron `resultado=error error=ReadTimeout` (5,6–6,2 s, tope `OBRA_EXISTE_TIMEOUT_S` = 5 s). Medido aparte en sigrid-api: `_SQL_EXISTE_OBRA` (sv2 `infrastructure/sigrid/sigrid_lookup_client.py`, normaliza `con.cod` fila a fila con `CROSS APPLY` + `COLLATE`) tarda 12–16 s; `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegada así, toda consulta de obra sería «no se sabe» (la relectura por obra inexistente nunca saltaría), +~6 s por parte y ~13 s de consulta en el SQL de producción de Sigrid por parte. Objetivo: misma semántica de F-058 (clave normalizada: sin espacios ni guiones, sin ceros a la izquierda si es numérica, sin distinguir mayúsculas ni acentos) con una consulta que use el índice de `con.cod` y quepa holgada en el tope. sv2 NO se despliega hasta cerrar esta feature (F-058 está en dev sin desplegar).
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
@@ -380,6 +383,14 @@ estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `featu
 **Pendiente**: M4
 
 Regla del humano: «no se debe borrar en sigrid, así que solo editará líneas, por lo que si una hora extra se queda a cero no se borrará sino se pondrá a cero.» Hallazgo del 2026-10-20 (specs de F-052 y F-034): al registrar con un conflicto confirmado sv5 hace DELETE FROM hmores WHERE ide = ? (stmt_borrar_linea) y el portal dice que borra. Aprobado abrirla aparte el 2026-10-20 («Ok a las 2»), justo detrás de F-034, que toca la misma sentencia: se implementa sobre dev con F-034 fusionada (su guarda de parte abierto, su R4 y su relectura). sv5: el pisado pasa a stmt_anular_linea (UPDATE can = 0, tot = 0 con WHERE optimista, sin enlaces y con la guarda de F-034; synckey, tex y demás intactos), sin ningún DELETE en el cliente ni en el pipeline; una línea a 0 ya no choca (salvo incidencias); incidencia contra la misma incidencia ⇒ omitido incidencia_en_sigrid; choque con línea enlazada (albarán, factura, dedicación, nómina) ⇒ omitido linea_enlazada; pisada que cambió ⇒ pisada_no_anulada; el resultado cuenta anuladas en vez de borradas. sv4: textos del modal de conflictos y del resultado («se pone a 0, no se borra») y MOTIVO_LINEA_REGISTRADA sin aconsejar borrar. Sin esquema ni colas. Aviso a porcentajes (su dedicacion-transfer tiene el mismo DELETE) en azure-apps/partes.md, sin tocar su repositorio. Decisiones DA1-DA12 y M1 de solo lectura en specs/F-053-pisar-sin-borrar/design.md §9 y §12.
+
+### F-058 · sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera
+
+estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-058-relectura-cabecera-gemini`
+
+**Pendiente**: Desplegar sv2 junto con F-063 (M0 OK; M1 de F-058 superada por F-063: M-EQ y M-T); tras desplegar, M2–M4
+
+Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local sin escrituras): 6 páginas de dos escaneos (21/10 y 23/10) se guardaron sin obra ni fecha porque gpt-6.1-sol (IA_PROVIDER=openai en sv2) devolvió la cabecera entera a null aunque leyó las filas. El escaneo sale desplazado. Reproducido: 12 de 12 lecturas con gpt-6.1-sol dan cabecera vacía; gemini-4-argon da obra y fecha correctas 6 de 6 con las mismas filas. Decisiones del humano del 2026-10-23: «si, lanza f54 y la spec de relectura con gemini»; DA1 enmendada, «da1, vacia o no casa con ninguna obra»; y «para el tema de la cabecera podemos mejorar el prompt diciendole que hay una cabecera y que debera obtener la obra el dia mes, etc... añadelo a f58, lo demas ok» (DA2–DA8 aprobadas con la recomendación; comprobación de existencia en sv2). Spec enmendada (specs/F-058-relectura-cabecera-gemini/): solo sv2. Con al menos una fila de empleados, relee el mismo adjunto una vez con RELECTURA_CABECERA_PROVIDER (gemini, modelo GEMINI_MODEL) y el mismo prompt, esquema y catálogo si (a) obra_numero y fecha vienen vacíos o (b) la obra leída no existe en Sigrid (DA10 = B, «da10, vamos a poner una consulta en el momento al vuelo, y vemos tiempos. si la obra no existe se manda a relectura a gemini»: una consulta sql/read parametrizada a sigrid-api por página, sin caché, clave sin ceros a la izquierda, cualquier empresa y también de baja; truncated = fallo; cada consulta deja en el log INFO [obra-sigrid] con document_id y milisegundos, y en meta.relectura_cabecera.consulta_obra_ms al releer; si sigrid-api falla o pasa de OBRA_EXISTE_TIMEOUT_S = 5 s, no se relee por obra y la extracción sigue, propuesta pendiente DA12). No es la conciliación de sv3 ni amplía la lista de duplicados. Toma la cabecera entera de la relectura si es útil (con obra o fecha; con obra inexistente, si su obra existe); firma y empleados de la primaria; si falla o no es útil, la primaria (F-054 la manda a revisión). Traza en meta/debug.relectura_cabecera (motivo cabecera_vacia|obra_inexistente, resultado aplicada|vacia|no_casa|error). Interruptor RELECTURA_CABECERA encendido; sin cambios de entorno en Azure (Gemini y SIGRID_API_* ya están en ca-sv2-extraccion; M0 en solo lectura). Además, el punto 1 del prompt parte_trabajo_es dice que toda página tiene una cabecera y que de ella salen la obra, el día, el mes y el año, el membrete y el resto; vale para ambos proveedores y se mide con el banco del líder (MB: sincab con gpt-6.1-sol antes 0 de 12; sin regresión en control, Gemini ni batería de F-051). De 157 documentos con obra leída, los 157 casaron: el motivo obra inexistente es preventivo. Pendientes de confirmar DA9 (puerta del banco), DA11 (cabecera entera también con obra inexistente) y DA12 (fallo o lentitud de la consulta: no releer por obra, tope 5 s), recomendadas A. Tiempos de la consulta en Log Analytics tras desplegar (M4). Se actualizan ARCHITECTURE.md, azure-apps/partes.md (sv2 consume Gemini y sigrid-api) y el comentario de create_capps_partes.ps1.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 
