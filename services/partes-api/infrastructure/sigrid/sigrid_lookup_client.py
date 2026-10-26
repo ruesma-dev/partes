@@ -9,7 +9,10 @@ Dos lecturas, ambas por ``POST /api/sql/read`` contra la base configurada:
 - ``existe_obra`` (F-058, DA10 = B): si hay en Sigrid alguna obra con una
   clave dada, de cualquier empresa y también de baja; una consulta en el
   momento por página, con su propio tope de tiempo, para decidir si se
-  relee la cabecera. No casa la obra: eso lo hace sv3.
+  relee la cabecera. No casa la obra: eso lo hace sv3. Desde F-063 es un
+  ``LIKE`` parametrizado sobre ``con.cod`` sin funciones (usa el índice:
+  ~0,1 s frente a 12–16 s) que trae candidatos distintos, y el resultado
+  exacto lo da ``clave_obra`` sobre cada uno, la misma que calcula la clave.
 
 ``truncated: true`` es siempre error (F-038): nunca se decide con filas
 parciales.
@@ -46,18 +49,15 @@ WHERE (auxhor.fecbaj IS NULL OR auxhor.fecbaj = 0)
 ORDER BY auxhor.ext, auxhor.cod
 """
 
-#: F-058 (R7, DA10 = B): ¿hay alguna obra con esta clave? La clave llega como
-#: el único parámetro ``?`` (nunca concatenada) y se calcula igual sobre
-#: ``con.cod``: sin espacios ni guiones y, si queda solo de dígitos, sin ceros
-#: a la izquierda; mayúsculas y acentos los iguala la intercalación. Sin
-#: filtro de empresa ni de baja. ``TOP 1``: basta saber si hay alguna.
-_SQL_EXISTE_OBRA = """SELECT TOP 1 con.cod AS codigo
+#: F-063 (R1, R2; antes F-058 R7): candidatos de una clave. El único
+#: parámetro ``?`` es ``patron_like(clave)`` (nunca concatenado). Sin
+#: funciones ni ``COLLATE`` sobre ``con.cod`` (el optimizador usa el plan
+#: barato), sin ``TOP`` (cortaría el superconjunto antes del filtro) y sin
+#: filtro de empresa ni de baja. ``DISTINCT``: una fila por código aunque
+#: esté en varias empresas. El filtro exacto lo hace ``existe_obra``.
+_SQL_EXISTE_OBRA = """SELECT DISTINCT con.cod AS codigo
 FROM obr JOIN con ON obr.ide = con.ide
-CROSS APPLY (SELECT REPLACE(REPLACE(con.cod, ' ', ''), '-', '') AS n) a
-CROSS APPLY (SELECT CASE WHEN a.n <> '' AND a.n NOT LIKE '%[^0-9]%'
-    THEN ISNULL(NULLIF(SUBSTRING(a.n, PATINDEX('%[^0]%', a.n + 'X'), 24), ''), '0')
-    ELSE a.n END AS clave) k
-WHERE con.cod IS NOT NULL AND k.clave COLLATE Latin1_General_CI_AI = ?
+WHERE con.cod LIKE ?
 """
 
 
@@ -188,15 +188,19 @@ class SigridLookupClient:
     def existe_obra(self, clave: str, *, timeout_s: float) -> bool:
         """F-058: ``True`` si hay alguna obra con esa clave (ya normalizada).
 
+        F-063 (R8): la consulta trae los códigos que casan con
+        ``patron_like(clave)`` (un superconjunto) y cuenta solo el candidato
+        cuya ``clave_obra`` es exactamente ``clave``; nulos y otras claves no.
         Con su propio tope (``OBRA_EXISTE_TIMEOUT_S``), no el del catálogo.
         Un error HTTP, ``ok=false``, ``truncated`` o el tope superado lanzan:
-        los recoge ``ComprobadorObra`` como «no se sabe».
+        los recoge ``ComprobadorObra`` como «no se sabe». Clave vacía:
+        ``ValueError`` sin consultar (R7).
         """
         _, rows = self._post_sql_read(
-            sql=_SQL_EXISTE_OBRA, parameters=[clave], label="existe_obra",
-            timeout_s=timeout_s,
+            sql=_SQL_EXISTE_OBRA, parameters=[patron_like(clave)],
+            label="existe_obra", timeout_s=timeout_s,
         )
-        return len(rows) >= 1
+        return any(clave_obra(row[0]) == clave for row in rows if row)
 
     def _post_sql_read(
         self, *, sql: str, parameters: list[Any], label: str,
