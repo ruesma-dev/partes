@@ -4,8 +4,9 @@
 Los 6 supervivientes que el humano acepto como equivalentes (2026-10-24,
 «acepto») en `progress/mutacion_F-060.md`. Para cada uno construye el
 modulo mutado a partir del fuente ACTUAL (sustituyendo la linea original
-por la mutada, que tiene que aparecer una sola vez), lo carga junto al
-original y compara:
+por la mutada, que tiene que aparecer una sola vez en su AMBITO: el fichero
+entero o, si se indica, la funcion de nivel superior que la contiene), lo
+carga junto al original y compara:
 
   sv4 (`racha_incidencia.py`), diferencial puro: #4 (`_dias`), #6 (el
       `f = int(l.fecha_int or 0)` de `viaja` en `decidir`; con T17 (DA13)
@@ -26,6 +27,13 @@ original y compara:
       con `partes` construido como en `registro_pipeline.py` (solo
       `hmoide` verdaderos, `estados_de_partes` que puede no devolver
       alguno) NUNCA da `mover` con una linea sin `hmoide`.
+
+F-062 (2026-10-26) duplico dos textos en estos ficheros sin cambiar su
+semantica: `racha_delante` repite `f = int(l.fecha_int or 0)` (por eso el
+#6 se localiza dentro de `def decidir(`) y el paso 6 bis partio en dos
+lineas la llamada a `decidir_fin` del #11 (su original es ahora la primera
+de ellas, que sigue siendo unica). Los mutantes y los diferenciales son los
+mismos.
 
 Si alguna salida difiere (o la invariante falla), imprime el primer
 contraejemplo y sale con 1; si no, con 0.
@@ -54,21 +62,23 @@ sys.path.insert(0, str(RAIZ))
 RI = "application/services/racha_incidencia.py"
 RP = "application/pipelines/registro_pipeline.py"
 
-#: servicio -> [(n, fichero, linea original, linea mutada)].
-MUTANTES: dict[str, list[tuple[int, str, str, str]]] = {
+#: servicio -> [(n, fichero, linea original, linea mutada[, ambito])].
+#: `ambito`: la cabecera de la funcion de nivel superior que contiene la
+#: linea, cuando el texto se repite en el fichero (F-062).
+MUTANTES: dict[str, list[tuple]] = {
     "sv4": [
         (4, RI, "f = int(linea.fecha_int or 0)",
          "f = int(linea.fecha_int or 1)"),
-        (6, RI, "f = int(l.fecha_int or 0)", "f = int(l.fecha_int or 1)"),
+        (6, RI, "f = int(l.fecha_int or 0)", "f = int(l.fecha_int or 1)",
+         "def decidir("),
         (7, RI, "if (a.registro_id < b.registro_id and a.persona == b.persona",
          "if (a.registro_id <= b.registro_id and a.persona == b.persona"),
         (8, RI, "hay = any(int(l.fecha_int or 0) == siguiente and l.activa",
          "hay = any(int(l.fecha_int or 1) == siguiente and l.activa"),
     ],
     "sv5": [
-        (11, RP, "d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0), "
-                 "candidatas,",
-         "d = decidir_fin(a.fecha_int, int(a.recurso_ide or 1), candidatas,"),
+        (11, RP, "d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0),",
+         "d = decidir_fin(a.fecha_int, int(a.recurso_ide or 1),"),
         (12, RP, "pos = (int(ls.pos) if int(ls.hmoide or 0) == hmoide",
          "pos = (int(ls.pos) if int(ls.hmoide or 1) == hmoide"),
     ],
@@ -77,17 +87,30 @@ MUTANTES: dict[str, list[tuple[int, str, str, str]]] = {
 _n = 0
 
 
-def _mutar(fichero: str, original: str, mutada: str) -> types.ModuleType:
+def _mutar(fichero: str, original: str, mutada: str,
+           ambito: str | None = None) -> types.ModuleType:
     global _n
     fuente = (RAIZ / fichero).read_text(encoding="utf-8")
-    assert fuente.count(original) == 1, (fichero, original)
+    if ambito is None:
+        assert fuente.count(original) == 1, (fichero, original)
+        mutado = fuente.replace(original, mutada)
+    else:
+        # La funcion de nivel superior: de su cabecera a la siguiente.
+        assert fuente.count("\n" + ambito) == 1, (fichero, ambito)
+        i = fuente.index("\n" + ambito)
+        j = fuente.find("\ndef ", i + 1)
+        j = len(fuente) if j < 0 else j
+        trozo = fuente[i:j]
+        assert trozo.count(original) == 1, (fichero, ambito, original)
+        mutado = fuente[:i] + trozo.replace(original, mutada) + fuente[j:]
+    assert mutado != fuente
     _n += 1
     nombre = f"_mutante_{_n}"
     modulo = types.ModuleType(nombre)
     sys.modules[nombre] = modulo
     # exec deliberado: el fuente es el del propio repositorio con UNA
     # sustitucion conocida, no entrada externa.
-    exec(compile(fuente.replace(original, mutada), nombre, "exec"),  # noqa: S102
+    exec(compile(mutado, nombre, "exec"),  # noqa: S102
          modulo.__dict__)
     return modulo
 
@@ -150,8 +173,9 @@ def _comparar_sv4(orig, mod, casos: int = 20000) -> str | None:
 def _sv4() -> int:
     from application.services import racha_incidencia as orig
     fallos = 0
-    for n, fichero, original, mutada in MUTANTES["sv4"]:
-        error = _comparar_sv4(orig, _mutar(fichero, original, mutada))
+    for n, fichero, original, mutada, *ambito in MUTANTES["sv4"]:
+        error = _comparar_sv4(orig, _mutar(fichero, original, mutada,
+                                           *ambito))
         fallos += _informe(n, fichero, original, mutada, error)
     return fallos
 
@@ -268,8 +292,9 @@ def _sv5() -> int:
     from application.pipelines import registro_pipeline as orig
     logging.disable(logging.CRITICAL)     # los WARNING/INFO del pipeline
     fallos = 0
-    for n, fichero, original, mutada in MUTANTES["sv5"]:
-        error = _comparar_pipeline(orig, _mutar(fichero, original, mutada))
+    for n, fichero, original, mutada, *ambito in MUTANTES["sv5"]:
+        error = _comparar_pipeline(orig, _mutar(fichero, original, mutada,
+                                                *ambito))
         if error is None and n == 12:
             error = _invariante_12()
         fallos += _informe(n, fichero, original, mutada, error)
