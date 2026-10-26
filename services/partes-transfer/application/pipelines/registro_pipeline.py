@@ -768,6 +768,7 @@ class RegistroPipeline:
             return pos_por_parte[hmoide]
 
         movidas: dict[int, LineaSigrid] = {}
+        hermanos: set[int] = set()
         for a in sorted(a_escribir, key=lambda x: (x.ano, x.mes, x.fecha_int,
                                                    x.registro_id)):
             p = por_periodo[(a.ano, a.mes)]
@@ -786,8 +787,29 @@ class RegistroPipeline:
                     fecha_int=a.fecha_int, synckey=synckey_de(a.registro_id),
                     paride=int(a.paride or 0), caaide=int(a.caa_ide),
                     ano=a.ano, mes=a.mes))
-                escrita["movida_de"] = registro_de_synckey(ls.synckey)
+                # F-062 (R19): un CIZ hermano (`partes:<X>:ciz`) no deja
+                # `movida_de`: la linea X conserva su CI*.
+                movida = registro_de_synckey(ls.synckey)
+                if movida is not None:
+                    escrita["movida_de"] = movida
                 movidas[a.registro_id] = ls
+                res.escritas.append(escrita)
+                continue
+            fin = a.fin_mismo_dia
+            if fin is not None:
+                # F-062 (R13, DA2): el CI* y su CIZ hermano en UNA sentencia;
+                # el hermano queda detras (`pos` siguiente) y con su cuenta.
+                pos_ci = pos_nueva(hmoide)
+                statements.append(self._cli.stmt_insert_inicio_con_fin(
+                    hmoide=hmoide, obra=destino, reside=int(a.recurso_ide),
+                    fecha_int=a.fecha_int, paride=int(a.paride or 0),
+                    ano=a.ano, mes=a.mes, tex=tex, pos=pos_ci,
+                    horide=int(a.hora_ide), pre=float(a.pre),
+                    caaide=int(a.caa_ide), synckey=synckey_de(a.registro_id),
+                    pos_fin=pos_nueva(hmoide), horide_fin=int(fin.horide),
+                    pre_fin=float(fin.pre), caaide_fin=int(fin.caa_ide),
+                    synckey_fin=synckey_ciz_de(a.registro_id)))
+                hermanos.add(a.registro_id)
                 res.escritas.append(escrita)
                 continue
             statements.append(self._cli.stmt_insert_linea(
@@ -807,18 +829,17 @@ class RegistroPipeline:
         # `escribir` (cada lote es una transaccion y la guarda de parte
         # abierto pudo dejar sentencias a 0 filas). Sin `try`: si una
         # relectura falla, la peticion falla entera (R14).
+        # F-062 (R15): en la MISMA relectura, la synckey de cada hermano.
         mapa = self._cli.lineas_por_synckey(
-            [synckey_de(e["registro_id"]) for e in res.escritas])
+            [synckey_de(e["registro_id"]) for e in res.escritas]
+            + [synckey_ciz_de(r) for r in sorted(hermanos)])
         res.escritas, no_escritas = confirmar_escritas(res.escritas, mapa)
         for e in res.escritas:
             ls = movidas.get(e["registro_id"])
             if ls is not None:
-                # F-060 (R24): sin nombres ni DNIs.
-                logger.info(
-                    "[registro] ciz movido ide=%s hmoide=%s->%s fecha=%s->%s "
-                    "registro_id=%s->%s", ls.ide, ls.hmoide, e["hmoide"],
-                    ls.fecha_int, mapa[synckey_de(e["registro_id"])].fecha_int,
-                    e["movida_de"], e["registro_id"])
+                self._log_ciz_movido(ls, e, mapa)
+            if e["registro_id"] in hermanos:
+                self._confirmar_hermano(e, mapa)
         pisadas = sorted({i for ides in pisadas_de.values() for i in ides})
         vivas: dict[int, LineaSigrid] = {}
         if pisadas:
@@ -836,6 +857,36 @@ class RegistroPipeline:
                     len(no_escritas), res.anuladas, afectadas, usuario,
                     datetime.now(timezone.utc).isoformat())
         return res
+
+    @staticmethod
+    def _log_ciz_movido(ls: LineaSigrid, e: dict,
+                        mapa: dict[str, LineaSigrid]) -> None:
+        """F-060 (R24) y F-062 (R19): el INFO del CIZ movido, sin nombres
+        ni DNIs. Un hermano no viene de un registro: nombra su synckey."""
+        sk = synckey_de(e["registro_id"])
+        if "movida_de" in e:
+            origen = f"registro_id={e['movida_de']}->{e['registro_id']}"
+        else:
+            origen = f"synckey={ls.synckey}->{sk}"
+        logger.info(
+            "[registro] ciz movido ide=%s hmoide=%s->%s fecha=%s->%s %s",
+            ls.ide, ls.hmoide, e["hmoide"], ls.fecha_int,
+            mapa[sk].fecha_int, origen)
+
+    @staticmethod
+    def _confirmar_hermano(e: dict, mapa: dict[str, LineaSigrid]) -> None:
+        """F-062 (R15, R16): con el CI* confirmado, su hermano en el mismo
+        parte da `ciz_hmores_ide` y un INFO; si no esta, WARNING. El estado
+        de la linea lo decide el CI*. Sin nombres ni DNIs."""
+        h = mapa.get(synckey_ciz_de(e["registro_id"]))
+        if h is not None and h.hmoide == e["hmoide"]:
+            e["ciz_hmores_ide"] = h.ide
+            logger.info("[registro] ciz mismo dia ide=%s hmoide=%s fecha=%s "
+                        "registro_id=%s", h.ide, h.hmoide, h.fecha_int,
+                        e["registro_id"])
+        else:
+            logger.warning("[registro] ciz_mismo_dia_no_escrito "
+                           "registro_id=%s", e["registro_id"])
 
     @staticmethod
     def _log_pisada_a_cero(ls: LineaSigrid, registros: list[int]) -> None:

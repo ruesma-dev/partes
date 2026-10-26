@@ -619,3 +619,346 @@ def test_f062_r18_hermano_posterior_es_intermedio() -> None:
     cli = _cli(_fila(7002, fec=D + 2, sk="partes:6:ciz"))
     a = _acc(_pf(cli, [_fin(5, D + 1, [4, 6])]), 5)
     assert a.accion == "omitir" and "2026-10-06" in a.motivo
+
+
+# ============ Paso 9, relectura y escenarios (R13, R15, R16, R19-R23) ============ #
+
+HMO_NOV = 902
+
+
+def _espiar(cli) -> list[dict]:
+    enviadas: list[dict] = []
+    original = cli.escribir
+    cli.escribir = lambda sts: (enviadas.extend(sts), original(sts))[1]
+    return enviadas
+
+
+def _ejecutar(cli, lineas, **kw):
+    return _pipe(cli, **kw).ejecutar(obra=_obra(), lineas=lineas)
+
+
+def _por_sk(cli) -> dict[str, dict]:
+    return {f["synckey"]: f for f in cli.lineas}
+
+
+def _trabajo(rid, fecha_int) -> LineaEntrada:
+    return LineaEntrada(registro_id=rid, fecha_int=fecha_int, recurso_ide=REC,
+                        nombre=f"Persona {rid}", tipo_hora="normal",
+                        horas=8.0, hora_ide=HN)
+
+
+def test_f062_r13_una_sentencia_con_las_dos_filas() -> None:
+    cli = _cli()
+    enviadas = _espiar(cli)
+    linea = _inicio(4, D)
+    linea.partida_ide = 33
+    r = _ejecutar(cli, [linea])
+    (st,) = enviadas
+    assert st["op"] == "insert_inicio_con_fin"
+    ci, ciz = st["filas"]
+    assert (ci["synckey"], ci["horide"], ci["pre"], ci["pos"]) == (
+        "partes:4", H_CIV, PRE_CIV, 64)
+    assert (ciz["synckey"], ciz["horide"], ciz["pre"], ciz["pos"]) == (
+        "partes:4:ciz", H_CIZ, PRE_CIZ, 128)
+    assert (ci["paride"], ci["fec"], ci["tex"]) == (33, D, None)
+    assert st["guarda_hmoide"] == HMO_OCT and r.ok
+
+
+def test_f062_r13_cuentas_de_cada_fila() -> None:
+    cli = _cli_cuentas()
+    enviadas = _espiar(cli)
+    _ejecutar(cli, [_inicio(4, D)])
+    ci, ciz = enviadas[0]["filas"]
+    assert (ci["caaide"], ciz["caaide"]) == (702, 703)
+
+
+def test_f062_r13_pos_comparte_contador_con_los_insert() -> None:
+    cli = _cli(_fila(7001, fec=D - 3, rid=900, horide=HN, can=8.0, pos=640,
+                     reside=REC + 9))
+    _ejecutar(cli, [_inicio(4, D), _trabajo(5, D + 1)])
+    sk = _por_sk(cli)
+    assert (sk["partes:4"]["pos"], sk["partes:4:ciz"]["pos"],
+            sk["partes:5"]["pos"]) == (704, 768, 832)
+
+
+def test_f062_r13_en_pruebas_las_dos_filas_llevan_la_marca() -> None:
+    cli = _cli()
+    r = _pipe(cli, pruebas=True).ejecutar(obra=_obra(cod="0404"),
+                                          lineas=[_inicio(4, D)])
+    assert r.ok
+    assert [f["tex"] for f in cli.lineas] == ["PRUEBA-IA", "PRUEBA-IA"]
+
+
+def test_f062_r15_escrita_con_ciz_hmores_ide() -> None:
+    cli = _cli()
+    r = _ejecutar(cli, [_inicio(4, D)])
+    (e,) = r.escritas
+    sk = _por_sk(cli)
+    assert e["hmores_ide"] == sk["partes:4"]["ide"]
+    assert e["ciz_hmores_ide"] == sk["partes:4:ciz"]["ide"] == (
+        e["hmores_ide"] + 1)
+    assert e["hora_codigo"] == "CIV" and "movida_de" not in e
+    assert r.omitidas == [] and r.ya_registradas == []
+
+
+def test_f062_r15_relectura_en_una_sola_lectura() -> None:
+    cli = _cli()
+    pedidas: list[list[str]] = []
+    original = cli.lineas_por_synckey
+
+    def espia(claves):
+        pedidas.append(sorted(claves))
+        return original(claves)
+    cli.lineas_por_synckey = espia
+    _ejecutar(cli, [_inicio(4, D), _trabajo(5, D + 1)])
+    assert pedidas[-1] == ["partes:4", "partes:4:ciz", "partes:5"]
+
+
+def test_f062_r15_hermano_que_no_esta_warning(caplog) -> None:
+    cli = _cli()
+    original = cli.escribir
+
+    def escribir(sts):
+        n = original(sts)
+        cli.lineas[:] = [f for f in cli.lineas
+                         if f["synckey"] != "partes:4:ciz"]
+        return n
+    cli.escribir = escribir
+    with caplog.at_level("INFO"):
+        r = _ejecutar(cli, [_inicio(4, D)])
+    (e,) = r.escritas
+    assert e["registro_id"] == 4 and "ciz_hmores_ide" not in e
+    avisos = [x for x in caplog.records
+              if "ciz_mismo_dia_no_escrito" in x.getMessage()]
+    assert [(x.levelname, x.getMessage()) for x in avisos] == [
+        ("WARNING", "[registro] ciz_mismo_dia_no_escrito registro_id=4")]
+    assert "ciz mismo dia ide=" not in caplog.text
+
+
+def test_f062_r15_hermano_en_otro_parte_no_cuenta(caplog) -> None:
+    cli = _cli()
+    original = cli.escribir
+
+    def escribir(sts):
+        n = original(sts)
+        _por_sk(cli)["partes:4:ciz"]["hmoide"] = HMO_SEP
+        return n
+    cli.escribir = escribir
+    with caplog.at_level("WARNING"):
+        (e,) = _ejecutar(cli, [_inicio(4, D)]).escritas
+    assert "ciz_hmores_ide" not in e
+    assert "ciz_mismo_dia_no_escrito registro_id=4" in caplog.text
+
+
+def test_f062_r15_ci_no_confirmado_lo_decide_el_ci(caplog) -> None:
+    cli = _cli()
+    cli.cerrar_al_escribir = {HMO_OCT: 3}
+    with caplog.at_level("INFO"):
+        r = _ejecutar(cli, [_inicio(4, D)])
+    assert r.escritas == [] and cli.lineas == []
+    (o,) = r.omitidas
+    assert o["motivo"].startswith("parte_no_abierto: el parte PT26/00010")
+    assert "ciz_mismo_dia_no_escrito" not in caplog.text
+
+
+def test_f062_r16_info_del_hermano_escrito_sin_nombres(caplog) -> None:
+    cli = _cli()
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_inicio(4, D)])
+    ciz = _por_sk(cli)["partes:4:ciz"]
+    escritos = [x.getMessage() for x in caplog.records
+                if "ciz mismo dia" in x.getMessage()]
+    assert escritos == [f"[registro] ciz mismo dia ide={ciz['ide']} "
+                        f"hmoide={HMO_OCT} fecha={D} registro_id=4"]
+    assert "Persona" not in caplog.text
+
+
+def test_f062_r16_sin_hermano_no_hay_info(caplog) -> None:
+    cli = _cli()
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_inicio(4, D, ciz=False)])
+    assert "ciz mismo dia" not in caplog.text
+    assert "ciz_mismo_dia" not in caplog.text
+
+
+def test_f062_r17_el_resultado_no_cuenta_el_hermano() -> None:
+    r = _ejecutar(_cli(), [_inicio(4, D)])
+    assert [e["registro_id"] for e in r.escritas] == [4]
+    assert r.omitidas == [] and r.ya_registradas == []
+    assert r.pendientes_confirmacion == [] and r.pisadas == []
+
+
+def test_f062_r19_escenario_dia_a_dia(caplog) -> None:
+    """M2: V 1-4 y trabajo el 5, aprobados de uno en uno. CIV + CIZ el 1;
+    el CIZ (el mismo `ide`) pasa al 2, 3 y 4; el 5 no lo toca."""
+    cli = _cli()
+    r1 = _ejecutar(cli, [_inicio(1, 20261001, [])])
+    (e1,) = r1.escritas
+    iz = e1["ciz_hmores_ide"]
+    with caplog.at_level("INFO"):
+        r2 = _ejecutar(cli, [_fin(2, 20261002, [1])])
+    (e2,) = r2.escritas
+    assert "movida_de" not in e2 and e2["hmores_ide"] == iz
+    assert (f"[registro] ciz movido ide={iz} hmoide={HMO_OCT}->{HMO_OCT} "
+            "fecha=20261001->20261002 synckey=partes:1:ciz->partes:2"
+            ) in caplog.text
+    r3 = _ejecutar(cli, [_fin(3, 20261003, [1, 2])])
+    assert [(e["movida_de"], e["hmores_ide"]) for e in r3.escritas] == [
+        (2, iz)]
+    r4 = _ejecutar(cli, [_fin(4, 20261004, [1, 2, 3])])
+    assert [(e["movida_de"], e["hmores_ide"]) for e in r4.escritas] == [
+        (3, iz)]
+    _ejecutar(cli, [_trabajo(5, 20261005)])
+    sk = _por_sk(cli)
+    assert sorted(sk) == ["partes:1", "partes:4", "partes:5"]
+    assert (sk["partes:4"]["ide"], sk["partes:4"]["fec"],
+            sk["partes:4"]["horide"]) == (iz, 20261004, H_CIZ)
+    assert sk["partes:1"]["horide"] == H_CIV
+    assert len([f for f in cli.lineas if f["horide"] == H_CIZ]) == 1
+
+
+def test_f062_r19_info_del_movido_normal_sigue_igual(caplog) -> None:
+    cli = _cli(_fila(7001, fec=20261002, rid=2))
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_fin(3, 20261003, [1, 2])])
+    assert ("[registro] ciz movido ide=7001 hmoide=901->901 "
+            "fecha=20261002->20261003 registro_id=2->3") in caplog.text
+
+
+def test_f062_r21_un_dia_y_trabajo_el_hermano_no_se_toca() -> None:
+    """M1: V el 1 y 8 h el 2: CIV y CIZ el 1; el 2 escribe su HL."""
+    cli = _cli()
+    _ejecutar(cli, [_inicio(1, 20261001)])
+    r = _ejecutar(cli, [_trabajo(2, 20261002)])
+    assert [e["hora_codigo"] for e in r.escritas] == ["HL01"]
+    sk = _por_sk(cli)
+    assert sk["partes:1:ciz"]["fec"] == 20261001
+    assert sorted(sk) == ["partes:1", "partes:1:ciz", "partes:2"]
+
+
+def test_f062_r21_cambio_de_mes_mueve_el_hermano_de_parte() -> None:
+    """M3: V el 31 y el 1 del mes siguiente: el hermano (mismo `ide`) pasa
+    al parte del otro mes y el 31 conserva su CI*."""
+    cli = _cli(partes=[_parte(HMO_OCT, "PT26/00010"),
+                       _parte(HMO_NOV, "PT26/00011", mes=11)])
+    (e1,) = _ejecutar(cli, [_inicio(31, 20261031)]).escritas
+    assert e1["hmoide"] == HMO_OCT
+    (e2,) = _ejecutar(cli, [_fin(32, 20261101, [31])]).escritas
+    assert "movida_de" not in e2 and e2["hmores_ide"] == e1["ciz_hmores_ide"]
+    sk = _por_sk(cli)
+    assert (sk["partes:32"]["hmoide"], sk["partes:32"]["fec"],
+            sk["partes:32"]["mes"]) == (HMO_NOV, 20261101, 11)
+    assert sk["partes:31"]["hmoide"] == HMO_OCT
+    assert "partes:31:ciz" not in sk
+
+
+def test_f062_r21_todo_de_una_vez_sin_hermano() -> None:
+    """M4: sv4 manda 1 inicio SIN `ciz_mismo_dia` (su fin viaja, R2), 2 y
+    3 intermedio y 4 fin: CIV el 1 y CIZ el 4, ninguna `:ciz`."""
+    cli = _cli()
+    lineas = [_inicio(1, 20261001, [2, 3, 4], ciz=False),
+              _fin(2, 20261002), _fin(3, 20261003),
+              _fin(4, 20261004, [1, 2, 3])]
+    lineas[1].incidencia_rol = lineas[2].incidencia_rol = "intermedio"
+    r = _ejecutar(cli, lineas)
+    assert sorted((e["registro_id"], e["hora_codigo"])
+                  for e in r.escritas) == [(1, "CIV"), (4, "CIZ")]
+    assert sorted(_por_sk(cli)) == ["partes:1", "partes:4"]
+
+
+def test_f062_r11_escenario_desordenado(caplog) -> None:
+    """M5: V 1-3; se aprueba el 2 (CIZ el 2), luego el 1 (solo CIV:
+    `posterior`) y luego el 3 (el CIZ pasa al 3)."""
+    cli = _cli()
+    (e2,) = _ejecutar(cli, [_fin(2, 20261002, [1, 3])]).escritas
+    with caplog.at_level("INFO"):
+        r1 = _ejecutar(cli, [_inicio(1, 20261001, [2, 3])])
+    assert [e["hora_codigo"] for e in r1.escritas] == ["CIV"]
+    assert "ciz_hmores_ide" not in r1.escritas[0]
+    assert "motivo=posterior" in caplog.text
+    (e3,) = _ejecutar(cli, [_fin(3, 20261003, [1, 2])]).escritas
+    assert (e3["movida_de"], e3["hmores_ide"]) == (2, e2["hmores_ide"])
+    assert sorted(_por_sk(cli)) == ["partes:1", "partes:3"]
+
+
+def test_f062_r26_borrado_sigrid_reaprobado_no_duplica_el_hermano() -> None:
+    """Administracion borro el CI* del 1 (su hermano sigue): al reaprobar
+    se reescribe el CI* y el hermano no (`ya_existe`)."""
+    cli = _cli(_fila(7002, fec=20261001, sk="partes:1:ciz"))
+    enviadas = _espiar(cli)
+    (e,) = _ejecutar(cli, [_inicio(1, 20261001)]).escritas
+    assert [s["op"] for s in enviadas] == ["insert"]
+    assert "ciz_hmores_ide" not in e
+    assert len([f for f in cli.lineas if f["horide"] == H_CIZ]) == 1
+
+
+def test_f062_r26_borrado_sigrid_con_el_hermano_ya_movido() -> None:
+    cli = _cli(_fila(7002, fec=20261003, rid=3))
+    (e,) = _ejecutar(cli, [_inicio(1, 20261001, [2, 3])]).escritas
+    assert e["hora_codigo"] == "CIV" and "ciz_hmores_ide" not in e
+    assert len(cli.lineas) == 2
+
+
+def test_f062_r13_carrera_el_hermano_ya_entro_solo_el_ci() -> None:
+    """Otra escritura pone `partes:4:ciz` entre la lectura y el INSERT: el
+    `NOT EXISTS` deja solo el CI*."""
+    cli = _cli()
+    original = cli.escribir
+
+    def escribir(sts):
+        cli.lineas.append(_fila(7300, sk="partes:4:ciz"))
+        return original(sts)
+    cli.escribir = escribir
+    r = _ejecutar(cli, [_inicio(4, D)])
+    assert [e["registro_id"] for e in r.escritas] == [4]
+    assert len([f for f in cli.lineas
+                if f["synckey"] == "partes:4:ciz"]) == 1
+
+
+def test_f062_r13_reentrega_es_ya_registrado() -> None:
+    cli = _cli()
+    _ejecutar(cli, [_inicio(4, D)])
+    enviadas = _espiar(cli)
+    r = _ejecutar(cli, [_inicio(4, D)])
+    assert r.ya_registradas == [4] and r.escritas == [] and enviadas == []
+    assert len(cli.lineas) == 2
+
+
+def test_f062_r22_racha_sin_hermano_el_fin_crea_su_ciz() -> None:
+    """DA6: un inicio escrito antes de encender (solo CI*): su `fin` crea
+    el CIZ como R16 de F-060."""
+    cli = _cli(_fila(7001, fec=20261001, rid=1, horide=H_CIV))
+    enviadas = _espiar(cli)
+    (e,) = _ejecutar(cli, [_fin(2, 20261002, [1])]).escritas
+    assert [s["op"] for s in enviadas] == ["insert"]
+    assert "movida_de" not in e
+    assert _por_sk(cli)["partes:2"]["horide"] == H_CIZ
+
+
+def test_f062_r23_hermano_en_parte_cerrado_se_omite() -> None:
+    cli = _cli(_fila(7002, fec=20260930, sk="partes:30:ciz", hmoide=HMO_SEP),
+               partes=[_parte(HMO_SEP, "PT26/00009", mes=9, est=3),
+                       _parte(HMO_OCT, "PT26/00010")])
+    r = _ejecutar(cli, [_fin(31, 20261001, [30])])
+    assert r.escritas == []
+    (o,) = r.omitidas
+    assert o["motivo"].startswith("ciz_en_parte_cerrado: ")
+    assert "linea 7002" in o["motivo"]
+    assert _por_sk(cli)["partes:30:ciz"]["fec"] == 20260930
+
+
+def test_f062_r19_en_pruebas_mueve_el_hermano_con_marca() -> None:
+    cli = _cli(_fila(7002, fec=20261001, sk="partes:1:ciz", tex="PRUEBA-IA"))
+    r = _pipe(cli, pruebas=True).ejecutar(
+        obra=_obra(cod="0404"), lineas=[_fin(2, 20261002, [1])])
+    (e,) = r.escritas
+    assert e["hmores_ide"] == 7002 and "movida_de" not in e
+
+
+def test_f062_r19_en_pruebas_sin_marca_crea_otro() -> None:
+    cli = _cli(_fila(7002, fec=20261001, sk="partes:1:ciz"))
+    r = _pipe(cli, pruebas=True).ejecutar(
+        obra=_obra(cod="0404"), lineas=[_fin(2, 20261002, [1])])
+    (e,) = r.escritas
+    assert e["hmores_ide"] != 7002
+    assert _por_sk(cli)["partes:1:ciz"]["fec"] == 20261001
