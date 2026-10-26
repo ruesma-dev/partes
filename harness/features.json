@@ -947,7 +947,7 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-062-ciz-el-mismo-dia-del-inicio",
-      "pendiente": "M1–M5 en local, modo pruebas (obra 0404), ANTES de desplegar sv4; luego desplegar sv5 → sv4 y M6 (solo lectura)"
+      "pendiente": "M1–M5 OK (2026-10-26, progress/m1_m5_F-062.md); desplegar sv5 → sv4 y M6 (solo lectura)"
     },
     {
       "id": "F-063",
