@@ -32,7 +32,7 @@ Commits (uno por tarea): 11aef31 T1 · 8259f35 T2 · e1ecb22 T3 · 329ed20 T4 ·
 | `services/partes-api/application/services/relectura_cabecera.py` | borra las dos definiciones y las importa del dominio (siguen accesibles con el mismo nombre) |
 | `services/partes-api/application/services/obra_sigrid.py` | solo el `import` de `clave_obra` |
 | `services/partes-api/infrastructure/sigrid/sigrid_lookup_client.py` | `_ESPECIALES_LIKE`, `_tabla_variantes`/`_VARIANTES`, `_clase`, `patron_like`; `_SQL_EXISTE_OBRA` nuevo; `existe_obra` filtra; docstrings |
-| `services/partes-api/tests/test_f063_consulta_obra.py` | NUEVO: 89 tests (emulador de `LIKE` y R1–R10, R12) |
+| `services/partes-api/tests/test_f063_consulta_obra.py` | NUEVO: 91 tests (emulador de `LIKE` y R1–R10, R12; 2 de la tabla de variantes añadidos en T8) |
 | `services/partes-api/tests/test_f058_obra_sigrid.py` | solo `test_f058_r7_existe_obra_parametrizada`: `parameters == [patron_like(CLAVE)]` y `"LIKE ?"` en lugar de `"TOP 1"` (+ el import) |
 | `docs/ARCHITECTURE.md` | punto 20 (ver desviaciones): la consulta nueva |
 | `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` | §3.2: `SELECT TOP 1` ⇒ `LIKE` parametrizado + filtro exacto en sv2 |
@@ -127,7 +127,7 @@ Tras T4: `89 passed`.
 - `python -m ruff check` de los ficheros tocados (desde la raíz): **All checks passed!**
 - `git diff --stat dev` (T7): solo los ficheros de §4 más `docs/`, `specs/`, `progress/`,
   `harness/features.json` y `BACKLOG.md`.
-- `bash harness/init.sh`: **ENTORNO LISTO** (raíz 522 passed / 3 skipped; sv2 420 passed;
+- `bash harness/init.sh` (tras T8–T10, 2026-10-26): **ENTORNO LISTO** (raíz 522 passed / 3 skipped; sv2 422 passed;
   `PUERTA COBERTURA: 100.0% de 43 líneas cambiadas cubiertas`; `PUERTA TAMAÑO` dentro).
 
 ## Medición del líder en sigrid-api (solo lectura, 2026-10-25)
@@ -153,7 +153,7 @@ casa con su clase; M-EQ lo cuenta (`con_caracter_de_clave_multiple`) y lo detect
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | sv2: 420 passed (89 de F-063); raíz: 522 passed, 3 skipped; F-038: 24 passed |
+| Tests ejecutados | sv2: 422 passed (91 de F-063, 2 añadidos en T8); raíz: 522 passed, 3 skipped; F-038: 24 passed |
 | Cobertura de las líneas cambiadas | **100,0 %** (43/43, umbral 80 %, `PUERTA COBERTURA` de `init.sh`) |
 | Mutantes generados / supervivientes | 23 generados, 20 evaluados (muestreo `estandar`), 16 muertos, 4 supervivientes, 191 s (líder). Análisis (implementer): 3 muertos con `test_f063_r5_tabla_de_variantes_solo_del_rango_y_alfanumerica`, 1 equivalente (`range(161, …)`: U+00A0 tiene clave vacía) ⇒ **19/20 muertos**. Detalle: `progress/mutacion_F-063.md` |
 | Tiempo de la suite | sv2: 11,39 s (44,98 s con cobertura dentro de `init.sh`); `test_f063_consulta_obra.py`: 1,96 s |
