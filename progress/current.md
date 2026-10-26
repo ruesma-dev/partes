@@ -1,6 +1,43 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-061 · spec escrita 2026-10-26, pendiente de aprobación (status `pending`): un parte que se queda sin líneas no puede seguir activo
+
+El spec-author escribió la spec el 2026-10-26 en el worktree `partes-wt-f061`, rama
+`feature/F-061-parte-vacio-tras-borrar-lineas`, desde `dev` 843ff13. Está en
+`specs/F-061-parte-vacio-tras-borrar-lineas/`: `requirements.md` R1–R20 (119 líneas),
+`design.md` (250) y `tasks.md` T0–T17. Servicios: **sv4 y sv3**. No toca Sigrid, ni el DDL
+ni la lista cerrada de duplicación.
+
+**Causa real** (`design.md` §2):
+- `soft_delete_registro` de sv4 no mira si el parte se queda sin líneas vivas.
+  `soft_delete_worker` sí lo mira, pero sin bloqueo.
+- `vaciar_papelera` borra físicamente las líneas sueltas sin mirar su parte.
+- `restore_document` devuelve activo y vacío un parte que se vació por borrado.
+- sv3 `get_by_sha256` filtra solo `is_active`.
+- El borrado en bloque del portal lanza N peticiones a la vez, y eso abre una carrera.
+
+**Decisiones abiertas que valida el humano** (`design.md` §10). La recomendación es A en
+todas:
+- **DA1.** El parte que se queda vacío va a la papelera de documento; no se desactiva.
+- **DA2.** Restaurar un parte vaciado devuelve sus líneas. Si hay otro parte activo con el
+  mismo sha256, devuelve un 409.
+- **DA3.** Vaciar la papelera manda a la papelera el parte que se queda sin filas; no lo
+  borra.
+- **DA4.** Para los existentes, un script de sv4 `limpiar_partes_vacios.py`: primero un
+  informe de solo lectura y luego `--ejecutar --esperados N`. Excluye los aprobados, los que
+  tienen líneas que viven fuera y los de PT26/00373, 00375 y 00376.
+- **DA5.** En `/partes`, contar solo las líneas vivas y poner la insignia «Sin líneas».
+- **DA6.** sv3 manda a la papelera el parte activo, vacío y no aprobado con el mismo sha256,
+  y guarda el nuevo.
+- **DA7.** «Parte vacío» como definición única en ARCHITECTURE; no entra en la lista cerrada.
+- **DA8.** Rigor `estandar`, sin subirlo.
+
+**Pendiente antes de T1**: la M0 del líder, de solo lectura sobre la base `partes`. La
+consulta exacta está en `design.md` §9 y cuenta los partes vacíos por categoría y exclusión,
+y los que hoy chocarían al restaurar. La limpieza (M2) la autoriza el humano de forma
+literal.
+
 ## F-063 · DONE y DESPLEGADA 2026-10-26 (sv2 r20261026094916, creada 08:51:31Z, junto con F-058; arranque sano: relectura ACTIVA gemini-4-argon, comprueba_obra=True, timeout 5 s; pendiente M2/M4 de F-058): consulta de obra de sv2 que use el índice
 
 **Aprobación del humano (2026-10-25, literal)**: «f63 ok a todo» ⇒ DA1–DA5 = A (la
