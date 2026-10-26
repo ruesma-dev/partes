@@ -30,6 +30,10 @@ class LineaEntrada:
     # la racha (sv4); sv5 busca entre sus synckeys el CIZ que mover. Vacia
     # en las demas y en un sv4 anterior a F-060 (R26).
     racha_registro_ids: list[int] = field(default_factory=list)
+    # F-062 (R1-R3, R6): sv4 marca el `inicio` que escribe ademas su CIZ
+    # el mismo dia (con `MOVER_CIZ`); en el, `racha_registro_ids` es el
+    # tramo delante. Falso en las demas y en un sv4 anterior (R8).
+    ciz_mismo_dia: bool = False
 
     @property
     def ano(self) -> int:
@@ -135,6 +139,19 @@ class ParteDestino:
 
 
 @dataclass
+class FinMismoDia:
+    """F-062 (R6, R9, DA1): el CIZ «hermano» que el `inicio` escribe el
+    mismo dia que su CI*, en la misma sentencia. No es una accion propia
+    (R17): viaja en `AccionLinea.fin_mismo_dia`. `horide` y `pre` son los
+    del CIZ del recurso (`reshor`); la cuenta, la del codigo CIZ (DA10)."""
+    horide: int
+    hora_codigo: Optional[str]
+    pre: float
+    caa_ide: int = 0
+    caa_cod: Optional[str] = None
+
+
+@dataclass
 class AccionLinea:
     """Que se hara con una linea de entrada."""
     registro_id: int
@@ -171,6 +188,9 @@ class AccionLinea:
     # F-060 (R15, R20): el CIZ de la racha que esta accion `escribir` mueve
     # al dia D con un `UPDATE` (None = `INSERT` de siempre).
     mover: Optional["LineaSigrid"] = None
+    # F-062 (R6, R10-R13): el CIZ hermano de un `inicio` que se escribe con
+    # su CI* en una sola sentencia (None = sin hermano).
+    fin_mismo_dia: Optional[FinMismoDia] = None
 
     @property
     def clave_conflicto(self) -> str:
