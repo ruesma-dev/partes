@@ -235,6 +235,20 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `fin` escribe su CIZ. Se enciende sv5 y luego sv4; se apaga sv4 y luego
    sv5: **apagar los dos es la vuelta atrás completa** (lo ya movido no se
    deshace).
+   **Desde F-062**, con el mismo `MOVER_CIZ`, el **`inicio` escribe su CI*
+   y un CIZ el MISMO día** (como Administración: un día suelto ya no queda
+   solo con su CI*): sv4 lo marca con `ciz_mismo_dia` y le manda su tramo
+   delante en `racha_registro_ids`; sv5 escribe los dos con **una sola
+   sentencia de dos filas** (el CIZ, «hermano», con synckey
+   `partes:<id>:ciz`, `pos` detrás del CI* y la cuenta del código CIZ).
+   Si la racha sigue, el siguiente `fin` encuentra ese hermano por
+   `partes:<id>:ciz` y lo **mueve** como cualquier CIZ (`UPDATE`); la línea
+   del inicio conserva su CI* y sigue `registrado` (sin `fin_movido`). Sin
+   hermano: si su `fin` viaja en la misma aprobación (lo escribe ese
+   `fin`), si la racha ya tiene un CIZ posterior, si el hermano ya existe,
+   si hay un CIZ ajeno ese día o si el recurso no tiene CIZ (WARNING).
+   Nada es retroactivo: una racha abierta antes de F-062 recibe su CIZ con
+   su siguiente `fin`.
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
