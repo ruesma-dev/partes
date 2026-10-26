@@ -6,8 +6,8 @@
 > prefijo son de `services/partes-front/`. Los tests se lanzan desde `services/partes-front` con
 > `python -m pytest`.
 
-- [ ] T0: M0 · caducidad de la cookie de Easy Auth de `ca-sv4-front` (design.md §8)  |  Verificación: MANUAL (líder, solo lectura); valor anotado en `progress/current.md`; si no es 8 h, `SESION_MS` toma ese valor
-- [ ] T1: Escribir `tests/test_f064_clave_usuario.py` y `tests/test_f064_filtros_js.py` (design.md §6) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f064_clave_usuario.py tests/test_f064_filtros_js.py` falla por `clave_filtros` y `FiltrosSesion` ausentes (traza RED en `progress/impl_F-064.md`)
+- [x] T0: M0 · caducidad de la cookie de Easy Auth de `ca-sv4-front` (design.md §8)  |  Verificación: MANUAL (líder, solo lectura); valor anotado en `progress/current.md`; si no es 8 h, `SESION_MS` toma ese valor
+- [x] T1: Escribir `tests/test_f064_clave_usuario.py` y `tests/test_f064_filtros_js.py` (design.md §6) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f064_clave_usuario.py tests/test_f064_filtros_js.py` falla por `clave_filtros` y `FiltrosSesion` ausentes (traza RED en `progress/impl_F-064.md`)
 - [ ] T2: `clave_filtros` en `interface_adapters/web/identidad.py`, el global `clave_filtros_de` en `interface_adapters/web/app.py` y `data-filtros-usuario` en `templates/base.html` (§4.1, §4.2)  |  Verificación: tests de R1–R3 en verde; `python -m pytest tests/test_f017_punto_unico.py tests/test_f017_identidad.py` en verde sin tocarlos
 - [ ] T3: El IIFE `FiltrosSesion` en `static/app.js` tras `avisarCambioLineas`, con constantes y puras (§4.3)  |  Verificación: tests de node de R5–R10, R12, R14, R16, R17 y R19 en verde; `node --check static/app.js`
 - [ ] T4: `_setupDaySelection` y `wireDayFilters` devuelven el manejador de días (§4.4)  |  Verificación: tests de R12 y R16 del DOM falso en verde; el clic y «Quitar filtro» siguen cubiertos por los tests existentes de sv4 en verde
