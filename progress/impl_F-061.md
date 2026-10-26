@@ -138,12 +138,12 @@ No se tocó el test de F-043. La segunda pasada termina en `ENTORNO LISTO. Puede
 | Evidencia | Valor real |
 |---|---|
 | Tests de F-061 | 93 (`test_f061_borrado` 18, `_papelera` 18, `_portal` 12, `_limpieza` 45), todos en verde |
-| Suite sv4 (`init.sh`) | `2882 passed, 1 skipped, 2 warnings in 830.39s (0:13:50)` |
-| Suite raíz (`init.sh`) | `522 passed, 3 skipped in 116.44s (0:01:56)` |
+| Suite sv4 (`init.sh`, tras el análisis de la mutación) | `2884 passed, 1 skipped, 2 warnings in 1058.21s (0:17:38)` |
+| Suite raíz (`init.sh`) | `522 passed, 3 skipped in 110.45s (0:01:50)` |
 | sv1, sv2, sv3 y sv5 | en verde (caché de `init.sh`: árbol sin cambios) |
-| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 95.2% de 289 líneas cambiadas cubiertas (275/289, umbral 80%, nivel estandar)` |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 96.9% de 289 líneas cambiadas cubiertas (280/289, umbral 80%, nivel estandar)` |
 | Mutación (lanzada por el líder, sin relanzar) | 110 generados y 20 evaluados (muestreo `estandar`, semilla `20260820`): 16 muertos, 4 supervivientes y 0 timeouts, en 4373 s con **4 workers**. Detalle en `progress/mutacion_F-061.md` |
-| Tiempo de la suite | sv4 830,39 s; raíz 116,44 s |
+| Tiempo de la suite | sv4 1058,21 s; raíz 110,45 s |
 | Verificaciones MANUAL | M1 (T14) y M2 (T15), con sus comandos exactos en `progress/current.md` |
 
 ### Supervivientes de la mutación
