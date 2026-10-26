@@ -303,3 +303,41 @@ def test_f061_r18_sin_session_factory_ni_secretos() -> None:
     assert not re.search(r"password\s*=|postgresql\+psycopg://", fuente,
                          re.IGNORECASE)
     assert "PT26/00373" not in fuente      # la lista vive en parte_vacio
+
+
+# ===================== Mutación (supervivientes) ====================== #
+
+def test_f061_r18_fabrica_de_sesiones_del_script_funciona() -> None:
+    """La fábrica propia del script (sin SessionFactory) abre sesiones de
+    verdad; en lectura registra el `SET TRANSACTION READ ONLY` en `begin`.
+    Mata `future=False` en `create_engine` y en `sessionmaker`, que en
+    SQLAlchemy 2 son un `ArgumentError`."""
+    from infrastructure.database.orm_models import Base
+    for lectura in (True, False):
+        fabrica = script.FabricaSesiones("sqlite://", lectura=lectura)
+        assert event.contains(fabrica.engine, "begin",
+                              script.solo_lectura) is lectura
+        Base.metadata.create_all(fabrica.engine)
+        repo = ParteReviewRepository(fabrica)
+        assert repo.partes_vacios_activos() == []
+
+
+def test_f061_r14_markdown_cuenta_categorias_y_acciones_de_candidatos(
+        tmp_path) -> None:
+    """Las tablas por categoría y por acción cuentan solo los candidatos
+    no excluidos; la de exclusión, solo los excluidos."""
+    assert _main(_escenario(), tmp_path) == 0
+    (md,) = tmp_path.glob("limpieza_partes_vacios_*.md")
+    texto = md.read_text(encoding="utf-8")
+
+    def tabla(cabecera: str) -> list[str]:
+        bloque = texto.split(cabecera, 1)[1].split("\n\n", 1)[0]
+        return [ln for ln in bloque.splitlines() if ln.startswith("| `")]
+
+    assert tabla("| Categoría (candidatos) | Partes |") == [
+        "| `sin_filas_leidos` | 1 |", "| `sin_filas_manual` | 1 |",
+        "| `sin_filas_nada_leido` | 1 |", "| `todas_en_papelera` | 1 |"]
+    assert tabla("| Acción prevista (candidatos) | Partes |") == [
+        "| `borrar` | 3 |", "| `retirar` | 1 |"]
+    assert tabla("| Motivo de exclusión | Partes |") == [
+        "| `aprobado` | 1 |", "| `protegido` | 1 |", "| `vive_fuera` | 1 |"]
