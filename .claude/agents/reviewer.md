@@ -33,6 +33,13 @@ parte y lo dices.
 ## Protocolo
 
 1. Ejecuta `bash harness/init.sh`. Si falla → CHANGES_REQUESTED directo.
+   Si sirve **de caché** la suite de un servicio que toca la feature («pytest
+   en verde (caché: …)»), ejecuta además esa suite entera a mano y sin caché:
+   desde la `ruta` del servicio en `harness/servicios.json`,
+   `python -m pytest -q -p no:cacheprovider`. Anota en el informe los números
+   y que se lanzó a mano. La caché solo mira el árbol del servicio, y sus
+   tests pueden leer ficheros de fuera (propuesta del reviewer de F-064,
+   aprobada por el humano el 2026-10-26).
 2. Lee `requirements.md` (o los `acceptance`) y verifica trazabilidad: cada
    requisito debe tener al menos un test que lo cubra. Ejecuta la suite de
    tests del proyecto y comprueba que esos tests existen y pasan.
