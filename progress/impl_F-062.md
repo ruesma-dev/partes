@@ -188,13 +188,13 @@ hermano en parte cerrado: ni se escribe ni corta la racha (DA7 A).
 ## Resultado de `bash harness/init.sh`
 
 Ejecutado tal cual (2026-10-26). La primera pasada falló solo en el tope de este informe
-(236 > 220); se recortó. Tras los tests de mutación: INIT_FINAL
+(236 > 220); se recortó. Tras los tests de mutación: **`ENTORNO LISTO`, 0 fallidas**; `PUERTA COBERTURA` 135/135 (100 %) y `PUERTA TAMAÑO` impl 218/220.
 
 ## Evidencias
 
 | Evidencia | Valor real |
 |---|---|
-| Tests sv5 (`partes-transfer`) | SV5_FINAL |
+| Tests sv5 (`partes-transfer`) | **1164 passed**, 1 warning, en 32,16 s (dentro de `init.sh`; 1158 + 6 de mutación) |
 | Tests sv4 (`partes-front`) | **2791 passed, 1 skipped** en 736,86 s (dentro de `init.sh`) |
 | Tests raíz del monorepo | 522 passed, 3 skipped |
 | Tests nuevos de F-062 | sv5: 131 (`test_f062_ciz_mismo_dia.py`) + 7 (`test_f062_cliente_inicio.py`); sv4: 43 |
