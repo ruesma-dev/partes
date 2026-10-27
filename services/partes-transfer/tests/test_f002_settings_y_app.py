@@ -62,6 +62,20 @@ def test_f002_settings_storage_habilitado_por_account_url(entorno):
     assert Settings().storage_habilitado is True
 
 
+def test_f056_r3_franquicia_campo_res_vacio_por_defecto(entorno):
+    """F-056 (R3): sin `FRANQUICIA_CAMPO_RES` la franquicia esta apagada."""
+    assert Settings().franquicia_campo_res == ""
+
+
+@pytest.mark.parametrize("valor", ["CampoInventado", "a];DROP TABLE res;--",
+                                   "  ", "1x"])
+def test_f056_r38_franquicia_campo_res_no_impide_arrancar(entorno, valor):
+    """F-056 (R38): un nombre malo es `no_disponible`, nunca un fallo de
+    arranque: `Settings` lo guarda tal cual, sin validar."""
+    entorno.setenv("FRANQUICIA_CAMPO_RES", valor)
+    assert Settings().franquicia_campo_res == valor
+
+
 @pytest.mark.parametrize("valor,esperado", [("0", 1), ("-4", 1), ("1", 1),
                                             ("7", 7)])
 def test_f002_r18_transfer_workers_minimo_uno(entorno, valor, esperado):

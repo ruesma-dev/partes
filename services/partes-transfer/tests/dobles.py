@@ -256,6 +256,16 @@ class SigridFake:
         #: `extras_del_periodo` y la excepcion que lanzara si no es None.
         self.extras_leidas: list[tuple] = []
         self.fallo_extras: Exception | None = None
+        #: F-056 enmienda (R38-R40): columnas de `res` `{nombre: DATA_TYPE}`
+        #: (nombre sin distinguir mayusculas, como la collation de Sigrid),
+        #: `{reside: valor}` del campo, lo pedido en cada lectura y las
+        #: excepciones que lanzaran si no son None.
+        self.columnas_res: dict[str, str] = {}
+        self.valores_res: dict[int, object] = {}
+        self.tipos_leidos: list[str] = []
+        self.valores_leidos: list[tuple[list[int], str]] = []
+        self.fallo_tipo_columna: Exception | None = None
+        self.fallo_valores_res: Exception | None = None
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -526,6 +536,37 @@ class SigridFake:
                     and (l.get("synckey") or "") != excluir):
                 total += float(l.get("can") or 0.0)
         return round(total, 6)
+
+    def _columna_res(self, campo):
+        for nombre, tipo in self.columnas_res.items():
+            if nombre.lower() == str(campo).lower():
+                return tipo
+        return None
+
+    def tipo_columna_res(self, campo):
+        """F-056 (R39): el `DATA_TYPE` de la columna o None si no existe."""
+        self._lectura("tipo_columna_res")
+        self.tipos_leidos.append(campo)
+        if self.fallo_tipo_columna is not None:
+            raise self.fallo_tipo_columna
+        return self._columna_res(campo)
+
+    def valores_campo_res(self, resides, campo):
+        """F-056 (R1, R40): como el cliente real: `ValueError` sin leer si el
+        nombre no casa `CAMPO_RE`; una columna que no existe es un error de
+        SQL (excepcion); un recurso que no existe no sale."""
+        from application.services.franquicia import CAMPO_RE
+
+        if not isinstance(campo, str) or not CAMPO_RE.match(campo):
+            raise ValueError(f"nombre no valido: {campo!r}")
+        self._lectura("valores_campo_res")
+        ides = sorted({int(i) for i in resides if i})
+        self.valores_leidos.append((ides, campo))
+        if self.fallo_valores_res is not None:
+            raise self.fallo_valores_res
+        if self._columna_res(campo) is None:
+            raise RuntimeError(f"sigrid-api read: columna {campo} no existe")
+        return {i: self.valores_res[i] for i in ides if i in self.valores_res}
 
     def lineas_para_reajuste(self, claves):
         """F-046 / F-056: por synckey con `pre`, `hmoide` y `enlazada`,

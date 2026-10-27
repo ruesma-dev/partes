@@ -964,3 +964,39 @@ class SigridWriteClient:
         filas = self._read(self._SQL_EXTRAS_PERIODO,
                            [int(reside), int(inicio), int(fin), excluir])
         return float((filas[0]["extras"] if filas else 0) or 0.0)
+
+    #: R39: el tipo de la columna del campo, con el nombre como PARAMETRO.
+    _SQL_TIPO_COLUMNA_RES = (
+        "SELECT DATA_TYPE AS tipo FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'res' "
+        "AND COLUMN_NAME = ?")
+
+    def tipo_columna_res(self, campo: str) -> str | None:
+        """R39: `DATA_TYPE` de la columna `campo` de `dbo.res`, o None si no
+        existe. Un fallo o un `truncated` es una excepcion."""
+        filas = self._read(self._SQL_TIPO_COLUMNA_RES, [campo])
+        return str(filas[0]["tipo"]) if filas else None
+
+    def valores_campo_res(self, resides: Iterable[int],
+                          campo: str) -> dict[int, Any]:
+        """R1, R40: el valor crudo del campo de cada recurso que existe
+        (`res.ide` -> valor; NULL es None), en lotes de `LOTE_RECURSOS`. El
+        nombre va entre corchetes (un nombre de columna no se parametriza):
+        si no casa `CAMPO_RE`, `ValueError` ANTES de leer (R38)."""
+        # Import local: `franquicia` -> `pisado` -> este modulo (ciclo).
+        from application.services.franquicia import CAMPO_RE
+
+        if not isinstance(campo, str) or not CAMPO_RE.match(campo):
+            raise ValueError(
+                f"FRANQUICIA_CAMPO_RES no es un identificador: {campo!r}")
+        ides = sorted({int(i) for i in resides if i})
+        out: dict[int, Any] = {}
+        for i in range(0, len(ides), LOTE_RECURSOS):
+            trozo = ides[i:i + LOTE_RECURSOS]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                f"SELECT res.ide AS reside, res.[{campo}] AS valor FROM res "
+                f"WHERE res.ide IN ({marcas})", trozo)
+            for f in filas:
+                out[int(f["reside"])] = f.get("valor")
+        return out

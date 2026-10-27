@@ -209,3 +209,110 @@ def test_f056_doble_lineas_para_reajuste_trae_pre_hmoide_y_enlace():
     l8 = ls["partes:franquicia:5"]
     assert (l8.ide, l8.can, l8.pre, l8.hmoide, l8.enlazada) == (
         8, -6.0, 25.0, 900, True)
+
+
+# ------------- T9: el campo de franquicia de `res` (enmienda) ------------- #
+# Los nombres de columna son INVENTADOS: el campo real aun no existe.
+
+SQL_TIPO = (
+    "SELECT DATA_TYPE AS tipo FROM INFORMATION_SCHEMA.COLUMNS "
+    "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'res' AND COLUMN_NAME = ?")
+
+
+def test_f056_r39_tipo_columna_res_sql_y_parametros(monkeypatch):
+    api = ApiFalsa(["tipo"], [["decimal"]])
+    assert _cli(monkeypatch, api).tipo_columna_res("CampoInventado") == \
+        "decimal"
+    assert len(api.posts) == 1
+    url, cuerpo = api.posts[0]
+    assert url == "http://sigrid.invalid/api/sql/read"
+    assert _sql(cuerpo["sql"]) == SQL_TIPO
+    assert cuerpo["parameters"] == ["CampoInventado"]
+    assert "CampoInventado" not in cuerpo["sql"]
+
+
+def test_f056_r39_tipo_columna_res_ausente_es_none(monkeypatch):
+    api = ApiFalsa(["tipo"], [])
+    assert _cli(monkeypatch, api).tipo_columna_res("otro_campo") is None
+
+
+@pytest.mark.parametrize("api", [
+    ApiFalsa(["tipo"], [["int"]], truncated=True),
+    ApiFalsa(["tipo"], [], estado=503)])
+def test_f056_r39_tipo_columna_res_fallo_es_excepcion(monkeypatch, api):
+    with pytest.raises(RuntimeError):
+        _cli(monkeypatch, api).tipo_columna_res("campo_x")
+
+
+def test_f056_r39_valores_campo_res_sql_y_parametros(monkeypatch):
+    api = ApiFalsa(["reside", "valor"], [[501, 8.5], [502, None]])
+    cli = _cli(monkeypatch, api)
+    assert cli.valores_campo_res([502, 501, 501, 0], "Franq_Prueba") == {
+        501: 8.5, 502: None}
+    assert len(api.posts) == 1
+    _, cuerpo = api.posts[0]
+    assert _sql(cuerpo["sql"]) == (
+        "SELECT res.ide AS reside, res.[Franq_Prueba] AS valor FROM res "
+        "WHERE res.ide IN (?,?)")
+    assert cuerpo["parameters"] == [501, 502]
+
+
+def test_f056_r40_valores_campo_res_en_lotes(monkeypatch):
+    ides = list(range(1, modulo.LOTE_RECURSOS + 3))
+    api = ApiFalsa(["reside", "valor"], [])
+    _cli(monkeypatch, api).valores_campo_res(ides, "campo_x")
+    assert [len(c["parameters"]) for _, c in api.posts] == [
+        modulo.LOTE_RECURSOS, 2]
+    assert api.posts[1][1]["parameters"] == [modulo.LOTE_RECURSOS + 1,
+                                             modulo.LOTE_RECURSOS + 2]
+
+
+def test_f056_r39_valores_campo_res_sin_recursos_no_lee(monkeypatch):
+    api = ApiFalsa(["reside", "valor"], [])
+    assert _cli(monkeypatch, api).valores_campo_res([], "campo_x") == {}
+    assert api.posts == []
+
+
+@pytest.mark.parametrize("malo", [
+    "", "1campo", "a];DROP TABLE res;--", "campo x", "res.campo",
+    "[campo]", "campo\n", None])
+def test_f056_r38_valores_campo_res_nombre_malo_no_lee(monkeypatch, malo):
+    api = ApiFalsa(["reside", "valor"], [])
+    with pytest.raises(ValueError):
+        _cli(monkeypatch, api).valores_campo_res([501], malo)
+    assert api.posts == []
+
+
+def test_f056_r39_valores_campo_res_truncated_es_excepcion(monkeypatch):
+    api = ApiFalsa(["reside", "valor"], [[501, 8]], truncated=True)
+    with pytest.raises(RuntimeError, match="truncada"):
+        _cli(monkeypatch, api).valores_campo_res([501], "campo_x")
+
+
+# ------------------------ T9: el doble del campo ------------------------ #
+
+def test_f056_doble_tipo_columna_res():
+    cli = _fake([])
+    assert cli.tipo_columna_res("campo_x") is None
+    cli.columnas_res = {"Campo_X": "numeric"}
+    assert cli.tipo_columna_res("campo_x") == "numeric"   # collation CI
+    assert cli.tipos_leidos == ["campo_x", "campo_x"]
+    cli.fallo_tipo_columna = RuntimeError("sigrid caido")
+    with pytest.raises(RuntimeError, match="sigrid caido"):
+        cli.tipo_columna_res("campo_x")
+
+
+def test_f056_doble_valores_campo_res():
+    cli = _fake([])
+    cli.columnas_res = {"campo_x": "decimal"}
+    cli.valores_res = {501: 8.0, 502: None}
+    assert cli.valores_campo_res([502, 501, 999], "campo_x") == {
+        501: 8.0, 502: None}
+    assert cli.valores_leidos == [([501, 502, 999], "campo_x")]
+    with pytest.raises(ValueError):
+        cli.valores_campo_res([501], "a];--")
+    with pytest.raises(RuntimeError, match="columna"):
+        cli.valores_campo_res([501], "otro_campo")      # columna ausente
+    cli.fallo_valores_res = RuntimeError("sigrid caido")
+    with pytest.raises(RuntimeError, match="sigrid caido"):
+        cli.valores_campo_res([501], "campo_x")
