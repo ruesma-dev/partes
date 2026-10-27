@@ -64,7 +64,13 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
 - T14 HECHO (repositorio y cliente). Transiciones: ajustar (sin fila o desde rechazado) y
   recalcular (desde aplicado/decidido/error) -> decidido; no_ajustar (sin fila) -> rechazado;
   el resto, 409. La identidad del trabajador en el periodo es su recurso + su DNI (R12).
-  En curso: T15.
+- T15 HECHO (preflight y decisiones). Orden en `ejecutar`/`encolar`: se VALIDAN las franquicias
+  (422 formato/ámbito/clave; 409 varios recursos o `ajustar` sin día ni obra) antes de nada, luego
+  los repartos de F-046, luego se GUARDAN las decisiones (CAS, 409 si cambió) y luego las líneas.
+  Las claves válidas salen de las líneas pedidas (también las ya registradas, nuevo
+  `recurso_fechas_de`). Un fallo propio del aviso en el preflight sale como `aviso`, no 500.
+  Suite sv4: 3113 passed, 1 skipped.
+  En curso: T16.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

@@ -4069,7 +4069,8 @@ class ParteReviewRepository:
             ).scalars().all()
             return [{
                 "registro_id": x.id, "fecha_int": int(x.fecha_int or 0),
-                "recurso_ide": x.recurso_ide,
+                "recurso_ide": x.recurso_ide, "dni": x.empleado_dni,
+                "candef": x.hora_candef,
                 "tipo_hora": "extra" if _is_extra(x) else x.tipo_hora,
                 "es_incidencia": bool(x.es_incidencia),
                 "horas": float(x.horas or 0.0), "obra_ide": x.obra_ide,
@@ -4077,6 +4078,27 @@ class ParteReviewRepository:
                 "partida_cod": x.partida_cod,
                 "sigrid_estado": _estado_norm(x.sigrid_estado),
             } for x in regs]
+
+    def recurso_fechas_de(self, registro_ids) -> list[tuple[int, int]]:
+        """R15: `(recurso_ide, fecha_int)` de esas lineas activas (sin la
+        papelera ni documentos borrados), para saber que claves de
+        franquicia son de la seleccion. Incluye las ya registradas."""
+        ids = sorted({int(i) for i in registro_ids or []})
+        if not ids:
+            return []
+        out: set[tuple[int, int]] = set()
+        with self._session_factory.create_session() as session:
+            for i in range(0, len(ids), 500):
+                out.update(session.execute(
+                    select(ParteRegistroOrm.recurso_ide,
+                           ParteRegistroOrm.fecha_int)
+                    .join(ParteDocumentOrm)
+                    .where(ParteRegistroOrm.id.in_(ids[i:i + 500]))
+                    .where(ParteDocumentOrm.is_active.is_(True))
+                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                    .where(ParteRegistroOrm.recurso_ide.isnot(None))
+                ).tuples().all())
+        return sorted((int(r), int(f or 0)) for r, f in out)
 
     def encolados_de(self, recurso_ide: int, inicio: int, fin: int) -> int:
         """R18: lineas del trabajador y periodo aun en `encolado`."""
