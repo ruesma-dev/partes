@@ -56,7 +56,8 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
   X = 0); en `comprobar`/`ejecutar` un fallo al leer el TIPO es `no_disponible` => `no_editable`
   (R42), mientras que `franquicias()` lo propaga (design 6: 502 en `/recursos`).
 - T11 HECHO (API, `/health`, cableado en `main.py`): bloque sv5 cerrado, suite sv5 1458 passed.
-  En curso: T12 (ORM de una tabla).
+- T12 HECHO: `franquicia_ajuste` (24 columnas, `franquicia` Float NULL) en las dos copias del ORM
+  (byte-idénticas) y guardianes de la raíz a OCHO tablas. En curso: T13 (sv4 puro).
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
