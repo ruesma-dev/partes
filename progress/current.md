@@ -27,7 +27,12 @@ después (sobre todo F-060/F-062 en sv5 y F-053 «pisar sin borrar»); si no, `b
   reglas den código, precio y cuenta (la cantidad real es A, calculada dentro del lock); la
   escritura va por `escribir` (una sentencia) y decide la relectura (R29); `tex` en recálculo no
   cambia (el `UPDATE` de F-046 solo toca `can` y `tot`, como manda la spec).
-- En curso: bloque sv4 (T8–T16).
+- **CORTADO TRAS T7 A LA ESPERA DE DA1** (orden del líder, 2026-10-27): el humano valora definir
+  la franquicia (quién la tiene y su X) en un campo nuevo de Sigrid en vez de en la tabla
+  `empleado_franquicia`; eso cambiaría T8, T9, T14 y parte de T10–T13. El bloque sv5 vale tal cual
+  (recibe X en la petición). T8 llegó a commitearse (95c9817: ORM de las dos tablas + guardianes a
+  nueve) antes del aviso y se revirtió en 4e43d80; queda recuperable si DA1 sigue en A.
+  Nada de sv4 en la rama. Siguiente paso: decisión del humano sobre DA1 y, con ella, T8–T20.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
