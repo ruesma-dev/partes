@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-064 · DONE 2026-10-27 (review APPROVED pasada 2: observaciones 1, 2 y 4 arregladas a petición del humano, «arregla»; mutación 4/4; pendiente: desplegar sv4, M1 y M2): el filtro del portal se mantiene durante la sesión de cada usuario
+## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
 `partes-wt-f064`, sale de `dev` ec7111d). Rigor estándar. **Solo sv4**: `identidad.py` (clave
@@ -69,7 +69,7 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
 - Pendiente: T11/M1 (pasos en `design.md` §8 y resumidos en `impl_F-064.md`) y
   T12/M2 tras desplegar. Informe: `progress/impl_F-064.md`.
 
-## F-061 · DONE 2026-10-26 (review APPROVED pasada 2, condicionado y cumplido: equivalente #1 aceptado por el humano y observación 1 arreglada; pendiente: desplegar sv4, M1 y M2): un parte que se queda sin líneas no puede seguir activo
+## F-061 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR), junto con F-064 (review APPROVED pasada 2; pendiente: M1 y M2 del humano): un parte que se queda sin líneas no puede seguir activo
 
 **Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree
 `partes-wt-f061`, rama `feature/F-061-parte-vacio-tras-borrar-lineas`, sacada de `dev`
