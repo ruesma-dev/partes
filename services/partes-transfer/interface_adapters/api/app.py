@@ -8,6 +8,7 @@
   POST /api/reajuste/ejecutar   -> F-046: UPDATE/INSERT en Sigrid (bajo el lock)
   POST /api/franquicia/comprobar -> F-056: ajuste de la franquicia (solo lectura)
   POST /api/franquicia/ejecutar  -> F-056: INSERT/UPDATE de la linea de ajuste
+  POST /api/franquicia/recursos  -> F-056: franquicia de cada recurso (lectura)
   GET  /health
 """
 from __future__ import annotations
@@ -29,6 +30,7 @@ from application.services.comprobacion_lineas import (
     LineaComprobar,
 )
 from domain.models.registro_models import (
+    EstadoFranquicias,
     LineaEntrada,
     ObraEntrada,
     OpReajuste,
@@ -144,10 +146,10 @@ class FranquiciaIn(BaseModel):
 
     `ajuste_id` 0 es el centinela del preflight (aun no hay fila en sv4):
     solo lo admite `comprobar`. Fechas `YYYYMMDD` con `inicio <= fecha_int
-    <= fin`; la obra, por `ide` o por `codigo`."""
+    <= fin`; la obra, por `ide` o por `codigo`. Enmienda (R41): NO trae X
+    (la lee sv5 del campo de `res`); si un sv4 viejo la manda, se ignora."""
     ajuste_id: Annotated[int, Field(ge=0)]
     recurso_ide: Annotated[int, Field(ge=1)]
-    franquicia: Annotated[float, Field(ge=0)]
     periodo: Annotated[str, Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
     inicio: int
     fin: int
@@ -178,6 +180,25 @@ class FranquiciaIn(BaseModel):
 
 def _franquicia_a_dict(r: ResultadoFranquicia) -> dict[str, Any]:
     return asdict(r)
+
+
+#: R40: tope de recursos por peticion (el de un lote de lectura).
+MAX_RECURSOS_FRANQUICIA = 500
+
+
+class FranquiciaRecursosIn(BaseModel):
+    """F-056 (R40): los recursos cuya franquicia se pide (1-500, >= 1)."""
+    recurso_ides: Annotated[
+        list[Annotated[int, Field(ge=1)]],
+        Field(min_length=1, max_length=MAX_RECURSOS_FRANQUICIA)]
+
+
+def _franquicias_a_dict(e: EstadoFranquicias) -> dict[str, Any]:
+    """R40: `{estado, motivo, recursos: {"<ide>": {franquicia, estado}}}`;
+    `recursos` vacio si el estado no es `ok`."""
+    return {"estado": e.estado, "motivo": e.motivo, "recursos": {
+        str(ide): {"franquicia": lec.franquicia, "estado": lec.estado}
+        for ide, lec in e.recursos.items()}}
 
 
 def _cliente_sigrid(settings) -> SigridWriteClient:
@@ -252,9 +273,13 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
+        # F-056 (design §4): sin leer Sigrid; si el campo existe y es
+        # numerico lo dice `/api/franquicia/recursos`.
+        campo = str(getattr(settings, "franquicia_campo_res", "") or "")
         return {"ok": True, "modo_pruebas": settings.obra_pruebas_forzar,
                 "obra_pruebas": settings.obra_pruebas_cod,
-                "database": settings.sigrid_api_database}
+                "database": settings.sigrid_api_database,
+                "franquicia": "configurada" if campo else "apagada"}
 
     @app.post("/api/registro/preflight")
     async def preflight(p: PeticionIn) -> JSONResponse:
@@ -353,6 +378,21 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
         return JSONResponse(
             {"ok": False, "error": "franquicia de extras no configurada en "
                                    "sv5"}, status_code=503)
+
+    @app.post("/api/franquicia/recursos")
+    def franquicia_recursos(p: FranquiciaRecursosIn) -> JSONResponse:
+        """F-056 (R40, R43): SOLO LECTURA y sin lock. La franquicia de cada
+        recurso pedido; 502 si falla la lectura del tipo de la columna (un
+        fallo al leer los valores es `no_disponible`, 200)."""
+        if franquicia is None:
+            return _sin_franquicia()
+        try:
+            e = franquicia.franquicias(p.recurso_ides)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[franquicia] recursos fallo")
+            return JSONResponse({"ok": False, "error": str(exc)},
+                                status_code=502)
+        return JSONResponse(_franquicias_a_dict(e))
 
     @app.post("/api/franquicia/comprobar")
     def franquicia_comprobar(p: FranquiciaIn) -> JSONResponse:
