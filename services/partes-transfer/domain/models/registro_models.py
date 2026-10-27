@@ -413,10 +413,10 @@ class PeticionFranquicia:
     calcula. `ajuste_id` 0 es el centinela del preflight (aun no hay fila):
     solo lo admite `comprobar`. `extras_pendientes` solo lo usa
     `comprobar` (las extras de esta aprobacion que aun no estan en Sigrid).
+    F-056 enmienda (R41): no trae X; sv5 la lee del campo de `res`.
     """
     ajuste_id: int
     recurso_ide: int
-    franquicia: float
     periodo: str
     inicio: int
     fin: int
@@ -466,3 +466,28 @@ class ResultadoFranquicia:
     escrita: bool = False
     forzada_pruebas: bool = False
     error: Optional[str] = None
+    # Enmienda (R41): la X que uso sv5 (None si no se pudo leer) y el
+    # estado de la franquicia del recurso (`activa`, `inactiva`...).
+    franquicia: Optional[float] = None
+    franquicia_estado: Optional[str] = None
+
+
+@dataclass
+class LecturaFranquicia:
+    """F-056 enmienda (R2): la franquicia de UN recurso leida de su campo
+    de `res`. `estado`: `activa` (X > 0), `inactiva` (NULL o 0: X = 0),
+    `invalida`, o el estado global si no se pudo leer (`apagada`,
+    `no_disponible`); `franquicia` es X solo con `activa`/`inactiva`."""
+    estado: str
+    franquicia: Optional[float]
+    motivo: Optional[str] = None
+
+
+@dataclass
+class EstadoFranquicias:
+    """F-056 enmienda (R3, R38, R40): el estado global del campo (`apagada`
+    | `no_disponible` | `ok`), su motivo y, con `ok`, la lectura de cada
+    recurso pedido."""
+    estado: str
+    motivo: Optional[str] = None
+    recursos: dict[int, LecturaFranquicia] = field(default_factory=dict)

@@ -48,6 +48,8 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
 `tex` sin cifras, DA27 franquicia del recurso. Hasta su aprobación, el implementer NO sigue.
 
 **Bloqueo de tipos numéricos (2026-10-27) resuelto por el líder: manda design.md §4, 9 tipos.** Implementer reanuda en T8.
+- T8 HECHO (dominio y puro). Desviación menor: `CAMPO_RE` acaba en `\Z` y no en `$` (en Python `$`
+  admite un salto de línea final tras el nombre; misma regla, sin ese hueco). En curso: T9.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

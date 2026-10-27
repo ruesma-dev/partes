@@ -24,18 +24,30 @@ se anade UNA linea `HE*` negativa que resta las extras hasta X:
                      cerraran el parte);
         actualizar   la linea existe con otro `can` (R25), tambien si A = 0:
                      la linea queda a 0, nunca se borra (regla de F-053).
-  - `texto_ajuste` (DA13): el `tex` que vera Administracion en Sigrid, sin
-    nombres ni DNIs.
+  - `texto_ajuste` (DA13, DA26): el `tex` que vera Administracion en
+    Sigrid, SIN cifras (no queda desfasado al recalcular) ni nombres.
+
+Enmienda 2026-10-27 (DA1 = C): X es un campo nuevo de `res` que crea y
+rellena Administracion y que solo lee sv5. Aqui viven su regla
+(`leer_valor`, R2: NULL o 0 inactiva, (0, 200] activa, lo demas invalida),
+el filtro del nombre (`CAMPO_RE`, R38), los tipos que se aceptan
+(`TIPOS_NUMERICOS`, design §4: exactamente nueve, sin `bigint`) y que una
+franquicia desconocida nunca es X = 0 (`veredicto`, R42).
 
 No lee ni escribe; lo llama `FranquiciaPipeline` con lo leido. Motivos sin
 tildes como el resto de sv5 y de `LIMITE_MOTIVO` caracteres como mucho.
 """
 from __future__ import annotations
 
+import math
+import re
+from decimal import Decimal, InvalidOperation
+
 from application.services.parte_abierto import MOTIVO_PARTE_NO_ABIERTO
 from application.services.pisado import LIMITE_MOTIVO, MOTIVO_LINEA_ENLAZADA
 from domain.models.registro_models import (
     AccionLinea,
+    LecturaFranquicia,
     LineaSigrid,
     VeredictoFranquicia,
 )
@@ -46,6 +58,32 @@ ACTUALIZAR = "actualizar"
 YA_APLICADO = "ya_aplicado"
 SIN_AJUSTE = "sin_ajuste"
 NO_EDITABLE = "no_editable"
+
+#: R38: un nombre de columna que se puede interpolar entre corchetes. `\Z`
+#: y no `$`: en Python `$` admite un salto de linea final tras el nombre.
+CAMPO_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}\Z")
+
+#: R38, design §4: `DATA_TYPE` de `INFORMATION_SCHEMA.COLUMNS` que valen
+#: (en minusculas). Cualquier otro, `bigint` incluido, es `no_disponible`.
+TIPOS_NUMERICOS = frozenset({
+    "decimal", "numeric", "float", "real", "int", "smallint", "tinyint",
+    "money", "smallmoney"})
+
+#: R2, DA24: tope de una franquicia valida, en horas por mes de nomina.
+MAX_FRANQUICIA_H = 200.0
+
+#: Estado global del campo (R3, R38, R40).
+APAGADA = "apagada"
+NO_DISPONIBLE = "no_disponible"
+OK = "ok"
+
+#: Estado de la franquicia de un recurso (R2).
+ACTIVA = "activa"
+INACTIVA = "inactiva"
+INVALIDA = "invalida"
+
+#: R42: prefijo de motivo de una franquicia que no se sabe.
+MOTIVO_FRANQUICIA = "franquicia"
 
 #: Tolerancia en horas al comparar `can` con A (como el reajuste, F-046).
 TOL = 0.001
@@ -73,6 +111,36 @@ def ajuste_objetivo(extras: float, franquicia: float) -> float:
     return _cero(round(-min(e, x), 2))
 
 
+def es_tipo_numerico(tipo: str | None) -> bool:
+    """R38: el `DATA_TYPE` de la columna es uno de `TIPOS_NUMERICOS`."""
+    return (tipo or "").strip().lower() in TIPOS_NUMERICOS
+
+
+def leer_valor(valor: object) -> LecturaFranquicia:
+    """R2, DA24: el estado de la franquicia de un recurso a partir del valor
+    de su campo. NULL o 0 => `inactiva` (X = 0); > 0 y <= 200 => `activa`
+    (X a dos decimales); negativo, > 200 o no convertible => `invalida`."""
+    if valor is None:
+        return LecturaFranquicia(INACTIVA, 0.0)
+    if isinstance(valor, bool) or not isinstance(
+            valor, (int, float, Decimal, str)):
+        return LecturaFranquicia(
+            INVALIDA, None, f"valor no numerico ({type(valor).__name__})")
+    try:
+        x = float(Decimal(str(valor).strip()))
+    except (InvalidOperation, ValueError):
+        return LecturaFranquicia(INVALIDA, None, "valor no numerico")
+    if not math.isfinite(x):
+        return LecturaFranquicia(INVALIDA, None, "valor no numerico")
+    if x == 0:
+        return LecturaFranquicia(INACTIVA, 0.0)
+    if x < 0 or x > MAX_FRANQUICIA_H:
+        return LecturaFranquicia(
+            INVALIDA, None,
+            f"valor {x:g} fuera de 0..{MAX_FRANQUICIA_H:g} h"[:LIMITE_MOTIVO])
+    return LecturaFranquicia(ACTIVA, _cero(round(x, 2)))
+
+
 def _igual(a: float | None, b: float | None) -> bool:
     """`can` nula cuenta como 0 (asi la suma Sigrid)."""
     return abs(float(a or 0.0) - float(b or 0.0)) <= TOL + _RUIDO
@@ -84,12 +152,21 @@ def _es_extra(codigo: str | None) -> bool:
 
 def veredicto(linea: LineaSigrid | None, est_parte: int | None,
               objetivo: float, *, est_registro: int,
+              franquicia: LecturaFranquicia | None,
               accion: AccionLinea | None,
               parte_cod: str | None = None) -> VeredictoFranquicia:
     """R24-R30 (orden en el docstring del modulo). `linea` es la de la
     synckey del ajuste (None si no existe), `est_parte` el `con.est` de su
     parte y `accion` lo que `preparar` decidio para una extra del recurso
-    el dia de ajuste."""
+    el dia de ajuste. R42: ANTES que nada, una franquicia que no es
+    `activa` ni `inactiva` (o que no se leyo) no deja escribir."""
+    if franquicia is None or franquicia.estado not in (ACTIVA, INACTIVA):
+        estado = NO_DISPONIBLE if franquicia is None else franquicia.estado
+        detalle = (franquicia.motivo if franquicia is not None
+                   and franquicia.motivo else "sin lectura del campo")
+        return VeredictoFranquicia(NO_EDITABLE, (
+            f"{MOTIVO_FRANQUICIA}_{estado}: {detalle}; no se ajusta (no se "
+            f"sabe la franquicia)")[:LIMITE_MOTIVO])
     if accion is None or accion.accion != "escribir":
         detalle = "sin decision" if accion is None else (
             f"{accion.accion}: {accion.motivo}")
@@ -118,13 +195,7 @@ def veredicto(linea: LineaSigrid | None, est_parte: int | None,
     return VeredictoFranquicia(ACTUALIZAR)
 
 
-def _horas(valor: float) -> str:
-    """Horas con coma decimal y sin ceros sobrantes: -6, -7,5, -2,25."""
-    texto = f"{_cero(round(float(valor or 0.0), 2)):.2f}".rstrip("0")
-    return texto.rstrip(".").replace(".", ",")
-
-
-def texto_ajuste(periodo: str, objetivo: float, franquicia: float) -> str:
-    """DA13, design §6: el `tex` de produccion de la linea de ajuste."""
-    return (f"Ajuste franquicia extras {periodo}: {_horas(objetivo)} h "
-            f"(franquicia {_horas(franquicia)} h)")
+def texto_ajuste(periodo: str) -> str:
+    """DA13, DA26: el `tex` de produccion de la linea de ajuste, sin cifras
+    (la cifra es `can`; X esta en el propio recurso)."""
+    return f"Ajuste franquicia extras {periodo}"
