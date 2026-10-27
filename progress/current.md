@@ -98,6 +98,16 @@ validación y CAS de `decidir_ajuste` (la clave debe tener líneas del trabajado
 **B** que `aplicar` acepte una `decision` opcional; **C** dejar «Ajustar»/«Recalcular» solo en el
 modal de aprobar (cambia R20 y DA11). Todo lo demás de T8–T18 está hecho y en verde.
 
+**Decisión del humano (2026-10-27), literal: «a»** (a la opción A tal como se le presentó: «Una
+llamada nueva, "decidir", con trabajador, periodo y decisión. Tiene las mismas comprobaciones que la
+decisión del modal (que ese trabajador tenga líneas en el periodo y que nadie lo haya cambiado
+entretanto) y después aplica.»). **Enmienda de la spec hecha (spec-author, 2026-10-27)**: DA28 en
+`design.md` §7 (B y C descartadas); R20 enmendado, R45 (`POST /api/franquicia/decidir`, solo
+`ajustar`/`recalcular`, 422 formato/decisión/sin líneas del recurso en el periodo, 409 CAS o
+transición, sin sv5) y R46 (la vista aplica tras decidir); R16 lista las transiciones de T14; tarea
+nueva **T17b** (sv4) sin renumerar. Topes: requirements 150/150, design 248/250. Resumen en
+`progress/spec_F-056.md`. F-056 sigue `blocked`: la reanuda el líder (siguiente: T17b y T19–T22).
+
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree

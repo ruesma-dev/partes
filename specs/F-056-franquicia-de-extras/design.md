@@ -5,6 +5,7 @@
 > de `/admin/jornadas` caen) y pasa a un campo nuevo de `res` en Sigrid que crea y rellena
 > Administración. Citas literales en `requirements.md`; DA nuevas DA21–DA27 en §7. La versión aprobada
 > el 2026-10-23 se lee con `git show 6d777c4:specs/F-056-franquicia-de-extras/design.md`.
+> **Enmienda 2026-10-27 (DA28 = A).** La vista decide por `POST /api/franquicia/decidir` y aplica (§4, R45, R46).
 
 ## 1. Encaje, límite de servicio y rigor
 
@@ -55,7 +56,7 @@ ejecutar/encolar ─ajustar|recalcular─► decidido ─aplicar(sv5 ok)─► a
 - Las líneas de la aprobación viajan como siempre (DA12). El modal, al terminar el registro (síncrono:
   con la respuesta; asíncrono: cuando el sondeo de F-024 ya no ve `encolado`), llama a `aplicar` de cada
   fila decidida y pinta el resultado (con la X que usó sv5). Si se cierra antes, queda `decidido` y la
-  vista de trabajador ofrece «Aplicar».
+  vista de trabajador ofrece «Aplicar». Su «Ajustar»/«Recalcular» va por `decidir` y luego `aplicar` (DA28).
 - sv5 `ejecutar`: `preparar` (fuera del lock) → bajo el lock: estado del campo y X del recurso, E y la
   línea por synckey → A → `crear` / `actualizar` / `ya_aplicado` / `sin_ajuste` / `no_editable` → una
   sentencia (el alta del parte, si falta, antes) → relectura.
@@ -110,6 +111,18 @@ ejecutar/encolar ─ajustar|recalcular─► decidido ─aplicar(sv5 ok)─► a
   procesan `franquicias` ANTES de los grupos (R15, R16); `POST /api/franquicia/{id}/aplicar` (R17–R19);
   contexto del ajuste en la vista de trabajador (R20, X actual por `franquicia_recursos`). Actor solo de
   `_actor(request)`.
+- **DA28 (T17b; R45, R46)** · `POST /api/franquicia/decidir` en `app.py`, `{recurso_ide, periodo, decision}`:
+  503 sin `TRANSFER_BASE_URL` (como `aplicar`); formato con `fq.decision_vista(crudo)` (nueva: la
+  comprobación de cada elemento de `validar_decisiones` sale a `_decision(d)`, compartida, y
+  `DECISIONES_VISTA = (AJUSTAR, RECALCULAR)`; `DecisionInvalida` ⇒ 422); ámbito: alguna línea de
+  `lineas_trabajador_periodo` con ese `recurso_ide` (si no, 422); propuesta con el cuerpo del bucle de
+  `_planes_franquicia` extraído a `_plan_franquicia(rec, per, decision, lineas_de, filas)`, que usan los
+  dos; guarda con `repository.decidir_ajuste` SIN cambios (T14: CAS y transiciones de R16 ⇒
+  `AjusteCambiadoError`, 409); sin sv5; responde `{ok: true, ajuste}`. `_actor(request)`: 19 → 20 en
+  `test_f017_punto_unico`. `trabajador_detail.html`: «Ajustar»/«Recalcular» con `transfer_enabled` y la
+  acción en `it.acciones` (`data-franquicia-decidir`, `data-recurso`, `data-periodo`); `app.js`
+  `decidirDesdeVista`: confirma, `decidir`, con `ok` `/aplicar` de `ajuste.id` y `resultadoFranquiciaHtml`
+  con `botonActualizar()` (F-043: sin recarga nueva); un 4xx enseña su `error`.
 - **`templates/trabajador_detail.html`** (bloque), **`static/app.js`** (`franquiciasHtml`,
   `decisionesFranquicia`, `aplicarFranquicias` tras el resultado y el sondeo; «Registrar» deshabilitado
   sin decisión, R13; aviso de R44), **`static/styles.css`**.
@@ -185,6 +198,7 @@ ajusta · DA18 la lista cerrada no crece.
 | DA25 | ¿Sigue `franquicia_ajuste`? | **A** sí: guarda la decisión (`rechazado` no se vuelve a preguntar; `decidido` pendiente en asíncrono), la autoría, la X usada y da el `id` de la synckey ya implementada. B quitarla con synckey `partes:franquicia:<reside>:<periodo>` (sin rechazo persistente ni autoría; rehace T1–T6). | A |
 | DA26 | `tex` al recalcular (punto abierto del implementer) | **A** `tex` sin cifras `Ajuste franquicia extras <periodo>`: nunca queda desfasado, `stmt_actualizar_linea` (compartida con F-046/F-053) no cambia; la cifra es `can` y X está en el propio recurso. B `tex` con cifras y el `UPDATE` lo reescribe (parámetro nuevo en la sentencia compartida). C `tex` con cifras del alta (desfasa al recalcular). | A |
 | DA27 | ¿Franquicia del recurso o de la persona? | **A** del recurso que lleva las extras (`hmores.reside`, el elegido por DNI en F-023/F-036: persona, alta, empresa de la obra); otro recurso de la misma persona no cuenta; varios con extras ⇒ DA16. B de la persona (elegir entre sus recursos: duplicaría la elección por DNI). | A |
+| DA28 | ¿Cómo decide la vista «Ajustar»/«Recalcular» (R20 pedía los botones, pero solo había `/aplicar`, que exige `id`)? | **A** (tal como se le presentó) «Una llamada nueva, "decidir", con trabajador, periodo y decisión. Tiene las mismas comprobaciones que la decisión del modal (que ese trabajador tenga líneas en el periodo y que nadie lo haya cambiado entretanto) y después aplica.» Admite `ajustar` y `recalcular` (la vista no ofrece «No ajustar» ni «Mantener»); «después aplica» = la vista llama a `/aplicar` con el `id` devuelto, así R18 y la X de DA22 siguen en un solo sitio. B `aplicar` acepta `decision` opcional (mezcla decidir y aplicar; sin fila no hay `id`). C solo en el modal (cambia R20 y DA11). | **A, el humano 2026-10-27** (literal: «a») |
 
 ## 8. Riesgos
 
@@ -210,7 +224,8 @@ caché del «sí» y su olvido, X leída bajo el lock, X = 0 con línea ⇒ `UPD
 (SQL y parámetros exactos de las dos lecturas nuevas), `test_f056_choques.py`, `test_f056_api.py` (R40,
 422, 503, `/health`, cableado). sv4: `test_f056_franquicia.py`, `test_f056_decisiones.py` (R9–R19, R43, R44 con
 SQLite de `dobles.py` y un sv5 falso: `/recursos` caído o `no_disponible` ⇒ aviso, CAS, 409),
-`test_f056_vista.py` (R20), `test_f056_orm.py`; `node --check`. Raíz: guardianes (R34) y contrato (R36).
+`test_f056_vista.py` (R20; R45, R46: 422 de formato, decisión y sin líneas, 409 de CAS y transición, 503, actor,
+botones y JS `decidir` → `aplicar`), `test_f056_orm.py`; `node --check`. Raíz: guardianes (R34) y contrato (R36).
 
 ## 10. Verificación MANUAL (humano)
 

@@ -6,6 +6,27 @@ worktree `partes-wt-f056`, sobre 6d777c4). Topes: requirements 150/150, design 2
 (una por línea). La versión aprobada el 2026-10-23 sigue en `git show 6d777c4:specs/...`.
 Resumen del 2026-10-23 (DA1–DA20, M1): mismo fichero en 6d777c4.
 
+## Enmienda DA28 (2026-10-27): decidir desde la vista
+
+Hueco que halló el implementer en R20: la vista pedía «Ajustar»/«Recalcular» pero solo existía
+`POST /api/franquicia/{id}/aplicar` (y sin fila no hay `id`). **Decisión del humano, literal «a»**,
+a la opción A tal como se le presentó: «Una llamada nueva, "decidir", con trabajador, periodo y
+decisión. Tiene las mismas comprobaciones que la decisión del modal (que ese trabajador tenga líneas
+en el periodo y que nadie lo haya cambiado entretanto) y después aplica.» B (`aplicar` con `decision`
+opcional) y C (solo en el modal) descartadas. Tamaños: requirements 150/150, design 248/250.
+
+- **R45** `POST /api/franquicia/decidir {recurso_ide, periodo, decision}`: 422 por formato, por
+  decisión distinta de `ajustar`/`recalcular` (la vista no ofrece «No ajustar» ni «Mantener») o sin
+  líneas activas de ese recurso en el periodo; propuesta y CAS como el modal (409); sin sv5;
+  `{ok, ajuste}`. **R46** con `ok`, la vista llama a `/aplicar` de ese `id` y pinta el resultado, sin
+  recarga nueva (F-043). **R16** ahora lista las transiciones ya implementadas en T14. **R21** cubre R45.
+- Diseño (§4): `fq.decision_vista` + `_decision` compartida con `validar_decisiones`; `_plan_franquicia`
+  extraído de `_planes_franquicia` (sin duplicar R6–R8, R12); `decidir_ajuste` sin cambios; guardián
+  F-017 a 20 `_actor(request)`; botones `data-franquicia-decidir` y `decidirDesdeVista` en `app.js`.
+- **T17b** nueva (sin renumerar). Para compactar: se resumieron la cabecera, el glosario (Periodo),
+  R12, R15 y R23 sin perder contenido.
+- Abierto para el humano: nada nuevo (DA28 decidida). Sigue abierto lo de antes (M1b–M4).
+
 ## Qué cambia
 
 - **X sale de Sigrid**: campo NUEVO de `res`, nombre en el ajuste de sv5 `FRANQUICIA_CAMPO_RES`
