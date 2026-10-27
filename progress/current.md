@@ -69,7 +69,7 @@ distintos; tras F-061, `_irTrasBorrar` a `/partes` vuelve a la búsqueda guardad
 - Pendiente: T11/M1 (pasos en `design.md` §8 y resumidos en `impl_F-064.md`) y
   T12/M2 tras desplegar. Informe: `progress/impl_F-064.md`.
 
-## F-061 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR), junto con F-064 (review APPROVED pasada 2; pendiente: M1 y M2 del humano): un parte que se queda sin líneas no puede seguir activo
+## F-061 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR), junto con F-064 (review APPROVED pasada 2; M2 hecha: 30 borrados; pendiente: M1 del humano): un parte que se queda sin líneas no puede seguir activo
 
 **Dónde está la spec.** La escribió el spec-author el 2026-10-26 en el worktree
 `partes-wt-f061`, rama `feature/F-061-parte-vacio-tras-borrar-lineas`, sacada de `dev`
@@ -175,7 +175,13 @@ líneas, y sin aprobar nada:
    ```
    ⇒ `0`. Nada registrado en Sigrid; PT26/00373, 00375 y 00376 intactos.
 
-**M2 · limpieza de los existentes, solo con autorización literal del humano** (la lanza él).
+**M2 HECHA (2026-10-27, líder, con autorización literal del humano: «lanza limpieza de partes vacios»)**:
+informe 09:43Z ⇒ 30 vacíos, 30 candidatos, 0 excluidos (29 `sin_filas_leidos` + 1
+`sin_filas_nada_leido`, igual que la M0); `--ejecutar --esperados 30` a las 09:45Z ⇒ **borrados 30,
+retirados 0, saltados 0**; informe repetido a las 09:46Z ⇒ **0** vacíos. Credenciales del Key Vault al
+entorno del proceso (sin abrir el `.env`); informes en `services/partes-front/logs/` (ignorado).
+
+**M2 · receta original** (la lanzaba el humano).
 Desde `services/partes-front`, con el `.env` de sv4:
 1. `../../.venv/Scripts/python.exe limpiar_partes_vacios.py` ⇒ informe en
    `services/partes-front/logs/limpieza_partes_vacios_<AAAAMMDD-HHMM>.md` y `.csv` (solo

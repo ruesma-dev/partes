@@ -61,7 +61,7 @@ Bloqueadas: **F-032**.
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico | M6 |
 | F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico | M4 |
 | F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
-| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N |
+| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). M2 hecha el 2026-10-27 (30 borrados, 0 restantes). Pendiente: M1 en el portal (humano) |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |  |
@@ -404,7 +404,7 @@ Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local
 
 estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
 
-**Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N
+**Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). M2 hecha el 2026-10-27 (30 borrados, 0 restantes). Pendiente: M1 en el portal (humano)
 
 Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 
