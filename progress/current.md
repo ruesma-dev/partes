@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-056 · IN_PROGRESS desde 2026-10-27 (spec aprobada 2026-10-23: DA1–DA20 = A; el humano: «si arranca la siguiente»; implementer en `partes-wt-f056`): franquicia de extras
+## F-056 · BLOCKED 2026-10-27 (T1–T18 hechas; hueco de la spec en R20, pregunta abajo) · antes IN_PROGRESS desde 2026-10-27 (spec aprobada 2026-10-23: DA1–DA20 = A; el humano: «si arranca la siguiente»; implementer en `partes-wt-f056`): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
 worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en
@@ -84,7 +84,19 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
   (`franquiciasPara`; para eso cada candidato lleva ahora `registro_ids`), y `aplicarFranquicias`
   aplica al terminar el registro (síncrono: ya; cola: cuando el sondeo acaba) avisando si la X
   usada difiere de la del aviso (DA22). Vista: tabla del ajuste y botón «Aplicar» (decidido/error).
-  En curso: T18.
+- T18 HECHO: contrato raíz `tests/test_f056_contrato_franquicia.py` (5 passed; sensibilidad
+  comprobada mandando la X a propósito). Guardianes: F-017 pasa a 19 `_actor(request)` (aplicar,
+  R21); F-043 sin recargas nuevas (la vista usa el «Actualizar» de siempre).
+  `bash harness/init.sh` ENTORNO LISTO (cobertura 98,6 %, 999/1013). Informe: `progress/impl_F-056.md`.
+
+**F-056 BLOQUEADA (2026-10-27, implementer) — pregunta para el humano.** R20 pide en la vista de
+trabajador «Ajustar» (`rechazado`, o sin fila con franquicia `activa`) y «Recalcular» (`aplicado`),
+pero la spec solo define `POST /api/franquicia/{id}/aplicar` (design §5): no hay ruta para DECIDIR
+desde la vista y, sin fila, ni siquiera hay `id`. No se ha improvisado. Opciones:
+**A** (recomendada) `POST /api/franquicia/decidir {recurso_ide, periodo, decision}` con la misma
+validación y CAS de `decidir_ajuste` (la clave debe tener líneas del trabajador), y luego `aplicar`;
+**B** que `aplicar` acepte una `decision` opcional; **C** dejar «Ajustar»/«Recalcular» solo en el
+modal de aprobar (cambia R20 y DA11). Todo lo demás de T8–T18 está hecho y en verde.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

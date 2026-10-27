@@ -1,163 +1,202 @@
 <!-- progress/impl_F-056.md -->
-# F-056 · Franquicia de extras — informe del implementer (bloque sv5, T1–T7)
+# F-056 · Franquicia de extras — informe del implementer (T1–T18)
 
-**Estado: CORTADO TRAS T7 A LA ESPERA DE DA1** (orden del líder del 2026-10-27). El humano valora
-definir la franquicia (quién la tiene y su X) en un campo nuevo de Sigrid en vez de en la tabla
-`empleado_franquicia` (DA1 = A aprobada); eso cambiaría T8, T9, T14 y parte de T10–T13. El bloque
-sv5 vale tal cual porque recibe X en la petición.
+**Estado: T1–T18 hechas y en verde; F-056 marcada `blocked`** por **un hueco de la spec** (R20,
+ver «Pendiente»: falta la ruta para decidir desde la vista) que necesita decisión del humano.
+T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
+(worktree `partes-wt-f056`). Nada en `dev`/`main`, sin push y sin tocar Sigrid ni bases reales.
 
-Rama `feature/F-056-franquicia-de-extras` (worktree `partes-wt-f056`), desde ef46216 (dev 39aef7b).
+## Aprobaciones literales del humano
 
-## Encaje con lo fusionado después de la spec (comprobado antes de T1)
+- 2026-10-23: «a a todo, actualzia backlog para que refleje lo que tien spec y estado real de todo»
+  ⇒ DA1–DA20 = A.
+- 2026-10-27 (aprueba DA2, DA17 y DA20 enmendadas y DA21–DA27 en A): «puedes arrancar, pero el
+  nombre del campo y tipo todavia no lo sabemos hasta que no se cree».
+  Consecuencia en el código: ningún test ni código depende de un nombre de columna real (los
+  tests usan nombres inventados, p. ej. `FranqInventada`); `FRANQUICIA_CAMPO_RES` vacío por
+  defecto (= franquicia apagada); `TIPOS_NUMERICOS` = los 9 tipos de design §4 (sin `bigint`).
+  M1b y M2 no se han intentado.
 
-Comprobado contra F-058…F-064 sin encontrar nada que cambie lo aprobado:
-- `RegistroPipeline._choques` (paso 7: `parte_cerrado`, `_motivo_sin_pisado`, `_conflictos`)
-  delega en `pisado.choques` ⇒ R31 cubre el registro con **un** cambio en `pisado.choques`.
-  `ReajustePipeline._choques` tiene su propio filtro, como decía la spec.
-- F-060/F-062: `partes:<id>:ciz` y `racha_ciz.registro_de_synckey` no tocan `partes:franquicia:<id>`
-  (`int("franquicia:5")` da error ⇒ None). `_ciz_ajeno` solo mira el `horide` del CIZ.
-- `_crear_parte`, `stmt_insert_linea`, `stmt_actualizar_linea` y `lineas_para_reajuste` no han
-  cambiado: se reutilizan como dice H3.
-- sv4 (sin tocar): `/api/aprobar/preflight|ejecutar|encolar` mantienen el patrón de F-046
-  (decisiones antes de los grupos); guardianes de la raíz en 7 tablas ⇒ 9 encaja.
-
-## Commits
+## Commits (uno por tarea)
 
 | Tarea | Commit | Qué |
 |---|---|---|
-| T1 | eec694c | `PREFIJO_FRANQUICIA`, `es_synckey_franquicia`, `PeticionFranquicia`, `VeredictoFranquicia`, `ResultadoFranquicia` |
-| T2 | cfd1c61 | `application/services/franquicia.py` (puro): `ajuste_objetivo`, `veredicto`, `texto_ajuste` |
-| T3 | 43c80b8 | R31 en `pisado.choques` y `ReajustePipeline._choques` + caracterización del registro |
-| T4 | 1b647d7 | `synckey_franquicia`, `extras_del_periodo` (cliente) y `SigridFake` |
-| T5 | 326c0eb | `FranquiciaPipeline` y `RegistroPipeline.asegurar_parte` |
-| T6 | e08a259 | `FranquiciaIn`, `/api/franquicia/comprobar` y `/ejecutar`, `main.py` |
-| T7 | 5f65009 | suite sv5 en verde; estado en `current.md` |
-| (T8) | 95c9817 → revertido en 4e43d80 | ORM de las dos tablas + guardianes a nueve. Llegó antes del aviso del líder; se revierte con commit (sin reescribir la historia) y queda recuperable si DA1 sigue en A |
+| T1–T7 | eec694c…5f65009 | sv5 base: dominio, fórmula, R31 en choques, cliente, pipeline, API (antes de la enmienda) |
+| T8 | e3d3d0d | sv5 dominio y puro de la enmienda: `CAMPO_RE`, `TIPOS_NUMERICOS`, `leer_valor`, estados, `texto_ajuste` sin cifras |
+| T9 | 1377890 | `FRANQUICIA_CAMPO_RES`, `tipo_columna_res`, `valores_campo_res` (lotes, nombre validado antes de leer) |
+| T10 | ef0f5b0 | `FranquiciaPipeline.franquicias()`, X leída por sv5 (sin lock en comprobar, bajo el lock en ejecutar), R42 |
+| T11 | c8cddc8 | `/api/franquicia/recursos`, `FranquiciaIn` sin X, `/health`, cableado en `main.py` |
+| T12 | a7576a2 | `franquicia_ajuste` en las dos copias del ORM (byte-idénticas) y guardianes a OCHO tablas |
+| T13 | bb8ba15 | sv4 puro `application/services/franquicia.py`: periodo, día, obra, candidatos (DA7), bloque, validación, payload |
+| T14 | 77e82af | repositorio (`decidir_ajuste` CAS, `cerrar_ajuste`, `ajustes_de`, `lineas_trabajador_periodo`…) y `TransferClient` |
+| T15 | 133885a | preflight con `/recursos` y bloque `franquicias`; decisiones en `ejecutar`/`encolar` |
+| T16 | 494f9ef | `POST /api/franquicia/{id}/aplicar` y contexto de la vista de trabajador |
+| T17 | c294f86 | `app.js`, `trabajador_detail.html`, `styles.css` |
+| T18 | (este informe) | contrato raíz `tests/test_f056_contrato_franquicia.py` y suites enteras |
 
-## Ficheros tocados (todo en `services/partes-transfer/`)
+## Ficheros tocados (enmienda y sv4)
 
-- `domain/models/registro_models.py`: prefijo, predicado y las tres dataclasses (+78).
-- `application/services/franquicia.py` (nuevo, puro): A = `-min(E, X)` si E > 0, si no 0, a dos
-  decimales y sin `-0.0`; veredicto en el orden R30 → sin línea (`sin_ajuste`/`crear`) →
-  `ya_aplicado` (antes que el parte y los enlaces, como F-046 R26) → `parte_no_abierto` →
-  `linea_enlazada` → `actualizar`. Los prefijos de motivo se importan de `parte_abierto` y `pisado`.
-- `application/services/pisado.py` y `application/pipelines/reajuste_pipeline.py`: el filtro
-  `not es_synckey_franquicia(ls.synckey)` (R31). `pisado` sigue importando solo de `domain`.
-- `application/pipelines/registro_pipeline.py`: **solo** se añade `asegurar_parte(p, destino)`,
-  que delega en `_crear_parte` con la descripción del paso 8 (marca en pruebas).
-- `application/pipelines/franquicia_pipeline.py` (nuevo).
-- `infrastructure/sigrid/sigrid_write_client.py`: `synckey_franquicia` (función de módulo y
-  `staticmethod`) y `extras_del_periodo` (solo métodos nuevos).
-- `interface_adapters/api/app.py` y `main.py`: rutas, `FranquiciaIn`, composición.
-- `tests/dobles.py`: `extras_del_periodo`, `lineas_para_reajuste`, `stmt_actualizar_linea` y la op
-  `actualizar` en `escribir` (con el `WHERE` optimista + guarda + sin enlaces). Sin op `borrar`.
-- Tests nuevos: `test_f056_franquicia.py`, `test_f056_choques.py`, `test_f056_cliente.py`,
-  `test_f056_pipeline.py`, `test_f056_api.py`.
+- **sv5** (`services/partes-transfer/`): `domain/models/registro_models.py`,
+  `application/services/franquicia.py`, `application/pipelines/franquicia_pipeline.py`,
+  `config/settings.py`, `infrastructure/sigrid/sigrid_write_client.py`,
+  `interface_adapters/api/app.py`, `main.py`, `tests/dobles.py` y `tests/test_f056_*.py`.
+- **ORM** (sv4 y sv3, idénticos): `infrastructure/database/orm_models.py`.
+- **sv4** (`services/partes-front/`): `application/services/franquicia.py` (nuevo, puro),
+  `infrastructure/database/parte_repository.py`, `infrastructure/transfer/transfer_client.py`,
+  `interface_adapters/web/app.py`, `templates/trabajador_detail.html`, `static/app.js`,
+  `static/styles.css`; tests `test_f056_orm.py`, `test_f056_franquicia.py`,
+  `test_f056_decisiones.py`, `test_f056_vista.py`.
+- **Raíz**: `tests/test_f010_orm_models_gemelos.py`, `tests/test_f015_r29_guardian_cinco_tablas.py`,
+  `tests/test_f056_contrato_franquicia.py` (nuevo).
 
-## Decisiones de diseño y desviaciones (mecánicas)
+## Decisiones de diseño y desviaciones (justificadas en `progress/current.md`)
 
-1. **Fechas como `YYYYMMDD` enteras** (`inicio`, `fin`, `fecha_int`), como `hmores.fec`; el
-   `BETWEEN` de §4 las usa directamente. `FranquiciaIn` valida que existan y que
-   `inicio ≤ fecha_int ≤ fin`, `periodo` con `^\d{4}-(0[1-9]|1[0-2])$` y obra con `ide` o `codigo`.
-2. **`preparar` recibe una extra con `horas = -1`** solo para que las reglas den código `HE*`,
-   `pre` y cuenta F-021 (sin horas, `ReglasRegistro` la omite). La cantidad escrita es A,
-   calculada **dentro** del lock. `registro_id` = `ajuste_id`.
-3. **`veredicto` lleva `parte_cod` opcional** (no está en la firma de §4) para nombrar el parte en
-   los motivos de R27.
-4. **Escritura por `escribir([sentencia])`** (una sentencia; el alta del parte, si falta, antes
-   vía `asegurar_parte`). Lo que decide es la **relectura** por synckey (R29): `ok` solo si la línea
-   está en el parte elegido con `can` = A. Si la escritura lanza pero la línea entró ⇒ `ok` con
-   WARNING; si no entró ⇒ `ok: false` con el error. Un fallo de **lectura** propaga ⇒ 502.
-5. **`comprobar` con `ajuste_id` 0** no busca la línea; excluye `partes:franquicia:0` de E (no
-   existe). `ejecutar` con 0 ⇒ `ValueError` en el pipeline y 422 en la API.
-6. **`comprobar` devuelve `extras` = E de Sigrid** y `objetivo` = A con E + `extras_pendientes`
-   (R9 pide los dos por separado). `ejecutar` ignora `extras_pendientes`.
-7. **Sin franquicia inyectada en `build_app` ⇒ 503** en las dos rutas (§4). No se construye
-   perezosamente, a diferencia del reajuste: escribe en Sigrid y no debe componerse a medias.
-8. **`tex` al recalcular no cambia**: `stmt_actualizar_linea` (F-046) solo toca `can` y `tot`, y la
-   spec manda reutilizarla tal cual. El `tex` conserva el A del alta. Si se quiere `tex` vivo,
-   habría que ampliar esa sentencia (fuera de lo aprobado). **Lo señalo para el reviewer y el
-   humano.**
-9. `texto_ajuste` usa coma decimal y quita los ceros sobrantes: `-6`, `-7,5`, `-2,25`.
+1. **`CAMPO_RE` termina en `\Z`, no en `$`**: en Python `$` admite un salto de línea final
+   (`"campo\n"` pasaba). Misma regla, sin ese hueco.
+2. **Import local de `CAMPO_RE`** dentro de `valores_campo_res` (ciclo `franquicia` → `pisado` →
+   cliente). El cliente rechaza un nombre inválido ANTES de leer nada.
+3. **sv5**: un recurso pedido que no está en `res` es `invalida` (nunca X = 0). En
+   `comprobar`/`ejecutar` un fallo al leer el TIPO es `no_disponible` ⇒ `no_editable` (R42);
+   `franquicias()` lo propaga (502 en `/recursos`, design §6). Caché del «sí» de la columna, que se
+   olvida si falla la lectura de valores. X de exactamente 0,001 se clasifica `activa` con X 0,0
+   (redondeo a 2 decimales): **lo señalo al reviewer**.
+4. **Disparador (DA7 = A)**: candidato nuevo solo si la aprobación trae una línea del DÍA DE
+   AJUSTE de un recurso con franquicia `activa` (o `invalida`, solo informa); un ajuste vivo
+   (`aplicado`/`decidido`/`error`) sale con cualquier línea del periodo (R10); `rechazado` informa.
+5. **Máquina de estados** (`decidir_ajuste`): `ajustar` (sin fila o desde `rechazado`) y
+   `recalcular` (desde `aplicado`/`decidido`/`error`) ⇒ `decidido`; `no_ajustar` sin fila ⇒
+   `rechazado` (repetirlo no hace nada); `mantener` no toca; el resto, 409 (`AjusteCambiadoError`,
+   subclase de `CongeladoError`, que la web ya traduce a 409).
+6. **Orden en `ejecutar`/`encolar`**: se VALIDAN las franquicias primero (422 formato, ámbito o
+   clave ajena; 409 si `ajustar`/`recalcular` con extras de varios recursos, R12, o `ajustar` sin
+   día ni obra, R6), luego los repartos de F-046, luego se GUARDAN las decisiones (CAS) y luego las
+   líneas. Así un 422/409 de validación no deja nada escrito. Las claves válidas salen de las
+   líneas pedidas, también las ya registradas (`recurso_fechas_de`, nuevo).
+7. **Preflight consultivo** (R14): cualquier fallo propio del aviso sale como `aviso`, no 500.
+   Una sola llamada a `/recursos` (en lotes de 500 si hiciera falta, tope de R40).
+8. **`aplicar`** solo desde `decidido`/`error` (409 si no, sin sv5); 404 si no existe; con líneas
+   `encolado` 409 «espera a que termine el registro» (R18). Sin respuesta de sv5 ⇒ `error` sin
+   pisar E/A/X; se reintenta (R19). 200 con `ok` falso cuando sv5 dice que no.
+9. **Portal**: cada candidato lleva `registro_ids` para que el modal mande cada decisión UNA vez
+   con la llamada (síncrona o cola) que lleva sus líneas (`franquiciasPara`). «Registrar» se
+   deshabilita hasta decidir (R13). Tras el registro, `aplicarFranquicias` aplica cada ajuste
+   decidido (síncrono: ya; cola: cuando el sondeo de F-024 acaba) y avisa si la X usada difiere de
+   la del aviso (DA22). La vista (solo modo nómina) enseña X usada/actual, E, A, día, obra, parte,
+   estado y autor, con «Aplicar» para `decidido`/`error`.
+10. **Guardianes existentes** (salieron en la suite de sv4 de T18): `test_f017_punto_unico` pasa de
+   18 a **19** `_actor(request)` (la de `aplicar`, que R21 exige; docstring ampliado). F-043 (R19,
+   R40) prohíbe recargas nuevas: «Aplicar» desde la vista NO recarga; el modal ofrece el botón
+   «Actualizar» de siempre (`botonActualizar`), así que `location.reload` sigue en 23.
 
-## Fase RED (trazas reales; comando ejecutado en `services/partes-transfer`)
+## Fase RED (trazas reales; comandos tal cual)
 
-T1 — `python -m pytest tests/test_f056_franquicia.py -k modelos -q -p no:cacheprovider`
-```
-E   ImportError: cannot import name 'PREFIJO_FRANQUICIA' from 'domain.models.registro_models'
-ERROR tests/test_f056_franquicia.py
-1 error in 1.06s
-```
-T2 — `python -m pytest tests/test_f056_franquicia.py -q -p no:cacheprovider`
-```
-E   ImportError: cannot import name 'franquicia' from 'application.services'
-1 error in 1.10s
-```
-T3 — `python -m pytest tests/test_f056_choques.py -q -p no:cacheprovider` (7 failed, 3 passed;
-los 3 que pasan son los controles: las demás synckeys siguen chocando)
-```
-E   AssertionError: assert [LineaSigrid(ide=7001, ..., synckey='partes:franquicia:5', ...)] == []
-E   At index 1 diff: (False, 'ya hay horas de ese recurso, dia y codigo de hora en un parte En
-    registro (lineas 7001)') != (True, None)
-E   Left contains one more item: Conflicto(clave='501|20261015|2', ..., registros=[11])
-E   At index 0 diff: ('omitir', 'parte_cerrado: ya hay horas de ese recurso, dia y tipo en el
-    parte PT26/00300 (Cerrado); no se registran') != ('escribir', None)
-E   assert [] == [11]
-```
-T4 — `python -m pytest tests/test_f056_cliente.py -q -p no:cacheprovider`
-```
-E   ImportError: cannot import name 'synckey_franquicia' from 'infrastructure.sigrid.sigrid_write_client'
-1 error in 1.92s
-```
-T5 — `python -m pytest tests/test_f056_pipeline.py -q -p no:cacheprovider`
-```
-E   ModuleNotFoundError: No module named 'application.pipelines.franquicia_pipeline'
-1 error in 0.63s
-```
-T6 — `python -m pytest tests/test_f056_api.py -q -p no:cacheprovider`
-```
-38 x  E   TypeError: build_app() got an unexpected keyword argument 'franquicia'
-FAILED ...test_f056_r22_cuerpo_valido_llega_al_pipeline[/api/franquicia/comprobar]  (y 10 más)
-```
-Ya en verde: T1 15 passed · T2 88 · T3 10 (+123 de F-046/F-053 sin tocar) · T4 16 · T5 27 · T6 52
-(con `test_f002_settings_y_app.py`).
+T1–T6 (sv5 base, antes de la enmienda): trazas en la versión anterior de este informe
+(`git show 6d777c4:progress/impl_F-056.md`): `ImportError` de `PREFIJO_FRANQUICIA`,
+`franquicia`, `synckey_franquicia`, `franquicia_pipeline` y 38 × `TypeError: build_app() got an
+unexpected keyword argument 'franquicia'`.
 
-## Qué cubren los tests (R22–R33)
+T8 — `python -m pytest tests/test_f056_franquicia.py -q -p no:cacheprovider` (sv5)
+```
+E   ImportError: cannot import name 'EstadoFranquicias' from 'domain.models.registro_models'
+1 error in 0.88s
+```
+T9 — `python -m pytest tests/test_f056_cliente.py tests/test_f002_settings_y_app.py -q -p no:cacheprovider`
+```
+5 E   AttributeError: 'Settings' object has no attribute 'franquicia_campo_res'
+9 E   AttributeError: 'SigridWriteClient' object has no attribute 'valores_campo_res'
+2 E   AttributeError: 'SigridWriteClient' object has no attribute 'tipo_columna_res'
+23 failed, 29 passed, 1 warning in 5.82s
+```
+T10 — `python -m pytest tests/test_f056_pipeline.py -q -p no:cacheprovider`
+```
+33 E   AttributeError: 'PeticionFranquicia' object has no attribute 'franquicia'
+15 E   AttributeError: 'FranquiciaPipeline' object has no attribute 'franquicias'
+48 failed, 4 passed in 5.42s
+```
+T11 — `python -m pytest tests/test_f056_api.py -q -p no:cacheprovider`
+```
+15 E  + where 404 = <Response [404 Not Found]>.status_code
+ 8 E  assert 404 == 422          6 E  assert 422 == 200
+35 failed, 25 passed, 1 warning in 8.93s
+```
+T12 — raíz `python -m pytest tests/test_f010_orm_models_gemelos.py tests/test_f015_r29_guardian_cinco_tablas.py -q -p no:cacheprovider`
+y sv4 `python -m pytest tests/test_f056_orm.py -q -p no:cacheprovider`
+```
+FAILED tests/test_f010_orm_models_gemelos.py::test_f056_r34_franquicia_ajuste_declara_sus_columnas_literales
+3 failed, 27 passed in 21.63s
+E   ImportError: cannot import name 'FranquiciaAjusteOrm' from 'infrastructure.database.orm_models'
+```
+T13 — `python -m pytest tests/test_f056_franquicia.py -q -p no:cacheprovider` (sv4)
+```
+E   ImportError: cannot import name 'franquicia' from 'application.services' (unknown location)
+```
+T14 — `python -m pytest tests/test_f056_decisiones.py -k "repositorio or cliente" -q -p no:cacheprovider`
+```
+17 E   AttributeError: 'ParteReviewRepository' object has no attribute 'decidir_ajuste'
+ 4 E   AttributeError: 'TransferClient' object has no attribute 'franquicia_recursos'
+ 4 E   AttributeError: 'TransferClient' object has no attribute 'franquicia_ejecutar'
+32 failed in 4.68s
+```
+T15 — `python -m pytest tests/test_f056_decisiones.py -k "preflight or ejecutar or encolar" -q -p no:cacheprovider`
+```
+11 E   KeyError: 'franquicias'
+ 4 E   assert 200 == 422          2 E   assert 200 == 409
+21 failed, 9 passed, 28 deselected, 1 warning in 18.89s
+```
+T16 — `python -m pytest tests/test_f056_decisiones.py -k aplicar tests/test_f056_vista.py -q -p no:cacheprovider`
+y `python -m pytest tests/test_f056_vista.py -q -p no:cacheprovider`
+```
+5 E  + where 404 = <Response [404 Not Found]>.status_code      1 E   KeyError: 'ajuste'
+8 failed, 1 passed, 67 deselected, 1 warning in 9.06s
+10 E   KeyError: 'franquicia'
+1 E   AttributeError: module 'application.services.franquicia' has no attribute 'vista_franquicia'
+11 failed, 1 warning in 10.59s
+```
+T17 — `python -m pytest tests/test_f056_vista.py -q -p no:cacheprovider`
+```
+5 E   AssertionError: app.js no define TEXTO_DECISION_FRANQUICIA
+1 E   assert 'franquiciasHtml(pf.franquicias)' in '\n  function aprobar(peticion, contexto) {...'
+1 E   assert 'franquicia-ajuste' in '<!DOCTYPE html>...'          1 E   KeyError: 'registro_ids'
+11 failed, 12 passed, 1 warning in 13.15s
+```
+T18 — el contrato verifica código ya escrito, así que no puede fallar «antes»; en su lugar,
+**prueba de sensibilidad**: sv4 manda la X a propósito (`payload_franquicia` + `"franquicia"`),
+se lanza `python -m pytest tests/test_f056_contrato_franquicia.py -q -p no:cacheprovider` y se revierte:
+```
+E   AssertionError: assert 'franquicia' not in {'ajuste_id': 0, 'recurso_ide': 502, ...}
+E   Extra items in the left set: 'franquicia'
+FAILED tests/test_f056_contrato_franquicia.py::test_f056_r41_sv4_no_manda_la_x
+FAILED tests/test_f056_contrato_franquicia.py::test_f056_r36_ninguna_clave_de_sv4_se_pierde_en_sv5
+```
+Ya en verde: T8 133 · T9 52 · T10 52 · T11 60 (sv5 entera 1458) · T12 30 + 5 · T13 63 · T14 32 ·
+T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5.
 
-- R24/R28/R25/R19 siguiendo el guion de M2 contra `SigridFake`: crear (−6, `tot` −150, `pos`,
-  cuenta 702, `tex`), repetir ⇒ `ya_aplicado` sin escribir, extra de 4 h el día de ajuste
-  registrada sin conflicto (R31) y recalcular ⇒ `UPDATE` a −8 (`tot` −200), X = 0 ⇒ `can = 0`,
-  `tot = 0` y la fila sigue ahí; sin línea y E = 0 ⇒ `sin_ajuste`.
-- Alta del parte si no hay ninguno En registro (alta protegida; `complementario`).
-- R27 parte cerrado / enlazada; R30 sin `HE*` y recurso de otra empresa: nada grabado.
-- R29: guarda que cierra el parte entre lectura y escritura, escritura que lanza pero entró,
-  escritura que lanza sin entrar, `UPDATE` optimista que no encuentra la fila como se leyó.
-- R26: un *fixture* comprueba en **cada** test del pipeline que solo se grabaron `insert`,
-  `actualizar` y `crear_parte`.
-- R22: lock = el del registro (un `LockEspia`: `comprobar` no lo toma, `ejecutar` una vez);
-  lecturas de cuentas fuera del lock (`vigilar_lock`); composición en `main.py` con el mismo
-  cliente y lock. R32: obra 0404, `tex = PRUEBA-IA`, descripción del parte con la marca.
-  R33: log con `ajuste=`, `recurso=`, `objetivo=` y `usuario=`, sin nombre de obra.
-- API: 13 cuerpos inválidos ⇒ 422 sin llamar; centinela (vale en comprobar, 422 en ejecutar);
-  respuesta = el `ResultadoFranquicia` entero; 502 ante excepción; 503 sin pipeline.
+## Pendiente y fuera del alcance
 
-## Fuera del alcance de este corte / pendiente
-
-- **T8–T16 (sv4)**: a la espera de DA1. T17 (documentación, incluido `azure-apps/partes.md`), T18
-  (mutación: la lanza el líder), T19 (M2–M4, humano) y T20 no se han hecho. `docs/` y `azure-apps`
-  sin tocar: sv5 aún no tiene cliente que use las rutas nuevas, así que nada cambia en producción
-  mientras no se despliegue sv4.
-- **Verificación MANUAL pendiente**: M2 (escritura en la 0404 con `OBRA_PRUEBAS_FORZAR=true`),
-  M3, M4. Ningún agente ha escrito en Sigrid ni en ninguna base real.
-- `ruff`: los ficheros nuevos están limpios; `app.py` y `main.py` conservan su deuda previa.
+- **HUECO DE LA SPEC (decisión del humano)**: R20 pide en la vista «Ajustar» (`rechazado`, o sin
+  fila con franquicia `activa`) y «Recalcular» (`aplicado`), pero la spec solo define
+  `POST /api/franquicia/{id}/aplicar`: no hay ruta para DECIDIR desde la vista y, sin fila, no hay
+  `id`. No se ha improvisado: el contexto ya calcula qué acción admite cada fila (`acciones`), la
+  vista pinta la fila y solo «Aplicar» tiene botón. Opciones: **A** `POST /api/franquicia/decidir
+  {recurso_ide, periodo, decision}` (misma validación y CAS de `decidir_ajuste`; la clave debe
+  tener líneas del trabajador) seguida de `aplicar`; **B** que `aplicar` acepte una `decision`
+  opcional; **C** dejar «Ajustar»/«Recalcular» solo en el modal de aprobar (cambia R20 y DA11).
+- **T19** (docs y `azure-apps`), **T20** (mutación, la lanza el líder), **T21** (M1b, M2–M4,
+  humano) y **T22**: no son de este encargo.
+- Con `FRANQUICIA_CAMPO_RES` vacío (defecto) sv5 responde `apagada` y el portal no enseña nada; la
+  vista de trabajador hace una llamada a `/recursos` por carga en modo nómina.
+- `ruff`: ficheros nuevos limpios; `app.py` de sv4 pasa de 10 a 15 `RUF100` respecto de la base de
+  la rama, todos del patrón `# noqa: BLE001` que ya usa el fichero; `parte_repository.py`, igual.
 
 ## Evidencias
 
 | Evidencia | Valor real |
 |---|---|
-| Tests F-056 (sv5) | 180 passed (5 ficheros), 7,48 s |
-| Suite sv5 entera | 1344 passed, 1 warning (16,6 s a mano con `-p no:cacheprovider`) |
-| `bash harness/init.sh` | verde, «ENTORNO LISTO» (2026-10-27, tras el revert de T8). sv1–sv4 «de caché»: sus árboles no cambian en el estado final (el revert deja sv3/sv4 como en dev); sv5 (la tocada) corrió de verdad: 1344 passed |
-| Cobertura de líneas cambiadas | PUERTA COBERTURA: 100,0 % (285/285, umbral 80 %, nivel crítico) |
-| Mutación | no lanzada: la campaña la lanza el líder (T18, encargo) cuando la feature esté completa |
-| Tiempo de las suites (init) | raíz 522 passed, 3 skipped en 168,5 s; sv5 1344 passed en 32,8 s |
+| Tests F-056 sv5 (5 ficheros) | 289 passed en 7,64 s |
+| Tests F-056 sv4 (`orm`, `franquicia`, `decisiones`, `vista`) | 156 passed en 33,23 s |
+| Raíz (contrato + guardianes del ORM) | 35 passed en 41,94 s |
+| `bash harness/init.sh` (2026-10-27, tras T18) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (182,7 s); sv3 2340 passed (57,9 s); sv4 3143 passed, 1 skipped (1222,9 s); sv5 1458 passed (38,8 s); sv1 y sv2 «de caché» (árboles sin cambios) |
+| Cobertura de líneas cambiadas | PUERTA COBERTURA: **98,6 %** (999/1013, umbral 80 %, nivel crítico) |
+| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 233/250, impl dentro de 220 |
+| Mutación | no lanzada por el implementer: es T20 y la lanza el líder (`python -m harness.mutacion --feature F-056`) |
+| JS y plantilla | `node --check static/app.js` OK; parseo Jinja2 de `trabajador_detail.html` OK; las funciones del modal se EJECUTAN con node en `test_f056_vista.py` |
