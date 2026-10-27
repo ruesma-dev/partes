@@ -47,19 +47,7 @@ DA21 solo sv5 lee el campo, DA22 vale la X de Sigrid al aplicar, DA23 fallo de c
 se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franquicia_ajuste`, DA26
 `tex` sin cifras, DA27 franquicia del recurso. Hasta su aprobación, el implementer NO sigue.
 
-**BLOCKED (implementer, 2026-10-27, antes de T8, sin código escrito).** Aprobación literal del
-humano (2026-10-27), transmitida por el líder: «puedes arrancar, pero el nombre del campo y tipo
-todavia no lo sabemos hasta que no se cree». Motivo del bloqueo: el conjunto de tipos «numéricos»
-de `tipo_columna_res` no coincide entre la spec y el encargo del líder:
-- `design.md` §4 (l. 71–72), `TIPOS_NUMERICOS`: `decimal`, `numeric`, `float`, `real`, `int`,
-  `smallint`, `tinyint`, `money`, `smallmoney` (**9, sin `bigint`**);
-- encargo del líder: «la familia completa de SQL Server (tinyint, smallint, int, **bigint**, decimal,
-  numeric, float, real, money, smallmoney)» (10), con la orden expresa de parar si la spec dice otra
-  cosa. Con la spec tal cual, una columna `bigint` daría `no_disponible`; con el encargo, valdría.
-Para seguir hace falta que el spec-author enmiende `design.md` §4 (añadir `bigint` o confirmar los
-9) y el humano o el líder lo confirme. Lo demás del encargo encaja con la spec: `FRANQUICIA_CAMPO_RES`
-vacío por defecto, tipo comparado en minúsculas, cualquier otro tipo (incluido `varchar`) ⇒
-`no_disponible`, nombres de columna inventados en los tests, y M1b/M2 fuera.
+**Bloqueo de tipos numéricos (2026-10-27) resuelto por el líder: manda design.md §4, 9 tipos.** Implementer reanuda en T8.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

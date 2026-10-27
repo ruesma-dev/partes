@@ -836,7 +836,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar; M2 en la obra 0404 con PRUEBA-IA",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "blocked",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 3,
