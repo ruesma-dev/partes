@@ -437,3 +437,54 @@ def payload_franquicia(datos: Mapping, *, extras_pendientes: float = 0.0,
         "extras_pendientes": float(extras_pendientes or 0.0),
         "usuario": usuario,
     }
+
+
+# ------------------------- vista de trabajador (R20) ------------------------ #
+
+#: R17, R20: aplicar una fila `decidido`/`error` (no es una decision).
+ACCION_APLICAR = "aplicar"
+
+#: R20: la accion que admite cada estado de la fila en la vista.
+_ACCION_VISTA = {DECIDIDO: [ACCION_APLICAR], ERROR: [ACCION_APLICAR],
+                 APLICADO: [RECALCULAR], RECHAZADO: [AJUSTAR]}
+
+
+def vista_franquicia(periodo: Periodo, recursos: Iterable[int],
+                     filas: Mapping[tuple[int, str], Mapping],
+                     franquicias: Mapping[int, Mapping] | None,
+                     aviso: str | None) -> dict | None:
+    """R20, R44: el ajuste del periodo de cada recurso del trabajador.
+
+    Sale un recurso con fila (cualquier estado) o, sin fila, con franquicia
+    `activa` (admite `ajustar`). `franquicias` es el mapa de sv5 `/recursos`
+    (None si no se pudo comprobar: entonces solo salen las filas, y el
+    aviso). None si no hay nada que ensenar."""
+    items = []
+    for rec in sorted({int(r) for r in recursos}):
+        fila = filas.get((rec, periodo.clave))
+        lec = (franquicias or {}).get(rec) or {}
+        if fila is None and lec.get("estado") != _ACTIVA:
+            continue
+        fila = fila or {}
+        dia = fecha_de_int(fila.get("fecha_int"))
+        items.append({
+            "recurso_ide": rec, "periodo": periodo.clave,
+            "id": fila.get("id"), "estado": fila.get("estado"),
+            "x_usada": fila.get("franquicia"),
+            "x_actual": lec.get("franquicia"), "x_estado": lec.get("estado"),
+            "extras": fila.get("extras"), "ajuste": fila.get("ajuste"),
+            "dia": None if dia is None else dia.isoformat(),
+            "obra_codigo": fila.get("obra_codigo"),
+            "partida_cod": fila.get("partida_cod"),
+            "parte_cod": fila.get("parte_cod"),
+            "decidido_por": fila.get("decidido_por"),
+            "aplicado_por": fila.get("aplicado_por"),
+            "error": fila.get("error"),
+            "acciones": list(_ACCION_VISTA.get(fila.get("estado"),
+                                               [AJUSTAR])),
+        })
+    if not items and not aviso:
+        return None
+    return {"periodo": periodo.clave,
+            "aviso": None if not aviso else AVISO_NO_COMPROBADA + aviso,
+            "items": items}

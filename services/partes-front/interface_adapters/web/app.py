@@ -71,6 +71,7 @@ from application.services.incidencias_horas import (
 )
 from application.services.tipo_hora_catalog import TipoHoraCatalog
 from application.services.calendar_builder import (
+    MODE_NOMINA,
     build_calendar,
     build_period_options,
     normalize_mode,
@@ -1174,6 +1175,9 @@ def build_app(
         context["dias_reparto"] = {
             r.fecha for r in detail.registros
             if r.id in context["con_reparto"] and r.fecha}
+        # F-056 (R20): el ajuste de franquicia del periodo (modo nomina).
+        context["franquicia"] = _vista_franquicia(
+            detail.registros, context["selected_period"], mode)
         return templates.TemplateResponse(
             request=request, name="trabajador_detail.html", context=context
         )
@@ -2945,6 +2949,73 @@ def build_app(
         if repartos:
             respuesta["repartos"] = repartos
         return JSONResponse(respuesta)
+
+    def _vista_franquicia(registros, period_key: str | None,
+                          mode: str) -> dict | None:
+        """R20, R43, R44: el ajuste de franquicia del periodo en la vista de
+        trabajador, con la X actual de sv5 (UNA llamada). Solo en modo
+        nomina; un fallo propio sale como aviso, sin tumbar la pagina."""
+        periodo = fq.periodo_de_clave(period_key)
+        recursos = sorted({int(r.recurso_ide) for r in registros
+                           if r.recurso_ide})
+        if mode != MODE_NOMINA or periodo is None or not recursos:
+            return None
+        try:
+            franquicias, aviso = ((None, None) if transfer_client is None
+                                  else _franquicias_sv5(recursos))
+            filas = repository.ajustes_de(
+                [(r, periodo.clave) for r in recursos])
+            return fq.vista_franquicia(periodo, recursos, filas,
+                                       franquicias, aviso)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[franquicia] el ajuste de la vista fallo",
+                           exc_info=True)
+            return fq.vista_franquicia(periodo, [], {}, None, str(exc))
+
+    @app.post("/api/franquicia/{ajuste_id}/aplicar", include_in_schema=False)
+    def franquicia_aplicar(ajuste_id: int, request: Request) -> JSONResponse:
+        """R17-R19, R21: sv5 `ejecutar` del ajuste y cierre de la fila:
+        `aplicado` con E, A, la X que uso sv5, la linea y el parte, o
+        `error` con el motivo. Solo desde `decidido` o `error` (409 si no);
+        con lineas del trabajador aun en cola, 409 sin llamar a sv5 (R18).
+        Seguro de repetir: sv5 es idempotente por la synckey (R19)."""
+        if transfer_client is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        actor = _actor(request)
+        fila = repository.ajuste(ajuste_id)
+        if fila is None:
+            return JSONResponse(
+                {"ok": False, "error": "ajuste de franquicia no encontrado"},
+                status_code=404)
+        if fila["estado"] not in (fq.DECIDIDO, fq.ERROR):
+            raise fq.AjusteCambiadoError(
+                f"el ajuste de franquicia {ajuste_id} esta {fila['estado']}: "
+                "solo se aplica uno decidido o con error; recarga la pagina")
+        periodo = fq.periodo_de_clave(fila["periodo"])
+        if repository.encolados_de(fila["recurso_ide"], periodo.inicio_int,
+                                   periodo.fin_int):
+            raise fq.AjusteCambiadoError(
+                "quedan lineas del trabajador en cola hacia Sigrid: espera a "
+                "que termine el registro y vuelve a aplicar")
+        try:
+            r = dict(transfer_client.franquicia_ejecutar(
+                fq.payload_franquicia(fila, usuario=actor)))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[franquicia] aplicar %s fallo", ajuste_id,
+                           exc_info=True)
+            r = {"ok": False, "sin_respuesta": True, "error": str(exc)}
+        ok = bool(r.get("ok"))
+        error = None if ok else (r.get("motivo") or r.get("error")
+                                 or "sv5 rechazo el ajuste")
+        ajuste = repository.cerrar_ajuste(
+            ajuste_id, ok=ok, sv5=None if r.get("sin_respuesta") else r,
+            error=error, actor=actor)
+        return JSONResponse({
+            "ok": ok and ajuste["estado"] == fq.APLICADO, "error": error,
+            "accion": r.get("accion"), "ajuste": ajuste})
 
     @app.post("/api/aprobar/preflight", include_in_schema=False)
     async def aprobar_preflight(request: Request) -> JSONResponse:

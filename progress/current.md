@@ -70,7 +70,16 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
   Las claves válidas salen de las líneas pedidas (también las ya registradas, nuevo
   `recurso_fechas_de`). Un fallo propio del aviso en el preflight sale como `aviso`, no 500.
   Suite sv4: 3113 passed, 1 skipped.
-  En curso: T16.
+- T16 HECHO (aplicar y contexto de la vista). `aplicar` solo desde `decidido`/`error` (409 si no,
+  sin sv5); 404 si no existe; sin respuesta de sv5 => `error` sin pisar E/A/X (se reintenta, R19).
+  La vista (solo modo nómina) lleva `franquicia` con X usada, X actual (UNA llamada a `/recursos`)
+  y la acción que admite cada fila: aplicar (decidido/error), recalcular (aplicado), ajustar
+  (rechazado, o sin fila con franquicia activa).
+  **HUECO DE LA SPEC (pendiente de decisión):** R20 pide «Ajustar» y «Recalcular» en la vista, pero
+  la spec solo define `POST /api/franquicia/{id}/aplicar`; no hay ruta para DECIDIR desde la vista
+  (y sin fila no hay id). No se improvisa: T17 hace el modal y «Aplicar» de la vista; los botones
+  «Ajustar»/«Recalcular» de la vista quedan a la espera de la decisión del humano.
+  En curso: T17.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

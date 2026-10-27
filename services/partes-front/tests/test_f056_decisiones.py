@@ -30,6 +30,7 @@ from tests.dobles import FabricaSesionSqlite, sembrar_parte
 from tests.test_f046_aplicar import PublisherFake, RecalculoFake, Sv5Fake
 
 REC = 501
+ACTOR = "local:ana"   # lo que da `_actor` con DEFAULT_REVIEWER=ana
 DNI = "12345678Z"
 PROP = {"fecha_int": 20261015, "obra_ide": 10, "obra_codigo": "0100",
         "partida_ide": 33, "partida_cod": "01.01"}
@@ -475,7 +476,7 @@ def test_f056_r9_r43_preflight_candidato_nuevo(fabrica, portal):
                               "extras_pendientes", "usuario")} == {
         "ajuste_id": 0, "recurso_ide": REC, "periodo": "2026-10",
         "inicio": 20260916, "fin": 20261015, "fecha_int": 20261015,
-        "extras_pendientes": 2.0, "usuario": "local:ana"}
+        "extras_pendientes": 2.0, "usuario": ACTOR}
     assert p["obra"] == {"ide": 10, "codigo": "0100"}
     assert "franquicia" not in p
     assert _filas(fabrica) == []                                 # R14
@@ -600,7 +601,7 @@ def test_f056_r15_r16_ejecutar_guarda_ajustar_antes_de_los_grupos(fabrica,
                                         "recurso_ide": REC,
                                         "periodo": "2026-10"}]
     assert (f.fecha_int, f.obra_ide, f.partida_cod, f.decidido_por) == (
-        20261015, 10, "01.01", "local:ana")
+        20261015, 10, "01.01", ACTOR)
     assert len(sv5.ejecutadas) == 1 and sv5.franq_ejecutadas == []
 
 
@@ -714,3 +715,99 @@ def test_f056_r15_ejecutar_sin_lineas_que_registrar_lista_lo_decidido(
     assert r.status_code == 200, r.text
     assert r.json()["franquicias"][0]["estado"] == "decidido"
     assert r.json()["aviso"]
+
+
+# ------------------------- aplicar (R17-R19, R21) ------------------------- #
+
+def _decidido(fabrica, decision="ajustar"):
+    return _repo(fabrica).decidir_ajuste(REC, "2026-10", decision, PROP,
+                                         actor="eva")
+
+
+EJECUTAR_OK = dict(COMPROBAR_OK, escrita=True, actual=-6.0, hmores_ide=7009,
+                   hmoide=900)
+
+
+def test_f056_r17_r21_aplicar_deja_aplicado_con_lo_de_sv5(fabrica, portal):
+    _dia15(fabrica)
+    f = _decidido(fabrica)
+    cliente, sv5 = portal(sv5=Sv5Franq(ejecutar=dict(EJECUTAR_OK,
+                                                     franquicia=9.0)))
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert cuerpo["ok"] is True and cuerpo["error"] is None
+    aj = cuerpo["ajuste"]
+    assert (aj["estado"], aj["franquicia"], aj["extras"], aj["ajuste"]) == (
+        "aplicado", 9.0, 12.0, -6.0)
+    assert (aj["hmores_ide"], aj["parte_cod"], aj["aplicado_por"]) == (
+        7009, "PT26/00314", ACTOR)
+    [p] = sv5.franq_ejecutadas
+    assert (p["ajuste_id"], p["fecha_int"], p["usuario"]) == (
+        f["id"], 20261015, ACTOR)
+    assert "franquicia" not in p and sv5.franq_comprobadas == []
+
+
+def test_f056_r17_aplicar_rechazado_por_sv5_deja_error(fabrica, portal):
+    _dia15(fabrica)
+    f = _decidido(fabrica)
+    cliente, _sv5 = portal(sv5=Sv5Franq(ejecutar={
+        "ok": False, "accion": "no_editable",
+        "motivo": "parte_no_abierto: PT26/00314"}))
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert r.status_code == 200
+    assert r.json()["ok"] is False
+    assert "parte_no_abierto" in r.json()["error"]
+    assert r.json()["ajuste"]["estado"] == "error"
+
+
+def test_f056_r19_aplicar_sin_respuesta_deja_error_y_se_reintenta(fabrica,
+                                                                   portal):
+    _dia15(fabrica)
+    f = _decidido(fabrica)
+    sv5 = Sv5Franq(ejecutar=RuntimeError("timeout"))
+    cliente, sv5 = portal(sv5=sv5)
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert r.json()["ajuste"]["estado"] == "error"
+    assert "timeout" in r.json()["error"]
+    assert r.json()["ajuste"]["hmores_ide"] is None
+    sv5.ejecutar_franq = EJECUTAR_OK
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert r.json()["ajuste"]["estado"] == "aplicado"
+    assert len(sv5.franq_ejecutadas) == 2
+
+
+def test_f056_r18_aplicar_con_lineas_encoladas_es_409_sin_sv5(fabrica,
+                                                              portal):
+    sembrar_parte(fabrica, [{"horas": 8.0, "estado": "encolado"}],
+                  document_id="denc", fecha="2026-10-01")
+    f = _decidido(fabrica)
+    cliente, sv5 = portal()
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert r.status_code == 409
+    assert "espera a que termine el registro" in r.json()["error"]
+    assert sv5.franq_ejecutadas == []
+    assert _fila(fabrica, f["id"]).estado == "decidido"
+
+
+@pytest.mark.parametrize("decision, estado", [
+    ("no_ajustar", "rechazado"), (None, "aplicado")])
+def test_f056_r17_aplicar_fuera_de_decidido_o_error_es_409(
+        fabrica, portal, decision, estado):
+    _dia15(fabrica)
+    if decision:
+        f = _decidido(fabrica, decision)
+    else:
+        f = _decidido(fabrica)
+        _repo(fabrica).cerrar_ajuste(f["id"], ok=True, sv5=EJECUTAR_OK,
+                                     error=None, actor="eva")
+    cliente, sv5 = portal()
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert r.status_code == 409 and estado in r.json()["error"]
+    assert sv5.franq_ejecutadas == []
+
+
+def test_f056_r17_aplicar_ajuste_inexistente_es_404(fabrica, portal):
+    cliente, sv5 = portal()
+    assert cliente.post("/api/franquicia/999/aplicar").status_code == 404
+    assert sv5.franq_ejecutadas == []
