@@ -1,54 +1,54 @@
 <!-- progress/spec_F-056.md -->
-# spec-author · F-056 · Franquicia de extras (2026-10-23)
+# spec-author · F-056 · Franquicia de extras — ENMIENDA DA1 = C (2026-10-27)
 
-Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras` desde
-`dev` 560d753, worktree `partes-wt-f056`). Topes: requirements 141/150, design 245/250, tasks
-20 tareas (una por línea). `features.json`: F-056 `spec_ready`, prioridad 1, rigor crítico,
-con criterios `acceptance` nuevos; `BACKLOG.md` regenerado.
+Spec enmendada en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
+worktree `partes-wt-f056`, sobre 6d777c4). Topes: requirements 150/150, design 233/250, tasks 22
+(una por línea). La versión aprobada el 2026-10-23 sigue en `git show 6d777c4:specs/...`.
+Resumen del 2026-10-23 (DA1–DA20, M1): mismo fichero en 6d777c4.
 
-## Qué hace (con la recomendación A de todas las DA)
+## Qué cambia
 
-- **Regla**: periodo = mes de nómina de Ruesma (16 → 15, ya existe en sv4 como
-  `MODE_NOMINA`). E = extras `HE*` netas del recurso en Sigrid en el periodo (todas las obras,
-  partes de cualquier estado, también manuales). A = −min(E, X) si E > 0; si no, 0.
-- **sv5**: `/api/franquicia/comprobar` (solo lectura) y `/api/franquicia/ejecutar` (bajo el
-  lock del registro). Alta de UNA línea `HE*` con `can = A` el día de ajuste, en el parte En
-  registro de la obra (alta protegida si falta), precio de `reshor`, cuenta F-021, `tex`
-  explicativo y synckey `partes:franquicia:<id>`; recálculo = `UPDATE` de la misma línea
-  (`stmt_actualizar_linea` de F-046, a 0 sin borrar). Ningún `DELETE`. Los dos `_choques`
-  ignoran esa synckey: si no, la extra real del día chocaría con el ajuste y el modal
-  ofrecería pisarla a 0.
-- **sv4**: X por trabajador en la tabla nueva `empleado_franquicia` (sección de
-  `/admin/jornadas`); día de ajuste = último del periodo con `jornada_dia` > 0 (F-015 + Sesame);
-  obra = la de más horas ese día. Aviso en el modal de aprobar cuando la selección trae ese día
-  (o ya hay ajuste: «Recalcular» / «Mantener»); decisión obligatoria en el modal; la decisión se
-  guarda en `franquicia_ajuste` y el ajuste se aplica al terminar el registro (también desde la
-  vista de trabajador). sv3 solo recibe la copia del ORM.
+- **X sale de Sigrid**: campo NUEVO de `res`, nombre en el ajuste de sv5 `FRANQUICIA_CAMPO_RES`
+  (vacío = apagado). Activa si ≠ NULL y ≠ 0; sin fecha ni vigencia. Caen `empleado_franquicia`,
+  `franquicia_admin.py`, las rutas y la sección de `/admin/jornadas` y `franquicia_vigente` (DA19).
+- **Solo sv5 lee el campo** (DA21): `POST /api/franquicia/recursos` nuevo (una llamada por preflight
+  o vista; estado global `apagada`/`no_disponible`/`ok` y `{franquicia, estado}` por recurso), y
+  `comprobar`/`ejecutar` releen X ellos mismos (`ejecutar`, bajo el lock). La petición pierde
+  `franquicia`; la respuesta gana `franquicia` y `franquicia_estado`. sv4 no lee `res` ⇒ ningún
+  gemelo de F-023/F-036 cambia y la lista cerrada no crece.
+- **Comprobación de la columna**: `INFORMATION_SCHEMA.COLUMNS` parametrizado (`dbo`/`res`/nombre)
+  y tipo numérico; el nombre se valida con `^[A-Za-z_][A-Za-z0-9_]{0,127}$` antes de interpolarlo
+  entre corchetes. Lectura de valores en consulta aparte (no en `datos_recursos`: una columna
+  inexistente tumbaría el registro).
+- **Fallos**: apagada = silencio; nombre malo, columna ausente, tipo no numérico o lectura fallida =
+  `no_disponible`, aviso no bloqueante en el modal, WARNING; `ejecutar` NO escribe («no se sabe» no
+  es X = 0). sv5 arranca y registra igual.
+- **sv5 hecho (T1–T7)**: cambia poco y se hace en T8–T11 (dataclasses, `leer_valor`, `veredicto`
+  con la lectura, `texto_ajuste` sin cifras, settings, dos lecturas del cliente, `franquicias()` en
+  el pipeline, endpoint y `/health`). Lo demás (E, A, alta, `UPDATE`, choques, relectura) intacto.
+- **`franquicia_ajuste` se queda** (DA25): guarda la decisión (rechazo, pendiente en asíncrono),
+  autoría, X usada, y su `id` es la synckey ya implementada. Guardianes a OCHO tablas, no nueve.
+- **`tex`** (punto abierto del implementer, DA26): sin cifras, `Ajuste franquicia extras <periodo>`;
+  nunca queda desfasado y `stmt_actualizar_linea` (compartida con F-046/F-053) no cambia.
+- Numeración de requisitos conservada (los tests de T1–T7 llevan R19, R22–R33): nuevas R1–R3 y
+  R38–R44. Semántica nueva de `ARCHITECTURE.md` = la 21 (la 18 ya es F-054).
 
-## Hallazgos que el humano debe conocer
+## DA nuevas o enmendadas (recomendación A en todas)
 
-1. «Mes nómina» en el portal ya es 16 → 15 (`calendar_builder.py`): el ajuste cae el último
-   laborable ≤ 15 y en el parte de Sigrid del mes natural de ese día.
-2. Sin la exclusión de choques (R31), el ajuste y la extra del mismo día y obra serían
-   conflicto (la clave es recurso + día + código de hora, sin partida).
-3. M1 (solo lectura, agregados): 138 recursos persona con un único `HE*` y ninguno con dos;
-   las `HE*` se enlazan a nómina al procesarla (ene–may ~70 %, jul–oct 0 %), así que tras la
-   nómina el ajuste ya no se puede editar (DA9); Administración ya mete a mano `HE*` negativas
-   con `tex` «Ajuste…» (días 15/16), ninguna de franquicia.
-4. En modo asíncrono las líneas llegan a Sigrid después de la respuesta: por eso la decisión se
-   guarda al registrar y el ajuste se aplica cuando ya no quedan líneas `encolado` (R18).
+DA1 = **C (el humano)** · DA2 enmendada (X = valor del campo al leerlo) · DA17 enmendada (ajuste
+vacío = apagado) · DA19 **cae** · DA20 enmendada (sv5 T1–T11, sv4 T12–T18) · **DA21** solo sv5 lee
+el campo · **DA22** vale la X de Sigrid al aplicar/recalcular (también al recalcular un periodo
+anterior); se guarda y se enseña si difiere del aviso · **DA23** fallo de configuración = no se
+aplica, aviso, sin romper nada · **DA24** negativo, > 200 h o no numérico = `invalida` · **DA25**
+`franquicia_ajuste` se mantiene · **DA26** `tex` sin cifras · **DA27** franquicia del recurso que
+lleva las extras (el elegido por DNI de F-023/F-036), no de la persona.
 
-## Decisiones abiertas para el humano (`design.md` §7, recomendación A en todas)
+## Riesgos
 
-DA1 dónde se guarda X · DA2 mensual por mes de nómina · DA3 qué extras cuentan · DA4 obra con
-varias obras · DA5 código y precio · DA6 qué es «último laborable» · DA7 qué dispara el aviso ·
-DA8 recálculo ante cambios · DA9 parte cerrado o línea enlazada · DA10 pantalla y momento ·
-DA11 rechazar · DA12 bloquear sin decisión · DA13 qué ve Sigrid · DA14 identificación de la
-línea · DA15 quién calcula · DA16 varios recursos / mensuales · DA17 interruptor · DA18 lista
-cerrada de `CLAUDE.md` · DA19 pantalla de configuración · DA20 una feature o dos.
-
-## Pendiente fuera de la spec
-
-- M2–M4 (`design.md` §10) son del humano; M1 ya está hecha.
-- Tamaño: es una feature grande (dos tablas, dos endpoints de sv5, modal y dos pantallas de
-  sv4). DA20 deja un punto de corte tras T7 (sv5 entero, verificable en la 0404).
+- **R-e**: si el compañero crea el campo fuera de `res` o no numérico, el diseño no basta ⇒ M1b
+  (solo lectura, `design.md` §10) antes de activar; si falla, `blocked` y enmienda.
+- **R-f**: retroactividad de DA22 (un cambio de X afecta a periodos que se recalculen antes de la
+  nómina).
+- **M2** necesita que Administración ponga X en el recurso de pruebas de F-034 en Sigrid (F-056 no
+  escribe `res`); M2 no se puede hacer hasta que exista el campo.
+- Sigue siendo grande; corte natural tras T11 (sv5 entero, desplegable con el campo vacío).

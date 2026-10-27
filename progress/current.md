@@ -34,6 +34,19 @@ después (sobre todo F-060/F-062 en sv5 y F-053 «pisar sin borrar»); si no, `b
   nueve) antes del aviso y se revirtió en 4e43d80; queda recuperable si DA1 sigue en A.
   Nada de sv4 en la rama. Siguiente paso: decisión del humano sobre DA1 y, con ella, T8–T20.
 
+**Enmienda de la spec (spec-author, 2026-10-27): DA1 = C por el humano.** Literal: «para saber que
+trabajadores son franquiciados y cual es el valor de la franquicia habra que crear un campo en
+sigrid que lo defina» y «va a ir en recursos. la fecha no hace falta, se aplica en los partes que se
+registren si esta activo (valor distinto de 0 o null). el campo lo rellena adminen sigrid.» X pasa a
+un campo nuevo de `res` (nombre en `FRANQUICIA_CAMPO_RES` de sv5, aún sin crear); solo sv5 lo lee
+(endpoint nuevo `/api/franquicia/recursos`); caen `empleado_franquicia` y la pantalla (DA19);
+`franquicia_ajuste` se queda; `tex` sin cifras. Tareas renumeradas: T8–T11 enmiendan sv5, T12–T18
+sv4, T19–T22 cierre. Resumen en `progress/spec_F-056.md`.
+**Decisiones abiertas para el humano** (`design.md` §7, recomendación A): DA2/DA17/DA20 enmendadas,
+DA21 solo sv5 lee el campo, DA22 vale la X de Sigrid al aplicar, DA23 fallo de configuración = no
+se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franquicia_ajuste`, DA26
+`tex` sin cifras, DA27 franquicia del recurso. Hasta su aprobación, el implementer NO sigue.
+
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
