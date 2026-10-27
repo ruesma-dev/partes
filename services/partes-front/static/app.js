@@ -5089,10 +5089,11 @@ var FiltrosSesion = (function () {
           b.textContent = "Aplicando…";
           post("/api/franquicia/" + encodeURIComponent(id) + "/aplicar", {})
             .then(function (r) {
-              modal("Ajuste de franquicia", resultadoFranquiciaHtml(r, null),
-                    [{ texto: "Cerrar", clase: "ok", onClick: function () {
-                      cerrar(); window.location.reload();
-                    } }]);
+              // F-043 (R19, R40): sin recarga nueva; el «Actualizar» de
+              // siempre recarga la vista cuando la persona quiera.
+              modal("Ajuste de franquicia", resultadoFranquiciaHtml(r, null)
+                    + "<p>" + botonActualizar() + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
             }).catch(function (e) {
               modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
                     [{ texto: "Cerrar", onClick: cerrar }]);
