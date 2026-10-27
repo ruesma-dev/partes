@@ -274,6 +274,8 @@ def candidatos(lineas: Iterable[Mapping],
                 "franquicia": lec.get("franquicia"),
                 "franquicia_estado": lec.get("estado"),
                 "dni": grupo[0].get("dni"), "nombre": grupo[0].get("nombre"),
+                "registro_ids": sorted({int(x["registro_id"]) for x in grupo
+                                        if x.get("registro_id")}),
                 "dia": None, "motivo": None}
         if fila is not None:
             base["dia"] = fecha_de_int(fila.get("fecha_int"))
@@ -354,6 +356,9 @@ def _item(c: Mapping, v: Mapping) -> dict:
         "accion": sv5.get("accion"), "ajustable": ajustable,
         "pide_decision": ajustable, "decisiones": decisiones,
         "motivo": motivo,
+        # R15: las lineas de la aprobacion de este (recurso, periodo); el
+        # modal manda la decision con la llamada que las lleva.
+        "registro_ids": list(c.get("registro_ids") or []),
     }
 
 

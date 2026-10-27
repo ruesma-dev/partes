@@ -79,7 +79,12 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
   la spec solo define `POST /api/franquicia/{id}/aplicar`; no hay ruta para DECIDIR desde la vista
   (y sin fila no hay id). No se improvisa: T17 hace el modal y «Aplicar» de la vista; los botones
   «Ajustar»/«Recalcular» de la vista quedan a la espera de la decisión del humano.
-  En curso: T17.
+- T17 HECHO (portal). Modal: aviso (`franquiciasHtml`), «Registrar» deshabilitado hasta decidir
+  (`vigilarDecisionesFranquicia`), cada decisión viaja UNA vez con la llamada que lleva sus líneas
+  (`franquiciasPara`; para eso cada candidato lleva ahora `registro_ids`), y `aplicarFranquicias`
+  aplica al terminar el registro (síncrono: ya; cola: cuando el sondeo acaba) avisando si la X
+  usada difiere de la del aviso (DA22). Vista: tabla del ajuste y botón «Aplicar» (decidido/error).
+  En curso: T18.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

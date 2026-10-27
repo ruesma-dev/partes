@@ -160,6 +160,41 @@
 </div>
 {% endif %}
 
+{# F-056 (R20, R44): el ajuste de franquicia de extras del periodo (modo nomina). #}
+{% macro num_fq(v) %}{% if v is none %}—{% else %}{{ ("%.2f"|format(v))|replace(".", ",") }}{% endif %}{% endmacro %}
+{% if franquicia %}
+<div class="panel franquicia-ajuste" data-periodo="{{ franquicia.periodo }}">
+  <div class="panel-header"><h2>Franquicia de horas extra · periodo {{ franquicia.periodo }}</h2></div>
+  {% if franquicia.aviso %}<div class="alert warn franquicia-aviso">{{ franquicia.aviso }}</div>{% endif %}
+  {% if franquicia["items"] %}
+  <table class="lines-table franquicia-tabla">
+    <thead><tr>
+      <th>Recurso</th><th>Estado</th><th class="num">X usada</th><th class="num">X actual</th>
+      <th class="num">Extras (E)</th><th class="num">Ajuste (A)</th><th>Dia</th><th>Obra</th>
+      <th>Parte Sigrid</th><th>Decidio / aplico</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for it in franquicia["items"] %}
+      <tr data-franquicia-id="{{ it.id or '' }}" data-franquicia-estado="{{ it.estado or 'sin_ajuste' }}">
+        <td>{{ it.recurso_ide }}</td>
+        <td>{{ it.estado or "sin ajuste" }}{% if it.error %} <span class="franquicia-error" title="{{ it.error }}">⚠ {{ it.error }}</span>{% endif %}</td>
+        <td class="num">{{ num_fq(it.x_usada) }}</td>
+        <td class="num">{{ num_fq(it.x_actual) }}{% if it.x_estado and it.x_estado != 'activa' %} <span class="muted small">({{ it.x_estado }})</span>{% endif %}</td>
+        <td class="num">{{ num_fq(it.extras) }}</td>
+        <td class="num">{{ num_fq(it.ajuste) }}</td>
+        <td>{{ it.dia or "—" }}</td>
+        <td>{{ it.obra_codigo or "—" }}{% if it.partida_cod %} · {{ it.partida_cod }}{% endif %}</td>
+        <td>{{ it.parte_cod or "—" }}</td>
+        <td>{{ it.decidido_por or "—" }}{% if it.aplicado_por %} / {{ it.aplicado_por }}{% endif %}</td>
+        <td>{% if transfer_enabled and 'aplicar' in it.acciones and it.id %}<button type="button" class="btn small" data-franquicia-aplicar="{{ it.id }}">Aplicar</button>{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if borradas_sigrid %}
 <div class="alert warn borradas-sigrid-aviso">⚠ <strong>{{ borradas_sigrid }}</strong> linea(s) de esta vista ya no estan en Sigrid (se borraron alli). Corrigelas si hace falta y vuelve a registrarlas con «Reaprobar»; las aprobaciones masivas no las reenvian salvo que lo marques.</div>
 {% endif %}
