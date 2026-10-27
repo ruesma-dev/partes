@@ -17,6 +17,18 @@ servidor, DA20 una feature con corte tras T7). M1 (solo lectura) hecha por el sp
 spec es del 2026-10-23: el implementer comprueba antes de T1 que sigue encajando con lo fusionado
 después (sobre todo F-060/F-062 en sv5 y F-053 «pisar sin borrar»); si no, `blocked` y se consulta.
 
+**Implementación (implementer, 2026-10-27)** — detalle y trazas RED en `progress/impl_F-056.md`.
+- Encaje comprobado antes de T1: el diseño sigue valiendo tras F-058…F-064. `RegistroPipeline._choques`
+  delega en `pisado.choques` (R31 cubre el registro con un solo cambio); `ReajustePipeline._choques`
+  igual que en la spec; `_crear_parte` sin cambios; F-060/F-062 (`partes:<id>:ciz`) no chocan con
+  `partes:franquicia:<id>` (`registro_de_synckey` devuelve None). Guardianes de raíz en 7 tablas ⇒ 9.
+- Bloque sv5 (T1–T7) HECHO: suite sv5 1344 passed. Decisiones: `inicio`/`fin`/`fecha_int` como
+  `YYYYMMDD` (como `hmores.fec`); `preparar` recibe una extra con `horas = -1` solo para que las
+  reglas den código, precio y cuenta (la cantidad real es A, calculada dentro del lock); la
+  escritura va por `escribir` (una sentencia) y decide la relectura (R29); `tex` en recálculo no
+  cambia (el `UPDATE` de F-046 solo toca `can` y `tot`, como manda la spec).
+- En curso: bloque sv4 (T8–T16).
+
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree
