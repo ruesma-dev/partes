@@ -122,19 +122,69 @@ COLUMNAS_PARTE_REGISTROS: tuple[str, ...] = (
     "confianza_pct",
 )
 
-#: Las SIETE tablas de la base `partes` (cuatro hasta F-015, que añadió
+#: Las NUEVE tablas de la base `partes` (cuatro hasta F-015, que añadió
 #: `empleado_jornada`; cinco hasta F-019, que añadió `dedicacion_bandeja`;
-#: seis hasta F-046, que añadió `reparto_pendiente`).
+#: seis hasta F-046, que añadió `reparto_pendiente`; siete hasta F-056, que
+#: añadió `empleado_franquicia` y `franquicia_ajuste`).
 #: Añadir una tabla OBLIGA a tocar esta constante: es el aviso de que hay
 #: que mirar si la BBDD real la tiene.
 TABLAS: tuple[str, ...] = (
     "dedicacion_bandeja",
     "empleado_alias",
+    "empleado_franquicia",
     "empleado_jornada",
+    "franquicia_ajuste",
     "parte_documents",
     "parte_registros",
     "reparto_pendiente",
     "undo_log",
+)
+
+#: Las 11 columnas de `empleado_franquicia` (F-056, design §5), en orden de
+#: declaración: la franquicia de extras por trabajador (DNI normalizado,
+#: como `empleado_jornada`) con su vigencia. La escribe y la lee sv4.
+COLUMNAS_EMPLEADO_FRANQUICIA: tuple[str, ...] = (
+    "id",
+    "dni_norm",
+    "horas",
+    "desde",
+    "hasta",
+    "nota",
+    "is_active",
+    "created_at_utc",
+    "created_by",
+    "updated_at_utc",
+    "updated_by",
+)
+
+#: Las 24 columnas de `franquicia_ajuste` (F-056, design §5), en orden de
+#: declaración: una fila por (recurso, periodo de nómina) con la decisión
+#: humana y lo último de sv5. Sin nombres ni DNIs.
+COLUMNAS_FRANQUICIA_AJUSTE: tuple[str, ...] = (
+    "id",
+    "recurso_ide",
+    "periodo",
+    "fecha_int",
+    "obra_ide",
+    "obra_codigo",
+    "partida_ide",
+    "partida_cod",
+    "franquicia",
+    "extras",
+    "ajuste",
+    "estado",
+    "decision",
+    "hmores_ide",
+    "hmoide",
+    "parte_cod",
+    "resultado",
+    "error",
+    "decidido_por",
+    "aplicado_por",
+    "decidido_at_utc",
+    "aplicado_at_utc",
+    "creado_at_utc",
+    "actualizado_at_utc",
 )
 
 #: Las 14 columnas de `reparto_pendiente` (F-046, design §5), en orden de
@@ -473,9 +523,10 @@ def test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas() -> None:
     metadata = modulo.Base.metadata
 
     assert tuple(sorted(metadata.tables)) == TABLAS, (
-        "la base 'partes' tiene SIETE tablas (undo_log solo la escribe sv4; "
-        "empleado_jornada la añadió F-015, dedicacion_bandeja F-019 y "
-        "reparto_pendiente F-046)"
+        "la base 'partes' tiene NUEVE tablas (undo_log solo la escribe sv4; "
+        "empleado_jornada la añadió F-015, dedicacion_bandeja F-019, "
+        "reparto_pendiente F-046 y empleado_franquicia y franquicia_ajuste "
+        "F-056)"
     )
 
     columnas = tuple(c.name for c in metadata.tables["parte_registros"].columns)
@@ -687,3 +738,55 @@ def test_f046_r39_reparto_pendiente_atributos_indices_y_defaults() -> None:
     assert modulo.ESTADOS_REPARTO == (
         "pendiente", "aplicando", "aplicado", "materializado", "rechazado",
         "mantenido", "obsoleto")
+
+
+def test_f056_r34_empleado_franquicia_declara_sus_columnas_literales() -> None:
+    """La franquicia por trabajador, columna a columna (design §5)."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f056_r34_emp")
+    tabla = modulo.Base.metadata.tables["empleado_franquicia"]
+    columnas = tuple(c.name for c in tabla.columns)
+    assert columnas == COLUMNAS_EMPLEADO_FRANQUICIA, (
+        "empleado_franquicia no declara exactamente sus columnas. Sobran: "
+        f"{sorted(set(columnas) - set(COLUMNAS_EMPLEADO_FRANQUICIA))}; "
+        "faltan: "
+        f"{sorted(set(COLUMNAS_EMPLEADO_FRANQUICIA) - set(columnas))}"
+    )
+    assert len(columnas) == 11
+
+
+def test_f056_r34_franquicia_ajuste_declara_sus_columnas_literales() -> None:
+    """El ajuste por (recurso, periodo), columna a columna (design §5)."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f056_r34_aj")
+    tabla = modulo.Base.metadata.tables["franquicia_ajuste"]
+    columnas = tuple(c.name for c in tabla.columns)
+    assert columnas == COLUMNAS_FRANQUICIA_AJUSTE, (
+        "franquicia_ajuste no declara exactamente sus columnas. Sobran: "
+        f"{sorted(set(columnas) - set(COLUMNAS_FRANQUICIA_AJUSTE))}; "
+        "faltan: "
+        f"{sorted(set(COLUMNAS_FRANQUICIA_AJUSTE) - set(columnas))}"
+    )
+    assert len(columnas) == 24
+
+
+def test_f056_r34_atributos_indices_y_defaults_de_las_dos_tablas() -> None:
+    """Toda `NOT NULL` lleva `server_default`; sin FK; el índice ÚNICO
+    (recurso, periodo) del ajuste y los de DNI y estado."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f056_r34_attrs")
+    for nombre in ("empleado_franquicia", "franquicia_ajuste"):
+        tabla = modulo.Base.metadata.tables[nombre]
+        for col in tabla.columns:
+            assert col.foreign_keys == set(), (nombre, col.name)
+            if not col.nullable and not col.primary_key:
+                assert col.server_default is not None, (nombre, col.name)
+    emp = modulo.Base.metadata.tables["empleado_franquicia"]
+    aj = modulo.Base.metadata.tables["franquicia_ajuste"]
+    assert {i.name: (tuple(c.name for c in i.columns), i.unique)
+            for i in emp.indexes} == {
+        "ix_empleado_franquicia_dni_norm": (("dni_norm",), False)}
+    assert {i.name: (tuple(c.name for c in i.columns), i.unique)
+            for i in aj.indexes} == {
+        "ux_franquicia_ajuste_periodo": (("recurso_ide", "periodo"), True),
+        "ix_franquicia_ajuste_estado": (("estado",), False)}
+    assert aj.c.estado.server_default.arg == "decidido"
+    assert modulo.ESTADOS_FRANQUICIA == (
+        "decidido", "aplicado", "rechazado", "error")
