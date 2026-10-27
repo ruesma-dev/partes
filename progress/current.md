@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-056 · BLOCKED 2026-10-27 (T1–T18 hechas; hueco de la spec en R20, pregunta abajo) · antes IN_PROGRESS desde 2026-10-27 (spec aprobada 2026-10-23: DA1–DA20 = A; el humano: «si arranca la siguiente»; implementer en `partes-wt-f056`): franquicia de extras
+## F-056 · IN_PROGRESS (desbloqueada 2026-10-27 por DA28 = A; T1–T18 hechas, en curso T17b) · desde 2026-10-27 (spec aprobada 2026-10-23: DA1–DA20 = A; el humano: «si arranca la siguiente»; implementer en `partes-wt-f056`): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
 worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en
@@ -107,6 +107,10 @@ entretanto) y después aplica.»). **Enmienda de la spec hecha (spec-author, 202
 transición, sin sv5) y R46 (la vista aplica tras decidir); R16 lista las transiciones de T14; tarea
 nueva **T17b** (sv4) sin renumerar. Topes: requirements 150/150, design 248/250. Resumen en
 `progress/spec_F-056.md`. F-056 sigue `blocked`: la reanuda el líder (siguiente: T17b y T19–T22).
+
+**DESBLOQUEADA (2026-10-27, líder → implementer).** Decisión del humano, literal: «a» (opción A: ruta
+nueva «decidir» y luego aplicar). Tras enseñarle la enmienda (R45, R46, DA28, T17b), literal: «si».
+F-056 vuelve a `in_progress`. En curso: T17b (sv4: `POST /api/franquicia/decidir`, botones de la vista).
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

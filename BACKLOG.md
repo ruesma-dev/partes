@@ -5,13 +5,15 @@
 
 Resumen: **61 features**, 14 abiertas, 47 terminadas.
 
-Bloqueadas: **F-032, F-056**.
+En curso: **F-056**.
+
+Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | bloqueada | aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; bloqueada 2026-10-27 por hueco de la spec en R20 (no hay ruta para «Ajustar»/«Recalcular» desde la vista): ver progress/current.md | critico | `feature/F-056-franquicia-de-extras` |
+| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | en curso | aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; desbloqueada 2026-10-27 por DA28 = A (ruta «decidir» de la vista, T17b) | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
@@ -82,9 +84,9 @@ Bloqueadas: **F-032, F-056**.
 
 ### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
 
-estado **bloqueada** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
+estado **en curso** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
 
-**Spec**: aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; bloqueada 2026-10-27 por hueco de la spec en R20 (no hay ruta para «Ajustar»/«Recalcular» desde la vista): ver progress/current.md
+**Spec**: aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; desbloqueada 2026-10-27 por DA28 = A (ruta «decidir» de la vista, T17b)
 
 Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe. Decisión del humano del 2026-10-22/23 («si a todo, pon la nueva feature como primera y lanza spec»): primera de la cola. Spec en specs/F-056-franquicia-de-extras/ (2026-10-23): sv5 calcula contra Sigrid E (extras HE* netas del recurso en el mes de nómina 16→15) y A = −min(E, X), da de alta la línea HE* negativa (synckey partes:franquicia:<id>, excluida de los choques) y la edita con UPDATE (a 0, nunca DELETE); sv4 guarda X en empleado_franquicia (sección de /admin/jornadas), calcula día de ajuste (último con jornada > 0, F-015) y obra, avisa en el modal de aprobar, guarda la decisión en franquicia_ajuste y la aplica al terminar el registro. sv3 solo la copia del ORM. Decisiones DA1-DA20 pendientes del humano (design.md §7); M1 de solo lectura hecha (design.md §2 H5).
 
