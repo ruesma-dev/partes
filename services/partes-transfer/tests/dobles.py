@@ -151,7 +151,8 @@ class SettingsFake:
                  transfer_workers: int = 3,
                  est_parte_activo: int = 1,
                  est_parte_cerrado: int = 3,
-                 est_parte_imputado: int = 10) -> None:
+                 est_parte_imputado: int = 10,
+                 franquicia_campo_res: str = "") -> None:
         self.obra_pruebas_forzar = obra_pruebas_forzar
         self.obra_pruebas_cod = obra_pruebas_cod
         self.marca_pruebas = marca_pruebas
@@ -166,6 +167,8 @@ class SettingsFake:
         self.est_parte_activo = est_parte_activo
         self.est_parte_cerrado = est_parte_cerrado
         self.est_parte_imputado = est_parte_imputado
+        # F-056 (R3): vacio = franquicia apagada, como `Settings`.
+        self.franquicia_campo_res = franquicia_campo_res
 
 
 class SigridFake:
@@ -264,6 +267,8 @@ class SigridFake:
         self.valores_res: dict[int, object] = {}
         self.tipos_leidos: list[str] = []
         self.valores_leidos: list[tuple[list[int], str]] = []
+        #: F-056 (R41): si cada `valores_campo_res` corrio con el lock.
+        self.valores_bajo_lock: list[bool] = []
         self.fallo_tipo_columna: Exception | None = None
         self.fallo_valores_res: Exception | None = None
         self.partes: list[dict] = list(partes or [])
@@ -562,6 +567,9 @@ class SigridFake:
         self._lectura("valores_campo_res")
         ides = sorted({int(i) for i in resides if i})
         self.valores_leidos.append((ides, campo))
+        self.valores_bajo_lock.append(bool(
+            self._verificador_lock is not None
+            and self._verificador_lock.locked()))
         if self.fallo_valores_res is not None:
             raise self.fallo_valores_res
         if self._columna_res(campo) is None:

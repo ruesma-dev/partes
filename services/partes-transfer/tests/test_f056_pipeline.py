@@ -8,6 +8,10 @@ del parte. Recorre el guion de M2 (design §10): crear, repetir, recalcular
 al alza, a 0 sin borrar; y los rechazos (parte cerrado, enlazada, sin
 `HE*`, recurso de otra empresa), la relectura, el modo pruebas y el lock.
 
+Enmienda 2026-10-27 (T10, DA1 = C): X ya no llega en la peticion; el
+pipeline la lee del campo de `res` (`franquicias`, R1-R3, R38-R42). El
+nombre de la columna de estos tests es INVENTADO (el campo aun no existe).
+
 Sin red ni Sigrid. Recursos, partes, obras e ides SINTETICOS.
 """
 from __future__ import annotations
@@ -21,6 +25,7 @@ from application.pipelines.franquicia_pipeline import FranquiciaPipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services import franquicia as fr
 from domain.models.registro_models import (
+    EstadoFranquicias,
     HoraRecurso,
     LineaEntrada,
     ObraEntrada,
@@ -37,6 +42,8 @@ HMO, HMO_PRUEBAS = 900, 940
 DIA = 20261015
 SK = "partes:franquicia:5"
 OPS_PERMITIDAS = {"insert", "actualizar", "crear_parte"}
+#: Nombre INVENTADO de la columna de `res` (el real aun no existe).
+CAMPO = "FranqInventada"
 
 
 class LockEspia:
@@ -77,6 +84,14 @@ def _extra(ide, fec, can, *, horide=HE, hmoide=HMO, synckey=None) -> dict:
 
 
 def _cli(lineas=None, partes=None, horas=None, **kw) -> SigridFake:
+    """Por defecto la columna existe (`decimal`) y el recurso tiene X = 8."""
+    cli = _sigrid(lineas, partes, horas, **kw)
+    cli.columnas_res = {CAMPO: "decimal"}
+    cli.valores_res = {REC: 8.0}
+    return cli
+
+
+def _sigrid(lineas=None, partes=None, horas=None, **kw) -> SigridFake:
     return SigridFake(
         obras={"0100": _obra(), "0404": _obra(OBRA_PRUEBAS, "0404")},
         horas=horas if horas is not None else {REC: [
@@ -89,17 +104,18 @@ def _cli(lineas=None, partes=None, horas=None, **kw) -> SigridFake:
         **kw)
 
 
-def _pipe(cli, *, pruebas=False):
-    st = SettingsFake(obra_pruebas_forzar=pruebas)
+def _pipe(cli, *, pruebas=False, campo=CAMPO):
+    st = SettingsFake(obra_pruebas_forzar=pruebas,
+                      franquicia_campo_res=campo)
     lock = LockEspia()
     reg = RegistroPipeline(cliente=cli, settings=st, lock=lock)
     return FranquiciaPipeline(cliente=cli, settings=st, registro=reg), lock
 
 
-def _pet(ajuste_id=5, franquicia=8.0, pendientes=0.0, obra=None,
+def _pet(ajuste_id=5, pendientes=0.0, obra=None,
          fecha=DIA) -> PeticionFranquicia:
     return PeticionFranquicia(
-        ajuste_id=ajuste_id, recurso_ide=REC, franquicia=franquicia,
+        ajuste_id=ajuste_id, recurso_ide=REC,
         periodo="2026-10", inicio=20260916, fin=20261015, fecha_int=fecha,
         obra=obra or ObraEntrada(ide=OBRA, codigo="0100"), partida_ide=33,
         partida_cod="01.01", extras_pendientes=pendientes,
@@ -195,6 +211,7 @@ def test_f056_r24_ejecutar_crea_la_linea_de_ajuste():
     r = pipe.ejecutar(_pet())
     assert (r.ok, r.accion, r.escrita, r.objetivo, r.actual) == (
         True, fr.CREAR, True, -6.0, -6.0)
+    assert (r.franquicia, r.franquicia_estado) == (8.0, "activa")
     [linea] = _ajuste(cli)
     assert r.hmores_ide == linea["ide"] and r.hmoide == HMO
     assert r.parte_cod == "PT26/00314"
@@ -204,7 +221,7 @@ def test_f056_r24_ejecutar_crea_la_linea_de_ajuste():
         "hmoide": HMO, "reside": REC, "fec": DIA, "horide": HE,
         "can": -6.0, "pre": 25.0, "tot": -150.0, "paride": 33, "ano": 2026,
         "mes": 10, "caaide": 702,
-        "tex": "Ajuste franquicia extras 2026-10: -6 h (franquicia 8 h)"}
+        "tex": "Ajuste franquicia extras 2026-10"}
     assert linea["pos"] == 64 + 64
     assert _ops(cli) == {"insert"}
     assert lock.tomas == 1
@@ -246,7 +263,8 @@ def test_f056_r19_r25_franquicia_cero_deja_la_linea_a_cero_sin_borrar():
     cli = _cli()
     pipe, _lock = _pipe(cli)
     pipe.ejecutar(_pet())
-    r = pipe.ejecutar(_pet(franquicia=0.0))
+    cli.valores_res[REC] = 0               # Administracion la quita
+    r = pipe.ejecutar(_pet())
     assert (r.ok, r.accion, r.objetivo, r.actual) == (
         True, fr.ACTUALIZAR, 0.0, 0.0)
     [linea] = _ajuste(cli)
@@ -426,7 +444,8 @@ def test_f056_r33_logs_con_ids_y_horas_sin_nombres(caplog):
     msgs = [r.getMessage() for r in caplog.records
             if r.name.endswith("franquicia_pipeline")]
     assert any("ajuste=5" in m and "recurso=501" in m and "objetivo=-6.00"
-               in m and "usuario=usuario-de-prueba" in m for m in msgs)
+               in m and "franquicia=8.00" in m
+               and "usuario=usuario-de-prueba" in m for m in msgs)
     assert not any("Obra 0100" in m for m in msgs)
 
 
@@ -442,3 +461,166 @@ def test_f056_asegurar_parte_delega_en_el_alta_protegida():
     assert cli.altas == [{"cod": "PT26/00001", "obride": OBRA, "ano": 2026,
                           "mes": 10, "insertado": True}]
     assert cli.grabadas[0]["desc"] == "Parte Obra 0100"
+
+
+# ------------- T10: X leida del campo de `res` (enmienda, R1-R3) ------------- #
+
+def test_f056_r3_franquicias_apagada_sin_leer_nada():
+    cli = _cli()
+    pipe = _pipe(cli, campo="")[0]
+    e = pipe.franquicias([REC, 502])
+    assert (e.estado, e.recursos) == ("apagada", {})
+    assert isinstance(e, EstadoFranquicias)
+    assert cli.tipos_leidos == [] and cli.valores_leidos == []
+
+
+@pytest.mark.parametrize("campo", ["  ", "a];DROP TABLE res;--", "1x",
+                                   "campo" + chr(10), "res.campo"])
+def test_f056_r38_nombre_malo_es_no_disponible_sin_leer(campo, caplog):
+    cli = _cli()
+    with caplog.at_level(logging.WARNING):
+        e = _pipe(cli, campo=campo)[0].franquicias([REC])
+    assert (e.estado, e.recursos) == ("no_disponible", {})
+    assert e.motivo and e.motivo.isascii()
+    assert cli.tipos_leidos == [] and cli.valores_leidos == []
+    assert any(r.levelno == logging.WARNING for r in caplog.records)
+
+
+def test_f056_r38_r39_columna_ausente_no_disponible_y_se_vuelve_a_mirar(
+        caplog):
+    cli = _cli()
+    cli.columnas_res = {}
+    pipe = _pipe(cli)[0]
+    with caplog.at_level(logging.WARNING):
+        e = pipe.franquicias([REC])
+    assert e.estado == "no_disponible" and CAMPO in e.motivo
+    assert cli.valores_leidos == []
+    assert any(r.levelno == logging.WARNING for r in caplog.records)
+    cli.columnas_res = {CAMPO: "numeric"}     # Administracion la crea
+    assert pipe.franquicias([REC]).estado == "ok"
+    assert cli.tipos_leidos == [CAMPO, CAMPO]
+
+
+@pytest.mark.parametrize("tipo", ["varchar", "bigint", "bit", "datetime"])
+def test_f056_r38_columna_no_numerica_no_disponible(tipo):
+    cli = _cli()
+    cli.columnas_res = {CAMPO: tipo}
+    e = _pipe(cli)[0].franquicias([REC])
+    assert e.estado == "no_disponible" and tipo in e.motivo
+    assert cli.valores_leidos == []
+
+
+def test_f056_r2_r40_franquicias_ok_por_recurso_y_cache_del_si():
+    cli = _cli()
+    cli.valores_res = {REC: 8.0, 502: None, 503: -1, 504: 0, 505: 7.126}
+    pipe = _pipe(cli)[0]
+    e = pipe.franquicias([REC, 502, 503, 504, 505, 506])
+    assert (e.estado, e.motivo) == ("ok", None)
+    assert {k: (v.estado, v.franquicia) for k, v in e.recursos.items()} == {
+        REC: ("activa", 8.0), 502: ("inactiva", 0.0),
+        503: ("invalida", None), 504: ("inactiva", 0.0),
+        505: ("activa", 7.13), 506: ("invalida", None)}
+    assert "no existe" in e.recursos[506].motivo
+    assert cli.valores_leidos == [([REC, 502, 503, 504, 505, 506], CAMPO)]
+    pipe.franquicias([REC])
+    assert cli.tipos_leidos == [CAMPO]                # el «si» se recuerda
+
+
+def test_f056_r39_fallo_de_valores_olvida_el_si(caplog):
+    cli = _cli()
+    pipe = _pipe(cli)[0]
+    assert pipe.franquicias([REC]).estado == "ok"
+    cli.fallo_valores_res = RuntimeError("Invalid column name")
+    with caplog.at_level(logging.WARNING):
+        e = pipe.franquicias([REC])
+    assert e.estado == "no_disponible" and "Invalid column name" in e.motivo
+    cli.fallo_valores_res = None
+    assert pipe.franquicias([REC]).estado == "ok"
+    assert cli.tipos_leidos == [CAMPO, CAMPO]         # se volvio a mirar
+
+
+def test_f056_r40_fallo_al_leer_el_tipo_es_excepcion():
+    """design §6: `/recursos` responde 502 si falla la lectura del tipo."""
+    cli = _cli()
+    cli.fallo_tipo_columna = RuntimeError("sigrid caido")
+    with pytest.raises(RuntimeError, match="sigrid caido"):
+        _pipe(cli)[0].franquicias([REC])
+
+
+def test_f056_r40_franquicias_sin_recursos_no_lee_valores():
+    cli = _cli()
+    e = _pipe(cli)[0].franquicias([])
+    assert (e.estado, e.recursos) == ("ok", {})
+    assert cli.valores_leidos == []
+
+
+@pytest.mark.parametrize("prep, prefijo, estado", [
+    ({"campo": ""}, "franquicia_apagada", "apagada"),
+    ({"columnas": {}}, "franquicia_no_disponible", "no_disponible"),
+    ({"valor": -1}, "franquicia_invalida", "invalida"),
+    ({"valor": 200.5}, "franquicia_invalida", "invalida"),
+    ({"fallo_tipo": True}, "franquicia_no_disponible", "no_disponible"),
+    ({"fallo_valores": True}, "franquicia_no_disponible", "no_disponible"),
+])
+def test_f056_r42_franquicia_desconocida_no_escribe(prep, prefijo, estado):
+    """R42: «no se sabe» nunca es X = 0: ni crea ni toca la linea que ya
+    existe; `comprobar` y `ejecutar` responden `no_editable`."""
+    cli = _cli(lineas=[_extra(7001, 20261001, 10.0),
+                       _extra(7009, DIA, -6.0, synckey=SK)])
+    if "columnas" in prep:
+        cli.columnas_res = prep["columnas"]
+    if "valor" in prep:
+        cli.valores_res[REC] = prep["valor"]
+    if prep.get("fallo_tipo"):
+        cli.fallo_tipo_columna = RuntimeError("sigrid caido")
+    if prep.get("fallo_valores"):
+        cli.fallo_valores_res = RuntimeError("sigrid caido")
+    pipe, _lock = _pipe(cli, campo=prep.get("campo", CAMPO))
+    for r in (pipe.comprobar(_pet()), pipe.ejecutar(_pet())):
+        assert (r.ok, r.accion, r.escrita) == (False, fr.NO_EDITABLE, False)
+        assert r.motivo.startswith(f"{prefijo}: ")
+        assert (r.franquicia, r.franquicia_estado) == (None, estado)
+    assert "escribir" not in cli.llamadas
+    assert _ajuste(cli)[0]["can"] == -6.0
+
+
+def test_f056_r3_apagada_comprobar_no_lee_el_campo():
+    cli = _cli()
+    _pipe(cli, campo="")[0].comprobar(_pet())
+    assert cli.tipos_leidos == [] and cli.valores_leidos == []
+
+
+def test_f056_r41_ejecutar_lee_x_bajo_el_lock_y_comprobar_sin_el():
+    cli = _cli()
+    pipe, lock = _pipe(cli)
+    pipe.comprobar(_pet())
+    assert not lock.locked() and lock.tomas == 0
+    cli.vigilar_lock(lock)      # desde aqui, lecturas de estado bajo lock
+    pipe.ejecutar(_pet())
+    assert cli.valores_bajo_lock == [False, True]
+    assert cli.valores_leidos == [([REC], CAMPO), ([REC], CAMPO)]
+
+
+def test_f056_r41_da22_vale_la_x_de_sigrid_al_ejecutar():
+    """DA22: si Administracion cambia X entre el aviso y el registro, el
+    ajuste usa la X de ese momento (y la devuelve)."""
+    cli = _cli()
+    pipe = _pipe(cli)[0]
+    r = pipe.comprobar(_pet())
+    assert (r.franquicia, r.objetivo) == (8.0, -6.0)
+    cli.valores_res[REC] = 2.5
+    r = pipe.ejecutar(_pet())
+    assert (r.ok, r.franquicia, r.franquicia_estado, r.objetivo) == (
+        True, 2.5, "activa", -2.5)
+    assert _ajuste(cli)[0]["can"] == -2.5
+
+
+def test_f056_r42_inactiva_sin_linea_es_sin_ajuste():
+    cli = _cli()
+    cli.valores_res[REC] = None
+    r = _pipe(cli)[0].ejecutar(_pet())
+    assert (r.ok, r.accion, r.objetivo, r.escrita) == (
+        True, fr.SIN_AJUSTE, 0.0, False)
+    assert (r.franquicia, r.franquicia_estado) == (0.0, "inactiva")
+    assert _ajuste(cli) == []
+
