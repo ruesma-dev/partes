@@ -53,7 +53,7 @@ Bloqueadas: **F-032**.
 | F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062 |
 | F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | critico | Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración |
 | F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
-| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | estandar | desplegar sv4 (humano); M1 (design.md §8: en local o, al ser solo mirar, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador) |
+| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador) |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
@@ -61,7 +61,7 @@ Bloqueadas: **F-032**.
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico | M6 |
 | F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico | M4 |
 | F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
-| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N |
+| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |  |
@@ -348,7 +348,7 @@ Petición del humano del 2026-10-25 («1a») tras la M1 de F-058 (líder, local,
 
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-064-filtro-en-sesion`
 
-**Pendiente**: desplegar sv4 (humano); M1 (design.md §8: en local o, al ser solo mirar, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)
+**Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)
 
 Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.
 
@@ -404,7 +404,7 @@ Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local
 
 estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
 
-**Pendiente**: desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N
+**Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N
 
 Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 

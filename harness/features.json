@@ -935,7 +935,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
-      "pendiente": "desplegar sv4 (humano), M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N"
+      "pendiente": "Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N"
     },
     {
       "id": "F-062",
@@ -994,7 +994,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-064-filtro-en-sesion",
-      "pendiente": "desplegar sv4 (humano); M1 (design.md §8: en local o, al ser solo mirar, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)"
+      "pendiente": "Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)"
     },
     {
       "id": "F-065",
