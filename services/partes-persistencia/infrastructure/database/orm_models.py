@@ -2,7 +2,7 @@
 """ORM de partes de trabajo (SQLAlchemy 2.0).
 
 Modelo real (un documento = un parte DIARIO de una obra, con varios
-empleados). NUEVE tablas en la base ``partes``:
+empleados). SIETE tablas en la base ``partes``:
 
   - ``parte_documents``: cabecera del parte diario (fecha, obra leida +
     casada, encargado, jefe de obra, FIRMA) + metadatos de email/IA +
@@ -27,12 +27,6 @@ empleados). NUEVE tablas en la base ``partes``:
   - ``reparto_pendiente``: reajuste del reparto de jornada de un dia que
     cambiaria lineas ya en Sigrid o de parte aprobado (F-046). Lo propone
     y materializa sv3; sv4 lo ensena y recoge la decision del humano.
-  - ``empleado_franquicia``: franquicia de extras por trabajador (F-056):
-    horas extra por mes de nomina que no cobra, con vigencia. Nace vacia
-    (tabla vacia = nadie tiene franquicia). La escribe y la lee sv4.
-  - ``franquicia_ajuste``: la linea de ajuste de la franquicia de un
-    (recurso, mes de nomina) en Sigrid (F-056): decision humana y lo ultimo
-    que respondio sv5. La escribe y la lee sv4.
 
 La unicidad por ``source_sha256`` es un INDICE UNICO PARCIAL
 ``WHERE is_active`` (``DDL_EXTRA_POSTGRES``): un parte borrado no ocupa el
@@ -586,123 +580,6 @@ class RepartoPendienteOrm(Base):
         String(64), nullable=False, server_default=""
     )
     materializado_at_utc: Mapped[str | None] = mapped_column(String(64))
-
-
-class EmpleadoFranquiciaOrm(Base):
-    """Franquicia de extras por trabajador (F-056, R1-R3, design §5).
-
-    ``horas`` es X: las horas extra por mes de nomina (16 -> 15) que el
-    trabajador no cobra. Vigencia como ``empleado_jornada``: ``desde``
-    inclusivo y ``hasta`` EXCLUSIVO (NULL = abierta), ISO ``YYYY-MM-DD``;
-    sin solapes entre filas activas del mismo DNI (lo valida sv4). Nace
-    vacia: sin filas nadie tiene franquicia (DA17). Desactivar es papelera
-    logica (``is_active``); nunca se borra.
-
-    TODA columna ``NOT NULL`` lleva ``server_default`` (centinelas del DDL
-    complementario, como en ``empleado_jornada``).
-    """
-    __tablename__ = "empleado_franquicia"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    dni_norm: Mapped[str] = mapped_column(
-        String(32), nullable=False, server_default="", index=True
-    )
-    horas: Mapped[float] = mapped_column(
-        Float, nullable=False, server_default="0"
-    )
-    desde: Mapped[str] = mapped_column(
-        String(16), nullable=False, server_default="1900-01-01"
-    )
-    hasta: Mapped[str | None] = mapped_column(String(16))
-    nota: Mapped[str | None] = mapped_column(String(255))
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default="true"
-    )
-    created_at_utc: Mapped[str] = mapped_column(
-        String(40), nullable=False, server_default="1970-01-01T00:00:00Z"
-    )
-    created_by: Mapped[str | None] = mapped_column(String(120))
-    updated_at_utc: Mapped[str | None] = mapped_column(String(40))
-    updated_by: Mapped[str | None] = mapped_column(String(120))
-
-
-#: Estados de `franquicia_ajuste` (F-056, design §3). sv4 los cambia
-#: siempre por CAS sobre `estado`: «Ajustar» o «Recalcular» -> `decidido`;
-#: «No ajustar» -> `rechazado`; aplicar en sv5 -> `aplicado` o `error`.
-FRANQUICIA_DECIDIDO = "decidido"
-FRANQUICIA_APLICADO = "aplicado"
-FRANQUICIA_RECHAZADO = "rechazado"
-FRANQUICIA_ERROR = "error"
-ESTADOS_FRANQUICIA: tuple[str, ...] = (
-    FRANQUICIA_DECIDIDO, FRANQUICIA_APLICADO, FRANQUICIA_RECHAZADO,
-    FRANQUICIA_ERROR,
-)
-
-
-class FranquiciaAjusteOrm(Base):
-    """El ajuste de la franquicia de un (recurso, mes de nomina) (F-056,
-    R15-R21, design §3 y §5).
-
-    Una fila por ``(recurso_ide, periodo)`` (indice UNICO): su ``id`` da la
-    synckey de la linea en Sigrid, ``partes:franquicia:<id>``. Dia, obra y
-    partida se fijan al crearla y no cambian (R8). ``extras``, ``ajuste``,
-    ``hmores_ide``, ``hmoide``, ``parte_cod`` y ``resultado`` son lo ultimo
-    que respondio sv5. Quien decide y quien aplica quedan aqui: no entra en
-    ``undo_log`` (en Sigrid no hay deshacer).
-
-    Sin nombres ni DNIs: el trabajador es su ``recurso_ide`` de Sigrid.
-    TODA columna ``NOT NULL`` lleva ``server_default``.
-    """
-    __tablename__ = "franquicia_ajuste"
-    __table_args__ = (
-        Index("ux_franquicia_ajuste_periodo", "recurso_ide", "periodo",
-              unique=True),
-        Index("ix_franquicia_ajuste_estado", "estado"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    recurso_ide: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default="0"
-    )
-    #: Mes de nomina `YYYY-MM` (el del dia 15).
-    periodo: Mapped[str] = mapped_column(
-        String(7), nullable=False, server_default=""
-    )
-    fecha_int: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default="0"
-    )
-    obra_ide: Mapped[int] = mapped_column(
-        Integer, nullable=False, server_default="0"
-    )
-    obra_codigo: Mapped[str | None] = mapped_column(String(32))
-    partida_ide: Mapped[int | None] = mapped_column(Integer)
-    partida_cod: Mapped[str | None] = mapped_column(String(32))
-    #: X vigente cuando se decidio o se aplico por ultima vez.
-    franquicia: Mapped[float] = mapped_column(
-        Float, nullable=False, server_default="0"
-    )
-    extras: Mapped[float | None] = mapped_column(Float)
-    ajuste: Mapped[float | None] = mapped_column(Float)
-    estado: Mapped[str] = mapped_column(
-        String(16), nullable=False, server_default="decidido"
-    )
-    #: ajustar | no_ajustar | recalcular (la ultima que cambio la fila).
-    decision: Mapped[str | None] = mapped_column(String(16))
-    hmores_ide: Mapped[int | None] = mapped_column(Integer)
-    hmoide: Mapped[int | None] = mapped_column(Integer)
-    parte_cod: Mapped[str | None] = mapped_column(String(32))
-    resultado: Mapped[str | None] = mapped_column(Text)
-    error: Mapped[str | None] = mapped_column(String(255))
-    decidido_por: Mapped[str | None] = mapped_column(String(120))
-    aplicado_por: Mapped[str | None] = mapped_column(String(120))
-    decidido_at_utc: Mapped[str | None] = mapped_column(String(64))
-    aplicado_at_utc: Mapped[str | None] = mapped_column(String(64))
-    creado_at_utc: Mapped[str] = mapped_column(
-        String(64), nullable=False, server_default=""
-    )
-    actualizado_at_utc: Mapped[str] = mapped_column(
-        String(64), nullable=False, server_default=""
-    )
 
 
 #: DDL de PostgreSQL que el ORM no sabe expresar de forma portable y que
