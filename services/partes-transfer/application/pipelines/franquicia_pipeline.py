@@ -35,6 +35,9 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from application.pipelines.registro_pipeline import RegistroPipeline
+from application.services import franquicia as fr
+from application.services.estado_parte import elegir_parte
 from domain.models.registro_models import (
     AccionLinea,
     LineaEntrada,
@@ -46,10 +49,6 @@ from domain.models.registro_models import (
     VeredictoFranquicia,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_franquicia
-
-from application.pipelines.registro_pipeline import RegistroPipeline
-from application.services import franquicia as fr
-from application.services.estado_parte import elegir_parte
 
 logger = logging.getLogger(__name__)
 

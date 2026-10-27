@@ -6,18 +6,22 @@
   POST /api/registro/comprobar  -> F-024: siguen en Sigrid? (solo lectura)
   POST /api/reajuste/comprobar  -> F-046: se pueden reajustar? (solo lectura)
   POST /api/reajuste/ejecutar   -> F-046: UPDATE/INSERT en Sigrid (bajo el lock)
+  POST /api/franquicia/comprobar -> F-056: ajuste de la franquicia (solo lectura)
+  POST /api/franquicia/ejecutar  -> F-056: INSERT/UPDATE de la linea de ajuste
   GET  /health
 """
 from __future__ import annotations
 
 import logging
 from dataclasses import asdict
-from typing import Any, Optional
+from datetime import datetime
+from typing import Annotated, Any, Optional
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
+from application.pipelines.franquicia_pipeline import FranquiciaPipeline
 from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.comprobacion_lineas import (
@@ -28,6 +32,8 @@ from domain.models.registro_models import (
     LineaEntrada,
     ObraEntrada,
     OpReajuste,
+    PeticionFranquicia,
+    ResultadoFranquicia,
     ResultadoReajuste,
 )
 from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
@@ -124,6 +130,56 @@ def _reajuste_a_dict(r: ResultadoReajuste) -> dict[str, Any]:
     return asdict(r)
 
 
+def _fecha_valida(valor: int) -> bool:
+    """`YYYYMMDD` de una fecha que existe."""
+    try:
+        datetime.strptime(str(int(valor)), "%Y%m%d")
+    except ValueError:
+        return False
+    return len(str(int(valor))) == 8
+
+
+class FranquiciaIn(BaseModel):
+    """F-056 (R22, design §6): la peticion de `comprobar` y `ejecutar`.
+
+    `ajuste_id` 0 es el centinela del preflight (aun no hay fila en sv4):
+    solo lo admite `comprobar`. Fechas `YYYYMMDD` con `inicio <= fecha_int
+    <= fin`; la obra, por `ide` o por `codigo`."""
+    ajuste_id: Annotated[int, Field(ge=0)]
+    recurso_ide: Annotated[int, Field(ge=1)]
+    franquicia: Annotated[float, Field(ge=0)]
+    periodo: Annotated[str, Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
+    inicio: int
+    fin: int
+    fecha_int: int
+    obra: ObraIn
+    partida_ide: Optional[int] = None
+    partida_cod: Optional[str] = None
+    extras_pendientes: float = 0.0
+    usuario: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _coherente(self) -> "FranquiciaIn":
+        for nombre in ("inicio", "fin", "fecha_int"):
+            if not _fecha_valida(getattr(self, nombre)):
+                raise ValueError(f"{nombre} no es una fecha YYYYMMDD")
+        if not self.inicio <= self.fecha_int <= self.fin:
+            raise ValueError("el dia de ajuste no esta en el periodo")
+        if not (self.obra.ide or self.obra.codigo):
+            raise ValueError("la obra necesita ide o codigo")
+        return self
+
+    def a_dominio(self) -> PeticionFranquicia:
+        datos = self.model_dump(exclude={"obra"})
+        return PeticionFranquicia(
+            obra=ObraEntrada(ide=self.obra.ide, codigo=self.obra.codigo,
+                             nombre=self.obra.nombre), **datos)
+
+
+def _franquicia_a_dict(r: ResultadoFranquicia) -> dict[str, Any]:
+    return asdict(r)
+
+
 def _cliente_sigrid(settings) -> SigridWriteClient:
     return SigridWriteClient(
         base_url=settings.sigrid_api_base_url,
@@ -139,7 +195,8 @@ def _cliente_sigrid(settings) -> SigridWriteClient:
 
 def build_app(settings, pipeline: RegistroPipeline | None = None,
               comprobador: ComprobadorLineas | None = None,
-              reajuste: ReajustePipeline | None = None) -> FastAPI:
+              reajuste: ReajustePipeline | None = None,
+              franquicia: FranquiciaPipeline | None = None) -> FastAPI:
     """API de sv5.
 
     `pipeline` se inyecta desde `main.py` para que el HTTP y los hilos
@@ -158,6 +215,10 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
     `reajuste` (F-046) se inyecta igual desde `main.py`. Sin inyeccion se
     construye en la primera peticion sobre `pipeline`: comparte SU lock,
     que es lo que serializa el reajuste con el registro (R20).
+
+    `franquicia` (F-056) se inyecta desde `main.py` sobre el MISMO
+    `RegistroPipeline` (su lock). Sin inyeccion sus rutas responden 503:
+    escribe en Sigrid y no se compone a medias.
     """
     app = FastAPI(title="Partes -> Sigrid (transfer)", version="1.0.0")
 
@@ -287,5 +348,45 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
             return JSONResponse({"ok": False, "error": str(exc)},
                                 status_code=502)
         return JSONResponse(_reajuste_a_dict(r))
+
+    def _sin_franquicia() -> JSONResponse:
+        return JSONResponse(
+            {"ok": False, "error": "franquicia de extras no configurada en "
+                                   "sv5"}, status_code=503)
+
+    @app.post("/api/franquicia/comprobar")
+    def franquicia_comprobar(p: FranquiciaIn) -> JSONResponse:
+        """F-056 (R22, R23): SOLO LECTURA y sin lock; admite el centinela
+        `ajuste_id` 0. 422 si el cuerpo no vale; 502 si falla una lectura."""
+        if franquicia is None:
+            return _sin_franquicia()
+        try:
+            r = franquicia.comprobar(p.a_dominio())
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[franquicia] comprobar fallo")
+            return JSONResponse({"ok": False, "error": str(exc)},
+                                status_code=502)
+        return JSONResponse(_franquicia_a_dict(r))
+
+    @app.post("/api/franquicia/ejecutar")
+    def franquicia_ejecutar(p: FranquiciaIn) -> JSONResponse:
+        """F-056 (R22, R24-R30): escribe bajo el MISMO lock que el
+        registro. Un rechazo es 200 con `ok: false` y su motivo (nada
+        escrito); un 502 es «no se sabe»: el reintento es seguro (sv5 es
+        idempotente por la synckey del ajuste)."""
+        if franquicia is None:
+            return _sin_franquicia()
+        if p.ajuste_id == 0:
+            return JSONResponse(
+                {"ok": False, "error": "ejecutar necesita el ajuste_id de la "
+                                       "fila de sv4 (el 0 solo vale para "
+                                       "comprobar)"}, status_code=422)
+        try:
+            r = franquicia.ejecutar(p.a_dominio(), usuario=p.usuario)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[franquicia] ejecutar fallo")
+            return JSONResponse({"ok": False, "error": str(exc)},
+                                status_code=502)
+        return JSONResponse(_franquicia_a_dict(r))
 
     return app

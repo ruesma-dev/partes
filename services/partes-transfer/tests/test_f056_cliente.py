@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import httpx
 import pytest
-from domain.models.registro_models import HoraRecurso, PREFIJO_FRANQUICIA
+
+from domain.models.registro_models import PREFIJO_FRANQUICIA, HoraRecurso
 from infrastructure.sigrid import sigrid_write_client as modulo
 from infrastructure.sigrid.sigrid_write_client import (
     SigridWriteClient,

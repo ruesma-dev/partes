@@ -21,6 +21,7 @@ import threading
 from pathlib import Path
 
 import uvicorn
+from application.pipelines.franquicia_pipeline import FranquiciaPipeline
 from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.comprobacion_lineas import ComprobadorLineas
@@ -101,10 +102,15 @@ def main() -> int:
     reajuste = ReajustePipeline(cliente=cliente, settings=settings,
                                 registro=pipeline)
 
+    # F-056: la linea de ajuste de la franquicia, tambien con el MISMO
+    # cliente y el MISMO lock (el de `pipeline`, R22).
+    franquicia = FranquiciaPipeline(cliente=cliente, settings=settings,
+                                    registro=pipeline)
+
     # F-024: la comprobacion de lineas usa el MISMO cliente, solo para leer.
     app = build_app(settings, pipeline=pipeline,
                     comprobador=ComprobadorLineas(cliente=cliente),
-                    reajuste=reajuste)
+                    reajuste=reajuste, franquicia=franquicia)
     uvicorn.run(app, host=settings.api_host, port=settings.api_port,
                 log_level=settings.log_level.lower())
     return 0

@@ -32,14 +32,13 @@ tildes como el resto de sv5 y de `LIMITE_MOTIVO` caracteres como mucho.
 """
 from __future__ import annotations
 
+from application.services.parte_abierto import MOTIVO_PARTE_NO_ABIERTO
+from application.services.pisado import LIMITE_MOTIVO, MOTIVO_LINEA_ENLAZADA
 from domain.models.registro_models import (
     AccionLinea,
     LineaSigrid,
     VeredictoFranquicia,
 )
-
-from application.services.parte_abierto import MOTIVO_PARTE_NO_ABIERTO
-from application.services.pisado import LIMITE_MOTIVO, MOTIVO_LINEA_ENLAZADA
 
 #: Acciones del veredicto (respuesta `accion` de sv5, design §6).
 CREAR = "crear"

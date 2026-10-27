@@ -16,6 +16,7 @@ import logging
 import threading
 
 import pytest
+
 from application.pipelines.franquicia_pipeline import FranquiciaPipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services import franquicia as fr
@@ -269,7 +270,7 @@ def test_f056_r24_sin_parte_en_registro_lo_da_de_alta():
     r = pipe.ejecutar(_pet())
     assert (r.ok, r.accion, r.complementario) == (True, fr.CREAR, True)
     nuevo = [p for p in cli.partes if p["cod"] != "PT26/00300"]
-    assert [p["est"] if "est" in p else 1 for p in nuevo] == [1]
+    assert [p.get("est", 1) for p in nuevo] == [1]
     assert r.hmoide == nuevo[0]["ide"] and r.parte_cod == nuevo[0]["cod"]
     assert _ajuste(cli)[0]["hmoide"] == nuevo[0]["ide"]
     assert [s["op"] for s in cli.grabadas] == ["crear_parte", "insert"]

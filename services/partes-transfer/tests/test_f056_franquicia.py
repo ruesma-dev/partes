@@ -19,7 +19,6 @@ from domain.models.registro_models import (
     es_synckey_franquicia,
 )
 
-
 # ------------------------------- T1: modelos ------------------------------- #
 
 def test_f056_modelos_prefijo_literal():
@@ -94,10 +93,10 @@ def test_f056_modelos_resultado_campos_y_defectos():
 
 # ------------------------- T2: regla pura del ajuste ------------------------ #
 
-from application.services import franquicia as fr  # noqa: E402
-from application.services.parte_abierto import MOTIVO_PARTE_NO_ABIERTO  # noqa: E402
-from application.services.pisado import MOTIVO_LINEA_ENLAZADA  # noqa: E402
-from domain.models.registro_models import AccionLinea, LineaSigrid  # noqa: E402
+from application.services import franquicia as fr
+from application.services.parte_abierto import MOTIVO_PARTE_NO_ABIERTO
+from application.services.pisado import MOTIVO_LINEA_ENLAZADA
+from domain.models.registro_models import AccionLinea, LineaSigrid
 
 EST = 1
 
