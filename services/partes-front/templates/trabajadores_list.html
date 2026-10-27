@@ -39,7 +39,7 @@
   <input class="input" type="search" name="search" value="{{ search }}"
          placeholder="Buscar por nombre, codigo o DNI…" autocomplete="off">
   <button class="btn primary small" type="submit">Buscar</button>
-  {% if search %}<a class="btn secondary small" href="/trabajadores">Limpiar</a>{% endif %}
+  {% if search %}<a class="btn secondary small" href="/trabajadores?search=">Limpiar</a>{% endif %}
 </form>
 
 {% if workers %}

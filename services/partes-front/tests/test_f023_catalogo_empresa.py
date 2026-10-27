@@ -166,7 +166,7 @@ def test_f023_r4_cliente_los_lotes_acotados_no_paginan(monkeypatch) -> None:
     assert _cliente(monkeypatch, falso).fetch_dnis_sin_extra({"1a"}) == set()
     (peticion,) = falso.peticiones
     assert "OFFSET" not in peticion["sql"]
-    assert peticion["max_rows"] == 10000
+    assert peticion["max_rows"] == 500000   # F-038: antes 10000 fijo
 
 
 # ======================= cliente · R38 y R39 =========================== #

@@ -3,90 +3,98 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **53 features**, 15 abiertas, 38 terminadas.
+Resumen: **61 features**, 14 abiertas, 47 terminadas.
+
+En curso: **F-056**.
 
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
-| # | Feature | Prioridad | Estado | Rigor | Rama |
-|---|---|---|---|---|---|
-| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 1 | spec lista | critico | `feature/F-056-franquicia-de-extras` |
-| F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | spec lista | estandar | `feature/F-054-sin-obra-o-fecha-a-revision` |
-| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
-| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | critico | `feature/F-047-parte-nuevo-en-espera` |
-| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | critico | `feature/F-052-sincronizar-con-sigrid` |
-| F-038 | Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes) | 7 | pendiente | estandar | `feature/F-038-limite-filas-sigrid` |
-| F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | pendiente | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
-| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | estandar | `feature/F-032-sesame-festivos-produccion` |
-| F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | estandar | `feature/F-027-escape-modales` |
-| F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 10 | pendiente | estandar | `feature/F-026-visor-fotos` |
-| F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 11 | pendiente | estandar | `feature/F-018-log-auditoria-portal` |
-| F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 12 | pendiente | estandar | `feature/F-006-tipo-hora-ext` |
-| F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 13 | pendiente | critico | `feature/F-007-prompt-sv2-evals` |
-| F-008 | Modelo de roles en el portal (sv4) | 14 | pendiente | estandar | `feature/F-008-roles-portal` |
-| F-011 | Jornada reducida por días desde Sesame sustituye al candef | 15 | pendiente | critico | `feature/F-011-jornada-reducida-dias` |
+| # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | en curso | aprobada (DA1–DA20 = A) · `partes-wt-f056` | critico | `feature/F-056-franquicia-de-extras` |
+| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
+| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
+| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
+| F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
+| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
+| F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
+| F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 10 | pendiente | no lleva (sdd: false) | estandar | `feature/F-026-visor-fotos` |
+| F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 11 | pendiente | borrador en la rama `worktree-agent-ad862e62640d64553`, sin presentar | estandar | `feature/F-018-log-auditoria-portal` |
+| F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 12 | pendiente | sin spec | estandar | `feature/F-006-tipo-hora-ext` |
+| F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 13 | pendiente | sin spec | critico | `feature/F-007-prompt-sv2-evals` |
+| F-008 | Modelo de roles en el portal (sv4) | 14 | pendiente | sin spec | estandar | `feature/F-008-roles-portal` |
+| F-011 | Jornada reducida por días desde Sesame sustituye al candef | 15 | pendiente | sin spec | critico | `feature/F-011-jornada-reducida-dias` |
+| F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | 16 | pendiente | sin spec | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
 ## Terminadas
 
-| # | Feature | Prioridad | Rigor |
-|---|---|---|---|
-| F-001 | Test de estructura del monorepo (calentamiento) | 1 | estandar |
-| F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | critico |
-| F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | 1 | estandar |
-| F-029 | El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete | 1 | estandar |
-| F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |
-| F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |
-| F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |
-| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | critico |
-| F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | estandar |
-| F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |
-| F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |
-| F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | estandar |
-| F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | critico |
-| F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | critico |
-| F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |
-| F-045 | Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas | 1 | critico |
-| F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | critico |
-| F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | estandar |
-| F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |
-| F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |
-| F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |
-| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |
-| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | critico |
-| F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico |
-| F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico |
-| F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |
-| F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |
-| F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |
-| F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | estandar |
-| F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | critico |
-| F-004 | Congelar registros aprobados | 5 | estandar |
-| F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |
-| F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |
-| F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |
-| F-017 | Identidad real de Easy Auth en el portal (sv4) | 8 | estandar |
-| F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | documental |
-| F-019 | Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid | 9 | critico |
-| F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |
+| # | Feature | Prioridad | Rigor | Pendiente |
+|---|---|---|---|---|
+| F-001 | Test de estructura del monorepo (calentamiento) | 1 | estandar |  |
+| F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | 1 | critico |  |
+| F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | 1 | estandar |  |
+| F-029 | El logotipo de Ruesma (ruΞsma) se reconoce como empresa 1 en el membrete | 1 | estandar |  |
+| F-030 | Trabajadores con recurso en Sigrid pero sin ficha de empleado: casar el recurso por DNI | 1 | critico |  |
+| F-031 | El parte registrado en Sigrid genera su asiento en la cuenta analitica de la obra | 1 | critico |  |
+| F-033 | Portal: columna Empresa en el listado de obras | 1 | estandar |  |
+| F-034 | sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro) | 1 | critico | M3 (Administración cierra PT26/00375) y M4 |
+| F-035 | Portal: elegir trabajador entre recursos activos de Sigrid, filtrados por empresa | 1 | estandar |  |
+| F-036 | sv3: casar el trabajador leido contra los recursos persona de la empresa del parte | 1 | critico |  |
+| F-037 | sv3: no duplicar la extra automatica cuando su linea base esta omitida y la extra ya esta registrada | 1 | critico |  |
+| F-039 | Portal: mostrar el nombre de la empresa (Ruesma, Porsan) en vez de «empresa N» en combos y Conciliar | 1 | estandar |  |
+| F-040 | Recursos sin DNI: proponer por nombre, aprender alias por recurso y poder registrarlos | 1 | critico |  |
+| F-042 | Recalcular el reparto normal/extra al cambiar la fecha de un parte | 1 | critico |  |
+| F-043 | Fecha del parte: rotulo claro, confirmacion antes de moverlo y parte en espera mientras sv3 recalcula las extras | 1 | critico |  |
+| F-045 | Reparto ponderado de la jornada entre obras: ordinarias y extras del dia repartidas en proporcion a las horas de cada parte, a medias horas | 1 | critico |  |
+| F-048 | Ordinarias + extras leidas en laborable siguen la regla de jornada: la ingesta suma las extras leidas de cada fila a su ordinaria y el reparto da J + exceso | 1 | critico | M4 |
+| F-050 | Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel | 1 | estandar | M2–M6 en el portal |
+| F-051 | Extraccion fila a fila: cada numero manuscrito a la fila en la que esta escrito, no a la mas cercana | 1 | estandar |  |
+| F-059 | La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor | 1 | estandar | nada: M4 OK el 2026-10-25 (los 6 partes sin obra reprocesados: 6 convertida, 0 error, obra y fecha leídas en los 6; partes nuevos 0ef28361, b7599bcb, f1e8900d, e8ff17d2, fc892aaf, 7b26d9df) |
+| F-060 | Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas | 1 | critico | MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062 |
+| F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | critico | Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración |
+| F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
+| F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador) |
+| F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
+| F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
+| F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
+| F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | 2 | critico |  |
+| F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico | M6 |
+| F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico | M4 |
+| F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
+| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N |
+| F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
+| F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
+| F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |  |
+| F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | estandar |  |
+| F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | critico | M2–M8 en el portal |
+| F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | estandar | releer los 6 partes sin obra cuando F-059 esté desplegada |
+| F-004 | Congelar registros aprobados | 5 | estandar |  |
+| F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |  |
+| F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
+| F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar | M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK |
+| F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |  |
+| F-017 | Identidad real de Easy Auth en el portal (sv4) | 8 | estandar |  |
+| F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | documental |  |
+| F-019 | Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid | 9 | critico | interruptor MENSUALES_A_DEDICACION apagado: falta la feature espejo en porcentajes y la M3 |
+| F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
 
 ### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
 
-estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
+estado **en curso** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
+
+**Spec**: aprobada (DA1–DA20 = A) · `partes-wt-f056`
 
 Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe. Decisión del humano del 2026-10-22/23 («si a todo, pon la nueva feature como primera y lanza spec»): primera de la cola. Spec en specs/F-056-franquicia-de-extras/ (2026-10-23): sv5 calcula contra Sigrid E (extras HE* netas del recurso en el mes de nómina 16→15) y A = −min(E, X), da de alta la línea HE* negativa (synckey partes:franquicia:<id>, excluida de los choques) y la edita con UPDATE (a 0, nunca DELETE); sv4 guarda X en empleado_franquicia (sección de /admin/jornadas), calcula día de ajuste (último con jornada > 0, F-015) y obra, avisa en el modal de aprobar, guarda la decisión en franquicia_ajuste y la aplica al terminar el registro. sv3 solo la copia del ORM. Decisiones DA1-DA20 pendientes del humano (design.md §7); M1 de solo lectura hecha (design.md §2 H5).
-
-### F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión
-
-estado **spec lista** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-054-sin-obra-o-fecha-a-revision`
-
-Petición del humano del 2026-10-21 («2 si»): «abro una feature pequeña para que un parte sin obra o sin fecha vaya siempre a revisión». Hallazgo del líder el 2026-10-21 (solo lectura en producción): las dos páginas de un escaneo de ese día llegaron con la cabecera vacía (fecha, obra_numero y empresa_membrete null), firmadas y con 4 y 6 trabajadores casados, y se guardaron con review_required = false, obra_match_method = 'none' y obra_ide, obra_codigo y fecha_int NULL: _compute_review_required de sv3 no miraba la obra sin casar por 'none' ni la fecha. sv3: motivos_cabecera (sin_obra si obra.ide es None, sea cual sea el método; sin_fecha si fecha_int es None o <= 0) sube review_required, sustituye a OBRA_A_REVISAR (que desaparece) y deja un WARNING con document_id y motivos, sin nombres ni DNIs. Solo ingestas nuevas; sin esquema, sin colas, sin cambios en sv4 ni sv5. Lo ya guardado: M1 de solo lectura en la base partes y, si se aprueba DA3 = B, un UPDATE único manual que solo sube la bandera en los activos no aprobados. Hallazgo aparte (DA5, feature propuesta): una línea sin fecha viaja a sv5 con fecha_int = 0 y sv5 no la rechaza. Decisiones DA1-DA7 APROBADAS el 2026-10-21 con la recomendación (A salvo DA3 = B; «apruebo F-054 y la DA5»); la guarda de DA5 es F-055. M1 hecha el 2026-10-21 (M2 afectará a 3 documentos; ninguna línea sin fecha llegó a Sigrid). Va justo detrás de F-049 (en curso): prioridad 4, desempata el id. Detalle en specs/F-054-sin-obra-o-fecha-a-revision/design.md §8 y §9.
 
 ### F-055 · sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados)
 
 estado **spec lista** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-055-sv5-omite-lineas-sin-fecha`
+
+**Spec**: escrita, pendiente de aprobación · `partes-wt-f055`
 
 Origen: DA5 de F-054, aprobada por el humano el 2026-10-21 («apruebo F-054 y la DA5»). Una línea de un parte sin fecha viaja de sv4 a sv5 con fecha_int = 0 (int(r.fecha_int or 0) en lineas_para_registro) y sv5 la acepta: con SigridFake, ejecutar da de alta PT0/00001 del periodo 0/00 y escribe la línea con fec = 0; con 20261340 abre un parte de 2026/13. No ha pasado (M1 de F-054: 25 líneas sin fecha, ninguna enviada), pero 15 con obra son aprobables hoy y en Sigrid no se borra. sv5: función pura motivo_fecha_no_valida (application/services/fecha_linea.py; válida = entero, del calendario, entre 01/01/2026 y hoy + 31 días) y paso 2a de RegistroPipeline.preparar: la línea se omite con «fecha_no_valida: …» antes de leer nada de Sigrid (recursos, reshor, partes), manda sobre las demás omisiones y sobre dedicacion, y vale para preflight, ejecutar, la cola q-transfer y las extras nuevas del reajuste F-046. fecha_int pasa a opcional en LineaIn y LineaEntrada (null u omitido = sin fecha, sin 422). sv4, sv3, esquema y colas no cambian; F-034, F-053 y F-031 tampoco. Doc: ARCHITECTURE semántica 6 y azure-apps/partes.md con nota informativa a porcentajes. Decisiones DA1-DA9 y M1-M3 en specs/F-055-sv5-omite-lineas-sin-fecha/design.md §9 y §11.
 
@@ -94,23 +102,23 @@ Origen: DA5 de F-054, aprobada por el humano el 2026-10-21 («apruebo F-054 y la
 
 estado **spec lista** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-047-parte-nuevo-en-espera`
 
+**Spec**: aprobada (DA1–DA10) · `partes-wt-f047`
+
 Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.
 
 ### F-052 · Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa
 
 estado **spec lista** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
 
+**Spec**: escrita, pendiente de aprobación · `partes-wt-f052`
+
 Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, paginado, truncated = error, sin lock) y sv4 clasifica cada línea en 11 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual). Primera entrega (DA1 = A recomendada): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050. Decisiones DA1-DA10 y M1 de dimensionado (solo lectura) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. Hallazgo H1 (fuera de alcance): el pisado de conflictos de sv5 hace DELETE y el candado de línea registrada dice «borra la línea en Sigrid».
-
-### F-038 · Subir a 200.000 el limite de filas de las lecturas de Sigrid (partidas de obras grandes)
-
-estado **pendiente** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
-
-Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
-estado **pendiente** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-057-pedido-celda-todos-los-partes`
+estado **spec lista** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-057-pedido-celda-todos-los-partes`
+
+**Spec**: aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057`
 
 Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como feature por decisión del humano del 2026-10-23 («si a todo»). Si una celda de la matriz junta líneas de dos partes de la MISMA obra (F-050, varios partes) y solo cambia una, el otro parte no recibe el pedido compartido de recálculo: no es «tocado» (R23 de F-049) ni «afectado» (R38 excluye las líneas de la celda), pero la pasada completa de sv3 sí puede reescribir sus extra_auto; queda el residual R-g de F-043 en ese parte durante la pasada (~30 s). Propuesta: incluir en el pedido todo documento con líneas en la celda. Pendiente de spec.
 
@@ -118,11 +126,15 @@ Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como f
 
 estado **bloqueada** · prioridad 8 · rigor `estandar` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
+**Spec**: en `dev`; feature bloqueada por decisión del humano (2026-10-07)
+
 Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
 
 ### F-027 · Escapar HTML en los modales heredados del portal (nombres que vienen del OCR)
 
 estado **pendiente** · prioridad 9 · rigor `estandar` · SDD no · rama `feature/F-027-escape-modales`
+
+**Spec**: no lleva (sdd: false)
 
 Observacion O4 del reviewer de F-022 (2026-10-01): resumenHtml, conflictosHtml, avisosCalendarioHtml y resultadoHtml de static/app.js (sv4, anteriores a F-022) pintan sin esc() nombre, motivo y cod, y esos nombres pueden venir del OCR de un PDF recibido por correo (inyeccion de HTML en el portal). Ademas (O5) sondearGrupos mete g.clave sin escapar en un querySelector. Aplicar el esc() existente de F-024 y CSS.escape en el selector, con tests que ejecuten el JS con node como en F-021/F-022. Solo sv4.
 
@@ -130,11 +142,15 @@ Observacion O4 del reviewer de F-022 (2026-10-01): resumenHtml, conflictosHtml, 
 
 estado **pendiente** · prioridad 10 · rigor `estandar` · SDD no · rama `feature/F-026-visor-fotos`
 
+**Spec**: no lleva (sdd: false)
+
 Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): un parte metido como foto tomada con el movil se dimensiona muy grande al verlo en el portal. Ajustar el visor del documento en sv4 para que las imagenes se escalen al contenedor (como los PDF). Servicio: sv4. sdd=false salvo que la investigacion muestre que hay que tocar la ingesta (sv1) o el almacenamiento de la imagen.
 
 ### F-018 · Log de auditoria de acciones del portal (quien hizo que y cuando)
 
 estado **pendiente** · prioridad 11 · rigor `estandar` · SDD sí · rama `feature/F-018-log-auditoria-portal`
+
+**Spec**: borrador en la rama `worktree-agent-ad862e62640d64553`, sin presentar
 
 Pedida por el humano el 2026-08-20 al explicarle F-017. Hoy NO existe un registro de auditoria del portal. Lo mas parecido es la tabla undo_log, pero NO sirve como tal: su proposito es DESHACER (guarda el estado anterior en payload para restaurarlo), solo cubre las acciones reversibles -reasignar, casar, editar horas/fecha/obra-, y deja fuera las aprobaciones, los borrados, las excepciones de jornada de F-016 y cualquier accion administrativa. Ademas sus filas se marcan como undone y su vida la manda la funcion de deshacer, no la de auditar. ALCANCE A DECIDIR EN LA SPEC: que acciones se registran (como minimo las que hoy escriben approved_by/deleted_by y las cinco pantallas de administracion), que se guarda de cada una (actor, cuando, que entidad, que cambio, desde donde), donde vive (tabla propia de la base partes frente a reutilizar undo_log, que el spec-author debe valorar y descartar con argumentos), si hay pantalla de consulta o basta con SQL, y cuanto se conserva. Valorar tambien si sv3 y sv5 deben escribir en el mismo log: sv5 es el unico que escribe en Sigrid, y hoy esa escritura no deja rastro de quien la origino. DEPENDE DE F-017: sin identidad real de Easy Auth, este log registraria NULL en el campo mas importante, que es el actor. Hacerla antes seria construir un libro de firmas sin firmas. HALLAZGO del 2026-08-21, al verificar F-017 desplegada con GET /whoami: Easy Auth inyecta TRES cabeceras, y una es X-MS-CLIENT-PRINCIPAL-ID, el oid INMUTABLE del usuario, disponible sin decodificar el token. F-017 renuncio a guardar el oid por no tener columna donde ponerlo y remitio a esta feature. Si F-018 crea tabla propia, valorar dos columnas: actor (UPN legible, que puede cambiar) y actor_id (oid, que no). Es la diferencia entre una auditoria que aguanta un cambio de nombre y otra que no.
 
@@ -142,11 +158,15 @@ Pedida por el humano el 2026-08-20 al explicarle F-017. Hoy NO existe un registr
 
 estado **pendiente** · prioridad 12 · rigor `estandar` · SDD sí · rama `feature/F-006-tipo-hora-ext`
 
+**Spec**: sin spec
+
 El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para reconocer todas las variantes HE% de la ficha del recurso, en lugar de depender del prefijo del código.
 
 ### F-007 · Revisión del prompt de extracción de sv2 (J.310 rev.1)
 
 estado **pendiente** · prioridad 13 · rigor `critico` · SDD sí · rama `feature/F-007-prompt-sv2-evals`
+
+**Spec**: sin spec
 
 Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.
 
@@ -154,13 +174,25 @@ Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt 
 
 estado **pendiente** · prioridad 14 · rigor `estandar` · SDD sí · rama `feature/F-008-roles-portal`
 
+**Spec**: sin spec
+
 Introducir roles en el portal (p. ej. administrador vs revisor) para restringir acciones administrativas: la primera es el reencolado de mensajes poison (F-002), que hoy queda disponible para cualquier usuario autenticado por decisión explícita del humano (2026-08-13). Base: claims de Easy Auth/Entra (grupos o app roles) leídos por sv4.
 
 ### F-011 · Jornada reducida por días desde Sesame sustituye al candef
 
 estado **pendiente** · prioridad 15 · rigor `critico` · SDD sí · rama `feature/F-011-jornada-reducida-dias`
 
+**Spec**: sin spec
+
 Corrección de alcance sobre F-003, pedida por el humano el 2026-08-16 (entonces urgente): el candef sigue siendo la jornada teórica como hasta ahora (con el fallback de 8h si falta o es bajo), PERO en los días que Sesame indique jornada reducida para un trabajador, el candef se sustituye SOLO esos días por la jornada reducida (previsiblemente 7h). Afecta al cómputo de extras (sv3) y a los avisos de jornada incompleta (sv4), vía el resolutor único jornada_efectiva que F-003 dejó preparado. OJO: la spec debe verificar qué puede exponer sesame-api sobre días/periodos de jornada reducida (hoy /jornada solo da un booleano heurístico sin fechas) — probablemente amplía la petición P1 a ese proyecto; como F-003, valorar si se implementa apagada con el enchufe listo. REPRIORIZADA A BAJA por el humano el 2026-08-18, tras el informe de F-013: Sesame HR no tiene NINGÚN contrato cargado (0 de 218 empleados; /contract/v1/.../current-contract da contract_not_found para todos), así que hoy no existe fuente de jornada ni de reducida en Sesame. La spec deberá partir de decidir la fuente (contratos en Sesame cuando RRHH los cargue, módulo de horarios de Sesame, o tabla propia). Mientras tanto el candef sigue mandando (F-003 apagada; y encendida, sin contrato Sesame devuelve None y cae al candef). NOTA F-012 (2026-08-18): su fuente candidata es la tabla empleado_jornada (patrón explícito con vigencia) + emphis.porjorlab de Sigrid (% de jornada: 87,5/75/50…, con datos reales), no los contratos de Sesame.
+
+### F-065 · sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa
+
+estado **pendiente** · prioridad 16 · rigor `estandar` · SDD sí · rama `feature/F-065-buzon-por-aviso-de-graph`
+
+**Spec**: sin spec
+
+Alta pedida por el humano el 2026-10-26 (respuesta literal «si» a la propuesta del líder), a raíz de un aviso de la sesión de `facturas`: al aprobar el despliegue de su F-008, el humano eligió copiar nuestro sv1 (`create_sv1_poller.ps1`, una réplica siempre activa que mira el buzón cada 60 s), dijo «ya arreglaremos lo del hook» y pidió la misma feature en `facturas` (su F-077), `albaranes` y `partes`. Objetivo: sustituir el sondeo por notificaciones de cambio de Microsoft Graph sobre el buzón `partes@ruesma.es`, para que el contenedor escale desde cero en vez de pagar una réplica 24/7 (coste fijo estimado por `facturas` en 10-35 USD/mes por servicio, sin confirmar). A resolver en la spec: endpoint público nuevo (validationToken en el alta, clientState en cada aviso) y su autenticación; renovación de la suscripción (la de correo caduca en ~3 días); barrido de respaldo (Graph no garantiza la entrega); arranque en frío frente al plazo de respuesta de Graph; idempotencia (no procesar dos veces el mismo correo); coste real medido. Coordinación: diseño común con `facturas` (F-077) y `albaranes`, documentado en `azure-apps`, no tres distintos.
 
 ### F-001 · Test de estructura del monorepo (calentamiento)
 
@@ -207,6 +239,8 @@ Incidencia del humano (2026-10-07), URGENTE. En el listado de obras del portal (
 ### F-034 · sv5 solo escribe en partes de Sigrid abiertos (estado 1, En registro)
 
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-034-escribir-solo-en-partes-abiertos`
+
+**Pendiente**: M3 (Administración cierra PT26/00375) y M4
 
 Pedida por el humano el 2026-10-07: «solo se puede escribir en partes abiertos (1 REG)». sv5 solo puede añadir o modificar lineas (hmores) en un parte (hmo/con) cuyo con.est sea 1 (En registro); nunca en Cerrado (3), Imputado (10) ni cualquier otro estado. A REVISAR EN LA SPEC: que hace hoy sv5 tras F-031 (partes_del_periodo, complementario cuando el parte del periodo no esta En registro, alta protegida compartida con porcentajes F-037) y si queda algun camino que escriba o actualice/borre lineas (synckey ya existente, reaprobacion, borrado) en un parte que no este en estado 1; comprobacion del estado DENTRO del lock y justo antes de escribir; que se le dice al usuario en el portal; reglas gemelas con porcentajes (estado_parte.py es copia en porcentajes: si cambia, aviso a porcentajes).
 
@@ -262,11 +296,15 @@ Pedida por el humano el 2026-10-14. Hoy sv3 (_reclasificar_extras_jornada) agrup
 
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-048-solo-extras-en-laborable-como-jornada`
 
+**Pendiente**: M4
+
 Pedida por el humano el 2026-10-15 (literal: «cuando sea laborable, aunque las horas sean extras se usa la regla de 8+x») y ampliada el mismo dia a las filas con ordinarias Y extras: se suman y el total sigue la regla de jornada (J normales + exceso extra, o extra negativa si no llega). Caso 1: 15/10/2026, obra 0678, fila con ordinarias nulas y 10 extras quedo como una extra de 10 h (esperado 8 + 2). Caso 2: 02/10/2026, obra 0686, fila 4 + 5 extras quedo en tres lineas (normal 8, extra_auto -4, extra 5; esperado 8 + 1, dos lineas). Diseno recomendado (DA2, opcion A): el normalizador de sv3 suma las extras leidas > 0 de cada fila a su ordinaria (por partida, ordinarias primero) y guarda lo leido como extra en la columna nueva parte_registros.horas_extra_leidas (dos copias del ORM); el conciliador, F-045, F-037 y F-046 no cambian. En no laborable salen los mismos importes con una linea menos (DA3); sin umbral (DA4). Solo ingestas nuevas; lo congelado (caso 2, ya en Sigrid) seria feature aparte sobre F-046 (solo UPDATE). Toca sv3 y sv4 (ORM gemelo y etiqueta en el portal); sv2 y sv5 no. Se implementa despues de F-046 y F-047. Spec: specs/F-048-solo-extras-en-laborable-como-jornada/.
 
 ### F-050 · Misma fila para el mismo trabajador: una fila por obra, empresa y persona (clave por recurso persona de toda linea casada) y el alta manual hereda la fila del papel
 
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-050-misma-fila-para-el-mismo-trabajador`
+
+**Pendiente**: M2–M6 en el portal
 
 Pedida por el humano el 2026-10-15: al añadir con «+ Añadir línea» una ordinaria a un trabajador que solo tenía extras, el calendario de la obra lo pinta en dos filas. Causa (verificada en sv4): worker_key_for_registro agrupa por emp-{empleado_ide} y, sin ficha, por el nombre leído; la línea de la IA guarda el leído del papel y crear_parte_manual escribe como leído el nombre de Sigrid; además una persona puede tener en una obra líneas con y sin ficha del mismo recurso; el detalle y el listado de partes agrupan con otra variante, y la vista del trabajador da de alta sin el recurso. Reglas del humano (2026-10-20): «es una linea por obra empresa y persona. puede estar en varias obras, o en 2 empresas» y «en la vista por persona, se juntan las obras. lo que es importante es que en 2 empresas son 2 personas con vistas diferenciadas». F-050 (solo sv4, sin esquema ni Sigrid ni migración): clave rec-{recurso} para toda línea casada con recurso (con o sin ficha) > emp- (ficha sin recurso) > nom- > sin-trabajador, en una sola función para todas las vistas y acciones; «Por persona» una fila por (empresa, persona) con todas sus obras y la empresa a la vista (columna «Empresa» y cabecera del trabajador, con la regla de F-033 sobre la base partes); el alta manual hereda empleado_line_no y leído de la persona en ese parte (si no está, fila nueva al final); la vista del trabajador pasa ficha y recurso al modal; las URL emp- y nom- antiguas redirigen si el destino es único; en los tests existentes solo cambia el literal de la clave. DA1 (opción A), DA1b y DA11 aprobadas por el humano el 2026-10-20, junto con DA2-DA10. M1 (líder, 2026-10-20): 1 fila que se une, 0 fichas sin recurso, 0 DNIs con varios recursos en una obra. Spec: specs/F-050-misma-fila-para-el-mismo-trabajador/.
 
@@ -275,6 +313,46 @@ Pedida por el humano el 2026-10-15: al añadir con «+ Añadir línea» una ordi
 estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-051-extraccion-fila-a-fila`
 
 Pedida por el humano el 2026-10-19 («reforzar el prompt»). Caso real: obra 0686, partes del 17 y 18/10/2026 (fin de semana, escaneo girado, tabla de 5 filas casi vacia): en el papel fila 2 = 12 y fila 3 = 10 extra (17/10) y fila 2 = 14 extra (18/10); Gemini subio cada cifra una fila (fila 1 = 12, fila 2 = 10; fila 1 = 14) con confianza 95. sv3 caso bien por DNI: el error nace en la lectura. Diseno: sv2 refuerza el prompt parte_trabajo_es (lectura fila a fila por el Nº y el DNI impresos, celda vacia = null, sin mover cifras entre filas, escaneos girados, cifras que invaden la fila vecina) y anade dni al schema_hint; DA1 (recomendada A): campo de autocomprobacion numero_linea_horas por fila en EmpleadoParte, antes de las horas. DA2 (recomendada C): red de seguridad en sv3 (dueno de review_required): lectura dudosa por autocomprobacion incoherente y por tabla dispersa, con interruptor REVISAR_TABLA_DISPERSA. DA3: M1 aceptada con 3 de 3 ejecuciones por pagina. Verificacion manual con el PDF real (no versionado) repetible con otro proveedor/modelo via el .env de sv2; la comparativa de modelos va aparte. Toca sv2 y, con DA2 distinta de A, sv3; sv1, sv4, sv5 y el ORM no. Spec: specs/F-051-extraccion-fila-a-fila/.
+
+### F-059 · La IA no lee bien el PDF con /Rotate: sv2 le manda la página escaneada ya derecha, como la ve un visor
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-059-pagina-como-imagen-derecha`
+
+**Pendiente**: nada: M4 OK el 2026-10-25 (los 6 partes sin obra reprocesados: 6 convertida, 0 error, obra y fecha leídas en los 6; partes nuevos 0ef28361, b7599bcb, f1e8900d, e8ff17d2, fc892aaf, 7b26d9df)
+
+Petición del humano del 2026-10-23: «es que el giro lo hace fatal. mantiene el formato vertical pero la imagen es ahora horizontal con lo que lo corta., pon la primera arreglar esto», precisada el mismo día: «el parte viene cortado del escaner pero viene bien orientado y la obra se lee perfectamente. el problema no es del giro, es de lectura. de hecho imagen girada esta bien orientado y tal cual esta mal orientado». El fallo es de lectura de la IA, no del escáner ni de sv1: las 6 páginas con la cabecera vacía de los escaneos del 21/10 y del 23/10 son PDF de una página (sv1 las copia tal cual con pypdf) con un JPEG 3507×2480 guardado de lado y /Rotate 270, que las deja derechas en cualquier visor; la obra y la fecha se leen bien. Todo apunta a que OpenAI, con el PDF como input_file, no aplica el /Rotate y lee la imagen cruda de lado. Banco del líder (2026-10-23, fuera del repo, gpt-6.1-sol, 2 pasadas): PDF tal cual, cabecera vacía 12 de 12, también con reasoning.effort = high; JPEG incrustado girado según /Rotate con detail high, obra y fecha bien 12 de 12 (las mismas que gemini-4-argon) y control 4 de 4. Diseño: solo sv2; el pipeline pide a un conversor (puerto en domain, adaptador pypdf + Pillow en infrastructure/document) la página derecha cuando el PDF es una sola imagen JPEG a página completa y la manda como imagen; si no aplica o falla, PDF como hoy (WARNING sin nombres ni DNIs en el fallo). meta.adjunto_ia deja la traza; meta.source_* siguen siendo del original. DA1 (recomendada A): solo OpenAI por defecto, lista PAGINA_COMO_IMAGEN_PROVEEDORES. DA2 (A): imagen incrustada, sin render. DA3 (A): PAGINA_COMO_IMAGEN encendido por defecto, sin cambio de entorno en Azure. DA4 (A): OPENAI_IMAGE_DETAIL=high para toda imagen. Va antes que F-056 y F-058 (la relectura con Gemini sigue como red de seguridad). Spec: specs/F-059-pagina-como-imagen-derecha/.
+
+### F-060 · Racha de incidencia con CIZ móvil: el primer día abre con su CI* y el fin (CIZ) se mueve editando la línea de Sigrid hasta que llega un día con horas
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-060-racha-incidencia-ciz-movil`
+
+**Pendiente**: MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062
+
+Petición del humano del 2026-10-23: «el primer dia de unas vacaciones siempre debe marcarse como inicio vacaciones, si luego al dia siguiente aparece vacaciones debe guardarse fin de vacaciones. este fin se va moviendo segun aparzcan dias de vacaciones hasta que aparezca un dia laborable en cuyo caso ya no se mueve. [...] hay que ver si ese recurso tiene vacaciones en algun parte de alguna obra (no solo la suya) y si lo tiene cerrar. si no hay se abre. lo mismo para bajas.» Aprobó la tabla del líder («la propuesta es lo correcto [...] debe buscar siempre en todos sus partes del mes anterior»): incidencia sin racha abierta ⇒ abre con su CI*; con racha abierta ⇒ mueve el CIZ a ese día editando la línea existente (si no hay CIZ, lo crea); horas ⇒ la racha queda cerrada. Regla de Sigrid: «no se debe borrar en sigrid, así que solo editará líneas». Hoy (sv4 `_rol_incidencia`, sv5 R1) cada día de incidencia que sigue a otro sale «fin» y escribe un CIZ nuevo; además no distingue la letra, no tiene ventana y no excluye la papelera. Diseño: sv4 decide el rol con la ventana (día 1 del mes anterior a D−1, todas las obras) y manda los ids de la racha; sv5 localiza el CIZ por synckey y lo mueve con un UPDATE (fecha, synckey y, si cambia de parte, parte, obra, centro, cuenta, año y mes), con guarda de parte abierto, sin DELETE ni INSERT. Interruptor MOVER_CIZ en sv5, apagado por defecto. Sin tabla ni columna nueva. Spec: specs/F-060-racha-incidencia-ciz-movil/.
+
+### F-062 · Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración)
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-062-ciz-el-mismo-dia-del-inicio`
+
+**Pendiente**: Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración
+
+Petición del humano del 2026-10-25: «da de alta f62 la primera, y lanza spec», tras la lectura del líder en Sigrid (solo lectura, ruesma, líneas NO escritas por partes desde 2025-01-01) sobre DA3 y DA6 de F-060. DA6 (F-060, DA6 = A: una incidencia de un solo día deja solo su CI*) NO coincide con la práctica de Administración: de los inicios CI* manuales, 306 llevan CI* y CIZ el MISMO día (CIV 184, CIP 99, CIF 13, CIE 7, CIA 2, CIH 1) frente a 34 sin CIZ (casi todos rachas aún abiertas, sobre todo CIE). DA3 sí coincide (816 rachas con el CIZ en el mismo parte, 224 en el parte del mes siguiente de la misma obra, 65 en el parte de otra obra; solo 12 cortes a fin de mes). Propuesta del líder, aceptada por el humano como feature: al registrar el `inicio` de una racha, sv5 escribe el CI* y además un CIZ (can 0) el mismo día; si llega otro día de la misma racha, ese CIZ se mueve con la mecánica de F-060 (UPDATE optimista, sin DELETE). Así un día suelto queda CI*+CIZ y ninguna racha queda abierta sin CIZ. Depende de F-060 (desplegada, MOVER_CIZ apagado); a decidir en la spec: si va bajo el mismo interruptor MOVER_CIZ, qué pasa con las rachas ya abiertas (solo CI*), el `fin` que hoy escribe un CIZ nuevo cuando no encuentra el de la racha, y el impacto en sv4 (roles, racha_registro_ids, aviso de racha desordenada).
+
+### F-063 · sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s)
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-063-consulta-obra-rapida`
+
+**Pendiente**: Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes
+
+Petición del humano del 2026-10-25 («1a») tras la M1 de F-058 (líder, local, solo lectura): las 8 consultas `[obra-sigrid]` salieron `resultado=error error=ReadTimeout` (5,6–6,2 s, tope `OBRA_EXISTE_TIMEOUT_S` = 5 s). Medido aparte en sigrid-api: `_SQL_EXISTE_OBRA` (sv2 `infrastructure/sigrid/sigrid_lookup_client.py`, normaliza `con.cod` fila a fila con `CROSS APPLY` + `COLLATE`) tarda 12–16 s; `SELECT 1` 79 ms; `con.cod IN (variantes con ceros)` 110–124 ms; `con.cod LIKE '%692'` 101 ms; `OPTION (FORCE ORDER)` no lo arregla (13 s). Desplegada así, toda consulta de obra sería «no se sabe» (la relectura por obra inexistente nunca saltaría), +~6 s por parte y ~13 s de consulta en el SQL de producción de Sigrid por parte. Objetivo: misma semántica de F-058 (clave normalizada: sin espacios ni guiones, sin ceros a la izquierda si es numérica, sin distinguir mayúsculas ni acentos) con una consulta que use el índice de `con.cod` y quepa holgada en el tope. sv2 NO se despliega hasta cerrar esta feature (F-058 está en dev sin desplegar).
+
+### F-064 · El filtro del portal se mantiene durante la sesión de cada usuario
+
+estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feature/F-064-filtro-en-sesion`
+
+**Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)
+
+Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
@@ -304,13 +382,33 @@ Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la 
 
 estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-046-reajuste-en-sigrid-al-aprobar`
 
+**Pendiente**: M6
+
 Pedida por el humano el 2026-10-14 junto con F-045, de la que DEPENDE (se implementa sobre dev con F-045 fusionada y usa su API pura reparto_ponderado.py). Caso real: el 14/10 un recurso tenia la 0678 registrada como 8 normales y -4 extra (4 h trabajadas); llega la 0704 con 8 h y el reparto ideal es 0678 2,5+1,5 y 0704 5,5+2,5, pero F-045 deja la 0678 congelada (0704 0+8). F-046: sv3 (con el interruptor REPARTO_REAJUSTE) aplica el ideal a lo no congelado y guarda la propuesta de lo congelado en la tabla nueva reparto_pendiente (las dos copias del ORM); sv4, al aprobar, avisa con obra, dia, linea y horas antes -> despues y ofrece Aplicar o Mantener lo registrado; sv5 reajusta en Sigrid las lineas hmores ya escritas (UPDATE can/tot con el pre de la linea, INSERT de la extra nueva; por regla del humano nunca DELETE: a 0 se pone can=0, tot=0) bajo el lock, en un lote atomico con concurrencia optimista y solo en partes En registro y lineas sin enlaces; sv3 materializa lo aplicado en partes (excepcion acotada a la congelacion) bajo un candado consultivo de la base partes. Toca sv3, sv4 y sv5. Spec: specs/F-046-reajuste-en-sigrid-al-aprobar/.
 
 ### F-053 · Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE
 
 estado **terminada** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-053-pisar-sin-borrar`
 
+**Pendiente**: M4
+
 Regla del humano: «no se debe borrar en sigrid, así que solo editará líneas, por lo que si una hora extra se queda a cero no se borrará sino se pondrá a cero.» Hallazgo del 2026-10-20 (specs de F-052 y F-034): al registrar con un conflicto confirmado sv5 hace DELETE FROM hmores WHERE ide = ? (stmt_borrar_linea) y el portal dice que borra. Aprobado abrirla aparte el 2026-10-20 («Ok a las 2»), justo detrás de F-034, que toca la misma sentencia: se implementa sobre dev con F-034 fusionada (su guarda de parte abierto, su R4 y su relectura). sv5: el pisado pasa a stmt_anular_linea (UPDATE can = 0, tot = 0 con WHERE optimista, sin enlaces y con la guarda de F-034; synckey, tex y demás intactos), sin ningún DELETE en el cliente ni en el pipeline; una línea a 0 ya no choca (salvo incidencias); incidencia contra la misma incidencia ⇒ omitido incidencia_en_sigrid; choque con línea enlazada (albarán, factura, dedicación, nómina) ⇒ omitido linea_enlazada; pisada que cambió ⇒ pisada_no_anulada; el resultado cuenta anuladas en vez de borradas. sv4: textos del modal de conflictos y del resultado («se pone a 0, no se borra») y MOTIVO_LINEA_REGISTRADA sin aconsejar borrar. Sin esquema ni colas. Aviso a porcentajes (su dedicacion-transfer tiene el mismo DELETE) en azure-apps/partes.md, sin tocar su repositorio. Decisiones DA1-DA12 y M1 de solo lectura en specs/F-053-pisar-sin-borrar/design.md §9 y §12.
+
+### F-058 · sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera
+
+estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-058-relectura-cabecera-gemini`
+
+**Pendiente**: Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes
+
+Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local sin escrituras): 6 páginas de dos escaneos (21/10 y 23/10) se guardaron sin obra ni fecha porque gpt-6.1-sol (IA_PROVIDER=openai en sv2) devolvió la cabecera entera a null aunque leyó las filas. El escaneo sale desplazado. Reproducido: 12 de 12 lecturas con gpt-6.1-sol dan cabecera vacía; gemini-4-argon da obra y fecha correctas 6 de 6 con las mismas filas. Decisiones del humano del 2026-10-23: «si, lanza f54 y la spec de relectura con gemini»; DA1 enmendada, «da1, vacia o no casa con ninguna obra»; y «para el tema de la cabecera podemos mejorar el prompt diciendole que hay una cabecera y que debera obtener la obra el dia mes, etc... añadelo a f58, lo demas ok» (DA2–DA8 aprobadas con la recomendación; comprobación de existencia en sv2). Spec enmendada (specs/F-058-relectura-cabecera-gemini/): solo sv2. Con al menos una fila de empleados, relee el mismo adjunto una vez con RELECTURA_CABECERA_PROVIDER (gemini, modelo GEMINI_MODEL) y el mismo prompt, esquema y catálogo si (a) obra_numero y fecha vienen vacíos o (b) la obra leída no existe en Sigrid (DA10 = B, «da10, vamos a poner una consulta en el momento al vuelo, y vemos tiempos. si la obra no existe se manda a relectura a gemini»: una consulta sql/read parametrizada a sigrid-api por página, sin caché, clave sin ceros a la izquierda, cualquier empresa y también de baja; truncated = fallo; cada consulta deja en el log INFO [obra-sigrid] con document_id y milisegundos, y en meta.relectura_cabecera.consulta_obra_ms al releer; si sigrid-api falla o pasa de OBRA_EXISTE_TIMEOUT_S = 5 s, no se relee por obra y la extracción sigue, propuesta pendiente DA12). No es la conciliación de sv3 ni amplía la lista de duplicados. Toma la cabecera entera de la relectura si es útil (con obra o fecha; con obra inexistente, si su obra existe); firma y empleados de la primaria; si falla o no es útil, la primaria (F-054 la manda a revisión). Traza en meta/debug.relectura_cabecera (motivo cabecera_vacia|obra_inexistente, resultado aplicada|vacia|no_casa|error). Interruptor RELECTURA_CABECERA encendido; sin cambios de entorno en Azure (Gemini y SIGRID_API_* ya están en ca-sv2-extraccion; M0 en solo lectura). Además, el punto 1 del prompt parte_trabajo_es dice que toda página tiene una cabecera y que de ella salen la obra, el día, el mes y el año, el membrete y el resto; vale para ambos proveedores y se mide con el banco del líder (MB: sincab con gpt-6.1-sol antes 0 de 12; sin regresión en control, Gemini ni batería de F-051). De 157 documentos con obra leída, los 157 casaron: el motivo obra inexistente es preventivo. Pendientes de confirmar DA9 (puerta del banco), DA11 (cabecera entera también con obra inexistente) y DA12 (fallo o lentitud de la consulta: no releer por obra, tope 5 s), recomendadas A. Tiempos de la consulta en Log Analytics tras desplegar (M4). Se actualizan ARCHITECTURE.md, azure-apps/partes.md (sv2 consume Gemini y sigrid-api) y el comentario de create_capps_partes.ps1.
+
+### F-061 · Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso
+
+estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
+
+**Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N
+
+Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
 
@@ -340,7 +438,17 @@ Reportado el 2026-09-30 por Juan Romero ('RV: CAPTURAS'): hizo un parte con una 
 
 estado **terminada** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-049-editor-calendario-normal-y-extra`
 
+**Pendiente**: M2–M8 en el portal
+
 Pedida por el humano el 2026-10-15 («si solo hay extras u ordinarias edita pero no me sale 0+2 para poder añadir línea»). Hoy el popup de doble clic de la matriz Horas por día (vista de obra) solo ofrece crear la extra si hay una ordinaria; con solo extras no deja añadir la ordinaria, y editar un miembro de la pareja base + extra_auto se pierde en la siguiente pasada de sv3. F-049 (sv4 partes-front y, por la DA13-C, sv3 solo en marcar_terminado; sin esquema, sv5 ni Sigrid): el popup ofrece siempre la ordinaria y la extra que falten («(nueva)»), guarda la celda entera en una ruta atómica nueva (POST /api/matriz/celda) que identifica la celda por (obra_key, clave de trabajador de F-050, fecha) y comprueba que nada cambió desde que se abrió, clona el contexto de la plantilla (incluida la partida; fila del papel y leído con fila_para_alta_manual de F-050), materializa las parejas tocadas (horas_orig NULL, extra_auto False), avisa de las otras obras del mismo día (al abrir y, tras guardar, con enlaces) y pide UN recálculo seguido (F-043) con un pedido compartido escrito en los partes tocados y en los de otras obras de ese día, que sv3 da por terminado en todos (marcar_terminado por pedido, no por documento), respeta la congelación y el reparto de F-046 (aviso si pendiente, 409 si aplicando) y se puede deshacer. Revisada el 2026-10-20 sobre dev ff2ed8e + F-050: va DESPUÉS de F-050 y ANTES de F-047 (de la que no depende). Aprobada por el humano el 2026-10-20: DA1–DA12 opción A y DA13 opción C. Despliegue sv3 antes que sv4. Spec: specs/F-049-editor-calendario-normal-y-extra/.
+
+### F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión
+
+estado **terminada** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-054-sin-obra-o-fecha-a-revision`
+
+**Pendiente**: releer los 6 partes sin obra cuando F-059 esté desplegada
+
+Petición del humano del 2026-10-21 («2 si»): «abro una feature pequeña para que un parte sin obra o sin fecha vaya siempre a revisión». Hallazgo del líder el 2026-10-21 (solo lectura en producción): las dos páginas de un escaneo de ese día llegaron con la cabecera vacía (fecha, obra_numero y empresa_membrete null), firmadas y con 4 y 6 trabajadores casados, y se guardaron con review_required = false, obra_match_method = 'none' y obra_ide, obra_codigo y fecha_int NULL: _compute_review_required de sv3 no miraba la obra sin casar por 'none' ni la fecha. sv3: motivos_cabecera (sin_obra si obra.ide es None, sea cual sea el método; sin_fecha si fecha_int es None o <= 0) sube review_required, sustituye a OBRA_A_REVISAR (que desaparece) y deja un WARNING con document_id y motivos, sin nombres ni DNIs. Solo ingestas nuevas; sin esquema, sin colas, sin cambios en sv4 ni sv5. Lo ya guardado: M1 de solo lectura en la base partes y, si se aprueba DA3 = B, un UPDATE único manual que solo sube la bandera en los activos no aprobados. Hallazgo aparte (DA5, feature propuesta): una línea sin fecha viaja a sv5 con fecha_int = 0 y sv5 no la rechaza. Decisiones DA1-DA7 APROBADAS el 2026-10-21 con la recomendación (A salvo DA3 = B; «apruebo F-054 y la DA5»); la guarda de DA5 es F-055. M1 hecha el 2026-10-21 (M2 afectará a 3 documentos; ninguna línea sin fecha llegó a Sigrid). Va justo detrás de F-049 (en curso): prioridad 4, desempata el id. Detalle en specs/F-054-sin-obra-o-fecha-a-revision/design.md §8 y §9.
 
 ### F-004 · Congelar registros aprobados
 
@@ -359,6 +467,14 @@ El spec-author de F-003 detectó (2026-08-15) que la duplicación tolerada de in
 estado **terminada** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-015-jornada-semanal-candef`
 
 Implementación de lo que propone el estudio F-012 (specs/F-012-estudio-jornada-semanal, requisitos R10–R25 del bloque B, tasks §'Propuesta de tasks para F-015'). Resolutor único gemelo sv3/sv4: L–V = candef efectivo salvo el ÚLTIMO DÍA LABORABLE de la semana del trabajador (calendario F-003; festivo cuenta como jornada), que vale jornada semanal − 4×candef (nunca negativo); jornada semanal derivada del candef por el mapa configurable JORNADA_SEMANAL_POR_CANDEF (default 8:40,9:42; env espejo en sv3 y sv4; candef válido fuera del mapa → jornada plana 5×candef + WARNING; sin calendario cableado → viernes). Excepciones por trabajador en tabla nueva empleado_jornada de la BBDD partes (DNI normalizado, jornada semanal y/o patrón 7 valores, vigencia desde/hasta, origen, auditoría), declarada en las DOS copias de orm_models.py; si falla su lectura, derivada + WARNING. sv3 usa la jornada del día en el split de extras (excluyendo del re-split lo registrado/encolado/approved, coherente con F-004); sv4 en avisos de jornada incompleta, KPI (enseña patrón y S aplicada) y +Nuevo (jornada_dia con fecha). Regresión cero con candef 8. PRERREQUISITOS: F-014 cerrada (candef 9 en Sigrid) y F-010 antes (orm_models resincronizado, decisión D6 aprobada). Servicios: sv3 y sv4 (duplicación tolerada de orm_models y resolutor gemelo, patrón F-003).
+
+### F-038 · Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto)
+
+estado **terminada** · prioridad 7 · rigor `estandar` · SDD sí · rama `feature/F-038-limite-filas-sigrid`
+
+**Pendiente**: M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK
+
+Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
 
 ### F-016 · Pantalla de administración de empleado_jornada en el portal (sv4)
 
@@ -381,6 +497,8 @@ Los dos objetivos originales estan cumplidos de hecho. Comprobado el 2026-08-20 
 ### F-019 · Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid
 
 estado **terminada** · prioridad 9 · rigor `critico` · SDD sí · rama `feature/F-019-mensuales-a-dedicacion`
+
+**Pendiente**: interruptor MENSUALES_A_DEDICACION apagado: falta la feature espejo en porcentajes y la M3
 
 Pedida por el humano el 2026-09-29. Los trabajadores cuyo recurso tiene un codigo de hora mes (M* en su reshor de Sigrid: encargados, jefes de obra, tecnicos...) hoy NO dejan nada de sus horas en ningun sitio: sv5 las omite (reglas_registro.py R2 si no tienen HE%, R3 si no tienen HL%). Solo sus INCIDENCIAS se escriben en Sigrid (R1). LO QUE SE PIDE: al APROBAR en el portal, las lineas de estos trabajadores viajan al sistema de dedicacion (repo porcentajes) EN LUGAR DE a Sigrid. DECISIONES DEL HUMANO (2026-09-29): (1) Criterio de 'mensual' = tener un codigo M* en reshor, el mismo que usa dedicacion (no el 'sin HE%' que usa partes hoy). (2) Se envian TODAS las horas aprobadas que haya en partes para ese trabajador. (3) El porcentaje por obra se calcula en funcion de los DIAS LABORABLES del mes; las horas indicadas en festivos se desprecian. Ese calculo es de dedicacion (porcentajes tiene o tendra la funcion): partes envia el dato del dia (trabajador, fecha, obra/partida, horas, tipo) y NO calcula porcentajes, por el limite de servicio. (4) Las VACACIONES cuentan como dias trabajados para ese calculo. (5) Las INCIDENCIAS se llevan a dedicacion COMO INCIDENCIA, con su porcentaje; dejan de escribirse en Sigrid para estos trabajadores (cambia R1). (6) Se presentan en dedicacion como PROPUESTA de reparto, que alguien revisa en el cuadrante; no lo sobrescriben solas. (7) En el portal de partes esas lineas dejan de salir como 'omitidas' y pasan a 'enviadas a dedicacion'. A DECIDIR EN LA SPEC: (a) CANAL. Recomendacion del lider: una bandeja de salida en la base partes (tabla propia escrita por sv5 al aprobar) que dedicacion-api lee con un rol de SOLO LECTURA; cada proyecto escribe solo en su base y no se abre ninguna ruta de red. Descartado HTTP hacia dedicacion-api: no tiene autenticacion propia, su ingress interno es su unico control de acceso (azure-apps/dedicacion.md 5) y vive en otro Container Apps Environment. Alternativa a valorar y descartar con argumentos: bandeja de entrada en la base dedicacion escrita por partes. Nada a nivel de servidor en psql-albaranes-rs9k2: el rol se crea dentro de la base partes. (b) Mensuales que ademas tienen HE% (capataz MCAP + HECAP): si sus extras siguen yendo a Sigrid o tambien viajan a dedicacion; hoy van a Sigrid. (c) DESAPROBAR (F-004): como se retira de dedicacion lo ya enviado, e idempotencia al reaprobar. (d) Que pasa si el periodo ya esta CERRADO en dedicacion cuando llega la aprobacion. (e) Donde vive la decision de enrutar: previsiblemente en sv5 (reglas_registro, nueva accion ademas de escribir/omitir), que ya carga los codigos del recurso. FUERA DE ESTE REPOSITORIO: la lectura y el calculo del porcentaje en dedicacion son una feature del repo porcentajes, a crear alli con decision del humano; esta feature publica el dato y actualiza azure-apps/partes.md en el mismo trabajo (pasamos a exponer algo). RIGOR critico: cambia que se escribe en Sigrid en produccion (sv5 deja de registrar las incidencias de los mensuales).
 

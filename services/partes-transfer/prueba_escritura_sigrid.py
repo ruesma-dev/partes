@@ -74,6 +74,7 @@ DB_WRITE = "ruesma"          # la escritura SOLO permite ruesma
 TIP_PARTE_TRABAJO = 35       # con.tip de un parte de trabajo
 EST_ACTIVO = 1               # con.est (los cerrados de anos viejos: 10)
 PASO_POS = 64                # hmores.pos va de 64 en 64 (64,128,192...)
+MAX_ROWS = 500_000           # F-038: tope de la instancia de sigrid-api
 # ------------------------------------------------------------------ #
 
 
@@ -99,13 +100,17 @@ HEADERS = {"x-functions-key": KEY, "Content-Type": "application/json"}
 def sql_read(sql: str, parameters: list, database: str = DB_WRITE) -> list[dict]:
     r = httpx.post(f"{BASE}/api/sql/read", headers=HEADERS, timeout=90, json={
         "database": database, "sql": sql, "parameters": parameters,
-        "timeout_seconds": 60, "max_rows": 1000,
+        "timeout_seconds": 60, "max_rows": MAX_ROWS,
     })
     if r.status_code >= 400:
         raise SystemExit(f"sql/read HTTP {r.status_code}:\n{r.text[:600]}")
     body = r.json()
     if not body.get("ok"):
         raise SystemExit(f"sql/read ok=false: {json.dumps(body)[:600]}")
+    if body.get("truncated"):
+        # F-038 (R10): nunca se decide con filas parciales.
+        raise SystemExit("sql/read: respuesta truncada (mas de "
+                         f"{MAX_ROWS} filas); no se sigue")
     cols = [c.lower() for c in body["columns"]]
     return [dict(zip(cols, row)) for row in body["rows"]]
 

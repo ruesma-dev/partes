@@ -46,6 +46,7 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.parte_vacio import DuplicadoActivoError
 from application.services.edicion_celda import (
     MOTIVO_CELDA_CAMBIADA,
     Cambio,
@@ -130,6 +131,7 @@ from interface_adapters.web.identidad import (
     CABECERA_NOMBRE,
     CABECERA_TOKEN,
     actor_desde_cabeceras,
+    clave_filtros,
     senal_de_despliegue,
 )
 from application.services.obra_catalog import ObraCatalog
@@ -484,6 +486,7 @@ def build_app(
             function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
             database=settings.sigrid_api_database,          # type: ignore[arg-type]
             timeout_s=settings.sigrid_api_timeout_s,
+            max_rows=settings.sigrid_api_max_rows,
         )
         logger.info(
             "[sigrid-lookup][wiring] CABLEADO base_url=%s database=%s",
@@ -821,6 +824,12 @@ def build_app(
         """
         actor, _origen = _resolver_identidad(request)
         return actor
+
+    # F-064 (R1-R3): la clave de filtros que `base.html` pinta en
+    # `<body data-filtros-usuario>`. Delega en el resolutor: no lee
+    # cabeceras por su cuenta, y el actor en claro no llega al HTML.
+    templates.env.globals["clave_filtros_de"] = (
+        lambda request: clave_filtros(*_resolver_identidad(request)))
 
     def _exigir_admin_jornadas() -> None:
         """Puerta UNICA de la pantalla de jornadas (R15).
@@ -2369,7 +2378,8 @@ def build_app(
         datos = repository.lineas_para_registro(
             ids, incluir_borradas=bool(body.get("incluir_borradas")),
             incidencias=tabla_incidencias,
-            repartos_decididos=repartos_decididos)   # F-046 (R32)
+            repartos_decididos=repartos_decididos,   # F-046 (R32)
+            mover_ciz=settings.mover_ciz)            # F-060 (R26 bis)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
@@ -2761,7 +2771,8 @@ def build_app(
         evaluado = dict(pf, clave=grupo.clave, obra=grupo.obra,
                         registro_ids=grupo.registro_ids,
                         avisos_calendario=_avisos_calendario(grupo.lineas),
-                        avisos_incidencia=grupo.avisos_incidencia)  # F-025
+                        avisos_incidencia=grupo.avisos_incidencia,  # F-025
+                        avisos_racha=grupo.avisos_racha)  # F-060 (R10)
         # F-003 R23: el preflight se sirve igual (el humano tiene que poder
         # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
         if not _calendario_fiable(grupo.lineas):
@@ -3475,19 +3486,27 @@ def build_app(
     # ----------------------------------------------------------- #
     # BORRADO: linea / obra / persona  (soft -> papelera -> hard).
     # ----------------------------------------------------------- #
+    def _duplicado_activo(exc: DuplicadoActivoError) -> JSONResponse:
+        """F-061 (R7): 409 legible en vez del 500 del indice unico."""
+        return JSONResponse(status_code=409,
+                            content={"ok": False, "error": exc.motivo})
+
     @app.post("/api/registro/{registro_id}/delete", include_in_schema=False)
     def api_registro_delete(request: Request,
                             registro_id: int) -> JSONResponse:
-        ok = repository.soft_delete_registro(
+        # F-061 (R1): `parte_retirado` y `document_id` le dicen al portal
+        # que el parte se quedo sin lineas (el detalle daria 404).
+        return JSONResponse(repository.borrar_linea(
             registro_id=registro_id, by=_actor(request)
-        )
-        return JSONResponse({"ok": ok})
+        ))
 
     @app.post("/api/registro/{registro_id}/restore", include_in_schema=False)
     def api_registro_restore(registro_id: int) -> JSONResponse:
-        return JSONResponse(
-            {"ok": repository.restore_registro(registro_id=registro_id)}
-        )
+        try:
+            ok = repository.restore_registro(registro_id=registro_id)
+        except DuplicadoActivoError as exc:   # F-061 R7
+            return _duplicado_activo(exc)
+        return JSONResponse({"ok": ok})
 
     @app.post("/api/registro/{registro_id}/hard-delete", include_in_schema=False)
     def api_registro_hard(registro_id: int) -> JSONResponse:
@@ -3516,9 +3535,11 @@ def build_app(
 
     @app.post("/api/documento/{document_id}/restore", include_in_schema=False)
     def api_documento_restore(document_id: str) -> JSONResponse:
-        return JSONResponse(
-            {"ok": repository.restore_document(document_id=document_id)}
-        )
+        try:
+            ok = repository.restore_document(document_id=document_id)
+        except DuplicadoActivoError as exc:   # F-061 R7
+            return _duplicado_activo(exc)
+        return JSONResponse({"ok": ok})
 
     @app.post("/api/documento/{document_id}/hard-delete", include_in_schema=False)
     def api_documento_hard(document_id: str) -> JSONResponse:

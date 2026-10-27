@@ -34,7 +34,7 @@ un mensaje `{"tipo": "recalcular", ...}` al guardar o deshacer la fecha de
 un parte o (F-049) una celda de la matriz de obra (semántica 3), que sv3
 distingue del de sv2 (sin `tipo`);
 sv4↔sv5 por **doble canal** (ver más abajo);
-sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
+sv2/sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
 librería compartida: los servicios se acoplan únicamente por mensajes,
 HTTP y la BBDD `partes`.
 
@@ -214,6 +214,41 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con
    solo 2 líneas físicas es correcto. La racha cruza partes y obras.
+   **Desde F-060**, con el interruptor **`MOVER_CIZ`** encendido (la misma
+   variable en sv4 y en sv5, apagada por defecto), el rol lo decide sv4 con
+   el histórico de la persona (`persona_de`) en una **ventana** del día 1
+   del mes anterior hasta el día anterior, de todas las obras, **por la
+   letra** (V seguida de B abre una racha nueva) y **sin la papelera**:
+   último día con líneas de la misma letra ⇒ `fin`, si no ⇒ `inicio`; con
+   `fin` manda `racha_registro_ids` (las líneas de la racha y las de la
+   papelera `registrado`/`encolado` del tramo, también de los días
+   saltados). Varios `fin` de una racha en una aprobación: solo el último.
+   Si la racha ya tiene su CIZ en Sigrid (synckey de una de esas líneas),
+   sv5 lo **mueve** al día nuevo con un `UPDATE` de esa misma línea (fecha,
+   synckey y, si cambia de mes u obra, parte), nunca `DELETE` ni otro CIZ;
+   la línea que lo tenía queda `omitido` con motivo `fin_movido`. Un CIZ ya
+   posterior ⇒ `intermedio`; en un parte cerrado ⇒ `ciz_en_parte_cerrado`;
+   enlazado ⇒ `linea_enlazada`. Un trabajo o un inicio aprobado antes de
+   una incidencia ya registrada solo avisa (`racha_desordenada`). Apagado
+   en sv4, el rol es el de antes de F-060 (`intermedio` si el siguiente día
+   ya ingerido es incidencia; sin listas ni avisos); apagado en sv5, cada
+   `fin` escribe su CIZ. Se enciende sv5 y luego sv4; se apaga sv4 y luego
+   sv5: **apagar los dos es la vuelta atrás completa** (lo ya movido no se
+   deshace).
+   **Desde F-062**, con el mismo `MOVER_CIZ`, el **`inicio` escribe su CI*
+   y un CIZ el MISMO día** (como Administración: un día suelto ya no queda
+   solo con su CI*): sv4 lo marca con `ciz_mismo_dia` y le manda su tramo
+   delante en `racha_registro_ids`; sv5 escribe los dos con **una sola
+   sentencia de dos filas** (el CIZ, «hermano», con synckey
+   `partes:<id>:ciz`, `pos` detrás del CI* y la cuenta del código CIZ).
+   Si la racha sigue, el siguiente `fin` encuentra ese hermano por
+   `partes:<id>:ciz` y lo **mueve** como cualquier CIZ (`UPDATE`); la línea
+   del inicio conserva su CI* y sigue `registrado` (sin `fin_movido`). Sin
+   hermano: si su `fin` viaja en la misma aprobación (lo escribe ese
+   `fin`), si la racha ya tiene un CIZ posterior, si el hermano ya existe,
+   si hay un CIZ ajeno ese día o si el recurso no tiene CIZ (WARNING).
+   Nada es retroactivo: una racha abierta antes de F-062 recibe su CIZ con
+   su siguiente `fin`.
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para
@@ -257,7 +292,25 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `parte_registros` lleva `horas_extra_leidas` (`Float`, nullable, sin
    defecto; la escribe solo la ingesta de sv3, semántica 3): 57 columnas.
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
-   `deleted_*`; nunca borrado físico desde la aplicación.
+   `deleted_*`; el único borrado físico es vaciar la papelera o «Eliminar»
+   en ella. **Parte retirado (F-061, sv4)**: cuando un parte se queda sin
+   ninguna línea viva (borrar la última línea, borrar una persona o
+   deshacer una celda) no va a la papelera de partes: se **retira**
+   (`is_active = false`, `deleted_at_utc` NULL y `deleted_by` con la marca
+   `sin-lineas`), en la misma transacción y con su fila de
+   `parte_documents` bloqueada (`FOR UPDATE`, por `id`). No sale en
+   `/partes` ni en «Partes borrados», sus líneas siguen en «Líneas sueltas
+   borradas» y su sha256 queda libre para que sv3 reingiera el PDF. La
+   marca lo distingue del parte desactivado por el reemplazo de sv3
+   (`deleted_by` NULL). Restaurar una de sus líneas lo devuelve; si ya hay
+   otro parte activo del mismo sha256 (se reprocesó), restaurar responde
+   409 sin escribir. Restaurar un parte de la papelera sin líneas vivas
+   devuelve también sus líneas. Al vaciar la papelera, y al «Eliminar» su
+   última fila, el parte retirado que no conserva **ninguna** fila se
+   borra físicamente (decisión del humano); el que conserva filas que
+   viven fuera sigue retirado. Borrar una obra y «Borrar parte» siguen
+   mandando el parte a la papelera de partes. `/partes` cuenta solo las
+   líneas vivas y marca con «Sin líneas» el parte activo sin ninguna.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
    del que solo las hojas admiten imputación; CD = costes directos
    (códigos numéricos), CI = indirectos (códigos con letras).
@@ -320,6 +373,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `GET /whoami` permite comprobar la identidad resuelta sin escribir
     ninguna fila. `DEFAULT_REVIEWER` sobrevive con otro significado: ya no
     es «quién firma el portal» sino la etiqueta de la sesión local.
+    **Filtros por usuario (F-064)**: con ese mismo actor, `clave_filtros`
+    (pura, en `identidad.py`) da una **clave de filtros** —16 hex del
+    SHA-256, sin el UPN en claro— que `base.html` pinta en
+    `<body data-filtros-usuario>`; vacía con `sin-identidad` desplegado.
+    `FiltrosSesion` (`static/app.js`) guarda en `localStorage`
+    (`partes.filtros.v1:<clave>`) los filtros **por usuario y pantalla**
+    (filtros por columna, días con su periodo, la casilla de la matriz y la
+    búsqueda de las tres listas) y los repone al volver, con el aviso
+    «Quitar filtros». Caducan a las **8 h** sin cargar ninguna página (la
+    cookie de Easy Auth). La **selección de líneas nunca se guarda**: con
+    un filtro repuesto, aprobar sigue enviando solo lo visible (F-022).
 12. **Empresa y alta (F-023)**: maestros de TODAS las empresas (`con.emp`;
     `SIGRID_EMPRESA` ya no se usa). «De alta a D» = `con.fecbaj` NULL, 0 o
     `> D` (nunca `emp.fecbaj`). Hay códigos de obra en dos empresas: la
@@ -508,16 +572,99 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (encendido por defecto; medido el 2026-10-19: habría marcado 8 de 108
     partes laborables y 9 de 17 de fin de semana). El campo viaja en
     `raw_extraction_json` (sin columna). Solo afecta a ingestas nuevas.
+18. **Parte sin obra o sin fecha (F-054, sv3)**: sv3 manda a revisión
+    (`review_required`) todo parte sin obra casada (`obra.ide` nulo: `none`
+    y los sin casar de F-023) o sin fecha (`fecha_int` nulo o ≤ 0), con un
+    WARNING `sin_obra` / `sin_fecha` sin nombres. La bandera no bloquea la
+    aprobación ni la baja nadie al poner obra o fecha en el portal. Solo
+    ingestas nuevas; lo guardado antes no se toca (el humano descartó la M2
+    de F-054 el 2026-10-23: los partes sin obra se corrigen en el portal).
+19. **Página escaneada como imagen derecha (F-059, sv2)**: OpenAI, con el
+    PDF como `input_file`, no aplica el `/Rotate` de la página y lee de lado
+    el JPEG que el escáner guarda girado (cabecera vacía 12/12 en el banco).
+    Si el PDF es una **página escaneada** (una página cuyo contenido es solo
+    `q cm Do Q` de un JPEG `DCTDecode` de 8 bits en RGB o grises, a página
+    completa, sin giro en la matriz), sv2 le manda en su lugar esa imagen
+    girada en sentido horario los grados del `/Rotate`, como la enseña un
+    visor (JPEG RGB calidad 90, sin EXIF; `infrastructure/document/
+    pagina_pdf_imagen.py`, puerto en `domain/ports/conversor_pagina.py`).
+    Lo que no es página escaneada va como PDF (`no_aplica`, INFO con el
+    motivo cerrado) y si la conversión lanza, también (`error`, WARNING con
+    el tipo y el sha256 corto, sin nombre de fichero). Interruptor
+    `PAGINA_COMO_IMAGEN` (encendido por defecto) y lista
+    `PAGINA_COMO_IMAGEN_PROVEEDORES` (`openai` por defecto; un nombre
+    desconocido no arranca); OpenAI manda `detail` = `OPENAI_IMAGE_DETAIL`
+    (`high`) en toda `input_image`, fotos del móvil incluidas. El original
+    no cambia: sv1 lo guarda tal cual, `meta.source_*` (y la deduplicación
+    de sv3 por sha256) siguen siendo suyos, y `meta.adjunto_ia` (en
+    `raw_extraction_json`, sin columna) dice qué se mandó: `conversion`
+    (`convertida` / `no_aplica` / `error` / `apagada`), `motivo`, tipo y
+    tamaño, y giro y medidas si se convirtió.
+20. **Relectura de la cabecera y prompt de cabecera (F-058, sv2)**: si la
+    lectura primaria (`IA_PROVIDER`, hoy OpenAI) trae trabajadores y su
+    cabecera sale **vacía** (sin obra ni fecha) o su **obra no existe en
+    Sigrid**, sv2 relee el mismo documento **una vez** con
+    `RELECTURA_CABECERA_PROVIDER` (`gemini` por defecto, con su modelo), el
+    mismo prompt, esquema y catálogo auxhor; el adjunto sigue la regla de
+    F-059 con ese proveedor (hoy Gemini recibe el PDF). Si la releída es
+    útil (con cabecera vacía: trae obra o fecha; con obra inexistente: trae
+    una obra que existe y no es la misma clave), se toma su **cabecera
+    entera** y firma y empleados siguen siendo los de la primaria; si no, o
+    si la relectura falla, queda la primaria (F-054 la manda a revisión).
+    La existencia de la obra se pregunta **en el momento** a sigrid-api
+    (`SigridLookupClient.existe_obra`, sin caché, como mucho dos consultas
+    por página: la obra leída y la releída) por la clave (sin acentos,
+    mayúsculas, sin espacios ni guiones y sin ceros a la izquierda si es
+    numérica), de cualquier empresa y también de baja; no casa la obra (eso
+    sigue en sv3). Desde F-063 es un `SELECT DISTINCT con.cod … WHERE
+    con.cod LIKE ?` parametrizado, sin funciones sobre `con.cod` (un
+    recorrido sin funciones por fila, ~0,1 s; con el `%` inicial no es una
+    búsqueda por índice), con el patrón `%c1%c2%…%` de la clave (cada
+    carácter con sus variantes de mayúscula y acento) como único parámetro;
+    trae candidatos distintos y el resultado exacto lo da sv2 con la misma
+    `clave_obra` (`domain/models/clave_obra.py`) sobre cada uno. Tope
+    `OBRA_EXISTE_TIMEOUT_S` (5 s); un fallo, `truncated` o el tope superado
+    son «no se sabe»: no se relee por obra y la extracción sigue. Cada
+    consulta deja un INFO `[obra-sigrid]` con `document_id`, resultado y ms
+    (para medir los tiempos en Log Analytics), sin el código. Traza solo
+    cuando se relee:
+    `meta.relectura_cabecera` (`motivo` `cabecera_vacia` |
+    `obra_inexistente`, `provider`, `model`, `resultado` `aplicada` |
+    `vacia` | `no_casa` | `error`, `error_tipo`, `consulta_obra_ms`) y
+    `debug.relectura_cabecera` (la cabecera primaria y el `debug` de la
+    relectura), en `raw_extraction_json` sin columna; `meta.provider` y
+    `meta.model` siguen siendo los de la primaria. Interruptor
+    `RELECTURA_CABECERA` (encendido); si el proveedor de relectura es el
+    primario, no está habilitado o no tiene clave, sv2 arranca igual y lo
+    avisa en el log de cableado; `/health` enseña `relectura_cabecera`.
+    Además, el punto 1 del prompt `parte_trabajo_es` avisa de que toda
+    página tiene una cabecera encima de la tabla «PERSONAL» de la que salen
+    la obra, el día, el mes y el año, el membrete y el resto, que se busque
+    aunque el escaneo salga desplazado y que nunca se invente un valor.
 
 ## Acceso a datos y sistemas externos
 
-- **sigrid-api** (Function App): ÚNICA vía a Sigrid; máx. 1.000 filas por
-  petición y corte del balanceador a 230 s. Lecturas contra `ruesma_rep` o
-  `ruesma`; la ESCRITURA (solo sv5) siempre contra `ruesma`.
+- **sigrid-api** (Function App): ÚNICA vía a Sigrid; la instancia admite
+  hasta **500.000 filas** por petición (`MAX_ALLOWED_ROWS`) y el balanceador
+  corta a los 230 s. Lecturas contra `ruesma_rep` o `ruesma`; la ESCRITURA
+  (solo sv5) siempre contra `ruesma`. sv2 lee el catálogo `auxhor` y, desde
+  F-058, consulta en el momento si existe la obra leída (una `sql/read`
+  parametrizada por página que la necesite, tope `OBRA_EXISTE_TIMEOUT_S`).
+- **Límite de filas de las lecturas (F-038)**: sv3 y sv4 paginan los
+  listados a 5.000 filas (`PAGINA_FILAS`, pedidas con `max_rows` 5.001);
+  toda otra lectura de sv2, sv3, sv4 y sv5 pide `SIGRID_API_MAX_ROWS`
+  (opcional, **500.000** por defecto, 1–500.000; fuera de rango el servicio
+  no arranca). `truncated: true` es **siempre error**: nunca se decide con
+  filas parciales (en sv2 el catálogo `auxhor` cae a la caché o vacío con
+  WARNING y la extracción sigue). `SIGRID_API_TIMEOUT_S` tiene que estar en
+  (0, 200] (sv5 suma 30 s al plazo HTTP: ≤ 230 s). La lista cerrada de
+  lectores la vigila `tests/test_f038_lectores_sigrid.py`.
 - **PostgreSQL** `psql-albaranes-rs9k2` (servidor COMPARTIDO con otros
   proyectos): solo la base `partes`; nada a nivel de servidor.
 - **Microsoft Graph**: buzón (sv1) y SharePoint (sv3).
-- **Google Gemini** (sv2): extracción estructurada.
+- **Google Gemini** (sv2): extracción estructurada; hoy el primario es
+  OpenAI (`IA_PROVIDER=openai`) y Gemini relee la cabecera cuando sale
+  vacía o su obra no existe (F-058, `RELECTURA_CABECERA_PROVIDER`).
 - Desde local se apunta a los backends reales (ver `partes-proyecto.md`
   §9): escritura en Sigrid SOLO en modo pruebas (obra 0404, `PRUEBA-IA`).
 - Los unit tests NO tocan ninguno de estos sistemas: mocks, fixtures y
@@ -558,8 +705,17 @@ existen y para qué sirven.
   `services/partes-persistencia/logs/` (ignorada por git), sin nombres ni
   DNIs. F-040 añade la columna `sin_dni_sin_ficha` y la categoría por
   línea `propone_sin_dni` (se ejecuta desde la rama antes de desplegar).
-- `services/partes-front/consulta_reshor_recursos.py` — diagnóstico de
-  solo lectura: qué recursos y qué códigos de hora tiene un DNI en Sigrid.
+- `services/partes-front/limpiar_partes_vacios.py` (F-061) — los partes
+  ACTIVOS que ya estaban vacíos antes de F-061 reciben la misma regla. Sin
+  argumentos SOLO LEE (transacción READ ONLY en `partes`) y deja un
+  Markdown y un CSV en `services/partes-front/logs/`, sin nombres ni DNIs:
+  por parte, categoría (`todas_en_papelera`, `sin_filas_leidos`,
+  `sin_filas_nada_leido`, `sin_filas_manual`), acción prevista (`borrar`
+  sin filas, `retirar` con filas) y motivo de exclusión (aprobado, línea
+  que vive fuera o en vuelo, PT26/00373, 00375 y 00376). Con `--ejecutar
+  --esperados N` (N = candidatos del informe; si no coincide, código 2 sin
+  escribir) aplica la regla bajo bloqueo y con la marca
+  `sin-lineas · F-061-limpieza`. Lo lanza el humano; sin `SessionFactory`.
 - `services/partes-front/validar_datos_sesame.py` (F-013) — informe de
   solo lectura contra `sesame-api`: por cada trabajador, sus festivos del
   año, el tipo de jornada y el flag de reducida, más el calendario por

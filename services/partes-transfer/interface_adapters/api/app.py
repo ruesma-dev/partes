@@ -60,6 +60,10 @@ class LineaIn(BaseModel):
     candef: Optional[float] = None
     incidencia_codigo: Optional[str] = None
     incidencia_rol: Optional[str] = None
+    # F-060 (R9): las lineas de la racha de un `fin` (vacia si no hay).
+    racha_registro_ids: list[int] = Field(default_factory=list)
+    # F-062 (R1, R6): el `inicio` que escribe ademas su CIZ el mismo dia.
+    ciz_mismo_dia: bool = False
 
 
 class PeticionIn(BaseModel):
@@ -129,6 +133,7 @@ def _cliente_sigrid(settings) -> SigridWriteClient:
         max_statements=settings.sigrid_max_statements,
         tip_parte=settings.tip_parte_trabajo,
         est_parte=settings.est_parte_activo,
+        max_rows=settings.sigrid_api_max_rows,
     )
 
 
@@ -211,7 +216,10 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
             "obra_destino": asdict(pf.obra_destino),
             "forzada_pruebas": pf.forzada_pruebas,
             "partes": [asdict(x) for x in pf.partes],
-            "acciones": [asdict(a) for a in pf.acciones],
+            # F-062 (R17): el CIZ hermano no es una accion ni cambia la
+            # respuesta del preflight.
+            "acciones": [{k: v for k, v in asdict(a).items()
+                          if k != "fin_mismo_dia"} for a in pf.acciones],
             "conflictos": [asdict(c) for c in pf.conflictos],
             "resumen": resumen,
         })

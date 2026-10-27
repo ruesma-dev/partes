@@ -1,24 +1,41 @@
 # infrastructure/sigrid/sigrid_lookup_client.py
-"""Cliente HTTP de SOLO LECTURA contra ``sigrid-api`` para el portal.
+"""Cliente HTTP de SOLO LECTURA contra ``sigrid-api`` para sv2 (extracción).
 
-Unico lookup necesario en sv4: la lista de tipos de hora (``auxhor``)
-para el desplegable de codigo de hora del detalle del trabajador. El
-casado inicial lo hace el sv3; aqui solo poblamos el selector y, al
-guardar, resolvemos el ``auxhor`` elegido por ``ide`` para no confiar
-en el cliente con los precios.
+Dos lecturas, ambas por ``POST /api/sql/read`` contra la base configurada:
+
+- ``fetch_tipos_hora``: el catálogo de tipos de hora (``auxhor``) que se
+  inyecta en el prompt para que la IA proponga el código de hora (lo cachea
+  ``AuxhorCatalogProvider``).
+- ``existe_obra`` (F-058, DA10 = B): si hay en Sigrid alguna obra con una
+  clave dada, de cualquier empresa y también de baja; una consulta en el
+  momento por página, con su propio tope de tiempo, para decidir si se
+  relee la cabecera. No casa la obra: eso lo hace sv3. Desde F-063 es un
+  ``LIKE`` parametrizado sobre ``con.cod`` sin funciones (un recorrido
+  sin funciones por fila, ~0,1 s frente a 12–16 s; con el ``%`` inicial no
+  es una búsqueda por índice) que trae candidatos distintos, y el resultado
+  exacto lo da ``clave_obra`` sobre cada uno, la misma que calcula la clave.
+
+``truncated: true`` es siempre error (F-038): nunca se decide con filas
+parciales.
 """
 from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
+from domain.models.clave_obra import clave_obra
 
 logger = logging.getLogger(__name__)
 
 _LOG_PREFIX = "[sigrid-lookup]"
+
+#: F-038 (R2, DA1 = B): `max_rows` de la lectura si no se pasa otro; el tope
+#: de la instancia de sigrid-api. Igual que `SIGRID_API_MAX_ROWS`.
+MAX_ROWS_DEFECTO = 500_000
 
 _SQL_TIPOS_HORA = """\
 SELECT
@@ -32,6 +49,77 @@ FROM auxhor
 WHERE (auxhor.fecbaj IS NULL OR auxhor.fecbaj = 0)
 ORDER BY auxhor.ext, auxhor.cod
 """
+
+#: F-063 (R1, R2; antes F-058 R7): candidatos de una clave. El único
+#: parámetro ``?`` es ``patron_like(clave)`` (nunca concatenado). Sin
+#: funciones ni ``COLLATE`` sobre ``con.cod`` (el optimizador usa el plan
+#: barato), sin ``TOP`` (cortaría el superconjunto antes del filtro) y sin
+#: filtro de empresa ni de baja. ``DISTINCT``: una fila por código aunque
+#: esté en varias empresas. El filtro exacto lo hace ``existe_obra``.
+_SQL_EXISTE_OBRA = """SELECT DISTINCT con.cod AS codigo
+FROM obr JOIN con ON obr.ide = con.ide
+WHERE con.cod LIKE ?
+"""
+
+
+# --------------------- F-063 · patrón LIKE de una clave --------------------- #
+
+#: R6: los especiales de ``LIKE`` de T-SQL van como literales.
+_ESPECIALES_LIKE = {"%": "[%]", "_": "[_]", "[": "[[]"}
+
+#: Rango de caracteres cuyas variantes se buscan (Latin-1 y Latin Extended-A).
+_RANGO_VARIANTES = range(0x00A0, 0x0180)
+
+
+def _tabla_variantes() -> dict[str, frozenset[str]]:
+    """Para cada carácter de U+00A0–U+017F cuya ``clave_obra`` es UNA letra
+    o dígito, lo apunta bajo esa base: ``"A"`` → {ª, À, Á, …, à, á, …},
+    ``"N"`` → {Ñ, ñ, Ń, …}, ``"2"`` → {²}, ``"O"`` → {º, Ò, …}.
+
+    R5 lo pide para toda base con variantes del rango; casi todas son ASCII,
+    pero también ``µ`` (clave ``Μ``, griega). Solo letras y dígitos: dentro
+    de ``[...]`` nunca va ``^``, ``-`` ni ``]``.
+    """
+    tabla: dict[str, set[str]] = {}
+    for punto in _RANGO_VARIANTES:
+        caracter = chr(punto)
+        base = clave_obra(caracter)
+        if len(base) == 1 and base.isalnum() and caracter.isalnum():
+            tabla.setdefault(base, set()).add(caracter)
+    return {base: frozenset(variantes) for base, variantes in tabla.items()}
+
+
+#: Se calcula una vez al importar el módulo.
+_VARIANTES = _tabla_variantes()
+
+
+def _clase(caracter: str) -> str:
+    """Un carácter de la clave como elemento del patrón ``LIKE`` (R5, R6)."""
+    if caracter in _ESPECIALES_LIKE:
+        return _ESPECIALES_LIKE[caracter]
+    opciones = {caracter} | _VARIANTES.get(caracter, frozenset())
+    minuscula = caracter.lower()
+    if len(minuscula) == 1:
+        opciones.add(minuscula)
+    if len(opciones) == 1:
+        return caracter
+    return "[" + "".join(sorted(opciones)) + "]"
+
+
+def patron_like(clave: str) -> str:
+    """F-063 (R4–R7): patrón ``LIKE`` que casa con todo código de esa clave.
+
+    ``%`` y, tras cada carácter de la clave, su clase y otro ``%``: un código
+    cuya clave es ``clave`` contiene sus caracteres en orden con cualquier
+    cosa entre ellos (blancos, guiones, ceros a la izquierda, espacio duro),
+    así que casa siempre, distinga o no la intercalación mayúsculas y
+    acentos. Trae un superconjunto: el filtro exacto lo hace ``existe_obra``.
+    ``"692"`` → ``"%6%9%[2²]%"``. Una clave vacía lanza ``ValueError``
+    (nunca un ``%`` suelto que traiga todas las obras).
+    """
+    if not clave:
+        raise ValueError("patron_like requiere una clave no vacía")
+    return "%" + "".join(_clase(c) + "%" for c in clave)
 
 
 @dataclass(frozen=True)
@@ -52,7 +140,8 @@ class SigridLookupClient:
         function_key: str,
         database: str,
         timeout_s: float = 30.0,
-        max_rows: int = 10000,
+        max_rows: int = MAX_ROWS_DEFECTO,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         if not base_url:
             raise ValueError("SigridLookupClient requiere base_url no vacio")
@@ -65,9 +154,13 @@ class SigridLookupClient:
         self._database = database
         self._timeout_s = float(timeout_s)
         self._max_rows = int(max_rows)
+        # Solo los tests lo pasan (httpx.MockTransport); si no, el de siempre.
+        self._transport = transport
         logger.info(
-            "%s Instanciado. base_url=%s database=%s",
-            _LOG_PREFIX, self._base_url, self._database,
+            "%s Instanciado. base_url=%s database=%s timeout_s=%s "
+            "max_rows=%s",
+            _LOG_PREFIX, self._base_url, self._database, self._timeout_s,
+            self._max_rows,
         )
 
     def fetch_tipos_hora(self) -> list[TipoHoraOption]:
@@ -93,23 +186,48 @@ class SigridLookupClient:
         logger.info("%s tipos_hora -> %s filas", _LOG_PREFIX, len(out))
         return out
 
+    def existe_obra(self, clave: str, *, timeout_s: float) -> bool:
+        """F-058: ``True`` si hay alguna obra con esa clave (ya normalizada).
+
+        F-063 (R8): la consulta trae los códigos que casan con
+        ``patron_like(clave)`` (un superconjunto) y cuenta solo el candidato
+        cuya ``clave_obra`` es exactamente ``clave``; nulos y otras claves no.
+        Con su propio tope (``OBRA_EXISTE_TIMEOUT_S``), no el del catálogo.
+        Un error HTTP, ``ok=false``, ``truncated`` o el tope superado lanzan:
+        los recoge ``ComprobadorObra`` como «no se sabe». Clave vacía:
+        ``ValueError`` sin consultar (R7).
+        """
+        _, rows = self._post_sql_read(
+            sql=_SQL_EXISTE_OBRA, parameters=[patron_like(clave)],
+            label="existe_obra", timeout_s=timeout_s,
+        )
+        return any(clave_obra(row[0]) == clave for row in rows if row)
+
     def _post_sql_read(
-        self, *, sql: str, parameters: list[Any], label: str
+        self, *, sql: str, parameters: list[Any], label: str,
+        timeout_s: float | None = None,
     ) -> tuple[list[str], list[list[Any]]]:
+        """``timeout_s`` (F-058): tope de esta lectura; sin él, el del cliente."""
         url = f"{self._base_url}/api/sql/read"
+        if timeout_s is None:
+            plazo = self._timeout_s
+            timeout_seconds = int(self._timeout_s)
+        else:
+            plazo = float(timeout_s)
+            timeout_seconds = max(1, math.ceil(plazo))
         payload = {
             "database": self._database,
             "sql": sql,
             "parameters": parameters,
-            "timeout_seconds": int(self._timeout_s),
+            "timeout_seconds": timeout_seconds,
             "max_rows": self._max_rows,
         }
         headers = {
             "x-functions-key": self._function_key,
             "Content-Type": "application/json",
         }
-        transport = httpx.HTTPTransport(retries=1)
-        with httpx.Client(timeout=self._timeout_s, transport=transport) as client:
+        transport = self._transport or httpx.HTTPTransport(retries=1)
+        with httpx.Client(timeout=plazo, transport=transport) as client:
             response = client.post(url, json=payload, headers=headers)
         status = response.status_code
         body_text = response.text or ""
@@ -123,6 +241,10 @@ class SigridLookupClient:
             ) from exc
         if not body.get("ok", False):
             raise RuntimeError(f"sigrid-api devolvio ok=false: {body!r}")
+        if body.get("truncated"):
+            # F-038 (R7): nunca se devuelven filas parciales.
+            raise RuntimeError(
+                f"sigrid-api devolvio una respuesta truncada [{label}]")
         columns: list[str] = list(body.get("columns") or [])
         rows: list[list[Any]] = list(body.get("rows") or [])
         return columns, rows
