@@ -33,6 +33,7 @@ from application.services.calendar_builder import (
     period_bounds,
     period_of,
 )
+from application.services.congelacion import CongeladoError
 
 #: Estados de `franquicia_ajuste` (los mismos que `ESTADOS_FRANQUICIA` del
 #: ORM; aqui sin importar infraestructura).
@@ -85,6 +86,12 @@ _RE_PERIODO = re.compile(r"^(\d{4})-(0[1-9]|1[0-2])$")
 
 class DecisionInvalida(ValueError):
     """R15: el bloque `franquicias` de la peticion no vale (422)."""
+
+
+class AjusteCambiadoError(CongeladoError):
+    """R15, R18: el ajuste ya no esta como cuando se enseno (otro usuario
+    decidio, la decision no cuadra con su estado o quedan lineas en cola).
+    La capa web lo traduce a 409, como toda `CongeladoError`."""
 
 
 @dataclass(frozen=True)

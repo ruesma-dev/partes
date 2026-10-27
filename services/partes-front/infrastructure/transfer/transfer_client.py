@@ -117,3 +117,27 @@ class TransferClient:
     def reajuste_ejecutar(self, payload: dict[str, Any]) -> dict[str, Any]:
         """F-046 (R33): el reajuste en Sigrid (HTTP sincrono, nunca cola)."""
         return self._post_reajuste("/api/reajuste/ejecutar", payload)
+
+    # ------------------ F-056: franquicia de extras ------------------ #
+    def franquicia_recursos(self, recurso_ides: list[int], *,
+                            timeout_s: float | None = None
+                            ) -> dict[str, Any]:
+        """R43: la franquicia de esos recursos (solo lectura en sv5, UNA
+        llamada por preflight o vista). Un fallo, un 404 de un sv5 anterior
+        o un timeout es `ok: false` y el portal avisa (R44)."""
+        return self._post("/api/franquicia/recursos",
+                          {"recurso_ides": [int(i) for i in recurso_ides]},
+                          timeout_s=timeout_s)
+
+    def franquicia_comprobar(self, payload: dict[str, Any], *,
+                             timeout_s: float | None = None
+                             ) -> dict[str, Any]:
+        """R9, R14: E y A estimados (solo lectura en sv5)."""
+        return self._post("/api/franquicia/comprobar", payload,
+                          timeout_s=timeout_s)
+
+    def franquicia_ejecutar(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """R17, R19: la linea de ajuste en Sigrid (HTTP sincrono, nunca
+        cola). Distingue «no se sabe» (`sin_respuesta`) como el reajuste:
+        el reintento es seguro (sv5 es idempotente por la synckey)."""
+        return self._post_reajuste("/api/franquicia/ejecutar", payload)

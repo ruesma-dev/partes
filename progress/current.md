@@ -60,7 +60,11 @@ se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franqui
   (byte-idénticas) y guardianes de la raíz a OCHO tablas.
 - T13 HECHO (sv4 puro). Disparador nuevo según DA7 (A): una línea del DÍA DE AJUSTE de un recurso
   con franquicia `activa` (o `invalida`, solo informa); un ajuste vivo sale con cualquier línea
-  del periodo (R10). Con el calendario no fiable (R6) sale sin día y con motivo. En curso: T14.
+  del periodo (R10). Con el calendario no fiable (R6) sale sin día y con motivo.
+- T14 HECHO (repositorio y cliente). Transiciones: ajustar (sin fila o desde rechazado) y
+  recalcular (desde aplicado/decidido/error) -> decidido; no_ajustar (sin fila) -> rechazado;
+  el resto, 409. La identidad del trabajador en el periodo es su recurso + su DNI (R12).
+  En curso: T15.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
