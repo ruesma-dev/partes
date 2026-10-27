@@ -5078,6 +5078,48 @@ var FiltrosSesion = (function () {
     cuandoTermine();
   }
 
+  /* F-056 (R45, R46; DA28): «Ajustar» o «Recalcular» desde la vista del
+     trabajador: `decidir` (las comprobaciones del modal) y, si sale bien,
+     `aplicar` el `id` devuelto. Un 4xx ensena su error. Sin recarga nueva
+     (F-043): el «Actualizar» de siempre. */
+  function decidirDesdeVista(boton) {
+    var decision = boton.dataset.franquiciaDecidir;
+    var cuerpo = { recurso_ide: parseInt(boton.dataset.recurso, 10),
+                   periodo: boton.dataset.periodo, decision: decision };
+    var texto = decision === "recalcular"
+      ? "Se recalculara la linea de ajuste con la franquicia y las extras de "
+        + "ahora y se escribira en Sigrid."
+      : "Se creara la linea de ajuste de franquicia del periodo y se "
+        + "escribira en Sigrid.";
+    function fallo(error) {
+      modal("Ajuste de franquicia", "<p class='ap-warn'>" + esc(error)
+            + "</p><p>" + botonActualizar() + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    }
+    modal(decision === "recalcular" ? "Recalcular el ajuste de franquicia"
+                                    : "Ajustar la franquicia",
+          "<p>" + esc(texto) + "</p>", [
+      { texto: decision === "recalcular" ? "Recalcular" : "Ajustar",
+        clase: "ok", onClick: function (cj, b) {
+          b.disabled = true;
+          b.textContent = "Aplicando…";
+          post("/api/franquicia/decidir", cuerpo).then(function (r) {
+            if (!r.ok || !r.ajuste) {
+              fallo(r.error || "error desconocido");
+              return null;
+            }
+            return post("/api/franquicia/" + encodeURIComponent(r.ajuste.id)
+                        + "/aplicar", {}).then(function (ra) {
+              modal("Ajuste de franquicia", resultadoFranquiciaHtml(ra, null)
+                    + "<p>" + botonActualizar() + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            });
+          }).catch(function (e) { fallo(String(e)); });
+        } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
   /* F-056 (R20): «Aplicar» un ajuste decidido o con error desde la vista
      del trabajador. */
   function aplicarDesdeVista(boton) {
@@ -5252,6 +5294,12 @@ var FiltrosSesion = (function () {
 
   ready(function () {
     document.addEventListener("click", function (ev) {
+      var decidirF = ev.target.closest("[data-franquicia-decidir]");
+      if (decidirF) {                                      // F-056 (R45)
+        ev.preventDefault();
+        decidirDesdeVista(decidirF);
+        return;
+      }
       var aplicarF = ev.target.closest("[data-franquicia-aplicar]");
       if (aplicarF) {                                      // F-056 (R20)
         ev.preventDefault();

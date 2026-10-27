@@ -186,7 +186,7 @@
         <td>{{ it.obra_codigo or "—" }}{% if it.partida_cod %} · {{ it.partida_cod }}{% endif %}</td>
         <td>{{ it.parte_cod or "—" }}</td>
         <td>{{ it.decidido_por or "—" }}{% if it.aplicado_por %} / {{ it.aplicado_por }}{% endif %}</td>
-        <td>{% if transfer_enabled and 'aplicar' in it.acciones and it.id %}<button type="button" class="btn small" data-franquicia-aplicar="{{ it.id }}">Aplicar</button>{% endif %}</td>
+        <td>{% if transfer_enabled and 'aplicar' in it.acciones and it.id %}<button type="button" class="btn small" data-franquicia-aplicar="{{ it.id }}">Aplicar</button>{% endif %}{% if transfer_enabled %}{% for acc in it.acciones if acc in ('ajustar', 'recalcular') %}<button type="button" class="btn small" data-franquicia-decidir="{{ acc }}" data-recurso="{{ it.recurso_ide }}" data-periodo="{{ it.periodo }}">{{ "Ajustar" if acc == 'ajustar' else "Recalcular" }}</button>{% endfor %}{% endif %}</td>
       </tr>
     {% endfor %}
     </tbody>

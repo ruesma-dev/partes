@@ -2893,24 +2893,32 @@ def build_app(
             return _rechazo_ambito(str(exc))
         lineas_de = _LineasPeriodo()
         filas = repository.ajustes_de([(r, p) for r, p, _d in decisiones])
-        planes = []
-        for rec, per, decision in decisiones:
-            datos = None
-            if decision != fq.MANTENER:
-                periodo = fq.periodo_de_clave(per)
-                lineas_p = lineas_de(rec, periodo)
-                if decision != fq.NO_AJUSTAR and fq.varios_recursos(lineas_p):
-                    raise fq.AjusteCambiadoError(fq.MOTIVO_VARIOS_RECURSOS)
-                dia = _dia_ajuste(periodo, lineas_p)
-                datos = _propuesta(rec, periodo, lineas_p, dia)
-                fila = filas.get((rec, per)) or {}
-                if (decision == fq.AJUSTAR and datos is None
-                        and not fila.get("fecha_int")):
-                    raise fq.AjusteCambiadoError(
-                        f"no se puede ajustar la franquicia de {per}: "
-                        f"{dia.motivo or fq.MOTIVO_SIN_OBRA}")
-            planes.append((rec, per, decision, datos))
-        return planes
+        return [(rec, per, decision,
+                 _plan_franquicia(rec, per, decision, lineas_de, filas))
+                for rec, per, decision in decisiones]
+
+    def _plan_franquicia(rec: int, per: str, decision: str,
+                         lineas_de: _LineasPeriodo,
+                         filas: dict) -> dict | None:
+        """R6-R8, R12: la propuesta (dia, obra, partida) de UNA decision,
+        antes de guardar nada; la usan el modal (R15) y la vista (R45).
+        `ajustar`/`recalcular` con extras de varios recursos, o `ajustar`
+        sin dia ni obra y sin fila que ya los tenga, es 409."""
+        if decision == fq.MANTENER:
+            return None
+        periodo = fq.periodo_de_clave(per)
+        lineas_p = lineas_de(rec, periodo)
+        if decision != fq.NO_AJUSTAR and fq.varios_recursos(lineas_p):
+            raise fq.AjusteCambiadoError(fq.MOTIVO_VARIOS_RECURSOS)
+        dia = _dia_ajuste(periodo, lineas_p)
+        datos = _propuesta(rec, periodo, lineas_p, dia)
+        fila = filas.get((rec, per)) or {}
+        if (decision == fq.AJUSTAR and datos is None
+                and not fila.get("fecha_int")):
+            raise fq.AjusteCambiadoError(
+                f"no se puede ajustar la franquicia de {per}: "
+                f"{dia.motivo or fq.MOTIVO_SIN_OBRA}")
+        return datos
 
     def _guardar_franquicias(planes: list[tuple],
                              actor: str | None) -> list[dict]:
@@ -2971,6 +2979,40 @@ def build_app(
             logger.warning("[franquicia] el ajuste de la vista fallo",
                            exc_info=True)
             return fq.vista_franquicia(periodo, [], {}, None, str(exc))
+
+    @app.post("/api/franquicia/decidir", include_in_schema=False)
+    async def franquicia_decidir(request: Request) -> JSONResponse:
+        """R45, R21 (DA28): «Ajustar» o «Recalcular» desde la vista de
+        trabajador. Mismas comprobaciones que la decision del modal: formato
+        y decision (solo `ajustar`/`recalcular`), lineas activas de ese
+        recurso en el periodo (422 si no), propuesta (`_plan_franquicia`,
+        409 si no cabe) y el CAS de `decidir_ajuste` (409 si cambio). Sin
+        sv5: la vista aplica despues con el `id` devuelto (R46)."""
+        if transfer_client is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        actor = _actor(request)
+        try:
+            crudo = await request.json()
+        except ValueError:
+            crudo = None
+        try:
+            rec, per, decision = fq.decision_vista(crudo)
+        except fq.DecisionInvalida as exc:
+            return _rechazo_ambito(str(exc))
+        lineas_de = _LineasPeriodo()
+        if not any(int(x.get("recurso_ide") or 0) == rec
+                   for x in lineas_de(rec, fq.periodo_de_clave(per))):
+            return _rechazo_ambito(
+                f"el recurso {rec} no tiene lineas en el periodo {per}: "
+                "recarga la pagina")
+        datos = _plan_franquicia(rec, per, decision, lineas_de,
+                                 repository.ajustes_de([(rec, per)]))
+        ajuste = repository.decidir_ajuste(rec, per, decision, datos,
+                                           actor=actor)
+        return JSONResponse({"ok": True, "ajuste": ajuste})
 
     @app.post("/api/franquicia/{ajuste_id}/aplicar", include_in_schema=False)
     def franquicia_aplicar(ajuste_id: int, request: Request) -> JSONResponse:

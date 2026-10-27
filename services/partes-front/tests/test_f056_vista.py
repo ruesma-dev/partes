@@ -21,14 +21,20 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
 from application.services import franquicia as fq
+from config.settings import Settings
+from infrastructure.database.parte_repository import ParteReviewRepository
+from interface_adapters.web.app import build_app
 from tests import test_f056_decisiones as dec
+from tests.dobles import sembrar_parte
 from tests.test_f056_decisiones import (
     ACTOR,
     EJECUTAR_OK,
     PROP,
     REC,
+    CalendarioNoFiable,
     Sv5Franq,
     _dia15,
     _repo,
@@ -383,3 +389,188 @@ def test_f056_r13_r16_r17_el_modal_cablea_aviso_decision_y_aplicar():
     aplicar = _funcion(js, "aplicarFranquicias")
     assert "/api/franquicia/" in aplicar and "/aplicar" in aplicar
     assert "[data-franquicia-aplicar]" in js
+
+
+# ================== decidir desde la vista (T17b: R45, R46) ================== #
+
+def _decidir(cliente, decision, rec=REC, periodo="2026-10"):
+    return cliente.post("/api/franquicia/decidir", json={
+        "recurso_ide": rec, "periodo": periodo, "decision": decision})
+
+
+def _filas_ajuste(fabrica):
+    return _repo(fabrica).ajustes_de([(REC, "2026-10")])
+
+
+def _sin_sv5(sv5):
+    assert sv5.recursos_pedidos == [] and sv5.franq_comprobadas == []
+    assert sv5.franq_ejecutadas == [] and sv5.ejecutadas == []
+
+
+@pytest.mark.parametrize("crudo, esperado", [
+    ({"recurso_ide": 7, "periodo": "2026-10", "decision": "ajustar"},
+     (7, "2026-10", "ajustar")),
+    ({"recurso_ide": "7", "periodo": "2026-10", "decision": "recalcular"},
+     (7, "2026-10", "recalcular")),
+])
+def test_f056_r45_decision_vista_admite_ajustar_y_recalcular(crudo, esperado):
+    assert fq.decision_vista(crudo) == esperado
+
+
+@pytest.mark.parametrize("crudo", [
+    {"recurso_ide": 7, "periodo": "2026-10", "decision": "no_ajustar"},
+    {"recurso_ide": 7, "periodo": "2026-10", "decision": "mantener"},
+    {"recurso_ide": 7, "periodo": "2026-10", "decision": "borrar"},
+    {"recurso_ide": 7, "periodo": "2026-13", "decision": "ajustar"},
+    {"recurso_ide": 0, "periodo": "2026-10", "decision": "ajustar"},
+    {"recurso_ide": True, "periodo": "2026-10", "decision": "ajustar"},
+    {"periodo": "2026-10", "decision": "ajustar"},
+    "x", None, [],
+])
+def test_f056_r45_decision_vista_rechaza_lo_demas(crudo):
+    with pytest.raises(fq.DecisionInvalida):
+        fq.decision_vista(crudo)
+
+
+def test_f056_r45_r21_decidir_ajustar_sin_fila_guarda_la_propuesta(fabrica,
+                                                                  portal):
+    _dia15(fabrica)
+    cliente, sv5 = portal()
+    r = _decidir(cliente, "ajustar")
+    assert r.status_code == 200, r.text
+    aj = r.json()["ajuste"]
+    assert r.json()["ok"] is True and aj["id"]
+    assert (aj["estado"], aj["decision"], aj["fecha_int"], aj["obra_ide"],
+            aj["partida_cod"], aj["decidido_por"]) == (
+        "decidido", "ajustar", 20261015, 10, "01.01", ACTOR)
+    assert _filas_ajuste(fabrica)[(REC, "2026-10")]["id"] == aj["id"]
+    _sin_sv5(sv5)
+
+
+def test_f056_r45_decidir_ajustar_desde_rechazado(fabrica, portal):
+    _dia15(fabrica)
+    f = _con_fila(fabrica, "no_ajustar")
+    cliente, _sv5 = portal()
+    aj = _decidir(cliente, "ajustar").json()["ajuste"]
+    assert (aj["id"], aj["estado"]) == (f["id"], "decidido")
+
+
+def test_f056_r45_decidir_recalcular_desde_aplicado(fabrica, portal):
+    _dia15(fabrica)
+    f = _con_fila(fabrica, cerrar=True)
+    cliente, sv5 = portal()
+    aj = _decidir(cliente, "recalcular").json()["ajuste"]
+    assert (aj["id"], aj["estado"], aj["decision"]) == (
+        f["id"], "decidido", "recalcular")
+    _sin_sv5(sv5)
+
+
+@pytest.mark.parametrize("previa, decision", [
+    (None, "recalcular"), ("ajustar", "ajustar")])
+def test_f056_r45_r16_decidir_transicion_que_no_cabe_es_409(
+        fabrica, portal, previa, decision):
+    _dia15(fabrica)
+    if previa:
+        _con_fila(fabrica, previa)
+    cliente, sv5 = portal()
+    r = _decidir(cliente, decision)
+    assert r.status_code == 409 and r.json()["error"]
+    _sin_sv5(sv5)
+
+
+@pytest.mark.parametrize("cuerpo", [
+    {"recurso_ide": REC, "periodo": "2026-10", "decision": "no_ajustar"},
+    {"recurso_ide": REC, "periodo": "2026-10", "decision": "mantener"},
+    {"recurso_ide": REC, "periodo": "octubre", "decision": "ajustar"},
+    {"periodo": "2026-10", "decision": "ajustar"},
+    ["x"],
+])
+def test_f056_r45_decidir_formato_o_decision_invalida_es_422(fabrica, portal,
+                                                             cuerpo):
+    _dia15(fabrica)
+    cliente, sv5 = portal()
+    r = cliente.post("/api/franquicia/decidir", json=cuerpo)
+    assert r.status_code == 422, r.text
+    assert _filas_ajuste(fabrica) == {}
+    _sin_sv5(sv5)
+
+
+@pytest.mark.parametrize("rec, periodo", [(REC, "2026-11"), (999, "2026-10")])
+def test_f056_r45_decidir_sin_lineas_del_recurso_en_el_periodo_es_422(
+        fabrica, portal, rec, periodo):
+    _dia15(fabrica)
+    cliente, _sv5 = portal()
+    r = _decidir(cliente, "ajustar", rec=rec, periodo=periodo)
+    assert r.status_code == 422 and "lineas" in r.json()["error"]
+    assert _repo(fabrica).ajustes_de([(rec, periodo)]) == {}
+
+
+def test_f056_r45_r12_decidir_con_extras_de_varios_recursos_es_409(fabrica,
+                                                                   portal):
+    _dia15(fabrica)
+    sembrar_parte(fabrica, [{"horas": 1.0, "tipo": "extra"}],
+                  document_id="d-otro", fecha="2026-10-01", recurso_ide=777)
+    cliente, _sv5 = portal()
+    r = _decidir(cliente, "ajustar")
+    assert r.status_code == 409
+    assert r.json()["error"] == fq.MOTIVO_VARIOS_RECURSOS
+
+
+def test_f056_r45_r6_decidir_ajustar_sin_calendario_es_409(fabrica, portal):
+    _dia15(fabrica)
+    cliente, _sv5 = portal(calendario=CalendarioNoFiable())
+    r = _decidir(cliente, "ajustar")
+    assert r.status_code == 409 and "dia de ajuste" in r.json()["error"]
+    assert _filas_ajuste(fabrica) == {}
+
+
+def test_f056_r45_decidir_sin_sv5_configurado_es_503(fabrica, entorno):
+    entorno.delenv("TRANSFER_BASE_URL", raising=False)
+    _dia15(fabrica)
+    app = build_app(Settings(_env_file=None),
+                    repository=ParteReviewRepository(fabrica))
+    r = TestClient(app).post("/api/franquicia/decidir", json={
+        "recurso_ide": REC, "periodo": "2026-10", "decision": "ajustar"})
+    assert r.status_code == 503
+    assert _filas_ajuste(fabrica) == {}
+
+
+def test_f056_r20_plantilla_botones_de_decidir(fabrica, portal):
+    _dia15(fabrica)
+    _con_fila(fabrica, cerrar=True)
+    cliente, _sv5 = portal()
+    html = _html(cliente)
+    assert 'data-franquicia-decidir="recalcular"' in html
+    assert f'data-recurso="{REC}"' in html and 'data-periodo="2026-10"' in html
+    assert 'data-franquicia-decidir="ajustar"' not in html
+
+
+@pytest.mark.parametrize("previa", ["no_ajustar", None])
+def test_f056_r20_plantilla_ajustar_en_rechazado_o_sin_fila(fabrica, portal,
+                                                            previa):
+    _dia15(fabrica)
+    if previa:
+        _con_fila(fabrica, previa)
+    cliente, _sv5 = portal()
+    html = _html(cliente)
+    assert 'data-franquicia-decidir="ajustar"' in html
+    assert "data-franquicia-aplicar" not in html
+
+
+def test_f056_r20_plantilla_decidido_no_ofrece_decidir(fabrica, portal):
+    _dia15(fabrica)
+    _con_fila(fabrica)
+    cliente, _sv5 = portal()
+    assert "data-franquicia-decidir" not in _html(cliente)
+
+
+def test_f056_r46_la_vista_decide_y_luego_aplica_sin_recargar():
+    js = _js()
+    cuerpo = _funcion(js, "decidirDesdeVista")
+    assert cuerpo.index('"/api/franquicia/decidir"') < cuerpo.index(
+        '"/aplicar"')
+    assert "r.ajuste.id" in cuerpo
+    assert "resultadoFranquiciaHtml(" in cuerpo
+    assert "botonActualizar()" in cuerpo
+    assert "reload" not in cuerpo
+    assert "[data-franquicia-decidir]" in js

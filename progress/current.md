@@ -110,7 +110,13 @@ nueva **T17b** (sv4) sin renumerar. Topes: requirements 150/150, design 248/250.
 
 **DESBLOQUEADA (2026-10-27, líder → implementer).** Decisión del humano, literal: «a» (opción A: ruta
 nueva «decidir» y luego aplicar). Tras enseñarle la enmienda (R45, R46, DA28, T17b), literal: «si».
-F-056 vuelve a `in_progress`. En curso: T17b (sv4: `POST /api/franquicia/decidir`, botones de la vista).
+F-056 vuelve a `in_progress`.
+- T17b HECHO: `fq._decision` (compartida con `validar_decisiones`), `DECISIONES_VISTA` y
+  `fq.decision_vista`; `_plan_franquicia` extraído de `_planes_franquicia` (lo usan modal y vista);
+  `POST /api/franquicia/decidir` (503/422/409, sin sv5, `{ok, ajuste}`); `decidir_ajuste` SIN cambios;
+  botones «Ajustar»/«Recalcular» en la vista y `decidirDesdeVista` (decidir → aplicar, sin recarga
+  nueva: «Actualizar» de siempre). Guardián F-017 a 20 `_actor(request)`. Pendiente: T19–T22 (no
+  son del implementer).
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

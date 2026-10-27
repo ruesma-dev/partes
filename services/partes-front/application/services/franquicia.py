@@ -378,6 +378,45 @@ def bloque_franquicias(cands: Iterable[Mapping],
 
 # ---------------------------- decisiones (R15) ---------------------------- #
 
+#: DA28, R45: lo que la vista de trabajador puede decidir (no ofrece «No
+#: ajustar» ni «Mantener»).
+DECISIONES_VISTA = (AJUSTAR, RECALCULAR)
+
+
+def _decision(d) -> tuple[int, str, str]:
+    """R15, R45: UNA decision `{recurso_ide, periodo, decision}` ->
+    `(recurso, periodo, decision)`: formato, recurso >= 1, periodo
+    `YYYY-MM` y decision conocida; si no, `DecisionInvalida` (422)."""
+    if not isinstance(d, dict):
+        raise DecisionInvalida("franquicias no validas")
+    try:
+        rec = d["recurso_ide"]
+        if isinstance(rec, bool):
+            raise TypeError(rec)
+        rec = int(rec)
+    except (KeyError, TypeError, ValueError):
+        raise DecisionInvalida(
+            "franquicias no validas: falta el recurso") from None
+    periodo = periodo_de_clave(d.get("periodo"))
+    if rec <= 0 or periodo is None:
+        raise DecisionInvalida("franquicias no validas: recurso o periodo")
+    decision = d.get("decision")
+    if decision not in DECISIONES:
+        raise DecisionInvalida(
+            f"decision de franquicia no valida ({decision!r})")
+    return rec, periodo.clave, decision
+
+
+def decision_vista(crudo) -> tuple[int, str, str]:
+    """R45 (DA28): la decision de la vista de trabajador; solo `ajustar` o
+    `recalcular`. `DecisionInvalida` (422) si no."""
+    rec, periodo, decision = _decision(crudo)
+    if decision not in DECISIONES_VISTA:
+        raise DecisionInvalida(
+            f"desde la vista solo se puede ajustar o recalcular ({decision!r})")
+    return rec, periodo, decision
+
+
 def validar_decisiones(crudo, claves_validas: Iterable[str]
                        ) -> list[tuple[int, str, str]]:
     """R15: `[{recurso_ide, periodo, decision}]` -> `[(recurso, periodo,
@@ -391,32 +430,15 @@ def validar_decisiones(crudo, claves_validas: Iterable[str]
     out: list[tuple[int, str, str]] = []
     vistas: set[str] = set()
     for d in crudo:
-        if not isinstance(d, dict):
-            raise DecisionInvalida("franquicias no validas")
-        try:
-            rec = d["recurso_ide"]
-            if isinstance(rec, bool):
-                raise TypeError(rec)
-            rec = int(rec)
-        except (KeyError, TypeError, ValueError):
-            raise DecisionInvalida(
-                "franquicias no validas: falta el recurso") from None
-        periodo = periodo_de_clave(d.get("periodo"))
-        if rec <= 0 or periodo is None:
-            raise DecisionInvalida("franquicias no validas: recurso o "
-                                   "periodo")
-        decision = d.get("decision")
-        if decision not in DECISIONES:
-            raise DecisionInvalida(
-                f"decision de franquicia no valida ({decision!r})")
-        clave = clave_de(rec, periodo.clave)
+        rec, periodo_clave, decision = _decision(d)
+        clave = clave_de(rec, periodo_clave)
         if clave not in validas:
             raise DecisionInvalida(
                 f"la franquicia {clave} no es de las lineas seleccionadas")
         if clave in vistas:
             raise DecisionInvalida(f"la franquicia {clave} esta repetida")
         vistas.add(clave)
-        out.append((rec, periodo.clave, decision))
+        out.append((rec, periodo_clave, decision))
     return out
 
 
