@@ -1,8 +1,8 @@
 <!-- progress/impl_F-056.md -->
-# F-056 · Franquicia de extras — informe del implementer (T1–T18)
+# F-056 · Franquicia de extras — informe del implementer (T1–T18 y T17b)
 
-**Estado: T1–T18 hechas y en verde; F-056 marcada `blocked`** por **un hueco de la spec** (R20,
-ver «Pendiente»: falta la ruta para decidir desde la vista) que necesita decisión del humano.
+**Estado: T1–T18 y T17b hechas y en verde.** El hueco de R20 (no había ruta para decidir desde la
+vista) lo resolvió el humano con DA28 = A (enmienda a3e16fb) y se implementó en T17b.
 T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
 (worktree `partes-wt-f056`). Nada en `dev`/`main`, sin push y sin tocar Sigrid ni bases reales.
 
@@ -16,6 +16,8 @@ T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
   tests usan nombres inventados, p. ej. `FranqInventada`); `FRANQUICIA_CAMPO_RES` vacío por
   defecto (= franquicia apagada); `TIPOS_NUMERICOS` = los 9 tipos de design §4 (sin `bigint`).
   M1b y M2 no se han intentado.
+- 2026-10-27, DA28 (la vista decide «Ajustar»/«Recalcular»): «a» (opción A: ruta nueva «decidir» y
+  luego aplicar). Tras enseñarle la enmienda (R45, R46, DA28, T17b): «si».
 
 ## Commits (uno por tarea)
 
@@ -32,7 +34,8 @@ T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
 | T15 | 133885a | preflight con `/recursos` y bloque `franquicias`; decisiones en `ejecutar`/`encolar` |
 | T16 | 494f9ef | `POST /api/franquicia/{id}/aplicar` y contexto de la vista de trabajador |
 | T17 | c294f86 | `app.js`, `trabajador_detail.html`, `styles.css` |
-| T18 | (este informe) | contrato raíz `tests/test_f056_contrato_franquicia.py` y suites enteras |
+| T18 | 5dd9a60 | contrato raíz `tests/test_f056_contrato_franquicia.py` y suites enteras |
+| T17b | bed7c94 | DA28: `POST /api/franquicia/decidir`, botones «Ajustar»/«Recalcular» y `decidirDesdeVista` (tras desbloquear en 43ad418) |
 
 ## Ficheros tocados (enmienda y sv4)
 
@@ -87,13 +90,20 @@ T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
    18 a **19** `_actor(request)` (la de `aplicar`, que R21 exige; docstring ampliado). F-043 (R19,
    R40) prohíbe recargas nuevas: «Aplicar» desde la vista NO recarga; el modal ofrece el botón
    «Actualizar» de siempre (`botonActualizar`), así que `location.reload` sigue en 23.
+11. **T17b (DA28, R45, R46)**: sin duplicar lógica, la comprobación de UNA decisión sale de
+   `validar_decisiones` a `fq._decision(d)` (la usan el modal y `fq.decision_vista`, que además
+   limita a `DECISIONES_VISTA = (ajustar, recalcular)`), y el cuerpo del bucle de
+   `_planes_franquicia` sale a `_plan_franquicia(rec, per, decision, lineas_de, filas)` (R6–R8,
+   R12). `POST /api/franquicia/decidir`: 503 sin sv5 configurado; 422 formato/decisión o sin líneas
+   activas de ESE recurso en el periodo; 409 por `_plan_franquicia` o por el CAS de
+   `decidir_ajuste` (sin cambios); sin llamar a sv5; `{ok: true, ajuste}`. La vista pinta
+   «Ajustar»/«Recalcular» según `acciones`; `decidirDesdeVista` confirma, decide, aplica el `id`
+   devuelto y enseña el resultado con «Actualizar» (sin recarga nueva). F-017: 20 `_actor(request)`.
 
 ## Fase RED (trazas reales; comandos tal cual)
 
-T1–T6 (sv5 base, antes de la enmienda): trazas en la versión anterior de este informe
-(`git show 6d777c4:progress/impl_F-056.md`): `ImportError` de `PREFIJO_FRANQUICIA`,
-`franquicia`, `synckey_franquicia`, `franquicia_pipeline` y 38 × `TypeError: build_app() got an
-unexpected keyword argument 'franquicia'`.
+T1–T6 (sv5 base): trazas en `git show 6d777c4:progress/impl_F-056.md` (`ImportError` de los
+módulos nuevos y 38 × `TypeError: build_app() got an unexpected keyword argument 'franquicia'`).
 
 T8 — `python -m pytest tests/test_f056_franquicia.py -q -p no:cacheprovider` (sv5)
 ```
@@ -168,19 +178,21 @@ E   Extra items in the left set: 'franquicia'
 FAILED tests/test_f056_contrato_franquicia.py::test_f056_r41_sv4_no_manda_la_x
 FAILED tests/test_f056_contrato_franquicia.py::test_f056_r36_ninguna_clave_de_sv4_se_pierde_en_sv5
 ```
+T17b — `python -m pytest tests/test_f056_vista.py tests/test_f056_franquicia.py tests/test_f056_decisiones.py tests/test_f017_punto_unico.py -q -p no:cacheprovider`
+```
+13 E  + where 404 = <Response [404 Not Found]>.status_code
+12 E   AttributeError: module 'application.services.franquicia' has no attribute 'decision_vista'
+ 7 E   assert 404 == 422          3 E   assert (404 == 409)          2 E   KeyError: 'ajuste'
+32 failed, 165 passed, 1 skipped, 1 warning in 100.18s
+```
 Ya en verde: T8 133 · T9 52 · T10 52 · T11 60 (sv5 entera 1458) · T12 30 + 5 · T13 63 · T14 32 ·
-T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5.
+T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5 · T17b 255 passed, 1 skipped
+(con `test_f043_portal_fecha.py`; `node --check` OK).
 
 ## Pendiente y fuera del alcance
 
-- **HUECO DE LA SPEC (decisión del humano)**: R20 pide en la vista «Ajustar» (`rechazado`, o sin
-  fila con franquicia `activa`) y «Recalcular» (`aplicado`), pero la spec solo define
-  `POST /api/franquicia/{id}/aplicar`: no hay ruta para DECIDIR desde la vista y, sin fila, no hay
-  `id`. No se ha improvisado: el contexto ya calcula qué acción admite cada fila (`acciones`), la
-  vista pinta la fila y solo «Aplicar» tiene botón. Opciones: **A** `POST /api/franquicia/decidir
-  {recurso_ide, periodo, decision}` (misma validación y CAS de `decidir_ajuste`; la clave debe
-  tener líneas del trabajador) seguida de `aplicar`; **B** que `aplicar` acepte una `decision`
-  opcional; **C** dejar «Ajustar»/«Recalcular» solo en el modal de aprobar (cambia R20 y DA11).
+- El hueco de R20 quedó resuelto por DA28 = A (T17b). Si `decidir` va bien y `aplicar` falla, la
+  fila queda `decidido`/`error` y la vista ofrece «Aplicar» (como tras el modal).
 - **T19** (docs y `azure-apps`), **T20** (mutación, la lanza el líder), **T21** (M1b, M2–M4,
   humano) y **T22**: no son de este encargo.
 - Con `FRANQUICIA_CAMPO_RES` vacío (defecto) sv5 responde `apagada` y el portal no enseña nada; la
@@ -193,10 +205,11 @@ T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5.
 | Evidencia | Valor real |
 |---|---|
 | Tests F-056 sv5 (5 ficheros) | 289 passed en 7,64 s |
-| Tests F-056 sv4 (`orm`, `franquicia`, `decisiones`, `vista`) | 156 passed en 33,23 s |
+| Tests F-056 sv4 (`orm`, `franquicia`, `decisiones`, `vista`) | 188 passed en 49,86 s (tras T17b) |
 | Raíz (contrato + guardianes del ORM) | 35 passed en 41,94 s |
-| `bash harness/init.sh` (2026-10-27, tras T18) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (182,7 s); sv3 2340 passed (57,9 s); sv4 3143 passed, 1 skipped (1222,9 s); sv5 1458 passed (38,8 s); sv1 y sv2 «de caché» (árboles sin cambios) |
-| Cobertura de líneas cambiadas | PUERTA COBERTURA: **98,6 %** (999/1013, umbral 80 %, nivel crítico) |
-| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 233/250, impl dentro de 220 |
+| Suite sv4 entera sin caché (tras T17b) | `python -m pytest -q -p no:cacheprovider`: 3175 passed, 1 skipped, 2 warnings en 821,67 s |
+| `bash harness/init.sh` (2026-10-27, tras T17b) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (159,5 s); sv4 3175 passed, 1 skipped (1144,2 s); sv3, sv5, sv1 y sv2 «de caché» (árboles sin cambios desde su último verde: sv3 2340 passed y sv5 1458 passed en el init de T18) |
+| Cobertura de líneas cambiadas | PUERTA COBERTURA: **98,6 %** (1025/1040, umbral 80 %, nivel crítico) |
+| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 248/250, impl 214/220 |
 | Mutación | no lanzada por el implementer: es T20 y la lanza el líder (`python -m harness.mutacion --feature F-056`) |
 | JS y plantilla | `node --check static/app.js` OK; parseo Jinja2 de `trabajador_detail.html` OK; las funciones del modal se EJECUTAN con node en `test_f056_vista.py` |
