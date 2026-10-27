@@ -252,6 +252,10 @@ class SigridFake:
         #: `estados_de_partes`.
         self.racha_leidas: list[list[str]] = []
         self.estados_leidos: list[list[int]] = []
+        #: F-056 (R23): (reside, inicio, fin, excluir) de cada
+        #: `extras_del_periodo` y la excepcion que lanzara si no es None.
+        self.extras_leidas: list[tuple] = []
+        self.fallo_extras: Exception | None = None
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -505,6 +509,55 @@ class SigridFake:
                            "obride": p["obride"]}
                 for p in self.partes if p["ide"] in ks}
 
+    def extras_del_periodo(self, reside, inicio, fin, excluir) -> float:
+        """F-056 (R23): la suma del SQL real (`LIKE 'HE%'` sin distinguir
+        mayusculas, fechas incluidas, sin la synckey `excluir`)."""
+        self._lectura("extras_del_periodo")
+        self.extras_leidas.append((int(reside), int(inicio), int(fin),
+                                   excluir))
+        if self.fallo_extras is not None:
+            raise self.fallo_extras
+        total = 0.0
+        for l in self.lineas:
+            cod = l.get("hora_codigo") or self._cod_hora(l.get("horide"))
+            if (l["reside"] == int(reside)
+                    and int(inicio) <= l["fec"] <= int(fin)
+                    and (cod or "").upper().startswith("HE")
+                    and (l.get("synckey") or "") != excluir):
+                total += float(l.get("can") or 0.0)
+        return round(total, 6)
+
+    def lineas_para_reajuste(self, claves):
+        """F-046 / F-056: por synckey con `pre`, `hmoide` y `enlazada`,
+        como el cliente real."""
+        self._lectura("lineas_para_reajuste")
+        ks = {k for k in claves if k}
+        out = {}
+        for fila in self.lineas:
+            if fila.get("synckey") in ks:
+                ls = self._a_linea_sigrid(fila)
+                ls.pre = fila.get("pre")
+                out[fila["synckey"]] = ls
+        return out
+
+    @staticmethod
+    def stmt_actualizar_linea(*, ide, synckey, antes, despues, est_registro):
+        """F-046 / F-056 (R25): el `UPDATE` optimista, opaco."""
+        return {"op": "actualizar", "ide": int(ide), "synckey": synckey,
+                "antes": float(antes), "despues": float(despues),
+                "est_registro": int(est_registro)}
+
+    def _actualizable(self, l: dict, s: dict) -> bool:
+        """El `WHERE` de `stmt_actualizar_linea` como SQL Server: `ide`,
+        synckey, `can` leido (tolerancia 0,001), sin enlaces y su parte En
+        registro (la guarda de F-034)."""
+        return (l["ide"] == s["ide"] and l.get("synckey") == s["synckey"]
+                and abs(float(l.get("can") or 0) - s["antes"]) <= 0.001 + 1e-9
+                and not l.get("enlazada")
+                and any(p["ide"] == l["hmoide"]
+                        and p.get("est", 1) == s["est_registro"]
+                        for p in self.partes))
+
     def _a_linea_sigrid(self, l: dict):
         from domain.models.registro_models import LineaSigrid
         ls = LineaSigrid(
@@ -696,6 +749,17 @@ class SigridFake:
                         continue
                     for l in filas:
                         l["can"], l["tot"] = 0.0, 0.0
+                elif s["op"] == "actualizar":
+                    # F-056 (R25): `can` y `tot = round(can x pre, 2)`; a 0
+                    # la fila sigue ahi (no hay op `borrar`).
+                    filas = [l for l in self.lineas
+                             if self._actualizable(l, s)]
+                    if not filas:
+                        continue
+                    for l in filas:
+                        l["can"] = s["despues"]
+                        l["tot"] = round(s["despues"]
+                                         * float(l.get("pre") or 0.0), 2)
                 elif s["op"] == "mover":
                     # F-060 (R20): la MISMA fila cambia de dia y de parte.
                     filas = [l for l in self.lineas if self._movible(l, s)]
