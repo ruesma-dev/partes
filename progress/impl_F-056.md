@@ -199,6 +199,11 @@ T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5 · T17b 
   vista de trabajador hace una llamada a `/recursos` por carga en modo nómina.
 - `ruff`: ficheros nuevos limpios; `app.py` de sv4 pasa de 10 a 15 `RUF100` respecto de la base de
   la rama, todos del patrón `# noqa: BLE001` que ya usa el fichero; `parte_repository.py`, igual.
+- **Fuera del alcance de F-056 (2026-10-28, encargo del líder):** test intermitente de F-019
+  `test_f019_r13_otro_contenido_sube_la_version`: con la hora real, dos `_marcar` en el mismo tic
+  daban `X > X` e invalidaron la línea base de la campaña de mutación. Causa confirmada congelando
+  el reloj (5/5 fallan igual). Arreglo solo en el test (`_reloj_que_avanza`, +1 s por `now()`), mismas
+  aserciones; fichero 20/20 verde. Mismo patrón sin arreglar: `test_f019_portal.py:342`.
 
 ## Evidencias
 

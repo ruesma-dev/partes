@@ -117,6 +117,16 @@ F-056 vuelve a `in_progress`.
   botones «Ajustar»/«Recalcular» en la vista y `decidirDesdeVista` (decidir → aplicar, sin recarga
   nueva: «Actualizar» de siempre). Guardián F-017 a 20 `_actor(request)`. Pendiente: T19–T22 (no
   son del implementer).
+- FUERA DEL ALCANCE DE F-056 (2026-10-28; decisión del humano, literal: «a»): la campaña de mutación
+  completa (HEAD 6336320) salió NO VÁLIDA porque la línea base de un worker falló en
+  `test_f019_bandeja.py::test_f019_r13_otro_contenido_sube_la_version[prueba]`. Es un test de F-019,
+  no de F-056, que comparaba dos horas reales (`actualizado_at_utc` > la anterior); bajo carga, los
+  dos `_marcar` caían en el mismo tic. Causa confirmada congelando el reloj de `parte_repository`
+  (falla `assert '2026-10-28T08:00:00+00:00' > '2026-10-28T08:00:00+00:00'`). Arreglo en el propio
+  test: reloj controlado que avanza 1 s por `now()`, sin tocar producción ni debilitar aserciones.
+  Se arregla aquí porque bloquea la mutación de F-056. Fichero 20/20 en verde; suite sv4 sin caché
+  3175 passed, 1 skipped. Mismo patrón, NO arreglado: `test_f019_portal.py:342`
+  (`retirado_at_utc > enviado_at_utc`). Siguiente: el líder relanza la campaña; luego supervivientes.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
