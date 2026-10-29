@@ -2,10 +2,12 @@
 """F-056 · Franquicia de extras en sv5: modelos de dominio (T1, T8) y regla
 pura del ajuste (T2, T8: `application/services/franquicia.py`).
 
-Enmienda 2026-10-27 (DA1 = C): X es un campo de `res` que solo lee sv5; la
-peticion ya no la trae (R41), `leer_valor` decide su estado (R2) y el
-veredicto no escribe con una franquicia desconocida (R42). Los nombres de
-columna de estos tests son INVENTADOS: el campo real aun no existe.
+Enmienda 2026-10-27 (DA1 = C) y 2026-10-29 (DA29-DA31): X es el campo
+EXTENDIDO de recurso (`defext` tip 33, valor entero en `conext.valn`) que
+solo lee sv5; la peticion ya no la trae (R41), `motivo_definicion` dice si
+la definicion vale (R38), `lectura_de` y `leer_valor` deciden el estado de
+cada recurso (R2) y el veredicto no escribe con una franquicia desconocida
+(R42).
 
 Datos SINTETICOS: recursos, partes e ides inventados; ni nombres ni DNIs.
 """
@@ -286,33 +288,75 @@ def test_f056_acciones_literales():
     assert fr.TOL == 0.001
 
 
-# --------------------- T8: franquicia en el campo de res --------------------- #
+# ------------- T8, T23: franquicia en el campo extendido (DA29-DA31) ------------- #
 
-def test_f056_r38_campo_re():
-    for bueno in ("FranqHE", "_x", "a" * 128, "campo_prueba_1"):
-        assert fr.CAMPO_RE.match(bueno), bueno
-    for malo in ("", "1campo", "a];DROP TABLE res;--", "campo x", " campo",
-                 "campo ", "a" * 129, "res.campo", "[campo]", "c\u00e1mpo",
-                 "campo\n"):
-        assert not fr.CAMPO_RE.match(malo), malo
-
-
-def test_f056_r38_tipos_numericos_son_los_de_la_spec():
-    """design §4: exactamente estos nueve (sin `bigint`: decision del
-    lider del 2026-10-27; un tipo fuera de la lista es `no_disponible`)."""
-    assert fr.TIPOS_NUMERICOS == frozenset({
-        "decimal", "numeric", "float", "real", "int", "smallint", "tinyint",
-        "money", "smallmoney"})
+def test_f056_r38_cod_ext_re():
+    """R38: el `cod` es Texto 16 y va como parametro; el filtro solo
+    detecta un ajuste mal puesto. Termina en `Z` y no en `$`: sin salto
+    de linea final."""
+    for bueno in ("10", "a", "A.b-c_1", "x" * 16, "FRANQ"):
+        assert fr.COD_EXT_RE.match(bueno), bueno
+    for malo in ("", "x" * 17, "10 ", " 10", "1 0", "10\n", "10;", "'10'",
+                 "cód", "[10]"):
+        assert not fr.COD_EXT_RE.match(malo), malo
 
 
-@pytest.mark.parametrize("tipo, esperado", [
-    ("decimal", True), ("NUMERIC", True), ("Float", True), ("real", True),
-    ("int", True), ("smallint", True), ("tinyint", True), ("money", True),
-    ("SmallMoney", True), (" int ", True),
-    ("bigint", False), ("varchar", False), ("nvarchar", False),
-    ("bit", False), ("datetime", False), ("", False), (None, False)])
-def test_f056_r38_es_tipo_numerico(tipo, esperado):
-    assert fr.es_tipo_numerico(tipo) is esperado
+def test_f056_r47_tip_y_camtip_literales():
+    """R47, DA30, DA31: tipo de contacto de los recursos y `camtip` de
+    numero entero (`valn`)."""
+    assert (fr.TIP_RECURSO, fr.CAMTIP_NUMERO) == (33, 1)
+
+
+def test_f056_t23_ya_no_hay_columna_de_res():
+    """DA29: lo hecho para una columna de `res` se quita (design §4)."""
+    for nombre in ("CAMPO_RE", "TIPOS_NUMERICOS", "es_tipo_numerico"):
+        assert not hasattr(fr, nombre), nombre
+
+
+def test_f056_r38_motivo_definicion_valida_es_none():
+    assert fr.motivo_definicion([{"ide": 49, "camtip": 1}]) is None
+    assert fr.motivo_definicion([{"ide": 49, "camtip": "1"}]) is None
+
+
+@pytest.mark.parametrize("filas, trozo", [
+    ([], "no hay definicion"),
+    ([{"ide": 49, "camtip": 1}, {"ide": 50, "camtip": 1}], "2 definiciones"),
+    ([{"ide": 49, "camtip": 6}], "camtip 6"),
+    ([{"ide": 49, "camtip": None}], "camtip None"),
+    ([{"ide": 49, "camtip": "x"}], "camtip x"),
+    ([{"ide": 49}], "camtip None"),
+])
+def test_f056_r38_motivo_definicion_no_valida(filas, trozo):
+    """R38, DA31: 0 filas, mas de una o `camtip` distinto de 1 => motivo
+    (sin tildes y dentro de `LIMITE_MOTIVO`)."""
+    motivo = fr.motivo_definicion(filas)
+    assert motivo and trozo in motivo, motivo
+    assert motivo.isascii() and len(motivo) <= fr.LIMITE_MOTIVO
+
+
+def test_f056_r2_lectura_de_sin_fila_es_inactiva():
+    """DA29: sin fila en `conext`, el recurso no tiene franquicia (X = 0)."""
+    lec = fr.lectura_de([])
+    assert (lec.estado, lec.franquicia) == ("inactiva", 0.0)
+
+
+@pytest.mark.parametrize("valor, estado, x", [
+    (8, "activa", 8.0), (None, "inactiva", 0.0), (0, "inactiva", 0.0),
+    (200, "activa", 200.0), (201, "invalida", None), (-1, "invalida", None)])
+def test_f056_r2_lectura_de_una_fila_es_leer_valor(valor, estado, x):
+    lec = fr.lectura_de([valor])
+    assert (lec.estado, lec.franquicia) == (estado, x)
+    assert lec == fr.leer_valor(valor)
+
+
+@pytest.mark.parametrize("valores", [[8, 8], [8, 20], [None, 0], [0, 5, 7]])
+def test_f056_r2_lectura_de_varias_filas_es_invalida(valores):
+    """R2, DA29: mas de una fila por recurso => `invalida` (no se elige
+    una a ciegas y «no se sabe» no es X = 0, R42)."""
+    lec = fr.lectura_de(valores)
+    assert (lec.estado, lec.franquicia) == ("invalida", None)
+    assert lec.motivo == fr.MOTIVO_VARIAS_FILAS
+    assert lec.motivo.isascii() and len(lec.motivo) <= fr.LIMITE_MOTIVO
 
 
 def test_f056_r2_estados_y_tope_literales():
@@ -359,7 +403,7 @@ def test_f056_r2_leer_valor_invalidos(valor):
 
 @pytest.mark.parametrize("lectura, prefijo", [
     (LecturaFranquicia("invalida", None, "valor -1"), "franquicia_invalida"),
-    (LecturaFranquicia("no_disponible", None, "columna ausente"),
+    (LecturaFranquicia("no_disponible", None, "definicion ausente"),
      "franquicia_no_disponible"),
     (LecturaFranquicia("apagada", None), "franquicia_apagada"),
     (None, "franquicia_no_disponible"),

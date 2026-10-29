@@ -152,7 +152,7 @@ class SettingsFake:
                  est_parte_activo: int = 1,
                  est_parte_cerrado: int = 3,
                  est_parte_imputado: int = 10,
-                 franquicia_campo_res: str = "") -> None:
+                 franquicia_campo_ext: str = "") -> None:
         self.obra_pruebas_forzar = obra_pruebas_forzar
         self.obra_pruebas_cod = obra_pruebas_cod
         self.marca_pruebas = marca_pruebas
@@ -167,8 +167,9 @@ class SettingsFake:
         self.est_parte_activo = est_parte_activo
         self.est_parte_cerrado = est_parte_cerrado
         self.est_parte_imputado = est_parte_imputado
-        # F-056 (R3): vacio = franquicia apagada, como `Settings`.
-        self.franquicia_campo_res = franquicia_campo_res
+        # F-056 (R3, DA30): `cod` del campo extendido; vacio = franquicia
+        # apagada, como `Settings`.
+        self.franquicia_campo_ext = franquicia_campo_ext
 
 
 class SigridFake:
@@ -259,18 +260,22 @@ class SigridFake:
         #: `extras_del_periodo` y la excepcion que lanzara si no es None.
         self.extras_leidas: list[tuple] = []
         self.fallo_extras: Exception | None = None
-        #: F-056 enmienda (R38-R40): columnas de `res` `{nombre: DATA_TYPE}`
-        #: (nombre sin distinguir mayusculas, como la collation de Sigrid),
-        #: `{reside: valor}` del campo, lo pedido en cada lectura y las
-        #: excepciones que lanzaran si no son None.
-        self.columnas_res: dict[str, str] = {}
-        self.valores_res: dict[int, object] = {}
-        self.tipos_leidos: list[str] = []
+        #: F-056 enmienda DA29-DA31 (R38-R40, R47): el campo EXTENDIDO.
+        #: `defext` como filas `{ide, tip, cod, camtip}`; `con_tipos`
+        #: `{con.ide: tip}` (un recurso es un `con` de tip 33 con
+        #: `con.ide` = `res.ide`); `conext` como filas `{ide, conide, cod,
+        #: valn}`; lo pedido en cada lectura y las excepciones que lanzaran
+        #: si no son None. `poner_franquicia` es el atajo de los tests.
+        self.defext: list[dict] = []
+        self.con_tipos: dict[int, int] = {}
+        self.conext: list[dict] = []
+        self.definiciones_leidas: list[str] = []
         self.valores_leidos: list[tuple[list[int], str]] = []
-        #: F-056 (R41): si cada `valores_campo_res` corrio con el lock.
+        #: F-056 (R41): si cada `valores_campo_ext` corrio con el lock.
         self.valores_bajo_lock: list[bool] = []
-        self.fallo_tipo_columna: Exception | None = None
-        self.fallo_valores_res: Exception | None = None
+        self.fallo_definicion: Exception | None = None
+        self.fallo_valores: Exception | None = None
+        self._siguiente_conext = 8000
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -542,39 +547,48 @@ class SigridFake:
                 total += float(l.get("can") or 0.0)
         return round(total, 6)
 
-    def _columna_res(self, campo):
-        for nombre, tipo in self.columnas_res.items():
-            if nombre.lower() == str(campo).lower():
-                return tipo
-        return None
+    _SIN_FILA = object()
 
-    def tipo_columna_res(self, campo):
-        """F-056 (R39): el `DATA_TYPE` de la columna o None si no existe."""
-        self._lectura("tipo_columna_res")
-        self.tipos_leidos.append(campo)
-        if self.fallo_tipo_columna is not None:
-            raise self.fallo_tipo_columna
-        return self._columna_res(campo)
+    def poner_franquicia(self, reside, valor=_SIN_FILA, *, cod):
+        """Atajo de los tests: `reside` pasa a ser un recurso (`con` de tip
+        33) y su fila de `conext` con ese `cod` queda con `valor` (sin
+        `valor`, el recurso se queda SIN fila)."""
+        self.con_tipos[int(reside)] = 33
+        self.conext = [f for f in self.conext
+                       if not (f["conide"] == int(reside) and f["cod"] == cod)]
+        if valor is not SigridFake._SIN_FILA:
+            self._siguiente_conext += 1
+            self.conext.append({"ide": self._siguiente_conext,
+                                "conide": int(reside), "cod": cod,
+                                "valn": valor})
 
-    def valores_campo_res(self, resides, campo):
-        """F-056 (R1, R40): como el cliente real: `ValueError` sin leer si el
-        nombre no casa `CAMPO_RE`; una columna que no existe es un error de
-        SQL (excepcion); un recurso que no existe no sale."""
-        from application.services.franquicia import CAMPO_RE
+    def definicion_campo_ext(self, cod):
+        """F-056 (R38, R39, R47): las definiciones de `defext` de tip 33 con
+        ese `cod`, como el cliente real (las juzga `motivo_definicion`)."""
+        self._lectura("definicion_campo_ext")
+        self.definiciones_leidas.append(cod)
+        if self.fallo_definicion is not None:
+            raise self.fallo_definicion
+        return [{"ide": d["ide"], "camtip": d.get("camtip")}
+                for d in self.defext
+                if d.get("tip") == 33 and d.get("cod") == cod]
 
-        if not isinstance(campo, str) or not CAMPO_RE.match(campo):
-            raise ValueError(f"nombre no valido: {campo!r}")
-        self._lectura("valores_campo_res")
+    def valores_campo_ext(self, resides, cod):
+        """F-056 (R1, R40, R47, R48): como el cliente real: por `con.ide` y
+        solo `con` de tip 33 (un ide de otro tip o inexistente no sale);
+        cada recurso con los `valn` de sus filas de ese `cod` ([] sin
+        fila). Nunca por DNI."""
+        self._lectura("valores_campo_ext")
         ides = sorted({int(i) for i in resides if i})
-        self.valores_leidos.append((ides, campo))
+        self.valores_leidos.append((ides, cod))
         self.valores_bajo_lock.append(bool(
             self._verificador_lock is not None
             and self._verificador_lock.locked()))
-        if self.fallo_valores_res is not None:
-            raise self.fallo_valores_res
-        if self._columna_res(campo) is None:
-            raise RuntimeError(f"sigrid-api read: columna {campo} no existe")
-        return {i: self.valores_res[i] for i in ides if i in self.valores_res}
+        if self.fallo_valores is not None:
+            raise self.fallo_valores
+        return {i: [f["valn"] for f in self.conext
+                    if f["conide"] == i and f["cod"] == cod]
+                for i in ides if self.con_tipos.get(i) == 33}
 
     def lineas_para_reajuste(self, claves):
         """F-046 / F-056: por synckey con `pre`, `hmoide` y `enlazada`,

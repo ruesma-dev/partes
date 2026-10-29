@@ -147,7 +147,7 @@ class FranquiciaIn(BaseModel):
     `ajuste_id` 0 es el centinela del preflight (aun no hay fila en sv4):
     solo lo admite `comprobar`. Fechas `YYYYMMDD` con `inicio <= fecha_int
     <= fin`; la obra, por `ide` o por `codigo`. Enmienda (R41): NO trae X
-    (la lee sv5 del campo de `res`); si un sv4 viejo la manda, se ignora."""
+    (la lee sv5 del campo extendido); si un sv4 viejo la manda, se ignora."""
     ajuste_id: Annotated[int, Field(ge=0)]
     recurso_ide: Annotated[int, Field(ge=1)]
     periodo: Annotated[str, Field(pattern=r"^\d{4}-(0[1-9]|1[0-2])$")]
@@ -273,9 +273,9 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
 
     @app.get("/health")
     async def health() -> dict[str, Any]:
-        # F-056 (design §4): sin leer Sigrid; si el campo existe y es
-        # numerico lo dice `/api/franquicia/recursos`.
-        campo = str(getattr(settings, "franquicia_campo_res", "") or "")
+        # F-056 (design §4): sin leer Sigrid; si la definicion del campo
+        # extendido existe y es entera lo dice `/api/franquicia/recursos`.
+        campo = str(getattr(settings, "franquicia_campo_ext", "") or "")
         return {"ok": True, "modo_pruebas": settings.obra_pruebas_forzar,
                 "obra_pruebas": settings.obra_pruebas_cod,
                 "database": settings.sigrid_api_database,
@@ -382,7 +382,7 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
     @app.post("/api/franquicia/recursos")
     def franquicia_recursos(p: FranquiciaRecursosIn) -> JSONResponse:
         """F-056 (R40, R43): SOLO LECTURA y sin lock. La franquicia de cada
-        recurso pedido; 502 si falla la lectura del tipo de la columna (un
+        recurso pedido; 502 si falla la lectura de la definicion (un
         fallo al leer los valores es `no_disponible`, 200)."""
         if franquicia is None:
             return _sin_franquicia()

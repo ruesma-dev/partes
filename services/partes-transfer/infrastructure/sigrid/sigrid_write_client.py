@@ -965,38 +965,44 @@ class SigridWriteClient:
                            [int(reside), int(inicio), int(fin), excluir])
         return float((filas[0]["extras"] if filas else 0) or 0.0)
 
-    #: R39: el tipo de la columna del campo, con el nombre como PARAMETRO.
-    _SQL_TIPO_COLUMNA_RES = (
-        "SELECT DATA_TYPE AS tipo FROM INFORMATION_SCHEMA.COLUMNS "
-        "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'res' "
-        "AND COLUMN_NAME = ?")
+    #: R39, R47: la definicion del campo extendido, SOLO de tip 33 (el
+    #: recurso) y con el `cod` como PARAMETRO (DA30).
+    _SQL_DEFINICION_CAMPO_EXT = (
+        "SELECT defext.ide AS ide, defext.camtip AS camtip FROM defext "
+        "WHERE defext.tip = 33 AND defext.cod = ?")
 
-    def tipo_columna_res(self, campo: str) -> str | None:
-        """R39: `DATA_TYPE` de la columna `campo` de `dbo.res`, o None si no
-        existe. Un fallo o un `truncated` es una excepcion."""
-        filas = self._read(self._SQL_TIPO_COLUMNA_RES, [campo])
-        return str(filas[0]["tipo"]) if filas else None
+    def definicion_campo_ext(self, cod: str) -> list[dict]:
+        """R38, R39: TODAS las definiciones de `defext` de tip 33 con ese
+        `cod` (`[{ide, camtip}]`); cuantas haya y su `camtip` los juzga
+        `franquicia.motivo_definicion`. Un fallo o un `truncated` es una
+        excepcion."""
+        filas = self._read(self._SQL_DEFINICION_CAMPO_EXT, [cod])
+        return [{"ide": f.get("ide"), "camtip": f.get("camtip")}
+                for f in filas]
 
-    def valores_campo_res(self, resides: Iterable[int],
-                          campo: str) -> dict[int, Any]:
-        """R1, R40: el valor crudo del campo de cada recurso que existe
-        (`res.ide` -> valor; NULL es None), en lotes de `LOTE_RECURSOS`. El
-        nombre va entre corchetes (un nombre de columna no se parametriza):
-        si no casa `CAMPO_RE`, `ValueError` ANTES de leer (R38)."""
-        # Import local: `franquicia` -> `pisado` -> este modulo (ciclo).
-        from application.services.franquicia import CAMPO_RE
-
-        if not isinstance(campo, str) or not CAMPO_RE.match(campo):
-            raise ValueError(
-                f"FRANQUICIA_CAMPO_RES no es un identificador: {campo!r}")
+    def valores_campo_ext(self, resides: Iterable[int],
+                          cod: str) -> dict[int, list]:
+        """R1, R40, R47, R48: los `valn` del campo `cod` de cada recurso, por
+        `res.ide` (= `con.ide` de tip 33) y NUNCA por DNI: `reside` -> lista
+        de los valores de sus filas de `conext` (NULL es None; [] sin fila,
+        DA29), en lotes de `LOTE_RECURSOS`. `LEFT JOIN` desde `con`: un
+        recurso que no es un `con` de tip 33 no sale (el pipeline lo da por
+        `invalida`) y las filas de otro `tip` con el mismo `cod` (el `10` de
+        tip 42) nunca se leen. Un fallo o un `truncated` es una
+        excepcion."""
         ides = sorted({int(i) for i in resides if i})
-        out: dict[int, Any] = {}
+        out: dict[int, list] = {}
         for i in range(0, len(ides), LOTE_RECURSOS):
             trozo = ides[i:i + LOTE_RECURSOS]
             marcas = ",".join("?" for _ in trozo)
             filas = self._read(
-                f"SELECT res.ide AS reside, res.[{campo}] AS valor FROM res "
-                f"WHERE res.ide IN ({marcas})", trozo)
+                "SELECT con.ide AS reside, conext.ide AS extide, "
+                "conext.valn AS valor FROM con LEFT JOIN conext "
+                "ON conext.conide = con.ide AND conext.cod = ? "
+                f"WHERE con.tip = 33 AND con.ide IN ({marcas})",
+                [cod, *trozo])
             for f in filas:
-                out[int(f["reside"])] = f.get("valor")
+                valores = out.setdefault(int(f["reside"]), [])
+                if f.get("extide") is not None:
+                    valores.append(f.get("valor"))
         return out

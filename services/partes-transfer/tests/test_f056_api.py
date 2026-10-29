@@ -64,7 +64,7 @@ class FranquiciaGrabador:
 
 
 def _app(franquicia, campo: str = "") -> TestClient:
-    st = SettingsFake(franquicia_campo_res=campo)
+    st = SettingsFake(franquicia_campo_ext=campo)
     st.sigrid_api_database = "bd"
     reg = RegistroPipeline(cliente=object(), settings=st)
     return TestClient(build_app(st, pipeline=reg, comprobador=object(),
@@ -225,8 +225,9 @@ def test_f056_r40_recursos_ok_por_recurso():
 
 
 @pytest.mark.parametrize("estado", [
-    EstadoFranquicias("apagada", "FRANQUICIA_CAMPO_RES vacio"),
-    EstadoFranquicias("no_disponible", "la columna x no existe en res")])
+    EstadoFranquicias("apagada", "FRANQUICIA_CAMPO_EXT vacio"),
+    EstadoFranquicias("no_disponible",
+                      "campo extendido 10: no hay definicion de tipo 33")])
 def test_f056_r40_recursos_sin_ok_va_vacio(estado):
     r = _app(FranquiciaGrabador(estado=estado)).post(
         RECURSOS, json={"recurso_ides": [501]})
@@ -266,8 +267,8 @@ def test_f056_r40_recursos_sin_pipeline_es_503():
 
 
 def test_f056_r40_recursos_con_el_pipeline_real_sin_lock():
-    cli = _cli()
-    cli.valores_res = {501: 8.0, 502: None}
+    cli = _cli()                            # 501 con X = 8 (cod 10)
+    cli.poner_franquicia(502, None, cod="10")
     pipe, lock = _pipe(cli)
     r = _app(pipe).post(RECURSOS, json={"recurso_ides": [502, 501, 999]})
     assert r.status_code == 200, r.text
@@ -282,11 +283,10 @@ def test_f056_r40_recursos_con_el_pipeline_real_sin_lock():
 # --------------------------------- /health --------------------------------- #
 
 @pytest.mark.parametrize("campo, esperado", [
-    ("", "apagada"), ("CampoInventado", "configurada"),
-    ("a];--", "configurada")])
+    ("", "apagada"), ("10", "configurada"), ("a];--", "configurada")])
 def test_f056_r3_health_dice_si_la_franquicia_esta_configurada(campo,
                                                                esperado):
-    """design §4: sin leer Sigrid (un nombre malo sale `configurada`: su
+    """design §4: sin leer Sigrid (un codigo malo sale `configurada`: su
     `no_disponible` lo da `/recursos`, que si lee)."""
     fq = FranquiciaGrabador()
     r = _app(fq, campo=campo).get("/health")
@@ -318,7 +318,7 @@ def test_f056_r22_main_compone_la_franquicia_sobre_el_pipeline_compartido(
     monkeypatch.setattr(entrypoint.uvicorn, "run", lambda *a, **kw: None)
     assert entrypoint.main() == 0
     franquicia, pipeline = capturado["franquicia"], capturado["pipeline"]
-    assert st.franquicia_campo_res == ""
+    assert st.franquicia_campo_ext == ""
     assert isinstance(franquicia, FranquiciaPipeline)
     assert franquicia.lock is pipeline.lock
     assert franquicia._cli is capturado["reajuste"]._cli
@@ -327,7 +327,7 @@ def test_f056_r22_main_compone_la_franquicia_sobre_el_pipeline_compartido(
 def _main_con_campo(monkeypatch, campo: str):
     import main as entrypoint
 
-    st = SettingsFake(franquicia_campo_res=campo)
+    st = SettingsFake(franquicia_campo_ext=campo)
     for k, v in {"log_dir": "logs", "log_level": "INFO",
                  "sigrid_api_base_url": "http://sigrid.invalid",
                  "sigrid_api_function_key": "k", "sigrid_api_database": "bd",
@@ -345,13 +345,14 @@ def _main_con_campo(monkeypatch, campo: str):
 
 @pytest.mark.parametrize("campo, nivel, texto", [
     ("", logging.INFO, "apagada"),
-    ("CampoInventado", logging.INFO, "configurada"),
-    ("a];DROP TABLE res;--", logging.WARNING, "no es un nombre de columna"),
+    ("10", logging.INFO, "campo extendido 10"),
+    ("10;DROP TABLE res;--", logging.WARNING,
+     "no es un codigo de campo extendido"),
 ])
 def test_f056_r38_main_deja_la_linea_de_cableado(monkeypatch, caplog, campo,
                                                  nivel, texto):
     """design §4: una linea INFO con el estado al arrancar (WARNING si el
-    nombre no casa `CAMPO_RE`); sv5 arranca igual (R38)."""
+    codigo no casa `COD_EXT_RE`); sv5 arranca igual (R38)."""
     with caplog.at_level(logging.INFO):
         _main_con_campo(monkeypatch, campo)
     lineas = [r for r in caplog.records if "[franquicia]" in r.getMessage()]

@@ -211,108 +211,148 @@ def test_f056_doble_lineas_para_reajuste_trae_pre_hmoide_y_enlace():
         8, -6.0, 25.0, 900, True)
 
 
-# ------------- T9: el campo de franquicia de `res` (enmienda) ------------- #
-# Los nombres de columna son INVENTADOS: el campo real aun no existe.
+# ------------- T9, T23: el campo EXTENDIDO de franquicia (DA29-DA31) ------------- #
+# `defext` tip 33 / `conext.valn` (design §2 H7, H8). Codigos y valores
+# INVENTADOS salvo el `cod` `10`, que es el del ajuste real.
 
-SQL_TIPO = (
-    "SELECT DATA_TYPE AS tipo FROM INFORMATION_SCHEMA.COLUMNS "
-    "WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'res' AND COLUMN_NAME = ?")
+SQL_DEFINICION = (
+    "SELECT defext.ide AS ide, defext.camtip AS camtip FROM defext "
+    "WHERE defext.tip = 33 AND defext.cod = ?")
+
+SQL_VALORES = (
+    "SELECT con.ide AS reside, conext.ide AS extide, conext.valn AS valor "
+    "FROM con LEFT JOIN conext ON conext.conide = con.ide AND conext.cod = ? "
+    "WHERE con.tip = 33 AND con.ide IN ({})")
 
 
-def test_f056_r39_tipo_columna_res_sql_y_parametros(monkeypatch):
-    api = ApiFalsa(["tipo"], [["decimal"]])
-    assert _cli(monkeypatch, api).tipo_columna_res("CampoInventado") == \
-        "decimal"
+def test_f056_r39_definicion_campo_ext_sql_y_parametros(monkeypatch):
+    """R39, R47: la definicion, SOLO de tip 33 y con el `cod` como
+    PARAMETRO (nunca interpolado)."""
+    api = ApiFalsa(["ide", "camtip"], [[49, 1]])
+    assert _cli(monkeypatch, api).definicion_campo_ext("10") == [
+        {"ide": 49, "camtip": 1}]
     assert len(api.posts) == 1
     url, cuerpo = api.posts[0]
     assert url == "http://sigrid.invalid/api/sql/read"
-    assert _sql(cuerpo["sql"]) == SQL_TIPO
-    assert cuerpo["parameters"] == ["CampoInventado"]
-    assert "CampoInventado" not in cuerpo["sql"]
+    assert _sql(cuerpo["sql"]) == SQL_DEFINICION
+    assert cuerpo["parameters"] == ["10"]
+    assert "'10'" not in cuerpo["sql"]
 
 
-def test_f056_r39_tipo_columna_res_ausente_es_none(monkeypatch):
-    api = ApiFalsa(["tipo"], [])
-    assert _cli(monkeypatch, api).tipo_columna_res("otro_campo") is None
+def test_f056_r38_definicion_campo_ext_devuelve_todas_las_filas(monkeypatch):
+    """R38: 0 o varias filas las juzga `motivo_definicion`, no el cliente."""
+    api = ApiFalsa(["ide", "camtip"], [])
+    assert _cli(monkeypatch, api).definicion_campo_ext("10") == []
+    api = ApiFalsa(["ide", "camtip"], [[49, 1], [50, 6]])
+    assert _cli(monkeypatch, api).definicion_campo_ext("10") == [
+        {"ide": 49, "camtip": 1}, {"ide": 50, "camtip": 6}]
 
 
 @pytest.mark.parametrize("api", [
-    ApiFalsa(["tipo"], [["int"]], truncated=True),
-    ApiFalsa(["tipo"], [], estado=503)])
-def test_f056_r39_tipo_columna_res_fallo_es_excepcion(monkeypatch, api):
+    ApiFalsa(["ide", "camtip"], [[49, 1]], truncated=True),
+    ApiFalsa(["ide", "camtip"], [], estado=503)])
+def test_f056_r39_definicion_campo_ext_fallo_es_excepcion(monkeypatch, api):
     with pytest.raises(RuntimeError):
-        _cli(monkeypatch, api).tipo_columna_res("campo_x")
+        _cli(monkeypatch, api).definicion_campo_ext("10")
 
 
-def test_f056_r39_valores_campo_res_sql_y_parametros(monkeypatch):
-    api = ApiFalsa(["reside", "valor"], [[501, 8.5], [502, None]])
+def test_f056_r47_r48_valores_campo_ext_sql_y_parametros(monkeypatch):
+    """R47: solo `con` de tip 33 y `conext` con ese `cod`; R48: por
+    `res.ide` (`con.ide`), nunca por DNI. `reside` -> lista de `valn` de
+    sus filas CON `extide`; un recurso sin fila sale con []."""
+    api = ApiFalsa(["reside", "extide", "valor"], [
+        [501, 7001, 8], [502, None, None], [503, 7003, None]])
     cli = _cli(monkeypatch, api)
-    assert cli.valores_campo_res([502, 501, 501, 0], "Franq_Prueba") == {
-        501: 8.5, 502: None}
+    assert cli.valores_campo_ext([503, 502, 501, 501, 0], "10") == {
+        501: [8], 502: [], 503: [None]}
     assert len(api.posts) == 1
     _, cuerpo = api.posts[0]
-    assert _sql(cuerpo["sql"]) == (
-        "SELECT res.ide AS reside, res.[Franq_Prueba] AS valor FROM res "
-        "WHERE res.ide IN (?,?)")
-    assert cuerpo["parameters"] == [501, 502]
+    assert _sql(cuerpo["sql"]) == SQL_VALORES.format("?,?,?")
+    assert cuerpo["parameters"] == ["10", 501, 502, 503]
+    sql = cuerpo["sql"].lower()
+    assert "dni" not in sql and "cif" not in sql and "tip = 42" not in sql
 
 
-def test_f056_r40_valores_campo_res_en_lotes(monkeypatch):
+def test_f056_r2_valores_campo_ext_varias_filas_de_un_recurso(monkeypatch):
+    """R2: dos filas del mismo recurso salen las dos (las juzga
+    `lectura_de`: `invalida`)."""
+    api = ApiFalsa(["reside", "extide", "valor"], [
+        [501, 7001, 8], [501, 7002, 20]])
+    assert _cli(monkeypatch, api).valores_campo_ext([501], "10") == {
+        501: [8, 20]}
+
+
+def test_f056_r40_valores_campo_ext_en_lotes(monkeypatch):
     ides = list(range(1, modulo.LOTE_RECURSOS + 3))
-    api = ApiFalsa(["reside", "valor"], [])
-    _cli(monkeypatch, api).valores_campo_res(ides, "campo_x")
+    api = ApiFalsa(["reside", "extide", "valor"], [])
+    _cli(monkeypatch, api).valores_campo_ext(ides, "10")
     assert [len(c["parameters"]) for _, c in api.posts] == [
-        modulo.LOTE_RECURSOS, 2]
-    assert api.posts[1][1]["parameters"] == [modulo.LOTE_RECURSOS + 1,
-                                             modulo.LOTE_RECURSOS + 2]
+        modulo.LOTE_RECURSOS + 1, 3]
+    assert [c["parameters"][0] for _, c in api.posts] == ["10", "10"]
+    assert api.posts[1][1]["parameters"][1:] == [modulo.LOTE_RECURSOS + 1,
+                                                 modulo.LOTE_RECURSOS + 2]
 
 
-def test_f056_r39_valores_campo_res_sin_recursos_no_lee(monkeypatch):
-    api = ApiFalsa(["reside", "valor"], [])
-    assert _cli(monkeypatch, api).valores_campo_res([], "campo_x") == {}
+def test_f056_r39_valores_campo_ext_sin_recursos_no_lee(monkeypatch):
+    api = ApiFalsa(["reside", "extide", "valor"], [])
+    assert _cli(monkeypatch, api).valores_campo_ext([], "10") == {}
+    assert _cli(monkeypatch, api).valores_campo_ext([0, None], "10") == {}
     assert api.posts == []
 
 
-@pytest.mark.parametrize("malo", [
-    "", "1campo", "a];DROP TABLE res;--", "campo x", "res.campo",
-    "[campo]", "campo\n", None])
-def test_f056_r38_valores_campo_res_nombre_malo_no_lee(monkeypatch, malo):
-    api = ApiFalsa(["reside", "valor"], [])
-    with pytest.raises(ValueError):
-        _cli(monkeypatch, api).valores_campo_res([501], malo)
-    assert api.posts == []
-
-
-def test_f056_r39_valores_campo_res_truncated_es_excepcion(monkeypatch):
-    api = ApiFalsa(["reside", "valor"], [[501, 8]], truncated=True)
+def test_f056_r39_valores_campo_ext_truncated_es_excepcion(monkeypatch):
+    api = ApiFalsa(["reside", "extide", "valor"], [[501, 7001, 8]],
+                   truncated=True)
     with pytest.raises(RuntimeError, match="truncada"):
-        _cli(monkeypatch, api).valores_campo_res([501], "campo_x")
+        _cli(monkeypatch, api).valores_campo_ext([501], "10")
 
 
-# ------------------------ T9: el doble del campo ------------------------ #
+def test_f056_t23_el_cliente_ya_no_lee_columnas_de_res():
+    """DA29: lo hecho para una columna de `res` se quita (design §4)."""
+    for nombre in ("tipo_columna_res", "valores_campo_res"):
+        assert not hasattr(SigridWriteClient, nombre), nombre
+        assert not hasattr(SigridFake, nombre), nombre
 
-def test_f056_doble_tipo_columna_res():
+
+# ------------------------ T9, T23: el doble del campo ------------------------ #
+
+def test_f056_doble_definicion_campo_ext():
+    """Solo tip 33 y ese `cod`: el `cod` `10` de tip 42 no cuenta (R47)."""
     cli = _fake([])
-    assert cli.tipo_columna_res("campo_x") is None
-    cli.columnas_res = {"Campo_X": "numeric"}
-    assert cli.tipo_columna_res("campo_x") == "numeric"   # collation CI
-    assert cli.tipos_leidos == ["campo_x", "campo_x"]
-    cli.fallo_tipo_columna = RuntimeError("sigrid caido")
+    assert cli.definicion_campo_ext("10") == []
+    cli.defext = [{"ide": 26, "tip": 42, "cod": "10", "camtip": 6},
+                  {"ide": 49, "tip": 33, "cod": "10", "camtip": 1},
+                  {"ide": 51, "tip": 33, "cod": "11", "camtip": 1}]
+    assert cli.definicion_campo_ext("10") == [{"ide": 49, "camtip": 1}]
+    assert cli.definiciones_leidas == ["10", "10"]
+    cli.fallo_definicion = RuntimeError("sigrid caido")
     with pytest.raises(RuntimeError, match="sigrid caido"):
-        cli.tipo_columna_res("campo_x")
+        cli.definicion_campo_ext("10")
 
 
-def test_f056_doble_valores_campo_res():
+def test_f056_doble_valores_campo_ext():
+    """Como el cliente real: solo `con` de tip 33 (un ide de tip 42 no
+    sale), filas de ese `cod`, recurso sin fila => []."""
     cli = _fake([])
-    cli.columnas_res = {"campo_x": "decimal"}
-    cli.valores_res = {501: 8.0, 502: None}
-    assert cli.valores_campo_res([502, 501, 999], "campo_x") == {
-        501: 8.0, 502: None}
-    assert cli.valores_leidos == [([501, 502, 999], "campo_x")]
-    with pytest.raises(ValueError):
-        cli.valores_campo_res([501], "a];--")
-    with pytest.raises(RuntimeError, match="columna"):
-        cli.valores_campo_res([501], "otro_campo")      # columna ausente
-    cli.fallo_valores_res = RuntimeError("sigrid caido")
+    cli.con_tipos = {501: 33, 502: 33, 503: 33, 900: 42}
+    cli.conext = [
+        {"ide": 1, "conide": 501, "cod": "10", "valn": 8},
+        {"ide": 2, "conide": 503, "cod": "10", "valn": None},
+        {"ide": 3, "conide": 502, "cod": "11", "valn": 5},
+        {"ide": 4, "conide": 900, "cod": "10", "valn": 99}]
+    assert cli.valores_campo_ext([502, 501, 503, 900, 999], "10") == {
+        501: [8], 502: [], 503: [None]}
+    assert cli.valores_leidos == [([501, 502, 503, 900, 999], "10")]
+    cli.fallo_valores = RuntimeError("sigrid caido")
     with pytest.raises(RuntimeError, match="sigrid caido"):
-        cli.valores_campo_res([501], "campo_x")
+        cli.valores_campo_ext([501], "10")
+
+
+def test_f056_doble_poner_franquicia():
+    """El atajo de los tests: recurso de tip 33 con una fila del `cod`."""
+    cli = _fake([])
+    cli.poner_franquicia(501, 8, cod="10")
+    cli.poner_franquicia(502, None, cod="10")
+    cli.poner_franquicia(503, cod="10")              # sin fila
+    assert cli.valores_campo_ext([501, 502, 503], "10") == {
+        501: [8], 502: [None], 503: []}

@@ -413,7 +413,7 @@ class PeticionFranquicia:
     calcula. `ajuste_id` 0 es el centinela del preflight (aun no hay fila):
     solo lo admite `comprobar`. `extras_pendientes` solo lo usa
     `comprobar` (las extras de esta aprobacion que aun no estan en Sigrid).
-    F-056 enmienda (R41): no trae X; sv5 la lee del campo de `res`.
+    F-056 enmienda (R41): no trae X; sv5 la lee del campo extendido.
     """
     ajuste_id: int
     recurso_ide: int

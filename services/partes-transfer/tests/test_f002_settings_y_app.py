@@ -62,18 +62,26 @@ def test_f002_settings_storage_habilitado_por_account_url(entorno):
     assert Settings().storage_habilitado is True
 
 
-def test_f056_r3_franquicia_campo_res_vacio_por_defecto(entorno):
-    """F-056 (R3): sin `FRANQUICIA_CAMPO_RES` la franquicia esta apagada."""
-    assert Settings().franquicia_campo_res == ""
+def test_f056_r3_franquicia_campo_ext_vacio_por_defecto(entorno):
+    """F-056 (R3, DA30): sin `FRANQUICIA_CAMPO_EXT` la franquicia esta
+    apagada; el ajuste de la columna de `res` ya no existe (DA29)."""
+    assert Settings().franquicia_campo_ext == ""
+    assert not hasattr(Settings(), "franquicia_campo_res")
 
 
-@pytest.mark.parametrize("valor", ["CampoInventado", "a];DROP TABLE res;--",
-                                   "  ", "1x"])
-def test_f056_r38_franquicia_campo_res_no_impide_arrancar(entorno, valor):
-    """F-056 (R38): un nombre malo es `no_disponible`, nunca un fallo de
+def test_f056_r3_franquicia_campo_res_ya_no_se_lee(entorno):
+    """DA29: un `FRANQUICIA_CAMPO_RES` que quedara puesto no enciende nada."""
+    entorno.setenv("FRANQUICIA_CAMPO_RES", "Franq")
+    assert Settings().franquicia_campo_ext == ""
+
+
+@pytest.mark.parametrize("valor", ["10", "10;DROP TABLE res;--", "  ",
+                                   "x" * 17])
+def test_f056_r38_franquicia_campo_ext_no_impide_arrancar(entorno, valor):
+    """F-056 (R38): un codigo malo es `no_disponible`, nunca un fallo de
     arranque: `Settings` lo guarda tal cual, sin validar."""
-    entorno.setenv("FRANQUICIA_CAMPO_RES", valor)
-    assert Settings().franquicia_campo_res == valor
+    entorno.setenv("FRANQUICIA_CAMPO_EXT", valor)
+    assert Settings().franquicia_campo_ext == valor
 
 
 @pytest.mark.parametrize("valor,esperado", [("0", 1), ("-4", 1), ("1", 1),

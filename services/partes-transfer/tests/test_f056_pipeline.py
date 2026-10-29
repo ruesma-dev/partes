@@ -8,9 +8,10 @@ del parte. Recorre el guion de M2 (design §10): crear, repetir, recalcular
 al alza, a 0 sin borrar; y los rechazos (parte cerrado, enlazada, sin
 `HE*`, recurso de otra empresa), la relectura, el modo pruebas y el lock.
 
-Enmienda 2026-10-27 (T10, DA1 = C): X ya no llega en la peticion; el
-pipeline la lee del campo de `res` (`franquicias`, R1-R3, R38-R42). El
-nombre de la columna de estos tests es INVENTADO (el campo aun no existe).
+Enmienda 2026-10-27 (T10, DA1 = C) y 2026-10-29 (T23, DA29-DA31): X ya no
+llega en la peticion; el pipeline la lee del campo EXTENDIDO de recurso
+(`defext` tip 33, `conext.valn`; `franquicias`, R1-R3, R38-R42, R47, R48)
+con el `cod` del ajuste real (`10`).
 
 Sin red ni Sigrid. Recursos, partes, obras e ides SINTETICOS.
 """
@@ -42,8 +43,13 @@ HMO, HMO_PRUEBAS = 900, 940
 DIA = 20261015
 SK = "partes:franquicia:5"
 OPS_PERMITIDAS = {"insert", "actualizar", "crear_parte"}
-#: Nombre INVENTADO de la columna de `res` (el real aun no existe).
-CAMPO = "FranqInventada"
+#: `cod` del campo extendido «Franquicia Horas» (design §2 H7).
+COD = "10"
+
+
+def _def(ide=49, camtip=1) -> dict:
+    """La definicion de `defext` del campo: tip 33 y ese `cod`."""
+    return {"ide": ide, "tip": 33, "cod": COD, "camtip": camtip}
 
 
 class LockEspia:
@@ -84,10 +90,11 @@ def _extra(ide, fec, can, *, horide=HE, hmoide=HMO, synckey=None) -> dict:
 
 
 def _cli(lineas=None, partes=None, horas=None, **kw) -> SigridFake:
-    """Por defecto la columna existe (`decimal`) y el recurso tiene X = 8."""
+    """Por defecto la definicion existe (tip 33, `camtip` 1) y el recurso
+    tiene X = 8 en `conext`."""
     cli = _sigrid(lineas, partes, horas, **kw)
-    cli.columnas_res = {CAMPO: "decimal"}
-    cli.valores_res = {REC: 8.0}
+    cli.defext = [_def()]
+    cli.poner_franquicia(REC, 8, cod=COD)
     return cli
 
 
@@ -104,9 +111,9 @@ def _sigrid(lineas=None, partes=None, horas=None, **kw) -> SigridFake:
         **kw)
 
 
-def _pipe(cli, *, pruebas=False, campo=CAMPO):
+def _pipe(cli, *, pruebas=False, cod=COD):
     st = SettingsFake(obra_pruebas_forzar=pruebas,
-                      franquicia_campo_res=campo)
+                      franquicia_campo_ext=cod)
     lock = LockEspia()
     reg = RegistroPipeline(cliente=cli, settings=st, lock=lock)
     return FranquiciaPipeline(cliente=cli, settings=st, registro=reg), lock
@@ -263,7 +270,7 @@ def test_f056_r19_r25_franquicia_cero_deja_la_linea_a_cero_sin_borrar():
     cli = _cli()
     pipe, _lock = _pipe(cli)
     pipe.ejecutar(_pet())
-    cli.valores_res[REC] = 0               # Administracion la quita
+    cli.poner_franquicia(REC, 0, cod=COD)  # Administracion la quita
     r = pipe.ejecutar(_pet())
     assert (r.ok, r.accion, r.objetivo, r.actual) == (
         True, fr.ACTUALIZAR, 0.0, 0.0)
@@ -463,86 +470,169 @@ def test_f056_asegurar_parte_delega_en_el_alta_protegida():
     assert cli.grabadas[0]["desc"] == "Parte Obra 0100"
 
 
-# ------------- T10: X leida del campo de `res` (enmienda, R1-R3) ------------- #
+# ------- T10, T23: X leida del campo EXTENDIDO (R1-R3, R38-R42, R47, R48) ------- #
 
 def test_f056_r3_franquicias_apagada_sin_leer_nada():
     cli = _cli()
-    pipe = _pipe(cli, campo="")[0]
+    pipe = _pipe(cli, cod="")[0]
     e = pipe.franquicias([REC, 502])
     assert (e.estado, e.recursos) == ("apagada", {})
+    assert e.motivo == "FRANQUICIA_CAMPO_EXT vacio"
     assert isinstance(e, EstadoFranquicias)
-    assert cli.tipos_leidos == [] and cli.valores_leidos == []
+    assert cli.definiciones_leidas == [] and cli.valores_leidos == []
 
 
-@pytest.mark.parametrize("campo", ["  ", "a];DROP TABLE res;--", "1x",
-                                   "campo" + chr(10), "res.campo"])
-def test_f056_r38_nombre_malo_es_no_disponible_sin_leer(campo, caplog):
+@pytest.mark.parametrize("cod", ["  ", "10;DROP TABLE res;--", "x" * 17,
+                                 "10" + chr(10), "1 0", "'10'"])
+def test_f056_r38_codigo_malo_es_no_disponible_sin_leer(cod, caplog):
     cli = _cli()
     with caplog.at_level(logging.WARNING):
-        e = _pipe(cli, campo=campo)[0].franquicias([REC])
+        e = _pipe(cli, cod=cod)[0].franquicias([REC])
     assert (e.estado, e.recursos) == ("no_disponible", {})
     assert e.motivo and e.motivo.isascii()
-    assert cli.tipos_leidos == [] and cli.valores_leidos == []
+    assert "FRANQUICIA_CAMPO_EXT" in e.motivo
+    assert cli.definiciones_leidas == [] and cli.valores_leidos == []
     assert any(r.levelno == logging.WARNING for r in caplog.records)
 
 
-def test_f056_r38_r39_columna_ausente_no_disponible_y_se_vuelve_a_mirar(
+def test_f056_r38_r39_definicion_ausente_no_disponible_y_se_vuelve_a_mirar(
         caplog):
     cli = _cli()
-    cli.columnas_res = {}
+    cli.defext = []
     pipe = _pipe(cli)[0]
     with caplog.at_level(logging.WARNING):
         e = pipe.franquicias([REC])
-    assert e.estado == "no_disponible" and CAMPO in e.motivo
+    assert e.estado == "no_disponible" and COD in e.motivo
+    assert "no hay definicion" in e.motivo
     assert cli.valores_leidos == []
     assert any(r.levelno == logging.WARNING for r in caplog.records)
-    cli.columnas_res = {CAMPO: "numeric"}     # Administracion la crea
+    cli.defext = [_def()]                     # Administracion la crea
     assert pipe.franquicias([REC]).estado == "ok"
-    assert cli.tipos_leidos == [CAMPO, CAMPO]
+    assert cli.definiciones_leidas == [COD, COD]
 
 
-@pytest.mark.parametrize("tipo", ["varchar", "bigint", "bit", "datetime"])
-def test_f056_r38_columna_no_numerica_no_disponible(tipo):
+@pytest.mark.parametrize("defs, trozo", [
+    ([{"ide": 49, "tip": 33, "cod": COD, "camtip": 6}], "camtip 6"),
+    ([{"ide": 49, "tip": 33, "cod": COD, "camtip": 3}], "camtip 3"),
+    ([{"ide": 49, "tip": 33, "cod": COD, "camtip": 1},
+      {"ide": 50, "tip": 33, "cod": COD, "camtip": 1}], "2 definiciones"),
+])
+def test_f056_r38_definicion_doble_o_no_entera_no_disponible(defs, trozo):
+    """R38, DA31: otro `camtip` (no `valn` entero) o dos definiciones de
+    tip 33 => `no_disponible` sin leer valores."""
     cli = _cli()
-    cli.columnas_res = {CAMPO: tipo}
+    cli.defext = defs
     e = _pipe(cli)[0].franquicias([REC])
-    assert e.estado == "no_disponible" and tipo in e.motivo
+    assert e.estado == "no_disponible" and trozo in e.motivo
     assert cli.valores_leidos == []
+
+
+def test_f056_r47_el_cod_10_de_tip_42_nunca_da_x():
+    """R47, H8: el `cod` `10` tambien es «Administrativo de obra» de tip 42
+    (`camtip` 6, filas en `conext` de contactos de tip 42). Ni su
+    definicion cuenta (sin la de tip 33 => `no_disponible`) ni sus filas
+    dan X a nadie, aunque se pida ese ide."""
+    cli = _cli()
+    cli.defext = [{"ide": 26, "tip": 42, "cod": COD, "camtip": 6}]
+    pipe = _pipe(cli)[0]
+    e = pipe.franquicias([REC])
+    assert e.estado == "no_disponible" and "no hay definicion" in e.motivo
+    cli.defext = [{"ide": 26, "tip": 42, "cod": COD, "camtip": 6}, _def()]
+    cli.con_tipos[900] = 42
+    cli.conext.append({"ide": 8800, "conide": 900, "cod": COD, "valn": 12})
+    e = pipe.franquicias([REC, 900])
+    assert e.estado == "ok"
+    assert (e.recursos[REC].estado, e.recursos[REC].franquicia) == (
+        "activa", 8.0)
+    assert (e.recursos[900].estado, e.recursos[900].franquicia) == (
+        "invalida", None)
+    assert "no existe" in e.recursos[900].motivo
+
+
+def test_f056_r48_mismo_dni_dos_empresas_usa_la_del_recurso_pedido():
+    """R48, DA29 (el humano: «el mismo dni de recurso puede estar en 2
+    empresas»): una persona con un recurso en cada empresa, X 8 y 20. Se
+    lee por `res.ide` y solo cuenta la del recurso pedido (el de la
+    empresa de la obra, `hmores.reside`); nunca se busca por DNI."""
+    otro = 601
+    mismos = [RecursoSigrid(REC, 1, None, "11111111H"),
+              RecursoSigrid(otro, 2, None, "11111111H")]
+    cli = _cli(recursos={r.reside: r for r in mismos},
+               por_dni={"11111111H": mismos})
+    cli.poner_franquicia(otro, 20, cod=COD)
+    pipe = _pipe(cli)[0]
+    e = pipe.franquicias([REC])
+    assert list(e.recursos) == [REC]
+    assert (e.recursos[REC].estado, e.recursos[REC].franquicia) == (
+        "activa", 8.0)
+    r = pipe.comprobar(_pet())
+    assert (r.franquicia, r.objetivo) == (8.0, -6.0)
+    r = pipe.ejecutar(_pet())
+    assert (r.ok, r.franquicia, r.objetivo) == (True, 8.0, -6.0)
+    assert cli.valores_leidos and all(
+        ides == [REC] for ides, _ in cli.valores_leidos)
+    assert "recursos_por_dni" not in cli.llamadas
+    e = pipe.franquicias([otro])
+    assert e.recursos[otro].franquicia == 20.0
 
 
 def test_f056_r2_r40_franquicias_ok_por_recurso_y_cache_del_si():
     cli = _cli()
-    cli.valores_res = {REC: 8.0, 502: None, 503: -1, 504: 0, 505: 7.126}
+    cli.poner_franquicia(502, None, cod=COD)
+    cli.poner_franquicia(503, -1, cod=COD)
+    cli.poner_franquicia(504, 0, cod=COD)
+    cli.poner_franquicia(505, cod=COD)                 # sin fila
+    cli.poner_franquicia(507, 201, cod=COD)
+    cli.con_tipos[508] = 33
+    cli.conext += [{"ide": 8801, "conide": 508, "cod": COD, "valn": 8},
+                   {"ide": 8802, "conide": 508, "cod": COD, "valn": 20}]
     pipe = _pipe(cli)[0]
-    e = pipe.franquicias([REC, 502, 503, 504, 505, 506])
+    e = pipe.franquicias([REC, 502, 503, 504, 505, 506, 507, 508])
     assert (e.estado, e.motivo) == ("ok", None)
     assert {k: (v.estado, v.franquicia) for k, v in e.recursos.items()} == {
         REC: ("activa", 8.0), 502: ("inactiva", 0.0),
         503: ("invalida", None), 504: ("inactiva", 0.0),
-        505: ("activa", 7.13), 506: ("invalida", None)}
+        505: ("inactiva", 0.0), 506: ("invalida", None),
+        507: ("invalida", None), 508: ("invalida", None)}
     assert "no existe" in e.recursos[506].motivo
-    assert cli.valores_leidos == [([REC, 502, 503, 504, 505, 506], CAMPO)]
+    assert e.recursos[508].motivo == fr.MOTIVO_VARIAS_FILAS
+    assert cli.valores_leidos == [
+        ([REC, 502, 503, 504, 505, 506, 507, 508], COD)]
     pipe.franquicias([REC])
-    assert cli.tipos_leidos == [CAMPO]                # el «si» se recuerda
+    assert cli.definiciones_leidas == [COD]           # el «si» se recuerda
 
 
 def test_f056_r39_fallo_de_valores_olvida_el_si(caplog):
     cli = _cli()
     pipe = _pipe(cli)[0]
     assert pipe.franquicias([REC]).estado == "ok"
-    cli.fallo_valores_res = RuntimeError("Invalid column name")
+    cli.fallo_valores = RuntimeError("Invalid object name")
     with caplog.at_level(logging.WARNING):
         e = pipe.franquicias([REC])
-    assert e.estado == "no_disponible" and "Invalid column name" in e.motivo
-    cli.fallo_valores_res = None
+    assert e.estado == "no_disponible" and "Invalid object name" in e.motivo
+    assert COD in e.motivo
+    cli.fallo_valores = None
     assert pipe.franquicias([REC]).estado == "ok"
-    assert cli.tipos_leidos == [CAMPO, CAMPO]         # se volvio a mirar
+    assert cli.definiciones_leidas == [COD, COD]      # se volvio a mirar
 
 
-def test_f056_r40_fallo_al_leer_el_tipo_es_excepcion():
-    """design §6: `/recursos` responde 502 si falla la lectura del tipo."""
+def test_f056_r39_otro_codigo_se_vuelve_a_mirar():
+    """El «si» es del `cod` comprobado: si cambia el ajuste, se mira."""
     cli = _cli()
-    cli.fallo_tipo_columna = RuntimeError("sigrid caido")
+    cli.defext.append({"ide": 52, "tip": 33, "cod": "11", "camtip": 1})
+    st = SettingsFake(franquicia_campo_ext=COD)
+    reg = RegistroPipeline(cliente=cli, settings=st, lock=LockEspia())
+    pipe = FranquiciaPipeline(cliente=cli, settings=st, registro=reg)
+    pipe.franquicias([REC])
+    st.franquicia_campo_ext = "11"
+    pipe.franquicias([REC])
+    assert cli.definiciones_leidas == [COD, "11"]
+
+
+def test_f056_r40_fallo_al_leer_la_definicion_es_excepcion():
+    """design §6: `/recursos` responde 502 si falla leer la definicion."""
+    cli = _cli()
+    cli.fallo_definicion = RuntimeError("sigrid caido")
     with pytest.raises(RuntimeError, match="sigrid caido"):
         _pipe(cli)[0].franquicias([REC])
 
@@ -555,11 +645,12 @@ def test_f056_r40_franquicias_sin_recursos_no_lee_valores():
 
 
 @pytest.mark.parametrize("prep, prefijo, estado", [
-    ({"campo": ""}, "franquicia_apagada", "apagada"),
-    ({"columnas": {}}, "franquicia_no_disponible", "no_disponible"),
+    ({"cod": ""}, "franquicia_apagada", "apagada"),
+    ({"defs": []}, "franquicia_no_disponible", "no_disponible"),
     ({"valor": -1}, "franquicia_invalida", "invalida"),
-    ({"valor": 200.5}, "franquicia_invalida", "invalida"),
-    ({"fallo_tipo": True}, "franquicia_no_disponible", "no_disponible"),
+    ({"valor": 201}, "franquicia_invalida", "invalida"),
+    ({"dos_filas": True}, "franquicia_invalida", "invalida"),
+    ({"fallo_def": True}, "franquicia_no_disponible", "no_disponible"),
     ({"fallo_valores": True}, "franquicia_no_disponible", "no_disponible"),
 ])
 def test_f056_r42_franquicia_desconocida_no_escribe(prep, prefijo, estado):
@@ -567,15 +658,18 @@ def test_f056_r42_franquicia_desconocida_no_escribe(prep, prefijo, estado):
     existe; `comprobar` y `ejecutar` responden `no_editable`."""
     cli = _cli(lineas=[_extra(7001, 20261001, 10.0),
                        _extra(7009, DIA, -6.0, synckey=SK)])
-    if "columnas" in prep:
-        cli.columnas_res = prep["columnas"]
+    if "defs" in prep:
+        cli.defext = prep["defs"]
     if "valor" in prep:
-        cli.valores_res[REC] = prep["valor"]
-    if prep.get("fallo_tipo"):
-        cli.fallo_tipo_columna = RuntimeError("sigrid caido")
+        cli.poner_franquicia(REC, prep["valor"], cod=COD)
+    if prep.get("dos_filas"):
+        cli.conext.append({"ide": 8803, "conide": REC, "cod": COD,
+                           "valn": 8})
+    if prep.get("fallo_def"):
+        cli.fallo_definicion = RuntimeError("sigrid caido")
     if prep.get("fallo_valores"):
-        cli.fallo_valores_res = RuntimeError("sigrid caido")
-    pipe, _lock = _pipe(cli, campo=prep.get("campo", CAMPO))
+        cli.fallo_valores = RuntimeError("sigrid caido")
+    pipe, _lock = _pipe(cli, cod=prep.get("cod", COD))
     for r in (pipe.comprobar(_pet()), pipe.ejecutar(_pet())):
         assert (r.ok, r.accion, r.escrita) == (False, fr.NO_EDITABLE, False)
         assert r.motivo.startswith(f"{prefijo}: ")
@@ -584,10 +678,21 @@ def test_f056_r42_franquicia_desconocida_no_escribe(prep, prefijo, estado):
     assert _ajuste(cli)[0]["can"] == -6.0
 
 
+def test_f056_r42_fallo_de_la_definicion_dice_el_campo_extendido():
+    """`_franquicia_de`: un fallo al leer la definicion es `no_disponible`
+    y su motivo dice que fue la definicion (no una columna)."""
+    cli = _cli()
+    cli.fallo_definicion = RuntimeError("sigrid caido")
+    r = _pipe(cli)[0].comprobar(_pet())
+    assert r.motivo.startswith("franquicia_no_disponible: ")
+    assert "definicion del campo extendido" in r.motivo
+    assert "columna" not in r.motivo
+
+
 def test_f056_r3_apagada_comprobar_no_lee_el_campo():
     cli = _cli()
-    _pipe(cli, campo="")[0].comprobar(_pet())
-    assert cli.tipos_leidos == [] and cli.valores_leidos == []
+    _pipe(cli, cod="")[0].comprobar(_pet())
+    assert cli.definiciones_leidas == [] and cli.valores_leidos == []
 
 
 def test_f056_r41_ejecutar_lee_x_bajo_el_lock_y_comprobar_sin_el():
@@ -598,7 +703,7 @@ def test_f056_r41_ejecutar_lee_x_bajo_el_lock_y_comprobar_sin_el():
     cli.vigilar_lock(lock)      # desde aqui, lecturas de estado bajo lock
     pipe.ejecutar(_pet())
     assert cli.valores_bajo_lock == [False, True]
-    assert cli.valores_leidos == [([REC], CAMPO), ([REC], CAMPO)]
+    assert cli.valores_leidos == [([REC], COD), ([REC], COD)]
 
 
 def test_f056_r41_da22_vale_la_x_de_sigrid_al_ejecutar():
@@ -608,22 +713,36 @@ def test_f056_r41_da22_vale_la_x_de_sigrid_al_ejecutar():
     pipe = _pipe(cli)[0]
     r = pipe.comprobar(_pet())
     assert (r.franquicia, r.objetivo) == (8.0, -6.0)
-    cli.valores_res[REC] = 2.5
+    cli.poner_franquicia(REC, 2, cod=COD)
     r = pipe.ejecutar(_pet())
     assert (r.ok, r.franquicia, r.franquicia_estado, r.objetivo) == (
-        True, 2.5, "activa", -2.5)
-    assert _ajuste(cli)[0]["can"] == -2.5
+        True, 2.0, "activa", -2.0)
+    assert _ajuste(cli)[0]["can"] == -2.0
 
 
-def test_f056_r42_inactiva_sin_linea_es_sin_ajuste():
+@pytest.mark.parametrize("sin_fila", [False, True])
+def test_f056_r42_inactiva_sin_linea_es_sin_ajuste(sin_fila):
+    """DA29: valor vacio o sin fila en `conext` => sin franquicia."""
     cli = _cli()
-    cli.valores_res[REC] = None
+    if sin_fila:
+        cli.poner_franquicia(REC, cod=COD)
+    else:
+        cli.poner_franquicia(REC, None, cod=COD)
     r = _pipe(cli)[0].ejecutar(_pet())
     assert (r.ok, r.accion, r.objetivo, r.escrita) == (
         True, fr.SIN_AJUSTE, 0.0, False)
     assert (r.franquicia, r.franquicia_estado) == (0.0, "inactiva")
     assert _ajuste(cli) == []
 
+
+def test_f056_t23_el_pipeline_no_lee_columnas_de_res():
+    """DA29: el pipeline ya no pide columnas de `res` y `SettingsFake` (como
+    `Settings`) ya no tiene `franquicia_campo_res`."""
+    cli = _cli()
+    _pipe(cli)[0].franquicias([REC])
+    assert not any("columna" in x or "campo_res" in x for x in cli.llamadas)
+    assert "definicion_campo_ext" in cli.llamadas
+    assert not hasattr(SettingsFake(), "franquicia_campo_res")
 
 
 # ============ supervivientes de la campana de mutacion (2026-10-29) ============ #

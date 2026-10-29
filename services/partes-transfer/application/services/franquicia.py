@@ -27,12 +27,15 @@ se anade UNA linea `HE*` negativa que resta las extras hasta X:
   - `texto_ajuste` (DA13, DA26): el `tex` que vera Administracion en
     Sigrid, SIN cifras (no queda desfasado al recalcular) ni nombres.
 
-Enmienda 2026-10-27 (DA1 = C): X es un campo nuevo de `res` que crea y
-rellena Administracion y que solo lee sv5. Aqui viven su regla
-(`leer_valor`, R2: NULL o 0 inactiva, (0, 200] activa, lo demas invalida),
-el filtro del nombre (`CAMPO_RE`, R38), los tipos que se aceptan
-(`TIPOS_NUMERICOS`, design §4: exactamente nueve, sin `bigint`) y que una
-franquicia desconocida nunca es X = 0 (`veredicto`, R42).
+Enmienda 2026-10-27 (DA1 = C) y 2026-10-29 (DA29-DA31): X es el campo
+EXTENDIDO de recurso que rellena Administracion y que solo lee sv5: su
+definicion en `defext` (tip 33, el `cod` del ajuste, `camtip` 1 = numero
+entero) y su valor en `conext.valn` del `res.ide` del recurso (R47, R48).
+Aqui viven su regla (`leer_valor`, R2: NULL o 0 inactiva, (0, 200] activa,
+lo demas invalida; `lectura_de`: sin fila inactiva y mas de una invalida),
+el filtro del codigo (`COD_EXT_RE`, R38), cuando vale la definicion
+(`motivo_definicion`, R38, DA31) y que una franquicia desconocida nunca es
+X = 0 (`veredicto`, R42).
 
 No lee ni escribe; lo llama `FranquiciaPipeline` con lo leido. Motivos sin
 tildes como el resto de sv5 y de `LIMITE_MOTIVO` caracteres como mucho.
@@ -59,15 +62,20 @@ YA_APLICADO = "ya_aplicado"
 SIN_AJUSTE = "sin_ajuste"
 NO_EDITABLE = "no_editable"
 
-#: R38: un nombre de columna que se puede interpolar entre corchetes. `\Z`
-#: y no `$`: en Python `$` admite un salto de linea final tras el nombre.
-CAMPO_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}\Z")
+#: R38, DA30: el `cod` del campo extendido (Texto 16 en `defext`). Va
+#: SIEMPRE como parametro: el filtro solo detecta un ajuste mal puesto.
+#: `\Z` y no `$`: en Python `$` admite un salto de linea final.
+COD_EXT_RE = re.compile(r"^[A-Za-z0-9_.-]{1,16}\Z")
 
-#: R38, design §4: `DATA_TYPE` de `INFORMATION_SCHEMA.COLUMNS` que valen
-#: (en minusculas). Cualquier otro, `bigint` incluido, es `no_disponible`.
-TIPOS_NUMERICOS = frozenset({
-    "decimal", "numeric", "float", "real", "int", "smallint", "tinyint",
-    "money", "smallmoney"})
+#: R47, H7: tipo de contacto de los recursos (`con.tip`, `defext.tip`). El
+#: mismo `cod` existe en otros tipos (el `10` de tip 42) y nunca se lee.
+TIP_RECURSO = 33
+
+#: R38, DA31: `defext.camtip` de numero entero (el valor va en `valn`).
+CAMTIP_NUMERO = 1
+
+#: R2, DA29: un recurso con mas de una fila del campo (no se elige una).
+MOTIVO_VARIAS_FILAS = "mas de una fila del campo para el recurso"
 
 #: R2, DA24: tope de una franquicia valida, en horas por mes de nomina.
 MAX_FRANQUICIA_H = 200.0
@@ -111,9 +119,36 @@ def ajuste_objetivo(extras: float, franquicia: float) -> float:
     return _cero(round(-min(e, x), 2))
 
 
-def es_tipo_numerico(tipo: str | None) -> bool:
-    """R38: el `DATA_TYPE` de la columna es uno de `TIPOS_NUMERICOS`."""
-    return (tipo or "").strip().lower() in TIPOS_NUMERICOS
+def motivo_definicion(filas: list[dict]) -> str | None:
+    """R38, DA30, DA31: None si hay EXACTAMENTE una definicion de tip 33
+    con ese `cod` y su `camtip` es 1 (numero entero); si no, el motivo de
+    `no_disponible` (sin tildes, `LIMITE_MOTIVO` como mucho)."""
+    if not filas:
+        return f"no hay definicion de tipo {TIP_RECURSO} en defext"
+    if len(filas) > 1:
+        return (f"{len(filas)} definiciones de tipo {TIP_RECURSO} en "
+                f"defext")[:LIMITE_MOTIVO]
+    camtip = filas[0].get("camtip")
+    try:
+        numero = int(camtip) == CAMTIP_NUMERO
+    except (TypeError, ValueError):
+        numero = False
+    if not numero:
+        return (f"camtip {camtip}, no es numero entero "
+                f"({CAMTIP_NUMERO})")[:LIMITE_MOTIVO]
+    return None
+
+
+def lectura_de(valores: list) -> LecturaFranquicia:
+    """R2, DA29: la franquicia de un recurso a partir de los `valn` de sus
+    filas del campo. Sin fila => `inactiva` (X = 0); mas de una =>
+    `invalida` (no se elige una a ciegas y «no se sabe» no es X = 0, R42);
+    una => `leer_valor`."""
+    if not valores:
+        return LecturaFranquicia(INACTIVA, 0.0)
+    if len(valores) > 1:
+        return LecturaFranquicia(INVALIDA, None, MOTIVO_VARIAS_FILAS)
+    return leer_valor(valores[0])
 
 
 def leer_valor(valor: object) -> LecturaFranquicia:

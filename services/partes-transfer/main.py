@@ -25,7 +25,7 @@ from application.pipelines.franquicia_pipeline import FranquiciaPipeline
 from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.comprobacion_lineas import ComprobadorLineas
-from application.services.franquicia import CAMPO_RE
+from application.services.franquicia import COD_EXT_RE
 from config.logging_config import configure_logging
 from config.settings import Settings
 from infrastructure.azure.credenciales import (
@@ -41,18 +41,21 @@ logger = logging.getLogger(__name__)
 
 def _cableado_franquicia(settings) -> None:
     """F-056 (design §4, R3, R38): UNA linea al arrancar con el estado de la
-    franquicia. Sin leer Sigrid: si la columna existe y es numerica lo dice
-    `/api/franquicia/recursos`. Un nombre malo NO impide arrancar."""
-    campo = str(getattr(settings, "franquicia_campo_res", "") or "")
-    if not campo:
-        logger.info("[franquicia] apagada (FRANQUICIA_CAMPO_RES vacio): no "
+    franquicia. Sin leer Sigrid: si la definicion del campo extendido existe
+    y es entera lo dice `/api/franquicia/recursos`. Un codigo malo NO impide
+    arrancar."""
+    cod = str(getattr(settings, "franquicia_campo_ext", "") or "")
+    if not cod:
+        logger.info("[franquicia] apagada (FRANQUICIA_CAMPO_EXT vacio): no "
                     "hay ajustes de franquicia")
-    elif not CAMPO_RE.match(campo):
-        logger.warning("[franquicia] FRANQUICIA_CAMPO_RES no es un nombre de "
-                       "columna valido: la franquicia quedara no_disponible")
+    elif not COD_EXT_RE.match(cod):
+        logger.warning("[franquicia] FRANQUICIA_CAMPO_EXT no es un codigo de "
+                       "campo extendido valido: la franquicia quedara "
+                       "no_disponible")
     else:
-        logger.info("[franquicia] configurada: campo res.%s (se comprueba "
-                    "en cada peticion hasta que exista y sea numerico)", campo)
+        logger.info("[franquicia] configurada: campo extendido %s de tipo 33 "
+                    "(se comprueba en cada peticion hasta que su definicion "
+                    "exista y sea entera)", cod)
 
 
 def _arrancar_consumo(settings: Settings, pipeline: RegistroPipeline) -> None:

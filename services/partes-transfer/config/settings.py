@@ -65,14 +65,16 @@ class Settings(BaseSettings):
     # siguiente `fin` escribiria otro CIZ.
     mover_ciz: bool = Field(False, alias="MOVER_CIZ")
 
-    # --- F-056 (DA1 = C, R3, R38): franquicia de extras --- #
-    # Nombre de la columna de `res` donde Administracion pone la franquicia
-    # mensual de extras de cada recurso (X, en horas). Vacio (por defecto)
-    # -> franquicia `apagada`: sv5 no lee el campo y no hay ajustes. SIN
-    # validador a proposito: un nombre que no sea un identificador, una
-    # columna que no exista o que no sea numerica dejan la franquicia
-    # `no_disponible` con un WARNING, nunca impiden arrancar (DA23).
-    franquicia_campo_res: str = Field("", alias="FRANQUICIA_CAMPO_RES")
+    # --- F-056 (DA1 = C, DA29-DA31, R3, R38): franquicia de extras --- #
+    # `cod` del campo EXTENDIDO de recurso (`defext` tip 33; hoy `10`,
+    # «Franquicia Horas») donde Administracion pone la franquicia mensual
+    # de extras de cada recurso (X, horas enteras, en `conext.valn`). Vacio
+    # (por defecto) -> franquicia `apagada`: sv5 no lee el campo y no hay
+    # ajustes. SIN validador a proposito: un codigo que no case, una
+    # definicion que falte, sobre o no sea numero entero dejan la
+    # franquicia `no_disponible` con un WARNING, nunca impiden arrancar
+    # (DA23).
+    franquicia_campo_ext: str = Field("", alias="FRANQUICIA_CAMPO_EXT")
 
     # --- Constantes del modelo Sigrid (confirmadas con datos reales) --- #
     tip_parte_trabajo: int = Field(35, alias="TIP_PARTE_TRABAJO")

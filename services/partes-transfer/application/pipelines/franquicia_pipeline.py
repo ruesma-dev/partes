@@ -26,11 +26,13 @@ operaciones (R22):
     Despues RELEE por synckey y responde por lo releido (R29): `ok` solo si
     la linea esta en el parte elegido con `can` = A.
 
-Enmienda 2026-10-27 (DA1 = C): X ya no llega en la peticion (R41). Es el
-campo de `res` que nombra `FRANQUICIA_CAMPO_RES` y la lee `franquicias`
-(R1-R3, R38-R40): vacio => `apagada` sin leer nada; nombre que no casa
-`CAMPO_RE`, columna ausente o no numerica => `no_disponible` con WARNING
-(el «si» de la columna se recuerda en la instancia; el «no» se vuelve a
+Enmienda 2026-10-27 (DA1 = C) y 2026-10-29 (DA29-DA31): X ya no llega en
+la peticion (R41). Es el campo EXTENDIDO de recurso cuyo `cod` da
+`FRANQUICIA_CAMPO_EXT` (`defext` tip 33, valor en `conext.valn`) y la lee
+`franquicias` por `res.ide`, nunca por DNI (R1-R3, R38-R40, R47, R48):
+vacio => `apagada` sin leer nada; codigo que no casa `COD_EXT_RE`,
+definicion ausente, doble o no entera => `no_disponible` con WARNING (el
+«si» de la definicion se recuerda en la instancia; el «no» se vuelve a
 mirar en cada peticion y un fallo al leer valores olvida el «si»).
 `comprobar` la lee sin lock y `ejecutar` DENTRO del lock, junto a E; una
 franquicia que no es `activa` ni `inactiva` es `no_editable` y no se
@@ -72,10 +74,11 @@ MOTIVO_NO_CONFIRMADA = "Sigrid no confirmo la linea de ajuste"
 #: la cantidad real es A, que se calcula dentro del lock.
 _HORAS_PREPARAR = -1.0
 
-#: R2, R40: un recurso pedido que no esta en `res` (nunca X = 0).
+#: R2, R40, R47: un recurso pedido que no es un `con` de tip 33 (no esta
+#: en `res`): nunca X = 0.
 MOTIVO_RECURSO_NO_EXISTE = "el recurso no existe en res"
 #: R3: el motivo del estado `apagada`.
-MOTIVO_APAGADA = "FRANQUICIA_CAMPO_RES vacio"
+MOTIVO_APAGADA = "FRANQUICIA_CAMPO_EXT vacio"
 
 
 @dataclass
@@ -104,8 +107,8 @@ class FranquiciaPipeline:
         self._cli = cliente
         self._st = settings
         self._reg = registro
-        #: R39: el nombre de columna cuyo «si» (existe y es numerica) ya se
-        #: comprobo; None = hay que mirarlo en la proxima peticion.
+        #: R39: el `cod` cuya definicion (una sola, tip 33, entera) ya se
+        #: comprobo; None = hay que mirarla en la proxima peticion.
         self._campo_ok: str | None = None
 
     @property
@@ -114,9 +117,9 @@ class FranquiciaPipeline:
         en Sigrid, venga del registro, de la cola, del reajuste o de aqui."""
         return self._reg.lock
 
-    # ---------------------- franquicia del campo de res ---------------------- #
+    # ------------------- franquicia del campo extendido ------------------- #
     def _campo(self) -> str:
-        return str(getattr(self._st, "franquicia_campo_res", "") or "")
+        return str(getattr(self._st, "franquicia_campo_ext", "") or "")
 
     @staticmethod
     def _no_disponible(motivo: str) -> EstadoFranquicias:
@@ -127,48 +130,46 @@ class FranquiciaPipeline:
         return EstadoFranquicias(fr.NO_DISPONIBLE, motivo)
 
     def franquicias(self, ides) -> EstadoFranquicias:
-        """R1-R3, R38-R40: el estado global del campo y, con `ok`, la
-        lectura de cada recurso pedido (`leer_valor`; uno que no esta en
-        `res` es `invalida`). Un fallo al leer el TIPO de la columna es una
-        excepcion (design §6: 502 en `/recursos`)."""
-        campo = self._campo()
-        if not campo:
+        """R1-R3, R38-R40, R47, R48: el estado global del campo y, con `ok`,
+        la lectura de cada recurso pedido por su `res.ide` (`lectura_de`;
+        uno que no es un `con` de tip 33 es `invalida`). Un fallo al leer la
+        DEFINICION es una excepcion (design §6: 502 en `/recursos`)."""
+        cod = self._campo()
+        if not cod:
             return EstadoFranquicias(fr.APAGADA, MOTIVO_APAGADA)
-        if not fr.CAMPO_RE.match(campo):
+        if not fr.COD_EXT_RE.match(cod):
             return self._no_disponible(
-                "FRANQUICIA_CAMPO_RES no es un nombre de columna valido")
-        if self._campo_ok != campo:
-            tipo = self._cli.tipo_columna_res(campo)
-            if tipo is None:
+                "FRANQUICIA_CAMPO_EXT no es un codigo de campo extendido "
+                "valido")
+        if self._campo_ok != cod:
+            motivo = fr.motivo_definicion(self._cli.definicion_campo_ext(cod))
+            if motivo is not None:
                 return self._no_disponible(
-                    f"la columna {campo} no existe en res")
-            if not fr.es_tipo_numerico(tipo):
-                return self._no_disponible(
-                    f"la columna {campo} es de tipo {tipo}, no numerica")
-            self._campo_ok = campo
+                    f"campo extendido {cod}: {motivo}")
+            self._campo_ok = cod
         pedidos = sorted({int(i) for i in ides if i})
         if not pedidos:
             return EstadoFranquicias(fr.OK)
         try:
-            valores = self._cli.valores_campo_res(pedidos, campo)
+            valores = self._cli.valores_campo_ext(pedidos, cod)
         except Exception as exc:  # noqa: BLE001 - R39: se olvida el «si»
             self._campo_ok = None
             return self._no_disponible(
-                f"fallo al leer la columna {campo}: {exc}")
+                f"fallo al leer el campo extendido {cod}: {exc}")
         return EstadoFranquicias(fr.OK, None, {
-            i: (fr.leer_valor(valores[i]) if i in valores
+            i: (fr.lectura_de(valores[i]) if i in valores
                 else LecturaFranquicia(fr.INVALIDA, None,
                                        MOTIVO_RECURSO_NO_EXISTE))
             for i in pedidos})
 
     def _franquicia_de(self, recurso_ide: int) -> LecturaFranquicia:
         """R41, R42: la franquicia del recurso de la peticion. Lo que no se
-        sabe (apagada, no disponible, fallo al leer el tipo) sale con ese
-        estado y sin X: `veredicto` lo convierte en `no_editable`."""
+        sabe (apagada, no disponible, fallo al leer la definicion) sale con
+        ese estado y sin X: `veredicto` lo convierte en `no_editable`."""
         try:
             e = self.franquicias([recurso_ide])
         except Exception as exc:  # noqa: BLE001 - R42: no se sabe
-            motivo = f"fallo al leer el tipo de la columna: {exc}"
+            motivo = f"fallo al leer la definicion del campo extendido: {exc}"
             logger.warning("[franquicia] campo no disponible: %s", motivo)
             return LecturaFranquicia(fr.NO_DISPONIBLE, None,
                                      motivo[:fr.LIMITE_MOTIVO])
