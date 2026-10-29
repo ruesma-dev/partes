@@ -153,6 +153,16 @@ F-056 vuelve a `in_progress`.
   reescrito (T23), sv4 solo textos (T24), T25 rehace T19, T26 mutación de lo cambiado. Más de una fila
   por recurso ⇒ `invalida` (recomendación del spec-author; el humano puede pedir otra cosa). Topes
   150/150 y 250/250. Resumen: `progress/spec_F-056.md`. Siguiente: el líder la enseña al humano.
+- **APROBADA (2026-10-29, humano, literal):** a DA29–DA31, «da29, recuerda coger el ide del recurso
+  filtrado por empresa, el mismo dni de recurso puede estar en 2 empresas. lo demas ok»; tras ver la
+  enmienda (R47, R48, `FRANQUICIA_CAMPO_EXT`, T23–T26): «si».
+- T23, T24 y T25 HECHAS (implementer, 2026-10-29). T23 (62cc269): sv5 lee el campo extendido:
+  `COD_EXT_RE`, `motivo_definicion`, `lectura_de`, `definicion_campo_ext`, `valores_campo_ext` y
+  `FRANQUICIA_CAMPO_EXT`; fase RED con traza; tests de R47 y R48; suite de sv5 con 1485 passed.
+  T24 (d66d605): textos de sv4 y de la raíz (las dos copias del ORM siguen idénticas) y tests de R48
+  en sv4. T25 (d2f6fd6; `azure-apps` e32f089, local y sin push): documentación del campo extendido.
+  La lista de ficheros de producción para T26 está en `progress/impl_F-056.md`. Siguiente: T26
+  (líder), luego T20–T22.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
