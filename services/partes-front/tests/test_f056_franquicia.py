@@ -14,10 +14,10 @@ Sin red ni BBDD. Recursos, obras y personas SINTETICOS.
 """
 from __future__ import annotations
 
+import dataclasses
 from datetime import date, timedelta
 
 import pytest
-
 from application.services import franquicia as fq
 
 REC = 501
@@ -408,3 +408,112 @@ def test_f056_r9_payload_de_comprobar_sin_fila():
     p = fq.payload_franquicia(datos, extras_pendientes=2.5)
     assert (p["ajuste_id"], p["extras_pendientes"], p["usuario"]) == (
         0, 2.5, None)
+
+
+# ============ supervivientes de la campana de mutacion (2026-10-29) ============ #
+# Cada test caza un mutante que la suite dejaba vivo (numero entre corchetes:
+# el de `progress/mutacion_F-056.md`). Los `or 0` son el «sin dato» de una
+# linea o una accion: no puede convertirse en el recurso, la fecha o el
+# registro 1.
+
+def _sin(linea: dict, *claves: str) -> dict:
+    return dict(linea, **{k: None for k in claves})
+
+
+def test_f056_periodo_y_dia_de_ajuste_son_valores_inmutables():
+    """[1, 2] `Periodo` y `DiaAjuste` son valores: nadie los cambia por el
+    camino y sirven de clave (iguales por valor)."""
+    for valor, campo in ((P10, "clave"), (fq.DiaAjuste(D15), "fecha")):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(valor, campo, None)
+    assert {P10, fq.periodo_de(D15)} == {P10}
+    assert len({fq.DiaAjuste(D15), fq.DiaAjuste(D15, None)}) == 1
+
+
+@pytest.mark.parametrize("quita", ["obra_ide", "obra_codigo"])
+def test_f056_r7_obra_solo_por_ide_o_solo_por_codigo_es_trabajo(quita):
+    """[4] Una linea con obra por ide O por codigo es de trabajo."""
+    linea = _sin(_l(1, D15), quita)
+    obra = fq.elegir_obra([linea], [linea])
+    assert obra is not None
+    assert (obra["obra_ide"], obra["obra_codigo"]) == (
+        linea["obra_ide"], linea["obra_codigo"])
+
+
+def test_f056_r7_lineas_del_periodo_sin_fecha_siguen_eligiendo_obra():
+    """[5, 6] Sin lineas el dia, el ultimo dia con trabajo: una linea sin
+    `fecha_int` cuenta como dia 0 en el maximo Y en el filtro."""
+    linea = _sin(_l(1, D15, cod="0200", obra=20), "fecha_int")
+    assert fq.elegir_obra([], [linea])["obra_codigo"] == "0200"
+
+
+def test_f056_r7_partida_empate_sin_registro_id_va_primero():
+    """[7] En el desempate de la partida, sin `registro_id` es el 0."""
+    con = _l(1, D15, pcod="01.01", partida=33)
+    sin = _sin(_l(2, D15, pcod="09.09", partida=99), "registro_id")
+    assert fq.elegir_obra([con, sin], [con, sin])["partida_cod"] == "09.09"
+
+
+def test_f056_r12_extra_sin_recurso_cuenta_como_otro_recurso():
+    """[8] DA16: una extra sin recurso no es del recurso 1: con la del 1 ya
+    son dos y no se ajusta (lado seguro)."""
+    lineas = [_l(1, D15, tipo="extra", horas=2.0, rec=1),
+              _sin(_l(2, D15, tipo="extra", horas=1.0), "recurso_ide")]
+    assert fq.varios_recursos(lineas) is True
+
+
+def test_f056_r9_accion_sin_recurso_no_es_del_recurso_1():
+    """[9] Una accion sin `recurso_ide` no suma a ningun recurso."""
+    accion = dict(_acc(can=2.0), recurso_ide=None)
+    assert fq.extras_pendientes([{"acciones": [accion]}], 1, P10) == 0.0
+
+
+def test_f056_r9_linea_sin_recurso_no_es_candidata_del_recurso_1():
+    """[11] Una linea sin recurso no dispara nada (no es el recurso 1)."""
+    linea = _sin(_l(1, D15), "recurso_ide")
+    assert fq.candidatos([linea], {}, {1: ACTIVA}, _dia15) == []
+
+
+def test_f056_r9_bloque_dia_del_candidato_y_si_no_el_de_la_propuesta():
+    """[12] El dia del item es el del candidato; sin el, el de la
+    propuesta."""
+    def _dia(c, prop):
+        b = fq.bloque_franquicias([c], {c["clave"]: {
+            "propuesta": prop, "sv5": _sv5(), "pendientes": 0.0}}, None)
+        return b["items"][0]["dia"]
+    otra = dict(PROP, fecha_int=20261014)
+    assert _dia(_cand(), otra) == "2026-10-15"
+    assert _dia(_cand(dia=None), otra) == "2026-10-14"
+
+
+@pytest.mark.parametrize("quita, obra", [
+    ("obra_ide", {"ide": None, "codigo": "0100"}),
+    ("obra_codigo", {"ide": 10, "codigo": None})])
+def test_f056_r9_bloque_obra_solo_por_ide_o_por_codigo(quita, obra):
+    """[13] La obra del item sale con su ide O con su codigo."""
+    c = _cand()
+    b = fq.bloque_franquicias([c], {c["clave"]: {
+        "propuesta": dict(PROP, **{quita: None}), "sv5": _sv5(),
+        "pendientes": 0.0}}, None)
+    assert b["items"][0]["obra"] == obra
+
+
+def test_f056_r9_bloque_parte_de_sv5_sin_fila():
+    """[14] Sin fila, el parte es el que dice sv5."""
+    c = _cand()
+    b = fq.bloque_franquicias([c], {c["clave"]: {
+        "propuesta": PROP, "sv5": _sv5(), "pendientes": 0.0}}, None)
+    assert b["items"][0]["parte_cod"] == "PT26/00314"
+
+
+def test_f056_r15_el_recurso_1_es_valido():
+    """[15] R15: recurso >= 1; el 1 vale."""
+    assert fq.validar_decisiones(
+        [{"recurso_ide": 1, "periodo": "2026-10", "decision": "ajustar"}],
+        {"1|2026-10"}) == [(1, "2026-10", "ajustar")]
+
+
+def test_f056_r9_payload_sin_dia_va_con_fecha_0():
+    """[16] Sin dia en los datos, `fecha_int` 0 (sin dato), no 1."""
+    datos = _sin(dict(PROP, recurso_ide=REC, periodo="2026-10"), "fecha_int")
+    assert fq.payload_franquicia(datos)["fecha_int"] == 0
