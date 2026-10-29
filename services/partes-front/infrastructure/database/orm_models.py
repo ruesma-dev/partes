@@ -638,7 +638,7 @@ class FranquiciaAjusteOrm(Base):
     obra_codigo: Mapped[str | None] = mapped_column(String(32))
     partida_ide: Mapped[int | None] = mapped_column(Integer)
     partida_cod: Mapped[str | None] = mapped_column(String(32))
-    #: X que uso sv5 en la ultima aplicacion (campo de `res`); NULL hasta
+    #: X que uso sv5 en la ultima aplicacion (campo extendido); NULL hasta
     #: aplicar.
     franquicia: Mapped[float | None] = mapped_column(Float)
     extras: Mapped[float | None] = mapped_column(Float)

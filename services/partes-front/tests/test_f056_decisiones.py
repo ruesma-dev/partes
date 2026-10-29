@@ -1113,3 +1113,25 @@ def test_f056_r17_aplicar_que_falla_no_es_ok_aunque_otro_lo_aplicara(
     cliente, _sv5 = portal(sv5=Sv5Carrera())
     r = cliente.post(f"/api/franquicia/{f['id']}/aplicar").json()
     assert (r["ok"], r["ajuste"]["estado"]) == (False, "aplicado")
+
+
+def test_f056_r48_preflight_pide_solo_el_recurso_de_las_lineas(fabrica,
+                                                              portal):
+    """R48, DA29: a `/recursos` solo van los `recurso_ide` de las lineas que
+    se aprueban (los que eligio sv3 con la empresa de la obra), aunque la
+    misma persona tenga otro recurso en otra empresa con lineas en el
+    periodo y franquicia propia; el candidato es el de SU recurso."""
+    sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-otra-emp",
+                  fecha="2026-10-14", recurso_ide=601)   # sin extras: no R12
+    ids = _dia15(fabrica)
+    recursos = {"estado": "ok", "motivo": None, "recursos": {
+        "501": {"franquicia": 8.0, "estado": "activa"},
+        "601": {"franquicia": 20.0, "estado": "activa"}}}
+    cliente, sv5 = portal(sv5=Sv5Franq(recursos=recursos,
+                                       acciones=[_acc_he(2.0)]))
+    r = _preflight(cliente, ids)
+    assert r.status_code == 200, r.text
+    assert [p for p, _t in sv5.recursos_pedidos] == [[REC]]
+    [it] = r.json()["franquicias"]["items"]
+    assert (it["recurso_ide"], it["franquicia"]) == (REC, 8.0)
+    assert [p["recurso_ide"] for p in sv5.franq_comprobadas] == [REC]

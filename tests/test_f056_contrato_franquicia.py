@@ -4,7 +4,7 @@
   - Lo que sv4 manda a `/api/franquicia/comprobar` y `/ejecutar`
     (`franquicia.payload_franquicia` + `TransferClient`) lo acepta
     `FranquiciaIn` de sv5 y llega igual a `PeticionFranquicia`, SIN X
-    (R41: la lee sv5 del campo de `res`).
+    (R41: la lee sv5 del campo extendido del recurso).
   - Lo que sv4 manda a `/api/franquicia/recursos` lo acepta
     `FranquiciaRecursosIn` (R43).
   - Ninguna clave que manda sv4 la tira pydantic en silencio.
@@ -127,7 +127,7 @@ def test_f056_r36_lo_que_manda_sv4_lo_acepta_franquicia_in(validados):
 
 
 def test_f056_r41_sv4_no_manda_la_x(envios, validados):
-    """La X la lee sv5 del campo de `res`: ni sv4 la manda ni
+    """La X la lee sv5 del campo extendido: ni sv4 la manda ni
     `FranquiciaIn` la tiene (un sv4 viejo que la mandara se ignoraria)."""
     for e in envios[:2]:
         assert "franquicia" not in e["json"]

@@ -529,3 +529,17 @@ def test_f056_r9_el_recurso_0_es_sin_recurso():
     """[timeout 3] El recurso 0 es «sin recurso» (como el `- {0}` del
     preflight): no da candidato aunque algo diga que esta activo."""
     assert fq.candidatos([_l(1, D15, rec=0)], {}, {0: ACTIVA}, _dia15) == []
+
+
+def test_f056_r48_mismo_dni_cada_recurso_con_su_x():
+    """R48, DA29: una persona (mismo DNI) con un recurso en cada empresa y X
+    8 y 20: cada candidato lleva la X de SU recurso, nunca la de la
+    persona (los recursos los eligio sv3 con la empresa de la obra)."""
+    mapa = {REC: ACTIVA, 601: {"franquicia": 20.0, "estado": "activa"}}
+    lineas = [_l(1, D15, dni="11111111H"), _l(2, D15, rec=601, dni="11111111H")]
+    por_rec = {c["recurso_ide"]: c for c in fq.candidatos(
+        lineas, {}, mapa, _dia15)}
+    assert {r: c["franquicia"] for r, c in por_rec.items()} == {
+        REC: 8.0, 601: 20.0}
+    assert por_rec[REC]["registro_ids"] == [1]
+    assert por_rec[601]["registro_ids"] == [2]

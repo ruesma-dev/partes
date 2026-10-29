@@ -2729,7 +2729,7 @@ def build_app(
 
     # ------------------------------------------------------------------ #
     # F-056: franquicia de extras (aviso del preflight y decision humana).
-    # X la lee sv5 del campo de `res`; aqui solo se decide y se propone.
+    # X la lee sv5 del campo extendido; aqui solo se decide y propone.
     # ------------------------------------------------------------------ #
     def _franquicias_sv5(recursos: list[int]
                          ) -> tuple[dict[int, dict] | None, str | None]:

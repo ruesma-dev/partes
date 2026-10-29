@@ -1,8 +1,8 @@
 # application/services/franquicia.py
 """F-056 · Franquicia de extras en sv4 (reglas puras).
 
-Un trabajador con franquicia X (campo de `res` en Sigrid que solo lee sv5,
-DA1 = C, DA21) no cobra las primeras X horas extra de cada mes de nomina
+Un trabajador con franquicia X (campo extendido del recurso en Sigrid que
+solo lee sv5, DA1 = C, DA21, DA29) no cobra las primeras X horas extra de cada mes de nomina
 (16 -> 15). sv5 calcula E, X y A y escribe la linea `HE*` negativa; sv4
 decide CUANDO preguntar, A QUE dia, obra y partida, guarda la decision
 humana (`franquicia_ajuste`) y orquesta. Este modulo no lee ni escribe:

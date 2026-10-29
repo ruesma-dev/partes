@@ -3,8 +3,8 @@
 columna (tipo, longitud, nulabilidad y `server_default`) a traves del DDL de
 arranque, que es lo que llega a PostgreSQL.
 
-Enmienda 2026-10-27 (DA1 = C): X vive en un campo de `res` de Sigrid, asi
-que NO hay tabla `empleado_franquicia`; `franquicia` es la X que uso sv5 en
+Enmienda 2026-10-27 (DA1 = C, y DA29 el 2026-10-29): X vive en un campo
+extendido del recurso en Sigrid, asi que NO hay tabla `empleado_franquicia`; `franquicia` es la X que uso sv5 en
 la ultima aplicacion (NULL hasta aplicar).
 
 El guardian de gemelos de la raiz compara las DOS copias; este test fija la

@@ -4041,7 +4041,7 @@ class ParteReviewRepository:
 
     # ------------------------------------------------------------------ #
     # F-056: franquicia de extras (`franquicia_ajuste`). La decision humana
-    # y lo ultimo que respondio sv5; X NO vive aqui (campo de `res`).
+    # y lo ultimo que respondio sv5; X NO vive aqui (campo extendido).
     # ------------------------------------------------------------------ #
     def lineas_trabajador_periodo(self, recurso_ide: int, inicio: int,
                                   fin: int) -> list[dict]:
