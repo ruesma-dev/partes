@@ -196,9 +196,9 @@ mano: con el mutante aplicado, su fichero de tests sale con 1; sin él, con 0).
 | Tests F-056 sv5 (5 ficheros) | 289 passed en 7,64 s |
 | Tests F-056 sv4 (`orm`, `franquicia`, `decisiones`, `vista`) | 188 passed en 49,86 s (tras T17b) |
 | Raíz (contrato + guardianes del ORM) | 35 passed en 41,94 s |
-| Suites enteras sin caché (2026-10-29, tras T23–T25) | `python -m pytest -q -p no:cacheprovider` desde cada servicio: sv5 1485 passed en 39,10 s; sv4 3220 passed, 1 skipped, 2 warnings en 1250,85 s |
-| `bash harness/init.sh` (2026-10-29, tras T23–T25) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (176,0 s); sv3 2345 passed (74,5 s); sv4 3220 passed, 1 skipped (1218,0 s); sv5 1485 passed (61,1 s); sv1 y sv2 de caché |
-| Cobertura de líneas cambiadas | PUERTA COBERTURA: **99,0 %** (1045/1056, umbral 80 %, nivel crítico) |
-| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 250/250, impl 218/220 |
+| Suites enteras sin caché (2026-10-29, tras T27 y las observaciones) | `python -m pytest -q -p no:cacheprovider` desde cada servicio: sv4 3223 passed, 1 skipped, 2 warnings en 1293,94 s; sv5 1485 passed en 40,73 s; sv3 2345 passed en 44,38 s |
+| `bash harness/init.sh` (2026-10-29, tras T27 y las observaciones) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (324,2 s); sv3 2345 passed (92,5 s); sv4 3223 passed, 1 skipped (2151,5 s); sv5 1485 passed (49,7 s); sv1 y sv2 de caché |
+| Cobertura de líneas cambiadas | PUERTA COBERTURA: **99,0 %** (1049/1060, umbral 80 %, nivel crítico) |
+| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 250/250, impl 204/220, review 139/140 |
 | Mutación | campaña 3ba3403 (4 workers): 513 mutantes, 403 muertos, 102 supervivientes y 8 timeouts. Tras el análisis, 88 supervivientes y 2 timeouts los mata un test nuevo; 14 son equivalentes, aceptados por el humano el 2026-10-29 («si») (`progress/mutacion_F-056.md`). T26 (e3dff2f): 23 mutantes, 23 muertos |
 | JS y plantilla | `node --check static/app.js` OK; parseo Jinja2 de `trabajador_detail.html` OK; las funciones del modal se EJECUTAN con node en `test_f056_vista.py` |
