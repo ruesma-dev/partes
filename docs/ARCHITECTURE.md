@@ -266,14 +266,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    **byte-idéntico** en sv3 y sv4, y desde F-010 lo comprueba el guardián
    `tests/test_f010_orm_models_gemelos.py` de la raíz en cada
    `bash harness/init.sh` (antes era una promesa, y llevaba meses rota). Un
-   cambio de schema modifica los DOS ficheros en la misma feature. **Siete
+   cambio de schema modifica los DOS ficheros en la misma feature. **Ocho
    tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
    `empleado_jornada` (excepciones de jornada por trabajador, F-015; nace
    vacía), `undo_log` (esta solo la usa sv4, pero la declaran las dos
    copias porque la base es una) y `dedicacion_bandeja` (F-019, la bandeja
    de salida hacia dedicación; la escribe solo sv4, semántica 15) y
    `reparto_pendiente` (F-046: la propone y materializa sv3, la decide sv4
-   por CAS sobre `estado`; sin nombres ni DNIs) — detalle
+   por CAS sobre `estado`; sin nombres ni DNIs) y `franquicia_ajuste`
+   (F-056: el ajuste de franquicia de un recurso y periodo; lo decide y lo
+   cierra solo sv4, por CAS sobre `estado` e índice único por recurso y
+   periodo; sv3 solo la declara; semántica 21) — detalle
    en `partes-proyecto.md` §5. El DDL
    complementario de arranque (`ALTER TABLE … ADD COLUMN IF NOT EXISTS` +
    `CREATE INDEX IF NOT EXISTS`, que `create_all` no hace sobre tablas ya
@@ -641,6 +644,36 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     página tiene una cabecera encima de la tabla «PERSONAL» de la que salen
     la obra, el día, el mes y el año, el membrete y el resto, que se busque
     aunque el escaneo salga desplazado y que nunca se invente un valor.
+21. **Franquicia de extras (F-056, sv5 lee y escribe, sv4 decide)**:
+    algunos trabajadores solo cobran como extra lo que pasa de X horas en
+    el mes de nómina (16 -> 15, etiquetado por el mes del 15). X es un
+    campo de `res` en Sigrid que rellena Administración; su nombre lo da
+    `FRANQUICIA_CAMPO_RES` de sv5 (vacío = `apagada`: no se lee nada) y SOLO
+    sv5 lo lee, con una lectura de `INFORMATION_SCHEMA.COLUMNS` que
+    comprueba que la columna existe y es numérica (si no, `no_disponible`
+    con WARNING; sv5 arranca igual). NULL o 0 es `inactiva` (X = 0); de 0 a
+    200 h, `activa`; lo demás, `invalida`. «No se sabe» nunca es X = 0: no
+    se escribe. Con E = las horas `HE%` del recurso en el periodo (todas
+    las obras y partes, sin la propia línea), el ajuste es
+    `A = -min(E, X)` si E > 0 (si no, 0): una línea `hmores` de extra con
+    `can = A` el **día de ajuste** (último del periodo con jornada > 0,
+    F-015, con el calendario del trabajador), en la obra de más horas de
+    ese día, synckey `partes:franquicia:<id>` y `tex` sin cifras.
+    Recalcular es un `UPDATE` de `can`/`tot`; nunca hay `DELETE` ni se
+    escribe en `res`. La línea de ajuste no choca con las demás (pisado y
+    reajuste la ignoran). En sv4, el preflight de aprobar pide a sv5 la
+    franquicia de la selección (`/api/franquicia/recursos`, una llamada) y
+    `comprobar` por candidato, y trae un bloque `franquicias` consultivo.
+    El humano decide en el modal (`ajustar`, `no_ajustar`, `recalcular`,
+    `mantener`; viaja con `ejecutar`/`encolar` y se guarda ANTES que las
+    líneas) o desde la vista de trabajador (`POST /api/franquicia/decidir`,
+    solo `ajustar`/`recalcular`). Aplicar
+    (`POST /api/franquicia/{id}/aplicar`) llama a sv5 `ejecutar` bajo el
+    lock del registro, con 409 si quedan líneas del trabajador en cola. Es
+    seguro de repetir (idempotente por la synckey) y la fila de
+    `franquicia_ajuste` queda `aplicado` (con E, A y la X que usó sv5) o
+    `error`. Quién decide y quién aplica sale de `_actor` (F-017), y queda
+    fuera de `undo_log`.
 
 ## Acceso a datos y sistemas externos
 
