@@ -14,6 +14,7 @@ PostgreSQL. Datos SINTETICOS.
 from __future__ import annotations
 
 import json
+import logging
 import re
 import shutil
 import subprocess
@@ -574,3 +575,80 @@ def test_f056_r46_la_vista_decide_y_luego_aplica_sin_recargar():
     assert "botonActualizar()" in cuerpo
     assert "reload" not in cuerpo
     assert "[data-franquicia-decidir]" in js
+
+
+# ============ supervivientes de la campana de mutacion (2026-10-29) ============ #
+# Cada test caza un mutante que la suite dejaba vivo (numero entre corchetes:
+# el de `progress/mutacion_F-056.md`).
+
+def test_f056_r20_vista_fallo_propio_con_traza(fabrica, portal, monkeypatch,
+                                               caplog):
+    """[46] El aviso del fallo de la vista lleva la traza (`exc_info`)."""
+    _dia15(fabrica)
+    cliente, _sv5 = portal()
+
+    def roto(self, claves):
+        raise RuntimeError("bbdd caida")
+    monkeypatch.setattr(type(_repo(fabrica)), "ajustes_de", roto)
+    with caplog.at_level(logging.WARNING):
+        _vista(cliente)
+    assert any(r.getMessage() == "[franquicia] el ajuste de la vista fallo"
+               and r.exc_info for r in caplog.records)
+
+
+def test_f056_r20_vista_sin_periodo_no_pregunta_a_sv5(fabrica, portal):
+    """[45] Sin periodo (lineas sin fecha) no hay ajuste que ensenar: ni se
+    pregunta a sv5 ni se tumba la pagina."""
+    ids = _dia15(fabrica)
+    with fabrica.create_session() as s:
+        for rid in ids:
+            r = s.get(dec.ParteRegistroOrm, rid)
+            r.fecha, r.fecha_int = None, None
+        s.commit()
+    cliente, sv5 = portal()
+    r = cliente.get(f"/trabajadores/rec-{REC}", params={"modo": "nomina"})
+    assert r.status_code == 200, r.text
+    assert r.context["franquicia"] is None
+    assert sv5.recursos_pedidos == []
+
+
+@pytest.mark.parametrize("ruta", ["/api/franquicia/decidir",
+                                  "/api/franquicia/{ajuste_id}/aplicar"])
+def test_f056_r21_rutas_de_franquicia_fuera_del_esquema(fabrica, portal,
+                                                        ruta):
+    """[47, 50] Como el resto de la API interna del portal, no se publican
+    en OpenAPI."""
+    cliente, _sv5 = portal()
+    assert ruta not in cliente.app.openapi()["paths"]
+
+
+@pytest.mark.parametrize("ruta", ["/api/franquicia/decidir",
+                                  "/api/franquicia/7/aplicar"])
+def test_f056_r21_sin_sv5_configurado_es_503_ok_false(fabrica, entorno,
+                                                      ruta):
+    """[48, 51, 52] Sin sv5 configurado: 503 y `ok: false` con el motivo."""
+    entorno.delenv("TRANSFER_BASE_URL", raising=False)
+    app = build_app(Settings(_env_file=None),
+                    repository=ParteReviewRepository(fabrica))
+    r = TestClient(app).post(ruta, json={
+        "recurso_ide": REC, "periodo": "2026-10", "decision": "ajustar"})
+    assert (r.status_code, r.json()["ok"]) == (503, False)
+    assert "TRANSFER_BASE_URL" in r.json()["error"]
+
+
+def test_f056_r45_decidir_linea_sin_recurso_no_es_del_recurso_1(fabrica,
+                                                                portal):
+    """[49] La persona del recurso 1 (por su DNI) tiene en el periodo una
+    linea SIN recurso: esa linea no hace que el recurso 1 tenga lineas en
+    el periodo (422)."""
+    sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-sep",
+                  fecha="2026-09-10", recurso_ide=1)
+    [sin] = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-oct",
+                          fecha="2026-10-15")
+    with fabrica.create_session() as s:
+        s.get(dec.ParteRegistroOrm, sin).recurso_ide = None
+        s.commit()
+    cliente, _sv5 = portal()
+    r = _decidir(cliente, "ajustar", rec=1)
+    assert r.status_code == 422 and "lineas" in r.json()["error"]
+    assert _repo(fabrica).ajustes_de([(1, "2026-10")]) == {}

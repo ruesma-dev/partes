@@ -10,6 +10,7 @@ Datos SINTETICOS: el DNI y el nombre son los ficticios de `dobles`.
 from __future__ import annotations
 
 import json
+import logging
 
 import httpx
 import pytest
@@ -811,3 +812,304 @@ def test_f056_r17_aplicar_ajuste_inexistente_es_404(fabrica, portal):
     cliente, sv5 = portal()
     assert cliente.post("/api/franquicia/999/aplicar").status_code == 404
     assert sv5.franq_ejecutadas == []
+
+
+# ============ supervivientes de la campana de mutacion (2026-10-29) ============ #
+# Cada test caza un mutante que la suite dejaba vivo (numero entre corchetes:
+# el de `progress/mutacion_F-056.md`).
+
+def _quitar(fabrica, ids, **campos):
+    """Deja sin dato (None) esos campos de esas lineas."""
+    with fabrica.create_session() as s:
+        for rid in ids:
+            r = s.get(ParteRegistroOrm, rid)
+            for k, v in campos.items():
+                setattr(r, k, v)
+        s.commit()
+
+
+def test_f056_r15_repositorio_recurso_fechas_en_lotes_sin_perder_ninguna(
+        fabrica):
+    """[18] Con mas de 500 lineas, ningun lote se salta la 501."""
+    muchas = sembrar_parte(fabrica, [{"horas": 1.0}] * 500,
+                           document_id="d-500", fecha="2026-10-01")
+    [ultima] = sembrar_parte(fabrica, [{"horas": 1.0}], document_id="d-501",
+                             fecha="2026-10-02", recurso_ide=502)
+    assert _repo(fabrica).recurso_fechas_de([*muchas, ultima]) == [
+        (REC, 20261001), (502, 20261002)]
+
+
+def test_f056_r15_repositorio_linea_sin_fecha_sale_con_fecha_0(fabrica):
+    """[20] Una linea sin `fecha_int` sale con fecha 0 (sin dato)."""
+    [rid] = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-sf")
+    _quitar(fabrica, [rid], fecha_int=None)
+    assert _repo(fabrica).recurso_fechas_de([rid]) == [(REC, 0)]
+
+
+def test_f056_r8_repositorio_ajustar_con_obra_solo_por_codigo(fabrica):
+    """[21, 22] Una propuesta con obra por codigo (sin ide) esta completa
+    y la fila guarda la obra 0 (sin ide), no la 1."""
+    f = _repo(fabrica).decidir_ajuste(
+        REC, "2026-10", "ajustar", dict(PROP, obra_ide=None), actor="ana")
+    assert (f["estado"], f["obra_ide"], f["obra_codigo"]) == (
+        "decidido", 0, "0100")
+
+
+def _logs_cierre(caplog) -> list[str]:
+    return [r.getMessage() for r in caplog.records
+            if r.getMessage().startswith("[franquicia] ajuste ")
+            and " -> " in r.getMessage() and "recurso=" not in
+            r.getMessage()]
+
+
+def test_f056_r17_repositorio_cerrar_deja_su_log_solo_si_cambia(fabrica,
+                                                                caplog):
+    """[23, 24, 25] Cerrar deja UNA linea de log con el estado nuevo (y el
+    motivo si es error); cerrar lo que ya no esta decidido ni en error no
+    deja ninguna."""
+    repo = _repo(fabrica)
+    ok = repo.decidir_ajuste(REC, "2026-10", "ajustar", PROP, actor="a")
+    ko = repo.decidir_ajuste(REC, "2026-11", "ajustar",
+                             dict(PROP, fecha_int=20261115), actor="a")
+    with caplog.at_level(logging.INFO):
+        repo.cerrar_ajuste(ok["id"], ok=True, sv5=SV5_OK, error=None,
+                           actor="eva")
+        repo.cerrar_ajuste(ko["id"], ok=False, sv5=None, error="caido",
+                           actor="eva")
+        repo.cerrar_ajuste(ok["id"], ok=True, sv5=SV5_OK, error=None,
+                           actor="eva")
+    assert _logs_cierre(caplog) == [
+        f"[franquicia] ajuste {ok['id']} -> aplicado (por eva)",
+        f"[franquicia] ajuste {ko['id']} -> error (por eva): caido"]
+
+
+def _con_traza(caplog, prefijo: str) -> bool:
+    """[28, 32, 39, 46, 54] El aviso lleva la traza (`exc_info`): sin ella,
+    en los logs de Azure no se sabe donde fallo."""
+    return any(r.getMessage().startswith(prefijo) and r.exc_info
+               for r in caplog.records)
+
+
+def test_f056_r44_preflight_fallo_de_recursos_con_traza(fabrica, portal,
+                                                        caplog):
+    ids = _dia15(fabrica)
+    cliente, _sv5 = portal(sv5=Sv5Franq(recursos=RuntimeError("caido")))
+    with caplog.at_level(logging.WARNING):
+        assert _preflight(cliente, ids).status_code == 200
+    assert _con_traza(caplog, "[franquicia] /recursos fallo")
+
+
+def test_f056_r14_preflight_fallo_de_comprobar_con_traza(fabrica, portal,
+                                                         caplog):
+    ids = _dia15(fabrica)
+    cliente, _sv5 = portal(sv5=Sv5Franq(comprobar=RuntimeError("caido")))
+    with caplog.at_level(logging.WARNING):
+        assert _preflight(cliente, ids).status_code == 200
+    assert _con_traza(caplog, "[franquicia] comprobar 501|2026-10 fallo")
+
+
+def test_f056_r14_preflight_fallo_interno_con_traza(fabrica, portal,
+                                                    monkeypatch, caplog):
+    ids = _dia15(fabrica)
+    cliente, _sv5 = portal()
+
+    def roto(self, claves):
+        raise RuntimeError("bbdd caida")
+    monkeypatch.setattr(ParteReviewRepository, "ajustes_de", roto)
+    with caplog.at_level(logging.WARNING):
+        assert _preflight(cliente, ids).status_code == 200
+    assert _con_traza(caplog, "[franquicia] el aviso del preflight fallo")
+
+
+def test_f056_r19_aplicar_sin_respuesta_con_traza(fabrica, portal, caplog):
+    _dia15(fabrica)
+    f = _decidido(fabrica)
+    cliente, _sv5 = portal(sv5=Sv5Franq(ejecutar=RuntimeError("timeout")))
+    with caplog.at_level(logging.WARNING):
+        cliente.post(f"/api/franquicia/{f['id']}/aplicar")
+    assert _con_traza(caplog, f"[franquicia] aplicar {f['id']} fallo")
+
+
+def test_f056_r43_preflight_pide_la_franquicia_en_lotes_de_500(fabrica,
+                                                               portal):
+    """[26, 27] R43: mas de 500 recursos van en lotes de 500 (y ninguno se
+    queda fuera ni se pide dos veces)."""
+    ids = sembrar_parte(fabrica, [{"horas": 1.0}] * 501, document_id="d-r",
+                        fecha="2026-10-15")
+    with fabrica.create_session() as s:
+        for i, rid in enumerate(ids):
+            s.get(ParteRegistroOrm, rid).recurso_ide = 1000 + i
+        s.commit()
+    cliente, sv5 = portal()
+    assert _preflight(cliente, ids).status_code == 200
+    pedidos = [p for p, _t in sv5.recursos_pedidos]
+    assert [len(p) for p in pedidos] == [500, 1]
+    assert sorted(x for p in pedidos for x in p) == list(range(1000, 1501))
+
+
+def test_f056_r9_preflight_linea_sin_recurso_no_estorba(fabrica, portal):
+    """[33, 35, 36, 37] Una linea sin recurso en la seleccion no se pide a
+    sv5 (no es el recurso 1) ni tumba el aviso del resto."""
+    ids = _dia15(fabrica)
+    [sin] = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-sin",
+                          fecha="2026-10-15", empleado_dni="99999999R")
+    _quitar(fabrica, [sin], recurso_ide=None)
+    cliente, sv5 = portal()
+    r = _preflight(cliente, [*ids, sin])
+    assert r.status_code == 200, r.text
+    bloque = r.json()["franquicias"]
+    assert bloque["aviso"] is None
+    assert [it["recurso_ide"] for it in bloque["items"]] == [REC]
+    assert [p for p, _t in sv5.recursos_pedidos] == [[REC]]
+
+
+def test_f056_r10_preflight_el_recurso_1_tiene_su_ajuste(fabrica, portal):
+    """[34, 38] El recurso 1 es un recurso: su ajuste vivo sale."""
+    ids = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-r1",
+                        fecha="2026-10-01", recurso_ide=1)
+    repo = _repo(fabrica)
+    f = repo.decidir_ajuste(1, "2026-10", "ajustar", PROP, actor="eva")
+    repo.cerrar_ajuste(f["id"], ok=True, sv5=SV5_OK, error=None, actor="eva")
+    cliente, sv5 = portal()
+    r = _preflight(cliente, ids)
+    assert r.status_code == 200, r.text
+    [it] = r.json()["franquicias"]["items"]
+    assert (it["recurso_ide"], it["tipo"], it["id"]) == (1, "existente",
+                                                         f["id"])
+    assert [p for p, _t in sv5.recursos_pedidos] == [[1]]
+
+
+def test_f056_r5_preflight_dia_de_ajuste_con_el_candef_del_trabajador(
+        fabrica, portal, entorno):
+    """[29] R5: la jornada del dia sale del candef de sus lineas. Con candef
+    9 y semana de 36 h el viernes 2026-05-15 tiene 0 h (36 - 4x9): el dia
+    de ajuste es el jueves 14; con el candef por defecto (8 h) seria el 15."""
+    entorno.setenv("JORNADA_SEMANAL_POR_CANDEF", "8:40,9:36")
+    a = sembrar_parte(fabrica, [{"horas": 9.0}], document_id="d-0514",
+                      fecha="2026-05-14")
+    b = sembrar_parte(fabrica, [{"horas": 9.0}], document_id="d-0515",
+                      fecha="2026-05-15")
+    _quitar(fabrica, [*a, *b], hora_candef=9.0)
+    cliente, _sv5 = portal()
+    r = _preflight(cliente, [*a, *b])
+    assert r.status_code == 200, r.text
+    [it] = r.json()["franquicias"]["items"]
+    assert (it["periodo"], it["dia"]) == ("2026-05", "2026-05-14")
+
+
+def test_f056_r7_preflight_obra_de_las_lineas_del_dia_de_ajuste(fabrica,
+                                                                portal):
+    """[30] R7: la obra es la de mas horas EL DIA de ajuste, no la de otro
+    dia con mas horas."""
+    ids = _dia15(fabrica)
+    sembrar_parte(fabrica, [{"horas": 10.0}], document_id="d-0214",
+                  fecha="2026-10-14", obra_ide=20, obra_codigo="0200")
+    cliente, sv5 = portal()
+    [it] = _preflight(cliente, ids).json()["franquicias"]["items"]
+    assert it["obra"] == {"ide": 10, "codigo": "0100"}
+    assert sv5.franq_comprobadas[0]["obra"] == {"ide": 10, "codigo": "0100"}
+
+
+def test_f056_r15_ejecutar_con_una_linea_sin_fecha_en_la_seleccion(fabrica,
+                                                                   portal):
+    """[40] Una linea sin fecha en la seleccion no da clave de franquicia
+    (ni tumba la peticion)."""
+    ids = _dia15(fabrica)
+    [sin] = sembrar_parte(fabrica, [{"horas": 8.0}], document_id="d-sf",
+                          fecha="2026-10-14")
+    _quitar(fabrica, [sin], fecha_int=None)
+    cliente, _sv5 = portal()
+    r = cliente.post("/api/aprobar/ejecutar", json={
+        "registro_ids": [*ids, sin], "franquicias": _decision("ajustar")})
+    assert r.status_code == 200, r.text
+    assert r.json()["franquicias"][0]["estado"] == "decidido"
+
+
+def test_f056_r16_ejecutar_no_ajustar_sin_propuesta_si_se_guarda(fabrica,
+                                                                 portal):
+    """[41] «No ajustar» no necesita dia ni obra: sin calendario se guarda
+    igual (solo «Ajustar» los exige)."""
+    ids = _dia15(fabrica)
+    cliente, _sv5 = portal(calendario=CalendarioNoFiable())
+    r = cliente.post("/api/aprobar/ejecutar", json={
+        "registro_ids": ids, "franquicias": _decision("no_ajustar")})
+    # El registro lo para Sesame (422), pero la decision ya se guardo.
+    assert r.json()["franquicias"][0]["estado"] == "rechazado", r.text
+    [f] = _filas(fabrica)
+    assert (f.estado, f.decision) == ("rechazado", "no_ajustar")
+
+
+def test_f056_r8_ejecutar_ajustar_tras_rechazo_con_dia_sin_calendario(
+        fabrica, portal):
+    """[42] R8: tras «No ajustar» con dia, «Ajustar» reutiliza el dia y la
+    obra de la fila aunque hoy no se pueda calcular la propuesta."""
+    ids = _dia15(fabrica)
+    _decidido(fabrica, "no_ajustar")
+    cliente, _sv5 = portal(calendario=CalendarioNoFiable())
+    r = cliente.post("/api/aprobar/ejecutar", json={
+        "registro_ids": ids, "franquicias": _decision("ajustar")})
+    # El registro lo para Sesame (422), pero la decision ya se guardo.
+    assert r.json()["franquicias"][0]["estado"] == "decidido", r.text
+    [f] = _filas(fabrica)
+    assert (f.estado, f.fecha_int, f.obra_codigo) == (
+        "decidido", 20261015, "0100")
+
+
+def test_f056_r15_sin_lineas_que_registrar_ok_y_las_excluidas(fabrica,
+                                                              portal):
+    """[43, 44] Sin nada que registrar pero con la decision guardada: `ok`
+    y las excluidas tal cual (no vacias)."""
+    ids = sembrar_parte(fabrica, [{"horas": 8.0, "estado": "registrado",
+                                   "partida_cod": "01.01"}],
+                        document_id="dreg", fecha="2026-10-15")
+    cliente, _sv5 = portal()
+    sin_franq = cliente.post("/api/aprobar/ejecutar",
+                             json={"registro_ids": ids})
+    assert sin_franq.status_code == 422
+    r = cliente.post("/api/aprobar/ejecutar", json={
+        "registro_ids": ids, "franquicias": _decision("ajustar")})
+    assert r.json()["ok"] is True
+    assert r.json()["excluidas"] == sin_franq.json()["excluidas"] != {}
+
+
+def test_f056_r17_aplicar_inexistente_dice_ok_false(fabrica, portal):
+    """[53] El 404 lleva `ok: false` (el JS lo mira)."""
+    cliente, _sv5 = portal()
+    r = cliente.post("/api/franquicia/999/aplicar")
+    assert (r.status_code, r.json()["ok"]) == (404, False)
+
+
+def test_f056_r19_aplicar_sin_respuesta_conserva_lo_que_dijo_sv5(fabrica,
+                                                                 portal):
+    """[55] R19: sin respuesta de sv5 la fila pasa a error SIN perder lo
+    que sv5 dijo en la aplicacion anterior."""
+    _dia15(fabrica)
+    repo = _repo(fabrica)
+    f = _decidido(fabrica)
+    repo.cerrar_ajuste(f["id"], ok=True, sv5=EJECUTAR_OK, error=None,
+                       actor="eva")
+    repo.decidir_ajuste(REC, "2026-10", "recalcular", None, actor="eva")
+    cliente, _sv5 = portal(sv5=Sv5Franq(ejecutar=RuntimeError("timeout")))
+    aj = cliente.post(f"/api/franquicia/{f['id']}/aplicar").json()["ajuste"]
+    assert (aj["estado"], aj["extras"], aj["ajuste"], aj["hmores_ide"]) == (
+        "error", 12.0, -6.0, 7009)
+
+
+def test_f056_r17_aplicar_que_falla_no_es_ok_aunque_otro_lo_aplicara(
+        fabrica, portal):
+    """[56] Si sv5 dice que no, la respuesta es `ok: false` aunque otro
+    usuario haya dejado la fila `aplicado` mientras tanto."""
+    _dia15(fabrica)
+    f = _decidido(fabrica)
+    repo = _repo(fabrica)
+
+    class Sv5Carrera(Sv5Franq):
+        def franquicia_ejecutar(self, payload):
+            super().franquicia_ejecutar(payload)
+            repo.cerrar_ajuste(f["id"], ok=True, sv5=EJECUTAR_OK, error=None,
+                               actor="otro")
+            return {"ok": False, "accion": "no_editable", "motivo": "x"}
+
+    cliente, _sv5 = portal(sv5=Sv5Carrera())
+    r = cliente.post(f"/api/franquicia/{f['id']}/aplicar").json()
+    assert (r["ok"], r["ajuste"]["estado"]) == (False, "aplicado")
