@@ -517,3 +517,15 @@ def test_f056_r9_payload_sin_dia_va_con_fecha_0():
     """[16] Sin dia en los datos, `fecha_int` 0 (sin dato), no 1."""
     datos = _sin(dict(PROP, recurso_ide=REC, periodo="2026-10"), "fecha_int")
     assert fq.payload_franquicia(datos)["fecha_int"] == 0
+
+
+def test_f056_r9_extras_pendientes_a_dos_decimales():
+    """[timeout 1] Las pendientes se redondean a dos decimales, como E y A."""
+    grupos = [{"acciones": [_acc(can=0.333), _acc(can=0.333)]}]
+    assert fq.extras_pendientes(grupos, REC, P10) == 0.67
+
+
+def test_f056_r9_el_recurso_0_es_sin_recurso():
+    """[timeout 3] El recurso 0 es «sin recurso» (como el `- {0}` del
+    preflight): no da candidato aunque algo diga que esta activo."""
+    assert fq.candidatos([_l(1, D15, rec=0)], {}, {0: ACTIVA}, _dia15) == []
