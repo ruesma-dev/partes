@@ -11,19 +11,17 @@ un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas
 de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que
 salga 0, y si es mas de x, esa linea resta x.» Regla F-053 y aprobación del 2026-10-23: `design.md` §7.
 
-**ENMIENDA 2026-10-27 (DA1 = C, el humano, literal en dos mensajes)**: «para saber que trabajadores son
-franquiciados y cual es el valor de la franquicia habra que crear un campo en sigrid que lo defina» y
-«va a ir en recursos. la fecha no hace falta, se aplica en los partes que se registren si esta activo
-(valor distinto de 0 o null). el campo lo rellena adminen sigrid.» ⇒ X es un campo NUEVO de `res`; caen
-`empleado_franquicia` y la pantalla de `/admin/jornadas` (DA19). DA21–DA27 van con la A (`design.md` §7).
-
-**ENMIENDA 2026-10-27 (DA28 = A, el humano: «a»)**: la vista decide «Ajustar» y «Recalcular» por una
-ruta nueva y luego aplica (R45, R46). Numeración del 2026-10-23 conservada; nuevas: R1–R3 y R38–R46.
+**Enmiendas (literales en `design.md` §7)**: 2026-10-27, DA1 = C: X la define un campo de Sigrid que
+rellena Administración (caen `empleado_franquicia` y su pantalla, DA19; DA21–DA27 con la A); 2026-10-27,
+DA28 = A: la vista decide y aplica (R45, R46); 2026-10-29, DA29–DA31 = A: ese campo es el extendido de
+recurso (`defext` tip 33, `cod` `10`, valor entero en `conext.valn`), leído por el `res.ide` del recurso
+de la empresa de la obra (R47, R48). Numeración del 2026-10-23 conservada; nuevas: R1–R3 y R38–R48.
 
 ## Glosario
 
-- **Campo** · la columna de `res` que nombra el ajuste de sv5 `FRANQUICIA_CAMPO_RES` (aún no existe).
-- **X** · franquicia del recurso: el valor del campo en el momento de leerlo (DA22, DA24).
+- **Campo** · el campo extendido de recurso cuyo `cod` da el ajuste de sv5 `FRANQUICIA_CAMPO_EXT` (hoy
+  `10`, «Franquicia Horas»): definición en `defext` (tip 33), valor en `conext.valn` (entero, DA31).
+- **X** · franquicia del recurso: el valor del campo para su `res.ide` al leerlo, en horas (DA22, DA24).
 - **Periodo** · mes de nómina (16 del mes anterior → 15), etiquetado por el mes del 15, en cualquier modo.
 - **Día de ajuste** · último día del periodo con jornada teórica > 0 para ese trabajador (DA6).
 - **E** · Σ `hmores.can` del recurso con código `HE%` y `fec` en el periodo, de todas las obras y partes
@@ -33,25 +31,27 @@ ruta nueva y luego aplica (R45, R46). Numeración del 2026-10-23 conservada; nue
 
 ## Franquicia en Sigrid (sv5)
 
-- R1. El sistema debe leer X SOLO en sv5, del campo de `res` para el `res.ide` del ajuste (el recurso de
-  las extras), con el valor de ese momento: sin fecha ni vigencia (DA21, DA27).
-- R2. El estado de la franquicia de un recurso debe ser: NULL o 0 ⇒ `inactiva` (X = 0); número > 0 y
-  ≤ 200 ⇒ `activa` (X a dos decimales); negativo, > 200 o no convertible ⇒ `invalida` (DA24).
-- R3. SI `FRANQUICIA_CAMPO_RES` está vacío, ENTONCES el estado global es `apagada` y sv5 no lee el campo.
-- R38. SI el nombre no es un identificador (`^[A-Za-z_][A-Za-z0-9_]{0,127}$`), la columna no está en
-  `res` o no es numérica, ENTONCES el estado global es `no_disponible` con motivo y WARNING; sv5 arranca
-  igual y el registro de líneas no cambia (DA23).
-- R39. sv5 debe comprobar la columna con una lectura parametrizada de `INFORMATION_SCHEMA.COLUMNS` (`dbo`,
-  `res`, nombre como parámetro) antes de leer valores; recuerda el «sí» mientras vive el proceso, vuelve
-  a mirar el «no» en cada petición y un fallo al leer valores olvida el «sí».
+- R1. El sistema debe leer X SOLO en sv5, del campo para el `res.ide` del ajuste (el recurso de las
+  extras, R48), con el valor de ese momento: sin fecha ni vigencia (DA21, DA27, DA29).
+- R2. El estado de la franquicia de un recurso debe ser: sin fila, NULL o 0 ⇒ `inactiva` (X = 0); > 0 y
+  ≤ 200 ⇒ `activa`; negativo, > 200, no convertible o más de una fila ⇒ `invalida` (DA24, DA29).
+- R3. SI `FRANQUICIA_CAMPO_EXT` está vacío, ENTONCES el estado global es `apagada` y sv5 no lee el campo.
+- R38. SI el código no casa `^[A-Za-z0-9_.-]{1,16}$`, no hay exactamente UNA definición en `defext` con
+  `tip` 33 y ese `cod`, o su `camtip` no es 1 (número entero, `valn`), ENTONCES el estado global es
+  `no_disponible` con motivo y WARNING; sv5 arranca y registra igual (DA23, DA30, DA31).
+- R39. sv5 debe leer esa definición (`cod` como parámetro) antes de los valores; recuerda el «sí» mientras
+  vive el proceso, vuelve a mirar el «no» en cada petición y un fallo al leer valores olvida el «sí».
 - R40. sv5 debe exponer `POST /api/franquicia/recursos` (`recurso_ides`: 1–500 enteros ≥ 1; 422 si no),
   solo lectura y sin lock, que responde `estado` (`apagada` | `no_disponible` | `ok`), `motivo` y, con
   `ok`, `{franquicia, estado}` por recurso pedido (lectura en lotes).
 - R41. `comprobar` y `ejecutar` deben leer X ellos mismos (`ejecutar`, dentro del lock y junto a E); la
   petición no trae X y la respuesta trae `franquicia` (X usada o null) y `franquicia_estado`.
 - R42. SI la franquicia no es `activa` ni `inactiva`, ENTONCES `comprobar` y `ejecutar` responden
-  `no_editable` con motivo `franquicia_…` y nada se escribe: «no se sabe» nunca es X = 0. Con
-  `inactiva`, X = 0 (la línea que exista va a 0; sin línea, `sin_ajuste`).
+  `no_editable` (motivo `franquicia_…`) sin escribir: «no se sabe» nunca es X = 0; `inactiva` es X = 0.
+- R47. Los valores salen de `conext` con ese `cod` solo para `con` de `tip` 33 (`con.ide` = `res.ide`; sin
+  él, `invalida`): nunca se lee otro `tip` (el `cod` `10` de tip 42 es «Administrativo de obra», DA30).
+- R48. X se busca solo por `res.ide` (el de la línea, elegido con la empresa de la obra: `hmores.reside`),
+  nunca por DNI: un DNI en dos empresas con X distinta usa la de la empresa de la obra (DA29).
 
 ## Periodo, día y obra (sv4, puro)
 
@@ -125,7 +125,7 @@ ruta nueva y luego aplica (R45, R46). Numeración del 2026-10-23 conservada; nue
 - R25. CUANDO la línea existe y su `can` difiere de A, ejecutar debe hacer `UPDATE` de `can` y
   `tot = ROUND(can × pre, 2)` con `stmt_actualizar_linea` sin cambios (`WHERE` optimista, guarda F-034,
   sin enlaces); A = 0 deja `can = 0` y `tot = 0`; el `tex` no se toca.
-- R26. Ninguna sentencia de F-056 sobre Sigrid es un `DELETE`, y F-056 no escribe en `res`.
+- R26. Ninguna sentencia de F-056 sobre Sigrid es un `DELETE`, y F-056 no escribe en `res`, `defext` ni `conext`.
 - R27. SI la línea está en un parte no En registro o enlazada, ENTONCES ejecutar no escribe y responde
   `ok: false` con `parte_no_abierto: …` o `linea_enlazada: …`.
 - R28. CUANDO la línea ya vale A, `ya_aplicado` sin escribir; sin línea y con A = 0, `sin_ajuste`.
@@ -144,7 +144,7 @@ ruta nueva y luego aplica (R45, R46). Numeración del 2026-10-23 conservada; nue
   con `server_default`; los guardianes de la raíz pasan a ocho tablas con sus columnas literales;
   `ddl_complementario()` la cubre. `empleado_franquicia` no existe.
 - R35. Describen F-056: `docs/ARCHITECTURE.md` (semántica 7 y una 21 nueva), `partes-proyecto.md` §5 y
-  `azure-apps/partes.md` (§3.5, §4, «qué se rompe»: el campo de `res` y `FRANQUICIA_CAMPO_RES`).
+  `azure-apps/partes.md` (§3.5, §4, «qué se rompe»: el campo extendido y `FRANQUICIA_CAMPO_EXT`).
 - R36. Lo que sv4 manda a sv5 lo aceptan `FranquiciaIn` y `FranquiciaRecursosIn` (contrato en la raíz).
 - R37. Rigor crítico: fase RED, cobertura de líneas cambiadas ≥ 80 %, mutación completa sin
   supervivientes sin justificar, y `bash harness/init.sh` en verde con APPROVED del reviewer.

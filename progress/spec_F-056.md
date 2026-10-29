@@ -6,6 +6,34 @@ worktree `partes-wt-f056`, sobre 6d777c4). Topes: requirements 150/150, design 2
 (una por línea). La versión aprobada el 2026-10-23 sigue en `git show 6d777c4:specs/...`.
 Resumen del 2026-10-23 (DA1–DA20, M1): mismo fichero en 6d777c4.
 
+## Enmienda DA29–DA31 (2026-10-29): el campo es extendido, no una columna de `res`
+
+Hechos del líder (solo lectura, agregados): `defext` 49 = tip 33, `cod` `10`, «Franquicia Horas»,
+`camtip` 1; valores en `conext.valn` (Entero) con `conide` = `res.ide`; el `cod` `10` también es
+«Administrativo de obra» de tip 42 (466 filas). Hoy 1 recurso con fila, a 0. **Humano, literal**:
+«da29, recuerda coger el ide del recurso filtrado por empresa, el mismo dni de recurso puede estar en
+2 empresas. lo demas ok» ⇒ DA29, DA30, DA31 = A (literales de cada opción en `design.md` §7).
+
+- **Requisitos**: glosario (Campo, X), R1–R3, R38, R39, R42 (compactado), R26, R35; nuevas **R47**
+  (solo `con` de tip 33; el `cod` `10` de tip 42 no se lee nunca) y **R48** (solo por `res.ide` del
+  recurso de la empresa de la obra, nunca por DNI; mismo DNI en dos empresas con X distinta ⇒ la de la
+  obra). Más de una fila por recurso ⇒ `invalida` (decisión del spec-author: no se elige a ciegas y «no se
+  sabe» no es X = 0, R42).
+- **Diseño §4 sv5 (T23)**: fuera `CAMPO_RE`, `TIPOS_NUMERICOS`, `es_tipo_numerico`, `tipo_columna_res`,
+  `valores_campo_res`, `FRANQUICIA_CAMPO_RES`; entran `COD_EXT_RE`, `TIP_RECURSO = 33`, `CAMTIP_NUMERO = 1`,
+  `motivo_definicion`, `lectura_de`, `FRANQUICIA_CAMPO_EXT`, `definicion_campo_ext` (`defext` tip 33 y
+  `cod` parametrizado) y `valores_campo_ext` (`con LEFT JOIN conext ... WHERE con.tip = 33`: variante de la
+  consulta del líder que conserva «recurso que no existe ⇒ `invalida`» de T10). API, dominio, `comprobar`
+  y `ejecutar` sin cambios. sv4: solo textos (T24) y un test de R48; comprobado que `/recursos` recibe el
+  `recurso_ide` de las líneas, el que sv5 escribe en `hmores.reside` sin cambiarlo.
+- **Riesgos**: R-e RESUELTO; nuevo R-i (cambio de `camtip` o reuso del `cod`). **§10**: M1b HECHA en lo
+  posible; M2 con valor entero > 0 en el campo `10` del recurso de pruebas; M4 con `FRANQUICIA_CAMPO_EXT=10`.
+- **Tareas nuevas** sin renumerar: T23 (sv5), T24 (sv4 y raíz, textos y R48), T25 (rehacer T19:
+  `ARCHITECTURE.md`, `partes-proyecto.md`, `azure-apps/partes.md` que corrige 58bce5e), T26 (mutación de lo
+  cambiado). Para caber: cabecera de enmiendas resumida (el literal de DA1 pasa a su fila de §7),
+  bloque DA28 de §4 resumido (ya hecho). Topes: requirements 150/150, design 250/250.
+- Abierto para el humano: nada nuevo; ¿vale `invalida` con más de una fila por recurso? (recomendación A).
+
 ## Enmienda DA28 (2026-10-27): decidir desde la vista
 
 Hueco que halló el implementer en R20: la vista pedía «Ajustar»/«Recalcular» pero solo existía

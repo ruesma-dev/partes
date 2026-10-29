@@ -141,6 +141,18 @@ F-056 vuelve a `in_progress`.
   valores en `conext`), no una columna de `res` (riesgo R-e). La enmienda está pendiente del humano.
   El aviso llegó con los tests de sv5 (ca0545b) y T19 (21bdadf, `azure-apps` 58bce5e) YA commiteados:
   se dejan tal cual, pero describen `res.<campo>` y pueden cambiar con la enmienda.
+- **ENMIENDA DE LA SPEC HECHA (spec-author, 2026-10-29): DA29–DA31 = A.** Opciones como las presentó el
+  líder: «DA29: Del valor numérico del campo extendido en `conext`, filtrando por recurso y por el tipo 33.
+  Si no hay fila, el valor está vacío o vale 0, ese recurso no tiene franquicia. Sigue leyéndolo solo
+  sv5.» · «DA30: El ajuste pasa a ser el código del campo extendido (`10`), en vez del nombre de una
+  columna. […] Con el ajuste vacío sigue apagada.» (B, por el nombre, descartada) · «DA31: Sigrid guarda
+  el valor como entero, así que la franquicia va en horas completas. […]». Humano, literal: «da29,
+  recuerda coger el ide del recurso filtrado por empresa, el mismo dni de recurso puede estar en 2
+  empresas. lo demas ok». Spec: R47 (solo tip 33; el `cod` `10` de tip 42 nunca), R48 (solo por el
+  `res.ide` de la empresa de la obra, nunca por DNI), R1–R3/R38/R39 enmendados, DA29–DA31 en §7, §4 sv5
+  reescrito (T23), sv4 solo textos (T24), T25 rehace T19, T26 mutación de lo cambiado. Más de una fila
+  por recurso ⇒ `invalida` (recomendación del spec-author; el humano puede pedir otra cosa). Topes
+  150/150 y 250/250. Resumen: `progress/spec_F-056.md`. Siguiente: el líder la enseña al humano.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
