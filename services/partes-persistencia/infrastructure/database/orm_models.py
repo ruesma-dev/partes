@@ -29,8 +29,9 @@ empleados). OCHO tablas en la base ``partes``:
     y materializa sv3; sv4 lo ensena y recoge la decision del humano.
   - ``franquicia_ajuste``: la linea de ajuste de la franquicia de extras de
     un (recurso, mes de nomina) en Sigrid (F-056): decision humana y lo
-    ultimo que respondio sv5. X NO vive aqui (es un campo de ``res`` de
-    Sigrid que solo lee sv5). La escribe y la lee sv4.
+    ultimo que respondio sv5. X NO vive aqui (es un campo extendido de
+    recurso de Sigrid, ``defext``/``conext``, que solo lee sv5). La escribe
+    y la lee sv4.
 
 La unicidad por ``source_sha256`` es un INDICE UNICO PARCIAL
 ``WHERE is_active`` (``DDL_EXTRA_POSTGRES``): un parte borrado no ocupa el

@@ -1,8 +1,8 @@
 <!-- progress/impl_F-056.md -->
-# F-056 · Franquicia de extras — informe del implementer (T1–T19, T17b, T23–T25 y mutación)
+# F-056 · Franquicia de extras — informe del implementer (T1–T19, T17b, T23–T25, T27 y mutación)
 
-**Estado: T1–T19, T17b y T23–T25 (enmienda DA29–DA31: el campo es extendido) hechas y en verde;
-mutación 3ba3403 analizada** (§ Mutación). Sin T20–T22 ni T26. Rama `feature/F-056-franquicia-de-extras`.
+**Estado: T1–T19, T17b, T23–T25 (DA29–DA31: campo extendido) y T27 (DA32: obra del recurso)
+hechas y en verde**, más las observaciones 1, 2, 4, 5 y 7 de la review. Sin T21–T22.
 
 ## Aprobaciones literales del humano
 
@@ -15,13 +15,16 @@ mutación 3ba3403 analizada** (§ Mutación). Sin T20–T22 ni T26. Rama `featur
 - 2026-10-29, a DA29–DA31: «da29, recuerda coger el ide del recurso filtrado por empresa, el mismo dni
   de recurso puede estar en 2 empresas. lo demas ok». Tras enseñarle la enmienda (R47, R48,
   `FRANQUICIA_CAMPO_EXT`, T23–T26): «si».
+- 2026-10-29, observación 6 del reviewer: «sobre la 6, la A» (DA32). Tras ver DA32 y su punto abierto
+  («A (recomiendo): Dejar el día como está: es de la persona, como ya decidimos en DA6. Solo cambia la
+  obra.»): «a». Por eso `_dia_ajuste` NO cambia.
 
 ## Commits (uno por tarea o bloque)
 
 T1–T7 eec694c…5f65009 · T8 e3d3d0d · T9 1377890 · T10 ef0f5b0 · T11 c8cddc8 · T12 a7576a2 ·
 T13 bb8ba15 · T14 77e82af · T15 133885a · T16 494f9ef · T17 c294f86 · T18 5dd9a60 · T17b bed7c94 ·
 F-019 06065ea · mutación 138dc9f, 8f465d3, ca0545b, 7487f85, e3da705, 9ae3fa5 · T19 21bdadf
-(`azure-apps` 58bce5e) · T23 62cc269 · T24 d66d605 · T25 d2f6fd6 (`azure-apps` e32f089, corrige
+(`azure-apps` 58bce5e) · T23 62cc269 · T24 d66d605 · T27 17cefc3 · T25 d2f6fd6 (`azure-apps` e32f089, corrige
 58bce5e; los dos de `azure-apps`, locales). Detalle: `git log --oneline 39aef7b..HEAD`.
 
 ## Ficheros tocados
@@ -80,39 +83,9 @@ T8–T11 (columna de `res`, sustituida en T23): trazas en `git show dd197b7:prog
 (`ImportError` de `EstadoFranquicias`; `AttributeError` de `franquicia_campo_res`,
 `tipo_columna_res`, `valores_campo_res` y `franquicias`; rutas en 404).
 
-T12 — raíz `python -m pytest tests/test_f010_orm_models_gemelos.py tests/test_f015_r29_guardian_cinco_tablas.py -q -p no:cacheprovider`
-y sv4 `python -m pytest tests/test_f056_orm.py -q -p no:cacheprovider`
-```
-FAILED tests/test_f010_orm_models_gemelos.py::test_f056_r34_franquicia_ajuste_declara_sus_columnas_literales
-3 failed, 27 passed in 21.63s
-E   ImportError: cannot import name 'FranquiciaAjusteOrm' from 'infrastructure.database.orm_models'
-```
-T13 — `python -m pytest tests/test_f056_franquicia.py -q -p no:cacheprovider` (sv4)
-```
-E   ImportError: cannot import name 'franquicia' from 'application.services' (unknown location)
-```
-T14 — `python -m pytest tests/test_f056_decisiones.py -k "repositorio or cliente" -q -p no:cacheprovider`
-```
-17 E   AttributeError: 'ParteReviewRepository' object has no attribute 'decidir_ajuste'
- 4 E   AttributeError: 'TransferClient' object has no attribute 'franquicia_recursos'
- 4 E   AttributeError: 'TransferClient' object has no attribute 'franquicia_ejecutar'
-32 failed in 4.68s
-```
-T15 — `python -m pytest tests/test_f056_decisiones.py -k "preflight or ejecutar or encolar" -q -p no:cacheprovider`
-```
-11 E   KeyError: 'franquicias'
- 4 E   assert 200 == 422          2 E   assert 200 == 409
-21 failed, 9 passed, 28 deselected, 1 warning in 18.89s
-```
-T16 — `python -m pytest tests/test_f056_decisiones.py -k aplicar tests/test_f056_vista.py -q -p no:cacheprovider`
-y `python -m pytest tests/test_f056_vista.py -q -p no:cacheprovider`
-```
-5 E  + where 404 = <Response [404 Not Found]>.status_code      1 E   KeyError: 'ajuste'
-8 failed, 1 passed, 67 deselected, 1 warning in 9.06s
-10 E   KeyError: 'franquicia'
-1 E   AttributeError: module 'application.services.franquicia' has no attribute 'vista_franquicia'
-11 failed, 1 warning in 10.59s
-```
+T12–T16: trazas en `git show dd197b7:progress/impl_F-056.md` (`ImportError` de
+`FranquiciaAjusteOrm` y del módulo `franquicia` de sv4; `AttributeError` de `decidir_ajuste`,
+`franquicia_recursos` y `franquicia_ejecutar`; `KeyError: 'franquicias'`; rutas en 404).
 T17 — `python -m pytest tests/test_f056_vista.py -q -p no:cacheprovider`
 ```
 5 E   AssertionError: app.js no define TEXTO_DECISION_FRANQUICIA
@@ -153,6 +126,15 @@ E   AttributeError: 'SigridWriteClient' object has no attribute 'valores_campo_e
 8 failed in 1.20s
 ```
 Ya en verde: los mismos cinco ficheros, `324 passed, 1 warning in 15.76s`; sv5 entera 1485 passed.
+T27 — `python -m pytest -q -p no:cacheprovider --tb=line tests/test_f056_franquicia.py
+tests/test_f056_decisiones.py tests/test_f056_vista.py -k da32` (sv4), tests primero:
+```
+E   AttributeError: module 'application.services.franquicia' has no attribute 'lineas_del_recurso'
+E   AssertionError: assert (501, {'ide':...00'}, '02.02') == (501, {'ide':...00'}, '01.01')
+E   AssertionError: assert (501, 2026101...200', '02.02') == (501, 2026101...100', '01.01')
+3 failed, 228 deselected, 1 warning in 11.96s
+```
+(preflight y `decidir` proponían la obra 0200 del otro recurso). Ya en verde: 231 passed.
 T24 — solo textos y dos tests de R48 en sv4 que vigilan lo que ya se cumplía (design §4: «Comprobado
 (R48)»): no hay fallo «antes» posible; pasan contra el código sin cambios de lógica.
 
@@ -183,7 +165,11 @@ mano: con el mutante aplicado, su fichero de tests sale con 1; sin él, con 0).
   de columna, `valores_campo_res`). Sus expresiones siguen igual (solo se desplazan las líneas) y
   los 15 tests que los matan siguen en la suite y en verde; T26 los reanaliza.
 
-## T23–T25: ficheros de producción cambiados (para `--ficheros` de T26)
+## Ficheros de producción cambiados por T23, T24 y T27 (para `--ficheros` de la mutación)
+
+- **T27 (sv4)**: `application/services/franquicia.py` (`lineas_del_recurso`, nueva) e
+  `interface_adapters/web/app.py` (`_propuesta`). Observación 4: solo docstrings de las dos
+  `orm_models.py` (siguen byte-idénticas) y de sv5 `domain/models/registro_models.py`.
 
 - **T23 (sv5)**: `application/services/franquicia.py`, `application/pipelines/franquicia_pipeline.py`,
   `config/settings.py`, `infrastructure/sigrid/sigrid_write_client.py`,
@@ -196,8 +182,8 @@ mano: con el mutante aplicado, su fichero de tests sale con 1; sin él, con 0).
 
 ## Pendiente y fuera del alcance
 
-- **T26** (mutación de los ficheros de arriba, la lanza el líder), **T20** (el humano acepta o no
-  los 14 equivalentes), **T21** (M2–M4, humano) y **T22**: no son de este encargo.
+- Mutación de las líneas de T27: la lanza el líder. **T21** (M2–M4, humano) y **T22**: no son de
+  este encargo.
 - Con `FRANQUICIA_CAMPO_EXT` vacío (defecto), sv5 responde `apagada` y el portal no enseña nada.
 - `ruff`: sin avisos nuevos (I001 y `RUF100` de `# noqa: BLE001` ya estaban).
 - **Fuera de F-056 (2026-10-28):** reloj de `test_f019_r13_otro_contenido_sube_la_version`, arreglado
@@ -214,5 +200,5 @@ mano: con el mutante aplicado, su fichero de tests sale con 1; sin él, con 0).
 | `bash harness/init.sh` (2026-10-29, tras T23–T25) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (176,0 s); sv3 2345 passed (74,5 s); sv4 3220 passed, 1 skipped (1218,0 s); sv5 1485 passed (61,1 s); sv1 y sv2 de caché |
 | Cobertura de líneas cambiadas | PUERTA COBERTURA: **99,0 %** (1045/1056, umbral 80 %, nivel crítico) |
 | Tamaño | PUERTA TAMAÑO: requirements 150/150, design 250/250, impl 218/220 |
-| Mutación | campaña 3ba3403: 513 mutantes, 403 muertos, 102 supervivientes y 8 timeouts. Tras el análisis, 88 supervivientes y 2 timeouts los mata un test nuevo; 14 son candidatos a equivalente, pendientes del humano (`progress/mutacion_F-056.md`) |
+| Mutación | campaña 3ba3403 (4 workers): 513 mutantes, 403 muertos, 102 supervivientes y 8 timeouts. Tras el análisis, 88 supervivientes y 2 timeouts los mata un test nuevo; 14 son equivalentes, aceptados por el humano el 2026-10-29 («si») (`progress/mutacion_F-056.md`). T26 (e3dff2f): 23 mutantes, 23 muertos |
 | JS y plantilla | `node --check static/app.js` OK; parseo Jinja2 de `trabajador_detail.html` OK; las funciones del modal se EJECUTAN con node en `test_f056_vista.py` |

@@ -475,9 +475,10 @@ class ResultadoFranquicia:
 @dataclass
 class LecturaFranquicia:
     """F-056 enmienda (R2): la franquicia de UN recurso leida de su campo
-    de `res`. `estado`: `activa` (X > 0), `inactiva` (NULL o 0: X = 0),
-    `invalida`, o el estado global si no se pudo leer (`apagada`,
-    `no_disponible`); `franquicia` es X solo con `activa`/`inactiva`."""
+    extendido de recurso (`defext`/`conext`). `estado`: `activa` (X > 0),
+    `inactiva` (sin fila, NULL o 0: X = 0), `invalida`, o el estado global
+    si no se pudo leer (`apagada`, `no_disponible`); `franquicia` es X solo
+    con `activa`/`inactiva`."""
     estado: str
     franquicia: Optional[float]
     motivo: Optional[str] = None

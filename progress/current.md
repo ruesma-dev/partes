@@ -171,6 +171,15 @@ F-056 vuelve a `in_progress`.
   en sv4. T25 (d2f6fd6; `azure-apps` e32f089, local y sin push): documentación del campo extendido.
   La lista de ficheros de producción para T26 está en `progress/impl_F-056.md`. Siguiente: T26
   (líder), luego T20–T22.
+- **DÍA DE AJUSTE DECIDIDO (2026-10-29, humano):** a la observación 6, «sobre la 6, la A»; al punto
+  abierto de DA32 («A (recomiendo): Dejar el día como está: es de la persona, como ya decidimos en
+  DA6. Solo cambia la obra.»), literal: «a». `_dia_ajuste` NO cambia.
+- T27 HECHA (implementer, 2026-10-29, 17cefc3): `fq.lineas_del_recurso` (pura) y `_propuesta` da a
+  `elegir_obra` solo las líneas del recurso del ajuste; `_dia_ajuste`, `varios_recursos` y
+  `lineas_trabajador_periodo` sin cambios. Fase RED con traza: el preflight y `decidir` proponían la
+  obra 0200 del otro recurso. Ficheros de producción: sv4 `application/services/franquicia.py` e
+  `interface_adapters/web/app.py`. Observaciones 1, 2, 4, 5 y 7 de la review en su propio commit;
+  `azure-apps` con commit local sin push. Siguiente: la mutación de T27 (líder).
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 

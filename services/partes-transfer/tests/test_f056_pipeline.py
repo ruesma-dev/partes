@@ -706,9 +706,10 @@ def test_f056_r41_ejecutar_lee_x_bajo_el_lock_y_comprobar_sin_el():
     assert cli.valores_leidos == [([REC], COD), ([REC], COD)]
 
 
-def test_f056_r41_da22_vale_la_x_de_sigrid_al_ejecutar():
-    """DA22: si Administracion cambia X entre el aviso y el registro, el
-    ajuste usa la X de ese momento (y la devuelve)."""
+def test_f056_r1_r41_da22_vale_la_x_de_sigrid_al_ejecutar():
+    """R1 (X solo la lee sv5, del campo del recurso, con el valor de ese
+    momento) y DA22: si Administracion cambia X entre el aviso y el
+    registro, el ajuste usa la X de ese momento (y la devuelve)."""
     cli = _cli()
     pipe = _pipe(cli)[0]
     r = pipe.comprobar(_pet())
