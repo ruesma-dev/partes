@@ -1,56 +1,37 @@
 <!-- progress/impl_F-056.md -->
-# F-056 · Franquicia de extras — informe del implementer (T1–T18 y T17b)
+# F-056 · Franquicia de extras — informe del implementer (T1–T19, T17b y análisis de la mutación)
 
-**Estado: T1–T18 y T17b hechas y en verde.** El hueco de R20 (no había ruta para decidir desde la
-vista) lo resolvió el humano con DA28 = A (enmienda a3e16fb) y se implementó en T17b.
-T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
-(worktree `partes-wt-f056`). Nada en `dev`/`main`, sin push y sin tocar Sigrid ni bases reales.
+**Estado: T1–T19 y T17b hechas y en verde; los 102 supervivientes y 8 timeouts de la mutación
+analizados** (§ Mutación). Sin T20–T22. Rama `feature/F-056-franquicia-de-extras`; sin push.
 
 ## Aprobaciones literales del humano
 
 - 2026-10-23: «a a todo, actualzia backlog para que refleje lo que tien spec y estado real de todo»
   ⇒ DA1–DA20 = A.
-- 2026-10-27 (aprueba DA2, DA17 y DA20 enmendadas y DA21–DA27 en A): «puedes arrancar, pero el
-  nombre del campo y tipo todavia no lo sabemos hasta que no se cree».
-  Consecuencia en el código: ningún test ni código depende de un nombre de columna real (los
-  tests usan nombres inventados, p. ej. `FranqInventada`); `FRANQUICIA_CAMPO_RES` vacío por
-  defecto (= franquicia apagada); `TIPOS_NUMERICOS` = los 9 tipos de design §4 (sin `bigint`).
-  M1b y M2 no se han intentado.
-- 2026-10-27, DA28 (la vista decide «Ajustar»/«Recalcular»): «a» (opción A: ruta nueva «decidir» y
-  luego aplicar). Tras enseñarle la enmienda (R45, R46, DA28, T17b): «si».
+- 2026-10-27 (DA2, DA17, DA20 enmendadas; DA21–DA27 en A): «puedes arrancar, pero el nombre del campo
+  y tipo todavia no lo sabemos hasta que no se cree». Por eso ningún test ni código usa un nombre de
+  columna real (los tests usan `FranqInventada`) y `FRANQUICIA_CAMPO_RES` es vacío por defecto
+  (= apagada). `TIPOS_NUMERICOS` son los 9 de design §4 (sin `bigint`). M1b y M2 no se han intentado.
+- 2026-10-27, DA28 (la vista decide «Ajustar»/«Recalcular»): «a»; tras ver la enmienda: «si».
+- 2026-10-28 (test intermitente de F-019 que invalidó la campaña): «a» (arreglarlo en el test).
 
-## Commits (uno por tarea)
+## Commits (uno por tarea o bloque)
 
-| Tarea | Commit | Qué |
-|---|---|---|
-| T1–T7 | eec694c…5f65009 | sv5 base: dominio, fórmula, R31 en choques, cliente, pipeline, API (antes de la enmienda) |
-| T8 | e3d3d0d | sv5 dominio y puro de la enmienda: `CAMPO_RE`, `TIPOS_NUMERICOS`, `leer_valor`, estados, `texto_ajuste` sin cifras |
-| T9 | 1377890 | `FRANQUICIA_CAMPO_RES`, `tipo_columna_res`, `valores_campo_res` (lotes, nombre validado antes de leer) |
-| T10 | ef0f5b0 | `FranquiciaPipeline.franquicias()`, X leída por sv5 (sin lock en comprobar, bajo el lock en ejecutar), R42 |
-| T11 | c8cddc8 | `/api/franquicia/recursos`, `FranquiciaIn` sin X, `/health`, cableado en `main.py` |
-| T12 | a7576a2 | `franquicia_ajuste` en las dos copias del ORM (byte-idénticas) y guardianes a OCHO tablas |
-| T13 | bb8ba15 | sv4 puro `application/services/franquicia.py`: periodo, día, obra, candidatos (DA7), bloque, validación, payload |
-| T14 | 77e82af | repositorio (`decidir_ajuste` CAS, `cerrar_ajuste`, `ajustes_de`, `lineas_trabajador_periodo`…) y `TransferClient` |
-| T15 | 133885a | preflight con `/recursos` y bloque `franquicias`; decisiones en `ejecutar`/`encolar` |
-| T16 | 494f9ef | `POST /api/franquicia/{id}/aplicar` y contexto de la vista de trabajador |
-| T17 | c294f86 | `app.js`, `trabajador_detail.html`, `styles.css` |
-| T18 | 5dd9a60 | contrato raíz `tests/test_f056_contrato_franquicia.py` y suites enteras |
-| T17b | bed7c94 | DA28: `POST /api/franquicia/decidir`, botones «Ajustar»/«Recalcular» y `decidirDesdeVista` (tras desbloquear en 43ad418) |
+T1–T7 eec694c…5f65009 · T8 e3d3d0d · T9 1377890 · T10 ef0f5b0 · T11 c8cddc8 · T12 a7576a2 ·
+T13 bb8ba15 · T14 77e82af · T15 133885a · T16 494f9ef · T17 c294f86 · T18 5dd9a60 · T17b bed7c94 ·
+F-019 06065ea · mutación 138dc9f, 8f465d3, ca0545b, 7487f85, e3da705, 9ae3fa5 · T19 21bdadf
+(`azure-apps` 58bce5e, local). Detalle: `git log --oneline 39aef7b..HEAD`.
 
-## Ficheros tocados (enmienda y sv4)
+## Ficheros tocados
 
-- **sv5** (`services/partes-transfer/`): `domain/models/registro_models.py`,
-  `application/services/franquicia.py`, `application/pipelines/franquicia_pipeline.py`,
-  `config/settings.py`, `infrastructure/sigrid/sigrid_write_client.py`,
-  `interface_adapters/api/app.py`, `main.py`, `tests/dobles.py` y `tests/test_f056_*.py`.
-- **ORM** (sv4 y sv3, idénticos): `infrastructure/database/orm_models.py`.
-- **sv4** (`services/partes-front/`): `application/services/franquicia.py` (nuevo, puro),
-  `infrastructure/database/parte_repository.py`, `infrastructure/transfer/transfer_client.py`,
-  `interface_adapters/web/app.py`, `templates/trabajador_detail.html`, `static/app.js`,
-  `static/styles.css`; tests `test_f056_orm.py`, `test_f056_franquicia.py`,
-  `test_f056_decisiones.py`, `test_f056_vista.py`.
-- **Raíz**: `tests/test_f010_orm_models_gemelos.py`, `tests/test_f015_r29_guardian_cinco_tablas.py`,
-  `tests/test_f056_contrato_franquicia.py` (nuevo).
+- **sv5**: `registro_models.py`, `services/franquicia.py`, `pipelines/franquicia_pipeline.py`,
+  `settings.py`, `sigrid_write_client.py`, `api/app.py`, `main.py`, `tests/dobles.py`, `test_f056_*`.
+- **ORM** sv4 y sv3 (idénticos) `orm_models.py`; sv3 `tests/test_f056_orm_franquicia.py`.
+- **sv4**: `services/franquicia.py` (nuevo, puro), `parte_repository.py`, `transfer_client.py`,
+  `web/app.py`, `trabajador_detail.html`, `app.js`, `styles.css`, `test_f056_{orm,franquicia,
+  decisiones,vista}.py` y `test_f019_bandeja.py` (solo el reloj). **Raíz**: guardianes F-010 y F-015
+  y `test_f056_contrato_franquicia.py`. **Docs** (T19): `ARCHITECTURE.md`, `partes-proyecto.md`,
+  `azure-apps/partes.md`.
 
 ## Decisiones de diseño y desviaciones (justificadas en `progress/current.md`)
 
@@ -90,15 +71,10 @@ T19–T22 no son de este encargo. Rama `feature/F-056-franquicia-de-extras`
    18 a **19** `_actor(request)` (la de `aplicar`, que R21 exige; docstring ampliado). F-043 (R19,
    R40) prohíbe recargas nuevas: «Aplicar» desde la vista NO recarga; el modal ofrece el botón
    «Actualizar» de siempre (`botonActualizar`), así que `location.reload` sigue en 23.
-11. **T17b (DA28, R45, R46)**: sin duplicar lógica, la comprobación de UNA decisión sale de
-   `validar_decisiones` a `fq._decision(d)` (la usan el modal y `fq.decision_vista`, que además
-   limita a `DECISIONES_VISTA = (ajustar, recalcular)`), y el cuerpo del bucle de
-   `_planes_franquicia` sale a `_plan_franquicia(rec, per, decision, lineas_de, filas)` (R6–R8,
-   R12). `POST /api/franquicia/decidir`: 503 sin sv5 configurado; 422 formato/decisión o sin líneas
-   activas de ESE recurso en el periodo; 409 por `_plan_franquicia` o por el CAS de
-   `decidir_ajuste` (sin cambios); sin llamar a sv5; `{ok: true, ajuste}`. La vista pinta
-   «Ajustar»/«Recalcular» según `acciones`; `decidirDesdeVista` confirma, decide, aplica el `id`
-   devuelto y enseña el resultado con «Actualizar» (sin recarga nueva). F-017: 20 `_actor(request)`.
+11. **T17b (DA28, R45, R46)**: una decisión se comprueba en `fq._decision(d)` (modal y
+   `fq.decision_vista`, limitada a `ajustar`/`recalcular`) y el plan en `_plan_franquicia` (R6–R8,
+   R12), sin duplicar. `POST /api/franquicia/decidir`: 503 sin sv5; 422 formato o sin líneas del
+   recurso en el periodo; 409 por el plan o el CAS; no llama a sv5. F-017: 20 `_actor(request)`.
 
 ## Fase RED (trazas reales; comandos tal cual)
 
@@ -189,21 +165,43 @@ Ya en verde: T8 133 · T9 52 · T10 52 · T11 60 (sv5 entera 1458) · T12 30 + 5
 T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5 · T17b 255 passed, 1 skipped
 (con `test_f043_portal_fecha.py`; `node --check` OK).
 
+## Mutación: análisis de la campaña completa (3ba3403, sobre 06065ea)
+
+513 mutantes: 403 muertos, 102 supervivientes y 8 timeouts. El análisis de cada uno vive en
+`progress/mutacion_F-056.md` (por qué ningún test lo cazaba, decisión y tabla de verificación a
+mano: con el mutante aplicado, su fichero de tests sale con 1; sin él, con 0).
+
+| Fichero | Superv. | Test nuevo | Equivalente (propuesto) |
+|---|---|---|---|
+| sv4 `web/app.py` | 31 | 30 | 1 |
+| sv3 `orm_models.py` | 22 | 22 | 0 |
+| sv4 `services/franquicia.py` | 16 | 14 | 2 |
+| sv5 `franquicia_pipeline.py` | 13 | 6 | 7 |
+| sv4 `parte_repository.py` | 9 | 7 | 2 |
+| sv5 `services/franquicia.py` | 7 | 6 | 1 |
+| sv5 `api/app.py` · `registro_pipeline.py` | 3 · 1 | 3 · 0 | 0 · 1 |
+| **Total** | **102** | **88** | **14** |
+
+- sv3 (22): en la campaña no los cubría nada: el guardián byte a byte de la raíz solo corre en
+  `init.sh` y sv3 no usa la tabla. sv3 gana su test de la tabla, como F-019 con la bandeja.
+- Equivalentes (14, **propuestos; los acepta el humano**): `getattr` con defecto que `Settings`
+  siempre define, `or 0`/`or 1` sin 0 ni 1 posibles, `<=` frente a `<` en valores ya descartados,
+  lotes en un `set`... Justificación de cada uno en el informe de mutación.
+- Timeouts (8): ninguno cuelga (expresiones sin bucle; lentitud con 4 workers). Dos (t1 redondeo,
+  t3 recurso 0) no los cazaba nadie: test nuevo. Sin producción tocada; campaña no relanzada.
+
 ## Pendiente y fuera del alcance
 
-- El hueco de R20 quedó resuelto por DA28 = A (T17b). Si `decidir` va bien y `aplicar` falla, la
-  fila queda `decidido`/`error` y la vista ofrece «Aplicar» (como tras el modal).
-- **T19** (docs y `azure-apps`), **T20** (mutación, la lanza el líder), **T21** (M1b, M2–M4,
-  humano) y **T22**: no son de este encargo.
-- Con `FRANQUICIA_CAMPO_RES` vacío (defecto) sv5 responde `apagada` y el portal no enseña nada; la
+- **Cambio de alcance (2026-10-29, líder):** el campo es un campo extendido (`defext`/`conext`),
+  no de `res`. El aviso llegó con el análisis de sv5 (ca0545b) y T19 (21bdadf; `azure-apps` 58bce5e)
+  ya commiteados: se dejan tal cual, describen `res.<campo>` y pueden cambiar con la enmienda.
+- **T20**: que el humano acepte o rechace los 14 equivalentes (si rechaza alguno, test o cambio).
+  **T21** (M1b, M2–M4, humano) y **T22** no son de este encargo.
+- Con `FRANQUICIA_CAMPO_RES` vacío (defecto), sv5 responde `apagada` y el portal no enseña nada; la
   vista de trabajador hace una llamada a `/recursos` por carga en modo nómina.
-- `ruff`: ficheros nuevos limpios; `app.py` de sv4 pasa de 10 a 15 `RUF100` respecto de la base de
-  la rama, todos del patrón `# noqa: BLE001` que ya usa el fichero; `parte_repository.py`, igual.
-- **Fuera del alcance de F-056 (2026-10-28, encargo del líder):** test intermitente de F-019
-  `test_f019_r13_otro_contenido_sube_la_version`: con la hora real, dos `_marcar` en el mismo tic
-  daban `X > X` e invalidaron la línea base de la campaña de mutación. Causa confirmada congelando
-  el reloj (5/5 fallan igual). Arreglo solo en el test (`_reloj_que_avanza`, +1 s por `now()`), mismas
-  aserciones; fichero 20/20 verde. Mismo patrón sin arreglar: `test_f019_portal.py:342`.
+- `ruff`: sin avisos nuevos (I001 y `RUF100` de `# noqa: BLE001` ya estaban).
+- **Fuera de F-056 (2026-10-28):** reloj de `test_f019_r13_otro_contenido_sube_la_version`, arreglado
+  solo en el test (06065ea). Mismo patrón, sin arreglar: `test_f019_portal.py:342`.
 
 ## Evidencias
 
@@ -212,9 +210,9 @@ T15 58 · T16 76 · T17 23 (`node --check` y parseo Jinja2 OK) · T18 5 · T17b 
 | Tests F-056 sv5 (5 ficheros) | 289 passed en 7,64 s |
 | Tests F-056 sv4 (`orm`, `franquicia`, `decisiones`, `vista`) | 188 passed en 49,86 s (tras T17b) |
 | Raíz (contrato + guardianes del ORM) | 35 passed en 41,94 s |
-| Suite sv4 entera sin caché (tras T17b) | `python -m pytest -q -p no:cacheprovider`: 3175 passed, 1 skipped, 2 warnings en 821,67 s |
-| `bash harness/init.sh` (2026-10-27, tras T17b) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (159,5 s); sv4 3175 passed, 1 skipped (1144,2 s); sv3, sv5, sv1 y sv2 «de caché» (árboles sin cambios desde su último verde: sv3 2340 passed y sv5 1458 passed en el init de T18) |
-| Cobertura de líneas cambiadas | PUERTA COBERTURA: **98,6 %** (1025/1040, umbral 80 %, nivel crítico) |
-| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 248/250, impl 214/220 |
-| Mutación | no lanzada por el implementer: es T20 y la lanza el líder (`python -m harness.mutacion --feature F-056`) |
+| Suites enteras sin caché (2026-10-29, tras los tests de mutación) | `python -m pytest -q -p no:cacheprovider` desde cada servicio: sv4 3218 passed, 1 skipped, 2 warnings en 488,43 s; sv3 2345 passed en 23,74 s; sv5 1480 passed en 22,65 s |
+| `bash harness/init.sh` (2026-10-29) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (116,2 s); sv3 2345 passed (41,3 s); sv4 3218 passed, 1 skipped (1047,6 s); sv5 1480 passed (36,3 s); sv1 y sv2 de caché |
+| Cobertura de líneas cambiadas | PUERTA COBERTURA: **98,9 %** (1029/1040, umbral 80 %, nivel crítico) |
+| Tamaño | PUERTA TAMAÑO: requirements 150/150, design 248/250, impl 218/220 |
+| Mutación | campaña 3ba3403: 513 mutantes, 403 muertos, 102 supervivientes y 8 timeouts. Tras el análisis, 88 supervivientes y 2 timeouts los mata un test nuevo; 14 son candidatos a equivalente, pendientes del humano (`progress/mutacion_F-056.md`) |
 | JS y plantilla | `node --check static/app.js` OK; parseo Jinja2 de `trabajador_detail.html` OK; las funciones del modal se EJECUTAN con node en `test_f056_vista.py` |

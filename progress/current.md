@@ -127,6 +127,20 @@ F-056 vuelve a `in_progress`.
   Se arregla aquí porque bloquea la mutación de F-056. Fichero 20/20 en verde; suite sv4 sin caché
   3175 passed, 1 skipped. Mismo patrón, NO arreglado: `test_f019_portal.py:342`
   (`retirado_at_utc > enviado_at_utc`). Siguiente: el líder relanza la campaña; luego supervivientes.
+- MUTACIÓN ANALIZADA (2026-10-29, implementer): campaña válida 3ba3403 (513 mutantes: 403 muertos,
+  102 supervivientes y 8 timeouts). De los supervivientes, 88 los mata un test nuevo; los 14 restantes
+  son CANDIDATOS a equivalente (#3, 10, 17, 19, 31, 79, 80, 84, 86, 87, 89, 90, 92, 95) y los acepta
+  o no el humano. Ninguno de los 8 timeouts cuelga; dos (t1, t3) llevan test nuevo. Commits 138dc9f,
+  8f465d3, ca0545b, 7487f85, e3da705 (tests, sin tocar producción) y 9ae3fa5 (informe). Detalle y
+  verificación a mano en `progress/mutacion_F-056.md`. La campaña no se relanzó.
+- T19 HECHO (2026-10-29): `ARCHITECTURE.md` (semántica 7 a ocho tablas, semántica 21 nueva) y
+  `partes-proyecto.md` (§5 a ocho tablas, §5.5 quater, `FRANQUICIA_CAMPO_RES`), en 21bdadf;
+  `azure-apps/partes.md` en 58bce5e (commit local, sin push). Siguiente: T20 (el humano decide sobre
+  los equivalentes) y T21–T22, que no son del implementer.
+- CAMBIO DE ALCANCE EN CURSO (2026-10-29, líder): el campo es extendido (`defext` tip 33 cod '10',
+  valores en `conext`), no una columna de `res` (riesgo R-e). La enmienda está pendiente del humano.
+  El aviso llegó con los tests de sv5 (ca0545b) y T19 (21bdadf, `azure-apps` 58bce5e) YA commiteados:
+  se dejan tal cual, pero describen `res.<campo>` y pueden cambiar con la enmienda.
 
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
