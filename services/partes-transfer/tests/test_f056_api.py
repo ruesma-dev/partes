@@ -358,3 +358,30 @@ def test_f056_r38_main_deja_la_linea_de_cableado(monkeypatch, caplog, campo,
     assert len(lineas) == 1
     assert lineas[0].levelno == nivel and texto in lineas[0].getMessage()
 
+
+
+# ============ supervivientes de la campana de mutacion (2026-10-29) ============ #
+# Cada test caza un mutante que la suite dejaba vivo (numero entre corchetes:
+# el de `progress/mutacion_F-056.md`).
+
+@pytest.mark.parametrize("ruta", RUTAS)
+def test_f056_r22_fecha_imposible_dentro_del_periodo_es_422(ruta):
+    """[100] 2026-09-31 no existe aunque caiga entre `inicio` y `fin`."""
+    fq = FranquiciaGrabador()
+    r = _app(fq).post(ruta, json=_cuerpo(fecha_int=20260931))
+    assert r.status_code == 422, r.text
+    assert fq.llamadas == []
+
+
+@pytest.mark.parametrize("ruta", RUTAS)
+@pytest.mark.parametrize("cambio", [
+    {"recurso_ide": 1},                        # [101] el recurso 1 vale
+    {"fecha_int": 20260916},                   # [102] el primer dia vale
+])
+def test_f056_r22_limites_validos_llegan_al_pipeline(ruta, cambio):
+    fq = FranquiciaGrabador()
+    r = _app(fq).post(ruta, json=_cuerpo(**cambio))
+    assert r.status_code == 200, (cambio, r.text)
+    [(_op, p, _u)] = fq.llamadas
+    assert (p.recurso_ide, p.fecha_int) == (
+        cambio.get("recurso_ide", 501), cambio.get("fecha_int", 20261015))

@@ -387,3 +387,47 @@ def test_f056_r42_inactiva_con_linea_es_actualizar_a_cero():
     v = fr.veredicto(None, None, 0.0, est_registro=EST, franquicia=ina,
                      accion=_accion())
     assert v.accion == fr.SIN_AJUSTE
+
+
+# ============ supervivientes de la campana de mutacion (2026-10-29) ============ #
+# Cada test caza un mutante que la suite dejaba vivo (numero entre corchetes:
+# el de `progress/mutacion_F-056.md`).
+
+@pytest.mark.parametrize("extras", [0.0, -1.0])
+def test_f056_r24_sin_extras_el_ajuste_es_0_sea_cual_sea_x(extras):
+    """[93] «si E > 0; si no, 0»: con E = 0 no se mira X."""
+    assert fr.ajuste_objetivo(extras, -3.0) == 0.0
+
+
+@pytest.mark.parametrize("valor, motivo", [
+    (True, "valor no numerico (bool)"),
+    (b"8", "valor no numerico (bytes)"),
+    ([8], "valor no numerico (list)")])
+def test_f056_r2_leer_valor_no_numerico_dice_el_tipo(valor, motivo):
+    """[94] El motivo nombra el tipo que llego (lo ve Administracion)."""
+    assert fr.leer_valor(valor) == LecturaFranquicia("invalida", None, motivo)
+
+
+def test_f056_r28_igual_con_la_tolerancia_justa():
+    """[96, 97] La tolerancia incluye su borde y el ruido de coma flotante."""
+    assert fr._igual(0.0, fr.TOL) is True
+    assert fr._igual(0.0, fr.TOL + fr._RUIDO) is True
+    assert fr._igual(0.0, fr.TOL + 2 * fr._RUIDO) is False
+
+
+@pytest.mark.parametrize("codigo, texto", [("HL01", "(codigo HL01)"),
+                                           (None, "(codigo -)")])
+def test_f056_r30_el_motivo_sin_he_dice_el_codigo(codigo, texto):
+    """[98] El motivo dice que codigo dieron las reglas (o «-»)."""
+    v = fr.veredicto(None, None, -6.0, est_registro=EST, franquicia=ACT,
+                     accion=_accion(codigo=codigo))
+    assert v.motivo == f"{fr.MOTIVO_SIN_HE} {texto}"
+
+
+@pytest.mark.parametrize("parte_cod, texto", [("PT26/00042", "PT26/00042"),
+                                              (None, "?")])
+def test_f056_r27_el_motivo_de_enlazada_dice_el_parte(parte_cod, texto):
+    """[99] El motivo de la linea enlazada nombra su parte (o «?»)."""
+    v = fr.veredicto(_ls(-6.0, enlazada=True), EST, -8.0, est_registro=EST,
+                     franquicia=ACT, accion=_accion(), parte_cod=parte_cod)
+    assert f"del parte {texto} esta enlazada" in v.motivo

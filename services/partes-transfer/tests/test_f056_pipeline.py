@@ -624,3 +624,71 @@ def test_f056_r42_inactiva_sin_linea_es_sin_ajuste():
     assert (r.franquicia, r.franquicia_estado) == (0.0, "inactiva")
     assert _ajuste(cli) == []
 
+
+
+# ============ supervivientes de la campana de mutacion (2026-10-29) ============ #
+# Cada test caza un mutante que la suite dejaba vivo (numero entre corchetes:
+# el de `progress/mutacion_F-056.md`).
+
+def test_f056_r22_comprobar_linea_sin_parte_no_inventa_el_parte():
+    """[81] Una linea de ajuste sin `hmoide` sale sin parte (no el 1)."""
+    cli = _cli(lineas=[_extra(7001, 20261001, 10.0),
+                       _extra(7009, DIA, -6.0, synckey=SK, hmoide=None)])
+    r = _pipe(cli)[0].comprobar(_pet())
+    assert r.hmores_ide == 7009 and r.hmoide is None
+
+
+def test_f056_r33_comprobar_registra_los_pendientes(caplog):
+    """[82] El log de `comprobar` lleva las extras pendientes."""
+    with caplog.at_level(logging.INFO):
+        _pipe(_cli())[0].comprobar(_pet(pendientes=2.5))
+    assert any("pendientes=2.50" in r.getMessage() for r in caplog.records
+               if r.name.endswith("franquicia_pipeline"))
+
+
+def test_f056_r22_ejecutar_con_ajuste_negativo_es_error():
+    """[83] Un `ajuste_id` negativo no es una fila de sv4."""
+    cli = _cli()
+    with pytest.raises(ValueError):
+        _pipe(cli)[0].ejecutar(_pet(ajuste_id=-1))
+    assert cli.__dict__.get("grabadas", []) == []
+
+
+def test_f056_r22_ejecutar_con_el_ajuste_1():
+    """[85] La fila 1 de sv4 es un ajuste como otro cualquiera."""
+    cli = _cli()
+    r = _pipe(cli)[0].ejecutar(_pet(ajuste_id=1))
+    assert (r.ok, r.accion, r.escrita) == (True, fr.CREAR, True)
+    assert [x["synckey"] for x in cli.lineas
+            if x.get("synckey", "").startswith("partes:franquicia:")] == [
+        "partes:franquicia:1"]
+
+
+def test_f056_r29_relectura_sin_parte_no_es_escrita_ni_en_el_parte_1(
+        monkeypatch):
+    """[88] R29: si la relectura no dice en que parte quedo la linea, no se
+    da por escrita (tampoco si el parte elegido es el 1)."""
+    cli = _cli(partes=[_parte(ide=1)])
+    original = cli.escribir
+
+    def sin_parte(statements):
+        out = original(statements)
+        for x in _ajuste(cli):
+            x["hmoide"] = None
+        return out
+
+    monkeypatch.setattr(cli, "escribir", sin_parte)
+    r = _pipe(cli)[0].ejecutar(_pet())
+    assert (r.ok, r.accion, r.escrita) == (False, fr.CREAR, False)
+
+
+def test_f056_r24_ajuste_sin_partida_va_con_partida_0():
+    """[91] Sin partida, la linea de ajuste lleva `paride` 0 (sin partida),
+    no la partida 1."""
+    cli = _cli()
+    p = _pet()
+    p.partida_ide, p.partida_cod = None, None
+    r = _pipe(cli)[0].ejecutar(p)
+    assert (r.ok, r.escrita) == (True, True)
+    [linea] = _ajuste(cli)
+    assert linea["paride"] == 0
