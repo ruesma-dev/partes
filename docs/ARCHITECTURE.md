@@ -646,21 +646,28 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     aunque el escaneo salga desplazado y que nunca se invente un valor.
 21. **Franquicia de extras (F-056, sv5 lee y escribe, sv4 decide)**:
     algunos trabajadores solo cobran como extra lo que pasa de X horas en
-    el mes de nómina (16 -> 15, etiquetado por el mes del 15). X es un
-    campo de `res` en Sigrid que rellena Administración; su nombre lo da
-    `FRANQUICIA_CAMPO_RES` de sv5 (vacío = `apagada`: no se lee nada) y SOLO
-    sv5 lo lee, con una lectura de `INFORMATION_SCHEMA.COLUMNS` que
-    comprueba que la columna existe y es numérica (si no, `no_disponible`
-    con WARNING; sv5 arranca igual). NULL o 0 es `inactiva` (X = 0); de 0 a
-    200 h, `activa`; lo demás, `invalida`. «No se sabe» nunca es X = 0: no
-    se escribe. Con E = las horas `HE%` del recurso en el periodo (todas
+    el mes de nómina (16 -> 15, etiquetado por el mes del 15). X es el
+    **campo extendido de recurso** «Franquicia Horas» que rellena
+    Administración en Sigrid: la definición en `defext` (tip 33, `cod` `10`,
+    `camtip` 1 = número entero) y el valor en `conext.valn` del `res.ide`
+    del recurso (`conide` = `con.ide` = `res.ide`). Su `cod` lo da
+    `FRANQUICIA_CAMPO_EXT` de sv5 (vacío = `apagada`: no se lee nada) y SOLO
+    sv5 lo lee. Primero comprueba que hay exactamente una definición de tip
+    33 con ese `cod` y que es entera (si no, `no_disponible` con WARNING;
+    sv5 arranca y registra igual); los valores se leen siempre filtrando
+    por tip 33 (el `cod` `10` de tip 42 es otro campo y nunca se lee) y por
+    el `res.ide` de la línea, el que sv3 eligió con la empresa de la obra,
+    **nunca por DNI**: una persona con recursos en dos empresas tiene una X
+    en cada uno y cuenta la del recurso de la obra. Sin fila, NULL o 0 es
+    `inactiva` (X = 0); de 1 a 200 h, `activa`; negativo, más de 200 o más
+    de una fila, `invalida`. «No se sabe» nunca es X = 0: no se escribe. Con E = las horas `HE%` del recurso en el periodo (todas
     las obras y partes, sin la propia línea), el ajuste es
     `A = -min(E, X)` si E > 0 (si no, 0): una línea `hmores` de extra con
     `can = A` el **día de ajuste** (último del periodo con jornada > 0,
     F-015, con el calendario del trabajador), en la obra de más horas de
     ese día, synckey `partes:franquicia:<id>` y `tex` sin cifras.
     Recalcular es un `UPDATE` de `can`/`tot`; nunca hay `DELETE` ni se
-    escribe en `res`. La línea de ajuste no choca con las demás (pisado y
+    escribe en `res`, `defext` ni `conext`. La línea de ajuste no choca con las demás (pisado y
     reajuste la ignoran). En sv4, el preflight de aprobar pide a sv5 la
     franquicia de la selección (`/api/franquicia/recursos`, una llamada) y
     `comprobar` por candidato, y trae un bloque `franquicias` consultivo.
