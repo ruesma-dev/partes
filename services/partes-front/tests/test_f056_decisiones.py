@@ -1135,3 +1135,28 @@ def test_f056_r48_preflight_pide_solo_el_recurso_de_las_lineas(fabrica,
     [it] = r.json()["franquicias"]["items"]
     assert (it["recurso_ide"], it["franquicia"]) == (REC, 8.0)
     assert [p["recurso_ide"] for p in sv5.franq_comprobadas] == [REC]
+
+
+def _otro_recurso_con_mas_horas(fabrica):
+    """DA32 (observacion 6 del reviewer): la misma persona (mismo DNI) con
+    OTRO recurso, de otra empresa, y mas horas ordinarias el dia de ajuste
+    en otra obra (sin extras: no dispara R12)."""
+    sembrar_parte(fabrica, [{"horas": 12.0, "partida_cod": "02.02"}],
+                  document_id="d-otra-emp15", fecha="2026-10-15",
+                  recurso_ide=601, obra_ide=20, obra_codigo="0200")
+
+
+def test_f056_da32_preflight_obra_del_recurso_del_ajuste(fabrica, portal):
+    """DA32, R7: la obra propuesta sale solo de las lineas del recurso del
+    ajuste (0100), no de la obra de mas horas de la persona (0200)."""
+    _otro_recurso_con_mas_horas(fabrica)
+    ids = _dia15(fabrica)
+    cliente, sv5 = portal(sv5=Sv5Franq(acciones=[_acc_he(2.0)]))
+    r = _preflight(cliente, ids)
+    assert r.status_code == 200, r.text
+    [it] = r.json()["franquicias"]["items"]
+    assert (it["recurso_ide"], it["obra"], it["partida_cod"]) == (
+        REC, {"ide": 10, "codigo": "0100"}, "01.01")
+    [p] = sv5.franq_comprobadas
+    assert (p["recurso_ide"], p["obra"], p["fecha_int"]) == (
+        REC, {"ide": 10, "codigo": "0100"}, 20261015)

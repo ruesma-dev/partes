@@ -182,6 +182,16 @@ def _obra(linea: Mapping) -> tuple:
     return (linea.get("obra_ide"), str(linea.get("obra_codigo") or ""))
 
 
+def lineas_del_recurso(lineas: Iterable[Mapping],
+                       recurso_ide: int) -> list[Mapping]:
+    """DA32, R7, R48: solo las lineas del recurso del ajuste. Las de otro
+    recurso de la misma persona (otra empresa) no eligen la obra: sv5
+    rechazaria esa obra para este recurso (F-023, R30). El dia de ajuste,
+    en cambio, sigue siendo de la persona (DA6)."""
+    rec = int(recurso_ide)
+    return [x for x in lineas if int(x.get("recurso_ide") or 0) == rec]
+
+
 def elegir_obra(lineas_dia: Iterable[Mapping],
                 lineas_periodo: Iterable[Mapping]) -> dict | None:
     """R7: la obra de mas horas del trabajador el dia de ajuste (desempate:

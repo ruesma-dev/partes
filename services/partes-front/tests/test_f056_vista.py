@@ -652,3 +652,18 @@ def test_f056_r45_decidir_linea_sin_recurso_no_es_del_recurso_1(fabrica,
     r = _decidir(cliente, "ajustar", rec=1)
     assert r.status_code == 422 and "lineas" in r.json()["error"]
     assert _repo(fabrica).ajustes_de([(1, "2026-10")]) == {}
+
+
+def test_f056_da32_decidir_obra_del_recurso_del_ajuste(fabrica, portal):
+    """DA32, R7, R45: «Ajustar» desde la vista guarda la obra del recurso
+    del ajuste (0100) aunque la persona tenga mas horas el dia de ajuste
+    con otro recurso de otra empresa (0200)."""
+    dec._otro_recurso_con_mas_horas(fabrica)
+    _dia15(fabrica)
+    cliente, _sv5 = portal()
+    r = _decidir(cliente, "ajustar")
+    assert r.status_code == 200, r.text
+    aj = r.json()["ajuste"]
+    assert (aj["recurso_ide"], aj["fecha_int"], aj["obra_ide"],
+            aj["obra_codigo"], aj["partida_cod"]) == (
+        REC, 20261015, 10, "0100", "01.01")

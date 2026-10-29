@@ -2778,12 +2778,15 @@ def build_app(
 
     def _propuesta(rec: int, periodo: fq.Periodo, lineas_p: list[dict],
                    dia: fq.DiaAjuste) -> dict | None:
-        """R7: dia, obra y partida del ajuste (None si no hay)."""
+        """R7: dia, obra y partida del ajuste (None si no hay). La obra
+        sale SOLO de las lineas del recurso del ajuste (DA32); el dia, de
+        las de la persona (`_dia_ajuste`, DA6)."""
         if dia.fecha is None:
             return None
         dia_int = fq.fecha_a_int(dia.fecha)
+        propias = fq.lineas_del_recurso(lineas_p, rec)
         obra = fq.elegir_obra(
-            [x for x in lineas_p if x["fecha_int"] == dia_int], lineas_p)
+            [x for x in propias if x["fecha_int"] == dia_int], propias)
         if obra is None:
             return None
         return dict(obra, recurso_ide=rec, periodo=periodo.clave,

@@ -543,3 +543,17 @@ def test_f056_r48_mismo_dni_cada_recurso_con_su_x():
         REC: 8.0, 601: 20.0}
     assert por_rec[REC]["registro_ids"] == [1]
     assert por_rec[601]["registro_ids"] == [2]
+
+
+# ------------------ T27 (DA32): la obra, solo con su recurso ------------------ #
+
+def test_f056_da32_lineas_del_recurso_solo_las_suyas():
+    """DA32, R7, R48: las lineas de OTRO recurso de la misma persona (otra
+    empresa) no eligen la obra del ajuste; las sin recurso tampoco."""
+    propias = [_l(1, D15), _l(3, D15, horas=2.0, tipo="extra")]
+    otras = [_l(2, D15, rec=601, horas=12.0, obra=20, cod="0200"),
+             _l(4, D15, rec=None), _l(5, D15, rec=0)]
+    assert fq.lineas_del_recurso([*otras, *propias], REC) == propias
+    assert fq.lineas_del_recurso(otras, REC) == []
+    assert fq.lineas_del_recurso([], REC) == []
+    assert fq.lineas_del_recurso(propias, "501") == propias
