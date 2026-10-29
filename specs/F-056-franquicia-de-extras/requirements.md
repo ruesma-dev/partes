@@ -56,13 +56,13 @@ de la empresa de la obra (R47, R48). Numeración del 2026-10-23 conservada; nuev
 ## Periodo, día y obra (sv4, puro)
 
 - R4. El sistema debe calcular el periodo de cada línea por su fecha real con el corte 16 → 15.
-- R5. El día de ajuste debe ser el último día del periodo cuya `jornada_dia` (F-015, calendario del
-  trabajador de F-003 y excepción de `empleado_jornada`) sea > 0.
+- R5. El día de ajuste debe ser el último día del periodo cuya `jornada_dia` (F-015, calendario de la
+  persona de F-003 y excepción de `empleado_jornada`) sea > 0; es de la persona, no del recurso (DA32).
 - R6. SI el calendario del trabajador no es fiable para algún año del periodo, ENTONCES el aviso sale
   sin propuesta, con el motivo de Sesame, y no admite «Ajustar».
-- R7. La obra del ajuste debe ser la de más horas del trabajador el día de ajuste (desempate: más extras
-  del periodo y menor código); sin líneas ese día, el último día del periodo que las tenga. La partida,
-  la de su línea de más horas en esa obra ese día (desempate: menor `registro_id`).
+- R7. La obra del ajuste debe salir SOLO de las líneas del recurso del ajuste (DA32, R48): la de más horas
+  el día de ajuste (desempate: más extras del periodo y menor código) o, sin líneas ese día, el último día
+  que las tenga; la partida, la de su línea de más horas ahí (desempate: menor `registro_id`).
 - R8. Creado el ajuste, su día, obra y partida no cambian; recalcular solo cambia `can`.
 
 ## Aviso en el modal de aprobar (sv4)

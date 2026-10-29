@@ -6,6 +6,22 @@ worktree `partes-wt-f056`, sobre 6d777c4). Topes: requirements 150/150, design 2
 (una por línea). La versión aprobada el 2026-10-23 sigue en `git show 6d777c4:specs/...`.
 Resumen del 2026-10-23 (DA1–DA20, M1): mismo fichero en 6d777c4.
 
+## Enmienda DA32 (2026-10-29): la obra del ajuste, solo con las líneas de su recurso
+
+Observación 6 del reviewer (`progress/review_F-056.md`, 3b37113). **Humano, literal**: «sobre la 6, la A».
+- **R7**: la obra (y su partida, y el desempate por extras del periodo) sale SOLO de las líneas del
+  recurso del ajuste (R48). **R5**: el día de ajuste es de la persona, no del recurso. DA32 en §7.
+- **Qué cambia en sv4** (T27, sin código aún): `_propuesta` de `app.py` filtra con la pura nueva
+  `fq.lineas_del_recurso` antes de `elegir_obra` (que no cambia). NO cambian `_dia_ajuste`,
+  `varios_recursos` (DA16 necesita todas las líneas de la persona) ni `lineas_trabajador_periodo`.
+  Las filas ya creadas conservan su obra (R8). Lo usan el preflight y `_plan_franquicia` (modal y vista).
+- **Sin decidir (para el humano)**: el día NO se recorta. `_dia_ajuste` toma el DNI (calendario de
+  Sesame, persona) y el `candef` de la PRIMERA línea del periodo que lo tenga, de cualquier recurso. Si
+  se recortara al recurso, ese `candef` podría cambiar y, en el borde (`candef` bajo el mínimo ⇒ jornada
+  por defecto), mover el día. Hoy no se toca; si el humano quiere el `candef` del recurso, es otra DA.
+- Tarea **T27** antes de T20–T22. Topes: requirements 150/150, design 250/250 (se compactaron H6, H9
+  y R-f sin perder contenido).
+
 ## Enmienda DA29–DA31 (2026-10-29): el campo es extendido, no una columna de `res`
 
 Hechos del líder (solo lectura, agregados): `defext` 49 = tip 33, `cod` `10`, «Franquicia Horas»,

@@ -153,6 +153,14 @@ F-056 vuelve a `in_progress`.
   reescrito (T23), sv4 solo textos (T24), T25 rehace T19, T26 mutación de lo cambiado. Más de una fila
   por recurso ⇒ `invalida` (recomendación del spec-author; el humano puede pedir otra cosa). Topes
   150/150 y 250/250. Resumen: `progress/spec_F-056.md`. Siguiente: el líder la enseña al humano.
+- **ENMIENDA DA32 (spec-author, 2026-10-29)** por la observación 6 del reviewer. Opción presentada:
+  «A: arreglarlo ya, eligiendo la obra solo con las líneas del recurso del ajuste. Es un cambio pequeño en
+  sv4, con su test y la mutación de esas líneas. […] B: cerrar ya y dejarlo como feature futura.» Humano,
+  literal: «sobre la 6, la A». R7 (la obra solo de las líneas del recurso del ajuste) y R5 (el día es de
+  la persona) enmendados; DA32 en `design.md` §7; tarea **T27** (sv4: `fq.lineas_del_recurso` y
+  `_propuesta`; test del caso del reviewer y mutación) antes de T20–T22. **Abierto para el humano**: el día
+  de ajuste NO se recorta al recurso (usa DNI y el `candef` de la primera línea de cualquier recurso de la
+  persona; recortarlo podría mover el día en el borde del `candef`): no decidido por el spec-author.
 - **APROBADA (2026-10-29, humano, literal):** a DA29–DA31, «da29, recuerda coger el ide del recurso
   filtrado por empresa, el mismo dni de recurso puede estar en 2 empresas. lo demas ok»; tras ver la
   enmienda (R47, R48, `FRANQUICIA_CAMPO_EXT`, T23–T26): «si».

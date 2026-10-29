@@ -33,8 +33,7 @@
 - **H5** · M1 (agregados): 138 recursos persona con exactamente un `HE*`, ninguno con dos (DA5); las
   `HE*` se enlazan a nómina al procesarla (DA9); Administración ya mete `HE*` negativas «Ajuste…» a mano
   (días 15/16); nuestras 446 líneas `partes:%` en 14 partes En registro, ninguna enlazada.
-- **H6** · `prueba_escritura_sigrid.py limpiar` borra por `tex = 'PRUEBA-IA'` ⇒ en pruebas el `tex` es la
-  marca (R32).
+- **H6** · `prueba_escritura_sigrid.py limpiar` borra por `tex = 'PRUEBA-IA'` ⇒ en pruebas el `tex` es la marca (R32).
 - **H7** (2026-10-29, líder, solo lectura y agregados contra `ruesma`) · Ninguna columna con «fran» en
   `INFORMATION_SCHEMA`: el campo es EXTENDIDO. `defext` ide 49 = `tip` 33, `cod` `10`, «Franquicia Horas»,
   `camtip` 1; valores en `conext` (`conide` = `con.ide` = `res.ide`; `camtip` 1 ⇒ `valn`, Entero). Los
@@ -42,9 +41,8 @@
   franquicia activa. Tablas: `azure-apps/sigrid_tablas.md` (`conext`, `defext`) y `sigrid_api.md` §9.8.
 - **H8** · El `cod` `10` NO es único: también es «Administrativo de obra» de tip 42 (`defext` 26,
   `camtip` 6, `camtab` `emp`, 466 filas en `conext`) ⇒ todo se filtra SIEMPRE por tip 33 (R47).
-- **H9** · `sql/read` admite cualquier `SELECT` de una sentencia con `?`: `cod` va como parámetro y ya
-  no se interpola ningún nombre. La lectura va aparte de `datos_recursos` (la verificación F-023): un
-  campo mal definido no tumba el registro (DA23).
+- **H9** · `sql/read` admite cualquier `SELECT` de una sentencia con `?`: `cod` va como parámetro (no se
+  interpola nada). Va aparte de `datos_recursos` (F-023): un campo mal definido no tumba el registro (DA23).
 - **H10** · En `ARCHITECTURE.md` la semántica 18 ya es F-054 (llegan hasta la 20): F-056 será la 21.
 
 ## 3. Flujo y estados (`franquicia_ajuste.estado`)
@@ -125,6 +123,8 @@ ejecutar/encolar ─ajustar|recalcular─► decidido ─aplicar(sv5 ok)─► a
   `orm_models.py` (las DOS copias, byte-idénticas; `test_f056_orm.py`). Comprobado (R48): `/recursos` recibe
   el `recurso_ide` de las líneas (`parte_registros`, elegido por sv3 con la empresa de la obra), el que sv5
   escribe en `hmores.reside` sin cambiarlo (solo completa por DNI las líneas SIN recurso, fuera de `candidatos`).
+- **T27 (DA32)** · `_propuesta` (`app.py`) da a `elegir_obra` solo las líneas del recurso (pura nueva
+  `fq.lineas_del_recurso`); `_dia_ajuste` (persona, DA6), `varios_recursos` y el repositorio, con todas.
 
 ### Raíz y documentación
 
@@ -201,6 +201,7 @@ ajusta · DA18 la lista cerrada no crece.
 | DA29 | ¿De dónde sale X ahora que el campo es extendido? | **A** «Del valor numérico del campo extendido en `conext`, filtrando por recurso y por el tipo 33. Si no hay fila, el valor está vacío o vale 0, ese recurso no tiene franquicia. Sigue leyéndolo solo sv5.» Precisión del humano: el `conide` es SIEMPRE el `res.ide` del recurso de la obra, ya elegido por DNI con la empresa de la obra (F-023/F-036, DA27, `hmores.reside`); nunca se busca por DNI; una persona con recursos en dos empresas puede tener X distinta en cada uno y solo cuenta la del recurso de la empresa de la obra (R48). Más de una fila por recurso ⇒ `invalida` (no se elige a ciegas). | **A, el humano 2026-10-29**, literal: «da29, recuerda coger el ide del recurso filtrado por empresa, el mismo dni de recurso puede estar en 2 empresas. lo demas ok» |
 | DA30 | ¿Qué nombra el ajuste? | **A** «El ajuste pasa a ser el código del campo extendido (`10`), en vez del nombre de una columna. Al leer, sv5 comprueba que existe la definición de tipo 33 y que el campo es numérico. Si no, la franquicia queda "no disponible", con aviso y sin bloquear el registro. Con el ajuste vacío sigue apagada.» B localizarlo por el nombre («Franquicia Horas»): descartada. | **A, el humano 2026-10-29** («lo demas ok») |
 | DA31 | ¿Decimales? | **A** «Sigrid guarda el valor como entero, así que la franquicia va en horas completas. […] esa comprobación de tipo lo detectaría y dejaría la franquicia "no disponible".» (`camtip` 1 = `valn` entero; otro `camtip` ⇒ `no_disponible`). | **A, el humano 2026-10-29** («lo demas ok») |
+| DA32 | ¿Con qué líneas se elige la obra del ajuste (observación 6 del reviewer: ordinarias de la persona con OTRO recurso, de otra empresa, el día de ajuste podían ganar la obra; sv5 lo paraba con F-023, R30, y el trabajador se quedaba sin ajuste)? | **A** (tal como se le presentó) «arreglarlo ya, eligiendo la obra solo con las líneas del recurso del ajuste. Es un cambio pequeño en sv4, con su test y la mutación de esas líneas. […]» B «cerrar ya y dejarlo como feature futura». Coherente con R48. El día de ajuste NO cambia: sigue siendo de la persona (DA6); recortarlo al recurso cambiaría el `candef` que toma `_dia_ajuste` (hoy el de la primera línea con `candef` de cualquier recurso) y podría mover el día: no se decide aquí. | **A, el humano 2026-10-29**, literal: «sobre la 6, la A» |
 
 ## 8. Riesgos
 
@@ -213,8 +214,7 @@ ajusta · DA18 la lista cerrada no crece.
 - **R-i · Alguien cambia el `camtip` de la definición o reusa el `cod`**: otro `camtip` o una segunda
   definición de tip 33 ⇒ `no_disponible` (R38); un reuso en otro `tip` no afecta (R47); cambiarle el
   sentido sin cambiar el tipo no se detecta ⇒ consta en `azure-apps/partes.md` («qué se rompe»).
-- **R-f · Retroactividad** (DA22): cambiar X en Sigrid afecta a cualquier periodo que se recalcule
-  antes de la nómina; la vista enseña X usada y X actual.
+- **R-f · Retroactividad** (DA22): un cambio de X afecta a lo que se recalcule antes de la nómina (X usada y actual).
 - **R-g · Despliegue**: sv5 → sv4 con el campo vacío; se activa al final (M4). sv4 nuevo con sv5 viejo:
   `/recursos` da 404 ⇒ aviso de R44, nada se escribe.
 - **R-h · `porcentajes`**: no escribe `HE*` ni comparte la synckey.
