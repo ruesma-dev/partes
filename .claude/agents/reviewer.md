@@ -168,7 +168,11 @@ viven solo aquí, porque son criterio de juicio y no se pueden automatizar.
   campaña hay un punto medio: reejecutar **el subconjunto de tests del módulo
   mutado sobre una COPIA en tu scratchpad**. En F-034 fueron 568 s en vez de 18
   min, y no muta el árbol de trabajo. Úsalo cuando dudes de un veredicto
-  concreto y la campaña entera sea cara.
+  concreto y la campaña entera sea cara. Si lanzas pytest desde un script
+  (subproceso), hazlo con **el mismo intérprete** (`sys.executable -m
+  pytest`), nunca con `python` a secas: en F-056 `python` resolvía a otro
+  intérprete sin pytest, salía con 1 y parecía un falso «MATA». Antes de
+  fiarte de un «MATA», comprueba que el mismo comando sin el mutante sale con 0.
 - **RM5 · Un «equivalente» trae demostración ejecutable**, y tú reproduces una
   **muestra, no todas**. Acotada por decisión del humano del 2026-08-20: se
   exige **SOLO en rigor `critico`**, y la muestra es **UNO** de los declarados
