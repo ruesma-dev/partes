@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-056 · DONE 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; sin desplegar; pendiente: M3, M2 y M4 del humano): franquicia de extras
+## F-056 · DONE 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; desplegada sv5 → sv4 con el campo vacío el 2026-10-30; M2 OK en local con X = 10 salvo (g), ver `progress/m2_F-056.md`; pendiente: M3, M2 (g) y M4): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
 worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en
