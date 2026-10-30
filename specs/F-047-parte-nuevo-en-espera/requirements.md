@@ -90,11 +90,11 @@ DA11–DA13 = A, decididas el 2026-10-30).
 
 ## sv4 · aprobación (DA3)
 
-- **R16.** SI se envía `POST /documents/{id}/approve` sobre un parte en espera
-  (de cualquier motivo), ENTONCES no se aprueba y se redirige a `back` con el
-  motivo de F-043 R38.
-- **R17.** `lineas_para_registro` debe dejar fuera las líneas de los
-  documentos en espera y contarlas en `excluidas["recalculando"]` (la clave
+- **R16.** SI se envía `POST /documents/{id}/approve` sobre un parte **nuevo** en
+  espera, ENTONCES no se aprueba y se redirige a `back` con el motivo de F-043
+  R38. Un parte en espera de un recálculo (uuid4) se aprueba como hoy (DA3-B).
+- **R17.** `lineas_para_registro` debe dejar fuera las líneas de los partes
+  **nuevos** en espera y contarlas en `excluidas["recalculando"]` (la clave
   solo existe si es > 0), con su detalle y el motivo «parte en espera: se
   están repartiendo sus horas; pulsa Actualizar cuando termine».
   `_motivo_sin_lineas` debe nombrarlas. Las claves que ya existen no cambian.

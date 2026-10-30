@@ -1,7 +1,13 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-047 · BLOQUEADA en T6 (implementer, 2026-10-30): parte nuevo en espera hasta que sv3 reparta sus horas
+## F-047 · EN CURSO (implementer; desbloqueada 2026-10-31): parte nuevo en espera hasta que sv3 reparta sus horas
+
+**Desbloqueo (2026-10-31)**: el humano eligió la opción A del bloqueo (literal: «a» a «¿A y el ajuste
+aprobado?»): DA3 → B (solo el motivo `nuevo` en R16 y R17) y desviación de design §4 (`joinedload` +
+`estado_seguimiento` sobre `r.document`, 0 sentencias nuevas). Registrado en `design.md` §4 y §11,
+`requirements.md` R16–R17 y `tasks.md` T6. F-047 vuelve a `in_progress`. Lo que sigue es el
+registro del bloqueo, conservado como historia.
 
 DA11–DA13 = A decididas por el humano el 2026-10-30 (literal: «ok» a «F-047: A, A, A. Lanzo el
 implementer.»), registradas en `design.md` §11; DA13 aplicada al texto de R19. Rama

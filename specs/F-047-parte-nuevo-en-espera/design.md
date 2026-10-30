@@ -77,13 +77,14 @@ pedido_id: str | None) -> str` (R11). `MOTIVO_RECALCULANDO` y
   None, `is_active` y `recalculo_pedido_id IS NOT NULL AND (recalculo_terminado_id
   IS NULL OR recalculo_terminado_id != recalculo_pedido_id)`. Filtra en Python
   los activos `pendiente` (`_ahora_utc()`) y les pone `motivo_espera`.
-- `approve_document`: en el `if doc is not None` que ya tiene (F-046),
-  `_exigir_sin_recalculo(doc)` **después** de la comprobación de reparto y
-  antes de `_set_approval` (R16). `unapprove_document` y `_set_approval` igual.
+- `approve_document`: en el `if doc is not None` que ya tiene (F-046), si el
+  motivo es `nuevo`, `_exigir_sin_recalculo(doc)` **después** de la comprobación
+  de reparto y antes de `_set_approval` (R16). `unapprove_document` igual.
 - `lineas_para_registro` (R17): constantes `EXCLUIDA_RECALCULANDO =
-  "recalculando"` y `MOTIVO_EXCLUIDA_RECALCULANDO` (texto de R17); tras leer
-  `regs`, `en_espera = set(self.motivos_espera({r.document_id for r in
-  regs}))` (una consulta); en el bucle, **después** de `dedicacion` y de
+  "recalculando"` y `MOTIVO_EXCLUIDA_RECALCULANDO` (texto de R17); `en_espera` =
+  los partes nuevos `pendiente`, con `joinedload(document)` en el SELECT de `regs` y
+  `estado_seguimiento` sobre `r.document` (0 sentencias nuevas: F-062 R5 fija 5;
+  desviación aprobada el 2026-10-31, «a»); en el bucle, **después** de `dedicacion` y de
   `reparto_pendiente` (F-046) y **antes** de la incompatibilidad, una línea de
   `en_espera` suma en `excluidas[EXCLUIDA_RECALCULANDO]` (`get(…, 0) + 1`), va
   al detalle con ese motivo y no viaja.
@@ -212,11 +213,10 @@ DA1–DA10 aprobadas el 2026-10-14; **DA11–DA13 = A** decididas por el humano 
   con ruido y riesgo de poison). El parte vence a los 10 min con el aviso de
   R21. El fallo de **partidas** no impide la marca (lo que se espera es el
   reparto de horas; recargar no lo arregla). Alternativa: exigir las dos.
-- **DA3 · La aprobación excluye los partes en espera de los dos motivos
-  (recomendada; revisa F-043 DA12)**: sv3 no reparte lo aprobado ni lo
-  encolado, así que aprobar en la espera deja las horas sin repartir para
-  siempre. Solo sv4: el payload hacia sv5 no cambia. Alternativas: B, solo los
-  partes nuevos; C, no bloquear (como F-043).
+- **DA3 · B (humano, 2026-10-31, literal: «a»): la aprobación excluye solo los
+  partes NUEVOS en espera** (R16, R17). La A (los dos motivos) rompía F-046 R33:
+  «Aplicar» pide el recálculo de los partes del día y registra sus líneas en la
+  misma petición. El recálculo (uuid4) sigue como F-043 DA12. Solo sv4.
 - **DA4 · Sin columnas nuevas (recomendada)**: motivo = «pedido = id»,
   documentado en `orm_models.py`. Alternativa: columna `recalculo_motivo`.
 - **DA5 · La lista cerrada de `CLAUDE.md` no crece (recomendada)**: sv3
