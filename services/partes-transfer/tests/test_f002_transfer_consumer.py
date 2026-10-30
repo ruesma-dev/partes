@@ -144,7 +144,8 @@ def test_f002_r10_conflictos_no_se_pisan_desde_la_cola(monkeypatch):
 
 
 def test_f002_r10_pisar_claves_del_blob_se_ignora(monkeypatch):
-    """R10: pisar es humano y sincrono; la cola nunca borra lineas."""
+    """R10: pisar es humano y sincrono; la cola nunca pone lineas a 0
+    (F-053: ni las borra)."""
     cli = _sigrid()
     cli.partes.append({"ide": 700, "obride": 10, "ano": 2026, "mes": 3,
                        "cod": "PT26/00007"})
@@ -158,8 +159,8 @@ def test_f002_r10_pisar_claves_del_blob_se_ignora(monkeypatch):
 
     r = m.resultado_publicado()["resultado"]
     assert r["pisadas"] == []
-    assert r["borradas"] == 0
-    assert any(l["ide"] == 4000 for l in cli.lineas)
+    assert r["anuladas"] == 0 and "borradas" not in r
+    assert next(l for l in cli.lineas if l["ide"] == 4000)["can"] == 5.0
     assert [c["clave"] for c in r["pendientes_confirmacion"]] \
         == ["501|20260302|1"]
 
@@ -233,4 +234,5 @@ def test_f002_r6_el_resultado_conserva_el_esquema_del_http(monkeypatch):
     r = m.resultado_publicado()["resultado"]
     assert set(r) >= {"ok", "obra_destino", "forzada_pruebas", "partes",
                       "escritas", "omitidas", "ya_registradas", "pisadas",
-                      "borradas", "pendientes_confirmacion"}
+                      "anuladas", "pendientes_confirmacion"}
+    assert "borradas" not in r                # F-053 (DA7)

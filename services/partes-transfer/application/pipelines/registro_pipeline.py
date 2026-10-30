@@ -44,7 +44,9 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      si la lectura falla, la peticion entera falla (nada se escribe).
      F-031 (R20-R26): si el recurso no da subcuenta, la de la PARTIDA de
      la linea si es de coste (`CI*`/`CD*`), con una lectura de partidas
-     por peticion y solo si hace falta.
+     por peticion y solo si hace falta. F-062 (R9): el CIZ hermano de un
+     `inicio` con `ciz_mismo_dia` toma la cuenta del codigo CIZ, en esas
+     mismas lecturas.
   5. Elegir el parte de cada periodo (F-031): se leen TODOS los partes de
      la obra y mes con su estado; sv5 solo escribe en uno En registro (el
      de mayor `ide`). Si el periodo tiene partes cerrados (Cerrado,
@@ -52,20 +54,55 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      registro, se propone uno nuevo con el codigo de siempre.
   6. Detectar lineas YA registradas por nosotros (synckey) -> idempotencia.
      Tambien las `dedicacion`: si ya viven en Sigrid, Sigrid manda (R5).
+  6 bis. F-060, solo con el interruptor MOVER_CIZ: el `fin` de una racha
+     (codigo `CIZ` con `racha_registro_ids`) busca el CIZ de la racha por
+     las synckeys de sus lineas (`lineas_de_racha`) y `decidir_fin` decide:
+     moverlo al dia nuevo (paso 9), omitir (el CIZ ya esta despues, en un
+     parte cerrado o enlazado) o crearlo como siempre. F-062: en la MISMA
+     lectura, `partes:<i>:ciz` de cada id (el hermano tambien se mueve) y,
+     para cada `inicio` con `ciz_mismo_dia`, su tramo delante y su propia
+     `partes:<D>:ciz`: `decidir_mismo_dia` quita el hermano si ya existe o
+     si la racha ya tiene un CIZ posterior.
   7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
-     registro, hay que confirmar si se pisan.
+     registro, hay que confirmar si se pisan. F-053: solo choca una linea
+     con horas (una a 0 no es conflicto), salvo si la nueva es una
+     incidencia; en un parte En registro, una incidencia que ya consta se
+     omite (`incidencia_en_sigrid: ...`) y, si no, un choque con una linea
+     enlazada (albaran, factura, dedicacion o nomina) tambien
+     (`linea_enlazada: ...`). Lo demas es conflicto confirmable. F-062
+     (R12): un CIZ ajeno del recurso el dia D quita el hermano del inicio.
   8. Crear los partes que falten (cabecera + extension) con el ALTA
-     PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`): la
+     PROTEGIDA comun con `porcentajes` (F-031 v5, `_crear_parte`; F-034 no
+     la cambia: un parte que sv5 crea nace En registro): la
      cabecera solo entra si su codigo esta libre y el periodo no tiene ya
      un parte En registro; despues se relee el periodo y se usa el parte En
      registro que haya, propio o del otro servicio. Si no hay ninguno, un
      reintento con el siguiente codigo; si tampoco, error y no se inserta
      nada.
-  9. Borrar las lineas pisadas confirmadas e insertar las nuevas, solo en
+  9. Poner a 0 las lineas pisadas confirmadas (F-053: `can = 0`,
+     `tot = 0`; en Sigrid no se borra) e insertar las nuevas, solo en
      el parte elegido. sv5 no toca `con`/`hmo` de un parte existente ni
-     escribe asientos (F-031, R5, R31).
+     escribe asientos (F-031, R5, R31). F-034: cada sentencia lleva la
+     GUARDA DE PARTE ABIERTO (SQL Server comprueba `con.est` al escribir,
+     con `UPDLOCK, HOLDLOCK`) y el INSERT de una linea que pisa solo entra
+     si ninguna pisada sigue con horas (R4). Despues se RELEE por synckey:
+     solo es `escrita` lo que esta en el parte elegido; lo demas sale
+     `omitida` `parte_no_abierto` (o `no_escrita` + ERROR si ningun parte
+     cerrado lo explica), con una lectura de partes por periodo afectado,
+     y `anuladas` cuenta las pisadas que ya no tienen horas (R9-R13).
+     F-060: una accion con `mover` no inserta: `stmt_mover_linea` lleva el
+     CIZ de la racha a este dia y a este parte (UPDATE, nunca un borrado)
+     y su escrita sale con `movida_de` (el registro que lo tenia; no la
+     lleva si lo movido es un hermano, F-062 R19). F-062: una accion con
+     `fin_mismo_dia` (`ciz_mismo_dia` de sv4) escribe el CI* y su CIZ
+     hermano con UNA sentencia de dos filas (`stmt_insert_inicio_con_fin`);
+     la relectura lee tambien `partes:<X>:ciz` y la escrita gana
+     `ciz_hmores_ide` (o un WARNING si el hermano no esta).
+     F-053: si una pisada cambio antes de ponerla a 0 (sigue con horas en
+     un parte En registro), la nueva sale `pisada_no_anulada: ...`. Todo
+     bajo el lock; una relectura que falla tumba la peticion (R14).
 """
 from __future__ import annotations
 
@@ -91,6 +128,31 @@ from application.services.estado_parte import (
     motivo_choque,
     nombre_estado,
 )
+from application.services.parte_abierto import (
+    confirmar_escritas,
+    motivo_no_escrita,
+    motivo_parte_no_abierto,
+    motivo_pisada_no_anulada,
+    parte_que_impidio,
+    pisadas_no_anuladas,
+)
+from application.services.pisado import (
+    choques,
+    es_incidencia,
+    motivo_incidencia_en_sigrid,
+    motivo_linea_enlazada,
+    origen_linea,
+    tiene_horas,
+)
+from application.services.racha_ciz import (
+    CODIGO_FIN,
+    CREAR,
+    MOTIVO_CIZ_EN_SIGRID,
+    MOVER,
+    decidir_fin,
+    decidir_mismo_dia,
+    registro_de_synckey,
+)
 from application.services.reglas_registro import ReglasRegistro
 from domain.models.registro_models import (
     AccionLinea,
@@ -105,7 +167,10 @@ from domain.models.registro_models import (
     Preflight,
     ResultadoRegistro,
 )
-from infrastructure.sigrid.sigrid_write_client import synckey_de
+from infrastructure.sigrid.sigrid_write_client import (
+    synckey_ciz_de,
+    synckey_de,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -227,7 +292,9 @@ class RegistroPipeline:
         reglas = ReglasRegistro(
             horas, omisiones=omisiones,
             mensuales_a_dedicacion=bool(getattr(
-                self._st, "mensuales_a_dedicacion", False)))
+                self._st, "mensuales_a_dedicacion", False)),
+            # F-062 (R6, R8): el mismo interruptor que el CIZ movil.
+            mover_ciz=self._mover_ciz())
         acciones: list[AccionLinea] = [reglas.decidir(l) for l in lineas]
         # Paso 4b: cuenta analitica (F-021). Datos maestros: fuera del lock.
         self._resolver_cuentas(destino, empresa, acciones, horas)
@@ -258,16 +325,27 @@ class RegistroPipeline:
         def horas_de(a: AccionLinea) -> list[HoraRecurso]:
             return horas.get(int(a.recurso_ide), [])
 
+        # F-062 (R9, DA10): el CIZ hermano de un `inicio` toma la cuenta
+        # del codigo CIZ, como un `fin`, en estas MISMAS lecturas.
+        hermanos = [a for a in escribir if a.fin_mismo_dia is not None]
         parides = {int(a.paride) for a in escribir
                    if a.paride and not subcuenta_de_linea(horas_de(a),
                                                           a.hora_ide)}
+        parides |= {int(a.paride) for a in hermanos
+                    if a.paride and not subcuenta_de_linea(
+                        horas_de(a), a.fin_mismo_dia.horide)}
         partidas = self._cli.partidas_de_lineas(parides) if parides else {}
         origenes = {id(a): origen_subcuenta(
                         horas_de(a), a.hora_ide,
                         partidas.get(int(a.paride or 0)))
                     for a in escribir}
+        origenes_fin = {id(a): origen_subcuenta(
+                            horas_de(a), a.fin_mismo_dia.horide,
+                            partidas.get(int(a.paride or 0)))
+                        for a in hermanos}
         cenide = int(getattr(destino, "cenide", 0) or 0)
-        pedidas = {o.sub for o in origenes.values() if o.sub}
+        pedidas = {o.sub for o in [*origenes.values(),
+                                   *origenes_fin.values()] if o.sub}
         cuentas = (self._cli.cuentas_de_centro(cenide, empresa, pedidas)
                    if pedidas and cenide else {})
         recuento = {None: 0, MOTIVO_RECURSO_SIN_CUENTA: 0,
@@ -281,6 +359,12 @@ class RegistroPipeline:
             a.caa_origen, a.caa_nota = o.origen, o.nota
             recuento[c.motivo] += 1
             por_origen[o.origen] += 1
+        for a in hermanos:
+            # Los recuentos del log son de acciones: el hermano no cuenta.
+            c = resolver_cuenta(origenes_fin[id(a)].sub, cuentas,
+                                destino.codigo)
+            a.fin_mismo_dia.caa_ide, a.fin_mismo_dia.caa_cod = (c.caa_ide,
+                                                                c.caa_cod)
         logger.info(
             "[registro] cuentas obra=%s ok=%s recurso_sin_cuenta=%s "
             "obra_sin_cuenta=%s cuenta_ambigua=%s", destino.codigo,
@@ -332,8 +416,12 @@ class RegistroPipeline:
             if hit is not None:
                 a.accion = "ya_registrado"
                 a.hmores_ide = hit.ide
+                a.fin_mismo_dia = None       # F-062 (R10): sin hermano
                 a.motivo = (f"ya registrada en Sigrid (linea {hit.ide}); "
                             f"no se duplica")
+
+        # Paso 6 bis (F-060): el CIZ de la racha se mueve, no se duplica.
+        self._ciz_de_racha(ctx)
 
         # Paso 7: conflictos en TODOS los partes del periodo (F-031). Un
         # parte nuevo sin partes previos no puede tener conflicto.
@@ -358,11 +446,24 @@ class RegistroPipeline:
                      if ps.est != est_registro
                      and self._choques(lineas, a, mias)), None)
                 if cerrado is not None:
-                    self._omitir_por_cerrado(a, cerrado)
+                    self._omitir(a, motivo_choque(
+                        cerrado.cod, self._nombre_estado(cerrado.est)))
                     omitidas_cerrado[clave] += 1
             grupo = [a for a in grupo if a.accion == "escribir"]
             abiertas = [(ps, lineas) for ps, lineas in existentes
                         if ps.est == est_registro]
+            # F-053 (R6-R8): lo que no se puede pisar se omite con motivo
+            # antes de ofrecerlo como conflicto.
+            for a in grupo:
+                motivo = self._motivo_sin_pisado(a, abiertas, mias)
+                if motivo is not None:
+                    self._omitir(a, motivo)
+            grupo = [a for a in grupo if a.accion == "escribir"]
+            # F-062 (R12): un CIZ ajeno del recurso el dia D, en cualquier
+            # parte del periodo => el CI* sigue su regla, sin hermano.
+            for a in grupo:
+                if self._ciz_ajeno(a, existentes, mias):
+                    self._sin_hermano(a, MOTIVO_CIZ_EN_SIGRID)
             conflictos.extend(self._conflictos(parte, grupo, abiertas, mias))
 
         for clave, parte in sorted(partes.items()):
@@ -386,6 +487,106 @@ class RegistroPipeline:
             pf.n_escribir, pf.n_omitir, pf.n_ya, len(conflictos))
         return pf
 
+    def _ciz_de_racha(self, ctx: ContextoRegistro) -> None:
+        """Paso 6 bis (F-060, R13-R19, R25, R26): con `MOVER_CIZ`, cada
+        accion `escribir` con codigo `CIZ` que trae `racha_registro_ids`
+        busca en Sigrid el CIZ de su racha por las synckeys de esas lineas
+        (UNA lectura para todas y UNA de los partes de las candidatas) y
+        `decidir_fin` dice que hacer: moverlo (`a.mover`), omitir la accion
+        (posterior, parte cerrado o enlazada) o crear como siempre.
+
+        Va despues de la idempotencia (una `fin` ya escrita no busca nada)
+        y antes de los conflictos, que corren igual para la accion. Bajo el
+        lock en `registrar`; en `preflight`, consultivo (R25). Apagado (o
+        un settings sin el ajuste), no lee nada: como antes (R26)."""
+        if not self._mover_ciz():
+            return
+        racha = {l.registro_id: list(l.racha_registro_ids or [])
+                 for l in ctx.lineas}
+        fines = [a for a in ctx.acciones
+                 if a.accion == "escribir"
+                 and (a.hora_codigo or "").strip().upper() == CODIGO_FIN
+                 and racha.get(a.registro_id)]
+        # F-062 (R11): los `inicio` que escriben su CIZ hermano.
+        inicios = [a for a in ctx.acciones
+                   if a.accion == "escribir" and a.fin_mismo_dia is not None]
+        if not fines and not inicios:
+            return
+
+        def claves(rid: int) -> list[str]:
+            # F-062 (R11, R18): `partes:<i>` y `partes:<i>:ciz` de la lista.
+            return [sk for i in racha[rid]
+                    for sk in (synckey_de(i), synckey_ciz_de(i))]
+
+        leidas = self._cli.lineas_de_racha(
+            [sk for a in fines for sk in claves(a.registro_id)]
+            + [sk for a in inicios
+               for sk in (*claves(a.registro_id),
+                          synckey_ciz_de(a.registro_id))])
+
+        def candidatas(rid: int) -> list[LineaSigrid]:
+            return [leidas[sk] for sk in claves(rid) if sk in leidas]
+
+        marca = self._st.marca_pruebas if ctx.forzada_pruebas else None
+        for a in inicios:
+            motivo = decidir_mismo_dia(
+                a.fecha_int, int(a.recurso_ide or 0),
+                candidatas(a.registro_id),
+                leidas.get(synckey_ciz_de(a.registro_id)),
+                marca_pruebas=marca)
+            if motivo is not None:
+                self._sin_hermano(a, motivo)
+        if not fines:
+            return
+        hmoides = {int(ls.hmoide) for a in fines
+                   for ls in candidatas(a.registro_id) if ls.hmoide}
+        partes = {h: ParteSigrid(ide=h, cod=d.get("cod"), est=d.get("est"))
+                  for h, d in (self._cli.estados_de_partes(hmoides)
+                               if hmoides else {}).items()}
+        for a in fines:
+            d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0),
+                            candidatas(a.registro_id),
+                            partes=partes, est_registro=self._est_registro(),
+                            marca_pruebas=marca,
+                            nombre_estado=self._nombre_estado)
+            if d.tipo == MOVER:
+                a.mover = d.linea
+                if d.duplicados:
+                    # R15 (DA8): las demas no se tocan. Sin nombres ni DNIs.
+                    logger.warning(
+                        "[registro] ciz_duplicados registro_id=%s ide=%s "
+                        "duplicados=%s", a.registro_id, d.linea.ide,
+                        d.duplicados)
+            elif d.tipo != CREAR:
+                self._omitir(a, d.motivo)
+
+    def _mover_ciz(self) -> bool:
+        """F-060 (R26) y F-062 (R8): `MOVER_CIZ`; un settings sin el
+        ajuste es el interruptor apagado."""
+        return bool(getattr(self._st, "mover_ciz", False))
+
+    @staticmethod
+    def _sin_hermano(a: AccionLinea, motivo: str) -> None:
+        """F-062 (R11, R12, R16): el `inicio` escribe solo su CI*. INFO sin
+        nombres ni DNIs."""
+        a.fin_mismo_dia = None
+        logger.info("[registro] ciz_mismo_dia_omitido registro_id=%s "
+                    "motivo=%s", a.registro_id, motivo)
+
+    @staticmethod
+    def _ciz_ajeno(a: AccionLinea,
+                   existentes: list[tuple[ParteSigrid, list[LineaSigrid]]],
+                   mias: set[str]) -> bool:
+        """F-062 (R12): con hermano, si en algun parte del periodo hay ya
+        una linea del recurso, el dia D y el codigo del CIZ que no es de la
+        peticion."""
+        fin = a.fin_mismo_dia
+        return fin is not None and any(
+            ls.reside == a.recurso_ide and ls.fecha_int == a.fecha_int
+            and int(ls.horide or 0) == int(fin.horide)
+            and ls.synckey not in mias
+            for _ps, lineas in existentes for ls in lineas)
+
     # ---------------- ayudas de los pasos 5-8 (F-031) ---------------- #
     def _est_registro(self) -> int:
         """R7: «En registro» sale de `EST_PARTE_ACTIVO` (un settings sin
@@ -401,20 +602,42 @@ class RegistroPipeline:
     @staticmethod
     def _choques(lineas: list[LineaSigrid], a: AccionLinea,
                  mias: set[str]) -> list[LineaSigrid]:
-        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA: pisar las
-        ordinarias de un dia NO debe tocar las extra de ese dia."""
-        return [ls for ls in lineas
-                if ls.reside == a.recurso_ide
-                and ls.fecha_int == a.fecha_int
-                and int(ls.horide or 0) == int(a.hora_ide or 0)
-                and not (ls.synckey and ls.synckey in mias)]
+        """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA (pisar las
+        ordinarias de un dia NO toca las extra de ese dia) y, desde F-053
+        (R5), con horas salvo para incidencias: `pisado.choques`."""
+        return choques(lineas, a, mias)
 
-    def _omitir_por_cerrado(self, a: AccionLinea, ps: ParteSigrid) -> None:
-        """R11, R14: la linea no se registra y no lleva cuenta."""
+    @staticmethod
+    def _omitir(a: AccionLinea, motivo: str) -> None:
+        """F-031 R11, R14 y F-053 R6-R7: la linea no se registra y no lleva
+        cuenta. F-062 (R10): ni su CIZ hermano."""
         a.accion = "omitir"
-        a.motivo = motivo_choque(ps.cod, self._nombre_estado(ps.est))
+        a.motivo = motivo
+        a.fin_mismo_dia = None
         a.caa_ide, a.caa_cod = 0, None
         a.caa_motivo = a.caa_aviso = a.caa_origen = a.caa_nota = None
+
+    def _motivo_sin_pisado(
+        self, a: AccionLinea,
+        abiertas: list[tuple[ParteSigrid, list[LineaSigrid]]],
+        mias: set[str],
+    ) -> str | None:
+        """F-053 (R6-R8), sobre los choques en partes En registro: una
+        incidencia que ya consta (`incidencia_en_sigrid`) y, si no, alguna
+        linea enlazada (`linea_enlazada`). None = conflicto confirmable
+        (o nada que pisar)."""
+        chocan = [(ps, ls) for ps, lineas in abiertas
+                  for ls in self._choques(lineas, a, mias)]
+        if not chocan:
+            return None
+        if es_incidencia(a.hora_codigo):
+            return motivo_incidencia_en_sigrid(
+                [ls.ide for _ps, ls in chocan], chocan[0][0].cod)
+        enlazadas = [(ps, ls) for ps, ls in chocan if ls.enlazada]
+        if enlazadas:
+            return motivo_linea_enlazada(
+                [ls.ide for _ps, ls in enlazadas], enlazadas[0][0].cod)
+        return None
 
     def _conflictos(
         self, parte: ParteDestino, grupo: list[AccionLinea],
@@ -528,53 +751,247 @@ class RegistroPipeline:
             desc = f"Parte {destino.nombre or destino.codigo}{marca}"
             self._crear_parte(p, destino, desc)
 
-        # Paso 9: borrar pisadas + insertar.
+        # Paso 9: poner a 0 las pisadas + insertar (F-053: en Sigrid no se
+        # borra). F-034: cada sentencia lleva la guarda de parte abierto y
+        # el INSERT de una linea que pisa, sus pisadas (R4): si una puesta
+        # a 0 no entra, la nueva tampoco. `anuladas` se cuenta al releer,
+        # no al construir (R12).
         statements: list[dict] = []
+        pisadas_de: dict[int, list[int]] = {}
+        pisada_de: dict[int, tuple[LineaSigrid, list[int]]] = {}
         for c in pf.conflictos:
             if c.clave not in pisar:
                 continue
             for ls in c.lineas:
-                statements.append(self._cli.stmt_borrar_linea(ls.ide))
-                res.borradas += 1
+                statements.append(self._cli.stmt_anular_linea(
+                    ide=ls.ide, reside=ls.reside, fecha_int=ls.fecha_int,
+                    horide=ls.horide, antes=ls.can))
+                pisada_de[ls.ide] = (ls, c.registros)
+            for rid in c.registros:
+                pisadas_de[rid] = [ls.ide for ls in c.lineas]
 
         pos_por_parte: dict[int, int] = {}
         tex = self._st.marca_pruebas if pf.forzada_pruebas else None
+
+        def pos_nueva(hmoide: int) -> int:
+            if hmoide not in pos_por_parte:
+                pos_por_parte[hmoide] = self._cli.max_pos(hmoide)
+            pos_por_parte[hmoide] += int(self._st.paso_pos)
+            return pos_por_parte[hmoide]
+
+        movidas: dict[int, LineaSigrid] = {}
+        hermanos: set[int] = set()
         for a in sorted(a_escribir, key=lambda x: (x.ano, x.mes, x.fecha_int,
                                                    x.registro_id)):
             p = por_periodo[(a.ano, a.mes)]
             hmoide = int(p.ide)
-            if hmoide not in pos_por_parte:
-                pos_por_parte[hmoide] = self._cli.max_pos(hmoide)
-            pos_por_parte[hmoide] += int(self._st.paso_pos)
+            escrita = {"registro_id": a.registro_id, "hmoide": hmoide,
+                       "parte_cod": p.cod, "hora_codigo": a.hora_codigo,
+                       "can": a.can, "tot": a.tot, "caa_cod": a.caa_cod}
+            if a.mover is not None:
+                # F-060 (R20, R22): el CIZ de la racha pasa a este dia con
+                # UN `UPDATE`; conserva su `pos` si no cambia de parte.
+                ls = a.mover
+                pos = (int(ls.pos) if int(ls.hmoide or 0) == hmoide
+                       and ls.pos is not None else pos_nueva(hmoide))
+                statements.append(self._cli.stmt_mover_linea(
+                    linea=ls, destino=destino, hmoide=hmoide, pos=pos,
+                    fecha_int=a.fecha_int, synckey=synckey_de(a.registro_id),
+                    paride=int(a.paride or 0), caaide=int(a.caa_ide),
+                    ano=a.ano, mes=a.mes))
+                # F-062 (R19): un CIZ hermano (`partes:<X>:ciz`) no deja
+                # `movida_de`: la linea X conserva su CI*.
+                movida = registro_de_synckey(ls.synckey)
+                if movida is not None:
+                    escrita["movida_de"] = movida
+                movidas[a.registro_id] = ls
+                res.escritas.append(escrita)
+                continue
+            fin = a.fin_mismo_dia
+            if fin is not None:
+                # F-062 (R13, DA2): el CI* y su CIZ hermano en UNA sentencia;
+                # el hermano queda detras (`pos` siguiente) y con su cuenta.
+                pos_ci = pos_nueva(hmoide)
+                statements.append(self._cli.stmt_insert_inicio_con_fin(
+                    hmoide=hmoide, obra=destino, reside=int(a.recurso_ide),
+                    fecha_int=a.fecha_int, paride=int(a.paride or 0),
+                    ano=a.ano, mes=a.mes, tex=tex, pos=pos_ci,
+                    horide=int(a.hora_ide), pre=float(a.pre),
+                    caaide=int(a.caa_ide), synckey=synckey_de(a.registro_id),
+                    pos_fin=pos_nueva(hmoide), horide_fin=int(fin.horide),
+                    pre_fin=float(fin.pre), caaide_fin=int(fin.caa_ide),
+                    synckey_fin=synckey_ciz_de(a.registro_id)))
+                hermanos.add(a.registro_id)
+                res.escritas.append(escrita)
+                continue
             statements.append(self._cli.stmt_insert_linea(
                 hmoide=hmoide, obra=destino, reside=int(a.recurso_ide),
-                pos=pos_por_parte[hmoide], fecha_int=a.fecha_int,
+                pos=pos_nueva(hmoide), fecha_int=a.fecha_int,
                 horide=int(a.hora_ide), can=float(a.can), pre=float(a.pre),
                 paride=int(a.paride or 0), ano=a.ano, mes=a.mes,
                 synckey=synckey_de(a.registro_id), tex=tex,
-                caaide=int(a.caa_ide)))
-            res.escritas.append({"registro_id": a.registro_id,
-                                 "hmoide": hmoide, "parte_cod": p.cod,
-                                 "hora_codigo": a.hora_codigo,
-                                 "can": a.can, "tot": a.tot,
-                                 "caa_cod": a.caa_cod})
+                caaide=int(a.caa_ide),
+                pisadas=pisadas_de.get(a.registro_id, ())))
+            res.escritas.append(escrita)
 
         afectadas = self._cli.escribir(statements)
-        logger.info("[registro] escritas=%s borradas=%s filas=%s usuario=%s "
-                    "ts=%s", len(res.escritas), res.borradas, afectadas,
-                    usuario, datetime.now(timezone.utc).isoformat())
 
-        # Devolver el ide real de cada linea creada (para trazabilidad).
+        # F-034: RELECTURA (R9, R12). Lo que decide si una linea entro es
+        # releerla por synckey en el parte elegido, no la respuesta de
+        # `escribir` (cada lote es una transaccion y la guarda de parte
+        # abierto pudo dejar sentencias a 0 filas). Sin `try`: si una
+        # relectura falla, la peticion falla entera (R14).
+        # F-062 (R15): en la MISMA relectura, la synckey de cada hermano.
         mapa = self._cli.lineas_por_synckey(
-            [synckey_de(e["registro_id"]) for e in res.escritas])
+            [synckey_de(e["registro_id"]) for e in res.escritas]
+            + [synckey_ciz_de(r) for r in sorted(hermanos)])
+        res.escritas, no_escritas = confirmar_escritas(res.escritas, mapa)
         for e in res.escritas:
-            hit = mapa.get(synckey_de(e["registro_id"]))
-            if hit is not None:
-                e["hmores_ide"] = hit.ide
+            ls = movidas.get(e["registro_id"])
+            if ls is not None:
+                self._log_ciz_movido(ls, e, mapa)
+            if e["registro_id"] in hermanos:
+                self._confirmar_hermano(e, mapa)
+        pisadas = sorted({i for ides in pisadas_de.values() for i in ides})
+        vivas: dict[int, LineaSigrid] = {}
+        if pisadas:
+            siguen = self._cli.lineas_por_ide(pisadas)
+            vivas = {i: ls for i, ls in siguen.items() if tiene_horas(ls)}
+            anuladas = [i for i in pisadas if i not in vivas]
+            res.anuladas = len(anuladas)
+            for i in anuladas:
+                self._log_pisada_a_cero(*pisada_de[i])
+        if no_escritas:
+            self._omitir_no_escritas(res, destino, no_escritas, a_escribir,
+                                     pisadas_de, vivas)
+        logger.info("[registro] escritas=%s no_escritas=%s anuladas=%s "
+                    "filas=%s usuario=%s ts=%s", len(res.escritas),
+                    len(no_escritas), res.anuladas, afectadas, usuario,
+                    datetime.now(timezone.utc).isoformat())
         return res
+
+    @staticmethod
+    def _log_ciz_movido(ls: LineaSigrid, e: dict,
+                        mapa: dict[str, LineaSigrid]) -> None:
+        """F-060 (R24) y F-062 (R19): el INFO del CIZ movido, sin nombres
+        ni DNIs. Un hermano no viene de un registro: nombra su synckey."""
+        sk = synckey_de(e["registro_id"])
+        if "movida_de" in e:
+            origen = f"registro_id={e['movida_de']}->{e['registro_id']}"
+        else:
+            origen = f"synckey={ls.synckey}->{sk}"
+        logger.info(
+            "[registro] ciz movido ide=%s hmoide=%s->%s fecha=%s->%s %s",
+            ls.ide, ls.hmoide, e["hmoide"], ls.fecha_int,
+            mapa[sk].fecha_int, origen)
+
+    @staticmethod
+    def _confirmar_hermano(e: dict, mapa: dict[str, LineaSigrid]) -> None:
+        """F-062 (R15, R16): con el CI* confirmado, su hermano en el mismo
+        parte da `ciz_hmores_ide` y un INFO; si no esta, WARNING. El estado
+        de la linea lo decide el CI*. Sin nombres ni DNIs."""
+        h = mapa.get(synckey_ciz_de(e["registro_id"]))
+        if h is not None and h.hmoide == e["hmoide"]:
+            e["ciz_hmores_ide"] = h.ide
+            logger.info("[registro] ciz mismo dia ide=%s hmoide=%s fecha=%s "
+                        "registro_id=%s", h.ide, h.hmoide, h.fecha_int,
+                        e["registro_id"])
+        else:
+            logger.warning("[registro] ciz_mismo_dia_no_escrito "
+                           "registro_id=%s", e["registro_id"])
+
+    @staticmethod
+    def _log_pisada_a_cero(ls: LineaSigrid, registros: list[int]) -> None:
+        """F-053 (R13): una linea por pisada puesta a 0, con lo leido antes
+        de escribir. Sin nombres, DNIs ni `tex` (que no es nuestro)."""
+        logger.info(
+            "[registro] pisada a 0 ide=%s hmoide=%s can_antes=%s origen=%s "
+            "registro_id=%s", ls.ide, ls.hmoide, ls.can,
+            origen_linea(ls.synckey), ",".join(str(r) for r in registros))
+
+    def _omitir_no_escritas(
+        self, res: ResultadoRegistro, destino: ObraEntrada,
+        no_escritas: list[dict], a_escribir: list[AccionLinea],
+        pisadas_de: dict[int, list[int]], vivas: dict[int, LineaSigrid],
+    ) -> None:
+        """F-034 (R10, R11, R13): cada linea que no entro sale `omitida`.
+
+        UNA relectura de partes por periodo afectado (dentro del lock) para
+        nombrar el parte que lo impidio: el de una pisada que sigue viva
+        primero (por R4 la nueva no entra), luego el elegido. F-053 (R10):
+        sin parte cerrado, si alguna pisada sigue con horas en un parte En
+        registro (cambio antes de ponerla a 0), `pisada_no_anulada` y un
+        WARNING. Si nada lo explica, `no_escrita` y un ERROR. Sin nombres."""
+        est_registro = self._est_registro()
+        periodo_de = {a.registro_id: (a.ano, a.mes) for a in a_escribir}
+        por_periodo: dict[tuple[int, int], list[dict]] = {}
+        for e in no_escritas:
+            por_periodo.setdefault(periodo_de[e["registro_id"]], []).append(e)
+        for (ano, mes), grupo in sorted(por_periodo.items()):
+            partes = self._cli.partes_del_periodo(int(destino.ide), ano, mes)
+            estados = {ps.ide: ps.est for ps in partes}
+            codigos = {ps.ide: ps.cod for ps in partes}
+            impedidas: dict[int, list[int]] = {}
+            no_anuladas: dict[int, list[int]] = {}
+            sin_explicar: list[int] = []
+            for e in grupo:
+                rid = e["registro_id"]
+                h = parte_que_impidio(
+                    e["hmoide"],
+                    [vivas[i].hmoide for i in pisadas_de.get(rid, ())
+                     if i in vivas],
+                    estados, est_registro=est_registro)
+                cambiadas = pisadas_no_anuladas(
+                    pisadas_de.get(rid, ()), vivas, estados,
+                    est_registro=est_registro)
+                if h is None and cambiadas:
+                    motivo = motivo_pisada_no_anulada(
+                        cambiadas, codigos[vivas[cambiadas[0]].hmoide])
+                    no_anuladas[rid] = cambiadas
+                elif h is None:
+                    motivo = motivo_no_escrita(e.get("parte_cod"))
+                    sin_explicar.append(rid)
+                else:
+                    motivo = motivo_parte_no_abierto(
+                        codigos[h], self._nombre_estado(estados[h]))
+                    impedidas.setdefault(h, []).append(rid)
+                res.omitidas.append({"registro_id": rid, "motivo": motivo})
+            if impedidas:
+                nombres = ", ".join(
+                    f"{codigos[h]} ({self._nombre_estado(estados[h])})"
+                    for h in sorted(impedidas))
+                logger.warning(
+                    "[registro] no escritas por parte no abierto obra=%s "
+                    "periodo=%s/%02d partes=%s registro_ids=%s",
+                    destino.codigo, ano, mes, nombres,
+                    sorted(r for rs in impedidas.values() for r in rs))
+            if no_anuladas:
+                logger.warning(
+                    "[registro] pisada no anulada obra=%s periodo=%s/%02d "
+                    "ides=%s registro_ids=%s", destino.codigo, ano, mes,
+                    sorted({i for ides in no_anuladas.values() for i in ides}),
+                    sorted(no_anuladas))
+            if sin_explicar:
+                logger.error(
+                    "[registro] no escritas sin parte cerrado que lo explique "
+                    "obra=%s periodo=%s/%02d parte=%s registro_ids=%s",
+                    destino.codigo, ano, mes, grupo[0].get("parte_cod"),
+                    sin_explicar)
 
     #: F-031 v5 (R44): altas por periodo (la primera y UN reintento).
     INTENTOS_ALTA = 2
+
+    def asegurar_parte(self, p: ParteDestino, destino: ObraEntrada) -> None:
+        """F-056 (R24): el alta del parte que falta para la linea de ajuste
+        de una franquicia, SIN otra logica: delega en `_crear_parte` (la
+        unica alta, protegida) con la descripcion del paso 8 (con la marca
+        en modo pruebas). La llama `FranquiciaPipeline` con el lock tomado.
+        """
+        marca = (f" ({self._st.marca_pruebas})"
+                 if bool(getattr(self._st, "obra_pruebas_forzar", False))
+                 else "")
+        self._crear_parte(
+            p, destino, f"Parte {destino.nombre or destino.codigo}{marca}")
 
     def _crear_parte(self, p: ParteDestino, destino: ObraEntrada,
                      desc: str) -> None:

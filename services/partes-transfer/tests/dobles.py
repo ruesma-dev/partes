@@ -151,7 +151,8 @@ class SettingsFake:
                  transfer_workers: int = 3,
                  est_parte_activo: int = 1,
                  est_parte_cerrado: int = 3,
-                 est_parte_imputado: int = 10) -> None:
+                 est_parte_imputado: int = 10,
+                 franquicia_campo_ext: str = "") -> None:
         self.obra_pruebas_forzar = obra_pruebas_forzar
         self.obra_pruebas_cod = obra_pruebas_cod
         self.marca_pruebas = marca_pruebas
@@ -166,6 +167,9 @@ class SettingsFake:
         self.est_parte_activo = est_parte_activo
         self.est_parte_cerrado = est_parte_cerrado
         self.est_parte_imputado = est_parte_imputado
+        # F-056 (R3, DA30): `cod` del campo extendido; vacio = franquicia
+        # apagada, como `Settings`.
+        self.franquicia_campo_ext = franquicia_campo_ext
 
 
 class SigridFake:
@@ -239,6 +243,39 @@ class SigridFake:
         self.periodos_leidos: list[tuple[int, int, int]] = []
         #: F-031: `hmoide` de cada `lineas_existentes`.
         self.lineas_leidas: list[int] = []
+        #: F-034 (design §6): {hmoide: est} que «Administracion» aplica a
+        #: los partes en la ventana: al entrar en el PRIMER `escribir` que
+        #: lleve `insert`, `anular` (F-053) o `mover` (F-060), tras `cerrar_tras_sentencias` de esas
+        #: sentencias (0 = antes de la primera; 15 = entre dos lotes del
+        #: cliente real). Se aplica una sola vez.
+        self.cerrar_al_escribir: dict[int, int] = {}
+        self.cerrar_tras_sentencias = 0
+        #: F-034: `ides` de cada `lineas_por_ide`.
+        self.ides_leidos: list[list[int]] = []
+        #: F-060: synckeys de cada `lineas_de_racha` y `hmoide` de cada
+        #: `estados_de_partes`.
+        self.racha_leidas: list[list[str]] = []
+        self.estados_leidos: list[list[int]] = []
+        #: F-056 (R23): (reside, inicio, fin, excluir) de cada
+        #: `extras_del_periodo` y la excepcion que lanzara si no es None.
+        self.extras_leidas: list[tuple] = []
+        self.fallo_extras: Exception | None = None
+        #: F-056 enmienda DA29-DA31 (R38-R40, R47): el campo EXTENDIDO.
+        #: `defext` como filas `{ide, tip, cod, camtip}`; `con_tipos`
+        #: `{con.ide: tip}` (un recurso es un `con` de tip 33 con
+        #: `con.ide` = `res.ide`); `conext` como filas `{ide, conide, cod,
+        #: valn}`; lo pedido en cada lectura y las excepciones que lanzaran
+        #: si no son None. `poner_franquicia` es el atajo de los tests.
+        self.defext: list[dict] = []
+        self.con_tipos: dict[int, int] = {}
+        self.conext: list[dict] = []
+        self.definiciones_leidas: list[str] = []
+        self.valores_leidos: list[tuple[list[int], str]] = []
+        #: F-056 (R41): si cada `valores_campo_ext` corrio con el lock.
+        self.valores_bajo_lock: list[bool] = []
+        self.fallo_definicion: Exception | None = None
+        self.fallo_valores: Exception | None = None
+        self._siguiente_conext = 8000
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -447,13 +484,153 @@ class SigridFake:
                 out[l["synckey"]] = self._a_linea_sigrid(l)
         return out
 
+    def lineas_por_ide(self, ides):
+        """F-034 (R12): como el cliente real (F-024), bajo el lock."""
+        self._comprobar_lock("lineas_por_ide")
+        self._lectura("lineas_por_ide")
+        ks = sorted({int(i) for i in ides if i})
+        self.ides_leidos.append(ks)
+        return {l["ide"]: self._a_linea_sigrid(l) for l in self.lineas
+                if l["ide"] in ks}
+
+    def _cod_hora(self, horide) -> str | None:
+        """F-060: `auxhor.cod` de un `horide` (el JOIN del cliente real),
+        sacado de los tipos de hora de los recursos del doble."""
+        for horas in self.horas.values():
+            for h in horas:
+                if h.horide == horide:
+                    return h.cod
+        return None
+
+    def lineas_de_racha(self, claves):
+        """F-060 (R13): como el cliente real, con `tex`, `pos`, parte,
+        `enlazada` y el codigo de hora de `auxhor`. Bajo el lock."""
+        self._comprobar_lock("lineas_de_racha")
+        self._lectura("lineas_de_racha")
+        ks = sorted({k for k in claves if k})
+        self.racha_leidas.append(ks)
+        out = {}
+        for l in self.lineas:
+            if l.get("synckey") in ks:
+                ls = self._a_linea_sigrid(l)
+                ls.hora_codigo = (l.get("hora_codigo")
+                                  or self._cod_hora(l.get("horide")))
+                ls.tex, ls.pos = l.get("tex"), l.get("pos")
+                out[l["synckey"]] = ls
+        return out
+
+    def estados_de_partes(self, hmoides):
+        """F-060: `hmo.ide` -> `{cod, est, obride}`, como el cliente real
+        (F-046); un parte que no existe no sale."""
+        self._lectura("estados_de_partes")
+        ks = sorted({int(i) for i in hmoides if i})
+        self.estados_leidos.append(ks)
+        return {p["ide"]: {"cod": p["cod"], "est": p.get("est", 1),
+                           "obride": p["obride"]}
+                for p in self.partes if p["ide"] in ks}
+
+    def extras_del_periodo(self, reside, inicio, fin, excluir) -> float:
+        """F-056 (R23): la suma del SQL real (`LIKE 'HE%'` sin distinguir
+        mayusculas, fechas incluidas, sin la synckey `excluir`)."""
+        self._lectura("extras_del_periodo")
+        self.extras_leidas.append((int(reside), int(inicio), int(fin),
+                                   excluir))
+        if self.fallo_extras is not None:
+            raise self.fallo_extras
+        total = 0.0
+        for l in self.lineas:
+            cod = l.get("hora_codigo") or self._cod_hora(l.get("horide"))
+            if (l["reside"] == int(reside)
+                    and int(inicio) <= l["fec"] <= int(fin)
+                    and (cod or "").upper().startswith("HE")
+                    and (l.get("synckey") or "") != excluir):
+                total += float(l.get("can") or 0.0)
+        return round(total, 6)
+
+    _SIN_FILA = object()
+
+    def poner_franquicia(self, reside, valor=_SIN_FILA, *, cod):
+        """Atajo de los tests: `reside` pasa a ser un recurso (`con` de tip
+        33) y su fila de `conext` con ese `cod` queda con `valor` (sin
+        `valor`, el recurso se queda SIN fila)."""
+        self.con_tipos[int(reside)] = 33
+        self.conext = [f for f in self.conext
+                       if not (f["conide"] == int(reside) and f["cod"] == cod)]
+        if valor is not SigridFake._SIN_FILA:
+            self._siguiente_conext += 1
+            self.conext.append({"ide": self._siguiente_conext,
+                                "conide": int(reside), "cod": cod,
+                                "valn": valor})
+
+    def definicion_campo_ext(self, cod):
+        """F-056 (R38, R39, R47): las definiciones de `defext` de tip 33 con
+        ese `cod`, como el cliente real (las juzga `motivo_definicion`)."""
+        self._lectura("definicion_campo_ext")
+        self.definiciones_leidas.append(cod)
+        if self.fallo_definicion is not None:
+            raise self.fallo_definicion
+        return [{"ide": d["ide"], "camtip": d.get("camtip")}
+                for d in self.defext
+                if d.get("tip") == 33 and d.get("cod") == cod]
+
+    def valores_campo_ext(self, resides, cod):
+        """F-056 (R1, R40, R47, R48): como el cliente real: por `con.ide` y
+        solo `con` de tip 33 (un ide de otro tip o inexistente no sale);
+        cada recurso con los `valn` de sus filas de ese `cod` ([] sin
+        fila). Nunca por DNI."""
+        self._lectura("valores_campo_ext")
+        ides = sorted({int(i) for i in resides if i})
+        self.valores_leidos.append((ides, cod))
+        self.valores_bajo_lock.append(bool(
+            self._verificador_lock is not None
+            and self._verificador_lock.locked()))
+        if self.fallo_valores is not None:
+            raise self.fallo_valores
+        return {i: [f["valn"] for f in self.conext
+                    if f["conide"] == i and f["cod"] == cod]
+                for i in ides if self.con_tipos.get(i) == 33}
+
+    def lineas_para_reajuste(self, claves):
+        """F-046 / F-056: por synckey con `pre`, `hmoide` y `enlazada`,
+        como el cliente real."""
+        self._lectura("lineas_para_reajuste")
+        ks = {k for k in claves if k}
+        out = {}
+        for fila in self.lineas:
+            if fila.get("synckey") in ks:
+                ls = self._a_linea_sigrid(fila)
+                ls.pre = fila.get("pre")
+                out[fila["synckey"]] = ls
+        return out
+
+    @staticmethod
+    def stmt_actualizar_linea(*, ide, synckey, antes, despues, est_registro):
+        """F-046 / F-056 (R25): el `UPDATE` optimista, opaco."""
+        return {"op": "actualizar", "ide": int(ide), "synckey": synckey,
+                "antes": float(antes), "despues": float(despues),
+                "est_registro": int(est_registro)}
+
+    def _actualizable(self, l: dict, s: dict) -> bool:
+        """El `WHERE` de `stmt_actualizar_linea` como SQL Server: `ide`,
+        synckey, `can` leido (tolerancia 0,001), sin enlaces y su parte En
+        registro (la guarda de F-034)."""
+        return (l["ide"] == s["ide"] and l.get("synckey") == s["synckey"]
+                and abs(float(l.get("can") or 0) - s["antes"]) <= 0.001 + 1e-9
+                and not l.get("enlazada")
+                and any(p["ide"] == l["hmoide"]
+                        and p.get("est", 1) == s["est_registro"]
+                        for p in self.partes))
+
     def _a_linea_sigrid(self, l: dict):
         from domain.models.registro_models import LineaSigrid
         ls = LineaSigrid(
             ide=l["ide"], reside=l["reside"], fecha_int=l["fec"],
             horide=l.get("horide"), hora_codigo=l.get("hora_codigo"),
             can=l.get("can"), tot=l.get("tot"), synckey=l.get("synckey"),
-            nuestra=bool(l.get("synckey")))
+            nuestra=bool(l.get("synckey")),
+            # F-053 (R9): las filas admiten `enlazada` (y `tex`, que se
+            # queda en la fila: el pipeline no lo lee, R13).
+            enlazada=bool(l.get("enlazada")))
         ls.hmoide = l["hmoide"]
         return ls
 
@@ -466,18 +643,90 @@ class SigridFake:
 
     def stmt_insert_linea(self, *, hmoide, obra, reside, pos, fecha_int,
                           horide, can, pre, paride, ano, mes, synckey,
-                          tex, caaide) -> dict:
+                          tex, caaide, pisadas=()) -> dict:
         # F-021: `caaide` obligatorio, igual que en el cliente real (DA9).
+        # F-034: la guarda (R2) y las pisadas (R4), como el SQL real.
         return {"op": "insert", "hmoide": int(hmoide), "reside": int(reside),
                 "pos": int(pos), "fec": int(fecha_int), "horide": int(horide),
                 "can": float(can), "pre": float(pre),
                 "tot": round(float(can) * float(pre), 2),
                 "paride": int(paride or 0), "ano": int(ano), "mes": int(mes),
-                "synckey": synckey, "tex": tex, "caaide": int(caaide)}
+                "synckey": synckey, "tex": tex, "caaide": int(caaide),
+                "guarda_hmoide": int(hmoide),
+                "pisadas": [int(i) for i in pisadas]}
 
-    @staticmethod
-    def stmt_borrar_linea(ide: int) -> dict:
-        return {"op": "borrar", "ide": int(ide)}
+    def stmt_insert_inicio_con_fin(self, *, hmoide, obra, reside, fecha_int,
+                                   paride, ano, mes, tex, pos, horide, pre,
+                                   caaide, synckey, pos_fin, horide_fin,
+                                   pre_fin, caaide_fin, synckey_fin) -> dict:
+        """F-062 (R13, DA2): las dos filas del SQL real (CI* y su CIZ
+        hermano), con `can` y `tot` 0 y lo comun en las dos."""
+        comun = {"hmoide": int(hmoide), "reside": int(reside),
+                 "fec": int(fecha_int), "can": 0.0, "tot": 0.0,
+                 "paride": int(paride or 0), "ano": int(ano), "mes": int(mes),
+                 "tex": tex}
+        return {"op": "insert_inicio_con_fin", "guarda_hmoide": int(hmoide),
+                "filas": [
+                    dict(comun, pos=int(pos), horide=int(horide),
+                         pre=float(pre), caaide=int(caaide), synckey=synckey),
+                    dict(comun, pos=int(pos_fin), horide=int(horide_fin),
+                         pre=float(pre_fin), caaide=int(caaide_fin),
+                         synckey=synckey_fin)]}
+
+    def stmt_mover_linea(self, *, linea, destino, hmoide, pos, fecha_int,
+                         synckey, paride, caaide, ano, mes) -> dict:
+        # F-060 (R20, R21): lo leido (WHERE) y lo nuevo (SET), como el SQL.
+        return {"op": "mover", "ide": int(linea.ide),
+                "reside": int(linea.reside), "fec_antes": int(linea.fecha_int),
+                "horide_antes": int(linea.horide or 0),
+                "synckey_antes": linea.synckey,
+                "set": {"fec": int(fecha_int), "synckey": synckey,
+                        "hmoide": int(hmoide), "obride": int(destino.ide),
+                        "cenide": int(getattr(destino, "cenide", 0) or 0),
+                        "paride": int(paride or 0), "caaide": int(caaide),
+                        "ano": int(ano), "mes": int(mes), "pos": int(pos)}}
+
+    def _movible(self, l: dict, s: dict) -> bool:
+        """F-060 (R21): el `WHERE` de `stmt_mover_linea` como SQL Server
+        (sobre la fila ANTES del `UPDATE`): lo leido, sin horas, sin
+        enlaces, su parte (origen) En registro y el destino tambien."""
+        return (l["ide"] == s["ide"] and l["reside"] == s["reside"]
+                and l["fec"] == s["fec_antes"]
+                and int(l.get("horide") or 0) == s["horide_antes"]
+                and l.get("synckey") == s["synckey_antes"]
+                and float(l.get("can") or 0) == 0
+                and not l.get("enlazada") and self._abierto(l["hmoide"])
+                and self._abierto(s["set"]["hmoide"]))
+
+    def stmt_anular_linea(self, *, ide, reside, fecha_int, horide,
+                          antes) -> dict:
+        # F-053 (R2): de instancia y con los parametros del cliente real.
+        return {"op": "anular", "ide": int(ide), "reside": int(reside),
+                "fec": int(fecha_int), "horide": int(horide or 0),
+                "antes": float(antes or 0)}
+
+    def _anulable(self, l: dict, s: dict) -> bool:
+        """F-053: el `WHERE` de `stmt_anular_linea` como SQL Server: la
+        fila tal como se leyo (`ide`, recurso, dia, codigo y `can` con
+        tolerancia 0,001), sin enlaces y con su parte En registro."""
+        return (l["ide"] == s["ide"] and l["reside"] == s["reside"]
+                and l["fec"] == s["fec"]
+                and int(l.get("horide") or 0) == s["horide"]
+                and abs(float(l.get("can") or 0) - s["antes"]) <= 0.001 + 1e-9
+                and not l.get("enlazada") and self._abierto(l["hmoide"]))
+
+    def _abierto(self, hmoide) -> bool:
+        """F-034: la guarda de parte abierto (`EXISTS` sobre `con` con
+        `est = 1`): un parte que no existe tampoco esta abierto."""
+        return any(p["ide"] == hmoide and p.get("est", 1) == 1
+                   for p in self.partes)
+
+    def _cerrar_si_toca(self, hechas: int) -> None:
+        if self.cerrar_al_escribir and hechas >= self.cerrar_tras_sentencias:
+            for p in self.partes:
+                if p["ide"] in self.cerrar_al_escribir:
+                    p["est"] = self.cerrar_al_escribir[p["ide"]]
+            self.cerrar_al_escribir = {}
 
     def _alta_libre(self, s: dict) -> bool:
         """F-031 v5: el «otro servicio» actua antes del primer alta; con
@@ -506,7 +755,12 @@ class SigridFake:
         self._entrar("escribir", self.latencia_escritura)
         try:
             n = 0
+            de_lineas = 0
             for s in statements:
+                if s["op"] in ("insert", "anular", "mover",
+                               "insert_inicio_con_fin"):
+                    self._cerrar_si_toca(de_lineas)
+                    de_lineas += 1
                 if s["op"] == "crear_parte" and not self._alta_libre(s):
                     continue        # F-031 v5: el alta protegida no entra
                 if s["op"] == "crear_parte":
@@ -522,15 +776,64 @@ class SigridFake:
                         nuevo["cod"] = self.cod_al_crear
                     self.partes.append(nuevo)
                 elif s["op"] == "insert":
+                    # F-034 (R2, R4): la guarda y las pisadas con horas.
+                    if not self._abierto(s["guarda_hmoide"]) or any(
+                            float(l.get("can") or 0) != 0
+                            for l in self.lineas if l["ide"] in s["pisadas"]):
+                        continue
                     self._siguiente_hmores += 1
                     fila = dict(s)
-                    fila.pop("op")
+                    for k in ("op", "guarda_hmoide", "pisadas"):
+                        fila.pop(k)
                     fila["ide"] = self._siguiente_hmores
                     fila["hora_codigo"] = None
                     self.lineas.append(fila)
-                elif s["op"] == "borrar":
-                    self.lineas = [l for l in self.lineas
-                                   if l["ide"] != s["ide"]]
+                elif s["op"] == "insert_inicio_con_fin":
+                    # F-062 (R13): UNA sentencia, dos filas con `ide` n y
+                    # n + 1; la guarda vale para las dos y el hermano solo
+                    # entra si su synckey no existe. Cuenta sus filas.
+                    if not self._abierto(s["guarda_hmoide"]):
+                        continue
+                    ci, ciz = s["filas"]
+                    existentes = {l.get("synckey") for l in self.lineas}
+                    for k, fila in enumerate((ci, ciz)):
+                        if k == 1 and fila["synckey"] in existentes:
+                            continue
+                        self._siguiente_hmores += 1
+                        self.lineas.append(dict(
+                            fila, ide=self._siguiente_hmores,
+                            hora_codigo=None))
+                        n += 1
+                    continue
+                elif s["op"] == "anular":
+                    # F-053 (R2): pone a 0 la fila; nada mas cambia.
+                    filas = [l for l in self.lineas if self._anulable(l, s)]
+                    if not filas:
+                        continue
+                    for l in filas:
+                        l["can"], l["tot"] = 0.0, 0.0
+                elif s["op"] == "actualizar":
+                    # F-056 (R25): `can` y `tot = round(can x pre, 2)`; a 0
+                    # la fila sigue ahi (no hay op `borrar`).
+                    filas = [l for l in self.lineas
+                             if self._actualizable(l, s)]
+                    if not filas:
+                        continue
+                    for l in filas:
+                        l["can"] = s["despues"]
+                        l["tot"] = round(s["despues"]
+                                         * float(l.get("pre") or 0.0), 2)
+                elif s["op"] == "mover":
+                    # F-060 (R20): la MISMA fila cambia de dia y de parte.
+                    filas = [l for l in self.lineas if self._movible(l, s)]
+                    if not filas:
+                        continue
+                    for l in filas:
+                        l.update(s["set"])
+                else:
+                    # F-053: no hay op `borrar`; una op desconocida es un
+                    # fallo del test, no una fila escrita.
+                    raise AssertionError(f"op desconocida: {s['op']}")
                 n += 1
             return n
         finally:

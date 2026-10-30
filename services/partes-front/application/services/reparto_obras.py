@@ -35,6 +35,10 @@ class GrupoObra:
     #: F-025 (R11): extras de un dia en `aviso`. Van al preflight del
     #: grupo, NUNCA al payload de sv5 (R14).
     avisos_incidencia: list[dict] = field(default_factory=list)
+    #: F-060 (R10): lineas de trabajo o de inicio antes de una incidencia
+    #: ya registrada (`racha_desordenada`). Como los de F-025, van al
+    #: preflight del grupo y NUNCA al payload de sv5.
+    avisos_racha: list[dict] = field(default_factory=list)
 
     @property
     def registro_ids(self) -> list[int]:
@@ -142,7 +146,8 @@ def agregar_ejecucion(ejecutados: list[dict]) -> dict:
     for campo in ("escritas", "omitidas", "ya_registradas", "pisadas",
                   "pendientes_confirmacion", "partes"):
         plano[campo] = _concatenar(ejecutados, campo)
-    plano["borradas"] = sum(int(g.get("borradas") or 0) for g in ejecutados)
+    # F-053 (R20, DA7): pisadas puestas a 0 en Sigrid (antes `borradas`).
+    plano["anuladas"] = sum(int(g.get("anuladas") or 0) for g in ejecutados)
     if bien:
         plano["obra_destino"] = bien[0].get("obra_destino")
         plano["forzada_pruebas"] = bien[0].get("forzada_pruebas")

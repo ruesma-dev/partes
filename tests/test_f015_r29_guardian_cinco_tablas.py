@@ -26,6 +26,7 @@ import pytest
 from tests.test_f010_orm_models_gemelos import (
     COLUMNAS_EMPLEADO_JORNADA,
     COLUMNAS_PARTE_REGISTROS,
+    COLUMNAS_REPARTO_PENDIENTE,
     RUTA_SV3,
     RUTA_SV4,
     TABLAS,
@@ -37,21 +38,43 @@ from tests.test_f010_orm_models_gemelos import (
 # ------------------------- la lista no se relaja ------------------------ #
 
 def test_f015_r29_el_guardian_declara_cinco_tablas() -> None:
-    """F-019 (R29) añade la sexta, `dedicacion_bandeja`: la asercion se
-    cambia, no se relaja (sigue siendo la lista literal y completa)."""
+    """F-019 (R29) añade la sexta, `dedicacion_bandeja`, F-046 (R39) la
+    séptima, `reparto_pendiente`, y F-056 (R34) la octava,
+    `franquicia_ajuste`: la asercion se cambia, no se relaja (sigue siendo
+    la lista literal y completa)."""
     assert TABLAS == (
         "dedicacion_bandeja",
         "empleado_alias",
         "empleado_jornada",
+        "franquicia_ajuste",
         "parte_documents",
         "parte_registros",
+        "reparto_pendiente",
         "undo_log",
     )
 
 
+def test_f046_r39_la_lista_de_reparto_pendiente_es_literal_y_completa() -> None:
+    """F-046 (R39): la séptima tabla, en las DOS copias."""
+    assert COLUMNAS_REPARTO_PENDIENTE == (
+        "id", "recurso_ide", "fecha_int", "estado", "firma", "cambios",
+        "resultado", "error", "decision", "decidido_por", "decidido_at_utc",
+        "creado_at_utc", "actualizado_at_utc", "materializado_at_utc",
+    )
+    for ruta, nombre in ((RUTA_SV3, "sv3"), (RUTA_SV4, "sv4")):
+        modulo = _cargar(ruta, f"orm_models_{nombre}_f046_r39_lista")
+        columnas = tuple(
+            c.name
+            for c in modulo.Base.metadata.tables["reparto_pendiente"].columns
+        )
+        assert columnas == COLUMNAS_REPARTO_PENDIENTE, nombre
+
+
 def test_f015_r29_la_lista_de_parte_registros_sigue_siendo_de_56() -> None:
-    """R21: F-015 no toca la tabla grande, así que su lista tampoco cambia."""
-    assert len(COLUMNAS_PARTE_REGISTROS) == 56
+    """R21: F-015 no toca la tabla grande, así que su lista tampoco cambia.
+    El nombre conserva la cuenta de F-015; desde F-048 (`horas_extra_leidas`)
+    son 57."""
+    assert len(COLUMNAS_PARTE_REGISTROS) == 57
     assert COLUMNAS_PARTE_REGISTROS[0] == "id"
     assert COLUMNAS_PARTE_REGISTROS[-1] == "confianza_pct"
 

@@ -633,7 +633,7 @@ def test_f043_r14_parte_inexistente_en_deshacer_no_anula(parte) -> None:
     repo = RepoMarcaRota(parte, anular=AssertionError("no debe anular"))
 
     class RepoUndoAjeno(RepoMarcaRota):
-        def undo_last(self) -> dict:
+        def undo_last(self, **_kw) -> dict:
             return {"ok": True, "action": "parte_fecha",
                     "document_ids": ["no-existe"], "description": "x"}
 
@@ -671,7 +671,7 @@ def test_f043_r16_las_respuestas_y_el_mensaje_no_cambian(parte) -> None:
 # ================= R37 · las vistas pintan el parte en espera ========== #
 
 URL_OBRA = "/obras/obr-10?period=2026-03&modo=natural"
-URL_PERSONA = "/trabajadores/emp-77?period=2026-03&modo=natural"
+URL_PERSONA = "/trabajadores/rec-501?period=2026-03&modo=natural"
 MARCA_ESPERA = '<span class="recalculando-marca">recalculando…</span>'
 
 

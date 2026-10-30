@@ -75,7 +75,7 @@ def _regs_de_la_matriz(html: str) -> list[dict]:
 
 VISTAS = [
     pytest.param("/obras/obr-10?period=2026-03&modo=natural", id="obra"),
-    pytest.param("/trabajadores/emp-77?period=2026-03&modo=natural",
+    pytest.param("/trabajadores/rec-501?period=2026-03&modo=natural",
                  id="trabajador"),
     pytest.param("/partes/doc-f004", id="parte"),
 ]
@@ -133,7 +133,7 @@ def test_f004_r14_el_flag_lo_calcula_el_repositorio(montaje) -> None:
     recalculase en JS, acabarian discrepando de la guarda."""
     _cliente, fabrica, ids = montaje(
         [{"estado": "registrado"}, {"estado": None}])
-    detalle = ParteReviewRepository(fabrica).get_worker("emp-77")
+    detalle = ParteReviewRepository(fabrica).get_worker("rec-501")
     congelados = {v.id: (v.congelado, v.congelado_motivo)
                   for v in detalle.registros}
     assert congelados[ids[0]][0] is True

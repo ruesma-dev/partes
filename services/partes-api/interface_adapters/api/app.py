@@ -16,8 +16,10 @@ from application.services.parte_extraction_service import (
     ProviderClientSpec,
 )
 from application.services.auxhor_catalog_provider import AuxhorCatalogProvider
+from application.services.obra_sigrid import ComprobadorObra
 from application.services.schema_registry import SchemaRegistry
 from config.settings import Settings
+from infrastructure.document.pagina_pdf_imagen import PaginaPdfImagenConversor
 from infrastructure.llm.claude_messages_client import ClaudeMessagesVisionClient
 from infrastructure.llm.gemini_genai_client import GeminiGenAiVisionClient
 from infrastructure.llm.openai_responses_client import OpenAiResponsesVisionClient
@@ -85,6 +87,7 @@ def build_app(settings: Settings) -> FastAPI:
                     timeout_s=settings.openai_timeout_s,
                     retry_policy=retry_policy,
                     call_logger=call_logger,
+                    image_detail=settings.openai_image_detail,
                 ),
             )
         )
@@ -105,12 +108,14 @@ def build_app(settings: Settings) -> FastAPI:
     # Catalogo de codigos de hora (auxhor) desde sigrid-api, filtrado, para
     # que la IA proponga el codigo. Si Sigrid no esta cableado -> None.
     catalog_provider: AuxhorCatalogProvider | None = None
+    sigrid_client: SigridLookupClient | None = None
     if settings.sigrid_catalog_enabled:
         sigrid_client = SigridLookupClient(
             base_url=settings.sigrid_api_base_url,          # type: ignore[arg-type]
             function_key=settings.sigrid_api_function_key,  # type: ignore[arg-type]
             database=settings.sigrid_api_database,          # type: ignore[arg-type]
             timeout_s=settings.sigrid_api_timeout_s,
+            max_rows=settings.sigrid_api_max_rows,
         )
         catalog_provider = AuxhorCatalogProvider(
             client=sigrid_client,
@@ -128,6 +133,49 @@ def build_app(settings: Settings) -> FastAPI:
             "SIGRID_API_*); la IA no propondra codigo de hora."
         )
 
+    # F-059: página escaneada a la IA como imagen derecha. Con el interruptor
+    # apagado no hay conversor ni lista: el pipeline manda el PDF como antes.
+    conversor: PaginaPdfImagenConversor | None = None
+    proveedores_imagen: frozenset[str] = frozenset()
+    if settings.pagina_como_imagen:
+        conversor = PaginaPdfImagenConversor()
+        proveedores_imagen = settings.proveedores_pagina_como_imagen
+    logger.info(
+        "[partes-sv2][wiring] página como imagen=%s proveedores=%s "
+        "openai_image_detail=%s",
+        settings.pagina_como_imagen,
+        sorted(proveedores_imagen) or "(ninguno)",
+        settings.openai_image_detail or "(sin detail)",
+    )
+
+    # F-058: relectura de la cabecera con otro proveedor y, con sigrid-api
+    # cableado, consulta de obra en el momento con el mismo cliente que el
+    # catálogo auxhor. Sin secretos en el log.
+    relectura_provider = settings.relectura_cabecera_activa
+    relectura_model: str | None = None
+    obras: ComprobadorObra | None = None
+    if relectura_provider is not None:
+        relectura_model = extraction_service.model_name(relectura_provider)
+        if sigrid_client is not None:
+            obras = ComprobadorObra(
+                client=sigrid_client, timeout_s=settings.obra_existe_timeout_s)
+        logger.log(
+            logging.INFO if obras is not None else logging.WARNING,
+            "[partes-sv2][wiring] relectura cabecera ACTIVA provider=%s "
+            "model=%s comprueba_obra=%s timeout_obra_s=%s",
+            relectura_provider,
+            relectura_model,
+            obras is not None,
+            settings.obra_existe_timeout_s,
+        )
+    elif settings.relectura_cabecera_enabled:
+        logger.warning(
+            "[partes-sv2][wiring] relectura cabecera INACTIVA motivo=%s",
+            settings.relectura_cabecera_motivo_inactiva,
+        )
+    else:
+        logger.info("[partes-sv2][wiring] relectura cabecera DESACTIVADA")
+
     pipeline = ExtractPartePipeline(
         extraction_service=extraction_service,
         max_file_mb=settings.max_file_mb,
@@ -135,6 +183,10 @@ def build_app(settings: Settings) -> FastAPI:
         provider=settings.ia_provider,
         prompt_key=settings.prompt_key,
         catalog_provider=catalog_provider,
+        conversor=conversor,
+        proveedores_imagen=proveedores_imagen,
+        relectura_provider=relectura_provider,
+        obras=obras,
     )
 
     app = FastAPI(title="Partes de Trabajo Extractor API", version=settings.service_version)
@@ -163,6 +215,14 @@ def build_app(settings: Settings) -> FastAPI:
             "providers_loaded": [
                 {"provider": p.provider, "model": p.model_name} for p in providers
             ],
+            # F-058 (R26): el proveedor de relectura activo, o null.
+            "relectura_cabecera": (
+                None if relectura_provider is None else {
+                    "provider": relectura_provider,
+                    "model": relectura_model,
+                    "comprueba_obra": obras is not None,
+                }
+            ),
         }
 
     @app.post("/v1/partes/extract")

@@ -858,3 +858,137 @@ Registro append-only. El líder mueve aquí el resumen de cada feature terminada
   en espera sin pedir recálculo.
 - Pendiente: despliegue sv3 → sv4 cuando lo pida el humano y M1–M4 de `current.md`. F-044
   (mover a un solo trabajador) queda aparcada con su spec en su rama.
+
+## F-045 · Reparto ponderado de la jornada entre obras — done 2026-10-14
+
+- Rama `feature/F-045-reparto-ponderado-entre-obras` · rigor critico · sdd=true ·
+  CHANGES_REQUESTED en la pasada 1 y APPROVED en la pasada 2 (`progress/review_F-045.md`).
+- Origen: con partes del mismo día en varias obras, sv3 cargaba la jornada en la primera y el
+  ajuste entero en la última línea (caso 0678/0704 del 14/10).
+- Entregado (solo sv3): `reparto_ponderado.py` (mayor resto en pasos de 0,5, respaldo 0,25/0,01)
+  y `_reclasificar_extras_jornada` reparte ordinarias y extras en proporción a las horas de cada
+  obra y, dentro, de cada línea; extras negativas repartidas igual; congeladas en modo residual
+  con WARNING y contador de lo que cambiaría (para F-046); líneas en papelera fuera del reparto.
+- Decisiones del humano: DA1–DA10 recomendadas; opción A en T4 (`test_f037_r9` y vínculo
+  extra↔base); casos de candef 9 (viernes J 6) añadidos; 8 mutantes equivalentes aceptados.
+- Verificado: init.sh en verde, sv3 1391 passed, cobertura 100 %, mutación 84/76/8 con
+  demostración ejecutable de los 8; azure-apps/partes.md actualizado (commit local).
+- Pendiente: despliegue solo sv3 cuando lo pida el humano y M2. F-046 (reajuste en Sigrid)
+  aprobada, se implementa sobre esta.
+
+## F-048 · Ordinarias + extras leídas en laborable siguen la regla de jornada — done 2026-10-16
+
+- Rama `feature/F-048-solo-extras-en-laborable-como-jornada` · rigor critico · sdd=true ·
+  CHANGES_REQUESTED en la pasada 1 (residuo de coma flotante en `horas_extra_leidas`) y
+  APPROVED en la pasada 2 (`progress/review_F-048.md`).
+- Origen: fila de solo 10 extras en laborable que quedaba como una extra de 10 h (0678,
+  15/10) y fila 4 + 5 que quedaba en tres líneas (0686, 02/10; correo de administración).
+- Entregado: el normalizador de sv3 suma las extras leídas > 0 de cada fila a su ordinaria
+  (por partida, ordinarias primero) y guarda lo leído en la columna nueva
+  `parte_registros.horas_extra_leidas` (dos copias del ORM, redondeada a 2 decimales); el
+  reparto de siempre da J + exceso (o extra negativa). sv4 muestra «incl. X h extra
+  leídas». Conciliador, sv2 y sv5 sin cambios.
+- Decisiones del humano: DA1–DA10 recomendadas (A en DA2: «por día solo hay una fila de
+  extras y otra de ordinarias»); opción A en T1 (guardianes de `parte_registros` de 56 a
+  57 columnas, nueve tests, solo cuentas y lista). Excepción a la regla de una sola
+  feature en curso, pedida por el humano, con F-046 en su rama.
+- Verificado: init.sh en verde (sv3 1451, sv4 2080 passed), cobertura 100 % de las líneas
+  cambiadas, mutación 12/12 muertos; azure-apps/partes.md actualizado (commit local
+  `2cf42ec`).
+- Pendiente: M1 antes de desplegar, despliegue de sv3 y sv4 cuando lo pida el humano y
+  M2–M4. Sin retroactivo: lo ya registrado (caso del 02/10) sería feature aparte sobre
+  F-046. Al fusionar F-046/F-047 habrá conflictos textuales en las dos `orm_models.py` y
+  en `save_parte`.
+
+## F-046 · Reajuste en Sigrid al aprobar — done 2026-10-18
+
+- Rama `feature/F-046-reajuste-en-sigrid-al-aprobar` · rigor critico · sdd=true ·
+  CHANGES_REQUESTED en la pasada 1 (solo T24 sin marcar) y APPROVED en la pasada 2
+  (`progress/review_F-046.md`).
+- Origen: F-045 deja congeladas las líneas ya aprobadas o registradas, así que el segundo parte
+  del día carga todo el ajuste (caso 0678/0704 del 14/10).
+- Entregado: sv3 (interruptor `REPARTO_REAJUSTE`, apagado por defecto) aplica el reparto ideal
+  a lo libre y guarda la propuesta de lo congelado en `reparto_pendiente` (las dos copias del
+  ORM); sv4 avisa al aprobar (obra, día, línea, antes → después) con «Aplicar» o «Mantener»;
+  sv5 reajusta en Sigrid bajo el lock en un lote atómico con guardia (DA6), concurrencia
+  optimista e idempotencia, solo `UPDATE`/`INSERT` (a 0 nunca se borra); sv3 materializa lo
+  aplicado bajo un candado consultivo de la base `partes`.
+- Decisiones del humano: DA1–DA17 recomendadas más la enmienda [E] (sin borrados en Sigrid;
+  casos de candef 9); 11 mutantes equivalentes E1–E7 aceptados el 2026-10-18.
+- Verificado: init.sh en verde; mutación completa 565 mutantes, 554 muertos (436 en campaña, 14
+  timeouts re-evaluados y 104 con tests nuevos `test_f046_t22_*`) y 11 equivalentes con
+  demostración ejecutable. M1 y M2 (solo lectura) y M3 (escritura en la obra de pruebas 0404,
+  parte PT26/00373, incluida la guardia en SQL Server) hechas por el líder; las 4 líneas de
+  prueba se dejaron a 0, sin borrar, por decisión del humano.
+- Pendiente: despliegue sv5 → sv4 → sv3 con el interruptor apagado, M4, encendido, M5 y M6
+  (el primer «Aplicar» real lo hace el humano).
+
+## F-051 · Extracción fila a fila — done 2026-10-19
+
+Prompt `parte_trabajo_es` con lectura fila a fila y campo `numero_linea_horas` (DA1 = A);
+red de seguridad en sv3 (`autocomprobacion_fila` + `tabla_dispersa`, interruptor
+`REVISAR_TABLA_DISPERSA`, DA2 = C). Review APPROVED pasada 1. La M1 con
+`gemini-3.7-flash` falló (0 de 3 en 17/10 y 18/10 de la 0686): el prompt no corrige el
+desplazamiento con ese modelo; con `gemini-4-argon` M1 y M2 bien 3 de 3. Decisión del
+humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2, cambiar
+`GEMINI_MODEL` en Azure y la comparativa con Claude y OpenAI (faltan claves).
+
+## F-049 · Editor de celda de la matriz con ordinarias y extra siempre — done 2026-10-23
+
+- Rama `feature/F-049-editor-calendario-normal-y-extra` · rigor critico · sdd=true · APPROVED
+  del reviewer en la pasada 1 (`progress/review_F-049.md`).
+- Entregado: sv4 — el popup de doble clic de «Horas por día» ofrece siempre la ordinaria y la
+  extra que falten, `POST /api/matriz/celda` atómica con control de cambios, clonado del contexto
+  de la plantilla, materialización de las parejas tocadas, aviso de otras obras del mismo día y
+  deshacer; un recálculo seguido con pedido compartido. sv3 — `marcar_terminado` por pedido.
+  azure-apps `08b5755`.
+- Decisiones del humano: DA1–DA12 = A y DA13 = C (2026-10-20); guardián de F-017 a 18 llamadas
+  a `_actor` (opción A, «a», 2026-10-22).
+- Verificado: init.sh en verde; sv4 2583 passed, sv3 2271 passed; cobertura 100 % (362/362);
+  mutación completa 164 mutantes, 162 muertos y 2 supervivientes que eran huecos reales, muertos
+  por tests nuevos (reproducido por el reviewer).
+- Observación del reviewer: una celda con líneas de dos partes de la misma obra solo pide el
+  recálculo al parte tocado (hueco de la spec, abierto como feature aparte).
+- Pendiente: desplegar sv3 → sv4 y MANUAL M2–M8 (`progress/current.md`).
+
+## F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión — done 2026-10-23
+
+- Rama `feature/F-054-sin-obra-o-fecha-a-revision` · rigor estándar · sdd=true · APPROVED del
+  reviewer en la pasada 1 (`progress/review_F-054.md`).
+- Entregado: sv3 — `motivos_cabecera` (sin_obra si la obra no casa, con cualquier método;
+  sin_fecha si no hay fecha) sube `review_required`, sustituye a OBRA_A_REVISAR y deja un
+  WARNING con document_id y motivos, sin nombres ni DNIs. Sin esquema, colas, sv4 ni sv5.
+- Decisiones del humano: DA1–DA7 con la recomendación salvo DA3 = B (2026-10-21).
+- Verificado: init.sh en verde; sv3 2.305 passed; cobertura 100 % de 13 líneas; mutación 5
+  mutantes, 5 muertos.
+- Observaciones del reviewer: quitar de la semántica 18 la corrección a mano si se descarta la
+  M2; repetir la M1 antes de la M2 (pueden ser 7 documentos, no 3).
+- Pendiente: desplegar sv3 y la M2 con autorización expresa.
+
+## F-059 · La IA no lee bien el PDF con /Rotate: sv2 le manda la página ya derecha — done 2026-10-23
+
+- Rama `feature/F-059-pagina-como-imagen-derecha` · rigor estándar · sdd=true · APPROVED del
+  reviewer en la pasada 2 (`progress/review_F-059.md`; pasada 1: falta el comando de la M4).
+- Entregado: sv2 — la página escaneada (un JPEG a página completa) se manda a OpenAI como imagen
+  girada según /Rotate, con `detail: high`; si no aplica o falla, el PDF como hoy (WARNING sin
+  datos). `meta.adjunto_ia` con la traza; `meta.source_*` y sha256 del original. Interruptor
+  `PAGINA_COMO_IMAGEN` (encendido), `PAGINA_COMO_IMAGEN_PROVEEDORES=openai`,
+  `OPENAI_IMAGE_DETAIL=high`. Dependencias pypdf y Pillow. azure-apps `7cc2e66`.
+- Decisiones del humano: DA1–DA4 = A («a», 2026-10-23).
+- Verificado: init.sh en verde; sv2 148 passed; cobertura 99,4 %; mutación 20 mutantes, 2
+  huecos reales cerrados con tests y 1 equivalente demostrado; banco del líder M0 22/22,
+  M1 12/12 (antes 0/12), M2 4/4, M3 sin regresión (42/42, 123/123 filas).
+- Pendiente: desplegar sv2, M4 y releer los 6 partes sin obra del 21 y 23/10.
+
+## F-056 · Franquicia de extras: aviso y línea de ajuste el último día con jornada — done 2026-10-30
+
+- Rama `feature/F-056-franquicia-de-extras` · rigor crítico · sdd · APPROVED del reviewer en la
+  pasada 2 (`progress/review_F-056.md`); 14 mutantes equivalentes aceptados por el humano.
+- Entregado: sv5 lee la franquicia del campo extendido de Sigrid (`defext`/`conext`, `cod`
+  `FRANQUICIA_CAMPO_EXT`, tipo 33, `valn` entero) por el `res.ide` del recurso de la obra, nunca por
+  DNI; ajuste `HE*` = −min(extras, X) en el día de ajuste, recalculado con `UPDATE` (nunca
+  `DELETE`); tabla `franquicia_ajuste`; sv4 con aviso en el modal, vista con «Ajustar»/«Recalcular»
+  (`/api/franquicia/decidir` → `aplicar`) y obra del ajuste elegida con las líneas del recurso (DA32).
+- Verificado: `init.sh` en verde en `dev`; M2 en local con X = 10 en 2025/09 (`progress/m2_F-056.md`)
+  OK salvo (g), que no se hace; M3 OK; activada el 2026-10-30 con `FRANQUICIA_CAMPO_EXT=10` en sv5
+  (`ca-sv5-transfer--0000004`, arranque sano).

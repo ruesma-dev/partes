@@ -67,6 +67,14 @@ class PartidaAsignacion(StrictSchemaModel):
 class EmpleadoParte(StrictSchemaModel):
     # Numero de fila del PERSONAL (1..14) tal cual figura en el parte.
     numero_linea: Optional[int] = None
+    # F-051 (DA1 = A): autocomprobacion fila a fila. El "Nº" impreso en la
+    # franja donde esta ESCRITA la cifra de horas, leido desde la cifra
+    # hacia la columna "Nº"; None si la fila no tiene horas. Va justo tras
+    # numero_linea y antes de las horas para que el modelo lo escriba
+    # primero (genera en el orden del JSON Schema). Sin cotas: un valor
+    # fuera de 1..14 no debe tumbar el parseo del parte. sv2 no lo juzga:
+    # sv3 marca la lectura como dudosa si no casa con numero_linea.
+    numero_linea_horas: Optional[int] = None
     categoria: Optional[str] = None        # Capataz, Oficial 1a, Peon...
     nombre: Optional[str] = None
     # DNI/NIE de la columna "DNI" (plantillas J.310 rev. 1+; impreso o

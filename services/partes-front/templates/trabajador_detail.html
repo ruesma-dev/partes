@@ -13,6 +13,7 @@
       {% else %}
         <span class="badge danger">Sin casar en Sigrid</span>
       {% endif %}
+      {% if detail.empresas %} · {{ detail.empresa_texto }}{% endif %}
       {% if detail.dni %} · DNI {{ detail.dni }}{% endif %}
       {% set _vh = (detail.registros | selectattr('recurso_precio_hora') | map(attribute='recurso_precio_hora') | first) %}
       {% if _vh %} · <strong>valor hora {{ ("%.2f"|format(_vh))|replace(".", ",") }} &euro;</strong>{% endif %}
@@ -20,7 +21,8 @@
   </div>
   <div class="header-actions">
     <button type="button" class="btn primary" data-add-line
-            data-emp-ide="{{ worker_key[4:] if worker_key.startswith('emp-') else '' }}"
+            data-emp-ide="{{ detail.empleado_ide or '' }}"
+            data-emp-reside="{{ worker_key[4:] if worker_key.startswith('rec-') else '' }}"
             data-emp-codigo="{{ detail.codigo or '' }}"
             data-emp-nombre="{{ detail.nombre or '' }}"
             data-emp-dni="{{ detail.dni or '' }}"
@@ -124,6 +126,7 @@
       {% for day in week %}
       <div class="cal-day{% if not day.in_period %} cal-out{% endif %}{% if day.in_period and (day.is_weekend or day.is_holiday) %} cal-off{% endif %}{% if day.in_period %} cal-pick{% endif %}{% if day.in_period and day.date_iso in dias_incompletos %} cal-warn{% endif %}{% set incompat = dias_incompatibles.get(day.date_iso) if day.in_period else none %}{% if incompat and incompat.nivel == 'bloqueo' %} cal-incompat{% elif incompat %} cal-incompat-aviso{% endif %}"
            {% if day.in_period %}data-fecha="{{ day.date_iso }}"{% endif %}
+           {% if day.in_period and day.date_iso in (dias_reparto or []) %}data-reparto="pendiente"{% endif %}
            {% if day.is_holiday and day.holiday_name %}title="{{ day.holiday_name }}"{% endif %}>
         <span class="cal-num">{{ day.day }}</span>{% if day.in_period and day.date_iso in dias_incompletos %}<span class="cal-warn-mark" title="Jornada ordinaria por debajo de la cantidad por defecto">⚠</span>{% endif %}{% if incompat %}<span class="cal-incompat-mark cal-incompat-mark-{{ incompat.nivel }}" title="{{ incompat.motivo }}">{% if incompat.nivel == 'bloqueo' %}⛔{% else %}⚠{% endif %}</span>{% endif %}
         {% if day.in_period %}
@@ -154,6 +157,41 @@
     {% if extras and extras.total_exceso %}<span title="Horas ordinarias por encima de la jornada por defecto del recurso{% if extras.candef %} ({{ extras.candef|horas }} h){% endif %}"><strong>{{ extras.total_exceso|horas }}</strong> extra por jornada</span>{% endif %}
     {% if calendar.total_incidencias %}<span><strong>{{ calendar.total_incidencias }}</strong> incidencias</span>{% endif %}
   </div>
+</div>
+{% endif %}
+
+{# F-056 (R20, R44): el ajuste de franquicia de extras del periodo (modo nomina). #}
+{% macro num_fq(v) %}{% if v is none %}—{% else %}{{ ("%.2f"|format(v))|replace(".", ",") }}{% endif %}{% endmacro %}
+{% if franquicia %}
+<div class="panel franquicia-ajuste" data-periodo="{{ franquicia.periodo }}">
+  <div class="panel-header"><h2>Franquicia de horas extra · periodo {{ franquicia.periodo }}</h2></div>
+  {% if franquicia.aviso %}<div class="alert warn franquicia-aviso">{{ franquicia.aviso }}</div>{% endif %}
+  {% if franquicia["items"] %}
+  <table class="lines-table franquicia-tabla">
+    <thead><tr>
+      <th>Recurso</th><th>Estado</th><th class="num">X usada</th><th class="num">X actual</th>
+      <th class="num">Extras (E)</th><th class="num">Ajuste (A)</th><th>Dia</th><th>Obra</th>
+      <th>Parte Sigrid</th><th>Decidio / aplico</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for it in franquicia["items"] %}
+      <tr data-franquicia-id="{{ it.id or '' }}" data-franquicia-estado="{{ it.estado or 'sin_ajuste' }}">
+        <td>{{ it.recurso_ide }}</td>
+        <td>{{ it.estado or "sin ajuste" }}{% if it.error %} <span class="franquicia-error" title="{{ it.error }}">⚠ {{ it.error }}</span>{% endif %}</td>
+        <td class="num">{{ num_fq(it.x_usada) }}</td>
+        <td class="num">{{ num_fq(it.x_actual) }}{% if it.x_estado and it.x_estado != 'activa' %} <span class="muted small">({{ it.x_estado }})</span>{% endif %}</td>
+        <td class="num">{{ num_fq(it.extras) }}</td>
+        <td class="num">{{ num_fq(it.ajuste) }}</td>
+        <td>{{ it.dia or "—" }}</td>
+        <td>{{ it.obra_codigo or "—" }}{% if it.partida_cod %} · {{ it.partida_cod }}{% endif %}</td>
+        <td>{{ it.parte_cod or "—" }}</td>
+        <td>{{ it.decidido_por or "—" }}{% if it.aplicado_por %} / {{ it.aplicado_por }}{% endif %}</td>
+        <td>{% if transfer_enabled and 'aplicar' in it.acciones and it.id %}<button type="button" class="btn small" data-franquicia-aplicar="{{ it.id }}">Aplicar</button>{% endif %}{% if transfer_enabled %}{% for acc in it.acciones if acc in ('ajustar', 'recalcular') %}<button type="button" class="btn small" data-franquicia-decidir="{{ acc }}" data-recurso="{{ it.recurso_ide }}" data-periodo="{{ it.periodo }}">{{ "Ajustar" if acc == 'ajustar' else "Recalcular" }}</button>{% endfor %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 </div>
 {% endif %}
 
@@ -212,7 +250,7 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}>
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
         <td class="cell-fecha">
           <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
@@ -220,6 +258,7 @@
                  title="Es la fecha del PARTE: cambiarla mueve todas sus líneas y trabajadores" aria-label="Fecha del parte"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
           {% if r.document_id in recalculando %}<span class="recalculando-marca">recalculando…</span>{% endif %}
+          {% if r.id in (con_reparto or []) %}<span class="reparto-marca" title="Reparto de la jornada pendiente de decidir: decide «Aplicar» o «Mantener lo registrado» al aprobar">reparto pendiente</span>{% endif %}
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}
           {% if r.congelado %}<span class="congelado-motivo" title="{{ r.congelado_motivo }}">🔒</span>{% else %}<button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>{% endif %}
@@ -261,7 +300,7 @@
           </select>
           <div class="cell-sub combo-hora-current">
             {% if r.hora_codigo %}{{ r.hora_codigo }} · {{ r.hora_descripcion or '' }}{% else %}—{% endif %}
-            {% if r.hora_match_method in ['categoria_normal', 'categoria_extra', 'categoria_extra_a_normal', 'extra_por_categoria', 'incidencia', 'incidencia_desc', 'ext_default', 'ext_first'] %}<span class="tag-auto" title="Asignado por matcheo determinista ({{ r.hora_match_method }})">auto</span>{% elif r.hora_match_method == 'codigo_propuesto' %}<span class="tag-ia" title="Propuesto por la IA - conviene revisar">IA</span>{% elif r.hora_match_method == 'manual' %}<span class="tag-manual">manual</span>{% elif r.hora_match_method == 'recurso' %}<span class="tag-recurso" title="Codigo impuesto por el recurso de Sigrid">recurso</span>{% elif r.hora_match_method == 'recurso_difiere' %}<span class="tag-difiere" title="El recurso impuso un codigo distinto al leido - revisar">&#9888; revisar</span>{% endif %}
+            {% if r.hora_match_method in ['categoria_normal', 'categoria_extra', 'categoria_extra_a_normal', 'extra_por_categoria', 'incidencia', 'incidencia_desc', 'ext_default', 'ext_first'] %}<span class="tag-auto" title="Asignado por matcheo determinista ({{ r.hora_match_method }})">auto</span>{% elif r.hora_match_method == 'codigo_propuesto' %}<span class="tag-ia" title="Propuesto por la IA - conviene revisar">IA</span>{% elif r.hora_match_method == 'manual' %}<span class="tag-manual">manual</span>{% elif r.hora_match_method == 'recurso' %}<span class="tag-recurso" title="Codigo impuesto por el recurso de Sigrid">recurso</span>{% elif r.hora_match_method == 'recurso_difiere' %}<span class="tag-difiere" title="El recurso impuso un codigo distinto al leido - revisar">&#9888; revisar</span>{% endif %}{% if r.horas_extra_leidas %} <span class="tag-auto" title="La IA leyó estas horas como extra; en la ingesta se suman a la jornada y el exceso sobre la jornada del día sale como extra (F-048)">incl. {{ r.horas_extra_leidas|horas }} extra leídas</span>{% endif %}
           </div>
         </td>
         <td class="cell-partida">

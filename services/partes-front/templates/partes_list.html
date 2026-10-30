@@ -32,7 +32,7 @@
     Solo pendientes
   </label>
   <button class="btn primary small" type="submit">Buscar</button>
-  {% if search %}<a class="btn secondary small" href="/partes">Limpiar</a>{% endif %}
+  {% if search %}<a class="btn secondary small" href="/partes?search=">Limpiar</a>{% endif %}
 </form>
 
 {% if partes %}
@@ -66,7 +66,7 @@
     <tbody>
       {% for p in partes %}
       <tr>
-        <td><a class="link-strong" href="/partes/{{ p.document_id }}">{{ p.fecha|fecha }}</a>{% if p.es_futuro %} <span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}</td>
+        <td><a class="link-strong" href="/partes/{{ p.document_id }}">{{ p.fecha|fecha }}</a>{% if p.es_futuro %} <span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}{% if p.sin_lineas %} <span class="badge warn" title="Activo sin ninguna línea viva: bloquea volver a procesar su PDF. Bórralo con «Borrar parte».">Sin líneas</span>{% endif %}</td>
         <td>
           {{ p.obra_codigo or "—" }}
           {% if p.obra_nombre %}<div class="cell-sub">{{ p.obra_nombre }}</div>{% endif %}

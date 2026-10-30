@@ -189,6 +189,8 @@ def construir_casado_sigrid(
         jornadas=jornadas,
         jornada_cache_ttl_s=settings.jornada_cache_ttl_s,
         indice_provider=matcher_provider.indice,
+        # F-046 (DA2): el reajuste en Sigrid, apagado por defecto.
+        reajuste=settings.reparto_reajuste,
     )
     logger.info(
         "[svc3][wiring] Sigrid CABLEADO base_url=%s db=%s (todas las "
@@ -216,6 +218,8 @@ def build_app(settings: Settings) -> FastAPI:
         target_database_name=settings.pg_db,
     )
     repository = SqlAlchemyParteRepository(session_factory)
+    # F-046 (R18): espera maxima por el candado de la pasada.
+    repository.candado_espera_s = settings.candado_espera_s
     repository.initialize()
 
     # ----------------------------------------------------------- #
@@ -264,6 +268,8 @@ def build_app(settings: Settings) -> FastAPI:
         repository=repository,
         normalizer=ParteNormalizer(
             jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
+            # F-051 (R14): interruptor de la tabla dispersa.
+            revisar_tabla_dispersa=settings.revisar_tabla_dispersa,
         ),
         matcher_provider=matcher_provider,
         sharepoint_uploader=sharepoint_uploader,

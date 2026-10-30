@@ -33,6 +33,13 @@ parte y lo dices.
 ## Protocolo
 
 1. Ejecuta `bash harness/init.sh`. Si falla → CHANGES_REQUESTED directo.
+   Si sirve **de caché** la suite de un servicio que toca la feature («pytest
+   en verde (caché: …)»), ejecuta además esa suite entera a mano y sin caché:
+   desde la `ruta` del servicio en `harness/servicios.json`,
+   `python -m pytest -q -p no:cacheprovider`. Anota en el informe los números
+   y que se lanzó a mano. La caché solo mira el árbol del servicio, y sus
+   tests pueden leer ficheros de fuera (propuesta del reviewer de F-064,
+   aprobada por el humano el 2026-10-26).
 2. Lee `requirements.md` (o los `acceptance`) y verifica trazabilidad: cada
    requisito debe tener al menos un test que lo cubra. Ejecuta la suite de
    tests del proyecto y comprueba que esos tests existen y pasan.
@@ -161,7 +168,11 @@ viven solo aquí, porque son criterio de juicio y no se pueden automatizar.
   campaña hay un punto medio: reejecutar **el subconjunto de tests del módulo
   mutado sobre una COPIA en tu scratchpad**. En F-034 fueron 568 s en vez de 18
   min, y no muta el árbol de trabajo. Úsalo cuando dudes de un veredicto
-  concreto y la campaña entera sea cara.
+  concreto y la campaña entera sea cara. Si lanzas pytest desde un script
+  (subproceso), hazlo con **el mismo intérprete** (`sys.executable -m
+  pytest`), nunca con `python` a secas: en F-056 `python` resolvía a otro
+  intérprete sin pytest, salía con 1 y parecía un falso «MATA». Antes de
+  fiarte de un «MATA», comprueba que el mismo comando sin el mutante sale con 0.
 - **RM5 · Un «equivalente» trae demostración ejecutable**, y tú reproduces una
   **muestra, no todas**. Acotada por decisión del humano del 2026-08-20: se
   exige **SOLO en rigor `critico`**, y la muestra es **UNO** de los declarados

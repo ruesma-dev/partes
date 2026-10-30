@@ -169,21 +169,28 @@ def _insert(**extra) -> dict:
 
 
 def test_f021_r14_caaide_es_un_parametro_del_insert() -> None:
+    """F-034 (R2) amplia el SQL: `ide` de la subconsulta `x` y la guarda
+    de parte abierto, con `hmoide` y el estado al final de los
+    parametros. La cuenta sigue siendo el parametro 14."""
     st = _insert(caaide=701)
     assert _sql(st["sql"]) == (
         "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
         "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
-        "tex, synckey) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ?, ?, "
+        "tex, synckey) SELECT x.n, ?, ?, ?, ?, ?, ?, ?, "
         "?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ? "
-        "FROM hmores WITH (UPDLOCK, HOLDLOCK)")
+        "FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores WITH (UPDLOCK, "
+        "HOLDLOCK)) x WHERE EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, "
+        "HOLDLOCK) WHERE c.ide = ? AND c.est = ?)")
     assert st["parameters"] == [900, 501, 77, 200, 33, 128, 20260915, 11,
-                                8.0, 10.5, 84.0, 2026, 9, 701, "", "partes:1"]
+                                8.0, 10.5, 84.0, 2026, 9, 701, "", "partes:1",
+                                900, 1]
     assert _sql(st["sql"]).count("?") == len(st["parameters"])
 
 
 def test_f021_r8_r14_sin_cuenta_se_escribe_cero_como_parametro() -> None:
     st = _insert(caaide=0, tex="PRUEBA-IA")
-    assert st["parameters"][13:] == [0, "PRUEBA-IA", "partes:1"]
+    assert st["parameters"][13:16] == [0, "PRUEBA-IA", "partes:1"]
+    assert st["parameters"][16:] == [900, 1]           # F-034: la guarda
 
 
 def test_f021_r14_caaide_se_convierte_a_entero() -> None:

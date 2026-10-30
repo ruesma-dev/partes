@@ -27,15 +27,32 @@ parte_trabajo_es:
         SIEMPRE de 2026 en adelante.
       - Horas como numero decimal con punto (8, 8.5, 1.25). Nunca como texto.
       - Codigos y numeros se capturan integros, respetando barras/puntos/guiones.
+      - Tabla de personal: cada cifra pertenece a la FILA en la que esta
+        escrita. Identifica cada fila por su "Nº" y su DNI/nombre impresos;
+        nunca asignes una cifra a la fila mas cercana ni a la de arriba.
 
   task: |
     Extrae los datos del parte adjunto al JSON del schema ParteTrabajo, que
     tiene tres bloques: cabecera, firma y empleados[].
 
     1) CABECERA (datos del dia/obra):
+       TODA pagina del parte tiene una CABECERA en su parte superior, por
+       encima de la tabla "PERSONAL": el membrete o logotipo de la empresa,
+       el "Nº OBRA", el "NOMBRE Y UBICACION DE OBRA", la FECHA (dia, mes y
+       año), el ENCARGADO y el JEFE DE OBRA. Localizala SIEMPRE antes de
+       leer la tabla y saca de ella el numero de la obra, el dia, el mes y
+       el año de la fecha, la empresa del membrete y el resto de campos de
+       este punto. Si el escaneo sale desplazado, girado, recortado o con
+       bandas grises, la cabecera sigue en la pagina: buscala en el borde
+       que corresponda segun la orientacion de la tabla. Si la tabla tiene
+       trabajadores y la cabecera te sale entera a null, casi siempre es que
+       no la has localizado: buscala de nuevo antes de responder. Aun asi,
+       NUNCA inventes un valor: null solo en el campo que de verdad no se lea.
        - cabecera.fecha: la FECHA manuscrita del parte, COPIADA TAL CUAL como
          aparece (dd/mm/aaaa, dd/mm/aa, o con el mes en letra como
-         "6-abril-26"). No la conviertas; si es ilegible, null.
+         "6-abril-26"). Si el dia, el mes y el año van en casillas separadas,
+         copialos juntos en ese orden (dia/mes/año) tal cual se leen. No la
+         conviertas; si es ilegible, null.
        - cabecera.obra_numero: el "Nº OBRA" tal cual (p.ej. "672").
        - cabecera.obra_nombre: el texto de "NOMBRE Y UBICACION DE OBRA".
        - cabecera.encargado_nombre: el nombre junto a "ENCARGADO".
@@ -64,7 +81,31 @@ parte_trabajo_es:
 
     3) EMPLEADOS: por CADA fila de la tabla "PERSONAL" que tenga datos (nombre
        y/o horas y/o incidencia), crea un objeto en empleados[]:
+       LECTURA FILA A FILA (MUY IMPORTANTE):
+       - Recorre la tabla fila a fila por su "Nº" impreso (1, 2, 3...). Para
+         cada fila, sigue SU linea desde el "Nº", el DNI y el nombre hasta las
+         subcolumnas "Ord." y "Extraord." y lee SOLO lo que hay entre las dos
+         lineas que delimitan esa fila. Igual para la incidencia y las horas
+         de partidas de esa fila.
+       - Una cifra pertenece a la fila que contiene su CENTRO, aunque el
+         trazo invada la linea de la fila vecina.
+       - Si el parte esta girado o inclinado, sigue las lineas de la tabla,
+         no el borde de la pagina.
+       - Celda vacia = null. NUNCA rellenes una fila con la cifra de la fila
+         vecina ni muevas cifras de una fila a otra.
+       - Con POCAS cifras sueltas (tipico de sabado o domingo) lo normal es
+         que haya filas con trabajador y SIN horas: es justo el caso en que
+         mas se desplazan las cifras. Antes de asignar una cifra, comprueba
+         que el "Nº" y el DNI de SU franja son los de esa fila.
+       - Incluye TODAS las filas con trabajador (nombre o DNI), tambien las
+         que no tienen horas (horas a null), en el orden del papel.
+       Para cada fila, rellena:
        - numero_linea: el numero de la columna "Nº" (1..14) si se ve, o null.
+       - numero_linea_horas: el "Nº" impreso en la franja donde esta escrita
+         la cifra de horas de esta fila, leido partiendo de la CIFRA hacia la
+         columna "Nº". null si la fila no tiene horas. No lo copies de
+         numero_linea sin mirarlo: sirve para comprobar que la cifra es de
+         esta fila.
        - categoria: la "Categoria" (Capataz, Oficial 1ª, Oficial 2ª, Peon,
          Ayudante, etc.) tal cual, o null.
        - nombre: el "NOMBRE" completo del trabajador.
@@ -159,8 +200,8 @@ parte_trabajo_es:
                       "firma_administracion", "firmante_rol",
                       "firmante_nombre", "confianza_pct" },
         "empleados": [
-          { "numero_linea", "categoria", "nombre",
-            "horas_ordinarias", "horas_extraordinarias",
+          { "numero_linea", "numero_linea_horas", "categoria", "nombre",
+            "dni", "horas_ordinarias", "horas_extraordinarias",
             "codigo_hora_ordinaria", "codigo_hora_extra",
             "incidencia": { "codigo", "texto_leido", "dias", "codigo_sigrid" } | null,
             "partidas": [ { "partida", "horas" } ],
@@ -170,6 +211,7 @@ parte_trabajo_es:
 
     Reglas de tipo:
       - Ningun numero ni booleano puede ir como string.
+      - numero_linea_horas es entero o null, nunca string.
       - firma.firmado y las tres casillas (firma_encargado, firma_jefe_obra,
         firma_administracion) son OBLIGATORIAS de evaluar como booleano.
       - incidencia.codigo solo puede ser uno de: V, B, AT, FJ, F, H, M (o el

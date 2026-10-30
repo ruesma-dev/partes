@@ -82,6 +82,376 @@ function avisarCambioLineas() {
   document.dispatchEvent(new CustomEvent("lineas:cambio"));
 }
 
+/* F-064: los filtros de cada pantalla se guardan por usuario en
+   `localStorage` (`partes.filtros.v1:<clave>`, la clave la pinta el
+   servidor en `<body data-filtros-usuario>`) y se reponen al volver
+   durante 8 h sin actividad. La seleccion de lineas NO se guarda nunca
+   (R21). Las funciones a dos espacios son puras (las ejecuta en node
+   `tests/test_f064_filtros_js.py`). */
+var FiltrosSesion = (function () {
+  "use strict";
+
+  var PREFIJO = "partes.filtros.v1:";
+  var VERSION = 1;
+  var SESION_MS = 8 * 3600 * 1000;    // la cookie de Easy Auth (DA2, M0)
+  var FUTURO_MS = 60000;              // reloj algo adelantado: se tolera
+  var MAX_PANTALLAS = 50;
+  var LISTAS_SERVIDOR = {
+    "/partes": ["search", "pendientes"],
+    "/obras": ["search"],
+    "/trabajadores": ["search"],
+  };
+
+  function _tiene(obj, k) {
+    return !!obj && Object.prototype.hasOwnProperty.call(obj, k);
+  }
+
+  function _esObjeto(x) {
+    return !!x && typeof x === "object" && !Array.isArray(x);
+  }
+
+  // R4, R5, R9: la clave de almacen de un usuario; "" = no se guarda.
+  function claveAlmacen(usuario) {
+    return usuario ? PREFIJO + usuario : "";
+  }
+
+  // La pantalla: la ruta sin barras finales (DA3).
+  function rutaNormal(pathname) {
+    return String(pathname || "").replace(/\/+$/, "") || "/";
+  }
+
+  // R6: el estado leido, o null si es invalido, de otra version, caducado
+  // (8 h o mas sin actividad) o con `t` en el futuro.
+  function estadoVigente(crudo, ahoraMs) {
+    var est;
+    try { est = JSON.parse(crudo); } catch (e) { return null; }
+    if (!_esObjeto(est) || est.v !== VERSION) return null;
+    if (typeof est.t !== "number" || !_esObjeto(est.pantallas)) return null;
+    if (ahoraMs - est.t >= SESION_MS || est.t > ahoraMs + FUTURO_MS) return null;
+    // Una entrada de pantalla mal formada (null, no objeto o sin `t`
+    // numérico) se descarta: el código nunca la escribe y, si llega,
+    // no puede tumbar el init de la página.
+    var pantallas = {};
+    Object.keys(est.pantallas).forEach(function (r) {
+      var p = est.pantallas[r];
+      if (_esObjeto(p) && typeof p.t === "number") pantallas[r] = p;
+    });
+    est.pantallas = pantallas;
+    return est;
+  }
+
+  // R14: sin columnas, ni dias, ni casilla desmarcada, ni busqueda.
+  function fotoVacia(foto) {
+    if (!foto) return true;
+    var cols = foto.cols || {};
+    var conCols = Object.keys(cols).some(function (t) {
+      return Object.keys(cols[t] || {}).length > 0;
+    });
+    var conDias = !!(foto.dias && foto.dias.claves && foto.dias.claves.length);
+    return !conCols && !conDias && foto.sinExtra !== false && !foto.query;
+  }
+
+  // R17: el aviso solo se enciende si se repuso alguna columna o algun dia.
+  function filtrosRepuestos(foto) {
+    return !fotoVacia({ cols: (foto && foto.cols) || {},
+                        dias: (foto && foto.dias) || null });
+  }
+
+  // R7, R10, R14: estado NUEVO con la foto de `ruta` (o sin ella si esta
+  // vacia), `t` renovado y como mucho las 50 pantallas mas recientes.
+  function conPantalla(estado, ruta, foto, ahoraMs) {
+    var previas = (estado && _esObjeto(estado.pantallas)) ? estado.pantallas : {};
+    var pantallas = {};
+    Object.keys(previas).forEach(function (r) {
+      if (r !== ruta) pantallas[r] = previas[r];
+    });
+    if (!fotoVacia(foto)) {
+      var nueva = JSON.parse(JSON.stringify(foto));
+      nueva.t = ahoraMs;
+      pantallas[ruta] = nueva;
+    }
+    var orden = Object.keys(pantallas).sort(function (a, b) {
+      return (pantallas[b].t || 0) - (pantallas[a].t || 0);
+    });
+    orden.slice(MAX_PANTALLAS).forEach(function (r) { delete pantallas[r]; });
+    return { v: VERSION, t: ahoraMs, pantallas: pantallas };
+  }
+
+  // R19: la busqueda de una lista del servidor, normalizada (permitidos en
+  // orden fijo y sin vacios; "" si no queda ninguno). null si la ruta no
+  // es una de las tres listas o la consulta trae otro parametro.
+  function consultaDeLista(ruta, search) {
+    if (!_tiene(LISTAS_SERVIDOR, ruta)) return null;
+    var permitidos = LISTAS_SERVIDOR[ruta];
+    var params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+    var ajeno = false;
+    params.forEach(function (_v, k) {
+      if (permitidos.indexOf(k) < 0) ajeno = true;
+    });
+    if (ajeno) return null;
+    return permitidos.filter(function (k) { return !!params.get(k); })
+      .map(function (k) {
+        return encodeURIComponent(k) + "=" + encodeURIComponent(params.get(k));
+      }).join("&");
+  }
+
+  // R19: a donde volver al llegar a una lista SIN consulta con una
+  // busqueda guardada no vacia; null si no toca.
+  function destinoRestaurar(ruta, search, pantalla) {
+    if (!_tiene(LISTAS_SERVIDOR, ruta) || search !== "") return null;
+    if (!pantalla || !pantalla.query) return null;
+    return ruta + "?" + pantalla.query;
+  }
+
+  // R12, R16: los dias guardados que existen en la pagina, en su orden,
+  // y solo si son del mismo periodo.
+  function diasRestaurables(guardados, periodo, disponibles) {
+    if (!guardados || guardados.periodo !== periodo) return [];
+    var claves = Array.isArray(guardados.claves) ? guardados.claves : [];
+    return (disponibles || []).filter(function (k) {
+      return claves.indexOf(k) >= 0;
+    });
+  }
+
+  // ---- Con DOM. Todo acceso a localStorage va en try/catch (R5). ---- //
+  var AVISO_ID = "filtros-sesion-aviso";
+  var DIAS_NULOS = {
+    claves: function () { return []; },
+    disponibles: function () { return []; },
+    seleccionar: function () {},
+    limpiar: function () {},
+  };
+  var dias = DIAS_NULOS;
+  var restaurando = false;            // sin escrituras mientras se repone
+
+  function usuario() {
+    try { return (document.body && document.body.dataset.filtrosUsuario) || ""; }
+    catch (e) { return ""; }
+  }
+  function almacen() {
+    try { return window.localStorage || null; } catch (e) { return null; }
+  }
+  function ruta() { return rutaNormal(window.location.pathname); }
+
+  // R6, R9: el estado vigente de ESTE usuario; si no lo es, se borra.
+  function leer() {
+    var clave = claveAlmacen(usuario()), ls = almacen();
+    if (!clave || !ls) return null;
+    try {
+      var crudo = ls.getItem(clave);
+      if (crudo === null) return null;
+      var est = estadoVigente(crudo, Date.now());
+      if (!est) ls.removeItem(clave);
+      return est;
+    } catch (e) { return null; }
+  }
+  function escribir(estado) {
+    var clave = claveAlmacen(usuario()), ls = almacen();
+    if (!clave || !ls) return;
+    try {
+      if (!Object.keys(estado.pantallas).length) ls.removeItem(clave);
+      else ls.setItem(clave, JSON.stringify(estado));
+    } catch (e) { /* almacen lleno o bloqueado: se sigue sin guardar */ }
+  }
+  // R8: borra las claves caducadas o rotas de CUALQUIER usuario.
+  function barrerCaducados(ahora) {
+    var ls = almacen();
+    if (!ls) return;
+    try {
+      var claves = [];
+      for (var i = 0; i < ls.length; i++) claves.push(ls.key(i));
+      claves.forEach(function (k) {
+        if (k && k.indexOf(PREFIJO) === 0 &&
+            !estadoVigente(ls.getItem(k), ahora)) ls.removeItem(k);
+      });
+    } catch (e) { /* sin almacen: nada que barrer */ }
+  }
+
+  // R11: tabla por id (o «matriz»/«tabla») y columna por su cabecera.
+  function claveTabla(table) {
+    if (table.id) return table.id;
+    return table.classList.contains("matrix") ? "matriz" : "tabla";
+  }
+  function claveColumna(table, input) {
+    var th = input.closest("th");
+    var thead = table.querySelector("thead");
+    var fila = thead ? thead.querySelector("tr") : null;
+    var cab = (th && fila) ? fila.children[th.cellIndex] : null;
+    if (!cab) return "";
+    return (cab.getAttribute("data-col-key") || cab.textContent || "").trim();
+  }
+  function tablasConFiltro() {
+    return Array.prototype.filter.call(document.querySelectorAll("table"),
+      function (t) { return !!t.querySelector("thead tr.filter-row"); });
+  }
+  function filtrosDe(table) {
+    return Array.prototype.slice.call(table.querySelector("thead tr.filter-row")
+      .querySelectorAll(".col-filter"));
+  }
+  // R12: valor de #period + "|" + modo del formulario; "" sin formulario.
+  function periodo() {
+    var form = document.querySelector("form.cal-period");
+    if (!form) return "";
+    var p = document.getElementById("period");
+    var m = form.querySelector('input[name="modo"]');
+    return (p ? p.value : "") + "|" + (m ? m.value : "");
+  }
+  function casillaSinExtra() { return document.getElementById("hide-sin-extra"); }
+
+  // La foto de la pantalla. Conserva de `previa` lo que esta pagina no
+  // puede ver: la busqueda si la consulta trae otro parametro (R19) y los
+  // dias de OTRO periodo si ahora no hay ninguno marcado (R12).
+  function foto(previa) {
+    var f = { cols: {} };
+    tablasConFiltro().forEach(function (table) {
+      filtrosDe(table).forEach(function (inp) {
+        var col = claveColumna(table, inp);
+        if (!col || !String(inp.value || "").trim()) return;
+        var t = claveTabla(table);
+        (f.cols[t] = f.cols[t] || {})[col] = inp.value;
+      });
+    });
+    var per = periodo(), claves = dias.claves();
+    if (claves.length) f.dias = { periodo: per, claves: claves };
+    else if (previa && previa.dias && previa.dias.periodo !== per) f.dias = previa.dias;
+    var casilla = casillaSinExtra();
+    if (casilla && !casilla.checked) f.sinExtra = false;
+    var q = consultaDeLista(ruta(), window.location.search);
+    if (q === null) q = (previa && previa.query) || "";
+    if (q) f.query = q;
+    return f;
+  }
+
+  // R7, R10: guarda la foto de la pantalla (y renueva `t`).
+  function guardar() {
+    if (restaurando || !usuario() || !almacen()) return;
+    var estado = leer(), r = ruta();
+    var previa = estado ? estado.pantallas[r] : null;
+    escribir(conPantalla(estado, r, foto(previa), Date.now()));
+  }
+
+  // R19: lista sin consulta con busqueda guardada => vuelve a ella.
+  function redirigir() {
+    try {
+      if (!usuario()) return false;
+      var estado = leer(), r = ruta();
+      var destino = destinoRestaurar(r, window.location.search,
+                                     estado ? estado.pantallas[r] : null);
+      if (!destino) return false;
+      window.location.replace(destino);
+      return true;
+    } catch (e) { return false; }
+  }
+
+  function quitarAviso() {
+    var a = document.getElementById(AVISO_ID);
+    if (a) a.remove();
+  }
+  // R17: el aviso con «Quitar filtros», al principio del contenido.
+  function pintarAviso() {
+    quitarAviso();
+    var aviso = document.createElement("div");
+    aviso.id = AVISO_ID;
+    aviso.className = "alert info";
+    aviso.setAttribute("role", "status");
+    var texto = document.createElement("span");
+    texto.textContent = "Filtros recuperados de tu sesión. ";
+    var boton = document.createElement("button");
+    boton.setAttribute("type", "button");
+    boton.className = "btn secondary small";
+    boton.textContent = "Quitar filtros";
+    boton.addEventListener("click", quitarTodo);
+    aviso.appendChild(texto);
+    aviso.appendChild(boton);
+    var shell = document.querySelector("main.page-shell");
+    var cont = (shell && shell.querySelector(".container")) || document.body;
+    cont.insertBefore(aviso, cont.firstChild);
+  }
+
+  // R17: vacia columnas y dias, vuelve a marcar la casilla y borra la
+  // entrada de la pantalla.
+  function quitarTodo() {
+    restaurando = true;
+    try {
+      tablasConFiltro().forEach(function (table) {
+        var limpiar = table.querySelector("thead tr.filter-row .filter-clear");
+        if (limpiar) { limpiar.click(); return; }
+        filtrosDe(table).forEach(function (inp) {
+          if (inp.value === "") return;
+          inp.value = "";
+          inp.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+      });
+      dias.limpiar();
+      var casilla = casillaSinExtra();
+      if (casilla && !casilla.checked) {
+        casilla.checked = true;
+        casilla.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    } finally { restaurando = false; }
+    var estado = leer();
+    if (estado) escribir(conPantalla(estado, ruta(), null, Date.now()));
+    quitarAviso();
+  }
+
+  // R15-R18: repone la foto guardada de esta pantalla (columnas, dias del
+  // mismo periodo y casilla), hace UNA escritura y engancha el guardado.
+  function restaurar(manejador) {
+    dias = manejador || DIAS_NULOS;
+    barrerCaducados(Date.now());
+    if (!usuario() || !almacen()) return;           // R5
+    var estado = leer();
+    var previa = estado ? estado.pantallas[ruta()] : null;
+    var repuesto = { cols: {}, dias: null };
+    restaurando = true;
+    try {
+      if (previa) {
+        tablasConFiltro().forEach(function (table) {
+          var t = claveTabla(table);
+          var guardadas = (previa.cols || {})[t];
+          if (!guardadas) return;
+          filtrosDe(table).forEach(function (inp) {
+            var col = claveColumna(table, inp);
+            var valor = col ? guardadas[col] : undefined;
+            if (typeof valor !== "string" || !valor.trim()) return;  // R16
+            (repuesto.cols[t] = repuesto.cols[t] || {})[col] = valor;
+            if (inp.value === valor) return;
+            inp.value = valor;
+            inp.dispatchEvent(new Event("input", { bubbles: true }));  // R18
+          });
+        });
+        var lista = diasRestaurables(previa.dias, periodo(), dias.disponibles());
+        if (lista.length) {
+          dias.seleccionar(lista);
+          repuesto.dias = { periodo: periodo(), claves: lista };
+        }
+        var casilla = casillaSinExtra();
+        if (previa.sinExtra === false && casilla && casilla.checked) {
+          casilla.checked = false;
+          casilla.dispatchEvent(new Event("change", { bubbles: true }));
+        }
+      }
+    } finally { restaurando = false; }
+    guardar();                                      // la UNICA escritura
+    if (filtrosRepuestos(repuesto)) pintarAviso();
+    document.addEventListener("lineas:cambio", guardar);
+    var casillaSE = casillaSinExtra();
+    if (casillaSE) casillaSE.addEventListener("change", guardar);
+  }
+
+  return {
+    redirigir: redirigir,
+    restaurar: restaurar,
+    puras: {
+      claveAlmacen: claveAlmacen, rutaNormal: rutaNormal,
+      estadoVigente: estadoVigente, fotoVacia: fotoVacia,
+      filtrosRepuestos: filtrosRepuestos, conPantalla: conPantalla,
+      consultaDeLista: consultaDeLista, destinoRestaurar: destinoRestaurar,
+      diasRestaurables: diasRestaurables,
+    },
+  };
+})();
+
 (function () {
   "use strict";
 
@@ -897,9 +1267,9 @@ function avisarCambioLineas() {
   // filtro por columnas (que usa display inline) gracias al !important.
   // ---------------------------------------------------------------- //
   function _setupDaySelection(cells, table, keyFromCell, keyFromRow, stopProp) {
-    if (!cells.length || !table) return;
+    if (!cells.length || !table) return null;
     var tbody = table.querySelector("tbody");
-    if (!tbody) return;
+    if (!tbody) return null;
     var selected = new Set();
     var badge = document.querySelector("[data-day-badge]");
     var countEl = badge ? badge.querySelector("[data-count]") : null;
@@ -942,17 +1312,53 @@ function avisarCambioLineas() {
       });
     });
     if (clearBtn) clearBtn.addEventListener("click", clearAll);
+
+    // F-064 (R12, R15-R17): el manejador con el que FiltrosSesion lee,
+    // repone y limpia la seleccion de dias. El clic y «Quitar filtro»
+    // siguen como estaban.
+    function disponibles() {
+      var vistas = [];
+      cells.forEach(function (c) {
+        var k = keyFromCell(c);
+        if (k && vistas.indexOf(k) < 0) vistas.push(k);
+      });
+      return vistas;
+    }
+    return {
+      claves: function () { return Array.from(selected); },
+      disponibles: disponibles,
+      seleccionar: function (lista) {
+        var hay = disponibles();
+        (lista || []).forEach(function (k) {
+          if (hay.indexOf(k) >= 0) selected.add(k);
+        });
+        cells.forEach(function (c) {
+          if (selected.has(keyFromCell(c))) c.classList.add("day-selected");
+        });
+        apply();
+      },
+      limpiar: clearAll,
+    };
   }
 
+  // F-064: devuelve el manejador de dias de la pagina (calendario o
+  // matriz; una pagina tiene uno o ninguno) o uno nulo que no hace nada.
   function wireDayFilters() {
+    var nulo = {
+      claves: function () { return []; },
+      disponibles: function () { return []; },
+      seleccionar: function () {},
+      limpiar: function () {},
+    };
+    var manejador = null;
     var table = document.getElementById("lines-table");
-    if (!table) return;
+    if (!table) return nulo;
     // Vista TRABAJADOR: calendario .cal-grid, casillas .cal-pick[data-fecha].
     var cal = document.querySelector(".cal-grid");
     if (cal) {
       var calCells = Array.prototype.slice.call(
         cal.querySelectorAll(".cal-pick[data-fecha]"));
-      _setupDaySelection(
+      manejador = _setupDaySelection(
         calCells, table,
         function (c) { return c.getAttribute("data-fecha") || ""; },
         function (r) { return r.getAttribute("data-fecha") || ""; },
@@ -963,7 +1369,7 @@ function avisarCambioLineas() {
     if (matrix) {
       var mxCells = Array.prototype.slice.call(
         matrix.querySelectorAll("td.mx-pick[data-fecha]"));
-      _setupDaySelection(
+      manejador = _setupDaySelection(
         mxCells, table,
         function (c) {
           return _norm(c.getAttribute("data-trabajador")) + "|" +
@@ -973,8 +1379,9 @@ function avisarCambioLineas() {
           return _norm(r.getAttribute("data-trabajador")) + "|" +
                  (r.getAttribute("data-fecha") || "");
         },
-        true);
+        true) || manejador;
     }
+    return manejador || nulo;
   }
 
   // ---------------------------------------------------------------- //
@@ -1457,6 +1864,33 @@ function avisarCambioLineas() {
     });
   }
 
+  // F-061 (R12): tras borrar líneas, ¿se retiró algún parte por quedarse
+  // sin líneas vivas? Si estamos en su detalle, recargar daría 404: se va
+  // a /partes. `respuestas` son los JSON de cada borrado (en bloque, N).
+  function destinoTrasBorrar(respuestas, ruta) {
+    var aviso = "El parte se ha quedado sin líneas y se ha retirado; " +
+      "sus líneas siguen en la papelera.";
+    var retirados = (respuestas || []).filter(function (d) {
+      return d && d.parte_retirado;
+    });
+    if (!retirados.length) return { aviso: null, destino: null };
+    var aqui = String(ruta || "").replace(/\/+$/, "");
+    var enSuDetalle = retirados.some(function (d) {
+      return aqui === "/partes/" + d.document_id;
+    });
+    return { aviso: aviso, destino: enSuDetalle ? "/partes" : null };
+  }
+
+  // Avisa y, si toca, navega a /partes. Devuelve false si quien llama
+  // debe recargar como siempre.
+  function _irTrasBorrar(respuestas) {
+    var r = destinoTrasBorrar(respuestas, window.location.pathname);
+    if (r.aviso) alert(r.aviso);
+    if (!r.destino) return false;
+    window.location.href = r.destino;
+    return true;
+  }
+
   function wireBorrado() {
     // Borrar LINEA (✕ en filas) -> soft delete -> papelera.
     _bindClick(".line-del", function (btn) {
@@ -1466,7 +1900,7 @@ function avisarCambioLineas() {
       if (!confirm("¿Mover esta línea a la papelera?")) return;
       btn.disabled = true;
       _postJSON("/api/registro/" + id + "/delete").then(function (d) {
-        if (d && d.ok) { window.location.reload(); }
+        if (d && d.ok) { if (!_irTrasBorrar([d])) window.location.reload(); }
         else {
           btn.disabled = false;
           // F-004 R16: si el 409 es de congelacion, trae el motivo.
@@ -1514,7 +1948,11 @@ function avisarCambioLineas() {
     _bindClick("[data-restore-doc]", function (btn) {
       btn.disabled = true;
       _postJSON("/api/documento/" + btn.getAttribute("data-restore-doc") + "/restore")
-        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+        .then(function (d) {
+          if (d && d.ok) { window.location.reload(); return; }
+          btn.disabled = false;
+          if (d && d.error) alert(d.error);   // F-061 R7
+        });
     });
     _bindClick("[data-hard-doc]", function (btn) {
       var label = btn.getAttribute("data-label") || "este parte";
@@ -1530,7 +1968,11 @@ function avisarCambioLineas() {
     _bindClick("[data-restore-line]", function (btn) {
       btn.disabled = true;
       _postJSON("/api/registro/" + btn.getAttribute("data-restore-line") + "/restore")
-        .then(function (d) { if (d && d.ok) window.location.reload(); else btn.disabled = false; });
+        .then(function (d) {
+          if (d && d.ok) { window.location.reload(); return; }
+          btn.disabled = false;
+          if (d && d.error) alert(d.error);   // F-061 R7
+        });
     });
     _bindClick("[data-hard-line]", function (btn) {
       var label = btn.getAttribute("data-label") || "esta línea";
@@ -1706,6 +2148,14 @@ function avisarCambioLineas() {
         });
     }
     return { reload: reload, clear: clear };
+  }
+
+  // F-050 (R20): el «Ver» de «Nuevo parte» lleva a la clave que tendran las
+  // lineas creadas: `rec-` si se eligio recurso, `emp-` si solo ficha.
+  function verHrefNuevoParte(reside, emp) {
+    if (reside) return "/trabajadores/rec-" + reside;
+    if (emp) return "/trabajadores/emp-" + emp;
+    return "/partes";
   }
 
   function wireNuevoParte() {
@@ -2013,8 +2463,8 @@ function avisarCambioLineas() {
       }).then(function (r) { return r.json(); }).then(function (d) {
         if (d && d.ok) {
           st.className = "form-status ok";
-          var emp = document.getElementById("emp-ide").value;
-          var verHref = emp ? ("/trabajadores/emp-" + emp) : "/partes";
+          var verHref = verHrefNuevoParte(document.getElementById("emp-reside").value,
+                                          document.getElementById("emp-ide").value);
           st.innerHTML = "Creado: " + d.lineas + " línea(s) en "
             + dias.length + " día(s). "
             + '<a href="' + verHref + '">Ver</a> · listo para otro parte.';
@@ -2064,7 +2514,8 @@ function avisarCambioLineas() {
       g("addline-" + prefix + "-nombre").value = (vals && vals.nombre) || "";
       if (prefix === "emp") {
         g("addline-emp-dni").value = (vals && vals.dni) || "";
-        g("addline-emp-reside").value = "";
+        // F-050 (R19): el recurso del trabajador fijado por la pagina.
+        g("addline-emp-reside").value = (vals && vals.reside) || "";
         // Con el trabajador fijado por la pagina, el selector de empresa
         // no aplica (F-035).
         g("addline-empresa-field").hidden = !!locked;
@@ -2116,7 +2567,8 @@ function avisarCambioLineas() {
         ? { ide: d.obraIde, codigo: d.obraCodigo, nombre: d.obraNombre } : null);
       var empLocked = !!d.empNombre;
       setLock("emp", empLocked, d.empLabel, empLocked
-        ? { ide: d.empIde, codigo: d.empCodigo, nombre: d.empNombre, dni: d.empDni } : null);
+        ? { ide: d.empIde, codigo: d.empCodigo, nombre: d.empNombre, dni: d.empDni,
+            reside: d.empReside } : null);
       g("addline-categoria").value = d.categoria || "";
       g("addline-fecha").value = d.fecha || todayISO();
       g("addline-ord").value = "8";
@@ -2743,8 +3195,10 @@ function avisarCambioLineas() {
       var ids = PartidaSel.ids(); if (!ids.length) return;
       if (!confirm("\u00bfMover " + ids.length + " l\u00ednea(s) a la papelera?")) return;
       Promise.all(ids.map(function (id) {
-        return fetch("/api/registro/" + id + "/delete", { method: "POST" });
-      })).then(function () { window.location.reload(); })
+        return _postJSON("/api/registro/" + id + "/delete");
+      })).then(function (respuestas) {   // F-061 R12
+        if (!_irTrasBorrar(respuestas)) window.location.reload();
+      })
         .catch(function () { alert("Error al borrar en bloque."); });
     }
     function closePicker() {
@@ -2785,6 +3239,7 @@ function avisarCambioLineas() {
   }
 
   document.addEventListener("DOMContentLoaded", function () {
+    if (FiltrosSesion.redirigir()) return;      // F-064 (R19): lista con busqueda guardada
     // Toggle del visor de PDF.
     var pdfBtn = document.getElementById("pdfToggle");
     var pdfWrap = document.getElementById("pdfWrap");
@@ -2817,7 +3272,7 @@ function avisarCambioLineas() {
     _cablear(".combo-obra", wireObraCombo);
     document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireColumnTools);
     document.querySelectorAll("table").forEach(wireColumnFilters);
-    wireDayFilters();
+    var dias = wireDayFilters();
     document.querySelectorAll("table.filterable:not(.matrix)").forEach(wireSortable);
     _cablear(".combo-emp", wireEmpleadoCombo);
     wireNameEditToggles();
@@ -2829,7 +3284,9 @@ function avisarCambioLineas() {
     wireBulkSelect();
     wireNuevoParte();
     wireAddLine();
+    // F-064 (R15): los filtros de la sesion del usuario, ANTES que F-043.
     // F-043: la vista que guardo «Actualizar» y los partes en espera.
+    FiltrosSesion.restaurar(dias);
     restaurarVista();
     esperasDeLaPagina();
 
@@ -3075,9 +3532,12 @@ function avisarCambioLineas() {
 
 /* ==================================================================== *
  * Matriz de obra: (a) filtro 'sin codigo de hora extra' (ON por defecto)
- * y (b) edicion inline de TODAS las lineas de una celda con DOBLE CLIC,
- * incluida la creacion de la linea extra si no existe.
- * Autonomo: no depende del init principal.
+ * y (b) editor de la celda con DOBLE CLIC (F-049): una fila por línea de
+ * horas y la ordinaria o la extra que falte («(nueva)»); se guarda la
+ * celda entera en UNA petición (`POST /api/matriz/celda`) y se avisa de
+ * las otras obras del mismo día, que el recálculo también toca.
+ * Autónomo: no depende del init principal. Las funciones a dos espacios
+ * son puras o casi (las ejecuta en node `tests/test_f049_editor_js.py`).
  * ==================================================================== */
 (function () {
   "use strict";
@@ -3087,10 +3547,222 @@ function avisarCambioLineas() {
     else document.addEventListener("DOMContentLoaded", fn);
   }
 
+  // F-049 (R1-R3, R10, R35): los campos del popup. Una fila por línea y,
+  // si no todas están congeladas y la fila tiene trabajador, la ordinaria
+  // (delante) y la extra (detras) que falten, a 0.
+  function camposCelda(regs, admiteNuevas) {
+    var campos = (regs || []).map(function (r) {
+      var base = r.t === "n" ? "Ord." : (r.a ? "Extra (jornada)" : "Extra");
+      return {id: r.id, tipo: r.t, etiqueta: r.p ? (base + " · " + r.p) : base,
+              valor: r.h, congelada: !!r.c, nueva: false};
+    });
+    var libres = campos.some(function (c) { return !c.congelada; });
+    if (!libres || !admiteNuevas) return campos;
+    var hay = function (t) { return campos.some(function (c) { return c.tipo === t; }); };
+    if (!hay("n")) {
+      campos.unshift({id: null, tipo: "n", etiqueta: "Ord. (nueva)", valor: 0,
+                      congelada: false, nueva: true});
+    }
+    if (!hay("e")) {
+      campos.push({id: null, tipo: "e", etiqueta: "Extra (nueva)", valor: 0,
+                   congelada: false, nueva: true});
+    }
+    return campos;
+  }
+
+  // F-049 (R6, R7): el cuerpo de la POST o null si no cambia nada. Un
+  // valor vacío (o que no es un número) vale lo que había; una nueva a 0
+  // o vacia no se pide.
+  function cuerpoCelda(campos, valores, celda) {
+    var lineas = [], nuevas = {n: null, e: null}, cambia = false;
+    campos.forEach(function (c, i) {
+      if (c.congelada) return;
+      var v = valores[i], n = parseFloat(v);
+      if (c.nueva) {
+        if (v !== "" && !isNaN(n) && n !== 0) { nuevas[c.tipo] = n; cambia = true; }
+        return;
+      }
+      var horas = (v === "" || isNaN(n)) ? c.valor : n;
+      if (horas !== c.valor) cambia = true;
+      lineas.push({id: c.id, antes: c.valor, horas: horas});
+    });
+    if (!cambia) return null;
+    return {obra_key: celda.obraKey, worker_key: celda.wk, fecha: celda.fecha,
+            lineas: lineas, nueva_ordinaria: nuevas.n, nueva_extra: nuevas.e};
+  }
+
+  // F-049 (R36): aviso al abrir si el trabajador tiene horas ese día en
+  // otras obras; null si no.
+  function textoOtras(afectadas) {
+    if (!afectadas || !afectadas.length) return null;
+    var codigos = [];
+    afectadas.forEach(function (a) {
+      var c = a.obra_codigo || a.obra_key;
+      if (codigos.indexOf(c) < 0) codigos.push(c);
+    });
+    return "Este trabajador tiene horas ese día en otras obras ("
+      + codigos.join(", ") + "): al guardar se recalcula el reparto del día en todas.";
+  }
+
+  // F-049 (R37): un enlace por obra afectada, con el aviso si está
+  // aprobada o en Sigrid.
+  function avisoAfectadas(afectadas) {
+    return (afectadas || []).map(function (a) {
+      var texto = a.obra_codigo || a.obra_key;
+      if (a.congelada) {
+        texto += " (aprobada o en Sigrid: si su reparto cambia, quedará "
+          + "pendiente de decidir al aprobar)";
+      }
+      return {href: "/obras/" + encodeURIComponent(a.obra_key), texto: texto};
+    });
+  }
+
+  // F-049 (R37): tras guardar con otras obras afectadas, el popup enseña
+  // la lista con enlaces y «Cerrar», que recarga con `recargar` (la única
+  // recarga del editor, R8 si el recálculo falló).
+  function mostrarAfectadas(pop, data, recargar) {
+    pop.replaceChildren();
+    var titulo = document.createElement("div");
+    titulo.className = "mxe-title";
+    titulo.textContent = "Guardado. Este cambio recalcula también ese día en:";
+    pop.appendChild(titulo);
+    var lista = document.createElement("ul");
+    lista.className = "mxe-afectadas";
+    avisoAfectadas(data.afectadas).forEach(function (x) {
+      var li = document.createElement("li"), a = document.createElement("a");
+      a.href = x.href;
+      a.textContent = x.texto;
+      li.appendChild(a);
+      lista.appendChild(li);
+    });
+    pop.appendChild(lista);
+    if (data.recalculo === "fallo") {
+      var aviso = document.createElement("div");
+      aviso.className = "mxe-aviso";
+      aviso.textContent = "Horas guardadas, pero no se pudo pedir el recálculo de "
+        + "extras: se hará en la siguiente pasada.";
+      pop.appendChild(aviso);
+    }
+    var bar = document.createElement("div");
+    bar.className = "mxe-actions";
+    var cerrar = document.createElement("button");
+    cerrar.type = "button"; cerrar.className = "btn small"; cerrar.textContent = "Cerrar";
+    cerrar.addEventListener("click", recargar);
+    bar.appendChild(cerrar);
+    pop.appendChild(bar);
+  }
+
+  // F-049: el popup de una celda (`td` con `data-regs`), o null si la
+  // celda no tiene líneas de horas (R4). `cerrar` lo quita de la pagina.
+  // La obra sale de `data-obra-key` de la tabla y la persona de `data-wk`
+  // de la fila (R31).
+  function abrirPopupCelda(td, cerrar) {
+    var regs;
+    try { regs = JSON.parse(td.dataset.regs || "[]"); } catch (e) { return null; }
+    if (!regs || !regs.length) return null;
+    var tr = td.closest("tr"), tabla = td.closest("table");
+    var celda = {obraKey: (tabla && tabla.dataset.obraKey) || "",
+                 wk: (tr && tr.dataset.wk) || "", fecha: td.dataset.fecha || ""};
+    var campos = camposCelda(regs, celda.wk !== "sin-trabajador");
+    var todasCongeladas = campos.every(function (c) { return c.congelada; });
+
+    var pop = document.createElement("div");
+    pop.className = "mx-edit-pop";
+    var title = document.createElement("div");
+    title.className = "mxe-title";
+    title.textContent = (td.dataset.trabajador || "") + " · " + celda.fecha;
+    pop.appendChild(title);
+
+    var inputs = campos.map(function (c) {
+      var wrap = document.createElement("label");
+      wrap.className = "mxe-field" + (c.congelada ? " mxe-congelada" : "")
+        + (c.nueva ? " mxe-nueva" : "");
+      var span = document.createElement("span");
+      span.textContent = c.congelada ? (c.etiqueta + " 🔒") : c.etiqueta;
+      if (c.congelada) span.title = "Línea congelada: aprobada o ya registrada en Sigrid";
+      else if (c.nueva) span.title = "Se creará una línea nueva";
+      var inp = document.createElement("input");
+      inp.type = "number";
+      inp.step = "0.5";
+      inp.value = c.valor;
+      if (c.congelada) { inp.readOnly = true; inp.disabled = true; }
+      wrap.appendChild(span);
+      wrap.appendChild(inp);
+      pop.appendChild(wrap);
+      return inp;
+    });
+
+    var nota = document.createElement("div");
+    nota.className = "mxe-nota";
+    nota.textContent = "En día laborable, las ordinarias del día se ajustan a la "
+      + "jornada y la diferencia pasa a extra. Las extras que escribas se respetan.";
+    pop.appendChild(nota);
+    if (td.dataset.reparto) {
+      var reparto = document.createElement("div");
+      reparto.className = "mxe-aviso";
+      reparto.textContent = "Este día tiene un reparto entre obras pendiente de "
+        + "decidir: al guardar se vuelve a calcular.";
+      pop.appendChild(reparto);
+    }
+    var otras = document.createElement("div");
+    otras.className = "mxe-aviso";
+    otras.hidden = true;
+    pop.appendChild(otras);
+    fetch("/api/matriz/celda/otras?obra_key=" + encodeURIComponent(celda.obraKey)
+          + "&worker_key=" + encodeURIComponent(celda.wk)
+          + "&fecha=" + encodeURIComponent(celda.fecha),
+          {headers: {Accept: "application/json"}})
+      .then(MotivoHttp.lanzarSiFalla)
+      .then(function (d) {
+        var texto = textoOtras(d && d.afectadas);
+        if (texto) { otras.textContent = texto; otras.hidden = false; }
+      }, function () { /* R36: si falla, sin aviso */ });
+
+    var bar = document.createElement("div");
+    bar.className = "mxe-actions";
+    var ok = document.createElement("button");
+    ok.type = "button"; ok.className = "btn small"; ok.textContent = "Guardar";
+    var cancel = document.createElement("button");
+    cancel.type = "button"; cancel.className = "btn secondary small";
+    cancel.textContent = todasCongeladas ? "Cerrar" : "Cancelar";
+    if (!todasCongeladas) bar.appendChild(ok);
+    bar.appendChild(cancel);
+    pop.appendChild(bar);
+    cancel.addEventListener("click", cerrar);
+    function recargar() { window.location.reload(); }
+
+    ok.addEventListener("click", function () {
+      var cuerpo = cuerpoCelda(campos, inputs.map(function (i) { return String(i.value); }), celda);
+      if (!cuerpo) { cerrar(); return; }
+      ok.disabled = true;
+      fetch("/api/matriz/celda", {
+        method: "POST",
+        headers: {"Content-Type": "application/json", Accept: "application/json"},
+        body: JSON.stringify(cuerpo),
+      }).then(MotivoHttp.lanzarSiFalla).then(function (data) {
+        if (data.afectadas && data.afectadas.length) {
+          mostrarAfectadas(pop, data, recargar);
+          return;
+        }
+        if (data.recalculo === "fallo") {
+          window.alert("Horas guardadas, pero no se pudo pedir el recálculo de "
+            + "extras: se hará en la siguiente pasada.");
+        }
+        recargar();
+      }).catch(function (e) {
+        ok.disabled = false;
+        // F-004 R16: el motivo real del servidor.
+        title.textContent = "✗ " + (e.message || "Error guardando.");
+        title.title = e.message || "";
+      });
+    });
+    return pop;
+  }
+
   ready(function () {
     var matrix = document.querySelector("table.matrix");
 
-    // ---- (a) Ocultar trabajadores sin codigo de hora extra ---- //
+    // ---- (a) Ocultar trabajadores sin código de hora extra ---- //
     var toggle = document.getElementById("hide-sin-extra");
     function applySinExtra() {
       if (!matrix) return;
@@ -3101,7 +3773,7 @@ function avisarCambioLineas() {
     if (toggle) toggle.addEventListener("change", applySinExtra);
     applySinExtra(); // por defecto: ocultos
 
-    // ---- (b) Editor de horas de celda (doble clic) ---- //
+    // ---- (b) Editor de la celda (doble clic) ---- //
     if (!matrix) return;
     var pop = null;
 
@@ -3112,119 +3784,13 @@ function avisarCambioLineas() {
       if (pop && !pop.contains(ev.target)) closePop();
     });
 
-    function patchHoras(regId, val) {
-      return fetch("/api/registros/" + regId, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ horas: val }),
-      }).then(MotivoHttp.lanzarSiFalla);
-    }
-
-    function crearExtra(baseOrdId, val) {
-      return fetch("/api/registros/" + baseOrdId + "/extra", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ horas: val }),
-      }).then(MotivoHttp.lanzarSiFalla);
-    }
-
-    function fila(labelTxt, sub, value, congelada) {
-      var wrap = document.createElement("label");
-      wrap.className = "mxe-field" + (congelada ? " mxe-congelada" : "");
-      var span = document.createElement("span");
-      span.textContent = congelada ? (labelTxt + " 🔒") : labelTxt;
-      if (sub) span.title = sub;
-      var inp = document.createElement("input");
-      inp.type = "number";
-      inp.step = "0.5";
-      inp.value = value;
-      if (congelada) { inp.readOnly = true; inp.disabled = true; }
-      wrap.appendChild(span);
-      wrap.appendChild(inp);
-      return { wrap: wrap, inp: inp };
-    }
-
     matrix.addEventListener("dblclick", function (ev) {
       var td = ev.target.closest("td.mx-cell");
       if (!td || !td.dataset || !td.dataset.regs) return;
       ev.preventDefault();
       closePop();
-
-      var regs;
-      try { regs = JSON.parse(td.dataset.regs); } catch (e) { return; }
-      if (!regs || !regs.length) return;
-
-      pop = document.createElement("div");
-      pop.className = "mx-edit-pop";
-      var title = document.createElement("div");
-      title.className = "mxe-title";
-      title.textContent = (td.dataset.trabajador || "") + " \u00b7 "
-        + (td.dataset.fecha || "");
-      pop.appendChild(title);
-
-      // Una fila editable POR LINEA de la celda (con su partida si la
-      // tiene). F-004 R15: las que traen `c` salen solo-lectura.
-      var campos = [];
-      regs.forEach(function (r) {
-        var base = r.t === "n" ? "Ord." : "Extra";
-        var lab = r.p ? (base + " \u00b7 " + r.p) : base;
-        var sub = r.c
-          ? "Linea congelada: aprobada o ya registrada en Sigrid"
-          : (r.p ? ("Partida " + r.p) : null);
-        var f = fila(lab, sub, r.h, !!r.c);
-        campos.push({ f: f, reg: r });
-        pop.appendChild(f.wrap);
-      });
-
-      // Sin linea extra aun: permitir CREARLA (clona contexto del 1er Ord.).
-      // R15: si TODAS las lineas estan congeladas no se ofrece ni crear
-      // la extra ni guardar (el servidor las rechazaria con un 409).
-      var todasCongeladas = regs.every(function (r) { return !!r.c; });
-      var nueva = null;
-      var hayExtra = regs.some(function (r) { return r.t === "e"; });
-      var primerOrd = regs.filter(function (r) {
-        return r.t === "n" && !r.c;
-      })[0];
-      if (!hayExtra && primerOrd && !todasCongeladas) {
-        nueva = fila("Extra", "Se creara una linea extra nueva", 0, false);
-        pop.appendChild(nueva.wrap);
-      }
-
-      var bar = document.createElement("div");
-      bar.className = "mxe-actions";
-      var ok = document.createElement("button");
-      ok.type = "button"; ok.className = "btn small"; ok.textContent = "Guardar";
-      var cancel = document.createElement("button");
-      cancel.type = "button"; cancel.className = "btn secondary small";
-      cancel.textContent = todasCongeladas ? "Cerrar" : "Cancelar";
-      if (!todasCongeladas) bar.appendChild(ok);
-      bar.appendChild(cancel);
-      pop.appendChild(bar);
-
-      cancel.addEventListener("click", closePop);
-      ok.addEventListener("click", function () {
-        var jobs = [];
-        campos.forEach(function (it) {
-          var v = it.f.inp.value;
-          if (it.reg.c) return;   // F-004 R15: congelada, no se envia
-          if (v === "" || parseFloat(v) === it.reg.h) return;
-          jobs.push(patchHoras(it.reg.id, v));
-        });
-        if (nueva && nueva.inp.value !== "" && parseFloat(nueva.inp.value) !== 0) {
-          jobs.push(crearExtra(primerOrd.id, nueva.inp.value));
-        }
-        if (!jobs.length) { closePop(); return; }
-        ok.disabled = true;
-        Promise.all(jobs)
-          .then(function () { window.location.reload(); })
-          .catch(function (e) {
-            ok.disabled = false;
-            // F-004 R16: el motivo real del servidor.
-            title.textContent = "\u2717 " + (e.message || "Error guardando.");
-            title.title = e.message || "";
-          });
-      });
-
+      pop = abrirPopupCelda(td, closePop);
+      if (!pop) return;
       document.body.appendChild(pop);
       var r = td.getBoundingClientRect();
       pop.style.left = Math.max(8, window.scrollX + r.left - 40) + "px";
@@ -3443,6 +4009,22 @@ function avisarCambioLineas() {
       + "</ul></div>";
   }
 
+  /* F-060 (R11): lineas aprobadas antes de una incidencia ya registrada
+     (`racha_desordenada`). No bloquean: se avisa para revisar a mano. */
+  function avisosRachaHtml(avisos) {
+    if (!avisos || !avisos.length) return "";
+    return "<div class='ap-ctx ap-racha-avisos'><p>Hay <strong>"
+      + esc(avisos.length) + "</strong> linea(s) aprobadas antes de una "
+      + "incidencia ya registrada en Sigrid. Se registran, pero no mueven "
+      + "el inicio ni el fin de esa racha: revísala a mano:</p>"
+      + "<ul class='ap-list'>"
+      + avisos.map(function (a) {
+          return "<li>" + esc(a.nombre || "?") + " · " + esc(a.fecha || "")
+            + " — " + esc(a.motivo || "") + "</li>";
+        }).join("")
+      + "</ul></div>";
+  }
+
   /* F-022 (R19): la clave de sv5 no lleva la obra; con varias obras cada
      casilla de pisar lleva delante la de su grupo. */
   function claveConGrupo(grupo, clave) {
@@ -3450,11 +4032,12 @@ function avisarCambioLineas() {
   }
 
   function conflictosHtml(conflictos, grupo) {
+    // F-053 (R19): en Sigrid no se borra; pisar pone a 0 la actual.
     return "<p class='ap-warn'>Ya hay lineas en Sigrid con el <strong>mismo "
       + "codigo de hora</strong> para ese parte, recurso y fecha. Marca las "
-      + "que quieras <strong>pisar</strong> (se borra la linea actual y se "
-      + "escribe la nueva). Las lineas con OTRO codigo de ese dia no se "
-      + "tocan.</p>"
+      + "que quieras <strong>pisar</strong>: la linea actual <strong>se pone "
+      + "a 0 en Sigrid</strong> (no se borra) y se escribe la nueva. Las "
+      + "lineas con OTRO codigo de ese dia no se tocan.</p>"
       + conflictos.map(function (c) {
           var nuevoTxt = num(c.nueva_can) + " h · " + num(c.nueva_tot) + " €";
           var detalle = "";
@@ -3463,14 +4046,14 @@ function avisarCambioLineas() {
               return num(n.can) + " h" + (n.partida_cod ? " " + n.partida_cod : "");
             }).join(" + ") + ")</span>";
           }
-          // Lineas que SE PISAN, con la comparacion a la derecha.
+          // Lineas que SE PISAN (F-053: quedan a 0 h en Sigrid), con la
+          // nueva a la derecha.
           var lineas = (c.lineas || []).map(function (l) {
-            return "<li><span class='ap-old'>linea " + l.ide + " · "
-              + (l.hora_codigo || "?") + " · " + num(l.can) + " h · "
-              + num(l.tot) + " €"
+            return "<li><span class='ap-old'>linea " + esc(l.ide) + " · "
+              + esc(l.hora_codigo || "?") + " · " + esc(num(l.can)) + " h · "
+              + esc(num(l.tot)) + " € → 0 h"
               + (l.nuestra ? " <em>(escrita por esta app)</em>" : "")
-              + "</span> <span class='ap-arrow'>→</span> "
-              + "<span class='ap-new'>actualizacion a " + nuevoTxt + "</span>"
+              + "</span> <span class='ap-new'>nueva: " + nuevoTxt + "</span>"
               + detalle + "</li>";
           }).join("");
           // Lineas de ese dia con OTRO codigo: informativas.
@@ -3502,11 +4085,29 @@ function avisarCambioLineas() {
       html += "<p>Parte(s) creado(s): <strong>" + partes.join(", ")
         + "</strong></p>";
     }
-    if (r.borradas) {
-      html += "<p>" + r.borradas + " linea(s) anteriores borradas (pisadas).</p>";
+    if (r.anuladas) {
+      // F-053 (R20): pisar pone a 0 en Sigrid; no se borra nada.
+      html += "<p>" + esc(r.anuladas)
+        + " linea(s) anteriores puestas a 0 en Sigrid (pisadas).</p>";
     }
     if ((r.omitidas || []).length) {
-      html += "<p>" + r.omitidas.length + " linea(s) no registradas (reglas).</p>";
+      // F-034 (R19): agrupadas por motivo (lo de antes de los primeros dos
+      // puntos, o el motivo entero) en orden de aparicion; el texto
+      // completo sigue en el title del badge «omitido».
+      var claves = [], cuenta = {};
+      r.omitidas.forEach(function (o) {
+        var m = String((o && o.motivo) || ""), i = m.indexOf(":");
+        var k = i >= 0 ? m.slice(0, i) : m;
+        if (!Object.prototype.hasOwnProperty.call(cuenta, k)) {
+          claves.push(k);
+          cuenta[k] = 0;
+        }
+        cuenta[k] += 1;
+      });
+      html += "<p>" + r.omitidas.length + " linea(s) no registradas:</p>"
+        + "<ul class='ap-list'>" + claves.map(function (k) {
+          return "<li>" + esc(k) + " · " + cuenta[k] + "</li>";
+        }).join("") + "</ul>";
     }
     if ((r.ya_registradas || []).length) {
       html += "<p>" + r.ya_registradas.length
@@ -3578,17 +4179,31 @@ function avisarCambioLineas() {
   /* Confirmar: primero lo sincrono (pisar o forzar es una decision humana
      que no viaja por la cola) y luego lo encolado; cada llamada lleva los
      ids de SUS obras y el mismo `ambito`, y el servidor reparte igual. */
-  function confirmar(peticion, plan, claves, forzado, boton, contexto) {
+  function confirmar(peticion, plan, claves, forzado, boton, contexto,
+                     decisiones, franq) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var base = { ambito: peticion.ambito,
                  incluir_borradas: peticion.incluir_borradas };
+    // F-046 (R32): cada decision de reparto va con la llamada que lleva
+    // sus lineas (y una sola vez).
+    var enviadas = {};
+    var enviadasFranq = {};
+    function conDecisiones(cuerpo) {
+      var dec = decisionesPara(decisiones, cuerpo.registro_ids, enviadas);
+      if (dec.length) cuerpo.repartos = dec;
+      // F-056 (R15): igual con las decisiones de franquicia.
+      var fr = franquiciasPara(franq && franq.decisiones, cuerpo.registro_ids,
+                               enviadasFranq);
+      if (fr.length) cuerpo.franquicias = fr;
+      return cuerpo;
+    }
     var respuestas = { sincrono: null, cola: null };
     var paso = Promise.resolve();
     if (plan.sincronos.length) {
       paso = paso.then(function () {
-        var cuerpo = Object.assign({}, base, {
+        var cuerpo = conDecisiones(Object.assign({}, base, {
           registro_ids: idsDe(plan.sincronos),
-          pisar_claves: clavesDe(plan.sincronos, claves) });
+          pisar_claves: clavesDe(plan.sincronos, claves) }));
         if (forzado) cuerpo.forzar_sin_sesame = true;
         return post("/api/aprobar/ejecutar", cuerpo).then(function (r) {
           respuestas.sincrono = r;
@@ -3597,14 +4212,15 @@ function avisarCambioLineas() {
     }
     if (plan.cola.length) {
       paso = paso.then(function () {
-        return post("/api/aprobar/encolar", Object.assign({}, base, {
-          registro_ids: idsDe(plan.cola) })).then(function (r) {
+        return post("/api/aprobar/encolar", conDecisiones(Object.assign({},
+          base, { registro_ids: idsDe(plan.cola) }))).then(function (r) {
             respuestas.cola = r;
           });
       });
     }
     paso.then(function () {
-      mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto);
+      mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto,
+                             franq);
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
@@ -3640,10 +4256,20 @@ function avisarCambioLineas() {
   /* El resultado por obra de las dos llamadas, mas las obras que no se
      enviaron con su motivo. Si alguna obra se encolo, sondea su estado
      (F-024 R29, por obra); si quedan conflictos, ofrece pisarlos. */
-  function mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto) {
-    var html = "", sondeos = [], pendientes = [];
+  function mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto,
+                                  franq) {
+    var html = "", sondeos = [], pendientes = [], decididas = [];
     [respuestas.sincrono, respuestas.cola].forEach(function (r) {
       if (!r) return;
+      html += resultadoRepartosHtml(r.repartos);           // F-046
+      // F-056 (R16): lo que se decidio de la franquicia en esta llamada.
+      (r.franquicias || []).forEach(function (f) {
+        if (f.estado === "decidido") decididas.push(f);
+        else html += "<p class='ap-ctx'>Recurso " + esc(f.recurso_ide)
+          + " · " + esc(f.periodo) + ": ajuste de franquicia "
+          + esc(f.estado) + ".</p>";
+      });
+      if (r.aviso) html += "<p class='ap-ctx'>" + esc(r.aviso) + "</p>";
       if (!r.grupos) {
         html += "<p class='ap-warn'>" + esc(r.error || "error desconocido")
           + "</p>";
@@ -3663,6 +4289,10 @@ function avisarCambioLineas() {
       html += seccionObra(g, "<p class='ap-warn'>Sin registrar: "
         + esc(g.sesame_bloqueo || g.error || "error desconocido") + "</p>");
     });
+    if (decididas.length) {
+      html += "<div class='ap-franquicias-res'><p class='ap-ctx'>Ajuste de "
+        + "franquicia: se aplicara al terminar el registro…</p></div>";
+    }
     pendientes.forEach(function (g) {
       html += "<hr><p><strong>" + esc(obraTexto(g)) + "</strong></p>"
         + conflictosHtml(g.pendientes_confirmacion, g.clave);
@@ -3693,6 +4323,9 @@ function avisarCambioLineas() {
     }
     var caja = modal("Registro en Sigrid", html, acciones);
     if (sondeos.length) sondeo = sondearGrupos(caja, sondeos);
+    // F-056 (R17): aplicar cada ajuste decidido cuando termine el registro.
+    aplicarFranquicias(caja, decididas, function () { return sondeo; },
+                       franq && franq.x);
   }
 
   /* F-024 (R29) por obra: tras encolar, el modal NO recarga la pagina (la
@@ -4178,6 +4811,340 @@ function avisarCambioLineas() {
     return html;
   }
 
+  /* F-046 (R30, R31): el aviso de reparto del dia en el modal de aprobar.
+     Por dia, sus lineas ya en Sigrid o de parte aprobado (antes ->
+     despues) y la decision: «Aplicar» (sv5 edita Sigrid y las lineas del
+     dia se registran con el reparto nuevo) o «Mantener lo registrado». Un
+     reparto no editable solo ofrece «Mantener», con su motivo. */
+  var TEXTO_DECISION_REPARTO = {
+    aplicar: "Aplicar: editar Sigrid y registrar con el reparto nuevo",
+    mantener: "Mantener lo registrado",
+  };
+
+  function repartosHtml(repartos) {
+    if (!repartos || !repartos.length) return "";
+    var html = "<div class='ap-repartos'><p class='ap-warn'><strong>Reparto "
+      + "de la jornada pendiente.</strong> Estas lineas cambian el reparto "
+      + "de dias que ya tienen lineas en Sigrid o en partes aprobados. "
+      + "Decide cada dia antes de registrar:</p>";
+    repartos.forEach(function (r) {
+      html += "<section class='ap-reparto' data-reparto-id=\"" + esc(r.id)
+        + "\"><h4>" + esc(r.fecha) + " · recurso " + esc(r.recurso_ide)
+        + "</h4><table class='ap-reparto-lineas'><thead><tr><th>Obra</th>"
+        + "<th>Parte Sigrid</th><th>Tipo</th><th class='num'>Antes</th>"
+        + "<th class='num'>Despues</th><th></th></tr></thead><tbody>"
+        + (r.lineas || []).map(function (l) {
+          return "<tr" + (l.editable ? "" : " class='ap-no-editable'")
+            + "><td>" + esc(l.obra_codigo) + "</td><td>"
+            + esc(l.parte_cod || (l.en_sigrid ? "?" : "sin registrar"))
+            + "</td><td>" + esc(l.tipo) + (l.nueva ? " (nueva)" : "")
+            + "</td><td class='num'>" + esc(l.nueva ? "—" : l.antes)
+            + "</td><td class='num'>" + esc(l.despues) + "</td><td>"
+            + esc(l.editable ? "" : (l.motivo || "")) + "</td></tr>";
+        }).join("") + "</tbody></table>";
+      if (r.motivo) html += "<p class='ap-warn'>" + esc(r.motivo) + "</p>";
+      if (r.error) {
+        html += "<p class='ap-ctx'>Ultimo intento: " + esc(r.error) + "</p>";
+      }
+      (r.opciones || []).forEach(function (op) {
+        html += "<label class='ap-decision'><input type='radio' "
+          + "name=\"reparto-" + esc(r.id) + "\" value=\"" + esc(op) + "\""
+          + (r.opciones.length === 1 ? " checked" : "") + "> "
+          + esc(TEXTO_DECISION_REPARTO[op] || op) + "</label>";
+      });
+      html += "</section>";
+    });
+    return html + "</div>";
+  }
+
+  /* F-046 (R32): las decisiones marcadas en el modal, o null si falta la
+     de algun dia que admite decision. */
+  function decisionesReparto(caja, repartos) {
+    var out = [];
+    for (var i = 0; i < (repartos || []).length; i++) {
+      var r = repartos[i];
+      if (!(r.opciones || []).length) continue;
+      var marcada = caja.querySelector(
+        "input[name=\"reparto-" + r.id + "\"]:checked");
+      if (!marcada) return null;
+      out.push({ id: r.id, decision: marcada.value,
+                 registro_ids: r.registro_ids || [] });
+    }
+    return out;
+  }
+
+  /* F-046 (R32): las decisiones que viajan en una llamada: las de los
+     repartos con alguna linea entre `ids`, y cada una UNA sola vez (el
+     servidor rechaza la de un reparto ajeno a la seleccion). */
+  function decisionesPara(decisiones, ids, enviadas) {
+    var de = {};
+    (ids || []).forEach(function (i) { de[i] = true; });
+    return (decisiones || []).filter(function (d) {
+      if (enviadas[d.id]) return false;
+      var mia = (d.registro_ids || []).some(function (i) { return de[i]; });
+      if (mia) enviadas[d.id] = true;
+      return mia;
+    }).map(function (d) { return { id: d.id, decision: d.decision }; });
+  }
+
+  /* F-046 (R33-R35): lo que paso con cada reparto decidido. */
+  var TEXTO_ESTADO_REPARTO = {
+    aplicado: "aplicado en Sigrid",
+    pendiente: "NO aplicado: sigue pendiente",
+    aplicando: "sin confirmar (Sigrid no respondio): vuelve a aprobar para "
+      + "reintentarlo",
+    rechazado: "se mantiene lo registrado; el dia se recalculara antes de "
+      + "registrar sus lineas",
+  };
+
+  function resultadoRepartosHtml(repartos) {
+    if (!repartos || !repartos.length) return "";
+    return "<div class='ap-repartos-res'>" + repartos.map(function (r) {
+      return "<p class='" + (r.ok ? "ap-ctx" : "ap-warn") + "'>Reparto "
+        + esc(r.id) + ": " + esc(TEXTO_ESTADO_REPARTO[r.estado] || r.estado)
+        + (r.error ? " — " + esc(r.error) : "") + "</p>";
+    }).join("") + "</div>";
+  }
+
+  /* F-056 (R9-R13, R44): el aviso de franquicia de extras en el modal de
+     aprobar. Por trabajador y periodo: X, E (en Sigrid) y las extras de
+     esta aprobacion, A estimado («antes → despues» si ya hay linea), dia,
+     obra y parte, y la decision. Lo que no se puede ajustar sale con su
+     motivo y sin decision; el aviso de R44 no bloquea. */
+  var TEXTO_DECISION_FRANQUICIA = {
+    ajustar: "Ajustar: crear la linea de ajuste en Sigrid al terminar el "
+      + "registro",
+    no_ajustar: "No ajustar (se puede cambiar despues)",
+    recalcular: "Recalcular la linea de ajuste con los datos de ahora",
+    mantener: "Mantener la linea de ajuste como esta",
+  };
+
+  function numFranquicia(v) {
+    return (v === null || v === undefined || v === "") ? "—" : String(v);
+  }
+
+  function franquiciasHtml(bloque) {
+    if (!bloque || (!bloque.aviso && !(bloque.items || []).length)) return "";
+    var html = "<div class='ap-franquicias'><p><strong>Franquicia de horas "
+      + "extra.</strong> Las extras del periodo por encima de la franquicia "
+      + "se descuentan con una linea de ajuste en Sigrid.</p>";
+    if (bloque.aviso) {
+      html += "<p class='ap-warn'>" + esc(bloque.aviso) + "</p>";
+    }
+    (bloque.items || []).forEach(function (it) {
+      var obra = it.obra ? (it.obra.codigo || it.obra.ide) : null;
+      var tieneActual = it.actual !== null && it.actual !== undefined;
+      html += "<section class='ap-franquicia' data-clave=\"" + esc(it.clave)
+        + "\"><h4>" + esc(it.nombre || ("recurso " + it.recurso_ide))
+        + " · periodo " + esc(it.periodo) + " (" + esc(it.inicio) + " a "
+        + esc(it.fin) + ")</h4><table class='ap-franquicia-datos'><tbody>"
+        + "<tr><th>Franquicia (X)</th><td>" + esc(numFranquicia(it.franquicia))
+        + (it.franquicia_estado && it.franquicia_estado !== "activa"
+           ? " (" + esc(it.franquicia_estado) + ")" : "") + "</td></tr>"
+        + "<tr><th>Extras en Sigrid (E)</th><td>" + esc(numFranquicia(it.extras))
+        + (it.extras_pendientes
+           ? " + " + esc(it.extras_pendientes) + " de esta aprobacion" : "")
+        + "</td></tr><tr><th>Ajuste (A)</th><td>"
+        + (tieneActual ? esc(numFranquicia(it.actual)) + " → " : "")
+        + esc(numFranquicia(it.objetivo)) + "</td></tr>"
+        + "<tr><th>Dia</th><td>" + esc(numFranquicia(it.dia)) + "</td></tr>"
+        + "<tr><th>Obra</th><td>" + esc(numFranquicia(obra))
+        + (it.partida_cod ? " · " + esc(it.partida_cod) : "") + "</td></tr>"
+        + "<tr><th>Parte Sigrid</th><td>" + esc(numFranquicia(it.parte_cod))
+        + "</td></tr></tbody></table>";
+      if (it.motivo) html += "<p class='ap-warn'>" + esc(it.motivo) + "</p>";
+      (it.decisiones || []).forEach(function (op) {
+        html += "<label class='ap-decision'><input type='radio' "
+          + "name=\"franq-" + esc(it.clave) + "\" value=\"" + esc(op) + "\"> "
+          + esc(TEXTO_DECISION_FRANQUICIA[op] || op) + "</label>";
+      });
+      html += "</section>";
+    });
+    return html + "</div>";
+  }
+
+  /* F-056 (R13, R15): las decisiones marcadas, o null si falta la de
+     algun trabajador que la pide. */
+  function decisionesFranquicia(caja, bloque) {
+    var out = [];
+    var items = (bloque && bloque.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (!it.pide_decision) continue;
+      var marcada = caja.querySelector(
+        "input[name=\"franq-" + it.clave + "\"]:checked");
+      if (!marcada) return null;
+      out.push({ recurso_ide: it.recurso_ide, periodo: it.periodo,
+                 decision: marcada.value,
+                 registro_ids: it.registro_ids || [] });
+    }
+    return out;
+  }
+
+  /* F-056 (R13): «Registrar» no se habilita hasta que cada trabajador del
+     bloque que pide decision la tenga. */
+  function vigilarDecisionesFranquicia(caja, bloque) {
+    var pide = ((bloque && bloque.items) || []).some(function (it) {
+      return it.pide_decision;
+    });
+    var boton = caja.querySelector(".ap-actions .btn.ok");
+    if (!pide || !boton) return;
+    function revisar() {
+      boton.disabled = decisionesFranquicia(caja, bloque) === null;
+    }
+    caja.addEventListener("change", revisar);
+    revisar();
+  }
+
+  /* F-056 (R15): las decisiones que viajan en una llamada: las de los
+     trabajadores con alguna linea entre `ids`, y cada una UNA sola vez
+     (el servidor rechaza la de una clave ajena a la seleccion). */
+  function franquiciasPara(decisiones, ids, enviadas) {
+    var de = {};
+    (ids || []).forEach(function (i) { de[i] = true; });
+    return (decisiones || []).filter(function (d) {
+      var clave = d.recurso_ide + "|" + d.periodo;
+      if (enviadas[clave]) return false;
+      var mia = (d.registro_ids || []).some(function (i) { return de[i]; });
+      if (mia) enviadas[clave] = true;
+      return mia;
+    }).map(function (d) {
+      return { recurso_ide: d.recurso_ide, periodo: d.periodo,
+               decision: d.decision };
+    });
+  }
+
+  /* F-056 (DA22): la X de cada trabajador en el aviso, para avisar si la
+     que uso sv5 al aplicar es otra. */
+  function xAvisoDe(bloque) {
+    var x = {};
+    ((bloque && bloque.items) || []).forEach(function (it) {
+      x[it.clave] = it.franquicia;
+    });
+    return x;
+  }
+
+  /* F-056 (R17, DA22): lo que paso al aplicar un ajuste. */
+  function resultadoFranquiciaHtml(r, xAviso) {
+    var a = (r && r.ajuste) || {};
+    var quien = a.recurso_ide
+      ? "Recurso " + a.recurso_ide + " · " + a.periodo + ": " : "";
+    if (!r || !r.ok) {
+      return "<p class='ap-warn'>" + esc(quien) + "ajuste de franquicia NO "
+        + "aplicado: " + esc((r && r.error) || "error desconocido")
+        + ". Queda pendiente: se puede aplicar desde la vista del "
+        + "trabajador.</p>";
+    }
+    var html = "<p class='ap-ctx'>" + esc(quien) + "ajuste de franquicia "
+      + esc(a.estado) + " (A = " + esc(numFranquicia(a.ajuste))
+      + (a.parte_cod ? ", parte " + esc(a.parte_cod) : "") + ")";
+    if (xAviso !== null && xAviso !== undefined && a.franquicia !== null
+        && a.franquicia !== undefined
+        && Number(a.franquicia) !== Number(xAviso)) {
+      html += ". Ojo: la franquicia en Sigrid era " + esc(a.franquicia)
+        + " al aplicar (el aviso decia " + esc(xAviso) + ")";
+    }
+    return html + ".</p>";
+  }
+
+  /* F-056 (R17, design §3): al terminar el registro (sincrono: ya; con
+     cola: cuando el sondeo deja de ver lineas `encolado`), aplica cada
+     ajuste decidido y pinta el resultado. Si el modal se cierra antes, el
+     ajuste queda `decidido` y la vista del trabajador ofrece «Aplicar». */
+  function aplicarFranquicias(caja, decididas, sondeo, xAviso) {
+    if (!decididas.length) return;
+    var zona = caja.querySelector(".ap-franquicias-res");
+    var inicio = Date.now();
+    function pintar(html) { if (zona) zona.innerHTML += html; }
+    function cuandoTermine() {
+      if (!caja.isConnected) return;
+      if (!sondeo().terminado && Date.now() - inicio < PLAZO_MODAL_MS) {
+        setTimeout(cuandoTermine, SONDEO_MODAL_MS);
+        return;
+      }
+      decididas.reduce(function (paso, f) {
+        return paso.then(function () {
+          return post("/api/franquicia/" + encodeURIComponent(f.id)
+                      + "/aplicar", {}).then(function (r) {
+            pintar(resultadoFranquiciaHtml(
+              r, (xAviso || {})[f.recurso_ide + "|" + f.periodo]));
+          }).catch(function (e) {
+            pintar(resultadoFranquiciaHtml({ ok: false, error: String(e) },
+                                           null));
+          });
+        });
+      }, Promise.resolve());
+    }
+    cuandoTermine();
+  }
+
+  /* F-056 (R45, R46; DA28): «Ajustar» o «Recalcular» desde la vista del
+     trabajador: `decidir` (las comprobaciones del modal) y, si sale bien,
+     `aplicar` el `id` devuelto. Un 4xx ensena su error. Sin recarga nueva
+     (F-043): el «Actualizar» de siempre. */
+  function decidirDesdeVista(boton) {
+    var decision = boton.dataset.franquiciaDecidir;
+    var cuerpo = { recurso_ide: parseInt(boton.dataset.recurso, 10),
+                   periodo: boton.dataset.periodo, decision: decision };
+    var texto = decision === "recalcular"
+      ? "Se recalculara la linea de ajuste con la franquicia y las extras de "
+        + "ahora y se escribira en Sigrid."
+      : "Se creara la linea de ajuste de franquicia del periodo y se "
+        + "escribira en Sigrid.";
+    function fallo(error) {
+      modal("Ajuste de franquicia", "<p class='ap-warn'>" + esc(error)
+            + "</p><p>" + botonActualizar() + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    }
+    modal(decision === "recalcular" ? "Recalcular el ajuste de franquicia"
+                                    : "Ajustar la franquicia",
+          "<p>" + esc(texto) + "</p>", [
+      { texto: decision === "recalcular" ? "Recalcular" : "Ajustar",
+        clase: "ok", onClick: function (cj, b) {
+          b.disabled = true;
+          b.textContent = "Aplicando…";
+          post("/api/franquicia/decidir", cuerpo).then(function (r) {
+            if (!r.ok || !r.ajuste) {
+              fallo(r.error || "error desconocido");
+              return null;
+            }
+            return post("/api/franquicia/" + encodeURIComponent(r.ajuste.id)
+                        + "/aplicar", {}).then(function (ra) {
+              modal("Ajuste de franquicia", resultadoFranquiciaHtml(ra, null)
+                    + "<p>" + botonActualizar() + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            });
+          }).catch(function (e) { fallo(String(e)); });
+        } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
+  /* F-056 (R20): «Aplicar» un ajuste decidido o con error desde la vista
+     del trabajador. */
+  function aplicarDesdeVista(boton) {
+    var id = boton.dataset.franquiciaAplicar;
+    modal("Aplicar el ajuste de franquicia", "<p>Se escribira la linea de "
+          + "ajuste en Sigrid con la franquicia y las extras de ahora.</p>", [
+      { texto: "Aplicar", clase: "ok", onClick: function (cj, b) {
+          b.disabled = true;
+          b.textContent = "Aplicando…";
+          post("/api/franquicia/" + encodeURIComponent(id) + "/aplicar", {})
+            .then(function (r) {
+              // F-043 (R19, R40): sin recarga nueva; el «Actualizar» de
+              // siempre recarga la vista cuando la persona quiera.
+              modal("Ajuste de franquicia", resultadoFranquiciaHtml(r, null)
+                    + "<p>" + botonActualizar() + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            }).catch(function (e) {
+              modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            });
+        } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
   function aprobar(peticion, contexto) {
     modal("Comprobando en Sigrid…", "<p>Analizando el parte, el mes y las "
           + "lineas existentes…</p>", []);
@@ -4207,9 +5174,16 @@ function avisarCambioLineas() {
       var avisosIncid = grupos.reduce(function (todos, g) {
         return todos.concat(g.avisos_incidencia || []);
       }, []);
+      // F-060 (R11): los de racha desordenada, en su propio bloque.
+      var avisosRacha = grupos.reduce(function (todos, g) {
+        return todos.concat(g.avisos_racha || []);
+      }, []);
       var html = cabeceraHtml(pf, contexto)
+        + repartosHtml(pf.repartos)                          // F-046 (R31)
+        + franquiciasHtml(pf.franquicias)                    // F-056 (R13)
         + incompatiblesHtml(excl.incompatible)
         + avisosIncidenciaHtml(avisosIncid)
+        + avisosRachaHtml(avisosRacha)                       // F-060 (R11)
         + grupos.map(function (g) { return grupoHtml(g, plegar); }).join("")
         + excluidasDetalleHtml(pf.excluidas_detalle,
                                contexto ? contexto.ocultas : 0);
@@ -4235,6 +5209,11 @@ function avisarCambioLineas() {
         titulo = "Bloqueado: Sesame no disponible";
       } else if (conflictos.length) {
         titulo = "Confirmar: hay lineas que se pisarian";
+      } else if ((pf.repartos || []).length) {
+        titulo = "Confirmar: hay un reparto de jornada pendiente";
+      } else if (((pf.franquicias || {}).items || []).some(function (it) {
+        return it.pide_decision; })) {
+        titulo = "Confirmar: hay un ajuste de franquicia de extras";
       }
       var cajaPf = modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
@@ -4246,6 +5225,20 @@ function avisarCambioLineas() {
                 });
               var casilla = cj.querySelector("#ap-forzar-sesame");
               var forzado = !!(casilla && casilla.checked);
+              // F-046 (R32): sin decision, las lineas del dia no viajan.
+              var decisiones = decisionesReparto(cj, pf.repartos);
+              if (decisiones === null) {
+                window.alert("Elige «Aplicar» o «Mantener lo registrado» en "
+                  + "cada dia con reparto pendiente.");
+                return;
+              }
+              // F-056 (R13): sin decision de franquicia no se registra.
+              var decFranq = decisionesFranquicia(cj, pf.franquicias);
+              if (decFranq === null) {
+                window.alert("Elige una opcion en cada ajuste de franquicia "
+                  + "de extras.");
+                return;
+              }
               var plan = planEnvio(grupos, claves, forzado);
               if (!plan.sincronos.length && !plan.cola.length) {
                 // El servidor lo rechazaria igual (F-003 R24); avisar aqui
@@ -4254,10 +5247,13 @@ function avisarCambioLineas() {
                   + "calendario de Sesame, o espera a que vuelva.");
                 return;
               }
-              confirmar(peticion, plan, claves, forzado, b, contexto);
+              confirmar(peticion, plan, claves, forzado, b, contexto,
+                        decisiones, { decisiones: decFranq,
+                                      x: xAvisoDe(pf.franquicias) });
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);
+      vigilarDecisionesFranquicia(cajaPf, pf.franquicias);   // F-056 (R13)
       var incluir = cajaPf.querySelector("#ap-incluir-borradas");
       if (incluir) {
         incluir.addEventListener("change", function () {
@@ -4298,6 +5294,18 @@ function avisarCambioLineas() {
 
   ready(function () {
     document.addEventListener("click", function (ev) {
+      var decidirF = ev.target.closest("[data-franquicia-decidir]");
+      if (decidirF) {                                      // F-056 (R45)
+        ev.preventDefault();
+        decidirDesdeVista(decidirF);
+        return;
+      }
+      var aplicarF = ev.target.closest("[data-franquicia-aplicar]");
+      if (aplicarF) {                                      // F-056 (R20)
+        ev.preventDefault();
+        aplicarDesdeVista(aplicarF);
+        return;
+      }
       var retirar = ev.target.closest(".retirar-dedicacion");
       if (retirar) {
         ev.preventDefault();

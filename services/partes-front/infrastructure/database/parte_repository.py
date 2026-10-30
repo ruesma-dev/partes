@@ -27,15 +27,22 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 from sqlalchemy import func, or_, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
+    REPARTO_APLICADO,
+    REPARTO_APLICANDO,
+    REPARTO_PENDIENTE,
+    REPARTO_RECHAZADO,
     Base,
     DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
+    FranquiciaAjusteOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
+    RepartoPendienteOrm,
     UndoLogOrm,
     ddl_complementario,
 )
@@ -57,6 +64,32 @@ from application.services.congelacion import (
     motivo_congelacion_linea,
     vive_fuera,
 )
+from application.services.parte_vacio import (
+    DuplicadoActivoError,
+    empleados_leidos,
+    es_retirado,
+    marca_retirado,
+    motivo_exclusion_limpieza,
+)
+from application.services import franquicia as fq
+from application.services.reparto_aviso import (
+    DECISION_APLICAR,
+    DECISION_MANTENER,
+    ESTADOS_BLOQUEAN,
+    RepartoCambiadoError,
+    RepartoPendienteError,
+    excluidas_por_reparto,
+)
+from application.services.edicion_celda import (
+    EXTRA,
+    MOTIVO_CELDA_CAMBIADA,
+    ORDINARIA,
+    Cambio,
+    CeldaInvalida,
+    LineaCelda,
+    planificar_celda,
+    plantilla,
+)
 from application.services.seguimiento_recalculo import (
     ESTADO_NO_EXISTE,
     ESTADO_PENDIENTE,
@@ -70,6 +103,22 @@ from application.services.incidencias_horas import (
     LineaDia,
     TablaIncidencias,
     detectar,
+)
+from application.services.racha_incidencia import (
+    FIN,
+    INICIO,
+    LineaHist,
+    LineaRol,
+    aviso_desordenada,
+    clave_incidencia,
+    colapsar,
+    decidir,
+    hasta_delante,
+    inicios_con_ciz,
+    motivo_desordenada,
+    motivo_fin_movido,
+    racha_delante,
+    ventana,
 )
 from application.services.calendar_builder import (
     build_period_options,
@@ -91,6 +140,9 @@ logger = logging.getLogger(__name__)
 #   dedicacion           -> F-019: de un mensual, publicada en la bandeja
 #                           de dedicacion (veredicto final, congela)
 ESTADO_ENCOLADO = "encolado"
+#: F-046 (R32): clave de `excluidas` de las lineas de un dia con reparto
+#: pendiente de decidir (solo existe si es > 0, como `incompatible`).
+EXCLUIDA_REPARTO = "reparto_pendiente"
 ESTADO_CONFLICTO = "conflicto"
 ESTADO_ERROR = "error"
 
@@ -133,6 +185,11 @@ def _datos_bandeja(reg: "ParteRegistroOrm", *, recurso_ide: int | None,
 
 #: Ids por consulta `IN` en las lecturas por lote de F-024 (R17, R28).
 LOTE_IDS_CONSULTA = 1000
+
+#: F-049 (R33, DA11): guardar una celda de la matriz cuyo día (recurso,
+#: fecha) tiene un reparto de F-046 en `aplicando`.
+MOTIVO_REPARTO_APLICANDO = ("Este día tiene un reajuste en Sigrid en curso: "
+                            "espera a que termine.")
 
 #: F-019 (R17): por que una linea en dedicacion no viaja a sv5.
 MOTIVO_EXCLUIDA_DEDICACION = (
@@ -203,6 +260,9 @@ class WorkerRow:
     horas_normales: float
     horas_extra: float
     num_incidencias: int
+    #: F-050 (R23): empresas de la persona (regla de F-033) y su texto.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -267,6 +327,10 @@ class RegistroView:
     # o None; el motivo va en el `title` de la insignia.
     incompat_nivel: str | None = None
     incompat_motivo: str | None = None
+    # --- Traza de la ingesta (F-048 R22) --- #
+    # Horas de la linea que la IA leyo como extra y sv3 sumo a la
+    # ordinaria; solo se ensenan, el portal nunca las cambia (R23).
+    horas_extra_leidas: Optional[float] = None
 
 
 @dataclass
@@ -281,6 +345,9 @@ class WorkerDetail:
     horas_extra: float
     num_incidencias: int
     registros: list[RegistroView] = field(default_factory=list)
+    #: F-050 (R24): empresas de la persona (regla de F-033) y su texto.
+    empresas: list[int] = field(default_factory=list)
+    empresa_texto: str = "—"
 
 
 @dataclass
@@ -299,6 +366,8 @@ class ParteRow:
     review_required: Optional[bool]
     approved: bool
     es_futuro: bool = False
+    #: F-061 (R13): parte activo sin ninguna linea viva («Sin lineas»).
+    sin_lineas: bool = False
 
 
 @dataclass
@@ -496,19 +565,95 @@ def _sin_casar_en_cola():
     )
 
 
+def _error_sin_dia(periodo: str) -> Exception:
+    """F-056 (R6, R7): no se puede ajustar sin dia de ajuste ni obra."""
+    return fq.AjusteCambiadoError(
+        f"no se puede ajustar la franquicia de {periodo}: sin dia de ajuste "
+        "ni obra (calendario no disponible o sin lineas de trabajo)")
+
+
 def _ahora_utc() -> datetime:
     """Reloj del seguimiento del recalculo (F-043); los tests lo parchean."""
     return datetime.now(timezone.utc)
 
 
-def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
-    """Clave estable y URL-safe para agrupar registros por trabajador."""
-    if reg.empleado_ide is not None:
-        return f"emp-{reg.empleado_ide}"
-    nombre = _norm(reg.trabajador_nombre_leido)
+def _clave_trabajador(*, casada: bool, empleado_ide: int | None,
+                      recurso: int | None, nombre_leido: str | None) -> str:
+    """F-050 (R1-R2): clave estable y URL-safe de la persona de una linea.
+
+    Orden: casada y con recurso, `rec-{recurso}` (con o sin ficha: el
+    recurso persona es de UNA empresa y comun a toda linea casada, asi que
+    una fila es (obra, empresa, persona)); con ficha y sin recurso,
+    `emp-{ficha}`; si no, `nom-` + leido normalizado; si no,
+    `sin-trabajador`. Una linea sin casar nunca es `rec-` (R2) y las suyas
+    son byte a byte las de antes de F-050 (R3)."""
+    if casada and recurso is not None:
+        return f"rec-{recurso}"
+    if empleado_ide is not None:
+        return f"emp-{empleado_ide}"
+    nombre = _norm(nombre_leido)
     if nombre:
         return "nom-" + nombre.replace(" ", "_")
     return "sin-trabajador"
+
+
+def _recurso_de(reg: ParteRegistroOrm) -> int | None:
+    """Recurso de la linea: `recurso_ide` y, si es NULL, `empleado_reside`."""
+    if reg.recurso_ide is not None:
+        return reg.recurso_ide
+    return reg.empleado_reside
+
+
+def worker_key_for_registro(reg: ParteRegistroOrm) -> str:
+    """Clave de trabajador de una linea (F-050): la UNICA agrupacion por
+    trabajador del portal (vistas, acciones por clave y URL)."""
+    return _clave_trabajador(
+        casada=esta_casado(reg), empleado_ide=reg.empleado_ide,
+        recurso=_recurso_de(reg), nombre_leido=reg.trabajador_nombre_leido)
+
+
+def _empresa_por_recurso(regs: list[ParteRegistroOrm]) -> dict[int, set[int]]:
+    """F-033 (R4): empresa de cada recurso, deducida de los partes con
+    empresa donde aparece (cualquier obra). Sin consulta nueva."""
+    empresa_por_recurso: dict[int, set[int]] = {}
+    for reg in regs:
+        if reg.recurso_ide is not None and reg.document.empresa is not None:
+            empresa_por_recurso.setdefault(
+                reg.recurso_ide, set()).add(reg.document.empresa)
+    return empresa_por_recurso
+
+
+def _empresas_de_lineas(
+    regs: list[ParteRegistroOrm], empresa_por_recurso: dict[int, set[int]],
+) -> list[int]:
+    """F-050 (R23-R25, DA11): empresas de las lineas de una persona con la
+    regla de «Por obra»: las de sus partes o, si ninguno la tiene, las de
+    su recurso deducidas de otros partes."""
+    return empresas_de_fila(
+        {r.document.empresa for r in regs},
+        {_recurso_de(r) for r in regs}, empresa_por_recurso)
+
+
+def fila_para_alta_manual(
+    regs_doc: list[ParteRegistroOrm], clave: str, nombre: str | None,
+) -> tuple[int | None, str | None]:
+    """F-050 (R16-R17): `(empleado_line_no, trabajador_nombre_leido)` de una
+    linea dada de alta a mano en un parte con las lineas `regs_doc`
+    (papelera incluida).
+
+    Si la persona (`clave`) ya tiene lineas activas en el parte, hereda la
+    fila y el leido de la de menor `line_index`: asi cae en su fila del
+    papel. Si no, fila nueva al final (maximo del parte + 1, o 1) con el
+    nombre que manda el alta."""
+    suyas = [r for r in regs_doc
+             if r.deleted_at_utc is None
+             and worker_key_for_registro(r) == clave]
+    if suyas:
+        ref = min(suyas, key=lambda r: r.line_index)
+        return ref.empleado_line_no, ref.trabajador_nombre_leido
+    filas = [r.empleado_line_no for r in regs_doc
+             if r.empleado_line_no is not None]
+    return (max(filas) + 1 if filas else 1), nombre
 
 
 def persona_de(reg: ParteRegistroOrm) -> str:
@@ -563,7 +708,8 @@ def _reg_snapshot(reg: ParteRegistroOrm) -> dict:
 
 
 def _apply_reg_snapshot(reg: ParteRegistroOrm, snap: dict) -> None:
-    for f in _REG_UNDO_FIELDS:
+    # F-049 (R25, R28): las marcas solo vienen en las entradas `celda_edit`.
+    for f in _REG_UNDO_FIELDS + _REG_UNDO_MARCAS:
         if f in snap:
             setattr(reg, f, snap[f])
 
@@ -756,7 +902,60 @@ def _reg_de_celda(reg: ParteRegistroOrm, tipo: str) -> dict:
     }
     if _motivo_congelado_reg(reg) is not None:
         fila["c"] = 1
+    if reg.extra_auto:
+        # F-049 (R10): extra calculada por sv3 por exceso de jornada; el
+        # popup la rotula «Extra (jornada)».
+        fila["a"] = 1
     return fila
+
+
+#: F-049: lo que una entrada `celda_edit` de deshacer guarda además de
+#: `_REG_UNDO_FIELDS` (R25). Se restaura solo si viene en el snapshot, así
+#: que deshacer cualquier otra acción no cambia (R28).
+_REG_UNDO_MARCAS = ("horas_orig", "extra_auto")
+
+#: F-049 (R21): campos del código de hora de una línea nueva de la celda.
+CAMPOS_HORA = ("hora_ide", "hora_codigo", "hora_descripcion", "hora_ext",
+               "hora_precio_coste", "hora_precio_nomina", "hora_match_method")
+
+#: F-049 (R20): lo que una línea nueva de la celda clona de la plantilla.
+_CAMPOS_CLON_CELDA = (
+    "document_id", "fecha", "fecha_int", "categoria",
+    "empleado_ide", "empleado_codigo", "empleado_nombre", "empleado_dni",
+    "empleado_reside", "empleado_match_score", "empleado_match_method",
+    "obra_ide", "obra_codigo", "obra_nombre",
+    "partida", "partida_ide", "partida_cod", "partida_res",
+    "partida_capitulo", "partida_match_method", "partida_match_score",
+    "recurso_ide", "recurso_cif", "hora_candef", "recurso_precio_hora",
+    "hmo_ide", "parte_estado",
+)
+
+
+def _fecha_int_iso(fecha_iso: str) -> int:
+    """`YYYY-MM-DD` -> `YYYYMMDD` (la ruta ya validó que es una fecha)."""
+    return int(date.fromisoformat(fecha_iso).strftime("%Y%m%d"))
+
+
+def _linea_celda(reg: ParteRegistroOrm) -> LineaCelda:
+    """F-049: lo que el plan de la celda necesita de una línea."""
+    return LineaCelda(
+        id=reg.id, tipo=EXTRA if _is_extra(reg) else ORDINARIA,
+        horas=reg.horas or 0.0,
+        congelada=_motivo_congelado_reg(reg) is not None,
+        extra_auto=bool(reg.extra_auto), con_orig=reg.horas_orig is not None,
+        clave=(reg.document_id, reg.line_index, reg.empleado_line_no,
+               reg.fecha_int),
+        document_id=reg.document_id,
+    )
+
+
+def _snapshot_celda(reg: ParteRegistroOrm) -> dict:
+    """F-049 (R25): el snapshot de siempre más las marcas y el documento."""
+    snap = _reg_snapshot(reg)
+    for f in _REG_UNDO_MARCAS:
+        snap[f] = getattr(reg, f)
+    snap["document_id"] = reg.document_id
+    return snap
 
 
 def _separar_congeladas(
@@ -888,9 +1087,11 @@ class ParteReviewRepository:
                     "horas_normales": 0.0,
                     "horas_extra": 0.0,
                     "num_incidencias": 0,
+                    "lineas": [],
                 }
                 groups[key] = g
             g["docs"].add(reg.document_id)
+            g["lineas"].append(reg)
             g["num_registros"] += 1
             if reg.es_incidencia:
                 g["num_incidencias"] += 1
@@ -900,6 +1101,11 @@ class ParteReviewRepository:
                 g["horas_normales"] += reg.horas or 0.0
             if not g["categoria"] and reg.categoria:
                 g["categoria"] = reg.categoria
+
+        # F-050 (R23, DA11): empresa de cada persona, con lo ya cargado.
+        empresa_por_recurso = _empresa_por_recurso(regs)
+        for g in groups.values():
+            g["empresas"] = _empresas_de_lineas(g["lineas"], empresa_por_recurso)
 
         rows = [
             WorkerRow(
@@ -915,6 +1121,8 @@ class ParteReviewRepository:
                 horas_normales=round(g["horas_normales"], 2),
                 horas_extra=round(g["horas_extra"], 2),
                 num_incidencias=g["num_incidencias"],
+                empresas=g["empresas"],
+                empresa_texto=texto_empresas(g["empresas"]),
             )
             for g in groups.values()
         ]
@@ -927,7 +1135,11 @@ class ParteReviewRepository:
                 or needle in _norm(r.dni)
                 or needle in _norm(r.codigo)
             ]
-        rows.sort(key=lambda r: (0 if r.matched else 1, _norm(r.nombre)))
+        # F-050 (R26): los homonimos, por menor empresa; sin empresa, detras.
+        rows.sort(key=lambda r: (
+            0 if r.matched else 1, _norm(r.nombre),
+            r.empresas[0] if r.empresas else 10**9,
+        ))
         return rows
 
     def get_worker(
@@ -969,6 +1181,14 @@ class ParteReviewRepository:
             num_incidencias=0,
         )
         regs.sort(key=lambda r: (r.fecha_int or 0, r.line_index))
+        # F-050 (R19): la ficha es la de su linea mas reciente que la tenga
+        # (con la clave `rec-` puede haber lineas sin ficha).
+        detail.empleado_ide = next(
+            (r.empleado_ide for r in reversed(regs)
+             if r.empleado_ide is not None), None)
+        # F-050 (R24, DA11): su empresa, con las lineas ya cargadas.
+        detail.empresas = _empresas_de_lineas(regs, _empresa_por_recurso(todas))
+        detail.empresa_texto = texto_empresas(detail.empresas)
         for reg in regs:
             if reg.es_incidencia:
                 detail.num_incidencias += 1
@@ -981,6 +1201,32 @@ class ParteReviewRepository:
         detail.horas_normales = round(detail.horas_normales, 2)
         detail.horas_extra = round(detail.horas_extra, 2)
         return detail
+
+    def clave_actual_de_clave_antigua(self, clave: str) -> str | None:
+        """F-050 (R14, R15): a donde redirigir un enlace `nom-…` o `emp-{E}`
+        de antes de F-050 que ya no tiene lineas.
+
+        Toma las lineas activas que con la regla anterior (ficha ⇒ `emp-`;
+        si no, leido ⇒ `nom-`) daban `clave`. Si hoy tienen todas una misma
+        clave distinta, la devuelve; si no hay ninguna o dan varias, None."""
+        if not clave.startswith(("nom-", "emp-")):
+            return None
+        with self._session_factory.create_session() as session:
+            activas = session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteDocumentOrm.is_active.is_(True))
+            ).scalars().all()
+            actuales = {
+                worker_key_for_registro(r) for r in activas
+                if _clave_trabajador(
+                    casada=False, empleado_ide=r.empleado_ide, recurso=None,
+                    nombre_leido=r.trabajador_nombre_leido) == clave
+            }
+        if len(actuales) == 1 and clave not in actuales:
+            return actuales.pop()
+        return None
 
     # ----------------------------------------------------------------- #
     # Vista por OBRA.
@@ -1018,11 +1264,7 @@ class ParteReviewRepository:
 
         # F-033 (R4): empresa de cada recurso, deducida de los partes con
         # empresa donde aparece (cualquier obra). Sin consulta nueva.
-        empresa_por_recurso: dict[int, set[int]] = {}
-        for reg in regs:
-            if reg.recurso_ide is not None and reg.document.empresa is not None:
-                empresa_por_recurso.setdefault(
-                    reg.recurso_ide, set()).add(reg.document.empresa)
+        empresa_por_recurso = _empresa_por_recurso(regs)
 
         groups: dict[str, dict[str, Any]] = {}
         for reg in regs:
@@ -1357,16 +1599,16 @@ class ParteReviewRepository:
 
         rows: list[ParteRow] = []
         for doc in docs:
-            empleados = {
-                r.empleado_ide or r.trabajador_nombre_leido
-                for r in doc.registros
-            }
+            # F-061 (R13): solo cuentan las lineas vivas (semantica 3).
+            vivas = [r for r in doc.registros if not r.deleted_at_utc]
+            # F-050 (R7): claves de trabajador distintas del parte.
+            empleados = {worker_key_for_registro(r) for r in vivas}
             horas_n = sum(
-                (r.horas or 0.0) for r in doc.registros
+                (r.horas or 0.0) for r in vivas
                 if not r.es_incidencia and not _is_extra(r)
             )
             horas_e = sum(
-                (r.horas or 0.0) for r in doc.registros
+                (r.horas or 0.0) for r in vivas
                 if not r.es_incidencia and _is_extra(r)
             )
             rows.append(
@@ -1377,7 +1619,7 @@ class ParteReviewRepository:
                     obra_nombre=doc.obra_nombre or doc.obra_nombre_leido,
                     encargado_nombre=doc.encargado_nombre,
                     num_empleados=len(empleados),
-                    num_registros=len(doc.registros),
+                    num_registros=len(vivas),
                     horas_normales=round(horas_n, 2),
                     horas_extra=round(horas_e, 2),
                     firmado=doc.firmado,
@@ -1385,6 +1627,7 @@ class ParteReviewRepository:
                     review_required=doc.review_required,
                     approved=doc.approved,
                     es_futuro=_doc_es_futuro(doc),
+                    sin_lineas=not vivas,
                 )
             )
 
@@ -1438,7 +1681,8 @@ class ParteReviewRepository:
                 congelado_doc=_motivo_congelado_doc(doc),   # F-004 R17
             )
 
-            # Agrupar registros por empleado (linea de la tabla PERSONAL).
+            # Agrupar registros por trabajador (F-050 R6): la clave unica;
+            # las `sin-trabajador`, por su fila del papel.
             by_emp: dict[Any, ParteEmpleadoView] = {}
             order: list[Any] = []
             for reg in sorted(
@@ -1446,8 +1690,9 @@ class ParteReviewRepository:
             ):
                 if reg.deleted_at_utc:
                     continue  # linea en papelera
-                key = reg.empleado_ide or (reg.trabajador_nombre_leido or "") \
-                    or reg.empleado_line_no
+                key: Any = worker_key_for_registro(reg)
+                if key == "sin-trabajador":
+                    key = (key, reg.empleado_line_no)
                 if key not in by_emp:
                     by_emp[key] = ParteEmpleadoView(
                         nombre_leido=reg.trabajador_nombre_leido,
@@ -1632,6 +1877,227 @@ class ParteReviewRepository:
             )
             return nuevo.id
 
+    # ----------------------------------------------------------------- #
+    # F-049: editor de celda de la matriz de obra (guardar entero, con
+    # CAS, deshacer y pedido de recálculo compartido).
+    # ----------------------------------------------------------------- #
+    @staticmethod
+    def _celda(session, obra_key: str, worker_key: str,
+               fecha_int: int) -> list[ParteRegistroOrm]:
+        """Las líneas de horas de la celda (glosario): no incidencia,
+        fuera de la papelera, de parte activo, de esa fecha (SQL) y con
+        esas claves de obra y de trabajador (Python, las de las vistas)."""
+        regs = session.execute(
+            select(ParteRegistroOrm)
+            .join(ParteDocumentOrm)
+            .where(ParteDocumentOrm.is_active.is_(True))
+            .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+            .where(ParteRegistroOrm.fecha_int == fecha_int)
+            .options(selectinload(ParteRegistroOrm.document))
+            .order_by(ParteRegistroOrm.id)).scalars().all()
+        return [r for r in regs
+                if not r.es_incidencia
+                and obra_key_for_registro(r) == obra_key
+                and worker_key_for_registro(r) == worker_key]
+
+    def _afectadas(self, session, celda) -> list[dict]:
+        """R38: un elemento por documento con líneas de horas activas del
+        grupo del día de la celda (`_claves_de`: recurso y fecha) que no
+        son de la celda; nunca de otro día ni de otro recurso. `congelada`
+        si alguna de esas líneas lo está. Sin recurso en la celda, []."""
+        claves = self._claves_de(celda)
+        if not claves:
+            return []
+        de_la_celda = {r.id for r in celda}
+        regs = session.execute(
+            select(ParteRegistroOrm)
+            .join(ParteDocumentOrm)
+            .where(ParteDocumentOrm.is_active.is_(True))
+            .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+            .where(ParteRegistroOrm.recurso_ide.in_(
+                sorted({c[0] for c in claves})))
+            .where(ParteRegistroOrm.fecha_int.in_(
+                sorted({c[1] for c in claves})))
+            .options(selectinload(ParteRegistroOrm.document))
+            .order_by(ParteRegistroOrm.id)).scalars().all()
+        por_doc: dict[str, dict] = {}
+        for reg in regs:
+            if (reg.es_incidencia or reg.id in de_la_celda
+                    or (reg.recurso_ide, reg.fecha_int) not in claves):
+                continue
+            fila = por_doc.setdefault(reg.document_id, {
+                "obra_key": obra_key_for_registro(reg),
+                "obra_codigo": reg.obra_codigo,
+                "document_id": reg.document_id, "congelada": False})
+            if _motivo_congelado_reg(reg) is not None:
+                fila["congelada"] = True
+        return sorted(por_doc.values(),
+                      key=lambda f: (f["obra_key"], f["document_id"]))
+
+    def contexto_celda(self, *, obra_key: str, worker_key: str,
+                       fecha_iso: str) -> dict | None:
+        """Lo que la ruta necesita antes de guardar (solo lectura): la
+        plantilla esperada (R19), su recurso y su categoría para los
+        códigos de hora de las nuevas (R21). None si la celda está vacía
+        (⇒ 409 de R12); con todo congelado, plantilla None."""
+        with self._session_factory.create_session() as session:
+            celda = self._celda(session, obra_key, worker_key,
+                                _fecha_int_iso(fecha_iso))
+            if not celda:
+                return None
+            base = plantilla([_linea_celda(r) for r in celda])
+            if base is None:
+                return {"plantilla_id": None, "reside": None,
+                        "categoria": None}
+            reg = next(r for r in celda if r.id == base.id)
+            return {"plantilla_id": reg.id, "reside": _recurso_de(reg),
+                    "categoria": reg.categoria}
+
+    def otras_de_celda(self, *, obra_key: str, worker_key: str,
+                       fecha_iso: str) -> list[dict]:
+        """R36, R38: las afectadas de la celda, sin escribir nada."""
+        with self._session_factory.create_session() as session:
+            celda = self._celda(session, obra_key, worker_key,
+                                _fecha_int_iso(fecha_iso))
+            return self._afectadas(session, celda)
+
+    @staticmethod
+    def _crear_en_celda(session, base: ParteRegistroOrm, *, worker_key: str,
+                        nuevas: list[tuple[str, float, dict | None]],
+                        ) -> list[ParteRegistroOrm]:
+        """R20, R34: las líneas nuevas, en el parte y la fecha de la
+        plantilla, con `line_index` propio (máximo del parte, papelera
+        incluida, + 1, + 2...) y la fila del papel de la persona."""
+        regs_doc = list(base.document.registros)
+        maximo = max(r.line_index for r in regs_doc)
+        fila, leido = fila_para_alta_manual(
+            regs_doc, worker_key, base.trabajador_nombre_leido)
+        creadas: list[ParteRegistroOrm] = []
+        for k, (tipo, horas, hora) in enumerate(nuevas, start=1):
+            datos = {c: getattr(base, c) for c in _CAMPOS_CLON_CELDA}
+            datos.update({c: (hora or {}).get(c) for c in CAMPOS_HORA})
+            nuevo = ParteRegistroOrm(
+                **datos, line_index=maximo + k, empleado_line_no=fila,
+                trabajador_nombre_leido=leido, tipo_hora=tipo, horas=horas,
+                es_incidencia=False, extra_auto=False, horas_orig=None,
+                horas_extra_leidas=None)
+            session.add(nuevo)
+            creadas.append(nuevo)
+        session.flush()
+        return creadas
+
+    def guardar_celda(
+        self, *, obra_key: str, worker_key: str, fecha_iso: str,
+        cambios: list[Cambio], nueva_ordinaria: float | None,
+        nueva_extra: float | None, hora_ordinaria: dict | None,
+        hora_extra: dict | None, plantilla_esperada: int | None,
+        by: str | None,
+    ) -> dict:
+        """F-049 (design §5): guarda la celda entera en UNA sesión, con su
+        entrada de deshacer (R16), o lanza sin escribir nada:
+        `CongeladoError` (R14; `RecalculandoError`, R15) o `CeldaInvalida`
+        (R11-R13, R33, R35). Las guardas van antes que el plan y sobre la
+        misma sesión que la escritura (sin ventana entre mirar y escribir).
+
+        La plantilla siempre es una de las líneas enviadas (R12 exige que
+        sean exactamente las libres), así que sus guardas R14/R15 ya están
+        hechas. Sin cambios ni nuevas, no escribe ni registra deshacer.
+        """
+        vacio = {"editadas": [], "materializadas": [], "creadas": [],
+                 "documentos": [], "afectadas": []}
+        with self._session_factory.create_session() as session:
+            celda = self._celda(session, obra_key, worker_key,
+                                _fecha_int_iso(fecha_iso))
+            por_id = {r.id: r for r in celda}
+            for c in cambios:
+                reg = por_id.get(c.id)
+                if reg is not None:
+                    _exigir_reg_editable(reg)             # R14
+                    _exigir_sin_recalculo(reg.document)   # R15
+            if self._filas_reparto(session, self._claves_de(celda),
+                                   (REPARTO_APLICANDO,)):
+                raise CeldaInvalida(MOTIVO_REPARTO_APLICANDO, 409)   # R33
+            plan = planificar_celda(
+                [_linea_celda(r) for r in celda], cambios, nueva_ordinaria,
+                nueva_extra, admite_nuevas=worker_key != "sin-trabajador")
+            if plan.plantilla_id != plantilla_esperada:
+                raise CeldaInvalida(MOTIVO_CELDA_CAMBIADA, 409)      # R12
+            if not plan.hay_algo:
+                return vacio
+            tocadas = list(dict.fromkeys(
+                [i for i, _ in plan.cambios]
+                + [i for i, _ in plan.materializar]))
+            snaps = [_snapshot_celda(por_id[i]) for i in tocadas]
+            for rid, horas in plan.cambios:
+                por_id[rid].horas = horas                         # R17
+            for rid, horas in plan.materializar:                  # R18
+                reg = por_id[rid]
+                reg.horas = horas
+                reg.horas_orig = None
+                reg.extra_auto = False
+            nuevas = []
+            if plan.crear_ordinaria is not None:
+                nuevas.append(("normal", plan.crear_ordinaria,
+                               hora_ordinaria))
+            if plan.crear_extra is not None:
+                nuevas.append(("extra", plan.crear_extra, hora_extra))
+            creadas = []
+            if nuevas:
+                creadas = self._crear_en_celda(
+                    session, por_id[plan.plantilla_id],
+                    worker_key=worker_key, nuevas=nuevas)
+            self._record_undo(
+                session, action="celda_edit",
+                description=("Editar celda · "
+                             + _reg_label(por_id[plan.plantilla_id])),
+                registros=snaps, creadas=[r.id for r in creadas])
+            afectadas = self._afectadas(session, celda + creadas)
+            session.commit()
+            return {
+                "editadas": tocadas,
+                "materializadas": [i for i, _ in plan.materializar],
+                "creadas": [r.id for r in creadas],
+                "documentos": list(plan.documentos),
+                "afectadas": afectadas,
+            }
+
+    def marcar_recalculo_pedido_compartido(
+            self, ids, *, peticion_id: str,
+            ahora_utc: datetime | None = None) -> int:
+        """F-049 (R39, DA13-C): el MISMO pedido en todos esos documentos,
+        en UNA sentencia y un commit, ANTES de publicar UN mensaje; sv3
+        lo da por terminado en todos (R41). Seguimiento, no edición: sin
+        guarda de congelación ni deshacer (F-043). Devuelve las filas
+        tocadas."""
+        unicos = list(dict.fromkeys(i for i in ids if i))
+        if not unicos:
+            return 0
+        ahora = ahora_utc or _ahora_utc()
+        with self._session_factory.create_session() as session:
+            resultado = session.execute(
+                update(ParteDocumentOrm)
+                .where(ParteDocumentOrm.id.in_(unicos))
+                .values(recalculo_pedido_id=peticion_id,
+                        recalculo_pedido_at_utc=ahora.isoformat())
+                .execution_options(synchronize_session=False))
+            session.commit()
+            return resultado.rowcount
+
+    def anular_recalculo_pedido_compartido(self, ids, *,
+                                           peticion_id: str) -> None:
+        """F-049 (R39): si publicar falló, quita el pedido SOLO donde siga
+        siendo `peticion_id` (un pedido posterior se respeta)."""
+        unicos = list(dict.fromkeys(i for i in ids if i))
+        with self._session_factory.create_session() as session:
+            session.execute(
+                update(ParteDocumentOrm)
+                .where(ParteDocumentOrm.id.in_(unicos),
+                       ParteDocumentOrm.recalculo_pedido_id == peticion_id)
+                .values(recalculo_pedido_id=None,
+                        recalculo_pedido_at_utc=None)
+                .execution_options(synchronize_session=False))
+            session.commit()
+
     # ------------------------------------------------------------------ #
     # REGISTRO EN SIGRID (aprobacion). sv4 solo prepara y marca; la
     # escritura la hace partes-transfer (sv5).
@@ -1640,6 +2106,8 @@ class ParteReviewRepository:
     def lineas_para_registro(
         self, registro_ids: list[int], *, incluir_borradas: bool = False,
         incidencias: TablaIncidencias | None = None,
+        repartos_decididos: frozenset[int] = frozenset(),
+        mover_ciz: bool = False,
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
 
@@ -1663,6 +2131,27 @@ class ParteReviewRepository:
         posible. Las extras positivas de un dia en `aviso` viajan y se
         listan en `avisos_incidencia` de su grupo. Sin `incidencias`, como
         antes de F-025 (R23).
+
+        F-046 (R32): las lineas de un dia con reparto `pendiente`,
+        `aplicando` o `rechazado` no viajan salvo que su reparto este en
+        `repartos_decididos` (decidido «Aplicar» en esta peticion): cuentan
+        en `excluidas["reparto_pendiente"]` (solo si es > 0) y salen en el
+        detalle con su motivo.
+
+        F-060 (R1-R12): con `mover_ciz`, el rol de cada incidencia que
+        viaja sale del historico de su persona (`_roles_de_racha`, una
+        consulta por persona) y, con `fin`, lleva `racha_registro_ids`; las
+        demas lineas la llevan vacia. Cada grupo lleva `avisos_racha`
+        (R10): lineas de trabajo o `inicio` antes de una incidencia ya
+        registrada. Sin `mover_ciz` (R26 bis, DA12; `MOVER_CIZ` apagado),
+        el rol de dev 0926857 linea a linea (`_rol_incidencia_anterior`),
+        con `racha_registro_ids` y `avisos_racha` vacias.
+
+        F-062 (R1-R4): con `mover_ciz`, cada `inicio` final lleva en
+        `racha_registro_ids` su tramo delante y `ciz_mismo_dia` verdadero
+        (sv5 escribe su CI* y un CIZ el mismo dia) salvo que su `fin` viaje
+        en la misma aprobacion, de esta obra o de otra (R2). Toda otra linea,
+        y todas sin `mover_ciz`, con `ciz_mismo_dia` falso.
         """
         ids = sorted({int(i) for i in registro_ids if i})
         excluidas = {ESTADO_REGISTRADO: 0, ESTADO_BORRADO_SIGRID: 0}
@@ -1675,6 +2164,8 @@ class ParteReviewRepository:
                 .where(ParteRegistroOrm.id.in_(ids))
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
             ).scalars().all())
+            excl_reparto = self._excluidas_reparto(
+                session, regs, repartos_decididos)
             incompat: dict[int, Incompatibilidad] = {}
             if incidencias is not None:
                 incompat = detectar(
@@ -1685,6 +2176,7 @@ class ParteReviewRepository:
             obra: dict[str, Any] = {}
             grupos: dict[str, dict[str, Any]] = {}
             detalle: list[dict[str, Any]] = []
+            viajan: list[tuple[ParteRegistroOrm, dict, dict]] = []
             for r in regs:
                 estado = _estado_norm(r.sigrid_estado)
                 if estado == ESTADO_REGISTRADO or (
@@ -1699,6 +2191,13 @@ class ParteReviewRepository:
                     detalle.append(_excluida_detalle(
                         r, estado, MOTIVO_EXCLUIDA_DEDICACION))
                     continue
+                if r.id in excl_reparto:
+                    # F-046 (R32): sin decision sobre su reparto, no viaja.
+                    excluidas[EXCLUIDA_REPARTO] = excluidas.get(
+                        EXCLUIDA_REPARTO, 0) + 1
+                    detalle.append(_excluida_detalle(
+                        r, EXCLUIDA_REPARTO, excl_reparto[r.id]))
+                    continue
                 nivel = incompat.get(r.id)
                 if nivel is not None and nivel.nivel == NIVEL_BLOQUEO:
                     excluidas[EXCLUIDA_INCOMPATIBLE] = excluidas.get(
@@ -1710,7 +2209,7 @@ class ParteReviewRepository:
                     obra = _obra_de(r)
                 grupo = grupos.setdefault(obra_key_for_registro(r), {
                     "obra": {}, "lineas": [], "estado_previo": {},
-                    "avisos_incidencia": []})
+                    "avisos_incidencia": [], "avisos_racha": []})
                 if not grupo["obra"] and (r.obra_ide or r.obra_codigo):
                     grupo["obra"] = _obra_de(r)
                 grupo["estado_previo"][r.id] = estado
@@ -1729,12 +2228,14 @@ class ParteReviewRepository:
                     "partida_cod": r.partida_cod,
                     "candef": r.hora_candef,
                     "incidencia_codigo": r.incidencia_codigo,
-                    "incidencia_rol": (
-                        self._rol_incidencia(session, r)
-                        if r.es_incidencia else None
-                    ),
+                    # F-060: los rellena `_roles_de_racha` al final.
+                    "incidencia_rol": None,
+                    "racha_registro_ids": [],
+                    # F-062 (R1-R4): lo rellena `_roles_de_racha`.
+                    "ciz_mismo_dia": False,
                 })
                 grupo["lineas"].append(lineas[-1])
+                viajan.append((r, lineas[-1], grupo))
                 if (nivel is not None and nivel.nivel == NIVEL_AVISO
                         and _is_extra(r) and (r.horas or 0.0) > 0.0):
                     grupo["avisos_incidencia"].append({
@@ -1742,6 +2243,24 @@ class ParteReviewRepository:
                         "nombre": lineas[-1]["nombre"], "horas": r.horas,
                         "motivo": nivel.motivo,
                     })
+            if mover_ciz:
+                roles_de, rachas, avisos, ciz = self._roles_de_racha(
+                    session, [r for r, _l, _g in viajan], incidencias)
+            else:
+                # R26 bis (DA12): el rol de dev 0926857, linea a linea.
+                roles_de = {r.id: self._rol_incidencia_anterior(session, r)
+                            for r, _l, _g in viajan if r.es_incidencia}
+                rachas, avisos, ciz = {}, {}, set()
+            for r, linea, grupo in viajan:
+                if r.es_incidencia:
+                    linea["incidencia_rol"] = roles_de[r.id]
+                    linea["racha_registro_ids"] = rachas.get(r.id, [])
+                    linea["ciz_mismo_dia"] = r.id in ciz
+                if r.id in avisos:
+                    grupo["avisos_racha"].append({
+                        "registro_id": r.id, "fecha": r.fecha,
+                        "nombre": linea["nombre"],
+                        "motivo": motivo_desordenada(avisos[r.id])})
             roles = {l["registro_id"]: l["incidencia_rol"]
                      for l in lineas if l["es_incidencia"]}
             if roles:
@@ -1771,8 +2290,41 @@ class ParteReviewRepository:
         return out
 
     @staticmethod
-    def _rol_incidencia(session, reg: ParteRegistroOrm) -> str:
-        """Rol de una incidencia: 'inicio', 'fin' o 'intermedio'.
+    def _fin_movido(session, reg: ParteRegistroOrm, e: dict, *,
+                    usuario: str | None, ahora: str) -> None:
+        """F-060 (R28, R29): la linea X que tenia el CIZ movido a `reg` (D).
+
+        CAS: solo si X sigue `registrado` con ese mismo `hmores_ide`; sus
+        referencias (`sigrid_hmores_ide`, parte) se quedan como traza.
+        Sin CAS no se toca nada: si X ya esta `omitido` con este mismo
+        motivo (reentrega del resultado por el otro canal) es silencio; si
+        no, un WARNING sin datos personales."""
+        x = e.get("movida_de")
+        if x is None or int(x) == reg.id:
+            return
+        motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
+        cambiadas = session.execute(
+            update(ParteRegistroOrm)
+            .where(ParteRegistroOrm.id == int(x),
+                   ParteRegistroOrm.sigrid_estado == "registrado",
+                   ParteRegistroOrm.sigrid_hmores_ide == e.get("hmores_ide"))
+            .values(sigrid_estado="omitido", sigrid_motivo=motivo,
+                    sigrid_registrado_at_utc=ahora,
+                    sigrid_registrado_by=usuario)
+            .execution_options(synchronize_session="fetch")).rowcount
+        if cambiadas:
+            return
+        previa = session.get(ParteRegistroOrm, int(x))
+        if (previa is not None and previa.sigrid_estado == "omitido"
+                and previa.sigrid_motivo == motivo):
+            return
+        logger.warning(
+            "[repo] fin_movido_sin_cas registro_id=%s movida_de=%s "
+            "hmores_ide=%s", reg.id, x, e.get("hmores_ide"))
+
+    @staticmethod
+    def _rol_incidencia_anterior(session, reg: ParteRegistroOrm) -> str:
+        """Rol de una incidencia (dev 0926857; MOVER_CIZ apagado, DA12).
 
         En Sigrid solo se registran el PRIMER dia de la racha (con su
         codigo CI*) y el ULTIMO (fin); los INTERMEDIOS no se registran.
@@ -1834,6 +2386,109 @@ class ParteReviewRepository:
             delante_incidencia = False
 
         return "intermedio" if delante_incidencia else "fin"
+
+    @classmethod
+    def _roles_de_racha(
+        cls, session, regs: list[ParteRegistroOrm],
+        incidencias: TablaIncidencias | None,
+    ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int],
+               set[int]]:
+        """F-060 (R1-R12): para las lineas que viajan, el rol de cada
+        incidencia, la racha de cada `fin` y la fecha del aviso
+        `racha_desordenada` de cada linea que lo merece. F-062 (R1, R2):
+        tambien el tramo delante de cada `inicio` final (`racha_delante`,
+        con el mismo historico: ninguna consulta nueva) y los `inicio` que
+        escriben su CIZ el mismo dia (`inicios_con_ciz`).
+
+        Por persona (`persona_de`: DNI normalizado o, sin DNI, la clave de
+        trabajador, R6) con alguna linea de trabajo o de incidencia, UNA
+        consulta del historico (R12) desde el inicio de la ventana mas
+        temprana hasta el ultimo dia del mes siguiente al de su linea mas
+        tardia, de cualquier obra y estado, con la papelera marcada
+        (`activa`, R5). `decidir` da el rol de cada incidencia y `colapsar`
+        los ajusta sobre TODA la aprobacion (R7, R8), antes del reparto por
+        obra de F-022. Una incidencia sin fecha es `inicio`, como antes."""
+        por_persona: dict[str, list[ParteRegistroOrm]] = {}
+        for r in regs:
+            trabajo = (not r.es_incidencia
+                       and abs(float(r.horas or 0.0)) > 1e-9)
+            if r.fecha_int and (r.es_incidencia or trabajo):
+                por_persona.setdefault(persona_de(r), []).append(r)
+        roles: dict[int, str] = {r.id: INICIO for r in regs
+                                 if r.es_incidencia}
+        historicos: dict[str, list[LineaHist]] = {}
+        lineas_rol: list[LineaRol] = []
+        for persona, suyas in por_persona.items():
+            hist = cls._historico(session, persona, suyas, incidencias)
+            historicos[persona] = hist
+            for r in suyas:
+                if not r.es_incidencia:
+                    continue
+                clave = clave_incidencia(r.incidencia_codigo, r.hora_codigo,
+                                         incidencias)
+                d = decidir(hist, int(r.fecha_int), clave)
+                lineas_rol.append(LineaRol(
+                    registro_id=r.id, persona=persona,
+                    fecha_int=int(r.fecha_int), clave=clave, rol=d.rol,
+                    racha_registro_ids=d.racha_registro_ids))
+        roles.update(colapsar(lineas_rol))
+        rachas = {l.registro_id: list(l.racha_registro_ids)
+                  for l in lineas_rol if roles[l.registro_id] == FIN}
+        # F-062 (R1): el `inicio` final lleva su tramo delante.
+        rachas.update({
+            l.registro_id: list(racha_delante(historicos[l.persona],
+                                              l.fecha_int, l.clave))
+            for l in lineas_rol if roles[l.registro_id] == INICIO})
+        ciz = inicios_con_ciz(lineas_rol, roles)
+        avisos: dict[int, int] = {}
+        for persona, suyas in por_persona.items():
+            for r in suyas:
+                if r.es_incidencia and roles[r.id] != INICIO:
+                    continue
+                f = aviso_desordenada(historicos[persona], int(r.fecha_int))
+                if f is not None:
+                    avisos[r.id] = f
+        return roles, rachas, avisos, ciz
+
+    @staticmethod
+    def _historico(session, persona: str, suyas: list[ParteRegistroOrm],
+                   incidencias: TablaIncidencias | None) -> list[LineaHist]:
+        """F-060 (R6, R12): las lineas de la persona en la ventana de sus
+        lineas, en UNA consulta. El prefiltro SQL (DNI normalizado,
+        recurso, ficha o sin ficha) solo acota: decide `persona_de`."""
+        desde = min(ventana(int(r.fecha_int))[0] for r in suyas)
+        hasta = max(hasta_delante(int(r.fecha_int)) for r in suyas)
+        q = (select(ParteRegistroOrm, ParteDocumentOrm.is_active)
+             .join(ParteDocumentOrm)
+             .where(ParteRegistroOrm.fecha_int.between(desde, hasta)))
+        tipo, _sep, valor = persona.partition(":")
+        if tipo == "dni":
+            q = q.where(func.upper(func.replace(func.replace(
+                ParteRegistroOrm.empleado_dni, "-", ""), " ", "")) == valor)
+        elif persona.startswith("rec-"):
+            rec = int(persona[len("rec-"):])
+            q = q.where(or_(
+                ParteRegistroOrm.recurso_ide == rec,
+                (ParteRegistroOrm.recurso_ide.is_(None))
+                & (ParteRegistroOrm.empleado_reside == rec)))
+        elif persona.startswith("emp-"):
+            q = q.where(ParteRegistroOrm.empleado_ide
+                        == int(persona[len("emp-"):]))
+        else:
+            q = q.where(ParteRegistroOrm.empleado_ide.is_(None))
+        out: list[LineaHist] = []
+        for reg, doc_activo in session.execute(q).all():
+            if persona_de(reg) != persona:
+                continue
+            out.append(LineaHist(
+                registro_id=reg.id, fecha_int=int(reg.fecha_int),
+                es_incidencia=bool(reg.es_incidencia),
+                clave=(clave_incidencia(reg.incidencia_codigo,
+                                        reg.hora_codigo, incidencias)
+                       if reg.es_incidencia else ""),
+                horas=reg.horas, sigrid_estado=_estado_norm(reg.sigrid_estado),
+                activa=reg.deleted_at_utc is None and bool(doc_activo)))
+        return out
 
     def registro_ids_de_obra(
         self, obra_key: str, *, period_key: str | None = None,
@@ -2013,6 +2668,10 @@ class ParteReviewRepository:
         falla, no se marca nada y la excepcion sube (la cola reintenta).
         `prueba` es el `forzada_pruebas` del resultado; con `incidencias`,
         la fila lleva la clase de la incidencia.
+
+        F-060 (R28, R29): una escrita con `movida_de` = X (sv5 movio a la
+        linea D el CIZ que tenia X) deja X `omitido` con motivo
+        `fin_movido`, en ESTA MISMA transaccion y con CAS (`_fin_movido`).
         """
         ahora = datetime.now(timezone.utc).isoformat()
         n = 0
@@ -2031,6 +2690,7 @@ class ParteReviewRepository:
                 logger.warning("[repo] registro FALLIDO en %s linea(s): %s",
                                n, error_global)
                 return n
+            movidas: list[tuple[ParteRegistroOrm, dict]] = []
             for e in escritas or []:
                 reg = session.get(ParteRegistroOrm, int(e["registro_id"]))
                 if reg is None:
@@ -2043,6 +2703,10 @@ class ParteReviewRepository:
                 reg.sigrid_parte_cod = e.get("parte_cod")
                 reg.sigrid_motivo = (motivo_ok or None) and motivo_ok[:255]
                 n += 1
+                movidas.append((reg, e))
+            for reg, e in movidas:
+                self._fin_movido(session, reg, e, usuario=usuario,
+                                 ahora=ahora)
             for o in omitidas or []:
                 reg = session.get(ParteRegistroOrm, int(o["registro_id"]))
                 if reg is None:
@@ -2479,14 +3143,21 @@ class ParteReviewRepository:
         registros: list[dict] | None = None,
         documents: list[dict] | None = None,
         aliases: list[dict] | None = None,
+        creadas: list[int] | None = None,
     ) -> int:
         """Inserta una entrada de historial DENTRO de la sesion dada (atomico
-        con la mutacion). Devuelve el id."""
+        con la mutacion). Devuelve el id.
+
+        F-049 (R25): `creadas` son los ids de las líneas que creó la acción
+        (deshacer las manda a la papelera); solo entra en el payload si se
+        pasa, así que el de las demás acciones no cambia."""
         payload = {
             "registros": registros or [],
             "documents": documents or [],
             "aliases": aliases or [],
         }
+        if creadas is not None:
+            payload["creadas"] = list(creadas)
         row = UndoLogOrm(
             created_at_utc=datetime.now(timezone.utc).isoformat(),
             action=action, description=description,
@@ -2676,7 +3347,7 @@ class ParteReviewRepository:
             stmt = select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
             return len(list(session.execute(stmt).scalars().all()))
 
-    def undo_last(self) -> dict:
+    def undo_last(self, *, actor: str | None = None) -> dict:
         """Deshace la accion no-deshecha mas reciente: restaura el estado
         anterior de registros/documento/alias y la marca como deshecha.
 
@@ -2688,6 +3359,11 @@ class ParteReviewRepository:
         F-042 (R9): devuelve ademas la `action` de la entrada deshecha y los
         `document_ids` de sus snapshots de documento, para que deshacer un
         cambio de fecha pida el recalculo de extras de esos partes.
+
+        F-049 (R26): en una `celda_edit`, además, las líneas que creó van a
+        la papelera (`deleted_by` = `actor`; las hoy congeladas se omiten),
+        `document_ids` son los partes de sus líneas y `afectadas`, las otras
+        obras del mismo día en ese momento (R38), para su recálculo (R27).
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -2724,6 +3400,11 @@ class ParteReviewRepository:
                 _apply_reg_snapshot(reg, snap)
             for snap in payload.get("aliases", []):
                 self._apply_alias_snapshot(session, snap)
+            celda = None
+            if action == "celda_edit":
+                celda, creadas_omitidas = self._deshacer_creadas(
+                    session, payload, actor=actor)
+                omitidos += creadas_omitidas
             row.undone = True
             session.commit()
             remaining = len(list(session.execute(
@@ -2734,11 +3415,64 @@ class ParteReviewRepository:
                 "[undo] %s fila(s) omitidas por congelacion (%s)",
                 omitidos, description,
             )
-        return {"ok": True, "description": description,
-                "remaining": remaining, "omitidos": omitidos,
-                "action": action,
-                "document_ids": [snap.get("id")
-                                 for snap in payload.get("documents", [])]}
+        res = {"ok": True, "description": description,
+               "remaining": remaining, "omitidos": omitidos,
+               "action": action,
+               "document_ids": [snap.get("id")
+                                for snap in payload.get("documents", [])]}
+        if celda is not None:
+            res.update(celda)
+        return res
+
+    def _deshacer_creadas(self, session, payload: dict, *,
+                          actor: str | None) -> tuple[dict, int]:
+        """F-049 (R26): papelera de las creadas de una `celda_edit` que
+        siguen activas y libres, y `document_ids` y `afectadas` de esa
+        celda ahora. Devuelve `(campos de la respuesta, omitidas)`.
+
+        F-061 (R2, R3): bloquea los partes de las creadas antes de
+        tocarlas y retira el que se queda sin lineas vivas."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        omitidas = 0
+        creadas = [reg for rid in payload.get("creadas") or []
+                   if (reg := session.get(ParteRegistroOrm, rid)) is not None]
+        self._bloquear_documentos(session, {r.document_id for r in creadas})
+        regs: list[ParteRegistroOrm] = []
+        borradas: list[ParteRegistroOrm] = []
+        for reg in creadas:
+            regs.append(reg)
+            if reg.deleted_at_utc:
+                continue
+            if _motivo_congelado_reg(reg) is not None:
+                omitidas += 1
+                continue
+            reg.deleted_at_utc = ahora
+            reg.deleted_by = actor
+            borradas.append(reg)
+        self._retirar_si_vacios(
+            session, {r.document_id for r in borradas}, by=actor)
+        for snap in payload.get("registros", []):
+            reg = session.get(ParteRegistroOrm, snap.get("id"))
+            if reg is not None:
+                regs.append(reg)
+        documentos = list(dict.fromkeys(
+            [snap.get("document_id") for snap in payload.get("registros", [])]
+            + [r.document_id for r in regs]))
+        session.flush()
+        celda = self._celdas_de(session, regs)
+        return ({"document_ids": [d for d in documentos if d],
+                 "afectadas": self._afectadas(session, celda)}, omitidas)
+
+    def _celdas_de(self, session, regs) -> list[ParteRegistroOrm]:
+        """F-049: las celdas actuales de esas líneas (normalmente una) más
+        las propias líneas, para calcular sus afectadas (R26)."""
+        claves = {(obra_key_for_registro(r), worker_key_for_registro(r),
+                   r.fecha_int) for r in regs if r.fecha_int}
+        celda = {r.id: r for r in regs}
+        for obra_key, worker_key, fecha_int in sorted(claves):
+            for r in self._celda(session, obra_key, worker_key, fecha_int):
+                celda.setdefault(r.id, r)
+        return list(celda.values())
 
     def get_registro_recurso(self, registro_id: int) -> int | None:
         """recurso_ide del registro (para resolver su hora extra)."""
@@ -2977,7 +3711,581 @@ class ParteReviewRepository:
     # Estado del parte (documento).
     # ----------------------------------------------------------------- #
     def approve_document(self, *, document_id: str, approved_by: str | None) -> bool:
+        """F-046 (R36, DA13): no se aprueba un parte con lineas de un dia
+        con reparto `pendiente`, `aplicando` o `rechazado`: aprobarlo
+        congelaria el ideal sin que nadie lo decidiera."""
+        with self._session_factory.create_session() as session:
+            doc = session.get(ParteDocumentOrm, document_id)
+            if doc is not None:
+                activas = [r for r in doc.registros if not r.deleted_at_utc]
+                if self._filas_reparto(session, self._claves_de(activas),
+                                       ESTADOS_BLOQUEAN):
+                    raise RepartoPendienteError()
         return self._set_approval(document_id, True, approved_by)
+
+    # ----------------------------------------------------------------- #
+    # F-046: reparto pendiente (aviso, decision humana y CAS).
+    # sv3 crea y materializa `reparto_pendiente`; el portal lo ensena y
+    # recoge «Aplicar» / «Mantener lo registrado». Toda transicion es CAS
+    # sobre `estado` (sv4 corre con varias replicas: nunca un lock de
+    # proceso, R-h). Las decisiones NO entran en `undo_log` (DA16).
+    # ----------------------------------------------------------------- #
+    @staticmethod
+    def _claves_de(regs) -> set[tuple[int, int]]:
+        """(recurso, fecha) de esas lineas: la clave del grupo de sv3."""
+        return {(int(r.recurso_ide), int(r.fecha_int)) for r in regs
+                if r.recurso_ide and r.fecha_int}
+
+    @staticmethod
+    def _filas_reparto(session, claves: set[tuple[int, int]],
+                       estados) -> list[RepartoPendienteOrm]:
+        """Los repartos de esos grupos en esos estados."""
+        if not claves:
+            return []
+        filas = session.execute(
+            select(RepartoPendienteOrm)
+            .where(RepartoPendienteOrm.recurso_ide.in_(
+                sorted({c[0] for c in claves})))
+            .where(RepartoPendienteOrm.fecha_int.in_(
+                sorted({c[1] for c in claves})))
+            .where(RepartoPendienteOrm.estado.in_(list(estados)))
+            .order_by(RepartoPendienteOrm.id)).scalars().all()
+        return [f for f in filas if (f.recurso_ide, f.fecha_int) in claves]
+
+    @staticmethod
+    def _lineas_activas(session, ids) -> list[ParteRegistroOrm]:
+        """Las lineas de esos ids fuera de la papelera y de un parte
+        activo, en lotes de `LOTE_IDS_CONSULTA`."""
+        orden = sorted({int(i) for i in ids if i})
+        out: list[ParteRegistroOrm] = []
+        for i in range(0, len(orden), LOTE_IDS_CONSULTA):
+            out.extend(session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.id.in_(
+                    orden[i:i + LOTE_IDS_CONSULTA]))).scalars().all())
+        return out
+
+    @staticmethod
+    def _json(texto: str | None) -> dict:
+        try:
+            datos = json.loads(texto or "{}")
+        except (TypeError, ValueError):
+            return {}
+        return datos if isinstance(datos, dict) else {}
+
+    def _reparto_dict(self, session, fila: RepartoPendienteOrm,
+                      registro_ids=()) -> dict[str, Any]:
+        """El reparto para el aviso y para sv5: cada cambio con el parte de
+        Sigrid de su linea (`parte_cod`) y, si es una extra nueva, lo que
+        el registro necesita de su base (recurso, fecha, partida, obra y
+        codigo de hora extra)."""
+        datos = self._json(fila.cambios)
+        cambios: list[dict] = []
+        for c in datos.get("cambios") or []:
+            c = dict(c)
+            rid, base = c.get("registro_id"), c.get("base_registro_id")
+            ref = session.get(ParteRegistroOrm,
+                              int(rid if rid is not None else base or 0))
+            if ref is not None:
+                c.setdefault("parte_cod", ref.sigrid_parte_cod)
+                if rid is None:
+                    for campo in ("recurso_ide", "fecha_int", "partida_ide",
+                                  "partida_cod", "obra_ide", "obra_codigo"):
+                        c.setdefault(campo, getattr(ref, campo))
+            if rid is None:
+                hora = c.get("hora_ext") or {}
+                c.setdefault("hora_ide", hora.get("ide"))
+                c.setdefault("hora_codigo", hora.get("cod"))
+            cambios.append(c)
+        ids_grupo = [int(i) for i in datos.get("ids_grupo") or []]
+        docs = {reg.document_id for reg in
+                (session.get(ParteRegistroOrm, i) for i in ids_grupo)
+                if reg is not None}
+        return {
+            "id": fila.id, "estado": fila.estado,
+            "recurso_ide": fila.recurso_ide, "fecha_int": fila.fecha_int,
+            "firma": fila.firma, "error": fila.error,
+            "decision": fila.decision, "decidido_por": fila.decidido_por,
+            "cambios": cambios, "ids_grupo": ids_grupo,
+            "registro_ids": sorted(int(i) for i in registro_ids),
+            "reservas": dict(self._json(fila.resultado).get("reservas")
+                             or {}),
+            "document_ids": sorted(docs),
+        }
+
+    def repartos_de_registros(self, ids,
+                              estados=ESTADOS_BLOQUEAN) -> list[dict]:
+        """R30: los repartos vivos (por defecto los que bloquean el
+        registro) de los grupos de esas lineas; `registro_ids` son las de
+        `ids` que caen en cada uno."""
+        with self._session_factory.create_session() as session:
+            regs = self._lineas_activas(session, ids)
+            out = []
+            for f in self._filas_reparto(session, self._claves_de(regs),
+                                         estados):
+                propias = [r.id for r in regs
+                           if (r.recurso_ide, r.fecha_int)
+                           == (f.recurso_ide, f.fecha_int)]
+                out.append(self._reparto_dict(session, f, propias))
+            return out
+
+    def registros_con_reparto(self, ids) -> set[int]:
+        """R37: las de esas lineas cuyo dia tiene un reparto `pendiente`,
+        `aplicando` o `rechazado` (las vistas las marcan)."""
+        with self._session_factory.create_session() as session:
+            regs = self._lineas_activas(session, ids)
+            claves = {(f.recurso_ide, f.fecha_int) for f in
+                      self._filas_reparto(session, self._claves_de(regs),
+                                          ESTADOS_BLOQUEAN)}
+            return {r.id for r in regs
+                    if (r.recurso_ide, r.fecha_int) in claves}
+
+    def _excluidas_reparto(self, session, regs,
+                           decididos: frozenset[int]) -> dict[int, str]:
+        """R32: las lineas de `regs` que no viajan por su reparto."""
+        filas = self._filas_reparto(session, self._claves_de(regs),
+                                    ESTADOS_BLOQUEAN)
+        return excluidas_por_reparto(
+            [{"id": f.id, "estado": f.estado,
+              "registro_ids": [r.id for r in regs
+                               if (r.recurso_ide, r.fecha_int)
+                               == (f.recurso_ide, f.fecha_int)]}
+             for f in filas],
+            {int(i): DECISION_APLICAR for i in decididos})
+
+    @staticmethod
+    def _reservar_id(session, ya: dict) -> int:
+        """R33 (DA5): un `registro_id` para la extra nueva, de la secuencia
+        de `parte_registros` (sv3 la creara con el, R15). Sin PostgreSQL
+        (SQLite de los tests) no hay secuencia: el siguiente al mayor id de
+        las lineas y de las reservas ya hechas."""
+        if session.get_bind().dialect.name == "postgresql":
+            return int(session.execute(text(
+                "SELECT nextval(pg_get_serial_sequence("
+                "'parte_registros', 'id'))")).scalar())
+        maximo = session.execute(
+            select(func.max(ParteRegistroOrm.id))).scalar() or 0
+        return max([int(maximo), *(int(v) for v in ya.values())]) + 1
+
+    def iniciar_aplicacion(self, reparto_id: int, *,
+                           actor: str | None) -> dict:
+        """R33 (1-2): `pendiente` (o `aplicando`, reintento de R34) ->
+        `aplicando` por CAS, SOLO si sus lineas siguen con las horas y el
+        estado «antes», el dia no tiene lineas nuevas ni le faltan, y
+        ningun parte del dia esta en espera de sv3 (F-043). Reserva los ids
+        de las extras nuevas (los de un intento anterior se conservan). Si
+        algo no cuadra, `RepartoCambiadoError` (409) sin tocar nada."""
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None:
+                raise RepartoCambiadoError("el reparto ya no existe")
+            if fila.estado not in (REPARTO_PENDIENTE, REPARTO_APLICANDO):
+                raise RepartoCambiadoError(
+                    f"el reparto ya no esta pendiente (esta {fila.estado}): "
+                    "recarga la pagina")
+            datos = self._json(fila.cambios)
+            for c in datos.get("cambios") or []:
+                if c.get("registro_id") is None:
+                    continue
+                reg = session.get(ParteRegistroOrm, int(c["registro_id"]))
+                if reg is None or reg.deleted_at_utc:
+                    raise RepartoCambiadoError(
+                        f"la linea {c['registro_id']} ya no esta en el "
+                        "portal: recarga la pagina")
+                if abs(float(reg.horas or 0.0) - float(c["antes"])) > 1e-6:
+                    raise RepartoCambiadoError(
+                        f"la linea {reg.id} cambio: tiene "
+                        f"{float(reg.horas or 0.0):g} h y el aviso decia "
+                        f"{float(c['antes']):g} h; recarga la pagina")
+                if _estado_norm(reg.sigrid_estado) != _estado_norm(
+                        c.get("sigrid_estado")):
+                    raise RepartoCambiadoError(
+                        f"la linea {reg.id} cambio de estado en Sigrid: "
+                        "recarga la pagina")
+            actuales = session.execute(
+                select(ParteRegistroOrm).join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.recurso_ide == fila.recurso_ide)
+                .where(ParteRegistroOrm.fecha_int == fila.fecha_int)
+            ).scalars().all()
+            grupo = {int(i) for i in datos.get("ids_grupo") or []}
+            # Las extras automaticas de lo libre las rehace sv3 en cada
+            # pasada (ids nuevos): no son lineas nuevas del dia.
+            nuevas = sorted(r.id for r in actuales
+                            if r.id not in grupo and not r.extra_auto)
+            if nuevas:
+                raise RepartoCambiadoError(
+                    f"el dia tiene lineas nuevas ({', '.join(map(str, nuevas))}"
+                    "): recarga la pagina y vuelve a decidir")
+            faltan = sorted(grupo - {r.id for r in actuales})
+            if faltan:
+                raise RepartoCambiadoError(
+                    f"faltan lineas del dia ({', '.join(map(str, faltan))}): "
+                    "recarga la pagina")
+            documentos = {r.document_id for r in actuales}
+        if self.documentos_en_espera(documentos):
+            raise RepartoCambiadoError(
+                "un parte de ese dia se esta recalculando: espera unos "
+                "segundos y vuelve a intentarlo")
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            res = session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id,
+                       RepartoPendienteOrm.estado.in_(
+                           [REPARTO_PENDIENTE, REPARTO_APLICANDO]))
+                .values(estado=REPARTO_APLICANDO, decision=DECISION_APLICAR,
+                        decidido_por=actor, decidido_at_utc=ahora,
+                        error=None, actualizado_at_utc=ahora)
+                .execution_options(synchronize_session=False))
+            if res.rowcount != 1:
+                session.rollback()
+                raise RepartoCambiadoError(
+                    "otro usuario decidio este reparto: recarga la pagina")
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            resultado = self._json(fila.resultado)
+            reservas = dict(resultado.get("reservas") or {})
+            for c in self._json(fila.cambios).get("cambios") or []:
+                clave = str(c.get("base_registro_id"))
+                if c.get("registro_id") is None and clave not in reservas:
+                    reservas[clave] = self._reservar_id(session, reservas)
+            resultado["reservas"] = reservas
+            session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id)
+                .values(resultado=json.dumps(resultado))
+                .execution_options(synchronize_session=False))
+            session.commit()
+            logger.info("[reparto] reparto %s -> aplicando (por %s, "
+                        "reservas=%s)", reparto_id, actor, reservas)
+            session.expire_all()
+            return self._reparto_dict(
+                session, session.get(RepartoPendienteOrm, reparto_id))
+
+    def cerrar_aplicacion(self, reparto_id: int, *, ok: bool | None,
+                          sv5: dict | None, error: str | None,
+                          actor: str | None) -> str:
+        """R33 (4), R34: `aplicando` -> `aplicado` (ok), -> `pendiente` con
+        el error (sv5 lo rechazo: nada escrito) o se queda `aplicando` con
+        el error (sin respuesta: el reintento es seguro, R26). Guarda la
+        respuesta de sv5 junto a las reservas. Devuelve el estado final."""
+        nuevo = (REPARTO_APLICADO if ok is True
+                 else REPARTO_PENDIENTE if ok is False else REPARTO_APLICANDO)
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None:
+                return ""
+            resultado = self._json(fila.resultado)
+            if sv5 is not None:
+                resultado["sv5"] = sv5
+            res = session.execute(
+                update(RepartoPendienteOrm)
+                .where(RepartoPendienteOrm.id == reparto_id,
+                       RepartoPendienteOrm.estado == REPARTO_APLICANDO)
+                .values(estado=nuevo, resultado=json.dumps(resultado),
+                        error=None if ok else ((error or "")[:255] or None),
+                        actualizado_at_utc=ahora)
+                .execution_options(synchronize_session=False))
+            session.commit()
+            if res.rowcount != 1:
+                session.expire_all()
+                return session.get(RepartoPendienteOrm, reparto_id).estado
+        logger.info("[reparto] reparto %s -> %s (por %s)%s", reparto_id,
+                    nuevo, actor, f": {error}" if error and not ok else "")
+        return nuevo
+
+    def rechazar_reparto(self, reparto_id: int, *,
+                         actor: str | None) -> dict:
+        """R35: «Mantener lo registrado». `pendiente` -> `rechazado` por CAS
+        (repetirlo no hace nada). Devuelve el reparto con
+        `documentos_libres`: los partes de sus lineas NO congeladas, a los
+        que hay que pedir el recalculo seguido."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            if fila is None:
+                raise RepartoCambiadoError("el reparto ya no existe")
+            if fila.estado != REPARTO_RECHAZADO:
+                res = session.execute(
+                    update(RepartoPendienteOrm)
+                    .where(RepartoPendienteOrm.id == reparto_id,
+                           RepartoPendienteOrm.estado == REPARTO_PENDIENTE)
+                    .values(estado=REPARTO_RECHAZADO,
+                            decision=DECISION_MANTENER, decidido_por=actor,
+                            decidido_at_utc=ahora, actualizado_at_utc=ahora)
+                    .execution_options(synchronize_session=False))
+                if res.rowcount != 1:
+                    session.rollback()
+                    raise RepartoCambiadoError(
+                        f"el reparto ya no esta pendiente (esta "
+                        f"{fila.estado}): recarga la pagina")
+                session.commit()
+                logger.info("[reparto] reparto %s -> rechazado (por %s)",
+                            reparto_id, actor)
+            session.expire_all()
+            fila = session.get(RepartoPendienteOrm, reparto_id)
+            libres = set()
+            for i in self._json(fila.cambios).get("ids_grupo") or []:
+                reg = session.get(ParteRegistroOrm, int(i))
+                if reg is not None and motivo_congelacion_linea(
+                        doc_aprobado=bool(reg.document.approved),
+                        sigrid_estado=reg.sigrid_estado) is None:
+                    libres.add(reg.document_id)
+            return dict(self._reparto_dict(session, fila),
+                        documentos_libres=sorted(libres))
+
+    # ------------------------------------------------------------------ #
+    # F-056: franquicia de extras (`franquicia_ajuste`). La decision humana
+    # y lo ultimo que respondio sv5; X NO vive aqui (campo extendido).
+    # ------------------------------------------------------------------ #
+    def lineas_trabajador_periodo(self, recurso_ide: int, inicio: int,
+                                  fin: int) -> list[dict]:
+        """R7, R12: las lineas activas del trabajador entre `inicio` y `fin`
+        (`YYYYMMDD`, incluidos): las de su recurso y las de cualquier otro
+        recurso de la misma persona (por DNI), para ver si tiene extras con
+        mas de uno (DA16). Sin la papelera ni documentos borrados."""
+        with self._session_factory.create_session() as session:
+            dnis = [d for d in session.execute(
+                select(ParteRegistroOrm.empleado_dni).distinct()
+                .where(ParteRegistroOrm.recurso_ide == int(recurso_ide))
+                .where(ParteRegistroOrm.empleado_dni.isnot(None))
+            ).scalars().all() if d]
+            quien = ParteRegistroOrm.recurso_ide == int(recurso_ide)
+            if dnis:
+                quien = or_(quien, ParteRegistroOrm.empleado_dni.in_(dnis))
+            regs = session.execute(
+                select(ParteRegistroOrm).join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.fecha_int >= int(inicio))
+                .where(ParteRegistroOrm.fecha_int <= int(fin))
+                .where(quien)
+                .order_by(ParteRegistroOrm.fecha_int, ParteRegistroOrm.id)
+            ).scalars().all()
+            return [{
+                "registro_id": x.id, "fecha_int": int(x.fecha_int or 0),
+                "recurso_ide": x.recurso_ide, "dni": x.empleado_dni,
+                "candef": x.hora_candef,
+                "tipo_hora": "extra" if _is_extra(x) else x.tipo_hora,
+                "es_incidencia": bool(x.es_incidencia),
+                "horas": float(x.horas or 0.0), "obra_ide": x.obra_ide,
+                "obra_codigo": x.obra_codigo, "partida_ide": x.partida_ide,
+                "partida_cod": x.partida_cod,
+                "sigrid_estado": _estado_norm(x.sigrid_estado),
+            } for x in regs]
+
+    def recurso_fechas_de(self, registro_ids) -> list[tuple[int, int]]:
+        """R15: `(recurso_ide, fecha_int)` de esas lineas activas (sin la
+        papelera ni documentos borrados), para saber que claves de
+        franquicia son de la seleccion. Incluye las ya registradas."""
+        ids = sorted({int(i) for i in registro_ids or []})
+        if not ids:
+            return []
+        out: set[tuple[int, int]] = set()
+        with self._session_factory.create_session() as session:
+            for i in range(0, len(ids), 500):
+                out.update(session.execute(
+                    select(ParteRegistroOrm.recurso_ide,
+                           ParteRegistroOrm.fecha_int)
+                    .join(ParteDocumentOrm)
+                    .where(ParteRegistroOrm.id.in_(ids[i:i + 500]))
+                    .where(ParteDocumentOrm.is_active.is_(True))
+                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                    .where(ParteRegistroOrm.recurso_ide.isnot(None))
+                ).tuples().all())
+        return sorted((int(r), int(f or 0)) for r, f in out)
+
+    def encolados_de(self, recurso_ide: int, inicio: int, fin: int) -> int:
+        """R18: lineas del trabajador y periodo aun en `encolado`."""
+        return sum(1 for x in self.lineas_trabajador_periodo(
+            recurso_ide, inicio, fin) if x["sigrid_estado"] == "encolado")
+
+    @staticmethod
+    def _fila_ajuste(session, recurso_ide: int,
+                     periodo: str) -> FranquiciaAjusteOrm | None:
+        return session.execute(
+            select(FranquiciaAjusteOrm)
+            .where(FranquiciaAjusteOrm.recurso_ide == int(recurso_ide))
+            .where(FranquiciaAjusteOrm.periodo == str(periodo))
+        ).scalars().first()
+
+    @staticmethod
+    def _ajuste_dict(f: FranquiciaAjusteOrm) -> dict[str, Any]:
+        return {
+            "id": f.id, "recurso_ide": f.recurso_ide, "periodo": f.periodo,
+            "fecha_int": f.fecha_int, "obra_ide": f.obra_ide,
+            "obra_codigo": f.obra_codigo, "partida_ide": f.partida_ide,
+            "partida_cod": f.partida_cod, "franquicia": f.franquicia,
+            "extras": f.extras, "ajuste": f.ajuste, "estado": f.estado,
+            "decision": f.decision, "hmores_ide": f.hmores_ide,
+            "hmoide": f.hmoide, "parte_cod": f.parte_cod, "error": f.error,
+            "decidido_por": f.decidido_por, "aplicado_por": f.aplicado_por,
+            "decidido_at_utc": f.decidido_at_utc,
+            "aplicado_at_utc": f.aplicado_at_utc,
+        }
+
+    def ajuste(self, ajuste_id: int) -> dict | None:
+        with self._session_factory.create_session() as session:
+            f = session.get(FranquiciaAjusteOrm, int(ajuste_id))
+            return None if f is None else self._ajuste_dict(f)
+
+    def ajustes_de(self, claves) -> dict[tuple[int, str], dict]:
+        """R10, R11: las filas de esos `(recurso_ide, periodo)`."""
+        pedidas = {(int(r), str(p)) for r, p in claves}
+        if not pedidas:
+            return {}
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(FranquiciaAjusteOrm).where(
+                    FranquiciaAjusteOrm.recurso_ide.in_(
+                        sorted({r for r, _p in pedidas})))
+            ).scalars().all()
+            return {(f.recurso_ide, f.periodo): self._ajuste_dict(f)
+                    for f in filas if (f.recurso_ide, f.periodo) in pedidas}
+
+    @staticmethod
+    def _campos_ajuste(datos: dict | None) -> dict[str, Any]:
+        """Dia, obra y partida de la propuesta (R7, R8); ceros sin ella."""
+        datos = datos or {}
+        return {"fecha_int": int(datos.get("fecha_int") or 0),
+                "obra_ide": int(datos.get("obra_ide") or 0),
+                "obra_codigo": datos.get("obra_codigo"),
+                "partida_ide": datos.get("partida_ide"),
+                "partida_cod": datos.get("partida_cod")}
+
+    @staticmethod
+    def _propuesta_completa(datos: dict | None) -> bool:
+        return bool(datos and datos.get("fecha_int")
+                    and (datos.get("obra_ide") or datos.get("obra_codigo")))
+
+    def decidir_ajuste(self, recurso_ide: int, periodo: str, decision: str,
+                       datos: dict | None, *, actor: str | None
+                       ) -> dict | None:
+        """R15, R16: guarda la decision del modal (o de la vista).
+
+        `ajustar` crea la fila `decidido` con dia, obra y partida (o pasa a
+        `decidido` una `rechazado`, sin cambiarle el dia ni la obra si ya
+        los tenia, R8); `no_ajustar` la crea `rechazado` (repetirlo no hace
+        nada); `recalcular` pasa a `decidido` una `aplicado`, `decidido` o
+        `error`; `mantener` no toca nada. El cambio es un CAS sobre el
+        estado leido y el alta va contra el indice unico: si otro usuario
+        se adelanto, o la decision no cuadra con el estado, es
+        `AjusteCambiadoError` (409) sin tocar nada. El actor llega por
+        parametro (F-017)."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        rec, per = int(recurso_ide), str(periodo)
+        sin_dia = _error_sin_dia(per)
+        with self._session_factory.create_session() as session:
+            fila = self._fila_ajuste(session, rec, per)
+            if decision == fq.MANTENER:
+                return None if fila is None else self._ajuste_dict(fila)
+            if fila is None:
+                if decision == fq.RECALCULAR:
+                    raise fq.AjusteCambiadoError(
+                        f"no hay ajuste de franquicia que recalcular en "
+                        f"{per}: recarga la pagina")
+                if decision == fq.AJUSTAR and not self._propuesta_completa(
+                        datos):
+                    raise sin_dia
+                nueva = FranquiciaAjusteOrm(
+                    recurso_ide=rec, periodo=per,
+                    estado=(fq.DECIDIDO if decision == fq.AJUSTAR
+                            else fq.RECHAZADO),
+                    decision=decision, decidido_por=actor,
+                    decidido_at_utc=ahora, creado_at_utc=ahora,
+                    actualizado_at_utc=ahora, **self._campos_ajuste(datos))
+                session.add(nueva)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+                    raise fq.AjusteCambiadoError(
+                        "otro usuario decidio este ajuste de franquicia: "
+                        "recarga la pagina") from None
+                logger.info("[franquicia] ajuste %s recurso=%s periodo=%s "
+                            "-> %s (por %s)", nueva.id, rec, per,
+                            nueva.estado, actor)
+                return self._ajuste_dict(nueva)
+            leido = fila.estado
+            if decision == fq.NO_AJUSTAR and leido == fq.RECHAZADO:
+                return self._ajuste_dict(fila)
+            permitido = ((decision == fq.AJUSTAR and leido == fq.RECHAZADO)
+                         or (decision == fq.RECALCULAR
+                             and leido in fq.ESTADOS_VIVOS))
+            if not permitido:
+                raise fq.AjusteCambiadoError(
+                    f"el ajuste de franquicia de {per} esta {leido} y no "
+                    f"admite «{decision}»: recarga la pagina")
+            valores: dict[str, Any] = {
+                "estado": fq.DECIDIDO, "decision": decision,
+                "decidido_por": actor, "decidido_at_utc": ahora,
+                "actualizado_at_utc": ahora}
+            if not fila.fecha_int:
+                if not self._propuesta_completa(datos):
+                    raise sin_dia
+                valores.update(self._campos_ajuste(datos))
+            res = session.execute(
+                update(FranquiciaAjusteOrm)
+                .where(FranquiciaAjusteOrm.id == fila.id,
+                       FranquiciaAjusteOrm.estado == leido)
+                .values(**valores)
+                .execution_options(synchronize_session=False))
+            if res.rowcount != 1:
+                session.rollback()
+                raise fq.AjusteCambiadoError(
+                    "otro usuario decidio este ajuste de franquicia: "
+                    "recarga la pagina")
+            session.commit()
+            logger.info("[franquicia] ajuste %s recurso=%s periodo=%s %s -> "
+                        "decidido (%s, por %s)", fila.id, rec, per, leido,
+                        decision, actor)
+            session.expire_all()
+            return self._ajuste_dict(session.get(FranquiciaAjusteOrm,
+                                                 fila.id))
+
+    def cerrar_ajuste(self, ajuste_id: int, *, ok: bool, sv5: dict | None,
+                      error: str | None, actor: str | None) -> dict | None:
+        """R17: `decidido`/`error` -> `aplicado` (ok) o `error` con el
+        motivo; guarda lo que respondio sv5 (E, A, la X que uso, la linea y
+        el parte) y quien aplico. Sin respuesta de sv5 deja lo que habia.
+        Una fila que ya no esta en esos estados no se toca."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = session.get(FranquiciaAjusteOrm, int(ajuste_id))
+            if fila is None:
+                return None
+            valores: dict[str, Any] = {
+                "estado": fq.APLICADO if ok else fq.ERROR,
+                "error": None if ok else ((error or "")[:255] or None),
+                "aplicado_por": actor, "aplicado_at_utc": ahora,
+                "actualizado_at_utc": ahora}
+            if sv5 is not None:
+                valores.update(
+                    extras=sv5.get("extras"), ajuste=sv5.get("objetivo"),
+                    franquicia=sv5.get("franquicia"),
+                    hmores_ide=sv5.get("hmores_ide"),
+                    hmoide=sv5.get("hmoide"), parte_cod=sv5.get("parte_cod"),
+                    resultado=json.dumps(sv5, default=str))
+            res = session.execute(
+                update(FranquiciaAjusteOrm)
+                .where(FranquiciaAjusteOrm.id == fila.id,
+                       FranquiciaAjusteOrm.estado.in_(
+                           [fq.DECIDIDO, fq.ERROR]))
+                .values(**valores)
+                .execution_options(synchronize_session=False))
+            session.commit()
+            if res.rowcount == 1:
+                logger.info("[franquicia] ajuste %s -> %s (por %s)%s",
+                            fila.id, valores["estado"], actor,
+                            f": {valores['error']}" if not ok else "")
+            session.expire_all()
+            return self._ajuste_dict(session.get(FranquiciaAjusteOrm,
+                                                 fila.id))
 
     def unapprove_document(self, *, document_id: str) -> bool:
         """Desaprobar («Marcar pendiente») ES la via explicita de F-004.
@@ -3041,35 +4349,180 @@ class ParteReviewRepository:
             return "nom-" + nombre.replace(" ", "_")
         return "sin-obra"
 
+    # ---- F-061: el parte que se queda sin lineas vivas se RETIRA ---- #
+    @staticmethod
+    def _sql_bloqueo_documentos(ids):
+        """`SELECT ... FOR UPDATE` de esos partes, por `id` ascendente (R3).
+
+        Todo camino que borra lineas bloquea antes su parte y, si son
+        varios, siempre en el mismo orden: asi dos borrados simultaneos de
+        las dos ultimas lineas no dejan el parte activo y vacio, y no hay
+        abrazo mortal. En SQLite el `FOR UPDATE` desaparece al compilar.
+        `populate_existing` relee el parte ya cargado en la sesion: tras
+        esperar el bloqueo, lo que vale es lo que dejo el otro.
+        """
+        return (
+            select(ParteDocumentOrm)
+            .where(ParteDocumentOrm.id.in_(list(ids)))
+            .order_by(ParteDocumentOrm.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def _bloquear_documentos(self, session, ids) -> list[ParteDocumentOrm]:
+        ids = sorted({i for i in ids if i})
+        if not ids:
+            return []
+        return list(session.execute(
+            self._sql_bloqueo_documentos(ids)).scalars().all())
+
+    @staticmethod
+    def _retirar_si_vacios(session, ids, *, by: str | None) -> list[str]:
+        """Retira cada parte ACTIVO de `ids` sin ninguna linea viva (R1).
+
+        Es el UNICO sitio que escribe la regla: `is_active = False` y la
+        marca `sin-lineas` en `deleted_by`; `deleted_at_utc` sigue a NULL,
+        asi que no sale en la papelera de partes (DA1, DA7). Quien llama ya
+        tiene esos partes bloqueados. Devuelve los ids retirados.
+        """
+        session.flush()
+        retirados: list[str] = []
+        for did in sorted({i for i in ids if i}):
+            doc = session.get(ParteDocumentOrm, did)
+            if doc is None or not doc.is_active:
+                continue
+            viva = session.execute(
+                select(ParteRegistroOrm.id)
+                .where(ParteRegistroOrm.document_id == did)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .limit(1)
+            ).first()
+            if viva is not None:
+                continue
+            doc.is_active = False
+            doc.deleted_by = marca_retirado(by)
+            retirados.append(did)
+        return retirados
+
     # ---- LINEA (registro) ---- #
-    def soft_delete_registro(self, *, registro_id: int, by: str | None = None) -> bool:
+    def borrar_linea(self, *, registro_id: int,
+                     by: str | None = None) -> dict:
+        """Manda la linea a la papelera y retira su parte si se queda sin
+        lineas vivas, en la misma transaccion (F-061 R1).
+
+        Devuelve `{"ok": False}` si la linea no existe o ya estaba borrada;
+        si no, `{"ok": True, "parte_retirado": bool, "document_id": id}`.
+        """
         now_iso = datetime.now(timezone.utc).isoformat()
         with self._session_factory.create_session() as session:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None or reg.deleted_at_utc:
-                return False
+                return {"ok": False}
+            # R3: el parte, bloqueado ANTES de las guardas y de la linea.
+            self._bloquear_documentos(session, [reg.document_id])
+            session.refresh(reg)
+            if reg.deleted_at_utc:   # la borro otro mientras esperabamos
+                return {"ok": False}
             _exigir_reg_editable(reg)   # F-004 R4
             _exigir_sin_recalculo(reg.document)   # F-043 R38
             reg.deleted_at_utc = now_iso
             reg.deleted_by = by
+            retirados = self._retirar_si_vacios(
+                session, [reg.document_id], by=by)
+            document_id = reg.document_id
             session.commit()
-        return True
+        return {"ok": True, "parte_retirado": bool(retirados),
+                "document_id": document_id}
+
+    def soft_delete_registro(self, *, registro_id: int, by: str | None = None) -> bool:
+        return self.borrar_linea(registro_id=registro_id, by=by)["ok"]
+
+    @staticmethod
+    def _exigir_sin_duplicado_activo(session, doc: ParteDocumentOrm) -> None:
+        """F-061 (R7): devolver activo un parte cuyo sha256 ya tiene OTRO
+        parte activo (se reproceso) chocaria con el indice unico parcial
+        `WHERE is_active`. Se rechaza antes de escribir nada."""
+        otro = session.execute(
+            select(ParteDocumentOrm.id)
+            .where(ParteDocumentOrm.source_sha256 == doc.source_sha256)
+            .where(ParteDocumentOrm.is_active.is_(True))
+            .where(ParteDocumentOrm.id != doc.id)
+            .limit(1)
+        ).first()
+        if otro is not None:
+            raise DuplicadoActivoError()
+
+    @staticmethod
+    def _es_retirado(doc: ParteDocumentOrm | None) -> bool:
+        return doc is not None and es_retirado(
+            is_active=doc.is_active, deleted_at_utc=doc.deleted_at_utc,
+            deleted_by=doc.deleted_by)
 
     def restore_registro(self, *, registro_id: int) -> bool:
+        """Saca la linea de la papelera y devuelve su parte si estaba en la
+        papelera de partes o RETIRADO por quedarse sin lineas (F-061 R6).
+        Con otro parte activo del mismo sha256, `DuplicadoActivoError` sin
+        escribir nada (R7)."""
         with self._session_factory.create_session() as session:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
+            docs = self._bloquear_documentos(session, [reg.document_id])
+            doc = docs[0] if docs else None
+            en_papelera = bool(doc is not None and doc.deleted_at_utc
+                               and not doc.is_active)
+            retirado = self._es_retirado(doc)
+            if en_papelera or retirado:
+                self._exigir_sin_duplicado_activo(session, doc)
             reg.deleted_at_utc = None
             reg.deleted_by = None
             # Si su documento estaba en papelera (p.ej. quedo vacio), recuperarlo.
-            doc = session.get(ParteDocumentOrm, reg.document_id)
-            if doc is not None and doc.deleted_at_utc and not doc.is_active:
+            if en_papelera:
                 doc.is_active = True
                 doc.deleted_at_utc = None
                 doc.deleted_by = None
+            elif retirado:   # F-061 R6: vuelve con su linea.
+                doc.is_active = True
+                doc.deleted_by = None
             session.commit()
         return True
+
+    @classmethod
+    def _borrar_retirados_sin_filas(cls, session, ids=None) -> int:
+        """Borra FISICAMENTE cada parte retirado que no conserva ninguna
+        fila (F-061 R9–R11, DA3, decidido por el humano).
+
+        Con `ids=None` barre todos; si no, solo esos. Es el UNICO sitio de
+        este borrado: un parte con filas, o que no este retirado (activo,
+        en la papelera de partes, desactivado por sv3 con `deleted_by`
+        NULL), nunca entra. Un parte APROBADO tampoco (observacion 1 de la
+        review, decision del humano): una pestaña abierta puede aprobar un
+        parte ya retirado. Devuelve cuantos borro.
+        """
+        session.flush()
+        stmt = (select(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(False))
+                .where(ParteDocumentOrm.deleted_at_utc.is_(None))
+                .where(ParteDocumentOrm.approved.is_(False)))
+        if ids is not None:
+            ids = [i for i in ids if i]
+            if not ids:
+                return 0
+            stmt = stmt.where(ParteDocumentOrm.id.in_(ids))
+        borrados = 0
+        for doc in session.execute(stmt).scalars().all():
+            if not cls._es_retirado(doc):
+                continue
+            fila = session.execute(
+                select(ParteRegistroOrm.id)
+                .where(ParteRegistroOrm.document_id == doc.id)
+                .limit(1)
+            ).first()
+            if fila is not None:
+                continue
+            session.delete(doc)
+            borrados += 1
+        return borrados
 
     def hard_delete_registro(self, *, registro_id: int) -> bool:
         with self._session_factory.create_session() as session:
@@ -3079,7 +4532,10 @@ class ParteReviewRepository:
             motivo = motivo_borrado_definitivo([reg.sigrid_estado])
             if motivo is not None:   # F-004 R12, F-019 R16
                 raise CongeladoError(motivo)
+            document_id = reg.document_id
             session.delete(reg)
+            # F-061 R10: el parte retirado que se queda sin filas, tambien.
+            self._borrar_retirados_sin_filas(session, [document_id])
             session.commit()
         return True
 
@@ -3119,40 +4575,40 @@ class ParteReviewRepository:
     ) -> tuple[int, int]:
         """Manda a la papelera las lineas del trabajador.
 
+        F-061 (R2, R3): bloquea sus partes (por `id`) ANTES de tocar
+        lineas, vuelve a leer las candidatas —pudieron cambiar mientras
+        esperaba— y retira el parte que se queda sin lineas vivas, en vez
+        de mandarlo a la papelera de partes.
+
         Devuelve (lineas movidas, lineas omitidas por congelacion: R13).
         """
         now_iso = datetime.now(timezone.utc).isoformat()
         n = 0
         with self._session_factory.create_session() as session:
-            rows = session.execute(
-                select(ParteRegistroOrm)
-                .join(ParteDocumentOrm)
-                .where(ParteDocumentOrm.is_active.is_(True))
-                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
-            ).scalars().all()
-            suyas = [r for r in rows
-                     if worker_key_for_registro(r) == worker_key]
+            def _suyas() -> list[ParteRegistroOrm]:
+                rows = session.execute(
+                    select(ParteRegistroOrm)
+                    .join(ParteDocumentOrm)
+                    .where(ParteDocumentOrm.is_active.is_(True))
+                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                    .execution_options(populate_existing=True)
+                ).scalars().all()
+                return [r for r in rows
+                        if worker_key_for_registro(r) == worker_key]
+
+            suyas = _suyas()
+            if suyas:
+                bloqueados = {r.document_id for r in suyas}
+                self._bloquear_documentos(session, bloqueados)
+                # Solo las de partes bloqueados: no se toca ninguno sin él.
+                suyas = [r for r in _suyas() if r.document_id in bloqueados]
             libres, congelados = _separar_congeladas(suyas)
-            docs_tocados: set[str] = set()
             for reg in libres:
                 reg.deleted_at_utc = now_iso
                 reg.deleted_by = by
                 n += 1
-                docs_tocados.add(reg.document_id)
-            # Documentos que quedan sin lineas activas -> a papelera tambien.
-            for did in docs_tocados:
-                queda = session.execute(
-                    select(ParteRegistroOrm.id)
-                    .where(ParteRegistroOrm.document_id == did)
-                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
-                    .limit(1)
-                ).first()
-                if queda is None:
-                    doc = session.get(ParteDocumentOrm, did)
-                    if doc is not None and doc.is_active:
-                        doc.is_active = False
-                        doc.deleted_at_utc = now_iso
-                        doc.deleted_by = by
+            self._retirar_si_vacios(
+                session, {r.document_id for r in libres}, by=by)
             session.commit()
         return n, congelados
 
@@ -3200,10 +4656,25 @@ class ParteReviewRepository:
         return len(p["documentos"]) + len(p["registros"])
 
     def restore_document(self, *, document_id: str) -> bool:
+        """Saca el parte de la papelera de partes.
+
+        F-061: con otro parte activo del mismo sha256,
+        `DuplicadoActivoError` sin escribir nada (R7). Si no le queda
+        ninguna linea viva (el legado del `soft_delete_worker` anterior),
+        vuelven tambien todas sus lineas de la papelera (R8): si no,
+        volveria activo y vacio.
+        """
         with self._session_factory.create_session() as session:
-            doc = session.get(ParteDocumentOrm, document_id)
+            docs = self._bloquear_documentos(session, [document_id])
+            doc = docs[0] if docs else None
             if doc is None:
                 return False
+            if not doc.is_active:
+                self._exigir_sin_duplicado_activo(session, doc)
+            if all(r.deleted_at_utc for r in doc.registros):
+                for r in doc.registros:
+                    r.deleted_at_utc = None
+                    r.deleted_by = None
             doc.is_active = True
             doc.deleted_at_utc = None
             doc.deleted_by = None
@@ -3264,14 +4735,94 @@ class ParteReviewRepository:
                     continue
                 session.delete(r)
                 regs_borrados += 1
+            # F-061 R9: el parte retirado que ya no conserva ninguna fila
+            # se borra fisicamente (barrido global, DA3).
+            partes_borrados = self._borrar_retirados_sin_filas(session)
             session.commit()
         if omitidos:
             logger.info(
                 "[papelera] %s elemento(s) omitidos por estar en Sigrid",
                 omitidos,
             )
-        return {"documentos": docs_borrados, "registros": regs_borrados,
-                "omitidos": omitidos}
+        res = {"documentos": docs_borrados, "registros": regs_borrados,
+               "omitidos": omitidos}
+        # Solo si es > 0, como `EXCLUIDA_REPARTO`: el resultado de siempre
+        # no cambia cuando no hay partes retirados que borrar.
+        if partes_borrados:
+            res["partes_borrados"] = partes_borrados
+        return res
+
+    # ---- F-061 (DA4): los partes vacios que ya existian ---- #
+    def partes_vacios_activos(self) -> list[dict]:
+        """Partes ACTIVOS sin ninguna linea viva, con lo que el informe de
+        `limpiar_partes_vacios.py` necesita (R14). Solo `SELECT`.
+
+        Sin nombres ni DNIs: de la extraccion guardada solo sale cuantos
+        empleados traia.
+        """
+        viva = (select(ParteRegistroOrm.id)
+                .where(ParteRegistroOrm.document_id == ParteDocumentOrm.id)
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .exists())
+        with self._session_factory.create_session() as session:
+            docs = session.execute(
+                select(ParteDocumentOrm)
+                .options(selectinload(ParteDocumentOrm.registros))
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(~viva)
+                .order_by(ParteDocumentOrm.id)
+            ).scalars().all()
+            return [{
+                "document_id": d.id,
+                "fecha": d.fecha,
+                "obra_codigo": d.obra_codigo,
+                "created_at_utc": d.created_at_utc,
+                "approved": bool(d.approved),
+                "filas": len(d.registros),
+                "manual": d.source_mime_type == "manual",
+                "empleados_leidos": empleados_leidos(d.raw_extraction_json),
+                "estados": [r.sigrid_estado for r in d.registros],
+                "partes_sigrid": [r.sigrid_parte_cod for r in d.registros],
+            } for d in docs]
+
+    def limpiar_vacios(self, document_ids, *, by: str) -> dict:
+        """Aplica la regla de F-061 a esos partes (R17), en UNA transaccion.
+
+        Bloquea los partes por `id` y recomprueba cada uno: activo, sin
+        lineas vivas y sin motivo de exclusion. El que lo cumple se retira
+        (`_retirar_si_vacios`) y, si no conserva ninguna fila, se borra
+        fisicamente (`_borrar_retirados_sin_filas`): ninguna fila de
+        `parte_registros` se borra. El resto se salta.
+        Devuelve `{"borrados", "retirados", "saltados"}` (listas de ids).
+        """
+        pedidos = list(dict.fromkeys(i for i in document_ids if i))
+        with self._session_factory.create_session() as session:
+            docs = {d.id: d for d in
+                    self._bloquear_documentos(session, pedidos)}
+            validos: list[str] = []
+            saltados: list[str] = []
+            for did in pedidos:
+                doc = docs.get(did)
+                if (doc is None or not doc.is_active
+                        or any(not r.deleted_at_utc for r in doc.registros)
+                        or motivo_exclusion_limpieza(
+                            aprobado=bool(doc.approved),
+                            estados=[r.sigrid_estado for r in doc.registros],
+                            partes_sigrid=[r.sigrid_parte_cod
+                                           for r in doc.registros],
+                        ) is not None):
+                    saltados.append(did)
+                    continue
+                validos.append(did)
+            retirados = self._retirar_si_vacios(session, validos, by=by)
+            self._borrar_retirados_sin_filas(session, retirados)
+            session.flush()
+            borrados = [did for did in retirados
+                        if session.get(ParteDocumentOrm, did) is None]
+            session.commit()
+        return {"borrados": borrados,
+                "retirados": [d for d in retirados if d not in borrados],
+                "saltados": saltados}
 
     # ----------------------------------------------------------------- #
     # CREAR parte manualmente (un dia o un periodo).
@@ -3318,6 +4869,12 @@ class ParteReviewRepository:
             if empleado_ide is None and empleado_reside is not None
             else None
         )
+        # F-050: la clave que tendran las lineas nuevas (su recurso es el
+        # `empleado_reside` elegido).
+        clave = _clave_trabajador(
+            casada=empleado_ide is not None or metodo_empleado is not None,
+            empleado_ide=empleado_ide, recurso=empleado_reside,
+            nombre_leido=empleado_nombre)
 
         with self._session_factory.create_session() as session:
             for iso in dias:
@@ -3358,12 +4915,19 @@ class ParteReviewRepository:
                     )
                 ).scalar()
                 nli = (maxli if maxli is not None else -1) + 1
+                # F-050 (R16-R17): fila y leido de la persona en este parte
+                # (los comparten la incidencia y cada tipo del dia).
+                regs_doc = list(session.execute(
+                    select(ParteRegistroOrm).where(
+                        ParteRegistroOrm.document_id == doc.id)
+                ).scalars().all())
+                fila, leido = fila_para_alta_manual(regs_doc, clave, empleado_nombre)
                 if incidencia:
                     hm = hora_incidencia
                     session.add(ParteRegistroOrm(
-                        document_id=doc.id, line_index=nli, empleado_line_no=1,
+                        document_id=doc.id, line_index=nli, empleado_line_no=fila,
                         categoria=categoria,
-                        trabajador_nombre_leido=empleado_nombre,
+                        trabajador_nombre_leido=leido,
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
@@ -3399,9 +4963,9 @@ class ParteReviewRepository:
                 for tipo, horas in tipos:
                     hm = hora_extra if tipo == "extra" else hora_normal
                     session.add(ParteRegistroOrm(
-                        document_id=doc.id, line_index=nli, empleado_line_no=1,
+                        document_id=doc.id, line_index=nli, empleado_line_no=fila,
                         categoria=categoria,
-                        trabajador_nombre_leido=empleado_nombre,
+                        trabajador_nombre_leido=leido,
                         empleado_ide=empleado_ide, empleado_codigo=empleado_codigo,
                         empleado_nombre=empleado_nombre, empleado_dni=empleado_dni,
                         empleado_reside=empleado_reside,
@@ -3523,4 +5087,5 @@ def _registro_view(
         congelado_motivo=motivo,
         incompat_nivel=incompat.nivel if incompat else None,
         incompat_motivo=incompat.motivo if incompat else None,
+        horas_extra_leidas=reg.horas_extra_leidas,
     )

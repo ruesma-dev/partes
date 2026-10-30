@@ -23,10 +23,11 @@ Estos tests convierten la promesa en una propiedad verificada por
   (nunca el árbol real) y se exige que la comparación las cace nombrando
   el elemento divergente.
 - **R4**: el contenido canónico es la UNIÓN de lo que declaraba cada copia
-  (D1 del diseño): las tablas de la base y las 56 columnas reales de
+  (D1 del diseño): las tablas de la base y las 57 columnas de
   `parte_registros`, ni una más ni una menos. F-015 añadió la quinta
   tabla (`empleado_jornada`) y la declaró aquí con sus columnas
-  literales: la lista de `parte_registros` NO se tocó.
+  literales: la lista de `parte_registros` NO se tocó. F-048 añadió la
+  columna 57 (`horas_extra_leidas`, decisión del humano del 2026-10-15).
 
 Sin red, sin BBDD y sin conexión: solo sistema de ficheros y compilación
 de tipos de SQLAlchemy contra el dialecto PostgreSQL.
@@ -55,7 +56,8 @@ COPIAS: tuple[tuple[str, Path], ...] = (("sv3", RUTA_SV3), ("sv4", RUTA_SV4))
 
 DIALECTO = postgresql.dialect()
 
-#: Las 56 columnas de `parte_registros` tras la resincronización (R4), en
+#: Las 57 columnas de `parte_registros` (56 tras la resincronización, R4,
+#: más `horas_extra_leidas` de F-048), en
 #: orden de declaración. Lista LITERAL a propósito: si alguien añade o quita
 #: una columna, este test le obliga a declararlo aquí y, por tanto, a mirar
 #: si la BBDD real la tiene. La cuenta se comprobó contra
@@ -114,22 +116,78 @@ COLUMNAS_PARTE_REGISTROS: tuple[str, ...] = (
     "hora_candef",
     "recurso_precio_hora",
     "horas_orig",
+    "horas_extra_leidas",
     "extra_auto",
     "hora_match_method",
     "confianza_pct",
 )
 
-#: Las SEIS tablas de la base `partes` (cuatro hasta F-015, que añadió
-#: `empleado_jornada`; cinco hasta F-019, que añadió `dedicacion_bandeja`).
+#: Las OCHO tablas de la base `partes` (cuatro hasta F-015, que añadió
+#: `empleado_jornada`; cinco hasta F-019, que añadió `dedicacion_bandeja`;
+#: seis hasta F-046, que añadió `reparto_pendiente`; siete hasta F-056, que
+#: añadió `franquicia_ajuste`).
 #: Añadir una tabla OBLIGA a tocar esta constante: es el aviso de que hay
 #: que mirar si la BBDD real la tiene.
 TABLAS: tuple[str, ...] = (
     "dedicacion_bandeja",
     "empleado_alias",
     "empleado_jornada",
+    "franquicia_ajuste",
     "parte_documents",
     "parte_registros",
+    "reparto_pendiente",
     "undo_log",
+)
+
+#: Las 24 columnas de `franquicia_ajuste` (F-056, design §5), en orden de
+#: declaración: una fila por (recurso, periodo de nómina) con la decisión
+#: humana y lo último de sv5 (X usada incluida). Sin nombres ni DNIs.
+COLUMNAS_FRANQUICIA_AJUSTE: tuple[str, ...] = (
+    "id",
+    "recurso_ide",
+    "periodo",
+    "fecha_int",
+    "obra_ide",
+    "obra_codigo",
+    "partida_ide",
+    "partida_cod",
+    "franquicia",
+    "extras",
+    "ajuste",
+    "estado",
+    "decision",
+    "hmores_ide",
+    "hmoide",
+    "parte_cod",
+    "resultado",
+    "error",
+    "decidido_por",
+    "aplicado_por",
+    "decidido_at_utc",
+    "aplicado_at_utc",
+    "creado_at_utc",
+    "actualizado_at_utc",
+)
+
+#: Las 14 columnas de `reparto_pendiente` (F-046, design §5), en orden de
+#: declaración. Literal por el mismo motivo que las demás: sv3 la escribe
+#: (propuesta y materialización) y sv4 la lee y decide (CAS sobre `estado`).
+#: Sin nombres ni DNIs: el trabajador es su `recurso_ide` de Sigrid.
+COLUMNAS_REPARTO_PENDIENTE: tuple[str, ...] = (
+    "id",
+    "recurso_ide",
+    "fecha_int",
+    "estado",
+    "firma",
+    "cambios",
+    "resultado",
+    "error",
+    "decision",
+    "decidido_por",
+    "decidido_at_utc",
+    "creado_at_utc",
+    "actualizado_at_utc",
+    "materializado_at_utc",
 )
 
 #: Las 23 columnas de `dedicacion_bandeja` (F-019), en orden de
@@ -441,23 +499,26 @@ def test_f010_r3_el_arbol_real_no_se_toca(tmp_path: Path) -> None:
 
 
 def test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas() -> None:
-    """Contenido canónico = UNIÓN de las dos copias de partida (D1)."""
+    """Contenido canónico = UNIÓN de las dos copias de partida (D1). El
+    nombre conserva la cuenta de F-010; desde F-048 son 57 columnas."""
     modulo = _cargar(RUTA_SV3, "orm_models_sv3_r4")
     metadata = modulo.Base.metadata
 
     assert tuple(sorted(metadata.tables)) == TABLAS, (
-        "la base 'partes' tiene SEIS tablas (undo_log solo la escribe sv4; "
-        "empleado_jornada la añadió F-015 y dedicacion_bandeja F-019)"
+        "la base 'partes' tiene OCHO tablas (undo_log solo la escribe sv4; "
+        "empleado_jornada la añadió F-015, dedicacion_bandeja F-019, "
+        "reparto_pendiente F-046 y franquicia_ajuste F-056)"
     )
 
     columnas = tuple(c.name for c in metadata.tables["parte_registros"].columns)
     assert columnas == COLUMNAS_PARTE_REGISTROS, (
-        "parte_registros no declara exactamente las 56 columnas reales de la "
-        "BBDD (comprobadas contra information_schema el 2026-08-18). Sobran: "
+        "parte_registros no declara exactamente sus 57 columnas (56 "
+        "comprobadas contra information_schema el 2026-08-18 y la de F-048). "
+        "Sobran: "
         f"{sorted(set(columnas) - set(COLUMNAS_PARTE_REGISTROS))}; faltan: "
         f"{sorted(set(COLUMNAS_PARTE_REGISTROS) - set(columnas))}"
     )
-    assert len(columnas) == 56
+    assert len(columnas) == 57
 
 
 def test_f010_r4_los_atributos_de_las_columnas_reunidas() -> None:
@@ -564,13 +625,14 @@ def test_f010_r29_ninguna_columna_not_null_se_queda_sin_server_default() -> None
 
 
 def test_f010_r29_parte_registros_no_gana_ni_pierde_columnas() -> None:
-    """F-015 no toca la tabla grande (R21): 56 columnas, las mismas."""
+    """F-015 no toca la tabla grande (R21): las columnas de la lista, hoy 57
+    (F-048 añadió `horas_extra_leidas`)."""
     modulo = _cargar(RUTA_SV3, "orm_models_sv3_r29_registros")
     columnas = tuple(
         c.name for c in modulo.Base.metadata.tables["parte_registros"].columns
     )
     assert columnas == COLUMNAS_PARTE_REGISTROS
-    assert len(columnas) == 56
+    assert len(columnas) == 57
 
 
 # ------------------- R29 (F-019) · la sexta tabla ----------------------- #
@@ -619,3 +681,78 @@ def test_f019_r29_parte_registros_no_gana_ni_pierde_columnas() -> None:
         c.name for c in modulo.Base.metadata.tables["parte_registros"].columns
     )
     assert columnas == COLUMNAS_PARTE_REGISTROS
+
+
+# ------------------- F-046 (R39) · la séptima tabla ---------------------- #
+
+
+def test_f046_r39_reparto_pendiente_declara_sus_columnas_literales() -> None:
+    """El reparto pendiente de decisión, columna a columna (design §5)."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f046_r39")
+    tabla = modulo.Base.metadata.tables["reparto_pendiente"]
+    columnas = tuple(c.name for c in tabla.columns)
+    assert columnas == COLUMNAS_REPARTO_PENDIENTE, (
+        "reparto_pendiente no declara exactamente sus columnas. Sobran: "
+        f"{sorted(set(columnas) - set(COLUMNAS_REPARTO_PENDIENTE))}; "
+        "faltan: "
+        f"{sorted(set(COLUMNAS_REPARTO_PENDIENTE) - set(columnas))}"
+    )
+    assert len(columnas) == 14
+
+
+def test_f046_r39_reparto_pendiente_atributos_indices_y_defaults() -> None:
+    """Toda `NOT NULL` lleva `server_default` (DDL complementario de
+    arranque); índices por grupo (recurso, fecha) y por estado; sin FK."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f046_r39_attrs")
+    tabla = modulo.Base.metadata.tables["reparto_pendiente"]
+    for col in tabla.columns:
+        assert col.foreign_keys == set(), col.name
+        if not col.nullable and not col.primary_key:
+            assert col.server_default is not None, col.name
+    indices = {i.name: tuple(c.name for c in i.columns) for i in tabla.indexes}
+    assert indices == {
+        "ix_reparto_pendiente_grupo": ("recurso_ide", "fecha_int"),
+        "ix_reparto_pendiente_estado": ("estado",),
+    }
+    assert tabla.c.estado.server_default.arg == "pendiente"
+    assert tabla.c.cambios.server_default.arg == "{}"
+    assert modulo.ESTADOS_REPARTO == (
+        "pendiente", "aplicando", "aplicado", "materializado", "rechazado",
+        "mantenido", "obsoleto")
+
+
+def test_f056_r34_franquicia_ajuste_declara_sus_columnas_literales() -> None:
+    """El ajuste por (recurso, periodo), columna a columna (design §5)."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f056_r34_aj")
+    tabla = modulo.Base.metadata.tables["franquicia_ajuste"]
+    columnas = tuple(c.name for c in tabla.columns)
+    assert columnas == COLUMNAS_FRANQUICIA_AJUSTE, (
+        "franquicia_ajuste no declara exactamente sus columnas. Sobran: "
+        f"{sorted(set(columnas) - set(COLUMNAS_FRANQUICIA_AJUSTE))}; "
+        "faltan: "
+        f"{sorted(set(COLUMNAS_FRANQUICIA_AJUSTE) - set(columnas))}"
+    )
+    assert len(columnas) == 24
+
+
+def test_f056_r34_franquicia_ajuste_atributos_indices_y_defaults() -> None:
+    """Toda `NOT NULL` lleva `server_default`; sin FK; el índice ÚNICO
+    (recurso, periodo) y el de estado; X usada (`franquicia`) admite NULL
+    hasta la primera aplicación (enmienda DA1 = C)."""
+    modulo = _cargar(RUTA_SV3, "orm_models_sv3_f056_r34_attrs")
+    aj = modulo.Base.metadata.tables["franquicia_ajuste"]
+    for col in aj.columns:
+        assert col.foreign_keys == set(), col.name
+        if not col.nullable and not col.primary_key:
+            assert col.server_default is not None, col.name
+    assert {i.name: (tuple(c.name for c in i.columns), i.unique)
+            for i in aj.indexes} == {
+        "ux_franquicia_ajuste_periodo": (("recurso_ide", "periodo"), True),
+        "ix_franquicia_ajuste_estado": (("estado",), False)}
+    assert aj.c.estado.server_default.arg == "decidido"
+    assert aj.c.franquicia.nullable is True
+    assert aj.c.franquicia.server_default is None
+    assert "empleado_franquicia" not in modulo.Base.metadata.tables
+    assert modulo.ESTADOS_FRANQUICIA == (
+        "decidido", "aplicado", "rechazado", "error")
+

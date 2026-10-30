@@ -39,7 +39,7 @@
   <input class="input" type="search" name="search" value="{{ search }}"
          placeholder="Buscar por nombre, codigo o DNI…" autocomplete="off">
   <button class="btn primary small" type="submit">Buscar</button>
-  {% if search %}<a class="btn secondary small" href="/trabajadores">Limpiar</a>{% endif %}
+  {% if search %}<a class="btn secondary small" href="/trabajadores?search=">Limpiar</a>{% endif %}
 </form>
 
 {% if workers %}
@@ -49,6 +49,7 @@
     <thead>
       <tr>
         <th>Trabajador</th>
+        <th>Empresa</th>
         <th>Categoria</th>
         <th class="num">Partes</th>
         <th class="num">Ordinarias</th>
@@ -59,6 +60,7 @@
       </tr>
       <tr class="filter-row">
         <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
+        <th><input class="col-filter" type="text" placeholder="Filtrar empresa…"></th>
         <th><input class="col-filter" type="text" placeholder="Filtrar…"></th>
         <th><input class="col-filter" type="text" placeholder="…"></th>
         <th><input class="col-filter" type="text" placeholder="…"></th>
@@ -84,6 +86,7 @@
           </div>
           {% endif %}
         </td>
+        <td>{{ w.empresa_texto }}</td>
         <td>{{ w.categoria or "—" }}</td>
         <td class="num">{{ w.num_partes }}</td>
         <td class="num">{{ w.horas_normales|horas }}</td>

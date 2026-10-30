@@ -1,0 +1,191 @@
+diff --git a/services/partes-front/tests/dobles.py b/services/partes-front/tests/dobles.py
+index b14bcdb..36745ef 100644
+--- a/services/partes-front/tests/dobles.py
++++ b/services/partes-front/tests/dobles.py
+@@ -285,6 +285,7 @@ def sembrar_parte(
+     empleado_ide: int | None = 77,
+     empleado_dni: str = "12345678Z",
+     empleado_nombre: str = "Pepe Perez",
++    recurso_ide: int = 501,
+ ) -> list[int]:
+     """Siembra UN parte con lineas de `sigrid_estado` parametrizable (F-004).
+ 
+@@ -319,7 +320,7 @@ def sembrar_parte(
+                 empleado_nombre=empleado_nombre,
+                 trabajador_nombre_leido=linea.get(
+                     "leido", empleado_nombre),
+-                recurso_ide=501, recurso_cif=empleado_dni,
++                recurso_ide=recurso_ide, recurso_cif=empleado_dni,
+                 categoria=linea.get("categoria"),
+                 tipo_hora=str(linea.get("tipo") or "normal"),
+                 horas=linea.get("horas", 8.0),
+diff --git a/services/partes-front/tests/test_f019_portal.py b/services/partes-front/tests/test_f019_portal.py
+index a16a875..eaea9e3 100644
+--- a/services/partes-front/tests/test_f019_portal.py
++++ b/services/partes-front/tests/test_f019_portal.py
+@@ -286,7 +286,7 @@ from tests.test_f019_bandeja import (  # noqa: E402
+     sembrar_mensual,
+ )
+ 
+-PERSONA = {"vista": "trabajador", "worker_key": "rec-501"}
++PERSONA = {"vista": "trabajador", "worker_key": "rec-602"}
+ 
+ 
+ @pytest.fixture
+@@ -302,9 +302,9 @@ def publicado(monkeypatch):
+     repo = ParteReviewRepository(fabrica)
+     _marcar(repo, ded)
+     libre, reg = sembrar(fabrica, [{}, {"estado": "registrado"}], doc="d2",
+-                         empleado_ide=77, fecha="2026-03-05")
++                         empleado_ide=77, fecha="2026-03-05", recurso_ide=602)
+     (ajena,) = sembrar(fabrica, [{"estado": "dedicacion"}], doc="d3",
+-                       empleado_ide=88, dni="00000001R",
++                       empleado_ide=88, dni="00000001R", recurso_ide=502,
+                        nombre="Persona B")
+     app = build_app(Settings(_env_file=None), repository=repo,
+                     transfer_client=Sv5Falso(), publisher=PublisherFalso(),
+@@ -450,7 +450,7 @@ def test_f019_r24_el_autor_es_el_actor_de_la_peticion(publicado) -> None:
+ import re  # noqa: E402
+ from pathlib import Path  # noqa: E402
+ 
+-VISTAS = ["/obras/obr-10", "/trabajadores/rec-501"]
++VISTAS = ["/obras/obr-10", "/trabajadores/rec-602"]
+ APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
+ 
+ 
+diff --git a/services/partes-front/tests/test_f022_aprobar_seleccion.py b/services/partes-front/tests/test_f022_aprobar_seleccion.py
+index bfef97f..6ce7ec6 100644
+--- a/services/partes-front/tests/test_f022_aprobar_seleccion.py
++++ b/services/partes-front/tests/test_f022_aprobar_seleccion.py
+@@ -56,7 +56,7 @@ def _tres_obras():
+ def test_f022_r10_repo_ids_de_trabajador_son_los_de_su_tabla() -> None:
+     repo, fabrica, a, b, c = _tres_obras()
+     otra = _sembrar(fabrica, OBRA_10, [None], doc="doc-otra",
+-                    empleado_ide=88, empleado_dni="00000001R")
++                    empleado_ide=88, empleado_dni="00000001R", recurso_ide=502)
+     papelera = _sembrar(fabrica, OBRA_10, [None], doc="doc-pap",
+                         doc_en_papelera=True)
+     borrada = sembrar_parte(fabrica, [{"borrada": True}], document_id="doc-bo",
+@@ -305,7 +305,7 @@ class CalendarioFalso(ProveedorFake):
+ 
+ 
+ DNI_A = "12345678Z"      # rec-501
+-DNI_B = "00000001R"      # emp-88
++DNI_B = "00000001R"      # rec-502
+ MARZO = {"vista": "obra", "obra_key": "obr-10", "period": "2026-03",
+          "mode": "nomina"}
+ PERSONA_A = {"vista": "trabajador", "worker_key": "rec-501"}
+@@ -320,7 +320,8 @@ def _escenario(fabrica) -> dict[str, list[int]]:
+         "o10_a": _sembrar(fabrica, OBRA_10, [None, None], doc="d-10a"),
+         "o10_b": _sembrar(fabrica, OBRA_10, [None], doc="d-10b",
+                           fecha="2026-03-04", empleado_ide=88,
+-                          empleado_dni=DNI_B, empleado_nombre="Persona B"),
++                          empleado_dni=DNI_B, empleado_nombre="Persona B",
++                          recurso_ide=502),
+         "o10_abril": _sembrar(fabrica, OBRA_10, [None], doc="d-10abr",
+                               fecha="2026-04-02"),
+         "o20_a": _sembrar(fabrica, OBRA_20, [None, "error"], doc="d-20a",
+diff --git a/services/partes-front/tests/test_f025_aprobacion.py b/services/partes-front/tests/test_f025_aprobacion.py
+index 8c2edc8..bf1ac6d 100644
+--- a/services/partes-front/tests/test_f025_aprobacion.py
++++ b/services/partes-front/tests/test_f025_aprobacion.py
+@@ -45,7 +45,8 @@ CLAVES_LINEA = {"registro_id", "fecha_int", "recurso_ide", "dni", "nombre",
+ def sembrar(fabrica, lineas: list[dict], *, doc: str,
+             fecha: str = "2026-03-02", obra: dict = OBRA_10,
+             dni: str | None = DNI_A, empleado_ide: int | None = 77,
+-            nombre: str = "Persona A", doc_activo: bool = True) -> list[int]:
++            nombre: str = "Persona A", doc_activo: bool = True,
++            recurso_ide: int = 501) -> list[int]:
+     """Un parte con lineas de una persona. Cada linea admite: `inc` (la
+     letra), `ci` (codigo de hora de la incidencia), `tipo` (`normal` o
+     `extra`), `horas`, `estado` (`sigrid_estado`) y `borrada`."""
+@@ -69,7 +70,7 @@ def sembrar(fabrica, lineas: list[dict], *, doc: str,
+                 obra_codigo=obra["codigo"], obra_nombre=obra["nombre"],
+                 empleado_ide=empleado_ide, empleado_dni=dni,
+                 empleado_nombre=nombre, trabajador_nombre_leido=nombre,
+-                recurso_ide=501, recurso_cif=dni, tipo_hora=tipo,
++                recurso_ide=recurso_ide, recurso_cif=dni, tipo_hora=tipo,
+                 horas=linea.get("horas", 0.0 if es_inc else 8.0),
+                 es_incidencia=es_inc, incidencia_codigo=linea.get("inc"),
+                 hora_ide=1,
+diff --git a/services/partes-front/tests/test_f025_vistas.py b/services/partes-front/tests/test_f025_vistas.py
+index d91df6f..1283db1 100644
+--- a/services/partes-front/tests/test_f025_vistas.py
++++ b/services/partes-front/tests/test_f025_vistas.py
+@@ -36,7 +36,7 @@ MOTIVO_M = ("Maternidad/Paternidad (M) es de día completo y ese día hay 9 h "
+ def _escenario(fabrica) -> dict[str, list[int]]:
+     """Persona A (rec-501): dia 02 con M en la obra 20 y horas en la 10
+     (bloqueo); dia 03 con FJ y 2 h extra en la 10 (aviso); dia 04 normal.
+-    Persona B (emp-88): dia 02 normal en la obra 10."""
++    Persona B (rec-502): dia 02 normal en la obra 10."""
+     return {
+         "inc_m": sembrar(fabrica, [{"inc": "M"}], doc="v-m", obra=OBRA_20),
+         "bloq": sembrar(fabrica, [{"horas": 8.0},
+@@ -48,7 +48,7 @@ def _escenario(fabrica) -> dict[str, list[int]]:
+         "libre": sembrar(fabrica, [{"horas": 8.0}], doc="v-libre",
+                          fecha="2026-03-04"),
+         "otra": sembrar(fabrica, [{"horas": 8.0}], doc="v-otra", dni=DNI_B,
+-                        empleado_ide=88, nombre="Persona B"),
++                        empleado_ide=88, nombre="Persona B", recurso_ide=502),
+     }
+ 
+ 
+@@ -81,7 +81,7 @@ def test_f025_r15_repo_celdas_de_la_matriz_de_obra() -> None:
+     aviso = _celda(det, "rec-501", "2026-03-03")
+     assert aviso.incompat_nivel == "aviso"
+     assert "(FJ) y 2 h extra" in aviso.incompat_motivo
+-    for wk, dia in (("rec-501", "2026-03-04"), ("emp-88", "2026-03-02"),
++    for wk, dia in (("rec-501", "2026-03-04"), ("rec-502", "2026-03-02"),
+                     ("rec-501", "2026-03-05")):
+         celda = _celda(det, wk, dia)
+         assert (celda.incompat_nivel, celda.incompat_motivo) == (None, None)
+@@ -117,7 +117,7 @@ def test_f025_r17_r18_repo_lineas_de_la_vista_de_trabajador() -> None:
+         ["bloqueo"] * 3
+     assert [niveles[i] for i in ids["aviso"]] == ["aviso"] * 3
+     assert niveles[ids["libre"][0]] is None
+-    otra = repo.get_worker("emp-88", incidencias=TABLA)
++    otra = repo.get_worker("rec-502", incidencias=TABLA)
+     assert _niveles(otra.registros) == {ids["otra"][0]: None}
+ 
+ 
+@@ -266,7 +266,7 @@ def test_f025_r16_r17_html_vista_de_trabajador(portal) -> None:
+ 
+ def test_f025_r16_html_sin_conflictos_no_hay_marcas(portal) -> None:
+     cliente, _ids = portal
+-    html = cliente.get(f"/trabajadores/emp-88?period={MARZO}").text
++    html = cliente.get(f"/trabajadores/rec-502?period={MARZO}").text
+     assert "cal-incompat" not in html
+     assert _insignias(html) == {}
+ 
+diff --git a/services/partes-front/tests/test_f035_repositorio.py b/services/partes-front/tests/test_f035_repositorio.py
+index 3fc95be..e866d7d 100644
+--- a/services/partes-front/tests/test_f035_repositorio.py
++++ b/services/partes-front/tests/test_f035_repositorio.py
+@@ -59,14 +59,15 @@ def _montar():
+     return ParteReviewRepository(fabrica), fabrica, ids
+ 
+ 
+-def _asignar(repo, metodo, ids, **kw):
++def _asignar(repo, metodo, ids, *,
++             clave="nom-" + LEIDO.upper().replace(" ", "_"), **kw):
+     """Llama a una de las cuatro asignaciones con los mismos datos."""
+     if metodo == "backfill":
+         return repo.backfill_empleado(nombre_leido=LEIDO, **kw)
+     if metodo == "leido":
+         return repo.reassign_empleado_by_leido(nombre_leido=LEIDO, **kw)
+     if metodo == "worker_key":
+-        key = "nom-" + LEIDO.upper().replace(" ", "_")
++        key = clave
+         return repo.reassign_empleado_by_worker_key(worker_key=key, **kw)
+     return repo.reassign_empleado_by_registro_ids(registro_ids=ids, **kw)
+ 
+@@ -260,7 +261,8 @@ def test_f035_r12_reasignar_a_una_ficha_quita_recurso_manual(
+     repo, fabrica, (libre, congelada, extra) = _montar()
+     _asignar(repo, metodo, [libre, extra], **SIN_FICHA)
+     assert _fila(fabrica, libre).empleado_match_method == "recurso_manual"
+-    _asignar(repo, metodo, [libre, extra], **{**CON_FICHA, "reside": reside})
++    _asignar(repo, metodo, [libre, extra], **{**CON_FICHA, "reside": reside},
++             clave="rec-903")
+     for rid in (libre, extra):
+         r = _fila(fabrica, rid)
+         assert r.empleado_ide == 11

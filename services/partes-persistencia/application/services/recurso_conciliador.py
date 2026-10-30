@@ -27,6 +27,7 @@ import re
 import threading
 import time
 from collections import defaultdict
+from contextlib import nullcontext
 from datetime import date
 from typing import Callable, Mapping
 
@@ -37,6 +38,28 @@ from application.services.jornada_resolver import (
     detalle_jornada_dia,
     jornada_efectiva,
     jornada_semanal_de,
+)
+from application.services.pareja_extra import clave_pareja
+from application.services.reajuste_reparto import (
+    CONGELAR,
+    MATERIALIZAR,
+    REAJUSTABLE,
+    RESIDUAL,
+    RESIDUAL_MANTENER,
+    clase_linea,
+    decidir_grupo,
+    es_rechazado,
+    firma_grupo,
+)
+from application.services.reparto_ponderado import (
+    EXTRA,
+    ORDINARIA,
+    LineaDia,
+    PropuestaDia,
+    ResultadoDia,
+    diferencias_ideal,
+    proponer_dia,
+    repartir_dia,
 )
 from application.services.seleccion_sigrid import IndicePersonas
 from domain.models.sigrid_models import HmoRow, RecursoRow
@@ -146,7 +169,12 @@ class RecursoConciliador:
         jornada_cache_ttl_s: int = 600,
         indice_provider: Callable[[], IndicePersonas] | None = None,
         hoy: Callable[[], date] = date.today,
+        reajuste: bool = False,
     ) -> None:
+        # F-046 (DA2): interruptor `REPARTO_REAJUSTE`. Apagado (defecto),
+        # la pasada es exactamente la de F-045 y no lee ni escribe
+        # `reparto_pendiente` (R10).
+        self._reajuste = bool(reajuste)
         # repository: SqlAlchemyParteRepository. lookup: SigridLookupPort
         # (fetch_recursos, fetch_reshor, fetch_hmo_obra).
         self._repository = repository
@@ -197,6 +225,16 @@ class RecursoConciliador:
         # ya se aviso de que `empleado_jornada` no se pudo leer (R17).
         self._avisados_mapa: set[int] = set()
         self._aviso_jornadas_fallo = False
+        # F-045 (R25): dias cuyo reparto ideal cambiaria lineas congeladas.
+        self._repartos_con_congeladas = 0
+        # F-046: estado del reajuste de la pasada EN CURSO (solo con el
+        # interruptor): repartos vigentes por (recurso, fecha), lo que se
+        # propone y los rechazados que se reparten en residual.
+        self._vigentes: dict[tuple, dict] = {}
+        self._propuestas: list[dict] = []
+        self._mantenidos: list[int] = []
+        self._grupos_vistos: set[tuple] = set()
+        self._grupos_presentes: set[tuple] = set()
 
     # ----- fichas y recursos (maestros, F-023) ----- #
     def _indice(self) -> IndicePersonas:
@@ -410,20 +448,40 @@ class RecursoConciliador:
         return True
 
     def conciliar_todos(self) -> dict:
+        """Una pasada completa. F-046 (R18): bajo el candado de la pasada
+        del repositorio (serializa replicas de sv3); si no se obtiene a
+        tiempo, la excepcion sube y el mensaje se reintenta. Un repositorio
+        sin candado (dobles anteriores a F-046) corre sin el."""
+        candado = getattr(self._repository, "candado_pasada", None)
+        with (candado() if candado is not None else nullcontext()):
+            return self._pasada()
+
+    def _pasada(self) -> dict:
         # Idempotencia: revertir las extras por jornada de pasadas anteriores
         # (restaurar horas originales y borrar los extra auto) para recalcular
         # el dia completo desde el estado original del parte. F-037: la
         # base y sus extras automaticas se congelan JUNTAS; si una ya esta
         # en Sigrid, la pareja ni se revierte ni se vuelve a partir.
         self._repository.revert_extras_auto()
+        # F-046 (R15): lo aplicado en Sigrid se lleva a `partes` ANTES de
+        # leer y repartir, para que el dia se calcule ya con ello.
+        materializacion = {"materializados": 0, "descuadrados": 0}
+        if self._reajuste:
+            materializacion = self._repository.materializar_repartos()
+        self._propuestas = []
+        self._mantenidos = []
+        self._grupos_vistos = set()
         # Las marcas son de ESTE calculo, no un residuo del anterior.
         self._docs_degradados = set()
         self._docs_sin_recurso = set()
         self._avisados_mapa = set()
         self._aviso_jornadas_fallo = False
         self._jornadas_cache = None
+        self._repartos_con_congeladas = 0
 
         registros = self._repository.fetch_registros_para_recurso()
+        self._vigentes = (self._repository.repartos_vigentes()
+                          if self._reajuste else {})
         indice = self._indice()
         by_ide = {r.ide: r for r in indice.recursos}
         reshor_idx = self._reshor_index(by_ide)
@@ -492,6 +550,9 @@ class RecursoConciliador:
             registros, ride_por_reg, reshor_idx
         )
         reclasificadas = self._repository.apply_extras_splits(splits)
+        guardado = {"propuestos": 0, "mantenidos": 0}
+        if self._reajuste:
+            guardado = self._guardar_repartos()
         a_revisar = self._marcar_partes_degradados()
         sin_recurso = self._marcar_revision(
             self._docs_sin_recurso, "linea SIN recurso (ambiguo, de baja o "
@@ -499,11 +560,11 @@ class RecursoConciliador:
         logger.info(
             "[recurso-concil] registros=%s actualizados=%s con_parte=%s "
             "pisados=%s extras_reclasificadas=%s partes_a_revisar=%s "
-            "partes_sin_recurso=%s",
+            "partes_sin_recurso=%s repartos_con_congeladas=%s",
             len(registros), actualizados, con_parte, pisados, reclasificadas,
-            a_revisar, sin_recurso,
+            a_revisar, sin_recurso, self._repartos_con_congeladas,
         )
-        return {
+        resultado = {
             "registros": len(registros),
             "actualizados": actualizados,
             "con_parte": con_parte,
@@ -511,7 +572,40 @@ class RecursoConciliador:
             "extras_reclasificadas": reclasificadas,
             "partes_a_revisar": a_revisar,
             "partes_sin_recurso": sin_recurso,
+            "repartos_con_congeladas": self._repartos_con_congeladas,
         }
+        if self._reajuste:
+            # R19: solo con el interruptor (apagado, el dict de F-045).
+            resultado.update({
+                "repartos_propuestos": int(guardado.get("propuestos", 0)),
+                "repartos_materializados": int(
+                    materializacion.get("materializados", 0)),
+                "repartos_mantenidos": int(guardado.get("mantenidos", 0)),
+                "repartos_descuadrados": int(
+                    materializacion.get("descuadrados", 0)),
+            })
+            logger.info(
+                "[recurso-concil] reajuste: propuestos=%s materializados=%s "
+                "mantenidos=%s descuadrados=%s",
+                resultado["repartos_propuestos"],
+                resultado["repartos_materializados"],
+                resultado["repartos_mantenidos"],
+                resultado["repartos_descuadrados"])
+        return resultado
+
+    def _guardar_repartos(self) -> dict:
+        """F-046: deja `reparto_pendiente` como dice la pasada. Un reparto
+        vivo cuyo grupo ya no existe (todas sus lineas fuera: papelera,
+        parte borrado) pasa a obsoleto; uno cuyo grupo existe pero esta
+        pasada no repartio (p. ej. recurso sin hora extra) no se toca."""
+        for clave in self._vigentes:
+            if (clave not in self._grupos_vistos
+                    and clave not in self._grupos_presentes):
+                self._propuestas.append({
+                    "recurso_ide": clave[0], "fecha_int": clave[1],
+                    "firma": "", "cambios": None})
+        return self._repository.guardar_repartos(self._propuestas,
+                                                 self._mantenidos)
 
     def _marcar_partes_degradados(self) -> int:
         """R26: los partes calculados a ciegas quedan para revisar.
@@ -561,24 +655,27 @@ class RecursoConciliador:
         reshor_idx: dict[int, dict],
     ) -> list[dict]:
         """Normaliza el desglose ordinaria/extra por (recurso, dia) reuniendo
-        TODAS las obras. Regla en DIA LABORABLE: se suman las horas normales
-        Y las extras del dia y se comparan con la JORNADA DEL DIA (F-015);
-        las ordinarias finales son esa jornada y la extra es LA RESTA
-        (total - jornada), que puede salir NEGATIVA (viernes tipico: trabaja
-        6 con jornada 8 -> ordinaria 8, extra -2).
+        TODAS las obras. En DIA LABORABLE las ordinarias finales del dia
+        suman la JORNADA DEL DIA (F-015) y la extra es la resta, que puede
+        salir NEGATIVA (viernes tipico: trabaja 6 con jornada 8 -> ordinaria
+        8, extra -2).
 
         La jornada del dia ya NO es plana: es el CanDefecto efectivo salvo
         el ULTIMO dia laborable de la semana del trabajador, que recibe el
         resto de la jornada semanal (`max(0, S - 4c)`). Con candef 8 y
         S 40 el resto vale 8 y no cambia nada respecto a antes de F-015.
 
-        - Si falta extra (total > candef + extras explicitas): se recorta lo
-          ordinario a extra empezando por los registros de mayor id, como
-          siempre.
-        - Si sobra (extra negativa o extras explicitas por encima de la
-          resta): se SUBE el registro ordinario de mayor id hasta cuadrar la
-          jornada y se crea UNA extra automatica con horas NEGATIVAS (las
-          extras explicitas del parte no se tocan; el neto queda correcto).
+        - F-045: la jornada se REPARTE en proporcion a las horas de cada
+          obra (ordinarias y extras explicitas) y, dentro de cada obra, a
+          las de cada ordinaria, por mayor resto y a medias horas
+          (`reparto_ponderado.repartir_dia`). Cada ordinaria cuya cuota no
+          sea sus horas se parte en ordinaria = cuota y una extra
+          automatica = horas - cuota. Ya no hay «ultimo parte en llegar».
+        - Lo CONGELADO (F-004; su pareja, F-037) no se toca y sus
+          ordinarias cuentan: se reparte lo que queda de jornada. Si no
+          cuadra sin tocarlo, ningun split y WARNING. Si el reparto ideal
+          lo cambiaria, WARNING de medicion y `repartos_con_congeladas`.
+        - Las lineas en la PAPELERA no entran en el reparto (R27).
         - Dias laborables SIN horas ordinarias (solo extras explicitas o
           incidencias) no se normalizan: se respeta el desglose del parte.
         - Fin de semana / festivo: sin jornada ordinaria, TODO lo ordinario
@@ -594,10 +691,14 @@ class RecursoConciliador:
         del desglose original del parte)."""
         grupos: dict[tuple[int, int | None], list[dict]] = defaultdict(list)
         for r in registros:
+            if r.get("deleted_at_utc"):
+                # R27 (F-045, DA9): la papelera no pesa en el dia.
+                continue
             ride = ride_por_reg.get(r["registro_id"])
             if ride is None:
                 continue
             grupos[(ride, r.get("fecha_int"))].append(r)
+        self._grupos_presentes = set(grupos)
 
         splits: list[dict] = []
         for (ride, fecha_int), regs in grupos.items():
@@ -631,32 +732,26 @@ class RecursoConciliador:
             candef_real = hsel.get("candef")
             # CONGELADOS (F-015, R32): las lineas que ya viajaron a Sigrid
             # SUMAN en el total del dia —si no, un dia mixto le regalaria
-            # al trabajador una segunda jornada— pero no son candidatas ni
-            # a recorte ni a pivote.
+            # al trabajador una segunda jornada— pero el reparto no las
+            # toca (F-045: son fijas y se reparte lo que queda, R22).
             todas_ordinarias = [x for x in regs if _tipo(x) in ("", "normal")]
-            ordinarios = [x for x in todas_ordinarias if not _congelado(x)]
             total_ord = sum((x.get("horas") or 0.0) for x in todas_ordinarias)
-            total_ext = sum(
-                (x.get("horas") or 0.0) for x in regs if _tipo(x) == "extra"
-            )
+            fecha_iso = self._fecha_int_to_iso(fecha_int)
 
             marca = ""
             if self._es_no_laborable(fecha_int, regs):
                 # Fin de semana / festivo: NO hay jornada ordinaria, TODO
                 # el trabajo ordinario pasa a extra (las extras explicitas
-                # ya lo son).
-                delta = total_ord
-                if delta <= 1e-9:
+                # ya lo son): es un reparto de jornada 0.
+                if total_ord <= 1e-9:
                     continue
+                jornada = 0.0
                 logger.info(
                     "[recurso-concil] dia NO laborable %s (recurso=%s): "
-                    "horas ordinarias -> extra.",
-                    self._fecha_int_to_iso(fecha_int), ride,
+                    "horas ordinarias -> extra.", fecha_iso, ride,
                 )
             else:
-                # DIA LABORABLE: normales + extras comparadas con la jornada
-                # DEL DIA. extra objetivo = total - jornada (puede ser
-                # NEGATIVA). Sin ordinarias no se normaliza.
+                # DIA LABORABLE sin ordinarias: no se normaliza.
                 if total_ord <= 1e-9:
                     continue
                 # JORNADA DEL DIA (F-015). Sigue partiendo del CanDefecto
@@ -667,94 +762,210 @@ class RecursoConciliador:
                 # al resolutor esa respuesta hecha para no preguntarla dos
                 # veces al calendario.
                 memo: dict[str, bool] = {}
-                iso_dia = self._fecha_int_to_iso(fecha_int)
-                if iso_dia is not None:
-                    memo[iso_dia] = True
+                if fecha_iso is not None:
+                    memo[fecha_iso] = True
                 detalle = self._detalle_jornada(
                     fecha_int, regs, candef_real, memo
                 )
                 self._avisar_candef_fuera_del_mapa(ride, detalle, candef_real)
                 marca = self._marca_jornada(detalle)
-                total = total_ord + total_ext
-                objetivo_extra = total - detalle.horas
-                # Lo que falta (o sobra) respecto a las extras explicitas.
-                delta = objetivo_extra - total_ext
-                if abs(delta) <= 1e-9:
-                    continue
+                jornada = detalle.horas
 
-            orden = sorted(
-                ordinarios, key=lambda z: z["registro_id"], reverse=True
-            )
-            # R32: si el dia no cuadra sin tocar una linea congelada, no se
-            # genera NADA y se avisa. Ajustar la mitad seria peor: dejaria
-            # el dia con un total distinto del que firmo el encargado.
-            disponible = sum(max(0.0, x.get("horas") or 0.0) for x in orden)
-            if (delta > 0 and disponible + 1e-9 < delta) or (
-                delta < 0 and not orden
-            ):
+            lineas = self._lineas_dia(regs, reajuste=self._reajuste)
+            if self._reajuste:
+                # F-046: el reparto lo decide el reajuste (design §3).
+                resultado = self._reajustar(ride, fecha_int, regs, lineas,
+                                            jornada, hora_ext, fecha_iso)
+            else:
+                if any(ln.fija for ln in lineas):
+                    self._medir_ideal(lineas, jornada, fecha_iso, ride)
+                resultado = repartir_dia(lineas, jornada)
+            if not resultado.cuadra:
+                # R32 (F-015) / R23 (F-045): si el dia no cuadra sin tocar
+                # una linea congelada, no se genera NADA y se avisa.
+                # Ajustar la mitad seria peor: dejaria el dia con un total
+                # distinto del que firmo el encargado.
+                disponible = sum(
+                    max(0.0, x.get("horas") or 0.0)
+                    for x in todas_ordinarias if not _congelado(x))
                 logger.warning(
                     "[recurso-concil] dia %s (recurso=%s) NO se puede cuadrar "
                     "sin tocar lineas CONGELADAS (ya en Sigrid o parte "
                     "aprobado): faltan %.2f h ajustables y hay %.2f. No se "
                     "genera ningun split.",
-                    self._fecha_int_to_iso(fecha_int), ride, abs(delta),
-                    disponible,
+                    fecha_iso, ride, abs(total_ord - jornada), disponible,
                 )
                 continue
-            if delta > 0:
-                # Falta extra: recortar ordinarias empezando por las ultimas
-                # horas del dia (registros creados despues = id mayor).
-                restante = delta
-                for x in orden:
-                    if restante <= 1e-9:
-                        break
-                    h = x.get("horas") or 0.0
-                    if h <= 0:
-                        continue
-                    porcion = h if h <= restante + 1e-9 else restante
-                    splits.append({
-                        "normal_id": x["registro_id"],
-                        "horas_norm": round(h - porcion, 2),
-                        "horas_orig": h,
-                        "extra_horas": round(porcion, 2),
-                        "hora_ext_ide": hora_ext.horide,
-                        "hora_ext_cod": hora_ext.cod,
-                        "hora_ext_desc": hora_ext.res,
-                        "hora_ext_ext": hora_ext.ext,
-                        "hora_candef": candef_real,
-                    })
-                    restante -= porcion
-                if marca:
-                    logger.info(
-                        "[recurso-concil] recorte a extra %s (recurso=%s): "
-                        "%.2f h.%s",
-                        self._fecha_int_to_iso(fecha_int), ride, delta, marca,
-                    )
-            else:
-                # Sobra: jornada incompleta (o extras explicitas por encima
-                # de la resta). Se sube el ordinario de mayor id hasta
-                # completar la jornada y se crea UNA extra NEGATIVA por la
-                # diferencia; el total del dia se conserva.
-                pivote = orden[0]
-                h = pivote.get("horas") or 0.0
+            if resultado.n_lineas >= 2 or marca:
+                # R30: traza del reparto (sin nombres ni DNIs). Cada obra
+                # repartida tiene al menos una linea, asi que >= 2 obras
+                # implica >= 2 lineas.
+                logger.info(
+                    "[recurso-concil] reparto %s (recurso=%s): jornada=%.2f "
+                    "paso=%.2f obras=%s lineas=%s.%s",
+                    fecha_iso, ride, jornada, resultado.paso,
+                    resultado.n_obras, resultado.n_lineas, marca,
+                )
+            for a in resultado.ajustes:
                 splits.append({
-                    "normal_id": pivote["registro_id"],
-                    "horas_norm": round(h - delta, 2),   # delta<0 -> sube
-                    "horas_orig": h,
-                    "extra_horas": round(delta, 2),      # negativa
+                    "normal_id": a.registro_id,
+                    "horas_norm": a.horas_norm,
+                    "horas_orig": a.horas_orig,
+                    "extra_horas": a.extra_horas,
                     "hora_ext_ide": hora_ext.horide,
                     "hora_ext_cod": hora_ext.cod,
                     "hora_ext_desc": hora_ext.res,
                     "hora_ext_ext": hora_ext.ext,
                     "hora_candef": candef_real,
                 })
-                logger.info(
-                    "[recurso-concil] jornada incompleta %s (recurso=%s): "
-                    "ordinaria %+.2f, extra %.2f.%s",
-                    self._fecha_int_to_iso(fecha_int), ride, -delta, delta,
-                    marca,
-                )
         return splits
+
+    # ----- reparto ponderado del dia (F-045) ----- #
+    @staticmethod
+    def _lineas_dia(regs: list[dict], reajuste: bool = False
+                    ) -> list[LineaDia]:
+        """Las ordinarias y extras del grupo como `LineaDia` (las
+        incidencias no participan, R21). Fija = congelada, tambien por su
+        pareja (R26); la ordinaria sin horas la fija el propio reparto.
+        Una extra automatica lleva el `registro_id` de la base de su
+        pareja, que solo usa la medicion del ideal (R25).
+
+        F-046: con `reajuste`, cada congelada lleva ademas si es
+        reajustable (`clase_linea`); sin el, `reajustable` queda en su
+        defecto (falso) y todo es como en F-045."""
+        ordenados = sorted(regs, key=lambda z: z["registro_id"])
+        bases = {
+            clave_pareja(x): x["registro_id"] for x in ordenados
+            if _tipo(x) in ("", "normal")
+        }
+        lineas: list[LineaDia] = []
+        for x in ordenados:
+            tipo = _tipo(x)
+            if tipo in ("", "normal"):
+                tipo_linea = ORDINARIA
+            elif tipo == "extra":
+                tipo_linea = EXTRA
+            else:
+                continue
+            extra_auto = bool(x.get("extra_auto"))
+            fija = _congelado(x)
+            lineas.append(LineaDia(
+                registro_id=x["registro_id"],
+                obra_ide=x.get("obra_ide"),
+                tipo=tipo_linea,
+                horas=x.get("horas") or 0.0,
+                horas_orig=x.get("horas_orig"),
+                fija=fija,
+                extra_auto=extra_auto,
+                # Solo una extra automatica que SIGUE siendo extra tiene base:
+                # sv4 puede reclasificar una `extra_auto` a ordinaria, y
+                # entonces es una linea normal (pesa por si misma, R25).
+                base_id=(bases.get(clave_pareja(x))
+                         if extra_auto and tipo_linea == EXTRA else None),
+                reajustable=(reajuste and clase_linea(
+                    x, congelada=fija) == REAJUSTABLE),
+            ))
+        return lineas
+
+    # ----- reajuste del reparto (F-046) ----- #
+    def _reajustar(self, ride: int, fecha_int: int | None, regs: list[dict],
+                   lineas: list[LineaDia], jornada: float, hora_ext,
+                   fecha_iso: str | None) -> ResultadoDia:
+        """El reparto del grupo con el interruptor encendido (design §3).
+
+        - `aplicado` (lo materializa el repositorio) o `aplicando`: ni la
+          fila ni lo congelado se tocan; lo libre recibe el ideal.
+        - `rechazado`/`mantenido` con la firma vigente: residual (F-045) y
+          `mantenido` (R14).
+        - sin ordinarias libres: residual y, si habia reparto vivo, que la
+          pasada decida si queda obsoleto (R12).
+        - si no, `proponer_dia`: con cambios, lo libre recibe el ideal y el
+          grupo queda propuesto (R11); sin cambios, residual (el vivo pasa
+          a obsoleto)."""
+        clave = (ride, fecha_int)
+        self._grupos_vistos.add(clave)
+        firma = firma_grupo(regs)
+        fila = self._vigentes.get(clave)
+        hay_libres = any(ln.tipo == ORDINARIA and not ln.fija for ln in lineas)
+        modo = decidir_grupo(fila, firma, hay_libres)
+        residual = repartir_dia(lineas, jornada)
+        if modo == RESIDUAL_MANTENER:
+            if es_rechazado(fila):
+                self._mantenidos.append(int(fila["id"]))  # type: ignore[index]
+            return residual
+        sin_propuesta = {"recurso_ide": ride, "fecha_int": fecha_int,
+                         "firma": firma, "cambios": None}
+        if modo == RESIDUAL:
+            if fila is not None:
+                self._propuestas.append(sin_propuesta)
+            return residual
+        p = proponer_dia(lineas, jornada)
+        ideal = ResultadoDia(p.cuadra, p.paso, p.ajustes, residual.n_obras,
+                             residual.n_lineas)
+        if modo in (MATERIALIZAR, CONGELAR):
+            return ideal
+        if p.cuadra and p.cambios:
+            self._propuestas.append({
+                "recurso_ide": ride, "fecha_int": fecha_int, "firma": firma,
+                "cambios": self._cambios_reparto(p, regs, hora_ext)})
+            logger.info(
+                "[recurso-concil] reparto propuesto %s (recurso=%s): %s.",
+                fecha_iso, ride, ", ".join(
+                    (f"registro {c.registro_id}" if c.registro_id is not None
+                     else f"extra nueva de {c.base_registro_id}")
+                    + f" {c.antes:.2f} -> {c.despues:.2f}"
+                    for c in p.cambios))
+            return ideal
+        if fila is not None:
+            self._propuestas.append(sin_propuesta)
+        return residual
+
+    @staticmethod
+    def _cambios_reparto(p: PropuestaDia, regs: list[dict],
+                         hora_ext) -> dict:
+        """El JSON de `reparto_pendiente.cambios` (design §5): los ids del
+        grupo y, por cambio, lo que sv4 ensena y sv5 necesita. Sin nombres
+        ni DNIs; obra y linea de Sigrid las completa el repositorio."""
+        por_id = {r["registro_id"]: r for r in regs}
+        cambios: list[dict] = []
+        for c in p.cambios:
+            nueva = c.registro_id is None
+            reg = por_id.get(c.base_registro_id if nueva else c.registro_id,
+                             {})
+            item = {
+                "registro_id": c.registro_id,
+                "base_registro_id": c.base_registro_id,
+                "tipo": c.tipo, "antes": c.antes, "despues": c.despues,
+                "extra_auto": True if nueva else bool(reg.get("extra_auto")),
+                "sigrid_estado": (reg.get("sigrid_estado") or None),
+                "document_id": reg.get("document_id"),
+                "obra_ide": reg.get("obra_ide"),
+            }
+            if nueva:
+                item["hora_ext"] = {"ide": hora_ext.horide,
+                                    "cod": hora_ext.cod,
+                                    "desc": hora_ext.res,
+                                    "ext": hora_ext.ext}
+            cambios.append(item)
+        return {"ids_grupo": sorted(r["registro_id"] for r in regs),
+                "cambios": cambios}
+
+    def _medir_ideal(self, lineas: list[LineaDia], jornada: float,
+                     fecha_iso: str | None, ride: int) -> None:
+        """R25: si el reparto ideal cambiaria lineas ya congeladas, se
+        avisa y se cuenta (lo reajustara F-046). No se aplica nada."""
+        diferencias = diferencias_ideal(lineas, jornada)
+        if not diferencias:
+            return
+        self._repartos_con_congeladas += 1
+        logger.warning(
+            "[recurso-concil] reparto %s (recurso=%s): el reparto ideal "
+            "cambiaria lineas ya en Sigrid o de parte aprobado (se mantienen; "
+            "F-046): %s.",
+            fecha_iso, ride,
+            ", ".join(f"registro {rid} {antes:.2f} -> {despues:.2f}"
+                      for rid, antes, despues in diferencias),
+        )
 
     # ----- avisos y trazabilidad de la jornada del dia (F-015) ----- #
     def _avisar_candef_fuera_del_mapa(

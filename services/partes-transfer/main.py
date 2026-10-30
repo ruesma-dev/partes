@@ -21,8 +21,11 @@ import threading
 from pathlib import Path
 
 import uvicorn
+from application.pipelines.franquicia_pipeline import FranquiciaPipeline
+from application.pipelines.reajuste_pipeline import ReajustePipeline
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services.comprobacion_lineas import ComprobadorLineas
+from application.services.franquicia import COD_EXT_RE
 from config.logging_config import configure_logging
 from config.settings import Settings
 from infrastructure.azure.credenciales import (
@@ -34,6 +37,25 @@ from interface_adapters.api.app import build_app
 from interface_adapters.queue.transfer_consumer import arrancar_workers_transfer
 
 logger = logging.getLogger(__name__)
+
+
+def _cableado_franquicia(settings) -> None:
+    """F-056 (design §4, R3, R38): UNA linea al arrancar con el estado de la
+    franquicia. Sin leer Sigrid: si la definicion del campo extendido existe
+    y es entera lo dice `/api/franquicia/recursos`. Un codigo malo NO impide
+    arrancar."""
+    cod = str(getattr(settings, "franquicia_campo_ext", "") or "")
+    if not cod:
+        logger.info("[franquicia] apagada (FRANQUICIA_CAMPO_EXT vacio): no "
+                    "hay ajustes de franquicia")
+    elif not COD_EXT_RE.match(cod):
+        logger.warning("[franquicia] FRANQUICIA_CAMPO_EXT no es un codigo de "
+                       "campo extendido valido: la franquicia quedara "
+                       "no_disponible")
+    else:
+        logger.info("[franquicia] configurada: campo extendido %s de tipo 33 "
+                    "(se comprueba en cada peticion hasta que su definicion "
+                    "exista y sea entera)", cod)
 
 
 def _arrancar_consumo(settings: Settings, pipeline: RegistroPipeline) -> None:
@@ -82,6 +104,7 @@ def main() -> int:
         max_statements=settings.sigrid_max_statements,
         tip_parte=settings.tip_parte_trabajo,
         est_parte=settings.est_parte_activo,
+        max_rows=settings.sigrid_api_max_rows,
     )
     # UN lock y UN pipeline para los dos caminos de escritura.
     pipeline = RegistroPipeline(cliente=cliente, settings=settings,
@@ -94,9 +117,21 @@ def main() -> int:
                     "atiende solo por HTTP y sv4 registrara en modo "
                     "sincrono.")
 
+    # F-046: el reajuste escribe con el MISMO cliente y bajo el MISMO lock
+    # que el registro (lo toma de `pipeline`, R20).
+    reajuste = ReajustePipeline(cliente=cliente, settings=settings,
+                                registro=pipeline)
+
+    # F-056: la linea de ajuste de la franquicia, tambien con el MISMO
+    # cliente y el MISMO lock (el de `pipeline`, R22).
+    franquicia = FranquiciaPipeline(cliente=cliente, settings=settings,
+                                    registro=pipeline)
+    _cableado_franquicia(settings)
+
     # F-024: la comprobacion de lineas usa el MISMO cliente, solo para leer.
     app = build_app(settings, pipeline=pipeline,
-                    comprobador=ComprobadorLineas(cliente=cliente))
+                    comprobador=ComprobadorLineas(cliente=cliente),
+                    reajuste=reajuste, franquicia=franquicia)
     uvicorn.run(app, host=settings.api_host, port=settings.api_port,
                 log_level=settings.log_level.lower())
     return 0

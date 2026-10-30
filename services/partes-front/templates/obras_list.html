@@ -35,7 +35,7 @@
   <input class="input" type="search" name="search" value="{{ search }}"
          placeholder="Buscar por codigo o nombre de obra…" autocomplete="off">
   <button class="btn primary small" type="submit">Buscar</button>
-  {% if search %}<a class="btn secondary small" href="/obras">Limpiar</a>{% endif %}
+  {% if search %}<a class="btn secondary small" href="/obras?search=">Limpiar</a>{% endif %}
 </form>
 
 {% if obras %}

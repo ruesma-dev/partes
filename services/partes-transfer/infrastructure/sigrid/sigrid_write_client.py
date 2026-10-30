@@ -23,6 +23,23 @@ estado (`con.est`) para que el pipeline no escriba en uno cerrado, y
 `partidas_de_lineas` la cuenta de cada partida (respaldo de la del
 recurso). Solo lecturas; las sentencias de escritura no cambian.
 
+F-034: toda sentencia que inserta o actualiza una fila de `hmores` lleva
+la GUARDA DE PARTE ABIERTO (`_guarda_parte_abierto`): `EXISTS` sobre
+`con` del parte de esa fila con `est = EST_PARTE_ACTIVO` y `UPDLOCK,
+HOLDLOCK`, que retiene la fila de `con` hasta el `commit`. Si
+Administracion cierra o contabiliza el parte en la ventana, la sentencia
+afecta 0 filas y el pipeline lo descubre al releer (no por la respuesta).
+
+F-053: en Sigrid no se borra. Pisar un conflicto confirmado pone la linea a
+0 (`stmt_anular_linea`: `can = 0`, `tot = 0`, nada mas) y ninguna sentencia
+de este cliente elimina filas; `lineas_existentes` dice si cada linea esta
+enlazada (`_expr_enlazada`, la misma expresion que el reajuste).
+
+F-060: el CIZ de una racha de incidencia se MUEVE al dia nuevo con
+`stmt_mover_linea` (un `UPDATE` de fecha, synckey y parte de la misma
+linea, con guarda en el parte de origen y en el de destino); lo localiza
+`lineas_de_racha` por las synckeys de la racha que manda sv4.
+
 F-023: la empresa de la cabecera (``con.emp``) es la de la OBRA destino,
 no una variable de entorno; el correlativo ``PT<AA>/NNNNN`` es por empresa
 y el ``INSERT INTO hmo`` localiza su cabecera por codigo, tipo y empresa.
@@ -34,14 +51,14 @@ from __future__ import annotations
 import calendar
 import logging
 import re
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import httpx
 
 from application.services.cuenta_analitica import indexar_cuentas
 from domain.models.registro_models import (
-    HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino, ParteSigrid,
-    PartidaCuenta, RecursoSigrid,
+    PREFIJO_FRANQUICIA, HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino,
+    ParteSigrid, PartidaCuenta, RecursoSigrid,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,12 +71,39 @@ LOTE_RECURSOS = 500
 #: `ide` por lectura en la comprobacion de lineas (F-024, R7).
 LOTE_COMPROBACION = 200
 
+#: F-038 (R2, DA1 = B): `max_rows` de toda lectura si no se pasa otro; el
+#: tope de la instancia de sigrid-api. Igual que `SIGRID_API_MAX_ROWS`.
+MAX_ROWS_DEFECTO = 500_000
+
+#: F-046 (R21, DA17): enlaces de `hmores` con albaran, factura, dedicacion
+#: y nomina. Una linea con alguno distinto de 0 no se reajusta.
+ENLACES_HMORES: tuple[str, ...] = (
+    "dvaproide", "dvfproide", "hdereside", "emprccide", "empdpreide",
+    "empabside")
+
 # DNI normalizado en SQL Server: mayusculas y sin guiones ni espacios.
 _DNI_SQL = "REPLACE(REPLACE(UPPER(ISNULL({campo},'')),'-',''),' ','')"
 
 
+#: F-062 (DA3): sufijo de la synckey del CIZ que el `inicio` escribe el
+#: mismo dia que su CI* (el «hermano»): `partes:<id>:ciz`.
+SUFIJO_CIZ = ":ciz"
+
+
 def synckey_de(registro_id: int) -> str:
     return f"{PREFIJO_SYNCKEY}{int(registro_id)}"
+
+
+def synckey_ciz_de(registro_id: int) -> str:
+    """F-062 (R20): la synckey del CIZ hermano del inicio `registro_id`.
+    Al moverse, el hermano pasa a la synckey del dia nuevo (`partes:<D>`)."""
+    return f"{synckey_de(registro_id)}{SUFIJO_CIZ}"
+
+
+def synckey_franquicia(ajuste_id: int) -> str:
+    """F-056 (R31, DA14): la synckey de la linea de ajuste de la franquicia
+    `ajuste_id` (`franquicia_ajuste.id` de sv4)."""
+    return f"{PREFIJO_FRANQUICIA}{int(ajuste_id)}"
 
 
 class SigridWriteClient:
@@ -73,6 +117,7 @@ class SigridWriteClient:
         max_statements: int = 15,
         tip_parte: int = 35,
         est_parte: int = 1,
+        max_rows: int = MAX_ROWS_DEFECTO,
     ) -> None:
         self._base = base_url.rstrip("/")
         self._headers = {"x-functions-key": function_key,
@@ -82,6 +127,10 @@ class SigridWriteClient:
         self._max_st = int(max_statements)
         self._tip = int(tip_parte)
         self._est = int(est_parte)
+        self._max_rows = int(max_rows)
+        # F-038 (R6): limites efectivos, sin la clave.
+        logger.info("[sigrid-write] Instanciado. database=%s timeout_s=%s "
+                    "max_rows=%s", self._db, self._timeout, self._max_rows)
 
     # ----------------------------- HTTP ----------------------------- #
 
@@ -91,7 +140,7 @@ class SigridWriteClient:
                            "database": self._db, "sql": sql,
                            "parameters": params,
                            "timeout_seconds": int(self._timeout),
-                           "max_rows": 1000})
+                           "max_rows": self._max_rows})
         if r.status_code >= 400:
             raise RuntimeError(f"sigrid-api read HTTP {r.status_code}: "
                                f"{r.text[:400]}")
@@ -360,6 +409,9 @@ class SigridWriteClient:
     def lineas_existentes(
         self, hmoide: int, resides: Iterable[int], fechas: Iterable[int]
     ) -> list[LineaSigrid]:
+        """Lineas del parte `hmoide` de esos recursos y dias (choques del
+        paso 7). F-053 (R9): con `enlazada` (la misma expresion que
+        `lineas_para_reajuste`) y su `hmoide`, para el INFO de R13."""
         res = sorted({int(i) for i in resides if i})
         fec = sorted({int(f) for f in fechas if f})
         if not res or not fec:
@@ -370,7 +422,9 @@ class SigridWriteClient:
             "SELECT hmores.ide AS ide, hmores.reside AS reside, "
             "hmores.fec AS fec, hmores.horide AS horide, "
             "auxhor.cod AS hora, hmores.can AS can, "
-            "hmores.tot AS tot, hmores.synckey AS synckey FROM hmores "
+            "hmores.tot AS tot, hmores.synckey AS synckey, "
+            f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+            "AS enlazada FROM hmores "
             "LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
             f"WHERE hmores.hmoide = ? AND hmores.reside IN ({m_r}) "
             f"AND hmores.fec IN ({m_f}) ORDER BY hmores.pos",
@@ -383,7 +437,8 @@ class SigridWriteClient:
                 fecha_int=int(f["fec"] or 0),
                 horide=int(f["horide"] or 0) or None,
                 hora_codigo=f["hora"], can=f["can"], tot=f["tot"], synckey=sk,
-                nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY))))
+                nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY)),
+                hmoide=int(hmoide), enlazada=bool(f["enlazada"])))
         return out
 
     def lineas_por_synckey(self, claves: Iterable[str]) -> dict[str, LineaSigrid]:
@@ -413,6 +468,43 @@ class SigridWriteClient:
                     synckey=sk, nuestra=True)
                 setattr(ls, "hmoide", int(f["hmoide"] or 0))
                 out[sk] = ls
+        return out
+
+    def lineas_de_racha(
+        self, claves: Iterable[str | None]
+    ) -> dict[str, LineaSigrid]:
+        """F-060 (R13): nuestras lineas por synckey con lo que el CIZ movil
+        necesita: codigo de hora, `can`, `tex` (marca de pruebas, R19),
+        `pos`, su parte y si esta enlazada (`_expr_enlazada`, la misma
+        expresion que el reajuste y los choques). En lotes de
+        `LOTE_COMPROBACION`; un `truncated` es una excepcion."""
+        ks = sorted({k for k in claves if k})
+        out: dict[str, LineaSigrid] = {}
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT hmores.ide AS ide, hmores.hmoide AS hmoide, "
+                "hmores.reside AS reside, hmores.fec AS fec, "
+                "hmores.horide AS horide, auxhor.cod AS hora, "
+                "hmores.can AS can, hmores.tot AS tot, "
+                "hmores.synckey AS synckey, hmores.tex AS tex, "
+                "hmores.pos AS pos, "
+                f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+                "AS enlazada "
+                "FROM hmores LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
+                f"WHERE hmores.synckey IN ({marcas})", trozo)
+            for f in filas:
+                sk = (f["synckey"] or "").strip()
+                out[sk] = LineaSigrid(
+                    ide=int(f["ide"]), reside=int(f["reside"] or 0),
+                    fecha_int=int(f["fec"] or 0),
+                    horide=int(f["horide"] or 0) or None,
+                    hora_codigo=f["hora"], can=f["can"], tot=f["tot"],
+                    synckey=sk, nuestra=True,
+                    hmoide=int(f["hmoide"] or 0) or None,
+                    enlazada=bool(f["enlazada"]), tex=f["tex"],
+                    pos=None if f["pos"] is None else int(f["pos"]))
         return out
 
     # ------------------ comprobacion (F-024, solo lectura) ------------------ #
@@ -514,28 +606,403 @@ class SigridWriteClient:
                             cod, self._tip, empresa]},
         ]
 
+    def _guarda_parte_abierto(self, col: str) -> str:
+        """F-034 (R1): la guarda de parte abierto sobre el parte `col` (un
+        `?` o una columna como `hmores.hmoide`). El estado va como
+        parametro (`EST_PARTE_ACTIVO`) y la lectura de `con` con `UPDLOCK,
+        HOLDLOCK`: el cierre en Sigrid espera a nuestro `commit`, asi que
+        comprobar y escribir es atomico."""
+        return ("EXISTS (SELECT 1 FROM con c WITH (UPDLOCK, HOLDLOCK) "
+                f"WHERE c.ide = {col} AND c.est = ?)")
+
     def stmt_insert_linea(
         self, *, hmoide: int, obra: ObraEntrada, reside: int, pos: int,
         fecha_int: int, horide: int, can: float, pre: float, paride: int,
         ano: int, mes: int, synckey: str, tex: str | None, caaide: int,
+        pisadas: Sequence[int] = (),
     ) -> dict:
         """Linea `hmores`. F-021 (R14): `caaide` es la cuenta analitica
         resuelta (0 = sin cuenta) y es OBLIGATORIO (DA9): un 0 por defecto
-        esconderia una llamada que lo olvide."""
+        esconderia una llamada que lo olvide.
+
+        F-034 (R2): el `ide` sale de la subconsulta `x` (un agregado con
+        `WHERE` falso devolveria fila igualmente) y la linea solo entra si
+        su parte sigue En registro. R4: con `pisadas` (las lineas de un
+        conflicto confirmado), solo si ninguna sigue con horas: si su
+        puesta a 0 no entro (F-053), la nueva no duplica horas."""
+        cenide = int(getattr(obra, "cenide", 0) or 0)
+        ides_pisadas = [int(i) for i in pisadas]
+        sql = (
+            "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
+            "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
+            "tex, synckey) SELECT x.n, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+            "0, 0, ?, ?, ? FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores "
+            "WITH (UPDLOCK, HOLDLOCK)) x "
+            f"WHERE {self._guarda_parte_abierto('?')}")
+        if ides_pisadas:
+            sql += (" AND NOT EXISTS (SELECT 1 FROM hmores p WHERE p.ide IN "
+                    f"({','.join('?' for _ in ides_pisadas)}) "
+                    "AND ISNULL(p.can, 0) <> 0)")
+        return {"sql": sql,
+                "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
+                               int(paride or 0), int(pos), int(fecha_int),
+                               int(horide), float(can), float(pre),
+                               round(float(can) * float(pre), 2), int(ano),
+                               int(mes), int(caaide), (tex or ""), synckey,
+                               int(hmoide), self._est, *ides_pisadas]}
+
+    def stmt_insert_inicio_con_fin(
+        self, *, hmoide: int, obra: ObraEntrada, reside: int, fecha_int: int,
+        paride: int | None, ano: int, mes: int, tex: str | None,
+        pos: int, horide: int, pre: float, caaide: int, synckey: str,
+        pos_fin: int, horide_fin: int, pre_fin: float, caaide_fin: int,
+        synckey_fin: str,
+    ) -> dict:
+        """F-062 (R13, DA2): el CI* del `inicio` y su CIZ hermano en UNA
+        sentencia de dos filas, atomica en SQL Server (las dos o ninguna),
+        sin depender del corte en lotes de `escribir`.
+
+        Columnas y valores de `stmt_insert_linea`; `can` y `tot` literales
+        0 (las incidencias van sin horas). La fila `k` = 0 es el CI* y la
+        `k` = 1 el hermano (`horide`, `pre`, cuenta, `pos` y synckey
+        propios; su `ide` es el siguiente al del CI*). La guarda de parte
+        abierto de F-034 vale para las dos filas y, solo en la del hermano,
+        que no exista ya una linea con su synckey (reentrega o carrera)."""
+        cenide = int(getattr(obra, "cenide", 0) or 0)
+        sql = (
+            "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
+            "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
+            "tex, synckey) SELECT x.n + v.k, ?, ?, ?, ?, ?, v.pos, ?, "
+            "v.horide, 0, v.pre, 0, ?, ?, 0, 0, v.caaide, ?, v.synckey "
+            "FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores "
+            "WITH (UPDLOCK, HOLDLOCK)) x "
+            "CROSS JOIN (VALUES (0, ?, ?, ?, ?, ?), (1, ?, ?, ?, ?, ?)) "
+            "v(k, pos, horide, pre, caaide, synckey) "
+            f"WHERE {self._guarda_parte_abierto('?')} "
+            "AND (v.k = 0 OR NOT EXISTS (SELECT 1 FROM hmores s "
+            "WHERE s.synckey = ?))")
+        return {"sql": sql,
+                "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
+                               int(paride or 0), int(fecha_int), int(ano),
+                               int(mes), (tex or ""),
+                               int(pos), int(horide), float(pre), int(caaide),
+                               synckey,
+                               int(pos_fin), int(horide_fin), float(pre_fin),
+                               int(caaide_fin), synckey_fin,
+                               int(hmoide), self._est, synckey_fin]}
+
+    def stmt_anular_linea(self, *, ide: int, reside: int, fecha_int: int,
+                          horide: int | None, antes: float | None) -> dict:
+        """F-053 (R2, R3, DA12): pisar un conflicto confirmado pone la linea
+        a 0 en vez de borrarla. Solo `can` y `tot` (`tot = 0` literal: no
+        depende de un `pre` nulo); synckey, `tex`, cuenta y lo demas no se
+        tocan. `WHERE` optimista con lo que la hizo chocar (`ide`, recurso,
+        dia, codigo y `can` leido), sin enlaces y con la guarda de parte
+        abierto de F-034: si algo cambio, afecta 0 filas."""
+        return {"sql": (
+            "UPDATE hmores SET can = 0, tot = 0 WHERE ide = ? AND reside = ? "
+            "AND fec = ? AND ISNULL(horide, 0) = ? "
+            "AND ABS(ISNULL(can, 0) - ?) <= 0.001 "
+            + self._sin_enlaces() + " AND "
+            + self._guarda_parte_abierto("hmores.hmoide")),
+            "parameters": [int(ide), int(reside), int(fecha_int),
+                           int(horide or 0), float(antes or 0), self._est]}
+
+    def stmt_mover_linea(
+        self, *, linea: LineaSigrid, destino: ObraEntrada, hmoide: int,
+        pos: int, fecha_int: int, synckey: str, paride: int | None,
+        caaide: int, ano: int, mes: int,
+    ) -> dict:
+        """F-060 (R20, R21, DA3): el CIZ de la racha pasa al dia D con UN
+        `UPDATE` de esa misma linea (en Sigrid no se borra): fecha,
+        synckey del registro de D y, del parte elegido para D (F-031), su
+        `hmoide`, la obra y el centro de `destino` (como
+        `stmt_insert_linea`), la partida y la cuenta de la accion de D, el
+        periodo y la `pos`. `can`, `tot`, `pre`, `horide`, `reside`, `tex`
+        y los enlaces no cambian.
+
+        `WHERE` optimista con lo leido (`ide`, recurso, fecha, codigo y
+        synckey), sin horas y sin enlaces, y la guarda de parte abierto de
+        F-034 dos veces: SQL Server evalua el `WHERE` sobre la fila ANTES
+        del `UPDATE`, asi que la primera mira el parte de ORIGEN
+        (`hmores.hmoide`) y la segunda el de DESTINO (parametro). Si algo
+        cambio, 0 filas: lo descubre la relectura por synckey (R23)."""
+        cenide = int(getattr(destino, "cenide", 0) or 0)
+        return {"sql": (
+            "UPDATE hmores SET fec = ?, synckey = ?, hmoide = ?, obride = ?, "
+            "cenide = ?, paride = ?, caaide = ?, ano = ?, mes = ?, pos = ? "
+            "WHERE ide = ? AND reside = ? AND fec = ? "
+            "AND ISNULL(horide, 0) = ? AND synckey = ? "
+            "AND ISNULL(can, 0) = 0 "
+            f"AND NOT ({self._expr_enlazada()}) "
+            f"AND {self._guarda_parte_abierto('hmores.hmoide')} "
+            f"AND {self._guarda_parte_abierto('?')}"),
+            "parameters": [int(fecha_int), synckey, int(hmoide),
+                           int(destino.ide), cenide, int(paride or 0),
+                           int(caaide), int(ano), int(mes), int(pos),
+                           int(linea.ide), int(linea.reside),
+                           int(linea.fecha_int), int(linea.horide or 0),
+                           linea.synckey, self._est, int(hmoide), self._est]}
+
+    # ------------------ reajuste (F-046): lecturas ------------------ #
+
+    @staticmethod
+    def _expr_enlazada() -> str:
+        """R21 de F-046 y R9 de F-053: alguno de `ENLACES_HMORES` distinto
+        de 0. La comparten `lineas_para_reajuste` y `lineas_existentes`."""
+        return " OR ".join(f"ISNULL(hmores.{c}, 0) <> 0"
+                           for c in ENLACES_HMORES)
+
+    def lineas_para_reajuste(
+        self, claves: Iterable[str | None]
+    ) -> dict[str, LineaSigrid]:
+        """Nuestras lineas por synckey con lo que el reajuste mira (R21):
+        `can`, `pre` (el `tot` se recalcula con el, R24), su parte
+        (`hmoide`) y si algun enlace de `ENLACES_HMORES` no es 0. En lotes
+        de `LOTE_COMPROBACION`; un `truncated` es una excepcion."""
+        ks = sorted({k for k in claves if k})
+        out: dict[str, LineaSigrid] = {}
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT hmores.ide AS ide, hmores.hmoide AS hmoide, "
+                "hmores.reside AS reside, hmores.fec AS fec, "
+                "hmores.horide AS horide, auxhor.cod AS hora, "
+                "hmores.can AS can, hmores.tot AS tot, hmores.pre AS pre, "
+                "hmores.synckey AS synckey, "
+                f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+                "AS enlazada "
+                "FROM hmores LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
+                f"WHERE hmores.synckey IN ({marcas})", trozo)
+            for f in filas:
+                sk = (f["synckey"] or "").strip()
+                out[sk] = LineaSigrid(
+                    ide=int(f["ide"]), reside=int(f["reside"] or 0),
+                    fecha_int=int(f["fec"] or 0),
+                    horide=int(f["horide"] or 0) or None,
+                    hora_codigo=f["hora"], can=f["can"], tot=f["tot"],
+                    synckey=sk, nuestra=True,
+                    pre=None if f["pre"] is None else float(f["pre"]),
+                    hmoide=int(f["hmoide"] or 0) or None,
+                    enlazada=bool(f["enlazada"]))
+        return out
+
+    def estados_de_partes(
+        self, hmoides: Iterable[int | None]
+    ) -> dict[int, dict]:
+        """`hmo.ide` -> `{cod, est, obride}` de esos partes (R21, R22), en
+        lotes de `LOTE_COMPROBACION`. Sin partes no se lee."""
+        ks = sorted({int(i) for i in hmoides if i})
+        out: dict[int, dict] = {}
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT hmo.ide AS ide, hmo.obride AS obride, con.cod AS cod, "
+                "con.est AS est FROM hmo JOIN con ON con.ide = hmo.ide "
+                f"WHERE hmo.ide IN ({marcas})", trozo)
+            for f in filas:
+                out[int(f["ide"])] = {
+                    "cod": f["cod"],
+                    "est": None if f["est"] is None else int(f["est"]),
+                    "obride": int(f["obride"] or 0) or None}
+        return out
+
+    # ------------------ reajuste (F-046): sentencias ------------------ #
+    # [E] R47: el reajuste NUNCA borra en Sigrid. Solo `UPDATE` de lineas
+    # existentes (a 0 si hace falta) e `INSERT` de extras nuevas. Desde
+    # F-053 tampoco el pisado: el cliente no tiene sentencias de borrado.
+
+    @staticmethod
+    def _sin_enlaces(alias: str = "") -> str:
+        pre = f"{alias}." if alias else ""
+        return " ".join(f"AND ISNULL({pre}{c}, 0) = 0" for c in ENLACES_HMORES)
+
+    def stmt_guardia_reajuste(
+        self, lineas: list[tuple[int, str, float]],
+        nuevas: Iterable[str] = (),
+    ) -> dict:
+        """Primera sentencia del lote (DA6): si alguna linea existente ya no
+        esta como se leyo (synckey, `can` = «antes», sin enlaces, parte En
+        registro) o alguna extra nueva ya existe, FALLA y la API revierte
+        el lote entero. F-034 (R5): el parte se lee con la guarda de parte
+        abierto (`UPDLOCK, HOLDLOCK`).
+
+        Cuenta las lineas en su estado esperado y, si no son todas, intenta
+        convertir a entero un texto: el error de conversion salta siempre
+        (no depende de `ANSI_WARNINGS`, a diferencia de dividir por 0, que
+        con ellos apagados dejaria `can` a NULL) y su mensaje nombra la
+        linea. Si la condicion se cumple no toca ninguna fila."""
+        if not lineas:
+            raise ValueError("la guardia necesita al menos una linea")
+        ides = [int(i) for i, _sk, _a in lineas]
+        marcas = ",".join("?" for _ in ides)
+        por_linea = " OR ".join(
+            "(h.ide = ? AND h.synckey = ? AND ABS(ISNULL(h.can, 0) - ?) "
+            "<= 0.001)" for _ in lineas)
+        params: list[Any] = list(ides)
+        for ide, sk, antes in lineas:
+            params += [int(ide), sk, float(antes)]
+        params += [self._est, len(lineas)]
+        sql = (
+            "UPDATE hmores SET can = CONVERT(INT, 'reajuste-descuadrado-' + "
+            f"CAST(ide AS VARCHAR(20))) WHERE ide IN ({marcas}) AND (("
+            f"SELECT COUNT(*) FROM hmores h WHERE ({por_linea}) "
+            f"{self._sin_enlaces('h')} AND "
+            f"{self._guarda_parte_abierto('h.hmoide')}) <> ?")
+        claves = [sk for sk in nuevas if sk]
+        if claves:
+            sql += (" OR EXISTS (SELECT 1 FROM hmores n WHERE n.synckey IN "
+                    f"({','.join('?' for _ in claves)}))")
+            params += claves
+        return {"sql": sql + ")", "parameters": params}
+
+    def stmt_actualizar_linea(
+        self, *, ide: int, synckey: str, antes: float, despues: float,
+        est_registro: int,
+    ) -> dict:
+        """R24, R25: `can` = «despues» y `tot = ROUND(can x pre, 2)` con el
+        `pre` de la PROPIA linea; cuenta, partida y codigo de hora no se
+        tocan. El `WHERE` repite la condicion optimista: si la linea cambio
+        afecta 0 filas. [E] A 0 es `can = 0` y `tot = 0`, nunca un borrado.
+        F-034 (R5): el parte se lee con la guarda de parte abierto; el
+        estado sigue siendo el parametro `est_registro`."""
+        return {"sql": (
+            "UPDATE hmores SET can = ?, tot = ROUND(? * ISNULL(pre, 0), 2) "
+            "WHERE ide = ? AND synckey = ? AND ABS(ISNULL(can, 0) - ?) "
+            "<= 0.001 AND "
+            f"{self._guarda_parte_abierto('hmores.hmoide')} "
+            + self._sin_enlaces()),
+            "parameters": [float(despues), float(despues), int(ide), synckey,
+                           float(antes), int(est_registro)]}
+
+    def stmt_insertar_extra(
+        self, *, hmoide: int, obra: ObraEntrada, reside: int, pos: int,
+        fecha_int: int, horide: int, can: float, pre: float, paride: int,
+        ano: int, mes: int, synckey: str, tex: str | None, caaide: int,
+        base_ide: int, base_synckey: str, base_despues: float,
+    ) -> dict:
+        """R24: la extra nueva, con las mismas columnas que
+        `stmt_insert_linea` (pos, cuenta y `tex` como el registro), pero
+        CONDICIONADA: solo entra si su base ya tiene «despues» (el `UPDATE`
+        de la base va antes en el mismo lote) y su synckey no existe. El
+        `MAX(ide)+1` va en una subconsulta: un agregado con `WHERE` falso
+        devolveria fila igualmente (la trampa que ya evita
+        `stmts_crear_parte`). F-034 (R6): ademas, la guarda de parte abierto
+        sobre su `hmoide` (antes solo la protegia, de forma indirecta, el
+        `UPDATE` de su base)."""
         cenide = int(getattr(obra, "cenide", 0) or 0)
         return {"sql": (
             "INSERT INTO hmores (ide, hmoide, reside, cenide, obride, paride, "
             "pos, fec, horide, can, pre, tot, ano, mes, fac, ortide, caaide, "
-            "tex, synckey) SELECT ISNULL(MAX(ide),0)+1, ?, ?, ?, ?, ?, ?, ?, "
-            "?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ? "
-            "FROM hmores WITH (UPDLOCK, HOLDLOCK)"),
+            "tex, synckey) SELECT x.n, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+            "0, 0, ?, ?, ? FROM (SELECT ISNULL(MAX(ide),0)+1 AS n FROM hmores "
+            "WITH (UPDLOCK, HOLDLOCK)) x WHERE EXISTS (SELECT 1 FROM hmores b "
+            "WHERE b.ide = ? AND b.synckey = ? AND ABS(ISNULL(b.can, 0) - ?) "
+            "<= 0.001) AND NOT EXISTS (SELECT 1 FROM hmores s "
+            "WHERE s.synckey = ?) "
+            f"AND {self._guarda_parte_abierto('?')}"),
             "parameters": [int(hmoide), int(reside), cenide, int(obra.ide),
                            int(paride or 0), int(pos), int(fecha_int),
                            int(horide), float(can), float(pre),
                            round(float(can) * float(pre), 2), int(ano),
-                           int(mes), int(caaide), (tex or ""), synckey]}
+                           int(mes), int(caaide), (tex or ""), synckey,
+                           int(base_ide), base_synckey, float(base_despues),
+                           synckey, int(hmoide), self._est]}
+
+    def escribir_lote(self, statements: list[dict]) -> list[int]:
+        """R24, R27: el lote ENTERO en una sola llamada a `sql/write` (una
+        transaccion). Devuelve las filas afectadas por sentencia; si no cabe
+        en un lote, `ValueError` sin escribir nada."""
+        if not statements:
+            return []
+        if len(statements) > self._max_st:
+            raise ValueError(
+                f"el reajuste no cabe en un lote: {len(statements)} "
+                f"sentencias y el tope es {self._max_st}")
+        for st in statements:
+            logger.info("[sigrid-write] reajuste %s | %s",
+                        " ".join(st["sql"].split())[:150], st["parameters"])
+        r = httpx.post(f"{self._base}/api/sql/write", headers=self._headers,
+                       timeout=self._timeout + 60,
+                       json={"database": self._db, "statements": statements})
+        if r.status_code >= 400:
+            raise RuntimeError(f"sigrid-api write HTTP {r.status_code}: "
+                               f"{r.text[:500]}")
+        body = r.json()
+        if not body.get("ok") or not body.get("committed"):
+            raise RuntimeError(f"escritura no confirmada: {str(body)[:400]}")
+        resultados = body.get("results")
+        if (not isinstance(resultados, list)
+                or len(resultados) != len(statements)):
+            raise RuntimeError(
+                "sigrid-api no devolvio las filas por sentencia: "
+                f"{str(body)[:400]}")
+        return [int(x.get("affected_rows") or 0) for x in resultados]
+
+    # ------------------ franquicia de extras (F-056) ------------------ #
+
+    #: R23, DA3: extras NETAS `HE*` del recurso en el periodo, de todas las
+    #: obras y partes (cualquier estado), sin la propia linea de ajuste.
+    _SQL_EXTRAS_PERIODO = (
+        "SELECT ISNULL(SUM(h.can), 0) AS extras FROM hmores h "
+        "JOIN auxhor a ON a.ide = h.horide WHERE h.reside = ? "
+        "AND h.fec BETWEEN ? AND ? AND a.cod LIKE 'HE%' "
+        "AND ISNULL(h.synckey, '') <> ?")
 
     @staticmethod
-    def stmt_borrar_linea(ide: int) -> dict:
-        return {"sql": "DELETE FROM hmores WHERE ide = ?",
-                "parameters": [int(ide)]}
+    def synckey_franquicia(ajuste_id: int) -> str:
+        """La de `synckey_franquicia` del modulo, a mano del pipeline."""
+        return synckey_franquicia(ajuste_id)
+
+    def extras_del_periodo(self, reside: int, inicio: int, fin: int,
+                           excluir: str) -> float:
+        """R23: UNA lectura agregada; `inicio` y `fin` (`YYYYMMDD`)
+        incluidos y `excluir` la synckey del ajuste. Un `truncated` o un
+        fallo es una excepcion (nunca se decide con datos parciales)."""
+        filas = self._read(self._SQL_EXTRAS_PERIODO,
+                           [int(reside), int(inicio), int(fin), excluir])
+        return float((filas[0]["extras"] if filas else 0) or 0.0)
+
+    #: R39, R47: la definicion del campo extendido, SOLO de tip 33 (el
+    #: recurso) y con el `cod` como PARAMETRO (DA30).
+    _SQL_DEFINICION_CAMPO_EXT = (
+        "SELECT defext.ide AS ide, defext.camtip AS camtip FROM defext "
+        "WHERE defext.tip = 33 AND defext.cod = ?")
+
+    def definicion_campo_ext(self, cod: str) -> list[dict]:
+        """R38, R39: TODAS las definiciones de `defext` de tip 33 con ese
+        `cod` (`[{ide, camtip}]`); cuantas haya y su `camtip` los juzga
+        `franquicia.motivo_definicion`. Un fallo o un `truncated` es una
+        excepcion."""
+        filas = self._read(self._SQL_DEFINICION_CAMPO_EXT, [cod])
+        return [{"ide": f.get("ide"), "camtip": f.get("camtip")}
+                for f in filas]
+
+    def valores_campo_ext(self, resides: Iterable[int],
+                          cod: str) -> dict[int, list]:
+        """R1, R40, R47, R48: los `valn` del campo `cod` de cada recurso, por
+        `res.ide` (= `con.ide` de tip 33) y NUNCA por DNI: `reside` -> lista
+        de los valores de sus filas de `conext` (NULL es None; [] sin fila,
+        DA29), en lotes de `LOTE_RECURSOS`. `LEFT JOIN` desde `con`: un
+        recurso que no es un `con` de tip 33 no sale (el pipeline lo da por
+        `invalida`) y las filas de otro `tip` con el mismo `cod` (el `10` de
+        tip 42) nunca se leen. Un fallo o un `truncated` es una
+        excepcion."""
+        ides = sorted({int(i) for i in resides if i})
+        out: dict[int, list] = {}
+        for i in range(0, len(ides), LOTE_RECURSOS):
+            trozo = ides[i:i + LOTE_RECURSOS]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT con.ide AS reside, conext.ide AS extide, "
+                "conext.valn AS valor FROM con LEFT JOIN conext "
+                "ON conext.conide = con.ide AND conext.cod = ? "
+                f"WHERE con.tip = 33 AND con.ide IN ({marcas})",
+                [cod, *trozo])
+            for f in filas:
+                valores = out.setdefault(int(f["reside"]), [])
+                if f.get("extide") is not None:
+                    valores.append(f.get("valor"))
+        return out

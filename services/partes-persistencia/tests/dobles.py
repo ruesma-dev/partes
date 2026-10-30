@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import contextmanager
 from typing import Any, Callable
 
 import httpx
@@ -121,12 +122,24 @@ class RepositorioFake:
         self.matches: list[dict] = []
         self.revertidos = 0
         self.review_required: list[list[str]] = []
+        # F-046 (solo los usa el conciliador con REPARTO_REAJUSTE): los
+        # repartos vigentes, lo que devuelve la materializacion, lo
+        # guardado, cuantas veces se tomo el candado y el orden de las
+        # llamadas del reajuste.
+        self.repartos: dict = {}
+        self.resultado_materializar = {"materializados": 0,
+                                       "descuadrados": 0}
+        self.guardados: list[tuple[list, list]] = []
+        self.candados = 0
+        self.orden: list[str] = []
 
     def revert_extras_auto(self) -> int:
         self.revertidos += 1
+        self.orden.append("revert")
         return 0
 
     def fetch_registros_para_recurso(self) -> list[dict]:
+        self.orden.append("fetch")
         return list(self.registros)
 
     def apply_recurso_matches(self, updates: list[dict]) -> int:
@@ -141,6 +154,30 @@ class RepositorioFake:
         ids = sorted({str(d) for d in document_ids if d})
         self.review_required.append(ids)
         return len(ids)
+
+    # ---- F-046: reajuste del reparto ---- #
+    @contextmanager
+    def candado_pasada(self):
+        self.candados += 1
+        self.orden.append("candado")
+        try:
+            yield
+        finally:
+            self.orden.append("suelta")
+
+    def repartos_vigentes(self) -> dict:
+        self.orden.append("vigentes")
+        return dict(self.repartos)
+
+    def materializar_repartos(self) -> dict:
+        self.orden.append("materializar")
+        return dict(self.resultado_materializar)
+
+    def guardar_repartos(self, propuestas, mantenidos) -> dict:
+        self.orden.append("guardar")
+        self.guardados.append((list(propuestas), list(mantenidos)))
+        return {"propuestos": sum(1 for p in propuestas if p.get("cambios")),
+                "obsoletos": 0, "mantenidos": len(mantenidos)}
 
 
 class LookupFake:
@@ -190,12 +227,24 @@ def registro(registro_id: int, *, fecha_int: int, horas: float,
              tipo: str = "normal", dni: str | None = "12345678Z",
              document_id: str = "doc-1", obra_ide: int | None = 10,
              sigrid_estado: str | None = None,
-             doc_approved: bool = False) -> dict:
+             doc_approved: bool = False,
+             horas_orig: float | None = None, extra_auto: bool = False,
+             deleted_at_utc: str | None = None,
+             congelada_por_pareja: bool = False,
+             line_index: int | None = None,
+             empleado_line_no: int | None = None) -> dict:
     """Un registro tal como lo devuelve `fetch_registros_para_recurso`.
 
     `sigrid_estado` y `doc_approved` son lo que F-015 anadio a la lectura
     para saber que lineas estan CONGELADAS (F-004): las que ya viajaron a
     Sigrid o cuyo parte esta aprobado.
+
+    F-045: `horas_orig` (lo trabajado por la base de una pareja ya
+    partida), `extra_auto`, `deleted_at_utc` (papelera, R27),
+    `congelada_por_pareja` (F-037) y la clave de pareja (`line_index`,
+    `empleado_line_no`; por defecto la del propio registro). Con los
+    defectos, el registro es el de siempre: ni partido, ni automatico, ni
+    en la papelera, ni congelado por su pareja.
     """
     return {
         "registro_id": registro_id,
@@ -212,6 +261,12 @@ def registro(registro_id: int, *, fecha_int: int, horas: float,
         "horas": horas,
         "sigrid_estado": sigrid_estado,
         "doc_approved": doc_approved,
+        "horas_orig": horas_orig,
+        "extra_auto": extra_auto,
+        "deleted_at_utc": deleted_at_utc,
+        "congelada_por_pareja": congelada_por_pareja,
+        "line_index": registro_id if line_index is None else line_index,
+        "empleado_line_no": empleado_line_no,
     }
 
 

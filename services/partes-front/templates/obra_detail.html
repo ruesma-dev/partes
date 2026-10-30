@@ -95,13 +95,13 @@
 
   {% if detail.rows %}
   <div class="matrix-legend">
-    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar horas.</span>
+    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar ordinarias y extra (se puede añadir la que falte).</span>
     <label class="mx-toggle" title="Trabajadores cuyo recurso NO tiene codigo de hora extra en Sigrid (p. ej. mensuales tipo encargado). Sus horas no cuentan en los totales.">
       <input type="checkbox" id="hide-sin-extra" checked> Ocultar trabajadores sin código de hora extra
     </label>
   </div>
   <div class="matrix-scroll">
-    <table class="matrix filterable">
+    <table class="matrix filterable" data-obra-key="{{ detail.obra_key }}">
       <thead>
         <tr>
           <th class="mx-name">Trabajador</th>
@@ -121,7 +121,7 @@
       </thead>
       <tbody>
         {% for row in detail.rows %}
-        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}">
+        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}" data-wk="{{ row.worker_key }}">
           <td class="mx-name">
             <a class="link-strong" href="/trabajadores/{{ row.worker_key }}">{{ row.nombre }}</a>
             {% if not row.matched %}<span class="badge danger mx-badge">sin casar</span>{% endif %}
@@ -132,6 +132,7 @@
           <td class="mx-cell{% if c.is_weekend %} mx-we{% endif %}{% if c.is_holiday %} mx-hol{% endif %}{% if c.has_inc %} mx-inc{% endif %}{% if c.extra and not c.normal %} mx-extra{% endif %}{% if preview_enabled and c.tiene_pdf %} mx-cell-pdf{% endif %}{% if c.label %} mx-pick{% endif %}{% if ((row.nombre or '') ~ '|' ~ (c.date_iso or '')) in incompletos %} mx-warn{% endif %}{% if c.incompat_nivel == 'bloqueo' %} mx-incompat{% elif c.incompat_nivel == 'aviso' %} mx-incompat-aviso{% endif %}"
               {% if c.label %}data-fecha="{{ c.date_iso }}" data-trabajador="{{ row.nombre }}"{% endif %}
               {% if c.regs %}data-regs='{{ c.regs|tojson }}'{% endif %}
+              {% if c.regs and (c.regs|map(attribute='id')|select('in', con_reparto or [])|list) %}data-reparto="pendiente"{% endif %}
               {% if preview_enabled and c.tiene_pdf %}data-parte-pdf="{{ c.document_id }}" data-parte-title="Parte · {{ detail.obra_codigo or detail.obra_nombre or '' }} · {{ c.date_iso }} · {{ row.nombre }}"{% endif %}
               {% if c.incompat_motivo or (preview_enabled and c.tiene_pdf) %}title="{% if c.incompat_motivo %}{{ c.incompat_motivo }}{% if preview_enabled and c.tiene_pdf %} · {% endif %}{% endif %}{% if preview_enabled and c.tiene_pdf %}Ver parte del {{ c.date_iso }}{% endif %}"{% endif %}>{{ c.label }}</td>
           {% endfor %}
@@ -202,7 +203,7 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}>
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
         <td class="cell-fecha">
           <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
@@ -210,6 +211,7 @@
                  title="Es la fecha del PARTE: cambiarla mueve todas sus líneas y trabajadores" aria-label="Fecha del parte"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
           {% if r.document_id in recalculando %}<span class="recalculando-marca">recalculando…</span>{% endif %}
+          {% if r.id in (con_reparto or []) %}<span class="reparto-marca" title="Reparto de la jornada pendiente de decidir: decide «Aplicar» o «Mantener lo registrado» al aprobar">reparto pendiente</span>{% endif %}
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}
           {% if r.congelado %}<span class="congelado-motivo" title="{{ r.congelado_motivo }}">🔒</span>{% else %}<button type="button" class="line-del" title="Mover esta línea a la papelera">✕</button>{% endif %}
@@ -248,7 +250,7 @@
           </select>
           <div class="cell-sub combo-hora-current">
             {% if r.hora_codigo %}{{ r.hora_codigo }} · {{ r.hora_descripcion or '' }}{% else %}—{% endif %}
-            {% if r.hora_match_method in ['categoria_normal', 'categoria_extra', 'categoria_extra_a_normal', 'extra_por_categoria', 'incidencia', 'incidencia_desc', 'ext_default', 'ext_first'] %}<span class="tag-auto" title="Asignado por matcheo determinista ({{ r.hora_match_method }})">auto</span>{% elif r.hora_match_method == 'codigo_propuesto' %}<span class="tag-ia" title="Propuesto por la IA - conviene revisar">IA</span>{% elif r.hora_match_method == 'manual' %}<span class="tag-manual">manual</span>{% endif %}
+            {% if r.hora_match_method in ['categoria_normal', 'categoria_extra', 'categoria_extra_a_normal', 'extra_por_categoria', 'incidencia', 'incidencia_desc', 'ext_default', 'ext_first'] %}<span class="tag-auto" title="Asignado por matcheo determinista ({{ r.hora_match_method }})">auto</span>{% elif r.hora_match_method == 'codigo_propuesto' %}<span class="tag-ia" title="Propuesto por la IA - conviene revisar">IA</span>{% elif r.hora_match_method == 'manual' %}<span class="tag-manual">manual</span>{% endif %}{% if r.horas_extra_leidas %} <span class="tag-auto" title="La IA leyó estas horas como extra; en la ingesta se suman a la jornada y el exceso sobre la jornada del día sale como extra (F-048)">incl. {{ r.horas_extra_leidas|horas }} extra leídas</span>{% endif %}
           </div>
         </td>
         <td class="cell-partida">

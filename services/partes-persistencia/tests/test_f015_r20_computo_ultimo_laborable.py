@@ -119,14 +119,17 @@ def test_f015_r20_un_miercoles_festivo_no_cambia_el_viernes() -> None:
 def test_f015_r20_el_recorte_empieza_por_el_registro_de_mayor_id() -> None:
     regs = [registro(1, fecha_int=VIERNES, horas=5.0),
             registro(2, fecha_int=VIERNES, horas=5.0)]
-    assert _resumen(_splits(regs)) == [(2, 1.0, 4.0)]
+    # F-045: reparto ponderado (design §5); antes [(2, 1.0, 4.0)].
+    assert _resumen(_splits(regs)) == [(1, 3.0, 2.0), (2, 3.0, 2.0)]
 
 
 def test_f015_r20_el_exceso_desborda_al_registro_anterior() -> None:
     regs = [registro(1, fecha_int=VIERNES, horas=5.0),
             registro(2, fecha_int=VIERNES, horas=5.0),
             registro(3, fecha_int=VIERNES, horas=5.0)]
-    assert _resumen(_splits(regs)) == [(3, 0.0, 5.0), (2, 1.0, 4.0)]
+    # F-045: reparto ponderado (design §5); antes [(3, 0.0, 5.0), (2, 1.0, 4.0)].
+    assert _resumen(_splits(regs)) == [(1, 2.0, 3.0), (2, 2.0, 3.0),
+                                       (3, 2.0, 3.0)]
 
 
 def test_f015_r20_las_extras_explicitas_no_se_tocan() -> None:
@@ -154,7 +157,8 @@ def test_f015_r20_agrupa_por_recurso_y_dia_across_obras() -> None:
     """4 h en una obra + 4 h en otra el viernes = 8, con jornada 6 -> 2 extra."""
     regs = [registro(1, fecha_int=VIERNES, horas=4.0, obra_ide=10),
             registro(2, fecha_int=VIERNES, horas=4.0, obra_ide=20)]
-    assert _resumen(_splits(regs)) == [(2, 2.0, 2.0)]
+    # F-045: reparto ponderado (design §5); antes [(2, 2.0, 2.0)].
+    assert _resumen(_splits(regs)) == [(1, 3.0, 1.0), (2, 3.0, 1.0)]
 
 
 # ----------------------- escenario O: sin hora extra -------------------- #

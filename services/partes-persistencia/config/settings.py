@@ -67,8 +67,14 @@ class Settings(BaseSettings):
         None, alias="SIGRID_API_FUNCTION_KEY"
     )
     sigrid_api_database: str | None = Field(None, alias="SIGRID_API_DATABASE")
-    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S")
-    sigrid_api_max_rows: int = Field(10000, alias="SIGRID_API_MAX_ROWS")
+    # F-038 (R14, DA4): (0, 200]; el balanceador de sigrid-api corta a 230 s.
+    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S",
+                                        gt=0, le=200)
+    # F-038 (R2, R3; DA1 = B, DA2 = A): opcional, 1..500.000 (tope de la
+    # instancia); el defecto es el MAX_ROWS_DEFECTO del cliente. Las
+    # lecturas paginadas no lo usan (piden PAGINA_FILAS + 1).
+    sigrid_api_max_rows: int = Field(500_000, alias="SIGRID_API_MAX_ROWS",
+                                     ge=1, le=500_000)
 
     # F-023 (DA5): SIGRID_EMPRESA ya no existe aqui. Los maestros son de
     # TODAS las empresas y la empresa de cada parte sale del membrete, la
@@ -128,6 +134,24 @@ class Settings(BaseSettings):
     # TTL (s) de la cache de `empleado_jornada` (excepciones por
     # trabajador). La tabla nace vacia y se lee entera de una vez.
     jornada_cache_ttl_s: int = Field(600, alias="JORNADA_CACHE_TTL_S")
+
+    # ------------------------------------------------------------ #
+    # F-046 · reajuste en Sigrid al aprobar. INTERRUPTOR (DA2): apagado
+    # por defecto, sv3 reparte exactamente como F-045 y no lee ni escribe
+    # `reparto_pendiente`. Se enciende DESPUES de desplegar sv5 y sv4 y de
+    # la prueba M3. `CANDADO_CONCILIAR_ESPERA_S`: espera maxima por el
+    # candado consultivo de la pasada (R18).
+    # ------------------------------------------------------------ #
+    reparto_reajuste: bool = Field(False, alias="REPARTO_REAJUSTE")
+    candado_espera_s: float = Field(300.0, alias="CANDADO_CONCILIAR_ESPERA_S")
+
+    # ------------------------------------------------------------ #
+    # F-051 · lectura dudosa (DA2 = C). INTERRUPTOR encendido por
+    # defecto: un parte con alguna fila con horas y alguna fila con
+    # trabajador sin horas ni incidencia va a revision (`tabla_dispersa`).
+    # Apagarlo deja solo la autocomprobacion de fila (siempre activa).
+    # ------------------------------------------------------------ #
+    revisar_tabla_dispersa: bool = Field(True, alias="REVISAR_TABLA_DISPERSA")
 
     # Calendario laboral (fin de semana + festivos). En fin de semana o
     # festivo no hay horas ordinarias: el reparto las manda todas a extra.
