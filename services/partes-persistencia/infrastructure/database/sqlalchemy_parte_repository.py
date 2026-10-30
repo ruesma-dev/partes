@@ -929,6 +929,7 @@ class SqlAlchemyParteRepository:
         raw_extraction_json: str,
         raw_context_json: str,
         review_required: bool,
+        recalculo_pedido_id: str | None = None,
     ) -> None:
         email = (context or {}).get("email") or {}
         attachment = (context or {}).get("attachment") or {}
@@ -1015,6 +1016,11 @@ class SqlAlchemyParteRepository:
                 raw_extraction_json=raw_extraction_json,
                 raw_context_json=raw_context_json,
                 created_at_utc=now_iso,
+                # F-047 (R1): el parte nuevo nace «en espera» en este mismo
+                # commit; sin pedido (R2), NULL como siempre.
+                recalculo_pedido_id=recalculo_pedido_id,
+                recalculo_pedido_at_utc=(
+                    now_iso if recalculo_pedido_id else None),
             )
 
             for reg in parte.registros:
