@@ -1,139 +1,102 @@
 <!-- progress/review_F-056.md -->
-Revisión completa (pasada 1) · rama `feature/F-056-franquicia-de-extras`, HEAD e3dff2f, diff `dev...HEAD` (base 39aef7b)
+Revisión incremental desde 3b37113 (pasada 2) · rama `feature/F-056-franquicia-de-extras`, HEAD 8c6b9e8
 # F-056 · Franquicia de extras — revisión
-**Veredicto: APROBADO (APPROVED)**, con observaciones que no tocan el comportamiento (al final).
-**Rigor** `critico` (declarado): fase RED, cobertura ≥ 80 %, mutación completa sin supervivientes sin
-justificar (equivalentes aceptados por el humano), RM5 y verificaciones MANUAL listadas.
+**Veredicto pasada 2: APROBADO (APPROVED)**. La pasada 1 (más abajo, resumida) sigue valiendo: nada del
+delta la invalida. Fuera de esta pasada, por encargo: M2–M4, T21 y T22 (humano).
+**Rigor** `critico` (declarado): fase RED, cobertura ≥ 80 %, mutación sin supervivientes sin
+justificar, RM5 y verificaciones MANUAL listadas.
 
-## Ejecución
+## Pasada 2: ejecución
 
-- `bash harness/init.sh` → **ENTORNO LISTO**: raíz 529 passed, 3 skipped (199 s); PUERTA COBERTURA
-  **[OK] 99,0 %** (1045/1056); PUERTA TAMAÑO **[OK]** (150/150, 250/250, 218/220).
-- sv3, sv4 y sv5 salieron de caché; los lancé a mano sin caché (`python -m pytest -q -p
-  no:cacheprovider` desde cada ruta): sv5 **1485 passed** (58 s), sv3 **2345 passed** (52 s), sv4
-  **3220 passed, 1 skipped** (1506 s).
-- `node --check static/app.js` OK. Árbol limpio.
+- `bash harness/init.sh` → **ENTORNO LISTO**: raíz 529 passed, 3 skipped (180 s); PUERTA COBERTURA
+  **[OK] 99,0 %** (1049/1060); PUERTA TAMAÑO **[OK]** (150/150, 250/250, 204/220, review 139/140 antes
+  de esta edición).
+- sv3, sv4 y sv5 salieron de caché; lanzados a mano con `python -m pytest -q -p no:cacheprovider`
+  desde cada ruta: sv4 **3224 passed, 1 skipped** (1133,5 s); sv5 **1485 passed** (22,9 s); sv3
+  **2345 passed** (63,2 s). Árbol limpio después.
 
-## Mutación (C4 bis, RM1–RM6)
+## Pasada 2: delta
 
-- **Recálculo puro** (`parsear_diff` + `filtrar_produccion` + `generar_mutantes` sobre `git show`).
-  Principal, 39aef7b..06065ea: **2294 líneas, 513 mutantes**. Enmienda, 3ba3403..56b5ca3: **156
-  líneas, 23 mutantes**. Las dos coinciden fichero a fichero.
-- **Supervivientes**: los **102** casan uno a uno (fichero, línea, operador, original→mutado) con
-  mutantes reales. Ninguno en `PENDIENTE`. Sin cabecera NO VÁLIDA; «Sin veredicto (base rota)» = 0.
-  **Campañas no reejecutadas**: 57 637 s (≈ 16 h) y 273 s, por encima de 60 s; recálculo puro y RM1–RM6.
-- **RM1**: 06065ea..9ae3fa5 solo trae el informe y tests. La enmienda (medida en 56b5ca3) cubre toda
-  la producción posterior (T23, T24). e3dff2f solo añade su informe.
-- **RM2** (4 workers): principal 513 × 112,4 ≈ 57 637, media × W = 450 s frente a bases de 820 s
-  (sv4) y 44 s (sv5); enmienda 23 × 11,9 ≈ 273, media × W = 47,6 s frente a 37 s. Coherentes con
-  `-x`. Coste por mutante > 1 s. **RM3**: ningún equivalente sale muerto.
-- **RM4**: reproducido en una copia de sv4 en el scratchpad. #1 (`frozen=True→False`) da 1 failed,
-  63 passed; #4 (`or→and`) da 1 failed, 64 passed; #3 (equivalente) da 80 passed, igual que sin
-  mutante. Las tres filas son idénticas al informe.
-- **RM5**: el **#95** (`x < 0`→`x <= 0` en `leer_valor`), ejecutado frente al original en 20 626
-  entradas (0, −0.0, "0", Decimal("0E+3"), 200/200,01, NaN/inf, no numéricos, 20 000 aleatorios y
-  los enteros −300..300): **0 diferencias**. Razoné además el #31: el único no informativo con
-  motivo es NUEVO con calendario no fiable; `_propuesta` da None sin llamar a sv5 y `_item`
-  antepone el motivo del candidato, así que la salida es idéntica.
-- **RM6**: 88 + 2 se matan con tests nuevos, sin tocar producción. Las guardas que quitó T23
-  (`CAMPO_RE`, tipo de columna) las sustituyen `COD_EXT_RE` y `motivo_definicion`.
-- **Aceptación humana de los 14 equivalentes (2026-10-29)**. El líder los presentó agrupados:
-  - #79, #90, #92: defecto de `getattr` que `Settings` siempre define;
-  - #3, #10, #17, #80, #86, #87: `or 0`→`or 1` sin vacío posible o con el mismo resultado;
-  - #84, #89, #95, #31: condición ya descartada antes;
-  - #19: lote 500→501 sobre un `set`.
+1. **DA32 / T27** [x]. `fq.lineas_del_recurso` es pura y `_propuesta` la aplica a las líneas del día y
+   a las del periodo; es el único llamador de `elegir_obra`. `_dia_ajuste`, `varios_recursos` y
+   `lineas_trabajador_periodo` no cambian. Decisión humana en `design.md` §7 con su literal; R5 y R7
+   enmendados. Mi observación 6 queda cubierta en preflight (`da32_preflight_…`) y `decidir`
+   (`da32_decidir_…`). Fase RED real en `impl_F-056.md` (3 failed: obra 0200 en vez de 0100).
+   Quitar el filtro en la copia da **2 failed, 230 passed**: esos tests protegen el caso de verdad.
+2. **Observaciones**. Obs. 1 [x] T20 y T26. Obs. 2 [x] Evidencias con «4 workers» y «aceptados».
+   Obs. 4 [x] los tres docstrings; `orm_models.py` byte-idénticos (`cmp`). Obs. 5 [x]
+   `partes-proyecto.md` y `azure-apps` 33ebb49 (una línea, sin datos nuevos). Obs. 7 [x]
+   `test_f056_r1_r41_da22_…`. Obs. 3 sigue del humano.
+3. **Merge y rigor** [x]. `git diff 2e910d1^1 2e910d1` trae solo `reviewer.md` (RM4), `BACKLOG.md`,
+   `features.json`, `rigor.json` y `current.md`: **nada bajo `services/` ni `infra/`**. `rigor.json`:
+   solo `timeout_por_mutante_s` 300→600; la decisión consta en dc693cc («si, y continua»).
 
-  Pregunta: «¿Aceptas los 14?». Literal del humano: **«si»**. Revisados contra el código, **los 14
-  son equivalentes** (`Settings` y `SettingsFake` definen `est_parte_activo`, `paso_pos` y
-  `obra_pruebas_forzar`; `recurso_fechas_de` acumula en `set`). Quedan cero supervivientes sin
-  justificación aceptada.
+## Pasada 2: mutación (`progress/mutacion_F-056_da32.md`)
 
-## Puntos de especial cuidado
+- **Recálculo puro** 3b37113..2e910d1: **25 líneas y 4 mutantes**, igual fichero a fichero (3 en
+  `franquicia.py:192`, 1 en `app.py:2789`; los docstrings no generan mutantes). Sin cabecera NO VÁLIDA
+  ni base rota. **Campaña no reejecutada: 3800,9 s según el informe**, por encima de 60 s.
+- **RM1** [x]: medida en 2e910d1; hasta HEAD solo cambian un test y `progress/`, ninguna producción.
+- **RM2** [x]: 4 × 950,2 ≈ 3800,9; media frente a base 965–969 s con 2 workers. Los muertos caen en
+  `test_f056_*`, ya avanzada la suite: coherente con `-x`.
+- **RM3** [x]: ninguno de los 4 es equivalente. **RM5**: N/A, el delta no declara equivalentes.
+  **RM6**: N/A, no se quita ninguna guarda.
+- **RM4** [x], copia de sv4 en el scratchpad, `sys.executable -m pytest`, mismo intérprete y base
+  **exit 0** (232 passed en `franquicia`, `decisiones` y `vista`):
 
-- **Sigrid solo por sv5**. `ejecutar` toma `self._reg.lock` (el del registro); `preparar` va fuera,
-  y X y E se leen dentro. INSERT y UPDATE van por las sentencias de F-046 sin cambios (`WHERE`
-  optimista). Después se relee por synckey y se decide por lo releído (R29). No hay ningún `DELETE`
-  en el diff, y el fixture autouse `_grabar` de `test_f056_pipeline.py` lo comprueba en cada test
-  (R26). A = 0 ⇒ `UPDATE` a 0.
-- **«No se sabe» ≠ X = 0**. `veredicto` corta primero todo lo que no sea `activa` ni `inactiva` ⇒
-  `no_editable`. Un recurso ausente o con 2 filas es `invalida`; un fallo de la definición o de los
-  valores es `no_disponible`. NaN e inf se rechazan con `isfinite`.
-- **R47 y R48**. `defext.tip = 33 AND cod = ?` y `con LEFT JOIN conext … WHERE con.tip = 33`,
-  parametrizados y sin `dni`. X se lee por `p.recurso_ide`, el mismo `reside` que se escribe. Tests
-  r47 (tip 42) y r48 (un DNI, dos empresas, X 8/20).
-- **Límite de servicio**. `CLAUDE.md` intacto: la lista cerrada no crece. Las dos copias de
-  `orm_models.py` son byte-idénticas (`cmp`). sv1, sv2 e `infra/` no se tocan. Los guardianes de
-  raíz pasan a **ocho tablas** con columnas literales.
-- **`_actor(request)`**: 18 → 20 (`decidir`, `aplicar`); el guardián F-017 está en verde.
-- **R45/R46**. `decidir` reutiliza `_plan_franquicia` y `decidir_ajuste` (CAS, índice único, 409)
-  sin llamar a sv5; la vista encadena decidir y aplicar.
-- **Documentación**. `ARCHITECTURE.md` (semánticas 7 y 21), `partes-proyecto.md` (§5, §5.5 quater,
-  variables) y `azure-apps/partes.md` (58bce5e y e32f089, locales) son coherentes con el código y
-  no mencionan `CAMPO_RES`.
-- **06065ea (F-019)**: solo el test (reloj controlado), sin producción. **C4 ter** N/A: no hay
+| Mutante | Resultado |
+|---|---|
+| `or 0`→`or 1` (superviviente) | exit 1: 1 failed, 81 passed; el test nuevo solo: 1 failed |
+| `or`→`and` | exit 1: 15 failed, 217 passed |
+| `== rec`→`!= rec` | exit 1: 14 failed, 218 passed |
+| `app.py:2789` `==`→`!=` | exit 1: 1 failed, 231 passed |
+
+  El superviviente queda muerto por `test_f056_da32_linea_sin_recurso_no_es_del_recurso_1`, y los
+  otros tres reproducen «muerto». Cero supervivientes sin justificar.
+
+## Pasada 2: checkpoints
+
+- **C1** [x] `init.sh` en verde. **C2** [x] una sola feature `in_progress`, rama correcta, `current.md`
+  al día. **C3** [x] `franquicia.py` sigue puro; sin `print`, secretos ni dependencias.
+- **C3 bis** [x] el diff de `partes-proyecto.md` y de `azure-apps` es una sola frase, sin datos
+  sensibles; [x] N/A cabecera y redacción: nada nuevo de fuera. Sin originales.
+- **C4** [x] trazabilidad abajo. **C4 bis** [x] RED real, cobertura 99 %, mutación verificada, RM1,
+  RM2, RM5 (N/A justificado) y RM6, «Evidencias» presente. **C4 ter** N/A: sin
   `harness/rutas_sensibles.json`.
+- **C5** [x] T1–T20 y T23–T27 con `[x]` y commits `F-056 Tn:`. T21 y T22 abiertas: fuera por encargo,
+  son del humano. `features.json` sigue `in_progress`, su estado real.
 
-## Checkpoints
+## Pasada 2: cobertura del delta
 
-- **C1** [x] `init.sh` en exit 0 · [x] existen los ficheros del arnés.
-- **C2** [x] una sola feature `in_progress` · [x] rama correcta · [x] `current.md`: la sección de
-  F-056 describe la sesión; el resto es historial de otras features, práctica previa del repositorio
-  que no introduce F-056 · [x] `history.md` sin cambios necesarios.
-- **C3** [x] hexagonal: el dominio no importa infraestructura, y el pipeline importa la synckey del
-  cliente igual que `reajuste_pipeline` · [x] primera línea con la ruta en todos los ficheros nuevos
-  · [x] sin `print`, sin secretos y sin dependencias nuevas · [x] trampas: recurso ≠ empleado (R48),
-  `registro_de_synckey` ignora la synckey nueva, schema en dos copias iguales.
-- **C3 bis** (se modificó `partes-proyecto.md`)
-  - [x] N/A cabecera: el documento no es nuevo ni llega de fuera. [x] Sin originales:
-    `git log --diff-filter=A` no trae ningún pdf, doc, xls ni ppt.
-  - [x] Barrido mío sobre el diff de `docs/` y de `azure-apps`: **0 coincidencias** (correo, IPv4,
-    GUID, `password|contraseña|secret=|AccountKey|SharedAccessSignature|sig=|token|api_key|Bearer|BEGIN|DefaultEndpointsProtocol`
-    y base64 de 40 o más caracteres). [x] N/A redacción: no hubo nada que redactar.
-- **C4** [x] trazabilidad completa (abajo), todo en verde · [x] sin red ni BBDD (`SigridFake`,
-  SQLite, sv5 falso) · [x] M2–M4 con su receta en `design.md` §10, referenciada desde `current.md`
-  y T21.
-- **C4 bis** — todos [x]:
-  - fase RED con trazas reales (T12–T17b y T23 en el informe; T1–T11 en 6d777c4 y dd197b7; T18 y
-    T24 justificados);
-  - cobertura 99 %; mutación recalculada; RM1, RM2, RM5 y RM6; sin base rota ni `PENDIENTE`;
-  - «Evidencias» presente, aunque sin el nº de workers (obs. 2; el informe de mutación trae 4);
-  - ningún N/A sin motivo.
-- **C5** [x] tareas y commits `F-056 Tn:`. T21 y T22 quedan fuera por encargo del líder. T20
-  (3ba3403, 9ae3fa5, más la aceptación de hoy) y T26 (e3dff2f) están **hechas**; solo les falta la
-  casilla (obs. 1) · [x] sin artefactos sin trackear · [x] `features.json` en `in_progress`, su
-  estado real.
+| Requisito | Test |
+|---|---|
+| R7, R48 (DA32) | `da32_lineas_del_recurso_solo_las_suyas`, `da32_linea_sin_recurso_no_es_del_recurso_1`, `da32_preflight_obra_del_recurso_del_ajuste`, `da32_decidir_obra_del_recurso_del_ajuste` |
+| R1 | `r1_r41_da22_vale_la_x_de_sigrid_al_ejecutar` |
 
-## Cobertura requisito → test
+## Pasada 2: observaciones (no bloquean)
 
-334 tests `test_f056_*` (sv3, sv4, sv5 y raíz). Cada R de R2–R34 y R36–R48 tiene al menos un test
-`test_f056_r<N>_…` (o `…_r<M>_r<N>_…`) y todos pasan; los recuentos van de 1 (R4, R46) a 24 (R15).
-Ejemplos: R31 `r31_pisado_choques_ignora_el_ajuste`, R42 `r42_franquicia_desconocida_no_escribe`,
-R47 `r47_el_cod_10_de_tip_42_nunca_da_x`, R48 `r48_mismo_dni_dos_empresas_usa_la_del_recurso_pedido`.
-Sin nombre propio, pero cubiertos: **R1** (`r41_ejecutar_lee_x_bajo_el_lock_y_comprobar_sin_el`,
-`r48_…`, contrato `r41_sv4_no_manda_la_x`) y **R26** (fixture autouse `_grabar` de
-`test_f056_pipeline.py`: ninguna sentencia es un borrado). **R35** es documental (revisado arriba) y
-**R37**, de proceso (este informe).
+1. `docs/ARCHITECTURE.md:667` dice «la obra de más horas de ese día» sin decir que son las líneas del
+   recurso. No es falso, pero conviene retocarlo. Igual el docstring de `elegir_obra`, que dice «del
+   trabajador» cuando ya recibe solo las del recurso.
+2. Sigue de la pasada 1: M2 antes de activar `FRANQUICIA_CAMPO_EXT=10` en producción.
 
-## Observaciones (no bloquean; se arreglan al cerrar)
+---
 
-1. Marcar `[x]` T20 y T26 en `specs/F-056-franquicia-de-extras/tasks.md`.
-2. `progress/impl_F-056.md`, sección «Evidencias», fila Mutación: añadir «4 workers» y cambiar
-   «pendientes del humano» por «aceptados por el humano el 2026-10-29 («si»)».
-3. Quedan del humano M2, M3 y M4 (`design.md` §10) y T21 y T22. M2 se hace antes de activar
-   `FRANQUICIA_CAMPO_EXT=10` en producción.
-4. Docstrings que aún dicen «campo de `res`»: `orm_models.py:32-33` en sv4 y sv3 (las dos copias a
-   la vez) y `services/partes-transfer/domain/models/registro_models.py:477-478`
-   (`LecturaFranquicia`). Deben decir «campo extendido de recurso (`defext`/`conext`)».
-5. `partes-proyecto.md` y `azure-apps/partes.md` dicen «`10` en producción». Hasta M4 la variable
-   está vacía: mejor «`10` al activarla (M4)».
-6. Caso límite, seguro pero mejorable. Si la persona tiene horas ordinarias con OTRO recurso (otra
-   empresa) el día de ajuste, `lineas_trabajador_periodo` las incluye por DNI y `elegir_obra` (R7)
-   podría escoger esa obra. sv5 lo para con F-023 (`no_editable`, R30), así que nunca se escribe
-   mal, pero ese trabajador se queda sin ajuste. Para una feature futura: elegir la obra solo con
-   las líneas del `recurso_ide` del ajuste.
-7. R1 no tiene un test con su nombre; lo cubren r41, r48 y el contrato. Se puede renombrar uno a
-   `r1_…` en una pasada futura.
+## Pasada 1 (APROBADO, e3dff2f), resumen
 
-**Automejora (propuesta para `reviewer.md`, RM4)**: lanzar pytest con `sys.executable` en los
-subprocesos. En este equipo `python` resolvía a otro intérprete sin pytest, daba exit 1 y parecía un
-falso «MATA». Lo detecté y repetí la prueba.
+Detalle íntegro: `git show 3b37113:progress/review_F-056.md`. Revisión completa de `dev...HEAD`
+(base 39aef7b).
+
+- **Ejecución**: `init.sh` verde, cobertura 99,0 %; a mano sv5 1485, sv3 2345, sv4 3220 passed.
+- **Mutación**: recálculo 513 mutantes (2294 líneas) y 23 (156 líneas), coincidentes. Los 102
+  supervivientes casan con mutantes reales. Campañas no reejecutadas (57 637 s y 273 s). RM1–RM6
+  cumplidas; RM4 reproducido en #1, #3 y #4; RM5 sobre #95 (20 626 entradas, 0 diferencias).
+- **Equivalentes**: 14, aceptados por el humano el 2026-10-29, literal «si»: #79, #90, #92, #3, #10,
+  #17, #80, #86, #87, #84, #89, #95, #31 y #19.
+- **Cuidado revisado**: escritura solo en sv5 y bajo `self._reg.lock`; sin `DELETE`; «no se sabe» ≠
+  X = 0; R47 (tip 33) y R48 (por `recurso_ide`, nunca DNI); lista cerrada de `CLAUDE.md` intacta;
+  `_actor` 18→20; R45/R46 reutilizan CAS y 409; documentación coherente.
+- **Checkpoints**: C1, C2, C3, C3 bis (barrido sin coincidencias), C4, C4 bis y C5 en [x].
+- **Cobertura**: 334 tests `test_f056_*`; cada R de R2–R34 y R36–R48 tiene test; R26 por el fixture
+  autouse `_grabar`; R35 documental; R37 de proceso.
+- **Observaciones**: las siete se resuelven o se heredan arriba. La 6 dio lugar a DA32.
