@@ -841,8 +841,7 @@
       "rigor": "critico",
       "priority": 3,
       "branch": "feature/F-056-franquicia-de-extras",
-      "spec": "aprobada (DA1–DA32; DA1 = C, DA29–DA31 campo extendido, DA32 obra del recurso) · review APPROVED pasada 2",
-      "pendiente": "Desplegada sv5 → sv4 con FRANQUICIA_CAMPO_EXT vacía (humano, 2026-10-30). M2 OK en local el 2026-10-30 con X = 10 (progress/m2_F-056.md), salvo (g): campo a 0, pendiente de Administración. M3 OK (sv5 r20261030130616: «[franquicia] apagada», sin Traceback). M4: ACTIVADA el 2026-10-30 a petición del humano, FRANQUICIA_CAMPO_EXT=10 en sv5 (revisión ca-sv5-transfer--0000004, Healthy, «[franquicia] configurada: campo extendido 10 de tipo 33»). Pendiente: M2 (g) (el humano ya puso el campo del gruista de pruebas a 0) y mirar en Sigrid la primera franquicia real aprobada."
+      "spec": "aprobada (DA1–DA32; DA1 = C, DA29–DA31 campo extendido, DA32 obra del recurso) · review APPROVED pasada 2"
     },
     {
       "id": "F-057",

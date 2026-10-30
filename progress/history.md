@@ -979,3 +979,16 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
   huecos reales cerrados con tests y 1 equivalente demostrado; banco del líder M0 22/22,
   M1 12/12 (antes 0/12), M2 4/4, M3 sin regresión (42/42, 123/123 filas).
 - Pendiente: desplegar sv2, M4 y releer los 6 partes sin obra del 21 y 23/10.
+
+## F-056 · Franquicia de extras: aviso y línea de ajuste el último día con jornada — done 2026-10-30
+
+- Rama `feature/F-056-franquicia-de-extras` · rigor crítico · sdd · APPROVED del reviewer en la
+  pasada 2 (`progress/review_F-056.md`); 14 mutantes equivalentes aceptados por el humano.
+- Entregado: sv5 lee la franquicia del campo extendido de Sigrid (`defext`/`conext`, `cod`
+  `FRANQUICIA_CAMPO_EXT`, tipo 33, `valn` entero) por el `res.ide` del recurso de la obra, nunca por
+  DNI; ajuste `HE*` = −min(extras, X) en el día de ajuste, recalculado con `UPDATE` (nunca
+  `DELETE`); tabla `franquicia_ajuste`; sv4 con aviso en el modal, vista con «Ajustar»/«Recalcular»
+  (`/api/franquicia/decidir` → `aplicar`) y obra del ajuste elegida con las líneas del recurso (DA32).
+- Verificado: `init.sh` en verde en `dev`; M2 en local con X = 10 en 2025/09 (`progress/m2_F-056.md`)
+  OK salvo (g), que no se hace; M3 OK; activada el 2026-10-30 con `FRANQUICIA_CAMPO_EXT=10` en sv5
+  (`ca-sv5-transfer--0000004`, arranque sano).
