@@ -103,9 +103,12 @@ class ParteDocumentOrm(Base):
     # sv4 escribe el «pedido» (uuid4 y hora UTC) antes de publicar el
     # recalculo de F-042; sv3 copia ese id a «terminado» al acabar la
     # pasada. Iguales => terminado; distintos y en plazo => parte en espera.
+    # F-047: el pedido tambien lo escribe sv3 al guardar un parte nuevo, en
+    # el mismo commit y con el id del documento (pedido = id => motivo
+    # «nuevo» en sv4); lo marca terminado tras conciliar. Sin columna nueva.
     # Nullables: los partes anteriores quedan a NULL (sin seguimiento).
-    recalculo_pedido_id: Mapped[str | None] = mapped_column(String(36))        # sv4
-    recalculo_pedido_at_utc: Mapped[str | None] = mapped_column(String(64))    # sv4
+    recalculo_pedido_id: Mapped[str | None] = mapped_column(String(36))        # sv4 / sv3 (F-047)
+    recalculo_pedido_at_utc: Mapped[str | None] = mapped_column(String(64))    # sv4 / sv3 (F-047)
     recalculo_terminado_id: Mapped[str | None] = mapped_column(String(36))     # sv3
     recalculo_terminado_at_utc: Mapped[str | None] = mapped_column(String(64)) # sv3
 
