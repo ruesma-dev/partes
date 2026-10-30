@@ -940,7 +940,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
-      "pendiente": "Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 en el portal y M2: el humano lee el informe de limpiar_partes_vacios.py y lo ejecuta con --ejecutar --esperados N"
+      "pendiente": "Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). M2 hecha el 2026-10-27 (30 borrados, 0 restantes). Pendiente: M1 en el portal (humano)"
     },
     {
       "id": "F-062",
