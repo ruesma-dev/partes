@@ -59,7 +59,6 @@ from application.services.reparto_aviso import (
     ESTADO_APLICANDO,
     ESTADO_PENDIENTE,
     RepartoCambiadoError,
-    RepartoPendienteError,
     bloque_repartos,
     payload_reajuste,
 )
@@ -2487,6 +2486,10 @@ def build_app(
             partes.append(f"{excluidas['incompatible']} con una incidencia "
                           "de día completo y horas el mismo día (corrige el "
                           "día en el portal)")
+        if excluidas.get("recalculando"):
+            # F-047 (R17).
+            partes.append(f"{excluidas['recalculando']} en espera de "
+                          "reparto (pulsa Actualizar cuando termine)")
         if not partes:
             return "no hay lineas activas que registrar"
         return "no hay lineas que registrar: " + " y ".join(partes)
@@ -3811,7 +3814,7 @@ def build_app(
                 document_id=document_id,
                 approved_by=_actor(request),
             )
-        except RepartoPendienteError as exc:   # F-046 (R36, DA13)
+        except CongeladoError as exc:   # F-046 (R36) y F-047 (R16)
             return _redirect(back, exc.motivo)
         return _redirect(back, "Parte aprobado")
 
