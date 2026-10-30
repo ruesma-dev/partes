@@ -836,12 +836,13 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar; M2 en la obra 0404 con PRUEBA-IA",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 3,
       "branch": "feature/F-056-franquicia-de-extras",
-      "spec": "aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; desbloqueada 2026-10-27 por DA28 = A (ruta «decidir» de la vista, T17b)"
+      "spec": "aprobada (DA1–DA32; DA1 = C, DA29–DA31 campo extendido, DA32 obra del recurso) · review APPROVED pasada 2",
+      "pendiente": "Sin desplegar. Pendiente del humano: M3 (desplegar sv5 → sv4 con FRANQUICIA_CAMPO_EXT vacía), M2 (0404, PRUEBA-IA, valor entero > 0 en el campo 10 del recurso de pruebas, puesto por Administración) y M4 (activar con FRANQUICIA_CAMPO_EXT=10 tras M2)."
     },
     {
       "id": "F-057",

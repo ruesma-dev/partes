@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-056 · IN_PROGRESS (desbloqueada 2026-10-27 por DA28 = A; T1–T18 hechas, en curso T17b) · desde 2026-10-27 (spec aprobada 2026-10-23: DA1–DA20 = A; el humano: «si arranca la siguiente»; implementer en `partes-wt-f056`): franquicia de extras
+## F-056 · DONE 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; sin desplegar; pendiente: M3, M2 y M4 del humano): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
 worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en

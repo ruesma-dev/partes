@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **61 features**, 14 abiertas, 47 terminadas.
-
-En curso: **F-056**.
+Resumen: **61 features**, 13 abiertas, 48 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | en curso | aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; desbloqueada 2026-10-27 por DA28 = A (ruta «decidir» de la vista, T17b) | critico | `feature/F-056-franquicia-de-extras` |
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
@@ -66,6 +63,7 @@ Bloqueadas: **F-032**.
 | F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). M2 hecha el 2026-10-27 (30 borrados, 0 restantes). Pendiente: M1 en el portal (humano) |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
+| F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | critico | Sin desplegar. Pendiente del humano: M3 (desplegar sv5 → sv4 con FRANQUICIA_CAMPO_EXT vacía), M2 (0404, PRUEBA-IA, valor entero > 0 en el campo 10 del recurso de pruebas, puesto por Administración) y M4 (activar con FRANQUICIA_CAMPO_EXT=10 tras M2). |
 | F-012 | Estudio: candef de 9h, viernes y jornada semanal particularizable | 4 | documental |  |
 | F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | estandar |  |
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | critico | M2–M8 en el portal |
@@ -81,14 +79,6 @@ Bloqueadas: **F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
-
-### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
-
-estado **en curso** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
-
-**Spec**: aprobada (DA1–DA20 = A; enmienda DA21–DA27 = A) · `partes-wt-f056` · T1–T18 hechas; desbloqueada 2026-10-27 por DA28 = A (ruta «decidir» de la vista, T17b)
-
-Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe. Decisión del humano del 2026-10-22/23 («si a todo, pon la nueva feature como primera y lanza spec»): primera de la cola. Spec en specs/F-056-franquicia-de-extras/ (2026-10-23): sv5 calcula contra Sigrid E (extras HE* netas del recurso en el mes de nómina 16→15) y A = −min(E, X), da de alta la línea HE* negativa (synckey partes:franquicia:<id>, excluida de los choques) y la edita con UPDATE (a 0, nunca DELETE); sv4 guarda X en empleado_franquicia (sección de /admin/jornadas), calcula día de ajuste (último con jornada > 0, F-015) y obra, avisa en el modal de aprobar, guarda la decisión en franquicia_ajuste y la aplica al terminar el registro. sv3 solo la copia del ORM. Decisiones DA1-DA20 pendientes del humano (design.md §7); M1 de solo lectura hecha (design.md §2 H5).
 
 ### F-055 · sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados)
 
@@ -421,6 +411,16 @@ Sustituir la librería holidays y el candef como jornada teórica por los datos 
 estado **terminada** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-024-lineas-encoladas`
 
 Reportado el 2026-09-30 por Juan Romero (correo 'RV: CAPTURAS', captura de la vista de obra). En un mismo parte y dia, la linea Extra (HEOF) muestra 'PT26/00314' en la columna Sigrid y la linea Ordinaria (HLOF) del mismo trabajador se queda en 'encolado', 'si ya lo habiamos llevado a Sigrid, igual que el de abajo'. A INVESTIGAR (explorer de solo lectura antes de la spec): si la linea se escribio en Sigrid y el portal no recibio/actualizo el resultado (q-transfer/resultado_sigrid de F-002), si el mensaje se perdio o acabo en -poison, o si sv5 la omitio sin devolver estado. Comprobar en Sigrid (solo lectura) y en la base partes. Servicios probables: sv4 (estado mostrado) y sv5 (resultado por linea). RIGOR critico si resulta que hay lineas sin registrar que el usuario cree registradas. HALLAZGO DEL LIDER 2026-10-01 (lectura por sigrid-api, base ruesma): NINGUNA linea hmores de Sigrid tiene synckey no vacio (ni 'partes:%' ni otro), aunque sv5 escribe hmores.synckey = 'partes:<id>' y el portal mostro lineas registradas en PT26/00314 (cabecera existe, empresa 1, 2026-09, 56 lineas, todas con synckey vacio). Hipotesis a verificar: Sigrid (o un proceso suyo) vacia synckey despues de escribir, o las lineas se borraron y se reteclearon. Si synckey no persiste, la idempotencia, la deteccion de conflictos y la desaprobacion (F-004) que se apoyan en el no funcionan: investigar ANTES de F-021.
+
+### F-056 · Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable
+
+estado **terminada** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-056-franquicia-de-extras`
+
+**Spec**: aprobada (DA1–DA32; DA1 = C, DA29–DA31 campo extendido, DA32 obra del recurso) · review APPROVED pasada 2
+
+**Pendiente**: Sin desplegar. Pendiente del humano: M3 (desplegar sv5 → sv4 con FRANQUICIA_CAMPO_EXT vacía), M2 (0404, PRUEBA-IA, valor entero > 0 en el campo 10 del recurso de pruebas, puesto por Administración) y M4 (activar con FRANQUICIA_CAMPO_EXT=10 tras M2).
+
+Petición del humano del 2026-10-22, literal: «hay trabjadores que tienen solo extras aa partir de un numero de extras. de esta forma funciona normal pero al reistrar el mes nomina (ultimo dia laborable), debe salir un aviso de si ajustar horas. de esta forma estos trabaajdores solo tienen horas extras si han hecho mas de x. si tiene menos se añade el ultimo dia una linea de ajuste que resta el numero de extras para que salga 0, y si es mas de x, esa linea resta x.» Regla: algunos trabajadores tienen una franquicia mensual de X horas extra que no cobran. Durante el mes las extras se registran como siempre; al registrar el último día laborable del mes (el que cierra la nómina) el portal avisa y ofrece ajustar: si las extras del mes son menos de X, se añade ese día una línea de ajuste que resta todas (el mes queda en 0 extras); si son X o más, la línea resta X. Pendiente de spec; preguntas para el spec-author: dónde se guarda X por trabajador (¿empleado_jornada de F-015/F-016, una columna nueva, Sigrid?) y si es mensual; qué cuenta como extras del mes (todas las obras y tipos de hora extra, también las de reajuste F-046); en qué obra y con qué tipo de hora y precio va la línea negativa si el trabajador tiene varias obras ese día; qué pasa si el último laborable se registra antes que otros días del mes o se reabre (F-034 parte abierto) y cómo se recalcula sin borrar en Sigrid (F-053: se edita la línea, no se borra); en qué pantalla sale el aviso (aprobación de sv4) y si se puede rechazar; y que sv5 siga siendo el único que escribe. Decisión del humano del 2026-10-22/23 («si a todo, pon la nueva feature como primera y lanza spec»): primera de la cola. Spec en specs/F-056-franquicia-de-extras/ (2026-10-23): sv5 calcula contra Sigrid E (extras HE* netas del recurso en el mes de nómina 16→15) y A = −min(E, X), da de alta la línea HE* negativa (synckey partes:franquicia:<id>, excluida de los choques) y la edita con UPDATE (a 0, nunca DELETE); sv4 guarda X en empleado_franquicia (sección de /admin/jornadas), calcula día de ajuste (último con jornada > 0, F-015) y obra, avisa en el modal de aprobar, guarda la decisión en franquicia_ajuste y la aplica al terminar el registro. sv3 solo la copia del ORM. Decisiones DA1-DA20 pendientes del humano (design.md §7); M1 de solo lectura hecha (design.md §2 H5).
 
 ### F-012 · Estudio: candef de 9h, viernes y jornada semanal particularizable
 
