@@ -1009,12 +1009,12 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "estandar",
       "priority": 16,
       "branch": "feature/F-065-buzon-por-aviso-de-graph",
-      "spec": "sin spec"
+      "spec": "aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A)"
     }
   ]
 }
