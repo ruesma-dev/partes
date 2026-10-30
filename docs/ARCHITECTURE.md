@@ -665,7 +665,7 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `A = -min(E, X)` si E > 0 (si no, 0): una línea `hmores` de extra con
     `can = A` el **día de ajuste** (último del periodo con jornada > 0,
     F-015, con el calendario del trabajador), en la obra de más horas de
-    ese día, synckey `partes:franquicia:<id>` y `tex` sin cifras.
+    ese día entre las líneas del recurso del ajuste, synckey `partes:franquicia:<id>` y `tex` sin cifras.
     Recalcular es un `UPDATE` de `can`/`tot`; nunca hay `DELETE` ni se
     escribe en `res`, `defext` ni `conext`. La línea de ajuste no choca con las demás (pisado y
     reajuste la ignoran). En sv4, el preflight de aprobar pide a sv5 la

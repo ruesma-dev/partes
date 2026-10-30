@@ -194,7 +194,7 @@ def lineas_del_recurso(lineas: Iterable[Mapping],
 
 def elegir_obra(lineas_dia: Iterable[Mapping],
                 lineas_periodo: Iterable[Mapping]) -> dict | None:
-    """R7: la obra de mas horas del trabajador el dia de ajuste (desempate:
+    """R7: la obra de mas horas del recurso el dia de ajuste (desempate:
     mas extras del periodo y menor codigo); sin lineas de trabajo ese dia,
     el ULTIMO dia del periodo que las tenga. La partida, la de su linea de
     mas horas en esa obra ese dia (desempate: menor `registro_id`)."""
