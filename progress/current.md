@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-056 · DONE 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; desplegada sv5 → sv4 con el campo vacío el 2026-10-30; M2 OK en local con X = 10 salvo (g), ver `progress/m2_F-056.md`; pendiente: M3, M2 (g) y M4): franquicia de extras
+## F-056 · DONE 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; desplegada sv5 → sv4 con el campo vacío el 2026-10-30; M2 OK en local con X = 10 salvo (g), ver `progress/m2_F-056.md`; M3 OK; ACTIVADA en producción el 2026-10-30 con `FRANQUICIA_CAMPO_EXT=10` en sv5 `ca-sv5-transfer--0000004`; pendiente: M2 (g) y ver la primera franquicia real en Sigrid): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
 worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en
