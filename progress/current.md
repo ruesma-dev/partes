@@ -1,7 +1,16 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-047 · spec revalidada 2026-10-30 (spec-author), pendiente del visto bueno a DA11–DA13: parte nuevo en espera hasta que sv3 reparta sus horas
+## F-047 · EN CURSO (implementer, 2026-10-30): parte nuevo en espera hasta que sv3 reparta sus horas
+
+DA11–DA13 = A decididas por el humano el 2026-10-30 (literal: «ok» a «F-047: A, A, A. Lanzo el
+implementer.»), registradas en `design.md` §11; DA13 aplicada al texto de R19. F-047 `in_progress`
+(única en curso). Rama `feature/F-047-parte-nuevo-en-espera`, worktree `partes-wt-f047`.
+- Tarea en curso: la primera sin `[x]` de `tasks.md`. Informe: `progress/impl_F-047.md`.
+- Desviaciones respecto a la spec: ninguna por ahora.
+- La campaña de mutación completa la lanza el líder (no el implementer).
+
+## F-047 · spec revalidada 2026-10-30 (spec-author; DA11–DA13 = A el mismo día): parte nuevo en espera hasta que sv3 reparta sus horas
 
 Orden del humano (2026-10-30): «vamos con f47». Rama `feature/F-047-parte-nuevo-en-espera`,
 worktree `partes-wt-f047`, con `dev` 75816f2 fusionado (795a546). La spec del 2026-10-14

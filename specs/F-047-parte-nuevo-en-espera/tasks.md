@@ -9,8 +9,8 @@
 - **Rigor crítico**: fase RED con su traza en `progress/impl_F-047.md` para
   R1–R25; cobertura de las líneas cambiadas ≥ umbral; mutación **completa**
   con 0 supervivientes sin test o sin justificación aceptada.
-- **Visto bueno previo**: DA1–DA10 aprobadas el 2026-10-14; no se empieza sin
-  el del humano a DA11–DA13 (`design.md` §11, revalidación del 2026-10-30).
+- **Visto bueno previo**: DA1–DA10 aprobadas el 2026-10-14; DA11–DA13 = A
+  aprobadas el 2026-10-30 (literal: «ok»; `design.md` §11).
 - **Cuándo bloquear**: si una tarea obliga a tocar un fichero de `design.md`
   §7 o un test existente, la feature pasa a `blocked` y se consulta (DA8).
 - **Datos**: ningún test toca red, Azure, Sigrid ni PostgreSQL. Datos

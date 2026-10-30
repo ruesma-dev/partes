@@ -5,7 +5,7 @@
 conciliar) y **sv4** (motivo de la espera, textos, listado y aprobación).
 **Sin columnas nuevas**: reutiliza el seguimiento de F-043. Rigor **crítico**
 (design §1). Decisiones: design §11 (DA1–DA10 aprobadas el 2026-10-14;
-DA11–DA13 abiertas en la revalidación del 2026-10-30, ver `tasks.md`).
+DA11–DA13 = A, decididas el 2026-10-30).
 
 ## Contexto (verificado en el código el 2026-10-14; revalidado el 2026-10-30)
 
@@ -108,8 +108,8 @@ DA11–DA13 abiertas en la revalidación del 2026-10-30, ver `tasks.md`).
 - **R19.** CUANDO la página carga con un contenedor en espera que lleva
   `data-recalculo-motivo="nuevo"`, el portal debe poner el parte en espera
   con la marca «procesando…» y el aviso: «Procesando el parte nuevo del D: se
-  están repartiendo sus horas normales y extra (suele tardar menos de 1 min).
-  Puedes seguir trabajando con el resto.» (DA6).
+  están repartiendo sus horas normales y extra (suele tardar menos de 1 min;
+  con más partes en cola, unos minutos). Puedes seguir trabajando con el resto.» (DA6, DA13).
 - **R20.** CUANDO un parte nuevo pasa a `terminado`, la marca debe decir
   «procesado · pulsa Actualizar» y el aviso «Parte nuevo del D procesado:
   horas repartidas.», con «Actualizar».

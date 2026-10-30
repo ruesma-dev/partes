@@ -194,8 +194,9 @@ además vuelve a medir la espera): detalle y comandos en `tasks.md` T13.
 
 ## 11. Decisiones abiertas (cada una con su recomendación)
 
-DA1–DA10 aprobadas el 2026-10-14; DA11–DA13 abiertas el 2026-10-30 (contexto y
-opciones en `progress/explore_F-047_revalidacion.md`).
+DA1–DA10 aprobadas el 2026-10-14; **DA11–DA13 = A** decididas por el humano el
+2026-10-30 (literal: «ok» a «F-047: A, A, A»; contexto en
+`progress/explore_F-047_revalidacion.md`).
 
 - **DA1 · Quién genera el pedido y dónde se marca.** **A (recomendada)**: el
   pipeline usa como pedido el `document_id` que ya genera (uuid4, 36
@@ -239,12 +240,11 @@ opciones en `progress/explore_F-047_revalidacion.md`).
 - **DA10 · Botones del detalle** (fuera de `[data-parte-contenido]`).
   **Recomendado**: `data-parte-acciones` + `contenedoresEspera`, además de la
   guarda del servidor (R16). Alternativa: solo el servidor (motivo por redirección).
-- **DA11 · Matriz de la obra (F-049)**: la celda de un parte en espera enseña lo
-  sin repartir y el editor se abre (guardar da 409, F-049 R15). **A (recom.)**:
-  fuera, como DA7. B: marcar la celda y no abrir el editor (choca con DA8).
+- **DA11 · Matriz de la obra (F-049)**: la celda en espera enseña lo sin repartir
+  y el editor se abre (guardar da 409). **A (elegida)**: fuera, como DA7.
 - **DA12 · Sin obra o sin fecha (F-054)**: también esperaría (fecha editable,
-  obra con 409). **A (recom.)**: misma regla para todos. B: sin pedido si
+  obra con 409). **A (elegida)**: misma regla para todos. B: sin pedido si
   `motivos_cabecera(parte)` no está vacía (R1–R2 ganan esa condición).
 - **DA13 · Candado de F-046**: la pasada lo espera hasta 300 s; sin él, sin
-  marca (R5) y vence a los 600 s. **A (recom.)**: R19 dice «(suele tardar menos
+  marca (R5) y vence a los 600 s. **A (elegida, aplicada a R19)**: R19 dice «(suele tardar menos
   de 1 min; con más partes en cola, unos minutos)». B: R19 tal cual.
