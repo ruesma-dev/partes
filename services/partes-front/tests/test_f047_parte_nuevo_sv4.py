@@ -471,3 +471,176 @@ def test_f047_r17_el_motivo_se_suma_a_los_demas(entorno, fabrica,
         "no hay lineas que registrar: 1 ya registrada(s) en Sigrid (no se "
         "reenvian) y 1 en espera de reparto (pulsa Actualizar cuando "
         "termine)")
+
+
+# =================== R13, R14, R18 · las vistas (HTML) =================== #
+
+import re  # noqa: E402
+
+URL_OBRA = "/obras/obr-10?period=2026-03&modo=natural"
+URL_PERSONA = "/trabajadores/rec-501?period=2026-03&modo=natural"
+MARCA_NUEVO = '<span class="recalculando-marca">procesando…</span>'
+MARCA_F043 = '<span class="recalculando-marca">recalculando…</span>'
+CABECERA = {"X-MS-CLIENT-PRINCIPAL-NAME": "revisora@ejemplo.es"}
+TERCERO = "doc-tercero"
+
+
+@pytest.fixture
+def tres_partes(entorno, fabrica):
+    """Mismo trabajador y obra: DOC nuevo en espera, OTRO en espera de un
+    recálculo (F-043) y TERCERO sin espera."""
+    ids = {}
+    for doc, fecha in ((DOC, "2026-03-02"), (OTRO, "2026-03-03"),
+                       (TERCERO, "2026-03-04")):
+        (ids[doc],) = sembrar_parte(fabrica, [{"horas": 8.0}],
+                                    document_id=doc, fecha=fecha)
+    _poner_marca(fabrica, DOC, **NUEVO)
+    _poner_marca(fabrica, OTRO, **RECALCULO)
+    return ids
+
+
+def _fila(html: str, registro_id: int) -> str:
+    ini = html.index(f'<tr data-registro-id="{registro_id}"')
+    return html[ini:html.index("</tr>", ini)]
+
+
+def _apertura(fragmento: str) -> str:
+    return fragmento.split(">", 1)[0]
+
+
+def _celda_fecha(fila: str) -> str:
+    ini = fila.index('<td class="cell-fecha">')
+    return fila[ini:fila.index("</td>", ini)]
+
+
+@pytest.mark.parametrize("url", [URL_OBRA, URL_PERSONA])
+def test_f047_r13_las_filas_del_parte_nuevo_dicen_procesando(
+        tres_partes, fabrica, url) -> None:
+    html = _cliente(fabrica).get(url, headers=CABECERA).text
+    nuevo = _fila(html, tres_partes[DOC])
+    assert 'data-recalculando="1"' in _apertura(nuevo)
+    assert 'data-recalculo-motivo="nuevo"' in _apertura(nuevo)
+    assert MARCA_NUEVO in _celda_fecha(nuevo)
+    assert MARCA_F043 not in nuevo
+    # El del recálculo, exactamente como en F-043.
+    recalculo = _fila(html, tres_partes[OTRO])
+    assert 'data-recalculando="1"' in _apertura(recalculo)
+    assert "data-recalculo-motivo" not in recalculo
+    assert MARCA_F043 in _celda_fecha(recalculo)
+    assert MARCA_NUEVO not in recalculo
+    tercero = _fila(html, tres_partes[TERCERO])
+    assert "data-recalculando" not in tercero
+    assert "data-recalculo-motivo" not in tercero
+    assert "recalculando-marca" not in tercero
+
+
+def _contenedores(html: str) -> list[str]:
+    return re.findall(r"<div[^>]*data-parte-contenido[^>]*>", html)
+
+
+def _barra(html: str) -> str:
+    (barra,) = re.findall(r'<div class="action-bar"[^>]*>', html)
+    return barra
+
+
+def test_f047_r13_r18_el_detalle_del_parte_nuevo(tres_partes,
+                                                 fabrica) -> None:
+    html = _cliente(fabrica).get(f"/partes/{DOC}", headers=CABECERA).text
+    contenedores = _contenedores(html)
+    assert len(contenedores) == 2                       # DA10
+    for c in contenedores:
+        assert 'data-recalculando="1"' in c
+        assert 'data-recalculo-motivo="nuevo"' in c
+    assert MARCA_NUEVO in html and MARCA_F043 not in html
+    barra = _barra(html)
+    assert "data-parte-acciones" in barra
+    assert f'data-document-id="{DOC}"' in barra
+
+
+@pytest.mark.parametrize("doc, marca", [(OTRO, MARCA_F043), (TERCERO, None)],
+                         ids=["recalculo", "sin_espera"])
+def test_f047_r13_r18_el_detalle_de_los_demas(tres_partes, fabrica, doc,
+                                              marca) -> None:
+    html = _cliente(fabrica).get(f"/partes/{doc}", headers=CABECERA).text
+    assert len(_contenedores(html)) == 2
+    assert "data-recalculo-motivo" not in html
+    assert MARCA_NUEVO not in html
+    assert (MARCA_F043 in html) is (marca is not None)
+    barra = _barra(html)
+    assert "data-parte-acciones" in barra
+    assert f'data-document-id="{doc}"' in barra
+
+
+def _fila_listado(html: str, doc: str) -> str:
+    ini = html.index(f'<tr data-document-id="{doc}"')
+    return html[ini:html.index("</tr>", ini)]
+
+
+def _celda_estado(fila: str) -> str:
+    """La celda de estado: la penúltima `<td>` de la fila."""
+    return re.findall(r"<td[^>]*>.*?</td>", fila, re.DOTALL)[-2]
+
+
+def test_f047_r14_el_listado_marca_los_partes_en_espera(tres_partes,
+                                                        fabrica) -> None:
+    html = _cliente(fabrica).get("/partes", headers=CABECERA).text
+    nuevo = _fila_listado(html, DOC)
+    assert 'data-fecha="2026-03-02"' in _apertura(nuevo)
+    assert 'data-recalculando="1"' in _apertura(nuevo)
+    assert 'data-recalculo-motivo="nuevo"' in _apertura(nuevo)
+    assert MARCA_NUEVO in _celda_estado(nuevo)
+    recalculo = _fila_listado(html, OTRO)
+    assert 'data-recalculando="1"' in _apertura(recalculo)
+    assert "data-recalculo-motivo" not in recalculo
+    assert MARCA_F043 in _celda_estado(recalculo)
+    tercero = _fila_listado(html, TERCERO)
+    assert 'data-fecha="2026-03-04"' in _apertura(tercero)
+    assert "data-recalculando" not in tercero
+    assert "recalculando-marca" not in tercero
+
+
+def test_f047_r14_un_parte_sin_fecha_lleva_data_fecha_vacio(
+        entorno, fabrica) -> None:
+    sembrar_parte(fabrica, [{"horas": 8.0}])
+    with fabrica.create_session() as s:
+        s.get(ParteDocumentOrm, DOC).fecha = None
+        s.commit()
+    html = _cliente(fabrica).get("/partes", headers=CABECERA).text
+    assert 'data-fecha=""' in _apertura(_fila_listado(html, DOC))
+
+
+class _Espia(ParteReviewRepository):
+    def __init__(self, fabrica) -> None:
+        super().__init__(fabrica)
+        self.en_espera: list = []
+        self.motivos: list = []
+
+    def documentos_en_espera(self, ids):
+        ids = list(ids)
+        self.en_espera.append(sorted(set(ids)))
+        return super().documentos_en_espera(ids)
+
+    def motivos_espera(self, ids):
+        ids = None if ids is None else sorted(ids)
+        self.motivos.append(ids)
+        return super().motivos_espera(ids)
+
+
+def test_f047_r13_r14_lo_que_pregunta_cada_vista(tres_partes,
+                                                 fabrica) -> None:
+    espia = _Espia(fabrica)
+    cliente = _cliente_con(fabrica, espia)
+    for url in (URL_OBRA, URL_PERSONA, f"/partes/{DOC}", f"/partes/{TERCERO}",
+                "/partes"):
+        cliente.get(url, headers=CABECERA)
+    # F-043 R37: una vez por vista de detalle, como siempre.
+    assert espia.en_espera == [[DOC, OTRO, TERCERO], [DOC, OTRO, TERCERO],
+                               [DOC], [TERCERO]]
+    # F-047: el motivo solo de los que esperan (y nada sin espera); el
+    # listado, una vez sobre toda la base.
+    assert espia.motivos == [[DOC, OTRO], [DOC, OTRO], [DOC], None]
+
+
+def _cliente_con(fabrica, repositorio) -> TestClient:
+    return TestClient(build_app(Settings(_env_file=None),
+                                repository=repositorio))

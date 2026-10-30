@@ -65,7 +65,7 @@
     </thead>
     <tbody>
       {% for p in partes %}
-      <tr>
+      <tr data-document-id="{{ p.document_id }}" data-fecha="{{ p.fecha or '' }}"{% if p.document_id in recalculando %} data-recalculando="1"{% if p.document_id in nuevos %} data-recalculo-motivo="nuevo"{% endif %}{% endif %}>
         <td><a class="link-strong" href="/partes/{{ p.document_id }}">{{ p.fecha|fecha }}</a>{% if p.es_futuro %} <span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}{% if p.sin_lineas %} <span class="badge warn" title="Activo sin ninguna línea viva: bloquea volver a procesar su PDF. Bórralo con «Borrar parte».">Sin líneas</span>{% endif %}</td>
         <td>
           {{ p.obra_codigo or "—" }}
@@ -90,6 +90,7 @@
           {% else %}
             <span class="badge info">Pendiente</span>
           {% endif %}
+          {% if p.document_id in recalculando %}<span class="recalculando-marca">{{ "procesando…" if p.document_id in nuevos else "recalculando…" }}</span>{% endif %}
         </td>
         <td class="cell-actions">
           <a class="btn secondary small" href="/partes/{{ p.document_id }}">Abrir</a>
