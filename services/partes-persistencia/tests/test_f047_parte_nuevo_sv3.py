@@ -410,3 +410,36 @@ def test_f047_r4_r5_las_conciliaciones_dicen_si_acabaron_bien(
     pipeline, _ = _pipeline([], partidas=valor, recurso=valor)
     assert pipeline._conciliar_partidas_safely() is esperado
     assert pipeline._conciliar_recursos_safely() is esperado
+
+
+# ===================== R10 · cableado de build_app ====================== #
+
+class _FabricaDoble:
+    def __init__(self, **_kwargs) -> None:
+        pass
+
+
+class _RepoDoble:
+    def __init__(self, _fabrica) -> None:
+        pass
+
+    def initialize(self) -> None:
+        return None
+
+
+def test_f047_r10_build_app_pasa_al_pipeline_el_mismo_seguimiento(
+        monkeypatch) -> None:
+    from config.settings import Settings
+    from interface_adapters.api import app as modulo_app
+
+    monkeypatch.setenv("PG_PASSWORD", "irrelevante-en-tests")
+    monkeypatch.setenv("PG_ADMIN_PASSWORD", "irrelevante-en-tests")
+    monkeypatch.setattr(modulo_app, "SessionFactory", _FabricaDoble)
+    monkeypatch.setattr(modulo_app, "SqlAlchemyParteRepository", _RepoDoble)
+    monkeypatch.setattr(modulo_app, "SqlAlchemyJornadaRepository", _RepoDoble)
+    monkeypatch.setattr(modulo_app, "construir_casado_sigrid",
+                        lambda *_a, **_k: (None, None, None, None))
+    app = modulo_app.build_app(Settings(_env_file=None))
+    seg = app.state.recalculo_seguimiento
+    assert isinstance(seg, SqlAlchemyRecalculoSeguimiento)
+    assert app.state.pipeline._recalculo_seguimiento is seg
