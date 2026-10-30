@@ -842,7 +842,7 @@
       "priority": 3,
       "branch": "feature/F-056-franquicia-de-extras",
       "spec": "aprobada (DA1–DA32; DA1 = C, DA29–DA31 campo extendido, DA32 obra del recurso) · review APPROVED pasada 2",
-      "pendiente": "Sin desplegar. Pendiente del humano: M3 (desplegar sv5 → sv4 con FRANQUICIA_CAMPO_EXT vacía), M2 (0404, PRUEBA-IA, valor entero > 0 en el campo 10 del recurso de pruebas, puesto por Administración) y M4 (activar con FRANQUICIA_CAMPO_EXT=10 tras M2)."
+      "pendiente": "Desplegada sv5 → sv4 con FRANQUICIA_CAMPO_EXT vacía (humano, 2026-10-30). M2 OK en local el 2026-10-30 con X = 10 (progress/m2_F-056.md), salvo (g): campo a 0, pendiente de Administración. Pendiente del humano: M3 (comprobar franquicia apagada en Azure), M2 (g) y M4 (activar con FRANQUICIA_CAMPO_EXT=10)."
     },
     {
       "id": "F-057",
