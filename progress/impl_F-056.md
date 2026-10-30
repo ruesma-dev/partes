@@ -197,7 +197,7 @@ mano: con el mutante aplicado, su fichero de tests sale con 1; sin él, con 0).
 | Tests F-056 sv4 (`orm`, `franquicia`, `decisiones`, `vista`) | 188 passed en 49,86 s (tras T17b) |
 | Raíz (contrato + guardianes del ORM) | 35 passed en 41,94 s |
 | Suites enteras sin caché (2026-10-29, tras T27 y las observaciones) | `python -m pytest -q -p no:cacheprovider` desde cada servicio: sv4 3223 passed, 1 skipped, 2 warnings en 1293,94 s; sv5 1485 passed en 40,73 s; sv3 2345 passed en 44,38 s |
-| `bash harness/init.sh` (2026-10-29, tras T27 y las observaciones) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (324,2 s); sv3 2345 passed (92,5 s); sv4 3223 passed, 1 skipped (2151,5 s); sv5 1485 passed (49,7 s); sv1 y sv2 de caché |
+| `bash harness/init.sh` (2026-10-30, tras el test del superviviente de T27) | **ENTORNO LISTO**. Raíz 529 passed, 3 skipped (220,8 s); sv4 3224 passed, 1 skipped (1559,6 s); sv1, sv2, sv3 y sv5 de caché |
 | Cobertura de líneas cambiadas | PUERTA COBERTURA: **99,0 %** (1049/1060, umbral 80 %, nivel crítico) |
 | Tamaño | PUERTA TAMAÑO: requirements 150/150, design 250/250, impl 204/220, review 139/140 |
 | Mutación | campaña 3ba3403 (4 workers): 513 mutantes, 403 muertos, 102 supervivientes y 8 timeouts. Tras el análisis, 88 supervivientes y 2 timeouts los mata un test nuevo; 14 son equivalentes, aceptados por el humano el 2026-10-29 («si») (`progress/mutacion_F-056.md`). T26 (e3dff2f): 23 mutantes, 23 muertos. T27 (dcf9d16, 2 workers): 4 mutantes, 3 muertos, 1 superviviente, que mata un test nuevo verificado a mano (`progress/mutacion_F-056_da32.md`) |
