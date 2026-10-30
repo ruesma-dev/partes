@@ -45,8 +45,8 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 - Original: `return [x for x in lineas if int(x.get("recurso_ide") or 0) == rec]`
 - Mutado:   `return [x for x in lineas if int(x.get("recurso_ide") or 1) == rec]`
 
-#### Análisis (PENDIENTE del implementer)
+#### Análisis (implementer, 2026-10-30)
 
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
+> Por qué ningún test lo caza: el test de `lineas_del_recurso` pedía el recurso 501; con él, una línea sin recurso vale 0 o 1 y queda fuera igual. Solo se distingue pidiendo el recurso 1, y ningún test lo hacía. No es equivalente: con el mutante, una línea con `recurso_ide` None entra en las del recurso 1 y podría elegir la obra de su ajuste.
+> Decisión: TEST NUEVO `services/partes-front/tests/test_f056_franquicia.py::test_f056_da32_linea_sin_recurso_no_es_del_recurso_1`. Verificado a mano con `sys.executable -m pytest -q -p no:cacheprovider --tb=line tests/test_f056_franquicia.py` desde `services/partes-front`: con el mutante, exit 1 (1 failed, 81 passed in 1.14s, `AssertionError: assert [{'registro_i...00000T', ...}] == []`); sin él, exit 0 (82 passed in 0.62s). La campaña no se ha relanzado.
 

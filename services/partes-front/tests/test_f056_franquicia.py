@@ -557,3 +557,11 @@ def test_f056_da32_lineas_del_recurso_solo_las_suyas():
     assert fq.lineas_del_recurso(otras, REC) == []
     assert fq.lineas_del_recurso([], REC) == []
     assert fq.lineas_del_recurso(propias, "501") == propias
+
+
+def test_f056_da32_linea_sin_recurso_no_es_del_recurso_1():
+    """DA32 (superviviente de la mutacion de T27): una linea sin recurso no
+    es del recurso 1 (que es un recurso valido, como en R15)."""
+    assert fq.lineas_del_recurso([_l(1, D15, rec=None)], 1) == []
+    propia = _l(2, D15, rec=1)
+    assert fq.lineas_del_recurso([_l(1, D15, rec=None), propia], 1) == [propia]
