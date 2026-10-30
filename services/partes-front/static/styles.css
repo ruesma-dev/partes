@@ -1051,3 +1051,13 @@ tr[data-reparto="pendiente"] td { box-shadow: inset 3px 0 0 var(--warn-border); 
 .ap-reparto-lineas tr.ap-no-editable td { color: var(--warn); }
 .ap-decision { display: block; margin: 4px 0; cursor: pointer; }
 .ap-repartos-res { margin-bottom: 10px; }
+/* F-056 (R13, R20): franquicia de horas extra (modal de aprobar y vista). */
+.ap-franquicias { margin: 10px 0 14px; padding: 10px 12px; border-radius: 10px; background: var(--info-soft); border: 1px solid var(--info-border); }
+.ap-franquicia { margin-top: 10px; }
+.ap-franquicia h4 { margin: 4px 0; }
+.ap-franquicia-datos { border-collapse: collapse; margin: 4px 0 6px; }
+.ap-franquicia-datos th, .ap-franquicia-datos td { padding: 2px 10px 2px 0; text-align: left; }
+.ap-franquicias-res { margin-top: 10px; }
+.franquicia-ajuste .franquicia-tabla td.num, .franquicia-ajuste .franquicia-tabla th.num { text-align: right; }
+.franquicia-ajuste .franquicia-error { color: #8a3b00; }
+.franquicia-ajuste .franquicia-aviso { margin: 10px 14px; }

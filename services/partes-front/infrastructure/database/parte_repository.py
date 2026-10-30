@@ -27,6 +27,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Any, Callable, Optional
 
 from sqlalchemy import func, or_, select, text, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 
 from infrastructure.database.orm_models import (
@@ -38,6 +39,7 @@ from infrastructure.database.orm_models import (
     DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
+    FranquiciaAjusteOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
     RepartoPendienteOrm,
@@ -69,6 +71,7 @@ from application.services.parte_vacio import (
     marca_retirado,
     motivo_exclusion_limpieza,
 )
+from application.services import franquicia as fq
 from application.services.reparto_aviso import (
     DECISION_APLICAR,
     DECISION_MANTENER,
@@ -560,6 +563,13 @@ def _sin_casar_en_cola():
                 sorted(_METODOS_CASADO_SIN_FICHA)),
         ),
     )
+
+
+def _error_sin_dia(periodo: str) -> Exception:
+    """F-056 (R6, R7): no se puede ajustar sin dia de ajuste ni obra."""
+    return fq.AjusteCambiadoError(
+        f"no se puede ajustar la franquicia de {periodo}: sin dia de ajuste "
+        "ni obra (calendario no disponible o sin lineas de trabajo)")
 
 
 def _ahora_utc() -> datetime:
@@ -4028,6 +4038,254 @@ class ParteReviewRepository:
                     libres.add(reg.document_id)
             return dict(self._reparto_dict(session, fila),
                         documentos_libres=sorted(libres))
+
+    # ------------------------------------------------------------------ #
+    # F-056: franquicia de extras (`franquicia_ajuste`). La decision humana
+    # y lo ultimo que respondio sv5; X NO vive aqui (campo extendido).
+    # ------------------------------------------------------------------ #
+    def lineas_trabajador_periodo(self, recurso_ide: int, inicio: int,
+                                  fin: int) -> list[dict]:
+        """R7, R12: las lineas activas del trabajador entre `inicio` y `fin`
+        (`YYYYMMDD`, incluidos): las de su recurso y las de cualquier otro
+        recurso de la misma persona (por DNI), para ver si tiene extras con
+        mas de uno (DA16). Sin la papelera ni documentos borrados."""
+        with self._session_factory.create_session() as session:
+            dnis = [d for d in session.execute(
+                select(ParteRegistroOrm.empleado_dni).distinct()
+                .where(ParteRegistroOrm.recurso_ide == int(recurso_ide))
+                .where(ParteRegistroOrm.empleado_dni.isnot(None))
+            ).scalars().all() if d]
+            quien = ParteRegistroOrm.recurso_ide == int(recurso_ide)
+            if dnis:
+                quien = or_(quien, ParteRegistroOrm.empleado_dni.in_(dnis))
+            regs = session.execute(
+                select(ParteRegistroOrm).join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.fecha_int >= int(inicio))
+                .where(ParteRegistroOrm.fecha_int <= int(fin))
+                .where(quien)
+                .order_by(ParteRegistroOrm.fecha_int, ParteRegistroOrm.id)
+            ).scalars().all()
+            return [{
+                "registro_id": x.id, "fecha_int": int(x.fecha_int or 0),
+                "recurso_ide": x.recurso_ide, "dni": x.empleado_dni,
+                "candef": x.hora_candef,
+                "tipo_hora": "extra" if _is_extra(x) else x.tipo_hora,
+                "es_incidencia": bool(x.es_incidencia),
+                "horas": float(x.horas or 0.0), "obra_ide": x.obra_ide,
+                "obra_codigo": x.obra_codigo, "partida_ide": x.partida_ide,
+                "partida_cod": x.partida_cod,
+                "sigrid_estado": _estado_norm(x.sigrid_estado),
+            } for x in regs]
+
+    def recurso_fechas_de(self, registro_ids) -> list[tuple[int, int]]:
+        """R15: `(recurso_ide, fecha_int)` de esas lineas activas (sin la
+        papelera ni documentos borrados), para saber que claves de
+        franquicia son de la seleccion. Incluye las ya registradas."""
+        ids = sorted({int(i) for i in registro_ids or []})
+        if not ids:
+            return []
+        out: set[tuple[int, int]] = set()
+        with self._session_factory.create_session() as session:
+            for i in range(0, len(ids), 500):
+                out.update(session.execute(
+                    select(ParteRegistroOrm.recurso_ide,
+                           ParteRegistroOrm.fecha_int)
+                    .join(ParteDocumentOrm)
+                    .where(ParteRegistroOrm.id.in_(ids[i:i + 500]))
+                    .where(ParteDocumentOrm.is_active.is_(True))
+                    .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                    .where(ParteRegistroOrm.recurso_ide.isnot(None))
+                ).tuples().all())
+        return sorted((int(r), int(f or 0)) for r, f in out)
+
+    def encolados_de(self, recurso_ide: int, inicio: int, fin: int) -> int:
+        """R18: lineas del trabajador y periodo aun en `encolado`."""
+        return sum(1 for x in self.lineas_trabajador_periodo(
+            recurso_ide, inicio, fin) if x["sigrid_estado"] == "encolado")
+
+    @staticmethod
+    def _fila_ajuste(session, recurso_ide: int,
+                     periodo: str) -> FranquiciaAjusteOrm | None:
+        return session.execute(
+            select(FranquiciaAjusteOrm)
+            .where(FranquiciaAjusteOrm.recurso_ide == int(recurso_ide))
+            .where(FranquiciaAjusteOrm.periodo == str(periodo))
+        ).scalars().first()
+
+    @staticmethod
+    def _ajuste_dict(f: FranquiciaAjusteOrm) -> dict[str, Any]:
+        return {
+            "id": f.id, "recurso_ide": f.recurso_ide, "periodo": f.periodo,
+            "fecha_int": f.fecha_int, "obra_ide": f.obra_ide,
+            "obra_codigo": f.obra_codigo, "partida_ide": f.partida_ide,
+            "partida_cod": f.partida_cod, "franquicia": f.franquicia,
+            "extras": f.extras, "ajuste": f.ajuste, "estado": f.estado,
+            "decision": f.decision, "hmores_ide": f.hmores_ide,
+            "hmoide": f.hmoide, "parte_cod": f.parte_cod, "error": f.error,
+            "decidido_por": f.decidido_por, "aplicado_por": f.aplicado_por,
+            "decidido_at_utc": f.decidido_at_utc,
+            "aplicado_at_utc": f.aplicado_at_utc,
+        }
+
+    def ajuste(self, ajuste_id: int) -> dict | None:
+        with self._session_factory.create_session() as session:
+            f = session.get(FranquiciaAjusteOrm, int(ajuste_id))
+            return None if f is None else self._ajuste_dict(f)
+
+    def ajustes_de(self, claves) -> dict[tuple[int, str], dict]:
+        """R10, R11: las filas de esos `(recurso_ide, periodo)`."""
+        pedidas = {(int(r), str(p)) for r, p in claves}
+        if not pedidas:
+            return {}
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(FranquiciaAjusteOrm).where(
+                    FranquiciaAjusteOrm.recurso_ide.in_(
+                        sorted({r for r, _p in pedidas})))
+            ).scalars().all()
+            return {(f.recurso_ide, f.periodo): self._ajuste_dict(f)
+                    for f in filas if (f.recurso_ide, f.periodo) in pedidas}
+
+    @staticmethod
+    def _campos_ajuste(datos: dict | None) -> dict[str, Any]:
+        """Dia, obra y partida de la propuesta (R7, R8); ceros sin ella."""
+        datos = datos or {}
+        return {"fecha_int": int(datos.get("fecha_int") or 0),
+                "obra_ide": int(datos.get("obra_ide") or 0),
+                "obra_codigo": datos.get("obra_codigo"),
+                "partida_ide": datos.get("partida_ide"),
+                "partida_cod": datos.get("partida_cod")}
+
+    @staticmethod
+    def _propuesta_completa(datos: dict | None) -> bool:
+        return bool(datos and datos.get("fecha_int")
+                    and (datos.get("obra_ide") or datos.get("obra_codigo")))
+
+    def decidir_ajuste(self, recurso_ide: int, periodo: str, decision: str,
+                       datos: dict | None, *, actor: str | None
+                       ) -> dict | None:
+        """R15, R16: guarda la decision del modal (o de la vista).
+
+        `ajustar` crea la fila `decidido` con dia, obra y partida (o pasa a
+        `decidido` una `rechazado`, sin cambiarle el dia ni la obra si ya
+        los tenia, R8); `no_ajustar` la crea `rechazado` (repetirlo no hace
+        nada); `recalcular` pasa a `decidido` una `aplicado`, `decidido` o
+        `error`; `mantener` no toca nada. El cambio es un CAS sobre el
+        estado leido y el alta va contra el indice unico: si otro usuario
+        se adelanto, o la decision no cuadra con el estado, es
+        `AjusteCambiadoError` (409) sin tocar nada. El actor llega por
+        parametro (F-017)."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        rec, per = int(recurso_ide), str(periodo)
+        sin_dia = _error_sin_dia(per)
+        with self._session_factory.create_session() as session:
+            fila = self._fila_ajuste(session, rec, per)
+            if decision == fq.MANTENER:
+                return None if fila is None else self._ajuste_dict(fila)
+            if fila is None:
+                if decision == fq.RECALCULAR:
+                    raise fq.AjusteCambiadoError(
+                        f"no hay ajuste de franquicia que recalcular en "
+                        f"{per}: recarga la pagina")
+                if decision == fq.AJUSTAR and not self._propuesta_completa(
+                        datos):
+                    raise sin_dia
+                nueva = FranquiciaAjusteOrm(
+                    recurso_ide=rec, periodo=per,
+                    estado=(fq.DECIDIDO if decision == fq.AJUSTAR
+                            else fq.RECHAZADO),
+                    decision=decision, decidido_por=actor,
+                    decidido_at_utc=ahora, creado_at_utc=ahora,
+                    actualizado_at_utc=ahora, **self._campos_ajuste(datos))
+                session.add(nueva)
+                try:
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+                    raise fq.AjusteCambiadoError(
+                        "otro usuario decidio este ajuste de franquicia: "
+                        "recarga la pagina") from None
+                logger.info("[franquicia] ajuste %s recurso=%s periodo=%s "
+                            "-> %s (por %s)", nueva.id, rec, per,
+                            nueva.estado, actor)
+                return self._ajuste_dict(nueva)
+            leido = fila.estado
+            if decision == fq.NO_AJUSTAR and leido == fq.RECHAZADO:
+                return self._ajuste_dict(fila)
+            permitido = ((decision == fq.AJUSTAR and leido == fq.RECHAZADO)
+                         or (decision == fq.RECALCULAR
+                             and leido in fq.ESTADOS_VIVOS))
+            if not permitido:
+                raise fq.AjusteCambiadoError(
+                    f"el ajuste de franquicia de {per} esta {leido} y no "
+                    f"admite «{decision}»: recarga la pagina")
+            valores: dict[str, Any] = {
+                "estado": fq.DECIDIDO, "decision": decision,
+                "decidido_por": actor, "decidido_at_utc": ahora,
+                "actualizado_at_utc": ahora}
+            if not fila.fecha_int:
+                if not self._propuesta_completa(datos):
+                    raise sin_dia
+                valores.update(self._campos_ajuste(datos))
+            res = session.execute(
+                update(FranquiciaAjusteOrm)
+                .where(FranquiciaAjusteOrm.id == fila.id,
+                       FranquiciaAjusteOrm.estado == leido)
+                .values(**valores)
+                .execution_options(synchronize_session=False))
+            if res.rowcount != 1:
+                session.rollback()
+                raise fq.AjusteCambiadoError(
+                    "otro usuario decidio este ajuste de franquicia: "
+                    "recarga la pagina")
+            session.commit()
+            logger.info("[franquicia] ajuste %s recurso=%s periodo=%s %s -> "
+                        "decidido (%s, por %s)", fila.id, rec, per, leido,
+                        decision, actor)
+            session.expire_all()
+            return self._ajuste_dict(session.get(FranquiciaAjusteOrm,
+                                                 fila.id))
+
+    def cerrar_ajuste(self, ajuste_id: int, *, ok: bool, sv5: dict | None,
+                      error: str | None, actor: str | None) -> dict | None:
+        """R17: `decidido`/`error` -> `aplicado` (ok) o `error` con el
+        motivo; guarda lo que respondio sv5 (E, A, la X que uso, la linea y
+        el parte) y quien aplico. Sin respuesta de sv5 deja lo que habia.
+        Una fila que ya no esta en esos estados no se toca."""
+        ahora = datetime.now(timezone.utc).isoformat()
+        with self._session_factory.create_session() as session:
+            fila = session.get(FranquiciaAjusteOrm, int(ajuste_id))
+            if fila is None:
+                return None
+            valores: dict[str, Any] = {
+                "estado": fq.APLICADO if ok else fq.ERROR,
+                "error": None if ok else ((error or "")[:255] or None),
+                "aplicado_por": actor, "aplicado_at_utc": ahora,
+                "actualizado_at_utc": ahora}
+            if sv5 is not None:
+                valores.update(
+                    extras=sv5.get("extras"), ajuste=sv5.get("objetivo"),
+                    franquicia=sv5.get("franquicia"),
+                    hmores_ide=sv5.get("hmores_ide"),
+                    hmoide=sv5.get("hmoide"), parte_cod=sv5.get("parte_cod"),
+                    resultado=json.dumps(sv5, default=str))
+            res = session.execute(
+                update(FranquiciaAjusteOrm)
+                .where(FranquiciaAjusteOrm.id == fila.id,
+                       FranquiciaAjusteOrm.estado.in_(
+                           [fq.DECIDIDO, fq.ERROR]))
+                .values(**valores)
+                .execution_options(synchronize_session=False))
+            session.commit()
+            if res.rowcount == 1:
+                logger.info("[franquicia] ajuste %s -> %s (por %s)%s",
+                            fila.id, valores["estado"], actor,
+                            f": {valores['error']}" if not ok else "")
+            session.expire_all()
+            return self._ajuste_dict(session.get(FranquiciaAjusteOrm,
+                                                 fila.id))
 
     def unapprove_document(self, *, document_id: str) -> bool:
         """Desaprobar («Marcar pendiente») ES la via explicita de F-004.

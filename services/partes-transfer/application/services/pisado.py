@@ -16,6 +16,9 @@ y escribe la nueva. De ahi:
     (albaran, factura, dedicacion o nomina) y no se pone a 0.
   - `origen_linea` (R13): `partes`, `ajena` o `manual`, para el INFO de
     cada pisada a 0.
+  - F-056 (R31): la linea de ajuste de una franquicia
+    (`partes:franquicia:<id>`) no choca con nada: ni se ofrece para pisar
+    ni deja `parte_cerrado` a la extra real del dia.
 
 Motivos sin tildes como el resto de sv5, sin nombres ni DNIs y de 255
 caracteres como mucho (`sigrid_motivo` de sv4). No lee ni escribe; solo
@@ -26,7 +29,11 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 
-from domain.models.registro_models import AccionLinea, LineaSigrid
+from domain.models.registro_models import (
+    AccionLinea,
+    LineaSigrid,
+    es_synckey_franquicia,
+)
 
 #: Prefijo del motivo de una incidencia que ya consta en Sigrid (R6).
 MOTIVO_INCIDENCIA_EN_SIGRID = "incidencia_en_sigrid"
@@ -57,13 +64,15 @@ def choques(lineas: Iterable[LineaSigrid], accion: AccionLinea,
             mias: set[str]) -> list[LineaSigrid]:
     """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA que la accion
     (pisar las ordinarias de un dia no toca sus extra) y, salvo que la
-    accion sea una incidencia, con horas (R5)."""
+    accion sea una incidencia, con horas (R5). F-056 (R31): nunca la linea
+    de ajuste de una franquicia."""
     incidencia = es_incidencia(accion.hora_codigo)
     return [ls for ls in lineas
             if ls.reside == accion.recurso_ide
             and ls.fecha_int == accion.fecha_int
             and int(ls.horide or 0) == int(accion.hora_ide or 0)
             and not (ls.synckey and ls.synckey in mias)
+            and not es_synckey_franquicia(ls.synckey)
             and (incidencia or tiene_horas(ls))]
 
 

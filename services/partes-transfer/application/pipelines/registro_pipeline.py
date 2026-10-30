@@ -981,6 +981,18 @@ class RegistroPipeline:
     #: F-031 v5 (R44): altas por periodo (la primera y UN reintento).
     INTENTOS_ALTA = 2
 
+    def asegurar_parte(self, p: ParteDestino, destino: ObraEntrada) -> None:
+        """F-056 (R24): el alta del parte que falta para la linea de ajuste
+        de una franquicia, SIN otra logica: delega en `_crear_parte` (la
+        unica alta, protegida) con la descripcion del paso 8 (con la marca
+        en modo pruebas). La llama `FranquiciaPipeline` con el lock tomado.
+        """
+        marca = (f" ({self._st.marca_pruebas})"
+                 if bool(getattr(self._st, "obra_pruebas_forzar", False))
+                 else "")
+        self._crear_parte(
+            p, destino, f"Parte {destino.nombre or destino.codigo}{marca}")
+
     def _crear_parte(self, p: ParteDestino, destino: ObraEntrada,
                      desc: str) -> None:
         """Paso 8 (F-031 v5, R40-R47): UNICA alta de parte del pipeline

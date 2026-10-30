@@ -4180,16 +4180,21 @@ var FiltrosSesion = (function () {
      que no viaja por la cola) y luego lo encolado; cada llamada lleva los
      ids de SUS obras y el mismo `ambito`, y el servidor reparte igual. */
   function confirmar(peticion, plan, claves, forzado, boton, contexto,
-                     decisiones) {
+                     decisiones, franq) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var base = { ambito: peticion.ambito,
                  incluir_borradas: peticion.incluir_borradas };
     // F-046 (R32): cada decision de reparto va con la llamada que lleva
     // sus lineas (y una sola vez).
     var enviadas = {};
+    var enviadasFranq = {};
     function conDecisiones(cuerpo) {
       var dec = decisionesPara(decisiones, cuerpo.registro_ids, enviadas);
       if (dec.length) cuerpo.repartos = dec;
+      // F-056 (R15): igual con las decisiones de franquicia.
+      var fr = franquiciasPara(franq && franq.decisiones, cuerpo.registro_ids,
+                               enviadasFranq);
+      if (fr.length) cuerpo.franquicias = fr;
       return cuerpo;
     }
     var respuestas = { sincrono: null, cola: null };
@@ -4214,7 +4219,8 @@ var FiltrosSesion = (function () {
       });
     }
     paso.then(function () {
-      mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto);
+      mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto,
+                             franq);
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
@@ -4250,11 +4256,19 @@ var FiltrosSesion = (function () {
   /* El resultado por obra de las dos llamadas, mas las obras que no se
      enviaron con su motivo. Si alguna obra se encolo, sondea su estado
      (F-024 R29, por obra); si quedan conflictos, ofrece pisarlos. */
-  function mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto) {
-    var html = "", sondeos = [], pendientes = [];
+  function mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto,
+                                  franq) {
+    var html = "", sondeos = [], pendientes = [], decididas = [];
     [respuestas.sincrono, respuestas.cola].forEach(function (r) {
       if (!r) return;
       html += resultadoRepartosHtml(r.repartos);           // F-046
+      // F-056 (R16): lo que se decidio de la franquicia en esta llamada.
+      (r.franquicias || []).forEach(function (f) {
+        if (f.estado === "decidido") decididas.push(f);
+        else html += "<p class='ap-ctx'>Recurso " + esc(f.recurso_ide)
+          + " · " + esc(f.periodo) + ": ajuste de franquicia "
+          + esc(f.estado) + ".</p>";
+      });
       if (r.aviso) html += "<p class='ap-ctx'>" + esc(r.aviso) + "</p>";
       if (!r.grupos) {
         html += "<p class='ap-warn'>" + esc(r.error || "error desconocido")
@@ -4275,6 +4289,10 @@ var FiltrosSesion = (function () {
       html += seccionObra(g, "<p class='ap-warn'>Sin registrar: "
         + esc(g.sesame_bloqueo || g.error || "error desconocido") + "</p>");
     });
+    if (decididas.length) {
+      html += "<div class='ap-franquicias-res'><p class='ap-ctx'>Ajuste de "
+        + "franquicia: se aplicara al terminar el registro…</p></div>";
+    }
     pendientes.forEach(function (g) {
       html += "<hr><p><strong>" + esc(obraTexto(g)) + "</strong></p>"
         + conflictosHtml(g.pendientes_confirmacion, g.clave);
@@ -4305,6 +4323,9 @@ var FiltrosSesion = (function () {
     }
     var caja = modal("Registro en Sigrid", html, acciones);
     if (sondeos.length) sondeo = sondearGrupos(caja, sondeos);
+    // F-056 (R17): aplicar cada ajuste decidido cuando termine el registro.
+    aplicarFranquicias(caja, decididas, function () { return sondeo; },
+                       franq && franq.x);
   }
 
   /* F-024 (R29) por obra: tras encolar, el modal NO recarga la pagina (la
@@ -4885,6 +4906,245 @@ var FiltrosSesion = (function () {
     }).join("") + "</div>";
   }
 
+  /* F-056 (R9-R13, R44): el aviso de franquicia de extras en el modal de
+     aprobar. Por trabajador y periodo: X, E (en Sigrid) y las extras de
+     esta aprobacion, A estimado («antes → despues» si ya hay linea), dia,
+     obra y parte, y la decision. Lo que no se puede ajustar sale con su
+     motivo y sin decision; el aviso de R44 no bloquea. */
+  var TEXTO_DECISION_FRANQUICIA = {
+    ajustar: "Ajustar: crear la linea de ajuste en Sigrid al terminar el "
+      + "registro",
+    no_ajustar: "No ajustar (se puede cambiar despues)",
+    recalcular: "Recalcular la linea de ajuste con los datos de ahora",
+    mantener: "Mantener la linea de ajuste como esta",
+  };
+
+  function numFranquicia(v) {
+    return (v === null || v === undefined || v === "") ? "—" : String(v);
+  }
+
+  function franquiciasHtml(bloque) {
+    if (!bloque || (!bloque.aviso && !(bloque.items || []).length)) return "";
+    var html = "<div class='ap-franquicias'><p><strong>Franquicia de horas "
+      + "extra.</strong> Las extras del periodo por encima de la franquicia "
+      + "se descuentan con una linea de ajuste en Sigrid.</p>";
+    if (bloque.aviso) {
+      html += "<p class='ap-warn'>" + esc(bloque.aviso) + "</p>";
+    }
+    (bloque.items || []).forEach(function (it) {
+      var obra = it.obra ? (it.obra.codigo || it.obra.ide) : null;
+      var tieneActual = it.actual !== null && it.actual !== undefined;
+      html += "<section class='ap-franquicia' data-clave=\"" + esc(it.clave)
+        + "\"><h4>" + esc(it.nombre || ("recurso " + it.recurso_ide))
+        + " · periodo " + esc(it.periodo) + " (" + esc(it.inicio) + " a "
+        + esc(it.fin) + ")</h4><table class='ap-franquicia-datos'><tbody>"
+        + "<tr><th>Franquicia (X)</th><td>" + esc(numFranquicia(it.franquicia))
+        + (it.franquicia_estado && it.franquicia_estado !== "activa"
+           ? " (" + esc(it.franquicia_estado) + ")" : "") + "</td></tr>"
+        + "<tr><th>Extras en Sigrid (E)</th><td>" + esc(numFranquicia(it.extras))
+        + (it.extras_pendientes
+           ? " + " + esc(it.extras_pendientes) + " de esta aprobacion" : "")
+        + "</td></tr><tr><th>Ajuste (A)</th><td>"
+        + (tieneActual ? esc(numFranquicia(it.actual)) + " → " : "")
+        + esc(numFranquicia(it.objetivo)) + "</td></tr>"
+        + "<tr><th>Dia</th><td>" + esc(numFranquicia(it.dia)) + "</td></tr>"
+        + "<tr><th>Obra</th><td>" + esc(numFranquicia(obra))
+        + (it.partida_cod ? " · " + esc(it.partida_cod) : "") + "</td></tr>"
+        + "<tr><th>Parte Sigrid</th><td>" + esc(numFranquicia(it.parte_cod))
+        + "</td></tr></tbody></table>";
+      if (it.motivo) html += "<p class='ap-warn'>" + esc(it.motivo) + "</p>";
+      (it.decisiones || []).forEach(function (op) {
+        html += "<label class='ap-decision'><input type='radio' "
+          + "name=\"franq-" + esc(it.clave) + "\" value=\"" + esc(op) + "\"> "
+          + esc(TEXTO_DECISION_FRANQUICIA[op] || op) + "</label>";
+      });
+      html += "</section>";
+    });
+    return html + "</div>";
+  }
+
+  /* F-056 (R13, R15): las decisiones marcadas, o null si falta la de
+     algun trabajador que la pide. */
+  function decisionesFranquicia(caja, bloque) {
+    var out = [];
+    var items = (bloque && bloque.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (!it.pide_decision) continue;
+      var marcada = caja.querySelector(
+        "input[name=\"franq-" + it.clave + "\"]:checked");
+      if (!marcada) return null;
+      out.push({ recurso_ide: it.recurso_ide, periodo: it.periodo,
+                 decision: marcada.value,
+                 registro_ids: it.registro_ids || [] });
+    }
+    return out;
+  }
+
+  /* F-056 (R13): «Registrar» no se habilita hasta que cada trabajador del
+     bloque que pide decision la tenga. */
+  function vigilarDecisionesFranquicia(caja, bloque) {
+    var pide = ((bloque && bloque.items) || []).some(function (it) {
+      return it.pide_decision;
+    });
+    var boton = caja.querySelector(".ap-actions .btn.ok");
+    if (!pide || !boton) return;
+    function revisar() {
+      boton.disabled = decisionesFranquicia(caja, bloque) === null;
+    }
+    caja.addEventListener("change", revisar);
+    revisar();
+  }
+
+  /* F-056 (R15): las decisiones que viajan en una llamada: las de los
+     trabajadores con alguna linea entre `ids`, y cada una UNA sola vez
+     (el servidor rechaza la de una clave ajena a la seleccion). */
+  function franquiciasPara(decisiones, ids, enviadas) {
+    var de = {};
+    (ids || []).forEach(function (i) { de[i] = true; });
+    return (decisiones || []).filter(function (d) {
+      var clave = d.recurso_ide + "|" + d.periodo;
+      if (enviadas[clave]) return false;
+      var mia = (d.registro_ids || []).some(function (i) { return de[i]; });
+      if (mia) enviadas[clave] = true;
+      return mia;
+    }).map(function (d) {
+      return { recurso_ide: d.recurso_ide, periodo: d.periodo,
+               decision: d.decision };
+    });
+  }
+
+  /* F-056 (DA22): la X de cada trabajador en el aviso, para avisar si la
+     que uso sv5 al aplicar es otra. */
+  function xAvisoDe(bloque) {
+    var x = {};
+    ((bloque && bloque.items) || []).forEach(function (it) {
+      x[it.clave] = it.franquicia;
+    });
+    return x;
+  }
+
+  /* F-056 (R17, DA22): lo que paso al aplicar un ajuste. */
+  function resultadoFranquiciaHtml(r, xAviso) {
+    var a = (r && r.ajuste) || {};
+    var quien = a.recurso_ide
+      ? "Recurso " + a.recurso_ide + " · " + a.periodo + ": " : "";
+    if (!r || !r.ok) {
+      return "<p class='ap-warn'>" + esc(quien) + "ajuste de franquicia NO "
+        + "aplicado: " + esc((r && r.error) || "error desconocido")
+        + ". Queda pendiente: se puede aplicar desde la vista del "
+        + "trabajador.</p>";
+    }
+    var html = "<p class='ap-ctx'>" + esc(quien) + "ajuste de franquicia "
+      + esc(a.estado) + " (A = " + esc(numFranquicia(a.ajuste))
+      + (a.parte_cod ? ", parte " + esc(a.parte_cod) : "") + ")";
+    if (xAviso !== null && xAviso !== undefined && a.franquicia !== null
+        && a.franquicia !== undefined
+        && Number(a.franquicia) !== Number(xAviso)) {
+      html += ". Ojo: la franquicia en Sigrid era " + esc(a.franquicia)
+        + " al aplicar (el aviso decia " + esc(xAviso) + ")";
+    }
+    return html + ".</p>";
+  }
+
+  /* F-056 (R17, design §3): al terminar el registro (sincrono: ya; con
+     cola: cuando el sondeo deja de ver lineas `encolado`), aplica cada
+     ajuste decidido y pinta el resultado. Si el modal se cierra antes, el
+     ajuste queda `decidido` y la vista del trabajador ofrece «Aplicar». */
+  function aplicarFranquicias(caja, decididas, sondeo, xAviso) {
+    if (!decididas.length) return;
+    var zona = caja.querySelector(".ap-franquicias-res");
+    var inicio = Date.now();
+    function pintar(html) { if (zona) zona.innerHTML += html; }
+    function cuandoTermine() {
+      if (!caja.isConnected) return;
+      if (!sondeo().terminado && Date.now() - inicio < PLAZO_MODAL_MS) {
+        setTimeout(cuandoTermine, SONDEO_MODAL_MS);
+        return;
+      }
+      decididas.reduce(function (paso, f) {
+        return paso.then(function () {
+          return post("/api/franquicia/" + encodeURIComponent(f.id)
+                      + "/aplicar", {}).then(function (r) {
+            pintar(resultadoFranquiciaHtml(
+              r, (xAviso || {})[f.recurso_ide + "|" + f.periodo]));
+          }).catch(function (e) {
+            pintar(resultadoFranquiciaHtml({ ok: false, error: String(e) },
+                                           null));
+          });
+        });
+      }, Promise.resolve());
+    }
+    cuandoTermine();
+  }
+
+  /* F-056 (R45, R46; DA28): «Ajustar» o «Recalcular» desde la vista del
+     trabajador: `decidir` (las comprobaciones del modal) y, si sale bien,
+     `aplicar` el `id` devuelto. Un 4xx ensena su error. Sin recarga nueva
+     (F-043): el «Actualizar» de siempre. */
+  function decidirDesdeVista(boton) {
+    var decision = boton.dataset.franquiciaDecidir;
+    var cuerpo = { recurso_ide: parseInt(boton.dataset.recurso, 10),
+                   periodo: boton.dataset.periodo, decision: decision };
+    var texto = decision === "recalcular"
+      ? "Se recalculara la linea de ajuste con la franquicia y las extras de "
+        + "ahora y se escribira en Sigrid."
+      : "Se creara la linea de ajuste de franquicia del periodo y se "
+        + "escribira en Sigrid.";
+    function fallo(error) {
+      modal("Ajuste de franquicia", "<p class='ap-warn'>" + esc(error)
+            + "</p><p>" + botonActualizar() + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    }
+    modal(decision === "recalcular" ? "Recalcular el ajuste de franquicia"
+                                    : "Ajustar la franquicia",
+          "<p>" + esc(texto) + "</p>", [
+      { texto: decision === "recalcular" ? "Recalcular" : "Ajustar",
+        clase: "ok", onClick: function (cj, b) {
+          b.disabled = true;
+          b.textContent = "Aplicando…";
+          post("/api/franquicia/decidir", cuerpo).then(function (r) {
+            if (!r.ok || !r.ajuste) {
+              fallo(r.error || "error desconocido");
+              return null;
+            }
+            return post("/api/franquicia/" + encodeURIComponent(r.ajuste.id)
+                        + "/aplicar", {}).then(function (ra) {
+              modal("Ajuste de franquicia", resultadoFranquiciaHtml(ra, null)
+                    + "<p>" + botonActualizar() + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            });
+          }).catch(function (e) { fallo(String(e)); });
+        } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
+  /* F-056 (R20): «Aplicar» un ajuste decidido o con error desde la vista
+     del trabajador. */
+  function aplicarDesdeVista(boton) {
+    var id = boton.dataset.franquiciaAplicar;
+    modal("Aplicar el ajuste de franquicia", "<p>Se escribira la linea de "
+          + "ajuste en Sigrid con la franquicia y las extras de ahora.</p>", [
+      { texto: "Aplicar", clase: "ok", onClick: function (cj, b) {
+          b.disabled = true;
+          b.textContent = "Aplicando…";
+          post("/api/franquicia/" + encodeURIComponent(id) + "/aplicar", {})
+            .then(function (r) {
+              // F-043 (R19, R40): sin recarga nueva; el «Actualizar» de
+              // siempre recarga la vista cuando la persona quiera.
+              modal("Ajuste de franquicia", resultadoFranquiciaHtml(r, null)
+                    + "<p>" + botonActualizar() + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            }).catch(function (e) {
+              modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
+                    [{ texto: "Cerrar", onClick: cerrar }]);
+            });
+        } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
   function aprobar(peticion, contexto) {
     modal("Comprobando en Sigrid…", "<p>Analizando el parte, el mes y las "
           + "lineas existentes…</p>", []);
@@ -4920,6 +5180,7 @@ var FiltrosSesion = (function () {
       }, []);
       var html = cabeceraHtml(pf, contexto)
         + repartosHtml(pf.repartos)                          // F-046 (R31)
+        + franquiciasHtml(pf.franquicias)                    // F-056 (R13)
         + incompatiblesHtml(excl.incompatible)
         + avisosIncidenciaHtml(avisosIncid)
         + avisosRachaHtml(avisosRacha)                       // F-060 (R11)
@@ -4950,6 +5211,9 @@ var FiltrosSesion = (function () {
         titulo = "Confirmar: hay lineas que se pisarian";
       } else if ((pf.repartos || []).length) {
         titulo = "Confirmar: hay un reparto de jornada pendiente";
+      } else if (((pf.franquicias || {}).items || []).some(function (it) {
+        return it.pide_decision; })) {
+        titulo = "Confirmar: hay un ajuste de franquicia de extras";
       }
       var cajaPf = modal(titulo, html, [
           { texto: conflictos.length ? "Registrar (pisando las marcadas)"
@@ -4968,6 +5232,13 @@ var FiltrosSesion = (function () {
                   + "cada dia con reparto pendiente.");
                 return;
               }
+              // F-056 (R13): sin decision de franquicia no se registra.
+              var decFranq = decisionesFranquicia(cj, pf.franquicias);
+              if (decFranq === null) {
+                window.alert("Elige una opcion en cada ajuste de franquicia "
+                  + "de extras.");
+                return;
+              }
               var plan = planEnvio(grupos, claves, forzado);
               if (!plan.sincronos.length && !plan.cola.length) {
                 // El servidor lo rechazaria igual (F-003 R24); avisar aqui
@@ -4977,10 +5248,12 @@ var FiltrosSesion = (function () {
                 return;
               }
               confirmar(peticion, plan, claves, forzado, b, contexto,
-                        decisiones);
+                        decisiones, { decisiones: decFranq,
+                                      x: xAvisoDe(pf.franquicias) });
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);
+      vigilarDecisionesFranquicia(cajaPf, pf.franquicias);   // F-056 (R13)
       var incluir = cajaPf.querySelector("#ap-incluir-borradas");
       if (incluir) {
         incluir.addEventListener("change", function () {
@@ -5021,6 +5294,18 @@ var FiltrosSesion = (function () {
 
   ready(function () {
     document.addEventListener("click", function (ev) {
+      var decidirF = ev.target.closest("[data-franquicia-decidir]");
+      if (decidirF) {                                      // F-056 (R45)
+        ev.preventDefault();
+        decidirDesdeVista(decidirF);
+        return;
+      }
+      var aplicarF = ev.target.closest("[data-franquicia-aplicar]");
+      if (aplicarF) {                                      // F-056 (R20)
+        ev.preventDefault();
+        aplicarDesdeVista(aplicarF);
+        return;
+      }
       var retirar = ev.target.closest(".retirar-dedicacion");
       if (retirar) {
         ev.preventDefault();

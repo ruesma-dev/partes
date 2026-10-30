@@ -1,6 +1,186 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-056 · DONE 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; sin desplegar; pendiente: M3, M2 y M4 del humano): franquicia de extras
+
+Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,
+worktree `partes-wt-f056`, desde `dev` 560d753); resumen para el líder en
+`progress/spec_F-056.md`. Toca sv5 (cálculo contra Sigrid, alta y edición de la línea `HE*`
+negativa, exclusión en los choques) y sv4 (tabla `empleado_franquicia`, aviso en el modal de
+aprobar, `franquicia_ajuste`, aplicar al terminar el registro); sv3 solo la copia del ORM.
+**Decididas por el humano** (2026-10-23, literal: «a a todo, actualzia backlog para que refleje lo que tien spec y estado real de todo» ⇒ DA1–DA20 = A; `design.md` §7) (las más de fondo: DA2 periodo = mes de nómina 16 → 15, DA3 extras netas `HE*` de
+Sigrid, DA4 una línea en la obra de más horas, DA8 recalcular editando, DA12 sin bloqueo de
+servidor, DA20 una feature con corte tras T7). M1 (solo lectura) hecha por el spec-author:
+`design.md` §2 H5. M2–M4 son del humano (§10).
+
+**Arranque (2026-10-27).** Rama puesta al día con `git merge dev` (39aef7b: trae F-058…F-064). La
+spec es del 2026-10-23: el implementer comprueba antes de T1 que sigue encajando con lo fusionado
+después (sobre todo F-060/F-062 en sv5 y F-053 «pisar sin borrar»); si no, `blocked` y se consulta.
+
+**Implementación (implementer, 2026-10-27)** — detalle y trazas RED en `progress/impl_F-056.md`.
+- Encaje comprobado antes de T1: el diseño sigue valiendo tras F-058…F-064. `RegistroPipeline._choques`
+  delega en `pisado.choques` (R31 cubre el registro con un solo cambio); `ReajustePipeline._choques`
+  igual que en la spec; `_crear_parte` sin cambios; F-060/F-062 (`partes:<id>:ciz`) no chocan con
+  `partes:franquicia:<id>` (`registro_de_synckey` devuelve None). Guardianes de raíz en 7 tablas ⇒ 9.
+- Bloque sv5 (T1–T7) HECHO: suite sv5 1344 passed. Decisiones: `inicio`/`fin`/`fecha_int` como
+  `YYYYMMDD` (como `hmores.fec`); `preparar` recibe una extra con `horas = -1` solo para que las
+  reglas den código, precio y cuenta (la cantidad real es A, calculada dentro del lock); la
+  escritura va por `escribir` (una sentencia) y decide la relectura (R29); `tex` en recálculo no
+  cambia (el `UPDATE` de F-046 solo toca `can` y `tot`, como manda la spec).
+- **CORTADO TRAS T7 A LA ESPERA DE DA1** (orden del líder, 2026-10-27): el humano valora definir
+  la franquicia (quién la tiene y su X) en un campo nuevo de Sigrid en vez de en la tabla
+  `empleado_franquicia`; eso cambiaría T8, T9, T14 y parte de T10–T13. El bloque sv5 vale tal cual
+  (recibe X en la petición). T8 llegó a commitearse (95c9817: ORM de las dos tablas + guardianes a
+  nueve) antes del aviso y se revirtió en 4e43d80; queda recuperable si DA1 sigue en A.
+  Nada de sv4 en la rama. Siguiente paso: decisión del humano sobre DA1 y, con ella, T8–T20.
+
+**Enmienda de la spec (spec-author, 2026-10-27): DA1 = C por el humano.** Literal: «para saber que
+trabajadores son franquiciados y cual es el valor de la franquicia habra que crear un campo en
+sigrid que lo defina» y «va a ir en recursos. la fecha no hace falta, se aplica en los partes que se
+registren si esta activo (valor distinto de 0 o null). el campo lo rellena adminen sigrid.» X pasa a
+un campo nuevo de `res` (nombre en `FRANQUICIA_CAMPO_RES` de sv5, aún sin crear); solo sv5 lo lee
+(endpoint nuevo `/api/franquicia/recursos`); caen `empleado_franquicia` y la pantalla (DA19);
+`franquicia_ajuste` se queda; `tex` sin cifras. Tareas renumeradas: T8–T11 enmiendan sv5, T12–T18
+sv4, T19–T22 cierre. Resumen en `progress/spec_F-056.md`.
+**Decisiones abiertas para el humano** (`design.md` §7, recomendación A): DA2/DA17/DA20 enmendadas,
+DA21 solo sv5 lee el campo, DA22 vale la X de Sigrid al aplicar, DA23 fallo de configuración = no
+se aplica y se avisa, DA24 valores raros = `invalida`, DA25 se mantiene `franquicia_ajuste`, DA26
+`tex` sin cifras, DA27 franquicia del recurso. Hasta su aprobación, el implementer NO sigue.
+
+**Bloqueo de tipos numéricos (2026-10-27) resuelto por el líder: manda design.md §4, 9 tipos.** Implementer reanuda en T8.
+- T8 HECHO (dominio y puro). Desviación menor: `CAMPO_RE` acaba en `\Z` y no en `$` (en Python `$`
+  admite un salto de línea final tras el nombre; misma regla, sin ese hueco).
+- T9 HECHO (settings y cliente). `CAMPO_RE` se importa dentro de `valores_campo_res`: `franquicia` ->
+  `pisado` -> cliente forman ciclo.
+- T10 HECHO (pipeline). Decisiones: un recurso pedido que no esta en `res` es `invalida` (nunca
+  X = 0); en `comprobar`/`ejecutar` un fallo al leer el TIPO es `no_disponible` => `no_editable`
+  (R42), mientras que `franquicias()` lo propaga (design 6: 502 en `/recursos`).
+- T11 HECHO (API, `/health`, cableado en `main.py`): bloque sv5 cerrado, suite sv5 1458 passed.
+- T12 HECHO: `franquicia_ajuste` (24 columnas, `franquicia` Float NULL) en las dos copias del ORM
+  (byte-idénticas) y guardianes de la raíz a OCHO tablas.
+- T13 HECHO (sv4 puro). Disparador nuevo según DA7 (A): una línea del DÍA DE AJUSTE de un recurso
+  con franquicia `activa` (o `invalida`, solo informa); un ajuste vivo sale con cualquier línea
+  del periodo (R10). Con el calendario no fiable (R6) sale sin día y con motivo.
+- T14 HECHO (repositorio y cliente). Transiciones: ajustar (sin fila o desde rechazado) y
+  recalcular (desde aplicado/decidido/error) -> decidido; no_ajustar (sin fila) -> rechazado;
+  el resto, 409. La identidad del trabajador en el periodo es su recurso + su DNI (R12).
+- T15 HECHO (preflight y decisiones). Orden en `ejecutar`/`encolar`: se VALIDAN las franquicias
+  (422 formato/ámbito/clave; 409 varios recursos o `ajustar` sin día ni obra) antes de nada, luego
+  los repartos de F-046, luego se GUARDAN las decisiones (CAS, 409 si cambió) y luego las líneas.
+  Las claves válidas salen de las líneas pedidas (también las ya registradas, nuevo
+  `recurso_fechas_de`). Un fallo propio del aviso en el preflight sale como `aviso`, no 500.
+  Suite sv4: 3113 passed, 1 skipped.
+- T16 HECHO (aplicar y contexto de la vista). `aplicar` solo desde `decidido`/`error` (409 si no,
+  sin sv5); 404 si no existe; sin respuesta de sv5 => `error` sin pisar E/A/X (se reintenta, R19).
+  La vista (solo modo nómina) lleva `franquicia` con X usada, X actual (UNA llamada a `/recursos`)
+  y la acción que admite cada fila: aplicar (decidido/error), recalcular (aplicado), ajustar
+  (rechazado, o sin fila con franquicia activa).
+  **HUECO DE LA SPEC (pendiente de decisión):** R20 pide «Ajustar» y «Recalcular» en la vista, pero
+  la spec solo define `POST /api/franquicia/{id}/aplicar`; no hay ruta para DECIDIR desde la vista
+  (y sin fila no hay id). No se improvisa: T17 hace el modal y «Aplicar» de la vista; los botones
+  «Ajustar»/«Recalcular» de la vista quedan a la espera de la decisión del humano.
+- T17 HECHO (portal). Modal: aviso (`franquiciasHtml`), «Registrar» deshabilitado hasta decidir
+  (`vigilarDecisionesFranquicia`), cada decisión viaja UNA vez con la llamada que lleva sus líneas
+  (`franquiciasPara`; para eso cada candidato lleva ahora `registro_ids`), y `aplicarFranquicias`
+  aplica al terminar el registro (síncrono: ya; cola: cuando el sondeo acaba) avisando si la X
+  usada difiere de la del aviso (DA22). Vista: tabla del ajuste y botón «Aplicar» (decidido/error).
+- T18 HECHO: contrato raíz `tests/test_f056_contrato_franquicia.py` (5 passed; sensibilidad
+  comprobada mandando la X a propósito). Guardianes: F-017 pasa a 19 `_actor(request)` (aplicar,
+  R21); F-043 sin recargas nuevas (la vista usa el «Actualizar» de siempre).
+  `bash harness/init.sh` ENTORNO LISTO (cobertura 98,6 %, 999/1013). Informe: `progress/impl_F-056.md`.
+
+**F-056 BLOQUEADA (2026-10-27, implementer) — pregunta para el humano.** R20 pide en la vista de
+trabajador «Ajustar» (`rechazado`, o sin fila con franquicia `activa`) y «Recalcular» (`aplicado`),
+pero la spec solo define `POST /api/franquicia/{id}/aplicar` (design §5): no hay ruta para DECIDIR
+desde la vista y, sin fila, ni siquiera hay `id`. No se ha improvisado. Opciones:
+**A** (recomendada) `POST /api/franquicia/decidir {recurso_ide, periodo, decision}` con la misma
+validación y CAS de `decidir_ajuste` (la clave debe tener líneas del trabajador), y luego `aplicar`;
+**B** que `aplicar` acepte una `decision` opcional; **C** dejar «Ajustar»/«Recalcular» solo en el
+modal de aprobar (cambia R20 y DA11). Todo lo demás de T8–T18 está hecho y en verde.
+
+**Decisión del humano (2026-10-27), literal: «a»** (a la opción A tal como se le presentó: «Una
+llamada nueva, "decidir", con trabajador, periodo y decisión. Tiene las mismas comprobaciones que la
+decisión del modal (que ese trabajador tenga líneas en el periodo y que nadie lo haya cambiado
+entretanto) y después aplica.»). **Enmienda de la spec hecha (spec-author, 2026-10-27)**: DA28 en
+`design.md` §7 (B y C descartadas); R20 enmendado, R45 (`POST /api/franquicia/decidir`, solo
+`ajustar`/`recalcular`, 422 formato/decisión/sin líneas del recurso en el periodo, 409 CAS o
+transición, sin sv5) y R46 (la vista aplica tras decidir); R16 lista las transiciones de T14; tarea
+nueva **T17b** (sv4) sin renumerar. Topes: requirements 150/150, design 248/250. Resumen en
+`progress/spec_F-056.md`. F-056 sigue `blocked`: la reanuda el líder (siguiente: T17b y T19–T22).
+
+**DESBLOQUEADA (2026-10-27, líder → implementer).** Decisión del humano, literal: «a» (opción A: ruta
+nueva «decidir» y luego aplicar). Tras enseñarle la enmienda (R45, R46, DA28, T17b), literal: «si».
+F-056 vuelve a `in_progress`.
+- T17b HECHO: `fq._decision` (compartida con `validar_decisiones`), `DECISIONES_VISTA` y
+  `fq.decision_vista`; `_plan_franquicia` extraído de `_planes_franquicia` (lo usan modal y vista);
+  `POST /api/franquicia/decidir` (503/422/409, sin sv5, `{ok, ajuste}`); `decidir_ajuste` SIN cambios;
+  botones «Ajustar»/«Recalcular» en la vista y `decidirDesdeVista` (decidir → aplicar, sin recarga
+  nueva: «Actualizar» de siempre). Guardián F-017 a 20 `_actor(request)`. Pendiente: T19–T22 (no
+  son del implementer).
+- FUERA DEL ALCANCE DE F-056 (2026-10-28; decisión del humano, literal: «a»): la campaña de mutación
+  completa (HEAD 6336320) salió NO VÁLIDA porque la línea base de un worker falló en
+  `test_f019_bandeja.py::test_f019_r13_otro_contenido_sube_la_version[prueba]`. Es un test de F-019,
+  no de F-056, que comparaba dos horas reales (`actualizado_at_utc` > la anterior); bajo carga, los
+  dos `_marcar` caían en el mismo tic. Causa confirmada congelando el reloj de `parte_repository`
+  (falla `assert '2026-10-28T08:00:00+00:00' > '2026-10-28T08:00:00+00:00'`). Arreglo en el propio
+  test: reloj controlado que avanza 1 s por `now()`, sin tocar producción ni debilitar aserciones.
+  Se arregla aquí porque bloquea la mutación de F-056. Fichero 20/20 en verde; suite sv4 sin caché
+  3175 passed, 1 skipped. Mismo patrón, NO arreglado: `test_f019_portal.py:342`
+  (`retirado_at_utc > enviado_at_utc`). Siguiente: el líder relanza la campaña; luego supervivientes.
+- MUTACIÓN ANALIZADA (2026-10-29, implementer): campaña válida 3ba3403 (513 mutantes: 403 muertos,
+  102 supervivientes y 8 timeouts). De los supervivientes, 88 los mata un test nuevo; los 14 restantes
+  son CANDIDATOS a equivalente (#3, 10, 17, 19, 31, 79, 80, 84, 86, 87, 89, 90, 92, 95) y los acepta
+  o no el humano. Ninguno de los 8 timeouts cuelga; dos (t1, t3) llevan test nuevo. Commits 138dc9f,
+  8f465d3, ca0545b, 7487f85, e3da705 (tests, sin tocar producción) y 9ae3fa5 (informe). Detalle y
+  verificación a mano en `progress/mutacion_F-056.md`. La campaña no se relanzó.
+- T19 HECHO (2026-10-29): `ARCHITECTURE.md` (semántica 7 a ocho tablas, semántica 21 nueva) y
+  `partes-proyecto.md` (§5 a ocho tablas, §5.5 quater, `FRANQUICIA_CAMPO_RES`), en 21bdadf;
+  `azure-apps/partes.md` en 58bce5e (commit local, sin push). Siguiente: T20 (el humano decide sobre
+  los equivalentes) y T21–T22, que no son del implementer.
+- CAMBIO DE ALCANCE EN CURSO (2026-10-29, líder): el campo es extendido (`defext` tip 33 cod '10',
+  valores en `conext`), no una columna de `res` (riesgo R-e). La enmienda está pendiente del humano.
+  El aviso llegó con los tests de sv5 (ca0545b) y T19 (21bdadf, `azure-apps` 58bce5e) YA commiteados:
+  se dejan tal cual, pero describen `res.<campo>` y pueden cambiar con la enmienda.
+- **ENMIENDA DE LA SPEC HECHA (spec-author, 2026-10-29): DA29–DA31 = A.** Opciones como las presentó el
+  líder: «DA29: Del valor numérico del campo extendido en `conext`, filtrando por recurso y por el tipo 33.
+  Si no hay fila, el valor está vacío o vale 0, ese recurso no tiene franquicia. Sigue leyéndolo solo
+  sv5.» · «DA30: El ajuste pasa a ser el código del campo extendido (`10`), en vez del nombre de una
+  columna. […] Con el ajuste vacío sigue apagada.» (B, por el nombre, descartada) · «DA31: Sigrid guarda
+  el valor como entero, así que la franquicia va en horas completas. […]». Humano, literal: «da29,
+  recuerda coger el ide del recurso filtrado por empresa, el mismo dni de recurso puede estar en 2
+  empresas. lo demas ok». Spec: R47 (solo tip 33; el `cod` `10` de tip 42 nunca), R48 (solo por el
+  `res.ide` de la empresa de la obra, nunca por DNI), R1–R3/R38/R39 enmendados, DA29–DA31 en §7, §4 sv5
+  reescrito (T23), sv4 solo textos (T24), T25 rehace T19, T26 mutación de lo cambiado. Más de una fila
+  por recurso ⇒ `invalida` (recomendación del spec-author; el humano puede pedir otra cosa). Topes
+  150/150 y 250/250. Resumen: `progress/spec_F-056.md`. Siguiente: el líder la enseña al humano.
+- **ENMIENDA DA32 (spec-author, 2026-10-29)** por la observación 6 del reviewer. Opción presentada:
+  «A: arreglarlo ya, eligiendo la obra solo con las líneas del recurso del ajuste. Es un cambio pequeño en
+  sv4, con su test y la mutación de esas líneas. […] B: cerrar ya y dejarlo como feature futura.» Humano,
+  literal: «sobre la 6, la A». R7 (la obra solo de las líneas del recurso del ajuste) y R5 (el día es de
+  la persona) enmendados; DA32 en `design.md` §7; tarea **T27** (sv4: `fq.lineas_del_recurso` y
+  `_propuesta`; test del caso del reviewer y mutación) antes de T20–T22. **Abierto para el humano**: el día
+  de ajuste NO se recorta al recurso (usa DNI y el `candef` de la primera línea de cualquier recurso de la
+  persona; recortarlo podría mover el día en el borde del `candef`): no decidido por el spec-author.
+- **APROBADA (2026-10-29, humano, literal):** a DA29–DA31, «da29, recuerda coger el ide del recurso
+  filtrado por empresa, el mismo dni de recurso puede estar en 2 empresas. lo demas ok»; tras ver la
+  enmienda (R47, R48, `FRANQUICIA_CAMPO_EXT`, T23–T26): «si».
+- T23, T24 y T25 HECHAS (implementer, 2026-10-29). T23 (62cc269): sv5 lee el campo extendido:
+  `COD_EXT_RE`, `motivo_definicion`, `lectura_de`, `definicion_campo_ext`, `valores_campo_ext` y
+  `FRANQUICIA_CAMPO_EXT`; fase RED con traza; tests de R47 y R48; suite de sv5 con 1485 passed.
+  T24 (d66d605): textos de sv4 y de la raíz (las dos copias del ORM siguen idénticas) y tests de R48
+  en sv4. T25 (d2f6fd6; `azure-apps` e32f089, local y sin push): documentación del campo extendido.
+  La lista de ficheros de producción para T26 está en `progress/impl_F-056.md`. Siguiente: T26
+  (líder), luego T20–T22.
+- **DÍA DE AJUSTE DECIDIDO (2026-10-29, humano):** a la observación 6, «sobre la 6, la A»; al punto
+  abierto de DA32 («A (recomiendo): Dejar el día como está: es de la persona, como ya decidimos en
+  DA6. Solo cambia la obra.»), literal: «a». `_dia_ajuste` NO cambia.
+- T27 HECHA (implementer, 2026-10-29, 17cefc3): `fq.lineas_del_recurso` (pura) y `_propuesta` da a
+  `elegir_obra` solo las líneas del recurso del ajuste; `_dia_ajuste`, `varios_recursos` y
+  `lineas_trabajador_periodo` sin cambios. Fase RED con traza: el preflight y `decidir` proponían la
+  obra 0200 del otro recurso. Ficheros de producción: sv4 `application/services/franquicia.py` e
+  `interface_adapters/web/app.py`. Observaciones 1, 2, 4, 5 y 7 de la review en su propio commit;
+  `azure-apps` con commit local sin push. Siguiente: la mutación de T27 (líder).
+
 ## F-064 · DONE y DESPLEGADA 2026-10-27 en sv4 `ca-sv4-front--r20261027074233` (06:44:16Z, Healthy, sin Traceback ni ERROR) (review APPROVED pasada 2; pendiente: M1 y M2 del humano): el filtro del portal se mantiene durante la sesión de cada usuario
 
 Spec en `specs/F-064-filtro-en-sesion/` (rama `feature/F-064-filtro-en-sesion`, worktree

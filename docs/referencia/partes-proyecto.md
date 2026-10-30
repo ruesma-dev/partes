@@ -699,9 +699,9 @@ y jornada (completa/reducida) del contrato — con lo que los avisos de
 (compartido con albaranes) · **Base de datos**: `partes` · ORM:
 SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`,
 **byte-idéntico** en sv3 y sv4, con guardián automático desde F-010).
-**Siete tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
-`empleado_jornada`, `undo_log`, `dedicacion_bandeja` (F-019) y
-`reparto_pendiente` (F-046).
+**Ocho tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
+`empleado_jornada`, `undo_log`, `dedicacion_bandeja` (F-019),
+`reparto_pendiente` (F-046) y `franquicia_ajuste` (F-056).
 
 Al arrancar, sv3 y sv4 ejecutan el mismo DDL complementario —`ALTER TABLE
 … ADD COLUMN IF NOT EXISTS` por columna y `CREATE INDEX IF NOT EXISTS`—
@@ -894,6 +894,32 @@ hay deshacer en Sigrid).
 | `decision`, `decidido_por`, `decidido_at_utc` | `aplicar` / `mantener`, quién (`_actor`) y cuándo |
 | `creado_at_utc`, `actualizado_at_utc`, `materializado_at_utc` | trazabilidad |
 
+### 5.5 quater `franquicia_ajuste` — ajuste de la franquicia de extras (F-056)
+
+Una fila por (recurso, periodo de nómina): la línea de ajuste que resta la
+franquicia X de las extras del mes (`ARCHITECTURE.md`, semántica 21). La
+**crea y la cierra solo sv4**: la decisión del modal de aprobar o de la vista
+de trabajador, por CAS sobre `estado` y con el índice único como barrera
+del alta, y el cierre tras llamar a sv5. sv3 solo la declara (copia gemela
+del ORM). X NO se guarda aquí, porque vive en el campo extendido del
+recurso en Sigrid (`defext` tip 33, `cod` `10`; valor en `conext.valn`) que lee sv5:
+`franquicia` es la X que usó sv5 en la última aplicación. Sin nombres ni
+DNIs; toda `NOT NULL` lleva `server_default`; fuera de `undo_log` (no hay
+deshacer en Sigrid).
+
+| Columna | Notas |
+|---|---|
+| `id` (PK) | serie; da la synckey `partes:franquicia:<id>` de la línea en Sigrid |
+| `recurso_ide`, `periodo` | `res.ide` y mes de nómina `YYYY-MM` (el del 15); índice ÚNICO `ux_franquicia_ajuste_periodo` |
+| `fecha_int`, `obra_ide`, `obra_codigo`, `partida_ide`, `partida_cod` | día de ajuste, obra y partida; fijos una vez creado (solo se rellenan si la fila no tenía día) |
+| `estado` | `decidido` → `aplicado` / `error`; `rechazado` («No ajustar»). Índice `ix_franquicia_ajuste_estado` |
+| `decision` | `ajustar` / `no_ajustar` / `recalcular`: la última que cambió la fila |
+| `franquicia`, `extras`, `ajuste` | X usada, E y A de la última aplicación (NULL hasta aplicar) |
+| `hmores_ide`, `hmoide`, `parte_cod`, `resultado` | la línea y el parte en Sigrid, y la respuesta de sv5 (JSON) |
+| `error` | motivo del último fallo (hasta 255) |
+| `decidido_por`, `decidido_at_utc`, `aplicado_por`, `aplicado_at_utc` | quién (`_actor`) y cuándo |
+| `creado_at_utc`, `actualizado_at_utc` | trazabilidad |
+
 ### 5.6 Datos que NO están en esta BBDD
 
 - Los **partes de Sigrid** (`con`+`hmo` cabecera, `hmores` líneas) viven
@@ -1037,7 +1063,7 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 | sv2 | GEMINI (secreto), colas, prompts/schema |
 | sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
 | sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`; F-062: marca el inicio con `ciz_mismo_dia` y le manda su tramo delante, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`) |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro; F-062: el inicio marcado escribe su CI* y un CIZ `partes:<id>:ciz` el mismo día, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), API_PORT=8005 |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro; F-062: el inicio marcado escribe su CI* y un CIZ `partes:<id>:ciz` el mismo día, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), `FRANQUICIA_CAMPO_EXT` (F-056; vacío por defecto = franquicia `apagada`, sin leer nada; el `cod` del campo extendido de recurso con la franquicia X, `10` al activarla (M4); un código malo, una definición de tip 33 que falte o sobre, o un `camtip` que no sea número entero es `no_disponible`, con WARNING, y sv5 arranca igual; `/health` dice `apagada` o `configurada`), API_PORT=8005 |
 
 ---
 

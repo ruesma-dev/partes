@@ -388,3 +388,107 @@ class ResultadoReajuste:
     lineas: list[dict] = field(default_factory=list)
     error: Optional[str] = None
     forzada_pruebas: bool = False
+
+
+# ----------------------- franquicia de extras (F-056) ----------------------- #
+
+#: R31, DA14: prefijo de la synckey de la linea de ajuste de una franquicia
+#: (`partes:franquicia:<id de franquicia_ajuste>`). Vive en `domain` para que
+#: `pisado` (que solo importa de aqui) y el reajuste la excluyan de los
+#: choques sin depender del cliente.
+PREFIJO_FRANQUICIA = "partes:franquicia:"
+
+
+def es_synckey_franquicia(synckey: Optional[str]) -> bool:
+    """R31: la linea es el ajuste de una franquicia (no choca con nada)."""
+    return (synckey or "").strip().startswith(PREFIJO_FRANQUICIA)
+
+
+@dataclass
+class PeticionFranquicia:
+    """Entrada de `/api/franquicia/comprobar` y `/ejecutar` (design §6).
+
+    Fechas como `YYYYMMDD` (las de `hmores.fec`): `inicio` y `fin` son el
+    periodo de nomina (16 -> 15) y `fecha_int` el dia de ajuste, que sv4
+    calcula. `ajuste_id` 0 es el centinela del preflight (aun no hay fila):
+    solo lo admite `comprobar`. `extras_pendientes` solo lo usa
+    `comprobar` (las extras de esta aprobacion que aun no estan en Sigrid).
+    F-056 enmienda (R41): no trae X; sv5 la lee del campo extendido.
+    """
+    ajuste_id: int
+    recurso_ide: int
+    periodo: str
+    inicio: int
+    fin: int
+    fecha_int: int
+    obra: ObraEntrada
+    partida_ide: Optional[int]
+    partida_cod: Optional[str]
+    extras_pendientes: float = 0.0
+    usuario: Optional[str] = None
+
+    @property
+    def ano(self) -> int:
+        return int(self.fecha_int) // 10000
+
+    @property
+    def mes(self) -> int:
+        return (int(self.fecha_int) // 100) % 100
+
+
+@dataclass
+class VeredictoFranquicia:
+    """Que hara `ejecutar` con la linea de ajuste (R24-R30): `crear`,
+    `actualizar`, `ya_aplicado`, `sin_ajuste` o `no_editable` (con
+    `motivo`)."""
+    accion: str
+    motivo: Optional[str] = None
+
+
+@dataclass
+class ResultadoFranquicia:
+    """Respuesta de `comprobar` y `ejecutar` (design §6). `extras` es E,
+    `objetivo` A y `actual` el `can` de la linea en Sigrid (None si no
+    existe). `escrita`: esta llamada escribio en Sigrid."""
+    ok: bool
+    accion: str
+    extras: float = 0.0
+    objetivo: float = 0.0
+    actual: Optional[float] = None
+    hmores_ide: Optional[int] = None
+    hmoide: Optional[int] = None
+    parte_cod: Optional[str] = None
+    parte_estado: Optional[int] = None
+    complementario: bool = False
+    hora_codigo: Optional[str] = None
+    pre: Optional[float] = None
+    motivo: Optional[str] = None
+    escrita: bool = False
+    forzada_pruebas: bool = False
+    error: Optional[str] = None
+    # Enmienda (R41): la X que uso sv5 (None si no se pudo leer) y el
+    # estado de la franquicia del recurso (`activa`, `inactiva`...).
+    franquicia: Optional[float] = None
+    franquicia_estado: Optional[str] = None
+
+
+@dataclass
+class LecturaFranquicia:
+    """F-056 enmienda (R2): la franquicia de UN recurso leida de su campo
+    extendido de recurso (`defext`/`conext`). `estado`: `activa` (X > 0),
+    `inactiva` (sin fila, NULL o 0: X = 0), `invalida`, o el estado global
+    si no se pudo leer (`apagada`, `no_disponible`); `franquicia` es X solo
+    con `activa`/`inactiva`."""
+    estado: str
+    franquicia: Optional[float]
+    motivo: Optional[str] = None
+
+
+@dataclass
+class EstadoFranquicias:
+    """F-056 enmienda (R3, R38, R40): el estado global del campo (`apagada`
+    | `no_disponible` | `ok`), su motivo y, con `ok`, la lectura de cada
+    recurso pedido."""
+    estado: str
+    motivo: Optional[str] = None
+    recursos: dict[int, LecturaFranquicia] = field(default_factory=dict)

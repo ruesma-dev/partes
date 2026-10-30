@@ -57,8 +57,8 @@ import httpx
 
 from application.services.cuenta_analitica import indexar_cuentas
 from domain.models.registro_models import (
-    HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino, ParteSigrid,
-    PartidaCuenta, RecursoSigrid,
+    PREFIJO_FRANQUICIA, HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino,
+    ParteSigrid, PartidaCuenta, RecursoSigrid,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,6 +98,12 @@ def synckey_ciz_de(registro_id: int) -> str:
     """F-062 (R20): la synckey del CIZ hermano del inicio `registro_id`.
     Al moverse, el hermano pasa a la synckey del dia nuevo (`partes:<D>`)."""
     return f"{synckey_de(registro_id)}{SUFIJO_CIZ}"
+
+
+def synckey_franquicia(ajuste_id: int) -> str:
+    """F-056 (R31, DA14): la synckey de la linea de ajuste de la franquicia
+    `ajuste_id` (`franquicia_ajuste.id` de sv4)."""
+    return f"{PREFIJO_FRANQUICIA}{int(ajuste_id)}"
 
 
 class SigridWriteClient:
@@ -934,3 +940,69 @@ class SigridWriteClient:
                 "sigrid-api no devolvio las filas por sentencia: "
                 f"{str(body)[:400]}")
         return [int(x.get("affected_rows") or 0) for x in resultados]
+
+    # ------------------ franquicia de extras (F-056) ------------------ #
+
+    #: R23, DA3: extras NETAS `HE*` del recurso en el periodo, de todas las
+    #: obras y partes (cualquier estado), sin la propia linea de ajuste.
+    _SQL_EXTRAS_PERIODO = (
+        "SELECT ISNULL(SUM(h.can), 0) AS extras FROM hmores h "
+        "JOIN auxhor a ON a.ide = h.horide WHERE h.reside = ? "
+        "AND h.fec BETWEEN ? AND ? AND a.cod LIKE 'HE%' "
+        "AND ISNULL(h.synckey, '') <> ?")
+
+    @staticmethod
+    def synckey_franquicia(ajuste_id: int) -> str:
+        """La de `synckey_franquicia` del modulo, a mano del pipeline."""
+        return synckey_franquicia(ajuste_id)
+
+    def extras_del_periodo(self, reside: int, inicio: int, fin: int,
+                           excluir: str) -> float:
+        """R23: UNA lectura agregada; `inicio` y `fin` (`YYYYMMDD`)
+        incluidos y `excluir` la synckey del ajuste. Un `truncated` o un
+        fallo es una excepcion (nunca se decide con datos parciales)."""
+        filas = self._read(self._SQL_EXTRAS_PERIODO,
+                           [int(reside), int(inicio), int(fin), excluir])
+        return float((filas[0]["extras"] if filas else 0) or 0.0)
+
+    #: R39, R47: la definicion del campo extendido, SOLO de tip 33 (el
+    #: recurso) y con el `cod` como PARAMETRO (DA30).
+    _SQL_DEFINICION_CAMPO_EXT = (
+        "SELECT defext.ide AS ide, defext.camtip AS camtip FROM defext "
+        "WHERE defext.tip = 33 AND defext.cod = ?")
+
+    def definicion_campo_ext(self, cod: str) -> list[dict]:
+        """R38, R39: TODAS las definiciones de `defext` de tip 33 con ese
+        `cod` (`[{ide, camtip}]`); cuantas haya y su `camtip` los juzga
+        `franquicia.motivo_definicion`. Un fallo o un `truncated` es una
+        excepcion."""
+        filas = self._read(self._SQL_DEFINICION_CAMPO_EXT, [cod])
+        return [{"ide": f.get("ide"), "camtip": f.get("camtip")}
+                for f in filas]
+
+    def valores_campo_ext(self, resides: Iterable[int],
+                          cod: str) -> dict[int, list]:
+        """R1, R40, R47, R48: los `valn` del campo `cod` de cada recurso, por
+        `res.ide` (= `con.ide` de tip 33) y NUNCA por DNI: `reside` -> lista
+        de los valores de sus filas de `conext` (NULL es None; [] sin fila,
+        DA29), en lotes de `LOTE_RECURSOS`. `LEFT JOIN` desde `con`: un
+        recurso que no es un `con` de tip 33 no sale (el pipeline lo da por
+        `invalida`) y las filas de otro `tip` con el mismo `cod` (el `10` de
+        tip 42) nunca se leen. Un fallo o un `truncated` es una
+        excepcion."""
+        ides = sorted({int(i) for i in resides if i})
+        out: dict[int, list] = {}
+        for i in range(0, len(ides), LOTE_RECURSOS):
+            trozo = ides[i:i + LOTE_RECURSOS]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                "SELECT con.ide AS reside, conext.ide AS extide, "
+                "conext.valn AS valor FROM con LEFT JOIN conext "
+                "ON conext.conide = con.ide AND conext.cod = ? "
+                f"WHERE con.tip = 33 AND con.ide IN ({marcas})",
+                [cod, *trozo])
+            for f in filas:
+                valores = out.setdefault(int(f["reside"]), [])
+                if f.get("extide") is not None:
+                    valores.append(f.get("valor"))
+        return out

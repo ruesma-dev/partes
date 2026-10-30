@@ -251,9 +251,32 @@ def test_f019_r12_reaplicar_el_mismo_resultado_no_cambia_la_fila() -> None:
     assert _linea(fabrica, ids[0])[0] == "dedicacion"
 
 
+def _reloj_que_avanza(monkeypatch) -> None:
+    """Reloj del repositorio controlado: cada `now()` da un segundo mas que
+    el anterior. Con la hora real, dos `_marcar` seguidos podian caer en el
+    mismo tic bajo carga (la campana de mutacion de F-056, 2026-10-28) y la
+    comparacion estricta de `actualizado_at_utc` fallaba sin que el codigo
+    estuviera mal. Asi la hora nueva es siempre posterior y el test sigue
+    exigiendo que el repositorio la escriba."""
+    from datetime import datetime, timedelta, timezone
+
+    import infrastructure.database.parte_repository as mod_repo
+
+    base = datetime(2026, 3, 2, 8, 0, tzinfo=timezone.utc)
+    pasos = iter(range(10_000))
+
+    class _Reloj(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return base + timedelta(seconds=next(pasos))
+
+    monkeypatch.setattr(mod_repo, "datetime", _Reloj)
+
+
 @pytest.mark.parametrize("cambio", ["codigo", "prueba", "horas", "partida",
                                     "obra"])
-def test_f019_r13_otro_contenido_sube_la_version(cambio) -> None:
+def test_f019_r13_otro_contenido_sube_la_version(cambio, monkeypatch) -> None:
+    _reloj_que_avanza(monkeypatch)
     fabrica = FabricaSesionSqlite()
     ids = sembrar_mensual(fabrica)
     repo = ParteReviewRepository(fabrica)

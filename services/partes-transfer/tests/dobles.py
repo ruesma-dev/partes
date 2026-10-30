@@ -151,7 +151,8 @@ class SettingsFake:
                  transfer_workers: int = 3,
                  est_parte_activo: int = 1,
                  est_parte_cerrado: int = 3,
-                 est_parte_imputado: int = 10) -> None:
+                 est_parte_imputado: int = 10,
+                 franquicia_campo_ext: str = "") -> None:
         self.obra_pruebas_forzar = obra_pruebas_forzar
         self.obra_pruebas_cod = obra_pruebas_cod
         self.marca_pruebas = marca_pruebas
@@ -166,6 +167,9 @@ class SettingsFake:
         self.est_parte_activo = est_parte_activo
         self.est_parte_cerrado = est_parte_cerrado
         self.est_parte_imputado = est_parte_imputado
+        # F-056 (R3, DA30): `cod` del campo extendido; vacio = franquicia
+        # apagada, como `Settings`.
+        self.franquicia_campo_ext = franquicia_campo_ext
 
 
 class SigridFake:
@@ -252,6 +256,26 @@ class SigridFake:
         #: `estados_de_partes`.
         self.racha_leidas: list[list[str]] = []
         self.estados_leidos: list[list[int]] = []
+        #: F-056 (R23): (reside, inicio, fin, excluir) de cada
+        #: `extras_del_periodo` y la excepcion que lanzara si no es None.
+        self.extras_leidas: list[tuple] = []
+        self.fallo_extras: Exception | None = None
+        #: F-056 enmienda DA29-DA31 (R38-R40, R47): el campo EXTENDIDO.
+        #: `defext` como filas `{ide, tip, cod, camtip}`; `con_tipos`
+        #: `{con.ide: tip}` (un recurso es un `con` de tip 33 con
+        #: `con.ide` = `res.ide`); `conext` como filas `{ide, conide, cod,
+        #: valn}`; lo pedido en cada lectura y las excepciones que lanzaran
+        #: si no son None. `poner_franquicia` es el atajo de los tests.
+        self.defext: list[dict] = []
+        self.con_tipos: dict[int, int] = {}
+        self.conext: list[dict] = []
+        self.definiciones_leidas: list[str] = []
+        self.valores_leidos: list[tuple[list[int], str]] = []
+        #: F-056 (R41): si cada `valores_campo_ext` corrio con el lock.
+        self.valores_bajo_lock: list[bool] = []
+        self.fallo_definicion: Exception | None = None
+        self.fallo_valores: Exception | None = None
+        self._siguiente_conext = 8000
         self.partes: list[dict] = list(partes or [])
         self.lineas: list[dict] = list(lineas or [])
         self.latencia_lectura = latencia_lectura
@@ -505,6 +529,98 @@ class SigridFake:
                            "obride": p["obride"]}
                 for p in self.partes if p["ide"] in ks}
 
+    def extras_del_periodo(self, reside, inicio, fin, excluir) -> float:
+        """F-056 (R23): la suma del SQL real (`LIKE 'HE%'` sin distinguir
+        mayusculas, fechas incluidas, sin la synckey `excluir`)."""
+        self._lectura("extras_del_periodo")
+        self.extras_leidas.append((int(reside), int(inicio), int(fin),
+                                   excluir))
+        if self.fallo_extras is not None:
+            raise self.fallo_extras
+        total = 0.0
+        for l in self.lineas:
+            cod = l.get("hora_codigo") or self._cod_hora(l.get("horide"))
+            if (l["reside"] == int(reside)
+                    and int(inicio) <= l["fec"] <= int(fin)
+                    and (cod or "").upper().startswith("HE")
+                    and (l.get("synckey") or "") != excluir):
+                total += float(l.get("can") or 0.0)
+        return round(total, 6)
+
+    _SIN_FILA = object()
+
+    def poner_franquicia(self, reside, valor=_SIN_FILA, *, cod):
+        """Atajo de los tests: `reside` pasa a ser un recurso (`con` de tip
+        33) y su fila de `conext` con ese `cod` queda con `valor` (sin
+        `valor`, el recurso se queda SIN fila)."""
+        self.con_tipos[int(reside)] = 33
+        self.conext = [f for f in self.conext
+                       if not (f["conide"] == int(reside) and f["cod"] == cod)]
+        if valor is not SigridFake._SIN_FILA:
+            self._siguiente_conext += 1
+            self.conext.append({"ide": self._siguiente_conext,
+                                "conide": int(reside), "cod": cod,
+                                "valn": valor})
+
+    def definicion_campo_ext(self, cod):
+        """F-056 (R38, R39, R47): las definiciones de `defext` de tip 33 con
+        ese `cod`, como el cliente real (las juzga `motivo_definicion`)."""
+        self._lectura("definicion_campo_ext")
+        self.definiciones_leidas.append(cod)
+        if self.fallo_definicion is not None:
+            raise self.fallo_definicion
+        return [{"ide": d["ide"], "camtip": d.get("camtip")}
+                for d in self.defext
+                if d.get("tip") == 33 and d.get("cod") == cod]
+
+    def valores_campo_ext(self, resides, cod):
+        """F-056 (R1, R40, R47, R48): como el cliente real: por `con.ide` y
+        solo `con` de tip 33 (un ide de otro tip o inexistente no sale);
+        cada recurso con los `valn` de sus filas de ese `cod` ([] sin
+        fila). Nunca por DNI."""
+        self._lectura("valores_campo_ext")
+        ides = sorted({int(i) for i in resides if i})
+        self.valores_leidos.append((ides, cod))
+        self.valores_bajo_lock.append(bool(
+            self._verificador_lock is not None
+            and self._verificador_lock.locked()))
+        if self.fallo_valores is not None:
+            raise self.fallo_valores
+        return {i: [f["valn"] for f in self.conext
+                    if f["conide"] == i and f["cod"] == cod]
+                for i in ides if self.con_tipos.get(i) == 33}
+
+    def lineas_para_reajuste(self, claves):
+        """F-046 / F-056: por synckey con `pre`, `hmoide` y `enlazada`,
+        como el cliente real."""
+        self._lectura("lineas_para_reajuste")
+        ks = {k for k in claves if k}
+        out = {}
+        for fila in self.lineas:
+            if fila.get("synckey") in ks:
+                ls = self._a_linea_sigrid(fila)
+                ls.pre = fila.get("pre")
+                out[fila["synckey"]] = ls
+        return out
+
+    @staticmethod
+    def stmt_actualizar_linea(*, ide, synckey, antes, despues, est_registro):
+        """F-046 / F-056 (R25): el `UPDATE` optimista, opaco."""
+        return {"op": "actualizar", "ide": int(ide), "synckey": synckey,
+                "antes": float(antes), "despues": float(despues),
+                "est_registro": int(est_registro)}
+
+    def _actualizable(self, l: dict, s: dict) -> bool:
+        """El `WHERE` de `stmt_actualizar_linea` como SQL Server: `ide`,
+        synckey, `can` leido (tolerancia 0,001), sin enlaces y su parte En
+        registro (la guarda de F-034)."""
+        return (l["ide"] == s["ide"] and l.get("synckey") == s["synckey"]
+                and abs(float(l.get("can") or 0) - s["antes"]) <= 0.001 + 1e-9
+                and not l.get("enlazada")
+                and any(p["ide"] == l["hmoide"]
+                        and p.get("est", 1) == s["est_registro"]
+                        for p in self.partes))
+
     def _a_linea_sigrid(self, l: dict):
         from domain.models.registro_models import LineaSigrid
         ls = LineaSigrid(
@@ -696,6 +812,17 @@ class SigridFake:
                         continue
                     for l in filas:
                         l["can"], l["tot"] = 0.0, 0.0
+                elif s["op"] == "actualizar":
+                    # F-056 (R25): `can` y `tot = round(can x pre, 2)`; a 0
+                    # la fila sigue ahi (no hay op `borrar`).
+                    filas = [l for l in self.lineas
+                             if self._actualizable(l, s)]
+                    if not filas:
+                        continue
+                    for l in filas:
+                        l["can"] = s["despues"]
+                        l["tot"] = round(s["despues"]
+                                         * float(l.get("pre") or 0.0), 2)
                 elif s["op"] == "mover":
                     # F-060 (R20): la MISMA fila cambia de dia y de parte.
                     filas = [l for l in self.lineas if self._movible(l, s)]
