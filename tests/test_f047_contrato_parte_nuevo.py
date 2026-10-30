@@ -85,3 +85,63 @@ def test_f047_r24_el_comentario_cuenta_el_pedido_de_sv3() -> None:
             assert linea.rstrip().endswith("# sv4 / sv3 (F-047)"), linea
         if "recalculo_terminado" in linea and "mapped_column" in linea:
             assert linea.rstrip().endswith("# sv3"), linea
+
+
+# ================================ R25 ================================== #
+
+RUTA_REPO_SV3 = (RAIZ / "services/partes-persistencia/infrastructure/"
+                 "database/sqlalchemy_parte_repository.py")
+RUTA_PIPELINE_SV3 = (RAIZ / "services/partes-persistencia/application/"
+                     "pipelines/persist_parte_pipeline.py")
+RUTA_SEGUIMIENTO_SV4 = (RAIZ / "services/partes-front/application/services/"
+                        "seguimiento_recalculo.py")
+
+
+def _arbol(ruta: Path) -> ast.AST:
+    return ast.parse(ruta.read_text(encoding="utf-8"))
+
+
+def _funcion(arbol: ast.AST, nombre: str) -> ast.FunctionDef:
+    for nodo in ast.walk(arbol):
+        if isinstance(nodo, ast.FunctionDef) and nodo.name == nombre:
+            return nodo
+    raise AssertionError(f"no se define {nombre}")
+
+
+def _llamadas(arbol: ast.AST, atributo: str) -> list[ast.Call]:
+    return [n for n in ast.walk(arbol) if isinstance(n, ast.Call)
+            and isinstance(n.func, (ast.Attribute, ast.Name))
+            and getattr(n.func, "attr", getattr(n.func, "id", None))
+            == atributo]
+
+
+def test_f047_r25_el_repositorio_de_sv3_escribe_el_pedido() -> None:
+    save = _funcion(_arbol(RUTA_REPO_SV3), "save_parte")
+    (documento,) = _llamadas(save, "ParteDocumentOrm")
+    claves = {k.arg: ast.unparse(k.value) for k in documento.keywords}
+    assert claves["recalculo_pedido_id"] == "recalculo_pedido_id"
+    assert "now_iso" in claves["recalculo_pedido_at_utc"]
+    assert not [c for c in claves if c.startswith("recalculo_terminado")]
+
+
+def test_f047_r25_el_repositorio_de_sv3_nunca_escribe_el_terminado() -> None:
+    assert "recalculo_terminado" not in RUTA_REPO_SV3.read_text(
+        encoding="utf-8")
+
+
+def test_f047_r25_el_pipeline_pasa_el_id_del_documento() -> None:
+    (llamada,) = _llamadas(_arbol(RUTA_PIPELINE_SV3), "save_parte")
+    claves = {k.arg: ast.unparse(k.value) for k in llamada.keywords}
+    assert claves["document_id"] == "document_id"
+    assert claves["recalculo_pedido_id"] == (
+        "document_id if seguido else None")
+
+
+def test_f047_r25_motivo_espera_de_sv4_compara_con_el_id() -> None:
+    funcion = _funcion(_arbol(RUTA_SEGUIMIENTO_SV4), "motivo_espera")
+    assert [a.arg for a in funcion.args.args] == ["document_id", "pedido_id"]
+    comparaciones = [
+        {ast.unparse(n.left), *(ast.unparse(c) for c in n.comparators)}
+        for n in ast.walk(funcion) if isinstance(n, ast.Compare)
+        and all(isinstance(o, ast.Eq) for o in n.ops)]
+    assert {"pedido_id", "document_id"} in comparaciones

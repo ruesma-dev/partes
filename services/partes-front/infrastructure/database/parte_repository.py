@@ -95,6 +95,7 @@ from application.services.seguimiento_recalculo import (
     ESTADO_PENDIENTE,
     RecalculandoError,
     estado_seguimiento,
+    motivo_espera,
 )
 from application.services.incidencias_horas import (
     NIVEL_AVISO,
@@ -1763,6 +1764,36 @@ class ParteReviewRepository:
                 "terminado_at_utc": fila.recalculo_terminado_at_utc,
             }
         return estados
+
+    def motivos_espera(self, ids) -> dict[str, str]:
+        """F-047 (R12): `{id: motivo}` de los documentos ACTIVOS en espera
+        (`pendiente`), en UNA consulta. Con `ids`, de entre ellos (ignora
+        None y repetidos; vacio => `{}` sin consultar); con None, de toda la
+        base, filtrando en ella a los activos con pedido sin terminar."""
+        stmt = select(ParteDocumentOrm.id, ParteDocumentOrm.is_active,
+                      ParteDocumentOrm.recalculo_pedido_id,
+                      ParteDocumentOrm.recalculo_pedido_at_utc,
+                      ParteDocumentOrm.recalculo_terminado_id)
+        if ids is None:
+            stmt = stmt.where(
+                ParteDocumentOrm.is_active.is_(True),
+                ParteDocumentOrm.recalculo_pedido_id.is_not(None),
+                or_(ParteDocumentOrm.recalculo_terminado_id.is_(None),
+                    ParteDocumentOrm.recalculo_terminado_id
+                    != ParteDocumentOrm.recalculo_pedido_id))
+        else:
+            unicos = list(dict.fromkeys(i for i in ids if i))
+            if not unicos:
+                return {}
+            stmt = stmt.where(ParteDocumentOrm.id.in_(unicos))
+        with self._session_factory.create_session() as session:
+            filas = session.execute(stmt).all()
+        ahora = _ahora_utc()
+        return {f.id: motivo_espera(f.id, f.recalculo_pedido_id)
+                for f in filas
+                if f.is_active and estado_seguimiento(
+                    f.recalculo_pedido_id, f.recalculo_terminado_id,
+                    f.recalculo_pedido_at_utc, ahora) == ESTADO_PENDIENTE}
 
     def marcar_recalculo_pedido(self, document_id: str, *, peticion_id: str,
                                 ahora_utc: datetime | None = None) -> bool:
