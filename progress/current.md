@@ -1,6 +1,20 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-047 · spec revalidada 2026-10-30 (spec-author), pendiente del visto bueno a DA11–DA13: parte nuevo en espera hasta que sv3 reparta sus horas
+
+Orden del humano (2026-10-30): «vamos con f47». Rama `feature/F-047-parte-nuevo-en-espera`,
+worktree `partes-wt-f047`, con `dev` 75816f2 fusionado (795a546). La spec del 2026-10-14
+(DA1–DA10 aprobadas) se ha contrastado con el código actual de sv3 y sv4: **13 cambios
+mecánicos** aplicados (mismo comportamiento; lista en `tasks.md` «Revalidación 2026-10-30»)
+y **3 decisiones abiertas nuevas**, todas con recomendación A (`design.md` §11):
+- **DA11** matriz «Horas por día» de la obra (F-049): no se marca la espera (A) o sí (B, choca con DA8).
+- **DA12** parte sin obra o sin fecha (F-054): espera como todos (A) o sin pedido (B).
+- **DA13** candado de F-046 (hasta 300 s): R19 sin cifra cerrada (A) o tal cual (B).
+La causa (commit antes de conciliar) sigue cierta; la cifra de 20–40 s no se ha vuelto a medir
+(M3 la mide). Detalle en `progress/explore_F-047_revalidacion.md`. El implementer NO empieza
+hasta que el humano decida DA11–DA13.
+
 ## F-056 · CERRADA y ACTIVADA 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; desplegada sv5 → sv4; M2 OK en local, `progress/m2_F-056.md`; M3 OK; `FRANQUICIA_CAMPO_EXT=10` en sv5 `ca-sv5-transfer--0000004`; M2 (g) no se hace, cubierta por tests; cerrada por el humano: «entoces cierra feature»): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,

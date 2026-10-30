@@ -4,15 +4,19 @@
 **sv3** (marca el pedido al guardar un parte nuevo y el terminado tras
 conciliar) y **sv4** (motivo de la espera, textos, listado y aprobación).
 **Sin columnas nuevas**: reutiliza el seguimiento de F-043. Rigor **crítico**
-(design §1). Decisiones abiertas: design §11 (DA1–DA10).
+(design §1). Decisiones: design §11 (DA1–DA10 aprobadas el 2026-10-14;
+DA11–DA13 abiertas en la revalidación del 2026-10-30, ver `tasks.md`).
 
-## Contexto (verificado en el código el 2026-10-14)
+## Contexto (verificado en el código el 2026-10-14; revalidado el 2026-10-30)
 
 - `PersistPartePipeline.run` (sv3) guarda el documento y sus líneas con las
   horas leídas (`save_parte`, commit y log `[parte-repo] guardado`) y
   **después** lanza `conciliar_todos` de partidas y de recurso, que reparte
   ordinaria y extra. Medido el 2026-10-14: de 22 a 39 s entre una cosa y otra.
   En ese hueco el portal enseña 10, 5 o 9 h en vez de 8+2, 8−3 u 8+1.
+  El 2026-10-30 el orden sigue igual (con F-048 la extra leída va sumada a
+  la ordinaria hasta el reparto); la cifra no se ha vuelto a medir (M3) y el
+  candado de F-046 puede alargarla (DA13).
 - Las dos conciliaciones de la ingesta son *best-effort*: si lanzan, se
   registra un WARNING y el mensaje se consume. Un sha256 repetido sale antes
   de guardar y no concilia.

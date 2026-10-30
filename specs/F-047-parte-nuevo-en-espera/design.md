@@ -17,23 +17,20 @@
 
 ## 2. Esquema (`orm_models.py`, las dos copias)
 
-**Sin columnas ni DDL nuevos** (DA4). Solo cambia, igual en las dos copias
-(siguen byte-idénticas), el comentario del bloque «Seguimiento del recalculo
-(F-043)»: el pedido lo escribe sv4 (uuid4, al pedir un recálculo) **o sv3 al
-guardar un parte nuevo (F-047), en el mismo commit y con el `id` del
-documento**, que es como se sabe que el motivo es `nuevo`. Los comentarios de
-línea `# sv4` del pedido pasan a `# sv4 / sv3 (F-047)`.
+**Sin columnas ni DDL nuevos** (DA4). Cambia solo, igual en las dos copias, el
+comentario del bloque «Seguimiento del recalculo (F-043)»: el pedido lo escribe
+sv4 (uuid4) **o sv3 al guardar un parte nuevo (F-047, mismo commit, `id` del
+documento ⇒ motivo `nuevo`)**; los `# sv4` del pedido pasan a `# sv4 / sv3 (F-047)`.
 
 ## 3. sv3 (`services/partes-persistencia/`)
 
 **`domain/ports/parte_repository.py`**: `save_parte(..., recalculo_pedido_id:
 str | None = None)` (R9).
 
-**`infrastructure/database/sqlalchemy_parte_repository.py`** (`save_parte`):
-con `recalculo_pedido_id`, el `ParteDocumentOrm` nace con
-`recalculo_pedido_id` = ese id y `recalculo_pedido_at_utc` = `now_iso` (la
-hora que ya calcula para `created_at_utc`), dentro del mismo `session.add` +
-`commit` (R1); sin él, NULL (R2). `_deactivate_same_day_obra` y
+**`infrastructure/database/sqlalchemy_parte_repository.py`** (`save_parte`): con
+`recalculo_pedido_id`, el `ParteDocumentOrm` nace con ese id y
+`recalculo_pedido_at_utc` = `now_iso` (la hora de `created_at_utc`), en el mismo
+`session.add` + `commit` (R1); sin él, NULL (R2). `_deactivate_same_day_obra` y
 `get_by_sha256` **no cambian** (R3, R8).
 
 **`application/pipelines/persist_parte_pipeline.py`**:
@@ -43,9 +40,9 @@ hora que ya calcula para `created_at_utc`), dentro del mismo `session.add` +
 - `run`: `seguido = self._recurso_conciliador is not None and
   self._recalculo_seguimiento is not None`; `save_parte(...,
   recalculo_pedido_id=document_id if seguido else None)` (R1, R2).
-- `_conciliar_recursos_safely()` pasa a devolver `bool` (True si llamó a
-  `conciliar_todos` sin excepción; False sin conciliador o si lanzó), con sus
-  WARNING/INFO de hoy. `_conciliar_partidas_safely` no cambia.
+- `_conciliar_recursos_safely()` devuelve `bool` (True si `conciliar_todos` no
+  lanzó; False sin conciliador o si lanzó, también la `TimeoutError` del candado
+  de F-046), con sus WARNING/INFO de hoy. `_conciliar_partidas_safely` igual.
 - Tras las dos conciliaciones: `if seguido and repartido:
   self._marcar_parte_nuevo(document_id)` (R4, R5).
 - `_marcar_parte_nuevo(document_id)`: `marcar_terminado(document_id,
@@ -58,12 +55,12 @@ hora que ya calcula para `created_at_utc`), dentro del mismo `session.add` +
 session_factory)` **antes** de `PersistPartePipeline` y pasa esa instancia al
 pipeline (`recalculo_seguimiento=`) y a `app.state.recalculo_seguimiento` (R10).
 
-**`infrastructure/database/recalculo_seguimiento.py`**: solo el docstring («el
-pedido lo escribe sv4 o, en un parte nuevo, la ingesta de sv3»); el código no
-cambia. **Por qué es correcto (R7)**: la marca es el UPDATE condicional de
-F-043; si sv4 pide un recálculo durante la conciliación de la ingesta, el
-pedido ya no es el id, la ingesta no marca y marcará la pasada del recálculo.
-Sin relojes comparados.
+**`infrastructure/database/recalculo_seguimiento.py`**: solo el docstring del
+módulo («el pedido lo escribe sv4 o, en un parte nuevo, la ingesta de sv3»);
+el código no cambia. **Por qué es correcto (R7)**: la marca es el UPDATE
+condicional **por pedido** (F-049 R41): con pedido = id solo toca ese parte; si
+sv4 escribe otro pedido (recálculo o celda de F-049) durante la conciliación,
+la ingesta no marca y lo marcará esa pasada. Sin relojes comparados.
 
 ## 4. sv4 · servidor (`services/partes-front/`)
 
@@ -75,44 +72,43 @@ pedido_id: str | None) -> str` (R11). `MOTIVO_RECALCULANDO` y
 **`infrastructure/database/parte_repository.py`** (`ParteReviewRepository`):
 
 - `motivos_espera(ids: Iterable[str] | None) -> dict[str, str]` (R12): una
-  `select` de `id`, `is_active` y las tres columnas de `estado_seguimiento`;
-  con `ids`, `id IN ids` (ignora None y repetidos; vacío ⇒ `{}` sin consultar);
-  con None, `is_active` y `recalculo_pedido_id IS NOT NULL AND
-  (recalculo_terminado_id IS NULL OR recalculo_terminado_id !=
-  recalculo_pedido_id)`. Filtra en Python los activos `pendiente`
-  (`_ahora_utc()`) y les pone `motivo_espera`.
-- `approve_document`: carga el documento y llama a `_exigir_sin_recalculo(doc)`
+  `select` de `id`, `is_active` y las tres columnas de `estado_seguimiento`; con
+  `ids`, `id IN ids` (ignora None y repetidos; vacío ⇒ `{}` sin consultar); con
+  None, `is_active` y `recalculo_pedido_id IS NOT NULL AND (recalculo_terminado_id
+  IS NULL OR recalculo_terminado_id != recalculo_pedido_id)`. Filtra en Python
+  los activos `pendiente` (`_ahora_utc()`) y les pone `motivo_espera`.
+- `approve_document`: en el `if doc is not None` que ya tiene (F-046),
+  `_exigir_sin_recalculo(doc)` **después** de la comprobación de reparto y
   antes de `_set_approval` (R16). `unapprove_document` y `_set_approval` igual.
 - `lineas_para_registro` (R17): constantes `EXCLUIDA_RECALCULANDO =
   "recalculando"` y `MOTIVO_EXCLUIDA_RECALCULANDO` (texto de R17); tras leer
   `regs`, `en_espera = set(self.motivos_espera({r.document_id for r in
-  regs}))` (una consulta); en el bucle, **después** de `dedicacion` y
-  **antes** de la incompatibilidad, una línea de `en_espera` suma en
-  `excluidas[EXCLUIDA_RECALCULANDO]` (`get(…, 0) + 1`), va al detalle con ese
-  motivo y no viaja.
+  regs}))` (una consulta); en el bucle, **después** de `dedicacion` y de
+  `reparto_pendiente` (F-046) y **antes** de la incompatibilidad, una línea de
+  `en_espera` suma en `excluidas[EXCLUIDA_RECALCULANDO]` (`get(…, 0) + 1`), va
+  al detalle con ese motivo y no viaja.
 - `documentos_en_espera`, `estados_recalculo` y `_exigir_sin_recalculo` **no
   cambian**: la guarda 409 ya cubre al parte nuevo por estado (R15).
 
 **`interface_adapters/web/app.py`**:
 
-- `obra_detail`, `trabajador_detail`, `parte_detail`: tras `recalculando =
-  documentos_en_espera(...)`, `nuevos = {d for d, m in
+- `obra_detail`, `trabajador_detail`, `parte_detail`: sacan `recalculando`
+  (hoy dentro del dict) a una variable y añaden `nuevos = {d for d, m in
   repository.motivos_espera(recalculando).items() if m == MOTIVO_NUEVO} if
-  recalculando else set()` al contexto (R13); sin espera, ni una consulta más.
+  recalculando else set()` (R13); sin espera, ni una consulta más.
 - `partes_list`: `espera = repository.motivos_espera(None)`; `recalculando =
   set(espera)` y `nuevos` al contexto (R14).
-- Ruta `approve_document`: `try` / `except CongeladoError as exc: return
-  _redirect(back, exc.motivo)`, como `unapprove_document`. `_actor(request)`
-  sigue en 17.
+- Ruta `approve_document`: su `except RepartoPendienteError` (F-046) pasa a
+  `except CongeladoError as exc: return _redirect(back, exc.motivo)` (cubre
+  las dos guardas), como `unapprove_document`. `_actor(request)` sigue en 20.
 - `_motivo_sin_lineas`: «N en espera de reparto (pulsa Actualizar cuando
   termine)» si `excluidas.get("recalculando")` (R17).
 
 ## 5. sv4 · portal
 
-**Plantillas**: en `obra_detail.html`, `trabajador_detail.html` y
-`parte_detail.html`, junto al `data-recalculando="1"` actual,
-`data-recalculo-motivo="nuevo"` si `document_id in nuevos`, y la marca
-`procesando…` en vez de `recalculando…` para esos (R13).
+**Plantillas**: en `obra_detail.html`, `trabajador_detail.html` y `parte_detail.html`,
+junto al `data-recalculando="1"` actual, `data-recalculo-motivo="nuevo"` si
+`document_id in nuevos` y la marca `procesando…` (no `recalculando…`) (R13).
 `parte_detail.html`: `data-parte-acciones data-document-id="…"` en
 `.action-bar` (R18). `partes_list.html`: el `<tr>` gana `data-document-id`,
 `data-fecha="{{ p.fecha or '' }}"` y, en espera, `data-recalculando="1"` (+
@@ -127,8 +123,7 @@ recalculoMotivos = {};`; todo lo demás dentro de las funciones existentes.
 - `textoAvisoRecalculo(tipo, fecha, motivo)`: con `motivo === "nuevo"`, los
   textos de R19–R21 (`terminado`: «Parte nuevo del D procesado: horas
   repartidas.»); en otro caso, los de F-043 sin tocar una coma.
-- `avisoRecalculo(docId, tipo, fecha)`: misma firma; pasa
-  `recalculoMotivos[docId]`.
+- `avisoRecalculo(docId, tipo, fecha)`: misma firma; pasa `recalculoMotivos[docId]`.
 - `ponerEnEspera(docId, motivo)`: `recalculoMotivos[docId] = motivo || ""`;
   marca «procesando…» si `nuevo`, si no «recalculando…». `wireFechaInput` la
   sigue llamando sin motivo: un cambio de fecha sobre un parte nuevo pasa a
@@ -136,31 +131,29 @@ recalculoMotivos = {};`; todo lo demás dentro de las funciones existentes.
 - `contenedoresEspera(docId)`: el selector gana
   `[data-parte-acciones][data-document-id="…"]` (R18); `marcarEspera` ya sale
   sin hacer nada si no hay `td` ni `.fecha-edit`.
-- `aplicarEstadoRecalculo`: en `terminado`, marca «procesado · pulsa
-  Actualizar» si el motivo es `nuevo` (R20).
+- `aplicarEstadoRecalculo`: en `terminado`, «procesado · pulsa Actualizar» si `nuevo` (R20).
 - `esperasDeLaPagina`: lee `data-recalculo-motivo` del primer contenedor de
   cada documento y llama a `ponerEnEspera(docId, motivo)` (R19).
 - **No cambian**: `soltarEspera`, `vigilarRecalculo`, `sondearRecalculo`,
   `actualizarVista`, `restaurarVista`, `accionPorEstado`, `estadoRecalculo`,
-  `wireUndo` (R23). **`styles.css`** tampoco (la marca y la fila atenuada ya
-  existen).
+  `wireUndo` (R23); F-064 fija la huella de `restaurarVista` y
+  `actualizarVista`. **`styles.css`** tampoco (marca y fila atenuada existen).
 
 ## 6. Tests (sin red ni BBDD real; datos sintéticos)
 
-- `services/partes-persistencia/tests/test_f047_parte_nuevo_sv3.py`:
-  pipeline con dobles (repositorio que guarda los kwargs; conciliadores y
-  seguimiento que apuntan eventos) para R1–R6 y el orden `save → partidas →
-  recurso → marcar`; `save_parte` real sobre la `fabrica` SQLite de F-043
-  (R1, R8, y R7 con un pedido escrito entre guardado y marca); R10 parcheando
-  como `test_f043_r33_build_app_expone_el_seguimiento`.
+- `services/partes-persistencia/tests/test_f047_parte_nuevo_sv3.py`: pipeline
+  con dobles (repositorio que guarda los kwargs; conciliadores y seguimiento que
+  apuntan eventos) para R1–R6 y el orden `save → partidas → recurso → marcar`;
+  `save_parte` real sobre la `fabrica` SQLite de F-043 (R1, R8, y R7 con un pedido
+  escrito entre guardado y marca); R10 como `test_f043_r33_build_app_…`.
 - `services/partes-front/tests/test_f047_parte_nuevo_sv4.py`
-  (`FabricaSesionSqlite` y ayudantes de `test_f043_alcance_y_seguimiento`
-  importados): R11–R12 con reloj fijo y borde de 600 s; R13–R14 sobre el HTML
-  (parte nuevo «procesando…», otro de F-043 con su marca, otro sin espera);
+  (`FabricaSesionSqlite` y `sembrar_parte` de `tests/dobles.py`; ayudantes de
+  `test_f043_alcance_y_seguimiento`): R11–R12 con reloj fijo y borde de 600 s;
+  R13–R14 sobre el HTML (parte nuevo «procesando…», otro de F-043, otro sin espera);
   R15 en dos métodos; R16 (redirige con el motivo y `approved` sigue False);
   R17 (claves exactas con y sin espera); R18 (barra y dos `data-parte-contenido`).
-- `…/tests/test_f047_portal_parte_nuevo.py`: R19–R23 con node (doble de DOM
-  y extractores de `test_f043_portal_fecha` importados; `skipif` sin node).
+- `…/tests/test_f047_portal_parte_nuevo.py`: R19–R23 con node (doble de DOM y
+  extractores de `test_f043_portal_fecha`; `skipif` sin node).
 - `tests/test_f047_contrato_parte_nuevo.py` (raíz): R24 (copias idénticas, las
   4 columnas de F-043 y ninguna más con prefijo `recalculo`) y R25 por AST.
 
@@ -177,33 +170,32 @@ existentes** (uno roto ⇒ `blocked`, DA8).
 ## 8. Despliegue
 
 Sin variables, roles, infra ni DDL nuevos. **Orden sv4 → sv3** (con sv3 antes,
-el parte nuevo ya espera, pero con textos de F-043 y sin la exclusión de la
-aprobación). `azure-apps/partes.md`: commit local en ese repositorio.
+espera con textos de F-043 y sin la exclusión de la aprobación).
+`azure-apps/partes.md`: commit local en ese repositorio.
 
 ## 9. Riesgos y alternativas
 
 - **R-a · Espera más larga**: la marca nace al guardar (tras el arranque en
-  frío y SharePoint); a los 10 min el parte vence y se edita como hoy.
+  frío, SharePoint y hasta 300 s de candado, DA13); a los 10 min vence.
 - **R-b · Caída entre guardado y marca**: la reentrega cae en el dedup, que no
   concilia; vence a los 10 min. **Pasa ya hoy**; F-047 lo hace visible (DA9).
-- **R-c · Partes encadenados**: cada uno se marca con su propia pasada.
+  **R-c**: partes encadenados, cada uno se marca con su propia pasada.
 - **R-d · Acciones masivas** (`/conciliacion`, reasignar, borrar por
   obra/persona) no miran la espera: hueco heredado de F-043 R-g (DA7).
-- **R-e · Merge** con F-044/F-045/F-046 (`app.js`, repositorio, pipeline).
-- **Descartadas**: HTTP o mensaje sv3→sv4 (la base ya es el canal); UPDATE
-  tras el guardado (ventana sin marca); columna de motivo (DA4); recargar sola.
+- **R-e · Merge** con F-057 (`spec_ready`: pedido del editor de celda) y lo
+  que entre antes en `app.js`, `parte_repository.py` o el pipeline.
+- **Descartadas**: HTTP o mensaje sv3→sv4 (la base ya es el canal); UPDATE tras
+  guardar (ventana sin marca); columna de motivo (DA4); recargar sola.
 
 ## 10. Verificación MANUAL (humano; solo lectura salvo el despliegue)
 
-- **M1 · tras desplegar sv4 y luego sv3**, un parte escaneado de prueba: su
-  obra en los primeros segundos ⇒ «procesando…», no editable, el resto se
-  edita; al terminar, «Actualizar» ⇒ horas repartidas.
-- **M2 · base `partes`**: `SELECT id, recalculo_pedido_id, recalculo_terminado_id
-  FROM parte_documents WHERE id = '<id de M1>';` ⇒ los tres iguales.
-- **M3 · Log Analytics de sv3**: `[parte-repo] guardado` y `parte nuevo
-  repartido … marcado=True` del mismo `document_id`.
+M1 (portal), M2 (SQL de la base `partes`) y M3 (Log Analytics de sv3, que
+además vuelve a medir la espera): detalle y comandos en `tasks.md` T13.
 
 ## 11. Decisiones abiertas (cada una con su recomendación)
+
+DA1–DA10 aprobadas el 2026-10-14; DA11–DA13 abiertas el 2026-10-30 (contexto y
+opciones en `progress/explore_F-047_revalidacion.md`).
 
 - **DA1 · Quién genera el pedido y dónde se marca.** **A (recomendada)**: el
   pipeline usa como pedido el `document_id` que ya genera (uuid4, 36
@@ -238,7 +230,7 @@ aprobación). `azure-apps/partes.md`: commit local en ese repositorio.
 - **DA8 · Tests existentes: no cambia ninguno**. Lo garantizan el JS de §5
   (respeta los extractores), que las vistas sigan llamando una vez a
   `documentos_en_espera` y que la marca de F-043 quede idéntica para el
-  motivo `recalculo`. `test_f017_punto_unico` sigue con 17 `_actor(request)`.
+  motivo `recalculo`. `test_f017_punto_unico` sigue con 20 `_actor(request)`.
   El comentario de `test_f043_r35_…` («sv3 nunca escribe el pedido») habla del
   adaptador, que sigue sin escribirlo: pasa y no se toca.
 - **DA9 · Reentrega tras caída entre guardado y marca: fuera (recomendado)**.
@@ -247,3 +239,12 @@ aprobación). `azure-apps/partes.md`: commit local en ese repositorio.
 - **DA10 · Botones del detalle** (fuera de `[data-parte-contenido]`).
   **Recomendado**: `data-parte-acciones` + `contenedoresEspera`, además de la
   guarda del servidor (R16). Alternativa: solo el servidor (motivo por redirección).
+- **DA11 · Matriz de la obra (F-049)**: la celda de un parte en espera enseña lo
+  sin repartir y el editor se abre (guardar da 409, F-049 R15). **A (recom.)**:
+  fuera, como DA7. B: marcar la celda y no abrir el editor (choca con DA8).
+- **DA12 · Sin obra o sin fecha (F-054)**: también esperaría (fecha editable,
+  obra con 409). **A (recom.)**: misma regla para todos. B: sin pedido si
+  `motivos_cabecera(parte)` no está vacía (R1–R2 ganan esa condición).
+- **DA13 · Candado de F-046**: la pasada lo espera hasta 300 s; sin él, sin
+  marca (R5) y vence a los 600 s. **A (recom.)**: R19 dice «(suele tardar menos
+  de 1 min; con más partes en cola, unos minutos)». B: R19 tal cual.
