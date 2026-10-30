@@ -1,14 +1,38 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-047 · EN CURSO (implementer, 2026-10-30): parte nuevo en espera hasta que sv3 reparta sus horas
+## F-047 · BLOQUEADA en T6 (implementer, 2026-10-30): parte nuevo en espera hasta que sv3 reparta sus horas
 
 DA11–DA13 = A decididas por el humano el 2026-10-30 (literal: «ok» a «F-047: A, A, A. Lanzo el
-implementer.»), registradas en `design.md` §11; DA13 aplicada al texto de R19. F-047 `in_progress`
-(única en curso). Rama `feature/F-047-parte-nuevo-en-espera`, worktree `partes-wt-f047`.
-- Tarea en curso: la primera sin `[x]` de `tasks.md`. Informe: `progress/impl_F-047.md`.
-- Desviaciones respecto a la spec: ninguna por ahora.
-- La campaña de mutación completa la lanza el líder (no el implementer).
+implementer.»), registradas en `design.md` §11; DA13 aplicada al texto de R19. Rama
+`feature/F-047-parte-nuevo-en-espera`, worktree `partes-wt-f047`. Informe parcial (trazas RED de
+T1–T6): `progress/impl_F-047.md`.
+- **Hecho y commiteado (T1–T5, en verde)**: ORM (comentario, dos copias), sv3 completo (pedido en
+  `save_parte`, marca tras conciliar, `build_app`), sv4 `motivo_espera` + `motivos_espera`, contrato
+  raíz R24–R25. Suite sv3 completa: 2371 passed.
+- **T6 sin commitear en el worktree** (R15–R17): guarda en `approve_document` (repositorio y ruta),
+  exclusión `recalculando` en `lineas_para_registro`, texto en `_motivo_sin_lineas`, 50 tests F-047
+  sv4 en verde. Rompe **4 tests existentes** (DA8 ⇒ `blocked`):
+  1. **Choque de diseño (decisión del humano)** — `test_f046_aplicar.py`: `r33_aplicar_reajusta_en_sigrid_y_registra`,
+     `r34_sin_respuesta_sigue_aplicando_y_se_reintenta`, `r33_encolar_aplica_por_http_y_encola_las_lineas`.
+     En «Aprobar» con «Aplicar» (F-046 R33), `_aplicar_reparto` reajusta en Sigrid, **pide el recálculo
+     seguido** de los partes del día (`_pedir_recalculo_seguido` escribe un pedido uuid4 ⇒ `pendiente`)
+     y, en la MISMA petición, `lineas_para_registro` registra esas líneas. Con DA3-A (excluir los partes
+     en espera de los dos motivos) esas líneas salen `recalculando` y no se registra nada. La
+     revalidación no lo vio. Opciones:
+     - **A (recomendada)**: DA3 → «solo el motivo `nuevo`» en la exclusión de la aprobación en bloque
+       (R17) y en `approve_document` (R16) — es la alternativa B que ya listaba DA3. El recálculo de
+       F-042/F-043 (uuid4) sigue como en F-043 DA12 y F-046 no cambia.
+     - B: mantener los dos motivos, pero calcular la espera ANTES de aplicar los repartos (o eximir los
+       partes cuyo pedido escribió esta misma petición); toca el flujo de F-046 en `app.py`.
+     - C: mantener DA3-A tal cual y cambiar F-046 R33 (deja de registrar en el mismo clic): contra DA8.
+  2. **Mecánico (propuesta de desviación, ya probada)** — `test_f062_inicio_con_ciz.py::test_f062_r5_sin_consultas_nuevas`
+     fija en 5 las sentencias de `lineas_para_registro`; la consulta extra de `motivos_espera` (design §4)
+     la sube a 6. En el worktree ya está la alternativa: `joinedload(ParteRegistroOrm.document)` en el
+     SELECT de líneas que ya existe y el estado con `estado_seguimiento` sobre `r.document`
+     (0 sentencias nuevas): F-062 vuelve a verde. Falta adaptar mi test
+     `test_f047_r17_una_sola_pregunta_por_la_espera` (espía `motivos_espera`) a contar sentencias.
+- Con la decisión: aplicar A/B/C en T6, completar T6 y seguir con T7–T14. La mutación la lanza el líder.
 
 ## F-047 · spec revalidada 2026-10-30 (spec-author; DA11–DA13 = A el mismo día): parte nuevo en espera hasta que sv3 reparta sus horas
 
