@@ -468,6 +468,17 @@ nada recarga solo: al terminar, una tarjeta ofrece «Actualizar», que
 recarga conservando scroll y filtros. Pasados 10 min sin confirmar, el
 parte se edita como siempre y el aviso pide actualizar.
 
+**El parte nuevo también espera** (F-047). sv3 guarda el parte con las
+horas leídas y después reparte ordinaria y extra; entre una cosa y otra
+pasan unos segundos (o minutos, si hay otra pasada en curso) en los que el
+portal enseñaría, por ejemplo, 10 h donde irán 8 + 2. Por eso sv3 guarda el
+parte nuevo ya «en espera» (el pedido es el id del propio documento) y lo
+da por repartido al terminar la conciliación. El portal lo marca
+«procesando…» en las vistas de obra y trabajador, en el detalle y en el
+listado de partes, con su propio aviso, y no deja aprobarlo hasta que
+termine (ni suelto ni en bloque): sv3 no reparte lo aprobado. Si la
+conciliación falla, vence a los 10 min como cualquier otra espera.
+
 **La jornada del día no es plana** (F-015). El `candef` de Sigrid son las
 horas de lunes a jueves; el **último día laborable de la semana** —el
 mayor L–V que sea laborable en el calendario de ESE trabajador— recibe el
@@ -720,7 +731,7 @@ y distintas entre servicios.
 | Obra leída/casada | `obra_numero_leido`, `obra_nombre_leido`, `obra_codigo`, `obra_ide`, `obra_nombre`, `obra_match_method`, `obra_match_score` | ide = `con.ide`/`obr` en Sigrid. Métodos de F-023: `codigo_membrete`, `codigo_trabajadores`, `codigo_nombre`; sin casar: `codigo_otra_empresa`, `codigo_ambiguo`, `nombre_ambiguo` |
 | Empresa del parte (F-023) | `empresa_membrete`, `empresa`, `empresa_origen` | nullables: el texto del membrete tal cual, la empresa (`con.emp`) y de dónde sale (`membrete`, `obra`, `trabajadores`, `nombre`). NULL en los partes anteriores a F-023 |
 | Día del parte | `fecha` (ISO), `fecha_int` (YYYYMMDD) | |
-| Seguimiento del recálculo (F-043) | `recalculo_pedido_id`, `recalculo_pedido_at_utc`, `recalculo_terminado_id`, `recalculo_terminado_at_utc` | nullables; el pedido lo escribe sv4 al pedir el recálculo de F-042 y el terminado, sv3 al acabar la pasada. Iguales = recalculado; distintos y < 10 min = parte en espera. No entran en deshacer |
+| Seguimiento del recálculo (F-043) | `recalculo_pedido_id`, `recalculo_pedido_at_utc`, `recalculo_terminado_id`, `recalculo_terminado_at_utc` | nullables; el pedido lo escribe sv4 al pedir el recálculo de F-042 (o sv3 al guardar un parte nuevo, con el id del documento: F-047) y el terminado, sv3 al acabar la pasada. Iguales = recalculado; distintos y < 10 min = parte en espera. No entran en deshacer |
 | Personas del parte | `encargado_nombre`, `jefe_obra_nombre` | |
 | Firmas | `firma_encargado`, `firma_jefe_obra`, `firma_administracion`, `firmado`, `firmante_nombre`, `firmante_rol`, `firma_confianza_pct` | |
 | Extracción IA | `provider`, `model_name`, `prompt_key`, `schema_name`, `review_required`, `raw_extraction_json`, `raw_context_json` | trazabilidad completa. La confianza por línea vive en `parte_registros.confianza_pct`; aquí solo hay `firma_confianza_pct` (fila «Firmas») |
