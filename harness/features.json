@@ -716,12 +716,13 @@
         "Mutacion completa con 0 supervivientes sin resolver",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 5,
       "branch": "feature/F-047-parte-nuevo-en-espera",
-      "spec": "aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047`"
+      "spec": "aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047` · review APPROVED pasada 2",
+      "pendiente": "Sin desplegar. Pendiente del humano: desplegar sv4 y después sv3 (dos llamadas a redeploy_partes.ps1) y M1–M3 (current.md)."
     },
     {
       "id": "F-049",
