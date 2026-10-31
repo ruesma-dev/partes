@@ -1,10 +1,9 @@
-Revisión completa (pasada 1) — `git diff dev...HEAD`, merge-base 75816f2, HEAD 966c999
+Revisión incremental desde bce56a3 (pasada 2) — delta bfb8b62; pasada 1 completa sobre 966c999
 
 # F-047 · Review (reviewer, 2026-10-31)
 
-**Veredicto: CHANGES_REQUESTED**. El código, los tests y la mutación están bien. Lo que falla es el
-papeleo de cierre: un comando MANUAL estropeado en `current.md`, T12 sin marcar y la tabla
-«Evidencias» desactualizada. Son tres arreglos de texto que no tocan código (lista al final).
+**Veredicto: APPROVED** (pasada 2). La pasada 1 dio CHANGES_REQUESTED por tres arreglos de papeleo;
+los tres están corregidos y el delta no toca nada más (detalle en «Pasada 2», al final).
 
 **Nivel de rigor:** `critico`, declarado en `harness/features.json`. Exige fase RED, cobertura
 ≥ 80 % de las líneas cambiadas, mutación completa con 0 supervivientes sin justificar, RM1–RM6 y
@@ -12,15 +11,11 @@ verificaciones MANUAL con su comando exacto.
 
 ## Lo ejecutado por el reviewer
 
-- `bash harness/init.sh` tal cual, en el worktree: `ENTORNO LISTO`, exit 0. `PUERTA COBERTURA:
-  100.0% de 68 líneas cambiadas (68/68)`. `PUERTA TAMAÑO` OK. Avisos previos: ruff 904, F-032
-  blocked, infra sin tests.
+- `bash harness/init.sh` (pasada 1): `ENTORNO LISTO`, COBERTURA 100 % (68/68), TAMAÑO OK; avisos previos.
 - init.sh sirvió sv3 y sv4 **de caché**, así que lancé a mano las dos suites enteras, sin caché
   (`python -m pytest -q -p no:cacheprovider`): sv3 **2371 passed (33,1 s)**; sv4 **3307 passed, 1 skipped (593,0 s)**.
-- Raíz: `test_f047_contrato_parte_nuevo.py` + `test_f010_orm_models_gemelos.py` → 28 passed.
-- Gemelos: `cmp` de las dos `orm_models.py` → **byte-idénticas**. Sin columnas nuevas (R24).
-- R27 / DA8: `git diff dev...HEAD --name-status` sobre los tests da solo 4 líneas `A`
-  (los cuatro ficheros `test_f047_*`). **Ningún test existente modificado.**
+- Raíz: contrato F-047 + `test_f010_orm_models_gemelos.py` → 28 passed; `cmp` de los dos ORM → **byte-idénticos**.
+- R27 / DA8: `--name-status` de los tests = solo 4 `A` (`test_f047_*`). **Ningún test existente modificado.**
 - Ficheros de design §7 sin tocar (despacho, main_worker, conciliadores, congelacion, styles.css, sv1/2/5, infra).
 
 ## Checkpoints
@@ -40,7 +35,7 @@ original externo, así que no lleva cabecera nueva. Barrido mío sobre las líne
 **0 coincidencias**. `git log --diff-filter=A` dev..HEAD sin pdf/docx/xlsx/pptx: **0**. Nada que
 redactar.
 **C4** [x] trazabilidad R1–R27 (tabla abajo), todos en verde · [x] sin red: SQLite con
-`FabricaSesionSqlite`/`fabrica`, dobles y node local · **[ ] MANUAL con su comando exacto**:
+`FabricaSesionSqlite`/`fabrica`, dobles y node local · [x] MANUAL (era `[ ]` en la pasada 1):
 `progress/current.md` línea 16 tiene un **CR literal (0x0D)** donde va `\r`. Se lee
 `` `.<CR>edeploy_partes.ps1 -Solo sv4` `` (lo comprobé con `od -c`; es el único CR del fichero y
 entró en 04a8adc). El comando de despliegue que tiene que copiar el humano está roto. En
@@ -68,10 +63,10 @@ entró en 04a8adc). El comando de despliegue que tiene que copiar el humano est�
   observación, no como defecto.
 - [x] RM5 N/A (no hay equivalentes declarados) · RM6: no se quitó ninguna guarda · campaña manual N/A
   (la automática generó 32) · cero supervivientes, ningún `PENDIENTE`.
-- **[ ] «Evidencias»**: la fila de mutación sigue diciendo «PENDIENTE: la campaña completa la lanza
+- [x] «Evidencias» (era `[ ]` en la pasada 1): la fila de mutación sigue diciendo «PENDIENTE: la campaña completa la lanza
   el líder» y falta el **nº de workers**. T12 pedía `--workers 6`, pero la campaña corrió con 3.
 **C4 ter** N/A: no hay `harness/rutas_sensibles.json`, e init.sh no señala rutas sensibles.
-**C5** **[ ] `tasks.md`**: T12 sigue en `[ ]`, aunque 966c999 «F-047 T12: mutación completa» la
+**C5** [x] `tasks.md` (era `[ ]` en la pasada 1): T12 estaba en `[ ]`, aunque 966c999 «F-047 T12: mutación completa» la
 cierra · [x] árbol limpio (`git status` vacío) · [x] `features.json` en `in_progress`, que es lo
 correcto hasta el cierre.
 
@@ -122,15 +117,20 @@ vigiladas: los 32 automáticos más estos 10 bastan. El script es `rm4_f047.py` 
    `_conciliar_partidas_safely` no se consume (lo pide design §3). 3. `/partes` hace
    `motivos_espera(None)` en cada carga: es barato, pero conviene vigilarlo si crece la base.
 
-## Cambios requeridos
+## Cambios requeridos (pasada 1) y su verificación (pasada 2)
 
-1. `progress/current.md:16`: sustituir el byte CR (0x0D) de `` `.<CR>edeploy_partes.ps1 `` por
-   `` `.\redeploy_partes.ps1 `` (C4, comando MANUAL exacto). Comprobar con `grep -c $'\r'` = 0.
-2. `specs/F-047-parte-nuevo-en-espera/tasks.md`: marcar T12 `[x]` (C5).
-3. `progress/impl_F-047.md`, «Evidencias»: sustituir la fila «PENDIENTE» por los datos reales
-   (32 generados, 32 muertos, 0 supervivientes, **3 workers**, 4543 s, medida en a7b3f4d) y
-   actualizar la cabecera «a falta de la campaña de mutación» (C4 bis).
-Con eso, la pasada 2 (incremental desde 966c999) solo mira esos tres ficheros e init.sh.
+1. CR literal en `current.md:16` → corregido: `grep -c $'
+'` = 0, la línea 16 dice `` `.
+edeploy_partes.ps1 -Solo sv4` ``.
+2. T12 `[ ]` → `[x]` en `tasks.md`.
+3. «Evidencias» → 32/32/0, `--workers 3`, 4543 s, a7b3f4d; cabecera y nota de «pendiente» actualizadas.
+
+## Pasada 2
+
+- `git diff --stat bce56a3..HEAD`: solo `progress/current.md` (1 línea), `progress/impl_F-047.md` (5)
+  y `tasks.md` (1). Nada de código, tests ni alcance de la campaña, así que lo aprobado sigue valiendo.
+- `bash harness/init.sh` tal cual: `ENTORNO LISTO`; raíz 537 passed, 3 skipped; COBERTURA 100 % (68/68).
+  Sirvió sv3 y sv4 de caché, así que las relancé a mano sin caché: sv3 **2371 passed**, sv4 **3307 passed, 1 skipped**.
 
 ## Automejora (propuesta, no aplicada)
 
