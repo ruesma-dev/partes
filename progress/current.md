@@ -9,6 +9,18 @@ aprobado?»): DA3 → B (solo el motivo `nuevo` en R16 y R17) y desviación de d
 `requirements.md` R16–R17 y `tasks.md` T6. F-047 vuelve a `in_progress`. Lo que sigue es el
 registro del bloqueo, conservado como historia.
 
+**Implementación (2026-10-31)**: T1–T11 hechas y commiteadas (detalle en `progress/impl_F-047.md`);
+`azure-apps/partes.md` con commit local en ese repositorio. Pendiente: campaña de mutación
+completa (la lanza el líder) y revisión.
+**Despliegue y verificación MANUAL (T13, los pide el humano)**: en DOS llamadas desde `infra/`,
+primero `.edeploy_partes.ps1 -Solo sv4` y después `-Solo sv3` (juntas, el script fija sv3 antes).
+- M1 (portal): un parte escaneado de prueba sale «procesando…» en su obra y no se edita; el resto sí;
+  al terminar, «Actualizar» ⇒ horas repartidas.
+- M2 (base `partes`, solo lectura): `SELECT id, recalculo_pedido_id, recalculo_terminado_id FROM
+  parte_documents WHERE id = '<id de M1>';` ⇒ los tres iguales.
+- M3 (Log Analytics de sv3): `[parte-repo] guardado` y `parte nuevo repartido … marcado=True` del mismo
+  `document_id`; la diferencia de horas es la espera real (revalida los 20–40 s).
+
 DA11–DA13 = A decididas por el humano el 2026-10-30 (literal: «ok» a «F-047: A, A, A. Lanzo el
 implementer.»), registradas en `design.md` §11; DA13 aplicada al texto de R19. Rama
 `feature/F-047-parte-nuevo-en-espera`, worktree `partes-wt-f047`. Informe parcial (trazas RED de
