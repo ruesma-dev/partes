@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **61 features**, 13 abiertas, 48 terminadas.
+Resumen: **61 features**, 12 abiertas, 49 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -12,7 +12,6 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
-| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
@@ -69,6 +68,7 @@ Bloqueadas: **F-032**.
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | critico | M2–M8 en el portal |
 | F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | estandar | releer los 6 partes sin obra cuando F-059 esté desplegada |
 | F-004 | Congelar registros aprobados | 5 | estandar |  |
+| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | critico | Sin desplegar. Pendiente del humano: desplegar sv4 y después sv3 (dos llamadas a redeploy_partes.ps1) y M1–M3 (current.md). |
 | F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |  |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
 | F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar | M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK |
@@ -87,14 +87,6 @@ estado **spec lista** · prioridad 4 · rigor `critico` · SDD sí · rama `feat
 **Spec**: escrita, pendiente de aprobación · `partes-wt-f055`
 
 Origen: DA5 de F-054, aprobada por el humano el 2026-10-21 («apruebo F-054 y la DA5»). Una línea de un parte sin fecha viaja de sv4 a sv5 con fecha_int = 0 (int(r.fecha_int or 0) en lineas_para_registro) y sv5 la acepta: con SigridFake, ejecutar da de alta PT0/00001 del periodo 0/00 y escribe la línea con fec = 0; con 20261340 abre un parte de 2026/13. No ha pasado (M1 de F-054: 25 líneas sin fecha, ninguna enviada), pero 15 con obra son aprobables hoy y en Sigrid no se borra. sv5: función pura motivo_fecha_no_valida (application/services/fecha_linea.py; válida = entero, del calendario, entre 01/01/2026 y hoy + 31 días) y paso 2a de RegistroPipeline.preparar: la línea se omite con «fecha_no_valida: …» antes de leer nada de Sigrid (recursos, reshor, partes), manda sobre las demás omisiones y sobre dedicacion, y vale para preflight, ejecutar, la cola q-transfer y las extras nuevas del reajuste F-046. fecha_int pasa a opcional en LineaIn y LineaEntrada (null u omitido = sin fecha, sin 422). sv4, sv3, esquema y colas no cambian; F-034, F-053 y F-031 tampoco. Doc: ARCHITECTURE semántica 6 y azure-apps/partes.md con nota informativa a porcentajes. Decisiones DA1-DA9 y M1-M3 en specs/F-055-sv5-omite-lineas-sin-fecha/design.md §9 y §11.
-
-### F-047 · Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra)
-
-estado **spec lista** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-047-parte-nuevo-en-espera`
-
-**Spec**: aprobada (DA1–DA10) · `partes-wt-f047`
-
-Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.
 
 ### F-052 · Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa
 
@@ -453,6 +445,16 @@ Petición del humano del 2026-10-21 («2 si»): «abro una feature pequeña para
 estado **terminada** · prioridad 5 · rigor `estandar` · SDD sí · rama `feature/F-004-congelar-aprobados`
 
 Un registro aprobado (y con más razón, ya registrado en Sigrid) no debe poder editarse en el portal sin desaprobarlo antes de forma explícita.
+
+### F-047 · Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra)
+
+estado **terminada** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-047-parte-nuevo-en-espera`
+
+**Spec**: aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047` · review APPROVED pasada 2
+
+**Pendiente**: Sin desplegar. Pendiente del humano: desplegar sv4 y después sv3 (dos llamadas a redeploy_partes.ps1) y M1–M3 (current.md).
+
+Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.
 
 ### F-010 · Saneamiento: resincronizar orm_models.py entre sv3 y sv4
 

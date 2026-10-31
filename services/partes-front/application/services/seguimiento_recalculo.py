@@ -20,6 +20,10 @@ spec):
     algo fallo; el parte se edita como siempre para no bloquearlo nunca
     mas de 10 min (DA13).
 
+F-047: el pedido tambien lo escribe sv3 al guardar un parte nuevo, con
+el id del propio documento. `motivo_espera` lo distingue: `nuevo` (pedido
+= id) o `recalculo` (el uuid4 de sv4). El estado no cambia por el motivo.
+
 `RecalculandoError` es la guarda del parte en espera (R38): subclase de
 `CongeladoError` para que el manejador 409 de F-004 y los `except
 CongeladoError` existentes la traten sin cambios.
@@ -44,6 +48,11 @@ ESTADO_NO_EXISTE = "no_existe"
 #: Constante en codigo a proposito: no es configuracion de despliegue.
 ESPERA_MAX_S = 600
 
+#: F-047 (R11): por que espera un parte. `nuevo`: lo guardo sv3 y aun no
+#: ha repartido sus horas; `recalculo`: sv4 pidio un recalculo (F-042).
+MOTIVO_NUEVO = "nuevo"
+MOTIVO_RECALCULO = "recalculo"
+
 #: Motivo del 409 de una edicion sobre un parte en espera (R38).
 MOTIVO_RECALCULANDO = (
     "El parte se está recalculando (extras): espera a que termine.")
@@ -65,6 +74,14 @@ def _hora_utc(texto: str | None) -> datetime | None:
     if hora.tzinfo is None:
         hora = hora.replace(tzinfo=timezone.utc)
     return hora
+
+
+def motivo_espera(document_id: str | None, pedido_id: str | None) -> str:
+    """F-047 (R11): `nuevo` si el pedido es el id del propio documento (lo
+    escribio sv3 al guardarlo); `recalculo` en cualquier otro caso."""
+    if pedido_id and pedido_id == document_id:
+        return MOTIVO_NUEVO
+    return MOTIVO_RECALCULO
 
 
 def estado_seguimiento(pedido_id: str | None, terminado_id: str | None,

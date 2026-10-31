@@ -28,7 +28,7 @@ from typing import Any, Callable, Optional
 
 from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import joinedload, selectinload
 
 from infrastructure.database.orm_models import (
     REPARTO_APLICADO,
@@ -93,8 +93,10 @@ from application.services.edicion_celda import (
 from application.services.seguimiento_recalculo import (
     ESTADO_NO_EXISTE,
     ESTADO_PENDIENTE,
+    MOTIVO_NUEVO,
     RecalculandoError,
     estado_seguimiento,
+    motivo_espera,
 )
 from application.services.incidencias_horas import (
     NIVEL_AVISO,
@@ -199,6 +201,15 @@ MOTIVO_EXCLUIDA_DEDICACION = (
 #: una incidencia de dia completo y horas. No es un `sigrid_estado`: nunca
 #: se escribe en la fila, solo se cuenta en la respuesta de la aprobacion.
 EXCLUIDA_INCOMPATIBLE = "incompatible"
+
+#: F-047 (R17, DA3-B): clave de `excluidas` de las lineas de un parte
+#: NUEVO en espera: sv3 no reparte lo aprobado, asi que aprobarlo en la
+#: espera dejaria sus horas sin repartir para siempre. Solo existe si es
+#: > 0, como `incompatible`.
+EXCLUIDA_RECALCULANDO = "recalculando"
+MOTIVO_EXCLUIDA_RECALCULANDO = (
+    "parte en espera: se están repartiendo sus horas; pulsa Actualizar "
+    "cuando termine")
 
 
 def _estado_norm(estado: str | None) -> str:
@@ -869,6 +880,18 @@ def _exigir_doc_editable(doc: ParteDocumentOrm) -> None:
     exigir_documento_editable(
         aprobado=bool(doc.approved), estados_lineas=_estados_de_doc(doc),
     )
+
+
+def _parte_nuevo_en_espera(doc: ParteDocumentOrm) -> bool:
+    """F-047 (R16, R17, DA3-B): el parte es NUEVO (pedido = su id, lo
+    escribio sv3 al guardarlo), esta activo y sigue `pendiente`. El de un
+    recalculo de sv4 (uuid4) no cuenta: F-046 «Aplicar» lo pide y registra
+    sus lineas en la misma peticion."""
+    return (bool(doc.is_active)
+            and motivo_espera(doc.id, doc.recalculo_pedido_id) == MOTIVO_NUEVO
+            and estado_seguimiento(
+                doc.recalculo_pedido_id, doc.recalculo_terminado_id,
+                doc.recalculo_pedido_at_utc, _ahora_utc()) == ESTADO_PENDIENTE)
 
 
 def _exigir_sin_recalculo(doc: ParteDocumentOrm | None) -> None:
@@ -1764,6 +1787,36 @@ class ParteReviewRepository:
             }
         return estados
 
+    def motivos_espera(self, ids) -> dict[str, str]:
+        """F-047 (R12): `{id: motivo}` de los documentos ACTIVOS en espera
+        (`pendiente`), en UNA consulta. Con `ids`, de entre ellos (ignora
+        None y repetidos; vacio => `{}` sin consultar); con None, de toda la
+        base, filtrando en ella a los activos con pedido sin terminar."""
+        stmt = select(ParteDocumentOrm.id, ParteDocumentOrm.is_active,
+                      ParteDocumentOrm.recalculo_pedido_id,
+                      ParteDocumentOrm.recalculo_pedido_at_utc,
+                      ParteDocumentOrm.recalculo_terminado_id)
+        if ids is None:
+            stmt = stmt.where(
+                ParteDocumentOrm.is_active.is_(True),
+                ParteDocumentOrm.recalculo_pedido_id.is_not(None),
+                or_(ParteDocumentOrm.recalculo_terminado_id.is_(None),
+                    ParteDocumentOrm.recalculo_terminado_id
+                    != ParteDocumentOrm.recalculo_pedido_id))
+        else:
+            unicos = list(dict.fromkeys(i for i in ids if i))
+            if not unicos:
+                return {}
+            stmt = stmt.where(ParteDocumentOrm.id.in_(unicos))
+        with self._session_factory.create_session() as session:
+            filas = session.execute(stmt).all()
+        ahora = _ahora_utc()
+        return {f.id: motivo_espera(f.id, f.recalculo_pedido_id)
+                for f in filas
+                if f.is_active and estado_seguimiento(
+                    f.recalculo_pedido_id, f.recalculo_terminado_id,
+                    f.recalculo_pedido_at_utc, ahora) == ESTADO_PENDIENTE}
+
     def marcar_recalculo_pedido(self, document_id: str, *, peticion_id: str,
                                 ahora_utc: datetime | None = None) -> bool:
         """R12: anota en el documento el recalculo que sv4 va a pedir.
@@ -2163,9 +2216,14 @@ class ParteReviewRepository:
                 select(ParteRegistroOrm)
                 .where(ParteRegistroOrm.id.in_(ids))
                 .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .options(joinedload(ParteRegistroOrm.document))
             ).scalars().all())
             excl_reparto = self._excluidas_reparto(
                 session, regs, repartos_decididos)
+            # F-047 (R17, DA3-B): los partes nuevos en espera; el documento
+            # llega en el mismo SELECT (`joinedload`): 0 sentencias nuevas.
+            en_espera = {r.document_id for r in regs
+                         if _parte_nuevo_en_espera(r.document)}
             incompat: dict[int, Incompatibilidad] = {}
             if incidencias is not None:
                 incompat = detectar(
@@ -2197,6 +2255,14 @@ class ParteReviewRepository:
                         EXCLUIDA_REPARTO, 0) + 1
                     detalle.append(_excluida_detalle(
                         r, EXCLUIDA_REPARTO, excl_reparto[r.id]))
+                    continue
+                if r.document_id in en_espera:
+                    # F-047 (R17): sus horas aun no estan repartidas.
+                    excluidas[EXCLUIDA_RECALCULANDO] = excluidas.get(
+                        EXCLUIDA_RECALCULANDO, 0) + 1
+                    detalle.append(_excluida_detalle(
+                        r, EXCLUIDA_RECALCULANDO,
+                        MOTIVO_EXCLUIDA_RECALCULANDO))
                     continue
                 nivel = incompat.get(r.id)
                 if nivel is not None and nivel.nivel == NIVEL_BLOQUEO:
@@ -3721,6 +3787,10 @@ class ParteReviewRepository:
                 if self._filas_reparto(session, self._claves_de(activas),
                                        ESTADOS_BLOQUEAN):
                     raise RepartoPendienteError()
+                # F-047 (R16, DA3-B): ni un parte nuevo en espera: sv3 no
+                # reparte lo aprobado. Mismo motivo que el 409 de F-043.
+                if _parte_nuevo_en_espera(doc):
+                    raise RecalculandoError()
         return self._set_approval(document_id, True, approved_by)
 
     # ----------------------------------------------------------------- #

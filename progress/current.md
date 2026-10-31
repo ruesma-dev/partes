@@ -1,6 +1,71 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-047 · DONE 2026-10-31 (review APPROVED pasada 2, rigor crítico; mutación 32/32 muertos; sin desplegar; pendiente: desplegar sv4 → sv3 y M1–M3 del humano): parte nuevo en espera hasta que sv3 reparta sus horas
+
+**Desbloqueo (2026-10-31)**: el humano eligió la opción A del bloqueo (literal: «a» a «¿A y el ajuste
+aprobado?»): DA3 → B (solo el motivo `nuevo` en R16 y R17) y desviación de design §4 (`joinedload` +
+`estado_seguimiento` sobre `r.document`, 0 sentencias nuevas). Registrado en `design.md` §4 y §11,
+`requirements.md` R16–R17 y `tasks.md` T6. F-047 vuelve a `in_progress`. Lo que sigue es el
+registro del bloqueo, conservado como historia.
+
+**Implementación (2026-10-31)**: T1–T11 hechas y commiteadas (detalle en `progress/impl_F-047.md`);
+`azure-apps/partes.md` con commit local en ese repositorio. Pendiente: campaña de mutación
+completa (la lanza el líder) y revisión.
+**Despliegue y verificación MANUAL (T13, los pide el humano)**: en DOS llamadas desde `infra/`,
+primero `.\redeploy_partes.ps1 -Solo sv4` y después `-Solo sv3` (juntas, el script fija sv3 antes).
+- M1 (portal): un parte escaneado de prueba sale «procesando…» en su obra y no se edita; el resto sí;
+  al terminar, «Actualizar» ⇒ horas repartidas.
+- M2 (base `partes`, solo lectura): `SELECT id, recalculo_pedido_id, recalculo_terminado_id FROM
+  parte_documents WHERE id = '<id de M1>';` ⇒ los tres iguales.
+- M3 (Log Analytics de sv3): `[parte-repo] guardado` y `parte nuevo repartido … marcado=True` del mismo
+  `document_id`; la diferencia de horas es la espera real (revalida los 20–40 s).
+
+DA11–DA13 = A decididas por el humano el 2026-10-30 (literal: «ok» a «F-047: A, A, A. Lanzo el
+implementer.»), registradas en `design.md` §11; DA13 aplicada al texto de R19. Rama
+`feature/F-047-parte-nuevo-en-espera`, worktree `partes-wt-f047`. Informe parcial (trazas RED de
+T1–T6): `progress/impl_F-047.md`.
+- **Hecho y commiteado (T1–T5, en verde)**: ORM (comentario, dos copias), sv3 completo (pedido en
+  `save_parte`, marca tras conciliar, `build_app`), sv4 `motivo_espera` + `motivos_espera`, contrato
+  raíz R24–R25. Suite sv3 completa: 2371 passed.
+- **T6 sin commitear en el worktree** (R15–R17): guarda en `approve_document` (repositorio y ruta),
+  exclusión `recalculando` en `lineas_para_registro`, texto en `_motivo_sin_lineas`, 50 tests F-047
+  sv4 en verde. Rompe **4 tests existentes** (DA8 ⇒ `blocked`):
+  1. **Choque de diseño (decisión del humano)** — `test_f046_aplicar.py`: `r33_aplicar_reajusta_en_sigrid_y_registra`,
+     `r34_sin_respuesta_sigue_aplicando_y_se_reintenta`, `r33_encolar_aplica_por_http_y_encola_las_lineas`.
+     En «Aprobar» con «Aplicar» (F-046 R33), `_aplicar_reparto` reajusta en Sigrid, **pide el recálculo
+     seguido** de los partes del día (`_pedir_recalculo_seguido` escribe un pedido uuid4 ⇒ `pendiente`)
+     y, en la MISMA petición, `lineas_para_registro` registra esas líneas. Con DA3-A (excluir los partes
+     en espera de los dos motivos) esas líneas salen `recalculando` y no se registra nada. La
+     revalidación no lo vio. Opciones:
+     - **A (recomendada)**: DA3 → «solo el motivo `nuevo`» en la exclusión de la aprobación en bloque
+       (R17) y en `approve_document` (R16) — es la alternativa B que ya listaba DA3. El recálculo de
+       F-042/F-043 (uuid4) sigue como en F-043 DA12 y F-046 no cambia.
+     - B: mantener los dos motivos, pero calcular la espera ANTES de aplicar los repartos (o eximir los
+       partes cuyo pedido escribió esta misma petición); toca el flujo de F-046 en `app.py`.
+     - C: mantener DA3-A tal cual y cambiar F-046 R33 (deja de registrar en el mismo clic): contra DA8.
+  2. **Mecánico (propuesta de desviación, ya probada)** — `test_f062_inicio_con_ciz.py::test_f062_r5_sin_consultas_nuevas`
+     fija en 5 las sentencias de `lineas_para_registro`; la consulta extra de `motivos_espera` (design §4)
+     la sube a 6. En el worktree ya está la alternativa: `joinedload(ParteRegistroOrm.document)` en el
+     SELECT de líneas que ya existe y el estado con `estado_seguimiento` sobre `r.document`
+     (0 sentencias nuevas): F-062 vuelve a verde. Falta adaptar mi test
+     `test_f047_r17_una_sola_pregunta_por_la_espera` (espía `motivos_espera`) a contar sentencias.
+- Con la decisión: aplicar A/B/C en T6, completar T6 y seguir con T7–T14. La mutación la lanza el líder.
+
+## F-047 · spec revalidada 2026-10-30 (spec-author; DA11–DA13 = A el mismo día): parte nuevo en espera hasta que sv3 reparta sus horas
+
+Orden del humano (2026-10-30): «vamos con f47». Rama `feature/F-047-parte-nuevo-en-espera`,
+worktree `partes-wt-f047`, con `dev` 75816f2 fusionado (795a546). La spec del 2026-10-14
+(DA1–DA10 aprobadas) se ha contrastado con el código actual de sv3 y sv4: **13 cambios
+mecánicos** aplicados (mismo comportamiento; lista en `tasks.md` «Revalidación 2026-10-30»)
+y **3 decisiones abiertas nuevas**, todas con recomendación A (`design.md` §11):
+- **DA11** matriz «Horas por día» de la obra (F-049): no se marca la espera (A) o sí (B, choca con DA8).
+- **DA12** parte sin obra o sin fecha (F-054): espera como todos (A) o sin pedido (B).
+- **DA13** candado de F-046 (hasta 300 s): R19 sin cifra cerrada (A) o tal cual (B).
+La causa (commit antes de conciliar) sigue cierta; la cifra de 20–40 s no se ha vuelto a medir
+(M3 la mide). Detalle en `progress/explore_F-047_revalidacion.md`. El implementer NO empieza
+hasta que el humano decida DA11–DA13.
+
 ## F-056 · CERRADA y ACTIVADA 2026-10-30 (review APPROVED pasada 2, rigor crítico; 14 equivalentes aceptados por el humano; desplegada sv5 → sv4; M2 OK en local, `progress/m2_F-056.md`; M3 OK; `FRANQUICIA_CAMPO_EXT=10` en sv5 `ca-sv5-transfer--0000004`; M2 (g) no se hace, cubierta por tests; cerrada por el humano: «entoces cierra feature»): franquicia de extras
 
 Spec en `specs/F-056-franquicia-de-extras/` (rama `feature/F-056-franquicia-de-extras`,

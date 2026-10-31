@@ -685,6 +685,7 @@ var FiltrosSesion = (function () {
   var VISTA_MAX_MS = 60000;
   var recalculoVigilados = {};        // document_id -> fecha (ISO)
   var recalculoSondeo = null;         // {ultimaValida: ms} mientras sondea
+  var recalculoMotivos = {};          // document_id -> motivo (F-047)
 
   // R25: que hacer con el estado de `GET /api/recalculo`.
   function accionPorEstado(estado) {
@@ -703,8 +704,26 @@ var FiltrosSesion = (function () {
     return (edad >= 0 && edad < VISTA_MAX_MS) ? guardada : null;
   }
 
-  function textoAvisoRecalculo(tipo, fecha) {
+  // F-047 (R19-R21): con `motivo` "nuevo", los textos del parte que sv3
+  // aun no ha repartido; si no, los de F-043 tal cual (R22).
+  function textoAvisoRecalculo(tipo, fecha, motivo) {
     var d = fmtFechaEs(fecha);
+    if (motivo === "nuevo") {
+      if (tipo === "espera") {
+        return "Procesando el parte nuevo del " + d + ": se están " +
+          "repartiendo sus horas normales y extra (suele tardar menos de " +
+          "1 min; con más partes en cola, unos minutos). Puedes seguir " +
+          "trabajando con el resto.";
+      }
+      if (tipo === "terminado") {
+        return "Parte nuevo del " + d + " procesado: horas repartidas.";
+      }
+      if (tipo === "vencido") {
+        return "No se ha podido confirmar el reparto de horas del parte " +
+          "nuevo del " + d + ". Pulsa Actualizar; si siguen sin repartir, " +
+          "avisa a quien mantiene el portal.";
+      }
+    }
     if (tipo === "espera") {
       return "Recalculando extras del parte del " + d + " (suele tardar " +
         "1–2 min). Puedes seguir trabajando con el resto.";
@@ -719,12 +738,13 @@ var FiltrosSesion = (function () {
     return estadoRecalculo("fallo")[0];
   }
 
-  // Filas del parte (vistas de obra y trabajador) y contenedores del
-  // detalle del parte (R37).
+  // Filas del parte (vistas de obra y trabajador, listado), contenedores
+  // del detalle del parte (R37) y su barra de acciones (F-047 R18).
   function contenedoresEspera(docId) {
     return Array.prototype.slice.call(document.querySelectorAll(
       'tr[data-document-id="' + docId + '"], ' +
-      '[data-parte-contenido][data-document-id="' + docId + '"]'));
+      '[data-parte-contenido][data-document-id="' + docId + '"], ' +
+      '[data-parte-acciones][data-document-id="' + docId + '"]'));
   }
 
   // La marca junto a la fecha (o al final de la primera celda); `texto`
@@ -749,7 +769,10 @@ var FiltrosSesion = (function () {
 
   // R18: deshabilita los controles del parte recordando cuales ya lo
   // estaban, para que `soltarEspera` los devuelva tal cual (R23).
-  function ponerEnEspera(docId) {
+  // F-047: `motivo` "nuevo" (parte que sv3 aun no reparte) cambia la marca
+  // y los textos; sin el (cambio de fecha de `wireFechaInput`), F-043.
+  function ponerEnEspera(docId, motivo) {
+    recalculoMotivos[docId] = motivo || "";
     contenedoresEspera(docId).forEach(function (cont) {
       cont.setAttribute("data-recalculando", "1");
       Array.prototype.forEach.call(
@@ -758,7 +781,8 @@ var FiltrosSesion = (function () {
           c.setAttribute("data-espera-previo", c.disabled ? "1" : "0");
           c.disabled = true;
         });
-      marcarEspera(cont, "recalculando…");
+      marcarEspera(cont, recalculoMotivos[docId] === "nuevo"
+        ? "procesando…" : "recalculando…");
     });
   }
 
@@ -798,7 +822,8 @@ var FiltrosSesion = (function () {
     tarjeta.setAttribute("data-document-id", docId);
     var texto = document.createElement("span");
     texto.className = "recalculo-texto";
-    texto.textContent = textoAvisoRecalculo(tipo, fecha);
+    texto.textContent = textoAvisoRecalculo(tipo, fecha,
+                                            recalculoMotivos[docId]);
     tarjeta.appendChild(texto);
     if (tipo === "terminado" || tipo === "vencido") {
       var actualizar = document.createElement("button");
@@ -864,8 +889,11 @@ var FiltrosSesion = (function () {
     if (accion === "terminado" || accion === "vencido") {
       // R20/R22: siguen deshabilitadas: sus datos estan viejos.
       contenedoresEspera(docId).forEach(function (cont) {
-        marcarEspera(cont, accion === "terminado"
-          ? "recalculado · pulsa Actualizar" : "sin confirmar · pulsa Actualizar");
+        marcarEspera(cont, accion !== "terminado"
+          ? "sin confirmar · pulsa Actualizar"
+          : (recalculoMotivos[docId] === "nuevo"
+            ? "procesado · pulsa Actualizar"
+            : "recalculado · pulsa Actualizar"));
       });
       avisoRecalculo(docId, accion, fecha);
       return;
@@ -923,7 +951,7 @@ var FiltrosSesion = (function () {
   // R18/R26: los partes que el servidor pinta en espera (R37) esperan al
   // cargar, con su aviso y un unico sondeo.
   function esperasDeLaPagina() {
-    var vistos = {};
+    var vistos = {}, motivos = {};
     Array.prototype.forEach.call(document.querySelectorAll(
       '[data-recalculando="1"][data-document-id]'), function (cont) {
         var docId = cont.getAttribute("data-document-id");
@@ -933,9 +961,13 @@ var FiltrosSesion = (function () {
           fecha = inp ? inp.defaultValue : "";
         }
         if (!vistos[docId]) vistos[docId] = fecha || "";
+        // F-047 (R19): el motivo, del primer contenedor del documento.
+        if (!(docId in motivos)) {
+          motivos[docId] = cont.getAttribute("data-recalculo-motivo") || "";
+        }
       });
     Object.keys(vistos).forEach(function (docId) {
-      ponerEnEspera(docId);
+      ponerEnEspera(docId, motivos[docId]);
       avisoRecalculo(docId, "espera", vistos[docId]);
       vigilarRecalculo(docId, vistos[docId]);
     });

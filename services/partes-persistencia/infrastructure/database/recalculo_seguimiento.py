@@ -2,7 +2,8 @@
 """Marca de «recalculo terminado» en `parte_documents` (F-043, R27-R32).
 
 sv4 escribe `recalculo_pedido_id` (uuid4) y su hora en el documento ANTES
-de publicar el recalculo de F-042. sv3:
+de publicar el recalculo de F-042 o, en un parte nuevo, lo escribe la
+ingesta de sv3 al guardarlo, con el id del documento (F-047). sv3:
 
   1. lee ese pedido antes de la pasada (`pedido_actual`);
   2. tras una pasada sin excepcion, lo copia a `recalculo_terminado_id`

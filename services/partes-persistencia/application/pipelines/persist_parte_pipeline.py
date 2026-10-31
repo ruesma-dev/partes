@@ -20,7 +20,12 @@ Pasos:
          el recurso elegido, que el conciliador confirma despues.
   5. Calcula ``review_required`` (un casado por recurso no lo sube; sin
      obra casada o sin fecha => revision, F-054, con un WARNING).
-  6. Persiste documento + registros.
+  6. Persiste documento + registros y concilia (partidas y recurso).
+  7. F-047: marca el parte nuevo como repartido. Con el conciliador de
+     recurso y el seguimiento cableados, el documento nace «en espera»
+     (pedido = su id, mismo commit) y, si la conciliacion de recurso no
+     lanzo, se marca terminado; si lanzo, no se marca y sv4 lo da por
+     vencido a los 10 min.
 """
 from __future__ import annotations
 
@@ -118,6 +123,7 @@ class PersistPartePipeline:
         sharepoint_uploader: Any = None,
         partida_conciliador: Any = None,
         recurso_conciliador: Any = None,
+        recalculo_seguimiento: Any = None,
         hoy: Callable[[], date] = date.today,
     ) -> None:
         # F-023 (R16): de donde sale «hoy» cuando el parte no trae fecha.
@@ -132,6 +138,9 @@ class PersistPartePipeline:
         # partidas (presupuesto) y recurso/parte de trabajo. Si None, se omiten.
         self._partida_conciliador = partida_conciliador
         self._recurso_conciliador = recurso_conciliador
+        # F-047: adaptador de F-043 (duck-typing: `.marcar_terminado(
+        # document_id, peticion_id) -> bool`). Si None, sin pedido ni marca.
+        self._recalculo_seguimiento = recalculo_seguimiento
 
     def run(self, request: PersistParteRequest) -> PersistParteResult:
         envelope = request.extraction_envelope or {}
@@ -192,6 +201,10 @@ class PersistPartePipeline:
 
         # ---- Persistencia ---- #
         document_id = str(uuid.uuid4())
+        # F-047 (R1, R2): el parte nuevo espera su reparto solo si alguien
+        # lo va a marcar terminado (conciliador de recurso + seguimiento).
+        seguido = (self._recurso_conciliador is not None
+                   and self._recalculo_seguimiento is not None)
         self._repository.save_parte(
             document_id=document_id,
             parte=parte,
@@ -200,6 +213,7 @@ class PersistPartePipeline:
             raw_extraction_json=json.dumps(envelope, ensure_ascii=False),
             raw_context_json=json.dumps(context, ensure_ascii=False),
             review_required=review_required,
+            recalculo_pedido_id=document_id if seguido else None,
         )
         motivos = motivos_cabecera(parte)
         if motivos:
@@ -213,7 +227,11 @@ class PersistPartePipeline:
 
         # ---- Conciliacion automatica (todos los partes): partida + recurso ----
         self._conciliar_partidas_safely()
-        self._conciliar_recursos_safely()
+        repartido = self._conciliar_recursos_safely()
+        # F-047 (R4, R5): solo si la de recurso acabo bien; la de partidas
+        # no cuenta (lo que se espera es el reparto de horas, DA2).
+        if seguido and repartido:
+            self._marcar_parte_nuevo(document_id)
 
         empleados = {
             r.empleado.ide or r.trabajador_nombre_leido
@@ -235,11 +253,12 @@ class PersistPartePipeline:
         )
 
     # ----------------------------------------------------------------- #
-    def _conciliar_partidas_safely(self) -> None:
+    def _conciliar_partidas_safely(self) -> bool:
         """Lanza la conciliacion de partidas sobre TODOS los partes activos.
-        Best-effort: nunca rompe la persistencia del parte."""
+        Best-effort: nunca rompe la persistencia del parte. True si se lanzo
+        y no fallo."""
         if self._partida_conciliador is None:
-            return
+            return False
         try:
             res = self._partida_conciliador.conciliar_todos()
             logger.info("[persist-parte] conciliacion de partidas: %s", res)
@@ -248,13 +267,18 @@ class PersistPartePipeline:
                 "[persist-parte] conciliacion de partidas fallo "
                 "(no bloquea el guardado): %r", exc
             )
+            return False
+        return True
 
     # ----------------------------------------------------------------- #
-    def _conciliar_recursos_safely(self) -> None:
+    def _conciliar_recursos_safely(self) -> bool:
         """Lanza la conciliacion de recurso/parte sobre TODOS los partes
-        activos. Best-effort: nunca rompe la persistencia."""
+        activos. Best-effort: nunca rompe la persistencia. True si se lanzo
+        y no fallo (F-047: el reparto de horas ya esta hecho); False sin
+        conciliador o si lanzo, tambien la `TimeoutError` del candado de
+        F-046."""
         if self._recurso_conciliador is None:
-            return
+            return False
         try:
             res = self._recurso_conciliador.conciliar_todos()
             logger.info("[persist-parte] conciliacion de recurso: %s", res)
@@ -263,6 +287,29 @@ class PersistPartePipeline:
                 "[persist-parte] conciliacion de recurso fallo "
                 "(no bloquea el guardado): %r", exc
             )
+            return False
+        return True
+
+    # ----------------------------------------------------------------- #
+    def _marcar_parte_nuevo(self, document_id: str) -> None:
+        """F-047 (R4, R6): da por repartido el parte nuevo (pedido = su id)
+        con el UPDATE condicional de F-043, que no toca un pedido posterior
+        de sv4 (R7). Best-effort: un fallo deja el parte en espera hasta que
+        vence (10 min) y nunca rompe la persistencia."""
+        try:
+            marcado = self._recalculo_seguimiento.marcar_terminado(
+                document_id, document_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[persist-parte] no se pudo marcar el parte nuevo "
+                "document_id=%s (%s): sv4 lo dara por vencido.",
+                document_id, type(exc).__name__,
+            )
+            return
+        logger.info(
+            "[persist-parte] parte nuevo repartido document_id=%s marcado=%s",
+            document_id, marcado,
+        )
 
     # ----------------------------------------------------------------- #
     def _archive_to_sharepoint(

@@ -190,6 +190,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (`sin_seguimiento`, `pendiente`, `terminado`, `vencido`, `no_existe`) y el
    portal lo sondea cada 5 s sin recargar nunca solo: al terminar ofrece
    «Actualizar», que recarga conservando scroll y filtros.
+   **F-047 · parte nuevo en espera**: el pedido también lo escribe **sv3 al
+   guardar un parte nuevo** (con el conciliador de recurso y el seguimiento
+   cableados): `recalculo_pedido_id` = id del propio documento, en el mismo
+   commit que el documento y sus líneas. Tras las dos conciliaciones, si la
+   de recurso no lanzó (también la `TimeoutError` del candado de F-046), lo
+   marca con `marcar_terminado(id, id)` (log `parte nuevo repartido`); si
+   lanzó, no lo marca, no propaga y el parte vence a los 10 min. Un sha256
+   repetido no guarda ni marca. sv4 deduce el motivo (`motivo_espera`:
+   pedido = id ⇒ `nuevo`; si no, `recalculo`) y pinta el parte nuevo
+   «procesando…» con textos propios en obra, trabajador, detalle y `/partes`
+   (`motivos_espera`, una consulta); no lo aprueba (semántica 10).
    **F-049 · editor de celda de la matriz de obra**: el doble clic en la
    matriz «Horas por día» edita la celda entera (obra, clave de trabajador
    de F-050 y fecha) y ofrece la ordinaria o la extra que falte; se guarda
@@ -286,7 +297,8 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `parte_documents` lleva `empresa_membrete`, `empresa` y
    `empresa_origen` (nullables; semántica 12). Desde F-043,
    `parte_documents` lleva `recalculo_pedido_id` / `recalculo_pedido_at_utc`
-   (los escribe sv4) y `recalculo_terminado_id` / `recalculo_terminado_at_utc`
+   (los escribe sv4 y, desde F-047, sv3 al guardar un parte nuevo, con el id
+   del documento) y `recalculo_terminado_id` / `recalculo_terminado_at_utc`
    (los escribe sv3), nullables y fuera de deshacer (semántica 3). Desde F-040,
    `empleado_alias` lleva `recurso_ide` (nullable) y `empleado_ide` pasa a
    nullable: el `DROP NOT NULL` va en `DDL_EXTRA_POSTGRES`, única
@@ -345,7 +357,12 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     piden su propia pasada. Lo pinta el servidor (`data-recalculando`), así
     que vale en cualquier pestaña, y vence a los 10 min. Desde F-049 también
     esperan los partes de otras obras del mismo día de una celda guardada
-    (pedido compartido, semántica 3).
+    (pedido compartido, semántica 3). Desde F-047, un parte **nuevo** en
+    espera (semántica 3) tampoco se aprueba: `approve_document` lo rechaza
+    con ese motivo y `lineas_para_registro` deja fuera sus líneas
+    (`excluidas["recalculando"]`), porque sv3 no reparte lo aprobado. El de
+    un recálculo de sv4 se aprueba como antes (DA3-B): F-046 «Aplicar» pide
+    un recálculo y registra las líneas en la misma petición.
     **Reparto pendiente (F-046)**: tampoco cambia la regla. Las líneas de un
     día con reparto `pendiente`, `aplicando` o `rechazado` no se registran
     sin decidir («Aplicar» / «Mantener lo registrado») y su parte no se

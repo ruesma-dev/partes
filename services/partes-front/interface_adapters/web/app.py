@@ -47,6 +47,7 @@ from application.services.comprobacion_sigrid import (
 )
 from application.services.congelacion import CongeladoError
 from application.services.parte_vacio import DuplicadoActivoError
+from application.services.seguimiento_recalculo import MOTIVO_NUEVO
 from application.services.edicion_celda import (
     MOTIVO_CELDA_CAMBIADA,
     Cambio,
@@ -59,7 +60,6 @@ from application.services.reparto_aviso import (
     ESTADO_APLICANDO,
     ESTADO_PENDIENTE,
     RepartoCambiadoError,
-    RepartoPendienteError,
     bloque_repartos,
     payload_reajuste,
 )
@@ -1141,6 +1141,8 @@ def build_app(
             and _cd_efectivo >= settings.jornada_por_defecto
         )
 
+        recalculando = repository.documentos_en_espera(
+            r.document_id for r in detail.registros)
         context = {
             "request": request,
             "title": settings.app_title,
@@ -1165,9 +1167,10 @@ def build_app(
             "back": f"/trabajadores/{worker_key}",
             "worker_key": worker_key,
             "message": message,
-            # F-043 (R37): documentos de la vista en espera de sv3.
-            "recalculando": repository.documentos_en_espera(
-                r.document_id for r in detail.registros),
+            # F-043 (R37): documentos de la vista en espera de sv3, y
+            # F-047 (R13): de ellos, los partes nuevos.
+            "recalculando": recalculando,
+            "nuevos": _partes_nuevos(recalculando),
         }
         # F-046 (R37): lineas (y dias) con reparto pendiente de decidir.
         context["con_reparto"] = repository.registros_con_reparto(
@@ -1298,6 +1301,8 @@ def build_app(
         except Exception as exc:  # noqa: BLE001
             logger.warning("[obra-detail] empresa de la obra: %r", exc)
 
+        recalculando = repository.documentos_en_espera(
+            r.document_id for r in detail.registros)
         context = {
             "request": request,
             "title": settings.app_title,
@@ -1318,9 +1323,10 @@ def build_app(
             "obra_key": obra_key,
             "empresa_obra": empresa_obra,
             "message": message,
-            # F-043 (R37): documentos de la vista en espera de sv3.
-            "recalculando": repository.documentos_en_espera(
-                r.document_id for r in detail.registros),
+            # F-043 (R37): documentos de la vista en espera de sv3, y
+            # F-047 (R13): de ellos, los partes nuevos.
+            "recalculando": recalculando,
+            "nuevos": _partes_nuevos(recalculando),
             # F-046 (R37): lineas con reparto pendiente de decidir.
             "con_reparto": repository.registros_con_reparto(
                 r.id for r in detail.registros),
@@ -1675,6 +1681,8 @@ def build_app(
         partes = repository.list_partes(
             search=search, only_pending=only_pending
         )
+        # F-047 (R14): los partes en espera de toda la base, en UNA consulta.
+        espera = repository.motivos_espera(None)
         context = {
             "request": request,
             "title": settings.app_title,
@@ -1684,6 +1692,8 @@ def build_app(
             "total_pendientes": sum(1 for p in partes if not p.approved),
             "total_sin_firmar": sum(1 for p in partes if not p.firmado),
             "message": message,
+            "recalculando": set(espera),
+            "nuevos": {d for d, m in espera.items() if m == MOTIVO_NUEVO},
         }
         return templates.TemplateResponse(
             request=request, name="partes_list.html", context=context
@@ -1698,6 +1708,7 @@ def build_app(
         detail = repository.get_parte(document_id)
         if detail is None:
             raise HTTPException(status_code=404, detail="Parte no encontrado")
+        recalculando = repository.documentos_en_espera([detail.document_id])
         context = {
             "request": request,
             "title": settings.app_title,
@@ -1707,9 +1718,10 @@ def build_app(
             "preview_url": f"/partes/{document_id}/preview",
             "back": f"/partes/{document_id}",
             "message": message,
-            # F-043 (R37): el parte, si esta en espera de sv3.
-            "recalculando": repository.documentos_en_espera(
-                [detail.document_id]),
+            # F-043 (R37): el parte, si esta en espera de sv3; F-047 (R13),
+            # si ademas es nuevo.
+            "recalculando": recalculando,
+            "nuevos": _partes_nuevos(recalculando),
         }
         return templates.TemplateResponse(
             request=request, name="parte_detail.html", context=context
@@ -2467,6 +2479,14 @@ def build_app(
                 "y vuelve a seleccionar", fuera_de_ambito=fuera)
         return None
 
+    def _partes_nuevos(recalculando: set[str]) -> set[str]:
+        """F-047 (R13): de los documentos en espera, los partes nuevos. Sin
+        espera, ni una consulta mas."""
+        if not recalculando:
+            return set()
+        return {d for d, m in repository.motivos_espera(recalculando).items()
+                if m == MOTIVO_NUEVO}
+
     def _motivo_sin_lineas(excluidas: dict) -> str:
         """R23: por que no queda nada que registrar."""
         partes = []
@@ -2487,6 +2507,10 @@ def build_app(
             partes.append(f"{excluidas['incompatible']} con una incidencia "
                           "de día completo y horas el mismo día (corrige el "
                           "día en el portal)")
+        if excluidas.get("recalculando"):
+            # F-047 (R17).
+            partes.append(f"{excluidas['recalculando']} en espera de "
+                          "reparto (pulsa Actualizar cuando termine)")
         if not partes:
             return "no hay lineas activas que registrar"
         return "no hay lineas que registrar: " + " y ".join(partes)
@@ -3811,7 +3835,7 @@ def build_app(
                 document_id=document_id,
                 approved_by=_actor(request),
             )
-        except RepartoPendienteError as exc:   # F-046 (R36, DA13)
+        except CongeladoError as exc:   # F-046 (R36) y F-047 (R16)
             return _redirect(back, exc.motivo)
         return _redirect(back, "Parte aprobado")
 
