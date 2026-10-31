@@ -21,13 +21,11 @@ verificaciones MANUAL con su comando exacto.
 - Gemelos: `cmp` de las dos `orm_models.py` → **byte-idénticas**. Sin columnas nuevas (R24).
 - R27 / DA8: `git diff dev...HEAD --name-status` sobre los tests da solo 4 líneas `A`
   (los cuatro ficheros `test_f047_*`). **Ningún test existente modificado.**
-- Ficheros de design §7 sin tocar (diff vacío: despacho, main_worker, conciliadores,
-  congelacion, styles.css, sv1/sv2/sv5, infra, CLAUDE.md).
+- Ficheros de design §7 sin tocar (despacho, main_worker, conciliadores, congelacion, styles.css, sv1/2/5, infra).
 
 ## Checkpoints
 
-**C1** [x] init.sh exit 0 · [x] ficheros base presentes.
-**C2** [x] una sola feature `in_progress` (lo valida init.sh) · [x] rama
+**C1** [x] init.sh exit 0 · [x] ficheros base presentes. **C2** [x] una sola feature `in_progress` (lo valida init.sh) · [x] rama
 `feature/F-047-parte-nuevo-en-espera` · [x] `current.md` lleva la sesión activa en primer lugar; los
 cierres anteriores son el formato vigente en `dev`, no los introduce F-047 · [x] history al día
 (F-047 no está `done`).
@@ -58,10 +56,8 @@ entró en 04a8adc). El comando de despliegue que tiene que copiar el humano est�
 - [x] Campaña no reejecutada: **4543 s (76 min) según el informe**, por encima de 60 s. Me quedo en
   el recálculo puro + RM1–RM6 + RM4 (abajo).
 - [x] Coste por mutante = 4543,2 × 3 ÷ 32 = **426 s**: muy por encima de 1 s.
-- [x] Sin «⚠ CAMPAÑA NO VÁLIDA»; «Sin veredicto (base rota)» = 0; la línea base se corrió en los
-  3 workers.
-- [x] **RM1**: se midió en a7b3f4d. `git diff --stat a7b3f4d..HEAD` = solo
-  `progress/mutacion_F-047.md`, fuera del alcance. Vale.
+- [x] Sin «⚠ CAMPAÑA NO VÁLIDA»; «Sin veredicto (base rota)» = 0; línea base corrida en los 3 workers.
+- [x] **RM1**: medida en a7b3f4d; `a7b3f4d..HEAD` = solo `progress/mutacion_F-047.md` (fuera del alcance).
 - [x] **RM2**: media 142,0 s × 3 workers = 426 s por mutante, frente a una base de 657 s (sv4) y
   30 s (sv3). Es el mismo orden de magnitud, y que quede por debajo encaja con `-x` y 32/32 muertos.
   32 × 142,0 = 4544 ≈ total.
@@ -70,10 +66,8 @@ entró en 04a8adc). El comando de despliegue que tiene que copiar el humano est�
   design §3 lo fija como contrato y `test_f047_…` lo comprueba directamente (L411 del test de sv3).
   No son equivalentes respecto a ese contrato. El valor está muerto en producción: lo anoto como
   observación, no como defecto.
-- [x] RM5: N/A, porque no hay supervivientes ni equivalentes declarados.
-- [x] RM6: no se quitó ninguna guarda; el diff solo añade código defensivo.
-- [x] Sin campaña manual sustitutiva: N/A, porque la automática generó 32.
-- [x] Cero supervivientes: no hay análisis `PENDIENTE`.
+- [x] RM5 N/A (no hay equivalentes declarados) · RM6: no se quitó ninguna guarda · campaña manual N/A
+  (la automática generó 32) · cero supervivientes, ningún `PENDIENTE`.
 - **[ ] «Evidencias»**: la fila de mutación sigue diciendo «PENDIENTE: la campaña completa la lanza
   el líder» y falta el **nº de workers**. T12 pedía `--workers 6`, pero la campaña corrió con 3.
 **C4 ter** N/A: no hay `harness/rutas_sensibles.json`, e init.sh no señala rutas sensibles.
@@ -103,22 +97,15 @@ scratchpad, con `sys.executable -m pytest -q -x -p no:cacheprovider`. Sin mutant
 | J | sv4 web/app.py:3838 | `except CongeladoError as exc:   # F-046 (R36) y F-047 (R16)` → `except KeyError as exc:` | MATA (1 failed) |
 
 **Conclusión RM4: 10/10 muertos.** Las líneas críticas que el generador no muta también están
-vigiladas. Los 32 automáticos más estos 10 bastan para este alcance.
-
-Script: `rm4_f047.py` en el scratchpad del reviewer. El árbol de trabajo no se tocó.
+vigiladas: los 32 automáticos más estos 10 bastan. El script es `rm4_f047.py` (scratchpad); el árbol no se tocó.
 
 ## Cobertura requisito → test
 
 | Req | Test(s) |
 |---|---|
-| R1 | `test_f047_r1_save_parte_escribe_el_pedido_en_el_mismo_commit`, `…r1_el_pipeline_pasa_el_id_del_documento_como_pedido` |
-| R2 | `…r2_save_parte_con_pedido_none_igual_que_sin_el`, `…r2_sin_conciliador_o_sin_seguimiento_no_hay_pedido[×3]` |
-| R3 | `…r3_sha256_repetido_ni_guarda_ni_concilia_ni_marca` |
-| R4 | `…r4_orden_guardar_partidas_recurso_marcar` (+3) |
-| R5 | `…r5_si_la_conciliacion_de_recurso_lanza_no_se_marca[runtime|timeout_candado]` |
-| R6 | `…r6_info_al_marcar[True|False]`, `…r6_si_marcar_lanza_warning_sin_propagar` |
-| R7 | `…r7_un_pedido_de_sv4_durante_la_pasada_no_se_toca` (adaptador real) |
-| R8 / R9 / R10 | `…r8_save_parte_reemplazo_solo_marca_el_nuevo` / `…r9_…parametro_opcional_en_el_puerto` / `…r10_…` |
+| R1–R3 | sv3 `test_f047_r1_*` (2: mismo commit, pipeline pasa el id), `r2_*` (4), `r3_sha256_repetido_…` |
+| R4–R7 | sv3 `r4_orden_guardar_partidas_recurso_marcar` (+3), `r5_*[runtime|timeout_candado]`, `r6_*` (2), `r7_*` (adaptador real) |
+| R8–R10 | sv3 `r8_save_parte_reemplazo_…`, `r9_…parametro_opcional_en_el_puerto`, `r10_…` |
 | R11–R12 | sv4 `test_f047_r11_*` (2), `test_f047_r12_*` (5, borde 600 s) |
 | R13–R14 | sv4 `test_f047_r13_*` (4), `…r13_r18_*` (2), `test_f047_r14_*` (2) |
 | R15 / R16 / R17 | sv4 `test_f047_r15_*` (3) / `…r16_*` (6) / `…r17_*` (8) |
@@ -130,12 +117,10 @@ Script: `rm4_f047.py` en el scratchpad del reviewer. El árbol de trabajo no se 
 
 ## Observaciones (no bloquean)
 
-1. La barra del detalle también se deshabilita en la espera de un recálculo uuid4, que el servidor
-   sí aprobaría (DA3-B). R18 dice «mientras dure la espera» sin distinguir motivo: es coherente con
-   la spec. El implementer lo anota.
-2. `_conciliar_partidas_safely` devuelve un `bool` que nadie consume (design §3 lo pide).
-3. `/partes` llama a `motivos_espera(None)` en cada carga, con una consulta filtrada a los pedidos
-   sin terminar. El coste es bajo, pero conviene vigilarlo si crece la base.
+1. La barra del detalle también se deshabilita en una espera uuid4, que el servidor sí aprobaría
+   (DA3-B); R18 no distingue motivo, así que es coherente con la spec. 2. El `bool` de
+   `_conciliar_partidas_safely` no se consume (lo pide design §3). 3. `/partes` hace
+   `motivos_espera(None)` en cada carga: es barato, pero conviene vigilarlo si crece la base.
 
 ## Cambios requeridos
 
@@ -145,9 +130,7 @@ Script: `rm4_f047.py` en el scratchpad del reviewer. El árbol de trabajo no se 
 3. `progress/impl_F-047.md`, «Evidencias»: sustituir la fila «PENDIENTE» por los datos reales
    (32 generados, 32 muertos, 0 supervivientes, **3 workers**, 4543 s, medida en a7b3f4d) y
    actualizar la cabecera «a falta de la campaña de mutación» (C4 bis).
-
-Con eso, la pasada 2 (incremental desde 966c999) solo tiene que comprobar esos tres ficheros e
-init.sh.
+Con eso, la pasada 2 (incremental desde 966c999) solo mira esos tres ficheros e init.sh.
 
 ## Automejora (propuesta, no aplicada)
 
