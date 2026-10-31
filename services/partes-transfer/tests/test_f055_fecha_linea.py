@@ -65,6 +65,11 @@ def test_f055_r1_limite_inferior() -> None:
         "15/03/2016 es anterior al 01/01/2026")
 
 
+def test_f055_r1_ano_de_tres_cifras_con_ceros() -> None:
+    assert motivo_fecha_no_valida(5010203, hoy=HOY) == _motivo(
+        "03/02/0501 es anterior al 01/01/2026")
+
+
 def test_f055_r1_hoy_es_valido() -> None:
     assert motivo_fecha_no_valida(_int(HOY), hoy=HOY) is None
 
