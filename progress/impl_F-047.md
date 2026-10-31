@@ -1,8 +1,8 @@
 <!-- progress/impl_F-047.md -->
-# F-047 · Informe del implementer (2026-10-31) — a falta de la campaña de mutación
+# F-047 · Informe del implementer (2026-10-31)
 
 Rama `feature/F-047-parte-nuevo-en-espera`, worktree `partes-wt-f047`. Rigor **crítico**.
-T1–T11, T13 y T14 hechas; T12: cobertura hecha, **mutación completa pendiente (la lanza el líder)**.
+T1–T14 hechas (la campaña de mutación de T12 la lanzó el líder: 32/32 muertos).
 
 ## Decisiones del humano aplicadas
 
@@ -69,8 +69,8 @@ repositorio: nota de F-047 y fila de columnas; orden sv4 → sv3).
   de sv4, reentrega tras caída (DA9).
 - La barra del detalle se deshabilita también en la espera de un recálculo de F-043 (R18 dice «la
   espera», sin motivo): el servidor sí aprobaría ese parte (DA3-B). Inocuo; lo anoto para el reviewer.
-- **Mutación completa**: la lanza el líder (`python -m harness.mutacion --feature F-047 --workers 6
-  --timeout 600`); el análisis de supervivientes queda por hacer.
+- Mutación: la lanzó el líder con `--workers 3` (no los 6 de T12) y sin `--timeout`; 0 supervivientes,
+  nada que analizar (`progress/mutacion_F-047.md`).
 - **MANUAL** (humano, `progress/current.md`): despliegue sv4 → sv3 en dos llamadas; M1 portal, M2 SQL
   de solo lectura, M3 Log Analytics (mide la espera real).
 
@@ -184,7 +184,7 @@ E         ReferenceError: recalculoMotivos is not defined
 | Tests F-047 | sv3 26 passed (3.90 s); sv4 83 passed (22.79 s); raíz 8 passed (1.80 s) |
 | Suites en `bash harness/init.sh` | raíz 537 passed, 3 skipped (73.92 s); sv3 2371 passed (31.48 s); sv4 3307 passed, 1 skipped (699.15 s); sv1, sv2, sv5 en verde (caché) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 68 líneas cambiadas cubiertas (68/68, umbral 80%, nivel critico)` |
-| Mutantes generados / supervivientes | PENDIENTE: la campaña completa la lanza el líder (`progress/mutacion_F-047.md`) |
+| Mutantes generados / supervivientes | 32 generados, 32 muertos, **0 supervivientes** (205 líneas en alcance; `python -m harness.mutacion --feature F-047 --workers 3`, sin `--timeout`; 4543 s; medida en a7b3f4d; `progress/mutacion_F-047.md`) |
 | `bash harness/init.sh` | `ENTORNO LISTO. Puedes trabajar.` (2026-10-31). Avisos previos: ruff 904 (deuda), F-032 `blocked`, infra sin tests |
 
 Nota: la primera ejecución de `init.sh` (2026-10-30, al arrancar) corrió mientras ya editaba T1–T5 y

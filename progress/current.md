@@ -13,7 +13,7 @@ registro del bloqueo, conservado como historia.
 `azure-apps/partes.md` con commit local en ese repositorio. Pendiente: campaña de mutación
 completa (la lanza el líder) y revisión.
 **Despliegue y verificación MANUAL (T13, los pide el humano)**: en DOS llamadas desde `infra/`,
-primero `.edeploy_partes.ps1 -Solo sv4` y después `-Solo sv3` (juntas, el script fija sv3 antes).
+primero `.\redeploy_partes.ps1 -Solo sv4` y después `-Solo sv3` (juntas, el script fija sv3 antes).
 - M1 (portal): un parte escaneado de prueba sale «procesando…» en su obra y no se edita; el resto sí;
   al terminar, «Actualizar» ⇒ horas repartidas.
 - M2 (base `partes`, solo lectura): `SELECT id, recalculo_pedido_id, recalculo_terminado_id FROM
