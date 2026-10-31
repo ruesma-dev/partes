@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import date, timedelta
 
 import pytest
+
 from application.services import fecha_linea
 from application.services.fecha_linea import (
     DIAS_FUTURO,

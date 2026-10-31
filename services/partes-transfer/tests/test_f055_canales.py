@@ -8,8 +8,9 @@ montaje real de adaptadores sobre fakes del SDK (`Montaje`). Sin red.
 from __future__ import annotations
 
 import pytest
-from domain.models.registro_models import LineaEntrada
 from fastapi.testclient import TestClient
+
+from domain.models.registro_models import LineaEntrada
 from interface_adapters.api.app import build_app
 from interface_adapters.queue.transfer_consumer import _a_dominio
 from tests.dobles import SettingsFake

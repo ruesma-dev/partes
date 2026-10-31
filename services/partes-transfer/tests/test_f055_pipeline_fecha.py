@@ -12,6 +12,7 @@ from dataclasses import asdict
 from datetime import date
 
 import pytest
+
 from application.pipelines.registro_pipeline import RegistroPipeline
 from application.services import franquicia as fr
 from application.services.reajuste_lineas import MOTIVO_NO_REGISTRABLE
@@ -19,8 +20,8 @@ from domain.models.registro_models import RecursoSigrid
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 from tests import test_f056_pipeline as f056
 from tests.test_f002_pipeline_fases import OBRA, _linea, _pipeline, _sigrid
-from tests.test_f046_t22_pipeline_bordes import _comprobar_nueva
 from tests.test_f046_reajuste_pipeline import NUEVA
+from tests.test_f046_t22_pipeline_bordes import _comprobar_nueva
 
 HOY = date(2026, 10, 31)
 SIN = "fecha_no_valida: la linea no tiene fecha; corrige la fecha en el " \
@@ -186,9 +187,11 @@ def test_f055_r6_mezcla(caplog) -> None:
     mezcla_cli = _sigrid(recursos=dict(recursos))
     invalidas = [_linea(101, fecha_int=0), _linea(102, fecha_int=20261340),
                  _linea(103, fecha_int=20160315, recurso_ide=777)]
+    caplog.clear()
     with caplog.at_level("WARNING"):
         mezcla = _pipeline(mezcla_cli).ejecutar(obra=OBRA,
                                                 lineas=lote() + invalidas)
+    mensajes = list(caplog.messages)
     pf_mezcla = _pipeline(_sigrid(recursos=dict(recursos))).preflight(
         obra=OBRA, lineas=lote() + invalidas)
 
@@ -200,7 +203,7 @@ def test_f055_r6_mezcla(caplog) -> None:
     assert [asdict(p) for p in pf_mezcla.partes] == [
         asdict(p) for p in pf_sola.partes]
     # El WARNING del paso 2c cuenta solo la del recurso (la 3).
-    recurso = [m for m in caplog.messages if "omitidas por el recurso" in m]
+    recurso = [m for m in mensajes if "omitidas por el recurso" in m]
     assert len(recurso) == 1 and ": 1 linea(s)" in recurso[0]
     assert "101" not in recurso[0] and "103" not in recurso[0]
 
