@@ -1,6 +1,9 @@
 <!-- progress/spec_F-055.md -->
 # spec-author · F-055 · sv5 omite las líneas sin fecha válida (2026-10-22)
 
+> **Refresco 2026-10-31** sobre `dev` 14b3cd5: este informe es el del 22/10; lo que cambió
+> (margen 62 días, DA10–DA11, franquicia F-056, F-060/F-062) está en `progress/explore_F-055_refresco.md`.
+
 Spec en `specs/F-055-sv5-omite-lineas-sin-fecha/` (rama `feature/F-055-sv5-omite-lineas-sin-fecha`
 desde `dev` 2bfeab7, worktree `C:\Users\pgris\PycharmProjects\partes-wt-f055`). `F-055` estaba
 libre: el último id de `dev` es F-053, F-054 vive en su rama y ninguna rama `feature/*` declara

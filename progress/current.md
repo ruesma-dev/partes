@@ -1,6 +1,18 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-055 · spec_ready, refrescada 2026-10-31 sobre `dev` 14b3cd5, pendiente de aprobar: sv5 omite las líneas sin fecha válida
+
+Rama `feature/F-055-sv5-omite-lineas-sin-fecha` rebasada sobre `dev` 14b3cd5 (worktree
+`partes-wt-f055`). Spec en `specs/F-055-sv5-omite-lineas-sin-fecha/`; qué cambió y por qué en
+`progress/explore_F-055_refresco.md`. El paso 2a de `preparar` sigue siendo el punto único
+(ahora cinco caminos: preflight, ejecutar, cola, extras del reajuste y franquicia F-056);
+F-060/F-062 no abren lecturas con la fecha fuera de él. **Decisiones abiertas** (`design.md`
+§11, recomendación A en todas): DA1–DA7 y DA9 como el 22/10; DA8 superada (F-055 ya es
+prioridad 4 y la siguiente de la cola); **nuevas** DA10 (margen futuro 62 días en vez de 31,
+por el día de ajuste de la franquicia) y DA11 (la franquicia se protege vía `preparar`, sin
+tocar F-056). M1 (solo lectura) antes de implementar.
+
 ## F-047 · DONE 2026-10-31 (review APPROVED pasada 2, rigor crítico; mutación 32/32 muertos; DESPLEGADA 2026-10-31 sv4 r20261031093735 → sv3 r20261031093921, arranque sano; pendiente: M1 del humano, M2 y M3): parte nuevo en espera hasta que sv3 reparta sus horas
 
 **Desbloqueo (2026-10-31)**: el humano eligió la opción A del bloqueo (literal: «a» a «¿A y el ajuste
