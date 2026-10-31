@@ -18,4 +18,4 @@
 - [ ] T10: Campaña de mutación completa (rigor `critico`) sobre `fecha_linea.py` y las líneas cambiadas de `registro_pipeline.py`, `registro_models.py` y `app.py`; supervivientes analizados en `progress/impl_F-055.md`  |  Verificación: `python -m harness.mutacion` con el nivel de `harness/rigor.json`, sin supervivientes sin justificar
 - [ ] T11: M2 (y M2b si la franquicia está configurada) · sv5 local en modo pruebas (obra 0404), preflight y, solo si las tres salen `omitir`, ejecutar sin escritura efectiva (`design.md` §9)  |  Verificación: MANUAL (humano o líder con su autorización), resultado anotado en `progress/impl_F-055.md`
 - [ ] T12: M3 · tras `redeploy_partes.ps1 -Solo sv5` (lo pide el humano) y unos días de uso, M1 otra vez  |  Verificación: MANUAL (humano o líder), `design.md` §9
-- [ ] T13: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»
+- [x] T13: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida «ENTORNO LISTO»

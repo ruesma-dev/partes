@@ -8,7 +8,9 @@ recomendaciones?»): DA1–DA11 con la recomendación (DA8 superada; DA10 = A, `
 DA11 = A), registrado en `design.md` §11. M1 hecha por el líder el 2026-11-01 (solo lectura):
 15 `sin_fecha` sin estado, ninguna `anterior`/`posterior`, Sigrid 0 y 0 (design §9).
 Rama `feature/F-055-sv5-omite-lineas-sin-fecha`, worktree `partes-wt-f055`.
-- Tarea en curso: T2 en adelante (fase RED). Decisiones y desviaciones: ninguna por ahora.
+- Implementación hecha (T1–T9, T13; detalle en `progress/impl_F-055.md`): init.sh en verde,
+  cobertura de líneas cambiadas 100 % (44/44), suite sv5 1554 passed. Sin desviaciones.
+  `azure-apps/partes.md` con commit local 8913f8e.
 - Pendiente fuera del implementer: campaña de mutación completa (la lanza el líder), M2/M2b y M3.
 
 ## F-047 · DONE 2026-10-31 (review APPROVED pasada 2, rigor crítico; mutación 32/32 muertos; DESPLEGADA 2026-10-31 sv4 r20261031093735 → sv3 r20261031093921, arranque sano; pendiente: M1 del humano, M2 y M3): parte nuevo en espera hasta que sv3 reparta sus horas
