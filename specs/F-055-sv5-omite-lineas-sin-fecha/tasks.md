@@ -6,7 +6,7 @@
 > commit `F-055 Tn: ...`. Rigor **crítico**: fase RED con traza en `progress/impl_F-055.md`,
 > cobertura y mutación completa.
 
-- [ ] T1: M1 · solo lectura en la base `partes` y en Sigrid (`design.md` §9) antes de T2  |  Verificación: MANUAL (líder o humano), resultado anotado en `design.md` §9
+- [x] T1: M1 · solo lectura en la base `partes` y en Sigrid (`design.md` §9) antes de T2  |  Verificación: MANUAL (líder o humano), resultado anotado en `design.md` §9
 - [ ] T2: Escribir `tests/test_f055_fecha_linea.py` (R1, R2; casos de `design.md` §8, límite hoy + 62) y verlo en ROJO (el módulo no existe)  |  Verificación: `cd services/partes-transfer && python -m pytest tests/test_f055_fecha_linea.py` falla por `ImportError` (traza RED en impl)
 - [ ] T3: Crear `application/services/fecha_linea.py` (`MOTIVO_FECHA_NO_VALIDA`, `FECHA_MINIMA`, `DIAS_FUTURO` = 62, `motivo_fecha_no_valida`; `design.md` §4.1)  |  Verificación: `python -m pytest tests/test_f055_fecha_linea.py` en verde
 - [ ] T4: Escribir `tests/test_f055_pipeline_fecha.py` (R3–R7, R10, R11, R15; incluye racha/hermano con `MOVER_CIZ` y franquicia con los helpers de `test_f056_pipeline.py`) y `tests/test_f055_canales.py` (R8, R9) y verlos en ROJO  |  Verificación: `python -m pytest tests/test_f055_pipeline_fecha.py tests/test_f055_canales.py` falla por la guarda ausente (hoy da de alta `PT0/00001`; traza RED en impl)

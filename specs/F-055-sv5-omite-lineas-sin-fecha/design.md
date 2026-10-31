@@ -71,7 +71,6 @@ tras ella), 4b cuentas (solo acciones `escribir`). Pasan **todos** por `preparar
   `int(self.fecha_int or 0)` (R9).
 - `interface_adapters/api/app.py`: `LineaIn.fecha_int: Optional[int] = None` (R9, DA4 B).
 - `docs/ARCHITECTURE.md` semántica 6 y `azure-apps/partes.md` (§10, DA7).
-
 ### Que NO se tocan
 
 - `reglas_registro.py`, `coherencia_recurso.py`, `parte_abierto.py`, `pisado.py`,
@@ -202,6 +201,7 @@ R12: suite de sv5 sin tocar un `assert` (los `2025…`/`20210101` de `test_f056_
   WHERE tip = 35 AND cod LIKE 'PT0/%'`. **Esperado**: `sin_fecha` ≈ las 25 de F-054 (M2
   descartada; F-058/F-059 pueden moverla), ninguna `anterior`/`posterior` y los dos `n = 0`
   (incluye `partes:franquicia:*`). Una `anterior`/`posterior` sin estado se enseña al humano.
+  **Hecha por el líder el 2026-11-01**: `sin_fecha` con estado vacío = 15, ninguna `anterior`/`posterior`; Sigrid 0 y 0. DA2/DA10 sin cambios.
 - **M2 · sv5 local en modo pruebas, sin escritura efectiva**: preparación de `progress/
   current.md` (F-053: `$env:OBRA_PRUEBAS_FORZAR = 'true'; python main.py`, `/health` con
   `modo_pruebas: True`, obra 0404, base `ruesma`; si no, PARA). Sin tocar 06, 08 ni 10/2026 ni
@@ -232,7 +232,7 @@ R12: suite de sv5 sin tocar un `assert` (los `2025…`/`20210101` de `test_f056_
 - `azure-apps/partes.md`, punto 6 de sv5: motivo `fecha_no_valida`, `fecha_int` admite `null`,
   la franquicia puede salir `no_editable` por él; nota informativa a `porcentajes`.
 
-## 11. Decisiones abiertas (las aprueba el humano)
+## 11. Decisiones (APROBADAS el 2026-11-01: literal «si» a «¿Apruebas la spec con las recomendaciones?»; todas con la recomendación, DA8 superada, DA10 = A con 62, DA11 = A)
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|

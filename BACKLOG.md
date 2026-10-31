@@ -5,13 +5,15 @@
 
 Resumen: **61 features**, 12 abiertas, 49 terminadas.
 
+En curso: **F-055**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita y refrescada (2026-10-31), pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
+| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | en curso | escrita y refrescada (2026-10-31), pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
@@ -82,7 +84,7 @@ Bloqueadas: **F-032**.
 
 ### F-055 · sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados)
 
-estado **spec lista** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-055-sv5-omite-lineas-sin-fecha`
+estado **en curso** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-055-sv5-omite-lineas-sin-fecha`
 
 **Spec**: escrita y refrescada (2026-10-31), pendiente de aprobación · `partes-wt-f055`
 
