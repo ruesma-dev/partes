@@ -68,7 +68,7 @@ Bloqueadas: **F-032**.
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | critico | M2–M8 en el portal |
 | F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | estandar | releer los 6 partes sin obra cuando F-059 esté desplegada |
 | F-004 | Congelar registros aprobados | 5 | estandar |  |
-| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | critico | Sin desplegar. Pendiente del humano: desplegar sv4 y después sv3 (dos llamadas a redeploy_partes.ps1) y M1–M3 (current.md). |
+| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | critico | Desplegada 2026-10-31: sv4 ca-sv4-front--r20261031093735 (08:38:53Z) y sv3 ca-sv3-persistencia--r20261031093921 (08:40:44Z), Healthy, arranque sin Traceback. Pendiente: M1 (portal, humano), M2 y M3 (líder, con el primer parte nuevo que entre). |
 | F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |  |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
 | F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar | M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK |
@@ -452,7 +452,7 @@ estado **terminada** · prioridad 5 · rigor `critico` · SDD sí · rama `featu
 
 **Spec**: aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047` · review APPROVED pasada 2
 
-**Pendiente**: Sin desplegar. Pendiente del humano: desplegar sv4 y después sv3 (dos llamadas a redeploy_partes.ps1) y M1–M3 (current.md).
+**Pendiente**: Desplegada 2026-10-31: sv4 ca-sv4-front--r20261031093735 (08:38:53Z) y sv3 ca-sv3-persistencia--r20261031093921 (08:40:44Z), Healthy, arranque sin Traceback. Pendiente: M1 (portal, humano), M2 y M3 (líder, con el primer parte nuevo que entre).
 
 Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.
 

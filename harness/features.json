@@ -722,7 +722,7 @@
       "priority": 5,
       "branch": "feature/F-047-parte-nuevo-en-espera",
       "spec": "aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047` · review APPROVED pasada 2",
-      "pendiente": "Sin desplegar. Pendiente del humano: desplegar sv4 y después sv3 (dos llamadas a redeploy_partes.ps1) y M1–M3 (current.md)."
+      "pendiente": "Desplegada 2026-10-31: sv4 ca-sv4-front--r20261031093735 (08:38:53Z) y sv3 ca-sv3-persistencia--r20261031093921 (08:40:44Z), Healthy, arranque sin Traceback. Pendiente: M1 (portal, humano), M2 y M3 (líder, con el primer parte nuevo que entre)."
     },
     {
       "id": "F-049",
