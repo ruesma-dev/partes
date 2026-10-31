@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-047 · DONE 2026-10-31 (review APPROVED pasada 2, rigor crítico; mutación 32/32 muertos; sin desplegar; pendiente: desplegar sv4 → sv3 y M1–M3 del humano): parte nuevo en espera hasta que sv3 reparta sus horas
+## F-047 · DONE 2026-10-31 (review APPROVED pasada 2, rigor crítico; mutación 32/32 muertos; DESPLEGADA 2026-10-31 sv4 r20261031093735 → sv3 r20261031093921, arranque sano; pendiente: M1 del humano, M2 y M3): parte nuevo en espera hasta que sv3 reparta sus horas
 
 **Desbloqueo (2026-10-31)**: el humano eligió la opción A del bloqueo (literal: «a» a «¿A y el ajuste
 aprobado?»): DA3 → B (solo el motivo `nuevo` en R16 y R17) y desviación de design §4 (`joinedload` +
