@@ -34,7 +34,7 @@
 - [x] T11: `C:/Users/pgris/PycharmProjects/azure-apps/partes.md` (nota de F-043 y fila de las columnas: sv3 también escribe el pedido de un parte nuevo; la aprobación excluye los partes en espera), commit local en ese repositorio (sin push)  |  Verificación: `git -C C:/Users/pgris/PycharmProjects/azure-apps log -1 --stat` muestra solo `partes.md`
 - [ ] T12: Cobertura de las líneas cambiadas y campaña de mutación completa `python -m harness.mutacion --feature F-047 --workers 6 --timeout 600` en `progress/mutacion_F-047.md`; cada superviviente matado por un test o justificado para el humano  |  Verificación: informe con 0 supervivientes sin resolver
 - [x] T13: Anotar en `progress/current.md` el despliegue (sv4 → sv3, lo pide el humano) y M1–M3 como pendientes  |  Verificación: MANUAL (humano) — en DOS llamadas desde `infra/`, primero `.\redeploy_partes.ps1 -Solo sv4` y después `-Solo sv3` (juntas, el script fija sv3 antes que sv4): M1 (portal, parte escaneado de prueba: en los primeros segundos su obra dice «procesando…» y no se edita, el resto sí; al terminar, «Actualizar» ⇒ horas repartidas), M2 (base `partes`, solo lectura: `SELECT id, recalculo_pedido_id, recalculo_terminado_id FROM parte_documents WHERE id = '<id de M1>';` ⇒ los tres iguales), M3 (Log Analytics de sv3: `[parte-repo] guardado` y `parte nuevo repartido … marcado=True` del mismo `document_id`; la diferencia de horas entre ambas es la espera real y revalida la cifra de 20–40 s)
-- [ ] T14: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida en verde
+- [x] T14: Ejecutar `bash harness/init.sh` en verde  |  Verificación: salida en verde
 
 ## Revalidación 2026-10-30 (contra `dev` 75816f2, merge 795a546)
 

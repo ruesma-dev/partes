@@ -5,6 +5,8 @@
 
 Resumen: **61 features**, 13 abiertas, 48 terminadas.
 
+En curso: **F-047**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
@@ -12,7 +14,7 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | spec lista | escrita, pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
-| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | spec lista | aprobada (DA1–DA10) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
+| F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | en curso | aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047` | critico | `feature/F-047-parte-nuevo-en-espera` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
@@ -90,9 +92,9 @@ Origen: DA5 de F-054, aprobada por el humano el 2026-10-21 («apruebo F-054 y la
 
 ### F-047 · Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra)
 
-estado **spec lista** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-047-parte-nuevo-en-espera`
+estado **en curso** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-047-parte-nuevo-en-espera`
 
-**Spec**: aprobada (DA1–DA10) · `partes-wt-f047`
+**Spec**: aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047`
 
 Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administracion el mismo dia: un parte recien entrado «no resta las horas» y «si sales y vuelves a entrar, sale bien». Causa: sv3 guarda el parte con las horas leidas (commit) y despues ejecuta las conciliaciones, cuyo conciliar_todos reparte ordinaria y extra; entre una cosa y otra pasan 20-40 s (medido el 2026-10-14) y el portal ensena las horas sin repartir y no se refresca solo. LO QUE SE PIDE: reutilizar el seguimiento de F-043 sin columnas nuevas. sv3 escribe recalculo_pedido_id = id del documento en el mismo commit en que guarda un parte nuevo y, tras conciliar sin excepcion, lo marca terminado con el UPDATE condicional de F-043. sv4 deduce el motivo (pedido = id => parte nuevo), lo pinta en obra, trabajador, detalle y listado de partes con textos propios («procesando…»), mantiene el 409 de F-043, excluye de la aprobacion los partes en espera y ofrece Actualizar al terminar. Nada recarga solo. El algoritmo de reparto es F-045.
 
