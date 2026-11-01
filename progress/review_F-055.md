@@ -1,6 +1,25 @@
 <!-- progress/review_F-055.md -->
-Revisión incremental desde 1c2307d (pasada 2) · HEAD f7f2b25 · lo aprobado hasta 73a8ec6 (código) queda dado por bueno
+Revisión incremental desde c6bb18d (pasada 3) · HEAD 143976c · lo aprobado hasta 73a8ec6 (código) y los papeles de f7f2b25 salvo `current.md` quedan dados por buenos
 # F-055 · sv5 omite las líneas sin fecha válida — revisión
+
+## Pasada 3 (2026-11-01) · Veredicto: **APPROVED**
+
+Nivel de rigor: `critico` (declarado). Delta revisado: `git diff c6bb18d..HEAD` = solo
+`progress/current.md` (commit 143976c). Lo aprobado en código no se toca.
+
+- `git ls-files --eol progress/current.md` ⇒ `i/lf w/lf`; 0 CR en `git show HEAD:progress/current.md`.
+- `git diff --stat 1c2307d..HEAD -- progress/current.md` ⇒ 15 líneas (14+, 1−): ya no reescribe el fichero.
+- `git diff --ignore-cr-at-eol c6bb18d..HEAD` ⇒ un único cambio de contenido: la M3 dice
+  `` `.\redeploy_partes.ps1 -Solo sv5` `` (antes `.^Medeploy…`, CR suelto). Cambio requerido 1 y 2 de la pasada 2: hechos.
+- `bash harness/init.sh` ⇒ ENTORNO LISTO: 537 passed, 3 skipped; cobertura 100 % (44/44, nivel
+  critico); tamaño dentro de topes. sv5 servida de caché ⇒ lanzada a mano
+  (`python -m pytest -q -p no:cacheprovider` en `services/partes-transfer`): **1554 passed**.
+- Checkpoints C1–C5, C3 bis, C4 bis: sin cambios respecto a la pasada 2 (el delta es documental);
+  C3 bis y C4 ter siguen N/A por los motivos escritos abajo. Mutación: sin cambios en el alcance
+  (el delta no toca código), RM1 sigue válida.
+- Árbol limpio tras la revisión (`git status`), salvo este informe.
+
+Cambios requeridos: ninguno. Queda pendiente del humano la M3 (fuera de la revisión).
 
 ## Pasada 2 (2026-11-01) · Veredicto: **CHANGES_REQUESTED**
 
