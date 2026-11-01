@@ -11,7 +11,20 @@ Rama `feature/F-055-sv5-omite-lineas-sin-fecha`, worktree `partes-wt-f055`.
 - Implementación hecha (T1–T9, T13; detalle en `progress/impl_F-055.md`): init.sh en verde,
   cobertura de líneas cambiadas 100 % (44/44), suite sv5 1554 passed. Sin desviaciones.
   `azure-apps/partes.md` con commit local 8913f8e.
-- Pendiente fuera del implementer: campaña de mutación completa (la lanza el líder), M2/M2b y M3.
+- Mutación completa (líder, 2026-11-01): 28, 26 muertos, 2 equivalentes aceptados por el humano el 2026-11-01 (literal «si» a «¿Aceptas los dos como equivalentes?»).
+- M2 HECHA (líder, 2026-11-01): sv5 local en modo pruebas, obra 0404: las 3 líneas (0, 20261340,
+  `null`) `omitir` con `fecha_no_valida`, `ejecutar` 0 escritas, sin `[sigrid-write]`. M2b no
+  (opcional, franquicia apagada en local).
+- **M3 · PENDIENTE del humano** (tras `.edeploy_partes.ps1 -Solo sv5` desde `infra/`, que lo pide
+  el humano, y unos días de uso): en la base `partes`, solo lectura (`PGOPTIONS='-c
+  default_transaction_read_only=on'`):
+  `SELECT CASE WHEN r.fecha_int IS NULL OR r.fecha_int <= 0 THEN 'sin_fecha' WHEN r.fecha_int
+  < 20260101 THEN 'anterior' ELSE 'posterior' END AS tipo, COALESCE(r.sigrid_estado, '') AS
+  estado, COUNT(*) FROM parte_registros r JOIN parte_documents d ON d.id = r.document_id WHERE
+  d.is_active AND r.deleted_at_utc IS NULL AND (r.fecha_int IS NULL OR r.fecha_int < 20260101 OR
+  r.fecha_int > <hoy + 62, AAAAMMDD>) GROUP BY 1, 2 ORDER BY 1, 2;`
+  **Esperado**: ninguna fila con estado `registrado`, `encolado` o `dedicacion`; las aprobadas sin
+  fecha válida salen `omitido` con `fecha_no_valida` (el modal agrupa «fecha_no_valida · n»).
 
 ## F-047 · DONE 2026-10-31 (review APPROVED pasada 2, rigor crítico; mutación 32/32 muertos; DESPLEGADA 2026-10-31 sv4 r20261031093735 → sv3 r20261031093921, arranque sano; pendiente: M1 del humano, M2 y M3): parte nuevo en espera hasta que sv3 reparta sus horas
 

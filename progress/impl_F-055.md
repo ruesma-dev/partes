@@ -119,21 +119,27 @@ r9 con fecha.) Tras T5 + T6: `69 passed in 3.14s` (los tres ficheros F-055).
   umbral 80%, nivel critico)`; `PUERTA TAMAÑO: … impl 142/220`. Avisos previos ajenos: una
   feature `blocked` en el backlog, ruff 909 avisos de deuda, infra sin tests.
 
-## Pendiente (fuera del implementer)
+## Hecho por el líder (2026-11-01)
 
-- **T10 · campaña de mutación completa** (la lanza el líder), desde el worktree:
-  ```
-  cd C:\Users\pgris\PycharmProjects\partes-wt-f055
-  python -m harness.mutacion --feature F-055 --base dev --rama feature/F-055-sv5-omite-lineas-sin-fecha --max-mutantes 0
-  ```
-  Alcance esperado: `fecha_linea.py` y las líneas cambiadas de `registro_pipeline.py`,
-  `registro_models.py` y `app.py`. Informe en `progress/mutacion_F-055.md`; los supervivientes
-  se analizan ahí (rigor crítico: 0 sin justificar). Mutantes previsiblemente **equivalentes**
-  a vigilar: `fecha_int or 0` en `ano`/`mes` (con `None` el paso 2a ya la omitió, pero
-  `test_f055_r9_ano_mes_con_none` los mata); el `isinstance(.., bool)` (lo mata `True`/`False`).
-- **T11 · M2/M2b** (sv5 local en modo pruebas, design §9) y **T12 · M3** tras
-  `redeploy_partes.ps1 -Solo sv5` (lo pide el humano).
-- Revisión del reviewer contra `CHECKPOINTS.md`.
+- **T10 · campaña de mutación completa** (`--max-mutantes 0 --workers 3`, desde el worktree, log
+  fuera del worktree): 28 generados, 26 muertos, 2 supervivientes, 0 timeouts, 215,7 s. Los dos
+  supervivientes (`fecha_int or 0` → `or 1` en `LineaEntrada.ano` y `mes`) son equivalentes:
+  con `fecha_int` falsy ambos dan 0 y con cualquier otro valor el `or` no actúa; aceptados por el humano el 2026-11-01 (literal «si» a «¿Aceptas los dos como equivalentes?»).
+  Detalle en `progress/mutacion_F-055.md`.
+- **T11 · M2** (sv5 local con el código del worktree, `.env` de `partes/services/partes-transfer`,
+  `OBRA_PRUEBAS_FORZAR=true`; `/health` ⇒ `modo_pruebas: true`, obra 0404, base `ruesma`,
+  franquicia `apagada`). Comandos de `design.md` §9 con `registro_id` 990000551–553 y recurso
+  2717792 (fechas 0, 20261340 y `null`):
+  - `POST /api/registro/preflight` ⇒ `ok`, `forzada_pruebas: true`, `partes` vacío, conflictos
+    vacío, las tres `omitir` («fecha_no_valida: la linea no tiene fecha; corrige la fecha en el
+    portal y reaprueba» ×2 y «fecha_no_valida: 20261340 no es una fecha del calendario; …»),
+    `resumen` escribir 0 / omitir 3.
+  - `POST /api/registro/ejecutar` con el mismo cuerpo ⇒ `ok: true`, 0 escritas, 3 omitidas.
+    Consola: WARNING de R11, «preflight obra=0404 partes=0 escribir=0 omitir=3», «nada que
+    escribir (bloqueadas=0)»; ningún `[sigrid-write]` salvo el «Instanciado» del arranque.
+  - **M2b no se hizo**: es opcional y la franquicia está `apagada` en local (la protege R15 por
+    `preparar`, cubierto por `test_f055_r15_franquicia`).
+- **Pendiente**: T12 · M3 tras `redeploy_partes.ps1 -Solo sv5` (lo pide el humano).
 
 ## Evidencias
 
@@ -142,5 +148,6 @@ r9 con fecha.) Tras T5 + T6: `69 passed in 3.14s` (los tres ficheros F-055).
 | Tests ejecutados (sv5) | 1554 passed, 0 failed (69 de F-055) |
 | Tiempo de la suite de sv5 | 17,18 s |
 | Cobertura de líneas cambiadas | **100,0 %** (44/44, `PUERTA COBERTURA` de `init.sh`) |
-| Mutantes generados / supervivientes | **pendiente**: la campaña completa la lanza el líder (comando arriba); `progress/mutacion_F-055.md` |
+| Mutantes generados / supervivientes | 28 generados, 26 muertos, 2 supervivientes equivalentes (aceptados por el humano el 2026-11-01 (literal «si» a «¿Aceptas los dos como equivalentes?»)), 0 timeouts, **3 workers**, 215,7 s; `progress/mutacion_F-055.md` |
+| M2 (sv5 local, modo pruebas) | hecha 2026-11-01: 3 `omitir` por `fecha_no_valida`, 0 escritas, sin `[sigrid-write]` |
 | `bash harness/init.sh` | ENTORNO LISTO (exit 0) |

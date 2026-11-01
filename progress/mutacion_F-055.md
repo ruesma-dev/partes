@@ -47,7 +47,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 
 #### Análisis (líder, 2026-11-01)
 
-> **Equivalente.** El `or` solo actúa con `fecha_int` falsy (`None` o `0`); entonces el original
+> **Equivalente**, aceptados por el humano el 2026-11-01 (literal «si» a «¿Aceptas los dos como equivalentes?»). El `or` solo actúa con `fecha_int` falsy (`None` o `0`); entonces el original
 > da `int(0) // 10000 = 0` y el mutante `int(1) // 10000 = 0`. Mismo `ano` para toda entrada;
 > ningún test puede distinguirlos. Sin test nuevo.
 
@@ -58,7 +58,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 
 #### Análisis (líder, 2026-11-01)
 
-> **Equivalente.** Con `fecha_int` falsy el original da `(0 // 100) % 100 = 0` y el mutante
+> **Equivalente**, aceptados por el humano el 2026-11-01 (literal «si» a «¿Aceptas los dos como equivalentes?»). Con `fecha_int` falsy el original da `(0 // 100) % 100 = 0` y el mutante
 > `(1 // 100) % 100 = 0`; con cualquier otro valor el `or` no actúa. Mismo `mes` para toda
 > entrada. Sin test nuevo.
 

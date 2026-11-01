@@ -13,7 +13,7 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | en curso | escrita y refrescada (2026-10-31), pendiente de aprobación · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
+| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | en curso | escrita, refrescada (2026-10-31) y aprobada (2026-11-01) · `partes-wt-f055` | critico | `feature/F-055-sv5-omite-lineas-sin-fecha` |
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | escrita, pendiente de aprobación · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
@@ -86,7 +86,7 @@ Bloqueadas: **F-032**.
 
 estado **en curso** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-055-sv5-omite-lineas-sin-fecha`
 
-**Spec**: escrita y refrescada (2026-10-31), pendiente de aprobación · `partes-wt-f055`
+**Spec**: escrita, refrescada (2026-10-31) y aprobada (2026-11-01) · `partes-wt-f055`
 
 Origen: DA5 de F-054, aprobada por el humano el 2026-10-21 («apruebo F-054 y la DA5»). Una línea de un parte sin fecha viaja de sv4 a sv5 con fecha_int = 0 (int(r.fecha_int or 0) en lineas_para_registro) y sv5 la acepta: con SigridFake, ejecutar da de alta PT0/00001 del periodo 0/00 y escribe la línea con fec = 0; con 20261340 abre un parte de 2026/13. No ha pasado (M1 de F-054: 25 líneas sin fecha, ninguna enviada), pero 15 con obra son aprobables hoy y en Sigrid no se borra. sv5: función pura motivo_fecha_no_valida (application/services/fecha_linea.py; válida = entero, del calendario, entre 01/01/2026 y hoy + 62 días, DA10) y paso 2a de RegistroPipeline.preparar: la línea se omite con «fecha_no_valida: …» antes de leer nada de Sigrid (recursos, reshor, partes), manda sobre las demás omisiones y sobre dedicacion, y vale para preflight, ejecutar, la cola q-transfer, las extras nuevas del reajuste F-046 y la línea de ajuste de la franquicia F-056 (no_editable, nada escrito). fecha_int pasa a opcional en LineaIn y LineaEntrada (null u omitido = sin fecha, sin 422). sv4, sv3, esquema y colas no cambian; F-034, F-053 y F-031 tampoco. Doc: ARCHITECTURE semántica 6 y azure-apps/partes.md con nota informativa a porcentajes. Spec refrescada sobre dev 14b3cd5 el 2026-10-31 (F-038, F-056, F-060, F-062): decisiones DA1-DA11 (DA8 superada; DA10 margen 62 días por la franquicia, DA11 franquicia vía preparar) y M1-M3 en specs/F-055-sv5-omite-lineas-sin-fecha/design.md §9 y §11.
 
