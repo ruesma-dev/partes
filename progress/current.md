@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-055 · IN_PROGRESS (implementer, 2026-11-01): sv5 omite las líneas sin fecha válida
+## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; pendiente: desplegar sv5 y M3): sv5 omite las líneas sin fecha válida
 
 Spec aprobada por el humano el 2026-11-01 (literal «si» a «¿Apruebas la spec con las
 recomendaciones?»): DA1–DA11 con la recomendación (DA8 superada; DA10 = A, `DIAS_FUTURO` = 62;
