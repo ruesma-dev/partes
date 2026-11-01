@@ -5,8 +5,8 @@ Petición del humano (2026-10-20, literal): «añade una spec de sincronizar, de
 de una obra o una persona se pueda dar a sincrnizar lea sigrid y compare contra lo que hay en
 el portal, eso nos permitira conciliar linea a linea o en masa».
 
-**Depende de F-050** (clave `rec-{recurso}` de la persona): se implementa sobre `dev` con F-050
-fusionada. Toca **sv5** (una lectura nueva de solo lectura) y **sv4** (comparación, panel y
+**Depende de F-050** (clave `rec-{recurso}` de la persona), ya en `dev`: la rama lleva `dev`
+69af0f5 fusionado (0be3ef7; revalidación 2026-11-01, `tasks.md`). Toca **sv5** (una lectura nueva de solo lectura) y **sv4** (comparación, panel y
 acciones hacia el portal); ni sv1, ni sv2, ni sv3, ni el esquema. Rigor propuesto **crítico**
 (DA8): abre una vía controlada para escribir en líneas congeladas de producción. Alcance de
 esta entrega con las DA recomendadas (design §8): **comparar y conciliar hacia el portal**; las
@@ -63,7 +63,8 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   la misma clase es **nota**, no diferencia (las reglas de sv5 lo cambian, F-024 R6).
 - **R10.** CUANDO una línea `registrado` del portal no aparece en Sigrid, sv4 debe confirmarlo
   con la comprobación existente de F-024 (`ComprobacionSigrid.comprobar_ids`, `forzar`, origen
-  `sincronizar`), que la pasa a `borrado_sigrid` como hoy; el ítem es `borrada_en_sigrid`.
+  `sincronizar`, llamada en proceso: `ORIGENES_COMPROBACION` de `/api/sigrid/comprobar` no
+  cambia), que la pasa a `borrado_sigrid` como hoy; el ítem es `borrada_en_sigrid`.
 - **R11.** Una línea `encolado` debe salir `en_vuelo` sin comparar; una `dedicacion`,
   `no_viaja` (con nota si aparece en Sigrid); una `omitido` no encontrada, `no_viaja`.
 - **R12.** Un `solo_sigrid_nuestra` debe decir dónde está su línea en el portal: `papelera`,
@@ -72,8 +73,8 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   lectura y la firma de cada ítem; SI sv5 falla o responde `ok: false`, ENTONCES sv4 debe
   devolver el error sin ítems (nunca una comparación parcial).
 - **R14.** El resultado es **efímero** (DA5): no se guarda en la base `partes`.
-- **R15.** SI la clave del ámbito no permite leer Sigrid (obra sin `obra_ide`; persona `emp-`,
-  `nom-` o `sin-trabajador`), ENTONCES el botón debe salir deshabilitado con el motivo y el
+- **R15.** SI la clave del ámbito no permite leer Sigrid (obra sin `obra_ide`: `cod-`, `nom-` o
+  `sin-obra`; persona `emp-`, `nom-` o `sin-trabajador`), ENTONCES el botón debe salir deshabilitado con el motivo y el
   endpoint responder 422.
 
 ## Acciones hacia el portal (sv4)
@@ -96,7 +97,8 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
 - **R20.** `traer_de_sigrid` debe copiar a la línea los valores de Sigrid de los campos de DA3
   (`anulada_en_sigrid` ⇒ horas 0), aunque esté congelada por `registrado` o por parte aprobado,
   con CAS sobre los valores del portal leídos, y dejar la traza de R22.
-- **R21.** SI el parte de la línea está en espera (F-043) o el día tiene un reparto
+- **R21.** SI el parte de la línea está en espera (F-043, también el parte nuevo de F-047:
+  `_exigir_sin_recalculo`) o el día tiene un reparto
   `pendiente`/`aplicando` (F-046), ENTONCES `traer_de_sigrid` debe descartar ese ítem con el
   motivo correspondiente, sin escribir.
 - **R22.** Toda acción que escribe debe firmar con `_actor(request)` (F-017) y dejar en
@@ -107,7 +109,8 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   el cambio queda y la respuesta lo avisa (`recalculo: fallo`), como F-042.
 - **R24.** `a_papelera`, `reaprobar` y `restaurar` deben reutilizar las rutas y guardas que
   ya existen (papelera de línea, modal de aprobar con `ambito` e `incluir_borradas`,
-  restaurar), sin camino de escritura nuevo.
+  restaurar), sin camino de escritura nuevo; el 409 de `restore_registro` (F-061, parte ya
+  reprocesado) vuelve como descartado con su motivo.
 - **R25.** La respuesta de `aplicar` debe traer `aplicados`, `descartados` (id y motivo) y,
   al terminar, el portal debe volver a sincronizar y pintar el resultado nuevo.
 

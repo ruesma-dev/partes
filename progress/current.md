@@ -1,6 +1,25 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-052 · spec revalidada 2026-11-01 (spec-author; pendiente de aprobación del humano): sincronizar con Sigrid desde una obra o una persona
+
+Orden del humano (2026-11-01): «vamos con la siguiente feature f52». Rama
+`feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, con `dev` 69af0f5
+fusionado (0be3ef7). La spec del 2026-10-20 (nunca aprobada) se ha contrastado con el
+código actual de sv4 y sv5: **17 cambios mecánicos** aplicados (lista en `tasks.md`
+«Revalidación 2026-11-01»), DA9 superada, H1 resuelto por F-053 y H2 por F-038, y
+**7 decisiones abiertas nuevas**, todas con recomendación A (`design.md` §8):
+- **DA11** lectura: `PAGINA_FILAS` = 5000 como sv3/sv4 tras F-038 (A) o página 1000 configurable (B).
+- **DA12** synckeys `partes:<id>:ciz` y `partes:franquicia:<id>`: orígenes propios y clase informativa `solo_sigrid_auxiliar` (A).
+- **DA13** líneas a 0 fuera del portal (F-053): marca `a_cero`, ocultas por defecto con contador (A).
+- **DA14** `omitido` sin pareja: `parte_no_abierto`/`pisada_no_anulada` ⇒ `pendiente`; el resto `no_viaja` con nota (A).
+- **DA15** `traer_de_sigrid`: recálculo con pedido compartido de F-049 y descarte con `ESTADOS_BLOQUEAN` (A).
+- **DA16** parte reemplazado por la reingesta: `donde = parte_reemplazado` (A).
+- **DA17** partir: F-052 = lectura + comparación + panel (estándar); acciones hacia el portal en otra feature crítica tras M2 (A).
+M1 (solo lectura en Sigrid) sigue pendiente del humano. Detalle en
+`progress/explore_F-052_revalidacion.md`. **El implementer NO empieza hasta que el humano
+apruebe** DA1–DA8, DA10 y DA11–DA17.
+
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
 Spec aprobada por el humano el 2026-11-01 (literal «si» a «¿Apruebas la spec con las

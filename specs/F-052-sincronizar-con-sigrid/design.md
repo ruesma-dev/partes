@@ -13,14 +13,16 @@ etiqueta el origen; la comparación vive **una vez**, en sv4. La lista cerrada d
 `CLAUDE.md` no crece. Ninguna responsabilidad nueva cae fuera de partes: **no** se propone
 microservicio aparte (la lectura cabe en el contrato sv4↔sv5 por HTTP interno que ya existe).
 
-**Reutiliza** (sin cambiarlo): la comprobación F-024 completa (`ComprobacionSigrid`,
-`/api/registro/comprobar`, el respaldo por `hmores_ide` y la transición a `borrado_sigrid`,
-R10); `_validar_ambito` de F-022 y los ids de vista `registro_ids_de_obra` /
-`registro_ids_de_trabajador` (R18); `_actor(request)` (R22); el publicador de recálculo de
-F-042 (R23); `period_bounds` (`calendar_builder.py`) para el rango; las guardas
-`_exigir_sin_recalculo` (F-043) y la marca de reparto pendiente (F-046, R21); papelera,
-restaurar y el modal de aprobar con `ambito`/`incluir_borradas` (R24); `ENLACES_HMORES` de
-F-046 para `enlazada`; el patrón de paginación de `sigrid_api.md` §6.4.
+**Reutiliza** (sin cambiarlo): la comprobación F-024 completa (`ComprobacionSigrid` de sv4,
+que llama a sv5 `/api/registro/comprobar`; el respaldo por `hmores_ide` y la transición a
+`borrado_sigrid`, R10); `_validar_ambito` de F-022 (cierre de `app.py`: exige 1–
+`MAX_IDS_APROBACION` ids, así que solo lo usa `/aplicar`) y los ids de vista
+`registro_ids_de_obra` / `registro_ids_de_trabajador` (R18); `_actor(request)` (R22); el
+recálculo de sv4 (R23, forma en DA15); `parse_period_key` + `period_bounds(año, mes, modo)`
+(`calendar_builder.py`) para el rango; las guardas `_exigir_sin_recalculo(doc)` (F-043/F-047)
+y `registros_con_reparto(ids)` (F-046, R21); `borrar_linea`, `restore_registro` y el modal de
+aprobar con `ambito`/`incluir_borradas` (R24); `_expr_enlazada()` del cliente de sv5 (F-046/
+F-053) para `enlazada`; el patrón de paginación de `sigrid_api.md` §6.4 (forma en DA11).
 
 **No reutiliza, a propósito**: la pantalla «Conciliar» (`/conciliacion`, F-039) es el casado
 de **trabajadores** sin identificar, no de líneas contra Sigrid; para no confundirlas el botón
@@ -35,7 +37,7 @@ maestros de sv4 (`sigrid_lookup_client.py`) no lee `hmores` y sigue sin hacerlo.
 ```
 botón «Sincronizar con Sigrid» (vista obra o persona, periodo visible)
   -> sv4 POST /api/sincronizar {ambito:{vista, obra_key|worker_key, period, mode}}
-       1. ámbito -> (obra_ide | recurso_ide), desde/hasta = period_bounds(period, mode)
+       1. ámbito -> (obra_ide | recurso_ide), desde/hasta = period_bounds(*parse_period_key(period), mode)
        2. repo.lineas_para_sincronizar(ámbito, desde, hasta)        [base partes, lectura]
        3. sv5 POST /api/sincronizar/leer {obra_ide|recurso_ide, desde, hasta, registro_ids}
        4. sincronizacion.clasificar(portal, sigrid)                   [puro]
@@ -57,7 +59,7 @@ Ejemplos sintéticos: obra 0686, periodo natural 10/2026, recurso R1; ids fictic
 |---|---|---|
 | `igual` | Casada, sin diferencias (puede llevar nota de código de hora) | 501: 8 h ordinaria, partida P1 en los dos |
 | `distinta` | Casada, portal `registrado`, ≥ 1 diferencia (R9) | 502: portal 8 h, Sigrid 6 h (Administración la editó) |
-| `anulada_en_sigrid` | Casada, portal `registrado` con horas ≠ 0, Sigrid `can = 0` | 503: 2 h extra en el portal, Sigrid la dejó a 0 |
+| `anulada_en_sigrid` | Casada, portal `registrado` con horas ≠ 0, Sigrid `can = 0` | 503: 2 h extra en el portal, Sigrid la dejó a 0 (Administración o el pisado de F-053) |
 | `borrada_en_sigrid` | Portal `registrado`/`borrado_sigrid` y F-024 confirma que no está | 504: Administración la borró a mano |
 | `en_sigrid_sin_registrar` | Casada; estado del portal vacío, `omitido`, `error`, `conflicto` o `borrado_sigrid` | 505: `error` por timeout de sv5, pero sí se escribió |
 | `pendiente` | Sin pareja; estado vacío, `error` o `conflicto` | 506: aún no aprobada |
@@ -93,6 +95,8 @@ es `distinta` informativa: esta entrega no mueve líneas (DA3).
   `LOTE_COMPROBACION`), con un SQL de columnas común (§7); `origen_de(synckey) -> (origen,
   registro_id | None)`, junto a `synckey_de`.
 - `domain/models/registro_models.py`: dataclass `LineaSincronizar` (campos de R2).
+- `_read` gana `max_rows` opcional (hoy siempre `self._max_rows`); el guardián de F-038
+  (`tests/test_f038_lectores_sigrid.py`) no cambia: mismo fichero lector y `pagina + 1` no es literal.
 - `interface_adapters/api/app.py`: `SincronizarIn` (validación de R6) y la ruta (`def`, como
   `comprobar`); `config/settings.py`: `SINCRONIZAR_PAGINA` (1000) y `SINCRONIZAR_MAX_LINEAS`
   (5000).
@@ -120,15 +124,16 @@ es `distinta` informativa: esta entrega no mueve líneas (DA3).
   Sigrid» (deshabilitado con motivo, R15) y contenedor del panel; `static/app.js` (panel,
   filtros, selección, confirmación, `esc()` en todo lo pintado) y `static/styles.css`.
 
-**Raíz**: `tests/test_f042_contrato_recalculo.py` añade `MOTIVO_SINCRONIZAR` a su
-parametrización. **Documentación**: `docs/ARCHITECTURE.md` (doble canal: la ruta nueva;
-semántica 10: la excepción de R20; semántica 18 nueva, resumen de F-052) y
+**Raíz**: `tests/test_f052_contrato_motivos.py` (como `test_f049_contrato_motivos.py`: sv3
+clasifica `MOTIVO_SINCRONIZAR` como recálculo). **Documentación**: `docs/ARCHITECTURE.md` (doble
+canal: la ruta nueva; semántica 10: la excepción de R20; semántica 22 nueva, resumen de F-052) y
 `azure-apps/partes.md` (endpoint de sv5, rutas y variables de sv4), en el mismo trabajo.
 
 **No se tocan**: `congelacion.py` (sv4) y `recurso_conciliador.py` (sv3) —R28, gemelos de
 F-024—; `comprobacion_sigrid.py` y `comprobacion_lineas.py` (se llaman, no se cambian);
-`registro_pipeline.py`, `reajuste_pipeline.py`, `estado_parte.py`, `cuenta_analitica.py`
-(copias en `porcentajes`); `orm_models.py` (ninguna columna nueva); `sigrid_lookup_client.py`;
+`registro_pipeline.py`, `reajuste_pipeline.py`, `franquicia_pipeline.py`, `racha_ciz.py`,
+`pisado.py`, `estado_parte.py`, `cuenta_analitica.py` (copias en `porcentajes`); en sv4
+`reparto_aviso.py`, `seguimiento_recalculo.py`, `edicion_celda.py`; `orm_models.py` (ninguna columna nueva); `sigrid_lookup_client.py`;
 sv1, sv2, sv3.
 
 ## 6. Escrituras en la base `partes` (sv4)
@@ -138,7 +143,7 @@ sv1, sv2, sv3.
   clasificar; escribe R19. Una línea `registrado` queda congelada desde ese momento.
 - `aplicar_traer_de_sigrid(items, campos, actor, ahora)`: CAS por línea sobre `sigrid_estado =
   'registrado'` y los valores del portal que vio el usuario; descarta (R21) si
-  `_exigir_sin_recalculo` lo prohíbe o el día tiene reparto `pendiente`/`aplicando`. Escribe
+  `_exigir_sin_recalculo(reg.document)` lo prohíbe o el id está en `registros_con_reparto`. Escribe
   `horas` (y, con DA3 B/C, `partida_*` / `hora_*`), `sigrid_motivo` (R22). **No** pasa por
   `_exigir_reg_editable`: es la excepción controlada de R20, como la materialización de F-046
   en sv3. `horas_orig` no se toca (sv3 no recalcula lo congelado, semántica 3).
@@ -152,7 +157,7 @@ sv1, sv2, sv3.
 SELECT h.ide, h.hmoide, pc.cod AS parte_cod, pc.est AS parte_est, h.obride,
        oc.cod AS obra_cod, h.reside, h.fec, h.horide, a.cod AS hora_cod, a.ext AS hora_ext,
        h.paride, p.cod AS partida_cod, h.can, h.tot, h.synckey,
-       CASE WHEN <ENLACES_HMORES <> 0> THEN 1 ELSE 0 END AS enlazada
+       CASE WHEN <_expr_enlazada()> THEN 1 ELSE 0 END AS enlazada
 FROM hmores h
 LEFT JOIN con pc ON pc.ide = h.hmoide   LEFT JOIN con oc ON oc.ide = h.obride
 LEFT JOIN auxhor a ON a.ide = h.horide  LEFT JOIN obrparpar p ON p.ide = h.paride
@@ -160,13 +165,17 @@ WHERE h.obride = ? AND h.fec BETWEEN ? AND ?          -- ámbito persona: h.resi
 ORDER BY h.ide OFFSET ? ROWS FETCH NEXT ? ROWS ONLY   -- max_rows = pagina + 1
 ```
 
-Por synckey: mismo `SELECT`/`FROM` con `WHERE h.synckey IN (…)` en lotes de 200, sin paginar
+Por synckey: mismo `SELECT`/`FROM` con `WHERE h.synckey IN (…)` en lotes de `LOTE_COMPROBACION` (200), sin paginar
 (agregado acotado, `sigrid_api.md` §6.7). `truncated` ⇒ excepción (R3). Si M1 mide que filtrar
 por `h.obride` no usa índice y tarda, la variante es `h.hmoide IN (SELECT ide FROM hmo WHERE
 obride = ? AND ano/mes del periodo)`, que cubre las líneas en partes de obra (semántica 5);
 decide M1, no se implementan las dos. Sin esquema nuevo en PostgreSQL.
 
 ## 8. Decisiones abiertas (para el humano)
+
+DA1–DA10 son del 2026-10-20 (sin aprobar). Revalidadas el 2026-11-01: DA9 superada, las demás
+siguen vigentes; DA11–DA17 nuevas, por lo fusionado después (detalle en
+`progress/explore_F-052_revalidacion.md`).
 
 | DA | Pregunta | Alternativas | Recomendación |
 |---|---|---|---|
@@ -178,8 +187,15 @@ decide M1, no se implementan las dos. Sin esquema nuevo en PostgreSQL.
 | DA6 | «Marcar revisada» (ocultar una diferencia aceptada) | **A**) no en E1 · B) con tabla nueva | **A**: necesita estado persistente (DA5 B); se valora en la feature posterior |
 | DA7 | Traza del actor | **A**) `sigrid_motivo` + `sigrid_registrado_by` + log INFO · B) `undo_log` con `actor` (adelanta F-018) · C) tabla de auditoría | **A**: sin esquema; la auditoría general es F-018 |
 | DA8 | Rigor | **crítico** · estándar | **crítico**: escribe en líneas congeladas de producción (nómina y coste) |
-| DA9 | Sitio en la cola (hoy F-050 → F-049 → F-014 → F-047) | A) F-050 → F-049 → **F-052** → F-014 → F-047 · B) justo tras F-050 · C) al final | **A**: necesita F-050; F-049 toca la misma vista de obra y conviene no cruzar ramas en `app.js` |
+| DA9 | Sitio en la cola (hoy F-050 → F-049 → F-014 → F-047) | A) F-050 → F-049 → **F-052** → F-014 → F-047 · B) justo tras F-050 · C) al final | **SUPERADA** (2026-11-01): F-050 y F-049 ya están en `dev`; el humano la lanzó como siguiente |
 | DA10 | Lectura de `hmores` | **A**) en sv5 (dueño del synckey) · B) en el cliente de maestros de sv4 | **A**: B rompe la frontera de F-024 y duplicaría el formato del synckey |
+| DA11 | Lectura paginada tras F-038 (500.000 filas; sv3/sv4 paginan a `PAGINA_FILAS` = 5000) | **A**) constante `PAGINA_FILAS` = 5000 en sv5, `max_rows = PAGINA_FILAS + 1`, tope `SINCRONIZAR_MAX_LINEAS` · B) `SINCRONIZAR_PAGINA` = 1000 configurable (como estaba) · C) una lectura sin paginar y tope por recuento | **A**: el patrón que F-038 dejó en el monorepo; una obra × nómina cabe en una página y sobra una variable |
+| DA12 | Synckeys nuevas que empiezan por `partes:`: `partes:<id>:ciz` (CIZ hermano, F-062) y `partes:franquicia:<id>` (F-056) | **A**) `origen` ∈ `partes`, `ciz`, `franquicia`, `ajena`, `manual` (`registro_id` en partes y ciz, `ajuste_id` en franquicia); `origen_de` junto a `synckey_ciz_de`/`synckey_franquicia` con test de que coincide con `registro_de_synckey`; sv4 añade UNA clase informativa `solo_sigrid_auxiliar` (12 clases), sin acciones ni comparación · B) tratarlas como `solo_sigrid_ajena` · C) el CIZ como nota del ítem de su inicio y la franquicia aparte | **A**: no son ajenas ni huérfanas; sin esto el CIZ saldría `solo_sigrid_nuestra` con `restaurar` y la franquicia sin `registro_id` |
+| DA13 | Líneas a 0 fuera del portal: desde F-053 las ajenas o manuales pisadas quedan `can = 0` en vez de desaparecer | **A**) se clasifican igual con la marca `a_cero` (`can = 0` y código no `CI*`); el panel las oculta por defecto con «n a 0 h» · B) sin distinción · C) sv5 no las devuelve | **A**: no esconde lo que Administración ve (C) ni inunda el panel (B) |
+| DA14 | `omitido` sin pareja según su motivo (F-034, F-053, F-055, F-060) | **A**) `parte_no_abierto` y `pisada_no_anulada` (sv5 pide reaprobar) ⇒ `pendiente` con `reaprobar`; el resto (`fecha_no_valida`, `fin_movido`, `incidencia_en_sigrid`, `linea_enlazada`, `parte_cerrado`, reglas) ⇒ `no_viaja` con el motivo como nota (prefijo de `sigrid_motivo`, como agrupa el modal) · B) todo `no_viaja` (R11 tal cual) | **A**: son las dos que el propio sv5 manda reaprobar; en `no_viaja` se esconderían |
+| DA15 | `traer_de_sigrid` frente a F-046/F-049: recálculo y repartos que descartan | **A**) pedido compartido de F-049 (`_pedir_recalculo_compartido`) con los partes tocados y los de otras obras del mismo recurso y día, y descarte con `ESTADOS_BLOQUEAN` (`pendiente`, `aplicando`, `rechazado`, como el registro) · B) `_pedir_recalculo_seguido` por documento y solo `pendiente`/`aplicando` · C) F-042 sin seguimiento (texto literal de R23) | **A**: la pasada reparte por (recurso, día) entre obras y una congelada que cambia mueve el residual de las otras; es lo que hizo F-049 por la misma razón |
+| DA16 | `donde` de `solo_sigrid_nuestra` (R12): parte desactivado por la reingesta de sv3 (`deleted_by` NULL) | **A**) valor nuevo `parte_reemplazado`, informativo (las líneas del parte retirado de F-061 ya están en la papelera: `papelera` + `restaurar`) · B) como estaba (`no_existe`) | **A**: un PDF reprocesado deja las viejas en Sigrid y las nuevas `pendiente` (duplicado): es justo lo que hay que ver |
+| DA17 | Tamaño: ¿una feature o dos? | **A**) partir: F-052 = lectura, comparación y panel informativo (R1–R15, R26–R30, DA11–DA14, DA16; DA1 = B), rigor estándar; feature nueva = acciones hacia el portal (R16–R25, DA3, DA15), crítica, tras M2 · B) una, con corte tras la lectura · C) una, como está | **A**: 30 requisitos, 12 clases, panel JS y escritura sobre congeladas en crítico superan cualquier feature cerrada; M2 sobre datos reales dirá qué acciones hacen falta |
 
 ## 9. Verificaciones manuales (humano)
 
@@ -202,8 +218,8 @@ decide M1, no se implementan las dos. Sin esquema nuevo en PostgreSQL.
   salen de M1. El timeout de sv4→sv5 (150 s) queda por debajo del corte de 230 s.
 - **Obra 0404 de pruebas**: sus `partes:<id>` vienen de bases locales y pueden chocar con ids
   reales; en ese ámbito el panel avisa de que `solo_sigrid_nuestra` no es fiable.
-- **H1 (fuera de alcance, propuesto como feature aparte)**: la regla «en Sigrid no se borra»
-  choca con dos cosas que ya existen: el pisado de conflictos de sv5 hace `DELETE`
-  (`stmt_borrar_linea` en el paso 9 de `registro_pipeline.py`) y el candado de una línea
-  registrada (`MOTIVO_LINEA_REGISTRADA`) dice «borra la línea en Sigrid». F-052 no lo cambia.
+- **H1 RESUELTO por F-053**: el pisado es `stmt_anular_linea` (`UPDATE can = 0, tot = 0`), el
+  cliente de sv5 no tiene `DELETE` y `MOTIVO_LINEA_REGISTRADA` dice «En Sigrid no se borran
+  líneas». Efecto aquí: una línea del portal pisada sale `anulada_en_sigrid` (§3).
+- **H2 RESUELTO por F-038**: `ARCHITECTURE.md` ya dice 500.000 filas por petición.
 - **Despliegue**: sv5 antes que sv4 (orden seguro); sin sv5 nuevo, sv4 responde 502 al botón.
