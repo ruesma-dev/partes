@@ -15,7 +15,7 @@ Rama `feature/F-055-sv5-omite-lineas-sin-fecha`, worktree `partes-wt-f055`.
 - M2 HECHA (líder, 2026-11-01): sv5 local en modo pruebas, obra 0404: las 3 líneas (0, 20261340,
   `null`) `omitir` con `fecha_no_valida`, `ejecutar` 0 escritas, sin `[sigrid-write]`. M2b no
   (opcional, franquicia apagada en local).
-- **M3 · PENDIENTE del humano** (tras `.edeploy_partes.ps1 -Solo sv5` desde `infra/`, que lo pide
+- **M3 · PENDIENTE del humano** (tras `.\redeploy_partes.ps1 -Solo sv5` desde `infra/`, que lo pide
   el humano, y unos días de uso): en la base `partes`, solo lectura (`PGOPTIONS='-c
   default_transaction_read_only=on'`):
   `SELECT CASE WHEN r.fecha_int IS NULL OR r.fecha_int <= 0 THEN 'sin_fecha' WHEN r.fecha_int
