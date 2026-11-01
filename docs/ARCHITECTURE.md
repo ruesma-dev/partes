@@ -272,6 +272,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    `APROBACION_MAX_OBRAS`, 10), sin «todo o nada»; sv5 no agrupa obras.
 6. **Ides de Sigrid = MAX(ide)+1** bajo `UPDLOCK` (sin secuencias): por eso
    sv5 corre a UNA réplica fija. Fechas Sigrid: enteros `YYYYMMDD` (0=null).
+   sv5 no escribe una línea sin fecha válida (F-055): `fecha_int` nulo, 0,
+   imposible, anterior al 01/01/2026 o a más de 62 días de hoy se omite con
+   `fecha_no_valida: …` antes de leer nada de Sigrid (también la cola, las
+   extras nuevas del reajuste y la línea de ajuste de la franquicia).
    El nombre de un concepto está en `con.res` (¡no existe `con.nom`!).
 7. **Schema PostgreSQL duplicado a propósito**: `orm_models.py` es
    **byte-idéntico** en sv3 y sv4, y desde F-010 lo comprueba el guardián

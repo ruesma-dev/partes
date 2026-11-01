@@ -27,6 +27,12 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      escribe nada (F-023, R35).
   2. Agrupar las lineas por PERIODO (ano/mes de la fecha REAL de trabajo):
      el parte de Sigrid es por obra y mes natural, no por mes de nomina.
+  2a. F-055: una linea SIN FECHA VALIDA (nula, 0, imposible, anterior al
+     01/01/2026 o a mas de 62 dias de hoy; `fecha_linea.py`) se omite con
+     `fecha_no_valida: ...` ANTES de leer nada de Sigrid por ella: no
+     entra en 2b, 2c ni 3, no abre periodo ni busca synckey, racha o
+     conflictos. Su omision manda sobre todas las demas y sobre
+     `dedicacion`. Un WARNING con la obra y los `registro_id`.
   2b. Completar el recurso de las lineas que llegan sin recurso_ide pero
      con DNI (creacion manual antigua): un UNICO recurso de alta de esa
      empresa a la fecha de la linea (R37).
@@ -108,7 +114,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from application.services.coherencia_recurso import (
     elegir_por_dni,
@@ -128,6 +134,7 @@ from application.services.estado_parte import (
     motivo_choque,
     nombre_estado,
 )
+from application.services.fecha_linea import motivo_fecha_no_valida
 from application.services.parte_abierto import (
     confirmar_escritas,
     motivo_no_escrita,
@@ -226,21 +233,40 @@ class RegistroPipeline:
                 f"escribe nada")
         return destino, forzada
 
+    @staticmethod
+    def _hoy() -> date:
+        """F-055: el dia de hoy (UTC) para el tope de la fecha valida."""
+        return datetime.now(timezone.utc).date()
+
     # ---------------------- FASE 1: PREPARAR ---------------------- #
     # Pasos 1-4. Solo datos maestros + reglas: paralelizable (R18).
     def preparar(self, *, obra: ObraEntrada,
                  lineas: list[LineaEntrada]) -> ContextoRegistro:
         destino, forzada = self._con_empresa(obra)
         empresa = int(destino.empresa)  # type: ignore[arg-type]
+        # Paso 2a (F-055): sin fecha valida no se lee nada de Sigrid por la
+        # linea; su omision manda sobre todas (R3-R5).
+        hoy = self._hoy()
+        por_fecha: dict[int, str] = {}
+        for l in lineas:
+            motivo_fecha = motivo_fecha_no_valida(l.fecha_int, hoy=hoy)
+            if motivo_fecha is not None:
+                por_fecha[l.registro_id] = motivo_fecha
+        if por_fecha:
+            logger.warning(
+                "[registro] obra=%s lineas sin fecha valida=%s "
+                "registro_ids=%s", destino.codigo, len(por_fecha),
+                sorted(por_fecha))
+        validas = [l for l in lineas if l.registro_id not in por_fecha]
         # Lineas que se omiten ANTES de las reglas, con el motivo concreto
         # de la comprobacion que fallo (R36-R37).
         omisiones: dict[int, str] = {}
-        con_recurso = [l for l in lineas if l.recurso_ide]
+        con_recurso = [l for l in validas if l.recurso_ide]
 
         # Paso 2b: lineas sin recurso pero con DNI -> un unico candidato de
         # la empresa de la obra a la fecha de la linea (R37).
         import re as _re
-        sin_recurso = [l for l in lineas if not l.recurso_ide and l.dni]
+        sin_recurso = [l for l in validas if not l.recurso_ide and l.dni]
         if sin_recurso:
             try:
                 mapa = self._cli.recursos_por_dni(
@@ -286,11 +312,11 @@ class RegistroPipeline:
                         "(vacio = el sv4 en ejecucion no calcula la racha)",
                         roles_in)
         horas = self._cli.horas_de_recursos(
-            [l.recurso_ide for l in lineas if l.recurso_ide])
+            [l.recurso_ide for l in validas if l.recurso_ide])
         # F-019 (DA8): un settings sin el ajuste (anterior a F-019) es
-        # el interruptor apagado.
+        # el interruptor apagado. F-055: la omision por fecha manda.
         reglas = ReglasRegistro(
-            horas, omisiones=omisiones,
+            horas, omisiones={**omisiones, **por_fecha},
             mensuales_a_dedicacion=bool(getattr(
                 self._st, "mensuales_a_dedicacion", False)),
             # F-062 (R6, R8): el mismo interruptor que el CIZ movil.

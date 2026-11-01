@@ -12,7 +12,9 @@ from typing import Optional
 class LineaEntrada:
     """Una linea de nuestro sistema (registro de sv4) a registrar."""
     registro_id: int
-    fecha_int: int                      # YYYYMMDD (fecha REAL de trabajo)
+    # YYYYMMDD (fecha REAL de trabajo). F-055 (R9): None = sin fecha (la
+    # cola o el HTTP sin la clave); el paso 2a de `preparar` la omite.
+    fecha_int: Optional[int] = None
     recurso_ide: Optional[int] = None
     dni: Optional[str] = None
     nombre: Optional[str] = None
@@ -37,11 +39,11 @@ class LineaEntrada:
 
     @property
     def ano(self) -> int:
-        return int(self.fecha_int) // 10000
+        return int(self.fecha_int or 0) // 10000
 
     @property
     def mes(self) -> int:
-        return (int(self.fecha_int) // 100) % 100
+        return (int(self.fecha_int or 0) // 100) % 100
 
 
 @dataclass

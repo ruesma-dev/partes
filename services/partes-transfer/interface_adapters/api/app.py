@@ -54,7 +54,9 @@ class ObraIn(BaseModel):
 
 class LineaIn(BaseModel):
     registro_id: int
-    fecha_int: int
+    # F-055 (R9, DA4 B): nulo o ausente = sin fecha; no es un 422 de la
+    # peticion entera: el pipeline omite esa linea (`fecha_no_valida`).
+    fecha_int: Optional[int] = None
     recurso_ide: Optional[int] = None
     dni: Optional[str] = None
     nombre: Optional[str] = None
