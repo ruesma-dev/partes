@@ -211,6 +211,7 @@ class SettingsFake:
     sigrid_api_function_key = "clave-de-test"
     sigrid_api_database = "bd"
     sigrid_api_timeout_s = 5.0
+    sigrid_api_max_rows = 500000   # F-038 (R5): el cableado lo pasa
     tip_parte_trabajo = 35
     est_parte_activo = 1
     est_parte_cerrado = 3

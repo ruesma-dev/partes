@@ -32,7 +32,7 @@ PLANTILLAS = ("parte_detail.html", "obra_detail.html",
               "trabajador_detail.html")
 MARZO = "2026-03"
 URLS = ("/partes/doc-f048", f"/obras/obr-10?period={MARZO}",
-        f"/trabajadores/emp-77?period={MARZO}")
+        f"/trabajadores/rec-501?period={MARZO}")
 
 
 def _sembrar(fabrica, leidas: list[float | None]) -> list[int]:

@@ -168,7 +168,8 @@ def main(argv: list[str] | None = None, settings=None) -> int:
         base_url=settings.sigrid_api_base_url,
         function_key=settings.sigrid_api_function_key,
         database=settings.sigrid_api_database,
-        timeout_s=settings.sigrid_api_timeout_s)
+        timeout_s=settings.sigrid_api_timeout_s,
+        max_rows=settings.sigrid_api_max_rows)
     for linea in comprobar(
             cliente._read, empresa=args.empresa, obra=args.obra,
             ano=args.ano, mes=args.mes,

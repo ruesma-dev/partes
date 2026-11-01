@@ -21,9 +21,9 @@ Dos clases de fallo, tratadas distinto a proposito:
     reaparece tras el visibility timeout; superados los reintentos va a
     `q-transfer-poison` con su blob intacto (R9).
 
-`pisar_claves` se ignora SIEMPRE: pisar borra lineas de Sigrid y es una
-decision humana que viaja por HTTP sincrono, nunca por una cola con
-reentregas (R10).
+`pisar_claves` se ignora SIEMPRE: pisar pone a 0 lineas de Sigrid (F-053)
+y es una decision humana que viaja por HTTP sincrono, nunca por una cola
+con reentregas (R10).
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ def _a_dominio(peticion: dict) -> tuple[ObraEntrada, list[LineaEntrada]]:
 def _resultado_fallido(error: str) -> dict:
     """Mismo esqueleto que el resultado normal, en negativo (R14)."""
     return {"ok": False, "error": error, "escritas": [], "omitidas": [],
-            "ya_registradas": [], "pisadas": [], "borradas": 0,
+            "ya_registradas": [], "pisadas": [], "anuladas": 0,
             "pendientes_confirmacion": [], "dedicacion": []}
 
 

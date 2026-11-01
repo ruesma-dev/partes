@@ -82,7 +82,7 @@ def test_f003_r7_sin_configurar_ni_toca_la_red(sin_red, caplog) -> None:
     with caplog.at_level(logging.INFO):
         cliente = TestClient(_app(Settings(_env_file=None)))
     # La vista con calendario es la que resolveria festivos.
-    assert cliente.get("/trabajadores/emp-77").status_code == 200
+    assert cliente.get("/trabajadores/rec-501").status_code == 200
     assert "[sesame][wiring] DESACTIVADO" in caplog.text
 
 

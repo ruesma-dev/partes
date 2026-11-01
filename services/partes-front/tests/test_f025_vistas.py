@@ -34,9 +34,9 @@ MOTIVO_M = ("Maternidad/Paternidad (M) es de día completo y ese día hay 9 h "
 
 
 def _escenario(fabrica) -> dict[str, list[int]]:
-    """Persona A (emp-77): dia 02 con M en la obra 20 y horas en la 10
+    """Persona A (rec-501): dia 02 con M en la obra 20 y horas en la 10
     (bloqueo); dia 03 con FJ y 2 h extra en la 10 (aviso); dia 04 normal.
-    Persona B (emp-88): dia 02 normal en la obra 10."""
+    Persona B (rec-502): dia 02 normal en la obra 10."""
     return {
         "inc_m": sembrar(fabrica, [{"inc": "M"}], doc="v-m", obra=OBRA_20),
         "bloq": sembrar(fabrica, [{"horas": 8.0},
@@ -48,7 +48,7 @@ def _escenario(fabrica) -> dict[str, list[int]]:
         "libre": sembrar(fabrica, [{"horas": 8.0}], doc="v-libre",
                          fecha="2026-03-04"),
         "otra": sembrar(fabrica, [{"horas": 8.0}], doc="v-otra", dni=DNI_B,
-                        empleado_ide=88, nombre="Persona B"),
+                        empleado_ide=88, nombre="Persona B", recurso_ide=502),
     }
 
 
@@ -74,15 +74,15 @@ def _niveles(registros) -> dict[int, str | None]:
 def test_f025_r15_repo_celdas_de_la_matriz_de_obra() -> None:
     repo, _f, _ids = _repo()
     det = repo.get_obra("obr-10", period_key=MARZO, incidencias=TABLA)
-    bloq = _celda(det, "emp-77", "2026-03-02")
+    bloq = _celda(det, "rec-501", "2026-03-02")
     assert bloq.incompat_nivel == "bloqueo"
     assert "Maternidad/Paternidad (M) es de día completo" in \
         bloq.incompat_motivo
-    aviso = _celda(det, "emp-77", "2026-03-03")
+    aviso = _celda(det, "rec-501", "2026-03-03")
     assert aviso.incompat_nivel == "aviso"
     assert "(FJ) y 2 h extra" in aviso.incompat_motivo
-    for wk, dia in (("emp-77", "2026-03-04"), ("emp-88", "2026-03-02"),
-                    ("emp-77", "2026-03-05")):
+    for wk, dia in (("rec-501", "2026-03-04"), ("rec-502", "2026-03-02"),
+                    ("rec-501", "2026-03-05")):
         celda = _celda(det, wk, dia)
         assert (celda.incompat_nivel, celda.incompat_motivo) == (None, None)
 
@@ -90,7 +90,7 @@ def test_f025_r15_repo_celdas_de_la_matriz_de_obra() -> None:
 def test_f025_r18_repo_la_incidencia_en_otra_obra_marca_las_dos() -> None:
     repo, _f, ids = _repo()
     det20 = repo.get_obra("obr-20", period_key=MARZO, incidencias=TABLA)
-    assert _celda(det20, "emp-77", "2026-03-02").incompat_nivel == "bloqueo"
+    assert _celda(det20, "rec-501", "2026-03-02").incompat_nivel == "bloqueo"
     assert _niveles(det20.registros) == {ids["inc_m"][0]: "bloqueo"}
     det10 = repo.get_obra("obr-10", period_key=MARZO, incidencias=TABLA)
     niveles = _niveles(det10.registros)
@@ -111,13 +111,13 @@ def test_f025_r17_repo_lineas_de_la_vista_de_obra() -> None:
 
 def test_f025_r17_r18_repo_lineas_de_la_vista_de_trabajador() -> None:
     repo, _f, ids = _repo()
-    det = repo.get_worker("emp-77", incidencias=TABLA)
+    det = repo.get_worker("rec-501", incidencias=TABLA)
     niveles = _niveles(det.registros)
     assert [niveles[i] for i in ids["inc_m"] + ids["bloq"]] == \
         ["bloqueo"] * 3
     assert [niveles[i] for i in ids["aviso"]] == ["aviso"] * 3
     assert niveles[ids["libre"][0]] is None
-    otra = repo.get_worker("emp-88", incidencias=TABLA)
+    otra = repo.get_worker("rec-502", incidencias=TABLA)
     assert _niveles(otra.registros) == {ids["otra"][0]: None}
 
 
@@ -128,7 +128,7 @@ def test_f025_r23_repo_vistas_sin_tabla_como_antes() -> None:
             for r in det.rows for c in r.cells} == {(None, None)}
     assert {v.incompat_nivel for v in det.registros} == {None}
     assert {v.incompat_nivel
-            for v in repo.get_worker("emp-77").registros} == {None}
+            for v in repo.get_worker("rec-501").registros} == {None}
 
 
 # ===================================================================== #
@@ -248,7 +248,7 @@ def test_f025_r17_html_insignias_en_las_lineas_de_obra(portal) -> None:
 
 def test_f025_r16_r17_html_vista_de_trabajador(portal) -> None:
     cliente, ids = portal
-    html = cliente.get(f"/trabajadores/emp-77?period={MARZO}").text
+    html = cliente.get(f"/trabajadores/rec-501?period={MARZO}").text
     dias = {a["data-fecha"]: a for t, a, _f in _etiquetas(html)
             if t == "div" and "cal-day" in _clases(a) and "data-fecha" in a}
     assert "cal-incompat" in _clases(dias["2026-03-02"])
@@ -266,7 +266,7 @@ def test_f025_r16_r17_html_vista_de_trabajador(portal) -> None:
 
 def test_f025_r16_html_sin_conflictos_no_hay_marcas(portal) -> None:
     cliente, _ids = portal
-    html = cliente.get(f"/trabajadores/emp-88?period={MARZO}").text
+    html = cliente.get(f"/trabajadores/rec-502?period={MARZO}").text
     assert "cal-incompat" not in html
     assert _insignias(html) == {}
 
@@ -414,7 +414,7 @@ def test_f025_r20_crear_y_editar_un_dia_en_conflicto_sigue_igual(
     r = cliente.patch("/api/partes/v-libre/fecha", json={"fecha": "2026-03-02"})
     assert r.status_code == 200
     # Y el conflicto se sigue viendo (solo se marca, no se rechaza).
-    html = cliente.get(f"/trabajadores/emp-77?period={MARZO}").text
+    html = cliente.get(f"/trabajadores/rec-501?period={MARZO}").text
     dias = {a["data-fecha"]: a for t, a, _f in _etiquetas(html)
             if t == "div" and "cal-day" in _clases(a) and "data-fecha" in a}
     assert "cal-incompat" in _clases(dias["2026-03-02"])

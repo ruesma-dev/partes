@@ -264,6 +264,9 @@ def build_app(settings: Settings) -> FastAPI:
             "El parte se guarda sin archivar el PDF."
         )
 
+    # F-043 (R33) / F-047 (R10): UN adaptador de seguimiento, el mismo para
+    # el pipeline (marca el parte nuevo) y para el worker (app.state).
+    recalculo_seguimiento = SqlAlchemyRecalculoSeguimiento(session_factory)
     pipeline = PersistPartePipeline(
         repository=repository,
         normalizer=ParteNormalizer(
@@ -275,6 +278,7 @@ def build_app(settings: Settings) -> FastAPI:
         sharepoint_uploader=sharepoint_uploader,
         partida_conciliador=partida_conciliador,
         recurso_conciliador=recurso_conciliador,
+        recalculo_seguimiento=recalculo_seguimiento,
     )
 
     # ----------------------------------------------------------- #
@@ -290,8 +294,7 @@ def build_app(settings: Settings) -> FastAPI:
     # None sin Sigrid cableado.
     app.state.recurso_conciliador = recurso_conciliador
     # F-043 (R33): el worker marca con el el recalculo «terminado».
-    app.state.recalculo_seguimiento = SqlAlchemyRecalculoSeguimiento(
-        session_factory)
+    app.state.recalculo_seguimiento = recalculo_seguimiento
 
     @app.get("/health")
     def health() -> Dict[str, Any]:

@@ -59,14 +59,15 @@ def _montar():
     return ParteReviewRepository(fabrica), fabrica, ids
 
 
-def _asignar(repo, metodo, ids, **kw):
+def _asignar(repo, metodo, ids, *,
+             clave="nom-" + LEIDO.upper().replace(" ", "_"), **kw):
     """Llama a una de las cuatro asignaciones con los mismos datos."""
     if metodo == "backfill":
         return repo.backfill_empleado(nombre_leido=LEIDO, **kw)
     if metodo == "leido":
         return repo.reassign_empleado_by_leido(nombre_leido=LEIDO, **kw)
     if metodo == "worker_key":
-        key = "nom-" + LEIDO.upper().replace(" ", "_")
+        key = clave
         return repo.reassign_empleado_by_worker_key(worker_key=key, **kw)
     return repo.reassign_empleado_by_registro_ids(registro_ids=ids, **kw)
 
@@ -260,7 +261,8 @@ def test_f035_r12_reasignar_a_una_ficha_quita_recurso_manual(
     repo, fabrica, (libre, congelada, extra) = _montar()
     _asignar(repo, metodo, [libre, extra], **SIN_FICHA)
     assert _fila(fabrica, libre).empleado_match_method == "recurso_manual"
-    _asignar(repo, metodo, [libre, extra], **{**CON_FICHA, "reside": reside})
+    _asignar(repo, metodo, [libre, extra], **{**CON_FICHA, "reside": reside},
+             clave="rec-903")
     for rid in (libre, extra):
         r = _fila(fabrica, rid)
         assert r.empleado_ide == 11

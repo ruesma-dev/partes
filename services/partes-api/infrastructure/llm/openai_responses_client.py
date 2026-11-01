@@ -48,8 +48,12 @@ class OpenAiResponsesVisionClient(LlmVisionClient):
         temperature: float | None = None,
         retry_policy: RetryPolicy | None = None,
         call_logger: LlmCallLogger | None = None,
+        image_detail: str | None = None,
     ) -> None:
         self._client = openai.OpenAI(api_key=api_key, timeout=float(timeout_s))
+        # F-059: "detail" de cada input_image (OPENAI_IMAGE_DETAIL). None o
+        # vacío = no se manda. Al PDF (input_file) nunca se le pone.
+        self._image_detail = image_detail
         self._max_output_tokens = (
             int(max_output_tokens) if max_output_tokens else None
         )
@@ -96,12 +100,13 @@ class OpenAiResponsesVisionClient(LlmVisionClient):
             )
         else:
             mime = attachment.mime_type or "image/jpeg"
-            content.append(
-                {
-                    "type": "input_image",
-                    "image_url": f"data:{mime};base64,{b64}",
-                }
-            )
+            imagen: dict[str, Any] = {
+                "type": "input_image",
+                "image_url": f"data:{mime};base64,{b64}",
+            }
+            if self._image_detail:
+                imagen["detail"] = self._image_detail
+            content.append(imagen)
         return [{"role": "user", "content": content}]
 
     def _optional_kwargs(self) -> dict[str, Any]:

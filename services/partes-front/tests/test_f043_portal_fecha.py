@@ -812,8 +812,11 @@ def test_f043_r18_sin_partes_marcados_no_sondea() -> None:
 # ------------------------ cableado (fuente) ---------------------------- #
 
 def _manejador_principal(js: str) -> str:
-    ini = js.index('  document.addEventListener("DOMContentLoaded", function () {\n'
-                   "    // Toggle del visor de PDF.")
+    # El manejador cuyo cuerpo trae el visor de PDF. Desde F-064 su primera
+    # linea es `if (FiltrosSesion.redirigir()) return;` (R19), asi que se
+    # busca el `addEventListener` que precede al comentario, no pegado a el.
+    ini = js.rindex('  document.addEventListener("DOMContentLoaded", function () {\n',
+                    0, js.index("    // Toggle del visor de PDF."))
     return js[ini:js.index("\n  });\n", ini)]
 
 

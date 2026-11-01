@@ -45,6 +45,11 @@ _LOG_PREFIX = "[sigrid-client]"
 #: nunca tiene motivo para recortar, asi que ``truncated`` es siempre error.
 PAGINA_FILAS = 5000
 
+#: F-038 (R2, DA1 = B): `max_rows` de una lectura sin paginar si no se pasa
+#: otro; el tope de la instancia de sigrid-api. Igual que
+#: `SIGRID_API_MAX_ROWS`. Las paginadas siguen con `PAGINA_FILAS + 1` (R4).
+MAX_ROWS_DEFECTO = 500_000
+
 
 # Empleados: emp extiende con (emp.ide = con.ide). Codigo en con.cod,
 # nombre completo en emp.res, DNI en emp.dni, Recurso en emp.reside.
@@ -185,7 +190,7 @@ class SigridApiClient:
         function_key: str,
         database: str,
         timeout_s: float = 30.0,
-        max_rows: int = 10000,
+        max_rows: int = MAX_ROWS_DEFECTO,
     ) -> None:
         if not base_url:
             raise ValueError("SigridApiClient requiere base_url no vacio")

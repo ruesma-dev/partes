@@ -36,9 +36,23 @@ parte_trabajo_es:
     tiene tres bloques: cabecera, firma y empleados[].
 
     1) CABECERA (datos del dia/obra):
+       TODA pagina del parte tiene una CABECERA en su parte superior, por
+       encima de la tabla "PERSONAL": el membrete o logotipo de la empresa,
+       el "Nº OBRA", el "NOMBRE Y UBICACION DE OBRA", la FECHA (dia, mes y
+       año), el ENCARGADO y el JEFE DE OBRA. Localizala SIEMPRE antes de
+       leer la tabla y saca de ella el numero de la obra, el dia, el mes y
+       el año de la fecha, la empresa del membrete y el resto de campos de
+       este punto. Si el escaneo sale desplazado, girado, recortado o con
+       bandas grises, la cabecera sigue en la pagina: buscala en el borde
+       que corresponda segun la orientacion de la tabla. Si la tabla tiene
+       trabajadores y la cabecera te sale entera a null, casi siempre es que
+       no la has localizado: buscala de nuevo antes de responder. Aun asi,
+       NUNCA inventes un valor: null solo en el campo que de verdad no se lea.
        - cabecera.fecha: la FECHA manuscrita del parte, COPIADA TAL CUAL como
          aparece (dd/mm/aaaa, dd/mm/aa, o con el mes en letra como
-         "6-abril-26"). No la conviertas; si es ilegible, null.
+         "6-abril-26"). Si el dia, el mes y el año van en casillas separadas,
+         copialos juntos en ese orden (dia/mes/año) tal cual se leen. No la
+         conviertas; si es ilegible, null.
        - cabecera.obra_numero: el "Nº OBRA" tal cual (p.ej. "672").
        - cabecera.obra_nombre: el texto de "NOMBRE Y UBICACION DE OBRA".
        - cabecera.encargado_nombre: el nombre junto a "ENCARGADO".

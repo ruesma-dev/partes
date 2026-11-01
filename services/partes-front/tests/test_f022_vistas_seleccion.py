@@ -32,7 +32,7 @@ RAIZ_SERVICIO = Path(__file__).resolve().parents[1]
 APP_JS = RAIZ_SERVICIO / "static" / "app.js"
 
 URL_OBRA = "/obras/obr-10?period=2026-03&modo=natural"
-URL_PERSONA = "/trabajadores/emp-77?period=2026-03&modo=natural"
+URL_PERSONA = "/trabajadores/rec-501?period=2026-03&modo=natural"
 
 
 @pytest.fixture
@@ -115,7 +115,7 @@ def test_f022_r8_vista_persona_boton_con_su_ambito(montaje) -> None:
     cliente, _ids = montaje
     boton = _boton_aprobar(cliente.get(URL_PERSONA).text)
     assert 'data-vista="trabajador"' in boton
-    assert 'data-worker-key="emp-77"' in boton
+    assert 'data-worker-key="rec-501"' in boton
     assert "data-obra-key" not in boton
 
 

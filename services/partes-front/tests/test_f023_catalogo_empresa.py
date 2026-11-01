@@ -166,7 +166,7 @@ def test_f023_r4_cliente_los_lotes_acotados_no_paginan(monkeypatch) -> None:
     assert _cliente(monkeypatch, falso).fetch_dnis_sin_extra({"1a"}) == set()
     (peticion,) = falso.peticiones
     assert "OFFSET" not in peticion["sql"]
-    assert peticion["max_rows"] == 10000
+    assert peticion["max_rows"] == 500000   # F-038: antes 10000 fijo
 
 
 # ======================= cliente · R38 y R39 =========================== #
@@ -393,7 +393,7 @@ def test_f023_r42_soltar_al_reasignar_por_nombre_leido() -> None:
 def test_f023_r42_soltar_al_reasignar_el_trabajador() -> None:
     repo, fabrica, ids = _montar_soltar()
     assert repo.reassign_empleado_by_worker_key(
-        worker_key="emp-77", ide=4242, codigo=None, nombre=None,
+        worker_key="rec-501", ide=4242, codigo=None, nombre=None,
         dni=None) == (2, ["Pepe Perez"], 1)
     _comprobar(fabrica, ids)
 

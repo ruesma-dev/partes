@@ -286,7 +286,7 @@ from tests.test_f019_bandeja import (  # noqa: E402
     sembrar_mensual,
 )
 
-PERSONA = {"vista": "trabajador", "worker_key": "emp-77"}
+PERSONA = {"vista": "trabajador", "worker_key": "rec-602"}
 
 
 @pytest.fixture
@@ -302,9 +302,9 @@ def publicado(monkeypatch):
     repo = ParteReviewRepository(fabrica)
     _marcar(repo, ded)
     libre, reg = sembrar(fabrica, [{}, {"estado": "registrado"}], doc="d2",
-                         empleado_ide=77, fecha="2026-03-05")
+                         empleado_ide=77, fecha="2026-03-05", recurso_ide=602)
     (ajena,) = sembrar(fabrica, [{"estado": "dedicacion"}], doc="d3",
-                       empleado_ide=88, dni="00000001R",
+                       empleado_ide=88, dni="00000001R", recurso_ide=502,
                        nombre="Persona B")
     app = build_app(Settings(_env_file=None), repository=repo,
                     transfer_client=Sv5Falso(), publisher=PublisherFalso(),
@@ -450,7 +450,7 @@ def test_f019_r24_el_autor_es_el_actor_de_la_peticion(publicado) -> None:
 import re  # noqa: E402
 from pathlib import Path  # noqa: E402
 
-VISTAS = ["/obras/obr-10", "/trabajadores/emp-77"]
+VISTAS = ["/obras/obr-10", "/trabajadores/rec-602"]
 APP_JS = Path(__file__).resolve().parents[1] / "static" / "app.js"
 
 

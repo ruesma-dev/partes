@@ -285,6 +285,7 @@ def sembrar_parte(
     empleado_ide: int | None = 77,
     empleado_dni: str = "12345678Z",
     empleado_nombre: str = "Pepe Perez",
+    recurso_ide: int = 501,
 ) -> list[int]:
     """Siembra UN parte con lineas de `sigrid_estado` parametrizable (F-004).
 
@@ -319,7 +320,7 @@ def sembrar_parte(
                 empleado_nombre=empleado_nombre,
                 trabajador_nombre_leido=linea.get(
                     "leido", empleado_nombre),
-                recurso_ide=501, recurso_cif=empleado_dni,
+                recurso_ide=recurso_ide, recurso_cif=empleado_dni,
                 categoria=linea.get("categoria"),
                 tipo_hora=str(linea.get("tipo") or "normal"),
                 horas=linea.get("horas", 8.0),

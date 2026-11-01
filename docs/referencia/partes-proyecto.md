@@ -213,10 +213,25 @@ registro**:
      omite con motivo (los mensuales con MENC no registran por horas).
    - **Incidencias**: van SIN horas (can=0). Solo se registran el
      **inicio** de la racha (con su código CI*) y el **fin** (código
-     CIZ); los días intermedios se omiten. El rol lo calcula sv4 mirando
-     el histórico del trabajador hacia atrás Y hacia delante, saltando
-     días vacíos y cruzando partes/obras. Sigrid pinta el tramo completo
-     en su vista calendario a partir del par inicio/fin.
+     CIZ); los días intermedios se omiten. El rol lo calcula sv4. Con
+     `MOVER_CIZ` encendido en sv4 y en sv5 (F-060), con el histórico de
+     la persona: del día 1 del mes anterior hasta el día anterior,
+     saltando días vacíos, cruzando partes/obras, por la letra de la
+     incidencia y sin la papelera. Último día con la misma letra ⇒ fin
+     (con `racha_registro_ids`); si no ⇒ inicio. Un fin cuya racha ya
+     tiene su CIZ en Sigrid **lo mueve** (un `UPDATE` de fecha, synckey y
+     parte de la misma línea, nunca un borrado) en vez de escribir otro,
+     y la línea que lo tenía queda `omitido` (`fin_movido`). Desde
+     F-062, con el mismo interruptor, el inicio escribe su CI* **y un CIZ
+     el mismo día** (sv4 lo marca con `ciz_mismo_dia`; synckey
+     `partes:<id>:ciz`, las dos filas en una sola sentencia); si la racha
+     sigue, el siguiente fin mueve ese CIZ y el inicio conserva su CI*
+     (§4.4). Con
+     `MOVER_CIZ` apagado en los dos, como antes de F-060: sv4 mira el
+     histórico hacia atrás y hacia delante (`intermedio` si el siguiente
+     día ya ingerido es incidencia) y cada fin escribe su CIZ. Sigrid
+     pinta el tramo completo en su vista calendario a partir del par
+     inicio/fin.
    - 3b. **Cuenta analítica** (F-021): de la ficha del recurso sale la
      **subcuenta** (lo que va tras el primer punto de la cuenta de
      `reshor.caaide` para el tipo de hora escrito; si ese tipo no tiene,
@@ -453,6 +468,17 @@ nada recarga solo: al terminar, una tarjeta ofrece «Actualizar», que
 recarga conservando scroll y filtros. Pasados 10 min sin confirmar, el
 parte se edita como siempre y el aviso pide actualizar.
 
+**El parte nuevo también espera** (F-047). sv3 guarda el parte con las
+horas leídas y después reparte ordinaria y extra; entre una cosa y otra
+pasan unos segundos (o minutos, si hay otra pasada en curso) en los que el
+portal enseñaría, por ejemplo, 10 h donde irán 8 + 2. Por eso sv3 guarda el
+parte nuevo ya «en espera» (el pedido es el id del propio documento) y lo
+da por repartido al terminar la conciliación. El portal lo marca
+«procesando…» en las vistas de obra y trabajador, en el detalle y en el
+listado de partes, con su propio aviso, y no deja aprobarlo hasta que
+termine (ni suelto ni en bloque): sv3 no reparte lo aprobado. Si la
+conciliación falla, vence a los 10 min como cualquier otra espera.
+
 **La jornada del día no es plana** (F-015). El `candef` de Sigrid son las
 horas de lunes a jueves; el **último día laborable de la semana** —el
 mayor L–V que sea laborable en el calendario de ESE trabajador— recibe el
@@ -504,13 +530,76 @@ limpiar todo lo escrito de golpe.
 **Incidencias en el destino**: replicando la convención del papel, solo
 se registran **el primer día de la racha** (con su código CI\*) y **el
 último** (con CIZ); los intermedios ni se escriben. La racha se calcula
-mirando el histórico del trabajador hacia atrás Y hacia delante,
-saltando días sin líneas y cruzando partes/obras (una racha puede
-empezar en una obra y seguir tras un traslado). La **Vista calendario**
-de Sigrid pinta el tramo completo entre el par inicio/fin — ver 12 M
-seguidas en pantalla con solo 2 líneas físicas es el comportamiento
-correcto. Un día suelto (trabajo antes y después) lleva su código, como
-la «A» de un accidente puntual.
+con el histórico de la persona saltando días sin líneas y cruzando
+partes/obras (una racha puede empezar en una obra y seguir tras un
+traslado). La **Vista calendario** de Sigrid pinta el tramo completo
+entre el par inicio/fin — ver 12 M seguidas en pantalla con solo 2
+líneas físicas es el comportamiento correcto. Un día suelto (trabajo
+antes y después) lleva su código, como la «A» de un accidente puntual;
+desde F-062 (con `MOVER_CIZ`) lleva además su CIZ ese mismo día, como lo
+graba Administración.
+
+**El CIZ se mueve (F-060)**. Como los partes se aprueban día a día, el
+fin de una racha no se conoce hasta que aparece un día trabajado. Regla
+del humano (2026-10-23): el primer día es el inicio; el día siguiente de
+la misma incidencia guarda el fin; ese fin **se va moviendo** con cada
+día nuevo de la racha y se queda donde está cuando aparece un día
+laborable. Ejemplo: día 1 V ⇒ CIV; día 2 V ⇒ CIZ el día 2; días 3 y 4 V ⇒
+ese CIZ pasa al 3 y al 4; día 5 con horas ⇒ el CIZ se queda en el 4. En
+Sigrid, un CIV y un CIZ. Igual para bajas y el resto de letras.
+
+- **Ventana**: sv4 mira del día 1 del mes anterior al del día aprobado
+  hasta el día anterior, en todas las obras. Sin nada en ella, el día es
+  inicio (riesgo aceptado: una baja más larga que la ventana, o una
+  racha anterior al sistema o puesta a mano, abre un CI\* nuevo).
+- **Letra**: V seguida de B cierra la V y abre la B con su CI\*.
+- **Papelera**: no cuenta para decidir; sí se buscan por synckey los CIZ
+  de líneas suyas de la misma letra que llegaron a registrarse, de
+  cualquier día del tramo de la racha hasta el día aprobado, también de
+  los días que se saltan por tener todo en la papelera.
+- **Mover sin borrar**: sv5 busca el CIZ por las synckeys de las líneas
+  de la racha y hace UN `UPDATE` de esa línea: fecha, synckey y, si el
+  día nuevo cae en otro mes u obra, el parte (con guarda de parte
+  abierto en el de origen y en el de destino). Nunca `DELETE`.
+- **Lo que no se mueve**: un CIZ ya en un día posterior (llegada
+  desordenada) deja el día como intermedio; un CIZ en un parte cerrado
+  (`ciz_en_parte_cerrado`) o enlazado (`linea_enlazada`) no se toca ni
+  se duplica: se corrige a mano. Un trabajo o un inicio aprobado antes de
+  una incidencia ya registrada no mueve nada hacia atrás: el modal avisa
+  (`racha_desordenada`).
+- **Interruptor**: `MOVER_CIZ`, la misma variable en sv4 (el rol y la
+  lista de la racha) y en sv5 (mover el CIZ), apagada por defecto en los
+  dos. Se enciende en sv5 y luego en sv4; se apaga en sv4 y luego en sv5.
+  **La vuelta atrás completa es apagarla en los dos** (lo ya movido no se
+  deshace): apagada solo en sv5, sv4 sigue con la regla nueva y la
+  aprobación día a día escribe un CIZ por día. Encendido en producción
+  desde el 2026-10-25 (sv5 y luego sv4).
+
+**El CIZ del mismo día (F-062)**. Administración graba el CI\* de un
+inicio y enseguida su CIZ el MISMO día (306 de 340 inicios desde 2025).
+Con `MOVER_CIZ` encendido, el inicio hace lo mismo y el CIZ se mueve si
+la racha sigue. Ejemplo: día 1 V ⇒ CIV **y CIZ** el 1; días 2, 3 y 4 V ⇒
+ese CIZ pasa al 2, al 3 y al 4; día 5 con horas ⇒ el CIZ se queda en el 4.
+Un día suelto queda con su CIV y su CIZ.
+
+- **Quién lo decide**: sv4 marca el inicio con `ciz_mismo_dia` y le manda
+  en `racha_registro_ids` su **tramo delante** (los días ya ingeridos de
+  la misma letra, hasta el último del mes siguiente). No lo marca si el
+  fin de esa racha viaja en la misma aprobación (de esa obra u otra): el
+  CIZ lo escribe ese fin.
+- **Cómo se escribe**: sv5 escribe el CI\* y el CIZ («hermano», synckey
+  `partes:<id>:ciz`, `pos` detrás del CI\*, cuenta del código CIZ) con
+  **una sola sentencia de dos filas**: entran los dos o ninguno.
+- **Cuándo no**: si la racha ya tiene un CIZ posterior en Sigrid (llegada
+  desordenada), si el hermano ya existe (reaprobación), si hay un CIZ
+  ajeno de ese recurso ese día o si el recurso no tiene el código CIZ
+  (WARNING `sin_ciz_mismo_dia`): solo el CI\*.
+- **Cómo se mueve**: el siguiente fin busca también `partes:<id>:ciz` de
+  cada línea de su racha y lo mueve con el `UPDATE` de F-060; la línea
+  del inicio conserva su CI\* y sigue `registrado` (no hay `fin_movido`).
+- **Nada es retroactivo**: una racha que quedó abierta antes (solo CI\*)
+  recibe su CIZ con su siguiente fin. Quitar solo F-062 = volver sv4 a su
+  revisión anterior (sv5 sigue moviendo los hermanos ya escritos).
 
 ### 4.5 Partidas de imputación (a qué se atribuye el coste)
 
@@ -621,9 +710,9 @@ y jornada (completa/reducida) del contrato — con lo que los avisos de
 (compartido con albaranes) · **Base de datos**: `partes` · ORM:
 SQLAlchemy 2 (fichero `infrastructure/database/orm_models.py`,
 **byte-idéntico** en sv3 y sv4, con guardián automático desde F-010).
-**Siete tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
-`empleado_jornada`, `undo_log`, `dedicacion_bandeja` (F-019) y
-`reparto_pendiente` (F-046).
+**Ocho tablas**: `parte_documents`, `parte_registros`, `empleado_alias`,
+`empleado_jornada`, `undo_log`, `dedicacion_bandeja` (F-019),
+`reparto_pendiente` (F-046) y `franquicia_ajuste` (F-056).
 
 Al arrancar, sv3 y sv4 ejecutan el mismo DDL complementario —`ALTER TABLE
 … ADD COLUMN IF NOT EXISTS` por columna y `CREATE INDEX IF NOT EXISTS`—
@@ -642,7 +731,7 @@ y distintas entre servicios.
 | Obra leída/casada | `obra_numero_leido`, `obra_nombre_leido`, `obra_codigo`, `obra_ide`, `obra_nombre`, `obra_match_method`, `obra_match_score` | ide = `con.ide`/`obr` en Sigrid. Métodos de F-023: `codigo_membrete`, `codigo_trabajadores`, `codigo_nombre`; sin casar: `codigo_otra_empresa`, `codigo_ambiguo`, `nombre_ambiguo` |
 | Empresa del parte (F-023) | `empresa_membrete`, `empresa`, `empresa_origen` | nullables: el texto del membrete tal cual, la empresa (`con.emp`) y de dónde sale (`membrete`, `obra`, `trabajadores`, `nombre`). NULL en los partes anteriores a F-023 |
 | Día del parte | `fecha` (ISO), `fecha_int` (YYYYMMDD) | |
-| Seguimiento del recálculo (F-043) | `recalculo_pedido_id`, `recalculo_pedido_at_utc`, `recalculo_terminado_id`, `recalculo_terminado_at_utc` | nullables; el pedido lo escribe sv4 al pedir el recálculo de F-042 y el terminado, sv3 al acabar la pasada. Iguales = recalculado; distintos y < 10 min = parte en espera. No entran en deshacer |
+| Seguimiento del recálculo (F-043) | `recalculo_pedido_id`, `recalculo_pedido_at_utc`, `recalculo_terminado_id`, `recalculo_terminado_at_utc` | nullables; el pedido lo escribe sv4 al pedir el recálculo de F-042 (o sv3 al guardar un parte nuevo, con el id del documento: F-047) y el terminado, sv3 al acabar la pasada. Iguales = recalculado; distintos y < 10 min = parte en espera. No entran en deshacer |
 | Personas del parte | `encargado_nombre`, `jefe_obra_nombre` | |
 | Firmas | `firma_encargado`, `firma_jefe_obra`, `firma_administracion`, `firmado`, `firmante_nombre`, `firmante_rol`, `firma_confianza_pct` | |
 | Extracción IA | `provider`, `model_name`, `prompt_key`, `schema_name`, `review_required`, `raw_extraction_json`, `raw_context_json` | trazabilidad completa. La confianza por línea vive en `parte_registros.confianza_pct`; aquí solo hay `firma_confianza_pct` (fila «Firmas») |
@@ -816,6 +905,32 @@ hay deshacer en Sigrid).
 | `decision`, `decidido_por`, `decidido_at_utc` | `aplicar` / `mantener`, quién (`_actor`) y cuándo |
 | `creado_at_utc`, `actualizado_at_utc`, `materializado_at_utc` | trazabilidad |
 
+### 5.5 quater `franquicia_ajuste` — ajuste de la franquicia de extras (F-056)
+
+Una fila por (recurso, periodo de nómina): la línea de ajuste que resta la
+franquicia X de las extras del mes (`ARCHITECTURE.md`, semántica 21). La
+**crea y la cierra solo sv4**: la decisión del modal de aprobar o de la vista
+de trabajador, por CAS sobre `estado` y con el índice único como barrera
+del alta, y el cierre tras llamar a sv5. sv3 solo la declara (copia gemela
+del ORM). X NO se guarda aquí, porque vive en el campo extendido del
+recurso en Sigrid (`defext` tip 33, `cod` `10`; valor en `conext.valn`) que lee sv5:
+`franquicia` es la X que usó sv5 en la última aplicación. Sin nombres ni
+DNIs; toda `NOT NULL` lleva `server_default`; fuera de `undo_log` (no hay
+deshacer en Sigrid).
+
+| Columna | Notas |
+|---|---|
+| `id` (PK) | serie; da la synckey `partes:franquicia:<id>` de la línea en Sigrid |
+| `recurso_ide`, `periodo` | `res.ide` y mes de nómina `YYYY-MM` (el del 15); índice ÚNICO `ux_franquicia_ajuste_periodo` |
+| `fecha_int`, `obra_ide`, `obra_codigo`, `partida_ide`, `partida_cod` | día de ajuste, obra y partida; fijos una vez creado (solo se rellenan si la fila no tenía día) |
+| `estado` | `decidido` → `aplicado` / `error`; `rechazado` («No ajustar»). Índice `ix_franquicia_ajuste_estado` |
+| `decision` | `ajustar` / `no_ajustar` / `recalcular`: la última que cambió la fila |
+| `franquicia`, `extras`, `ajuste` | X usada, E y A de la última aplicación (NULL hasta aplicar) |
+| `hmores_ide`, `hmoide`, `parte_cod`, `resultado` | la línea y el parte en Sigrid, y la respuesta de sv5 (JSON) |
+| `error` | motivo del último fallo (hasta 255) |
+| `decidido_por`, `decidido_at_utc`, `aplicado_por`, `aplicado_at_utc` | quién (`_actor`) y cuándo |
+| `creado_at_utc`, `actualizado_at_utc` | trazabilidad |
+
 ### 5.6 Datos que NO están en esta BBDD
 
 - Los **partes de Sigrid** (`con`+`hmo` cabecera, `hmores` líneas) viven
@@ -958,8 +1073,8 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 | sv1 | Graph (tenant/client/secret ref), buzón, QUEUE_URL |
 | sv2 | GEMINI (secreto), colas, prompts/schema |
 | sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
-| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), API_PORT=8005 |
+| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`; F-062: marca el inicio con `ciz_mismo_dia` y le manda su tramo delante, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`) |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro; F-062: el inicio marcado escribe su CI* y un CIZ `partes:<id>:ciz` el mismo día, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), `FRANQUICIA_CAMPO_EXT` (F-056; vacío por defecto = franquicia `apagada`, sin leer nada; el `cod` del campo extendido de recurso con la franquicia X, `10` al activarla (M4); un código malo, una definición de tip 33 que falte o sobre, o un `camtip` que no sea número entero es `no_disponible`, con WARNING, y sv5 arranca igual; `/health` dice `apagada` o `configurada`), API_PORT=8005 |
 
 ---
 
@@ -974,7 +1089,10 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
   HE en su ficha (`reshor`); el exceso sobre la jornada (`candef`) se
   separa automáticamente como extra en la conciliación.
 - **Incidencias sin horas** (can=0) y **solo inicio/fin de racha** (CI* /
-  CIZ); intermedios ni se registran — Sigrid pinta el tramo.
+  CIZ); intermedios ni se registran — Sigrid pinta el tramo. Desde F-060,
+  con `MOVER_CIZ` encendido en sv4 y sv5, el CIZ de una racha se mueve
+  (UPDATE) en vez de duplicarse (§4.4); desde F-062, el inicio escribe su
+  CI* y un CIZ el mismo día y es ese CIZ el que se mueve.
 - **Parte mensual por obra**: código `PT<AA>/NNNNN`; las líneas llevan
   synckey para idempotencia y detección de pisados.
 - **Papelera** en todo (documentos y líneas): borrado lógico recuperable.

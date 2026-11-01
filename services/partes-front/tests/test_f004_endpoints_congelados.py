@@ -796,7 +796,7 @@ def test_f004_r13_si_todas_las_lineas_estan_congeladas_no_dice_ok(
         montaje) -> None:
     cliente, _repo, fabrica, ids = montaje(
         [{"estado": "registrado"}, {"estado": "encolado"}])
-    cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    cuerpo = cliente.post("/api/trabajador/rec-501/delete").json()
     assert cuerpo["ok"] is False
     assert (cuerpo["lineas"], cuerpo["congelados"]) == (0, 2)
     assert all(d["deleted_at_utc"] is None
@@ -825,7 +825,7 @@ def test_f004_r13_borrar_al_trabajador_omite_las_lineas_congeladas(
         montaje) -> None:
     cliente, _repo, fabrica, ids = montaje(
         [{"estado": "registrado"}, {"estado": None}])
-    cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    cuerpo = cliente.post("/api/trabajador/rec-501/delete").json()
     assert cuerpo["ok"] is True         # una linea si se movio
     assert cuerpo["lineas"] == 1
     assert cuerpo["congelados"] == 1
@@ -841,7 +841,7 @@ def test_f004_r13_sin_congelados_el_borrado_masivo_no_cambia(
     """R18: el comportamiento de siempre cuando no hay nada en Sigrid."""
     cliente, _repo, fabrica, ids = montaje(
         [{"estado": "omitido"}, {"estado": None}])
-    cuerpo = cliente.post("/api/trabajador/emp-77/delete").json()
+    cuerpo = cliente.post("/api/trabajador/rec-501/delete").json()
     assert (cuerpo["lineas"], cuerpo["congelados"]) == (2, 0)
     assert all(d["deleted_at_utc"] is not None
                for d in datos_registros(fabrica, ids).values())

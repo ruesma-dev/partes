@@ -48,6 +48,7 @@ from domain.models.registro_models import (
     OpReajuste,
     ResultadoReajuste,
     VeredictoReajuste,
+    es_synckey_franquicia,
 )
 from infrastructure.sigrid.sigrid_write_client import synckey_de
 
@@ -138,7 +139,8 @@ class ReajustePipeline:
     def _choques(self, accion: AccionLinea, destino: ObraEntrada,
                  mias: set[str]) -> list[LineaSigrid]:
         """R22: lineas ajenas del mismo recurso, dia y codigo de hora en
-        los partes En registro del periodo de la obra destino."""
+        los partes En registro del periodo de la obra destino. F-056 (R31):
+        la linea de ajuste de una franquicia no choca."""
         est = self._est_registro()
         out: list[LineaSigrid] = []
         for ps in self._cli.partes_del_periodo(int(destino.ide), accion.ano,
@@ -148,7 +150,8 @@ class ReajustePipeline:
             for ls in self._cli.lineas_existentes(
                     int(ps.ide), [accion.recurso_ide], [accion.fecha_int]):
                 if (int(ls.horide or 0) == int(accion.hora_ide or 0)
-                        and not (ls.synckey and ls.synckey in mias)):
+                        and not (ls.synckey and ls.synckey in mias)
+                        and not es_synckey_franquicia(ls.synckey)):
                     out.append(ls)
         return out
 

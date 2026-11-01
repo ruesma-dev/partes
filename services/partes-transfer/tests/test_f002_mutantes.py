@@ -150,11 +150,11 @@ def test_f002_r8_el_blob_se_puede_reescribir(monkeypatch):
     assert cli.descargar("transfer", "resultados/p1.json") == b'{"n": 2}'
 
 
-def test_f002_r14_el_resultado_fallido_no_inventa_borrados():
-    """Decir que se borro una linea cuando el registro fallo entero seria
-    mentir sobre una operacion destructiva."""
+def test_f002_r14_el_resultado_fallido_no_inventa_anuladas():
+    """Decir que se puso a 0 una linea cuando el registro fallo entero
+    seria mentir sobre una operacion destructiva (F-053: `anuladas`)."""
     fallido = _resultado_fallido("sigrid caido")
-    assert fallido["borradas"] == 0
+    assert fallido["anuladas"] == 0 and "borradas" not in fallido
     assert fallido["ok"] is False
     assert fallido["escritas"] == []
 

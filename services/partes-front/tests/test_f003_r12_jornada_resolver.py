@@ -92,7 +92,7 @@ def test_f003_r12_kpi_de_la_vista_trabajador_usa_la_regla(entorno) -> None:
     cliente, _app = _monta(entorno, [
         {"fecha": "2026-03-02", "horas": 8.0, "candef": 2.0},
     ])
-    html = cliente.get("/trabajadores/emp-77").text
+    html = cliente.get("/trabajadores/rec-501").text
     assert "candef-asignado" in html
     assert "8 h" in html
 
@@ -102,7 +102,7 @@ def test_f003_r12_kpi_respeta_el_candef_valido(entorno) -> None:
     cliente, _app = _monta(entorno, [
         {"fecha": "2026-03-02", "horas": 7.0, "candef": 7.0},
     ])
-    html = cliente.get("/trabajadores/emp-77").text
+    html = cliente.get("/trabajadores/rec-501").text
     assert "candef-asignado" not in html
     assert "7 h" in html
 
@@ -116,14 +116,14 @@ def test_f003_r12_aviso_de_jornada_incompleta_usa_la_regla(entorno) -> None:
     cliente, _app = _monta(entorno, [
         {"fecha": "2026-03-02", "horas": 6.0, "candef": 2.0},
     ])
-    html = cliente.get("/trabajadores/emp-77").text
+    html = cliente.get("/trabajadores/rec-501").text
     assert "cal-warn" in html
 
     cliente2, _ = _monta(entorno, [
         {"fecha": "2026-03-02", "horas": 6.0, "candef": 5.0},
     ])
     # candef 5 valido y 6 h por encima: ningun aviso.
-    assert "cal-warn" not in cliente2.get("/trabajadores/emp-77").text
+    assert "cal-warn" not in cliente2.get("/trabajadores/rec-501").text
 
 
 def test_f003_r12_matriz_de_obra_usa_la_regla(entorno) -> None:

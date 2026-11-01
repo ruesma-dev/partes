@@ -60,32 +60,36 @@ def _clave_orden(feature: dict) -> tuple:
 
 
 def _tabla(features: list[dict], con_estado: bool = True) -> list[str]:
+    # Abiertas: estado y spec (escrita, aprobada, en redacción...). Terminadas:
+    # lo que queda pendiente tras cerrar (despliegue, verificaciones manuales).
     if not con_estado:
-        cabecera = "| # | Feature | Prioridad | Rigor |"
-        separador = "|---|---|---|---|"
+        cabecera = "| # | Feature | Prioridad | Rigor | Pendiente |"
+        separador = "|---|---|---|---|---|"
     else:
-        cabecera = "| # | Feature | Prioridad | Estado | Rigor | Rama |"
-        separador = "|---|---|---|---|---|---|"
+        cabecera = "| # | Feature | Prioridad | Estado | Spec | Rigor | Rama |"
+        separador = "|---|---|---|---|---|---|---|"
     filas = [cabecera, separador]
     for f in features:
         if con_estado:
             filas.append(
-                "| %s | %s | %s | %s | %s | %s |" % (
+                "| %s | %s | %s | %s | %s | %s | %s |" % (
                     _celda(f.get("id")),
                     _celda(f.get("title")),
                     _celda(f.get("priority")),
                     _ETIQUETA_ESTADO.get(f.get("status"), _celda(f.get("status"))),
+                    _celda(f.get("spec")),
                     _celda(f.get("rigor")),
                     "`%s`" % _celda(f["branch"]) if f.get("branch") else "",
                 )
             )
         else:
             filas.append(
-                "| %s | %s | %s | %s |" % (
+                "| %s | %s | %s | %s | %s |" % (
                     _celda(f.get("id")),
                     _celda(f.get("title")),
                     _celda(f.get("priority")),
                     _celda(f.get("rigor")),
+                    _celda(f.get("pendiente")),
                 )
             )
     return filas
@@ -155,6 +159,12 @@ def construir(datos: dict) -> str:
             meta.append("rama `%s`" % f["branch"])
         lineas.append(" · ".join(meta))
         lineas.append("")
+        if f.get("spec"):
+            lineas.append("**Spec**: %s" % _celda(f["spec"]))
+            lineas.append("")
+        if f.get("pendiente"):
+            lineas.append("**Pendiente**: %s" % _celda(f["pendiente"]))
+            lineas.append("")
         descripcion = (f.get("description") or "").strip()
         lineas.append(descripcion if descripcion else "_Sin descripción._")
         lineas.append("")

@@ -212,9 +212,10 @@ class SigridConSql(SigridFake):
         s["sqls"] = [self.real.stmt_insert_linea(**kw)["sql"]]
         return s
 
-    def stmt_borrar_linea(self, ide):
-        s = super().stmt_borrar_linea(ide)
-        s["sqls"] = [self.real.stmt_borrar_linea(ide)["sql"]]
+    def stmt_anular_linea(self, **kw):
+        # Enmienda de F-053: el pisado pone a 0 en vez de borrar.
+        s = super().stmt_anular_linea(**kw)
+        s["sqls"] = [self.real.stmt_anular_linea(**kw)["sql"]]
         return s
 
     def escribir(self, statements):
@@ -343,12 +344,19 @@ def test_f031_r5_r31_ni_partes_cerrados_ni_asientos_ni_estados() -> None:
     claves = {c.clave for c in pf.conflictos}
     _pipeline(cli).ejecutar(obra=_obra(), lineas=lineas(),
                             pisar_claves=claves)
-    assert {s["op"] for s in cli.enviadas} == {"insert", "borrar"}
+    assert {s["op"] for s in cli.enviadas} == {"insert", "anular"}
     assert {s["hmoide"] for s in cli.enviadas if s["op"] == "insert"} == \
         {810}
-    assert [s["ide"] for s in cli.enviadas if s["op"] == "borrar"] == [4001]
-    sqls = " ".join(q for s in cli.enviadas for q in s["sqls"]).lower()
-    assert "update" not in sqls
+    assert [s["ide"] for s in cli.enviadas if s["op"] == "anular"] == [4001]
+    sqls = " ".join(" ".join(q.split()) for s in cli.enviadas
+                    for q in s["sqls"]).lower()
+    # Enmienda de F-053: el unico UPDATE es la puesta a 0 de la pisada (en
+    # el parte En registro 805); ni borrados ni cambios de estado.
+    assert sqls.count("update ") == 1
+    assert "update hmores set can = 0, tot = 0 where " in sqls
+    assert "delete" not in sqls
+    assert next(l for l in cli.lineas if l["ide"] == 4001)["can"] == 0.0
+    assert next(l for l in cli.lineas if l["ide"] == 4000)["can"] == 8.0
     for tabla in ("asa", "apa", "apu", "asi"):
         assert f" {tabla} " not in f" {sqls} ".replace("(", " ")
 
@@ -453,8 +461,11 @@ def test_f031_r12_choque_en_otro_parte_en_registro_es_conflicto() -> None:
                                  r.pendientes_confirmacion] == [c.clave]
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={c.clave})
-    assert (r.pisadas, r.borradas) == ([c.clave], 1)
+    assert (r.pisadas, r.anuladas) == ([c.clave], 1)
     assert _inserts_por_parte(cli) == {905: [1]}
+    # Enmienda de F-053: la pisada sigue en su parte, a 0.
+    assert [(l["ide"], l["hmoide"], l["can"]) for l in cli.lineas
+            if l["ide"] == 4001] == [(4001, 900, 0.0)]
 
 
 def test_f031_r12_conflicto_en_el_elegido_con_contexto() -> None:
@@ -469,13 +480,14 @@ def test_f031_r12_conflicto_en_el_elegido_con_contexto() -> None:
     assert [ls.ide for ls in c.contexto] == [4002]
 
 
-def test_f031_r13_pisar_no_borra_lineas_de_un_parte_cerrado() -> None:
+def test_f031_r13_pisar_no_toca_lineas_de_un_parte_cerrado() -> None:
     cli = _cli(partes=[_parte(800, "PT26/00004", est=IMPUTADO)],
                lineas=[_linea_sigrid(4000, 800)])
+    previa = dict(cli.lineas[0])
     r = _pipeline(cli).ejecutar(obra=_obra(), lineas=[_lin(1)],
                                 pisar_claves={f"501|{FECHA}|{HL}"})
-    assert (r.pisadas, r.borradas, r.escritas) == ([], 0, [])
-    assert [l["ide"] for l in cli.lineas] == [4000]
+    assert (r.pisadas, r.anuladas, r.escritas) == ([], 0, [])
+    assert cli.lineas == [previa]          # ni borrada ni a 0 (F-053)
 
 
 # ------------------------- R15 · lecturas que fallan ------------------------- #

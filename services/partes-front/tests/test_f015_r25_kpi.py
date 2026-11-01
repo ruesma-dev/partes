@@ -43,7 +43,7 @@ def _kpi(candef, *, excepciones=()):
     respuesta = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": candef}],
         excepciones=excepciones,
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural")
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural")
     assert respuesta.status_code == 200
     return respuesta.context["jornada_kpi"]
 
@@ -75,7 +75,7 @@ def test_f015_r25_un_candef_no_informado_sigue_marcandose_asignado(
     """R12: el KPI de CanDefecto no cambia de semantica."""
     respuesta = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": 0.0}],
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural")
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural")
     assert respuesta.context["candef_kpi"]["asignado"] is True
     assert respuesta.context["jornada_kpi"]["candef"] == 8.0
 
@@ -121,7 +121,7 @@ def test_f015_r25_la_plantilla_usa_el_kpi() -> None:
 def test_f015_r25_la_vista_pinta_la_jornada_semanal(entorno) -> None:
     html = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": 9.0}],
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural").text
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural").text
     assert "jornada-semanal" in html
     assert "42" in html
 
@@ -130,14 +130,14 @@ def test_f015_r25_la_vista_marca_la_excepcion(entorno) -> None:
     html = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": 10.0}],
         excepciones=[EXCEPCION_48],
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural").text
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural").text
     assert "jornada-excepcion" in html
 
 
 def test_f015_r25_sin_excepcion_no_se_marca_nada(entorno) -> None:
     html = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": 9.0}],
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural").text
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural").text
     assert "jornada-excepcion" not in html
 
 
@@ -146,5 +146,5 @@ def test_f015_r25_la_vista_se_sirve_con_cualquier_candef(
         entorno, candef) -> None:
     respuesta = _cliente(
         [{"fecha": VIERNES, "horas": 6.0, "candef": candef}],
-    ).get("/trabajadores/emp-77?period=2026-03&modo=natural")
+    ).get("/trabajadores/rec-501?period=2026-03&modo=natural")
     assert respuesta.status_code == 200

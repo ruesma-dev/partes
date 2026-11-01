@@ -67,8 +67,14 @@ class Settings(BaseSettings):
         None, alias="SIGRID_API_FUNCTION_KEY"
     )
     sigrid_api_database: str | None = Field(None, alias="SIGRID_API_DATABASE")
-    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S")
-    sigrid_api_max_rows: int = Field(10000, alias="SIGRID_API_MAX_ROWS")
+    # F-038 (R14, DA4): (0, 200]; el balanceador de sigrid-api corta a 230 s.
+    sigrid_api_timeout_s: float = Field(30.0, alias="SIGRID_API_TIMEOUT_S",
+                                        gt=0, le=200)
+    # F-038 (R2, R3; DA1 = B, DA2 = A): opcional, 1..500.000 (tope de la
+    # instancia); el defecto es el MAX_ROWS_DEFECTO del cliente. Las
+    # lecturas paginadas no lo usan (piden PAGINA_FILAS + 1).
+    sigrid_api_max_rows: int = Field(500_000, alias="SIGRID_API_MAX_ROWS",
+                                     ge=1, le=500_000)
 
     # F-023 (DA5): SIGRID_EMPRESA ya no existe aqui. Los maestros son de
     # TODAS las empresas y la empresa de cada parte sale del membrete, la

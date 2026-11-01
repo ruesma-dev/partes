@@ -932,3 +932,63 @@ red de seguridad en sv3 (`autocomprobacion_fila` + `tabla_dispersa`, interruptor
 desplazamiento con ese modelo; con `gemini-4-argon` M1 y M2 bien 3 de 3. Decisión del
 humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2, cambiar
 `GEMINI_MODEL` en Azure y la comparativa con Claude y OpenAI (faltan claves).
+
+## F-049 · Editor de celda de la matriz con ordinarias y extra siempre — done 2026-10-23
+
+- Rama `feature/F-049-editor-calendario-normal-y-extra` · rigor critico · sdd=true · APPROVED
+  del reviewer en la pasada 1 (`progress/review_F-049.md`).
+- Entregado: sv4 — el popup de doble clic de «Horas por día» ofrece siempre la ordinaria y la
+  extra que falten, `POST /api/matriz/celda` atómica con control de cambios, clonado del contexto
+  de la plantilla, materialización de las parejas tocadas, aviso de otras obras del mismo día y
+  deshacer; un recálculo seguido con pedido compartido. sv3 — `marcar_terminado` por pedido.
+  azure-apps `08b5755`.
+- Decisiones del humano: DA1–DA12 = A y DA13 = C (2026-10-20); guardián de F-017 a 18 llamadas
+  a `_actor` (opción A, «a», 2026-10-22).
+- Verificado: init.sh en verde; sv4 2583 passed, sv3 2271 passed; cobertura 100 % (362/362);
+  mutación completa 164 mutantes, 162 muertos y 2 supervivientes que eran huecos reales, muertos
+  por tests nuevos (reproducido por el reviewer).
+- Observación del reviewer: una celda con líneas de dos partes de la misma obra solo pide el
+  recálculo al parte tocado (hueco de la spec, abierto como feature aparte).
+- Pendiente: desplegar sv3 → sv4 y MANUAL M2–M8 (`progress/current.md`).
+
+## F-054 · Un parte sin obra o sin fecha leídas va siempre a revisión — done 2026-10-23
+
+- Rama `feature/F-054-sin-obra-o-fecha-a-revision` · rigor estándar · sdd=true · APPROVED del
+  reviewer en la pasada 1 (`progress/review_F-054.md`).
+- Entregado: sv3 — `motivos_cabecera` (sin_obra si la obra no casa, con cualquier método;
+  sin_fecha si no hay fecha) sube `review_required`, sustituye a OBRA_A_REVISAR y deja un
+  WARNING con document_id y motivos, sin nombres ni DNIs. Sin esquema, colas, sv4 ni sv5.
+- Decisiones del humano: DA1–DA7 con la recomendación salvo DA3 = B (2026-10-21).
+- Verificado: init.sh en verde; sv3 2.305 passed; cobertura 100 % de 13 líneas; mutación 5
+  mutantes, 5 muertos.
+- Observaciones del reviewer: quitar de la semántica 18 la corrección a mano si se descarta la
+  M2; repetir la M1 antes de la M2 (pueden ser 7 documentos, no 3).
+- Pendiente: desplegar sv3 y la M2 con autorización expresa.
+
+## F-059 · La IA no lee bien el PDF con /Rotate: sv2 le manda la página ya derecha — done 2026-10-23
+
+- Rama `feature/F-059-pagina-como-imagen-derecha` · rigor estándar · sdd=true · APPROVED del
+  reviewer en la pasada 2 (`progress/review_F-059.md`; pasada 1: falta el comando de la M4).
+- Entregado: sv2 — la página escaneada (un JPEG a página completa) se manda a OpenAI como imagen
+  girada según /Rotate, con `detail: high`; si no aplica o falla, el PDF como hoy (WARNING sin
+  datos). `meta.adjunto_ia` con la traza; `meta.source_*` y sha256 del original. Interruptor
+  `PAGINA_COMO_IMAGEN` (encendido), `PAGINA_COMO_IMAGEN_PROVEEDORES=openai`,
+  `OPENAI_IMAGE_DETAIL=high`. Dependencias pypdf y Pillow. azure-apps `7cc2e66`.
+- Decisiones del humano: DA1–DA4 = A («a», 2026-10-23).
+- Verificado: init.sh en verde; sv2 148 passed; cobertura 99,4 %; mutación 20 mutantes, 2
+  huecos reales cerrados con tests y 1 equivalente demostrado; banco del líder M0 22/22,
+  M1 12/12 (antes 0/12), M2 4/4, M3 sin regresión (42/42, 123/123 filas).
+- Pendiente: desplegar sv2, M4 y releer los 6 partes sin obra del 21 y 23/10.
+
+## F-056 · Franquicia de extras: aviso y línea de ajuste el último día con jornada — done 2026-10-30
+
+- Rama `feature/F-056-franquicia-de-extras` · rigor crítico · sdd · APPROVED del reviewer en la
+  pasada 2 (`progress/review_F-056.md`); 14 mutantes equivalentes aceptados por el humano.
+- Entregado: sv5 lee la franquicia del campo extendido de Sigrid (`defext`/`conext`, `cod`
+  `FRANQUICIA_CAMPO_EXT`, tipo 33, `valn` entero) por el `res.ide` del recurso de la obra, nunca por
+  DNI; ajuste `HE*` = −min(extras, X) en el día de ajuste, recalculado con `UPDATE` (nunca
+  `DELETE`); tabla `franquicia_ajuste`; sv4 con aviso en el modal, vista con «Ajustar»/«Recalcular»
+  (`/api/franquicia/decidir` → `aplicar`) y obra del ajuste elegida con las líneas del recurso (DA32).
+- Verificado: `init.sh` en verde en `dev`; M2 en local con X = 10 en 2025/09 (`progress/m2_F-056.md`)
+  OK salvo (g), que no se hace; M3 OK; activada el 2026-10-30 con `FRANQUICIA_CAMPO_EXT=10` en sv5
+  (`ca-sv5-transfer--0000004`, arranque sano).

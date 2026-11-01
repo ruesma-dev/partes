@@ -28,7 +28,7 @@ STYLES = RAIZ_SERVICIO / "static" / "styles.css"
 CLASE_ANCHA = "container--ancho"
 
 URL_OBRA = "/obras/obr-10?period=2026-03&modo=natural"
-URL_PERSONA = "/trabajadores/emp-77?period=2026-03&modo=natural"
+URL_PERSONA = "/trabajadores/rec-501?period=2026-03&modo=natural"
 URLS_DETALLE = [URL_OBRA, URL_PERSONA]
 URLS_LISTADO = ["/obras", "/trabajadores", "/partes"]
 

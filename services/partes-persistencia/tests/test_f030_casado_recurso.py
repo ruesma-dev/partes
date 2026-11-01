@@ -425,11 +425,13 @@ def test_f030_r11_el_nombre_invertido_casa_en_cualquier_orden(leido) -> None:
 
 # ====================== R13 · review_required ============================ #
 
-from domain.models.parte_records import TipoHoraMatch
+from domain.models.parte_records import ObraMatch, TipoHoraMatch
 
 
 def _parte_revisable(*empleados: EmpleadoMatch) -> ParteDocumento:
     parte = _parte(*[("X", None)] * len(empleados))
+    # F-054: con la obra casada, lo que decide es el trabajador.
+    parte.obra = ObraMatch(ide=1, codigo="0724", method="codigo")
     for reg, emp in zip(parte.registros, empleados):
         reg.empleado = emp
         reg.hora = TipoHoraMatch(ide=1, codigo="HL01", method="default")

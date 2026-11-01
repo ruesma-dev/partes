@@ -56,11 +56,13 @@ MOTIVO_LINEA_ENCOLADA = (
     "Linea encolada hacia Sigrid: la peticion esta en vuelo. Espera a que "
     "llegue el resultado para poder editarla."
 )
+#: F-053 (R21, DA8): en Sigrid no se borran lineas, asi que el candado ya
+#: no aconseja borrarla alli; hasta F-052 el portal no trae ese cambio.
 MOTIVO_LINEA_REGISTRADA = (
     "Linea ya registrada en Sigrid: editarla aqui no la cambiaria alli "
-    "(el synckey evita que se reescriba). Para corregirla: borra la linea "
-    "en Sigrid, pulsa «Comprobar en Sigrid» (quedara «borrada en Sigrid» "
-    "y editable), corrigela y vuelve a aprobarla con «Reaprobar»."
+    "(el synckey evita que se reescriba). En Sigrid no se borran lineas: "
+    "para corregirla, que Administracion la edite alli (si sobra, a 0 "
+    "horas); «Comprobar en Sigrid» enseña la diferencia."
 )
 MOTIVO_LINEA_DEDICACION = (
     "Linea enviada a dedicación (la de un mensual): editarla aqui no la "

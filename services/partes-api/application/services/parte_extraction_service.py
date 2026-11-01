@@ -1,9 +1,11 @@
 # application/services/parte_extraction_service.py
 """Servicio de extraccion de partes de trabajo (sv2).
 
-Una sola fase: ejecuta UN proveedor LLM contra el documento adjunto para
-producir un ``ParteTrabajo`` conforme al schema. Que proveedor se usa lo
-decide la capa superior (app.py) leyendo ``IA_PROVIDER`` del .env.
+Una sola fase: cada llamada a ``extract`` ejecuta UN proveedor LLM contra el
+documento adjunto para producir un ``ParteTrabajo`` conforme al schema. Que
+proveedor se usa lo decide quien llama: el pipeline usa el de
+``IA_PROVIDER`` y, desde F-058, el de ``RELECTURA_CABECERA_PROVIDER`` para
+releer la cabecera (``model_name`` da su modelo para la traza).
 """
 from __future__ import annotations
 
@@ -117,6 +119,10 @@ class ParteExtractionService:
             parsed=parsed,
             debug_payload=debug_payload,
         )
+
+    def model_name(self, provider: str) -> str:
+        """F-058: modelo de un proveedor instanciado (``KeyError`` si no)."""
+        return self._require_provider(provider).model_name
 
     # --------------------------------------------------------------- #
     # Helpers.

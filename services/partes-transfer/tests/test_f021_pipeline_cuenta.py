@@ -292,8 +292,10 @@ def test_f021_r17_al_pisar_la_linea_nueva_lleva_la_cuenta() -> None:
     assert conflicto.clave == f"501|{FECHA}|{HL}"   # la clave no cambia
     r = pipeline.ejecutar(obra=_obra(10, "0100", CEN_OBRA),
                           lineas=[_lin(1)], pisar_claves={conflicto.clave})
-    assert r.pisadas == [conflicto.clave] and r.borradas == 1
-    (nueva,) = cli.lineas
+    assert r.pisadas == [conflicto.clave] and r.anuladas == 1
+    # Enmienda de F-053: la ajena sigue, a 0 y con SU cuenta (0).
+    previa, nueva = cli.lineas
+    assert previa == dict(ajena, can=0.0, tot=0.0)
     assert (nueva["synckey"], nueva["caaide"]) == (synckey_de(1), 701)
 
 

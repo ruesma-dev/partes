@@ -42,7 +42,7 @@ def _html(entorno, *, jornada, candef=8.0) -> str:
     app = build_app(Settings(_env_file=None),
                     repository=ParteReviewRepository(fabrica),
                     calendario_provider=proveedor)
-    return TestClient(app).get("/trabajadores/emp-77?modo=natural").text
+    return TestClient(app).get("/trabajadores/rec-501?modo=natural").text
 
 
 # ----------------------- R13 · el badge del contrato -------------------- #
@@ -73,7 +73,7 @@ def test_f003_r13_con_sesame_apagado_no_hay_badge(entorno) -> None:
     app = build_app(Settings(_env_file=None),
                     repository=ParteReviewRepository(fabrica),
                     calendario_provider=proveedor)
-    html = TestClient(app).get("/trabajadores/emp-77?modo=natural").text
+    html = TestClient(app).get("/trabajadores/rec-501?modo=natural").text
     assert "jornada-contrato" not in html
     assert "jornada-divergencia" not in html
     assert "8 h" in html

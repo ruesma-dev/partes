@@ -271,7 +271,7 @@ def test_f024_r7_cliente_lineas_por_ide_en_lotes_de_200(monkeypatch) -> None:
     out = _cliente(monkeypatch, falso).lineas_por_ide(range(1, 202))
     assert [len(l["parameters"]) for l in falso.lecturas] == [200, 1]
     assert falso.lecturas[1]["parameters"] == [201]
-    assert all(l["max_rows"] == 1000 for l in falso.lecturas)
+    assert all(l["max_rows"] == 500000 for l in falso.lecturas)
     assert all(u.endswith("/api/sql/read") for u in falso.urls)
     assert _sql(falso.lecturas[0]["sql"]) == (
         "SELECT ide, hmoide, reside, fec, horide, can, tot, synckey "
@@ -301,7 +301,7 @@ def test_f024_r7_cliente_partes_por_ide_en_lotes_de_200(monkeypatch) -> None:
     out = _cliente(monkeypatch, falso).partes_por_ide(range(1, 202))
     assert out == {1: COD, 201: COD_OTRO}
     assert [len(l["parameters"]) for l in falso.lecturas] == [200, 1]
-    assert all(l["max_rows"] == 1000 for l in falso.lecturas)
+    assert all(l["max_rows"] == 500000 for l in falso.lecturas)
     assert _sql(falso.lecturas[1]["sql"]) == (
         "SELECT hmo.ide AS ide, con.cod AS cod FROM hmo "
         "JOIN con ON con.ide = hmo.ide WHERE hmo.ide IN (?)")
@@ -553,6 +553,7 @@ def _settings_con_sigrid() -> SettingsFake:
     st.sigrid_api_function_key = "clave-de-test"
     st.sigrid_api_database = "bd"
     st.sigrid_api_timeout_s = 5
+    st.sigrid_api_max_rows = 500000   # F-038 (R5): el cableado lo pasa
     st.sigrid_max_statements = 15
     st.tip_parte_trabajo = 35
     st.est_parte_activo = 1

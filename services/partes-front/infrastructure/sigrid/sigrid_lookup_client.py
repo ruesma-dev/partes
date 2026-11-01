@@ -33,6 +33,11 @@ _LOG_PREFIX = "[sigrid-lookup]"
 #: piden con ``max_rows = PAGINA_FILAS + 1``: ``truncated`` es siempre error.
 PAGINA_FILAS = 5000
 
+#: F-038 (R2, DA1 = B): `max_rows` de una lectura sin paginar si no se pasa
+#: otro; el tope de la instancia de sigrid-api. Igual que
+#: `SIGRID_API_MAX_ROWS`. Las paginadas siguen con `PAGINA_FILAS + 1` (R4).
+MAX_ROWS_DEFECTO = 500_000
+
 # Tipos de hora: se paginan por auxhor.ide y el orden (ext, cod) se rehace
 # en Python.
 _SQL_TIPOS_HORA = """\
@@ -202,7 +207,7 @@ class SigridLookupClient:
         function_key: str,
         database: str,
         timeout_s: float = 30.0,
-        max_rows: int = 10000,
+        max_rows: int = MAX_ROWS_DEFECTO,
     ) -> None:
         if not base_url:
             raise ValueError("SigridLookupClient requiere base_url no vacio")
@@ -216,8 +221,10 @@ class SigridLookupClient:
         self._timeout_s = float(timeout_s)
         self._max_rows = int(max_rows)
         logger.info(
-            "%s Instanciado. base_url=%s database=%s",
-            _LOG_PREFIX, self._base_url, self._database,
+            "%s Instanciado. base_url=%s database=%s timeout_s=%s "
+            "max_rows=%s",
+            _LOG_PREFIX, self._base_url, self._database, self._timeout_s,
+            self._max_rows,
         )
 
     def fetch_tipos_hora(self) -> list[TipoHoraOption]:

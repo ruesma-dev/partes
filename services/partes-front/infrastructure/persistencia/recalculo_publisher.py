@@ -39,6 +39,9 @@ MOTIVO_CAMBIO_FECHA = "cambio_fecha"
 MOTIVO_DESHACER_FECHA = "deshacer_cambio_fecha"
 #: F-046 (R33, R35): tras «Aplicar» o «Mantener lo registrado» un reparto.
 MOTIVO_REAJUSTE = "reajuste_reparto"
+#: F-049 (R23, R27): tras guardar (o deshacer) una celda de la matriz.
+MOTIVO_EDICION_CELDA = "edicion_celda"
+MOTIVO_DESHACER_CELDA = "deshacer_edicion_celda"
 
 #: Estado del recalculo en la respuesta del portal (`recalculo`).
 ESTADO_PEDIDO = "pedido"

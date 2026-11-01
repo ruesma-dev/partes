@@ -26,7 +26,11 @@ class ParteRepository(Protocol):
         raw_extraction_json: str,
         raw_context_json: str,
         review_required: bool,
+        recalculo_pedido_id: str | None = None,
     ) -> None:
+        """Guarda el parte y sus lineas en un commit. F-047 (R1, R9): con
+        `recalculo_pedido_id`, el documento nace «en espera» (pedido y su
+        hora); sin el, las columnas de seguimiento quedan a NULL."""
         ...
 
     def marcar_review_required(self, document_ids: Collection[str]) -> int:

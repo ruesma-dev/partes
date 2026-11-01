@@ -95,13 +95,13 @@
 
   {% if detail.rows %}
   <div class="matrix-legend">
-    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar horas.</span>
+    <span>Celda: <strong>ordinarias</strong>+<strong>extra</strong> (p. ej. <code>8+2</code>; extra negativa <code>8-1</code>). Solo extra: <code>+2</code>. Incidencia: su codigo (p. ej. <code>V</code>). Doble clic en una celda: editar ordinarias y extra (se puede añadir la que falte).</span>
     <label class="mx-toggle" title="Trabajadores cuyo recurso NO tiene codigo de hora extra en Sigrid (p. ej. mensuales tipo encargado). Sus horas no cuentan en los totales.">
       <input type="checkbox" id="hide-sin-extra" checked> Ocultar trabajadores sin código de hora extra
     </label>
   </div>
   <div class="matrix-scroll">
-    <table class="matrix filterable">
+    <table class="matrix filterable" data-obra-key="{{ detail.obra_key }}">
       <thead>
         <tr>
           <th class="mx-name">Trabajador</th>
@@ -121,7 +121,7 @@
       </thead>
       <tbody>
         {% for row in detail.rows %}
-        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}">
+        <tr data-sin-extra="{{ '1' if not row.tiene_extra else '0' }}" data-wk="{{ row.worker_key }}">
           <td class="mx-name">
             <a class="link-strong" href="/trabajadores/{{ row.worker_key }}">{{ row.nombre }}</a>
             {% if not row.matched %}<span class="badge danger mx-badge">sin casar</span>{% endif %}
@@ -203,14 +203,14 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ detail.obra_ide if detail.obra_ide is defined and detail.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-trabajador="{{ r.trabajador_nombre or '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% if r.document_id in nuevos %} data-recalculo-motivo="nuevo"{% endif %}{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
         <td class="cell-fecha">
           <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
                  title="Es la fecha del PARTE: cambiarla mueve todas sus líneas y trabajadores" aria-label="Fecha del parte"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
-          {% if r.document_id in recalculando %}<span class="recalculando-marca">recalculando…</span>{% endif %}
+          {% if r.document_id in recalculando %}<span class="recalculando-marca">{{ "procesando…" if r.document_id in nuevos else "recalculando…" }}</span>{% endif %}
           {% if r.id in (con_reparto or []) %}<span class="reparto-marca" title="Reparto de la jornada pendiente de decidir: decide «Aplicar» o «Mantener lo registrado» al aprobar">reparto pendiente</span>{% endif %}
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}

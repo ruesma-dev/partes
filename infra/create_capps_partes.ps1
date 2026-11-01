@@ -40,12 +40,18 @@ $sv2Env = @(
     "IA_PROVIDER=openai", "ENABLE_OPENAI=true",
     "OPENAI_MODEL=gpt-6.1-sol", "OPENAI_API_KEY=secretref:openai-key",
     "OPENAI_TIMEOUT_S=180",
+    # F-058: Gemini ademas relee la cabecera cuando la de OpenAI sale vacia o
+    # su obra no existe en Sigrid (RELECTURA_CABECERA encendida y
+    # RELECTURA_CABECERA_PROVIDER=gemini por defecto: sin variables aqui).
     "ENABLE_GEMINI=true",
     "GEMINI_MODEL=gemini-4-argon",
     "GEMINI_API_KEY=secretref:gemini-key",
     "ENABLE_CLAUDE=false",
     "PROMPT_KEY=parte_trabajo_es", "PROMPTS_YAML_PATH=config/prompts.yaml",
     "MAX_FILE_MB=25",
+    # sigrid-api (solo lectura): catalogo auxhor y, desde F-058, consulta de
+    # existencia de la obra leida por pagina (sql/read parametrizada,
+    # truncated = fallo, tope OBRA_EXISTE_TIMEOUT_S = 5 s por defecto).
     "SIGRID_API_BASE_URL=$SIGRID_BASE_URL",
     "SIGRID_API_FUNCTION_KEY=secretref:sigrid-key",
     "SIGRID_API_DATABASE=$SIGRID_DB",

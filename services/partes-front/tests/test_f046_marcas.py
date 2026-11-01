@@ -31,7 +31,7 @@ APP_JS = RAIZ_SV4 / "static" / "app.js"
 STYLES = RAIZ_SV4 / "static" / "styles.css"
 NODE = shutil.which("node")
 OBRA = "/obras/obr-10?period=2026-03&modo=natural"
-TRABAJADOR = "/trabajadores/emp-77?period=2026-03&modo=natural"
+TRABAJADOR = "/trabajadores/rec-501?period=2026-03&modo=natural"
 
 
 # ================================ R37 ================================= #

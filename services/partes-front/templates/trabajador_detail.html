@@ -13,6 +13,7 @@
       {% else %}
         <span class="badge danger">Sin casar en Sigrid</span>
       {% endif %}
+      {% if detail.empresas %} · {{ detail.empresa_texto }}{% endif %}
       {% if detail.dni %} · DNI {{ detail.dni }}{% endif %}
       {% set _vh = (detail.registros | selectattr('recurso_precio_hora') | map(attribute='recurso_precio_hora') | first) %}
       {% if _vh %} · <strong>valor hora {{ ("%.2f"|format(_vh))|replace(".", ",") }} &euro;</strong>{% endif %}
@@ -20,7 +21,8 @@
   </div>
   <div class="header-actions">
     <button type="button" class="btn primary" data-add-line
-            data-emp-ide="{{ worker_key[4:] if worker_key.startswith('emp-') else '' }}"
+            data-emp-ide="{{ detail.empleado_ide or '' }}"
+            data-emp-reside="{{ worker_key[4:] if worker_key.startswith('rec-') else '' }}"
             data-emp-codigo="{{ detail.codigo or '' }}"
             data-emp-nombre="{{ detail.nombre or '' }}"
             data-emp-dni="{{ detail.dni or '' }}"
@@ -158,6 +160,41 @@
 </div>
 {% endif %}
 
+{# F-056 (R20, R44): el ajuste de franquicia de extras del periodo (modo nomina). #}
+{% macro num_fq(v) %}{% if v is none %}—{% else %}{{ ("%.2f"|format(v))|replace(".", ",") }}{% endif %}{% endmacro %}
+{% if franquicia %}
+<div class="panel franquicia-ajuste" data-periodo="{{ franquicia.periodo }}">
+  <div class="panel-header"><h2>Franquicia de horas extra · periodo {{ franquicia.periodo }}</h2></div>
+  {% if franquicia.aviso %}<div class="alert warn franquicia-aviso">{{ franquicia.aviso }}</div>{% endif %}
+  {% if franquicia["items"] %}
+  <table class="lines-table franquicia-tabla">
+    <thead><tr>
+      <th>Recurso</th><th>Estado</th><th class="num">X usada</th><th class="num">X actual</th>
+      <th class="num">Extras (E)</th><th class="num">Ajuste (A)</th><th>Dia</th><th>Obra</th>
+      <th>Parte Sigrid</th><th>Decidio / aplico</th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for it in franquicia["items"] %}
+      <tr data-franquicia-id="{{ it.id or '' }}" data-franquicia-estado="{{ it.estado or 'sin_ajuste' }}">
+        <td>{{ it.recurso_ide }}</td>
+        <td>{{ it.estado or "sin ajuste" }}{% if it.error %} <span class="franquicia-error" title="{{ it.error }}">⚠ {{ it.error }}</span>{% endif %}</td>
+        <td class="num">{{ num_fq(it.x_usada) }}</td>
+        <td class="num">{{ num_fq(it.x_actual) }}{% if it.x_estado and it.x_estado != 'activa' %} <span class="muted small">({{ it.x_estado }})</span>{% endif %}</td>
+        <td class="num">{{ num_fq(it.extras) }}</td>
+        <td class="num">{{ num_fq(it.ajuste) }}</td>
+        <td>{{ it.dia or "—" }}</td>
+        <td>{{ it.obra_codigo or "—" }}{% if it.partida_cod %} · {{ it.partida_cod }}{% endif %}</td>
+        <td>{{ it.parte_cod or "—" }}</td>
+        <td>{{ it.decidido_por or "—" }}{% if it.aplicado_por %} / {{ it.aplicado_por }}{% endif %}</td>
+        <td>{% if transfer_enabled and 'aplicar' in it.acciones and it.id %}<button type="button" class="btn small" data-franquicia-aplicar="{{ it.id }}">Aplicar</button>{% endif %}{% if transfer_enabled %}{% for acc in it.acciones if acc in ('ajustar', 'recalcular') %}<button type="button" class="btn small" data-franquicia-decidir="{{ acc }}" data-recurso="{{ it.recurso_ide }}" data-periodo="{{ it.periodo }}">{{ "Ajustar" if acc == 'ajustar' else "Recalcular" }}</button>{% endfor %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endif %}
+
 {% if borradas_sigrid %}
 <div class="alert warn borradas-sigrid-aviso">⚠ <strong>{{ borradas_sigrid }}</strong> linea(s) de esta vista ya no estan en Sigrid (se borraron alli). Corrigelas si hace falta y vuelve a registrarlas con «Reaprobar»; las aprobaciones masivas no las reenvian salvo que lo marques.</div>
 {% endif %}
@@ -213,14 +250,14 @@
     </thead>
     <tbody>
       {% for r in detail.registros %}
-      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
+      <tr data-registro-id="{{ r.id }}" data-document-id="{{ r.document_id }}" data-obra-ide="{{ r.obra_ide if r.obra_ide is not none else '' }}" data-fecha="{{ r.fecha or '' }}" data-inc="{{ '1' if r.es_incidencia else '' }}" data-sigrid-estado="{{ (r.sigrid_estado or '')|trim|lower }}"{% if r.congelado %} class="row-congelada" data-congelado="1"{% endif %}{% if r.document_id in recalculando %} data-recalculando="1"{% if r.document_id in nuevos %} data-recalculo-motivo="nuevo"{% endif %}{% endif %}{% if r.id in (con_reparto or []) %} data-reparto="pendiente"{% endif %}>
         <td class="cell-fecha">
           <input type="checkbox" class="sel-linea" data-registro-id="{{ r.id }}" title="Seleccionar esta linea (Shift+clic: rango de las visibles)" aria-label="Seleccionar esta linea">
           <input type="date" class="fecha-edit cell-edit"
                  data-document-id="{{ r.document_id }}"
                  title="Es la fecha del PARTE: cambiarla mueve todas sus líneas y trabajadores" aria-label="Fecha del parte"
                  value="{{ r.fecha or '' }}"{% if r.congelado %} disabled{% endif %}>
-          {% if r.document_id in recalculando %}<span class="recalculando-marca">recalculando…</span>{% endif %}
+          {% if r.document_id in recalculando %}<span class="recalculando-marca">{{ "procesando…" if r.document_id in nuevos else "recalculando…" }}</span>{% endif %}
           {% if r.id in (con_reparto or []) %}<span class="reparto-marca" title="Reparto de la jornada pendiente de decidir: decide «Aplicar» o «Mantener lo registrado» al aprobar">reparto pendiente</span>{% endif %}
           <a class="row-detail" href="/partes/{{ r.document_id }}" title="Abrir detalle del parte">↗</a>
           {% if r.es_futuro %}<span class="warn-future" title="Fecha futura: posterior al mes en curso">⚠</span>{% endif %}

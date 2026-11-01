@@ -292,8 +292,9 @@ def test_f002_r10_conflictos_no_confirmados_no_se_escriben():
     assert len(cli.lineas) == 1          # la existente sigue intacta
 
 
-def test_f002_r10_pisar_confirmado_borra_e_inserta():
-    """Con la clave confirmada, la linea anterior se borra y entra la nueva."""
+def test_f002_r10_pisar_confirmado_anula_e_inserta():
+    """Con la clave confirmada, la linea anterior se pone a 0 (F-053: en
+    Sigrid no se borra) y entra la nueva."""
     cli = _sigrid()
     cli.partes.append({"ide": 700, "obride": 10, "ano": 2026, "mes": 3,
                        "cod": "PT26/00007"})
@@ -305,8 +306,11 @@ def test_f002_r10_pisar_confirmado_borra_e_inserta():
     r = pipeline.registrar(ctx, pisar_claves={"501|20260302|1"})
 
     assert r.pisadas == ["501|20260302|1"]
-    assert r.borradas == 1
-    assert [l["ide"] for l in cli.lineas] == [5001]
+    assert r.anuladas == 1
+    # Enmienda de F-053: la anterior SIGUE en Sigrid, a 0 h y 0 EUR.
+    assert [(l["ide"], l["can"], l["tot"]) for l in cli.lineas] == [
+        (4000, 0.0, 0.0), (5001, 8.0, 8.0 * cli.lineas[1]["pre"])]
+    assert cli.lineas[1]["synckey"] == "partes:1"
     assert [e["registro_id"] for e in r.escritas] == [1]
 
 

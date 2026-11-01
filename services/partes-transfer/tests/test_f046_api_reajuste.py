@@ -171,6 +171,7 @@ def test_f046_r20_main_compone_el_reajuste_sobre_el_pipeline_compartido(
                  "sigrid_api_base_url": "http://sigrid.invalid",
                  "sigrid_api_function_key": "k", "sigrid_api_database": "bd",
                  "sigrid_api_timeout_s": 1.0, "sigrid_max_statements": 15,
+                 "sigrid_api_max_rows": 500000,   # F-038 (R5)
                  "tip_parte_trabajo": 35, "storage_habilitado": False,
                  "api_host": "127.0.0.1", "api_port": 1}.items():
         setattr(st, k, v)
