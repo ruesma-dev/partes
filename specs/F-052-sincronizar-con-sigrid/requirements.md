@@ -7,9 +7,9 @@ el portal, eso nos permitira conciliar linea a linea o en masa».
 
 **Depende de F-050** (clave `rec-{recurso}` de la persona), ya en `dev`: la rama lleva `dev`
 69af0f5 fusionado (0be3ef7; revalidación 2026-11-01, `tasks.md`). Toca **sv5** (una lectura nueva de solo lectura) y **sv4** (comparación, panel y
-acciones hacia el portal); ni sv1, ni sv2, ni sv3, ni el esquema. Rigor propuesto **crítico**
+acciones hacia el portal); ni sv1, ni sv2, ni sv3, ni el esquema. Rigor **crítico**
 (DA8): abre una vía controlada para escribir en líneas congeladas de producción. Alcance de
-esta entrega con las DA recomendadas (design §8): **comparar y conciliar hacia el portal**; las
+esta entrega, aprobado por el humano el 2026-11-02 (design §8): **comparar y conciliar hacia el portal**; las
 escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
 
 > **Regla del humano: en Sigrid no se borra.** Si algo debe desaparecer, se edita la línea a 0
@@ -23,7 +23,8 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   ámbito y con fecha dentro del periodo.
 - **Línea de Sigrid**: fila de `hmores` con `obride` = la obra (ámbito obra) o `reside` = R
   (ámbito persona) y `fec` en el periodo, más las que lleven `partes:<id>` de una línea del
-  portal del ámbito, estén donde estén. **Origen**: `partes` (`partes:<id>`), `ajena` (otro
+  portal del ámbito, estén donde estén. **Origen**: `partes` (`partes:<id>`), `ciz`
+  (`partes:<id>:ciz`, F-062), `franquicia` (`partes:franquicia:<id>`, F-056), `ajena` (otro
   prefijo, p. ej. `porcentajes:`) o `manual` (sin synckey). Lo decide sv5, no sv4.
 - **Casar**: emparejar por synckey (`partes:<registro_id>`); sin ella, el respaldo de F-024
   (`sigrid_hmores_ide` guardado, sin synckey y mismo recurso y fecha).
@@ -32,22 +33,22 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
 ## Lectura de Sigrid (sv5, solo lectura)
 
 - **R1.** CUANDO sv5 recibe `POST /api/sincronizar/leer` con `obra_ide` o `recurso_ide`,
-  `desde`, `hasta` (YYYYMMDD, ≤ 62 días) y `registro_ids` (0–`SINCRONIZAR_MAX_LINEAS`), debe
+  `desde`, `hasta` (YYYYMMDD, ≤ 62 días) y `registro_ids` (0–`SINCRONIZAR_MAX_REGISTRO_IDS`), debe
   devolver las líneas de Sigrid del glosario sin nombres, DNIs ni `tex`.
 - **R2.** Cada línea devuelta debe llevar `hmores_ide`, `hmoide`, `parte_cod`, `parte_est`,
   `obra_ide`, `obra_cod`, `recurso_ide`, `fecha_int`, `hora_ide`, `hora_cod`, `hora_ext`,
-  `partida_ide`, `partida_cod`, `can`, `tot`, `enlazada`, `origen` y, si es `partes`, el
-  `registro_id` leído de su synckey.
+  `partida_ide`, `partida_cod`, `can`, `tot`, `enlazada`, `origen` y, leído de su synckey,
+  el `registro_id` (`partes` y `ciz`) o el `ajuste_id` (`franquicia`).
 - **R3.** sv5 debe pedir cada lectura hasta el límite real de la API (`SIGRID_API_MAX_ROWS`,
   500.000 filas), ordenada por `hmores.ide`, pasar a otra página (`OFFSET/FETCH`) solo si esa
-  viene llena y tratar `truncated: true` como error; SI se superan `SINCRONIZAR_MAX_LINEAS` líneas, ENTONCES debe
-  responder `ok: false` con motivo «periodo demasiado grande» sin devolver parciales.
+  viene llena y tratar `truncated: true` como error, sin devolver parciales. No hay tope de
+  líneas: el límite es el tiempo (R4).
 - **R4.** SI una lectura de sigrid-api falla o se corta por tiempo (`SIGRID_API_TIMEOUT_S`; el
   balanceador corta a los 230 s), ENTONCES sv5 debe responder 502 con `ok: false`, sin parciales.
 - **R5.** El endpoint no debe tomar el lock de escritura ni llamar a `/api/sql/write`, y debe
   leer la base de escritura (`ruesma`, como F-024: la réplica puede ir con retraso).
 - **R6.** SI faltan `obra_ide` y `recurso_ide`, vienen los dos, el rango es inválido o hay más
-  `registro_ids` que el tope, ENTONCES 422 sin leer Sigrid.
+  `registro_ids` que `SINCRONIZAR_MAX_REGISTRO_IDS`, ENTONCES 422 sin leer Sigrid.
 
 ## Comparación (sv4, pura)
 
@@ -58,7 +59,9 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
 - **R8.** Cada ítem debe tener exactamente una clase:
   `igual` · `distinta` · `anulada_en_sigrid` · `borrada_en_sigrid` · `en_sigrid_sin_registrar` ·
   `pendiente` · `no_viaja` · `en_vuelo` · `solo_sigrid_nuestra` · `solo_sigrid_ajena` ·
-  `solo_sigrid_manual` (definición y ejemplo de cada una en design §3).
+  `solo_sigrid_manual` · `solo_sigrid_auxiliar` (definición y ejemplo en design §3). Un ítem
+  `solo_sigrid_*` con `can = 0` y código no `CI*` lleva `a_cero`; el panel los oculta por defecto
+  con su recuento.
 - **R9.** Para una pareja casada, sv4 debe comparar horas (tolerancia 0,005; no en
   incidencias), clase de hora (`hora_ext` contra ordinaria/extra del portal), partida, recurso,
   fecha y obra, y listar cada diferencia como `{campo, portal, sigrid}`. El código de hora con
@@ -68,9 +71,11 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   `sincronizar`, llamada en proceso: `ORIGENES_COMPROBACION` de `/api/sigrid/comprobar` no
   cambia), que la pasa a `borrado_sigrid` como hoy; el ítem es `borrada_en_sigrid`.
 - **R11.** Una línea `encolado` debe salir `en_vuelo` sin comparar; una `dedicacion`,
-  `no_viaja` (con nota si aparece en Sigrid); una `omitido` no encontrada, `no_viaja`.
+  `no_viaja` (con nota si aparece en Sigrid); una `omitido` no encontrada, `pendiente` si su motivo es
+  `parte_no_abierto` o `pisada_no_anulada` y, si no, `no_viaja` con el motivo como nota.
 - **R12.** Un `solo_sigrid_nuestra` debe decir dónde está su línea en el portal: `papelera`,
-  `otro_ambito` (otra obra, persona o periodo) o `no_existe`.
+  `otro_ambito` (otra obra, persona o periodo), `parte_reemplazado` (parte desactivado por la
+  reingesta de sv3) o `no_existe`.
 - **R13.** La respuesta debe traer el recuento por clase, el periodo leído, la hora de la
   lectura y la firma de cada ítem; SI sv5 falla o responde `ok: false`, ENTONCES sv4 debe
   devolver el error sin ítems (nunca una comparación parcial).
@@ -101,14 +106,15 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   con CAS sobre los valores del portal leídos, y dejar la traza de R22.
 - **R21.** SI el parte de la línea está en espera (F-043, también el parte nuevo de F-047:
   `_exigir_sin_recalculo`) o el día tiene un reparto
-  `pendiente`/`aplicando` (F-046), ENTONCES `traer_de_sigrid` debe descartar ese ítem con el
+  que bloquea (F-046, `ESTADOS_BLOQUEAN`), ENTONCES `traer_de_sigrid` debe descartar ese ítem con el
   motivo correspondiente, sin escribir.
 - **R22.** Toda acción que escribe debe firmar con `_actor(request)` (F-017) y dejar en
   `sigrid_motivo` «Sincronizado con Sigrid: <campo antes→después> · <actor> · <fecha>» (≤ 255),
   y un log INFO con acción, ids, recuentos y actor, sin nombres ni DNIs.
-- **R23.** CUANDO `traer_de_sigrid` cambia horas o clase de hora, sv4 debe pedir el recálculo
-  de sv3 de cada documento afectado (F-042, motivo `sincronizar`); SI la cola falla, ENTONCES
-  el cambio queda y la respuesta lo avisa (`recalculo: fallo`), como F-042.
+- **R23.** CUANDO `traer_de_sigrid` cambia horas o clase de hora, sv4 debe pedir UN recálculo
+  compartido (F-049, motivo `sincronizar`) de los documentos tocados y de los de otras obras del
+  mismo recurso y día; SI la cola falla, ENTONCES el cambio queda y la respuesta lo avisa
+  (`recalculo: fallo`), como F-042.
 - **R24.** `a_papelera`, `reaprobar` y `restaurar` deben reutilizar las rutas y guardas que
   ya existen (papelera de línea, modal de aprobar con `ambito` e `incluir_borradas`,
   restaurar), sin camino de escritura nuevo; el 409 de `restore_registro` (F-061, parte ya

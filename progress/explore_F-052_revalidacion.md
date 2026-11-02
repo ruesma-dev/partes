@@ -5,7 +5,7 @@ Spec-author, en `partes-wt-f052` (rama `feature/F-052-sincronizar-con-sigrid`,
 aprobada; desde entonces entraron en `dev`, entre otras, F-034, F-038, F-043,
 F-046, F-047, F-049, F-050, F-053, F-054, F-055, F-056, F-060–F-062 y F-064.
 Resultado: **16 cambios mecánicos** y **7 decisiones nuevas (DA11–DA17)**;
-DA9 superada. **El 2026-11-02 el humano decidió DA11 y DA17** (§6). Sin código tocado. Sin lecturas de Sigrid ni de
+DA9 superada. **El 2026-11-02 el humano aprobó la spec** (§6 y §7). Sin código tocado. Sin lecturas de Sigrid ni de
 producción (M1 sigue siendo del humano).
 
 ## 1. Lo que se ha contrastado y sigue igual
@@ -135,7 +135,7 @@ pendientes.
     mecánico de `_read` (de 17 a 16).
   - **Tiempo**: lo que limita es el corte de 230 s, no las filas. R4 lo recoge
     (corte = 502 sin parciales) y §10 suma los pasos dentro de los 150 s.
-  - **`SINCRONIZAR_MAX_LINEAS`: DUDA ABIERTA, no decidida.** Acota dos cosas
+  - **`SINCRONIZAR_MAX_LINEAS`: duda de entonces, resuelta en §7.** Acota dos cosas
     distintas: el total de líneas de R3 («periodo demasiado grande») y
     `registro_ids` de R1/R6. El 5000 por defecto se ha quitado de design:
     reintroducía como tope funcional la cifra que el humano acaba de
@@ -143,5 +143,30 @@ pendientes.
     que el límite sea el tiempo, conservando solo una cota de `registro_ids`
     para el 422; (b) mantenerlo con un valor mayor tras M1. Se traslada al
     líder.
-- **DA17**: alternativa C. Una sola feature, sin corte obligatorio, R1–R30 y
-  rigor crítico; DA1 = A y DA8 = crítico se quedan. Las tareas no cambian.
+- **DA17**: una sola feature, R1–R30 y rigor crítico; DA1 = A y DA8 = crítico
+  se quedan. Entre B y C se resolvió después por B (§7).
+
+## 7. Aprobación y M1 (2026-11-02)
+
+Transmitida por el líder: el humano respondió «si» a «Si dices "sí", apruebo
+las tres de la tabla y todas esas con la recomendación».
+
+- **Aprobadas**: DA1 = A, DA2–DA7 = A, DA8 = crítico, DA10 = A, DA12–DA16 = A.
+  Aplicadas al texto: glosario y R2 (`ciz`, `franquicia`, `ajuste_id`), R8
+  (clase 12, `a_cero`), R11 (DA14), R12 (`parte_reemplazado`), R21
+  (`ESTADOS_BLOQUEAN`), R23 (compartido); design §2–§6 y T5, T6, T9, T10.
+  DA15 necesita `documentos_de_los_dias(pares)`: `otras_de_celda` va por celda.
+- **`SINCRONIZAR_MAX_LINEAS` retirado**: sale de R1, R3 y R6, de T3 y de §9. El
+  límite es el corte de 230 s (R4). Queda solo **`SINCRONIZAR_MAX_REGISTRO_IDS`
+  = 3000** (422, R6): 15 lotes de 200 a 7,9 s (M1) son unos 119 s, más unos 5 s
+  de la lectura, dentro de los 150 s de sv4→sv5; y es 8 veces las 371 líneas de
+  la obra mayor. El 7,9 s es una sola medición.
+- **DA17 = B**: tareas renumeradas. T6 y T7 quedan en lectura y comparación, con
+  `POST /api/sincronizar` para que M2 se pueda ejecutar; **T8 es el punto de
+  control**; T9–T10 son lo que era la parte de aplicar de T6–T8; T11–T17 son las
+  antiguas T9–T15. M2 es manual y sin panel: lee la respuesta JSON.
+- **M1 (líder)**: en `design.md` §9. Se queda `WHERE h.obride = ?`; se quita de
+  §7 la variante por `hmo`. Salvedad: M2 con obras con líneas del portal.
+- **Aclaración en M2**: con `POST /api/sincronizar`, R10 puede pasar líneas a
+  `borrado_sigrid` en la base `partes` a la que apunte el sv4 local; es lo mismo
+  que hace F-024 al abrir la vista, pero M2 ya no es «ninguna escritura» a secas.

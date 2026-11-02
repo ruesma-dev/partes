@@ -1,24 +1,27 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-052 · spec revalidada 2026-11-01 (spec-author; pendiente de aprobación del humano): sincronizar con Sigrid desde una obra o una persona
+## F-052 · spec APROBADA 2026-11-02, M1 hecha (`spec_ready`): sincronizar con Sigrid desde una obra o una persona
 
 Orden del humano (2026-11-01): «vamos con la siguiente feature f52». Rama
 `feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, con `dev` 69af0f5
-fusionado (0be3ef7). La spec del 2026-10-20 (nunca aprobada) se ha contrastado con el
-código actual de sv4 y sv5: **16 cambios mecánicos** aplicados (lista en `tasks.md`
-«Revalidación 2026-11-01»), DA9 superada, H1 resuelto por F-053 y H2 por F-038, y
-decisiones nuevas en `design.md` §8: **DA11 y DA17 decididas por el humano el 2026-11-02** (literal: «recuerda que la api lee hasta 500k, no 5k lineas. se pagina a partir de ahi-da17, en una sola») y **5 abiertas**, con recomendación A:
-- **DA11 DECIDIDA** sv5 lee hasta el límite de la API (500.000) y solo pagina a partir de ahí; duda: si sigue `SINCRONIZAR_MAX_LINEAS` y con qué valor.
-- **DA12** synckeys `partes:<id>:ciz` y `partes:franquicia:<id>`: orígenes propios y clase informativa `solo_sigrid_auxiliar` (A).
-- **DA13** líneas a 0 fuera del portal (F-053): marca `a_cero`, ocultas por defecto con contador (A).
-- **DA14** `omitido` sin pareja: `parte_no_abierto`/`pisada_no_anulada` ⇒ `pendiente`; el resto `no_viaja` con nota (A).
-- **DA15** `traer_de_sigrid`: recálculo con pedido compartido de F-049 y descarte con `ESTADOS_BLOQUEAN` (A).
-- **DA16** parte reemplazado por la reingesta: `donde = parte_reemplazado` (A).
-- **DA17 DECIDIDA** una sola feature, sin corte obligatorio: R1–R30, rigor crítico (DA1 = A y DA8 se quedan).
-M1 (solo lectura en Sigrid) sigue pendiente del humano. Detalle en
-`progress/explore_F-052_revalidacion.md`. **El implementer NO empieza hasta que el humano
-apruebe** DA2–DA7, DA10 y DA12–DA16.
+fusionado (0be3ef7). Spec del 2026-10-20 revalidada el 2026-11-01: 16 cambios mecánicos (lista
+en `tasks.md`), DA9 superada, H1 resuelto por F-053 y H2 por F-038.
+**Aprobación** (humano, 2026-11-02, transmitida por el líder): «recuerda que la api lee hasta
+500k, no 5k lineas. se pagina a partir de ahi-da17, en una sola» y «si» a «Si dices "sí",
+apruebo las tres de la tabla y todas esas con la recomendación». Queda:
+- DA1 = A, DA2–DA7 = A, DA8 = crítico, DA10 = A, DA12–DA16 = A (`design.md` §8), ya aplicadas a
+  requirements y design: 12 clases (`solo_sigrid_auxiliar`), `a_cero`, `omitido` según motivo,
+  recálculo compartido de F-049, `ESTADOS_BLOQUEAN`, `parte_reemplazado`.
+- DA11: sv5 lee hasta el límite de la API (500.000) y solo pagina a partir de ahí. Sin
+  `SINCRONIZAR_MAX_LINEAS`: el límite es el corte de 230 s (R4). Cota solo de `registro_ids`:
+  `SINCRONIZAR_MAX_REGISTRO_IDS` = 3000 (422, R6).
+- DA17 = B: una sola feature, con **punto de control obligatorio en T8**: M2 sobre obras con
+  líneas del portal antes de implementar las acciones.
+**M1 HECHA** (líder, 2026-11-02, solo lectura; `design.md` §9): obra mayor 371 líneas en 4,8 s,
+lote de 200 synckeys 7,9 s, sin `truncated`; se queda `WHERE h.obride = ?`.
+**Siguiente paso**: implementer, tras el visto bueno del humano. Detalle en
+`progress/explore_F-052_revalidacion.md`.
 
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
