@@ -38,10 +38,12 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   `obra_ide`, `obra_cod`, `recurso_ide`, `fecha_int`, `hora_ide`, `hora_cod`, `hora_ext`,
   `partida_ide`, `partida_cod`, `can`, `tot`, `enlazada`, `origen` y, si es `partes`, el
   `registro_id` leído de su synckey.
-- **R3.** sv5 debe paginar con `OFFSET/FETCH` ordenado por `hmores.ide` y tratar
-  `truncated: true` como error; SI se superan `SINCRONIZAR_MAX_LINEAS` líneas, ENTONCES debe
+- **R3.** sv5 debe pedir cada lectura hasta el límite real de la API (`SIGRID_API_MAX_ROWS`,
+  500.000 filas), ordenada por `hmores.ide`, pasar a otra página (`OFFSET/FETCH`) solo si esa
+  viene llena y tratar `truncated: true` como error; SI se superan `SINCRONIZAR_MAX_LINEAS` líneas, ENTONCES debe
   responder `ok: false` con motivo «periodo demasiado grande» sin devolver parciales.
-- **R4.** SI una lectura de sigrid-api falla, ENTONCES sv5 debe responder 502 con `ok: false`.
+- **R4.** SI una lectura de sigrid-api falla o se corta por tiempo (`SIGRID_API_TIMEOUT_S`; el
+  balanceador corta a los 230 s), ENTONCES sv5 debe responder 502 con `ok: false`, sin parciales.
 - **R5.** El endpoint no debe tomar el lock de escritura ni llamar a `/api/sql/write`, y debe
   leer la base de escritura (`ruesma`, como F-024: la réplica puede ir con retraso).
 - **R6.** SI faltan `obra_ide` y `recurso_ide`, vienen los dos, el rango es inválido o hay más

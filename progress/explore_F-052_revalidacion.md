@@ -4,8 +4,8 @@ Spec-author, en `partes-wt-f052` (rama `feature/F-052-sincronizar-con-sigrid`,
 `dev` 69af0f5 fusionado en 0be3ef7). Spec escrita el 2026-10-20 y nunca
 aprobada; desde entonces entraron en `dev`, entre otras, F-034, F-038, F-043,
 F-046, F-047, F-049, F-050, F-053, F-054, F-055, F-056, F-060–F-062 y F-064.
-Resultado: **17 cambios mecánicos** y **7 decisiones abiertas nuevas
-(DA11–DA17)**; DA9 superada. Sin código tocado. Sin lecturas de Sigrid ni de
+Resultado: **16 cambios mecánicos** y **7 decisiones nuevas (DA11–DA17)**;
+DA9 superada. **El 2026-11-02 el humano decidió DA11 y DA17** (§6). Sin código tocado. Sin lecturas de Sigrid ni de
 producción (M1 sigue siendo del humano).
 
 ## 1. Lo que se ha contrastado y sigue igual
@@ -42,7 +42,7 @@ está), `test_f024_borrado_no_congela_gemelos.py`, `test_f010_orm_models_gemelos
 Documentos: `azure-apps/partes.md` describe `/api/registro/comprobar` (l. 138
 y 763): ahí irá el endpoint nuevo; `sigrid_api.md` §6.4 y §6.7 siguen.
 
-## 2. Cambios mecánicos aplicados (17)
+## 2. Cambios mecánicos aplicados (16)
 
 Lista completa en `tasks.md` «Revalidación 2026-11-01». Los de más peso:
 1. F-050 ya está en `dev` (cabecera de requirements, T1).
@@ -53,8 +53,8 @@ Lista completa en `tasks.md` «Revalidación 2026-11-01». Los de más peso:
    aprobación: sirve a `/aplicar`, no a `/api/sincronizar` (sin ids).
 6. `period_bounds(año, mes, modo)` + `parse_period_key`.
 7. `enlazada` con `_expr_enlazada()` (la comparten reajuste, choques y racha).
-8. `_read` sin `max_rows` por llamada: se añade opcional; el guardián F-038
-   no cambia (`pagina + 1` es una operación, R13 de F-038).
+8. Guardián de lectores de F-038: no cambia (mismo fichero). El cambio de
+   `_read` que había aquí se retiró con DA11 (§6): `_read` no se toca.
 9. Motivo de recálculo en `tests/test_f052_contrato_motivos.py` (precedente
    F-049) en vez de la parametrización de F-042.
 10. Semántica nueva = 22 (la 18 es F-054).
@@ -63,10 +63,8 @@ Lista completa en `tasks.md` «Revalidación 2026-11-01». Los de más peso:
 
 ## 3. Decisiones abiertas nuevas (design §8)
 
-- **DA11 · lectura paginada (F-038)**. sigrid-api sirve 500.000 filas; sv3 y
-  sv4 paginan con `PAGINA_FILAS` = 5000 y `max_rows = PAGINA_FILAS + 1`. La
-  spec ponía `SINCRONIZAR_PAGINA` = 1000 configurable. Rec. **A**: constante
-  `PAGINA_FILAS` = 5000 también en sv5; sigue el tope `SINCRONIZAR_MAX_LINEAS`.
+- **DA11 · lectura tras F-038**. DECIDIDA (§6); la recomendación A
+  (`PAGINA_FILAS` = 5000) fue rechazada.
 - **DA12 · synckeys `partes:<id>:ciz` (F-062) y `partes:franquicia:<id>`
   (F-056)**. Empiezan por `partes:`; `registro_de_synckey` (sv5,
   `racha_ciz.py`) devuelve None para las dos. Con la spec, el CIZ hermano
@@ -91,7 +89,8 @@ Lista completa en `tasks.md` «Revalidación 2026-11-01». Los de más peso:
   sus `partes:<id>` en Sigrid saldrían `no_existe`. Rec. **A**: `donde =
   parte_reemplazado`, informativo. El parte retirado de F-061 no necesita
   valor propio: sus líneas ya están en la papelera.
-- **DA17 · partir**. Con DA11–DA16, design queda en 225/250 y requirements en
+- **DA17 · partir**. DECIDIDA (§6): una sola; la recomendación A fue rechazada.
+  Texto original: con DA11–DA16, design queda en 225/250 y requirements en
   128/150, con 30 requisitos, 12 clases, panel JS y una escritura sobre líneas
   congeladas en rigor crítico. Rec. **A**: F-052 = lectura + comparación +
   panel informativo (DA1 = B, rigor estándar); las acciones hacia el portal
@@ -99,12 +98,11 @@ Lista completa en `tasks.md` «Revalidación 2026-11-01». Los de más peso:
 
 ## 4. DA1–DA10 revisadas
 
-- DA1: sigue; con DA17-A pasa a B en esta feature y A en la siguiente.
+- DA1: sigue en A (DA17: una sola feature).
 - DA2, DA4, DA5, DA6, DA7, DA10: siguen sin cambios (F-024 sigue siendo
   dueña del synckey en sv5; F-018 no ha llegado).
-- DA3: sigue (solo horas); depende de DA17.
-- DA8: crítico sigue valiendo para las acciones; con DA17-A la lectura sería
-  estándar.
+- DA3: sigue (solo horas).
+- DA8: sigue en crítico.
 - DA9: **superada** (F-050 y F-049 en `dev`; el humano lanzó F-052).
 - Clases de R8: las líneas anuladas por F-053 caben en `anulada_en_sigrid`
   (cambio mecánico de §3); partes cerrados de F-034 no cambian la
@@ -115,5 +113,35 @@ Lista completa en `tasks.md` «Revalidación 2026-11-01». Los de más peso:
 ## 5. Verificaciones
 
 - M1 no se ha hecho (solo lectura en Sigrid, la deja la spec al humano antes
-  de implementar): dimensiona el tope y confirma DA11.
+  de implementar): dimensiona el tope, si sigue, y mide el tiempo.
 - Topes y portero: `bash harness/init.sh` en verde en el worktree.
+
+## 6. Decisiones del humano (2026-11-02)
+
+Literal: «recuerda que la api lee hasta 500k, no 5k lineas. se pagina a partir
+de ahi-da17, en una sola». Las demás DA (DA2–DA7, DA10, DA12–DA16) siguen
+pendientes.
+
+- **DA11**: sv5 lee hasta el límite real, `self._max_rows`
+  (`SIGRID_API_MAX_ROWS`, 500.000, `MAX_ROWS_DEFECTO`) y solo pagina a partir
+  de ahí. Fuera `PAGINA_FILAS` y `SINCRONIZAR_PAGINA`. Tocados R3, R4, design
+  §5, §7 y §10, M1, T1, T2, T3.
+  - **Por qué sin `+ 1`** (leído en `sigrid-api`): `sql_query_guard.py` rechaza
+    `max_rows > max_allowed_rows`, así que 500.001 no se puede pedir; y
+    `sql_server_repository.py` hace `fetchmany(max_rows + 1)`, con `truncated`
+    solo si hay más filas que `max_rows`. Con `FETCH NEXT` = `max_rows`, una
+    página justa no es error y `_read` sirve tal cual: «página llena» es la
+    señal de seguir (`sigrid_api.md` §6.4). Por eso se retira el cambio
+    mecánico de `_read` (de 17 a 16).
+  - **Tiempo**: lo que limita es el corte de 230 s, no las filas. R4 lo recoge
+    (corte = 502 sin parciales) y §10 suma los pasos dentro de los 150 s.
+  - **`SINCRONIZAR_MAX_LINEAS`: DUDA ABIERTA, no decidida.** Acota dos cosas
+    distintas: el total de líneas de R3 («periodo demasiado grande») y
+    `registro_ids` de R1/R6. El 5000 por defecto se ha quitado de design:
+    reintroducía como tope funcional la cifra que el humano acaba de
+    descartar, y la spec ya lo dejaba a M1. Opciones: (a) retirarlo de R3 y
+    que el límite sea el tiempo, conservando solo una cota de `registro_ids`
+    para el 422; (b) mantenerlo con un valor mayor tras M1. Se traslada al
+    líder.
+- **DA17**: alternativa C. Una sola feature, sin corte obligatorio, R1–R30 y
+  rigor crítico; DA1 = A y DA8 = crítico se quedan. Las tareas no cambian.

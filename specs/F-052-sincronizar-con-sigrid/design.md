@@ -91,15 +91,15 @@ es `distinta` informativa: esta entrega no mueve líneas (DA3).
 **sv5 — crear**: `tests/test_f052_leer_sincronizar.py` (cliente con `httpx` simulado),
 `tests/test_f052_api_sincronizar.py` (TestClient). **Modificar**:
 - `infrastructure/sigrid/sigrid_write_client.py`: `lineas_sincronizar(*, obra_ide | recurso_ide,
-  desde, hasta, pagina, tope)` (paginado) y `lineas_sincronizar_por_synckey(claves)` (lotes de
+  desde, hasta, tope)` (DA11, §7) y `lineas_sincronizar_por_synckey(claves)` (lotes de
   `LOTE_COMPROBACION`), con un SQL de columnas común (§7); `origen_de(synckey) -> (origen,
   registro_id | None)`, junto a `synckey_de`.
 - `domain/models/registro_models.py`: dataclass `LineaSincronizar` (campos de R2).
-- `_read` gana `max_rows` opcional (hoy siempre `self._max_rows`); el guardián de F-038
-  (`tests/test_f038_lectores_sigrid.py`) no cambia: mismo fichero lector y `pagina + 1` no es literal.
+- `_read` no cambia: ya pide `self._max_rows` (`SIGRID_API_MAX_ROWS`). El guardián de F-038
+  (`tests/test_f038_lectores_sigrid.py`) tampoco: mismo fichero lector y ningún literal.
 - `interface_adapters/api/app.py`: `SincronizarIn` (validación de R6) y la ruta (`def`, como
-  `comprobar`); `config/settings.py`: `SINCRONIZAR_PAGINA` (1000) y `SINCRONIZAR_MAX_LINEAS`
-  (5000).
+  `comprobar`); `config/settings.py`: `SINCRONIZAR_MAX_LINEAS` (valor por decidir, nota de DA11).
+  Sin variable de página (DA11).
 
 **sv4 — crear**:
 - `application/services/sincronizacion.py` (puro): `LineaPortal`, `LineaSigridSync`,
@@ -162,8 +162,13 @@ FROM hmores h
 LEFT JOIN con pc ON pc.ide = h.hmoide   LEFT JOIN con oc ON oc.ide = h.obride
 LEFT JOIN auxhor a ON a.ide = h.horide  LEFT JOIN obrparpar p ON p.ide = h.paride
 WHERE h.obride = ? AND h.fec BETWEEN ? AND ?          -- ámbito persona: h.reside = ?
-ORDER BY h.ide OFFSET ? ROWS FETCH NEXT ? ROWS ONLY   -- max_rows = pagina + 1
+ORDER BY h.ide OFFSET ? ROWS FETCH NEXT ? ROWS ONLY   -- FETCH = max_rows = self._max_rows
 ```
+
+Página = el límite real (DA11): `FETCH NEXT` y `max_rows` valen los dos `self._max_rows` (500.000);
+hay otra lectura solo si la página viene llena. Sin `+ 1`: sigrid-api rechaza `max_rows` por
+encima de `MAX_ALLOWED_ROWS`, y `truncated` solo salta con más filas que `max_rows`, así que una
+página justa no es error (`sql_server_repository.py`, `fetchmany(max_rows + 1)`).
 
 Por synckey: mismo `SELECT`/`FROM` con `WHERE h.synckey IN (…)` en lotes de `LOTE_COMPROBACION` (200), sin paginar
 (agregado acotado, `sigrid_api.md` §6.7). `truncated` ⇒ excepción (R3). Si M1 mide que filtrar
@@ -189,21 +194,21 @@ siguen vigentes; DA11–DA17 nuevas, por lo fusionado después (detalle en
 | DA8 | Rigor | **crítico** · estándar | **crítico**: escribe en líneas congeladas de producción (nómina y coste) |
 | DA9 | Sitio en la cola (hoy F-050 → F-049 → F-014 → F-047) | A) F-050 → F-049 → **F-052** → F-014 → F-047 · B) justo tras F-050 · C) al final | **SUPERADA** (2026-11-01): F-050 y F-049 ya están en `dev`; el humano la lanzó como siguiente |
 | DA10 | Lectura de `hmores` | **A**) en sv5 (dueño del synckey) · B) en el cliente de maestros de sv4 | **A**: B rompe la frontera de F-024 y duplicaría el formato del synckey |
-| DA11 | Lectura paginada tras F-038 (500.000 filas; sv3/sv4 paginan a `PAGINA_FILAS` = 5000) | **A**) constante `PAGINA_FILAS` = 5000 en sv5, `max_rows = PAGINA_FILAS + 1`, tope `SINCRONIZAR_MAX_LINEAS` · B) `SINCRONIZAR_PAGINA` = 1000 configurable (como estaba) · C) una lectura sin paginar y tope por recuento | **A**: el patrón que F-038 dejó en el monorepo; una obra × nómina cabe en una página y sobra una variable |
+| DA11 | Lectura tras F-038 | **DECIDIDA por el humano el 2026-11-02** (literal: «recuerda que la api lee hasta 500k, no 5k lineas. se pagina a partir de ahi»): sv5 pide hasta el límite real (`SIGRID_API_MAX_ROWS`, `self._max_rows`, 500.000) y solo pagina a partir de ahí (§7). Sin `PAGINA_FILAS` ni `SINCRONIZAR_PAGINA`; `truncated` sigue siendo error | **Pendiente**: si `SINCRONIZAR_MAX_LINEAS` sigue y con qué valor (hoy acota R3 y `registro_ids` de R1/R6). Sin él, el límite es el tiempo (R4); se pregunta al humano |
 | DA12 | Synckeys nuevas que empiezan por `partes:`: `partes:<id>:ciz` (CIZ hermano, F-062) y `partes:franquicia:<id>` (F-056) | **A**) `origen` ∈ `partes`, `ciz`, `franquicia`, `ajena`, `manual` (`registro_id` en partes y ciz, `ajuste_id` en franquicia); `origen_de` junto a `synckey_ciz_de`/`synckey_franquicia` con test de que coincide con `registro_de_synckey`; sv4 añade UNA clase informativa `solo_sigrid_auxiliar` (12 clases), sin acciones ni comparación · B) tratarlas como `solo_sigrid_ajena` · C) el CIZ como nota del ítem de su inicio y la franquicia aparte | **A**: no son ajenas ni huérfanas; sin esto el CIZ saldría `solo_sigrid_nuestra` con `restaurar` y la franquicia sin `registro_id` |
 | DA13 | Líneas a 0 fuera del portal: desde F-053 las ajenas o manuales pisadas quedan `can = 0` en vez de desaparecer | **A**) se clasifican igual con la marca `a_cero` (`can = 0` y código no `CI*`); el panel las oculta por defecto con «n a 0 h» · B) sin distinción · C) sv5 no las devuelve | **A**: no esconde lo que Administración ve (C) ni inunda el panel (B) |
 | DA14 | `omitido` sin pareja según su motivo (F-034, F-053, F-055, F-060) | **A**) `parte_no_abierto` y `pisada_no_anulada` (sv5 pide reaprobar) ⇒ `pendiente` con `reaprobar`; el resto (`fecha_no_valida`, `fin_movido`, `incidencia_en_sigrid`, `linea_enlazada`, `parte_cerrado`, reglas) ⇒ `no_viaja` con el motivo como nota (prefijo de `sigrid_motivo`, como agrupa el modal) · B) todo `no_viaja` (R11 tal cual) | **A**: son las dos que el propio sv5 manda reaprobar; en `no_viaja` se esconderían |
 | DA15 | `traer_de_sigrid` frente a F-046/F-049: recálculo y repartos que descartan | **A**) pedido compartido de F-049 (`_pedir_recalculo_compartido`) con los partes tocados y los de otras obras del mismo recurso y día, y descarte con `ESTADOS_BLOQUEAN` (`pendiente`, `aplicando`, `rechazado`, como el registro) · B) `_pedir_recalculo_seguido` por documento y solo `pendiente`/`aplicando` · C) F-042 sin seguimiento (texto literal de R23) | **A**: la pasada reparte por (recurso, día) entre obras y una congelada que cambia mueve el residual de las otras; es lo que hizo F-049 por la misma razón |
 | DA16 | `donde` de `solo_sigrid_nuestra` (R12): parte desactivado por la reingesta de sv3 (`deleted_by` NULL) | **A**) valor nuevo `parte_reemplazado`, informativo (las líneas del parte retirado de F-061 ya están en la papelera: `papelera` + `restaurar`) · B) como estaba (`no_existe`) | **A**: un PDF reprocesado deja las viejas en Sigrid y las nuevas `pendiente` (duplicado): es justo lo que hay que ver |
-| DA17 | Tamaño: ¿una feature o dos? | **A**) partir: F-052 = lectura, comparación y panel informativo (R1–R15, R26–R30, DA11–DA14, DA16; DA1 = B), rigor estándar; feature nueva = acciones hacia el portal (R16–R25, DA3, DA15), crítica, tras M2 · B) una, con corte tras la lectura · C) una, como está | **A**: 30 requisitos, 12 clases, panel JS y escritura sobre congeladas en crítico superan cualquier feature cerrada; M2 sobre datos reales dirá qué acciones hacen falta |
+| DA17 | Tamaño: ¿una feature o dos? | **DECIDIDA por el humano el 2026-11-02** (literal: «da17, en una sola»): una sola feature, sin partir ni corte obligatorio: R1–R30, acciones hacia el portal, rigor crítico; DA1 = A y DA8 = crítico se quedan como están | — |
 
 ## 9. Verificaciones manuales (humano)
 
 - **M1 (antes de implementar, solo lectura, `/api/sql/read` sobre `ruesma`)**: para la obra con
   más líneas del último mes y para un recurso con varias obras, `SELECT COUNT(*)`, `MIN/MAX(ide)`
   y tiempo de las dos formas del `WHERE` de §7 en mes natural y en periodo de nómina; cuántas
-  son `partes:`, `porcentajes:` y sin synckey. Dimensiona `SINCRONIZAR_MAX_LINEAS`, la página y
-  la forma del filtro; si alguna pasa de 60 s, `blocked` y se replantea.
+  son `partes:`, `porcentajes:` y sin synckey. Dimensiona `SINCRONIZAR_MAX_LINEAS` y la forma del
+  filtro; si alguna pasa de 60 s, `blocked` y se replantea.
 - **M2 (tras implementar, local contra producción en solo lectura)**: sincronizar 2 obras y 2
   personas reales y revisar a mano 10 ítems de clases distintas contra Sigrid; ninguna escritura.
 - **M3 (local, modo pruebas, obra 0404)**: con líneas `PRUEBA-IA` editadas a mano en Sigrid
@@ -214,8 +219,10 @@ siguen vigentes; DA11–DA17 nuevas, por lo fusionado después (detalle en
 
 ## 10. Riesgos y hallazgos
 
-- **Volumen**: una obra × nómina son «cientos de líneas» (§ doble canal); el tope y la página
-  salen de M1. El timeout de sv4→sv5 (150 s) queda por debajo del corte de 230 s.
+- **Volumen y tiempo**: una obra × nómina son «cientos de líneas» (§ doble canal). El límite real
+  no son las filas sino el tiempo: cada lectura tiene `SIGRID_API_TIMEOUT_S` (60 s, ≤ 200) y el
+  balanceador corta a los 230 s. sv4→sv5 (150 s) queda por debajo, pero suma lectura por ámbito,
+  lotes por synckey y comprobación F-024; un corte es error sin parciales (R4, R13). M1 lo mide.
 - **Obra 0404 de pruebas**: sus `partes:<id>` vienen de bases locales y pueden chocar con ids
   reales; en ese ámbito el panel avisa de que `solo_sigrid_nuestra` no es fiable.
 - **H1 RESUELTO por F-053**: el pisado es `stmt_anular_linea` (`UPDATE can = 0, tot = 0`), el
