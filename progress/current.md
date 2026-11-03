@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-052 · EN CURSO (`in_progress`, implementer tanda T1–T8; T8 = punto de control M2): sincronizar con Sigrid desde una obra o una persona
+## F-052 · EN CURSO (`in_progress`, implementación T1–T17 hecha, pendiente reviewer; M3 y M4 del humano): sincronizar con Sigrid desde una obra o una persona
 
 Orden del humano (2026-11-01): «vamos con la siguiente feature f52». Rama
 `feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, con `dev` 69af0f5
@@ -34,7 +34,34 @@ verificación en `progress/impl_F-052.md` §H-M2-1. **Siguiente: el líder repit
 sin ella.
 **M2 SUPERADA** (líder, 2026-11-03, repetida tras H-M2-1: `distinta` de 166 a 16, todas
 reales; `progress/m2_F-052.md`). El humano autorizó seguir con T9–T17 («si, dale»).
-**Implementer en T9–T17** (acciones hacia el portal, panel, docs); en curso.
+**T9–T17 HECHAS** (implementer, 2026-11-03; commits 4115eec…, detalle e ID8–ID14 en
+`progress/impl_F-052.md`): acciones `POST /api/sincronizar/aplicar` (marcar registrada, traer
+de Sigrid, a papelera, reaprobar, restaurar), botón y panel en las vistas de obra y persona,
+contrato del motivo `sincronizar` con sv3, `ARCHITECTURE.md` y `azure-apps/partes.md` (local).
+`aplicar` NO depende de `SINCRONIZAR_SECO` (ID10, `design.md` DA18). **Siguiente: reviewer**;
+luego M3 y, tras desplegar, M4.
+- [ ] **M3 · PENDIENTE del humano (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
+  la aprobación del portal, con marca `PRUEBA-IA`)**. Comandos exactos en
+  `progress/impl_F-052.md` §M3. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
+  nunca 2026/06–2026/11 (PT26/00373, 00375 y 00376 se conservan). Resumen: sv5 del worktree con
+  `OBRA_PRUEBAS_FORZAR=true` (`/health` ⇒ `modo_pruebas: True`, si no PARA); sv4 del worktree
+  contra la base `partes` LOCAL (si `PG_HOST` no es local, PARA) y `TRANSFER_BASE_URL` al sv5
+  local; parte manual de 4 líneas ⇒ aprobar ⇒ en Sigrid, a mano, L1 8→6 y L3 → 0; en local
+  `sigrid_estado='error'` a L4; «Sincronizar con Sigrid» ⇒ L1 `distinta`, L2 `igual`, L3
+  `anulada_en_sigrid`, L4 `en_sigrid_sin_registrar`; aplicar «Traer de Sigrid» (L1, L3) y
+  «Marcar registrada» (L4) y comprobar horas, estado y `sigrid_motivo` «Sincronizado con
+  Sigrid: …» con SQL; sv5 sin `[sigrid-write]` durante sincronizar/aplicar. Limpieza con
+  `prueba_escritura_sigrid.py limpiar` / `limpiar --ejecutar` / `estado` y
+  `git checkout -- prueba_escritura_sigrid.py`.
+- [ ] **M4 · PENDIENTE del humano (producción, tras desplegar sv5 → sv4, que lo pide el
+  humano)**. Antes de desplegar, decidir `SINCRONIZAR_SECO` en Azure (por defecto `true`: R10
+  solo informa; las acciones explícitas funcionan igual). Un usuario real sincroniza una obra
+  y aplica una acción; en la base `partes`, solo lectura
+  (`PGOPTIONS='-c default_transaction_read_only=on'`):
+  `SELECT id, horas, sigrid_estado, sigrid_motivo, sigrid_registrado_by FROM parte_registros
+  WHERE sigrid_motivo LIKE 'Sincronizado con Sigrid:%' ORDER BY id DESC LIMIT 10;` ⇒ el
+  cambio y el actor real (el correo de Easy Auth), ni `local:` ni `sin-identidad`; y en los logs de sv4
+  `[sincronizar][aplicar] accion=… actor=…`.
 
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
