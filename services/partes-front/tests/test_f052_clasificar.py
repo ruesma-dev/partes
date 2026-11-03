@@ -15,6 +15,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
+
 from application.services.sincronizacion import (
     ACCIONES_POR_CLASE,
     CLASES,
@@ -311,8 +312,8 @@ def test_f052_synckey_repetida_la_segunda_queda_aparte_con_nota() -> None:
                                 S(9001, registro_id=1)])
     assert [(i.clase, i.sigrid.hmores_ide) for i in items] == [
         ("igual", 9001), ("solo_sigrid_nuestra", 9002)]
-    assert items[1].notas == ["synckey repetida: la línea 1 ya casa con "
-                              "la 9001"]
+    assert items[1].notas == [("synckey repetida: la línea 1 ya casa con "
+                               "la 9001")]
     assert items[1].repetida is True and items[0].repetida is False
 
 

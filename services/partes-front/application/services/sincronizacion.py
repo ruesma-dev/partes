@@ -20,8 +20,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
-from typing import Any, Iterable
+from typing import Any
 
 CLASES: tuple[str, ...] = (
     "igual", "distinta", "anulada_en_sigrid", "borrada_en_sigrid",
@@ -103,7 +104,7 @@ class LineaSigridSync:
     ajuste_id: int | None = None
 
     @classmethod
-    def desde_dict(cls, d: dict[str, Any]) -> "LineaSigridSync":
+    def desde_dict(cls, d: dict[str, Any]) -> LineaSigridSync:
         """Del JSON de sv5; las claves que sobren se ignoran."""
         return cls(**{f.name: d.get(f.name) for f in fields(cls)})
 

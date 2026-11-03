@@ -133,7 +133,7 @@ def lineas_de_sv5(resp: dict) -> list[LineaSigridSync]:
     son lo que R2 dice (nunca se compara con datos a medias)."""
     lineas = resp.get("lineas")
     if not isinstance(lineas, list):
-        raise ValueError("sv5 no devolvio lineas")
+        raise TypeError("sv5 no devolvio lineas")
     out: list[LineaSigridSync] = []
     for d in lineas:
         if not isinstance(d, dict) or d.get("origen") not in ORIGENES:
