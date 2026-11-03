@@ -27,6 +27,11 @@ bb9f5c7…1ce4bf6; `azure-apps/partes.md` dddde8a (local). **PARADO EN T8 (punto
 **M2 PENDIENTE del humano**, lista en `progress/impl_F-052.md` §M2 (2 obras y 2 personas con
 líneas `partes:`, sv4 en seco y sesión PostgreSQL de solo lectura). Sin M2 anotada no se empieza
 T9. Decisiones de implementación ID1–ID7 a revisar en M2 (mismo fichero).
+**M2 HECHA (líder, 2026-11-03), NO superada** por **H-M2-1** (`progress/m2_F-052.md`): 152 de 166
+`distinta` eran falsas por comparar con `auxhor.ext` (0 en las 7 `HE*`). **Corregido** (humano,
+2026-11-03, «si, dale»): clase de hora de Sigrid por el prefijo `HE` (`es_hora_extra`), RED y
+verificación en `progress/impl_F-052.md` §H-M2-1. **Siguiente: el líder repite M2**; T9 no empieza
+sin ella.
 
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 

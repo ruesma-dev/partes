@@ -240,4 +240,9 @@ recomendación se conserva como razón. Detalle en `progress/explore_F-052_reval
   cliente de sv5 no tiene `DELETE` y `MOTIVO_LINEA_REGISTRADA` dice «En Sigrid no se borran
   líneas». Efecto aquí: una línea del portal pisada sale `anulada_en_sigrid` (§3).
 - **H2 RESUELTO por F-038**: `ARCHITECTURE.md` ya dice 500.000 filas por petición.
+- **H-M2-1 (M2, 2026-11-03; corregido)**: la clase de hora de Sigrid es **extra si su código
+  empieza por `HE`** (`es_hora_extra` en `sincronizacion.py`), como sv5 (`HoraRecurso.es_extra`) y
+  `fetch_dnis_sin_extra`: `auxhor.ext` vale 0 en las 7 `HE*` y daba 152 `distinta` falsas. Sin
+  código no se compara la clase. `hora_ext` sigue en el contrato de sv5 (R2), solo informativo. El
+  portal sigue con `_is_extra` (el `tipo_hora` que sv5 usa para elegir `HE`/`HL`).
 - **Despliegue**: sv5 antes que sv4 (orden seguro); sin sv5 nuevo, sv4 responde 502 al botón.

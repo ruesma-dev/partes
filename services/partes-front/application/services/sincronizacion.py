@@ -93,6 +93,7 @@ class LineaSigridSync:
     fecha_int: int | None
     hora_ide: int | None
     hora_cod: str | None
+    #: `auxhor.ext`, informativo: NO decide la clase (H-M2-1, `es_hora_extra`).
     hora_ext: int | None
     partida_ide: int | None
     partida_cod: str | None
@@ -146,6 +147,16 @@ def _cero(valor: float | None) -> bool:
     return abs(float(valor or 0.0)) <= TOLERANCIA_HORAS
 
 
+def es_hora_extra(codigo: str | None) -> bool | None:
+    """H-M2-1: la clase de una hora de Sigrid por su codigo; None sin codigo.
+
+    Extra = prefijo `HE`, la regla de sv5 (`HoraRecurso.es_extra`) y de
+    `fetch_dnis_sin_extra` (sv4). `auxhor.ext` no sirve: las 7 horas `HE*`
+    de Sigrid lo tienen a 0 (M2 de F-052)."""
+    cod = _cod(codigo)
+    return cod.startswith("HE") if cod else None
+
+
 def _clase_hora(extra: bool) -> str:
     return "extra" if extra else "ordinaria"
 
@@ -160,7 +171,8 @@ def comparar(p: LineaPortal,
              s: LineaSigridSync) -> tuple[list[Diferencia], list[str]]:
     """R9: diferencias `{campo, portal, sigrid}` y notas de una pareja.
 
-    Horas con tolerancia y clase de hora, no en incidencias; el codigo de
+    Horas con tolerancia y clase de hora (la de Sigrid por el prefijo `HE`
+    de su codigo, H-M2-1), no en incidencias; el codigo de
     hora con la misma clase es nota (las reglas de sv5 lo cambian). Recurso
     y obra solo si el portal los sabe; la partida por ide si los dos lo
     tienen y, si no, por codigo."""
@@ -170,10 +182,11 @@ def comparar(p: LineaPortal,
     if not p.es_incidencia:
         if abs(float(p.horas or 0.0) - float(s.can or 0.0)) > TOLERANCIA_HORAS:
             difs.append(Diferencia("horas", p.horas, s.can))
-        if s.hora_ext is not None and bool(s.hora_ext) != bool(p.extra):
+        extra_sigrid = es_hora_extra(s.hora_cod)
+        if extra_sigrid is not None and extra_sigrid != bool(p.extra):
             clase_distinta = True
             difs.append(Diferencia("clase_hora", _clase_hora(p.extra),
-                                   _clase_hora(bool(s.hora_ext))))
+                                   _clase_hora(extra_sigrid)))
     if not clase_distinta and _cod(p.hora_codigo) != _cod(s.hora_cod):
         notas.append(f"código de hora: {p.hora_codigo} en el portal, "
                      f"{s.hora_cod} en Sigrid")

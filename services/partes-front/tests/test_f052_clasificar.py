@@ -82,7 +82,8 @@ def test_f052_r8_distinta_502_horas() -> None:
 
 def test_f052_r8_anulada_en_sigrid_503() -> None:
     it = _uno([P(503, horas=2.0, extra=True)],
-              [S(9003, registro_id=503, can=0.0, hora_ext=1)])
+              [S(9003, registro_id=503, can=0.0, hora_cod="HE01",
+                 hora_ext=1)])
     assert it.clase == "anulada_en_sigrid"
     assert it.diferencias == [Diferencia("horas", 2.0, 0.0)]
 
@@ -211,8 +212,52 @@ def test_f052_r9_clase_de_hora() -> None:
 
 
 def test_f052_r9_sin_clase_en_sigrid_no_compara_la_clase() -> None:
-    it = _uno([P(1, extra=True)], [S(1, registro_id=1, hora_ext=None)])
+    """Sin codigo de hora en Sigrid no hay clase que comparar (H-M2-1)."""
+    for cod in (None, "", "  "):
+        it = _uno([P(1, extra=True)],
+                  [S(1, registro_id=1, hora_cod=cod, hora_ext=None)])
+        assert it.diferencias == []
+
+
+# H-M2-1 (M2 de F-052): en Sigrid las 7 horas `HE*` tienen `auxhor.ext = 0`;
+# la clase de la hora de Sigrid sale del prefijo `HE` del codigo, como en
+# sv5 (`HoraRecurso.es_extra`) y en `fetch_dnis_sin_extra` de sv4. Datos de
+# la M2: registro 4322 / hmores 410171 (HECAP) y 4323 / 410172 (HLOF).
+
+def test_f052_h_m2_1_hecap_con_ext_cero_es_extra() -> None:
+    it = _uno([P(4322, extra=True, hora_codigo="HECAP")],
+              [S(410171, registro_id=4322, hora_cod="HECAP", hora_ext=0)])
+    assert (it.clase, it.diferencias, it.notas) == ("igual", [], [])
+
+
+def test_f052_h_m2_1_hlof_con_ext_cero_es_ordinaria() -> None:
+    it = _uno([P(4323, extra=False, hora_codigo="HLOF")],
+              [S(410172, registro_id=4323, hora_cod="HLOF", hora_ext=0)])
+    assert (it.clase, it.diferencias, it.notas) == ("igual", [], [])
+
+
+def test_f052_h_m2_1_ext_uno_en_una_hl_no_la_hace_extra() -> None:
+    it = _uno([P(1, extra=False, hora_codigo="HLOF")],
+              [S(1, registro_id=1, hora_cod="HLOF", hora_ext=1)])
+    assert (it.clase, it.diferencias) == ("igual", [])
+
+
+@pytest.mark.parametrize("cod", ["HECAP", " hecap", "he01"])
+def test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios(cod) -> None:
+    it = _uno([P(1, extra=True, hora_codigo="HECAP")],
+              [S(1, registro_id=1, hora_cod=cod, hora_ext=0)])
     assert it.diferencias == []
+
+
+def test_f052_h_m2_1_cambio_real_de_clase_sigue_saliendo() -> None:
+    it = _uno([P(1, extra=False, hora_codigo="HLGR")],
+              [S(1, registro_id=1, hora_cod="HEGR", hora_ext=0)])
+    assert it.clase == "distinta"
+    assert it.diferencias == [Diferencia("clase_hora", "ordinaria", "extra")]
+    assert it.notas == []
+    it = _uno([P(1, extra=True, hora_codigo="HEGR")],
+              [S(1, registro_id=1, hora_cod="HLGR", hora_ext=0)])
+    assert it.diferencias == [Diferencia("clase_hora", "extra", "ordinaria")]
 
 
 def test_f052_r9_codigo_de_hora_con_la_misma_clase_es_nota() -> None:

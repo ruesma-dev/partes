@@ -122,42 +122,13 @@ Verde: `52 passed` y `18 passed` (`70 passed` juntos).
 `git diff dev --stat -- services/partes-transfer/application` vacío (R26); guardián F-038 (raíz)
 24 passed. Lo MANUAL pendiente: M2 (abajo).
 
-## M2 · PUNTO DE CONTROL (T8) — lista para ejecutar
+## M2 · PUNTO DE CONTROL (T8)
 
-**Ninguna escritura en Sigrid** (sv5 solo usa `/api/sql/read` en esta ruta) **ni en `partes`**
-(sv4 en seco). Lo ejecuta el humano; los agentes no lanzan servicios contra producción.
+**Hecha por el líder el 2026-11-03, NO superada** solo por H-M2-1 (abajo): recuentos y los 11
+ítems contrastados en `progress/m2_F-052.md`. Procedimiento completo (candidatas, base `partes` en
+solo lectura con `PGOPTIONS`, `.env` de la rama, sv5 en 8005, qué mirar): `git show
+f232303:progress/impl_F-052.md`. Para repetirla, sv4 y las llamadas:
 
-**Candidatas** (implementer, 2026-11-03, solo lectura: agregados `GROUP BY` sobre `hmores` de
-`ruesma` vía sigrid-api con el cliente de sv5, sin nombres; script en el scratchpad de la sesión).
-Octubre de 2026, natural:
-
-| Ámbito | Clave | Líneas Sigrid | `partes:` | manuales | a 0 |
-|---|---|---|---|---|---|
-| Obra 0686 | `obr-2313811` | 168 | 111 | 57 | 18 |
-| Obra 0711 | `obr-2607369` | 107 | 93 | 14 | 4 |
-| Persona (3 obras) | `rec-2778601` | 44 | 16 | — | — |
-| Persona (2 obras) | `rec-2138746` | 15 | 13 | — | — |
-
-Opcional (nómina 10/2026, 16/09–15/10): obra 0678 `obr-2348888` (175 líneas, 83 `partes:`, 92
-manuales); el código 0678 existe en dos empresas (también `obr-2245328`): sirve para ver que la
-clave va por `obra_ide`. Lecturas de 4–11 s por agregado.
-
-**Requisito previo — la base `partes` de sv4.** Las synckeys `partes:<id>` son ids de la base de
-**producción**; el `.env` local apunta a `localhost/partes`: si no es copia reciente, no casarán.
-Recomendado: sv4 local contra la base `partes` de Azure en **sesión de solo lectura** de PostgreSQL
-(`PGOPTIONS`) además del seco. Así el DDL de `initialize()` falla, se registra y el portal arranca
-igual (lo captura `initialize`); sincronizar solo lee.
-
-1. **`.env` de la rama** (no versionados; copia de los del repo principal, PowerShell):
-   ```powershell
-   Copy-Item C:\Users\pgris\PycharmProjects\partes\services\partes-transfer\.env C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-transfer\.env
-   Copy-Item C:\Users\pgris\PycharmProjects\partes\services\partes-front\.env C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-front\.env
-   ```
-2. **sv5** (consola 1; sin `COLAS_*` en su `.env` solo arranca la API, puerto 8005):
-   ```powershell
-   cd C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-transfer
-   C:\Users\pgris\PycharmProjects\partes\.venv\Scripts\python.exe main.py
-   ```
 3. **sv4** (consola 2, puerto 8014; las variables de la consola mandan sobre el `.env`):
    ```powershell
    cd C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-front
@@ -191,14 +162,48 @@ igual (lo captura `initialize`); sincronizar solo lee.
    Un error sale como excepción de `Invoke-RestMethod` con el JSON `{ok:false, error}`: 422 (clave
    que no lee Sigrid), 409 (ya en curso, o «Sigrid o el portal cambiaron mientras se leía»: repetir),
    502 (sv5/sigrid-api).
-5. **Qué mirar** (M2 de design §9): `seco = True` en las cuatro; elegir 10 ítems de clases
-   distintas en los JSON (`$env:TEMP\m2_*.json`: `clase`, `registro_id`, `hmores_ide`,
-   `diferencias`, `notas`, `donde`) y contrastarlos a mano con Sigrid y con el portal (horas,
-   clase de hora, partida, obra y fecha; `solo_sigrid_manual` = línea sin synckey;
-   `borrada_en_sigrid` = está en `marcaria_borrado_sigrid` y no aparece en Sigrid). Si alguna
-   clase no cuadra: **se para y se vuelve a proponer** (T8).
-6. **Resultado**: anotarlo aquí (fecha, recuentos por ámbito, los 10 ítems y su veredicto) y en
-   `progress/current.md`; sin eso no se empieza T9.
+
+## H-M2-1 · clase de hora por el prefijo `HE` (corrección tras M2)
+
+Autorizado por el humano el 2026-11-03 («si, dale»). **Causa**: `comparar` decidía «extra» en
+Sigrid con `hora_ext` (`auxhor.ext`), que vale 0 en las 7 `HE*`: 152 de 166 `distinta` falsas.
+**Cambio** (`services/partes-front/application/services/sincronizacion.py`): `es_hora_extra(codigo)`
+⇒ `True` si el código (sin espacios, en mayúsculas) empieza por `HE`, `None` sin código (no se
+compara la clase, como antes con `hora_ext` nulo). Misma regla que sv5 (`HoraRecurso.es_extra`,
+`franquicia._es_extra`) y sv4 (`fetch_dnis_sin_extra`, `franquicia.extras_pendientes`); ninguno es
+un helper importable de sv4 para este módulo puro (los de sv4 van en SQL o inline), así que va en
+`sincronizacion.py`, sin importar nada de sv5 (límite de servicio).
+- **Contrato**: `hora_ext` se queda en la respuesta de sv5 y en `LineaSigridSync` (R2; anotado
+  como informativo): quitarlo tocaría sv5, sus tests y R2 sin necesidad.
+- **Lado del portal**: sin cambio. `LineaPortal.extra = _is_extra(r)` (`tipo_hora == "extra"` o
+  `hora_ext == 1`): `tipo_hora` es lo que sv5 usa para elegir `HE`/`HL` (`reglas_registro`), y la
+  rama `hora_ext == 1` no la activa ninguna `HE*`.
+- **Otros usos en la diff de F-052**: sv5 solo lee y pasa `auxhor.ext AS hora_ext`
+  (`sigrid_write_client.py`), sin decidir nada; sv4 `sincronizar_ambito.lineas_de_sv5` solo lo
+  convierte. No hay más criterios con `ext`.
+- **Hallazgo fuera de alcance (H-M2-1b, previo a F-052)**: al elegir hora en el selector del
+  portal, `set_registro_hora` (`parte_repository.py:3021`) y la respuesta de
+  `PATCH /api/registros/{id}/hora` (`web/app.py:3815`) ponen `tipo_hora` con `option.ext == 1`:
+  elegir una `HE*` deja la línea `normal` y sv5 escribiría una `HL`. No se toca aquí (no es de
+  F-052); se propone al líder como feature aparte.
+- Tests: 6 nuevos y 2 ajustados en `tests/test_f052_clasificar.py` (el 503 lleva `HE01`; «sin
+  clase» pasa a `hora_cod` nulo/vacío). Spec: R9, design §10 (H-M2-1) y T8 bis en `tasks.md`.
+
+**RED** — `pytest tests/test_f052_clasificar.py -q -k "h_m2_1" --tb=line` (sv4, código sin tocar):
+```
+tests	est_f052_clasificar.py:249: AssertionError: assert [Diferencia(c...='ordinaria')] == []
+E   AssertionError: assert 'igual' == 'distinta'
+tests	est_f052_clasificar.py:255: AssertionError: assert 'igual' == 'distinta'
+FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_hecap_con_ext_cero_es_extra
+FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_ext_uno_en_una_hl_no_la_hace_extra
+FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios[HECAP]
+FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios[ hecap]
+FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios[he01]
+FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_cambio_real_de_clase_sigue_saliendo
+6 failed, 1 passed, 83 deselected in 0.14s
+```
+El que pasa (`hlof_con_ext_cero_es_ordinaria`) es guarda. Verde: `test_f052_*` de sv4 `169 passed
+in 7.14s`; ruff sin avisos nuevos. `bash harness/init.sh` (árbol con H-M2-1): **ENTORNO LISTO**.
 
 ## Fuera de alcance y pendiente
 
@@ -209,7 +214,7 @@ igual (lo captura `initialize`); sincronizar solo lee.
 
 | Evidencia | Valor real |
 |---|---|
-| Tests F-052 | sv5 60 passed (6,3 s); sv4 162 passed (12,6 s) |
-| Suites completas | sv5 1614 passed (31,4 s); sv4 3469 passed, 1 skipped (1450 s con cobertura); raíz 537 passed |
-| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 513 líneas cambiadas cubiertas (512/513, umbral 80%)` |
+| Tests F-052 | sv5 60 passed (6,3 s); sv4 169 passed (7,1 s; 162 antes de H-M2-1) |
+| Suites completas (init.sh, H-M2-1) | sv4 3476 passed, 1 skipped (974 s con cobertura); raíz 537 passed, 3 skipped (116 s); sv5 1614 (caché: sin cambios) |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 509 líneas cambiadas cubiertas (508/509, umbral 80%, nivel critico)` |
 | Mutantes | no lanzada: la campaña la lanza el líder (`python -m harness.mutacion --feature F-052`) |

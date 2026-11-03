@@ -63,7 +63,8 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
   `solo_sigrid_*` con `can = 0` y código no `CI*` lleva `a_cero`; el panel los oculta por defecto
   con su recuento.
 - **R9.** Para una pareja casada, sv4 debe comparar horas (tolerancia 0,005; no en
-  incidencias), clase de hora (`hora_ext` contra ordinaria/extra del portal), partida, recurso,
+  incidencias), clase de hora (prefijo `HE` de `hora_cod` contra ordinaria/extra del portal;
+  H-M2-1, design §10), partida, recurso,
   fecha y obra, y listar cada diferencia como `{campo, portal, sigrid}`. El código de hora con
   la misma clase es **nota**, no diferencia (las reglas de sv5 lo cambian, F-024 R6).
 - **R10.** CUANDO una línea `registrado` del portal no aparece en Sigrid, sv4 debe confirmarlo
