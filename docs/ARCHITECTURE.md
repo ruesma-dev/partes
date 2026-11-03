@@ -67,6 +67,11 @@ conviven dos caminos, y cuál se usa depende de lo que la acción necesita:
   que nunca va por cola; un rechazo es `ok: false` sin nada escrito y un
   502 o un timeout es «no se sabe» (sv4 lo deja `aplicando` y el reintento
   es seguro: lo ya aplicado vuelve como `ya_aplicada`).
+- **HTTP interno síncrono de solo lectura para sincronizar (F-052)**:
+  `POST /api/sincronizar/leer` (sin lock ni `/api/sql/write`, base
+  `ruesma`) devuelve las líneas `hmores` de una obra o un recurso en un
+  periodo y las de los synckeys `partes:<id>` del portal, con su `origen`;
+  sv4 las compara (semántica 22). Un fallo o un corte es 502 sin parciales.
 - **Sin colas configuradas, sv4 degrada al HTTP síncrono de siempre**: es
   lo que permite trabajar en local sin Azurite y desplegar el código antes
   que la infraestructura. Quitar `COLAS_ACCOUNT_URL` es también el
@@ -375,6 +380,11 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     materializar un reparto `aplicado` (los valores que sv5 ya escribió).
     Guardar una celda de la matriz (F-049) da 409 si su día tiene un reparto
     `aplicando`; con uno `pendiente` lo avisa y se vuelve a calcular.
+    **Sincronizar (F-052)**: la otra escritura sobre líneas congeladas es
+    «Traer las horas de Sigrid» (`aplicar_traer_de_sigrid`), solo horas, solo
+    en líneas `registrado` y con CAS; no pasa por la guarda de congelación,
+    pero sí descarta el parte en espera y el día con reparto que bloquea. La
+    regla de congelación no cambia (semántica 22).
 11. **Identidad del portal (F-017, sv4)**: quién firma una escritura se
     resuelve en **un único punto**, `_actor(request)` en
     `interface_adapters/web/app.py`, que delega en las funciones puras de
@@ -702,6 +712,27 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `franquicia_ajuste` queda `aplicado` (con E, A y la X que usó sv5) o
     `error`. Quién decide y quién aplica sale de `_actor` (F-017), y queda
     fuera de `undo_log`.
+22. **Sincronizar con Sigrid (F-052, sv5 lee, sv4 compara y concilia hacia
+    el portal)**: desde una obra (`obr-`) o una persona (`rec-`, F-050), el
+    botón «Sincronizar con Sigrid» compara el periodo visible con Sigrid
+    (`POST /api/sincronizar`; el GET de la vista no llama a sv5). sv5 lee
+    (`/api/sincronizar/leer`) y etiqueta cada línea por su synckey
+    (`partes`, `ciz`, `franquicia`, `ajena`, `manual`); sv4 casa por synckey
+    (respaldo de F-024 por `sigrid_hmores_ide`) y clasifica cada línea en
+    una de 12 clases (`application/services/sincronizacion.py`); la clase de
+    hora de Sigrid es extra si el código empieza por `HE` (`auxhor.ext` no
+    sirve). El resultado es efímero, con una firma por ítem. Un
+    `registrado` que no está en Sigrid se confirma con F-024 y pasa a
+    `borrado_sigrid`, salvo en **modo seco** (`SINCRONIZAR_SECO`, `true` por
+    defecto), que solo informa. Las acciones (`POST /api/sincronizar/
+    aplicar`, ≤ `SINCRONIZAR_MAX_ITEMS_ACCION`) validan el ámbito como F-022,
+    **vuelven a sincronizar** y aplican solo los ítems con la misma clase y
+    firma: `marcar_registrada` y `traer_de_sigrid` (escrituras nuevas, CAS,
+    `sigrid_motivo` «Sincronizado con Sigrid: …» y actor de `_actor`; traer
+    pide UN recálculo compartido con motivo `sincronizar`), y `a_papelera`,
+    `reaprobar` (el modal de aprobar) y `restaurar` por sus rutas de siempre.
+    No dependen del modo seco. Ninguna escribe en Sigrid; en Sigrid no se
+    borra (la escritura hacia el ERP será otra feature).
 
 ## Acceso a datos y sistemas externos
 
