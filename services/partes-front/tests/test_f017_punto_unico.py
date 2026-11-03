@@ -267,7 +267,7 @@ def test_f017_la_firma_de_actor_sigue_siendo_la_de_f016() -> None:
 
 
 def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
-    """Veinte llamadas al helper: las cinco de F-016, las nueve de
+    """Veintiuna llamadas al helper: las cinco de F-016, las nueve de
     F-017, la de «Retirar de dedicacion» de F-019 (R24), las dos de F-042
     (quien pide el recalculo de extras al guardar la fecha de un parte, R1,
     y al deshacer ese cambio de fecha, R7; enmienda de `design.md` §6 por
@@ -278,7 +278,9 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     aplica sale solo de `_actor(request)`; spec aprobada por el humano el
     2026-10-23 y enmendada el 2026-10-27): diecinueve. Y la de
     `POST /api/franquicia/decidir` (F-056 R45, R21; DA28 = A, el humano el
-    2026-10-27): veinte.
+    2026-10-27): veinte. Y la de `POST /api/sincronizar/aplicar` (F-052
+    R22: toda acción de sincronizar que escribe firma con `_actor(request)`;
+    spec aprobada por el humano el 2026-11-02): veintiuna.
 
     Las nueve: aprobar documento, borrar documento, borrar linea, borrar
     obra, borrar trabajador, alta manual, preflight, aprobar sincrono y
@@ -291,4 +293,4 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     encargan los tests de R11.
     """
     fuente = _fuente(APP)
-    assert fuente.count("_actor(request)") == 20
+    assert fuente.count("_actor(request)") == 21

@@ -18,6 +18,7 @@ import pytest
 
 from application.services.sincronizacion import (
     ACCIONES_POR_CLASE,
+    CAMPOS_TRAER,
     CLASES,
     Diferencia,
     LineaPortal,
@@ -440,6 +441,23 @@ def test_f052_r16_acciones_de_las_demas_clases() -> None:
     assert acciones_de(_uno([P(1, "")], [S(1, registro_id=1)])) == (
         "marcar_registrada",)
     assert acciones_de(_uno([P(1)], [])) == ("a_papelera", "reaprobar")
+
+
+@pytest.mark.parametrize("sigrid, acciones", [
+    ({"can": 6.0}, ("traer_de_sigrid",)),
+    ({"can": 6.0, "partida_ide": 12, "partida_cod": "P2"},
+     ("traer_de_sigrid",)),
+    ({"partida_ide": 12, "partida_cod": "P2"}, ()),
+    ({"fecha_int": 20261015}, ()),
+    ({"hora_cod": "HE01"}, ()),
+])
+def test_f052_da3_traer_solo_si_difieren_las_horas(sigrid, acciones) -> None:
+    """DA3 = A: `traer_de_sigrid` trae solo horas; una `distinta` sin
+    diferencia de horas es informativa (no hay nada que traer)."""
+    it = _uno([P(1)], [S(1, registro_id=1, **sigrid)])
+    assert it.clase == "distinta"
+    assert acciones_de(it) == acciones
+    assert CAMPOS_TRAER == ("horas",)
 
 
 # ------------------------- resumen y serializado ------------------------- #

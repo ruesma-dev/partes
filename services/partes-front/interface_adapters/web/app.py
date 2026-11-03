@@ -117,6 +117,7 @@ from infrastructure.persistencia.recalculo_publisher import (
     MOTIVO_DESHACER_FECHA,
     MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
+    MOTIVO_SINCRONIZAR,
     RecalculoPublisher,
     pedir_recalculo,
     peor_estado,
@@ -295,6 +296,21 @@ class SincronizarPayload(BaseModel):
     """F-052 (R7): `{vista, obra_key | worker_key, period, mode}`; lo
     valida `SincronizadorAmbito` (R15)."""
     ambito: dict[str, Any]
+
+
+class ItemSincronizarPayload(BaseModel):
+    """F-052 (R18): un item que el usuario vio, con su firma."""
+    registro_id: int = Field(gt=0)
+    firma: str = Field(min_length=1, max_length=64)
+
+
+class AplicarSincronizarPayload(BaseModel):
+    """F-052 (R18): `{accion, ambito, items}`; el tope de items
+    (`SINCRONIZAR_MAX_ITEMS_ACCION`) y la accion los valida
+    `SincronizadorAmbito.validar_peticion`."""
+    accion: str
+    ambito: dict[str, Any]
+    items: list[ItemSincronizarPayload] = Field(min_length=1)
 
 
 class EstadoAprobacionPayload(BaseModel):
@@ -605,7 +621,8 @@ def build_app(
             timeout_s=settings.sincronizar_timeout_s,
             seco=settings.sincronizar_seco,
             lote_comprobar=settings.comprobacion_sigrid_lote,
-            timeout_comprobar_s=settings.comprobacion_sigrid_timeout_s)
+            timeout_comprobar_s=settings.comprobacion_sigrid_timeout_s,
+            max_items_accion=settings.sincronizar_max_items_accion)
         logger.info("[sincronizar][wiring] CABLEADO seco=%s timeout_s=%s",
                     settings.sincronizar_seco, settings.sincronizar_timeout_s)
 
@@ -3446,6 +3463,39 @@ def build_app(
                                        "(TRANSFER_BASE_URL)"},
                 status_code=503)
         res = sincronizador.sincronizar(p.ambito)
+        return JSONResponse(res.cuerpo, status_code=res.status)
+
+    @app.post("/api/sincronizar/aplicar", include_in_schema=False)
+    def sincronizar_aplicar(request: Request,
+                            p: AplicarSincronizarPayload) -> JSONResponse:
+        """F-052 (R16-R25): aplica una accion a items de una sincronizacion.
+
+        Antes de releer nada: la peticion (accion, tope) y, salvo
+        `restaurar`, el ambito como F-022 (`_validar_ambito`: un id ajeno
+        rechaza todo, 422). `restaurar` va sobre lineas de la papelera, que
+        la vista no tiene: su ambito lo prueba la relectura, donde el id
+        tiene que salir como item. Luego `SincronizadorAmbito.aplicar`
+        relee y aplica solo lo que no cambio. El actor es `_actor` (F-017)
+        y el recalculo, el compartido de F-049 con motivo `sincronizar`.
+        No escribe en Sigrid (R26)."""
+        if sincronizador is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        items = [i.model_dump() for i in p.items]
+        motivo = sincronizador.validar_peticion(p.accion, items)
+        if motivo is not None:
+            return _rechazo_ambito(motivo)
+        if p.accion != "restaurar":
+            rechazo = _validar_ambito(p.ambito,
+                                      [i["registro_id"] for i in items])
+            if rechazo is not None:
+                return rechazo
+        res = sincronizador.aplicar(
+            p.accion, p.ambito, items, actor=_actor(request),
+            recalcular=lambda ids, actor: _pedir_recalculo_compartido(
+                ids, MOTIVO_SINCRONIZAR, actor))
         return JSONResponse(res.cuerpo, status_code=res.status)
 
     @app.post("/api/aprobar/estado", include_in_schema=False)

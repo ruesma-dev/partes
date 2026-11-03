@@ -18,7 +18,9 @@ import httpx
 import pytest
 from config.settings import Settings
 from fastapi.testclient import TestClient
+from infrastructure.database.orm_models import ParteRegistroOrm
 from infrastructure.database.parte_repository import ParteReviewRepository
+from infrastructure.persistencia.recalculo_publisher import MOTIVO_SINCRONIZAR
 from infrastructure.transfer import transfer_client as modulo_tc
 from infrastructure.transfer.transfer_client import TransferClient
 from interface_adapters.web.app import build_app
@@ -214,3 +216,185 @@ def test_f052_r13_transfer_client_error_de_sv5_ok_false(monkeypatch) -> None:
     tc = TransferClient(base_url="http://sv5.invalid")
     assert tc.sincronizar_leer({}, timeout_s=1) == {"ok": False,
                                                      "error": "truncada"}
+
+
+# ==================== T10 · POST /api/sincronizar/aplicar ================ #
+
+class RecalculoPub:
+    """Doble de `RecalculoPublisher`: apunta cada pedido."""
+
+    def __init__(self) -> None:
+        self.pedidos: list[dict] = []
+
+    def pedir(self, *, document_id, motivo, solicitado_por):
+        self.pedidos.append({"document_id": document_id, "motivo": motivo,
+                             "solicitado_por": solicitado_por})
+
+
+def linea_sv5(rid: int, *, hmores: int, can: float = 8.0, **cambios) -> dict:
+    """Una línea de Sigrid de la obra 10 el 02/03/2026 (la de `sembrar_parte`)."""
+    base = dict(hmores_ide=hmores, hmoide=7100, parte_cod="PT26/00100",
+                parte_est=1, obra_ide=10, obra_cod="0100", recurso_ide=501,
+                fecha_int=20260302, hora_ide=1, hora_cod="HL01", hora_ext=0,
+                partida_ide=None, partida_cod=None, can=can, tot=can * 15,
+                enlazada=False, origen="partes", registro_id=rid,
+                ajuste_id=None)
+    base.update(cambios)
+    return base
+
+
+@pytest.fixture
+def acciones(monkeypatch):
+    """`_montar(lineas, sv5_de_ids) -> (cliente, fabrica, ids, sv5, pub)`."""
+    for clave, valor in {"PG_PASSWORD": "irrelevante-en-tests",
+                         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
+                         "DEFAULT_REVIEWER": "ana"}.items():
+        monkeypatch.setenv(clave, valor)
+    for clave in ("TRANSFER_BASE_URL", "SINCRONIZAR_SECO",
+                  "SINCRONIZAR_MAX_ITEMS_ACCION"):
+        monkeypatch.delenv(clave, raising=False)
+
+    def _montar(lineas, sv5_de_ids=lambda ids: [], *, con_sv5=True,
+                entorno=None, aprobado=True):
+        for clave, valor in (entorno or {}).items():
+            monkeypatch.setenv(clave, valor)
+        fabrica = FabricaSesionSqlite()
+        ids = sembrar_parte(fabrica, lineas, aprobado=aprobado)
+        sv5 = Sv5Sync(sv5_de_ids(ids)) if con_sv5 else None
+        pub = RecalculoPub()
+        app = build_app(Settings(_env_file=None),
+                        repository=ParteReviewRepository(fabrica),
+                        transfer_client=sv5, recalculo_publisher=pub)
+        return TestClient(app), fabrica, ids, sv5, pub
+    return _montar
+
+
+def _primera(cliente) -> dict:
+    r = cliente.post("/api/sincronizar", json={"ambito": AMBITO})
+    assert r.status_code == 200, r.text
+    return {i["registro_id"]: i for i in r.json()["items"]}
+
+
+def _aplicar(cliente, accion, items, ambito=AMBITO):
+    return cliente.post("/api/sincronizar/aplicar", json={
+        "accion": accion, "ambito": ambito, "items": items})
+
+
+def test_f052_r30_aplicar_sin_transfer_503(acciones) -> None:
+    cliente, _f, ids, _sv5, _p = acciones([{"estado": "error"}],
+                                          con_sv5=False)
+    r = _aplicar(cliente, "marcar_registrada",
+                 [{"registro_id": ids[0], "firma": "x" * 16}])
+    assert r.status_code == 503
+
+
+def test_f052_r19_aplicar_marcar_registrada_con_el_actor(acciones) -> None:
+    cliente, fabrica, ids, sv5, _p = acciones(
+        [{"estado": "error"}], lambda ids: [linea_sv5(ids[0], hmores=9100)])
+    item = _primera(cliente)[ids[0]]
+    assert item["clase"] == "en_sigrid_sin_registrar"
+    r = _aplicar(cliente, "marcar_registrada",
+                 [{"registro_id": ids[0], "firma": item["firma"]}])
+    assert r.status_code == 200, r.text
+    assert r.json()["aplicados"] == [ids[0]]
+    assert len(sv5.leer) == 2                       # volvió a sincronizar
+    estado, motivo, hmoide, hmores, parte = estados_sigrid(fabrica, ids)[
+        ids[0]]
+    assert (estado, hmoide, hmores, parte) == ("registrado", 7100, 9100,
+                                               "PT26/00100")
+    assert motivo.startswith("Sincronizado con Sigrid: estado error→"
+                             "registrado · local:ana · ")
+    with fabrica.create_session() as s:
+        assert s.get(ParteRegistroOrm, ids[0]).sigrid_registrado_by == (
+            "local:ana")
+    assert sv5.otras == []                          # R26: nada a Sigrid
+
+
+def test_f052_r20_aplicar_traer_de_sigrid_y_recalculo(acciones) -> None:
+    cliente, fabrica, ids, _sv5, pub = acciones(
+        [{"estado": "registrado"}],
+        lambda ids: [linea_sv5(ids[0], hmores=9000, can=6.0)])
+    item = _primera(cliente)[ids[0]]
+    assert item["clase"] == "distinta"
+    r = _aplicar(cliente, "traer_de_sigrid",
+                 [{"registro_id": ids[0], "firma": item["firma"]}])
+    assert r.status_code == 200, r.text
+    assert r.json()["aplicados"] == [ids[0]]
+    assert r.json()["recalculo"] == "pedido"
+    with fabrica.create_session() as s:
+        assert s.get(ParteRegistroOrm, ids[0]).horas == 6.0
+    assert pub.pedidos == [{"document_id": "doc-f004",
+                            "motivo": MOTIVO_SINCRONIZAR,
+                            "solicitado_por": "local:ana"}]
+    assert MOTIVO_SINCRONIZAR == "sincronizar"
+
+
+def test_f052_r18_aplicar_firma_vieja_descarta(acciones) -> None:
+    cliente, fabrica, ids, _sv5, _p = acciones(
+        [{"estado": "registrado"}],
+        lambda ids: [linea_sv5(ids[0], hmores=9000, can=6.0)])
+    r = _aplicar(cliente, "traer_de_sigrid",
+                 [{"registro_id": ids[0], "firma": "0" * 16}])
+    assert r.status_code == 200
+    assert r.json()["descartados"] == [{"registro_id": ids[0],
+                                        "motivo": "cambió desde que lo viste"}]
+    with fabrica.create_session() as s:
+        assert s.get(ParteRegistroOrm, ids[0]).horas == 8.0
+
+
+def test_f052_r18_aplicar_id_ajeno_f022_422_sin_leer(acciones) -> None:
+    cliente, _f, _ids, sv5, _p = acciones([{"estado": "error"}])
+    r = _aplicar(cliente, "marcar_registrada",
+                 [{"registro_id": 99999, "firma": "x" * 16}])
+    assert r.status_code == 422
+    assert "no son de esta vista" in r.json()["error"]
+    assert sv5.leer == []
+
+
+def test_f052_r24_aplicar_restaurar_desde_la_papelera(acciones) -> None:
+    """La línea está en la papelera (fuera de la vista de F-022): su ámbito
+    lo prueba la relectura, que la encuentra en Sigrid en ese ámbito."""
+    cliente, fabrica, ids, _sv5, _p = acciones(
+        [{"estado": "registrado", "borrada": True}],
+        lambda ids: [linea_sv5(ids[0], hmores=9000)])
+    item = _primera(cliente)[ids[0]]
+    assert (item["clase"], item["donde"]) == ("solo_sigrid_nuestra",
+                                              "papelera")
+    r = _aplicar(cliente, "restaurar",
+                 [{"registro_id": ids[0], "firma": item["firma"]}])
+    assert r.status_code == 200, r.text
+    assert r.json()["aplicados"] == [ids[0]]
+    with fabrica.create_session() as s:
+        assert s.get(ParteRegistroOrm, ids[0]).deleted_at_utc is None
+
+
+def test_f052_r18_aplicar_tope_de_items_422(acciones) -> None:
+    cliente, _f, _ids, sv5, _p = acciones(
+        [{"estado": "error"}], entorno={"SINCRONIZAR_MAX_ITEMS_ACCION": "2"})
+    r = _aplicar(cliente, "marcar_registrada",
+                 [{"registro_id": i, "firma": "x" * 16} for i in (1, 2, 3)])
+    assert r.status_code == 422 and "máximo es 2" in r.json()["error"]
+    assert sv5.leer == []
+
+
+@pytest.mark.parametrize("cuerpo", [
+    {"accion": "marcar_registrada", "ambito": AMBITO, "items": []},
+    {"accion": "marcar_registrada", "ambito": AMBITO,
+     "items": [{"registro_id": 1}]},
+    {"accion": "marcar_registrada", "items": [{"registro_id": 1,
+                                               "firma": "x"}]},
+    {"accion": "borrar", "ambito": AMBITO,
+     "items": [{"registro_id": 1, "firma": "x"}]},
+])
+def test_f052_r18_aplicar_peticion_no_valida_422(acciones, cuerpo) -> None:
+    cliente, _f, _ids, sv5, _p = acciones([{"estado": "error"}])
+    r = cliente.post("/api/sincronizar/aplicar", json=cuerpo)
+    assert r.status_code == 422 and sv5.leer == []
+
+
+def test_f052_settings_max_items_accion(entorno) -> None:
+    assert Settings(_env_file=None).sincronizar_max_items_accion == 500
+    for valor in ("0", "5001", "abc"):
+        entorno.setenv("SINCRONIZAR_MAX_ITEMS_ACCION", valor)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)

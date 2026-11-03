@@ -41,6 +41,14 @@ ACCIONES_POR_CLASE: dict[str, tuple[str, ...]] = {
     "solo_sigrid_nuestra": ("restaurar",), "solo_sigrid_ajena": (),
     "solo_sigrid_manual": (), "solo_sigrid_auxiliar": ()}
 
+#: DA3 = A: lo que `traer_de_sigrid` copia de Sigrid. Una `distinta` sin
+#: diferencia en estos campos es informativa (no hay nada que traer).
+CAMPOS_TRAER: tuple[str, ...] = ("horas",)
+
+#: R18 (y el CAS de R19/R20 en el repositorio): por que se descarta un item.
+DESCARTE_CAMBIO = "cambió desde que lo viste"
+DESCARTE_NO_EXISTE = "la línea ya no existe"
+
 #: R9: diferencia de horas por debajo de la cual no se avisa (la de F-024).
 TOLERANCIA_HORAS = 0.005
 
@@ -296,9 +304,13 @@ def clasificar(portal: Iterable[LineaPortal],
 
 
 def acciones_de(item: ItemSync) -> tuple[str, ...]:
-    """R16: las acciones de la clase; `restaurar`, solo desde la papelera."""
+    """R16: las acciones de la clase; `restaurar`, solo desde la papelera,
+    y `traer_de_sigrid` en una `distinta`, solo si difiere en CAMPOS_TRAER."""
     if item.clase == "solo_sigrid_nuestra" and (
             item.donde != "papelera" or item.repetida):
+        return ()
+    if item.clase == "distinta" and not any(
+            d.campo in CAMPOS_TRAER for d in item.diferencias):
         return ()
     return ACCIONES_POR_CLASE[item.clase]
 

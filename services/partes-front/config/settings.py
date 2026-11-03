@@ -87,6 +87,11 @@ class Settings(BaseSettings):
     # false -> R10 las pasa a `borrado_sigrid` como F-024. Se pone a
     #   proposito, despues del punto de control (T8).
     sincronizar_seco: bool = Field(True, alias="SINCRONIZAR_SECO")
+    # F-052 (R18): lineas por accion de «Sincronizar con Sigrid» (marcar,
+    # traer, papelera, reaprobar, restaurar). Tope del navegador: una
+    # accion relee el ambito y escribe linea a linea con CAS.
+    sincronizar_max_items_accion: int = Field(
+        500, alias="SINCRONIZAR_MAX_ITEMS_ACCION", ge=1, le=5000)
     # F-022 (DA15): obras distintas por aprobacion. sv4 manda a sv5 una
     # peticion por obra, una tras otra; el tope acota la espera del modal.
     aprobacion_max_obras: int = Field(

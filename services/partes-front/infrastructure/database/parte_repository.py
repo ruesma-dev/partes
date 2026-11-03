@@ -128,7 +128,11 @@ from application.services.calendar_builder import (
     parse_period_key,
     period_bounds,
 )
-from application.services.sincronizacion import LineaPortal
+from application.services.sincronizacion import (
+    DESCARTE_CAMBIO,
+    DESCARTE_NO_EXISTE,
+    LineaPortal,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -206,8 +210,6 @@ MOTIVO_REPARTO_SINCRONIZAR = (
     "decídelo antes de traer las horas de Sigrid")
 
 #: F-052 (R18-R21): por que una accion de sincronizar descarta una linea.
-DESCARTE_CAMBIO = "cambió desde que lo viste"
-DESCARTE_NO_EXISTE = "la línea ya no existe"
 DESCARTE_PAPELERA = "la línea está en la papelera o su parte ya no está activo"
 DESCARTE_NO_MARCABLE = "una línea en «{estado}» no se marca como registrada"
 DESCARTE_NO_REGISTRADA = ("solo se traen horas a una línea registrado "
@@ -223,7 +225,7 @@ def _motivo_sincronizar(cambio: str, actor: str | None,
                         ahora_iso: str) -> str:
     """R22: «Sincronizado con Sigrid: <cambio> · <actor> · <fecha>»."""
     return MOTIVO_SINCRONIZAR_CAMBIO.format(
-        cambio=cambio, actor=actor or "sin-identidad",
+        cambio=cambio, actor=actor or "-",
         fecha=ahora_iso[:10])[:255]
 
 
