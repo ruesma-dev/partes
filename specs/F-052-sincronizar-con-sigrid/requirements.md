@@ -69,7 +69,9 @@ escrituras en Sigrid (vía sv5) quedan para una feature posterior (DA1).
 - **R10.** CUANDO una línea `registrado` del portal no aparece en Sigrid, sv4 debe confirmarlo
   con la comprobación existente de F-024 (`ComprobacionSigrid.comprobar_ids`, `forzar`, origen
   `sincronizar`, llamada en proceso: `ORIGENES_COMPROBACION` de `/api/sigrid/comprobar` no
-  cambia), que la pasa a `borrado_sigrid` como hoy; el ítem es `borrada_en_sigrid`.
+  cambia), que la pasa a `borrado_sigrid` como hoy; el ítem es `borrada_en_sigrid`. **Modo seco**
+  (DA18): con `SINCRONIZAR_SECO` (sv4, por defecto `true`) no escribe en `partes`: pide a sv5 solo
+  el veredicto (`/api/registro/comprobar`) y devuelve en `marcaria_borrado_sigrid` las que pasaría.
 - **R11.** Una línea `encolado` debe salir `en_vuelo` sin comparar; una `dedicacion`,
   `no_viaja` (con nota si aparece en Sigrid); una `omitido` no encontrada, `pendiente` si su motivo es
   `parte_no_abierto` o `pisada_no_anulada` y, si no, `no_viaja` con el motivo como nota.

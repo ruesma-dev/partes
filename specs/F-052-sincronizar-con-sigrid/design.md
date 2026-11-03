@@ -122,7 +122,7 @@ es `distinta` informativa: esta entrega no mueve líneas (DA3).
   repositorio gana `documentos_de_los_dias(pares)` por (recurso, fecha): `otras_de_celda` va por celda.
 - `interface_adapters/web/app.py`: payloads, `POST /api/sincronizar` y
   `/api/sincronizar/aplicar`, composición; `config/settings.py`: `SINCRONIZAR_TIMEOUT_S` (150,
-  < 230 del balanceador) y `SINCRONIZAR_MAX_ITEMS_ACCION` (500).
+  < 230 del balanceador), `SINCRONIZAR_SECO` (DA18, `true`) y `SINCRONIZAR_MAX_ITEMS_ACCION` (500).
 - `templates/obra_detail.html`, `templates/trabajador_detail.html`: botón junto a «Comprobar en
   Sigrid» (deshabilitado con motivo, R15) y contenedor del panel; `static/app.js` (panel,
   filtros, selección, confirmación, `esc()` en todo lo pintado) y `static/styles.css`.
@@ -182,7 +182,8 @@ Por synckey: mismo `SELECT`/`FROM` con `WHERE h.synckey IN (…)` en lotes de `L
 
 **Aprobadas por el humano el 2026-11-02**, transmitido por el líder (literal: «si» a «Si dices
 "sí", apruebo las tres de la tabla y todas esas con la recomendación»): DA1 = A, DA2–DA7 = A,
-DA8 = crítico, DA10 = A, DA12–DA16 = A, DA17 = B y DA11 como consta. DA9 superada. La columna de
+DA8 = crítico, DA10 = A, DA12–DA16 = A, DA17 = B y DA11 como consta. DA9 superada. DA18 = A,
+aprobada por el humano el 2026-11-03 (literal: «si» a la opción A del líder). La columna de
 recomendación se conserva como razón. Detalle en `progress/explore_F-052_revalidacion.md`.
 
 | DA | Pregunta | Alternativas | Recomendación |
@@ -204,6 +205,7 @@ recomendación se conserva como razón. Detalle en `progress/explore_F-052_reval
 | DA15 | `traer_de_sigrid` frente a F-046/F-049: recálculo y repartos que descartan | **A**) pedido compartido de F-049 (`_pedir_recalculo_compartido`) con los partes tocados y los de otras obras del mismo recurso y día, y descarte con `ESTADOS_BLOQUEAN` (`pendiente`, `aplicando`, `rechazado`, como el registro) · B) `_pedir_recalculo_seguido` por documento y solo `pendiente`/`aplicando` · C) F-042 sin seguimiento (texto literal de R23) | **A**: la pasada reparte por (recurso, día) entre obras y una congelada que cambia mueve el residual de las otras; es lo que hizo F-049 por la misma razón |
 | DA16 | `donde` de `solo_sigrid_nuestra` (R12): parte desactivado por la reingesta de sv3 (`deleted_by` NULL) | **A**) valor nuevo `parte_reemplazado`, informativo (las líneas del parte retirado de F-061 ya están en la papelera: `papelera` + `restaurar`) · B) como estaba (`no_existe`) | **A**: un PDF reprocesado deja las viejas en Sigrid y las nuevas `pendiente` (duplicado): es justo lo que hay que ver |
 | DA17 | Tamaño: ¿una feature o dos? | **DECIDIDA: B**, una sola feature (literal: «da17, en una sola»; el punto de control, aprobado el 2026-11-02): R1–R30, acciones hacia el portal, rigor crítico, con **punto de control obligatorio** tras la lectura y la comparación (T8): M2 sobre datos reales antes de implementar las acciones | DA1 = A y DA8 = crítico se quedan |
+| DA18 | ¿Escribe R10 en la base `partes` al comparar mientras se hace M2? | **A**) modo seco: `SINCRONIZAR_SECO` (sv4, `true` por defecto) ⇒ `POST /api/sincronizar` no llama a `comprobar_ids`: pide a sv5 solo el veredicto (`/api/registro/comprobar`, lectura) y devuelve `seco: true` y `marcaria_borrado_sigrid` · B) escribir como F-024 | **APROBADA A** (humano, 2026-11-03). Variable de entorno y no campo de la petición: un sv4 local sin ella no puede escribir aunque el navegador pida otra cosa; fuera de seco hay que poner `false` a propósito (tras T8), y R10 escribe como F-024 |
 
 ## 9. Verificaciones manuales (humano)
 
@@ -217,8 +219,8 @@ recomendación se conserva como razón. Detalle en `progress/explore_F-052_reval
 - **M2 · PUNTO DE CONTROL OBLIGATORIO (DA17 = B, T8; tras lectura y comparación, antes de las
   acciones que escriben en líneas congeladas; local, con `POST /api/sincronizar`)**: sincronizar 2
   obras y 2 personas reales **con líneas del portal** y revisar a mano 10 ítems de clases distintas
-  contra Sigrid; ninguna escritura en Sigrid. La única escritura en `partes` es la de R10, la misma
-  de abrir la vista (F-024). Si las clases no cuadran, se para y se vuelve a proponer.
+  contra Sigrid; ninguna escritura en Sigrid ni en `partes`: sv4 en **modo seco** (DA18), R10 solo
+  informa (`marcaria_borrado_sigrid`). Si las clases no cuadran, se para y se vuelve a proponer.
 - **M3 (local, modo pruebas, obra 0404)**: con líneas `PRUEBA-IA` editadas a mano en Sigrid
   (horas cambiadas, una a 0), `traer_de_sigrid` y `marcar_registrada` en la base `partes` local;
   limpiar con `prueba_escritura_sigrid.py`.
