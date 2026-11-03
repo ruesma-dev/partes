@@ -11,14 +11,23 @@ SQLite en memoria con el ORM real; datos sintéticos.
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import pytest
 from application.services.calendar_builder import period_bounds
+from application.services.seguimiento_recalculo import MOTIVO_RECALCULANDO
 from application.services.sincronizacion import LineaPortal
 from infrastructure.database.orm_models import (
     ParteDocumentOrm,
     ParteRegistroOrm,
+    RepartoPendienteOrm,
+    UndoLogOrm,
 )
-from infrastructure.database.parte_repository import ParteReviewRepository
+from infrastructure.database.parte_repository import (
+    MOTIVO_REPARTO_SINCRONIZAR,
+    MOTIVO_SINCRONIZAR_CAMBIO,
+    ParteReviewRepository,
+)
 from tests.dobles import FabricaSesionSqlite
 
 AHORA = "2026-10-20T08:00:00+00:00"
@@ -171,3 +180,269 @@ def test_f052_r12_donde_estan(repo) -> None:
 def test_f052_r12_donde_estan_sin_ids(repo) -> None:
     _f, r = repo
     assert r.donde_estan([]) == {}
+
+
+# ============ T9 · escrituras de las acciones (R19-R22, DA15) ============ #
+
+ACCION_AT = "2026-11-03T09:30:00+00:00"
+
+
+def _fila(fabrica, rid: int) -> ParteRegistroOrm:
+    with fabrica.create_session() as s:
+        return s.get(ParteRegistroOrm, rid)
+
+
+def _sembrar_acciones(fabrica, *, aprobado: bool = True,
+                      en_espera: bool = False) -> dict[str, int]:
+    """Un parte (aprobado por defecto) con líneas de cada estado."""
+    ids: dict[str, int] = {}
+    with fabrica.create_session() as s:
+        _doc(s, "d")
+        _doc(s, "inactivo", activo=False)
+        s.flush()
+        doc = s.get(ParteDocumentOrm, "d")
+        doc.approved = aprobado
+        if en_espera:
+            doc.recalculo_pedido_id = "pedido-1"
+            doc.recalculo_pedido_at_utc = datetime.now(
+                timezone.utc).isoformat()
+        ids["error"] = _reg(s, "d", 20261014, sigrid_estado="error",
+                            sigrid_motivo="timeout de sv5")
+        ids["vacio"] = _reg(s, "d", 20261015, recurso_ide=502)
+        ids["borrado"] = _reg(s, "d", 20261016, recurso_ide=503,
+                              sigrid_estado="borrado_sigrid",
+                              sigrid_hmores_ide=9016)
+        ids["reg"] = _reg(s, "d", 20261020, sigrid_estado="registrado",
+                          sigrid_hmores_ide=9020, sigrid_hmoide=7001,
+                          horas_orig=9.0)
+        ids["reg2"] = _reg(s, "d", 20261021, sigrid_estado="registrado",
+                           sigrid_hmores_ide=9021, sigrid_hmoide=7001)
+        ids["papelera"] = _reg(s, "d", 20261022, sigrid_estado="error",
+                               deleted_at_utc=AHORA)
+        ids["inactivo"] = _reg(s, "inactivo", 20261023, sigrid_estado="error")
+        s.commit()
+    return ids
+
+
+def _marca(rid: int, estado: str | None, *, visto: int | None = None,
+           hmores: int = 9100) -> dict:
+    return {"registro_id": rid, "estado_visto": estado,
+            "hmores_ide_visto": visto, "hmores_ide": hmores, "hmoide": 7100,
+            "parte_cod": "PT26/00100"}
+
+
+def _trae(rid: int, *, vistas: float = 8.0, nuevas: float = 6.0,
+          visto: int | None = 9020) -> dict:
+    return {"registro_id": rid, "horas_vistas": vistas,
+            "horas_nuevas": nuevas, "hmores_ide_visto": visto}
+
+
+# ------------------------- aplicar_marcar_registrada ---------------------- #
+
+def test_f052_r19_marcar_registrada_escribe_estado_y_referencias(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    res = r.aplicar_marcar_registrada(
+        [_marca(ids["error"], "error"),
+         _marca(ids["vacio"], None, hmores=9101),
+         _marca(ids["borrado"], "borrado_sigrid", visto=9016, hmores=9102)],
+        actor="ana@x", ahora_iso=ACCION_AT)
+    assert res == {"aplicados": sorted([ids["error"], ids["vacio"],
+                                        ids["borrado"]]), "descartados": []}
+    f = _fila(fabrica, ids["error"])
+    assert (f.sigrid_estado, f.sigrid_hmores_ide, f.sigrid_hmoide,
+            f.sigrid_parte_cod) == ("registrado", 9100, 7100, "PT26/00100")
+    assert f.sigrid_registrado_by == "ana@x"
+    assert f.sigrid_registrado_at_utc == ACCION_AT
+    assert f.sigrid_motivo == (
+        "Sincronizado con Sigrid: estado error→registrado · ana@x · "
+        "2026-11-03")
+    assert _fila(fabrica, ids["vacio"]).sigrid_motivo.startswith(
+        "Sincronizado con Sigrid: estado sin estado→registrado")
+    assert _fila(fabrica, ids["borrado"]).sigrid_hmores_ide == 9102
+
+
+@pytest.mark.parametrize("clave, item, motivo", [
+    ("error", lambda i: _marca(i, "omitido"), "cambió"),
+    ("borrado", lambda i: _marca(i, "borrado_sigrid", visto=1), "cambió"),
+    ("papelera", lambda i: _marca(i, "error"), "papelera"),
+    ("inactivo", lambda i: _marca(i, "error"), "papelera"),
+    ("reg", lambda i: _marca(i, "registrado", visto=9020), "no se marca"),
+])
+def test_f052_r19_marcar_registrada_cas_descarta_sin_escribir(
+        repo, clave, item, motivo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    antes = _fila(fabrica, ids[clave])
+    res = r.aplicar_marcar_registrada([item(ids[clave])], actor="ana",
+                                      ahora_iso=ACCION_AT)
+    assert res["aplicados"] == []
+    assert [d["registro_id"] for d in res["descartados"]] == [ids[clave]]
+    assert motivo in res["descartados"][0]["motivo"]
+    despues = _fila(fabrica, ids[clave])
+    assert (despues.sigrid_estado, despues.sigrid_hmores_ide,
+            despues.sigrid_motivo, despues.sigrid_registrado_by) == (
+        antes.sigrid_estado, antes.sigrid_hmores_ide, antes.sigrid_motivo,
+        antes.sigrid_registrado_by)
+
+
+def test_f052_r19_marcar_registrada_id_que_no_existe(repo) -> None:
+    _f, r = repo
+    res = r.aplicar_marcar_registrada([_marca(99999, "error")], actor="ana",
+                                      ahora_iso=ACCION_AT)
+    assert res == {"aplicados": [], "descartados": [
+        {"registro_id": 99999, "motivo": "la línea ya no existe"}]}
+
+
+def test_f052_r19_marcar_registrada_mezcla_aplica_lo_que_cuadra(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    res = r.aplicar_marcar_registrada(
+        [_marca(ids["error"], "error"), _marca(ids["vacio"], "error")],
+        actor="ana", ahora_iso=ACCION_AT)
+    assert res["aplicados"] == [ids["error"]]
+    assert [d["registro_id"] for d in res["descartados"]] == [ids["vacio"]]
+    assert _fila(fabrica, ids["vacio"]).sigrid_estado is None
+
+
+# ------------------------- aplicar_traer_de_sigrid ------------------------ #
+
+def test_f052_r20_traer_horas_aunque_este_congelada(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)            # parte aprobado + registrado
+    res = r.aplicar_traer_de_sigrid([_trae(ids["reg"])], actor="ana@x",
+                                    ahora_iso=ACCION_AT)
+    assert res == {"aplicados": [ids["reg"]], "descartados": [],
+                   "documentos": ["d"], "pares": [(501, 20261020)]}
+    f = _fila(fabrica, ids["reg"])
+    assert f.horas == 6.0
+    assert f.horas_orig == 9.0                  # sv3 no recalcula lo congelado
+    assert f.sigrid_estado == "registrado"
+    assert f.sigrid_hmores_ide == 9020
+    assert f.sigrid_motivo == (
+        "Sincronizado con Sigrid: horas 8→6 · ana@x · 2026-11-03")
+
+
+def test_f052_r20_traer_anulada_deja_cero(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    res = r.aplicar_traer_de_sigrid(
+        [_trae(ids["reg"], nuevas=0.0)], actor="ana", ahora_iso=ACCION_AT)
+    assert res["aplicados"] == [ids["reg"]]
+    assert _fila(fabrica, ids["reg"]).horas == 0.0
+    assert "horas 8→0" in _fila(fabrica, ids["reg"]).sigrid_motivo
+
+
+@pytest.mark.parametrize("clave, item, motivo", [
+    ("reg", lambda i: _trae(i, vistas=7.0), "cambió"),
+    ("reg", lambda i: _trae(i, visto=1), "cambió"),
+    ("error", lambda i: _trae(i, visto=None), "registrado"),
+    ("papelera", lambda i: _trae(i, visto=None), "papelera"),
+    ("inactivo", lambda i: _trae(i, visto=None), "papelera"),
+])
+def test_f052_r20_traer_cas_descarta_sin_escribir(repo, clave, item,
+                                                  motivo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    antes = _fila(fabrica, ids[clave])
+    res = r.aplicar_traer_de_sigrid([item(ids[clave])], actor="ana",
+                                    ahora_iso=ACCION_AT)
+    assert res["aplicados"] == [] and res["documentos"] == []
+    assert res["pares"] == []
+    assert [d["registro_id"] for d in res["descartados"]] == [ids[clave]]
+    assert motivo in res["descartados"][0]["motivo"]
+    despues = _fila(fabrica, ids[clave])
+    assert (despues.horas, despues.sigrid_motivo) == (antes.horas,
+                                                      antes.sigrid_motivo)
+
+
+def test_f052_r20_traer_id_que_no_existe(repo) -> None:
+    _f, r = repo
+    res = r.aplicar_traer_de_sigrid([_trae(99999)], actor="ana",
+                                    ahora_iso=ACCION_AT)
+    assert res["descartados"] == [{"registro_id": 99999,
+                                   "motivo": "la línea ya no existe"}]
+
+
+def test_f052_r21_traer_parte_en_espera_descarta(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica, en_espera=True)
+    res = r.aplicar_traer_de_sigrid([_trae(ids["reg"])], actor="ana",
+                                    ahora_iso=ACCION_AT)
+    assert res["aplicados"] == []
+    assert res["descartados"] == [{"registro_id": ids["reg"],
+                                   "motivo": MOTIVO_RECALCULANDO}]
+    assert _fila(fabrica, ids["reg"]).horas == 8.0
+
+
+@pytest.mark.parametrize("estado, bloquea", [
+    ("pendiente", True), ("aplicando", True), ("rechazado", True),
+    ("aplicado", False), ("obsoleto", False)])
+def test_f052_r21_traer_dia_con_reparto_que_bloquea(repo, estado,
+                                                     bloquea) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    with fabrica.create_session() as s:
+        s.add(RepartoPendienteOrm(recurso_ide=501, fecha_int=20261020,
+                                  estado=estado, firma="f", cambios="{}"))
+        s.commit()
+    res = r.aplicar_traer_de_sigrid(
+        [_trae(ids["reg"]), _trae(ids["reg2"], visto=9021)], actor="ana",
+        ahora_iso=ACCION_AT)
+    if bloquea:
+        assert res["aplicados"] == [ids["reg2"]]
+        assert res["descartados"] == [{"registro_id": ids["reg"],
+                                       "motivo": MOTIVO_REPARTO_SINCRONIZAR}]
+        assert _fila(fabrica, ids["reg"]).horas == 8.0
+    else:
+        assert res["aplicados"] == [ids["reg"], ids["reg2"]]
+    assert res["pares"] == sorted({(501, f) for f in (
+        [20261021] if bloquea else [20261020, 20261021])})
+
+
+def test_f052_r20_traer_sin_deshacer(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    r.aplicar_traer_de_sigrid([_trae(ids["reg"])], actor="ana",
+                              ahora_iso=ACCION_AT)
+    r.aplicar_marcar_registrada([_marca(ids["error"], "error")],
+                                actor="ana", ahora_iso=ACCION_AT)
+    with fabrica.create_session() as s:
+        assert s.query(UndoLogOrm).count() == 0
+
+
+def test_f052_r22_motivo_cabe_en_255(repo) -> None:
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    actor = "x" * 400
+    r.aplicar_traer_de_sigrid([_trae(ids["reg"])], actor=actor,
+                              ahora_iso=ACCION_AT)
+    r.aplicar_marcar_registrada([_marca(ids["error"], "error")],
+                                actor=actor, ahora_iso=ACCION_AT)
+    assert len(_fila(fabrica, ids["reg"]).sigrid_motivo) == 255
+    assert len(_fila(fabrica, ids["error"]).sigrid_motivo) == 255
+
+
+def test_f052_r22_motivo_cambio_formato() -> None:
+    assert MOTIVO_SINCRONIZAR_CAMBIO.format(
+        cambio="horas 8→6", actor="ana", fecha="2026-11-03") == (
+        "Sincronizado con Sigrid: horas 8→6 · ana · 2026-11-03")
+
+
+# ------------------------- documentos_de_los_dias ------------------------- #
+
+def test_f052_r23_documentos_de_los_dias(repo) -> None:
+    fabrica, r = repo
+    with fabrica.create_session() as s:
+        for did in ("a", "b", "c", "papelera", "inactivo", "otro_dia"):
+            _doc(s, did, activo=did != "inactivo")
+        _reg(s, "a", 20261020)
+        _reg(s, "b", 20261020, obra_ide=999)
+        _reg(s, "c", 20261021, recurso_ide=777)
+        _reg(s, "papelera", 20261020, deleted_at_utc=AHORA)
+        _reg(s, "inactivo", 20261020)
+        _reg(s, "otro_dia", 20261022)
+        s.commit()
+    assert r.documentos_de_los_dias([(501, 20261020), (777, 20261021)]) == [
+        "a", "b", "c"]
+    assert r.documentos_de_los_dias([]) == []

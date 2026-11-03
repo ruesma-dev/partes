@@ -32,6 +32,9 @@ T9. Decisiones de implementación ID1–ID7 a revisar en M2 (mismo fichero).
 2026-11-03, «si, dale»): clase de hora de Sigrid por el prefijo `HE` (`es_hora_extra`), RED y
 verificación en `progress/impl_F-052.md` §H-M2-1. **Siguiente: el líder repite M2**; T9 no empieza
 sin ella.
+**M2 SUPERADA** (líder, 2026-11-03, repetida tras H-M2-1: `distinta` de 166 a 16, todas
+reales; `progress/m2_F-052.md`). El humano autorizó seguir con T9–T17 («si, dale»).
+**Implementer en T9–T17** (acciones hacia el portal, panel, docs); en curso.
 
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
