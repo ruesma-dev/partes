@@ -5,13 +5,15 @@
 
 Resumen: **61 features**, 11 abiertas, 50 terminadas.
 
+En curso: **F-052**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | spec lista | aprobada el 2026-11-02, M1 hecha · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
+| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | en curso | aprobada el 2026-11-02, M1 hecha · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
@@ -82,7 +84,7 @@ Bloqueadas: **F-032**.
 
 ### F-052 · Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa
 
-estado **spec lista** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
+estado **en curso** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
 
 **Spec**: aprobada el 2026-11-02, M1 hecha · `partes-wt-f052`
 

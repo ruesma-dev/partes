@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-052 · spec APROBADA 2026-11-02, M1 hecha (`spec_ready`): sincronizar con Sigrid desde una obra o una persona
+## F-052 · EN CURSO (`in_progress`, implementer tanda T1–T8; T8 = punto de control M2): sincronizar con Sigrid desde una obra o una persona
 
 Orden del humano (2026-11-01): «vamos con la siguiente feature f52». Rama
 `feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, con `dev` 69af0f5
@@ -20,8 +20,9 @@ apruebo las tres de la tabla y todas esas con la recomendación». Queda:
   líneas del portal antes de implementar las acciones.
 **M1 HECHA** (líder, 2026-11-02, solo lectura; `design.md` §9): obra mayor 371 líneas en 4,8 s,
 lote de 200 synckeys 7,9 s, sin `truncated`; se queda `WHERE h.obride = ?`.
-**Siguiente paso**: implementer, tras el visto bueno del humano. Detalle en
-`progress/explore_F-052_revalidacion.md`.
+**Implementer lanzado** (humano, 2026-11-03: «si, lanza el implementer»), tanda T1–T8 con
+**modo seco** en la comparación (DA18 = A, humano 2026-11-03). Tarea en curso y decisiones:
+`progress/impl_F-052.md`. Detalle de la spec en `progress/explore_F-052_revalidacion.md`.
 
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
