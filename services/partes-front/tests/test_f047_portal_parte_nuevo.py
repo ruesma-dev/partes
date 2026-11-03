@@ -204,6 +204,15 @@ HUELLAS = {
 }
 
 
+#: Funciones del panel de sincronizar que añade F-052 (T12).
+F052_PANEL = (
+    "accionesVisiblesSync", "ambitoSync", "aplicarSync", "clicSync",
+    "confirmarAccionSync", "etiquetasAccionSync", "etiquetasClaseSync",
+    "filaSyncHtml", "filtrarItemsSync", "itemsAplicarSync", "panelSyncHtml",
+    "pintarSync", "resultadoSyncHtml", "resumenAccionSyncHtml",
+    "seleccionSync", "sincronizarAmbito", "textoDiferenciasSync",
+)
+
 @pytest.mark.parametrize("nombre", sorted(HUELLAS))
 def test_f047_r23_lo_de_f043_no_cambia(nombre) -> None:
     texto = _funcion(_js(), nombre)
@@ -214,7 +223,11 @@ def test_f047_r23_lo_de_f043_no_cambia(nombre) -> None:
 def test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable() -> None:
     js = _js()
     # Funciones con nombre en `app.js` en `dev` 75816f2: F-047 no añade.
-    assert len(re.findall(r"function \w+\(", js)) == 302
+    # F-052 (T12, panel de «Sincronizar con Sigrid») añade las 17 de
+    # `F052_PANEL`, todas suyas; fuera de ellas el total sigue en 302.
+    nombres = re.findall(r"function (\w+)\(", js)
+    assert sorted(n for n in nombres if n in F052_PANEL) == sorted(F052_PANEL)
+    assert len(nombres) - len(F052_PANEL) == 302
     variables = [l for l in js.split("\n") if l.startswith("  var recalculo")]
     assert variables == [
         "  var recalculoVigilados = {};        // document_id -> fecha (ISO)",
