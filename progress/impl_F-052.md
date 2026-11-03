@@ -117,7 +117,10 @@ Verde: `52 passed` y `18 passed` (`70 passed` juntos).
 
 ## Verificación (resultado real)
 
-PEGAR_VERIF
+`bash harness/init.sh` (árbol final, aab3c59): **ENTORNO LISTO**; raíz 537 passed, 3 skipped; sv4
+3469 passed, 1 skipped (1450 s); sv5 1614 passed (31 s, T4; la caché del portero lo da en verde);
+`git diff dev --stat -- services/partes-transfer/application` vacío (R26); guardián F-038 (raíz)
+24 passed. Lo MANUAL pendiente: M2 (abajo).
 
 ## M2 · PUNTO DE CONTROL (T8) — lista para ejecutar
 
@@ -204,4 +207,9 @@ igual (lo captura `initialize`); sincronizar solo lee.
 
 ## Evidencias
 
-PEGAR_EVID
+| Evidencia | Valor real |
+|---|---|
+| Tests F-052 | sv5 60 passed (6,3 s); sv4 162 passed (12,6 s) |
+| Suites completas | sv5 1614 passed (31,4 s); sv4 3469 passed, 1 skipped (1450 s con cobertura); raíz 537 passed |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 513 líneas cambiadas cubiertas (512/513, umbral 80%)` |
+| Mutantes | no lanzada: la campaña la lanza el líder (`python -m harness.mutacion --feature F-052`) |
