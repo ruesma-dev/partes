@@ -1,220 +1,220 @@
-# F-052 · Informe del implementer (tanda T1–T8)
+# F-052 · Informe del implementer (tanda T9–T17)
 
-Rama `feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, desde 846f6aa.
-Rigor **crítico**. Alcance de esta tanda: T1–T8; **T8 es el punto de control** (M2 del humano):
-lo posterior (acciones que escriben en líneas congeladas, T9–T17) NO está hecho.
-La campaña de mutación la lanza el líder después.
+Rama `feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`. Rigor **crítico**.
+**T1–T8** (lectura y comparación, M2) y **H-M2-1**: informe completo en
+`git show 50c5d01:progress/impl_F-052.md` (RED de T2–T7, ID1–ID7, M2 superada en
+`progress/m2_F-052.md`). Esta tanda (autorizada por el humano tras M2, «si, dale») hace las
+**acciones**: escriben SOLO en la base `partes`, nunca en Sigrid (R26). La mutación la lanza el
+líder. La feature NO se marca `done` (falta el reviewer).
 
 ## Qué cambió
 
 | Tarea | Commit | Qué |
 |---|---|---|
-| T1 | bb9f5c7 | F-052 `in_progress`, BACKLOG, `current.md`; datos de partida (abajo) |
-| DA18 | bc1de1c | Spec: DA18 = A (modo seco) en `design.md` §5/§8/§9, R10 y T7/T8 |
-| T2 | 7996ed3 | sv5 `origen_de`, `lineas_sincronizar`, `lineas_sincronizar_por_synckey`, `LineaSincronizar` |
-| T3 | 7b21c40 | sv5 `POST /api/sincronizar/leer` y `SINCRONIZAR_MAX_REGISTRO_IDS` (3000) |
-| T4 | 668d88a | Suite sv5 completa; `application/` de sv5 sin cambios (R26) |
-| T5 | a5bcef1 | sv4 `application/services/sincronizacion.py` (puro: 12 clases, firma, acciones) |
-| T6 | 9c3757e | sv4 `lineas_para_sincronizar`, `donde_estan` en `parte_repository.py` |
-| T7 | 7fed7fb | sv4 `sincronizar_ambito.py`, `transfer_client.sincronizar_leer`, `POST /api/sincronizar`, `SINCRONIZAR_TIMEOUT_S`, `SINCRONIZAR_SECO` |
-| doc | azure-apps dddde8a | `partes.md`: nota F-052, endpoint de sv5 (§3.5) y variables (§5.6). Sin push |
+| T9 | 4115eec | `parte_repository.py`: `aplicar_marcar_registrada`, `aplicar_traer_de_sigrid`, `documentos_de_los_dias`, `_bloquear_para_sincronizar` (SELECT FOR UPDATE + CAS), `_motivo_sincronizar` |
+| T10 | 64188c0 | `sincronizar_ambito.aplicar` (re-sync, firma, acciones), `POST /api/sincronizar/aplicar`, `SINCRONIZAR_MAX_ITEMS_ACCION` (500), `MOTIVO_SINCRONIZAR`, `CAMPOS_TRAER` (DA3) |
+| T11 | 5014086 | Botón «Sincronizar con Sigrid» y contenedor del panel en `obra_detail.html` y `trabajador_detail.html` |
+| T12 | a587762 | Panel en `static/app.js` (filtros, acciones, confirmación, resultado) y `styles.css` |
+| T13 | c23a63c | `tests/test_f052_contrato_motivos.py` (raíz): sv3 clasifica `sincronizar` como recálculo |
+| T14 | — | Suite completa de sv4 (abajo) |
+| T15 | e0bc4d3 | `docs/ARCHITECTURE.md`: doble canal, semántica 10, semántica 22 nueva |
+| doc | azure-apps 1289301 | `partes.md`: nota F-052, rutas de sv4 (§3.4), `SINCRONIZAR_MAX_ITEMS_ACCION`. Sin push |
+| T16/T17 | (último commit) | M3/M4 en `current.md`; `bash harness/init.sh`; este informe |
 
-Producción: sv5 `sigrid_write_client.py`, `registro_models.py`, `api/app.py`, `settings.py`; sv4
-`sincronizacion.py` y `sincronizar_ambito.py` (nuevos), `parte_repository.py`, `transfer_client.py`,
-`web/app.py`, `settings.py`. **Sin tocar**: `congelacion.py`, `recurso_conciliador.py`,
-`comprobacion_sigrid.py`, `comprobacion_lineas.py`, ORM, gemelos, sv1–sv3, `application/` de sv5.
+Ficheros: los de la tabla, más los tests `test_f052_*` de sv4 (`vistas` y `panel_js` nuevos),
+`test_f017_punto_unico.py` y `test_f047_portal_parte_nuevo.py` (ID13). **Sin tocar** (`git diff dev` vacío): `congelacion.py`, `recurso_conciliador.py`
+(`esta_congelado`), `orm_models.py`, los gemelos, sv1–sv3 y sv5. H-M2-1b (selector de hora,
+`option.ext`) **no se toca**.
 
-## T1 · Base y datos de partida
+## Cómo funciona `aplicar` (R17–R25)
 
-- `git merge-base --is-ancestor dev HEAD` ⇒ verdadero: `dev` sigue en 69af0f5, ya fusionado.
-- **Persona** (F-050, `_clave_trabajador`): `rec-{recurso}` si está casada con recurso
-  (`recurso_ide` o `empleado_reside`); si no, `emp-`/`nom-`/`sin-trabajador`, que no leen Sigrid.
-  **Obra**: `obr-{ide}`; `cod-`, `nom-`, `sin-obra` no (R15).
-- **M1** (líder, 2026-11-02, design §9): 371 líneas en 4,8 s, lote de 200 synckeys 7,9 s, sin
-  `truncated`; sin líneas `partes:`, por eso M2 va a ámbitos con líneas del portal.
+`POST /api/sincronizar/aplicar` `{accion, ambito, items: [{registro_id, firma}]}`:
+1. 503 sin sv5; `validar_peticion` ⇒ 422 (acción desconocida, sin ítems, más de
+   `SINCRONIZAR_MAX_ITEMS_ACCION`, ids repetidos); F-022 `_validar_ambito` ⇒ 422 si algún id no
+   es de la vista (salvo `restaurar`, ID8). Ninguno de estos llama a sv5.
+2. Bajo el MISMO candado R29 que `sincronizar`, vuelve a leer y clasificar el ámbito (re-sync).
+   Un id que no sale en el re-sync ⇒ 422 de toda la petición. Firma distinta ⇒ descartado
+   «cambió desde que lo viste». Acción que no está en `acciones_de` de su clase ⇒ descartado.
+3. Ejecuta: `marcar_registrada` y `traer_de_sigrid` con el repositorio (CAS por lo visto:
+   estado + `hmores_ide`, horas + `hmores_ide`); `a_papelera` = `borrar_linea(by=actor)`;
+   `restaurar` = `restore_registro`; `reaprobar` no escribe: devuelve `abrir_aprobar` y el panel
+   abre el modal de aprobar existente. Congelada (F-004) o duplicado activo (F-061) ⇒ descartado.
+4. `traer`: un recálculo compartido (F-049) con motivo `sincronizar` para los documentos tocados
+   y los del mismo día y persona; el actor es `_actor(request)`.
+5. Log INFO `[sincronizar][aplicar] accion= actor= … recalculo=`. Respuesta `{ok, accion,
+   seco, aplicados, descartados, recalculo[, abrir_aprobar, incluir_borradas]}`.
 
-## DA18 · modo seco (humano, 2026-11-03)
+Traza (R22): `sigrid_motivo` = «Sincronizado con Sigrid: {cambio} · {actor} · {fecha}» (≤255);
+en `marcar` también `sigrid_registrado_by` = actor y las referencias de Sigrid (`hmoide`,
+`hmores_ide`, `parte_cod`).
 
-**Variable de entorno de sv4 `SINCRONIZAR_SECO`, `true` por defecto**, sin campo en la petición.
-En seco, `POST /api/sincronizar` NO llama a `comprobar_ids` (la única escritura de R10): lee
-`registrados_para_comprobar`, pide a sv5 el mismo veredicto (`/api/registro/comprobar`, lectura,
-lotes de `COMPROBACION_SIGRID_LOTE`), clasifica igual y devuelve `seco: true` y
-`marcaria_borrado_sigrid`. Fuera de seco: `marcadas_borrado_sigrid` (escribe como F-024).
-**Por qué el defecto impide una escritura accidental en M2**: un sv4 local sin la variable arranca
-en seco y ninguna petición (curl o navegador) puede pedir otra cosa; salir de seco exige poner
-`SINCRONIZAR_SECO=false` en el entorno a propósito, tras T8.
+## Decisiones de implementación (ID8–ID14, para el reviewer)
 
-## Decisiones de implementación (para revisar en M2)
-
-- **ID1**: un `registrado` sin pareja que F-024 NO da por borrado (o que dejó de estar
-  `registrado` entre lecturas) ⇒ 409 «vuelve a sincronizar», sin ítems (R13). El respaldo de
-  `clasificar` usa los criterios de F-024 (sin synckey, recurso, fecha y parte): solo en carreras.
-- **ID2**: `partes:` sin id (`partes:abc`) ⇒ `origen = ajena`, como `registro_de_synckey` (None).
-- **ID3**: en incidencias no se comparan horas (R9) ni clase de hora; el código es nota.
-- **ID4**: candado R29 por (vista, clave), sin periodo: dos periodos de la misma obra a la vez, 409.
-- **ID5**: synckey repetida en Sigrid: casa la de menor `hmores.ide`; la otra es
-  `solo_sigrid_nuestra` con nota, sin `donde` ni `restaurar`.
-- **ID6**: por `registro_ids` sv5 busca solo `partes:<id>`; el CIZ hermano sale si está en el ámbito.
-- **ID7**: el periodo es obligatorio (sin `period` ⇒ 422); `mode` por defecto nómina.
+- **ID8 · `restaurar` no pasa por F-022**: la línea está en la papelera y la vista no la lista.
+  Su pertenencia al ámbito la prueba el re-sync (sale como `solo_sigrid_nuestra` con `donde`
+  papelera); un id que el re-sync no da ⇒ 422 de toda la petición.
+- **ID9 · `reaprobar` solo revalida**: con firma y clase al día, abre el modal de aprobar de
+  siempre (`registro_ids`, `ambito`, `incluir_borradas`). Doble confirmación: la de R17 y la del
+  modal. No hay camino de escritura nuevo hacia Sigrid (R24, R26).
+- **ID10 · SECO y `aplicar`**: `aplicar` NO depende de `SINCRONIZAR_SECO`. DA18 protege la
+  escritura IMPLÍCITA de R10 (pasar a `borrado_sigrid` al comparar, sin que nadie lo pida); una
+  acción explícita la pide un usuario, la confirma y se revalida por firma bajo candado, que es
+  lo que DA18 quería garantizar. El re-sync de dentro de `aplicar` SÍ respeta seco (en seco, R10
+  sigue solo informando). Consecuencia: en seco, una `borrada_en_sigrid` aún `registrado` no se
+  puede llevar a la papelera (está congelada) y vuelve descartada con el motivo de F-004.
+  Anotado en `design.md` (fila DA18). **Decisión de despliegue pendiente**: valor de
+  `SINCRONIZAR_SECO` en Azure (M4).
+- **ID11 · `_releer_portal` fuera de seco**: tras las escrituras de R10, el ítem lleva el
+  estado nuevo; sin releer, la firma que veía el usuario no cuadraba con la del re-sync y toda
+  acción salía «cambió desde que lo viste». Corregido y con test.
+- **ID12 · DA3 = A**: `traer` solo copia `horas` (`CAMPOS_TRAER`); una `distinta` sin diferencia
+  de horas ya no ofrece `traer` (`acciones_de` ⇒ `()`).
+- **ID13 · guardián F-017**: `test_f017_punto_unico.py` cuenta los usos de `_actor(`; pasa de 20
+  a 21 por la ruta nueva (R22 exige el actor). Justificado en el propio test. Igual con el de
+  F-047 (`test_f047_portal_parte_nuevo.py`, funciones con nombre de `app.js` == 302): lo rompió
+  T12 (la suite de T14 paró ahí: `1 failed, 2314 passed`); ahora lista las 17 del panel
+  (`F052_PANEL`) y exige 302 fuera de ellas, así sigue cazando cualquier otra función nueva.
+- **ID14 · `a_papelera`/`restaurar` sin traza en `sigrid_motivo`**: reutilizan
+  `borrar_linea`/`restore_registro` tal cual (R24: sin camino nuevo). El actor queda en
+  `deleted_by` y en el log. `marcar_registrada` no aplica las guardas de R21 (lo dice la spec:
+  solo consolida un estado que Sigrid ya tiene).
 
 ## Fase RED (trazas reales)
 
-Python: `C:/Users/pgris/PycharmProjects/partes/.venv/Scripts/python.exe -m pytest …`, desde la
-carpeta de cada servicio. Cada test se escribió y se ejecutó ANTES que su código.
+Python `C:/Users/pgris/PycharmProjects/partes/.venv/Scripts/python.exe -m pytest … -q
+--tb=line`, desde `services/partes-front` (T13 desde la raíz). Líneas `E` contadas con
+`sort | uniq -c`; las trazas completas quedaron en el scratchpad de la sesión.
 
-**T2 (sv5, R1–R3, R5, DA11, DA12)** — `pytest tests/test_f052_leer_sincronizar.py -q`:
+**T9 (R19–R21)** — `pytest tests/test_f052_repositorio.py`:
 ```
-tests\test_f052_leer_sincronizar.py:23: in <module>
-    from domain.models.registro_models import LineaSincronizar
-E   ImportError: cannot import name 'LineaSincronizar' from 'domain.models.registro_models'
-ERROR tests/test_f052_leer_sincronizar.py
-1 error in 0.68s
+      8 E   AttributeError: 'ParteReviewRepository' object has no attribute 'aplicar_marcar_registrada'
+     16 E   AttributeError: 'ParteReviewRepository' object has no attribute 'aplicar_traer_de_sigrid'
+      1 E   AttributeError: 'ParteReviewRepository' object has no attribute 'documentos_de_los_dias'
+25 failed, 10 passed in 4.67s
 ```
-Verde: `37 passed in 0.59s`.
+Verde: `35 passed`. **T10a (R17, R18, R23–R25, ID11)** — `pytest tests/test_f052_sincronizar_ambito.py`:
+```
+     31 E   AttributeError: 'SincronizadorAmbito' object has no attribute 'aplicar'
+      1 E   assert False
+      1 E   AssertionError: assert 'registrado' == 'borrado_sigrid'
+33 failed, 52 passed, 1 warning in 10.78s
+```
+**DA3** — `pytest tests/test_f052_clasificar.py -k da3`: `NameError: CAMPOS_TRAER` (2) y
+`AssertionError: assert ('traer_de_sigrid',) == ()` (3) ⇒ `5 failed`.
 
-**T3 (sv5, R1, R4–R6)** — `pytest tests/test_f052_api_sincronizar.py -q`:
+**T10b (ruta, R18, R30)** — `pytest tests/test_f052_endpoints.py`:
 ```
-E       TypeError: build_app() got an unexpected keyword argument 'lector'      (16)
-E       assert 404 == 502                                                       (4)
-E       assert (404 == 200)                                                     (2)
-E                   AttributeError: 'Settings' object has no attribute 'sincronizar_max_registro_ids'
-23 failed, 1 warning in 2.20s
+      5 E   assert (404 == 422)
+      3 E   AssertionError: {"detail":"Not Found"}
+      1 E   assert 404 == 503
+      1 E   assert 404 == 422
+      1 E   assert 404 == 200
+      1 E   AttributeError: 'Settings' object has no attribute 'sincronizar_max_items_accion'
+12 failed, 18 passed, 1 warning in 12.00s
 ```
-Verde: `60 passed` (T2 + T3).
-
-**T5 (sv4, R8, R9, R11, R16, R18)** — `pytest tests/test_f052_clasificar.py -q`:
+**T11 (R7, R15, R30)** — `pytest tests/test_f052_vistas.py`:
 ```
-    from application.services.sincronizacion import (
-E   ModuleNotFoundError: No module named 'application.services.sincronizacion'
-ERROR tests/test_f052_clasificar.py
-1 error in 0.48s
+      5 E   assert (None is not None)
+5 failed, 6 passed, 1 warning in 9.99s
 ```
-Verde: `83 passed` (el borde 8,005 se cambió a 8,004/7,996: 8,005 − 8 en coma flotante es
-0,0050000000000008 > 0,005; la regla `> TOLERANCIA_HORAS` es la de F-024 y no cambia).
-
-**T6 (sv4, R7, R12)** — `pytest tests/test_f052_repositorio.py -q`:
+**T12 (panel)** — `pytest tests/test_f052_panel_js.py` (con el `app.js`/`styles.css` de antes:
+el código se escribió primero y el RED se reprodujo restaurando la versión previa; `cmp`
+confirmó después la vuelta exacta a la nueva):
 ```
-E       AttributeError: 'ParteReviewRepository' object has no attribute 'lineas_para_sincronizar'   (7)
-E       AttributeError: 'ParteReviewRepository' object has no attribute 'donde_estan'               (2)
-9 failed in 4.22s
+     14 E   AssertionError: app.js no define etiquetasClaseSync
+      1 E   assert 'if (clicSync(ev)) return;' in '// static/app.js — portal de partes (sv4)...'
+      1 E   AssertionError: assert '.sincronizar-panel' in '/* static/styles.css — ...'
+16 failed, 1 passed in 0.46s
 ```
-Verde: `9 passed in 1.92s`.
-
-**T7 (sv4, R7, R10, R12, R13, R15, R29, R30, DA18)** — `pytest tests/test_f052_sincronizar_ambito.py -q`
-(con el módulo apartado) y `pytest tests/test_f052_endpoints.py -q`:
+**T13 (R23)** — `pytest tests/test_f052_contrato_motivos.py` (raíz, copia aislada con el
+publisher de 50c5d01):
 ```
-E   ModuleNotFoundError: No module named 'application.services.sincronizar_ambito'
-ERROR tests/test_f052_sincronizar_ambito.py
-1 error in 1.15s
----
-E       assert 404 == 200 / assert 404 == 422                                     (11)
-E                   AttributeError: 'Settings' object has no attribute 'sincronizar_seco'   (4)
-E       Failed: DID NOT RAISE ValidationError                                        (4)
-E       AttributeError: 'TransferClient' object has no attribute 'sincronizar_leer'    (2)
-18 failed, 1 warning in 9.80s
+      3 E   AttributeError: module 'f052_contrato_sv4_recalculo_publisher' has no attribute 'MOTIVO_SINCRONIZAR'
+3 failed in 0.05s
 ```
-Verde: `52 passed` y `18 passed` (`70 passed` juntos).
+Verde: `test_f052_*` de sv4 215 + 115 + 11 + 17 passed; JS y vistas relacionadas 520 passed;
+guardianes de raíz de T13 62 passed.
 
 ## Verificación (resultado real)
 
-`bash harness/init.sh` (árbol final, aab3c59): **ENTORNO LISTO**; raíz 537 passed, 3 skipped; sv4
-3469 passed, 1 skipped (1450 s); sv5 1614 passed (31 s, T4; la caché del portero lo da en verde);
-`git diff dev --stat -- services/partes-transfer/application` vacío (R26); guardián F-038 (raíz)
-24 passed. Lo MANUAL pendiente: M2 (abajo).
+- T14, suite de sv4 (`pytest -q -p no:cacheprovider -x`): `1 failed, 2314 passed, 1 skipped`
+  (462 s), el guardián de F-047 (ID13); corregido, `24 passed`, y la suite entera, en init.sh.
+- T17, `bash harness/init.sh` (f402baf + informe): **ENTORNO LISTO**; sv4 3580 passed (1080 s), raíz 540.
+- `git diff dev --stat` de `congelacion.py`, `orm_models.py`, `services/partes-persistencia` y
+  `services/partes-transfer`: vacío.
+- `git ls-files --eol` de los ficheros tocados: `i/lf` en todos.
 
-## M2 · PUNTO DE CONTROL (T8)
+## M3 · PENDIENTE del humano (local, modo pruebas, obra 0404)
 
-**Hecha por el líder el 2026-11-03, NO superada** solo por H-M2-1 (abajo): recuentos y los 11
-ítems contrastados en `progress/m2_F-052.md`. Procedimiento completo (candidatas, base `partes` en
-solo lectura con `PGOPTIONS`, `.env` de la rama, sv5 en 8005, qué mirar): `git show
-f232303:progress/impl_F-052.md`. Para repetirla, sv4 y las llamadas:
+Solo escribe en Sigrid la aprobación del portal (sv5 en pruebas, obra 0404, `PRUEBA-IA`);
+sincronizar y aplicar solo leen Sigrid. Mes `<M3>` (`<AAAA>`, `<MM>`): nunca 2026/06–2026/11
+(PT26/00373, 00375 y 00376 se conservan) y con `estado` ⇒ `NO existe parte <AAAA>/<MM> de obra
+0404`. Consolas nuevas (sin el `PGOPTIONS` de M2).
 
-3. **sv4** (consola 2, puerto 8014; las variables de la consola mandan sobre el `.env`):
+1. **V** (`services\partes-transfer\prueba_escritura_sigrid.py`, cambio local sin commit):
+   `ANO, MES = <AAAA>, <MM>`; `python .\prueba_escritura_sigrid.py estado` ⇒ `NO existe`.
+2. Consola 1, sv5:
+   ```powershell
+   cd C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-transfer
+   ..\..\..\partes\.venv\Scripts\Activate.ps1
+   $env:OBRA_PRUEBAS_FORZAR = 'true'; python main.py
+   ```
+   `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`, `obra_pruebas:
+   0404`. **Si no, PARA.**
+3. Consola 2, sv4 contra la base `partes` LOCAL:
    ```powershell
    cd C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-front
-   $env:SINCRONIZAR_SECO = "true"                              # DA18 (es el defecto; explícito)
-   $env:PGOPTIONS = "-c default_transaction_read_only=on"      # PostgreSQL: sesión de solo lectura
-   $env:AUTO_CREATE_DATABASE = "false"
-   $env:TRANSFER_BASE_URL = "http://127.0.0.1:8005"
-   # Solo si se usa la base de Azure: PG_HOST, PG_USER y PG_PASSWORD de la base `partes` de
-   # producción, con el mismo método de siempre (no van en ningún fichero del repo).
-   C:\Users\pgris\PycharmProjects\partes\.venv\Scripts\python.exe main.py
+   ..\..\..\partes\.venv\Scripts\Activate.ps1
+   python -c "from config.settings import Settings as S; s=S(); print(s.pg_host, s.sincronizar_seco)"
+   $env:TRANSFER_BASE_URL = 'http://127.0.0.1:8005'; python main.py
    ```
-   En el log de arranque debe salir `[sincronizar][wiring] CABLEADO seco=True timeout_s=150.0`.
-   **No abrir el portal en el navegador** durante M2: la vista de obra/persona dispara la
-   comprobación de F-024 (que sí escribe; con `PGOPTIONS` fallaría sin efecto).
-4. **Llamadas** (consola 3; una por ámbito; tardan unos segundos):
+   Si `pg_host` no es local, **PARA** (no edites el `.env`: avisa al líder). Portal en
+   `http://127.0.0.1:8014`; el actor será `local:<DEFAULT_REVIEWER>`.
+4. «+ Nuevo parte» en la **obra 0404**, trabajador 2717792, 4 líneas ordinarias de 8 h (días
+   L1–L4 de `<M3>`) ⇒ crear ⇒ aprobar las 4 ⇒ «Registrar». V `verificar` ⇒ 4 líneas.
+5. En Sigrid, a mano, en el parte de la 0404 de `<M3>`: L1 `can` 8 → 6; L3 `can` → 0.
+   En la base local: `UPDATE parte_registros SET sigrid_estado = 'error' WHERE id = <L4>;`
+6. Vista de la obra 0404, periodo `<AAAA>-<MM>`, natural ⇒ «Sincronizar con Sigrid». Esperado:
+   L1 `distinta` (horas 8/6, «Traer de Sigrid»), L2 `igual`, L3 `anulada_en_sigrid`, L4
+   `en_sigrid_sin_registrar` («Marcar registrada»). Si la 0404 no se ofrece en «+ Nuevo parte»,
+   usar otra obra y la vista de la persona (`rec-2717792`): las 4 llevarán además la diferencia
+   `obra` y L2 saldrá `distinta` sin acción.
+7. Aplicar «Traer de Sigrid» a L1 y L3 y «Marcar registrada» a L4 (confirmar). Opcional, firma
+   vieja: cambiar otra vez L1 en Sigrid sin re-sincronizar y aplicar ⇒ «cambió desde que lo
+   viste». Comprobar en local:
+   ```sql
+   SELECT id, horas, sigrid_estado, sigrid_hmores_ide, sigrid_motivo, sigrid_registrado_by
+   FROM parte_registros WHERE id IN (<L1>, <L2>, <L3>, <L4>) ORDER BY id;
+   ```
+   ⇒ L1 6 y L3 0, con «Sincronizado con Sigrid: horas 8→6 · local:… · …»; L4 `registrado` con
+   su `hmores_ide` y «estado error→registrado · local:…». Consola 2:
+   `[sincronizar][aplicar] … recalculo=…`; consola 1: `[sincronizar] ambito=…` y **ninguna
+   escritura `[sigrid-write]`** durante sincronizar y aplicar.
+8. Limpieza (V con `<M3>`; si el DRY-RUN muestra otro ide de parte, **PARA**):
    ```powershell
-   function Sync($ambito, $nombre) {
-     $b = @{ ambito = $ambito } | ConvertTo-Json -Depth 5
-     $r = Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8014/api/sincronizar `
-          -ContentType "application/json; charset=utf-8" -Body $b -TimeoutSec 200
-     $r | ConvertTo-Json -Depth 8 | Out-File -Encoding utf8 "$env:TEMP\m2_$nombre.json"
-     "{0}: seco={1} total={2} a_cero={3} marcaria_borrado_sigrid={4}" -f $nombre, $r.seco, `
-       $r.recuento.total, $r.recuento.a_cero, ($r.marcaria_borrado_sigrid -join ",")
-     $r.recuento.por_clase
-   }
-   Sync @{ vista = "obra"; obra_key = "obr-2313811"; period = "2026-10"; mode = "natural" } "obra_0686"
-   Sync @{ vista = "obra"; obra_key = "obr-2607369"; period = "2026-10"; mode = "natural" } "obra_0711"
-   Sync @{ vista = "trabajador"; worker_key = "rec-2778601"; period = "2026-10"; mode = "natural" } "rec_2778601"
-   Sync @{ vista = "trabajador"; worker_key = "rec-2138746"; period = "2026-10"; mode = "natural" } "rec_2138746"
+   python .\prueba_escritura_sigrid.py limpiar
+   python .\prueba_escritura_sigrid.py limpiar --ejecutar
+   python .\prueba_escritura_sigrid.py estado
+   git checkout -- prueba_escritura_sigrid.py
    ```
-   Un error sale como excepción de `Invoke-RestMethod` con el JSON `{ok:false, error}`: 422 (clave
-   que no lee Sigrid), 409 (ya en curso, o «Sigrid o el portal cambiaron mientras se leía»: repetir),
-   502 (sv5/sigrid-api).
+   `estado` ⇒ `NO existe`. Ctrl+C en las consolas 1 y 2 y cerrarlas.
 
-## H-M2-1 · clase de hora por el prefijo `HE` (corrección tras M2)
-
-Autorizado por el humano el 2026-11-03 («si, dale»). **Causa**: `comparar` decidía «extra» en
-Sigrid con `hora_ext` (`auxhor.ext`), que vale 0 en las 7 `HE*`: 152 de 166 `distinta` falsas.
-**Cambio** (`services/partes-front/application/services/sincronizacion.py`): `es_hora_extra(codigo)`
-⇒ `True` si el código (sin espacios, en mayúsculas) empieza por `HE`, `None` sin código (no se
-compara la clase, como antes con `hora_ext` nulo). Misma regla que sv5 (`HoraRecurso.es_extra`,
-`franquicia._es_extra`) y sv4 (`fetch_dnis_sin_extra`, `franquicia.extras_pendientes`); ninguno es
-un helper importable de sv4 para este módulo puro (los de sv4 van en SQL o inline), así que va en
-`sincronizacion.py`, sin importar nada de sv5 (límite de servicio).
-- **Contrato**: `hora_ext` se queda en la respuesta de sv5 y en `LineaSigridSync` (R2; anotado
-  como informativo): quitarlo tocaría sv5, sus tests y R2 sin necesidad.
-- **Lado del portal**: sin cambio. `LineaPortal.extra = _is_extra(r)` (`tipo_hora == "extra"` o
-  `hora_ext == 1`): `tipo_hora` es lo que sv5 usa para elegir `HE`/`HL` (`reglas_registro`), y la
-  rama `hora_ext == 1` no la activa ninguna `HE*`.
-- **Otros usos en la diff de F-052**: sv5 solo lee y pasa `auxhor.ext AS hora_ext`
-  (`sigrid_write_client.py`), sin decidir nada; sv4 `sincronizar_ambito.lineas_de_sv5` solo lo
-  convierte. No hay más criterios con `ext`.
-- **Hallazgo fuera de alcance (H-M2-1b, previo a F-052)**: al elegir hora en el selector del
-  portal, `set_registro_hora` (`parte_repository.py:3021`) y la respuesta de
-  `PATCH /api/registros/{id}/hora` (`web/app.py:3815`) ponen `tipo_hora` con `option.ext == 1`:
-  elegir una `HE*` deja la línea `normal` y sv5 escribiría una `HL`. No se toca aquí (no es de
-  F-052); se propone al líder como feature aparte.
-- Tests: 6 nuevos y 2 ajustados en `tests/test_f052_clasificar.py` (el 503 lleva `HE01`; «sin
-  clase» pasa a `hora_cod` nulo/vacío). Spec: R9, design §10 (H-M2-1) y T8 bis en `tasks.md`.
-
-**RED** — `pytest tests/test_f052_clasificar.py -q -k "h_m2_1" --tb=line` (sv4, código sin tocar):
-```
-tests	est_f052_clasificar.py:249: AssertionError: assert [Diferencia(c...='ordinaria')] == []
-E   AssertionError: assert 'igual' == 'distinta'
-tests	est_f052_clasificar.py:255: AssertionError: assert 'igual' == 'distinta'
-FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_hecap_con_ext_cero_es_extra
-FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_ext_uno_en_una_hl_no_la_hace_extra
-FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios[HECAP]
-FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios[ hecap]
-FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_prefijo_sin_mayusculas_ni_espacios[he01]
-FAILED tests/test_f052_clasificar.py::test_f052_h_m2_1_cambio_real_de_clase_sigue_saliendo
-6 failed, 1 passed, 83 deselected in 0.14s
-```
-El que pasa (`hlof_con_ext_cero_es_ordinaria`) es guarda. Verde: `test_f052_*` de sv4 `169 passed
-in 7.14s`; ruff sin avisos nuevos. `bash harness/init.sh` (árbol con H-M2-1): **ENTORNO LISTO**.
+**M4 · PENDIENTE del humano (tras desplegar sv5 → sv4).** Decidir antes `SINCRONIZAR_SECO` en Azure (ID10). Un usuario real sincroniza y aplica una
+acción; en la base `partes`, solo lectura: `SELECT id, horas, sigrid_estado, sigrid_motivo,
+sigrid_registrado_by FROM parte_registros WHERE sigrid_motivo LIKE 'Sincronizado con Sigrid:%'
+ORDER BY id DESC LIMIT 10;` ⇒ actor de Easy Auth (ni `local:` ni `sin-identidad`).
 
 ## Fuera de alcance y pendiente
 
-- T9–T17 (acciones, `/api/sincronizar/aplicar`, botón y panel, motivos, `ARCHITECTURE.md`): **no
-  se empiezan sin M2 anotada y la autorización del humano**. Mutación: la lanza el líder.
+- H-M2-1b (`option.ext` en el selector de hora): fuera; se propone como feature aparte.
+- Mutación: la lanza el líder (`python -m harness.mutacion --feature F-052`). M3, M4, reviewer.
 
 ## Evidencias
 
 | Evidencia | Valor real |
 |---|---|
-| Tests F-052 | sv5 60 passed (6,3 s); sv4 169 passed (7,1 s; 162 antes de H-M2-1) |
-| Suites completas (init.sh, H-M2-1) | sv4 3476 passed, 1 skipped (974 s con cobertura); raíz 537 passed, 3 skipped (116 s); sv5 1614 (caché: sin cambios) |
-| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.8% de 509 líneas cambiadas cubiertas (508/509, umbral 80%, nivel critico)` |
-| Mutantes | no lanzada: la campaña la lanza el líder (`python -m harness.mutacion --feature F-052`) |
+| Tests F-052 (T9–T13) | sv4 `test_f052_*` 215 + 115 + 11 + 17 passed; raíz T13 3 passed (guardianes 62) |
+| Suites completas (init.sh) | sv4 3580 passed, 1 skipped; raíz 540 passed, 3 skipped; sv1, sv2, sv3, sv5 en verde (caché: sin cambios) |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.7% de 742 líneas cambiadas cubiertas (740/742, umbral 80%, nivel critico)` |
+| Mutantes | no lanzada en esta tanda: la lanza el líder |
+| Tiempo de la suite | sv4 942–1080 s (con cobertura); raíz 91–157 s |
