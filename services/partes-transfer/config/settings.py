@@ -29,6 +29,12 @@ class Settings(BaseSettings):
                                      ge=1, le=500_000)
     # Tope de sentencias por batch de sigrid-api (MAX_STATEMENTS_PER_BATCH=20).
     sigrid_max_statements: int = Field(15, alias="SIGRID_MAX_STATEMENTS")
+    # F-052 (R6, DA11): `registro_ids` por peticion de sincronizar. 3000 son
+    # 15 lotes de 200 synckeys (unos 2 min con los 7,9 s de M1), dentro de
+    # los 150 s de sv4; mas es 422. No hay tope de lineas: el limite es el
+    # corte por tiempo (R4).
+    sincronizar_max_registro_ids: int = Field(
+        3000, alias="SINCRONIZAR_MAX_REGISTRO_IDS", ge=1)
 
     # --- Modo PRUEBAS (OPCIONAL, por defecto DESACTIVADO) --- #
     # true  -> TODAS las escrituras se desvian a `obra_pruebas_cod`,
