@@ -21,8 +21,12 @@ apruebo las tres de la tabla y todas esas con la recomendación». Queda:
 **M1 HECHA** (líder, 2026-11-02, solo lectura; `design.md` §9): obra mayor 371 líneas en 4,8 s,
 lote de 200 synckeys 7,9 s, sin `truncated`; se queda `WHERE h.obride = ?`.
 **Implementer lanzado** (humano, 2026-11-03: «si, lanza el implementer»), tanda T1–T8 con
-**modo seco** en la comparación (DA18 = A, humano 2026-11-03). Tarea en curso y decisiones:
-`progress/impl_F-052.md`. Detalle de la spec en `progress/explore_F-052_revalidacion.md`.
+**modo seco** en la comparación (DA18 = A, humano 2026-11-03: `SINCRONIZAR_SECO`, `true` por defecto).
+**T1–T7 HECHAS** (sv5 `POST /api/sincronizar/leer`; sv4 clasificación, `POST /api/sincronizar`), commits
+bb9f5c7…1ce4bf6; `azure-apps/partes.md` dddde8a (local). **PARADO EN T8 (punto de control)**:
+**M2 PENDIENTE del humano**, lista en `progress/impl_F-052.md` §M2 (2 obras y 2 personas con
+líneas `partes:`, sv4 en seco y sesión PostgreSQL de solo lectura). Sin M2 anotada no se empieza
+T9. Decisiones de implementación ID1–ID7 a revisar en M2 (mismo fichero).
 
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
