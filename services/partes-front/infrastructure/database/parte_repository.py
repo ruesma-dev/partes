@@ -128,6 +128,7 @@ from application.services.calendar_builder import (
     parse_period_key,
     period_bounds,
 )
+from application.services.sincronizacion import LineaPortal
 
 logger = logging.getLogger(__name__)
 
@@ -2658,6 +2659,75 @@ class ParteReviewRepository:
                     "referencias actualizadas", len(borradas),
                     len(actualizadas))
         return {"borradas": borradas, "actualizadas": actualizadas}
+
+    # ------------------------------------------------------------------ #
+    # F-052 · sincronizar con Sigrid: lecturas (la comparacion es pura, en
+    # `application/services/sincronizacion.py`).
+    # ------------------------------------------------------------------ #
+
+    def lineas_para_sincronizar(
+        self, *, desde: int, hasta: int, obra_ide: int | None = None,
+        recurso_ide: int | None = None,
+    ) -> list[LineaPortal]:
+        """R7: las lineas activas (fuera de la papelera, parte activo) de la
+        obra `obr-{obra_ide}` O de la persona `rec-{recurso_ide}` (F-050)
+        con `fecha_int` en [desde, hasta], por id. El prefiltro SQL solo
+        acota: la persona la decide `worker_key_for_registro`."""
+        if (obra_ide is None) == (recurso_ide is None):
+            raise ValueError("lineas_para_sincronizar: obra_ide o "
+                             "recurso_ide, uno y solo uno")
+        q = (select(ParteRegistroOrm).join(ParteDocumentOrm)
+             .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+             .where(ParteDocumentOrm.is_active.is_(True))
+             .where(ParteRegistroOrm.fecha_int.between(int(desde),
+                                                        int(hasta))))
+        if obra_ide is not None:
+            q = q.where(ParteRegistroOrm.obra_ide == int(obra_ide))
+        else:
+            q = q.where(or_(
+                ParteRegistroOrm.recurso_ide == int(recurso_ide),
+                ParteRegistroOrm.recurso_ide.is_(None)
+                & (ParteRegistroOrm.empleado_reside == int(recurso_ide))))
+        clave = None if recurso_ide is None else f"rec-{int(recurso_ide)}"
+        with self._session_factory.create_session() as session:
+            regs = [r for r in session.execute(q).scalars().all()
+                    if clave is None or worker_key_for_registro(r) == clave]
+            return [LineaPortal(
+                registro_id=r.id, fecha_int=r.fecha_int,
+                recurso_ide=_recurso_de(r), obra_ide=r.obra_ide,
+                horas=r.horas, extra=_is_extra(r),
+                es_incidencia=bool(r.es_incidencia),
+                hora_codigo=r.hora_codigo, partida_ide=r.partida_ide,
+                partida_cod=r.partida_cod, sigrid_estado=r.sigrid_estado,
+                sigrid_motivo=r.sigrid_motivo,
+                sigrid_hmores_ide=r.sigrid_hmores_ide,
+                sigrid_hmoide=r.sigrid_hmoide)
+                for r in sorted(regs, key=lambda x: x.id)]
+
+    def donde_estan(self, registro_ids) -> dict[int, str]:
+        """R12 (DA16): donde esta en el portal cada linea de esos ids.
+
+        `papelera` (la linea, o su parte borrado o retirado: `deleted_by`
+        o `deleted_at_utc` del parte), `parte_reemplazado` (parte
+        desactivado por la reingesta de sv3, sin ninguno de los dos),
+        `otro_ambito` (activa, fuera de lo sincronizado) o `no_existe`."""
+        ids = sorted({int(i) for i in registro_ids if i})
+        out = {i: "no_existe" for i in ids}
+        if not ids:
+            return out
+        with self._session_factory.create_session() as session:
+            for r in self._registros_por_ids(session, ids):
+                doc = r.document
+                if r.deleted_at_utc is not None:
+                    out[r.id] = "papelera"
+                elif not doc.is_active:
+                    out[r.id] = ("parte_reemplazado"
+                                 if doc.deleted_by is None
+                                 and doc.deleted_at_utc is None
+                                 else "papelera")
+                else:
+                    out[r.id] = "otro_ambito"
+        return out
 
     def recuento_estados(self, registro_ids: list[int]) -> dict[str, Any]:
         """R28: cuantas lineas hay en cada `sigrid_estado` (solo lectura).
