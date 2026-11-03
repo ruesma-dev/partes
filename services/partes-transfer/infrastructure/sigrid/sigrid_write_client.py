@@ -57,8 +57,8 @@ import httpx
 
 from application.services.cuenta_analitica import indexar_cuentas
 from domain.models.registro_models import (
-    PREFIJO_FRANQUICIA, HoraRecurso, LineaSigrid, ObraEntrada, ParteDestino,
-    ParteSigrid, PartidaCuenta, RecursoSigrid,
+    PREFIJO_FRANQUICIA, HoraRecurso, LineaSigrid, LineaSincronizar,
+    ObraEntrada, ParteDestino, ParteSigrid, PartidaCuenta, RecursoSigrid,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,6 +104,46 @@ def synckey_franquicia(ajuste_id: int) -> str:
     """F-056 (R31, DA14): la synckey de la linea de ajuste de la franquicia
     `ajuste_id` (`franquicia_ajuste.id` de sv4)."""
     return f"{PREFIJO_FRANQUICIA}{int(ajuste_id)}"
+
+
+def _entero(texto: str) -> int | None:
+    """El id de una synckey, con la MISMA conversion que
+    `registro_de_synckey` (`int`): lo que alli no es un registro, aqui
+    tampoco."""
+    try:
+        return int(texto)
+    except ValueError:
+        return None
+
+
+def origen_de(synckey: str | None) -> tuple[str, int | None, int | None]:
+    """F-052 (R2, DA12): `(origen, registro_id, ajuste_id)` de una synckey.
+
+    `partes:<id>` -> `partes`; `partes:<id>:ciz` (F-062) -> `ciz` con el id
+    de su inicio; `partes:franquicia:<id>` (F-056) -> `franquicia` con el
+    id del ajuste; vacia -> `manual`; cualquier otra (otro prefijo, o un
+    `partes:` sin id) -> `ajena`. sv4 no conoce el formato."""
+    sk = (synckey or "").strip()
+    if not sk:
+        return ("manual", None, None)
+    if sk.startswith(PREFIJO_FRANQUICIA):
+        ajuste = _entero(sk[len(PREFIJO_FRANQUICIA):])
+        if ajuste is not None:
+            return ("franquicia", None, ajuste)
+        return ("ajena", None, None)
+    if sk.startswith(PREFIJO_SYNCKEY):
+        resto, origen = sk[len(PREFIJO_SYNCKEY):], "partes"
+        if resto.endswith(SUFIJO_CIZ):
+            resto, origen = resto[:-len(SUFIJO_CIZ)], "ciz"
+        registro = _entero(resto)
+        if registro is not None:
+            return (origen, registro, None)
+    return ("ajena", None, None)
+
+
+def _opcional(valor: Any) -> int | None:
+    """Un ide de Sigrid: 0 o NULL es «ninguno»."""
+    return int(valor) if valor else None
 
 
 class SigridWriteClient:
@@ -743,6 +783,92 @@ class SigridWriteClient:
                            int(linea.ide), int(linea.reside),
                            int(linea.fecha_int), int(linea.horide or 0),
                            linea.synckey, self._est, int(hmoide), self._est]}
+
+    # -------------- sincronizar (F-052, solo lectura) -------------- #
+
+    def _sql_sincronizar(self) -> str:
+        """F-052 (R2, design §7): columnas comunes de las dos lecturas. Sin
+        `tex`, nombres ni DNIs (R1); `enlazada` con `_expr_enlazada`."""
+        return (
+            "SELECT hmores.ide AS ide, hmores.hmoide AS hmoide, "
+            "pc.cod AS parte_cod, pc.est AS parte_est, "
+            "hmores.obride AS obride, oc.cod AS obra_cod, "
+            "hmores.reside AS reside, hmores.fec AS fec, "
+            "hmores.horide AS horide, auxhor.cod AS hora_cod, "
+            "auxhor.ext AS hora_ext, hmores.paride AS paride, "
+            "obrparpar.cod AS partida_cod, hmores.can AS can, "
+            "hmores.tot AS tot, hmores.synckey AS synckey, "
+            f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+            "AS enlazada FROM hmores "
+            "LEFT JOIN con pc ON pc.ide = hmores.hmoide "
+            "LEFT JOIN con oc ON oc.ide = hmores.obride "
+            "LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
+            "LEFT JOIN obrparpar ON obrparpar.ide = hmores.paride ")
+
+    @staticmethod
+    def _a_linea_sincronizar(f: dict) -> LineaSincronizar:
+        origen, registro_id, ajuste_id = origen_de(f["synckey"])
+        return LineaSincronizar(
+            hmores_ide=int(f["ide"]), hmoide=_opcional(f["hmoide"]),
+            parte_cod=f["parte_cod"],
+            parte_est=None if f["parte_est"] is None else int(f["parte_est"]),
+            obra_ide=_opcional(f["obride"]), obra_cod=f["obra_cod"],
+            recurso_ide=_opcional(f["reside"]),
+            fecha_int=_opcional(f["fec"]), hora_ide=_opcional(f["horide"]),
+            hora_cod=f["hora_cod"],
+            hora_ext=None if f["hora_ext"] is None else int(f["hora_ext"]),
+            partida_ide=_opcional(f["paride"]),
+            partida_cod=f["partida_cod"],
+            can=None if f["can"] is None else float(f["can"]),
+            tot=None if f["tot"] is None else float(f["tot"]),
+            enlazada=bool(f["enlazada"]), origen=origen,
+            registro_id=registro_id, ajuste_id=ajuste_id)
+
+    def lineas_sincronizar(
+        self, *, desde: int, hasta: int, obra_ide: int | None = None,
+        recurso_ide: int | None = None,
+    ) -> list[LineaSincronizar]:
+        """F-052 (R1, R3; DA11): las lineas de la obra O del recurso con
+        `fec` en [desde, hasta], ordenadas por `hmores.ide`.
+
+        Cada pagina pide el limite real (`self._max_rows`, el mismo
+        `max_rows` de `_read`) y solo se lee otra si la ultima vino llena:
+        una pagina justa no es error. `truncated` es una excepcion (la
+        lanza `_read`): nunca se devuelven parciales."""
+        if (obra_ide is None) == (recurso_ide is None):
+            raise ValueError("lineas_sincronizar: obra_ide o recurso_ide, "
+                             "uno y solo uno")
+        columna, valor = (("obride", obra_ide) if obra_ide is not None
+                          else ("reside", recurso_ide))
+        sql = (self._sql_sincronizar()
+               + f"WHERE hmores.{columna} = ? "
+               "AND hmores.fec BETWEEN ? AND ? "
+               "ORDER BY hmores.ide OFFSET ? ROWS FETCH NEXT ? ROWS ONLY")
+        out: list[LineaSincronizar] = []
+        desplazamiento = 0
+        while True:
+            filas = self._read(sql, [int(valor), int(desde), int(hasta),
+                                     desplazamiento, self._max_rows])
+            out.extend(self._a_linea_sincronizar(f) for f in filas)
+            if len(filas) < self._max_rows:
+                return out
+            desplazamiento += len(filas)
+
+    def lineas_sincronizar_por_synckey(
+        self, claves: Iterable[str | None]
+    ) -> list[LineaSincronizar]:
+        """F-052 (R1): las lineas con esas synckeys, esten donde esten, en
+        lotes de `LOTE_COMPROBACION` y sin paginar (agregado acotado)."""
+        ks = sorted({k for k in claves if k})
+        out: list[LineaSincronizar] = []
+        for i in range(0, len(ks), LOTE_COMPROBACION):
+            trozo = ks[i:i + LOTE_COMPROBACION]
+            marcas = ",".join("?" for _ in trozo)
+            filas = self._read(
+                self._sql_sincronizar()
+                + f"WHERE hmores.synckey IN ({marcas})", trozo)
+            out.extend(self._a_linea_sincronizar(f) for f in filas)
+        return out
 
     # ------------------ reajuste (F-046): lecturas ------------------ #
 
