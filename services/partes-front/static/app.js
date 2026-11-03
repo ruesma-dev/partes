@@ -5324,8 +5324,362 @@ var FiltrosSesion = (function () {
     ]);
   }
 
+  /* ---------------- F-052: «Sincronizar con Sigrid» ---------------- //
+     El boton pide al servidor la comparacion del periodo visible (R7) y
+     pinta el panel: filtros por clase, casillas y acciones (R16). Toda
+     accion se confirma con el numero de lineas ANTES de llamar (R17) y,
+     al terminar, se vuelve a sincronizar (R25). Todo lo que llega del
+     servidor se pinta con esc(). El resultado no se guarda (R14). */
+  function etiquetasClaseSync() {
+    return {
+      igual: "Iguales", distinta: "Distintas",
+      anulada_en_sigrid: "Anuladas en Sigrid",
+      borrada_en_sigrid: "Borradas en Sigrid",
+      en_sigrid_sin_registrar: "En Sigrid sin registrar",
+      pendiente: "Pendientes", no_viaja: "No viajan", en_vuelo: "En vuelo",
+      solo_sigrid_nuestra: "Solo en Sigrid (nuestras)",
+      solo_sigrid_ajena: "Solo en Sigrid (ajenas)",
+      solo_sigrid_manual: "Solo en Sigrid (manuales)",
+      solo_sigrid_auxiliar: "Solo en Sigrid (auxiliares)",
+    };
+  }
+
+  function etiquetasAccionSync() {
+    return {
+      marcar_registrada: "Marcar como registrada",
+      traer_de_sigrid: "Traer las horas de Sigrid",
+      a_papelera: "Mandar a la papelera",
+      reaprobar: "Reaprobar",
+      restaurar: "Restaurar de la papelera",
+    };
+  }
+
+  /* DA13: las lineas a 0 h fuera del portal se ocultan salvo que se pida. */
+  function filtrarItemsSync(items, filtro) {
+    return (items || []).filter(function (it) {
+      if (it.a_cero && !filtro.verACero) return false;
+      return filtro.clase === "todas" || it.clase === filtro.clase;
+    });
+  }
+
+  function textoDiferenciasSync(it) {
+    return (it.diferencias || []).map(function (d) {
+      return d.campo + ": " + num(d.portal) + " → " + num(d.sigrid);
+    }).join("; ");
+  }
+
+  function accionesVisiblesSync(items) {
+    var vistas = [];
+    (items || []).forEach(function (it) {
+      (it.acciones || []).forEach(function (a) {
+        if (vistas.indexOf(a) < 0) vistas.push(a);
+      });
+    });
+    return vistas;
+  }
+
+  function filaSyncHtml(it, idx) {
+    var p = it.portal || {};
+    var s = it.sigrid || {};
+    var notas = (it.notas || []).slice();
+    if (it.donde) notas.push("en el portal: " + it.donde);
+    var sel = (it.acciones || []).length
+      ? '<input type="checkbox" data-sync-sel="' + esc(idx) + '">' : "";
+    return '<tr data-sync-clase="' + esc(it.clase) + '">'
+      + "<td>" + sel + "</td>"
+      + '<td><span class="badge sync-' + esc(it.clase) + '">'
+      + esc(etiquetasClaseSync()[it.clase] || it.clase) + "</span></td>"
+      + "<td>" + esc(fechaLegible(p.fecha_int || s.fecha_int)) + "</td>"
+      + "<td>" + (it.portal ? "#" + esc(it.registro_id) : "—") + "</td>"
+      + "<td>" + (it.portal ? esc(num(p.horas)) + " " + esc(p.hora_codigo)
+                  : "—") + "</td>"
+      + "<td>" + (it.sigrid ? esc(num(s.can)) + " " + esc(s.hora_cod)
+                  + " <span class='muted'>(" + esc(s.hmores_ide) + ")</span>"
+                  : "—") + "</td>"
+      + "<td>" + esc(textoDiferenciasSync(it)) + "</td>"
+      + "<td class='muted'>" + esc(notas.join(" · ")) + "</td></tr>";
+  }
+
+  function panelSyncHtml(resp, filtro, mensajeHtml) {
+    var etq = etiquetasClaseSync();
+    var acc = etiquetasAccionSync();
+    var rec = resp.recuento || { por_clase: {}, total: 0, a_cero: 0 };
+    var items = resp.items || [];
+    var visibles = filtrarItemsSync(items, filtro);
+    var per = resp.periodo || {};
+    var h = "<div class='panel-header sync-head'><h2>Sincronizar con "
+      + "Sigrid · " + esc(fechaLegible(per.desde)) + "–"
+      + esc(fechaLegible(per.hasta)) + "</h2><span class='muted small'>"
+      + "leído " + esc(resp.leido_at) + " · " + esc(rec.total)
+      + " línea(s)</span>"
+      + (resp.seco ? " <span class='badge warn' title='SINCRONIZAR_SECO: "
+         + "la comparación no pasa nada a borrado_sigrid'>modo seco</span>"
+         : "")
+      + " <button type='button' class='btn small' data-sync-repetir>"
+      + "Volver a sincronizar</button> <button type='button' "
+      + "class='btn small secondary' data-sync-cerrar>Cerrar</button></div>";
+    if (mensajeHtml) h += "<div class='sync-mensaje'>" + mensajeHtml + "</div>";
+    var nuestras04 = items.some(function (it) {
+      return it.clase === "solo_sigrid_nuestra" && it.sigrid
+        && String(it.sigrid.obra_cod) === "0404";
+    });
+    if (nuestras04) {
+      h += "<p class='ap-warn'>Obra 0404 (pruebas): sus «partes:» vienen de "
+        + "bases locales y pueden chocar con ids reales; «Solo en Sigrid "
+        + "(nuestras)» no es fiable aquí.</p>";
+    }
+    if ((resp.marcaria_borrado_sigrid || []).length) {
+      h += "<p class='muted small'>Modo seco: se pasarían a borrado_sigrid "
+        + esc(resp.marcaria_borrado_sigrid.length) + " línea(s): "
+        + esc(resp.marcaria_borrado_sigrid.join(", ")) + ".</p>";
+    }
+    h += "<div class='sync-filtros'><button type='button' class='btn small"
+      + (filtro.clase === "todas" ? " ok" : "") + "' data-sync-filtro='todas'>"
+      + "Todas (" + esc(rec.total) + ")</button>";
+    Object.keys(etq).forEach(function (c) {
+      var n = (rec.por_clase || {})[c] || 0;
+      if (!n) return;
+      h += ' <button type="button" class="btn small'
+        + (filtro.clase === c ? " ok" : "") + '" data-sync-filtro="'
+        + esc(c) + '">' + esc(etq[c]) + " (" + esc(n) + ")</button>";
+    });
+    if (rec.a_cero) {
+      h += " <label class='small'><input type='checkbox' data-sync-acero"
+        + (filtro.verACero ? " checked" : "") + "> Ver las " + esc(rec.a_cero)
+        + " línea(s) a 0 h de Sigrid</label>";
+    }
+    h += "</div>";
+    var acciones = accionesVisiblesSync(visibles);
+    if (acciones.length) {
+      h += "<div class='sync-acciones'>";
+      acciones.forEach(function (a) {
+        h += '<button type="button" class="btn small ok" data-sync-accion="'
+          + esc(a) + '" data-sync-alcance="seleccion">' + esc(acc[a] || a)
+          + " · seleccionadas</button> ";
+        if (filtro.clase !== "todas") {
+          var n = visibles.filter(function (it) {
+            return (it.acciones || []).indexOf(a) >= 0;
+          }).length;
+          h += '<button type="button" class="btn small" data-sync-accion="'
+            + esc(a) + '" data-sync-alcance="clase">' + esc(acc[a] || a)
+            + " · todas las de esta clase (" + esc(n) + ")</button> ";
+        }
+      });
+      h += "</div>";
+    }
+    h += "<div class='table-wrap'><table class='sync-tabla'><thead><tr>"
+      + "<th></th><th>Clase</th><th>Fecha</th><th>Portal</th><th>Horas "
+      + "portal</th><th>Sigrid</th><th>Diferencias</th><th>Notas</th></tr>"
+      + "</thead><tbody>"
+      + visibles.map(function (it) {
+          return filaSyncHtml(it, items.indexOf(it));
+        }).join("")
+      + "</tbody></table></div>";
+    return h;
+  }
+
+  /* R17: lo que se va a hacer, antes de llamar al servidor. */
+  function resumenAccionSyncHtml(accion, items) {
+    var acc = etiquetasAccionSync();
+    var h = "<p><strong>" + esc(acc[accion] || accion) + "</strong>: "
+      + esc(items.length) + " línea(s).</p>";
+    var muestra = items.slice(0, 10).map(function (it) {
+      var p = it.portal || {};
+      var s = it.sigrid || {};
+      var cambio = "";
+      if (accion === "traer_de_sigrid") {
+        cambio = "horas " + num(p.horas) + " → "
+          + (it.clase === "anulada_en_sigrid" ? 0 : num(s.can));
+      } else if (accion === "marcar_registrada") {
+        cambio = "estado " + (p.sigrid_estado || "sin estado")
+          + " → registrado (línea " + num(s.hmores_ide) + ")";
+      } else {
+        cambio = etiquetasClaseSync()[it.clase] || it.clase;
+      }
+      return "<li>#" + esc(it.registro_id) + " · "
+        + esc(fechaLegible(p.fecha_int || s.fecha_int)) + " · "
+        + esc(cambio) + "</li>";
+    }).join("");
+    h += "<ul>" + muestra + "</ul>";
+    if (items.length > 10) {
+      h += "<p class='muted'>… y " + esc(items.length - 10) + " más.</p>";
+    }
+    if (accion === "traer_de_sigrid") {
+      h += "<p class='ap-warn'>Cambia líneas ya registradas o aprobadas "
+        + "(nómina y coste) y pide el recálculo de extras del día.</p>";
+    }
+    if (accion === "reaprobar") {
+      h += "<p class='muted'>Se abrirá el modal de aprobar con estas "
+        + "líneas.</p>";
+    }
+    return h;
+  }
+
+  function itemsAplicarSync(items) {
+    return items.map(function (it) {
+      return { registro_id: it.registro_id, firma: it.firma };
+    });
+  }
+
+  function resultadoSyncHtml(r) {
+    var h = "<p><strong>" + esc((r.aplicados || []).length)
+      + "</strong> aplicada(s).</p>";
+    if ((r.descartados || []).length) {
+      h += "<p>No aplicadas:</p><ul>" + r.descartados.map(function (d) {
+        return "<li>#" + esc(d.registro_id) + ": " + esc(d.motivo) + "</li>";
+      }).join("") + "</ul>";
+    }
+    if (r.recalculo === "fallo") {
+      h += "<p class='ap-warn'>El cambio está guardado, pero no se pudo "
+        + "pedir el recálculo de extras: se hará en la siguiente pasada.</p>";
+    }
+    return h;
+  }
+
+  var estadoSync = { boton: null, resp: null,
+                     filtro: { clase: "todas", verACero: false } };
+
+  function ambitoSync(boton) {
+    var amb = { vista: boton.dataset.vista, period: boton.dataset.period,
+                mode: boton.dataset.mode || "nomina" };
+    if (amb.vista === "obra") amb.obra_key = boton.dataset.obraKey;
+    else amb.worker_key = boton.dataset.workerKey;
+    return amb;
+  }
+
+  function pintarSync(mensajeHtml) {
+    var caja = document.getElementById("sincronizar-panel");
+    if (!caja || !estadoSync.resp) return;
+    caja.innerHTML = panelSyncHtml(estadoSync.resp, estadoSync.filtro,
+                                   mensajeHtml);
+    caja.hidden = false;
+  }
+
+  function sincronizarAmbito(boton, mensajeHtml) {
+    var caja = document.getElementById("sincronizar-panel");
+    if (!boton || !caja) return Promise.resolve();
+    estadoSync.boton = boton;
+    boton.disabled = true;
+    caja.hidden = false;
+    caja.innerHTML = "<p class='muted'>Leyendo Sigrid y comparando…</p>";
+    return post("/api/sincronizar", { ambito: ambitoSync(boton) })
+      .then(function (r) {
+        boton.disabled = false;
+        if (!r.ok) {
+          caja.innerHTML = "<p class='ap-warn'>No se pudo sincronizar: "
+            + esc(r.error || "error desconocido") + "</p>";
+          return;
+        }
+        estadoSync.resp = r;
+        pintarSync(mensajeHtml);
+      }).catch(function (e) {
+        boton.disabled = false;
+        caja.innerHTML = "<p class='ap-warn'>Error de red: " + esc(e)
+          + "</p>";
+      });
+  }
+
+  function seleccionSync(accion, alcance) {
+    var items = (estadoSync.resp && estadoSync.resp.items) || [];
+    var elegidos;
+    if (alcance === "clase") {
+      elegidos = filtrarItemsSync(items, estadoSync.filtro);
+    } else {
+      elegidos = Array.prototype.map.call(
+        document.querySelectorAll("#sincronizar-panel [data-sync-sel]:checked"),
+        function (c) { return items[parseInt(c.dataset.syncSel, 10)]; });
+    }
+    return elegidos.filter(function (it) {
+      return it && (it.acciones || []).indexOf(accion) >= 0;
+    });
+  }
+
+  function aplicarSync(accion, items) {
+    var boton = estadoSync.boton;
+    var ambito = ambitoSync(boton);
+    modal("Aplicando…", "<p>Volviendo a leer Sigrid y aplicando…</p>", []);
+    return post("/api/sincronizar/aplicar", {
+      accion: accion, ambito: ambito, items: itemsAplicarSync(items),
+    }).then(function (r) {
+      if (!r.ok) {
+        modal("No se pudo aplicar", "<p class='ap-warn'>"
+              + esc(r.error || "error desconocido") + "</p>",
+              [{ texto: "Cerrar", onClick: cerrar }]);
+        return;
+      }
+      if (accion === "reaprobar") {
+        if (r.abrir_aprobar) {
+          aprobar({ registro_ids: r.aplicados, ambito: ambito,
+                    incluir_borradas: !!r.incluir_borradas }, null);
+        } else {
+          modal("Nada que reaprobar", resultadoSyncHtml(r),
+                [{ texto: "Cerrar", onClick: cerrar }]);
+        }
+        return;
+      }
+      cerrar();
+      return sincronizarAmbito(boton, resultadoSyncHtml(r));   // R25
+    }).catch(function (e) {
+      modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+    });
+  }
+
+  function confirmarAccionSync(accion, items) {
+    if (!items.length) {
+      modal("Nada seleccionado", "<p>Marca alguna línea de las que "
+            + "admiten esta acción.</p>",
+            [{ texto: "Cerrar", onClick: cerrar }]);
+      return;
+    }
+    modal("Confirmar · Sincronizar con Sigrid",
+          resumenAccionSyncHtml(accion, items), [
+      { texto: "Aplicar a " + items.length + " línea(s)", clase: "ok",
+        onClick: function () { aplicarSync(accion, items); } },
+      { texto: "Cancelar", onClick: cerrar },
+    ]);
+  }
+
+  /* El clic de los controles del panel; true si era suyo. */
+  function clicSync(ev) {
+    var b = ev.target.closest("#sincronizar-sigrid");
+    if (b) {
+      ev.preventDefault();
+      if (!b.disabled) sincronizarAmbito(b, null);
+      return true;
+    }
+    if (ev.target.closest("[data-sync-repetir]")) {
+      ev.preventDefault();
+      sincronizarAmbito(estadoSync.boton, null);
+      return true;
+    }
+    if (ev.target.closest("[data-sync-cerrar]")) {
+      ev.preventDefault();
+      var caja = document.getElementById("sincronizar-panel");
+      if (caja) { caja.hidden = true; caja.innerHTML = ""; }
+      return true;
+    }
+    var f = ev.target.closest("[data-sync-filtro]");
+    if (f) {
+      ev.preventDefault();
+      estadoSync.filtro.clase = f.dataset.syncFiltro;
+      pintarSync(null);
+      return true;
+    }
+    var a = ev.target.closest("[data-sync-accion]");
+    if (a) {
+      ev.preventDefault();
+      confirmarAccionSync(a.dataset.syncAccion,
+                          seleccionSync(a.dataset.syncAccion,
+                                        a.dataset.syncAlcance));
+      return true;
+    }
+    return false;
+  }
+
   ready(function () {
     document.addEventListener("click", function (ev) {
+      if (clicSync(ev)) return;                          // F-052
       var decidirF = ev.target.closest("[data-franquicia-decidir]");
       if (decidirF) {                                      // F-056 (R45)
         ev.preventDefault();
@@ -5373,6 +5727,12 @@ var FiltrosSesion = (function () {
         var c = conjuntoAprobacion();
         if (!c.ids.length) return;
         aprobar({ registro_ids: c.ids, ambito: ambitoDe(todo) }, c);
+      }
+    });
+    document.addEventListener("change", function (ev) {
+      if (ev.target.closest("[data-sync-acero]")) {      // F-052 (DA13)
+        estadoSync.filtro.verACero = ev.target.checked;
+        pintarSync(null);
       }
     });
     document.addEventListener("lineas:cambio", actualizarBoton);

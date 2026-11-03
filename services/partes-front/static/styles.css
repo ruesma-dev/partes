@@ -1061,3 +1061,20 @@ tr[data-reparto="pendiente"] td { box-shadow: inset 3px 0 0 var(--warn-border); 
 .franquicia-ajuste .franquicia-tabla td.num, .franquicia-ajuste .franquicia-tabla th.num { text-align: right; }
 .franquicia-ajuste .franquicia-error { color: #8a3b00; }
 .franquicia-ajuste .franquicia-aviso { margin: 10px 14px; }
+
+/* F-052: panel de «Sincronizar con Sigrid» (vistas de obra y persona). */
+.sincronizar-panel { margin: 12px 0; }
+.sincronizar-panel .sync-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sincronizar-panel .sync-head h2 { margin: 0; }
+.sincronizar-panel .sync-mensaje { margin: 8px 14px; padding: 6px 10px; border-left: 3px solid var(--info-border); background: var(--info-soft); }
+.sincronizar-panel .sync-filtros,
+.sincronizar-panel .sync-acciones { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 8px 14px; }
+.sincronizar-panel .sync-tabla { width: 100%; border-collapse: collapse; font-size: 0.9em; }
+.sincronizar-panel .sync-tabla td, .sincronizar-panel .sync-tabla th { padding: 4px 6px; border-bottom: 1px solid #e6e6e6; text-align: left; vertical-align: top; }
+.sincronizar-panel .badge.sync-distinta,
+.sincronizar-panel .badge.sync-anulada_en_sigrid,
+.sincronizar-panel .badge.sync-borrada_en_sigrid { background: var(--danger-soft); border-color: var(--danger-border); color: var(--danger-strong); }
+.sincronizar-panel .badge.sync-en_sigrid_sin_registrar,
+.sincronizar-panel .badge.sync-pendiente,
+.sincronizar-panel .badge.sync-solo_sigrid_nuestra { background: var(--warn-soft); border-color: var(--warn-border); color: var(--warn); }
+.sincronizar-panel .badge.sync-igual { background: var(--ok-soft); border-color: var(--ok-border); color: #1f5740; }
