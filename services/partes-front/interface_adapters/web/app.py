@@ -46,7 +46,10 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
-from application.services.sincronizar_ambito import SincronizadorAmbito
+from application.services.sincronizar_ambito import (
+    SincronizadorAmbito,
+    motivo_no_sincronizable,
+)
 from application.services.parte_vacio import DuplicadoActivoError
 from application.services.seguimiento_recalculo import MOTIVO_NUEVO
 from application.services.edicion_celda import (
@@ -1203,6 +1206,10 @@ def build_app(
             "sigrid_enabled": settings.sigrid_lookup_enabled,
             "preview_enabled": settings.preview_enabled,
             "transfer_enabled": transfer_client is not None,
+            # F-052 (R15, R30): boton «Sincronizar con Sigrid».
+            "sincronizar_enabled": sincronizador is not None,
+            "sincronizar_motivo": motivo_no_sincronizable(
+                "trabajador", worker_key),
             "back": f"/trabajadores/{worker_key}",
             "worker_key": worker_key,
             "message": message,
@@ -1351,6 +1358,10 @@ def build_app(
             "extras": extras_por_jornada(_regs_kpi),
             "borradas_sigrid": _borradas_sigrid(detail.registros),
             "transfer_enabled": transfer_client is not None,
+            # F-052 (R15, R30): boton «Sincronizar con Sigrid».
+            "sincronizar_enabled": sincronizador is not None,
+            "sincronizar_motivo": motivo_no_sincronizable(
+                "obra", detail.obra_key),
             "candef_minimo": settings.candef_minimo_valido,
             "jornada_defecto": settings.jornada_por_defecto,
             "incompletos": incompletos,
