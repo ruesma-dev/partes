@@ -215,4 +215,4 @@ y `test_f052_api_sincronizar.py` (sv5).
 | 9 · `sincronizacion.py:324` `ensure_ascii=True` | equivalente | el escape es inyectivo; misma relación de igualdad entre firmas |
 | 14 · `sincronizar_ambito.py:294` `por_confirmar = True` | equivalente | escritura muerta: el único lector (línea 279) va antes; ni `item_a_dict`, ni `firma`, ni `aplicar` lo leen |
 
-Ninguno se mató quitando código defensivo (RM6: N/A). `bash harness/init.sh`: INIT_RESULTADO
+Ninguno se mató quitando código defensivo (RM6: N/A). `bash harness/init.sh` (7b83dc3): **ENTORNO LISTO**; sv4 3609 passed, 1 skipped (440 s); sv5 1622 passed; raíz 540 passed; `PUERTA COBERTURA: 99.9% (741/742)`.
