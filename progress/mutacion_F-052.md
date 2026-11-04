@@ -100,7 +100,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (EQUIVALENTE)
 
 > Por qué ningún test lo caza: `s.split(":", n)[0]` es el texto anterior al primer `:` para cualquier `n >= 1`; el `maxsplit` solo cambia los trozos de después, que `[0]` descarta.
-> Decisión: **mutante equivalente** (pendiente de aceptar por el humano). Demostración ejecutable: `python -c "import random; random.seed(52); al=['a',':','b',' ','x']; assert all(s.split(':',1)[0]==s.split(':',2)[0] for s in (''.join(random.choices(al,k=random.randint(0,12))) for _ in range(100000))); print('equivalente')"` -> `equivalente`.
+> Decisión: **mutante equivalente** (**ACEPTADO por el humano**, 2026-11-04: «si, acepto los 4»). Demostración ejecutable: `python -c "import random; random.seed(52); al=['a',':','b',' ','x']; assert all(s.split(':',1)[0]==s.split(':',2)[0] for s in (''.join(random.choices(al,k=random.randint(0,12))) for _ in range(100000))); print('equivalente')"` -> `equivalente`.
 
 ### 6. `services/partes-front/application/services/sincronizacion.py:191` [comparacion]
 
@@ -130,7 +130,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (EQUIVALENTE)
 
 > Por qué ningún test lo caza: `datos` se construye siempre con el mismo orden de claves (literal `clase, portal, sigrid` y `asdict`, que sigue el orden de los campos), así que sin `sort_keys` el JSON sigue siendo función determinista e inyectiva de los valores. La firma es opaca (la spec: «huella de lo que el usuario vio») y solo se compara con otra de la misma función.
-> Decisión: **mutante equivalente** (pendiente de aceptar por el humano). Único efecto: entre dos versiones desplegadas las firmas no coincidirían y la acción saldría «cambió desde que lo viste» (inocuo: se vuelve a sincronizar). Demostración ejecutable: `DEMO_FIRMA`, abajo (comprueba `f == firma` y que la igualdad de firmas entre todos los pares de ítems no cambia con `sort_keys=False`) -> `8 y 9 equivalentes: 5 items`.
+> Decisión: **mutante equivalente** (**ACEPTADO por el humano**, 2026-11-04: «si, acepto los 4»). Único efecto: entre dos versiones desplegadas las firmas no coincidirían y la acción saldría «cambió desde que lo viste» (inocuo: se vuelve a sincronizar). Demostración ejecutable: `DEMO_FIRMA`, abajo (comprueba `f == firma` y que la igualdad de firmas entre todos los pares de ítems no cambia con `sort_keys=False`) -> `8 y 9 equivalentes: 5 items`.
 >
 > `DEMO_FIRMA` (8 y 9), desde `services/partes-front`, resultado real `8 y 9 equivalentes: 5 items`:
 > ```
@@ -158,7 +158,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (EQUIVALENTE)
 
 > Por qué ningún test lo caza: `ensure_ascii=True` cambia el texto (escapa `ñ` como `\u00f1`), pero el escape es inyectivo y la firma solo se compara consigo misma (mismo razonamiento que el 8).
-> Decisión: **mutante equivalente** (pendiente de aceptar por el humano). Misma demostración que el 8 (`DEMO_FIRMA` del mutante 8, con los textos `año: peón` y `Ñ`).
+> Decisión: **mutante equivalente** (**ACEPTADO por el humano**, 2026-11-04: «si, acepto los 4»). Misma demostración que el 8 (`DEMO_FIRMA` del mutante 8, con los textos `año: peón` y `Ñ`).
 >
 > **Caso límite: un surrogate suelto (review 1).** Con texto Unicode válido el razonamiento de arriba vale; con un surrogate suelto (`'\ud800'`) NO es equivalente dentro de sv4: el original revienta en `firma` (`.encode("utf-8")` de un JSON con `ensure_ascii=False`) y el mutante lo escapa y firma. Reproducido (review 1, desde `services/partes-front`, sin tocar el árbol: `clasificar([], lineas_de_sv5({"lineas": [S(9100, "manual", partida_cod="\ud800")]}))` y la firma del mutante recalculada con `ensure_ascii=True`), salida real:
 > ```
@@ -217,7 +217,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis (EQUIVALENTE)
 
 > Por qué ningún test lo caza: escritura muerta. `por_confirmar` solo se lee en `sincronizar_ambito.py:279` (para elegir las huérfanas), ANTES de esta línea; después nadie lo lee: ni `item_a_dict`, ni `firma` (clase y los dos lados), ni `resumen`, ni `aplicar`. Matarlo exigiría un test del método privado `_leer` sobre un campo que nadie consume.
-> Decisión: **mutante equivalente** (pendiente de aceptar por el humano; alternativa: borrar la línea en una feature posterior). Demostración ejecutable: `grep -rn "por_confirmar" services/partes-front --include=*.py --include=*.js --include=*.html | grep -v /tests/` -> 4 apariciones: la declaración (141), `= True` en `clasificar` (248), la lectura (279) y esta escritura (294).
+> Decisión: **mutante equivalente** (**ACEPTADO por el humano**, 2026-11-04: «si, acepto los 4»; alternativa: borrar la línea en una feature posterior). Demostración ejecutable: `grep -rn "por_confirmar" services/partes-front --include=*.py --include=*.js --include=*.html | grep -v /tests/` -> 4 apariciones: la declaración (141), `= True` en `clasificar` (248), la lectura (279) y esta escritura (294).
 
 ### 15. `services/partes-front/application/services/sincronizar_ambito.py:335` [logico]
 

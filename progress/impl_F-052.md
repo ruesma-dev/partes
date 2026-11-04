@@ -159,7 +159,7 @@ y `test_f052_api_sincronizar.py` (sv5).
 
 Los 38 matados, mutante a mutante con su test, en `progress/mutacion_F-052.md` (secciones «Análisis (MATADO)»).
 
-**Justificación PENDIENTE DE ACEPTAR POR EL HUMANO (4 equivalentes)**; demostración ejecutable de cada uno en `mutacion_F-052.md` (8 y 9: `DEMO_FIRMA`, bajo el 8):
+**Justificación ACEPTADA POR EL HUMANO (4 equivalentes; 2026-11-04, «si, acepto los 4»)**; demostración ejecutable de cada uno en `mutacion_F-052.md` (8 y 9: `DEMO_FIRMA`, bajo el 8):
 
 | Mutante (línea) | Veredicto | Motivo |
 |---|---|---|
