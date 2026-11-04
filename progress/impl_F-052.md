@@ -144,60 +144,10 @@ guardianes de raíz de T13 62 passed.
   `services/partes-transfer`: vacío.
 - `git ls-files --eol` de los ficheros tocados: `i/lf` en todos.
 
-## M3 · PENDIENTE del humano (local, modo pruebas, obra 0404)
+## M3 y M4 · PENDIENTES del humano
 
-Solo escribe en Sigrid la aprobación del portal (sv5 en pruebas, obra 0404, `PRUEBA-IA`);
-sincronizar y aplicar solo leen Sigrid. Mes `<M3>` (`<AAAA>`, `<MM>`): nunca 2026/06–2026/11
-(PT26/00373, 00375 y 00376 se conservan) y con `estado` ⇒ `NO existe parte <AAAA>/<MM> de obra
-0404`. Consolas nuevas (sin el `PGOPTIONS` de M2).
-
-1. **V** (`services\partes-transfer\prueba_escritura_sigrid.py`, cambio local sin commit):
-   `ANO, MES = <AAAA>, <MM>`; `python .\prueba_escritura_sigrid.py estado` ⇒ `NO existe`.
-2. Consola 1, sv5:
-   ```powershell
-   cd C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-transfer
-   ..\..\..\partes\.venv\Scripts\Activate.ps1
-   $env:OBRA_PRUEBAS_FORZAR = 'true'; python main.py
-   ```
-   `Invoke-RestMethod http://localhost:8005/health` ⇒ `modo_pruebas: True`, `obra_pruebas:
-   0404`. **Si no, PARA.**
-3. Consola 2, sv4 contra la base `partes` LOCAL:
-   ```powershell
-   cd C:\Users\pgris\PycharmProjects\partes-wt-f052\services\partes-front
-   ..\..\..\partes\.venv\Scripts\Activate.ps1
-   python -c "from config.settings import Settings as S; s=S(); print(s.pg_host, s.sincronizar_seco)"
-   $env:TRANSFER_BASE_URL = 'http://127.0.0.1:8005'; python main.py
-   ```
-   Si `pg_host` no es local, **PARA** (no edites el `.env`: avisa al líder). Portal en
-   `http://127.0.0.1:8014`; el actor será `local:<DEFAULT_REVIEWER>`.
-4. «+ Nuevo parte» en la **obra 0404**, trabajador 2717792, 4 líneas ordinarias de 8 h (días
-   L1–L4 de `<M3>`) ⇒ crear ⇒ aprobar las 4 ⇒ «Registrar». V `verificar` ⇒ 4 líneas.
-5. En Sigrid, a mano, en el parte de la 0404 de `<M3>`: L1 `can` 8 → 6; L3 `can` → 0.
-   En la base local: `UPDATE parte_registros SET sigrid_estado = 'error' WHERE id = <L4>;`
-6. Vista de la obra 0404, periodo `<AAAA>-<MM>`, natural ⇒ «Sincronizar con Sigrid». Esperado:
-   L1 `distinta` (horas 8/6, «Traer de Sigrid»), L2 `igual`, L3 `anulada_en_sigrid`, L4
-   `en_sigrid_sin_registrar` («Marcar registrada»). Si la 0404 no se ofrece en «+ Nuevo parte»,
-   usar otra obra y la vista de la persona (`rec-2717792`): las 4 llevarán además la diferencia
-   `obra` y L2 saldrá `distinta` sin acción.
-7. Aplicar «Traer de Sigrid» a L1 y L3 y «Marcar registrada» a L4 (confirmar). Opcional, firma
-   vieja: cambiar otra vez L1 en Sigrid sin re-sincronizar y aplicar ⇒ «cambió desde que lo
-   viste». Comprobar en local:
-   ```sql
-   SELECT id, horas, sigrid_estado, sigrid_hmores_ide, sigrid_motivo, sigrid_registrado_by
-   FROM parte_registros WHERE id IN (<L1>, <L2>, <L3>, <L4>) ORDER BY id;
-   ```
-   ⇒ L1 6 y L3 0, con «Sincronizado con Sigrid: horas 8→6 · local:… · …»; L4 `registrado` con
-   su `hmores_ide` y «estado error→registrado · local:…». Consola 2:
-   `[sincronizar][aplicar] … recalculo=…`; consola 1: `[sincronizar] ambito=…` y **ninguna
-   escritura `[sigrid-write]`** durante sincronizar y aplicar.
-8. Limpieza (V con `<M3>`; si el DRY-RUN muestra otro ide de parte, **PARA**):
-   ```powershell
-   python .\prueba_escritura_sigrid.py limpiar
-   python .\prueba_escritura_sigrid.py limpiar --ejecutar
-   python .\prueba_escritura_sigrid.py estado
-   git checkout -- prueba_escritura_sigrid.py
-   ```
-   `estado` ⇒ `NO existe`. Ctrl+C en las consolas 1 y 2 y cerrarlas.
+**M3** (local, modo pruebas, obra 0404): comandos exactos en `progress/m3_F-052.md` (movido tal cual
+desde este informe para respetar el tope de 220 líneas).
 
 **M4 · PENDIENTE del humano (tras desplegar sv5 → sv4).** Decidir antes `SINCRONIZAR_SECO` en Azure (ID10). Un usuario real sincroniza y aplica una
 acción; en la base `partes`, solo lectura: `SELECT id, horas, sigrid_estado, sigrid_motivo,
@@ -207,7 +157,8 @@ ORDER BY id DESC LIMIT 10;` ⇒ actor de Easy Auth (ni `local:` ni `sin-identida
 ## Fuera de alcance y pendiente
 
 - H-M2-1b (`option.ext` en el selector de hora): fuera; se propone como feature aparte.
-- Mutación: la lanza el líder (`python -m harness.mutacion --feature F-052`). M3, M4, reviewer.
+- Mutación: lanzada por el líder (6b58e16); supervivientes tratados abajo, sin relanzar la
+  campaña (regla del humano). Pendiente: aceptar los 4 equivalentes, M3, M4, reviewer.
 
 ## Evidencias
 
@@ -216,5 +167,52 @@ ORDER BY id DESC LIMIT 10;` ⇒ actor de Easy Auth (ni `local:` ni `sin-identida
 | Tests F-052 (T9–T13) | sv4 `test_f052_*` 215 + 115 + 11 + 17 passed; raíz T13 3 passed (guardianes 62) |
 | Suites completas (init.sh) | sv4 3580 passed, 1 skipped; raíz 540 passed, 3 skipped; sv1, sv2, sv3, sv5 en verde (caché: sin cambios) |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 99.7% de 742 líneas cambiadas cubiertas (740/742, umbral 80%, nivel critico)` |
-| Mutantes | no lanzada en esta tanda: la lanza el líder |
+| Mutantes | 331 generados, 289 muertos, 42 supervivientes (SHA `3424919`, **4 workers**, 31712 s); tras esta tanda: 38 matados por tests nuevos (comprobado en copia aislada) y 4 equivalentes pendientes de aceptar |
 | Tiempo de la suite | sv4 942–1080 s (con cobertura); raíz 91–157 s |
+
+## Supervivientes de la mutación
+
+Análisis de cada uno en `progress/mutacion_F-052.md` (ninguno en `PENDIENTE`); campaña no relanzada.
+Cada test nuevo se comprobó en una **copia aislada** de sv4 y sv5 (scratchpad) con el mutante en su
+línea exacta, `pytest <fichero> -k <test>`: **38 de 38 fallan** (`rc=1`, «N failed»); el árbol real
+no se mutó. Solo tests: `test_f052_{clasificar,sincronizar_ambito,repositorio,endpoints}.py` (sv4)
+y `test_f052_api_sincronizar.py` (sv5).
+
+| Mutante (línea) | Veredicto | Test / motivo |
+|---|---|---|
+| 1, 2, 3 · `sincronizacion.py:72, 91, 121` `frozen` | matado | `test_f052_r18_lineas_y_diferencias_inmutables` |
+| 4 · `sincronizacion.py:155` `<=`→`<` | matado | `test_f052_r8_a_cero_justo_en_la_tolerancia` |
+| 6 · `sincronizacion.py:191` `>`→`>=` | matado | `test_f052_r9_diferencia_de_horas_justo_en_la_tolerancia` |
+| 7 · `sincronizacion.py:270` `and`→`or` | matado | `test_f052_r8_ciz_hermano_con_ide_menor_no_casa_con_su_inicio` |
+| 10 · `sincronizar_ambito.py:81` `<= 0`→`<= 1` | matado | `test_f052_r15_ide_1_es_sincronizable` |
+| 11 · `sincronizar_ambito.py:99` `frozen` | matado | `test_f052_r15_ambito_inmutable` |
+| 12 · `sincronizar_ambito.py:152` `or`→`and` | matado | `test_f052_r2_linea_de_sv5_con_origen_desconocido_es_error` |
+| 13 · `sincronizar_ambito.py:195` `500`→`501` | matado | `test_f052_r18_tope_por_defecto_500` |
+| 15 · `sincronizar_ambito.py:335` `and`→`or` | matado | `test_f052_da18_seco_veredicto_sin_registro_id_se_ignora` |
+| 16 · `sincronizar_ambito.py:363` `>`→`>=` | matado | `test_f052_r18_tope_justo_es_valido` |
+| 17, 18 · sv4 `settings.py:82, 94` `gt/ge` | matado | `test_f052_settings_limites_validos_justos` |
+| 19–23 · `parte_repository.py:234–236` (`_mismas_horas`) | matado | `test_f052_r20_cas_de_horas_mismas_horas` (y `..._horas_nulas_en_la_base_...`) |
+| 24 · `parte_repository.py:2767` `and`→`or` | matado | `test_f052_r12_donde_estan_parte_con_solo_una_marca_de_borrado` |
+| 25 · `parte_repository.py:2789` `with_for_update` | matado | `test_f052_r20_bloqueo_for_update_en_orden_de_id` (sesión doble: SQLite no bloquea) |
+| 26 · `parte_repository.py:2873` `or`→`and` | matado | `test_f052_r20_traer_a_linea_sin_estado_lo_dice` |
+| 27 · `parte_repository.py:2899` `and`→`or` | matado | `test_f052_r23_traer_linea_sin_recurso_no_da_par_de_dia` |
+| 28, 29 · sv4 `app.py:307` largo de `firma` | matado | `test_f052_r18_aplicar_largo_de_la_firma` (1, 64 y 65) |
+| 30, 32 · sv4 `app.py:3464, 3479` `include_in_schema` | matado | `test_f052_r18_rutas_fuera_del_esquema` |
+| 31, 33 · sv4 `app.py:3473, 3494` `ok: False` | matado | aserción `ok is False` en los dos tests `..._r30_..._sin_transfer_503` |
+| 34 · sv5 `settings.py:37` `ge=1` | matado | `test_f052_r6_settings_max_registro_ids_minimo_1` |
+| 35 · `registro_models.py:234` `frozen` | matado | `test_f052_r2_linea_sincronizar_inmutable` |
+| 36–39 · sv5 `app.py:211, 212, 227` | matado | `test_f052_r6_ide_1_y_un_solo_dia_son_validos` |
+| 40 · sv5 `app.py:293` `is None` | matado | `test_f052_r1_lector_inyectado_sin_pipeline` |
+| 41 · sv5 `app.py:407` `ok: False` | matado | `test_f052_r6_demasiados_registro_ids_ok_false` |
+| 42 · sv5 `app.py:409` `is not None` | matado | `test_f052_r1_log_dice_el_ambito` (caplog) |
+
+**Justificación PENDIENTE DE ACEPTAR POR EL HUMANO (4 equivalentes)**; demostración ejecutable de cada uno en `mutacion_F-052.md` (8 y 9: `DEMO_FIRMA`, bajo el 8):
+
+| Mutante (línea) | Veredicto | Motivo |
+|---|---|---|
+| 5 · `sincronizacion.py:175` `split(":", 1)`→`split(":", 2)` | equivalente | `[0]` es lo anterior al primer `:` con cualquier `maxsplit >= 1` (100 000 cadenas aleatorias) |
+| 8 · `sincronizacion.py:323` `sort_keys=False` | equivalente | orden de claves fijo (literal + `asdict`); firma opaca, solo se compara consigo misma |
+| 9 · `sincronizacion.py:324` `ensure_ascii=True` | equivalente | el escape es inyectivo; misma relación de igualdad entre firmas |
+| 14 · `sincronizar_ambito.py:294` `por_confirmar = True` | equivalente | escritura muerta: el único lector (línea 279) va antes; ni `item_a_dict`, ni `firma`, ni `aplicar` lo leen |
+
+Ninguno se mató quitando código defensivo (RM6: N/A). `bash harness/init.sh`: INIT_RESULTADO

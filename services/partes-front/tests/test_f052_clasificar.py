@@ -12,7 +12,7 @@ Datos sintéticos (obra 686, recurso 501); sin red ni base de datos.
 """
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 
 import pytest
 
@@ -20,11 +20,13 @@ from application.services.sincronizacion import (
     ACCIONES_POR_CLASE,
     CAMPOS_TRAER,
     CLASES,
+    TOLERANCIA_HORAS,
     Diferencia,
     LineaPortal,
     LineaSigridSync,
     acciones_de,
     clasificar,
+    comparar,
     firma,
     item_a_dict,
     resumen,
@@ -493,3 +495,42 @@ def test_f052_desde_dict_de_sv5_ignora_claves_de_mas() -> None:
     s = S(1, registro_id=1)
     d = dict(item_a_dict(_uno([], [s]))["sigrid"], otra="x")
     assert LineaSigridSync.desde_dict(d) == s
+
+
+# ------------- supervivientes de la mutación (mutacion_F-052.md) -------- #
+
+@pytest.mark.parametrize("objeto, campo", [
+    (P(1), "horas"), (S(9001, registro_id=1), "can"),
+    (Diferencia("horas", 8.0, 6.0), "sigrid")])
+def test_f052_r18_lineas_y_diferencias_inmutables(objeto, campo) -> None:
+    """La firma (R18) se calcula sobre lo que se vio: nadie puede cambiar
+    una línea ni una diferencia después de clasificar (mutantes 1-3)."""
+    with pytest.raises(FrozenInstanceError):
+        setattr(objeto, campo, 0)
+
+
+def test_f052_r8_a_cero_justo_en_la_tolerancia() -> None:
+    """`can` igual a la tolerancia cuenta como 0 (mutante 4: `<=`)."""
+    it = _uno([], [S(9011, "manual", can=TOLERANCIA_HORAS)])
+    assert it.a_cero is True
+
+
+def test_f052_r9_diferencia_de_horas_justo_en_la_tolerancia() -> None:
+    """Una diferencia igual a la tolerancia no es diferencia (mutante 6:
+    `>`); TOLERANCIA_HORAS - 0.0 es exacta en coma flotante."""
+    difs, _notas = comparar(P(1, horas=TOLERANCIA_HORAS),
+                            S(9001, registro_id=1, can=0.0))
+    assert [d.campo for d in difs] == []
+    difs, _notas = comparar(P(1, horas=0.01), S(9001, registro_id=1,
+                                                can=0.0))
+    assert [d.campo for d in difs] == ["horas"]
+
+
+def test_f052_r8_ciz_hermano_con_ide_menor_no_casa_con_su_inicio() -> None:
+    """DA12: solo una synckey `partes` casa por `registro_id`, aunque la
+    línea CIZ hermana tenga un `hmores.ide` menor y se lea antes
+    (mutante 7: `and` -> `or`)."""
+    items = clasificar([P(505)], [S(9004, "ciz", registro_id=505),
+                                  S(9005, registro_id=505)])
+    assert [(i.clase, i.sigrid.hmores_ide) for i in items] == [
+        ("igual", 9005), ("solo_sigrid_auxiliar", 9004)]

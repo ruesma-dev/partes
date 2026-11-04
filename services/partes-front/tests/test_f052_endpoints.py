@@ -92,6 +92,7 @@ def test_f052_r30_sin_transfer_503(portal) -> None:
     cliente, _f, _ids, _ = portal(["registrado"], con_sv5=False)
     r = cliente.post("/api/sincronizar", json={"ambito": AMBITO})
     assert r.status_code == 503
+    assert r.json()["ok"] is False                  # mutante 31
     assert "TRANSFER_BASE_URL" in r.json()["error"]
 
 
@@ -286,6 +287,8 @@ def test_f052_r30_aplicar_sin_transfer_503(acciones) -> None:
     r = _aplicar(cliente, "marcar_registrada",
                  [{"registro_id": ids[0], "firma": "x" * 16}])
     assert r.status_code == 503
+    assert r.json()["ok"] is False                  # mutante 33
+    assert "TRANSFER_BASE_URL" in r.json()["error"]
 
 
 def test_f052_r19_aplicar_marcar_registrada_con_el_actor(acciones) -> None:
@@ -398,3 +401,43 @@ def test_f052_settings_max_items_accion(entorno) -> None:
         entorno.setenv("SINCRONIZAR_MAX_ITEMS_ACCION", valor)
         with pytest.raises(ValidationError):
             Settings(_env_file=None)
+
+
+# ------------- supervivientes de la mutación (mutacion_F-052.md) -------- #
+
+def test_f052_settings_limites_validos_justos(entorno) -> None:
+    """Los mínimos válidos de los ajustes de F-052: un plazo de medio
+    segundo y una línea por acción (mutantes 17 y 18)."""
+    entorno.setenv("SINCRONIZAR_TIMEOUT_S", "0.5")
+    entorno.setenv("SINCRONIZAR_MAX_ITEMS_ACCION", "1")
+    st = Settings(_env_file=None)
+    assert st.sincronizar_timeout_s == 0.5
+    assert st.sincronizar_max_items_accion == 1
+
+
+def test_f052_r18_rutas_fuera_del_esquema(portal) -> None:
+    """Rutas internas del portal, fuera de `/openapi.json` como las demás
+    de F-024 y F-056 (mutantes 30 y 32)."""
+    cliente, _f, _ids, _ = portal(["registrado"])
+    rutas = cliente.app.openapi()["paths"]
+    assert "/api/sincronizar" not in rutas
+    assert "/api/sincronizar/aplicar" not in rutas
+
+
+@pytest.mark.parametrize("largo, status", [(1, 200), (64, 200), (65, 422)])
+def test_f052_r18_aplicar_largo_de_la_firma(acciones, largo,
+                                            status) -> None:
+    """La firma va de 1 a 64 caracteres: una firma corta pero presente
+    llega a la relectura y sale descartada; una de 65 es 422 sin leer
+    (mutantes 28 y 29)."""
+    cliente, _f, ids, sv5, _p = acciones(
+        [{"estado": "registrado"}],
+        lambda ids: [linea_sv5(ids[0], hmores=9000, can=6.0)])
+    r = _aplicar(cliente, "traer_de_sigrid",
+                 [{"registro_id": ids[0], "firma": "0" * largo}])
+    assert r.status_code == status, r.text
+    if status == 200:
+        assert r.json()["descartados"] == [{
+            "registro_id": ids[0], "motivo": "cambió desde que lo viste"}]
+    else:
+        assert sv5.leer == []

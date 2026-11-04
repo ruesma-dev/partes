@@ -27,6 +27,7 @@ from infrastructure.database.parte_repository import (
     MOTIVO_REPARTO_SINCRONIZAR,
     MOTIVO_SINCRONIZAR_CAMBIO,
     ParteReviewRepository,
+    _mismas_horas,
 )
 from tests.dobles import FabricaSesionSqlite
 
@@ -446,3 +447,91 @@ def test_f052_r23_documentos_de_los_dias(repo) -> None:
     assert r.documentos_de_los_dias([(501, 20261020), (777, 20261021)]) == [
         "a", "b", "c"]
     assert r.documentos_de_los_dias([]) == []
+
+
+# ------------- supervivientes de la mutación (mutacion_F-052.md) -------- #
+
+@pytest.mark.parametrize("a, b, iguales", [
+    (None, None, True), (None, 8.0, False), (8.0, None, False),
+    (8.0, 8.0, True), (1e-9, 0.0, False), (0.0, 1e-9, False)])
+def test_f052_r20_cas_de_horas_mismas_horas(a, b, iguales) -> None:
+    """El CAS de `traer` (R20): NULL solo casa con NULL y la tolerancia
+    es estricta (mutantes 19-23)."""
+    assert _mismas_horas(a, b) is iguales
+
+
+def test_f052_r20_traer_horas_nulas_en_la_base_no_casan_con_lo_visto(
+        repo) -> None:
+    """Si la base tiene horas NULL y el usuario vio 8, la línea cambió
+    (mutante 19: sin la guarda revienta con `float(None)`)."""
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["reg"]).horas = None
+        s.commit()
+    res = r.aplicar_traer_de_sigrid([_trae(ids["reg"])], actor="ana",
+                                    ahora_iso=ACCION_AT)
+    assert res["aplicados"] == []
+    assert "cambió" in res["descartados"][0]["motivo"]
+
+
+def test_f052_r12_donde_estan_parte_con_solo_una_marca_de_borrado(
+        repo) -> None:
+    """Un parte inactivo con `deleted_by` O `deleted_at_utc` (no los dos)
+    está en la papelera; reemplazado es solo sin ninguno (mutante 24)."""
+    fabrica, r = repo
+    with fabrica.create_session() as s:
+        _doc(s, "solo_by", activo=False, deleted_by="retirado:ana")
+        _doc(s, "solo_at", activo=False, deleted_at=AHORA)
+        solo_by = _reg(s, "solo_by", 20261014)
+        solo_at = _reg(s, "solo_at", 20261014)
+        s.commit()
+    assert r.donde_estan([solo_by, solo_at]) == {solo_by: "papelera",
+                                                  solo_at: "papelera"}
+
+
+class _SesionQueApunta:
+    """Sesión mínima: apunta cada `get` y no encuentra nada."""
+
+    def __init__(self) -> None:
+        self.gets: list[tuple[int, dict]] = []
+
+    def get(self, _modelo, ide, **kwargs):
+        self.gets.append((ide, kwargs))
+
+
+def test_f052_r20_bloqueo_for_update_en_orden_de_id() -> None:
+    """R20: cada línea se lee con SELECT ... FOR UPDATE y en orden de id
+    (sin interbloqueos). SQLite no bloquea, así que se mira la llamada
+    (mutante 25: `with_for_update=False`)."""
+    sesion = _SesionQueApunta()
+    out = ParteReviewRepository._bloquear_para_sincronizar(
+        sesion, [{"registro_id": 7}, {"registro_id": 3}])
+    assert sesion.gets == [(3, {"with_for_update": True}),
+                           (7, {"with_for_update": True})]
+    assert [m for _i, _r, m in out] == ["la línea ya no existe"] * 2
+
+
+def test_f052_r20_traer_a_linea_sin_estado_lo_dice(repo) -> None:
+    """Sin estado de Sigrid, el descarte dice «sin estado» (mutante 26)."""
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    res = r.aplicar_traer_de_sigrid([_trae(ids["vacio"], visto=None)],
+                                    actor="ana", ahora_iso=ACCION_AT)
+    assert res["aplicados"] == []
+    assert "«sin estado»" in res["descartados"][0]["motivo"]
+
+
+def test_f052_r23_traer_linea_sin_recurso_no_da_par_de_dia(repo) -> None:
+    """Sin recurso (ni `recurso_ide` ni `empleado_reside`) la línea se
+    trae pero no aporta (recurso, fecha) al recálculo del día (mutante
+    27: `and` -> `or` revienta con `int(None)`)."""
+    fabrica, r = repo
+    ids = _sembrar_acciones(fabrica)
+    with fabrica.create_session() as s:
+        s.get(ParteRegistroOrm, ids["reg"]).recurso_ide = None
+        s.commit()
+    res = r.aplicar_traer_de_sigrid([_trae(ids["reg"])], actor="ana",
+                                    ahora_iso=ACCION_AT)
+    assert res["aplicados"] == [ids["reg"]]
+    assert res["documentos"] == ["d"] and res["pares"] == []

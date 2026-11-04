@@ -42,7 +42,7 @@ contrato del motivo `sincronizar` con sv3, `ARCHITECTURE.md` y `azure-apps/parte
 luego M3 y, tras desplegar, M4.
 - [ ] **M3 · PENDIENTE del humano (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
   la aprobación del portal, con marca `PRUEBA-IA`)**. Comandos exactos en
-  `progress/impl_F-052.md` §M3. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
+  `progress/m3_F-052.md`. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
   nunca 2026/06–2026/11 (PT26/00373, 00375 y 00376 se conservan). Resumen: sv5 del worktree con
   `OBRA_PRUEBAS_FORZAR=true` (`/health` ⇒ `modo_pruebas: True`, si no PARA); sv4 del worktree
   contra la base `partes` LOCAL (si `PG_HOST` no es local, PARA) y `TRANSFER_BASE_URL` al sv5

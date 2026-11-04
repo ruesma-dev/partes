@@ -12,7 +12,9 @@ Sin red: dobles del cliente y `httpx.post` sustituido por un falso.
 """
 from __future__ import annotations
 
+import logging
 import threading
+from dataclasses import FrozenInstanceError
 
 import httpx
 import pytest
@@ -263,3 +265,74 @@ def test_f052_r5_endpoint_no_toma_el_lock_de_escritura() -> None:
     finally:
         lock.release()
     assert respuesta["r"].status_code == 200
+
+
+# ------------- supervivientes de la mutación (mutacion_F-052.md) -------- #
+
+def test_f052_r2_linea_sincronizar_inmutable() -> None:
+    """La línea leída de Sigrid no se toca después (mutante 35)."""
+    with pytest.raises(FrozenInstanceError):
+        _linea(1).can = 0.0
+
+
+@pytest.mark.parametrize("cuerpo", [
+    {"obra_ide": 1, "desde": 20261014, "hasta": 20261014},
+    {"recurso_ide": 1, "desde": 20261014, "hasta": 20261014}])
+def test_f052_r6_ide_1_y_un_solo_dia_son_validos(cuerpo) -> None:
+    """El ide 1 y el rango de un día (`desde == hasta`) son válidos
+    (mutantes 36, 37, 38 y 39)."""
+    lector = LectorFalso()
+    r = TestClient(_app(lector)).post("/api/sincronizar/leer", json=cuerpo)
+    assert r.status_code == 200, r.text
+    assert lector.llamadas[0][1]["desde"] == lector.llamadas[0][1]["hasta"]
+
+
+def test_f052_r6_settings_max_registro_ids_minimo_1(monkeypatch,
+                                                    tmp_path) -> None:
+    """Un solo `registro_id` por petición es un tope válido (mutante 34)."""
+    monkeypatch.setenv("SIGRID_API_BASE_URL", "http://sigrid.invalid")
+    monkeypatch.setenv("SIGRID_API_FUNCTION_KEY", "clave-de-test")
+    monkeypatch.setenv("SINCRONIZAR_MAX_REGISTRO_IDS", "1")
+    monkeypatch.chdir(tmp_path)
+    assert Settings().sincronizar_max_registro_ids == 1
+
+
+def test_f052_r6_demasiados_registro_ids_ok_false() -> None:
+    """El 422 por el tope de `registro_ids` lleva `ok: false` como el
+    resto de errores de sv5 (mutante 41)."""
+    lector = LectorFalso()
+    r = TestClient(_app(lector, st=_settings(max_ids=1))).post(
+        "/api/sincronizar/leer", json=dict(CUERPO_OBRA, registro_ids=[1, 2]))
+    assert r.status_code == 422
+    assert r.json()["ok"] is False and "como mucho 1" in r.json()["error"]
+    assert lector.llamadas == []
+
+
+def test_f052_r1_lector_inyectado_sin_pipeline(monkeypatch) -> None:
+    """Con `lector` inyectado y sin `pipeline`, la lectura usa ese lector y
+    no el cliente que la app construye para escribir (mutante 40)."""
+    falso = SigridApiFalso(httpx.Response(200, json={
+        "ok": True, "columns": ["ide"], "rows": [], "truncated": False}))
+    monkeypatch.setattr(modulo_cliente.httpx, "post", falso)
+    lector = LectorFalso(ambito=[_linea(5)])
+    r = TestClient(build_app(_settings_con_sigrid(), lector=lector)).post(
+        "/api/sincronizar/leer", json=CUERPO_OBRA)
+    assert r.status_code == 200
+    assert [l["hmores_ide"] for l in r.json()["lineas"]] == [5]
+    assert falso.urls == []
+
+
+@pytest.mark.parametrize("cuerpo, ambito", [
+    (CUERPO_OBRA, "obra"),
+    ({"recurso_ide": 501, "desde": 20261001, "hasta": 20261031},
+     "recurso")])
+def test_f052_r1_log_dice_el_ambito(caplog, cuerpo, ambito) -> None:
+    """El log INFO de la lectura dice si fue por obra o por recurso
+    (mutante 42)."""
+    with caplog.at_level(logging.INFO,
+                         logger="interface_adapters.api.app"):
+        r = TestClient(_app(LectorFalso())).post("/api/sincronizar/leer",
+                                                 json=cuerpo)
+    assert r.status_code == 200
+    linea = next(m for m in caplog.messages if "[sincronizar] ambito=" in m)
+    assert f"ambito={ambito} " in linea

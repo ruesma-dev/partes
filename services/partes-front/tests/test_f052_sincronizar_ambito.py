@@ -16,6 +16,7 @@ Dobles del repositorio, de sv5 y de la comprobación; sin red ni base.
 from __future__ import annotations
 
 import threading
+from dataclasses import FrozenInstanceError
 from datetime import datetime, timezone
 
 import pytest
@@ -23,7 +24,9 @@ from application.services.congelacion import CongeladoError
 from application.services.parte_vacio import DuplicadoActivoError
 from application.services.sincronizacion import LineaPortal
 from application.services.sincronizar_ambito import (
+    Ambito,
     SincronizadorAmbito,
+    lineas_de_sv5,
     motivo_no_sincronizable,
 )
 
@@ -820,3 +823,63 @@ def test_f052_r22_log_info_con_accion_ids_recuentos_y_actor(caplog) -> None:
     for trozo in ("accion=marcar_registrada", "actor=ana@x", "pedidos=2",
                   "aplicados=1", "descartados=1", "ids=[1]"):
         assert trozo in linea
+
+
+# ------------- supervivientes de la mutación (mutacion_F-052.md) -------- #
+
+@pytest.mark.parametrize("vista, clave", [("obra", "obr-1"),
+                                          ("trabajador", "rec-1")])
+def test_f052_r15_ide_1_es_sincronizable(vista, clave) -> None:
+    """El ide 1 es un ide válido (mutante 10: `<= 0` -> `<= 1`)."""
+    assert motivo_no_sincronizable(vista, clave) is None
+
+
+def test_f052_r15_ambito_inmutable() -> None:
+    """El ámbito resuelto no cambia durante la sincronización ni la
+    relectura de `aplicar` (mutante 11)."""
+    amb = Ambito(vista="obra", clave="obr-686", period="2026-10",
+                 mode="natural", obra_ide=686, recurso_ide=None,
+                 desde=20261001, hasta=20261031)
+    with pytest.raises(FrozenInstanceError):
+        amb.obra_ide = 1
+
+
+def test_f052_r2_linea_de_sv5_con_origen_desconocido_es_error() -> None:
+    """Una línea completa pero con un `origen` que no es de R2 no se
+    compara (mutante 12: `or` -> `and`)."""
+    with pytest.raises(ValueError, match="origen"):
+        lineas_de_sv5({"ok": True, "lineas": [S(9001, origen="rara")]})
+    r = _sync(RepoFalso([P(1)]), Sv5Falso([S(9001, origen="rara",
+                                                registro_id=1)])
+              ).sincronizar(AMBITO_OBRA)
+    assert r.status == 502 and "items" not in r.cuerpo
+
+
+def test_f052_r18_tope_por_defecto_500() -> None:
+    """Sin `max_items_accion`, el tope de R18 es 500 (mutante 13)."""
+    sync = SincronizadorAmbito(
+        repository=RepoFalso(), transfer_client=Sv5Falso(),
+        comprobacion=ComprobacionFalsa(), timeout_s=150.0, seco=False,
+        lote_comprobar=500, timeout_comprobar_s=30.0)
+    items = [{"registro_id": i, "firma": "x" * 16} for i in range(1, 502)]
+    assert sync.validar_peticion("marcar_registrada", items[:500]) is None
+    assert "máximo es 500" in sync.validar_peticion("marcar_registrada",
+                                                    items)
+
+
+def test_f052_r18_tope_justo_es_valido() -> None:
+    """Exactamente `max_items_accion` líneas es válido (mutante 16)."""
+    sync = _sync(RepoAcciones(), Sv5Falso([]), max_items=2)
+    assert sync.validar_peticion("marcar_registrada", [
+        {"registro_id": i, "firma": "x" * 16} for i in (1, 2)]) is None
+
+
+def test_f052_da18_seco_veredicto_sin_registro_id_se_ignora() -> None:
+    """Un veredicto de sv5 sin `registro_id` no es de ninguna línea: se
+    ignora y no revienta (mutante 15: `and` -> `or`)."""
+    sv5 = Sv5Falso([], comprobar={"ok": True, "veredictos": [
+        {"registro_id": 1, "estado": "borrada"},
+        {"registro_id": None, "estado": "borrada"}]})
+    r = _sync(RepoFalso([P(1)]), sv5, seco=True).sincronizar(AMBITO_OBRA)
+    assert r.status == 200
+    assert r.cuerpo["marcaria_borrado_sigrid"] == [1]
