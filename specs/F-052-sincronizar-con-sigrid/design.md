@@ -228,8 +228,7 @@ recomendación se conserva como razón. Detalle en `progress/explore_F-052_reval
 - **M3 (local, modo pruebas, obra 0404)**: con líneas `PRUEBA-IA` editadas a mano en Sigrid
   (horas cambiadas, una a 0), `traer_de_sigrid` y `marcar_registrada` en la base `partes` local;
   limpiar con `prueba_escritura_sigrid.py`.
-- **M4 (tras desplegar)**: una sincronización en producción por un usuario real y comprobar
-  `sigrid_motivo`/actor de una acción aplicada.
+- **M4 (tras desplegar)**: una sincronización en producción por un usuario real y comprobar `sigrid_motivo`/actor de una acción aplicada.
 
 ## 10. Riesgos y hallazgos
 
@@ -238,12 +237,11 @@ recomendación se conserva como razón. Detalle en `progress/explore_F-052_reval
   balanceador corta a los 230 s. sv4→sv5 (150 s) queda por debajo, pero suma lectura por ámbito,
   lotes por synckey y comprobación F-024; un corte es error sin parciales (R4, R13). M1: 5 s la
   obra mayor y 7,9 s cada lote de 200; `SINCRONIZAR_MAX_REGISTRO_IDS` lo acota.
-- **Obra 0404 de pruebas**: sus `partes:<id>` vienen de bases locales y pueden chocar con ids
-  reales; en ese ámbito el panel avisa de que `solo_sigrid_nuestra` no es fiable.
+- **Obra 0404 de pruebas**: sus `partes:<id>` vienen de bases locales y pueden chocar con ids reales; en ese ámbito el panel avisa de que `solo_sigrid_nuestra` no es fiable.
 - **H1 RESUELTO por F-053**: el pisado es `stmt_anular_linea` (`UPDATE can = 0, tot = 0`), el
   cliente de sv5 no tiene `DELETE` y `MOTIVO_LINEA_REGISTRADA` dice «En Sigrid no se borran
-  líneas». Efecto aquí: una línea del portal pisada sale `anulada_en_sigrid` (§3).
-- **H2 RESUELTO por F-038**: `ARCHITECTURE.md` ya dice 500.000 filas por petición.
+  líneas». Efecto aquí: una línea del portal pisada sale `anulada_en_sigrid` (§3). **H2 RESUELTO por
+  F-038**: `ARCHITECTURE.md` ya dice 500.000 filas por petición.
 - **H-M2-1 (M2, 2026-11-03; corregido)**: la clase de hora de Sigrid es **extra si su código
   empieza por `HE`** (`es_hora_extra` en `sincronizacion.py`), como sv5 (`HoraRecurso.es_extra`) y
   `fetch_dnis_sin_extra`: `auxhor.ext` vale 0 en las 7 `HE*` y daba 152 `distinta` falsas. Sin
