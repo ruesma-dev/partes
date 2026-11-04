@@ -159,6 +159,15 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 
 > Por qué ningún test lo caza: `ensure_ascii=True` cambia el texto (escapa `ñ` como `\u00f1`), pero el escape es inyectivo y la firma solo se compara consigo misma (mismo razonamiento que el 8).
 > Decisión: **mutante equivalente** (pendiente de aceptar por el humano). Misma demostración que el 8 (`DEMO_FIRMA` del mutante 8, con los textos `año: peón` y `Ñ`).
+>
+> **Caso límite: un surrogate suelto (review 1).** Con texto Unicode válido el razonamiento de arriba vale; con un surrogate suelto (`'\ud800'`) NO es equivalente dentro de sv4: el original revienta en `firma` (`.encode("utf-8")` de un JSON con `ensure_ascii=False`) y el mutante lo escapa y firma. Reproducido (review 1, desde `services/partes-front`, sin tocar el árbol: `clasificar([], lineas_de_sv5({"lineas": [S(9100, "manual", partida_cod="\ud800")]}))` y la firma del mutante recalculada con `ensure_ascii=True`), salida real:
+> ```
+> original: UnicodeEncodeError surrogates not allowed
+> mutante 9: firma 26cd9540d6e3db1c
+> JSONResponse: UnicodeEncodeError
+> ```
+> Por qué sigue sin observarse: (1) en `sincronizar`, aunque el mutante firme, el `JSONResponse` de sv4 revienta igual al pintar el ítem: 500 en los dos; (2) en la cadena real el surrogate ni llega a sv4: puede entrar en sv5 (`r.json()` de la respuesta de sigrid-api convierte un escape `\ud800` en un surrogate suelto), pero el `JSONResponse` de `/api/sincronizar/leer` revienta antes (con `LectorFalso` y `partida_cod="\ud800"`: **HTTP 500**, salida real), y sv4 lo recibe como `ok: false` y responde 502 sin ítems, igual con el original que con el mutante. La única divergencia es la que señala el reviewer: un `aplicar` llamado a mano contra un sv4 que llegara a recibir esa línea (500 en el original, 200 en el mutante), camino que el panel no puede producir y que hoy corta sv5 (punto 2).
+> Alternativa para matarlo (**NO aplicada: cambia producción y obliga a repetir la campaña de `sincronizacion.py`; lo decide el humano**): fijar `ensure_ascii=True` en `firma` (deja de depender del texto) y añadir un test con `'\ud800'` que exija una firma estable. Sin cambios de producción en la review 1 (instrucción del líder).
 
 ### 10. `services/partes-front/application/services/sincronizar_ambito.py:81` [entero]
 
