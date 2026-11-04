@@ -41,6 +41,8 @@ Traza R22 en `sigrid_motivo` y log INFO `[sincronizar][aplicar]`. Detalle: desig
   `SINCRONIZAR_SECO`** (el seco solo gobierna la escritura implícita de R10, también en el re-sync):
   razonamiento y tests en `design.md` §4 (ID8) y §8 (ID10), los dos **pendientes de ratificar por el
   humano** (review 1). Decisión de despliegue pendiente: `SINCRONIZAR_SECO` en Azure (M4).
+- **ID9 · `reaprobar` solo revalida** y abre el modal de aprobar de siempre (`registro_ids`, `ambito`,
+  `incluir_borradas`): doble confirmación (R17 y modal), sin camino de escritura nuevo (R24, R26).
 - **ID11 · `_releer_portal` fuera de seco**: tras las escrituras de R10, el ítem lleva el
   estado nuevo; sin releer, la firma que veía el usuario no cuadraba con la del re-sync y toda
   acción salía «cambió desde que lo viste». Corregido y con test.
