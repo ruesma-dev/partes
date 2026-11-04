@@ -40,6 +40,10 @@ de Sigrid, a papelera, reaprobar, restaurar), botón y panel en las vistas de ob
 contrato del motivo `sincronizar` con sv3, `ARCHITECTURE.md` y `azure-apps/partes.md` (local).
 `aplicar` NO depende de `SINCRONIZAR_SECO` (ID10, `design.md` DA18). **Siguiente: reviewer**;
 luego M3 y, tras desplegar, M4.
+**Review 1: CHANGES_REQUESTED** (`progress/review_F-052.md`); cambios 1 a 4 aplicados por el
+implementer (2026-11-04, solo tests y papeleo, sin producción ni mutación; detalle en
+`progress/impl_F-052.md` §Review 1). ID8 e ID10 quedan en `design.md` §4 y §8 **pendientes de
+ratificar por el humano**, con los equivalentes 5, 8, 9 y 14. **Siguiente: reviewer, pasada 2.**
 - [ ] **M3 · PENDIENTE del humano (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
   la aprobación del portal, con marca `PRUEBA-IA`)**. Comandos exactos en
   `progress/m3_F-052.md`. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
