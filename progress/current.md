@@ -44,6 +44,8 @@ luego M3 y, tras desplegar, M4.
 implementer (2026-11-04, solo tests y papeleo, sin producción ni mutación; detalle en
 `progress/impl_F-052.md` §Review 1). ID8 e ID10 quedan en `design.md` §4 y §8 **pendientes de
 ratificar por el humano**, con los equivalentes 5, 8, 9 y 14. **Siguiente: reviewer, pasada 2.**
+**Review 2: APROBADO condicionado** (5dfd282). El humano acepta los equivalentes 5, 8, 9 y 14
+(2026-11-04, 03c3df4) y ratifica ID8 e ID10 (2026-11-04, «si»). **Solo falta M3** para `done`.
 - [ ] **M3 · PENDIENTE del humano (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
   la aprobación del portal, con marca `PRUEBA-IA`)**. Comandos exactos en
   `progress/m3_F-052.md`. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
