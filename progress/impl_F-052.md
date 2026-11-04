@@ -28,42 +28,19 @@ Ficheros: los de la tabla, más los tests `test_f052_*` de sv4 (`vistas` y `pane
 
 ## Cómo funciona `aplicar` (R17–R25)
 
-`POST /api/sincronizar/aplicar` `{accion, ambito, items: [{registro_id, firma}]}`:
-1. 503 sin sv5; `validar_peticion` ⇒ 422 (acción desconocida, sin ítems, más de
-   `SINCRONIZAR_MAX_ITEMS_ACCION`, ids repetidos); F-022 `_validar_ambito` ⇒ 422 si algún id no
-   es de la vista (salvo `restaurar`, ID8). Ninguno de estos llama a sv5.
-2. Bajo el MISMO candado R29 que `sincronizar`, vuelve a leer y clasificar el ámbito (re-sync).
-   Un id que no sale en el re-sync ⇒ 422 de toda la petición. Firma distinta ⇒ descartado
-   «cambió desde que lo viste». Acción que no está en `acciones_de` de su clase ⇒ descartado.
-3. Ejecuta: `marcar_registrada` y `traer_de_sigrid` con el repositorio (CAS por lo visto:
-   estado + `hmores_ide`, horas + `hmores_ide`); `a_papelera` = `borrar_linea(by=actor)`;
-   `restaurar` = `restore_registro`; `reaprobar` no escribe: devuelve `abrir_aprobar` y el panel
-   abre el modal de aprobar existente. Congelada (F-004) o duplicado activo (F-061) ⇒ descartado.
-4. `traer`: un recálculo compartido (F-049) con motivo `sincronizar` para los documentos tocados
-   y los del mismo día y persona; el actor es `_actor(request)`.
-5. Log INFO `[sincronizar][aplicar] accion= actor= … recalculo=`. Respuesta `{ok, accion,
-   seco, aplicados, descartados, recalculo[, abrir_aprobar, incluir_borradas]}`.
-
-Traza (R22): `sigrid_motivo` = «Sincronizado con Sigrid: {cambio} · {actor} · {fecha}» (≤255);
-en `marcar` también `sigrid_registrado_by` = actor y las referencias de Sigrid (`hmoide`,
-`hmores_ide`, `parte_cod`).
+`POST /api/sincronizar/aplicar` `{accion, ambito, items}`: 503 sin sv5; 422 de `validar_peticion` y de F-022
+(salvo `restaurar`, ID8), sin llamar a sv5. Bajo el candado de R29 vuelve a sincronizar: id fuera del
+re-sync ⇒ 422 entero; firma distinta o acción ajena a la clase ⇒ descartado. Escribe con CAS
+(`marcar_registrada`, `traer_de_sigrid`) o por las rutas de siempre (`borrar_linea`, `restore_registro`);
+`reaprobar` solo abre el modal de aprobar. `traer` pide un recálculo compartido (F-049, `sincronizar`).
+Traza R22 en `sigrid_motivo` y log INFO `[sincronizar][aplicar]`. Detalle: design §2, §4 y §6.
 
 ## Decisiones de implementación (ID8–ID14, para el reviewer)
 
-- **ID8 · `restaurar` no pasa por F-022**: la línea está en la papelera y la vista no la lista.
-  Su pertenencia al ámbito la prueba el re-sync (sale como `solo_sigrid_nuestra` con `donde`
-  papelera); un id que el re-sync no da ⇒ 422 de toda la petición.
-- **ID9 · `reaprobar` solo revalida**: con firma y clase al día, abre el modal de aprobar de
-  siempre (`registro_ids`, `ambito`, `incluir_borradas`). Doble confirmación: la de R17 y la del
-  modal. No hay camino de escritura nuevo hacia Sigrid (R24, R26).
-- **ID10 · SECO y `aplicar`**: `aplicar` NO depende de `SINCRONIZAR_SECO`. DA18 protege la
-  escritura IMPLÍCITA de R10 (pasar a `borrado_sigrid` al comparar, sin que nadie lo pida); una
-  acción explícita la pide un usuario, la confirma y se revalida por firma bajo candado, que es
-  lo que DA18 quería garantizar. El re-sync de dentro de `aplicar` SÍ respeta seco (en seco, R10
-  sigue solo informando). Consecuencia: en seco, una `borrada_en_sigrid` aún `registrado` no se
-  puede llevar a la papelera (está congelada) y vuelve descartada con el motivo de F-004.
-  Anotado en `design.md` (fila DA18). **Decisión de despliegue pendiente**: valor de
-  `SINCRONIZAR_SECO` en Azure (M4).
+- **ID8 · `restaurar` sin `_validar_ambito` de F-022** e **ID10 · `aplicar` no depende de
+  `SINCRONIZAR_SECO`** (el seco solo gobierna la escritura implícita de R10, también en el re-sync):
+  razonamiento y tests en `design.md` §4 (ID8) y §8 (ID10), los dos **pendientes de ratificar por el
+  humano** (review 1). Decisión de despliegue pendiente: `SINCRONIZAR_SECO` en Azure (M4).
 - **ID11 · `_releer_portal` fuera de seco**: tras las escrituras de R10, el ítem lleva el
   estado nuevo; sin releer, la firma que veía el usuario no cuadraba con la del re-sync y toda
   acción salía «cambió desde que lo viste». Corregido y con test.
@@ -178,33 +155,7 @@ línea exacta, `pytest <fichero> -k <test>`: **38 de 38 fallan** (`rc=1`, «N fa
 no se mutó. Solo tests: `test_f052_{clasificar,sincronizar_ambito,repositorio,endpoints}.py` (sv4)
 y `test_f052_api_sincronizar.py` (sv5).
 
-| Mutante (línea) | Veredicto | Test / motivo |
-|---|---|---|
-| 1, 2, 3 · `sincronizacion.py:72, 91, 121` `frozen` | matado | `test_f052_r18_lineas_y_diferencias_inmutables` |
-| 4 · `sincronizacion.py:155` `<=`→`<` | matado | `test_f052_r8_a_cero_justo_en_la_tolerancia` |
-| 6 · `sincronizacion.py:191` `>`→`>=` | matado | `test_f052_r9_diferencia_de_horas_justo_en_la_tolerancia` |
-| 7 · `sincronizacion.py:270` `and`→`or` | matado | `test_f052_r8_ciz_hermano_con_ide_menor_no_casa_con_su_inicio` |
-| 10 · `sincronizar_ambito.py:81` `<= 0`→`<= 1` | matado | `test_f052_r15_ide_1_es_sincronizable` |
-| 11 · `sincronizar_ambito.py:99` `frozen` | matado | `test_f052_r15_ambito_inmutable` |
-| 12 · `sincronizar_ambito.py:152` `or`→`and` | matado | `test_f052_r2_linea_de_sv5_con_origen_desconocido_es_error` |
-| 13 · `sincronizar_ambito.py:195` `500`→`501` | matado | `test_f052_r18_tope_por_defecto_500` |
-| 15 · `sincronizar_ambito.py:335` `and`→`or` | matado | `test_f052_da18_seco_veredicto_sin_registro_id_se_ignora` |
-| 16 · `sincronizar_ambito.py:363` `>`→`>=` | matado | `test_f052_r18_tope_justo_es_valido` |
-| 17, 18 · sv4 `settings.py:82, 94` `gt/ge` | matado | `test_f052_settings_limites_validos_justos` |
-| 19–23 · `parte_repository.py:234–236` (`_mismas_horas`) | matado | `test_f052_r20_cas_de_horas_mismas_horas` (y `..._horas_nulas_en_la_base_...`) |
-| 24 · `parte_repository.py:2767` `and`→`or` | matado | `test_f052_r12_donde_estan_parte_con_solo_una_marca_de_borrado` |
-| 25 · `parte_repository.py:2789` `with_for_update` | matado | `test_f052_r20_bloqueo_for_update_en_orden_de_id` (sesión doble: SQLite no bloquea) |
-| 26 · `parte_repository.py:2873` `or`→`and` | matado | `test_f052_r20_traer_a_linea_sin_estado_lo_dice` |
-| 27 · `parte_repository.py:2899` `and`→`or` | matado | `test_f052_r23_traer_linea_sin_recurso_no_da_par_de_dia` |
-| 28, 29 · sv4 `app.py:307` largo de `firma` | matado | `test_f052_r18_aplicar_largo_de_la_firma` (1, 64 y 65) |
-| 30, 32 · sv4 `app.py:3464, 3479` `include_in_schema` | matado | `test_f052_r18_rutas_fuera_del_esquema` |
-| 31, 33 · sv4 `app.py:3473, 3494` `ok: False` | matado | aserción `ok is False` en los dos tests `..._r30_..._sin_transfer_503` |
-| 34 · sv5 `settings.py:37` `ge=1` | matado | `test_f052_r6_settings_max_registro_ids_minimo_1` |
-| 35 · `registro_models.py:234` `frozen` | matado | `test_f052_r2_linea_sincronizar_inmutable` |
-| 36–39 · sv5 `app.py:211, 212, 227` | matado | `test_f052_r6_ide_1_y_un_solo_dia_son_validos` |
-| 40 · sv5 `app.py:293` `is None` | matado | `test_f052_r1_lector_inyectado_sin_pipeline` |
-| 41 · sv5 `app.py:407` `ok: False` | matado | `test_f052_r6_demasiados_registro_ids_ok_false` |
-| 42 · sv5 `app.py:409` `is not None` | matado | `test_f052_r1_log_dice_el_ambito` (caplog) |
+Los 38 matados, mutante a mutante con su test, en `progress/mutacion_F-052.md` (secciones «Análisis (MATADO)»).
 
 **Justificación PENDIENTE DE ACEPTAR POR EL HUMANO (4 equivalentes)**; demostración ejecutable de cada uno en `mutacion_F-052.md` (8 y 9: `DEMO_FIRMA`, bajo el 8):
 
@@ -216,3 +167,50 @@ y `test_f052_api_sincronizar.py` (sv5).
 | 14 · `sincronizar_ambito.py:294` `por_confirmar = True` | equivalente | escritura muerta: el único lector (línea 279) va antes; ni `item_a_dict`, ni `firma`, ni `aplicar` lo leen |
 
 Ninguno se mató quitando código defensivo (RM6: N/A). `bash harness/init.sh` (7b83dc3): **ENTORNO LISTO**; sv4 3609 passed, 1 skipped (440 s); sv5 1622 passed; raíz 540 passed; `PUERTA COBERTURA: 99.9% (741/742)`.
+
+## Review 1 (CHANGES_REQUESTED): cambios 1 a 4 aplicados
+
+Sin código de producción, sin relanzar la mutación, sin push. Commits: 31ba861 (1), e425e2e (2),
+6f138a2 (3), azure-apps d098bc6 (3, local), 3747c50 (4).
+1. **Tests de R14, R26 y R28** (solo tests): sv4 `test_f052_r14_r26_solo_lectura.py` (15),
+   sv5 `test_f052_r26_leer_no_escribe.py` (6), raíz `test_f052_r28_congelacion_intacta.py` (4).
+   Espías que apuntan cualquier método sin reventar (un `except` no tapa la llamada) y guardias AST.
+2. `tasks.md`: T8 `[x]` citando `progress/m2_F-052.md` (M2 superada, líder, 2026-11-03).
+3. `design.md` §8: ID10 fuera de la celda aprobada de DA18; ID8 en §4. Los dos **pendientes de
+   ratificar por el humano**. ID8 también en la fila `/api/sincronizar/aplicar` de `azure-apps/partes.md`.
+4. `mutacion_F-052.md`, superviviente 9: el surrogate suelto, reproducido (original
+   `UnicodeEncodeError`, mutante firma). Sigue sin observarse: el `JSONResponse` de sv4 revienta
+   igual y sv5 ya da 500 antes (sv4 responde 502). Matarlo cambia producción: lo decide el humano.
+
+**Fase RED** (copia `git archive HEAD` en el scratchpad, `red_review1/`, con lo vigilado roto a
+mano; el árbol real no se tocó). Python del `.venv`, `-q -p no:cacheprovider --tb=line`, `E`
+contadas con `sort | uniq -c`. La rotura se deshizo tras cada pasada y el fichero volvió a verde.
+- R14, `self._repo.guardar_sincronizacion(cuerpo)` en `_sincronizar`. Con
+  `pytest tests/test_f052_r14_r26_solo_lectura.py -k r14` (el `-k` casa con el nombre del módulo:
+  corren los 15):
+```
+     13 E   AttributeError: 'RepoAcciones' object has no attribute 'guardar_sincronizacion'
+13 failed, 2 passed in 0.31s
+```
+- R26 sv4, `self._sv5.ejecutar({"lineas": []})` en `_ejecutar` (mismo fichero, `-k r26`):
+```
+     10 E   AssertionError: assert ['ejecutar'] == []
+      1 E   AssertionError: assert {'comprobar',...ronizar_leer'} == {'comprobar',...ronizar_leer'}
+11 failed, 4 passed in 0.14s
+```
+- R26 sv5, `_lector().escribir([])` en la ruta (`pytest tests/test_f052_r26_leer_no_escribe.py`):
+```
+      1 E   AssertionError: assert 'escribir' not in ['lineas_sincronizar', 'escribir']
+      1 E   AssertionError: assert 'escribir' not in ['lineas_sincronizar', 'lineas_sincronizar_por_synckey', 'escribir']
+      1 E   AssertionError: assert not ({'Exception', 'JSONResponse', 'SincronizarIn', '_lector', 'ambito', 'app', ...} & {'_lock', 'escribir', 'lock', 'pipeline'})
+3 failed, 3 passed, 1 warning in 1.29s
+```
+- R28 (raíz, `pytest tests/test_f052_r28_congelacion_intacta.py`), tres roturas:
+  (a) `registrado` deja de congelar en `congelacion.py` (con un comentario «sincronizar»):
+  `2 failed, 2 passed` (`assert [False, True, False, True] == [True, True, True, True]` y
+  `AssertionError: congelacion.py`); (b) `aplicar_marcar_registrada` también asigna `reg.horas`:
+  `1 failed, 3 passed` (`assert {'aplicar_mar...er_de_sigrid'} == {'aplicar_traer_de_sigrid'}`);
+  (c) `web/app.py` nombra `aplicar_traer_de_sigrid`: `1 failed, 3 passed`.
+- Verde en el árbol real: 15, 6 y 4 passed; `ruff check` limpio en los tres ficheros.
+
+**`bash harness/init.sh`** (tras estos commits): INIT_PENDIENTE
