@@ -215,4 +215,4 @@ contadas con `sort | uniq -c`. La rotura se deshizo tras cada pasada y el ficher
   (c) `web/app.py` nombra `aplicar_traer_de_sigrid`: `1 failed, 3 passed`.
 - Verde en el árbol real: 15, 6 y 4 passed; `ruff check` limpio en los tres ficheros.
 
-**`bash harness/init.sh`** (tras estos commits): INIT_PENDIENTE
+**`bash harness/init.sh`** (c12efcf): **ENTORNO LISTO**, exit 0. sv4 3624 passed, 1 skipped (518 s, en la 1.ª pasada; la 2.ª, de caché); raíz 544 passed, 3 skipped; sv5 1628 passed a mano (`-p no:cacheprovider`, 10 s: init lo dio de caché); COBERTURA 99,9 % (741/742); TAMAÑO OK (design 250/250 tras recortar dos viñetas: la 1.ª pasada dio KO con 252, por los párrafos de ID8 e ID10).
