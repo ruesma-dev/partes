@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **61 features**, 11 abiertas, 50 terminadas.
-
-En curso: **F-052**.
+Resumen: **61 features**, 10 abiertas, 51 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -13,7 +11,6 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | en curso | aprobada el 2026-11-02, M1 hecha · `partes-wt-f052` | critico | `feature/F-052-sincronizar-con-sigrid` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
@@ -72,6 +69,7 @@ Bloqueadas: **F-032**.
 | F-004 | Congelar registros aprobados | 5 | estandar |  |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | critico | Desplegada 2026-10-31: sv4 ca-sv4-front--r20261031093735 (08:38:53Z) y sv3 ca-sv3-persistencia--r20261031093921 (08:40:44Z), Healthy, arranque sin Traceback. Pendiente: M1 (portal, humano), M2 y M3 (líder, con el primer parte nuevo que entre). |
 | F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |  |
+| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | critico |  |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
 | F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar | M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK |
 | F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |  |
@@ -81,14 +79,6 @@ Bloqueadas: **F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
-
-### F-052 · Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa
-
-estado **en curso** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
-
-**Spec**: aprobada el 2026-11-02, M1 hecha · `partes-wt-f052`
-
-Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, hasta 500.000 filas por lectura y solo entonces pagina, truncated = error, sin lock) y sv4 clasifica cada línea en 12 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual/auxiliar). Primera entrega (DA1 = A): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050 (ya en dev). Decisiones y M1 (hecha) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. H1 resuelto por F-053. Revalidada el 2026-11-01 contra dev 69af0f5: Spec aprobada por el humano el 2026-11-02: DA9 superada, sin tope de líneas (el límite es el corte de 230 s; cota de 3000 registro_ids) y una sola feature con punto de control obligatorio tras la comparación (M2 antes de las acciones).
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
@@ -463,6 +453,14 @@ Pedida por el humano el 2026-10-14 (idea aprobada) tras dos quejas de Administra
 estado **terminada** · prioridad 6 · rigor `estandar` · SDD sí · rama `feature/F-010-resincronizar-orm-models`
 
 El spec-author de F-003 detectó (2026-08-15) que la duplicación tolerada de infrastructure/database/orm_models.py YA está desincronizada: sv3 tiene horas_orig/extra_auto que faltan en sv4, y sv4 tiene las columnas sigrid_* que faltan en sv3. Viola la trampa 3 de C3 (un cambio de schema modifica las DOS copias). Resincronizar ambas copias con el schema real de la BBDD partes, añadir un test que compare las dos declaraciones (como el guardián R11 de F-002), y valorar si el ALTER TABLE IF NOT EXISTS de sv4 debe cubrir también lo de sv3.
+
+### F-052 · Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa
+
+estado **terminada** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
+
+**Spec**: aprobada el 2026-11-02, M1, M2 y M3 hechas; pendiente M4 tras desplegar · `partes-wt-f052`
+
+Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, hasta 500.000 filas por lectura y solo entonces pagina, truncated = error, sin lock) y sv4 clasifica cada línea en 12 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual/auxiliar). Primera entrega (DA1 = A): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050 (ya en dev). Decisiones y M1 (hecha) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. H1 resuelto por F-053. Revalidada el 2026-11-01 contra dev 69af0f5: Spec aprobada por el humano el 2026-11-02: DA9 superada, sin tope de líneas (el límite es el corte de 230 s; cota de 3000 registro_ids) y una sola feature con punto de control obligatorio tras la comparación (M2 antes de las acciones).
 
 ### F-015 · Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada
 

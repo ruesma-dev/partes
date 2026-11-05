@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-052 · EN CURSO (`in_progress`, implementación T1–T17 hecha, pendiente reviewer; M3 y M4 del humano): sincronizar con Sigrid desde una obra o una persona
+## F-052 · DONE 2026-11-05 (review APPROVED pasada 2, rigor crítico; mutación 331: 289 muertos + 38 matados con tests + 4 equivalentes aceptados; M2 y M3 superadas; SIN DESPLEGAR; pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4): sincronizar con Sigrid desde una obra o una persona
 
 Orden del humano (2026-11-01): «vamos con la siguiente feature f52». Rama
 `feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, con `dev` 69af0f5
@@ -45,8 +45,9 @@ implementer (2026-11-04, solo tests y papeleo, sin producción ni mutación; det
 `progress/impl_F-052.md` §Review 1). ID8 e ID10 quedan en `design.md` §4 y §8 **pendientes de
 ratificar por el humano**, con los equivalentes 5, 8, 9 y 14. **Siguiente: reviewer, pasada 2.**
 **Review 2: APROBADO condicionado** (5dfd282). El humano acepta los equivalentes 5, 8, 9 y 14
-(2026-11-04, 03c3df4) y ratifica ID8 e ID10 (2026-11-04, «si»). **Solo falta M3** para `done`.
-- [ ] **M3 · PENDIENTE del humano (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
+(2026-11-04, 03c3df4) y ratifica ID8 e ID10 (2026-11-04, «si»).
+**M3 SUPERADA** (líder, 2026-11-05, «haz tu la prueba»; resultado en `progress/m3_F-052.md` §RESULTADO): mes 2026/05, PT26/00382 creado, sincronizado, aplicado y limpiado; ninguna `[sigrid-write]` durante sincronizar ni aplicar. El paso 5 se hizo por `sql_write` con autorización del humano («a»). **F-052 `done`.**
+- [x] **M3 · HECHA 2026-11-05 por el líder (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
   la aprobación del portal, con marca `PRUEBA-IA`)**. Comandos exactos en
   `progress/m3_F-052.md`. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
   nunca 2026/06–2026/11 (PT26/00373, 00375 y 00376 se conservan). Resumen: sv5 del worktree con

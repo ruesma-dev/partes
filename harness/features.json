@@ -761,12 +761,12 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 6,
       "branch": "feature/F-052-sincronizar-con-sigrid",
-      "spec": "aprobada el 2026-11-02, M1 hecha · `partes-wt-f052`"
+      "spec": "aprobada el 2026-11-02, M1, M2 y M3 hechas; pendiente M4 tras desplegar · `partes-wt-f052`"
     },
     {
       "id": "F-053",

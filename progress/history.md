@@ -992,3 +992,19 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
 - Verificado: `init.sh` en verde en `dev`; M2 en local con X = 10 en 2025/09 (`progress/m2_F-056.md`)
   OK salvo (g), que no se hace; M3 OK; activada el 2026-10-30 con `FRANQUICIA_CAMPO_EXT=10` en sv5
   (`ca-sv5-transfer--0000004`, arranque sano).
+
+## F-052 · Sincronizar con Sigrid desde una obra o una persona — done 2026-11-05
+
+- Rama `feature/F-052-sincronizar-con-sigrid` · rigor crítico · sdd · APPROVED del reviewer en la
+  pasada 2 (`progress/review_F-052.md`; pasada 1: CHANGES_REQUESTED, solo tests y papeleo).
+- Entregado: sv5 `POST /api/sincronizar/leer` (solo lectura, hasta 500.000 filas, `truncated` =
+  error, sin lock); sv4 `POST /api/sincronizar` (12 clases, modo seco `SINCRONIZAR_SECO`, `true`
+  por defecto) y `POST /api/sincronizar/aplicar` (marcar registrada, traer horas de Sigrid, a
+  papelera, reaprobar, restaurar; con confirmación, firma y actor); botón y panel en las vistas de
+  obra y persona. F-052 no escribe en Sigrid. azure-apps `1289301`, `d098bc6`, `fb6f9b3`.
+- Decisiones del humano: DA1–DA18 (`design.md` §8); ID8 e ID10 ratificadas («si», 2026-11-04).
+- Verificado: init.sh en verde (544 passed); cobertura 99,9 %; mutación 331 (289 muertos, 38
+  matados después con tests, 4 equivalentes aceptados: «si, acepto los 4»); M1; M2 superada tras
+  H-M2-1 (clase de hora por el prefijo `HE`); M3 superada el 2026-11-05 (`progress/m3_F-052.md`).
+- Pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4; feature aparte
+  H-M2-1b (el selector de horas del portal, por el prefijo `HE` en vez de `option.ext`).
