@@ -1016,6 +1016,21 @@
       "priority": 16,
       "branch": "feature/F-065-buzon-por-aviso-de-graph",
       "spec": "aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A)"
+    },
+    {
+      "id": "F-066",
+      "title": "El selector de código de hora del portal clasifica extra/ordinaria por el prefijo HE y no por auxhor.ext",
+      "description": "Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»). En Sigrid auxhor.ext no es fiable (las 7 horas HE* tienen ext = 0), pero el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora del repositorio, y el desplegable buildOptions de app.js) fija tipo_hora con auxhor.ext: elegir una HE* deja la línea normal y sv5 escribiría una HL. Impacto medido el 2026-11-03 (solo lectura): 3 líneas omitido (registros 16417, 16422, 16640, obra 0678), ninguna registrada. Solo sv4: es_hora_extra pasa a application/services/clase_hora.py (sincronizacion.py la reimporta), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana el campo extra y el JS agrupa por él; franquicia.extras_pendientes usa la misma función. No toca sv3 (DA7: F-006 propone lo contrario y debe reescribirse), ni congelacion.py, esta_congelado, orm_models.py ni gemelos. DA1–DA9 en design.md §8 (DA5 badges, DA6 las 3 líneas, DA8 regla del prefijo como gemelo vigilado).",
+      "acceptance": [
+        "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R19, M1–M3)",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 7,
+      "branch": "feature/F-066-selector-hora-por-prefijo-he",
+      "spec": "escrita 2026-11-06, pendiente de aprobación del humano (DA1–DA9) · `partes-wt-f066`"
     }
   ]
 }
