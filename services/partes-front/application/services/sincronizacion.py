@@ -105,7 +105,8 @@ class LineaSigridSync:
     fecha_int: int | None
     hora_ide: int | None
     hora_cod: str | None
-    #: `auxhor.ext`, informativo: NO decide la clase (H-M2-1, `es_hora_extra`).
+    #: `auxhor.ext`, informativo: NO decide la clase (H-M2-1; la decide
+    #: `clase_hora.es_hora_extra`, F-066).
     hora_ext: int | None
     partida_ide: int | None
     partida_cod: str | None

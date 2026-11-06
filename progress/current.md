@@ -1,7 +1,12 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-066 · SPEC APROBADA 2026-11-06 (`spec_ready`; humano: «si» a DA2–DA5, DA7 y DA9–DA12 con la recomendación): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+## F-066 · EN IMPLEMENTACIÓN 2026-11-06 (`in_progress`; spec aprobada: «si» a DA2–DA5, DA7 y DA9–DA12 con la recomendación): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+**Implementer** (2026-11-06): T1–T8 hechas, un commit por tarea (76ac588 … T8), informe en
+`progress/impl_F-066.md`. Pendiente: T9 mutación (la lanza el líder), T10 M2 (humano, tras
+desplegar sv4) y reviewer. Desviaciones (justificadas en el informe): R6 se prueba en
+`test_f066_usos_sv4.py` (cierra en T7, no en T1) y R8 queda en verde en T5 (sale de R7/DA11), no
+en T3; dos defectos de los tests de T4 corregidos en T5. `azure-apps/partes.md` sin cambios.
 **Aprobación** (humano, 2026-11-06, «si» a «¿Apruebas F-066 con las recomendaciones y cierras F-006?»). **F-006 RETIRADA** del backlog: pedía usar `auxhor.ext` y ningún código lo tiene a 1 (M1); lo que hacía falta en sv3 lo cubre F-067. Siguiente: implementer.
 
 
