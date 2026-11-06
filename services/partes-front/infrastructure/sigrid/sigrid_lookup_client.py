@@ -25,6 +25,8 @@ from typing import Any
 
 import httpx
 
+from application.services.clase_hora import es_excluido
+
 logger = logging.getLogger(__name__)
 
 _LOG_PREFIX = "[sigrid-lookup]"
@@ -233,10 +235,16 @@ class SigridLookupClient:
             label="tipos_hora",
         )
         out: list[TipoHoraOption] = []
+        omitidos = 0
         for row in rows:
             rm = dict(zip(columns, row))
             ide = _opt_int(rm.get("ide"))
             if ide is None:
+                continue
+            # F-066 (R7, DA11): los codigos excluidos no entran en el
+            # catalogo: ni desplegable, ni `get_by_ide`, ni matcher.
+            if es_excluido(_opt_str(rm.get("codigo"))):
+                omitidos += 1
                 continue
             out.append(
                 TipoHoraOption(
@@ -250,7 +258,8 @@ class SigridLookupClient:
             )
         # El orden de siempre (normales antes que extras, por codigo).
         out.sort(key=lambda t: (t.ext, t.codigo or ""))
-        logger.info("%s tipos_hora -> %s filas", _LOG_PREFIX, len(out))
+        logger.info("%s tipos_hora -> %s filas (%s excluidas)", _LOG_PREFIX,
+                    len(out), omitidos)
         return out
 
     def fetch_obras(self) -> list[ObraOption]:

@@ -112,10 +112,11 @@ def test_f066_r9_tipos_hora_lleva_extra(monkeypatch) -> None:
     cuerpo = r.json()
     assert cuerpo["ok"] is True
     vistos = {i["codigo"]: (i["ext"], i["extra"]) for i in cuerpo["items"]}
-    # `SigridLookupFalso` sirve HL01, HEOF, HECAP, HL09 (ext 1), "" y HENC.
+    # `SigridLookupFalso` sirve HL01, HEOF, HECAP, HL09 (ext 1), "" (sale
+    # como None) y HENC.
     assert vistos == {"HL01": (0, False), "HEOF": (0, True),
                       "HECAP": (0, True), "HL09": (1, False),
-                      "": (0, False)}
+                      None: (0, False)}
     assert all(set(i) == {"ide", "codigo", "descripcion", "ext", "extra"}
                for i in cuerpo["items"])
     assert all(i["extra"] is True or i["extra"] is False
@@ -208,7 +209,7 @@ def test_f066_r10_grupo_vacio_no_sale() -> None:
 
 def test_f066_r11_js_sin_regla() -> None:
     fuente = _build_options()
-    assert ".ext" not in fuente
+    assert not re.search(r"\.ext\b", fuente)
     assert "HENC" not in fuente and "startsWith" not in fuente
     assert "t.extra === true" in fuente
     js = APP_JS.read_text(encoding="utf-8")
