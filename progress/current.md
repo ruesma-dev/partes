@@ -1,30 +1,32 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-066 · SPEC REVISADA 2026-11-06, pendiente de aprobación (PARADA 1): sv4 clasifica la hora extra por «`HE` salvo `HENC`»
+## F-066 · SPEC REVISADA (2.ª) 2026-11-06, pendiente de aprobación (PARADA 1): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
 
 Origen: H-M2-1b de F-052, acordado con el humano el 2026-11-03 («me parece bien»). Rama
 `feature/F-066-selector-hora-por-prefijo-he` (desde 0d8fc14), worktree `partes-wt-f066`. Spec en
 `specs/F-066-selector-hora-por-prefijo-he/`; `features.json` en `pending`, rigor `critico`,
 prioridad 7.
-**M1 HECHA** (líder, 2026-11-06, solo lectura; detalle en `design.md` §7): `auxhor` está en
-`ruesma` (no en `ruesma_rep`); **ningún código con `ext = 1`**; los 7 `HE*` con `ext = 0` y uno,
-**`HENC` «HORA ENCARGADO» (1 uso en `hmores`), no es extra**. En `partes`, las únicas `HE*` con
-`normal` son 7 `HENC` (registros 44, 46, 53, 55, 67, 69, 142, documentos inactivos de las obras
-0678 y 0713), que están bien; 16417, 16422 y 16640 ya tienen `MENC`; inverso: ninguna.
-**Decisión A del humano** («a», 2026-11-06): extra = `HE*` excepto `HENC`, la excepción en un solo
-sitio por servicio. F-066 la aplica en todo sv4 (`application/services/clase_hora.py`, incluido
-`es_hora_extra` de F-052, `fetch_hora_extra_recurso`, que hoy elige `HENC` antes que `HEOF`,
-`fetch_dnis_sin_extra` y `franquicia.extras_pendientes`); sv5 va en **F-067** (alta `pending`,
-crítico, prioridad 7, «sv5: HENC no es hora extra»), con el guardián de gemelos y la propuesta de
-entrada en `CLAUDE.md` como DA suya (no escrita).
-**Decisiones que debe validar el humano** (`design.md` §8, recomendada entre paréntesis): DA1
-`clase_hora.py` con Python y SQL (A), DA2 el repositorio fija `tipo_hora` (A), DA3 sin código no
-toca (A), DA4 el servidor manda `extra` (A), DA5 disyuntivos `hora_ext == 1` sin tocar (A,
-confirmada por M1), DA7 sv3 y F-006 (A: reescribir F-006 con la regla y la excepción; la rama de
-último recurso de sv3 puede elegir `HENC`), DA8 guardián en F-067 (A), DA9 crítico, DA10 desplegar
-F-066 sin esperar a F-067 (A; desfase sv4/sv5 en `HENC` hasta entonces). **DA6 retirada**: no hay
-líneas que reparar.
+**M1 HECHA** (líder, 2026-11-06, solo lectura; `design.md` §7): `auxhor` está en `ruesma` (no en
+`ruesma_rep`); ningún código con `ext = 1`; `HENC` «HORA ENCARGADO» (ide 63, sin `caacod` ni
+`connom`, tocado en 2022) tiene 1 uso manual en `hmores` (obra 0640, 21/04/2022, 4 h) y 0 filas en
+`reshor`. En `partes`, 7 líneas `HENC` (inactivas, obras 0678 y 0713, puestas por sv3 por
+categoría); 16417, 16422 y 16640 ya tienen `MENC`.
+**Decisión del humano** (2026-11-06, sustituye a la anterior): «HENC no debe ser tenido en cuenta
+por la app»; alcance aprobado con «ok». `HENC` = código excluido (lista de un elemento, un sitio por
+servicio) y la extra vuelve a ser «prefijo `HE`». F-066 (sv4): `clase_hora.py` (DA1 decidida),
+`fetch_tipos_hora` sin excluidos, `set_registro_hora` por prefijo, `fetch_hora_extra_recurso`,
+`fetch_dnis_sin_extra`, `franquicia` y sincronizar sin `HENC`. **F-067** ampliada a «sv3 y sv5:
+HENC excluido» (sv3 no la asigna, sv5 la omite con motivo propio, guardián de gemelos de los tres
+servicios; entrada en `CLAUDE.md` como DA suya, no escrita). Fuera: las 7 líneas, la línea de 2022 y
+la baja de `HENC` en Sigrid (Administración).
+**Decisiones que debe validar el humano** (`design.md` §8, recomendada entre paréntesis): DA2 el
+repositorio fija `tipo_hora` (A), DA3 sin código no toca (A), DA4 el servidor manda `extra` (A), DA5
+disyuntivos `hora_ext == 1` sin tocar (A, confirmada por M1), DA7 sv3 va a F-067 y **propuesta:
+cerrar F-006 como superada** (pide usar `auxhor.ext`, que no marca ningún código; no se ha
+cambiado), DA8 guardián en F-067, DA9 crítico, DA10 desplegar sin esperar a F-067 (mantenida),
+DA11 quitar los excluidos en `fetch_tipos_hora` (A), DA12 `PATCH` con `HENC` ⇒ 400 «no existe»
+(A). DA6 retirada.
 
 ## F-052 · DONE 2026-11-05 (review APPROVED pasada 2, rigor crítico; mutación 331: 289 muertos + 38 matados con tests + 4 equivalentes aceptados; M2 y M3 superadas; SIN DESPLEGAR; pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4): sincronizar con Sigrid desde una obra o una persona
 
