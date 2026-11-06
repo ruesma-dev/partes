@@ -11,6 +11,6 @@ aprobadas.
 - [x] T6: RED tests R19–R21 en `test_f066_usos_sv4.py`  |  Verificación: pytest del fichero en rojo, traza en el informe
 - [x] T7: GREEN `fetch_hora_extra_recurso`, `fetch_dnis_sin_extra` y `franquicia.extras_pendientes` con `clase_hora`  |  Verificación: `python -m pytest services/partes-front/tests/test_f066_usos_sv4.py services/partes-front/tests/test_f056_franquicia.py services/partes-front/tests/test_f049_guardar_celda.py -q`
 - [x] T8: docs: `docs/ARCHITECTURE.md` semántica 3 y docstrings (`tipo_hora_catalog.py`, `franquicia.py`, `sincronizacion.py`)  |  Verificación: revisión del reviewer (R22)
-- [ ] T9: mutación completa de las líneas cambiadas (rigor crítico; la lanza el líder) y tratamiento de supervivientes  |  Verificación: `python -m harness.mutacion` según CHECKPOINTS, 0 supervivientes sin test o justificación aceptada
+- [x] T9: mutación completa de las líneas cambiadas (rigor crítico; la lanza el líder) y tratamiento de supervivientes  |  Verificación: `python -m harness.mutacion` según CHECKPOINTS, 0 supervivientes sin test o justificación aceptada
 - [ ] T10: M2 tras desplegar sv4 (humano)  |  Verificación: MANUAL (humano), `requirements.md` §Verificaciones manuales
 - [ ] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`

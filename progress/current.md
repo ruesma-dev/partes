@@ -1,39 +1,41 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-066 · EN IMPLEMENTACIÓN 2026-11-06 (`in_progress`; spec aprobada: «si» a DA2–DA5, DA7 y DA9–DA12 con la recomendación): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
-**Implementer** (2026-11-06): T1–T8 hechas, un commit por tarea (76ac588 … T8), informe en
-`progress/impl_F-066.md`. Pendiente: T9 mutación (la lanza el líder), T10 M2 (humano, tras
-desplegar sv4) y reviewer. Desviaciones (justificadas en el informe): R6 se prueba en
-`test_f066_usos_sv4.py` (cierra en T7, no en T1) y R8 queda en verde en T5 (sale de R7/DA11), no
-en T3; dos defectos de los tests de T4 corregidos en T5. `azure-apps/partes.md` sin cambios.
-**Aprobación** (humano, 2026-11-06, «si» a «¿Apruebas F-066 con las recomendaciones y cierras F-006?»). **F-006 RETIRADA** del backlog: pedía usar `auxhor.ext` y ningún código lo tiene a 1 (M1); lo que hacía falta en sv3 lo cubre F-067. Siguiente: implementer.
+## F-066 · EN REVIEW 2026-11-06 (`in_progress`, rigor crítico; review 1 CHANGES_REQUESTED solo por papeleo, atendida): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+**Estado**: T1–T9 hechas, un commit por tarea (76ac588 … 7d5c968); informe en
+`progress/impl_F-066.md`. **T9**: campaña del líder, 21 mutantes, 18 muertos, 3 supervivientes
+(contador `omitidos` del log de `fetch_tipos_hora`), matados con
+`test_f066_r7_log_cuenta_excluidas` (`progress/mutacion_F-066.md`, sin `PENDIENTE`). T11
+(`init.sh` en verde) con el commit de este papeleo. Pendiente: reviewer (pasada 2), desplegar sv4
+(lo pide el humano) y **T10 · M2**. Desviaciones justificadas en el informe: R6 se prueba en
+`test_f066_usos_sv4.py` (cierra en T7) y R8 queda en verde en T5 (sale de R7/DA11).
+`azure-apps/partes.md` sin cambios.
 
+**M2 (humano, tras desplegar sv4)**, pasos de `requirements.md` §Verificaciones manuales:
+1. Obra de pruebas **0404**, una línea **ordinaria sin registrar** en Sigrid.
+2. Abrir el desplegable de código de hora: **no ofrece `HENC`**.
+3. Elegir **`HEOF`**, que debe salir en el grupo «Horas extra».
+4. Recargar la página: la línea muestra el **badge extra**.
+5. **Deshacer**: la línea vuelve a su código y a ordinaria.
+6. **No** se aprueba el parte ni se envía nada a Sigrid.
+
+**Aprobación** (humano, 2026-11-06, «si» a DA2–DA5, DA7 y DA9–DA12 con la recomendación; DA1
+decidida antes con «ok»; DA6 retirada; DA8 en F-067). **F-006 RETIRADA** del backlog: pedía usar
+`auxhor.ext` y ningún código lo tiene a 1 (M1).
 
 Origen: H-M2-1b de F-052, acordado con el humano el 2026-11-03 («me parece bien»). Rama
 `feature/F-066-selector-hora-por-prefijo-he` (desde 0d8fc14), worktree `partes-wt-f066`. Spec en
-`specs/F-066-selector-hora-por-prefijo-he/`; `features.json` en `pending`, rigor `critico`,
-prioridad 7.
+`specs/F-066-selector-hora-por-prefijo-he/`, prioridad 7.
 **M1 HECHA** (líder, 2026-11-06, solo lectura; `design.md` §7): `auxhor` está en `ruesma` (no en
 `ruesma_rep`); ningún código con `ext = 1`; `HENC` «HORA ENCARGADO» (ide 63, sin `caacod` ni
 `connom`, tocado en 2022) tiene 1 uso manual en `hmores` (obra 0640, 21/04/2022, 4 h) y 0 filas en
 `reshor`. En `partes`, 7 líneas `HENC` (inactivas, obras 0678 y 0713, puestas por sv3 por
 categoría); 16417, 16422 y 16640 ya tienen `MENC`.
-**Decisión del humano** (2026-11-06, sustituye a la anterior): «HENC no debe ser tenido en cuenta
-por la app»; alcance aprobado con «ok». `HENC` = código excluido (lista de un elemento, un sitio por
-servicio) y la extra vuelve a ser «prefijo `HE`». F-066 (sv4): `clase_hora.py` (DA1 decidida),
-`fetch_tipos_hora` sin excluidos, `set_registro_hora` por prefijo, `fetch_hora_extra_recurso`,
-`fetch_dnis_sin_extra`, `franquicia` y sincronizar sin `HENC`. **F-067** ampliada a «sv3 y sv5:
-HENC excluido» (sv3 no la asigna, sv5 la omite con motivo propio, guardián de gemelos de los tres
-servicios; entrada en `CLAUDE.md` como DA suya, no escrita). Fuera: las 7 líneas, la línea de 2022 y
-la baja de `HENC` en Sigrid (Administración).
-**Decisiones que debe validar el humano** (`design.md` §8, recomendada entre paréntesis): DA2 el
-repositorio fija `tipo_hora` (A), DA3 sin código no toca (A), DA4 el servidor manda `extra` (A), DA5
-disyuntivos `hora_ext == 1` sin tocar (A, confirmada por M1), DA7 sv3 va a F-067 y **propuesta:
-cerrar F-006 como superada** (pide usar `auxhor.ext`, que no marca ningún código; no se ha
-cambiado), DA8 guardián en F-067, DA9 crítico, DA10 desplegar sin esperar a F-067 (mantenida),
-DA11 quitar los excluidos en `fetch_tipos_hora` (A), DA12 `PATCH` con `HENC` ⇒ 400 «no existe»
-(A). DA6 retirada.
+**Decisión del humano** (2026-11-06): «HENC no debe ser tenido en cuenta por la app»; alcance
+aprobado con «ok». `HENC` = código excluido (lista de un elemento, un sitio por servicio) y la
+extra es «prefijo `HE`». **F-067** («sv3 y sv5: HENC excluido»): sv3 no la asigna, sv5 la omite
+con motivo propio, guardián de gemelos de los tres servicios y entrada en `CLAUDE.md` (DA suya,
+no escrita). Fuera: las 7 líneas, la línea de 2022 y la baja de `HENC` en Sigrid (Administración).
 
 ## F-052 · DONE 2026-11-05 (review APPROVED pasada 2, rigor crítico; mutación 331: 289 muertos + 38 matados con tests + 4 equivalentes aceptados; M2 y M3 superadas; SIN DESPLEGAR; pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4): sincronizar con Sigrid desde una obra o una persona
 
