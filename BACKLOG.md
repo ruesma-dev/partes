@@ -5,6 +5,8 @@
 
 Resumen: **62 features**, 11 abiertas, 51 terminadas.
 
+En curso: **F-066**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
@@ -12,7 +14,7 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
-| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | spec lista | escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
+| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | en curso | escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
 | F-067 | sv3 y sv5: HENC excluido | 7 | pendiente | sin spec | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
@@ -91,7 +93,7 @@ Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como f
 
 ### F-066 · sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos)
 
-estado **spec lista** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
+estado **en curso** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
 
 **Spec**: escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`
 
