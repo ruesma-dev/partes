@@ -13,4 +13,4 @@ aprobadas.
 - [x] T8: docs: `docs/ARCHITECTURE.md` semántica 3 y docstrings (`tipo_hora_catalog.py`, `franquicia.py`, `sincronizacion.py`)  |  Verificación: revisión del reviewer (R22)
 - [x] T9: mutación completa de las líneas cambiadas (rigor crítico; la lanza el líder) y tratamiento de supervivientes  |  Verificación: `python -m harness.mutacion` según CHECKPOINTS, 0 supervivientes sin test o justificación aceptada
 - [ ] T10: M2 tras desplegar sv4 (humano)  |  Verificación: MANUAL (humano), `requirements.md` §Verificaciones manuales
-- [ ] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T11: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
