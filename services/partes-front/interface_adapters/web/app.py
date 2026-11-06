@@ -74,6 +74,7 @@ from application.services.incidencias_horas import (
     resumen_por_dia,
 )
 from application.services.tipo_hora_catalog import TipoHoraCatalog
+from application.services.clase_hora import tipo_hora_de_codigo
 from application.services.calendar_builder import (
     MODE_NOMINA,
     build_calendar,
@@ -3873,7 +3874,8 @@ def build_app(
             "hora_codigo": option.codigo,
             "hora_descripcion": option.descripcion,
             "hora_ext": option.ext,
-            "tipo_hora": "extra" if option.ext == 1 else "normal",
+            # F-066 (R17): por la regla del codigo, no por `auxhor.ext`.
+            "tipo_hora": tipo_hora_de_codigo(option.codigo) or "normal",
         }
 
     @app.patch("/api/registros/{registro_id}/partida")
