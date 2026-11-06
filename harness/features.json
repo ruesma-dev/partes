@@ -1013,7 +1013,7 @@
         "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R24, M1 hecha, M2)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "in_progress",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 7,

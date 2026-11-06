@@ -1,7 +1,8 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-066 · EN REVIEW 2026-11-06 (`in_progress`, rigor crítico; review 1 CHANGES_REQUESTED solo por papeleo, atendida): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+## F-066 · DONE 2026-11-06 (review APPROVED pasada 2, rigor crítico; mutación 21: 18 muertos + 3 matados con test; SIN FUSIONAR NI DESPLEGAR; pendiente: fusionar tras F-052, desplegar sv4 y M2 del humano): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+**Cierre** (líder, 2026-11-06): review 2 APPROVED (4752041); `azure-apps/partes.md` 6d4f12b (`hora_ext` no decide extra, F-006 retirada). Siguiente: F-067 (sv3 y sv5: HENC excluido), pendiente de spec.
 **Estado**: T1–T9 hechas, un commit por tarea (76ac588 … 7d5c968); informe en
 `progress/impl_F-066.md`. **T9**: campaña del líder, 21 mutantes, 18 muertos, 3 supervivientes
 (contador `omitidos` del log de `fetch_tipos_hora`), matados con

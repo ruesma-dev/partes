@@ -1013,3 +1013,21 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
 
 - Retirada del backlog por el humano («si», 2026-11-06), a propuesta de la spec de F-066 (DA7).
 - Motivo: en Sigrid ningún `auxhor` tiene `ext = 1` (M1 de F-066), así que su premisa no se sostiene. Lo que sí hacía falta en sv3, la regla por prefijo `HE` y no asignar `HENC`, lo cubre F-067.
+
+## F-066 · sv4 decide la extra por el prefijo HE y excluye HENC — done 2026-11-06
+
+- Rama `feature/F-066-selector-hora-por-prefijo-he` (desde la punta de F-052, 0d8fc14) · rigor crítico · sdd · APPROVED del reviewer en la pasada 2 (`progress/review_F-066.md`; pasada 1: CHANGES_REQUESTED, solo papeleo).
+- Origen: H-M2-1b de F-052. La M1 (2026-11-06) mostró que ningún `auxhor` tiene `ext = 1` y que `HENC` («HORA ENCARGADO», 1 uso en 2022, sin cuenta ni concepto de nómina) empieza por `HE` sin ser extra. Decisión del humano: «HENC no debe ser tenido en cuenta por la app».
+- Entregado (solo sv4):
+  - `application/services/clase_hora.py`, con la regla (prefijo `HE`, `HENC` excluido) en Python y SQL;
+  - catálogo de horas sin `HENC` (desplegable, «+ Nuevo», celda, incidencias);
+  - `set_registro_hora` fija `tipo_hora` por el código;
+  - el desplegable recibe `extra` del servidor;
+  - hora extra del recurso, DNIs sin extra y franquicia con la regla;
+  - sincronizar de F-052 la reimporta.
+  - azure-apps `6d4f12b`.
+- Verificado:
+  - init.sh en verde (sv4 3740 passed, 1 skipped);
+  - cobertura del 99,9 % de las líneas cambiadas;
+  - mutación 21: 18 muertos y 3 matados después con el test del log de excluidas.
+- Pendiente: fusionar después de F-052, desplegar sv4 y M2 del humano. F-067 (sv3 y sv5, con el guardián de gemelos). F-006 retirada.

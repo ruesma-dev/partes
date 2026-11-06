@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **62 features**, 11 abiertas, 51 terminadas.
-
-En curso: **F-066**.
+Resumen: **62 features**, 10 abiertas, 52 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -14,7 +12,6 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
-| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | en curso | escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
 | F-067 | sv3 y sv5: HENC excluido | 7 | pendiente | sin spec | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
@@ -75,6 +72,7 @@ Bloqueadas: **F-032**.
 | F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | critico |  |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
 | F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar | M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK |
+| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | critico |  |
 | F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |  |
 | F-017 | Identidad real de Easy Auth en el portal (sv4) | 8 | estandar |  |
 | F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | documental |  |
@@ -90,14 +88,6 @@ estado **spec lista** · prioridad 7 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057`
 
 Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como feature por decisión del humano del 2026-10-23 («si a todo»). Si una celda de la matriz junta líneas de dos partes de la MISMA obra (F-050, varios partes) y solo cambia una, el otro parte no recibe el pedido compartido de recálculo: no es «tocado» (R23 de F-049) ni «afectado» (R38 excluye las líneas de la celda), pero la pasada completa de sv3 sí puede reescribir sus extra_auto; queda el residual R-g de F-043 en ese parte durante la pasada (~30 s). Propuesta: incluir en el pedido todo documento con líneas en la celda. Pendiente de spec.
-
-### F-066 · sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos)
-
-estado **en curso** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
-
-**Spec**: escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`
-
-Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. M1 del líder (2026-11-06, solo lectura): ningún auxhor tiene ext = 1; HENC «HORA ENCARGADO» (ide 63, 1 uso manual de 2022 en hmores, 0 filas en reshor) empieza por HE sin ser extra. Decisión del humano del 2026-11-06, que sustituye a la anterior: «HENC no debe ser tenido en cuenta por la app» (alcance aprobado con «ok»). Solo sv4: lista de códigos excluidos (HENC) y regla de extra por prefijo HE en application/services/clase_hora.py (Python y fragmento SQL); fetch_tipos_hora omite los excluidos (desplegable, catálogo, matcher de «+ Nuevo» y celda), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana extra y el JS agrupa por él; fetch_hora_extra_recurso, fetch_dnis_sin_extra, franquicia.extras_pendientes y sincronizacion.es_hora_extra no cuentan ni eligen HENC. Fuera: las 7 líneas HENC del portal (inactivas), la línea de 2022 en Sigrid y la baja de HENC (Administración); sv3 y sv5 en F-067. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.
 
 ### F-067 · sv3 y sv5: HENC excluido
 
@@ -486,6 +476,14 @@ estado **terminada** · prioridad 7 · rigor `estandar` · SDD sí · rama `feat
 **Pendiente**: M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK
 
 Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con muchas partidas la lectura se trunca por el limite de filas de sigrid-api. Se pide subir el limite a 200.000. La instancia desplegada de sigrid-api admite hasta 500.000 por peticion (MAX_ALLOWED_ROWS, azure-apps); el corte real es el balanceador a 230 s. Limites actuales en partes (2026-10-07): sv2 sigrid_lookup_client max_rows 10000; sv3 SIGRID_API_MAX_ROWS 10000 (settings) en sigrid_api_client; sv4 sigrid_lookup_client 10000 (y consulta_reshor_recursos.py 10000); sv5 sigrid_write_client _read con max_rows 1000 fijo (partidas_de_lineas, cuentas_de_centro, etc.); las lecturas paginadas usan PAGINA_FILAS + 1 y tratan truncated como error. A REVISAR EN LA SPEC: que lecturas pueden truncarse hoy (partidas por obra en sv4 y sv5, catalogos de sv3) y si alguna trunca EN SILENCIO (sin comprobar truncated); subir a 200000 donde no haya paginacion, configurable por variable de entorno, y comprobar truncated siempre como error; timeouts frente al limite de 230 s; tests.
+
+### F-066 · sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos)
+
+estado **terminada** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
+
+**Spec**: escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`
+
+Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. M1 del líder (2026-11-06, solo lectura): ningún auxhor tiene ext = 1; HENC «HORA ENCARGADO» (ide 63, 1 uso manual de 2022 en hmores, 0 filas en reshor) empieza por HE sin ser extra. Decisión del humano del 2026-11-06, que sustituye a la anterior: «HENC no debe ser tenido en cuenta por la app» (alcance aprobado con «ok»). Solo sv4: lista de códigos excluidos (HENC) y regla de extra por prefijo HE en application/services/clase_hora.py (Python y fragmento SQL); fetch_tipos_hora omite los excluidos (desplegable, catálogo, matcher de «+ Nuevo» y celda), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana extra y el JS agrupa por él; fetch_hora_extra_recurso, fetch_dnis_sin_extra, franquicia.extras_pendientes y sincronizacion.es_hora_extra no cuentan ni eligen HENC. Fuera: las 7 líneas HENC del portal (inactivas), la línea de 2022 en Sigrid y la baja de HENC (Administración); sv3 y sv5 en F-067. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.
 
 ### F-016 · Pantalla de administración de empleado_jornada en el portal (sv4)
 
