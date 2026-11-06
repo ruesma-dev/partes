@@ -65,14 +65,14 @@ Bloqueadas: **F-032**.
 | F-025 | Incompatibilidad incidencia/horas extra el mismo dia (p.ej. baja por maternidad con hora extra) | 4 | estandar |  |
 | F-049 | Portal: el editor de celda de la matriz de obra muestra siempre ordinarias y extra y permite añadir la línea que falta | 4 | critico | M2–M8 en el portal |
 | F-054 | Un parte sin obra o sin fecha leídas va siempre a revisión | 4 | estandar | releer los 6 partes sin obra cuando F-059 esté desplegada |
-| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | critico |  |
+| F-055 | sv5 omite las líneas sin fecha válida (no abre partes del periodo 0/00 ni de años mal tecleados) | 4 | critico | M3 cuando se aprueben las 15 líneas sin fecha (2026-11-06: aún sin aprobar) |
 | F-004 | Congelar registros aprobados | 5 | estandar |  |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | critico | Desplegada 2026-10-31: sv4 ca-sv4-front--r20261031093735 (08:38:53Z) y sv3 ca-sv3-persistencia--r20261031093921 (08:40:44Z), Healthy, arranque sin Traceback. Pendiente: M1 (portal, humano), M2 y M3 (líder, con el primer parte nuevo que entre). |
 | F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |  |
-| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | critico |  |
+| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | critico | fusionar en dev, decidir SINCRONIZAR_SECO en Azure, desplegar sv5 → sv4 y M4 |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
 | F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar | M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK |
-| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | critico |  |
+| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | critico | fusionar tras F-052, desplegar sv4 y M2 del humano |
 | F-016 | Pantalla de administración de empleado_jornada en el portal (sv4) | 8 | estandar |  |
 | F-017 | Identidad real de Easy Auth en el portal (sv4) | 8 | estandar |  |
 | F-005 | Retirar graphkey_nobom.json del arbol y dejar constancia de GRAPH_KEY en Key Vault | 9 | documental |  |
@@ -431,6 +431,8 @@ estado **terminada** · prioridad 4 · rigor `critico` · SDD sí · rama `featu
 
 **Spec**: escrita, refrescada (2026-10-31) y aprobada (2026-11-01) · `partes-wt-f055`
 
+**Pendiente**: M3 cuando se aprueben las 15 líneas sin fecha (2026-11-06: aún sin aprobar)
+
 Origen: DA5 de F-054, aprobada por el humano el 2026-10-21 («apruebo F-054 y la DA5»). Una línea de un parte sin fecha viaja de sv4 a sv5 con fecha_int = 0 (int(r.fecha_int or 0) en lineas_para_registro) y sv5 la acepta: con SigridFake, ejecutar da de alta PT0/00001 del periodo 0/00 y escribe la línea con fec = 0; con 20261340 abre un parte de 2026/13. No ha pasado (M1 de F-054: 25 líneas sin fecha, ninguna enviada), pero 15 con obra son aprobables hoy y en Sigrid no se borra. sv5: función pura motivo_fecha_no_valida (application/services/fecha_linea.py; válida = entero, del calendario, entre 01/01/2026 y hoy + 62 días, DA10) y paso 2a de RegistroPipeline.preparar: la línea se omite con «fecha_no_valida: …» antes de leer nada de Sigrid (recursos, reshor, partes), manda sobre las demás omisiones y sobre dedicacion, y vale para preflight, ejecutar, la cola q-transfer, las extras nuevas del reajuste F-046 y la línea de ajuste de la franquicia F-056 (no_editable, nada escrito). fecha_int pasa a opcional en LineaIn y LineaEntrada (null u omitido = sin fecha, sin 422). sv4, sv3, esquema y colas no cambian; F-034, F-053 y F-031 tampoco. Doc: ARCHITECTURE semántica 6 y azure-apps/partes.md con nota informativa a porcentajes. Spec refrescada sobre dev 14b3cd5 el 2026-10-31 (F-038, F-056, F-060, F-062): decisiones DA1-DA11 (DA8 superada; DA10 margen 62 días por la franquicia, DA11 franquicia vía preparar) y M1-M3 en specs/F-055-sv5-omite-lineas-sin-fecha/design.md §9 y §11.
 
 ### F-004 · Congelar registros aprobados
@@ -461,6 +463,8 @@ estado **terminada** · prioridad 6 · rigor `critico` · SDD sí · rama `featu
 
 **Spec**: aprobada el 2026-11-02, M1, M2 y M3 hechas; pendiente M4 tras desplegar · `partes-wt-f052`
 
+**Pendiente**: fusionar en dev, decidir SINCRONIZAR_SECO en Azure, desplegar sv5 → sv4 y M4
+
 Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, hasta 500.000 filas por lectura y solo entonces pagina, truncated = error, sin lock) y sv4 clasifica cada línea en 12 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual/auxiliar). Primera entrega (DA1 = A): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050 (ya en dev). Decisiones y M1 (hecha) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. H1 resuelto por F-053. Revalidada el 2026-11-01 contra dev 69af0f5: Spec aprobada por el humano el 2026-11-02: DA9 superada, sin tope de líneas (el límite es el corte de 230 s; cota de 3000 registro_ids) y una sola feature con punto de control obligatorio tras la comparación (M2 antes de las acciones).
 
 ### F-015 · Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada
@@ -482,6 +486,8 @@ Pedida por el humano el 2026-10-07, viene de porcentajes: al leer obras con much
 estado **terminada** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
 
 **Spec**: escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`
+
+**Pendiente**: fusionar tras F-052, desplegar sv4 y M2 del humano
 
 Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. M1 del líder (2026-11-06, solo lectura): ningún auxhor tiene ext = 1; HENC «HORA ENCARGADO» (ide 63, 1 uso manual de 2022 en hmores, 0 filas en reshor) empieza por HE sin ser extra. Decisión del humano del 2026-11-06, que sustituye a la anterior: «HENC no debe ser tenido en cuenta por la app» (alcance aprobado con «ok»). Solo sv4: lista de códigos excluidos (HENC) y regla de extra por prefijo HE en application/services/clase_hora.py (Python y fragmento SQL); fetch_tipos_hora omite los excluidos (desplegable, catálogo, matcher de «+ Nuevo» y celda), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana extra y el JS agrupa por él; fetch_hora_extra_recurso, fetch_dnis_sin_extra, franquicia.extras_pendientes y sincronizacion.es_hora_extra no cuentan ni eligen HENC. Fuera: las 7 líneas HENC del portal (inactivas), la línea de 2022 en Sigrid y la baja de HENC (Administración); sv3 y sv5 en F-067. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.
 

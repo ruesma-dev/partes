@@ -749,6 +749,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
+      "pendiente": "fusionar en dev, decidir SINCRONIZAR_SECO en Azure, desplegar sv5 → sv4 y M4",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -805,6 +806,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar; M1 y M2 hechas",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
+      "pendiente": "M3 cuando se aprueben las 15 líneas sin fecha (2026-11-06: aún sin aprobar)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -1013,6 +1015,7 @@
         "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R24, M1 hecha, M2)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
+      "pendiente": "fusionar tras F-052, desplegar sv4 y M2 del humano",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
