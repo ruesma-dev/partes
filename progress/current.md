@@ -1,7 +1,9 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-066 · SPEC REVISADA (2.ª) 2026-11-06, pendiente de aprobación (PARADA 1): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+## F-066 · SPEC APROBADA 2026-11-06 (`spec_ready`; humano: «si» a DA2–DA5, DA7 y DA9–DA12 con la recomendación): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
+**Aprobación** (humano, 2026-11-06, «si» a «¿Apruebas F-066 con las recomendaciones y cierras F-006?»). **F-006 RETIRADA** del backlog: pedía usar `auxhor.ext` y ningún código lo tiene a 1 (M1); lo que hacía falta en sv3 lo cubre F-067. Siguiente: implementer.
+
 
 Origen: H-M2-1b de F-052, acordado con el humano el 2026-11-03 («me parece bien»). Rama
 `feature/F-066-selector-hora-por-prefijo-he` (desde 0d8fc14), worktree `partes-wt-f066`. Spec en

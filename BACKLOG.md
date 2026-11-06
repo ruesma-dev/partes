@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **63 features**, 12 abiertas, 51 terminadas.
+Resumen: **62 features**, 11 abiertas, 51 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -12,13 +12,12 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
-| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | pendiente | escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); DA1 decidida, pendiente de aprobación DA2–DA5 y DA7–DA12 · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
+| F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | spec lista | escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
 | F-067 | sv3 y sv5: HENC excluido | 7 | pendiente | sin spec | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 10 | pendiente | no lleva (sdd: false) | estandar | `feature/F-026-visor-fotos` |
 | F-018 | Log de auditoria de acciones del portal (quien hizo que y cuando) | 11 | pendiente | borrador en la rama `worktree-agent-ad862e62640d64553`, sin presentar | estandar | `feature/F-018-log-auditoria-portal` |
-| F-006 | tipo_hora_resolver con auxhor.ext para variantes HE% | 12 | pendiente | sin spec | estandar | `feature/F-006-tipo-hora-ext` |
 | F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | 13 | pendiente | sin spec | critico | `feature/F-007-prompt-sv2-evals` |
 | F-008 | Modelo de roles en el portal (sv4) | 14 | pendiente | sin spec | estandar | `feature/F-008-roles-portal` |
 | F-011 | Jornada reducida por días desde Sesame sustituye al candef | 15 | pendiente | sin spec | critico | `feature/F-011-jornada-reducida-dias` |
@@ -92,9 +91,9 @@ Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como f
 
 ### F-066 · sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos)
 
-estado **pendiente** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
+estado **spec lista** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
 
-**Spec**: escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); DA1 decidida, pendiente de aprobación DA2–DA5 y DA7–DA12 · `partes-wt-f066`
+**Spec**: escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`
 
 Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. M1 del líder (2026-11-06, solo lectura): ningún auxhor tiene ext = 1; HENC «HORA ENCARGADO» (ide 63, 1 uso manual de 2022 en hmores, 0 filas en reshor) empieza por HE sin ser extra. Decisión del humano del 2026-11-06, que sustituye a la anterior: «HENC no debe ser tenido en cuenta por la app» (alcance aprobado con «ok»). Solo sv4: lista de códigos excluidos (HENC) y regla de extra por prefijo HE en application/services/clase_hora.py (Python y fragmento SQL); fetch_tipos_hora omite los excluidos (desplegable, catálogo, matcher de «+ Nuevo» y celda), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana extra y el JS agrupa por él; fetch_hora_extra_recurso, fetch_dnis_sin_extra, franquicia.extras_pendientes y sincronizacion.es_hora_extra no cuentan ni eligen HENC. Fuera: las 7 líneas HENC del portal (inactivas), la línea de 2022 en Sigrid y la baja de HENC (Administración); sv3 y sv5 en F-067. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.
 
@@ -137,14 +136,6 @@ estado **pendiente** · prioridad 11 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: borrador en la rama `worktree-agent-ad862e62640d64553`, sin presentar
 
 Pedida por el humano el 2026-08-20 al explicarle F-017. Hoy NO existe un registro de auditoria del portal. Lo mas parecido es la tabla undo_log, pero NO sirve como tal: su proposito es DESHACER (guarda el estado anterior en payload para restaurarlo), solo cubre las acciones reversibles -reasignar, casar, editar horas/fecha/obra-, y deja fuera las aprobaciones, los borrados, las excepciones de jornada de F-016 y cualquier accion administrativa. Ademas sus filas se marcan como undone y su vida la manda la funcion de deshacer, no la de auditar. ALCANCE A DECIDIR EN LA SPEC: que acciones se registran (como minimo las que hoy escriben approved_by/deleted_by y las cinco pantallas de administracion), que se guarda de cada una (actor, cuando, que entidad, que cambio, desde donde), donde vive (tabla propia de la base partes frente a reutilizar undo_log, que el spec-author debe valorar y descartar con argumentos), si hay pantalla de consulta o basta con SQL, y cuanto se conserva. Valorar tambien si sv3 y sv5 deben escribir en el mismo log: sv5 es el unico que escribe en Sigrid, y hoy esa escritura no deja rastro de quien la origino. DEPENDE DE F-017: sin identidad real de Easy Auth, este log registraria NULL en el campo mas importante, que es el actor. Hacerla antes seria construir un libro de firmas sin firmas. HALLAZGO del 2026-08-21, al verificar F-017 desplegada con GET /whoami: Easy Auth inyecta TRES cabeceras, y una es X-MS-CLIENT-PRINCIPAL-ID, el oid INMUTABLE del usuario, disponible sin decodificar el token. F-017 renuncio a guardar el oid por no tener columna donde ponerlo y remitio a esta feature. Si F-018 crea tabla propia, valorar dos columnas: actor (UPN legible, que puede cambiar) y actor_id (oid, que no). Es la diferencia entre una auditoria que aguanta un cambio de nombre y otra que no.
-
-### F-006 · tipo_hora_resolver con auxhor.ext para variantes HE%
-
-estado **pendiente** · prioridad 12 · rigor `estandar` · SDD sí · rama `feature/F-006-tipo-hora-ext`
-
-**Spec**: sin spec
-
-El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para reconocer todas las variantes HE% de la ficha del recurso, en lugar de depender del prefijo del código.
 
 ### F-007 · Revisión del prompt de extracción de sv2 (J.310 rev.1)
 

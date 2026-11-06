@@ -80,18 +80,6 @@
       "branch": "feature/F-005-graphkey-keyvault"
     },
     {
-      "id": "F-006",
-      "title": "tipo_hora_resolver con auxhor.ext para variantes HE%",
-      "description": "El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para reconocer todas las variantes HE% de la ficha del recurso, en lugar de depender del prefijo del código.",
-      "acceptance": [],
-      "status": "pending",
-      "sdd": true,
-      "rigor": "estandar",
-      "priority": 12,
-      "branch": "feature/F-006-tipo-hora-ext",
-      "spec": "sin spec"
-    },
-    {
       "id": "F-007",
       "title": "Revisión del prompt de extracción de sv2 (J.310 rev.1)",
       "description": "Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.",
@@ -1025,12 +1013,12 @@
         "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R24, M1 hecha, M2)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "spec_ready",
       "sdd": true,
       "rigor": "critico",
       "priority": 7,
       "branch": "feature/F-066-selector-hora-por-prefijo-he",
-      "spec": "escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); DA1 decidida, pendiente de aprobación DA2–DA5 y DA7–DA12 · `partes-wt-f066`"
+      "spec": "escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`"
     },
     {
       "id": "F-067",

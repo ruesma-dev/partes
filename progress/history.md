@@ -1008,3 +1008,8 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
   H-M2-1 (clase de hora por el prefijo `HE`); M3 superada el 2026-11-05 (`progress/m3_F-052.md`).
 - Pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4; feature aparte
   H-M2-1b (el selector de horas del portal, por el prefijo `HE` en vez de `option.ext`).
+
+## F-006 · tipo_hora_resolver con auxhor.ext para variantes HE% — retirada 2026-11-06
+
+- Retirada del backlog por el humano («si», 2026-11-06), a propuesta de la spec de F-066 (DA7).
+- Motivo: en Sigrid ningún `auxhor` tiene `ext = 1` (M1 de F-066), así que su premisa no se sostiene. Lo que sí hacía falta en sv3, la regla por prefijo `HE` y no asignar `HENC`, lo cubre F-067.
