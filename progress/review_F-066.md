@@ -29,7 +29,7 @@ mutación completa con cero supervivientes sin justificar y las MANUAL listadas.
   nuevos · [x] ni `print` ni secretos ni dependencias nuevas (el único `console.log` es el script de
   node de un test) · [x] trampas del monorepo: no hay cambio de esquema, `orm_models.py`
   queda intacto y las incidencias conservan su `tipo_hora` (R14).
-- C3 bis: N/A. No se toca `docs/referencia/`.
+- C3 bis: N/A. No se toca `docs/referencia/`. C4 ter: N/A, no existe `harness/rutas_sensibles.json`.
 - C4: [x] trazabilidad completa (tabla de abajo) y todo en verde · [x] sin red ni BBDD (SQLite en
   memoria, `_post_sql_read` falso, node con `skip` si falta) · **[ ] M2 sin listar en
   `progress/current.md` con sus pasos**. La sección de F-066 solo dice «T10 M2 (humano, tras
@@ -66,7 +66,6 @@ mutación completa con cero supervivientes sin justificar y las MANUAL listadas.
   - [x] «Evidencias»: trae tests, cobertura, mutantes y tiempo. El nº de workers (4) no está en
     `impl`, pero sí en la fila «Workers» del informe que genera la herramienta, y lo doy por bueno.
   - [x] Ningún N/A sin motivo.
-- C4 ter: N/A. No existe `harness/rutas_sensibles.json`.
 - C5: **[ ] `tasks.md`**: T9 sigue `[ ]` aunque su commit `F-066 T9` existe y la tarea está hecha;
   T11 (`init.sh` en verde) sigue `[ ]` aunque `init.sh` está en verde. T10 (M2 tras desplegar) en
   `[ ]` es legítimo, porque depende de un despliegue que pide el humano (mismo criterio que T12 de
@@ -132,8 +131,6 @@ mutación completa con cero supervivientes sin justificar y las MANUAL listadas.
    commit de estos cambios.
 4. `progress/impl_F-066.md` está en 219/220 líneas. Si hay que anotar algo, que sea resumiendo, o
    la `PUERTA TAMAÑO` se pondrá en rojo.
-
-Fuera de la lista, como recomendación: las dos frases de `azure-apps/partes.md` (l.933 y l.1233).
 
 ## Automejora (propuesta, no aplicada)
 
