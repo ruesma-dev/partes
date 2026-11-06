@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **62 features**, 11 abiertas, 51 terminadas.
+Resumen: **63 features**, 12 abiertas, 51 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -12,7 +12,8 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
-| F-066 | El selector de código de hora del portal clasifica extra/ordinaria por el prefijo HE y no por auxhor.ext | 7 | pendiente | escrita 2026-11-06, pendiente de aprobación del humano (DA1–DA9) · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
+| F-066 | sv4 clasifica la hora extra por la regla «HE salvo HENC» y no por auxhor.ext (selector de código de hora y demás usos) | 7 | pendiente | escrita 2026-11-06 y revisada el mismo día con la M1 y la decisión A del humano; pendiente de aprobación (DA1–DA5, DA7–DA10) · `partes-wt-f066` | critico | `feature/F-066-selector-hora-por-prefijo-he` |
+| F-067 | sv5: HENC no es hora extra | 7 | pendiente | sin spec | critico | `feature/F-067-sv5-henc-no-es-extra` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | 9 | pendiente | no lleva (sdd: false) | estandar | `feature/F-027-escape-modales` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | 10 | pendiente | no lleva (sdd: false) | estandar | `feature/F-026-visor-fotos` |
@@ -89,13 +90,21 @@ estado **spec lista** · prioridad 7 · rigor `estandar` · SDD sí · rama `fea
 
 Observación 2 del reviewer de F-049 (progress/review_F-049.md), apuntada como feature por decisión del humano del 2026-10-23 («si a todo»). Si una celda de la matriz junta líneas de dos partes de la MISMA obra (F-050, varios partes) y solo cambia una, el otro parte no recibe el pedido compartido de recálculo: no es «tocado» (R23 de F-049) ni «afectado» (R38 excluye las líneas de la celda), pero la pasada completa de sv3 sí puede reescribir sus extra_auto; queda el residual R-g de F-043 en ese parte durante la pasada (~30 s). Propuesta: incluir en el pedido todo documento con líneas en la celda. Pendiente de spec.
 
-### F-066 · El selector de código de hora del portal clasifica extra/ordinaria por el prefijo HE y no por auxhor.ext
+### F-066 · sv4 clasifica la hora extra por la regla «HE salvo HENC» y no por auxhor.ext (selector de código de hora y demás usos)
 
 estado **pendiente** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-066-selector-hora-por-prefijo-he`
 
-**Spec**: escrita 2026-11-06, pendiente de aprobación del humano (DA1–DA9) · `partes-wt-f066`
+**Spec**: escrita 2026-11-06 y revisada el mismo día con la M1 y la decisión A del humano; pendiente de aprobación (DA1–DA5, DA7–DA10) · `partes-wt-f066`
 
-Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»). En Sigrid auxhor.ext no es fiable (las 7 horas HE* tienen ext = 0), pero el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora del repositorio, y el desplegable buildOptions de app.js) fija tipo_hora con auxhor.ext: elegir una HE* deja la línea normal y sv5 escribiría una HL. Impacto medido el 2026-11-03 (solo lectura): 3 líneas omitido (registros 16417, 16422, 16640, obra 0678), ninguna registrada. Solo sv4: es_hora_extra pasa a application/services/clase_hora.py (sincronizacion.py la reimporta), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana el campo extra y el JS agrupa por él; franquicia.extras_pendientes usa la misma función. No toca sv3 (DA7: F-006 propone lo contrario y debe reescribirse), ni congelacion.py, esta_congelado, orm_models.py ni gemelos. DA1–DA9 en design.md §8 (DA5 badges, DA6 las 3 líneas, DA8 regla del prefijo como gemelo vigilado).
+Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. Revisada el 2026-11-06 con la M1 del líder (solo lectura): ningún auxhor tiene ext = 1 y HENC («HORA ENCARGADO») no es extra; decisión A del humano («a»): extra = código que empieza por HE excepto HENC, la excepción en un solo sitio por servicio. Solo sv4: la regla (Python y fragmento SQL) en application/services/clase_hora.py y la usan sincronizacion.es_hora_extra (F-052), set_registro_hora y su endpoint, /api/sigrid/tipos-hora (campo extra) y el desplegable, fetch_hora_extra_recurso (hoy elige HENC antes que HEOF), fetch_dnis_sin_extra y franquicia.extras_pendientes. Sin líneas que reparar (DA6 retirada: las 7 HE* con normal son HENC, correctas). sv5 va en F-067; sv3 y F-006 en DA7. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.
+
+### F-067 · sv5: HENC no es hora extra
+
+estado **pendiente** · prioridad 7 · rigor `critico` · SDD sí · rama `feature/F-067-sv5-henc-no-es-extra`
+
+**Spec**: sin spec
+
+Alta del 2026-11-06 por la decisión A del humano («a») tras la M1 de F-066: en Sigrid HENC («HORA ENCARGADO», 1 uso en hmores) empieza por HE pero no es extra, y ningún auxhor tiene ext = 1. sv5 decide extra por el prefijo HE en HoraRecurso.es_extra (domain/models/registro_models.py), franquicia._es_extra y cualquier otro uso del prefijo (reglas_registro: «sin ningún HE% ⇒ fuera», elección de la extra, E de la franquicia). Objetivo: la regla «HE salvo HENC» en un solo sitio de sv5, igual que la de sv4 (application/services/clase_hora.py de F-066). Lleva el guardián raíz de gemelos de la regla (sv4 y sv5, tabla común de casos, sin importar los módulos) y la propuesta de entrada en la lista cerrada de CLAUDE.md, que requiere el «sí» expreso del humano (DA de F-067; no se escribe sin él). Depende de F-066. Pendiente de spec.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 

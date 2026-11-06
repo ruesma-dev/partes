@@ -1,25 +1,30 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-066 · SPEC ESCRITA 2026-11-06, pendiente de aprobación (PARADA 1): el selector de código de hora clasifica por el prefijo `HE`
+## F-066 · SPEC REVISADA 2026-11-06, pendiente de aprobación (PARADA 1): sv4 clasifica la hora extra por «`HE` salvo `HENC`»
 
 Origen: H-M2-1b de F-052, acordado con el humano el 2026-11-03 («me parece bien»). Rama
 `feature/F-066-selector-hora-por-prefijo-he` (desde 0d8fc14), worktree `partes-wt-f066`. Spec en
-`specs/F-066-selector-hora-por-prefijo-he/`; entrada en `features.json` en `pending`, rigor
-`critico`, prioridad 7. Solo sv4: `es_hora_extra` a `application/services/clase_hora.py`,
-`set_registro_hora` (repositorio y endpoint) por prefijo, campo `extra` en
-`/api/sigrid/tipos-hora` y `buildOptions` de `app.js` agrupando por él; `franquicia.extras_pendientes`
-usa la misma función. Inventario de los 11 sitios en `design.md` §1.
-**Decisiones que debe validar el humano** (`design.md` §8, recomendada entre paréntesis):
-DA1 dónde vive la regla (A, módulo nuevo), DA2 quién fija `tipo_hora` (A, repositorio), DA3 opción
-sin código (A, no tocar), DA4 desplegable (A, el servidor manda `extra`), DA5 disyuntivos
-`hora_ext == 1` de badges y totales (A, no tocar; depende de M1), DA6 las 3 líneas 16417, 16422 y
-16640 (A, sin migración: re-elegir el código tras desplegar; riesgo: reaprobarlas sin re-elegir
-escribe `HL`), DA7 sv3 y F-006, cuya premisa (usar `auxhor.ext`) refuta M2 de F-052 (A, reescribir
-F-006 aparte con el «sí» del humano), DA8 la regla del prefijo entra en la lista cerrada de gemelos
-con guardián raíz (B, requiere decisión expresa), DA9 rigor (crítico).
-**M1 pendiente del líder** antes de T2 (solo lectura, comandos en `design.md` §7): códigos de
-`auxhor` con `ext = 1` que no son `HE`, y recuento en `partes` de líneas `HE%` con `normal`.
+`specs/F-066-selector-hora-por-prefijo-he/`; `features.json` en `pending`, rigor `critico`,
+prioridad 7.
+**M1 HECHA** (líder, 2026-11-06, solo lectura; detalle en `design.md` §7): `auxhor` está en
+`ruesma` (no en `ruesma_rep`); **ningún código con `ext = 1`**; los 7 `HE*` con `ext = 0` y uno,
+**`HENC` «HORA ENCARGADO» (1 uso en `hmores`), no es extra**. En `partes`, las únicas `HE*` con
+`normal` son 7 `HENC` (registros 44, 46, 53, 55, 67, 69, 142, documentos inactivos de las obras
+0678 y 0713), que están bien; 16417, 16422 y 16640 ya tienen `MENC`; inverso: ninguna.
+**Decisión A del humano** («a», 2026-11-06): extra = `HE*` excepto `HENC`, la excepción en un solo
+sitio por servicio. F-066 la aplica en todo sv4 (`application/services/clase_hora.py`, incluido
+`es_hora_extra` de F-052, `fetch_hora_extra_recurso`, que hoy elige `HENC` antes que `HEOF`,
+`fetch_dnis_sin_extra` y `franquicia.extras_pendientes`); sv5 va en **F-067** (alta `pending`,
+crítico, prioridad 7, «sv5: HENC no es hora extra»), con el guardián de gemelos y la propuesta de
+entrada en `CLAUDE.md` como DA suya (no escrita).
+**Decisiones que debe validar el humano** (`design.md` §8, recomendada entre paréntesis): DA1
+`clase_hora.py` con Python y SQL (A), DA2 el repositorio fija `tipo_hora` (A), DA3 sin código no
+toca (A), DA4 el servidor manda `extra` (A), DA5 disyuntivos `hora_ext == 1` sin tocar (A,
+confirmada por M1), DA7 sv3 y F-006 (A: reescribir F-006 con la regla y la excepción; la rama de
+último recurso de sv3 puede elegir `HENC`), DA8 guardián en F-067 (A), DA9 crítico, DA10 desplegar
+F-066 sin esperar a F-067 (A; desfase sv4/sv5 en `HENC` hasta entonces). **DA6 retirada**: no hay
+líneas que reparar.
 
 ## F-052 · DONE 2026-11-05 (review APPROVED pasada 2, rigor crítico; mutación 331: 289 muertos + 38 matados con tests + 4 equivalentes aceptados; M2 y M3 superadas; SIN DESPLEGAR; pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4): sincronizar con Sigrid desde una obra o una persona
 

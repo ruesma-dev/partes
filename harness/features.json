@@ -1019,10 +1019,10 @@
     },
     {
       "id": "F-066",
-      "title": "El selector de código de hora del portal clasifica extra/ordinaria por el prefijo HE y no por auxhor.ext",
-      "description": "Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»). En Sigrid auxhor.ext no es fiable (las 7 horas HE* tienen ext = 0), pero el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora del repositorio, y el desplegable buildOptions de app.js) fija tipo_hora con auxhor.ext: elegir una HE* deja la línea normal y sv5 escribiría una HL. Impacto medido el 2026-11-03 (solo lectura): 3 líneas omitido (registros 16417, 16422, 16640, obra 0678), ninguna registrada. Solo sv4: es_hora_extra pasa a application/services/clase_hora.py (sincronizacion.py la reimporta), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana el campo extra y el JS agrupa por él; franquicia.extras_pendientes usa la misma función. No toca sv3 (DA7: F-006 propone lo contrario y debe reescribirse), ni congelacion.py, esta_congelado, orm_models.py ni gemelos. DA1–DA9 en design.md §8 (DA5 badges, DA6 las 3 líneas, DA8 regla del prefijo como gemelo vigilado).",
+      "title": "sv4 clasifica la hora extra por la regla «HE salvo HENC» y no por auxhor.ext (selector de código de hora y demás usos)",
+      "description": "Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. Revisada el 2026-11-06 con la M1 del líder (solo lectura): ningún auxhor tiene ext = 1 y HENC («HORA ENCARGADO») no es extra; decisión A del humano («a»): extra = código que empieza por HE excepto HENC, la excepción en un solo sitio por servicio. Solo sv4: la regla (Python y fragmento SQL) en application/services/clase_hora.py y la usan sincronizacion.es_hora_extra (F-052), set_registro_hora y su endpoint, /api/sigrid/tipos-hora (campo extra) y el desplegable, fetch_hora_extra_recurso (hoy elige HENC antes que HEOF), fetch_dnis_sin_extra y franquicia.extras_pendientes. Sin líneas que reparar (DA6 retirada: las 7 HE* con normal son HENC, correctas). sv5 va en F-067; sv3 y F-006 en DA7. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.",
       "acceptance": [
-        "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R19, M1–M3)",
+        "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R23, M1 hecha, M2)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
       "status": "pending",
@@ -1030,7 +1030,22 @@
       "rigor": "critico",
       "priority": 7,
       "branch": "feature/F-066-selector-hora-por-prefijo-he",
-      "spec": "escrita 2026-11-06, pendiente de aprobación del humano (DA1–DA9) · `partes-wt-f066`"
+      "spec": "escrita 2026-11-06 y revisada el mismo día con la M1 y la decisión A del humano; pendiente de aprobación (DA1–DA5, DA7–DA10) · `partes-wt-f066`"
+    },
+    {
+      "id": "F-067",
+      "title": "sv5: HENC no es hora extra",
+      "description": "Alta del 2026-11-06 por la decisión A del humano («a») tras la M1 de F-066: en Sigrid HENC («HORA ENCARGADO», 1 uso en hmores) empieza por HE pero no es extra, y ningún auxhor tiene ext = 1. sv5 decide extra por el prefijo HE en HoraRecurso.es_extra (domain/models/registro_models.py), franquicia._es_extra y cualquier otro uso del prefijo (reglas_registro: «sin ningún HE% ⇒ fuera», elección de la extra, E de la franquicia). Objetivo: la regla «HE salvo HENC» en un solo sitio de sv5, igual que la de sv4 (application/services/clase_hora.py de F-066). Lleva el guardián raíz de gemelos de la regla (sv4 y sv5, tabla común de casos, sin importar los módulos) y la propuesta de entrada en la lista cerrada de CLAUDE.md, que requiere el «sí» expreso del humano (DA de F-067; no se escribe sin él). Depende de F-066. Pendiente de spec.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 7,
+      "branch": "feature/F-067-sv5-henc-no-es-extra",
+      "spec": "sin spec"
     }
   ]
 }
