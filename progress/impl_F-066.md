@@ -185,10 +185,35 @@ R19/R20 ejecutan el SQL capturado sobre un SQLite en memoria (`TOP 1` → `LIMIT
 | Tests ejecutados | raíz 544 passed, 3 skipped (338 s); **sv4 3737 passed, 1 skipped** (3264 s); sv1, sv2, sv3 y sv5 en verde por caché (árbol sin cambios) |
 | Tests nuevos de F-066 | 4 ficheros: `test_f066_clase_hora`, `test_f066_set_registro_hora` (33), `test_f066_selector_js` (15, 3 en node), `test_f066_usos_sv4` (10) |
 | Cobertura de las líneas cambiadas | `PUERTA COBERTURA: 99.9% de 784 líneas cambiadas cubiertas (783/784, umbral 80%, nivel critico)`. `init.sh` no dice cuál es la línea sin cubrir; no la he buscado |
-| Mutantes | **No lanzada** por orden del líder (T9): `python -m harness.mutacion --feature F-066`; ficheros y líneas en «Qué cambió» |
+| Mutantes | Campaña del líder (T9): **21 generados, 18 muertos, 3 supervivientes, 0 timeouts** (10220,6 s), `progress/mutacion_F-066.md`. Los 3 supervivientes, matados a mano por un test nuevo (sección siguiente); campaña no relanzada |
 | Tiempo de la suite | sv4: 54 min 24 s; raíz: 5 min 38 s |
 | Tamaño | `PUERTA TAMAÑO`: requirements 116/150, design 154/250, impl 181/220 (antes de esta sección) |
 | JS | `node --check static/app.js` OK; `buildOptions` ejecutado en node (R10) |
 
 Avisos de `init.sh` que no vienen de F-066: ruff 981 (deuda previa), F-032 `blocked`, infra
 sin tests y BACKLOG.md regenerado (incluido en el commit del informe).
+
+## Supervivientes de la mutación
+
+Los 3 están en `fetch_tipos_hora` (`sigrid_lookup_client.py`) y tocan solo `omitidos`, que
+alimenta el log `tipos_hora -> N filas (M excluidas)`. **Hueco real, no equivalentes**: el log es
+la traza operativa de cuántos códigos quita el catálogo y ningún test lo leía. Test nuevo
+`test_f066_r7_log_cuenta_excluidas` (`test_f066_selector_js.py`, `caplog`, con 0, 1 y 2
+excluidas). Cada mutante, aplicado a mano sobre el fichero y restaurado después (`git status`
+limpio; con el original, `3 passed`), con `python -m pytest tests/test_f066_selector_js.py -q -k log_cuenta -rf`:
+
+```
+=== l.238 'omitidos = 0' -> 'omitidos = 1' ===
+E  assert ['[sigrid-loo...1 excluidas)'] == ['[sigrid-loo...0 excluidas)']
+E  assert ['[sigrid-loo...2 excluidas)'] == ['[sigrid-loo...1 excluidas)']
+E  assert ['[sigrid-loo...3 excluidas)'] == ['[sigrid-loo...2 excluidas)']
+3 failed, 15 deselected
+=== l.247 'omitidos += 1' -> 'omitidos -= 1' ===   (sale "-1" y "-2 excluidas")
+FAILED …::test_f066_r7_log_cuenta_excluidas[ides1-4-1]
+FAILED …::test_f066_r7_log_cuenta_excluidas[ides2-3-2]
+2 failed, 1 passed, 15 deselected
+=== l.247 'omitidos += 1' -> 'omitidos += 2' ===
+E  assert ['[sigrid-loo...2 excluidas)'] == ['[sigrid-loo...1 excluidas)']
+E  assert ['[sigrid-loo...4 excluidas)'] == ['[sigrid-loo...2 excluidas)']
+2 failed, 1 passed, 15 deselected
+```

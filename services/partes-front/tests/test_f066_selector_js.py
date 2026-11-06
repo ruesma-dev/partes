@@ -96,6 +96,27 @@ def test_f066_r7_sin_excluidos_nada_cambia() -> None:
         ["CI01", "HEOF", "HL01"]
 
 
+@pytest.mark.parametrize("ides, filas_esperadas, excluidas", [
+    ((), 5, 0),             # ninguna excluida
+    ((63,), 4, 1),          # HENC
+    ((63, 64), 3, 2),       # HENC y " henc "
+])
+def test_f066_r7_log_cuenta_excluidas(caplog, ides, filas_esperadas,
+                                      excluidas) -> None:
+    """Mutación de F-066: el contador `omitidos` del log de
+    `fetch_tipos_hora` (inicial, incremento y paso)."""
+    filas = [f if f[0] in ides or f[0] not in (63, 64)
+             else [f[0], f"X{f[0]}", f[2], 0, None, None] for f in FILAS]
+    with caplog.at_level("INFO", logger="infrastructure.sigrid."
+                                        "sigrid_lookup_client"):
+        tipos = _cliente(filas).fetch_tipos_hora()
+    assert len(tipos) == filas_esperadas
+    mensajes = [r.getMessage() for r in caplog.records
+                if "tipos_hora ->" in r.getMessage()]
+    assert mensajes == [f"[sigrid-lookup] tipos_hora -> {filas_esperadas} "
+                        f"filas ({excluidas} excluidas)"]
+
+
 # --------------------------------- R9 ----------------------------------- #
 
 def test_f066_r9_tipos_hora_lleva_extra(monkeypatch) -> None:
