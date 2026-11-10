@@ -231,6 +231,35 @@ class LineaSigrid:
     pos: Optional[int] = None
 
 
+@dataclass(frozen=True)
+class LineaSincronizar:
+    """F-052 (R2): una fila de `hmores` tal como la ve la sincronizacion.
+
+    Sin nombres, DNIs ni `tex` (R1). `origen` sale de la synckey
+    (`origen_de` del cliente): `partes`, `ciz`, `franquicia`, `ajena` o
+    `manual`; `registro_id` en `partes` y `ciz`, `ajuste_id` en
+    `franquicia` (DA12)."""
+    hmores_ide: int
+    hmoide: Optional[int]
+    parte_cod: Optional[str]
+    parte_est: Optional[int]
+    obra_ide: Optional[int]
+    obra_cod: Optional[str]
+    recurso_ide: Optional[int]
+    fecha_int: Optional[int]
+    hora_ide: Optional[int]
+    hora_cod: Optional[str]
+    hora_ext: Optional[int]
+    partida_ide: Optional[int]
+    partida_cod: Optional[str]
+    can: Optional[float]
+    tot: Optional[float]
+    enlazada: bool
+    origen: str
+    registro_id: Optional[int] = None
+    ajuste_id: Optional[int] = None
+
+
 @dataclass
 class Conflicto:
     """Ya hay linea(s) en Sigrid para ese parte + recurso + fecha + CODIGO.

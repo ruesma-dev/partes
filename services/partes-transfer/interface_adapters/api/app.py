@@ -9,6 +9,7 @@
   POST /api/franquicia/comprobar -> F-056: ajuste de la franquicia (solo lectura)
   POST /api/franquicia/ejecutar  -> F-056: INSERT/UPDATE de la linea de ajuste
   POST /api/franquicia/recursos  -> F-056: franquicia de cada recurso (lectura)
+  POST /api/sincronizar/leer     -> F-052: lineas de hmores del ambito (lectura)
   GET  /health
 """
 from __future__ import annotations
@@ -38,7 +39,10 @@ from domain.models.registro_models import (
     ResultadoFranquicia,
     ResultadoReajuste,
 )
-from infrastructure.sigrid.sigrid_write_client import SigridWriteClient
+from infrastructure.sigrid.sigrid_write_client import (
+    SigridWriteClient,
+    synckey_de,
+)
 from interface_adapters.resultado_json import resultado_a_dict
 
 logger = logging.getLogger(__name__)
@@ -195,6 +199,37 @@ class FranquiciaRecursosIn(BaseModel):
         Field(min_length=1, max_length=MAX_RECURSOS_FRANQUICIA)]
 
 
+#: F-052 (R6, DA2): dias como mucho por lectura (un periodo de nomina o
+#: natural cabe de sobra).
+MAX_DIAS_SINCRONIZAR = 62
+
+
+class SincronizarIn(BaseModel):
+    """F-052 (R1, R6): ambito (obra O recurso, uno y solo uno), fechas
+    `YYYYMMDD` con `desde <= hasta` y como mucho 62 dias, y los
+    `registro_ids` del portal (su tope lo mira la ruta: es de settings)."""
+    obra_ide: Optional[Annotated[int, Field(ge=1)]] = None
+    recurso_ide: Optional[Annotated[int, Field(ge=1)]] = None
+    desde: int
+    hasta: int
+    registro_ids: list[int] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _coherente(self) -> "SincronizarIn":
+        if (self.obra_ide is None) == (self.recurso_ide is None):
+            raise ValueError("hace falta obra_ide o recurso_ide, uno y solo "
+                             "uno")
+        for nombre in ("desde", "hasta"):
+            if not _fecha_valida(getattr(self, nombre)):
+                raise ValueError(f"{nombre} no es una fecha YYYYMMDD")
+        dias = (datetime.strptime(str(self.hasta), "%Y%m%d")
+                - datetime.strptime(str(self.desde), "%Y%m%d")).days + 1
+        if not 1 <= dias <= MAX_DIAS_SINCRONIZAR:
+            raise ValueError(f"el rango debe ir de 1 a "
+                             f"{MAX_DIAS_SINCRONIZAR} dias")
+        return self
+
+
 def _franquicias_a_dict(e: EstadoFranquicias) -> dict[str, Any]:
     """R40: `{estado, motivo, recursos: {"<ide>": {franquicia, estado}}}`;
     `recursos` vacio si el estado no es `ok`."""
@@ -219,7 +254,8 @@ def _cliente_sigrid(settings) -> SigridWriteClient:
 def build_app(settings, pipeline: RegistroPipeline | None = None,
               comprobador: ComprobadorLineas | None = None,
               reajuste: ReajustePipeline | None = None,
-              franquicia: FranquiciaPipeline | None = None) -> FastAPI:
+              franquicia: FranquiciaPipeline | None = None,
+              lector: SigridWriteClient | None = None) -> FastAPI:
     """API de sv5.
 
     `pipeline` se inyecta desde `main.py` para que el HTTP y los hilos
@@ -242,6 +278,10 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
     `franquicia` (F-056) se inyecta desde `main.py` sobre el MISMO
     `RegistroPipeline` (su lock). Sin inyeccion sus rutas responden 503:
     escribe en Sigrid y no se compone a medias.
+
+    `lector` (F-052) es el cliente de las lecturas de sincronizar: solo
+    lee. Sin inyeccion, el propio o, si el pipeline vino de fuera, uno
+    nuevo en la primera peticion (como `comprobador`).
     """
     app = FastAPI(title="Partes -> Sigrid (transfer)", version="1.0.0")
 
@@ -250,7 +290,15 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
         pipeline = RegistroPipeline(cliente=cliente, settings=settings)
         if comprobador is None:
             comprobador = ComprobadorLineas(cliente=cliente)
-    estado = {"comprobador": comprobador, "reajuste": reajuste}
+        if lector is None:
+            lector = cliente
+    estado = {"comprobador": comprobador, "reajuste": reajuste,
+              "lector": lector}
+
+    def _lector() -> SigridWriteClient:
+        if estado["lector"] is None:
+            estado["lector"] = _cliente_sigrid(settings)
+        return estado["lector"]
 
     def _comprobador() -> ComprobadorLineas:
         if estado["comprobador"] is None:
@@ -345,6 +393,37 @@ def build_app(settings, pipeline: RegistroPipeline | None = None,
                                 status_code=502)
         return JSONResponse({"ok": True,
                              "veredictos": [asdict(v) for v in veredictos]})
+
+    @app.post("/api/sincronizar/leer")
+    def sincronizar_leer(p: SincronizarIn) -> JSONResponse:
+        """F-052 (R1-R6): las lineas de `hmores` de la obra o el recurso en
+        esas fechas, mas las de las synckeys de los `registro_ids`, sin
+        repetir y por `hmores.ide`. SOLO LECTURA: `def` (hilo del pool), sin
+        lock y sin `escribir`. 422 sin leer si sobran ids (R6); un fallo,
+        un corte por tiempo o un `truncated` es 502 sin lineas (R4)."""
+        tope = int(settings.sincronizar_max_registro_ids)
+        if len(p.registro_ids) > tope:
+            return JSONResponse(
+                {"ok": False, "error": f"como mucho {tope} registro_ids por "
+                                       "peticion"}, status_code=422)
+        ambito = "obra" if p.obra_ide is not None else "recurso"
+        claves = [synckey_de(i) for i in sorted(set(p.registro_ids))]
+        try:
+            lineas = _lector().lineas_sincronizar(
+                obra_ide=p.obra_ide, recurso_ide=p.recurso_ide,
+                desde=p.desde, hasta=p.hasta)
+            if claves:
+                lineas += _lector().lineas_sincronizar_por_synckey(claves)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("[sincronizar] fallo leyendo Sigrid")
+            return JSONResponse({"ok": False, "error": str(exc)},
+                                status_code=502)
+        unicas = {l.hmores_ide: l for l in lineas}
+        logger.info("[sincronizar] ambito=%s desde=%s hasta=%s "
+                    "registro_ids=%s lineas=%s", ambito, p.desde, p.hasta,
+                    len(claves), len(unicas))
+        return JSONResponse({"ok": True, "lineas": [
+            asdict(unicas[k]) for k in sorted(unicas)]})
 
     def _ops(p: ReajusteIn) -> list[OpReajuste]:
         return [OpReajuste(**l.model_dump()) for l in p.lineas]

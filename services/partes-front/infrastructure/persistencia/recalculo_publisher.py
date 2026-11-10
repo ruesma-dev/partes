@@ -42,6 +42,8 @@ MOTIVO_REAJUSTE = "reajuste_reparto"
 #: F-049 (R23, R27): tras guardar (o deshacer) una celda de la matriz.
 MOTIVO_EDICION_CELDA = "edicion_celda"
 MOTIVO_DESHACER_CELDA = "deshacer_edicion_celda"
+#: F-052 (R23, DA15): tras «Traer de Sigrid» horas a lineas congeladas.
+MOTIVO_SINCRONIZAR = "sincronizar"
 
 #: Estado del recalculo en la respuesta del portal (`recalculo`).
 ESTADO_PEDIDO = "pedido"

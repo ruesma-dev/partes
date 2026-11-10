@@ -37,6 +37,13 @@
             title="Comprobar en Sigrid si siguen alli las lineas registradas de esta vista">Comprobar en Sigrid</button>
     <span class="comprobar-sigrid-nota muted small" id="comprobar-sigrid-nota"></span>
     {% endif %}
+    {% if sincronizar_enabled %}
+    {# F-052 (R7, R15): compara el periodo visible con Sigrid; solo el boton llama a sv5 (R27). #}
+    <button type="button" class="btn secondary" id="sincronizar-sigrid"
+            data-vista="trabajador" data-worker-key="{{ worker_key }}"
+            data-period="{{ selected_period or '' }}" data-mode="{{ period_mode or 'nomina' }}"
+            {% if sincronizar_motivo %}disabled title="No se puede sincronizar: {{ sincronizar_motivo }}"{% else %}title="Leer Sigrid y comparar linea a linea con el periodo visible (no escribe en Sigrid)"{% endif %}>Sincronizar con Sigrid</button>
+    {% endif %}
     <a class="btn secondary" href="/trabajadores">← Trabajadores</a>
     <button type="button" class="btn danger" data-del-worker="{{ worker_key }}"
             data-label="{{ detail.nombre }}">Borrar persona</button>
@@ -199,6 +206,7 @@
 <div class="alert warn borradas-sigrid-aviso">⚠ <strong>{{ borradas_sigrid }}</strong> linea(s) de esta vista ya no estan en Sigrid (se borraron alli). Corrigelas si hace falta y vuelve a registrarlas con «Reaprobar»; las aprobaciones masivas no las reenvian salvo que lo marques.</div>
 {% endif %}
 <div class="alert info sigrid-aviso" id="sigrid-aviso" hidden></div>
+{% if sincronizar_enabled %}<div class="panel sincronizar-panel" id="sincronizar-panel" hidden></div>{% endif %}
 {% if sesame_degradado %}
 <div class="alert warn sesame-degradado">⚠ El calendario puede no ser exacto: <strong>Sesame no disponible</strong>. Los festivos y los avisos de jornada incompleta salen del respaldo local, no del calendario real del trabajador.</div>
 {% endif %}

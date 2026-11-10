@@ -68,6 +68,13 @@ class TransferClient:
         return self._post("/api/registro/comprobar", payload,
                           timeout_s=timeout_s)
 
+    def sincronizar_leer(self, payload: dict[str, Any], *,
+                         timeout_s: float) -> dict[str, Any]:
+        """F-052 (R7): las lineas de Sigrid del ambito y de esos
+        `registro_ids`. Solo lectura en sv5; un fallo es `ok: false`."""
+        return self._post("/api/sincronizar/leer", payload,
+                          timeout_s=timeout_s)
+
     # ----------------------- F-046: reajuste ----------------------- #
     def _post_reajuste(self, ruta: str, payload: dict[str, Any],
                        timeout_s: float | None = None) -> dict[str, Any]:

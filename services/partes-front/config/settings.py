@@ -76,6 +76,22 @@ class Settings(BaseSettings):
         30.0, alias="COMPROBACION_SIGRID_TIMEOUT_S", gt=0)
     comprobacion_sigrid_lote: int = Field(
         500, alias="COMPROBACION_SIGRID_LOTE", ge=1, le=500)
+    # F-052 (R4, design §10): plazo de la lectura de sincronizar en sv5;
+    # por debajo de los 230 s en que corta el balanceador de sigrid-api.
+    sincronizar_timeout_s: float = Field(
+        150.0, alias="SINCRONIZAR_TIMEOUT_S", gt=0, lt=230)
+    # F-052 (DA18, aprobada el 2026-11-03): modo seco de la comparacion.
+    # true (POR DEFECTO) -> «Sincronizar» no escribe nada en la base
+    #   `partes`: R10 pide a sv5 solo el veredicto y dice que lineas
+    #   pasaria a `borrado_sigrid`. Es lo que garantiza M2 en local.
+    # false -> R10 las pasa a `borrado_sigrid` como F-024. Se pone a
+    #   proposito, despues del punto de control (T8).
+    sincronizar_seco: bool = Field(True, alias="SINCRONIZAR_SECO")
+    # F-052 (R18): lineas por accion de «Sincronizar con Sigrid» (marcar,
+    # traer, papelera, reaprobar, restaurar). Tope del navegador: una
+    # accion relee el ambito y escribe linea a linea con CAS.
+    sincronizar_max_items_accion: int = Field(
+        500, alias="SINCRONIZAR_MAX_ITEMS_ACCION", ge=1, le=5000)
     # F-022 (DA15): obras distintas por aprobacion. sv4 manda a sv5 una
     # peticion por obra, una tras otra; el tope acota la espera del modal.
     aprobacion_max_obras: int = Field(

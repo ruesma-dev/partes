@@ -1,6 +1,75 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-052 · DONE 2026-11-05 (review APPROVED pasada 2, rigor crítico; mutación 331: 289 muertos + 38 matados con tests + 4 equivalentes aceptados; M2 y M3 superadas; SIN DESPLEGAR; pendiente: decidir `SINCRONIZAR_SECO` en Azure, desplegar sv5 → sv4 y M4): sincronizar con Sigrid desde una obra o una persona
+
+Orden del humano (2026-11-01): «vamos con la siguiente feature f52». Rama
+`feature/F-052-sincronizar-con-sigrid`, worktree `partes-wt-f052`, con `dev` 69af0f5
+fusionado (0be3ef7). Spec del 2026-10-20 revalidada el 2026-11-01: 16 cambios mecánicos (lista
+en `tasks.md`), DA9 superada, H1 resuelto por F-053 y H2 por F-038.
+**Aprobación** (humano, 2026-11-02, transmitida por el líder): «recuerda que la api lee hasta
+500k, no 5k lineas. se pagina a partir de ahi-da17, en una sola» y «si» a «Si dices "sí",
+apruebo las tres de la tabla y todas esas con la recomendación». Queda:
+- DA1 = A, DA2–DA7 = A, DA8 = crítico, DA10 = A, DA12–DA16 = A (`design.md` §8), ya aplicadas a
+  requirements y design: 12 clases (`solo_sigrid_auxiliar`), `a_cero`, `omitido` según motivo,
+  recálculo compartido de F-049, `ESTADOS_BLOQUEAN`, `parte_reemplazado`.
+- DA11: sv5 lee hasta el límite de la API (500.000) y solo pagina a partir de ahí. Sin
+  `SINCRONIZAR_MAX_LINEAS`: el límite es el corte de 230 s (R4). Cota solo de `registro_ids`:
+  `SINCRONIZAR_MAX_REGISTRO_IDS` = 3000 (422, R6).
+- DA17 = B: una sola feature, con **punto de control obligatorio en T8**: M2 sobre obras con
+  líneas del portal antes de implementar las acciones.
+**M1 HECHA** (líder, 2026-11-02, solo lectura; `design.md` §9): obra mayor 371 líneas en 4,8 s,
+lote de 200 synckeys 7,9 s, sin `truncated`; se queda `WHERE h.obride = ?`.
+**Implementer lanzado** (humano, 2026-11-03: «si, lanza el implementer»), tanda T1–T8 con
+**modo seco** en la comparación (DA18 = A, humano 2026-11-03: `SINCRONIZAR_SECO`, `true` por defecto).
+**T1–T7 HECHAS** (sv5 `POST /api/sincronizar/leer`; sv4 clasificación, `POST /api/sincronizar`), commits
+bb9f5c7…1ce4bf6; `azure-apps/partes.md` dddde8a (local). **PARADO EN T8 (punto de control)**:
+**M2 PENDIENTE del humano**, lista en `progress/impl_F-052.md` §M2 (2 obras y 2 personas con
+líneas `partes:`, sv4 en seco y sesión PostgreSQL de solo lectura). Sin M2 anotada no se empieza
+T9. Decisiones de implementación ID1–ID7 a revisar en M2 (mismo fichero).
+**M2 HECHA (líder, 2026-11-03), NO superada** por **H-M2-1** (`progress/m2_F-052.md`): 152 de 166
+`distinta` eran falsas por comparar con `auxhor.ext` (0 en las 7 `HE*`). **Corregido** (humano,
+2026-11-03, «si, dale»): clase de hora de Sigrid por el prefijo `HE` (`es_hora_extra`), RED y
+verificación en `progress/impl_F-052.md` §H-M2-1. **Siguiente: el líder repite M2**; T9 no empieza
+sin ella.
+**M2 SUPERADA** (líder, 2026-11-03, repetida tras H-M2-1: `distinta` de 166 a 16, todas
+reales; `progress/m2_F-052.md`). El humano autorizó seguir con T9–T17 («si, dale»).
+**T9–T17 HECHAS** (implementer, 2026-11-03; commits 4115eec…, detalle e ID8–ID14 en
+`progress/impl_F-052.md`): acciones `POST /api/sincronizar/aplicar` (marcar registrada, traer
+de Sigrid, a papelera, reaprobar, restaurar), botón y panel en las vistas de obra y persona,
+contrato del motivo `sincronizar` con sv3, `ARCHITECTURE.md` y `azure-apps/partes.md` (local).
+`aplicar` NO depende de `SINCRONIZAR_SECO` (ID10, `design.md` DA18). **Siguiente: reviewer**;
+luego M3 y, tras desplegar, M4.
+**Review 1: CHANGES_REQUESTED** (`progress/review_F-052.md`); cambios 1 a 4 aplicados por el
+implementer (2026-11-04, solo tests y papeleo, sin producción ni mutación; detalle en
+`progress/impl_F-052.md` §Review 1). ID8 e ID10 quedan en `design.md` §4 y §8 **pendientes de
+ratificar por el humano**, con los equivalentes 5, 8, 9 y 14. **Siguiente: reviewer, pasada 2.**
+**Review 2: APROBADO condicionado** (5dfd282). El humano acepta los equivalentes 5, 8, 9 y 14
+(2026-11-04, 03c3df4) y ratifica ID8 e ID10 (2026-11-04, «si»).
+**M3 SUPERADA** (líder, 2026-11-05, «haz tu la prueba»; resultado en `progress/m3_F-052.md` §RESULTADO): mes 2026/05, PT26/00382 creado, sincronizado, aplicado y limpiado; ninguna `[sigrid-write]` durante sincronizar ni aplicar. El paso 5 se hizo por `sql_write` con autorización del humano («a»). **F-052 `done`.**
+- [x] **M3 · HECHA 2026-11-05 por el líder (local, modo pruebas, obra 0404; escribe en Sigrid SOLO por
+  la aprobación del portal, con marca `PRUEBA-IA`)**. Comandos exactos en
+  `progress/m3_F-052.md`. Mes `<M3>` que elige el humano: `estado` ⇒ `NO existe parte`,
+  nunca 2026/06–2026/11 (PT26/00373, 00375 y 00376 se conservan). Resumen: sv5 del worktree con
+  `OBRA_PRUEBAS_FORZAR=true` (`/health` ⇒ `modo_pruebas: True`, si no PARA); sv4 del worktree
+  contra la base `partes` LOCAL (si `PG_HOST` no es local, PARA) y `TRANSFER_BASE_URL` al sv5
+  local; parte manual de 4 líneas ⇒ aprobar ⇒ en Sigrid, a mano, L1 8→6 y L3 → 0; en local
+  `sigrid_estado='error'` a L4; «Sincronizar con Sigrid» ⇒ L1 `distinta`, L2 `igual`, L3
+  `anulada_en_sigrid`, L4 `en_sigrid_sin_registrar`; aplicar «Traer de Sigrid» (L1, L3) y
+  «Marcar registrada» (L4) y comprobar horas, estado y `sigrid_motivo` «Sincronizado con
+  Sigrid: …» con SQL; sv5 sin `[sigrid-write]` durante sincronizar/aplicar. Limpieza con
+  `prueba_escritura_sigrid.py limpiar` / `limpiar --ejecutar` / `estado` y
+  `git checkout -- prueba_escritura_sigrid.py`.
+- [ ] **M4 · PENDIENTE del humano (producción, tras desplegar sv5 → sv4, que lo pide el
+  humano)**. Antes de desplegar, decidir `SINCRONIZAR_SECO` en Azure (por defecto `true`: R10
+  solo informa; las acciones explícitas funcionan igual). Un usuario real sincroniza una obra
+  y aplica una acción; en la base `partes`, solo lectura
+  (`PGOPTIONS='-c default_transaction_read_only=on'`):
+  `SELECT id, horas, sigrid_estado, sigrid_motivo, sigrid_registrado_by FROM parte_registros
+  WHERE sigrid_motivo LIKE 'Sincronizado con Sigrid:%' ORDER BY id DESC LIMIT 10;` ⇒ el
+  cambio y el actor real (el correo de Easy Auth), ni `local:` ni `sin-identidad`; y en los logs de sv4
+  `[sincronizar][aplicar] accion=… actor=…`.
+
 ## F-055 · DONE 2026-11-01 (review APPROVED pasada 3, rigor crítico; mutación 28: 26 muertos + 2 equivalentes aceptados; M2 hecha; DESPLEGADA 2026-11-01 sv5 r20261101101340, arranque sano (Healthy, Uvicorn sin Traceback, franquicia campo 10 configurada); pendiente: M3 unos días después): sv5 omite las líneas sin fecha válida
 
 Spec aprobada por el humano el 2026-11-01 (literal «si» a «¿Apruebas la spec con las

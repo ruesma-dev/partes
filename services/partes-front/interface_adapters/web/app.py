@@ -46,6 +46,10 @@ from application.services.comprobacion_sigrid import (
     RegistroComprobaciones,
 )
 from application.services.congelacion import CongeladoError
+from application.services.sincronizar_ambito import (
+    SincronizadorAmbito,
+    motivo_no_sincronizable,
+)
 from application.services.parte_vacio import DuplicadoActivoError
 from application.services.seguimiento_recalculo import MOTIVO_NUEVO
 from application.services.edicion_celda import (
@@ -116,6 +120,7 @@ from infrastructure.persistencia.recalculo_publisher import (
     MOTIVO_DESHACER_FECHA,
     MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
+    MOTIVO_SINCRONIZAR,
     RecalculoPublisher,
     pedir_recalculo,
     peor_estado,
@@ -288,6 +293,27 @@ class ComprobarSigridPayload(BaseModel):
                                     max_length=MAX_IDS_COMPROBAR)
     forzar: bool = False
     origen: str | None = None
+
+
+class SincronizarPayload(BaseModel):
+    """F-052 (R7): `{vista, obra_key | worker_key, period, mode}`; lo
+    valida `SincronizadorAmbito` (R15)."""
+    ambito: dict[str, Any]
+
+
+class ItemSincronizarPayload(BaseModel):
+    """F-052 (R18): un item que el usuario vio, con su firma."""
+    registro_id: int = Field(gt=0)
+    firma: str = Field(min_length=1, max_length=64)
+
+
+class AplicarSincronizarPayload(BaseModel):
+    """F-052 (R18): `{accion, ambito, items}`; el tope de items
+    (`SINCRONIZAR_MAX_ITEMS_ACCION`) y la accion los valida
+    `SincronizadorAmbito.validar_peticion`."""
+    accion: str
+    ambito: dict[str, Any]
+    items: list[ItemSincronizarPayload] = Field(min_length=1)
 
 
 class EstadoAprobacionPayload(BaseModel):
@@ -586,6 +612,22 @@ def build_app(
             recientes=RegistroComprobaciones(
                 ttl_s=settings.comprobacion_sigrid_ttl_s),
         )
+
+    # F-052: sincronizar con Sigrid (via sv5, solo lectura). UNO por
+    # proceso: su candado por ambito es el de R29. En modo seco (DA18, por
+    # defecto) no escribe nada en la base `partes`.
+    sincronizador: SincronizadorAmbito | None = None
+    if transfer_client is not None:
+        sincronizador = SincronizadorAmbito(
+            repository=repository, transfer_client=transfer_client,
+            comprobacion=comprobacion_sigrid,
+            timeout_s=settings.sincronizar_timeout_s,
+            seco=settings.sincronizar_seco,
+            lote_comprobar=settings.comprobacion_sigrid_lote,
+            timeout_comprobar_s=settings.comprobacion_sigrid_timeout_s,
+            max_items_accion=settings.sincronizar_max_items_accion)
+        logger.info("[sincronizar][wiring] CABLEADO seco=%s timeout_s=%s",
+                    settings.sincronizar_seco, settings.sincronizar_timeout_s)
 
     # F-042: peticion de recalculo de extras a sv3 por `q-persistencia`,
     # con el MISMO cliente de cola de la gestion de poison (R10). Sin cola
@@ -1164,6 +1206,10 @@ def build_app(
             "sigrid_enabled": settings.sigrid_lookup_enabled,
             "preview_enabled": settings.preview_enabled,
             "transfer_enabled": transfer_client is not None,
+            # F-052 (R15, R30): boton «Sincronizar con Sigrid».
+            "sincronizar_enabled": sincronizador is not None,
+            "sincronizar_motivo": motivo_no_sincronizable(
+                "trabajador", worker_key),
             "back": f"/trabajadores/{worker_key}",
             "worker_key": worker_key,
             "message": message,
@@ -1312,6 +1358,10 @@ def build_app(
             "extras": extras_por_jornada(_regs_kpi),
             "borradas_sigrid": _borradas_sigrid(detail.registros),
             "transfer_enabled": transfer_client is not None,
+            # F-052 (R15, R30): boton «Sincronizar con Sigrid».
+            "sincronizar_enabled": sincronizador is not None,
+            "sincronizar_motivo": motivo_no_sincronizable(
+                "obra", detail.obra_key),
             "candef_minimo": settings.candef_minimo_valido,
             "jornada_defecto": settings.jornada_por_defecto,
             "incompletos": incompletos,
@@ -3410,6 +3460,54 @@ def build_app(
         res = comprobacion_sigrid.comprobar_ids(
             p.registro_ids, origen=origen, forzar=p.forzar)
         return JSONResponse(res, status_code=200 if res["ok"] else 502)
+
+    @app.post("/api/sincronizar", include_in_schema=False)
+    def sincronizar(p: SincronizarPayload) -> JSONResponse:
+        """F-052 (R7, R13, R15, R29, R30): compara las lineas del ambito con
+        Sigrid. Lo llama SOLO el boton «Sincronizar con Sigrid» (R27).
+        `def`: corre en un hilo del pool mientras sv5 lee Sigrid. 422 si el
+        ambito no lee Sigrid, 409 si ya se sincroniza o no cuadra, 502 si
+        sv5 falla (sin items), 503 sin sv5."""
+        if sincronizador is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        res = sincronizador.sincronizar(p.ambito)
+        return JSONResponse(res.cuerpo, status_code=res.status)
+
+    @app.post("/api/sincronizar/aplicar", include_in_schema=False)
+    def sincronizar_aplicar(request: Request,
+                            p: AplicarSincronizarPayload) -> JSONResponse:
+        """F-052 (R16-R25): aplica una accion a items de una sincronizacion.
+
+        Antes de releer nada: la peticion (accion, tope) y, salvo
+        `restaurar`, el ambito como F-022 (`_validar_ambito`: un id ajeno
+        rechaza todo, 422). `restaurar` va sobre lineas de la papelera, que
+        la vista no tiene: su ambito lo prueba la relectura, donde el id
+        tiene que salir como item. Luego `SincronizadorAmbito.aplicar`
+        relee y aplica solo lo que no cambio. El actor es `_actor` (F-017)
+        y el recalculo, el compartido de F-049 con motivo `sincronizar`.
+        No escribe en Sigrid (R26)."""
+        if sincronizador is None:
+            return JSONResponse(
+                {"ok": False, "error": "registro en Sigrid no configurado "
+                                       "(TRANSFER_BASE_URL)"},
+                status_code=503)
+        items = [i.model_dump() for i in p.items]
+        motivo = sincronizador.validar_peticion(p.accion, items)
+        if motivo is not None:
+            return _rechazo_ambito(motivo)
+        if p.accion != "restaurar":
+            rechazo = _validar_ambito(p.ambito,
+                                      [i["registro_id"] for i in items])
+            if rechazo is not None:
+                return rechazo
+        res = sincronizador.aplicar(
+            p.accion, p.ambito, items, actor=_actor(request),
+            recalcular=lambda ids, actor: _pedir_recalculo_compartido(
+                ids, MOTIVO_SINCRONIZAR, actor))
+        return JSONResponse(res.cuerpo, status_code=res.status)
 
     @app.post("/api/aprobar/estado", include_in_schema=False)
     def aprobar_estado(p: EstadoAprobacionPayload) -> JSONResponse:

@@ -128,6 +128,11 @@ from application.services.calendar_builder import (
     parse_period_key,
     period_bounds,
 )
+from application.services.sincronizacion import (
+    DESCARTE_CAMBIO,
+    DESCARTE_NO_EXISTE,
+    LineaPortal,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +197,43 @@ LOTE_IDS_CONSULTA = 1000
 #: fecha) tiene un reparto de F-046 en `aplicando`.
 MOTIVO_REPARTO_APLICANDO = ("Este día tiene un reajuste en Sigrid en curso: "
                             "espera a que termine.")
+
+#: F-052 (R22): la traza que deja en `sigrid_motivo` una accion de
+#: sincronizar (`cambio` = «campo antes→después»), recortada a 255.
+MOTIVO_SINCRONIZAR_CAMBIO = (
+    "Sincronizado con Sigrid: {cambio} · {actor} · {fecha}")
+
+#: F-052 (R21, DA15): `traer_de_sigrid` sobre un dia con un reparto de
+#: F-046 que bloquea (`ESTADOS_BLOQUEAN`).
+MOTIVO_REPARTO_SINCRONIZAR = (
+    "el día tiene un reparto de la jornada pendiente de decidir: "
+    "decídelo antes de traer las horas de Sigrid")
+
+#: F-052 (R18-R21): por que una accion de sincronizar descarta una linea.
+DESCARTE_PAPELERA = "la línea está en la papelera o su parte ya no está activo"
+DESCARTE_NO_MARCABLE = "una línea en «{estado}» no se marca como registrada"
+DESCARTE_NO_REGISTRADA = ("solo se traen horas a una línea registrado "
+                          "(está en «{estado}»)")
+
+#: F-052 (R19): estados desde los que `marcar_registrada` aplica: los de
+#: `en_sigrid_sin_registrar` (design §3), normalizados.
+ESTADOS_MARCAR_REGISTRADA = ("", "omitido", "error", "conflicto",
+                             "borrado_sigrid")
+
+
+def _motivo_sincronizar(cambio: str, actor: str | None,
+                        ahora_iso: str) -> str:
+    """R22: «Sincronizado con Sigrid: <cambio> · <actor> · <fecha>»."""
+    return MOTIVO_SINCRONIZAR_CAMBIO.format(
+        cambio=cambio, actor=actor or "-",
+        fecha=ahora_iso[:10])[:255]
+
+
+def _mismas_horas(a: float | None, b: float | None) -> bool:
+    """R20 (CAS): las horas de la base son las que se vieron."""
+    if a is None or b is None:
+        return a is None and b is None
+    return abs(float(a) - float(b)) < 1e-9
 
 #: F-019 (R17): por que una linea en dedicacion no viaja a sv5.
 MOTIVO_EXCLUIDA_DEDICACION = (
@@ -2658,6 +2700,225 @@ class ParteReviewRepository:
                     "referencias actualizadas", len(borradas),
                     len(actualizadas))
         return {"borradas": borradas, "actualizadas": actualizadas}
+
+    # ------------------------------------------------------------------ #
+    # F-052 · sincronizar con Sigrid: lecturas (la comparacion es pura, en
+    # `application/services/sincronizacion.py`).
+    # ------------------------------------------------------------------ #
+
+    def lineas_para_sincronizar(
+        self, *, desde: int, hasta: int, obra_ide: int | None = None,
+        recurso_ide: int | None = None,
+    ) -> list[LineaPortal]:
+        """R7: las lineas activas (fuera de la papelera, parte activo) de la
+        obra `obr-{obra_ide}` O de la persona `rec-{recurso_ide}` (F-050)
+        con `fecha_int` en [desde, hasta], por id. El prefiltro SQL solo
+        acota: la persona la decide `worker_key_for_registro`."""
+        if (obra_ide is None) == (recurso_ide is None):
+            raise ValueError("lineas_para_sincronizar: obra_ide o "
+                             "recurso_ide, uno y solo uno")
+        q = (select(ParteRegistroOrm).join(ParteDocumentOrm)
+             .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+             .where(ParteDocumentOrm.is_active.is_(True))
+             .where(ParteRegistroOrm.fecha_int.between(int(desde),
+                                                        int(hasta))))
+        if obra_ide is not None:
+            q = q.where(ParteRegistroOrm.obra_ide == int(obra_ide))
+        else:
+            q = q.where(or_(
+                ParteRegistroOrm.recurso_ide == int(recurso_ide),
+                ParteRegistroOrm.recurso_ide.is_(None)
+                & (ParteRegistroOrm.empleado_reside == int(recurso_ide))))
+        clave = None if recurso_ide is None else f"rec-{int(recurso_ide)}"
+        with self._session_factory.create_session() as session:
+            regs = [r for r in session.execute(q).scalars().all()
+                    if clave is None or worker_key_for_registro(r) == clave]
+            return [LineaPortal(
+                registro_id=r.id, fecha_int=r.fecha_int,
+                recurso_ide=_recurso_de(r), obra_ide=r.obra_ide,
+                horas=r.horas, extra=_is_extra(r),
+                es_incidencia=bool(r.es_incidencia),
+                hora_codigo=r.hora_codigo, partida_ide=r.partida_ide,
+                partida_cod=r.partida_cod, sigrid_estado=r.sigrid_estado,
+                sigrid_motivo=r.sigrid_motivo,
+                sigrid_hmores_ide=r.sigrid_hmores_ide,
+                sigrid_hmoide=r.sigrid_hmoide)
+                for r in sorted(regs, key=lambda x: x.id)]
+
+    def donde_estan(self, registro_ids) -> dict[int, str]:
+        """R12 (DA16): donde esta en el portal cada linea de esos ids.
+
+        `papelera` (la linea, o su parte borrado o retirado: `deleted_by`
+        o `deleted_at_utc` del parte), `parte_reemplazado` (parte
+        desactivado por la reingesta de sv3, sin ninguno de los dos),
+        `otro_ambito` (activa, fuera de lo sincronizado) o `no_existe`."""
+        ids = sorted({int(i) for i in registro_ids if i})
+        out = {i: "no_existe" for i in ids}
+        if not ids:
+            return out
+        with self._session_factory.create_session() as session:
+            for r in self._registros_por_ids(session, ids):
+                doc = r.document
+                if r.deleted_at_utc is not None:
+                    out[r.id] = "papelera"
+                elif not doc.is_active:
+                    out[r.id] = ("parte_reemplazado"
+                                 if doc.deleted_by is None
+                                 and doc.deleted_at_utc is None
+                                 else "papelera")
+                else:
+                    out[r.id] = "otro_ambito"
+        return out
+
+    # ------------------------------------------------------------------ #
+    # F-052 · acciones de sincronizar hacia el portal (R19-R23, design §6).
+    # Que el item no cambio desde que el usuario lo vio (clase y firma) lo
+    # comprueba `SincronizadorAmbito.aplicar` releyendo el ambito; aqui se
+    # repite el CAS por linea DENTRO de la transaccion, bajo FOR UPDATE.
+    # Sin `undo_log`: deshacer una linea `registrado` ya lo prohibe la
+    # congelacion, y la vuelta atras es volver a sincronizar (design §6).
+    # ------------------------------------------------------------------ #
+
+    @staticmethod
+    def _bloquear_para_sincronizar(session, items: list[dict]):
+        """(item, linea | None, motivo de descarte | None) por item, en
+        orden de id (FOR UPDATE en orden: sin interbloqueos)."""
+        out = []
+        for it in sorted(items, key=lambda x: int(x["registro_id"])):
+            reg = session.get(ParteRegistroOrm, int(it["registro_id"]),
+                              with_for_update=True)
+            if reg is None:
+                out.append((it, None, DESCARTE_NO_EXISTE))
+            elif (reg.deleted_at_utc is not None or reg.document is None
+                  or not reg.document.is_active):
+                out.append((it, None, DESCARTE_PAPELERA))
+            else:
+                out.append((it, reg, None))
+        return out
+
+    def aplicar_marcar_registrada(self, items: list[dict], *,
+                                  actor: str | None,
+                                  ahora_iso: str) -> dict[str, list]:
+        """R19: `en_sigrid_sin_registrar` -> `registrado` con las
+        referencias de la linea de Sigrid, en UNA transaccion.
+
+        Cada item: `registro_id`, `estado_visto` y `hmores_ide_visto` (lo
+        que se clasifico) y `hmores_ide`, `hmoide`, `parte_cod` (de
+        Sigrid). CAS: activa, estado marcable y el MISMO estado y
+        `sigrid_hmores_ide` que se vieron; si no, descartada sin escribir.
+        Desde aqui la linea queda congelada (`registrado`)."""
+        aplicados: list[int] = []
+        descartados: list[dict] = []
+        with self._session_factory.create_session() as session:
+            for it, reg, motivo in self._bloquear_para_sincronizar(
+                    session, items):
+                rid = int(it["registro_id"])
+                estado = _estado_norm(reg.sigrid_estado) if reg else ""
+                if motivo is None and estado not in ESTADOS_MARCAR_REGISTRADA:
+                    motivo = DESCARTE_NO_MARCABLE.format(estado=estado)
+                if motivo is None and (
+                        estado != _estado_norm(it.get("estado_visto"))
+                        or reg.sigrid_hmores_ide != it.get(
+                            "hmores_ide_visto")):
+                    motivo = DESCARTE_CAMBIO
+                if motivo is not None:
+                    descartados.append({"registro_id": rid,
+                                        "motivo": motivo})
+                    continue
+                reg.sigrid_estado = ESTADO_REGISTRADO
+                reg.sigrid_hmores_ide = it.get("hmores_ide")
+                reg.sigrid_hmoide = it.get("hmoide")
+                reg.sigrid_parte_cod = it.get("parte_cod")
+                reg.sigrid_registrado_by = actor
+                reg.sigrid_registrado_at_utc = ahora_iso
+                reg.sigrid_motivo = _motivo_sincronizar(
+                    f"estado {estado or 'sin estado'}→{ESTADO_REGISTRADO}",
+                    actor, ahora_iso)
+                aplicados.append(rid)
+            session.commit()
+        return {"aplicados": aplicados, "descartados": descartados}
+
+    def aplicar_traer_de_sigrid(self, items: list[dict], *,
+                                actor: str | None,
+                                ahora_iso: str) -> dict[str, list]:
+        """R20-R22: las horas de Sigrid a lineas `registrado` (DA3 = A:
+        solo horas; `anulada_en_sigrid` llega con 0), en UNA transaccion.
+
+        La excepcion controlada de R20 (R28): NO pasa por
+        `_exigir_reg_editable`, como la materializacion de F-046 en sv3;
+        la regla de congelacion no cambia. Cada item: `registro_id`,
+        `horas_vistas`, `hmores_ide_visto` y `horas_nuevas`. CAS: activa,
+        `registrado`, mismas horas y `sigrid_hmores_ide`. R21: un parte en
+        espera (F-043/F-047, `_exigir_sin_recalculo`) o un dia con reparto
+        que bloquea (F-046, `ESTADOS_BLOQUEAN`) descartan sin escribir.
+        `horas_orig` no se toca. Devuelve tambien los `documentos` y los
+        `pares` (recurso, fecha) tocados, para el recalculo de R23."""
+        aplicados: list[int] = []
+        descartados: list[dict] = []
+        documentos: set[str] = set()
+        pares: set[tuple[int, int]] = set()
+        with self._session_factory.create_session() as session:
+            bloqueadas = self._bloquear_para_sincronizar(session, items)
+            con_reparto = {
+                (f.recurso_ide, f.fecha_int) for f in self._filas_reparto(
+                    session, self._claves_de(
+                        [reg for _i, reg, _m in bloqueadas if reg]),
+                    ESTADOS_BLOQUEAN)}
+            for it, reg, motivo in bloqueadas:
+                rid = int(it["registro_id"])
+                if motivo is None and (_estado_norm(reg.sigrid_estado)
+                                       != ESTADO_REGISTRADO):
+                    motivo = DESCARTE_NO_REGISTRADA.format(
+                        estado=_estado_norm(reg.sigrid_estado)
+                        or "sin estado")
+                if motivo is None and (
+                        reg.sigrid_hmores_ide != it.get("hmores_ide_visto")
+                        or not _mismas_horas(reg.horas,
+                                             it.get("horas_vistas"))):
+                    motivo = DESCARTE_CAMBIO
+                if motivo is None:
+                    try:
+                        _exigir_sin_recalculo(reg.document)   # R21
+                    except CongeladoError as exc:
+                        motivo = str(exc)
+                if motivo is None and (reg.recurso_ide,
+                                       reg.fecha_int) in con_reparto:
+                    motivo = MOTIVO_REPARTO_SINCRONIZAR
+                if motivo is not None:
+                    descartados.append({"registro_id": rid,
+                                        "motivo": motivo})
+                    continue
+                nuevas = float(it["horas_nuevas"])
+                reg.sigrid_motivo = _motivo_sincronizar(
+                    f"horas {_fmt_h(reg.horas or 0.0)}→{_fmt_h(nuevas)}",
+                    actor, ahora_iso)
+                reg.horas = nuevas
+                aplicados.append(rid)
+                documentos.add(reg.document_id)
+                recurso = _recurso_de(reg)
+                if recurso and reg.fecha_int:
+                    pares.add((int(recurso), int(reg.fecha_int)))
+            session.commit()
+        return {"aplicados": aplicados, "descartados": descartados,
+                "documentos": sorted(documentos), "pares": sorted(pares)}
+
+    def documentos_de_los_dias(self, pares) -> list[str]:
+        """R23 (DA15): los partes activos con alguna linea activa de esos
+        (recurso, fecha), de cualquier obra: el grupo que sv3 reparte por
+        dia (`otras_de_celda` va por celda). Ordenados."""
+        claves = {(int(r), int(f)) for r, f in pares or []}
+        if not claves:
+            return []
+        with self._session_factory.create_session() as session:
+            regs = session.execute(
+                select(ParteRegistroOrm)
+                .join(ParteDocumentOrm)
+                .where(ParteDocumentOrm.is_active.is_(True))
+                .where(ParteRegistroOrm.deleted_at_utc.is_(None))
+                .where(ParteRegistroOrm.fecha_int.in_(
+                    sorted({f for _r, f in claves})))).scalars().all()
+            return sorted({r.document_id for r in regs
+                           if (_recurso_de(r), r.fecha_int) in claves})
 
     def recuento_estados(self, registro_ids: list[int]) -> dict[str, Any]:
         """R28: cuantas lineas hay en cada `sigrid_estado` (solo lectura).
