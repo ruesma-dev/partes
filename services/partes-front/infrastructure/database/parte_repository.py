@@ -48,6 +48,7 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.clase_hora import tipo_hora_de_codigo
 from application.services.jornada_admin import columnas_patron
 from application.services.empresas import empresas_de_fila, texto_empresas
 from application.services.congelacion import (
@@ -3209,8 +3210,12 @@ class ParteReviewRepository:
             reg.hora_precio_coste = hora_precio_coste
             reg.hora_precio_nomina = hora_precio_nomina
             reg.hora_match_method = "manual"
-            if hora_ext is not None and not reg.es_incidencia:
-                reg.tipo_hora = "extra" if hora_ext == 1 else "normal"
+            # F-066 (R12-R15): la clase sale del codigo (prefijo `HE`, sin
+            # los excluidos), no de `auxhor.ext`; sin codigo no se sabe y
+            # no se toca, y una incidencia conserva la suya.
+            tipo = tipo_hora_de_codigo(hora_codigo)
+            if tipo is not None and not reg.es_incidencia:
+                reg.tipo_hora = tipo
             self._record_undo(
                 session, action="registro_hora",
                 description=f"Cambiar codigo de hora · {label}",

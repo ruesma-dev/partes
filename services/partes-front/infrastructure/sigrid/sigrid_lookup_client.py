@@ -25,6 +25,8 @@ from typing import Any
 
 import httpx
 
+from application.services.clase_hora import condicion_sql_extra, es_excluido
+
 logger = logging.getLogger(__name__)
 
 _LOG_PREFIX = "[sigrid-lookup]"
@@ -233,10 +235,16 @@ class SigridLookupClient:
             label="tipos_hora",
         )
         out: list[TipoHoraOption] = []
+        omitidos = 0
         for row in rows:
             rm = dict(zip(columns, row))
             ide = _opt_int(rm.get("ide"))
             if ide is None:
+                continue
+            # F-066 (R7, DA11): los codigos excluidos no entran en el
+            # catalogo: ni desplegable, ni `get_by_ide`, ni matcher.
+            if es_excluido(_opt_str(rm.get("codigo"))):
+                omitidos += 1
                 continue
             out.append(
                 TipoHoraOption(
@@ -250,7 +258,8 @@ class SigridLookupClient:
             )
         # El orden de siempre (normales antes que extras, por codigo).
         out.sort(key=lambda t: (t.ext, t.codigo or ""))
-        logger.info("%s tipos_hora -> %s filas", _LOG_PREFIX, len(out))
+        logger.info("%s tipos_hora -> %s filas (%s excluidas)", _LOG_PREFIX,
+                    len(out), omitidos)
         return out
 
     def fetch_obras(self) -> list[ObraOption]:
@@ -425,7 +434,8 @@ class SigridLookupClient:
         Ancla por DNI (fiable), no por recurso_ide (que puede venir mal
         persistido). Camino: DNI -> res (por emp.dni o res.cif) -> reshor.
         Un DNI cuenta como CON extra si CUALQUIERA de sus recursos tiene
-        una hora ext=1. Devuelve el conjunto de DNIs (normalizados) SIN
+        una hora extra (`clase_hora`: prefijo `HE`, sin los excluidos; F-066
+        R20). Devuelve el conjunto de DNIs (normalizados) SIN
         extra, que son los que se excluyen de los totales.
         """
         norm = {self._norm_dni(d) for d in dnis if d}
@@ -433,16 +443,17 @@ class SigridLookupClient:
         if not norm:
             return set()
         placeholders = ",".join("?" for _ in norm)
-        # "Tiene extra" = el recurso tiene alguna hora en reshor cuyo
-        # CODIGO empieza por 'HE' (Hora Extra ...). El flag auxhor.ext
-        # NO es fiable aqui: en los datos reales viene 0 incluso para las
-        # HE*, asi que se usa el prefijo del codigo, que es inequivoco.
-        # es_he = 1 si cod LIKE 'HE%', 0 en caso contrario; MAX por DNI.
+        # "Tiene extra" = el recurso tiene alguna hora en reshor que es
+        # extra por su CODIGO (`condicion_sql_extra`: prefijo `HE` sin los
+        # codigos excluidos, F-066). El flag auxhor.ext NO es fiable: viene
+        # 0 en todas las horas. es_he = 1 si es extra, 0 si no; MAX por DNI.
+        es_he = (f"CASE WHEN {condicion_sql_extra('auxhor.cod')} "
+                 "THEN 1 ELSE 0 END AS es_he")
         sql = (
             "SELECT dnin AS dni, MAX(es_he) AS max_he FROM ("
             "  SELECT REPLACE(REPLACE(UPPER(ISNULL(emp.dni,'')),'-',''),' ','')"
             "         AS dnin,"
-            "         CASE WHEN auxhor.cod LIKE 'HE%' THEN 1 ELSE 0 END AS es_he"
+            f"         {es_he}"
             "  FROM res"
             "  JOIN emp ON emp.ide = res.conide"
             "  LEFT JOIN reshor ON reshor.reside = res.ide"
@@ -452,7 +463,7 @@ class SigridLookupClient:
             "  UNION ALL"
             "  SELECT REPLACE(REPLACE(UPPER(ISNULL(res.cif,'')),'-',''),' ','')"
             "         AS dnin,"
-            "         CASE WHEN auxhor.cod LIKE 'HE%' THEN 1 ELSE 0 END AS es_he"
+            f"         {es_he}"
             "  FROM res"
             "  LEFT JOIN reshor ON reshor.reside = res.ide"
             "  LEFT JOIN auxhor ON auxhor.ide = reshor.horide"
@@ -492,13 +503,14 @@ class SigridLookupClient:
         return re.sub(r"[^0-9A-Za-z]", "", dni or "").upper()
 
     def fetch_hora_extra_recurso(self, reside: int) -> dict | None:
-        """Primera hora EXTRA (ext=1) del recurso en ``reshor``: para
-        proponer el codigo al crear una linea extra desde la matriz."""
+        """Primera hora EXTRA del recurso en ``reshor`` (por codigo, con
+        `clase_hora`: nunca un excluido, F-066 R19): para proponer el
+        codigo al crear una linea extra desde la matriz."""
         sql = (
             "SELECT TOP 1 reshor.horide AS ide, auxhor.cod AS cod, "
             "auxhor.res AS res, reshor.pre AS pre "
             "FROM reshor JOIN auxhor ON auxhor.ide = reshor.horide "
-            "WHERE auxhor.cod LIKE 'HE%' AND reshor.reside = ? "
+            f"WHERE {condicion_sql_extra('auxhor.cod')} AND reshor.reside = ? "
             "ORDER BY auxhor.cod"
         )
         columns, rows = self._post_sql_read(

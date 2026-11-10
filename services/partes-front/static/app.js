@@ -464,9 +464,11 @@ var FiltrosSesion = (function () {
   }
 
   function buildOptions(select, items, current) {
-    // Agrupa Normales / Extra para facilitar la eleccion.
-    var normales = items.filter(function (t) { return t.ext !== 1; });
-    var extra = items.filter(function (t) { return t.ext === 1; });
+    // Agrupa Normales / Extra para facilitar la eleccion. F-066: la clase
+    // la manda el servidor (`extra`, regla de clase_hora.py); aqui no hay
+    // regla propia.
+    var normales = items.filter(function (t) { return t.extra !== true; });
+    var extra = items.filter(function (t) { return t.extra === true; });
 
     function addGroup(label, list) {
       if (!list.length) return;

@@ -13,8 +13,9 @@ humana (`franquicia_ajuste`) y orquesta. Este modulo no lee ni escribe:
   - `elegir_obra` (R7) y `varios_recursos` (R12);
   - `candidatos` (R9-R12, R44; DA7: una linea del DIA DE AJUSTE de un
     recurso con franquicia `activa`, o un ajuste ya existente del periodo);
-  - `extras_pendientes` (R9): las extras `HE*` que esta aprobacion
-    escribiria (acciones `escribir` del preflight de sv5);
+  - `extras_pendientes` (R9): las horas extra (`clase_hora`: prefijo `HE`
+    sin los codigos excluidos, F-066) que esta aprobacion escribiria
+    (acciones `escribir` del preflight de sv5);
   - `bloque_franquicias` (R9-R14): lo que pinta el modal;
   - `validar_decisiones` (R15) y `payload_franquicia` (design §6).
 
@@ -33,6 +34,7 @@ from application.services.calendar_builder import (
     period_bounds,
     period_of,
 )
+from application.services.clase_hora import es_hora_extra
 from application.services.congelacion import CongeladoError
 
 #: Estados de `franquicia_ajuste` (los mismos que `ESTADOS_FRANQUICIA` del
@@ -233,7 +235,8 @@ def varios_recursos(lineas_periodo: Iterable[Mapping]) -> bool:
 
 def extras_pendientes(grupos_evaluados: Iterable[Mapping], recurso_ide: int,
                       periodo: Periodo) -> float:
-    """R9: las horas `HE*` que esta aprobacion ESCRIBIRIA en el periodo
+    """R9: las horas extra (`clase_hora.es_hora_extra`; un excluido como
+    `HENC` no suma, F-066 R21) que esta aprobacion ESCRIBIRIA en el periodo
     (acciones `escribir` del preflight de sv5, netas): sv5 aun no las ve
     en Sigrid y `comprobar` las suma a E para el A estimado."""
     total = 0.0
@@ -241,7 +244,7 @@ def extras_pendientes(grupos_evaluados: Iterable[Mapping], recurso_ide: int,
         for a in g.get("acciones") or []:
             if (a.get("accion") == "escribir"
                     and int(a.get("recurso_ide") or 0) == int(recurso_ide)
-                    and (a.get("hora_codigo") or "").upper().startswith("HE")
+                    and es_hora_extra(a.get("hora_codigo")) is True
                     and periodo.inicio_int <= int(a.get("fecha_int") or 0)
                     <= periodo.fin_int):
                 total += float(a.get("can") or 0.0)

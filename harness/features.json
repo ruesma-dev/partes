@@ -80,18 +80,6 @@
       "branch": "feature/F-005-graphkey-keyvault"
     },
     {
-      "id": "F-006",
-      "title": "tipo_hora_resolver con auxhor.ext para variantes HE%",
-      "description": "El resolutor de tipos de hora debe usar auxhor.ext (¿computa como extra?) para reconocer todas las variantes HE% de la ficha del recurso, en lugar de depender del prefijo del código.",
-      "acceptance": [],
-      "status": "pending",
-      "sdd": true,
-      "rigor": "estandar",
-      "priority": 12,
-      "branch": "feature/F-006-tipo-hora-ext",
-      "spec": "sin spec"
-    },
-    {
       "id": "F-007",
       "title": "Revisión del prompt de extracción de sv2 (J.310 rev.1)",
       "description": "Revisar el prompt YAML de sv2 con el caso J.310 rev.1. Antes de tocar el prompt hay que montar la verificación que lo proteja: banco de evals con ground truth (como la F-011 de albaranes) y declaración en harness/rutas_sensibles.json — un cambio de redacción de prompt no lo caza ningún test unitario.",
@@ -761,6 +749,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
+      "pendiente": "fusionar en dev, decidir SINCRONIZAR_SECO en Azure, desplegar sv5 → sv4 y M4",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -817,6 +806,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar; M1 y M2 hechas",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
+      "pendiente": "M3 cuando se aprueben las 15 líneas sin fecha (2026-11-06: aún sin aprobar)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -1016,6 +1006,37 @@
       "priority": 16,
       "branch": "feature/F-065-buzon-por-aviso-de-graph",
       "spec": "aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A)"
+    },
+    {
+      "id": "F-066",
+      "title": "sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos)",
+      "description": "Hallazgo H-M2-1b de F-052 (M2, 2026-11-03), acordado con el humano el 2026-11-03 («me parece bien»): el selector de código de hora de sv4 (PATCH /api/registros/{id}/hora, set_registro_hora, buildOptions de app.js) fija tipo_hora con auxhor.ext, que no es fiable; elegir una HE* deja la línea normal y sv5 escribiría una HL. M1 del líder (2026-11-06, solo lectura): ningún auxhor tiene ext = 1; HENC «HORA ENCARGADO» (ide 63, 1 uso manual de 2022 en hmores, 0 filas en reshor) empieza por HE sin ser extra. Decisión del humano del 2026-11-06, que sustituye a la anterior: «HENC no debe ser tenido en cuenta por la app» (alcance aprobado con «ok»). Solo sv4: lista de códigos excluidos (HENC) y regla de extra por prefijo HE en application/services/clase_hora.py (Python y fragmento SQL); fetch_tipos_hora omite los excluidos (desplegable, catálogo, matcher de «+ Nuevo» y celda), set_registro_hora y su endpoint deciden por prefijo, /api/sigrid/tipos-hora gana extra y el JS agrupa por él; fetch_hora_extra_recurso, fetch_dnis_sin_extra, franquicia.extras_pendientes y sincronizacion.es_hora_extra no cuentan ni eligen HENC. Fuera: las 7 líneas HENC del portal (inactivas), la línea de 2022 en Sigrid y la baja de HENC (Administración); sv3 y sv5 en F-067. No toca congelacion.py, esta_congelado, orm_models.py, gemelos ni CLAUDE.md. Decisiones en design.md §8.",
+      "acceptance": [
+        "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R24, M1 hecha, M2)",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "pendiente": "fusionar tras F-052, desplegar sv4 y M2 del humano",
+      "status": "done",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 7,
+      "branch": "feature/F-066-selector-hora-por-prefijo-he",
+      "spec": "escrita 2026-11-06 y revisada dos veces el mismo día (M1 y decisión «HENC no debe ser tenido en cuenta por la app»); aprobada por el humano el 2026-11-06 («si»: DA2–DA5, DA7 y DA9–DA12 con la recomendación; F-006 retirada) · `partes-wt-f066`"
+    },
+    {
+      "id": "F-067",
+      "title": "sv3 y sv5: HENC excluido",
+      "description": "Alta del 2026-11-06 por la decisión del humano «HENC no debe ser tenido en cuenta por la app» (alcance aprobado con «ok»), tras la M1 de F-066: HENC «HORA ENCARGADO» (auxhor ide 63, 1 uso manual de 2022 en hmores, 0 filas en reshor) empieza por HE sin ser extra, y ningún auxhor tiene ext = 1. Regla común con F-066: HENC es un código EXCLUIDO (lista de un elemento, un solo sitio por servicio) y la regla de extra es el prefijo HE. sv3: nunca asigna HENC al conciliar el código de hora, tampoco por categoría (las 7 líneas HENC del portal son categoria_normal) ni en el último recurso de recurso_conciliador.py; no se tocan esta_congelado ni ESTADOS_CONGELADOS. sv5: nunca escribe HENC en Sigrid: una línea que llegue con HENC se omite con un motivo propio (nombre del motivo = DA de F-067); HoraRecurso.es_extra, franquicia._es_extra y reglas_registro usan la lista y la regla de su sitio único. Guardián raíz de gemelos de la lista de excluidos y de la regla de extra en sv3, sv4 (application/services/clase_hora.py de F-066) y sv5; la propuesta de entrada en la lista cerrada de CLAUDE.md es DA de F-067 y requiere el «sí» del humano (no se escribe sin él). Depende de F-066. Fuera: las 7 líneas del portal, la línea de 2022 y la baja de HENC en Sigrid. Pendiente de spec.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "status": "pending",
+      "sdd": true,
+      "rigor": "critico",
+      "priority": 7,
+      "branch": "feature/F-067-sv3-sv5-henc-excluido",
+      "spec": "sin spec"
     }
   ]
 }

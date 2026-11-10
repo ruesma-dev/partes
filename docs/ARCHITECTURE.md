@@ -118,8 +118,23 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    ficha y con o sin DNI; es lo único que identifica a quien no tiene DNI
    ni ficha (semántica 12).
 3. **Horas extra solo con código HE%** en la ficha del recurso (`reshor`).
-   Los mensuales (MENC) no registran por horas: sus «extras» del papel se
-   omiten con motivo. El exceso se mide contra la **jornada DEL DÍA** y se
+   **Regla de extra y códigos excluidos (F-066)**: una hora es extra si su
+   código, sin espacios a los lados y en mayúsculas, empieza por `HE` y no
+   es un **código excluido**; sin código, la clase no se sabe. Excluido hoy:
+   `HENC` («HORA ENCARGADO», `auxhor` ide 63), que empieza por `HE` sin ser
+   extra; decisión del humano del 2026-11-06: «HENC no debe ser tenido en
+   cuenta por la app» (no se ofrece, no se asigna, no se elige ni cuenta
+   como extra). `auxhor.ext` **no decide nada**: la M1 de F-066
+   (2026-11-06) lo vio a 0 en todos los códigos, también en los siete `HE*`;
+   se guarda en `parte_registros.hora_ext` como dato informativo. En sv4 la
+   lista y la regla viven solo en `application/services/clase_hora.py`
+   (Python y el fragmento T-SQL `condicion_sql_extra`): el catálogo de tipos
+   de hora omite los excluidos, el selector de código de hora fija
+   `tipo_hora` por la regla y `/api/sigrid/tipos-hora` manda `extra` al JS.
+   sv3 y sv5 la adoptan con F-067; hasta entonces sv3 aún podría asignar
+   `HENC` por categoría a una línea nueva (sv5 no la elige: no está en
+   `reshor`). Los mensuales (MENC) no registran por horas: sus «extras» del
+   papel se omiten con motivo. El exceso se mide contra la **jornada DEL DÍA** y se
    separa como extra automática (`extra_auto`) en sv3. Desde **F-015** esa
    jornada no es plana: es el `candef` (8 h si inválida) de lunes a jueves,
    y el **último día laborable de la semana** —según el calendario del
@@ -720,8 +735,8 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     (`partes`, `ciz`, `franquicia`, `ajena`, `manual`); sv4 casa por synckey
     (respaldo de F-024 por `sigrid_hmores_ide`) y clasifica cada línea en
     una de 12 clases (`application/services/sincronizacion.py`); la clase de
-    hora de Sigrid es extra si el código empieza por `HE` (`auxhor.ext` no
-    sirve). El resultado es efímero, con una firma por ítem. Un
+    hora de Sigrid es extra por la regla de la semántica 3 (`clase_hora`:
+    prefijo `HE` sin los excluidos; `auxhor.ext` no sirve). El resultado es efímero, con una firma por ítem. Un
     `registrado` que no está en Sigrid se confirma con F-024 y pasa a
     `borrado_sigrid`, salvo en **modo seco** (`SINCRONIZAR_SECO`, `true` por
     defecto), que solo informa. Las acciones (`POST /api/sincronizar/

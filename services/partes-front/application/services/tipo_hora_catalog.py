@@ -4,6 +4,11 @@
 Lo usan: (a) el endpoint que puebla el desplegable y (b) el guardado del
 codigo de hora, que resuelve el ``auxhor`` elegido por ``ide`` para
 persistir descripcion/ext/precios desde el maestro (no desde el cliente).
+
+F-066: el catalogo NO trae los codigos excluidos (`clase_hora`,
+`CODIGOS_EXCLUIDOS`, hoy `HENC`): los quita `fetch_tipos_hora`, asi que
+`get_by_ide` de un excluido da None. `ext` es informativo: la clase
+extra/ordinaria sale del codigo (`clase_hora.es_hora_extra`).
 """
 from __future__ import annotations
 

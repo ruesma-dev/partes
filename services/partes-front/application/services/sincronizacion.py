@@ -24,6 +24,10 @@ from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field, fields
 from typing import Any
 
+# F-066 (R5): la clase de una hora de Sigrid vive en `clase_hora` (prefijo
+# `HE`, sin los codigos excluidos); se reexporta con el mismo nombre.
+from application.services.clase_hora import es_hora_extra  # noqa: F401
+
 CLASES: tuple[str, ...] = (
     "igual", "distinta", "anulada_en_sigrid", "borrada_en_sigrid",
     "en_sigrid_sin_registrar", "pendiente", "no_viaja", "en_vuelo",
@@ -101,7 +105,8 @@ class LineaSigridSync:
     fecha_int: int | None
     hora_ide: int | None
     hora_cod: str | None
-    #: `auxhor.ext`, informativo: NO decide la clase (H-M2-1, `es_hora_extra`).
+    #: `auxhor.ext`, informativo: NO decide la clase (H-M2-1; la decide
+    #: `clase_hora.es_hora_extra`, F-066).
     hora_ext: int | None
     partida_ide: int | None
     partida_cod: str | None
@@ -155,16 +160,6 @@ def _cero(valor: float | None) -> bool:
     return abs(float(valor or 0.0)) <= TOLERANCIA_HORAS
 
 
-def es_hora_extra(codigo: str | None) -> bool | None:
-    """H-M2-1: la clase de una hora de Sigrid por su codigo; None sin codigo.
-
-    Extra = prefijo `HE`, la regla de sv5 (`HoraRecurso.es_extra`) y de
-    `fetch_dnis_sin_extra` (sv4). `auxhor.ext` no sirve: las 7 horas `HE*`
-    de Sigrid lo tienen a 0 (M2 de F-052)."""
-    cod = _cod(codigo)
-    return cod.startswith("HE") if cod else None
-
-
 def _clase_hora(extra: bool) -> str:
     return "extra" if extra else "ordinaria"
 
@@ -179,8 +174,8 @@ def comparar(p: LineaPortal,
              s: LineaSigridSync) -> tuple[list[Diferencia], list[str]]:
     """R9: diferencias `{campo, portal, sigrid}` y notas de una pareja.
 
-    Horas con tolerancia y clase de hora (la de Sigrid por el prefijo `HE`
-    de su codigo, H-M2-1), no en incidencias; el codigo de
+    Horas con tolerancia y clase de hora (la de Sigrid por su codigo con
+    `clase_hora.es_hora_extra`, H-M2-1 y F-066), no en incidencias; el codigo de
     hora con la misma clase es nota (las reglas de sv5 lo cambian). Recurso
     y obra solo si el portal los sabe; la partida por ide si los dos lo
     tienen y, si no, por codigo."""
