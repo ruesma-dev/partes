@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **62 features**, 10 abiertas, 52 terminadas.
+Resumen: **63 features**, 11 abiertas, 52 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -11,6 +11,7 @@ Bloqueadas: **F-032**.
 
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
+| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 1 | pendiente | sin spec | critico | `feature/F-068-conciliar-pide-recalculo` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-067 | sv3 y sv5: HENC excluido | 7 | pendiente | sin spec | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
@@ -80,6 +81,14 @@ Bloqueadas: **F-032**.
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | 10 | estandar |  |
 
 ## Detalle
+
+### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
+
+estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
+
+**Spec**: sin spec
+
+Hotfix pedido por el humano el 2026-11-10 («apúntalo como hotfix»). Caso: obra 0694, 04/11/2026, trabajador que no se casó solo por venir escrito a mano; se casó a mano en Conciliar y su línea de 8,5 h quedó entera como ordinaria en vez de pasar por el cálculo de extras (jornada 8 h ⇒ 8 HLOF + 0,5 HEOF). Causa (sv4, interface_adapters/web/app.py, conciliacion_confirmar): POST /api/conciliacion/confirmar solo hace backfill_empleado y upsert_empleado_alias y NO pide recálculo, a diferencia del editor de celda, la fecha o el reajuste (_pedir_recalculo_seguido / _pedir_recalculo_compartido de F-042/F-043/F-049). Se corrigió solo en la siguiente pasada completa de sv3 del 2026-11-10 (al entrar partes nuevos): hoy la línea 20545 tiene 8 h HLOF y la 20717 0,5 h HEOF, ambas sin registrar. Riesgo: aprobar entre el casado y esa pasada escribiría en Sigrid las 8,5 h como ordinarias. Arreglo propuesto: tras un casado con líneas actualizadas, pedir el recálculo de los documentos afectados (los de las líneas casadas, no congeladas) con su motivo y seguimiento, y que el portal lo diga como en el editor de celda. Solo sv4; sin esquema nuevo. Pendiente de spec.
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
