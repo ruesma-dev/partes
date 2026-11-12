@@ -457,12 +457,16 @@ class RecursoConciliador:
             return self._pasada()
 
     def _pasada(self) -> dict:
-        # Idempotencia: revertir las extras por jornada de pasadas anteriores
-        # (restaurar horas originales y borrar los extra auto) para recalcular
-        # el dia completo desde el estado original del parte. F-037: la
-        # base y sus extras automaticas se congelan JUNTAS; si una ya esta
-        # en Sigrid, la pareja ni se revierte ni se vuelve a partir.
-        self._repository.revert_extras_auto()
+        # Idempotencia: el dia se recalcula desde el estado original del
+        # parte, con las extras por jornada de pasadas anteriores revertidas
+        # (bases restauradas, `extra_auto` fuera). F-037: la base y sus
+        # extras automaticas se congelan JUNTAS; si una ya esta en Sigrid,
+        # la pareja ni se revierte ni se vuelve a partir.
+        # F-069: ese revert ya NO se escribe antes de calcular. La lectura
+        # (`leer_pasada`) lo aplica en memoria y la escritura final
+        # (`escribir_pasada`) hace revert, casados y splits en UNA
+        # transaccion, reutilizando el `id` de las extras que siguen
+        # haciendo falta; nadie ve una pareja a medias.
         # F-046 (R15): lo aplicado en Sigrid se lleva a `partes` ANTES de
         # leer y repartir, para que el dia se calcule ya con ello.
         materializacion = {"materializados": 0, "descuadrados": 0}
@@ -479,7 +483,8 @@ class RecursoConciliador:
         self._jornadas_cache = None
         self._repartos_con_congeladas = 0
 
-        registros = self._repository.fetch_registros_para_recurso()
+        lectura = self._repository.leer_pasada()
+        registros = lectura.registros
         self._vigentes = (self._repository.repartos_vigentes()
                           if self._reajuste else {})
         indice = self._indice()
@@ -542,14 +547,15 @@ class RecursoConciliador:
                 u.update(ov)
                 updates.append(u)
 
-        actualizados = self._repository.apply_recurso_matches(updates)
-
         # Segunda pasada: pasar a extra el exceso de horas ORDINARIAS sobre
         # la JORNADA DEL DIA, por (recurso, dia) across obras.
         splits = self._reclasificar_extras_jornada(
             registros, ride_por_reg, reshor_idx
         )
-        reclasificadas = self._repository.apply_extras_splits(splits)
+        # F-069 (R8, R10): todo lo de fuera ya esta leido; una escritura.
+        escritura = self._repository.escribir_pasada(lectura, updates, splits)
+        actualizados = escritura.actualizados
+        reclasificadas = escritura.aplicados
         guardado = {"propuestos": 0, "mantenidos": 0}
         if self._reajuste:
             guardado = self._guardar_repartos()
@@ -560,9 +566,13 @@ class RecursoConciliador:
         logger.info(
             "[recurso-concil] registros=%s actualizados=%s con_parte=%s "
             "pisados=%s extras_reclasificadas=%s partes_a_revisar=%s "
-            "partes_sin_recurso=%s repartos_con_congeladas=%s",
+            "partes_sin_recurso=%s repartos_con_congeladas=%s "
+            "extras_nuevas=%s extras_reutilizadas=%s extras_borradas=%s "
+            "parejas_cambiadas=%s",
             len(registros), actualizados, con_parte, pisados, reclasificadas,
             a_revisar, sin_recurso, self._repartos_con_congeladas,
+            escritura.nuevas, escritura.reutilizadas, escritura.borradas,
+            escritura.parejas_cambiadas,
         )
         resultado = {
             "registros": len(registros),
@@ -686,9 +696,11 @@ class RecursoConciliador:
           codigo de hora extra en Sigrid, por lo que al traspasarlas se
           quedaran a CERO.
 
-        Solo calcula los 'splits'; la BD la toca el repositorio (que antes
-        revierte las extras automaticas previas, asi el calculo parte siempre
-        del desglose original del parte)."""
+        Solo calcula los 'splits'; la BD la toca el repositorio. Los
+        registros llegan con las extras automaticas previas ya revertidas EN
+        MEMORIA (F-069, `leer_pasada`), asi el calculo parte siempre del
+        desglose original del parte; `escribir_pasada` aplica los splits
+        reutilizando las extras que la pareja ya tenia."""
         grupos: dict[tuple[int, int | None], list[dict]] = defaultdict(list)
         for r in registros:
             if r.get("deleted_at_utc"):

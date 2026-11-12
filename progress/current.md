@@ -1,6 +1,25 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
+## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
+Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama
+`feature/F-069-extras-ids-estables` (base 0a91941). Informe del implementer: `progress/impl_F-069.md`.
+
+**Estado** (implementer, 2026-11-12): T1-T17 y T19 hechas; informe en `progress/impl_F-069.md`.
+M1 hecha por el implementer en Docker local (2 passed). Mutación: 72 mutantes, 61 muertos, 10
+supervivientes cazados con `test_f069_mutacion.py`, 1 equivalente justificado (lo acepta el
+humano). Pendiente: reviewer y **T18 · M2** (líder, solo lectura en Azure, tras desplegar sv3).
+
+**Desviaciones justificadas**:
+- D1 (design §4.1): `fetch_registros_para_recurso` NO pasa a ser `leer_pasada().registros`: conserva su
+  cuerpo y su contrato crudo, y `leer_pasada` aplica el revert en memoria sobre su salida. Motivo: R18 y
+  la verificación de T4 exigen `test_f037_*` en verde, y `test_f037_revert.py::test_f037_r9_*` llama a
+  `fetch` sin revert previo esperando ver la extra; además `test_f003_r26_*` inspecciona su fuente.
+- D2 (design §4.1, «mismo constructor»): el plan de `leer_pasada` se calcula, como el de
+  `revert_extras_auto`, solo sobre filas con `extra_auto` o `horas_orig` no nulo. Si se calculase sobre
+  todas, una base congelada sin `horas_orig` protegería su extra, que el revert de hoy borra (R11).
+- D3: helpers de siembra comunes en `tests/f069_comun.py` (no es módulo de tests).
+
 ## F-066 · DONE 2026-11-06 (review APPROVED pasada 2, rigor crítico; mutación 21: 18 muertos + 3 matados con test; SIN FUSIONAR NI DESPLEGAR; pendiente: fusionar tras F-052, desplegar sv4 y M2 del humano): sv4 decide la extra por el prefijo `HE` y excluye `HENC`
 **Cierre** (líder, 2026-11-06): review 2 APPROVED (4752041); `azure-apps/partes.md` 6d4f12b (`hora_ext` no decide extra, F-006 retirada). Siguiente: F-067 (sv3 y sv5: HENC excluido), pendiente de spec.
 **Estado**: T1–T9 hechas, un commit por tarea (76ac588 … 7d5c968); informe en

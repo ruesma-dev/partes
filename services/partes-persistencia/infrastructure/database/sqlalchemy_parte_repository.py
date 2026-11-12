@@ -4,10 +4,13 @@ from __future__ import annotations
 import json
 import logging
 import time
+from collections import defaultdict
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
 
+from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select, text, update
 
 from domain.models.parte_records import ExistingParte, ParteDocumento
@@ -29,11 +32,15 @@ from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.pareja_extra import (
     FilaPareja,
+    LecturaPasada,
     PlanRevert,
     clave_pareja,
     claves_congeladas,
+    emparejar_extras,
     es_miembro,
+    huellas_por_clave,
     plan_revert,
+    vista_revertida,
 )
 from application.services.reajuste_reparto import (
     cambios_a_json,
@@ -48,6 +55,9 @@ logger = logging.getLogger(__name__)
 #: SESION y PostgreSQL la etiqueta con la base (`partes`): no ve a los
 #: otros proyectos del servidor compartido ni toca nada de servidor.
 CLAVE_CANDADO_CONCILIAR = 460460001
+
+#: F-069: tamano de lote de las consultas `IN (...)` de `escribir_pasada`.
+LOTE_IN = 1000
 
 #: Reloj y espera del candado (sustituibles en los tests).
 _reloj = time.monotonic
@@ -71,6 +81,86 @@ def _fila_pareja(*, registro_id: int, document_id, line_index,
         extra_auto=bool(extra_auto),
         miembro=es_miembro(extra_auto=bool(extra_auto), tipo_hora=tipo_hora),
         congelada=esta_congelado(sigrid_estado, aprobado),
+    )
+
+
+@dataclass(frozen=True)
+class ResumenEscritura:
+    """F-069: lo que hizo `escribir_pasada` (design §4.2, paso 7).
+
+    `actualizados`: casados de recurso escritos. `aplicados`: splits
+    aplicados (`nuevas` + `reutilizadas`, R6). `borradas`: `extra_auto`
+    borradas (duplicadas de F-037 y las que su pareja ya no necesita).
+    `parejas_cambiadas`: parejas que sv4 cambio entre la lectura y la
+    escritura y que esta pasada no toca (R13).
+    """
+
+    actualizados: int = 0
+    aplicados: int = 0
+    nuevas: int = 0
+    reutilizadas: int = 0
+    borradas: int = 0
+    parejas_cambiadas: int = 0
+
+
+def _lotes(valores: list, n: int = LOTE_IN):
+    for i in range(0, len(valores), n):
+        yield valores[i:i + n]
+
+
+def _fila_huella(reg: ParteRegistroOrm, aprobado, activo) -> dict:
+    """F-069: una fila bloqueada con lo que piden la huella y la pareja."""
+    return {
+        "registro_id": reg.id, "document_id": reg.document_id,
+        "line_index": reg.line_index,
+        "empleado_line_no": reg.empleado_line_no,
+        "fecha_int": reg.fecha_int, "horas": reg.horas,
+        "horas_orig": reg.horas_orig, "tipo_hora": reg.tipo_hora,
+        "extra_auto": bool(reg.extra_auto),
+        "sigrid_estado": reg.sigrid_estado,
+        "deleted_at_utc": reg.deleted_at_utc,
+        "doc_approved": bool(aprobado), "doc_activo": bool(activo),
+    }
+
+
+def _parejas_cambiadas(lectura: LecturaPasada | None,
+                       crudas: list[dict]) -> set:
+    """F-069 (R13, R14): claves cuya huella ya no es la de la lectura.
+
+    Solo se comparan las claves de los partes bloqueados que la lectura
+    vio (o las que tenia y ahora no tienen miembros): una pareja con una
+    fila cambiada, borrada o nueva, o que ahora tiene un miembro congelado
+    (cambio `sigrid_estado` o la aprobacion), difiere. Sin `lectura`, nada.
+    WARNING por clave, sin nombres ni DNI.
+    """
+    if lectura is None:
+        return set()
+    actuales = huellas_por_clave(crudas)
+    bloqueados = {f["document_id"] for f in crudas}
+    leidos = {k[0] for k in lectura.huellas}
+    claves = {k for k in set(lectura.huellas) | set(actuales)
+              if k[0] in bloqueados and k[0] in leidos}
+    cambiadas = {k for k in claves
+                 if lectura.huellas.get(k) != actuales.get(k)}
+    for document_id, line_index, _eln, fecha_int in sorted(cambiadas,
+                                                            key=str):
+        logger.warning(
+            "[repo] pareja cambiada durante la pasada: documento=%s "
+            "linea=%s fecha=%s; se recalcula en la siguiente (F-069).",
+            document_id, line_index, fecha_int,
+        )
+    return cambiadas
+
+
+def _pareja_de_fila(fila: dict) -> FilaPareja:
+    """F-069: la `FilaPareja` de una fila de `fetch_registros_para_recurso`."""
+    return _fila_pareja(
+        registro_id=fila["registro_id"], document_id=fila["document_id"],
+        line_index=fila["line_index"],
+        empleado_line_no=fila["empleado_line_no"],
+        fecha_int=fila["fecha_int"], extra_auto=fila["extra_auto"],
+        tipo_hora=fila["tipo_hora"], sigrid_estado=fila["sigrid_estado"],
+        aprobado=fila["doc_approved"],
     )
 
 
@@ -329,6 +419,36 @@ class SqlAlchemyParteRepository:
                 )
             return out
 
+    def leer_pasada(self) -> LecturaPasada:
+        """F-069 (R7, R11): la lectura de la pasada. NO escribe.
+
+        Las filas de `fetch_registros_para_recurso` con el revert de F-037
+        aplicado en memoria (`vista_revertida`) y el MISMO plan que haria
+        `revert_extras_auto`: `plan_revert` sobre las filas que consulta el
+        revert (`extra_auto` o `horas_orig` no nulo); por clave de pareja
+        no depende de los partes inactivos. `congelada_por_pareja` se
+        recalcula sobre la vista, como la lectura de despues del revert.
+        Devuelve esa vista y las huellas del estado CRUDO (R13); todas sus
+        filas son de partes activos (`doc_activo` True en la huella).
+        """
+        crudas = self.fetch_registros_para_recurso()
+        parejas = [_pareja_de_fila(f) for f in crudas]
+        plan = plan_revert(
+            p for p, f in zip(parejas, crudas)
+            if f["extra_auto"] or f["horas_orig"] is not None
+        )
+        huellas = huellas_por_clave(dict(f, doc_activo=True) for f in crudas)
+        borrar = set(plan.borrar)
+        quedan = [p for p in parejas if p.registro_id not in borrar]
+        vista = vista_revertida(crudas, plan)
+        congeladas = claves_congeladas(quedan)
+        for fila, pareja in zip(vista, quedan, strict=True):
+            fila["congelada_por_pareja"] = (
+                pareja.miembro and pareja.clave in congeladas
+                and not pareja.congelada
+            )
+        return LecturaPasada(registros=vista, huellas=huellas)
+
     def marcar_review_required(self, document_ids) -> int:
         """Sube `review_required` a True en esos partes; nunca lo baja.
 
@@ -379,43 +499,163 @@ class SqlAlchemyParteRepository:
         congeladas de una pareja cuya extra ya esta congelada son esos
         duplicados y se borran, con WARNING (R6). El plan lo decide
         `pareja_extra.plan_revert`.
+
+        F-069 (R18): envoltorio de `escribir_pasada` sin lectura ni splits.
+        Sin splits todas las extras candidatas sobran: borra y restaura
+        exactamente lo de siempre, en una transaccion.
+        """
+        return self.escribir_pasada(None, [], []).borradas
+
+    #: Lo que el casado de recurso pisa solo si viene en el update.
+    _PISA = (
+        "categoria", "hora_ide", "hora_codigo", "hora_descripcion",
+        "hora_ext", "hora_candef", "recurso_precio_hora",
+        "hora_match_method",
+    )
+
+    def escribir_pasada(self, lectura: LecturaPasada | None,
+                        updates: list[dict],
+                        splits: list[dict]) -> ResumenEscritura:
+        """F-069 (R8-R16): revert, casados de recurso y splits en UNA
+        transaccion y un unico commit, sin red.
+
+        Con `lectura` (la de `leer_pasada`), una pareja cuya huella cambio
+        desde entonces no se toca (R13, R14). Sin ella (envoltorios de
+        R18) no se comprueba nada. Si algo lanza: rollback y se propaga
+        (R16).
         """
         with self._session_factory.create_session() as session:
-            filas = session.execute(
-                select(ParteRegistroOrm, ParteDocumentOrm.approved)
-                .join(
-                    ParteDocumentOrm,
-                    ParteRegistroOrm.document_id == ParteDocumentOrm.id,
-                )
-                .where(
-                    ParteRegistroOrm.extra_auto.is_(True)
-                    | ParteRegistroOrm.horas_orig.isnot(None)
-                )
-            ).all()
-            por_id = {reg.id: reg for reg, _ in filas}
-            plan = plan_revert(
-                _fila_pareja(
-                    registro_id=reg.id,
-                    document_id=reg.document_id,
-                    line_index=reg.line_index,
-                    empleado_line_no=reg.empleado_line_no,
-                    fecha_int=reg.fecha_int,
-                    extra_auto=reg.extra_auto,
-                    tipo_hora=reg.tipo_hora,
-                    sigrid_estado=reg.sigrid_estado,
-                    aprobado=aprobado,
-                )
-                for reg, aprobado in filas
-            )
-            for rid in plan.borrar:
-                session.delete(por_id[rid])
-            for rid in plan.restaurar:
+            try:
+                resumen, plan = self._escribir(session, lectura,
+                                               updates or [], splits or [])
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+        _log_plan_revert(plan)
+        return resumen
+
+    def _escribir(self, session, lectura: LecturaPasada | None,
+                  updates: list[dict], splits: list[dict]
+                  ) -> tuple[ResumenEscritura, PlanRevert]:
+        """Los pasos 1-6 de `escribir_pasada` (design §4.2) en `session`."""
+        filas = self._bloquear_documentos(session, updates, splits)
+        por_id = {reg.id: reg for reg, _, _ in filas}
+        crudas = [_fila_huella(reg, aprobado, activo)
+                  for reg, aprobado, activo in filas]
+        parejas = {f["registro_id"]: _pareja_de_fila(f) for f in crudas}
+        # 2. Plan fresco, sobre las filas que consulta el revert (F-037).
+        plan = plan_revert(
+            parejas[f["registro_id"]] for f in crudas
+            if f["extra_auto"] or f["horas_orig"] is not None
+        )
+        # 3. Parejas cambiadas desde la lectura (R13, R14).
+        cambiadas = _parejas_cambiadas(lectura, crudas)
+
+        def _tocable(rid) -> bool:
+            p = parejas.get(rid)
+            return p is not None and p.clave not in cambiadas
+
+        # 4. Casados (antes que los splits: la extra clona la base casada).
+        actualizados = 0
+        for u in updates:
+            rid = u.get("registro_id")
+            if not _tocable(rid):
+                continue
+            reg = por_id[rid]
+            reg.recurso_ide = u.get("recurso_ide")
+            reg.recurso_cif = u.get("recurso_cif")
+            reg.hmo_ide = u.get("hmo_ide")
+            reg.parte_estado = u.get("parte_estado")
+            for k in self._PISA:
+                if k in u:
+                    setattr(reg, k, u[k])
+            actualizados += 1
+        # 5. Revert: bases restauradas y duplicadas borradas (F-037 R6).
+        borradas = 0
+        for rid in plan.restaurar:
+            if _tocable(rid):
                 reg = por_id[rid]
                 reg.horas = reg.horas_orig
                 reg.horas_orig = None
-            session.commit()
-        _log_plan_revert(plan)
-        return len(plan.borrar)
+        duplicadas = set(plan.duplicadas)
+        for rid in plan.duplicadas:
+            if _tocable(rid):
+                session.delete(por_id[rid])
+                borradas += 1
+        # 6. Splits por pareja, reutilizando sus extras (R2-R5).
+        candidatas: dict = defaultdict(list)
+        for rid in plan.borrar:
+            if rid not in duplicadas and _tocable(rid):
+                candidatas[parejas[rid].clave].append(rid)
+        por_clave: dict = defaultdict(list)
+        for sp in splits:
+            if _tocable(sp["normal_id"]):
+                por_clave[parejas[sp["normal_id"]].clave].append(sp)
+        nuevas = reutilizadas = 0
+        claves = sorted(
+            set(candidatas) | set(por_clave),
+            key=lambda k: min([sp["normal_id"] for sp in por_clave[k]]
+                              + candidatas[k]))
+        for clave in claves:
+            pares, sobran = emparejar_extras(por_clave[clave],
+                                             candidatas[clave])
+            for sp, cand in pares:
+                normal = por_id[sp["normal_id"]]
+                if normal.horas_orig is None:
+                    normal.horas_orig = sp["horas_orig"]
+                normal.horas = sp["horas_norm"]
+                if cand is None:
+                    session.add(self._extra_de(normal, sp))
+                    nuevas += 1
+                else:
+                    self._rellenar_extra(por_id[cand], normal, sp)
+                    reutilizadas += 1
+            for rid in sobran:
+                session.delete(por_id[rid])
+                borradas += 1
+        return ResumenEscritura(
+            actualizados=actualizados, aplicados=nuevas + reutilizadas,
+            nuevas=nuevas, reutilizadas=reutilizadas, borradas=borradas,
+            parejas_cambiadas=len(cambiadas),
+        ), plan
+
+    @staticmethod
+    def _bloquear_documentos(session, updates: list[dict],
+                             splits: list[dict]) -> list[tuple]:
+        """Paso 1 (R15, DA6): todas las filas de los partes afectados, con
+        `approved` e `is_active`, por `id` y, en PostgreSQL, `FOR UPDATE`.
+
+        Afectados: los de las filas candidatas al revert (la consulta de
+        siempre de `revert_extras_auto`), los de las bases de los splits y
+        los de las filas de los casados.
+        """
+        docs = set(session.scalars(
+            select(ParteRegistroOrm.document_id).where(
+                ParteRegistroOrm.extra_auto.is_(True)
+                | ParteRegistroOrm.horas_orig.isnot(None))))
+        ids = sorted({int(sp["normal_id"]) for sp in splits}
+                     | {int(u["registro_id"]) for u in updates
+                        if u.get("registro_id") is not None})
+        for lote in _lotes(ids):
+            docs.update(session.scalars(
+                select(ParteRegistroOrm.document_id)
+                .where(ParteRegistroOrm.id.in_(lote))))
+        pg = session.get_bind().dialect.name == "postgresql"
+        filas: list[tuple] = []
+        for lote in _lotes(sorted(docs)):
+            stmt = (
+                select(ParteRegistroOrm, ParteDocumentOrm.approved,
+                       ParteDocumentOrm.is_active)
+                .join(ParteDocumentOrm,
+                      ParteRegistroOrm.document_id == ParteDocumentOrm.id)
+                .where(ParteRegistroOrm.document_id.in_(lote))
+                .order_by(ParteRegistroOrm.id)
+            )
+            if pg:
+                stmt = stmt.with_for_update(of=ParteRegistroOrm)
+            filas.extend(tuple(f) for f in session.execute(stmt).all())
+        return filas
 
     @staticmethod
     def _extra_de(normal: ParteRegistroOrm, s: dict) -> ParteRegistroOrm:
@@ -425,6 +665,19 @@ class SqlAlchemyParteRepository:
         opcional (los `sigrid_*` con que nace, si su base ya estaba en
         Sigrid)."""
         extra = ParteRegistroOrm(
+            **SqlAlchemyParteRepository._campos_extra(normal, s))
+        if s.get("id") is not None:
+            extra.id = int(s["id"])
+        for campo, valor in (s.get("sigrid") or {}).items():
+            if campo.startswith("sigrid_"):
+                setattr(extra, campo, valor)
+        return extra
+
+    @staticmethod
+    def _campos_extra(normal: ParteRegistroOrm, s: dict) -> dict:
+        """F-069 (design §4.3): los campos que `_extra_de` clona de su base
+        o toma del split; los de siempre, literales."""
+        return dict(
             document_id=normal.document_id,
             line_index=normal.line_index,
             empleado_line_no=normal.empleado_line_no,
@@ -465,12 +718,30 @@ class SqlAlchemyParteRepository:
             extra_auto=True,
             confianza_pct=normal.confianza_pct,
         )
-        if s.get("id") is not None:
-            extra.id = int(s["id"])
-        for campo, valor in (s.get("sigrid") or {}).items():
-            if campo.startswith("sigrid_"):
-                setattr(extra, campo, valor)
-        return extra
+
+    @staticmethod
+    def _rellenar_extra(extra: ParteRegistroOrm, normal: ParteRegistroOrm,
+                        s: dict) -> None:
+        """F-069 (R2, DA2): deja `extra` como `_extra_de(normal, s)` la
+        insertaria, salvo el `id`: los campos de `_campos_extra`, los
+        `sigrid_*` de `s["sigrid"]` y, el resto de columnas, su `default`
+        del ORM o `None`."""
+        campos = SqlAlchemyParteRepository._campos_extra(normal, s)
+        sigrid = {k: v for k, v in (s.get("sigrid") or {}).items()
+                  if k.startswith("sigrid_")}
+        for attr in sa_inspect(ParteRegistroOrm).column_attrs:
+            clave = attr.key
+            if clave == "id":
+                continue
+            if clave in campos:
+                valor = campos[clave]
+            elif clave in sigrid:
+                valor = sigrid[clave]
+            else:
+                defecto = attr.columns[0].default
+                valor = (defecto.arg if defecto is not None
+                         and defecto.is_scalar else None)
+            setattr(extra, clave, valor)
 
     def apply_extras_splits(self, splits: list[dict]) -> int:
         """Aplica el paso de exceso de jornada a extra. Por cada split:

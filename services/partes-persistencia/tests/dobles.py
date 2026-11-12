@@ -142,6 +142,26 @@ class RepositorioFake:
         self.orden.append("fetch")
         return list(self.registros)
 
+    # ---- F-069: la pasada lee una vez y escribe una vez ---- #
+    def leer_pasada(self):
+        from application.services.pareja_extra import LecturaPasada
+
+        self.revertidos += 1
+        self.orden.append("leer")
+        return LecturaPasada(registros=list(self.registros), huellas={})
+
+    def escribir_pasada(self, lectura, updates: list[dict],
+                        splits: list[dict]):
+        from infrastructure.database.sqlalchemy_parte_repository import (
+            ResumenEscritura,
+        )
+
+        self.orden.append("escribir")
+        self.matches.extend(updates)
+        self.splits.extend(splits)
+        return ResumenEscritura(actualizados=len(updates),
+                                aplicados=len(splits), nuevas=len(splits))
+
     def apply_recurso_matches(self, updates: list[dict]) -> int:
         self.matches.extend(updates)
         return len(updates)
