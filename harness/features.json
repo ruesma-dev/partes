@@ -501,8 +501,7 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 7,
-      "branch": "feature/F-038-limite-filas-sigrid",
-      "pendiente": "M1 (lecturas reales de obras grandes; no bloquea). Desplegada sv2–sv5 el 2026-10-24 (r20261024215445); M2 OK"
+      "branch": "feature/F-038-limite-filas-sigrid"
     },
     {
       "id": "F-039",
@@ -623,7 +622,7 @@
       "depends_on": [
         "F-045"
       ],
-      "pendiente": "M6"
+      "pendiente": "M6 (humano: «Aplicar» en el portal; reparto_pendiente tiene 1 fila pendiente desde el 2026-10-19)"
     },
     {
       "id": "F-048",
@@ -644,8 +643,7 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
-      "branch": "feature/F-048-solo-extras-en-laborable-como-jornada",
-      "pendiente": "M4"
+      "branch": "feature/F-048-solo-extras-en-laborable-como-jornada"
     },
     {
       "id": "F-051",
@@ -688,7 +686,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-050-misma-fila-para-el-mismo-trabajador",
-      "pendiente": "M2–M6 en el portal"
+      "pendiente": "M2–M3 cuando haya un caso real (mismo recurso en dos partes de la misma obra y día; el del 15/10 de la 0678 ya no existe). M4 y M6 superadas el 2026-11-12 en el portal (emp- redirige a rec-; «Por persona» con Empresa, 45 Ruesma, 13 Porsan, 0 «—», una persona en dos filas). M5 opcional"
     },
     {
       "id": "F-047",
@@ -710,7 +708,7 @@
       "priority": 5,
       "branch": "feature/F-047-parte-nuevo-en-espera",
       "spec": "aprobada (DA1–DA13; DA11–DA13 = A el 2026-10-30; DA3 → B el 2026-10-31) · `partes-wt-f047` · review APPROVED pasada 2",
-      "pendiente": "Desplegada 2026-10-31: sv4 ca-sv4-front--r20261031093735 (08:38:53Z) y sv3 ca-sv3-persistencia--r20261031093921 (08:40:44Z), Healthy, arranque sin Traceback. Pendiente: M1 (portal, humano), M2 y M3 (líder, con el primer parte nuevo que entre)."
+      "pendiente": "M1 (portal, humano). M2 y M3 superadas el 2026-11-12 (149 partes, marcado=True en todos; espera p50 54 s)"
     },
     {
       "id": "F-049",
@@ -749,7 +747,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "pendiente": "fusionar en dev, decidir SINCRONIZAR_SECO en Azure, desplegar sv5 → sv4 y M4",
+      "pendiente": "M4 (humano): un usuario real sincroniza en producción y aplica una acción; comprobar sigrid_motivo y actor. Desplegada 2026-11-12 (sv5 y sv4 r20261112172145, seco=True)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -772,8 +770,7 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 2,
-      "branch": "feature/F-053-pisar-sin-borrar",
-      "pendiente": "M4"
+      "branch": "feature/F-053-pisar-sin-borrar"
     },
     {
       "id": "F-054",
@@ -791,8 +788,7 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 4,
-      "branch": "feature/F-054-sin-obra-o-fecha-a-revision",
-      "pendiente": "releer los 6 partes sin obra cuando F-059 esté desplegada"
+      "branch": "feature/F-054-sin-obra-o-fecha-a-revision"
     },
     {
       "id": "F-055",
@@ -806,7 +802,7 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar; M1 y M2 hechas",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "pendiente": "M3 cuando se aprueben las 15 líneas sin fecha (2026-11-06: aún sin aprobar)",
+      "pendiente": "M3 cuando se aprueben las 15 líneas sin fecha (2026-11-12: aún sin aprobar; 0 en registrado/encolado/dedicacion)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -870,7 +866,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-058-relectura-cabecera-gemini",
-      "pendiente": "Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes"
+      "pendiente": "DA12 (humano): decidir el tope OBRA_EXISTE_TIMEOUT_S con la M4 del 2026-11-12 (p50 105 ms, 23 de 200 consultas ≥ 2 s, 3 ReadTimeout a 5 s). M2 superada"
     },
     {
       "id": "F-059",
@@ -889,8 +885,7 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 1,
-      "branch": "feature/F-059-pagina-como-imagen-derecha",
-      "pendiente": "nada: M4 OK el 2026-10-25 (los 6 partes sin obra reprocesados: 6 convertida, 0 error, obra y fecha leídas en los 6; partes nuevos 0ef28361, b7599bcb, f1e8900d, e8ff17d2, fc892aaf, 7b26d9df)"
+      "branch": "feature/F-059-pagina-como-imagen-derecha"
     },
     {
       "id": "F-060",
@@ -908,8 +903,7 @@
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
-      "branch": "feature/F-060-racha-incidencia-ciz-movil",
-      "pendiente": "MOVER_CIZ ENCENDIDO por el humano el 2026-10-25 (sv5 ca-sv5-transfer--0000003 12:08:43Z, luego sv4 ca-sv4-front--0000002 12:09:28Z; sanos, sin Traceback). M4: línea base 0 recursos-mes con más de un CIZ de partes desde 20261025; repetirla cuando se hayan aprobado incidencias. DA3 confirmada en Sigrid; DA6 la sustituye F-062"
+      "branch": "feature/F-060-racha-incidencia-ciz-movil"
     },
     {
       "id": "F-061",
@@ -931,7 +925,7 @@
       "rigor": "estandar",
       "priority": 2,
       "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
-      "pendiente": "Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). M2 hecha el 2026-10-27 (30 borrados, 0 restantes). Pendiente: M1 en el portal (humano)"
+      "pendiente": "M1 paso 4 (eliminar definitivamente las 2 líneas de prueba 24451 y 24452 de la 0404; borrado permanente: lo autoriza el humano). Pasos 1–3 superados el 2026-11-12 en producción"
     },
     {
       "id": "F-062",
@@ -950,7 +944,7 @@
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-062-ciz-el-mismo-dia-del-inicio",
-      "pendiente": "Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración"
+      "pendiente": "Vista calendario de Administración (M6 superada el 2026-11-12: n = 2, grupos = 0)"
     },
     {
       "id": "F-063",
@@ -970,7 +964,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-063-consulta-obra-rapida",
-      "pendiente": "Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes"
+      "pendiente": "M4 no cumple DA3 en producción (23 de 200 consultas ≥ 2 s, 3 ReadTimeout a 5 s): decidir (humano) si se abre la feature de reutilizar la conexión (opción B de DA3). M2 superada"
     },
     {
       "id": "F-064",
@@ -990,7 +984,7 @@
       "rigor": "estandar",
       "priority": 1,
       "branch": "feature/F-064-filtro-en-sesion",
-      "pendiente": "Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)"
+      "pendiente": "M2 (humano: dos usuarios de Entra en el mismo navegador). M1 superada el 2026-11-12 en producción (filtro tras detalle y volver, recarga, pestaña nueva y «Limpiar»)"
     },
     {
       "id": "F-065",
@@ -1015,7 +1009,6 @@
         "Criterios en specs/F-066-selector-hora-por-prefijo-he/requirements.md (R1–R24, M1 hecha, M2)",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "pendiente": "fusionar tras F-052, desplegar sv4 y M2 del humano",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -1061,7 +1054,7 @@
         "Requisitos R1-R21 y verificaciones M1-M2 de specs/F-069-extras-ids-estables/requirements.md",
         "bash harness/init.sh en verde y APPROVED del reviewer contra CHECKPOINTS.md"
       ],
-      "pendiente": "desplegar sv3 y sv4 y M2 del líder (logs de Azure, solo lectura)",
+      "pendiente": "M2 del líder (logs de sv3 y secuencia, solo lectura) con la primera tanda de partes. Desplegada 2026-11-12 (sv3 y sv4 r20261112172145)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",

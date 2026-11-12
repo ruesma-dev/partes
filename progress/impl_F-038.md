@@ -189,3 +189,11 @@ passed, 3 skipped (197,98 s); sv2 168 (54,31 s); sv3 2338 (71,01 s); sv4 2607 pa
 (los mismos de antes de F-038: cero nuevos).
 
 **Añadido tras la mutación (2026-10-24):** test `test_f038_r14_timeout_por_debajo_de_1_vale` (0.5 y 1) en sv2–sv5, que mata los 3 supervivientes `gt=0`→`gt=1` (verificado a mano). `bash harness/init.sh`: «ENTORNO LISTO» — raíz 522 passed, 3 skipped; sv2 170; sv3 2340; sv4 2609 passed, 1 skipped (1367 s); sv5 899; cobertura 100,0 % (19/19); ruff 772 (sin nuevos).
+
+## M1 · superada (2026-11-12, líder, solo lectura)
+
+Tamaños reales en Sigrid (`ruesma`), sin nombres: (a) partidas por obra, top 5: 26.812 · 4.243 ·
+3.890 · 3.752 · 3.551 (141 ms); (b) líneas por parte, top 5: 1.337 · 1.098 · 924 · 743 · 730
+(125 ms); (c) máximo de horas por recurso: 20 (93 ms). Todas con `truncated = false`, muy por debajo
+de 500.000. Con el antiguo 1.000, (a) y (b) se habrían truncado. Detalle en
+`progress/verificacion_pendientes_2026-11-12.md`.
