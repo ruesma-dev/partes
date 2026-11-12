@@ -78,6 +78,18 @@ def _fila_pareja(*, registro_id: int, document_id, line_index,
     )
 
 
+def _pareja_de_fila(fila: dict) -> FilaPareja:
+    """F-069: la `FilaPareja` de una fila de `fetch_registros_para_recurso`."""
+    return _fila_pareja(
+        registro_id=fila["registro_id"], document_id=fila["document_id"],
+        line_index=fila["line_index"],
+        empleado_line_no=fila["empleado_line_no"],
+        fecha_int=fila["fecha_int"], extra_auto=fila["extra_auto"],
+        tipo_hora=fila["tipo_hora"], sigrid_estado=fila["sigrid_estado"],
+        aprobado=fila["doc_approved"],
+    )
+
+
 def _log_plan_revert(plan: PlanRevert) -> None:
     """Los avisos de `revert_extras_auto` (F-015 R31; F-037 R6-R8).
 
@@ -110,25 +122,6 @@ def _log_plan_revert(plan: PlanRevert) -> None:
             "borra ninguna, revisar a mano en Sigrid (F-037).",
             document_id, line_index, n,
         )
-
-
-def _marcar_por_pareja(filas: list[dict], parejas: list[FilaPareja]) -> None:
-    """F-037 (R9): `congelada_por_pareja` de cada fila, sobre TODAS ellas.
-
-    `filas` y `parejas` van en el mismo orden (una `FilaPareja` por fila).
-    """
-    congeladas = claves_congeladas(parejas)
-    for fila, pareja in zip(filas, parejas, strict=True):
-        fila["congelada_por_pareja"] = (
-            pareja.miembro and pareja.clave in congeladas
-            and not pareja.congelada
-        )
-
-
-def _sin_activo(fila: dict) -> dict:
-    """La fila sin `doc_activo` (solo sirve a la huella de F-069)."""
-    fila.pop("doc_activo", None)
-    return fila
 
 
 def _norm_txt(s: str | None) -> str:
@@ -266,43 +259,7 @@ class SqlAlchemyParteRepository:
         la base de una pareja ya partida), `extra_auto`, `deleted_at_utc`
         (las de la papelera no entran en el reparto del dia, pero si en el
         casado de recurso) y la clave de pareja (`line_index`,
-        `empleado_line_no`) para medir el reparto ideal de lo congelado.
-
-        F-069 (R18): lectura CRUDA, con el contrato de siempre (no
-        revierte nada). La pasada ya no la usa: lee con `leer_pasada`."""
-        filas, parejas = self._leer_crudo()
-        _marcar_por_pareja(filas, parejas)
-        return [_sin_activo(f) for f in filas]
-
-    def leer_pasada(self) -> LecturaPasada:
-        """F-069 (R7, R11): la lectura de la pasada. NO escribe.
-
-        Las mismas filas que `fetch_registros_para_recurso`, con el revert
-        de F-037 aplicado en memoria (`vista_revertida`) y el mismo plan
-        que haria `revert_extras_auto`: `plan_revert` sobre las filas que
-        consulta el revert (`extra_auto` o `horas_orig` no nulo); por clave
-        de pareja no depende de los partes inactivos. `congelada_por_pareja`
-        se calcula sobre la vista, como la lectura de despues del revert.
-        Devuelve esa vista y las huellas del estado CRUDO (R13).
-        """
-        filas, parejas = self._leer_crudo()
-        plan = plan_revert(
-            p for p, f in zip(parejas, filas)
-            if f["extra_auto"] or f["horas_orig"] is not None
-        )
-        huellas = huellas_por_clave(filas)
-        borrar = set(plan.borrar)
-        quedan = [p for p in parejas if p.registro_id not in borrar]
-        vista = vista_revertida(filas, plan)
-        _marcar_por_pareja(vista, quedan)
-        return LecturaPasada(registros=[_sin_activo(f) for f in vista],
-                             huellas=huellas)
-
-    def _leer_crudo(self) -> tuple[list[dict], list[FilaPareja]]:
-        """Las filas de partes activos y su `FilaPareja`, en el mismo orden.
-
-        Cada fila lleva `doc_activo` (aqui siempre True): entra en la
-        huella de F-069 y se quita antes de devolverla."""
+        `empleado_line_no`) para medir el reparto ideal de lo congelado."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(
@@ -336,8 +293,6 @@ class SqlAlchemyParteRepository:
                     # F-045: lo trabajado y la papelera.
                     ParteRegistroOrm.horas_orig,
                     ParteRegistroOrm.deleted_at_utc,
-                    # F-069: entra en la huella de la pareja (R13).
-                    ParteDocumentOrm.is_active,
                 )
                 .join(
                     ParteDocumentOrm,
@@ -350,7 +305,7 @@ class SqlAlchemyParteRepository:
             for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
                  hora_ide, hora_codigo, categoria, horas, sigrid_estado,
                  aprobado, recurso_ide, empresa, line_index, eln,
-                 extra_auto, horas_orig, borrada, activo
+                 extra_auto, horas_orig, borrada
                  ) in session.execute(stmt).all():
                 parejas.append(_fila_pareja(
                     registro_id=rid, document_id=doc_id,
@@ -381,9 +336,44 @@ class SqlAlchemyParteRepository:
                     "deleted_at_utc": borrada,
                     "line_index": line_index,
                     "empleado_line_no": eln,
-                    "doc_activo": bool(activo),
                 })
-        return out, parejas
+            congeladas = claves_congeladas(parejas)
+            for fila, pareja in zip(out, parejas):
+                fila["congelada_por_pareja"] = (
+                    pareja.miembro and pareja.clave in congeladas
+                    and not pareja.congelada
+                )
+            return out
+
+    def leer_pasada(self) -> LecturaPasada:
+        """F-069 (R7, R11): la lectura de la pasada. NO escribe.
+
+        Las filas de `fetch_registros_para_recurso` con el revert de F-037
+        aplicado en memoria (`vista_revertida`) y el MISMO plan que haria
+        `revert_extras_auto`: `plan_revert` sobre las filas que consulta el
+        revert (`extra_auto` o `horas_orig` no nulo); por clave de pareja
+        no depende de los partes inactivos. `congelada_por_pareja` se
+        recalcula sobre la vista, como la lectura de despues del revert.
+        Devuelve esa vista y las huellas del estado CRUDO (R13); todas sus
+        filas son de partes activos (`doc_activo` True en la huella).
+        """
+        crudas = self.fetch_registros_para_recurso()
+        parejas = [_pareja_de_fila(f) for f in crudas]
+        plan = plan_revert(
+            p for p, f in zip(parejas, crudas)
+            if f["extra_auto"] or f["horas_orig"] is not None
+        )
+        huellas = huellas_por_clave(dict(f, doc_activo=True) for f in crudas)
+        borrar = set(plan.borrar)
+        quedan = [p for p in parejas if p.registro_id not in borrar]
+        vista = vista_revertida(crudas, plan)
+        congeladas = claves_congeladas(quedan)
+        for fila, pareja in zip(vista, quedan, strict=True):
+            fila["congelada_por_pareja"] = (
+                pareja.miembro and pareja.clave in congeladas
+                and not pareja.congelada
+            )
+        return LecturaPasada(registros=vista, huellas=huellas)
 
     def marcar_review_required(self, document_ids) -> int:
         """Sube `review_required` a True en esos partes; nunca lo baja.
