@@ -116,3 +116,60 @@ def test_f069_r18_leer_y_fetch_dan_las_mismas_claves() -> None:
     claves = {frozenset(f) for f in repo.fetch_registros_para_recurso()}
     assert {frozenset(f) for f in repo.leer_pasada().registros} == claves
     assert len(claves) == 1 and "doc_activo" not in next(iter(claves))
+
+
+# =========================== escribir_pasada =========================== #
+
+def _split(normal_id: int, **kw) -> dict:
+    return dict({
+        "normal_id": normal_id, "horas_norm": 8.0, "horas_orig": 10.0,
+        "extra_horas": 2.0, "hora_ext_ide": 2, "hora_ext_cod": "HE01",
+        "hora_ext_desc": "Hora extra", "hora_ext_ext": 1,
+        "hora_candef": 8.0}, **kw)
+
+
+def test_f069_r8_escribir_hace_un_unico_commit() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = escenario(fabrica)["doc-1"]
+    repo = SqlAlchemyParteRepository(fabrica)
+    lectura = repo.leer_pasada()
+    commits = _commits(fabrica)
+    updates = [{"registro_id": ids[3], "recurso_ide": 501,
+                "recurso_cif": None, "hmo_ide": 7, "parte_estado": "ok"}]
+    res = repo.escribir_pasada(lectura, updates, [_split(ids[0])])
+    assert commits == [1]
+    assert res.actualizados == 1 and res.aplicados == 1
+
+
+def test_f069_r8_escribir_revert_casados_y_splits_juntos() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = escenario(fabrica)["doc-1"]
+    repo = SqlAlchemyParteRepository(fabrica)
+    updates = [{"registro_id": ids[0], "recurso_ide": 501,
+                "recurso_cif": "B1", "hmo_ide": 7, "parte_estado": "ok"}]
+    repo.escribir_pasada(repo.leer_pasada(), updates, [_split(ids[0])])
+    from infrastructure.database.orm_models import ParteRegistroOrm
+    with fabrica.create_session() as s:
+        ex = s.get(ParteRegistroOrm, ids[1])
+        # La extra reutilizada sale de la base YA casada (como `_extra_de`).
+        assert (ex.hmo_ide, ex.recurso_cif, ex.horas) == (7, "B1", 2.0)
+        # p5 (papelera) y doc-2 (inactivo) revertidos en la misma escritura.
+        assert s.get(ParteRegistroOrm, ids[12]) is None
+        assert s.get(ParteRegistroOrm, ids[11]).horas == 10.0
+
+
+def test_f069_r16_escribir_que_lanza_no_deja_nada_a_medias() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = escenario(fabrica)["doc-1"]
+    repo = SqlAlchemyParteRepository(fabrica)
+    lectura = repo.leer_pasada()
+    antes = foto(fabrica)
+    roto = _split(ids[11])
+    del roto["extra_horas"]
+    try:
+        repo.escribir_pasada(lectura, [], [_split(ids[0]), roto])
+    except KeyError:
+        pass
+    else:  # pragma: no cover - el test exige que lance
+        raise AssertionError("escribir_pasada debia lanzar")
+    assert foto(fabrica) == antes
