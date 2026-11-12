@@ -605,8 +605,10 @@ def test_f046_r18_la_pasada_entera_va_bajo_el_candado():
     repo = RepositorioFake([])
     _conciliador(repo).conciliar_todos()
     assert repo.orden[0] == "candado" and repo.orden[-1] == "suelta"
-    assert (repo.orden.index("revert") < repo.orden.index("materializar")
-            < repo.orden.index("fetch") < repo.orden.index("guardar"))
+    # F-069: ya no hay revert escrito antes; materializar va antes de
+    # leer (F-046 R15) y la escritura de la pasada, antes de guardar.
+    assert (repo.orden.index("materializar") < repo.orden.index("leer")
+            < repo.orden.index("escribir") < repo.orden.index("guardar"))
     assert repo.candados == 1
 
 
