@@ -151,6 +151,16 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    congelada, ninguna se revierte ni se vuelve a partir, y las extras
    automáticas no congeladas de una pareja cuya extra ya está congelada son
    duplicados y se borran. La regla por línea (semántica 10) no cambia.
+   **F-069 · extras con id estable, una transacción**: la pasada ya no
+   escribe el revert antes de calcular. `leer_pasada` lo aplica en memoria
+   (vista revertida) y guarda una huella por pareja; `escribir_pasada` hace
+   revert, casados de recurso y splits en UNA transacción (`FOR UPDATE` en
+   PostgreSQL), sin red, y cada split **reutiliza en el sitio** la
+   `extra_auto` que su pareja ya tenía (mismo `id`; por orden si hay
+   varias). Un lector nunca ve una base sin su extra ni ids que cambian.
+   Si sv4 cambió una pareja entre lectura y escritura, esa pareja no se
+   toca en esa pasada (WARNING y `parejas_cambiadas` en el log). sv4, al
+   rechazar un ámbito con ids que ya no existen, lo dice y pide recargar.
    **F-045 · reparto ponderado**: las ordinarias del día (recurso y fecha,
    todas las obras) suman la jornada del día, repartida entre las obras en
    proporción a sus horas (ordinarias + extras explícitas) y, dentro de cada
