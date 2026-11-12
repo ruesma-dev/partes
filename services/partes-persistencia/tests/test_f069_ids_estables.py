@@ -11,15 +11,23 @@ SQLite en memoria con el ORM real; datos sinteticos.
 """
 from __future__ import annotations
 
+import logging
+
 import pytest
-from sqlalchemy import select
+from sqlalchemy import event, select
 
 from infrastructure.database.orm_models import ParteRegistroOrm
 from infrastructure.database.sqlalchemy_parte_repository import (
     SqlAlchemyParteRepository,
 )
 from tests.dobles import FabricaSesionSqlite
-from tests.f069_comun import base, extra, filas_cortas, sembrar
+from tests.f069_comun import (
+    base,
+    conciliador_f069,
+    extra,
+    filas_cortas,
+    sembrar,
+)
 
 
 def _split(normal_id: int, *, norm=8.0, orig=10.0, ext=2.0, **kw) -> dict:
@@ -185,3 +193,95 @@ def test_f069_da2_escribir_reutilizada_igual_que_nueva_columna_a_columna(
     assert [f[0] for f in _extras(f069)] == [e]
     assert _columnas(f069, e) == _columnas(hoy, nueva)
     assert _columnas(f069, b) == _columnas(hoy, b_hoy)
+
+
+# ================== R1, R6 · la pasada completa, dos veces ============= #
+
+def _inserts(fabrica) -> list[str]:
+    """Los INSERT en `parte_registros` que se ejecuten desde ahora."""
+    vistos: list[str] = []
+
+    def _antes(_conn, _cur, sentencia, *_a):
+        if sentencia.lstrip().upper().startswith(
+                "INSERT INTO PARTE_REGISTROS"):
+            vistos.append(sentencia)
+    event.listen(fabrica.engine, "before_cursor_execute", _antes)
+    return vistos
+
+
+def _extras_completas(fabrica) -> list[tuple]:
+    with fabrica.create_session() as s:
+        return [tuple(f) for f in s.execute(
+            select(ParteRegistroOrm.id, ParteRegistroOrm.horas,
+                   ParteRegistroOrm.hora_ide, ParteRegistroOrm.hora_codigo,
+                   ParteRegistroOrm.hora_descripcion,
+                   ParteRegistroOrm.hora_ext, ParteRegistroOrm.hora_candef)
+            .where(ParteRegistroOrm.extra_auto.is_(True))
+            .order_by(ParteRegistroOrm.id)).all()]
+
+
+def test_f069_r1_dos_pasadas_sin_cambios_mismos_ids_y_sin_inserts() -> None:
+    fabrica = FabricaSesionSqlite()
+    sembrar(fabrica, [base(10.0), base(11.0, li=1)])
+    sembrar(fabrica, [base(4.0)], document_id="doc-s", fecha="2026-10-03")
+    c = conciliador_f069(fabrica)
+    c.conciliar_todos()
+    primera = _extras_completas(fabrica)
+    assert len(primera) == 3
+    inserts = _inserts(fabrica)
+    for _ in range(2):
+        c.conciliar_todos()
+        assert _extras_completas(fabrica) == primera
+    assert inserts == []
+
+
+def test_f069_r1_tras_cambiar_las_horas_se_reutiliza_el_mismo_id() -> None:
+    fabrica = FabricaSesionSqlite()
+    b, = sembrar(fabrica, [base(10.0)])
+    c = conciliador_f069(fabrica)
+    c.conciliar_todos()
+    (eid, horas, *_), = _extras_completas(fabrica)
+    assert horas == 2.0
+    with fabrica.create_session() as s:   # sv4 corrige lo trabajado
+        r = s.get(ParteRegistroOrm, b)
+        r.horas, r.horas_orig = 8.0, 11.0
+        s.commit()
+    # SQLite reutiliza el mayor rowid borrado: el id no basta, se vigila
+    # ademas que no haya ningun INSERT (en PostgreSQL seria otro id).
+    inserts = _inserts(fabrica)
+    c.conciliar_todos()
+    assert [(f[0], f[1]) for f in _extras_completas(fabrica)] == [(eid, 3.0)]
+    assert inserts == []
+
+
+def test_f069_r4_pasada_que_ya_no_necesita_extra_la_borra() -> None:
+    fabrica = FabricaSesionSqlite()
+    b, = sembrar(fabrica, [base(10.0)])
+    c = conciliador_f069(fabrica)
+    c.conciliar_todos()
+    with fabrica.create_session() as s:
+        r = s.get(ParteRegistroOrm, b)
+        # sv4 deja lo trabajado en la jornada justa: ya no hay exceso.
+        r.horas, r.horas_orig = 8.0, 8.0
+        s.commit()
+    c.conciliar_todos()
+    assert _extras_completas(fabrica) == []
+    assert filas_cortas(fabrica) == [(b, "doc-1", 0, 8.0, None, False)]
+
+
+def test_f069_r6_contadores_del_log_y_del_resumen(caplog) -> None:
+    fabrica = FabricaSesionSqlite()
+    sembrar(fabrica, [base(10.0), base(11.0, li=1)])
+    c = conciliador_f069(fabrica)
+    with caplog.at_level(logging.INFO):
+        r1 = c.conciliar_todos()
+    assert r1["extras_reclasificadas"] == 2
+    assert ("extras_nuevas=2 extras_reutilizadas=0 extras_borradas=0 "
+            "parejas_cambiadas=0") in caplog.text
+    caplog.clear()
+    with caplog.at_level(logging.INFO):
+        r2 = c.conciliar_todos()
+    assert r2["extras_reclasificadas"] == 2
+    assert set(r2) == set(r1)
+    assert ("extras_nuevas=0 extras_reutilizadas=2 extras_borradas=0 "
+            "parejas_cambiadas=0") in caplog.text

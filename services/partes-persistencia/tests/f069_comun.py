@@ -85,3 +85,34 @@ def filas_cortas(fabrica) -> list[tuple]:
                    ParteRegistroOrm.horas_orig, ParteRegistroOrm.extra_auto)
             .order_by(ParteRegistroOrm.id)).all()
     return [tuple(f) for f in filas]
+
+
+class IndiceFijo:
+    """Indice de personas que siempre elige el recurso 501 (como el de
+    `test_f037_dos_pasadas`: estos tests no van de casar recursos)."""
+
+    recursos: list = []
+
+    def empresa_de_obra(self, obra_ide):  # noqa: ARG002
+        return None
+
+    def elegir_recurso(self, *args, **kwargs):  # noqa: ARG002
+        from application.services.seleccion_sigrid import ResolucionRecurso
+
+        return ResolucionRecurso(ide=RECURSO, motivo="ok")
+
+
+def conciliador_f069(fabrica, *, lookup=None, repo=None):
+    """Conciliador real sobre el repositorio real; Sigrid en dobles."""
+    from application.services.recurso_conciliador import RecursoConciliador
+    from infrastructure.database.sqlalchemy_parte_repository import (
+        SqlAlchemyParteRepository,
+    )
+    from tests.dobles import CalendarioFake, LookupFake, reshor_par
+
+    return RecursoConciliador(
+        repository=repo or SqlAlchemyParteRepository(fabrica),
+        lookup=lookup or LookupFake(reshor=reshor_par(RECURSO)),
+        calendario=CalendarioFake({"2026-10-03", "2026-10-04"}),
+        indice_provider=lambda: IndiceFijo(),
+    )

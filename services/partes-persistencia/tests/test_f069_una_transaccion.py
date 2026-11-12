@@ -12,13 +12,19 @@ commit. SQLite en memoria con el ORM real; datos sinteticos.
 """
 from __future__ import annotations
 
-from sqlalchemy import event
+from sqlalchemy import event, text
 
 from infrastructure.database.sqlalchemy_parte_repository import (
     SqlAlchemyParteRepository,
 )
-from tests.dobles import FabricaSesionSqlite
-from tests.f069_comun import escenario, foto
+from tests.dobles import FabricaSesionSqlite, LookupFake, reshor_par
+from tests.f069_comun import (
+    base,
+    conciliador_f069,
+    escenario,
+    foto,
+    sembrar,
+)
 
 
 def K(li: int) -> tuple:  # la clave de pareja p<li>
@@ -175,3 +181,95 @@ def test_f069_r16_escribir_que_lanza_no_deja_nada_a_medias() -> None:
     else:  # pragma: no cover - el test exige que lance
         raise AssertionError("escribir_pasada debia lanzar")
     assert foto(fabrica) == antes
+
+
+# ===================== R9, R10 · la pasada completa ===================== #
+
+_PAREJAS = text(
+    "SELECT document_id, line_index, empleado_line_no, fecha_int, "
+    "horas, horas_orig, extra_auto, id FROM parte_registros "
+    "WHERE tipo_hora = 'normal' OR extra_auto ORDER BY id")
+
+
+def _estado_parejas(conn) -> dict:
+    """Por clave: (horas de las bases, horas_orig, ids y horas de extras)."""
+    out: dict = {}
+    for d, li, eln, f, horas, orig, auto, rid in conn.execute(_PAREJAS):
+        bases, origs, extras = out.setdefault((d, li, eln, f), ([], [], []))
+        if auto:
+            extras.append((rid, horas))
+        else:
+            bases.append(horas)
+            origs.append(orig)
+    return {k: tuple(tuple(x) for x in v) for k, v in out.items()}
+
+
+def test_f069_r9_ningun_commit_de_la_pasada_deja_una_pareja_a_medias(
+) -> None:
+    """Estado ya calculado (bases partidas + extras): otra pasada no lo
+    cambia, asi que TODO commit intermedio debe verlo igual que antes."""
+    fabrica = FabricaSesionSqlite()
+    sembrar(fabrica, [base(10.0), base(11.0, li=1)])
+    c = conciliador_f069(fabrica)
+    c.conciliar_todos()
+    with fabrica.engine.connect() as conn:
+        inicial = _estado_parejas(conn)
+    vistos: list[dict] = []
+
+    def _lector(_sesion):
+        with fabrica.engine.connect() as conn:
+            vistos.append(_estado_parejas(conn))
+    event.listen(fabrica._sessionmaker, "after_commit", _lector)
+    c.conciliar_todos()
+    assert vistos, "la pasada no hizo ningun commit"
+    for i, estado in enumerate(vistos):
+        assert estado == inicial, f"commit {i}: pareja a medias"
+
+
+class LookupVigilado(LookupFake):
+    """Falla si se le llama mientras el repositorio escribe la pasada."""
+
+    def __init__(self, **kw) -> None:
+        super().__init__(**kw)
+        self.escribiendo = False
+        self.llamadas_dentro = 0
+
+    def _vigilar(self) -> None:
+        if self.escribiendo:
+            self.llamadas_dentro += 1
+            raise AssertionError("llamada de red dentro de escribir_pasada")
+
+    def fetch_recursos(self):
+        self._vigilar()
+        return super().fetch_recursos()
+
+    def fetch_reshor(self):
+        self._vigilar()
+        return super().fetch_reshor()
+
+    def fetch_hmo_obra(self, obra_ide: int):
+        self._vigilar()
+        return super().fetch_hmo_obra(obra_ide)
+
+
+def test_f069_r10_sin_red_dentro_de_la_escritura() -> None:
+    fabrica = FabricaSesionSqlite()
+    sembrar(fabrica, [base(10.0)])
+    lookup = LookupVigilado(reshor=reshor_par(501))
+    repo = SqlAlchemyParteRepository(fabrica)
+    c = conciliador_f069(fabrica, lookup=lookup, repo=repo)
+    original = repo.escribir_pasada
+    llamadas: list[tuple] = []
+
+    def _escribir(lectura, updates, splits):
+        llamadas.append((lectura is not None, len(updates), len(splits)))
+        lookup.escribiendo = True
+        try:
+            return original(lectura, updates, splits)
+        finally:
+            lookup.escribiendo = False
+    repo.escribir_pasada = _escribir
+    c.conciliar_todos()
+    # Una sola escritura, la de la pasada (con su lectura, el casado y el
+    # split), y ninguna llamada a Sigrid mientras dura.
+    assert llamadas == [(True, 1, 1)] and lookup.llamadas_dentro == 0
