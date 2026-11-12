@@ -123,6 +123,35 @@ def _fila_huella(reg: ParteRegistroOrm, aprobado, activo) -> dict:
     }
 
 
+def _parejas_cambiadas(lectura: LecturaPasada | None,
+                       crudas: list[dict]) -> set:
+    """F-069 (R13, R14): claves cuya huella ya no es la de la lectura.
+
+    Solo se comparan las claves de los partes bloqueados que la lectura
+    vio (o las que tenia y ahora no tienen miembros): una pareja con una
+    fila cambiada, borrada o nueva, o que ahora tiene un miembro congelado
+    (cambio `sigrid_estado` o la aprobacion), difiere. Sin `lectura`, nada.
+    WARNING por clave, sin nombres ni DNI.
+    """
+    if lectura is None:
+        return set()
+    actuales = huellas_por_clave(crudas)
+    bloqueados = {f["document_id"] for f in crudas}
+    leidos = {k[0] for k in lectura.huellas}
+    claves = {k for k in set(lectura.huellas) | set(actuales)
+              if k[0] in bloqueados and k[0] in leidos}
+    cambiadas = {k for k in claves
+                 if lectura.huellas.get(k) != actuales.get(k)}
+    for document_id, line_index, _eln, fecha_int in sorted(cambiadas,
+                                                            key=str):
+        logger.warning(
+            "[repo] pareja cambiada durante la pasada: documento=%s "
+            "linea=%s fecha=%s; se recalcula en la siguiente (F-069).",
+            document_id, line_index, fecha_int,
+        )
+    return cambiadas
+
+
 def _pareja_de_fila(fila: dict) -> FilaPareja:
     """F-069: la `FilaPareja` de una fila de `fetch_registros_para_recurso`."""
     return _fila_pareja(
@@ -521,7 +550,7 @@ class SqlAlchemyParteRepository:
             if f["extra_auto"] or f["horas_orig"] is not None
         )
         # 3. Parejas cambiadas desde la lectura (R13, R14).
-        cambiadas: set = set()
+        cambiadas = _parejas_cambiadas(lectura, crudas)
 
         def _tocable(rid) -> bool:
             p = parejas.get(rid)
