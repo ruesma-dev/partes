@@ -31,9 +31,8 @@ def _commits(fabrica) -> list[int]:
     return cuenta
 
 
-def _sin_activo(filas: list[dict]) -> list[dict]:
-    return sorted(({k: v for k, v in f.items() if k != "doc_activo"}
-                   for f in filas), key=lambda f: f["registro_id"])
+def _ordenadas(filas: list[dict]) -> list[dict]:
+    return sorted(filas, key=lambda f: f["registro_id"])
 
 
 # ============================ leer_pasada ============================== #
@@ -49,8 +48,7 @@ def test_f069_r11_leer_da_lo_mismo_que_revert_y_lectura() -> None:
     escenario(nueva)
     lectura = SqlAlchemyParteRepository(nueva).leer_pasada()
 
-    assert _sin_activo(lectura.registros) == _sin_activo(esperado)
-    assert all(f["doc_activo"] is True for f in lectura.registros)
+    assert _ordenadas(lectura.registros) == _ordenadas(esperado)
 
 
 def test_f069_r11_leer_vista_revertida_de_cada_variante() -> None:
@@ -100,8 +98,21 @@ def test_f069_r7_leer_no_escribe_nada() -> None:
     assert commits == []
 
 
-def test_f069_r18_fetch_es_la_vista_de_leer() -> None:
+def test_f069_r18_fetch_sigue_siendo_la_lectura_cruda() -> None:
+    """El contrato de F-037 R9 no cambia: sin revert, la extra sigue."""
+    fabrica = FabricaSesionSqlite()
+    ids = escenario(fabrica)["doc-1"]
+    repo = SqlAlchemyParteRepository(fabrica)
+    crudas = {f["registro_id"] for f in repo.fetch_registros_para_recurso()}
+    assert ids[1] in crudas and ids[8] in crudas
+    vista = {f["registro_id"] for f in repo.leer_pasada().registros}
+    assert crudas - vista == {ids[1], ids[8], ids[10], ids[12]}
+
+
+def test_f069_r18_leer_y_fetch_dan_las_mismas_claves() -> None:
     fabrica = FabricaSesionSqlite()
     escenario(fabrica)
     repo = SqlAlchemyParteRepository(fabrica)
-    assert repo.fetch_registros_para_recurso() == repo.leer_pasada().registros
+    claves = {frozenset(f) for f in repo.fetch_registros_para_recurso()}
+    assert {frozenset(f) for f in repo.leer_pasada().registros} == claves
+    assert len(claves) == 1 and "doc_activo" not in next(iter(claves))
