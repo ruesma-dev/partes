@@ -5,7 +5,10 @@
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama
 `feature/F-069-extras-ids-estables` (base 0a91941). Informe del implementer: `progress/impl_F-069.md`.
 
-**Tarea en curso**: ver `tasks.md` (las `[x]` están hechas).
+**Estado** (implementer, 2026-11-12): T1-T17 y T19 hechas; informe en `progress/impl_F-069.md`.
+M1 hecha por el implementer en Docker local (2 passed). Mutación: 72 mutantes, 61 muertos, 10
+supervivientes cazados con `test_f069_mutacion.py`, 1 equivalente justificado (lo acepta el
+humano). Pendiente: reviewer y **T18 · M2** (líder, solo lectura en Azure, tras desplegar sv3).
 
 **Desviaciones justificadas**:
 - D1 (design §4.1): `fetch_registros_para_recurso` NO pasa a ser `leer_pasada().registros`: conserva su
