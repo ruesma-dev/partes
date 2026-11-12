@@ -22,4 +22,4 @@ crítico: fase RED por tarea de código, cobertura y campaña de mutación sin s
 - [x] T16: Guardianes de gemelos sin cambios: `tests/test_f010_orm_models_gemelos.py`, `tests/test_f024_borrado_no_congela_gemelos.py`, `test_f023_de_alta_gemelos.py`, `test_f036_recurso_persona_gemelos.py`  |  Verificación: `python -m pytest tests/test_f010_orm_models_gemelos.py tests/test_f024_borrado_no_congela_gemelos.py tests/test_f023_de_alta_gemelos.py tests/test_f036_recurso_persona_gemelos.py` en verde
 - [x] T17: M1 local con PostgreSQL desechable (requirements §Verificaciones manuales)  |  Verificación: MANUAL (humano): `docker run … postgres:16`, `F069_PG_URL=… python -m pytest services/partes-persistencia/tests/test_f069_pg_lector_concurrente.py -v` en verde
 - [ ] T18: M2 tras desplegar sv3 (lo pide el humano), solo lectura  |  Verificación: MANUAL (humano): secuencia y log de sv3 según requirements M2
-- [ ] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
