@@ -1,7 +1,7 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-069 · IN_PROGRESS 2026-11-12 (implementer; urgente, rigor crítico): sv3, extras automáticas con ids estables y recálculo en una sola transacción
+## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama
 `feature/F-069-extras-ids-estables` (base 0a91941). Informe del implementer: `progress/impl_F-069.md`.
 

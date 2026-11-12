@@ -62,3 +62,9 @@ crítico, urgente.
 2026-11-12: el humano aprueba la spec («ok a spec») con todas las decisiones abiertas según la
 recomendación: DA1 = A (entra el mensaje de sv4), DA2–DA8 = A, DA4 = A (Docker 29.5.3 disponible).
 DA9 = A, resuelta trayendo `chore/backlog-F-069-F-071` a la rama de F-069. F-069 pasa a `in_progress`.
+
+## Cierre
+
+2026-11-12: el humano acepta el mutante equivalente n.º 10 («acepto»; `zip(..., strict=True→False)`
+en `leer_pasada`, equivalente por construcción, reproducido por el reviewer). F-069 pasa a `done`.
+Pendiente: desplegar sv3 y sv4 y M2 del líder.

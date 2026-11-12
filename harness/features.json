@@ -1061,7 +1061,8 @@
         "Requisitos R1-R21 y verificaciones M1-M2 de specs/F-069-extras-ids-estables/requirements.md",
         "bash harness/init.sh en verde y APPROVED del reviewer contra CHECKPOINTS.md"
       ],
-      "status": "in_progress",
+      "pendiente": "desplegar sv3 y sv4 y M2 del líder (logs de Azure, solo lectura)",
+      "status": "done",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,

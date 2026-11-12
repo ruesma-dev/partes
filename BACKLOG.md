@@ -3,9 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **66 features**, 14 abiertas, 52 terminadas.
-
-En curso: **F-069**.
+Resumen: **66 features**, 13 abiertas, 53 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -14,7 +12,6 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 1 | pendiente | sin spec | critico | `feature/F-068-conciliar-pide-recalculo` |
-| F-069 | sv3: extras automáticas con ids estables y recálculo en una sola transacción | 1 | en curso | specs/F-069-extras-ids-estables/ | critico | `feature/F-069-extras-ids-estables` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | 2 | pendiente | sin spec | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | 3 | pendiente | sin spec | estandar | `feature/F-071-fecha-coherente-paginas` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
@@ -56,6 +53,7 @@ Bloqueadas: **F-032**.
 | F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | critico | Desplegada 2026-10-26 (sv5 r20261026140625, sv4 r20261026140755); M6: repetir la lectura cuando se aprueben incidencias (n > 0, grupos = 0); vista calendario de Administración |
 | F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | estandar | Desplegada en sv2 r20261026094916 (2026-10-26 08:51:31Z). Pendiente: M2 (motivo/resultado de relectura en partes) y M4 (tiempos de [obra-sigrid] en Log Analytics) cuando haya partes |
 | F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | estandar | Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador) |
+| F-069 | sv3: extras automáticas con ids estables y recálculo en una sola transacción | 1 | critico | desplegar sv3 y sv4 y M2 del líder (logs de Azure, solo lectura) |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
@@ -94,14 +92,6 @@ estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `featu
 **Spec**: sin spec
 
 Hotfix pedido por el humano el 2026-11-10 («apúntalo como hotfix»). Caso: obra 0694, 04/11/2026, trabajador que no se casó solo por venir escrito a mano; se casó a mano en Conciliar y su línea de 8,5 h quedó entera como ordinaria en vez de pasar por el cálculo de extras (jornada 8 h ⇒ 8 HLOF + 0,5 HEOF). Causa (sv4, interface_adapters/web/app.py, conciliacion_confirmar): POST /api/conciliacion/confirmar solo hace backfill_empleado y upsert_empleado_alias y NO pide recálculo, a diferencia del editor de celda, la fecha o el reajuste (_pedir_recalculo_seguido / _pedir_recalculo_compartido de F-042/F-043/F-049). Se corrigió solo en la siguiente pasada completa de sv3 del 2026-11-10 (al entrar partes nuevos): hoy la línea 20545 tiene 8 h HLOF y la 20717 0,5 h HEOF, ambas sin registrar. Riesgo: aprobar entre el casado y esa pasada escribiría en Sigrid las 8,5 h como ordinarias. Arreglo propuesto: tras un casado con líneas actualizadas, pedir el recálculo de los documentos afectados (los de las líneas casadas, no congeladas) con su motivo y seguimiento, y que el portal lo diga como en el editor de celda. Solo sv4; sin esquema nuevo. Pendiente de spec.
-
-### F-069 · sv3: extras automáticas con ids estables y recálculo en una sola transacción
-
-estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-069-extras-ids-estables`
-
-**Spec**: specs/F-069-extras-ids-estables/
-
-Pedida por el humano el 2026-11-12 como urgente. Caso: obra 0697 (obr-2491656), 12/11 09:20-09:24; el portal rechazaba aprobar con «4 línea(s) no son de esta vista» aunque se recargara. Causa (progress/explore_aprobar_fuera_ambito_0697.md): cada pasada de conciliación de sv3 (global, una por parte nuevo o recálculo; ~27 pasadas en 9 minutos ese día) hace revert_extras_auto, que BORRA físicamente las extras automáticas no congeladas y hace commit, y luego apply_extras_splits las vuelve a crear con ids NUEVOS en otra transacción. sv4 valida el ámbito contra los ids vivos y los de la página ya no existen. Riesgo añadido: en la ventana entre revert y alta la ordinaria se ve con las horas enteras y sin su extra; una aprobación de una sola línea en ese momento mandaría a Sigrid todo como ordinario. Arreglo propuesto: (1) ids estables, reaprovechando el id de la extra de la misma pareja (clave_pareja) o actualizándola en el sitio; (2) revert, casados y splits escritos en una sola transacción, para que ningún lector vea la pareja sin extra. Opcional en sv4: distinguir ids que ya no existen («se están recalculando las extras, recarga») de los de otra vista. Fuera: que cada parte nuevo dispare una pasada global. Solo sv3 (y quizá el mensaje de sv4). No tocar la regla de congelación gemela.
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
@@ -358,6 +348,16 @@ estado **terminada** · prioridad 1 · rigor `estandar` · SDD sí · rama `feat
 **Pendiente**: Desplegada en sv4 r20261027074233 (2026-10-27 06:44:16Z). Pendiente: M1 (design.md §8, en el portal desplegado) y M2 tras desplegar (dos usuarios de Entra en el mismo navegador)
 
 Petición del humano del 2026-10-26, literal: «la siguiente feature es que el filtro se mantenga dentro de la sesion por susuaio». Hoy el portal (sv4) pierde los filtros al navegar: los filtros por columna (.col-filter, wireColumnFilters) y por selección de días (wireDayFilters) viven solo en la página, y solo «Actualizar» los conserva una vez (sessionStorage VISTA_CLAVE, F-022 DA10). A decidir en la spec: qué filtros entran (por columna, días, buscadores de obra/recurso, filtros de servidor de /partes u otras listas), dónde se guardan (sessionStorage de la pestaña, localStorage por usuario de Easy Auth, o servidor) y qué es «sesión» (pestaña, navegador o login), si se separan por pantalla y por obra/trabajador, y cómo se limpian.
+
+### F-069 · sv3: extras automáticas con ids estables y recálculo en una sola transacción
+
+estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-069-extras-ids-estables`
+
+**Spec**: specs/F-069-extras-ids-estables/
+
+**Pendiente**: desplegar sv3 y sv4 y M2 del líder (logs de Azure, solo lectura)
+
+Pedida por el humano el 2026-11-12 como urgente. Caso: obra 0697 (obr-2491656), 12/11 09:20-09:24; el portal rechazaba aprobar con «4 línea(s) no son de esta vista» aunque se recargara. Causa (progress/explore_aprobar_fuera_ambito_0697.md): cada pasada de conciliación de sv3 (global, una por parte nuevo o recálculo; ~27 pasadas en 9 minutos ese día) hace revert_extras_auto, que BORRA físicamente las extras automáticas no congeladas y hace commit, y luego apply_extras_splits las vuelve a crear con ids NUEVOS en otra transacción. sv4 valida el ámbito contra los ids vivos y los de la página ya no existen. Riesgo añadido: en la ventana entre revert y alta la ordinaria se ve con las horas enteras y sin su extra; una aprobación de una sola línea en ese momento mandaría a Sigrid todo como ordinario. Arreglo propuesto: (1) ids estables, reaprovechando el id de la extra de la misma pareja (clave_pareja) o actualizándola en el sitio; (2) revert, casados y splits escritos en una sola transacción, para que ningún lector vea la pareja sin extra. Opcional en sv4: distinguir ids que ya no existen («se están recalculando las extras, recarga») de los de otra vista. Fuera: que cada parte nuevo dispare una pasada global. Solo sv3 (y quizá el mensaje de sv4). No tocar la regla de congelación gemela.
 
 ### F-002 · Cola q-transfer para aprobación asíncrona
 
