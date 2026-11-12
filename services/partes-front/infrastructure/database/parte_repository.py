@@ -2619,6 +2619,23 @@ class ParteReviewRepository:
             return []
         return [v.id for v in detail.registros]
 
+    def registro_ids_existentes(self, ids) -> set[int]:
+        """F-069 (R20, R21): de esos ids, los que existen en
+        `parte_registros` (cualquier fila: papelera y partes borrados
+        incluidos). Una consulta por lote de `LOTE_IDS_CONSULTA`."""
+        orden = sorted({int(i) for i in ids})
+        if not orden:
+            return set()
+        out: set[int] = set()
+        with self._session_factory.create_session() as session:
+            for i in range(0, len(orden), LOTE_IDS_CONSULTA):
+                out.update(session.execute(
+                    select(ParteRegistroOrm.id).where(
+                        ParteRegistroOrm.id.in_(
+                            orden[i:i + LOTE_IDS_CONSULTA]))
+                ).scalars().all())
+        return out
+
     # ------------------------------------------------------------------ #
     # F-024 · comprobacion de las lineas `registrado` contra Sigrid. sv4 no
     # lee Sigrid: prepara las lineas, sv5 da los veredictos y aqui se

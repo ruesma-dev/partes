@@ -2526,10 +2526,22 @@ def build_app(
                 mode=ambito.get("mode") or "nomina")
         else:
             permitidos = repository.registro_ids_de_trabajador(clave)
-        fuera = len(set(ids) - set(permitidos))
+        ajenos = set(ids) - set(permitidos)
+        fuera = len(ajenos)
         if fuera:
             logger.warning("[aprobar] %s id(s) fuera del ambito %s=%s",
                            fuera, campo, clave)
+            # F-069 (R20, R21, DA1): si alguno ya no existe, lo mas probable
+            # es que sv3 este recalculando las extras: se dice y se pide
+            # recargar. Una sola consulta y solo cuando ya hay ids fuera.
+            inexistentes = len(
+                ajenos - repository.registro_ids_existentes(sorted(ajenos)))
+            if inexistentes:
+                return _rechazo_ambito(
+                    f"{fuera} línea(s) no son de esta vista: {inexistentes} "
+                    "ya no existen porque se están recalculando las extras. "
+                    "Recarga en unos segundos y vuelve a seleccionar",
+                    fuera_de_ambito=fuera, inexistentes=inexistentes)
             return _rechazo_ambito(
                 f"{fuera} linea(s) no son de esta vista (otra obra, otro "
                 "periodo, otra persona o en la papelera): recarga la pagina "
