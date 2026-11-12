@@ -56,3 +56,9 @@ crítico, urgente.
 - El bloqueo dura un poco más, porque los casados entran en la transacción.
 - Puede haber un interbloqueo con sv4. Si pasa, se hace rollback y se reintenta el mensaje (R16).
 - Si hay varias bases por clave y cambia su orden, las extras podrían intercambiar ids (DA3).
+
+## Aprobación
+
+2026-11-12: el humano aprueba la spec («ok a spec») con todas las decisiones abiertas según la
+recomendación: DA1 = A (entra el mensaje de sv4), DA2–DA8 = A, DA4 = A (Docker 29.5.3 disponible).
+DA9 = A, resuelta trayendo `chore/backlog-F-069-F-071` a la rama de F-069. F-069 pasa a `in_progress`.

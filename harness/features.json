@@ -1058,15 +1058,15 @@
       "title": "sv3: extras automáticas con ids estables y recálculo en una sola transacción",
       "description": "Pedida por el humano el 2026-11-12 como urgente. Caso: obra 0697 (obr-2491656), 12/11 09:20-09:24; el portal rechazaba aprobar con «4 línea(s) no son de esta vista» aunque se recargara. Causa (progress/explore_aprobar_fuera_ambito_0697.md): cada pasada de conciliación de sv3 (global, una por parte nuevo o recálculo; ~27 pasadas en 9 minutos ese día) hace revert_extras_auto, que BORRA físicamente las extras automáticas no congeladas y hace commit, y luego apply_extras_splits las vuelve a crear con ids NUEVOS en otra transacción. sv4 valida el ámbito contra los ids vivos y los de la página ya no existen. Riesgo añadido: en la ventana entre revert y alta la ordinaria se ve con las horas enteras y sin su extra; una aprobación de una sola línea en ese momento mandaría a Sigrid todo como ordinario. Arreglo propuesto: (1) ids estables, reaprovechando el id de la extra de la misma pareja (clave_pareja) o actualizándola en el sitio; (2) revert, casados y splits escritos en una sola transacción, para que ningún lector vea la pareja sin extra. Opcional en sv4: distinguir ids que ya no existen («se están recalculando las extras, recarga») de los de otra vista. Fuera: que cada parte nuevo dispare una pasada global. Solo sv3 (y quizá el mensaje de sv4). No tocar la regla de congelación gemela.",
       "acceptance": [
-        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
-        "bash harness/init.sh en verde y APPROVED del reviewer"
+        "Requisitos R1-R21 y verificaciones M1-M2 de specs/F-069-extras-ids-estables/requirements.md",
+        "bash harness/init.sh en verde y APPROVED del reviewer contra CHECKPOINTS.md"
       ],
-      "status": "pending",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 1,
       "branch": "feature/F-069-extras-ids-estables",
-      "spec": "sin spec"
+      "spec": "specs/F-069-extras-ids-estables/"
     },
     {
       "id": "F-070",

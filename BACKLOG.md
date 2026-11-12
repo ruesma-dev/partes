@@ -5,6 +5,8 @@
 
 Resumen: **66 features**, 14 abiertas, 52 terminadas.
 
+En curso: **F-069**.
+
 Bloqueadas: **F-032**.
 
 ## Trabajo abierto
@@ -12,7 +14,7 @@ Bloqueadas: **F-032**.
 | # | Feature | Prioridad | Estado | Spec | Rigor | Rama |
 |---|---|---|---|---|---|---|
 | F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 1 | pendiente | sin spec | critico | `feature/F-068-conciliar-pide-recalculo` |
-| F-069 | sv3: extras automáticas con ids estables y recálculo en una sola transacción | 1 | pendiente | sin spec | critico | `feature/F-069-extras-ids-estables` |
+| F-069 | sv3: extras automáticas con ids estables y recálculo en una sola transacción | 1 | en curso | specs/F-069-extras-ids-estables/ | critico | `feature/F-069-extras-ids-estables` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | 2 | pendiente | sin spec | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | 3 | pendiente | sin spec | estandar | `feature/F-071-fecha-coherente-paginas` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
@@ -95,9 +97,9 @@ Hotfix pedido por el humano el 2026-11-10 («apúntalo como hotfix»). Caso: obr
 
 ### F-069 · sv3: extras automáticas con ids estables y recálculo en una sola transacción
 
-estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-069-extras-ids-estables`
+estado **en curso** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-069-extras-ids-estables`
 
-**Spec**: sin spec
+**Spec**: specs/F-069-extras-ids-estables/
 
 Pedida por el humano el 2026-11-12 como urgente. Caso: obra 0697 (obr-2491656), 12/11 09:20-09:24; el portal rechazaba aprobar con «4 línea(s) no son de esta vista» aunque se recargara. Causa (progress/explore_aprobar_fuera_ambito_0697.md): cada pasada de conciliación de sv3 (global, una por parte nuevo o recálculo; ~27 pasadas en 9 minutos ese día) hace revert_extras_auto, que BORRA físicamente las extras automáticas no congeladas y hace commit, y luego apply_extras_splits las vuelve a crear con ids NUEVOS en otra transacción. sv4 valida el ámbito contra los ids vivos y los de la página ya no existen. Riesgo añadido: en la ventana entre revert y alta la ordinaria se ve con las horas enteras y sin su extra; una aprobación de una sola línea en ese momento mandaría a Sigrid todo como ordinario. Arreglo propuesto: (1) ids estables, reaprovechando el id de la extra de la misma pareja (clave_pareja) o actualizándola en el sitio; (2) revert, casados y splits escritos en una sola transacción, para que ningún lector vea la pareja sin extra. Opcional en sv4: distinguir ids que ya no existen («se están recalculando las extras, recarga») de los de otra vista. Fuera: que cada parte nuevo dispare una pasada global. Solo sv3 (y quizá el mensaje de sv4). No tocar la regla de congelación gemela.
 
