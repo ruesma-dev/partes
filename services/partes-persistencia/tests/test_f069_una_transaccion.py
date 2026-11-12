@@ -20,7 +20,9 @@ from infrastructure.database.sqlalchemy_parte_repository import (
 from tests.dobles import FabricaSesionSqlite
 from tests.f069_comun import escenario, foto
 
-K = lambda li: ("doc-1", li, 1, 20261001)  # noqa: E731
+
+def K(li: int) -> tuple:  # la clave de pareja p<li>
+    return ("doc-1", li, 1, 20261001)
 
 
 def _commits(fabrica) -> list[int]:

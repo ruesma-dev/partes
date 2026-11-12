@@ -84,7 +84,7 @@ def test_f069_r3_escribir_split_de_mas_crea_extra_nueva() -> None:
     res = _escribir(fabrica, [_split(b1), _split(b2, norm=4.0, orig=5.0,
                                                    ext=1.0)])
     extras = _extras(fabrica)
-    assert [f[0] for f in extras][0] == e1 and len(extras) == 2
+    assert extras[0][0] == e1 and len(extras) == 2
     assert {f[0]: f[3] for f in extras}[e1] == 2.0
     assert (res.nuevas, res.reutilizadas) == (1, 1)
 
@@ -102,7 +102,7 @@ def test_f069_r3_escribir_extra_de_mas_se_borra() -> None:
 
 def test_f069_r4_escribir_sin_split_borra_y_restaura() -> None:
     fabrica = FabricaSesionSqlite()
-    b, e = sembrar(fabrica, [base(8.0, 10.0), extra(2.0)])
+    b, _e = sembrar(fabrica, [base(8.0, 10.0), extra(2.0)])
     res = _escribir(fabrica, [])
     assert filas_cortas(fabrica) == [(b, "doc-1", 0, 10.0, None, False)]
     assert (res.aplicados, res.borradas) == (0, 1)
@@ -112,8 +112,8 @@ def test_f069_r4_escribir_revierte_tambien_partes_inactivos() -> None:
     from infrastructure.database.orm_models import ParteDocumentOrm
 
     fabrica = FabricaSesionSqlite()
-    b, e = sembrar(fabrica, [base(8.0, 10.0), extra(2.0)],
-                   document_id="doc-2")
+    b, _e = sembrar(fabrica, [base(8.0, 10.0), extra(2.0)],
+                    document_id="doc-2")
     with fabrica.create_session() as s:
         s.get(ParteDocumentOrm, "doc-2").is_active = False
         s.commit()
@@ -124,7 +124,7 @@ def test_f069_r4_escribir_revierte_tambien_partes_inactivos() -> None:
 def test_f069_r4_escribir_borra_las_duplicadas_de_una_pareja_congelada(
 ) -> None:
     fabrica = FabricaSesionSqlite()
-    b, e1, e2 = sembrar(fabrica, [base(8.0, 10.0), extra(2.0, "registrado"),
+    b, e1, _e2 = sembrar(fabrica, [base(8.0, 10.0), extra(2.0, "registrado"),
                                   extra(2.0)])
     res = _escribir(fabrica, [])
     assert [f[0] for f in filas_cortas(fabrica)] == [b, e1]
@@ -135,7 +135,7 @@ def test_f069_r4_escribir_borra_las_duplicadas_de_una_pareja_congelada(
 
 def test_f069_r5_escribir_split_con_id_crea_esa_extra() -> None:
     fabrica = FabricaSesionSqlite()
-    b, e = sembrar(fabrica, [base(8.0, 10.0), extra(2.0)])
+    b, _e = sembrar(fabrica, [base(8.0, 10.0), extra(2.0)])
     res = _escribir(fabrica, [_split(b, id=900)])
     assert [f[0] for f in _extras(fabrica)] == [900]
     assert (res.nuevas, res.reutilizadas, res.borradas) == (1, 0, 1)
