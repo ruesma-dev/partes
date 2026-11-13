@@ -132,3 +132,53 @@ def test_f068_r16_null_o_sv4_anterior_es_lo_de_hoy() -> None:
     assert "recalcul" not in hoy
     assert _casar(recalculo=None, partes_recalculo=0)["html"] == hoy
 
+
+
+# ===================== _empReasignar (R18, D3-b) ======================= #
+
+_REASIGNAR = r"""
+var eventos = [];
+var PartidaSel = undefined;
+var input = {disabled: false, value: "", placeholder: "",
+             classList: {add: function () {}, remove: function () {}}};
+var wrap = {
+  getAttribute: function (k) { return k === "data-worker-key" ? "rec-1" : null; },
+  querySelector: function () { return input; }
+};
+var window = {location: {reload: function () { eventos.push(["reload"]); }}};
+function alert(t) { eventos.push(["alert", t]); }
+function setTimeout() {}
+function fetch() {
+  return Promise.resolve({ok: true, json: function () {
+    return Promise.resolve(RESPUESTA); }});
+}
+_empReasignar(wrap, 501, "E42 · Ana Casada");
+Promise.resolve().then(function () {}).then(function () {}).then(function () {})
+  .then(function () {}).then(function () {
+  process.stdout.write(JSON.stringify(eventos));
+});
+"""
+
+
+def _reasignar(**extra) -> list:
+    js = _js()
+    programa = ("".join(_funcion(js, f) for f in (
+        "textoRecalculoCasado", "_empReasignar", "flashEl"))
+        + "var RESPUESTA = %s;" % json.dumps(dict(BASE, **extra))
+        + _REASIGNAR)
+    return _node(programa)
+
+
+def test_f068_r18_reasignar_con_fallo_avisa_antes_de_recargar() -> None:
+    assert _reasignar(recalculo="fallo", partes_recalculo=1) == [
+        ["alert", TEXTO_FALLO], ["reload"]]
+
+
+@pytest.mark.parametrize("recalculo", ["pedido", "sin_cola", None])
+def test_f068_r18_reasignar_sin_fallo_recarga_como_hoy(recalculo) -> None:
+    assert _reasignar(recalculo=recalculo, partes_recalculo=1) == [
+        ["reload"]]
+
+
+def test_f068_r18_reasignar_sv4_anterior_recarga_como_hoy() -> None:
+    assert _reasignar() == [["reload"]]

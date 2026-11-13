@@ -138,3 +138,73 @@ def test_f068_r22_backfill_sin_colector_igual_que_hoy() -> None:
     datos = datos_registros(fabrica, ids)
     assert datos[ids[0]]["empleado_ide"] == 4242
     assert datos[ids[1]]["empleado_ide"] is None
+
+
+# ============ D3-b · `reassign_empleado_by_*` · colector (R17) ========== #
+
+def _reasignables(fabrica) -> list[int]:
+    """d-2 antes (ids menores) que d-1; en d-1 además una registrada."""
+    return (_sin_casar(fabrica, [_libre()], doc="d-2", fecha="2026-03-03")
+            + _sin_casar(fabrica, [_libre(), {"estado": "registrado",
+                                             "leido": LEIDO}], doc="d-1"))
+
+
+def test_f068_r17_by_leido_colector_y_retorno_intacto() -> None:
+    fabrica = FabricaSesionSqlite()
+    _reasignables(fabrica)
+    docs: list[str] = []
+    res = ParteReviewRepository(fabrica).reassign_empleado_by_leido(
+        nombre_leido=LEIDO, documentos=docs, **QUIEN)
+    assert res == (2, 1)
+    assert docs == ["d-2", "d-1"]
+
+
+def test_f068_r17_by_worker_key_colector_y_retorno_intacto() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _reasignables(fabrica)
+    with fabrica.create_session() as s:
+        from infrastructure.database.orm_models import ParteRegistroOrm
+        wk = repo_mod.worker_key_for_registro(s.get(ParteRegistroOrm, ids[0]))
+    docs: list[str] = []
+    res = ParteReviewRepository(fabrica).reassign_empleado_by_worker_key(
+        worker_key=wk, documentos=docs, **QUIEN)
+    assert res == (2, [LEIDO], 1)
+    assert docs == ["d-2", "d-1"]
+
+
+def test_f068_r17_by_registro_ids_solo_los_pedidos() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _reasignables(fabrica)
+    docs: list[str] = []
+    res = ParteReviewRepository(fabrica).reassign_empleado_by_registro_ids(
+        registro_ids=[ids[1], ids[2]], documentos=docs, **QUIEN)
+    assert res == (1, 1)                    # ids[2] es la registrada
+    assert docs == ["d-1"]
+
+
+def test_f068_r17_solo_congeladas_no_aporta_partes() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _sin_casar(fabrica, [_libre()], doc="d-2", aprobado=True)
+    repo = ParteReviewRepository(fabrica)
+    docs: list[str] = []
+    assert repo.reassign_empleado_by_leido(
+        nombre_leido=LEIDO, documentos=docs, **QUIEN) == (0, 1)
+    assert repo.reassign_empleado_by_worker_key(
+        worker_key="nom-NO_EXISTE", documentos=docs, **QUIEN) == (0, [], 0)
+    assert repo.reassign_empleado_by_registro_ids(
+        registro_ids=ids, documentos=docs, **QUIEN) == (0, 1)
+    assert repo.reassign_empleado_by_registro_ids(
+        registro_ids=[], documentos=docs, **QUIEN) == (0, 0)
+    assert repo.reassign_empleado_by_leido(
+        nombre_leido=" ", documentos=docs, **QUIEN) == (0, 0)
+    assert docs == []
+
+
+def test_f068_r22_reassign_sin_colector_igual_que_hoy() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _reasignables(fabrica)
+    repo = ParteReviewRepository(fabrica)
+    assert repo.reassign_empleado_by_registro_ids(
+        registro_ids=ids[:1], **QUIEN) == (1, 0)
+    assert repo.reassign_empleado_by_leido(
+        nombre_leido=LEIDO, **QUIEN) == (2, 1)

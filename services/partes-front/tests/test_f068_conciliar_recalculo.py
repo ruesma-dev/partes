@@ -481,3 +481,88 @@ def test_f068_e7_r12_r13_aprobar_con_ids_viejos_es_422_y_no_toca_nada(
     assert estados_sigrid(fabrica, ids[:1]) == {ids[0]: (None, None, None, None, None)}
     with fabrica.create_session() as s:
         assert s.get(ParteDocumentOrm, "d-1").approved is False
+
+
+# ================= R17 · reasignar (D3-b): las cuatro formas =========== #
+
+def _reasignar(cliente, **cuerpo):
+    return cliente.post("/api/empleado/reasignar", headers=CABECERA,
+                        json=dict({"ide": 4242}, **cuerpo))
+
+
+def _forma(nombre: str, ids: list[int]) -> dict:
+    return {"registro_ids": {"registro_ids": [ids[0], ids[1]]},
+            "registro_id": {"registro_id": ids[0]},
+            "worker_key": {"worker_key": "nom-JUAN_LEIDO"},
+            "nombre_leido": {"nombre_leido": LEIDO}}[nombre]
+
+
+FORMAS = ("registro_ids", "registro_id", "worker_key", "nombre_leido")
+
+
+@pytest.mark.parametrize("forma", FORMAS)
+def test_f068_r17_reasignar_pide_un_recalculo(montaje, forma) -> None:
+    cliente, cola, fabrica, ids = montaje(_dos)
+    r = _reasignar(cliente, **_forma(forma, ids))
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    assert set(cuerpo) == {"ok", "updated", "alias_ok", "congeladas",
+                           "empleado", "recalculo", "partes_recalculo"}
+    assert cuerpo["updated"] >= 1 and cuerpo["recalculo"] == "pedido"
+    (_c, mensaje), = cola.enviados
+    assert (mensaje["motivo"], mensaje["solicitado_por"]) == (
+        "reasignacion_trabajador", ACTOR)
+    assert mensaje["document_id"] == "d-2"
+    assert cuerpo["partes_recalculo"] == 2          # d-2 y d-1
+    assert _pedido(fabrica, "d-2") is not None
+
+
+def test_f068_r17_reasignar_por_ids_de_un_solo_parte(montaje) -> None:
+    cliente, cola, fabrica, ids = montaje(_dos)
+    cuerpo = _reasignar(cliente, registro_ids=[ids[2]]).json()
+    assert (cuerpo["updated"], cuerpo["partes_recalculo"]) == (1, 1)
+    assert [m["document_id"] for _c, m in cola.enviados] == ["d-1"]
+    assert _pedido(fabrica, "d-2") is None
+
+
+@pytest.mark.parametrize("forma", FORMAS)
+def test_f068_r17_reasignar_sin_lineas_no_pide(montaje, forma) -> None:
+    cliente, cola, fabrica, ids = montaje(_solo_congeladas)
+    cuerpo = _reasignar(cliente, **{
+        "registro_ids": {"registro_ids": ids},
+        "registro_id": {"registro_id": ids[0]},
+        "worker_key": {"worker_key": "nom-JUAN_LEIDO"},
+        "nombre_leido": {"nombre_leido": LEIDO}}[forma]).json()
+    assert cuerpo["updated"] == 0
+    assert (cuerpo["recalculo"], cuerpo["partes_recalculo"]) == (None, 0)
+    assert cola.enviados == [] and _sin_pedidos(fabrica)
+
+
+def test_f068_r17_reasignar_cola_caida_200_fallo(montaje) -> None:
+    cliente, _c, fabrica, ids = montaje(
+        _uno, cola=ColaFake(error=RuntimeError("cola caida")))
+    r = _reasignar(cliente, nombre_leido=LEIDO)
+    assert r.status_code == 200 and r.json()["recalculo"] == "fallo"
+    assert _pedido(fabrica, "d-1") is None
+    assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] == 4242
+
+
+def test_f068_r17_reasignar_info_sin_nombres(montaje, caplog) -> None:
+    cliente, _cola, fabrica, _ids = montaje(_uno)
+    with caplog.at_level(logging.INFO):
+        _reasignar(cliente, nombre_leido=LEIDO)
+    texto, = _infos(caplog, "[reasignar] casado")
+    assert texto == ("[reasignar] casado updated=1 congeladas=0 "
+                     f"documentos=['d-1'] pedido={_pedido(fabrica, 'd-1')} "
+                     "recalculo=pedido")
+    for prohibido in (LEIDO, NOMBRE_SIGRID, DNI_SIGRID):
+        assert prohibido not in texto
+
+
+def test_f068_r17_reasignar_errores_de_hoy_sin_pedido(montaje) -> None:
+    cliente, cola, fabrica, _ids = montaje(_uno)
+    assert _reasignar(cliente).status_code == 400            # sin forma
+    assert cliente.post("/api/empleado/reasignar", headers=CABECERA,
+                        json={"ide": 1, "nombre_leido": LEIDO}
+                        ).status_code == 404
+    assert cola.enviados == [] and _sin_pedidos(fabrica)
