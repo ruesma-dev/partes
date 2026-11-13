@@ -61,7 +61,7 @@ Bloqueadas: **F-032**.
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | 2 | critico | M6 (humano: «Aplicar» en el portal; reparto_pendiente tiene 1 fila pendiente desde el 2026-10-19) |
 | F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | 2 | critico |  |
 | F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | 2 | estandar | DA12 (humano): decidir el tope OBRA_EXISTE_TIMEOUT_S con la M4 del 2026-11-12 (p50 105 ms, 23 de 200 consultas ≥ 2 s, 3 ReadTimeout a 5 s). M2 superada |
-| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar | M1 paso 4 (eliminar definitivamente las 2 líneas de prueba 24451 y 24452 de la 0404; borrado permanente: lo autoriza el humano). Pasos 1–3 superados el 2026-11-12 en producción |
+| F-061 | Borrar todas las líneas de un parte (y vaciar la papelera) deja el parte activo y vacío, que bloquea su reproceso | 2 | estandar |  |
 | F-003 | Integración sesame-api: festivos y jornada reales | 3 | critico |  |
 | F-024 | Lineas que quedan en 'encolado' en el portal aunque el parte ya esta registrado en Sigrid | 3 | critico |  |
 | F-056 | Trabajadores con franquicia de extras: al cerrar el mes, aviso y línea de ajuste el último laborable | 3 | critico |  |
@@ -73,7 +73,7 @@ Bloqueadas: **F-032**.
 | F-004 | Congelar registros aprobados | 5 | estandar |  |
 | F-047 | Parte nuevo en espera hasta que sv3 reparta sus horas (ordinaria y extra) | 5 | critico | M1 (portal, humano). M2 y M3 superadas el 2026-11-12 (149 partes, marcado=True en todos; espera p50 54 s) |
 | F-010 | Saneamiento: resincronizar orm_models.py entre sv3 y sv4 | 6 | estandar |  |
-| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | critico | M4 (humano): un usuario real sincroniza en producción y aplica una acción; comprobar sigrid_motivo y actor. Desplegada 2026-11-12 (sv5 y sv4 r20261112172145, seco=True) |
+| F-052 | Sincronizar con Sigrid: desde una obra o una persona, leer Sigrid, comparar línea a línea con el portal y conciliar una a una o en masa | 6 | critico |  |
 | F-015 | Jornada del día por jornada semanal derivada del candef y último laborable (extras sv3 + avisos sv4) + tabla de excepciones empleado_jornada | 7 | estandar |  |
 | F-038 | Subir a 500.000 el límite de filas de las lecturas de Sigrid en sv2–sv5 (antes 1.000 en sv5 y 10.000 en el resto) | 7 | estandar |  |
 | F-066 | sv4: la hora extra se decide por el prefijo HE y no por auxhor.ext, y HENC queda excluido (selector de código de hora y demás usos) | 7 | critico |  |
@@ -403,8 +403,6 @@ Hallazgo del líder del 2026-10-23 (solo lectura en producción y batería local
 
 estado **terminada** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-061-parte-vacio-tras-borrar-lineas`
 
-**Pendiente**: M1 paso 4 (eliminar definitivamente las 2 líneas de prueba 24451 y 24452 de la 0404; borrado permanente: lo autoriza el humano). Pasos 1–3 superados el 2026-11-12 en producción
-
 Petición del humano del 2026-10-25: «añade una feature para ver por que no los borro bien». Observado por el líder ese día al reprocesar los 6 partes sin obra de F-059 (doc002836 y doc021390): el humano borró en el portal sus 40 líneas una a una (POST /api/registro/{id}/delete) y vació la papelera (POST /api/papelera/vaciar); las líneas desaparecieron, pero los 6 parte_documents siguieron is_active = true, sin deleted_at_utc y con 0 líneas. Al reingerir los correos, sv3 los descartó por sha256 («ya existe … Se omite reinserción», get_by_sha256 filtra is_active) y la relectura (ya con obra y fecha gracias a F-059) se perdió. El líder los pasó a la papelera a nivel de documento por SQL (deleted_by «lider-claude …») para poder reprocesarlos. En producción había ese día 36 parte_documents activos sin ninguna línea. A decidir en la spec: si al quedarse un documento sin líneas vivas (borrado de líneas, de trabajador o de obra, y vaciado de papelera) debe ir solo a la papelera o desactivarse; qué hacer con los 36 existentes (informe y limpieza autorizada); si el portal debe enseñar o avisar de los partes vacíos; y que la deduplicación de sv3 no quede bloqueada por un documento vacío. Pendiente de spec.
 
 ### F-003 · Integración sesame-api: festivos y jornada reales
@@ -490,8 +488,6 @@ El spec-author de F-003 detectó (2026-08-15) que la duplicación tolerada de in
 estado **terminada** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-052-sincronizar-con-sigrid`
 
 **Spec**: aprobada el 2026-11-02, M1, M2 y M3 hechas; pendiente M4 tras desplegar · `partes-wt-f052`
-
-**Pendiente**: M4 (humano): un usuario real sincroniza en producción y aplica una acción; comprobar sigrid_motivo y actor. Desplegada 2026-11-12 (sv5 y sv4 r20261112172145, seco=True)
 
 Pedida por el humano el 2026-10-20 («añade una spec de sincronizar, de forma que dentro de una obra o una persona se pueda dar a sincronizar lea sigrid y compare contra lo que hay en el portal, eso nos permitira conciliar linea a linea o en masa»). Botón «Sincronizar con Sigrid» en /obras/{clave} y /trabajadores/{clave} (clave rec- de F-050) para el periodo visible: sv5 (dueño del synckey) lee hmores del ámbito y por synckey en solo lectura (POST /api/sincronizar/leer, hasta 500.000 filas por lectura y solo entonces pagina, truncated = error, sin lock) y sv4 clasifica cada línea en 12 clases (igual, distinta, anulada_en_sigrid, borrada_en_sigrid, en_sigrid_sin_registrar, pendiente, no_viaja, en_vuelo, solo_sigrid_nuestra/ajena/manual/auxiliar). Primera entrega (DA1 = A): acciones hacia el portal con confirmación y actor (marcar_registrada, traer_de_sigrid de horas sobre líneas registrado, y reutilizando lo existente a_papelera, reaprobar y restaurar); la escritura en Sigrid vía sv5 (llevar_a_sigrid con el reajuste de F-046, poner a 0 en Sigrid, importar al portal) va en otra feature. En Sigrid no se borra: F-052 no escribe en Sigrid. Reutiliza F-024 (comprobación y borrado_sigrid), F-022 (ámbito), F-017 (actor), F-042 (recálculo), F-043 y F-046 (guardas). Resultado efímero, sin esquema nuevo. Depende de F-050 (ya en dev). Decisiones y M1 (hecha) en specs/F-052-sincronizar-con-sigrid/design.md §8-§9. H1 resuelto por F-053. Revalidada el 2026-11-01 contra dev 69af0f5: Spec aprobada por el humano el 2026-11-02: DA9 superada, sin tope de líneas (el límite es el corte de 230 s; cota de 3000 registro_ids) y una sola feature con punto de control obligatorio tras la comparación (M2 antes de las acciones).
 
