@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from harness.tiempos import escalar_timeout
+
 import pytest
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -88,7 +90,7 @@ print(json.dumps(out))
 def _correr(servicio: Path, codigo: str, *args: str):
     salida = subprocess.run(
         [sys.executable, "-c", codigo, *args], cwd=servicio,
-        capture_output=True, text=True, timeout=120, check=False)
+        capture_output=True, text=True, timeout=escalar_timeout(120), check=False)
     assert salida.returncode == 0, salida.stderr
     return json.loads(salida.stdout.strip().splitlines()[-1])
 
