@@ -44,6 +44,11 @@ MOTIVO_EDICION_CELDA = "edicion_celda"
 MOTIVO_DESHACER_CELDA = "deshacer_edicion_celda"
 #: F-052 (R23, DA15): tras «Traer de Sigrid» horas a lineas congeladas.
 MOTIVO_SINCRONIZAR = "sincronizar"
+#: F-068 (R1, R17, R19): tras casar en Conciliar, reasignar el trabajador
+#: o deshacer cualquiera de los dos.
+MOTIVO_CASADO_CONCILIACION = "casado_conciliacion"
+MOTIVO_REASIGNACION = "reasignacion_trabajador"
+MOTIVO_DESHACER_TRABAJADOR = "deshacer_trabajador"
 
 #: Estado del recalculo en la respuesta del portal (`recalculo`).
 ESTADO_PEDIDO = "pedido"
