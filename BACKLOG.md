@@ -53,7 +53,7 @@ Bloqueadas: **F-032**.
 | F-062 | Incidencia: el primer día escribe el CI* y también el CIZ ese mismo día; si la racha sigue, el CIZ se mueve (como hace Administración) | 1 | critico | Vista calendario de Administración (M6 superada el 2026-11-12: n = 2, grupos = 0) |
 | F-063 | sv2: la consulta de existencia de obra de F-058 tiene que usar el índice (hoy 12–16 s frente al tope de 5 s) | 1 | estandar | M4 no cumple DA3 en producción (23 de 200 consultas ≥ 2 s, 3 ReadTimeout a 5 s): decidir (humano) si se abre la feature de reutilizar la conexión (opción B de DA3). M2 superada |
 | F-064 | El filtro del portal se mantiene durante la sesión de cada usuario | 1 | estandar | M2 (humano: dos usuarios de Entra en el mismo navegador). M1 superada el 2026-11-12 en producción (filtro tras detalle y volver, recarga, pestaña nueva y «Limpiar») |
-| F-069 | sv3: extras automáticas con ids estables y recálculo en una sola transacción | 1 | critico | M2 del líder (logs de sv3 y secuencia, solo lectura) con la primera tanda de partes. Desplegada 2026-11-12 (sv3 y sv4 r20261112172145) |
+| F-069 | sv3: extras automáticas con ids estables y recálculo en una sola transacción | 1 | critico |  |
 | F-002 | Cola q-transfer para aprobación asíncrona | 2 | critico |  |
 | F-013 | Informe de validación de datos Sesame por trabajador | 2 | estandar |  |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | 2 | critico |  |
@@ -348,8 +348,6 @@ Petición del humano del 2026-10-26, literal: «la siguiente feature es que el f
 estado **terminada** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-069-extras-ids-estables`
 
 **Spec**: specs/F-069-extras-ids-estables/
-
-**Pendiente**: M2 del líder (logs de sv3 y secuencia, solo lectura) con la primera tanda de partes. Desplegada 2026-11-12 (sv3 y sv4 r20261112172145)
 
 Pedida por el humano el 2026-11-12 como urgente. Caso: obra 0697 (obr-2491656), 12/11 09:20-09:24; el portal rechazaba aprobar con «4 línea(s) no son de esta vista» aunque se recargara. Causa (progress/explore_aprobar_fuera_ambito_0697.md): cada pasada de conciliación de sv3 (global, una por parte nuevo o recálculo; ~27 pasadas en 9 minutos ese día) hace revert_extras_auto, que BORRA físicamente las extras automáticas no congeladas y hace commit, y luego apply_extras_splits las vuelve a crear con ids NUEVOS en otra transacción. sv4 valida el ámbito contra los ids vivos y los de la página ya no existen. Riesgo añadido: en la ventana entre revert y alta la ordinaria se ve con las horas enteras y sin su extra; una aprobación de una sola línea en ese momento mandaría a Sigrid todo como ordinario. Arreglo propuesto: (1) ids estables, reaprovechando el id de la extra de la misma pareja (clave_pareja) o actualizándola en el sitio; (2) revert, casados y splits escritos en una sola transacción, para que ningún lector vea la pareja sin extra. Opcional en sv4: distinguir ids que ya no existen («se están recalculando las extras, recarga») de los de otra vista. Fuera: que cada parte nuevo dispare una pasada global. Solo sv3 (y quizá el mensaje de sv4). No tocar la regla de congelación gemela.
 

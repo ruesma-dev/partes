@@ -1052,7 +1052,6 @@
         "Requisitos R1-R21 y verificaciones M1-M2 de specs/F-069-extras-ids-estables/requirements.md",
         "bash harness/init.sh en verde y APPROVED del reviewer contra CHECKPOINTS.md"
       ],
-      "pendiente": "M2 del líder (logs de sv3 y secuencia, solo lectura) con la primera tanda de partes. Desplegada 2026-11-12 (sv3 y sv4 r20261112172145)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",

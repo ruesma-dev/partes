@@ -212,3 +212,14 @@ queda retirado sin líneas.
   horas 4, sigue `registrado` con el mismo hmores, `sigrid_motivo` «Sincronizado con Sigrid:
   horas 8→4 · <usuario> · <fecha>». Al volver a sincronizar, la línea sale `igual`. No se
   escribió nada en Sigrid.
+
+## F-069 · M2 SUPERADA (líder, 2026-11-13 01:13, solo lectura)
+
+Primera pasada de sv3 con el código desplegado (r20261112172145), disparada por el recálculo de
+la acción de F-052: `extras_reclasificadas=49 extras_nuevas=0 extras_reutilizadas=49
+extras_borradas=0 parejas_cambiadas=0`. En la base `partes`, de 2026-11-12 19:01 a
+2026-11-13 01:13: `parte_registros_id_seq` 24450 → 24452 (solo las 2 líneas manuales de prueba de
+F-061), y las 58 `extra_auto` no congeladas son las mismas (58 se mantienen, 0 desaparecen, 0
+nuevas). Antes de F-069 cada pasada consumía unos 50 ids. Pendiente solo de observación (O1 del
+reviewer): si en las tandas de los próximos días `parejas_cambiadas` sale > 0 a menudo, valorar
+`FOR UPDATE OF parte_documents`.
