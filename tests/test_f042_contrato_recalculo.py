@@ -72,7 +72,11 @@ def test_f042_r22_el_tipo_es_el_mismo_en_los_dos_lados(sv4, sv3) -> None:
 
 
 @pytest.mark.parametrize("motivo", ["MOTIVO_CAMBIO_FECHA",
-                                    "MOTIVO_DESHACER_FECHA"])
+                                    "MOTIVO_DESHACER_FECHA",
+                                    # F-068 (R20): casar, reasignar, deshacer.
+                                    "MOTIVO_CASADO_CONCILIACION",
+                                    "MOTIVO_REASIGNACION",
+                                    "MOTIVO_DESHACER_TRABAJADOR"])
 @pytest.mark.parametrize("por", ["revisora@ejemplo.es", None])
 def test_f042_r22_sv3_clasifica_como_recalculo_lo_de_sv4(sv4, sv3, motivo,
                                                          por) -> None:
@@ -84,7 +88,11 @@ def test_f042_r22_sv3_clasifica_como_recalculo_lo_de_sv4(sv4, sv3, motivo,
 
 
 @pytest.mark.parametrize("motivo", ["MOTIVO_CAMBIO_FECHA",
-                                    "MOTIVO_DESHACER_FECHA"])
+                                    "MOTIVO_DESHACER_FECHA",
+                                    # F-068 (R20): casar, reasignar, deshacer.
+                                    "MOTIVO_CASADO_CONCILIACION",
+                                    "MOTIVO_REASIGNACION",
+                                    "MOTIVO_DESHACER_TRABAJADOR"])
 def test_f042_r22_lo_que_publica_el_publisher_tambien(sv4, sv3,
                                                       motivo) -> None:
     """El camino completo de sv4: el payload que llega a `enviar`."""

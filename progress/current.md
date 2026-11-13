@@ -1,12 +1,11 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-068 · SPEC_READY 2026-11-13 (spec-author; pendiente de aprobación del humano): Conciliar pide a sv3 el recálculo de extras
-Spec en `specs/F-068-conciliar-pide-recalculo/` (rama `feature/F-068-conciliar-pide-recalculo`, worktree
-`partes-wt-f068`, base 7e5f600). Informe: `progress/spec_F-068.md`. Solo sv4; sv3 sin cambios.
-**Decisiones abiertas para el humano** (design.md §9): D1 partes del pedido (rec. a), D2 un pedido
-compartido (rec. a), D3 incluir reasignar (rec. b), D4 incluir deshacer casar/reasignar (rec. b), D5
-aprobar durante la pasada como hoy + feature aparte para bloquearlo (rec. b), D6 texto de `fallo` (rec. a).
+## F-068 · IN_PROGRESS 2026-11-13 (implementer): Conciliar pide a sv3 el recálculo de extras
+Spec aprobada en `specs/F-068-conciliar-pide-recalculo/` (rama `feature/F-068-conciliar-pide-recalculo`,
+worktree `partes-wt-f068`, base 04afcfa). Decisiones del humano: D1-a, D2-a, D3-b, D4-b, D5-b (F-073
+dada de alta), D6-a: entran T10 (reasignar) y T11 (deshacer `empleado`).
+**Tarea en curso**: T1. Desviaciones: ninguna por ahora. Informe: `progress/impl_F-068.md`.
 
 ## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama

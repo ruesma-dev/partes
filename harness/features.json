@@ -1037,7 +1037,7 @@
         "Requisitos R1-R22 y verificación M1 de specs/F-068-conciliar-pide-recalculo/requirements.md (R17-R19 según D3 y D4)",
         "bash harness/init.sh en verde y APPROVED del reviewer contra CHECKPOINTS.md"
       ],
-      "status": "spec_ready",
+      "status": "in_progress",
       "sdd": true,
       "rigor": "critico",
       "priority": 2,
