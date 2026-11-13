@@ -1,0 +1,4 @@
+{
+  "$doc": "Rigor propio de partes. Suelo del timeout por mutante a 600 s (la plantilla trae 120): la linea base de la campana corre con suelo*5*W y la suite de sv4 ya no cabia en 300*5 (commit dc693cc, 2026-10-30). Partes lo llevaba en harness/rigor.json; trasladado a la capa local al actualizar a la 1.10.1 (F-063).",
+  "mutacion": {"timeout_por_mutante_s": 600}
+}
