@@ -140,19 +140,30 @@ def _express_por_mes(features: list[dict]) -> str | None:
     return f"Express cerradas por mes: {cifras}"
 
 
+# Adaptación de partes (no viene de arnes-base): dos columnas de texto libre de
+# features.json. Abiertas: «Spec» (campo `spec`: escrita, aprobada, en
+# redacción...). Terminadas: «Pendiente» (campo `pendiente`: lo que queda tras
+# cerrar, como despliegues o verificaciones manuales). Van al final de las
+# propias de cada columna y se repiten en el «Detalle».
+_SPEC_LIBRE = ("Spec", lambda f: f.get("spec"))
+_PENDIENTE_LIBRE = ("Pendiente", lambda f: f.get("pendiente"))
+
+
 def _columnas_extra(titulo: str) -> list[tuple[str, object]]:
     """Columnas propias de la columna `titulo` del tablero, tras «Feature»."""
     if titulo in _CON_LA_TIENE:
-        return [("La tiene", lambda f: QUIEN_LA_TIENE[f["status"]])]
+        return [("La tiene", lambda f: QUIEN_LA_TIENE[f["status"]]), _SPEC_LIBRE]
     if titulo == "Spec aprobada":
         return [("Spec aprobada",
-                 lambda f: _fecha_o(f, "spec_aprobada", _SPEC_PENDIENTE))]
+                 lambda f: _fecha_o(f, "spec_aprobada", _SPEC_PENDIENTE)),
+                _SPEC_LIBRE]
     if titulo == "Done":
         return [
             ("Cierre", lambda f: _fecha_o(f, "fecha_cierre", _SIN_FECHA)),
             ("OK humano", lambda f: _fecha_o(f, "ok_humano", _OK_SIN_ANOTAR)),
+            _PENDIENTE_LIBRE,
         ]
-    return []
+    return [_SPEC_LIBRE]
 
 
 def _tabla(
@@ -251,7 +262,7 @@ def construir(datos: dict) -> str:
 
     if otros:
         lineas += ["## Otros estados", ""]
-        lineas += _tabla(otros, con_estado=True)
+        lineas += _tabla(otros, extra=[_SPEC_LIBRE], con_estado=True)
         lineas.append("")
 
     lineas += ["## Detalle", ""]
@@ -281,6 +292,12 @@ def construir(datos: dict) -> str:
             meta.append("rama `%s`" % f["branch"])
         lineas.append(" · ".join(meta))
         lineas.append("")
+        if f.get("spec"):
+            lineas.append("**Spec**: %s" % _celda(f["spec"]))
+            lineas.append("")
+        if f.get("pendiente"):
+            lineas.append("**Pendiente**: %s" % _celda(f["pendiente"]))
+            lineas.append("")
         descripcion = (f.get("description") or "").strip()
         lineas.append(descripcion if descripcion else "_Sin descripción._")
         lineas.append("")
