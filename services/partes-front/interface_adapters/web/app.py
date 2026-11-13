@@ -120,6 +120,7 @@ from infrastructure.database.session_factory import SessionFactory
 from infrastructure.persistencia.recalculo_publisher import (
     ESTADO_FALLO,
     MOTIVO_CAMBIO_FECHA,
+    MOTIVO_CASADO_CONCILIACION,
     MOTIVO_DESHACER_CELDA,
     MOTIVO_DESHACER_FECHA,
     MOTIVO_EDICION_CELDA,
@@ -717,6 +718,26 @@ def build_app(
                     "%s (%s); los partes esperaran hasta vencer.",
                     marcado, type(exc).__name__)
         return estado, marcado
+
+    def _recalculo_de_trabajador(documentos: list[str], motivo: str,
+                                 actor: str | None, *, etiqueta: str,
+                                 updated: int, congeladas: int) -> dict:
+        """F-068 (R1-R8): `{recalculo, partes_recalculo}` tras casar,
+        reasignar o deshacer un trabajador.
+
+        Sin partes (nada escrito) no marca ni publica: `recalculo` None y
+        0 partes (R2). Con partes, UN recalculo con pedido compartido
+        (D1-a, D2-a) y un INFO sin nombres, DNI ni nombre leido (R8). No
+        lanza: `_pedir_recalculo_compartido` ya no lanza (R5-R7).
+        """
+        if not documentos:
+            return {"recalculo": None, "partes_recalculo": 0}
+        estado, pedido = _pedir_recalculo_compartido(
+            documentos, motivo, actor)
+        logger.info("[%s] casado updated=%s congeladas=%s documentos=%s "
+                    "pedido=%s recalculo=%s", etiqueta, updated, congeladas,
+                    documentos, pedido, estado)
+        return {"recalculo": estado, "partes_recalculo": len(documentos)}
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo
@@ -1519,11 +1540,12 @@ def build_app(
                  f"recurso_ide={data.get('recurso_ide')!r}."},
                 status_code=400,
             )
+        docs: list[str] = []   # F-068: los partes que el casado escribe
         try:
             updated, congeladas = repository.backfill_empleado(
                 nombre_leido=nombre_leido, ide=emp["ide"],
                 codigo=emp["codigo"], nombre=emp["nombre"], dni=emp["dni"],
-                reside=emp["reside"],
+                reside=emp["reside"], documentos=docs,
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("[conciliacion] backfill fallo")
@@ -1547,14 +1569,20 @@ def build_app(
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False
                 logger.warning("[conciliacion] alias no guardado: %r", exc)
-        return JSONResponse({
+        res = {
             "ok": True, "updated": updated, "alias_ok": alias_ok,
             # F-004 R8: las lineas congeladas se omiten; decirlo evita
             # que el usuario crea que su casado se aplico entero.
             "congeladas": congeladas,
             "empleado": {"ide": emp["ide"], "codigo": emp["codigo"],
                          "nombre": emp["nombre"]},
-        })
+        }
+        # F-068 (R1): DESPUES de los commits del casado y del alias, para
+        # que la pasada de sv3 los lea.
+        res.update(_recalculo_de_trabajador(
+            docs, MOTIVO_CASADO_CONCILIACION, _actor(request),
+            etiqueta="conciliacion", updated=updated, congeladas=congeladas))
+        return JSONResponse(res)
 
     @app.get("/api/conciliacion/buscar")
     def conciliacion_buscar(
