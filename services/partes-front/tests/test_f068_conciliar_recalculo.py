@@ -18,11 +18,13 @@ from datetime import datetime, timezone
 
 import pytest
 from application.services import text_match as tm
+from application.services.seguimiento_recalculo import MOTIVO_RECALCULANDO
 from config.settings import Settings
 from fastapi.testclient import TestClient
 from infrastructure.database.orm_models import (
     EmpleadoAliasOrm,
     ParteDocumentOrm,
+    ParteRegistroOrm,
 )
 from infrastructure.database.parte_repository import ParteReviewRepository
 from infrastructure.persistencia.recalculo_publisher import (
@@ -32,8 +34,19 @@ from infrastructure.persistencia.recalculo_publisher import (
 )
 from interface_adapters.web import app as app_mod
 from interface_adapters.web.app import build_app
-from tests.dobles import FabricaSesionSqlite, datos_registros, sembrar_parte
+from tests.dobles import (
+    FabricaSesionSqlite,
+    datos_registros,
+    estados_sigrid,
+    sembrar_parte,
+)
 from tests.test_f004_endpoints_congelados import SigridLookupClientFake
+from tests.test_f022_aprobar_seleccion import (
+    ENDPOINTS,
+    CalendarioFalso,
+    PublisherFalso,
+    Sv5Falso,
+)
 from tests.test_f042_recalculo_fecha import ColaFake
 
 LEIDO = "Juan Leido"
@@ -378,3 +391,93 @@ def test_f068_conciliar_r10_sustituye_el_pedido_en_curso(montaje) -> None:
     assert nuevo not in (None, "pedido-viejo")
     estados = cliente.get("/api/recalculo?ids=d-1").json()["estados"]
     assert estados["d-1"]["estado"] == "pendiente"
+
+
+# ====== R9 · caracterización: el parte del casado queda en espera ======= #
+# Pasan sin código nuevo de F-068 más allá de T6: la espera y el 409 son de
+# F-043 (R38) y basta con que el casado marque el pedido.
+
+def test_f068_r9_tras_casar_editar_el_parte_da_409(montaje) -> None:
+    cliente, _cola, fabrica, ids = montaje(_uno)
+    assert _casar(cliente).json()["recalculo"] == "pedido"
+    antes = datos_registros(fabrica, ids)
+    r = cliente.patch(f"/api/registros/{ids[0]}", json={"horas": 3.0})
+    assert r.status_code == 409, r.text
+    assert r.json() == {"ok": False, "congelado": True,
+                        "error": MOTIVO_RECALCULANDO}
+    assert datos_registros(fabrica, ids) == antes
+
+
+def test_f068_r9_tras_casar_el_parte_sale_recalculando(montaje) -> None:
+    cliente, _cola, _f, _ids = montaje(_dos)
+    _casar(cliente)
+    estados = cliente.get("/api/recalculo?ids=d-1,d-2").json()["estados"]
+    assert {d: e["estado"] for d, e in estados.items()} == {
+        "d-1": "pendiente", "d-2": "pendiente"}
+
+
+def test_f068_r9_sin_cola_el_parte_no_queda_en_espera(montaje) -> None:
+    cliente, _cola, _f, ids = montaje(_uno, sin_cola=True)
+    _casar(cliente)
+    r = cliente.patch(f"/api/registros/{ids[0]}", json={"horas": 3.0})
+    assert r.status_code == 200, r.text
+
+
+# ===== R11-R13 · el 422 de F-069 al aprobar tras un casado (E7) ======== #
+# El pedido de recálculo no responde nunca 422: es una publicación en
+# cola. El 422 posible es el de APROBAR con ids de una página cargada antes
+# de la pasada, si la pasada borró una extra. (capa: integración)
+
+MARZO = {"vista": "obra", "obra_key": "obr-10", "period": "2026-03",
+         "mode": "nomina"}
+TEXTO_F069 = ("1 línea(s) no son de esta vista: 1 ya no existen porque se "
+              "están recalculando las extras. Recarga en unos segundos y "
+              "vuelve a seleccionar")
+
+
+def _con_extra(fabrica):
+    """d-1 (obra 10, marzo): la línea sin casar y una extra que la
+    pasada de sv3 borrará."""
+    return _sin_casar(fabrica, [_libre(), {"estado": None, "tipo": "extra",
+                                           "horas": 0.5,
+                                           "leido": "Otro Distinto"}],
+                      doc="d-1")
+
+
+def _borrar_fila(fabrica, registro_id: int) -> None:
+    """Lo que hace la pasada de sv3 con una extra que ya no toca."""
+    with fabrica.create_session() as s:
+        s.delete(s.get(ParteRegistroOrm, registro_id))
+        s.commit()
+
+
+@pytest.mark.parametrize("endpoint", ENDPOINTS)
+def test_f068_e7_r12_r13_aprobar_con_ids_viejos_es_422_y_no_toca_nada(
+        montaje, endpoint) -> None:
+    sv5 = Sv5Falso()
+    cliente, cola, fabrica, ids = montaje(
+        _con_extra, transfer_client=sv5, publisher=PublisherFalso(),
+        calendario_provider=CalendarioFalso())
+    casado = _casar(cliente)
+    assert (casado.status_code, casado.json()["recalculo"]) == (200,
+                                                                "pedido")
+    pedido = _pedido(fabrica, "d-1")
+    enviados = list(cola.enviados)
+    _borrar_fila(fabrica, ids[1])
+    r = cliente.post(endpoint, headers=CABECERA,
+                     json={"registro_ids": ids, "ambito": MARZO})
+    # R11: el 422 es el de aprobar (`_validar_ambito`), no del recálculo.
+    assert r.status_code == 422, r.text
+    cuerpo = r.json()
+    assert (cuerpo["fuera_de_ambito"], cuerpo["inexistentes"]) == (1, 1)
+    assert cuerpo["error"] == TEXTO_F069                      # R13
+    # R12: el casado sigue intacto (empleado, alias y pedido)...
+    assert datos_registros(fabrica, ids[:1])[ids[0]]["empleado_ide"] == 4242
+    assert _alias(fabrica) == 4242
+    assert _pedido(fabrica, "d-1") == pedido
+    assert cola.enviados == enviados
+    # ...y la aprobación no escribe nada.
+    assert sv5.preflights == [] and sv5.ejecutadas == []
+    assert estados_sigrid(fabrica, ids[:1]) == {ids[0]: (None, None, None, None, None)}
+    with fabrica.create_session() as s:
+        assert s.get(ParteDocumentOrm, "d-1").approved is False
