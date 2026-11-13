@@ -1,11 +1,28 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-068 · IN_PROGRESS 2026-11-13 (implementer): Conciliar pide a sv3 el recálculo de extras
+## F-068 · BLOCKED 2026-11-13 (implementer): Conciliar pide a sv3 el recálculo de extras
 Spec aprobada en `specs/F-068-conciliar-pide-recalculo/` (rama `feature/F-068-conciliar-pide-recalculo`,
-worktree `partes-wt-f068`, base 04afcfa). Decisiones del humano: D1-a, D2-a, D3-b, D4-b, D5-b (F-073
-dada de alta), D6-a: entran T10 (reasignar) y T11 (deshacer `empleado`).
-**Tarea en curso**: T1. Desviaciones: ninguna por ahora. Informe: `progress/impl_F-068.md`.
+worktree `partes-wt-f068`). Decisiones del humano: D1-a, D2-a, D3-b, D4-b, D5-b (F-073), D6-a.
+T1-T13 hechas y en verde por separado (un commit por tarea); informe en `progress/impl_F-068.md`.
+`azure-apps` ef721cd (local, sin push).
+
+**Motivo del bloqueo (conflicto de la spec, no se improvisa)**: `bash harness/init.sh` en ROJO por
+`services/partes-front/tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper`,
+que fija `fuente.count("_actor(request)") == 21` en `app.py`. El design §5 pide leer `_actor(request)`
+en `conciliacion_confirmar` y en `empleado_reasignar` (hoy no lo leen) para `solicitado_por`: eso
+hace **23**. Pero R21 dice «Ningún test existente cambia de expectativa», y la historia del test
+muestra que cada alta (F-042, F-049, F-056, F-052) se hizo con «enmienda … por decisión del humano».
+Deshacer (`undo_apply`) ya leía el actor: no suma.
+
+**Opciones para el humano**:
+- (a) Enmendar la spec (R21 y design §5) y el guardián: 21 → 23, ampliando su docstring con las dos
+  llamadas de F-068 (Conciliar y reasignar firman `solicitado_por`). Recomendada: es la misma
+  enmienda que hicieron F-042, F-049, F-056 y F-052, y la propiedad que vigila (toda firma sale de
+  `_actor`) se mantiene.
+- (b) No firmar: `solicitado_por = None` en Conciliar y reasignar (el mensaje lo admite; es solo
+  traza). Sin tocar el guardián, pero se pierde quién pidió el recálculo en el log de sv3.
+Tras decidir: aplicar la opción, `bash harness/init.sh` en verde y seguir con el reviewer.
 
 ## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama

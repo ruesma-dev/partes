@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **68 features**, 15 abiertas y 53 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 3 en Spec aprobada, 0 en To do, 11 en Backlog y 53 en Done.
+Resumen: **68 features**, 15 abiertas y 53 terminadas. Por columna: 0 en Review, 2 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 11 en Backlog y 53 en Done.
 
 ## Review
 
@@ -13,6 +13,7 @@ _Nada esperando revisión._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | specs/F-068-conciliar-pide-recalculo/ | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | 8 | estandar | `feature/F-032-sesame-festivos-produccion` |
 
 ## In progress
@@ -23,7 +24,6 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | pendiente de tu aprobación | specs/F-068-conciliar-pide-recalculo/ | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -117,7 +117,7 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
 
-estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
+estado **bloqueada** · spec aprobada el 2026-11-13 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
 
 **Spec**: specs/F-068-conciliar-pide-recalculo/
 
