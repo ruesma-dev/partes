@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **66 features**, 13 abiertas, 53 terminadas.
+Resumen: **67 features**, 14 abiertas, 53 terminadas.
 
 Bloqueadas: **F-032**.
 
@@ -14,6 +14,7 @@ Bloqueadas: **F-032**.
 | F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 1 | pendiente | sin spec | critico | `feature/F-068-conciliar-pide-recalculo` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | 2 | pendiente | sin spec | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | 3 | pendiente | sin spec | estandar | `feature/F-071-fecha-coherente-paginas` |
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | 4 | pendiente | sin spec | critico | `feature/F-072-postventa-var-como-obras` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | 7 | spec lista | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-067 | sv3 y sv5: HENC excluido | 7 | pendiente | sin spec | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 8 | bloqueada | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | estandar | `feature/F-032-sesame-festivos-produccion` |
@@ -108,6 +109,14 @@ estado **pendiente** · prioridad 3 · rigor `estandar` · SDD sí · rama `feat
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-12. Caso: obra 0721, adjunto 4936_001.pdf, días seguidos por página: la IA leyó la página 3 (19/10) como 14-10-26, la 5 (21/10) solo como «21» (se quedó sin fecha y no sale en la vista del mes) y la 11 (29/10) como 23-10-26. Arreglo propuesto: completar una fecha incompleta (solo día) con mes y año de las páginas vecinas del mismo adjunto, y marcar para revisar (aviso visible en el portal) una fecha que rompe la secuencia de sus vecinas o repite la de otra página del mismo PDF. No corregir sola una fecha completa: solo avisar. Servicio por decidir en la spec (sv2 extrae, sv3 concilia y guarda).
+
+### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
+
+estado **pendiente** · prioridad 4 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+
+**Spec**: sin spec
+
+Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
