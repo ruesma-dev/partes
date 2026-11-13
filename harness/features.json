@@ -1040,7 +1040,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 1,
+      "priority": 2,
       "branch": "feature/F-068-conciliar-pide-recalculo",
       "spec": "sin spec"
     },
@@ -1070,7 +1070,7 @@
       "status": "pending",
       "sdd": true,
       "rigor": "critico",
-      "priority": 2,
+      "priority": 3,
       "branch": "feature/F-070-reemplazo-no-mismo-pdf",
       "spec": "sin spec"
     },
@@ -1085,14 +1085,14 @@
       "status": "pending",
       "sdd": true,
       "rigor": "estandar",
-      "priority": 3,
+      "priority": 4,
       "branch": "feature/F-071-fecha-coherente-paginas",
       "spec": "sin spec"
     },
     {
       "id": "F-072",
       "title": "Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes",
-      "priority": 4,
+      "priority": 1,
       "rigor": "critico",
       "sdd": true,
       "status": "pending",
