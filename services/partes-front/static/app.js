@@ -1657,6 +1657,10 @@ var FiltrosSesion = (function () {
           return;
         }
         flashEl(input, "saved");
+        // F-068 (R18): la recarga ya pinta el parte en espera; si no se
+        // pudo pedir el recalculo, se avisa ANTES de recargar.
+        if (res.d.recalculo === "fallo")
+          alert(textoRecalculoCasado("fallo", res.d.partes_recalculo)[0]);
         // El agrupado por trabajador cambia: recargamos para reflejarlo.
         window.location.reload();
       }).catch(function () {

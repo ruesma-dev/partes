@@ -3853,12 +3853,13 @@ class ParteReviewRepository:
     def reassign_empleado_by_leido(
         self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, int]:
         """Reasigna el empleado a TODOS los registros activos cuyo nombre
         leido (normalizado) coincide, ESTEN o no casados (correccion).
 
-        Devuelve (filas tocadas, omitidas por congelacion: R8).
+        Devuelve (filas tocadas, omitidas por congelacion: R8). F-068
+        (R17, R22): `documentos` como en `backfill_empleado`.
         """
         target = tm.normalize(nombre_leido)
         if not target:
@@ -3887,18 +3888,22 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide} ({len(affected)} reg.)",
                 registros=reg_snaps, aliases=alias_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), congeladas
 
     def reassign_empleado_by_worker_key(
         self, *, worker_key: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, list[str], int]:
         """Reasigna todos los registros activos del grupo (worker_key).
 
         Devuelve (filas, nombres_leidos_distintos, omitidas por
         congelacion: R8); los nombres leidos sirven para escribir alias.
+        F-068 (R17, R22): `documentos` como en `backfill_empleado`.
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -3930,20 +3935,24 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide} ({len(affected)} reg.)",
                 registros=reg_snaps, aliases=alias_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), leidos, congeladas
 
     def reassign_empleado_by_registro_ids(
         self, *, registro_ids: list[int], ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, int]:
         """Reasigna el empleado SOLO a los registros indicados (activos).
 
         A diferencia de ``reassign_empleado_by_leido`` (que afecta a TODOS los
         registros con el mismo nombre leido), esto acota el cambio exactamente
         a ``registro_ids`` y NO crea alias: es una correccion por linea, no una
-        regla de mapeo nombre->empleado.
+        regla de mapeo nombre->empleado. F-068 (R17, R22): `documentos`
+        como en `backfill_empleado`.
         """
         ids = [int(x) for x in registro_ids if x is not None]
         if not ids:
@@ -3970,7 +3979,10 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide}",
                 registros=reg_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), congeladas
 
     def get_sharepoint_ref(self, document_id: str) -> dict | None:

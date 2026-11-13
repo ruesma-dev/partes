@@ -125,6 +125,7 @@ from infrastructure.persistencia.recalculo_publisher import (
     MOTIVO_DESHACER_FECHA,
     MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
+    MOTIVO_REASIGNACION,
     MOTIVO_SINCRONIZAR,
     RecalculoPublisher,
     pedir_recalculo,
@@ -1643,13 +1644,14 @@ def build_app(
         updated = 0
         congeladas = 0
         leidos: list[str] = []
+        docs: list[str] = []   # F-068 (R17): los partes que se escriben
         try:
             if isinstance(registro_ids_in, list) and registro_ids_in:
                 ids = [_as_int(x) for x in registro_ids_in]
                 ids = [x for x in ids if x is not None]
                 updated, congeladas = (
                     repository.reassign_empleado_by_registro_ids(
-                        registro_ids=ids, **quien,
+                        registro_ids=ids, documentos=docs, **quien,
                     )
                 )
                 # Acotado a lineas concretas: no se crea alias de mapeo.
@@ -1662,18 +1664,18 @@ def build_app(
                         status_code=400,
                     )
                 updated, congeladas = repository.reassign_empleado_by_leido(
-                    nombre_leido=leido, **quien,
+                    nombre_leido=leido, documentos=docs, **quien,
                 )
                 leidos = [leido]
             elif worker_key:
                 updated, leidos, congeladas = (
                     repository.reassign_empleado_by_worker_key(
-                        worker_key=worker_key, **quien,
+                        worker_key=worker_key, documentos=docs, **quien,
                     )
                 )
             elif nombre_leido_in:
                 updated, congeladas = repository.reassign_empleado_by_leido(
-                    nombre_leido=nombre_leido_in, **quien,
+                    nombre_leido=nombre_leido_in, documentos=docs, **quien,
                 )
                 leidos = [nombre_leido_in]
             else:
@@ -1704,12 +1706,18 @@ def build_app(
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False
                 logger.warning("[reasignar] alias no guardado: %r", exc)
-        return JSONResponse({
+        res = {
             "ok": True, "updated": updated, "alias_ok": alias_ok,
             "congeladas": congeladas,   # F-004 R8
             "empleado": {"ide": emp["ide"], "codigo": emp["codigo"],
                          "nombre": emp["nombre"]},
-        })
+        }
+        # F-068 (R17, D3-b): como Conciliar, tras la reasignacion y los
+        # alias.
+        res.update(_recalculo_de_trabajador(
+            docs, MOTIVO_REASIGNACION, _actor(request),
+            etiqueta="reasignar", updated=updated, congeladas=congeladas))
+        return JSONResponse(res)
 
     # ----------------------------- DESHACER --------------------------- #
     @app.get("/api/undo/list", include_in_schema=False)
