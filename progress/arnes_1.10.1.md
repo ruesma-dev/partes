@@ -1,12 +1,12 @@
 <!-- progress/arnes_1.10.1.md -->
-# Actualización del arnés 1.7.3 → 1.10.1 · BLOQUEADA en el paso 6
+# Actualización del arnés 1.7.3 → 1.10.1 · CERRADA (init.sh en verde)
 
 Fecha: 2026-11-13. Worktree `partes-wt-arnes`, rama `chore/arnes-1.10.1`
 (sale de `dev` 680d191). Sin merge ni push.
 
-**Estado: `init.sh` en ROJO por dos tests del payload que no son errores de
-porte.** Paré según el plan: no he tocado esos tests ni los ficheros de partes
-que señalan. Decisión del humano en «Abierto».
+**Estado final: `init.sh` en VERDE** tras resolver los dos rojos con la
+decisión del humano «A y A» (sección «Cierre»). La primera pasada quedó en
+rojo; lo que sigue documenta esa pasada y, al final, el cierre.
 
 ## Commits
 
@@ -70,10 +70,41 @@ La suite raíz para en el primer fallo, así que la relancé entera a mano (`pyt
 1. **`tests/test_f019_tiempos.py::test_f019_r22_ningun_test_lanza_subprocesos_con_timeout_literal`**. Es una puerta nueva de la 1.10.0/1.10.1. Señala cuatro tests propios de partes que lanzan `subprocess.run` con un timeout literal: `test_f024_borrado_no_congela_gemelos.py:54` (60), `test_f046_contrato_reajuste.py:89` (120), `test_f052_r28_congelacion_intacta.py:58` (60) y `test_f056_contrato_franquicia.py:89` (120). Según la guía, se arreglan pasando esos timeouts por `harness.tiempos.escalar_timeout`. Eso toca tests propios de partes, y uno de ellos vigila los gemelos de congelación, así que queda fuera del plan aprobado.
 2. **`tests/test_f063_textos.py::test_f063_r2_el_payload_no_trae_capa_local`**. Es un defecto conocido del payload, ya recogido en `arnes-base/ENCARGO_pendiente_test_f063_r2_rojo_en_proyectos_con_capa_local.md` (de postventa, 2026-11-12) y sin arreglar en la 1.10.1. El test exige que **no** exista `harness/rigor.local.json`, y el paso 4 del plan obliga a crearlo. El encargo propone marcar el test como del taller (`skipif` si no está `politica_ficheros.json`). Postventa lo aplicó en local, pero el plan me prohíbe marcar tests como saltados.
 
-## Abierto: decide el humano
+## Abierto en la primera pasada (resuelto en «Cierre»)
 
 - **Rojo 1**: (a) envolver los cuatro timeouts con `escalar_timeout` en una tarea aparte (son 4 líneas en tests, sin tocar `services/`); o (b) otra salida que decida el humano.
 - **Rojo 2**: (a) aplicar en local el `skipif` del encargo, como hizo postventa; (b) no usar la capa local y devolver el 600 a `rigor.json`, que se perdería en la próxima actualización; o (c) arreglarlo antes en `arnes-base` y republicar.
 - **Comportamiento nuevo sin pregunta** (llega con la 1.10.1, conviene que el humano lo sepa): el líder hace los merges a `dev` sin preguntar tras el OK final. Sigue sin hacer push y pregunta antes de mergear a `main`. El modelo y el esfuerzo quedan fijados en `settings.json` y en los agentes, y `estandar` deja de bloquear por mutación.
 - La plantilla del bloque de Ruesma trae el párrafo de cuentas de GitHub con un login. `test_f070_textos` lo exige literal, así que no se puede omitir.
 - Si se aprueba, falta además: relanzar `init.sh` en verde y anotar en `features.json` las fechas opcionales (`ok_humano`, `fecha_cierre`); esto último no es obligatorio.
+
+## Cierre (decisión del humano «A y A», 2026-11-13)
+
+| Commit | Qué |
+|---|---|
+| `c2871f5` | Rojo 1: los timeouts literales de los cuatro tests (60/120 s) pasan por `harness.tiempos.escalar_timeout`; solo cambia el timeout |
+| `e83bee0` | Rojo 2: `test_f063_r2` con el `skipif` del taller del encargo pendiente, con comentario que lo cita (igual que postventa) |
+
+Comprobación previa: los cuatro tests + `test_f019_tiempos` + `test_f063_textos`
+→ 71 passed, 1 skipped (el r2, con su motivo).
+
+### Segundo `bash harness/init.sh` (tal cual)
+
+```
+suite raíz: 2448 passed, 50 skipped in 1644.71s (0:27:24)
+[OK] sv1-email / sv2-extraccion / sv3-persistencia / sv4-front / sv5-transfer:
+     pytest en verde (caché: verde del 2026-11-13 14:19–14:32, primera pasada
+     de esta misma rama: 74 / 422 / 2453+2s / 3751+1s / 1628 passed)
+ENTORNO LISTO. Puedes trabajar.
+```
+
+Avisos (no bloquean): CAPA LOCAL DE RIGOR (OK del humano dado con el plan),
+F-032 `blocked`, ruff 1008 avisos de deuda previa, «coverage no pudo escribir
+coverage.json», infra sin tests y puerta de tamaño N/A.
+
+Los servicios salieron de caché porque su árbol no cambió desde la primera
+pasada (que los ejecutó enteros en verde); los commits del cierre solo tocan
+`tests/` de la raíz.
+
+Integración: merge `--no-ff` de `chore/arnes-1.10.1` en `dev` en el árbol
+principal, sin push (lo hace el humano).
