@@ -15,15 +15,49 @@ from __future__ import annotations
 import json
 import re
 import subprocess
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from harness.servicios import Servicio, cargar_servicios, servicio_de_ruta
 
 #: Directorios cuyo contenido nunca es código de producción mutable. Se
 #: comparan como SEGMENTO de ruta a cualquier profundidad, no como prefijo de
 #: la raíz: en un repositorio con servicios en subcarpetas, los tests de un
 #: servicio son tests igual que los de la raíz.
-DIRECTORIOS_EXCLUIDOS: tuple[str, ...] = ("tests", "specs", "progress", "docs")
+#:
+#: `harness` está aquí por la misma razón que `tests`: es utillaje, no producto.
+#: Sin excluirlo, tocar el arnés desde la rama de una feature mete sus propias
+#: líneas en el alcance, y entonces la campaña **se muta a sí misma** y la
+#: puerta de cobertura mide la herramienta en vez de lo que la herramienta
+#: vigila.
+#:
+#: La excepción la declara el propio proyecto, servicio a servicio, con
+#: `"alcance_incluye": ["harness"]` en `harness/servicios.json` (F-052): en el
+#: repositorio que fabrica el arnés, `<payload>/harness/` es el producto. Ver
+#: `excluidos_de_ruta`.
+DIRECTORIOS_EXCLUIDOS: tuple[str, ...] = (
+    "tests",
+    "specs",
+    "progress",
+    "docs",
+    "harness",
+)
+
+#: Exclusiones que aplican cuando el alcance lo DECLARA una persona con
+#: `--ficheros`. `harness` NO está, a propósito: la exclusión de arriba protege
+#: el alcance AUTOMÁTICO —el que sale del diff, que nadie eligió y que arrastra
+#: el arnés sin querer en cuanto una rama lo toca—, y aquí no hay nada de lo que
+#: proteger a quien escribe la lista. Medir si la maquinaria del arnés está
+#: protegida por sus tests es, literalmente, la razón por la que `--ficheros`
+#: existe (ver `alcance_de_ficheros`), y en el repositorio del propio arnés esa
+#: maquinaria es el producto, no el utillaje.
+DIRECTORIOS_EXCLUIDOS_AL_DECLARAR: tuple[str, ...] = (
+    "tests",
+    "specs",
+    "progress",
+    "docs",
+)
 
 #: Ruta por defecto del inventario de features del arnés.
 RUTA_FEATURES = "harness/features.json"
@@ -109,27 +143,180 @@ def parsear_diff(texto: str) -> dict[str, set[int]]:
     return {ruta: lineas for ruta, lineas in resultado.items() if lineas}
 
 
-def es_produccion(ruta: str) -> bool:
+def es_produccion(
+    ruta: str, excluidos: tuple[str, ...] = DIRECTORIOS_EXCLUIDOS
+) -> bool:
     """¿Es `ruta` código de producción susceptible de mutarse o medirse?
 
     Solo Python, y con ningún directorio excluido en su camino: basta con que
-    `tests`, `specs`, `progress` o `docs` aparezca como un segmento completo,
-    esté en la raíz o dentro de un servicio del monorepo. El nombre del propio
-    fichero no cuenta: `app/docs.py` es código.
+    uno de `excluidos` aparezca como un segmento completo, esté en la raíz o
+    dentro de un servicio del monorepo. El nombre del propio fichero no cuenta
+    (`app/docs.py` es código), ni vale como prefijo (`harnesses/util.py` también
+    lo es).
+
+    `excluidos` se pasa a mano en un solo sitio: el alcance declarado con
+    `--ficheros`, que sí puede nombrar el arnés. Ver
+    `DIRECTORIOS_EXCLUIDOS_AL_DECLARAR`.
     """
     normalizada = ruta.replace("\\", "/")
     if not normalizada.endswith(".py"):
         return False
     directorios = normalizada.split("/")[:-1]
-    return not any(nombre in DIRECTORIOS_EXCLUIDOS for nombre in directorios)
+    return not any(nombre in excluidos for nombre in directorios)
 
 
-def filtrar_produccion(lineas: dict[str, set[int]]) -> dict[str, set[int]]:
-    """Deja solo los ficheros de producción del mapa de líneas."""
-    return {ruta: nums for ruta, nums in lineas.items() if es_produccion(ruta)}
+def excluidos_de_ruta(
+    ruta: str, servicios: Sequence[Servicio] = ()
+) -> tuple[str, ...]:
+    """Exclusiones del alcance automático que aplican a `ruta` (F-052).
+
+    Las de siempre, menos lo que declare en `alcance_incluye` el servicio al
+    que pertenece la ruta. La pertenencia es por SEGMENTOS, la misma de
+    `servicio_de_ruta`: `arnes-base-x/harness/a.py` no cae bajo `arnes-base`.
+    Sin servicios, o con servicios que no declaran nada, el resultado es
+    exactamente `DIRECTORIOS_EXCLUIDOS`.
+    """
+    servicio = servicio_de_ruta(ruta, list(servicios))
+    if servicio is None or not servicio.alcance_incluye:
+        return DIRECTORIOS_EXCLUIDOS
+    return tuple(
+        nombre
+        for nombre in DIRECTORIOS_EXCLUIDOS
+        if nombre not in servicio.alcance_incluye
+    )
+
+
+def filtrar_produccion(
+    lineas: dict[str, set[int]], servicios: Sequence[Servicio] = ()
+) -> dict[str, set[int]]:
+    """Deja solo los ficheros de producción del mapa de líneas.
+
+    `servicios` es la declaración de `harness/servicios.json`: solo cambia algo
+    si algún servicio declara `alcance_incluye` (ver `excluidos_de_ruta`).
+    """
+    return {
+        ruta: nums
+        for ruta, nums in lineas.items()
+        if es_produccion(ruta, excluidos_de_ruta(ruta, servicios))
+    }
 
 
 # --- Resolución de referencias ----------------------------------------------
+
+#: Base que se usaba antes de que existiera `RAMA_BASE` en `harness/init.sh`.
+#: Solo es el último recurso: la base de verdad la declara cada proyecto.
+RAMA_BASE_POR_DEFECTO = "dev"
+
+#: Ramas de larga vida que se vigilan al diagnosticar la base (1.7.14): si los
+#: commits que la puerta mediría ya viven en alguna de ellas, no son de la
+#: rama, y la base se ha quedado por detrás de donde se integra el trabajo.
+RAMAS_DE_LARGA_VIDA: tuple[str, ...] = ("main", "master", "dev", "develop")
+
+_RAMA_BASE_EN_INIT = re.compile(
+    r"""^[ \t]*RAMA_BASE=(["']?)([^"'\s#]+)\1""", re.MULTILINE
+)
+
+
+def rama_base_configurada(raiz: str = ".") -> str:
+    """La rama de integración que declara `RAMA_BASE` en `harness/init.sh`.
+
+    Es la ÚNICA fuente de verdad de la base: el portero la pasa con `--base` a
+    las puertas, y las herramientas que se lanzan a mano (`harness.mutacion`,
+    `harness.cobertura`, `harness.rutas_sensibles`) la leen de aquí cuando no
+    se les pasa. Antes cada una traía `dev` cableado, y en un repositorio que
+    integra en `main` eso medía semanas de trabajo ajeno sin avisar (1.7.14).
+    Sin `init.sh` o sin la variable, `RAMA_BASE_POR_DEFECTO`.
+    """
+    guion = Path(raiz) / "harness" / "init.sh"
+    try:
+        texto = guion.read_text(encoding="utf-8")
+    except OSError:
+        return RAMA_BASE_POR_DEFECTO
+    coincidencia = _RAMA_BASE_EN_INIT.search(texto)
+    return coincidencia.group(2) if coincidencia else RAMA_BASE_POR_DEFECTO
+
+
+def _existe(ref: str, git: EjecutorGit) -> bool:
+    return bool(git(["rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"]).strip())
+
+
+def _contar(git: EjecutorGit, refs: list[str]) -> int:
+    salida = git(["rev-list", "--count", "--no-merges", *refs]).strip()
+    return int(salida) if salida.isdigit() else 0
+
+
+def diagnosticar_base(
+    base: str,
+    rama: str,
+    git: EjecutorGit | None = None,
+    vigiladas: tuple[str, ...] = RAMAS_DE_LARGA_VIDA,
+) -> str | None:
+    """¿Mediría la puerta, contra `base`, commits que no son de `rama`?
+
+    Devuelve `None` si la base es sana y, si no, el motivo listo para imprimir.
+    La puerta calcula el diff desde el merge-base de `rama` con `base`: si
+    alguno de esos commits ya vive en otra rama de larga vida, es trabajo ajeno
+    que la puerta atribuiría a la feature. Es exactamente lo que pasaba con
+    `dev` parada y el trabajo integrándose en `main` (1.7.14): la cobertura
+    «de la feature» era la de semanas de features cerradas, y dos features
+    distintas daban la misma cifra.
+
+    Solo cuenta commits que no son merges: un merge de integración no aporta
+    líneas propias, y en un flujo con `main` ← `dev` el merge de release no
+    debe dar un falso rojo. Fuera de un repositorio git no diagnostica nada
+    (las puertas ya declaran su N/A por su lado); una base que no existe SÍ es
+    un problema: sin ella el diff sale vacío y la puerta aprobaría en silencio.
+    """
+    git = git or git_en()
+    if not git(["rev-parse", "--git-dir"]).strip():
+        return None
+    if not _existe(base, git):
+        return (
+            f"la rama base «{base}» no existe en este repositorio: no se puede "
+            "calcular qué cambió la feature. Revisa RAMA_BASE en harness/init.sh"
+        )
+
+    propios = _contar(git, [rama, f"^{base}"])
+    ajenos: list[str] = []
+    for otra in vigiladas:
+        if otra in (base, rama) or not _existe(otra, git):
+            continue
+        repetidos = propios - _contar(git, [rama, f"^{base}", f"^{otra}"])
+        if repetidos > 0:
+            ajenos.append(f"{repetidos} de los {propios} ya están en «{otra}»")
+    if not ajenos:
+        return None
+    return (
+        f"la base «{base}» se ha quedado por detrás: de los commits que se "
+        f"medirían desde su merge-base con {rama}, {'; '.join(ajenos)} y no son "
+        "de esta rama. Pon en RAMA_BASE (harness/init.sh) la rama donde se "
+        "integra el trabajo"
+    )
+
+
+def merge_que_integra(rama: str, base: str, git: EjecutorGit | None = None) -> str | None:
+    """El commit de merge de `base` que integró `rama`, o `None`.
+
+    Recorre la línea principal de `base` (primer padre) desde lo más antiguo y
+    se queda con el primer merge que contiene la punta de `rama` y cuyo primer
+    padre no la contenía. Una rama recién creada, sin commits propios, está
+    sobre la línea principal: ningún merge la «trae» y la respuesta es `None`.
+    """
+    git = git or git_en()
+    punta = git(["rev-parse", "--verify", "--quiet", rama]).strip()
+    if not punta:
+        return None
+    candidatos = git(
+        ["rev-list", "--first-parent", "--merges", "--reverse", f"{rama}..{base}"]
+    ).split()
+    for merge in candidatos:
+        if git(["merge-base", rama, merge]).strip() != punta:
+            continue
+        if git(["merge-base", rama, f"{merge}^1"]).strip() == punta:
+            continue
+        return merge
+    return None
+
 
 
 def resolver_refs(
@@ -140,17 +327,28 @@ def resolver_refs(
 ) -> tuple[str, str, str]:
     """Decide entre qué dos referencias se calcula el diff de la feature.
 
-    Orden: (1) la rama existe → base común con `base` frente a la rama;
-    (2) la rama ya no existe → commit de merge localizado por su mensaje, y el
-    diff va del primer padre al propio merge; (3) ni una cosa ni otra →
-    `SystemExit` explícito, sin mutar ni medir nada.
+    Orden: (1) la rama existe → base común con `base` frente a la rama, salvo
+    que la rama ya esté integrada en `base`: entonces el merge que la integró,
+    del primer padre al propio merge; (2) la rama ya no existe → commit de
+    merge localizado por su mensaje, y el diff va del primer padre al propio
+    merge; (3) ni una cosa ni otra → `SystemExit` explícito, sin mutar ni medir
+    nada.
 
     Devuelve `(ref_a, ref_b, origen)` con `origen` en {"rama", "merge"}.
     """
     git = git or git_en()
 
-    if rama and git(["rev-parse", "--verify", "--quiet", rama]).strip():
+    punta = git(["rev-parse", "--verify", "--quiet", rama]).strip() if rama else ""
+    if rama and punta:
         base_comun = git(["merge-base", base, rama]).strip() or base
+        if base_comun == punta:
+            # La rama entera ya está dentro de la base: o se integró, o aún no
+            # tiene commits propios. En el primer caso el diff base..rama sale
+            # VACÍO y la feature parecería no haber tocado nada; lo que cambió
+            # es lo que trajo el merge que la integró (1.7.14).
+            merge = merge_que_integra(rama, base, git=git)
+            if merge:
+                return (f"{merge}^1", merge, "merge")
         return (base_comun, rama, "rama")
 
     merge = git(
@@ -242,11 +440,12 @@ def alcance_de_ficheros(rutas: list[str], feature_id: str, raiz: str = ".") -> A
                 f"--ficheros: {normalizada} no existe en {base.as_posix()}. "
                 "Abortado sin tocar nada."
             )
-        if not es_produccion(normalizada):
+        if not es_produccion(normalizada, DIRECTORIOS_EXCLUIDOS_AL_DECLARAR):
             raise SystemExit(
                 f"--ficheros: {normalizada} no es código de producción "
                 "(solo .py fuera de "
-                f"{', '.join(DIRECTORIOS_EXCLUIDOS)}). Abortado sin tocar nada."
+                f"{', '.join(DIRECTORIOS_EXCLUIDOS_AL_DECLARAR)}). "
+                "Abortado sin tocar nada."
             )
         total = len(fichero.read_text(encoding="utf-8").splitlines())
         lineas[normalizada] = set(range(1, total + 1))
@@ -278,9 +477,17 @@ def alcance_de_feature(
     rama: str | None = None,
     raiz: str = ".",
     git: EjecutorGit | None = None,
+    servicios: Sequence[Servicio] | None = None,
 ) -> Alcance:
-    """Calcula el alcance de una feature desde el diff de git."""
+    """Calcula el alcance de una feature desde el diff de git.
+
+    `servicios`: la declaración ya cargada por quien llama (la puerta de
+    cobertura y la campaña la necesitan igualmente); sin ella se lee la de
+    `raiz`, y una declaración rota lanza `ValueError` como en `cargar_servicios`.
+    """
     git = git or git_en(raiz)
+    if servicios is None:
+        servicios = cargar_servicios(raiz=raiz)
     if rama is None:
         rama = rama_de_feature(feature_id, str(Path(raiz) / RUTA_FEATURES))
 
@@ -290,5 +497,5 @@ def alcance_de_feature(
         feature=feature_id,
         origen=origen,
         ref_diff=(ref_a, ref_b),
-        lineas=filtrar_produccion(parsear_diff(texto)),
+        lineas=filtrar_produccion(parsear_diff(texto), servicios),
     )

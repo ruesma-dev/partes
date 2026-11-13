@@ -10,6 +10,11 @@ La puerta decide ella misma si aplica. No aplica en la rama de integración, ni
 cuando no hay líneas Python de producción cambiadas, ni cuando el nivel de
 rigor de la feature no exige cobertura: en esos casos se declara N/A **con el
 motivo escrito**, que es distinto de aprobar en silencio.
+
+Un nivel puede declarar la cobertura en `informativas`: se mide igual, pero lo
+que sería rojo se imprime como `AVISO` y sale con 0. Y no con un código nuevo:
+un `init.sh` conservado hace `if [ $? -eq 0 ] … else ko`, y le daría un rojo
+falso en un nivel que promete no bloquear.
 """
 
 from __future__ import annotations
@@ -21,16 +26,25 @@ import json
 import sys
 from pathlib import Path
 
-from harness.alcance import alcance_de_feature, ejecutar_git
+from harness.alcance import (
+    Alcance,
+    alcance_de_feature,
+    diagnosticar_base,
+    ejecutar_git,
+    git_en,
+    rama_base_configurada,
+)
 from harness.rigor import (
     RUTA_FEATURES,
     RUTA_RIGOR,
+    UMBRAL_DEL_NIVEL,
     cargar_features,
     cargar_rigor,
     exige,
     feature_de_rama,
+    informativa,
     nivel_de_feature,
-    umbral_cobertura,
+    umbral_cobertura_con_origen,
 )
 from harness.servicios import Servicio, cargar_servicios
 
@@ -149,6 +163,19 @@ def coberturas_de_servicios(
     return encontradas
 
 
+def medido_contra(alcance: Alcance, base: str) -> str:
+    """Contra qué se midió, para que se vea en la propia línea de la puerta.
+
+    Sin esto, dos features distintas con la misma cifra al decimal (el mismo
+    porcentaje de las mismas 1.106 líneas) no levantaban ninguna sospecha
+    (1.7.14).
+    """
+    desde, hasta = alcance.ref_diff
+    if alcance.origen == "merge":
+        return f"diff del merge {hasta[:10]}, ya integrado en {base}"
+    return f"diff desde {desde[:10]}, merge-base con {base}"
+
+
 def _na(motivo: str) -> int:
     print(f"{ETIQUETA}: N/A ({motivo})")
     return 0
@@ -159,13 +186,22 @@ def _ko(motivo: str) -> int:
     return 1
 
 
+def _aviso(motivo: str, nivel: str) -> int:
+    print(f"{ETIQUETA}: AVISO (no bloquea, nivel {nivel}): {motivo}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
-    """Puerta de cobertura: 0 si pasa o no aplica, 1 si falla."""
+    """Puerta de cobertura: 0 si pasa, avisa o no aplica, 1 si falla."""
     analizador = argparse.ArgumentParser(
         prog="python -m harness.cobertura",
         description="Comprueba la cobertura de las líneas cambiadas por la feature.",
     )
-    analizador.add_argument("--base", default="dev", help="Rama de integración")
+    analizador.add_argument(
+        "--base",
+        default=None,
+        help="Rama de integración (por defecto, RAMA_BASE de harness/init.sh)",
+    )
     analizador.add_argument("--config", default=str(RUTA_RIGOR))
     analizador.add_argument("--features", default=str(RUTA_FEATURES))
     analizador.add_argument("--cov", default="coverage.json")
@@ -177,8 +213,9 @@ def main(argv: list[str] | None = None) -> int:
     except ValueError as error:
         return _ko(str(error))
 
+    base = opciones.base or rama_base_configurada(opciones.raiz)
     rama = rama_actual(opciones.raiz)
-    if not rama or rama in (opciones.base, "main", "master"):
+    if not rama or rama in (base, "main", "master"):
         return _na(f"rama {rama or '(detached)'}: solo aplica en ramas de feature")
 
     feature = feature_de_rama(rama, cargar_features(opciones.features))
@@ -186,15 +223,32 @@ def main(argv: list[str] | None = None) -> int:
         return _na(f"la rama {rama} no corresponde a ninguna feature declarada")
 
     nivel = nivel_de_feature(feature, rigor)
-    if not exige(nivel, "cobertura", rigor):
+    aviso = informativa(nivel, "cobertura", rigor)
+    if not exige(nivel, "cobertura", rigor) and not aviso:
         return _na(f"{feature.get('id')} es de nivel {nivel}: no exige cobertura")
+    fallo = (lambda motivo: _aviso(motivo, nivel)) if aviso else _ko
+
+    # Antes de medir, que lo medido sea de la rama (1.7.14): contra una base
+    # rezagada la puerta atribuía a la feature semanas de trabajo ajeno e
+    # imprimía verde. Eso es un ROJO con su motivo, no una cifra.
+    motivo = diagnosticar_base(base, rama, git=git_en(opciones.raiz))
+    if motivo:
+        return fallo(motivo)
+
+    # La declaración se carga ANTES del alcance (F-052): decide qué `harness/`
+    # se mide, y una declaración rota es KO, no un alcance calculado a medias.
+    try:
+        servicios = cargar_servicios(raiz=opciones.raiz)
+    except ValueError as error:
+        return fallo(str(error))
 
     try:
         alcance = alcance_de_feature(
             feature.get("id", ""),
-            base=opciones.base,
+            base=base,
             rama=rama,
             raiz=opciones.raiz,
+            servicios=servicios,
         )
     except SystemExit as parada:
         return _na(f"no se pudo calcular el alcance: {parada}")
@@ -202,22 +256,21 @@ def main(argv: list[str] | None = None) -> int:
     if not alcance.lineas:
         return _na(
             f"{feature.get('id')} no cambia líneas Python de producción frente a "
-            f"{opciones.base}"
+            f"{base}"
         )
 
     if not hay_coverage():
-        return _ko(MENSAJE_INSTALACION)
+        return fallo(MENSAJE_INSTALACION)
 
     ruta_cov = Path(opciones.cov)
     try:
-        servicios = cargar_servicios(raiz=opciones.raiz)
         cov_raiz = _leer_cobertura(ruta_cov)
         por_servicio = coberturas_de_servicios(servicios, opciones.raiz, ruta_cov.name)
     except ValueError as error:
-        return _ko(str(error))
+        return fallo(str(error))
 
     if cov_raiz is None and not por_servicio:
-        return _ko(MENSAJE_INSTALACION)
+        return fallo(MENSAJE_INSTALACION)
     # Sin servicios declarados esto es exactamente el informe de la raíz: el
     # repositorio de un solo proyecto sigue el camino de siempre.
     datos = fusionar_coberturas(cov_raiz, por_servicio) if servicios else cov_raiz or {}
@@ -229,14 +282,20 @@ def main(argv: list[str] | None = None) -> int:
             "ejecutables"
         )
 
-    umbral = umbral_cobertura(rigor)
+    try:
+        umbral, origen = umbral_cobertura_con_origen(rigor, nivel)
+    except ValueError as error:
+        return fallo(str(error))
+    # R22 (F-058): el umbral puede ser del nivel, y la línea dice de cuál.
+    de_donde = f"del nivel {nivel}" if origen == UMBRAL_DEL_NIVEL else "global"
     porcentaje = 100.0 * cubiertas / totales
     resumen = (
         f"{porcentaje:.1f}% de {totales} líneas cambiadas cubiertas "
-        f"({cubiertas}/{totales}, umbral {umbral}%, nivel {nivel})"
+        f"({cubiertas}/{totales}, umbral {umbral}% ({de_donde}), nivel {nivel}; "
+        f"{medido_contra(alcance, base)})"
     )
     if porcentaje + 1e-9 < umbral:
-        return _ko(resumen)
+        return fallo(resumen)
     print(f"{ETIQUETA}: {resumen}")
     return 0
 
