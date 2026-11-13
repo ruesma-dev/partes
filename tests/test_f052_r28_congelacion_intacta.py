@@ -23,6 +23,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from harness.tiempos import escalar_timeout
+
 RAIZ = Path(__file__).resolve().parents[1]
 SV3 = RAIZ / "services" / "partes-persistencia"
 SV4 = RAIZ / "services" / "partes-front"
@@ -57,7 +59,7 @@ print(json.dumps([motivo_congelacion_linea(doc_aprobado=a, sigrid_estado=e)
 def _evaluar(servicio: Path, codigo: str) -> list[bool]:
     salida = subprocess.run(
         [sys.executable, "-c", codigo], cwd=servicio, capture_output=True,
-        text=True, timeout=60, check=False)
+        text=True, timeout=escalar_timeout(60), check=False)
     assert salida.returncode == 0, salida.stderr
     return json.loads(salida.stdout.strip().splitlines()[-1])
 

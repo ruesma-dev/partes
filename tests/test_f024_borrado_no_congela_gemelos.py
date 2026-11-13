@@ -21,6 +21,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from harness.tiempos import escalar_timeout
+
 import pytest
 
 #: Raiz del repositorio: este fichero es `<raiz>/tests/test_f024_...py`.
@@ -53,7 +55,7 @@ print(json.dumps([motivo_congelacion_linea(doc_aprobado=False,
 def _evaluar(servicio: Path, codigo: str) -> list[bool]:
     salida = subprocess.run(
         [sys.executable, "-c", codigo, json.dumps(ESTADOS)],
-        cwd=servicio, capture_output=True, text=True, timeout=60,
+        cwd=servicio, capture_output=True, text=True, timeout=escalar_timeout(60),
         check=False)
     assert salida.returncode == 0, salida.stderr
     return json.loads(salida.stdout.strip().splitlines()[-1])

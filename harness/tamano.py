@@ -9,8 +9,9 @@ script—. Aquí se mide lo que cuesta ese papeleo, contra los topes que declara
 
 Dos decisiones que explican la forma de esta herramienta:
 
-1. **Solo se mide la feature en curso.** Las specs anteriores a F-038 exceden
-   hoy los topes (de 114 a 333 líneas en `requirements.md`), y medirlas dejaría
+1. **Solo se mide la feature en curso.** Las specs escritas antes de que
+   existieran estos topes los exceden hoy (de 114 a 333 líneas en
+   `requirements.md`), y medirlas dejaría
    el portero en rojo permanente o exigiría una lista de excepciones que
    mantener. Lo viejo queda amnistiado por construcción; una spec vieja que se
    retome y se edite pasará a medirse, que es el resultado deseado.
@@ -30,7 +31,14 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from harness.rigor import RUTA_FEATURES, RUTA_RIGOR, cargar_rigor, topes_tamano
+from harness.rigor import (
+    RUTA_FEATURES,
+    RUTA_RIGOR,
+    cargar_features,
+    cargar_rigor,
+    nivel_de_feature,
+    topes_tamano,
+)
 
 ETIQUETA = "PUERTA TAMAÑO"
 
@@ -57,13 +65,23 @@ class Exceso:
         return f"{self.ruta}: {self.lineas} líneas > tope {self.tope}"
 
 
+def nivel_de(feature: str, rigor: dict, raiz: str = ".") -> str | None:
+    """Nivel de `feature`; `None` si no tiene ficha: mandan los topes globales."""
+    try:
+        fichas = cargar_features(Path(raiz) / RUTA_FEATURES)
+    except (ValueError, AttributeError):
+        return None  # lo denuncia la sección 3 de init.sh, no esta puerta
+    ficha = next((f for f in fichas if f.get("id") == feature), None)
+    return None if ficha is None else nivel_de_feature(ficha, rigor)
+
+
 def contar_lineas(ruta: Path) -> int:
     """Líneas del fichero, contadas como las cuenta cualquiera al abrirlo."""
     return len(ruta.read_text(encoding="utf-8", errors="replace").splitlines())
 
 
 def slug_de_feature(feature: str, raiz: str = ".") -> str | None:
-    """Slug de la carpeta de spec de `feature` (`F-038-coste-...`), o `None`.
+    """Slug de la carpeta de spec de `feature` (`F-XXX-lo-que-sea`), o `None`.
 
     Primero la rama declarada en `features.json`, que es la fuente de verdad del
     arnés; si no la hay, el único directorio `specs/F-XXX-*`. Con dos
@@ -152,7 +170,9 @@ def main(argv: list[str] | None = None) -> int:
             "líneas declarados en harness/rigor.json."
         ),
     )
-    analizador.add_argument("--feature", required=True, help="Identificador, p. ej. F-038")
+    analizador.add_argument(
+        "--feature", required=True, help="Identificador de la feature, formato F-XXX"
+    )
     analizador.add_argument("--raiz", default=".", help="Raíz del repositorio")
     opciones = analizador.parse_args(argv)
 
@@ -162,7 +182,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{ETIQUETA}: N/A ({error})")
         return 2
 
-    topes = topes_tamano(rigor)
+    nivel = nivel_de(opciones.feature, rigor, raiz=opciones.raiz)
+    topes = topes_tamano(rigor, nivel)
     if not topes:
         print(
             f"{ETIQUETA}: N/A (harness/rigor.json no declara el bloque 'tamano': "
@@ -173,7 +194,11 @@ def main(argv: list[str] | None = None) -> int:
     slug = slug_de_feature(opciones.feature, raiz=opciones.raiz)
     excesos = medir(opciones.feature, slug, topes, raiz=opciones.raiz)
     if excesos:
-        print(f"{ETIQUETA}: {opciones.feature} se pasa de los topes:", file=sys.stderr)
+        print(
+            f"{ETIQUETA}: {opciones.feature} (nivel {nivel or 'sin ficha'}) se pasa "
+            "de los topes:",
+            file=sys.stderr,
+        )
         for exceso in excesos:
             print(f"    {exceso.descripcion()}", file=sys.stderr)
         print(

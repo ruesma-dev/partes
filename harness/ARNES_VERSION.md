@@ -5,16 +5,16 @@ Lo escribe `instalar_arnes.ps1`. **No lo edites a mano.**
 
 | Dato | Valor |
 |---|---|
-| Version del arnes | `1.7.3` |
-| Fecha de la version | 2026-08-22 |
-| Instalado/actualizado el | 2026-08-25 10:15 |
+| Version del arnes | `1.10.1` |
+| Fecha de la version | 2026-11-12 |
+| Instalado/actualizado el | 2026-11-13 14:03 |
 | Modo | actualizar |
 | Origen | `arnes-base` |
 
 Para actualizar a una version posterior, desde el repositorio `arnes-base`:
 
 ```powershell
-.\instalar_arnes.ps1 -Destino "C:\Users\pgris\PycharmProjects\partes" -Modo actualizar
+.\instalar_arnes.ps1 -Destino "C:\Users\pgris\PycharmProjects\partes-wt-arnes" -Modo actualizar
 ```
 
 Que hace el instalador por su cuenta al actualizar, sin que tengas que
