@@ -1038,6 +1038,15 @@ def _separar_congeladas(
     return libres, len(regs) - len(libres)
 
 
+def _documentos_de(regs) -> list[str]:
+    """F-068 (design §4): los `document_id` de esas lineas, en orden de `id`
+    de linea, sin repetir y sin vacios. Son los partes a los que casar,
+    reasignar o deshacer un trabajador pide el recalculo de extras."""
+    return list(dict.fromkeys(
+        r.document_id for r in sorted(regs, key=lambda r: r.id)
+        if r.document_id))
+
+
 def _soltar_recurso(reg: ParteRegistroOrm) -> None:
     """F-023 (R42): al casar o reasignar el EMPLEADO de una linea, el
     recurso que tenia era el de la persona anterior. Se suelta todo lo que
@@ -3377,12 +3386,16 @@ class ParteReviewRepository:
     def backfill_empleado(
         self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, int]:
         """Asigna el empleado a TODOS los registros activos sin casar cuyo
         nombre leido (normalizado) coincide.
 
         Devuelve (filas tocadas, filas omitidas por congelacion: R8).
+
+        F-068 (R4, R22): con `documentos`, tras el commit se le añaden los
+        partes de las lineas escritas (`_documentos_de`); el retorno no
+        cambia.
         """
         target = tm.normalize(nombre_leido)
         if not target:
@@ -3414,7 +3427,10 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide} ({len(affected)} reg.)",
                 registros=reg_snaps, aliases=alias_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), congeladas
 
     def upsert_empleado_alias(
