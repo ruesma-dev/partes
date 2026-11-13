@@ -3729,6 +3729,10 @@ class ParteReviewRepository:
         la papelera (`deleted_by` = `actor`; las hoy congeladas se omiten),
         `document_ids` son los partes de sus líneas y `afectadas`, las otras
         obras del mismo día en ese momento (R38), para su recálculo (R27).
+
+        F-068 (R19, D4-b): en una entrada `empleado` (casar o reasignar),
+        `document_ids` son los partes de las lineas RESTAURADAS
+        (`_documentos_de`); las omitidas por congelacion no cuentan.
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -3747,6 +3751,7 @@ class ParteReviewRepository:
             except Exception:  # noqa: BLE001
                 payload = {}
             omitidos = 0
+            restauradas: list[ParteRegistroOrm] = []
             for snap in payload.get("documents", []):
                 doc = session.get(ParteDocumentOrm, snap.get("id"))
                 if doc is None:
@@ -3763,6 +3768,7 @@ class ParteReviewRepository:
                     omitidos += 1
                     continue
                 _apply_reg_snapshot(reg, snap)
+                restauradas.append(reg)
             for snap in payload.get("aliases", []):
                 self._apply_alias_snapshot(session, snap)
             celda = None
@@ -3771,6 +3777,7 @@ class ParteReviewRepository:
                     session, payload, actor=actor)
                 omitidos += creadas_omitidas
             row.undone = True
+            partes_empleado = _documentos_de(restauradas)
             session.commit()
             remaining = len(list(session.execute(
                 select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
@@ -3785,6 +3792,8 @@ class ParteReviewRepository:
                "action": action,
                "document_ids": [snap.get("id")
                                 for snap in payload.get("documents", [])]}
+        if action == "empleado":
+            res["document_ids"] = partes_empleado
         if celda is not None:
             res.update(celda)
         return res

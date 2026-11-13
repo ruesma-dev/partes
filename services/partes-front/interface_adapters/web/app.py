@@ -123,6 +123,7 @@ from infrastructure.persistencia.recalculo_publisher import (
     MOTIVO_CASADO_CONCILIACION,
     MOTIVO_DESHACER_CELDA,
     MOTIVO_DESHACER_FECHA,
+    MOTIVO_DESHACER_TRABAJADOR,
     MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
     MOTIVO_REASIGNACION,
@@ -1758,6 +1759,13 @@ def build_app(
             if ids:
                 res["recalculo"], _pedido = _pedir_recalculo_compartido(
                     ids, MOTIVO_DESHACER_CELDA, actor)
+        if (res.get("ok") and res.get("action") == "empleado"
+                and res.get("document_ids")):
+            # F-068 (R19, D4-b): deshacer casar o reasignar cambia la
+            # jornada de esas lineas como el casado; UN recalculo
+            # compartido de los partes de las lineas restauradas.
+            res["recalculo"], _pedido = _pedir_recalculo_compartido(
+                res["document_ids"], MOTIVO_DESHACER_TRABAJADOR, actor)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)
