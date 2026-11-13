@@ -93,7 +93,9 @@ def _recalculo_de_trabajador(documentos: list[str], motivo: str,
   and res.get("document_ids")` ⇒ `res["recalculo"], _ = _pedir_recalculo_compartido(ids,
   MOTIVO_DESHACER_TRABAJADOR, actor)`.
 - `_actor(request)` ya existe: hoy `conciliacion_confirmar` no lo lee; se lee para
-  `solicitado_por`.
+  `solicitado_por`. Lo mismo en `empleado_reasignar`; `undo_apply` ya lo leía. Son dos llamadas
+  nuevas y el guardián de F-017 pasa de 21 a 23 (*enmienda por decisión del humano 2026-11-13,
+  guardián F-017 21→23*).
 
 ## 6. Contrato (`infrastructure/persistencia/recalculo_publisher.py`)
 
