@@ -566,3 +566,61 @@ def test_f068_r17_reasignar_errores_de_hoy_sin_pedido(montaje) -> None:
                         json={"ide": 1, "nombre_leido": LEIDO}
                         ).status_code == 404
     assert cola.enviados == [] and _sin_pedidos(fabrica)
+
+
+# ============ R19 · deshacer casar o reasignar (D4-b) ================== #
+
+def _deshacer(cliente):
+    return cliente.post("/api/undo", headers=CABECERA)
+
+
+def test_f068_r19_deshacer_casado_pide_un_recalculo(montaje) -> None:
+    cliente, cola, fabrica, ids = montaje(_dos)
+    _casar(cliente)
+    pedido_casado = _pedido(fabrica, "d-1")
+    r = _deshacer(cliente)
+    assert r.status_code == 200, r.text
+    assert (r.json()["action"], r.json()["recalculo"]) == ("empleado",
+                                                          "pedido")
+    assert len(cola.enviados) == 2
+    _c, mensaje = cola.enviados[1]
+    assert (mensaje["motivo"], mensaje["document_id"],
+            mensaje["solicitado_por"]) == ("deshacer_trabajador", "d-2",
+                                           ACTOR)
+    nuevo = _pedido(fabrica, "d-1")
+    assert nuevo not in (None, pedido_casado)
+    assert _pedido(fabrica, "d-2") == nuevo                # compartido
+    assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] is None
+
+
+def test_f068_r19_deshacer_reasignacion_pide_un_recalculo(montaje) -> None:
+    cliente, cola, _f, _ids = montaje(_uno)
+    _reasignar(cliente, nombre_leido=LEIDO)
+    r = _deshacer(cliente)
+    assert r.json()["recalculo"] == "pedido"
+    assert [m["motivo"] for _c, m in cola.enviados] == [
+        "reasignacion_trabajador", "deshacer_trabajador"]
+
+
+def test_f068_r19_deshacer_con_todo_congelado_no_pide(montaje) -> None:
+    cliente, cola, fabrica, _ids = montaje(_uno)
+    _casar(cliente)
+    with fabrica.create_session() as s:
+        d = s.get(ParteDocumentOrm, "d-1")
+        d.approved = True
+        d.recalculo_pedido_id = None
+        s.commit()
+    r = _deshacer(cliente)
+    assert r.status_code == 200 and r.json()["omitidos"] == 1
+    assert "recalculo" not in r.json()
+    assert len(cola.enviados) == 1 and _pedido(fabrica, "d-1") is None
+
+
+def test_f068_r19_deshacer_con_la_cola_caida(montaje) -> None:
+    cola = ColaFake()
+    cliente, _c, fabrica, ids = montaje(_uno, cola=cola)
+    _casar(cliente)
+    cola._error = RuntimeError("cola caida")
+    r = _deshacer(cliente)
+    assert r.status_code == 200 and r.json()["recalculo"] == "fallo"
+    assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] is None

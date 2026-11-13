@@ -208,3 +208,68 @@ def test_f068_r22_reassign_sin_colector_igual_que_hoy() -> None:
         registro_ids=ids[:1], **QUIEN) == (1, 0)
     assert repo.reassign_empleado_by_leido(
         nombre_leido=LEIDO, **QUIEN) == (2, 1)
+
+
+# ============== D4-b · `undo_last` de una entrada `empleado` (R19) ===== #
+
+def _aprobar(fabrica, doc: str) -> None:
+    from infrastructure.database.orm_models import ParteDocumentOrm
+    with fabrica.create_session() as s:
+        s.get(ParteDocumentOrm, doc).approved = True
+        s.commit()
+
+
+def test_f068_r19_deshacer_casado_devuelve_sus_partes() -> None:
+    fabrica = FabricaSesionSqlite()
+    _sin_casar(fabrica, [_libre()], doc="d-2", fecha="2026-03-03")
+    ids = _sin_casar(fabrica, [_libre(), _libre()], doc="d-1")
+    repo = ParteReviewRepository(fabrica)
+    repo.backfill_empleado(nombre_leido=LEIDO, **QUIEN)
+    res = repo.undo_last(actor="ana")
+    assert (res["ok"], res["action"], res["omitidos"]) == (
+        True, "empleado", 0)
+    assert res["document_ids"] == ["d-2", "d-1"]
+    assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] is None
+
+
+def test_f068_r19_las_omitidas_por_congelacion_no_aportan_parte() -> None:
+    fabrica = FabricaSesionSqlite()
+    _sin_casar(fabrica, [_libre()], doc="d-2", fecha="2026-03-03")
+    _sin_casar(fabrica, [_libre()], doc="d-1")
+    repo = ParteReviewRepository(fabrica)
+    repo.backfill_empleado(nombre_leido=LEIDO, **QUIEN)
+    _aprobar(fabrica, "d-2")                 # su línea hoy está congelada
+    res = repo.undo_last(actor="ana")
+    assert (res["action"], res["omitidos"]) == ("empleado", 1)
+    assert res["document_ids"] == ["d-1"]
+
+
+def test_f068_r19_todas_omitidas_lista_vacia() -> None:
+    fabrica = FabricaSesionSqlite()
+    _sin_casar(fabrica, [_libre()], doc="d-1")
+    repo = ParteReviewRepository(fabrica)
+    repo.reassign_empleado_by_leido(nombre_leido=LEIDO, **QUIEN)
+    _aprobar(fabrica, "d-1")
+    res = repo.undo_last(actor="ana")
+    assert (res["action"], res["omitidos"], res["document_ids"]) == (
+        "empleado", 1, [])
+
+
+def test_f068_r19_deshacer_reasignacion_por_ids() -> None:
+    fabrica = FabricaSesionSqlite()
+    ids = _sin_casar(fabrica, [_libre(), _libre()], doc="d-1")
+    repo = ParteReviewRepository(fabrica)
+    repo.reassign_empleado_by_registro_ids(registro_ids=ids[:1], **QUIEN)
+    assert repo.undo_last(actor="ana")["document_ids"] == ["d-1"]
+
+
+def test_f068_r19_otras_acciones_como_hoy() -> None:
+    """Una edición de horas no guarda snapshots de documento: sigue
+    devolviendo `document_ids` vacío (solo `empleado` cambia)."""
+    fabrica = FabricaSesionSqlite()
+    ids = sembrar_parte(fabrica, [{"estado": None}], document_id="d-1")
+    repo = ParteReviewRepository(fabrica)
+    assert repo.update_registro(registro_id=ids[0], horas=3.0)
+    res = repo.undo_last(actor="ana")
+    assert res["action"] != "empleado"
+    assert res["document_ids"] == []
