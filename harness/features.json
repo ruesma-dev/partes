@@ -747,7 +747,6 @@
         "Rigor crítico: fase RED, cobertura y mutación completa sin supervivientes sin justificar",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "pendiente": "M4 (humano): un usuario real sincroniza en producción y aplica una acción; comprobar sigrid_motivo y actor. Desplegada 2026-11-12 (sv5 y sv4 r20261112172145, seco=True)",
       "status": "done",
       "sdd": true,
       "rigor": "critico",
@@ -924,8 +923,7 @@
       "sdd": true,
       "rigor": "estandar",
       "priority": 2,
-      "branch": "feature/F-061-parte-vacio-tras-borrar-lineas",
-      "pendiente": "M1 paso 4 (eliminar definitivamente las 2 líneas de prueba 24451 y 24452 de la 0404; borrado permanente: lo autoriza el humano). Pasos 1–3 superados el 2026-11-12 en producción"
+      "branch": "feature/F-061-parte-vacio-tras-borrar-lineas"
     },
     {
       "id": "F-062",

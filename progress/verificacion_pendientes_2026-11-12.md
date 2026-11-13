@@ -199,3 +199,16 @@ líneas reales en octubre ni noviembre; nada aprobado ni enviado a Sigrid).
 
 Las líneas de prueba 24451 y 24452 quedan en «Líneas sueltas» de la papelera; el parte `faefcba6`
 queda retirado sin líneas.
+
+## Cierres autorizados por el humano («si», 2026-11-13)
+
+- **F-061 · M1 paso 4 SUPERADO.** Eliminadas definitivamente (`/api/registro/{id}/hard-delete`)
+  las líneas de prueba 24451 y 24452. Solo lectura después: `parte_documents` con
+  `id = 'faefcba6-…'` ⇒ 0; `parte_registros` 24451/24452 ⇒ 0; recurso de pruebas 2717792 en
+  oct–nov ⇒ 0. El parte retirado se borró con su última fila (R10).
+- **F-052 · M4 SUPERADA.** Sincronizar obra 0678 (`obr-2245328`), nómina 2026-10, modo seco: una
+  línea `distinta` (registro 11308, 14/10, HLGR, `registrado`, hmores 410515): portal 8 h,
+  Sigrid 4 h. Acción `traer_de_sigrid` ⇒ `aplicados: [11308]`, `recalculo: pedido`. En la base:
+  horas 4, sigue `registrado` con el mismo hmores, `sigrid_motivo` «Sincronizado con Sigrid:
+  horas 8→4 · <usuario> · <fecha>». Al volver a sincronizar, la línea sale `igual`. No se
+  escribió nada en Sigrid.
