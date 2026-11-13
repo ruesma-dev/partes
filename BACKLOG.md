@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **67 features**, 14 abiertas y 53 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 3 en Spec aprobada, 0 en To do, 10 en Backlog y 53 en Done.
+Resumen: **68 features**, 15 abiertas y 53 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 3 en Spec aprobada, 0 en To do, 11 en Backlog y 53 en Done.
 
 ## Review
 
@@ -38,6 +38,7 @@ _Nada comprometido._
 | F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 1 | critico | `feature/F-072-postventa-var-como-obras` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
+| F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | no lleva (sdd: false) | 9 | estandar | `feature/F-027-escape-modales` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | no lleva (sdd: false) | 10 | estandar | `feature/F-026-visor-fotos` |
@@ -137,6 +138,14 @@ estado **pendiente** · prioridad 4 · rigor `estandar` · SDD sí · rama `feat
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-12. Caso: obra 0721, adjunto 4936_001.pdf, días seguidos por página: la IA leyó la página 3 (19/10) como 14-10-26, la 5 (21/10) solo como «21» (se quedó sin fecha y no sale en la vista del mes) y la 11 (29/10) como 23-10-26. Arreglo propuesto: completar una fecha incompleta (solo día) con mes y año de las páginas vecinas del mismo adjunto, y marcar para revisar (aviso visible en el portal) una fecha que rompe la secuencia de sus vecinas o repite la de otra página del mismo PDF. No corregir sola una fecha completa: solo avisar. Servicio por decidir en la spec (sv2 extrae, sv3 concilia y guarda).
+
+### F-073 · Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4
+
+estado **pendiente** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-073-bloquear-aprobar-en-espera`
+
+**Spec**: sin spec
+
+Alta por la decisión D5-b de F-068 (humano, 2026-11-13). Hoy un parte en espera por un recálculo pedido desde el portal (fecha, celda, Traer de Sigrid y, con F-068, Conciliar, reasignar y deshacer empleado) se puede aprobar (F-047 DA3-B), así que durante la pasada de sv3 (~30 s–2 min) cabe aprobar con extras sin recalcular. A ESTUDIAR: bloquear la aprobación mientras dure ese recálculo salvo el «Aplicar» de F-046; distinguir el pedido de sv4 del de F-046 exige guardar su origen (hoy recalculo_pedido_id es String(36), solo el uuid) ⇒ cambio de esquema en orm_models.py (sv3 y sv4) y migración; mensaje al usuario y qué pasa si la pasada no llega (pedido huérfano). Ver specs/F-068-conciliar-pide-recalculo/design.md §9 D5.
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 

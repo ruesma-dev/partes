@@ -1103,6 +1103,21 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ]
+    },
+    {
+      "id": "F-073",
+      "title": "Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4",
+      "priority": 5,
+      "rigor": "critico",
+      "sdd": true,
+      "status": "pending",
+      "spec": "sin spec",
+      "branch": "feature/F-073-bloquear-aprobar-en-espera",
+      "description": "Alta por la decisión D5-b de F-068 (humano, 2026-11-13). Hoy un parte en espera por un recálculo pedido desde el portal (fecha, celda, Traer de Sigrid y, con F-068, Conciliar, reasignar y deshacer empleado) se puede aprobar (F-047 DA3-B), así que durante la pasada de sv3 (~30 s–2 min) cabe aprobar con extras sin recalcular. A ESTUDIAR: bloquear la aprobación mientras dure ese recálculo salvo el «Aplicar» de F-046; distinguir el pedido de sv4 del de F-046 exige guardar su origen (hoy recalculo_pedido_id es String(36), solo el uuid) ⇒ cambio de esquema en orm_models.py (sv3 y sv4) y migración; mensaje al usuario y qué pasa si la pasada no llega (pedido huérfano). Ver specs/F-068-conciliar-pide-recalculo/design.md §9 D5.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
     }
   ]
 }
