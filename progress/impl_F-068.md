@@ -159,21 +159,12 @@ FAILED ...::test_f068_r19_las_omitidas_por_congelacion_no_aportan_parte
   frase de «Comunicación»). **Sin push.**
 
 ### `bash harness/init.sh`
-**ROJO (feature `blocked`)**, ejecución completa del 2026-11-13: raíz `2457 passed, 50 skipped in
-1607.88s`; sv1, sv2, sv3, sv5 en verde; **sv4 `1 failed, 1041 passed, 1 skipped in 419.75s`**
-(se para al primer fallo):
-```
-FAILED tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper
-E    +  where 23 = <built-in method count of str object ...>('_actor(request)')
-[OK] PUERTA COBERTURA: 100.0% de 38 líneas cambiadas cubiertas (38/38, umbral 90% (del nivel critico)
-[OK] PUERTA TAMAÑO: F-068 dentro de los topes   [OK] PUERTA CARRIL: N/A   [OK] CAPA E2E: N/A
-1 comprobaciones fallidas.
-```
-El guardián fija 21 llamadas a `_actor(request)` en `app.py`; el design §5 pide dos más
-(Conciliar y reasignar firman `solicitado_por`) y R21 prohíbe cambiar la expectativa de un test
-existente. Conflicto de la spec: no se improvisa. Opciones (a) enmendar a 23 o (b) firmar con
-`None`, en `progress/current.md`. (La cobertura se midió antes de T11; se volverá a medir en el
-`init.sh` que cierre el bloqueo.)
+**ROJO, segundo bloqueo** (tras la enmienda 6b1b3e8 del guardián F-017 21→23, que ya pasa):
+raíz `2457 passed, 50 skipped in 1312.06s`; sv1-sv3, sv5 verdes; sv4 en rojo por
+`test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable` (`assert (320 - 17) == 302`: la
+función nueva `textoRecalculoCasado` del design §7). Suite sv4 completa sin `-x`:
+`1 failed, 3826 passed, 1 skipped in 733.43s`. `PUERTA COBERTURA: 100.0% de 38 líneas cambiadas
+(38/38, umbral 90%)`; TAMAÑO, CARRIL y CAPA E2E en OK/N/A. Opciones en `progress/current.md`.
 
 ## Trazabilidad requisito → test (sv4 salvo indicación)
 
@@ -200,7 +191,7 @@ existente. Conflicto de la spec: no se improvisa. Opciones (a) enmendar a 23 o (
 
 ## Pendiente
 
-- **BLOQUEO**: guardián de F-017 (arriba). Falta decisión (a)/(b), aplicarla e `init.sh` en verde.
+- **BLOQUEO 2**: guardián de F-047 R23 (302 funciones). F-017 ya enmendado (6b1b3e8).
 - **T14 (campaña de mutación)**: según el protocolo, no se lanza al terminar; el líder me
   relanza en la pasada de campaña tras el APPROVED del reviewer. Entonces se escribe
   `progress/mutacion_F-068.md` y se completa «Evidencias».
@@ -214,7 +205,7 @@ existente. Conflicto de la spec: no se improvisa. Opciones (a) enmendar a 23 o (
 | Evidencia | Valor |
 |---|---|
 | Tests nuevos | 76 en sv4 (`test_f068_repositorio.py` 20, `test_f068_conciliar_recalculo.py` 41, `test_f068_conciliar_js.py` 15) + 9 casos en el contrato raíz |
-| Suite (init.sh) | raíz 2457 passed / 50 skipped en 1607,88 s; sv4 1 failed / 1041 passed en 419,75 s (bloqueo) |
-| Cobertura de líneas cambiadas | 100 % (38/38) en la pasada en rojo; a remedir tras el desbloqueo |
+| Suite (init.sh) | raíz 2457 passed / 50 skipped en 1312,06 s; sv4 1 failed / 3826 passed en 733,43 s (segundo bloqueo) |
+| Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras T11 y la enmienda (umbral 90 %) |
 | Mutantes generados / supervivientes | pendiente de la pasada de campaña (T14), como manda el protocolo |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |

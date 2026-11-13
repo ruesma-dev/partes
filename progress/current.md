@@ -1,28 +1,29 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-068 · BLOCKED 2026-11-13 (implementer): Conciliar pide a sv3 el recálculo de extras
+## F-068 · BLOCKED 2026-11-13 (implementer, segundo bloqueo): Conciliar pide a sv3 el recálculo de extras
 Spec aprobada en `specs/F-068-conciliar-pide-recalculo/` (rama `feature/F-068-conciliar-pide-recalculo`,
-worktree `partes-wt-f068`). Decisiones del humano: D1-a, D2-a, D3-b, D4-b, D5-b (F-073), D6-a.
-T1-T13 hechas y en verde por separado (un commit por tarea); informe en `progress/impl_F-068.md`.
-`azure-apps` ef721cd (local, sin push).
+worktree `partes-wt-f068`). Decisiones: D1-a, D2-a, D3-b, D4-b, D5-b (F-073), D6-a. T1-T13 hechas;
+informe en `progress/impl_F-068.md`. `azure-apps` ef721cd (local, sin push).
 
-**Motivo del bloqueo (conflicto de la spec, no se improvisa)**: `bash harness/init.sh` en ROJO por
-`services/partes-front/tests/test_f017_punto_unico.py::test_f017_todos_los_puntos_de_escritura_usan_el_helper`,
-que fija `fuente.count("_actor(request)") == 21` en `app.py`. El design §5 pide leer `_actor(request)`
-en `conciliacion_confirmar` y en `empleado_reasignar` (hoy no lo leen) para `solicitado_por`: eso
-hace **23**. Pero R21 dice «Ningún test existente cambia de expectativa», y la historia del test
-muestra que cada alta (F-042, F-049, F-056, F-052) se hizo con «enmienda … por decisión del humano».
-Deshacer (`undo_apply`) ya leía el actor: no suma.
+**Primer bloqueo resuelto** (opción a del humano, 2026-11-13): guardián F-017 21→23, R21 y design §5
+enmendados (commit 6b1b3e8).
+
+**Segundo bloqueo** (mismo tipo; el humano dijo «nada más cambia de expectativa»): con el guardián
+de F-017 ya en verde, `init.sh` sigue en rojo por
+`services/partes-front/tests/test_f047_portal_parte_nuevo.py::test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`,
+que fija en **302** las funciones con nombre de `app.js` fuera de las 17 de F-052 (`F052_PANEL`).
+El design §7 exige la función nueva `textoRecalculoCasado` (R14-R16, D6-a) ⇒ 303. La suite completa
+de sv4 sin `-x` (`python -m pytest tests -q`): **1 failed, 3826 passed, 1 skipped**; es el único choque.
 
 **Opciones para el humano**:
-- (a) Enmendar la spec (R21 y design §5) y el guardián: 21 → 23, ampliando su docstring con las dos
-  llamadas de F-068 (Conciliar y reasignar firman `solicitado_por`). Recomendada: es la misma
-  enmienda que hicieron F-042, F-049, F-056 y F-052, y la propiedad que vigila (toda firma sale de
-  `_actor`) se mantiene.
-- (b) No firmar: `solicitado_por = None` en Conciliar y reasignar (el mensaje lo admite; es solo
-  traza). Sin tocar el guardián, pero se pierde quién pidió el recálculo en el log de sv3.
-Tras decidir: aplicar la opción, `bash harness/init.sh` en verde y seguir con el reviewer.
+- (a) Recomendada: enmendar R21 y design §7 y el guardián como hizo F-052: una tupla
+  `F068_CONCILIAR = ("textoRecalculoCasado",)` que se descuenta igual que `F052_PANEL` (el total
+  fuera de las de F-052 y F-068 sigue en 302). Las tres variables `recalculo*` no cambian.
+- (b) Sin función con nombre: meter el texto inline en `_confirmarCasado` y `_empReasignar`
+  (duplica el texto de R15 en dos sitios y obliga a rehacer T8-T10 y sus tests de la función pura).
+Expresión de función anónima (`var x = function (…)`) para esquivar la regex: descartada, sería
+burlar el guardián.
 
 ## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama

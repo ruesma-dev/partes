@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **68 features**, 15 abiertas y 53 terminadas. Por columna: 0 en Review, 1 en Blocked, 1 en In progress, 2 en Spec aprobada, 0 en To do, 11 en Backlog y 53 en Done.
+Resumen: **68 features**, 15 abiertas y 53 terminadas. Por columna: 0 en Review, 2 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 11 en Backlog y 53 en Done.
 
 ## Review
 
@@ -13,13 +13,12 @@ _Nada esperando revisión._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | specs/F-068-conciliar-pide-recalculo/ | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | en `dev`; feature bloqueada por decisión del humano (2026-10-07) | 8 | estandar | `feature/F-032-sesame-festivos-produccion` |
 
 ## In progress
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | implementer | specs/F-068-conciliar-pide-recalculo/ | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
+_Ninguna feature en implementación._
 
 ## Spec aprobada
 
@@ -118,7 +117,7 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
 
-estado **en curso** · spec aprobada el 2026-11-13 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
+estado **bloqueada** · spec aprobada el 2026-11-13 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
 
 **Spec**: specs/F-068-conciliar-pide-recalculo/
 
