@@ -9,7 +9,7 @@ Resumen: **68 features**, 15 abiertas y 53 terminadas. Por columna: 1 en Review,
 
 | # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | reviewer | specs/F-068-conciliar-pide-recalculo/ | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
+| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | humano | specs/F-068-conciliar-pide-recalculo/ | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
 
 ## Blocked
 
@@ -118,7 +118,7 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
 
-estado **en QA / revisión** · spec aprobada el 2026-11-13 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
+estado **en revisión humana** · spec aprobada el 2026-11-13 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
 
 **Spec**: specs/F-068-conciliar-pide-recalculo/
 
