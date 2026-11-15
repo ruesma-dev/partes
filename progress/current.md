@@ -1,21 +1,6 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-068 · IN_PROGRESS 2026-11-15 (implementer terminado; pendiente reviewer): Conciliar pide a sv3 el recálculo de extras
-Spec aprobada en `specs/F-068-conciliar-pide-recalculo/` (rama `feature/F-068-conciliar-pide-recalculo`,
-worktree `partes-wt-f068`). Decisiones: D1-a, D2-a, D3-b, D4-b, D5-b (F-073), D6-a. T1-T13 hechas, un
-commit por tarea; informe en `progress/impl_F-068.md`. `azure-apps` ef721cd (local, sin push).
-Pendiente: reviewer, T14 (pasada de campaña de mutación) y T15 · M1 (humano).
-**Review ciclo 1 (CHANGES_REQUESTED) atendida** (2026-11-15): RM7 (test del orden en reasignar,
-rojo con la mutación), cambio 2 opción (a) del humano (`partes_recalculo` = 0 sin pedido, R3 sin
-enmendar) y T16. Detalle en `progress/impl_F-068.md` § «Review ciclo 1».
-
-**Bloqueos resueltos** (opción a del humano en los dos; cada autorización cubre solo su guardián):
-- 2026-11-13: guardián F-017 `_actor(request)` 21→23 (Conciliar y reasignar firman
-  `solicitado_por`); enmienda de R21 y design §5 (commit 6b1b3e8).
-- 2026-11-15: guardián F-047 R23 (302 funciones en `app.js`): tupla `F068_CONCILIAR =
-  ("textoRecalculoCasado",)` que se descuenta como `F052_PANEL`; enmienda de R21 y design §7.
-
 ## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama
 `feature/F-069-extras-ids-estables` (base 0a91941). Informe del implementer: `progress/impl_F-069.md`.
