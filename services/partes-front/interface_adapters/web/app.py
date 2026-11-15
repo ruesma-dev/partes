@@ -119,6 +119,7 @@ from infrastructure.database.parte_repository import (
 from infrastructure.database.session_factory import SessionFactory
 from infrastructure.persistencia.recalculo_publisher import (
     ESTADO_FALLO,
+    ESTADO_PEDIDO,
     MOTIVO_CAMBIO_FECHA,
     MOTIVO_CASADO_CONCILIACION,
     MOTIVO_DESHACER_CELDA,
@@ -731,6 +732,8 @@ def build_app(
         0 partes (R2). Con partes, UN recalculo con pedido compartido
         (D1-a, D2-a) y un INFO sin nombres, DNI ni nombre leido (R8). No
         lanza: `_pedir_recalculo_compartido` ya no lanza (R5-R7).
+        `partes_recalculo` cuenta los partes en espera: 0 si no hubo pedido
+        (`sin_cola`, o `fallo`, que lo anula), como dice R3.
         """
         if not documentos:
             return {"recalculo": None, "partes_recalculo": 0}
@@ -739,7 +742,9 @@ def build_app(
         logger.info("[%s] casado updated=%s congeladas=%s documentos=%s "
                     "pedido=%s recalculo=%s", etiqueta, updated, congeladas,
                     documentos, pedido, estado)
-        return {"recalculo": estado, "partes_recalculo": len(documentos)}
+        return {"recalculo": estado,
+                "partes_recalculo": (len(documentos)
+                                     if estado == ESTADO_PEDIDO else 0)}
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo

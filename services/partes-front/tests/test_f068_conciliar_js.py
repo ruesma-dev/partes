@@ -116,14 +116,14 @@ def test_f068_r14_la_tarjeta_dice_recalculando() -> None:
 
 
 def test_f068_r15_la_tarjeta_avisa_del_fallo_y_se_queda() -> None:
-    res = _casar(recalculo="fallo", partes_recalculo=1)
+    res = _casar(recalculo="fallo", partes_recalculo=0)
     assert (f'<div class="recon-status error">{TEXTO_FALLO}</div>'
             in res["html"])
     assert "✓ Casado con" in res["html"]
 
 
 def test_f068_r16_sin_cola_lo_dice() -> None:
-    html = _casar(recalculo="sin_cola", partes_recalculo=1)["html"]
+    html = _casar(recalculo="sin_cola", partes_recalculo=0)["html"]
     assert f'<span class="recon-recalculo">{SIN_COLA}</span>' in html
 
 
@@ -170,7 +170,7 @@ def _reasignar(**extra) -> list:
 
 
 def test_f068_r18_reasignar_con_fallo_avisa_antes_de_recargar() -> None:
-    assert _reasignar(recalculo="fallo", partes_recalculo=1) == [
+    assert _reasignar(recalculo="fallo", partes_recalculo=0) == [
         ["alert", TEXTO_FALLO], ["reload"]]
 
 
