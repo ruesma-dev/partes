@@ -204,8 +204,8 @@ enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 
 ## Pendiente
 
-- **T14 (mutación)**: en la pasada de campaña, tras el APPROVED (sobre el HEAD con los cambios
-  del ciclo 1) ⇒ `progress/mutacion_F-068.md`.
+- **T14 (mutación)**: hecha en la pasada de campaña tras el APPROVED: 10/10 muertos, sin nada que
+  analizar (`progress/mutacion_F-068.md`). Corrió a la vez que la campaña de F-072 de otro worktree.
 - **T15 · M1 (MANUAL, humano, tras desplegar sv4)**: pasos de M1 en `requirements.md`.
 - Fuera de alcance (D5-b): bloquear aprobar durante la pasada ⇒ F-073.
 
@@ -216,5 +216,5 @@ enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 | Tests nuevos | 79 en sv4 (`test_f068_repositorio.py` 20, `test_f068_conciliar_recalculo.py` 44, `test_f068_conciliar_js.py` 15) + 9 casos en el contrato raíz |
 | Suite (init.sh) | raíz 2457 passed / 50 skipped en 938,48 s; sv4 3830 passed / 1 skipped en 733,66 s |
 | Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras el review ciclo 1 (umbral 90 %) |
-| Mutantes generados / supervivientes | pendiente de la pasada de campaña (T14), como manda el protocolo |
+| Mutantes generados / supervivientes | 10 evaluados, 10 muertos, 0 supervivientes, 0 timeouts (3071,3 s, 4 workers, línea base ~890 s, timeout derivado 1789 s; HEAD 5c84138 = aprobado f6ac5b5 + informe del reviewer). Detalle: `progress/mutacion_F-068.md` |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
