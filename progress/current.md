@@ -1,29 +1,17 @@
 <!-- progress/current.md -->
 # Trabajo en curso
 
-## F-068 · BLOCKED 2026-11-13 (implementer, segundo bloqueo): Conciliar pide a sv3 el recálculo de extras
+## F-068 · IN_PROGRESS 2026-11-15 (implementer terminado; pendiente reviewer): Conciliar pide a sv3 el recálculo de extras
 Spec aprobada en `specs/F-068-conciliar-pide-recalculo/` (rama `feature/F-068-conciliar-pide-recalculo`,
-worktree `partes-wt-f068`). Decisiones: D1-a, D2-a, D3-b, D4-b, D5-b (F-073), D6-a. T1-T13 hechas;
-informe en `progress/impl_F-068.md`. `azure-apps` ef721cd (local, sin push).
+worktree `partes-wt-f068`). Decisiones: D1-a, D2-a, D3-b, D4-b, D5-b (F-073), D6-a. T1-T13 hechas, un
+commit por tarea; informe en `progress/impl_F-068.md`. `azure-apps` ef721cd (local, sin push).
+Pendiente: reviewer, T14 (pasada de campaña de mutación) y T15 · M1 (humano).
 
-**Primer bloqueo resuelto** (opción a del humano, 2026-11-13): guardián F-017 21→23, R21 y design §5
-enmendados (commit 6b1b3e8).
-
-**Segundo bloqueo** (mismo tipo; el humano dijo «nada más cambia de expectativa»): con el guardián
-de F-017 ya en verde, `init.sh` sigue en rojo por
-`services/partes-front/tests/test_f047_portal_parte_nuevo.py::test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`,
-que fija en **302** las funciones con nombre de `app.js` fuera de las 17 de F-052 (`F052_PANEL`).
-El design §7 exige la función nueva `textoRecalculoCasado` (R14-R16, D6-a) ⇒ 303. La suite completa
-de sv4 sin `-x` (`python -m pytest tests -q`): **1 failed, 3826 passed, 1 skipped**; es el único choque.
-
-**Opciones para el humano**:
-- (a) Recomendada: enmendar R21 y design §7 y el guardián como hizo F-052: una tupla
-  `F068_CONCILIAR = ("textoRecalculoCasado",)` que se descuenta igual que `F052_PANEL` (el total
-  fuera de las de F-052 y F-068 sigue en 302). Las tres variables `recalculo*` no cambian.
-- (b) Sin función con nombre: meter el texto inline en `_confirmarCasado` y `_empReasignar`
-  (duplica el texto de R15 en dos sitios y obliga a rehacer T8-T10 y sus tests de la función pura).
-Expresión de función anónima (`var x = function (…)`) para esquivar la regex: descartada, sería
-burlar el guardián.
+**Bloqueos resueltos** (opción a del humano en los dos; cada autorización cubre solo su guardián):
+- 2026-11-13: guardián F-017 `_actor(request)` 21→23 (Conciliar y reasignar firman
+  `solicitado_por`); enmienda de R21 y design §5 (commit 6b1b3e8).
+- 2026-11-15: guardián F-047 R23 (302 funciones en `app.js`): tupla `F068_CONCILIAR =
+  ("textoRecalculoCasado",)` que se descuenta como `F052_PANEL`; enmienda de R21 y design §7.
 
 ## F-069 · DONE 2026-11-12 (review APPROVED pasada 1, rigor crítico; mutación 72: 61 muertos + 10 matados con test + 1 equivalente, el n.º 10, aceptado por el humano «acepto»; M1 en Docker hecha; SIN DESPLEGAR; pendiente: desplegar sv3 y sv4 y M2 del líder): sv3, extras automáticas con ids estables y recálculo en una sola transacción
 Spec aprobada (DA1-DA9 = A) en `specs/F-069-extras-ids-estables/`; worktree `partes-wt-f069`, rama

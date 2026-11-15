@@ -112,6 +112,9 @@ es ampliar casos, no cambiar expectativas.
 
 ## 7. Portal (`static/app.js`)
 
+- Guardián de F-047 R23 (302 funciones con nombre en `app.js`): `textoRecalculoCasado` se
+  descuenta en la tupla `F068_CONCILIAR`, como `F052_PANEL` (*enmienda por decisión del humano
+  2026-11-15*).
 - `_confirmarCasado`: tras el texto «✓ Casado con … · N registro(s) actualizados», función pura
   nueva `textoRecalculoCasado(recalculo, partes) -> [texto, clase] | null` (R14–R16):
   `pedido` ⇒ «· recalculando extras de N parte(s) (1–2 min)»; `sin_cola` ⇒ «(sin recálculo

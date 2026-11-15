@@ -100,7 +100,10 @@
   `lineas_para_registro` y `_validar_ambito`. Ningún test existente cambia de expectativa,
   salvo el guardián de F-017 (`test_f017_todos_los_puntos_de_escritura_usan_el_helper`), que
   pasa de 21 a 23 llamadas a `_actor(request)`: Conciliar y reasignar firman `solicitado_por`.
-  *Enmienda por decisión del humano 2026-11-13, guardián F-017 21→23.*
+  *Enmienda por decisión del humano 2026-11-13, guardián F-017 21→23.* Y el guardián de F-047
+  (`test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`) descuenta la función nueva de
+  F-068 en una tupla `F068_CONCILIAR` como hace con `F052_PANEL` (el resto sigue en 302).
+  *Enmienda por decisión del humano 2026-11-15.*
 - **R22.** Los valores de retorno de `backfill_empleado` y `reassign_empleado_by_*` no cambian
   (los afirman tests de F-004, F-023, F-030 y F-035); los partes salen por un colector opcional.
 

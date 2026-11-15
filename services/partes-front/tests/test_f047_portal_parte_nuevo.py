@@ -213,6 +213,12 @@ F052_PANEL = (
     "seleccionSync", "sincronizarAmbito", "textoDiferenciasSync",
 )
 
+#: Función que añade F-068 (T9, R14-R16): el texto del recálculo de extras
+#: que pinta la tarjeta casada de Conciliar y el aviso de reasignar. Se
+#: descuenta como `F052_PANEL` (enmienda de R21 y de `design.md` §7 por
+#: decision del humano, 2026-11-15).
+F068_CONCILIAR = ("textoRecalculoCasado",)
+
 @pytest.mark.parametrize("nombre", sorted(HUELLAS))
 def test_f047_r23_lo_de_f043_no_cambia(nombre) -> None:
     texto = _funcion(_js(), nombre)
@@ -224,10 +230,13 @@ def test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable() -> None:
     js = _js()
     # Funciones con nombre en `app.js` en `dev` 75816f2: F-047 no añade.
     # F-052 (T12, panel de «Sincronizar con Sigrid») añade las 17 de
-    # `F052_PANEL`, todas suyas; fuera de ellas el total sigue en 302.
+    # `F052_PANEL`, todas suyas; F-068 (T9) añade la de `F068_CONCILIAR`.
+    # Fuera de ellas el total sigue en 302.
     nombres = re.findall(r"function (\w+)\(", js)
     assert sorted(n for n in nombres if n in F052_PANEL) == sorted(F052_PANEL)
-    assert len(nombres) - len(F052_PANEL) == 302
+    assert sorted(n for n in nombres if n in F068_CONCILIAR) == sorted(
+        F068_CONCILIAR)
+    assert len(nombres) - len(F052_PANEL) - len(F068_CONCILIAR) == 302
     variables = [l for l in js.split("\n") if l.startswith("  var recalculo")]
     assert variables == [
         "  var recalculoVigilados = {};        // document_id -> fecha (ISO)",
