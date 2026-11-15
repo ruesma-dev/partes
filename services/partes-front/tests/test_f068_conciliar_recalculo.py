@@ -624,3 +624,20 @@ def test_f068_r19_deshacer_con_la_cola_caida(montaje) -> None:
     r = _deshacer(cliente)
     assert r.status_code == 200 and r.json()["recalculo"] == "fallo"
     assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] is None
+
+
+@pytest.mark.parametrize("forma", ["nombre_leido", "worker_key"])
+def test_f068_r17_el_mensaje_sale_tras_la_reasignacion_y_los_alias(
+        montaje, forma) -> None:
+    """RM7 (review ciclo 1): como R1, al publicar ya están confirmados el
+    empleado reasignado y el alias (las dos formas que escriben alias)."""
+    visto: dict = {}
+    cola = ColaFake()
+    cliente, _cola, fabrica, ids = montaje(_uno, cola=cola)
+    cola.al_enviar = lambda: visto.update(
+        empleado=datos_registros(fabrica, ids)[ids[0]]["empleado_ide"],
+        alias=_alias(fabrica), pedido=_pedido(fabrica, "d-1"))
+    r = _reasignar(cliente, **_forma(forma, ids))
+    assert r.status_code == 200 and r.json()["recalculo"] == "pedido"
+    assert visto["empleado"] == 4242 and visto["alias"] == 4242
+    assert visto["pedido"] is not None
