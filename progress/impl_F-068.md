@@ -166,14 +166,14 @@ FAILED ...::test_f068_r19_deshacer_casado_pide_un_recalculo
   antes de editar; commit **ef721cd** en `main` (`partes.md`, 13+/1−). Sin push desde aquí.
 
 ### `bash harness/init.sh`
-**VERDE** (2026-11-15, tras las dos enmiendas del humano: F-017 21→23, 6b1b3e8; F-047 R23
-con `F068_CONCILIAR`, 5eeeb33), salida real:
+**VERDE** (2026-11-15, HEAD ba9a123: enmiendas F-017 6b1b3e8 y F-047 5eeeb33 y review
+ciclo 1), salida real:
 ```
-2457 passed, 50 skipped in 746.68s (0:12:26)          [OK] pytest en verde (con medición de cobertura)
+2457 passed, 50 skipped in 938.48s (0:15:38)          [OK] pytest en verde (con medición de cobertura)
 [OK] sv1-email, sv2-extraccion, sv3-persistencia, sv5-transfer: pytest en verde (caché)
-3827 passed, 1 skipped, 2 warnings in 776.42s (0:12:56)   [OK] servicio sv4-front: pytest en verde
+3830 passed, 1 skipped, 2 warnings in 733.66s (0:12:13)   [OK] servicio sv4-front: pytest en verde
 [OK] PUERTA COBERTURA: 100.0% de 38 líneas cambiadas cubiertas (38/38, umbral 90% (del nivel critico)
-[OK] PUERTA TAMAÑO: requirements 128/150, design 190/250, impl 211/220
+[OK] PUERTA TAMAÑO: requirements 128/150, design 190/250, impl 220/220, review 140/140
 [OK] PUERTA CARRIL: N/A (nivel critico)      [OK] CAPA E2E: N/A (ningún servicio declara el bloque e2e)
 ```
 Los dos únicos tests existentes que cambian de expectativa son esos guardianes, cada uno con su
@@ -214,7 +214,7 @@ enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 | Evidencia | Valor |
 |---|---|
 | Tests nuevos | 79 en sv4 (`test_f068_repositorio.py` 20, `test_f068_conciliar_recalculo.py` 44, `test_f068_conciliar_js.py` 15) + 9 casos en el contrato raíz |
-| Suite (init.sh) | raíz 2457 passed / 50 skipped en 746,68 s; sv4 3827 passed / 1 skipped en 776,42 s |
-| Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras las dos enmiendas (umbral 90 %) |
+| Suite (init.sh) | raíz 2457 passed / 50 skipped en 938,48 s; sv4 3830 passed / 1 skipped en 733,66 s |
+| Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras el review ciclo 1 (umbral 90 %) |
 | Mutantes generados / supervivientes | pendiente de la pasada de campaña (T14), como manda el protocolo |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |

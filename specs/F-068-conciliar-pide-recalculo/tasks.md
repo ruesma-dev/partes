@@ -21,4 +21,4 @@ esa opción; si no, se marcan «no aplica» en el informe.
 - [x] T13: `docs/ARCHITECTURE.md` (semántica 3: Conciliar, reasignar y deshacer `empleado` piden recálculo; motivos) y `azure-apps/partes.md` en su repo (`git -C … pull` antes, commit local allí, sin push)  |  Verificación: `grep -n "F-068" docs/ARCHITECTURE.md` y `git -C C:/Users/pgris/PycharmProjects/azure-apps log -1 --stat`
 - [ ] T14: Cobertura y campaña de mutación de rigor crítico sobre `_documentos_de`, el colector, `_recalculo_de_trabajador` y las ramas nuevas; cada superviviente con test o justificación (`progress/mutacion_F-068.md`)  |  Verificación: informe sin `PENDIENTE`
 - [ ] T15: M1 tras desplegar sv4 (lo pide el humano), solo lectura  |  Verificación: MANUAL (humano): pasos de M1 en `requirements.md`
-- [ ] T16: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T16: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
