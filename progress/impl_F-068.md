@@ -159,12 +159,18 @@ FAILED ...::test_f068_r19_las_omitidas_por_congelacion_no_aportan_parte
   frase de «Comunicación»). **Sin push.**
 
 ### `bash harness/init.sh`
-**ROJO, segundo bloqueo** (tras la enmienda 6b1b3e8 del guardián F-017 21→23, que ya pasa):
-raíz `2457 passed, 50 skipped in 1312.06s`; sv1-sv3, sv5 verdes; sv4 en rojo por
-`test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable` (`assert (320 - 17) == 302`: la
-función nueva `textoRecalculoCasado` del design §7). Suite sv4 completa sin `-x`:
-`1 failed, 3826 passed, 1 skipped in 733.43s`. `PUERTA COBERTURA: 100.0% de 38 líneas cambiadas
-(38/38, umbral 90%)`; TAMAÑO, CARRIL y CAPA E2E en OK/N/A. Opciones en `progress/current.md`.
+**VERDE** (2026-11-15, tras las dos enmiendas del humano: F-017 21→23, 6b1b3e8; F-047 R23
+con `F068_CONCILIAR`, 5eeeb33), salida real:
+```
+2457 passed, 50 skipped in 746.68s (0:12:26)          [OK] pytest en verde (con medición de cobertura)
+[OK] sv1-email, sv2-extraccion, sv3-persistencia, sv5-transfer: pytest en verde (caché)
+3827 passed, 1 skipped, 2 warnings in 776.42s (0:12:56)   [OK] servicio sv4-front: pytest en verde
+[OK] PUERTA COBERTURA: 100.0% de 38 líneas cambiadas cubiertas (38/38, umbral 90% (del nivel critico)
+[OK] PUERTA TAMAÑO: requirements 128/150, design 190/250, impl 211/220
+[OK] PUERTA CARRIL: N/A (nivel critico)      [OK] CAPA E2E: N/A (ningún servicio declara el bloque e2e)
+```
+Los dos únicos tests existentes que cambian de expectativa son esos guardianes, cada uno con su
+enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 
 ## Trazabilidad requisito → test (sv4 salvo indicación)
 
@@ -191,7 +197,6 @@ función nueva `textoRecalculoCasado` del design §7). Suite sv4 completa sin `-
 
 ## Pendiente
 
-- **BLOQUEO 2**: guardián de F-047 R23 (302 funciones). F-017 ya enmendado (6b1b3e8).
 - **T14 (campaña de mutación)**: según el protocolo, no se lanza al terminar; el líder me
   relanza en la pasada de campaña tras el APPROVED del reviewer. Entonces se escribe
   `progress/mutacion_F-068.md` y se completa «Evidencias».
@@ -205,7 +210,7 @@ función nueva `textoRecalculoCasado` del design §7). Suite sv4 completa sin `-
 | Evidencia | Valor |
 |---|---|
 | Tests nuevos | 76 en sv4 (`test_f068_repositorio.py` 20, `test_f068_conciliar_recalculo.py` 41, `test_f068_conciliar_js.py` 15) + 9 casos en el contrato raíz |
-| Suite (init.sh) | raíz 2457 passed / 50 skipped en 1312,06 s; sv4 1 failed / 3826 passed en 733,43 s (segundo bloqueo) |
-| Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras T11 y la enmienda (umbral 90 %) |
+| Suite (init.sh) | raíz 2457 passed / 50 skipped en 746,68 s; sv4 3827 passed / 1 skipped en 776,42 s |
+| Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras las dos enmiendas (umbral 90 %) |
 | Mutantes generados / supervivientes | pendiente de la pasada de campaña (T14), como manda el protocolo |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
