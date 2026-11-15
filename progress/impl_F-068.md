@@ -9,21 +9,10 @@ backlog, ab48b48): no hay conflicto de fusión que anotar todavía.
 
 ## Commits (uno por tarea; RED y verde separados en T10 y T11)
 
-| Tarea | Commit | |
-|---|---|---|
-| T1 | 9ee6e3d | tests RED de motivos + contrato raíz ampliado; feature `in_progress` |
-| T2 | 27c7b41 | tres motivos en `recalculo_publisher.py` |
-| T3 | 1262357 | tests RED de `_documentos_de` y colector de `backfill_empleado` |
-| T4 | 487469f | `_documentos_de` + colector en `backfill_empleado` |
-| T5 | 362de68 | tests RED de la ruta de Conciliar |
-| T6 | 432f360 | `_recalculo_de_trabajador` + uso en `conciliacion_confirmar` |
-| T7 | 6b78b72 | caracterización R9 y R11-R13/E7 |
-| T8 | 525274a | tests RED de JS (R14-R16) |
-| T9 | a75eba5 | `textoRecalculoCasado` + tarjeta casada |
-| T10 | 2c80903 (RED), b67f82c | reasignar: colector ×3, ruta, `alert` de fallo |
-| T11 | 20003bd (RED), 67e91d6 | deshacer `empleado`: repo y ruta |
-| T12 | (sin commit: verificación) | gemelos y suite |
-| T13 | f2e58d0 + `azure-apps` ef721cd | ARCHITECTURE.md y partes.md |
+T1 9ee6e3d · T2 27c7b41 · T3 1262357 · T4 487469f · T5 362de68 · T6 432f360 · T7 6b78b72 ·
+T8 525274a · T9 a75eba5 · T10 2c80903 (RED) + b67f82c · T11 20003bd (RED) + 67e91d6 ·
+T12 sin commit (verificación) · T13 f2e58d0 + `azure-apps` ef721cd. Enmiendas del humano:
+6b1b3e8 (F-017) y 5eeeb33 (F-047). Review ciclo 1: 827e111, 3676be9, d83f12f.
 
 ## Qué cambió (producción)
 
@@ -65,18 +54,42 @@ ficheros de arriba, specs, progress, BACKLOG y features.json).
    «tras el commit se le añaden»: se respeta lo observable (el colector solo crece si el commit
    tuvo éxito), pero leer `id`/`document_id` de ORM antes del commit evita depender de
    `expire_on_commit=False`.
-2. **`partes_recalculo` = número de partes del casado también con `fallo` y `sin_cola`** (no 0):
-   R3 dice «0 si no hubo pedido» y el design §5 fija 0 solo «sin partes»; se sigue el design.
-3. **La clase de `pedido`/`sin_cola` es `recon-recalculo`** (sin CSS nuevo: hereda el estilo
+2. **La clase de `pedido`/`sin_cola` es `recon-recalculo`** (sin CSS nuevo: hereda el estilo
    de `recon-meta`). El design no la fijaba.
-4. **Dobles de sv4** (design §10): ningún doble existente implementa `backfill_empleado` ni
+3. **Dobles de sv4** (design §10): ningún doble existente implementa `backfill_empleado` ni
    `reassign_empleado_by_*`; los dos que sustituyen `undo_last` (F-042, F-043) devuelven
    dicts sin `action == "empleado"`, así que no hubo que tocarlos.
-5. **Tests de reasignar (R18) en `test_f068_conciliar_js.py`** junto a R14-R16: ejecutan
+4. **Tests de reasignar (R18) en `test_f068_conciliar_js.py`** junto a R14-R16: ejecutan
    `_empReasignar` real en node con `fetch`, `alert` y `location.reload` falsos y comprueban el
    orden `alert` → `reload`.
 
-Sin desviaciones respecto a la spec.
+Desviaciones respecto a la spec: ninguna desde el ciclo 1 de review. Hasta entonces
+`partes_recalculo` contaba los partes también con `fallo`/`sin_cola`, contra R3 («0 si no hubo
+pedido»); el humano eligió alinear el código (opción a, 2026-11-15) y R3 no se enmienda.
+
+## Review ciclo 1 (CHANGES_REQUESTED, `progress/review_F-068.md`)
+
+- **RM7 · R17** (827e111): `test_f068_r17_el_mensaje_sale_tras_la_reasignacion_y_los_alias`
+  (formas `nombre_leido` y `worker_key`, `cola.al_enviar`). Mutación a mano en `app.py`
+  (calcular `_recalculo_de_trabajador` antes del bucle de alias de `empleado_reasignar`),
+  `python -m pytest tests/test_f068_conciliar_recalculo.py -k tras_la_reasignacion -q`:
+  ```
+  E       assert (4242 == 4242 and None == 4242)
+  FAILED ...::test_f068_r17_el_mensaje_sale_tras_la_reasignacion_y_los_alias[nombre_leido]
+  FAILED ...::test_f068_r17_el_mensaje_sale_tras_la_reasignacion_y_los_alias[worker_key]
+  2 failed, 41 deselected, 1 warning in 3.97s
+  ```
+  Revertido con `git checkout --` (diff vacío) ⇒ `2 passed`.
+- **Cambio 2 · R3, opción (a)** (3676be9 RED, d83f12f verde): `partes_recalculo` = 0 si
+  `recalculo` ≠ `pedido`. RED, `-k "e5 or e6 or cola_caida or sin_cola_partes"`:
+  ```
+  E       AssertionError: assert ('fallo', 1) == ('fallo', 0)
+  E       AssertionError: assert ('sin_cola', 1) == ('sin_cola', 0)
+  4 failed, 1 passed, 39 deselected, 1 warning in 4.37s
+  ```
+  `app.js` solo usa N con `pedido` (`textoRecalculoCasado`); los dobles de los tests de JS con
+  `fallo`/`sin_cola` pasan a N = 0. Deshacer no devuelve `partes_recalculo` (R19): sin cambio.
+- **T16** marcada tras `init.sh` en verde (abajo).
 
 ## Fase RED (salida real; recortada a las líneas `E`/`FAILED`/resumen)
 
@@ -94,7 +107,6 @@ E   ImportError: cannot import name 'MOTIVO_CASADO_CONCILIACION' from 'infrastru
 9 failed, 1 passed in 3.52s
 E       AttributeError: module 'infrastructure.database.parte_repository' has no attribute '_documentos_de'
 E       TypeError: ParteReviewRepository.backfill_empleado() got an unexpected keyword argument 'documentos'
-FAILED tests/test_f068_repositorio.py::test_f068_e2_backfill_dos_partes_en_orden_de_id_de_linea
 FAILED tests/test_f068_repositorio.py::test_f068_e3_r4_parte_con_libres_y_congeladas_recibe_el_pedido
 ```
 (el que pasa es `test_f068_r22_backfill_sin_colector_igual_que_hoy`: caracteriza R22).
@@ -106,7 +118,6 @@ E       AssertionError: assert {'alias_ok', ...k', 'updated'} == {'alias_ok', ..
 E       KeyError: 'recalculo'
 E       ValueError: not enough values to unpack (expected 1, got 0)
 FAILED ...::test_f068_conciliar_e1_r1_un_parte_un_recalculo
-FAILED ...::test_f068_conciliar_r1_el_mensaje_sale_tras_el_casado_y_el_alias
 FAILED ...::test_f068_conciliar_r8_info_sin_nombres
 ```
 (pasan los de R7 ×3, `r8_sin_pedido_no_hay_info` y la constante, que ya existía por T2).
@@ -126,7 +137,6 @@ E       TypeError: ParteReviewRepository.reassign_empleado_by_leido() got an une
 E       KeyError: 'recalculo'
 E       AssertionError: assert [['reload']] == [['alert', 'C...], ['reload']]
 FAILED ...::test_f068_r18_reasignar_con_fallo_avisa_antes_de_recargar
-FAILED ...::test_f068_r17_reasignar_pide_un_recalculo[worker_key]
 ```
 **T11** `python -m pytest tests/test_f068_repositorio.py tests/test_f068_conciliar_recalculo.py -k r19 -q`:
 ```
@@ -134,7 +144,6 @@ FAILED ...::test_f068_r17_reasignar_pide_un_recalculo[worker_key]
 E       AssertionError: assert [] == ['d-2', 'd-1']
 E       KeyError: 'recalculo'
 FAILED ...::test_f068_r19_deshacer_casado_pide_un_recalculo
-FAILED ...::test_f068_r19_las_omitidas_por_congelacion_no_aportan_parte
 ```
 (pasan los que caracterizan lo de hoy: otras acciones, todo congelado ⇒ nada).
 
@@ -153,10 +162,8 @@ FAILED ...::test_f068_r19_las_omitidas_por_congelacion_no_aportan_parte
   `test_f023_de_alta_gemelos`, `test_f036_recurso_persona_gemelos`,
   `test_f015_r19_jornada_resolver_gemelo`) + contrato raíz ⇒ **134 passed**; suite completa de
   sv4 dentro de `init.sh` (abajo).
-- T13: `grep -n "F-068" docs/ARCHITECTURE.md` ⇒ líneas 34, 212, 255.
-  `azure-apps`: `git pull` («Already up to date») antes de editar; commit local **ef721cd** en
-  `main` (`partes.md`, 13+/1−: nota F-068 con los tres motivos y las dos claves nuevas, y la
-  frase de «Comunicación»). **Sin push.**
+- T13: `grep -n "F-068" docs/ARCHITECTURE.md` ⇒ l. 34, 212, 255. `azure-apps`: `git pull`
+  antes de editar; commit **ef721cd** en `main` (`partes.md`, 13+/1−). Sin push desde aquí.
 
 ### `bash harness/init.sh`
 **VERDE** (2026-11-15, tras las dos enmiendas del humano: F-017 21→23, 6b1b3e8; F-047 R23
@@ -180,7 +187,7 @@ enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 | R2, E4 | `test_f068_conciliar_e4_r2_*` (×2) |
 | R3 | `test_f068_conciliar_r3_*` |
 | R4, E3 | `test_f068_e3_r4_*`, `test_f068_e4_r4_*` (repo), `test_f068_conciliar_e3_r4_*` |
-| R5, E5 / E6 | `test_f068_conciliar_e5_r5_cola_caida`, `_e6_sin_cola` |
+| R3, R5, E5 / E6 | `test_f068_conciliar_e5_r5_cola_caida`, `_e6_sin_cola` (N = 0) |
 | R6 | `test_f068_conciliar_r6_marcar_lanza`, `_r6_anular_lanza` |
 | R7 | `test_f068_conciliar_r7_*` (×4) |
 | R8 | `test_f068_conciliar_r8_*` (×2), `test_f068_r17_reasignar_info_sin_nombres` |
@@ -188,7 +195,7 @@ enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 | R10 | `test_f068_conciliar_r10_*` |
 | R11-R13, E7 | `test_f068_e7_r12_r13_*` (×3 endpoints de aprobar) |
 | R14-R16 | `test_f068_conciliar_js.py` (`r14`, `r15`, `r16`) |
-| R17 | `test_f068_r17_*` (repo ×4, ruta ×12) |
+| R17 | `test_f068_r17_*` (repo ×4, ruta ×15, con el orden tras los alias) |
 | R18 | `test_f068_r18_*` (JS ×5) |
 | R19 | `test_f068_r19_*` (repo ×5, ruta ×4) |
 | R20 | `test_f068_r20_constantes_de_motivo`; raíz `test_f042_contrato_recalculo.py` (+9 casos) |
@@ -197,19 +204,16 @@ enmienda expresa del humano (R21 y design §5 y §7 lo dicen).
 
 ## Pendiente
 
-- **T14 (campaña de mutación)**: según el protocolo, no se lanza al terminar; el líder me
-  relanza en la pasada de campaña tras el APPROVED del reviewer. Entonces se escribe
-  `progress/mutacion_F-068.md` y se completa «Evidencias».
-- **T15 · M1 (MANUAL, humano, tras desplegar sv4)**: pasos de M1 en `requirements.md`. Sin
-  despliegue ni push hechos.
-- `azure-apps` ef721cd queda local: el push lo hace el humano (`git -C … pull` y luego `push`).
+- **T14 (mutación)**: en la pasada de campaña, tras el APPROVED (sobre el HEAD con los cambios
+  del ciclo 1) ⇒ `progress/mutacion_F-068.md`.
+- **T15 · M1 (MANUAL, humano, tras desplegar sv4)**: pasos de M1 en `requirements.md`.
 - Fuera de alcance (D5-b): bloquear aprobar durante la pasada ⇒ F-073.
 
 ## Evidencias
 
 | Evidencia | Valor |
 |---|---|
-| Tests nuevos | 76 en sv4 (`test_f068_repositorio.py` 20, `test_f068_conciliar_recalculo.py` 41, `test_f068_conciliar_js.py` 15) + 9 casos en el contrato raíz |
+| Tests nuevos | 79 en sv4 (`test_f068_repositorio.py` 20, `test_f068_conciliar_recalculo.py` 44, `test_f068_conciliar_js.py` 15) + 9 casos en el contrato raíz |
 | Suite (init.sh) | raíz 2457 passed / 50 skipped en 746,68 s; sv4 3827 passed / 1 skipped en 776,42 s |
 | Cobertura de líneas cambiadas | 100 % (38/38), re-medida tras las dos enmiendas (umbral 90 %) |
 | Mutantes generados / supervivientes | pendiente de la pasada de campaña (T14), como manda el protocolo |
