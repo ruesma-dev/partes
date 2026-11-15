@@ -1,0 +1,110 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-068",
+ "sha": "5c84138c26b68a86556a28312ea74e5578393696",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 16,
+ "candidatos": 10,
+ "evaluados": [
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3432,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if documentos is not None:",
+   "mutado": "if documentos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3795,
+   "col": 18,
+   "operador": "comparacion",
+   "original": "if action == \"empleado\":",
+   "mutado": "if action != \"empleado\":",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3902,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if documentos is not None:",
+   "mutado": "if documentos is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3949,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if documentos is not None:",
+   "mutado": "if documentos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3993,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if documentos is not None:",
+   "mutado": "if documentos is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 738,
+   "col": 11,
+   "operador": "not",
+   "original": "if not documentos:",
+   "mutado": "if documentos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 739,
+   "col": 59,
+   "operador": "entero",
+   "original": "return {\"recalculo\": None, \"partes_recalculo\": 0}",
+   "mutado": "return {\"recalculo\": None, \"partes_recalculo\": 1}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 747,
+   "col": 69,
+   "operador": "entero",
+   "original": "if estado == ESTADO_PEDIDO else 0)}",
+   "mutado": "if estado == ESTADO_PEDIDO else 1)}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 1767,
+   "col": 48,
+   "operador": "comparacion",
+   "original": "if (res.get(\"ok\") and res.get(\"action\") == \"empleado\"",
+   "mutado": "if (res.get(\"ok\") and res.get(\"action\") != \"empleado\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 1768,
+   "col": 16,
+   "operador": "logico",
+   "original": "and res.get(\"document_ids\")):",
+   "mutado": "or res.get(\"document_ids\")):",
+   "veredicto": "muerto"
+  }
+ ]
+}

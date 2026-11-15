@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **67 features**, 14 abiertas y 53 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 11 en Backlog y 53 en Done.
+Resumen: **68 features**, 14 abiertas y 54 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 11 en Backlog y 54 en Done.
 
 ## Review
 
@@ -35,9 +35,9 @@ _Nada comprometido._
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
 | F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 1 | critico | `feature/F-072-postventa-var-como-obras` |
-| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | sin spec | 2 | critico | `feature/F-068-conciliar-pide-recalculo` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
+| F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | no lleva (sdd: false) | 9 | estandar | `feature/F-027-escape-modales` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | no lleva (sdd: false) | 10 | estandar | `feature/F-026-visor-fotos` |
@@ -50,6 +50,7 @@ _Nada comprometido._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 2026-11-15 | 2026-11-15 |  | 2 | critico |
 | F-001 | Test de estructura del monorepo (calentamiento) | sin fecha | sin anotar |  | 1 | estandar |
 | F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | sin fecha | sin anotar |  | 1 | critico |
 | F-028 | Detalle de obra y de trabajador a todo el ancho de la ventana | sin fecha | sin anotar |  | 1 | estandar |
@@ -114,14 +115,6 @@ estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `featu
 
 Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
 
-### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
-
-estado **pendiente** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
-
-**Spec**: sin spec
-
-Hotfix pedido por el humano el 2026-11-10 («apúntalo como hotfix»). Caso: obra 0694, 04/11/2026, trabajador que no se casó solo por venir escrito a mano; se casó a mano en Conciliar y su línea de 8,5 h quedó entera como ordinaria en vez de pasar por el cálculo de extras (jornada 8 h ⇒ 8 HLOF + 0,5 HEOF). Causa (sv4, interface_adapters/web/app.py, conciliacion_confirmar): POST /api/conciliacion/confirmar solo hace backfill_empleado y upsert_empleado_alias y NO pide recálculo, a diferencia del editor de celda, la fecha o el reajuste (_pedir_recalculo_seguido / _pedir_recalculo_compartido de F-042/F-043/F-049). Se corrigió solo en la siguiente pasada completa de sv3 del 2026-11-10 (al entrar partes nuevos): hoy la línea 20545 tiene 8 h HLOF y la 20717 0,5 h HEOF, ambas sin registrar. Riesgo: aprobar entre el casado y esa pasada escribiría en Sigrid las 8,5 h como ordinarias. Arreglo propuesto: tras un casado con líneas actualizadas, pedir el recálculo de los documentos afectados (los de las líneas casadas, no congeladas) con su motivo y seguimiento, y que el portal lo diga como en el editor de celda. Solo sv4; sin esquema nuevo. Pendiente de spec.
-
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
 estado **pendiente** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-070-reemplazo-no-mismo-pdf`
@@ -137,6 +130,14 @@ estado **pendiente** · prioridad 4 · rigor `estandar` · SDD sí · rama `feat
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-12. Caso: obra 0721, adjunto 4936_001.pdf, días seguidos por página: la IA leyó la página 3 (19/10) como 14-10-26, la 5 (21/10) solo como «21» (se quedó sin fecha y no sale en la vista del mes) y la 11 (29/10) como 23-10-26. Arreglo propuesto: completar una fecha incompleta (solo día) con mes y año de las páginas vecinas del mismo adjunto, y marcar para revisar (aviso visible en el portal) una fecha que rompe la secuencia de sus vecinas o repite la de otra página del mismo PDF. No corregir sola una fecha completa: solo avisar. Servicio por decidir en la spec (sv2 extrae, sv3 concilia y guarda).
+
+### F-073 · Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4
+
+estado **pendiente** · prioridad 5 · rigor `critico` · SDD sí · rama `feature/F-073-bloquear-aprobar-en-espera`
+
+**Spec**: sin spec
+
+Alta por la decisión D5-b de F-068 (humano, 2026-11-13). Hoy un parte en espera por un recálculo pedido desde el portal (fecha, celda, Traer de Sigrid y, con F-068, Conciliar, reasignar y deshacer empleado) se puede aprobar (F-047 DA3-B), así que durante la pasada de sv3 (~30 s–2 min) cabe aprobar con extras sin recalcular. A ESTUDIAR: bloquear la aprobación mientras dure ese recálculo salvo el «Aplicar» de F-046; distinguir el pedido de sv4 del de F-046 exige guardar su origen (hoy recalculo_pedido_id es String(36), solo el uuid) ⇒ cambio de esquema en orm_models.py (sv3 y sv4) y migración; mensaje al usuario y qué pasa si la pasada no llega (pedido huérfano). Ver specs/F-068-conciliar-pide-recalculo/design.md §9 D5.
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
@@ -217,6 +218,14 @@ estado **spec lista** · prioridad 16 · rigor `estandar` · SDD sí · rama `fe
 **Spec**: aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A)
 
 Alta pedida por el humano el 2026-10-26 (respuesta literal «si» a la propuesta del líder), a raíz de un aviso de la sesión de `facturas`: al aprobar el despliegue de su F-008, el humano eligió copiar nuestro sv1 (`create_sv1_poller.ps1`, una réplica siempre activa que mira el buzón cada 60 s), dijo «ya arreglaremos lo del hook» y pidió la misma feature en `facturas` (su F-077), `albaranes` y `partes`. Objetivo: sustituir el sondeo por notificaciones de cambio de Microsoft Graph sobre el buzón `partes@ruesma.es`, para que el contenedor escale desde cero en vez de pagar una réplica 24/7 (coste fijo estimado por `facturas` en 10-35 USD/mes por servicio, sin confirmar). A resolver en la spec: endpoint público nuevo (validationToken en el alta, clientState en cada aviso) y su autenticación; renovación de la suscripción (la de correo caduca en ~3 días); barrido de respaldo (Graph no garantiza la entrega); arranque en frío frente al plazo de respuesta de Graph; idempotencia (no procesar dos veces el mismo correo); coste real medido. Coordinación: diseño común con `facturas` (F-077) y `albaranes`, documentado en `azure-apps`, no tres distintos.
+
+### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
+
+estado **terminada** · cerrada el 2026-11-15 · spec aprobada el 2026-11-13 · OK del humano el 2026-11-15 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-068-conciliar-pide-recalculo`
+
+**Spec**: specs/F-068-conciliar-pide-recalculo/
+
+Hotfix pedido por el humano el 2026-11-10 («apúntalo como hotfix»). Caso: obra 0694, 04/11/2026, trabajador que no se casó solo por venir escrito a mano; se casó a mano en Conciliar y su línea de 8,5 h quedó entera como ordinaria en vez de pasar por el cálculo de extras (jornada 8 h ⇒ 8 HLOF + 0,5 HEOF). Causa (sv4, interface_adapters/web/app.py, conciliacion_confirmar): POST /api/conciliacion/confirmar solo hace backfill_empleado y upsert_empleado_alias y NO pide recálculo, a diferencia del editor de celda, la fecha o el reajuste (_pedir_recalculo_seguido / _pedir_recalculo_compartido de F-042/F-043/F-049). Se corrigió solo en la siguiente pasada completa de sv3 del 2026-11-10 (al entrar partes nuevos): hoy la línea 20545 tiene 8 h HLOF y la 20717 0,5 h HEOF, ambas sin registrar. Riesgo: aprobar entre el casado y esa pasada escribiría en Sigrid las 8,5 h como ordinarias. Arreglo propuesto: tras un casado con líneas actualizadas, pedir el recálculo de los documentos afectados (los de las líneas casadas, no congeladas) con su motivo y seguimiento, y que el portal lo diga como en el editor de celda. Solo sv4; sin esquema nuevo. Pendiente de spec.
 
 ### F-001 · Test de estructura del monorepo (calentamiento)
 

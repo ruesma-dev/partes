@@ -1031,3 +1031,20 @@ humano: cerrar y cambiar sv2 a `gemini-4-argon`. Pendiente: desplegar sv3 y sv2,
   - cobertura del 99,9 % de las líneas cambiadas;
   - mutación 21: 18 muertos y 3 matados después con el test del log de excluidas.
 - Pendiente: fusionar después de F-052, desplegar sv4 y M2 del humano. F-067 (sv3 y sv5, con el guardián de gemelos). F-006 retirada.
+
+## F-068 · Conciliar, reasignar y deshacer trabajador piden a sv3 el recálculo de extras — done 2026-11-15
+
+- Rama `feature/F-068-conciliar-pide-recalculo` · rigor critico · sdd=true · spec aprobada
+  2026-11-13 (D1-a, D2-a, D3-b, D4-b, D5-b ⇒ F-073, D6-a) · OK del humano 2026-11-15.
+- Solo sv4: `conciliacion_confirmar`, `empleado_reasignar` y deshacer `empleado` piden UN
+  recálculo compartido (`_pedir_recalculo_compartido`) de los partes tocados no congelados,
+  motivos `casado_conciliacion`, reasignación y deshacer; `partes_recalculo` = 0 si no hubo pedido.
+  Si el pedido falla, el casado queda guardado y el portal avisa (D6-a).
+- Enmiendas expresas del humano a guardianes: F-017 `_actor(request)` 21→23 (2026-11-13) y
+  F-047 R23 descuenta `F068_CONCILIAR` (2026-11-15).
+- Review: principal CHANGES_REQUESTED (RM7 en reasignar, R3) → APPROVED pasada 2 (f6ac5b5);
+  evidencias APPROVED (`progress/review_F-068.md`). Mutación: 10 candidatos, 10 muertos, 0
+  supervivientes (`progress/mutacion_F-068.md`). sv4 3830 passed, cobertura 100 % (38/38).
+- `azure-apps` ef721cd (`partes.md`, motivos nuevos).
+- Pendiente: desplegar sv4 (lo pide el humano) y M1 manual. Encargo a `arnes-base`
+  `ENCARGO_pendiente_rango_de_mutantes_y_json_de_campana.md`.

@@ -119,11 +119,15 @@ from infrastructure.database.parte_repository import (
 from infrastructure.database.session_factory import SessionFactory
 from infrastructure.persistencia.recalculo_publisher import (
     ESTADO_FALLO,
+    ESTADO_PEDIDO,
     MOTIVO_CAMBIO_FECHA,
+    MOTIVO_CASADO_CONCILIACION,
     MOTIVO_DESHACER_CELDA,
     MOTIVO_DESHACER_FECHA,
+    MOTIVO_DESHACER_TRABAJADOR,
     MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
+    MOTIVO_REASIGNACION,
     MOTIVO_SINCRONIZAR,
     RecalculoPublisher,
     pedir_recalculo,
@@ -717,6 +721,30 @@ def build_app(
                     "%s (%s); los partes esperaran hasta vencer.",
                     marcado, type(exc).__name__)
         return estado, marcado
+
+    def _recalculo_de_trabajador(documentos: list[str], motivo: str,
+                                 actor: str | None, *, etiqueta: str,
+                                 updated: int, congeladas: int) -> dict:
+        """F-068 (R1-R8): `{recalculo, partes_recalculo}` tras casar,
+        reasignar o deshacer un trabajador.
+
+        Sin partes (nada escrito) no marca ni publica: `recalculo` None y
+        0 partes (R2). Con partes, UN recalculo con pedido compartido
+        (D1-a, D2-a) y un INFO sin nombres, DNI ni nombre leido (R8). No
+        lanza: `_pedir_recalculo_compartido` ya no lanza (R5-R7).
+        `partes_recalculo` cuenta los partes en espera: 0 si no hubo pedido
+        (`sin_cola`, o `fallo`, que lo anula), como dice R3.
+        """
+        if not documentos:
+            return {"recalculo": None, "partes_recalculo": 0}
+        estado, pedido = _pedir_recalculo_compartido(
+            documentos, motivo, actor)
+        logger.info("[%s] casado updated=%s congeladas=%s documentos=%s "
+                    "pedido=%s recalculo=%s", etiqueta, updated, congeladas,
+                    documentos, pedido, estado)
+        return {"recalculo": estado,
+                "partes_recalculo": (len(documentos)
+                                     if estado == ESTADO_PEDIDO else 0)}
 
     # Resolver de trabajadores SIN codigo de hora extra (fuente: reshor de
     # Sigrid, ANCLADO POR DNI), con cache en proceso de 10 min. Ante fallo
@@ -1519,11 +1547,12 @@ def build_app(
                  f"recurso_ide={data.get('recurso_ide')!r}."},
                 status_code=400,
             )
+        docs: list[str] = []   # F-068: los partes que el casado escribe
         try:
             updated, congeladas = repository.backfill_empleado(
                 nombre_leido=nombre_leido, ide=emp["ide"],
                 codigo=emp["codigo"], nombre=emp["nombre"], dni=emp["dni"],
-                reside=emp["reside"],
+                reside=emp["reside"], documentos=docs,
             )
         except Exception as exc:  # noqa: BLE001
             logger.exception("[conciliacion] backfill fallo")
@@ -1547,14 +1576,20 @@ def build_app(
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False
                 logger.warning("[conciliacion] alias no guardado: %r", exc)
-        return JSONResponse({
+        res = {
             "ok": True, "updated": updated, "alias_ok": alias_ok,
             # F-004 R8: las lineas congeladas se omiten; decirlo evita
             # que el usuario crea que su casado se aplico entero.
             "congeladas": congeladas,
             "empleado": {"ide": emp["ide"], "codigo": emp["codigo"],
                          "nombre": emp["nombre"]},
-        })
+        }
+        # F-068 (R1): DESPUES de los commits del casado y del alias, para
+        # que la pasada de sv3 los lea.
+        res.update(_recalculo_de_trabajador(
+            docs, MOTIVO_CASADO_CONCILIACION, _actor(request),
+            etiqueta="conciliacion", updated=updated, congeladas=congeladas))
+        return JSONResponse(res)
 
     @app.get("/api/conciliacion/buscar")
     def conciliacion_buscar(
@@ -1615,13 +1650,14 @@ def build_app(
         updated = 0
         congeladas = 0
         leidos: list[str] = []
+        docs: list[str] = []   # F-068 (R17): los partes que se escriben
         try:
             if isinstance(registro_ids_in, list) and registro_ids_in:
                 ids = [_as_int(x) for x in registro_ids_in]
                 ids = [x for x in ids if x is not None]
                 updated, congeladas = (
                     repository.reassign_empleado_by_registro_ids(
-                        registro_ids=ids, **quien,
+                        registro_ids=ids, documentos=docs, **quien,
                     )
                 )
                 # Acotado a lineas concretas: no se crea alias de mapeo.
@@ -1634,18 +1670,18 @@ def build_app(
                         status_code=400,
                     )
                 updated, congeladas = repository.reassign_empleado_by_leido(
-                    nombre_leido=leido, **quien,
+                    nombre_leido=leido, documentos=docs, **quien,
                 )
                 leidos = [leido]
             elif worker_key:
                 updated, leidos, congeladas = (
                     repository.reassign_empleado_by_worker_key(
-                        worker_key=worker_key, **quien,
+                        worker_key=worker_key, documentos=docs, **quien,
                     )
                 )
             elif nombre_leido_in:
                 updated, congeladas = repository.reassign_empleado_by_leido(
-                    nombre_leido=nombre_leido_in, **quien,
+                    nombre_leido=nombre_leido_in, documentos=docs, **quien,
                 )
                 leidos = [nombre_leido_in]
             else:
@@ -1676,12 +1712,18 @@ def build_app(
             except Exception as exc:  # noqa: BLE001
                 alias_ok = False
                 logger.warning("[reasignar] alias no guardado: %r", exc)
-        return JSONResponse({
+        res = {
             "ok": True, "updated": updated, "alias_ok": alias_ok,
             "congeladas": congeladas,   # F-004 R8
             "empleado": {"ide": emp["ide"], "codigo": emp["codigo"],
                          "nombre": emp["nombre"]},
-        })
+        }
+        # F-068 (R17, D3-b): como Conciliar, tras la reasignacion y los
+        # alias.
+        res.update(_recalculo_de_trabajador(
+            docs, MOTIVO_REASIGNACION, _actor(request),
+            etiqueta="reasignar", updated=updated, congeladas=congeladas))
+        return JSONResponse(res)
 
     # ----------------------------- DESHACER --------------------------- #
     @app.get("/api/undo/list", include_in_schema=False)
@@ -1722,6 +1764,13 @@ def build_app(
             if ids:
                 res["recalculo"], _pedido = _pedir_recalculo_compartido(
                     ids, MOTIVO_DESHACER_CELDA, actor)
+        if (res.get("ok") and res.get("action") == "empleado"
+                and res.get("document_ids")):
+            # F-068 (R19, D4-b): deshacer casar o reasignar cambia la
+            # jornada de esas lineas como el casado; UN recalculo
+            # compartido de los partes de las lineas restauradas.
+            res["recalculo"], _pedido = _pedir_recalculo_compartido(
+                res["document_ids"], MOTIVO_DESHACER_TRABAJADOR, actor)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)

@@ -1034,15 +1034,18 @@
       "title": "Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día",
       "description": "Hotfix pedido por el humano el 2026-11-10 («apúntalo como hotfix»). Caso: obra 0694, 04/11/2026, trabajador que no se casó solo por venir escrito a mano; se casó a mano en Conciliar y su línea de 8,5 h quedó entera como ordinaria en vez de pasar por el cálculo de extras (jornada 8 h ⇒ 8 HLOF + 0,5 HEOF). Causa (sv4, interface_adapters/web/app.py, conciliacion_confirmar): POST /api/conciliacion/confirmar solo hace backfill_empleado y upsert_empleado_alias y NO pide recálculo, a diferencia del editor de celda, la fecha o el reajuste (_pedir_recalculo_seguido / _pedir_recalculo_compartido de F-042/F-043/F-049). Se corrigió solo en la siguiente pasada completa de sv3 del 2026-11-10 (al entrar partes nuevos): hoy la línea 20545 tiene 8 h HLOF y la 20717 0,5 h HEOF, ambas sin registrar. Riesgo: aprobar entre el casado y esa pasada escribiría en Sigrid las 8,5 h como ordinarias. Arreglo propuesto: tras un casado con líneas actualizadas, pedir el recálculo de los documentos afectados (los de las líneas casadas, no congeladas) con su motivo y seguimiento, y que el portal lo diga como en el editor de celda. Solo sv4; sin esquema nuevo. Pendiente de spec.",
       "acceptance": [
-        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
-        "bash harness/init.sh en verde y APPROVED del reviewer"
+        "Requisitos R1-R22 y verificación M1 de specs/F-068-conciliar-pide-recalculo/requirements.md (R17-R19 según D3 y D4)",
+        "bash harness/init.sh en verde y APPROVED del reviewer contra CHECKPOINTS.md"
       ],
-      "status": "pending",
+      "status": "done",
+      "spec_aprobada": "2026-11-13",
       "sdd": true,
       "rigor": "critico",
       "priority": 2,
       "branch": "feature/F-068-conciliar-pide-recalculo",
-      "spec": "sin spec"
+      "spec": "specs/F-068-conciliar-pide-recalculo/",
+      "ok_humano": "2026-11-15",
+      "fecha_cierre": "2026-11-15"
     },
     {
       "id": "F-069",
@@ -1099,6 +1102,21 @@
       "spec": "sin spec",
       "branch": "feature/F-072-postventa-var-como-obras",
       "description": "Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
+    },
+    {
+      "id": "F-073",
+      "title": "Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4",
+      "priority": 5,
+      "rigor": "critico",
+      "sdd": true,
+      "status": "pending",
+      "spec": "sin spec",
+      "branch": "feature/F-073-bloquear-aprobar-en-espera",
+      "description": "Alta por la decisión D5-b de F-068 (humano, 2026-11-13). Hoy un parte en espera por un recálculo pedido desde el portal (fecha, celda, Traer de Sigrid y, con F-068, Conciliar, reasignar y deshacer empleado) se puede aprobar (F-047 DA3-B), así que durante la pasada de sv3 (~30 s–2 min) cabe aprobar con extras sin recalcular. A ESTUDIAR: bloquear la aprobación mientras dure ese recálculo salvo el «Aplicar» de F-046; distinguir el pedido de sv4 del de F-046 exige guardar su origen (hoy recalculo_pedido_id es String(36), solo el uuid) ⇒ cambio de esquema en orm_models.py (sv3 y sv4) y migración; mensaje al usuario y qué pasa si la pasada no llega (pedido huérfano). Ver specs/F-068-conciliar-pide-recalculo/design.md §9 D5.",
       "acceptance": [
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"

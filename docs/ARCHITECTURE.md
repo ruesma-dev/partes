@@ -31,8 +31,9 @@ Puntos de entrada: `main.py` en todos; sv2 y sv3 tienen además
 sv1→sv2→sv3 por colas de Azure Storage (`q-extraccion`, `q-persistencia`,
 at-least-once); desde **F-042**, sv4 también publica en `q-persistencia`
 un mensaje `{"tipo": "recalcular", ...}` al guardar o deshacer la fecha de
-un parte o (F-049) una celda de la matriz de obra (semántica 3), que sv3
-distingue del de sv2 (sin `tipo`);
+un parte, (F-049) una celda de la matriz de obra o (F-068) al casar,
+reasignar o deshacer un trabajador (semántica 3), que sv3 distingue del de
+sv2 (sin `tipo`);
 sv4↔sv5 por **doble canal** (ver más abajo);
 sv2/sv3/sv4/sv5→Sigrid solo a través de `sigrid-api` (Function App). No hay
 librería compartida: los servicios se acoplan únicamente por mensajes,
@@ -207,8 +208,8 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    fecha se guarda aunque la cola falle y el portal lo avisa
    (`recalculo`: `pedido`, `fallo`, `sin_cola`). En sv3 un recálculo
    fallido se reintenta y acaba en `q-persistencia-poison`. Editar horas,
-   trabajador, obra o líneas sigue esperando a la siguiente pasada (salvo
-   el editor de celda de F-049, abajo).
+   obra o líneas sigue esperando a la siguiente pasada (salvo el editor de
+   celda de F-049 y el trabajador desde F-068, abajo).
    **F-043**: el portal confirma el cambio de fecha con el alcance del parte
    (`GET /api/partes/{id}/alcance`: trabajadores y líneas activas) y sigue el
    recálculo: antes de publicar, sv4 escribe en el documento
@@ -251,6 +252,22 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    pedido de un solo parte (uuid4) o el de F-047 (el id del parte) nunca
    coincide con el de otro. Despliegue: **sv3 antes que sv4** (con sv4
    nuevo y sv3 viejo, las otras obras esperarían hasta vencer).
+   **F-068 · casar, reasignar y deshacer un trabajador**: una línea sin
+   casar no tiene jornada y sv3 no la reparte; al casarla quedaba entera
+   como ordinaria y aprobable hasta la siguiente pasada. Ahora
+   `POST /api/conciliacion/confirmar`, las cuatro formas de
+   `POST /api/empleado/reasignar` y deshacer una entrada `empleado` piden,
+   **después** de confirmar el casado (y el alias), UN recálculo con el
+   **pedido compartido** de F-049 sobre los partes de las líneas que
+   escribieron o restauraron (las congeladas omitidas no aportan parte;
+   `document_id` del mensaje = el primero por `id` de línea). Motivos
+   `casado_conciliacion`, `reasignacion_trabajador` y `deshacer_trabajador`.
+   Sin líneas escritas no se marca ni se publica (`recalculo` null). Las
+   respuestas añaden `recalculo` y `partes_recalculo`; el portal lo pinta en
+   la tarjeta de Conciliar y, si falla, avisa de no aprobar esos partes
+   hasta ver sus extras. Los partes del pedido quedan en espera (semántica
+   10) como los de una celda; aprobar durante la pasada sigue permitido
+   (F-047 DA3-B; estudiarlo es F-073). sv3 no cambia.
 4. **Incidencias sin horas** (`can=0`) y **solo inicio/fin de racha**
    (código CI* el primer día, CIZ el último); los intermedios no se
    registran. Sigrid pinta el tramo completo a partir del par — verlo con

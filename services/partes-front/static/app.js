@@ -1476,6 +1476,22 @@ var FiltrosSesion = (function () {
   // ---------------------------------------------------------------- //
   // Conciliacion de trabajadores: casar (confirmar) + buscar manual.
   // ---------------------------------------------------------------- //
+  // F-068 (R14-R16, D6-a): que dice la tarjeta del recalculo de extras que
+  // pidio el casado. `[texto, clase]`, o null si no hay nada que decir
+  // (`recalculo` null o una respuesta de un sv4 anterior, sin la clave).
+  function textoRecalculoCasado(recalculo, partes) {
+    if (recalculo === "pedido")
+      return ["· recalculando extras de " + partes + " parte(s) (1–2 min)",
+              "recon-recalculo"];
+    if (recalculo === "sin_cola")
+      return ["(sin recálculo automático)", "recon-recalculo"];
+    if (recalculo === "fallo")
+      return ["Casado guardado, pero no se pudo pedir el recálculo de " +
+              "extras: se hará en la siguiente pasada. No apruebes esos " +
+              "partes hasta ver sus extras.", "recon-status error"];
+    return null;
+  }
+
   // F-035 (R11): se casa con un RECURSO activo (con o sin ficha de empleado).
   function _confirmarCasado(nombre, recursoIde, card, statusEl) {
     if (statusEl) { statusEl.textContent = "Casando…"; statusEl.className = "recon-status"; }
@@ -1498,12 +1514,19 @@ var FiltrosSesion = (function () {
           return;
         }
         if (card) {
+          // F-068: el fallo va aparte y se queda (estilo de error); el
+          // pedido y el «sin cola», a continuacion del recuento.
+          var rec = textoRecalculoCasado(res.d.recalculo, res.d.partes_recalculo);
+          var esFallo = rec && rec[1] !== "recon-recalculo";
           card.classList.add("recon-done");
           card.innerHTML = '<div class="recon-head"><div class="recon-id">' +
             '<span class="recon-name">' + _esc(nombre) + '</span>' +
             '<span class="recon-meta">✓ Casado con <strong>' + _esc(label) + '</strong> · ' +
-            res.d.updated + ' registro(s) actualizados</span></div>' +
-            '<span class="badge ok">Hecho</span></div>';
+            res.d.updated + ' registro(s) actualizados' +
+            (rec && !esFallo ? ' <span class="' + rec[1] + '">' + _esc(rec[0]) + '</span>' : '') +
+            '</span></div>' +
+            '<span class="badge ok">Hecho</span></div>' +
+            (esFallo ? '<div class="' + rec[1] + '">' + _esc(rec[0]) + '</div>' : '');
         }
       }).catch(function (e) {
         if (statusEl) { statusEl.textContent = "✗ " + (e.message || "Error"); statusEl.className = "recon-status error"; }
@@ -1634,6 +1657,10 @@ var FiltrosSesion = (function () {
           return;
         }
         flashEl(input, "saved");
+        // F-068 (R18): la recarga ya pinta el parte en espera; si no se
+        // pudo pedir el recalculo, se avisa ANTES de recargar.
+        if (res.d.recalculo === "fallo")
+          alert(textoRecalculoCasado("fallo", res.d.partes_recalculo)[0]);
         // El agrupado por trabajador cambia: recargamos para reflejarlo.
         window.location.reload();
       }).catch(function () {

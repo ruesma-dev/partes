@@ -280,7 +280,11 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     `POST /api/franquicia/decidir` (F-056 R45, R21; DA28 = A, el humano el
     2026-10-27): veinte. Y la de `POST /api/sincronizar/aplicar` (F-052
     R22: toda acción de sincronizar que escribe firma con `_actor(request)`;
-    spec aprobada por el humano el 2026-11-02): veintiuna.
+    spec aprobada por el humano el 2026-11-02): veintiuna. Y las dos de
+    F-068: `POST /api/conciliacion/confirmar` y `POST /api/empleado/reasignar`
+    firman el `solicitado_por` del recalculo de extras que piden tras casar
+    o reasignar un trabajador (deshacer ya lo leia; enmienda de R21 y de
+    `design.md` §5 por decision del humano, 2026-11-13): veintitres.
 
     Las nueve: aprobar documento, borrar documento, borrar linea, borrar
     obra, borrar trabajador, alta manual, preflight, aprobar sincrono y
@@ -293,4 +297,4 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     encargan los tests de R11.
     """
     fuente = _fuente(APP)
-    assert fuente.count("_actor(request)") == 21
+    assert fuente.count("_actor(request)") == 23

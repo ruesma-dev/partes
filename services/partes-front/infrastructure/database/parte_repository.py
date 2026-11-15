@@ -1038,6 +1038,15 @@ def _separar_congeladas(
     return libres, len(regs) - len(libres)
 
 
+def _documentos_de(regs) -> list[str]:
+    """F-068 (design §4): los `document_id` de esas lineas, en orden de `id`
+    de linea, sin repetir y sin vacios. Son los partes a los que casar,
+    reasignar o deshacer un trabajador pide el recalculo de extras."""
+    return list(dict.fromkeys(
+        r.document_id for r in sorted(regs, key=lambda r: r.id)
+        if r.document_id))
+
+
 def _soltar_recurso(reg: ParteRegistroOrm) -> None:
     """F-023 (R42): al casar o reasignar el EMPLEADO de una linea, el
     recurso que tenia era el de la persona anterior. Se suelta todo lo que
@@ -3377,12 +3386,16 @@ class ParteReviewRepository:
     def backfill_empleado(
         self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, int]:
         """Asigna el empleado a TODOS los registros activos sin casar cuyo
         nombre leido (normalizado) coincide.
 
         Devuelve (filas tocadas, filas omitidas por congelacion: R8).
+
+        F-068 (R4, R22): con `documentos`, tras el commit se le añaden los
+        partes de las lineas escritas (`_documentos_de`); el retorno no
+        cambia.
         """
         target = tm.normalize(nombre_leido)
         if not target:
@@ -3414,7 +3427,10 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide} ({len(affected)} reg.)",
                 registros=reg_snaps, aliases=alias_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), congeladas
 
     def upsert_empleado_alias(
@@ -3713,6 +3729,10 @@ class ParteReviewRepository:
         la papelera (`deleted_by` = `actor`; las hoy congeladas se omiten),
         `document_ids` son los partes de sus líneas y `afectadas`, las otras
         obras del mismo día en ese momento (R38), para su recálculo (R27).
+
+        F-068 (R19, D4-b): en una entrada `empleado` (casar o reasignar),
+        `document_ids` son los partes de las lineas RESTAURADAS
+        (`_documentos_de`); las omitidas por congelacion no cuentan.
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -3731,6 +3751,7 @@ class ParteReviewRepository:
             except Exception:  # noqa: BLE001
                 payload = {}
             omitidos = 0
+            restauradas: list[ParteRegistroOrm] = []
             for snap in payload.get("documents", []):
                 doc = session.get(ParteDocumentOrm, snap.get("id"))
                 if doc is None:
@@ -3747,6 +3768,7 @@ class ParteReviewRepository:
                     omitidos += 1
                     continue
                 _apply_reg_snapshot(reg, snap)
+                restauradas.append(reg)
             for snap in payload.get("aliases", []):
                 self._apply_alias_snapshot(session, snap)
             celda = None
@@ -3755,6 +3777,7 @@ class ParteReviewRepository:
                     session, payload, actor=actor)
                 omitidos += creadas_omitidas
             row.undone = True
+            partes_empleado = _documentos_de(restauradas)
             session.commit()
             remaining = len(list(session.execute(
                 select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
@@ -3769,6 +3792,8 @@ class ParteReviewRepository:
                "action": action,
                "document_ids": [snap.get("id")
                                 for snap in payload.get("documents", [])]}
+        if action == "empleado":
+            res["document_ids"] = partes_empleado
         if celda is not None:
             res.update(celda)
         return res
@@ -3837,12 +3862,13 @@ class ParteReviewRepository:
     def reassign_empleado_by_leido(
         self, *, nombre_leido: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, int]:
         """Reasigna el empleado a TODOS los registros activos cuyo nombre
         leido (normalizado) coincide, ESTEN o no casados (correccion).
 
-        Devuelve (filas tocadas, omitidas por congelacion: R8).
+        Devuelve (filas tocadas, omitidas por congelacion: R8). F-068
+        (R17, R22): `documentos` como en `backfill_empleado`.
         """
         target = tm.normalize(nombre_leido)
         if not target:
@@ -3871,18 +3897,22 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide} ({len(affected)} reg.)",
                 registros=reg_snaps, aliases=alias_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), congeladas
 
     def reassign_empleado_by_worker_key(
         self, *, worker_key: str, ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, list[str], int]:
         """Reasigna todos los registros activos del grupo (worker_key).
 
         Devuelve (filas, nombres_leidos_distintos, omitidas por
         congelacion: R8); los nombres leidos sirven para escribir alias.
+        F-068 (R17, R22): `documentos` como en `backfill_empleado`.
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -3914,20 +3944,24 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide} ({len(affected)} reg.)",
                 registros=reg_snaps, aliases=alias_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), leidos, congeladas
 
     def reassign_empleado_by_registro_ids(
         self, *, registro_ids: list[int], ide: int | None,
         codigo: str | None, nombre: str | None, dni: str | None,
-        reside: int | None = None,
+        reside: int | None = None, documentos: list[str] | None = None,
     ) -> tuple[int, int]:
         """Reasigna el empleado SOLO a los registros indicados (activos).
 
         A diferencia de ``reassign_empleado_by_leido`` (que afecta a TODOS los
         registros con el mismo nombre leido), esto acota el cambio exactamente
         a ``registro_ids`` y NO crea alias: es una correccion por linea, no una
-        regla de mapeo nombre->empleado.
+        regla de mapeo nombre->empleado. F-068 (R17, R22): `documentos`
+        como en `backfill_empleado`.
         """
         ids = [int(x) for x in registro_ids if x is not None]
         if not ids:
@@ -3954,7 +3988,10 @@ class ParteReviewRepository:
                             f"{nombre or codigo or ide}",
                 registros=reg_snaps,
             )
+            partes = _documentos_de(affected)
             session.commit()
+        if documentos is not None:
+            documentos.extend(partes)
         return len(affected), congeladas
 
     def get_sharepoint_ref(self, document_id: str) -> dict | None:
