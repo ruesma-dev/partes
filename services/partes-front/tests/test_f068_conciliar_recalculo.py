@@ -250,8 +250,9 @@ def test_f068_conciliar_e5_r5_cola_caida(montaje) -> None:
         _uno, cola=ColaFake(error=RuntimeError("cola caida")))
     r = _casar(cliente)
     assert r.status_code == 200
+    # R3: sin pedido (se anuló al fallar la cola) no hay partes en espera.
     assert (r.json()["recalculo"], r.json()["partes_recalculo"]) == (
-        "fallo", 1)
+        "fallo", 0)
     assert _pedido(fabrica, "d-1") is None            # pedido quitado
     assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] == 4242
     assert _alias(fabrica) == 4242
@@ -261,8 +262,9 @@ def test_f068_conciliar_e6_sin_cola(montaje) -> None:
     cliente, _cola, fabrica, ids = montaje(_uno, sin_cola=True)
     r = _casar(cliente)
     assert r.status_code == 200
+    # R3: sin cola no se marca pedido alguno.
     assert (r.json()["recalculo"], r.json()["partes_recalculo"]) == (
-        "sin_cola", 1)
+        "sin_cola", 0)
     assert _pedido(fabrica, "d-1") is None
     assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] == 4242
 
@@ -543,6 +545,7 @@ def test_f068_r17_reasignar_cola_caida_200_fallo(montaje) -> None:
         _uno, cola=ColaFake(error=RuntimeError("cola caida")))
     r = _reasignar(cliente, nombre_leido=LEIDO)
     assert r.status_code == 200 and r.json()["recalculo"] == "fallo"
+    assert r.json()["partes_recalculo"] == 0               # R3
     assert _pedido(fabrica, "d-1") is None
     assert datos_registros(fabrica, ids)[ids[0]]["empleado_ide"] == 4242
 
@@ -641,3 +644,11 @@ def test_f068_r17_el_mensaje_sale_tras_la_reasignacion_y_los_alias(
     assert r.status_code == 200 and r.json()["recalculo"] == "pedido"
     assert visto["empleado"] == 4242 and visto["alias"] == 4242
     assert visto["pedido"] is not None
+
+
+def test_f068_r17_reasignar_sin_cola_partes_cero(montaje) -> None:
+    cliente, _c, fabrica, _ids = montaje(_uno, sin_cola=True)
+    r = _reasignar(cliente, nombre_leido=LEIDO)
+    assert (r.json()["recalculo"], r.json()["partes_recalculo"]) == (
+        "sin_cola", 0)
+    assert _pedido(fabrica, "d-1") is None
