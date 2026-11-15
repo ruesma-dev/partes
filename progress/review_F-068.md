@@ -1,94 +1,90 @@
 <!-- progress/review_F-068.md -->
-Revisión incremental desde 7f659dd (pasada 2, principal) · HEAD `f6ac5b5`, base `dev` `7e5f600`
+Revisión de evidencias desde f6ac5b5 (pasada de evidencias) · HEAD `94ecd18`, base `dev` `7e5f600`
 
-# F-068 · Review del reviewer (principal)
+# F-068 · Review del reviewer (evidencias)
 
-- **Veredicto pasada 2:** APPROVED (SHA aprobado: `f6ac5b5`)
-- **Pasada 1** (completa, HEAD `7f659dd`): CHANGES_REQUESTED por 3 cambios (RM7 en reasignar,
-  R3 contra `partes_recalculo`, T16 sin marcar). Los tres, resueltos abajo.
-- **Rigor:** `critico` (declarado): fase RED, cobertura ≥ 90 %, mutación exigida (uno por línea,
-  60 %, [100, 300]) sin supervivientes sin justificar, RM1–RM7, MANUAL listadas; e2e informativa.
+- **Veredicto (evidencias):** APPROVED
+- **Principal** (pasada 2, incremental desde `7f659dd`): APPROVED en `f6ac5b5`, tras resolver los
+  3 cambios de la pasada 1 (RM7 en reasignar, R3 con `partes_recalculo` = 0 salvo `pedido`, T16).
+  Detalle: `git show 5c84138:progress/review_F-068.md`.
+- **Rigor:** `critico` (declarado). Exige fase RED, cobertura ≥ 90 %, mutación (uno por línea,
+  60 % de los candidatos acotado a [100, 300]; con ≤ 100 candidatos, campaña completa),
+  0 supervivientes sin justificar y RM1–RM7. e2e informativa.
 
-## Pasada 2 · lo que se ejecutó (salida real)
+## Lo que se ejecutó (salida real)
 
-- `ARNES_SIN_CACHE=1 bash harness/init.sh` ⇒ **exit 0**, ninguna suite por caché: raíz 2457 passed
-  / 50 skipped; sv1 74, sv2 422, sv3 2453 (2 skipped), **sv4 3830 passed / 1 skipped** (+3 tests
-  nuevos), sv5 1628. `PUERTA COBERTURA: 100.0% de 38 líneas (umbral 90 %)`, `PUERTA TAMAÑO` OK
-  (impl 220/220), `CAPA E2E: N/A`. Avisos previos: F-032 blocked, ruff 1013, infra sin tests.
-- Delta `git diff 7f659dd..HEAD`: `app.py` (+7/−2), `test_f068_conciliar_recalculo.py` (+32),
-  `test_f068_conciliar_js.py` (3 valores de entrada), `tasks.md` (T16), `impl_F-068.md`,
-  `current.md`. No toca ficheros nuevos, firmas públicas ni el alcance medido: lo aprobado en la
-  pasada 1 sigue valiendo.
+- `ARNES_SIN_CACHE=1 bash harness/init.sh` ⇒ **exit 0**, «ENTORNO LISTO»: raíz 2457 passed /
+  50 skipped; sv1 74, sv2 422, sv3 2453 (2 skipped), sv4 3830 (1 skipped), sv5 1628.
+  `PUERTA COBERTURA: 100.0% de 38 líneas (umbral 90 %, del nivel critico)`, `PUERTA TAMAÑO` OK,
+  `CAPA E2E: N/A`. Capa local: solo `mutacion.timeout_por_mutante_s`; la rama no toca
+  `harness/rigor.local.json` (sin aviso `CAPA LOCAL DE RIGOR`).
+- Delta `git diff f6ac5b5..HEAD`: `progress/review_F-068.md` (5c84138); `progress/mutacion_F-068.md`,
+  `progress/impl_F-068.md` (fila de mutantes y «Pendiente») y `tasks.md` (T14 `[x]`) en 94ecd18.
+  **Ninguna línea de producción ni de tests**: lo aprobado sigue valiendo.
+- Recálculo puro (script en mi scratchpad: `harness.alcance.alcance_de_feature` +
+  `generar_mutantes` + `seleccionar` con la regla `critico` y la semilla 20261030) sobre HEAD:
 
-## Verificación de los tres cambios
+| Fichero (sv4) | Líneas | Mutantes (informe / recalculado) |
+|---|---|---|
+| `infrastructure/database/parte_repository.py` | 43 | 9 / 9 |
+| `infrastructure/persistencia/recalculo_publisher.py` | 5 | 0 / 0 |
+| `interface_adapters/web/app.py` | 58 | 7 / 7 |
+| **Total** | **106** | **16 / 16** → **10 candidatos**, tope 100, 10 elegidos |
 
-1. **RM7 · R17 (827e111).** Nuevo
-   `test_f068_r17_el_mensaje_sale_tras_la_reasignacion_y_los_alias[nombre_leido|worker_key]`, con
-   `cola.al_enviar` como el de R1. Reaplicada **mi misma mutación** (subir
-   `_recalculo_de_trabajador` por encima del bucle de alias en `empleado_reasignar`) sobre una copia
-   del HEAD `f6ac5b5` en mi scratchpad, nunca en el árbol:
-   - copia sin mutar: tests F-068 **79 passed**;
-   - mutante reasignar: **ROJO**, `2 failed, 77 passed` (las dos formas del test nuevo);
-   - mutante conciliar (control): **ROJO**, `1 failed` (`..._r1_el_mensaje_sale_tras_el_casado_y_el_alias`).
-   Ahora caen tests **de la propia feature**, sin necesitar una suite vecina. RM7 [x].
-2. **Cambio 2 · R3, opción (a) decidida por el humano el 2026-11-15** (consta en `current.md` y en
-   `impl_F-068.md` § «Review ciclo 1»; R3 no se enmienda). `_recalculo_de_trabajador` devuelve
-   `partes_recalculo = len(documentos)` solo si `estado == ESTADO_PEDIDO`, y 0 con `sin_cola` y
-   `fallo`. RED real en el informe (3676be9: `assert ('fallo', 1) == ('fallo', 0)`, `4 failed`).
-   Tests: `e5_r5_cola_caida` y `e6_sin_cola` a 0, `r17_reasignar_cola_caida_200_fallo` afirma 0,
-   nuevo `r17_reasignar_sin_cola_partes_cero`. El JS solo usa N con `pedido`: sus tres tests de
-   `fallo`/`sin_cola` cambian solo el valor de entrada, no lo que afirman. `undo_apply` no devuelve
-   `partes_recalculo` (como antes). [x]
-3. **T16** `[x]` en `tasks.md` y frase «Sin desviaciones» corregida en el informe (ahora explica la
-   discrepancia del ciclo 1 y la decisión del humano). [x]
+  Los 10 elegidos recalculados son **exactamente** los 10 de `progress/mutacion_F-068.json`
+  (misma clave fichero/línea/col/operador/original/mutado), todos con veredicto `muerto`.
 
-*Observación menor (no bloquea):* si **marcar** el pedido lanza (R6) pero publicar sale bien,
-`recalculo` es `pedido` y `partes_recalculo` = N aunque esos partes no queden en espera. El recálculo
-sí se pidió, así que el texto «recalculando extras de N parte(s)» es cierto; el docstring nuevo
-(«cuenta los partes en espera») es algo más estricto que el comportamiento en ese caso límite.
+## C4 bis · mutación (lo que la principal dejó pendiente)
 
-## Checkpoints (estado tras la pasada 2)
+- [x] **Informe de la herramienta** con totales reales: 16 generados, 10 evaluados, 10 muertos,
+  0 supervivientes, 0 timeouts, 0 indeterminados, **0 sin veredicto (base rota)**, sin cabecera
+  «⚠ CAMPAÑA NO VÁLIDA»; la línea base corrió en los 4 workers (885–894 s).
+- [x] **Regla del nivel.** `critico`: tope = `min(300, max(100, ceil(0,6 × C)))` = 100 con C = 10.
+  Como C ≤ tope, `seleccionar` no sortea: **campaña completa** de los candidatos, uno por línea.
+  El rango [100, 300] acota la *muestra*; no es un mínimo de mutantes evaluados: `rigor.json` lo
+  dice («con 100 candidatos o menos, campaña completa») y la GUÍA de la 1.10 lo repite. Un diff
+  con 10 líneas mutables no puede dar más. **Cumple.** La fila «Muestreo» del informe coincide.
+- [x] **Fichero sin mutantes** declarado, sin `PENDIENTE`. Sus 5 líneas en alcance (47–51) son dos
+  comentarios `#:` y tres constantes de cadena (`MOTIVO_*`). **Prueba de control**:
+  `generar_mutantes` sobre el fichero entero, sin exclusión de alcance ⇒ **3 mutantes** (en otras
+  líneas): el generador funciona y el cero es legítimo. Los valores los fijan
+  `test_f068_r20_constantes_de_motivo` y el contrato raíz de F-042 (+9 casos).
+- [x] **Muertos comprobados.** «Tiempo total» 3071,3 s (> 60 s): **campaña no reejecutada: 51 min
+  según el informe**; vale el recálculo puro y RM1–RM6. Coste por mutante = 3071,3 × 4 ÷ 10 ≈
+  1228 s, muy por encima de 1 s.
+- [x] **RM1.** SHA medido `5c84138c26b68a86556a28312ea74e5578393696` (completo). Entre `f6ac5b5` y
+  él, y entre él y HEAD, solo hay papeleo (`progress/`, `tasks.md`): el alcance medido es el
+  revisado, y mi recálculo sobre HEAD da el mismo (106 líneas, 16 mutantes). No hay que repetirla.
+- [x] **RM2.** Línea base ~890 s, media por mutante evaluado 307,1 s (≈ 0,34× la base: sin salto
+  de orden de magnitud); 10 × 307,1 = 3071 = «Tiempo total». La media con suite entera (523,7 s)
+  queda bajo la base porque cada muerto aborta con `-x`; con 10/10 muertos es lo esperable (caso
+  F-038). Corrió a la vez que la campaña de F-072 (declarado en el impl): solo la encarece.
+- [x] **RM3.** Revisados los 10 muertos uno a uno: ninguno equivalente. Los dos de `veracidad`
+  (`if documentos is not None:` → `if documentos:`, líneas 3432 y 3949 del repositorio) **no** lo
+  son: la ruta pasa un colector `[]` vacío, que con el mutante no se llena. Los de `comparacion`,
+  `not`, `entero` (0→1 en `partes_recalculo`) y `logico` (`and`→`or`) cambian lo observable.
+- [x] **RM4.** No hizo falta: ningún veredicto dudoso.
+- N/A **RM5**: ningún mutante declarado equivalente (0 supervivientes).
+- N/A **RM6**: el delta no toca producción; no se quitó ninguna guarda para matar mutantes.
+- [x] **RM7**: hecho en la principal sobre `f6ac5b5` (reasignar y conciliar, ambos ROJO con tests
+  de la propia feature); el delta no toca código y sigue vigente.
+- [x] **Supervivientes y su análisis**: ninguno; nada que reproducir.
+- [x] **Evidencias**: la fila de mutantes del impl trae totales, 4 workers, línea base y SHA.
+  Capa e2e: N/A (`CAPA E2E: N/A`, ningún servicio declara el bloque e2e).
+
+## Checkpoints (estado final)
 
 **C1** [x] init.sh sin caché exit 0 · [x] ficheros base.
-**C2** [x] una sola activa (F-068 `in_review`; F-032 `blocked` previa) · [x] prioridad · [x] rama
-· [x] `history.md` · [x] `current.md`: la sección F-068 es la sesión activa. *Observación:* el
-fichero arrastra ~4.300 líneas de sesiones anteriores ya presentes en `dev`; es cosa del líder.
-**C3** [x] hexagonal (`_documentos_de` en infraestructura, orquestación en la ruta como F-042/F-049)
-· [x] primera línea con ruta · [x] sin `print`, secretos ni dependencias nuevas · [x] trampas de
-dominio: no toca registro en Sigrid, incidencias ni esquema.
-**LÍMITE DE SERVICIO** [x] solo sv4 + test raíz + docs. Ni sv3, ni sv5, ni `orm_models.py`, ni
-`congelacion.py`, ni `esta_congelado`, ni gemelos de `CLAUDE.md`, ni
-`_pedir_recalculo_compartido`/`_seguido`, `marcar_/anular_*`, `_exigir_sin_recalculo`,
-`approve_document`, `lineas_para_registro`, `_validar_ambito`. Nada copiado entre servicios.
-**C3 bis** N/A: no toca `docs/referencia/`.
-**C3 ter** [x] decisiones del humano con fecha (D1–D6, las dos enmiendas y la opción (a) de R3).
-**C3 quater** N/A por la spec («¿Cruza la frontera? No»); revisado igual `azure-apps` `ef721cd`:
-solo `partes.md` (+13/−1), commit aparte, contenido coherente con design §1/§6. Que ya esté en
-`origin/main` (push del 2026-11-15 00:50) lo pregunta el líder al humano; no bloquea.
-**C4** [x] R1–R22 con test (tabla abajo), en verde · [x] sin red (SQLite, `ColaFake`, Sigrid falso)
-· [x] MANUAL M1 en `requirements.md` y `current.md` (T15, interfaz tras desplegar) · [x] dobles:
-el repositorio no tiene comprobador automático; cruce manual: los dobles nuevos son subclases del
-repositorio real y sobrescriben métodos que existen; ningún doble previo afectado.
-**C4 bis** [x] rigor declarado · [x] fase RED con trazas reales (T1, T3, T5, T8, T10, T11 y los dos
-cambios del ciclo 1; T7 caracterización declarada) · [x] cobertura OK 100 % · [x] **RM7** (arriba)
-· Mutación (totales, RM1–RM6, supervivientes, análisis, workers): **pendiente: pasada de
-evidencias** · [x] «Evidencias» con tests, cobertura, suite y «Capa e2e» (fila de mutantes
-pendiente de T14) · Capa e2e: N/A (`CAPA E2E: N/A`, ningún servicio la declara).
+**C2** [x] una sola activa (F-068 `in_review`) · [x] rama `feature/F-068-conciliar-pide-recalculo`.
+**C3** [x] (principal; el delta no toca código) · **LÍMITE DE SERVICIO** [x] solo sv4 + test raíz
++ docs · **C3 bis** N/A: no toca `docs/referencia/` · **C3 ter** [x] · **C3 quater** N/A por la
+spec (no cruza la frontera); `azure-apps` `ef721cd` revisado en la principal.
+**C4** [x] R1–R22 con test (tabla abajo) y en verde · [x] sin red · [x] MANUAL M1 listada.
+**C4 bis** [x] rigor · [x] fase RED · [x] cobertura 100 % · [x] mutación y RM1–RM7 (arriba) ·
+[x] Evidencias · Capa e2e N/A (motivo arriba).
 **C4 ter** N/A: la puerta no señala rutas sensibles.
-**C5** [x] T1–T13 y T16 `[x]`, commits `F-068 Tn:` (T12 verificación sin commit, declarado) ·
-T14 (campaña tras este APPROVED) y T15 (M1 del humano tras desplegar) pendientes por protocolo ·
-[x] árbol limpio salvo este informe · [x] `features.json` = `in_review`.
-
-## Lo pedido en especial (pasada 1, vigente)
-
-- **El casado no se pierde si el pedido falla:** el colector solo se llena tras el `commit`;
-  `_pedir_recalculo_compartido` y `pedir_recalculo` capturan marcar, publicar y anular. Tests E5,
-  R6 ×2, R7 ×4, R17 cola caída, R19 cola caída.
-- **Sin nombres ni DNIs:** barrido de líneas añadidas y mensajes de commit con `[0-9]{8}[A-Za-z]` y
-  `[XYZ][0-9]{7}[A-Za-z]`: solo `99999999R`, sintético y ya de `SigridLookupClientFake` (F-004).
-  El INFO lleva contadores, ids de parte y pedido (tests R8). El delta de la pasada 2 no añade datos.
-- **Enmiendas a guardianes:** solo las dos autorizadas (F-017 21→23; F-047 `F068_CONCILIAR`). El
-  test raíz de F-042 solo amplía `parametrize`. El delta de la pasada 2 no toca guardianes.
+**C5** [x] T1–T14 y T16 `[x]`, commits `F-068 Tn:` · T15 (M1, humano tras desplegar) pendiente
+por protocolo · `features.json` = `in_review`.
 
 ## Cobertura requisito → test
 
@@ -114,12 +110,25 @@ T14 (campaña tras este APPROVED) y T15 (M1 del humano tras desplegar) pendiente
 
 Ninguno.
 
-**Para la pasada de evidencias:** la campaña (T14) se mide sobre `f6ac5b5` o un descendiente que
-no toque el alcance (RM1); RM7 ya está hecho en esta pasada y no hace falta repetirlo.
+## `progress/mutacion_F-068.json` (sin versionar): **se versiona**
+
+Es el estado que deja toda campaña fiable (`escribir_estado`, F-058 de `arnes-base`) para
+`--incremental`; su diseño lo llama «estado del proyecto, no papeleo», no está en `.gitignore` y
+`arnes-base` versiona los suyos (`progress/mutacion_F-019.json`, `F-023`, `F-026`). Vive además en
+un worktree que se borrará: sin commit se pierde. Es el primero de `partes` porque la 1.10.1 acaba
+de entrar. Su contenido cuadra con el `.md` (verificado arriba). No lo commiteo yo (no es mi
+artefacto): que lo haga el implementer o el líder, con ruta explícita, antes de integrar.
+
+## Observaciones (no bloquean)
+
+- Sigue la de la principal: si **marcar** el pedido lanza (R6) y publicar sale bien,
+  `partes_recalculo` = N aunque esos partes no queden en espera; el docstring es más estricto.
 
 ## Automejora (propuesta, no aplicada)
 
-- En `.claude/agents/reviewer.md`, «Dos pasadas»: decir expresamente que **RM7 se aplica en la
-  pasada principal** en `critico`. No depende de la campaña, cuesta minutos y, si sobrevive, obliga
-  a cambiar tests: hacerlo después invalida la campaña (RM1) y se paga dos veces. Lo demuestra este
-  ciclo. Vale para cualquier proyecto ⇒ portarlo a `arnes-base` si el humano lo aprueba.
+- Sigue la de la principal (RM7 en la pasada principal en `critico`).
+- `reviewer.md` y `CHECKPOINTS.md` (C4 bis): decir que `[min_mutantes, max_mutantes]` acota la
+  **muestra** y que con C ≤ tope la campaña completa cumple aunque C < `min_mutantes`. Hoy
+  «60 %, [100, 300]» se lee como un mínimo y obliga a ir a la GUÍA para descartarlo.
+- `implementer.md`: decir que `progress/mutacion_F-XXX.json` se commitea junto al `.md`.
+  Las tres valen para cualquier proyecto ⇒ `arnes-base` si el humano las aprueba.
