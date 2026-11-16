@@ -1,0 +1,40 @@
+# Verificaciones manuales pendientes · 2026-11-16 (agente, solo lectura)
+
+- **Alcance**: SOLO LECTURA contra producción. Log Analytics (workspace `047d0955-…`,
+  `ContainerAppConsoleLogs_CL`), `SELECT` sobre la base `partes` de `psql-albaranes-rs9k2` (sesión
+  `default_transaction_read_only=on`; contraseña leída del Key Vault de partes a una variable de
+  entorno, sin escribirla en ningún fichero), `POST /api/sql/read` de sigrid-api (base `ruesma`) y el
+  portal sv4 en Chrome, solo mirando (sin pulsar nada que escriba).
+- **No se ha hecho**: aprobar, «Aplicar», casar, reasignar, editar, escribir en Sigrid o en la base.
+  La conexión a la base funcionó con la regla de firewall que ya existía (no se creó ninguna).
+- **Revisiones activas**: sv4 `ca-sv4-front--r20261115162547` (creada 2026-11-15 15:27Z, 100 %),
+  sv3 `ca-sv3-persistencia--r20261112172145`, sv5 `ca-sv5-transfer--r20261112172145`.
+- Personas solo por id de recurso, sin nombres ni DNIs.
+
+## Tabla
+
+| Feature | M | Qué se comprobó (consulta → resultado real) | Veredicto |
+|---|---|---|---|
+| F-068 | M1 | Log Analytics de sv4 desde el despliegue (2026-11-15 15:27Z) hasta 2026-11-16 ~09:00Z: `Log_s has 'casado updated='` → **0 filas**; `Log_s has '[conciliacion]'` (3 días) → 0; recuento de rutas POST de sv4 → **ninguna** `/api/conciliacion/confirmar` ni `/api/empleado/reasignar` (sí hubo `aprobar/encolar` ×5, `sigrid/comprobar` ×24, borrados de documentos, etc.). Desde la revisión nueva nadie ha casado ni reasignado. | **sin caso todavía · requiere humano**: en Conciliar, casar una línea real (o una de pruebas de la 0404) y comprobar: la tarjeta dice «recalculando extras», la vista de obra pinta el parte en espera y en ~1–2 min la línea queda partida en ordinaria + extra; luego el agente o el líder lee en Log Analytics `[conciliacion] casado … recalculo=pedido`. No aprobar nada. |
+| F-047 | M1 | Sin parte de prueba (no se puede subir uno). Evidencia indirecta de un parte nuevo real: doc `228c5a1b-…` guardado por sv3 a 07:19:15Z y repartido a 07:20:23Z; el portal (sv4) estuvo consultando `GET /api/recalculo?ids=228c5a1b-…` cada ~5 s **de 07:19:25Z a 07:20:25Z** y dejó de hacerlo al terminar. Es decir, la vista lo pintó en espera y sondeó hasta que sv3 lo marcó. Mismo patrón el 13/11 con otros ids. No se ha visto en pantalla el rótulo «procesando…». | **OK (indirecto)**. Para cerrarlo del todo, que el humano mire una vez la obra de un parte recién llegado (rótulo, celdas no editables y «Actualizar» con las horas ya repartidas). |
+| F-047 | M2 (complem.) | `SELECT id, recalculo_pedido_id = id, recalculo_terminado_id = id FROM parte_documents WHERE id IN (…)` → los 4 partes de hoy probados: **pedido = terminado = id** (`228c5a1b`, `972dc698`, `a8846d51`, `5daeeb62`). Agregado desde 2026-11-03: 193 partes, 187 con pedido = id, 185 con los tres iguales; los 2 restantes en espera eran los que entraban en ese instante (08:53Z); los 6 con pedido ≠ id tienen un recálculo posterior (uuid4, F-043) ya terminado (terminado = pedido). | OK |
+| F-047 | M3 (complem.) | Log Analytics de sv3 desde 2026-10-31 (filas desde 2026-11-03): `[parte-repo] guardado` frente a `[persist-parte] parte nuevo repartido … marcado=` por `document_id`: **196 guardados, 194 repartidos, los 194 con `marcado=True`**; los 2 sin reparto eran los que se estaban procesando al consultar (y en la base ya figuran terminados). **Espera real: mínimo 41 s, mediana 56 s, p90 66 s, máximo 87 s.** | OK funcional. **La cifra de 20–40 s no se confirma**: la espera real es ~1 min (la mediana cumple el «suele tardar menos de 1 min» de R19, pero ~1 de cada 3 pasa del minuto). Anotarlo para el texto de R19. |
+| F-050 | M2 | Base: obra 0678 (Porsan, `obr-2348888`), 15/10, recurso 2777451: dos líneas del mismo parte con claves antiguas distintas (8 h ordinaria `recurso_manual` + 2 h extra `recurso_dni`, sin ficha). Portal (Chrome, solo mirar) `/obras/obr-2348888?period=2026-10`: el recurso 2777451 sale en **una sola fila**, con la celda del 15 = **«8+2»**; la vista `/trabajadores/rec-2777451` carga. La consulta M1 de design §6 da hoy `filas_que_se_unen = 5` (0678/2777451, 0686/2847057, 0692/2757089, 0702/2750961, 0720/2848422), 0 fichas sin recurso, 0 sin ficha ni recurso, 0 DNIs con varios recursos. | OK |
+| F-050 | M3 | Portal: detalle `/partes/d2141256-…` (15/10, 0678): «Personal (4)» y el recurso 2777451 en **un bloque** con sus dos líneas (ordinaria 8,0 + extra 2,0). El PDF trae 4 personas: cuadra (antes de F-050 habrían sido 5 bloques). | OK |
+| F-064 | M2 | No se puede hacer por lectura: exige entrar con **dos usuarios de Entra** en el mismo navegador (`/.auth/logout` entre uno y otro). El agente solo dispone de la sesión del humano. | **requiere humano**: con el usuario A filtrar `/partes`; `/.auth/logout`; entrar B ⇒ sin filtros; volver A ⇒ los suyos; en herramientas de desarrollo, dos claves `partes.filtros.v1:*` sin UPN. |
+| F-062 | M6 | sigrid-api `sql/read`, base `ruesma`: (a) `SELECT COUNT(*) FROM hmores WHERE synckey LIKE 'partes:%:ciz' AND fec >= 20261026` → **n = 3** (antes 0); (b) M4 de F-060 con `fec >= 20261025` → **grupos = 0**; (c) los 3 hermanos `:ciz` (ide 414661 del 11/11, 413970 y 413973 del 04/11) tienen cada uno **su CI\* `partes:` el mismo día y recurso** (`ci_mismo_dia = 1`). Desglose CI\* `partes:` desde 26/10: CIV 4, CIP 1, CIZ 2 sin sufijo (fines movidos) + 3 con `:ciz`. En `partes`, incidencias aprobadas desde 26/10: 9 `registrado`, 14 `omitido` (11 «día intermedio», 2 `fin_movido`, 1 `incidencia_en_sigrid`). | OK (la «Vista calendario» de Administración no se ha mirado: no está en el portal) |
+| F-055 | M3 | Base, consulta M3 con `> 20270117` (hoy + 62): `sin_fecha` / estado vacío = **20**, `sin_fecha` / `omitido` = **2**; **ninguna** `anterior`/`posterior` y **ninguna** en `registrado`, `encolado` o `dedicacion`. Las 2 `omitido` (registros 21344 y 21345, doc `5ea328f7-…`, 11/11) se omitieron por otro motivo (recurso sin código de hora extra / mensual) **cuando tenían fecha**; la perdieron después por el bug de deshacer la fecha (`progress/explore_bug_deshacer_fecha.md`), no por sv5. Ninguna línea con motivo `fecha_no_valida` en la base y 0 trazas `fecha_no_valida` en sv5 en 30 días (nadie ha aprobado una sin fecha). Sigrid: `hmores` `partes:%` con `fec < 20260101` o mes fuera de 1–12 → **0**. | OK (el camino «aprobar sin fecha ⇒ `omitido` con `fecha_no_valida`» sigue sin caso real) |
+| F-046 | M5 (complem.) | Base: `SELECT estado, count(*) FROM reparto_pendiente GROUP BY estado` → **1 fila, `pendiente`**, recurso 2636243, día 20261009, creada 2026-10-19 09:25Z y sin tocar desde entonces; **ninguna del 14/10**. Log Analytics de sv3 (14 días): 678 líneas con «reparto», 213 «reparto propuesto» (la última hoy 08:56Z). | Informativo. Llama la atención la fila `pendiente` de hace casi un mes: que el humano decida si se aplica o se descarta. |
+| F-046 | M6 | Exige «Aplicar» en el portal = escritura en producción (Sigrid y `partes`). No se ha hecho. Además, hoy **no hay ningún reparto pendiente del 14/10** en `reparto_pendiente`, así que el caso de la spec (0678/0704 del 14/10: ordinaria 2,5 y extra 1,5) ya no está a la vista tal como se describió. | **requiere humano**: en un día con reparto propuesto (por ejemplo el pendiente del 09/10 del recurso 2636243, si sigue vigente), aprobar con «Aplicar» y después comprobar (lo puede leer el agente): en Sigrid `can` de las líneas del recurso igual a lo propuesto; en `partes`, tras la pasada siguiente, el reparto `materializado` con los mismos valores. |
+
+## Recuento (las 8 pedidas)
+
+- **OK: 5** — F-047 M1 (indirecto), F-050 M2, F-050 M3, F-062 M6, F-055 M3.
+- **FALLA: 0.**
+- **Pendientes: 3** — F-068 M1 (sin caso todavía; requiere un casado), F-064 M2 (dos usuarios de
+  Entra) y F-046 M6 (escritura con «Aplicar»): las tres requieren al humano.
+
+Complementarias: F-047 M2 OK; F-047 M3 OK con la espera real de ~1 min (no los 20–40 s previstos);
+F-046 M5: 1 reparto `pendiente` del 09/10 sin resolver desde el 19/10.
+
+Sin Traceback ni `ERROR` en sv3, sv4 ni sv5 desde 2026-11-15 15:27Z.
