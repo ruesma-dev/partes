@@ -1136,6 +1136,21 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ]
+    },
+    {
+      "id": "F-044",
+      "title": "Mover a un trabajador de un parte a otra fecha sin mover al resto",
+      "priority": 6,
+      "rigor": "critico",
+      "sdd": true,
+      "status": "pending",
+      "spec": "borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla",
+      "branch": "feature/F-044-mover-linea-a-otra-fecha",
+      "description": "Petición del humano del 2026-10-12: mover a UN solo trabajador de un parte a otro día sin mover al resto (parte escaneado con varias personas en el que una trabajó otro día, o la IA leyó mal la fecha solo de esa fila). Hoy la única vía es cambiar la fecha del parte entero (`PATCH /api/partes/{id}/fecha`). La spec de 2026-10-12 propone, solo en sv4, separar las líneas de ese trabajador a un documento nuevo con la otra fecha, dejar rastro de deshacer y pedir el recálculo de sv3. Se escribió pero nunca se fusionó ni se dio de alta en dev; recuperada el 2026-11-16 tras comprobar que no está hecha (solo existe el punto de entrada que dejó F-043 en app.js). A REVISAR al refrescar la spec: todo lo que entró después (F-045 a F-069: reparto entre obras, parte nuevo en espera, ids estables de extras, recálculo compartido de F-068) y el arreglo del deshacer de cabecera si se aprueba.",
+      "acceptance": [
+        "Pendiente de spec refrescada: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
     }
   ]
 }
