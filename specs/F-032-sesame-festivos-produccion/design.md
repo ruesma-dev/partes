@@ -1,99 +1,102 @@
 <!-- specs/F-032-sesame-festivos-produccion/design.md -->
 # F-032 · Activar Sesame en producción — Diseño
 
-## 1. Estado de partida (verificado el 2026-10-06, solo lectura)
+**Rigor: `estandar`** (DA10), sin disparador de `critico`: un `raise` en cascadas ya
+mutadas en F-003, una herramienta de solo lectura, pintado en sv4 y scripts; el riesgo
+de dinero está en el encendido, manual y detrás de M2–M3.
 
-- **Código**: F-003 lo dejó todo hecho y apagado. sv3 `interface_adapters/api/
-  app.py::construir_calendario` devuelve `JsonCalendarioLaboral` si
-  `settings.sesame_enabled` es falso (log «DESACTIVADO (faltan SESAME_API_*)»)
-  y, si no, `SesameCalendarioLaboral` con el JSON de respaldo. sv4 monta
-  `CalendarioProvider` en `interface_adapters/web/app.py` (respaldo `holidays`
-  `MD`). Cascada, caché (DNI × año, 6 h), `review_required` en sv3 y bloqueo
-  del registro con override `[SIN-SESAME]` en sv4: R5–R10 y R22–R27 de F-003.
-- **Respaldos distintos hoy**: sv3 paga extras con nacionales + 28-feb (sábado
-  en 2026) y sv4 avisa con nacionales + Madrid: ningún autonómico ni local en sv3.
-- **`infra/`**: `create_capps_partes.ps1` y `create_sv4_front.ps1` ya cablean
-  `SESAME_*` por `secretref:sesame-key` → `keyvaultref` `SESAME-API-KEY` si
-  `$SESAME_BASE_URL` tiene valor, pero solo al **crear** la app;
-  `redeploy_partes.ps1` solo cambia la imagen. Falta el «encender sobre apps
-  existentes» (patrón `add_qtransfer_partes.ps1`). `SESAME-API-KEY` ya está en
-  `add_secrets_partes.ps1`.
-- **Recálculo**: cada mensaje de `q-persistencia` ejecuta
-  `RecursoConciliador.conciliar_todos()` sobre **todos los partes activos**
-  (revierte `extra_auto` y recalcula; congeladas excluidas, F-015 R31/R32).
-- **sesame-api** (repo aparte, rama `dev` = `origin/dev`, `dcef288`): el
-  rediseño hexagonal (`application/`, `config/`, `domain/`, `infrastructure/`,
-  `interface_adapters/`) está **sin versionar** y el paquete viejo borrado sin
-  commit; incluye el fix `daysOff`. **No hay Dockerfile.** `GET /health` sin
-  clave; el resto con `x-api-key` contra el CSV `API_KEYS`; token
-  `SESAME_TOKEN`. Los handlers son `async def` y llaman a un cliente `httpx`
-  **síncrono**: cada llamada a Sesame HR bloquea el bucle de eventos.
-- **Hallazgo de seguridad (sesame-api)**: `.env` está **versionado** pese al
-  `.gitignore` (commits `d226936` y `dcef288`, publicados en `origin/dev` y
-  `origin/pruebas` de GitHub) y hoy aparece modificado. No se ha leído su
-  contenido. Ver P0 en §2.
-- **Local**: 8006 lo ocupa hoy `porcentajes-transfer`; contraste 2026 ⇒ M2.
-- **F-013 (2026-08-18)**: 218 empleados; Madrid (defecto) 196, Tomares 15,
-  Sevilla 4, Málaga 2, Alicante 1 **parcial**; 0 contratos.
+## 1. Estado de partida (verificado el 2026-11-16 en `dev` `95982ac`, solo lectura)
+
+- **Integración apagada** (sin cambios desde octubre): sv3 `interface_adapters/api/
+  app.py::construir_calendario` (:59) da `JsonCalendarioLaboral` sin `SESAME_API_*` y,
+  con ellas, `SesameCalendarioLaboral`; sv4 monta `CalendarioProvider` en `build_app`
+  (log :572). Ningún cliente tiene aún mínimo de festivos.
+- **Recálculo (DA7, revisado)**: la pasada sigue siendo **global**:
+  `RecursoConciliador.conciliar_todos()` lee con `leer_pasada` todas las líneas de
+  partes `is_active` (F-069), revierte en memoria las `extra_auto` y reparte de nuevo
+  todo lo no congelado (`_congelado` = `esta_congelado` o `congelada_por_pareja`,
+  F-037). Corre tras **cada** ingesta (`_conciliar_recursos_safely`) y con **cada**
+  mensaje `recalcular` de sv4 (`despacho.py`: el `document_id` no acota la pasada;
+  F-042/F-043/F-047/F-049/F-068 solo cambian **quién la pide** y el seguimiento).
+  Novedades: (a) sv3 es worker KEDA a 0 réplicas y sin ingress, así que **encender no
+  recalcula nada** hasta el siguiente mensaje y aprobar entre tanto congela el reparto
+  del JSON ⇒ DA11; (b) con `REPARTO_REAJUSTE` encendido (desde 2026-10-18) un día con
+  congeladas reajustables y alguna libre cuyo ideal cambie sale como propuesta en
+  `reparto_pendiente` (F-046), que el humano aplica o mantiene; (c) el festivo mueve el
+  **último laborable** de la semana si `S ≠ 5c` (F-015): el impacto se mide por semana.
+- **Rejilla de obra (sv4)**: `obra_detail` (app.py :1293) pasa a `get_obra`
+  `holiday_name_para(None)` (D6 de F-003): cabecera **y todas las celdas**
+  (`ObraMatrixCell.is_holiday = dc.is_holiday`) salen del calendario por defecto; el
+  aviso de jornada incompleta ya usa el de la fila (:1344) y el degradado añade
+  `(None, año)` (:1370). Las demás vistas ya van por persona: `trabajador_detail`
+  (:1088), `/api/calendario` de «+ Nuevo» (DNI elegido; sin él, el por defecto) y los
+  avisos de registro (:2664).
+- **Respaldos**: sv3 paga con nacionales + 28-feb; sv4 avisa con nacionales + Madrid.
+- **`infra/`**: los `create_*` cablean `SESAME_*` solo al crear; `SESAME-API-KEY` ya está
+  en `add_secrets_partes.ps1`; `enqueue_test.py` es el precedente de encolar en Python.
+- **sesame-api** (sin cambios desde el 2026-10-06): `dev` en `dcef288`; rediseño sin
+  versionar, sin Dockerfile, handlers `async` con `httpx` síncrono, `contract_not_found`
+  ⇒ 502 y **`.env` versionado** (no leído). Su puerto por defecto, 8006, en local es de
+  `porcentajes-transfer`: allí se arranca con `$env:API_PORT` (manda sobre su `.env`).
+- **F-013 (2026-08-18)**: 218 empleados; Madrid 196, Tomares 15, Sevilla 4, Málaga 2,
+  Alicante 1 parcial; 0 contratos. **No se sabe** si Sesame da todas las fiestas del
+  año o solo las particulares de cada calendario: por eso DA5 = 1 y DA12.
 
 ## 2. Límite de servicio y trabajo fuera del repositorio
 
 | Dónde | Qué | Quién |
 |---|---|---|
-| sv3 | Mínimo de festivos en el cliente gemelo, setting espejo, cableado, herramienta de contraste | implementer |
-| sv4 | Mismo cliente gemelo, setting espejo, cableado | implementer |
-| `infra/` | `add_sesame_partes.ps1` (encender/apagar) y `SESAME_FESTIVOS_MINIMOS` en los `create_*` | implementer |
-| `azure-apps/partes.md` | R27 | implementer |
-| repo **sesame-api** | P0–P5 de abajo | **humano** (los agentes no lo tocan) |
-| Azure | Imagen, Container App, secretos, encendido | **humano** con la guía §7 |
+| sv3 | Mínimo en el cliente gemelo, setting espejo, cableado, herramienta de contraste | implementer |
+| sv4 | Mismo cliente y setting; rejilla de obra por persona | implementer |
+| `infra/` | `add_sesame_partes.ps1`, `pedir_recalculo_partes.py`, mínimo en `create_*` | implementer |
+| `azure-apps/partes.md` | R32 | implementer |
+| repo **sesame-api** | P0–P5 | **humano** |
+| Azure | Imagen, Container App, secretos, encendido | **humano** (§7) |
 
-Sin responsabilidad nueva (sv3 y sv4 consumen sesame-api desde F-003); lo
-nuevo vive en el **cliente gemelo** de la lista cerrada de `CLAUDE.md` (DA5).
+Sin responsabilidad nueva: el mínimo vive en el cliente gemelo de la lista cerrada de
+`CLAUDE.md`; R26 es el contrato `recalcular` de F-042 con un productor más.
 
-**Precondiciones en sesame-api (humano, antes de M1):**
-- **P0** `git rm --cached .env`; comprobar si los `.env` versionados llevan
-  `SESAME_TOKEN` y, si es así, **rotar el token** en Sesame antes de cargarlo
-  en el Key Vault (el historial publicado no se limpia con un commit).
-- **P1** Commitear el rediseño y el fix `daysOff` (sin `.env`, `logs/`,
-  `sesame-api.zip`, `.py` suelto).
-- **P2** Dockerfile (`python:3.12-slim`, `requirements.txt`, `python main.py`,
-  `API_HOST=0.0.0.0`, puerto 8006) y `.dockerignore` (`.env`, `.venv`,
-  `logs`, `*.zip`).
-- **P3** Recomendado: handlers `def` (o cliente asíncrono) para que una
-  llamada lenta a Sesame no congele las demás; `contract_not_found` → 404 (DA8).
-- **P4** `azure-apps/sesame-api.md` (DA9). **P5** RRHH completa Alicante y lo que destape M2.
+**Precondiciones en sesame-api (humano, antes de M1):** **P0** `git rm --cached .env`;
+si algún `.env` publicado lleva `SESAME_TOKEN`, **rotarlo** en Sesame antes de cargarlo
+en el Key Vault. **P1** Commitear el rediseño y el fix `daysOff` (sin `.env`, `logs/`,
+`sesame-api.zip`). **P2** Dockerfile (`python:3.12-slim`, `python main.py`,
+`API_HOST=0.0.0.0`, 8006) y `.dockerignore`. **P3** Recomendado: handlers `def` y
+`contract_not_found` ⇒ 404 (DA8). **P4** `azure-apps/sesame-api.md` (DA9). **P5** RRHH
+completa lo que M2 marque.
 
 ## 3. Ficheros a crear
 
 | Ruta | Contenido |
 |---|---|
-| `services/partes-persistencia/contrastar_festivos_sesame.py` | Herramienta de §5.3 (consola, `print` permitido) |
-| `services/partes-persistencia/tests/test_f032_cliente_minimo.py` | R1–R4 del cliente de sv3 (`httpx.MockTransport`) |
-| `services/partes-persistencia/tests/test_f032_calendario_incompleto.py` | R5 (settings y cableado de sv3), R6 |
-| `services/partes-persistencia/tests/test_f032_contraste.py` | R10–R18 con cliente simulado y repositorio falso |
-| `services/partes-persistencia/tests/test_f032_r24_recalculo.py` | R24–R25 sobre el conciliador con calendario falso |
-| `services/partes-front/tests/test_f032_cliente_minimo.py` | R1–R4 del cliente de sv4 |
-| `services/partes-front/tests/test_f032_calendario_incompleto.py` | R5 (sv4), R7, R9 |
+| `services/partes-persistencia/contrastar_festivos_sesame.py` | §5.4 (consola, `print` permitido) |
+| `services/partes-{persistencia,front}/tests/test_f032_cliente_minimo.py` | R1–R4 (`httpx.MockTransport`) |
+| `services/partes-{persistencia,front}/tests/test_f032_calendario_incompleto.py` | R5; sv3 R6; sv4 R7, R9 |
+| `services/partes-persistencia/tests/test_f032_contraste.py` | R14–R22 con dobles |
+| `services/partes-persistencia/tests/test_f032_r29_recalculo.py` | R29–R30 (caracterización) |
+| `services/partes-front/tests/test_f032_rejilla_obra.py` | R10–R13 |
 | `tests/test_f032_sesame_cliente_gemelos.py` | R8 |
-| `tests/test_f032_infra_sesame.py` | R19–R23 por inspección estática de los `.ps1` |
-| `infra/add_sesame_partes.ps1` | §5.4 |
+| `tests/test_f032_infra_sesame.py` | R23–R28 (inspección estática) y contrato de R26 |
+| `infra/add_sesame_partes.ps1` | §5.5 |
+| `infra/pedir_recalculo_partes.py` | §5.6 |
 
 ## 4. Ficheros a modificar
 
 - `services/partes-{persistencia,front}/infrastructure/sesame/sesame_api_client.py`:
-  `CalendarioIncompletoError`, parámetro `festivos_minimos`, control en
-  `festivos` y `calendario_por_defecto`. Cuerpo idéntico en los dos.
-- `services/partes-persistencia/config/settings.py` y
-  `services/partes-front/config/settings.py`: `sesame_festivos_minimos: int =
-  Field(8, alias="SESAME_FESTIVOS_MINIMOS", ge=0)`.
+  §5.1, cuerpo idéntico en los dos, mismo commit.
+- Los dos `config/settings.py`: `sesame_festivos_minimos: int = Field(1,
+  alias="SESAME_FESTIVOS_MINIMOS", ge=0)`.
 - sv3 `interface_adapters/api/app.py::construir_calendario` y sv4
   `interface_adapters/web/app.py::build_app`: pasar el mínimo y loguearlo.
-- `infra/create_capps_partes.ps1`, `infra/create_sv4_front.ps1`: R22.
-- `infra/00_vars_partes.ps1`: comentario Sesame (paso 3 = `add_sesame_partes.ps1`) y `$SESAME_FESTIVOS_MINIMOS = 8`.
-- `infra/README_partes.md` y `docs/ARCHITECTURE.md` (herramientas de consola).
-  No hay `.env.example` versionado en sv3 ni sv4: no se crea.
-- `azure-apps/partes.md` (5.3 bis, 5.4, tabla de variables, hoja de ruta) y
-  `harness/features.json` según el flujo.
+- sv4 `infrastructure/database/parte_repository.py` (`get_obra`, `ObraDayCol`,
+  `ObraMatrixCell`), `interface_adapters/web/app.py::obra_detail` y
+  `templates/obra_detail.html` (:76, :118–119, :140, :145): §5.3.
+- sv4 `tests/test_f003_r2_vistas_festivos.py`: **cambia a propósito**
+  `test_f003_r2_la_columna_de_la_matriz_usa_el_calendario_por_defecto` (fija la D6 que
+  esta feature revoca): pasa a afirmar R11 y la celda por persona. Ningún otro test
+  existente se toca.
+- `infra/create_capps_partes.ps1`, `create_sv4_front.ps1` (R27), `00_vars_partes.ps1`
+  (`$SESAME_FESTIVOS_MINIMOS = 1`; paso 3 = `add_sesame_partes.ps1`), `README_partes.md`;
+  `docs/ARCHITECTURE.md`, `azure-apps/partes.md` (R32) y `harness/features.json`.
 
 ## 5. Clases y funciones
 
@@ -103,148 +106,145 @@ nuevo vive en el **cliente gemelo** de la lista cerrada de `CLAUDE.md` (DA5).
 class CalendarioIncompletoError(RuntimeError): ...
 SesameApiClient(*, base_url, api_key, timeout_s=10.0, transport=None,
                 festivos_minimos: int = 0)
-def festivos(self, dni, ano) -> list[FestivoDia] | None       # R2, R4
-def calendario_por_defecto(self, ano) -> list[FestivoDia] | None  # R3, R4
 def _exigir_minimo(self, festivos, ano, origen: str) -> list[FestivoDia]
 ```
 
-`_exigir_minimo` cuenta los festivos ya filtrados al año; si `0 < minimo` y
-`len < minimo`, lanza con «calendario incompleto: N festivos en AAAA (mínimo
-M) en <origen>». Es un `RuntimeError`, así que **las dos cascadas existentes lo
-tratan como fallo sin tocarlas**: sv3 `SesameCalendarioLaboral._festivos` →
-`_degradar` (caché caducada o JSON, `consumir_degradacion()` → R26) y sv4
-`CalendarioProvider._resolver` → `_degradar` (fuente `stale`/`respaldo`, no
-fiable → R22–R24). Al lanzar `festivos(dni)` no se prueba el calendario por
-defecto: un trabajador de Alicante con calendario roto no debe recibir los
-festivos de Madrid (R6). `validar_datos_sesame.py` no pasa el mínimo (R9).
+`festivos` y `calendario_por_defecto` pasan su lista ya filtrada al año por
+`_exigir_minimo`: si `0 < minimo` y `len < minimo`, lanza «calendario incompleto: N
+festivos en AAAA (mínimo M) en <origen>». Es un `RuntimeError`: las cascadas de sv3
+(`SesameCalendarioLaboral._degradar`, `consumir_degradacion()` ⇒ `review_required`) y
+sv4 (`CalendarioProvider._degradar`, fuente `stale`/`respaldo`, no fiable) lo tratan
+como fallo **sin tocarlas**. Al lanzar `festivos(dni)` no se prueba el por defecto: a un
+trabajador de Alicante con calendario roto no se le dan los festivos de Madrid.
 
 ### 5.2 Settings y cableado
 
-Mínimo en los dos `settings.py` (negativo ⇒ no arranca, R5), pasado al cliente
-en los dos cableados y añadido al log `[sesame][wiring] CABLEADO … festivos_minimos=…`.
+Mínimo en los dos `settings.py` (negativo ⇒ `ValidationError`), al cliente y al log
+`[sesame][wiring] CABLEADO … festivos_minimos=…`.
 
-### 5.3 `contrastar_festivos_sesame.py` (consola, sv3)
+### 5.3 Rejilla de obra por persona (sv4, DA13)
 
-Funciones puras (testeables sin E/S) y un `main()` fino:
+- `get_obra(..., holiday_name_de: Callable[[str | None], Callable[[date], str | None]]
+  | None = None)` sustituye a `holiday_name` (ningún otro llamador lo pasa). Por fila
+  pide `holiday_name_de(w["dni"])` una vez y con él rellena cada celda.
+- `ObraMatrixCell` gana `holiday_name: str | None = None`; `ObraDayCol` pierde
+  `is_holiday`/`holiday_name` (solo los leía la cabecera).
+- `obra_detail` pasa `holiday_name_de=calendario_provider.holiday_name_para` y el aviso
+  de jornada incompleta reutiliza el mismo resolutor de la fila. Se borra
+  `_consultas.update((None, ano) …)`: las filas sin DNI ya añaden `(None, año)`.
+- Plantilla: cabecera sin `mx-hol` ni nombre de festivo; celda con `mx-hol` por
+  `c.is_holiday` y `title` con `c.holiday_name` (unido con « · » a lo que ya lleva);
+  texto del aviso (:76) según R13. CSS sin cambios.
+- Coste: una llamada a `holiday_name_para` por fila; a Sesame, una por (DNI × año) y
+  6 h gracias a la caché del provider.
+
+### 5.4 `contrastar_festivos_sesame.py` (consola, sv3)
+
+Funciones puras y un `main()` fino:
 - `contrastar_calendario(cal, ano, respaldo, minimo) -> ContrasteCalendario`
-  (solo-Sesame, solo-respaldo, L–V, recuento, `por_defecto`, `incompleto`).
-  El respaldo es un `JsonCalendarioLaboral` y se consulta con
-  `es_no_laborable(fecha)` día a día del año (sin DNI): no se copia su lógica.
-- `clasificar_impacto(registros, festivos_por_dni, respaldo) -> Impacto`:
-  para cada línea con horas ≠ 0 compara laborable/no laborable con Sesame y
-  con el respaldo; si difiere, `congelada` = `esta_congelado(sigrid_estado,
-  doc_approved)` importado de `application/services/recurso_conciliador.py`.
+  (solo-Sesame, solo-respaldo, L–V, recuento, `por_defecto`, `incompleto`,
+  `faltan_del_respaldo`). El respaldo es un `JsonCalendarioLaboral` consultado con
+  `es_no_laborable(fecha)` día a día (sin copiar su lógica).
+- `clasificar_impacto(registros, festivos_por_dni, respaldo) -> Impacto`: por línea
+  con horas ≠ 0 y sin `deleted_at_utc`, si su día cambia o su semana ISO está afectada,
+  la clase es `clase_linea(reg, congelada=_congelado(reg))` (importados de
+  `reajuste_reparto.py` y `recurso_conciliador.py`). Día mixto = mismo DNI × día con
+  `libre` y `reajustable`.
 - `render_markdown(...)`, `escribir_csv(...)` (UTF-8 BOM, `;`).
 - `main(argv)`: `--ano`, `--base-url`, `--api-key`, `--calendario`,
-  `--festivos-minimos`, `--salida` (por defecto `logs/`), `--impacto`. Con
-  `--impacto` construye `Settings` + `SessionFactory` +
-  `SqlAlchemyParteRepository` y llama a `fetch_registros_para_recurso()`
-  (**sin SQL nuevo**). Los festivos por DNI se piden con el cliente **sin
-  mínimo** (`festivos` → `None` ⇒ `calendario_por_defecto`) para poder
-  informar del recuento real; el mínimo solo etiqueta.
+  `--festivos-minimos`, `--salida` (por defecto `logs/`), `--impacto`. Con `--impacto`:
+  `Settings` + `SessionFactory` + `SqlAlchemyParteRepository.
+  fetch_registros_para_recurso()`. Los festivos por DNI se piden con el cliente **sin
+  mínimo** (`None` ⇒ `calendario_por_defecto`) para informar del recuento real.
 
-### 5.4 `infra/add_sesame_partes.ps1` (PowerShell 5.1, CRLF, sin BOM)
+### 5.5 `infra/add_sesame_partes.ps1` (PowerShell 5.1, CRLF, sin BOM)
 
-Uso: `. .\00_vars_partes.ps1; . .\00_capps_vars_partes.ps1;
-.\add_sesame_partes.ps1 [-Quitar]`. Validaciones de R20
-(`az keyvault secret show --vault-name $KV --name SESAME-API-KEY --query id`
-sin imprimir el valor). Para `ca-sv3-persistencia` y `ca-sv4-front`:
-`az containerapp secret set --secrets "sesame-key=keyvaultref:$KV_URI/secrets/SESAME-API-KEY,identityref:$MI_ID"`
-y `az containerapp update --set-env-vars SESAME_API_BASE_URL=… SESAME_API_KEY=secretref:sesame-key
-SESAME_API_TIMEOUT_S=10 SESAME_CACHE_TTL_S=21600 SESAME_FESTIVOS_MINIMOS=$SESAME_FESTIVOS_MINIMOS`.
-`-Quitar`: `--remove-env-vars` de las cinco (el secreto de la app puede
-quedarse: sin variable que lo use es inerte). Termina imprimiendo los comandos
-de logs de §7. Mismo `Run-Az` que los demás scripts.
+Uso: tras cargar `00_vars_partes.ps1` y `00_capps_vars_partes.ps1`, con `[-Quitar]`.
+Valida R24 (`az keyvault secret show … --query id`, sin imprimir el valor).
+Orden de R23: sv3 (`az containerapp secret set --secrets "sesame-key=keyvaultref:
+$KV_URI/secrets/SESAME-API-KEY,identityref:$MI_ID"` y `az containerapp update
+--set-env-vars …`), espera a `latestReadyRevisionName == latestRevisionName`, llama a
+`pedir_recalculo_partes.py`, y sv4 igual. `-Quitar`: `--remove-env-vars` de las cinco en
+sv3, pasada (`apagado_sesame`), sv4; el secreto de la app queda inerte. La clave de la
+storage se lee a `$env:STKEY` (patrón de `enqueue_test.py`) y se borra al terminar. Si
+`python` o el encolado fallan: WARNING con el comando exacto y sigue (R26). Termina
+imprimiendo los comandos de logs de §7. Mismo `Run-Az` que los demás scripts.
+
+### 5.6 `infra/pedir_recalculo_partes.py`
+
+`mensaje(motivo, ahora, solicitado_por) -> dict` pura y solo con la biblioteca estándar
+(el test de contrato la carga por ruta y la pasa por `clasificar` de sv3);
+`main(argv)`: `<STORAGE> <motivo>` con `STKEY` del entorno, `azure.storage.queue`
+importado dentro de `main`, `json.dumps` sin codificación base64 (como
+`ColaCliente.enviar`); motivos admitidos `encendido_sesame` y `apagado_sesame`; no
+imprime la clave. Código 0 al encolar.
 
 ## 6. Ficheros que NO se tocan
 
-- `sesame_calendario_laboral.py` (sv3) y `calendario_provider.py` (sv4): la
-  cascada ya trata el error nuevo como fallo (§5.1).
-- `recurso_conciliador.py`, `congelacion.py`, `jornada_resolver.py` (gemelos),
-  `orm_models.py`: ni regla de congelación ni jornada ni schema cambian (R26).
-- `config/calendario_laboral.json` (DA4), `validar_datos_sesame.py`,
-  `redeploy_partes.ps1`, `add_secrets_partes.ps1`, sv1, sv2, sv5, `sesame-api`.
+`sesame_calendario_laboral.py`, `calendario_provider.py` (§5.1); `recurso_conciliador.py`,
+`reajuste_reparto.py`, `congelacion.py`, `jornada_resolver.py`, `orm_models.py`,
+`despacho.py`, `mensajes.py`, `recalculo_publisher.py` (ni congelación, ni jornada, ni
+contrato, ni esquema cambian); `calendario_laboral.json` (DA4), `validar_datos_sesame.py`,
+`redeploy_*.ps1`, `add_secrets_partes.ps1`, `enqueue_test.py`, sv1, sv2, sv5,
+`trabajador_detail.html`, `nuevo_parte.html`, `app.js` y el repo `sesame-api`.
 
 ## 7. Guía de despliegue y verificación manual (humano)
 
-- **M1 sesame-api en Azure** (DA1, tras P0–P2): `az acr build -r acralbaranesdev
-  -t sesame-api:rYYYYMMDD-HHmm .`; secretos `SESAMEAPI-TOKEN` y
-  `SESAMEAPI-API-KEYS` (CSV con la clave de partes) en `$KV` y la clave de
-  partes en `SESAME-API-KEY` (`add_secrets_partes.ps1`), siempre por consola;
-  `az containerapp create -n ca-sesame-api -g $RG --environment $CAE --image …
-  --registry-server acralbaranesdev.azurecr.io --registry-identity $MI_ID
-  --user-assigned $MI_ID --ingress internal --target-port 8006 --min-replicas 1
-  --max-replicas 1 --secrets token=<KvRef SESAMEAPI-TOKEN> keys=<KvRef …>
-  --env-vars SESAME_TOKEN=secretref:token API_KEYS=secretref:keys
-  SESAME_REGION=<región> API_HOST=0.0.0.0 API_PORT=8006`. Comprobar `/health`
-  desde dentro del entorno (`az containerapp exec` en sv4). El FQDN interno va
-  a `$SESAME_BASE_URL` de `00_vars_partes.local.ps1`.
-- **M2 contraste** (sin BBDD): `python contrastar_festivos_sesame.py --ano 2026
-  --base-url <url> --api-key <clave>` (local, túnel o desde la app). El humano
-  revisa cada calendario y lo que salga `INCOMPLETO` lo corrige RRHH (P5).
-- **M3 impacto**: igual con `--impacto` y el `.env` de sv3; el humano decide
-  sobre las `congelada` (corregir en Sigrid queda fuera, DA7).
-- **M4 apagado**: `redeploy_partes.ps1 -Solo sv3,sv4`; logs «DESACTIVADO», sin errores.
-- **M5 encendido**: `add_sesame_partes.ps1`; logs de sv3 y sv4 con «CABLEADO …
-  festivos_minimos=8»; tras el siguiente parte, `[sesame-calendario] … fuente=
-  sesame` y `extras_reclasificadas` en `[recurso-concil]`.
-- **M6 portal**: persona de Sevilla con su autonómico pintado, sin aviso de
-  degradación; preflight sin bloqueo.
-- **M7** (opcional): `-Quitar` y vuelta a «DESACTIVADO».
+- **M1 sesame-api en Azure** (DA1, tras P0–P2): `az acr build -r acralbaranesdev`;
+  secretos `SESAMEAPI-TOKEN`, `SESAMEAPI-API-KEYS` y `SESAME-API-KEY` en `$KV` por
+  consola; `az containerapp create -n ca-sesame-api` en `$CAE` con `--ingress internal
+  --target-port 8006 --min-replicas 1 --max-replicas 1`, identidad `$MI_ID` y
+  `SESAME_TOKEN`/`API_KEYS` por `secretref`. `/health` desde dentro del entorno; el FQDN
+  interno va a `$SESAME_BASE_URL` de `00_vars_partes.local.ps1`.
+- **M2 contraste (puerta, DA12)**: `python contrastar_festivos_sesame.py --ano 2026
+  --base-url <url> --api-key <clave>` (y `--ano 2025` si hay partes activos de 2025).
+  En local, sesame-api con `$env:API_PORT="8016"` (8006 es de porcentajes-transfer). Si
+  algún calendario sale `FALTAN DEL RESPALDO`, **no se enciende**: se vuelve a la spec.
+  Lo `INCOMPLETO` lo corrige RRHH (P5).
+- **M3 impacto**: igual con `--impacto` y el `.env` de sv3; el humano revisa las
+  `dura` y los días mixtos (corregir en Sigrid queda fuera).
+- **M4**: `redeploy_partes.ps1 -Solo sv3,sv4`; logs «DESACTIVADO», sin errores.
+- **M5 encendido**, fuera del horario de aprobación: `add_sesame_partes.ps1`; logs con
+  «CABLEADO … festivos_minimos=1»; en sv3 `[sv3-worker] recalculo motivo=encendido_sesame`,
+  `[sesame-calendario] … fuente=sesame` y `extras_reclasificadas`/`repartos_propuestos`.
+- **M6 portal**: obra con dos calendarios: cabecera sin festivos y cada fila con los
+  suyos; persona de Sevilla con su autonómico, sin aviso degradado ni bloqueo.
+- **M7** decidir las propuestas nuevas de `reparto_pendiente`. **M8** (opcional):
+  `-Quitar` y vuelta a «DESACTIVADO» con su pasada.
 
-## 8. Decisiones abiertas (recomendación en negrita)
+## 8. Frontera
 
-- **DA1 Dónde vive sesame-api.** (A) **Container App `ca-sesame-api` en
-  `rg-partes-dev`/`cae-partes-dev`, ingress interno, 1 réplica fija, imagen de
-  `acralbaranesdev` y secretos en `kv-partes` por `id-partes-dev`**: es lo
-  único alcanzable por sv3/sv4 sin red nueva y no expone datos de RRHH (DNIs,
-  ausencias) a Internet. Coste: la identidad de partes puede leer el token de
-  Sesame y el servicio «general» queda en casa de partes; se muda a recursos
-  propios cuando haya un segundo consumidor. (B) RG, entorno y Key Vault
-  propios con ingress **externo** + `x-api-key` (modelo `sigrid-api`):
-  reutilizable, pero publica datos personales tras una sola clave.
-  (C) Propio con ingress interno: inalcanzable desde `cae-partes-dev`.
-- **DA2 Réplicas.** **min = max = 1**: caché de proceso; con 0, cada arranque
-  en frío vuelve a pedir a Sesame HR los 218 empleados.
-- **DA3 Encendido.** **`add_sesame_partes.ps1` sobre sv3 y sv4 a la vez**, con
-  `-Quitar` como rollback, frente a recrear las apps.
-- **DA4 Si Sesame no responde.** **Mantener los dos niveles de F-003 tal
-  cual** (decisión del humano del 2026-08-15): sv3 caché caducada o JSON +
-  `review_required`; sv4 aviso + bloqueo del registro con override
-  `[SIN-SESAME]`. La propuesta «solo respaldo + log» quitaría el bloqueo que
-  el humano pidió expresamente. Mitigan DA2 y la caché de 6 h. No se alinean
-  los respaldos de sv3 (nacional) y sv4 (Madrid): solo actúan degradados.
-- **DA5 Calendario incompleto ⇒ degradado.** **Sí, mínimo 8 en el cliente
-  gemelo.** Hoy una lista vacía es «dato bueno» (F-003): un año sin calendario
-  en Sesame borraría hasta los nacionales y pagaría el 1 de enero como
-  ordinario sin aviso. España tiene 12–14 festivos al año. Consecuencia: las
-  personas con calendario incompleto (Alicante) quedan con aviso, bloqueo y
-  `review_required` hasta que RRHH lo complete. 0 desactiva el control.
-- **DA6 Contraste.** **Herramienta de consola en sv3** (el respaldo que paga
-  extras vive ahí), con `--impacto` opcional sobre la BBDD en solo lectura.
-- **DA7 Partes ya conciliados.** **Recálculo automático** de lo no congelado
-  en la siguiente pasada (es lo que el sistema hace hoy con cualquier cambio
-  de calendario); lo congelado no se toca y el informe M3 lo lista para que
-  el humano decida. Limitarlo a fechas posteriores al encendido exigiría
-  código nuevo en el conciliador. Ojo: líneas de un año sin calendario en
-  Sesame marcarán su parte para revisión en cada pasada (M3 da los años).
-- **DA8 `/jornada` con 0 contratos.** Encendido, sv4 llama a `/api/v1/jornada`
-  para el KPI; sesame-api responde **502** a `contract_not_found`, que no se
-  cachea: un WARNING y una llamada por persona en cada vista. **Precondición
-  P3 en sesame-api (404 ⇒ `None` cacheado)**; alternativa: interruptor
-  `SESAME_JORNADA_ENABLED` en sv4 (código nuevo, no incluido).
-- **DA9 `azure-apps/sesame-api.md`.** **Lo escribe su dueño**; `partes.md` enlaza.
-- **DA10 Rigor.** **Estándar**: el código nuevo es un `raise` que entra en
-  cascadas mutadas con rigor crítico en F-003, más una herramienta de solo
-  lectura y un script; el riesgo de dinero está en el encendido, que es
-  manual y va precedido de M2–M3. Subir a crítico si el humano lo prefiere.
+¿Cruza la frontera del proyecto? **Sí.** Pasa a consumir **sesame-api** (servicio
+interno nuevo en `cae-partes-dev`, DA1) con la variable nueva `SESAME_FESTIVOS_MINIMOS`
+y el secreto `SESAME-API-KEY`; `q-persistencia` gana dos motivos de traza. Se actualiza
+`azure-apps/partes.md` (R32); `azure-apps/sesame-api.md` lo escribe su dueño (P4).
 
-## 9. Riesgos y alternativas descartadas
+## 9. Decisiones
 
-- Encender sin M2/M3 recalcularía lo no congelado con calendarios mal cargados.
-- Arranque en frío de sv3 (KEDA a 0): un (DNI × año) por persona con líneas
-  activas, en serie, 10 s de plazo; con sesame-api caliente, segundos.
-- Descartado: control del mínimo en los adaptadores (duplicaría lógica fuera
-  de la lista cerrada); unir festivos de Sesame con los nacionales (hay
-  comunidades que sustituyen nacionales: el calendario del trabajador manda).
-- El `.ps1` solo se cubre con inspección estática y M5–M7.
+| Decisión | Opciones | Recomendado | Decidido |
+|---|---|---|---|
+| DA1 Dónde vive sesame-api | (A) `ca-sesame-api` en `cae-partes-dev`, ingress interno, 1 réplica, secretos en `kv-partes`; (B) recursos propios con ingress externo + `x-api-key`; (C) propios con ingress interno (inalcanzable) | (A) | |
+| DA2 Réplicas | (A) min = max = 1; (B) 0–1 (arranque en frío vuelve a pedir los 218) | (A) | |
+| DA3 Encendido | (A) `add_sesame_partes.ps1` con `-Quitar`; (B) recrear las apps | (A) | |
+| DA4 Si Sesame no responde | (A) los dos niveles de F-003 tal cual; (B) solo respaldo + log | (A) | |
+| DA5 Mínimo de festivos | (A) **1** configurable (`SESAME_FESTIVOS_MINIMOS`); (B) 8; (C) 0 | (A); volver a 8 si M2 prueba que Sesame da todas las fiestas | |
+| DA6 Contraste | (A) consola en sv3 con `--impacto` opcional; (B) sin herramienta | (A) | |
+| DA7 Partes ya conciliados | (A) recálculo de lo libre en la siguiente pasada, congelado intacto salvo propuesta F-046; (B) solo fechas posteriores (código nuevo en el conciliador) | (A) | |
+| DA8 `/jornada` con 0 contratos | (A) P3 en sesame-api (404 cacheado); (B) interruptor en sv4 (no incluido) | (A) | |
+| DA9 `sesame-api.md` | (A) lo escribe su dueño, `partes.md` enlaza | (A) | |
+| DA10 Rigor | (A) estándar; (B) crítico | (A) | |
+| DA11 Cuándo corre la pasada tras encender/apagar | (A) la pide el script por `q-persistencia` tras la revisión nueva de sv3 y antes de sv4; (B) esperar al siguiente parte (horas con reparto viejo aprobable); (C) botón en sv4 (código y permisos nuevos) | (A) | |
+| DA12 Si Sesame no trae algún festivo del respaldo | (A) puerta: no se enciende y se re-decide (que RRHH los cargue, o unir respaldo y Sesame en una feature aparte); (B) encender igual (el 1-ene se pagaría ordinario) | (A) | |
+| DA13 Rejilla de obra | (A) celda por persona, cabecera sin festivos; (B) dejar D6 de F-003 | (A) (pedida por el humano el 2026-11-16) | |
+
+## 10. Riesgos y alternativas descartadas
+
+- Encender sin M2/M3 recalcularía lo libre con calendarios mal cargados; con DA5 = 1
+  un calendario solo con fiestas locales pasa el control: M2 es la única defensa (DA12).
+- Ventana entre el encendido y la pasada (~1 min con KEDA): aprobar en ella congela el
+  reparto del JSON. Mitigan el orden de R23 y M5 fuera de horario.
+- Arranque en frío de sv3: un (DNI × año) por persona con líneas activas, en serie, 10 s
+  de plazo; con sesame-api caliente, segundos.
+- Descartados: el mínimo en los adaptadores (fuera de la lista cerrada);
+  `/admin/reconciliar-recursos` (sin ingress en Azure; en local escribiría en producción
+  desde el portátil); `az storage message put` (comillas). Los `.ps1`: estático y M5–M8.

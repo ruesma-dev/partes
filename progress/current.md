@@ -25,3 +25,10 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`).
 F-072 (prioridad 1, sin spec) · F-057 (`spec_ready` desde 2026-10-24: refrescar contra F-068
 antes de implementar) · F-070, F-071, F-073, F-067 sin spec · F-074 (consulta de obra de sv2,
 prioridad la más baja).
+
+## F-032 · spec refrescada (2026-11-16, spec-author)
+
+Rama `feature/F-032-sesame-festivos-produccion` (desde `dev`). Spec en
+`specs/F-032-sesame-festivos-produccion/` con DA5 = 1 y la rejilla de obra por persona.
+Para validar con el humano: DA11 (pasada al encender), DA12 (puerta si a Sesame le
+faltan festivos del respaldo) y DA13 (rejilla). Resumen ⇒ `progress/spec_F-032.md`.
