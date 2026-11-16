@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **68 features**, 14 abiertas y 54 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 11 en Backlog y 54 en Done.
+Resumen: **69 features**, 15 abiertas y 54 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 12 en Backlog y 54 en Done.
 
 ## Review
 
@@ -45,6 +45,7 @@ _Nada comprometido._
 | F-007 | Revisión del prompt de extracción de sv2 (J.310 rev.1) | sin spec | 13 | critico | `feature/F-007-prompt-sv2-evals` |
 | F-008 | Modelo de roles en el portal (sv4) | sin spec | 14 | estandar | `feature/F-008-roles-portal` |
 | F-011 | Jornada reducida por días desde Sesame sustituye al candef | sin spec | 15 | critico | `feature/F-011-jornada-reducida-dias` |
+| F-074 | sv2: la consulta de obra reutiliza la conexión con sigrid-api | sin spec | 17 | estandar | `feature/F-074-sv2-conexion-reutilizada` |
 
 ## Done
 
@@ -218,6 +219,14 @@ estado **spec lista** · prioridad 16 · rigor `estandar` · SDD sí · rama `fe
 **Spec**: aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A)
 
 Alta pedida por el humano el 2026-10-26 (respuesta literal «si» a la propuesta del líder), a raíz de un aviso de la sesión de `facturas`: al aprobar el despliegue de su F-008, el humano eligió copiar nuestro sv1 (`create_sv1_poller.ps1`, una réplica siempre activa que mira el buzón cada 60 s), dijo «ya arreglaremos lo del hook» y pidió la misma feature en `facturas` (su F-077), `albaranes` y `partes`. Objetivo: sustituir el sondeo por notificaciones de cambio de Microsoft Graph sobre el buzón `partes@ruesma.es`, para que el contenedor escale desde cero en vez de pagar una réplica 24/7 (coste fijo estimado por `facturas` en 10-35 USD/mes por servicio, sin confirmar). A resolver en la spec: endpoint público nuevo (validationToken en el alta, clientState en cada aviso) y su autenticación; renovación de la suscripción (la de correo caduca en ~3 días); barrido de respaldo (Graph no garantiza la entrega); arranque en frío frente al plazo de respuesta de Graph; idempotencia (no procesar dos veces el mismo correo); coste real medido. Coordinación: diseño común con `facturas` (F-077) y `albaranes`, documentado en `azure-apps`, no tres distintos.
+
+### F-074 · sv2: la consulta de obra reutiliza la conexión con sigrid-api
+
+estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `feature/F-074-sv2-conexion-reutilizada`
+
+**Spec**: sin spec
+
+Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
 
 ### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
 
