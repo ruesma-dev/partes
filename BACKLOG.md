@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **69 features**, 15 abiertas y 54 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 12 en Backlog y 54 en Done.
+Resumen: **70 features**, 16 abiertas y 54 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 54 en Done.
 
 ## Review
 
@@ -38,6 +38,7 @@ _Nada comprometido._
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 | F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
+| F-044 | Mover a un trabajador de un parte a otra fecha sin mover al resto | borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla | 6 | critico | `feature/F-044-mover-linea-a-otra-fecha` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
 | F-027 | Escapar HTML en los modales heredados del portal (nombres que vienen del OCR) | no lleva (sdd: false) | 9 | estandar | `feature/F-027-escape-modales` |
 | F-026 | Partes enviados como foto del movil se ven demasiado grandes en el portal | no lleva (sdd: false) | 10 | estandar | `feature/F-026-visor-fotos` |
@@ -139,6 +140,14 @@ estado **pendiente** · prioridad 5 · rigor `critico` · SDD sí · rama `featu
 **Spec**: sin spec
 
 Alta por la decisión D5-b de F-068 (humano, 2026-11-13). Hoy un parte en espera por un recálculo pedido desde el portal (fecha, celda, Traer de Sigrid y, con F-068, Conciliar, reasignar y deshacer empleado) se puede aprobar (F-047 DA3-B), así que durante la pasada de sv3 (~30 s–2 min) cabe aprobar con extras sin recalcular. A ESTUDIAR: bloquear la aprobación mientras dure ese recálculo salvo el «Aplicar» de F-046; distinguir el pedido de sv4 del de F-046 exige guardar su origen (hoy recalculo_pedido_id es String(36), solo el uuid) ⇒ cambio de esquema en orm_models.py (sv3 y sv4) y migración; mensaje al usuario y qué pasa si la pasada no llega (pedido huérfano). Ver specs/F-068-conciliar-pide-recalculo/design.md §9 D5.
+
+### F-044 · Mover a un trabajador de un parte a otra fecha sin mover al resto
+
+estado **pendiente** · prioridad 6 · rigor `critico` · SDD sí · rama `feature/F-044-mover-linea-a-otra-fecha`
+
+**Spec**: borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla
+
+Petición del humano del 2026-10-12: mover a UN solo trabajador de un parte a otro día sin mover al resto (parte escaneado con varias personas en el que una trabajó otro día, o la IA leyó mal la fecha solo de esa fila). Hoy la única vía es cambiar la fecha del parte entero (`PATCH /api/partes/{id}/fecha`). La spec de 2026-10-12 propone, solo en sv4, separar las líneas de ese trabajador a un documento nuevo con la otra fecha, dejar rastro de deshacer y pedir el recálculo de sv3. Se escribió pero nunca se fusionó ni se dio de alta en dev; recuperada el 2026-11-16 tras comprobar que no está hecha (solo existe el punto de entrada que dejó F-043 en app.js). A REVISAR al refrescar la spec: todo lo que entró después (F-045 a F-069: reparto entre obras, parte nuevo en espera, ids estables de extras, recálculo compartido de F-068) y el arreglo del deshacer de cabecera si se aprueba.
 
 ### F-057 · Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda
 
