@@ -1121,6 +1121,21 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ]
+    },
+    {
+      "id": "F-074",
+      "title": "sv2: la consulta de obra reutiliza la conexión con sigrid-api",
+      "priority": 17,
+      "rigor": "estandar",
+      "sdd": true,
+      "status": "pending",
+      "spec": "sin spec",
+      "branch": "feature/F-074-sv2-conexion-reutilizada",
+      "description": "Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
     }
   ]
 }
