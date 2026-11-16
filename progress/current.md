@@ -8,10 +8,11 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`).
 
 ## Abierto fuera del código (2026-11-16)
 
-- **Verificaciones manuales** que hace el líder por lectura (encargo del humano 2026-11-16):
-  F-068 M1, F-047 M1, F-050 M2–M3, F-064 M2, F-062 M6, F-055 M3, F-046 M6 ⇒
-  `progress/verificacion_manuales_2026-11-16.md`. Las que exigen aprobar, «Aplicar» o casar
-  quedan para el humano.
+- **Verificaciones manuales** (líder, por lectura, 2026-11-16 ⇒ `progress/verificacion_manuales_2026-11-16.md`):
+  OK F-047 M1 (por indicios), F-050 M2–M3, F-062 M6, F-055 M3. **Del humano**: F-068 M1 (falta un
+  casado real), F-064 M2 (dos usuarios en el mismo navegador), F-046 M6 (pulsar «Aplicar»; el caso
+  del 14/10 ya no existe; queda una fila `pendiente` en `reparto_pendiente`, recurso 2636243, 09/10).
+  Hallazgo: la espera real de F-047 es 41–87 s (mediana 56 s), no 20–40 s: revisar el texto de R19.
 - **Obra 0721, adjunto 4936_001.pdf**: reactivar la página 7 (doc 9d453e26) solo después de que
   Administración pase la página 11 al 29/10 (autorización del humano, escritura puntual).
 - **Posible bug**: deshacer un cambio de fecha deja líneas con `fecha_int` NULL (doc 5ea328f7).
