@@ -229,6 +229,12 @@ original NO se versiona: al repositorio entra solo el Markdown.
   `_SQL_RECURSOS_ACTIVOS`, el selector de recursos de F-035), para que el
   portal ofrezca esos mismos candidatos; lo vigila
   `tests/test_f036_recurso_persona_gemelos.py`.
+  Y, desde F-032 (DA20, decisión expresa del humano el 2026-11-17), la
+  cascada de lectura y el formato de `festivos_json` de la tabla
+  `festivos_trabajador`: `application/services/festivos_guardados.py` de
+  sv3 y sv4 (`del_ano`, `a_json`, `fila_de`, `elegir`, `FilaFestivos`,
+  `FUENTE_SESAME`, `FUENTE_SIN_FILA`), copias idénticas que vigila
+  `tests/test_f032_festivos_guardados_gemelos.py`.
   Solo crece con una decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes nunca hacen `git push`: lo hace siempre un humano. Commits y
