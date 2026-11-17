@@ -78,8 +78,7 @@ La feature vuelve a `in_progress` y se sigue desde T19.
   siembre la marca directamente (R24); conserva su intención.
 - **`test_f022_aprobar_seleccion.py` ya no manda `forzar_sin_sesame`.** Así queda vacío el
   grep de verificación de T17. El caso «se ignora» lo cubre `test_f032_sin_bloqueo.py`.
-- **CSS muerto en `static/styles.css`.** Quedan las reglas `.ap-sesame-bloqueo` y `.ap-forzar`.
-  styles.css no está en §5.10 y no lo he tocado.
+- **CSS muerto en `static/styles.css`:** borrado tras la enmienda.
 - **`motivo_ok` se conserva.** El parámetro de `marcar_registros_sigrid` ya no lo pasa nadie;
   solo cambia su docstring, como dice §5.10.
 - **El contraste llama a `_get` del cliente.** `contrastar_festivos_sesame.py` usa

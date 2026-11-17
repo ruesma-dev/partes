@@ -231,12 +231,13 @@ def test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable() -> None:
     # Funciones con nombre en `app.js` en `dev` 75816f2: F-047 no añade.
     # F-052 (T12, panel de «Sincronizar con Sigrid») añade las 17 de
     # `F052_PANEL`, todas suyas; F-068 (T9) añade la de `F068_CONCILIAR`.
-    # Fuera de ellas el total sigue en 302.
+    # Fuera de ellas el total sigue en 302, menos una: F-032 (§5.10)
+    # retira `bloqueoSesameHtml`.
     nombres = re.findall(r"function (\w+)\(", js)
     assert sorted(n for n in nombres if n in F052_PANEL) == sorted(F052_PANEL)
     assert sorted(n for n in nombres if n in F068_CONCILIAR) == sorted(
         F068_CONCILIAR)
-    assert len(nombres) - len(F052_PANEL) - len(F068_CONCILIAR) == 302
+    assert len(nombres) - len(F052_PANEL) - len(F068_CONCILIAR) == 301
     variables = [l for l in js.split("\n") if l.startswith("  var recalculo")]
     assert variables == [
         "  var recalculoVigilados = {};        // document_id -> fecha (ISO)",
