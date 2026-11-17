@@ -89,7 +89,7 @@ def _tot(lineas, hord, hext, inc, por_estado) -> dict:
 
 def test_f022_r16_agregar_un_grupo_es_su_respuesta_tal_cual() -> None:
     g = _grupo_pf("obr-10", "0100", ok=True, escribir=2, raro={"x": 1},
-                  partes=[{"cod": "PT26/00001"}], sesame_bloqueo="motivo")
+                  partes=[{"cod": "PT26/00001"}], aviso_sesame="aviso")
     plano = agregar_preflight([g])
     esperado = {k: v for k, v in g.items()
                 if k not in ("clave", "obra", "registro_ids", "listado")}
@@ -171,10 +171,13 @@ def test_f022_r17_agregar_todos_fallidos_ok_falso_con_el_motivo() -> None:
 
 
 def test_f022_r18_agregar_el_bloqueo_de_sesame_sube_si_algun_grupo_lo_tiene() -> None:
+    """F-032 (R21, R22): ya no hay bloqueo que subir; el `aviso_sesame` se
+    queda en su grupo."""
     a = _grupo_pf("obr-10", "0100", ok=True)
-    b = _grupo_pf("obr-20", "0200", ok=True, sesame_bloqueo="sin Sesame")
-    assert agregar_preflight([a, b])["sesame_bloqueo"] == "sin Sesame"
-    assert "sesame_bloqueo" not in agregar_preflight([a, a])
+    b = _grupo_pf("obr-20", "0200", ok=True, aviso_sesame="sin fila")
+    plano = agregar_preflight([a, b])
+    assert "sesame_bloqueo" not in plano
+    assert "aviso_sesame" not in plano
 
 
 # ===================================================================== #
@@ -236,12 +239,12 @@ def test_f022_r22_agregar_ejecucion_parcial_sin_todo_o_nada() -> None:
 
 
 def test_f022_r22_agregar_ejecucion_bloqueado_cuenta_como_no_ok() -> None:
-    bloqueado = _grupo_ej("obr-10", "0100", ok=False, bloqueado_sesame=True,
-                          error="sin Sesame")
+    """F-032: sin bloqueo de Sesame, un grupo no ok es uno que fallo."""
+    malo = _grupo_ej("obr-10", "0100", ok=False, error="sigrid caido")
     bueno = _grupo_ej("obr-20", "0200", ok=True)
-    plano = agregar_ejecucion([bloqueado, bueno])
+    plano = agregar_ejecucion([malo, bueno])
     assert (plano["ok"], plano["parcial"]) == (False, True)
-    assert plano["error"] == "0100: sin Sesame"
+    assert plano["error"] == "0100: sigrid caido"
 
 
 def test_f022_r22_agregar_ejecucion_todos_mal_no_es_parcial() -> None:
