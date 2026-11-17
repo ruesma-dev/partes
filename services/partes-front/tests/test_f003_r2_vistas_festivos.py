@@ -167,14 +167,17 @@ def test_f003_r2_la_matriz_avisa_si_el_dia_no_es_su_festivo(entorno) -> None:
 
 def test_f003_r2_la_columna_de_la_matriz_usa_el_calendario_por_defecto(
         entorno) -> None:
-    """D6: una consulta por columna, no una por fila x dia."""
+    """F-032 (R26, R27) sustituye a D6: la celda se tiñe con el calendario
+    del DNI de su fila (una consulta por fila) y la cabecera ya no marca
+    festivos; con DNI en la fila no se consulta el calendario por defecto."""
     proveedor = ProveedorFake(por_dni={"12345678Z": {SAN_ISIDRO}},
                               por_defecto={FIESTA_DEFECTO})
     cliente = _monta(entorno, [{"fecha": SAN_ISIDRO, "horas": 8.0}],
                      proveedor)
     html = cliente.get("/obras/obr-10?period=2026-05&modo=natural").text
-    assert "mx-hol" in html   # el 14, del calendario por defecto
-    assert ("holiday_name", None) in proveedor.consultas
+    assert "mx-hol" in html   # el 15, del calendario de la fila
+    assert ("holiday_name", None) not in proveedor.consultas
+    assert ("holiday_name", "12345678Z") in proveedor.consultas
 
 
 # --------------------- R22 · aviso visible de degradacion --------------- #
