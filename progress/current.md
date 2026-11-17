@@ -84,3 +84,11 @@ La feature vuelve a `in_progress` y se sigue desde T19.
 - **El contraste llama a `_get` del cliente.** `contrastar_festivos_sesame.py` usa
   `SesameApiClient._get` para listar los calendarios: el cliente no expone el listado y §6
   prohíbe tocarlo. Además, `--impacto` cuenta solo las líneas del año `--ano`.
+
+## F-032 · implementación terminada (implementer, 2026-11-17)
+
+T1–T26 y T31 hechas; `bash harness/init.sh` en verde (cobertura 95,4 % de 613 líneas).
+T27: la campaña de mutación queda para la pasada de campaña (tras el APPROVED del reviewer).
+T28–T30 son manuales del humano. `azure-apps` commit `af27d0c`, sin push. Informe ⇒
+`progress/impl_F-032.md`. Desviaciones de T21/T26 en el informe (título «Festivo: …» de la
+celda; `sesame-api.md` nombrado como pendiente P4 en vez de enlazado, porque no existe).

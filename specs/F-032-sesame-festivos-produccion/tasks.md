@@ -55,4 +55,4 @@ Reglas que no se negocian:
 - [ ] T28: M1, despliegue de sesame-api (tras P0–P2)  |  Verificación: MANUAL (humano), design §7 M1, comando y resultado en `progress/impl_F-032.md`
 - [ ] T29: M2, contraste (puerta DA12), y M3, impacto de 2026 (y 2025 si hay partes activos); RRHH corrige lo `INCOMPLETO`  |  Verificación: MANUAL (humano), `python contrastar_festivos_sesame.py --ano 2026 [--impacto]` desde `services/partes-persistencia`, resultado anotado
 - [ ] T30: M4, redespliegue apagado; M5, encendido de sv3 y sv4 en un paso; M6, portal y propuestas F-046; M7, apagado de prueba  |  Verificación: MANUAL (humano), design §7 con comando y resultado; al encender, actualizar el estado en `azure-apps/partes.md`
-- [ ] T31: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T31: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
