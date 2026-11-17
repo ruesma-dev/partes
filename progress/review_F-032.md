@@ -78,69 +78,31 @@ El diff no toca `harness/rigor.local.json`.
 
 ## Checkpoints (estado tras el delta)
 
-- **C1**
-  - [x] `init.sh` sin caché, en verde.
-  - [x] Ficheros base.
-- **C2**
-  - [x] Una sola feature activa.
-  - [x] Rama correcta.
-  - [x] Orden de prioridad.
-  - [x] `current.md`.
-  - N/A `history.md`: la feature no está `done`.
-- **C3**
-  - [x] Arquitectura hexagonal.
-  - [x] Primera línea con la ruta, también en los 2 tests nuevos.
-  - [x] Sin prints de debug, secretos ni dependencias nuevas: la «clave» de los tests es
-    literal de prueba y el DNI es sintético.
-  - [x] ORM gemelo, byte-idéntico (sin cambios en el delta).
-  - [x] Reglas de dominio, R3 incluida (cambios 1 y 2).
-- **C3 bis / ter, C4 ter:** N/A. No entran documentos de fuera, no se registra ninguna
-  conversación y no hay rutas sensibles.
-- **C3 quater** (`azure-apps` `af27d0c`): [x], sin cambios en el delta. El delta no toca lo que
-  partes expone ni lo que consume.
-- **C4**
-  - [x] Trazabilidad: R3 ahora con tests sobre el cliente real.
-  - [x] Tests sin red ni BBDD real (`MockTransport`).
-  - [x] M1–M7 con sus comandos enlazados desde `current.md`.
-  - [x] Dobles: los nuevos tests no usan dobles del cliente; `_Repo` expone `leer_todas` y
-    `guardar`, como el real.
-- **C4 bis**
-  - [x] Rigor declarado.
-  - [x] RED real, incluida la de T32.
-  - [x] Cobertura 95,5 %.
-  - [x] «Evidencias»; la fila de mutantes queda pendiente.
-  - [x] Capa e2e N/A, con el motivo impreso.
-  - Pendiente de la pasada de evidencias (ni `[ ]` ni N/A): mutación, supervivientes, muertos
-    comprobados, tiempo, CAMPAÑA NO VÁLIDA, RM1, RM2, RM5 y RM6.
-  - RM7 hecho en la pasada 1: las dos mutaciones de orden del refresco las caza la suite de la
-    feature. El delta no toca `persist_parte_pipeline.py`.
-- **C5**
-  - [x] T1–T26 y T31–T34 `[x]`, con un commit por tarea. T27 está pendiente a propósito; T28–T30
-    son manuales del humano.
-  - [x] Árbol limpio.
-  - [x] `features.json` con el estado y `spec_aprobada`.
+- **C1** [x] `init.sh` sin caché en verde; [x] ficheros base. **C2** [x] una feature activa, rama,
+  prioridad y `current.md`; N/A `history.md` (no está `done`).
+- **C3** [x] hexagonal; [x] primera línea con ruta (también los 2 tests nuevos); [x] sin prints,
+  secretos (clave y DNI de los tests son sintéticos) ni dependencias nuevas; [x] ORM gemelo
+  idéntico; [x] reglas de dominio, R3 incluida.
+- **C3 bis / ter, C4 ter:** N/A (sin documentos de fuera, conversación ni rutas sensibles).
+  **C3 quater** [x] (`af27d0c`; el delta no cambia lo que partes expone ni consume).
+- **C4** [x] trazabilidad (R3 ya con cliente real); [x] sin red ni BBDD; [x] M1–M7 enlazadas;
+  [x] dobles: `_Repo` expone `leer_todas` y `guardar`, como el real.
+- **C4 bis** [x] rigor; [x] RED real (también T32); [x] cobertura 95,5 %; [x] «Evidencias»
+  (mutantes pendientes); [x] e2e N/A con motivo. Pendiente de la pasada de evidencias (ni `[ ]`
+  ni N/A): mutación, supervivientes, muertos, tiempo, CAMPAÑA NO VÁLIDA, RM1, RM2, RM5 y RM6.
+  RM7 se hizo en la pasada 1 y el delta no toca `persist_parte_pipeline.py`.
+- **C5** [x] T1–T26 y T31–T34 `[x]` con commit por tarea (T27 pendiente a propósito; T28–T30 del
+  humano); [x] árbol limpio; [x] `features.json` con estado y `spec_aprobada`.
 
 ## Cobertura: requisito → test
 
 Sin cambios desde la pasada 1, salvo **R3**, que ahora tiene `test_f032_logs_sin_dni.py` en sv3
 y en sv4 además de `refresco` y `wiring`.
 
-| Requisito | Tests |
-|---|---|
-| R1–R2 | `contrato_festivos` y los guardianes F-010/F-015 |
-| R4–R10 | `refresco`, `ingesta` |
-| R11 | `repositorio` |
-| R12–R17 | `wiring`, `tabla_calendario`, `test_f003_r10` |
-| R18–R20 | `provider_tabla` |
-| R21–R24 | `sin_bloqueo` |
-| R25 | `avisos` |
-| R26–R28 | `rejilla_obra` |
-| R29–R33 | `contraste` |
-| R34–R37 | `infra_sesame` |
-| R38–R39 | `recalculo` |
-| R40 | por el diff |
-| R41 | por lectura |
-| R42 | `festivos_guardados_gemelos` |
+R1–R2 `contrato_festivos` · R4–R10 `refresco`/`ingesta` · R11 `repositorio` · R12–R17 `wiring`,
+`tabla_calendario` · R18–R20 `provider_tabla` · R21–R24 `sin_bloqueo` · R25 `avisos` · R26–R28
+`rejilla_obra` · R29–R33 `contraste` · R34–R37 `infra_sesame` · R38–R39 `recalculo` · R40 por el
+diff · R41 por lectura · R42 `festivos_guardados_gemelos`.
 
 ## Para la pasada de campaña (T27)
 
