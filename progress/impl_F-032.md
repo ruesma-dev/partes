@@ -2,7 +2,7 @@
 
 Activar Sesame en producción: festivos de cada trabajador leídos de Sesame HR.
 Rama `feature/F-032-sesame-festivos-produccion`, T1–T26, T31 y, tras la review 1, T32–T34
-hechas (T27 a medias, ver «Pendiente»). Spec: `specs/F-032-sesame-festivos-produccion/`.
+hechas, y T27 en la pasada de campaña. Spec: `specs/F-032-sesame-festivos-produccion/`.
 
 ## Qué cambió
 
@@ -197,18 +197,20 @@ sv5 verdes por caché.
 
 ## Pendiente
 
-- **T27, campaña de mutación**: **no lanzada**. Según `implementer.md`, va en la pasada de
-  campaña, tras el APPROVED del reviewer, para medir sobre código aprobado. Además, sv4 tarda
-  unos 20 min por línea base. La cobertura de T27 sí está cumplida (95,5 % ≥ 90 %). Al
-  relanzarme: `python -m harness.mutacion --feature F-032`, y se commitean
-  `progress/mutacion_F-032.{md,json}` con cada superviviente analizado.
+- **T27 hecha** en la pasada de campaña. El líder lanzó la campaña (`--workers 3`, 8964 s) sobre
+  `0e0d2f8`. 32 supervivientes:
+  - 18 muertos con tests nuevos (`test_f032_campana.py` de sv3 y de sv4);
+  - 11 muertos por `tests/test_f032_contrato_festivos.py` de la raíz, que la campaña no corre (ORM);
+  - 3 equivalentes (`None` frente a objetos sin `__bool__`/`__len__`).
+  Cada uno se verificó a mano con el mutante aplicado. El indeterminado (`:440`, `__main__`)
+  se detecta: la recolección aborta. Detalle: `progress/mutacion_F-032.md`. Queda solo lo manual.
 
 ## Evidencias
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | raíz 2517 passed / 48 skipped; sv3 2572 passed / 2 skipped; sv4 3889 passed; 0 fallos |
-| Cobertura de líneas cambiadas | 95,5 % (589/617), umbral 90 % |
-| Mutantes generados / supervivientes | PENDIENTE de la pasada de campaña (`progress/mutacion_F-032.md`) |
-| Tiempo de la suite | raíz 2013 s; sv3 95 s; sv4 1157 s |
+| Tests ejecutados | raíz 2517 passed / 48 skipped; sv3 2586 passed / 2 skipped; sv4 3890 passed; 0 fallos |
+| Cobertura de líneas cambiadas | 95,9 % (592/617), umbral 90 % |
+| Mutantes generados / supervivientes | 303 generados, 111 evaluados: 78 muertos, 32 supervivientes (todos analizados: 29 muertos a mano, 3 equivalentes), 0 timeouts, 1 indeterminado (detectado) |
+| Tiempo de la suite | raíz 1133 s; sv3 54 s; sv4 1072 s; campaña 8964 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
