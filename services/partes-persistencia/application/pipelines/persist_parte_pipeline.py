@@ -20,6 +20,10 @@ Pasos:
          el recurso elegido, que el conciliador confirma despues.
   5. Calcula ``review_required`` (un casado por recurso no lo sube; sin
      obra casada o sin fecha => revision, F-054, con un WARNING).
+  5 bis. F-032: con el refresco de festivos cableado, pide a sesame-api los
+     festivos de cada DNI del parte (anos de su semana ISO) y los guarda
+     en `festivos_trabajador`; un (DNI, ano) sin festivos ni fila sube el
+     parte a revision (R8). El duplicado no llega aqui (R10).
   6. Persiste documento + registros y concilia (partidas y recurso).
   7. F-047: marca el parte nuevo como repartido. Con el conciliador de
      recurso y el seguimiento cableados, el documento nace «en espera»
@@ -40,6 +44,7 @@ from typing import Any, Optional
 from application.services import text_match as tm
 from application.services.casado_recurso import casar_trabajador
 from application.services.parte_normalizer import ParteNormalizer
+from application.services.refresco_festivos import anos_de_semana
 from application.services.sigrid_matcher_provider import (
     Matchers,
     SigridMatcherProvider,
@@ -125,6 +130,7 @@ class PersistPartePipeline:
         recurso_conciliador: Any = None,
         recalculo_seguimiento: Any = None,
         hoy: Callable[[], date] = date.today,
+        refresco_festivos: Any = None,
     ) -> None:
         # F-023 (R16): de donde sale «hoy» cuando el parte no trae fecha.
         self._hoy = hoy
@@ -141,6 +147,9 @@ class PersistPartePipeline:
         # F-047: adaptador de F-043 (duck-typing: `.marcar_terminado(
         # document_id, peticion_id) -> bool`). Si None, sin pedido ni marca.
         self._recalculo_seguimiento = recalculo_seguimiento
+        # F-032 (R4): `RefrescoFestivos` (duck-typing: `.refrescar(dnis,
+        # anos)`). None mientras Sesame no este cableado (R12).
+        self._refresco_festivos = refresco_festivos
 
     def run(self, request: PersistParteRequest) -> PersistParteResult:
         envelope = request.extraction_envelope or {}
@@ -196,11 +205,15 @@ class PersistPartePipeline:
 
         review_required = self._compute_review_required(parte)
 
+        # ---- F-032: festivos de Sesame de los trabajadores del parte ---- #
+        document_id = str(uuid.uuid4())
+        if self._refrescar_festivos_safely(parte, document_id):
+            review_required = True
+
         # ---- Archivado en SharePoint (best-effort) ---- #
         self._archive_to_sharepoint(parte, request, sha256)
 
         # ---- Persistencia ---- #
-        document_id = str(uuid.uuid4())
         # F-047 (R1, R2): el parte nuevo espera su reparto solo si alguien
         # lo va a marcar terminado (conciliador de recurso + seguimiento).
         seguido = (self._recurso_conciliador is not None
@@ -251,6 +264,43 @@ class PersistPartePipeline:
             registros_con_hora=registros_con_hora,
             firmado=parte.firmado,
         )
+
+    # ----------------------------------------------------------------- #
+    def _refrescar_festivos_safely(self, parte: ParteDocumento,
+                                   document_id: str) -> bool:
+        """F-032 (R4, R8, R9): refresca los festivos de los DNIs del parte.
+
+        True si el parte debe ir a revision: algun (DNI, ano) se quedo sin
+        festivos de Sesame y sin fila (`sin_dato`), o el refresco lanzo. Un
+        404 (`sin_calendario`) no marca nada (R5). Nunca lanza: el parte se
+        guarda siempre. El WARNING da el recuento, nunca DNIs (R3).
+        """
+        if self._refresco_festivos is None:
+            return False
+        dnis = {tm.normalize_dni(r.empleado.dni) for r in parte.registros}
+        dnis.discard("")
+        if not dnis:
+            return False
+        try:
+            try:
+                anos = anos_de_semana(parte.fecha_iso or self._hoy())
+            except (TypeError, ValueError):
+                anos = anos_de_semana(self._hoy())
+            sin_dato = self._refresco_festivos.refrescar(
+                sorted(dnis), anos).sin_dato
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "[festivos] parte %s a revision: el refresco de festivos "
+                "fallo (%s)", document_id, type(exc).__name__,
+            )
+            return True
+        if sin_dato > 0:
+            logger.warning(
+                "[festivos] parte %s a revision: %s clave(s) sin festivos de "
+                "Sesame", document_id, sin_dato,
+            )
+            return True
+        return False
 
     # ----------------------------------------------------------------- #
     def _conciliar_partidas_safely(self) -> bool:
