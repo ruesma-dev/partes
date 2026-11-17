@@ -1,8 +1,8 @@
 # F-032 · Informe del implementer (`critico`)
 
 Activar Sesame en producción: festivos de cada trabajador leídos de Sesame HR.
-Rama `feature/F-032-sesame-festivos-produccion`, T1–T26 y T31 hechas (T27 a medias, ver
-«Pendiente»). Spec: `specs/F-032-sesame-festivos-produccion/`.
+Rama `feature/F-032-sesame-festivos-produccion`, T1–T26, T31 y, tras la review 1, T32–T34
+hechas (T27 a medias, ver «Pendiente»). Spec: `specs/F-032-sesame-festivos-produccion/`.
 
 ## Qué cambió
 
@@ -24,30 +24,20 @@ Rama `feature/F-032-sesame-festivos-produccion`, T1–T26 y T31 hechas (T27 a me
 - **sv4 lee**. `CalendarioProvider` lee la tabla entera mediante `list_festivos_trabajador`
   y añade `fuente_para`. A Sesame solo le pide la jornada (R18–R20).
 - **Fin del bloqueo `[SIN-SESAME]`** (DA17 = B, R21–R24):
-  - se retiran `sesame_bloqueo`, el 422, `forzar_sin_sesame` y las marcas nuevas;
-  - el preflight lleva `aviso_sesame`;
-  - el día de ajuste de F-056 se calcula aunque el calendario no sea fiable;
-  - las líneas ya marcadas conservan su badge.
+  fuera `sesame_bloqueo`, el 422, `forzar_sin_sesame` y las marcas nuevas; el preflight lleva
+  `aviso_sesame`; el ajuste de F-056 se decide igual; las líneas ya marcadas conservan su badge.
 - **Avisos** «Sin calendario de Sesame» en la vista de trabajador, la de obra y «+ Nuevo»
   (R25).
 - **Rejilla de obra por persona** (R26–R28, T20/T21):
-  - `get_obra(holiday_name_de=…)` resuelve cada fila con su DNI; sin DNI, usa el respaldo.
-  - `ObraMatrixCell` gana `holiday_name` (en el `title` de la celda, «Festivo: …»).
-  - `ObraDayCol` pierde `is_holiday`/`holiday_name`, así que la cabecera ya no marca
-    festivos.
-  - `obra_detail` ya no consulta `(None, año)`.
+  `get_obra(holiday_name_de=…)` resuelve cada fila con su DNI (sin DNI, el respaldo);
+  `ObraMatrixCell.holiday_name` va al `title`; la cabecera ya no marca festivos; sin `(None, año)`.
 - **Herramienta `contrastar_festivos_sesame.py`** (sv3, solo lectura, R29–R33). Contrasta cada
   calendario de Sesame con el respaldo y marca `INCOMPLETO` / `FALTAN DEL RESPALDO`. Con
   `--impacto` cuenta las líneas afectadas. Escribe un Markdown sin DNIs y un CSV.
 - **Infra** (R34–R37):
-  - `infra/add_sesame_partes.ps1` enciende en un paso, sv3 y después sv4:
-    - secreto `keyvaultref` + `identityref`;
-    - variables `SESAME_*`;
-    - espera a la revisión.
-  - Antes de tocar nada, valida la URL y el secreto. `-Quitar` lo apaga.
-  - `create_capps_partes.ps1`: sv3 lleva `SESAME_FESTIVOS_MINIMOS` en lugar de
-    `SESAME_CACHE_TTL_S`.
-  - `00_vars_partes.ps1` añade `$SESAME_FESTIVOS_MINIMOS = 1`.
+  `infra/add_sesame_partes.ps1` enciende sv3 y después sv4 (secreto `keyvaultref` +
+  `identityref`, variables `SESAME_*`, espera a la revisión), valida URL y secreto antes de tocar
+  nada y `-Quitar` lo apaga. `create_capps` y `00_vars` llevan `SESAME_FESTIVOS_MINIMOS` (1).
 - **Documentación** (R41, R42): `docs/ARCHITECTURE.md` (semántica 23, sesame-api y la
   herramienta), `infra/README_partes.md` y la lista cerrada de `CLAUDE.md`
   (`festivos_guardados.py` y su guardián).
@@ -62,7 +52,7 @@ Rama `feature/F-032-sesame-festivos-produccion`, T1–T26 y T31 hechas (T27 a me
   `resultado_sigrid.py`, `web/app.py`, `static/{app.js,styles.css}`, tres plantillas.
 - infra: `add_sesame_partes.ps1` (nuevo), `create_capps_partes.ps1`, `00_vars_partes.ps1`,
   `README_partes.md`.
-- Tests nuevos `test_f032_*` en sv3 (10), sv4 (7) y la raíz (3). Tests cambiados: los de T1,
+- Tests nuevos `test_f032_*` en sv3 (11), sv4 (8) y la raíz (3). Enmienda: los dos `logging_config.py`. Tests cambiados: los de T1,
   T11, T12, T14, T16, T18 y T20, más los de la enmienda del 2026-11-17 (`test_f047` r23 y
   `test_f056_vista` r45_r6).
 - No se ha tocado ningún fichero de design §6 (verificado con `git diff --stat`).
@@ -96,13 +86,9 @@ Rama `feature/F-032-sesame-festivos-produccion`, T1–T26 y T31 hechas (T27 a me
 
 `C:\Users\pgris\PycharmProjects\azure-apps\partes.md`. Se hizo `git pull --rebase` antes
 («Already up to date») y otra vez después (al día). Commit aparte **`af27d0c`** en `main`,
-**sin push** (ahead 1). Cambios:
-- §3.4 (festivos del portal);
-- §4.6 y la nueva §4.7 `festivos_trabajador`;
-- §5.3 y §5.3 bis: endpoints, comportamiento sin bloqueo, variables y P0–P5;
-- §5.4 (secreto);
-- §5.5 (`add_sesame_partes.ps1`);
-- §8 (hoja de ruta).
+**sin push** (el humano ya lo subió, según la review). Cambia §3.4, §4.6, §4.7 nueva
+(`festivos_trabajador`), §5.3, §5.3 bis (endpoints, sin bloqueo, variables, P0–P5), §5.4, §5.5 y §8.
+La enmienda de la review 1 no cambia nada de lo que exponemos ni consumimos: sin commit nuevo.
 
 ## Fase RED (trazas reales; ficheros completos en el scratchpad de la sesión)
 
@@ -148,8 +134,6 @@ servicio (la raíz para `tests/`).
   FAILED tests/test_f032_sin_bloqueo.py::test_f032_r21_el_modal_no_tiene_bloqueo_ni_casilla
   FAILED tests/test_f032_sin_bloqueo.py::test_f032_r22_el_grupo_pinta_el_aviso_sesame
   14 failed, 3 passed, 1 warning in 12.30s
-  FAILED tests/test_f056_decisiones.py::test_f056_r6_ejecutar_ajustar_sin_calendario_es_409
-  26 failed, 290 passed, 1 warning in 92.98s
   ```
 - **T18** `tests/test_f032_avisos.py tests/test_f003_r2_vistas_festivos.py` (sv4):
   ```
@@ -169,20 +153,34 @@ servicio (la raíz para `tests/`).
   ```
   E   ModuleNotFoundError: No module named 'contrastar_festivos_sesame'
   ```
-- **T24** `tests/test_f032_infra_sesame.py` (raíz): `4 failed, 4 passed, 9 errors in 0.43s`
-  (el script no existía).
+- **T24** `tests/test_f032_infra_sesame.py` (raíz): `4 failed, 4 passed, 9 errors in 0.43s`.
+- **T32** `tests/test_f032_logs_sin_dni.py`, en sv3 y en sv4 (cliente y `configure_logging` reales):
+  ```
+  E           AssertionError: httpx | HTTP Request: GET http://sesame.local/api/v1/festivos?dni=12345678Z&ano=2026 "HTTP/1.1 200 OK"
+  E       AssertionError: assert 20 >= 30      (httpx en INFO)
+  4 failed in 1.27s                            (sv3: 200, 404, 500 y el nivel de httpx)
+  E           AssertionError: httpx | HTTP Request: GET http://sesame.local/api/v1/jornada?dni=12345678Z "HTTP/1.1 200 OK"
+  4 failed in 1.15s                            (sv4: 200, 404, WARNING con el cuerpo, nivel)
+  ```
 
-Todas pasan a verde con su tarea de implementación (T2, T4, T6, T8, T10, T12, T15, T17, T19,
-T21, T23 y T25).
+Todas pasan a verde con su tarea (T2, T4, T6, T8, T10, T12, T15, T17, T19, T21, T23, T25, T33).
 
-## Salida de `bash harness/init.sh` (2026-11-17, tras T26)
+## Enmienda tras la review 1 (aprobada por el humano el 2026-11-17)
 
-`ENTORNO LISTO. Puedes trabajar.` (exit 0):
-- raíz: `2517 passed, 48 skipped in 1164.15s`.
-- sv3: `2568 passed, 2 skipped in 110.44s`.
-- sv4: `3885 passed, 2 warnings in 1315.85s`.
-- sv1, sv2 y sv5: verdes por caché (no los toca).
-- `PUERTA COBERTURA: 95.4% de 613 líneas cambiadas cubiertas (585/613, umbral 90% (del nivel critico)…)`
+- **T33 (R3)**: `logging.getLogger("httpx").setLevel(logging.WARNING)` en los dos
+  `config/logging_config.py` (como sv5). El WARNING de `jornada_contrato` ya solo lleva
+  `type(exc).__name__`: ni el DNI ni `exc!r`, que incluye el cuerpo de Sesame.
+- **T34**: el comentario del aviso de `obra_detail` en `web/app.py` (R27) está al día, y
+  `current.md` enlaza los comandos de M1–M7 a design §7 y a la sección de abajo.
+- Lo que cubre: `RefrescoFestivos.refrescar` (200, 404, 500) y `jornada_contrato` (200, 404 y el
+  WARNING de un 500 cuyo cuerpo repite el DNI). Sin DNI en ningún registro ni en el fichero de log.
+
+## Salida de `bash harness/init.sh` (2026-11-17, tras T34)
+
+`ENTORNO LISTO. Puedes trabajar.` (exit 0). Raíz `2517 passed, 48 skipped in 2013.00s`;
+sv3 `2572 passed, 2 skipped in 94.54s`; sv4 `3889 passed, 2 warnings in 1156.96s`; sv1, sv2 y
+sv5 verdes por caché.
+- `PUERTA COBERTURA: 95.5% de 617 líneas cambiadas cubiertas (589/617, umbral 90% (del nivel critico)…)`
 - `PUERTA TAMAÑO`: dentro de los topes.
 - `PUERTA CARRIL: N/A (F-032 es de nivel critico: no declara límites)`
 - `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`
@@ -193,19 +191,15 @@ T21, T23 y T25).
 - **T28 (M1)**: desplegar sesame-api.
 - **T29 (M2, M3)**: `python contrastar_festivos_sesame.py --ano 2026 [--impacto]` desde
   `services/partes-persistencia`. `FALTAN DEL RESPALDO` ⇒ no se enciende.
-- **T30 (M4–M7)**:
-  - redespliegue con Sesame apagado;
-  - `.\add_sesame_partes.ps1`;
-  - comprobar el portal y las propuestas de F-046;
-  - `-Quitar` de prueba;
-  - actualizar el estado en `azure-apps/partes.md`.
+- **T30 (M4–M7)**: redespliegue apagado; `.\add_sesame_partes.ps1`; portal y propuestas de
+  F-046; `-Quitar` de prueba; estado en `azure-apps/partes.md`. Comandos: design §7.
 - Push de `azure-apps` (`af27d0c`) y de la rama: los hace el humano.
 
 ## Pendiente
 
 - **T27, campaña de mutación**: **no lanzada**. Según `implementer.md`, va en la pasada de
   campaña, tras el APPROVED del reviewer, para medir sobre código aprobado. Además, sv4 tarda
-  unos 22 min por línea base. La cobertura de T27 sí está cumplida (95,4 % ≥ 90 %). Al
+  unos 20 min por línea base. La cobertura de T27 sí está cumplida (95,5 % ≥ 90 %). Al
   relanzarme: `python -m harness.mutacion --feature F-032`, y se commitean
   `progress/mutacion_F-032.{md,json}` con cada superviviente analizado.
 
@@ -213,8 +207,8 @@ T21, T23 y T25).
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | raíz 2517 passed / 48 skipped; sv3 2568 passed / 2 skipped; sv4 3885 passed; 0 fallos |
-| Cobertura de líneas cambiadas | 95,4 % (585/613), umbral 90 % |
+| Tests ejecutados | raíz 2517 passed / 48 skipped; sv3 2572 passed / 2 skipped; sv4 3889 passed; 0 fallos |
+| Cobertura de líneas cambiadas | 95,5 % (589/617), umbral 90 % |
 | Mutantes generados / supervivientes | PENDIENTE de la pasada de campaña (`progress/mutacion_F-032.md`) |
-| Tiempo de la suite | raíz 1164 s; sv3 110 s; sv4 1316 s |
+| Tiempo de la suite | raíz 2013 s; sv3 95 s; sv4 1157 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
