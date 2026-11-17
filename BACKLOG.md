@@ -3,11 +3,13 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **70 features**, 16 abiertas y 54 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 0 en To do, 13 en Backlog y 54 en Done.
+Resumen: **70 features**, 16 abiertas y 54 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 54 en Done.
 
 ## Review
 
-_Nada esperando revisión._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | reviewer | aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico) | 2 | critico | `feature/F-032-sesame-festivos-produccion` |
 
 ## Blocked
 
@@ -21,7 +23,6 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | pendiente de tu aprobación | aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico) | 2 | critico | `feature/F-032-sesame-festivos-produccion` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -118,7 +119,7 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
-estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
+estado **en QA / revisión** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
 **Spec**: aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico)
 
