@@ -55,22 +55,11 @@ Rama `feature/F-032-sesame-festivos-produccion`, T1–T26 y T31 hechas (T27 a me
 ## Ficheros
 
 64 ficheros, +5672/−1476 (`git diff --stat 338b47b..HEAD`). Producción:
-- sv3 (`services/partes-persistencia/`):
-  - `application/services/{festivos_guardados,refresco_festivos}.py`
-  - `application/pipelines/persist_parte_pipeline.py`
-  - `config/settings.py`
-  - `infrastructure/calendario/tabla_calendario_laboral.py` (nuevo)
-  - `infrastructure/calendario/sesame_calendario_laboral.py` (borrado)
-  - `infrastructure/database/{orm_models,sqlalchemy_festivos_repository}.py`
-  - `interface_adapters/api/app.py`
-  - `contrastar_festivos_sesame.py`
-- sv4 (`services/partes-front/`):
-  - `application/services/{calendario_provider,festivos_guardados,reparto_obras}.py`
-  - `infrastructure/database/{orm_models,parte_repository}.py`
-  - `infrastructure/transfer/resultado_sigrid.py`
-  - `interface_adapters/web/app.py`
-  - `static/{app.js,styles.css}`
-  - `templates/{nuevo_parte,obra_detail,trabajador_detail}.html`
+- sv3: `application/services/{festivos_guardados,refresco_festivos}.py`, `persist_parte_pipeline.py`,
+  `config/settings.py`, `tabla_calendario_laboral.py` (nuevo; `sesame_calendario_laboral.py`
+  borrado), `{orm_models,sqlalchemy_festivos_repository}.py`, `api/app.py`, `contrastar_festivos_sesame.py`.
+- sv4: `{calendario_provider,festivos_guardados,reparto_obras}.py`, `{orm_models,parte_repository}.py`,
+  `resultado_sigrid.py`, `web/app.py`, `static/{app.js,styles.css}`, tres plantillas.
 - infra: `add_sesame_partes.ps1` (nuevo), `create_capps_partes.ps1`, `00_vars_partes.ps1`,
   `README_partes.md`.
 - Tests nuevos `test_f032_*` en sv3 (10), sv4 (7) y la raíz (3). Tests cambiados: los de T1,
@@ -99,11 +88,8 @@ Rama `feature/F-032-sesame-festivos-produccion`, T1–T26 y T31 hechas (T27 a me
   `--ano`.
 - **T21.** El `title` de la celda festiva lleva el prefijo «Festivo: », antes del motivo de
   incompatibilidad y de «Ver parte», unidos con « · ».
-- **T26 `azure-apps/partes.md`**:
-  - `sesame-api.md` no existe todavía en `azure-apps`, así que se nombra como pendiente (P4)
-    en vez de enlazarlo. No se escribe desde aquí: el dueño es sesame-api.
-  - La lista de precondiciones pasa a las P0–P5 de F-032. El pendiente de F-003 (la jornada
-    en horas) queda aparte.
+- **T26 `azure-apps/partes.md`**: `sesame-api.md` no existe en `azure-apps`: se nombra como
+  pendiente (P4), sin enlace. Las precondiciones pasan a las P0–P5 de F-032.
 - **Propagación a `arnes-base`**: no aplica. No se ha tocado nada genérico del arnés.
 
 ## Documento del ecosistema
