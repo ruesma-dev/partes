@@ -1,140 +1,167 @@
-Revisión completa (pasada 1, principal) desde el merge-base `95982ac` con `dev` hasta HEAD `85b4c02`
+Revisión incremental desde 85b4c02 (pasada 2, principal): delta 85b4c02..ad98864 (f63c05d, 495caf9..b6e5440)
 
 # F-032 · Review del reviewer: activar Sesame en producción (festivos por trabajador)
 
-- **Veredicto: CHANGES_REQUESTED.** Hay un solo motivo bloqueante: R3 no se cumple en producción
-  (cambio 1). El resto del trabajo está bien y no hay que rehacerlo.
-- **Rigor:** `critico`, declarado en `features.json` (DA10 = B). Exige fase RED, cobertura ≥ 90 %
-  de las líneas cambiadas, mutación exigida (uno por línea, 60 % en [100, 300], semilla
-  20261030) con cero supervivientes sin aceptar, y RM1–RM7.
-- **T27 (campaña):** no se ha lanzado, a propósito: va después del APPROVED. Sus puntos quedan
-  como «pendiente: pasada de evidencias».
+- **Veredicto: APPROVED** (pasada principal). Abre `qa-e2e` (N/A) y la pasada de campaña (T27).
+- **Pasada 1** (`85b4c02`, CHANGES_REQUESTED). Pidió tres cambios:
+  1. R3 en sv3: el DNI salía en claro en el log INFO de httpx;
+  2. R3 en sv4: httpx de `/jornada` y el WARNING de `jornada_contrato` con `dni_norm`;
+  3. papeleo: los comandos de las M y `spec_aprobada`.
+
+  El resto de la feature quedó revisado y bien en esa pasada, y no se vuelve a leer. El detalle
+  está en el commit `ad98864`.
+- **Rigor:** `critico`, declarado en `features.json` (DA10 = B). Exige:
+  - fase RED;
+  - cobertura ≥ 90 % de las líneas cambiadas;
+  - mutación exigida: uno por línea, 60 % en [100, 300], semilla 20261030, y cero
+    supervivientes sin aceptar;
+  - RM1–RM7.
+- **Mutación (T27):** sin lanzar, a propósito. Va en la pasada de campaña, después de este
+  APPROVED; sus puntos quedan como «pendiente: pasada de evidencias».
 
 ## Ejecución
 
 `ARNES_SIN_CACHE=1 bash harness/init.sh` ⇒ `ENTORNO LISTO`, exit 0.
-- Suites: raíz 2517 passed / 48 skipped; sv1 74; sv2 422; sv3 2568 / 2 skipped; sv4 3885; sv5 1628.
-- Puertas: `COBERTURA` 95.4 % (585/613, umbral 90 %); `TAMAÑO` OK; `CAPA E2E` N/A (ningún
-  servicio declara el bloque e2e).
-- Avisos: F-032 sin `spec_aprobada` (cambio 3) y la deuda previa de ruff.
-- El diff no toca `harness/rigor.local.json`.
 
-## Cambios requeridos
-
-1. **R3 (bloqueante): DNIs en claro en los logs de sv3, en cada ingesta.**
-   - **Qué pasa.** `RefrescoFestivos` llama a `SesameApiClient.festivos`, que hace
-     `GET /api/v1/festivos?dni=…&ano=…`. La raíz de sv3 queda en INFO (`config/logging_config.py`;
-     `LOG_LEVEL` por defecto `INFO`), y httpx 0.28.1 escribe la URL completa en INFO.
-   - **Reproducido** con la propia `configure_logging(…, "INFO")` de sv3, el cliente real sobre
-     `MockTransport` y `RefrescoFestivos.refrescar(['12345678Z'], {2026})`:
-     ```
-     INFO | httpx | _client.py:1025 | HTTP Request: GET http://sesame.local/api/v1/festivos?dni=12345678Z&ano=2026 "HTTP/1.1 200 OK"
-     ```
-   - **Por qué no lo caza la suite.** `test_f032_refresco.py::test_f032_r3_logs_sin_dnis_y_con_el_recuento`
-     usa un cliente falso, así que no lo ve. Es justo el disparador 3 (datos personales) que
-     hace `critico` a la feature. sv5 ya silencia httpx (`partes-transfer/config/logging_config.py:28`),
-     igual que `validar_datos_sesame.py:529`.
-   - **Qué hacer.** Fijar `logging.getLogger("httpx").setLevel(logging.WARNING)` en
-     `services/partes-persistencia/config/logging_config.py`, y añadir un test: el refresco con el
-     cliente REAL (`MockTransport`) y el logging de sv3 en INFO, sin el DNI en ningún registro.
-   - **Alcance.** `logging_config.py` no está en design §4: el líder lo lleva al humano como
-     enmienda de alcance. `sesame_api_client.py` está en §6 y no se toca.
-2. **R3 en sv4: el mismo defecto, que F-032 enciende por primera vez.** Con DA18 = A,
-   `add_sesame_partes.ps1` da `SESAME_API_*` a sv4, que empieza a llamar a `/api/v1/jornada?dni=…`.
-   Se filtra por dos sitios:
-   - la línea de httpx en INFO, porque el logging de sv4 no la silencia;
-   - el WARNING de `CalendarioProvider.jornada_contrato` (`application/services/calendario_provider.py`,
-     `"%s jornada de %s no disponible (%r)…"`), que lleva `dni_norm` y el `exc!r` con la URL.
-
-   El código es de F-003, pero F-032 modifica este fichero y lo activa en producción. Hay que
-   quitar el DNI y el `exc!r` del WARNING (dejar solo `type(exc).__name__`, como el refresco) y
-   silenciar httpx en `services/partes-front/config/logging_config.py`, con su test. Va en la
-   misma enmienda de alcance.
-3. **Papeleo** (no bloquea por sí solo):
-   - `progress/current.md` dice «T28–T30 son manuales del humano», pero no da los comandos que pide
-     C4. Basta con enlazar a design §7 y a la sección «Verificaciones manuales pendientes» de
-     `progress/impl_F-032.md`.
-   - Falta `spec_aprobada: "2026-11-17"` en la entrada de F-032 de `features.json`. Lo anota el líder.
-
-## Checkpoints
-
-- **C1** [x] `init.sh` sin caché, en verde; [x] ficheros base. **C2** [x] una sola feature activa; [x] rama correcta; [x] orden de prioridad;
-  [x] `current.md`; [x] N/A `history.md`, porque F-032 no está `done`.
-- **C3**
-  - [x] Arquitectura hexagonal: `festivos_guardados.py` puro; repositorio y calendario en
-    `infrastructure/`; el refresco en `application/`, por duck-typing.
-  - [x] Primera línea con la ruta en los 25 ficheros nuevos.
-  - [x] Sin prints de debug: los `print` de `contrastar_festivos_sesame.py` son salida de
-    consola, prevista en §5.8.
-  - [x] Sin secretos ni hosts: `SESAME_BASE_URL` vacía, la clave por `keyvaultref`, DNIs de los
-    tests sintéticos. Sin dependencias nuevas.
-  - [x] Trampa (3): los dos `orm_models.py` son byte-idénticos (`cmp`), van en el mismo commit
-    (a50a4ea) y `TABLAS` sube a 9 en los dos guardianes.
-  - [ ] **Reglas de dominio: R3, ver los cambios 1 y 2.**
-- **C3 bis / ter / C4 ter:** N/A (sin documentos de fuera, sin conversación, sin rutas sensibles).
-- **C3 quater** (`azure-apps` `af27d0c`): [x] solo `partes.md`; [x] commit aparte, con el SHA en
-  el informe; [x] sin URLs, claves ni IDs; [x] coincide con §8.
-  - [x] Ningún agente hizo push. Hoy `main` ya no va por delante de `origin/main`: lo subió el
-    humano.
-  - `sesame-api.md` no existe, y por eso se nombra como P4 pendiente. Es aceptable por DA9.
-- **C4** [x] trazabilidad (ver la tabla); [x] tests sin red ni BBDD real; [ ] M1–M7 sin comando
-  en `current.md` (cambio 3).
-  - [x] Dobles: `RepoFestivos` y `_Refresco` exponen `leer_todas`, `guardar`, `festivos` y
-    `refrescar`, igual que los reales. Comprobado a mano: `init.sh` no tiene puerta de dobles.
-- **C4 bis** [x] rigor declarado; [x] RED real de T1, T3, T5, T7, T9, T11, T14, T16, T18, T20,
-  T22 y T24; [x] cobertura 95,4 %; [x] «Evidencias» con tests, cobertura, tiempos y e2e;
-  [x] capa e2e N/A, con el motivo impreso.
-  - Pendiente (pasada de evidencias): mutación, supervivientes, muertos comprobados, tiempo,
-    CAMPAÑA NO VÁLIDA, RM1, RM2, RM5, RM6 y la fila de mutantes de «Evidencias».
-- **C5** [x] T1–T26 y T31 `[x]`, con un commit `F-032 Tn:` por tarea (T27 pendiente a propósito;
-  T28–T30 son del humano); [x] árbol limpio; [ ] `spec_aprobada` (cambio 3).
-
-## RM7: orden protegido (hecho ya, en copias del scratchpad)
-
-R4 pide refrescar ANTES de `save_parte` y, por R15, antes de la pasada de esa ingesta. Probé dos
-mutaciones de `persist_parte_pipeline.py`:
-- (a) el refresco DESPUÉS de `save_parte`;
-- (b) el refresco DESPUÉS de `_conciliar_recursos_safely`.
-
-En las dos caen tres tests de la feature:
-- `test_f032_ingesta.py::test_f032_r4_refresca_antes_de_guardar_con_dnis_y_anos`;
-- `test_f032_ingesta.py::test_f032_r8_sin_dato_sube_a_revision_con_warning`;
-- `test_f032_ingesta.py::test_f032_r9_un_error_inesperado_sube_a_revision_y_guarda`.
-
-Un cuarto fallo, `test_f003_r8_…_gemelo_…`, es un artefacto de la copia (le falta sv4 al lado).
-La suite ve el orden. El árbol de trabajo no se tocó.
-
-## Puntos que pidió el líder
-
-| Punto | Resultado |
+| Suite / puerta | Resultado |
 |---|---|
-| Recálculos sin llamar a Sesame | OK: la tabla no tiene cliente; `test_f032_r14_la_pasada_no_llama_a_sesame` |
-| Upsert y caché | OK: `on_conflict_do_update` por el índice único; `al_guardar = olvidar`; el mismo `calendario` en `build_app` y el conciliador |
-| 404 | OK: `sin_calendario`, ni escribe ni borra, sin revisión |
-| Fallo o incompleto | OK: con fila ⇒ `conservadas`; sin fila ⇒ `sin_dato` ⇒ `review_required` y un WARNING con el recuento |
-| Respaldos sin fila | OK: sv3, el JSON (también con la lectura fallida); sv4, `holidays`, no fiable |
-| Retirada de `[SIN-SESAME]` | OK: sin bloqueo, override, 422 ni marca nueva; el badge, por `sigrid_motivo` |
-| Rejilla de obra | OK: `holiday_name_de` por fila, cabecera sin `mx-hol`, sin `(None, año)` |
-| Gemelos y `CLAUDE.md` | OK: `festivos_guardados.py` idénticos (`diff`), guardián y lista cerrada (DA20) |
-| DNIs en logs | **NO** (cambios 1 y 2) |
-| Secretos o hosts en `infra/` y `azure-apps` | OK. Los ficheros de §6 están intactos |
+| raíz | 2517 passed / 48 skipped |
+| sv1 | 74 |
+| sv2 | 422 |
+| sv3 | 2572 / 2 skipped (+4 nuevos) |
+| sv4 | 3889 (+4 nuevos) |
+| sv5 | 1628 |
+| `PUERTA COBERTURA` | 95.5 % (589/617), umbral 90 % |
+| `PUERTA TAMAÑO` | OK |
+| `CAPA E2E` | N/A: ningún servicio declara el bloque e2e |
+
+El aviso de `spec_aprobada` ya no sale. Ruff pasa de 1060 a 1063 avisos (ver «Observaciones»).
+El diff no toca `harness/rigor.local.json`.
+
+## Qué cambió el delta y cómo se verificó
+
+- **Cambio 1 (R3 en sv3): resuelto.** `services/partes-persistencia/config/logging_config.py` fija
+  `logging.getLogger("httpx").setLevel(logging.WARNING)` después de `dictConfig`, como sv5.
+  - Repetí la reproducción de la pasada 1 sobre HEAD: misma `configure_logging(…, "INFO")`, el
+    cliente real con `MockTransport` y `RefrescoFestivos.refrescar(['12345678Z'], {2026})`. El
+    DNI sale **0** veces en la salida (antes salía en la línea `HTTP Request: GET …?dni=…`).
+  - Las dos entradas reales llaman a `configure_logging`: `main.py:15` y `main_worker.py:41`.
+    El `dictConfig` que aplica después uvicorn (con `disable_existing_loggers=False`) no restaura
+    el nivel de httpx.
+- **Cambio 2 (R3 en sv4): resuelto.**
+  - `services/partes-front/config/logging_config.py` hace lo mismo con httpx.
+  - `main.py:77` llama a `configure_logging` antes de `uvicorn.run`.
+  - El WARNING de `CalendarioProvider.jornada_contrato` queda solo con `type(exc).__name__`: sin
+    `dni_norm` ni `exc!r`, que llevaba la URL y el cuerpo de Sesame. Es el único log con DNI que
+    tenía el fichero.
+- **Tests nuevos: `tests/test_f032_logs_sin_dni.py`, en sv3 y en sv4.** Usan el cliente REAL, la
+  `configure_logging` REAL del servicio en INFO, un handler que captura todos los loggers y
+  también leen el fichero de log.
+  - sv3: 200, 404 y 500 (cuyo cuerpo repite el DNI), más el nivel efectivo de httpx.
+  - sv4: 200, 404, el WARNING de un 500 sin el cuerpo (y con `RuntimeError`), y el nivel de httpx.
+  - Restauran el logging al terminar.
+  - RED real en `progress/impl_F-032.md`: 4 + 4 fallos, entre ellos la línea de httpx con el DNI.
+    Ahora están en verde dentro de las suites.
+- **Cambio 3 (papeleo): resuelto.**
+  - `progress/current.md` enlaza los comandos de M1–M7 a design §7 y a «Verificaciones manuales
+    pendientes» de `impl_F-032.md`.
+  - El líder puso `spec_aprobada: "2026-11-17"` (f63c05d).
+  - El comentario desfasado de `obra_detail` en `web/app.py` está al día (R27).
+- **Alcance.** La enmienda del humano del 2026-11-17 («1 a 3 ok») está anotada en `tasks.md`
+  como T32–T34, todas `[x]` y con su commit `F-032 Tn:` (ccc2f32, 0b95cd0, 60f728b). El delta
+  toca solo los ficheros que la enmienda declara, más sus tests, `current.md` e `impl`.
+- **¿Invalida algo ya aprobado?** No:
+  - no cambia ninguna firma pública ni mueve ningún fichero;
+  - `calendario_provider.py` solo cambia el texto de un log;
+  - el alcance que medirá la campaña gana tres líneas de producción (dos `setLevel` y el log),
+    todas cubiertas.
+
+## Checkpoints (estado tras el delta)
+
+- **C1**
+  - [x] `init.sh` sin caché, en verde.
+  - [x] Ficheros base.
+- **C2**
+  - [x] Una sola feature activa.
+  - [x] Rama correcta.
+  - [x] Orden de prioridad.
+  - [x] `current.md`.
+  - N/A `history.md`: la feature no está `done`.
+- **C3**
+  - [x] Arquitectura hexagonal.
+  - [x] Primera línea con la ruta, también en los 2 tests nuevos.
+  - [x] Sin prints de debug, secretos ni dependencias nuevas: la «clave» de los tests es
+    literal de prueba y el DNI es sintético.
+  - [x] ORM gemelo, byte-idéntico (sin cambios en el delta).
+  - [x] Reglas de dominio, R3 incluida (cambios 1 y 2).
+- **C3 bis / ter, C4 ter:** N/A. No entran documentos de fuera, no se registra ninguna
+  conversación y no hay rutas sensibles.
+- **C3 quater** (`azure-apps` `af27d0c`): [x], sin cambios en el delta. El delta no toca lo que
+  partes expone ni lo que consume.
+- **C4**
+  - [x] Trazabilidad: R3 ahora con tests sobre el cliente real.
+  - [x] Tests sin red ni BBDD real (`MockTransport`).
+  - [x] M1–M7 con sus comandos enlazados desde `current.md`.
+  - [x] Dobles: los nuevos tests no usan dobles del cliente; `_Repo` expone `leer_todas` y
+    `guardar`, como el real.
+- **C4 bis**
+  - [x] Rigor declarado.
+  - [x] RED real, incluida la de T32.
+  - [x] Cobertura 95,5 %.
+  - [x] «Evidencias»; la fila de mutantes queda pendiente.
+  - [x] Capa e2e N/A, con el motivo impreso.
+  - Pendiente de la pasada de evidencias (ni `[ ]` ni N/A): mutación, supervivientes, muertos
+    comprobados, tiempo, CAMPAÑA NO VÁLIDA, RM1, RM2, RM5 y RM6.
+  - RM7 hecho en la pasada 1: las dos mutaciones de orden del refresco las caza la suite de la
+    feature. El delta no toca `persist_parte_pipeline.py`.
+- **C5**
+  - [x] T1–T26 y T31–T34 `[x]`, con un commit por tarea. T27 está pendiente a propósito; T28–T30
+    son manuales del humano.
+  - [x] Árbol limpio.
+  - [x] `features.json` con el estado y `spec_aprobada`.
 
 ## Cobertura: requisito → test
 
-R1–R2 `contrato_festivos` y guardianes F-010/F-015 · R3 `refresco`/`wiring`, con cliente falso:
-**insuficiente** (cambio 1) · R4–R10 `refresco`/`ingesta` · R11 `repositorio` · R12–R17 `wiring`,
-`tabla_calendario`, `test_f003_r10` · R18–R20 `provider_tabla` · R21–R24 `sin_bloqueo` y los
-adaptados · R25 `avisos` · R26–R28 `rejilla_obra` · R29–R33 `contraste` · R34–R37 `infra_sesame` ·
-R38–R39 `recalculo` · R40 por el diff · R41 por lectura (OK) · R42 `festivos_guardados_gemelos`.
+Sin cambios desde la pasada 1, salvo **R3**, que ahora tiene `test_f032_logs_sin_dni.py` en sv3
+y en sv4 además de `refresco` y `wiring`.
+
+| Requisito | Tests |
+|---|---|
+| R1–R2 | `contrato_festivos` y los guardianes F-010/F-015 |
+| R4–R10 | `refresco`, `ingesta` |
+| R11 | `repositorio` |
+| R12–R17 | `wiring`, `tabla_calendario`, `test_f003_r10` |
+| R18–R20 | `provider_tabla` |
+| R21–R24 | `sin_bloqueo` |
+| R25 | `avisos` |
+| R26–R28 | `rejilla_obra` |
+| R29–R33 | `contraste` |
+| R34–R37 | `infra_sesame` |
+| R38–R39 | `recalculo` |
+| R40 | por el diff |
+| R41 | por lectura |
+| R42 | `festivos_guardados_gemelos` |
+
+## Para la pasada de campaña (T27)
+
+- Comando: `python -m harness.mutacion --feature F-032`.
+- El informe tiene que traer:
+  - el SHA completo de HEAD (RM1);
+  - la línea base y la media por mutante (RM2);
+  - la demostración ejecutable de cada «equivalente» (RM5: reproduciré uno);
+  - si se quita una guarda `is None`, la verificación en el origen del dato (RM6).
+- La línea base de sv4 ronda los 27 min.
 
 ## Observaciones (no bloquean)
 
-- Con Sesame colgado, 10 s por DNI: con `COLA_VISIBILITY_S = 300`, unas 25–30 claves (vigilar en M5).
-- Comentario desfasado en `web/app.py` (aviso de `obra_detail`): «la columna pinta el calendario por
-  defecto» (ya no, R27). El contraste usa `SesameApiClient._get`: desviación declarada, aceptable.
+- Los dos `test_f032_logs_sin_dni.py` suben ruff de 1060 a 1063: es el orden de imports (I001),
+  que `--fix` corrige.
+- Se mantiene la de la pasada 1: con Sesame colgado, cada DNI puede tardar 10 s, así que con
+  `COLA_VISIBILITY_S = 300` caben unas 25–30 claves por parte. Vigilarlo en M5.
 
 ## Automejora (propuesta, no aplicada)
 
-Añadir a `CHECKPOINTS.md` C3 una trampa (4): toda llamada HTTP nueva con un dato personal en la
-query exige comprobar el log de httpx en INFO con la configuración de logging REAL del servicio,
-no con un cliente falso.
+Sigue en pie la de la pasada 1: añadir a `CHECKPOINTS.md` C3 una trampa (4), «una llamada HTTP
+nueva con un dato personal en la query exige comprobar el log de httpx en INFO con la
+configuración de logging REAL del servicio». Lo ha confirmado esta misma feature: el test con un
+cliente falso estaba en verde y el DNI salía igual.
