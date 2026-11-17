@@ -33,3 +33,27 @@ Rama `feature/F-032-sesame-festivos-produccion`. Spec rehecha con el diseño del
 Para validar con el humano: DA17 (bloqueo sin fila y encendido escalonado sv3 → sv4),
 DA18 (interruptor de sv4), DA19 (fila `*` como respaldo común: cambia el «sin fila ⇒ JSON»
 de DA15) y DA20 (cascada gemela en la lista cerrada). Resumen ⇒ `progress/spec_F-032.md`.
+
+## F-032 · implementación en curso (implementer, 2026-11-17)
+
+Rama `feature/F-032-sesame-festivos-produccion`, feature `in_progress`. Tareas por orden, un
+commit por tarea. Informe final ⇒ `progress/impl_F-032.md`.
+
+Decisiones y desviaciones (justificadas):
+
+- **T12, `grep SesameCalendarioLaboral` no queda vacío del todo**: queda una mención en el
+  docstring de `infrastructure/calendario/json_calendario_laboral.py` (línea 13), fichero que
+  design §6 prohíbe tocar. Se respeta §6 (solo es texto); igual con la mención a
+  `sesame_calendario_laboral.py` del docstring de `sesame_api_client.py` (§6).
+- **T12, tests del cliente de sv3 conservados**: `test_f003_r8_sesame_calendario.py` se retira
+  (R17), pero sus tres tests del `SesameApiClient` (contrato real, inmutables, gemelo con sv4)
+  se trasladan tal cual a `tests/test_f032_cliente_sesame.py`, con el refresco sobre el cliente
+  real: el cliente sigue en uso y no debe quedarse sin cubrir. `transporte_json`,
+  `fixtures_sesame.py` y `CalendarioFake(degradados=…)` siguen sirviendo a otros tests (el
+  conciliador conserva su duck-typing de `consumir_degradacion`, que no cambia): de
+  `tests/dobles.py` solo cambia un docstring.
+- `construir_calendario(settings, repositorio)` con Sesame y sin repositorio lanza
+  `ValueError` (arranque); `construir_casado_sigrid` gana `calendario=` opcional para que el
+  conciliador y el refresco compartan el mismo calendario (la caché que `olvidar` invalida).
+- `services/partes-persistencia/.env.example` (no versionado, gitignored) actualizado en local:
+  fuera `SESAME_CACHE_TTL_S`, dentro `SESAME_FESTIVOS_MINIMOS=1`.

@@ -167,11 +167,18 @@ class Settings(BaseSettings):
     #
     # OPCIONAL: sin las dos variables el calendario es el JSON de
     # siempre y no se hace ni una llamada (R10).
+    #
+    # F-032: con ellas, la ingesta guarda los festivos de cada trabajador
+    # en `festivos_trabajador` y el computo de extras lee esa tabla. Una
+    # respuesta con menos de SESAME_FESTIVOS_MINIMOS festivos del ano no
+    # se guarda y cuenta como fallo (0 no controla; negativo o no entero
+    # no arranca, R6).
     # ------------------------------------------------------------ #
     sesame_api_base_url: str | None = Field(None, alias="SESAME_API_BASE_URL")
     sesame_api_key: str | None = Field(None, alias="SESAME_API_KEY")
     sesame_api_timeout_s: float = Field(10.0, alias="SESAME_API_TIMEOUT_S")
-    sesame_cache_ttl_s: int = Field(21600, alias="SESAME_CACHE_TTL_S")
+    sesame_festivos_minimos: int = Field(
+        1, alias="SESAME_FESTIVOS_MINIMOS", ge=0)
 
     # ------------------------------------------------------------ #
     # SharePoint (Microsoft Graph). Archiva el PDF del parte. Best-effort:
