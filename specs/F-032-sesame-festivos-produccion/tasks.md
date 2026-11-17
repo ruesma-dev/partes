@@ -17,6 +17,13 @@ Reglas que no se negocian:
 - Los dos `orm_models.py` y los dos `festivos_guardados.py` se cambian en el mismo commit.
 - Ningún log, mensaje ni informe Markdown nuevo lleva DNIs (R3).
 - Tests existentes que cambian: solo los de T1, T11, T12, T14, T16, T18 y T20; si cae otro, PARAR.
+- **Enmienda aprobada por el humano el 2026-11-17** (al bloquearse T17): la lista de T16/T17
+  suma `test_f047_portal_parte_nuevo.py::test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`
+  (el recuento de funciones de `app.js` baja de 302 a 301: §5.10 retira `bloqueoSesameHtml`) y
+  `test_f056_vista.py::test_f056_r45_r6_decidir_ajustar_sin_calendario_es_409` (R23: con calendario
+  no fiable «Ajustar» se decide, 200, con el dia del calendario resuelto; se renombra). El alcance
+  de T17 suma `services/partes-front/static/styles.css` (fuera las reglas muertas
+  `.ap-sesame-bloqueo` y `.ap-forzar`).
 
 - [x] T1: Tests rojos de esquema: `tests/test_f032_contrato_festivos.py` (R1: seis columnas, tipos, `server_default`, índice único, sin `origen`; R2: `create_all` sobre SQLite la crea y `ddl_complementario()` incluye su índice) y `TABLAS` con la novena en `tests/test_f010_orm_models_gemelos.py` y `tests/test_f015_r29_guardian_cinco_tablas.py`  |  Verificación: traza RED
 - [x] T2: `FestivoTrabajadorOrm` en los dos `infrastructure/database/orm_models.py`, byte-idénticos, con el docstring «NUEVE tablas» (design §5.1)  |  Verificación: T1 en verde y `pytest tests/test_f010_orm_models_gemelos.py tests/test_f015_r29_guardian_cinco_tablas.py`

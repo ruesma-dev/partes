@@ -58,42 +58,16 @@ Decisiones y desviaciones (justificadas):
 - `services/partes-persistencia/.env.example` (no versionado, gitignored) actualizado en local:
   fuera `SESAME_CACHE_TTL_S`, dentro `SESAME_FESTIVOS_MINIMOS=1`.
 
-## F-032 · BLOQUEADA en T17 (implementer, 2026-11-17)
+## F-032 · desbloqueada (2026-11-17)
 
-**Motivo.** La regla de tasks.md dice: «Tests existentes que cambian: solo los de T1, T11, T12,
-T14, T16, T18 y T20; si cae otro, PARAR». Con T17 hecho tal como manda design §5.10, la suite
-completa de sv4 da `5 failed, 3870 passed`. Tres son los rojos esperados de T18
-(`test_f032_avisos.py` ×2 y `test_f003_r22_la_vista_trabajador_avisa_si_la_resolucion_degrado`,
-que pasan en T19). Los otros **dos no están en la lista**:
-
-1. `tests/test_f047_portal_parte_nuevo.py::test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`.
-   Cuenta las funciones con nombre de `static/app.js` (`== 302` fuera de F-052/F-068). §5.10
-   retira `bloqueoSesameHtml`, así que ahora salen 301. Es consecuencia directa de la spec.
-   **Propuesta:** bajar el número a 301, con un comentario «F-032 (§5.10) retira
-   `bloqueoSesameHtml`».
-2. `tests/test_f056_vista.py::test_f056_r45_r6_decidir_ajustar_sin_calendario_es_409`.
-   `POST /api/franquicia/decidir` con `CalendarioNoFiable` esperaba un 409 «dia de ajuste».
-   R23 (el día de ajuste se calcula aunque el calendario no sea fiable) quita la guarda
-   `fiable_para` de `_dia_ajuste`. Es la misma regla que ya cambian a propósito
-   `test_f056_decisiones.py::test_f056_r6_*`, pero entra por otro endpoint que la lista no
-   recoge. **Propuesta:** reescribirlo como en `test_f056_decisiones`: con calendario no fiable,
-   «Ajustar» se decide (200) con el día del calendario resuelto.
-
-No he improvisado: los dos tests siguen como estaban. Decide el líder (o el humano) si se amplía
-la lista de T16 con estos dos y con qué contenido.
-
-**Estado de la rama.** Commits por tarea: T1–T18 y T22–T24 hechos y marcados `[x]` en
-tasks.md. HEAD = `05712b9` (T24 en rojo, a la espera de T25). Resultados:
-- Suite de sv4 tras T15: `3867 passed`.
-- Tras T17: los 5 fallos de arriba.
-- `test_f032_contraste.py` (sv3): `22 passed`.
-- Las trazas RED están guardadas en el scratchpad de la sesión (`red_T1…T24.txt`) y pasarán
-  a `progress/impl_F-032.md` al cerrar.
-
-**Pendiente.** T19 (textos de las plantillas), T20–T21 (rejilla de obra por persona), T25
-(`add_sesame_partes.ps1`, el bloque de `create_capps_partes.ps1` y `00_vars_partes.ps1`), T26
-(docs, CLAUDE.md, `azure-apps`), T27 (cobertura y mutación), T28–T30 (manuales, del humano),
-T31 y el informe `impl_F-032.md`.
+Se bloqueó en T17 porque cayeron dos tests que no estaban en la lista:
+`test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable` y
+`test_f056_vista.py::test_f056_r45_r6_decidir_ajustar_sin_calendario_es_409`.
+El humano aprobó la enmienda el 2026-11-17. Queda registrada en `tasks.md` y cubre:
+- el recuento de funciones baja a 301;
+- el test de la vista se reescribe: con calendario no fiable, «Ajustar» se decide;
+- se borran las reglas CSS muertas.
+La feature vuelve a `in_progress` y se sigue desde T19.
 
 **Desviaciones a revisar por el líder:**
 - **El texto de `aviso_sesame` ya está escrito.** Es `AVISO_SESAME` en `web/app.py` y lleva
