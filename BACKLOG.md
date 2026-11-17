@@ -119,7 +119,7 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
-estado **en QA / revisión** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
+estado **en QA / revisión** · spec aprobada el 2026-11-17 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
 **Spec**: aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico)
 
