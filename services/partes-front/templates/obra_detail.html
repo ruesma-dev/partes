@@ -115,8 +115,8 @@
           <th class="mx-name">Trabajador</th>
           <th class="mx-cat">Categoría</th>
           {% for d in detail.days %}
-          <th class="mx-day{% if d.is_weekend %} mx-we{% endif %}{% if d.is_holiday %} mx-hol{% endif %}{% if d.es_futuro %} mx-future{% endif %}"
-              title="{{ d.date_iso }}{% if d.holiday_name %} · {{ d.holiday_name }}{% endif %}{% if d.es_futuro %} · FECHA FUTURA{% endif %}">{{ d.day }}{% if d.es_futuro %} ⚠{% endif %}</th>
+          <th class="mx-day{% if d.is_weekend %} mx-we{% endif %}{% if d.es_futuro %} mx-future{% endif %}"
+              title="{{ d.date_iso }}{% if d.es_futuro %} · FECHA FUTURA{% endif %}">{{ d.day }}{% if d.es_futuro %} ⚠{% endif %}</th>
           {% endfor %}
           <th class="mx-tot">Tot</th>
         </tr>
@@ -142,7 +142,7 @@
               {% if c.regs %}data-regs='{{ c.regs|tojson }}'{% endif %}
               {% if c.regs and (c.regs|map(attribute='id')|select('in', con_reparto or [])|list) %}data-reparto="pendiente"{% endif %}
               {% if preview_enabled and c.tiene_pdf %}data-parte-pdf="{{ c.document_id }}" data-parte-title="Parte · {{ detail.obra_codigo or detail.obra_nombre or '' }} · {{ c.date_iso }} · {{ row.nombre }}"{% endif %}
-              {% if c.incompat_motivo or (preview_enabled and c.tiene_pdf) %}title="{% if c.incompat_motivo %}{{ c.incompat_motivo }}{% if preview_enabled and c.tiene_pdf %} · {% endif %}{% endif %}{% if preview_enabled and c.tiene_pdf %}Ver parte del {{ c.date_iso }}{% endif %}"{% endif %}>{{ c.label }}</td>
+              {% if c.holiday_name or c.incompat_motivo or (preview_enabled and c.tiene_pdf) %}title="{% if c.holiday_name %}Festivo: {{ c.holiday_name }}{% if c.incompat_motivo or (preview_enabled and c.tiene_pdf) %} · {% endif %}{% endif %}{% if c.incompat_motivo %}{{ c.incompat_motivo }}{% if preview_enabled and c.tiene_pdf %} · {% endif %}{% endif %}{% if preview_enabled and c.tiene_pdf %}Ver parte del {{ c.date_iso }}{% endif %}"{% endif %}>{{ c.label }}</td>
           {% endfor %}
           <td class="mx-tot">{% if row.total_extra %}{{ row.total_normal|horas }}{% if row.total_extra > 0 %}+{% endif %}{{ row.total_extra|horas }}{% elif row.total_normal %}{{ row.total_normal|horas }}{% else %}—{% endif %}</td>
         </tr>

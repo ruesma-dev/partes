@@ -1302,12 +1302,12 @@ def build_app(
         message: str | None = Query(default=None),
     ) -> HTMLResponse:
         mode = normalize_mode(modo)
-        # La COLUMNA se tinta con el calendario por defecto (D6): una
-        # consulta, no una por fila x dia. La exactitud por trabajador
-        # vive donde importa, en los avisos de jornada incompleta.
+        # F-032 (R26): cada CELDA se tiñe con el calendario del DNI de su
+        # fila (una consulta por fila; sin DNI, el respaldo). La cabecera
+        # ya no marca festivos (R27).
         detail = repository.get_obra(
             obra_key, period_key=period, mode=mode,
-            holiday_name=calendario_provider.holiday_name_para(None),
+            holiday_name_de=calendario_provider.holiday_name_para,
             sin_extra_resolver=recursos_sin_extra_resolver,
             incidencias=tabla_incidencias,
         )
@@ -1370,8 +1370,8 @@ def build_app(
                 if 0.0 < (_c.normal or 0.0) < _eff - 1e-9:
                     incompletos.add((_row.nombre or "") + "|"
                                     + (_c.date_iso or ""))
-        _dias_periodo = {int(d.date_iso[:4]) for d in detail.days if d.date_iso}
-        _consultas.update((None, ano) for ano in _dias_periodo)
+        # F-032 (R28): el aviso se evalua sobre (DNI de cada fila x ano),
+        # sin `(None, ano)` por una cabecera que ya no marca festivos.
         sesame_degradado = not calendario_provider.fiable_para(_consultas)
 
         # F-035 (R20): el combo de trabajador ofrece solo recursos de la
