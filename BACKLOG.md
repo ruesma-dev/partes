@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **70 features**, 16 abiertas y 54 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 1 en To do, 13 en Backlog y 54 en Done.
+Resumen: **70 features**, 16 abiertas y 54 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 0 en To do, 13 en Backlog y 54 en Done.
 
 ## Review
 
@@ -21,14 +21,13 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
+| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | pendiente de tu aprobación | aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico) | 2 | critico | `feature/F-032-sesame-festivos-produccion` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
 ## To do
 
-| # | Feature | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|
-| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | en `dev` (2026-10-06), a refrescar: desbloqueada el 2026-11-16 con DA5 = mínimo 1 y festivos por persona en la rejilla de obra | 2 | estandar | `feature/F-032-sesame-festivos-produccion` |
+_Nada comprometido._
 
 ## Backlog
 
@@ -119,9 +118,9 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 
-estado **to do (comprometida)** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
+estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
 
-**Spec**: en `dev` (2026-10-06), a refrescar: desbloqueada el 2026-11-16 con DA5 = mínimo 1 y festivos por persona en la rejilla de obra
+**Spec**: aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico)
 
 Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
 
