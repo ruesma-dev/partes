@@ -2,7 +2,7 @@
 """ORM de partes de trabajo (SQLAlchemy 2.0).
 
 Modelo real (un documento = un parte DIARIO de una obra, con varios
-empleados). OCHO tablas en la base ``partes``:
+empleados). NUEVE tablas en la base ``partes``:
 
   - ``parte_documents``: cabecera del parte diario (fecha, obra leida +
     casada, encargado, jefe de obra, FIRMA) + metadatos de email/IA +
@@ -32,6 +32,10 @@ empleados). OCHO tablas en la base ``partes``:
     ultimo que respondio sv5. X NO vive aqui (es un campo extendido de
     recurso de Sigrid, ``defext``/``conext``, que solo lee sv5). La escribe
     y la lee sv4.
+  - ``festivos_trabajador``: los festivos de Sesame de cada trabajador por
+    (DNI, ano) (F-032). Solo los escribe sv3 al ingerir un parte; sv3 (el
+    computo de extras) y sv4 (el portal) los leen. Guarda DNIs: dato
+    personal.
 
 La unicidad por ``source_sha256`` es un INDICE UNICO PARCIAL
 ``WHERE is_active`` (``DDL_EXTRA_POSTGRES``): un parte borrado no ocupa el
@@ -666,6 +670,43 @@ class FranquiciaAjusteOrm(Base):
     )
     actualizado_at_utc: Mapped[str] = mapped_column(
         String(64), nullable=False, server_default=""
+    )
+
+
+class FestivoTrabajadorOrm(Base):
+    """Los festivos de Sesame de un trabajador en un ano (F-032, R1).
+
+    Una fila por ``(dni_norm, ano)`` (indice UNICO): solo de personas que
+    Sesame conoce. Un 404 de Sesame no guarda nada (DA19 = B: sin fila,
+    cada servicio usa su respaldo de siempre), asi que no hay fila ``*`` ni
+    columna ``origen``. ``festivos_json`` es ``{fecha ISO: nombre o null}``
+    con solo dias de ``ano``; ``n_festivos``, su tamano.
+
+    El DNI es un DATO PERSONAL: nunca va a un log. Solo sv3 escribe (upsert
+    al ingerir un parte); sv3 y sv4 leen. TODA columna ``NOT NULL`` lleva
+    ``server_default``.
+    """
+    __tablename__ = "festivos_trabajador"
+    __table_args__ = (
+        Index("ux_festivos_trabajador_dni_ano", "dni_norm", "ano",
+              unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dni_norm: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default=""
+    )
+    ano: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    festivos_json: Mapped[str] = mapped_column(
+        Text, nullable=False, server_default="{}"
+    )
+    n_festivos: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    leido_en_utc: Mapped[str] = mapped_column(
+        String(40), nullable=False, server_default="1970-01-01T00:00:00Z"
     )
 
 
