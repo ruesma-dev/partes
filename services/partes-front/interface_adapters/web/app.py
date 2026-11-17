@@ -1342,9 +1342,9 @@ def build_app(
         _consultas: set[tuple[str | None, int]] = set()
         for _row in detail.rows:
             _real = _candef_real.get(_row.nombre or "")
-            # Festivo SEGUN EL CALENDARIO DE ESTA FILA (R2): la columna
-            # pinta el calendario por defecto, pero el aviso no puede
-            # heredar los festivos de otra provincia.
+            # Festivo SEGUN EL CALENDARIO DE ESTA FILA (R2): el mismo que
+            # tiñe sus celdas (F-032, R26); la cabecera ya no marca
+            # festivos (R27) y el aviso no hereda los de otra provincia.
             _es_festivo = calendario_provider.holiday_name_para(_row.dni)
 
             def _es_laborable_fila(d: date, _dni=_row.dni) -> bool:

@@ -89,6 +89,15 @@ La feature vuelve a `in_progress` y se sigue desde T19.
 
 T1–T26 y T31 hechas; `bash harness/init.sh` en verde (cobertura 95,4 % de 613 líneas).
 T27: la campaña de mutación queda para la pasada de campaña (tras el APPROVED del reviewer).
-T28–T30 son manuales del humano. `azure-apps` commit `af27d0c`, sin push. Informe ⇒
+T28–T30 son manuales del humano: los comandos de M1–M7 están en design §7
+(`specs/F-032-sesame-festivos-produccion/design.md`) y en «Verificaciones manuales pendientes»
+de `progress/impl_F-032.md`. `azure-apps` commit `af27d0c`, sin push. Informe ⇒
 `progress/impl_F-032.md`. Desviaciones de T21/T26 en el informe (título «Festivo: …» de la
 celda; `sesame-api.md` nombrado como pendiente P4 en vez de enlazado, porque no existe).
+
+## F-032 · enmienda tras la review 1 (implementer, 2026-11-17)
+
+`progress/review_F-032.md` pidió cambios por R3: DNIs en los logs de httpx en INFO (sv3 y sv4) y
+en el WARNING de `jornada_contrato`. La enmienda la aprobó el humano el 2026-11-17 y es T32–T34
+en `tasks.md`: httpx en WARNING en los dos `logging_config.py`, el WARNING solo con
+`type(exc).__name__`, tests con el cliente y el logging reales, y el comentario de `obra_detail`.
