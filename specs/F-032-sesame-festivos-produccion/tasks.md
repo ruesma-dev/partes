@@ -56,3 +56,11 @@ Reglas que no se negocian:
 - [ ] T29: M2, contraste (puerta DA12), y M3, impacto de 2026 (y 2025 si hay partes activos); RRHH corrige lo `INCOMPLETO`  |  Verificación: MANUAL (humano), `python contrastar_festivos_sesame.py --ano 2026 [--impacto]` desde `services/partes-persistencia`, resultado anotado
 - [ ] T30: M4, redespliegue apagado; M5, encendido de sv3 y sv4 en un paso; M6, portal y propuestas F-046; M7, apagado de prueba  |  Verificación: MANUAL (humano), design §7 con comando y resultado; al encender, actualizar el estado en `azure-apps/partes.md`
 - [x] T31: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+
+Enmienda aprobada por el humano el 2026-11-17 tras la review 1 («1 a 3 ok»; R3, cambios 1–3 de
+`progress/review_F-032.md`). Alcance nuevo: los dos `config/logging_config.py` (sv3 y sv4) y el
+WARNING de `jornada_contrato` en `calendario_provider.py` de sv4.
+
+- [ ] T32: Tests rojos `tests/test_f032_logs_sin_dni.py` en sv3 y sv4 (R3), con el cliente REAL sobre `MockTransport` y la `configure_logging` REAL de cada servicio en INFO. sv3: `RefrescoFestivos.refrescar` con 200, 404 y 500, sin el DNI en ningún registro ni en el fichero de log. sv4: `jornada_contrato` (`/api/v1/jornada`) con 200 y 404, y su WARNING ante un 500 sin DNI ni `exc!r`  |  Verificación: traza RED
+- [ ] T33: `logging.getLogger("httpx").setLevel(logging.WARNING)` en `services/partes-persistencia/config/logging_config.py` y `services/partes-front/config/logging_config.py` (como sv5), y el WARNING de `CalendarioProvider.jornada_contrato` solo con `type(exc).__name__`  |  Verificación: T32 en verde y suites de sv3 y sv4 en verde
+- [ ] T34: Papeleo de la review: corregir el comentario desfasado del aviso de `obra_detail` en `web/app.py` (R27), y en `progress/current.md` enlazar los comandos de M1–M7 a design §7 y a «Verificaciones manuales pendientes» de `progress/impl_F-032.md`; `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
