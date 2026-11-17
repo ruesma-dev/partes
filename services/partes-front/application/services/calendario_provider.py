@@ -154,9 +154,11 @@ class CalendarioProvider:
         try:
             jornada = self._cliente.jornada(dni_norm)
         except Exception as exc:  # noqa: BLE001
+            # F-032 (R3): ni el DNI ni `exc!r` (lleva la URL con el DNI o
+            # el cuerpo de Sesame): solo el tipo de la excepcion.
             logger.warning(
-                "%s jornada de %s no disponible (%r); el KPI se muestra sin "
-                "el dato del contrato.", _LOG_PREFIX, dni_norm, exc,
+                "%s jornada no disponible (%s); el KPI se muestra sin "
+                "el dato del contrato.", _LOG_PREFIX, type(exc).__name__,
             )
             return None
         self._a_cache(clave, jornada, "sesame")
