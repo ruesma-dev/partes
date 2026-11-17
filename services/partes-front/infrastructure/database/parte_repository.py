@@ -3002,9 +3002,10 @@ class ParteReviewRepository:
         """Guarda la traza del registro en cada linea.
 
         `motivo_ok` es la anotacion que se escribe en las lineas que
-        quedan OK, donde normalmente va `None`. Hoy solo la usa F-003
-        para marcar `[SIN-SESAME]` un registro forzado sin calendario
-        fiable: no hace falta columna nueva para dejar constancia.
+        quedan OK, donde normalmente va `None`. La usaba F-003 para marcar
+        `[SIN-SESAME]` un registro forzado sin calendario fiable; desde
+        F-032 (DA17 = B) nadie la pasa, pero las lineas ya marcadas
+        conservan su motivo y su badge (R24).
 
         `conflictos` son los `pendientes_confirmacion` de sv5: sus lineas
         NO se escribieron y quedan en 'conflicto' a la espera de que un

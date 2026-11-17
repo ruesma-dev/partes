@@ -103,7 +103,8 @@ def agregar_preflight(evaluados: list[dict]) -> dict:
     """R16, R17: los campos planos del preflight a partir de los grupos.
 
     `ok` si ALGUN grupo se pudo evaluar; obra destino y modo pruebas, los
-    del primero que se evaluo; `sesame_bloqueo` si algun grupo lo tiene.
+    del primero que se evaluo. El `aviso_sesame` de F-032 se queda en su
+    grupo: no se aplana (R22).
     """
     if len(evaluados) == 1:
         return _sin_claves_de_grupo(evaluados[0])
@@ -122,10 +123,6 @@ def agregar_preflight(evaluados: list[dict]) -> dict:
         plano["forzada_pruebas"] = evaluables[0].get("forzada_pruebas")
     else:
         plano["error"] = "ninguna obra se pudo evaluar: " + _errores(evaluados)
-    bloqueos = [g["sesame_bloqueo"] for g in evaluados
-                if g.get("sesame_bloqueo")]
-    if bloqueos:
-        plano["sesame_bloqueo"] = bloqueos[0]
     plano["totales"] = sumar_totales([g.get("totales") or {}
                                       for g in evaluados])
     return plano
@@ -134,8 +131,7 @@ def agregar_preflight(evaluados: list[dict]) -> dict:
 def agregar_ejecucion(ejecutados: list[dict]) -> dict:
     """R22: el resultado plano de registrar varias obras, una a una.
 
-    `ok` solo si TODAS fueron bien (un grupo bloqueado por Sesame llega con
-    `ok` falso); `parcial` si unas si y otras no. No hay «todo o nada»:
+    `ok` solo si TODAS fueron bien; `parcial` si unas si y otras no. No hay «todo o nada»:
     lo escrito en una obra no se deshace porque otra falle (DA16).
     """
     if len(ejecutados) == 1:

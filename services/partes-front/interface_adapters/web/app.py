@@ -186,12 +186,13 @@ class Preparado:
     claves: dict[str, list[str]]
     datos: dict
 
-#: F-003 (R23/R24). Motivo del bloqueo del registro cuando Sesame esta
-#: configurado pero no responde: sin sus festivos, el computo de horas
-#: puede estar mal y registrar en Sigrid escribe de verdad. La unica
-#: salida es el override consciente del modal, que queda marcado.
-MOTIVO_BLOQUEO_SESAME = (
-    "calendario Sesame no disponible: el calculo puede ser incorrecto"
+#: F-032 (R22, R25). Aviso del preflight de una obra con alguna linea sin
+#: calendario de Sesame (trabajador sin fila en `festivos_trabajador`, o la
+#: tabla sin leer): sus festivos salen del calendario local. Desde DA17 = B
+#: es solo un aviso; el bloqueo de F-003 y su override se retiraron.
+AVISO_SESAME = (
+    "Sin calendario de Sesame para algun trabajador de esta obra: sus "
+    "festivos salen del calendario local"
 )
 
 #: F-022 (DA11): ids por aprobacion con `ambito`. Una obra x mes ronda las
@@ -2686,11 +2687,11 @@ def build_app(
     def _calendario_fiable(lineas: list[dict]) -> bool:
         """True si el calendario de TODAS las lineas del lote es de fiar.
 
-        Con Sesame configurado pero caido, el computo de horas pierde los
-        festivos reales y las jornadas reducidas: lo que se registraria
-        puede estar mal. `fiable_para` devuelve True siempre que Sesame
-        no este configurado, asi que con la feature apagada esto no
-        bloquea nada (R27).
+        F-032 (R22): False si algun trabajador no tiene fila en
+        `festivos_trabajador` (o no se pudo leer); solo enciende el
+        `aviso_sesame` del preflight, ya no bloquea nada (DA17 = B).
+        `fiable_para` devuelve True siempre que Sesame no este
+        configurado, asi que con la feature apagada no hay aviso (R27).
         """
         consultas: set[tuple[str | None, int]] = set()
         for linea in lineas:
@@ -2903,14 +2904,11 @@ def build_app(
     def _dia_ajuste(periodo: fq.Periodo,
                     lineas_p: list[dict]) -> fq.DiaAjuste:
         """R5, R6: el dia de ajuste con el calendario y la jornada del
-        trabajador (dni y candef de sus lineas del periodo)."""
+        trabajador (dni y candef de sus lineas del periodo). F-032 (R23):
+        con el calendario resuelto, sea o no fiable."""
         dni = next((x["dni"] for x in lineas_p if x.get("dni")), None)
         candef = next((x["candef"] for x in lineas_p
                        if x.get("candef") is not None), None)
-        anos = {periodo.inicio.year, periodo.fin.year}
-        if not calendario_provider.fiable_para((dni, a) for a in anos):
-            return fq.DiaAjuste(None, "calendario Sesame no disponible: no "
-                                      "se puede calcular el dia de ajuste")
 
         def _jornada(d: date) -> float:
             return jornada_dia(
@@ -3247,8 +3245,8 @@ def build_app(
         """F-022 (R17, R18, R23-R25): el preflight de UNA obra.
 
         Un fallo de sv5 en esta obra no tumba las demas: el grupo sale con
-        `ok` falso y su motivo. Avisos de calendario y bloqueo de Sesame
-        son los de SUS lineas (R31).
+        `ok` falso y su motivo. Avisos de calendario y de Sesame son los de
+        SUS lineas (R31).
         """
         try:
             pf = dict(transfer_client.preflight(
@@ -3262,16 +3260,16 @@ def build_app(
                         avisos_calendario=_avisos_calendario(grupo.lineas),
                         avisos_incidencia=grupo.avisos_incidencia,  # F-025
                         avisos_racha=grupo.avisos_racha)  # F-060 (R10)
-        # F-003 R23: el preflight se sirve igual (el humano tiene que poder
-        # ver que se iba a registrar), pero con el motivo del bloqueo dentro.
+        # F-032 (R22): sin calendario de Sesame para alguna linea, un
+        # aviso; el registro sigue (DA17 = B).
         if not _calendario_fiable(grupo.lineas):
-            evaluado["sesame_bloqueo"] = MOTIVO_BLOQUEO_SESAME
+            evaluado["aviso_sesame"] = AVISO_SESAME
         evaluado["listado"] = listado_grupo(grupo, pf)
         evaluado["totales"] = totales(evaluado["listado"])
         return evaluado
 
-    def _trazar(resultado: dict, ids: list[int], *, actor: str | None,
-                sin_sesame: bool = False) -> None:
+    def _trazar(resultado: dict, ids: list[int], *,
+                actor: str | None) -> None:
         """Traza el veredicto en `parte_registros`, sin tumbar la respuesta.
 
         Que falle la traza no invalida lo que sv5 ya escribio en Sigrid;
@@ -3281,7 +3279,6 @@ def build_app(
         try:
             aplicar_resultado(repository, resultado, registro_ids=ids,
                               usuario=actor,
-                              sin_sesame=sin_sesame,
                               incidencias=tabla_incidencias)  # F-019
         except Exception:
             logger.warning("[transfer] no se pudo guardar la traza del "
@@ -3312,51 +3309,21 @@ def build_app(
         if isinstance(preparado, JSONResponse):
             return _sin_lineas_tras_decisiones(preparado, repartos,
                                                franquicias)
-        # F-003 R24: la guarda la impone el SERVIDOR, no el modal. Una
-        # peticion a pelo, sin pasar por el preflight, se para igual.
-        # F-022 (R18, R22): por obra y una tras otra; una obra bloqueada o
-        # que falla no para a las demas (DA16).
-        forzar = bool(body.get("forzar_sin_sesame"))
+        # F-022 (R18, R22): por obra y una tras otra; una obra que falla no
+        # para a las demas (DA16). F-032 (R21): ningun calendario bloquea
+        # el registro; el override de F-003 se retiro y se ignora.
         ejecutados = []
         for grupo in preparado.grupos:
-            degradado = not _calendario_fiable(grupo.lineas)
-            if degradado and not forzar:
-                ejecutados.append(_bloqueado_sesame(grupo))
-                continue
             resultado = _ejecutar_grupo(grupo, preparado.claves[grupo.clave],
                                         actor)
-            if degradado:
-                # F-003 R17: saltarse la guarda de Sesame es una decision
-                # humana consciente, y queda con NOMBRE en el log. El actor
-                # nunca es vacio (F-017 R7).
-                logger.warning(
-                    "[sesame] registro FORZADO por %s con el calendario de "
-                    "Sesame no disponible (obra %s); las lineas quedan "
-                    "marcadas.", actor, grupo.clave)
-            _trazar(resultado, grupo.registro_ids, actor=actor,
-                    sin_sesame=degradado)
+            _trazar(resultado, grupo.registro_ids, actor=actor)
             ejecutados.append(dict(resultado, clave=grupo.clave,
                                    obra=grupo.obra,
                                    registro_ids=grupo.registro_ids))
-        if all(e.get("bloqueado_sesame") for e in ejecutados):
-            return _con_franquicias(JSONResponse(
-                {"ok": False, "error": MOTIVO_BLOQUEO_SESAME,
-                 "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
-                status_code=422), franquicias)
         return JSONResponse(_con_franquicias(_con_decisiones(
             dict(agregar_ejecucion(ejecutados), grupos=ejecutados,
                  excluidas=preparado.datos["excluidas"]), repartos),
             franquicias))
-
-    def _bloqueado_sesame(grupo: GrupoObra) -> dict:
-        """F-022 (R18): una obra con el calendario no fiable y sin override
-        no se envia; sus lineas no cambian."""
-        logger.warning(
-            "[sesame] registro BLOQUEADO: obra %s, %s lineas con calendario "
-            "no fiable y sin override.", grupo.clave, len(grupo.lineas))
-        return {"clave": grupo.clave, "obra": grupo.obra,
-                "registro_ids": grupo.registro_ids, "ok": False,
-                "bloqueado_sesame": True, "error": MOTIVO_BLOQUEO_SESAME}
 
     def _ejecutar_grupo(grupo: GrupoObra, claves: list[str],
                         actor: str | None) -> dict:
@@ -3414,18 +3381,11 @@ def build_app(
             return _sin_lineas_tras_decisiones(preparado, repartos,
                                                franquicias)
         excluidas = preparado.datos["excluidas"]
-        # F-022 (R20, R21): una peticion por obra. Una obra bloqueada o que
-        # no se pudo publicar no para a las demas.
+        # F-022 (R20, R21): una peticion por obra. Una obra que no se pudo
+        # publicar no para a las demas. F-032 (R21): sin bloqueo de Sesame.
         grupos = []
         for grupo in preparado.grupos:
-            # F-003 R24/R25: igual que `pisar_claves`, el override de
-            # Sesame es una decision humana consciente y NO viaja por una
-            # cola con reentregas; sin override, la obra degradada se para.
-            if not _calendario_fiable(grupo.lineas):
-                grupos.append(dict(_bloqueado_sesame(grupo),
-                                   estado="bloqueado_sesame",
-                                   peticion_id=None))
-            elif publisher is None:
+            if publisher is None:
                 resultado = _ejecutar_grupo(grupo, [], actor)     # F-002 R3
                 _trazar(resultado, grupo.registro_ids, actor=actor)
                 grupos.append(dict(resultado, clave=grupo.clave,
@@ -3433,14 +3393,6 @@ def build_app(
                                    registro_ids=grupo.registro_ids))
             else:
                 grupos.append(_publicar_grupo(grupo, actor))
-        if all(g.get("bloqueado_sesame") for g in grupos):
-            return _con_franquicias(JSONResponse(
-                {"ok": False,
-                 "error": MOTIVO_BLOQUEO_SESAME + " Para registrarlo de "
-                          "todas formas hay que confirmarlo a mano: usa "
-                          "/api/aprobar/ejecutar.",
-                 "sesame_bloqueo": MOTIVO_BLOQUEO_SESAME},
-                status_code=422), franquicias)
         if publisher is None:
             return JSONResponse(_con_franquicias(_con_decisiones(
                 dict(agregar_ejecucion(grupos), modo="sincrono",

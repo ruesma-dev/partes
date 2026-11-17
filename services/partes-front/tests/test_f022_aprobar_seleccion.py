@@ -896,11 +896,11 @@ def test_f022_r18_ejecutar_todos_bloqueados_es_el_422_de_hoy(portal) -> None:
 
 
 def test_f022_r18_ejecutar_override_solo_marca_los_bloqueados(portal) -> None:
-    """F-032 (R21): `forzar_sin_sesame` se ignora y no marca nada."""
+    """F-032 (R21): sin override ni marca; el override que ya no existe lo
+    prueba `test_f032_sin_bloqueo`."""
     cliente, fabrica, ids, sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
-    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"],
-                  forzar_sin_sesame=True)
+    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
     assert r.status_code == 200
     assert len(sv5.ejecutadas) == 2
     estados = estados_sigrid(fabrica, ids["o10_b"] + ids["o20_a"])
@@ -915,7 +915,6 @@ def test_f022_r18_ejecutar_bloqueo_y_override_quedan_en_el_log(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
     with caplog.at_level(logging.WARNING):
         _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
-        _ejecutar(cliente, ids["o10_b"], forzar_sin_sesame=True)
     textos = [r.getMessage() for r in caplog.records]
     assert not any("registro BLOQUEADO" in t for t in textos)
     assert not any("registro FORZADO" in t for t in textos)
