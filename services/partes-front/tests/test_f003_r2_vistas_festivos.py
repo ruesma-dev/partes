@@ -186,7 +186,7 @@ def test_f003_r22_la_vista_trabajador_avisa_si_la_resolucion_degrado(
                      proveedor)
     html = cliente.get("/trabajadores/rec-501?modo=natural").text
     assert "sesame-degradado" in html
-    assert "Sesame no disponible" in html
+    assert "Sin calendario de Sesame" in html          # F-032 (R25)
 
 
 def test_f003_r22_la_matriz_de_obra_avisa_si_la_resolucion_degrado(
