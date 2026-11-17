@@ -553,8 +553,10 @@ def build_app(
 
     # Festivos. El respaldo (libreria `holidays` + extras) sigue siendo
     # el de siempre; con Sesame configurado, el proveedor lo antepone con
-    # el calendario REAL de cada trabajador y deja el respaldo para
-    # cuando Sesame no esta (F-003).
+    # los festivos de cada trabajador GUARDADOS en `festivos_trabajador`
+    # (F-032: los escribe sv3 al ingerir; sv4 no pide festivos a Sesame,
+    # solo la jornada del contrato) y deja el respaldo para quien no tiene
+    # fila, con aviso y sin bloqueo (DA17 = B).
     holiday_provider = HolidayProvider(
         enabled=settings.holidays_enabled,
         subdiv=settings.holidays_subdiv,
@@ -569,7 +571,8 @@ def build_app(
                 timeout_s=settings.sesame_api_timeout_s,
             )
             logger.info(
-                "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s",
+                "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s "
+                "festivos=tabla",
                 settings.sesame_api_base_url,
                 len(settings.sesame_api_key or ""),
                 settings.sesame_cache_ttl_s,
@@ -577,13 +580,13 @@ def build_app(
         else:
             logger.info(
                 "[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los "
-                "festivos salen del respaldo local y no se bloquea ningun "
-                "registro."
+                "festivos salen del respaldo local."
             )
         calendario_provider = CalendarioProvider(
             cliente=sesame_client,
             respaldo_holiday_name=holiday_provider.name,
             ttl_seconds=settings.sesame_cache_ttl_s,
+            leer_festivos=repository.list_festivos_trabajador,
         )
 
     # Excepciones de jornada (`empleado_jornada`). La tabla nace vacia:

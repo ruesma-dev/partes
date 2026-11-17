@@ -1,30 +1,24 @@
 # application/services/calendario_provider.py
-"""Calendario laboral del portal: festivos de Sesame con respaldo (F-003).
+"""Calendario laboral del portal: festivos de cada trabajador (F-003, F-032).
 
-Quien DECIDE. El cliente (`infrastructure/sesame/`) solo traduce HTTP;
-aqui vive la cascada de degradacion, la cache y —lo importante para la
-resiliencia en dos niveles (D2)— la FUENTE de cada resolucion:
+Quien DECIDE. Desde F-032 los festivos NO se piden a sesame-api: los lee
+de la tabla `festivos_trabajador`, que escribe sv3 al ingerir cada parte
+(DA16). sv4 solo llama a Sesame por la JORNADA del contrato (R19). Cascada
+de lectura (DA19 = B, `festivos_guardados.elegir`) y FUENTE de cada
+resolucion:
 
-    sesame    festivos del calendario del propio trabajador      fiable
-    default   404 de su DNI -> calendario por defecto de Sesame  fiable
-    stale     Sesame fallo y se reutiliza la cache caducada      degradada
-    respaldo  Sesame fallo y no habia cache: libreria `holidays` degradada
+    sesame      fila del trabajador en la tabla                  fiable
+    sin_fila    sin fila o sin DNI: libreria `holidays`          aviso
+    respaldo    la tabla no se pudo leer: `holidays`             aviso
+    sin_sesame  Sesame sin configurar: `holidays`, como siempre  fiable
 
-Las dos primeras son datos que Sesame ha dado; las dos ultimas son lo
-mejor que se ha podido apanar. Las vistas informativas se sirven
-igualmente con cualquiera de las cuatro (nunca se cae un portal por
-RRHH), pero una resolucion degradada enciende el aviso de la UI (R22) y
-bloquea el REGISTRO en Sigrid (R23/R24): sin los festivos reales el
-computo de horas no es de fiar, y calcular mal en silencio es peor que
-parar.
+Las vistas se sirven igual con cualquiera de ellas (nunca se cae el portal
+por RRHH). `sin_fila` y `respaldo` solo encienden el aviso de la UI: desde
+DA17 = B ningun calendario bloquea el registro en Sigrid.
 
-Con Sesame sin configurar (`cliente is None`) no hay ni llamadas ni
-degradacion: el portal se comporta exactamente como antes de F-003
-(R7/R27).
-
-Unidad de cache: festivos por (DNI x ano), no por rango (D5). Son pocas
-claves y estables —una por trabajador activo y ano— y espejan la cache
-del propio sesame-api. El fin de semana no se pregunta: sale de la fecha.
+Con Sesame sin configurar (`cliente is None`) ni se lee la tabla: el
+portal se comporta exactamente como antes de F-003 (R7/R27). La tabla
+entera se lee de una vez y se cachea `ttl_tabla_s` segundos (<= 60).
 """
 from __future__ import annotations
 
@@ -36,6 +30,12 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Callable, Iterable
 
+from application.services.festivos_guardados import (
+    FUENTE_SIN_FILA,
+    FilaFestivos,
+    elegir,
+    fila_de,
+)
 from infrastructure.sesame.sesame_api_client import (
     JornadaContrato,
     SesameApiClient,
@@ -45,8 +45,9 @@ logger = logging.getLogger(__name__)
 
 _LOG_PREFIX = "[sesame-calendario]"
 
-#: Fuentes cuyo dato viene de una respuesta VIGENTE de Sesame.
-FUENTES_FIABLES = frozenset({"sesame", "default", "sin_sesame"})
+#: Fuentes fiables: la fila del trabajador o Sesame apagado (F-032). Las
+#: demas (`sin_fila`, `respaldo`) solo encienden el aviso.
+FUENTES_FIABLES = frozenset({"sesame", "sin_sesame"})
 
 #: Nombre con el que se pinta un festivo que Sesame no nombra. Tiene que
 #: ser truthy: las vistas deciden `is_holiday` por el nombre, y un
@@ -66,7 +67,7 @@ class DiaCalendario:
     fin_de_semana: bool
     festivo: bool
     festivo_nombre: str | None
-    #: False si la resolucion salio de la cache caducada o del respaldo.
+    #: False si el trabajador no tiene fila o la tabla no se pudo leer.
     fiable: bool = True
 
 
@@ -83,14 +84,21 @@ class CalendarioProvider:
         respaldo_holiday_name: Callable[[date], str | None],
         ttl_seconds: int = 21600,
         reloj: Callable[[], float] = time.time,
+        leer_festivos: Callable[[], Iterable[dict]] | None = None,
+        ttl_tabla_s: float = 60,
     ) -> None:
         self._cliente = cliente
         self._respaldo = respaldo_holiday_name
+        #: TTL de la cache de la JORNADA del contrato (SESAME_CACHE_TTL_S).
         self._ttl = int(ttl_seconds)
         self._reloj = reloj
+        self._leer_festivos = leer_festivos
+        self._ttl_tabla_s = ttl_tabla_s
         self._lock = threading.RLock()
         #: clave -> (timestamp, valor, fuente)
         self._cache: dict[str, tuple[float, object, str]] = {}
+        #: (momento de la lectura, filas por (DNI, ano)) o None.
+        self._tabla: tuple[float, dict] | None = None
 
     @property
     def activo(self) -> bool:
@@ -125,6 +133,10 @@ class CalendarioProvider:
             fiable=fuente in FUENTES_FIABLES,
         )
 
+    def fuente_para(self, dni: str | None, ano: int) -> str:
+        """De donde salen los festivos de ese (DNI, ano): ver el modulo."""
+        return self._resolver(normalizar_dni(dni), int(ano))[1]
+
     def jornada_contrato(self, dni: str | None) -> JornadaContrato | None:
         """Tipo de jornada del contrato; `None` si no se puede saber.
 
@@ -153,11 +165,11 @@ class CalendarioProvider:
     def fiable_para(
         self, consultas: Iterable[tuple[str | None, int]]
     ) -> bool:
-        """True si TODAS esas resoluciones (DNI x ano) salen de Sesame.
+        """True si TODAS esas resoluciones (DNI x ano) tienen fila.
 
-        Es la comprobacion del bloqueo de registro (R23/R24) y del aviso
-        de las vistas (R22). Sin Sesame configurado siempre es True: la
-        feature apagada no bloquea nada (R27).
+        Gobierna el aviso de las vistas y el `aviso_sesame` del preflight
+        (F-032, R22, R25); ya no bloquea nada (DA17 = B). Sin Sesame
+        configurado siempre es True (R27).
         """
         if self._cliente is None:
             return True
@@ -190,71 +202,50 @@ class CalendarioProvider:
     ) -> tuple[dict[str, str | None] | None, str]:
         """Festivos de ese (DNI, ano) y de donde han salido.
 
-        `None` como mapa significa "usa el respaldo": o no hay Sesame, o
-        no se ha podido sacar nada de el.
+        `None` como mapa significa "usa el respaldo": o no hay Sesame, o el
+        trabajador no tiene fila, o la tabla no se pudo leer.
         """
         if self._cliente is None:
             return None, "sin_sesame"
-
-        clave = f"fest:{dni_norm or '_default'}:{ano}"
-        vigente = self._de_cache(clave)
-        if vigente is not None:
-            return vigente  # type: ignore[return-value]
-
         try:
-            fuente = "default"
-            festivos = None
-            if dni_norm:
-                festivos = self._cliente.festivos(dni_norm, ano)
-                fuente = "sesame"
-            if festivos is None:
-                # Sin DNI, o Sesame no conoce ese DNI (404). Responde: el
-                # calendario por defecto es un dato fiable, no un apano.
-                festivos = self._cliente.calendario_por_defecto(ano)
-                fuente = "default"
-        except Exception as exc:  # noqa: BLE001
-            return self._degradar(clave, dni_norm, ano, exc)
-
-        if festivos is None:
+            fila, fuente = elegir(dni_norm, ano, self._fila)
+        except Exception as exc:  # noqa: BLE001 - R20
             logger.warning(
-                "%s sin festivos utilizables para dni=%s ano=%s (Sesame no "
-                "tiene calendario por defecto): se usa el respaldo.",
-                _LOG_PREFIX, dni_norm or "(sin dni)", ano,
+                "%s no se pudo leer festivos_trabajador (%s): se usa el "
+                "respaldo local de festivos.", _LOG_PREFIX,
+                type(exc).__name__,
             )
             return None, "respaldo"
+        if fila is None:
+            return None, FUENTE_SIN_FILA
+        return dict(fila.festivos), fuente
 
-        mapa = {f.fecha: f.nombre for f in festivos}
-        self._a_cache(clave, mapa, fuente)
-        logger.info(
-            "%s dni=%s ano=%s -> %s festivos (fuente=%s)",
-            _LOG_PREFIX, dni_norm or "(sin dni)", ano, len(mapa), fuente,
-        )
-        return mapa, fuente
+    def _fila(self, dni_norm: str, ano: int) -> FilaFestivos | None:
+        return self._filas().get((dni_norm, ano))
 
-    def _degradar(
-        self, clave: str, dni_norm: str, ano: int, exc: Exception
-    ) -> tuple[dict[str, str | None] | None, str]:
-        """Sesame ha fallado: cache caducada si la hay, si no el respaldo.
-
-        La entrada caducada NO se refresca a proposito: asi el siguiente
-        intento vuelve a preguntar a Sesame en cuanto se recupere, en vez
-        de quedarse seis horas sirviendo un dato viejo en silencio.
-        """
+    def _filas(self) -> dict[tuple[str, int], FilaFestivos]:
+        """La tabla entera, cacheada `ttl_tabla_s` segundos."""
         with self._lock:
-            entrada = self._cache.get(clave)
-        if entrada is not None:
-            logger.warning(
-                "%s Sesame no responde (%r) para dni=%s ano=%s: se reutiliza "
-                "la respuesta caducada. El calendario puede no estar al dia.",
-                _LOG_PREFIX, exc, dni_norm or "(sin dni)", ano,
-            )
-            return entrada[1], "stale"      # type: ignore[return-value]
-        logger.warning(
-            "%s Sesame no responde (%r) para dni=%s ano=%s y no hay cache "
-            "previa: se usa el respaldo local de festivos.",
-            _LOG_PREFIX, exc, dni_norm or "(sin dni)", ano,
-        )
-        return None, "respaldo"
+            ahora = self._reloj()
+            if (self._tabla is not None
+                    and ahora - self._tabla[0] < self._ttl_tabla_s):
+                return self._tabla[1]
+            filas: dict[tuple[str, int], FilaFestivos] = {}
+            crudas = self._leer_festivos() if self._leer_festivos else ()
+            for cruda in crudas:
+                try:
+                    fila = fila_de(cruda.get("dni_norm"), cruda.get("ano"),
+                                   cruda.get("festivos_json"),
+                                   cruda.get("leido_en_utc"))
+                except ValueError as exc:
+                    logger.warning(
+                        "%s fila id=%s de festivos_trabajador mal formada, "
+                        "se omite: %s", _LOG_PREFIX, cruda.get("id"), exc,
+                    )
+                    continue
+                filas[(fila.dni_norm, fila.ano)] = fila
+            self._tabla = (ahora, filas)
+            return filas
 
     # ------------------------------------------------------------- #
     # Cache.

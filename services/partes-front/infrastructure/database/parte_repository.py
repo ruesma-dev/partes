@@ -39,6 +39,7 @@ from infrastructure.database.orm_models import (
     DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
+    FestivoTrabajadorOrm,
     FranquiciaAjusteOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
@@ -3573,6 +3574,30 @@ class ParteReviewRepository:
                     "h_dom": f.h_dom,
                     "desde": f.desde, "hasta": f.hasta,
                     "origen": f.origen, "nota": f.nota,
+                }
+                for f in filas
+            ]
+
+    def list_festivos_trabajador(self) -> list[dict]:
+        """Filas de `festivos_trabajador` (F-032), tal cual estan.
+
+        Solo lectura: la tabla la escribe sv3 al ingerir. Son unas 220
+        filas por ano; el `CalendarioProvider` la lee entera, la valida
+        con `festivos_guardados.fila_de` y la cachea <= 60 s. Lleva DNIs:
+        dato personal, nunca a un log.
+        """
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(FestivoTrabajadorOrm).order_by(FestivoTrabajadorOrm.id)
+            ).scalars().all()
+            return [
+                {
+                    "id": f.id,
+                    "dni_norm": f.dni_norm,
+                    "ano": f.ano,
+                    "festivos_json": f.festivos_json,
+                    "n_festivos": f.n_festivos,
+                    "leido_en_utc": f.leido_en_utc,
                 }
                 for f in filas
             ]
