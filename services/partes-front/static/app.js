@@ -4188,33 +4188,18 @@ var FiltrosSesion = (function () {
     return html;
   }
 
-  /* R23/R25: Sesame configurado pero caido. El calculo de horas pierde
-     los festivos reales, asi que el registro se BLOQUEA. La unica salida
-     es el override manual, que va por la via sincrona y deja las lineas
-     marcadas [SIN-SESAME]: mismo patron que el pisado de conflictos. */
-  function bloqueoSesameHtml(motivo) {
-    return "<div class='ap-warn ap-sesame-bloqueo'><p><strong>No se puede "
-      + "registrar:</strong> " + (motivo || "") + "</p>"
-      + "<p>Sin el calendario de Sesame faltan los festivos reales de cada "
-      + "trabajador, y el reparto entre horas ordinarias y extra puede ser "
-      + "incorrecto. Lo normal es esperar a que Sesame vuelva.</p>"
-      + "<label class='ap-forzar'><input type='checkbox' id='ap-forzar-sesame'> "
-      + "Registrar igualmente bajo mi responsabilidad. Las lineas quedaran "
-      + "marcadas <code>[SIN-SESAME]</code>.</label></div>";
-  }
-
   /* F-022 (R29): que obras van por `ejecutar` (sincrono: hay claves que
-     pisar o se fuerza el bloqueo de Sesame), cuales por `encolar` y cuales
-     no se envian (preflight fallido o bloqueadas sin la casilla). Puro. */
-  function planEnvio(grupos, claves, forzado) {
+     pisar), cuales por `encolar` y cuales no se envian (preflight
+     fallido). F-032 (R21): el calendario ya no bloquea ninguna. Puro. */
+  function planEnvio(grupos, claves) {
     var conClave = {};
     (claves || []).forEach(function (k) {
       conClave[String(k).split(SEPARADOR_CLAVE)[0]] = true;
     });
     var plan = { sincronos: [], cola: [], fuera: [] };
     (grupos || []).forEach(function (g) {
-      if (!g.ok || (g.sesame_bloqueo && !forzado)) plan.fuera.push(g);
-      else if (conClave[g.clave] || g.sesame_bloqueo) plan.sincronos.push(g);
+      if (!g.ok) plan.fuera.push(g);
+      else if (conClave[g.clave]) plan.sincronos.push(g);
       else plan.cola.push(g);
     });
     return plan;
@@ -4237,11 +4222,11 @@ var FiltrosSesion = (function () {
     });
   }
 
-  /* Confirmar: primero lo sincrono (pisar o forzar es una decision humana
-     que no viaja por la cola) y luego lo encolado; cada llamada lleva los
-     ids de SUS obras y el mismo `ambito`, y el servidor reparte igual. */
-  function confirmar(peticion, plan, claves, forzado, boton, contexto,
-                     decisiones, franq) {
+  /* Confirmar: primero lo sincrono (pisar es una decision humana que no
+     viaja por la cola) y luego lo encolado; cada llamada lleva los ids de
+     SUS obras y el mismo `ambito`, y el servidor reparte igual. */
+  function confirmar(peticion, plan, claves, boton, contexto, decisiones,
+                     franq) {
     if (boton) { boton.disabled = true; boton.textContent = "Registrando…"; }
     var base = { ambito: peticion.ambito,
                  incluir_borradas: peticion.incluir_borradas };
@@ -4265,7 +4250,6 @@ var FiltrosSesion = (function () {
         var cuerpo = conDecisiones(Object.assign({}, base, {
           registro_ids: idsDe(plan.sincronos),
           pisar_claves: clavesDe(plan.sincronos, claves) }));
-        if (forzado) cuerpo.forzar_sin_sesame = true;
         return post("/api/aprobar/ejecutar", cuerpo).then(function (r) {
           respuestas.sincrono = r;
         });
@@ -4280,8 +4264,7 @@ var FiltrosSesion = (function () {
       });
     }
     paso.then(function () {
-      mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto,
-                             franq);
+      mostrarResultadoGrupos(peticion, plan, respuestas, contexto, franq);
     }).catch(function (e) {
       modal("Error de red", "<p class='ap-warn'>" + esc(e) + "</p>",
             [{ texto: "Cerrar", onClick: cerrar }]);
@@ -4317,7 +4300,7 @@ var FiltrosSesion = (function () {
   /* El resultado por obra de las dos llamadas, mas las obras que no se
      enviaron con su motivo. Si alguna obra se encolo, sondea su estado
      (F-024 R29, por obra); si quedan conflictos, ofrece pisarlos. */
-  function mostrarResultadoGrupos(peticion, plan, respuestas, forzado, contexto,
+  function mostrarResultadoGrupos(peticion, plan, respuestas, contexto,
                                   franq) {
     var html = "", sondeos = [], pendientes = [], decididas = [];
     [respuestas.sincrono, respuestas.cola].forEach(function (r) {
@@ -4348,7 +4331,7 @@ var FiltrosSesion = (function () {
     });
     plan.fuera.forEach(function (g) {
       html += seccionObra(g, "<p class='ap-warn'>Sin registrar: "
-        + esc(g.sesame_bloqueo || g.error || "error desconocido") + "</p>");
+        + esc(g.error || "error desconocido") + "</p>");
     });
     if (decididas.length) {
       html += "<div class='ap-franquicias-res'><p class='ap-ctx'>Ajuste de "
@@ -4369,8 +4352,8 @@ var FiltrosSesion = (function () {
             });
           sondeo.soltar();
           if (!claves.length) { cerrar(); window.location.reload(); return; }
-          confirmar(peticion, planEnvio(pendientes, claves, forzado), claves,
-                    forzado, b, contexto);
+          confirmar(peticion, planEnvio(pendientes, claves), claves, b,
+                    contexto);
         } });
       acciones.push({ texto: "Dejarlo asi", onClick: function () {
         sondeo.soltar(); cerrar(); window.location.reload();
@@ -4802,7 +4785,8 @@ var FiltrosSesion = (function () {
 
   /* R27, R28: una seccion por obra. Resumen siempre visible en el
      <summary>; dentro, partes, avisos y el listado (plegado si el total
-     pasa del umbral); FUERA del pliegue, errores, bloqueo y conflictos. */
+     pasa del umbral); FUERA del pliegue, errores, el aviso de Sesame
+     (F-032 R22: solo aviso, no bloquea) y conflictos. */
   function grupoHtml(g, plegar) {
     var dentro = (g.ok ? resumenHtml(g) + avisosCalendarioHtml(g.avisos_calendario)
                        : "") + listadoHtml(g.listado);
@@ -4811,8 +4795,9 @@ var FiltrosSesion = (function () {
       fuera += "<p class='ap-warn'>No se registra: "
         + esc(g.error || "error desconocido") + "</p>";
     }
-    if (g.sesame_bloqueo) {
-      fuera += "<p class='ap-warn'>Bloqueada: " + esc(g.sesame_bloqueo) + "</p>";
+    if (g.aviso_sesame) {
+      fuera += "<p class='ap-warn ap-aviso-sesame'>⚠ " + esc(g.aviso_sesame)
+        + "</p>";
     }
     if ((g.conflictos || []).length) fuera += conflictosHtml(g.conflictos, g.clave);
     return "<section class='ap-grupo' data-grupo=\"" + esc(g.clave) + "\">"
@@ -5226,8 +5211,6 @@ var FiltrosSesion = (function () {
         return;
       }
       var grupos = pf.grupos || [];
-      var evaluables = grupos.filter(function (g) { return g.ok; });
-      var bloqueadas = evaluables.filter(function (g) { return g.sesame_bloqueo; });
       var conflictos = pf.conflictos || [];
       var plegar = filasListado(grupos) > (pf.umbral_plegado || 40);
       // F-025 (R19): los avisos de incidencia de todas las obras, juntos
@@ -5261,14 +5244,8 @@ var FiltrosSesion = (function () {
           + "id='ap-incluir-borradas'> Incluirlas (se volveran a escribir en "
           + "Sigrid)</label></div>";
       }
-      if (bloqueadas.length) {
-        html += "<hr>" + bloqueoSesameHtml(esc(pf.sesame_bloqueo) + " ("
-          + esc(bloqueadas.map(obraTexto).join(", ")) + ")");
-      }
       var titulo = "Confirmar registro en Sigrid";
-      if (bloqueadas.length && bloqueadas.length === evaluables.length) {
-        titulo = "Bloqueado: Sesame no disponible";
-      } else if (conflictos.length) {
+      if (conflictos.length) {
         titulo = "Confirmar: hay lineas que se pisarian";
       } else if ((pf.repartos || []).length) {
         titulo = "Confirmar: hay un reparto de jornada pendiente";
@@ -5284,8 +5261,6 @@ var FiltrosSesion = (function () {
                 cj.querySelectorAll(".ap-pisar:checked")).map(function (i) {
                   return i.value;
                 });
-              var casilla = cj.querySelector("#ap-forzar-sesame");
-              var forzado = !!(casilla && casilla.checked);
               // F-046 (R32): sin decision, las lineas del dia no viajan.
               var decisiones = decisionesReparto(cj, pf.repartos);
               if (decisiones === null) {
@@ -5300,17 +5275,10 @@ var FiltrosSesion = (function () {
                   + "de extras.");
                 return;
               }
-              var plan = planEnvio(grupos, claves, forzado);
-              if (!plan.sincronos.length && !plan.cola.length) {
-                // El servidor lo rechazaria igual (F-003 R24); avisar aqui
-                // evita un viaje y deja claro que falta la confirmacion.
-                window.alert("Marca la casilla para registrar sin el "
-                  + "calendario de Sesame, o espera a que vuelva.");
-                return;
-              }
-              confirmar(peticion, plan, claves, forzado, b, contexto,
-                        decisiones, { decisiones: decFranq,
-                                      x: xAvisoDe(pf.franquicias) });
+              var plan = planEnvio(grupos, claves);
+              confirmar(peticion, plan, claves, b, contexto, decisiones,
+                        { decisiones: decFranq,
+                          x: xAvisoDe(pf.franquicias) });
             } },
           { texto: "Cancelar", onClick: cerrar },
         ]);

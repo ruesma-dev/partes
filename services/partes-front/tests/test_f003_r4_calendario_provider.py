@@ -1,56 +1,40 @@
 # tests/test_f003_r4_calendario_provider.py
 """R4, R5, R6 · proveedor de calendario del portal (sv4).
 
-El proveedor es quien DECIDE: el cliente solo traduce HTTP. Aqui se
-ejercita la cascada de degradacion (DNI -> calendario por defecto ->
-caduco -> respaldo), la cache por (DNI x ano) y la fuente de cada
-resolucion, que es lo que sostiene el aviso de las vistas (R22) y el
-bloqueo del registro (R23/R24).
+El proveedor es quien DECIDE. Desde F-032 los festivos salen de la tabla
+`festivos_trabajador` (los escribe sv3 al ingerir) y no de sesame-api: la
+cascada de Sesame de F-003 (calendario por defecto en el 404, cache
+caducada) desaparece y vive en `test_f032_provider_tabla.py`. Aqui quedan
+los casos de F-003 que siguen valiendo con la tabla (festivo por DNI,
+`dia()`, `fiable_para`), la jornada del contrato (que si sigue llamando a
+Sesame) y el apagado (R7/R27).
 
 Sin red: el cliente es un doble que cuenta llamadas. Sin reloj real: el
 proveedor recibe su reloj por parametro.
 """
 from __future__ import annotations
 
-import logging
 from datetime import date
 
 import pytest
 from application.services.calendario_provider import CalendarioProvider
-from infrastructure.sesame.sesame_api_client import (
-    FestivoDia,
-    JornadaContrato,
-)
-
-REYES = FestivoDia(fecha="2026-01-06", nombre="Reyes")
-SAN_ISIDRO = FestivoDia(fecha="2026-05-15", nombre="San Isidro")
-NAVIDAD = FestivoDia(fecha="2026-12-25", nombre="Navidad")
+from infrastructure.sesame.sesame_api_client import JornadaContrato
 
 
 class ClienteFake:
-    """Doble del `SesameApiClient` que cuenta llamadas y sabe reventar."""
+    """Doble del `SesameApiClient`: solo `jornada` (R19 de F-032)."""
 
-    def __init__(self, *, festivos=None, por_defecto=None, jornada=None,
+    def __init__(self, *, jornada=None,
                  fallo: Exception | None = None) -> None:
-        self._festivos = festivos
-        self._por_defecto = por_defecto
         self._jornada = jornada
         self.fallo = fallo
         self.llamadas: list[tuple] = []
 
     def festivos(self, dni: str, ano: int):
-        self.llamadas.append(("festivos", dni, ano))
-        if self.fallo:
-            raise self.fallo
-        if callable(self._festivos):
-            return self._festivos(dni, ano)
-        return self._festivos
+        raise AssertionError("sv4 no pide festivos a Sesame (F-032, R19)")
 
     def calendario_por_defecto(self, ano: int):
-        self.llamadas.append(("por_defecto", ano))
-        if self.fallo:
-            raise self.fallo
-        return self._por_defecto
+        raise AssertionError("ni el calendario por defecto (F-032, R19)")
 
     def jornada(self, dni: str):
         self.llamadas.append(("jornada", dni))
@@ -76,27 +60,38 @@ def _respaldo(d: date) -> str | None:
     return "Festivo del respaldo" if d.isoformat() == "2026-08-15" else None
 
 
-def _provider(cliente, *, reloj=None, ttl: int = 21600) -> CalendarioProvider:
+def _fila(dni: str, festivos: dict, ano: int = 2026) -> dict:
+    import json
+    return {"id": 1, "dni_norm": dni, "ano": ano,
+            "festivos_json": json.dumps(festivos),
+            "leido_en_utc": "2026-11-17T10:00:00Z"}
+
+
+SAN_ISIDRO = {"2026-05-15": "San Isidro"}
+
+
+def _provider(cliente, *, filas=(), reloj=None,
+              ttl: int = 21600) -> CalendarioProvider:
     return CalendarioProvider(
         cliente=cliente, respaldo_holiday_name=_respaldo,
         ttl_seconds=ttl, reloj=reloj or Reloj(),
+        leer_festivos=lambda: list(filas),
     )
 
 
 # ------------------------- R1/R2 · festivos por DNI --------------------- #
 
 def test_f003_r4_usa_el_calendario_del_trabajador() -> None:
-    p = _provider(ClienteFake(festivos=[REYES, SAN_ISIDRO]))
+    p = _provider(ClienteFake(), filas=[_fila("12345678Z", SAN_ISIDRO)])
     nombre = p.holiday_name_para("12345678Z")
     assert nombre(date(2026, 5, 15)) == "San Isidro"
     assert nombre(date(2026, 5, 16)) is None
 
 
 def test_f003_r4_cada_trabajador_lleva_su_calendario() -> None:
-    def por_dni(dni: str, _ano: int):
-        return [SAN_ISIDRO] if dni == "12345678Z" else [NAVIDAD]
-
-    p = _provider(ClienteFake(festivos=por_dni))
+    p = _provider(ClienteFake(), filas=[
+        _fila("12345678Z", SAN_ISIDRO),
+        _fila("87654321X", {"2026-12-25": "Navidad"})])
     assert p.holiday_name_para("12345678Z")(date(2026, 5, 15)) == "San Isidro"
     assert p.holiday_name_para("87654321X")(date(2026, 5, 15)) is None
     assert p.holiday_name_para("87654321X")(date(2026, 12, 25)) == "Navidad"
@@ -105,129 +100,20 @@ def test_f003_r4_cada_trabajador_lleva_su_calendario() -> None:
 def test_f003_r4_festivo_sin_nombre_sigue_siendo_festivo() -> None:
     """La vista pinta el punto si el nombre es truthy: un festivo sin
     nombre en Sesame no puede desaparecer del calendario."""
-    p = _provider(ClienteFake(festivos=[FestivoDia("2026-05-15", None)]))
+    p = _provider(ClienteFake(),
+                  filas=[_fila("12345678Z", {"2026-05-15": None})])
     assert p.holiday_name_para("12345678Z")(date(2026, 5, 15)) == "Festivo"
 
 
-def test_f003_r4_el_dni_se_normaliza_antes_de_preguntar() -> None:
-    cliente = ClienteFake(festivos=[])
-    p = _provider(cliente)
-    p.holiday_name_para("12.345.678-z")(date(2026, 5, 15))
-    assert cliente.llamadas[0] == ("festivos", "12345678Z", 2026)
-
-
-# ------------------------ R4 · cascada al por defecto ------------------- #
-
-def test_f003_r4_sin_dni_va_al_calendario_por_defecto() -> None:
-    cliente = ClienteFake(por_defecto=[REYES])
-    p = _provider(cliente)
-    assert p.holiday_name_para(None)(date(2026, 1, 6)) == "Reyes"
-    assert cliente.llamadas == [("por_defecto", 2026)]
-
-
-def test_f003_r4_dni_desconocido_cae_al_por_defecto() -> None:
-    """404 de Sesame: responde y el dato del por defecto es fiable."""
-    cliente = ClienteFake(festivos=None, por_defecto=[REYES])
-    p = _provider(cliente)
-    assert p.holiday_name_para("00000000X")(date(2026, 1, 6)) == "Reyes"
-    assert cliente.llamadas == [("festivos", "00000000X", 2026),
-                                ("por_defecto", 2026)]
-    assert p.fiable_para([("00000000X", 2026)]) is True
-
-
-def test_f003_r4_sin_por_defecto_cae_al_respaldo() -> None:
-    cliente = ClienteFake(festivos=None, por_defecto=None)
-    p = _provider(cliente)
-    nombre = p.holiday_name_para("00000000X")
-    assert nombre(date(2026, 8, 15)) == "Festivo del respaldo"
-    assert p.fiable_para([("00000000X", 2026)]) is False
-
-
-# ---------------------- R5 · stale-while-error y respaldo --------------- #
-
-def test_f003_r5_reutiliza_la_cache_caducada_si_sesame_falla(caplog) -> None:
-    reloj = Reloj()
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente, reloj=reloj, ttl=100)
-    assert p.holiday_name_para("12345678Z")(date(2026, 5, 15)) == "San Isidro"
-
-    reloj.avanza(101)
-    cliente.fallo = RuntimeError("sesame-api respondio 502")
-    with caplog.at_level(logging.WARNING):
-        assert (p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-                == "San Isidro")
-    assert "caducad" in caplog.text.lower()
-    assert p.fiable_para([("12345678Z", 2026)]) is False
-
-
-def test_f003_r5_sin_cache_previa_usa_el_respaldo(caplog) -> None:
-    cliente = ClienteFake(fallo=RuntimeError("sesame-api no responde"))
-    p = _provider(cliente)
-    with caplog.at_level(logging.WARNING):
-        nombre = p.holiday_name_para("12345678Z")
-        assert nombre(date(2026, 8, 15)) == "Festivo del respaldo"
-        assert nombre(date(2026, 5, 15)) is None
-    assert "respaldo" in caplog.text.lower()
-    assert p.fiable_para([("12345678Z", 2026)]) is False
-
-
-def test_f003_r5_ninguna_vista_revienta_por_un_fallo_de_sesame() -> None:
-    """Cualquier excepcion del cliente, no solo RuntimeError."""
-    p = _provider(ClienteFake(fallo=ValueError("cliente roto")))
-    assert p.holiday_name_para("12345678Z")(date(2026, 5, 15)) is None
-    assert p.dia(date(2026, 5, 15), "12345678Z").fiable is False
-    assert p.jornada_contrato("12345678Z") is None
-
-
-def test_f003_r5_la_degradacion_no_se_queda_pegada() -> None:
-    """Cuando Sesame vuelve, la resolucion vuelve a ser fiable."""
-    cliente = ClienteFake(festivos=[SAN_ISIDRO],
-                          fallo=RuntimeError("caido"))
-    p = _provider(cliente)
-    assert p.fiable_para([("12345678Z", 2026)]) is False
-    cliente.fallo = None
-    assert p.fiable_para([("12345678Z", 2026)]) is True
-
-
-# ------------------------------ R6 · cache TTL -------------------------- #
-
-def test_f003_r6_no_repite_la_llamada_dentro_del_ttl() -> None:
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente, ttl=21600)
-    nombre = p.holiday_name_para("12345678Z")
-    for _ in range(30):
-        nombre(date(2026, 5, 15))
-        nombre(date(2026, 5, 16))
-    assert len(cliente.llamadas) == 1
-
-
-def test_f003_r6_al_expirar_el_ttl_vuelve_a_preguntar() -> None:
-    reloj = Reloj()
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente, reloj=reloj, ttl=100)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    reloj.avanza(99)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    assert len(cliente.llamadas) == 1
-    reloj.avanza(2)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    assert len(cliente.llamadas) == 2
-
-
-def test_f003_r6_la_cache_es_por_dni_y_por_ano() -> None:
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    p.holiday_name_para("12345678Z")(date(2027, 5, 15))
-    p.holiday_name_para("87654321X")(date(2026, 5, 15))
-    assert [l[1:] for l in cliente.llamadas] == [
-        ("12345678Z", 2026), ("12345678Z", 2027), ("87654321X", 2026)]
+def test_f003_r4_el_dni_se_normaliza_antes_de_buscar() -> None:
+    p = _provider(ClienteFake(), filas=[_fila("12345678Z", SAN_ISIDRO)])
+    assert p.holiday_name_para("12.345.678-z")(date(2026, 5, 15)) ==         "San Isidro"
 
 
 # ------------------------------- dia() ---------------------------------- #
 
 def test_f003_r4_dia_describe_finde_festivo_y_laborable() -> None:
-    p = _provider(ClienteFake(festivos=[SAN_ISIDRO]))
+    p = _provider(ClienteFake(), filas=[_fila("12345678Z", SAN_ISIDRO)])
     # 2026-05-15 es viernes y festivo.
     festivo = p.dia(date(2026, 5, 15), "12345678Z")
     assert (festivo.fecha, festivo.laborable, festivo.fin_de_semana,
@@ -244,11 +130,11 @@ def test_f003_r4_dia_describe_finde_festivo_y_laborable() -> None:
 
 
 def test_f003_r4_el_finde_se_calcula_en_local() -> None:
-    """Sesame solo aporta festivos: sabado y domingo salen de la fecha."""
-    cliente = ClienteFake(festivos=[])
-    p = _provider(cliente)
+    """La tabla solo aporta festivos: sabado y domingo salen de la fecha."""
+    cliente = ClienteFake()
+    p = _provider(cliente, filas=[_fila("12345678Z", {})])
     assert p.dia(date(2026, 5, 17), "12345678Z").fin_de_semana is True
-    assert len(cliente.llamadas) == 1   # y aun asi resuelve festivos
+    assert cliente.llamadas == []
 
 
 # ---------------------------- jornada del contrato ---------------------- #
@@ -268,6 +154,34 @@ def test_f003_r4_jornada_sin_dni_no_pregunta() -> None:
     assert cliente.llamadas == []
 
 
+def test_f003_r4_jornada_que_falla_no_revienta() -> None:
+    p = _provider(ClienteFake(fallo=ValueError("cliente roto")))
+    assert p.jornada_contrato("12345678Z") is None
+
+
+@pytest.mark.parametrize("ttl", [0, -1])
+def test_f003_r6_ttl_no_positivo_no_cachea_la_jornada(ttl) -> None:
+    cliente = ClienteFake(jornada=JornadaContrato("Parcial", True, "Indef"))
+    p = _provider(cliente, ttl=ttl)
+    p.jornada_contrato("12345678Z")
+    p.jornada_contrato("12345678Z")
+    assert len(cliente.llamadas) == 2
+
+
+def test_f003_r6_justo_en_el_ttl_la_jornada_ya_ha_caducado() -> None:
+    """El limite es cerrado: a los TTL segundos exactos se refresca."""
+    reloj = Reloj()
+    cliente = ClienteFake(jornada=JornadaContrato("Parcial", True, "Indef"))
+    p = _provider(cliente, reloj=reloj, ttl=100)
+    p.jornada_contrato("12345678Z")
+    reloj.avanza(99)
+    p.jornada_contrato("12345678Z")
+    assert len(cliente.llamadas) == 1
+    reloj.avanza(1)
+    p.jornada_contrato("12345678Z")
+    assert len(cliente.llamadas) == 2
+
+
 # ------------------- R7/R27 · Sesame no configurado --------------------- #
 
 def test_f003_r7_sin_cliente_todo_sale_del_respaldo() -> None:
@@ -280,7 +194,7 @@ def test_f003_r7_sin_cliente_todo_sale_del_respaldo() -> None:
 
 
 def test_f003_r27_sin_cliente_no_hay_degradacion() -> None:
-    """Sin Sesame configurado no se bloquea nada: es el estado actual."""
+    """Sin Sesame configurado no se avisa de nada: es el estado actual."""
     p = _provider(None)
     assert p.fiable_para([("12345678Z", 2026), (None, 2026)]) is True
     assert p.dia(date(2026, 5, 15), "12345678Z").fiable is True
@@ -289,63 +203,35 @@ def test_f003_r27_sin_cliente_no_hay_degradacion() -> None:
 # ------------------------------ fiable_para ----------------------------- #
 
 def test_f003_r4_fiable_para_lote_vacio_es_fiable() -> None:
-    assert _provider(ClienteFake(festivos=[])).fiable_para([]) is True
+    assert _provider(ClienteFake()).fiable_para([]) is True
 
 
-def test_f003_r4_fiable_para_basta_una_degradada() -> None:
-    def por_dni(dni: str, _ano: int):
-        if dni == "11111111A":
-            raise RuntimeError("502")
-        return [SAN_ISIDRO]
-
-    p = _provider(ClienteFake(festivos=por_dni))
+def test_f003_r4_fiable_para_basta_una_sin_fila() -> None:
+    p = _provider(ClienteFake(), filas=[_fila("12345678Z", SAN_ISIDRO)])
     assert p.fiable_para([("12345678Z", 2026)]) is True
     assert p.fiable_para([("12345678Z", 2026), ("11111111A", 2026)]) is False
 
 
-def test_f003_r4_fiable_para_no_repite_consultas(monkeypatch) -> None:
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente)
+def test_f003_r4_fiable_para_no_repite_consultas() -> None:
+    lecturas = []
+
+    def leer():
+        lecturas.append(1)
+        return [_fila("12345678Z", SAN_ISIDRO)]
+
+    p = CalendarioProvider(cliente=ClienteFake(),
+                           respaldo_holiday_name=_respaldo, reloj=Reloj(),
+                           leer_festivos=leer)
     p.fiable_para([("12345678Z", 2026), ("12345678Z", 2026),
                    ("12.345.678 Z", 2026)])
-    assert len(cliente.llamadas) == 1
-
-
-@pytest.mark.parametrize("ttl", [0, -1])
-def test_f003_r6_ttl_no_positivo_no_cachea(ttl) -> None:
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente, ttl=ttl)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    assert len(cliente.llamadas) == 2
-
-
-def test_f003_r6_un_ttl_de_un_segundo_si_cachea() -> None:
-    """Cualquier TTL positivo cachea; el corte esta en 0, no en 1."""
-    reloj = Reloj()
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente, reloj=reloj, ttl=1)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    assert len(cliente.llamadas) == 1
-
-
-def test_f003_r6_justo_en_el_ttl_la_entrada_ya_ha_caducado() -> None:
-    """El limite es cerrado: a los TTL segundos exactos se refresca."""
-    reloj = Reloj()
-    cliente = ClienteFake(festivos=[SAN_ISIDRO])
-    p = _provider(cliente, reloj=reloj, ttl=100)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    reloj.avanza(100)
-    p.holiday_name_para("12345678Z")(date(2026, 5, 15))
-    assert len(cliente.llamadas) == 2
+    assert len(lecturas) == 1
 
 
 def test_f003_r4_el_dia_resuelto_es_inmutable() -> None:
     """Viaja a la plantilla y al JSON: nadie lo retoca por el camino."""
     import dataclasses
 
-    dia = _provider(ClienteFake(festivos=[])).dia(date(2026, 5, 18), None)
+    dia = _provider(ClienteFake()).dia(date(2026, 5, 18), None)
     with pytest.raises(dataclasses.FrozenInstanceError):
         dia.festivo = True     # type: ignore[misc]
 
@@ -353,7 +239,7 @@ def test_f003_r4_el_dia_resuelto_es_inmutable() -> None:
 def test_f003_r4_un_dia_es_fiable_mientras_no_se_diga_lo_contrario() -> None:
     """El valor por defecto importa: un `DiaCalendario` construido sin
     hablar de fiabilidad no puede salir marcado como degradado y
-    disparar bloqueos que nadie ha pedido."""
+    disparar avisos que nadie ha pedido."""
     from application.services.calendario_provider import DiaCalendario
 
     dia = DiaCalendario(fecha="2026-05-18", laborable=True,

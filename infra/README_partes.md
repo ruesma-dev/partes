@@ -106,6 +106,43 @@ Servicio de ESCRITURA en el ERP. Alta e integración:
 Republicar tras cambios de código: `.\redeploy_partes.ps1 -Solo sv5`
 (orden seguro: `sv2 → sv3 → sv5 → sv4 → sv1`).
 
+## Sesame — festivos de cada trabajador (F-032)
+sv3 pide a `sesame-api` los festivos de cada trabajador al ingerir y los guarda
+en la tabla `festivos_trabajador`; sv4 los lee de ahí (y a Sesame solo le pide la
+jornada). Sin `SESAME_API_*` los dos usan su calendario local de siempre.
+
+Antes de encender, el **contraste** (guía de despliegue de F-032, M2 y M3):
+
+```powershell
+cd ..\services\partes-persistencia
+python contrastar_festivos_sesame.py --ano 2026 --base-url <url> --api-key <clave>
+python contrastar_festivos_sesame.py --ano 2026 --impacto   # con el .env de sv3
+```
+
+`FALTAN DEL RESPALDO` ⇒ no se enciende. `INCOMPLETO` ⇒ consultar con RRHH.
+
+**Encendido en un solo paso** (sv3 y después sv4), fuera del horario de aprobación:
+
+```powershell
+. .\00_vars_partes.ps1          # $SESAME_BASE_URL en tu 00_vars_partes.local.ps1
+. .\00_capps_vars_partes.ps1
+.\add_sesame_partes.ps1          # encender
+.\add_sesame_partes.ps1 -Quitar  # apagar (retira las SESAME_* de las dos apps)
+```
+
+- Antes de tocar ninguna app comprueba que `$SESAME_BASE_URL` empieza por `http`
+  y que `SESAME-API-KEY` existe en `$KV`. Si falla algo, aborta sin tocar nada.
+- Crea en cada app el secreto `sesame-key` como `keyvaultref` por la identidad
+  gestionada. Fija `SESAME_API_BASE_URL`, `SESAME_API_KEY=secretref:sesame-key` y
+  `SESAME_API_TIMEOUT_S`, más `SESAME_FESTIVOS_MINIMOS` en sv3 (`$SESAME_FESTIVOS_MINIMOS`,
+  por defecto 1) y `SESAME_CACHE_TTL_S` en sv4. Después espera a que la revisión
+  nueva esté lista.
+- Idempotente. No encola nada ni lee el valor de ninguna clave.
+- Comprobación: en los logs de arranque, `[sesame][wiring] CABLEADO` (o
+  `DESACTIVADO` tras `-Quitar`). Con el siguiente parte, en sv3
+  `[festivos] refresco guardadas=…`. Un trabajador sin fila sale con un aviso en
+  el portal, sin bloqueo.
+
 ## Pendiente (próximas tandas)
 - **Tanda 2**: fontanería de partes (cola/blob) + `main_worker.py` de sv2 y sv3,
   y `build_images_partes.ps1` + `create_capps_partes.ps1` (workers con KEDA).

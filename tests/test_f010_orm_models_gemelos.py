@@ -122,16 +122,18 @@ COLUMNAS_PARTE_REGISTROS: tuple[str, ...] = (
     "confianza_pct",
 )
 
-#: Las OCHO tablas de la base `partes` (cuatro hasta F-015, que añadió
+#: Las NUEVE tablas de la base `partes` (cuatro hasta F-015, que añadió
 #: `empleado_jornada`; cinco hasta F-019, que añadió `dedicacion_bandeja`;
 #: seis hasta F-046, que añadió `reparto_pendiente`; siete hasta F-056, que
-#: añadió `franquicia_ajuste`).
+#: añadió `franquicia_ajuste`; ocho hasta F-032, que añadió
+#: `festivos_trabajador`).
 #: Añadir una tabla OBLIGA a tocar esta constante: es el aviso de que hay
 #: que mirar si la BBDD real la tiene.
 TABLAS: tuple[str, ...] = (
     "dedicacion_bandeja",
     "empleado_alias",
     "empleado_jornada",
+    "festivos_trabajador",
     "franquicia_ajuste",
     "parte_documents",
     "parte_registros",
@@ -505,9 +507,10 @@ def test_f010_r4_el_orm_canonico_tiene_las_tablas_y_56_columnas() -> None:
     metadata = modulo.Base.metadata
 
     assert tuple(sorted(metadata.tables)) == TABLAS, (
-        "la base 'partes' tiene OCHO tablas (undo_log solo la escribe sv4; "
+        "la base 'partes' tiene NUEVE tablas (undo_log solo la escribe sv4; "
         "empleado_jornada la añadió F-015, dedicacion_bandeja F-019, "
-        "reparto_pendiente F-046 y franquicia_ajuste F-056)"
+        "reparto_pendiente F-046, franquicia_ajuste F-056 y "
+        "festivos_trabajador F-032)"
     )
 
     columnas = tuple(c.name for c in metadata.tables["parte_registros"].columns)

@@ -4,7 +4,8 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Ninguna feature activa (`in_progress`, `in_review` ni `human_review`).
+Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última cerrada: F-032
+(2026-11-18, sin desplegar; ver abajo).
 
 ## Abierto fuera del código (2026-11-16)
 
@@ -25,3 +26,21 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`).
 F-072 (prioridad 1, sin spec) · F-057 (`spec_ready` desde 2026-10-24: refrescar contra F-068
 antes de implementar) · F-070, F-071, F-073, F-067 sin spec · F-074 (consulta de obra de sv2,
 prioridad la más baja).
+
+## F-032 · DONE 2026-11-18, sin desplegar (festivos por trabajador desde Sesame)
+
+Review APPROVED en tres pasadas (`progress/review_F-032.md`); la condición de la pasada 3 se
+cumple con la **aceptación literal del humano del 2026-11-18: «acepto. push hecho. mejora como
+encargo.»**, que cubre los 3 equivalentes y los 11 muertos por la raíz (anotada en cada uno en
+`progress/mutacion_F-032.md`). Integrada en `dev` en local. La mejora del selector de la
+herramienta de mutación queda como encargo en `arnes-base`.
+
+Pendiente del humano (nada de esto lo hace el arnés):
+- **sesame-api**: P0 (sacar `.env` de git y rotar el token si lo lleva), P1 (commitear el
+  rediseño), P2 (Dockerfile), P3 (contrato ausente ⇒ 404), P4 (su documento en `azure-apps`),
+  P5 (RRHH completa Alicante).
+- **Manuales M1–M7** (desplegar sesame-api, contraste, redesplegar sv3 y sv4,
+  `infra/add_sesame_partes.ps1`, portal, `-Quitar`): comandos en `progress/impl_F-032.md`.
+- Menores: 8 avisos de ruff en `services/partes-persistencia/tests/test_f032_campana.py`
+  (fixtures importados, mejor en `conftest.py`); fila «Workers: 3» en Evidencias del informe.
+

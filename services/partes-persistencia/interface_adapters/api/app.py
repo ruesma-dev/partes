@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict
 
@@ -31,20 +32,24 @@ from application.services.parte_normalizer import ParteNormalizer
 from application.services.partida_conciliador import PartidaConciliador
 from application.services.jornada_resolver import parsear_mapa_semanal
 from application.services.recurso_conciliador import RecursoConciliador
+from application.services.refresco_festivos import RefrescoFestivos
 from application.services.sigrid_matcher_provider import SigridMatcherProvider
 from config.settings import Settings
 from domain.ports.calendario_laboral_port import CalendarioLaboralPort
 from infrastructure.calendario.json_calendario_laboral import (
     JsonCalendarioLaboral,
 )
-from infrastructure.calendario.sesame_calendario_laboral import (
-    SesameCalendarioLaboral,
+from infrastructure.calendario.tabla_calendario_laboral import (
+    TablaCalendarioLaboral,
 )
 from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.recalculo_seguimiento import (
     SqlAlchemyRecalculoSeguimiento,
 )
 from infrastructure.database.session_factory import SessionFactory
+from infrastructure.database.sqlalchemy_festivos_repository import (
+    SqlAlchemyFestivosRepository,
+)
 from infrastructure.database.sqlalchemy_jornada_repository import (
     SqlAlchemyJornadaRepository,
 )
@@ -56,13 +61,16 @@ from infrastructure.sigrid.sigrid_api_client import SigridApiClient
 logger = logging.getLogger(__name__)
 
 
-def construir_calendario(settings: Settings) -> CalendarioLaboralPort:
-    """El calendario laboral que usara el computo de extras (F-003).
+def construir_calendario(
+    settings: Settings, repositorio: Any = None
+) -> CalendarioLaboralPort:
+    """El calendario laboral que usara el computo de extras (F-003, F-032).
 
-    Con SESAME_API_* configurado, los festivos REALES de cada trabajador
-    (por su DNI) con el JSON local de respaldo. Sin ellas, el JSON de
-    siempre y ni una llamada de red: la feature va apagada hasta que
-    sesame-api este desplegado.
+    Con SESAME_API_* configurado, los festivos de cada trabajador GUARDADOS
+    en `festivos_trabajador` (`repositorio`), con el JSON local de respaldo
+    para quien no tiene fila (DA19 = B). Las pasadas no llaman nunca a
+    sesame-api (R14): la tabla la llena el refresco de la ingesta. Sin
+    Sesame, el JSON de siempre y ni se lee la tabla (R12).
 
     Esta funcion vive fuera de `build_app` porque `build_app` monta la
     SessionFactory contra PostgreSQL y no se puede levantar en la suite;
@@ -76,20 +84,41 @@ def construir_calendario(settings: Settings) -> CalendarioLaboralPort:
             settings.calendario_laboral_path,
         )
         return respaldo
+    if repositorio is None:
+        raise ValueError(
+            "con SESAME_API_* el calendario necesita el repositorio de "
+            "festivos_trabajador")
+    logger.info(
+        "[sesame][wiring] CABLEADO base_url=%s key_len=%s "
+        "festivos_minimos=%s festivos=tabla (respaldo: %s)",
+        settings.sesame_api_base_url, len(settings.sesame_api_key or ""),
+        settings.sesame_festivos_minimos, settings.calendario_laboral_path,
+    )
+    return TablaCalendarioLaboral(repositorio=repositorio, respaldo=respaldo)
+
+
+def construir_refresco_festivos(
+    settings: Settings, repositorio: Any, calendario: CalendarioLaboralPort
+) -> RefrescoFestivos | None:
+    """El refresco de festivos de la ingesta (F-032, R4); None sin Sesame.
+
+    Es el UNICO que habla con sesame-api por festivos. Tras guardar una
+    fila vacia la cache del calendario (`olvidar`, R15), para que la pasada
+    de esa misma ingesta ya la use.
+    """
+    if not settings.sesame_enabled:
+        return None
     cliente = SesameApiClient(
         base_url=settings.sesame_api_base_url,   # type: ignore[arg-type]
         api_key=settings.sesame_api_key,         # type: ignore[arg-type]
         timeout_s=settings.sesame_api_timeout_s,
     )
-    logger.info(
-        "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s "
-        "(respaldo: %s)",
-        settings.sesame_api_base_url, len(settings.sesame_api_key or ""),
-        settings.sesame_cache_ttl_s, settings.calendario_laboral_path,
-    )
-    return SesameCalendarioLaboral(
-        cliente=cliente, respaldo=respaldo,
-        ttl_seconds=settings.sesame_cache_ttl_s,
+    return RefrescoFestivos(
+        cliente=cliente,
+        repositorio=repositorio,
+        minimo=settings.sesame_festivos_minimos,
+        ahora_utc=lambda: datetime.now(timezone.utc),
+        al_guardar=getattr(calendario, "olvidar", lambda: None),
     )
 
 
@@ -136,6 +165,7 @@ def construir_casado_sigrid(
     repository: Any,
     jornadas: Any,
     mapa_semanal: dict[float, float],
+    calendario: CalendarioLaboralPort | None = None,
 ) -> tuple[
     SigridApiClient | None,
     SigridMatcherProvider | None,
@@ -147,7 +177,9 @@ def construir_casado_sigrid(
     Separada de `build_app` (que monta PostgreSQL) para poder probar el
     cableado de F-023: sin `SIGRID_EMPRESA`, con la tabla de alias del
     membrete y con el conciliador usando el MISMO indice de personas que
-    la ingesta (`indice_provider`).
+    la ingesta (`indice_provider`). F-032: `calendario` es el que cablea
+    `build_app` (el mismo cuya cache invalida el refresco); sin el, el de
+    `construir_calendario(settings)`.
     """
     if not settings.sigrid_credentials_present:
         logger.warning(
@@ -182,7 +214,8 @@ def construir_casado_sigrid(
     recurso_conciliador = RecursoConciliador(
         repository=repository,
         lookup=sigrid_client,
-        calendario=construir_calendario(settings),
+        calendario=(calendario if calendario is not None
+                    else construir_calendario(settings)),
         jornada_ordinaria_horas=settings.jornada_ordinaria_horas,
         candef_minimo=settings.candef_minimo_valido,
         mapa_semanal=mapa_semanal,
@@ -223,6 +256,15 @@ def build_app(settings: Settings) -> FastAPI:
     repository.initialize()
 
     # ----------------------------------------------------------- #
+    # Festivos (F-032): con Sesame, la tabla `festivos_trabajador` como
+    # calendario y el refresco en la ingesta; sin el, el JSON.
+    # ----------------------------------------------------------- #
+    festivos_repo = SqlAlchemyFestivosRepository(session_factory)
+    calendario = construir_calendario(settings, festivos_repo)
+    refresco_festivos = construir_refresco_festivos(
+        settings, festivos_repo, calendario)
+
+    # ----------------------------------------------------------- #
     # Sigrid (casado). Solo si hay credenciales.
     # ----------------------------------------------------------- #
     (sigrid_client, matcher_provider, partida_conciliador,
@@ -231,6 +273,7 @@ def build_app(settings: Settings) -> FastAPI:
             settings, repository=repository,
             jornadas=SqlAlchemyJornadaRepository(session_factory),
             mapa_semanal=mapa_semanal,
+            calendario=calendario,
         )
     )
 
@@ -279,6 +322,7 @@ def build_app(settings: Settings) -> FastAPI:
         partida_conciliador=partida_conciliador,
         recurso_conciliador=recurso_conciliador,
         recalculo_seguimiento=recalculo_seguimiento,
+        refresco_festivos=refresco_festivos,
     )
 
     # ----------------------------------------------------------- #

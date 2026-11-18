@@ -677,23 +677,26 @@ def test_f022_r17_preflight_todos_fallidos(portal) -> None:
 
 
 def test_f022_r18_preflight_sesame_no_fiable_solo_en_un_grupo(portal) -> None:
+    """F-032 (R22): el grupo no fiable lleva `aviso_sesame`, ya no un
+    `sesame_bloqueo`; el otro, nada."""
     cliente, _f, ids, _sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
     cuerpo = _preflight(cliente, ids["o10_b"] + ids["o20_a"]).json()
     o10, o20 = cuerpo["grupos"]
-    assert o10["sesame_bloqueo"]
-    assert "sesame_bloqueo" not in o20
-    assert cuerpo["sesame_bloqueo"] == o10["sesame_bloqueo"]
+    assert o10["aviso_sesame"]
+    assert "aviso_sesame" not in o20
+    assert "sesame_bloqueo" not in o10 and "sesame_bloqueo" not in cuerpo
 
 
 def test_f022_r31_preflight_avisos_y_bloqueo_solo_de_lo_pedido(portal) -> None:
-    """La vista tiene una linea de B (Sesame caido) y una en domingo; si no
-    se piden, ni bloquean ni avisan, aunque sean de la misma obra."""
+    """La vista tiene una linea de B (sin calendario de Sesame) y una en
+    domingo; si no se piden, no avisan, aunque sean de la misma obra."""
     cliente, fabrica, ids, sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
     domingo = _sembrar(fabrica, OBRA_10, [None], doc="d-dom",
                        fecha="2026-03-01")
     cuerpo = _preflight(cliente, ids["o10_a"], ambito=MARZO).json()
+    assert "aviso_sesame" not in cuerpo
     assert "sesame_bloqueo" not in cuerpo
     assert cuerpo["avisos_calendario"] == []
     assert [l["registro_id"] for l in sv5.preflights[0]["lineas"]] == \
@@ -770,9 +773,6 @@ def test_f022_r33_preflight_payload_de_siempre(portal) -> None:
 # ===================================================================== #
 # T7 · ejecutar por grupo (R18, R19, R22, R32, R33)
 # ===================================================================== #
-
-MOTIVO_SIN_SESAME_PREFIJO = "[SIN-SESAME]"
-
 
 def _ejecutar(cliente, ids, **extra):
     return cliente.post("/api/aprobar/ejecutar",
@@ -870,61 +870,54 @@ def test_f022_r16_ejecutar_un_grupo_planos_identicos_a_hoy(portal) -> None:
 
 
 def test_f022_r18_ejecutar_grupo_bloqueado_sin_override_no_se_envia(portal) -> None:
+    """F-032 (R21): la obra sin calendario de Sesame ya no se bloquea: va
+    a sv5 como las demas y sus lineas no se marcan."""
     cliente, fabrica, ids, sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
-    antes = estados_sigrid(fabrica, ids["o10_b"])
     r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
     assert r.status_code == 200
-    assert [_codigo(p) for p in sv5.ejecutadas] == ["0200"]
-    bloqueado, bueno = r.json()["grupos"]
-    assert bloqueado == {"clave": "obr-10", "obra": OBRA_10,
-                         "registro_ids": ids["o10_b"], "ok": False,
-                         "bloqueado_sesame": True,
-                         "error": "calendario Sesame no disponible: el "
-                                  "calculo puede ser incorrecto"}
+    assert [_codigo(p) for p in sv5.ejecutadas] == ["0100", "0200"]
+    sin_fila, bueno = r.json()["grupos"]
+    assert sin_fila["ok"] is True and "bloqueado_sesame" not in sin_fila
     assert bueno["ok"] is True
-    assert (r.json()["ok"], r.json()["parcial"]) == (False, True)
-    assert estados_sigrid(fabrica, ids["o10_b"]) == antes
+    assert (r.json()["ok"], r.json()["parcial"]) == (True, False)
+    assert estados_sigrid(fabrica, ids["o10_b"])[ids["o10_b"][0]][:2] == \
+        ("registrado", None)
 
 
 def test_f022_r18_ejecutar_todos_bloqueados_es_el_422_de_hoy(portal) -> None:
-    cliente, fabrica, ids, sv5, _p = portal(
+    """F-032 (R21): sin calendario para nadie tampoco hay 422."""
+    cliente, _f, ids, sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_A, DNI_B}))
-    antes = estados_sigrid(fabrica, _todos(ids))
     r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
-    assert r.status_code == 422
-    assert r.json() == {"ok": False,
-                        "error": "calendario Sesame no disponible: el "
-                                 "calculo puede ser incorrecto",
-                        "sesame_bloqueo": "calendario Sesame no disponible: "
-                                          "el calculo puede ser incorrecto"}
-    assert sv5.ejecutadas == []
-    assert estados_sigrid(fabrica, _todos(ids)) == antes
+    assert r.status_code == 200
+    assert "sesame_bloqueo" not in r.json()
+    assert len(sv5.ejecutadas) == 2
 
 
 def test_f022_r18_ejecutar_override_solo_marca_los_bloqueados(portal) -> None:
+    """F-032 (R21): sin override ni marca; el override que ya no existe lo
+    prueba `test_f032_sin_bloqueo`."""
     cliente, fabrica, ids, sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
-    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"],
-                  forzar_sin_sesame=True)
+    r = _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
     assert r.status_code == 200
     assert len(sv5.ejecutadas) == 2
     estados = estados_sigrid(fabrica, ids["o10_b"] + ids["o20_a"])
-    assert estados[ids["o10_b"][0]][1].startswith(MOTIVO_SIN_SESAME_PREFIJO)
+    assert estados[ids["o10_b"][0]][1] is None
     assert [estados[i][1] for i in ids["o20_a"]] == [None, None]
 
 
 def test_f022_r18_ejecutar_bloqueo_y_override_quedan_en_el_log(
         portal, caplog) -> None:
+    """F-032 (R21): ni bloqueo ni override, asi que ninguno de sus logs."""
     cliente, _f, ids, _sv5, _p = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
     with caplog.at_level(logging.WARNING):
         _ejecutar(cliente, ids["o10_b"] + ids["o20_a"])
-        _ejecutar(cliente, ids["o10_b"], forzar_sin_sesame=True)
     textos = [r.getMessage() for r in caplog.records]
-    assert any("registro BLOQUEADO" in t and "obr-10" in t for t in textos)
-    assert any("registro FORZADO por local:ana" in t and "obr-10" in t
-               for t in textos)
+    assert not any("registro BLOQUEADO" in t for t in textos)
+    assert not any("registro FORZADO" in t for t in textos)
 
 
 def test_f022_r32_ejecutar_lo_no_pedido_no_cambia(portal) -> None:
@@ -1041,32 +1034,24 @@ def test_f022_r21_encolar_falla_el_marcado_y_sigue_encolada(portal) -> None:
 
 
 def test_f022_r18_encolar_grupo_bloqueado_no_se_publica(portal) -> None:
-    cliente, fabrica, ids, _sv5, publisher = portal(
+    """F-032 (R21): la obra sin calendario de Sesame se publica igual."""
+    cliente, _f, ids, _sv5, publisher = portal(
         calendario=CalendarioFalso(no_fiables={DNI_B}))
-    antes = estados_sigrid(fabrica, ids["o10_b"])
     r = _encolar(cliente, ids["o10_b"] + ids["o20_a"])
     assert r.status_code == 200
-    assert [_codigo(p) for p, _u in publisher.publicadas] == ["0200"]
-    bloqueado = r.json()["grupos"][0]
-    assert bloqueado == {"clave": "obr-10", "obra": OBRA_10,
-                         "registro_ids": ids["o10_b"], "ok": False,
-                         "bloqueado_sesame": True,
-                         "error": "calendario Sesame no disponible: el "
-                                  "calculo puede ser incorrecto",
-                         "estado": "bloqueado_sesame", "peticion_id": None}
-    assert r.json()["registro_ids"] == ids["o20_a"]
-    assert estados_sigrid(fabrica, ids["o10_b"]) == antes
+    assert [_codigo(p) for p, _u in publisher.publicadas] == ["0100", "0200"]
+    assert [g["estado"] for g in r.json()["grupos"]] == ["encolado"] * 2
+    assert r.json()["registro_ids"] == ids["o10_b"] + ids["o20_a"]
 
 
 def test_f022_r18_encolar_todos_bloqueados_es_el_422_de_hoy(portal) -> None:
+    """F-032 (R21): sin calendario para nadie se publica todo."""
     cliente, _f, ids, _sv5, publisher = portal(
         calendario=CalendarioFalso(no_fiables={DNI_A, DNI_B}))
     r = _encolar(cliente, ids["o10_b"] + ids["o20_a"])
-    assert r.status_code == 422
-    assert r.json()["sesame_bloqueo"] == ("calendario Sesame no disponible: "
-                                          "el calculo puede ser incorrecto")
-    assert "usa /api/aprobar/ejecutar" in r.json()["error"]
-    assert publisher.publicadas == []
+    assert r.status_code == 200
+    assert "sesame_bloqueo" not in r.json()
+    assert len(publisher.publicadas) == 2
 
 
 def test_f022_r20_encolar_sin_publisher_es_sincrono_por_obra(portal) -> None:
@@ -1094,16 +1079,19 @@ def test_f022_r20_encolar_sin_publisher_un_grupo_es_como_hoy(portal) -> None:
 
 
 def test_f022_r20_encolar_sin_publisher_bloqueado_y_fallido(portal) -> None:
+    """F-032 (R21): sin publisher, la obra sin calendario se registra y la
+    que falla en sv5 deja sus lineas en `error`."""
     cliente, fabrica, ids, sv5, _p = portal(
         publisher=None, calendario=CalendarioFalso(no_fiables={DNI_B}),
         sv5=Sv5Falso(ejecutar_por_obra={"0200": RuntimeError("caido")}))
     r = _encolar(cliente, ids["o10_b"] + ids["o20_a"] + ids["o10_a"])
     assert r.status_code == 200
-    assert [_codigo(p) for p in sv5.ejecutadas] == ["0200"]
+    assert [_codigo(p) for p in sv5.ejecutadas] == ["0100", "0200"]
     cuerpo = r.json()
-    assert cuerpo["ok"] is False
-    # obr-10 mezcla A (fiable) y B (no): el grupo entero se bloquea.
-    assert cuerpo["grupos"][0]["bloqueado_sesame"] is True
+    assert (cuerpo["ok"], cuerpo["parcial"]) == (False, True)
+    # obr-10 mezcla A y B (sin fila): ya no se bloquea, se registra.
+    assert cuerpo["grupos"][0]["ok"] is True
+    assert "bloqueado_sesame" not in cuerpo["grupos"][0]
     assert [estados_sigrid(fabrica, ids["o20_a"])[i][0]
             for i in ids["o20_a"]] == ["error"] * 2
 

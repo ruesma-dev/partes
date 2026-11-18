@@ -1,23 +1,19 @@
 # tests/test_f003_r23_bloqueo_registro.py
-"""R23-R25, R27 · nivel 2: sin Sesame disponible NO se registra.
+"""F-003 R23-R25, R27, con el bloqueo ya retirado por F-032 (DA17 = B).
 
-Es la correccion del humano al fail-open original. En las vistas basta
-con avisar (nivel 1), pero el REGISTRO en Sigrid escribe horas: sin los
-festivos reales el computo puede estar mal, y dejarlo pasar con un
-WARNING que no mira nadie es peor que parar.
-
-Con el bloqueo hay una unica salida, consciente y marcada: el override
-manual del modal, que va por la via SINCRONA (`/ejecutar`) —una decision
-humana no viaja por una cola con reentregas, mismo argumento que
-`pisar_claves` en F-002— y deja las lineas marcadas `[SIN-SESAME]`.
-
-Con Sesame sin configurar, nada de esto existe (R27).
+F-003 paraba el registro en Sigrid sin el calendario de Sesame y dejaba
+una salida unica, el override del modal, que marcaba `[SIN-SESAME]`.
+F-032 lo retira: sv4 registra siempre y solo avisa (`aviso_sesame`); el
+comportamiento nuevo lo prueba `test_f032_sin_bloqueo.py`. Aqui queda lo
+que sigue valiendo: el badge de una linea que YA lleve la marca (F-032
+R24) y que con Sesame sin configurar nada de esto existe (R27).
 """
 from __future__ import annotations
 
 import pytest
 from config.settings import Settings
 from fastapi.testclient import TestClient
+from infrastructure.database.orm_models import ParteRegistroOrm
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
 from tests.dobles import (
@@ -93,174 +89,19 @@ def montaje(entorno):
     return _montar
 
 
-# --------------------------- R23 · el preflight ------------------------- #
-
-def test_f003_r23_el_preflight_anexa_el_bloqueo(montaje) -> None:
-    cliente, _f, ids, _sv5, _p, _prov = montaje(fiable=False)
-    datos = cliente.post("/api/aprobar/preflight",
-                         json={"registro_ids": ids}).json()
-    assert datos["sesame_bloqueo"]
-    assert "Sesame no disponible" in datos["sesame_bloqueo"]
-    assert "incorrecto" in datos["sesame_bloqueo"]
-
-
-def test_f003_r23_sin_degradacion_no_hay_bloqueo(montaje) -> None:
-    cliente, _f, ids, _sv5, _p, _prov = montaje(fiable=True)
-    datos = cliente.post("/api/aprobar/preflight",
-                         json={"registro_ids": ids}).json()
-    assert datos.get("sesame_bloqueo") is None
-
-
-def test_f003_r23_el_preflight_se_sirve_igual(montaje) -> None:
-    """Bloquear el registro no es tumbar el preflight: el humano tiene
-    que poder ver que se iba a registrar antes de decidir."""
-    cliente, _f, ids, _sv5, _p, _prov = montaje(fiable=False)
-    r = cliente.post("/api/aprobar/preflight", json={"registro_ids": ids})
-    assert r.status_code == 200
-    assert r.json()["escribir"] == 2
-
-
-def test_f003_r23_la_fiabilidad_se_pregunta_por_dni_y_ano(montaje) -> None:
-    cliente, _f, ids, _sv5, _p, proveedor = montaje(fiable=True)
-    cliente.post("/api/aprobar/preflight", json={"registro_ids": ids})
-    consultas = [c for c in proveedor.consultas if c[0] == "fiable_para"]
-    assert ("12345678Z", 2026) in consultas[-1][1]
-
-
-# ------------------- R24 · la guarda esta en el servidor ---------------- #
-
-def test_f003_r24_ejecutar_sin_override_da_422(montaje) -> None:
-    cliente, _f, ids, sv5, _p, _prov = montaje(fiable=False)
-    r = cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
-    assert r.status_code == 422
-    # El JS mira `ok` antes que el status: si viniera true, el modal
-    # cantaria victoria sobre un registro que no se ha hecho.
-    assert r.json()["ok"] is False
-    assert "Sesame no disponible" in r.json()["error"]
-    assert sv5.ejecutadas == []      # ni se ha llamado a sv5
-
-
-def test_f003_r24_encolar_sin_override_da_422(montaje) -> None:
-    cliente, _f, ids, _sv5, publisher, _prov = montaje(fiable=False)
-    r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
-    assert r.status_code == 422
-    assert r.json()["ok"] is False
-    assert publisher.publicadas == []
-
-
-def test_f003_r24_el_bloqueo_no_depende_del_modal(montaje) -> None:
-    """Una peticion a pelo, sin pasar por el preflight, tambien se para."""
-    cliente, _f, ids, sv5, _p, _prov = montaje(fiable=False)
-    assert cliente.post("/api/aprobar/ejecutar",
-                        json={"registro_ids": ids}).status_code == 422
-    assert sv5.ejecutadas == []
-
-
-def test_f003_r24_sin_degradacion_el_registro_procede(montaje) -> None:
-    cliente, _f, ids, sv5, _p, _prov = montaje(fiable=True)
-    assert cliente.post("/api/aprobar/ejecutar",
-                        json={"registro_ids": ids}).status_code == 200
-    assert len(sv5.ejecutadas) == 1
-
-
-# ----------------------------- R25 · override --------------------------- #
-
-def test_f003_r25_con_override_ejecutar_procede(montaje) -> None:
-    cliente, _f, ids, sv5, _p, _prov = montaje(fiable=False)
-    r = cliente.post("/api/aprobar/ejecutar",
-                     json={"registro_ids": ids, "forzar_sin_sesame": True})
-    assert r.status_code == 200
-    assert len(sv5.ejecutadas) == 1
-
-
-def test_f003_r25_el_override_marca_las_lineas(montaje) -> None:
-    cliente, fabrica, ids, _sv5, _p, _prov = montaje(fiable=False)
-    cliente.post("/api/aprobar/ejecutar",
-                 json={"registro_ids": ids, "forzar_sin_sesame": True})
-    estados = estados_sigrid(fabrica, ids)
-    for rid in ids:
-        estado, motivo, *_ = estados[rid]
-        assert estado == "registrado"
-        assert motivo.startswith("[SIN-SESAME]")
-
-
-def test_f003_r25_sin_override_las_lineas_ok_no_llevan_motivo(
-        montaje) -> None:
-    cliente, fabrica, ids, _sv5, _p, _prov = montaje(fiable=True)
-    cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
-    for rid in ids:
-        assert estados_sigrid(fabrica, ids)[rid][1] is None
-
-
-def test_f003_r25_el_override_no_vale_por_la_cola(montaje) -> None:
-    """Una decision humana no viaja por una cola con reentregas."""
-    cliente, _f, ids, _sv5, publisher, _prov = montaje(fiable=False)
-    r = cliente.post("/api/aprobar/encolar",
-                     json={"registro_ids": ids, "forzar_sin_sesame": True})
-    assert r.status_code == 422
-    assert r.json()["ok"] is False
-    assert "ejecutar" in r.json()["error"]
-    assert publisher.publicadas == []
-
-
-def test_f003_r25_la_cola_sin_publisher_tampoco_marca_de_mas(
-        montaje) -> None:
-    """`/encolar` sin colas configuradas degrada al registro sincrono y
-    traza el resultado. Ese camino NO pasa por el override: sus lineas no
-    pueden salir marcadas."""
-    cliente, fabrica, ids, sv5, _p, _prov = montaje(
-        fiable=True, con_publisher=False)
-    r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
-    assert r.status_code == 200
-    assert r.json()["modo"] == "sincrono"
-    for rid in ids:
-        assert estados_sigrid(fabrica, ids)[rid][1] is None
-
-
-def test_f003_r25_una_linea_ya_registrada_tambien_se_marca(
-        montaje) -> None:
-    """sv5 puede devolver una linea como `ya_registradas` (idempotencia
-    por synckey). Se registro igual con el calendario a ciegas: lleva la
-    misma marca que las escritas."""
-    cliente, fabrica, ids, sv5, _p, _prov = montaje(fiable=False)
-
-    def ejecutar(payload: dict) -> dict:
-        return {"ok": True, "escritas": [], "omitidas": [],
-                "ya_registradas": [l["registro_id"]
-                                   for l in payload["lineas"]]}
-
-    sv5.ejecutar = ejecutar   # type: ignore[assignment]
-    cliente.post("/api/aprobar/ejecutar",
-                 json={"registro_ids": ids, "forzar_sin_sesame": True})
-    for rid in ids:
-        estado, motivo, *_ = estados_sigrid(fabrica, ids)[rid]
-        assert estado == "registrado"
-        assert motivo.startswith("[SIN-SESAME]")
-
-
-def test_f003_r25_el_override_sin_degradacion_no_marca_nada(montaje) -> None:
-    """Mandar el flag cuando no hace falta no ensucia la traza."""
-    cliente, fabrica, ids, _sv5, _p, _prov = montaje(fiable=True)
-    cliente.post("/api/aprobar/ejecutar",
-                 json={"registro_ids": ids, "forzar_sin_sesame": True})
-    for rid in ids:
-        assert estados_sigrid(fabrica, ids)[rid][1] is None
-
-
-def test_f003_r25_el_payload_a_sv5_no_cambia(montaje) -> None:
-    """sv5 no sabe nada de Sesame y no tiene por que enterarse."""
-    cliente, _f, ids, sv5, _p, _prov = montaje(fiable=False)
-    cliente.post("/api/aprobar/ejecutar",
-                 json={"registro_ids": ids, "forzar_sin_sesame": True})
-    assert set(sv5.ejecutadas[0]) == {"obra", "lineas", "pisar_claves",
-                                      "usuario"}
-
+# ------------------- R25 / F-032 R24 · lo ya marcado --------------------- #
 
 def test_f003_r25_la_marca_se_ve_en_las_vistas(montaje) -> None:
-    """De nada sirve marcar si no se ve: badge en las dos vistas."""
-    cliente, _f, ids, _sv5, _p, _prov = montaje(fiable=False)
-    cliente.post("/api/aprobar/ejecutar",
-                 json={"registro_ids": ids, "forzar_sin_sesame": True})
+    """De nada sirve marcar si no se ve: badge en las dos vistas. Desde
+    F-032 nada nuevo se marca; la linea llega ya marcada."""
+    cliente, fabrica, ids, _sv5, _p, _prov = montaje(fiable=False)
+    with fabrica.create_session() as s:
+        for rid in ids:
+            reg = s.get(ParteRegistroOrm, rid)
+            reg.sigrid_estado = "registrado"
+            reg.sigrid_motivo = ("[SIN-SESAME] registrado con override: "
+                                 "calendario de Sesame no disponible")
+        s.commit()
     trabajador = cliente.get("/trabajadores/rec-501?modo=natural").text
     obra = cliente.get("/obras/obr-10?period=2026-05&modo=natural").text
     assert "badge-sin-sesame" in trabajador
@@ -272,13 +113,6 @@ def test_f003_r25_una_linea_normal_no_lleva_badge(montaje) -> None:
     cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
     assert "badge-sin-sesame" not in cliente.get(
         "/trabajadores/rec-501?modo=natural").text
-
-
-def test_f003_r25_la_marca_cabe_en_el_campo(montaje) -> None:
-    """`sigrid_motivo` es String(255): sin schema nuevo."""
-    from infrastructure.transfer.resultado_sigrid import MOTIVO_SIN_SESAME
-    assert len(MOTIVO_SIN_SESAME) <= 255
-
 
 # ---------------------- R27 · con Sesame apagado, nada ------------------ #
 

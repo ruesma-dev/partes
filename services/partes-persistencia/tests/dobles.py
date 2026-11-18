@@ -36,8 +36,9 @@ class CalendarioFake(CalendarioLaboralPort):
 
     `no_laborables` puede ser un conjunto de fechas ISO (aplica a todos) o
     un dict `{dni: {fechas}}`. `degradados` son las fechas cuya resolucion
-    se declara degradada a traves de `consumir_degradacion()`, la misma
-    senal que ofrece `SesameCalendarioLaboral`.
+    se declara degradada a traves de `consumir_degradacion()`, la senal
+    que el conciliador sigue buscando por duck-typing (F-003, R26; desde
+    F-032 ningun calendario de produccion la ofrece).
     """
 
     def __init__(

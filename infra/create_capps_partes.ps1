@@ -99,17 +99,20 @@ $sv3Env = @(
     "SHAREPOINT_LINK_SCOPE=$($SP['SHAREPOINT_LINK_SCOPE'])"
 )
 
-# --- sesame-api (F-003): festivos reales por trabajador ---------------------
+# --- sesame-api (F-003, F-032): festivos reales por trabajador ---------------
 # Solo se cablea si $SESAME_BASE_URL tiene valor (mira 00_vars_partes.ps1).
 # Sin ella, sv3 sale con la integracion APAGADA y usa su calendario de
-# festivos local: exactamente el comportamiento anterior a F-003.
+# festivos local: exactamente el comportamiento anterior a F-003. Para
+# encender o apagar sobre la app ya creada: add_sesame_partes.ps1 (F-032).
+# sv3 ya no cachea festivos: los guarda en festivos_trabajador al ingerir;
+# SESAME_FESTIVOS_MINIMOS es el minimo para dar por completa una respuesta.
 if ($SESAME_BASE_URL) {
     $sv3Secrets += "sesame-key=$(KvRef 'SESAME-API-KEY')"
     $sv3Env += @(
         "SESAME_API_BASE_URL=$SESAME_BASE_URL",
         "SESAME_API_KEY=secretref:sesame-key",
         "SESAME_API_TIMEOUT_S=10",
-        "SESAME_CACHE_TTL_S=21600"
+        "SESAME_FESTIVOS_MINIMOS=$SESAME_FESTIVOS_MINIMOS"
     )
     Write-Host "[sv3] sesame-api CABLEADO ($SESAME_BASE_URL)" -ForegroundColor Cyan
 } else {

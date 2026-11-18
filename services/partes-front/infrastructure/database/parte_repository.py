@@ -39,6 +39,7 @@ from infrastructure.database.orm_models import (
     DedicacionBandejaOrm,
     EmpleadoAliasOrm,
     EmpleadoJornadaOrm,
+    FestivoTrabajadorOrm,
     FranquiciaAjusteOrm,
     ParteDocumentOrm,
     ParteRegistroOrm,
@@ -484,11 +485,11 @@ class ObraRow:
 
 @dataclass
 class ObraDayCol:
+    """Columna de dia de la rejilla de obra. F-032 (R27): solo fin de
+    semana y fecha futura; los festivos son de cada fila (celda)."""
     date_iso: str
     day: int
     is_weekend: bool
-    is_holiday: bool
-    holiday_name: Optional[str]
     es_futuro: bool = False
 
 
@@ -503,6 +504,9 @@ class ObraMatrixCell:
     is_holiday: bool
     document_id: Optional[str] = None
     tiene_pdf: bool = False
+    # F-032 (R26): nombre del festivo segun el calendario del DNI de la
+    # fila (respaldo si la fila no tiene DNI); None si no es festivo.
+    holiday_name: Optional[str] = None
     es_futuro: bool = False
     # Edicion inline desde la celda: id del registro ORDINARIO / EXTRA si
     # ese (trabajador, dia) tiene EXACTAMENTE uno de cada tipo; None si hay
@@ -1419,14 +1423,19 @@ class ParteReviewRepository:
         *,
         period_key: str | None = None,
         mode: str = "nomina",
-        holiday_name: Callable[[date], str | None] | None = None,
+        holiday_name_de: Callable[
+            [str | None], Callable[[date], str | None]] | None = None,
         sin_extra_resolver: Callable[[set[int]], set[int]] | None = None,
         incidencias: TablaIncidencias | None = None,
     ) -> ObraDetail | None:
         """Matriz y lineas de una obra. F-025 (R15, R17, R18): con
         `incidencias`, celdas y lineas llevan el nivel de su
         dia-trabajador, calculado sobre TODAS las lineas activas, tambien
-        las de otras obras (ya se cargan antes de filtrar)."""
+        las de otras obras (ya se cargan antes de filtrar).
+
+        F-032 (R26): `holiday_name_de(dni)` da el resolutor de festivos
+        del DNI de cada fila (se pide UNA vez por fila; `None` para la
+        fila sin DNI, que usa el respaldo). Sin el, nada es festivo."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(ParteRegistroOrm)
@@ -1478,11 +1487,9 @@ class ParteReviewRepository:
         days: list[ObraDayCol] = []
         d = start
         while d <= end:
-            hn = holiday_name(d) if holiday_name else None
             days.append(ObraDayCol(
                 date_iso=d.isoformat(), day=d.day,
                 is_weekend=d.weekday() >= 5,
-                is_holiday=bool(hn), holiday_name=hn,
             ))
             d += timedelta(days=1)
         day_index = {dc.date_iso: i for i, dc in enumerate(days)}
@@ -1572,13 +1579,17 @@ class ParteReviewRepository:
             tiene_extra = not _sin_extra(w)
             cells: list[ObraMatrixCell] = []
             row_n = row_e = 0.0
+            festivo_de = (holiday_name_de(w.get("dni"))
+                          if holiday_name_de else None)
             for dc in days:
+                hn = (festivo_de(date.fromisoformat(dc.date_iso))
+                      if festivo_de else None)
                 slot = w["days"].get(dc.date_iso)
                 if slot is None:
                     cells.append(ObraMatrixCell(
                         date_iso=dc.date_iso, label="", normal=0.0, extra=0.0,
                         has_inc=False, is_weekend=dc.is_weekend,
-                        is_holiday=dc.is_holiday,
+                        is_holiday=bool(hn), holiday_name=hn,
                     ))
                     continue
                 n = float(slot["normal"]); e = float(slot["extra"])
@@ -1591,7 +1602,8 @@ class ParteReviewRepository:
                     date_iso=dc.date_iso,
                     label=_cell_label(n, e, inc),
                     normal=n, extra=e, has_inc=bool(inc),
-                    is_weekend=dc.is_weekend, is_holiday=dc.is_holiday,
+                    is_weekend=dc.is_weekend, is_holiday=bool(hn),
+                    holiday_name=hn,
                     document_id=slot.get("doc"), tiene_pdf=bool(slot.get("pdf")),
                     es_futuro=fut,
                     edit_normal_id=n_ids[0] if len(n_ids) == 1 else None,
@@ -3001,9 +3013,10 @@ class ParteReviewRepository:
         """Guarda la traza del registro en cada linea.
 
         `motivo_ok` es la anotacion que se escribe en las lineas que
-        quedan OK, donde normalmente va `None`. Hoy solo la usa F-003
-        para marcar `[SIN-SESAME]` un registro forzado sin calendario
-        fiable: no hace falta columna nueva para dejar constancia.
+        quedan OK, donde normalmente va `None`. La usaba F-003 para marcar
+        `[SIN-SESAME]` un registro forzado sin calendario fiable; desde
+        F-032 (DA17 = B) nadie la pasa, pero las lineas ya marcadas
+        conservan su motivo y su badge (R24).
 
         `conflictos` son los `pendientes_confirmacion` de sv5: sus lineas
         NO se escribieron y quedan en 'conflicto' a la espera de que un
@@ -3573,6 +3586,30 @@ class ParteReviewRepository:
                     "h_dom": f.h_dom,
                     "desde": f.desde, "hasta": f.hasta,
                     "origen": f.origen, "nota": f.nota,
+                }
+                for f in filas
+            ]
+
+    def list_festivos_trabajador(self) -> list[dict]:
+        """Filas de `festivos_trabajador` (F-032), tal cual estan.
+
+        Solo lectura: la tabla la escribe sv3 al ingerir. Son unas 220
+        filas por ano; el `CalendarioProvider` la lee entera, la valida
+        con `festivos_guardados.fila_de` y la cachea <= 60 s. Lleva DNIs:
+        dato personal, nunca a un log.
+        """
+        with self._session_factory.create_session() as session:
+            filas = session.execute(
+                select(FestivoTrabajadorOrm).order_by(FestivoTrabajadorOrm.id)
+            ).scalars().all()
+            return [
+                {
+                    "id": f.id,
+                    "dni_norm": f.dni_norm,
+                    "ano": f.ano,
+                    "festivos_json": f.festivos_json,
+                    "n_festivos": f.n_festivos,
+                    "leido_en_utc": f.leido_en_utc,
                 }
                 for f in filas
             ]

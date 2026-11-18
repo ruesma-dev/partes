@@ -552,12 +552,14 @@ def test_f056_r14_preflight_comprobar_que_lanza_no_tumba_nada(fabrica,
 
 
 def test_f056_r6_preflight_calendario_no_fiable(fabrica, portal):
+    """F-032 (R23): con el calendario no fiable el dia de ajuste se calcula
+    igual, con el calendario resuelto; ya no hay motivo «Sesame»."""
     ids = _dia15(fabrica)
-    cliente, sv5 = portal(calendario=CalendarioNoFiable())
+    cliente, sv5 = portal(calendario=CalendarioNoFiable(),
+                          sv5=Sv5Franq(acciones=[_acc_he(2.0)]))
     [it] = _preflight(cliente, ids).json()["franquicias"]["items"]
-    assert (it["dia"], it["ajustable"]) == (None, False)
-    assert "Sesame" in it["motivo"]
-    assert sv5.franq_comprobadas == []
+    assert (it["dia"], it["ajustable"]) == ("2026-10-15", True)
+    assert "Sesame" not in (it.get("motivo") or "")
 
 
 def test_f056_r12_preflight_varios_recursos_no_ajusta(fabrica, portal):
@@ -646,13 +648,16 @@ def test_f056_r15_ejecutar_decision_que_no_cuadra_es_409(fabrica, portal):
 
 
 def test_f056_r6_ejecutar_ajustar_sin_calendario_es_409(fabrica, portal):
+    """F-032 (R23): sin calendario fiable «Ajustar» ya no es 409: el dia
+    sale del calendario resuelto y la decision se guarda."""
     ids = _dia15(fabrica)
     cliente, _sv5 = portal(calendario=CalendarioNoFiable())
     r = cliente.post("/api/aprobar/ejecutar", json={
-        "registro_ids": ids, "franquicias": _decision("ajustar"),
-        "forzar_sin_sesame": True})
-    assert r.status_code == 409 and "dia de ajuste" in r.json()["error"]
-    assert _filas(fabrica) == []
+        "registro_ids": ids, "franquicias": _decision("ajustar")})
+    assert r.status_code == 200, r.text
+    [f] = _filas(fabrica)
+    assert (f.estado, f.fecha_int, f.obra_codigo) == (
+        "decidido", 20261015, "0100")
 
 
 def test_f056_r12_ejecutar_ajustar_con_varios_recursos_es_409(fabrica,
@@ -1027,13 +1032,18 @@ def test_f056_r15_ejecutar_con_una_linea_sin_fecha_en_la_seleccion(fabrica,
 
 def test_f056_r16_ejecutar_no_ajustar_sin_propuesta_si_se_guarda(fabrica,
                                                                  portal):
-    """[41] «No ajustar» no necesita dia ni obra: sin calendario se guarda
-    igual (solo «Ajustar» los exige)."""
+    """[41] «No ajustar» no necesita dia ni obra: se guarda aunque el
+    registro de las lineas falle despues (aqui, sv5 caido)."""
     ids = _dia15(fabrica)
-    cliente, _sv5 = portal(calendario=CalendarioNoFiable())
+    sv5 = Sv5Franq()
+
+    def caido(payload):
+        raise RuntimeError("caido")
+    sv5.ejecutar = caido
+    cliente, _sv5 = portal(calendario=CalendarioNoFiable(), sv5=sv5)
     r = cliente.post("/api/aprobar/ejecutar", json={
         "registro_ids": ids, "franquicias": _decision("no_ajustar")})
-    # El registro lo para Sesame (422), pero la decision ya se guardo.
+    assert r.json()["ok"] is False, r.text
     assert r.json()["franquicias"][0]["estado"] == "rechazado", r.text
     [f] = _filas(fabrica)
     assert (f.estado, f.decision) == ("rechazado", "no_ajustar")
@@ -1042,13 +1052,19 @@ def test_f056_r16_ejecutar_no_ajustar_sin_propuesta_si_se_guarda(fabrica,
 def test_f056_r8_ejecutar_ajustar_tras_rechazo_con_dia_sin_calendario(
         fabrica, portal):
     """[42] R8: tras «No ajustar» con dia, «Ajustar» reutiliza el dia y la
-    obra de la fila aunque hoy no se pueda calcular la propuesta."""
+    obra de la fila; la decision se guarda aunque el registro de las
+    lineas falle despues (aqui, sv5 caido)."""
     ids = _dia15(fabrica)
     _decidido(fabrica, "no_ajustar")
-    cliente, _sv5 = portal(calendario=CalendarioNoFiable())
+    sv5 = Sv5Franq()
+
+    def caido(payload):
+        raise RuntimeError("caido")
+    sv5.ejecutar = caido
+    cliente, _sv5 = portal(calendario=CalendarioNoFiable(), sv5=sv5)
     r = cliente.post("/api/aprobar/ejecutar", json={
         "registro_ids": ids, "franquicias": _decision("ajustar")})
-    # El registro lo para Sesame (422), pero la decision ya se guardo.
+    assert r.json()["ok"] is False, r.text
     assert r.json()["franquicias"][0]["estado"] == "decidido", r.text
     [f] = _filas(fabrica)
     assert (f.estado, f.fecha_int, f.obra_codigo) == (

@@ -517,12 +517,18 @@ def test_f056_r45_r12_decidir_con_extras_de_varios_recursos_es_409(fabrica,
     assert r.json()["error"] == fq.MOTIVO_VARIOS_RECURSOS
 
 
-def test_f056_r45_r6_decidir_ajustar_sin_calendario_es_409(fabrica, portal):
+def test_f056_r45_r6_decidir_ajustar_con_calendario_no_fiable_se_decide(
+        fabrica, portal):
+    """F-032 (R23): sin calendario fiable el dia de ajuste sale igual del
+    calendario resuelto; ya no hay 409 «dia de ajuste»."""
     _dia15(fabrica)
     cliente, _sv5 = portal(calendario=CalendarioNoFiable())
     r = _decidir(cliente, "ajustar")
-    assert r.status_code == 409 and "dia de ajuste" in r.json()["error"]
-    assert _filas_ajuste(fabrica) == {}
+    assert r.status_code == 200, r.text
+    aj = r.json()["ajuste"]
+    assert (aj["estado"], aj["decision"], aj["fecha_int"], aj["obra_ide"]) \
+        == ("decidido", "ajustar", 20261015, 10)
+    assert _filas_ajuste(fabrica)[(REC, "2026-10")]["id"] == aj["id"]
 
 
 def test_f056_r45_decidir_sin_sv5_configurado_es_503(fabrica, entorno):

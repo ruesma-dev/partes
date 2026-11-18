@@ -72,11 +72,17 @@ $Global:SIGRID_BASE_URL = "https://func-sigridapi-dev-huyke.azurewebsites.net"
 #      que se versiona),
 #   2. carga la clave de partes en el Key Vault con add_secrets_partes.ps1
 #      (secreto SESAME-API-KEY),
-#   3. vuelve a crear/actualizar sv3 y sv4.
-# OJO: encender esto contra una URL muerta NO es inocuo. Con Sesame
-# activado y caido, el portal BLOQUEA el registro en Sigrid (R23); es
-# deliberado, porque sin los festivos reales el calculo puede estar mal.
+#   3. enciende sv3 y sv4 con add_sesame_partes.ps1 (F-032; -Quitar apaga).
+# Antes de encender, el contraste de la guia de F-032 (M2):
+# services/partes-persistencia/contrastar_festivos_sesame.py. Desde F-032
+# un trabajador sin festivos de Sesame NO bloquea el registro: el portal
+# solo avisa y usa el calendario local.
 $Global:SESAME_BASE_URL = ""
+
+# Minimo de festivos de un ano para dar por completa la respuesta de Sesame
+# (F-032, solo sv3): con menos, se conserva la fila guardada o el parte va
+# a revision. 1 = basta con que haya alguno.
+$Global:SESAME_FESTIVOS_MINIMOS = 1
 
 Write-Host "[vars-partes] cargadas. RG=$RG  STORAGE=$STORAGE  KV=$KV" -ForegroundColor Cyan
 Write-Host "[vars-partes] REUTILIZA ACR=$ACR ($ACR_RG)  PG=$PG/$PG_DB ($PG_RG)" -ForegroundColor Cyan

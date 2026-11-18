@@ -3,9 +3,10 @@
 
 Con Sesame SIN configurar, sv3 sigue con `JsonCalendarioLaboral` exacto:
 la feature se mergea apagada. Con Sesame configurado, el mismo puerto lo
-sirve `SesameCalendarioLaboral`, y el computo de extras manda las horas
-ordinarias de un festivo del trabajador a horas extra sin enterarse de
-que ha cambiado la fuente.
+sirve `TablaCalendarioLaboral` (F-032: los festivos guardados en
+`festivos_trabajador`, con el JSON de respaldo), y el computo de extras
+manda las horas ordinarias de un festivo del trabajador a horas extra sin
+enterarse de que ha cambiado la fuente.
 
 `construir_calendario` esta separada del `build_app` a proposito: el
 `build_app` de sv3 monta la SessionFactory contra PostgreSQL y no se
@@ -22,10 +23,10 @@ from config.settings import Settings
 from infrastructure.calendario.json_calendario_laboral import (
     JsonCalendarioLaboral,
 )
-from infrastructure.calendario.sesame_calendario_laboral import (
-    SesameCalendarioLaboral,
+from application.services.festivos_guardados import FilaFestivos
+from infrastructure.calendario.tabla_calendario_laboral import (
+    TablaCalendarioLaboral,
 )
-from infrastructure.sesame.sesame_api_client import FestivoDia
 from interface_adapters.api.app import construir_calendario
 from tests.dobles import (
     CalendarioFake,
@@ -37,6 +38,16 @@ from tests.dobles import (
 
 VIERNES_FESTIVO = 20260515   # 2026-05-15, festivo de San Isidro
 LUNES = 20260518
+
+
+class _RepoFestivos:
+    """`festivos_trabajador` en memoria (F-032)."""
+
+    def __init__(self, filas=None) -> None:
+        self.filas = dict(filas or {})
+
+    def leer_todas(self):
+        return dict(self.filas)
 
 
 @pytest.fixture
@@ -74,7 +85,7 @@ def test_f003_r10_sin_configurar_se_cablea_el_json_de_siempre(
     with caplog.at_level(logging.INFO):
         cal = construir_calendario(Settings(_env_file=None))
     assert isinstance(cal, JsonCalendarioLaboral)
-    assert not isinstance(cal, SesameCalendarioLaboral)
+    assert not isinstance(cal, TablaCalendarioLaboral)
     assert "[sesame][wiring] DESACTIVADO" in caplog.text
 
 
@@ -89,8 +100,8 @@ def test_f003_r8_configurado_se_cablea_sesame_con_el_json_de_respaldo(
     entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
     entorno.setenv("SESAME_API_KEY", "clave-de-prueba")
     with caplog.at_level(logging.INFO):
-        cal = construir_calendario(Settings(_env_file=None))
-    assert isinstance(cal, SesameCalendarioLaboral)
+        cal = construir_calendario(Settings(_env_file=None), _RepoFestivos())
+    assert isinstance(cal, TablaCalendarioLaboral)
     assert isinstance(cal._respaldo, JsonCalendarioLaboral)
     assert "[sesame][wiring] CABLEADO" in caplog.text
 
@@ -99,7 +110,7 @@ def test_f003_r8_el_log_de_wiring_no_lleva_la_clave(entorno, caplog) -> None:
     entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
     entorno.setenv("SESAME_API_KEY", "clave-secretisima-de-prueba")
     with caplog.at_level(logging.INFO):
-        construir_calendario(Settings(_env_file=None))
+        construir_calendario(Settings(_env_file=None), _RepoFestivos())
     assert "clave-secretisima-de-prueba" not in caplog.text
     # La longitud se comprueba EN LA LINEA DE WIRING, no en cualquier
     # linea del log: el cliente escribe su propio `key_len` al
@@ -161,16 +172,12 @@ def test_f003_r8_el_json_de_respaldo_sigue_valiendo() -> None:
 
 
 def test_f003_r8_el_adaptador_de_sesame_encaja_en_el_conciliador() -> None:
-    """Extremo a extremo con el adaptador REAL (cliente doble, sin red)."""
-    class ClienteFake:
-        def festivos(self, _dni, _ano):
-            return [FestivoDia("2026-05-15", "San Isidro")]
-
-        def calendario_por_defecto(self, _ano):
-            return []
-
-    cal = SesameCalendarioLaboral(cliente=ClienteFake(),
-                                  respaldo=CalendarioFake(set()))
+    """Extremo a extremo con el adaptador REAL (F-032: la tabla, sin red)."""
+    repo = _RepoFestivos({("12345678Z", 2026): FilaFestivos(
+        dni_norm="12345678Z", ano=2026,
+        festivos={"2026-05-15": "San Isidro"}, leido_en_utc="t")})
+    cal = TablaCalendarioLaboral(repositorio=repo,
+                                 respaldo=CalendarioFake(set()))
     regs = [registro(1, fecha_int=VIERNES_FESTIVO, horas=8.0,
                      dni="12345678Z")]
     assert [(s["horas_norm"], s["extra_horas"]) for s in _splits(regs, cal)] \

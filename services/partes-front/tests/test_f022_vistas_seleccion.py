@@ -229,10 +229,12 @@ def test_f022_r23_js_el_modal_pinta_el_listado_del_servidor() -> None:
 
 
 def test_f021_y_f022_js_el_aviso_de_cuenta_sigue_por_obra() -> None:
-    """F-021 R19 vive en `resumenHtml(pf)`; F-022 lo llama por grupo."""
+    """F-021 R19 vive en `resumenHtml(pf)`; F-022 lo llama por grupo, y
+    F-032 (R22) pinta ahi el `aviso_sesame` de la obra."""
     js = _js()
     assert "avisosCuentaHtml(pf.acciones)" in _funcion(js, "resumenHtml")
     assert "resumenHtml(g)" in _funcion(js, "grupoHtml")
+    assert "g.aviso_sesame" in _funcion(js, "grupoHtml")
 
 
 NODE = shutil.which("node")
@@ -254,30 +256,34 @@ def _ejecutar_js(nombres: list[str], expresion: str, variables=()) -> object:
 GRUPOS = [
     {"clave": "obr-10", "ok": True, "registro_ids": [1, 2]},
     {"clave": "obr-20", "ok": True, "registro_ids": [3]},
-    {"clave": "obr-30", "ok": True, "sesame_bloqueo": "sin Sesame",
+    {"clave": "obr-30", "ok": True, "aviso_sesame": "sin fila",
      "registro_ids": [4]},
     {"clave": "obr-40", "ok": False, "error": "caido", "registro_ids": [5]},
 ]
 
 
-def _plan(claves, forzado):
+def _plan(claves):
     plan = _ejecutar_js(
         ["planEnvio"], "planEnvio(" + json.dumps(GRUPOS) + ","
-        + json.dumps(claves) + "," + json.dumps(forzado) + ")",
+        + json.dumps(claves) + ")",
         variables=["SEPARADOR_CLAVE"])
     return {k: [g["clave"] for g in v] for k, v in plan.items()}
 
 
 @sin_node
 def test_f022_r29_js_plan_sin_claves_ni_override() -> None:
-    assert _plan([], False) == {"sincronos": [], "cola": ["obr-10", "obr-20"],
-                                "fuera": ["obr-30", "obr-40"]}
+    """F-032 (R21): una obra con `aviso_sesame` va a la cola como las
+    demas; fuera solo quedan las que no se pudieron evaluar."""
+    assert _plan([]) == {"sincronos": [],
+                         "cola": ["obr-10", "obr-20", "obr-30"],
+                         "fuera": ["obr-40"]}
 
 
 @sin_node
 def test_f022_r29_js_plan_con_claves_y_override() -> None:
-    assert _plan(["obr-20::501|20260302|1"], True) == {
-        "sincronos": ["obr-20", "obr-30"], "cola": ["obr-10"],
+    """Solo pisar claves manda una obra por la via sincrona."""
+    assert _plan(["obr-20::501|20260302|1"]) == {
+        "sincronos": ["obr-20"], "cola": ["obr-10", "obr-30"],
         "fuera": ["obr-40"]}
 
 
@@ -379,12 +385,13 @@ def test_f022_r27_js_seccion_por_obra_con_resumen_y_listado() -> None:
 @sin_node
 def test_f022_r28_js_plegado_con_conflictos_y_errores_fuera() -> None:
     malo = dict(GRUPO, ok=False, error="sv5 <caido>",
-                sesame_bloqueo="sin Sesame")
+                aviso_sesame="Sin calendario de <Sesame>")
     html = _grupo_html(malo, True)
     assert "<details class='ap-grupo-det'>" in html          # plegada
     fuera = html[html.index("</details>"):]
     assert "No se registra: sv5 &lt;caido&gt;" in fuera
-    assert "Bloqueada: sin Sesame" in fuera
+    assert "Sin calendario de &lt;Sesame&gt;" in fuera        # F-032 R22
+    assert "Bloqueada" not in html
     assert 'value="obr-10::501|20260302|1"' in fuera        # R19
     assert "ap-pisar" not in html[:html.index("</details>")]
 

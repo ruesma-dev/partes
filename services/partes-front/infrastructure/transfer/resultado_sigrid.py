@@ -19,24 +19,16 @@ logger = logging.getLogger(__name__)
 
 MOTIVO_SIN_DETALLE = "sv5 no pudo completar el registro"
 
-#: F-003 (R25): marca de un registro forzado por el humano con el
-#: calendario de Sesame no disponible. Va en `sigrid_motivo`, que ya
-#: existe (String(255)): la decision consciente queda por escrito sin
-#: tocar el schema. El prefijo la hace distinguible y filtrable frente a
-#: los motivos de error, que son el otro uso del campo.
-MOTIVO_SIN_SESAME = ("[SIN-SESAME] registrado con override: calendario "
-                     "Sesame no disponible")
-
 
 def aplicar_resultado(repository, resultado: dict, *,
                       registro_ids: list[int] | None,
                       usuario: str | None,
-                      sin_sesame: bool = False,
                       incidencias=None) -> int:
     """Marca las lineas segun el veredicto. Devuelve cuantas cambiaron.
 
-    Con `sin_sesame=True`, las lineas que quedan OK llevan la marca
-    `[SIN-SESAME]` en vez del motivo vacio de siempre.
+    Las lineas que quedan OK, con el motivo vacio. F-032 (DA17 = B) retiro
+    la marca `[SIN-SESAME]` del registro forzado de F-003: ya no hay
+    override que marcar.
 
     F-019 (R9): las de `dedicacion` se publican en la bandeja, con
     `forzada_pruebas` como `prueba` y, con `incidencias` (la tabla de
@@ -57,7 +49,6 @@ def aplicar_resultado(repository, resultado: dict, *,
         ya_registradas=resultado.get("ya_registradas") or [],
         conflictos=resultado.get("pendientes_confirmacion") or [],
         usuario=usuario,
-        motivo_ok=MOTIVO_SIN_SESAME if sin_sesame else None,
         dedicacion=resultado.get("dedicacion") or [],
         prueba=bool(resultado.get("forzada_pruebas")),
         incidencias=incidencias,

@@ -1,0 +1,1019 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-032",
+ "sha": "0e0d2f85048bcce3af0eb69c7826ac3237aa3cf4",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 303,
+ "candidatos": 185,
+ "evaluados": [
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 88,
+   "col": 29,
+   "operador": "entero",
+   "original": "ttl_tabla_s: float = 60,",
+   "mutado": "ttl_tabla_s: float = 61,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 221,
+   "col": 16,
+   "operador": "comparacion",
+   "original": "if fila is None:",
+   "mutado": "if fila is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 233,
+   "col": 44,
+   "operador": "entero",
+   "original": "and ahora - self._tabla[0] < self._ttl_tabla_s):",
+   "mutado": "and ahora - self._tabla[1] < self._ttl_tabla_s):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 234,
+   "col": 35,
+   "operador": "entero",
+   "original": "return self._tabla[1]",
+   "mutado": "return self._tabla[2]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 236,
+   "col": 46,
+   "operador": "ternario",
+   "original": "crudas = self._leer_festivos() if self._leer_festivos else ()",
+   "mutado": "crudas = self._leer_festivos() if not self._leer_festivos else ()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 34,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 45,
+   "col": 7,
+   "operador": "not",
+   "original": "if not isinstance(valor, str):",
+   "mutado": "if isinstance(valor, str):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 48,
+   "col": 44,
+   "operador": "entero",
+   "original": "dia = _dt.date.fromisoformat(valor[:10])",
+   "mutado": "dia = _dt.date.fromisoformat(valor[:11])",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 55,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if valor is None:",
+   "mutado": "if not valor:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 58,
+   "col": 17,
+   "operador": "logico",
+   "original": "return texto or None",
+   "mutado": "return texto and None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 89,
+   "col": 37,
+   "operador": "logico",
+   "original": "if not isinstance(dni_norm, str) or not dni_norm:",
+   "mutado": "if not isinstance(dni_norm, str) and not dni_norm:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 91,
+   "col": 29,
+   "operador": "logico",
+   "original": "if isinstance(ano, bool) or not isinstance(ano, int) or ano <= 0:",
+   "mutado": "if isinstance(ano, bool) and not isinstance(ano, int) or ano <= 0:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 97,
+   "col": 7,
+   "operador": "not",
+   "original": "if not isinstance(datos, dict):",
+   "mutado": "if isinstance(datos, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/festivos_guardados.py",
+   "linea": 124,
+   "col": 12,
+   "operador": "comparacion",
+   "original": "if fila is None:",
+   "mutado": "if fila is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 692,
+   "col": 21,
+   "operador": "booleano",
+   "original": "unique=True),",
+   "mutado": "unique=False),",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 695,
+   "col": 57,
+   "operador": "booleano",
+   "original": "id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)",
+   "mutado": "id: Mapped[int] = mapped_column(Integer, primary_key=False, autoincrement=True)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 697,
+   "col": 29,
+   "operador": "booleano",
+   "original": "String(32), nullable=False, server_default=\"\"",
+   "mutado": "String(32), nullable=True, server_default=\"\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 700,
+   "col": 26,
+   "operador": "booleano",
+   "original": "Integer, nullable=False, server_default=\"0\"",
+   "mutado": "Integer, nullable=True, server_default=\"0\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 703,
+   "col": 23,
+   "operador": "booleano",
+   "original": "Text, nullable=False, server_default=\"{}\"",
+   "mutado": "Text, nullable=True, server_default=\"{}\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 706,
+   "col": 26,
+   "operador": "booleano",
+   "original": "Integer, nullable=False, server_default=\"0\"",
+   "mutado": "Integer, nullable=True, server_default=\"0\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 709,
+   "col": 15,
+   "operador": "entero",
+   "original": "String(40), nullable=False, server_default=\"1970-01-01T00:00:00Z\"",
+   "mutado": "String(41), nullable=False, server_default=\"1970-01-01T00:00:00Z\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 1583,
+   "col": 29,
+   "operador": "ternario",
+   "original": "if holiday_name_de else None)",
+   "mutado": "if not holiday_name_de else None)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 1586,
+   "col": 25,
+   "operador": "ternario",
+   "original": "if festivo_de else None)",
+   "mutado": "if not festivo_de else None)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 3388,
+   "col": 25,
+   "operador": "comparacion",
+   "original": "if publisher is None:",
+   "mutado": "if publisher is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 282,
+   "col": 11,
+   "operador": "not",
+   "original": "if not dnis:",
+   "mutado": "if dnis:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 296,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return True",
+   "mutado": "return False",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 297,
+   "col": 22,
+   "operador": "entero",
+   "original": "if sin_dato > 0:",
+   "mutado": "if sin_dato > 1:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 302,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return True",
+   "mutado": "return False",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 303,
+   "col": 15,
+   "operador": "booleano",
+   "original": "return False",
+   "mutado": "return True",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 34,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 48,
+   "col": 44,
+   "operador": "entero",
+   "original": "dia = _dt.date.fromisoformat(valor[:10])",
+   "mutado": "dia = _dt.date.fromisoformat(valor[:11])",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 55,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if valor is None:",
+   "mutado": "if not valor:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 70,
+   "col": 15,
+   "operador": "comparacion",
+   "original": "if dia is not None:",
+   "mutado": "if dia is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 77,
+   "col": 68,
+   "operador": "booleano",
+   "original": "return json.dumps(dict(festivos), ensure_ascii=False, sort_keys=True)",
+   "mutado": "return json.dumps(dict(festivos), ensure_ascii=False, sort_keys=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 91,
+   "col": 29,
+   "operador": "logico",
+   "original": "if isinstance(ano, bool) or not isinstance(ano, int) or ano <= 0:",
+   "mutado": "if isinstance(ano, bool) and not isinstance(ano, int) or ano <= 0:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/festivos_guardados.py",
+   "linea": 121,
+   "col": 7,
+   "operador": "not",
+   "original": "if not dni_norm:",
+   "mutado": "if dni_norm:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 40,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 51,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if isinstance(fecha, str):",
+   "mutado": "if not isinstance(fecha, str):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 52,
+   "col": 46,
+   "operador": "entero",
+   "original": "fecha = _dt.date.fromisoformat(fecha[:10])",
+   "mutado": "fecha = _dt.date.fromisoformat(fecha[:11])",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 53,
+   "col": 18,
+   "operador": "aritmetico",
+   "original": "lunes = fecha - _dt.timedelta(days=fecha.weekday())",
+   "mutado": "lunes = fecha + _dt.timedelta(days=fecha.weekday())",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 54,
+   "col": 41,
+   "operador": "entero",
+   "original": "domingo = lunes + _dt.timedelta(days=6)",
+   "mutado": "domingo = lunes + _dt.timedelta(days=7)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 76,
+   "col": 62,
+   "operador": "entero",
+   "original": "guardadas = conservadas = sin_calendario = sin_dato = 0",
+   "mutado": "guardadas = conservadas = sin_calendario = sin_dato = 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 81,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if estado == \"guardada\":",
+   "mutado": "if estado != \"guardada\":",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 82,
+   "col": 26,
+   "operador": "aritmetico",
+   "original": "guardadas += 1",
+   "mutado": "guardadas -= 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 87,
+   "col": 23,
+   "operador": "comparacion",
+   "original": "if previas is None:",
+   "mutado": "if previas is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 89,
+   "col": 26,
+   "operador": "comparacion",
+   "original": "if (dni, ano) in previas:",
+   "mutado": "if (dni, ano) not in previas:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 111,
+   "col": 17,
+   "operador": "comparacion",
+   "original": "if lista is None:",
+   "mutado": "if lista is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/refresco_festivos.py",
+   "linea": 119,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if len(festivos) < self._minimo:",
+   "mutado": "if not (len(festivos) < self._minimo):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 181,
+   "col": 8,
+   "operador": "entero",
+   "original": "1, alias=\"SESAME_FESTIVOS_MINIMOS\", ge=0)",
+   "mutado": "2, alias=\"SESAME_FESTIVOS_MINIMOS\", ge=0)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 60,
+   "col": 23,
+   "operador": "entero",
+   "original": "SALIDA_CONFIGURACION = 2",
+   "mutado": "SALIDA_CONFIGURACION = 3",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 62,
+   "col": 17,
+   "operador": "entero",
+   "original": "SALIDA_IMPACTO = 4",
+   "mutado": "SALIDA_IMPACTO = 5",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 98,
+   "col": 39,
+   "operador": "aritmetico",
+   "original": "solo_respaldo = sorted(respaldo_lv - sesame_lv)",
+   "mutado": "solo_respaldo = sorted(respaldo_lv + sesame_lv)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 104,
+   "col": 40,
+   "operador": "aritmetico",
+   "original": "\"solo_sesame\": sorted(sesame_lv - respaldo_lv),",
+   "mutado": "\"solo_sesame\": sorted(sesame_lv + respaldo_lv),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 113,
+   "col": 33,
+   "operador": "formato",
+   "original": "texto = f\"{int(fecha_int):08d}\"",
+   "mutado": "texto = f\"{int(fecha_int):09d}\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 142,
+   "col": 30,
+   "operador": "entero",
+   "original": "if d.weekday() >= 5:",
+   "mutado": "if d.weekday() >= 6:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 147,
+   "col": 21,
+   "operador": "comparacion",
+   "original": "if nuevo != viejo:",
+   "mutado": "if nuevo == viejo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 155,
+   "col": 12,
+   "operador": "not",
+   "original": "if (not dni or dni not in cambios or iso is None",
+   "mutado": "if (dni or dni not in cambios or iso is None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 157,
+   "col": 48,
+   "operador": "not",
+   "original": "or reg.get(\"deleted_at_utc\") or not (reg.get(\"horas\") or 0)):",
+   "mutado": "or reg.get(\"deleted_at_utc\") or (reg.get(\"horas\") or 0)):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 161,
+   "col": 36,
+   "operador": "entero",
+   "original": "semana = dia.isocalendar()[:2]",
+   "mutado": "semana = dia.isocalendar()[:3]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 162,
+   "col": 15,
+   "operador": "comparacion",
+   "original": "if iso in propios:",
+   "mutado": "if iso not in propios:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 164,
+   "col": 57,
+   "operador": "comparacion",
+   "original": "elif any(date.fromisoformat(c).isocalendar()[:2] == semana",
+   "mutado": "elif any(date.fromisoformat(c).isocalendar()[:2] != semana",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 181,
+   "col": 35,
+   "operador": "aritmetico",
+   "original": "out[k] = out.get(k, 0) + 1",
+   "mutado": "out[k] = out.get(k, 0) - 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 191,
+   "col": 53,
+   "operador": "entero",
+   "original": "\"por_ano\": _contar(lambda f: int(f[\"fecha\"][:4])),",
+   "mutado": "\"por_ano\": _contar(lambda f: int(f[\"fecha\"][:5])),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 195,
+   "col": 75,
+   "operador": "entero",
+   "original": "\"dias_mixtos\": sum(1 for v in clases_por_dia.values() if len(v) == 2),",
+   "mutado": "\"dias_mixtos\": sum(1 for v in clases_por_dia.values() if len(v) == 3),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 200,
+   "col": 30,
+   "operador": "ternario",
+   "original": "return \", \".join(dias) if dias else \"—\"",
+   "mutado": "return \", \".join(dias) if not dias else \"—\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 215,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if f[\"faltan_del_respaldo\"]:",
+   "mutado": "if not f[\"faltan_del_respaldo\"]:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 220,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if f[\"por_defecto\"]:",
+   "mutado": "if not f[\"por_defecto\"]:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 225,
+   "col": 39,
+   "operador": "logico",
+   "original": "f\"{' '.join(marcas) or 'ok'} |\")",
+   "mutado": "f\"{' '.join(marcas) and 'ok'} |\")",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 231,
+   "col": 30,
+   "operador": "aritmetico",
+   "original": "return \"\\n\".join(out) + \"\\n\"",
+   "mutado": "return \"\\n\".join(out) - \"\\n\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 232,
+   "col": 8,
+   "operador": "aritmetico",
+   "original": "out += [\"## Impacto en los partes activos\", \"\",",
+   "mutado": "out -= [\"## Impacto en los partes activos\", \"\",",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 240,
+   "col": 12,
+   "operador": "aritmetico",
+   "original": "out += [f\"### {titulo}\", \"\", \"| | Lineas |\", \"|---|---|\"]",
+   "mutado": "out -= [f\"### {titulo}\", \"\", \"| | Lineas |\", \"|---|---|\"]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 243,
+   "col": 8,
+   "operador": "aritmetico",
+   "original": "out += [\"### Por obra y mes\", \"\", \"| Obra | Mes | Lineas |\", \"|---|---|---|\"]",
+   "mutado": "out -= [\"### Por obra y mes\", \"\", \"| Obra | Mes | Lineas |\", \"|---|---|---|\"]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 244,
+   "col": 8,
+   "operador": "aritmetico",
+   "original": "out += [f\"| {obra} | {mes} | {n} |\" for (obra, mes), n in sorted(",
+   "mutado": "out -= [f\"| {obra} | {mes} | {n} |\" for (obra, mes), n in sorted(",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 245,
+   "col": 64,
+   "operador": "entero",
+   "original": "impacto[\"por_obra_mes\"].items(), key=lambda kv: (str(kv[0][0]),",
+   "mutado": "impacto[\"por_obra_mes\"].items(), key=lambda kv: (str(kv[1][0]),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 246,
+   "col": 60,
+   "operador": "entero",
+   "original": "kv[0][1]))]",
+   "mutado": "kv[1][1]))]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 259,
+   "col": 60,
+   "operador": "logico",
+   "original": "vacio, tipo=\"calendario\", calendario_id=f[\"id\"] or \"\",",
+   "mutado": "vacio, tipo=\"calendario\", calendario_id=f[\"id\"] and \"\",",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 270,
+   "col": 22,
+   "operador": "logico",
+   "original": "for e in (impacto or {}).get(\"errores\", []):",
+   "mutado": "for e in (impacto and {}).get(\"errores\", []):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 299,
+   "col": 42,
+   "operador": "logico",
+   "original": "return [c for c in cuerpo.get(\"data\") or [] if isinstance(c, dict)]",
+   "mutado": "return [c for c in cuerpo.get(\"data\") and [] if isinstance(c, dict)]",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 339,
+   "col": 47,
+   "operador": "booleano",
+   "original": "p.add_argument(\"--ano\", type=int, required=True)",
+   "mutado": "p.add_argument(\"--ano\", type=int, required=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 353,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if settings is not None:",
+   "mutado": "if settings:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 356,
+   "col": 61,
+   "operador": "logico",
+   "original": "return int(os.environ.get(\"SESAME_FESTIVOS_MINIMOS\") or 1)",
+   "mutado": "return int(os.environ.get(\"SESAME_FESTIVOS_MINIMOS\") and 1)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 368,
+   "col": 16,
+   "operador": "logico",
+   "original": "or (settings and settings.sesame_api_base_url)",
+   "mutado": "and (settings and settings.sesame_api_base_url)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 371,
+   "col": 28,
+   "operador": "logico",
+   "original": "or (settings and settings.sesame_api_key)",
+   "mutado": "or (settings or settings.sesame_api_key)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 372,
+   "col": 15,
+   "operador": "logico",
+   "original": "or os.environ.get(\"SESAME_API_KEY\"))",
+   "mutado": "and os.environ.get(\"SESAME_API_KEY\"))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 377,
+   "col": 44,
+   "operador": "logico",
+   "original": "if args.impacto and repositorio is None and settings is None:",
+   "mutado": "if args.impacto and repositorio is None or settings is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 387,
+   "col": 52,
+   "operador": "ternario",
+   "original": "timeout_s=(settings.sesame_api_timeout_s if settings else 10.0),",
+   "mutado": "timeout_s=(settings.sesame_api_timeout_s if not settings else 10.0),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 401,
+   "col": 31,
+   "operador": "logico",
+   "original": "repo = repositorio or _repositorio_solo_lectura(settings)",
+   "mutado": "repo = repositorio and _repositorio_solo_lectura(settings)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 413,
+   "col": 18,
+   "operador": "logico",
+   "original": "ahora = ahora or datetime.now()",
+   "mutado": "ahora = ahora and datetime.now()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 414,
+   "col": 35,
+   "operador": "ternario",
+   "original": "carpeta = Path(args.salida) if args.salida else CARPETA_LOGS",
+   "mutado": "carpeta = Path(args.salida) if not args.salida else CARPETA_LOGS",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 415,
+   "col": 26,
+   "operador": "booleano",
+   "original": "carpeta.mkdir(parents=True, exist_ok=True)",
+   "mutado": "carpeta.mkdir(parents=False, exist_ok=True)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 417,
+   "col": 32,
+   "operador": "aritmetico",
+   "original": "ruta_md, ruta_csv = carpeta / f\"{base}.md\", carpeta / f\"{base}.csv\"",
+   "mutado": "ruta_md, ruta_csv = carpeta * f\"{base}.md\", carpeta / f\"{base}.csv\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 429,
+   "col": 29,
+   "operador": "logico",
+   "original": "print(f\"{f['nombre'] or f['id']}: {f['n_festivos']} festivos\"",
+   "mutado": "print(f\"{f['nombre'] and f['id']}: {f['n_festivos']} festivos\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 430,
+   "col": 49,
+   "operador": "ternario",
+   "original": "+ (f\" · {' · '.join(marcas)}\" if marcas else \"\"))",
+   "mutado": "+ (f\" · {' · '.join(marcas)}\" if not marcas else \"\"))",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 431,
+   "col": 15,
+   "operador": "comparacion",
+   "original": "if impacto is not None:",
+   "mutado": "if impacto is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 437,
+   "col": 11,
+   "operador": "entero",
+   "original": "return 0",
+   "mutado": "return 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 440,
+   "col": 12,
+   "operador": "comparacion",
+   "original": "if __name__ == \"__main__\":",
+   "mutado": "if __name__ != \"__main__\":",
+   "veredicto": "indeterminado"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/calendario/tabla_calendario_laboral.py",
+   "linea": 71,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return False",
+   "mutado": "return True",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/calendario/tabla_calendario_laboral.py",
+   "linea": 73,
+   "col": 26,
+   "operador": "entero",
+   "original": "if d.weekday() >= 5:",
+   "mutado": "if d.weekday() >= 6:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/calendario/tabla_calendario_laboral.py",
+   "linea": 85,
+   "col": 23,
+   "operador": "comparacion",
+   "original": "return dia in fila.festivos",
+   "mutado": "return dia not in fila.festivos",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/calendario/tabla_calendario_laboral.py",
+   "linea": 103,
+   "col": 30,
+   "operador": "aritmetico",
+   "original": "and ahora - self._cache[0] < self._ttl_s):",
+   "mutado": "and ahora + self._cache[0] < self._ttl_s):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/calendario/tabla_calendario_laboral.py",
+   "linea": 119,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return False",
+   "mutado": "return True",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 695,
+   "col": 57,
+   "operador": "booleano",
+   "original": "id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)",
+   "mutado": "id: Mapped[int] = mapped_column(Integer, primary_key=False, autoincrement=True)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 697,
+   "col": 29,
+   "operador": "booleano",
+   "original": "String(32), nullable=False, server_default=\"\"",
+   "mutado": "String(32), nullable=True, server_default=\"\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 700,
+   "col": 26,
+   "operador": "booleano",
+   "original": "Integer, nullable=False, server_default=\"0\"",
+   "mutado": "Integer, nullable=True, server_default=\"0\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 703,
+   "col": 23,
+   "operador": "booleano",
+   "original": "Text, nullable=False, server_default=\"{}\"",
+   "mutado": "Text, nullable=True, server_default=\"{}\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 706,
+   "col": 26,
+   "operador": "booleano",
+   "original": "Integer, nullable=False, server_default=\"0\"",
+   "mutado": "Integer, nullable=True, server_default=\"0\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 709,
+   "col": 15,
+   "operador": "entero",
+   "original": "String(40), nullable=False, server_default=\"1970-01-01T00:00:00Z\"",
+   "mutado": "String(41), nullable=False, server_default=\"1970-01-01T00:00:00Z\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_festivos_repository.py",
+   "linea": 45,
+   "col": 19,
+   "operador": "entero",
+   "original": "omitidas = 0",
+   "mutado": "omitidas = 1",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/interface_adapters/api/app.py",
+   "linea": 87,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if repositorio is None:",
+   "mutado": "if not repositorio:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/interface_adapters/api/app.py",
+   "linea": 109,
+   "col": 7,
+   "operador": "not",
+   "original": "if not settings.sesame_enabled:",
+   "mutado": "if settings.sesame_enabled:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/interface_adapters/api/app.py",
+   "linea": 217,
+   "col": 34,
+   "operador": "veracidad",
+   "original": "calendario=(calendario if calendario is not None",
+   "mutado": "calendario=(calendario if calendario",
+   "veredicto": "superviviente"
+  }
+ ]
+}

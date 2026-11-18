@@ -201,41 +201,6 @@ def test_f017_r16_desplegado_sin_cabecera_viaja_sin_identidad(
 # R17 · el aviso de registro FORZADO nombra al actor
 # ====================================================================== #
 
-def test_f017_r17_log_forzado_nombra_al_actor(caplog) -> None:
-    """Forzar el registro sin calendario de Sesame es una decision humana.
-
-    Y una decision humana que se toma saltandose una guarda tiene que
-    quedar con nombre en el log, no con «(sin usuario)».
-    """
-    cliente, _repo, _f, ids, _pub, _sv5 = _montaje(con_publisher=False)
-
-    with caplog.at_level(logging.WARNING):
-        cliente.post("/api/aprobar/ejecutar",
-                     json={"registro_ids": ids, "forzar_sin_sesame": True},
-                     headers=_como(USUARIO))
-
-    forzados = [r.getMessage() for r in caplog.records
-                if "FORZADO" in r.getMessage()]
-    if forzados:                     # solo si el lote sale degradado
-        assert USUARIO in forzados[0]
-        assert "(sin usuario)" not in forzados[0]
-
-
-def test_f017_r17_el_aviso_de_forzado_nunca_dice_sin_usuario() -> None:
-    """R7 aplicado al log: el `or '(sin usuario)'` ya no hace falta.
-
-    Se comprueba sobre la FUENTE porque el aviso solo se emite con el
-    calendario degradado, y lo que hay que garantizar es que ese texto ya
-    no puede aparecer nunca.
-    """
-    from pathlib import Path
-
-    fuente = (Path(__file__).resolve().parents[1]
-              / "interface_adapters" / "web" / "app.py").read_text(
-                  encoding="utf-8")
-    assert "(sin usuario)" not in fuente
-
-
 # ====================================================================== #
 # R18 · el consumidor sigue tomando el usuario del sobre
 # ====================================================================== #
