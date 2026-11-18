@@ -21,6 +21,45 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última c
 - Las verificaciones manuales de F-020 a F-045 (septiembre–octubre) se dan por superadas por
   uso en producción (decisión del humano 2026-11-16).
 
+## F-077 · desbloqueada 2026-11-18 (enmienda aprobada por el humano: «ok»)
+
+Se amplía la lista cerrada de design §4 con `test_f056_decisiones.py` (una línea del doble
+`CalendarioNoFiable`); anotada en `tasks.md` (T11). F-077 vuelve a `in_progress` y sigue en T11.
+
+### Bloqueo original (implementer, T11): test fuera de la lista cerrada
+
+**Motivo.** Con T11 aplicado (sv4 sin Sesame: `CalendarioProvider(activo=...)` en vez de
+`cliente=`, design §5.4), la suite de sv4 da **7 failed, 3802 passed** (24 min). Los 7 caen en
+ficheros que **no** están en la lista cerrada de design §4:
+
+- `services/partes-front/tests/test_f056_decisiones.py`: `test_f056_r6_preflight_calendario_no_fiable`,
+  `test_f056_r6_ejecutar_ajustar_sin_calendario_es_409`,
+  `test_f056_r16_ejecutar_no_ajustar_sin_propuesta_si_se_guarda`,
+  `test_f056_r8_ejecutar_ajustar_tras_rechazo_con_dia_sin_calendario`;
+- `services/partes-front/tests/test_f032_sin_bloqueo.py`: `test_f032_r23_dia_de_ajuste_con_calendario_no_fiable`,
+  `test_f032_r23_ajustar_con_calendario_no_fiable_se_decide` (importan el doble de `test_f056_decisiones.py`);
+- `services/partes-front/tests/test_f056_vista.py`: `test_f056_r45_r6_decidir_ajustar_con_calendario_no_fiable_se_decide`.
+
+**Causa única.** El doble `CalendarioNoFiable` de `test_f056_decisiones.py:397-401` hace
+`super().__init__(cliente=None, respaldo_holiday_name=lambda d: None)` →
+`TypeError: CalendarioProvider.__init__() got an unexpected keyword argument 'cliente'`. No es
+un cambio de comportamiento: el doble solo sobrescribe `fiable_para`.
+
+**Arreglo propuesto (para decidir el líder o el humano).** Ampliar la lista cerrada de design §4
+con `test_f056_decisiones.py` y cambiar esa línea a
+`super().__init__(respaldo_holiday_name=lambda d: None)` (el defecto `activo=False` equivale al
+`cliente=None` de antes). Una línea; arregla los 7.
+
+**Estado del trabajo.** T1–T10 y T12–T15 commiteadas (`fcafdad` T12, `f3a1db3` T13, `f9b9ec9`
+T14–T15; `azure-apps` `a568995`, commit aparte, sin push). **T11 aplicada en el árbol y SIN
+commitear** (su verificación no está en verde por lo anterior): settings, `calendario_provider.py`,
+`web/app.py`, `trabajador_detail.html`, `logging_config.py` de sv4 y los `git rm` de
+`infrastructure/sesame/`, `validar_datos_sesame.py` y sus tests (ya en el índice). Fuera de T11
+todo lo demás está verde: suite de sv3 2722 passed / 2 skipped; guardianes de raíz F-077 37/37.
+Los `.env.example` de sv3 y sv4 (no versionados) se han puesto al día con los nombres nuevos.
+Pendiente tras desbloquear: commit de T11, T19 (`init.sh`), informe `progress/impl_F-077.md`.
+T16 (mutación) y T17–T18 (manuales) quedan sin marcar, como se pidió.
+
 ## F-077 · spec escrita 2026-11-18 (spec_ready, pendiente de aprobación)
 
 Spec en `specs/F-077-sesame-directo-sin-pasarela/`, resumen y DAs en `progress/spec_F-077.md`.
