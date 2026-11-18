@@ -224,16 +224,16 @@ La tabla no cambia. Se actualiza `azure-apps/partes.md` (§3.4, §4.6, §4.7, §
 | DA2 sesame-api | (A) no se toca; partes deja de depender | (A) | (A) 2026-11-18 |
 | DA3 Índice DNI → empleado | (A) en memoria de sv3, TTL ~10 min, sin tabla | (A) | (A) 2026-11-18 |
 | DA4 Rigor | (A) crítico | (A) | (A) 2026-11-18 |
-| DA5 Normalización del DNI del índice | (A) `normalize_dni` de sv3, la de `dni_norm` y del pipeline; (B) `norm_dni` de sesame-api (igual para DNI/NIE salvo tildes) | (A) | |
-| DA6 «No encontrado» | (A) DNI ausente de un índice bien cargado ⇒ `None` (sin fila, sin revisión); 404 de festivos de un empleado conocido ⇒ fallo; (B) los dos ⇒ `None` | (A) | |
-| DA7 Inactivos en el índice | (A) activos e inactivos, duplicado ⇒ el activo (como sesame-api); (B) solo activos | (A) | |
-| DA8 Índice fallido a mitad | (A) todo o nada: no se guarda, fallo para el (DNI, año) y corte de 60 s sin red; (B) índice parcial, como sesame-api | (A) | |
-| DA9 Cliente de sv4 y su configuración | (A) quitar: `infrastructure/sesame/`, `SESAME_API_*`, `SESAME_CACHE_TTL_S`, `jornada_contrato` con su badge y `validar_datos_sesame.py`; (B) dejarlo muerto | (A) | |
-| DA10 Interruptor de la tabla en sv4 | (A) `FESTIVOS_SESAME_ENABLED` (defecto `false`), lo fija el script; (B) leer siempre la tabla; (C) conservar `SESAME_API_*` solo como interruptor | (A) | |
-| DA11 Nombres | (A) `SESAME_BASE_URL`, `SESAME_TOKEN`, `SESAME_TIMEOUT_S`, `SESAME_FESTIVOS_MINIMOS`; secreto `SESAME-TOKEN` (KV) / `sesame-token` (app); (B) conservar `SESAME_API_TIMEOUT_S` | (A) | |
-| DA12 Token en la herramienta | (A) solo entorno/`.env` o consola sin eco; sin `--token`; (B) `--token` como F-032 | (A) | |
-| DA13 URL en la infra versionada | (A) `$SESAME_BASE_URL` vacía en `00_vars`, valor en el `.local`; (B) versionar la URL pública | (A) | |
-| DA14 Solo HTTPS | (A) sv3 y la herramienta rechazan una URL sin `https://`; (B) aceptar http | (A) | |
+| DA5 Normalización del DNI del índice | (A) `normalize_dni` de sv3, la de `dni_norm` y del pipeline; (B) `norm_dni` de sesame-api (igual para DNI/NIE salvo tildes) | (A) | (A) 2026-11-18 |
+| DA6 «No encontrado» | (A) DNI ausente de un índice bien cargado ⇒ `None` (sin fila, sin revisión); 404 de festivos de un empleado conocido ⇒ fallo; (B) los dos ⇒ `None` | (A) | (A) 2026-11-18 |
+| DA7 Inactivos en el índice | (A) activos e inactivos, duplicado ⇒ el activo (como sesame-api); (B) solo activos | (A) | (A) 2026-11-18 |
+| DA8 Índice fallido a mitad | (A) todo o nada: no se guarda, fallo para el (DNI, año) y corte de 60 s sin red; (B) índice parcial, como sesame-api | (A) | (A) 2026-11-18 |
+| DA9 Cliente de sv4 y su configuración | (A) quitar: `infrastructure/sesame/`, `SESAME_API_*`, `SESAME_CACHE_TTL_S`, `jornada_contrato` con su badge y `validar_datos_sesame.py`; (B) dejarlo muerto | (A) | (A) 2026-11-18 |
+| DA10 Interruptor de la tabla en sv4 | (A) `FESTIVOS_SESAME_ENABLED` (defecto `false`), lo fija el script; (B) leer siempre la tabla; (C) conservar `SESAME_API_*` solo como interruptor | (A) | (A) 2026-11-18 |
+| DA11 Nombres | (A) `SESAME_BASE_URL`, `SESAME_TOKEN`, `SESAME_TIMEOUT_S`, `SESAME_FESTIVOS_MINIMOS`; secreto `SESAME-TOKEN` (KV) / `sesame-token` (app); (B) conservar `SESAME_API_TIMEOUT_S` | (A) | (A) 2026-11-18 |
+| DA12 Token en la herramienta | (A) solo entorno/`.env` o consola sin eco; sin `--token`; (B) `--token` como F-032 | (A) | (A) 2026-11-18 |
+| DA13 URL en la infra versionada | (A) `$SESAME_BASE_URL` vacía en `00_vars`, valor en el `.local`; (B) versionar la URL pública | (A) | (A) 2026-11-18 |
+| DA14 Solo HTTPS | (A) sv3 y la herramienta rechazan una URL sin `https://`; (B) aceptar http | (A) | (A) 2026-11-18 |
 
 ## 10. Riesgos y alternativas descartadas
 
