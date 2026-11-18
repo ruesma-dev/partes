@@ -1,7 +1,7 @@
 # application/services/refresco_festivos.py
 """Refresco de los festivos de cada trabajador al ingerir un parte (F-032).
 
-sv3 es el UNICO que pide festivos a sesame-api, y solo aqui: al ingerir un
+sv3 es el UNICO que pide festivos a Sesame HR, y solo aqui: al ingerir un
 parte nuevo, para cada DNI distinto de sus lineas y cada ano de la semana
 ISO de su fecha (design §5.4, DA15). Las pasadas de conciliacion y los
 recalculos leen la tabla `festivos_trabajador`, nunca a Sesame (R14).
@@ -10,7 +10,8 @@ Por cada (DNI, ano), `cliente.festivos(dni, ano)`:
 
   - lista con al menos `minimo` festivos de ese ano ⇒ upsert con
     `leido_en_utc` y `al_guardar()` (invalida la cache de la tabla, R15);
-  - ``None`` (404: Sesame no conoce el DNI) ⇒ `sin_calendario`: no se
+  - ``None`` (Sesame no conoce el DNI; F-077: DNI fuera del indice de
+    empleados de `FestivosSesameHr`) ⇒ `sin_calendario`: no se
     escribe ni se borra nada (R5, DA19 = B);
   - excepcion, plazo o lista incompleta ⇒ fallo: con fila previa, esta se
     conserva (`conservadas`, R7); sin ella, `sin_dato` (R8), que el

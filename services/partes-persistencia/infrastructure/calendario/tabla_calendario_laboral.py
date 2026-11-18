@@ -11,7 +11,7 @@ Cascada (design §5.5, DA19 = B):
   2. La fila del DNI en `festivos_trabajador` (`festivos_guardados.elegir`).
   3. Sin fila, o sin DNI: el respaldo de siempre (el JSON local).
 
-NUNCA habla con sesame-api (R14): las filas las escribe solo el refresco
+NUNCA habla con Sesame (R14): las filas las escribe solo el refresco
 de la ingesta. La tabla entera se lee de una vez y se cachea `ttl_s`
 segundos (<= 60, R15); `olvidar()` vacia la cache y lo llama el refresco al
 guardar, para que la pasada de esa misma ingesta ya use la fila nueva.
