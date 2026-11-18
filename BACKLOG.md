@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **71 features**, 16 abiertas y 55 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 55 en Done.
+Resumen: **71 features**, 16 abiertas y 55 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 55 en Done.
 
 ## Review
 
@@ -11,13 +11,13 @@ _Nada esperando revisión._
 
 ## Blocked
 
-_Ninguna feature bloqueada._
+| # | Feature | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|
+| F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | aprobada 2026-11-18 (DA1–DA14 = A, las recomendadas) | 1 | critico | `feature/F-077-sesame-directo-sin-pasarela` |
 
 ## In progress
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | implementer | aprobada 2026-11-18 (DA1–DA14 = A, las recomendadas) | 1 | critico | `feature/F-077-sesame-directo-sin-pasarela` |
+_Ninguna feature en implementación._
 
 ## Spec aprobada
 
@@ -112,7 +112,7 @@ _Nada comprometido._
 
 ### F-077 · sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api
 
-estado **en curso** · spec aprobada el 2026-11-18 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-077-sesame-directo-sin-pasarela`
+estado **bloqueada** · spec aprobada el 2026-11-18 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-077-sesame-directo-sin-pasarela`
 
 **Spec**: aprobada 2026-11-18 (DA1–DA14 = A, las recomendadas)
 

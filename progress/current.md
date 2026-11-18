@@ -21,6 +21,34 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última c
 - Las verificaciones manuales de F-020 a F-045 (septiembre–octubre) se dan por superadas por
   uso en producción (decisión del humano 2026-11-16).
 
+## F-077 · BLOQUEADA 2026-11-19 (implementer, T19): `design.md` pasa del tope de tamaño
+
+**Hecho.** T11 está commiteada (914f8d7) con la enmienda aplicada. Los 7 tests pasan y no cae
+ninguno más:
+
+| Suite | Resultado |
+|---|---|
+| sv4 | 3809 passed |
+| sv3 | 2722 passed, 2 skipped |
+| Raíz F-077 | 37/37 |
+
+`PUERTA COBERTURA` da 99.2 % (263/265). El informe está en `progress/impl_F-077.md`.
+
+**Motivo.** `bash harness/init.sh` termina con `1 comprobaciones fallidas`:
+`PUERTA TAMAÑO: specs/F-077-sesame-directo-sin-pasarela/design.md: 252 líneas > tope 250`.
+
+- Todo lo demás de `init.sh` está en verde.
+- Lo que pasa de 250 son las 4 líneas que la enmienda añadió a design §4 (commit 76183db).
+- Un reflujo sin cambiar palabras no ahorra ni una línea, porque la prosa ya va a ~97
+  columnas. Bajar de 250 obliga a reescribir texto de la spec aprobada, y eso no le toca al
+  implementer.
+
+**Propuesta para el líder y el humano.** Recortar 2 líneas de design §4 sin cambiar lo
+decidido. Por ejemplo, dejar la enmienda en «sv4, enmienda del 2026-11-18: el doble
+`CalendarioNoFiable` de `test_f056_decisiones.py` deja de pasar `cliente=None`; arregla sus 4
+tests y los 3 de `test_f032_sin_bloqueo.py` y `test_f056_vista.py`». Esa frase ocupa 2 líneas
+en lugar de 4. Hecho eso, `init.sh` en verde, T19 marcada y F-077 a `in_review`.
+
 ## F-077 · desbloqueada 2026-11-18 (enmienda aprobada por el humano: «ok»)
 
 Se amplía la lista cerrada de design §4 con `test_f056_decisiones.py` (una línea del doble
