@@ -182,13 +182,13 @@ def test_f003_r16_fiable_false_si_alguna_resolucion_degrado(entorno) -> None:
 
 def test_f003_r16_con_sesame_apagado_responde_con_el_respaldo(
         entorno) -> None:
-    """R7/R27 extremo a extremo: proveedor REAL sin cliente. El 1 de enero
+    """R7/R27 extremo a extremo: proveedor REAL apagado. El 1 de enero
     es festivo para la libreria `holidays` y `fiable` sigue siendo true,
     porque con la feature apagada no hay nada degradado que avisar."""
     from application.services.calendario_provider import CalendarioProvider
 
     proveedor = CalendarioProvider(
-        cliente=None,
+        activo=False,
         respaldo_holiday_name=lambda d: (
             "Ano Nuevo" if d.isoformat() == "2026-01-01" else None),
     )

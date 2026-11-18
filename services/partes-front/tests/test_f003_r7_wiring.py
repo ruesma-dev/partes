@@ -1,10 +1,11 @@
 # tests/test_f003_r7_wiring.py
 """R7 · con Sesame SIN configurar, sv4 se comporta exactamente como antes.
 
-La feature se mergea APAGADA (`sesame_enabled=false`) y se enciende
-cuando sesame-api este desplegado. Estos tests son la garantia de que
-apagada no cambia nada: ni una llamada de red, el respaldo `holidays` de
-siempre y el log de wiring diciendo DESACTIVADO.
+La feature se mergea APAGADA (`sesame_enabled=false`) y se enciende con
+`FESTIVOS_SESAME_ENABLED=true` (F-077: sv4 ya no llama a Sesame; solo lee
+la tabla que llena sv3). Estos tests son la garantia de que apagada no
+cambia nada: ni una llamada de red, el respaldo `holidays` de siempre y el
+log de wiring diciendo DESACTIVADO.
 """
 from __future__ import annotations
 
@@ -54,26 +55,24 @@ def _app(settings: Settings, **kw):
 
 # ------------------------- la propiedad del settings -------------------- #
 
-def test_f003_r7_sesame_enabled_exige_las_dos_variables(base) -> None:
+def test_f003_r7_sesame_enabled_es_el_interruptor(base) -> None:
     assert Settings(_env_file=None).sesame_enabled is False
 
-    base.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    assert Settings(_env_file=None).sesame_enabled is False
-
-    base.setenv("SESAME_API_KEY", "clave-de-prueba")
+    base.setenv("FESTIVOS_SESAME_ENABLED", "true")
     assert Settings(_env_file=None).sesame_enabled is True
 
 
-def test_f003_r7_valores_en_blanco_no_activan_sesame(base) -> None:
-    base.setenv("SESAME_API_BASE_URL", "   ")
+def test_f003_r7_las_variables_de_la_pasarela_no_activan_sesame(base) -> None:
+    base.setenv("SESAME_API_BASE_URL", "http://pasarela.ejemplo.test")
     base.setenv("SESAME_API_KEY", "clave-de-prueba")
     assert Settings(_env_file=None).sesame_enabled is False
 
 
-def test_f003_r7_valores_por_defecto_del_bloque_sesame(base) -> None:
+def test_f003_r7_el_bloque_de_la_pasarela_ya_no_existe(base) -> None:
     s = Settings(_env_file=None)
-    assert s.sesame_api_timeout_s == 10.0
-    assert s.sesame_cache_ttl_s == 21600
+    for viejo in ("sesame_api_base_url", "sesame_api_key",
+                  "sesame_api_timeout_s", "sesame_cache_ttl_s"):
+        assert not hasattr(s, viejo)
 
 
 # ------------------------------- el wiring ------------------------------ #
@@ -104,27 +103,24 @@ def test_f003_r7_sin_configurar_usa_el_respaldo_holidays(sin_red) -> None:
 
 
 def test_f003_r7_configurado_cablea_el_proveedor(base, caplog) -> None:
-    base.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    base.setenv("SESAME_API_KEY", "clave-de-prueba")
+    base.setenv("FESTIVOS_SESAME_ENABLED", "true")
     with caplog.at_level(logging.INFO):
         app = _app(Settings(_env_file=None))
     assert "[sesame][wiring] CABLEADO" in caplog.text
     assert app.state.calendario_provider.activo is True
 
 
-def test_f003_r7_el_log_de_wiring_no_lleva_la_clave(base, caplog) -> None:
-    base.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
+def test_f003_r7_el_log_de_wiring_no_lleva_ninguna_clave(
+        base, caplog) -> None:
+    """F-077: sv4 no tiene token; una clave vieja en el entorno se ignora."""
+    base.setenv("FESTIVOS_SESAME_ENABLED", "true")
     base.setenv("SESAME_API_KEY", "clave-secretisima-de-prueba")
     with caplog.at_level(logging.INFO):
         _app(Settings(_env_file=None))
     assert "clave-secretisima-de-prueba" not in caplog.text
-    # La longitud se comprueba EN LA LINEA DE WIRING, no en cualquier
-    # linea del log: el cliente escribe su propio `key_len` al
-    # instanciarse y taparia un fallo aqui.
     wiring = [m for m in caplog.messages if "[sesame][wiring]" in m]
     assert len(wiring) == 1
-    assert "key_len=27" in wiring[0]
-    assert "clave-secretisima-de-prueba" not in wiring[0]
+    assert "key_len" not in wiring[0] and "token_len" not in wiring[0]
 
 
 def test_f003_r7_el_proveedor_se_puede_inyectar(sin_red) -> None:

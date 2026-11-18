@@ -7,7 +7,8 @@ trabajador, matriz de obra y «+ Nuevo») y el `aviso_sesame` del
 preflight, todos con «Sin calendario de Sesame» y ya no con «Sesame no
 disponible». Con fila no hay aviso; con Sesame apagado, tampoco.
 
-SQLite en memoria; el cliente de Sesame es un doble que solo da jornada.
+SQLite en memoria. F-077: el proveedor se enciende con `activo` (sv4 ya
+no tiene cliente de Sesame).
 """
 from __future__ import annotations
 
@@ -19,7 +20,6 @@ from config.settings import Settings
 from infrastructure.database.parte_repository import ParteReviewRepository
 from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite, sembrar_dias
-from tests.test_f032_provider_tabla import ClienteSoloJornada
 from tests.test_f032_sin_bloqueo import Sv5Simple
 
 DNI = "12345678Z"           # el de `sembrar_dias`
@@ -47,7 +47,7 @@ def _montar(*, filas=(), activo=True):
     fabrica = FabricaSesionSqlite()
     ids = sembrar_dias(fabrica, [{"fecha": DIA, "horas": 8.0}])
     proveedor = CalendarioProvider(
-        cliente=ClienteSoloJornada() if activo else None,
+        activo=activo,
         respaldo_holiday_name=lambda _d: None,
         leer_festivos=lambda: list(filas))
     app = build_app(Settings(_env_file=None),

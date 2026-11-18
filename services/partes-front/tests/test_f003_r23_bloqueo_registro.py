@@ -117,10 +117,10 @@ def test_f003_r25_una_linea_normal_no_lleva_badge(montaje) -> None:
 # ---------------------- R27 · con Sesame apagado, nada ------------------ #
 
 def test_f003_r27_sin_sesame_configurado_no_hay_bloqueo(montaje) -> None:
-    """El proveedor REAL sin cliente: `fiable_para` siempre dice True."""
+    """El proveedor REAL apagado: `fiable_para` siempre dice True."""
     from application.services.calendario_provider import CalendarioProvider
 
-    proveedor = CalendarioProvider(cliente=None,
+    proveedor = CalendarioProvider(activo=False,
                                    respaldo_holiday_name=lambda _d: None)
     cliente, _f, ids, sv5, publisher, _prov = montaje(proveedor=proveedor)
     assert cliente.post("/api/aprobar/preflight",
@@ -134,7 +134,7 @@ def test_f003_r27_sin_sesame_configurado_no_hay_bloqueo(montaje) -> None:
 def test_f003_r27_sin_sesame_la_cola_sigue_funcionando(montaje) -> None:
     from application.services.calendario_provider import CalendarioProvider
 
-    proveedor = CalendarioProvider(cliente=None,
+    proveedor = CalendarioProvider(activo=False,
                                    respaldo_holiday_name=lambda _d: None)
     cliente, _f, ids, _sv5, publisher, _prov = montaje(proveedor=proveedor)
     r = cliente.post("/api/aprobar/encolar", json={"registro_ids": ids})
@@ -145,7 +145,7 @@ def test_f003_r27_sin_sesame_la_cola_sigue_funcionando(montaje) -> None:
 def test_f003_r27_sin_sesame_las_lineas_no_se_marcan(montaje) -> None:
     from application.services.calendario_provider import CalendarioProvider
 
-    proveedor = CalendarioProvider(cliente=None,
+    proveedor = CalendarioProvider(activo=False,
                                    respaldo_holiday_name=lambda _d: None)
     cliente, fabrica, ids, _sv5, _p, _prov = montaje(proveedor=proveedor)
     cliente.post("/api/aprobar/ejecutar", json={"registro_ids": ids})
