@@ -407,6 +407,9 @@
       "priority": 2,
       "branch": "feature/F-032-sesame-festivos-produccion",
       "spec_aprobada": "2026-11-17",
+      "fecha_cierre": "2026-11-18",
+      "ok_humano": "2026-11-18",
+      "pendiente": "Sin desplegar: sesame-api P0–P5 (P0: sacar el .env de git) y manuales M1–M7 (contraste, redespliegue de sv3 y sv4, add_sesame_partes.ps1)",
       "spec": "aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico)"
     },
     {
