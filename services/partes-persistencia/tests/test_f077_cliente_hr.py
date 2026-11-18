@@ -33,6 +33,7 @@ from tests.fixtures_sesame import (
     FESTIVOS_A_2026,
     ID_A,
     ID_B,
+    ID_C,
     ID_C_INACTIVO,
     PERSONALES,
     TOKEN,
@@ -331,7 +332,9 @@ def test_f077_r5_los_mensajes_no_llevan_cuerpo_query_url_ni_token(
                       "year=", "?"):
         assert prohibido not in texto, (prohibido, texto)
     assert RUTA_FESTIVOS in texto
-    assert exc.value.__cause__ is None and exc.value.__suppress_context__
+    # Sin encadenar el error de httpx (su texto lleva la URL con la query).
+    assert exc.value.__cause__ is None
+    assert exc.value.__context__ is None or exc.value.__suppress_context__
 
 
 # ---------------------------------- R6 ---------------------------------- #
