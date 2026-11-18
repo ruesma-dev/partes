@@ -16,8 +16,7 @@
       "ruta": "services/partes-persistencia",
       "lenguaje": "python",
       "depende_de": [
-        "services/partes-front/application/services/jornada_resolver.py",
-        "services/partes-front/infrastructure/sesame/sesame_api_client.py"
+        "services/partes-front/application/services/jornada_resolver.py"
       ]
     },
     {

@@ -51,7 +51,7 @@ usar `$RG`, `$MI_CLIENTID`, etc.
 ## Secretos (Key Vault `$KV`, es decir `kv-partes-<suffix>`)
 `PG-PASSWORD` la deja `fase1`. El resto los pides con `add_secrets_partes.ps1`:
 `GRAPH-KEY` (JSON `{tenant_id,client_id,client_secret}`), `SIGRID-API-FUNCTION-KEY`,
-`GEMINI-API-KEY`, `SESAME-API-KEY`, y opcionalmente `ANTHROPIC-API-KEY` /
+`GEMINI-API-KEY`, `SESAME-TOKEN` (token de Sesame HR, solo sv3), y opcionalmente `ANTHROPIC-API-KEY` /
 `OPENAI-API-KEY`.
 
 ### Ningún script lee secretos de ficheros en disco
@@ -106,16 +106,27 @@ Servicio de ESCRITURA en el ERP. Alta e integración:
 Republicar tras cambios de código: `.\redeploy_partes.ps1 -Solo sv5`
 (orden seguro: `sv2 → sv3 → sv5 → sv4 → sv1`).
 
-## Sesame — festivos de cada trabajador (F-032)
-sv3 pide a `sesame-api` los festivos de cada trabajador al ingerir y los guarda
-en la tabla `festivos_trabajador`; sv4 los lee de ahí (y a Sesame solo le pide la
-jornada). Sin `SESAME_API_*` los dos usan su calendario local de siempre.
+## Sesame — festivos de cada trabajador (F-032, F-077)
+sv3 pide a la **API oficial de Sesame HR** (token Bearer, solo `GET`; sin la
+pasarela `sesame-api` desde F-077) los festivos de cada trabajador al ingerir y
+los guarda en la tabla `festivos_trabajador`; sv4 no llama a Sesame: lee esa
+tabla con `FESTIVOS_SESAME_ENABLED=true`. Sin `SESAME_BASE_URL`/`SESAME_TOKEN`
+(sv3) ni `FESTIVOS_SESAME_ENABLED` (sv4), los dos usan su calendario local.
 
-Antes de encender, el **contraste** (guía de despliegue de F-032, M2 y M3):
+**URL**: la API pública de la región de nuestra cuenta de Sesame HR, de la forma
+`https://api-<región>.sesametime.com` (la región la da el panel de Sesame). Va
+SOLO en tu `00_vars_partes.local.ps1` (`$SESAME_BASE_URL`); la versionada queda
+vacía (DA13). **Token**: rótalo antes de encender (el `.env` de sesame-api estuvo
+en git) y, si Sesame lo permite, que sea de solo lectura; se carga como
+`SESAME-TOKEN` con `add_secrets_partes.ps1`.
+
+Antes de encender, el **contraste** (guía de despliegue de F-077, M1 y M2). El
+token sale de `SESAME_TOKEN` (el `.env` de sv3) o se pide por consola sin eco;
+no hay opción de línea de comandos para él:
 
 ```powershell
 cd ..\services\partes-persistencia
-python contrastar_festivos_sesame.py --ano 2026 --base-url <url> --api-key <clave>
+python contrastar_festivos_sesame.py --ano 2026 --base-url https://api-<región>.sesametime.com
 python contrastar_festivos_sesame.py --ano 2026 --impacto   # con el .env de sv3
 ```
 
@@ -127,20 +138,24 @@ python contrastar_festivos_sesame.py --ano 2026 --impacto   # con el .env de sv3
 . .\00_vars_partes.ps1          # $SESAME_BASE_URL en tu 00_vars_partes.local.ps1
 . .\00_capps_vars_partes.ps1
 .\add_sesame_partes.ps1          # encender
-.\add_sesame_partes.ps1 -Quitar  # apagar (retira las SESAME_* de las dos apps)
+.\add_sesame_partes.ps1 -Quitar  # apagar (retira las variables de Sesame de las dos apps)
 ```
 
-- Antes de tocar ninguna app comprueba que `$SESAME_BASE_URL` empieza por `http`
-  y que `SESAME-API-KEY` existe en `$KV`. Si falla algo, aborta sin tocar nada.
-- Crea en cada app el secreto `sesame-key` como `keyvaultref` por la identidad
-  gestionada. Fija `SESAME_API_BASE_URL`, `SESAME_API_KEY=secretref:sesame-key` y
-  `SESAME_API_TIMEOUT_S`, más `SESAME_FESTIVOS_MINIMOS` en sv3 (`$SESAME_FESTIVOS_MINIMOS`,
-  por defecto 1) y `SESAME_CACHE_TTL_S` en sv4. Después espera a que la revisión
-  nueva esté lista.
-- Idempotente. No encola nada ni lee el valor de ninguna clave.
+- Antes de tocar ninguna app comprueba que `$SESAME_BASE_URL` empieza por
+  `https://` y que `SESAME-TOKEN` existe en `$KV`. Si falla algo, aborta sin tocar nada.
+- Retira primero de cada app las variables de la pasarela que tenga
+  (`SESAME_API_BASE_URL`, `SESAME_API_KEY`, `SESAME_API_TIMEOUT_S`,
+  `SESAME_CACHE_TTL_S`) y su secreto `sesame-key`.
+- En sv3 crea el secreto `sesame-token` como `keyvaultref` por la identidad
+  gestionada y fija `SESAME_BASE_URL`, `SESAME_TOKEN=secretref:sesame-token`,
+  `SESAME_TIMEOUT_S` y `SESAME_FESTIVOS_MINIMOS` (`$SESAME_FESTIVOS_MINIMOS`, por
+  defecto 1). En sv4, solo `FESTIVOS_SESAME_ENABLED=true` (sin secreto). Después
+  de cada cambio espera a que la revisión nueva esté lista.
+- `-Quitar` retira solo las variables que cada app tenga (el secreto queda inerte).
+- Idempotente. No encola nada ni lee el valor de ningún secreto.
 - Comprobación: en los logs de arranque, `[sesame][wiring] CABLEADO` (o
   `DESACTIVADO` tras `-Quitar`). Con el siguiente parte, en sv3
-  `[festivos] refresco guardadas=…`. Un trabajador sin fila sale con un aviso en
+  `[sesame-hr] indice …` y `[festivos] refresco guardadas=…`, sin ningún DNI. Un trabajador sin fila sale con un aviso en
   el portal, sin bloqueo.
 
 ## Pendiente (próximas tandas)

@@ -775,14 +775,17 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `reaprobar` (el modal de aprobar) y `restaurar` por sus rutas de siempre.
     No dependen del modo seco. Ninguna escribe en Sigrid; en Sigrid no se
     borra (la escritura hacia el ERP será otra feature).
-23. **Festivos de cada trabajador desde Sesame (F-032; sv3 escribe, sv4
-    lee)**: con `SESAME_API_*` configurado, sv3 pide a **sesame-api** los
-    festivos de cada DNI del parte al ingerirlo (los años de su semana ISO,
+23. **Festivos de cada trabajador desde Sesame (F-032, F-077; sv3 escribe,
+    sv4 lee)**: con `SESAME_BASE_URL` y `SESAME_TOKEN` configurados, sv3 pide
+    a la **API oficial de Sesame HR** (sin pasarela desde F-077: índice
+    DNI → empleado en memoria, `FestivosSesameHr`) los festivos de cada DNI
+    del parte al ingerirlo (los años de su semana ISO,
     `refresco_festivos.py`, ANTES de `save_parte`) y los guarda en la tabla
     **`festivos_trabajador`** (una fila por DNI normalizado × año:
     `festivos_json` `{fecha: nombre}`, `n_festivos`, `leido_en_utc`; índice
-    único `ux_festivos_trabajador_dni_ano`). Un 404 deja al trabajador sin
-    fila. Si Sesame falla o da menos de `SESAME_FESTIVOS_MINIMOS`, se
+    único `ux_festivos_trabajador_dni_ano`). Un DNI ausente del índice de
+    empleados deja al trabajador sin fila; un fallo del índice abre un corte
+    de 60 s sin llamadas. Si Sesame falla o da menos de `SESAME_FESTIVOS_MINIMOS`, se
     conserva la fila que hubiera; si no hay ninguna, el parte va a revisión.
     Leer es la misma cascada en los dos servicios (`festivos_guardados.py`,
     gemelo de la lista cerrada): la fila del DNI manda (fuente `sesame`); sin
@@ -791,8 +794,9 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     `TablaCalendarioLaboral` (caché ≤ 60 s que el refresco invalida, así la
     pasada de esa ingesta reparte ya con la fila nueva; las líneas
     congeladas no se recalculan y un día mixto con `REPARTO_REAJUSTE` queda
-    propuesto en `reparto_pendiente`). sv4 NO pide festivos a Sesame (solo la
-    jornada del contrato): lee la tabla entera, cacheada ≤ 60 s. **Fin del
+    propuesto en `reparto_pendiente`). sv4 NO llama a Sesame (F-077: ni
+    cliente ni jornada del contrato): con `FESTIVOS_SESAME_ENABLED=true` lee
+    la tabla entera, cacheada ≤ 60 s. **Fin del
     bloqueo `[SIN-SESAME]`** (DA17 = B): sin fila, sv4 solo avisa («Sin
     calendario de Sesame») en la vista de trabajador, en la de obra, en
     «+ Nuevo» y en el preflight (`aviso_sesame` del grupo). Ya no hay
@@ -822,13 +826,14 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
   lectores la vigila `tests/test_f038_lectores_sigrid.py`.
 - **PostgreSQL** `psql-albaranes-rs9k2` (servidor COMPARTIDO con otros
   proyectos): solo la base `partes`; nada a nivel de servidor.
-- **sesame-api** (Container App interna, F-003/F-032): pasarela de solo
-  lectura sobre Sesame HR, con `x-api-key` (`SESAME_API_KEY`, secreto
-  `SESAME-API-KEY` del Key Vault). sv3 pide `GET /api/v1/festivos` al
-  ingerir (y la herramienta de contraste, `GET /api/v1/calendarios-festivos`);
-  sv4 solo `GET /api/v1/jornada`. Sin `SESAME_API_*` los dos servicios
-  arrancan con la integración apagada (log `[sesame][wiring] DESACTIVADO`).
-  Contrato y despliegue: `azure-apps/sesame-api.md` (de su dueño).
+- **Sesame HR** (SaaS, API pública por HTTPS, F-077): SOLO sv3, con token
+  Bearer (`SESAME_TOKEN`, secreto `SESAME-TOKEN` del Key Vault) y solo
+  `GET`: `/core/v3/employees` (índice DNI → empleado) y
+  `/schedule/v1/holidays` al ingerir; la herramienta de contraste, también
+  `/schedule/v1/holiday-calendar`. sv4 no llama a Sesame. Sin
+  `SESAME_BASE_URL`/`SESAME_TOKEN`, sv3 arranca con la integración apagada
+  (log `[sesame][wiring] DESACTIVADO`); sv4, sin `FESTIVOS_SESAME_ENABLED`.
+  partes ya no depende de la pasarela `sesame-api` (nunca desplegada).
 - **Microsoft Graph**: buzón (sv1) y SharePoint (sv3).
 - **Google Gemini** (sv2): extracción estructurada; hoy el primario es
   OpenAI (`IA_PROVIDER=openai`) y Gemini relee la cabecera cuando sale
@@ -849,7 +854,7 @@ Vault `kv-partes-pt7m3` vía managed identity (`keyvaultref`); `.env` no
 viaja nunca. Los identificadores reales (suscripción, tenant) viven en
 `infra/*.local.ps1`, sin versionar; los scripts versionados van redactados.
 Sesame se enciende (y con `-Quitar` se apaga) en sv3 y sv4 en un solo paso
-con `infra/add_sesame_partes.ps1` (F-032), tras el contraste previo.
+con `infra/add_sesame_partes.ps1` (F-032, F-077), tras el contraste previo.
 
 ## Herramientas de consola
 
@@ -886,18 +891,11 @@ existen y para qué sirven.
   --esperados N` (N = candidatos del informe; si no coincide, código 2 sin
   escribir) aplica la regla bajo bloqueo y con la marca
   `sin-lineas · F-061-limpieza`. Lo lanza el humano; sin `SessionFactory`.
-- `services/partes-front/validar_datos_sesame.py` (F-013) — informe de
-  solo lectura contra `sesame-api`: por cada trabajador, sus festivos del
-  año, el tipo de jornada y el flag de reducida, más el calendario por
-  defecto. Genera un Markdown y un CSV en `services/partes-front/logs/`
-  (carpeta ignorada por git: el informe lleva DNIs) para que el humano
-  valide a mano los datos que F-003 usa en el cómputo de extras y en los
-  avisos de jornada. Los fallos por trabajador salen como filas del
-  informe, no lo abortan. Se configura con `--base-url` / `--api-key` o
-  con `SESAME_API_BASE_URL` / `SESAME_API_KEY`.
-- `services/partes-persistencia/contrastar_festivos_sesame.py` (F-032) —
-  contraste previo al encendido, SOLO LECTURA: compara cada calendario de
-  Sesame (`GET /api/v1/calendarios-festivos`, una vez) con el JSON de
+- `services/partes-persistencia/contrastar_festivos_sesame.py` (F-032,
+  F-077) — contraste previo al encendido, SOLO LECTURA: compara cada
+  calendario de Sesame HR (`GET /schedule/v1/holiday-calendar`, una vez;
+  URL `https://` de `--base-url` o `SESAME_BASE_URL`, token de
+  `SESAME_TOKEN` o pedido por consola sin eco) con el JSON de
   respaldo de sv3, de lunes a viernes, y marca `INCOMPLETO` (menos de
   `--festivos-minimos`) y `FALTAN DEL RESPALDO` (la puerta: con eso no se
   enciende). Con `--impacto` cuenta, sobre los partes activos (`READ ONLY`),
