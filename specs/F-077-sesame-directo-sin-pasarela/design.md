@@ -75,10 +75,8 @@ partes deja de depender de él (DA2). Humano: token, Key Vault y Azure (§7).
     (`cliente=` ⇒ `activo=`; fuera `ClienteSoloJornada` y los casos de jornada),
     `test_f003_r7_wiring.py` y `test_f032_wiring_sv4.py` (`FESTIVOS_SESAME_ENABLED`) y
     `test_f032_logs_sin_dni.py` (quedan solo los de `httpx` en WARNING).
-  - sv4, enmienda aprobada por el humano el 2026-11-18 («ok»): se adapta también
-    `test_f056_decisiones.py` (el doble `CalendarioNoFiable` deja de pasar `cliente=None`;
-    el defecto `activo=False` es lo mismo). Arregla sus 4 tests y los 3 de
-    `test_f032_sin_bloqueo.py` y `test_f056_vista.py` que importan ese doble, sin cambiarlos.
+  - sv4, enmienda del humano (2026-11-18): en `test_f056_decisiones.py` el doble `CalendarioNoFiable`
+    deja de pasar `cliente=None`; arregla 4 tests suyos y 3 que lo importan, sin tocarlos.
   - Raíz, se retira `tests/test_f032_infra_sesame.py` (lo sustituye `test_f077_infra_sesame.py`).
   - No cambian `test_f016_vista_admin_jornadas.py` (sv4 conserva `sesame_enabled`), ni
     `test_f003_r2_vistas_festivos.py` y `test_f015_r24_avisos.py` (su `jornada_contrato` sobra).
