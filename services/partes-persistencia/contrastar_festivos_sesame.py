@@ -1,10 +1,11 @@
 # contrastar_festivos_sesame.py
-"""F-032 · Contraste de los festivos de Sesame con el respaldo (SOLO LECTURA).
+"""F-032, F-077 · Contraste de los festivos de Sesame con el respaldo (SOLO LECTURA).
 
 Herramienta de consola que el humano corre ANTES de encender Sesame en
 produccion (puerta DA12, M2 y M3 de la guia de despliegue):
 
-  - R29: pide UNA vez ``GET /api/v1/calendarios-festivos`` y compara cada
+  - R29 (F-077, R24): pide UNA vez los calendarios de Sesame HR
+    (``GET /schedule/v1/holiday-calendar``, paginado) y compara cada
     calendario con el JSON de respaldo de sv3 (consultado dia a dia): dias
     solo-Sesame y solo-respaldo de lunes a viernes, recuento y si es el
     calendario por defecto.
@@ -13,8 +14,9 @@ produccion (puerta DA12, M2 y M3 de la guia de despliegue):
     falta algun festivo del JSON). Con un ``FALTAN DEL RESPALDO`` no se
     enciende; con un ``INCOMPLETO``, a RRHH.
   - R32: con ``--impacto``, lee las lineas de los partes activos
-    (``fetch_registros_para_recurso``), pide los festivos de cada DNI
-    (404 = el respaldo, como en la ingesta) y clasifica cada linea con
+    (``fetch_registros_para_recurso``), pide los festivos de cada DNI con
+    el adaptador de la ingesta (``FestivosSesameHr``: DNI fuera del indice
+    = el respaldo, F-077 R26) y clasifica cada linea con
     horas, fuera de la papelera, de un dia que cambia o de su semana ISO:
     ``libre``, ``reajustable`` o ``dura``. Un DNI que falla es una fila de
     error. Los DNIs van SOLO al CSV, nunca al Markdown ni a la consola.
@@ -23,24 +25,29 @@ produccion (puerta DA12, M2 y M3 de la guia de despliegue):
     la configuracion, el listado o la lectura de ``partes``, sale con otro
     codigo y no escribe nada.
 
-R33: no escribe en ``partes`` ni en Sigrid y a sesame-api solo le hace
-``GET``. La base se abre en modo ``READ ONLY``.
+R33: no escribe en ``partes`` ni en Sigrid y a Sesame solo le hace
+``GET`` (el cliente no tiene otro verbo). La base se abre en ``READ ONLY``.
+
+F-077 (R25): la URL sale de ``--base-url`` o de ``SESAME_BASE_URL`` y solo
+vale ``https://``. El token, SOLO de ``SESAME_TOKEN`` (el ``.env`` de sv3 o
+el entorno) o, si falta, pedido por consola sin eco: no hay opcion de linea
+de comandos para el token (quedaria en el historial de la consola).
 
 USO (desde services/partes-persistencia):
   ../../.venv/Scripts/python.exe contrastar_festivos_sesame.py --ano 2026 \\
-      --base-url <url> --api-key <clave> [--impacto]
-Sin ``--base-url``/``--api-key`` se usan ``SESAME_API_*`` (el ``.env`` de sv3).
+      [--base-url https://<api de la region>] [--impacto]
 """
 from __future__ import annotations
 
 import argparse
 import csv
+import getpass
 import io
 import os
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Iterable, Mapping, TextIO
+from typing import Any, Callable, Iterable, Mapping, TextIO
 
 import httpx
 
@@ -51,7 +58,8 @@ from application.services.recurso_conciliador import _congelado
 from infrastructure.calendario.json_calendario_laboral import (
     JsonCalendarioLaboral,
 )
-from infrastructure.sesame.sesame_api_client import SesameApiClient
+from infrastructure.sesame.festivos_sesame_hr import FestivosSesameHr
+from infrastructure.sesame.sesame_hr_client import SesameHrClient
 
 #: Carpeta de salida por defecto (ignorada por git), junto a este fichero.
 CARPETA_LOGS = Path(__file__).resolve().parent / "logs"
@@ -277,7 +285,7 @@ def escribir_csv(destino: TextIO, filas: list[dict],
 # ------------------------------------------------------------------ #
 def _settings() -> Any:
     """Los settings de sv3, o None si el ``.env`` no esta (contraste
-    sin base: basta con ``--base-url``/``--api-key``)."""
+    sin base: basta con ``--base-url`` y el token por consola)."""
     try:
         from config.settings import Settings
         return Settings()
@@ -285,26 +293,22 @@ def _settings() -> Any:
         return None
 
 
-def listar_calendarios(cliente: SesameApiClient) -> list[dict]:
-    """``GET /api/v1/calendarios-festivos`` por el cliente de sv3.
-
-    El cliente no expone el listado entero (solo el calendario por
-    defecto) y es un gemelo que F-032 no toca: se reutiliza su ``_get``
-    para tener los mismos errores (``RuntimeError``) y la misma cabecera.
-    """
-    cuerpo = cliente._get("/api/v1/calendarios-festivos", {},  # noqa: SLF001
-                          label="calendarios")
-    if cuerpo is None:
-        raise RuntimeError("sesame-api respondio 404 en calendarios")
-    return [c for c in cuerpo.get("data") or [] if isinstance(c, dict)]
+def listar_calendarios(cliente: SesameHrClient) -> list[dict]:
+    """Los calendarios de Sesame HR en la forma que consume
+    ``contrastar_calendario`` (las puras de F-032 no cambian, R24)."""
+    return [{"id": c.id, "nombre": c.nombre, "por_defecto": c.por_defecto,
+             "festivos": [{"fecha": f.fecha, "nombre": f.nombre}
+                          for f in c.festivos]}
+            for c in cliente.calendarios_festivos()]
 
 
-def _festivos_por_dni(cliente: SesameApiClient, dnis: Iterable[str],
+def _festivos_por_dni(adaptador: FestivosSesameHr, dnis: Iterable[str],
                       ano: int) -> dict[str, Any]:
+    """R26: ``None`` (no encontrado: el respaldo), el mapa o el fallo."""
     out: dict[str, Any] = {}
     for dni in sorted(set(dnis)):
         try:
-            lista = cliente.festivos(dni, ano)
+            lista = adaptador.festivos(dni, ano)
         except Exception as exc:  # noqa: BLE001 - R32: fila de error
             out[dni] = exc
             continue
@@ -337,8 +341,7 @@ def _argumentos(argv: list[str] | None) -> argparse.Namespace:
         description="Contraste de festivos de Sesame con el respaldo "
                     "(solo lectura, F-032).")
     p.add_argument("--ano", type=int, required=True)
-    p.add_argument("--base-url")
-    p.add_argument("--api-key")
+    p.add_argument("--base-url", help="https:// de la API de Sesame HR")
     p.add_argument("--calendario", help="JSON de respaldo de sv3")
     p.add_argument("--festivos-minimos", type=int)
     p.add_argument("--salida", help="carpeta del informe (por defecto logs/)")
@@ -360,19 +363,25 @@ def _minimo(args, settings) -> int:
 
 def main(argv: list[str] | None = None, *, ahora: datetime | None = None,
          transport: httpx.BaseTransport | None = None,
-         repositorio: Any = None) -> int:
-    """``transport`` y ``repositorio`` son para los tests (sin red ni base)."""
+         repositorio: Any = None,
+         pedir_token: Callable[[str], str] = getpass.getpass) -> int:
+    """``transport``, ``repositorio`` y ``pedir_token`` son para los tests
+    (sin red, sin base y sin consola)."""
     args = _argumentos(argv)
     settings = _settings()
     base_url = (args.base_url
-                or (settings and settings.sesame_api_base_url)
-                or os.environ.get("SESAME_API_BASE_URL"))
-    api_key = (args.api_key
-               or (settings and settings.sesame_api_key)
-               or os.environ.get("SESAME_API_KEY"))
-    if not base_url or not api_key:
-        print("Faltan --base-url/--api-key o SESAME_API_BASE_URL/"
-              "SESAME_API_KEY.", file=sys.stderr)
+                or (settings and settings.sesame_base_url)
+                or os.environ.get("SESAME_BASE_URL") or "").strip()
+    if not base_url.startswith("https://"):
+        print("Falta --base-url o SESAME_BASE_URL con una URL https:// "
+              "de Sesame HR.", file=sys.stderr)
+        return SALIDA_CONFIGURACION
+    token = ((settings and settings.sesame_token)
+             or os.environ.get("SESAME_TOKEN")
+             or pedir_token("Token de Sesame HR: ") or "").strip()
+    if not token:
+        print("Falta el token de Sesame HR (SESAME_TOKEN o por consola).",
+              file=sys.stderr)
         return SALIDA_CONFIGURACION
     if args.impacto and repositorio is None and settings is None:
         print("--impacto necesita el .env de sv3 (PG_*) para leer partes.",
@@ -382,9 +391,9 @@ def main(argv: list[str] | None = None, *, ahora: datetime | None = None,
                   or (settings and settings.calendario_laboral_path)
                   or "config/calendario_laboral.json")
     respaldo = JsonCalendarioLaboral(path=calendario)
-    cliente = SesameApiClient(
-        base_url=base_url, api_key=api_key,
-        timeout_s=(settings.sesame_api_timeout_s if settings else 10.0),
+    cliente = SesameHrClient(
+        base_url=base_url, token=token,
+        timeout_s=(settings.sesame_timeout_s if settings else 10.0),
         transport=transport)
     try:
         calendarios = listar_calendarios(cliente)
@@ -406,8 +415,8 @@ def main(argv: list[str] | None = None, *, ahora: datetime | None = None,
             return SALIDA_IMPACTO
         dnis = [tm.normalize_dni(r.get("empleado_dni")) for r in registros]
         impacto = clasificar_impacto(
-            registros, _festivos_por_dni(cliente, [d for d in dnis if d],
-                                         args.ano),
+            registros, _festivos_por_dni(FestivosSesameHr(cliente=cliente),
+                                         [d for d in dnis if d], args.ano),
             respaldo, args.ano)
 
     ahora = ahora or datetime.now()
