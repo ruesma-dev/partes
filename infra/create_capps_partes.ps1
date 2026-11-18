@@ -99,24 +99,26 @@ $sv3Env = @(
     "SHAREPOINT_LINK_SCOPE=$($SP['SHAREPOINT_LINK_SCOPE'])"
 )
 
-# --- sesame-api (F-003, F-032): festivos reales por trabajador ---------------
+# --- Sesame HR (F-003, F-032, F-077): festivos reales por trabajador --------
 # Solo se cablea si $SESAME_BASE_URL tiene valor (mira 00_vars_partes.ps1).
 # Sin ella, sv3 sale con la integracion APAGADA y usa su calendario de
 # festivos local: exactamente el comportamiento anterior a F-003. Para
-# encender o apagar sobre la app ya creada: add_sesame_partes.ps1 (F-032).
-# sv3 ya no cachea festivos: los guarda en festivos_trabajador al ingerir;
-# SESAME_FESTIVOS_MINIMOS es el minimo para dar por completa una respuesta.
+# encender o apagar sobre la app ya creada: add_sesame_partes.ps1.
+# F-077: sv3 llama a la API oficial de Sesame HR (token Bearer del secreto
+# SESAME-TOKEN, solo GET), sin la pasarela sesame-api. Guarda los festivos
+# en festivos_trabajador al ingerir; SESAME_FESTIVOS_MINIMOS es el minimo
+# para dar por completa una respuesta.
 if ($SESAME_BASE_URL) {
-    $sv3Secrets += "sesame-key=$(KvRef 'SESAME-API-KEY')"
+    $sv3Secrets += "sesame-token=$(KvRef 'SESAME-TOKEN')"
     $sv3Env += @(
-        "SESAME_API_BASE_URL=$SESAME_BASE_URL",
-        "SESAME_API_KEY=secretref:sesame-key",
-        "SESAME_API_TIMEOUT_S=10",
+        "SESAME_BASE_URL=$SESAME_BASE_URL",
+        "SESAME_TOKEN=secretref:sesame-token",
+        "SESAME_TIMEOUT_S=10",
         "SESAME_FESTIVOS_MINIMOS=$SESAME_FESTIVOS_MINIMOS"
     )
-    Write-Host "[sv3] sesame-api CABLEADO ($SESAME_BASE_URL)" -ForegroundColor Cyan
+    Write-Host "[sv3] Sesame HR CABLEADO ($SESAME_BASE_URL)" -ForegroundColor Cyan
 } else {
-    Write-Host "[sv3] sesame-api NO cableado (SESAME_BASE_URL vacia): festivos locales" -ForegroundColor DarkGray
+    Write-Host "[sv3] Sesame HR NO cableado (SESAME_BASE_URL vacia): festivos locales" -ForegroundColor DarkGray
 }
 $a = @("containerapp","create","-n","ca-sv3-persistencia","-g",$RG,"--environment",$CAE,
        "--image","$ACR_LOGIN/$($IMG['sv3'])",
