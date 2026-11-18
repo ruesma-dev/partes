@@ -21,6 +21,14 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última c
 - Las verificaciones manuales de F-020 a F-045 (septiembre–octubre) se dan por superadas por
   uso en producción (decisión del humano 2026-11-16).
 
+## F-077 · spec escrita 2026-11-18 (spec_ready, pendiente de aprobación)
+
+Spec en `specs/F-077-sesame-directo-sin-pasarela/`, resumen y DAs en `progress/spec_F-077.md`.
+Decisiones abiertas para el humano: DA5–DA14 (normalización del DNI, «no encontrado», inactivos,
+índice fallido a mitad, quitar el cliente de sv4, interruptor `FESTIVOS_SESAME_ENABLED`,
+nombres, token de la herramienta, URL en infra, solo HTTPS), todas con recomendación (A).
+F-077 sustituye a las M1–M7 y P0–P4 de F-032 (P5, RRHH, sigue).
+
 ## Siguiente en el backlog
 
 F-072 (prioridad 1, sin spec) · F-057 (`spec_ready` desde 2026-10-24: refrescar contra F-068
