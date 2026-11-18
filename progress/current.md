@@ -4,7 +4,8 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Ninguna feature activa (`in_progress`, `in_review` ni `human_review`).
+Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última cerrada: F-032
+(2026-11-18, sin desplegar; ver abajo).
 
 ## Abierto fuera del código (2026-11-16)
 
@@ -26,78 +27,20 @@ F-072 (prioridad 1, sin spec) · F-057 (`spec_ready` desde 2026-10-24: refrescar
 antes de implementar) · F-070, F-071, F-073, F-067 sin spec · F-074 (consulta de obra de sv2,
 prioridad la más baja).
 
-## F-032 · spec rehecha (2026-11-17, spec-author)
+## F-032 · DONE 2026-11-18, sin desplegar (festivos por trabajador desde Sesame)
 
-Rama `feature/F-032-sesame-festivos-produccion`. Spec rehecha con el diseño del humano
-(festivos guardados en `festivos_trabajador`, Sesame solo al ingerir; DA11 retirada).
-Para validar con el humano: DA17 (bloqueo sin fila y encendido escalonado sv3 → sv4),
-DA18 (interruptor de sv4), DA19 (fila `*` como respaldo común: cambia el «sin fila ⇒ JSON»
-de DA15) y DA20 (cascada gemela en la lista cerrada). Resumen ⇒ `progress/spec_F-032.md`.
+Review APPROVED en tres pasadas (`progress/review_F-032.md`); la condición de la pasada 3 se
+cumple con la **aceptación literal del humano del 2026-11-18: «acepto. push hecho. mejora como
+encargo.»**, que cubre los 3 equivalentes y los 11 muertos por la raíz (anotada en cada uno en
+`progress/mutacion_F-032.md`). Integrada en `dev` en local. La mejora del selector de la
+herramienta de mutación queda como encargo en `arnes-base`.
 
-## F-032 · implementación en curso (implementer, 2026-11-17)
+Pendiente del humano (nada de esto lo hace el arnés):
+- **sesame-api**: P0 (sacar `.env` de git y rotar el token si lo lleva), P1 (commitear el
+  rediseño), P2 (Dockerfile), P3 (contrato ausente ⇒ 404), P4 (su documento en `azure-apps`),
+  P5 (RRHH completa Alicante).
+- **Manuales M1–M7** (desplegar sesame-api, contraste, redesplegar sv3 y sv4,
+  `infra/add_sesame_partes.ps1`, portal, `-Quitar`): comandos en `progress/impl_F-032.md`.
+- Menores: 8 avisos de ruff en `services/partes-persistencia/tests/test_f032_campana.py`
+  (fixtures importados, mejor en `conftest.py`); fila «Workers: 3» en Evidencias del informe.
 
-Rama `feature/F-032-sesame-festivos-produccion`, feature `in_progress`. Tareas por orden, un
-commit por tarea. Informe final ⇒ `progress/impl_F-032.md`.
-
-Decisiones y desviaciones (justificadas):
-
-- **T12, `grep SesameCalendarioLaboral` no queda vacío del todo**: queda una mención en el
-  docstring de `infrastructure/calendario/json_calendario_laboral.py` (línea 13), fichero que
-  design §6 prohíbe tocar. Se respeta §6 (solo es texto); igual con la mención a
-  `sesame_calendario_laboral.py` del docstring de `sesame_api_client.py` (§6).
-- **T12, tests del cliente de sv3 conservados**: `test_f003_r8_sesame_calendario.py` se retira
-  (R17), pero sus tres tests del `SesameApiClient` (contrato real, inmutables, gemelo con sv4)
-  se trasladan tal cual a `tests/test_f032_cliente_sesame.py`, con el refresco sobre el cliente
-  real: el cliente sigue en uso y no debe quedarse sin cubrir. `transporte_json`,
-  `fixtures_sesame.py` y `CalendarioFake(degradados=…)` siguen sirviendo a otros tests (el
-  conciliador conserva su duck-typing de `consumir_degradacion`, que no cambia): de
-  `tests/dobles.py` solo cambia un docstring.
-- `construir_calendario(settings, repositorio)` con Sesame y sin repositorio lanza
-  `ValueError` (arranque); `construir_casado_sigrid` gana `calendario=` opcional para que el
-  conciliador y el refresco compartan el mismo calendario (la caché que `olvidar` invalida).
-- `services/partes-persistencia/.env.example` (no versionado, gitignored) actualizado en local:
-  fuera `SESAME_CACHE_TTL_S`, dentro `SESAME_FESTIVOS_MINIMOS=1`.
-
-## F-032 · desbloqueada (2026-11-17)
-
-Se bloqueó en T17 porque cayeron dos tests que no estaban en la lista:
-`test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable` y
-`test_f056_vista.py::test_f056_r45_r6_decidir_ajustar_sin_calendario_es_409`.
-El humano aprobó la enmienda el 2026-11-17. Queda registrada en `tasks.md` y cubre:
-- el recuento de funciones baja a 301;
-- el test de la vista se reescribe: con calendario no fiable, «Ajustar» se decide;
-- se borran las reglas CSS muertas.
-La feature vuelve a `in_progress` y se sigue desde T19.
-
-**Desviaciones a revisar por el líder:**
-- **El texto de `aviso_sesame` ya está escrito.** Es `AVISO_SESAME` en `web/app.py` y lleva
-  «Sin calendario de Sesame». Por eso `test_f032_r25_aviso_sesame_del_preflight` ya pasa en
-  T18; a T19 solo le quedan las plantillas.
-- **`test_f003_r25_la_marca_se_ve_en_las_vistas`.** La lista de T16 lo deja fuera de los que
-  cambian. Aun así, si no se toca se pone en rojo (nada nuevo se marca). Lo he adaptado para que
-  siembre la marca directamente (R24); conserva su intención.
-- **`test_f022_aprobar_seleccion.py` ya no manda `forzar_sin_sesame`.** Así queda vacío el
-  grep de verificación de T17. El caso «se ignora» lo cubre `test_f032_sin_bloqueo.py`.
-- **CSS muerto en `static/styles.css`:** borrado tras la enmienda.
-- **`motivo_ok` se conserva.** El parámetro de `marcar_registros_sigrid` ya no lo pasa nadie;
-  solo cambia su docstring, como dice §5.10.
-- **El contraste llama a `_get` del cliente.** `contrastar_festivos_sesame.py` usa
-  `SesameApiClient._get` para listar los calendarios: el cliente no expone el listado y §6
-  prohíbe tocarlo. Además, `--impacto` cuenta solo las líneas del año `--ano`.
-
-## F-032 · implementación terminada (implementer, 2026-11-17)
-
-T1–T26 y T31 hechas; `bash harness/init.sh` en verde (cobertura 95,4 % de 613 líneas).
-T27: la campaña de mutación queda para la pasada de campaña (tras el APPROVED del reviewer).
-T28–T30 son manuales del humano: los comandos de M1–M7 están en design §7
-(`specs/F-032-sesame-festivos-produccion/design.md`) y en «Verificaciones manuales pendientes»
-de `progress/impl_F-032.md`. `azure-apps` commit `af27d0c`, sin push. Informe ⇒
-`progress/impl_F-032.md`. Desviaciones de T21/T26 en el informe (título «Festivo: …» de la
-celda; `sesame-api.md` nombrado como pendiente P4 en vez de enlazado, porque no existe).
-
-## F-032 · enmienda tras la review 1 (implementer, 2026-11-17)
-
-`progress/review_F-032.md` pidió cambios por R3: DNIs en los logs de httpx en INFO (sv3 y sv4) y
-en el WARNING de `jornada_contrato`. La enmienda la aprobó el humano el 2026-11-17 y es T32–T34
-en `tasks.md`: httpx en WARNING en los dos `logging_config.py`, el WARNING solo con
-`type(exc).__name__`, tests con el cliente y el logging reales, y el comentario de `obra_detail`.

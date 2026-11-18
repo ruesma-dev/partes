@@ -95,7 +95,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba que el índice `ux_festivos_trabajador_dni_ano` es UNIQUE (DDL esperado) en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 3. `services/partes-front/infrastructure/database/orm_models.py:697` [booleano]
 
@@ -106,7 +106,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 4. `services/partes-front/infrastructure/database/orm_models.py:700` [booleano]
 
@@ -117,7 +117,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 5. `services/partes-front/infrastructure/database/orm_models.py:703` [booleano]
 
@@ -128,7 +128,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 6. `services/partes-front/infrastructure/database/orm_models.py:706` [booleano]
 
@@ -139,7 +139,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 7. `services/partes-front/infrastructure/database/orm_models.py:709` [entero]
 
@@ -150,7 +150,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba el DDL literal `leido_en_utc VARCHAR(40)` en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 8. `services/partes-persistencia/application/pipelines/persist_parte_pipeline.py:297` [entero]
 
@@ -304,7 +304,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: es **equivalente**. `settings` es siempre `None` o un `Settings` de pydantic, que no define `__bool__` ni `__len__` (comprobado: `hasattr(Settings, '__len__')` y `'__bool__'` son False con pydantic 2.13.4), así que `is not None` y la veracidad dan lo mismo para todo valor posible.
-> Decisión: **mutante equivalente**, sin test.
+> Decisión: **mutante equivalente**, sin test. **Aceptado por el humano el 2026-11-18 («acepto»).**
 
 ### 22. `services/partes-persistencia/contrastar_festivos_sesame.py:415` [booleano]
 
@@ -348,7 +348,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 26. `services/partes-persistencia/infrastructure/database/orm_models.py:700` [booleano]
 
@@ -359,7 +359,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 27. `services/partes-persistencia/infrastructure/database/orm_models.py:703` [booleano]
 
@@ -370,7 +370,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 28. `services/partes-persistencia/infrastructure/database/orm_models.py:706` [booleano]
 
@@ -381,7 +381,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba `nullable is False` en cada columna que no es la clave en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 29. `services/partes-persistencia/infrastructure/database/orm_models.py:709` [entero]
 
@@ -392,7 +392,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: SÍ lo caza un test, pero de la raíz: `tests/test_f032_contrato_festivos.py` comprueba el DDL literal `leido_en_utc VARCHAR(40)` en las DOS copias del ORM (R1). La campaña solo corre las suites de sv3 y sv4 (sus líneas base), no `tests/` de la raíz, así que no lo ve.
-> Decisión: **muerto fuera de la campaña, no es hueco**. Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
+> Decisión: **muerto fuera de la campaña, no es hueco**. **Aceptado por el humano el 2026-11-18 («acepto»).** Verificado a mano: con el mutante aplicado en cada copia, `python -m pytest tests/test_f032_contrato_festivos.py` cae (1 failed). No se duplica el test dentro de cada servicio: el contrato de la tabla vive en la raíz porque es de las dos copias a la vez (patrón de F-010 y F-056).
 
 ### 30. `services/partes-persistencia/infrastructure/database/sqlalchemy_festivos_repository.py:45` [entero]
 
@@ -414,7 +414,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: es **equivalente**. `repositorio` es siempre `None` o un `SqlAlchemyFestivosRepository`, que no define `__bool__` ni `__len__` (comprobado: ni él ni `TablaCalendarioLaboral` definen esos métodos (grep vacío)), así que `is not None` y la veracidad dan lo mismo para todo valor posible.
-> Decisión: **mutante equivalente**, sin test.
+> Decisión: **mutante equivalente**, sin test. **Aceptado por el humano el 2026-11-18 («acepto»).**
 
 ### 32. `services/partes-persistencia/interface_adapters/api/app.py:217` [veracidad]
 
@@ -425,7 +425,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: es **equivalente**. `calendario` es siempre `None` o un `TablaCalendarioLaboral` o un `JsonCalendarioLaboral`, que no define `__bool__` ni `__len__` (comprobado: ninguno define esos métodos (grep vacío en `infrastructure/calendario/`)), así que `is not None` y la veracidad dan lo mismo para todo valor posible.
-> Decisión: **mutante equivalente**, sin test.
+> Decisión: **mutante equivalente**, sin test. **Aceptado por el humano el 2026-11-18 («acepto»).**
 
 ## No muertos: código de salida
 
