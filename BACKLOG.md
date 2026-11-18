@@ -50,6 +50,7 @@ _Nada comprometido._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2026-11-18 | 2026-11-18 | Sin desplegar: sesame-api P0–P5 (P0: sacar el .env de git) y manuales M1–M7 (contraste, redespliegue de sv3 y sv4, add_sesame_partes.ps1) | 2 | critico |
 | F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 2026-11-15 | 2026-11-15 |  | 2 | critico |
 | F-001 | Test de estructura del monorepo (calentamiento) | sin fecha | sin anotar |  | 1 | estandar |
 | F-023 | Casado de trabajador/recurso contra Sigrid: solo los dados de alta y por la empresa correcta | sin fecha | sin anotar |  | 1 | critico |
@@ -80,7 +81,6 @@ _Nada comprometido._
 | F-013 | Informe de validación de datos Sesame por trabajador | sin fecha | sin anotar |  | 2 | estandar |
 | F-021 | Escribir la cuenta analitica en las lineas que sv5 registra en Sigrid | sin fecha | sin anotar |  | 2 | critico |
 | F-022 | Aprobar solo las lineas seleccionadas (visibles) en la vista detallada de obra o persona | sin fecha | sin anotar |  | 2 | critico |
-| F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | sin fecha | sin anotar |  | 2 | critico |
 | F-046 | Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045 | sin fecha | sin anotar | M6 (humano: «Aplicar» en el portal; reparto_pendiente tiene 1 fila pendiente desde el 2026-10-19) | 2 | critico |
 | F-053 | Pisar sin borrar: el pisado de conflictos de sv5 pone a 0 en Sigrid en vez de hacer DELETE | sin fecha | sin anotar |  | 2 | critico |
 | F-058 | sv2: si la cabecera sale vacía o su obra no existe en Sigrid, relee la página con Gemini y se queda con su cabecera; el prompt avisa de la cabecera | sin fecha | sin anotar | DA12 (humano): decidir el tope OBRA_EXISTE_TIMEOUT_S con la M4 del 2026-11-12 (p50 105 ms, 23 de 200 consultas ≥ 2 s, 3 ReadTimeout a 5 s). M2 superada | 2 | estandar |
@@ -227,6 +227,16 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
+
+estado **terminada** · cerrada el 2026-11-18 · spec aprobada el 2026-11-17 · OK del humano el 2026-11-18 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
+
+**Spec**: aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico)
+
+**Pendiente**: Sin desplegar: sesame-api P0–P5 (P0: sacar el .env de git) y manuales M1–M7 (contraste, redespliegue de sv3 y sv4, add_sesame_partes.ps1)
+
+Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
 
 ### F-068 · Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día
 
@@ -421,14 +431,6 @@ Pedida por el humano el 2026-09-30, prioridad maxima. Al registrar en Sigrid (sv
 estado **terminada** · sin fecha de cierre · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-022-aprobar-seleccionadas`
 
 Pedida por el humano el 2026-09-30, prioridad maxima. En el portal (sv4), en la vista detallada de una obra o de una persona, si el usuario selecciona varias lineas, al pulsar 'aprobar todo' solo deben aprobarse (y registrarse en Sigrid) las lineas seleccionadas, que el humano describe como 'las visibles'. Hoy el boton aprueba el conjunto completo de la vista (preflight -> encolar/ejecutar en /api/aprobar/*). A CONFIRMAR EN LA SPEC con el humano: si 'seleccionadas' significa las que quedan visibles tras filtrar la vista, las marcadas con casilla, o ambas; que pasa con el resto (quedan pendientes, sin cambio); que el preflight, los conflictos a pisar, el bloqueo por Sesame y el resumen del modal cuenten solo esas lineas; que el servidor valide la seleccion (no fiarse solo del cliente). Servicios: sv4 (portal y API de aprobacion); sv5 no deberia cambiar si recibe ya la lista de lineas: verificarlo en la spec. RIGOR estandar. ACLARADO 2026-09-30 (correo de Juan Romero 'RV: CAPTURAS'): 'opcion de seleccionar varias lineas y aprobarlas, por si quiero dejar alguna pendiente' => seleccion explicita de lineas (casillas) en la vista detallada; el humano lo describio tambien como 'las visibles': la spec debe cubrir ambos (lo filtrado y lo marcado) y confirmarlo.
-
-### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
-
-estado **terminada** · sin fecha de cierre · spec aprobada el 2026-11-17 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-032-sesame-festivos-produccion`
-
-**Spec**: aprobada 2026-11-17 (DA1–DA10, DA12–DA20 decididas; DA11 retirada; DA17 sin bloqueo, DA19 respaldo actual; rigor crítico)
-
-Pedida por el humano el 2026-10-06. La integracion ya existe en el codigo (F-003 done, F-013 done: clientes `infrastructure/sesame/` de sv3 y sv4, CalendarioProvider, festivos por calendario asignado a cada trabajador), pero en Azure esta APAGADA: el arranque de sv3 dice «[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los festivos salen del JSON local config/calendario_laboral.json». Motivo: el servicio pasarela `sesame-api` (repo C:/Users/pgris/PycharmProjects/sesame-api, uvicorn local en 8006) NO esta desplegado en Azure y su rediseño estaba sin commitear a 2026-08-18. LO QUE SE PIDE: vincular partes con Sesame y leer de ahi los festivos. A DECIDIR EN LA SPEC: (a) desplegar sesame-api en Azure (repo propio, su documento en azure-apps; red: ingress interno en el mismo Container Apps Environment que partes o el que corresponda; secretos SESAME_TOKEN y API_KEYS en Key Vault), trabajo fuera de este repo que el humano debe autorizar; (b) configurar SESAME_API_BASE_URL y SESAME_API_KEY (secretref) en sv3 y sv4 y verificar el cableado; (c) comportamiento si Sesame no responde (hoy: fallback al JSON local; mantenerlo y avisar); (d) contraste de los festivos de Sesame con el JSON actual y por calendario (Madrid por defecto, Alicante, Malaga, Tomares, Sevilla) antes de encender; (e) que pasa con los partes ya conciliados (recalculo de extras en festivo); (f) jornada y contratos: Sesame HR tenia 0/218 contratos a 2026-08-18 y por eso F-011 sigue aparcada; esta feature es SOLO festivos. Servicios: sv3 y sv4 (configuracion), mas sesame-api (otro repo). Actualizar azure-apps/partes.md (pasamos a consumir sesame-api).
 
 ### F-046 · Reajuste en Sigrid al aprobar: al aprobar el segundo parte del dia, editar con aviso previo el primero ya aprobado o registrado para llevarlo al reparto ponderado de F-045
 
