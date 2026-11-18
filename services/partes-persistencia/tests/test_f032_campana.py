@@ -24,13 +24,14 @@ from application.services.refresco_festivos import (
 from infrastructure.database.sqlalchemy_festivos_repository import (
     SqlAlchemyFestivosRepository,
 )
-from infrastructure.sesame.sesame_api_client import SesameApiClient
+from infrastructure.sesame.sesame_hr_client import SesameHrClient
 from tests.dobles import FabricaSesionSqlite
 from tests.test_f032_contraste import (  # noqa: F401 (fixtures)
     ANO,
     CLAVE,
     CORTO,
     MADRID,
+    URL,
     VACIO,
     Sesame,
     _cal,
@@ -95,7 +96,7 @@ def test_f032_r11_leer_todas_cuenta_las_omitidas_desde_cero(caplog) -> None:
 # ------------------------------- contraste ------------------------------ #
 
 def _args(tmp_path, ruta_calendario, *extra):
-    return ["--ano", "2026", "--base-url", "http://s:1", "--api-key", CLAVE,
+    return ["--ano", "2026", "--base-url", URL,
             "--calendario", ruta_calendario, "--salida", str(tmp_path),
             *extra]
 
@@ -112,7 +113,7 @@ def test_f032_r31_cada_fallo_sale_con_su_codigo(
     assert _main(["--ano", "2026", "--calendario", ruta_calendario,
                   "--salida", str(tmp_path)], Sesame()) == 2
     assert _main(_args(tmp_path, ruta_calendario),
-                 Sesame(listado_status=502)) == 3
+                 Sesame(listado_status=403)) == 3
     assert _main(_args(tmp_path, ruta_calendario, "--impacto"), Sesame(),
                  repositorio=RepoRoto()) == 4
     assert list(tmp_path.glob("contraste_*")) == []
@@ -154,8 +155,8 @@ def test_f032_r31_el_csv_lleva_el_id_del_calendario(respaldo) -> None:
 
 def test_f032_r29_listar_calendarios_devuelve_los_de_sesame() -> None:
     """[19]"""
-    cliente = SesameApiClient(base_url="http://s:1", api_key=CLAVE,
-                              transport=Sesame().transport())
+    cliente = SesameHrClient(base_url=URL, token=CLAVE,
+                             transport=Sesame().transport())
     assert [c["id"] for c in cfs.listar_calendarios(cliente)] == [
         "cal-mad", "cal-corto"]
 
@@ -163,7 +164,7 @@ def test_f032_r29_listar_calendarios_devuelve_los_de_sesame() -> None:
 def test_f032_r31_el_ano_es_obligatorio() -> None:
     """[20]"""
     with pytest.raises(SystemExit):
-        cfs._argumentos(["--base-url", "http://s:1"])
+        cfs._argumentos(["--base-url", URL])
 
 
 def test_f032_r31_la_salida_se_crea_aunque_falten_carpetas(
