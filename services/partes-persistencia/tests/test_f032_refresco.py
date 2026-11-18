@@ -19,7 +19,7 @@ from application.services.refresco_festivos import (
     ResultadoRefresco,
     anos_de_semana,
 )
-from infrastructure.sesame.sesame_api_client import FestivoDia
+from infrastructure.sesame.sesame_hr_client import FestivoDia
 
 DNI = "12345678Z"
 OTRO = "87654321X"
