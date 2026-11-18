@@ -398,7 +398,7 @@ class CalendarioNoFiable(CalendarioProvider):
     """Sesame configurado pero caido: nada es fiable (R6)."""
 
     def __init__(self):
-        super().__init__(cliente=None, respaldo_holiday_name=lambda d: None)
+        super().__init__(respaldo_holiday_name=lambda d: None)
 
     def fiable_para(self, consultas):
         list(consultas)

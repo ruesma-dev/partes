@@ -42,6 +42,6 @@ def configure_logging(log_dir: Path, level: str) -> None:
         },
     }
     logging.config.dictConfig(config)
-    # F-032 (R3): httpx escribe en INFO la URL completa, y las de sesame-api
-    # llevan el DNI en la query. Como en sv5, solo sus WARNING.
+    # F-032 (R3): httpx escribe en INFO la URL completa con su query (y
+    # alguna puede llevar datos personales). Como en sv5, solo sus WARNING.
     logging.getLogger("httpx").setLevel(logging.WARNING)

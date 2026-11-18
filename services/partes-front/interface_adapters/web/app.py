@@ -111,7 +111,6 @@ from application.services.jornada_resolver import (
     parsear_mapa_semanal,
 )
 from config.settings import Settings
-from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.parte_repository import (
     ParteReviewRepository,
     extras_por_jornada,
@@ -553,40 +552,28 @@ def build_app(
         )
 
     # Festivos. El respaldo (libreria `holidays` + extras) sigue siendo
-    # el de siempre; con Sesame configurado, el proveedor lo antepone con
-    # los festivos de cada trabajador GUARDADOS en `festivos_trabajador`
-    # (F-032: los escribe sv3 al ingerir; sv4 no pide festivos a Sesame,
-    # solo la jornada del contrato) y deja el respaldo para quien no tiene
-    # fila, con aviso y sin bloqueo (DA17 = B).
+    # el de siempre; con FESTIVOS_SESAME_ENABLED, el proveedor lo antepone
+    # con los festivos de cada trabajador GUARDADOS en `festivos_trabajador`
+    # (F-032: los escribe sv3 al ingerir; F-077: sv4 no llama a Sesame
+    # para nada) y deja el respaldo para quien no tiene fila, con aviso y
+    # sin bloqueo (DA17 = B).
     holiday_provider = HolidayProvider(
         enabled=settings.holidays_enabled,
         subdiv=settings.holidays_subdiv,
         extra_iso=settings.holidays_extra_list,
     )
     if calendario_provider is None:
-        sesame_client: SesameApiClient | None = None
         if settings.sesame_enabled:
-            sesame_client = SesameApiClient(
-                base_url=settings.sesame_api_base_url,   # type: ignore[arg-type]
-                api_key=settings.sesame_api_key,         # type: ignore[arg-type]
-                timeout_s=settings.sesame_api_timeout_s,
-            )
-            logger.info(
-                "[sesame][wiring] CABLEADO base_url=%s key_len=%s ttl_s=%s "
-                "festivos=tabla",
-                settings.sesame_api_base_url,
-                len(settings.sesame_api_key or ""),
-                settings.sesame_cache_ttl_s,
-            )
+            logger.info("[sesame][wiring] CABLEADO festivos=tabla "
+                        "(sv4 no llama a Sesame)")
         else:
             logger.info(
-                "[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los "
-                "festivos salen del respaldo local."
+                "[sesame][wiring] DESACTIVADO (FESTIVOS_SESAME_ENABLED=false);"
+                " los festivos salen del respaldo local."
             )
         calendario_provider = CalendarioProvider(
-            cliente=sesame_client,
+            activo=settings.sesame_enabled,
             respaldo_holiday_name=holiday_provider.name,
-            ttl_seconds=settings.sesame_cache_ttl_s,
             leer_festivos=repository.list_festivos_trabajador,
         )
 
@@ -1207,17 +1194,9 @@ def build_app(
             (detail.dni, ano) for ano in anos_consultados
         )
 
-        # R13/R14: tipo de jornada del contrato. Sesame NO da las horas
-        # (peticion P1), asi que esto no toca ni un calculo; sirve para
-        # ensenar el dato y para avisar de una divergencia que hoy no ve
-        # nadie: contrato de jornada reducida contra jornada aplicada de
-        # 8 h. `reducida=None` es "no se sabe" y no dispara el aviso.
-        jornada_contrato = calendario_provider.jornada_contrato(detail.dni)
-        jornada_divergente = bool(
-            jornada_contrato is not None
-            and jornada_contrato.reducida
-            and _cd_efectivo >= settings.jornada_por_defecto
-        )
+        # F-077 (R22): fuera la jornada del contrato de Sesame (badge y
+        # aviso de divergencia de F-003 R13/R14): Sesame HR no tiene
+        # contratos y sv4 ya no llama a Sesame. Los KPI salen del candef.
 
         recalculando = repository.documentos_en_espera(
             r.document_id for r in detail.registros)
@@ -1232,8 +1211,6 @@ def build_app(
             "dias_incompletos": dias_incompletos,
             "dias_incompatibles": dias_incompatibles,
             "sesame_degradado": sesame_degradado,
-            "jornada_contrato": jornada_contrato,
-            "jornada_divergente": jornada_divergente,
             "extras": extras_por_jornada(detail.registros),
             "borradas_sigrid": _borradas_sigrid(detail.registros),
             "period_options": period_options,
