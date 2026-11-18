@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **70 features**, 15 abiertas y 55 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 55 en Done.
+Resumen: **71 features**, 16 abiertas y 55 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 1 en To do, 13 en Backlog y 55 en Done.
 
 ## Review
 
@@ -26,13 +26,15 @@ _Ninguna feature en implementación._
 
 ## To do
 
-_Nada comprometido._
+| # | Feature | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|
+| F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | sin spec | 1 | critico | `feature/F-077-sesame-directo-sin-pasarela` |
 
 ## Backlog
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 1 | critico | `feature/F-072-postventa-var-como-obras` |
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 2 | critico | `feature/F-072-postventa-var-como-obras` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 | F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
@@ -108,9 +110,17 @@ _Nada comprometido._
 
 ## Detalle
 
+### F-077 · sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api
+
+estado **to do (comprometida)** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-077-sesame-directo-sin-pasarela`
+
+**Spec**: sin spec
+
+Petición del humano del 2026-11-18: «para que necesitamos el proyecto sesame api? si ya hay una api oficial de sesame, conectemonos a ella usando el mismo mecanismo que el proyecto sesame api y saca la info». Propuesta del líder aprobada el 2026-11-18 («ok») con DA1–DA4 como recomendadas. F-032 (done, sin desplegar) guarda los festivos de cada trabajador en `festivos_trabajador`, refrescados por sv3 al ingerir llamando a la pasarela sesame-api (`/api/v1/festivos?dni=`); sesame-api no está desplegada ni commiteada y bloquea el encendido. LO QUE SE PIDE: (1) DA1: solo sv3 llama a Sesame; sv4 deja de llamar a Sesame (la jornada de Sesame no existe: 0/218 empleados con contrato; la jornada sigue con el candef como hoy, sin cambio visible) y lee los festivos de la tabla como ya hace. (2) Cliente nuevo en sv3 `infrastructure/sesame/` con el mismo mecanismo que sesame-api (repo sesame-api, `infrastructure/sesame/sesame_http_client.py`, solo lectura de su código, nunca su .env): `GET /core/v3/employees` paginado (limit/page + meta.lastPage) para el índice DNI → employeeId, `GET /schedule/v1/holidays?employeeId=&year=` (la respuesta trae `daysOff`), reintentos ante 429/5xx con Retry-After, token Bearer; SOLO GET, vigilado por test. (3) DA3: índice DNI → empleado en memoria de sv3 con TTL (~10 min), sin tabla nueva. (4) El resto de F-032 no cambia: tabla, refresco al ingerir, 404/sin empleado ⇒ sin fila y respaldo actual, fallo ⇒ conservar la fila o revisión, portal sin bloqueo. (5) Configuración: sv3 `SESAME_BASE_URL` (https://api-eu4.sesametime.com) y `SESAME_TOKEN` en lugar de `SESAME_API_BASE_URL`/`SESAME_API_KEY`; en Azure el token como secreto del Key Vault (`sesame-token`) por secretref, cableado por `infra/add_sesame_partes.ps1`. (6) Arrastre: herramienta de contraste, CLAUDE.md (los clientes `infrastructure/sesame/` dejan de ser gemelos sv3/sv4), `azure-apps/partes.md`, tests. DA2: sesame-api no se toca; partes deja de depender de ella. DA4: rigor crítico (datos personales e integración externa). Riesgos: el token de Sesame probablemente permite escribir (sesame-api tiene un script que inicia fichajes): cliente solo GET y, si Sesame lo permite, token de solo lectura; el token debe rotarse antes de usarlo (el .env de sesame-api está versionado, commits d226936 y dcef288); ningún DNI, nombre ni token en logs (lección de F-032: httpx en WARNING, comprobar con el logging real). Fuera: sesame-api, la jornada de Sesame (F-011), el despliegue.
+
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
-estado **pendiente** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+estado **pendiente** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
 
 **Spec**: sin spec
 
