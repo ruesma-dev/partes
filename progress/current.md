@@ -4,8 +4,14 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-077** (`in_review`, review 1 CHANGES_REQUESTED). Última cerrada: F-032
+Feature activa: **F-077** (`in_progress`, ciclo 1 de 2 tras la review 1). Última cerrada: F-032
 (2026-11-18, sin desplegar; ver abajo).
+
+## F-077 · vuelta a in_progress 2026-11-19 (review 1 CHANGES_REQUESTED)
+
+Cambio 3 de la review hecho por el líder (5e6ffb1). El humano elige **(A)** para O1 («a»):
+enmienda de R13, índice con empleados pero 0 DNIs ⇒ fallo (anotada en requirements R13,
+design §5.2 y tasks T5). Implementer: cambios 1–2 de `progress/review_F-077.md` y la enmienda.
 
 ## Abierto fuera del código (2026-11-16)
 

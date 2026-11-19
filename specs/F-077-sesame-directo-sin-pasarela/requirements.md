@@ -50,9 +50,9 @@ DNI normalizado → empleado de Sesame. **No encontrado**: DNI ausente de un ín
 - **R12.** Con DNIs repetidos debe quedarse el empleado activo y, a igualdad, el primero; las
   filas sin DNI se omiten. El log de construcción da solo recuentos (empleados, duplicados,
   sin DNI, páginas).
-- **R13.** SI falla cualquier página del índice (R2–R4) o salen
-  0 empleados, ENTONCES el índice no se guarda y la llamada es fallo (DA8). La siguiente
-  llamada fuera del corte lo vuelve a intentar.
+- **R13.** SI falla cualquier página del índice (R2–R4), salen 0 empleados o ninguno trae DNI
+  (enmienda del humano 2026-11-19, O1 de la review 1), ENTONCES el índice no se guarda y la
+  llamada es fallo (DA8). La siguiente llamada fuera del corte lo vuelve a intentar.
 - **R14.** CUANDO falla el índice o una llamada de festivos acaba en `SesameNoDisponible`, las
   llamadas de los 60 s siguientes deben fallar con `SesameNoDisponible` sin tocar la red (DA8).
   Un 404 de festivos o un cuerpo ilegible de un empleado no abren el corte.

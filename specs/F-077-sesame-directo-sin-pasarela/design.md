@@ -126,8 +126,8 @@ class FestivosSesameHr:
 ```
 Orden de `festivos`: `normalize_dni`; vacío ⇒ `None` (sin red). En corte ⇒ `SesameNoDisponible
 ("corte")`. Índice vigente o reconstruido (R11): `dict[dni_norm, EmpleadoSesame]` con la regla
-de R12 y log `[sesame-hr] indice empleados=… duplicados=… sin_dni=…`; 0 empleados o cualquier
-excepción del listado ⇒ no se guarda, se abre el corte y sube `SesameNoDisponible` (R13–R14).
+de R12 y log `[sesame-hr] indice empleados=… duplicados=… sin_dni=…`; 0 empleados, 0 DNIs o
+cualquier excepción del listado ⇒ no se guarda, se abre el corte y sube `SesameNoDisponible` (R13–R14).
 DNI ausente ⇒ `None` (DA6). Presente ⇒ `cliente.festivos_de_empleado(id, ano)`; si lanza
 `SesameNoDisponible`, abre el corte y relanza; otro `RuntimeError` (404, cuerpo) se relanza sin
 corte. `threading.Lock` alrededor del índice y del corte. Nada a disco (R19).
