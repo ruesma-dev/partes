@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-077** (`in_progress`, ciclo 1 de 2 tras la review 1). Última cerrada: F-032
+Feature activa: **F-077** (`in_review`, ciclo 1 de 2 hecho: review 1 resuelta, ver `progress/impl_F-077.md`). Última cerrada: F-032
 (2026-11-18, sin desplegar; ver abajo).
 
 ## F-077 · vuelta a in_progress 2026-11-19 (review 1 CHANGES_REQUESTED)
