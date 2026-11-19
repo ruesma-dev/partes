@@ -125,8 +125,10 @@ def test_f023_r8_el_caso_resuelto_no_se_loguea_como_desconocido(caplog) -> None:
 def test_f023_r7_la_tabla_versionada_trae_las_dos_empresas_activas() -> None:
     datos = yaml.safe_load(
         (RAIZ / "config" / "empresas_membrete.yaml").read_text("utf-8"))
-    # F-029 anade a la 1 el alias del logotipo (RUΞSMA).
-    assert parsear_alias(datos) == {1: ["RUESMA", "RUΞSMA"], 28: ["PORSAN"]}
+    # F-029 anade a la 1 el alias del logotipo (RUΞSMA); F-078, a la 28 el
+    # DORSAN que lee el OCR.
+    assert parsear_alias(datos) == {
+        1: ["RUESMA", "RUΞSMA"], 28: ["PORSAN", "DORSAN"]}
 
 
 def test_f023_parsear_alias_acepta_claves_de_texto_y_quita_vacios() -> None:

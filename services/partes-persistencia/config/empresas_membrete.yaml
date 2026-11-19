@@ -17,3 +17,7 @@
   - RUΞSMA
 28:
   - PORSAN
+  # F-078: el OCR leyo «Dorsan S.L. E HIJOS CONSTRUCCIONES» (D por P) en
+  # partes de Porsan de la obra 0730, del 11 al 13/11/2026, y la empresa
+  # del membrete quedaba desconocida (`sin_alias`).
+  - DORSAN
