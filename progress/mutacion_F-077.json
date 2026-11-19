@@ -1,0 +1,785 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-077",
+ "sha": "11d32fc3ce0071bbac53be70ea35cd8b924c9af7",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 141,
+ "candidatos": 85,
+ "evaluados": [
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 79,
+   "col": 23,
+   "operador": "booleano",
+   "original": "activo: bool = False,",
+   "mutado": "activo: bool = True,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 140,
+   "col": 11,
+   "operador": "not",
+   "original": "if not self._activo:",
+   "mutado": "if self._activo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/calendario_provider.py",
+   "linea": 174,
+   "col": 11,
+   "operador": "not",
+   "original": "if not self._activo:",
+   "mutado": "if self._activo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/config/settings.py",
+   "linea": 216,
+   "col": 8,
+   "operador": "booleano",
+   "original": "False, alias=\"FESTIVOS_SESAME_ENABLED\")",
+   "mutado": "True, alias=\"FESTIVOS_SESAME_ENABLED\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 181,
+   "col": 71,
+   "operador": "entero",
+   "original": "sesame_timeout_s: float = Field(10.0, alias=\"SESAME_TIMEOUT_S\", gt=0)",
+   "mutado": "sesame_timeout_s: float = Field(10.0, alias=\"SESAME_TIMEOUT_S\", gt=1)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 189,
+   "col": 23,
+   "operador": "logico",
+   "original": "texto = (valor or \"\").strip()",
+   "mutado": "texto = (valor and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 190,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if texto and not texto.startswith(\"https://\"):",
+   "mutado": "if not (texto and not texto.startswith(\"https://\")):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 192,
+   "col": 21,
+   "operador": "logico",
+   "original": "return texto or None",
+   "mutado": "return texto and None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 269,
+   "col": 34,
+   "operador": "logico",
+   "original": "(self.sesame_base_url or \"\").strip()",
+   "mutado": "(self.sesame_base_url and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/config/settings.py",
+   "linea": 270,
+   "col": 35,
+   "operador": "logico",
+   "original": "and (self.sesame_token or \"\").strip()",
+   "mutado": "and (self.sesame_token and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 373,
+   "col": 16,
+   "operador": "logico",
+   "original": "or (settings and settings.sesame_base_url)",
+   "mutado": "and (settings and settings.sesame_base_url)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 374,
+   "col": 16,
+   "operador": "logico",
+   "original": "or os.environ.get(\"SESAME_BASE_URL\") or \"\").strip()",
+   "mutado": "and os.environ.get(\"SESAME_BASE_URL\") or \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 375,
+   "col": 7,
+   "operador": "not",
+   "original": "if not base_url.startswith(\"https://\"):",
+   "mutado": "if base_url.startswith(\"https://\"):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 379,
+   "col": 23,
+   "operador": "logico",
+   "original": "token = ((settings and settings.sesame_token)",
+   "mutado": "token = ((settings or settings.sesame_token)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 380,
+   "col": 13,
+   "operador": "logico",
+   "original": "or os.environ.get(\"SESAME_TOKEN\")",
+   "mutado": "and os.environ.get(\"SESAME_TOKEN\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 381,
+   "col": 52,
+   "operador": "logico",
+   "original": "or pedir_token(\"Token de Sesame HR: \") or \"\").strip()",
+   "mutado": "or pedir_token(\"Token de Sesame HR: \") and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 382,
+   "col": 7,
+   "operador": "not",
+   "original": "if not token:",
+   "mutado": "if token:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/contrastar_festivos_sesame.py",
+   "linea": 396,
+   "col": 48,
+   "operador": "ternario",
+   "original": "timeout_s=(settings.sesame_timeout_s if settings else 10.0),",
+   "mutado": "timeout_s=(settings.sesame_timeout_s if not settings else 10.0),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 52,
+   "col": 30,
+   "operador": "entero",
+   "original": "ttl_indice_s: float = 600,",
+   "mutado": "ttl_indice_s: float = 601,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 53,
+   "col": 25,
+   "operador": "entero",
+   "original": "corte_s: float = 60,",
+   "mutado": "corte_s: float = 61,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 69,
+   "col": 11,
+   "operador": "not",
+   "original": "if not dni_norm:",
+   "mutado": "if dni_norm:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 75,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if empleado is None:",
+   "mutado": "if not empleado:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 86,
+   "col": 12,
+   "operador": "veracidad",
+   "original": "if (self._corte_hasta is not None",
+   "mutado": "if (self._corte_hasta",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 87,
+   "col": 34,
+   "operador": "comparacion",
+   "original": "and self._reloj() < self._corte_hasta):",
+   "mutado": "and self._reloj() <= self._corte_hasta):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 91,
+   "col": 42,
+   "operador": "aritmetico",
+   "original": "self._corte_hasta = self._reloj() + self._corte_s",
+   "mutado": "self._corte_hasta = self._reloj() - self._corte_s",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 95,
+   "col": 36,
+   "operador": "logico",
+   "original": "if self._indice is not None and ahora - self._indice[0] < self._ttl_s:",
+   "mutado": "if self._indice is not None or ahora - self._indice[0] < self._ttl_s:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 96,
+   "col": 32,
+   "operador": "entero",
+   "original": "return self._indice[1]",
+   "mutado": "return self._indice[2]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 105,
+   "col": 11,
+   "operador": "not",
+   "original": "if not empleados:",
+   "mutado": "if empleados:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 109,
+   "col": 31,
+   "operador": "entero",
+   "original": "duplicados = sin_dni = 0",
+   "mutado": "duplicados = sin_dni = 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 111,
+   "col": 15,
+   "operador": "not",
+   "original": "if not empleado.dni_norm:",
+   "mutado": "if empleado.dni_norm:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 112,
+   "col": 27,
+   "operador": "entero",
+   "original": "sin_dni += 1",
+   "mutado": "sin_dni += 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 115,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if previo is None:",
+   "mutado": "if not previo:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 118,
+   "col": 23,
+   "operador": "aritmetico",
+   "original": "duplicados += 1",
+   "mutado": "duplicados -= 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 119,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if empleado.activo and not previo.activo:",
+   "mutado": "if not (empleado.activo and not previo.activo):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py",
+   "linea": 126,
+   "col": 11,
+   "operador": "not",
+   "original": "if not indice:",
+   "mutado": "if indice:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 47,
+   "col": 28,
+   "operador": "entero",
+   "original": "_REINTENTABLES = frozenset({429, 500, 502, 503, 504})",
+   "mutado": "_REINTENTABLES = frozenset({430, 500, 502, 503, 504})",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 57,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 64,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 72,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 88,
+   "col": 25,
+   "operador": "entero",
+   "original": "page_size: int = 100,",
+   "mutado": "page_size: int = 101,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 89,
+   "col": 30,
+   "operador": "entero",
+   "original": "max_reintentos: int = 2,",
+   "mutado": "max_reintentos: int = 3,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 90,
+   "col": 26,
+   "operador": "entero",
+   "original": "tope_filas: int = 20_000,",
+   "mutado": "tope_filas: int = 20001,",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 94,
+   "col": 11,
+   "operador": "not",
+   "original": "if not (base_url or \"\").startswith(\"https://\"):",
+   "mutado": "if (base_url or \"\").startswith(\"https://\"):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 96,
+   "col": 22,
+   "operador": "logico",
+   "original": "if not (token or \"\").strip():",
+   "mutado": "if not (token and \"\").strip():",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 107,
+   "col": 31,
+   "operador": "entero",
+   "original": "self.ultimas_paginas = 0",
+   "mutado": "self.ultimas_paginas = 1",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 126,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if not isinstance(fila, dict) or fila.get(\"id\") is None:",
+   "mutado": "if not (not isinstance(fila, dict) or fila.get(\"id\") is None):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 131,
+   "col": 42,
+   "operador": "comparacion",
+   "original": "activo=fila.get(\"status\") == \"active\",",
+   "mutado": "activo=fila.get(\"status\") != \"active\",",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 146,
+   "col": 15,
+   "operador": "not",
+   "original": "if not isinstance(fila, dict):",
+   "mutado": "if isinstance(fila, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 149,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if isinstance(fila.get(\"daysOff\"), list):",
+   "mutado": "if not isinstance(fila.get(\"daysOff\"), list):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 151,
+   "col": 42,
+   "operador": "formato",
+   "original": "return _festivos(dias, f\"{int(ano):04d}-\")",
+   "mutado": "return _festivos(dias, f\"{int(ano):05d}-\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 157,
+   "col": 15,
+   "operador": "not",
+   "original": "if not isinstance(cal, dict):",
+   "mutado": "if isinstance(cal, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 160,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if dias is None:",
+   "mutado": "if not dias:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 162,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if isinstance(dias, dict):",
+   "mutado": "if not isinstance(dias, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 168,
+   "col": 46,
+   "operador": "logico",
+   "original": "festivos=tuple(_festivos(dias or [], \"\")),",
+   "mutado": "festivos=tuple(_festivos(dias and [], \"\")),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 178,
+   "col": 17,
+   "operador": "entero",
+   "original": "pagina = 1",
+   "mutado": "pagina = 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 179,
+   "col": 14,
+   "operador": "booleano",
+   "original": "while True:",
+   "mutado": "while False:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 182,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if cuerpo is None:",
+   "mutado": "if not cuerpo:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 184,
+   "col": 15,
+   "operador": "not",
+   "original": "if not isinstance(cuerpo, dict):",
+   "mutado": "if isinstance(cuerpo, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 186,
+   "col": 39,
+   "operador": "logico",
+   "original": "datos = cuerpo.get(\"data\") or []",
+   "mutado": "datos = cuerpo.get(\"data\") and []",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 187,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if isinstance(datos, dict):",
+   "mutado": "if not isinstance(datos, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 189,
+   "col": 15,
+   "operador": "not",
+   "original": "if not isinstance(datos, list):",
+   "mutado": "if isinstance(datos, list):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 192,
+   "col": 49,
+   "operador": "logico",
+   "original": "ultima = int((cuerpo.get(\"meta\") or {}).get(\"lastPage\") or 1)",
+   "mutado": "ultima = int((cuerpo.get(\"meta\") and {}).get(\"lastPage\") or 1)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 196,
+   "col": 25,
+   "operador": "logico",
+   "original": "if not datos and pagina < ultima:",
+   "mutado": "if not datos or pagina < ultima:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 201,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if len(out) > self._tope_filas:",
+   "mutado": "if not (len(out) > self._tope_filas):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 203,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if pagina >= ultima:",
+   "mutado": "if pagina > ultima:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 206,
+   "col": 22,
+   "operador": "entero",
+   "original": "pagina += 1",
+   "mutado": "pagina += 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 215,
+   "col": 22,
+   "operador": "entero",
+   "original": "intento = 0",
+   "mutado": "intento = 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 216,
+   "col": 18,
+   "operador": "booleano",
+   "original": "while True:",
+   "mutado": "while False:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 220,
+   "col": 23,
+   "operador": "negacion",
+   "original": "if intento >= self._max_reintentos:",
+   "mutado": "if not (intento >= self._max_reintentos):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 224,
+   "col": 44,
+   "operador": "aritmetico",
+   "original": "espera = 1.0 * (intento + 1)",
+   "mutado": "espera = 1.0 * (intento - 1)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 229,
+   "col": 31,
+   "operador": "entero",
+   "original": "intento += 1",
+   "mutado": "intento += 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 232,
+   "col": 26,
+   "operador": "comparacion",
+   "original": "if estado == 404:",
+   "mutado": "if estado != 404:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 234,
+   "col": 26,
+   "operador": "comparacion",
+   "original": "if estado in _REINTENTABLES:",
+   "mutado": "if estado not in _REINTENTABLES:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 235,
+   "col": 23,
+   "operador": "negacion",
+   "original": "if intento >= self._max_reintentos:",
+   "mutado": "if not (intento >= self._max_reintentos):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 243,
+   "col": 31,
+   "operador": "entero",
+   "original": "intento += 1",
+   "mutado": "intento += 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 245,
+   "col": 26,
+   "operador": "comparacion",
+   "original": "if estado >= 400:",
+   "mutado": "if estado > 400:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 260,
+   "col": 23,
+   "operador": "aritmetico",
+   "original": "return float(1 + intento)",
+   "mutado": "return float(1 - intento)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 261,
+   "col": 7,
+   "operador": "not",
+   "original": "if not segundos >= 0:          # negativo o NaN: tampoco es una espera",
+   "mutado": "if segundos >= 0:          # negativo o NaN: tampoco es una espera",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 262,
+   "col": 23,
+   "operador": "aritmetico",
+   "original": "return float(1 + intento)",
+   "mutado": "return float(1 - intento)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 263,
+   "col": 11,
+   "operador": "minmax",
+   "original": "return min(segundos, _ESPERA_MAXIMA_S)",
+   "mutado": "return max(segundos, _ESPERA_MAXIMA_S)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 270,
+   "col": 11,
+   "operador": "not",
+   "original": "if not isinstance(dia, dict):",
+   "mutado": "if isinstance(dia, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 273,
+   "col": 24,
+   "operador": "not",
+   "original": "if not fecha or not fecha.startswith(prefijo):",
+   "mutado": "if not fecha or fecha.startswith(prefijo):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 281,
+   "col": 13,
+   "operador": "comparacion",
+   "original": "if valor is None:",
+   "mutado": "if valor is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py",
+   "linea": 284,
+   "col": 17,
+   "operador": "logico",
+   "original": "return texto or None",
+   "mutado": "return texto and None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/interface_adapters/api/app.py",
+   "linea": 97,
+   "col": 60,
+   "operador": "logico",
+   "original": "settings.sesame_base_url, len(settings.sesame_token or \"\"),",
+   "mutado": "settings.sesame_base_url, len(settings.sesame_token and \"\"),",
+   "veredicto": "muerto"
+  }
+ ]
+}
