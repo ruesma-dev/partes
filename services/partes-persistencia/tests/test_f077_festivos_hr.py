@@ -205,10 +205,30 @@ def test_f077_r13_cero_empleados_es_fallo() -> None:
     assert adaptador._indice is None                        # noqa: SLF001
 
 
-def test_f077_r13_solo_filas_sin_dni_cuentan_como_empleados() -> None:
-    """Hay empleados, aunque ninguno con DNI: el indice vale (y vacio)."""
-    sesame = SesameHrFalso(empleados=[pagina([empleado("e", None)])])
-    assert _adaptador(sesame).festivos(DNI_A, 2026) is None
+def test_f077_r13_solo_filas_sin_dni_cuentan_como_empleados(caplog) -> None:
+    """Hay empleados, pero ninguno con DNI: fallo como 0 empleados (R13).
+
+    No se guarda el indice, se abre el corte (60 s sin red) y el log de
+    recuentos se escribe igual.
+    """
+    reloj = Reloj()
+    sesame = SesameHrFalso(
+        empleados=[pagina([empleado("e1", None), empleado("e2", "")])])
+    adaptador = _adaptador(sesame, reloj)
+    with caplog.at_level(logging.INFO):
+        with pytest.raises(SesameNoDisponible) as exc:
+            adaptador.festivos(DNI_A, 2026)
+    assert str(exc.value) != "corte"
+    assert adaptador._indice is None                        # noqa: SLF001
+    assert [m for m in caplog.messages if "[sesame-hr] indice" in m] == [
+        "[sesame-hr] indice empleados=2 duplicados=0 sin_dni=2 paginas=1"]
+    n = len(sesame.peticiones)
+    reloj.t += 59.9
+    with pytest.raises(SesameNoDisponible) as exc:
+        adaptador.festivos(DNI_A, 2026)
+    assert str(exc.value) == "corte"
+    assert len(sesame.peticiones) == n                      # sin red
+    assert RUTA_FESTIVOS not in sesame.rutas()
 
 
 def test_f077_r14_tras_fallar_el_indice_60_s_sin_red() -> None:

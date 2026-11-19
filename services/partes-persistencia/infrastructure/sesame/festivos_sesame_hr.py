@@ -14,8 +14,8 @@ da a `RefrescoFestivos` el contrato de F-032, que NO cambia (R10):
 El INDICE (DNI normalizado -> id y si esta activo) vive solo en memoria
 (DA3, R19) y se reconstruye cada `ttl_indice_s` (R11). Con DNIs repetidos
 gana el activo y, a igualdad, el primero; las filas sin DNI se omiten
-(R12). Es TODO O NADA (DA8, R13): si falla cualquier pagina o salen cero
-empleados, no se guarda nada y la llamada falla. Tras un fallo de
+(R12). Es TODO O NADA (DA8, R13): si falla cualquier pagina, salen cero
+empleados o ninguno trae DNI, no se guarda nada y la llamada falla. Tras un fallo de
 disponibilidad (el del indice o un `SesameNoDisponible` de festivos) se
 abre un CORTE de `corte_s`: durante el, cada llamada falla al instante sin
 tocar la red (R14), para que un parte de veinte trabajadores no espere
@@ -123,5 +123,9 @@ class FestivosSesameHr:
             _LOG_PREFIX, len(empleados), duplicados, sin_dni,
             self._cliente.ultimas_paginas,
         )
+        if not indice:
+            # Empleados, pero ninguno con DNI: tan inservible como 0 (R13).
+            self._abrir_corte()
+            raise SesameNoDisponible("sesame indice sin DNIs")
         self._indice = (ahora, indice)
         return indice
