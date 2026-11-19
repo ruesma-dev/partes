@@ -2,8 +2,8 @@
 
 sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela
 `sesame-api`. Rama `feature/F-077-sesame-directo-sin-pasarela`. Spec:
-`specs/F-077-sesame-directo-sin-pasarela/` (DA1–DA14 = A). Hechas T1–T15 y T19; ciclo 1 de la review 1 al final. T16 (mutación)
-la lanza el líder tras el APPROVED. T17–T18 son manuales del humano.
+`specs/F-077-sesame-directo-sin-pasarela/` (DA1–DA14 = A). Hechas T1–T15 y T19; ciclo 1 de la review 1 y pasada de campaña (T16) al
+final. T17–T18 son manuales del humano.
 
 ## Qué cambió
 
@@ -20,44 +20,30 @@ la lanza el líder tras el APPROVED. T17–T18 son manuales del humano.
 - **Cableado de sv3** (`config/settings.py`, `interface_adapters/api/app.py`, R15–R18):
   `SESAME_BASE_URL` (solo `https://`), `SESAME_TOKEN` y `SESAME_TIMEOUT_S`. Se retira
   `sesame_api_client.py`. Los logs no llevan datos personales.
-- **Herramienta `contrastar_festivos_sesame.py`** (R24–R26): lee los calendarios de Sesame HR.
-  - El token sale del entorno o de `pedir_token`, por consola sin eco. No hay `--api-key`.
-  - Las faltas ⇒ código ≠ 0 y no se escribe nada.
-  - `--impacto` usa el adaptador. Los informes no llevan nombres ni emails.
-- **sv4 sin Sesame** (T11, R20–R22):
-  - Fuera `infrastructure/sesame/`, `validar_datos_sesame.py` y `SESAME_API_*` /
-    `SESAME_CACHE_TTL_S`.
-  - Interruptor `FESTIVOS_SESAME_ENABLED` (defecto `false`, DA10), y
-    `CalendarioProvider(activo=…)` en vez de `cliente=`/`ttl_seconds=`.
-  - La vista de trabajador pierde el badge «contrato:» y el aviso de divergencia (DA9).
-- **Infra** (R27–R30): `SESAME-TOKEN` (Key Vault) ⇒ secretref `sesame-token`, solo en sv3. sv4
-  lleva solo `FESTIVOS_SESAME_ENABLED`. `add_sesame_partes.ps1` valida `https://` y el secreto
-  antes del primer `containerapp`, retira lo viejo solo si está y `-Quitar` lo apaga.
-  `create_*`, `add_secrets` y `00_vars` también cambian (`00_vars` queda vacía).
-- **Documentación** (R33): `CLAUDE.md` saca los clientes `infrastructure/sesame/` de la lista
-  cerrada. También cambian `harness/servicios.json`, `docs/ARCHITECTURE.md`,
-  `infra/README_partes.md` y `README.md`.
+- **Herramienta `contrastar_festivos_sesame.py`** (R24–R26): calendarios de Sesame HR; token
+  del entorno o por consola sin eco (sin `--api-key`); faltas ⇒ código ≠ 0 sin escribir;
+  `--impacto` usa el adaptador; informes sin nombres ni emails.
+- **sv4 sin Sesame** (T11, R20–R22): fuera `infrastructure/sesame/`, `validar_datos_sesame.py`,
+  `SESAME_API_*`/`SESAME_CACHE_TTL_S`, el badge «contrato:» y el aviso de divergencia (DA9);
+  interruptor `FESTIVOS_SESAME_ENABLED` (`false`, DA10) y `CalendarioProvider(activo=…)`.
+- **Infra** (R27–R30): `SESAME-TOKEN` (KV) ⇒ secretref `sesame-token`, solo sv3;
+  `add_sesame_partes.ps1` valida `https://` y el secreto antes del primer `containerapp`, retira
+  lo viejo si está y `-Quitar` apaga. Cambian `create_*`, `add_secrets` y `00_vars` (vacía).
+- **Documentación** (R33): `CLAUDE.md` saca `infrastructure/sesame/` de la lista cerrada; cambian
+  `harness/servicios.json`, `docs/ARCHITECTURE.md`, `infra/README_partes.md` y `README.md`.
 
 ## Ficheros
 
-Lista completa: `git diff --stat dev..HEAD`.
+Lista completa: `git diff --stat dev..HEAD` (y design §3–§4).
 
-- sv3: nuevos `infrastructure/sesame/{sesame_hr_client,festivos_sesame_hr}.py`, fuera
-  `sesame_api_client.py`; cambian `config/{settings,logging_config}.py`, `api/app.py`,
-  `contrastar_festivos_sesame.py` y docstrings de tres módulos (design §3). Tests nuevos
-  `test_f077_{cliente_hr,festivos_hr,wiring,ingesta_hr,logs_sin_datos,contraste}.py`,
-  `fixtures_sesame.py` reescrito (ficticio), adaptados `test_f032_{wiring,refresco,contraste,
-  campana}.py` y `test_f003_r10_wiring_sv3.py`, fuera `test_f032_{cliente_sesame,logs_sin_dni}.py`.
-- sv4: cambian `config/{settings,logging_config}.py`, `calendario_provider.py`, `web/app.py` y
-  `trabajador_detail.html`; fuera `infrastructure/sesame/` y `validar_datos_sesame.py`. Test nuevo
-  `test_f077_sin_sesame_sv4.py`; adaptados (lista cerrada de design §4 y enmienda)
-  `test_f003_r{4,7,16,23}_*.py`, `test_f032_{avisos,logs_sin_dni,provider_tabla,wiring_sv4}.py` y
-  `test_f056_decisiones.py`; fuera `test_f003_r1_sesame_client.py`,
-  `test_f003_r13_jornada_contrato.py`, `test_f013_informe_sesame.py` y `fixtures_sesame.py`.
-- Raíz: nuevos `tests/test_f077_{sin_pasarela,infra_sesame}.py`; fuera `test_f032_infra_sesame.py`.
-- Infra: `add_sesame_partes.ps1`, `create_capps_partes.ps1`, `create_sv4_front.ps1`,
-  `add_secrets_partes.ps1`, `00_vars_partes.ps1` y `README_partes.md`. Docs: `CLAUDE.md`,
-  `harness/servicios.json`, `docs/ARCHITECTURE.md` y `README.md`.
+- sv3: nuevos `infrastructure/sesame/{sesame_hr_client,festivos_sesame_hr}.py` (fuera
+  `sesame_api_client.py`), cambian `config/`, `api/app.py`, `contrastar_festivos_sesame.py` y
+  tres docstrings; tests nuevos `test_f077_*.py`, `fixtures_sesame.py` ficticio, F-032/F-003 adaptados.
+- sv4: fuera `infrastructure/sesame/` y `validar_datos_sesame.py`; cambian `config/`,
+  `calendario_provider.py`, `web/app.py`, `trabajador_detail.html`; test `test_f077_sin_sesame_sv4.py`
+  y los adaptados de la lista cerrada de design §4 (más la enmienda).
+- Raíz `tests/test_f077_{sin_pasarela,infra_sesame}.py`; infra (5 scripts y README) y docs
+  (`CLAUDE.md`, `servicios.json`, `ARCHITECTURE.md`, `README.md`).
 
 ## Desviaciones
 
@@ -67,17 +53,13 @@ Lista completa: `git diff --stat dev..HEAD`.
   `super().__init__(cliente=None, …)`.
   Solo cambió esa línea (≈401) a `super().__init__(respaldo_holiday_name=lambda d: None)`; los
   7 pasan sin tocar los otros dos ficheros. Enmienda en `tasks.md` (T11).
-- **CSS muerto (design §5.4, «si quedan muertas»).** `static/styles.css` no tiene reglas
-  `.jornada-contrato` ni de divergencia, así que no había nada que retirar. Las clases
-  `cell-sub` y `tag-difiere`, que se usan en otras vistas, se conservan. `static/app.js` no se
-  tocó, así que no hacía falta `node --check`.
+- **CSS muerto (design §5.4).** `styles.css` no tiene reglas `.jornada-contrato` ni de
+  divergencia: nada que retirar (`cell-sub`, `tag-difiere` siguen en uso); `app.js` intacto.
 
 ## Documento del ecosistema
 
-Cruza la frontera (design §8) y `CLAUDE.md` declara `azure-apps`. `azure-apps/partes.md`:
-commit **a568995** en `azure-apps`, aparte de la feature, con `pull --rebase` antes y sin
-conflicto. **Sin push**: lo hace el humano (`git -C C:\Users\pgris\PycharmProjects\azure-apps pull`
-y después `push`).
+`azure-apps/partes.md` (design §8): commit **a568995** aparte, `pull --rebase` antes, sin
+conflicto. **Sin push**: el humano, `git -C C:\Users\pgris\PycharmProjects\azure-apps pull` y luego `push`.
 
 ## Fase RED (trazas reales)
 
@@ -139,16 +121,10 @@ E     Left contains 9 more items, first extra item: 'services\\partes-front\\con
 ```
 
 
-## Verificación de T11
+## Verificación de T11 y T19
 
-Commit **914f8d7**. Suite de sv4: **3809 passed in 937.35s** (antes de la enmienda, 7 failed).
-Guardianes R20/R23/R31: 11 passed. Jinja2 de `trabajador_detail.html` parsea; `app.js` no se tocó.
-
-## Salida de `bash harness/init.sh` (T19)
-
-Primera pasada (2026-11-18/19) en ROJO solo por `PUERTA TAMAÑO` (`design.md` 252 > 250, por la
-enmienda de design §4); resuelto por el líder y T19 en verde en 9effd33 (cobertura 99,2 %,
-263/265). La salida vigente es la del ciclo 1, al final.
+T11 (914f8d7): sv4 **3809 passed in 937.35s**; guardianes R20/R23/R31 11 passed. T19: verde en
+9effd33 tras resolver el líder `PUERTA TAMAÑO` (design 252 > 250). Salida vigente: la del final.
 
 ## Verificaciones manuales pendientes (humano, design §7)
 
@@ -175,7 +151,7 @@ Cada M deja aquí su comando y su resultado real (T17–T18).
 
 ## Pendiente
 
-- T16: la campaña de mutación, en la pasada de campaña, tras el APPROVED del reviewer.
+- T16: aceptación del humano de los 3 mutantes equivalentes (pasada de campaña, al final).
 - T17–T18: M0–M6 del humano. Sin desplegar.
 - Push del humano: la rama `feature/F-077-sesame-directo-sin-pasarela` y `azure-apps`
   (a568995).
@@ -213,8 +189,31 @@ sv3 2722 passed, 2 skipped; sv4 3809 passed; sv1/sv2/sv5 en caché. `PUERTA COBE
 
 | Evidencia | Valor real |
 |---|---|
-| Tests | Ciclo 1: raíz 2537 passed, 48 skipped; sv3 2722 passed, 2 skipped; sv4 3809 passed; sv1, sv2 y sv5 verdes en caché |
+| Tests | Pasada de campaña: sv3 2732 passed, 2 skipped (+10 tests); raíz 2537 passed. Ciclo 1: raíz 2537 passed, 48 skipped; sv3 2722 passed, 2 skipped; sv4 3809 passed; sv1, sv2 y sv5 verdes en caché |
 | Cobertura de líneas cambiadas | **99.3 %** (266/268) en el ciclo 1, umbral del nivel `critico`: 90 % |
-| Mutación | Pendiente de T16: la pasada de campaña va tras el APPROVED (`python -m harness.mutacion --feature F-077`) |
+| Mutación | 141 generados, 85 evaluados (campaña completa, uno por línea), 73 muertos, **12 supervivientes**, 0 timeouts, 7791 s. Tras T16: 9 muertos con test, **3 equivalentes pendientes de aceptación del humano** (`progress/mutacion_F-077.md`) |
 | Tiempo de la suite | Ciclo 1, dentro de `init.sh`: raíz 1242.53 s, sv3 60.73 s, sv4 651.54 s |
 | Capa e2e | N/A (`CAPA E2E: N/A`, ningún servicio declara el bloque e2e) |
+
+## Pasada de campaña (T16)
+
+Campaña del líder sobre 11d32fc (`--workers 3`): 85 evaluados, 73 muertos, 12 supervivientes.
+Informe y datos commiteados en 611adac; análisis completo en `progress/mutacion_F-077.md`.
+Tests en dbecb3e (solo `services/partes-persistencia/tests/`, sin tocar producción):
+
+- `test_f077_wiring.py`: `SESAME_TIMEOUT_S=0.5` vale (design 5.3, `gt=0`) ⇒ n.º 1.
+- `test_f077_festivos_hr.py`: corte con reloj de origen negativo (R14, `monotonic`) ⇒ n.º 3.
+- `test_f077_cliente_hr.py`: dataclasses inmutables y hasheables (5.1) ⇒ n.º 5–7; tope por
+  defecto 20 000 (5.1, R2) ⇒ n.º 8; `daysOff: []` manda sobre `dayOff` (R8) ⇒ n.º 10; un 200
+  `[]`/`""` da «sin listado», no «HTTP 404» (R5, DA6) ⇒ n.º 11; `Retry-After` `-5`/`nan` en el
+  2.º intento ⇒ `[1.0, 2.0]` (R3) ⇒ n.º 12.
+
+Muerte reproducida a mano (`scratchpad/repro.py`: aplica en el árbol, `pytest -q` del test,
+revierte en `finally`): los 9 dan `failed` con el mutante y `passed` sin él; árbol limpio.
+**Equivalentes** (pendientes de aceptación del humano): n.º 2 y 4 (`EmpleadoSesame` siempre
+verdadero: `not x` ⇔ `x is None`) y n.º 9 (el `ultimas_paginas` inicial nunca se lee: el log
+de R12 va tras un listado que lo ha fijado). Con su mutante, las suites F-077 siguen verdes.
+La lectura de R8 del n.º 10 es la literal: si el humano la quiere al revés, es cambio de spec.
+T16 queda **sin marcar** hasta esa aceptación.
+
+`bash harness/init.sh` (2026-11-19): **ENTORNO LISTO**, exit 0. Raíz 2537 passed, 48 skipped (905 s); sv3 **2732 passed**, 2 skipped (93 s); sv1/sv2/sv4/sv5 en caché. COBERTURA 99.6 % (267/268); TAMAÑO OK; CARRIL y E2E N/A.
