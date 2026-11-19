@@ -39,4 +39,4 @@ Reglas que no se negocian:
 - [ ] T16: Campaña de mutación del nivel sobre las líneas cambiadas y análisis de cada superviviente en `progress/mutacion_F-077.md`  |  Verificación: informe con cero supervivientes sin test o justificación aceptada
 - [ ] T17: M0 (token rotado y, si se puede, de solo lectura; `SESAME-TOKEN` en `$KV`) y M1–M2 (contraste e impacto)  |  Verificación: MANUAL (humano), design §7, comando y resultado en `progress/impl_F-077.md`
 - [ ] T18: M3–M6 (redespliegue apagado, encendido, portal y `-Quitar`); al encender, estado en `azure-apps/partes.md`  |  Verificación: MANUAL (humano), design §7, comando y resultado en `progress/impl_F-077.md`
-- [ ] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
+- [x] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`

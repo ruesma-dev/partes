@@ -21,7 +21,13 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última c
 - Las verificaciones manuales de F-020 a F-045 (septiembre–octubre) se dan por superadas por
   uso en producción (decisión del humano 2026-11-16).
 
-## F-077 · BLOQUEADA 2026-11-19 (implementer, T19): `design.md` pasa del tope de tamaño
+## F-077 · in_review 2026-11-19 (líder)
+
+El líder recortó su propia enmienda de design §4 a 2 líneas sin cambiar lo decidido (131ad40):
+`design.md` 250/250. `bash harness/init.sh` en verde (ENTORNO LISTO; cobertura 99,2 %, 263/265).
+T19 marcada; F-077 a `in_review`; siguiente: reviewer.
+
+### Bloqueo en T19 (implementer, 2026-11-19): `design.md` pasaba del tope de tamaño
 
 **Hecho.** T11 está commiteada (914f8d7) con la enmienda aplicada. Los 7 tests pasan y no cae
 ninguno más:
