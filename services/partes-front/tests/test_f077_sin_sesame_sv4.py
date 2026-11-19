@@ -163,10 +163,12 @@ def test_f077_r21_el_respaldo_si_la_tabla_falla(base) -> None:
 # --------------------------------- R22 ---------------------------------- #
 
 class _ProveedorSinJornada(CalendarioProvider):
-    """Si la vista pidiera la jornada del contrato, el test revienta."""
+    """Si la vista buscara un atributo que el proveedor no tiene (p. ej. la
+    jornada del contrato, retirada por F-077), el test revienta: no se
+    redefine ningun metodo que ya no exista en produccion."""
 
-    def jornada_contrato(self, dni):
-        raise AssertionError("la vista no pide la jornada del contrato")
+    def __getattr__(self, nombre):
+        raise AssertionError(f"la vista pide {nombre!r} al proveedor")
 
 
 #: Los KPI de la vista para las dos lineas sembradas (8 h y 6 h, candef 8)
