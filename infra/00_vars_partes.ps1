@@ -60,22 +60,25 @@ $Global:MY_IP = "AUTO"                 # o "88.x.x.x"
 # --- sigrid-api (informativo) ----------------------------------------------
 $Global:SIGRID_BASE_URL = "https://func-sigridapi-dev-huyke.azurewebsites.net"
 
-# --- sesame-api (F-003): festivos reales por trabajador ---------------------
-# VACIO A PROPOSITO: sesame-api todavia NO esta desplegado en Azure (su
-# codigo ni siquiera esta commiteado; es la peticion P2 del design de
-# F-003). Mientras esto siga vacio, sv3 y sv4 se despliegan con la
-# integracion APAGADA y usan su calendario de festivos local, que es el
-# comportamiento de siempre.
+# --- Sesame HR (F-003, F-032, F-077): festivos reales por trabajador --------
+# URL de la API oficial de Sesame HR de nuestra region (https://). sv3 la
+# llama con un token Bearer, sin la pasarela sesame-api (F-077); sv4 no
+# llama a Sesame, solo lee la tabla festivos_trabajador.
 #
-# Cuando sesame-api este desplegado:
-#   1. pon aqui su URL en tu copia 00_vars_partes.local.ps1 (NO en esta,
-#      que se versiona),
-#   2. carga la clave de partes en el Key Vault con add_secrets_partes.ps1
-#      (secreto SESAME-API-KEY),
-#   3. enciende sv3 y sv4 con add_sesame_partes.ps1 (F-032; -Quitar apaga).
-# Antes de encender, el contraste de la guia de F-032 (M2):
-# services/partes-persistencia/contrastar_festivos_sesame.py. Desde F-032
-# un trabajador sin festivos de Sesame NO bloquea el registro: el portal
+# VACIO A PROPOSITO (DA13 de F-077): la URL va SOLO en tu copia
+# 00_vars_partes.local.ps1, no en esta, que se versiona (infra/README_partes.md
+# dice cual es). Mientras siga vacia, sv3 y sv4 se despliegan APAGADOS y usan
+# su calendario de festivos local, que es el comportamiento de siempre.
+#
+# Para encender (guia de F-077, M0-M4):
+#   1. rota el token de Sesame HR y, si Sesame lo permite, hazlo de solo
+#      lectura; cargalo en el Key Vault con add_secrets_partes.ps1
+#      (secreto SESAME-TOKEN),
+#   2. pon la URL en tu 00_vars_partes.local.ps1,
+#   3. antes de encender, el contraste (M1-M2):
+#      services/partes-persistencia/contrastar_festivos_sesame.py,
+#   4. enciende con add_sesame_partes.ps1 (-Quitar apaga).
+# Un trabajador sin festivos de Sesame NO bloquea el registro: el portal
 # solo avisa y usa el calendario local.
 $Global:SESAME_BASE_URL = ""
 

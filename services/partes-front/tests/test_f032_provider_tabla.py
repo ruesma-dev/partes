@@ -1,14 +1,13 @@
 # tests/test_f032_provider_tabla.py
 """F-032 · R18–R20: `CalendarioProvider` lee los festivos de la tabla.
 
-Con `SESAME_API_*` (DA18) el proveedor resuelve con la cascada de lectura
-(DA19 = B) sobre `festivos_trabajador`: fila del DNI ⇒ fuente `sesame`,
-fiable; sin fila o sin DNI ⇒ `sin_fila`, respaldo `holidays`, NO fiable
-(solo enciende el aviso). No llama nunca a `festivos` ni a
-`calendario_por_defecto` de sesame-api (R19): solo a `jornada`. Una
-lectura fallida usa el respaldo como no fiable con un WARNING (R20). Las
-filas se cachean <= 60 s. Apagado (`cliente=None`): `sin_sesame`, como
-siempre (R27 de F-003).
+Encendido (F-077: `activo=True`, `FESTIVOS_SESAME_ENABLED`) el proveedor
+resuelve con la cascada de lectura (DA19 = B) sobre `festivos_trabajador`:
+fila del DNI ⇒ fuente `sesame`, fiable; sin fila o sin DNI ⇒ `sin_fila`,
+respaldo `holidays`, NO fiable (solo enciende el aviso). sv4 no tiene
+cliente de Sesame (R19 de F-032, R20 de F-077). Una lectura fallida usa el
+respaldo como no fiable con un WARNING (R20). Las filas se cachean <= 60 s.
+Apagado (`activo=False`): `sin_sesame`, como siempre (R27 de F-003).
 """
 from __future__ import annotations
 
@@ -21,28 +20,9 @@ from application.services.calendario_provider import (
     FUENTES_FIABLES,
     CalendarioProvider,
 )
-from infrastructure.sesame.sesame_api_client import JornadaContrato
 
 DNI = "12345678Z"
 OTRO = "87654321X"
-
-
-class ClienteSoloJornada:
-    """Revienta si se le piden festivos: sv4 solo puede pedir jornada."""
-
-    def __init__(self, jornada=None):
-        self._jornada = jornada
-        self.llamadas: list = []
-
-    def festivos(self, *a):
-        raise AssertionError("sv4 no pide festivos a Sesame (R19)")
-
-    def calendario_por_defecto(self, *a):
-        raise AssertionError("sv4 no pide el calendario por defecto (R19)")
-
-    def jornada(self, dni):
-        self.llamadas.append(dni)
-        return self._jornada
 
 
 class Tabla:
@@ -77,9 +57,9 @@ def _respaldo(d: date) -> str | None:
     return "Asuncion (respaldo)" if d.isoformat() == "2026-08-15" else None
 
 
-def _provider(tabla, *, cliente=None, reloj=None, ttl_tabla_s=60):
+def _provider(tabla, *, reloj=None, ttl_tabla_s=60):
     return CalendarioProvider(
-        cliente=cliente if cliente is not None else ClienteSoloJornada(),
+        activo=True,
         respaldo_holiday_name=_respaldo, leer_festivos=tabla,
         ttl_tabla_s=ttl_tabla_s, reloj=reloj or Reloj())
 
@@ -153,30 +133,23 @@ def test_f032_r18_una_fila_mal_formada_se_omite_con_warning(caplog):
 
 
 def test_f032_r18_sin_lector_de_tabla_todo_es_sin_fila():
-    p = CalendarioProvider(cliente=ClienteSoloJornada(),
+    p = CalendarioProvider(activo=True,
                            respaldo_holiday_name=_respaldo, reloj=Reloj())
     assert p.fuente_para(DNI, 2026) == "sin_fila"
 
 
 # --------------------------------- R19 ---------------------------------- #
 
-def test_f032_r19_nunca_pide_festivos_a_sesame():
-    """El doble revienta en `festivos` y `calendario_por_defecto`."""
+def test_f032_r19_sv4_no_tiene_a_quien_pedir_festivos():
+    """F-077 (R20): sin cliente; el proveedor solo lee la tabla."""
     p = _provider(Tabla([]))
     for d in (date(2026, 5, 15), date(2026, 5, 16)):
         p.holiday_name_para(DNI)(d)
         p.holiday_name_para(None)(d)
         p.dia(d, DNI)
     assert p.fiable_para([(DNI, 2026), (None, 2026)]) is False
-
-
-def test_f032_r19_jornada_contrato_sigue_igual():
-    cliente = ClienteSoloJornada(JornadaContrato("Parcial", True, "Indef"))
-    p = _provider(Tabla([]), cliente=cliente)
-    assert p.jornada_contrato("12.345.678-z").reducida is True
-    assert p.jornada_contrato(DNI).reducida is True
-    assert cliente.llamadas == [DNI]
-    assert p.jornada_contrato(None) is None
+    assert not hasattr(p, "_cliente")
+    assert not hasattr(p, "jornada_contrato")
 
 
 # --------------------------------- R20 ---------------------------------- #
@@ -221,7 +194,7 @@ def test_f032_r20_cache_de_60_s():
 def test_f032_r20_el_ttl_de_la_tabla_por_defecto_es_60():
     reloj = Reloj()
     tabla = Tabla([_fila()])
-    p = CalendarioProvider(cliente=ClienteSoloJornada(),
+    p = CalendarioProvider(activo=True,
                            respaldo_holiday_name=_respaldo,
                            leer_festivos=tabla, reloj=reloj)
     p.fuente_para(DNI, 2026)
@@ -236,7 +209,7 @@ def test_f032_r20_el_ttl_de_la_tabla_por_defecto_es_60():
 
 def test_f032_r27_apagado_es_sin_sesame_y_no_lee_la_tabla():
     tabla = Tabla([_fila()])
-    p = CalendarioProvider(cliente=None, respaldo_holiday_name=_respaldo,
+    p = CalendarioProvider(activo=False, respaldo_holiday_name=_respaldo,
                            leer_festivos=tabla, reloj=Reloj())
     assert p.activo is False
     assert p.fuente_para(DNI, 2026) == "sin_sesame"

@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import quote_plus
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ENV_FILE = Path(__file__).resolve().parents[1] / ".env"
@@ -155,18 +155,20 @@ class Settings(BaseSettings):
 
     # Calendario laboral (fin de semana + festivos). En fin de semana o
     # festivo no hay horas ordinarias: el reparto las manda todas a extra.
-    # Con SESAME_API_* configurado manda Sesame y este JSON queda de
-    # RESPALDO; sin ellas, es la unica fuente (F-003).
+    # Con SESAME_BASE_URL/SESAME_TOKEN configurados manda Sesame y este
+    # JSON queda de RESPALDO; sin ellas, es la unica fuente (F-003).
     calendario_laboral_path: str = Field(
         "config/calendario_laboral.json", alias="CALENDARIO_LABORAL_PATH"
     )
 
     # ------------------------------------------------------------ #
-    # sesame-api (F-003) — festivos REALES por trabajador. Pasarela de
-    # solo lectura sobre Sesame HR, con clave propia en 'x-api-key'.
+    # Sesame HR (F-003, F-077) — festivos REALES por trabajador, leidos
+    # de la API oficial de Sesame HR con un token Bearer (solo GET). sv3
+    # es el UNICO servicio que llama a Sesame; ya no hay pasarela.
     #
-    # OPCIONAL: sin las dos variables el calendario es el JSON de
-    # siempre y no se hace ni una llamada (R10).
+    # OPCIONAL: sin SESAME_BASE_URL y SESAME_TOKEN el calendario es el
+    # JSON de siempre y no se hace ni una llamada (R10 de F-003). Una URL
+    # que no empiece por https:// no arranca (DA14).
     #
     # F-032: con ellas, la ingesta guarda los festivos de cada trabajador
     # en `festivos_trabajador` y el computo de extras lee esa tabla. Una
@@ -174,11 +176,20 @@ class Settings(BaseSettings):
     # se guarda y cuenta como fallo (0 no controla; negativo o no entero
     # no arranca, R6).
     # ------------------------------------------------------------ #
-    sesame_api_base_url: str | None = Field(None, alias="SESAME_API_BASE_URL")
-    sesame_api_key: str | None = Field(None, alias="SESAME_API_KEY")
-    sesame_api_timeout_s: float = Field(10.0, alias="SESAME_API_TIMEOUT_S")
+    sesame_base_url: str | None = Field(None, alias="SESAME_BASE_URL")
+    sesame_token: str | None = Field(None, alias="SESAME_TOKEN")
+    sesame_timeout_s: float = Field(10.0, alias="SESAME_TIMEOUT_S", gt=0)
     sesame_festivos_minimos: int = Field(
         1, alias="SESAME_FESTIVOS_MINIMOS", ge=0)
+
+    @field_validator("sesame_base_url")
+    @classmethod
+    def _sesame_solo_https(cls, valor: str | None) -> str | None:
+        """F-077 (R16, DA14): con valor, solo `https://` (sin espacios)."""
+        texto = (valor or "").strip()
+        if texto and not texto.startswith("https://"):
+            raise ValueError("SESAME_BASE_URL debe empezar por https://")
+        return texto or None
 
     # ------------------------------------------------------------ #
     # SharePoint (Microsoft Graph). Archiva el PDF del parte. Best-effort:
@@ -249,14 +260,14 @@ class Settings(BaseSettings):
 
     @property
     def sesame_enabled(self) -> bool:
-        """Hay pasarela de Sesame cableada (mismo patron que Sigrid).
+        """Hay Sesame HR cableado: URL y token no en blanco (R16).
 
         Mientras sea False, F-003 esta APAGADA en sv3: los festivos
         salen del JSON local, exactamente como antes.
         """
         return bool(
-            (self.sesame_api_base_url or "").strip()
-            and (self.sesame_api_key or "").strip()
+            (self.sesame_base_url or "").strip()
+            and (self.sesame_token or "").strip()
         )
 
     @property

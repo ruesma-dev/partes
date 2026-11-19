@@ -186,9 +186,10 @@ original NO se versiona: al repositorio entra solo el Markdown.
   dos la necesitan, se propone al humano dónde debe vivir. La única
   duplicación tolerada es esta lista cerrada:
   `infrastructure/database/orm_models.py` (sv3 y sv4), los clientes
-  `infrastructure/sigrid/` y los clientes `infrastructure/sesame/`
-  (sv3 y sv4, añadidos por F-003 con decisión expresa del humano el
-  2026-08-15) y `application/services/jornada_resolver.py` (sv3 y sv4,
+  `infrastructure/sigrid/` (el cliente de Sesame de `infrastructure/sesame/`,
+  gemelo desde F-003, dejó de serlo con F-077: sv4 ya no llama a Sesame y
+  solo sv3 tiene cliente, el de Sesame HR) y
+  `application/services/jornada_resolver.py` (sv3 y sv4,
   duplicado de hecho desde F-003 y añadido a esta lista con decisión
   expresa del humano el 2026-08-19, al ampliarlo F-015 con la jornada
   del día; equivalencia comprobada por

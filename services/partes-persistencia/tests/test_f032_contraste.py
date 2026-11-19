@@ -4,10 +4,15 @@
 La herramienta de consola de sv3 que el humano corre ANTES de encender
 (puerta DA12): compara cada calendario de Sesame con el JSON de respaldo,
 marca `INCOMPLETO` y `FALTAN DEL RESPALDO` y, con `--impacto`, cuenta que
-lineas de los partes activos cambiarian. Solo lee: sesame-api por `GET`
+lineas de los partes activos cambiarian. Solo lee: Sesame por `GET`
 (con `httpx.MockTransport`, sin red) y `partes` por
 `fetch_registros_para_recurso` (aqui un repositorio falso que revienta si
 se le pide escribir). Datos sinteticos; los DNIs, solo en el CSV.
+
+F-077: el Sesame falso habla como la API de Sesame HR (calendarios en
+`/schedule/v1/holiday-calendar`, indice de empleados y festivos por
+empleado), el token va por `SESAME_TOKEN` o por consola (sin
+`--api-key`) y la URL es `https://`.
 """
 from __future__ import annotations
 
@@ -24,6 +29,11 @@ import contrastar_festivos_sesame as cfs
 from infrastructure.calendario.json_calendario_laboral import (
     JsonCalendarioLaboral,
 )
+from infrastructure.sesame.sesame_hr_client import (
+    RUTA_CALENDARIOS,
+    RUTA_EMPLEADOS,
+    RUTA_FESTIVOS,
+)
 
 ANO = 2026
 DNI = "12345678Z"
@@ -31,6 +41,7 @@ OTRO = "87654321X"
 ROTO = "11111111H"
 AHORA = datetime(2026, 11, 17, 9, 5)
 CLAVE = "clave-de-prueba-secreta"
+URL = "https://sesame.ejemplo.test"
 
 #: Respaldo minimo: nacionales + el 2026-03-19 (jueves) a mayores.
 RESPALDO = {"sabado_no_laborable": True, "domingo_no_laborable": True,
@@ -118,8 +129,21 @@ def test_f032_r30_el_markdown_marca_las_puertas(respaldo) -> None:
 
 # ------------------------------- R31 --------------------------------------- #
 
+def _a_hr(cal: dict) -> dict:
+    """Un calendario de los de arriba, en la forma de Sesame HR."""
+    return {"id": cal["id"], "name": cal["nombre"],
+            "default": cal["por_defecto"],
+            "daysOff": [{"date": f["fecha"], "name": f["nombre"]}
+                        for f in cal["festivos"]]}
+
+
 class Sesame:
-    """sesame-api falso por `MockTransport`: anota metodo y ruta."""
+    """Sesame HR falso por `MockTransport`: anota metodo, ruta y cabeceras.
+
+    `festivos`: DNI -> lista de fechas o estado HTTP. Los DNIs de
+    `festivos` forman el indice de empleados (`emp-<n>`); cualquier otro
+    DNI es «no encontrado». Revienta con cualquier metodo distinto de GET.
+    """
 
     def __init__(self, calendarios=(MADRID, CORTO), festivos=None,
                  listado_status=200):
@@ -127,39 +151,49 @@ class Sesame:
         self.calendarios = list(calendarios)
         self.festivos = festivos or {}
         self.listado_status = listado_status
+        self.ids = {f"emp-{i}": dni
+                    for i, dni in enumerate(sorted(self.festivos))}
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET", request.method
         self.peticiones.append((request.method, request.url.path,
                                 dict(request.headers)))
-        if request.url.path == "/api/v1/calendarios-festivos":
+        if request.url.path == RUTA_CALENDARIOS:
             if self.listado_status != 200:
                 return httpx.Response(self.listado_status,
-                                      json={"ok": False, "error": "caido"})
+                                      json={"error": "caido"})
             return httpx.Response(200, json={
-                "ok": True, "total": len(self.calendarios),
-                "data": self.calendarios})
-        if request.url.path == "/api/v1/festivos":
-            dni = request.url.params["dni"]
-            r = self.festivos.get(dni)
-            if r is None:
-                return httpx.Response(404, json={"detail": "no"})
+                "data": [_a_hr(c) for c in self.calendarios],
+                "meta": {"lastPage": 1}})
+        if request.url.path == RUTA_EMPLEADOS:
+            return httpx.Response(200, json={"data": [
+                {"id": i, "nid": dni, "status": "active",
+                 "firstName": "Nombreficticio", "email": "x@ejemplo.test"}
+                for i, dni in self.ids.items()], "meta": {"lastPage": 1}})
+        if request.url.path == RUTA_FESTIVOS:
+            r = self.festivos[self.ids[request.url.params["employeeId"]]]
             if isinstance(r, int):
-                return httpx.Response(r, json={"ok": False, "error": "x"})
-            return httpx.Response(200, json={"ok": True, "data": [
-                {"fecha": f, "nombre": None} for f in r]})
+                return httpx.Response(r, json={"error": "x"})
+            return httpx.Response(200, json={"data": [
+                {"dayOff": {"date": f, "name": None}} for f in r]})
         return httpx.Response(500)
 
     def transport(self) -> httpx.MockTransport:
         return httpx.MockTransport(self)
 
 
-def _main(args, sesame, *, repositorio=None, monkeypatch=None):
+def _sin_prompt(prompt):
+    raise AssertionError("no deberia pedir el token por consola")
+
+
+def _main(args, sesame, *, repositorio=None, monkeypatch=None,
+          pedir_token=lambda prompt: CLAVE):
     return cfs.main(args, ahora=AHORA, transport=sesame.transport(),
-                    repositorio=repositorio)
+                    repositorio=repositorio, pedir_token=pedir_token)
 
 
 def _sin_env(monkeypatch):
-    for v in ("SESAME_API_BASE_URL", "SESAME_API_KEY",
+    for v in ("SESAME_BASE_URL", "SESAME_TOKEN", "SESAME_TIMEOUT_S",
               "SESAME_FESTIVOS_MINIMOS", "PG_PASSWORD", "PG_ADMIN_PASSWORD"):
         monkeypatch.delenv(v, raising=False)
     monkeypatch.setattr(cfs, "_settings", lambda: None)
@@ -169,8 +203,8 @@ def test_f032_r31_escribe_md_y_csv_y_sale_0(tmp_path, monkeypatch,
                                             ruta_calendario, capsys) -> None:
     _sin_env(monkeypatch)
     sesame = Sesame()
-    rc = _main(["--ano", "2026", "--base-url", "http://sesame.local:8006",
-                "--api-key", CLAVE, "--calendario", ruta_calendario,
+    rc = _main(["--ano", "2026", "--base-url", URL,
+                "--calendario", ruta_calendario,
                 "--salida", str(tmp_path)], sesame)
     assert rc == 0
     md = tmp_path / "contraste_festivos_2026_20261117-0905.md"
@@ -182,8 +216,8 @@ def test_f032_r31_escribe_md_y_csv_y_sale_0(tmp_path, monkeypatch,
     assert ";" in cabecera and "," not in cabecera
     assert md.read_bytes().startswith(b"\xef\xbb\xbf")
     assert [p[:2] for p in sesame.peticiones] == [
-        ("GET", "/api/v1/calendarios-festivos")]
-    assert sesame.peticiones[0][2]["x-api-key"] == CLAVE
+        ("GET", RUTA_CALENDARIOS)]
+    assert sesame.peticiones[0][2]["authorization"] == f"Bearer {CLAVE}"
     salida = capsys.readouterr().out
     assert CLAVE not in salida
     assert CLAVE not in md.read_text(encoding="utf-8-sig")
@@ -192,45 +226,47 @@ def test_f032_r31_escribe_md_y_csv_y_sale_0(tmp_path, monkeypatch,
 def test_f032_r31_la_linea_de_comandos_manda_sobre_el_entorno(
         tmp_path, monkeypatch, ruta_calendario) -> None:
     _sin_env(monkeypatch)
-    monkeypatch.setenv("SESAME_API_BASE_URL", "http://del-entorno:1")
-    monkeypatch.setenv("SESAME_API_KEY", "clave-del-entorno")
+    monkeypatch.setenv("SESAME_BASE_URL", "https://del-entorno.test")
+    monkeypatch.setenv("SESAME_TOKEN", "clave-del-entorno")
     vistas = []
 
     def anota(request):
-        vistas.append((request.url.host, request.headers["x-api-key"]))
+        vistas.append((request.url.host, request.headers["authorization"]))
         return Sesame()(request)
 
-    rc = cfs.main(["--ano", "2026", "--base-url", "http://de-la-linea:2",
-                   "--api-key", CLAVE, "--calendario", ruta_calendario,
+    rc = cfs.main(["--ano", "2026", "--base-url", "https://de-la-linea.test",
+                   "--calendario", ruta_calendario,
                    "--salida", str(tmp_path)],
-                  ahora=AHORA, transport=httpx.MockTransport(anota))
+                  ahora=AHORA, transport=httpx.MockTransport(anota),
+                  pedir_token=_sin_prompt)
     assert rc == 0
-    assert vistas == [("de-la-linea", CLAVE)]
+    assert vistas == [("de-la-linea.test", "Bearer clave-del-entorno")]
 
 
 def test_f032_r31_sin_linea_de_comandos_usa_el_entorno(
         tmp_path, monkeypatch, ruta_calendario) -> None:
     _sin_env(monkeypatch)
-    monkeypatch.setenv("SESAME_API_BASE_URL", "http://del-entorno:1")
-    monkeypatch.setenv("SESAME_API_KEY", "clave-del-entorno")
+    monkeypatch.setenv("SESAME_BASE_URL", "https://del-entorno.test")
+    monkeypatch.setenv("SESAME_TOKEN", "clave-del-entorno")
     vistas = []
 
     def anota(request):
-        vistas.append((request.url.host, request.headers["x-api-key"]))
+        vistas.append((request.url.host, request.headers["authorization"]))
         return Sesame()(request)
 
     assert cfs.main(["--ano", "2026", "--calendario", ruta_calendario,
                      "--salida", str(tmp_path)], ahora=AHORA,
-                    transport=httpx.MockTransport(anota)) == 0
-    assert vistas == [("del-entorno", "clave-del-entorno")]
+                    transport=httpx.MockTransport(anota),
+                    pedir_token=_sin_prompt) == 0
+    assert vistas == [("del-entorno.test", "Bearer clave-del-entorno")]
 
 
 def test_f032_r31_minimo_del_entorno(tmp_path, monkeypatch,
                                      ruta_calendario) -> None:
     _sin_env(monkeypatch)
     monkeypatch.setenv("SESAME_FESTIVOS_MINIMOS", "7")
-    assert _main(["--ano", "2026", "--base-url", "http://s:1", "--api-key",
-                  CLAVE, "--calendario", ruta_calendario, "--salida",
+    assert _main(["--ano", "2026", "--base-url", URL,
+                  "--calendario", ruta_calendario, "--salida",
                   str(tmp_path)], Sesame(calendarios=[CORTO])) == 0
     md = next(tmp_path.glob("*.md")).read_text(encoding="utf-8-sig")
     assert "INCOMPLETO" in md
@@ -245,15 +281,15 @@ def test_f032_r31_sin_configuracion_sale_distinto_de_0_sin_informe(
     assert rc != 0
     assert list(tmp_path.glob("contraste_*")) == []
     assert sesame.peticiones == []
-    assert "SESAME_API" in capsys.readouterr().err
+    assert "SESAME_BASE_URL" in capsys.readouterr().err
 
 
 def test_f032_r31_listado_fallido_sale_distinto_de_0_sin_informe(
         tmp_path, monkeypatch, ruta_calendario) -> None:
     _sin_env(monkeypatch)
-    rc = _main(["--ano", "2026", "--base-url", "http://s:1", "--api-key",
-                CLAVE, "--calendario", ruta_calendario, "--salida",
-                str(tmp_path)], Sesame(listado_status=502))
+    rc = _main(["--ano", "2026", "--base-url", URL,
+                "--calendario", ruta_calendario, "--salida",
+                str(tmp_path)], Sesame(listado_status=403))
     assert rc != 0
     assert list(tmp_path.glob("contraste_*")) == []
 
@@ -261,8 +297,8 @@ def test_f032_r31_listado_fallido_sale_distinto_de_0_sin_informe(
 def test_f032_r31_impacto_sin_bbdd_configurada_sale_distinto_de_0(
         tmp_path, monkeypatch, ruta_calendario) -> None:
     _sin_env(monkeypatch)
-    rc = _main(["--ano", "2026", "--base-url", "http://s:1", "--api-key",
-                CLAVE, "--calendario", ruta_calendario, "--salida",
+    rc = _main(["--ano", "2026", "--base-url", URL,
+                "--calendario", ruta_calendario, "--salida",
                 str(tmp_path), "--impacto"], Sesame())
     assert rc != 0
     assert list(tmp_path.glob("contraste_*")) == []
@@ -368,13 +404,16 @@ def test_f032_r32_main_con_impacto(tmp_path, monkeypatch,
                             _reg(2, "2026-05-15", dni=OTRO),
                             _reg(3, "2026-05-15", dni=ROTO),
                             _reg(4, "2026-05-15", dni="12.345.678-z")])
-    sesame = Sesame(festivos={DNI: list(FESTIVOS_DNI), ROTO: 500})
-    rc = _main(["--ano", "2026", "--base-url", "http://s:1", "--api-key",
-                CLAVE, "--calendario", ruta_calendario, "--salida",
+    # F-077: un 404 de un empleado conocido es fallo (DA6) sin abrir el
+    # corte; OTRO no esta en el indice (no encontrado: el respaldo).
+    sesame = Sesame(festivos={DNI: list(FESTIVOS_DNI), ROTO: 404})
+    rc = _main(["--ano", "2026", "--base-url", URL,
+                "--calendario", ruta_calendario, "--salida",
                 str(tmp_path), "--impacto"], sesame, repositorio=repo)
     assert rc == 0
     pedidos = sorted(p[1] for p in sesame.peticiones)
-    assert pedidos.count("/api/v1/festivos") == 3     # un GET por DNI
+    assert pedidos.count(RUTA_FESTIVOS) == 2   # uno por DNI del indice
+    assert pedidos.count(RUTA_EMPLEADOS) == 1  # el indice, una vez
     assert {p[0] for p in sesame.peticiones} == {"GET"}
     md = next(tmp_path.glob("*.md")).read_text(encoding="utf-8-sig")
     assert DNI not in md and ROTO not in md and OTRO not in md
@@ -404,8 +443,8 @@ def test_f032_r33_solo_get_y_ninguna_escritura(tmp_path, monkeypatch,
     _sin_env(monkeypatch)
     repo = RepoSoloLectura([_reg(1, "2026-05-15")])
     sesame = Sesame(festivos={DNI: list(FESTIVOS_DNI)})
-    assert _main(["--ano", "2026", "--base-url", "http://s:1", "--api-key",
-                  CLAVE, "--calendario", ruta_calendario, "--salida",
+    assert _main(["--ano", "2026", "--base-url", URL,
+                  "--calendario", ruta_calendario, "--salida",
                   str(tmp_path), "--impacto"], sesame,
                  repositorio=repo) == 0
     assert {p[0] for p in sesame.peticiones} == {"GET"}

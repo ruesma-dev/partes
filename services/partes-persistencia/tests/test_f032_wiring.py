@@ -8,8 +8,9 @@
   - Con Sesame: `TablaCalendarioLaboral` (respaldo JSON) y un
     `RefrescoFestivos` con `al_guardar = calendario.olvidar`; la linea de
     wiring trae `festivos_minimos=` y `festivos=tabla`, sin la clave (R3).
+    F-077: variables `SESAME_BASE_URL`/`SESAME_TOKEN` y cliente de Sesame HR.
   - R14: una pasada `conciliar_todos` con ese cableado no llama nunca a
-    sesame-api (un cliente que explota no se entera).
+    Sesame (un cliente que explota no se entera).
 
 `build_app` monta PostgreSQL y no se levanta en la suite: por eso el
 cableado vive en `construir_calendario` y `construir_refresco_festivos`.
@@ -55,7 +56,7 @@ def entorno(monkeypatch):
         "PG_ADMIN_PASSWORD": "irrelevante-en-tests",
     }.items():
         monkeypatch.setenv(clave, valor)
-    for clave in ("SESAME_API_BASE_URL", "SESAME_API_KEY",
+    for clave in ("SESAME_BASE_URL", "SESAME_TOKEN", "SESAME_TIMEOUT_S",
                   "SESAME_FESTIVOS_MINIMOS", "SESAME_CACHE_TTL_S"):
         monkeypatch.delenv(clave, raising=False)
     return monkeypatch
@@ -63,8 +64,8 @@ def entorno(monkeypatch):
 
 @pytest.fixture
 def con_sesame(entorno):
-    entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    entorno.setenv("SESAME_API_KEY", CLAVE)
+    entorno.setenv("SESAME_BASE_URL", "https://sesame.ejemplo.test")
+    entorno.setenv("SESAME_TOKEN", CLAVE)
     return entorno
 
 
@@ -157,8 +158,10 @@ def test_f032_r15_refresco_cableado_con_olvidar(con_sesame):
     assert refresco._minimo == 3
     assert refresco._repositorio is repo
     assert refresco._al_guardar == cal.olvidar
-    assert refresco._cliente._base_url == "http://sesame.interno:8006"
-    assert refresco._cliente._timeout_s == settings.sesame_api_timeout_s
+    # F-077: el cliente del refresco es el adaptador de Sesame HR.
+    cliente_hr = refresco._cliente._cliente
+    assert cliente_hr._base_url == "https://sesame.ejemplo.test"
+    assert cliente_hr._timeout_s == settings.sesame_timeout_s
     ahora = refresco._ahora_utc()
     assert ahora.tzinfo is not None and ahora.utcoffset().total_seconds() == 0
 
@@ -172,8 +175,8 @@ def test_f032_r3_log_de_wiring_con_minimo_y_tabla_sin_la_clave(
     assert "CABLEADO" in wiring[0]
     assert "festivos_minimos=1" in wiring[0]
     assert "festivos=tabla" in wiring[0]
-    assert f"key_len={len(CLAVE)}" in wiring[0]
-    assert "base_url=http://sesame.interno:8006" in wiring[0]
+    assert f"token_len={len(CLAVE)}" in wiring[0]
+    assert "base_url=https://sesame.ejemplo.test" in wiring[0]
     assert CLAVE not in caplog.text
 
 
@@ -185,16 +188,16 @@ def test_f032_r14_la_pasada_no_llama_a_sesame(con_sesame, monkeypatch):
         def __init__(self, **kw):
             pass
 
-        def festivos(self, *a):
-            raise AssertionError("la pasada no pide festivos a Sesame")
+        def empleados(self, *a):
+            raise AssertionError("la pasada no pide empleados a Sesame")
 
-        def calendario_por_defecto(self, *a):
-            raise AssertionError("ni el calendario por defecto")
+        def festivos_de_empleado(self, *a):
+            raise AssertionError("ni festivos")
 
-        def jornada(self, *a):
-            raise AssertionError("ni la jornada")
+        def calendarios_festivos(self, *a):
+            raise AssertionError("ni calendarios")
 
-    monkeypatch.setattr(modulo_app, "SesameApiClient", ClienteQueExplota)
+    monkeypatch.setattr(modulo_app, "SesameHrClient", ClienteQueExplota)
     settings = Settings(_env_file=None)
     festivos = RepoFestivos({(DNI, 2026): FilaFestivos(
         dni_norm=DNI, ano=2026, festivos={"2026-05-18": "fiesta local"},

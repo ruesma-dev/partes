@@ -20,7 +20,7 @@ Pasos:
          el recurso elegido, que el conciliador confirma despues.
   5. Calcula ``review_required`` (un casado por recurso no lo sube; sin
      obra casada o sin fecha => revision, F-054, con un WARNING).
-  5 bis. F-032: con el refresco de festivos cableado, pide a sesame-api los
+  5 bis. F-032: con el refresco de festivos cableado, pide a Sesame HR los
      festivos de cada DNI del parte (anos de su semana ISO) y los guarda
      en `festivos_trabajador`; un (DNI, ano) sin festivos ni fila sube el
      parte a revision (R8). El duplicado no llega aqui (R10).

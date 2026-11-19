@@ -65,16 +65,16 @@ def entorno(monkeypatch):
 def test_f003_r10_sesame_enabled_exige_las_dos_variables(entorno) -> None:
     assert Settings(_env_file=None).sesame_enabled is False
 
-    entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
+    entorno.setenv("SESAME_BASE_URL", "https://sesame.ejemplo.test")
     assert Settings(_env_file=None).sesame_enabled is False
 
-    entorno.setenv("SESAME_API_KEY", "clave-de-prueba")
+    entorno.setenv("SESAME_TOKEN", "clave-de-prueba")
     assert Settings(_env_file=None).sesame_enabled is True
 
 
 def test_f003_r10_valores_en_blanco_no_activan_sesame(entorno) -> None:
-    entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    entorno.setenv("SESAME_API_KEY", "   ")
+    entorno.setenv("SESAME_BASE_URL", "https://sesame.ejemplo.test")
+    entorno.setenv("SESAME_TOKEN", "   ")
     assert Settings(_env_file=None).sesame_enabled is False
 
 
@@ -97,8 +97,8 @@ def test_f003_r10_el_json_no_ofrece_senal_de_degradacion(entorno) -> None:
 
 def test_f003_r8_configurado_se_cablea_sesame_con_el_json_de_respaldo(
         entorno, caplog) -> None:
-    entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    entorno.setenv("SESAME_API_KEY", "clave-de-prueba")
+    entorno.setenv("SESAME_BASE_URL", "https://sesame.ejemplo.test")
+    entorno.setenv("SESAME_TOKEN", "clave-de-prueba")
     with caplog.at_level(logging.INFO):
         cal = construir_calendario(Settings(_env_file=None), _RepoFestivos())
     assert isinstance(cal, TablaCalendarioLaboral)
@@ -107,17 +107,17 @@ def test_f003_r8_configurado_se_cablea_sesame_con_el_json_de_respaldo(
 
 
 def test_f003_r8_el_log_de_wiring_no_lleva_la_clave(entorno, caplog) -> None:
-    entorno.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    entorno.setenv("SESAME_API_KEY", "clave-secretisima-de-prueba")
+    entorno.setenv("SESAME_BASE_URL", "https://sesame.ejemplo.test")
+    entorno.setenv("SESAME_TOKEN", "clave-secretisima-de-prueba")
     with caplog.at_level(logging.INFO):
         construir_calendario(Settings(_env_file=None), _RepoFestivos())
     assert "clave-secretisima-de-prueba" not in caplog.text
     # La longitud se comprueba EN LA LINEA DE WIRING, no en cualquier
-    # linea del log: el cliente escribe su propio `key_len` al
-    # instanciarse y taparia un fallo aqui.
+    # linea del log: el cliente escribe su propio `token_len` al
+    # instanciarse y taparia un fallo aqui (F-077: `token_len`).
     wiring = [m for m in caplog.messages if "[sesame][wiring]" in m]
     assert len(wiring) == 1
-    assert "key_len=27" in wiring[0]
+    assert "token_len=27" in wiring[0]
     assert "clave-secretisima-de-prueba" not in wiring[0]
 
 

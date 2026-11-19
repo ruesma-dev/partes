@@ -42,7 +42,6 @@ from infrastructure.calendario.json_calendario_laboral import (
 from infrastructure.calendario.tabla_calendario_laboral import (
     TablaCalendarioLaboral,
 )
-from infrastructure.sesame.sesame_api_client import SesameApiClient
 from infrastructure.database.recalculo_seguimiento import (
     SqlAlchemyRecalculoSeguimiento,
 )
@@ -56,6 +55,8 @@ from infrastructure.database.sqlalchemy_jornada_repository import (
 from infrastructure.database.sqlalchemy_parte_repository import (
     SqlAlchemyParteRepository,
 )
+from infrastructure.sesame.festivos_sesame_hr import FestivosSesameHr
+from infrastructure.sesame.sesame_hr_client import SesameHrClient
 from infrastructure.sigrid.sigrid_api_client import SigridApiClient
 
 logger = logging.getLogger(__name__)
@@ -66,11 +67,12 @@ def construir_calendario(
 ) -> CalendarioLaboralPort:
     """El calendario laboral que usara el computo de extras (F-003, F-032).
 
-    Con SESAME_API_* configurado, los festivos de cada trabajador GUARDADOS
-    en `festivos_trabajador` (`repositorio`), con el JSON local de respaldo
-    para quien no tiene fila (DA19 = B). Las pasadas no llaman nunca a
-    sesame-api (R14): la tabla la llena el refresco de la ingesta. Sin
-    Sesame, el JSON de siempre y ni se lee la tabla (R12).
+    Con Sesame HR configurado (SESAME_BASE_URL y SESAME_TOKEN), los
+    festivos de cada trabajador GUARDADOS en `festivos_trabajador`
+    (`repositorio`), con el JSON local de respaldo para quien no tiene
+    fila (DA19 = B). Las pasadas no llaman nunca a Sesame (R14): la tabla
+    la llena el refresco de la ingesta. Sin Sesame, el JSON de siempre y
+    ni se lee la tabla (R12).
 
     Esta funcion vive fuera de `build_app` porque `build_app` monta la
     SessionFactory contra PostgreSQL y no se puede levantar en la suite;
@@ -79,19 +81,20 @@ def construir_calendario(
     respaldo = JsonCalendarioLaboral(path=settings.calendario_laboral_path)
     if not settings.sesame_enabled:
         logger.info(
-            "[sesame][wiring] DESACTIVADO (faltan SESAME_API_*); los "
+            "[sesame][wiring] DESACTIVADO (faltan SESAME_BASE_URL/"
+            "SESAME_TOKEN); los "
             "festivos salen del JSON local %s.",
             settings.calendario_laboral_path,
         )
         return respaldo
     if repositorio is None:
         raise ValueError(
-            "con SESAME_API_* el calendario necesita el repositorio de "
+            "con Sesame el calendario necesita el repositorio de "
             "festivos_trabajador")
     logger.info(
-        "[sesame][wiring] CABLEADO base_url=%s key_len=%s "
+        "[sesame][wiring] CABLEADO base_url=%s token_len=%s "
         "festivos_minimos=%s festivos=tabla (respaldo: %s)",
-        settings.sesame_api_base_url, len(settings.sesame_api_key or ""),
+        settings.sesame_base_url, len(settings.sesame_token or ""),
         settings.sesame_festivos_minimos, settings.calendario_laboral_path,
     )
     return TablaCalendarioLaboral(repositorio=repositorio, respaldo=respaldo)
@@ -102,19 +105,21 @@ def construir_refresco_festivos(
 ) -> RefrescoFestivos | None:
     """El refresco de festivos de la ingesta (F-032, R4); None sin Sesame.
 
-    Es el UNICO que habla con sesame-api por festivos. Tras guardar una
-    fila vacia la cache del calendario (`olvidar`, R15), para que la pasada
-    de esa misma ingesta ya la use.
+    Es el UNICO que habla con Sesame HR (F-077): su `cliente` es el
+    adaptador `FestivosSesameHr`, que resuelve el DNI con el indice de
+    empleados y pide sus festivos. Tras guardar una fila vacia la cache
+    del calendario (`olvidar`, R15), para que la pasada de esa misma
+    ingesta ya la use.
     """
     if not settings.sesame_enabled:
         return None
-    cliente = SesameApiClient(
-        base_url=settings.sesame_api_base_url,   # type: ignore[arg-type]
-        api_key=settings.sesame_api_key,         # type: ignore[arg-type]
-        timeout_s=settings.sesame_api_timeout_s,
+    cliente = SesameHrClient(
+        base_url=settings.sesame_base_url,   # type: ignore[arg-type]
+        token=settings.sesame_token,         # type: ignore[arg-type]
+        timeout_s=settings.sesame_timeout_s,
     )
     return RefrescoFestivos(
-        cliente=cliente,
+        cliente=FestivosSesameHr(cliente=cliente),
         repositorio=repositorio,
         minimo=settings.sesame_festivos_minimos,
         ahora_utc=lambda: datetime.now(timezone.utc),

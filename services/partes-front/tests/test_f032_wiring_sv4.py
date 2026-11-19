@@ -4,8 +4,9 @@
 
 El repositorio lee `festivos_trabajador` entera, en dicts (como
 `list_jornadas_empleado`): sv4 solo hace un SELECT, no escribe nunca. Con
-Sesame configurado, `build_app` da al proveedor ese lector y el log de
-wiring dice `festivos=tabla` sin la clave (R3). SQLite en memoria; sin red.
+`FESTIVOS_SESAME_ENABLED=true` (F-077), `build_app` da al proveedor ese
+lector y el log de wiring dice `festivos=tabla`. SQLite en memoria; sin
+red.
 """
 from __future__ import annotations
 
@@ -22,7 +23,6 @@ from interface_adapters.web.app import build_app
 from tests.dobles import FabricaSesionSqlite
 
 DNI = "12345678Z"
-CLAVE = "clave-secretisima-de-prueba"
 
 
 @pytest.fixture
@@ -70,8 +70,7 @@ def test_f032_r18_list_festivos_trabajador_vacia():
 
 
 def test_f032_r18_build_app_con_sesame_lee_la_tabla(base, caplog):
-    base.setenv("SESAME_API_BASE_URL", "http://sesame.interno:8006")
-    base.setenv("SESAME_API_KEY", CLAVE)
+    base.setenv("FESTIVOS_SESAME_ENABLED", "true")
     fabrica = FabricaSesionSqlite()
     _sembrar(fabrica)
     with caplog.at_level(logging.INFO):
@@ -85,8 +84,7 @@ def test_f032_r18_build_app_con_sesame_lee_la_tabla(base, caplog):
     wiring = [m for m in caplog.messages if "[sesame][wiring]" in m]
     assert len(wiring) == 1
     assert "CABLEADO" in wiring[0] and "festivos=tabla" in wiring[0]
-    assert f"key_len={len(CLAVE)}" in wiring[0]
-    assert CLAVE not in caplog.text
+    assert "sv4 no llama a Sesame" in wiring[0]
 
 
 def test_f032_r12_build_app_sin_sesame_no_lee_la_tabla(base):

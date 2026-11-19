@@ -1,11 +1,11 @@
 # application/services/calendario_provider.py
 """Calendario laboral del portal: festivos de cada trabajador (F-003, F-032).
 
-Quien DECIDE. Desde F-032 los festivos NO se piden a sesame-api: los lee
-de la tabla `festivos_trabajador`, que escribe sv3 al ingerir cada parte
-(DA16). sv4 solo llama a Sesame por la JORNADA del contrato (R19). Cascada
-de lectura (DA19 = B, `festivos_guardados.elegir`) y FUENTE de cada
-resolucion:
+Quien DECIDE. Desde F-032 los festivos NO se piden a Sesame: los lee de
+la tabla `festivos_trabajador`, que escribe sv3 al ingerir cada parte
+(DA16). Desde F-077 sv4 no llama a Sesame para nada (DA1): sin cliente y
+sin la jornada del contrato. Cascada de lectura (DA19 = B,
+`festivos_guardados.elegir`) y FUENTE de cada resolucion:
 
     sesame      fila del trabajador en la tabla                  fiable
     sin_fila    sin fila o sin DNI: libreria `holidays`          aviso
@@ -16,9 +16,9 @@ Las vistas se sirven igual con cualquiera de ellas (nunca se cae el portal
 por RRHH). `sin_fila` y `respaldo` solo encienden el aviso de la UI: desde
 DA17 = B ningun calendario bloquea el registro en Sigrid.
 
-Con Sesame sin configurar (`cliente is None`) ni se lee la tabla: el
-portal se comporta exactamente como antes de F-003 (R7/R27). La tabla
-entera se lee de una vez y se cachea `ttl_tabla_s` segundos (<= 60).
+Apagado (`activo=False`, `FESTIVOS_SESAME_ENABLED=false`) ni se lee la
+tabla: el portal se comporta exactamente como antes de F-003 (R7/R27). La
+tabla entera se lee de una vez y se cachea `ttl_tabla_s` segundos (<= 60).
 """
 from __future__ import annotations
 
@@ -35,10 +35,6 @@ from application.services.festivos_guardados import (
     FilaFestivos,
     elegir,
     fila_de,
-)
-from infrastructure.sesame.sesame_api_client import (
-    JornadaContrato,
-    SesameApiClient,
 )
 
 logger = logging.getLogger(__name__)
@@ -80,30 +76,25 @@ class CalendarioProvider:
     def __init__(
         self,
         *,
-        cliente: SesameApiClient | None,
+        activo: bool = False,
         respaldo_holiday_name: Callable[[date], str | None],
-        ttl_seconds: int = 21600,
         reloj: Callable[[], float] = time.time,
         leer_festivos: Callable[[], Iterable[dict]] | None = None,
         ttl_tabla_s: float = 60,
     ) -> None:
-        self._cliente = cliente
+        self._activo = bool(activo)
         self._respaldo = respaldo_holiday_name
-        #: TTL de la cache de la JORNADA del contrato (SESAME_CACHE_TTL_S).
-        self._ttl = int(ttl_seconds)
         self._reloj = reloj
         self._leer_festivos = leer_festivos
         self._ttl_tabla_s = ttl_tabla_s
         self._lock = threading.RLock()
-        #: clave -> (timestamp, valor, fuente)
-        self._cache: dict[str, tuple[float, object, str]] = {}
         #: (momento de la lectura, filas por (DNI, ano)) o None.
         self._tabla: tuple[float, dict] | None = None
 
     @property
     def activo(self) -> bool:
-        """True si hay Sesame cableado (el nivel 2 de D2 solo aplica si si)."""
-        return self._cliente is not None
+        """True si la tabla de Sesame esta encendida (F-077, R21)."""
+        return self._activo
 
     # ------------------------------------------------------------- #
     # Lo que consumen las vistas.
@@ -137,33 +128,6 @@ class CalendarioProvider:
         """De donde salen los festivos de ese (DNI, ano): ver el modulo."""
         return self._resolver(normalizar_dni(dni), int(ano))[1]
 
-    def jornada_contrato(self, dni: str | None) -> JornadaContrato | None:
-        """Tipo de jornada del contrato; `None` si no se puede saber.
-
-        OJO: sesame-api NO da hoy las horas del contrato (peticion P1),
-        asi que esto NO sustituye al CanDefecto: alimenta el badge del
-        KPI y el aviso de divergencia (R13/R14).
-        """
-        dni_norm = normalizar_dni(dni)
-        if self._cliente is None or not dni_norm:
-            return None
-        clave = f"jornada:{dni_norm}"
-        vigente = self._de_cache(clave)
-        if vigente is not None:
-            return vigente[0]  # type: ignore[return-value]
-        try:
-            jornada = self._cliente.jornada(dni_norm)
-        except Exception as exc:  # noqa: BLE001
-            # F-032 (R3): ni el DNI ni `exc!r` (lleva la URL con el DNI o
-            # el cuerpo de Sesame): solo el tipo de la excepcion.
-            logger.warning(
-                "%s jornada no disponible (%s); el KPI se muestra sin "
-                "el dato del contrato.", _LOG_PREFIX, type(exc).__name__,
-            )
-            return None
-        self._a_cache(clave, jornada, "sesame")
-        return jornada
-
     def fiable_para(
         self, consultas: Iterable[tuple[str | None, int]]
     ) -> bool:
@@ -173,7 +137,7 @@ class CalendarioProvider:
         (F-032, R22, R25); ya no bloquea nada (DA17 = B). Sin Sesame
         configurado siempre es True (R27).
         """
-        if self._cliente is None:
+        if not self._activo:
             return True
         vistos: set[tuple[str, int]] = set()
         for dni, ano in consultas:
@@ -207,7 +171,7 @@ class CalendarioProvider:
         `None` como mapa significa "usa el respaldo": o no hay Sesame, o el
         trabajador no tiene fila, o la tabla no se pudo leer.
         """
-        if self._cliente is None:
+        if not self._activo:
             return None, "sin_sesame"
         try:
             fila, fuente = elegir(dni_norm, ano, self._fila)
@@ -248,21 +212,3 @@ class CalendarioProvider:
                 filas[(fila.dni_norm, fila.ano)] = fila
             self._tabla = (ahora, filas)
             return filas
-
-    # ------------------------------------------------------------- #
-    # Cache.
-    # ------------------------------------------------------------- #
-    def _de_cache(self, clave: str) -> tuple[object, str] | None:
-        if self._ttl <= 0:
-            return None
-        with self._lock:
-            entrada = self._cache.get(clave)
-        if entrada is None:
-            return None
-        if (self._reloj() - entrada[0]) >= self._ttl:
-            return None
-        return entrada[1], entrada[2]
-
-    def _a_cache(self, clave: str, valor: object, fuente: str) -> None:
-        with self._lock:
-            self._cache[clave] = (self._reloj(), valor, fuente)
