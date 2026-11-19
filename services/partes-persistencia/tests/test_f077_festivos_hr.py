@@ -265,6 +265,22 @@ def test_f077_r14_corte_configurable() -> None:
     assert str(exc.value) != "corte"                        # volvio a pedir
 
 
+def test_f077_r14_el_corte_no_depende_del_origen_del_reloj() -> None:
+    """R14 con el reloj de 5.2 (`time.monotonic`, de origen indefinido): un
+    corte que acaba justo en el instante 0.0 sigue siendo un corte (T16)."""
+    reloj = Reloj(-60.0)
+    sesame = SesameHrFalso(empleados=[pagina([])])
+    adaptador = _adaptador(sesame, reloj)
+    with pytest.raises(SesameNoDisponible):
+        adaptador.festivos(DNI_A, 2026)                     # corte hasta 0.0
+    n = len(sesame.peticiones)
+    reloj.t = -30.0
+    with pytest.raises(SesameNoDisponible) as exc:
+        adaptador.festivos(DNI_A, 2026)
+    assert str(exc.value) == "corte"
+    assert len(sesame.peticiones) == n                      # sin red
+
+
 def test_f077_r14_no_disponible_en_festivos_abre_el_corte() -> None:
     reloj = Reloj()
     sesame = SesameHrFalso(festivos={ID_A: 503, ID_B: FESTIVOS_A_2026})

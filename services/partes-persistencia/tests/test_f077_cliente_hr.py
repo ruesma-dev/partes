@@ -177,12 +177,27 @@ def test_f077_r2_llegar_justo_al_tope_no_es_fallo() -> None:
 
 
 @pytest.mark.parametrize("cuerpo", [["no", "es", "objeto"],
-                                    {"data": [], "meta": {"lastPage": "x"}}])
+                                    {"data": [], "meta": {"lastPage": "x"}},
+                                    [], ""])
 def test_f077_r2_un_cuerpo_sin_forma_de_listado_es_fallo(cuerpo) -> None:
     sesame = SesameHrFalso(calendarios=[cuerpo])
     with pytest.raises(RuntimeError) as exc:
         _cliente(sesame).calendarios_festivos()
     assert not isinstance(exc.value, SesameNoDisponible)
+    # R5 + DA6: un 200 con un cuerpo vacio (`[]`, `""`) no es un 404; el
+    # texto da lo que paso de verdad (T16, superviviente sesame_hr_client:182).
+    assert str(exc.value) == f"sesame cuerpo sin listado en {RUTA_CALENDARIOS}"
+
+
+def test_f077_r2_el_tope_por_defecto_es_de_20000_filas() -> None:
+    """Design 5.1: `tope_filas=20_000` por defecto; 20 001 ya es fallo (T16)."""
+    filas = [{"id": f"emp-ficticio-{i}"} for i in range(20_001)]
+    justo = SesameHrFalso(empleados=[pagina(filas[:20_000])])
+    assert len(_cliente(justo).empleados()) == 20_000
+    sobra = SesameHrFalso(empleados=[pagina(filas)])
+    with pytest.raises(RuntimeError) as exc:
+        _cliente(sobra).empleados()
+    assert "tope" in str(exc.value)
 
 
 def test_f077_r2_cuenta_las_paginas_del_ultimo_listado() -> None:
@@ -228,6 +243,19 @@ def test_f077_r3_retry_after_no_numerico_es_1_mas_intento(cabecera) -> None:
     _, cliente = _festivos(
         httpx.Response(429, headers={"Retry-After": cabecera}),
         httpx.Response(429, headers={"Retry-After": cabecera}),
+        FESTIVOS_A_2026, dormir=dormir)
+    cliente.festivos_de_empleado(ID_A, 2026)
+    assert dormir.esperas == [1.0, 2.0]
+
+
+@pytest.mark.parametrize("cabecera", ["-5", "nan"])
+def test_f077_r3_retry_after_negativo_o_nan_es_1_mas_intento(cabecera) -> None:
+    """R3: un `Retry-After` negativo o NaN no es una espera en segundos;
+    cuenta como ausente (1 + intento), tambien en el segundo intento (T16)."""
+    dormir = Dormir()
+    _, cliente = _festivos(
+        httpx.Response(429, headers={"Retry-After": cabecera}),
+        httpx.Response(503, headers={"Retry-After": cabecera}),
         FESTIVOS_A_2026, dormir=dormir)
     cliente.festivos_de_empleado(ID_A, 2026)
     assert dormir.esperas == [1.0, 2.0]
@@ -450,6 +478,31 @@ def test_f077_r8_day_off_si_no_hay_days_off_y_sin_nombre() -> None:
         ("7", None, False, (FestivoDia("2026-01-01", "A"),)),
         ("c2", None, False, (FestivoDia("2026-02-02", None),)),
         ("c3", None, False, ())]
+
+
+def test_f077_r8_days_off_presente_manda_aunque_venga_vacio() -> None:
+    """R8: los dias son los de `daysOff`; `dayOff` solo cuando el calendario
+    no trae `daysOff`. Un `daysOff: []` es un calendario sin dias (T16)."""
+    sesame = SesameHrFalso(calendarios=[pagina([
+        {"id": "c4", "daysOff": [], "dayOff": {"date": "2026-03-03"}}])])
+    assert _cliente(sesame).calendarios_festivos() == [
+        CalendarioSesame("c4", None, False, ())]
+
+
+# ----------------------- Contrato de datos (5.1) ------------------------ #
+
+@pytest.mark.parametrize("valor, campo", [
+    (FestivoDia("2026-01-01", "Ano Nuevo"), "fecha"),
+    (EmpleadoSesame(ID_A, "12345678Z", True), "activo"),
+    (CalendarioSesame("cal-ficticio-1", "General", True, ()), "por_defecto"),
+], ids=["FestivoDia", "EmpleadoSesame", "CalendarioSesame"])
+def test_f077_los_datos_del_cliente_son_inmutables_y_hashables(
+        valor, campo) -> None:
+    """Design 5.1 (`frozen=True`): el indice en memoria (R11) sirve a todas
+    las llamadas y a varios hilos; nadie puede alterar una entrada (T16)."""
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        setattr(valor, campo, None)
+    assert hash(valor) == hash(dataclasses.replace(valor))
 
 
 # ---------------------------------- R9 ---------------------------------- #

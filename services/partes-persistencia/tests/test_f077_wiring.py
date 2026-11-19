@@ -104,6 +104,9 @@ def test_f077_r16_url_sin_https_no_arranca(entorno, url) -> None:
 def test_f077_r16_timeout_configurable_y_positivo(entorno) -> None:
     entorno.setenv("SESAME_TIMEOUT_S", "4.5")
     assert Settings(_env_file=None).sesame_timeout_s == 4.5
+    # Design 5.3: `gt=0`; medio segundo es un plazo valido (T16).
+    entorno.setenv("SESAME_TIMEOUT_S", "0.5")
+    assert Settings(_env_file=None).sesame_timeout_s == 0.5
     for malo in ("0", "-1", "rapido"):
         entorno.setenv("SESAME_TIMEOUT_S", malo)
         with pytest.raises(ValidationError):
