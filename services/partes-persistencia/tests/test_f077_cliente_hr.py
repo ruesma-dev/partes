@@ -106,6 +106,7 @@ def test_f077_r1_el_plazo_llega_a_httpx() -> None:
     vistos = []
 
     def anota(request):
+        assert request.method == "GET"                 # solo lectura (R1)
         vistos.append(request.extensions["timeout"])
         return httpx.Response(200, json=pagina([]))
 
