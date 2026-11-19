@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **71 features**, 15 abiertas y 56 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 56 en Done.
+Resumen: **72 features**, 16 abiertas y 56 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 56 en Done.
 
 ## Review
 
@@ -15,7 +15,9 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-_Ninguna feature en implementación._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-078 | sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28 | implementer |  | 1 | express | `feature/F-078-alias-membrete-dorsan` |
 
 ## Spec aprobada
 
@@ -108,6 +110,12 @@ _Nada comprometido._
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | sin fecha | sin anotar |  | 10 | estandar |
 
 ## Detalle
+
+### F-078 · sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28
+
+estado **en curso** · prioridad 1 · rigor `express` · SDD no · rama `feature/F-078-alias-membrete-dorsan`
+
+Petición del humano del 2026-11-19 tras el correo de Administración de Obra sobre la obra 0730: tres partes de Porsan (11–13/11) se leyeron con membrete «Dorsan S.L. E HIJOS CONSTRUCCIONES», no casó con ningún alias, la empresa se tomó de la obra y acabaron en la 0730 de Ruesma (empresa 1) en vez de en la de Porsan (28). Se añade el alias DORSAN a la empresa 28 en services/partes-persistencia/config/empresas_membrete.yaml (tabla versionada de F-023, como RUΞSMA en F-029) y un test que lo fija. Solo ingestas nuevas: los partes ya guardados se corrigen desde el portal. Requiere redesplegar sv3 (lo hace el humano).
 
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
