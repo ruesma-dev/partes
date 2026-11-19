@@ -191,7 +191,7 @@ sv3 2722 passed, 2 skipped; sv4 3809 passed; sv1/sv2/sv5 en caché. `PUERTA COBE
 |---|---|
 | Tests | Pasada de campaña: sv3 2732 passed, 2 skipped (+10 tests); raíz 2537 passed. Ciclo 1: raíz 2537 passed, 48 skipped; sv3 2722 passed, 2 skipped; sv4 3809 passed; sv1, sv2 y sv5 verdes en caché |
 | Cobertura de líneas cambiadas | **99.3 %** (266/268) en el ciclo 1, umbral del nivel `critico`: 90 % |
-| Mutación | 141 generados, 85 evaluados (campaña completa, uno por línea), 73 muertos, **12 supervivientes**, 0 timeouts, 7791 s. Tras T16: 9 muertos con test, **3 equivalentes pendientes de aceptación del humano** (`progress/mutacion_F-077.md`) |
+| Mutación | 141 generados, 85 evaluados (campaña completa, uno por línea), 73 muertos, **12 supervivientes**, 0 timeouts, 7791 s. Tras T16: 9 muertos con test, **3 equivalentes aceptados por el humano el 2026-11-19** (`progress/mutacion_F-077.md`) |
 | Tiempo de la suite | Ciclo 1, dentro de `init.sh`: raíz 1242.53 s, sv3 60.73 s, sv4 651.54 s |
 | Capa e2e | N/A (`CAPA E2E: N/A`, ningún servicio declara el bloque e2e) |
 
@@ -210,7 +210,7 @@ Tests en dbecb3e (solo `services/partes-persistencia/tests/`, sin tocar producci
 
 Muerte reproducida a mano (`scratchpad/repro.py`: aplica en el árbol, `pytest -q` del test,
 revierte en `finally`): los 9 dan `failed` con el mutante y `passed` sin él; árbol limpio.
-**Equivalentes** (pendientes de aceptación del humano): n.º 2 y 4 (`EmpleadoSesame` siempre
+**Equivalentes** (aceptados por el humano el 2026-11-19: «acepto»): n.º 2 y 4 (`EmpleadoSesame` siempre
 verdadero: `not x` ⇔ `x is None`) y n.º 9 (el `ultimas_paginas` inicial nunca se lee: el log
 de R12 va tras un listado que lo ha fijado). Con su mutante, las suites F-077 siguen verdes.
 La lectura de R8 del n.º 10 es la literal: si el humano la quiere al revés, es cambio de spec.

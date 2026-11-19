@@ -3,13 +3,11 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **71 features**, 16 abiertas y 55 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 55 en Done.
+Resumen: **71 features**, 15 abiertas y 56 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 56 en Done.
 
 ## Review
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | reviewer | aprobada 2026-11-18 (DA1–DA14 = A, las recomendadas) | 1 | critico | `feature/F-077-sesame-directo-sin-pasarela` |
+_Nada esperando revisión._
 
 ## Blocked
 
@@ -52,6 +50,7 @@ _Nada comprometido._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | 2026-11-19 | 2026-11-19 | Sin desplegar. Manuales del humano M0–M6 (T17–T18: token rotado y SESAME-TOKEN en el Key Vault, contraste e impacto, redespliegue apagado, encendido, portal y -Quitar), comandos en progress/impl_F-077.md | 1 | critico |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2026-11-18 | 2026-11-18 | Sin desplegar. Sus manuales M1–M7 y P0–P4 de sesame-api los sustituye F-077 (Sesame HR directo, sin pasarela); sigue P5 (RRHH completa Alicante) | 2 | critico |
 | F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 2026-11-15 | 2026-11-15 |  | 2 | critico |
 | F-001 | Test de estructura del monorepo (calentamiento) | sin fecha | sin anotar |  | 1 | estandar |
@@ -109,14 +108,6 @@ _Nada comprometido._
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | sin fecha | sin anotar |  | 10 | estandar |
 
 ## Detalle
-
-### F-077 · sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api
-
-estado **en QA / revisión** · spec aprobada el 2026-11-18 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-077-sesame-directo-sin-pasarela`
-
-**Spec**: aprobada 2026-11-18 (DA1–DA14 = A, las recomendadas)
-
-Petición del humano del 2026-11-18: «para que necesitamos el proyecto sesame api? si ya hay una api oficial de sesame, conectemonos a ella usando el mismo mecanismo que el proyecto sesame api y saca la info». Propuesta del líder aprobada el 2026-11-18 («ok») con DA1–DA4 como recomendadas. F-032 (done, sin desplegar) guarda los festivos de cada trabajador en `festivos_trabajador`, refrescados por sv3 al ingerir llamando a la pasarela sesame-api (`/api/v1/festivos?dni=`); sesame-api no está desplegada ni commiteada y bloquea el encendido. LO QUE SE PIDE: (1) DA1: solo sv3 llama a Sesame; sv4 deja de llamar a Sesame (la jornada de Sesame no existe: 0/218 empleados con contrato; la jornada sigue con el candef como hoy, sin cambio visible) y lee los festivos de la tabla como ya hace. (2) Cliente nuevo en sv3 `infrastructure/sesame/` con el mismo mecanismo que sesame-api (repo sesame-api, `infrastructure/sesame/sesame_http_client.py`, solo lectura de su código, nunca su .env): `GET /core/v3/employees` paginado (limit/page + meta.lastPage) para el índice DNI → employeeId, `GET /schedule/v1/holidays?employeeId=&year=` (la respuesta trae `daysOff`), reintentos ante 429/5xx con Retry-After, token Bearer; SOLO GET, vigilado por test. (3) DA3: índice DNI → empleado en memoria de sv3 con TTL (~10 min), sin tabla nueva. (4) El resto de F-032 no cambia: tabla, refresco al ingerir, 404/sin empleado ⇒ sin fila y respaldo actual, fallo ⇒ conservar la fila o revisión, portal sin bloqueo. (5) Configuración: sv3 `SESAME_BASE_URL` (https://api-eu4.sesametime.com) y `SESAME_TOKEN` en lugar de `SESAME_API_BASE_URL`/`SESAME_API_KEY`; en Azure el token como secreto del Key Vault (`sesame-token`) por secretref, cableado por `infra/add_sesame_partes.ps1`. (6) Arrastre: herramienta de contraste, CLAUDE.md (los clientes `infrastructure/sesame/` dejan de ser gemelos sv3/sv4), `azure-apps/partes.md`, tests. DA2: sesame-api no se toca; partes deja de depender de ella. DA4: rigor crítico (datos personales e integración externa). Riesgos: el token de Sesame probablemente permite escribir (sesame-api tiene un script que inicia fichajes): cliente solo GET y, si Sesame lo permite, token de solo lectura; el token debe rotarse antes de usarlo (el .env de sesame-api está versionado, commits d226936 y dcef288); ningún DNI, nombre ni token en logs (lección de F-032: httpx en WARNING, comprobar con el logging real). Fuera: sesame-api, la jornada de Sesame (F-011), el despliegue.
 
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
@@ -237,6 +228,16 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-077 · sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api
+
+estado **terminada** · cerrada el 2026-11-19 · spec aprobada el 2026-11-18 · OK del humano el 2026-11-19 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-077-sesame-directo-sin-pasarela`
+
+**Spec**: aprobada 2026-11-18 (DA1–DA14 = A, las recomendadas)
+
+**Pendiente**: Sin desplegar. Manuales del humano M0–M6 (T17–T18: token rotado y SESAME-TOKEN en el Key Vault, contraste e impacto, redespliegue apagado, encendido, portal y -Quitar), comandos en progress/impl_F-077.md
+
+Petición del humano del 2026-11-18: «para que necesitamos el proyecto sesame api? si ya hay una api oficial de sesame, conectemonos a ella usando el mismo mecanismo que el proyecto sesame api y saca la info». Propuesta del líder aprobada el 2026-11-18 («ok») con DA1–DA4 como recomendadas. F-032 (done, sin desplegar) guarda los festivos de cada trabajador en `festivos_trabajador`, refrescados por sv3 al ingerir llamando a la pasarela sesame-api (`/api/v1/festivos?dni=`); sesame-api no está desplegada ni commiteada y bloquea el encendido. LO QUE SE PIDE: (1) DA1: solo sv3 llama a Sesame; sv4 deja de llamar a Sesame (la jornada de Sesame no existe: 0/218 empleados con contrato; la jornada sigue con el candef como hoy, sin cambio visible) y lee los festivos de la tabla como ya hace. (2) Cliente nuevo en sv3 `infrastructure/sesame/` con el mismo mecanismo que sesame-api (repo sesame-api, `infrastructure/sesame/sesame_http_client.py`, solo lectura de su código, nunca su .env): `GET /core/v3/employees` paginado (limit/page + meta.lastPage) para el índice DNI → employeeId, `GET /schedule/v1/holidays?employeeId=&year=` (la respuesta trae `daysOff`), reintentos ante 429/5xx con Retry-After, token Bearer; SOLO GET, vigilado por test. (3) DA3: índice DNI → empleado en memoria de sv3 con TTL (~10 min), sin tabla nueva. (4) El resto de F-032 no cambia: tabla, refresco al ingerir, 404/sin empleado ⇒ sin fila y respaldo actual, fallo ⇒ conservar la fila o revisión, portal sin bloqueo. (5) Configuración: sv3 `SESAME_BASE_URL` (https://api-eu4.sesametime.com) y `SESAME_TOKEN` en lugar de `SESAME_API_BASE_URL`/`SESAME_API_KEY`; en Azure el token como secreto del Key Vault (`sesame-token`) por secretref, cableado por `infra/add_sesame_partes.ps1`. (6) Arrastre: herramienta de contraste, CLAUDE.md (los clientes `infrastructure/sesame/` dejan de ser gemelos sv3/sv4), `azure-apps/partes.md`, tests. DA2: sesame-api no se toca; partes deja de depender de ella. DA4: rigor crítico (datos personales e integración externa). Riesgos: el token de Sesame probablemente permite escribir (sesame-api tiene un script que inicia fichajes): cliente solo GET y, si Sesame lo permite, token de solo lectura; el token debe rotarse antes de usarlo (el .env de sesame-api está versionado, commits d226936 y dcef288); ningún DNI, nombre ni token en logs (lección de F-032: httpx en WARNING, comprobar con el logging real). Fuera: sesame-api, la jornada de Sesame (F-011), el despliegue.
 
 ### F-032 · Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR
 

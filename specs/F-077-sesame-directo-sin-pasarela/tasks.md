@@ -37,7 +37,7 @@ Reglas que no se negocian:
 - [x] T13: `infra/add_sesame_partes.ps1`, `create_capps_partes.ps1`, `create_sv4_front.ps1`, `add_secrets_partes.ps1`, `00_vars_partes.ps1` (design §5.6), conservando el fin de línea de cada uno  |  Verificación: T12 en verde
 - [x] T14: Documentación: `CLAUDE.md` (lista cerrada), `harness/servicios.json`, `docs/ARCHITECTURE.md`, `infra/README_partes.md` y `README.md` (R33)  |  Verificación: T1 entero en verde y `python -m harness.servicios --validar`
 - [x] T15: `azure-apps/partes.md` (design §8): `git -C C:\Users\pgris\PycharmProjects\azure-apps pull --rebase` antes; solo ese documento; commit aparte en `azure-apps`, sin push; ante conflicto, PARAR y `blocked`  |  Verificación: `git -C C:\Users\pgris\PycharmProjects\azure-apps log -1 --stat` con solo `partes.md`
-- [ ] T16: Campaña de mutación del nivel sobre las líneas cambiadas y análisis de cada superviviente en `progress/mutacion_F-077.md`  |  Verificación: informe con cero supervivientes sin test o justificación aceptada
+- [x] T16: Campaña de mutación del nivel sobre las líneas cambiadas y análisis de cada superviviente en `progress/mutacion_F-077.md`  |  Verificación: informe con cero supervivientes sin test o justificación aceptada
 - [ ] T17: M0 (token rotado y, si se puede, de solo lectura; `SESAME-TOKEN` en `$KV`) y M1–M2 (contraste e impacto)  |  Verificación: MANUAL (humano), design §7, comando y resultado en `progress/impl_F-077.md`
 - [ ] T18: M3–M6 (redespliegue apagado, encendido, portal y `-Quitar`); al encender, estado en `azure-apps/partes.md`  |  Verificación: MANUAL (humano), design §7, comando y resultado en `progress/impl_F-077.md`
 - [x] T19: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`

@@ -4,8 +4,23 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-077** (`in_review`; review principal APPROVED; T16 hecha salvo aceptación: 9 de 12 supervivientes muertos con test, 3 equivalentes pendientes de aceptación del humano, ver `progress/mutacion_F-077.md`). Última cerrada: F-032
-(2026-11-18, sin desplegar; ver abajo).
+Feature activa: ninguna. Última cerrada: **F-077** (2026-11-19, sin desplegar; ver abajo).
+
+## F-077 · DONE 2026-11-19, sin desplegar (sv3 lee los festivos de Sesame HR, sin pasarela)
+
+Review APPROVED en tres pasadas (`progress/review_F-077.md`): la 1 pidió 3 cambios fuera de
+producción; la 2 los dio por resueltos junto con la enmienda de R13 (0 DNIs ⇒ fallo, decisión del
+humano «a»); la 3 (evidencias) aprobó condicionado a la aceptación de los 3 equivalentes, que el
+humano dio literalmente el 2026-11-19: «acepto» (anotada en `progress/mutacion_F-077.md`).
+Campaña: 85 evaluados, 73 muertos, 9 supervivientes muertos con test, 3 equivalentes aceptados.
+Integrada en `dev` en local.
+
+Pendiente del humano (nada de esto lo hace el arnés): **M0–M6** (T17–T18), comandos en
+«Verificaciones manuales pendientes» de `progress/impl_F-077.md`: rotar el token y cargar
+`SESAME-TOKEN` con `add_secrets_partes.ps1`, contraste e `--impacto`, redespliegue apagado,
+encendido con `add_sesame_partes.ps1`, portal y `-Quitar`. Sigue P5 de F-032 (RRHH Alicante).
+Observaciones sin bloqueo: O2 (URL pública en `features.json`), O3 (`ultimas_paginas`
+compartido), O4 (el doble `_ProveedorSinJornada` revienta también ante `hasattr`).
 
 ## F-077 · vuelta a in_progress 2026-11-19 (review 1 CHANGES_REQUESTED)
 

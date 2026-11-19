@@ -63,7 +63,7 @@ Origen del diff: **rama** (`9925fa12022a54c080f0609aaf0748b3c8b44a63` .. `featur
 
 ## Pasada de campaña (T16, 2026-11-19)
 
-12 supervivientes: **9 muertos con test** (n.º 1, 3, 5–8, 10–12; commit `dbecb3e`, muerte reproducida a mano mutante por mutante) y **3 equivalentes pendientes de aceptación del humano** (n.º 2, 4 y 9). Sin código de producción tocado. Script de reproducción: `C:/Users/pgris/AppData/Local/Temp/claude/df60977b71b41004/e7e805c0-0ecb-4470-8b9f-c7a943e77b59/scratchpad/repro.py`.
+12 supervivientes: **9 muertos con test** (n.º 1, 3, 5–8, 10–12; commit `dbecb3e`, muerte reproducida a mano mutante por mutante) y **3 equivalentes aceptados por el humano el 2026-11-19 («acepto»)** (n.º 2, 4 y 9). Sin código de producción tocado. Script de reproducción: `C:/Users/pgris/AppData/Local/Temp/claude/df60977b71b41004/e7e805c0-0ecb-4470-8b9f-c7a943e77b59/scratchpad/repro.py`.
 
 ## Cómo se juzgó
 
@@ -94,7 +94,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué no lo caza nadie: `indice.get(dni_norm)` da `None` o un `EmpleadoSesame`, dataclass sin `__bool__` ni `__len__`, así que siempre es verdadero: `not empleado` ⇔ `empleado is None` para todo valor posible.
-> Decisión: **equivalente** (pendiente de aceptación del humano). Con el mutante, las 39 pruebas de `test_f077_festivos_hr.py` + `test_f077_ingesta_hr.py` pasan.
+> Decisión: **equivalente** (**aceptado por el humano el 2026-11-19: «acepto»**). Con el mutante, las 39 pruebas de `test_f077_festivos_hr.py` + `test_f077_ingesta_hr.py` pasan.
 
 ### 3. `services/partes-persistencia/infrastructure/sesame/festivos_sesame_hr.py:86` [veracidad]
 
@@ -116,7 +116,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué no lo caza nadie: `previo` es `None` o un `EmpleadoSesame` (dataclass siempre verdadero, como en el n.º 2): `not previo` ⇔ `previo is None`.
-> Decisión: **equivalente** (pendiente de aceptación del humano). Con el mutante, las 39 pruebas del adaptador y la ingesta pasan.
+> Decisión: **equivalente** (**aceptado por el humano el 2026-11-19: «acepto»**). Con el mutante, las 39 pruebas del adaptador y la ingesta pasan.
 
 ### 5. `services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py:57` [booleano]
 
@@ -171,7 +171,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué no lo caza nadie: el único lector de `ultimas_paginas` es el log del índice (`festivos_sesame_hr.py:124`, R12), que solo se escribe tras un `empleados()` que ha vuelto bien; y `_paginado` asigna `ultimas_paginas = pagina` (≥ 1) justo antes de todo `return`. El valor inicial nunca llega a leerse en ningún camino observable; un test sobre él solo existiría para el mutante.
-> Decisión: **equivalente en comportamiento observable** (pendiente de aceptación del humano). Con el mutante, las 129 pruebas de cliente, adaptador y contraste pasan.
+> Decisión: **equivalente en comportamiento observable** (**aceptado por el humano el 2026-11-19: «acepto»**). Con el mutante, las 129 pruebas de cliente, adaptador y contraste pasan.
 
 ### 10. `services/partes-persistencia/infrastructure/sesame/sesame_hr_client.py:160` [veracidad]
 
