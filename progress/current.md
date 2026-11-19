@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última cerrada: F-032
+Feature activa: **F-077** (`in_review`, review 1 CHANGES_REQUESTED). Última cerrada: F-032
 (2026-11-18, sin desplegar; ver abajo).
 
 ## Abierto fuera del código (2026-11-16)
@@ -26,6 +26,10 @@ Ninguna feature activa (`in_progress`, `in_review` ni `human_review`). Última c
 El líder recortó su propia enmienda de design §4 a 2 líneas sin cambiar lo decidido (131ad40):
 `design.md` 250/250. `bash harness/init.sh` en verde (ENTORNO LISTO; cobertura 99,2 %, 263/265).
 T19 marcada; F-077 a `in_review`; siguiente: reviewer.
+
+Manuales del humano M0–M6 (token rotado y `SESAME-TOKEN` en el Key Vault, contraste,
+impacto, redespliegue apagado, encendido, portal y `-Quitar`): comandos en «Verificaciones
+manuales pendientes» de `progress/impl_F-077.md`.
 
 ### Bloqueo en T19 (implementer, 2026-11-19): `design.md` pasaba del tope de tamaño
 
@@ -117,11 +121,8 @@ encargo.»**, que cubre los 3 equivalentes y los 11 muertos por la raíz (anotad
 herramienta de mutación queda como encargo en `arnes-base`.
 
 Pendiente del humano (nada de esto lo hace el arnés):
-- **sesame-api**: P0 (sacar `.env` de git y rotar el token si lo lleva), P1 (commitear el
-  rediseño), P2 (Dockerfile), P3 (contrato ausente ⇒ 404), P4 (su documento en `azure-apps`),
-  P5 (RRHH completa Alicante).
-- **Manuales M1–M7** (desplegar sesame-api, contraste, redesplegar sv3 y sv4,
-  `infra/add_sesame_partes.ps1`, portal, `-Quitar`): comandos en `progress/impl_F-032.md`.
+- ~~sesame-api P0–P4~~ y ~~manuales M1–M7~~: **sustituidos por F-077** (Sesame HR directo, sin
+  pasarela; decisión del humano 2026-11-18). Sigue **P5** (RRHH completa Alicante).
 - Menores: 8 avisos de ruff en `services/partes-persistencia/tests/test_f032_campana.py`
   (fixtures importados, mejor en `conftest.py`); fila «Workers: 3» en Evidencias del informe.
 
