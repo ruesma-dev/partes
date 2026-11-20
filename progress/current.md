@@ -6,6 +6,28 @@ tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11
 
 Feature activa: ninguna. Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
+## F-072 · spec escrita 2026-11-20 (pendiente de aprobación)
+
+La spec está en `specs/F-072-postventa-var-como-obras/` (requirements 150/150, design 248/250,
+T1–T32). El resumen, los hallazgos y las decisiones están en `progress/spec_F-072.md`. Rigor
+crítico.
+
+Las decisiones abiertas para el humano son DA1–DA12, todas con recomendación (a):
+- forma en el papel;
+- alias de postventa;
+- sv2 sin relectura;
+- un gemelo nuevo en la lista cerrada (sv3, sv4 y sv5);
+- la entrada guardada sin columnas;
+- obra cerrada solo como postventa (no aplica);
+- VAR y POSTV2 fuera del selector normal;
+- conflictos de sv5 por partida;
+- partes ya guardados;
+- bandeja sin cambios;
+- configuración sin valores por defecto;
+- sincronizar una entrada (fuera).
+
+Conviene tener M0 (T29, consulta de solo lectura) antes de cerrar DA1 y DA9.
+
 ## F-078 · DONE 2026-11-20, sin desplegar (alias DORSAN de la empresa 28)
 
 Express, APPROVED en pasada única (`progress/review_F-078.md`); OK del humano «push hecho ok, a
