@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 57 en Done.
+Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 2 en To do, 11 en Backlog y 57 en Done.
 
 ## Review
 
@@ -26,15 +26,16 @@ _Ninguna feature en implementación._
 
 ## To do
 
-_Nada comprometido._
+| # | Feature | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 2 | critico | `feature/F-072-postventa-var-como-obras` |
+| F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 
 ## Backlog
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 2 | critico | `feature/F-072-postventa-var-como-obras` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
-| F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 | F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
 | F-044 | Mover a un trabajador de un parte a otra fecha sin mover al resto | borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla | 6 | critico | `feature/F-044-mover-linea-a-otra-fecha` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
@@ -114,7 +115,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
-estado **pendiente** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
 
 **Spec**: sin spec
 
@@ -130,7 +131,7 @@ Pedida por el humano el 2026-11-12. Caso: obra 0721, adjunto 4936_001.pdf (12 p�
 
 ### F-071 · Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta
 
-estado **pendiente** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-071-fecha-coherente-paginas`
+estado **to do (comprometida)** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-071-fecha-coherente-paginas`
 
 **Spec**: sin spec
 
