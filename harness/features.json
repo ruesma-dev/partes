@@ -1174,6 +1174,25 @@
       "fecha_cierre": "2026-11-19",
       "ok_humano": "2026-11-19",
       "pendiente": "Sin desplegar. Manuales del humano M0–M6 (T17–T18: token rotado y SESAME-TOKEN en el Key Vault, contraste e impacto, redespliegue apagado, encendido, portal y -Quitar), comandos en progress/impl_F-077.md"
+    },
+    {
+      "id": "F-078",
+      "title": "sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28",
+      "priority": 1,
+      "rigor": "express",
+      "sdd": false,
+      "status": "done",
+      "fecha_cierre": "2026-11-20",
+      "ok_humano": "2026-11-20",
+      "pendiente": "redesplegar sv3 (humano) y mover desde el portal los partes ya guardados de Dorsan (11-13/11) y el del 10/11 a la obra 0730 de Porsan",
+      "branch": "feature/F-078-alias-membrete-dorsan",
+      "description": "Petición del humano del 2026-11-19 tras el correo de Administración de Obra sobre la obra 0730: tres partes de Porsan (11–13/11) se leyeron con membrete «Dorsan S.L. E HIJOS CONSTRUCCIONES», no casó con ningún alias, la empresa se tomó de la obra y acabaron en la 0730 de Ruesma (empresa 1) en vez de en la de Porsan (28). Se añade el alias DORSAN a la empresa 28 en services/partes-persistencia/config/empresas_membrete.yaml (tabla versionada de F-023, como RUΞSMA en F-029) y un test que lo fija. Solo ingestas nuevas: los partes ya guardados se corrigen desde el portal. Requiere redesplegar sv3 (lo hace el humano).",
+      "acceptance": [
+        "«Dorsan S.L. E HIJOS CONSTRUCCIONES» se traduce a la empresa 28 con el ResolutorEmpresa real y la tabla versionada",
+        "«Porsan …» y los alias de la empresa 1 siguen como estaban",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ],
+      "ok_humano_propuesta": "2026-11-19 («si lanza»)"
     }
   ]
 }

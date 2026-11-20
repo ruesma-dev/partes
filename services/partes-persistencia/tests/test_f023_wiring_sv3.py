@@ -54,9 +54,10 @@ def test_f023_da5_sigrid_empresa_ya_no_esta_en_los_settings(entorno) -> None:
 def test_f023_da3_por_defecto_se_lee_la_tabla_versionada(entorno) -> None:
     settings = Settings(_env_file=None)
     assert settings.empresas_membrete_path == "config/empresas_membrete.yaml"
-    # F-029: la 1 trae tambien el alias del logotipo (RUΞSMA).
+    # F-029: la 1 trae tambien el alias del logotipo (RUΞSMA); F-078, la 28
+    # el DORSAN que lee el OCR.
     assert construir_alias_empresas(settings) == {
-        1: ["RUESMA", "RUΞSMA"], 28: ["PORSAN"]}
+        1: ["RUESMA", "RUΞSMA"], 28: ["PORSAN", "DORSAN"]}
 
 
 def test_f023_da3_la_ruta_se_puede_cambiar(entorno, tmp_path) -> None:
@@ -99,7 +100,7 @@ def test_f023_r25_el_conciliador_usa_el_indice_del_proveedor(entorno) -> None:
     assert recursos._indice_provider == proveedor.indice
     assert recursos._lookup is cliente and partidas._lookup is cliente
     assert proveedor._alias_empresas == {1: ["RUESMA", "RUΞSMA"],
-                                        28: ["PORSAN"]}
+                                        28: ["PORSAN", "DORSAN"]}
     assert recursos._jornadas is jornadas
     assert recursos._mapa_semanal == {8.0: 40.0}
     assert recursos._jornada_ttl == settings.jornada_cache_ttl_s

@@ -4,7 +4,14 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-077** (2026-11-19, sin desplegar; ver abajo).
+Feature activa: ninguna. Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+
+## F-078 · DONE 2026-11-20, sin desplegar (alias DORSAN de la empresa 28)
+
+Express, APPROVED en pasada única (`progress/review_F-078.md`); OK del humano «push hecho ok, a
+todo». Integrada en `dev` en local. Pendiente del humano: redesplegar sv3; mover desde el portal
+los 3 partes «Dorsan» (11–13/11) y el del 10/11 a la obra 0730 de Porsan; caso Alberto (DNI mal
+en la plantilla de Porsan, casar MO/0018 en Conciliar); nombre de la obra 0730 de Porsan en Sigrid.
 
 ## F-077 · DONE 2026-11-19, sin desplegar (sv3 lee los festivos de Sesame HR, sin pasarela)
 
@@ -147,3 +154,5 @@ Pendiente del humano (nada de esto lo hace el arnés):
 - Menores: 8 avisos de ruff en `services/partes-persistencia/tests/test_f032_campana.py`
   (fixtures importados, mejor en `conftest.py`); fila «Workers: 3» en Evidencias del informe.
 
+
+## F-078 · human_review 2026-11-19 (express): alias DORSAN de la empresa 28 en empresas_membrete.yaml; informe en `progress/impl_F-078.md`.
