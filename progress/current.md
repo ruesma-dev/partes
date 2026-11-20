@@ -178,3 +178,9 @@ Pendiente del humano (nada de esto lo hace el arnés):
 
 
 ## F-078 · human_review 2026-11-19 (express): alias DORSAN de la empresa 28 en empresas_membrete.yaml; informe en `progress/impl_F-078.md`.
+
+## F-072 · spec_ready 2026-11-20 (pendiente de aprobación del humano)
+
+Spec en `specs/F-072-postventa-var-como-obras/` (requirements 150, design 248, T1–T32; T29–T31
+manuales); resumen y DA1–DA12 en `progress/spec_F-072.md`. Rigor `critico`. F-071 en `todo`.
+M3 de F-077 hecha (despliegue apagado de sv3 y sv4 con F-032, F-077 y F-078, 2026-11-20).
