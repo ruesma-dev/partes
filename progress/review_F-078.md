@@ -53,10 +53,7 @@ se debilitan.
 ## Observaciones (no bloquean)
 - **O1** (para el líder): la cabecera de `progress/current.md` todavía dice «Feature activa:
   ninguna». F-078 solo consta al final. Hay que corregirlo al cerrar.
-- **O2**: `progress/impl_F-078.md` cita los dos tests de F-023 como `tests/…`. Viven en
-  `services/partes-persistencia/tests/`.
-- **Pendiente del humano:** redesplegar sv3. Los tres partes de la 0730 (11–13/11) ya guardados se
-  corrigen desde el portal: el alias solo vale para las ingestas nuevas.
+- **O2**: `impl_F-078.md` cita los tests de F-023 como `tests/…`: viven en `services/partes-persistencia/tests/`.
+- **Pendiente del humano:** redesplegar sv3. Los partes de la 0730 ya guardados se corrigen en el portal.
 
-## Cambios requeridos
-Ninguno.
+**Cambios requeridos:** ninguno.
