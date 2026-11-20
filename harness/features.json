@@ -1181,7 +1181,7 @@
       "priority": 1,
       "rigor": "express",
       "sdd": false,
-      "status": "in_progress",
+      "status": "human_review",
       "branch": "feature/F-078-alias-membrete-dorsan",
       "description": "Petición del humano del 2026-11-19 tras el correo de Administración de Obra sobre la obra 0730: tres partes de Porsan (11–13/11) se leyeron con membrete «Dorsan S.L. E HIJOS CONSTRUCCIONES», no casó con ningún alias, la empresa se tomó de la obra y acabaron en la 0730 de Ruesma (empresa 1) en vez de en la de Porsan (28). Se añade el alias DORSAN a la empresa 28 en services/partes-persistencia/config/empresas_membrete.yaml (tabla versionada de F-023, como RUΞSMA en F-029) y un test que lo fija. Solo ingestas nuevas: los partes ya guardados se corrigen desde el portal. Requiere redesplegar sv3 (lo hace el humano).",
       "acceptance": [

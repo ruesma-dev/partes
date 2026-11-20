@@ -147,3 +147,5 @@ Pendiente del humano (nada de esto lo hace el arnés):
 - Menores: 8 avisos de ruff en `services/partes-persistencia/tests/test_f032_campana.py`
   (fixtures importados, mejor en `conftest.py`); fila «Workers: 3» en Evidencias del informe.
 
+
+## F-078 · human_review 2026-11-19 (express): alias DORSAN de la empresa 28 en empresas_membrete.yaml; informe en `progress/impl_F-078.md`. Falta que el humano redespliegue sv3.
