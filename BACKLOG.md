@@ -3,13 +3,11 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **72 features**, 16 abiertas y 56 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 56 en Done.
+Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 57 en Done.
 
 ## Review
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-078 | sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28 | humano |  | 1 | express | `feature/F-078-alias-membrete-dorsan` |
+_Nada esperando revisión._
 
 ## Blocked
 
@@ -52,6 +50,7 @@ _Nada comprometido._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-078 | sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28 | 2026-11-20 | 2026-11-20 | redesplegar sv3 (humano) y mover desde el portal los partes ya guardados de Dorsan (11-13/11) y el del 10/11 a la obra 0730 de Porsan | 1 | express |
 | F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | 2026-11-19 | 2026-11-19 | Sin desplegar. Manuales del humano M0–M6 (T17–T18: token rotado y SESAME-TOKEN en el Key Vault, contraste e impacto, redespliegue apagado, encendido, portal y -Quitar), comandos en progress/impl_F-077.md | 1 | critico |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2026-11-18 | 2026-11-18 | Sin desplegar. Sus manuales M1–M7 y P0–P4 de sesame-api los sustituye F-077 (Sesame HR directo, sin pasarela); sigue P5 (RRHH completa Alicante) | 2 | critico |
 | F-068 | Hotfix: casar un trabajador en Conciliar pide a sv3 el recálculo de extras del día | 2026-11-15 | 2026-11-15 |  | 2 | critico |
@@ -109,13 +108,9 @@ _Nada comprometido._
 | F-019 | Horas aprobadas de los trabajadores con codigo de hora mes viajan a dedicacion (porcentajes) en lugar de a Sigrid | sin fecha | sin anotar | interruptor MENSUALES_A_DEDICACION apagado: falta la feature espejo en porcentajes y la M3 | 9 | critico |
 | F-020 | Ingesta de sv1: correos adjuntos (message/rfc822) encadenados hasta encontrar el PDF | sin fecha | sin anotar |  | 10 | estandar |
 
+Express cerradas por mes: 2026-11: 1
+
 ## Detalle
-
-### F-078 · sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28
-
-estado **en revisión humana** · prioridad 1 · rigor `express` · SDD no · rama `feature/F-078-alias-membrete-dorsan`
-
-Petición del humano del 2026-11-19 tras el correo de Administración de Obra sobre la obra 0730: tres partes de Porsan (11–13/11) se leyeron con membrete «Dorsan S.L. E HIJOS CONSTRUCCIONES», no casó con ningún alias, la empresa se tomó de la obra y acabaron en la 0730 de Ruesma (empresa 1) en vez de en la de Porsan (28). Se añade el alias DORSAN a la empresa 28 en services/partes-persistencia/config/empresas_membrete.yaml (tabla versionada de F-023, como RUΞSMA en F-029) y un test que lo fija. Solo ingestas nuevas: los partes ya guardados se corrigen desde el portal. Requiere redesplegar sv3 (lo hace el humano).
 
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
@@ -236,6 +231,14 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-078 · sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28
+
+estado **terminada** · cerrada el 2026-11-20 · OK del humano el 2026-11-20 · prioridad 1 · rigor `express` · SDD no · rama `feature/F-078-alias-membrete-dorsan`
+
+**Pendiente**: redesplegar sv3 (humano) y mover desde el portal los partes ya guardados de Dorsan (11-13/11) y el del 10/11 a la obra 0730 de Porsan
+
+Petición del humano del 2026-11-19 tras el correo de Administración de Obra sobre la obra 0730: tres partes de Porsan (11–13/11) se leyeron con membrete «Dorsan S.L. E HIJOS CONSTRUCCIONES», no casó con ningún alias, la empresa se tomó de la obra y acabaron en la 0730 de Ruesma (empresa 1) en vez de en la de Porsan (28). Se añade el alias DORSAN a la empresa 28 en services/partes-persistencia/config/empresas_membrete.yaml (tabla versionada de F-023, como RUΞSMA en F-029) y un test que lo fija. Solo ingestas nuevas: los partes ya guardados se corrigen desde el portal. Requiere redesplegar sv3 (lo hace el humano).
 
 ### F-077 · sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api
 
