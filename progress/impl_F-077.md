@@ -217,3 +217,11 @@ La lectura de R8 del n.º 10 es la literal: si el humano la quiere al revés, es
 T16 queda **sin marcar** hasta esa aceptación.
 
 `bash harness/init.sh` (2026-11-19): **ENTORNO LISTO**, exit 0. Raíz 2537 passed, 48 skipped (905 s); sv3 **2732 passed**, 2 skipped (93 s); sv1/sv2/sv4/sv5 en caché. COBERTURA 99.6 % (267/268); TAMAÑO OK; CARRIL y E2E N/A.
+
+### Resultado M3 (humano lanza, líder verifica por Log Analytics, 2026-11-20)
+
+`.\infra\redeploy_partes.ps1 -Solo sv3,sv4` (lleva también F-032 y F-078). Revisiones
+`ca-sv3-persistencia--r20261120213950` y `ca-sv4-front--r20261120213950`. sv3: `[sesame][wiring]
+DESACTIVADO (faltan SESAME_BASE_URL/SESAME_TOKEN)`, esquema inicializado (216 sentencias), alias de
+membrete de las empresas 1 y 28. sv4: `[sesame][wiring] DESACTIVADO (FESTIVOS_SESAME_ENABLED=false)`,
+esquema inicializado, `Application startup complete`. Sin `Traceback` en ninguna de las dos. **M3 OK.**
