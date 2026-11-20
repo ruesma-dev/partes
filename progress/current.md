@@ -28,6 +28,16 @@ Las decisiones abiertas para el humano son DA1–DA12, todas con recomendación 
 
 Conviene tener M0 (T29, consulta de solo lectura) antes de cerrar DA1 y DA9.
 
+**Enmienda del humano del 2026-11-20** («V y número, POST y número, y variantes»), incorporada a
+la spec:
+- R41–R43;
+- DA2 con los alias `POST` y `V`;
+- DA13 nueva (colisión con una obra real: `150702-V` y la antigua `POSTV`);
+- el gemelo pasa también a sv2.
+
+La lectura de Sigrid (solo lectura) encontró `POSTV2` y `VAR` en las empresas 1 y 28. Detalle en
+`progress/spec_F-072.md`.
+
 ## F-078 · DONE 2026-11-20, sin desplegar (alias DORSAN de la empresa 28)
 
 Express, APPROVED en pasada única (`progress/review_F-078.md`); OK del humano «push hecho ok, a

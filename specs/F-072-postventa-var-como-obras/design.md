@@ -11,13 +11,13 @@ partida escribe sv5 en la base `ruesma` de Sigrid, que es producción
 
 | Servicio | Papel en F-072 |
 |---|---|
-| sv2 | Copia la marca del papel en `obra_numero`. No consulta Sigrid por una obra con marca (no relee). No casa nada. |
+| sv2 | Copia el «Nº OBRA» tal cual, sin normalizar la marca (R12). Con marca (`leer_forma` del gemelo) no consulta Sigrid ni relee. No casa nada. |
 | sv3 | Lee la forma, elige la obra agrupada de la empresa y casa la entrada. Deja la partida y la marca en las líneas. Sin entrada, el parte va a revisión. |
 | sv4 | Catálogo de entradas (selector, cambio de obra, alta manual), clave `agr-` de las vistas, partida fija. |
 | sv5 | Guarda antes de escribir: entrada, hoja activa y universo VAR. Conflictos por partida en las obras agrupadas. |
 
 La lógica común (casado P5, universo VAR, lectura de la forma) es **un módulo puro gemelo**,
-byte-idéntico en sv3, sv4 y sv5 (DA4). No hay canal sv3→sv4 ni librería compartida, y el
+byte-idéntico en sv2, sv3, sv4 y sv5 (DA4; sv2 solo usa `leer_forma`). No hay canal sv3→sv4 ni librería compartida, y el
 transfer de porcentajes tiene ingress interno en otro entorno, `cae-dedicacion-dev` («solo la
 api», `azure-apps/dedicacion.md`). Por eso se reimplementa con tests de equivalencia (R10).
 
@@ -35,7 +35,7 @@ api», `azure-apps/dedicacion.md`). Por eso se reimplementa con tests de equival
   crean líneas, con riesgo de una extra con otra clave que su base) y `obra_ide` negativo como
   en porcentajes (rompería sv5, la jornada y el sincronizar).
 
-## 2. Reglas puras: `application/services/obras_agrupadas.py` (sv3, sv4, sv5; gemelo)
+## 2. Reglas puras: `application/services/obras_agrupadas.py` (gemelo en sv2–sv5)
 
 Solo biblioteca estándar (`re`, `unicodedata`, `dataclasses`), sin importar `text_match` (sv5 no
 lo tiene). Las hojas llegan por duck typing (`ide`, `cod`, `res`, `es_hoja`, `activa`):
@@ -47,26 +47,29 @@ def normalizar(cod) -> str                      # mayúsculas, sin acentos, espa
 def casar_postventa(hojas, codigo_obra) -> Hoja | None          # R4-R6
 def numero_inicial(cod) -> int | None; def es_partida_var(hoja, desde) -> bool  # R7
 def casar_var(partidas_var, leido) -> Hoja | None               # R8
+@dataclass(frozen=True) class Marcas: postventa: tuple[str, ...]; var: tuple[str, ...]  # código + alias
+def clave(x) -> str                             # mayúsculas, sin tildes ni separadores (R42)
 @dataclass(frozen=True) class Forma: tipo: str; resto: str      # resto "" = base
-def leer_forma(leido, *, postventa: Sequence[str], var: str | None) -> Forma | None  # R9
+def leer_forma(leido, marcas: Marcas) -> Forma | None           # R9, R41
 def es_obra_agrupada(codigo, *, postventa: str | None, var: str | None) -> str | None
 def codigo_entrada(tipo, var_cod, partida_cod) -> str          # «Postv-0578» / «VAR-29»
 ```
 
-Para R6, entre exactas gana la de menor `ide`. Porcentajes toma `exactas[0]` en el orden de sus
-filas. No hay ningún caso conocido con dos exactas: se anota en R10, no se copia.
+Para R6, entre exactas gana la de menor `ide`; porcentajes toma `exactas[0]` en el orden de sus
+filas (no hay casos con dos exactas: se anota en R10). **`leer_forma` (R41)**: separadores
+`[\s\-./]*`; prueba primero delante y luego detrás, con las marcas ordenadas de más larga a más
+corta; con un alias de una letra exige que el resto empiece por dígito. La tabla de R41 es el test.
 
 ## 3. sv2 (`services/partes-api`)
 
-- `config/settings.py`: lee los cuatro ajustes (R1). sv2 solo usa los códigos y los alias.
-- `domain/models/clave_obra.py`: `tiene_marca(codigo, marcas) -> bool`. La clave (R9 sobre
-  `clave_obra`) empieza o acaba por una marca y tiene algo más. Es una regla de «no consultes»,
-  no el casado.
-- `application/services/obra_sigrid.py`: `ComprobadorObra(marcas=…)`. Con marca devuelve
-  `existe=None` sin llamar al cliente (R13). `motivo_relectura` ya trata `None` como «no se
-  sabe» y no se toca.
-- `config/prompts.yaml`: una línea en la cabecera para que `obra_numero` copie la marca entera
-  con su separador (R12). El esquema no cambia.
+- `config/settings.py`: lee los ajustes (R1); sv2 usa los códigos y los alias.
+- `application/services/obra_sigrid.py`: `ComprobadorObra(marcas=…)`. Si `leer_forma` (gemelo)
+  da forma, devuelve `existe=None` sin llamar al cliente (R13); `motivo_relectura` ya trata `None`
+  como «no se sabe». No es el casado: sv2 no decide entrada.
+- `config/prompts.yaml`, cabecera: «Nº OBRA» tal cual, con marca, posición y separador, sin
+  expandir `V`/`POST`, sin quitar separadores ni añadir ceros (R12). La marca solo se lee en
+  «Nº OBRA»: las incidencias de personal (`V` = vacaciones) siguen en `empleados[].incidencia` y
+  nunca se mezclan (R43). El esquema no cambia.
 - Cableado en `main_worker.py` / `main.py`, donde hoy se crea `ComprobadorObra`.
 
 ## 4. sv3 (`services/partes-persistencia`)
@@ -85,8 +88,10 @@ filas. No hay ningún caso conocido con dos exactas: se anota en R10, no se copi
     `agrupada_sin_obra`. Después, `casar_postventa(hojas, X.codigo)`.
   - **Base** (R16): por cada `partida` leída distinta y no vacía, lo mismo; el conjunto de
     entradas `(obra, partida.ide)` tiene que tener un solo elemento.
-- `application/pipelines/persist_parte_pipeline.py::_match`: antes del casado de obra,
-  `leer_forma(parte.obra_numero_leido, …)`.
+- `application/pipelines/persist_parte_pipeline.py::_match`, solo sobre `parte.obra_numero_leido`
+  (R43): (1) si `clave(leído)` es exactamente una marca ⇒ forma base (R42, la antigua `POSTV`);
+  (2) si es la `clave` de un código de obra real no agrupada (índice de `matchers.obra`) ⇒ casado
+  normal con WARNING `marca_colisiona` (R42); (3) si no, `leer_forma`.
   - Con forma, `ResolutorEntradas`. Con entrada, `parte.obra` y cada registro reciben
     `partida_*` (`partida_capitulo` del nodo, método = tipo, puntuación 1.0). Sin entrada,
     `ObraMatch(method=<motivo R17>)`; `empresa_del_parte` y F-054 siguen igual.
@@ -96,20 +101,15 @@ filas. No hay ningún caso conocido con dos exactas: se anota en R10, no se copi
 - `domain/models/parte_records.py`: `ParteDocumento.entrada: EntradaPartida | None` (`ide`,
   `cod`, `res`, `capitulo`, `tipo`). `save_parte` (`sqlalchemy_parte_repository.py`) hoy solo
   guarda `partida` leída: con entrada, escribe `partida_*` y la marca en cada línea.
-- `application/services/partida_conciliador.py::conciliar_todos`:
-  - salta los métodos `postventa` y `var` como salta `manual`;
-  - un registro sin marca cuya obra sea agrupada recibe `_sin` (R20).
-  Para eso `fetch_registros_para_partida` devuelve además `obra_codigo`, y el conciliador
-  recibe los códigos con `es_obra_agrupada`.
+- `partida_conciliador.py::conciliar_todos` salta `postventa`/`var` como `manual` y da `_sin` al
+  registro sin marca de una obra agrupada (R20; `fetch_registros_para_partida` + `obra_codigo`).
 - Cableado en `main_worker.py` y `main.py`, junto a `PartidaConciliador`.
-- Jornada, extras y franquicia (R22): sin cambios. `reparto_ponderado` agrupa por `obra_ide`:
-  dos entradas de la misma obra agrupada el mismo día pesan como una obra, y entre líneas el
-  reparto sigue siendo proporcional. Solo puede cambiar el redondeo a medias horas. Un test lo
-  documenta.
+- Jornada, extras, franquicia (R22): sin cambios; `reparto_ponderado` agrupa por `obra_ide` (dos
+  entradas de una obra agrupada pesan como una obra; solo cambia el redondeo). Un test lo fija.
 
 ## 5. sv4 (`services/partes-front`)
 
-- `config/settings.py`: cuatro ajustes (R2). `POSTVENTA_ALIAS` no se usa en sv4.
+- `config/settings.py`: ajustes (R1, R2); sv4 no usa los alias.
 - **Nuevo** `application/services/catalogo_entradas.py`: `CatalogoEntradas(obra_catalog,
   sigrid_client, ajustes, ttl_seconds)` con `entradas() -> list[Entrada]` y
   `entrada(obra_ide, partida_ide) -> Entrada | None`.
@@ -142,17 +142,15 @@ filas. No hay ningún caso conocido con dos exactas: se anota en R10, no se copi
   - Cableado de `CatalogoEntradas`.
 - `lineas_para_registro` / payload a sv5: cada línea lleva `partida_metodo` (R33). El reparto
   por `obra_key_for_registro` ya da una petición por entrada.
-- `application/services/sincronizar_ambito.py`: `agr-` no lleva ide ⇒ `motivo_no_sincronizable`
-  ya responde. Se añade un motivo propio, «entrada de obra agrupada: se sincroniza la obra
-  entera en Sigrid» (R34).
+- `sincronizar_ambito.py`: `agr-` no lleva ide ⇒ `motivo_no_sincronizable` ya responde; se
+  añade el motivo «entrada de obra agrupada: no se sincroniza por entrada» (R34).
 - `static/app.js`: los tres usos de `/api/sigrid/obras` (l. ~1088, 2443 y 2650) muestran
   `codigo · nombre` y mandan `partida_ide` si el ítem lo trae (R35).
 
 ## 6. sv5 (`services/partes-transfer`)
 
-- `config/settings.py`: tres ajustes (sin alias) y R2.
-- `domain/models/registro_models.py`: `LineaEntrada.partida_metodo: Optional[str] = None`;
-  `LineaSigrid.paride: Optional[int] = None`.
+- `config/settings.py`: ajustes sin alias y R2. `registro_models.py`: `LineaEntrada.partida_metodo`
+  y `LineaSigrid.paride`, opcionales.
 - `infrastructure/sigrid/sigrid_write_client.py`:
   - **nuevo** `partidas_de_obra(obra_ide) -> list[PartidaHoja]` (`ide`, `cod`, `res`,
     `es_hoja`, `activa`; `tipdes` y `EXISTS` de un hijo en `obrparpar`), una lectura con
@@ -172,7 +170,7 @@ filas. No hay ningún caso conocido con dos exactas: se anota en R10, no se copi
 
 - Valores para producción, leídos de lo versionado en porcentajes (`settings.py` del transfer e
   `infra/create_transfer_dedicacion.ps1`): `POSTVENTA_OBRA_COD=POSTV2`, `VAR_OBRA_COD=VAR`,
-  `VAR_PARTIDA_DESDE=29`. `POSTVENTA_ALIAS=POSTVENTA,POSTV` es la propuesta (DA2). No son
+  `VAR_PARTIDA_DESDE=29`; propuesta DA2: `POSTVENTA_ALIAS=POSTVENTA,POSTV,POST`, `VAR_ALIAS=V`. No son
   secretos: se ponen con `az containerapp update --set-env-vars`, documentado en
   `infra/README_partes.md` y `azure-apps/partes.md`.
 - Código con todo vacío, sin efecto (R3), en el orden seguro sv2 → sv3 → sv5 → sv4 (sv5 antes
@@ -216,8 +214,11 @@ sincronizar por entrada (DA12).
   agrupada); las variables se ponen a la vez (§7).
 - **Divergencia con porcentajes**: R10 la detecta; una línea de los dos en la misma obra, mes y
   partida ya la gestiona el pisado de F-031 y F-053.
-- **Coste en sv4**: 2 lecturas de `obrparpar` por empresa con obra agrupada cada 10 min; hoy
-  solo la empresa 1 (porcentajes F-025, D4).
+- **Coste en sv4**: 2 lecturas de `obrparpar` por empresa con obra agrupada cada 10 min. Leído en
+  Sigrid el 2026-11-20 (sigrid-api, solo lectura, 927 obras): `POSTV2` y `VAR` en las empresas 1 y
+  28, y la antigua `POSTV` en la 1. Ningún otro código empieza por `V`, `POST` ni `PV`; acaba en
+  `-V` solo `150702-V` (empresa 1). De ahí R42 y DA13. Con empresa 28, la elección entre gemelas
+  de F-023 (membrete) decide.
 - **Descartado**: el universo del transfer de porcentajes (otro entorno, ingress que su documento
   prohíbe abrir) y la lógica solo en sv4 (sv3 no puede llamarlo).
 
@@ -235,9 +236,9 @@ no se toca.
 | Decisión | Opciones | Recomendado | Decidido |
 |---|---|---|---|
 | DA1 Qué escribe el encargado en el papel | (a) marca en «Nº OBRA», delante o detrás: `VAR-29`, `POSTVENTA 578`; con solo `VAR`/`POSTV2`, la partida de la sección de partidas (R9, R16); (b) solo la marca en «Nº OBRA»; (c) solo la obra agrupada más la sección de partidas | (a) | |
-| DA2 Palabras de postventa | (a) `POSTVENTA_OBRA_COD` + `POSTVENTA_ALIAS=POSTVENTA,POSTV`; (b) también `PV`; (c) solo el código | (a) | |
+| DA2 Alias (enmienda del 2026-11-20) | (a) `POSTVENTA_ALIAS=POSTVENTA,POSTV,POST` y `VAR_ALIAS=V`, sin `PV` (no lo pidió el humano; ninguna obra empieza por `PV` y añadirlo es solo configuración); (b) también `PV` | (a) | |
 | DA3 Relectura de sv2 con marca | (a) no consulta ni relee; (b) sin cambio: relee, y en el peor caso el parte va a revisión | (a) | |
-| DA4 Dónde vive la lógica común | (a) gemelo byte-idéntico en sv3, sv4 y sv5 en la lista cerrada de `CLAUDE.md`, reimplementado de porcentajes con R10; (b) pedirla al transfer de porcentajes por HTTP; (c) solo en sv4 | (a) | |
+| DA4 Dónde vive la lógica común | (a) gemelo byte-idéntico en sv2, sv3, sv4 y sv5 en la lista cerrada de `CLAUDE.md`, reimplementado de porcentajes con R10; (b) pedirla al transfer de porcentajes por HTTP; (c) solo en sv4 | (a) | |
 | DA5 Cómo se guarda la entrada | (a) en la línea: obra agrupada + partida + marca, sin columnas; (b) columnas nuevas en `parte_documents`/`parte_registros` | (a) | |
 | DA6 «Obra cerrada del universo, solo como postventa» | (a) no aplica: partes no filtra obras por estado y ofrece X y `Postv-X`; (b) leer el estado y ofrecer solo `Postv-X` si X está cerrada; (c) (b) y además mandar a revisión el parte de una X cerrada sin marca | (a); (b)/(c) en otra feature | |
 | DA7 Obras agrupadas como obra normal | (a) ni VAR ni POSTV2 se ofrecen; sin entrada ⇒ 422; (b) solo VAR, como porcentajes | (a) | |
@@ -246,3 +247,4 @@ no se toca.
 | DA10 Bandeja de dedicación | (a) sin columnas nuevas; documentar y avisar a porcentajes; (b) añadir `es_postventa` y la obra origen | (a) | |
 | DA11 Valores de configuración | (a) sin defecto en el código (vacío = apagado), valores en el despliegue; (b) defectos en el código como porcentajes (`POSTV2`, `VAR`, `29`) | (a) | |
 | DA12 Sincronizar (F-052) una entrada | (a) fuera: «no sincronizable» con motivo; (b) filtrar las líneas de Sigrid por partida | (a) | |
+| DA13 Marca que coincide con una obra real | (a) gana la obra real si lo leído es su código (sin separadores) y no es exactamente una marca (`150702-V` es esa obra); lo que es exactamente una marca es forma base aunque exista la obra (la antigua `POSTV` ⇒ postventa, como D6 de porcentajes); (b) toda coincidencia a revisión | (a) | |
