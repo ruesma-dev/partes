@@ -182,3 +182,64 @@ def test_f072_r25_el_indice_casa_como_casar_postventa(codigo):
     esperado = casar_postventa(hojas, codigo)
     got = cat._indice_postventa(hojas).casar(codigo)
     assert (got.ide if got else None) == (esperado.ide if esperado else None)
+
+
+# ---------------- review 1: categoría del capítulo y desempate ---------------- #
+
+class SigridCon(Sigrid):
+    def __init__(self, presupuestos):
+        super().__init__()
+        self.presupuestos = presupuestos
+
+    def fetch_partidas_obra(self, obra_ide):
+        self.lecturas.append(obra_ide)
+        return self.presupuestos.get(obra_ide, [])
+
+
+def test_f072_r25_partida_capitulo_es_la_categoria_como_en_sv3():
+    """`partida_capitulo` guarda la CATEGORÍA (CD/CI/CP/OTRO, `String(8)`),
+    como sv3 en `_casar_entrada`; no el código del capítulo, que puede pasar
+    de 8 caracteres (`CD.POSTVENTA`). Sin capítulo CD/CI/CP, `OTRO`."""
+    pres = {
+        9001: [_p(90010, "CD", "COSTES DIRECTOS"),
+               _p(90020, "CD.POSTVENTA", "POSTVENTA", 90010),
+               _p(90021, "0578B", "RESIDENCIAL 578", 90020)],
+        9101: [_p(91020, "29", "VARIOS SIN PADRE")],
+    }
+    cat, _s = _cat(sigrid=SigridCon(pres))
+    pv, var = cat.entrada(9001, 90021), cat.entrada(9101, 91020)
+    assert (pv.partida_capitulo, var.partida_capitulo) == ("CD", "OTRO")
+    assert all(len(e.partida_capitulo) <= 8 for e in cat.entradas())
+
+
+def _hojas_con_ide(*hojas):
+    """Hojas `(ide, cod, tipdes)` colgando de `CD` (ide 1)."""
+    filas = [_p(1, "CD", "COSTES DIRECTOS")]
+    filas += [_p(ide, cod, f"P {cod}", 1, tipdes) for ide, cod, tipdes in hojas]
+    return build_arbol_partidas(filas)
+
+
+@pytest.mark.parametrize("hojas, codigo", [
+    # Los casos de `tests/test_f072_equivalencia_porcentajes.py` (P5).
+    ([(2, "0578AB", 0), (3, "0578C", 0)], "0578"),          # mas_corto
+    ([(2, "0578-C", 0), (3, "0578B", 0)], "0578"),          # menor_normalizado
+    ([(2, "0578B", 0), (3, "0578C", 0)], "0578"),           # orden_inverso
+    ([(3, "0578C", 0), (2, "0578B", 0)], "0578"),           # orden_inverso, filas al revés
+    ([(2, "0578B1", 0)], "0578"),                           # letra_digito
+    ([(2, "0578 B.", 0)], "0578"),                          # letra_punto
+    ([(2, "0578", 1), (3, "0578B", 0)], "0578"),            # de_baja
+    # Dos exactas: gana el menor ide, vengan en el orden que vengan.
+    ([(5, "0578", 0), (3, "05-78", 0)], "0578"),
+    ([(3, "05-78", 0), (5, "0578", 0)], "0578"),
+    # Una hoja sin código no casa ni estorba.
+    ([(2, None, 0), (3, "0578B", 0)], "0578"),
+    ([(2, "", 0)], "0578"),
+], ids=["mas_corto", "menor_normalizado", "orden_inverso",
+        "orden_inverso_filas", "letra_digito", "letra_punto", "de_baja",
+        "exactas_ide", "exactas_ide_inverso", "sin_codigo", "codigo_vacio"])
+def test_f072_r25_el_indice_desempata_como_casar_postventa(hojas, codigo):
+    nodos = _hojas_con_ide(*hojas)
+    cat, _s = _cat()
+    esperado = casar_postventa(nodos, codigo)
+    got = cat._indice_postventa(nodos).casar(codigo)
+    assert (got.ide if got else None) == (esperado.ide if esperado else None)
