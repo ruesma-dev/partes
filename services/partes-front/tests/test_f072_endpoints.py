@@ -198,3 +198,20 @@ def test_f072_r34_vista_de_entrada_no_sincronizable():
         MOTIVO_ENTRADA_AGRUPADA
     assert "no se sincroniza por entrada" in MOTIVO_ENTRADA_AGRUPADA
     assert motivo_no_sincronizable("obra", "obr-9101") is None
+
+
+# --------------------------------- R35 ---------------------------------- #
+
+def test_f072_r35_los_selectores_de_obra_mandan_la_partida_de_la_entrada():
+    """Los tres usos de `/api/sigrid/obras` en `app.js` (cambio de obra,
+    parte nuevo y alta de línea) mandan `partida_ide` de la entrada. El
+    resto (rótulo `codigo · nombre`) ya lo hace `obraLabel`; M2 lo prueba
+    en el portal."""
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parents[1] / "static" / "app.js").read_text(
+        encoding="utf-8")
+    assert "partida_ide: o.partida_ide != null ? o.partida_ide : null" in js
+    assert js.count("o.partida_ide != null ? o.partida_ide : null") == 3
+    assert "partida_ide: obraEntradaPartida != null" in js
+    assert "partida_ide: addlineEntradaPartida != null" in js

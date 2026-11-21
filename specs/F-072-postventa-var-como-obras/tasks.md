@@ -24,8 +24,8 @@ Rama `feature/F-072-postventa-var-como-obras` (desde `dev` en `8fea290`). Rigor 
 - [x] T19: `catalogo_entradas.py` (design §5)  |  Verificación: T18 en verde
 - [x] T20: Tests RED del repositorio de sv4: R23 (claves de línea y de documento, documento mixto en «borrar obra»), R24, R29, R30, R31 (extra del popup) y R32  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_repositorio.py` falla
 - [x] T21: `parte_repository.py` (design §5)  |  Verificación: T20 en verde y suite de sv4 en verde
-- [ ] T22: Tests RED de endpoints R26–R28, R33 (payload con `partida_metodo`, una petición por entrada) y R34  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_endpoints.py` falla
-- [ ] T23: `app.py`, `ObraPayload`, payload a sv5 y motivo de `sincronizar_ambito.py`  |  Verificación: T22 en verde y suite de sv4 en verde
+- [x] T22: Tests RED de endpoints R26–R28, R33 (payload con `partida_metodo`, una petición por entrada) y R34  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_endpoints.py` falla
+- [x] T23: `app.py`, `ObraPayload`, payload a sv5 y motivo de `sincronizar_ambito.py`  |  Verificación: T22 en verde y suite de sv4 en verde
 - [ ] T24: `static/app.js`: los tres selectores muestran las entradas y mandan `partida_ide` (R35)  |  Verificación: `node --check services/partes-front/static/app.js` en verde
 - [ ] T25: Regresión R3: suites completas con la configuración vacía y sin tocar tests anteriores  |  Verificación: `bash harness/init.sh` en verde y `git diff dev --stat -- '*/tests/test_f0[0-6]*'` vacío
 - [x] T26: Documentación R40: semántica 24 en `docs/ARCHITECTURE.md`, gemelo en la lista cerrada de `CLAUDE.md`, variables en `infra/README_partes.md`, `depende_de` en `harness/servicios.json` y `tests/test_f072_documentacion.py`  |  Verificación: `python -m pytest tests/test_f072_documentacion.py` en verde y `python -m harness.servicios --validar`

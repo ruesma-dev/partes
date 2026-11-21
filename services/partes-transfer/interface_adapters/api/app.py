@@ -71,6 +71,8 @@ class LineaIn(BaseModel):
     hora_codigo: Optional[str] = None
     partida_ide: Optional[int] = None
     partida_cod: Optional[str] = None
+    # F-072 (R33, R36): la marca de la entrada de una obra agrupada.
+    partida_metodo: Optional[str] = None
     candef: Optional[float] = None
     incidencia_codigo: Optional[str] = None
     incidencia_rol: Optional[str] = None

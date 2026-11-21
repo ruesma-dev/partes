@@ -195,3 +195,28 @@ def test_f072_r39_partidas_de_obra_pide_el_max_rows_y_parametriza(monkeypatch):
 def test_f072_r39_partidas_de_obra_truncada_es_error(monkeypatch):
     with pytest.raises(RuntimeError, match="truncada"):
         _cliente(monkeypatch, SigridApiFalso(truncated=True)).partidas_de_obra(1)
+
+
+# ------------------------- R33: la marca por HTTP ------------------------ #
+
+def test_f072_r33_la_marca_llega_por_http_a_la_linea():
+    """`LineaIn` (registro por HTTP) lleva `partida_metodo` a la
+    `LineaEntrada`; sin ella, None (un sv4 anterior a F-072)."""
+    from domain.models.registro_models import LineaEntrada
+    from interface_adapters.api.app import LineaIn
+
+    con = LineaIn(registro_id=1, partida_ide=91012, partida_metodo="var")
+    assert LineaEntrada(**con.model_dump()).partida_metodo == "var"
+    assert LineaEntrada(**LineaIn(registro_id=2).model_dump()
+                        ).partida_metodo is None
+
+
+def test_f072_r36_modo_pruebas_obra_pedida_solo_por_codigo():
+    """En modo pruebas, una obra pedida sin `ide` se busca por su código; si
+    Sigrid no la conoce, no es agrupada y no hay guarda."""
+    sin_ide = c.obra(None, "VAR")
+    acc, cli = _pf(sin_ide, [c.linea(1, 91012)], obra_pruebas_forzar=True)
+    assert cli.presupuestos_leidos == [9101] and acc[1][0] == "omitir"
+    desconocida = c.obra(None, "NO-EXISTE")
+    acc, cli = _pf(desconocida, [c.linea(1, 91012)], obra_pruebas_forzar=True)
+    assert cli.presupuestos_leidos == [] and acc[1] == ("escribir", None)
