@@ -25,6 +25,10 @@ class LineaEntrada:
     hora_codigo: Optional[str] = None
     partida_ide: Optional[int] = None   # imputacion (obrparpar)
     partida_cod: Optional[str] = None
+    # F-072 (R33, R36): la marca de la entrada de una obra agrupada
+    # (`postventa` | `var`, el `partida_match_method` de sv4). None en las
+    # demas lineas y en un sv4 anterior a F-072.
+    partida_metodo: Optional[str] = None
     candef: Optional[float] = None      # jornada por defecto del recurso
     incidencia_codigo: Optional[str] = None  # V, B, FJ, F, H, AT, M...
     incidencia_rol: Optional[str] = None     # inicio | fin (fin -> CIZ)
@@ -229,6 +233,20 @@ class LineaSigrid:
     # de parte). Solo los trae `lineas_de_racha`.
     tex: Optional[str] = None
     pos: Optional[int] = None
+    # F-072 (R38): la partida de la linea (`hmores.paride`). Solo la trae
+    # `lineas_existentes`; en una obra agrupada el choque la exige igual.
+    paride: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class PartidaHoja:
+    """F-072 (R36): una partida del presupuesto de una obra agrupada
+    (`obrparpar`): si es hoja (sin hijos) y si esta activa (`tipdes = 0`)."""
+    ide: int
+    cod: Optional[str]
+    res: Optional[str]
+    es_hoja: bool
+    activa: bool
 
 
 @dataclass(frozen=True)
@@ -311,6 +329,9 @@ class ContextoRegistro:
     forzada_pruebas: bool
     lineas: list[LineaEntrada] = field(default_factory=list)
     acciones: list[AccionLinea] = field(default_factory=list)
+    # F-072 (R38): tipo de la obra agrupada pedida (`postventa` | `var`) o
+    # None; con valor, un choque exige ademas la misma partida.
+    agrupada: Optional[str] = None
 
 
 @dataclass

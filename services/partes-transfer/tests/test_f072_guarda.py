@@ -45,9 +45,9 @@ def test_f072_r36_la_entrada_buena_se_escribe():
 
 
 @pytest.mark.parametrize("lin, trozo", [
-    (c.linea(1, 91012, None), "sin la marca de una entrada var"),
-    (c.linea(1, 91012, "postventa"), "sin la marca de una entrada var"),
-    (c.linea(1, 91012, "manual"), "sin la marca de una entrada var"),
+    (c.linea(1, 91012, None), "sin entrada var"),
+    (c.linea(1, 91012, "postventa"), "sin entrada var"),
+    (c.linea(1, 91012, "manual"), "sin entrada var"),
     (c.linea(1, None, "var"), "sin partida"),
     (c.linea(1, 91015, "var"), "la partida 32 no es una partida activa"),
     (c.linea(1, 91014, "var"), "la partida 31 no es una partida activa"),
@@ -70,7 +70,7 @@ def test_f072_r36_omite_en_postventa():
     acc, _ = _pf(c.PV, [c.linea(1, 90015, "postventa"), c.linea(2, 90011),
                         c.linea(3, 90011, "postventa")])
     assert acc[1][0] == acc[2][0] == "omitir"
-    assert "0700" in acc[1][1] and "postventa" in acc[2][1]
+    assert "0700" in acc[1][1] and "sin entrada postventa" in acc[2][1]
     assert acc[3] == ("escribir", None)
 
 

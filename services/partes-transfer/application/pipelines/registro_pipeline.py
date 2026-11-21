@@ -160,7 +160,10 @@ from application.services.racha_ciz import (
     decidir_mismo_dia,
     registro_de_synckey,
 )
-from application.services.reglas_registro import ReglasRegistro
+from application.services.reglas_registro import (
+    ReglasRegistro,
+    motivo_partida_agrupada,
+)
 from domain.models.registro_models import (
     AccionLinea,
     Conflicto,
@@ -220,6 +223,29 @@ class RegistroPipeline:
                 f"obra no encontrada en Sigrid (ide={obra.ide} "
                 f"cod={obra.codigo})")
         return real, False
+
+    def _obra_agrupada(self, obra: ObraEntrada, destino: ObraEntrada,
+                       forzada: bool) -> tuple[str, ObraEntrada] | None:
+        """F-072 (R36): `(tipo, obra pedida)` si la obra PEDIDA es agrupada.
+
+        Fuera de pruebas la pedida es el destino ya leido; en pruebas el
+        destino es la de pruebas y la pedida se lee por su `ide` o su
+        codigo. Un settings sin `obras_agrupadas` (anterior a F-072) es todo
+        apagado (R3)."""
+        ajustes = getattr(self._st, "obras_agrupadas", None)
+        if ajustes is None or not ajustes.activo:
+            return None
+        origen = destino
+        if forzada:
+            origen = None
+            if obra.ide:
+                origen = self._cli.obra_por_ide(int(obra.ide))
+            elif obra.codigo:
+                origen = self._cli.obra_por_codigo(obra.codigo)
+            if origen is None:
+                return None
+        tipo = ajustes.tipo_de(origen.codigo)
+        return (tipo, origen) if tipo else None
 
     def _con_empresa(self, obra: ObraEntrada) -> tuple[ObraEntrada, bool]:
         """Paso 1 completo: la obra destino tiene que tener empresa (R35).
@@ -303,6 +329,30 @@ class RegistroPipeline:
                     "[registro] obra=%s empresa=%s: %s linea(s) omitidas por "
                     "el recurso: %s", destino.codigo, empresa,
                     len(omisiones), omisiones)
+
+        # Paso 2d (F-072, R36-R37): en una obra agrupada solo se escribe una
+        # entrada buena. Se mira la obra PEDIDA (tambien en modo pruebas);
+        # la omision del recurso manda. Sin `try`: si la lectura falla, la
+        # peticion falla entera.
+        agrupada = self._obra_agrupada(obra, destino, forzada)
+        if agrupada is not None:
+            tipo, origen = agrupada
+            hojas = self._cli.partidas_de_obra(int(origen.ide))
+            desde = self._st.obras_agrupadas.var_desde
+            por_partida = {}
+            for l in validas:
+                if l.registro_id in omisiones:
+                    continue
+                motivo = motivo_partida_agrupada(l, hojas, tipo, desde,
+                                                 obra_cod=origen.codigo)
+                if motivo is not None:
+                    por_partida[l.registro_id] = motivo
+            if por_partida:
+                logger.warning(
+                    "[registro] obra agrupada %s (%s): %s linea(s) sin entrada "
+                    "valida: %s", origen.codigo, tipo, len(por_partida),
+                    por_partida)
+            omisiones.update(por_partida)
 
         # Paso 3-4: reglas.
         roles_in = {l.registro_id: l.incidencia_rol
