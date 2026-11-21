@@ -20,6 +20,7 @@ from collections import defaultdict
 from collections.abc import Iterable
 
 from application.services import text_match as tm
+from application.services.obras_agrupadas import clave
 from application.services.seleccion_sigrid import (
     elegir_obra,
     elegir_por_nombre,
@@ -53,14 +54,29 @@ class ObraMatcher:
         self._obras = obras
         self._min_score = float(min_score)
         self._by_codigo: dict[str, list[ObraRow]] = defaultdict(list)
+        # F-072 (R42): por la clave sin separadores (espacio, guion, punto,
+        # barra), para saber si lo leido es el codigo de una obra real.
+        self._by_clave: dict[str, list[ObraRow]] = defaultdict(list)
         for o in obras:
             cod_n = tm.normalize_code(o.codigo)
             if cod_n:
                 self._by_codigo[cod_n].append(o)
+            if clave(o.codigo):
+                self._by_clave[clave(o.codigo)].append(o)
         logger.info(
             "[obra-matcher] %s obras (cod=%s) min_score=%s",
             len(obras), len(self._by_codigo), self._min_score,
         )
+
+    def obras_de_codigo(self, codigo: str | None) -> list[ObraRow]:
+        """F-072: las obras de ese codigo normalizado en TODAS las empresas
+        (sin variantes de ceros). Solo lectura."""
+        return list(self._by_codigo.get(tm.normalize_code(codigo), ()))
+
+    def obras_de_clave(self, k: str) -> list[ObraRow]:
+        """F-072 (R42): las obras cuya clave de codigo (`obras_agrupadas.
+        clave`) es `k`. Solo lectura."""
+        return list(self._by_clave.get(k or "", ()))
 
     def _candidatas(self, cod_n: str) -> tuple[list[ObraRow], bool] | None:
         """Obras del codigo exacto o, si no hay, de la primera variante con
