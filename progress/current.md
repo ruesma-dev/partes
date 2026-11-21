@@ -8,6 +8,13 @@ Feature activa: **F-072**, `in_progress` (desbloqueada el 2026-11-21 con la opci
 
 ## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.
 
+**Implementer, tras el desbloqueo.** Enmienda (b) hecha y commiteada: RED 6aef54d y código
+b66a749 (sv4 manda `partida_metodo` de la línea base; sv5 lo lleva a `LineaEntrada` en reajuste
+y franquicia). Después, T16–T27: conflictos por partida, catálogo de entradas, repositorio y
+endpoints de sv4, `app.js`, documentación y `azure-apps` (cd58cab, sin push). T32 en verde:
+`init.sh` da ENTORNO LISTO y la cobertura, 99,3 %. T28–T31 son para el líder y el humano. Interpretaciones
+(i)–(x), en `progress/impl_F-072.md`.
+
 ### Bloqueo original 2026-11-21 (implementer, en T16): la guarda de sv5 omite reajustes y franquicias
 
 **Hecho y commiteado** (rama `feature/F-072-postventa-var-como-obras`), T1–T15:
