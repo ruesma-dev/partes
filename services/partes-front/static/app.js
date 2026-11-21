@@ -1163,7 +1163,9 @@ var FiltrosSesion = (function () {
       return fetch("/api/partes/" + d + "/obra", {
         method: "PATCH",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ codigo: o.codigo, ide: o.ide, nombre: o.nombre }),
+        // F-072 (R35): una entrada de obra agrupada manda su partida.
+        body: JSON.stringify({ codigo: o.codigo, ide: o.ide, nombre: o.nombre,
+                               partida_ide: o.partida_ide != null ? o.partida_ide : null }),
       });
     }
     function pick(o) {
@@ -2440,9 +2442,12 @@ var FiltrosSesion = (function () {
       updateBtn();
     }
     if (selEmpresa) selEmpresa.addEventListener("change", trabajadorDeOtraEmpresa);
+    // F-072 (R35): la partida de la entrada elegida (null = obra normal).
+    var obraEntradaPartida = null;
     _comboSimple("obra-combo", "obra-input", "obra-panel", "/api/sigrid/obras",
       obraLabel,
       function (o) {
+        obraEntradaPartida = o.partida_ide != null ? o.partida_ide : null;
         document.getElementById("obra-ide").value = o.ide != null ? o.ide : "";
         document.getElementById("obra-codigo").value = o.codigo || "";
         document.getElementById("obra-nombre").value = o.nombre || "";
@@ -2509,7 +2514,8 @@ var FiltrosSesion = (function () {
         horas_extra: incSel ? 0
           : (document.getElementById("horas-extra").value || 0),
         incidencia_codigo: incSel || null,
-        partida_ide: document.getElementById("partida-ide").value || null,
+        partida_ide: obraEntradaPartida != null ? obraEntradaPartida
+          : (document.getElementById("partida-ide").value || null),
         partida_cod: document.getElementById("partida-cod").value || null,
         partida_res: document.getElementById("partida-res").value || null,
         partida_capitulo: document.getElementById("partida-capitulo").value || null
@@ -2646,10 +2652,13 @@ var FiltrosSesion = (function () {
     }
 
     // Combos del modal (una sola vez).
+    // F-072 (R35): la partida de la entrada elegida (null = obra normal).
+    var addlineEntradaPartida = null;
     _comboSimple("addline-obra-combo", "addline-obra-input", "addline-obra-panel",
       "/api/sigrid/obras",
       obraLabel,
       function (o) {
+        addlineEntradaPartida = o.partida_ide != null ? o.partida_ide : null;
         g("addline-obra-ide").value = o.ide != null ? o.ide : "";
         g("addline-obra-codigo").value = o.codigo || "";
         g("addline-obra-nombre").value = o.nombre || "";
@@ -2704,7 +2713,8 @@ var FiltrosSesion = (function () {
         dias: [fecha],
         horas_ordinaria: g("addline-ord").value || 0,
         horas_extra: g("addline-extra").value || 0,
-        partida_ide: g("addline-partida-ide").value || null,
+        partida_ide: addlineEntradaPartida != null ? addlineEntradaPartida
+          : (g("addline-partida-ide").value || null),
         partida_cod: g("addline-partida-cod").value || null,
         partida_res: g("addline-partida-res").value || null,
         partida_capitulo: g("addline-partida-capitulo").value || null
