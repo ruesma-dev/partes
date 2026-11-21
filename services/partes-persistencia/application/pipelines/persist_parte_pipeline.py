@@ -18,6 +18,9 @@ Pasos:
          ficha enlazada o, sin ella, los del recurso (`recurso_dni` /
          `recurso_nombre`, sin `empleado_ide`), y siempre `reside` =
          el recurso elegido, que el conciliador confirma despues.
+     F-072: con las obras agrupadas encendidas, la forma del «Nº OBRA»
+     (marca de postventa o VAR) decide la ENTRADA en vez del casado
+     normal (`ResolutorEntradas`); sin entrada, el parte va sin obra.
   5. Calcula ``review_required`` (un casado por recurso no lo sube; sin
      obra casada o sin fecha => revision, F-054, con un WARNING).
   5 bis. F-032: con el refresco de festivos cableado, pide a Sesame HR los
@@ -43,6 +46,7 @@ from typing import Any, Optional
 
 from application.services import text_match as tm
 from application.services.casado_recurso import casar_trabajador
+from application.services.obras_agrupadas import Forma, clave, leer_forma
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.refresco_festivos import anos_de_semana
 from application.services.sigrid_matcher_provider import (
@@ -51,6 +55,7 @@ from application.services.sigrid_matcher_provider import (
 )
 from domain.models.parte_records import (
     EmpleadoMatch,
+    EntradaPartida,
     ObraMatch,
     ParteDocumento,
     PersistParteResult,
@@ -131,6 +136,7 @@ class PersistPartePipeline:
         recalculo_seguimiento: Any = None,
         hoy: Callable[[], date] = date.today,
         refresco_festivos: Any = None,
+        entradas: Any = None,
     ) -> None:
         # F-023 (R16): de donde sale «hoy» cuando el parte no trae fecha.
         self._hoy = hoy
@@ -150,6 +156,9 @@ class PersistPartePipeline:
         # F-032 (R4): `RefrescoFestivos` (duck-typing: `.refrescar(dnis,
         # anos)`). None mientras Sesame no este cableado (R12).
         self._refresco_festivos = refresco_festivos
+        # F-072: `ResolutorEntradas` (con sus `ajustes`). None, o con las
+        # obras agrupadas apagadas, el casado de obra es el de siempre (R3).
+        self._entradas = entradas
 
     def run(self, request: PersistParteRequest) -> PersistParteResult:
         envelope = request.extraction_envelope or {}
@@ -401,13 +410,24 @@ class PersistPartePipeline:
         } - {""})
         discriminantes = [indice.empresas_con_recurso(d, fecha) for d in dnis]
 
-        # Obra (nivel parte) y empresa del parte.
-        parte.obra = matchers.obra.match(
-            codigo=parte.obra_numero_leido,
-            nombre=parte.obra_nombre_leido,
-            empresa_membrete=empresa_m,
-            discriminantes=discriminantes,
-        )
+        # Obra (nivel parte) y empresa del parte. F-072: con forma de obra
+        # agrupada, la entrada; si el casado normal da una obra agrupada,
+        # tambien (R18): una obra agrupada solo llega con su entrada.
+        forma = self._forma(parte.obra_numero_leido, matchers)
+        if forma is None:
+            parte.obra = matchers.obra.match(
+                codigo=parte.obra_numero_leido,
+                nombre=parte.obra_nombre_leido,
+                empresa_membrete=empresa_m,
+                discriminantes=discriminantes,
+            )
+            tipo = (self._entradas.ajustes.tipo_de(parte.obra.codigo)
+                    if self._entradas is not None and parte.obra.ide else None)
+            if tipo is not None:
+                forma = Forma(tipo=tipo, resto="")
+        if forma is not None:
+            self._casar_entrada(parte, forma, matchers, empresa_m,
+                                discriminantes)
         parte.empresa, parte.empresa_origen = empresa_del_parte(
             parte.obra, empresa_m
         )
@@ -462,6 +482,48 @@ class PersistPartePipeline:
                 )
                 if reg.hora.descripcion:
                     ord_desc_by_emp[key] = reg.hora.descripcion
+
+    # ----------------------------------------------------------------- #
+    def _forma(self, leido: str | None, matchers: Matchers) -> Forma | None:
+        """F-072 (R42, R43): la forma de obra agrupada de `obra_numero_leido`
+        (solo de ahi), o None. Lo que es exactamente una marca es forma base
+        aunque exista una obra con ese codigo (la antigua `POSTV`); si no, y
+        la clave de lo leido es el codigo de una obra real no agrupada, gana
+        esa obra por el casado normal con un WARNING `marca_colisiona`."""
+        if self._entradas is None or not self._entradas.ajustes.activo:
+            return None
+        ajustes = self._entradas.ajustes
+        forma = leer_forma(leido, ajustes.marcas)
+        if forma is None or not forma.resto:
+            return forma
+        reales = [o for o in matchers.obra.obras_de_clave(clave(leido))
+                  if ajustes.tipo_de(o.codigo) is None]
+        if reales:
+            logger.warning(
+                "[persist-parte] marca_colisiona: lo leido es el codigo de "
+                "una obra real y gana el casado normal (leido=%r tipo=%s "
+                "obras=%s)", leido, forma.tipo, sorted(o.ide for o in reales))
+            return None
+        return forma
+
+    def _casar_entrada(self, parte: ParteDocumento, forma: Forma,
+                       matchers: Matchers, empresa_m: int | None,
+                       discriminantes: list) -> None:
+        """F-072 (R14-R17): la obra del parte y su entrada. Un fallo de
+        lectura del presupuesto sube (R19): el parte no se guarda."""
+        res = self._entradas.resolver(forma, parte, matchers, empresa_m,
+                                      discriminantes)
+        parte.obra = res.obra
+        parte.entrada = None
+        if res.partida is not None:
+            parte.entrada = EntradaPartida(
+                ide=res.partida.ide, cod=res.partida.cod, res=res.partida.res,
+                capitulo=res.partida.categoria, tipo=res.tipo)
+        logger.info(
+            "[persist-parte] obra agrupada tipo=%s leido=%r obra=%s "
+            "metodo=%s partida=%s", forma.tipo, parte.obra_numero_leido,
+            parte.obra.ide, parte.obra.method,
+            None if parte.entrada is None else parte.entrada.cod)
 
     # ----------------------------------------------------------------- #
     def _casar_trabajador(

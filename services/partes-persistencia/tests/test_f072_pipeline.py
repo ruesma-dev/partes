@@ -98,7 +98,7 @@ def test_f072_r3_apagado_una_marca_se_casa_como_siempre(ajustes, entradas):
     assert p.obra.ide is None and p.obra.method not in (
         "var", "var_fuera_universo") and p.entrada is None
     p = _casar(c.parte("VAR"), ajustes=ajustes, entradas=entradas)
-    assert _obra(p) == (9101, "codigo") and p.entrada is None
+    assert _obra(p) == (9101, "codigo_trabajadores") and p.entrada is None
 
 
 # --------------------------------- R18 ----------------------------------- #
@@ -221,3 +221,37 @@ def test_f072_save_parte_dos_entradas_del_mismo_dia_no_se_pisan():
 def test_f072_entrada_partida_del_dominio():
     e = EntradaPartida(ide=1, cod="29", res="X", capitulo="CD", tipo="var")
     assert e.tipo == "var" and ObraMatch().ide is None
+
+
+# ------------------------------- cableado -------------------------------- #
+
+def _settings(monkeypatch, **entorno):
+    from config.settings import Settings
+
+    for nombre in ("POSTVENTA_OBRA_COD", "POSTVENTA_ALIAS", "VAR_OBRA_COD",
+                   "VAR_ALIAS", "VAR_PARTIDA_DESDE"):
+        monkeypatch.delenv(nombre, raising=False)
+    monkeypatch.setenv("PG_PASSWORD", "x")
+    monkeypatch.setenv("PG_ADMIN_PASSWORD", "x")
+    for nombre, valor in entorno.items():
+        monkeypatch.setenv(nombre, valor)
+    return Settings(_env_file=None)
+
+
+def test_f072_construir_entradas_encendido_con_sigrid(monkeypatch):
+    from application.services.entrada_agrupada import ResolutorEntradas
+    from interface_adapters.api.app import construir_entradas
+
+    cliente = object()
+    st = _settings(monkeypatch, VAR_OBRA_COD="VAR", VAR_PARTIDA_DESDE="29")
+    res = construir_entradas(st, cliente)
+    assert isinstance(res, ResolutorEntradas)
+    assert res._lookup is cliente and res.ajustes.var_desde == 29
+
+
+def test_f072_r3_construir_entradas_apagado_o_sin_sigrid(monkeypatch):
+    from interface_adapters.api.app import construir_entradas
+
+    assert construir_entradas(_settings(monkeypatch), object()) is None
+    st = _settings(monkeypatch, POSTVENTA_OBRA_COD="POSTV2")
+    assert construir_entradas(st, None) is None
