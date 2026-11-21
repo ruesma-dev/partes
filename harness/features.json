@@ -1194,6 +1194,21 @@
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
       "ok_humano_propuesta": "2026-11-19 («si lanza»)"
+    },
+    {
+      "id": "F-079",
+      "title": "La obra que viene en el correo (asunto o cuerpo) manda sobre la leída en los partes de ese correo",
+      "priority": 3,
+      "rigor": "estandar",
+      "sdd": true,
+      "status": "pending",
+      "spec": "sin spec",
+      "branch": "feature/F-079-obra-del-correo",
+      "description": "Pedida por el humano el 2026-11-20/21: leer la obra del correo y aplicarla a todos los partes del correo. Decisiones del humano (2026-11-21): (1) la obra vendrá en el ASUNTO o en el CUERPO del correo; (2) si la obra del correo no coincide con la leída en el parte, MANDA LA DEL CORREO; (3) si en el correo hay varias obras contradictorias, esas son las únicas opciones entre las que elige la IA para cada parte, en lugar de todas las obras. Hoy ningún servicio usa el asunto ni el cuerpo para la obra (sv1 solo guarda el PDF y publica q-extraccion). A REVISAR EN LA SPEC: cómo viaja el asunto/cuerpo de sv1 a sv2/sv3 (mensaje de cola, sin guardar datos personales de más); formas de la obra en el texto (código, código y nombre, marcas VAR/POSTVENTA de F-072) y casado contra Sigrid por empresa (F-023: el membrete sigue eligiendo empresa); qué hace la IA con la lista restringida y qué pasa si el parte no encaja en ninguna; correos reenviados y correo dentro de correo (F-020): qué asunto y cuerpo valen (pregunta abierta al humano); firmas, hilos citados y textos de reenvío que mencionan obras sin serlo; aviso visible en el portal cuando la obra del correo pisa la leída; partes ya guardados; azure-apps/partes.md si cambia el contrato de colas. El rigor lo confirma la spec (puede subir a critico si cambia en qué obra se escribe sin revisión humana).",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
     }
   ]
 }

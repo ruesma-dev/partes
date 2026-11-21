@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 2 en To do, 10 en Backlog y 57 en Done.
+Resumen: **73 features**, 16 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 2 en To do, 11 en Backlog y 57 en Done.
 
 ## Review
 
@@ -37,6 +37,7 @@ _Ninguna feature bloqueada._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-079 | La obra que viene en el correo (asunto o cuerpo) manda sobre la leída en los partes de ese correo | sin spec | 3 | estandar | `feature/F-079-obra-del-correo` |
 | F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
 | F-044 | Mover a un trabajador de un parte a otra fecha sin mover al resto | borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla | 6 | critico | `feature/F-044-mover-linea-a-otra-fecha` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
@@ -129,6 +130,14 @@ estado **to do (comprometida)** · prioridad 3 · rigor `critico` · SDD sí · 
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-12. Caso: obra 0721, adjunto 4936_001.pdf (12 páginas, un día por página). La página 11 (29/10) se leyó como 23-10-26; al guardarla, la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, ~línea 918: mismo obra_codigo y fecha_int y trabajadores en común ⇒ old.is_active = False) desactivó la página 7, el 23/10 de verdad, sin aviso y sin forma de recuperarla desde el portal (no va a la papelera). Arreglo propuesto: no aplicar el reemplazo entre páginas del mismo adjunto (mismo email_id + source_attachment_sha256/filename) y, si se descarta, que quede visible (aviso o motivo) en vez de oculto. Valorar si el portal debe ofrecer recuperar un parte reemplazado. Solo sv3 (y sv4 si se decide mostrarlo).
+
+### F-079 · La obra que viene en el correo (asunto o cuerpo) manda sobre la leída en los partes de ese correo
+
+estado **pendiente** · prioridad 3 · rigor `estandar` · SDD sí · rama `feature/F-079-obra-del-correo`
+
+**Spec**: sin spec
+
+Pedida por el humano el 2026-11-20/21: leer la obra del correo y aplicarla a todos los partes del correo. Decisiones del humano (2026-11-21): (1) la obra vendrá en el ASUNTO o en el CUERPO del correo; (2) si la obra del correo no coincide con la leída en el parte, MANDA LA DEL CORREO; (3) si en el correo hay varias obras contradictorias, esas son las únicas opciones entre las que elige la IA para cada parte, en lugar de todas las obras. Hoy ningún servicio usa el asunto ni el cuerpo para la obra (sv1 solo guarda el PDF y publica q-extraccion). A REVISAR EN LA SPEC: cómo viaja el asunto/cuerpo de sv1 a sv2/sv3 (mensaje de cola, sin guardar datos personales de más); formas de la obra en el texto (código, código y nombre, marcas VAR/POSTVENTA de F-072) y casado contra Sigrid por empresa (F-023: el membrete sigue eligiendo empresa); qué hace la IA con la lista restringida y qué pasa si el parte no encaja en ninguna; correos reenviados y correo dentro de correo (F-020): qué asunto y cuerpo valen (pregunta abierta al humano); firmas, hilos citados y textos de reenvío que mencionan obras sin serlo; aviso visible en el portal cuando la obra del correo pisa la leída; partes ya guardados; azure-apps/partes.md si cambia el contrato de colas. El rigor lo confirma la spec (puede subir a critico si cambia en qué obra se escribe sin revisión humana).
 
 ### F-071 · Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta
 
