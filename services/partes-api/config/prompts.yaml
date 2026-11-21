@@ -53,7 +53,15 @@ parte_trabajo_es:
          "6-abril-26"). Si el dia, el mes y el año van en casillas separadas,
          copialos juntos en ese orden (dia/mes/año) tal cual se leen. No la
          conviertas; si es ilegible, null.
-       - cabecera.obra_numero: el "Nº OBRA" tal cual (p.ej. "672").
+       - cabecera.obra_numero: el "Nº OBRA" tal cual (p.ej. "672"), COPIADO
+         con todo lo que lleve escrito: si trae una marca de letras (p.ej.
+         "V-29", "post 578", "29 V", "VAR", "POSTV2"), copiala con su
+         posicion (delante o detras del numero) y su separador. No lo
+         normalices: no expandas "V" a "VAR" ni "POST" a "POSTVENTA", no
+         quites guiones, puntos, barras ni espacios y no añadas ceros. Lee
+         el "Nº OBRA" SOLO de la cabecera: una letra de la tabla de personal
+         (p.ej. la "V" de vacaciones) va en empleados[].incidencia y nunca
+         en obra_numero.
        - cabecera.obra_nombre: el texto de "NOMBRE Y UBICACION DE OBRA".
        - cabecera.encargado_nombre: el nombre junto a "ENCARGADO".
        - cabecera.jefe_obra_nombre: el nombre junto a "JEFE DE OBRA" (suele

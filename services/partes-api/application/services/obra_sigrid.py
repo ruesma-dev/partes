@@ -12,6 +12,11 @@ Nunca lanza: si la consulta falla, se trunca o pasa del tope
 con un WARNING que solo lleva el tipo del error (R9, DA12 = A).
 
 No es la conciliación de sv3: no elige obra ni empresa (R11).
+
+F-072 (R13, DA3 = a): con ``marcas`` configuradas, un «Nº OBRA» con la marca
+de una obra agrupada (``leer_forma`` del gemelo: ``V-29``, ``post 578``…) no
+se consulta: es «no se sabe», así que la página no se relee por
+``obra_inexistente``. sv2 no decide la entrada: eso es de sv3.
 """
 from __future__ import annotations
 
@@ -20,6 +25,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from application.services.obras_agrupadas import Marcas, leer_forma
 from domain.models.clave_obra import clave_obra
 from domain.ports.existencia_obra_port import ExistenciaObraPort
 
@@ -48,8 +54,10 @@ class ComprobadorObra:
         client: ExistenciaObraPort,
         timeout_s: float = TIMEOUT_OBRA_DEFECTO_S,
         reloj: Callable[[], float] = time.perf_counter,
+        marcas: Marcas | None = None,
     ) -> None:
         self._client = client
+        self._marcas = marcas
         self._timeout_s = float(timeout_s)
         self._reloj = reloj
 
@@ -62,6 +70,9 @@ class ComprobadorObra:
         if not clave:
             return ConsultaObra(existe=None, ms=0, error_tipo=None)
         doc = document_id or "-"
+        if self._marcas is not None and leer_forma(codigo, self._marcas):
+            logger.info("[obra-sigrid] document_id=%s resultado=marca ms=0", doc)
+            return ConsultaObra(existe=None, ms=0, error_tipo=None)
         inicio = self._reloj()
         try:
             existe = bool(self._client.existe_obra(clave, timeout_s=self._timeout_s))

@@ -17,12 +17,20 @@ import logging
 from pathlib import Path
 
 import pytest
+
 from application.services.obra_sigrid import ComprobadorObra
 from application.services.obras_agrupadas import Marcas
 from application.services.relectura_cabecera import motivo_relectura
 from infrastructure.prompts.yaml_prompt_repository import YamlPromptRepository
+from tests.f059_sdk_falsos import instalar_si_faltan
+from tests.test_f058_relectura_cabecera import (
+    PuertoObra,
+    _correr,
+    _montar,
+    _parte,
+)
 
-from test_f058_relectura_cabecera import PuertoObra, _correr, _montar, _parte
+instalar_si_faltan()
 
 RUTA_PROMPTS = Path(__file__).resolve().parents[1] / "config" / "prompts.yaml"
 MARCAS = Marcas(postventa=("POSTV2", "POSTVENTA", "POSTV", "POST"),
@@ -101,7 +109,8 @@ def test_f072_r43_la_incidencia_v_no_es_marca():
     obra como siempre y `obra_numero` no cambia."""
     parte = _parte(obra="0672", fecha="6/4/26")
     parte["empleados"].append({"numero_linea": 2, "nombre": "Mengano",
-                               "dni": "00000000T", "incidencia": "V"})
+                               "dni": "00000000T",
+                               "incidencia": {"codigo": "V", "texto_leido": "V"}})
     m = _montar(parte, puerto=PuertoObra(existentes={"672"}))
     m.pipeline._obras = _comprobador(m.puerto)
     sobre = _correr(m)
@@ -129,3 +138,21 @@ def test_f072_r12_el_prompt_pide_el_n_obra_tal_cual(vineta_obra, frase):
 def test_f072_r43_el_prompt_separa_la_incidencia_de_la_obra(vineta_obra):
     assert "empleados[].incidencia" in vineta_obra
     assert "vacaciones" in vineta_obra
+
+
+# ------------------------------- cableado -------------------------------- #
+
+def test_f072_r13_build_app_pasa_las_marcas_de_la_configuracion(monkeypatch):
+    """`build_app` da a `ComprobadorObra` las marcas de los ajustes (R1)."""
+    from interface_adapters.api.app import build_app
+    from tests.test_f058_settings_wiring import SIGRID, VARIABLES, _settings
+
+    for nombre in VARIABLES + ("POSTVENTA_OBRA_COD", "POSTVENTA_ALIAS",
+                               "VAR_OBRA_COD", "VAR_ALIAS", "VAR_PARTIDA_DESDE"):
+        monkeypatch.delenv(nombre, raising=False)
+    st = _settings(POSTVENTA_OBRA_COD="POSTV2", POSTVENTA_ALIAS="POST",
+                   VAR_OBRA_COD="VAR", VAR_ALIAS="V", VAR_PARTIDA_DESDE="29",
+                   **SIGRID)
+    obras = build_app(st).state.pipeline._obras
+    assert obras._marcas == Marcas(postventa=("POSTV2", "POST"),
+                                   var=("VAR", "V"))

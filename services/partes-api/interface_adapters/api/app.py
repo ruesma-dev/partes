@@ -158,7 +158,8 @@ def build_app(settings: Settings) -> FastAPI:
         relectura_model = extraction_service.model_name(relectura_provider)
         if sigrid_client is not None:
             obras = ComprobadorObra(
-                client=sigrid_client, timeout_s=settings.obra_existe_timeout_s)
+                client=sigrid_client, timeout_s=settings.obra_existe_timeout_s,
+                marcas=settings.obras_agrupadas.marcas)
         logger.log(
             logging.INFO if obras is not None else logging.WARNING,
             "[partes-sv2][wiring] relectura cabecera ACTIVA provider=%s "
