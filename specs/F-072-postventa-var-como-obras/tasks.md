@@ -23,7 +23,7 @@ Rama `feature/F-072-postventa-var-como-obras` (desde `dev` en `8fea290`). Rigor 
 - [x] T18: Tests RED de `CatalogoEntradas` R25 (una sola obra agrupada por empresa, varias ⇒ sin entradas, obras agrupadas fuera del universo, caché y fallo ⇒ `[]` con WARNING)  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_catalogo_entradas.py` falla
 - [x] T19: `catalogo_entradas.py` (design §5)  |  Verificación: T18 en verde
 - [x] T20: Tests RED del repositorio de sv4: R23 (claves de línea y de documento, documento mixto en «borrar obra»), R24, R29, R30, R31 (extra del popup) y R32  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_repositorio.py` falla
-- [ ] T21: `parte_repository.py` (design §5)  |  Verificación: T20 en verde y suite de sv4 en verde
+- [x] T21: `parte_repository.py` (design §5)  |  Verificación: T20 en verde y suite de sv4 en verde
 - [ ] T22: Tests RED de endpoints R26–R28, R33 (payload con `partida_metodo`, una petición por entrada) y R34  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_endpoints.py` falla
 - [ ] T23: `app.py`, `ObraPayload`, payload a sv5 y motivo de `sincronizar_ambito.py`  |  Verificación: T22 en verde y suite de sv4 en verde
 - [ ] T24: `static/app.js`: los tres selectores muestran las entradas y mandan `partida_ide` (R35)  |  Verificación: `node --check services/partes-front/static/app.js` en verde

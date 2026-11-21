@@ -248,3 +248,13 @@ def test_f072_r33_payload_con_la_marca_y_una_peticion_por_entrada(fabrica):
     assert (l29["partida_ide"], l29["partida_metodo"]) == (91012, "var")
     [ln] = grupos["obr-10"]["lineas"]
     assert "partida_metodo" not in ln
+
+
+def test_f072_r31_el_alta_en_celda_clona_partida_y_marca():
+    """El alta en celda (F-049) clona de su plantilla `_CAMPOS_CLON_CELDA`,
+    que ya incluye la partida y la marca: una entrada sigue siéndolo."""
+    from infrastructure.database.parte_repository import (
+        _CAMPOS_CLON_CELDA,
+        _CAMPOS_PARTIDA_ENTRADA,
+    )
+    assert set(_CAMPOS_PARTIDA_ENTRADA) <= set(_CAMPOS_CLON_CELDA)
