@@ -21,7 +21,7 @@ Rama `feature/F-072-postventa-var-como-obras` (desde `dev` en `8fea290`). Rigor 
 - [x] T16: Tests RED de R38: en una obra agrupada no chocan dos entradas del mismo recurso, día y hora con partidas distintas (conflicto, `parte_cerrado`, R11); en una obra normal sí, como hoy  |  Verificación: `python -m pytest services/partes-transfer/tests/test_f072_conflictos.py` falla
 - [x] T17: `choques(…, por_partida)`, `LineaSigrid.paride` y `lineas_existentes` con `paride`  |  Verificación: T16 en verde y suites F-031, F-053 y F-062 de sv5 en verde
 - [x] T18: Tests RED de `CatalogoEntradas` R25 (una sola obra agrupada por empresa, varias ⇒ sin entradas, obras agrupadas fuera del universo, caché y fallo ⇒ `[]` con WARNING)  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_catalogo_entradas.py` falla
-- [ ] T19: `catalogo_entradas.py` (design §5)  |  Verificación: T18 en verde
+- [x] T19: `catalogo_entradas.py` (design §5)  |  Verificación: T18 en verde
 - [ ] T20: Tests RED del repositorio de sv4: R23 (claves de línea y de documento, documento mixto en «borrar obra»), R24, R29, R30, R31 (extra del popup) y R32  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_repositorio.py` falla
 - [ ] T21: `parte_repository.py` (design §5)  |  Verificación: T20 en verde y suite de sv4 en verde
 - [ ] T22: Tests RED de endpoints R26–R28, R33 (payload con `partida_metodo`, una petición por entrada) y R34  |  Verificación: `python -m pytest services/partes-front/tests/test_f072_endpoints.py` falla
