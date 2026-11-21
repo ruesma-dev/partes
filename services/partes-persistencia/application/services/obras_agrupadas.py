@@ -148,6 +148,53 @@ def marcas_de(*, postventa_cod: Any, postventa_alias: Any, var_cod: Any,
 
 
 @dataclass(frozen=True)
+class Ajustes:
+    """Configuración de las obras agrupadas de un servicio (R1, R2).
+
+    Un código vacío apaga su tipo (DA11); `var_desde` solo tiene valor con
+    VAR encendido."""
+
+    postventa_cod: str | None
+    var_cod: str | None
+    var_desde: int | None
+    marcas: Marcas
+
+    @property
+    def activo(self) -> bool:
+        return bool(self.postventa_cod or self.var_cod)
+
+    def tipo_de(self, codigo: Any) -> str | None:
+        """`es_obra_agrupada` con los códigos de estos ajustes."""
+        return es_obra_agrupada(codigo, postventa=self.postventa_cod,
+                                var=self.var_cod)
+
+
+def _desde(var_cod: str | None, desde: Any) -> int | None:
+    """R2: con VAR encendido, `VAR_PARTIDA_DESDE` es un entero ≥ 0."""
+    if not var_cod:
+        return None
+    texto = str(desde if desde is not None else "").strip()
+    if not (texto.isascii() and texto.isdigit()):
+        raise ValueError(
+            "VAR_PARTIDA_DESDE debe ser un entero >= 0 con VAR_OBRA_COD "
+            f"configurado (VAR_OBRA_COD={var_cod!r}, VAR_PARTIDA_DESDE="
+            f"{desde!r})")
+    return int(texto)
+
+
+def ajustes_de(*, postventa_cod: Any, var_cod: Any, var_desde: Any,
+               postventa_alias: Any = None, var_alias: Any = None) -> Ajustes:
+    """Ajustes validados desde el entorno; `ValueError` que nombra la
+    variable si VAR está encendido sin umbral válido (R2)."""
+    pv = str(postventa_cod or "").strip().upper() or None
+    vr = str(var_cod or "").strip().upper() or None
+    return Ajustes(postventa_cod=pv, var_cod=vr, var_desde=_desde(vr, var_desde),
+                   marcas=marcas_de(postventa_cod=pv,
+                                    postventa_alias=postventa_alias,
+                                    var_cod=vr, var_alias=var_alias))
+
+
+@dataclass(frozen=True)
 class Forma:
     """Forma leída del «Nº OBRA»: el tipo y el resto (vacío = forma base)."""
 

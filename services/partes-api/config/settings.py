@@ -6,6 +6,8 @@ from typing import Literal
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from application.services.obras_agrupadas import Ajustes, ajustes_de
+
 ProviderName = Literal["gemini", "claude", "openai"]
 #: Nombres válidos de proveedor (los de ``ProviderName``).
 PROVEEDORES_VALIDOS = ("gemini", "claude", "openai")
@@ -242,4 +244,33 @@ class Settings(BaseSettings):
                 f"IA_PROVIDER={self.ia_provider} requiere "
                 f"{_VARIABLE_CLAVE[self.ia_provider]}."
             )
+        return self
+
+    # ------------------------------------------------------------ #
+    # F-072 · obras agrupadas (postventa y VAR como entradas). SIN
+    # valores en el codigo (DA11): vacio = apagado. Con VAR_OBRA_COD,
+    # VAR_PARTIDA_DESDE es un entero >= 0 o no arranca (R2). sv2 usa los codigos y los
+    # alias para no releer una marca (R13).
+    # ------------------------------------------------------------ #
+    postventa_obra_cod: str | None = Field(None, alias="POSTVENTA_OBRA_COD")
+    postventa_alias: str | None = Field(None, alias="POSTVENTA_ALIAS")
+    var_obra_cod: str | None = Field(None, alias="VAR_OBRA_COD")
+    var_alias: str | None = Field(None, alias="VAR_ALIAS")
+    var_partida_desde: str | None = Field(None, alias="VAR_PARTIDA_DESDE")
+
+    @property
+    def obras_agrupadas(self) -> Ajustes:
+        """Ajustes validados de las obras agrupadas (gemelo F-072)."""
+        return ajustes_de(
+            postventa_cod=self.postventa_obra_cod,
+            var_cod=self.var_obra_cod,
+            var_desde=self.var_partida_desde,
+            postventa_alias=self.postventa_alias,
+            var_alias=self.var_alias,
+        )
+
+    @model_validator(mode="after")
+    def _validar_obras_agrupadas(self) -> Settings:
+        """R2: el error nombra VAR_PARTIDA_DESDE y el servicio no arranca."""
+        self.obras_agrupadas
         return self
