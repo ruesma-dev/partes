@@ -21,8 +21,9 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any, Iterable
+from typing import Any
 
 #: Marcas de entrada: el `partida_match_method` de sus líneas.
 POSTVENTA = "postventa"
