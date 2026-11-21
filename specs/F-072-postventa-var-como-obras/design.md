@@ -235,16 +235,16 @@ no se toca.
 
 | Decisión | Opciones | Recomendado | Decidido |
 |---|---|---|---|
-| DA1 Qué escribe el encargado en el papel | (a) marca en «Nº OBRA», delante o detrás: `VAR-29`, `POSTVENTA 578`; con solo `VAR`/`POSTV2`, la partida de la sección de partidas (R9, R16); (b) solo la marca en «Nº OBRA»; (c) solo la obra agrupada más la sección de partidas | (a) | |
-| DA2 Alias (enmienda del 2026-11-20) | (a) `POSTVENTA_ALIAS=POSTVENTA,POSTV,POST` y `VAR_ALIAS=V`, sin `PV` (no lo pidió el humano; ninguna obra empieza por `PV` y añadirlo es solo configuración); (b) también `PV` | (a) | |
-| DA3 Relectura de sv2 con marca | (a) no consulta ni relee; (b) sin cambio: relee, y en el peor caso el parte va a revisión | (a) | |
-| DA4 Dónde vive la lógica común | (a) gemelo byte-idéntico en sv2, sv3, sv4 y sv5 en la lista cerrada de `CLAUDE.md`, reimplementado de porcentajes con R10; (b) pedirla al transfer de porcentajes por HTTP; (c) solo en sv4 | (a) | |
-| DA5 Cómo se guarda la entrada | (a) en la línea: obra agrupada + partida + marca, sin columnas; (b) columnas nuevas en `parte_documents`/`parte_registros` | (a) | |
-| DA6 «Obra cerrada del universo, solo como postventa» | (a) no aplica: partes no filtra obras por estado y ofrece X y `Postv-X`; (b) leer el estado y ofrecer solo `Postv-X` si X está cerrada; (c) (b) y además mandar a revisión el parte de una X cerrada sin marca | (a); (b)/(c) en otra feature | |
-| DA7 Obras agrupadas como obra normal | (a) ni VAR ni POSTV2 se ofrecen; sin entrada ⇒ 422; (b) solo VAR, como porcentajes | (a) | |
-| DA8 Conflictos en sv5 | (a) en una obra agrupada solo choca la misma partida (como `#regla-conflicto` de porcentajes); (b) como hoy: falsos conflictos entre entradas del mismo día | (a) | |
-| DA9 Partes ya guardados en POSTV2/VAR | (a) no se recasan; se arreglan con «cambiar obra» y sv5 omite lo que no tenga entrada; (b) script de migración | (a) | |
-| DA10 Bandeja de dedicación | (a) sin columnas nuevas; documentar y avisar a porcentajes; (b) añadir `es_postventa` y la obra origen | (a) | |
-| DA11 Valores de configuración | (a) sin defecto en el código (vacío = apagado), valores en el despliegue; (b) defectos en el código como porcentajes (`POSTV2`, `VAR`, `29`) | (a) | |
-| DA12 Sincronizar (F-052) una entrada | (a) fuera: «no sincronizable» con motivo; (b) filtrar las líneas de Sigrid por partida | (a) | |
-| DA13 Marca que coincide con una obra real | (a) gana la obra real si lo leído es su código (sin separadores) y no es exactamente una marca (`150702-V` es esa obra); lo que es exactamente una marca es forma base aunque exista la obra (la antigua `POSTV` ⇒ postventa, como D6 de porcentajes); (b) toda coincidencia a revisión | (a) | |
+| DA1 Qué escribe el encargado en el papel | (a) marca en «Nº OBRA», delante o detrás: `VAR-29`, `POSTVENTA 578`; con solo `VAR`/`POSTV2`, la partida de la sección de partidas (R9, R16); (b) solo la marca en «Nº OBRA»; (c) solo la obra agrupada más la sección de partidas | (a) | (a), humano 2026-11-21 «ok» |
+| DA2 Alias (enmienda del 2026-11-20) | (a) `POSTVENTA_ALIAS=POSTVENTA,POSTV,POST` y `VAR_ALIAS=V`, sin `PV` (no lo pidió el humano; ninguna obra empieza por `PV` y añadirlo es solo configuración); (b) también `PV` | (a) | (a), humano 2026-11-21 «ok» |
+| DA3 Relectura de sv2 con marca | (a) no consulta ni relee; (b) sin cambio: relee, y en el peor caso el parte va a revisión | (a) | (a), humano 2026-11-21 «ok» |
+| DA4 Dónde vive la lógica común | (a) gemelo byte-idéntico en sv2, sv3, sv4 y sv5 en la lista cerrada de `CLAUDE.md`, reimplementado de porcentajes con R10; (b) pedirla al transfer de porcentajes por HTTP; (c) solo en sv4 | (a) | (a), humano 2026-11-21 «ok» |
+| DA5 Cómo se guarda la entrada | (a) en la línea: obra agrupada + partida + marca, sin columnas; (b) columnas nuevas en `parte_documents`/`parte_registros` | (a) | (a), humano 2026-11-21 «ok» |
+| DA6 «Obra cerrada del universo, solo como postventa» | (a) no aplica: partes no filtra obras por estado y ofrece X y `Postv-X`; (b) leer el estado y ofrecer solo `Postv-X` si X está cerrada; (c) (b) y además mandar a revisión el parte de una X cerrada sin marca | (a); (b)/(c) en otra feature | (a), humano 2026-11-21 «ok» |
+| DA7 Obras agrupadas como obra normal | (a) ni VAR ni POSTV2 se ofrecen; sin entrada ⇒ 422; (b) solo VAR, como porcentajes | (a) | (a), humano 2026-11-21 «ok» |
+| DA8 Conflictos en sv5 | (a) en una obra agrupada solo choca la misma partida (como `#regla-conflicto` de porcentajes); (b) como hoy: falsos conflictos entre entradas del mismo día | (a) | (a), humano 2026-11-21 «ok» |
+| DA9 Partes ya guardados en POSTV2/VAR | (a) no se recasan; se arreglan con «cambiar obra» y sv5 omite lo que no tenga entrada; (b) script de migración | (a) | (a), humano 2026-11-21 «ok» |
+| DA10 Bandeja de dedicación | (a) sin columnas nuevas; documentar y avisar a porcentajes; (b) añadir `es_postventa` y la obra origen | (a) | (a), humano 2026-11-21 «ok» |
+| DA11 Valores de configuración | (a) sin defecto en el código (vacío = apagado), valores en el despliegue; (b) defectos en el código como porcentajes (`POSTV2`, `VAR`, `29`) | (a) | (a), humano 2026-11-21 «ok» |
+| DA12 Sincronizar (F-052) una entrada | (a) fuera: «no sincronizable» con motivo; (b) filtrar las líneas de Sigrid por partida | (a) | (a), humano 2026-11-21 «ok» |
+| DA13 Marca que coincide con una obra real | (a) gana la obra real si lo leído es su código (sin separadores) y no es exactamente una marca (`150702-V` es esa obra); lo que es exactamente una marca es forma base aunque exista la obra (la antigua `POSTV` ⇒ postventa, como D6 de porcentajes); (b) toda coincidencia a revisión | (a) | (a), humano 2026-11-21 «ok» |

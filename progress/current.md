@@ -194,3 +194,7 @@ Pendiente del humano (nada de esto lo hace el arnés):
 Spec en `specs/F-072-postventa-var-como-obras/` (requirements 150, design 248, T1–T32; T29–T31
 manuales); resumen y DA1–DA12 en `progress/spec_F-072.md`. Rigor `critico`. F-071 en `todo`.
 M3 de F-077 hecha (despliegue apagado de sv3 y sv4 con F-032, F-077 y F-078, 2026-11-20).
+
+## F-072 · in_progress 2026-11-21 (spec aprobada por el humano: «ok», DA1–DA13 en (a))
+
+Lo decidido está en la columna «Decidido» de design §13. Siguiente: implementer (rigor `critico`).
