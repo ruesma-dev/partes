@@ -272,3 +272,8 @@ M3 de F-077 hecha (despliegue apagado de sv3 y sv4 con F-032, F-077 y F-078, 202
 ## F-072 · in_progress 2026-11-21 (spec aprobada por el humano: «ok», DA1–DA13 en (a))
 
 Lo decidido está en la columna «Decidido» de design §13. Siguiente: implementer (rigor `critico`).
+
+## F-072 · in_review 2026-11-21 (líder)
+
+Implementer: T1–T27 y T32 hechas (`progress/impl_F-072.md`); `init.sh` en verde, cobertura 99,3 %
+(1065/1072). `azure-apps` cd58cab sin push. Siguiente: reviewer principal; después, campaña (T28).
