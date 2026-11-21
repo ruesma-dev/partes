@@ -213,6 +213,8 @@ def construir_casado_sigrid(
     partida_conciliador = PartidaConciliador(
         repository=repository,
         lookup=sigrid_client,
+        # F-072 (R20): las lineas sin marca de una obra agrupada, a `sin`.
+        ajustes=settings.obras_agrupadas,
     )
     # Conciliacion de recurso/parte de trabajo (mismo cliente Sigrid:
     # lee reshor + hmo por obra; las fichas y recursos, del indice del

@@ -19,6 +19,10 @@ Con la plantilla J.310 rev. 1 la partida PUEDE venir escrita en el parte
 Reglas:
 - La automatica solo busca en CI. Si nada casa -> ``metodo='sin'``.
 - Se PRESERVAN los casados manuales (``metodo='manual'``): no se tocan.
+- F-072 (R20): tampoco se tocan las lineas con marca de ENTRADA
+  (``postventa``/``var``: la partida es la de la entrada); y las lineas SIN
+  marca de una obra agrupada quedan en ``'sin'`` sin casado por categoria
+  ni por partida leida: una obra agrupada solo imputa con su entrada.
 - Best-effort: si Sigrid falla para una obra, esos registros NO se tocan
   (se reintentan en la siguiente persistencia); nunca rompe el persist.
 """
@@ -29,6 +33,7 @@ import threading
 import time
 from collections import defaultdict
 
+from application.services.obras_agrupadas import MARCAS_ENTRADA
 from application.services.partida_catalog import (
     PartidaNodo,
     build_arbol_partidas,
@@ -94,8 +99,11 @@ class PartidaConciliador:
     def __init__(
         self, *, repository, lookup,
         umbral: float = UMBRAL_ROL, ttl_seconds: int = 600,
+        ajustes=None,
     ) -> None:
         self._repository = repository
+        # F-072: `obras_agrupadas.Ajustes` (None = como antes de F-072).
+        self._ajustes = ajustes
         self._lookup = lookup
         self._umbral = float(umbral)
         self._ttl = int(ttl_seconds)
@@ -136,12 +144,17 @@ class PartidaConciliador:
         registros = self._repository.fetch_registros_para_partida()
 
         por_obra: dict[int | None, list[dict]] = defaultdict(list)
+        updates: list[dict] = []
         for r in registros:
-            if (r.get("partida_match_method") or "") == "manual":
+            metodo = r.get("partida_match_method") or ""
+            if metodo == "manual" or metodo in MARCAS_ENTRADA:
+                continue
+            if (self._ajustes is not None
+                    and self._ajustes.tipo_de(r.get("obra_codigo"))):
+                updates.append(_sin(r["registro_id"]))   # R20
                 continue
             por_obra[r.get("obra_ide")].append(r)
 
-        updates: list[dict] = []
         casados = 0
         for obra_ide, regs in por_obra.items():
             if not obra_ide:

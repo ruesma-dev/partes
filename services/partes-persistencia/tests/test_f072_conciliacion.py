@@ -143,3 +143,23 @@ def test_f072_r22_dos_entradas_de_una_obra_agrupada_son_una_obra():
     assert res.cuadra and res.n_obras == 1
     assert sum(a.horas_norm for a in res.ajustes) == 8.0
     assert sum(a.extra_horas for a in res.ajustes) == 4.0
+
+
+def test_f072_r20_el_cableado_da_los_ajustes_al_conciliador(monkeypatch):
+    from config.settings import Settings
+    from interface_adapters.api.app import construir_casado_sigrid
+    from tests.dobles import JornadasFake, RepositorioFake
+
+    for nombre, valor in {
+        "PG_PASSWORD": "x", "PG_ADMIN_PASSWORD": "x",
+        "SIGRID_API_BASE_URL": "http://sigrid.invalid",
+        "SIGRID_API_FUNCTION_KEY": "clave-de-test", "SIGRID_API_DATABASE": "bd",
+        "VAR_OBRA_COD": "VAR", "VAR_PARTIDA_DESDE": "29",
+    }.items():
+        monkeypatch.setenv(nombre, valor)
+    monkeypatch.delenv("POSTVENTA_OBRA_COD", raising=False)
+    _cli, _prov, partidas, _rec = construir_casado_sigrid(
+        Settings(_env_file=None), repository=RepositorioFake(),
+        jornadas=JornadasFake(), mapa_semanal={8.0: 40.0})
+    assert partidas._ajustes.var_cod == "VAR"
+    assert partidas._ajustes.tipo_de("VAR") == "var"

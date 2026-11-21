@@ -266,6 +266,7 @@ class SqlAlchemyParteRepository:
                 select(
                     ParteRegistroOrm.id,
                     ParteRegistroOrm.obra_ide,
+                    ParteRegistroOrm.obra_codigo,
                     ParteRegistroOrm.categoria,
                     ParteRegistroOrm.empleado_nombre,
                     ParteRegistroOrm.trabajador_nombre_leido,
@@ -279,11 +280,13 @@ class SqlAlchemyParteRepository:
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
             out: list[dict] = []
-            for (rid, obra_ide, cat, emp_nom, leido, metodo,
+            for (rid, obra_ide, obra_codigo, cat, emp_nom, leido, metodo,
                  partida_leida) in session.execute(stmt).all():
                 out.append({
                     "registro_id": rid,
                     "obra_ide": obra_ide,
+                    # F-072 (R20): para saber si la obra es agrupada.
+                    "obra_codigo": obra_codigo,
                     "categoria": cat,
                     "nombre": emp_nom or leido,
                     "partida_match_method": metodo,
