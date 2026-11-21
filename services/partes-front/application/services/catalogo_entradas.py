@@ -104,10 +104,6 @@ class CatalogoEntradas:
         self._por_clave: dict[tuple[int, int], Entrada] = {}
         self._cargado_en: float | None = None
 
-    @property
-    def ajustes(self) -> Ajustes:
-        return self._ajustes
-
     # ------------------------------------------------------------------ #
     def entradas(self) -> list[Entrada]:
         self._refrescar()
@@ -193,6 +189,8 @@ class CatalogoEntradas:
             tipo=tipo, obra_ide=int(agr.ide), obra_codigo=agr.codigo,
             obra_nombre=agr.nombre, empresa=agr.empresa, partida_ide=int(h.ide),
             partida_cod=h.cod, partida_res=h.res,
-            partida_capitulo=h.capitulo_cod,
+            # La CATEGORIA (CD/CI/CP/OTRO), como sv3 en `_casar_entrada`: la
+            # columna es `String(8)` y el codigo del capitulo no cabe.
+            partida_capitulo=h.categoria,
             codigo=codigo_entrada(tipo, self._ajustes.var_cod, h.cod),
             nombre=nombre)
