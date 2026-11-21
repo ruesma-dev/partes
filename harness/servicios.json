@@ -11,7 +11,8 @@
       "ruta": "services/partes-api",
       "lenguaje": "python",
       "depende_de": [
-        "services/partes-persistencia/application/services/obras_agrupadas.py"
+        "services/partes-persistencia/application/services/obras_agrupadas.py",
+        "services/partes-persistencia/tests/test_f072_obras_agrupadas.py"
       ]
     },
     {
@@ -28,7 +29,8 @@
       "ruta": "services/partes-front",
       "lenguaje": "python",
       "depende_de": [
-        "services/partes-persistencia/application/services/obras_agrupadas.py"
+        "services/partes-persistencia/application/services/obras_agrupadas.py",
+        "services/partes-persistencia/tests/test_f072_obras_agrupadas.py"
       ]
     },
     {
@@ -36,7 +38,8 @@
       "ruta": "services/partes-transfer",
       "lenguaje": "python",
       "depende_de": [
-        "services/partes-persistencia/application/services/obras_agrupadas.py"
+        "services/partes-persistencia/application/services/obras_agrupadas.py",
+        "services/partes-persistencia/tests/test_f072_obras_agrupadas.py"
       ]
     },
     {
