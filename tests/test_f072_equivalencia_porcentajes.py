@@ -29,6 +29,8 @@ from types import ModuleType, SimpleNamespace
 
 import pytest
 
+from harness.tiempos import escalar_timeout
+
 RAIZ = Path(__file__).resolve().parents[1]
 GEMELO = RAIZ / "services/partes-persistencia/application/services/obras_agrupadas.py"
 PORCENTAJES = RAIZ.parent / "porcentajes" / "services" / "dedicacion-transfer"
@@ -145,7 +147,8 @@ def test_f072_r10_porcentajes_da_lo_mismo_que_partes():
         "var": [list(c) for c in CASOS_VAR], "desde": DESDE})
     r = subprocess.run([sys.executable, "-I", "-c", _SCRIPT, str(PORCENTAJES)],
                        input=entrada, capture_output=True, text=True,
-                       cwd=str(PORCENTAJES), timeout=120, check=False)
+                       cwd=str(PORCENTAJES), timeout=escalar_timeout(120),
+                       check=False)
     # Con el repo presente, cualquier fallo (importación incluida) es ROJO.
     assert r.returncode == 0, f"porcentajes no se pudo ejecutar:\n{r.stderr}"
     suyo = json.loads(r.stdout.strip().splitlines()[-1])
