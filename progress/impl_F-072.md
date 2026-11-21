@@ -198,3 +198,21 @@ Los comandos completos están en `tasks.md`:
 | Mutantes generados y supervivientes | **pendiente de la pasada de campaña** (T28): la lanza el líder tras el APPROVED, con `python -m harness.mutacion --feature F-072` ⇒ `progress/mutacion_F-072.md` |
 | Tiempo de la suite | raíz 1550 s · sv2 70 s · sv3 65 s · sv4 1116 s · sv5 28 s |
 | Capa e2e | N/A: `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
+
+## Review 1 (CHANGES_REQUESTED): cambios 1 y 2, y O3
+
+- **Cambio 1** (013766e): `catalogo_entradas.py` guarda en `partida_capitulo` la **categoría**
+  del capítulo (`h.categoria`: CD/CI/CP/OTRO, como sv3), no `h.capitulo_cod`. Sin capítulo, `OTRO`.
+  - RED (20f91f6), `python -m pytest tests/test_f072_catalogo_entradas.py -q` en sv4:
+    `E       AssertionError: assert ('CD.POSTVENTA', None) == ('CD', 'OTRO')` · `1 failed, 30 passed in 0.34s`.
+  - El test pone una hoja bajo `CD.POSTVENTA`, otra sin padre, y comprueba la longitud ≤ 8.
+- **Cambio 2** (20f91f6): `test_f072_r25_el_indice_desempata_como_casar_postventa` contrasta el
+  índice con `casar_postventa`, con 11 casos y en verde desde el principio. Eran falta de
+  evidencia, no de lógica. Los casos:
+  - `mas_corto`, `menor_normalizado`, `orden_inverso` (y con las filas al revés);
+  - `letra_digito`, `letra_punto`, `de_baja`;
+  - dos exactas con el `ide` invertido;
+  - hoja sin código y hoja con código vacío.
+- **O3**: fuera `CatalogoEntradas.ajustes`, que nadie usaba. D1 y D2 no se tocan.
+- `bash harness/init.sh`: **ENTORNO LISTO**, exit 0. Raíz 2551/48; sv4 4003 passed; sv1–sv3 y
+  sv5 por caché. `PUERTA COBERTURA` 99,7 % (1066/1069); impl 217/220.
