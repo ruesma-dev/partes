@@ -63,6 +63,8 @@ class ClienteF072(SigridFake):
                                  else presupuestos)
         self.presupuestos_leidos: list[int] = []
         self.fallo_presupuesto: Exception | None = None
+        #: R38: el `con_partida` de cada `lineas_existentes`.
+        self.con_partida_pedida: list[bool] = []
 
     def partidas_de_obra(self, obra_ide: int):
         self._lectura("partidas_de_obra")
@@ -71,10 +73,16 @@ class ClienteF072(SigridFake):
             raise self.fallo_presupuesto
         return list(self.presupuestos.get(int(obra_ide), []))
 
-    def _a_linea_sigrid(self, l: dict):
-        ls = super()._a_linea_sigrid(l)
-        ls.paride = l.get("paride")
-        return ls
+    def lineas_existentes(self, hmoide: int, resides, fechas,
+                          con_partida: bool = False):
+        """Como el cliente real: la partida (`hmores.paride`) solo se lee
+        cuando se pide (`con_partida`, R38)."""
+        self.con_partida_pedida.append(bool(con_partida))
+        out = super().lineas_existentes(hmoide, resides, fechas)
+        for ls in out:
+            fila = next(x for x in self.lineas if x["ide"] == ls.ide)
+            ls.paride = fila.get("paride") if con_partida else None
+        return out
 
 
 def linea(rid, partida=None, metodo=None, *, recurso=501, cod=None,
