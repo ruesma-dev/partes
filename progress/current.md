@@ -57,6 +57,17 @@ tocan ficheros que §10 excluye, o se cambia el contrato sv4→sv5.
   parámetro nuevo. Si lo lee siempre, rompe `test_f053_cliente_anular.py::…sql_exacto`, un test
   anterior que T25 prohíbe tocar. Comprobado: cae.
 
+**`bash harness/init.sh` al bloquear** (2026-11-21): 2 fallos.
+- **Raíz**: `test_f019_r22_…timeout_literal` caía por el `timeout=120` literal de
+  `tests/test_f072_equivalencia_porcentajes.py`. Ya está arreglado con `escalar_timeout`, en
+  0159869: 54/54.
+- **PUERTA COBERTURA**: 81,4 % (669/822) contra el 90 % de `critico`. Es esperable a mitad de la
+  feature. En esa pasada la suite de raíz paró en el primer fallo. Además, las copias del gemelo
+  en sv2, sv4 y sv5 solo las ejercitan en parte sus propias suites. Se mide de nuevo en T32.
+
+El resto, en verde: sv2 por caché, sv3 2943 passed y 2 skipped, sv4 3824 passed y sv5 1665
+passed; PUERTA TAMAÑO también en verde: impl 88/220.
+
 **Para retomar:** con la opción decidida, seguir por T16 (con el arreglo de la opción, si toca
 código), y luego T17–T27 y T32. T28–T31 quedan para el líder y el humano.
 
