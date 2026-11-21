@@ -126,6 +126,8 @@ class LineaReajusteIn(BaseModel):
     partida_cod: Optional[str] = None
     obra_ide: Optional[int] = None
     obra_codigo: Optional[str] = None
+    # F-072 (enmienda b): la marca de entrada de la linea base.
+    partida_metodo: Optional[str] = None
 
 
 class ReajusteIn(BaseModel):
@@ -165,6 +167,8 @@ class FranquiciaIn(BaseModel):
     partida_cod: Optional[str] = None
     extras_pendientes: float = 0.0
     usuario: Optional[str] = None
+    # F-072 (enmienda b): la marca de entrada de la linea base.
+    partida_metodo: Optional[str] = None
 
     @model_validator(mode="after")
     def _coherente(self) -> "FranquiciaIn":
@@ -178,10 +182,13 @@ class FranquiciaIn(BaseModel):
         return self
 
     def a_dominio(self) -> PeticionFranquicia:
-        datos = self.model_dump(exclude={"obra"})
-        return PeticionFranquicia(
+        datos = self.model_dump(exclude={"obra", "partida_metodo"})
+        p = PeticionFranquicia(
             obra=ObraEntrada(ide=self.obra.ide, codigo=self.obra.codigo,
                              nombre=self.obra.nombre), **datos)
+        # F-072 (enmienda b): atributo, no campo (ver `PeticionFranquicia`).
+        p.partida_metodo = self.partida_metodo  # type: ignore[attr-defined]
+        return p
 
 
 def _franquicia_a_dict(r: ResultadoFranquicia) -> dict[str, Any]:

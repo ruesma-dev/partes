@@ -190,7 +190,8 @@ class FranquiciaPipeline:
             registro_id=int(p.ajuste_id), fecha_int=int(p.fecha_int),
             recurso_ide=int(p.recurso_ide), tipo_hora="extra",
             horas=_HORAS_PREPARAR, partida_ide=p.partida_ide,
-            partida_cod=p.partida_cod)])
+            partida_cod=p.partida_cod,
+            partida_metodo=getattr(p, "partida_metodo", None))])
         accion = ctx.acciones[0] if ctx.acciones else None
         return _Preparada(accion, ctx.obra_destino, ctx.forzada_pruebas)
 

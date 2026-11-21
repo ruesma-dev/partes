@@ -129,7 +129,8 @@ class ReajustePipeline:
                     recurso_ide=op.recurso_ide, tipo_hora="extra",
                     horas=op.despues, hora_ide=op.hora_ide,
                     hora_codigo=op.hora_codigo, partida_ide=op.partida_ide,
-                    partida_cod=op.partida_cod) for op in grupo])
+                    partida_cod=op.partida_cod,
+                    partida_metodo=op.partida_metodo) for op in grupo])
             acciones = {a.registro_id: a for a in ctx.acciones}
             for op in grupo:
                 out[op.registro_id] = _Preparada(

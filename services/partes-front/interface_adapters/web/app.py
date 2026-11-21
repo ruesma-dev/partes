@@ -2941,7 +2941,8 @@ def build_app(
         if fq.varios_recursos(lineas_p):
             return dict(v, motivo=fq.MOTIVO_VARIOS_RECURSOS)
         if fila is not None:
-            datos = fila
+            # F-072 (enmienda b): la marca de entrada de la linea base.
+            datos = fq.con_metodo_base(fila, lineas_p)
         else:
             datos = _propuesta(rec, periodo, lineas_p,
                                fq.DiaAjuste(c.get("dia")))
@@ -3165,9 +3166,16 @@ def build_app(
             raise fq.AjusteCambiadoError(
                 "quedan lineas del trabajador en cola hacia Sigrid: espera a "
                 "que termine el registro y vuelve a aplicar")
+        datos = fila
+        if settings.obras_agrupadas.tipo_de(fila.get("obra_codigo")):
+            # F-072 (enmienda b): en una obra agrupada sv5 exige la marca de
+            # entrada de la linea base; la fila no la guarda (DA5).
+            datos = fq.con_metodo_base(
+                fila, repository.lineas_trabajador_periodo(
+                    fila["recurso_ide"], periodo.inicio_int, periodo.fin_int))
         try:
             r = dict(transfer_client.franquicia_ejecutar(
-                fq.payload_franquicia(fila, usuario=actor)))
+                fq.payload_franquicia(datos, usuario=actor)))
         except Exception as exc:  # noqa: BLE001
             logger.warning("[franquicia] aplicar %s fallo", ajuste_id,
                            exc_info=True)

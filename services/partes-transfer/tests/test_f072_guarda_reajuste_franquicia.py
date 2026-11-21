@@ -29,10 +29,14 @@ def _pipes(cli=None):
 
 
 def _peticion(obra, partida, metodo):
-    return PeticionFranquicia(
+    p = PeticionFranquicia(
         ajuste_id=7, recurso_ide=501, periodo="2026-11", inicio=20261016,
         fin=20261115, fecha_int=20261113, obra=obra, partida_ide=partida,
-        partida_cod=None, partida_metodo=metodo)
+        partida_cod=None)
+    if metodo is not None:
+        # Como `FranquiciaIn.a_dominio`: atributo, no campo (F-056 §6).
+        p.partida_metodo = metodo
+    return p
 
 
 def _op(obra, partida, metodo, rid=-3):

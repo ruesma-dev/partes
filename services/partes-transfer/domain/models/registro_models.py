@@ -407,6 +407,9 @@ class OpReajuste:
     partida_cod: Optional[str] = None
     obra_ide: Optional[int] = None
     obra_codigo: Optional[str] = None
+    # F-072 (enmienda b): la marca de entrada de la linea base, para que la
+    # extra nueva pase la guarda de R36 en una obra agrupada.
+    partida_metodo: Optional[str] = None
 
     @property
     def es_nueva(self) -> bool:
@@ -478,6 +481,10 @@ class PeticionFranquicia:
     partida_cod: Optional[str]
     extras_pendientes: float = 0.0
     usuario: Optional[str] = None
+    # F-072 (enmienda b): la marca de entrada de la linea base (guarda R36)
+    # viaja como ATRIBUTO `partida_metodo`, no como campo: los campos de la
+    # peticion estan fijados por design §6 de F-056 (y por su test). Lo pone
+    # `FranquiciaIn.a_dominio`; sin el, None (como `ObraEntrada.cenide`).
 
     @property
     def ano(self) -> int:

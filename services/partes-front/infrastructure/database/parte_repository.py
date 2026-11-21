@@ -51,6 +51,7 @@ from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.clase_hora import tipo_hora_de_codigo
 from application.services.jornada_admin import columnas_patron
+from application.services.obras_agrupadas import MARCAS_ENTRADA
 from application.services.empresas import empresas_de_fila, texto_empresas
 from application.services.congelacion import (
     ESTADO_BORRADO_SIGRID,
@@ -4222,6 +4223,10 @@ class ParteReviewRepository:
                     for campo in ("recurso_ide", "fecha_int", "partida_ide",
                                   "partida_cod", "obra_ide", "obra_codigo"):
                         c.setdefault(campo, getattr(ref, campo))
+                    # F-072 (enmienda b): la marca de entrada de la base.
+                    if ref.partida_match_method in MARCAS_ENTRADA:
+                        c.setdefault("partida_metodo",
+                                     ref.partida_match_method)
             if rid is None:
                 hora = c.get("hora_ext") or {}
                 c.setdefault("hora_ide", hora.get("ide"))
@@ -4503,6 +4508,8 @@ class ParteReviewRepository:
                 "horas": float(x.horas or 0.0), "obra_ide": x.obra_ide,
                 "obra_codigo": x.obra_codigo, "partida_ide": x.partida_ide,
                 "partida_cod": x.partida_cod,
+                # F-072 (enmienda b): la marca de entrada de la linea base.
+                "partida_metodo": x.partida_match_method,
                 "sigrid_estado": _estado_norm(x.sigrid_estado),
             } for x in regs]
 
