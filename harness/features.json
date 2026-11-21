@@ -1102,7 +1102,7 @@
       "priority": 2,
       "rigor": "critico",
       "sdd": true,
-      "status": "in_progress",
+      "status": "blocked",
       "spec_aprobada": "2026-11-21",
       "spec": "specs/F-072-postventa-var-como-obras/",
       "branch": "feature/F-072-postventa-var-como-obras",

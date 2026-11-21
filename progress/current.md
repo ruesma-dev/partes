@@ -4,7 +4,61 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: **F-072**, `blocked` desde el 2026-11-21 (ver la primera sección). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+
+## F-072 · BLOCKED 2026-11-21 (implementer, en T16): la guarda de sv5 omite reajustes y franquicias
+
+**Hecho y commiteado** (rama `feature/F-072-postventa-var-como-obras`), T1–T15:
+- el gemelo `obras_agrupadas.py` en sv2–sv5, con los ajustes y los tests R4–R11 y R41;
+- sv2: la marca, sin consulta de obra, y el prompt;
+- sv3: el casado de la entrada, `save_parte` y la conciliación (R14–R22, R42, R43);
+- sv5 T14–T15 (f4ea30d): `partidas_de_obra`, `LineaEntrada.partida_metodo`,
+  `motivo_partida_agrupada` y el paso 2d de `RegistroPipeline.preparar` (R36, R37, R39).
+- Suites en verde: sv5 1665 passed (suite completa), sv3 2943 passed y 2 skipped, sv2 465 passed.
+- Las trazas RED de T1–T14 están guardadas. El informe `progress/impl_F-072.md` aún no está escrito.
+
+**Motivo: la spec se contradice.** Design §6 pone la guarda (R36) en `RegistroPipeline.preparar`. Una
+línea sin `partida_metodo` de entrada se omite. Pero design §10 dice que no se tocan
+`reajuste_pipeline.py` ni `franquicia_pipeline.py`, «que copian obra y partida de líneas que ya
+pasaron la guarda». No es así: los dos llaman a `preparar` con una `LineaEntrada` que construyen
+ellos, con `partida_ide` y `partida_cod` y **sin** `partida_metodo`. `FranquiciaIn` y
+`LineaReajusteIn` ni siquiera tienen el campo. Con las agrupadas encendidas, en POSTV2 y en VAR:
+- la franquicia de un trabajador cuyo día de ajuste cae en una entrada se omite;
+- las extras nuevas del reajuste también, con `partida_agrupada: sin entrada var: …`.
+
+Comprobado con el `preparar` real y los dobles de `tests/f072_comun.py`: la extra
+`(obra VAR, partida 91012 «29»)` sale con `omitir`. Arreglarlo sin decidir es improvisar: o se
+tocan ficheros que §10 excluye, o se cambia el contrato sv4→sv5.
+
+**Opciones** (para el líder y el humano):
+- **(a)** `preparar(…, guarda_agrupada=True)`, y reajuste y franquicia pasan `False`. Toca los 2
+  ficheros de §10, unas 2 líneas cada uno. En esas dos vías solo se comprueba la marca; la hoja
+  activa y el universo VAR también se dejarían de comprobar.
+- **(b)** Llevar `partida_metodo` por `FranquiciaIn`, `LineaReajusteIn` y `OpReajuste`, y que sv4
+  lo mande desde la línea base. La guarda se aplica siempre, como dice R36. Toca sv4 (los
+  payloads de reajuste y franquicia) y los 2 pipelines de sv5.
+- **(c)** Dejarlo así y documentarlo como límite: en las obras agrupadas no hay reajuste de
+  extras nuevas ni franquicia; sv4 ve el motivo `partida_agrupada:` de la línea.
+- **Recomendación: (b).** Es la única que mantiene R36 para toda escritura en una obra agrupada.
+  (a) es la más barata.
+
+**Interpretaciones ya aplicadas, para que el reviewer las valide.** Irán también en el informe:
+- **(i)** Los alias solo se leen en sv2 y sv3 (design §5–§6), pese al R1 literal.
+- **(ii)** El segundo paso de `casar_var` es «la única con el mismo número inicial», al pie de
+  la letra.
+- **(iii)** En la forma base, un resultado mixto da `agrupada_varias_entradas`; varios fallos
+  distintos dan `agrupada_sin_entrada`.
+- **(iv)** Desviación justificada: el reemplazo del mismo día de `save_parte` (sv3) cuenta
+  también la entrada. Si no, dos entradas del mismo día se pisarían.
+- **(v)** `tests/test_f038_lectores_sigrid.py` (raíz) lista ficheros, no métodos.
+  `partidas_de_obra` vive en `sigrid_write_client.py`, que ya está en la lista. R39 se prueba en
+  `test_f072_guarda.py` (`max_rows` y `truncated`) y el guardián de raíz no cambia.
+- **(vi)** Para T17, `lineas_existentes` solo leerá `hmores.paride` cuando se le pida, con un
+  parámetro nuevo. Si lo lee siempre, rompe `test_f053_cliente_anular.py::…sql_exacto`, un test
+  anterior que T25 prohíbe tocar. Comprobado: cae.
+
+**Para retomar:** con la opción decidida, seguir por T16 (con el arreglo de la opción, si toca
+código), y luego T17–T27 y T32. T28–T31 quedan para el líder y el humano.
 
 ## F-072 · spec escrita 2026-11-20 (pendiente de aprobación)
 
