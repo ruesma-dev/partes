@@ -3,13 +3,11 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **73 features**, 16 abiertas y 57 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 2 en To do, 11 en Backlog y 57 en Done.
+Resumen: **73 features**, 16 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 2 en To do, 11 en Backlog y 57 en Done.
 
 ## Review
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | reviewer | specs/F-072-postventa-var-como-obras/ | 2 | critico | `feature/F-072-postventa-var-como-obras` |
+_Nada esperando revisión._
 
 ## Blocked
 
@@ -17,7 +15,9 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-_Ninguna feature en implementación._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | implementer | specs/F-072-postventa-var-como-obras/ | 2 | critico | `feature/F-072-postventa-var-como-obras` |
 
 ## Spec aprobada
 
@@ -117,7 +117,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
-estado **en QA / revisión** · spec aprobada el 2026-11-21 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+estado **en curso** · spec aprobada el 2026-11-21 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
 
 **Spec**: specs/F-072-postventa-var-como-obras/
 

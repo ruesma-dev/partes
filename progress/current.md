@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-072**, `in_progress` (desbloqueada el 2026-11-21 con la opción (b)). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: **F-072**, `in_progress` (vuelta de `in_review` el 2026-11-21: review 1 CHANGES_REQUESTED, ver la sección «F-072 · vuelta a in_progress»). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
 ## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.
 
@@ -277,3 +277,21 @@ Lo decidido está en la columna «Decidido» de design §13. Siguiente: implemen
 
 Implementer: T1–T27 y T32 hechas (`progress/impl_F-072.md`); `init.sh` en verde, cobertura 99,3 %
 (1065/1072). `azure-apps` cd58cab sin push. Siguiente: reviewer principal; después, campaña (T28).
+
+## F-072 · vuelta a in_progress 2026-11-21 (review 1 CHANGES_REQUESTED)
+
+`progress/review_F-072.md`: cambios 1–2 al implementer (sv4 `catalogo_entradas.py`:
+`partida_capitulo` con la categoría y tests del desempate de `IndicePostventa`); cambio 3 (este
+apunte) hecho por el líder. Decisiones abiertas para el humano: **D1** (segundo paso de
+`casar_var`, R8) y **D2** (falso conflicto en `ReajustePipeline._choques`). Spec y tareas:
+`specs/F-072-postventa-var-como-obras/tasks.md`; informe: `progress/impl_F-072.md`.
+
+Manuales pendientes del humano (comandos completos en `tasks.md`):
+- **T29 · M0** (antes de encender): consulta de solo lectura a la base `partes` sobre
+  `parte_documents` (partes en POSTV2/VAR o con marca leída).
+- **T30 · M1**: sv4 en local con `POSTVENTA_OBRA_COD=POSTV2 VAR_OBRA_COD=VAR
+  VAR_PARTIDA_DESDE=29`; contar `/api/sigrid/obras` por agrupada y empresa y comparar con el
+  preview de dedicación de porcentajes.
+- **T31 · M2**: portal en local en modo pruebas (obra 0404, `OBRA_PRUEBAS_FORZAR=true`): un parte a
+  `VAR-<n>` y otro a `Postv-<obra>`, aprobar, `prueba_escritura_sigrid.py verificar`, una línea
+  sin marca en POSTV2 omitida con `partida_agrupada:`, y `prueba_escritura_sigrid.py limpiar --ejecutar`.
