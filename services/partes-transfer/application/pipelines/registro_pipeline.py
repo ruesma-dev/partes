@@ -335,6 +335,7 @@ class RegistroPipeline:
         # la omision del recurso manda. Sin `try`: si la lectura falla, la
         # peticion falla entera.
         agrupada = self._obra_agrupada(obra, destino, forzada)
+        tipo_agrupada = agrupada[0] if agrupada is not None else None
         if agrupada is not None:
             tipo, origen = agrupada
             hojas = self._cli.partidas_de_obra(int(origen.ide))
@@ -376,7 +377,7 @@ class RegistroPipeline:
         self._resolver_cuentas(destino, empresa, acciones, horas)
         return ContextoRegistro(
             obra_origen=obra, obra_destino=destino, forzada_pruebas=forzada,
-            lineas=lineas, acciones=acciones)
+            lineas=lineas, acciones=acciones, agrupada=tipo_agrupada)
 
     def _resolver_cuentas(self, destino: ObraEntrada, empresa: int,
                           acciones: list[AccionLinea],
@@ -504,6 +505,9 @@ class RegistroPipeline:
         conflictos: list[Conflicto] = []
         pendientes = [a for a in acciones if a.accion == "escribir"]
         omitidas_cerrado: dict[tuple[int, int], int] = {}
+        # F-072 (R38, DA8): en una obra agrupada cada entrada es una obra:
+        # solo choca la MISMA partida.
+        por_partida = ctx.agrupada is not None
         for clave, parte in sorted(partes.items()):
             grupo = [a for a in pendientes if (a.ano, a.mes) == clave]
             omitidas_cerrado[clave] = 0
@@ -511,8 +515,9 @@ class RegistroPipeline:
                 continue
             recursos = [a.recurso_ide for a in grupo]
             fechas = [a.fecha_int for a in grupo]
-            existentes = [(ps, self._cli.lineas_existentes(
-                int(ps.ide), recursos, fechas)) for ps in parte.del_periodo]
+            existentes = [(ps, self._lineas_existentes(
+                int(ps.ide), recursos, fechas, por_partida))
+                for ps in parte.del_periodo]
             mias = {synckey_de(a.registro_id) for a in grupo}
             # R11 (prevalece sobre R12): horas que ya constan en un parte
             # CERRADO -> esa linea no se registra.
@@ -520,7 +525,7 @@ class RegistroPipeline:
                 cerrado = next(
                     (ps for ps, lineas in existentes
                      if ps.est != est_registro
-                     and self._choques(lineas, a, mias)), None)
+                     and self._choques(lineas, a, mias, por_partida)), None)
                 if cerrado is not None:
                     self._omitir(a, motivo_choque(
                         cerrado.cod, self._nombre_estado(cerrado.est)))
@@ -531,7 +536,8 @@ class RegistroPipeline:
             # F-053 (R6-R8): lo que no se puede pisar se omite con motivo
             # antes de ofrecerlo como conflicto.
             for a in grupo:
-                motivo = self._motivo_sin_pisado(a, abiertas, mias)
+                motivo = self._motivo_sin_pisado(a, abiertas, mias,
+                                                 por_partida)
                 if motivo is not None:
                     self._omitir(a, motivo)
             grupo = [a for a in grupo if a.accion == "escribir"]
@@ -540,7 +546,8 @@ class RegistroPipeline:
             for a in grupo:
                 if self._ciz_ajeno(a, existentes, mias):
                     self._sin_hermano(a, MOTIVO_CIZ_EN_SIGRID)
-            conflictos.extend(self._conflictos(parte, grupo, abiertas, mias))
+            conflictos.extend(self._conflictos(parte, grupo, abiertas, mias,
+                                               por_partida))
 
         for clave, parte in sorted(partes.items()):
             # R19: sin nombres ni DNIs.
@@ -675,13 +682,24 @@ class RegistroPipeline:
             est, est_cerrado=int(getattr(self._st, "est_parte_cerrado", 3)),
             est_imputado=int(getattr(self._st, "est_parte_imputado", 10)))
 
+    def _lineas_existentes(self, hmoide: int, recursos, fechas,
+                           por_partida: bool) -> list[LineaSigrid]:
+        """Paso 7. F-072 (R38): con `por_partida`, tambien la partida de
+        cada linea; si no, la lectura de siempre (misma llamada)."""
+        if por_partida:
+            return self._cli.lineas_existentes(hmoide, recursos, fechas,
+                                               con_partida=True)
+        return self._cli.lineas_existentes(hmoide, recursos, fechas)
+
     @staticmethod
     def _choques(lineas: list[LineaSigrid], a: AccionLinea,
-                 mias: set[str]) -> list[LineaSigrid]:
+                 mias: set[str], por_partida: bool = False
+                 ) -> list[LineaSigrid]:
         """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA (pisar las
         ordinarias de un dia NO toca las extra de ese dia) y, desde F-053
-        (R5), con horas salvo para incidencias: `pisado.choques`."""
-        return choques(lineas, a, mias)
+        (R5), con horas salvo para incidencias: `pisado.choques`. F-072
+        (R38): con `por_partida`, ademas la misma partida."""
+        return choques(lineas, a, mias, por_partida=por_partida)
 
     @staticmethod
     def _omitir(a: AccionLinea, motivo: str) -> None:
@@ -696,14 +714,14 @@ class RegistroPipeline:
     def _motivo_sin_pisado(
         self, a: AccionLinea,
         abiertas: list[tuple[ParteSigrid, list[LineaSigrid]]],
-        mias: set[str],
+        mias: set[str], por_partida: bool = False,
     ) -> str | None:
         """F-053 (R6-R8), sobre los choques en partes En registro: una
         incidencia que ya consta (`incidencia_en_sigrid`) y, si no, alguna
         linea enlazada (`linea_enlazada`). None = conflicto confirmable
         (o nada que pisar)."""
         chocan = [(ps, ls) for ps, lineas in abiertas
-                  for ls in self._choques(lineas, a, mias)]
+                  for ls in self._choques(lineas, a, mias, por_partida)]
         if not chocan:
             return None
         if es_incidencia(a.hora_codigo):
@@ -718,7 +736,7 @@ class RegistroPipeline:
     def _conflictos(
         self, parte: ParteDestino, grupo: list[AccionLinea],
         abiertas: list[tuple[ParteSigrid, list[LineaSigrid]]],
-        mias: set[str],
+        mias: set[str], por_partida: bool = False,
     ) -> list[Conflicto]:
         """R12-R13: choques con lineas ajenas de partes En registro (el
         elegido u otro), confirmables como siempre. `parte_cod` es el del
@@ -727,7 +745,8 @@ class RegistroPipeline:
         for a in grupo:
             k = a.clave_conflicto
             choques = [(ps, ls) for ps, lineas in abiertas
-                       for ls in self._choques(lineas, a, mias)]
+                       for ls in self._choques(lineas, a, mias,
+                                               por_partida)]
             if not choques:
                 continue        # ese codigo esta libre: nada que pisar
             c = por_clave.get(k)

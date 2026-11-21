@@ -465,11 +465,15 @@ class SigridWriteClient:
         return int((filas[0]["m"] if filas else 0) or 0)
 
     def lineas_existentes(
-        self, hmoide: int, resides: Iterable[int], fechas: Iterable[int]
+        self, hmoide: int, resides: Iterable[int], fechas: Iterable[int],
+        con_partida: bool = False,
     ) -> list[LineaSigrid]:
         """Lineas del parte `hmoide` de esos recursos y dias (choques del
         paso 7). F-053 (R9): con `enlazada` (la misma expresion que
-        `lineas_para_reajuste`) y su `hmoide`, para el INFO de R13."""
+        `lineas_para_reajuste`) y su `hmoide`, para el INFO de R13.
+        F-072 (R38): con `con_partida`, tambien `hmores.paride` (en una obra
+        agrupada el choque exige la misma partida); sin el, la lectura de
+        siempre."""
         res = sorted({int(i) for i in resides if i})
         fec = sorted({int(f) for f in fechas if f})
         if not res or not fec:
@@ -481,7 +485,8 @@ class SigridWriteClient:
             "hmores.fec AS fec, hmores.horide AS horide, "
             "auxhor.cod AS hora, hmores.can AS can, "
             "hmores.tot AS tot, hmores.synckey AS synckey, "
-            f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+            + ("hmores.paride AS paride, " if con_partida else "")
+            + f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
             "AS enlazada FROM hmores "
             "LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
             f"WHERE hmores.hmoide = ? AND hmores.reside IN ({m_r}) "
@@ -496,7 +501,9 @@ class SigridWriteClient:
                 horide=int(f["horide"] or 0) or None,
                 hora_codigo=f["hora"], can=f["can"], tot=f["tot"], synckey=sk,
                 nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY)),
-                hmoide=int(hmoide), enlazada=bool(f["enlazada"])))
+                hmoide=int(hmoide), enlazada=bool(f["enlazada"]),
+                paride=(int(f.get("paride") or 0) or None) if con_partida
+                else None))
         return out
 
     def lineas_por_synckey(self, claves: Iterable[str]) -> dict[str, LineaSigrid]:
