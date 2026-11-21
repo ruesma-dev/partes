@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 1 en Blocked, 0 en In progress, 2 en Spec aprobada, 1 en To do, 11 en Backlog y 57 en Done.
+Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 2 en To do, 10 en Backlog y 57 en Done.
 
 ## Review
 
@@ -11,13 +11,13 @@ _Nada esperando revisión._
 
 ## Blocked
 
-| # | Feature | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|
-| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | specs/F-072-postventa-var-como-obras/ | 2 | critico | `feature/F-072-postventa-var-como-obras` |
+_Ninguna feature bloqueada._
 
 ## In progress
 
-_Ninguna feature en implementación._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | implementer | specs/F-072-postventa-var-como-obras/ | 2 | critico | `feature/F-072-postventa-var-como-obras` |
 
 ## Spec aprobada
 
@@ -30,13 +30,13 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 
 ## Backlog
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
 | F-044 | Mover a un trabajador de un parte a otra fecha sin mover al resto | borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla | 6 | critico | `feature/F-044-mover-linea-a-otra-fecha` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
@@ -116,7 +116,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
 
-estado **bloqueada** · spec aprobada el 2026-11-21 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+estado **en curso** · spec aprobada el 2026-11-21 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
 
 **Spec**: specs/F-072-postventa-var-como-obras/
 
@@ -124,7 +124,7 @@ Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
-estado **pendiente** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-070-reemplazo-no-mismo-pdf`
+estado **to do (comprometida)** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-070-reemplazo-no-mismo-pdf`
 
 **Spec**: sin spec
 

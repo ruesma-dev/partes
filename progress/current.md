@@ -4,9 +4,11 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-072**, `blocked` desde el 2026-11-21 (ver la primera sección). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: **F-072**, `in_progress` (desbloqueada el 2026-11-21 con la opción (b)). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
-## F-072 · BLOCKED 2026-11-21 (implementer, en T16): la guarda de sv5 omite reajustes y franquicias
+## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.
+
+### Bloqueo original 2026-11-21 (implementer, en T16): la guarda de sv5 omite reajustes y franquicias
 
 **Hecho y commiteado** (rama `feature/F-072-postventa-var-como-obras`), T1–T15:
 - el gemelo `obras_agrupadas.py` en sv2–sv5, con los ajustes y los tests R4–R11 y R41;
