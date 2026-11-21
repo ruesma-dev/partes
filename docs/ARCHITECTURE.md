@@ -806,6 +806,39 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     DNI de su fila (`get_obra(holiday_name_de=…)`); la cabecera solo marca
     fin de semana y fecha futura. El día de ajuste de la franquicia (F-056)
     se calcula con el calendario resuelto aunque no sea fiable.
+24. **Obras agrupadas (F-072; postventa y VAR como entradas)**: la obra de
+    postventa (`POSTVENTA_OBRA_COD`, p. ej. `POSTV2`) y la de obras varias
+    (`VAR_OBRA_COD`, p. ej. `VAR`) agrupan obras: cada **entrada** es la
+    obra agrupada más UNA partida hoja activa suya, y se trata como una
+    obra. Postventa de la obra X: la hoja cuyo código normalizado es el de X
+    entero o X seguido solo de letras, la más corta (`0578` → `0578B`;
+    `0656` no casa con `656`). VAR: las hojas activas con número inicial
+    ≥ `VAR_PARTIDA_DESDE`. Las reglas viven en el gemelo
+    `application/services/obras_agrupadas.py` (byte-idéntico en sv2–sv5,
+    lista cerrada de `CLAUDE.md`; equivalencia con porcentajes en
+    `tests/test_f072_equivalencia_porcentajes.py`). Todo vacío = apagado.
+    - **sv2** lee el «Nº OBRA» tal cual. Si `leer_forma` ve una marca
+      (`V-29`, `post 578`, `VAR`, separadores `-./` y espacios), no
+      consulta la obra en Sigrid.
+    - **sv3** casa la forma SOLO desde `obra_numero_leido`. Un código real
+      no agrupado gana con WARNING `marca_colisiona` (`150702-V`).
+      `ResolutorEntradas` da la entrada o un motivo de `obra_match_method`
+      (`var_fuera_universo`, `postventa_obra_no_casa`,
+      `agrupada_sin_entrada`…) y el parte va a revisión sin obra.
+      `save_parte` escribe en cada línea la partida y la **marca**, que es
+      `partida_match_method` = `postventa` | `var`: sin columnas nuevas. La
+      conciliación no toca las líneas con marca. Deja en `sin` las de una
+      obra agrupada que no la tengan.
+    - **sv4** agrupa por `agr-<obra_ide>-<partida_ide>` y rotula
+      `Postv-<partida>` / `VAR-<partida>`. `CatalogoEntradas` ofrece las
+      entradas en `/api/sigrid/obras`, sin las agrupadas. Una obra agrupada
+      sin entrada da 422. La partida de una entrada es fija (409). Reajuste
+      y franquicia mandan la marca de la línea base.
+    - **sv5** lee el presupuesto una vez por petición y omite con
+      `partida_agrupada: …` lo que no es una entrada válida (también en
+      modo pruebas, por la obra pedida). En una obra agrupada solo choca la
+      misma partida (`choques(…, por_partida=True)`). La vista `agr-` no
+      se sincroniza.
 
 ## Acceso a datos y sistemas externos
 

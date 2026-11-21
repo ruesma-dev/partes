@@ -158,6 +158,32 @@ python contrastar_festivos_sesame.py --ano 2026 --impacto   # con el .env de sv3
   `[sesame-hr] indice …` y `[festivos] refresco guardadas=…`, sin ningún DNI. Un trabajador sin fila sale con un aviso en
   el portal, sin bloqueo.
 
+## Obras agrupadas — postventa y VAR (F-072)
+
+Las obras de postventa y de obras varias se tratan como **entradas**: la obra
+agrupada más una partida suya (`docs/ARCHITECTURE.md`, semántica 24). No son
+secretos: van como variables normales de cada app. **Todo vacío = apagado**, el
+comportamiento de antes de F-072.
+
+| Variable | sv2 | sv3 | sv4 | sv5 | Producción (de porcentajes) |
+|---|---|---|---|---|---|
+| `POSTVENTA_OBRA_COD` | sí | sí | sí | sí | `POSTV2` |
+| `VAR_OBRA_COD` | sí | sí | sí | sí | `VAR` |
+| `VAR_PARTIDA_DESDE` | sí | sí | sí | sí | `29` (obligatoria con VAR) |
+| `POSTVENTA_ALIAS` | sí | sí | — | — | `POSTVENTA,POSTV,POST` |
+| `VAR_ALIAS` | sí | sí | — | — | `V` |
+
+- Con `VAR_OBRA_COD` y sin un `VAR_PARTIDA_DESDE` entero, la app **no arranca**
+  (el error nombra la variable).
+- **Orden de encendido: sv5 → sv3 → sv2 → sv4.** Primero la guarda de sv5 y
+  el último el portal, que es el que manda `partida_metodo`. Para apagar, se
+  quitan en orden inverso.
+- Para poner las variables:
+  `az containerapp update -g $RG -n <app> --set-env-vars POSTVENTA_OBRA_COD=POSTV2 ...`.
+  Para quitarlas: `--remove-env-vars`.
+- Comprobaciones antes y después: M0–M2 de `specs/F-072-postventa-var-como-obras/tasks.md`
+  (T29–T31). Hay que avisar a porcentajes: escribe en las mismas obras y partidas.
+
 ## Pendiente (próximas tandas)
 - **Tanda 2**: fontanería de partes (cola/blob) + `main_worker.py` de sv2 y sv3,
   y `build_images_partes.ps1` + `create_capps_partes.ps1` (workers con KEDA).

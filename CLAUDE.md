@@ -236,6 +236,13 @@ original NO se versiona: al repositorio entra solo el Markdown.
   sv3 y sv4 (`del_ano`, `a_json`, `fila_de`, `elegir`, `FilaFestivos`,
   `FUENTE_SESAME`, `FUENTE_SIN_FILA`), copias idénticas que vigila
   `tests/test_f032_festivos_guardados_gemelos.py`.
+  Y, desde F-072 (DA4, decisión expresa del humano el 2026-11-21), las
+  reglas de las obras agrupadas (postventa y VAR):
+  `application/services/obras_agrupadas.py` de sv2, sv3, sv4 y sv5
+  (`leer_forma`, `casar_postventa`, `casar_var`, `es_partida_var`,
+  `ajustes_de`, `codigo_entrada`…). Son copias byte-idénticas que vigila
+  `tests/test_f072_obras_agrupadas_gemelos.py`; la equivalencia con
+  porcentajes la vigila `tests/test_f072_equivalencia_porcentajes.py`.
   Solo crece con una decisión así; quien toque una copia cambia TODAS en la misma feature. Una responsabilidad nueva que no
   encaje en ningún servicio ⇒ `blocked` y se consulta.
 - Los agentes nunca hacen `git push`: lo hace siempre un humano. Commits y
