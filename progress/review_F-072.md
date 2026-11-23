@@ -1,138 +1,140 @@
-Revisión completa (pasada 1, principal) · diff `b1fb495...ffd6369` · 2026-11-21
+Revisión incremental desde ffd6369 (pasada 2, principal) · delta `ffd6369..af0cac9` · 2026-11-23
 
-# F-072 · Review principal (reviewer)
+# F-072 · Review principal (reviewer), pasada 2
 
-**Veredicto: CHANGES_REQUESTED**: dos cambios pequeños en sv4 y uno de papeleo del líder. La
-guarda de sv5, el gemelo, la equivalencia con porcentajes y el apagado están bien. Falla un
-dato que sv4 escribe en la base `partes`, y falta una evidencia.
+**Veredicto: APPROVED** (pasada principal). El SHA aprobado es **af0cac9**: abre la campaña T28
+(la capa e2e es N/A). Hay un **encargo para T28** (abajo): la pasada de evidencias lo comprueba.
 
-**Nivel de rigor: `critico`**, declarado en `features.json` (sv5 escribe en `ruesma`). Exige
-fase RED, cobertura ≥ 90 %, mutación del nivel con cero supervivientes sin justificar y MANUAL
-con comando y resultado. El diff no toca `rigor.local.json`.
+**Pasada 1** (`b1fb495...ffd6369`, 2026-11-21): CHANGES_REQUESTED por tres puntos, hoy resueltos:
+la categoría del capítulo en sv4, el desempate sin test y `current.md`.
+
+**Nivel de rigor: `critico`**, declarado en `features.json`. Exige fase RED, cobertura ≥ 90 %,
+mutación con cero supervivientes sin justificar y MANUAL con comando. El delta no toca
+`rigor.local.json`. Lo aprobado en la pasada 1 hasta ffd6369 se da por bueno: el delta no
+cambia firmas públicas ni mueve ficheros.
 
 ## Ejecución
 
-- `ARNES_SIN_CACHE=1 bash harness/init.sh`: **ENTORNO LISTO**, exit 0, sin caché. Raíz 2551/48
-  skip; sv1 74; sv2 574/1; sv3 2943/2; sv4 3991; sv5 1796/1. Cobertura 99,3 %. R10 corre sin skip.
-- Gemelo: md5 `2d57809…` idéntico en sv2–sv5.
-- En porcentajes (`0cd2085`), `universo_postventa.py`, `universo_var.py` y
-  `partida_resolver.py` no cambian desde `5381243`, el commit que leyó la spec.
-- RM7 adelantado, en una copia del scratchpad: si la guarda (paso 2d) baja por debajo de
-  `reglas.decidir`, cae `test_f072_guarda.py::…[sin-marca]`. El control sin mutante da 44 passed.
+- `ARNES_SIN_CACHE=1 bash harness/init.sh`: **ENTORNO LISTO**, exit 0. Raíz 2551 (48 skip),
+  sv1 74, sv2 575 (1), sv3 2944 (2), sv4 4004, sv5 1800 (1). R10 corre sin skip. Puertas:
+  TAMAÑO OK (impl 220/220), CARRIL N/A (critico), CAPA E2E N/A.
+- Gemelo: md5 `62c13db…`, idéntico en sv2–sv5 (antes `2d57809…`: el cambio de D1).
+- **Mutaciones a mano**, en una copia del scratchpad sin `.env`.
+  - Se lanzan con `sys.executable -m pytest`. Antes, un control sin mutante, en verde.
+  - Cada una se mata con un test de la propia feature.
+  - **D2**, 6 de 6 muertas por `test_f072_conflictos.py`: `ctx.agrupada is not None` por `False`
+    y por `True`, `==` → `!=` y sin comparar la partida, `con_partida=False`, y `_evaluar` sin
+    pasar `p.por_partida`.
+  - **D1**, 3 de 3 muertas por `test_f072_obras_agrupadas.py` (sv3): sin la guarda,
+    `fullmatch` → `match` y sin `strip`.
+  - **Cambio 1**: con `h.capitulo_cod` de vuelta, muere.
+  - **Desempate de `IndicePostventa`** (195 tests F-072 de sv4): mueren 4 (el `ide` de las
+    exactas, `<` → `>`, `_orden` sin código o sin longitud); sobreviven 4: ver el encargo.
+
+## Delta revisado
+
+- **Cambio 1** (013766e): `partida_capitulo=h.categoria`.
+  - RED real en 20f91f6: `('CD.POSTVENTA', None) == ('CD', 'OTRO')`.
+  - El test pone una hoja bajo `CD.POSTVENTA` y otra sin padre (`OTRO`), y comprueba ≤ 8 caracteres.
+- **Cambio 2** (20f91f6): los 11 casos que pedí, contra `casar_postventa`.
+  - Están en verde desde el principio, y es correcto: faltaba evidencia, no lógica.
+  - Cubren las líneas 71, 80 y 90-92.
+- **O3** (013766e): fuera `CatalogoEntradas.ajustes`. El import de `Ajustes` sigue en uso (`:97`).
+- **Cambio 3** (2f4765e, líder): la línea 6 de `current.md` dice `in_review`, y la sección de
+  F-072 lista T29–T31 con su comando y enlaza a `tasks.md` y a `impl_F-072.md`.
+- **Enmienda D1 (c) / D2 (a)**, en este orden: spec 2319d70 (R8, R38, design §6 y T33, con fecha
+  y cita «D1 c, D2 a»), RED 99fe8d5, código c3a8af8 e informe 1adb0d2.
+- **D1, `casar_var`**: el segundo paso exige `_NUMERO.fullmatch(str(leido).strip())`.
+  - Sale el `if numero is None` (el `fullmatch` ya garantiza un número). R10 y R11, en verde.
+  - El test cubre `29.3`, `29A` y `29-B` → `None`; `" 29 "` → `29.1`; `0029` → `029`.
+- **D2, `ReajustePipeline`**: `_Preparada.por_partida = ctx.agrupada is not None`.
+  - Mismo criterio que el registro (`registro_pipeline.py:510`). `_choques` pide `con_partida=True`
+    solo en una obra agrupada y compara `paride`; en una obra normal, como hoy (`[False]`).
+  - La guarda (paso 2d) sigue delante: `escribe` exige la acción `escribir`.
+- **Documentación**: el paso 2d dice «solo choca la misma partida» para registro, reajuste y
+  franquicia, tanto en la semántica 24 de `docs/ARCHITECTURE.md` como en `azure-apps` §3.5.
+  - Hasta D2 eso no era cierto para el reajuste; ahora lo es. Ninguno documenta el segundo paso
+    de `casar_var`: no hay que tocar nada.
+- **Informe del implementer** (220/220): conserva las trazas RED, «Evidencias», los MANUAL con su
+  comando y (i)–(x). Las secciones condensadas no pierden nada necesario.
 
 ## Checkpoints
 
-- **C1** [x] `init.sh` sin caché (arriba); los ficheros del arnés están.
-- **C2** [x] Una sola feature activa (`in_review`), rama correcta, toda `done` con historia.
-  Hay commits de papeleo ajenos en la rama: ae705ad (alta de F-079) y b91911f (M3 de F-077).
-  `current.md`: ver el cambio 3.
-- **C3** [x] Hexagonal (`EntradaPartida` y `PartidaHoja`, dominio puro; gemelo solo stdlib); los
-  30 ficheros nuevos abren con su ruta; sin prints (salvo la salida del subproceso de R10), TODOs
-  ni dependencias nuevas; las tres trampas ilesas (`test_f072_orm_sin_columna_nueva`).
+- **C1** [x] `init.sh` sin caché (arriba).
+- **C2** [x] Una sola feature activa (`in_review`) y la rama es la correcta. `current.md`, al día.
+- **C3** [x] En el delta no hay ficheros nuevos, prints ni TODOs; comentarios en español; el
+  hexágono sigue intacto (D2 queda en `application/pipelines`).
 - **C3 bis** N/A: no toca `docs/referencia/`.
-- **C3 ter** [x] DA1–DA13 con «humano 2026-11-21 «ok»». La enmienda (b), con fecha y cita
-  («la b»). Las interpretaciones, aparte y etiquetadas.
-- **C3 quater** [x] `azure-apps` cd58cab: solo `partes.md`, commit aparte, sin push (`main` ahead
-  3, con dos ajenos), SHA en el informe; el contenido casa con design §12.
-- **C4** [ ] Los 43 requisitos tienen su `test_f072_rN_*` en verde, sin red ni BBDD real.
-  - Dobles cruzados a mano con su clase, misma firma: `ClienteF072.partidas_de_obra` y
-    `lineas_existentes(con_partida)`, `LookupF072`, `RepoF072`, y `Obras` y `Sigrid` de sv4.
-  - **[ ]** Las MANUAL T29–T31 no están en `current.md` con su comando: cambio 3.
+- **C3 ter** [x] La enmienda tiene fecha (2026-11-23) y la cita del humano en R8, R38, design y
+  T33. `current.md` la registra.
+- **C3 quater** [x] cd58cab ya está en `origin/main`. D1 y D2 no piden cambio
+  en `partes.md`: el §3.5 ya nombraba el reajuste.
+- **C4** [x] T29–T31 están en `current.md` con su comando. R8 y R38 enmendados tienen su test.
 - **C4 bis**
-  - [x] Nivel declarado.
-  - [x] RED con trazas reales en T1, T4, T6, T8, T10, T12, T14, (b), T16, T18, T20, T22 y T26.
-    T2 vale con la traza de T1: es su implementación.
-  - [x] Cobertura `[OK]` 99,3 % (1065/1072).
-  - [x] «Evidencias» con los cuatro números.
+  - [x] El nivel está declarado.
+  - [x] RED real del cambio 1 y de T33: R8 (sv3, `1 failed`) y R38 (sv5, `-k d2a`, `1 failed,
+    2 passed`). Cuadran con mis mutaciones del código anterior (1 fallo en cada caso).
+  - [x] Cobertura `[OK]` 99,7 % (1070/1073). Las 3 sin cubrir son las que declara el informe:
+    `obras_agrupadas.py:62` en sv2 y sv5, y la línea 1196 de sv3.
+  - [x] «Evidencias»: sigue con los números del 2026-11-21, y T33 da los de sv3 y sv5.
   - **Pendiente, pasada de evidencias**: la mutación (totales, recálculo, tiempos, RM1–RM6 y
-    supervivientes) y RM7 completo.
+    supervivientes), RM7 y el encargo de abajo.
   - Capa e2e N/A: `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`.
-- **C4 ter** N/A: no hay `harness/rutas_sensibles.json`. El prompt de sv2 lo cubren R12 y R43.
-- **C5** [x] T1–T27 y T32 en `[x]` con su commit `F-072 Tn:` (T25 y T27, dentro de T32 y T24).
-  T28 (campaña) y T29–T31 (humano), pendientes a propósito. Árbol limpio, `features.json` al día.
+- **C4 ter** N/A: no hay `harness/rutas_sensibles.json`.
+- **C5** [x] T33 en `[x]`, con sus commits `F-072 T33:`. Los de la review van como
+  `F-072 review1:`: no son tareas. T28–T31 siguen pendientes a propósito. El árbol está limpio.
 
-## Puntos de especial atención (verificados)
+## Encargo para T28 (lo comprueba la pasada de evidencias)
 
-- **Sin guarda no se escribe en una obra agrupada.** El paso 2d de `preparar` sirve al registro,
-  al preflight, al reajuste (extras nuevas) y a la franquicia. Toda inserción sale de una acción
-  `escribir`, y `franquicia.veredicto` la pide también para actualizar. La obra agrupada sale del
-  código que lee sv5 (`obra_por_ide`), no del que manda sv4. Lectura fallida ⇒ nada (R37).
-- **Equivalencia**: la tabla F-025/F-039 y el subproceso contra porcentajes. El desempate entre
-  exactas está documentado.
-- **Gemelo**: byte-idéntico, con guardián, `depende_de` y entrada en la lista cerrada de `CLAUDE.md`.
-- **DA13**: `150702-V` gana por `obras_de_clave` con WARNING; `POSTV` exacto es forma base;
-  `V`, `VALENCIA 3` y `POSTE` no llevan marca.
-- **Vacío = apagado**: con `Ajustes.activo` falso no actúa nada en sv2–sv5; ningún código
-  anterior escribe `postventa` ni `var` como método (`git grep` en b1fb495); ningún test tocado.
-- **Encendido sv5 → sv3 → sv2 → sv4**: correcto. sv4 manda la marca y la clave `agr-` mirando el
-  dato, no su configuración.
+`harness.mutacion` no genera estos mutantes: lo he comprobado con `generar_mutantes` sobre las
+líneas 60-92. Por eso la campaña no los vería. Los dos primeros **no son equivalentes** y
+sobreviven a los 195 tests F-072 de sv4
+(`services/partes-front/application/services/catalogo_entradas.py`):
 
-## Interpretaciones (i)–(x) y observación del implementer
-
-- **Acepto** (i) design §5–§6; (iii) solo cambia la etiqueta; (iv) sin ella dos entradas del día
-  se pisan; (v) el guardián F-038 va por fichero y `_read` comprueba `truncated`/`max_rows`; (vi)
-  las agrupadas piden siempre `con_partida`; (vii) `None` y otro método omiten igual; (viii) un
-  único constructor (`FranquiciaIn.a_dominio`) y sin él omite; (ix) sin base omite; (x) probado.
-- **Decisión del humano**: (ii) es D1; `ReajustePipeline._choques` es D2.
-
-## Cambios requeridos
-
-1. **`partida_capitulo` con el código del capítulo en vez de la categoría.** Está en
-   `services/partes-front/application/services/catalogo_entradas.py:196`
-   (`partida_capitulo=h.capitulo_cod`).
-   - La columna es `String(8)` y guarda CD/CI/CP/OTRO: `orm_models.py:248-253`,
-     `parte_repository.py:368`, `app.py:2083/2303/4258` y el badge `cap-…`.
-   - sv3 escribe `categoria` para la misma entrada (`_casar_entrada`).
-   - `build_arbol_partidas` da `CD.POSTVENTA` (12) y `CI.07.05.03` (11). En PostgreSQL es un 500
-     en `PATCH …/obra` y en `/api/partes/nuevo`. SQLite no impone la longitud y la suite pasa.
-   - Sin capítulo CD/CI/CP sale `None`, donde sv3 pone `OTRO` (la hoja `29` de PORSAN del
-     fixture), y la plantilla pinta «CI».
-   - **Arreglo**: `h.categoria`, más tests con una hoja bajo `CD.POSTVENTA` y otra sin padre.
-2. **El desempate de `IndicePostventa` (sv4) no tiene test** (`catalogo_entradas.py:80`,
-   `:90-92`, sin cubrir según la puerta).
-   - Reimplementa R5–R6 fuera del gemelo, y `test_f072_r25_el_indice_casa_como_casar_postventa`
-     nunca tiene dos candidatas.
-   - En 4.000 presupuestos aleatorios da 0 diferencias con `casar_postventa`: falta la
-     evidencia, no la lógica.
-   - **Arreglo**: añadir a ese parametrizado `mas_corto`, `menor_normalizado`, `orden_inverso`,
-     `letra_digito`, `letra_punto` y `de_baja` de `tests/test_f072_equivalencia_porcentajes.py`,
-     dos exactas con el `ide` invertido y una hoja sin código (`:71`).
-3. **Líder, `progress/current.md`**: la línea 6 todavía dice `in_progress`, y la sección de F-072
-   no lista T29–T31 con su comando ni enlaza a `tasks.md` / `impl_F-072.md` (C4).
-
-## Decisiones del humano (no bloquean)
-
-- **D1 · (ii).** Con R8 al pie de la letra, `29.3` (inexistente) casa con `29.1` si es la única
-  que empieza por 29, `29A` con `29`, y `29` con `29.1` y `29.2` va a revisión. ¿Se confirma, o
-  el segundo paso debe ser «el mismo código sin los ceros a la izquierda»?
-- **D2 · reajuste.** En una obra agrupada, la extra nueva choca con la de otra entrada del mismo
-  recurso, día y código, y queda como no editable: un falso conflicto, en la dirección segura.
-  ¿Otra feature, o se amplía R38? Si se aplaza, hay que matizarlo en `azure-apps` §3.5.
+1. **`casar`** (`:87`), con los dos `get` intercambiados. Con `0578` y `0578B` activas, el gemelo
+   da `0578` y el mutante, `0578B`.
+   - Ningún caso tiene a la vez una exacta y una «con letras» activas: en `de_baja`, la exacta
+     está de baja.
+2. **`_orden` sin `h.ide`** (`:92`). Con `0578B` (ide 3) y `0578-B` (ide 2), en ese orden, el
+   gemelo da el ide 2.
+   - **Arreglo**: añadir `[(2,"0578",0),(3,"0578B",0)]` y `[(3,"0578B",0),(2,"0578-B",0)]`,
+     los dos con código `0578`, a `test_f072_r25_el_indice_desempata_como_casar_postventa`.
+   - Contra el código actual, el gemelo y el índice dan lo mismo en los dos (ide 2).
+   - **Si la pasada de evidencias no los encuentra, es CHANGES_REQUESTED.**
+3. **Equivalentes**, si la campaña los genera: `break` → `continue` (`:77`; los sufijos crecen
+   anidados: si uno no es solo letras, los más largos tampoco); quitar `if not cod: continue`
+   (`:70-71`; `casar` devuelve `None` con código vacío antes de mirar el índice); `<=` en `:73`
+   y `:80` (dos hojas no comparten `ide`).
 
 ## Observaciones (sin bloqueo)
 
-- **O1** `app.js` ~2617: `open()` no resetea `addlineEntradaPartida`. Hoy no se alcanza (un botón
-  por página, y el envío exige elegir obra).
-- **O2** En la vista `agr-`, «Añadir línea» da 422 hasta que se elige la partida en el combo:
-  mirarlo en M2.
-- **O3** `CatalogoEntradas.ajustes` (l. 107-109) no se usa: es código muerto.
-- **O4** La línea 1196 de `sqlalchemy_parte_repository.py`, sin cubrir: pista para la campaña.
+- **O5** El informe del implementer se quedó atrás en tres puntos: (ii) sigue diciendo «al pie
+  de la letra» (hoy manda D1 (c)), cd58cab dice «sin push» y la tabla de la suite es del
+  2026-11-21. Que lo refresque en T28.
+- **O1**, **O2** y **O4**, como en la pasada 1: `open()` no resetea `addlineEntradaPartida`; el
+  422 de «Añadir línea» en la vista `agr-` (mirarlo en M2); la línea 1196 de sv3 (pista).
+- **O6** Con D1, un `29.` leído (con punto final) va a revisión. Es la letra de (c): si molesta,
+  se verá en M2.
 
 ## Cobertura requisito → test (todos en verde)
 
 | Req. | Test |
 |---|---|
-| R1–R3 | `test_f072_r1/r2_*` en los 4 `test_f072_settings.py`; `r3_*` en sv3, sv4 y sv5; ningún test anterior tocado |
-| R4–R9, R41 | sv3 `test_f072_obras_agrupadas.py`, más cada copia (`*_copia.py`) |
-| R10, R11, R40 | raíz: `test_f072_equivalencia_porcentajes.py`, `test_f072_obras_agrupadas_gemelos.py`, `test_f072_documentacion.py` |
+| R1–R3 | `test_f072_r1/r2_*` en los 4 `test_f072_settings.py`; `r3_*` en sv3, sv4 y sv5 |
+| R4–R9, R41 | sv3 `test_f072_obras_agrupadas.py` (R8 con D1: `test_f072_r8_d1c_*`), más cada `*_copia.py` |
+| R10, R11, R40 | raíz: `test_f072_equivalencia_porcentajes.py`, `…_gemelos.py`, `test_f072_documentacion.py` |
 | R12, R13, R43 | sv2 `test_f072_marca_sv2.py` |
 | R14–R19, R42 | sv3 `test_f072_entrada_agrupada.py`, `test_f072_pipeline.py` |
 | R20–R22 | sv3 `test_f072_conciliacion.py` |
-| R23–R35 | sv4 `test_f072_repositorio.py`, `test_f072_catalogo_entradas.py`, `test_f072_endpoints.py`; R33 también en sv5 por HTTP |
-| R36–R39 | sv5 `test_f072_guarda.py`, `test_f072_conflictos.py`, `test_f072_guarda_reajuste_franquicia.py` (enmienda b) |
+| R23–R35 | sv4 `test_f072_repositorio.py`, `test_f072_catalogo_entradas.py` (R25: `…_categoria_…`, `…_desempata_…`), `test_f072_endpoints.py`; R33 también en sv5 |
+| R36–R39 | sv5 `test_f072_guarda.py`, `test_f072_conflictos.py` (R38 con D2: `test_f072_r38_d2a_*`), `test_f072_guarda_reajuste_franquicia.py` |
 
 ## Automejora (propuesta, no aplicada)
 
-Añadir a C3 una trampa (4): «un campo del ORM gemelo se rellena con la misma semántica en sv3 y
-sv4». Con un test genérico que valide las longitudes `String(n)` antes del `commit`, el cambio 1
-no habría pasado en SQLite.
+- La de la pasada 1 sigue en pie: una trampa C3 (4) sobre las longitudes `String(n)` del ORM gemelo.
+- **Nueva, para `reviewer.md`, punto 4 de «Validación contra el nivel»**:
+  - Cuando una feature reimplementa una regla del gemelo por rendimiento (aquí, un índice), la
+    campaña no ve los cambios de precedencia entre dos búsquedas ni los de los campos de una
+    clave de orden.
+  - Propuesta: en `critico`, el reviewer aplica a mano, en una copia, el intercambio de
+    precedencia y la retirada de cada campo del desempate, y exige que mueran.
