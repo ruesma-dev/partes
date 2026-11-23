@@ -6,6 +6,11 @@ tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11
 
 Feature activa: **F-072**, `in_review` (pasada 2 del reviewer, 2026-11-23). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
+## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081
+
+- **F-083** (alta, `todo`, crítico, prioridad 1: la siguiente a implementar por decisión del humano, «f83 ponla la siguiente a implementar»). Caso del correo de Administración de obra (0730, vacaciones 18-20/11): el CIZ del 20 se cambió a mano a CIV en Sigrid y, al reaprobar el 19 («omitido · intermedio»), sv5 no encontró CIZ posterior y escribió uno el 19. Spec lanzada en la copia `partes-wt-f083` (rama `feature/F-083-ciz-solo-fin-de-racha`).
+- **F-081**: spec aprobada por el humano el 2026-11-23 (D1-D8 como se recomendaba; commit db01b37 en su rama, copia `partes-wt-f081`). Espera a F-082 (T15 depende de ella).
+
 ## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.
 
 **Implementer, tras el desbloqueo.** Enmienda (b) hecha y commiteada: RED 6aef54d y código
