@@ -70,8 +70,7 @@ Tests nuevos: los `test_f072_*.py` de cada servicio y, en la raíz,
   línea del periodo con el mismo recurso, obra y partida.
 - **(x)** R31 «alta en celda» ya lo cubría `_CAMPOS_CLON_CELDA`; queda probado en
   `test_f072_repositorio.py`.
-- **Observación**: `ReajustePipeline._choques` (F-046 R22) no aplica `por_partida`, porque R38
-  solo nombra el pipeline de registro. Si se quiere igual en reajuste, es otra feature.
+- **Observación** (reajuste sin `por_partida`): resuelta por D2 (a) en T33.
 
 ## Fase RED (trazas reales)
 
@@ -150,14 +149,10 @@ Otros resultados:
 - **T24**: `node --check services/partes-front/static/app.js` en verde.
 - `python -m harness.servicios --validar` en verde.
 
-**Las 7 líneas sin cubrir** (pistas para la campaña):
-- `obras_agrupadas.py:62` en sv2 y sv5: la rama del árbol `dict`. Su único test usa
-  `partida_catalog`, que esos dos servicios no tienen. Se salta allí y se cubre en sv3 y sv4.
-- `catalogo_entradas.py:71`: una hoja de postventa sin código.
-- `catalogo_entradas.py:91-92`: `_orden`, el desempate de varias candidatas con el mismo código.
-- `catalogo_entradas.py:109`: la propiedad `ajustes`.
-- `sqlalchemy_parte_repository.py:1196` (sv3): el `continue` del reemplazo del mismo día cuando
-  los trabajadores no coinciden.
+**Sin cubrir tras review 1** (pistas para la campaña):
+- `obras_agrupadas.py:62` en sv2 y sv5: la rama `dict`. Su test usa `partida_catalog`, que esos
+  servicios no tienen, así que allí se salta; se cubre en sv3 y sv4.
+- `sqlalchemy_parte_repository.py:1196` (sv3): el `continue` del reemplazo del mismo día.
 
 **Para medir las copias del gemelo**:
 - `tests/test_f072_obras_agrupadas_copia.py`, idéntico en sv2, sv4 y sv5, carga por ruta los
@@ -166,10 +161,9 @@ Otros resultados:
 - `harness/servicios.json` declara esa dependencia, así la caché no salta la suite.
 - Es solo de tests, sin lógica copiada.
 
-**Incidencia del entorno, no del código.** En una pasada suelta de sv4, con otras suites de otros
-proyectos corriendo a la vez, `test_f021_r19_pinta_una_fila_por_linea_escribir_con_aviso` cayó
-con `CalledProcessError … returned non-zero exit status 3221225794`. Es `0xC0000142`: node no
-llegó a arrancar. Suelto da 11/11, y en `init.sh` está en verde.
+**Incidencia del entorno, no del código**: con suites de otros proyectos en paralelo,
+`test_f021_r19_pinta_una_fila…` cayó una vez porque node no arrancó (`0xC0000142`). Suelto, 11/11;
+en `init.sh`, verde.
 
 ## Verificaciones MANUAL pendientes (del humano)
 
@@ -206,13 +200,21 @@ Los comandos completos están en `tasks.md`:
   - RED (20f91f6), `python -m pytest tests/test_f072_catalogo_entradas.py -q` en sv4:
     `E       AssertionError: assert ('CD.POSTVENTA', None) == ('CD', 'OTRO')` · `1 failed, 30 passed in 0.34s`.
   - El test pone una hoja bajo `CD.POSTVENTA`, otra sin padre, y comprueba la longitud ≤ 8.
-- **Cambio 2** (20f91f6): `test_f072_r25_el_indice_desempata_como_casar_postventa` contrasta el
-  índice con `casar_postventa`, con 11 casos y en verde desde el principio. Eran falta de
-  evidencia, no de lógica. Los casos:
-  - `mas_corto`, `menor_normalizado`, `orden_inverso` (y con las filas al revés);
-  - `letra_digito`, `letra_punto`, `de_baja`;
-  - dos exactas con el `ide` invertido;
-  - hoja sin código y hoja con código vacío.
-- **O3**: fuera `CatalogoEntradas.ajustes`, que nadie usaba. D1 y D2 no se tocan.
-- `bash harness/init.sh`: **ENTORNO LISTO**, exit 0. Raíz 2551/48; sv4 4003 passed; sv1–sv3 y
-  sv5 por caché. `PUERTA COBERTURA` 99,7 % (1066/1069); impl 217/220.
+- **Cambio 2** (20f91f6): `test_f072_r25_el_indice_desempata_como_casar_postventa`, 11 casos contra
+  `casar_postventa`, verdes desde el principio (faltaba evidencia, no lógica): `mas_corto`,
+  `menor_normalizado`, `orden_inverso` (y filas al revés), `letra_digito`, `letra_punto`,
+  `de_baja`, dos exactas con el `ide` invertido, sin código y código vacío.
+- **O3**: fuera `CatalogoEntradas.ajustes`, sin uso. `init.sh` en verde, cobertura 99,7 %.
+
+## T33: enmienda del humano del 2026-11-23 («D1 c, D2 a»)
+
+- **D1 (c), R8**: `casar_var` solo aplica el segundo paso (la única con ese número inicial) si lo
+  leído es solo un número (`_NUMERO.fullmatch`). Cambiado en las 4 copias del gemelo, md5
+  `62c13db…`. R10 (equivalencia), R11 y las copias: en verde.
+  - RED (99fe8d5), sv3: `assert casar_var(_hojas("29.1", "30"), "29.3") is None`, que caía con
+    `E       AssertionError: assert namespace(ide=1, cod='29.1', …) is None` · `1 failed`.
+- **D2 (a), R38**: el reajuste (`_Preparada.por_partida` = `ctx.agrupada`) lee `paride` y solo
+  choca con la misma partida; en las obras normales, como hoy (sin `con_partida`).
+  - RED (99fe8d5), sv5, `-k d2a`: `E       AssertionError: assert (False, 'ya h...lineas 7002)')
+    == (True, None)` · `1 failed, 2 passed`.
+- Código c3a8af8; sv3 2944/2, sv5 1800/1; `init.sh` ENTORNO LISTO, cobertura 99,7 %.
