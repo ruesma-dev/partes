@@ -6,6 +6,15 @@ tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11
 
 Feature activa: **F-072**, `in_review` (pasada 2 del reviewer, 2026-11-23). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
+## F-072 · T28 (campaña) hecha 2026-11-23 (implementer)
+
+Campaña: 222 evaluados, 178 muertos y 44 supervivientes. 31 se han matado con tests nuevos
+(`test_f072_t28_mutantes.py` en sv3, sv4 y sv5, más casos del gemelo en sv3) y 13 se proponen
+como **equivalentes**, pendientes de que el humano los acepte (`progress/mutacion_F-072.md`,
+`progress/equivalentes_F-072.py`). El encargo del reviewer está hecho: los dos casos del
+desempate matan `:87` y `:92`. No hay fallo de código ni ambigüedad de spec. Detalle en
+`progress/impl_F-072.md`, sección T28.
+
 ## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081
 
 - **F-083** (alta, `todo`, crítico, prioridad 1: la siguiente a implementar por decisión del humano, «f83 ponla la siguiente a implementar»). Caso del correo de Administración de obra (0730, vacaciones 18-20/11): el CIZ del 20 se cambió a mano a CIV en Sigrid y, al reaprobar el 19 («omitido · intermedio»), sv5 no encontró CIZ posterior y escribió uno el 19. Spec lanzada en la copia `partes-wt-f083` (rama `feature/F-083-ciz-solo-fin-de-racha`).

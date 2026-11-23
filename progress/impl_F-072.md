@@ -1,8 +1,8 @@
 # F-072 · Informe del implementer (`critico`)
 
 Postventa y obras VAR como **entradas** de una obra agrupada (obra agrupada + una partida). Rama
-`feature/F-072-postventa-var-como-obras`, un commit por tarea `F-072 Tn: …`. Hechas T1–T27 y
-T32. **T28 (mutación) y T29–T31 (manuales) quedan sin marcar**: son del líder y del humano.
+`feature/F-072-postventa-var-como-obras`, un commit por tarea `F-072 Tn: …`. Hechas T1–T28, T32
+y T33. **T29–T31 (manuales) quedan sin marcar**: son del humano.
 El bloqueo de T16 se resolvió con la opción **(b)** del humano: reajuste y franquicia también
 pasan la guarda y llevan la marca de la línea base (RED 6aef54d, código b66a749).
 
@@ -42,18 +42,17 @@ pasan la guarda y llevan la marca de la línea base (RED 6aef54d, código b66a74
   cerrada de `CLAUDE.md`, las variables y el orden de encendido en `infra/README_partes.md`, y
   `depende_de` del gemelo en `harness/servicios.json`.
 - **azure-apps** (T27): `partes.md` §3.3, §3.4, §3.5 (guarda, «qué se rompe» y nota a
-  porcentajes), §4.5 bis y §5.6. Commit **cd58cab**, aparte y **sin push**; el `pull --rebase`
-  previo estaba al día.
+  porcentajes), §4.5 bis y §5.6. Commit **cd58cab**, aparte; ya está en `origin/main` (lo
+  subió el humano).
 
-Tests nuevos: los `test_f072_*.py` de cada servicio y, en la raíz,
-`test_f072_obras_agrupadas_gemelos.py`, `test_f072_equivalencia_porcentajes.py` y
-`test_f072_documentacion.py`.
+Tests nuevos: los `test_f072_*.py` de cada servicio y, en la raíz, `…_gemelos.py`,
+`test_f072_equivalencia_porcentajes.py` y `test_f072_documentacion.py`.
 
 ## Decisiones e interpretaciones (para el reviewer)
 
 - **(i)** Los alias solo se leen en sv2 y sv3 (design §5–§6), pese al R1 literal.
-- **(ii)** El segundo paso de `casar_var` es «la única con el mismo número inicial», al pie de
-  la letra.
+- **(ii)** El segundo paso de `casar_var` («la única con el mismo número inicial») solo se
+  aplica si lo leído es solo un número: D1 (c) del humano, T33.
 - **(iii)** En la forma base, un resultado mixto da `agrupada_varias_entradas`; varios fallos
   distintos, `agrupada_sin_entrada`.
 - **(iv)** Desviación justificada: el reemplazo del mismo día de `save_parte` (sv3) cuenta
@@ -124,46 +123,29 @@ carpeta del servicio con `python -m pytest <fichero> -q`.
 
 ## Salida de los tests
 
-Resultado real de `bash harness/init.sh` (2026-11-21, rama de la feature): **ENTORNO LISTO**,
-exit 0.
+Resultado real de `bash harness/init.sh` (2026-11-23, tras T28, rama de la feature): **ENTORNO
+LISTO**, exit 0.
 
 | Suite | Resultado |
 |---|---|
-| Raíz (`tests/`) | 2551 passed, 48 skipped in 1550.33s |
-| sv1 | en verde por caché (sin cambios desde el verde del 2026-11-20) |
-| sv2 | 574 passed, 1 skipped in 70.15s |
-| sv3 | 2943 passed, 2 skipped in 64.83s |
-| sv4 | 3991 passed in 1116.40s |
-| sv5 | 1796 passed, 1 skipped in 27.60s |
+| Raíz (`tests/`) | 2551 passed, 48 skipped in 2316.46s |
+| sv1 | en verde por caché (sin cambios desde el verde del 2026-11-23 13:51) |
+| sv2 | 579 passed, 1 skipped in 96.83s |
+| sv3 | 2954 passed, 2 skipped in 80.44s |
+| sv4 | 4018 passed in 1614.36s |
+| sv5 | 1809 passed, 1 skipped in 45.56s |
 
 Las otras líneas de `init.sh`:
-- `PUERTA COBERTURA: 99.3% de 1072 líneas cambiadas cubiertas (1065/1072, umbral 90% (del nivel
+- `PUERTA COBERTURA: 99.7% de 1073 líneas cambiadas cubiertas (1070/1073, umbral 90% (del nivel
   critico), nivel critico; diff desde b1fb495192, merge-base con dev)`
-- `PUERTA TAMAÑO: F-072 dentro de los topes (requirements 149/150, design 250/250, impl 150/220)`
-- `PUERTA CARRIL: N/A (F-072 es de nivel critico: no declara límites)`
-- `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`
+- `PUERTA TAMAÑO: … impl 220/220, review 140/140` · `PUERTA CARRIL: N/A (critico)` ·
+  `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`
 
-Otros resultados:
-- **T25**: `git diff dev --stat -- '*/tests/test_f0[0-6]*'` sale vacío. Ningún test anterior se
-  ha tocado.
-- **T24**: `node --check services/partes-front/static/app.js` en verde.
-- `python -m harness.servicios --validar` en verde.
-
-**Sin cubrir tras review 1** (pistas para la campaña):
-- `obras_agrupadas.py:62` en sv2 y sv5: la rama `dict`. Su test usa `partida_catalog`, que esos
-  servicios no tienen, así que allí se salta; se cubre en sv3 y sv4.
-- `sqlalchemy_parte_repository.py:1196` (sv3): el `continue` del reemplazo del mismo día.
-
-**Para medir las copias del gemelo**:
-- `tests/test_f072_obras_agrupadas_copia.py`, idéntico en sv2, sv4 y sv5, carga por ruta los
-  tests del gemelo escritos en sv3 y los ejecuta contra la copia del servicio.
-- Uno de ellos comprueba que el módulo usado es el del servicio.
-- `harness/servicios.json` declara esa dependencia, así la caché no salta la suite.
-- Es solo de tests, sin lógica copiada.
-
-**Incidencia del entorno, no del código**: con suites de otros proyectos en paralelo,
-`test_f021_r19_pinta_una_fila…` cayó una vez porque node no arrancó (`0xC0000142`). Suelto, 11/11;
-en `init.sh`, verde.
+Otros: T25 (`git diff dev --stat -- '*/tests/test_f0[0-6]*'`) vacío; T24 `node --check` y
+`python -m harness.servicios --validar`, en verde. Las copias del gemelo se miden con
+`tests/test_f072_obras_agrupadas_copia.py` (idéntico en sv2, sv4 y sv5), que ejecuta los tests del
+gemelo de sv3 contra la copia del servicio; solo tests, sin lógica copiada. Pista O4 que sigue
+abierta: `sqlalchemy_parte_repository.py:1196` (sv3), el `continue` del reemplazo del mismo día.
 
 ## Verificaciones MANUAL pendientes (del humano)
 
@@ -181,16 +163,17 @@ Los comandos completos están en `tasks.md`:
   3. Comprobar que una línea sin marca en POSTV2 sale omitida con `partida_agrupada:`.
   4. Limpiar con `python services/partes-transfer/prueba_escritura_sigrid.py limpiar --ejecutar`.
 - **Encendido**: variables en el orden sv5 → sv3 → sv2 → sv4 (`infra/README_partes.md`), y
-  avisar a porcentajes. **Push** de la rama y de `azure-apps` (cd58cab): lo hace el humano.
+  avisar a porcentajes. **Push** de la rama: lo hace el humano (`azure-apps` ya está subido).
+- **Aceptar o rechazar los 13 equivalentes de T28** (abajo).
 
 ## Evidencias
 
 | Evidencia | Valor real |
 |---|---|
-| Tests ejecutados | 11 855 passed, 52 skipped, 0 failed (raíz y sv2 a sv5; sv1, por caché) |
-| Cobertura de las líneas cambiadas | **99.3 %** (1065/1072, umbral 90 % de `critico`) |
-| Mutantes generados y supervivientes | **pendiente de la pasada de campaña** (T28): la lanza el líder tras el APPROVED, con `python -m harness.mutacion --feature F-072` ⇒ `progress/mutacion_F-072.md` |
-| Tiempo de la suite | raíz 1550 s · sv2 70 s · sv3 65 s · sv4 1116 s · sv5 28 s |
+| Tests ejecutados | 11 911 passed, 52 skipped, 0 failed (raíz y sv2 a sv5; sv1, por caché) |
+| Cobertura de las líneas cambiadas | **99.7 %** (1070/1073, umbral 90 % de `critico`) |
+| Mutantes generados y supervivientes | 604 generados, 222 evaluados (muestra de `critico`), 178 muertos, **44 supervivientes**: 31 muertos después con tests de T28 y **13 equivalentes propuestos** (pendientes del humano). `progress/mutacion_F-072.md` |
+| Tiempo de la suite | raíz 2316 s · sv2 97 s · sv3 80 s · sv4 1614 s · sv5 46 s |
 | Capa e2e | N/A: `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
 
 ## Review 1 (CHANGES_REQUESTED): cambios 1 y 2, y O3
@@ -199,11 +182,8 @@ Los comandos completos están en `tasks.md`:
   del capítulo (`h.categoria`: CD/CI/CP/OTRO, como sv3), no `h.capitulo_cod`. Sin capítulo, `OTRO`.
   - RED (20f91f6), `python -m pytest tests/test_f072_catalogo_entradas.py -q` en sv4:
     `E       AssertionError: assert ('CD.POSTVENTA', None) == ('CD', 'OTRO')` · `1 failed, 30 passed in 0.34s`.
-  - El test pone una hoja bajo `CD.POSTVENTA`, otra sin padre, y comprueba la longitud ≤ 8.
 - **Cambio 2** (20f91f6): `test_f072_r25_el_indice_desempata_como_casar_postventa`, 11 casos contra
-  `casar_postventa`, verdes desde el principio (faltaba evidencia, no lógica): `mas_corto`,
-  `menor_normalizado`, `orden_inverso` (y filas al revés), `letra_digito`, `letra_punto`,
-  `de_baja`, dos exactas con el `ide` invertido, sin código y código vacío.
+  `casar_postventa`, verdes desde el principio (faltaba evidencia, no lógica); T28 añade 2.
 - **O3**: fuera `CatalogoEntradas.ajustes`, sin uso. `init.sh` en verde, cobertura 99,7 %.
 
 ## T33: enmienda del humano del 2026-11-23 («D1 c, D2 a»)
@@ -218,3 +198,23 @@ Los comandos completos están en `tasks.md`:
   - RED (99fe8d5), sv5, `-k d2a`: `E       AssertionError: assert (False, 'ya h...lineas 7002)')
     == (True, None)` · `1 failed, 2 passed`.
 - Código c3a8af8; sv3 2944/2, sv5 1800/1; `init.sh` ENTORNO LISTO, cobertura 99,7 %.
+
+## T28: campaña de mutación (2026-11-23)
+
+- **Campaña** (HEAD afaf5e3): 222 evaluados, 178 muertos, 44 supervivientes, 0 timeouts. Análisis
+  de cada uno y las 7 declaraciones de ficheros sin mutantes en `progress/mutacion_F-072.md`.
+- **31 muertos con tests nuevos** (commits 5fde8cf y 9e92935): `tests/test_f072_t28_mutantes.py` en
+  sv3, sv4 y sv5, y 4 tests del gemelo en el `test_f072_obras_agrupadas.py` de sv3, que las otras
+  tres copias ejecutan por `*_copia.py`. Cada mutante se aplicó a mano y se deshizo: el test cae con él
+  (`EXIT 1 => MUERTO`, script del scratchpad) y pasa sin él. Ningún test cambió código.
+  - No eran equivalentes: `:218` `[:2]` (`V 2.1`, `POST5B`), `:211` `p[1]` (un alias `-` casaría
+    cualquier código), `:696` (defecto de `_choques`), `:134` (« de la obra»), `app.py:4234/4267/4268`,
+    `franquicia.py:246/250`, `catalogo_entradas.py:154/179` y `entrada_agrupada.py:126/140/160`.
+- **13 equivalentes propuestos, pendientes del humano** (#1, 12–15, 19–21, 23, 26, 34, 36, 37):
+  `is None` frente a la veracidad sobre valores que nunca son falsos salvo `None` (dataclasses sin
+  `__bool__`/`__len__`, una tupla de 2, `tipo_de`, `deleted_at_utc` siempre `isoformat()`).
+  Demostración: `progress/equivalentes_F-072.py sv2|sv3|sv4|sv5`, exit 0 en los cuatro.
+- **Encargo del reviewer** (38ab77b): `[(2,"0578",0),(3,"0578B",0)]` y `[(3,"0578B",0),(2,"0578-B",0)]`.
+  Matan `casar` con los `get` intercambiados (`FAILED …[exacta_y_con_letras]`) y `_orden` sin `h.ide`
+  (`FAILED …[con_letras_mismo_normalizado]`). Sin mutante, los 13 casos en verde. Ningún
+  superviviente revela un fallo del código ni una ambigüedad de la spec.
