@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 6 en To do, 11 en Backlog y 58 en Done.
+Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 5 en To do, 11 en Backlog y 58 en Done.
 
 ## Review
 
@@ -21,6 +21,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
+| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | pendiente de tu aprobación | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -28,7 +29,6 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | sin spec | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 | F-080 | sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida |  | 2 | express | `feature/F-080-juntar-lineas-sin-partida` |
 | F-081 | Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0) | sin spec | 2 | critico | `feature/F-081-editar-lineas-registradas` |
 | F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) |  | 2 | express | `feature/F-082-opcion-sin-partida` |
@@ -120,9 +120,9 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
-estado **to do (comprometida)** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
+estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
 
-**Spec**: sin spec
+**Spec**: specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir)
 
 Pedida por el humano el 2026-11-23 («da igual en el orden en el que vengan, si al final hacen una racha solo debería tener fin de incidencia el de fin de racha»), tras el correo de Administración de obra sobre la obra 0730 (recurso 1811653, vacaciones 18-20/11, parte PT26/00415). Lo que pasó (logs de sv4/sv5 y lectura de hmores): a las 11:48 UTC se aprobaron juntos 18, 19 y 20 ⇒ 18 inicio (CIV), 19 intermedio (omitido) y 20 fin (CIZ, hmores 416319): correcto. Antes de las 14:38 la línea del 20 pasó a mano de CIZ a CIV en Sigrid. A las 14:38 se reaprobó el 19 (estaba «omitido · intermedio»): sv4 lo mandó como fin, sv5 buscó el CIZ de la racha por sus synckeys, no lo encontró (el del 20 ya era CIV) y escribió un CIZ el 19 (hmores 416356), que después también se cambió a mano a CIV. Hueco: `decidir_fin` y `decidir_mismo_dia` (sv5, racha_ciz.py, F-060/F-062) solo dan el fin por posterior si encuentran un CIZ después de D; una línea de la racha escrita en un día posterior con otro código no cuenta. Propuesta a validar en la spec: un día no es fin (ni el inicio escribe su CIZ hermano) si la racha tiene CUALQUIER línea suya escrita en Sigrid (synckey de la racha, mismo recurso) en un día posterior; con el CIZ en su sitio, igual que hoy. A REVISAR EN LA SPEC: si basta sv5 o también sv4 (rol del día con días posteriores ya registrados), qué motivo ve el portal, qué pasa si Administración quitó el CIZ del último día (la racha queda sin fin: manda lo hecho a mano), y si el portal debe dejar de ofrecer reaprobar un «omitido · intermedio». Rigor crítico: escribe en Sigrid.
 

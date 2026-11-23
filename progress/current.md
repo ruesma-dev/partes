@@ -20,6 +20,7 @@ Feature activa: ninguna. Última cerrada: **F-072** (2026-11-24, OK del humano; 
 ## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081
 
 - **F-083** (alta, `todo`, crítico, prioridad 1: la siguiente a implementar por decisión del humano, «f83 ponla la siguiente a implementar»). Caso del correo de Administración de obra (0730, vacaciones 18-20/11): el CIZ del 20 se cambió a mano a CIV en Sigrid y, al reaprobar el 19 («omitido · intermedio»), sv5 no encontró CIZ posterior y escribió uno el 19. Spec lanzada en la copia `partes-wt-f083` (rama `feature/F-083-ciz-solo-fin-de-racha`).
+  - **Spec escrita (spec-author, 2026-11-23)**: `specs/F-083-ciz-solo-fin-de-racha/`, F-083 en `spec_ready` en su rama. Resumen y decisiones en `progress/spec_F-083.md`. Decisiones abiertas para el humano: D1–D8 (lo recomendado: solo sv5; cualquier línea posterior de la racha deja el día como intermedio; sv4, el ↻ y `racha_desordenada` sin cambios; respetar el CIZ quitado a mano; bajo `MOVER_CIZ`; nada retroactivo). Aviso: la rama sale de 011bc2a, que lleva F-072 sin fusionar en `dev`.
 - **F-081**: spec aprobada por el humano el 2026-11-23 (D1-D8 como se recomendaba; commit db01b37 en su rama, copia `partes-wt-f081`). Espera a F-082 (T15 depende de ella).
 
 ## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.

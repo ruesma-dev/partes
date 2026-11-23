@@ -1,0 +1,13 @@
+<!-- specs/F-083-ciz-solo-fin-de-racha/tasks.md -->
+# F-083 · Una racha de incidencia solo lleva CIZ en su último día — Tareas
+
+Precondiciones: D1–D8 decididas por el humano, y M0 hecha por el líder o el humano antes de T1. Servicio: sv5 (`services/partes-transfer/`); las rutas son relativas a él salvo que se indique otra cosa. Rigor crítico: fase RED con traza en cada tarea de código.
+
+- [ ] T1: `racha_ciz.py` regla pura (`es_linea_de_la_racha`, `ultima_posterior`, `motivo_intermedio_racha`, `MOTIVO_POSTERIOR_SIN_CIZ`, `DecisionFin.sin_ciz`, nuevo orden de `decidir_fin` y `decidir_mismo_dia`, design §3) con `tests/test_f083_ciz_solo_fin_de_racha.py` puro (R1–R9, R19, R20)  |  Verificación: `python -m pytest tests/test_f083_ciz_solo_fin_de_racha.py -k puro` en `services/partes-transfer`
+- [ ] T2: enmienda de los dos subcasos de R22 en `tests/test_f060_racha_ciz.py` y `tests/test_f062_ciz_mismo_dia.py`, con comentario `# F-083 R2` / `# F-083 R8` y conservando los demás subcasos  |  Verificación: `python -m pytest tests/test_f060_racha_ciz.py tests/test_f062_ciz_mismo_dia.py`
+- [ ] T3: `registro_pipeline.py` `_ciz_de_racha`: WARNING `racha_fin_no_ciz` en el `fin` y en el `inicio` (design §4) y docstring del paso 6 bis; tests de pipeline con `SigridFake` (R10–R17)  |  Verificación: `python -m pytest tests/test_f083_ciz_solo_fin_de_racha.py tests/test_f060_pipeline_mover.py`
+- [ ] T4: caracterización: `MOVER_CIZ` apagado, sentencias idénticas a las de la base de la rama, 011bc2a (R18), y las suites completas de sv5 y sv4 sin más cambios que T2 (R21)  |  Verificación: `python -m pytest` en `services/partes-transfer` y en `services/partes-front`
+- [ ] T5: documentación de design §9 (`docs/ARCHITECTURE.md`, `docs/referencia/partes-proyecto.md`, docstring de `racha_ciz.py`) y `C:\Users\pgris\PycharmProjects\azure-apps\partes.md` (`git pull --rebase`, solo ese documento, commit aparte y sin push)  |  Verificación: `grep -rn "F-083" docs C:\Users\pgris\PycharmProjects\azure-apps\partes.md` con resultados y revisión del reviewer contra design §9
+- [ ] T6: cobertura de las líneas cambiadas y campaña de mutación de rigor crítico, con un test o una justificación por cada superviviente  |  Verificación: `python -m harness.mutacion --feature F-083` y la puerta de cobertura de `bash harness/init.sh`
+- [ ] T7: M0 (solo lectura, antes de T1); tras el merge en `dev`, M1–M3 en local en modo pruebas (obra 0404, PRUEBA-IA) con su limpieza, ANTES de desplegar sv5; M4 de solo lectura tras desplegar sv5. Los comandos exactos son los de design §8 y el resultado real se anota en `progress/current.md`  |  Verificación: MANUAL (humano)
+- [ ] T8: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh`
