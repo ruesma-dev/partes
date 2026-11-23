@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **73 features**, 16 abiertas y 57 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 2 en To do, 11 en Backlog y 57 en Done.
+Resumen: **75 features**, 18 abiertas y 57 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 57 en Done.
 
 ## Review
 
@@ -30,6 +30,8 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
+| F-080 | sv3 junta en una línea las del mismo trabajador, día y hora que quedan sin partida en una obra sin presupuesto |  | 2 | express | `feature/F-080-juntar-lineas-sin-partida` |
+| F-081 | Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0) | sin spec | 2 | critico | `feature/F-081-editar-lineas-registradas` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 
@@ -122,6 +124,20 @@ estado **en QA / revisión** · spec aprobada el 2026-11-21 · prioridad 2 · ri
 **Spec**: specs/F-072-postventa-var-como-obras/
 
 Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
+
+### F-080 · sv3 junta en una línea las del mismo trabajador, día y hora que quedan sin partida en una obra sin presupuesto
+
+estado **to do (comprometida)** · prioridad 2 · rigor `express` · SDD no · rama `feature/F-080-juntar-lineas-sin-partida`
+
+Pedida por el humano el 2026-11-23 («1 adelante») tras el caso de la 0692 de Porsan (recurso 2757089, 19 y 20/11): el parte trae dos partidas (01-01 y 01-02), la IA reparte las horas (4+4 y -1-1) y, como la obra no tiene presupuesto, las dos líneas van a Sigrid sin partida y parecen repetidas. Propuesta: en la ingesta (sv3), tras conciliar partidas, las líneas del mismo documento con el mismo recurso, fecha, tipo (ordinaria/extra), código de hora y obra que quedan SIN partida se juntan en una sola sumando horas (y horas_extra_leidas). Alcance a confirmar en la PARADA 1: solo en obras sin presupuesto (en una obra con presupuesto se dejan separadas para asignar cada partida a mano). Solo ingestas nuevas; lo ya registrado en Sigrid no se toca.
+
+### F-081 · Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0)
+
+estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-081-editar-lineas-registradas`
+
+**Spec**: sin spec
+
+Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 

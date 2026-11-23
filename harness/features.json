@@ -1209,6 +1209,36 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ]
+    },
+    {
+      "id": "F-080",
+      "title": "sv3 junta en una línea las del mismo trabajador, día y hora que quedan sin partida en una obra sin presupuesto",
+      "priority": 2,
+      "rigor": "express",
+      "sdd": false,
+      "status": "todo",
+      "branch": "feature/F-080-juntar-lineas-sin-partida",
+      "description": "Pedida por el humano el 2026-11-23 («1 adelante») tras el caso de la 0692 de Porsan (recurso 2757089, 19 y 20/11): el parte trae dos partidas (01-01 y 01-02), la IA reparte las horas (4+4 y -1-1) y, como la obra no tiene presupuesto, las dos líneas van a Sigrid sin partida y parecen repetidas. Propuesta: en la ingesta (sv3), tras conciliar partidas, las líneas del mismo documento con el mismo recurso, fecha, tipo (ordinaria/extra), código de hora y obra que quedan SIN partida se juntan en una sola sumando horas (y horas_extra_leidas). Alcance a confirmar en la PARADA 1: solo en obras sin presupuesto (en una obra con presupuesto se dejan separadas para asignar cada partida a mano). Solo ingestas nuevas; lo ya registrado en Sigrid no se toca.",
+      "acceptance": [
+        "Dos líneas sin partida del mismo recurso, día, tipo y código de hora en una obra sin presupuesto salen como una sola con la suma",
+        "En una obra con presupuesto, o con partidas distintas casadas, no cambia nada",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
+    },
+    {
+      "id": "F-081",
+      "title": "Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0)",
+      "priority": 2,
+      "rigor": "critico",
+      "sdd": true,
+      "status": "todo",
+      "spec": "sin spec",
+      "branch": "feature/F-081-editar-lineas-registradas",
+      "description": "Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
     }
   ]
 }
