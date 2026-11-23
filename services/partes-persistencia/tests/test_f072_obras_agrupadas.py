@@ -192,6 +192,17 @@ def test_f072_r8_varias_o_ninguna_none():
     assert casar_var([], "29") is None
 
 
+def test_f072_r8_d1c_el_segundo_paso_solo_si_lo_leido_es_solo_un_numero():
+    """D1 (c), humano 2026-11-23: sin igual, la única con el mismo número
+    inicial SOLO si lo leído es solo un número; `29.3` o `29A` sin su
+    partida exacta van a revisión (`None`)."""
+    assert casar_var(_hojas("29.1", "30"), "29.3") is None
+    assert casar_var(_hojas("29", "30"), "29A") is None
+    assert casar_var(_hojas("29", "30"), "29-B") is None
+    assert casar_var(_hojas("29.1", "30"), " 29 ").cod == "29.1"
+    assert casar_var(_hojas("029", "30"), "0029").cod == "029"
+
+
 def test_f072_r8_con_varias_iguales_gana_la_de_menor_ide():
     vs = [_hoja(7, "29"), _hoja(3, "2 9")]
     assert casar_var(vs, "29").ide == 3

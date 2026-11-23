@@ -154,3 +154,55 @@ def test_f072_r38_lineas_existentes_lee_la_partida_solo_si_se_pide(
     [ls] = cli.lineas_existentes(9, [501], [c.FECHA], con_partida=con_partida)
     assert ls.paride == paride
     assert ("hmores.paride" in falso.lecturas[0]["sql"]) is con_partida
+
+
+# ----------------- reajuste: extras nuevas (D2 (a), R38) ----------------- #
+
+def _fila_reajuste(ide, synckey, horide, can, paride, obra):
+    return {"ide": ide, "hmoide": obra.ide * 100, "reside": 501,
+            "fec": c.FECHA, "horide": horide,
+            "hora_codigo": "HE01" if horide == c.HE else "HL01", "can": can,
+            "tot": can * 10, "pos": ide, "synckey": synckey, "caaide": 0,
+            "paride": paride, "tex": None, "enlazada": False}
+
+
+def _reajuste(obra, partida, metodo, ajena):
+    """La base (`partes:3`, ordinaria) y una extra AJENA del mismo recurso,
+    día y código de hora con la partida `ajena`; se pide la extra nueva de
+    la base en `partida`."""
+    from application.pipelines.reajuste_pipeline import ReajustePipeline
+    from domain.models.registro_models import OpReajuste
+
+    parte = {"ide": obra.ide * 100, "obride": obra.ide, "ano": 2026,
+             "mes": 11, "cod": "PT26/00900", "emp": 1, "est": REGISTRO}
+    cli = c.ClienteF072(partes=[parte], lineas=[
+        _fila_reajuste(7001, "partes:3", c.HL, 8.0, partida, obra),
+        _fila_reajuste(7002, "porcentajes:x", c.HE, 1.0, ajena, obra)])
+    st = c.SettingsF072()
+    re = ReajustePipeline(cliente=cli, settings=st,
+                          registro=RegistroPipeline(cliente=cli, settings=st))
+    r = re.comprobar([
+        OpReajuste(registro_id=3, antes=8.0, despues=7.0),
+        OpReajuste(registro_id=-3, despues=1.0, base_registro_id=3,
+                   recurso_ide=501, fecha_int=c.FECHA, hora_ide=c.HE,
+                   hora_codigo="HE01", partida_ide=partida,
+                   obra_ide=obra.ide, obra_codigo=obra.codigo,
+                   partida_metodo=metodo)])
+    return {v.registro_id: v for v in r.veredictos}[-3], cli
+
+
+def test_f072_r38_d2a_reajuste_otra_entrada_del_dia_no_choca():
+    nueva, cli = _reajuste(c.VARO, 91012, "var", ajena=91013)
+    assert (nueva.editable, nueva.motivo) == (True, None)
+    assert cli.con_partida_pedida == [True]
+
+
+def test_f072_r38_d2a_reajuste_la_misma_entrada_si_choca():
+    nueva, _cli = _reajuste(c.VARO, 91012, "var", ajena=91012)
+    assert not nueva.editable and "lineas 7002" in nueva.motivo
+
+
+def test_f072_r38_d2a_reajuste_en_obra_normal_la_partida_no_cuenta():
+    nueva, cli = _reajuste(c.NORMAL, 300, "parte", ajena=301)
+    assert not nueva.editable and "lineas 7002" in nueva.motivo
+    assert cli.con_partida_pedida == [False]
