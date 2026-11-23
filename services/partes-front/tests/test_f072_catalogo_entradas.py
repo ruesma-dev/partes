@@ -234,9 +234,16 @@ def _hojas_con_ide(*hojas):
     # Una hoja sin código no casa ni estorba.
     ([(2, None, 0), (3, "0578B", 0)], "0578"),
     ([(2, "", 0)], "0578"),
+    # Encargo T28 del reviewer: una exacta y una «con letras» activas a la
+    # vez (la exacta gana: mata `casar` con los `get` intercambiados) y dos
+    # «con letras» que normalizan igual (gana el menor `ide`: mata `_orden`
+    # sin `h.ide`).
+    ([(2, "0578", 0), (3, "0578B", 0)], "0578"),
+    ([(3, "0578B", 0), (2, "0578-B", 0)], "0578"),
 ], ids=["mas_corto", "menor_normalizado", "orden_inverso",
         "orden_inverso_filas", "letra_digito", "letra_punto", "de_baja",
-        "exactas_ide", "exactas_ide_inverso", "sin_codigo", "codigo_vacio"])
+        "exactas_ide", "exactas_ide_inverso", "sin_codigo", "codigo_vacio",
+        "exacta_y_con_letras", "con_letras_mismo_normalizado"])
 def test_f072_r25_el_indice_desempata_como_casar_postventa(hojas, codigo):
     nodos = _hojas_con_ide(*hojas)
     cat, _s = _cat()
