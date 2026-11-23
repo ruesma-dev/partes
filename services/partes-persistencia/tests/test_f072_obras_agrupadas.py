@@ -306,3 +306,42 @@ def test_f072_es_obra_agrupada():
 def test_f072_codigo_entrada():
     assert codigo_entrada(POSTVENTA, "VAR", "0578") == "Postv-0578"
     assert codigo_entrada(VAR, "VAR", "29") == "VAR-29"
+
+
+# ------------- T28: supervivientes de la campaña de mutación ------------- #
+# Van aquí (y no en un fichero aparte) para que las cuatro copias del gemelo
+# los ejecuten por `test_f072_obras_agrupadas_copia.py`.
+
+def test_t28_r41_basta_con_que_el_resto_empiece_por_digito():
+    """`_resto_valido` (`:218`): mira el PRIMER carácter del resto, no los
+    dos primeros: `2.1` y `5B` empiezan por dígito."""
+    assert leer_forma("V 2.1", MARCAS) == Forma(VAR, "2.1")
+    assert leer_forma("POST5B", MARCAS) == Forma(POSTVENTA, "5B")
+
+
+def test_t28_una_marca_que_es_solo_separadores_no_cuenta():
+    """`_ordenadas` (`:211`): un alias que se queda vacío al quitarle los
+    separadores (`-`) no es marca; si contara, casaría cualquier código."""
+    m = marcas_de(postventa_cod="POSTV2", postventa_alias="-", var_cod=None,
+                  var_alias=None)
+    assert leer_forma("0578", m) is None
+    assert leer_forma("POSTV2 0578", m) == Forma(POSTVENTA, "0578")
+
+
+def test_t28_var_desde_admite_el_entero_0():
+    """`_desde` (`:178`): un `0` entero es un umbral válido, no «vacío»."""
+    from application.services.obras_agrupadas import ajustes_de
+    assert ajustes_de(postventa_cod=None, var_cod="VAR",
+                      var_desde=0).var_desde == 0
+
+
+def test_t28_los_valores_del_gemelo_son_inmutables():
+    """`Marcas` (`:125`), `Ajustes` (`:152`) y `Forma` (`:199`) son
+    `frozen`: se comparten entre peticiones y cachés."""
+    import dataclasses
+    from application.services.obras_agrupadas import ajustes_de
+    ajustes = ajustes_de(postventa_cod="POSTV2", var_cod="VAR", var_desde="29")
+    for valor, campo in ((MARCAS, "var"), (ajustes, "var_desde"),
+                         (Forma(VAR, "29"), "resto")):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            setattr(valor, campo, None)
