@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-072**, `in_progress` (vuelta de `in_review` el 2026-11-21: review 1 CHANGES_REQUESTED, ver la sección «F-072 · vuelta a in_progress»). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: **F-072**, `in_review` (pasada 2 del reviewer, 2026-11-23). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
 ## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.
 
@@ -302,3 +302,8 @@ R8 (segundo paso de `casar_var` solo si lo leído es solo un número) y R38 (tam
 `ReajustePipeline._choques`) enmendados en requirements y design; nueva T33 en `tasks.md`. Los
 cambios 1–2 de la review 1 ya están (67d48e4). Siguiente: implementer con T33; luego reviewer
 (pasada 2) y campaña.
+
+## F-072 · in_review 2026-11-23 (líder): pasada 2 del reviewer
+
+Cambios 1–2 de la review 1 (67d48e4) y T33 (enmienda D1 c / D2 a, 1adb0d2) hechos; `init.sh` en
+verde, cobertura 99,7 %. Siguiente: reviewer pasada 2; después, campaña (T28).
