@@ -163,7 +163,7 @@ corta; con un alias de una letra exige que el resto empiece por dígito. La tabl
   desde)` en `application/services/reglas_registro.py` (R36). El preflight comparte pipeline.
 - `application/services/pisado.py::choques(…, por_partida: bool = False)`: con `True` exige
   además `ls.paride == accion.paride` (R38). El pipeline lo activa en las obras agrupadas, en
-  `_choques`, `_motivo_sin_pisado` y R11.
+  `_choques`, `_motivo_sin_pisado`, R11 y `ReajustePipeline._choques` (D2).
 - `tests/test_f038_lectores_sigrid.py` (raíz): suma `partidas_de_obra` (R39).
 
 ## 7. Configuración, despliegue y orden

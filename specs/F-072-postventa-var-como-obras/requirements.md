@@ -35,8 +35,8 @@ R7. `es_partida_var(hoja, desde)` debe aceptar una hoja activa con número inici
 29: entran `29`, `30`, `100`, `029`, `29.1` y `29A`; no entran `28`, `05`, `CI.1.1`, un
 capítulo ni una de baja. (capa: unit)
 R8. `casar_var(partidas_var, leido)` debe devolver la de código normalizado igual al leído. Si no
-la hay, la única con el mismo número inicial sin contar los ceros a la izquierda (`29` →
-`029`). Con varias o ninguna, `None`. (capa: unit)
+la hay y lo leído es solo un número (D1 (c), humano 2026-11-23), la única con ese número inicial
+sin ceros a la izquierda (`29` → `029`, `29.1`); si no, o con varias o ninguna, `None`. (capa: unit)
 R9. `leer_forma(leido, marcas)` debe aplicar las variantes de R41. Devuelve el tipo y el resto
 (vacío si solo está la marca, la forma base) o `None` si no hay marca. (capa: unit)
 R10. La tabla de casos de los tests de F-025 y F-039 de porcentajes debe dar lo mismo en partes.
@@ -122,7 +122,8 @@ hoja activa de esa obra o, en VAR, fuera del universo VAR: motivo `partida_agrup
 partida por su código, sin tildes, ≤ 255. En modo pruebas igual, por la obra pedida. (capa: unit)
 R37. SI esa lectura falla o viene `truncated`, ENTONCES la petición falla entera sin escribir. (capa: unit)
 R38. En una obra agrupada, una línea de Sigrid solo debe chocar (conflicto, `parte_cerrado`, R11
-de F-031) si además tiene la misma partida (DA8); en las demás obras, como hoy. (capa: unit)
+de F-031) si además tiene la misma partida (DA8), también en `ReajustePipeline._choques` (D2 (a),
+humano 2026-11-23); en las demás obras, como hoy. (capa: unit)
 R39. La lectura nueva de sv5 debe estar en la lista de F-038 y pedir `SIGRID_API_MAX_ROWS`. (capa: unit)
 
 ## G. Documentación

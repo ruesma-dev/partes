@@ -295,3 +295,10 @@ Manuales pendientes del humano (comandos completos en `tasks.md`):
 - **T31 · M2**: portal en local en modo pruebas (obra 0404, `OBRA_PRUEBAS_FORZAR=true`): un parte a
   `VAR-<n>` y otro a `Postv-<obra>`, aprobar, `prueba_escritura_sigrid.py verificar`, una línea
   sin marca en POSTV2 omitida con `partida_agrupada:`, y `prueba_escritura_sigrid.py limpiar --ejecutar`.
+
+## F-072 · enmienda 2026-11-23 (humano: «D1 c, D2 a»)
+
+R8 (segundo paso de `casar_var` solo si lo leído es solo un número) y R38 (también
+`ReajustePipeline._choques`) enmendados en requirements y design; nueva T33 en `tasks.md`. Los
+cambios 1–2 de la review 1 ya están (67d48e4). Siguiente: implementer con T33; luego reviewer
+(pasada 2) y campaña.
