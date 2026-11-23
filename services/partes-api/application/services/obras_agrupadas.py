@@ -104,8 +104,10 @@ def es_partida_var(hoja: Any, desde: int) -> bool:
 
 def casar_var(partidas_var: Iterable[Any], leido: Any) -> Any:
     """Partida VAR de lo leído (R8): la de código normalizado igual (entre
-    varias, la de menor `ide`); si no, la ÚNICA con el mismo número inicial
-    (`29` → `029`). Con varias o ninguna, `None`."""
+    varias, la de menor `ide`); si no, y SOLO si lo leído es solo un número
+    (D1 (c), humano 2026-11-23), la ÚNICA con el mismo número inicial
+    (`29` → `029`, `29.1`). `29.3` o `29A` sin su partida exacta, o con
+    varias o ninguna, `None`."""
     objetivo = normalizar(leido)
     if not objetivo:
         return None
@@ -113,9 +115,9 @@ def casar_var(partidas_var: Iterable[Any], leido: Any) -> Any:
     iguales = [p for p in partidas if normalizar(p.cod) == objetivo]
     if iguales:
         return min(iguales, key=lambda p: p.ide)
-    numero = numero_inicial(leido)
-    if numero is None:
+    if not _NUMERO.fullmatch(str(leido).strip()):
         return None
+    numero = numero_inicial(leido)
     mismo = [p for p in partidas if numero_inicial(p.cod) == numero]
     return mismo[0] if len(mismo) == 1 else None
 
