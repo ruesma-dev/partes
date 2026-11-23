@@ -21,7 +21,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | pendiente de tu aprobación | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
+| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | 2026-11-23 | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -120,7 +120,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
-estado **spec lista** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
+estado **spec lista** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
 
 **Spec**: specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir)
 

@@ -239,11 +239,11 @@ racha. Se actualiza `azure-apps/partes.md` (§9). Ni sigrid-api ni los demás pr
 
 | Decisión | Opciones | Recomendado | Decidido |
 |---|---|---|---|
-| D1 Servicios | (a) solo sv5: la regla mira Sigrid; (b) sv5 + sv4: `decidir` da `intermedio` si hay días posteriores de la racha `registrado`; (c) solo sv4 | (a) | |
-| D2 Motivo que ve el portal | (a) prefijo de intermedio + detalle (línea, día, código, «sin CIZ despues»), agrupado con los intermedios; (b) prefijo nuevo `racha_sin_ciz:` que lo separe en el modal | (a) | |
-| D3 ↻ en un «omitido · intermedio» | (a) se mantiene (con F-083 es inocuo); (b) se oculta para ese motivo; (c) se mantiene con una confirmación de aviso | (a) | |
-| D4 Aviso `racha_desordenada` (F-060 R10) | (a) sin cambios; (b) también en el `fin` con días posteriores registrados; (c) quitarlo | (a) | |
-| D5 Qué línea posterior cuenta | (a) cualquier código, `can` nulo o 0, mismo recurso y marca en pruebas; (b) solo códigos CI* | (a) | |
-| D6 CIZ quitado a mano del último día | (a) respetar: la racha queda sin fin, con WARNING y motivo; (b) escribir un CIZ nuevo en el último día | (a) | |
-| D7 Interruptor | (a) bajo `MOVER_CIZ`, sin variable nueva (desplegar sv5 = activar); (b) variable propia | (a) | |
-| D8 CIZ ya escritos en medio (0730: 416356) | (a) nada retroactivo: Administración ya los corrigió a mano; (b) script de corrección (otra feature) | (a) | |
+| D1 Servicios | (a) solo sv5: la regla mira Sigrid; (b) sv5 + sv4: `decidir` da `intermedio` si hay días posteriores de la racha `registrado`; (c) solo sv4 | (a) || (a), humano 2026-11-23 |
+| D2 Motivo que ve el portal | (a) prefijo de intermedio + detalle (línea, día, código, «sin CIZ despues»), agrupado con los intermedios; (b) prefijo nuevo `racha_sin_ciz:` que lo separe en el modal | (a) || (a), humano 2026-11-23 |
+| D3 ↻ en un «omitido · intermedio» | (a) se mantiene (con F-083 es inocuo); (b) se oculta para ese motivo; (c) se mantiene con una confirmación de aviso | (a) || (a), humano 2026-11-23 |
+| D4 Aviso `racha_desordenada` (F-060 R10) | (a) sin cambios; (b) también en el `fin` con días posteriores registrados; (c) quitarlo | (a) || (a), humano 2026-11-23 |
+| D5 Qué línea posterior cuenta | (a) cualquier código, `can` nulo o 0, mismo recurso y marca en pruebas; (b) solo códigos CI* | (a) || (a), humano 2026-11-23 |
+| D6 CIZ quitado a mano del último día | (a) respetar: la racha queda sin fin, con WARNING y motivo; (b) escribir un CIZ nuevo en el último día | (a) || (a), humano 2026-11-23 |
+| D7 Interruptor | (a) bajo `MOVER_CIZ`, sin variable nueva (desplegar sv5 = activar); (b) variable propia | (a) || (a), humano 2026-11-23 |
+| D8 CIZ ya escritos en medio (0730: 416356) | (a) nada retroactivo: Administración ya los corrigió a mano; (b) script de corrección (otra feature) | (a) || (a), humano 2026-11-23 |
