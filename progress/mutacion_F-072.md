@@ -675,3 +675,9 @@ Cada uno tiene líneas en alcance y el generador no ha sacado de ellas ni un mut
 
 > Tres campos `partida_metodo: Optional[str] = None` de los modelos de entrada, el `exclude` del `model_dump` y la asignación del atributo: sin operador ni literal que el generador mute. Lo cubren `test_f072_franquicia_in_lleva_la_marca_al_dominio` y `test_f072_linea_reajuste_in_lleva_la_marca_al_dominio`.
 
+
+## Aceptación del humano (2026-11-24)
+
+Literal del humano por el chat: «acepto los 13 equivalentes de F-072». Quedan **aceptados** los
+equivalentes #1, 12, 13, 14, 15, 19, 20, 21, 23, 26, 34, 36 y 37 (demostración:
+`progress/equivalentes_F-072.py`). Supervivientes sin test ni aceptación: **0**.

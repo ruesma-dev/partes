@@ -210,7 +210,7 @@ Los comandos completos están en `tasks.md`:
   - No eran equivalentes: `:218` `[:2]` (`V 2.1`, `POST5B`), `:211` `p[1]` (un alias `-` casaría
     cualquier código), `:696` (defecto de `_choques`), `:134` (« de la obra»), `app.py:4234/4267/4268`,
     `franquicia.py:246/250`, `catalogo_entradas.py:154/179` y `entrada_agrupada.py:126/140/160`.
-- **13 equivalentes propuestos, pendientes del humano** (#1, 12–15, 19–21, 23, 26, 34, 36, 37):
+- **13 equivalentes, aceptados por el humano el 2026-11-24** («acepto los 13 equivalentes de F-072») (#1, 12–15, 19–21, 23, 26, 34, 36, 37):
   `is None` frente a la veracidad sobre valores que nunca son falsos salvo `None` (dataclasses sin
   `__bool__`/`__len__`, una tupla de 2, `tipo_de`, `deleted_at_utc` siempre `isoformat()`).
   Demostración: `progress/equivalentes_F-072.py sv2|sv3|sv4|sv5`, exit 0 en los cuatro.
