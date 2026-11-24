@@ -1263,7 +1263,7 @@
       "priority": 1,
       "rigor": "critico",
       "sdd": true,
-      "status": "in_progress",
+      "status": "in_review",
       "spec_aprobada": "2026-11-23",
       "spec": "specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir)",
       "branch": "feature/F-083-ciz-solo-fin-de-racha",

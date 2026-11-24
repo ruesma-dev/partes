@@ -3,11 +3,13 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 5 en To do, 11 en Backlog y 58 en Done.
+Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 5 en To do, 11 en Backlog y 58 en Done.
 
 ## Review
 
-_Nada esperando revisión._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | reviewer | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 
 ## Blocked
 
@@ -15,9 +17,7 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | implementer | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
+_Ninguna feature en implementación._
 
 ## Spec aprobada
 
@@ -121,7 +121,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
-estado **en curso** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
+estado **en QA / revisión** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
 
 **Spec**: specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir)
 

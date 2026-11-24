@@ -17,8 +17,10 @@ Feature activa: **F-083** (`in_progress`, rama `feature/F-083-ciz-solo-fin-de-ra
   fallaba con la suite completa de sv5, y su aserción contradice R8 y R15: no se puede cumplir
   la spec y conservarla. Los subcasos de otro recurso, `can` ≠ 0 y anterior se conservan.
   Lo valida el reviewer.
-- Pendiente del líder: M0 (precondición de tasks.md, no consta hecha en `progress/`), T6
-  (campaña de mutación) y T7 (M1–M4).
+- **M0 hecha por el líder el 2026-11-24** (Sigrid `ruesma`, solo lectura, consulta de design §8,
+  `truncated: False`): 416318 (20261118, CIV, can 0, `partes:25090`), 416356 (20261119, CIV, can
+  0, `partes:25091`) y 416319 (20261120, CIV, can 0, `partes:25092`). Coincide con lo esperado.
+- Pendiente del líder: T6 (campaña de mutación, tras el APPROVED principal) y T7 (M1–M4).
 
 ## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
 
