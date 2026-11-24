@@ -285,7 +285,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    sv5 lo **mueve** al día nuevo con un `UPDATE` de esa misma línea (fecha,
    synckey y, si cambia de mes u obra, parte), nunca `DELETE` ni otro CIZ;
    la línea que lo tenía queda `omitido` con motivo `fin_movido`. Un CIZ ya
-   posterior ⇒ `intermedio`; en un parte cerrado ⇒ `ciz_en_parte_cerrado`;
+   posterior ⇒ `intermedio` (desde F-083, cualquier línea de la racha
+   posterior en Sigrid, sea cual sea su código, deja el día como
+   intermedio, y un CIZ cambiado a mano deja la racha sin fin: WARNING
+   `racha_fin_no_ciz`, y el `inicio` tampoco escribe su CIZ hermano); en un parte cerrado ⇒ `ciz_en_parte_cerrado`;
    enlazado ⇒ `linea_enlazada`. Un trabajo o un inicio aprobado antes de
    una incidencia ya registrada solo avisa (`racha_desordenada`). Apagado
    en sv4, el rol es el de antes de F-060 (`intermedio` si el siguiente día
