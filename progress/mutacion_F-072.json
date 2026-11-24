@@ -1,0 +1,2018 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-072",
+ "sha": "afaf5e3f89efc81980fbc4a4f908c916fbc97d39",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 604,
+ "candidatos": 370,
+ "evaluados": [
+  {
+   "fichero": "services/partes-api/application/services/obra_sigrid.py",
+   "linea": 73,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if self._marcas is not None and leer_forma(codigo, self._marcas):",
+   "mutado": "if self._marcas and leer_forma(codigo, self._marcas):",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 46,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 67,
+   "col": 50,
+   "operador": "logico",
+   "original": "return [h for h in _nodos(hojas) if h.es_hoja and h.activa]",
+   "mutado": "return [h for h in _nodos(hojas) if h.es_hoja or h.activa]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 81,
+   "col": 15,
+   "operador": "minmax",
+   "original": "return min(exactas, key=lambda h: h.ide)",
+   "mutado": "return max(exactas, key=lambda h: h.ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 84,
+   "col": 18,
+   "operador": "logico",
+   "original": "and normalizar(h.cod)[len(cod):].isalpha()]",
+   "mutado": "or normalizar(h.cod)[len(cod):].isalpha()]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 85,
+   "col": 7,
+   "operador": "not",
+   "original": "if not con_letras:",
+   "mutado": "if con_letras:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 87,
+   "col": 11,
+   "operador": "minmax",
+   "original": "return min(con_letras, key=lambda h: (len(normalizar(h.cod)),",
+   "mutado": "return max(con_letras, key=lambda h: (len(normalizar(h.cod)),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 94,
+   "col": 30,
+   "operador": "logico",
+   "original": "m = _NUMERO.match(str(cod or \"\").strip())",
+   "mutado": "m = _NUMERO.match(str(cod and \"\").strip())",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 101,
+   "col": 49,
+   "operador": "veracidad",
+   "original": "return bool(hoja.es_hoja and hoja.activa and numero is not None",
+   "mutado": "return bool(hoja.es_hoja and hoja.activa and numero",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 102,
+   "col": 27,
+   "operador": "comparacion",
+   "original": "and numero >= desde)",
+   "mutado": "and numero > desde)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 112,
+   "col": 7,
+   "operador": "not",
+   "original": "if not objetivo:",
+   "mutado": "if objetivo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 116,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if iguales:",
+   "mutado": "if not iguales:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 118,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _NUMERO.fullmatch(str(leido).strip()):",
+   "mutado": "if _NUMERO.fullmatch(str(leido).strip()):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 121,
+   "col": 58,
+   "operador": "comparacion",
+   "original": "mismo = [p for p in partidas if numero_inicial(p.cod) == numero]",
+   "mutado": "mismo = [p for p in partidas if numero_inicial(p.cod) != numero]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 122,
+   "col": 34,
+   "operador": "comparacion",
+   "original": "return mismo[0] if len(mismo) == 1 else None",
+   "mutado": "return mismo[0] if len(mismo) != 1 else None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 152,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 176,
+   "col": 7,
+   "operador": "not",
+   "original": "if not var_cod:",
+   "mutado": "if var_cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 178,
+   "col": 31,
+   "operador": "comparacion",
+   "original": "texto = str(desde if desde is not None else \"\").strip()",
+   "mutado": "texto = str(desde if desde is None else \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 179,
+   "col": 7,
+   "operador": "not",
+   "original": "if not (texto.isascii() and texto.isdigit()):",
+   "mutado": "if (texto.isascii() and texto.isdigit()):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 199,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 217,
+   "col": 7,
+   "operador": "not",
+   "original": "if not sep or len(marca) == 1:",
+   "mutado": "if sep or len(marca) == 1:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 219,
+   "col": 11,
+   "operador": "booleano",
+   "original": "return True",
+   "mutado": "return False",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 236,
+   "col": 18,
+   "operador": "comparacion",
+   "original": "if exacta == marca:",
+   "mutado": "if exacta != marca:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 242,
+   "col": 17,
+   "operador": "logico",
+   "original": "if m and _resto_valido(marca, m.group(\"sep\"), m.group(\"resto\")):",
+   "mutado": "if m or _resto_valido(marca, m.group(\"sep\"), m.group(\"resto\")):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 252,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 254,
+   "col": 29,
+   "operador": "comparacion",
+   "original": "if normalizar(postventa) == cod:",
+   "mutado": "if normalizar(postventa) != cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-api/application/services/obras_agrupadas.py",
+   "linea": 256,
+   "col": 23,
+   "operador": "comparacion",
+   "original": "if normalizar(var) == cod:",
+   "mutado": "if normalizar(var) != cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 41,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 63,
+   "col": 34,
+   "operador": "ternario",
+   "original": "nodos = hojas.values() if isinstance(hojas, dict) else hojas",
+   "mutado": "nodos = hojas.values() if not isinstance(hojas, dict) else hojas",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 70,
+   "col": 15,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 75,
+   "col": 40,
+   "operador": "aritmetico",
+   "original": "for corte in range(len(cod) - 1, 0, -1):",
+   "mutado": "for corte in range(len(cod) + 1, 0, -1):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 80,
+   "col": 34,
+   "operador": "logico",
+   "original": "if previa is None or _orden(h) < _orden(previa):",
+   "mutado": "if previa is None and _orden(h) < _orden(previa):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 85,
+   "col": 11,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 87,
+   "col": 38,
+   "operador": "logico",
+   "original": "return self._exactas.get(cod) or self._con_letras.get(cod)",
+   "mutado": "return self._exactas.get(cod) and self._con_letras.get(cod)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 97,
+   "col": 54,
+   "operador": "entero",
+   "original": "ajustes: Ajustes, ttl_seconds: int = 600) -> None:",
+   "mutado": "ajustes: Ajustes, ttl_seconds: int = 601) -> None:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 114,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if not obra_ide or not partida_ide:",
+   "mutado": "if not (not obra_ide or not partida_ide):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 121,
+   "col": 24,
+   "operador": "comparacion",
+   "original": "if self._sigrid is None or not self._ajustes.activo:",
+   "mutado": "if self._sigrid is not None or not self._ajustes.activo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 125,
+   "col": 33,
+   "operador": "comparacion",
+   "original": "if (self._cargado_en is not None",
+   "mutado": "if (self._cargado_en is None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 148,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if tipo:",
+   "mutado": "if not tipo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 154,
+   "col": 70,
+   "operador": "logico",
+   "original": "agrupadas.items(), key=lambda kv: (kv[0][0], kv[0][1] or 0)):",
+   "mutado": "agrupadas.items(), key=lambda kv: (kv[0][0], kv[0][1] and 0)):",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 155,
+   "col": 26,
+   "operador": "comparacion",
+   "original": "if len(lista) != 1:",
+   "mutado": "if len(lista) == 1:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 164,
+   "col": 20,
+   "operador": "comparacion",
+   "original": "if tipo == VAR:",
+   "mutado": "if tipo != VAR:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 165,
+   "col": 52,
+   "operador": "logico",
+   "original": "desde = int(self._ajustes.var_desde or 0)",
+   "mutado": "desde = int(self._ajustes.var_desde and 0)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/catalogo_entradas.py",
+   "linea": 179,
+   "col": 51,
+   "operador": "logico",
+   "original": "h.res or x.nombre))",
+   "mutado": "h.res and x.nombre))",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/franquicia.py",
+   "linea": 233,
+   "col": 14,
+   "operador": "comparacion",
+   "original": "if metodo in MARCAS_ENTRADA:",
+   "mutado": "if metodo not in MARCAS_ENTRADA:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/franquicia.py",
+   "linea": 244,
+   "col": 7,
+   "operador": "not",
+   "original": "if not out.get(\"partida_ide\"):",
+   "mutado": "if out.get(\"partida_ide\"):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/franquicia.py",
+   "linea": 246,
+   "col": 43,
+   "operador": "entero",
+   "original": "clave = (int(out.get(\"recurso_ide\") or 0), out.get(\"obra_ide\"),",
+   "mutado": "clave = (int(out.get(\"recurso_ide\") or 1), out.get(\"obra_ide\"),",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/franquicia.py",
+   "linea": 249,
+   "col": 38,
+   "operador": "logico",
+   "original": "if ((int(x.get(\"recurso_ide\") or 0), x.get(\"obra_ide\"),",
+   "mutado": "if ((int(x.get(\"recurso_ide\") and 0), x.get(\"obra_ide\"),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/franquicia.py",
+   "linea": 250,
+   "col": 41,
+   "operador": "entero",
+   "original": "int(x.get(\"partida_ide\") or 0)) == clave",
+   "mutado": "int(x.get(\"partida_ide\") or 1)) == clave",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/franquicia.py",
+   "linea": 251,
+   "col": 16,
+   "operador": "logico",
+   "original": "and x.get(\"partida_metodo\") in MARCAS_ENTRADA):",
+   "mutado": "or x.get(\"partida_metodo\") in MARCAS_ENTRADA):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 40,
+   "col": 38,
+   "operador": "not",
+   "original": "return \"\".join(c for c in nfkd if not unicodedata.combining(c))",
+   "mutado": "return \"\".join(c for c in nfkd if unicodedata.combining(c))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 46,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 54,
+   "col": 7,
+   "operador": "not",
+   "original": "if not x:",
+   "mutado": "if x:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 63,
+   "col": 22,
+   "operador": "logico",
+   "original": "return list(hojas or ())",
+   "mutado": "return list(hojas and ())",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 67,
+   "col": 50,
+   "operador": "logico",
+   "original": "return [h for h in _nodos(hojas) if h.es_hoja and h.activa]",
+   "mutado": "return [h for h in _nodos(hojas) if h.es_hoja or h.activa]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 79,
+   "col": 58,
+   "operador": "comparacion",
+   "original": "exactas = [h for h in candidatas if normalizar(h.cod) == cod]",
+   "mutado": "exactas = [h for h in candidatas if normalizar(h.cod) != cod]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 80,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if exactas:",
+   "mutado": "if not exactas:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 81,
+   "col": 15,
+   "operador": "minmax",
+   "original": "return min(exactas, key=lambda h: h.ide)",
+   "mutado": "return max(exactas, key=lambda h: h.ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 84,
+   "col": 18,
+   "operador": "logico",
+   "original": "and normalizar(h.cod)[len(cod):].isalpha()]",
+   "mutado": "or normalizar(h.cod)[len(cod):].isalpha()]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 85,
+   "col": 7,
+   "operador": "not",
+   "original": "if not con_letras:",
+   "mutado": "if con_letras:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 87,
+   "col": 11,
+   "operador": "minmax",
+   "original": "return min(con_letras, key=lambda h: (len(normalizar(h.cod)),",
+   "mutado": "return max(con_letras, key=lambda h: (len(normalizar(h.cod)),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 94,
+   "col": 30,
+   "operador": "logico",
+   "original": "m = _NUMERO.match(str(cod or \"\").strip())",
+   "mutado": "m = _NUMERO.match(str(cod and \"\").strip())",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 101,
+   "col": 49,
+   "operador": "veracidad",
+   "original": "return bool(hoja.es_hoja and hoja.activa and numero is not None",
+   "mutado": "return bool(hoja.es_hoja and hoja.activa and numero",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 112,
+   "col": 7,
+   "operador": "not",
+   "original": "if not objetivo:",
+   "mutado": "if objetivo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 115,
+   "col": 56,
+   "operador": "comparacion",
+   "original": "iguales = [p for p in partidas if normalizar(p.cod) == objetivo]",
+   "mutado": "iguales = [p for p in partidas if normalizar(p.cod) != objetivo]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 117,
+   "col": 15,
+   "operador": "minmax",
+   "original": "return min(iguales, key=lambda p: p.ide)",
+   "mutado": "return max(iguales, key=lambda p: p.ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 118,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _NUMERO.fullmatch(str(leido).strip()):",
+   "mutado": "if _NUMERO.fullmatch(str(leido).strip()):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 144,
+   "col": 22,
+   "operador": "logico",
+   "original": "cod = str(cod or \"\").strip().upper()",
+   "mutado": "cod = str(cod and \"\").strip().upper()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 147,
+   "col": 42,
+   "operador": "aritmetico",
+   "original": "return tuple(dict.fromkeys((cod,) + _lista(alias)))",
+   "mutado": "return tuple(dict.fromkeys((cod,) - _lista(alias)))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 152,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 166,
+   "col": 39,
+   "operador": "logico",
+   "original": "return bool(self.postventa_cod or self.var_cod)",
+   "mutado": "return bool(self.postventa_cod and self.var_cod)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 199,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 211,
+   "col": 68,
+   "operador": "entero",
+   "original": "return sorted((p for p in pares if p[0]), key=lambda p: (-len(p[0]), p))",
+   "mutado": "return sorted((p for p in pares if p[0]), key=lambda p: (-len(p[1]), p))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 217,
+   "col": 7,
+   "operador": "not",
+   "original": "if not sep or len(marca) == 1:",
+   "mutado": "if sep or len(marca) == 1:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 230,
+   "col": 34,
+   "operador": "logico",
+   "original": "texto = _sin_tildes(str(leido or \"\")).upper().strip()",
+   "mutado": "texto = _sin_tildes(str(leido and \"\")).upper().strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 231,
+   "col": 7,
+   "operador": "not",
+   "original": "if not texto:",
+   "mutado": "if texto:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 236,
+   "col": 18,
+   "operador": "comparacion",
+   "original": "if exacta == marca:",
+   "mutado": "if exacta != marca:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 237,
+   "col": 49,
+   "operador": "ternario",
+   "original": "return Forma(tipo=tipo, resto=\"\") if len(marca) > 1 else None",
+   "mutado": "return Forma(tipo=tipo, resto=\"\") if not (len(marca) > 1) else None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 242,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if m and _resto_valido(marca, m.group(\"sep\"), m.group(\"resto\")):",
+   "mutado": "if not (m and _resto_valido(marca, m.group(\"sep\"), m.group(\"resto\"))):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 252,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 254,
+   "col": 29,
+   "operador": "comparacion",
+   "original": "if normalizar(postventa) == cod:",
+   "mutado": "if normalizar(postventa) != cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/obras_agrupadas.py",
+   "linea": 263,
+   "col": 12,
+   "operador": "comparacion",
+   "original": "if tipo == POSTVENTA:",
+   "mutado": "if tipo != POSTVENTA:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/reparto_aviso.py",
+   "linea": 205,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if c.get(\"partida_metodo\"):",
+   "mutado": "if not c.get(\"partida_metodo\"):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 841,
+   "col": 12,
+   "operador": "logico",
+   "original": "and reg.obra_ide is not None and bool(reg.partida_ide))",
+   "mutado": "or reg.obra_ide is not None and bool(reg.partida_ide))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 856,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if es_de_entrada(reg):",
+   "mutado": "if not es_de_entrada(reg):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 1405,
+   "col": 57,
+   "operador": "ternario",
+   "original": "codigo, nombre = (rotulo_entrada(reg) if es_de_entrada(reg)",
+   "mutado": "codigo, nombre = (rotulo_entrada(reg) if not es_de_entrada(reg)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 1516,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if es_de_entrada(head):     # F-072 (R24)",
+   "mutado": "if not es_de_entrada(head):     # F-072 (R24)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 2045,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if es_de_entrada(base):     # F-072 (R31): partida y marca",
+   "mutado": "if not es_de_entrada(base):     # F-072 (R31): partida y marca",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4178,
+   "col": 27,
+   "operador": "comparacion",
+   "original": "if entrada is not None:             # F-072 (R27)",
+   "mutado": "if entrada is None:             # F-072 (R27)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4182,
+   "col": 19,
+   "operador": "negacion",
+   "original": "if era_entrada:                     # F-072 (R29)",
+   "mutado": "if not era_entrada:                     # F-072 (R29)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4311,
+   "col": 48,
+   "operador": "comparacion",
+   "original": "if ref.partida_match_method in MARCAS_ENTRADA:",
+   "mutado": "if ref.partida_match_method not in MARCAS_ENTRADA:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4865,
+   "col": 21,
+   "operador": "veracidad",
+   "original": "if r.deleted_at_utc is None}",
+   "mutado": "if not r.deleted_at_utc}",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4867,
+   "col": 47,
+   "operador": "comparacion",
+   "original": "return claves.pop() if len(claves) == 1 else f\"mixta-{doc.id}\"",
+   "mutado": "return claves.pop() if len(claves) != 1 else f\"mixta-{doc.id}\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5086,
+   "col": 50,
+   "operador": "logico",
+   "original": "if clave_doc.startswith(\"mixta-\") and obra_key in {",
+   "mutado": "if clave_doc.startswith(\"mixta-\") or obra_key in {",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5088,
+   "col": 27,
+   "operador": "veracidad",
+   "original": "if r.deleted_at_utc is None}:",
+   "mutado": "if not r.deleted_at_utc}:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5094,
+   "col": 29,
+   "operador": "comparacion",
+   "original": "if clave_doc != obra_key:",
+   "mutado": "if clave_doc == obra_key:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5388,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if entrada is not None:",
+   "mutado": "if entrada:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2266,
+   "col": 31,
+   "operador": "comparacion",
+   "original": "if payload.partida_ide is not None:",
+   "mutado": "if payload.partida_ide is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2269,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if entrada is None:",
+   "mutado": "if not entrada:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2271,
+   "col": 32,
+   "operador": "entero",
+   "original": "status_code=422,",
+   "mutado": "status_code=423,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2278,
+   "col": 28,
+   "operador": "entero",
+   "original": "status_code=422,",
+   "mutado": "status_code=423,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2286,
+   "col": 47,
+   "operador": "comparacion",
+   "original": "**({\"entrada\": entrada} if entrada is not None else {}),",
+   "mutado": "**({\"entrada\": entrada} if entrada is None else {}),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 3209,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if settings.obras_agrupadas.tipo_de(fila.get(\"obra_codigo\")):",
+   "mutado": "if not settings.obras_agrupadas.tipo_de(fila.get(\"obra_codigo\")):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4234,
+   "col": 25,
+   "operador": "logico",
+   "original": "obra_ide_int and obra_catalog.enabled) else None",
+   "mutado": "obra_ide_int or obra_catalog.enabled) else None",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4242,
+   "col": 67,
+   "operador": "entero",
+   "original": "\"una de sus entradas.\"}, status_code=422)",
+   "mutado": "\"una de sus entradas.\"}, status_code=423)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4267,
+   "col": 50,
+   "operador": "logico",
+   "original": "else (data.get(\"obra_codigo\") or None,",
+   "mutado": "else (data.get(\"obra_codigo\") and None,",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4268,
+   "col": 50,
+   "operador": "logico",
+   "original": "data.get(\"obra_nombre\") or None))",
+   "mutado": "data.get(\"obra_nombre\") and None))",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4272,
+   "col": 33,
+   "operador": "entero",
+   "original": "obra_nombre=obra_txt[1],",
+   "mutado": "obra_nombre=obra_txt[2],",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 417,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if forma is None:",
+   "mutado": "if not forma:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 426,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if tipo is not None:",
+   "mutado": "if tipo:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 497,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if forma is None or not forma.resto:",
+   "mutado": "if not (forma is None or not forma.resto):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 500,
+   "col": 47,
+   "operador": "comparacion",
+   "original": "if ajustes.tipo_de(o.codigo) is None]",
+   "mutado": "if ajustes.tipo_de(o.codigo) is not None]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 501,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if reales:",
+   "mutado": "if not reales:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 518,
+   "col": 23,
+   "operador": "comparacion",
+   "original": "if res.partida is not None:",
+   "mutado": "if res.partida is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/pipelines/persist_parte_pipeline.py",
+   "linea": 526,
+   "col": 20,
+   "operador": "veracidad",
+   "original": "None if parte.entrada is None else parte.entrada.cod)",
+   "mutado": "None if not parte.entrada else parte.entrada.cod)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 58,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 95,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if forma.resto:",
+   "mutado": "if not forma.resto:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 98,
+   "col": 36,
+   "operador": "logico",
+   "original": "restos = sorted({(r.partida or \"\").strip() for r in parte.registros}",
+   "mutado": "restos = sorted({(r.partida and \"\").strip() for r in parte.registros}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 104,
+   "col": 64,
+   "operador": "comparacion",
+   "original": "con_entrada = {r.clave for r in resultados if r.partida is not None}",
+   "mutado": "con_entrada = {r.clave for r in resultados if r.partida is None}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 105,
+   "col": 41,
+   "operador": "veracidad",
+   "original": "if len(con_entrada) == 1 and all(r.partida is not None",
+   "mutado": "if len(con_entrada) == 1 and all(r.partida",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 111,
+   "col": 53,
+   "operador": "entero",
+   "original": "return _sin(motivos.pop() if len(motivos) == 1 else AGRUPADA_SIN_ENTRADA)",
+   "mutado": "return _sin(motivos.pop() if len(motivos) == 2 else AGRUPADA_SIN_ENTRADA)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 124,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if obra.ide is None:",
+   "mutado": "if not obra.ide:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 126,
+   "col": 46,
+   "operador": "entero",
+   "original": "desde = int(self.ajustes.var_desde or 0)",
+   "mutado": "desde = int(self.ajustes.var_desde or 1)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 130,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if partida is None:",
+   "mutado": "if not partida:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 140,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if x.ide is None or self.ajustes.tipo_de(x.codigo) is not None:",
+   "mutado": "if not x.ide or self.ajustes.tipo_de(x.codigo) is not None:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 143,
+   "col": 53,
+   "operador": "comparacion",
+   "original": "self.ajustes.postventa_cod) if o.empresa == x.empresa]",
+   "mutado": "self.ajustes.postventa_cod) if o.empresa != x.empresa]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 144,
+   "col": 27,
+   "operador": "comparacion",
+   "original": "if len(de_empresa) != 1:",
+   "mutado": "if len(de_empresa) == 1:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 160,
+   "col": 52,
+   "operador": "comparacion",
+   "original": "if hit is not None and (ahora - hit[0]) < self._ttl:",
+   "mutado": "if hit is not None and (ahora - hit[0]) <= self._ttl:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/entrada_agrupada.py",
+   "linea": 161,
+   "col": 27,
+   "operador": "entero",
+   "original": "return hit[1]",
+   "mutado": "return hit[2]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obra_matcher.py",
+   "linea": 64,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if clave(o.codigo):",
+   "mutado": "if not clave(o.codigo):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obra_matcher.py",
+   "linea": 79,
+   "col": 41,
+   "operador": "logico",
+   "original": "return list(self._by_clave.get(k or \"\", ()))",
+   "mutado": "return list(self._by_clave.get(k and \"\", ()))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 40,
+   "col": 38,
+   "operador": "not",
+   "original": "return \"\".join(c for c in nfkd if not unicodedata.combining(c))",
+   "mutado": "return \"\".join(c for c in nfkd if unicodedata.combining(c))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 46,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 54,
+   "col": 7,
+   "operador": "not",
+   "original": "if not x:",
+   "mutado": "if x:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 61,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if isinstance(hojas, dict):",
+   "mutado": "if not isinstance(hojas, dict):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 76,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 81,
+   "col": 15,
+   "operador": "minmax",
+   "original": "return min(exactas, key=lambda h: h.ide)",
+   "mutado": "return max(exactas, key=lambda h: h.ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 84,
+   "col": 18,
+   "operador": "logico",
+   "original": "and normalizar(h.cod)[len(cod):].isalpha()]",
+   "mutado": "or normalizar(h.cod)[len(cod):].isalpha()]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 87,
+   "col": 11,
+   "operador": "minmax",
+   "original": "return min(con_letras, key=lambda h: (len(normalizar(h.cod)),",
+   "mutado": "return max(con_letras, key=lambda h: (len(normalizar(h.cod)),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 101,
+   "col": 29,
+   "operador": "logico",
+   "original": "return bool(hoja.es_hoja and hoja.activa and numero is not None",
+   "mutado": "return bool(hoja.es_hoja or hoja.activa and numero is not None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 115,
+   "col": 56,
+   "operador": "comparacion",
+   "original": "iguales = [p for p in partidas if normalizar(p.cod) == objetivo]",
+   "mutado": "iguales = [p for p in partidas if normalizar(p.cod) != objetivo]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 116,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if iguales:",
+   "mutado": "if not iguales:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 117,
+   "col": 15,
+   "operador": "minmax",
+   "original": "return min(iguales, key=lambda p: p.ide)",
+   "mutado": "return max(iguales, key=lambda p: p.ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 118,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _NUMERO.fullmatch(str(leido).strip()):",
+   "mutado": "if _NUMERO.fullmatch(str(leido).strip()):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 125,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 145,
+   "col": 11,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 152,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 176,
+   "col": 7,
+   "operador": "not",
+   "original": "if not var_cod:",
+   "mutado": "if var_cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 178,
+   "col": 25,
+   "operador": "veracidad",
+   "original": "texto = str(desde if desde is not None else \"\").strip()",
+   "mutado": "texto = str(desde if desde else \"\").strip()",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 192,
+   "col": 44,
+   "operador": "logico",
+   "original": "vr = str(var_cod or \"\").strip().upper() or None",
+   "mutado": "vr = str(var_cod or \"\").strip().upper() and None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 211,
+   "col": 41,
+   "operador": "entero",
+   "original": "return sorted((p for p in pares if p[0]), key=lambda p: (-len(p[0]), p))",
+   "mutado": "return sorted((p for p in pares if p[1]), key=lambda p: (-len(p[0]), p))",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 217,
+   "col": 15,
+   "operador": "logico",
+   "original": "if not sep or len(marca) == 1:",
+   "mutado": "if not sep and len(marca) == 1:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 218,
+   "col": 22,
+   "operador": "entero",
+   "original": "return resto[:1].isdigit()",
+   "mutado": "return resto[:2].isdigit()",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 219,
+   "col": 11,
+   "operador": "booleano",
+   "original": "return True",
+   "mutado": "return False",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 230,
+   "col": 34,
+   "operador": "logico",
+   "original": "texto = _sin_tildes(str(leido or \"\")).upper().strip()",
+   "mutado": "texto = _sin_tildes(str(leido and \"\")).upper().strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 231,
+   "col": 7,
+   "operador": "not",
+   "original": "if not texto:",
+   "mutado": "if texto:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 242,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if m and _resto_valido(marca, m.group(\"sep\"), m.group(\"resto\")):",
+   "mutado": "if not (m and _resto_valido(marca, m.group(\"sep\"), m.group(\"resto\"))):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 252,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 256,
+   "col": 23,
+   "operador": "comparacion",
+   "original": "if normalizar(var) == cod:",
+   "mutado": "if normalizar(var) != cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/obras_agrupadas.py",
+   "linea": 263,
+   "col": 12,
+   "operador": "comparacion",
+   "original": "if tipo == POSTVENTA:",
+   "mutado": "if tipo != POSTVENTA:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/partida_conciliador.py",
+   "linea": 149,
+   "col": 51,
+   "operador": "logico",
+   "original": "metodo = r.get(\"partida_match_method\") or \"\"",
+   "mutado": "metodo = r.get(\"partida_match_method\") and \"\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/partida_conciliador.py",
+   "linea": 152,
+   "col": 16,
+   "operador": "veracidad",
+   "original": "if (self._ajustes is not None",
+   "mutado": "if (self._ajustes",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/partida_conciliador.py",
+   "linea": 153,
+   "col": 20,
+   "operador": "logico",
+   "original": "and self._ajustes.tipo_de(r.get(\"obra_codigo\"))):",
+   "mutado": "or self._ajustes.tipo_de(r.get(\"obra_codigo\"))):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/domain/models/parte_records.py",
+   "linea": 125,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1195,
+   "col": 15,
+   "operador": "not",
+   "original": "if not nuevos & viejos:",
+   "mutado": "if nuevos & viejos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1199,
+   "col": 29,
+   "operador": "comparacion",
+   "original": "if parte.entrada is not None and not _misma_entrada(",
+   "mutado": "if parte.entrada is None and not _misma_entrada(",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1202,
+   "col": 28,
+   "operador": "booleano",
+   "original": "old.is_active = False   # comparten trabajador -> reemplazo",
+   "mutado": "old.is_active = True   # comparten trabajador -> reemplazo",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1366,
+   "col": 29,
+   "operador": "comparacion",
+   "original": "return any(r.partida_ide == entrada.ide",
+   "mutado": "return any(r.partida_ide != entrada.ide",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1367,
+   "col": 15,
+   "operador": "logico",
+   "original": "and r.partida_match_method == entrada.tipo",
+   "mutado": "or r.partida_match_method == entrada.tipo",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1373,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if entrada is None:",
+   "mutado": "if not entrada:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/reajuste_pipeline.py",
+   "linea": 158,
+   "col": 28,
+   "operador": "booleano",
+   "original": "con_partida=True) if por_partida",
+   "mutado": "con_partida=False) if por_partida",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/reajuste_pipeline.py",
+   "linea": 164,
+   "col": 24,
+   "operador": "logico",
+   "original": "and not es_synckey_franquicia(ls.synckey)",
+   "mutado": "or not es_synckey_franquicia(ls.synckey)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 236,
+   "col": 30,
+   "operador": "not",
+   "original": "if ajustes is None or not ajustes.activo:",
+   "mutado": "if ajustes is None or ajustes.activo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 239,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if forzada:",
+   "mutado": "if not forzada:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 241,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if obra.ide:",
+   "mutado": "if not obra.ide:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 245,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if origen is None:",
+   "mutado": "if origen is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 248,
+   "col": 33,
+   "operador": "ternario",
+   "original": "return (tipo, origen) if tipo else None",
+   "mutado": "return (tipo, origen) if not tipo else None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 339,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if agrupada is not None:",
+   "mutado": "if agrupada:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 528,
+   "col": 21,
+   "operador": "logico",
+   "original": "and self._choques(lineas, a, mias, por_partida)), None)",
+   "mutado": "or self._choques(lineas, a, mias, por_partida)), None)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 689,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if por_partida:",
+   "mutado": "if not por_partida:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 691,
+   "col": 59,
+   "operador": "booleano",
+   "original": "con_partida=True)",
+   "mutado": "con_partida=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 696,
+   "col": 53,
+   "operador": "booleano",
+   "original": "mias: set[str], por_partida: bool = False",
+   "mutado": "mias: set[str], por_partida: bool = True",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 46,
+   "col": 7,
+   "operador": "not",
+   "original": "if not cod:",
+   "mutado": "if cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 80,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if exactas:",
+   "mutado": "if not exactas:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 85,
+   "col": 7,
+   "operador": "not",
+   "original": "if not con_letras:",
+   "mutado": "if con_letras:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 94,
+   "col": 30,
+   "operador": "logico",
+   "original": "m = _NUMERO.match(str(cod or \"\").strip())",
+   "mutado": "m = _NUMERO.match(str(cod and \"\").strip())",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 101,
+   "col": 29,
+   "operador": "logico",
+   "original": "return bool(hoja.es_hoja and hoja.activa and numero is not None",
+   "mutado": "return bool(hoja.es_hoja or hoja.activa and numero is not None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 112,
+   "col": 7,
+   "operador": "not",
+   "original": "if not objetivo:",
+   "mutado": "if objetivo:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 117,
+   "col": 15,
+   "operador": "minmax",
+   "original": "return min(iguales, key=lambda p: p.ide)",
+   "mutado": "return max(iguales, key=lambda p: p.ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 118,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _NUMERO.fullmatch(str(leido).strip()):",
+   "mutado": "if _NUMERO.fullmatch(str(leido).strip()):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 121,
+   "col": 58,
+   "operador": "comparacion",
+   "original": "mismo = [p for p in partidas if numero_inicial(p.cod) == numero]",
+   "mutado": "mismo = [p for p in partidas if numero_inicial(p.cod) != numero]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 122,
+   "col": 34,
+   "operador": "comparacion",
+   "original": "return mismo[0] if len(mismo) == 1 else None",
+   "mutado": "return mismo[0] if len(mismo) != 1 else None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 125,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 134,
+   "col": 54,
+   "operador": "logico",
+   "original": "return tuple(t.strip().upper() for t in str(texto or \"\").split(\",\")",
+   "mutado": "return tuple(t.strip().upper() for t in str(texto and \"\").split(\",\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 144,
+   "col": 22,
+   "operador": "logico",
+   "original": "cod = str(cod or \"\").strip().upper()",
+   "mutado": "cod = str(cod and \"\").strip().upper()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 147,
+   "col": 42,
+   "operador": "aritmetico",
+   "original": "return tuple(dict.fromkeys((cod,) + _lista(alias)))",
+   "mutado": "return tuple(dict.fromkeys((cod,) - _lista(alias)))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 166,
+   "col": 39,
+   "operador": "logico",
+   "original": "return bool(self.postventa_cod or self.var_cod)",
+   "mutado": "return bool(self.postventa_cod and self.var_cod)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 178,
+   "col": 31,
+   "operador": "comparacion",
+   "original": "texto = str(desde if desde is not None else \"\").strip()",
+   "mutado": "texto = str(desde if desde is None else \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 191,
+   "col": 27,
+   "operador": "logico",
+   "original": "pv = str(postventa_cod or \"\").strip().upper() or None",
+   "mutado": "pv = str(postventa_cod and \"\").strip().upper() or None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 192,
+   "col": 44,
+   "operador": "logico",
+   "original": "vr = str(var_cod or \"\").strip().upper() or None",
+   "mutado": "vr = str(var_cod or \"\").strip().upper() and None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 211,
+   "col": 68,
+   "operador": "entero",
+   "original": "return sorted((p for p in pares if p[0]), key=lambda p: (-len(p[0]), p))",
+   "mutado": "return sorted((p for p in pares if p[0]), key=lambda p: (-len(p[1]), p))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 217,
+   "col": 7,
+   "operador": "not",
+   "original": "if not sep or len(marca) == 1:",
+   "mutado": "if sep or len(marca) == 1:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 218,
+   "col": 22,
+   "operador": "entero",
+   "original": "return resto[:1].isdigit()",
+   "mutado": "return resto[:2].isdigit()",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 237,
+   "col": 60,
+   "operador": "comparacion",
+   "original": "return Forma(tipo=tipo, resto=\"\") if len(marca) > 1 else None",
+   "mutado": "return Forma(tipo=tipo, resto=\"\") if len(marca) >= 1 else None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 256,
+   "col": 23,
+   "operador": "comparacion",
+   "original": "if normalizar(var) == cod:",
+   "mutado": "if normalizar(var) != cod:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/obras_agrupadas.py",
+   "linea": 263,
+   "col": 12,
+   "operador": "comparacion",
+   "original": "if tipo == POSTVENTA:",
+   "mutado": "if tipo != POSTVENTA:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/pisado.py",
+   "linea": 64,
+   "col": 48,
+   "operador": "booleano",
+   "original": "mias: set[str], por_partida: bool = False) -> list[LineaSigrid]:",
+   "mutado": "mias: set[str], por_partida: bool = True) -> list[LineaSigrid]:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/pisado.py",
+   "linea": 77,
+   "col": 28,
+   "operador": "logico",
+   "original": "and (incidencia or tiene_horas(ls))",
+   "mutado": "and (incidencia and tiene_horas(ls))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/pisado.py",
+   "linea": 79,
+   "col": 17,
+   "operador": "logico",
+   "original": "or int(ls.paride or 0) == int(accion.paride or 0))]",
+   "mutado": "and int(ls.paride or 0) == int(accion.paride or 0))]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 115,
+   "col": 13,
+   "operador": "entero",
+   "original": "MAX_MOTIVO = 255",
+   "mutado": "MAX_MOTIVO = 256",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 134,
+   "col": 41,
+   "operador": "ternario",
+   "original": "donde = f\" de la obra {obra_cod}\" if obra_cod else \"\"",
+   "mutado": "donde = f\" de la obra {obra_cod}\" if not obra_cod else \"\"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 138,
+   "col": 9,
+   "operador": "not",
+   "original": "elif not linea.partida_ide:",
+   "mutado": "elif linea.partida_ide:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 141,
+   "col": 52,
+   "operador": "comparacion",
+   "original": "hoja = next((h for h in hojas if int(h.ide) == int(linea.partida_ide)),",
+   "mutado": "hoja = next((h for h in hojas if int(h.ide) != int(linea.partida_ide)),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 143,
+   "col": 56,
+   "operador": "logico",
+   "original": "cod = ((hoja.cod if hoja is not None else None) or linea.partida_cod",
+   "mutado": "cod = ((hoja.cod if hoja is not None else None) and linea.partida_cod",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 144,
+   "col": 15,
+   "operador": "logico",
+   "original": "or str(linea.partida_ide))",
+   "mutado": "and str(linea.partida_ide))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 148,
+   "col": 67,
+   "operador": "entero",
+   "original": "elif tipo == VAR and not es_partida_var(hoja, int(desde or 0)):",
+   "mutado": "elif tipo == VAR and not es_partida_var(hoja, int(desde or 1)):",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/domain/models/registro_models.py",
+   "linea": 241,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py",
+   "linea": 443,
+   "col": 45,
+   "operador": "logico",
+   "original": "ide=int(f[\"ide\"]), cod=(f[\"cod\"] or \"\").strip() or None,",
+   "mutado": "ide=int(f[\"ide\"]), cod=(f[\"cod\"] and \"\").strip() or None,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py",
+   "linea": 446,
+   "col": 35,
+   "operador": "logico",
+   "original": "activa=int(f[\"tipdes\"] or 0) == 0) for f in filas]",
+   "mutado": "activa=int(f[\"tipdes\"] and 0) == 0) for f in filas]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py",
+   "linea": 469,
+   "col": 28,
+   "operador": "booleano",
+   "original": "con_partida: bool = False,",
+   "mutado": "con_partida: bool = True,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py",
+   "linea": 489,
+   "col": 12,
+   "operador": "aritmetico",
+   "original": "+ f\"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END \"",
+   "mutado": "- f\"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END \"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/infrastructure/sigrid/sigrid_write_client.py",
+   "linea": 505,
+   "col": 47,
+   "operador": "entero",
+   "original": "paride=(int(f.get(\"paride\") or 0) or None) if con_partida",
+   "mutado": "paride=(int(f.get(\"paride\") or 1) or None) if con_partida",
+   "veredicto": "superviviente"
+  }
+ ]
+}

@@ -117,6 +117,21 @@ class MotivoLectura:
 
 
 # ------------------------------------------------------------------ #
+# F-072: la ENTRADA de una obra agrupada (postventa o VAR): la partida de
+# la obra agrupada que llevan todas las lineas del parte, y su marca
+# (`tipo` = `partida_match_method`: postventa | var). Sin columnas nuevas
+# (DA5): `save_parte` la escribe en los `partida_*` de cada linea.
+# ------------------------------------------------------------------ #
+@dataclass(frozen=True)
+class EntradaPartida:
+    ide: int
+    cod: Optional[str]
+    res: Optional[str]
+    capitulo: Optional[str]
+    tipo: str
+
+
+# ------------------------------------------------------------------ #
 # Parte diario normalizado.
 # ------------------------------------------------------------------ #
 @dataclass
@@ -158,6 +173,10 @@ class ParteDocumento:
     # sobre el payload de sv2. No vacia => review_required. Vacia en los
     # partes sin nada que objetar y en los anteriores a F-051.
     lectura_dudosa: list[MotivoLectura] = field(default_factory=list)
+
+    # F-072 (R14-R16): la entrada casada si el parte es de una obra
+    # agrupada; None en los demas (y en los anteriores a F-072).
+    entrada: Optional[EntradaPartida] = None
 
 
 # ------------------------------------------------------------------ #

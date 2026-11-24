@@ -4,7 +4,129 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: ninguna. Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar). Siguiente: **F-083**.
+
+## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
+
+- T28: 222 evaluados, 178 muertos, 44 supervivientes; 31 muertos con tests nuevos y 13
+  **equivalentes aceptados** por el humano el 2026-11-24 («acepto los 13 equivalentes de F-072»).
+- T29–T31: hechas por el implementer a petición del humano («haz tu las pruebas»), en verde
+  (`progress/manual_F-072.md`). Sigrid limpia (PT26/00417 borrado); partes de prueba en papelera.
+  Sin cotejar: el preview real de porcentajes (lectura de `dedicacion` denegada).
+- Reviewer, pasada de evidencias: **APPROVED** (d6aa07a), `init.sh` en verde, cobertura 99,7 %.
+- Falta: push de `dev` y despliegue (encendido sv5 → sv3 → sv2 → sv4,
+  avisar a porcentajes).
+
+## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081
+
+- **F-083** (alta, `todo`, crítico, prioridad 1: la siguiente a implementar por decisión del humano, «f83 ponla la siguiente a implementar»). Caso del correo de Administración de obra (0730, vacaciones 18-20/11): el CIZ del 20 se cambió a mano a CIV en Sigrid y, al reaprobar el 19 («omitido · intermedio»), sv5 no encontró CIZ posterior y escribió uno el 19. Spec lanzada en la copia `partes-wt-f083` (rama `feature/F-083-ciz-solo-fin-de-racha`).
+- **F-081**: spec aprobada por el humano el 2026-11-23 (D1-D8 como se recomendaba; commit db01b37 en su rama, copia `partes-wt-f081`). Espera a F-082 (T15 depende de ella).
+
+## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.
+
+**Implementer, tras el desbloqueo.** Enmienda (b) hecha y commiteada: RED 6aef54d y código
+b66a749 (sv4 manda `partida_metodo` de la línea base; sv5 lo lleva a `LineaEntrada` en reajuste
+y franquicia). Después, T16–T27: conflictos por partida, catálogo de entradas, repositorio y
+endpoints de sv4, `app.js`, documentación y `azure-apps` (cd58cab, sin push). T32 en verde:
+`init.sh` da ENTORNO LISTO y la cobertura, 99,3 %. T28–T31 son para el líder y el humano. Interpretaciones
+(i)–(x), en `progress/impl_F-072.md`.
+
+### Bloqueo original 2026-11-21 (implementer, en T16): la guarda de sv5 omite reajustes y franquicias
+
+**Hecho y commiteado** (rama `feature/F-072-postventa-var-como-obras`), T1–T15:
+- el gemelo `obras_agrupadas.py` en sv2–sv5, con los ajustes y los tests R4–R11 y R41;
+- sv2: la marca, sin consulta de obra, y el prompt;
+- sv3: el casado de la entrada, `save_parte` y la conciliación (R14–R22, R42, R43);
+- sv5 T14–T15 (f4ea30d): `partidas_de_obra`, `LineaEntrada.partida_metodo`,
+  `motivo_partida_agrupada` y el paso 2d de `RegistroPipeline.preparar` (R36, R37, R39).
+- Suites en verde: sv5 1665 passed (suite completa), sv3 2943 passed y 2 skipped, sv2 465 passed.
+- Las trazas RED de T1–T14 están guardadas. El informe `progress/impl_F-072.md` aún no está escrito.
+
+**Motivo: la spec se contradice.** Design §6 pone la guarda (R36) en `RegistroPipeline.preparar`. Una
+línea sin `partida_metodo` de entrada se omite. Pero design §10 dice que no se tocan
+`reajuste_pipeline.py` ni `franquicia_pipeline.py`, «que copian obra y partida de líneas que ya
+pasaron la guarda». No es así: los dos llaman a `preparar` con una `LineaEntrada` que construyen
+ellos, con `partida_ide` y `partida_cod` y **sin** `partida_metodo`. `FranquiciaIn` y
+`LineaReajusteIn` ni siquiera tienen el campo. Con las agrupadas encendidas, en POSTV2 y en VAR:
+- la franquicia de un trabajador cuyo día de ajuste cae en una entrada se omite;
+- las extras nuevas del reajuste también, con `partida_agrupada: sin entrada var: …`.
+
+Comprobado con el `preparar` real y los dobles de `tests/f072_comun.py`: la extra
+`(obra VAR, partida 91012 «29»)` sale con `omitir`. Arreglarlo sin decidir es improvisar: o se
+tocan ficheros que §10 excluye, o se cambia el contrato sv4→sv5.
+
+**Opciones** (para el líder y el humano):
+- **(a)** `preparar(…, guarda_agrupada=True)`, y reajuste y franquicia pasan `False`. Toca los 2
+  ficheros de §10, unas 2 líneas cada uno. En esas dos vías solo se comprueba la marca; la hoja
+  activa y el universo VAR también se dejarían de comprobar.
+- **(b)** Llevar `partida_metodo` por `FranquiciaIn`, `LineaReajusteIn` y `OpReajuste`, y que sv4
+  lo mande desde la línea base. La guarda se aplica siempre, como dice R36. Toca sv4 (los
+  payloads de reajuste y franquicia) y los 2 pipelines de sv5.
+- **(c)** Dejarlo así y documentarlo como límite: en las obras agrupadas no hay reajuste de
+  extras nuevas ni franquicia; sv4 ve el motivo `partida_agrupada:` de la línea.
+- **Recomendación: (b).** Es la única que mantiene R36 para toda escritura en una obra agrupada.
+  (a) es la más barata.
+
+**Interpretaciones ya aplicadas, para que el reviewer las valide.** Irán también en el informe:
+- **(i)** Los alias solo se leen en sv2 y sv3 (design §5–§6), pese al R1 literal.
+- **(ii)** El segundo paso de `casar_var` es «la única con el mismo número inicial», al pie de
+  la letra.
+- **(iii)** En la forma base, un resultado mixto da `agrupada_varias_entradas`; varios fallos
+  distintos dan `agrupada_sin_entrada`.
+- **(iv)** Desviación justificada: el reemplazo del mismo día de `save_parte` (sv3) cuenta
+  también la entrada. Si no, dos entradas del mismo día se pisarían.
+- **(v)** `tests/test_f038_lectores_sigrid.py` (raíz) lista ficheros, no métodos.
+  `partidas_de_obra` vive en `sigrid_write_client.py`, que ya está en la lista. R39 se prueba en
+  `test_f072_guarda.py` (`max_rows` y `truncated`) y el guardián de raíz no cambia.
+- **(vi)** Para T17, `lineas_existentes` solo leerá `hmores.paride` cuando se le pida, con un
+  parámetro nuevo. Si lo lee siempre, rompe `test_f053_cliente_anular.py::…sql_exacto`, un test
+  anterior que T25 prohíbe tocar. Comprobado: cae.
+
+**`bash harness/init.sh` al bloquear** (2026-11-21): 2 fallos.
+- **Raíz**: `test_f019_r22_…timeout_literal` caía por el `timeout=120` literal de
+  `tests/test_f072_equivalencia_porcentajes.py`. Ya está arreglado con `escalar_timeout`, en
+  0159869: 54/54.
+- **PUERTA COBERTURA**: 81,4 % (669/822) contra el 90 % de `critico`. Es esperable a mitad de la
+  feature. En esa pasada la suite de raíz paró en el primer fallo. Además, las copias del gemelo
+  en sv2, sv4 y sv5 solo las ejercitan en parte sus propias suites. Se mide de nuevo en T32.
+
+El resto, en verde: sv2 por caché, sv3 2943 passed y 2 skipped, sv4 3824 passed y sv5 1665
+passed; PUERTA TAMAÑO también en verde: impl 88/220.
+
+**Para retomar:** con la opción decidida, seguir por T16 (con el arreglo de la opción, si toca
+código), y luego T17–T27 y T32. T28–T31 quedan para el líder y el humano.
+
+## F-072 · spec escrita 2026-11-20 (pendiente de aprobación)
+
+La spec está en `specs/F-072-postventa-var-como-obras/` (requirements 150/150, design 248/250,
+T1–T32). El resumen, los hallazgos y las decisiones están en `progress/spec_F-072.md`. Rigor
+crítico.
+
+Las decisiones abiertas para el humano son DA1–DA12, todas con recomendación (a):
+- forma en el papel;
+- alias de postventa;
+- sv2 sin relectura;
+- un gemelo nuevo en la lista cerrada (sv3, sv4 y sv5);
+- la entrada guardada sin columnas;
+- obra cerrada solo como postventa (no aplica);
+- VAR y POSTV2 fuera del selector normal;
+- conflictos de sv5 por partida;
+- partes ya guardados;
+- bandeja sin cambios;
+- configuración sin valores por defecto;
+- sincronizar una entrada (fuera).
+
+Conviene tener M0 (T29, consulta de solo lectura) antes de cerrar DA1 y DA9.
+
+**Enmienda del humano del 2026-11-20** («V y número, POST y número, y variantes»), incorporada a
+la spec:
+- R41–R43;
+- DA2 con los alias `POST` y `V`;
+- DA13 nueva (colisión con una obra real: `150702-V` y la antigua `POSTV`);
+- el gemelo pasa también a sv2.
+
+La lectura de Sigrid (solo lectura) encontró `POSTV2` y `VAR` en las empresas 1 y 28. Detalle en
+`progress/spec_F-072.md`.
 
 ## F-078 · DONE 2026-11-20, sin desplegar (alias DORSAN de la empresa 28)
 
@@ -156,3 +278,48 @@ Pendiente del humano (nada de esto lo hace el arnés):
 
 
 ## F-078 · human_review 2026-11-19 (express): alias DORSAN de la empresa 28 en empresas_membrete.yaml; informe en `progress/impl_F-078.md`.
+
+## F-072 · spec_ready 2026-11-20 (pendiente de aprobación del humano)
+
+Spec en `specs/F-072-postventa-var-como-obras/` (requirements 150, design 248, T1–T32; T29–T31
+manuales); resumen y DA1–DA12 en `progress/spec_F-072.md`. Rigor `critico`. F-071 en `todo`.
+M3 de F-077 hecha (despliegue apagado de sv3 y sv4 con F-032, F-077 y F-078, 2026-11-20).
+
+## F-072 · in_progress 2026-11-21 (spec aprobada por el humano: «ok», DA1–DA13 en (a))
+
+Lo decidido está en la columna «Decidido» de design §13. Siguiente: implementer (rigor `critico`).
+
+## F-072 · in_review 2026-11-21 (líder)
+
+Implementer: T1–T27 y T32 hechas (`progress/impl_F-072.md`); `init.sh` en verde, cobertura 99,3 %
+(1065/1072). `azure-apps` cd58cab sin push. Siguiente: reviewer principal; después, campaña (T28).
+
+## F-072 · vuelta a in_progress 2026-11-21 (review 1 CHANGES_REQUESTED)
+
+`progress/review_F-072.md`: cambios 1–2 al implementer (sv4 `catalogo_entradas.py`:
+`partida_capitulo` con la categoría y tests del desempate de `IndicePostventa`); cambio 3 (este
+apunte) hecho por el líder. Decisiones abiertas para el humano: **D1** (segundo paso de
+`casar_var`, R8) y **D2** (falso conflicto en `ReajustePipeline._choques`). Spec y tareas:
+`specs/F-072-postventa-var-como-obras/tasks.md`; informe: `progress/impl_F-072.md`.
+
+Manuales pendientes del humano (comandos completos en `tasks.md`):
+- **T29 · M0** (antes de encender): consulta de solo lectura a la base `partes` sobre
+  `parte_documents` (partes en POSTV2/VAR o con marca leída).
+- **T30 · M1**: sv4 en local con `POSTVENTA_OBRA_COD=POSTV2 VAR_OBRA_COD=VAR
+  VAR_PARTIDA_DESDE=29`; contar `/api/sigrid/obras` por agrupada y empresa y comparar con el
+  preview de dedicación de porcentajes.
+- **T31 · M2**: portal en local en modo pruebas (obra 0404, `OBRA_PRUEBAS_FORZAR=true`): un parte a
+  `VAR-<n>` y otro a `Postv-<obra>`, aprobar, `prueba_escritura_sigrid.py verificar`, una línea
+  sin marca en POSTV2 omitida con `partida_agrupada:`, y `prueba_escritura_sigrid.py limpiar --ejecutar`.
+
+## F-072 · enmienda 2026-11-23 (humano: «D1 c, D2 a»)
+
+R8 (segundo paso de `casar_var` solo si lo leído es solo un número) y R38 (también
+`ReajustePipeline._choques`) enmendados en requirements y design; nueva T33 en `tasks.md`. Los
+cambios 1–2 de la review 1 ya están (67d48e4). Siguiente: implementer con T33; luego reviewer
+(pasada 2) y campaña.
+
+## F-072 · in_review 2026-11-23 (líder): pasada 2 del reviewer
+
+Cambios 1–2 de la review 1 (67d48e4) y T33 (enmienda D1 c / D2 a, 1adb0d2) hechos; `init.sh` en
+verde, cobertura 99,7 %. Siguiente: reviewer pasada 2; después, campaña (T28).

@@ -61,11 +61,12 @@ def es_incidencia(hora_codigo: str | None) -> bool:
 
 
 def choques(lineas: Iterable[LineaSigrid], accion: AccionLinea,
-            mias: set[str]) -> list[LineaSigrid]:
+            mias: set[str], por_partida: bool = False) -> list[LineaSigrid]:
     """Lineas AJENAS del mismo recurso, dia y CODIGO DE HORA que la accion
     (pisar las ordinarias de un dia no toca sus extra) y, salvo que la
     accion sea una incidencia, con horas (R5). F-056 (R31): nunca la linea
-    de ajuste de una franquicia."""
+    de ajuste de una franquicia. F-072 (R38, DA8): con `por_partida` (obra
+    agrupada: cada entrada es una obra), ademas la MISMA partida."""
     incidencia = es_incidencia(accion.hora_codigo)
     return [ls for ls in lineas
             if ls.reside == accion.recurso_ide
@@ -73,7 +74,9 @@ def choques(lineas: Iterable[LineaSigrid], accion: AccionLinea,
             and int(ls.horide or 0) == int(accion.hora_ide or 0)
             and not (ls.synckey and ls.synckey in mias)
             and not es_synckey_franquicia(ls.synckey)
-            and (incidencia or tiene_horas(ls))]
+            and (incidencia or tiene_horas(ls))
+            and (not por_partida
+                 or int(ls.paride or 0) == int(accion.paride or 0))]
 
 
 def origen_linea(synckey: str | None) -> str:

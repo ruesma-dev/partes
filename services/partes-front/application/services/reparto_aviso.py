@@ -201,5 +201,8 @@ def payload_reajuste(fila: Mapping, reservas: Mapping | None) -> dict:
                  "despues": c["despues"],
                  "base_registro_id": int(c["base_registro_id"])}
         linea.update({k: c.get(k) for k in _CAMPOS_NUEVA})
+        # F-072 (enmienda b): la marca de entrada de la base, si la hay.
+        if c.get("partida_metodo"):
+            linea["partida_metodo"] = c["partida_metodo"]
         lineas.append(linea)
     return {"lineas": lineas}

@@ -28,6 +28,7 @@ from application.pipelines.persist_parte_pipeline import (
     PersistParteRequest,
 )
 from application.services.empresa_membrete import parsear_alias
+from application.services.entrada_agrupada import ResolutorEntradas
 from application.services.parte_normalizer import ParteNormalizer
 from application.services.partida_conciliador import PartidaConciliador
 from application.services.jornada_resolver import parsear_mapa_semanal
@@ -212,6 +213,8 @@ def construir_casado_sigrid(
     partida_conciliador = PartidaConciliador(
         repository=repository,
         lookup=sigrid_client,
+        # F-072 (R20): las lineas sin marca de una obra agrupada, a `sin`.
+        ajustes=settings.obras_agrupadas,
     )
     # Conciliacion de recurso/parte de trabajo (mismo cliente Sigrid:
     # lee reshor + hmo por obra; las fichas y recursos, del indice del
@@ -238,6 +241,21 @@ def construir_casado_sigrid(
     )
     return (sigrid_client, matcher_provider, partida_conciliador,
             recurso_conciliador)
+
+
+def construir_entradas(settings: Settings,
+                       sigrid_client: Any) -> ResolutorEntradas | None:
+    """F-072: el resolutor de entradas de obras agrupadas, con el MISMO
+    cliente de Sigrid del casado. None sin Sigrid o con postventa y VAR
+    apagados (R3: el casado de obra es el de siempre)."""
+    ajustes = settings.obras_agrupadas
+    if sigrid_client is None or not ajustes.activo:
+        logger.info("[svc3][wiring] obras agrupadas APAGADAS")
+        return None
+    logger.info(
+        "[svc3][wiring] obras agrupadas ENCENDIDAS postventa=%s var=%s "
+        "desde=%s", ajustes.postventa_cod, ajustes.var_cod, ajustes.var_desde)
+    return ResolutorEntradas(lookup=sigrid_client, ajustes=ajustes)
 
 
 def build_app(settings: Settings) -> FastAPI:
@@ -328,6 +346,7 @@ def build_app(settings: Settings) -> FastAPI:
         recurso_conciliador=recurso_conciliador,
         recalculo_seguimiento=recalculo_seguimiento,
         refresco_festivos=refresco_festivos,
+        entradas=construir_entradas(settings, sigrid_client),
     )
 
     # ----------------------------------------------------------- #

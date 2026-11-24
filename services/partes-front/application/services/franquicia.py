@@ -36,6 +36,7 @@ from application.services.calendar_builder import (
 )
 from application.services.clase_hora import es_hora_extra
 from application.services.congelacion import CongeladoError
+from application.services.obras_agrupadas import MARCAS_ENTRADA
 
 #: Estados de `franquicia_ajuste` (los mismos que `ESTADOS_FRANQUICIA` del
 #: ORM; aqui sin importar infraestructura).
@@ -218,10 +219,38 @@ def elegir_obra(lineas_dia: Iterable[Mapping],
     linea = min((x for x in base if _obra(x) == obra),
                 key=lambda x: (-float(x["horas"]),
                                int(x.get("registro_id") or 0)))
-    return {"obra_ide": linea.get("obra_ide"),
-            "obra_codigo": linea.get("obra_codigo"),
-            "partida_ide": linea.get("partida_ide"),
-            "partida_cod": linea.get("partida_cod")}
+    return _con_marca({"obra_ide": linea.get("obra_ide"),
+                       "obra_codigo": linea.get("obra_codigo"),
+                       "partida_ide": linea.get("partida_ide"),
+                       "partida_cod": linea.get("partida_cod")},
+                      linea.get("partida_metodo"))
+
+
+def _con_marca(datos: dict, metodo) -> dict:
+    """F-072 (enmienda b): `datos` con `partida_metodo` solo si `metodo` es
+    una marca de entrada (`postventa` | `var`); si no, `datos` tal cual (el
+    payload de antes de F-072; en una obra agrupada sv5 lo omite igual)."""
+    if metodo in MARCAS_ENTRADA:
+        return dict(datos, partida_metodo=metodo)
+    return datos
+
+
+def con_metodo_base(datos: Mapping, lineas: Iterable[Mapping]) -> dict:
+    """F-072 (enmienda b): la fila de `franquicia_ajuste` (sin columna para
+    la marca, DA5) con la marca de entrada de su linea base: una linea del
+    MISMO recurso en el periodo con la misma obra y partida que lleve marca
+    de entrada. Sin partida o sin esa linea, la fila tal cual."""
+    out = dict(datos)
+    if not out.get("partida_ide"):
+        return out
+    clave = (int(out.get("recurso_ide") or 0), out.get("obra_ide"),
+             int(out["partida_ide"]))
+    for x in lineas:
+        if ((int(x.get("recurso_ide") or 0), x.get("obra_ide"),
+             int(x.get("partida_ide") or 0)) == clave
+                and x.get("partida_metodo") in MARCAS_ENTRADA):
+            return _con_marca(out, x.get("partida_metodo"))
+    return out
 
 
 def varios_recursos(lineas_periodo: Iterable[Mapping]) -> bool:
@@ -465,7 +494,7 @@ def payload_franquicia(datos: Mapping, *, extras_pendientes: float = 0.0,
     periodo = periodo_de_clave(datos.get("periodo"))
     if periodo is None:
         raise ValueError(f"periodo no valido: {datos.get('periodo')!r}")
-    return {
+    out = {
         "ajuste_id": int(datos.get("id") or 0),
         "recurso_ide": int(datos["recurso_ide"]),
         "periodo": periodo.clave, "inicio": periodo.inicio_int,
@@ -477,6 +506,8 @@ def payload_franquicia(datos: Mapping, *, extras_pendientes: float = 0.0,
         "extras_pendientes": float(extras_pendientes or 0.0),
         "usuario": usuario,
     }
+    # F-072 (enmienda b): la marca de entrada de la base, si la hay.
+    return _con_marca(out, datos.get("partida_metodo"))
 
 
 # ------------------------- vista de trabajador (R20) ------------------------ #

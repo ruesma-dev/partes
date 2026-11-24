@@ -1074,7 +1074,7 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "todo",
       "sdd": true,
       "rigor": "critico",
       "priority": 3,
@@ -1089,7 +1089,7 @@
         "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
-      "status": "pending",
+      "status": "todo",
       "sdd": true,
       "rigor": "estandar",
       "priority": 4,
@@ -1102,8 +1102,11 @@
       "priority": 2,
       "rigor": "critico",
       "sdd": true,
-      "status": "pending",
-      "spec": "sin spec",
+      "status": "done",
+      "spec_aprobada": "2026-11-21",
+      "ok_humano": "2026-11-24",
+      "fecha_cierre": "2026-11-24",
+      "spec": "specs/F-072-postventa-var-como-obras/",
       "branch": "feature/F-072-postventa-var-como-obras",
       "description": "Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.",
       "acceptance": [
@@ -1193,6 +1196,81 @@
         "bash harness/init.sh en verde y APPROVED del reviewer"
       ],
       "ok_humano_propuesta": "2026-11-19 («si lanza»)"
+    },
+    {
+      "id": "F-079",
+      "title": "La obra que viene en el correo (asunto o cuerpo) manda sobre la leída en los partes de ese correo",
+      "priority": 3,
+      "rigor": "estandar",
+      "sdd": true,
+      "status": "pending",
+      "spec": "sin spec",
+      "branch": "feature/F-079-obra-del-correo",
+      "description": "Pedida por el humano el 2026-11-20/21: leer la obra del correo y aplicarla a todos los partes del correo. Decisiones del humano (2026-11-21): (1) la obra vendrá en el ASUNTO o en el CUERPO del correo; (2) si la obra del correo no coincide con la leída en el parte, MANDA LA DEL CORREO; (3) si en el correo hay varias obras contradictorias, esas son las únicas opciones entre las que elige la IA para cada parte, en lugar de todas las obras. Hoy ningún servicio usa el asunto ni el cuerpo para la obra (sv1 solo guarda el PDF y publica q-extraccion). A REVISAR EN LA SPEC: cómo viaja el asunto/cuerpo de sv1 a sv2/sv3 (mensaje de cola, sin guardar datos personales de más); formas de la obra en el texto (código, código y nombre, marcas VAR/POSTVENTA de F-072) y casado contra Sigrid por empresa (F-023: el membrete sigue eligiendo empresa); qué hace la IA con la lista restringida y qué pasa si el parte no encaja en ninguna; correos reenviados y correo dentro de correo (F-020): qué asunto y cuerpo valen (pregunta abierta al humano); firmas, hilos citados y textos de reenvío que mencionan obras sin serlo; aviso visible en el portal cuando la obra del correo pisa la leída; partes ya guardados; azure-apps/partes.md si cambia el contrato de colas. El rigor lo confirma la spec (puede subir a critico si cambia en qué obra se escribe sin revisión humana).",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
+    },
+    {
+      "id": "F-080",
+      "title": "sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida",
+      "priority": 2,
+      "rigor": "express",
+      "sdd": false,
+      "status": "todo",
+      "branch": "feature/F-080-juntar-lineas-sin-partida",
+      "description": "Pedida por el humano el 2026-11-23 («1 adelante») tras el caso de la 0692 de Porsan (recurso 2757089, 19 y 20/11): el parte trae dos partidas (01-01 y 01-02), la IA reparte las horas (4+4 y -1-1) y, como la obra no tiene presupuesto, las dos líneas van a Sigrid sin partida y parecen repetidas. Propuesta: en la ingesta (sv3), tras conciliar partidas, las líneas del mismo documento con el mismo recurso, fecha, tipo (ordinaria/extra), código de hora y obra que quedan SIN partida se juntan en una sola sumando horas (y horas_extra_leidas). Alcance confirmado por el humano el 2026-11-23 («sin partida, o a la misma partida»): se juntan las que quedan sin partida o casadas a la MISMA partida, en cualquier obra; con partidas distintas, no. Solo ingestas nuevas; lo ya registrado en Sigrid no se toca.",
+      "acceptance": [
+        "Dos líneas del mismo recurso, día, tipo, código de hora y obra, sin partida o con la misma partida, salen como una sola con la suma",
+        "Con partidas distintas, o una con partida y otra sin ella, no cambia nada",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
+    },
+    {
+      "id": "F-081",
+      "title": "Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0)",
+      "priority": 2,
+      "rigor": "critico",
+      "sdd": true,
+      "status": "todo",
+      "spec": "sin spec",
+      "branch": "feature/F-081-editar-lineas-registradas",
+      "description": "Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
+    },
+    {
+      "id": "F-082",
+      "title": "El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección)",
+      "priority": 2,
+      "rigor": "express",
+      "sdd": false,
+      "status": "todo",
+      "branch": "feature/F-082-opcion-sin-partida",
+      "description": "Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en el pequeño menú que sale al seleccionar una línea […] siempre debo poder elegir sin partida (también en la selección normal de partida)». Hoy el selector de partida (app.js, «Editar partida» de la barra de selección y el combo de la línea) solo lista las hojas del presupuesto y, en una obra sin presupuesto, dice «Esta obra no tiene partidas» sin opción. El backend ya admite partida vacía (PartidaPayload con todo None; set_registro_partida). Propuesta: opción fija «— Sin partida —» en los dos selectores, que manda partida vacía (método manual), y que la línea sin partida elegida a mano no siga pintando «⚠ <leída> no encontrada». No cambia el candado: en una línea ya registrada sigue el 409 de F-004 hasta F-081, que debe contemplar «sin partida» como edición de una línea registrada (paride 0 en Sigrid). Respeta la partida fija de las entradas de F-072 (R32).",
+      "acceptance": [
+        "Los dos selectores de partida ofrecen «— Sin partida —», también en una obra sin presupuesto",
+        "Elegirla deja la línea sin partida y sin el aviso de partida leída no encontrada",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
+    },
+    {
+      "id": "F-083",
+      "title": "Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid",
+      "priority": 1,
+      "rigor": "critico",
+      "sdd": true,
+      "status": "todo",
+      "spec": "sin spec",
+      "branch": "feature/F-083-ciz-solo-fin-de-racha",
+      "description": "Pedida por el humano el 2026-11-23 («da igual en el orden en el que vengan, si al final hacen una racha solo debería tener fin de incidencia el de fin de racha»), tras el correo de Administración de obra sobre la obra 0730 (recurso 1811653, vacaciones 18-20/11, parte PT26/00415). Lo que pasó (logs de sv4/sv5 y lectura de hmores): a las 11:48 UTC se aprobaron juntos 18, 19 y 20 ⇒ 18 inicio (CIV), 19 intermedio (omitido) y 20 fin (CIZ, hmores 416319): correcto. Antes de las 14:38 la línea del 20 pasó a mano de CIZ a CIV en Sigrid. A las 14:38 se reaprobó el 19 (estaba «omitido · intermedio»): sv4 lo mandó como fin, sv5 buscó el CIZ de la racha por sus synckeys, no lo encontró (el del 20 ya era CIV) y escribió un CIZ el 19 (hmores 416356), que después también se cambió a mano a CIV. Hueco: `decidir_fin` y `decidir_mismo_dia` (sv5, racha_ciz.py, F-060/F-062) solo dan el fin por posterior si encuentran un CIZ después de D; una línea de la racha escrita en un día posterior con otro código no cuenta. Propuesta a validar en la spec: un día no es fin (ni el inicio escribe su CIZ hermano) si la racha tiene CUALQUIER línea suya escrita en Sigrid (synckey de la racha, mismo recurso) en un día posterior; con el CIZ en su sitio, igual que hoy. A REVISAR EN LA SPEC: si basta sv5 o también sv4 (rol del día con días posteriores ya registrados), qué motivo ve el portal, qué pasa si Administración quitó el CIZ del último día (la racha queda sin fin: manda lo hecho a mano), y si el portal debe dejar de ofrecer reaprobar un «omitido · intermedio». Rigor crítico: escribe en Sigrid.",
+      "acceptance": [
+        "Pendiente de spec: los criterios los fija el spec-author y los aprueba el humano",
+        "bash harness/init.sh en verde y APPROVED del reviewer"
+      ]
     }
   ]
 }

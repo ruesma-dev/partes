@@ -70,6 +70,11 @@ NOTA_SECO = "modo seco: se pasaría a borrado_sigrid (no se ha escrito)"
 NOTA_MARCADA = "pasada a borrado_sigrid (F-024)"
 
 
+#: F-072 (R34, DA12): una vista de entrada (`agr-`) no se sincroniza.
+MOTIVO_ENTRADA_AGRUPADA = ("entrada de obra agrupada: no se sincroniza por "
+                           "entrada")
+
+
 class AmbitoNoValido(ValueError):
     """R15: el ambito no permite leer Sigrid (422)."""
 
@@ -91,6 +96,8 @@ def motivo_no_sincronizable(vista: str, clave: str | None) -> str | None:
     `sin-trabajador` no."""
     if vista not in _VISTAS:
         return "vista desconocida"
+    if vista == "obra" and isinstance(clave, str) and clave.startswith("agr-"):
+        return MOTIVO_ENTRADA_AGRUPADA
     if _ide_de_clave(clave, _VISTAS[vista][1]) is None:
         return _MOTIVOS[vista]
     return None

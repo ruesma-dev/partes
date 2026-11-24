@@ -13,7 +13,11 @@ from typing import Any
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy import select, text, update
 
-from domain.models.parte_records import ExistingParte, ParteDocumento
+from domain.models.parte_records import (
+    EntradaPartida,
+    ExistingParte,
+    ParteDocumento,
+)
 from infrastructure.database.orm_models import (
     REPARTO_APLICADO,
     REPARTO_MANTENIDO,
@@ -262,6 +266,7 @@ class SqlAlchemyParteRepository:
                 select(
                     ParteRegistroOrm.id,
                     ParteRegistroOrm.obra_ide,
+                    ParteRegistroOrm.obra_codigo,
                     ParteRegistroOrm.categoria,
                     ParteRegistroOrm.empleado_nombre,
                     ParteRegistroOrm.trabajador_nombre_leido,
@@ -275,11 +280,13 @@ class SqlAlchemyParteRepository:
                 .where(ParteDocumentOrm.is_active.is_(True))
             )
             out: list[dict] = []
-            for (rid, obra_ide, cat, emp_nom, leido, metodo,
+            for (rid, obra_ide, obra_codigo, cat, emp_nom, leido, metodo,
                  partida_leida) in session.execute(stmt).all():
                 out.append({
                     "registro_id": rid,
                     "obra_ide": obra_ide,
+                    # F-072 (R20): para saber si la obra es agrupada.
+                    "obra_codigo": obra_codigo,
                     "categoria": cat,
                     "nombre": emp_nom or leido,
                     "partida_match_method": metodo,
@@ -1185,9 +1192,15 @@ class SqlAlchemyParteRepository:
                     oreg.empleado_ide, oreg.empleado_dni,
                     oreg.trabajador_nombre_leido, oreg.empleado_nombre,
                 )
-            if nuevos & viejos:  # comparten trabajador -> es un reemplazo
-                old.is_active = False
-                ids.append(old.id)
+            if not nuevos & viejos:
+                continue
+            # F-072: en una obra agrupada la identidad incluye la entrada:
+            # dos entradas del mismo dia y trabajador son dos partes.
+            if parte.entrada is not None and not _misma_entrada(
+                    old, parte.entrada):
+                continue
+            old.is_active = False   # comparten trabajador -> reemplazo
+            ids.append(old.id)
         return ids
 
     def save_parte(
@@ -1294,6 +1307,9 @@ class SqlAlchemyParteRepository:
                     now_iso if recalculo_pedido_id else None),
             )
 
+            # F-072 (R14-R16): con entrada, cada linea lleva su partida y su
+            # marca; sin ella, la partida la decide el conciliador.
+            entrada = _campos_entrada(parte.entrada)
             for reg in parte.registros:
                 emp = reg.empleado
                 hora = reg.hora
@@ -1331,6 +1347,7 @@ class SqlAlchemyParteRepository:
                         hora_precio_nomina=hora.prenom,
                         hora_match_method=hora.method,
                         confianza_pct=reg.confianza_pct,
+                        **entrada,
                     )
                 )
 
@@ -1341,6 +1358,28 @@ class SqlAlchemyParteRepository:
             "[parte-repo] guardado document_id=%s fecha=%s registros=%s",
             document_id, parte.fecha_iso, len(parte.registros),
         )
+
+
+def _misma_entrada(doc: ParteDocumentOrm, entrada: EntradaPartida) -> bool:
+    """F-072: alguna linea del documento lleva esa entrada (partida y
+    marca)."""
+    return any(r.partida_ide == entrada.ide
+               and r.partida_match_method == entrada.tipo
+               for r in doc.registros)
+
+
+def _campos_entrada(entrada: EntradaPartida | None) -> dict[str, Any]:
+    """F-072: los `partida_*` de las lineas de una entrada (vacio sin ella)."""
+    if entrada is None:
+        return {}
+    return {
+        "partida_ide": entrada.ide,
+        "partida_cod": entrada.cod,
+        "partida_res": entrada.res,
+        "partida_capitulo": entrada.capitulo,
+        "partida_match_method": entrada.tipo,
+        "partida_match_score": 1.0,
+    }
 
 
 def _as_str(value: Any) -> str | None:

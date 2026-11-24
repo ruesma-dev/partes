@@ -9,25 +9,38 @@
     {
       "nombre": "sv2-extraccion",
       "ruta": "services/partes-api",
-      "lenguaje": "python"
+      "lenguaje": "python",
+      "depende_de": [
+        "services/partes-persistencia/application/services/obras_agrupadas.py",
+        "services/partes-persistencia/tests/test_f072_obras_agrupadas.py"
+      ]
     },
     {
       "nombre": "sv3-persistencia",
       "ruta": "services/partes-persistencia",
       "lenguaje": "python",
       "depende_de": [
-        "services/partes-front/application/services/jornada_resolver.py"
+        "services/partes-front/application/services/jornada_resolver.py",
+        "services/partes-front/application/services/obras_agrupadas.py"
       ]
     },
     {
       "nombre": "sv4-front",
       "ruta": "services/partes-front",
-      "lenguaje": "python"
+      "lenguaje": "python",
+      "depende_de": [
+        "services/partes-persistencia/application/services/obras_agrupadas.py",
+        "services/partes-persistencia/tests/test_f072_obras_agrupadas.py"
+      ]
     },
     {
       "nombre": "sv5-transfer",
       "ruta": "services/partes-transfer",
-      "lenguaje": "python"
+      "lenguaje": "python",
+      "depende_de": [
+        "services/partes-persistencia/application/services/obras_agrupadas.py",
+        "services/partes-persistencia/tests/test_f072_obras_agrupadas.py"
+      ]
     },
     {
       "nombre": "infra",

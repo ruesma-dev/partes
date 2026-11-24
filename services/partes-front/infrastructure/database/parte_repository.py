@@ -51,6 +51,10 @@ from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
 from application.services.clase_hora import tipo_hora_de_codigo
 from application.services.jornada_admin import columnas_patron
+from application.services.obras_agrupadas import (
+    MARCAS_ENTRADA,
+    codigo_entrada,
+)
 from application.services.empresas import empresas_de_fila, texto_empresas
 from application.services.congelacion import (
     ESTADO_BORRADO_SIGRID,
@@ -818,8 +822,39 @@ def _cell_label(normal: float, extra: float, inc_codes: list[str]) -> str:
     return " ".join(parts)
 
 
+#: F-072 (R32): la partida de una linea con marca de entrada es fija.
+MOTIVO_PARTIDA_FIJA = "partida fija: cambia la entrada del parte"
+
+
+class PartidaFijaError(CongeladoError):
+    """F-072 (R32): cambiar la partida de una linea de una entrada de obra
+    agrupada. La capa web lo traduce a 409, como toda `CongeladoError`."""
+
+    def __init__(self) -> None:
+        super().__init__(MOTIVO_PARTIDA_FIJA)
+
+
+def es_de_entrada(reg: Any) -> bool:
+    """F-072: la linea es de una entrada de obra agrupada (marca de entrada
+    en `partida_match_method`, con obra y partida)."""
+    return (reg.partida_match_method in MARCAS_ENTRADA
+            and reg.obra_ide is not None and bool(reg.partida_ide))
+
+
+def rotulo_entrada(reg: Any) -> tuple[str, str | None]:
+    """F-072 (R24): `Postv-<partida>` / `<VAR>-<partida>` y la descripcion
+    de la partida (o la de la obra si no la hay). El codigo de la obra VAR
+    sale de la propia linea: no hace falta la configuracion."""
+    return (codigo_entrada(reg.partida_match_method, reg.obra_codigo,
+                           reg.partida_cod),
+            reg.partida_res or reg.obra_nombre)
+
+
 def obra_key_for_registro(reg: ParteRegistroOrm) -> str:
-    """Clave estable y URL-safe para agrupar registros por obra."""
+    """Clave estable y URL-safe para agrupar registros por obra. F-072
+    (R23): una entrada de obra agrupada es `agr-<obra_ide>-<partida_ide>`."""
+    if es_de_entrada(reg):
+        return f"agr-{reg.obra_ide}-{int(reg.partida_ide)}"
     if reg.obra_ide is not None:
         return f"obr-{reg.obra_ide}"
     if reg.obra_codigo:
@@ -999,6 +1034,23 @@ _CAMPOS_CLON_CELDA = (
     "recurso_ide", "recurso_cif", "hora_candef", "recurso_precio_hora",
     "hmo_ide", "parte_estado",
 )
+
+
+#: F-072 (R31): lo que una linea nueva copia de su base de una entrada.
+_CAMPOS_PARTIDA_ENTRADA = (
+    "partida_ide", "partida_cod", "partida_res", "partida_capitulo",
+    "partida_match_method", "partida_match_score",
+)
+
+
+def _poner_entrada(reg: ParteRegistroOrm, entrada: Any) -> None:
+    """F-072 (R27, R30): la partida y la marca de la entrada en la linea."""
+    reg.partida_ide = int(entrada.partida_ide)
+    reg.partida_cod = entrada.partida_cod
+    reg.partida_res = entrada.partida_res
+    reg.partida_capitulo = entrada.partida_capitulo
+    reg.partida_match_method = entrada.tipo
+    reg.partida_match_score = 1.0
 
 
 def _fecha_int_iso(fecha_iso: str) -> int:
@@ -1350,10 +1402,12 @@ class ParteReviewRepository:
             key = obra_key_for_registro(reg)
             g = groups.get(key)
             if g is None:
+                codigo, nombre = (rotulo_entrada(reg) if es_de_entrada(reg)
+                                  else (reg.obra_codigo, reg.obra_nombre))
                 g = {
                     "obra_key": key,
-                    "obra_codigo": reg.obra_codigo,
-                    "obra_nombre": reg.obra_nombre,
+                    "obra_codigo": codigo,
+                    "obra_nombre": nombre,
                     "obra_ide": reg.obra_ide,
                     "trabajadores": set(),
                     "docs": set(),
@@ -1459,6 +1513,8 @@ class ParteReviewRepository:
             obra_codigo = head.obra_codigo
             obra_nombre = head.obra_nombre
             obra_ide = head.obra_ide
+            if es_de_entrada(head):     # F-072 (R24)
+                obra_codigo, obra_nombre = rotulo_entrada(head)
 
             period_options = build_period_options([r.fecha for r in regs], mode)
             selected = parse_period_key(period_key)
@@ -1986,6 +2042,9 @@ class ParteReviewRepository:
                 hmo_ide=base.hmo_ide,
                 parte_estado=base.parte_estado,
             )
+            if es_de_entrada(base):     # F-072 (R31): partida y marca
+                for campo in _CAMPOS_PARTIDA_ENTRADA:
+                    setattr(nuevo, campo, getattr(base, campo))
             session.add(nuevo)
             session.commit()
             logger.info(
@@ -2356,6 +2415,9 @@ class ParteReviewRepository:
                     "hora_codigo": r.hora_codigo,
                     "partida_ide": r.partida_ide,
                     "partida_cod": r.partida_cod,
+                    # F-072 (R33): la marca, solo en una entrada.
+                    **({"partida_metodo": r.partida_match_method}
+                       if es_de_entrada(r) else {}),
                     "candef": r.hora_candef,
                     "incidencia_codigo": r.incidencia_codigo,
                     # F-060: los rellena `_roles_de_racha` al final.
@@ -3305,6 +3367,8 @@ class ParteReviewRepository:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
             _exigir_sin_recalculo(reg.document)   # F-043 R38
+            if es_de_entrada(reg):      # F-072 (R32)
+                raise PartidaFijaError()
             snap = _reg_snapshot(reg)
             label = _reg_label(reg)
             reg.partida_ide = partida_ide
@@ -4081,11 +4145,17 @@ class ParteReviewRepository:
         obra_ide: int | None,
         obra_codigo: str | None,
         obra_nombre: str | None,
+        entrada: Any = None,
     ) -> list[dict] | None:
         """Cambia la obra del parte (y de sus registros). Devuelve la lista
         de partidas a RE-CASAR contra la obra nueva (None si el parte no
         existe): los ide de partida del presupuesto viejo no valen en el
-        nuevo aunque el codigo coincida."""
+        nuevo aunque el codigo coincida.
+
+        F-072: con `entrada` (R27), la obra es la agrupada y las lineas no
+        congeladas reciben la partida y la marca de la entrada; nada que
+        re-casar. Una linea que SALE de una entrada (R29) no se re-casa:
+        queda en `sin` (su partida leida no es de la obra nueva)."""
         with self._session_factory.create_session() as session:
             doc = session.get(ParteDocumentOrm, document_id)
             if doc is None:
@@ -4101,9 +4171,24 @@ class ParteReviewRepository:
             doc.obra_match_score = 1.0
             objetivos: list[dict] = []
             for reg in doc.registros:
+                era_entrada = es_de_entrada(reg)
                 reg.obra_ide = obra_ide
                 reg.obra_codigo = obra_codigo
                 reg.obra_nombre = obra_nombre
+                if entrada is not None:             # F-072 (R27)
+                    if _motivo_congelado_reg(reg) is None:
+                        _poner_entrada(reg, entrada)
+                    continue
+                if era_entrada:                     # F-072 (R29)
+                    objetivos.append({
+                        "registro_id": reg.id, "objetivo_cod": None,
+                        "metodo_previo": reg.partida_match_method,
+                        "score_previo": reg.partida_match_score,
+                    })
+                    for campo in _CAMPOS_PARTIDA_ENTRADA:
+                        setattr(reg, campo, None)
+                    reg.partida_match_method = "sin"
+                    continue
                 # La partida pertenece al presupuesto de la obra ANTERIOR:
                 # su ide (paride) no vale en la nueva aunque el codigo
                 # coincida. Se limpia y se re-casa contra la obra nueva.
@@ -4222,6 +4307,10 @@ class ParteReviewRepository:
                     for campo in ("recurso_ide", "fecha_int", "partida_ide",
                                   "partida_cod", "obra_ide", "obra_codigo"):
                         c.setdefault(campo, getattr(ref, campo))
+                    # F-072 (enmienda b): la marca de entrada de la base.
+                    if ref.partida_match_method in MARCAS_ENTRADA:
+                        c.setdefault("partida_metodo",
+                                     ref.partida_match_method)
             if rid is None:
                 hora = c.get("hora_ext") or {}
                 c.setdefault("hora_ide", hora.get("ide"))
@@ -4503,6 +4592,8 @@ class ParteReviewRepository:
                 "horas": float(x.horas or 0.0), "obra_ide": x.obra_ide,
                 "obra_codigo": x.obra_codigo, "partida_ide": x.partida_ide,
                 "partida_cod": x.partida_cod,
+                # F-072 (enmienda b): la marca de entrada de la linea base.
+                "partida_metodo": x.partida_match_method,
                 "sigrid_estado": _estado_norm(x.sigrid_estado),
             } for x in regs]
 
@@ -4767,6 +4858,13 @@ class ParteReviewRepository:
     # ----------------------------------------------------------------- #
     @staticmethod
     def _obra_key_for_doc(doc: ParteDocumentOrm) -> str:
+        """F-072 (R23): si alguna linea activa es de una entrada, la clave
+        comun de las lineas activas; con varias, `mixta-<id>` (sin vista).
+        Si no, la de siempre, por la obra del documento."""
+        claves = {obra_key_for_registro(r) for r in doc.registros
+                  if r.deleted_at_utc is None}
+        if any(k.startswith("agr-") for k in claves):
+            return claves.pop() if len(claves) == 1 else f"mixta-{doc.id}"
         if doc.obra_ide is not None:
             return f"obr-{doc.obra_ide}"
         if doc.obra_codigo:
@@ -4981,10 +5079,19 @@ class ParteReviewRepository:
             docs = session.execute(
                 select(ParteDocumentOrm).where(
                     ParteDocumentOrm.is_active.is_(True)
-                )
+                ).options(selectinload(ParteDocumentOrm.registros))
             ).scalars().all()
             for doc in docs:
-                if self._obra_key_for_doc(doc) != obra_key:
+                clave_doc = self._obra_key_for_doc(doc)
+                if clave_doc.startswith("mixta-") and obra_key in {
+                        obra_key_for_registro(r) for r in doc.registros
+                        if r.deleted_at_utc is None}:
+                    logger.warning(
+                        "[borrar-obra] el parte %s tiene lineas de varias "
+                        "entradas o obras: no se mueve con %s", doc.id,
+                        obra_key)
+                    continue
+                if clave_doc != obra_key:
                     continue
                 if _motivo_congelado_doc(doc) is not None:
                     congelados += 1
@@ -5269,11 +5376,20 @@ class ParteReviewRepository:
         incidencia_codigo: str | None = None,
         hora_incidencia=None,
         by: str | None = None,
+        entrada: Any = None,
     ) -> dict:
         """Crea lineas de parte para una lista de dias (ISO). Por cada dia
         busca (o crea) el documento activo de ese dia+obra y le añade una
         linea ORDINARIA (horas_ordinaria) y/o EXTRA (horas_extra). El codigo
-        de hora / partida / recurso quedan pendientes de conciliacion (sv3)."""
+        de hora / partida / recurso quedan pendientes de conciliacion (sv3).
+
+        F-072 (R30): con `entrada`, la partida y la marca son las suyas y el
+        documento que se reutiliza es el de la misma entrada."""
+        if entrada is not None:
+            partida_ide, partida_cod = int(entrada.partida_ide), entrada.partida_cod
+            partida_res = entrada.partida_res
+            partida_capitulo = entrada.partida_capitulo
+            partida_match_method, partida_match_score = entrada.tipo, 1.0
         now_iso = datetime.now(timezone.utc).isoformat()
         docs_creados = 0
         lineas = 0
@@ -5319,7 +5435,13 @@ class ParteReviewRepository:
                     stmt = stmt.where(ParteDocumentOrm.obra_ide == obra_ide)
                 elif obra_codigo:
                     stmt = stmt.where(ParteDocumentOrm.obra_codigo == obra_codigo)
-                doc = session.execute(stmt).scalars().first()
+                if entrada is None:
+                    doc = session.execute(stmt).scalars().first()
+                else:
+                    # F-072 (R30): el del dia, la obra y la MISMA entrada.
+                    clave = f"agr-{entrada.obra_ide}-{entrada.partida_ide}"
+                    doc = next((d for d in session.execute(stmt).scalars()
+                                if self._obra_key_for_doc(d) == clave), None)
                 if doc is None:
                     doc = ParteDocumentOrm(
                         id=str(uuid.uuid4()),

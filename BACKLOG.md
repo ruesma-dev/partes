@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **72 features**, 15 abiertas y 57 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 0 en To do, 13 en Backlog y 57 en Done.
+Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 6 en To do, 11 en Backlog y 58 en Done.
 
 ## Review
 
@@ -26,15 +26,20 @@ _Ninguna feature en implementación._
 
 ## To do
 
-_Nada comprometido._
+| # | Feature | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|
+| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | sin spec | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
+| F-080 | sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida |  | 2 | express | `feature/F-080-juntar-lineas-sin-partida` |
+| F-081 | Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0) | sin spec | 2 | critico | `feature/F-081-editar-lineas-registradas` |
+| F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) |  | 2 | express | `feature/F-082-opcion-sin-partida` |
+| F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
+| F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 
 ## Backlog
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | sin spec | 2 | critico | `feature/F-072-postventa-var-como-obras` |
-| F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
-| F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
+| F-079 | La obra que viene en el correo (asunto o cuerpo) manda sobre la leída en los partes de ese correo | sin spec | 3 | estandar | `feature/F-079-obra-del-correo` |
 | F-073 | Estudiar bloquear la aprobación de un parte en espera por un recálculo pedido desde sv4 | sin spec | 5 | critico | `feature/F-073-bloquear-aprobar-en-espera` |
 | F-044 | Mover a un trabajador de un parte a otra fecha sin mover al resto | borrador del 2026-10-12 en la rama `feature/F-044-mover-linea-a-otra-fecha` (sin fusionar, DA1–DA10 sin presentar): hay que refrescarla | 6 | critico | `feature/F-044-mover-linea-a-otra-fecha` |
 | F-067 | sv3 y sv5: HENC excluido | sin spec | 7 | critico | `feature/F-067-sv3-sv5-henc-excluido` |
@@ -50,6 +55,7 @@ _Nada comprometido._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | 2026-11-24 | 2026-11-24 |  | 2 | critico |
 | F-078 | sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28 | 2026-11-20 | 2026-11-20 | redesplegar sv3 (humano) y mover desde el portal los partes ya guardados de Dorsan (11-13/11) y el del 10/11 a la obra 0730 de Porsan | 1 | express |
 | F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | 2026-11-19 | 2026-11-19 | Sin desplegar. Manuales del humano M0–M6 (T17–T18: token rotado y SESAME-TOKEN en el Key Vault, contraste e impacto, redespliegue apagado, encendido, portal y -Quitar), comandos en progress/impl_F-077.md | 1 | critico |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2026-11-18 | 2026-11-18 | Sin desplegar. Sus manuales M1–M7 y P0–P4 de sesame-api los sustituye F-077 (Sesame HR directo, sin pasarela); sigue P5 (RRHH completa Alicante) | 2 | critico |
@@ -112,25 +118,53 @@ Express cerradas por mes: 2026-11: 1
 
 ## Detalle
 
-### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
+### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
-estado **pendiente** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+estado **to do (comprometida)** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
 
 **Spec**: sin spec
 
-Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
+Pedida por el humano el 2026-11-23 («da igual en el orden en el que vengan, si al final hacen una racha solo debería tener fin de incidencia el de fin de racha»), tras el correo de Administración de obra sobre la obra 0730 (recurso 1811653, vacaciones 18-20/11, parte PT26/00415). Lo que pasó (logs de sv4/sv5 y lectura de hmores): a las 11:48 UTC se aprobaron juntos 18, 19 y 20 ⇒ 18 inicio (CIV), 19 intermedio (omitido) y 20 fin (CIZ, hmores 416319): correcto. Antes de las 14:38 la línea del 20 pasó a mano de CIZ a CIV en Sigrid. A las 14:38 se reaprobó el 19 (estaba «omitido · intermedio»): sv4 lo mandó como fin, sv5 buscó el CIZ de la racha por sus synckeys, no lo encontró (el del 20 ya era CIV) y escribió un CIZ el 19 (hmores 416356), que después también se cambió a mano a CIV. Hueco: `decidir_fin` y `decidir_mismo_dia` (sv5, racha_ciz.py, F-060/F-062) solo dan el fin por posterior si encuentran un CIZ después de D; una línea de la racha escrita en un día posterior con otro código no cuenta. Propuesta a validar en la spec: un día no es fin (ni el inicio escribe su CIZ hermano) si la racha tiene CUALQUIER línea suya escrita en Sigrid (synckey de la racha, mismo recurso) en un día posterior; con el CIZ en su sitio, igual que hoy. A REVISAR EN LA SPEC: si basta sv5 o también sv4 (rol del día con días posteriores ya registrados), qué motivo ve el portal, qué pasa si Administración quitó el CIZ del último día (la racha queda sin fin: manda lo hecho a mano), y si el portal debe dejar de ofrecer reaprobar un «omitido · intermedio». Rigor crítico: escribe en Sigrid.
+
+### F-080 · sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida
+
+estado **to do (comprometida)** · prioridad 2 · rigor `express` · SDD no · rama `feature/F-080-juntar-lineas-sin-partida`
+
+Pedida por el humano el 2026-11-23 («1 adelante») tras el caso de la 0692 de Porsan (recurso 2757089, 19 y 20/11): el parte trae dos partidas (01-01 y 01-02), la IA reparte las horas (4+4 y -1-1) y, como la obra no tiene presupuesto, las dos líneas van a Sigrid sin partida y parecen repetidas. Propuesta: en la ingesta (sv3), tras conciliar partidas, las líneas del mismo documento con el mismo recurso, fecha, tipo (ordinaria/extra), código de hora y obra que quedan SIN partida se juntan en una sola sumando horas (y horas_extra_leidas). Alcance confirmado por el humano el 2026-11-23 («sin partida, o a la misma partida»): se juntan las que quedan sin partida o casadas a la MISMA partida, en cualquier obra; con partidas distintas, no. Solo ingestas nuevas; lo ya registrado en Sigrid no se toca.
+
+### F-081 · Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0)
+
+estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-081-editar-lineas-registradas`
+
+**Spec**: sin spec
+
+Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.
+
+### F-082 · El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección)
+
+estado **to do (comprometida)** · prioridad 2 · rigor `express` · SDD no · rama `feature/F-082-opcion-sin-partida`
+
+Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en el pequeño menú que sale al seleccionar una línea […] siempre debo poder elegir sin partida (también en la selección normal de partida)». Hoy el selector de partida (app.js, «Editar partida» de la barra de selección y el combo de la línea) solo lista las hojas del presupuesto y, en una obra sin presupuesto, dice «Esta obra no tiene partidas» sin opción. El backend ya admite partida vacía (PartidaPayload con todo None; set_registro_partida). Propuesta: opción fija «— Sin partida —» en los dos selectores, que manda partida vacía (método manual), y que la línea sin partida elegida a mano no siga pintando «⚠ <leída> no encontrada». No cambia el candado: en una línea ya registrada sigue el 409 de F-004 hasta F-081, que debe contemplar «sin partida» como edición de una línea registrada (paride 0 en Sigrid). Respeta la partida fija de las entradas de F-072 (R32).
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
-estado **pendiente** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-070-reemplazo-no-mismo-pdf`
+estado **to do (comprometida)** · prioridad 3 · rigor `critico` · SDD sí · rama `feature/F-070-reemplazo-no-mismo-pdf`
 
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-12. Caso: obra 0721, adjunto 4936_001.pdf (12 páginas, un día por página). La página 11 (29/10) se leyó como 23-10-26; al guardarla, la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, ~línea 918: mismo obra_codigo y fecha_int y trabajadores en común ⇒ old.is_active = False) desactivó la página 7, el 23/10 de verdad, sin aviso y sin forma de recuperarla desde el portal (no va a la papelera). Arreglo propuesto: no aplicar el reemplazo entre páginas del mismo adjunto (mismo email_id + source_attachment_sha256/filename) y, si se descarta, que quede visible (aviso o motivo) en vez de oculto. Valorar si el portal debe ofrecer recuperar un parte reemplazado. Solo sv3 (y sv4 si se decide mostrarlo).
 
+### F-079 · La obra que viene en el correo (asunto o cuerpo) manda sobre la leída en los partes de ese correo
+
+estado **pendiente** · prioridad 3 · rigor `estandar` · SDD sí · rama `feature/F-079-obra-del-correo`
+
+**Spec**: sin spec
+
+Pedida por el humano el 2026-11-20/21: leer la obra del correo y aplicarla a todos los partes del correo. Decisiones del humano (2026-11-21): (1) la obra vendrá en el ASUNTO o en el CUERPO del correo; (2) si la obra del correo no coincide con la leída en el parte, MANDA LA DEL CORREO; (3) si en el correo hay varias obras contradictorias, esas son las únicas opciones entre las que elige la IA para cada parte, en lugar de todas las obras. Hoy ningún servicio usa el asunto ni el cuerpo para la obra (sv1 solo guarda el PDF y publica q-extraccion). A REVISAR EN LA SPEC: cómo viaja el asunto/cuerpo de sv1 a sv2/sv3 (mensaje de cola, sin guardar datos personales de más); formas de la obra en el texto (código, código y nombre, marcas VAR/POSTVENTA de F-072) y casado contra Sigrid por empresa (F-023: el membrete sigue eligiendo empresa); qué hace la IA con la lista restringida y qué pasa si el parte no encaja en ninguna; correos reenviados y correo dentro de correo (F-020): qué asunto y cuerpo valen (pregunta abierta al humano); firmas, hilos citados y textos de reenvío que mencionan obras sin serlo; aviso visible en el portal cuando la obra del correo pisa la leída; partes ya guardados; azure-apps/partes.md si cambia el contrato de colas. El rigor lo confirma la spec (puede subir a critico si cambia en qué obra se escribe sin revisión humana).
+
 ### F-071 · Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta
 
-estado **pendiente** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-071-fecha-coherente-paginas`
+estado **to do (comprometida)** · prioridad 4 · rigor `estandar` · SDD sí · rama `feature/F-071-fecha-coherente-paginas`
 
 **Spec**: sin spec
 
@@ -231,6 +265,14 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
+
+estado **terminada** · cerrada el 2026-11-24 · spec aprobada el 2026-11-21 · OK del humano el 2026-11-24 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+
+**Spec**: specs/F-072-postventa-var-como-obras/
+
+Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
 
 ### F-078 · sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28
 

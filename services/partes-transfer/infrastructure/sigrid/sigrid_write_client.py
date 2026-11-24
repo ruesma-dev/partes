@@ -58,7 +58,8 @@ import httpx
 from application.services.cuenta_analitica import indexar_cuentas
 from domain.models.registro_models import (
     PREFIJO_FRANQUICIA, HoraRecurso, LineaSigrid, LineaSincronizar,
-    ObraEntrada, ParteDestino, ParteSigrid, PartidaCuenta, RecursoSigrid,
+    ObraEntrada, ParteDestino, ParteSigrid, PartidaCuenta, PartidaHoja,
+    RecursoSigrid,
 )
 
 logger = logging.getLogger(__name__)
@@ -427,6 +428,23 @@ class SigridWriteClient:
                 caa_cod=(f["caacod"] or "").strip() or None)
         return out
 
+    def partidas_de_obra(self, obra_ide: int) -> list[PartidaHoja]:
+        """F-072 (R36, R37, R39): el presupuesto de una obra agrupada en UNA
+        lectura (con el `max_rows` de siempre; `truncated` es error en
+        `_read`): cada partida, si es hoja (ninguna otra cuelga de ella) y
+        si esta activa (`tipdes = 0`)."""
+        filas = self._read(
+            "SELECT p.ide AS ide, p.cod AS cod, p.res AS res, "
+            "p.tipdes AS tipdes, CASE WHEN EXISTS (SELECT 1 FROM obrparpar h "
+            "WHERE h.padide = p.ide) THEN 1 ELSE 0 END AS hijos "
+            "FROM obrparpar p WHERE p.obride = ? ORDER BY p.ide",
+            [int(obra_ide)])
+        return [PartidaHoja(
+            ide=int(f["ide"]), cod=(f["cod"] or "").strip() or None,
+            res=(f["res"] or "").strip() or None,
+            es_hoja=not int(f["hijos"] or 0),
+            activa=int(f["tipdes"] or 0) == 0) for f in filas]
+
     def siguiente_cod_pt(self, ano: int, empresa: int) -> str:
         """Siguiente `PT<AA>/NNNNN` de ESA empresa (F-023, R33): el
         correlativo es por empresa y los numeros se repiten entre ellas."""
@@ -447,11 +465,15 @@ class SigridWriteClient:
         return int((filas[0]["m"] if filas else 0) or 0)
 
     def lineas_existentes(
-        self, hmoide: int, resides: Iterable[int], fechas: Iterable[int]
+        self, hmoide: int, resides: Iterable[int], fechas: Iterable[int],
+        con_partida: bool = False,
     ) -> list[LineaSigrid]:
         """Lineas del parte `hmoide` de esos recursos y dias (choques del
         paso 7). F-053 (R9): con `enlazada` (la misma expresion que
-        `lineas_para_reajuste`) y su `hmoide`, para el INFO de R13."""
+        `lineas_para_reajuste`) y su `hmoide`, para el INFO de R13.
+        F-072 (R38): con `con_partida`, tambien `hmores.paride` (en una obra
+        agrupada el choque exige la misma partida); sin el, la lectura de
+        siempre."""
         res = sorted({int(i) for i in resides if i})
         fec = sorted({int(f) for f in fechas if f})
         if not res or not fec:
@@ -463,7 +485,8 @@ class SigridWriteClient:
             "hmores.fec AS fec, hmores.horide AS horide, "
             "auxhor.cod AS hora, hmores.can AS can, "
             "hmores.tot AS tot, hmores.synckey AS synckey, "
-            f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
+            + ("hmores.paride AS paride, " if con_partida else "")
+            + f"CASE WHEN {self._expr_enlazada()} THEN 1 ELSE 0 END "
             "AS enlazada FROM hmores "
             "LEFT JOIN auxhor ON auxhor.ide = hmores.horide "
             f"WHERE hmores.hmoide = ? AND hmores.reside IN ({m_r}) "
@@ -478,7 +501,9 @@ class SigridWriteClient:
                 horide=int(f["horide"] or 0) or None,
                 hora_codigo=f["hora"], can=f["can"], tot=f["tot"], synckey=sk,
                 nuestra=bool(sk and sk.startswith(PREFIJO_SYNCKEY)),
-                hmoide=int(hmoide), enlazada=bool(f["enlazada"])))
+                hmoide=int(hmoide), enlazada=bool(f["enlazada"]),
+                paride=(int(f.get("paride") or 0) or None) if con_partida
+                else None))
         return out
 
     def lineas_por_synckey(self, claves: Iterable[str]) -> dict[str, LineaSigrid]:

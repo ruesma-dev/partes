@@ -72,6 +72,8 @@ class _Preparada:
     """Lo que `preparar` decidio para una extra nueva (datos maestros)."""
     accion: AccionLinea | None
     destino: ObraEntrada | None
+    # F-072 (R38, D2 (a)): obra agrupada => solo choca la misma partida.
+    por_partida: bool = False
 
 
 @dataclass
@@ -129,29 +131,39 @@ class ReajustePipeline:
                     recurso_ide=op.recurso_ide, tipo_hora="extra",
                     horas=op.despues, hora_ide=op.hora_ide,
                     hora_codigo=op.hora_codigo, partida_ide=op.partida_ide,
-                    partida_cod=op.partida_cod) for op in grupo])
+                    partida_cod=op.partida_cod,
+                    partida_metodo=op.partida_metodo) for op in grupo])
             acciones = {a.registro_id: a for a in ctx.acciones}
             for op in grupo:
                 out[op.registro_id] = _Preparada(
-                    acciones.get(op.registro_id), ctx.obra_destino)
+                    acciones.get(op.registro_id), ctx.obra_destino,
+                    ctx.agrupada is not None)
         return out
 
     def _choques(self, accion: AccionLinea, destino: ObraEntrada,
-                 mias: set[str]) -> list[LineaSigrid]:
+                 mias: set[str], por_partida: bool = False
+                 ) -> list[LineaSigrid]:
         """R22: lineas ajenas del mismo recurso, dia y codigo de hora en
         los partes En registro del periodo de la obra destino. F-056 (R31):
-        la linea de ajuste de una franquicia no choca."""
+        la linea de ajuste de una franquicia no choca. F-072 (R38, D2 (a)):
+        con `por_partida` (obra agrupada), ademas la MISMA partida."""
         est = self._est_registro()
         out: list[LineaSigrid] = []
         for ps in self._cli.partes_del_periodo(int(destino.ide), accion.ano,
                                                accion.mes):
             if ps.est != est:
                 continue
-            for ls in self._cli.lineas_existentes(
-                    int(ps.ide), [accion.recurso_ide], [accion.fecha_int]):
+            lineas = (self._cli.lineas_existentes(
+                int(ps.ide), [accion.recurso_ide], [accion.fecha_int],
+                con_partida=True) if por_partida
+                else self._cli.lineas_existentes(
+                    int(ps.ide), [accion.recurso_ide], [accion.fecha_int]))
+            for ls in lineas:
                 if (int(ls.horide or 0) == int(accion.hora_ide or 0)
                         and not (ls.synckey and ls.synckey in mias)
-                        and not es_synckey_franquicia(ls.synckey)):
+                        and not es_synckey_franquicia(ls.synckey)
+                        and (not por_partida or int(ls.paride or 0)
+                             == int(accion.paride or 0))):
                     out.append(ls)
         return out
 
@@ -186,7 +198,8 @@ class ReajustePipeline:
                 == p.destino.ide)
             escribe = (p.accion is not None and p.destino is not None
                        and p.accion.accion == "escribir")
-            choques = (self._choques(p.accion, p.destino, claves)  # type: ignore[arg-type]
+            choques = (self._choques(p.accion, p.destino, claves,  # type: ignore[arg-type]
+                                     p.por_partida)
                        if escribe else [])
             por_rid[op.registro_id] = veredicto_nueva(
                 op, existente=leidas.get(synckey_de(op.registro_id)),

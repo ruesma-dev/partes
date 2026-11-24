@@ -49,7 +49,10 @@ Reglas (definidas por Administracion; R1 actualizada el 25/07/2026):
 from __future__ import annotations
 
 import logging
+import unicodedata
+from collections.abc import Iterable
 
+from application.services.obras_agrupadas import VAR, es_partida_var
 from domain.models.registro_models import (
     AccionLinea,
     FinMismoDia,
@@ -104,6 +107,50 @@ MOTIVO_RECURSO_AMBIGUO = (
     "varios recursos de alta para ese DNI en la empresa de la obra "
     "destino: no se elige ninguno"
 )
+
+
+#: F-072 (R36): prefijo del motivo de la guarda de las obras agrupadas.
+MOTIVO_PARTIDA_AGRUPADA = "partida_agrupada"
+#: Tope del motivo (lo que cabe en la columna de sv4).
+MAX_MOTIVO = 255
+
+
+def _sin_tildes(texto: str) -> str:
+    plano = unicodedata.normalize("NFKD", texto)
+    return plano.encode("ascii", "ignore").decode("ascii")
+
+
+def motivo_partida_agrupada(linea: LineaEntrada, hojas: Iterable,
+                            tipo: str, desde: int | None, *,
+                            obra_cod: str | None = None) -> str | None:
+    """F-072 (R36): por que una linea de una obra agrupada NO se escribe,
+    o None si es una entrada buena.
+
+    Hace falta la marca de la entrada (`partida_metodo` igual al tipo de la
+    obra), una partida que sea hoja activa del presupuesto de esa obra
+    (`hojas`, de `partidas_de_obra`) y, en VAR, que este en el universo VAR
+    (numero inicial >= `desde`). El motivo nombra la partida por su codigo,
+    va sin tildes y en `MAX_MOTIVO` caracteres."""
+    donde = f" de la obra {obra_cod}" if obra_cod else ""
+    if (linea.partida_metodo or "").strip().lower() != tipo:
+        texto = (f"sin entrada {tipo}: la linea no trae la marca de una "
+                 f"entrada{donde}")
+    elif not linea.partida_ide:
+        texto = f"sin partida: la entrada {tipo}{donde} necesita una"
+    else:
+        hoja = next((h for h in hojas if int(h.ide) == int(linea.partida_ide)),
+                    None)
+        cod = ((hoja.cod if hoja is not None else None) or linea.partida_cod
+               or str(linea.partida_ide))
+        if hoja is None or not (hoja.es_hoja and hoja.activa):
+            texto = (f"la partida {cod} no es una partida activa del "
+                     f"presupuesto{donde}")
+        elif tipo == VAR and not es_partida_var(hoja, int(desde or 0)):
+            texto = (f"la partida {cod} esta fuera del universo VAR (desde "
+                     f"{desde})")
+        else:
+            return None
+    return _sin_tildes(f"{MOTIVO_PARTIDA_AGRUPADA}: {texto}")[:MAX_MOTIVO]
 
 
 class ReglasRegistro:

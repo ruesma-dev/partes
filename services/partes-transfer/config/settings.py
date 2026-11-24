@@ -2,8 +2,10 @@
 """Configuracion de partes-transfer (sv5): registro de partes en Sigrid."""
 from __future__ import annotations
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from application.services.obras_agrupadas import Ajustes, ajustes_de
 
 
 class Settings(BaseSettings):
@@ -137,3 +139,27 @@ class Settings(BaseSettings):
         """Hay cola configurada (nube o Azurite)."""
         return bool((self.colas_connection_string or "").strip()
                     or (self.colas_account_url or "").strip())
+
+    # ------------------------------------------------------------ #
+    # F-072 · obras agrupadas (postventa y VAR como entradas). SIN
+    # valores en el codigo (DA11): vacio = apagado. Con VAR_OBRA_COD,
+    # VAR_PARTIDA_DESDE es un entero >= 0 o no arranca (R2). sv5 no usa los alias.
+    # ------------------------------------------------------------ #
+    postventa_obra_cod: str | None = Field(None, alias="POSTVENTA_OBRA_COD")
+    var_obra_cod: str | None = Field(None, alias="VAR_OBRA_COD")
+    var_partida_desde: str | None = Field(None, alias="VAR_PARTIDA_DESDE")
+
+    @property
+    def obras_agrupadas(self) -> Ajustes:
+        """Ajustes validados de las obras agrupadas (gemelo F-072)."""
+        return ajustes_de(
+            postventa_cod=self.postventa_obra_cod,
+            var_cod=self.var_obra_cod,
+            var_desde=self.var_partida_desde,
+        )
+
+    @model_validator(mode="after")
+    def _validar_obras_agrupadas(self) -> Settings:
+        """R2: el error nombra VAR_PARTIDA_DESDE y el servicio no arranca."""
+        self.obras_agrupadas
+        return self

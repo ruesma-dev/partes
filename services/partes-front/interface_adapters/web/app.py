@@ -148,6 +148,7 @@ from interface_adapters.web.identidad import (
     senal_de_despliegue,
 )
 from application.services.obra_catalog import ObraCatalog
+from application.services.catalogo_entradas import CatalogoEntradas
 from application.services.empleado_catalog import EmpleadoCatalog
 from application.services.empresas import (
     NOMBRES_EMPRESA,
@@ -337,6 +338,9 @@ class ObraPayload(BaseModel):
     codigo: str
     ide: int | None = None
     nombre: str | None = None
+    # F-072 (R27): con la partida, la obra elegida es una ENTRADA de la obra
+    # agrupada `ide`.
+    partida_ide: int | None = None
 
     @field_validator("codigo", mode="before")
     @classmethod
@@ -535,6 +539,10 @@ def build_app(
         )
     catalog = TipoHoraCatalog(client=sigrid_client)
     obra_catalog = ObraCatalog(client=sigrid_client)
+    # F-072 (R25): las entradas de las obras agrupadas (vacio si apagado).
+    catalogo_entradas = CatalogoEntradas(
+        obra_catalog=obra_catalog, sigrid_client=sigrid_client,
+        ajustes=settings.obras_agrupadas)
     empleado_catalog = EmpleadoCatalog(client=sigrid_client)
     # F-035: recursos activos de clase persona para los selectores.
     recurso_catalog = RecursoCatalog(client=sigrid_client)
@@ -1917,6 +1925,16 @@ def build_app(
                 {"ok": False, "error": f"Error consultando Sigrid: {exc}",
                  "items": []}
             )
+        ajustes = settings.obras_agrupadas
+        # F-072 (R26, DA7): las agrupadas no se ofrecen como obra normal;
+        # sus entradas, si.
+        normales = [o for o in items if not ajustes.tipo_de(o.codigo)]
+        entradas = [
+            {"ide": e.obra_ide, "codigo": e.codigo, "nombre": e.nombre,
+             "empresa": e.empresa,
+             "empresa_nombre": nombre_empresa_o_vacio(e.empresa),
+             "agrupada": e.tipo, "partida_ide": e.partida_ide}
+            for e in catalogo_entradas.entradas()]
         return JSONResponse(
             {
                 "ok": True,
@@ -1924,8 +1942,8 @@ def build_app(
                     {"ide": o.ide, "codigo": o.codigo, "nombre": o.nombre,
                      "empresa": o.empresa,     # F-023 (R40)
                      "empresa_nombre": nombre_empresa_o_vacio(o.empresa)}
-                    for o in items
-                ],
+                    for o in normales
+                ] + entradas,
             }
         )
 
@@ -2233,6 +2251,8 @@ def build_app(
         # (gemelas de dos empresas) y por codigo solo se resuelve si es unico.
         ide = payload.ide
         nombre = payload.nombre
+        codigo = payload.codigo
+        codigo_real = payload.codigo
         if obra_catalog.enabled:
             opt = obra_catalog.get_by_ide(
                 payload.ide) or obra_catalog.get_by_codigo(
@@ -2240,11 +2260,30 @@ def build_app(
             if opt is not None:
                 ide = opt.ide
                 nombre = opt.nombre
+                codigo_real = opt.codigo
+        # F-072 (R27, R28): una obra agrupada solo con una entrada valida.
+        entrada = None
+        if payload.partida_ide is not None:
+            entrada = catalogo_entradas.entrada(payload.ide,
+                                                payload.partida_ide)
+            if entrada is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Esa entrada de obra agrupada no esta en el "
+                           "catalogo: elige otra obra.")
+            ide, codigo, nombre = (entrada.obra_ide, entrada.obra_codigo,
+                                   entrada.obra_nombre)
+        elif settings.obras_agrupadas.tipo_de(codigo_real):
+            raise HTTPException(
+                status_code=422,
+                detail="Es una obra agrupada (postventa o VAR): elige una de "
+                       "sus entradas.")
         objetivos = repository.update_parte_obra(
             document_id=document_id,
             obra_ide=ide,
-            obra_codigo=payload.codigo,
+            obra_codigo=codigo,
             obra_nombre=nombre,
+            **({"entrada": entrada} if entrada is not None else {}),
         )
         if objetivos is None:
             raise HTTPException(status_code=404, detail="Parte no encontrado")
@@ -2294,7 +2333,7 @@ def build_app(
         return {
             "ok": True,
             "obra_ide": ide,
-            "obra_codigo": payload.codigo,
+            "obra_codigo": codigo,
             "obra_nombre": nombre,
             "partidas_recasadas": recasadas,
             "partidas_sin_match": sin_match,
@@ -2941,7 +2980,8 @@ def build_app(
         if fq.varios_recursos(lineas_p):
             return dict(v, motivo=fq.MOTIVO_VARIOS_RECURSOS)
         if fila is not None:
-            datos = fila
+            # F-072 (enmienda b): la marca de entrada de la linea base.
+            datos = fq.con_metodo_base(fila, lineas_p)
         else:
             datos = _propuesta(rec, periodo, lineas_p,
                                fq.DiaAjuste(c.get("dia")))
@@ -3165,9 +3205,16 @@ def build_app(
             raise fq.AjusteCambiadoError(
                 "quedan lineas del trabajador en cola hacia Sigrid: espera a "
                 "que termine el registro y vuelve a aplicar")
+        datos = fila
+        if settings.obras_agrupadas.tipo_de(fila.get("obra_codigo")):
+            # F-072 (enmienda b): en una obra agrupada sv5 exige la marca de
+            # entrada de la linea base; la fila no la guarda (DA5).
+            datos = fq.con_metodo_base(
+                fila, repository.lineas_trabajador_periodo(
+                    fila["recurso_ide"], periodo.inicio_int, periodo.fin_int))
         try:
             r = dict(transfer_client.franquicia_ejecutar(
-                fq.payload_franquicia(fila, usuario=actor)))
+                fq.payload_franquicia(datos, usuario=actor)))
         except Exception as exc:  # noqa: BLE001
             logger.warning("[franquicia] aplicar %s fallo", ajuste_id,
                            exc_info=True)
@@ -4181,6 +4228,18 @@ def build_app(
         partida_metodo = "manual" if partida_ide else None
         partida_score = 1.0 if partida_ide else None
         obra_ide_int = _as_int(data.get("obra_ide"))
+        # F-072 (R28, R30): en una obra agrupada, solo con una entrada.
+        entrada = None
+        obra_sel = obra_catalog.get_by_ide(obra_ide_int) if (
+            obra_ide_int and obra_catalog.enabled) else None
+        if settings.obras_agrupadas.tipo_de(
+                obra_sel.codigo if obra_sel else data.get("obra_codigo")):
+            entrada = catalogo_entradas.entrada(obra_ide_int, partida_ide)
+            if entrada is None:
+                return JSONResponse(
+                    {"ok": False,
+                     "error": "Es una obra agrupada (postventa o VAR): elige "
+                              "una de sus entradas."}, status_code=422)
         if partida_ide is None and sigrid_client is not None and obra_ide_int:
             try:
                 from application.services.partida_catalog import (
@@ -4204,10 +4263,13 @@ def build_app(
                     "[partes-nuevo] casado de partida fallo: %r", exc
                 )
 
+        obra_txt = ((entrada.obra_codigo, entrada.obra_nombre) if entrada
+                    else (data.get("obra_codigo") or None,
+                          data.get("obra_nombre") or None))
         res = repository.crear_parte_manual(
             obra_ide=_as_int(data.get("obra_ide")),
-            obra_codigo=(data.get("obra_codigo") or None),
-            obra_nombre=(data.get("obra_nombre") or None),
+            obra_codigo=obra_txt[0],
+            obra_nombre=obra_txt[1],
             empleado_ide=_as_int(data.get("empleado_ide")),
             empleado_codigo=(data.get("empleado_codigo") or None),
             empleado_nombre=nombre,
@@ -4228,6 +4290,7 @@ def build_app(
             hora_normal=hora_normal,
             hora_extra=hora_extra,
             by=_actor(request),
+            **({"entrada": entrada} if entrada is not None else {}),
         )
         ok = not res.get("error") and (res.get("lineas") or 0) > 0
         return JSONResponse(
