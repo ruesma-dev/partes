@@ -325,6 +325,7 @@ from tests.test_f062_ciz_mismo_dia import (  # noqa: E402
 from tests.test_f062_ciz_mismo_dia import _fin as _linea_fin  # noqa: E402
 from tests.test_f062_ciz_mismo_dia import _inicio as _linea_inicio  # noqa: E402
 from tests.test_f062_ciz_mismo_dia import _obra as _obra_f062  # noqa: E402
+from application.pipelines.registro_pipeline import RegistroPipeline  # noqa: E402,I001
 
 D1, D2, D3 = 20261001, 20261002, 20261003
 
@@ -516,3 +517,59 @@ def test_f083_pipeline_r12_inicio_mismas_lecturas_que_hoy() -> None:
     assert cli.racha_leidas == [["partes:1:ciz", "partes:2", "partes:2:ciz",
                                  "partes:3", "partes:3:ciz"]]
     assert cli.estados_leidos == []
+
+
+# ------------------------------- R18 ------------------------------- #
+# Sentencias de la base de la rama (011bc2a; el codigo de sv5 es el mismo
+# en 4a614d3), capturadas con el doble antes de F-083.
+
+def _insert(fec, horide, pos, synckey, pre) -> dict:
+    return {"op": "insert", "hmoide": HMO_OCT, "reside": 501, "pos": pos,
+            "fec": fec, "horide": horide, "can": 0.0, "pre": pre, "tot": 0.0,
+            "paride": 0, "ano": 2026, "mes": 10, "synckey": synckey,
+            "tex": None, "caaide": 0, "guarda_hmoide": HMO_OCT,
+            "pisadas": []}
+
+
+BASE_R13_JUNTOS = [_insert(D1, H_CIV, 64, "partes:1", 2.0),
+                   _insert(D3, H_CIZ, 128, "partes:3", 3.5)]
+BASE_R13_REAPROBAR = [_insert(D2, H_CIZ, 192, "partes:2", 3.5)]
+BASE_R15 = [_insert(D1, H_CIV, 256, "partes:1", 2.0)]
+
+
+def _apagado(cli, lineas, como: str):
+    from tests.dobles import SettingsFake
+    if como == "sin_ajuste":
+        pipe = RegistroPipeline(cliente=cli, settings=SettingsFake())
+    else:
+        pipe = _pipe(cli, mover=False)
+    return pipe.ejecutar(obra=_obra_f062(), lineas=lineas)
+
+
+@pytest.mark.parametrize("como", ["mover_ciz_false", "sin_ajuste"])
+def test_f083_pipeline_r18_apagado_caso_0730_como_la_base(como) -> None:
+    cli = _cli()
+    enviadas = _espiar(cli)
+    lineas = [_linea_inicio(1, D1, [2, 3], ciz=False), _linea_fin(2, D2),
+              _linea_fin(3, D3, [1, 2])]
+    lineas[1].incidencia_rol = "intermedio"
+    _apagado(cli, lineas, como)
+    assert enviadas == BASE_R13_JUNTOS
+    _a_mano_a_civ(cli, "partes:3")
+    enviadas.clear()
+    cli.racha_leidas.clear()
+    r = _apagado(cli, [_linea_fin(2, D2, [1, 3])], como)
+    assert enviadas == BASE_R13_REAPROBAR
+    assert [e["hora_codigo"] for e in r.escritas] == ["CIZ"]
+    assert cli.racha_leidas == [] and cli.estados_leidos == []
+
+
+@pytest.mark.parametrize("como", ["mover_ciz_false", "sin_ajuste"])
+def test_f083_pipeline_r18_apagado_inicio_como_la_base(como, caplog) -> None:
+    cli = _cli(_fila(7001, fec=D3, rid=3, horide=H_CIV))
+    enviadas = _espiar(cli)
+    with caplog.at_level("INFO"):
+        _apagado(cli, [_linea_inicio(1, D1, [2, 3])], como)
+    assert enviadas == BASE_R15
+    assert cli.racha_leidas == [] and cli.estados_leidos == []
+    assert "racha_fin_no_ciz" not in caplog.text
