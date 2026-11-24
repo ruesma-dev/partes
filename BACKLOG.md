@@ -9,7 +9,7 @@ Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 1 en Review,
 
 | # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | reviewer | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 decididas por el humano en (a), aprobada 2026-11-23) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
+| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | humano | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 decididas por el humano en (a), aprobada 2026-11-23) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 
 ## Blocked
 
@@ -121,7 +121,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
-estado **en QA / revisión** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
+estado **en revisión humana** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
 
 **Spec**: specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 decididas por el humano en (a), aprobada 2026-11-23)
 

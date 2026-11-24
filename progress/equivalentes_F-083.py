@@ -1,7 +1,7 @@
 # progress/equivalentes_F-083.py
 """F-083 · T6: comprobacion EJECUTABLE de los 2 supervivientes que
 `progress/mutacion_F-083.md` propone como EQUIVALENTES. La aceptacion es del
-humano, pendiente.
+humano, aceptada el 2026-11-24.
 
 Los dos son de la familia `x is not None` -> `x` en `decidir_fin`
 (`racha_ciz.py`): `ultima` (linea 189) y `sigue` (linea 196), ambos el

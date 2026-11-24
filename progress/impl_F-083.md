@@ -184,7 +184,7 @@ evaluados, **17 muertos, 2 supervivientes**, 0 timeouts, 176,4 s.
 |---|---|
 | Tests ejecutados | sv5 1888 passed, 1 skipped (T6: +1 test); sv4 4017 passed, 1 skipped; F-083 79 |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 31 líneas cambiadas cubiertas (31/31, umbral 90%, nivel critico)` |
-| Mutantes | 25 generados, 19 evaluados, 17 muertos, 2 supervivientes equivalentes (aceptados por el humano el 2026-11-24), 0 timeouts, 176,4 s; encargo del reviewer muerto con test nuevo |
+| Mutantes | 4 workers; 25 generados, 19 evaluados, 17 muertos, 2 supervivientes equivalentes (aceptados por el humano el 2026-11-24), 0 timeouts, 176,4 s; encargo del reviewer muerto con test nuevo |
 | Tiempo de la suite | sv5 27,60 s (init.sh de T6); sv4 526,72 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`; sv4 intacto |
 | `init.sh` | T6: `ENTORNO LISTO`, exit 0; raíz 2549 passed, 50 skipped (570 s); sv5 1888 passed; impl 191/220. Antes: raíz 2549 passed, 50 skipped (769 s). sv4: 4017 passed. sv5: verde por la caché del servicio (y 1887 passed lanzada a mano tras el último cambio). `PUERTA TAMAÑO` OK (requirements 144/150, design 249/250, impl 173/220). `PUERTA CARRIL` N/A (nivel crítico). `CAPA E2E` N/A |
