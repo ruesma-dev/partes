@@ -1,140 +1,139 @@
-Revisión incremental desde ffd6369 (pasada 2, principal) · delta `ffd6369..af0cac9` · 2026-11-23
+Revisión de evidencias desde af0cac9 · delta `af0cac9..7edc52f` · 2026-11-24
 
-# F-072 · Review principal (reviewer), pasada 2
+# F-072 · Review de evidencias (reviewer)
 
-**Veredicto: APPROVED** (pasada principal). El SHA aprobado es **af0cac9**: abre la campaña T28
-(la capa e2e es N/A). Hay un **encargo para T28** (abajo): la pasada de evidencias lo comprueba.
+**Veredicto: APPROVED.**
 
-**Pasada 1** (`b1fb495...ffd6369`, 2026-11-21): CHANGES_REQUESTED por tres puntos, hoy resueltos:
-la categoría del capítulo en sv4, el desempate sin test y `current.md`.
+**Principal** pasada 2 (`ffd6369..af0cac9`): APPROVED con encargo para T28; pasada 1: CHANGES_REQUESTED, resuelto.
 
 **Nivel de rigor: `critico`**, declarado en `features.json`. Exige fase RED, cobertura ≥ 90 %,
-mutación con cero supervivientes sin justificar y MANUAL con comando. El delta no toca
-`rigor.local.json`. Lo aprobado en la pasada 1 hasta ffd6369 se da por bueno: el delta no
-cambia firmas públicas ni mueve ficheros.
+mutación con cero supervivientes sin justificar, RM1–RM7 y MANUAL con su comando. El delta no
+toca `rigor.local.json`.
 
 ## Ejecución
 
-- `ARNES_SIN_CACHE=1 bash harness/init.sh`: **ENTORNO LISTO**, exit 0. Raíz 2551 (48 skip),
-  sv1 74, sv2 575 (1), sv3 2944 (2), sv4 4004, sv5 1800 (1). R10 corre sin skip. Puertas:
-  TAMAÑO OK (impl 220/220), CARRIL N/A (critico), CAPA E2E N/A.
-- Gemelo: md5 `62c13db…`, idéntico en sv2–sv5 (antes `2d57809…`: el cambio de D1).
-- **Mutaciones a mano**, en una copia del scratchpad sin `.env`.
-  - Se lanzan con `sys.executable -m pytest`. Antes, un control sin mutante, en verde.
-  - Cada una se mata con un test de la propia feature.
-  - **D2**, 6 de 6 muertas por `test_f072_conflictos.py`: `ctx.agrupada is not None` por `False`
-    y por `True`, `==` → `!=` y sin comparar la partida, `con_partida=False`, y `_evaluar` sin
-    pasar `p.por_partida`.
-  - **D1**, 3 de 3 muertas por `test_f072_obras_agrupadas.py` (sv3): sin la guarda,
-    `fullmatch` → `match` y sin `strip`.
-  - **Cambio 1**: con `h.capitulo_cod` de vuelta, muere.
-  - **Desempate de `IndicePostventa`** (195 tests F-072 de sv4): mueren 4 (el `ide` de las
-    exactas, `<` → `>`, `_orden` sin código o sin longitud); sobreviven 4: ver el encargo.
+- `ARNES_SIN_CACHE=1 bash harness/init.sh`: **ENTORNO LISTO**, exit 0. Raíz 2551 (48 skip), sv1 74,
+  sv2 579 (1), sv3 2954 (2), sv4 4018, sv5 1809 (1). COBERTURA [OK] 99,7 % (1070/1073); TAMAÑO
+  [OK] (impl 215/220, review 140/140); CARRIL N/A; CAPA E2E N/A.
+- Árbol limpio al empezar y al terminar; las mutaciones, en una copia (`git archive HEAD`, sin `.env`).
 
 ## Delta revisado
 
-- **Cambio 1** (013766e): `partida_capitulo=h.categoria`.
-  - RED real en 20f91f6: `('CD.POSTVENTA', None) == ('CD', 'OTRO')`.
-  - El test pone una hoja bajo `CD.POSTVENTA` y otra sin padre (`OTRO`), y comprueba ≤ 8 caracteres.
-- **Cambio 2** (20f91f6): los 11 casos que pedí, contra `casar_postventa`.
-  - Están en verde desde el principio, y es correcto: faltaba evidencia, no lógica.
-  - Cubren las líneas 71, 80 y 90-92.
-- **O3** (013766e): fuera `CatalogoEntradas.ajustes`. El import de `Ajustes` sigue en uso (`:97`).
-- **Cambio 3** (2f4765e, líder): la línea 6 de `current.md` dice `in_review`, y la sección de
-  F-072 lista T29–T31 con su comando y enlaza a `tasks.md` y a `impl_F-072.md`.
-- **Enmienda D1 (c) / D2 (a)**, en este orden: spec 2319d70 (R8, R38, design §6 y T33, con fecha
-  y cita «D1 c, D2 a»), RED 99fe8d5, código c3a8af8 e informe 1adb0d2.
-- **D1, `casar_var`**: el segundo paso exige `_NUMERO.fullmatch(str(leido).strip())`.
-  - Sale el `if numero is None` (el `fullmatch` ya garantiza un número). R10 y R11, en verde.
-  - El test cubre `29.3`, `29A` y `29-B` → `None`; `" 29 "` → `29.1`; `0029` → `029`.
-- **D2, `ReajustePipeline`**: `_Preparada.por_partida = ctx.agrupada is not None`.
-  - Mismo criterio que el registro (`registro_pipeline.py:510`). `_choques` pide `con_partida=True`
-    solo en una obra agrupada y compara `paride`; en una obra normal, como hoy (`[False]`).
-  - La guarda (paso 2d) sigue delante: `escribe` exige la acción `escribir`.
-- **Documentación**: el paso 2d dice «solo choca la misma partida» para registro, reajuste y
-  franquicia, tanto en la semántica 24 de `docs/ARCHITECTURE.md` como en `azure-apps` §3.5.
-  - Hasta D2 eso no era cierto para el reajuste; ahora lo es. Ninguno documenta el segundo paso
-    de `casar_var`: no hay que tocar nada.
-- **Informe del implementer** (220/220): conserva las trazas RED, «Evidencias», los MANUAL con su
-  comando y (i)–(x). Las secciones condensadas no pierden nada necesario.
+- **Producción intacta.** En `services/` el delta solo toca tests (`test_f072_t28_mutantes.py` de
+  sv3/sv4/sv5, `test_f072_obras_agrupadas.py` sv3, `test_f072_catalogo_entradas.py` sv4). **T25
+  vacío**: `git diff dev --stat -- '*/tests/test_f0[0-6]*'` no devuelve nada.
+- **Encargo de la pasada 2, cumplido.** `exacta_y_con_letras` `[(2,"0578",0),(3,"0578B",0)]` y
+  `con_letras_mismo_normalizado` `[(3,"0578B",0),(2,"0578-B",0)]` en
+  `test_f072_r25_el_indice_desempata_como_casar_postventa`. En la copia, `casar` con los `get`
+  intercambiados (`:87`) y `_orden` sin `h.ide` (`:92`) dan 1 fallo de 13 cada uno; control, 13 verdes.
 
-## Checkpoints
+## Mutación (C4 bis)
 
-- **C1** [x] `init.sh` sin caché (arriba).
-- **C2** [x] Una sola feature activa (`in_review`) y la rama es la correcta. `current.md`, al día.
-- **C3** [x] En el delta no hay ficheros nuevos, prints ni TODOs; comentarios en español; el
-  hexágono sigue intacto (D2 queda en `application/pipelines`).
+**Recálculo puro**, con `harness.alcance` + `generar_mutantes` + `seleccionar`, usando la regla
+y la semilla del nivel (`_regla_configurada`):
+
+| Concepto | Informe | Recalculado |
+|---|---|---|
+| Origen | rama `b1fb495..feature/F-072…` | igual |
+| Ficheros / líneas | 31 / 2209 | 31 / 2209 (fichero a fichero, igual) |
+| Mutantes generados | 604 | 604 |
+| Candidatos (uno por línea) | 370 | 370 |
+| Tope `critico` | 60 % → 222 en [100, 300], semilla 20261030 | 222 |
+| Evaluados | 222 (178 muertos, 44 supervivientes) | **El conjunto sorteado coincide uno a uno con los `evaluados` del JSON** |
+
+- **Cabecera.** No lleva «⚠ CAMPAÑA NO VÁLIDA». «Sin veredicto (base rota)» = 0; timeouts e
+  indeterminados = 0. Declara la línea base de los 4 servicios en los 3 workers.
+- **Tiempo.** 22 170,9 s (> 60 s): **campaña no reejecutada**; vale el recálculo puro más los
+  controles de abajo. Coste por mutante 22 170,9 × 3 ÷ 222 = 299,6 s. **RM2**: la línea base
+  ponderada por la muestra (81 sv4, 62 sv3, 52 sv5, 27 sv2) da ~296 s y la media juzgada 261,3 s;
+  coherente (con `-x` el muerto corta antes), sin saltos de orden de magnitud.
+- **RM1.** SHA medido: `afaf5e3f…`. De `af0cac9` a `afaf5e3` solo cambia `review_F-072.md`; de
+  `afaf5e3` a HEAD, solo tests y papeleo. El alcance medido es el revisado.
+- **Supervivientes muestreados**, reales con el mismo operador y texto: `obras_agrupadas.py:218`
+  (`[:1]`→`[:2]`), `registro_pipeline.py:696` (`False`→`True`), `franquicia.py:246` (`or 0`→`or
+  1`) y `entrada_agrupada.py:105` (veracidad).
+- **Muertos con tests de T28.** Verificados por mí en la copia, siempre con un control sin
+  mutante en verde, `sys.executable -m pytest`:
+
+| Superviviente | Test | Sin mutante | Con mutante |
+|---|---|---|---|
+| sv3 `obras_agrupadas.py:218` | `-k t28_r41` (sv3) | 1 passed | 1 failed |
+| sv5, copia del gemelo `:218` | `test_f072_obras_agrupadas_copia.py` | 114 passed | 1 failed |
+| sv5 `registro_pipeline.py:696` | `-k choques_sin_por_partida` | 1 passed | 1 failed |
+| sv4 `franquicia.py:246` | `-k sin_recurso_no_toma` | 1 passed | 1 failed |
+| sv3 `entrada_agrupada.py:160` | `-k caduca_justo` | 1 passed | 1 failed |
+| sv4 `catalogo_entradas.py:87` y `:92` | encargo (arriba) | 13 passed | 1 failed cada uno |
+
+- **Equivalentes** (#1, 12–15, 19–21, 23, 26, 34, 36, 37): `progress/equivalentes_F-072.py` sale
+  con **exit 0** en sv2 (#1), sv3 (#19–21, 23, 26, 34, 36), sv4 (#12–15) y sv5 (#37). **Registro
+  fiel**: `mutacion_F-072.md` §«Aceptación del humano (2026-11-24)» copia literal «acepto los 13
+  equivalentes de F-072» (commit fbfcfac). Supervivientes sin test ni aceptación: 0.
+- **RM3.** Repasé los 9 muertos de veracidad y booleano: ninguno es equivalente (`:101 numero is
+  not None` → `numero` cambia con el número 0; los `con_partida`/`por_partida` cambian qué choca).
+- **RM5** (elegido por mí: el **#23**, que el encargo marcaba como sospechoso). `PartidaNodo`
+  (`partida_catalog.py:26`) es un `@dataclass` sin `__bool__` ni `__len__` en su MRO (comprobado
+  al importarlo), y `ResultadoEntrada.partida` solo toma `None` (`_sin`) o un nodo de
+  `casar_var`/`casar_postventa` (`:133`, `:150`). Es equivalente.
+- **RM6.** N/A: T28 no quita ninguna guarda; no cambia producción.
+- **RM7** (R36: «omitir **antes de escribir**»). En la copia bajé la puerta un paso:
+  `omisiones.update(por_partida)` pasa a ir detrás de `ReglasRegistro(...)`, así que las reglas
+  deciden sin la omisión. Con los 181 tests F-072 de sv5, sin `-x`: **15 fallos**, todos de la
+  feature (`test_f072_guarda.py::test_f072_r36_omite_en_var[…]`, …). El control da 181 verdes.
+
+## Verificaciones manuales T29–T31 (`progress/manual_F-072.md`, 7edc52f)
+
+Las ejecutó el implementer a petición del humano. Revisé las evidencias sin repetir escrituras
+ni lecturas contra Sigrid o `partes`.
+
+- **T29 (M0).** La consulta de la tarea, en conexión `read_only`, da **0 filas**. Hay 4 `VAR-30`
+  inactivos. Sostiene DA1, DA2, DA9 y DA13.
+- **T30 (M1).** `Counter` de `/api/sigrid/obras`: 88 postventa y 3 VAR. Postventa: conjuntos
+  `(empresa, partida_ide)` **idénticos** (88 = 88); VAR idéntico. Los 3 rótulos que difieren
+  (0578B, 0654-B, 0676-B casan con dos obras) son los de R24, no de universo. **No se comparó con
+  el preview real de porcentajes**: la base `dedicacion` la denegaron los permisos y el universo
+  se recalculó con las funciones del repo de porcentajes sobre Sigrid; que coincida con lo
+  desplegado depende de que porcentajes despliegue su repo (consulta de cotejo para el humano).
+- **T31 (M2).** sv5 local en modo pruebas (`/health`: `modo_pruebas: true`, 0404), sv4 hacia él,
+  sin colas. **R28**: 422 «Es una obra agrupada…». **R36**: la línea POSTV2 sin marca, omitida con
+  `partida_agrupada: sin entrada postventa: …`. PT26/00417: 4 `hmores` `PRUEBA-IA` con la `paride`
+  de cada entrada (303927 `Postv-0342`, 417055 `VAR-29`; **R24**) y synckey `partes:<id>`.
+  Limpieza de Sigrid (`limpiar --ejecutar` en una copia con mes 5; `verificar` → «No existe el
+  parte del mes») y de `partes` (3 documentos inactivos; T29 vuelve a 0). **R37** y **R38** no se
+  ejercitan a mano: los cubren `test_f072_guarda.py`, `test_f072_conflictos.py` y RM7.
+
+## Checkpoints (cierre)
+
+- **C1** [x] `init.sh` sin caché, arriba.
+- **C2** [x] Una sola feature activa (`in_review`) y la rama es la correcta. Ver la O7.
+- **C3** [x] El delta no trae prints, TODOs ni secretos; está en español. Los tests van con
+  datos ficticios y sin red. Las trazas de la prueba manual no traen credenciales.
 - **C3 bis** N/A: no toca `docs/referencia/`.
-- **C3 ter** [x] La enmienda tiene fecha (2026-11-23) y la cita del humano en R8, R38, design y
-  T33. `current.md` la registra.
-- **C3 quater** [x] cd58cab ya está en `origin/main`. D1 y D2 no piden cambio
-  en `partes.md`: el §3.5 ya nombraba el reajuste.
-- **C4** [x] T29–T31 están en `current.md` con su comando. R8 y R38 enmendados tienen su test.
-- **C4 bis**
-  - [x] El nivel está declarado.
-  - [x] RED real del cambio 1 y de T33: R8 (sv3, `1 failed`) y R38 (sv5, `-k d2a`, `1 failed,
-    2 passed`). Cuadran con mis mutaciones del código anterior (1 fallo en cada caso).
-  - [x] Cobertura `[OK]` 99,7 % (1070/1073). Las 3 sin cubrir son las que declara el informe:
-    `obras_agrupadas.py:62` en sv2 y sv5, y la línea 1196 de sv3.
-  - [x] «Evidencias»: sigue con los números del 2026-11-21, y T33 da los de sv3 y sv5.
-  - **Pendiente, pasada de evidencias**: la mutación (totales, recálculo, tiempos, RM1–RM6 y
-    supervivientes), RM7 y el encargo de abajo.
-  - Capa e2e N/A: `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`.
+- **C3 ter** [x] Sin enmiendas nuevas en el delta.
+- **C3 quater** [x] El delta no cambia lo expuesto ni lo consumido; el §3.5 de `azure-apps` ya
+  estaba (pasada 2).
+- **C4** [x] Los requisitos tienen su test (tabla de la pasada 2, sin cambios). Los MANUAL tienen
+  comando y evidencia en `manual_F-072.md`.
+- **C4 bis** [x] nivel, RED (pasada 2), cobertura (Ejecución), mutación recalculada, 31 con test +
+  13 aceptados, muertos por muestreo (campaña > 60 s, no reejecutada), coste, cabecera, RM1–RM3,
+  RM5, RM7. RM6 N/A (sin guardas quitadas). Capa e2e N/A (ningún servicio declara el bloque e2e).
 - **C4 ter** N/A: no hay `harness/rutas_sensibles.json`.
-- **C5** [x] T33 en `[x]`, con sus commits `F-072 T33:`. Los de la review van como
-  `F-072 review1:`: no son tareas. T28–T31 siguen pendientes a propósito. El árbol está limpio.
-
-## Encargo para T28 (lo comprueba la pasada de evidencias)
-
-`harness.mutacion` no genera estos mutantes: lo he comprobado con `generar_mutantes` sobre las
-líneas 60-92. Por eso la campaña no los vería. Los dos primeros **no son equivalentes** y
-sobreviven a los 195 tests F-072 de sv4
-(`services/partes-front/application/services/catalogo_entradas.py`):
-
-1. **`casar`** (`:87`), con los dos `get` intercambiados. Con `0578` y `0578B` activas, el gemelo
-   da `0578` y el mutante, `0578B`.
-   - Ningún caso tiene a la vez una exacta y una «con letras» activas: en `de_baja`, la exacta
-     está de baja.
-2. **`_orden` sin `h.ide`** (`:92`). Con `0578B` (ide 3) y `0578-B` (ide 2), en ese orden, el
-   gemelo da el ide 2.
-   - **Arreglo**: añadir `[(2,"0578",0),(3,"0578B",0)]` y `[(3,"0578B",0),(2,"0578-B",0)]`,
-     los dos con código `0578`, a `test_f072_r25_el_indice_desempata_como_casar_postventa`.
-   - Contra el código actual, el gemelo y el índice dan lo mismo en los dos (ide 2).
-   - **Si la pasada de evidencias no los encuentra, es CHANGES_REQUESTED.**
-3. **Equivalentes**, si la campaña los genera: `break` → `continue` (`:77`; los sufijos crecen
-   anidados: si uno no es solo letras, los más largos tampoco); quitar `if not cod: continue`
-   (`:70-71`; `casar` devuelve `None` con código vacío antes de mirar el índice); `<=` en `:73`
-   y `:80` (dos hojas no comparten `ide`).
+- **C5** [x] `tasks.md` T1–T33 en `[x]`, con commits `F-072 Tn:`. Árbol limpio.
+  `features.json` en `in_review`: pasar a `human_review` o `done` es cosa del líder.
 
 ## Observaciones (sin bloqueo)
 
-- **O5** El informe del implementer se quedó atrás en tres puntos: (ii) sigue diciendo «al pie
-  de la letra» (hoy manda D1 (c)), cd58cab dice «sin push» y la tabla de la suite es del
-  2026-11-21. Que lo refresque en T28.
-- **O1**, **O2** y **O4**, como en la pasada 1: `open()` no resetea `addlineEntradaPartida`; el
-  422 de «Añadir línea» en la vista `agr-` (mirarlo en M2); la línea 1196 de sv3 (pista).
-- **O6** Con D1, un `29.` leído (con punto final) va a revisión. Es la letra de (c): si molesta,
-  se verá en M2.
-
-## Cobertura requisito → test (todos en verde)
-
-| Req. | Test |
-|---|---|
-| R1–R3 | `test_f072_r1/r2_*` en los 4 `test_f072_settings.py`; `r3_*` en sv3, sv4 y sv5 |
-| R4–R9, R41 | sv3 `test_f072_obras_agrupadas.py` (R8 con D1: `test_f072_r8_d1c_*`), más cada `*_copia.py` |
-| R10, R11, R40 | raíz: `test_f072_equivalencia_porcentajes.py`, `…_gemelos.py`, `test_f072_documentacion.py` |
-| R12, R13, R43 | sv2 `test_f072_marca_sv2.py` |
-| R14–R19, R42 | sv3 `test_f072_entrada_agrupada.py`, `test_f072_pipeline.py` |
-| R20–R22 | sv3 `test_f072_conciliacion.py` |
-| R23–R35 | sv4 `test_f072_repositorio.py`, `test_f072_catalogo_entradas.py` (R25: `…_categoria_…`, `…_desempata_…`), `test_f072_endpoints.py`; R33 también en sv5 |
-| R36–R39 | sv5 `test_f072_guarda.py`, `test_f072_conflictos.py` (R38 con D2: `test_f072_r38_d2a_*`), `test_f072_guarda_reajuste_franquicia.py` |
+- **O7** `current.md` §«F-072 · T28» aún da los equivalentes por «pendientes» y no nombra
+  T29–T31: que el líder lo ponga al día al cerrar.
+- **O8** En `mutacion_F-072.md` la l. 97 y las 13 entradas siguen en «aceptación pendiente»; manda
+  la sección final, pero leído por partes confunde.
+- **O9** T31 pedía «cambiar un parte a `VAR-<n>`» y se hizo un alta manual con entrada (R30): el
+  cambio de obra a una entrada (R27) no se probó a mano (lo cubren los tests de endpoints).
+- **O10** Preview real de porcentajes sin cotejar (T30). **O11** La 0404 conserva 7 líneas
+  `PRUEBA-IA` de sesiones anteriores (06, 08, 10), no tocadas por esta prueba.
+- **O1**, **O2**, **O4** y **O6** de la pasada 2 siguen en pie (sin bloqueo).
 
 ## Automejora (propuesta, no aplicada)
 
-- La de la pasada 1 sigue en pie: una trampa C3 (4) sobre las longitudes `String(n)` del ORM gemelo.
-- **Nueva, para `reviewer.md`, punto 4 de «Validación contra el nivel»**:
-  - Cuando una feature reimplementa una regla del gemelo por rendimiento (aquí, un índice), la
-    campaña no ve los cambios de precedencia entre dos búsquedas ni los de los campos de una
-    clave de orden.
-  - Propuesta: en `critico`, el reviewer aplica a mano, en una copia, el intercambio de
-    precedencia y la retirada de cada campo del desempate, y exige que mueran.
+- Las de la pasada 2 siguen en pie. **Nueva, RM4 de `reviewer.md`**: al reproducir un muerto, el
+  mutante se aplica **por número de línea**, no por texto (`por_partida: bool = False` sale 3 veces
+  en `registro_pipeline.py`: una sustitución por texto mutaría otra línea en silencio).
