@@ -81,6 +81,12 @@ def test_f060_r16_las_que_no_son_ciz_del_recurso_no_cuentan(ajena) -> None:
     assert _decidir([ajena]).tipo == "crear"
     # Tampoco cuentan como posteriores: no hacen `intermedio`.
     posterior = LineaSigrid(**{**ajena.__dict__, "fecha_int": 20261005})
+    if ajena.reside == RES and not ajena.can:
+        # F-083 R2: una linea de la racha posterior de otro codigo (CIV o
+        # sin codigo) si deja el dia como intermedio, sin CIZ.
+        d = _decidir([posterior])
+        assert d.tipo == "intermedio" and d.sin_ciz is True
+        return
     assert _decidir([posterior]).tipo == "crear"
 
 

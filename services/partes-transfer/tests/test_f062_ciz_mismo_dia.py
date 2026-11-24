@@ -108,12 +108,16 @@ def test_f062_r11_puro_ciz_posterior() -> None:
         "posterior")
 
 
-@pytest.mark.parametrize("linea", [
-    _ls(5, D), _ls(5, D - 1), _ls(5, D + 1, reside=REC + 1),
-    _ls(5, D + 1, hora="CIV"), _ls(5, D + 1, can=2.0)])
-def test_f062_r11_puro_lo_que_no_es_ciz_posterior_no_cuenta(linea) -> None:
+@pytest.mark.parametrize("linea,esperado", [
+    (_ls(5, D), None), (_ls(5, D - 1), None),
+    (_ls(5, D + 1, reside=REC + 1), None),
+    # F-083 R8: un CIV posterior de la racha si quita el hermano.
+    (_ls(5, D + 1, hora="CIV"), "posterior_sin_ciz"),
+    (_ls(5, D + 1, can=2.0), None)])
+def test_f062_r11_puro_lo_que_no_es_ciz_posterior_no_cuenta(linea,
+                                                            esperado) -> None:
     assert decidir_mismo_dia(D, REC, [linea], None,
-                             marca_pruebas=None) is None
+                             marca_pruebas=None) == esperado
 
 
 def test_f062_r11_puro_en_pruebas_sin_marca_no_cuenta() -> None:
@@ -527,18 +531,19 @@ def test_f062_r11_propia_ya_existe_sin_hermano(caplog) -> None:
             "motivo=ya_existe") in caplog.text
 
 
-@pytest.mark.parametrize("fila", [
-    _fila(7001, fec=D + 1, rid=5, reside=REC + 1),
-    _fila(7001, fec=D + 1, rid=5, horide=H_CIV),
-    _fila(7001, fec=D + 1, rid=5, can=4.0),
-    _fila(7001, fec=D - 1, rid=5)])
-def test_f062_r11_lo_que_no_es_ciz_posterior_no_lo_impide(fila,
+@pytest.mark.parametrize("fila,hermano", [
+    (_fila(7001, fec=D + 1, rid=5, reside=REC + 1), True),
+    # F-083 R8: un CIV posterior de la racha si quita el hermano.
+    (_fila(7001, fec=D + 1, rid=5, horide=H_CIV), False),
+    (_fila(7001, fec=D + 1, rid=5, can=4.0), True),
+    (_fila(7001, fec=D - 1, rid=5), True)])
+def test_f062_r11_lo_que_no_es_ciz_posterior_no_lo_impide(fila, hermano,
                                                           caplog) -> None:
     cli = _cli(fila)
     with caplog.at_level("INFO"):
         a = _acc(_pf(cli, [_inicio(4, D, [5])]), 4)
-    assert a.fin_mismo_dia is not None
-    assert "ciz_mismo_dia_omitido" not in caplog.text
+    assert (a.fin_mismo_dia is not None) is hermano
+    assert ("ciz_mismo_dia_omitido" in caplog.text) is not hermano
 
 
 @pytest.mark.parametrize("tex,hermano", [(None, True), ("PRUEBA-IA", False)])
