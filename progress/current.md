@@ -4,9 +4,9 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-072**, `human_review` (2026-11-24, esperando el OK del humano para integrar). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: ninguna. Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar). Siguiente: **F-083**.
 
-## F-072 · human_review 2026-11-24 (líder)
+## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
 
 - T28: 222 evaluados, 178 muertos, 44 supervivientes; 31 muertos con tests nuevos y 13
   **equivalentes aceptados** por el humano el 2026-11-24 («acepto los 13 equivalentes de F-072»).
@@ -14,7 +14,7 @@ Feature activa: **F-072**, `human_review` (2026-11-24, esperando el OK del human
   (`progress/manual_F-072.md`). Sigrid limpia (PT26/00417 borrado); partes de prueba en papelera.
   Sin cotejar: el preview real de porcentajes (lectura de `dedicacion` denegada).
 - Reviewer, pasada de evidencias: **APPROVED** (d6aa07a), `init.sh` en verde, cobertura 99,7 %.
-- Falta: OK del humano, merge a `dev`, push y despliegue (encendido sv5 → sv3 → sv2 → sv4,
+- Falta: push de `dev` y despliegue (encendido sv5 → sv3 → sv2 → sv4,
   avisar a porcentajes).
 
 ## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081

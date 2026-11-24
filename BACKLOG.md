@@ -3,13 +3,11 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 20 abiertas y 57 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 6 en To do, 11 en Backlog y 57 en Done.
+Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 6 en To do, 11 en Backlog y 58 en Done.
 
 ## Review
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | humano | specs/F-072-postventa-var-como-obras/ | 2 | critico | `feature/F-072-postventa-var-como-obras` |
+_Nada esperando revisión._
 
 ## Blocked
 
@@ -57,6 +55,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | 2026-11-24 | 2026-11-24 |  | 2 | critico |
 | F-078 | sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28 | 2026-11-20 | 2026-11-20 | redesplegar sv3 (humano) y mover desde el portal los partes ya guardados de Dorsan (11-13/11) y el del 10/11 a la obra 0730 de Porsan | 1 | express |
 | F-077 | sv3 lee los festivos directamente de la API oficial de Sesame HR, sin la pasarela sesame-api | 2026-11-19 | 2026-11-19 | Sin desplegar. Manuales del humano M0–M6 (T17–T18: token rotado y SESAME-TOKEN en el Key Vault, contraste e impacto, redespliegue apagado, encendido, portal y -Quitar), comandos en progress/impl_F-077.md | 1 | critico |
 | F-032 | Activar Sesame en produccion: festivos de cada trabajador leidos de Sesame HR | 2026-11-18 | 2026-11-18 | Sin desplegar. Sus manuales M1–M7 y P0–P4 de sesame-api los sustituye F-077 (Sesame HR directo, sin pasarela); sigue P5 (RRHH completa Alicante) | 2 | critico |
@@ -126,14 +125,6 @@ estado **to do (comprometida)** · prioridad 1 · rigor `critico` · SDD sí · 
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-23 («da igual en el orden en el que vengan, si al final hacen una racha solo debería tener fin de incidencia el de fin de racha»), tras el correo de Administración de obra sobre la obra 0730 (recurso 1811653, vacaciones 18-20/11, parte PT26/00415). Lo que pasó (logs de sv4/sv5 y lectura de hmores): a las 11:48 UTC se aprobaron juntos 18, 19 y 20 ⇒ 18 inicio (CIV), 19 intermedio (omitido) y 20 fin (CIZ, hmores 416319): correcto. Antes de las 14:38 la línea del 20 pasó a mano de CIZ a CIV en Sigrid. A las 14:38 se reaprobó el 19 (estaba «omitido · intermedio»): sv4 lo mandó como fin, sv5 buscó el CIZ de la racha por sus synckeys, no lo encontró (el del 20 ya era CIV) y escribió un CIZ el 19 (hmores 416356), que después también se cambió a mano a CIV. Hueco: `decidir_fin` y `decidir_mismo_dia` (sv5, racha_ciz.py, F-060/F-062) solo dan el fin por posterior si encuentran un CIZ después de D; una línea de la racha escrita en un día posterior con otro código no cuenta. Propuesta a validar en la spec: un día no es fin (ni el inicio escribe su CIZ hermano) si la racha tiene CUALQUIER línea suya escrita en Sigrid (synckey de la racha, mismo recurso) en un día posterior; con el CIZ en su sitio, igual que hoy. A REVISAR EN LA SPEC: si basta sv5 o también sv4 (rol del día con días posteriores ya registrados), qué motivo ve el portal, qué pasa si Administración quitó el CIZ del último día (la racha queda sin fin: manda lo hecho a mano), y si el portal debe dejar de ofrecer reaprobar un «omitido · intermedio». Rigor crítico: escribe en Sigrid.
-
-### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
-
-estado **en revisión humana** · spec aprobada el 2026-11-21 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
-
-**Spec**: specs/F-072-postventa-var-como-obras/
-
-Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
 
 ### F-080 · sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida
 
@@ -274,6 +265,14 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-072 · Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes
+
+estado **terminada** · cerrada el 2026-11-24 · spec aprobada el 2026-11-21 · OK del humano el 2026-11-24 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-072-postventa-var-como-obras`
+
+**Spec**: specs/F-072-postventa-var-como-obras/
+
+Pedida por el humano el 2026-11-13: «hay que hacer con postventa y VAR lo mismo que en porcentajes, de forma que se traten los capítulos como obras con los mismos criterios que en porcentajes». Hoy partes no trata ni la obra de postventa ni la obra VAR: el casado de obra es por código y una línea de postventa o de una obra pequeña de VAR no tiene a dónde ir. LO QUE SE PIDE, con las reglas de porcentajes (repo porcentajes, docs/ARCHITECTURE.md #regla-p5 y #regla-var; F-002, F-025 y F-039 allí): (1) POSTVENTA es una obra, no una marca: una línea de postventa de la obra X se registra en la obra de postventa (POSTVENTA_OBRA_COD, en porcentajes en su .env) imputada a la partida HOJA ACTIVA cuyo código casa con el de X: igual normalizado y entero (0656 y 656 no casan) o, si no hay, el código de X seguido solo de letras (0578 → 0578B), la más corta; nunca un capítulo, ni por descripción ni por nombre; determinista. Universo de postventa = obras de la empresa con partida casada en la postventa de esa misma empresa; una obra cerrada del universo solo se ofrece como postventa. (2) VAR: la obra VAR_OBRA_COD agrupa obras pequeñas, una por partida; se ofrecen sus partidas hoja activas con número inicial >= VAR_PARTIDA_DESDE (29) como obras propias (código <obra VAR>-<partida>), con obra y partida de registro; la obra VAR no se ofrece como obra normal. A REVISAR EN LA SPEC: dónde casa cada cosa (sv3 concilia la obra leída; sv4 ofrece obras en el portal y el cambio de obra; sv5 registra en la obra y partida de registro), cómo escribe el trabajador en el papel una línea de postventa o de VAR y qué lee la IA (sv2); qué pasa con la partida que el parte trae (en postventa la partida la da el casado; en VAR, la propia partida); horas extra y jornada de esas líneas; reglas comunes con porcentajes: lógica de casado y universo duplicada entre repos (LÍMITE DE SERVICIO y lista cerrada de CLAUDE.md, decidir dónde vive y si se pide el universo al transfer de porcentajes o se reimplementa con tests de equivalencia); valores de POSTVENTA_OBRA_COD, VAR_OBRA_COD y VAR_PARTIDA_DESDE como configuración, no en el código; partes ya guardados de esas obras; azure-apps/partes.md en el mismo trabajo. RIGOR crítico: cambia en qué obra y partida se escribe en Sigrid.
 
 ### F-078 · sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28
 
