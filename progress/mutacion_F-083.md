@@ -68,7 +68,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `ultima` es el resultado de `ultima_posterior(..., solo_ciz=True)`, que solo tiene dos `return`: `None` o `max(posteriores, ...)` con `posteriores = [ls for ls in candidatas ...]`, es decir, una `LineaSigrid`. `LineaSigrid` es una dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, aunque traiga `ide` 0 o todos sus campos vacíos. `is not None` y la veracidad coinciden en todo el dominio.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-083.py` (#1), exit 0 en T6: comprueba el dominio por el AST, el tipo y, aplicando el mutante en memoria, que `decidir_fin` original y mutado deciden igual en 5.000 casos al azar con bordes (listas e iteradores). Control negativo: con un mutante no equivalente (`if False:`) el script cae en el caso 5.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-083.py` (#1), exit 0 en T6: comprueba el dominio por el AST, el tipo y, aplicando el mutante en memoria, que `decidir_fin` original y mutado deciden igual en 5.000 casos al azar con bordes (listas e iteradores). Control negativo: con un mutante no equivalente (`if False:`) el script cae en el caso 5.
 
 ### 2. `services/partes-transfer/application/services/racha_ciz.py:196` [veracidad]
 
@@ -79,7 +79,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `sigue` es el resultado de `ultima_posterior(..., solo_ciz=False)`, que solo tiene dos `return`: `None` o `max(posteriores, ...)` con `posteriores = [ls for ls in candidatas ...]`, es decir, una `LineaSigrid`. `LineaSigrid` es una dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, aunque traiga `ide` 0 o todos sus campos vacíos. `is not None` y la veracidad coinciden en todo el dominio.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-083.py` (#2), exit 0 en T6: comprueba el dominio por el AST, el tipo y, aplicando el mutante en memoria, que `decidir_fin` original y mutado deciden igual en 5.000 casos al azar con bordes (listas e iteradores). Control negativo: con un mutante no equivalente (`if False:`) el script cae en el caso 5.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-083.py` (#2), exit 0 en T6: comprueba el dominio por el AST, el tipo y, aplicando el mutante en memoria, que `decidir_fin` original y mutado deciden igual en 5.000 casos al azar con bordes (listas e iteradores). Control negativo: con un mutante no equivalente (`if False:`) el script cae en el caso 5.
 
 ## No muertos: código de salida
 
@@ -88,3 +88,9 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 | `services/partes-transfer/application/services/racha_ciz.py:189` | veracidad | superviviente | 0 |
 | `services/partes-transfer/application/services/racha_ciz.py:196` | veracidad | superviviente | 0 |
 
+
+## Aceptación del humano (2026-11-24)
+
+Literal del humano por el chat: «acepto ñas 2 equivalentes. aturoizo m1 y m3». Quedan
+**aceptados** los equivalentes #1 (`racha_ciz.py:189`) y #2 (`racha_ciz.py:196`), con la
+demostración `progress/equivalentes_F-083.py`. Supervivientes sin test ni aceptación: **0**.

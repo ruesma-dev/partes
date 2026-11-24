@@ -22,7 +22,8 @@ Feature activa: **F-083** (`in_review`, review principal APPROVED c25a504; campa
   0, `partes:25091`) y 416319 (20261120, CIV, can 0, `partes:25092`). Coincide con lo esperado.
 - **T6 hecha (implementer, 2026-11-24)**: campaña del líder 19 evaluados, 17 muertos, 2
   supervivientes (`racha_ciz.py:189` y `:196`, `is not None` → veracidad), propuestos como
-  **equivalentes pendientes de aceptación del humano** (`progress/equivalentes_F-083.py`,
+  **equivalentes, aceptados por el humano el 2026-11-24** («acepto ñas 2 equivalentes»;
+  M1 y M3 autorizadas: «aturoizo m1 y m3») (`progress/equivalentes_F-083.py`,
   exit 0). Encargo del reviewer: quitar `list(candidatas)` de `decidir_fin` muere con
   `test_f083_puro_r2_con_un_iterador` (comprobado a mano). RM7: N/A a mi juicio; lo decide el
   reviewer de evidencias. Sin cambios de producción.

@@ -151,7 +151,7 @@ da `4 passed` (los dos casos, con `mover_ciz=False` y con un settings sin el aju
 Campaña lanzada por el líder sobre 9784e0e (`progress/mutacion_F-083.md`): 25 generados, 19
 evaluados, **17 muertos, 2 supervivientes**, 0 timeouts, 176,4 s.
 - **#1 `racha_ciz.py:189`** (`if ultima is not None:` → `if ultima:`) y **#2 `:196`** (`sigue`):
-  **equivalentes, pendientes de aceptación del humano**. Los dos valen lo que devuelve
+  **equivalentes, aceptados por el humano el 2026-11-24** («acepto ñas 2 equivalentes»). Los dos valen lo que devuelve
   `ultima_posterior`: `None` o una `LineaSigrid`, dataclass sin `__bool__` ni `__len__`, siempre
   verdadera. Demostración: `progress/equivalentes_F-083.py` (desde `services/partes-transfer`,
   exit 0): dominio por el AST, tipo, y mutante aplicado en memoria contra 5.000 casos al azar
@@ -170,11 +170,10 @@ evaluados, **17 muertos, 2 supervivientes**, 0 timeouts, 176,4 s.
 
 - **Fuera (design §10)**: un CI* escrito en medio de una racha, nada retroactivo (D8) y sv4 sin
   cambios.
-- **M0**: precondición de tasks.md para T1. No consta hecha en `progress/`; el líder me pidió no
-  ejecutar M0–M4. Queda para el líder y el humano.
-- **Equivalentes de T6**: los 2 supervivientes esperan la aceptación del humano.
+- **M0**: hecha por el líder el 2026-11-24 (solo lectura), anotada en `progress/current.md`.
+- **Equivalentes de T6**: aceptados por el humano el 2026-11-24.
 - **T7, MANUAL (humano)**: M1–M3 en local en modo pruebas tras el merge en `dev`. M1 y M3 piden
-  editar a mano una línea PRUEBA-IA en Sigrid, y eso lo hace el humano. M4 es de solo lectura,
+  editar a mano una línea PRUEBA-IA en Sigrid, y eso lo hace el humano (autorizadas el 2026-11-24). M4 es de solo lectura,
   tras desplegar sv5.
 - **Push**: `azure-apps` 5078dc0 y la rama de la feature quedan sin push (lo hace el humano).
 - Desplegar sv5 activa F-083, porque `MOVER_CIZ` está encendido en producción (D7).
@@ -185,7 +184,7 @@ evaluados, **17 muertos, 2 supervivientes**, 0 timeouts, 176,4 s.
 |---|---|
 | Tests ejecutados | sv5 1888 passed, 1 skipped (T6: +1 test); sv4 4017 passed, 1 skipped; F-083 79 |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 31 líneas cambiadas cubiertas (31/31, umbral 90%, nivel critico)` |
-| Mutantes | 25 generados, 19 evaluados, 17 muertos, 2 supervivientes equivalentes (pendientes del humano), 0 timeouts, 176,4 s; encargo del reviewer muerto con test nuevo |
+| Mutantes | 25 generados, 19 evaluados, 17 muertos, 2 supervivientes equivalentes (aceptados por el humano el 2026-11-24), 0 timeouts, 176,4 s; encargo del reviewer muerto con test nuevo |
 | Tiempo de la suite | sv5 27,60 s (init.sh de T6); sv4 526,72 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`; sv4 intacto |
 | `init.sh` | T6: `ENTORNO LISTO`, exit 0; raíz 2549 passed, 50 skipped (570 s); sv5 1888 passed; impl 191/220. Antes: raíz 2549 passed, 50 skipped (769 s). sv4: 4017 passed. sv5: verde por la caché del servicio (y 1887 passed lanzada a mano tras el último cambio). `PUERTA TAMAÑO` OK (requirements 144/150, design 249/250, impl 173/220). `PUERTA CARRIL` N/A (nivel crítico). `CAPA E2E` N/A |
