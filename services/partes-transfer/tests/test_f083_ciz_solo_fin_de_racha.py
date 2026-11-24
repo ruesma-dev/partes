@@ -146,6 +146,17 @@ def test_f083_puro_r2_nombra_la_ultima_por_fecha_e_ide() -> None:
     assert "linea 5 " in d.motivo and "2026-10-08" in d.motivo
 
 
+def test_f083_puro_r2_con_un_iterador() -> None:
+    """T6 (encargo del reviewer): la firma promete `Iterable`. Con un
+    iterador de un solo uso, las dos lecturas (CIZ posterior y linea de la
+    racha posterior) tienen que ver todas las candidatas."""
+    lista = [_ls(5, D - 2), _ls(31, D + 3, hora="CIV")]
+    d = _fin(iter(lista))
+    assert d.tipo == "intermedio" and d.sin_ciz is True
+    assert d.motivo == motivo_intermedio_racha(31, D + 3, "CIV")
+    assert d == _fin(lista)
+
+
 # ------------------------------- R3 ------------------------------- #
 
 @pytest.mark.parametrize("anterior", [

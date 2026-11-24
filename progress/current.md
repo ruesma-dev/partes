@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-083** (`in_review`, review principal APPROVED c25a504; campaña T6 en curso; rama `feature/F-083-ciz-solo-fin-de-racha`). Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar).
+Feature activa: **F-083** (`in_review`, review principal APPROVED c25a504; campaña T6 hecha, pendiente de la pasada de evidencias; rama `feature/F-083-ciz-solo-fin-de-racha`). Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar).
 
 ## F-083 · in_progress (implementer, 2026-11-24, copia `partes-wt-f083`)
 
@@ -20,7 +20,13 @@ Feature activa: **F-083** (`in_review`, review principal APPROVED c25a504; campa
 - **M0 hecha por el líder el 2026-11-24** (Sigrid `ruesma`, solo lectura, consulta de design §8,
   `truncated: False`): 416318 (20261118, CIV, can 0, `partes:25090`), 416356 (20261119, CIV, can
   0, `partes:25091`) y 416319 (20261120, CIV, can 0, `partes:25092`). Coincide con lo esperado.
-- Pendiente del líder: T6 (campaña de mutación, tras el APPROVED principal) y T7 (M1–M4).
+- **T6 hecha (implementer, 2026-11-24)**: campaña del líder 19 evaluados, 17 muertos, 2
+  supervivientes (`racha_ciz.py:189` y `:196`, `is not None` → veracidad), propuestos como
+  **equivalentes pendientes de aceptación del humano** (`progress/equivalentes_F-083.py`,
+  exit 0). Encargo del reviewer: quitar `list(candidatas)` de `decidir_fin` muere con
+  `test_f083_puro_r2_con_un_iterador` (comprobado a mano). RM7: N/A a mi juicio; lo decide el
+  reviewer de evidencias. Sin cambios de producción.
+- Pendiente: pasada de evidencias del reviewer, aceptación de los 2 equivalentes y T7 (M1–M4).
 
 ## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
 
