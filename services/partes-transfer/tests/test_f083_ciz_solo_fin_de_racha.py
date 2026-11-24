@@ -304,3 +304,215 @@ def test_f083_puro_r20_regla_pura() -> None:
 def test_f083_puro_r20_el_cliente_no_borra() -> None:
     from infrastructure.sigrid import sigrid_write_client
     assert "DELETE" not in inspect.getsource(sigrid_write_client).upper()
+
+
+# ========================= Pipeline (R10-R18) ========================= #
+# Con `SigridFake` y los ayudantes de F-062: obra 0100, recurso 501, parte
+# de octubre En registro (901). d1-d3 = 1-3 de octubre de 2026.
+
+from tests.test_f062_ciz_mismo_dia import (  # noqa: E402
+    H_CIV,
+    H_CIZ,
+    HMO_OCT,
+    _acc,
+    _cli,
+    _ejecutar,
+    _espiar,
+    _fila,
+    _pipe,
+    _por_sk,
+)
+from tests.test_f062_ciz_mismo_dia import _fin as _linea_fin  # noqa: E402
+from tests.test_f062_ciz_mismo_dia import _inicio as _linea_inicio  # noqa: E402
+from tests.test_f062_ciz_mismo_dia import _obra as _obra_f062  # noqa: E402
+
+D1, D2, D3 = 20261001, 20261002, 20261003
+
+
+def _aprobar_juntos(cli, **kw):
+    """d1 `inicio` (sin hermano: su fin viaja), d2 `intermedio`, d3 `fin`."""
+    lineas = [_linea_inicio(1, D1, [2, 3], ciz=False), _linea_fin(2, D2),
+              _linea_fin(3, D3, [1, 2])]
+    lineas[1].incidencia_rol = "intermedio"
+    return _ejecutar(cli, lineas, **kw)
+
+
+def _a_mano_a_civ(cli, synckey: str) -> None:
+    """Administracion cambia a mano en Sigrid el CIZ de esa linea a CIV."""
+    (fila,) = [f for f in cli.lineas if f["synckey"] == synckey]
+    fila["horide"] = H_CIV
+
+
+def _caso_0730(**kw):
+    cli = _cli()
+    _aprobar_juntos(cli, **kw)
+    _a_mano_a_civ(cli, "partes:3")
+    return cli
+
+
+def _filas(cli) -> dict[str, tuple]:
+    return {f["synckey"]: (f["ide"], f["fec"], f["horide"])
+            for f in cli.lineas}
+
+
+def _motivo(r) -> str:
+    (o,) = r.omitidas
+    return o["motivo"]
+
+
+# ------------------------------- R13 ------------------------------- #
+
+def test_f083_pipeline_r13_caso_0730() -> None:
+    cli = _cli()
+    r0 = _aprobar_juntos(cli)
+    assert sorted((e["registro_id"], e["hora_codigo"])
+                  for e in r0.escritas) == [(1, "CIV"), (3, "CIZ")]
+    _a_mano_a_civ(cli, "partes:3")
+    antes = _filas(cli)
+    ide3 = antes["partes:3"][0]
+    enviadas = _espiar(cli)
+    r = _ejecutar(cli, [_linea_fin(2, D2, [1, 3])])
+    assert r.escritas == [] and enviadas == []
+    assert [o["registro_id"] for o in r.omitidas] == [2]
+    assert _motivo(r) == (
+        "dia intermedio de la incidencia: solo se registran el inicio y el "
+        f"fin (la racha sigue en Sigrid el dia 2026-10-03, linea {ide3} con "
+        "CIV, sin CIZ despues; no se escribe un fin en medio)")
+    assert "partes:2" not in _por_sk(cli)
+    assert "partes:2:ciz" not in _por_sk(cli)
+    assert _filas(cli) == antes
+    assert antes["partes:1"][2] == H_CIV and antes["partes:3"][2] == H_CIV
+
+
+# ------------------------------- R14 ------------------------------- #
+
+def test_f083_pipeline_r14_regresion_con_el_ciz_en_su_sitio() -> None:
+    cli = _cli()
+    _aprobar_juntos(cli)
+    antes = _filas(cli)
+    ide3 = antes["partes:3"][0]
+    enviadas = _espiar(cli)
+    r = _ejecutar(cli, [_linea_fin(2, D2, [1, 3])])
+    assert r.escritas == [] and enviadas == []
+    assert _motivo(r) == (
+        "dia intermedio de la incidencia: solo se registran el inicio y el "
+        f"fin (el fin, CIZ linea {ide3}, ya esta el dia 2026-10-03)")
+    assert _filas(cli) == antes and antes["partes:3"][2] == H_CIZ
+
+
+# ------------------------------- R15 ------------------------------- #
+
+def test_f083_pipeline_r15_inicio_desordenado_sin_hermano() -> None:
+    cli = _cli(_fila(7001, fec=D3, rid=3, horide=H_CIV))
+    enviadas = _espiar(cli)
+    r = _ejecutar(cli, [_linea_inicio(1, D1, [2, 3])])
+    (e,) = r.escritas
+    assert (e["registro_id"], e["hora_codigo"]) == (1, "CIV")
+    assert "ciz_hmores_ide" not in e
+    assert [s["op"] for s in enviadas] == ["insert"]
+    assert sorted(_por_sk(cli)) == ["partes:1", "partes:3"]
+    assert _por_sk(cli)["partes:3"]["horide"] == H_CIV
+
+
+# ------------------------------- R16 ------------------------------- #
+
+def test_f083_pipeline_r16_reaprobar_es_idempotente() -> None:
+    cli = _caso_0730()
+    antes = _filas(cli)
+    enviadas = _espiar(cli)
+    motivos = []
+    for _ in range(3):
+        r = _ejecutar(cli, [_linea_fin(2, D2, [1, 3])])
+        assert r.escritas == []
+        motivos.append(_motivo(r))
+    assert enviadas == [] and len(set(motivos)) == 1
+    assert "la racha sigue en Sigrid" in motivos[0]
+    assert _filas(cli) == antes
+
+
+# ------------------------------- R17 ------------------------------- #
+
+def test_f083_pipeline_r17_preflight_omite_sin_escribir() -> None:
+    cli = _caso_0730()
+    antes = _filas(cli)
+    enviadas = _espiar(cli)
+    pf = _pipe(cli).preflight(obra=_obra_f062(), lineas=[_linea_fin(2, D2, [1, 3])])
+    a = _acc(pf, 2)
+    assert a.accion == "omitir" and a.mover is None
+    assert "la racha sigue en Sigrid el dia 2026-10-03" in a.motivo
+    assert (pf.n_escribir, pf.n_omitir) == (0, 1)
+    assert enviadas == [] and _filas(cli) == antes
+
+
+# ------------------------------- R10 ------------------------------- #
+
+def test_f083_pipeline_r10_warning_del_fin(caplog) -> None:
+    cli = _caso_0730()
+    caplog.clear()
+    with caplog.at_level("INFO"):
+        r = _ejecutar(cli, [_linea_fin(2, D2, [1, 3])])
+    avisos = [rec for rec in caplog.records
+              if "racha_fin_no_ciz" in rec.getMessage()]
+    assert [(rec.levelname, rec.getMessage()) for rec in avisos] == [
+        ("WARNING", "[registro] racha_fin_no_ciz registro_id=2 "
+                    f"motivo={_motivo(r)}")]
+    assert "Persona" not in caplog.text
+
+
+def test_f083_pipeline_r10_sin_warning_con_ciz_posterior(caplog) -> None:
+    cli = _cli()
+    _aprobar_juntos(cli)
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_linea_fin(2, D2, [1, 3])])
+    assert "racha_fin_no_ciz" not in caplog.text
+
+
+# ------------------------------- R11 ------------------------------- #
+
+def test_f083_pipeline_r11_warning_del_inicio(caplog) -> None:
+    cli = _cli(_fila(7001, fec=D3, rid=3, horide=H_CIV))
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_linea_inicio(1, D1, [2, 3])])
+    info = [rec for rec in caplog.records
+            if "ciz_mismo_dia_omitido" in rec.getMessage()]
+    aviso = [rec for rec in caplog.records
+             if "racha_fin_no_ciz" in rec.getMessage()]
+    assert [(rec.levelname, rec.getMessage()) for rec in info] == [
+        ("INFO", "[registro] ciz_mismo_dia_omitido registro_id=1 "
+                 "motivo=posterior_sin_ciz")]
+    assert [(rec.levelname, rec.getMessage()) for rec in aviso] == [
+        ("WARNING", "[registro] racha_fin_no_ciz registro_id=1 "
+                    "motivo=posterior_sin_ciz")]
+    assert "Persona" not in caplog.text
+
+
+@pytest.mark.parametrize("fila", [
+    _fila(7001, fec=D3, rid=3),                    # CIZ posterior
+    _fila(7001, fec=D1, sk="partes:1:ciz")])       # hermano ya escrito
+def test_f083_pipeline_r11_sin_warning_en_los_demas_motivos(fila,
+                                                            caplog) -> None:
+    cli = _cli(fila)
+    with caplog.at_level("INFO"):
+        _ejecutar(cli, [_linea_inicio(1, D1, [2, 3])])
+    assert "ciz_mismo_dia_omitido" in caplog.text
+    assert "racha_fin_no_ciz" not in caplog.text
+
+
+# ------------------------------- R12 ------------------------------- #
+
+def test_f083_pipeline_r12_mismas_lecturas_que_hoy() -> None:
+    cli = _caso_0730()
+    cli.racha_leidas.clear()
+    cli.estados_leidos.clear()
+    _ejecutar(cli, [_linea_fin(2, D2, [1, 3])])
+    assert cli.racha_leidas == [["partes:1", "partes:1:ciz", "partes:3",
+                                 "partes:3:ciz"]]
+    assert cli.estados_leidos == [[HMO_OCT]]
+
+
+def test_f083_pipeline_r12_inicio_mismas_lecturas_que_hoy() -> None:
+    cli = _cli(_fila(7001, fec=D3, rid=3, horide=H_CIV))
+    _ejecutar(cli, [_linea_inicio(1, D1, [2, 3])])
+    assert cli.racha_leidas == [["partes:1:ciz", "partes:2", "partes:2:ciz",
+                                 "partes:3", "partes:3:ciz"]]
+    assert cli.estados_leidos == []
