@@ -94,7 +94,7 @@ Origen del diff: **rama** (`b1fb495192c621acce268282a069e241a0d58c3f` .. `featur
 
 Cada superviviente es una línea que ningún test comprueba de verdad, o una mutación equivalente. Distinguirlo es trabajo del implementer: ningún análisis puede quedarse sin completar al cerrar la feature.
 
-**Cierre de T28 (2026-11-23).** De los 44, **31 muertos** con tests nuevos, cada uno verificado a mano aplicando el mutante y deshaciéndolo. Los otros **13 se proponen como equivalentes**, pendientes de que el humano los acepte: #1, 12, 13, 14, 15, 19, 20, 21, 23, 26, 34, 36 y 37. Todos cambian `is None` por la veracidad sobre un valor que nunca es falso salvo `None`; la demostración ejecutable está en `progress/equivalentes_F-072.py`. Los 16 que el encargo señalaba como sospechosos (#6, 7, 8, 9, 16, 17, 18, 23, 25, 27, 28, 32, 33, 38, 40 y 41) se han mirado uno a uno: todos menos el #23 (`entrada_agrupada.py:105`) eran huecos reales y tienen su test. Encargo del reviewer (`casar` con los `get` intercambiados en `catalogo_entradas.py:87` y `_orden` sin `h.ide` en `:92`): mueren los dos con los casos nuevos `exacta_y_con_letras` y `con_letras_mismo_normalizado`.
+**Cierre de T28 (2026-11-23).** De los 44, **31 muertos** con tests nuevos, cada uno verificado a mano aplicando el mutante y deshaciéndolo. Los otros **13 son equivalentes, aceptados por el humano el 2026-11-24**: #1, 12, 13, 14, 15, 19, 20, 21, 23, 26, 34, 36 y 37. Todos cambian `is None` por la veracidad sobre un valor que nunca es falso salvo `None`; la demostración ejecutable está en `progress/equivalentes_F-072.py`. Los 16 que el encargo señalaba como sospechosos (#6, 7, 8, 9, 16, 17, 18, 23, 25, 27, 28, 32, 33, 38, 40 y 41) se han mirado uno a uno: todos menos el #23 (`entrada_agrupada.py:105`) eran huecos reales y tienen su test. Encargo del reviewer (`casar` con los `get` intercambiados en `catalogo_entradas.py:87` y `_orden` sin `h.ide` en `:92`): mueren los dos con los casos nuevos `exacta_y_con_letras` y `con_letras_mismo_normalizado`.
 
 ### 1. `services/partes-api/application/services/obra_sigrid.py:73` [veracidad]
 
@@ -105,7 +105,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `self._marcas` es `None` o un `Marcas`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. El único productor es `Settings.obras_agrupadas.marcas` (o el `None` por defecto).
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#1), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#1), exit 0 en T28.
 
 ### 2. `services/partes-api/application/services/obras_agrupadas.py:152` [booleano]
 
@@ -226,7 +226,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `deleted_at_utc` solo vale `None` o un `datetime.now(timezone.utc).isoformat()` (nunca vacío): las escrituras del código de los cinco servicios son `None`, `now_iso` y `ahora` (los dos, `isoformat()`) o la copia `doc.deleted_at_utc`. La cadena vacía no se escribe nunca, así que `is None` y `not` coinciden. sv3 ya lo lee por veracidad (`if reg.get("deleted_at_utc")`).
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#12), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#12), exit 0 en T28.
 
 ### 13. `services/partes-front/infrastructure/database/parte_repository.py:5088` [veracidad]
 
@@ -237,7 +237,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: Mismo argumento que el #12 (la misma expresión, en `borrar_obra`).
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#13), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#13), exit 0 en T28.
 
 ### 14. `services/partes-front/infrastructure/database/parte_repository.py:5388` [veracidad]
 
@@ -248,7 +248,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `entrada` es `None` o un `Entrada`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. Su único llamador, `/api/partes/nuevo`, pasa `entrada` solo si no es `None`, y viene de `CatalogoEntradas.entrada`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#14), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#14), exit 0 en T28.
 
 ### 15. `services/partes-front/interface_adapters/web/app.py:2269` [veracidad]
 
@@ -259,7 +259,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `entrada` es `None` o un `Entrada`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. Viene de `CatalogoEntradas.entrada`, que da un `Entrada` o `None`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#15), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#15), exit 0 en T28.
 
 ### 16. `services/partes-front/interface_adapters/web/app.py:4234` [logico]
 
@@ -303,7 +303,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `forma` es `None` o un `Forma`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. `_forma` devuelve `leer_forma(...)` (un `Forma` o `None`) o `None`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#19), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#19), exit 0 en T28.
 
 ### 20. `services/partes-persistencia/application/pipelines/persist_parte_pipeline.py:426` [veracidad]
 
@@ -314,7 +314,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `tipo` sale de `Ajustes.tipo_de` (o es `None`), que solo da `POSTVENTA` (`"postventa"`), `VAR` (`"var"`) o `None`: nunca una cadena vacía. El script lo recorre con 2.000 códigos al azar y los bordes.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#20), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#20), exit 0 en T28.
 
 ### 21. `services/partes-persistencia/application/pipelines/persist_parte_pipeline.py:526` [veracidad]
 
@@ -325,7 +325,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `parte.entrada` es `None` o un `EntradaPartida`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. Además, la línea solo forma el mensaje de un `logger.info`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#21), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#21), exit 0 en T28.
 
 ### 22. `services/partes-persistencia/application/services/entrada_agrupada.py:58` [booleano]
 
@@ -347,7 +347,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `r.partida` es `None` o un `PartidaNodo`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. Los `ResultadoEntrada` con partida la toman de `casar_var`/`casar_postventa` sobre nodos de `build_arbol_partidas`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#23), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#23), exit 0 en T28.
 
 ### 24. `services/partes-persistencia/application/services/entrada_agrupada.py:124` [veracidad]
 
@@ -380,7 +380,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `partida` es `None` o un `PartidaNodo`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. `casar_var` devuelve un elemento del universo (nodos de `build_arbol_partidas`) o `None`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#26), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#26), exit 0 en T28.
 
 ### 27. `services/partes-persistencia/application/services/entrada_agrupada.py:140` [veracidad]
 
@@ -468,7 +468,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `self._ajustes` es `None` o un `Ajustes`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. Lo pasa `app.py` con `settings.obras_agrupadas`, o es el `None` por defecto (como antes de F-072). `Ajustes.activo` es una propiedad, no `__bool__`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#34), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#34), exit 0 en T28.
 
 ### 35. `services/partes-persistencia/domain/models/parte_records.py:125` [booleano]
 
@@ -490,7 +490,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `entrada` es `None` o un `EntradaPartida`, dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, así que `is None`/`is not None` y la veracidad coinciden en todo el dominio. `_campos_entrada` recibe `parte.entrada`, que solo escribe `_casar_entrada` con un `EntradaPartida` o `None`.
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#36), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#36), exit 0 en T28.
 
 ### 37. `services/partes-transfer/application/pipelines/registro_pipeline.py:339` [veracidad]
 
@@ -501,7 +501,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `agrupada` es `None` o la tupla `(tipo, origen)` de `_obra_agrupada` (2 elementos: siempre verdadera).
-> Decisión: **equivalente propuesto; aceptación del humano pendiente**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#37), exit 0 en T28.
+> Decisión: **equivalente aceptado por el humano el 2026-11-24**. Demostración ejecutable: `progress/equivalentes_F-072.py` (#37), exit 0 en T28.
 
 ### 38. `services/partes-transfer/application/pipelines/registro_pipeline.py:696` [booleano]
 

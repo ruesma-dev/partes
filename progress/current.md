@@ -4,16 +4,18 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-072**, `in_review` (pasada 2 del reviewer, 2026-11-23). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
+Feature activa: **F-072**, `human_review` (2026-11-24, esperando el OK del humano para integrar). Última cerrada: **F-078** (2026-11-20, sin desplegar; ver abajo).
 
-## F-072 · T28 (campaña) hecha 2026-11-23 (implementer)
+## F-072 · human_review 2026-11-24 (líder)
 
-Campaña: 222 evaluados, 178 muertos y 44 supervivientes. 31 se han matado con tests nuevos
-(`test_f072_t28_mutantes.py` en sv3, sv4 y sv5, más casos del gemelo en sv3) y 13 se proponen
-como **equivalentes**, pendientes de que el humano los acepte (`progress/mutacion_F-072.md`,
-`progress/equivalentes_F-072.py`). El encargo del reviewer está hecho: los dos casos del
-desempate matan `:87` y `:92`. No hay fallo de código ni ambigüedad de spec. Detalle en
-`progress/impl_F-072.md`, sección T28.
+- T28: 222 evaluados, 178 muertos, 44 supervivientes; 31 muertos con tests nuevos y 13
+  **equivalentes aceptados** por el humano el 2026-11-24 («acepto los 13 equivalentes de F-072»).
+- T29–T31: hechas por el implementer a petición del humano («haz tu las pruebas»), en verde
+  (`progress/manual_F-072.md`). Sigrid limpia (PT26/00417 borrado); partes de prueba en papelera.
+  Sin cotejar: el preview real de porcentajes (lectura de `dedicacion` denegada).
+- Reviewer, pasada de evidencias: **APPROVED** (d6aa07a), `init.sh` en verde, cobertura 99,7 %.
+- Falta: OK del humano, merge a `dev`, push y despliegue (encendido sv5 → sv3 → sv2 → sv4,
+  avisar a porcentajes).
 
 ## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081
 
