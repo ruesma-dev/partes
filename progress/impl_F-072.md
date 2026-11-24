@@ -2,7 +2,7 @@
 
 Postventa y obras VAR como **entradas** de una obra agrupada (obra agrupada + una partida). Rama
 `feature/F-072-postventa-var-como-obras`, un commit por tarea `F-072 Tn: …`. Hechas T1–T28, T32
-y T33. **T29–T31 (manuales) quedan sin marcar**: son del humano.
+y T33. **T29–T31 (manuales)**: hechas el 2026-11-24, en `progress/manual_F-072.md`.
 El bloqueo de T16 se resolvió con la opción **(b)** del humano: reajuste y franquicia también
 pasan la guarda y llevan la marca de la línea base (RED 6aef54d, código b66a749).
 
@@ -147,21 +147,16 @@ Otros: T25 (`git diff dev --stat -- '*/tests/test_f0[0-6]*'`) vacío; T24 `node 
 gemelo de sv3 contra la copia del servicio; solo tests, sin lógica copiada. Pista O4 que sigue
 abierta: `sqlalchemy_parte_repository.py:1196` (sv3), el `continue` del reemplazo del mismo día.
 
-## Verificaciones MANUAL pendientes (del humano)
+## Verificaciones MANUAL (hechas el 2026-11-24)
 
-Los comandos completos están en `tasks.md`:
-- **T29 (M0)**, antes de encender, solo lectura en la base `partes`: la consulta `SELECT
-  d.obra_codigo, upper(d.obra_numero_leido) …` de T29. Cuenta cuántos partes hay ya en
-  POSTV2/VAR o con marca leída.
-- **T30 (M1)**, universos contra porcentajes: sv4 en local con
-  `POSTVENTA_OBRA_COD=POSTV2 VAR_OBRA_COD=VAR VAR_PARTIDA_DESDE=29`, el `python -c …Counter…` de
-  T30 sobre `/api/sigrid/obras`, y comparar con el preview de dedicación.
-- **T31 (M2)**, portal y escritura en modo pruebas (`OBRA_PRUEBAS_FORZAR=true`, obra 0404,
-  local):
-  1. Pasar un parte a `VAR-<n>` y otro a `Postv-<obra>`, y aprobar.
-  2. Comprobar el resultado con `python services/partes-transfer/prueba_escritura_sigrid.py verificar`.
-  3. Comprobar que una línea sin marca en POSTV2 sale omitida con `partida_agrupada:`.
-  4. Limpiar con `python services/partes-transfer/prueba_escritura_sigrid.py limpiar --ejecutar`.
+T29–T31 las ejecutó el implementer a petición del humano; detalle y trazas en
+`progress/manual_F-072.md`. En resumen, las tres en verde:
+- **T29 (M0)**: 0 partes activos en POSTV2/VAR o con marca leída (solo 4 inactivos `VAR-30`).
+- **T30 (M1)**: postventa 88 = 88 por `partida_ide` y VAR idéntico (3 entradas). La diferencia
+  por código es de rotulado (R24). No se leyó el preview real: lectura de `dedicacion` denegada.
+- **T31 (M2)**: sv5 y sv4 locales en modo pruebas; `VAR-29` y `Postv-0342` escritas en la 0404
+  con su `paride` y `PRUEBA-IA`; la línea sin marca, omitida con `partida_agrupada:`. Sigrid
+  limpia (PT26/00417 borrado) y los 3 partes de prueba en la papelera.
 - **Encendido**: variables en el orden sv5 → sv3 → sv2 → sv4 (`infra/README_partes.md`), y
   avisar a porcentajes. **Push** de la rama: lo hace el humano (`azure-apps` ya está subido).
 - Los 13 equivalentes de T28: **aceptados** por el humano el 2026-11-24.
