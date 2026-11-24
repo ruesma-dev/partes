@@ -4,7 +4,21 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar). Siguiente: **F-083**.
+Feature activa: **F-083** (`in_progress`, rama `feature/F-083-ciz-solo-fin-de-racha`). Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar).
+
+## F-083 · in_progress (implementer, 2026-11-24, copia `partes-wt-f083`)
+
+- T1–T5 hechas y commiteadas (T1 9a73523, T2 c43d3be, T3 6fc7ccc, T5 10681ce; T4 al cerrar);
+  `azure-apps` 5078dc0 en `main`, **sin push**.
+- **Desviación justificada (T2, R22)**: además de los dos subcasos que nombra R22, se enmienda
+  el gemelo de pipeline del mismo subcaso en `test_f062_ciz_mismo_dia.py`,
+  `test_f062_r11_lo_que_no_es_ciz_posterior_no_lo_impide[fila1]` (un CIV posterior del tramo,
+  mismo fichero, mismo comentario `# F-083 R8`). Era el único test fuera de la lista que
+  fallaba con la suite completa de sv5, y su aserción contradice R8 y R15: no se puede cumplir
+  la spec y conservarla. Los subcasos de otro recurso, `can` ≠ 0 y anterior se conservan.
+  Lo valida el reviewer.
+- Pendiente del líder: M0 (precondición de tasks.md, no consta hecha en `progress/`), T6
+  (campaña de mutación) y T7 (M1–M4).
 
 ## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
 
