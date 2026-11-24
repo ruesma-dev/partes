@@ -166,6 +166,35 @@ evaluados, **17 muertos, 2 supervivientes**, 0 timeouts, 176,4 s.
   decide el reviewer de evidencias.
 - Ningún cambio de código de producción en T6.
 
+## H1 · test de la puerta antes de los conflictos (2026-11-24)
+
+Encargo del humano («si quiero el test») sobre H1/RM7 de `review_F-083.md`. Test nuevo
+`test_f083_pipeline_h1_puerta_antes_de_los_conflictos[False|True]`: caso 0730 con el parte de
+octubre ya con líneas (y, en `True`, un CIZ manual del recurso el día D2). Compara las lecturas
+exactas del preflight (`llamadas == LECTURAS_H1`, sin `lineas_existentes`), `lineas_leidas == []`,
+`conflictos == []` y el motivo de F-083, también en `ejecutar`. Sin cambios de producción.
+Mutación A a mano (`self._ciz_de_racha(ctx)` quitada del paso 6 bis y puesta tras el bucle del
+paso 7), desde `services/partes-transfer`:
+```
+$ python -m pytest tests/test_f083_ciz_solo_fin_de_racha.py -k h1 -q -p no:cacheprovider --tb=line
+...test_f083_ciz_solo_fin_de_racha.py:565: assert [901] == []
+AssertionError: assert 'la racha sigue en Sigrid el dia 2026-10-03' in 'incidencia_en_sigrid: la
+  incidencia ya consta en Sigrid ese dia (linea 7100 del parte PT26/00010); no se duplica'
+FAILED ...::test_f083_pipeline_h1_puerta_antes_de_los_conflictos[False]
+FAILED ...::test_f083_pipeline_h1_puerta_antes_de_los_conflictos[True]
+2 failed, 79 deselected, 1 warning in 2.82s
+```
+Con la mutación, el fichero F-083 entero: `2 failed, 79 passed` (solo cae el test nuevo).
+Deshecha con `git checkout -- application/pipelines/registro_pipeline.py`; `git diff --stat --
+application/` vacío:
+```
+$ python -m pytest tests/test_f083_ciz_solo_fin_de_racha.py -q -p no:cacheprovider
+81 passed, 1 warning in 3.30s
+```
+Nota: con la línea ajena, la puerta bajada no ofrece conflicto sino que omite por F-053
+(`incidencia_en_sigrid`); el test caza ambos efectos (lectura de más y motivo ajeno).
+`init.sh` (H1): exit 0, `ENTORNO LISTO`; raíz 2549 passed, 50 skipped (1127,7 s); sv5 1890 passed, 1 skipped (46,3 s); `PUERTA COBERTURA` 100% (31/31); impl 218/220; `CAPA E2E` N/A.
+
 ## Fuera de alcance y pendiente
 
 - **Fuera (design §10)**: un CI* escrito en medio de una racha, nada retroactivo (D8) y sv4 sin
@@ -182,7 +211,7 @@ evaluados, **17 muertos, 2 supervivientes**, 0 timeouts, 176,4 s.
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | sv5 1888 passed, 1 skipped (T6: +1 test); sv4 4017 passed, 1 skipped; F-083 79 |
+| Tests ejecutados | sv5 1890 passed, 1 skipped (H1: +2 casos; T6: 1888); sv4 4017 passed, 1 skipped; F-083 81 |
 | Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 31 líneas cambiadas cubiertas (31/31, umbral 90%, nivel critico)` |
 | Mutantes | 4 workers; 25 generados, 19 evaluados, 17 muertos, 2 supervivientes equivalentes (aceptados por el humano el 2026-11-24), 0 timeouts, 176,4 s; encargo del reviewer muerto con test nuevo |
 | Tiempo de la suite | sv5 27,60 s (init.sh de T6); sv4 526,72 s |

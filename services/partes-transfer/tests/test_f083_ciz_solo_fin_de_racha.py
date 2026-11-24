@@ -530,6 +530,49 @@ def test_f083_pipeline_r12_inicio_mismas_lecturas_que_hoy() -> None:
     assert cli.estados_leidos == []
 
 
+# ------------------------- H1 (RM7) ------------------------- #
+# Pasada de evidencias, hallazgo H1: la puerta de F-083 (paso 6 bis,
+# `_ciz_de_racha`) va ANTES de los conflictos (paso 7). Con un `fin` que
+# F-083 omite, el paso 7 no lo ve: ni lee sus lineas existentes ni lo
+# ofrece como conflicto.
+
+#: Lecturas del preflight del caso 0730, en orden: sin `lineas_existentes`.
+LECTURAS_H1 = ["obra_por_ide", "datos_recursos", "horas_de_recursos",
+               "partes_del_periodo", "lineas_por_synckey", "lineas_de_racha",
+               "estados_de_partes"]
+
+
+@pytest.mark.parametrize("ajena", [False, True])
+def test_f083_pipeline_h1_puerta_antes_de_los_conflictos(ajena) -> None:
+    """H1 / RM7: caso 0730 con el parte de octubre ya con lineas.
+
+    Si la puerta bajara detras del paso 7 (`_lineas_existentes`), el `fin`
+    omitido por F-083 pasaria por la lectura de conflictos y, con una linea
+    ajena del recurso ese dia, el paso 7 decidiria por F-083 (conflicto u
+    omision con otro motivo). Se comparan las lecturas exactas del preflight
+    y de la ejecucion, la lista de conflictos y el motivo."""
+    cli = _caso_0730()
+    if ajena:                       # CIZ manual del recurso el dia D2
+        cli.lineas.append(_fila(7100, fec=D2))
+    antes = _filas(cli)
+    enviadas = _espiar(cli)
+    lineas = [_linea_fin(2, D2, [1, 3])]
+    cli.llamadas.clear()
+    cli.lineas_leidas.clear()
+    pf = _pipe(cli).preflight(obra=_obra_f062(), lineas=lineas)
+    a = _acc(pf, 2)
+    assert a.accion == "omitir" and pf.conflictos == []
+    assert "la racha sigue en Sigrid el dia 2026-10-03" in a.motivo
+    assert cli.lineas_leidas == []
+    assert cli.llamadas == LECTURAS_H1
+    cli.llamadas.clear()
+    r = _ejecutar(cli, lineas)
+    assert r.escritas == [] and enviadas == []
+    assert "la racha sigue en Sigrid el dia 2026-10-03" in _motivo(r)
+    assert cli.lineas_leidas == [] and "lineas_existentes" not in cli.llamadas
+    assert _filas(cli) == antes
+
+
 # ------------------------------- R18 ------------------------------- #
 # Sentencias de la base de la rama (011bc2a; el codigo de sv5 es el mismo
 # en 4a614d3), capturadas con el doble antes de F-083.
