@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-083** (`in_progress`, rama `feature/F-083-ciz-solo-fin-de-racha`). Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar).
+Feature activa: **F-083** (`in_review`, review principal APPROVED c25a504; campaña T6 en curso; rama `feature/F-083-ciz-solo-fin-de-racha`). Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar).
 
 ## F-083 · in_progress (implementer, 2026-11-24, copia `partes-wt-f083`)
 
