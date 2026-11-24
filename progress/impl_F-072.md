@@ -164,7 +164,7 @@ Los comandos completos están en `tasks.md`:
   4. Limpiar con `python services/partes-transfer/prueba_escritura_sigrid.py limpiar --ejecutar`.
 - **Encendido**: variables en el orden sv5 → sv3 → sv2 → sv4 (`infra/README_partes.md`), y
   avisar a porcentajes. **Push** de la rama: lo hace el humano (`azure-apps` ya está subido).
-- **Aceptar o rechazar los 13 equivalentes de T28** (abajo).
+- Los 13 equivalentes de T28: **aceptados** por el humano el 2026-11-24.
 
 ## Evidencias
 
@@ -172,7 +172,7 @@ Los comandos completos están en `tasks.md`:
 |---|---|
 | Tests ejecutados | 11 911 passed, 52 skipped, 0 failed (raíz y sv2 a sv5; sv1, por caché) |
 | Cobertura de las líneas cambiadas | **99.7 %** (1070/1073, umbral 90 % de `critico`) |
-| Mutantes generados y supervivientes | 604 generados, 222 evaluados (muestra de `critico`), 178 muertos, **44 supervivientes**: 31 muertos después con tests de T28 y **13 equivalentes propuestos** (pendientes del humano). `progress/mutacion_F-072.md` |
+| Mutantes generados y supervivientes | 604 generados, 222 evaluados (muestra de `critico`), 178 muertos, **44 supervivientes**: 31 muertos después con tests de T28 y **13 equivalentes aceptados** por el humano (2026-11-24). `progress/mutacion_F-072.md` |
 | Tiempo de la suite | raíz 2316 s · sv2 97 s · sv3 80 s · sv4 1614 s · sv5 46 s |
 | Capa e2e | N/A: `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
 
