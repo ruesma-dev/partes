@@ -144,7 +144,7 @@ da `4 passed` (los dos casos, con `mover_ciz=False` y con un settings sin el aju
 - sv4: `python -m pytest -q` → `4017 passed, 1 skipped in 526.72s`. Sin tocar ningún fichero de
   sv4 (`git diff 5b7ddce -- services/partes-front` vacío): R21.
 - `test_f083_ciz_solo_fin_de_racha.py` → `78 passed in 1.68s`.
-- `bash harness/init.sh`: ver «Evidencias».
+- `bash harness/init.sh`: en verde, ver «Evidencias».
 
 ## Fuera de alcance y pendiente
 
@@ -166,8 +166,8 @@ da `4 passed` (los dos casos, con `mover_ciz=False` y con un settings sin el aju
 | Evidencia | Valor |
 |---|---|
 | Tests ejecutados | sv5 1887 passed, 1 skipped; sv4 4017 passed, 1 skipped; F-083 78 |
-| Cobertura de líneas cambiadas | PENDIENTE_INIT |
+| Cobertura de líneas cambiadas | `PUERTA COBERTURA: 100.0% de 31 líneas cambiadas cubiertas (31/31, umbral 90%, nivel critico)` |
 | Mutantes | no lanzada: T6, pasada de campaña del líder |
 | Tiempo de la suite | sv5 16,35 s; sv4 526,72 s |
-| Capa e2e | N/A: sin cambios de portal (sv4 intacto); ver línea `CAPA E2E` |
-| `init.sh` | PENDIENTE_INIT |
+| Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`; sv4 intacto |
+| `init.sh` | `ENTORNO LISTO`, exit 0. Raíz: 2549 passed, 50 skipped (769 s). sv4: 4017 passed. sv5: verde por la caché del servicio (y 1887 passed lanzada a mano tras el último cambio). `PUERTA TAMAÑO` OK (requirements 144/150, design 249/250, impl 173/220). `PUERTA CARRIL` N/A (nivel crítico). `CAPA E2E` N/A |
