@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 5 en To do, 11 en Backlog y 58 en Done.
+Resumen: **77 features**, 19 abiertas y 58 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 5 en To do, 11 en Backlog y 58 en Done.
 
 ## Review
 
@@ -15,13 +15,14 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-_Ninguna feature en implementación._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | implementer | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 
 ## Spec aprobada
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | 2026-11-23 | specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir) | 1 | critico | `feature/F-083-ciz-solo-fin-de-racha` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -120,7 +121,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
-estado **spec lista** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
+estado **en curso** · spec aprobada el 2026-11-23 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-083-ciz-solo-fin-de-racha`
 
 **Spec**: specs/F-083-ciz-solo-fin-de-racha/ (2026-11-23, D1–D8 por decidir)
 
