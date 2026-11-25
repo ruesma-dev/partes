@@ -27,9 +27,9 @@ Feature activa: **F-083** (`human_review`, evidencias APPROVED cacb373; esperand
   exit 0). Encargo del reviewer: quitar `list(candidatas)` de `decidir_fin` muere con
   `test_f083_puro_r2_con_un_iterador` (comprobado a mano). RM7: N/A a mi juicio; lo decide el
   reviewer de evidencias. Sin cambios de producción.
-- **T7 M1–M3 (implementer, 2026-11-24, en curso)**: M2 OK; pasos 1 de M1 y M3 OK; espera que el
-  humano cambie a mano 416446 y 416447 (PT26/00417, 2026/05, 0404) de CIZ a CIV
-  (`progress/manual_F-083.md`).
+- **T7 M1–M3 hechas (implementer, 2026-11-24/25)**: M1, M2 y M3 en verde y limpieza hecha (Sigrid
+  PT26/00417 borrado, partes de prueba en la papelera); el cambio CIZ→CIV lo hizo el líder por
+  sigrid-api con autorización del humano. Falta M4 tras desplegar sv5 (`progress/manual_F-083.md`).
 - Reviewer: principal APPROVED (c25a504) y evidencias APPROVED (cacb373; RM7 aplicada, H1 a
   criterio del humano). Pendiente: OK del humano, merge y T7 (M1–M3 antes de desplegar sv5, M4 después).
 

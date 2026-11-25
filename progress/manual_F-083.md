@@ -6,8 +6,8 @@ autorizadas: «aturoizo m1 y m3»). Copia `partes-wt-f083`, rama
 secreto en este fichero: credenciales del Key Vault solo en memoria de cada proceso; ningún
 `.env` leído ni tocado (la copia no tiene `.env` en los servicios).
 
-**Estado: EN ESPERA DEL HUMANO (paso 2 de M1 y M3).** M2 hecha y en verde; pasos 1 de M1 y M3
-hechos y en verde.
+**Estado: M1, M2 y M3 en verde, limpieza hecha (2026-11-25).** Sin fallos del código. Falta M4
+(solo lectura, tras desplegar sv5), que cierra T7.
 
 ## Montaje
 
@@ -91,21 +91,68 @@ Parte de Sigrid creado por sv5: **PT26/00417** (`hmo` 2879614, 2026/05, 0404).
 PT26/00417: CIV 18 (416442, pos 64), CIZ 20 (416443, 128), HLGR 21 (416444, 192), CIV 04
 (416445, 256), CIZ 06 (416446, 320), CIZ 27 (416447, 384). Todas `PRUEBA-IA`.
 
-## Paso 2 · lo hace el HUMANO en Sigrid (nunca el agente)
+## Paso 2 · cambio de CIZ a CIV de dos líneas de pruebas (2026-11-25)
 
-| `hmores.ide` | Fecha | Parte | Synckey | Código actual | Código destino |
+| `hmores.ide` | Fecha | Parte | Synckey | Antes | Después |
 |---|---|---|---|---|---|
-| **416446** | 2026-05-06 | PT26/00417 (`hmo` 2879614) | `partes:25279` | CIZ | **CIV** |
-| **416447** | 2026-05-27 | PT26/00417 (`hmo` 2879614) | `partes:25287` | CIZ | **CIV** |
+| 416446 | 2026-05-06 | PT26/00417 (`hmo` 2879614) | `partes:25279` | CIZ | CIV |
+| 416447 | 2026-05-27 | PT26/00417 (`hmo` 2879614) | `partes:25287` | CIZ | CIV |
 
-Solo esas dos líneas (obra 0404, marca PRUEBA-IA). Lo demás, sin tocar.
+**Lo hizo el líder por sigrid-api, con autorización expresa del humano, en lugar del cambio a
+mano previsto**: UPDATE solo de `horide` 35 → 33; `synckey`, `tex` PRUEBA-IA, `can`, `pre` y
+`tot` sin tocar (script del líder: `scratchpad083m\civ.py`). El implementer no escribió en
+Sigrid fuera de sv5 y de la limpieza. Lectura de comprobación (`s.py mayo`): 416446 y 416447 con
+`cod` CIV, misma synckey y marca.
 
-## Pendiente tras el paso 2
+Nota: el recuento global `synckey LIKE 'partes:%:ciz'` pasó de 5 a 4 entre el 24 y el 25 sin
+intervención de esta prueba (ninguna de sus líneas lleva `:ciz`): es actividad de producción
+(un `fin` que mueve un CIZ hermano cambia su synckey). Por eso la comprobación de «sin `:ciz`
+nuevos» se hace sobre las synckeys de los ids de la prueba.
 
-- Verificar por lectura que 416446 y 416447 son CIV.
-- M1 paso 3: ↻ en el 5 (25278) ⇒ `omitido` «… la racha sigue en Sigrid el dia 2026-05-06, linea
-  416446 con CIV …», sin `partes:25278` ni `partes:25278:ciz`, WARNING `racha_fin_no_ciz`.
-- M3 paso 3: aprobar el 25 (25285) ⇒ solo CIV el 25, sin `partes:25285:ciz`, WARNING
-  `ciz_mismo_dia_omitido … motivo=posterior_sin_ciz` y `racha_fin_no_ciz`.
-- Limpieza (Sigrid `limpiar` 2026/05 con DRY-RUN revisado y `--ejecutar`; partes a la papelera),
-  parar sv4 y sv5. T7 se cierra con M4 tras desplegar sv5.
+## M1 · paso 3: **OK**
+
+↻ en el 5 (25278) ⇒ sv5 `roles … {25278: 'fin'}`, `preflight … escribir=0 omitir=1`, `nada que
+escribir`; `escritas: []`. Consola de sv5 (WARNING, preflight y registro):
+
+```
+[registro] racha_fin_no_ciz registro_id=25278 motivo=dia intermedio de la incidencia: solo se registran el inicio y el fin (la racha sigue en Sigrid el dia 2026-05-06, linea 416446 con CIV, sin CIZ despues; no se escribe un fin en medio)
+```
+
+En `partes`, 25278 `omitido` con ese mismo motivo (el que ve el portal). Sigrid: ni
+`partes:25278` ni `partes:25278:ciz`.
+
+## M3 · paso 3: **OK**
+
+Aprobar el 25 (25285) ⇒ sv5 `roles … {25285: 'inicio'}`, `escribir=1`; una sola fila en el
+INSERT (`partes:25285`, `horide` 33 = CIV); `escritas=1 … filas=1`. Consola:
+
+```
+[registro] ciz_mismo_dia_omitido registro_id=25285 motivo=posterior_sin_ciz      (INFO)
+[registro] racha_fin_no_ciz registro_id=25285 motivo=posterior_sin_ciz           (WARNING)
+```
+
+Sigrid: CIV 25 (**416462**, `partes:25285`), sin `partes:25285:ciz`; el 27 sigue CIV (416447).
+`partes`: 25285 `registrado` 416462; 25286 sin aprobar.
+
+## Sigrid antes de limpiar (lectura por synckeys de 25277–25287)
+
+7 líneas, todas en PT26/00417 y `PRUEBA-IA`: 416445 CIV 04, 416446 CIV 06, 416442 CIV 18, 416443
+CIZ 20, 416444 HLGR 21, 416462 CIV 25 y 416447 CIV 27. Ninguna `partes:<id>:ciz`; ninguna de
+25278, 25280, 25282, 25286.
+
+## Limpieza
+
+- **Sigrid** (`prueba_mayo.py`, copia con 2026/05; el script del repo no se tocó): DRY-RUN de 3
+  sentencias, todas sobre `2879614` (PT26/00417, creado en esta prueba) ⇒ `limpiar --ejecutar`:
+  `affected_rows` 7 + 1 + 1, `committed: true` ⇒ `estado` ⇒ `NO existe parte 2026/05 de obra
+  0404`. Lectura posterior: 0 líneas con las synckeys de la prueba.
+- **`partes`**: comprobación de F-024 (`/api/sigrid/comprobar`, `forzar`) sobre los 7
+  registrados ⇒ `borradas: 7`; después «Mover a la papelera» de los 11 documentos ⇒ los 11 «Parte
+  movido a la papelera». Estado final (lectura): los 11 `is_active = false`; líneas
+  `borrado_sigrid` 7, `omitido` 2 (25278, 25282) y sin estado 2 (25280, 25286).
+- **sv4 y sv5 locales parados** (procesos de los puertos 8014 y 8005).
+
+## Pendiente
+
+- **M4** (producción, solo lectura, tras desplegar sv5): la consulta de design §8 con el
+  `MAX(hmores.ide)` del momento del despliegue. Con ella se cierra T7.
