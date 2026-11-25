@@ -156,3 +156,9 @@ CIZ 20, 416444 HLGR 21, 416462 CIV 25 y 416447 CIV 27. Ninguna `partes:<id>:ciz`
 
 - **M4** (producción, solo lectura, tras desplegar sv5): la consulta de design §8 con el
   `MAX(hmores.ide)` del momento del despliegue. Con ella se cierra T7.
+  - **Desplegado el 2026-11-25** (sv5 `r20261125120627`, arranque ~11:11 UTC; `MOVER_CIZ=true`,
+    `OBRA_PRUEBAS_FORZAR=false`). **Línea base: `MAX(hmores.ide)` = 416461**, leída tras el
+    arranque (la última línea de la prueba, 416462, ya estaba borrada).
+  - Primera pasada (líder, 2026-11-25, minutos después del arranque): 0 CIZ de partes con
+    `ide > 416461` y 0 filas en la consulta de M4. Es lo esperado sin aprobaciones todavía:
+    **M4 se repite dentro de unos días** con la misma base, y con ella se cierra T7.

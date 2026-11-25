@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; fusionada en `dev`, sin desplegar; M4 tras desplegar sv5). Anterior: **F-072** (2026-11-24, fusionada en `dev`, sin desplegar).
+Feature activa: ninguna. Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
 ## F-083 · done 2026-11-25 (OK del humano: «1 hazlo»; copia `partes-wt-f083`)
 
@@ -31,9 +31,10 @@ Feature activa: ninguna. Última cerrada: **F-083** (2026-11-25, OK del humano: 
   PT26/00417 borrado, partes de prueba en la papelera); el cambio CIZ→CIV lo hizo el líder por
   sigrid-api con autorización del humano. Falta M4 tras desplegar sv5 (`progress/manual_F-083.md`).
 - Reviewer: principal APPROVED (c25a504) y evidencias APPROVED (cacb373; RM7 aplicada, H1 a
-  criterio del humano). Hecho el merge a `dev`. Falta: push de `dev`, desplegar sv5
-  (`MOVER_CIZ` ya encendido ⇒ F-083 activa al desplegar), M4 por lectura (cierra T7) y quitar
-  «sin desplegar» de `azure-apps/partes.md`.
+  criterio del humano). Hecho el merge a `dev`, push del humano (34aa5e4) y despliegue
+  del humano el 2026-11-25 (sv2–sv5 `r20261125120627`; arranques sin errores en Log Analytics,
+  sv5 con `MOVER_CIZ=true` y `OBRA_PRUEBAS_FORZAR=false`). `azure-apps` 5844bc9 (`partes.md`
+  3c: «desplegado»), **sin push**. Falta: repetir M4 en unos días (base 416461), que cierra T7.
 
 ## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
 
