@@ -1,0 +1,191 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-083",
+ "sha": "9784e0e7ae001ede2ed98c773eea6065ea6bc4bf",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 25,
+ "candidatos": 19,
+ "evaluados": [
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 628,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if motivo == MOTIVO_POSTERIOR_SIN_CIZ:",
+   "mutado": "if motivo != MOTIVO_POSTERIOR_SIN_CIZ:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 652,
+   "col": 19,
+   "operador": "negacion",
+   "original": "if d.sin_ciz:",
+   "mutado": "if not d.sin_ciz:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 90,
+   "col": 20,
+   "operador": "booleano",
+   "original": "sin_ciz: bool = False           # F-083 (R7): intermedio por una linea",
+   "mutado": "sin_ciz: bool = True           # F-083 (R7): intermedio por una linea",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 134,
+   "col": 59,
+   "operador": "logico",
+   "original": "f\"{fecha_iso(fecha_int)}, linea {ide} con {cod or 'sin codigo'}, \"",
+   "mutado": "f\"{fecha_iso(fecha_int)}, linea {ide} con {cod and 'sin codigo'}, \"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 152,
+   "col": 55,
+   "operador": "comparacion",
+   "original": "and (ls.hora_codigo or \"\").strip().upper() == CODIGO_FIN)",
+   "mutado": "and (ls.hora_codigo or \"\").strip().upper() != CODIGO_FIN)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 160,
+   "col": 35,
+   "operador": "ternario",
+   "original": "cuenta = es_ciz_del_recurso if solo_ciz else es_linea_de_la_racha",
+   "mutado": "cuenta = es_ciz_del_recurso if not solo_ciz else es_linea_de_la_racha",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 161,
+   "col": 59,
+   "operador": "comparacion",
+   "original": "posteriores = [ls for ls in candidatas if ls.fecha_int > fecha_int",
+   "mutado": "posteriores = [ls for ls in candidatas if ls.fecha_int >= fecha_int",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 162,
+   "col": 19,
+   "operador": "logico",
+   "original": "and cuenta(ls, recurso_ide, marca_pruebas)]",
+   "mutado": "or cuenta(ls, recurso_ide, marca_pruebas)]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 163,
+   "col": 7,
+   "operador": "not",
+   "original": "if not posteriores:",
+   "mutado": "if posteriores:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 165,
+   "col": 11,
+   "operador": "minmax",
+   "original": "return max(posteriores, key=lambda ls: (ls.fecha_int, ls.ide))",
+   "mutado": "return min(posteriores, key=lambda ls: (ls.fecha_int, ls.ide))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 188,
+   "col": 54,
+   "operador": "booleano",
+   "original": "marca_pruebas, solo_ciz=True)",
+   "mutado": "marca_pruebas, solo_ciz=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 189,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if ultima is not None:",
+   "mutado": "if ultima:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 195,
+   "col": 53,
+   "operador": "booleano",
+   "original": "marca_pruebas, solo_ciz=False)",
+   "mutado": "marca_pruebas, solo_ciz=True)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 196,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if sigue is not None:",
+   "mutado": "if sigue:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 197,
+   "col": 52,
+   "operador": "booleano",
+   "original": "return DecisionFin(tipo=INTERMEDIO, sin_ciz=True,",
+   "mutado": "return DecisionFin(tipo=INTERMEDIO, sin_ciz=False,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 200,
+   "col": 58,
+   "operador": "comparacion",
+   "original": "anteriores = [ls for ls in candidatas if ls.fecha_int < fecha_int",
+   "mutado": "anteriores = [ls for ls in candidatas if ls.fecha_int <= fecha_int",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 201,
+   "col": 18,
+   "operador": "logico",
+   "original": "and es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)]",
+   "mutado": "or es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 236,
+   "col": 33,
+   "operador": "booleano",
+   "original": "solo_ciz=True) is not None:",
+   "mutado": "solo_ciz=False) is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 239,
+   "col": 40,
+   "operador": "comparacion",
+   "original": "solo_ciz=False) is not None:",
+   "mutado": "solo_ciz=False) is None:",
+   "veredicto": "muerto"
+  }
+ ]
+}

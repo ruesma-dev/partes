@@ -4,7 +4,36 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-072** (2026-11-24, OK del humano; fusionada en `dev`, sin desplegar). Siguiente: **F-083**.
+Feature activa: ninguna. Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; fusionada en `dev`, sin desplegar; M4 tras desplegar sv5). Anterior: **F-072** (2026-11-24, fusionada en `dev`, sin desplegar).
+
+## F-083 · done 2026-11-25 (OK del humano: «1 hazlo»; copia `partes-wt-f083`)
+
+- T1–T5 hechas y commiteadas (T1 9a73523, T2 c43d3be, T3 6fc7ccc, T5 10681ce; T4 al cerrar);
+  `azure-apps` 5078dc0 en `main`, **sin push**.
+- **Desviación justificada (T2, R22)**: además de los dos subcasos que nombra R22, se enmienda
+  el gemelo de pipeline del mismo subcaso en `test_f062_ciz_mismo_dia.py`,
+  `test_f062_r11_lo_que_no_es_ciz_posterior_no_lo_impide[fila1]` (un CIV posterior del tramo,
+  mismo fichero, mismo comentario `# F-083 R8`). Era el único test fuera de la lista que
+  fallaba con la suite completa de sv5, y su aserción contradice R8 y R15: no se puede cumplir
+  la spec y conservarla. Los subcasos de otro recurso, `can` ≠ 0 y anterior se conservan.
+  Lo valida el reviewer.
+- **M0 hecha por el líder el 2026-11-24** (Sigrid `ruesma`, solo lectura, consulta de design §8,
+  `truncated: False`): 416318 (20261118, CIV, can 0, `partes:25090`), 416356 (20261119, CIV, can
+  0, `partes:25091`) y 416319 (20261120, CIV, can 0, `partes:25092`). Coincide con lo esperado.
+- **T6 hecha (implementer, 2026-11-24)**: campaña del líder 19 evaluados, 17 muertos, 2
+  supervivientes (`racha_ciz.py:189` y `:196`, `is not None` → veracidad), propuestos como
+  **equivalentes, aceptados por el humano el 2026-11-24** («acepto ñas 2 equivalentes»;
+  M1 y M3 autorizadas: «aturoizo m1 y m3») (`progress/equivalentes_F-083.py`,
+  exit 0). Encargo del reviewer: quitar `list(candidatas)` de `decidir_fin` muere con
+  `test_f083_puro_r2_con_un_iterador` (comprobado a mano). RM7: N/A a mi juicio; lo decide el
+  reviewer de evidencias. Sin cambios de producción.
+- **T7 M1–M3 hechas (implementer, 2026-11-24/25)**: M1, M2 y M3 en verde y limpieza hecha (Sigrid
+  PT26/00417 borrado, partes de prueba en la papelera); el cambio CIZ→CIV lo hizo el líder por
+  sigrid-api con autorización del humano. Falta M4 tras desplegar sv5 (`progress/manual_F-083.md`).
+- Reviewer: principal APPROVED (c25a504) y evidencias APPROVED (cacb373; RM7 aplicada, H1 a
+  criterio del humano). Hecho el merge a `dev`. Falta: push de `dev`, desplegar sv5
+  (`MOVER_CIZ` ya encendido ⇒ F-083 activa al desplegar), M4 por lectura (cierra T7) y quitar
+  «sin desplegar» de `azure-apps/partes.md`.
 
 ## F-072 · done 2026-11-24 (OK del humano: «dame codigo para desplegar»)
 
@@ -20,6 +49,7 @@ Feature activa: ninguna. Última cerrada: **F-072** (2026-11-24, OK del humano; 
 ## 2026-11-23 · cola tras F-072: F-083 → F-082 → F-080 → F-081
 
 - **F-083** (alta, `todo`, crítico, prioridad 1: la siguiente a implementar por decisión del humano, «f83 ponla la siguiente a implementar»). Caso del correo de Administración de obra (0730, vacaciones 18-20/11): el CIZ del 20 se cambió a mano a CIV en Sigrid y, al reaprobar el 19 («omitido · intermedio»), sv5 no encontró CIZ posterior y escribió uno el 19. Spec lanzada en la copia `partes-wt-f083` (rama `feature/F-083-ciz-solo-fin-de-racha`).
+  - **Spec escrita (spec-author, 2026-11-23)**: `specs/F-083-ciz-solo-fin-de-racha/`, F-083 en `spec_ready` en su rama. Resumen y decisiones en `progress/spec_F-083.md`. Decisiones abiertas para el humano: D1–D8 (lo recomendado: solo sv5; cualquier línea posterior de la racha deja el día como intermedio; sv4, el ↻ y `racha_desordenada` sin cambios; respetar el CIZ quitado a mano; bajo `MOVER_CIZ`; nada retroactivo). Aviso: la rama sale de 011bc2a, que lleva F-072 sin fusionar en `dev`.
 - **F-081**: spec aprobada por el humano el 2026-11-23 (D1-D8 como se recomendaba; commit db01b37 en su rama, copia `partes-wt-f081`). Espera a F-082 (T15 depende de ella).
 
 ## F-072 · desbloqueada 2026-11-21: el humano elige (b) («la b»); anotada en tasks.md encima de T16. F-070 a `todo`.

@@ -68,7 +68,10 @@ Pasos (patron Pipeline; el preflight ejecuta 1-7 y la escritura 1-9):
      lectura, `partes:<i>:ciz` de cada id (el hermano tambien se mueve) y,
      para cada `inicio` con `ciz_mismo_dia`, su tramo delante y su propia
      `partes:<D>:ciz`: `decidir_mismo_dia` quita el hermano si ya existe o
-     si la racha ya tiene un CIZ posterior.
+     si la racha ya tiene un CIZ posterior. F-083: desde F-083, cualquier
+     linea de la racha posterior en Sigrid, sea cual sea su codigo, deja el
+     dia como intermedio (sin `fin` ni hermano, WARNING `racha_fin_no_ciz`),
+     y un CIZ cambiado a mano deja la racha sin fin.
   7. Detectar CONFLICTOS en TODOS los partes del periodo (F-031): si la
      linea ya tiene horas ajenas de ese recurso, dia y tipo en un parte
      CERRADO, se omite (`parte_cerrado: ...`); si las tiene en uno En
@@ -155,6 +158,7 @@ from application.services.racha_ciz import (
     CODIGO_FIN,
     CREAR,
     MOTIVO_CIZ_EN_SIGRID,
+    MOTIVO_POSTERIOR_SIN_CIZ,
     MOVER,
     decidir_fin,
     decidir_mismo_dia,
@@ -576,7 +580,9 @@ class RegistroPipeline:
         busca en Sigrid el CIZ de su racha por las synckeys de esas lineas
         (UNA lectura para todas y UNA de los partes de las candidatas) y
         `decidir_fin` dice que hacer: moverlo (`a.mover`), omitir la accion
-        (posterior, parte cerrado o enlazada) o crear como siempre.
+        (posterior, parte cerrado o enlazada) o crear como siempre. F-083
+        (R10, R11): con otra linea de la racha posterior que no es CIZ, la
+        omision (o el `inicio` sin hermano) deja ademas un WARNING.
 
         Va despues de la idempotencia (una `fin` ya escrita no busca nada)
         y antes de los conflictos, que corren igual para la accion. Bajo el
@@ -619,6 +625,8 @@ class RegistroPipeline:
                 marca_pruebas=marca)
             if motivo is not None:
                 self._sin_hermano(a, motivo)
+            if motivo == MOTIVO_POSTERIOR_SIN_CIZ:
+                self._racha_fin_no_ciz(a, motivo)       # F-083 (R11)
         if not fines:
             return
         hmoides = {int(ls.hmoide) for a in fines
@@ -641,12 +649,22 @@ class RegistroPipeline:
                         "duplicados=%s", a.registro_id, d.linea.ide,
                         d.duplicados)
             elif d.tipo != CREAR:
+                if d.sin_ciz:
+                    self._racha_fin_no_ciz(a, d.motivo)  # F-083 (R10)
                 self._omitir(a, d.motivo)
 
     def _mover_ciz(self) -> bool:
         """F-060 (R26) y F-062 (R8): `MOVER_CIZ`; un settings sin el
         ajuste es el interruptor apagado."""
         return bool(getattr(self._st, "mover_ciz", False))
+
+    @staticmethod
+    def _racha_fin_no_ciz(a: AccionLinea, motivo: str | None) -> None:
+        """F-083 (R10, R11): la racha sigue en Sigrid despues de D sin CIZ
+        (un CIZ cambiado a mano): no se escribe un fin en medio. WARNING
+        sin nombres ni DNIs."""
+        logger.warning("[registro] racha_fin_no_ciz registro_id=%s "
+                       "motivo=%s", a.registro_id, motivo)
 
     @staticmethod
     def _sin_hermano(a: AccionLinea, motivo: str) -> None:

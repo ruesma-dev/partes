@@ -11,7 +11,8 @@ las lineas de esa racha. sv5 lee de Sigrid las lineas con esas synckeys y
   - filtra las del mismo recurso, codigo `CIZ` y `can` nulo o 0 y, en modo
     pruebas, con la marca en `tex` (R13, R19: una sin marca no existe);
   - alguna posterior a D => `intermedio`: el fin ya esta mas adelante
-    (R14, llegada desordenada), y el motivo nombra su dia;
+    (R14, llegada desordenada), y el motivo nombra su dia; F-083: tambien
+    con una linea de la racha posterior de otro codigo (ver abajo);
   - si no, la anterior de mayor (fecha, `ide`) es la que se mueve: si esta
     enlazada => `enlazada` (R18, motivo de F-053); si su parte no esta En
     registro => `parte_cerrado` (R17); si no => `mover`, con cuantas
@@ -28,6 +29,19 @@ synckey `partes:<X>:ciz`) cuando sv4 lo marca con `ciz_mismo_dia`:
     y `decidir_fin`, sin cambios, mueve el hermano como cualquier CIZ;
     `registro_de_synckey` da None para la synckey de un hermano, asi que
     moverlo no deja `movida_de` (X conserva su CI*, R19).
+
+F-083 · una racha solo lleva CIZ en su ultimo dia, aunque se apruebe
+desordenada o el CIZ se haya tocado a mano en Sigrid. Desde F-083,
+cualquier linea de la racha posterior en Sigrid, sea cual sea su codigo
+(`es_linea_de_la_racha`: mismo recurso, `can` nulo o 0 y, en pruebas, la
+marca), deja el dia como intermedio, y un CIZ cambiado a mano deja la racha
+sin fin:
+
+  - `decidir_fin`: sin CIZ posterior pero con otra linea de la racha
+    posterior => `intermedio` con `sin_ciz` y `motivo_intermedio_racha`,
+    antes de mover, `enlazada` o `parte_cerrado` (R2-R4, R7);
+  - `decidir_mismo_dia`: igual => `MOTIVO_POSTERIOR_SIN_CIZ`, sin hermano
+    (R8, R9). Un CIZ posterior sigue mandando (`posterior`, F-060 R14).
 
 En Sigrid no se borra (regla del humano): mover es un `UPDATE` de la linea
 (`stmt_mover_linea`), nunca un borrado y un alta. Motivos sin tildes como
@@ -62,6 +76,9 @@ MOTIVO_POSTERIOR = "posterior"          # la racha ya tiene su CIZ despues
 MOTIVO_YA_EXISTE = "ya_existe"          # `partes:<D>:ciz` ya esta escrito
 MOTIVO_CIZ_EN_SIGRID = "ciz_en_sigrid"  # CIZ ajeno del recurso el dia D
 
+#: F-083 (R8): el inicio no escribe hermano: la racha sigue despues sin CIZ.
+MOTIVO_POSTERIOR_SIN_CIZ = "posterior_sin_ciz"
+
 
 @dataclass(frozen=True)
 class DecisionFin:
@@ -70,6 +87,8 @@ class DecisionFin:
     linea: LineaSigrid | None = None  # la que se mueve (`mover`)
     motivo: str | None = None       # el de la omision
     duplicados: int = 0             # otras anteriores que no se tocan
+    sin_ciz: bool = False           # F-083 (R7): intermedio por una linea
+    #                                 de la racha posterior que no es CIZ
 
 
 def fecha_iso(fecha_int: int) -> str:
@@ -107,14 +126,43 @@ def registro_de_synckey(synckey: str | None) -> int | None:
         return None
 
 
-def es_ciz_del_recurso(ls: LineaSigrid, recurso_ide: int,
-                       marca_pruebas: str | None) -> bool:
-    """R13 y R19: mismo recurso, codigo `CIZ`, sin horas y, en pruebas, con
-    la marca en `tex`. F-062 (R11) la usa tambien para el inicio."""
+def motivo_intermedio_racha(ide: int, fecha_int: int, cod: str | None) -> str:
+    """F-083 (R2, R19): la racha sigue en Sigrid despues de D con una linea
+    que no es CIZ (un CIZ cambiado a mano, por ejemplo): no se escribe un
+    fin en medio. Agrupa con los intermedios por el prefijo."""
+    return (f"{MOTIVO_INTERMEDIO} (la racha sigue en Sigrid el dia "
+            f"{fecha_iso(fecha_int)}, linea {ide} con {cod or 'sin codigo'}, "
+            f"sin CIZ despues; no se escribe un fin en medio)")[:LIMITE_MOTIVO]
+
+
+def es_linea_de_la_racha(ls: LineaSigrid, recurso_ide: int,
+                         marca_pruebas: str | None) -> bool:
+    """F-083 (D5): mismo recurso, `can` nulo o 0 y, en pruebas, con la
+    marca en `tex` (F-060 R19). Cualquier codigo de hora."""
     return (ls.reside == recurso_ide
-            and (ls.hora_codigo or "").strip().upper() == CODIGO_FIN
             and float(ls.can or 0) == 0
             and (not marca_pruebas or marca_pruebas in (ls.tex or "")))
+
+
+def es_ciz_del_recurso(ls: LineaSigrid, recurso_ide: int,
+                       marca_pruebas: str | None) -> bool:
+    """R13 y R19: una linea de la racha con codigo `CIZ`. F-062 (R11) la
+    usa tambien para el inicio."""
+    return (es_linea_de_la_racha(ls, recurso_ide, marca_pruebas)
+            and (ls.hora_codigo or "").strip().upper() == CODIGO_FIN)
+
+
+def ultima_posterior(candidatas: Iterable[LineaSigrid], fecha_int: int,
+                     recurso_ide: int, marca_pruebas: str | None, *,
+                     solo_ciz: bool) -> LineaSigrid | None:
+    """F-083: la linea de la racha (o, con `solo_ciz`, el CIZ de la racha)
+    de mayor (fecha, `ide`) con fecha posterior a D; None si no hay."""
+    cuenta = es_ciz_del_recurso if solo_ciz else es_linea_de_la_racha
+    posteriores = [ls for ls in candidatas if ls.fecha_int > fecha_int
+                   and cuenta(ls, recurso_ide, marca_pruebas)]
+    if not posteriores:
+        return None
+    return max(posteriores, key=lambda ls: (ls.fecha_int, ls.ide))
 
 
 def _nombre_por_defecto(est: int | None) -> str:
@@ -132,15 +180,25 @@ def decidir_fin(
     `partes` son los partes de las candidatas (`hmo.ide` -> su codigo y
     estado); uno que no esta no se pudo leer y cuenta como cerrado (no se
     escribe a ciegas). `nombre_estado` da el nombre del estado para el
-    motivo de R17 (el `_nombre_estado` del pipeline)."""
-    ciz = [ls for ls in candidatas
-           if es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)]
-    posteriores = [ls for ls in ciz if ls.fecha_int > fecha_int]
-    if posteriores:
-        ultima = max(posteriores, key=lambda ls: (ls.fecha_int, ls.ide))
+    motivo de R17 (el `_nombre_estado` del pipeline). F-083 (R2): sin CIZ
+    posterior pero con otra linea de la racha posterior, `intermedio` con
+    `sin_ciz`."""
+    candidatas = list(candidatas)
+    ultima = ultima_posterior(candidatas, fecha_int, recurso_ide,
+                              marca_pruebas, solo_ciz=True)
+    if ultima is not None:
         return DecisionFin(tipo=INTERMEDIO, motivo=motivo_intermedio_ciz(
             ultima.ide, ultima.fecha_int))
-    anteriores = [ls for ls in ciz if ls.fecha_int < fecha_int]
+    # F-083 (R2-R4): la racha sigue despues de D sin CIZ (un CIZ cambiado a
+    # mano): intermedio, antes de mirar las anteriores, su enlace o su parte.
+    sigue = ultima_posterior(candidatas, fecha_int, recurso_ide,
+                             marca_pruebas, solo_ciz=False)
+    if sigue is not None:
+        return DecisionFin(tipo=INTERMEDIO, sin_ciz=True,
+                           motivo=motivo_intermedio_racha(
+                               sigue.ide, sigue.fecha_int, sigue.hora_codigo))
+    anteriores = [ls for ls in candidatas if ls.fecha_int < fecha_int
+                  and es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)]
     if not anteriores:
         return DecisionFin(tipo=CREAR)
     elegida = max(anteriores, key=lambda ls: (ls.fecha_int, ls.ide))
@@ -168,11 +226,16 @@ def decidir_mismo_dia(
     `partes:<i>:ciz` del tramo delante del inicio (sv4); `propia`, la de
     `partes:<D>:ciz`. `MOTIVO_YA_EXISTE` si el hermano ya esta escrito (una
     reaprobacion); `MOTIVO_POSTERIOR` si la racha ya tiene un CIZ del
-    recurso despues de D (llegada desordenada: no se escribe otro); None =
-    se escribe."""
+    recurso despues de D (llegada desordenada: no se escribe otro); F-083
+    (R8): `MOTIVO_POSTERIOR_SIN_CIZ` si, sin CIZ, la racha tiene otra linea
+    despues de D; None = se escribe."""
     if propia is not None:
         return MOTIVO_YA_EXISTE
-    if any(es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)
-           and ls.fecha_int > fecha_int for ls in candidatas):
+    candidatas = list(candidatas)
+    if ultima_posterior(candidatas, fecha_int, recurso_ide, marca_pruebas,
+                        solo_ciz=True) is not None:
         return MOTIVO_POSTERIOR
+    if ultima_posterior(candidatas, fecha_int, recurso_ide, marca_pruebas,
+                        solo_ciz=False) is not None:
+        return MOTIVO_POSTERIOR_SIN_CIZ
     return None

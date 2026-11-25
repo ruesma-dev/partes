@@ -226,7 +226,10 @@ registro**:
      el mismo día** (sv4 lo marca con `ciz_mismo_dia`; synckey
      `partes:<id>:ciz`, las dos filas en una sola sentencia); si la racha
      sigue, el siguiente fin mueve ese CIZ y el inicio conserva su CI*
-     (§4.4). Con
+     (§4.4). Desde F-083, cualquier línea de la racha posterior en
+     Sigrid, sea cual sea su código, deja el día como intermedio (sin
+     CIZ ni hermano), y un CIZ cambiado a mano deja la racha sin fin.
+     Con
      `MOVER_CIZ` apagado en los dos, como antes de F-060: sv4 mira el
      histórico hacia atrás y hacia delante (`intermedio` si el siguiente
      día ya ingerido es incidencia) y cada fin escribe su CIZ. Sigrid
