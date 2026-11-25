@@ -100,7 +100,7 @@ PT26/00417: CIV 18 (416442, pos 64), CIZ 20 (416443, 128), HLGR 21 (416444, 192)
 
 **Lo hizo el líder por sigrid-api, con autorización expresa del humano, en lugar del cambio a
 mano previsto**: UPDATE solo de `horide` 35 → 33; `synckey`, `tex` PRUEBA-IA, `can`, `pre` y
-`tot` sin tocar (script del líder: `scratchpad083m\civ.py`). El implementer no escribió en
+`tot` sin tocar (script del líder: `f083m\civ.py` del scratchpad de la sesión). El implementer no escribió en
 Sigrid fuera de sv5 y de la limpieza. Lectura de comprobación (`s.py mayo`): 416446 y 416447 con
 `cod` CIV, misma synckey y marca.
 
