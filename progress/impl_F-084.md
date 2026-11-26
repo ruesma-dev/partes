@@ -193,3 +193,16 @@ aprobada (R17 «con actor»; design §8, `wireProblemasBadge` y el botón `data-
 | Mutantes generados / supervivientes | **No lanzada** en este encargo: T10, la lanza el líder tras el APPROVED del reviewer principal (`python -m harness.mutacion --feature F-084`) |
 | Tiempo de la suite | raíz 1995 s (33:15, con cobertura); sv4 1579 s (26:19); sv3 131 s (primera pasada) |
 | Capa e2e | N/A: `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`; ningún requisito lleva `(capa: e2e)` |
+
+## Ciclo 1 (CHANGES_REQUESTED de documentación, commit `27f6b6b`)
+
+- `progress/current.md`: M1–M3 de design §12 con su SELECT, sus rutas y el resultado esperado. M3 lleva la marca de que solo se hace con el OK expreso del humano.
+- `undo_log.actor`: ahora dicen que `parte_recuperar` (F-084) lo rellena `docs/ARCHITECTURE.md` (identidad), el docstring de `_actor` (`app.py`) y la cabecera de `identidad.py`. Coincide con `azure-apps/partes.md` §4.5. Solo cambian docstrings y comentarios; ningún guardián cuenta ese texto.
+- `ARNES_SIN_CACHE=1 bash harness/init.sh` en HEAD `27f6b6b`: **EXIT 0 a la primera** (una pasada, sin inestables):
+```
+2549 passed, 50 skipped in 1715.28s   [OK] pytest en verde (con medición de cobertura)
+sv1 74 · sv2 579 · sv3 2966 · sv4 4137 passed, 1 skipped (1124 s) · sv5 1890: [OK] todos en verde, sin caché
+[OK] PUERTA COBERTURA: 100.0% de 303 líneas cambiadas cubiertas (303/303, umbral 90%)
+[OK] PUERTA TAMAÑO: F-084 dentro de los topes (requirements 144/150, design 249/250, impl 195/220, review 140/140)
+[OK] PUERTA CARRIL: N/A · [OK] CAPA E2E: N/A · [AVISO] ruff: 1188 (deuda previa, no bloquea)
+```
