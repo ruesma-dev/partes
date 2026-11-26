@@ -470,8 +470,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
     sella `sin-identidad` con WARNING (nunca `NULL`, nunca
     `DEFAULT_REVIEWER`). A partir de F-017, **`NULL` en una columna de
     autor significa «fila anterior a F-017»** — con **una excepción que
-    hay que conocer: `undo_log.actor`**, que no la escribe nadie y sigue
-    naciendo `NULL` después del corte (escribirla es trabajo de F-018).
+    hay que conocer: `undo_log.actor`**, que sigue naciendo `NULL` después
+    del corte en casi todas las acciones (escribirla para todas es trabajo
+    de F-018). La única que la rellena es `parte_recuperar` (F-084), así que
+    ahí un `NULL` no dice nada sobre la fecha.
     `GET /whoami` permite comprobar la identidad resuelta sin escribir
     ninguna fila. `DEFAULT_REVIEWER` sobrevive con otro significado: ya no
     es «quién firma el portal» sino la etiqueta de la sesión local.

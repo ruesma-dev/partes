@@ -30,6 +30,22 @@ Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copi
   y T11 (manual) quedan para el líder y el humano. Informe: `progress/impl_F-084.md`.
 - Decisiones menores (detalle en el informe): agrupar por el primer motivo; `recuperar_parte`
   devuelve None si no existe (404); fecha vacía = sin cambio; «Ver PDF» solo con visor, como Conciliar.
+- **Verificaciones MANUAL (humano)**, design §12, tras desplegar sv3 y sv4 (en el portal, **Ctrl+F5**
+  antes de empezar para recargar `app.js`):
+  1. **M1** (solo lectura, base `partes`):
+     `SELECT column_name FROM information_schema.columns WHERE table_name = 'parte_documents' AND column_name LIKE 'sustituido%';`
+     ⇒ **2 filas**: `sustituido_por_id` y `sustituido_at_utc` (las añade el DDL de arranque).
+  2. **M2** (portal, solo lectura): abrir `/problemas` ⇒ el parte `5c1a9b04` sale en «Sustituido por
+     otra página del mismo correo» con `89f17181` de sustituto (enlace «ver» a `/partes/89f17181…`);
+     y el número del enlace «Problemas» de la navegación = `total` de `GET /api/problemas/resumen`.
+  3. **M3** (portal, **escribe**: solo con el OK expreso del humano para esta acción): en `/problemas`,
+     «Recuperar» `5c1a9b04` con fecha `25/11/2026` ⇒ si ya hay otro parte activo del 25/11 de esa obra
+     con los mismos trabajadores (el reenvío), 409 con el texto «Corrige la fecha o descarta antes el
+     otro parte» y ese parte nombrado; entonces «Descartar» `5c1a9b04` ⇒ vuelve a `/problemas` con
+     «Parte movido a la papelera», deja de salir allí y en el contador, y aparece en `/papelera`.
+     Sin choque, la recuperación da «Parte recuperado» y el parte sale en `/partes` con fecha 25/11;
+     «Deshacer» («Recuperar parte») lo devuelve a inactivo con su fecha anterior.
+  Resultado, en `progress/manual_F-084.md` (T11).
 
 ### F-084 · spec_ready 2026-11-26 (spec-author; copia `partes-wt-f084`)
 

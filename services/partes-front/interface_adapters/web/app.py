@@ -905,7 +905,8 @@ def build_app(
         devuelve vacio** (R7): desde F-017, un NULL en una columna de
         autor significa «fila anterior al corte» — en las columnas que el
         portal escribe; `undo_log.actor` no participa del criterio porque
-        no la escribe nadie (es trabajo de F-018).
+        casi nadie la escribe: solo `parte_recuperar` (F-084); el resto es
+        trabajo de F-018.
 
         Se mantiene el tipo `str | None` aunque hoy nunca devuelva `None`:
         es el que aceptan las siete columnas y los repositorios.
