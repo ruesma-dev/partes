@@ -24,7 +24,14 @@ Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copi
      y debajo «Esta obra no tiene partidas»; elegirla ⇒ «sin partida · manual».
   4. Tras el paso 1, **Deshacer** ⇒ la línea vuelve a su partida (o a su aviso ⚠) de antes.
 
-## F-084 · spec_ready 2026-11-26 (spec-author; copia `partes-wt-f084`)
+## F-084 · in_progress 2026-11-26 (implementer; copia `partes-wt-f084`)
+
+- T1–T9 y T12 hechas (commits `F-084 T1`…`T9`; azure-apps `e09fd49`, sin push). T10 (mutación)
+  y T11 (manual) quedan para el líder y el humano. Informe: `progress/impl_F-084.md`.
+- Decisiones menores (detalle en el informe): agrupar por el primer motivo; `recuperar_parte`
+  devuelve None si no existe (404); fecha vacía = sin cambio; «Ver PDF» solo con visor, como Conciliar.
+
+### F-084 · spec_ready 2026-11-26 (spec-author; copia `partes-wt-f084`)
 
 - Spec escrita: `specs/F-084-partes-con-problemas/` (rama `feature/F-084-partes-con-problemas`).
   Resumen, decisiones y preguntas al líder en `progress/spec_F-084.md`.
