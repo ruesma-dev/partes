@@ -21,7 +21,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | pendiente de tu aprobación | specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 abiertas para el humano; rigor critico propuesto, D9) | 2 | critico | `feature/F-084-partes-con-problemas` |
+| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | 2026-11-26 | specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26) | 2 | critico | `feature/F-084-partes-con-problemas` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -141,9 +141,9 @@ Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en 
 
 ### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
 
-estado **spec lista** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
+estado **spec lista** · spec aprobada el 2026-11-26 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
 
-**Spec**: specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 abiertas para el humano; rigor critico propuesto, D9)
+**Spec**: specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26)
 
 Pedida por el humano el 2026-11-26: «hay que arreglar esto, los partes no leidos o no casados o con problemas deben quedar visitables en una pestaña nueva para, como pasa en conciliar, conciliarlos con las obras o fecha etc.». Caso de origen (0692, correo del 2026-11-26 09:56, PDF doc003417 de 6 páginas): la página 4 (documento 5c1a9b04, parte del 25/11 de Acuña, González Rojas y Uceda) se leyó con fecha 23/11; minuto y medio después entró la página 6 (89f17181, la del 23/11 de verdad, misma obra y mismos trabajadores) y la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, «comparten trabajador -> reemplazo», is_active=False) desactivó la página 4 sin avisar: ni se ve en el portal ni está en la papelera (deleted_at_utc vacío). El humano no la encontraba; el encargado reenvió el parte y entró bien. Si el orden hubiera sido el contrario, se habría perdido el parte bueno sin que nadie lo notara. A REVISAR EN LA SPEC: qué cuenta como «parte con problemas» (sustituido por otro —sobre todo por otra página del mismo correo o PDF—, sin obra casada, sin fecha o con fecha dudosa, sin trabajadores, páginas que fallan en la extracción de sv2 y no llegan a la base); qué se puede hacer desde la pestaña (ver el PDF, corregir fecha u obra, recuperarlo como activo, descartarlo a la papelera) y con qué piezas que ya existen (pestaña Conciliación de trabajadores, cambio de obra y de fecha del parte, papelera, undo_log); si la regla de reemplazo debe dejar de sustituir entre páginas del mismo envío o solo avisar; contador o aviso visible en la navegación; qué pasa con lo ya desactivado en silencio hasta hoy (retroactivo o no). Servicios probables: sv4 (pestaña) y sv3 (regla de reemplazo y motivo). Rigor a proponer por el spec-author.
 

@@ -237,13 +237,13 @@ cambian.
 
 | Decisión | Opciones | Recomendado | Decidido |
 |---|---|---|---|
-| D1 Rastro del reemplazo | (a) sv3 escribe `sustituido_por_id` y `sustituido_at_utc` (2 columnas nullables); (b) marca `sustituido · <id>` en `deleted_by`, sin DDL; (c) nada en sv3: sv4 lo deduce siempre | (a) | |
-| D2 Páginas del mismo envío | (a) se sigue sustituyendo y se avisa (pestaña, contador, WARNING); (b) no se sustituye: los dos activos y el nuevo a revisión; (c) no se sustituye y se desactiva el nuevo | (a) | |
-| D3 Qué cuenta en el aviso | (a) todo menos `sustituido` (los reenvíos se listan sin contar); (b) todo | (a) | |
-| D4 Retroactivo | (a) sí: los anteriores a F-084 salen por la pista de R8; (b) solo los sustituidos desde el despliegue | (a) | |
-| D5 Fecha dudosa | (a) `sin_fecha` + `fecha_futura` + `fecha_posterior_al_correo`; (b) sin la última | (a) | |
-| D6 Recuperar con choque | (a) 409: corregir la fecha o descartar antes el otro; (b) recuperar igual, con aviso; (c) intercambiar (desactivar al otro) | (a) | |
-| D7 Páginas que no llegan a la base (poison de `q-extraccion` y `q-persistencia`) | (a) feature aparte (contador y reencolado como el de F-002); (b) dentro de F-084 | (a) | |
-| D8 Recuperar en «Deshacer» | (a) sí, acción `parte_recuperar` con actor; (b) no: el inverso es descartar | (a) | |
-| D9 Rigor | (a) `critico` (disparador 2); (b) `estandar` (solo si D1 = c) | (a) | |
-| D10 Sustituir un parte aprobado o en Sigrid | (a) fuera: insignia en la pestaña y feature aparte si hay casos; (b) dentro: sv3 no lo sustituye | (a) | |
+| D1 Rastro del reemplazo | (a) sv3 escribe `sustituido_por_id` y `sustituido_at_utc` (2 columnas nullables); (b) marca `sustituido · <id>` en `deleted_by`, sin DDL; (c) nada en sv3: sv4 lo deduce siempre | (a) | (a) |
+| D2 Páginas del mismo envío | (a) se sigue sustituyendo y se avisa (pestaña, contador, WARNING); (b) no se sustituye: los dos activos y el nuevo a revisión; (c) no se sustituye y se desactiva el nuevo | (a) | (a) |
+| D3 Qué cuenta en el aviso | (a) todo menos `sustituido` (los reenvíos se listan sin contar); (b) todo | (a) | (a) |
+| D4 Retroactivo | (a) sí: los anteriores a F-084 salen por la pista de R8; (b) solo los sustituidos desde el despliegue | (a) | (a) |
+| D5 Fecha dudosa | (a) `sin_fecha` + `fecha_futura` + `fecha_posterior_al_correo`; (b) sin la última | (a) | (a) |
+| D6 Recuperar con choque | (a) 409: corregir la fecha o descartar antes el otro; (b) recuperar igual, con aviso; (c) intercambiar (desactivar al otro) | (a) | (a) |
+| D7 Páginas que no llegan a la base (poison de `q-extraccion` y `q-persistencia`) | (a) feature aparte (contador y reencolado como el de F-002); (b) dentro de F-084 | (a) | (a) |
+| D8 Recuperar en «Deshacer» | (a) sí, acción `parte_recuperar` con actor; (b) no: el inverso es descartar | (a) | (a) |
+| D9 Rigor | (a) `critico` (disparador 2); (b) `estandar` (solo si D1 = c) | (a) | (a) |
+| D10 Sustituir un parte aprobado o en Sigrid | (a) fuera: insignia en la pestaña y feature aparte si hay casos; (b) dentro: sv3 no lo sustituye | (a) | (a) |
