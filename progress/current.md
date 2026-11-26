@@ -4,9 +4,9 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: **F-082** (`in_review`). Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
+Feature activa: **F-082** (`human_review`, espera el OK del humano). Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
-## F-082 · in_review (implementer terminado 2026-11-26, 000b6d2; copia `partes-wt-f082`)
+## F-082 · human_review (reviewer APPROVED en la pasada 2, e43ef77, SHA aprobado 5a897d3; copia `partes-wt-f082`)
 
 - T1 (2f033d9): tests en rojo `services/partes-front/tests/test_f082_sin_partida.py` (fase RED, 8 en rojo).
 - T2 (55a892c): fila fija «— Sin partida —» en `buildPartidaPicker` (app.js) y celda
