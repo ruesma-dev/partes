@@ -12,4 +12,4 @@
 - [x] T9: Documentación: `docs/ARCHITECTURE.md` (semánticas 7 y 8) y, en commit aparte en `azure-apps` (`git pull --rebase` antes, sin push), `partes.md` según design §11  |  Verificación: `git -C C:\Users\pgris\PycharmProjects\azure-apps log -1` muestra el commit de F-084; `git status` del repo limpio
 - [ ] T10: Campaña de mutación del nivel `critico` y análisis de supervivientes (test nuevo o justificación escrita para el humano)  |  Verificación: `python -m harness.mutacion --feature F-084` y su informe en `progress/`
 - [ ] T11: Verificación manual M1–M3 de design §12 tras el despliegue que pida el humano (M3 solo con su OK expreso para esa acción)  |  Verificación: MANUAL (humano): M1 `SELECT column_name FROM information_schema.columns WHERE table_name = 'parte_documents' AND column_name LIKE 'sustituido%';` ⇒ 2 filas; M2 y M3 en el portal, resultado anotado en `progress/manual_F-084.md`
-- [ ] T12: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh` termina en verde
+- [x] T12: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh` termina en verde
