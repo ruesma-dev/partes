@@ -9,6 +9,8 @@ Criterios `acceptance` (sdd=false):
   con partidas, con texto que no casa nada, con los chips CD/CI y en una
   obra sin presupuesto. Se EJECUTA en node sobre un DOM mínimo (patrón de
   `test_f064_filtros_js.py`).
+- A2 (servidor, ciclo 2): `set_registro_partida` con los cuatro null deja la
+  línea sin partida y en `manual` (con undo); una entrada F-072 sigue fija.
 - A2: elegirla llama a `onPick` con una partida vacía, y `applyPartidaToIds`
   manda los cuatro campos a null al PATCH. La celda de una línea sin partida
   con método `manual` dice «sin partida» con la etiqueta «manual» y SIN el
@@ -29,6 +31,11 @@ from pathlib import Path
 
 import jinja2
 import pytest
+from infrastructure.database.parte_repository import PartidaFijaError
+from tests.dobles import FabricaSesionSqlite
+from tests.test_f046_aplicar import _marcar
+from tests.test_f056_decisiones import _repo
+from tests.test_f072_repositorio import E29, _parte, _reg
 
 SV4 = Path(__file__).resolve().parents[1]
 APP_JS = SV4 / "static" / "app.js"
@@ -54,7 +61,8 @@ def _node(programa: str):
         fichero = Path(carpeta) / "programa.js"
         fichero.write_text(programa, encoding="utf-8")
         r = subprocess.run([NODE, str(fichero)], capture_output=True,
-                           text=True, encoding="utf-8", timeout=60)
+                           text=True, encoding="utf-8", timeout=60,
+                           check=False)
     assert r.returncode == 0, r.stderr
     return json.loads(r.stdout)
 
@@ -266,3 +274,51 @@ def test_f082_a2_resto_de_casos_sin_cambios(plantilla) -> None:
     html = _celda(plantilla, partida_cod="P1", partida_res="Encofrado",
                   partida_capitulo="CD", partida_match_method="manual")
     assert "P1" in html and "tag-manual" in html and "⚠" not in html
+
+
+# ------------------------ A2 · eslabón del servidor ------------------------ #
+# Entre el PATCH con los cuatro null (JS) y la celda sin aviso (plantilla) está
+# `set_registro_partida`: debe dejar la línea sin partida Y en `manual`, que es
+# lo que oculta el aviso y lo que sv3 respeta al re-conciliar (ciclo 2 del
+# reviewer). Repositorio real sobre SQLite (`tests/dobles.py`).
+
+VACIA = {"partida_ide": None, "partida_cod": None, "partida_res": None,
+         "partida_capitulo": None}
+
+
+def _campos(r) -> tuple:
+    return (r.partida_ide, r.partida_cod, r.partida_res, r.partida_capitulo,
+            r.partida_match_method)
+
+
+def test_f082_a2_servidor_partida_vacia_queda_manual() -> None:
+    fabrica = FabricaSesionSqlite()
+    [rid] = _parte(fabrica, None, "d82")
+    _marcar(fabrica, rid, partida="0716", partida_match_method="sin")
+    assert _repo(fabrica).set_registro_partida(registro_id=rid, **VACIA)
+    r = _reg(fabrica, rid)
+    assert _campos(r) == (None, None, None, None, "manual")
+    assert r.partida == "0716"            # la leída se conserva
+    # Deshacer devuelve el estado anterior.
+    _repo(fabrica).undo_last()
+    r = _reg(fabrica, rid)
+    assert (r.partida_ide, r.partida_match_method) == (None, "sin")
+
+
+def test_f082_a2_servidor_d3_ya_sin_partida_se_guarda_igual() -> None:
+    fabrica = FabricaSesionSqlite()
+    [rid] = _parte(fabrica, None, "d82b")
+    _marcar(fabrica, rid, partida_ide=33, partida_cod="01.01",
+            partida_match_method="parte")
+    assert _repo(fabrica).set_registro_partida(registro_id=rid, **VACIA)
+    assert _repo(fabrica).set_registro_partida(registro_id=rid, **VACIA)
+    assert _campos(_reg(fabrica, rid)) == (None, None, None, None, "manual")
+
+
+def test_f082_a2_servidor_entrada_f072_sigue_fija() -> None:
+    fabrica = FabricaSesionSqlite()
+    [rid] = _parte(fabrica, E29, "d29")
+    with pytest.raises(PartidaFijaError):
+        _repo(fabrica).set_registro_partida(registro_id=rid, **VACIA)
+    assert _campos(_reg(fabrica, rid)) == (
+        91012, "29", "VARIOS 29", "CD", "var")

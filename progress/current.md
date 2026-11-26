@@ -13,6 +13,16 @@ Feature activa: **F-082** (`in_review`). Última cerrada: **F-083** (2026-11-25,
   `cell-partida` de obra/parte/trabajador: sin partida + método `manual` ⇒ «sin partida»
   con etiqueta «manual», sin ⚠. Sin cambios de backend. Sin desviaciones de la PARADA 1.
 - Informe: `progress/impl_F-082.md`.
+- **Verificaciones MANUAL (humano)**, en el portal tras desplegar sv4 (o en local), con
+  **Ctrl+F5** antes de empezar para recargar `app.js`; en una obra con líneas sin registrar:
+  1. **Detalle de obra** (`/obras/<obra>`) ⇒ ✎ de la celda «Partida» de una línea ⇒ la primera
+     fila del desplegable es «— Sin partida —»; elegirla ⇒ la página recarga y la celda dice
+     «sin partida» con la etiqueta «manual», sin ⚠. Repetirlo en el detalle de parte (`/partes/<id>`) y de trabajador (`/trabajadores/<clave>`).
+  2. **Misma página**, marcar varias líneas de la misma obra ⇒ barra de selección «Editar
+     partida» ⇒ sale «— Sin partida —» arriba; elegirla ⇒ todas quedan «sin partida · manual».
+  3. **Detalle de una obra sin presupuesto** ⇒ ✎ de una línea ⇒ el panel ofrece «— Sin partida —»
+     y debajo «Esta obra no tiene partidas»; elegirla ⇒ «sin partida · manual».
+  4. Tras el paso 1, **Deshacer** ⇒ la línea vuelve a su partida (o a su aviso ⚠) de antes.
 
 ## F-083 · done 2026-11-25 (OK del humano: «1 hazlo»; copia `partes-wt-f083`)
 

@@ -122,3 +122,38 @@ No las he podido hacer: no arranco el portal contra la base `partes`.
 | Mutantes | no lanzada por encargo del líder (carril `estandar`); la herramienta solo muta Python y aquí no hay Python de producción |
 | Tiempo de la suite | sv4 892,74 s; raíz 904,16 s; sv5 39,78 s; `test_f082_sin_partida.py` 0,44 s |
 | Capa e2e | N/A (`CAPA E2E: N/A`) |
+
+## Ciclo 2 (CHANGES_REQUESTED de `progress/review_F-082.md`)
+
+Solo los dos cambios pedidos; **sin tocar código de producción**.
+
+1. **Eslabón del servidor de A2** en `services/partes-front/tests/test_f082_sin_partida.py`
+   (repositorio real sobre `FabricaSesionSqlite`, helpers de `test_f072_repositorio.py`):
+   - `test_f082_a2_servidor_partida_vacia_queda_manual`: línea con leída `0716` y método
+     `sin` ⇒ `set_registro_partida` con los cuatro null devuelve True, cuatro campos None,
+     `partida_match_method == "manual"` y la leída se conserva; `undo_last()` la devuelve
+     a `sin`.
+   - `test_f082_a2_servidor_d3_ya_sin_partida_se_guarda_igual`: D3, dos veces seguidas el
+     mismo payload ⇒ `manual`.
+   - `test_f082_a2_servidor_entrada_f072_sigue_fija`: entrada E29 ⇒ `PartidaFijaError` y la
+     partida fija intacta (91012, «29», «VARIOS 29», CD, `var`).
+   - **El test caza la regresión** que describe el reviewer: edité a mano
+     `parte_repository.py` para que la partida vacía dejara el método a `None` ⇒
+     `2 failed, 1 passed` (`-k servidor`); restaurado desde la copia (el `git status`
+     solo mostraba el test).
+   - Imports subidos a la cabecera y `check=False` en `subprocess.run`: el fichero queda
+     limpio de ruff (`All checks passed!`).
+   - `python -m pytest tests/test_f082_sin_partida.py -q` ⇒ `16 passed`.
+2. **`progress/current.md`**, sección F-082: las 4 verificaciones MANUAL con página
+   (`/obras/<obra>`, `/partes/<id>`, `/trabajadores/<clave>`), acción, resultado esperado
+   y Ctrl+F5.
+
+`bash harness/init.sh` (ciclo 2): exit 0, «ENTORNO LISTO». Raíz `2549 passed, 50 skipped
+in 1376.06s`; sv4-front `4033 passed, 1 skipped in 1011.88s` (los 16 de F-082 dentro);
+sv1–sv3 y sv5 verdes por caché. `PUERTA COBERTURA: N/A`, `PUERTA TAMAÑO` OK (impl 151/220),
+`PUERTA CARRIL: N/A`, `CAPA E2E: N/A`. Ruff baja de 1181 a 1180 avisos.
+Nota: una ejecución anterior del mismo árbol dio rojo en un test del arnés de la raíz,
+`tests/test_f059_ejecucion.py::test_f059_r7_el_arranque_va_antes_y_se_para_al_terminar`
+(caso TIMEOUT, `nieto.pid` no llegó a escribirse). F-082 no toca nada de la raíz. Aislado
+pasó 3 de 3 y volvió a verde al repetir init.sh: es inestable por tiempos con la máquina
+cargada. Lo dejo anotado por si se repite.
