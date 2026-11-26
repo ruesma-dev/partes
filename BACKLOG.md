@@ -3,11 +3,13 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 18 abiertas y 59 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 59 en Done.
+Resumen: **77 features**, 18 abiertas y 59 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 59 en Done.
 
 ## Review
 
-_Nada esperando revisión._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) | reviewer |  | 2 | estandar | `feature/F-082-opcion-sin-partida` |
 
 ## Blocked
 
@@ -15,9 +17,7 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) | implementer |  | 2 | estandar | `feature/F-082-opcion-sin-partida` |
+_Ninguna feature en implementación._
 
 ## Spec aprobada
 
@@ -135,7 +135,7 @@ Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero
 
 ### F-082 · El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección)
 
-estado **en curso** · prioridad 2 · rigor `estandar` · SDD no · rama `feature/F-082-opcion-sin-partida`
+estado **en QA / revisión** · prioridad 2 · rigor `estandar` · SDD no · rama `feature/F-082-opcion-sin-partida`
 
 Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en el pequeño menú que sale al seleccionar una línea […] siempre debo poder elegir sin partida (también en la selección normal de partida)». Hoy el selector de partida (app.js, «Editar partida» de la barra de selección y el combo de la línea) solo lista las hojas del presupuesto y, en una obra sin presupuesto, dice «Esta obra no tiene partidas» sin opción. El backend ya admite partida vacía (PartidaPayload con todo None; set_registro_partida). Propuesta: opción fija «— Sin partida —» en los dos selectores, que manda partida vacía (método manual), y que la línea sin partida elegida a mano no siga pintando «⚠ <leída> no encontrada». No cambia el candado: en una línea ya registrada sigue el 409 de F-004 hasta F-081, que debe contemplar «sin partida» como edición de una línea registrada (paride 0 en Sigrid). Respeta la partida fija de las entradas de F-072 (R32). PARADA 1 aprobada por el humano el 2026-11-26 («ok»): carril estandar (4 ficheros: app.js buildPartidaPicker + plantillas obra_detail, parte_detail y trabajador_detail; express admite 3). D1 (a) estandar; D2 (a) la celda sin partida con metodo manual dice «sin partida» + etiqueta manual, sin ⚠; D3 (a) elegir «Sin partida» en una linea ya sin partida se guarda igual (manual, quita el aviso). Fuera: el combo de «Nuevo parte» y las lineas registradas (F-081).
 
