@@ -13,7 +13,12 @@ e2e es N/A y no hay Python de producción que mutar.
 ## Lo que ejecuté yo
 
 - `bash harness/init.sh` **tal cual** sobre 78957b7 (encargo del líder; no
-  `ARNES_SIN_CACHE=1`): INIT_RESULTADO.
+  `ARNES_SIN_CACHE=1`): **exit 0, `ENTORNO LISTO`**. Raíz ejecutada: `2549 passed, 50
+  skipped in 1368.31s`. sv1–sv5 salieron **por caché**: sv4 del verde del implementer a las
+  13:05, en el mismo árbol de servicio. Así que yo mismo corrí en HEAD
+  `test_f082_sin_partida.py`, `test_f072_repositorio.py`, `test_f004_endpoints_congelados.py`
+  y `test_f064_filtros_js.py`: `197 passed`. `COBERTURA` N/A con motivo, `TAMAÑO` OK,
+  `CARRIL` N/A, `CAPA E2E` N/A.
 - **Fase RED reproducida**: `git archive 2f033d9` de `static/`, `templates/` y el test a una
   copia del scratchpad (2f033d9 solo añade el test: producción idéntica a `dev`) ⇒
   `8 failed, 5 passed`, los mismos 8 que cita el informe. En HEAD: 13 passed.
