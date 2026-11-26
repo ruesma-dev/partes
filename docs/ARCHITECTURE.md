@@ -360,6 +360,10 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    tocar filas; los tests de F-010 la nombran entera). Desde F-048,
    `parte_registros` lleva `horas_extra_leidas` (`Float`, nullable, sin
    defecto; la escribe solo la ingesta de sv3, semántica 3): 57 columnas.
+   Desde F-084, `parte_documents` lleva `sustituido_por_id` (`String(36)`) y
+   `sustituido_at_utc` (`String(64)`), nullables y sin defecto: el rastro del
+   reemplazo, que escribe solo sv3 y lee sv4 (semántica 8); fuera de
+   deshacer. Los partes anteriores quedan a NULL.
 8. **Papelera lógica en todo** (documentos y líneas): `is_active` +
    `deleted_*`; el único borrado físico es vaciar la papelera o «Eliminar»
    en ella. **Parte retirado (F-061, sv4)**: cuando un parte se queda sin
@@ -380,6 +384,25 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    viven fuera sigue retirado. Borrar una obra y «Borrar parte» siguen
    mandando el parte a la papelera de partes. `/partes` cuenta solo las
    líneas vivas y marca con «Sin líneas» el parte activo sin ninguna.
+   **Parte sustituido y pestaña «Problemas» (F-084)**: el reemplazo de sv3
+   (`_deactivate_same_day_obra`: mismo día, obra y trabajador) sigue
+   desactivando igual, también entre páginas del mismo correo, pero deja
+   rastro en el desactivado (`sustituido_por_id` = el parte nuevo y
+   `sustituido_at_utc`, misma transacción, sin papelera) y, si los dos son
+   del mismo `email_id`, un WARNING `reemplazo del mismo envio`.
+   `/problemas` (sv4) lista los activos sin obra, sin fecha, con fecha futura
+   o posterior al correo (más un día de margen) o sin líneas, y los
+   **sustituidos** (inactivos, fuera de la papelera y no retirados): «del
+   mismo envío», «reenvío» o «sin sustituto»; para los anteriores a F-084 el
+   sustituto es una pista (activo de la misma fecha y obra creado después).
+   Lo decide el módulo puro `partes_con_problemas.py`. El contador de la
+   navegación (`GET /api/problemas/resumen`) cuenta todos menos los
+   reenvíos. «Recuperar» (`POST /api/partes/{id}/recuperar`, fecha opcional)
+   reactiva un sustituido conservando el rastro, con 409 si choca con otro
+   activo del mismo día y obra con la misma clave de trabajador del portal,
+   si su sha256 ya está activo, si es congelado con fecha o si está en espera
+   de recálculo; pide el recálculo (`recuperar_parte`) y se deshace
+   (`parte_recuperar`, con `actor`). «Descartar» lo manda a la papelera.
 9. **Partidas CD/CI**: el presupuesto de la obra (`obrparpar`) es un árbol
    del que solo las hojas admiten imputación; CD = costes directos
    (códigos numéricos), CI = indirectos (códigos con letras).
