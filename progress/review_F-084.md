@@ -1,40 +1,46 @@
 <!-- progress/review_F-084.md -->
-Revisión completa (pasada 1, principal) · HEAD 8f559d1 · `git diff dev...HEAD` (merge-base d11d228)
+Revisión incremental desde 8f559d1 (pasada 2, principal) · HEAD 986f868 · `git diff 8f559d1..HEAD`
 
-# F-084 · Review (pasada principal)
+# F-084 · Review (pasada principal, ciclo 2)
 
-**Veredicto: CHANGES_REQUESTED** (dos arreglos de documentación y init.sh con exit 0; nada de código: «Cambios requeridos»).
+**Veredicto: APPROVED** (SHA aprobado: **986f868**). Pasada 1 (8f559d1): CHANGES_REQUESTED por tres puntos sin
+código (MANUAL en `current.md`, `undo_log.actor` mal documentado, init.sh sin exit 0); los tres, atendidos.
 
 **Nivel de rigor:** `critico`, declarado en `features.json` (disparador 2: sv3 escribe en producción y DDL
 en el PostgreSQL compartido). Exige fase RED, cobertura ≥ 90 %, mutación (muestra 60 %, [100, 300], 0
 supervivientes salvo justificación aceptada), RM1–RM7. La e2e es informativa y aquí N/A. La mutación (T10)
 la lanza el líder después de este veredicto: sus puntos quedan **pendiente: pasada de evidencias**.
 
-## init.sh
+## Pasada 2: delta y init.sh
 
-Tres ejecuciones en la copia, a HEAD 8f559d1; **ninguna salió con exit 0, y en ningún caso por F-084**:
-1. `bash harness/init.sh`: raíz roja con `-x` en `tests/test_f059_ejecucion.py::test_f059_r9_timeout_mata_el_arbol_y_no_es_rojo`
-   (`FileNotFoundError … nieto.pid`, el inestable conocido; 1571 passed). Los cinco servicios salieron **por caché**.
-2. `ARNES_SIN_CACHE=1 bash harness/init.sh`: raíz roja con `-x` en la preparación de
-   `tests/test_f024_borrado_no_congela_gemelos.py::test_f024_r13_…` (`TimeoutExpired … after -523.8 seconds`:
-   timeout **negativo**, el reloj saltó, probablemente porque el equipo se suspendió; `congelacion.py` no lo toca F-084).
-   Servicios **sin caché, todos en verde**: sv1 74 · sv2 579/1 skip · sv3 2966/2 skip · sv4 **4137**/1 skip (26 min) ·
-   sv5 1890/1 skip. `PUERTA COBERTURA` [OK] 100,0 % (303/303) · `PUERTA TAMAÑO` [OK] · `CARRIL` N/A (critico) ·
-   `CAPA E2E` N/A · rama correcta · ruff 1188 avisos (antes 1184: imports de los tests nuevos, no bloquea).
-3. Raíz entera a mano, sin `-x` ni cobertura (`python -m pytest tests -q --tb=short -p no:cacheprovider`):
-   **2549 passed, 50 skipped, 0 fallos** (28 min), los dos de arriba incluidos.
+**Delta 8f559d1..986f868** (27f6b6b, e8311a1, 986f868 y los de estado): solo `progress/`, `docs/ARCHITECTURE.md`
+y comentarios/docstrings de `app.py` (`_actor`) e `identidad.py` (cabecera). Ninguna línea de código ejecutable:
+no invalida nada de lo aprobado en la pasada 1, que se da por bueno.
+- `current.md`: M1 con la SQL exacta y «2 filas»; M2 (`/problemas`, `5c1a9b04`/`89f17181`, contador = `total`);
+  M3 marcada **escribe, solo con OK expreso**, con 409, «Descartar» y «Deshacer»; textos cotejados con el código
+  («Parte movido a la papelera», `app.py:4115`; «Parte recuperado», `app.js`). C4 cumplido.
+- `undo_log.actor`: las tres piezas dicen ya que solo `parte_recuperar` lo rellena y que el resto es de F-018,
+  coherente con `azure-apps/partes.md` §4.5.
 
-Todo lo que mide init.sh se ha visto en verde ejecutándose, pero **no en una misma pasada con exit 0** (cambio 3).
+**init.sh, mi propia pasada (a HEAD 986f868)**: hicieron falta **4 ejecuciones**.
+1. `ARNES_SIN_CACHE=1 bash harness/init.sh`: raíz roja con `-x` en `test_f059_ejecucion.py::test_f059_r7_…[…TIMEOUT]`
+   (`nieto.pid`, inestable conocido). Servicios **sin caché, todos verdes**: sv1 74 · sv2 579/1 skip · sv3 2966/2 ·
+   sv4 **4137**/1 (25:39) · sv5 1890/1. Cobertura [OK] 100,0 % (303/303) · tamaño [OK] · carril N/A · e2e N/A.
+2. y 3. `bash harness/init.sh`: raíz roja las dos veces en `test_f059_r9_timeout_mata_el_arbol_y_no_es_rojo`.
+   `tests/test_f059_ejecucion.py` aislado: **98 passed** con y sin `coverage`. Había campañas de otras sesiones
+   (`coverage run … pytest`) cargando el equipo: un test de tiempos que cae bajo carga, no F-084.
+4. `bash harness/init.sh`: **exit 0**. Raíz 2549 passed/50 skip con cobertura (24 min); servicios por caché del
+   verde **sin caché de la ejecución 1 de esta misma pasada** (22:04–22:35, mismo HEAD); puertas en [OK].
 
 ## Checkpoints
 
-**C1** [ ] exit 0 en una sola pasada: no se ha dado (dos inestables ajenos, arriba); no es imputable a F-084, se exige en la pasada 2 · [x] ficheros base existen.
+**C1** [x] exit 0 (ejecución 4; servicios vistos correr sin caché en la 1, mismo HEAD) · [x] ficheros base existen.
 **C2** [x] una sola activa (F-084) · [x] prioridad · [x] rama `feature/F-084-partes-con-problemas` · [x]
 `current.md` de la sesión activa · [x] las `done` con resumen en `history.md` (no lo toca).
 **C3** [x] hexagonal: módulo puro `application/services/partes_con_problemas.py` sin BBDD/ORM/FastAPI (solo
 importa `parte_vacio`); el repositorio (infra) y `app.py` (adaptador) lo consumen. [x] primera línea con ruta
 en todo fichero de código nuevo (la plantilla sigue el uso de sus vecinas). [x] sin `print`, TODOs ni
-secretos; sin dependencias nuevas. [ ] **reglas de `ARCHITECTURE.md`/documentación al día**: ver cambio 2.
+secretos; sin dependencias nuevas. [x] `ARCHITECTURE.md` al día (en la pasada 1, `[ ]` por `undo_log.actor`; corregido).
 Trampas: (1) empleado≠recurso: no aplica (no registra en Sigrid); (2) incidencias: las horas de la fila
 excluyen `es_incidencia`, como `/partes`; (3) esquema: los dos `orm_models.py` **byte-idénticos** (`cmp`),
 nullables, sin `server_default`, lectores listados (sv3 escribe, sv4 lee).
@@ -44,8 +50,8 @@ sustituye como hasta ahora…») va con fecha y origen en `features.json` y la s
 `impl_F-084.md` · [x] sin push (encima está 19062db, F-020 de otro proyecto, ajeno) · [x] coincide con la
 Frontera de design §11 (§3.3, §3.4 con las tres rutas, §4.1 fila nueva y nota de Papelera, §4.5 `actor`, motivos).
 **C4** [x] cada R1–R26 con ≥ 1 test `test_f084_rN_*` y en verde (tabla abajo) · [x] unit sin red ni BBDD real
-(SQLite en memoria de `dobles.py`, `ColaFake`) · [ ] **MANUAL M1–M3 no están en `progress/current.md` con su
-comando exacto** (cambio 1; están en `tasks.md` T11 y design §12, que es donde no lo busca el humano) ·
+(SQLite en memoria de `dobles.py`, `ColaFake`) · [x] MANUAL M1–M3 en `progress/current.md` con su
+comando o ruta y resultado esperado (en la pasada 1, `[ ]`) ·
 [x] dobles: `ColaFake.enviar(queue_name, payload)` = `ColaCliente.enviar` (`infrastructure/azure/cola_cliente.py:85`);
 `_RepoRoto` hereda del repositorio real.
 **C4 bis** [x] rigor declarado · [x] fase RED con salida real (T1, T3, T5, T7) · [x] cobertura 100,0 % ·
@@ -109,21 +115,9 @@ Ficheros: sv3 `services/partes-persistencia/tests/test_f084_rastro_reemplazo.py`
 
 ## Cambios requeridos
 
-1. **`progress/current.md`, sección F-084**: listar las verificaciones MANUAL (humano) M1–M3 de design §12 con
-   su comando exacto (M1: `SELECT column_name FROM information_schema.columns WHERE table_name =
-   'parte_documents' AND column_name LIKE 'sustituido%';` ⇒ 2 filas; M2 y M3 con la ruta y el resultado
-   esperado; M3 solo con OK expreso), como hace F-082 en ese mismo fichero (C4).
-2. **Documentación que ahora miente sobre `undo_log.actor`**: `docs/ARCHITECTURE.md:473-474` («que no la
-   escribe nadie y sigue naciendo `NULL`…») y el docstring de `_actor` en
-   `services/partes-front/interface_adapters/web/app.py:907-908` («`undo_log.actor` no participa… porque no
-   la escribe nadie»). Desde F-084 `parte_recuperar` la rellena: decirlo, como ya se hizo en `azure-apps/partes.md`
-   §4.5. Recomendado (no bloquea, fuera de los ficheros previstos): la cabecera de
-   `services/partes-front/interface_adapters/web/identidad.py:10-16` dice lo mismo.
-
-3. **C1**: la pasada 2 necesita `ARNES_SIN_CACHE=1 bash harness/init.sh` con exit 0 (aquí lo impidieron dos
-   inestables ajenos; ver «init.sh»).
-
-Sin cambios de código de producción. La pasada 2 será incremental desde 8f559d1.
+Ninguno. Los tres de la pasada 1 (MANUAL en `current.md`; `undo_log.actor` en `ARCHITECTURE.md:473` y en el
+docstring de `_actor`, más `identidad.py`; init.sh con exit 0) están atendidos y comprobados arriba.
+Queda la **pasada de evidencias** tras T10: mutación (muestra de `critico`), supervivientes y RM1, RM2, RM5, RM6.
 
 ## Observaciones (no bloquean)
 
