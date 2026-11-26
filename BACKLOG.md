@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 18 abiertas y 59 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 5 en To do, 11 en Backlog y 59 en Done.
+Resumen: **78 features**, 19 abiertas y 59 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 6 en To do, 11 en Backlog y 59 en Done.
 
 ## Review
 
@@ -31,6 +31,7 @@ _Ninguna feature en implementación._
 | F-080 | sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida |  | 2 | express | `feature/F-080-juntar-lineas-sin-partida` |
 | F-081 | Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0) | sin spec | 2 | critico | `feature/F-081-editar-lineas-registradas` |
 | F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) |  | 2 | express | `feature/F-082-opcion-sin-partida` |
+| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | sin spec | 2 | estandar | `feature/F-084-partes-con-problemas` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 
@@ -137,6 +138,14 @@ Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero
 estado **to do (comprometida)** · prioridad 2 · rigor `express` · SDD no · rama `feature/F-082-opcion-sin-partida`
 
 Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en el pequeño menú que sale al seleccionar una línea […] siempre debo poder elegir sin partida (también en la selección normal de partida)». Hoy el selector de partida (app.js, «Editar partida» de la barra de selección y el combo de la línea) solo lista las hojas del presupuesto y, en una obra sin presupuesto, dice «Esta obra no tiene partidas» sin opción. El backend ya admite partida vacía (PartidaPayload con todo None; set_registro_partida). Propuesta: opción fija «— Sin partida —» en los dos selectores, que manda partida vacía (método manual), y que la línea sin partida elegida a mano no siga pintando «⚠ <leída> no encontrada». No cambia el candado: en una línea ya registrada sigue el 409 de F-004 hasta F-081, que debe contemplar «sin partida» como edición de una línea registrada (paride 0 en Sigrid). Respeta la partida fija de las entradas de F-072 (R32).
+
+### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
+
+estado **to do (comprometida)** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-084-partes-con-problemas`
+
+**Spec**: sin spec
+
+Pedida por el humano el 2026-11-26: «hay que arreglar esto, los partes no leidos o no casados o con problemas deben quedar visitables en una pestaña nueva para, como pasa en conciliar, conciliarlos con las obras o fecha etc.». Caso de origen (0692, correo del 2026-11-26 09:56, PDF doc003417 de 6 páginas): la página 4 (documento 5c1a9b04, parte del 25/11 de Acuña, González Rojas y Uceda) se leyó con fecha 23/11; minuto y medio después entró la página 6 (89f17181, la del 23/11 de verdad, misma obra y mismos trabajadores) y la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, «comparten trabajador -> reemplazo», is_active=False) desactivó la página 4 sin avisar: ni se ve en el portal ni está en la papelera (deleted_at_utc vacío). El humano no la encontraba; el encargado reenvió el parte y entró bien. Si el orden hubiera sido el contrario, se habría perdido el parte bueno sin que nadie lo notara. A REVISAR EN LA SPEC: qué cuenta como «parte con problemas» (sustituido por otro —sobre todo por otra página del mismo correo o PDF—, sin obra casada, sin fecha o con fecha dudosa, sin trabajadores, páginas que fallan en la extracción de sv2 y no llegan a la base); qué se puede hacer desde la pestaña (ver el PDF, corregir fecha u obra, recuperarlo como activo, descartarlo a la papelera) y con qué piezas que ya existen (pestaña Conciliación de trabajadores, cambio de obra y de fecha del parte, papelera, undo_log); si la regla de reemplazo debe dejar de sustituir entre páginas del mismo envío o solo avisar; contador o aviso visible en la navegación; qué pasa con lo ya desactivado en silencio hasta hoy (retroactivo o no). Servicios probables: sv4 (pestaña) y sv3 (regla de reemplazo y motivo). Rigor a proponer por el spec-author.
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
