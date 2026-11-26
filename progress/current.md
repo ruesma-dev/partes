@@ -6,6 +6,17 @@ tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11
 
 Feature activa: ninguna. Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
+## F-084 · spec_ready 2026-11-26 (spec-author; copia `partes-wt-f084`)
+
+- Spec escrita: `specs/F-084-partes-con-problemas/` (rama `feature/F-084-partes-con-problemas`).
+  Resumen, decisiones y preguntas al líder en `progress/spec_F-084.md`.
+- Decisiones abiertas para el humano: D1–D10 (recomendado (a) en todas: sv3 deja rastro en
+  dos columnas nuevas y sigue sustituyendo igual; pestaña `/problemas` en sv4 con contador;
+  «Recuperar» nuevo con 409 ante choque; retroactivo; poison de sv2/sv3 y sustitución de
+  partes congelados, fuera). Rigor `critico` propuesto (D9).
+- Preguntas de datos para el líder: retirados de F-061 entre los 112 inactivos y sustituidos
+  aprobados o con líneas en Sigrid.
+
 ## F-083 · done 2026-11-25 (OK del humano: «1 hazlo»; copia `partes-wt-f083`)
 
 - T1–T5 hechas y commiteadas (T1 9a73523, T2 c43d3be, T3 6fc7ccc, T5 10681ce; T4 al cerrar);

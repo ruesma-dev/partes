@@ -1279,10 +1279,10 @@
       "id": "F-084",
       "title": "Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano",
       "priority": 2,
-      "rigor": "estandar",
+      "rigor": "critico",
       "sdd": true,
-      "status": "todo",
-      "spec": "sin spec",
+      "status": "spec_ready",
+      "spec": "specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 abiertas para el humano; rigor critico propuesto, D9)",
       "branch": "feature/F-084-partes-con-problemas",
       "description": "Pedida por el humano el 2026-11-26: «hay que arreglar esto, los partes no leidos o no casados o con problemas deben quedar visitables en una pestaña nueva para, como pasa en conciliar, conciliarlos con las obras o fecha etc.». Caso de origen (0692, correo del 2026-11-26 09:56, PDF doc003417 de 6 páginas): la página 4 (documento 5c1a9b04, parte del 25/11 de Acuña, González Rojas y Uceda) se leyó con fecha 23/11; minuto y medio después entró la página 6 (89f17181, la del 23/11 de verdad, misma obra y mismos trabajadores) y la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, «comparten trabajador -> reemplazo», is_active=False) desactivó la página 4 sin avisar: ni se ve en el portal ni está en la papelera (deleted_at_utc vacío). El humano no la encontraba; el encargado reenvió el parte y entró bien. Si el orden hubiera sido el contrario, se habría perdido el parte bueno sin que nadie lo notara. A REVISAR EN LA SPEC: qué cuenta como «parte con problemas» (sustituido por otro —sobre todo por otra página del mismo correo o PDF—, sin obra casada, sin fecha o con fecha dudosa, sin trabajadores, páginas que fallan en la extracción de sv2 y no llegan a la base); qué se puede hacer desde la pestaña (ver el PDF, corregir fecha u obra, recuperarlo como activo, descartarlo a la papelera) y con qué piezas que ya existen (pestaña Conciliación de trabajadores, cambio de obra y de fecha del parte, papelera, undo_log); si la regla de reemplazo debe dejar de sustituir entre páginas del mismo envío o solo avisar; contador o aviso visible en la navegación; qué pasa con lo ya desactivado en silencio hasta hoy (retroactivo o no). Servicios probables: sv4 (pestaña) y sv3 (regla de reemplazo y motivo). Rigor a proponer por el spec-author.",
       "acceptance": [
