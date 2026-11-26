@@ -51,6 +51,11 @@ from application.services.sincronizar_ambito import (
     motivo_no_sincronizable,
 )
 from application.services.parte_vacio import DuplicadoActivoError
+from application.services.partes_con_problemas import (
+    TEXTOS as TEXTOS_PROBLEMAS,
+    ChoqueRecuperarError,
+    NoRecuperableError,
+)
 from application.services.seguimiento_recalculo import MOTIVO_NUEVO
 from application.services.edicion_celda import (
     MOTIVO_CELDA_CAMBIADA,
@@ -123,10 +128,12 @@ from infrastructure.persistencia.recalculo_publisher import (
     MOTIVO_CASADO_CONCILIACION,
     MOTIVO_DESHACER_CELDA,
     MOTIVO_DESHACER_FECHA,
+    MOTIVO_DESHACER_RECUPERAR,
     MOTIVO_DESHACER_TRABAJADOR,
     MOTIVO_EDICION_CELDA,
     MOTIVO_REAJUSTE,
     MOTIVO_REASIGNACION,
+    MOTIVO_RECUPERAR_PARTE,
     MOTIVO_SINCRONIZAR,
     RecalculoPublisher,
     pedir_recalculo,
@@ -332,6 +339,12 @@ class EstadoAprobacionPayload(BaseModel):
 
 class FechaPayload(BaseModel):
     fecha: str  # ISO 'YYYY-MM-DD' (input date) o 'DD/MM/YYYY'
+
+
+class RecuperarPayload(BaseModel):
+    """F-084 (R17): fecha opcional; vacia o ausente = sin cambio."""
+
+    fecha: str | None = None
 
 
 class ObraPayload(BaseModel):
@@ -1735,12 +1748,16 @@ def build_app(
                 {"ok": False, "error": f"{type(exc).__name__}: {exc}"},
                 status_code=500,
             )
-        if res.get("ok") and res.get("action") == "parte_fecha":
+        motivos_deshacer = {"parte_fecha": MOTIVO_DESHACER_FECHA,
+                            "parte_recuperar": MOTIVO_DESHACER_RECUPERAR}
+        if res.get("ok") and res.get("action") in motivos_deshacer:
             # F-042 (DA1, R7): deshacer un cambio de fecha es la misma
             # accion en sentido contrario; sin recalculo, la fecha vieja
             # quedaria con el reparto nuevo hasta la siguiente ingesta.
+            # F-084 (R23): igual al deshacer «Recuperar parte».
+            motivo = motivos_deshacer[res["action"]]
             estados = [
-                _pedir_recalculo_seguido(doc_id, MOTIVO_DESHACER_FECHA, actor)
+                _pedir_recalculo_seguido(doc_id, motivo, actor)
                 for doc_id in res.get("document_ids") or []
             ]
             if estados:
@@ -2208,6 +2225,86 @@ def build_app(
             document_id, MOTIVO_CAMBIO_FECHA, _actor(request))
         return {"ok": True, "fecha": fecha_iso, "fecha_int": fecha_int,
                 "recalculo": recalculo}
+
+    # ----------------------------------------------------------- #
+    # F-084: partes con problemas (pestaña y contador) y recuperar
+    # un parte sustituido por el reemplazo de sv3.
+    # ----------------------------------------------------------- #
+    @app.get("/problemas", response_class=HTMLResponse,
+             include_in_schema=False)
+    def problemas(request: Request,
+                  message: str | None = Query(default=None)) -> HTMLResponse:
+        filas = repository.list_partes_con_problemas()
+        grupos: list[dict] = []
+        for fila in filas:   # ya vienen por motivo y fecha (R11)
+            if not grupos or grupos[-1]["motivo"] != fila["motivo"]:
+                grupos.append({"motivo": fila["motivo"],
+                               "texto": fila["texto_motivo"],
+                               "cuenta": fila["cuenta"], "filas": []})
+            grupos[-1]["filas"].append(fila)
+        context = {
+            "request": request,
+            "title": settings.app_title,
+            "preview_enabled": settings.preview_enabled,
+            "grupos": grupos,
+            "textos": TEXTOS_PROBLEMAS,
+            "total": sum(1 for f in filas if f["cuenta"]),
+            "n_filas": len(filas),
+            "message": message,
+        }
+        return templates.TemplateResponse(
+            request=request, name="problemas.html", context=context
+        )
+
+    @app.get("/api/problemas/resumen", include_in_schema=False)
+    def problemas_resumen() -> JSONResponse:
+        """R25: el contador de la navegacion. Un fallo no rompe la pagina:
+        200 con `ok: false` y el JS no pinta nada."""
+        try:
+            res = repository.resumen_problemas()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[problemas] no se pudo calcular el resumen (%s)",
+                           type(exc).__name__)
+            return JSONResponse({"ok": False, "total": 0})
+        return JSONResponse({"ok": True, "total": res["total"],
+                             "por_motivo": res["por_motivo"]})
+
+    @app.post("/api/partes/{document_id}/recuperar", include_in_schema=False)
+    def recuperar_parte(
+        document_id: str,
+        request: Request,
+        payload: RecuperarPayload | None = Body(default=None),
+    ) -> JSONResponse:
+        """R17-R22: devuelve activo un sustituido, con fecha opcional."""
+        fecha_iso = fecha_int = None
+        texto = ((payload.fecha if payload else None) or "").strip()
+        if texto:
+            parsed = _parse_fecha_to_iso_int(texto)
+            if parsed is None:
+                return JSONResponse({"ok": False, "error": "Fecha invalida."},
+                                    status_code=400)
+            fecha_iso, fecha_int = parsed
+        actor = _actor(request)
+        try:
+            res = repository.recuperar_parte(
+                document_id=document_id, fecha_iso=fecha_iso,
+                fecha_int=fecha_int, actor=actor)
+        except ChoqueRecuperarError as exc:   # R19
+            return JSONResponse({"ok": False, "error": exc.motivo,
+                                 "partes": exc.partes}, status_code=409)
+        except (NoRecuperableError, DuplicadoActivoError) as exc:   # R20, R22
+            return JSONResponse({"ok": False, "error": exc.motivo},
+                                status_code=409)
+        # CongeladoError y RecalculandoError (R21): el 409 de F-004.
+        if res is None:
+            return JSONResponse({"ok": False, "error": "Parte no encontrado"},
+                                status_code=404)
+        # R18: la recuperacion ya esta confirmada; un fallo de la cola no
+        # la deshace.
+        recalculo = _pedir_recalculo_seguido(
+            document_id, MOTIVO_RECUPERAR_PARTE, actor)
+        return JSONResponse({"ok": True, "document_id": res["document_id"],
+                             "fecha": res["fecha"], "recalculo": recalculo})
 
     def _norm_grupos(cod: str | None) -> str:
         """Normaliza un codigo de partida por grupos numericos: '3.9' y

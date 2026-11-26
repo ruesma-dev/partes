@@ -1072,3 +1072,23 @@ tr[data-reparto="pendiente"] td { box-shadow: inset 3px 0 0 var(--warn-border); 
 .sincronizar-panel .badge.sync-pendiente,
 .sincronizar-panel .badge.sync-solo_sigrid_nuestra { background: var(--warn-soft); border-color: var(--warn-border); color: var(--warn); }
 .sincronizar-panel .badge.sync-igual { background: var(--ok-soft); border-color: var(--ok-border); color: #1f5740; }
+
+/* F-084: contador de «Problemas» en la navegacion e insignias de motivo. */
+.nav-badge {
+  display: inline-block;
+  margin-left: 6px;
+  min-width: 18px;
+  padding: 0 6px;
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
+  color: var(--danger-strong);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+}
+.nav-badge[hidden] { display: none; }
+.badge.motivo { background: var(--warn-soft); border-color: var(--warn-border); color: var(--warn); }
+.badge.motivo-sustituido { background: var(--info-soft); border-color: var(--info-border); color: var(--info-ink); }
+.problemas-grupo .inline-form { display: inline; }

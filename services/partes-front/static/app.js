@@ -1820,6 +1820,78 @@ var FiltrosSesion = (function () {
     if (frame) { frame.src = "about:blank"; }
   }
 
+  // ---------------------------------------------------------------- //
+  // F-084 (R25): contador de «Problemas» en la navegacion. Un fallo de
+  // la peticion se traga: no se pinta nada y la pagina sigue.
+  // ---------------------------------------------------------------- //
+  function wireProblemasBadge() {
+    var badge = document.getElementById("problemas-badge");
+    if (!badge) return;
+    fetch("/api/problemas/resumen", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var total = (data && data.ok && data.total) || 0;
+        if (total > 0) {
+          badge.textContent = String(total);
+          badge.title = total + " parte(s) con problemas";
+          badge.hidden = false;
+        }
+      })
+      .catch(function () { badge.hidden = true; });
+  }
+
+  // F-084 (R17-R22): «Recuperar» un parte sustituido desde /problemas.
+  // Pide la fecha (la actual por defecto; vacia = sin cambio), confirma y
+  // hace el POST; un 409 de choque lista los otros partes.
+  function _isoADma(iso) {
+    return iso && iso.length >= 10
+      ? iso.slice(8, 10) + "/" + iso.slice(5, 7) + "/" + iso.slice(0, 4) : "";
+  }
+
+  function wireRecuperar() {
+    document.body.addEventListener("click", function (e) {
+      var btn = e.target.closest("[data-recuperar]");
+      if (!btn) return;
+      e.preventDefault();
+      var docId = btn.getAttribute("data-recuperar");
+      var actual = _isoADma(btn.getAttribute("data-fecha") || "");
+      var fecha = window.prompt(
+        "Fecha del parte (dd/mm/aaaa). Déjala como está si es correcta:", actual);
+      if (fecha === null) return;
+      fecha = fecha.trim();
+      if (!window.confirm("¿Recuperar este parte" +
+          (fecha && fecha !== actual ? " con fecha " + fecha : "") + "?")) return;
+      var cuerpo = (fecha && fecha !== actual) ? { fecha: fecha } : {};
+      btn.disabled = true;
+      fetch("/api/partes/" + encodeURIComponent(docId) + "/recuperar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify(cuerpo),
+      }).then(function (r) {
+        return r.json().then(function (d) { return { ok: r.ok, d: d || {} }; });
+      }).then(function (res) {
+        if (!res.ok || !res.d.ok) {
+          var texto = res.d.error || res.d.detail || "No se pudo recuperar.";
+          (res.d.partes || []).forEach(function (p) {
+            texto += "\n· " + _isoADma(p.fecha || "") + " · " + (p.obra || "") +
+              " → /partes/" + p.id;
+          });
+          window.alert(texto);
+          btn.disabled = false;
+          return;
+        }
+        var msg = "Parte recuperado";
+        if (res.d.recalculo === "fallo") {
+          msg += ". Ojo: no se pudo pedir el recálculo de extras; vuelve a guardar la fecha.";
+        }
+        window.location.href = "/problemas?message=" + encodeURIComponent(msg);
+      }).catch(function () {
+        window.alert("No se pudo recuperar el parte.");
+        btn.disabled = false;
+      });
+    });
+  }
+
   function wirePdfModal() {
     var modal = document.getElementById("pdf-modal");
     if (!modal) return;
@@ -1846,7 +1918,7 @@ var FiltrosSesion = (function () {
     return ({
       empleado: "Trabajador", registro_edit: "Horas",
       registro_hora: "Codigo hora", parte_fecha: "Fecha",
-      parte_obra: "Obra",
+      parte_obra: "Obra", parte_recuperar: "Recuperar parte",
     })[a] || "Cambio";
   }
 
@@ -3360,6 +3432,8 @@ var FiltrosSesion = (function () {
     _cablear(".combo-emp", wireEmpleadoCombo);
     wireNameEditToggles();
     wirePdfModal();
+    wireProblemasBadge();
+    wireRecuperar();
     wireUndo();
     wireConciliacion();
     wireBorrado();
