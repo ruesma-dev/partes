@@ -4,7 +4,25 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
+Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copia `partes-wt-f084`). Última cerrada: **F-082** (2026-11-26, OK del humano: «ok»; sin desplegar, MANUAL pendientes). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
+
+## F-082 · done 2026-11-26 (OK del humano: «ok»; reviewer APPROVED pasada 2, SHA 5a897d3; copia `partes-wt-f082`; **sin desplegar**: faltan las MANUAL de abajo tras desplegar sv4)
+
+- T1 (2f033d9): tests en rojo `services/partes-front/tests/test_f082_sin_partida.py` (fase RED, 8 en rojo).
+- T2 (55a892c): fila fija «— Sin partida —» en `buildPartidaPicker` (app.js) y celda
+  `cell-partida` de obra/parte/trabajador: sin partida + método `manual` ⇒ «sin partida»
+  con etiqueta «manual», sin ⚠. Sin cambios de backend. Sin desviaciones de la PARADA 1.
+- Informe: `progress/impl_F-082.md`.
+- **Verificaciones MANUAL (humano)**, en el portal tras desplegar sv4 (o en local), con
+  **Ctrl+F5** antes de empezar para recargar `app.js`; en una obra con líneas sin registrar:
+  1. **Detalle de obra** (`/obras/<obra>`) ⇒ ✎ de la celda «Partida» de una línea ⇒ la primera
+     fila del desplegable es «— Sin partida —»; elegirla ⇒ la página recarga y la celda dice
+     «sin partida» con la etiqueta «manual», sin ⚠. Repetirlo en el detalle de parte (`/partes/<id>`) y de trabajador (`/trabajadores/<clave>`).
+  2. **Misma página**, marcar varias líneas de la misma obra ⇒ barra de selección «Editar
+     partida» ⇒ sale «— Sin partida —» arriba; elegirla ⇒ todas quedan «sin partida · manual».
+  3. **Detalle de una obra sin presupuesto** ⇒ ✎ de una línea ⇒ el panel ofrece «— Sin partida —»
+     y debajo «Esta obra no tiene partidas»; elegirla ⇒ «sin partida · manual».
+  4. Tras el paso 1, **Deshacer** ⇒ la línea vuelve a su partida (o a su aviso ⚠) de antes.
 
 ## F-084 · spec_ready 2026-11-26 (spec-author; copia `partes-wt-f084`)
 

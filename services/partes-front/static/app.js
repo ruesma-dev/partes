@@ -3029,10 +3029,22 @@ var FiltrosSesion = (function () {
         bar.appendChild(b);
       });
       panel.appendChild(bar);
+      // F-082: fila fija «Sin partida», SIEMPRE visible (con filtro, con
+      // chips y en una obra sin presupuesto). Manda la partida vacia: el
+      // PATCH deja los cuatro campos a null y el metodo en `manual`.
+      var sin = document.createElement("div");
+      sin.className = "combo-option combo-sin-partida";
+      sin.textContent = "— Sin partida —";
+      sin.addEventListener("mousedown", function (ev) {
+        ev.preventDefault();
+        onPick({ ide: null, cod: null, res: null, capitulo: null });
+      });
+      panel.appendChild(sin);
       if (!list.length) {
         var v = document.createElement("div");
         v.className = "combo-empty";
-        v.textContent = "Sin partidas con ese filtro";
+        v.textContent = items.length ? "Sin partidas con ese filtro"
+                                     : "Esta obra no tiene partidas";
         panel.appendChild(v);
         panel.hidden = false; positionPanel(input, panel); return;
       }
