@@ -163,7 +163,8 @@ out.normal = enviados;
 // Obra sin presupuesto: la fila está igual.
 var b = await abrir("999");
 out.vacia = { filas: filas(b.panel).map(function (r) { return r.textContent; }),
-              visible: !b.panel.hidden, placeholder: b.input.placeholder };
+              visible: !b.panel.hidden, placeholder: b.input.placeholder,
+              textos: textos(b.panel) };
 elegirSinPartida(b.panel);
 out.vacia.elegidas = b.elegidas.length;
 process.stdout.write(JSON.stringify(out));
@@ -199,6 +200,8 @@ def test_f082_a1_obra_sin_presupuesto_ofrece_sin_partida(escenarios) -> None:
     assert v["visible"] is True
     assert v["filas"] == [SIN_PARTIDA]
     assert v["elegidas"] == 1
+    assert "Esta obra no tiene partidas" in v["textos"]
+    assert "Sin partidas con ese filtro" not in v["textos"]
 
 
 def test_f082_a1_los_dos_selectores_usan_el_picker() -> None:

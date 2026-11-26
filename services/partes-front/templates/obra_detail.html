@@ -271,7 +271,7 @@
               {% elif r.partida_match_method == 'manual' %}<span class="tag-manual">manual</span>
               {% elif r.partida_match_method == 'parte' %}<span class="tag-auto" title="Partida escrita en el propio parte (codigo {{ r.partida_leida or r.partida_cod }})">del parte</span>{% endif %}
             </div>
-          {% else %}{% if r.partida_leida %}<span class="muted partida-warn" title="El parte indica la partida {{ r.partida_leida }} pero ese código no existe (o es ambiguo) en el presupuesto de la obra. Asígnala a mano.">⚠ {{ r.partida_leida }} no encontrada</span>{% else %}<span class="muted partida-warn" title="No se encontró partida ni por nombre ni por categoría en CI. No es obligatoria; puedes asignarla a mano.">⚠ sin partida</span>{% endif %}{% endif %}
+          {% else %}{% if r.partida_match_method == 'manual' %}<span class="muted partida-sin" title="Sin partida elegida a mano en el portal">sin partida</span> <span class="tag-manual">manual</span>{% elif r.partida_leida %}<span class="muted partida-warn" title="El parte indica la partida {{ r.partida_leida }} pero ese código no existe (o es ambiguo) en el presupuesto de la obra. Asígnala a mano.">⚠ {{ r.partida_leida }} no encontrada</span>{% else %}<span class="muted partida-warn" title="No se encontró partida ni por nombre ni por categoría en CI. No es obligatoria; puedes asignarla a mano.">⚠ sin partida</span>{% endif %}{% endif %}
         </td>
         <td class="cell-recurso">
           {% if r.parte_estado == 'ok' %}<span class="badge ok" title="Existe parte de trabajo (hmo {{ r.hmo_ide }})">Parte ✓</span>
