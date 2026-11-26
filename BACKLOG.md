@@ -3,13 +3,11 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **77 features**, 18 abiertas y 59 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 59 en Done.
+Resumen: **77 features**, 17 abiertas y 60 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 60 en Done.
 
 ## Review
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) | humano |  | 2 | estandar | `feature/F-082-opcion-sin-partida` |
+_Nada esperando revisión._
 
 ## Blocked
 
@@ -55,6 +53,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) | 2026-11-26 | 2026-11-26 |  | 2 | estandar |
 | F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | 2026-11-25 | 2026-11-25 |  | 1 | critico |
 | F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | 2026-11-24 | 2026-11-24 |  | 2 | critico |
 | F-078 | sv3 reconoce el membrete «Dorsan» (lectura errónea de Porsan) como la empresa 28 | 2026-11-20 | 2026-11-20 | redesplegar sv3 (humano) y mover desde el portal los partes ya guardados de Dorsan (11-13/11) y el del 10/11 a la obra 0730 de Porsan | 1 | express |
@@ -132,12 +131,6 @@ estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · 
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.
-
-### F-082 · El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección)
-
-estado **en revisión humana** · prioridad 2 · rigor `estandar` · SDD no · rama `feature/F-082-opcion-sin-partida`
-
-Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en el pequeño menú que sale al seleccionar una línea […] siempre debo poder elegir sin partida (también en la selección normal de partida)». Hoy el selector de partida (app.js, «Editar partida» de la barra de selección y el combo de la línea) solo lista las hojas del presupuesto y, en una obra sin presupuesto, dice «Esta obra no tiene partidas» sin opción. El backend ya admite partida vacía (PartidaPayload con todo None; set_registro_partida). Propuesta: opción fija «— Sin partida —» en los dos selectores, que manda partida vacía (método manual), y que la línea sin partida elegida a mano no siga pintando «⚠ <leída> no encontrada». No cambia el candado: en una línea ya registrada sigue el 409 de F-004 hasta F-081, que debe contemplar «sin partida» como edición de una línea registrada (paride 0 en Sigrid). Respeta la partida fija de las entradas de F-072 (R32). PARADA 1 aprobada por el humano el 2026-11-26 («ok»): carril estandar (4 ficheros: app.js buildPartidaPicker + plantillas obra_detail, parte_detail y trabajador_detail; express admite 3). D1 (a) estandar; D2 (a) la celda sin partida con metodo manual dice «sin partida» + etiqueta manual, sin ⚠; D3 (a) elegir «Sin partida» en una linea ya sin partida se guarda igual (manual, quita el aviso). Fuera: el combo de «Nuevo parte» y las lineas registradas (F-081).
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
@@ -258,6 +251,12 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-082 · El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección)
+
+estado **terminada** · cerrada el 2026-11-26 · OK del humano el 2026-11-26 · prioridad 2 · rigor `estandar` · SDD no · rama `feature/F-082-opcion-sin-partida`
+
+Pedida por el humano el 2026-11-23: «quiero que se pueda elegir sin partida en el pequeño menú que sale al seleccionar una línea […] siempre debo poder elegir sin partida (también en la selección normal de partida)». Hoy el selector de partida (app.js, «Editar partida» de la barra de selección y el combo de la línea) solo lista las hojas del presupuesto y, en una obra sin presupuesto, dice «Esta obra no tiene partidas» sin opción. El backend ya admite partida vacía (PartidaPayload con todo None; set_registro_partida). Propuesta: opción fija «— Sin partida —» en los dos selectores, que manda partida vacía (método manual), y que la línea sin partida elegida a mano no siga pintando «⚠ <leída> no encontrada». No cambia el candado: en una línea ya registrada sigue el 409 de F-004 hasta F-081, que debe contemplar «sin partida» como edición de una línea registrada (paride 0 en Sigrid). Respeta la partida fija de las entradas de F-072 (R32). PARADA 1 aprobada por el humano el 2026-11-26 («ok»): carril estandar (4 ficheros: app.js buildPartidaPicker + plantillas obra_detail, parte_detail y trabajador_detail; express admite 3). D1 (a) estandar; D2 (a) la celda sin partida con metodo manual dice «sin partida» + etiqueta manual, sin ⚠; D3 (a) elegir «Sin partida» en una linea ya sin partida se guarda igual (manual, quita el aviso). Fuera: el combo de «Nuevo parte» y las lineas registradas (F-081).
 
 ### F-083 · Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid
 
