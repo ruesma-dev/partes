@@ -1,123 +1,123 @@
 <!-- progress/review_F-082.md -->
-Revisión completa (pasada 1) · `git diff dev...HEAD` (base `dev` 4d806fd, HEAD 78957b7)
+Revisión incremental desde 3e76c87 (pasada 2) · `git diff 3e76c87..5a897d3` (HEAD 5a897d3)
 
 # Review F-082 · El portal siempre ofrece «Sin partida» al editar la partida
 
-**Veredicto: CHANGES_REQUESTED** (pasada principal, carril `estandar`, ciclo 1 de 2).
+**Veredicto: APPROVED** (pasada 2, carril `estandar`). **SHA aprobado: 5a897d3.**
+Pasada 1: CHANGES_REQUESTED sobre 78957b7 (ciclo 1 de 2), con dos cambios: el test del
+eslabón servidor de A2 y las MANUAL en `current.md`. Los dos están resueltos.
 
-**Nivel de rigor: `estandar`** (declarado en `features.json`; pasa de `express` a `estandar`
-por la D1 de la PARADA 1, 4 ficheros). Exige fase RED y cobertura; mutación y capa e2e son
-informativas. El diff no toca `harness/rigor.local.json`. Sin pasada de evidencias: la capa
-e2e es N/A y no hay Python de producción que mutar.
+**Nivel de rigor: `estandar`** (declarado; D1 de la PARADA 1). Exige fase RED y cobertura;
+mutación y capa e2e son informativas. El delta no toca `harness/rigor.local.json`. No hay
+pasada de evidencias: la capa e2e es N/A y no hay Python de producción.
 
-## Lo que ejecuté yo
+## Pasada 2 · delta revisado
 
-- `bash harness/init.sh` **tal cual** sobre 78957b7 (encargo del líder; no
-  `ARNES_SIN_CACHE=1`): **exit 0, `ENTORNO LISTO`**. Raíz ejecutada: `2549 passed, 50
-  skipped in 1368.31s`. sv1–sv5 salieron **por caché**: sv4 del verde del implementer a las
-  13:05, en el mismo árbol de servicio. Así que yo mismo corrí en HEAD
-  `test_f082_sin_partida.py`, `test_f072_repositorio.py`, `test_f004_endpoints_congelados.py`
-  y `test_f064_filtros_js.py`: `197 passed`. `COBERTURA` N/A con motivo, `TAMAÑO` OK,
-  `CARRIL` N/A, `CAPA E2E` N/A.
-- **Fase RED reproducida**: `git archive 2f033d9` de `static/`, `templates/` y el test a una
-  copia del scratchpad (2f033d9 solo añade el test: producción idéntica a `dev`) ⇒
-  `8 failed, 5 passed`, los mismos 8 que cita el informe. En HEAD: 13 passed.
-- **Backend con partida vacía, comprobado a mano** (script en scratchpad, SQLite de
-  `tests/dobles.py`): línea con leída `0716` y método `sin` ⇒
-  `set_registro_partida(todo None)` devuelve True, deja `partida_ide/cod` a None, **conserva
-  la leída** (`partida='0716'`) y método `manual`. Una entrada F-072 (E29) con todo None ⇒
-  `PartidaFijaError` y la partida fija intacta (R32 respetada).
-- **sv3 no la re-casa**: `PartidaConciliador.conciliar_todos` salta `manual` antes de mirar la
-  leída (`partida_conciliador.py:149-151`); lo vigila
-  `test_f072_r20_la_marca_de_entrada_no_se_toca` (caso `manual`).
-- **Mutación (informativa)**: recálculo puro con `harness.alcance.alcance_de_feature('F-082')`
-  ⇒ `lineas={}`: 0 líneas Python de producción, 0 mutantes. El cero es legítimo: el diff de
-  producción es solo `.js` y `.html`, que el generador no muta.
+- **Producción: 0 líneas.** El delta (commit 5a897d3) toca `test_f082_sin_partida.py` (+58),
+  `progress/current.md` (+10) y `progress/impl_F-082.md` (+35, «Ciclo 2»). No invalida nada
+  de lo aprobado en la pasada 1: ni firmas, ni ficheros movidos, ni alcance medido.
+- **Cambio 1, resuelto.** Hay tres tests nuevos sobre el repositorio real (SQLite de
+  `tests/dobles.py`):
+  - `test_f082_a2_servidor_partida_vacia_queda_manual`: con leída `0716` y método `sin`, los
+    cuatro null ⇒ campos None y método `manual`, la leída se conserva, y `undo_last` devuelve
+    `(None, "sin")`.
+  - `test_f082_a2_servidor_d3_ya_sin_partida_se_guarda_igual`: D3, dos veces seguidas ⇒
+    `manual`.
+  - `test_f082_a2_servidor_entrada_f072_sigue_fija`: R32 ⇒ `PartidaFijaError` y la partida
+    fija intacta.
 
-## Revisión del cambio
+  Las aserciones son concretas (la tupla entera). El `check=False` añadido a `subprocess.run`
+  no cambia nada: el `returncode` se comprueba justo después.
+- **Los tests nuevos cazan la regresión: mutación a mano.** En una copia de HEAD en el
+  scratchpad cambié `set_registro_partida` a `reg.partida_match_method = "manual" if
+  partida_ide is not None else None` ⇒ `2 failed, 14 passed`: caen los dos tests de partida
+  vacía, que es justo el hueco del cambio 1. El árbol de trabajo no se tocó.
+- **Cambio 2, resuelto.** `progress/current.md`, sección F-082, lista las 4 verificaciones
+  MANUAL (humano): Ctrl+F5, página, acción y resultado esperado. Cubren el ✎ en obra, parte y
+  trabajador, «Editar partida» en bloque, la obra sin presupuesto y Deshacer.
 
-- `buildPartidaPicker` (app.js 3032-3042): la fila «— Sin partida —» se pinta en `show()`
-  **fuera** de `filtrados()` y antes del `if (!list.length)`, así que sale siempre: con
-  partidas, con texto que no casa, con chip CD/CI y en obra sin presupuesto. Es el único picker
-  de los dos usos: el ✎ de celda (`wirePartidaEdit`, 3123) y «Editar partida» en bloque
-  (`wireBulkSelect`/`doPartida`, 3310). `onPick({ide,cod,res,capitulo: null})` ⇒
-  `applyPartidaToIds` manda los cuatro campos a null. Bien.
-- El texto del vacío distingue «Esta obra no tiene partidas» de «Sin partidas con ese filtro».
-  Es una mejora pequeña fuera de la letra de la descripción, coherente con ella.
-- Las plantillas solo añaden una rama `manual` **dentro del `else`** (sin `partida_cod`). Las
-  ramas con partida (todos los métodos), leída no encontrada con método ≠ manual y «⚠ sin
-  partida» no cambian. Las entradas F-072 llevan partida fija, entran por la primera rama y no
-  se ven afectadas. Las congeladas siguen sin ✎ (`MotivoHttp.congelado`) y el backend las
-  sigue rechazando con 409. `papelera.html` no pinta partida. Ningún JS ni CSS depende del
-  marcado de la celda (`partida-warn` solo tiene regla CSS; `partida-sin` no tiene ninguna).
-- No se toca el backend ni sv3: confirmado con `git diff --stat`.
+## Lo que ejecuté yo (pasada 2)
+
+- `python -m pytest tests/test_f082_sin_partida.py tests/test_f072_repositorio.py` (sv4)
+  ⇒ `29 passed` (16 de F-082).
+- `bash harness/init.sh` tal cual (encargo del líder) sobre 5a897d3: **exit 0, `ENTORNO
+  LISTO`**.
+  - Raíz ejecutada: `2549 passed, 50 skipped in 1418.24s`.
+  - **sv4 ejecutada entera** (su caché se invalidó con el test nuevo): `4033 passed, 1
+    skipped in 1249.78s`.
+  - sv1, sv2, sv3 y sv5 por caché: no cambian.
+  - `COBERTURA` N/A con motivo, `TAMAÑO` OK (impl 159/220), `CARRIL` N/A y `CAPA E2E` N/A.
+- **Test ajeno e inestable, según el líder**: una ejecución de init.sh del implementer cayó en
+  `tests/test_f059_ejecucion.py::test_f059_r7_el_arranque_va_antes_y_se_para_al_terminar`
+  (caso TIMEOUT), que pasó 3 de 3 suelto y en verde al repetir. En mi ejecución pasó: la raíz
+  sale entera en verde. F-082 no toca nada de F-059 (harness/e2e). Queda anotado como
+  observación O4.
+
+## Pasada 1 · resumen de lo ya aprobado (78957b7)
+
+- **Fase RED reproducida.** Con `git archive 2f033d9` en el scratchpad ⇒ `8 failed, 5
+  passed`, los mismos 8 del informe.
+- **El selector.** La fila «— Sin partida —» de `buildPartidaPicker` se pinta fuera de
+  `filtrados()`, así que sale siempre: con texto que no casa, con chip y en obra sin
+  presupuesto. Va en los dos usos (✎ de celda y «Editar partida» en bloque) y manda los
+  cuatro campos a null.
+- **Las plantillas.** Solo añaden la rama `manual` dentro del `else`. No cambian los otros
+  métodos, ni la leída no encontrada, ni las entradas F-072 (primera rama), ni las congeladas
+  (sin ✎ y con 409).
+- **Fuera del diff.** Sin backend ni sv3. sv3 no re-casa las líneas `manual`
+  (`partida_conciliador.py:149-151`).
+- **Mutación (informativa).** `alcance_de_feature('F-082')` ⇒ 0 líneas y 0 mutantes; el cero
+  es legítimo, porque el diff de producción es solo JS y Jinja2.
 
 ## Checkpoints
 
-- **C1** [x] init.sh en verde (ver arriba; ejecutado tal cual por encargo, con caché de suites
-  donde aplicó). [x] Ficheros base presentes.
-- **C2** [x] Una sola activa (F-082). [x] Orden de prioridad: la cola acordada el 2026-11-23
-  (F-083 → F-082). [x] Rama `feature/F-082-opcion-sin-partida`. [x] `current.md` describe la
-  sesión activa. [x] Lo `done` tiene historia (sin cambios aquí).
-- **C3** [x] Hexagonal: solo static/templates. [x] Cabecera de ruta en `app.js` y en el test.
-  Las plantillas no la llevan desde antes de F-082 (empiezan por `{% extends %}`): no es
-  regresión. [x] Sin prints, TODOs, secretos ni dependencias nuevas. [x] Trampas de dominio:
-  no aplican (no toca recurso/empleado, incidencias ni schema).
+- **C1** [x] init.sh en verde (tal cual por encargo; esta vez sv4 y la raíz se ejecutaron sin
+  caché efectiva). [x] Ficheros base presentes.
+- **C2** [x] Una sola activa (F-082). [x] Orden: la cola del 2026-11-23. [x] Rama
+  `feature/F-082-opcion-sin-partida`. [x] `current.md` solo con la sesión activa.
+  [x] Historia de lo `done`.
+- **C3** [x] Hexagonal: static, templates y tests. [x] Cabecera de ruta en `app.js` y en el
+  test; las plantillas no la llevaban ya antes (`{% extends %}`), no es regresión. [x] Sin
+  prints, TODOs, secretos ni dependencias nuevas. [x] Trampas de dominio: no aplican.
 - **C3 bis / C3 ter** N/A: no entra documento externo ni acta de conversación.
-- **C3 quater** N/A: no cambia lo que sv4 expone ni consume (mismo endpoint, mismo payload).
-- **C4** [ ] **Trazabilidad de A2 incompleta** (cambio 1). [x] Sin red ni BBDD (node y Jinja2
-  locales). [ ] **MANUAL no listadas en `progress/current.md`** (cambio 2). [x] Dobles: el
-  DOM mínimo del test JS no imita ninguna clase Python; la barrida automática de init.sh pasa.
-- **C4 bis** [x] `rigor` declarado. [x] Fase RED con salida real, reproducida por mí.
-  [x] Cobertura: `PUERTA COBERTURA: N/A` con motivo impreso (sin líneas Python de producción);
-  el JS tocado se ejecuta entero en node. Mutación: N/A por nivel (informativa en `estandar`),
-  y además 0 mutantes por alcance vacío, recalculado. RM1–RM7 y supervivientes: N/A por
-  carril `estandar`. [x] «Evidencias» con los cuatro números y la fila «Capa e2e».
-  Capa e2e: N/A (`CAPA E2E: N/A`, ningún servicio la declara).
-- **C4 ter** N/A: sin rutas sensibles señaladas por init.sh.
-- **C5** N/A `tasks.md` (sdd=false); commits `F-082 T1/T2` correctos. [x] Árbol limpio.
-  [x] `features.json` en `in_review`.
+- **C3 quater** N/A: no cambia lo que sv4 expone ni consume.
+- **C4** [x] Cada `acceptance` tiene tests y pasan (tabla). [x] Sin red ni BBDD (node,
+  Jinja2 y SQLite en memoria). [x] MANUAL en `progress/current.md`. [x] Dobles: los tests
+  usan los del árbol (`FabricaSesionSqlite`, `_repo`), y la barrida de init.sh pasa.
+- **C4 bis** [x] `rigor` declarado. [x] RED real y reproducida. [x] Cobertura N/A con motivo
+  impreso. Mutación: N/A por nivel (informativa) y 0 mutantes recalculados. RM1–RM7 y
+  supervivientes: N/A por carril `estandar`. [x] «Evidencias» completas. Capa e2e: N/A,
+  ningún servicio la declara.
+- **C4 ter** N/A: init.sh no señala rutas sensibles.
+- **C5** `tasks.md` N/A (sdd=false); commits `F-082 T1/T2` y ciclo 2 con prefijo.
+  [x] Árbol limpio. [x] `features.json` en `in_review`.
 
 ## Cobertura (acceptance → test)
 
 | Criterio | Tests | Estado |
 |---|---|---|
-| A1 Los dos selectores ofrecen «Sin partida», también sin presupuesto | `test_f082_a1_*` (5): picker ejecutado en node con partidas, filtro, chip CI y obra vacía; cableado de los dos usos (estático) | cubierto |
-| A2 Elegirla deja la línea sin partida y sin aviso | JS ⇒ PATCH con todo null (`_a2_elegir_sin_partida_manda_todo_null`); celda `manual` sin ⚠ en las 3 plantillas; regresión del resto | **falta el eslabón backend** (cambio 1) |
-| A3 init.sh verde + APPROVED | init.sh arriba | pendiente de este veredicto |
+| A1 Los dos selectores ofrecen «Sin partida», también sin presupuesto | `test_f082_a1_*` (5): picker ejecutado en node (con partidas, filtro, chip CI y obra vacía) y cableado de los dos usos | cubierto |
+| A2 Elegirla deja la línea sin partida y sin aviso | JS ⇒ PATCH con los cuatro null; `test_f082_a2_servidor_*` (3): `manual`, D3, undo y R32; celda `manual` sin ⚠ ×3 plantillas; regresión del resto ×3 | cubierto |
+| A3 init.sh verde + APPROVED | init.sh de la pasada 2 y este veredicto | cubierto |
 
 ## Cambios requeridos
 
-1. **`services/partes-front/tests/test_f082_sin_partida.py`: fija con un test el eslabón del
-   servidor de A2.** Hoy A2 se prueba en sus dos extremos: el JS manda los cuatro null y la
-   plantilla oculta el aviso **si** el método es `manual`. Lo que une los dos extremos es que
-   `PATCH /api/registros/{id}/partida` con todo null deje la línea sin partida **y en
-   `manual`**, y eso no lo vigila ningún test (los de `set_registro_partida`,
-   `test_f072_repositorio.py:223-234`, `test_f004_endpoints_congelados.py:169-214`, siempre
-   mandan partida). Si alguien hiciera que la partida vacía devolviera el método a `None`/`sin`,
-   la celda volvería a pintar «⚠ 0716 no encontrada», sv3 la re-casaría y la suite seguiría
-   verde. Basta un test (repositorio sobre `FabricaSesionSqlite`, o el endpoint con
-   `TestClient` como en F-004) que: (a) parta de una línea con leída y sin casar, mande todo
-   null y compruebe ⇒ True/200, cuatro campos None y `partida_match_method == "manual"`;
-   (b) con una entrada F-072, el mismo payload ⇒ `PartidaFijaError`/409 y la partida fija
-   intacta. Opcional: que el undo (`registro_partida`) devuelve el estado anterior. Lo
-   verifiqué a mano y hoy pasa: es fijar lo que ya funciona, no tocar producción.
-2. **`progress/current.md`, sección «F-082 · in_review»: lista las 4 verificaciones MANUAL
-   (humano)** que hoy solo están en `progress/impl_F-082.md` (§ «Verificaciones MANUAL
-   pendientes»), con su paso exacto: página, acción y resultado esperado, más Ctrl+F5. C4 las
-   exige en `current.md`, que es lo que lee el humano al cerrar.
+Ninguno.
 
 ## Observaciones (no bloquean)
 
-- O1. Si después se cambia la obra del parte, `parte_repository.py:4190-4208` re-casa la línea
-  por su leída y pierde el «sin partida» manual. Pasa lo mismo con cualquier partida manual
-  desde antes de F-082. Lo mismo con un reproceso que cree un documento nuevo.
+- O1. Cambiar luego la obra del parte re-casa la línea por su leída y pierde el «sin partida»
+  manual (`parte_repository.py:4190-4208`); también se pierde con un reproceso que cree un
+  documento nuevo. Ya pasaba antes con cualquier partida manual.
 - O2. `test_f082_a1_los_dos_selectores_usan_el_picker` es una búsqueda de texto. Es aceptable
-  porque el picker se ejecuta de verdad en los otros cuatro.
-- O3. En bloque, si la selección incluye una entrada F-072, `Promise.all` rechaza con un
-  mensaje genérico tras aplicar las demás. Ya pasaba con cualquier partida.
+  porque el picker se ejecuta de verdad en los otros cuatro tests.
+- O3. En bloque, una selección que incluya una entrada F-072 aplica las demás líneas y saca
+  un mensaje genérico. Ya pasaba antes con cualquier partida.
+- O4. `test_f059_r7_el_arranque_va_antes_y_se_para_al_terminar` es intermitente por TIMEOUT
+  bajo carga (lo cuenta el líder; en mi ejecución pasó). Es ajeno a F-082. Conviene abrir una
+  feature o una nota en el backlog para estabilizarlo.
 
 ## Automejora (propuesta, no aplicada)
 
-- Ninguna al protocolo. La revisión pidió `ARNES_SIN_CACHE=1` y el encargo, `init.sh` tal cual.
-  Sugiero que `leader.md` diga explícitamente cuál manda cuando las suites pasan de 10 min.
+- `leader.md` debería decir explícitamente qué manda cuando el encargo pide `init.sh` tal cual
+  y `reviewer.md` pide `ARNES_SIN_CACHE=1` (con suites de más de 10 min).
