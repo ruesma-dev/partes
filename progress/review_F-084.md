@@ -16,7 +16,11 @@ RM1–RM7 (RM5 con muestra de uno). Campaña **no reejecutada**: «Tiempo total�
 **Delta 986f868..HEAD** (`git diff --stat`): `progress/` (impl, mutacion .md/.json, review), `tasks.md` (T10 `[x]`)
 y tres ficheros de test de sv4 (+104 líneas). **Ningún fichero de producción**: lo aprobado sigue en pie.
 
-**init.sh** (`bash harness/init.sh`, a HEAD bb8e55f; vale la caché salvo sv4 y raíz): INIT_RESULTADO
+**init.sh** (`bash harness/init.sh`, a HEAD bb8e55f; caché permitida): **exit 0 a la 3.ª**. Las 1.ª y
+2.ª, rojas solo en `tests/test_f059_ejecucion.py::test_f059_r9_…` (`nieto.pid`, inestable conocido; 55 procesos
+python en la máquina); el fichero aislado, 98 passed. 3.ª: raíz 2549 passed/50 skip (34 min); sv1–sv5 por
+caché (sv4, verde de las 07:00 con los 11 tests nuevos, nada de sv4 cambió después); cobertura 100,0 % (303/303),
+tamaño, carril y e2e en [OK]/N/A.
 
 **Recálculo independiente** (`harness.alcance` + `generar_mutantes`, puro): 8 ficheros, **646** líneas,
 **198** mutantes, **131** candidatos uno por línea; tope = max(100, ceil(0,6·131)=79) = **100**. Coincide fila a
