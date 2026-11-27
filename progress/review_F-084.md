@@ -1,134 +1,132 @@
 <!-- progress/review_F-084.md -->
-Revisión incremental desde 8f559d1 (pasada 2, principal) · HEAD 986f868 · `git diff 8f559d1..HEAD`
+Revisión de evidencias desde 986f868 (pasada 3, evidencias) · HEAD bb8e55f · `git diff 986f868..HEAD`
 
-# F-084 · Review (pasada principal, ciclo 2)
+# F-084 · Review
 
-**Veredicto: APPROVED** (SHA aprobado: **986f868**). Pasada 1 (8f559d1): CHANGES_REQUESTED por tres puntos sin
-código (MANUAL en `current.md`, `undo_log.actor` mal documentado, init.sh sin exit 0); los tres, atendidos.
+**Veredicto: CHANGES_REQUESTED** (pasada de evidencias). Principal: APPROVED en **986f868** (ciclo 2, tras
+un CHANGES_REQUESTED documental en 8f559d1); su detalle, comprimido al final de este informe.
 
-**Nivel de rigor:** `critico`, declarado en `features.json` (disparador 2: sv3 escribe en producción y DDL
-en el PostgreSQL compartido). Exige fase RED, cobertura ≥ 90 %, mutación (muestra 60 %, [100, 300], 0
-supervivientes salvo justificación aceptada), RM1–RM7. La e2e es informativa y aquí N/A. La mutación (T10)
-la lanza el líder después de este veredicto: sus puntos quedan **pendiente: pasada de evidencias**.
+**Nivel de rigor:** `critico`, declarado en `features.json`. Exige fase RED, cobertura ≥ 90 %, mutación
+(uno por línea, muestra 60 %, [100, 300]), cero supervivientes salvo justificación aceptada por el humano,
+RM1–RM7 (RM5 con muestra de uno). Campaña **no reejecutada**: «Tiempo total» 7109 s (repaso) y 22865 s
+(primera), por encima del umbral de 60 s; recálculo puro + RM1–RM6 + reproducción propia de un equivalente.
 
-## Pasada 2: delta y init.sh
+## Pasada de evidencias
 
-**Delta 8f559d1..986f868** (27f6b6b, e8311a1, 986f868 y los de estado): solo `progress/`, `docs/ARCHITECTURE.md`
-y comentarios/docstrings de `app.py` (`_actor`) e `identidad.py` (cabecera). Ninguna línea de código ejecutable:
-no invalida nada de lo aprobado en la pasada 1, que se da por bueno.
-- `current.md`: M1 con la SQL exacta y «2 filas»; M2 (`/problemas`, `5c1a9b04`/`89f17181`, contador = `total`);
-  M3 marcada **escribe, solo con OK expreso**, con 409, «Descartar» y «Deshacer»; textos cotejados con el código
-  («Parte movido a la papelera», `app.py:4115`; «Parte recuperado», `app.js`). C4 cumplido.
-- `undo_log.actor`: las tres piezas dicen ya que solo `parte_recuperar` lo rellena y que el resto es de F-018,
-  coherente con `azure-apps/partes.md` §4.5.
+**Delta 986f868..HEAD** (`git diff --stat`): `progress/` (impl, mutacion .md/.json, review), `tasks.md` (T10 `[x]`)
+y tres ficheros de test de sv4 (+104 líneas). **Ningún fichero de producción**: lo aprobado sigue en pie.
 
-**init.sh, mi propia pasada (a HEAD 986f868)**: hicieron falta **4 ejecuciones**.
-1. `ARNES_SIN_CACHE=1 bash harness/init.sh`: raíz roja con `-x` en `test_f059_ejecucion.py::test_f059_r7_…[…TIMEOUT]`
-   (`nieto.pid`, inestable conocido). Servicios **sin caché, todos verdes**: sv1 74 · sv2 579/1 skip · sv3 2966/2 ·
-   sv4 **4137**/1 (25:39) · sv5 1890/1. Cobertura [OK] 100,0 % (303/303) · tamaño [OK] · carril N/A · e2e N/A.
-2. y 3. `bash harness/init.sh`: raíz roja las dos veces en `test_f059_r9_timeout_mata_el_arbol_y_no_es_rojo`.
-   `tests/test_f059_ejecucion.py` aislado: **98 passed** con y sin `coverage`. Había campañas de otras sesiones
-   (`coverage run … pytest`) cargando el equipo: un test de tiempos que cae bajo carga, no F-084.
-4. `bash harness/init.sh`: **exit 0**. Raíz 2549 passed/50 skip con cobertura (24 min); servicios por caché del
-   verde **sin caché de la ejecución 1 de esta misma pasada** (22:04–22:35, mismo HEAD); puertas en [OK].
+**init.sh** (`bash harness/init.sh`, a HEAD bb8e55f; vale la caché salvo sv4 y raíz): INIT_RESULTADO
 
-## Checkpoints
+**Recálculo independiente** (`harness.alcance` + `generar_mutantes`, puro): 8 ficheros, **646** líneas,
+**198** mutantes, **131** candidatos uno por línea; tope = max(100, ceil(0,6·131)=79) = **100**. Coincide fila a
+fila con el informe. Muestreados 3 supervivientes (`pcp:144`, `repo:5035`, `app:2300`): existen con el mismo
+operador `veracidad` y el mismo texto original→mutado.
+**Ficheros sin mutantes** (prueba de control sin exclusión de alcance): `recalculo_publisher.py` da 3 mutantes en
+el fichero entero y 0 en sus líneas 52–54; `identidad.py`, 42 y 0 en 10–16. Generador sano; el cero es
+legítimo (dos constantes de cadena y un docstring), **pero la declaración no está escrita** (cambio 1).
 
-**C1** [x] exit 0 (ejecución 4; servicios vistos correr sin caché en la 1, mismo HEAD) · [x] ficheros base existen.
-**C2** [x] una sola activa (F-084) · [x] prioridad · [x] rama `feature/F-084-partes-con-problemas` · [x]
-`current.md` de la sesión activa · [x] las `done` con resumen en `history.md` (no lo toca).
-**C3** [x] hexagonal: módulo puro `application/services/partes_con_problemas.py` sin BBDD/ORM/FastAPI (solo
-importa `parte_vacio`); el repositorio (infra) y `app.py` (adaptador) lo consumen. [x] primera línea con ruta
-en todo fichero de código nuevo (la plantilla sigue el uso de sus vecinas). [x] sin `print`, TODOs ni
-secretos; sin dependencias nuevas. [x] `ARCHITECTURE.md` al día (en la pasada 1, `[ ]` por `undo_log.actor`; corregido).
-Trampas: (1) empleado≠recurso: no aplica (no registra en Sigrid); (2) incidencias: las horas de la fila
-excluyen `es_incidencia`, como `/partes`; (3) esquema: los dos `orm_models.py` **byte-idénticos** (`cmp`),
-nullables, sin `server_default`, lectores listados (sv3 escribe, sv4 lee).
-**C3 bis** N/A: no toca `docs/referencia/`. **C3 ter** N/A: la única cita del humano («d2, en este caso se
-sustituye como hasta ahora…») va con fecha y origen en `features.json` y la spec; no hay más afirmaciones atribuidas.
-**C3 quater** [x] `azure-apps` e09fd49 toca solo `partes.md` (`git show --stat`) · [x] commit aparte, SHA en
-`impl_F-084.md` · [x] sin push (encima está 19062db, F-020 de otro proyecto, ajeno) · [x] coincide con la
-Frontera de design §11 (§3.3, §3.4 con las tres rutas, §4.1 fila nueva y nota de Papelera, §4.5 `actor`, motivos).
-**C4** [x] cada R1–R26 con ≥ 1 test `test_f084_rN_*` y en verde (tabla abajo) · [x] unit sin red ni BBDD real
-(SQLite en memoria de `dobles.py`, `ColaFake`) · [x] MANUAL M1–M3 en `progress/current.md` con su
-comando o ruta y resultado esperado (en la pasada 1, `[ ]`) ·
-[x] dobles: `ColaFake.enviar(queue_name, payload)` = `ColaCliente.enviar` (`infrastructure/azure/cola_cliente.py:85`);
-`_RepoRoto` hereda del repositorio real.
-**C4 bis** [x] rigor declarado · [x] fase RED con salida real (T1, T3, T5, T7) · [x] cobertura 100,0 % ·
-mutación, supervivientes, RM1, RM2, RM5, RM6: **pendiente: pasada de evidencias** (T10, por encargo) · [x]
-«Evidencias» completa · [x] e2e N/A (`CAPA E2E: N/A`, ningún `(capa: e2e)`) · [x] ningún N/A sin motivo.
-**RM7** [x] aplicada a mano en una copia desechable del scratchpad (árbol de trabajo intacto; base sin mutar
-61 passed): pedir el recálculo ANTES de `repository.recuperar_parte` ⇒ ROJO (6 de W); mover tras el `commit` el
-choque ⇒ ROJO (P r19 ×2, W r19), el sha256 ⇒ ROJO (P r20), la congelación con fecha ⇒ ROJO (P :384, W :256) y la
-espera de recálculo ⇒ ROJO (P r21). Todas cazadas por tests de F-084. sv3: rastro en el mismo `commit` (A r1).
-**C4 ter** N/A: no existe `harness/rutas_sensibles.json`.
-**C5** [x] T1–T9 y T12 `[x]` con commit `F-084 Tn` cada una (10); T10 y T11 abiertas por diseño · [x] sin
-temporales · [x] `features.json` en `in_review`, rigor `critico`, spec aprobada 2026-11-26.
+**Coherencia informe ↔ logs** (`scratchpad/mutacion_F-084.log` y `_repaso.log`):
+- Primera pasada: HEAD 8474ce9, «100 evaluados, 82 muertos, 18 supervivientes, 0 timeouts, 0 sin veredicto
+  en 22864.8 s» = tabla de 4320031. Repaso: «27 evaluados, 20 muertos, 7 supervivientes … en 7109.1 s»;
+  27 = 18 reevaluados + 9 de control (max(5, ceil(0,1·82))); 73 reutilizados + 20 = **93 muertos**. Los 9 de
+  control (líneas 19–27 del log) salen muertos. 8474ce9 es antepasado de 6ef7b5e. Líneas base en verde en los 3
+  worktrees (623–644 s); «Sin veredicto (base rota)» 0; sin cabecera de campaña no válida.
 
-## Lo mirado con cuidado (encargo del líder)
+| Punto C4 bis / RM | Estado | Motivo |
+|---|---|---|
+| Mutación del nivel, informe real | [x] | totales recalculados; muestra y modo incremental conformes a `rigor.json` |
+| **RM1** SHA medido | [x] | 6ef7b5e; desde ahí solo `progress/` (`git diff --stat 6ef7b5e..HEAD`); 8474ce9→6ef7b5e solo tests |
+| **RM2** coherencia del tiempo | [x] | 27×263,3 = 7109 s; 100×228,6 = 22860 s; media de pared ÷3 workers, por suite 627,8 s ≈ base |
+| **RM3** equivalente muerto | [x] | ninguno de los 7 equivalentes murió; el `frozen=False` sobrevivió en la 1.ª pasada (coherente) |
+| **Supervivientes sin PENDIENTE** | **[ ]** | `mutacion_F-084.md`: los 7 análisis y las 2 declaraciones siguen en `PENDIENTE` (19 marcas) |
+| **RM5** demostración ejecutable | **[ ]** | no hay `progress/equivalentes_F-084.py` ni equivalente: «probado»/«comprobado» en prosa |
+| **RM6** guardas quitadas | [x] | el delta no toca producción: ninguna guarda quitada |
+| Cero supervivientes salvo aceptación | pendiente | 7 equivalentes a la espera de la aceptación escrita del humano (ver criterio abajo) |
+| «Evidencias» con workers | [x] | 3 workers declarados en el informe y en el log |
+| Capa e2e | N/A | `CAPA E2E: N/A`, ningún requisito `(capa: e2e)` |
 
-- **sv3**: el diff solo añade, en la rama `old.is_active = False` que ya existía, `sustituido_por_id`,
-  `sustituido_at_utc` y el WARNING (ids, `fecha_int`, código/número de obra; sin nombres, con test). La
-  condición (`_emp_signals`, `_misma_entrada`, la consulta) no cambia: R4 con los tests anteriores intactos.
-  DDL solo por `ddl_complementario()`, que ejecutan sv3 y sv4 al arrancar: **cualquier orden de despliegue
-  vale** (sv4 viejo no selecciona las columnas; sv3 viejo no las escribe y sv4 cae en la pista de R8).
-  Solo el reemplazo y el retirado de F-061 dejan «inactivo sin papelera» (barrido de `is_active = False`).
-- **sv4, clasificación**: orden R6 exacto; `ORDEN_MOTIVOS` deja `sustituido` al final («los que cuentan,
-  primero»); papelera fuera de la consulta y retirados fuera por `es_retirado`; contador con `NO_CUENTAN`;
-  pista retroactiva coherente con la identidad de obra de sv3 (código del nuevo, o número sin código).
-  Un `sustituido_por_id` que apunta a un parte en la papelera da `desactivado_sin_rastro` y cuenta: correcto.
-- **`recuperar_parte`**: guardas en el orden de design §6, todas antes de escribir (RM7 arriba); con fecha,
-  fecha y líneas como `update_parte_fecha`; conserva el rastro; `undo_log` con `actor` y `reactivados`; el
-  recálculo tras el commit y su fallo no deshace (test con la cola rota). Deshacer: snapshots + vuelta a
-  inactivo salvo congelado o ya descartado (tests). Rutas bajo Easy Auth de plataforma, como el resto;
-  `_actor(request)` firma. Logs: ids, fechas y actor (R24 lo pide; mismo uso que `[reparto] … (por %s)`).
-- **Guardianes ajustados**: `test_f017_punto_unico` 23→24 es exactamente la llamada nueva de la ruta de
-  recuperar, documentada en el docstring; `test_f047` descuenta en `F084_PROBLEMAS` las tres funciones
-  nuevas, como F-052/F-068, y exige que existan. Ninguno afloja lo que vigila: **legítimos**.
-- **Decisiones pequeñas**: ninguna contradice un requisito. Agrupar bajo el primer motivo cumple R11 (los
-  demás salen como insignias); `None`⇒404 y fecha vacía = conservar cumplen R17/R22; `obra_codigo`/`obra_nombre`
-  es lo que pide R11; «Ver PDF» solo con visor es más estricto que R12 pero igual que Conciliar (sin visor el
-  botón no abriría nada) → observación 2.
-- **Límite de servicio**: sv3 escribe, sv4 lee; gemelos solo importados; la lista cerrada de `CLAUDE.md` no crece.
-- **Riesgo §10**: confirmado y aceptado en la spec → observación 1.
+## Criterio sobre los 7 «equivalentes» (uno por uno; la aceptación es del humano)
 
-## Cobertura requisito → test
+1. **`pcp:144`** `fecha_int is not None and fecha_int > 0` → `fecha_int and …`: **equivalente.** Con None/0 da
+   None/0 en vez de False; `_fecha_valida` es privada y sus 3 llamadores (171, 185, 225) la usan con `not`; no
+   hay más (grep en sv4). **RM5 reproducido por mí** en memoria, sin tocar el árbol
+   (`scratchpad/rm5/rm5_f084.py`): `motivos_activo`, `fecha_posterior_al_correo` y `clasificar` iguales en
+   5.000 casos con None, 0, −5, 1 y fechas reales; control negativo (`>= 0`) sí distingue. Exit 0.
+2. **`pcp:174`** `recibido is None` → `not recibido`: **equivalente.** `_instante` tiene 3 `return`: None (except),
+   `momento.replace(tzinfo=…)` y `momento.astimezone(…)`; un `datetime` nunca es falso.
+3. **`pcp:244`** `sustituto is None` → `not sustituto`: **equivalente hoy.** Único llamador `clasificar:273`, que
+   pasa `elegir_sustituto` (None, `por_id.get` sobre `DocProblema` o un candidato `DocProblema`); `DocProblema`
+   es dataclass sin `__bool__`/`__len__`. `motivo_sustituido` es pública: equivalencia de dominio, no de firma.
+4. **`repo:4910`** `motivo is None` → `not motivo`: **equivalente.** `_motivo_congelado_doc` →
+   `motivo_congelacion_documento`, 5 `return`: None o `MOTIVO_DOC_ENCOLADO/REGISTRADO/DEDICACION/APROBADO`
+   (este = `MOTIVO_LINEA_APROBADA`), las cuatro cadenas no vacías.
+5. **`repo:5035`** `motivo is not None` → `if motivo`: **equivalente.** `motivo_no_recuperable`, 4 `return`:
+   `MOTIVO_NO_REC_ACTIVO/PAPELERA/RETIRADO` (no vacías) o None.
+6. **`app:2284`** `parsed is None` → `not parsed`: **equivalente.** `_parse_fecha_to_iso_int`: 3 `return None` y
+   una tupla de 2; nunca vacía. Único otro llamador (`:2212`) no está mutado.
+7. **`app:2300`** `res is None` → `not res`: **equivalente.** Una sola implementación de `recuperar_parte`
+   (`parte_repository.py:5020`; `_RepoRoto` hereda de ella): None o `{"document_id", "fecha"}`.
 
-Ficheros: sv3 `services/partes-persistencia/tests/test_f084_rastro_reemplazo.py` (A); sv4 `services/partes-front/tests/`
-`test_f084_clasificacion.py` (C), `test_f084_recuperar.py` (P) y `test_f084_portal.py` (W). Nombres `test_f084_rN_*`.
+Ninguno se vuelve observable con un valor falso alcanzable. Mi criterio: los 7 son aceptables.
 
-| Req | Tests | Req | Tests |
-|---|---|---|---|
-| R1 | A r1 ×3 (rastro, mismo commit, sin rastro) | R14 | W r14 |
-| R2 | A r2 | R15 | W r15, P r15 |
-| R3 | A r3 ×4 (WARNING, INFO, sin correo, vacío) | R16 | W r16 |
-| R4 | A r4 ×2 + suite sv3 anterior intacta | R17 | P r17 ×2, W r17 ×2 |
-| R5 | A r5 ×2, `tests/test_f010_orm_models_gemelos.py` | R18 | W r17_r18, W r18 (cola rota) |
-| R6 | C r6 ×8 | R19 | P r19 ×6, W r19 |
-| R7 | C r7 ×2 | R20 | P r20, W r20 |
-| R8 | C r8 ×8, P r8 | R21 | P r21 ×3, W r21 |
-| R9 | C r9 ×2 | R22 | C r22, P r22 ×2, W r22 ×2 |
-| R10 | C r10 ×2, P r10 | R23 | P r23 ×5, W r23 ×2 |
-| R11 | C r11, P r11 ×3, W r11 ×3 | R24 | P r24 |
-| R12 | W r12 ×2 | R25 | W r25 ×4 |
-| R13 | W r13 | R26 | W r26 ×2 |
+## Los 11 tests nuevos (c38ed73)
+
+Todos en verde, en ficheros ya existentes de F-084, sin tocar ni aflojar tests previos. Comportamiento de
+requisito, bien anclados: `r8_pista_exige_creado_estrictamente_despues` (R8 «posterior»),
+`r11_sin_fecha_va_tras_cualquier_fecha` (design §6 «fecha descendente»), `r5_ddl_declara_las_columnas_del_rastro`
+(R5 pide literalmente `String(36)`/`String(64)` y el `ADD COLUMN IF NOT EXISTS` de `ddl_complementario()`: es
+el requisito, no un detalle), `r12_tiene_pdf_exige_drive_e_item`, `r19_obra_ide_cero_es_una_obra`,
+`r23_la_descripcion_del_deshacer_lleva_la_obra`, `r10_la_cabecera_cuenta_solo_los_que_cuentan` (sustituido de
+otro envío no cuenta: R10/D3) y `r22_el_404_lleva_ok_false`.
+- **`test_f084_r7_clasificado_es_inmutable`: mal anclado.** R7 es el motivo único de un SUSTITUIDO; el test
+  usa un activo sin obra (R6) y afirma `FrozenInstanceError`, un detalle de implementación que ni R7 ni design
+  §5 piden (design solo declara `frozen=True` para `DocProblema`). En producción nadie muta ni hashea un
+  `Clasificado` (`clasificar`, `resumen`, `_fila_problema`). Es un test puesto para matar el mutante y su
+  nombre infla la traza de R7 (cambio 3).
+- `r25_las_rutas_nuevas_no_salen_en_el_esquema`: lo que fija es design §7 («todas `include_in_schema=False`»);
+  solo `/api/problemas/resumen` es de R25. Legítimo; observación 5.
 
 ## Cambios requeridos
 
-Ninguno. Los tres de la pasada 1 (MANUAL en `current.md`; `undo_log.actor` en `ARCHITECTURE.md:473` y en el
-docstring de `_actor`, más `identidad.py`; init.sh con exit 0) están atendidos y comprobados arriba.
-Queda la **pasada de evidencias** tras T10: mutación (muestra de `critico`), supervivientes y RM1, RM2, RM5, RM6.
+1. **`progress/mutacion_F-084.md`** (regenerado por el repaso de bb8e55f): sustituir las 7 cabeceras
+   «#### Análisis (PENDIENTE del implementer)» por el análisis de cada superviviente (por qué ningún test lo
+   caza, decisión «equivalente, pendiente de aceptación del humano» y enlace a la demostración), y las 2
+   «#### Declaración (PENDIENTE…)» de `recalculo_publisher.py` (líneas 52–54: un comentario y dos constantes
+   de cadena) e `identidad.py` (10–16: solo docstring), como en `mutacion_F-083.md`. `grep -c PENDIENTE` ⇒ 0.
+2. **RM5**: demostración ejecutable de los 7 equivalentes en `progress/equivalentes_F-084.py` (patrón de
+   `equivalentes_F-083.py`): dominio de cada expresión (AST/tipo/constantes no vacías) y, aplicando el mutante
+   en memoria, misma decisión en N casos con bordes, más un control negativo. Exit 0 y su salida en
+   `impl_F-084.md`. Mi script de `pcp:144` (`scratchpad/rm5/rm5_f084.py`) sirve de punto de partida.
+3. **`services/partes-front/tests/test_f084_clasificacion.py`, `test_f084_r7_clasificado_es_inmutable`**: o se
+   quita y el mutante `pcp:110` (`frozen=False`) pasa a los equivalentes (nadie muta ni hashea `Clasificado`;
+   con demostración y aceptación del humano), o se conserva sin citar un requisito que no prueba (p. ej.
+   `test_f084_clasificado_es_inmutable`, «protege el diseño, no un requisito») y se dice así en la tabla de T10.
+Ninguno toca producción: basta la pasada incremental sobre el delta, sin repetir la campaña (los tests no
+cambian lo medido; si se elige quitar el test de 3, el mutante 110 vuelve a superviviente y se declara).
 
 ## Observaciones (no bloquean)
 
-1. Riesgo §10: la clave F-050 es UNA por línea (`rec-` > `emp-` > `nom-`) y sv3 usa un CONJUNTO (ide, DNI,
-   nombres): la persona casada en un parte y sin casar en el otro da `rec-X` frente a `nom-…`, sin choque, y
-   quedan dos activos. La mitigación de la spec («se ve en la celda») no vale ahí: salen en DOS filas. Si aparecen casos, una feature aparte que cruce también por DNI/nombre en `_choques`.
-2. «Ver PDF» solo con `preview_enabled`: más estricto que R12 a la letra, coherente con Conciliar.
-3. Insignia «en Sigrid» agrupa encolado, registrado y dedicación (R11 solo ofrece dos insignias).
-4. `_choques`: dos líneas sin trabajador (`sin-trabajador`) chocan entre sí: falso 409 en el lado seguro.
+5. `r25_las_rutas_nuevas_no_salen_en_el_esquema` se apoya en design §7 más que en R25; vale como está.
+6. El repaso `--incremental` reescribe `mutacion_F-084.md` y borra lo rellenado a mano: rellenar después.
+
+## Pasada principal (resumen, SHA aprobado 986f868)
+
+- Ciclo 1 (8f559d1): CHANGES_REQUESTED por MANUAL M1–M3 en `current.md`, `undo_log.actor` mal documentado e
+  init.sh sin exit 0; ciclo 2 (986f868): los tres atendidos, APPROVED.
+- C1–C5, C3 bis/ter/quater, C4 ter: `[x]` o N/A justificado (hexagonal, gemelos `orm_models.py` byte-idénticos,
+  `azure-apps` e09fd49 solo `partes.md`, sin push). C4 bis principal: RED con salida real (T1, T3, T5, T7),
+  cobertura 100,0 % (303/303), «Evidencias» completa, e2e N/A.
+- **RM7** aplicada a mano en copia desechable: bajar el recálculo antes de `recuperar_parte` y mover tras el
+  `commit` el choque, el sha256, la congelación y la espera de recálculo ⇒ ROJO, cazado por tests de F-084.
+- Trazabilidad R1–R26 → `test_f084_rN_*` en A (sv3 `test_f084_rastro_reemplazo.py`), C (`clasificacion`),
+  P (`recuperar`) y W (`portal`): todos con ≥ 1 test en verde; tabla completa en la versión 8474ce9 de este fichero.
+- Observaciones de la principal (vigentes): 1) riesgo §10, clave F-050 por línea frente al conjunto de sv3
+  (dos activos posibles en dos filas); 2) «Ver PDF» solo con `preview_enabled`; 3) «en Sigrid» agrupa tres
+  estados; 4) `_choques` con dos líneas sin trabajador da un falso 409 (lado seguro).
 
 ## Automejora (propuesta, no aplicada)
 
-- Encargo del líder al reviewer: pedir siempre `ARNES_SIN_CACHE=1 bash harness/init.sh`; sin la variable, las
-  suites de servicio salen por caché del verde del implementer y C1 no se puede marcar.
+- `harness.mutacion --incremental` podría conservar los análisis ya rellenos de los supervivientes que
+  repiten (mismo fichero, línea y texto) en vez de regenerarlos en `PENDIENTE`: aquí se perdió ese paso.
+- `reviewer.md`/C4 bis: decir que un test añadido para matar un mutante solo lleva `rN` si afirma ese requisito.
