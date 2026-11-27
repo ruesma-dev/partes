@@ -3,11 +3,13 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **78 features**, 18 abiertas y 60 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 60 en Done.
+Resumen: **78 features**, 18 abiertas y 60 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 60 en Done.
 
 ## Review
 
-_Nada esperando revisión._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | reviewer | specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26) | 2 | critico | `feature/F-084-partes-con-problemas` |
 
 ## Blocked
 
@@ -15,9 +17,7 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | implementer | specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26) | 2 | critico | `feature/F-084-partes-con-problemas` |
+_Ninguna feature en implementación._
 
 ## Spec aprobada
 
@@ -136,7 +136,7 @@ Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero
 
 ### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
 
-estado **en curso** · spec aprobada el 2026-11-26 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
+estado **en QA / revisión** · spec aprobada el 2026-11-26 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
 
 **Spec**: specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26)
 
