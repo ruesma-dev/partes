@@ -45,9 +45,9 @@ Racha: sv5 mueve el CIZ (F-060) pero nunca un CI*; ante un inicio posterior ya r
   `conversion_clase.decidir` con `app.state.tabla_incidencias`; su `error` ⇒ 400 (R5, R6) antes de
   tocar nada. Respuesta de R9. Con `clase_cambiada`, `_pedir_recalculo_compartido(
   repository.documentos_de_los_dias(pares), MOTIVO_CODIGO_INCIDENCIA, actor)`; con varias líneas
-  (`bulk`), un pedido por llamada (cada PATCH es una petición; el compartido de F-049 los agrupa).
+  (`bulk`), cada PATCH es una petición: de un mismo parte y con cola, tras la primera el resto da 409 (D16).
   `undo_apply`: rama `registro_clase` como la de `celda_edit` (R11).
-- `static/app.js`, `onChange`: si algún resultado trae `clase_cambiada`, `window.location.reload()`;
+- `static/app.js`, `onChange`: si algún resultado trae `clase_cambiada` (también con fallo parcial, tras avisar de las líneas que fallaron, D16), `window.location.reload()`;
   si no, como hoy (R13).
 
 **Crear**
@@ -246,3 +246,4 @@ user=<usuario> sslmode=require"`.
 | D13 Guardado por cada paso del campo de horas | (a) fuera: feature aparte `estandar` (guardar al salir del campo, una entrada de deshacer por edición); (b) dentro | (a) | (a) · humano 2026-11-27 |
 | D14 F-081 R3 | (a) enmendarla: un CI* o CIZ no cuenta como «ordinaria» (422), con las funciones de R1; (b) sin cambios | (a) | (a) · humano 2026-11-27 |
 | D15 Reparación del caso 0678 | (a) M4: Administración edita la 416574 a CIA 0 h y el humano autoriza el `UPDATE` de la 25012 en `partes`; (b) Administración la borra en Sigrid, «Comprobar en Sigrid» la deja `borrado_sigrid` y se repara con la feature (convertir y reaprobar); (c) esperar a F-081 | (a): no borra en Sigrid | Fuera: la reparan a mano · humano 2026-11-27: «la raparacion no te proecupes la haremos a mano»; ningún agente escribe en producción ni en Sigrid, M4 queda como guía |
+| D16 Selección múltiple de un mismo parte con cola (review principal, ciclo 1) | (a) una sola petición y transacción, con un único recálculo; (b) aceptar la limitación: de una en una, y el portal dice qué líneas fallaron y recarga | (a) | (b) · humano 2026-11-27: «,1 b» |

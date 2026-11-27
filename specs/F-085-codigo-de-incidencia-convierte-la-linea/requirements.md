@@ -45,7 +45,8 @@ está en la tabla de incidencias del portal», sin tocar la línea (D5). (capa: 
 R7. Sin código de incidencia ni de fin, el sistema debe guardar como F-066 R12, R13, R15 y R16
 (caracterización: mismos valores que en la base de la rama). (capa: integración)
 R8. Las guardas de F-066 R18 deben seguir (503, 404, 409 de congelada F-004, recálculo F-043);
-con selección múltiple, cada línea según R2–R7. (capa: integración)
+con selección múltiple, cada línea según R2–R7; con la cola configurada, las líneas de un MISMO
+parte se cambian de una en una: tras la primera, las demás dan el 409 de F-043 (D16). (capa: integración)
 R9. La respuesta debe llevar `tipo_hora` (la letra, `normal` o `extra`), `es_incidencia`,
 `incidencia_codigo` y `clase_cambiada` (booleano). (capa: integración)
 R10. Cada guardado debe dejar una sola entrada de deshacer: `registro_hora` sin cambio de clase y
@@ -60,7 +61,8 @@ R12. Tras R11, la extra automática no congelada de la pareja de la línea conve
 desaparecer con la pasada de sv3 de siempre (F-037, F-069); una extra explícita o congelada se
 queda y la marca F-025 del día la señala (D4). (capa: unit, en sv3)
 R13. CUANDO `app.js` recibe `clase_cambiada` verdadero, debe recargar la página (insignia Tipo,
-matriz, celda de horas); sin cambio de clase, como hoy. (capa: unit)
+matriz, celda de horas); sin cambio de clase, como hoy. Con selección múltiple y fallo parcial (D16),
+debe decir qué líneas no se guardaron y recargar igual si alguna cambió de clase. (capa: unit)
 R14. Una línea convertida debe pintarse como incidencia en la columna Tipo (obra y trabajador) y en
 la matriz (`inc` con su letra, sin horas), y viajar a sv5 con `es_incidencia` y su rol de racha
 (F-060) como una incidencia de la ingesta. (capa: integración)
