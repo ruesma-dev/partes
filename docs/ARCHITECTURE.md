@@ -334,6 +334,25 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    si hay un CIZ ajeno ese día o si el recurso no tiene CIZ (WARNING).
    Nada es retroactivo: una racha abierta antes de F-062 recibe su CIZ con
    su siguiente `fin`.
+   **Desde F-085 (parte B)**, con el interruptor **`MOVER_INICIO`** (la
+   misma variable en sv4 y en sv5, apagada por defecto; exige `MOVER_CIZ`
+   encendido), el **inicio se recoloca hacia atrás**: un `inicio` aprobado
+   el día D, anterior al inicio ya escrito de su racha, busca en las mismas
+   candidatas del paso 6 bis (sus synckeys van en la MISMA lectura
+   `lineas_de_racha` y su parte en la misma de `estados_de_partes`) el
+   **inicio previo** (`inicio_previo` de `racha_ciz.py`: la primera línea
+   de la racha posterior a D, de su mismo código, con synckey de un
+   registro y un CIZ de la racha en su día o después) y lo **mueve** a D
+   con el `UPDATE` de F-060 (`stmt_mover_linea`; nunca `DELETE` ni otro
+   CI*). Enlazado ⇒ `linea_enlazada`; en un parte cerrado ⇒
+   `inicio_en_parte_cerrado`; sin inicio previo ⇒ el `INSERT` de siempre
+   (WARNING `racha_inicio_no_movido` si había una posterior de su código).
+   INFO `inicio_movido`. La escrita lleva `movida_de` = X y sv4 deja X
+   `omitido` con motivo `inicio_movido` (mismo CAS que `fin_movido`, por
+   el código de la escrita); con `MOVER_INICIO` sv4 tampoco da
+   `racha_desordenada` a un `inicio` cuyo siguiente día que cuenta es de
+   su misma letra. Se enciende sv5 y luego sv4; apagar los dos es la vuelta
+   atrás (lo ya movido no se deshace).
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para

@@ -44,3 +44,22 @@ def test_f085_r33_referencia_parte_a() -> None:
     assert "F-085" in s35 and "vuelve a" in s35
     s44 = texto[texto.index("### 4.4"):texto.index("### 4.5")]
     assert "Elegir el código de la incidencia en el portal (F-085)" in s44
+
+
+def test_f085_r33_arquitectura_semantica_4_parte_b() -> None:
+    seccion = _semantica(4)
+    for palabra in ("F-085", "MOVER_INICIO", "inicio_previo",
+                    "inicio_en_parte_cerrado", "racha_inicio_no_movido",
+                    "inicio_movido", "stmt_mover_linea"):
+        assert palabra in seccion, palabra
+
+
+def test_f085_r33_referencia_parte_b() -> None:
+    texto = _texto("docs/referencia/partes-proyecto.md")
+    s44 = texto[texto.index("### 4.4"):texto.index("### 4.5")]
+    assert "El inicio se recoloca hacia atrás (F-085, parte B)" in s44
+    for palabra in ("MOVER_INICIO", "inicio_movido",
+                    "inicio_en_parte_cerrado"):
+        assert palabra in s44, palabra
+    s66 = texto[texto.index("### 6.6"):texto.index("## 7.")]
+    assert s66.count("MOVER_INICIO=false") == 2        # sv4 y sv5

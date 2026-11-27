@@ -6,6 +6,50 @@ tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11
 
 Feature activa: ninguna. Siguiente: **F-085** (spec aprobada el 2026-11-27, copia `partes-wt-f085`). Última cerrada: **F-084** (2026-11-27, OK del humano: «ok»; **sin desplegar**: faltan sv3 y sv4, y después M1–M3). Anterior: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
+## F-085 · implementer (2026-11-27; copia `partes-wt-f085`, rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`)
+
+- Hechas T1–T8 y T10–T13 (un commit por tarea, `F-085 Tn: …`). T9 y T14 (mutación) son del
+  líder en la pasada de campaña; T15–T17 son manuales (humano). T18: `init.sh` (ver informe).
+- azure-apps (`partes.md`), dos commits aparte y **sin push**: `761c28e` (parte A) y `60d7f70`
+  (parte B). Antes del push del humano: `git -C <azure-apps> pull` y después `push`.
+- `MOVER_INICIO` nace **apagado** en sv4 y en sv5 (D12). La parte B no hace nada sin él.
+- **Desviaciones de la spec (justificadas)**:
+  1. `set_registro_hora(..., incidencias=tabla)` en vez de `clase: ClaseNueva`: la clase se
+     calcula DENTRO de la transacción con el estado leído de la línea (sin carrera entre leer y
+     escribir); `decidir` sigue siendo la función pura de `conversion_clase.py`.
+  2. Devuelve `False` (no `None`) si la línea no existe: lo exige el test de F-066 `is False`.
+  3. La conversión a incidencia pone también `extra_auto = False` (si no, sv3 borraría la línea
+     convertida como si fuera una extra automática suya); deshacer lo restaura (`_REG_UNDO_MARCAS`).
+  4. Tests ajenos enmendados con su porqué: `test_f066_set_registro_hora` r14 y r18,
+     `test_f017_punto_unico` (25 `_actor(request)`, uno nuevo por el recálculo), `test_f037_revert`
+     r9 (la clave `hora_match_method` nueva de `fetch_registros_para_recurso`).
+  5. Riesgo: un cambio de varias líneas del MISMO parte con la cola configurada da 409 en las
+     siguientes, porque la primera deja el parte en espera de recálculo (F-043). Está
+     caracterizado por un test. Lo seguro es una línea por recálculo.
+- **Verificaciones MANUAL (humano)**, design §8. Lectura S = la de F-083 §8 (`Invoke-RestMethod …
+  /api/sql/read`, `$KEY` del Key Vault); lectura P = `psql -X -v ON_ERROR_STOP=1 -c "<sql>"
+  "host=<servidor> dbname=partes user=<usuario> sslmode=require"`. Las M1–M3 van en LOCAL y en modo
+  pruebas: `OBRA_PRUEBAS_FORZAR=true`, obra 0404, marca `PRUEBA-IA`, y `/health` de sv5 con
+  `modo_pruebas: True` (si no, **PARA**). Limpieza al acabar con `prueba_escritura_sigrid.py`, como
+  en F-062 §9.
+  - **M1 (parte A)**: una línea de 10 h (8 + extra automática de 2). Elegir CIA ⇒ la página se
+    recarga, Tipo «AT · …», sin horas y, tras el recálculo, sin la extra. Deshacer ⇒ todo como
+    antes (la extra vuelve tras el recálculo). Otra vez CIA y aprobar ⇒ S:
+    `SELECT h.ide, h.fec, a.cod, h.can, h.synckey FROM hmores h LEFT JOIN auxhor a ON a.ide =
+    h.horide WHERE h.synckey = 'partes:<id>'` da CIA con `can` 0. Elegir CIZ ⇒ 400 «El fin de incidencia
+    (CIZ) lo pone el sistema…». En otra incidencia, elegir HLxx ⇒ Ordinaria con las horas vacías.
+  - **M2 (parte B, `MOVER_INICIO=true` y `MOVER_CIZ=true` en sv5 y en sv4)**: V los días 2–4.
+    Aprobar el 3 (CIV y CIZ hermano), luego el 4 (el CIZ pasa al 4) y luego el 2 ⇒ S: CIV el 02
+    con `partes:<id2>`, nada con `partes:<id3>` y el CIZ el 04. En el portal, el 3 queda
+    `omitido · inicio_movido: el inicio de la incidencia (CIV, linea <ide>) paso al dia
+    2026-..-02: este dia es intermedio`. Poner V el 1 y aprobarlo ⇒ CIV el 01 y el 2 `omitido`.
+  - **M3 (parte B, opcional, solo con autorización de la edición a mano)**: V 1–3 y aprobar el 3.
+    El humano cambia a mano en Sigrid el CIZ de pruebas a CIV. Aprobar el 1 ⇒ `INSERT` del CIV
+    del 01, sin mover, y en la consola de sv5 `racha_inicio_no_movido registro_id=<id1> ide=<ide>`.
+  - **M5 (producción, solo lectura, tras encender B)**: la consulta S de design §8 M5 con `?` = el
+    máximo `ide` de `hmores` al encender ⇒ **ningún par** de CI* de la misma racha en días seguidos.
+  - M4 (reparación del 0678, D15) queda **fuera**: ningún agente escribe en producción ni en Sigrid.
+
 ## F-085 · spec escrita (spec-author, 2026-11-27; copia `partes-wt-f085`, sin aprobar)
 
 - Spec en `specs/F-085-codigo-de-incidencia-convierte-la-linea/`; resumen y hallazgos en

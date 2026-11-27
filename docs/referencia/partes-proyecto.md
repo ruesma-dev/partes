@@ -235,6 +235,9 @@ registro**:
      (§4.4). Desde F-083, cualquier línea de la racha posterior en
      Sigrid, sea cual sea su código, deja el día como intermedio (sin
      CIZ ni hermano), y un CIZ cambiado a mano deja la racha sin fin.
+     Desde F-085, con `MOVER_INICIO` (apagado por defecto), un inicio
+     aprobado antes del inicio ya escrito de su racha **lo mueve** a su
+     día (el mismo `UPDATE`) en vez de escribir otro CI\* (§4.4).
      Con
      `MOVER_CIZ` apagado en los dos, como antes de F-060: sv4 mira el
      histórico hacia atrás y hacia delante (`intermedio` si el siguiente
@@ -620,6 +623,27 @@ Un día suelto queda con su CIV y su CIZ.
 - **Nada es retroactivo**: una racha que quedó abierta antes (solo CI\*)
   recibe su CIZ con su siguiente fin. Quitar solo F-062 = volver sv4 a su
   revisión anterior (sv5 sigue moviendo los hermanos ya escritos).
+
+**El inicio se recoloca hacia atrás (F-085, parte B)**. Si se aprueba un
+día de la racha ANTERIOR a su inicio ya registrado (el parte del 18 llega
+después del del 19), antes se escribía otro CI\* y la racha quedaba con
+dos. Con `MOVER_INICIO` encendido en sv5 y en sv4 (apagado por defecto;
+necesita `MOVER_CIZ`), el CI\* del 19 **pasa al 18** con un `UPDATE` de
+esa misma línea, y la línea del 19 queda `omitido · inicio_movido` (día
+intermedio). Ejemplo: CIV el 19 y CIZ el 25; aprobar el 18 ⇒ CIV el 18 y
+CIZ el 25; aprobar luego el 17 ⇒ CIV el 17.
+
+- **Qué es el inicio previo**: la primera línea de la racha después del
+  día aprobado, con su mismo código y un CIZ de la racha en su día o más
+  tarde. Un CI\* sin CIZ detrás no lo es: se escribe como siempre
+  (WARNING `racha_inicio_no_movido`).
+- **Lo que no se mueve**: enlazado (`linea_enlazada`) o en un parte
+  cerrado (`inicio_en_parte_cerrado`): no se toca ni se escribe otro; se
+  corrige a mano.
+- **Sin aviso**: con el interruptor, el modal ya no avisa
+  `racha_desordenada` a ese inicio (el siguiente día es de su letra).
+- **Interruptor**: se enciende en sv5 y luego en sv4; apagarlo en los dos
+  es la vuelta atrás (lo ya movido se queda).
 
 ### 4.5 Partidas de imputación (a qué se atribuye el coste)
 
@@ -1093,8 +1117,8 @@ PowerShell 5.1 (encoding cuidado: sin BOM; `00_vars` LF, resto CRLF):
 | sv1 | Graph (tenant/client/secret ref), buzón, QUEUE_URL |
 | sv2 | GEMINI (secreto), colas, prompts/schema |
 | sv3 | PG (host/db/user/secret), Graph SharePoint, SIGRID_API_BASE_URL + function key (lectura), colas, `EMPRESAS_MEMBRETE_PATH` (opcional; por defecto la tabla versionada `config/empresas_membrete.yaml`). `SIGRID_EMPRESA` ya no se usa (F-023): si sigue definida, se ignora |
-| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`; F-062: marca el inicio con `ciz_mismo_dia` y le manda su tramo delante, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`) |
-| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro; F-062: el inicio marcado escribe su CI* y un CIZ `partes:<id>:ciz` el mismo día, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), `FRANQUICIA_CAMPO_EXT` (F-056; vacío por defecto = franquicia `apagada`, sin leer nada; el `cod` del campo extendido de recurso con la franquicia X, `10` al activarla (M4); un código malo, una definición de tip 33 que falte o sobre, o un `camtip` que no sea número entero es `no_disponible`, con WARNING, y sv5 arranca igual; `/health` dice `apagada` o `configurada`), API_PORT=8005 |
+| sv4 | PG, SIGRID_API_*, `TRANSFER_BASE_URL` (=fqdn interno de sv5) + `TRANSFER_TIMEOUT_S=120`, Easy Auth, `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` decide la racha con la ventana y manda `racha_registro_ids`; F-062: marca el inicio con `ciz_mismo_dia` y le manda su tramo delante, §4.4; se enciende DESPUÉS que en sv5 y se apaga ANTES; fuera del manifiesto, se cambia con `az containerapp update`), `MOVER_INICIO=false` por defecto (F-085; `true` deja la línea del inicio recolocado `omitido · inicio_movido` y no avisa `racha_desordenada` a ese inicio, §4.4; DESPUÉS que en sv5) |
+| sv5 | SIGRID_API_BASE_URL, `SIGRID_API_FUNCTION_KEY` (secretref), **`SIGRID_API_DATABASE=ruesma`** (nunca la réplica), `SIGRID_EMPRESA` (inerte desde F-023: la empresa de la cabecera es la de la obra), `OBRA_PRUEBAS_FORZAR=false` (·true = pruebas·), `OBRA_PRUEBAS_COD=0404`, `MARCA_PRUEBAS=PRUEBA-IA`, `MENSUALES_A_DEDICACION=false` (F-019; `true` manda las horas de los mensuales a dedicación, §3.5), `MOVER_CIZ=false` por defecto, `true` en producción desde el 2026-10-25 (F-060; `true` mueve el CIZ de una racha con un `UPDATE` en vez de escribir otro; F-062: el inicio marcado escribe su CI* y un CIZ `partes:<id>:ciz` el mismo día, §4.4; va con el de sv4: apagar los dos es la vuelta atrás; fuera del manifiesto, se cambia con `az containerapp update`), `MOVER_INICIO=false` por defecto (F-085; `true`, con `MOVER_CIZ`, mueve hacia atrás el inicio ya escrito de una racha con el mismo `UPDATE` en vez de escribir otro CI\*, §4.4; ANTES que en sv4), `FRANQUICIA_CAMPO_EXT` (F-056; vacío por defecto = franquicia `apagada`, sin leer nada; el `cod` del campo extendido de recurso con la franquicia X, `10` al activarla (M4); un código malo, una definición de tip 33 que falte o sobre, o un `camtip` que no sea número entero es `no_disponible`, con WARNING, y sv5 arranca igual; `/health` dice `apagada` o `configurada`), API_PORT=8005 |
 
 ---
 
