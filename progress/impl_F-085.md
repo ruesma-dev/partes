@@ -147,10 +147,10 @@ Sigrid. Encendido de B: sv5 y luego sv4, con `MOVER_CIZ` encendido.
 
 | Evidencia | Valor |
 |---|---|
-| Tests ejecutados | 12 437 en verde: raíz 2553 (50 skipped), sv1 74, sv2 579, sv3 2989, sv4 4254, sv5 1988; 0 fallos en la pasada final |
-| Cobertura de líneas cambiadas | 100,0 % (219/219, umbral 90 % de `critico`), según la línea `PUERTA COBERTURA` |
+| Tests ejecutados | Ciclo 1: 12 442 en verde (raíz 2553 con 50 skipped, sv1 74, sv2 579, sv3 2989, sv4 4259, sv5 1988), 0 fallos. Ciclo 0: 12 437 |
+| Cobertura de líneas cambiadas | 100,0 % (220/220, umbral 90 % de `critico`) en el ciclo 1, según la línea `PUERTA COBERTURA`. Ciclo 0: 219/219 |
 | Mutantes generados / supervivientes | Sin medir: la campaña (T9, T14) la lanza el líder en la pasada de campaña, tras el APPROVED |
-| Tiempo de la suite | raíz 1979,86 s; sv4 1290,18 s; sv3 65,63 s; sv2 50,22 s; sv5 36,43 s; sv1 19,76 s (las suites de los servicios, de la pasada 1) |
+| Tiempo de la suite | Ciclo 1: raíz 1355,60 s y sv4 1126,23 s; sv1, sv2, sv3 y sv5 en caché. Ciclo 0: sv3 65,63 s, sv2 50,22 s, sv5 36,43 s y sv1 19,76 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
 
 ## Pendiente
@@ -174,14 +174,49 @@ y `"!= 'CIZ'"`.
 - Verde: `test_f085_conversion.py` y `test_f085_inicio_movido_sv4.py` dan `107 passed`, y los
   `r28_*` dan `6 passed`. Según lo pedido, `init.sh` no se ha ejecutado: va al terminar el Cambio 2.
 - Repaso con grep en sv4 (`"CIZ"`, `'CI'`, `startswith("CI`, `LIKE 'CI`) fuera de `clase_hora.py`.
-  No queda ninguna comparación de F-085. Hay dos anteriores a F-085 que **no he tocado**, porque son
-  de otras features y cambiarlas sería tocar otra feature sin spec:
-  - `application/services/sincronizacion.py:290`, `.startswith("CI")` (F-052 `a5bcef1`): el
-    `a_cero` de una línea solo de Sigrid. Incluye CIZ a propósito.
-  - `application/services/incidencias_horas.py:32/77`, `PREFIJO_SIGRID = "CI"` (F-025 `d4cda31`):
-    valida `config/incidencias.yaml` al cargarlo.
-  
-  Los usos de `"CI"` de `partida_catalog.py`, `partida_matcher.py`, `app.py:4389` y `app.js`
-  son el capítulo de costes indirectos de las partidas, no códigos de hora.
+  No queda ninguna comparación de F-085. Hay dos anteriores que **no he tocado**, porque son de otras
+  features:
+  - `sincronizacion.py:290`, `.startswith("CI")` (F-052 `a5bcef1`): incluye CIZ a propósito;
+  - `incidencias_horas.py:32/77`, `PREFIJO_SIGRID` (F-025 `d4cda31`): valida el YAML.
 
-**Cambio 2 (R8, desviación 4)**: pendiente de la decisión del humano. No lo he tocado.
+  Los `"CI"` de `partida_*`, `app.py:4389` y `app.js` son el capítulo de costes indirectos de las
+  partidas, no códigos de hora.
+
+**Cambio 2 (R8, R13; D16 = (b), humano 2026-11-27).**
+- `static/app.js`, `onChange`: cada PATCH de la selección se resuelve por separado. Con selección
+  y fallo parcial, un `alert` (el mecanismo de F-004 R13 para «el sistema dice que no») dice
+  «N de M línea(s) no se han guardado:», con una línea por texto de error del servidor y los ids
+  de las líneas («(líneas 6, 7)»). El `alert` bloquea, así que la recarga espera a que se lea.
+  Si alguna se guardó, sigue la ruta de la selección sin fallos, que recarga (decisión: la
+  selección ya recargaba siempre al guardar; así también se pintan las que solo cambiaron de
+  código). Si fallan todas, avisa, marca el error y no recarga. Una sola línea, como hoy. El
+  ayudante `avisoNoGuardadas` es local a `onChange`, porque F-047 R23 vigila las funciones con
+  nombre de `app.js`.
+- Tests (`test_f085_conversion.py`): el arnés node ya admite errores (`_error`, `_status`) y `alert`.
+  - `r13_d16_fallo_parcial_avisa_y_recarga`, `r13_d16_motivos_distintos_por_separado`,
+    `r13_d16_todas_fallan_avisa_y_no_recarga` y `r13_d16_una_sola_que_falla_como_hoy`.
+  - `r8_mismo_parte_con_cola_de_una_en_una` sustituye a la caracterización. Afirma R8 enmendado
+    con pedidos secuenciales: la primera se convierte; cada una de las demás da el 409 de F-043
+    con `MOTIVO_RECALCULANDO`, sin tocar ni la línea ni el deshacer, y hay un solo recálculo. No
+    afirma nada de la concurrencia.
+  - `r8_partes_distintos_del_mismo_dia_con_cola`: todas convertidas, dos `registro_clase` y dos
+    recálculos.
+- RED con `app.js` sin tocar (`python -m pytest tests/test_f085_conversion.py -q -k r13`):
+  `E  ValueError: not enough values to unpack (expected 1, got 0)` ×3 (no había `alert`) /
+  `3 failed, 4 passed, 86 deselected`. Los dos tests nuevos de servidor pasan contra el código
+  tal cual: D16 acepta ese comportamiento, así que no hay RED de servidor que enseñar.
+- Verde: los ficheros de F-085, F-043 y F-047 de sv4 dan `194 passed`. `tests/test_f085_documentacion.py`
+  da `4 passed`; vigila además «D16» y `avisoNoGuardadas` en la semántica 3.
+- Docs: `ARCHITECTURE.md` semántica 3 (D16). `partes-proyecto.md` y `azure-apps/partes.md` no
+  describen la selección múltiple: siguen siendo ciertos y no se tocan. `current.md` lleva D16 y
+  el paso de M1.
+- `init.sh` del ciclo:
+  - 1.ª pasada, exit 1. Falló el flaky `test_f059_r9` (`assert not True ... _vivo(50844)`).
+    Falló también `test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`, por la función con
+    nombre nueva: corregido haciéndola local, sin tocar F-047. Y salió la cobertura al 77,3 %,
+    porque sv4 se cortó en el primer fallo.
+  - 2.ª pasada, **exit 0**: raíz `2553 passed, 50 skipped`; sv4 `4259 passed, 1 skipped`; el
+    resto, en caché verde. `PUERTA COBERTURA: 100.0% de 220 líneas cambiadas cubiertas
+    (220/220…)`. `PUERTA TAMAÑO … impl 187/220`. `CAPA E2E: N/A`. Ruff: 1219 avisos, la deuda
+    previa.
+- Mutación: sigue pendiente de la pasada de campaña del líder (T9 y T14).
