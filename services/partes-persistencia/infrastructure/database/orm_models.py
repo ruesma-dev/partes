@@ -183,6 +183,12 @@ class ParteDocumentOrm(Base):
     deleted_at_utc: Mapped[str | None] = mapped_column(String(64))
     deleted_by: Mapped[str | None] = mapped_column(String(255))
 
+    # --- Reemplazo de sv3 (F-084) --- #
+    # sv3 los escribe al desactivar un parte por el de otro documento (mismo
+    # dia, obra y trabajador); sv4 solo los lee. Nullables: los anteriores, NULL.
+    sustituido_por_id: Mapped[str | None] = mapped_column(String(36))   # sv3
+    sustituido_at_utc: Mapped[str | None] = mapped_column(String(64))   # sv3
+
     # --- Trazabilidad --- #
     raw_extraction_json: Mapped[str | None] = mapped_column(Text)
     raw_context_json: Mapped[str | None] = mapped_column(Text)

@@ -1143,7 +1143,8 @@ class SqlAlchemyParteRepository:
             )
 
     def _deactivate_same_day_obra(
-        self, session, parte: ParteDocumento, exclude_id: str
+        self, session, parte: ParteDocumento, exclude_id: str,
+        email_id: str | None = None,
     ) -> list[str]:
         """Desactiva (soft-delete) los partes ACTIVOS del MISMO dia, MISMA
         obra y MISMO trabajador. Asi reenviar el parte de un trabajador (mismo
@@ -1153,7 +1154,12 @@ class SqlAlchemyParteRepository:
         Identidad de obra: por codigo casado si lo hay; si no, por el numero
         de obra leido. Identidad de trabajador: ide casado, DNI o nombre.
         Si no hay fecha, ni obra, ni trabajador identificable, NO se desactiva
-        nada (mas seguro)."""
+        nada (mas seguro).
+
+        F-084: el desactivado guarda el rastro (`sustituido_por_id` = el
+        parte nuevo, `sustituido_at_utc`) sin pasar por la papelera, y si
+        los dos vienen del mismo correo (`email_id` igual y no vacio) se
+        avisa con un WARNING: la regla de que se sustituye no cambia."""
         fint = parte.fecha_int
         if not fint or fint <= 0:
             return []
@@ -1200,6 +1206,14 @@ class SqlAlchemyParteRepository:
                     old, parte.entrada):
                 continue
             old.is_active = False   # comparten trabajador -> reemplazo
+            old.sustituido_por_id = exclude_id               # F-084 R1
+            old.sustituido_at_utc = datetime.now(timezone.utc).isoformat()
+            if email_id and old.email_id == email_id:        # F-084 R3
+                logger.warning(
+                    "[parte-repo] reemplazo del mismo envio: %s sustituye a "
+                    "%s (fecha_int=%s obra=%s)",
+                    exclude_id, old.id, fint, cod or num,
+                )
             ids.append(old.id)
         return ids
 
@@ -1224,7 +1238,7 @@ class SqlAlchemyParteRepository:
         with self._session_factory.create_session() as session:
             # Reemplazo: un PDF distinto del mismo dia y obra pisa lo anterior.
             superseded = self._deactivate_same_day_obra(
-                session, parte, document_id
+                session, parte, document_id, _as_str(email.get("id"))
             )
             if superseded:
                 logger.info(

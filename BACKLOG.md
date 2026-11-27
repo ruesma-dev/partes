@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **79 features**, 19 abiertas y 60 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 5 en To do, 11 en Backlog y 60 en Done.
+Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
 
 ## Review
 
@@ -31,7 +31,6 @@ _Ninguna feature en implementación._
 |---|---|---|---|---|---|
 | F-080 | sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida |  | 2 | express | `feature/F-080-juntar-lineas-sin-partida` |
 | F-081 | Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0) | sin spec | 2 | critico | `feature/F-081-editar-lineas-registradas` |
-| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | sin spec | 2 | estandar | `feature/F-084-partes-con-problemas` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
 | F-071 | Fecha de un parte incoherente con las páginas vecinas del mismo PDF o incompleta | sin spec | 4 | estandar | `feature/F-071-fecha-coherente-paginas` |
 
@@ -55,6 +54,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | 2026-11-27 | 2026-11-27 |  | 2 | critico |
 | F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) | 2026-11-26 | 2026-11-26 |  | 2 | estandar |
 | F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | 2026-11-25 | 2026-11-25 |  | 1 | critico |
 | F-072 | Postventa y obras varias (VAR): sus capítulos y partidas se tratan como obras, con los criterios de porcentajes | 2026-11-24 | 2026-11-24 |  | 2 | critico |
@@ -141,14 +141,6 @@ estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · 
 **Spec**: sin spec
 
 Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.
-
-### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
-
-estado **to do (comprometida)** · prioridad 2 · rigor `estandar` · SDD sí · rama `feature/F-084-partes-con-problemas`
-
-**Spec**: sin spec
-
-Pedida por el humano el 2026-11-26: «hay que arreglar esto, los partes no leidos o no casados o con problemas deben quedar visitables en una pestaña nueva para, como pasa en conciliar, conciliarlos con las obras o fecha etc.». Caso de origen (0692, correo del 2026-11-26 09:56, PDF doc003417 de 6 páginas): la página 4 (documento 5c1a9b04, parte del 25/11 de Acuña, González Rojas y Uceda) se leyó con fecha 23/11; minuto y medio después entró la página 6 (89f17181, la del 23/11 de verdad, misma obra y mismos trabajadores) y la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, «comparten trabajador -> reemplazo», is_active=False) desactivó la página 4 sin avisar: ni se ve en el portal ni está en la papelera (deleted_at_utc vacío). El humano no la encontraba; el encargado reenvió el parte y entró bien. Si el orden hubiera sido el contrario, se habría perdido el parte bueno sin que nadie lo notara. A REVISAR EN LA SPEC: qué cuenta como «parte con problemas» (sustituido por otro —sobre todo por otra página del mismo correo o PDF—, sin obra casada, sin fecha o con fecha dudosa, sin trabajadores, páginas que fallan en la extracción de sv2 y no llegan a la base); qué se puede hacer desde la pestaña (ver el PDF, corregir fecha u obra, recuperarlo como activo, descartarlo a la papelera) y con qué piezas que ya existen (pestaña Conciliación de trabajadores, cambio de obra y de fecha del parte, papelera, undo_log); si la regla de reemplazo debe dejar de sustituir entre páginas del mismo envío o solo avisar; contador o aviso visible en la navegación; qué pasa con lo ya desactivado en silencio hasta hoy (retroactivo o no). Servicios probables: sv4 (pestaña) y sv3 (regla de reemplazo y motivo). Rigor a proponer por el spec-author.
 
 ### F-070 · sv3: un parte no sustituye a otro del mismo PDF
 
@@ -269,6 +261,14 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
+
+estado **terminada** · cerrada el 2026-11-27 · spec aprobada el 2026-11-26 · OK del humano el 2026-11-27 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
+
+**Spec**: specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26)
+
+Pedida por el humano el 2026-11-26: «hay que arreglar esto, los partes no leidos o no casados o con problemas deben quedar visitables en una pestaña nueva para, como pasa en conciliar, conciliarlos con las obras o fecha etc.». Caso de origen (0692, correo del 2026-11-26 09:56, PDF doc003417 de 6 páginas): la página 4 (documento 5c1a9b04, parte del 25/11 de Acuña, González Rojas y Uceda) se leyó con fecha 23/11; minuto y medio después entró la página 6 (89f17181, la del 23/11 de verdad, misma obra y mismos trabajadores) y la regla de reemplazo de sv3 (sqlalchemy_parte_repository.py, «comparten trabajador -> reemplazo», is_active=False) desactivó la página 4 sin avisar: ni se ve en el portal ni está en la papelera (deleted_at_utc vacío). El humano no la encontraba; el encargado reenvió el parte y entró bien. Si el orden hubiera sido el contrario, se habría perdido el parte bueno sin que nadie lo notara. A REVISAR EN LA SPEC: qué cuenta como «parte con problemas» (sustituido por otro —sobre todo por otra página del mismo correo o PDF—, sin obra casada, sin fecha o con fecha dudosa, sin trabajadores, páginas que fallan en la extracción de sv2 y no llegan a la base); qué se puede hacer desde la pestaña (ver el PDF, corregir fecha u obra, recuperarlo como activo, descartarlo a la papelera) y con qué piezas que ya existen (pestaña Conciliación de trabajadores, cambio de obra y de fecha del parte, papelera, undo_log); si la regla de reemplazo debe dejar de sustituir entre páginas del mismo envío o solo avisar; contador o aviso visible en la navegación; qué pasa con lo ya desactivado en silencio hasta hoy (retroactivo o no). Servicios probables: sv4 (pestaña) y sv3 (regla de reemplazo y motivo). Rigor a proponer por el spec-author.
 
 ### F-082 · El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección)
 

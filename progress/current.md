@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copia `partes-wt-f084`). Última cerrada: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
+Feature activa: ninguna. Siguiente: **F-085** (spec aprobada el 2026-11-27, copia `partes-wt-f085`). Última cerrada: **F-084** (2026-11-27, OK del humano: «ok»; **sin desplegar**: faltan sv3 y sv4, y después M1–M3). Anterior: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
 ## F-085 · spec escrita (spec-author, 2026-11-27; copia `partes-wt-f085`, sin aprobar)
 
@@ -31,6 +31,49 @@ Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copi
   3. **Detalle de una obra sin presupuesto** ⇒ ✎ de una línea ⇒ el panel ofrece «— Sin partida —»
      y debajo «Esta obra no tiene partidas»; elegirla ⇒ «sin partida · manual».
   4. Tras el paso 1, **Deshacer** ⇒ la línea vuelve a su partida (o a su aviso ⚠) de antes.
+
+## F-084 · done 2026-11-27 (OK del humano: «ok»; reviewer principal APPROVED en 986f868, evidencias APPROVED en 34a5dbb; copia `partes-wt-f084`; **sin desplegar**: faltan sv3 y sv4, y después M1–M3)
+
+- **Cierre (líder, 2026-11-27)**: mutación 198 mutantes, muestra 100: 93 muertos, 7 supervivientes, 0 timeouts.
+  Los 7 supervivientes son equivalentes (`progress/equivalentes_F-084.py`, «7/7 equivalentes demostrados»,
+  exit 0) y quedan **aceptados por el humano el 2026-11-27** con su «ok» a la PARADA 2, que los listaba uno
+  a uno y pedía su decisión. Cobertura de lo cambiado 100 % (303/303). `init.sh` exit 0 (reviewer de evidencias).
+- Riesgos aceptados (observaciones del reviewer): misma persona casada en un parte y sin casar en otro ⇒
+  recuperar no detecta el choque; dos líneas sin trabajador ⇒ 409 falso (lado seguro).
+- Automejoras propuestas, sin aplicar: `--incremental` debería conservar los análisis rellenos; un test que
+  mata un mutante solo lleva `rN` si afirma ese requisito; pedir `ARNES_SIN_CACHE=1` al reviewer para C1.
+
+- T1–T9 y T12 hechas (commits `F-084 T1`…`T9`; azure-apps `e09fd49`, sin push). T10 (mutación)
+  y T11 (manual) quedan para el líder y el humano. Informe: `progress/impl_F-084.md`.
+- Decisiones menores (detalle en el informe): agrupar por el primer motivo; `recuperar_parte`
+  devuelve None si no existe (404); fecha vacía = sin cambio; «Ver PDF» solo con visor, como Conciliar.
+- **Verificaciones MANUAL (humano)**, design §12, tras desplegar sv3 y sv4 (en el portal, **Ctrl+F5**
+  antes de empezar para recargar `app.js`):
+  1. **M1** (solo lectura, base `partes`):
+     `SELECT column_name FROM information_schema.columns WHERE table_name = 'parte_documents' AND column_name LIKE 'sustituido%';`
+     ⇒ **2 filas**: `sustituido_por_id` y `sustituido_at_utc` (las añade el DDL de arranque).
+  2. **M2** (portal, solo lectura): abrir `/problemas` ⇒ el parte `5c1a9b04` sale en «Sustituido por
+     otra página del mismo correo» con `89f17181` de sustituto (enlace «ver» a `/partes/89f17181…`);
+     y el número del enlace «Problemas» de la navegación = `total` de `GET /api/problemas/resumen`.
+  3. **M3** (portal, **escribe**: solo con el OK expreso del humano para esta acción): en `/problemas`,
+     «Recuperar» `5c1a9b04` con fecha `25/11/2026` ⇒ si ya hay otro parte activo del 25/11 de esa obra
+     con los mismos trabajadores (el reenvío), 409 con el texto «Corrige la fecha o descarta antes el
+     otro parte» y ese parte nombrado; entonces «Descartar» `5c1a9b04` ⇒ vuelve a `/problemas` con
+     «Parte movido a la papelera», deja de salir allí y en el contador, y aparece en `/papelera`.
+     Sin choque, la recuperación da «Parte recuperado» y el parte sale en `/partes` con fecha 25/11;
+     «Deshacer» («Recuperar parte») lo devuelve a inactivo con su fecha anterior.
+  Resultado, en `progress/manual_F-084.md` (T11).
+
+### F-084 · spec_ready 2026-11-26 (spec-author; copia `partes-wt-f084`)
+
+- Spec escrita: `specs/F-084-partes-con-problemas/` (rama `feature/F-084-partes-con-problemas`).
+  Resumen, decisiones y preguntas al líder en `progress/spec_F-084.md`.
+- Decisiones abiertas para el humano: D1–D10 (recomendado (a) en todas: sv3 deja rastro en
+  dos columnas nuevas y sigue sustituyendo igual; pestaña `/problemas` en sv4 con contador;
+  «Recuperar» nuevo con 409 ante choque; retroactivo; poison de sv2/sv3 y sustitución de
+  partes congelados, fuera). Rigor `critico` propuesto (D9).
+- Preguntas de datos para el líder: retirados de F-061 entre los 112 inactivos y sustituidos
+  aprobados o con líneas en Sigrid.
 
 ## F-083 · done 2026-11-25 (OK del humano: «1 hazlo»; copia `partes-wt-f083`)
 
