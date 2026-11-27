@@ -382,3 +382,35 @@ def test_f084_las_plantillas_parsean() -> None:
     env = Environment(loader=FileSystemLoader(str(RAIZ / "templates")))
     for nombre in ("problemas.html", "base.html"):
         env.parse(env.loader.get_source(env, nombre)[0])
+
+
+# ================= T10 · supervivientes de la mutación =================== #
+
+def test_f084_r10_la_cabecera_cuenta_solo_los_que_cuentan() -> None:
+    """El título suma los partes que cuentan, uno por parte (mutante 13)."""
+    cliente, _cola, fabrica = _montar()
+    _sembrar(fabrica, "sin-obra", obra_ide=None, obra_codigo=None)
+    _sembrar(fabrica, "nuevo", email_id="correo-2",
+             creado="2026-11-26T10:05:00+00:00")
+    _sembrar(fabrica, "viejo", activo=False, sustituido_por_id="nuevo")
+    html = cliente.get("/problemas").text
+    assert "Partes con problemas (1)</h1>" in html
+
+
+def test_f084_r25_las_rutas_nuevas_no_salen_en_el_esquema() -> None:
+    """Como el resto del portal, fuera de `/openapi.json` (mutantes 14 y
+    15)."""
+    cliente, _cola, _f = _montar()
+    rutas = cliente.app.openapi()["paths"]
+    for ruta in ("/problemas", "/api/problemas/resumen",
+                 "/api/partes/{document_id}/recuperar"):
+        assert ruta not in rutas
+
+
+def test_f084_r22_el_404_lleva_ok_false() -> None:
+    """El JS decide por `ok`: un 404 no puede decir `ok: true` (mutante
+    18)."""
+    cliente, _cola, _f = _montar()
+    r = _recuperar(cliente, "no-existe")
+    assert r.status_code == 404
+    assert r.json() == {"ok": False, "error": "Parte no encontrado"}

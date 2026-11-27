@@ -336,3 +336,32 @@ def test_f084_r19_las_excepciones_llevan_motivo() -> None:
     assert c.partes == partes
     assert c.motivo == pp.MOTIVO_CHOQUE
     assert "Corrige la fecha o descarta antes el otro parte" in c.motivo
+
+
+# ================= T10 · supervivientes de la mutación =================== #
+
+def test_f084_r7_clasificado_es_inmutable() -> None:
+    """Una fila clasificada no se altera tras `clasificar` (mutante 1)."""
+    [fila] = pp.clasificar([_doc("o1", obra_ide=None)])
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        fila.motivos = ()  # type: ignore[misc]
+
+
+def test_f084_r8_pista_exige_creado_estrictamente_despues() -> None:
+    """Un activo creado en el MISMO instante no es «creado después»: sin
+    `sustituido_por_id`, no hay rastro (mutante 4, `>` frente a `>=`)."""
+    viejo = _sustituido("s1", created_at_utc="2026-11-26T10:00:00+00:00")
+    gemelo = _doc("g1", created_at_utc="2026-11-26T10:00:00+00:00")
+    assert pp.elegir_sustituto(viejo, {}, [gemelo]) is None
+    [fila] = [f for f in pp.clasificar([viejo, gemelo]) if f.doc.id == "s1"]
+    assert fila.motivos == (MOTIVO_SIN_RASTRO,)
+
+
+def test_f084_r11_sin_fecha_va_tras_cualquier_fecha() -> None:
+    """Dentro del grupo, un parte sin fecha va detrás de todos los
+    fechados, también del menor `fecha_int` positivo (mutante 6)."""
+    docs = [
+        _sustituido("sf", fecha_int=None, sustituido_por_id="nadie"),
+        _sustituido("f1", fecha_int=1, sustituido_por_id="nadie"),
+    ]
+    assert [f.doc.id for f in pp.clasificar(docs)] == ["f1", "sf"]

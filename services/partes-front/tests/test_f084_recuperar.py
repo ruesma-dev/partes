@@ -489,3 +489,46 @@ def test_f084_r23_las_demas_acciones_no_ganan_reactivados_ni_actor() -> None:
     [undo] = _undos(fabrica)
     assert "reactivados" not in json.loads(undo.payload)
     assert undo.actor is None
+
+
+# ================= T10 · supervivientes de la mutación =================== #
+
+def test_f084_r5_ddl_declara_las_columnas_del_rastro() -> None:
+    """R5: los tipos exactos llegan al `ADD COLUMN` de PostgreSQL
+    (mutante 7; SQLite ignora la longitud)."""
+    from infrastructure.database.orm_models import ddl_complementario
+    ddl = ddl_complementario()
+    assert ("ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
+            "sustituido_por_id VARCHAR(36)") in ddl
+    assert ("ALTER TABLE parte_documents ADD COLUMN IF NOT EXISTS "
+            "sustituido_at_utc VARCHAR(64)") in ddl
+
+
+def test_f084_r12_tiene_pdf_exige_drive_e_item() -> None:
+    """Sin el `item_id` de SharePoint no hay PDF que abrir (mutante 9)."""
+    fabrica, repo = _montaje()
+    _sembrar(fabrica, "sin-obra", obra_ide=None, obra_codigo=None)
+    with fabrica.create_session() as s:
+        s.get(ParteDocumentOrm, "sin-obra").sharepoint_item_id = None
+        s.commit()
+    [fila] = repo.list_partes_con_problemas()
+    assert fila["tiene_pdf"] is False
+
+
+def test_f084_r19_obra_ide_cero_es_una_obra() -> None:
+    """R19: con `obra_ide` en los dos (también 0) se compara por él y no
+    por el código (mutante 10)."""
+    fabrica, repo = _montaje()
+    _sembrar(fabrica, "viejo", activo=False, obra_ide=0)
+    _sembrar(fabrica, "otro", obra_ide=5)          # mismo código y persona
+    repo.recuperar_parte(document_id="viejo")
+    assert _doc(fabrica, "viejo").is_active is True
+
+
+def test_f084_r23_la_descripcion_del_deshacer_lleva_la_obra() -> None:
+    """El widget de deshacer nombra la obra casada (mutante 12)."""
+    fabrica, repo = _montaje()
+    _sembrar(fabrica, "viejo", activo=False)
+    repo.recuperar_parte(document_id="viejo")
+    [undo] = _undos(fabrica)
+    assert undo.description.startswith("Recuperar parte 0100 (")
