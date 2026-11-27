@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copia `partes-wt-f084`). Última cerrada: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
+Feature activa: ninguna. Siguiente: **F-085** (spec aprobada el 2026-11-27, copia `partes-wt-f085`). Última cerrada: **F-084** (2026-11-27, OK del humano: «ok»; **sin desplegar**: faltan sv3 y sv4, y después M1–M3). Anterior: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
 ## F-082 · done 2026-11-26 (OK del humano: «ok»; reviewer APPROVED pasada 2, SHA 5a897d3; copia `partes-wt-f082`; **desplegada el 2026-11-26**, sv4 `r20261126182437`, arranque sin errores en Log Analytics; faltan las MANUAL de abajo, que hace el humano)
 
@@ -24,7 +24,16 @@ Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copi
      y debajo «Esta obra no tiene partidas»; elegirla ⇒ «sin partida · manual».
   4. Tras el paso 1, **Deshacer** ⇒ la línea vuelve a su partida (o a su aviso ⚠) de antes.
 
-## F-084 · human_review 2026-11-27 (reviewer principal APPROVED en 986f868; evidencias APPROVED en 34a5dbb; mutación 93/100, 7 equivalentes a aceptar por el humano; copia `partes-wt-f084`)
+## F-084 · done 2026-11-27 (OK del humano: «ok»; reviewer principal APPROVED en 986f868, evidencias APPROVED en 34a5dbb; copia `partes-wt-f084`; **sin desplegar**: faltan sv3 y sv4, y después M1–M3)
+
+- **Cierre (líder, 2026-11-27)**: mutación 198 mutantes, muestra 100: 93 muertos, 7 supervivientes, 0 timeouts.
+  Los 7 supervivientes son equivalentes (`progress/equivalentes_F-084.py`, «7/7 equivalentes demostrados»,
+  exit 0) y quedan **aceptados por el humano el 2026-11-27** con su «ok» a la PARADA 2, que los listaba uno
+  a uno y pedía su decisión. Cobertura de lo cambiado 100 % (303/303). `init.sh` exit 0 (reviewer de evidencias).
+- Riesgos aceptados (observaciones del reviewer): misma persona casada en un parte y sin casar en otro ⇒
+  recuperar no detecta el choque; dos líneas sin trabajador ⇒ 409 falso (lado seguro).
+- Automejoras propuestas, sin aplicar: `--incremental` debería conservar los análisis rellenos; un test que
+  mata un mutante solo lleva `rN` si afirma ese requisito; pedir `ARNES_SIN_CACHE=1` al reviewer para C1.
 
 - T1–T9 y T12 hechas (commits `F-084 T1`…`T9`; azure-apps `e09fd49`, sin push). T10 (mutación)
   y T11 (manual) quedan para el líder y el humano. Informe: `progress/impl_F-084.md`.

@@ -72,7 +72,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `_fecha_valida` es privada y sus 3 llamadores (`fecha_posterior_al_correo`, `motivos_activo`, `elegir_sustituto`) la usan siempre bajo `not`; nadie fuera del módulo la importa. Con `None` o `0` el mutado devuelve `None`/`0` en vez de `False`, la misma decisión bajo `not`; con negativos y positivos devuelve lo mismo. Ningún test puede ver la diferencia por la API pública.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#1), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): comprueba por el AST que todo `_fecha_valida(...)` está dentro de un `not` y, con el mutante en memoria, que `motivos_activo`, `fecha_posterior_al_correo`, `elegir_sustituto`, `clasificar` y `resumen` dan lo mismo en 5.000 casos con `fecha_int` None, 0, −5, 1 y fechas reales. Control negativo (`>= 0`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#1), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): comprueba por el AST que todo `_fecha_valida(...)` está dentro de un `not` y, con el mutante en memoria, que `motivos_activo`, `fecha_posterior_al_correo`, `elegir_sustituto`, `clasificar` y `resumen` dan lo mismo en 5.000 casos con `fecha_int` None, 0, −5, 1 y fechas reales. Control negativo (`>= 0`): sí se distingue.
 
 ### 2. `services/partes-front/application/services/partes_con_problemas.py:174` [veracidad]
 
@@ -83,7 +83,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `recibido` sale de `_instante`, que solo tiene tres `return`: `None` (except) y `momento.replace(...)` / `momento.astimezone(...)` sobre `momento = datetime.fromisoformat(...)`. Un `datetime` no define `__bool__` ni `__len__`: siempre es verdadero, también `datetime.min`.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#2), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST de `_instante`, tipo de `datetime` y 5.000 casos con instantes None, «», « », ilegibles, `0001-01-01T00:00:00`, medianoche y con zona. Control negativo (`is not None`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#2), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST de `_instante`, tipo de `datetime` y 5.000 casos con instantes None, «», « », ilegibles, `0001-01-01T00:00:00`, medianoche y con zona. Control negativo (`is not None`): sí se distingue.
 
 ### 3. `services/partes-front/application/services/partes_con_problemas.py:244` [veracidad]
 
@@ -94,7 +94,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: El único llamador de `motivo_sustituido` es `clasificar`, que le pasa `elegir_sustituto(...)`: `None`, `por_id.get(...)` (un `DocProblema` o `None`) o un candidato `DocProblema`. `DocProblema` es una dataclass sin `__bool__` ni `__len__`: toda instancia es verdadera, aunque traiga todos los campos vacíos. Es equivalencia de dominio, no de firma (la función es pública).
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#3), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): comprueba el llamador y los cinco `return` de `elegir_sustituto` por el AST, el tipo y 5.000 casos de `clasificar`. Control negativo (`if True:`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#3), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): comprueba el llamador y los cinco `return` de `elegir_sustituto` por el AST, el tipo y 5.000 casos de `clasificar`. Control negativo (`if True:`): sí se distingue.
 
 ### 4. `services/partes-front/infrastructure/database/parte_repository.py:4910` [veracidad]
 
@@ -105,7 +105,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `motivo` sale de `motivo_congelacion_documento`, cuyos cinco `return` son `None` o una de `MOTIVO_DOC_ENCOLADO`, `MOTIVO_DOC_REGISTRADO`, `MOTIVO_DOC_DEDICACION`, `MOTIVO_DOC_APROBADO`: cuatro cadenas no vacías. `is None` y `not` coinciden en todo el dominio.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#4), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST, constantes no vacías y `_insignia_congelado` original y mutado iguales en 960 combinaciones de `approved` y estados de línea (vacíos, mayúsculas, espacios). Control negativo (`is not None`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#4), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST, constantes no vacías y `_insignia_congelado` original y mutado iguales en 960 combinaciones de `approved` y estados de línea (vacíos, mayúsculas, espacios). Control negativo (`is not None`): sí se distingue.
 
 ### 5. `services/partes-front/infrastructure/database/parte_repository.py:5035` [veracidad]
 
@@ -116,7 +116,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `motivo` sale de `motivo_no_recuperable`, cuyos cuatro `return` son `None` o una de `MOTIVO_NO_REC_ACTIVO`, `MOTIVO_NO_REC_PAPELERA`, `MOTIVO_NO_REC_RETIRADO`: tres cadenas no vacías.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#5), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST, constantes no vacías y `recuperar_parte` sobre SQLite en memoria en 30 casos (activo, sustituido, papelera, retirado, aprobado, sin fecha, sin líneas, en Sigrid × sin fecha y dos fechas), comparando resultado o excepción y estado final. Control negativo (`is None`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#5), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST, constantes no vacías y `recuperar_parte` sobre SQLite en memoria en 30 casos (activo, sustituido, papelera, retirado, aprobado, sin fecha, sin líneas, en Sigrid × sin fecha y dos fechas), comparando resultado o excepción y estado final. Control negativo (`is None`): sí se distingue.
 
 ### 6. `services/partes-front/interface_adapters/web/app.py:2284` [veracidad]
 
@@ -127,7 +127,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `parsed` sale de `_parse_fecha_to_iso_int`, que solo devuelve `None` o una tupla de 2 (`(iso, YYYYMMDD)`): una tupla no vacía siempre es verdadera.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#6), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST (todo `return` es `None` o una tupla de 2) y `POST /api/partes/{id}/recuperar` original y mutado con el mismo estado y JSON en 128 peticiones (16 fechas, vacías e inválidas incluidas, × 4 estados × existe/no existe). Control negativo (`if parsed:`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#6), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST (todo `return` es `None` o una tupla de 2) y `POST /api/partes/{id}/recuperar` original y mutado con el mismo estado y JSON en 128 peticiones (16 fechas, vacías e inválidas incluidas, × 4 estados × existe/no existe). Control negativo (`if parsed:`): sí se distingue.
 
 ### 7. `services/partes-front/interface_adapters/web/app.py:2300` [veracidad]
 
@@ -138,7 +138,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 #### Análisis
 
 > Por qué ningún test lo caza: `res` sale de `ParteReviewRepository.recuperar_parte` (la única implementación; `_RepoRoto` de los tests hereda de ella), que solo devuelve `None` o `{"document_id", "fecha"}`: un dict de 2 claves siempre es verdadero.
-> Decisión: **mutante equivalente, pendiente de aceptación del humano**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#7), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST (dos `return`: `None` y el dict de esas 2 claves; ninguna otra `def recuperar_parte` fuera de los tests) y las mismas 128 peticiones HTTP. Control negativo (`is not None`): sí se distingue.
+> Decisión: **mutante equivalente, aceptado por el humano el 2026-11-27 («ok» a la PARADA 2)**. Demostración ejecutable: `progress/equivalentes_F-084.py` (#7), exit 0 (salida en `progress/impl_F-084.md`, «Campaña de mutación»): dominio por el AST (dos `return`: `None` y el dict de esas 2 claves; ninguna otra `def recuperar_parte` fuera de los tests) y las mismas 128 peticiones HTTP. Control negativo (`is not None`): sí se distingue.
 
 ## No muertos: código de salida
 
