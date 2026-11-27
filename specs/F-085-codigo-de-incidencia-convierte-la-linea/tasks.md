@@ -1,6 +1,6 @@
 # F-085 · Tareas
 
-Parte A = T1–T9; parte B = T10–T16. Si D1 = (a), T10–T16 pasan a la feature nueva (con sus R21–R32 y §5) y aquí T17 sigue a T9.
+Parte A = T1–T9; parte B = T10–T16. D1 = (b) (humano, 2026-11-27): las dos partes van en esta feature, T1–T18 en orden.
 
 - [ ] T1: Tests en ROJO de sv4 `tests/test_f085_conversion.py` (R1–R11, R14; `ClaseNueva`, PATCH, deshacer, recálculo con publicador falso) y del JS (R13)  |  Verificación: `pytest services/partes-front/tests/test_f085_conversion.py` falla por lo que falta (traza RED en `progress/impl_F-085.md`)
 - [ ] T2: `clase_hora.py` (`es_codigo_incidencia`, `es_codigo_fin`) y `application/services/conversion_clase.py` nuevo (design §2)  |  Verificación: tests unit de R1–R7 de T1 en verde
@@ -18,5 +18,5 @@ Parte A = T1–T9; parte B = T10–T16. Si D1 = (a), T10–T16 pasan a la featur
 - [ ] T14: Campaña de mutación de la parte B sobre `racha_ciz.py`, `registro_pipeline.py` (líneas cambiadas) y `racha_incidencia.py`  |  Verificación: `python -m harness.mutacion --feature F-085` con 0 supervivientes sin justificar
 - [ ] T15: M2 y, si el humano autoriza la edición a mano, M3 (design §8) en modo pruebas, con limpieza  |  Verificación: MANUAL (humano), comandos de design §8; resultado real en `progress/manual_F-085.md`
 - [ ] T16: M5 tras encender `MOVER_INICIO` en sv5 y luego en sv4 (lo pide y lo hace el humano)  |  Verificación: MANUAL (humano), consulta M5 de design §8
-- [ ] T17: M0 (líder, antes de T1), M1 en modo pruebas antes de desplegar y M4 (reparación del caso 0678) tras desplegar la parte A, con el OK expreso del humano para el `UPDATE` de la 25012  |  Verificación: MANUAL (humano), comandos de design §8 M0, M1 y M4; resultado real en `progress/manual_F-085.md`
+- [ ] T17: M0 (líder, antes de T1), M1 y M2 en modo pruebas antes de desplegar; M4 (reparación del caso 0678) queda FUERA: la hace el humano a mano (D15, 2026-11-27) y ningún agente escribe en producción ni en Sigrid  |  Verificación: MANUAL (humano), comandos de design §8 M0, M1 y M2; resultado real en `progress/manual_F-085.md`
 - [ ] T18: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh` termina en verde

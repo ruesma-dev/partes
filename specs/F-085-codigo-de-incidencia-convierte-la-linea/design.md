@@ -231,18 +231,18 @@ user=<usuario> sslmode=require"`.
 
 | Decisión | Opciones | Recomendado | Decidido |
 |---|---|---|---|
-| D1 Partir | (a) dos features: F-085 = parte A (R1–R20, sv4+sv3+sv5) y otra nueva = parte B (R21–R32), las dos `critico`; (b) una sola | (a): A arregla el caso de origen sola y B estrena escrituras de CI* con su propia campaña | |
-| D2 Horas al convertir en incidencia | (a) nulas, y `horas_orig` nulo (forma canónica); (b) conservarlas | (a) | |
-| D3 Vuelta atrás (incidencia ⇒ código de horas) | (a) se permite y las horas quedan vacías; (b) horas = jornada por defecto; (c) 409, no se permite | (a) | |
-| D4 Extra del mismo día y trabajador | (a) recálculo compartido: sv3 retira la extra automática no congelada; la explícita o congelada se queda con la marca F-025; (b) sv4 manda a la papelera todas las extras de ese día; (c) nada | (a) | |
-| D5 CIZ y CI* sin letra | (a) 400 los dos; (b) solo CIZ, el CI* sin letra como hoy; (c) (a) y además ocultarlos del desplegable | (a) | |
-| D6 Guarda de sv5 (R19) | (a) sí; (b) no, basta sv4 | (a): cubre las líneas heredadas y cualquier otra vía | |
-| D7 Líneas heredadas con CI* sin ser incidencia (M0 (1)) | (a) nada retroactivo: sv5 las omite y se vuelve a elegir el código; (b) migración SQL | (a) | |
-| D8 sv3 y lo manual | (a) respetar siempre `manual`; (b) solo si es un CI*; (c) solo si el código está en `reshor` del recurso | (a), como la partida | |
-| D9 Qué CI* es el inicio previo | (a) la primera línea de la racha posterior, del mismo código y con un CIZ en su día o después; (b) la primera del mismo código aunque no haya CIZ (enmienda F-083 R15); (c) no mover | (a): no rompe F-083 | |
-| D10 Inicio previo enlazado o en parte cerrado | (a) omitir con motivo, sin otro CI*; (b) escribir otro CI* con WARNING | (a), como F-060 R17–R18 | |
-| D11 Estado del día que era inicio | (a) `omitido` con `inicio_movido`; (b) `omitido` con el motivo de día intermedio de sv5 | (a), como `fin_movido` | |
-| D12 Interruptor de B | (a) `MOVER_INICIO` nuevo en sv5 y sv4, apagado; (b) bajo `MOVER_CIZ` (desplegar = activar); (c) solo en sv5 | (a): escribe en Sigrid, vuelta atrás sin redesplegar | |
-| D13 Guardado por cada paso del campo de horas | (a) fuera: feature aparte `estandar` (guardar al salir del campo, una entrada de deshacer por edición); (b) dentro | (a) | |
-| D14 F-081 R3 | (a) enmendarla: un CI* o CIZ no cuenta como «ordinaria» (422), con las funciones de R1; (b) sin cambios | (a) | |
-| D15 Reparación del caso 0678 | (a) M4: Administración edita la 416574 a CIA 0 h y el humano autoriza el `UPDATE` de la 25012 en `partes`; (b) Administración la borra en Sigrid, «Comprobar en Sigrid» la deja `borrado_sigrid` y se repara con la feature (convertir y reaprobar); (c) esperar a F-081 | (a): no borra en Sigrid | |
+| D1 Partir | (a) dos features: F-085 = parte A (R1–R20, sv4+sv3+sv5) y otra nueva = parte B (R21–R32), las dos `critico`; (b) una sola | (a): A arregla el caso de origen sola y B estrena escrituras de CI* con su propia campaña | (b) una sola feature · humano 2026-11-27: «hazlo en 1 sola feature» |
+| D2 Horas al convertir en incidencia | (a) nulas, y `horas_orig` nulo (forma canónica); (b) conservarlas | (a) | (a) · humano 2026-11-27 |
+| D3 Vuelta atrás (incidencia ⇒ código de horas) | (a) se permite y las horas quedan vacías; (b) horas = jornada por defecto; (c) 409, no se permite | (a) | (a) · humano 2026-11-27 |
+| D4 Extra del mismo día y trabajador | (a) recálculo compartido: sv3 retira la extra automática no congelada; la explícita o congelada se queda con la marca F-025; (b) sv4 manda a la papelera todas las extras de ese día; (c) nada | (a) | (a) · humano 2026-11-27 |
+| D5 CIZ y CI* sin letra | (a) 400 los dos; (b) solo CIZ, el CI* sin letra como hoy; (c) (a) y además ocultarlos del desplegable | (a) | (a) · humano 2026-11-27 |
+| D6 Guarda de sv5 (R19) | (a) sí; (b) no, basta sv4 | (a): cubre las líneas heredadas y cualquier otra vía | (a) · humano 2026-11-27 |
+| D7 Líneas heredadas con CI* sin ser incidencia (M0 (1)) | (a) nada retroactivo: sv5 las omite y se vuelve a elegir el código; (b) migración SQL | (a) | (a) · humano 2026-11-27 |
+| D8 sv3 y lo manual | (a) respetar siempre `manual`; (b) solo si es un CI*; (c) solo si el código está en `reshor` del recurso | (a), como la partida | (a) · humano 2026-11-27 |
+| D9 Qué CI* es el inicio previo | (a) la primera línea de la racha posterior, del mismo código y con un CIZ en su día o después; (b) la primera del mismo código aunque no haya CIZ (enmienda F-083 R15); (c) no mover | (a): no rompe F-083 | (a) · humano 2026-11-27 |
+| D10 Inicio previo enlazado o en parte cerrado | (a) omitir con motivo, sin otro CI*; (b) escribir otro CI* con WARNING | (a), como F-060 R17–R18 | (a) · humano 2026-11-27 |
+| D11 Estado del día que era inicio | (a) `omitido` con `inicio_movido`; (b) `omitido` con el motivo de día intermedio de sv5 | (a), como `fin_movido` | (a) · humano 2026-11-27 |
+| D12 Interruptor de B | (a) `MOVER_INICIO` nuevo en sv5 y sv4, apagado; (b) bajo `MOVER_CIZ` (desplegar = activar); (c) solo en sv5 | (a): escribe en Sigrid, vuelta atrás sin redesplegar | (a) · humano 2026-11-27 |
+| D13 Guardado por cada paso del campo de horas | (a) fuera: feature aparte `estandar` (guardar al salir del campo, una entrada de deshacer por edición); (b) dentro | (a) | (a) · humano 2026-11-27 |
+| D14 F-081 R3 | (a) enmendarla: un CI* o CIZ no cuenta como «ordinaria» (422), con las funciones de R1; (b) sin cambios | (a) | (a) · humano 2026-11-27 |
+| D15 Reparación del caso 0678 | (a) M4: Administración edita la 416574 a CIA 0 h y el humano autoriza el `UPDATE` de la 25012 en `partes`; (b) Administración la borra en Sigrid, «Comprobar en Sigrid» la deja `borrado_sigrid` y se repara con la feature (convertir y reaprobar); (c) esperar a F-081 | (a): no borra en Sigrid | Fuera: la reparan a mano · humano 2026-11-27: «la raparacion no te proecupes la haremos a mano»; ningún agente escribe en producción ni en Sigrid, M4 queda como guía |
