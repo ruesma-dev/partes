@@ -211,6 +211,12 @@ registro**:
    - Ordinarias → código laborable del recurso (HLOF…).
    - Extra → SOLO si el recurso tiene código HE% en su ficha; si no, se
      omite con motivo (los mensuales con MENC no registran por horas).
+   - **Una línea de horas con un código de incidencia** (CI\* o CIZ, o
+     un `hora_ide` que es un CI\* del recurso) no se escribe (F-085): se
+     omite con «codigo de incidencia en una linea de horas: vuelve a
+     elegir el codigo en el portal». Antes, sv5 tomaba el primer HL\* y
+     escribía horas (caso 0678). En el portal, elegir un CI\* con letra
+     convierte la línea en incidencia (§4.4).
    - **Incidencias**: van SIN horas (can=0). Solo se registran el
      **inicio** de la racha (con su código CI*) y el **fin** (código
      CIZ); los días intermedios se omiten. El rol lo calcula sv4. Con
@@ -541,6 +547,17 @@ líneas físicas es el comportamiento correcto. Un día suelto (trabajo
 antes y después) lleva su código, como la «A» de un accidente puntual;
 desde F-062 (con `MOVER_CIZ`) lleva además su CIZ ese mismo día, como lo
 graba Administración.
+
+**Elegir el código de la incidencia en el portal (F-085)**. Si el revisor
+cambia en una línea de horas el código a uno de incidencia (CIA, CIV…), la
+línea pasa a ser esa incidencia: su letra sale de `config/incidencias.yaml`
+(CIA → AT) y sus horas quedan vacías; sus horas extra automáticas de ese
+día las retira el recálculo de sv3. El CIZ no se elige (lo pone el
+sistema al cerrar la racha) y un CI\* que no está en la tabla tampoco: el
+portal lo rechaza. Volver a un código de horas devuelve la línea a horas,
+con las horas vacías para rellenarlas. Deshacer lo deja todo como estaba.
+sv3 ya no pisa un código elegido a mano y sv5 no escribe horas con un
+código de incidencia.
 
 **El CIZ se mueve (F-060)**. Como los partes se aprueban día a día, el
 fin de una racha no se conoce hasta que aparece un día trabajado. Regla

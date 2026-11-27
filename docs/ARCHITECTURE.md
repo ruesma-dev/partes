@@ -132,6 +132,30 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (Python y el fragmento T-SQL `condicion_sql_extra`): el catálogo de tipos
    de hora omite los excluidos, el selector de código de hora fija
    `tipo_hora` por la regla y `/api/sigrid/tipos-hora` manda `extra` al JS.
+   **Código de incidencia en el selector (F-085)**: elegir en una línea un
+   código de incidencia (`es_codigo_incidencia` de `clase_hora.py`: empieza
+   por `CI` y no es `CIZ`) la **convierte** en incidencia con la forma
+   canónica de la ingesta (`es_incidencia`, la letra de
+   `config/incidencias.yaml` en `tipo_hora` e `incidencia_codigo`, horas y
+   `horas_orig` nulos); otra letra la cambia de letra y, en una incidencia,
+   un código de horas la devuelve a horas con las horas vacías (revoca
+   F-066 R14). La decide `application/services/conversion_clase.py`
+   (puro). `CIZ` (`es_codigo_fin`) y un CI* sin letra en la tabla dan 400
+   sin tocar nada. Un cambio de clase deja una entrada de deshacer
+   `registro_clase` (con `horas_orig`, `extra_auto` e `incidencia_codigo`),
+   pide UN recálculo compartido (F-049) de los partes de ese recurso y día
+   con motivo `codigo_incidencia` (`deshacer_codigo_incidencia` al
+   deshacer; sv3 retira la extra automática no congelada de esa base) y el
+   portal recarga la página. Mientras sv3 recalcula, las demás líneas de
+   esos partes dan 409 (F-043). **sv3 respeta lo manual**: el casado de
+   recurso no pisa el código de una línea con `hora_match_method =
+   "manual"` (solo categoría, `hora_candef` y `recurso_precio_hora`; INFO
+   `hora_manual_respetada`), como la partida. **sv5 guarda**: una línea
+   que no es incidencia con un código CI* o CIZ (o un `hora_ide` que es un
+   CI* de su recurso) se omite con `MOTIVO_CODIGO_INCIDENCIA` («codigo de
+   incidencia en una linea de horas: vuelve a elegir el codigo en el
+   portal»), tras las omisiones previas y antes de mensuales y de «sin
+   horas»: nunca escribe un HL* o HE* por ella (caso 0678, 18/11/2026).
    sv3 y sv5 la adoptan con F-067; hasta entonces sv3 aún podría asignar
    `HENC` por categoría a una línea nueva (sv5 no la elige: no está en
    `reshor`). Los mensuales (MENC) no registran por horas: sus «extras» del
