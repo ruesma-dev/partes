@@ -340,8 +340,11 @@ def test_f084_r19_las_excepciones_llevan_motivo() -> None:
 
 # ================= T10 · supervivientes de la mutación =================== #
 
-def test_f084_r7_clasificado_es_inmutable() -> None:
-    """Una fila clasificada no se altera tras `clasificar` (mutante 1)."""
+def test_f084_clasificado_es_inmutable() -> None:
+    """Protege el DISENO, no un requisito: `Clasificado` es
+    `frozen=True`, como `DocProblema` (design §5), para que nadie altere
+    una fila despues de `clasificar`. Mata el mutante `frozen=False` de
+    la campaña de T10."""
     [fila] = pp.clasificar([_doc("o1", obra_ide=None)])
     with pytest.raises(dataclasses.FrozenInstanceError):
         fila.motivos = ()  # type: ignore[misc]
