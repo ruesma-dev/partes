@@ -340,7 +340,10 @@ class SqlAlchemyParteRepository:
         la base de una pareja ya partida), `extra_auto`, `deleted_at_utc`
         (las de la papelera no entran en el reparto del dia, pero si en el
         casado de recurso) y la clave de pareja (`line_index`,
-        `empleado_line_no`) para medir el reparto ideal de lo congelado."""
+        `empleado_line_no`) para medir el reparto ideal de lo congelado.
+
+        F-085 (R17): y `hora_match_method`, para que el casado de recurso
+        no pise el codigo de hora elegido a mano (`manual`)."""
         with self._session_factory.create_session() as session:
             stmt = (
                 select(
@@ -374,6 +377,8 @@ class SqlAlchemyParteRepository:
                     # F-045: lo trabajado y la papelera.
                     ParteRegistroOrm.horas_orig,
                     ParteRegistroOrm.deleted_at_utc,
+                    # F-085 (R17): el codigo de hora puesto a mano.
+                    ParteRegistroOrm.hora_match_method,
                 )
                 .join(
                     ParteDocumentOrm,
@@ -386,7 +391,7 @@ class SqlAlchemyParteRepository:
             for (rid, doc_id, obra_ide, emp_ide, reside, dni, fint, tipo_hora,
                  hora_ide, hora_codigo, categoria, horas, sigrid_estado,
                  aprobado, recurso_ide, empresa, line_index, eln,
-                 extra_auto, horas_orig, borrada
+                 extra_auto, horas_orig, borrada, hora_metodo
                  ) in session.execute(stmt).all():
                 parejas.append(_fila_pareja(
                     registro_id=rid, document_id=doc_id,
@@ -417,6 +422,7 @@ class SqlAlchemyParteRepository:
                     "deleted_at_utc": borrada,
                     "line_index": line_index,
                     "empleado_line_no": eln,
+                    "hora_match_method": hora_metodo,
                 })
             congeladas = claves_congeladas(parejas)
             for fila, pareja in zip(out, parejas):
