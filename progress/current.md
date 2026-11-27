@@ -24,7 +24,7 @@ Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copi
      y debajo «Esta obra no tiene partidas»; elegirla ⇒ «sin partida · manual».
   4. Tras el paso 1, **Deshacer** ⇒ la línea vuelve a su partida (o a su aviso ⚠) de antes.
 
-## F-084 · in_progress 2026-11-26 (implementer; copia `partes-wt-f084`)
+## F-084 · human_review 2026-11-27 (reviewer principal APPROVED en 986f868; evidencias APPROVED en 34a5dbb; mutación 93/100, 7 equivalentes a aceptar por el humano; copia `partes-wt-f084`)
 
 - T1–T9 y T12 hechas (commits `F-084 T1`…`T9`; azure-apps `e09fd49`, sin push). T10 (mutación)
   y T11 (manual) quedan para el líder y el humano. Informe: `progress/impl_F-084.md`.

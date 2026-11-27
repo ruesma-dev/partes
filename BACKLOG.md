@@ -9,7 +9,7 @@ Resumen: **78 features**, 18 abiertas y 60 terminadas. Por columna: 1 en Review,
 
 | # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | reviewer | specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26) | 2 | critico | `feature/F-084-partes-con-problemas` |
+| F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | humano | specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26) | 2 | critico | `feature/F-084-partes-con-problemas` |
 
 ## Blocked
 
@@ -136,7 +136,7 @@ Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero
 
 ### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
 
-estado **en QA / revisión** · spec aprobada el 2026-11-26 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
+estado **en revisión humana** · spec aprobada el 2026-11-26 · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-084-partes-con-problemas`
 
 **Spec**: specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26)
 
