@@ -520,6 +520,10 @@ var FiltrosSesion = (function () {
       .then(function (results) {
         flash(select, "saved");
         if (bulk) { window.location.reload(); return; }
+        // F-085 (R13): una línea que pasa a incidencia (o vuelve a horas)
+        // cambia la insignia Tipo, la matriz y la celda de horas.
+        var cambiada = results.some(function (r) { return r && r.clase_cambiada; });
+        if (cambiada) { window.location.reload(); return; }
         var data = results[0];
         if (current) {
           current.textContent = (data.hora_codigo || "") +
