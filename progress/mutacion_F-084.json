@@ -1,0 +1,920 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-084",
+ "sha": "8474ce964ec3f257d5e304c9a617e1942f1675c4",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 198,
+ "candidatos": 131,
+ "evaluados": [
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 60,
+   "col": 21,
+   "operador": "entero",
+   "original": "MARGEN_CORREO_DIAS = 1",
+   "mutado": "MARGEN_CORREO_DIAS = 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 90,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 110,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 121,
+   "col": 28,
+   "operador": "entero",
+   "original": "return self.motivos[0]",
+   "mutado": "return self.motivos[1]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 138,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if momento.tzinfo is None:",
+   "mutado": "if momento.tzinfo is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 144,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "return fecha_int is not None and fecha_int > 0",
+   "mutado": "return fecha_int and fecha_int > 0",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 150,
+   "col": 16,
+   "operador": "not",
+   "original": "and not es_retirado(is_active=d.is_active,",
+   "mutado": "and es_retirado(is_active=d.is_active,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 157,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if d.is_active:",
+   "mutado": "if not d.is_active:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 159,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if d.deleted_at_utc:",
+   "mutado": "if not d.deleted_at_utc:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 161,
+   "col": 7,
+   "operador": "not",
+   "original": "if not es_sustituido(d):",
+   "mutado": "if es_sustituido(d):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 171,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _fecha_valida(fecha_int):",
+   "mutado": "if _fecha_valida(fecha_int):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 174,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if recibido is None:",
+   "mutado": "if not recibido:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 176,
+   "col": 35,
+   "operador": "aritmetico",
+   "original": "limite: date = recibido.date() + timedelta(days=MARGEN_CORREO_DIAS)",
+   "mutado": "limite: date = recibido.date() - timedelta(days=MARGEN_CORREO_DIAS)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 177,
+   "col": 21,
+   "operador": "comparacion",
+   "original": "return fecha_int > int(limite.strftime(\"%Y%m%d\"))",
+   "mutado": "return fecha_int >= int(limite.strftime(\"%Y%m%d\"))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 183,
+   "col": 18,
+   "operador": "comparacion",
+   "original": "if d.obra_ide is None:",
+   "mutado": "if d.obra_ide is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 185,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _fecha_valida(d.fecha_int):",
+   "mutado": "if _fecha_valida(d.fecha_int):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 187,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if d.es_futuro:",
+   "mutado": "if not d.es_futuro:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 189,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if fecha_posterior_al_correo(d.fecha_int, d.email_received_datetime):",
+   "mutado": "if not fecha_posterior_al_correo(d.fecha_int, d.email_received_datetime):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 191,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if d.lineas_vivas <= 0:",
+   "mutado": "if not (d.lineas_vivas <= 0):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 198,
+   "col": 59,
+   "operador": "comparacion",
+   "original": "return bool(_texto(a.email_id)) and _texto(a.email_id) == _texto(b.email_id)",
+   "mutado": "return bool(_texto(a.email_id)) and _texto(a.email_id) != _texto(b.email_id)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 205,
+   "col": 37,
+   "operador": "comparacion",
+   "original": "return _texto(b.obra_codigo) == codigo",
+   "mutado": "return _texto(b.obra_codigo) != codigo",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 208,
+   "col": 12,
+   "operador": "logico",
+   "original": "and _texto(b.obra_numero_leido) == numero)",
+   "mutado": "or _texto(b.obra_numero_leido) == numero)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 212,
+   "col": 39,
+   "operador": "logico",
+   "original": "return _instante(d.created_at_utc) or datetime.max.replace(",
+   "mutado": "return _instante(d.created_at_utc) and datetime.max.replace(",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 223,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if _texto(d.sustituido_por_id):",
+   "mutado": "if not _texto(d.sustituido_por_id):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 225,
+   "col": 7,
+   "operador": "not",
+   "original": "if not _fecha_valida(d.fecha_int):",
+   "mutado": "if _fecha_valida(d.fecha_int):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 230,
+   "col": 32,
+   "operador": "comparacion",
+   "original": "if c.is_active and c.id != d.id and c.fecha_int == d.fecha_int",
+   "mutado": "if c.is_active and c.id == d.id and c.fecha_int == d.fecha_int",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 231,
+   "col": 55,
+   "operador": "comparacion",
+   "original": "and _misma_obra(d, c) and _clave_antiguedad(c) > creado",
+   "mutado": "and _misma_obra(d, c) and _clave_antiguedad(c) >= creado",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 233,
+   "col": 7,
+   "operador": "not",
+   "original": "if not candidatos:",
+   "mutado": "if candidatos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 237,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if mismo_envio(d, c):",
+   "mutado": "if not mismo_envio(d, c):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 244,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if sustituto is None:",
+   "mutado": "if not sustituto:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 246,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if mismo_envio(d, sustituto):",
+   "mutado": "if not mismo_envio(d, sustituto):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 253,
+   "col": 17,
+   "operador": "comparacion",
+   "original": "return any(m not in NO_CUENTAN for m in motivos)",
+   "mutado": "return any(m in NO_CUENTAN for m in motivos)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 261,
+   "col": 51,
+   "operador": "not",
+   "original": "activos = [d for d in todos if d.is_active and not d.deleted_at_utc]",
+   "mutado": "activos = [d for d in todos if d.is_active and d.deleted_at_utc]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 268,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if motivos:",
+   "mutado": "if not motivos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 270,
+   "col": 13,
+   "operador": "negacion",
+   "original": "elif es_sustituido(d):",
+   "mutado": "elif not es_sustituido(d):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 275,
+   "col": 51,
+   "operador": "entero",
+   "original": "-(f.doc.fecha_int or 0)))",
+   "mutado": "-(f.doc.fecha_int or 1)))",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 285,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if f.cuenta:",
+   "mutado": "if not f.cuenta:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 286,
+   "col": 21,
+   "operador": "entero",
+   "original": "total += 1",
+   "mutado": "total += 2",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/partes_con_problemas.py",
+   "linea": 288,
+   "col": 49,
+   "operador": "aritmetico",
+   "original": "por_motivo[m] = por_motivo.get(m, 0) + 1",
+   "mutado": "por_motivo[m] = por_motivo.get(m, 0) - 1",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/orm_models.py",
+   "linea": 190,
+   "col": 65,
+   "operador": "entero",
+   "original": "sustituido_at_utc: Mapped[str | None] = mapped_column(String(64))   # sv3",
+   "mutado": "sustituido_at_utc: Mapped[str | None] = mapped_column(String(65))   # sv3",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3964,
+   "col": 46,
+   "operador": "logico",
+   "original": "for did in payload.get(\"reactivados\") or []:",
+   "mutado": "for did in payload.get(\"reactivados\") and []:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3966,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if doc is None or not doc.is_active:",
+   "mutado": "if not (doc is None or not doc.is_active):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3968,
+   "col": 42,
+   "operador": "comparacion",
+   "original": "if _motivo_congelado_doc(doc) is not None:",
+   "mutado": "if _motivo_congelado_doc(doc) is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4910,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if motivo is None:",
+   "mutado": "if not motivo:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4917,
+   "col": 45,
+   "operador": "not",
+   "original": "vivas = [r for r in doc.registros if not r.deleted_at_utc]",
+   "mutado": "vivas = [r for r in doc.registros if r.deleted_at_utc]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4918,
+   "col": 31,
+   "operador": "logico",
+   "original": "horas_n = sum((r.horas or 0.0) for r in vivas",
+   "mutado": "horas_n = sum((r.horas and 0.0) for r in vivas",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4919,
+   "col": 45,
+   "operador": "logico",
+   "original": "if not r.es_incidencia and not _is_extra(r))",
+   "mutado": "if not r.es_incidencia or not _is_extra(r))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4921,
+   "col": 45,
+   "operador": "logico",
+   "original": "if not r.es_incidencia and _is_extra(r))",
+   "mutado": "if not r.es_incidencia or _is_extra(r))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4931,
+   "col": 43,
+   "operador": "logico",
+   "original": "\"obra_nombre\": doc.obra_nombre or doc.obra_nombre_leido,",
+   "mutado": "\"obra_nombre\": doc.obra_nombre and doc.obra_nombre_leido,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4942,
+   "col": 30,
+   "operador": "logico",
+   "original": "and doc.sharepoint_item_id),",
+   "mutado": "or doc.sharepoint_item_id),",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4944,
+   "col": 43,
+   "operador": "comparacion",
+   "original": "\"sustituto\": None if sustituto is None else {",
+   "mutado": "\"sustituto\": None if sustituto is not None else {",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4950,
+   "col": 32,
+   "operador": "logico",
+   "original": "or sustituto.obra_nombre_leido),",
+   "mutado": "and sustituto.obra_nombre_leido),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4965,
+   "col": 15,
+   "operador": "not",
+   "original": "if not con_filas:",
+   "mutado": "if con_filas:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4970,
+   "col": 54,
+   "operador": "comparacion",
+   "original": "por_id[f.sustituto.id] if f.sustituto is not None else None)",
+   "mutado": "por_id[f.sustituto.id] if f.sustituto is None else None)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4976,
+   "col": 47,
+   "operador": "entero",
+   "original": "return self._problemas(con_filas=True)[1]",
+   "mutado": "return self._problemas(con_filas=True)[2]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4980,
+   "col": 60,
+   "operador": "entero",
+   "original": "return pcp.resumen(self._problemas(con_filas=False)[0])",
+   "mutado": "return pcp.resumen(self._problemas(con_filas=False)[1])",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4986,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if a.obra_ide is not None and b.obra_ide is not None:",
+   "mutado": "if a.obra_ide and b.obra_ide is not None:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4987,
+   "col": 30,
+   "operador": "comparacion",
+   "original": "return a.obra_ide == b.obra_ide",
+   "mutado": "return a.obra_ide != b.obra_ide",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4988,
+   "col": 28,
+   "operador": "logico",
+   "original": "ca = (a.obra_codigo or \"\").strip()",
+   "mutado": "ca = (a.obra_codigo and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4989,
+   "col": 28,
+   "operador": "logico",
+   "original": "cb = (b.obra_codigo or \"\").strip()",
+   "mutado": "cb = (b.obra_codigo and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4990,
+   "col": 14,
+   "operador": "logico",
+   "original": "if ca or cb:",
+   "mutado": "if ca and cb:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4991,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "return ca == cb",
+   "mutado": "return ca != cb",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4992,
+   "col": 34,
+   "operador": "logico",
+   "original": "na = (a.obra_numero_leido or \"\").strip()",
+   "mutado": "na = (a.obra_numero_leido and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5001,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if not fecha_int or not claves:",
+   "mutado": "if not (not fecha_int or not claves):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5006,
+   "col": 50,
+   "operador": "booleano",
+   "original": ".where(ParteDocumentOrm.is_active.is_(True))",
+   "mutado": ".where(ParteDocumentOrm.is_active.is_(False))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5007,
+   "col": 39,
+   "operador": "comparacion",
+   "original": ".where(ParteDocumentOrm.id != doc.id)",
+   "mutado": ".where(ParteDocumentOrm.id == doc.id)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5013,
+   "col": 35,
+   "operador": "logico",
+   "original": "\"obra\": o.obra_codigo or o.obra_numero_leido}",
+   "mutado": "\"obra\": o.obra_codigo and o.obra_numero_leido}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5017,
+   "col": 29,
+   "operador": "not",
+   "original": "if not r.deleted_at_utc}",
+   "mutado": "if r.deleted_at_utc}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5031,
+   "col": 15,
+   "operador": "not",
+   "original": "if not bloqueados:",
+   "mutado": "if bloqueados:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5033,
+   "col": 29,
+   "operador": "entero",
+   "original": "doc = bloqueados[0]",
+   "mutado": "doc = bloqueados[1]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5035,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if motivo is not None:",
+   "mutado": "if motivo:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5037,
+   "col": 34,
+   "operador": "comparacion",
+   "original": "con_fecha = fecha_iso is not None",
+   "mutado": "con_fecha = fecha_iso is None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5038,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if con_fecha:",
+   "mutado": "if not con_fecha:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5043,
+   "col": 43,
+   "operador": "ternario",
+   "original": "session, doc, fecha_int if con_fecha else doc.fecha_int)",
+   "mutado": "session, doc, fecha_int if not con_fecha else doc.fecha_int)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5044,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if choques:",
+   "mutado": "if not choques:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5049,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if con_fecha:",
+   "mutado": "if not con_fecha:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5055,
+   "col": 28,
+   "operador": "booleano",
+   "original": "doc.is_active = True",
+   "mutado": "doc.is_active = False",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 5059,
+   "col": 55,
+   "operador": "logico",
+   "original": "f\"Recuperar parte {doc.obra_codigo or doc.obra_numero_leido or ''} \"",
+   "mutado": "f\"Recuperar parte {doc.obra_codigo and doc.obra_numero_leido or ''} \"",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 1754,
+   "col": 47,
+   "operador": "comparacion",
+   "original": "if res.get(\"ok\") and res.get(\"action\") in motivos_deshacer:",
+   "mutado": "if res.get(\"ok\") and res.get(\"action\") not in motivos_deshacer:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2241,
+   "col": 26,
+   "operador": "logico",
+   "original": "if not grupos or grupos[-1][\"motivo\"] != fila[\"motivo\"]:",
+   "mutado": "if not grupos and grupos[-1][\"motivo\"] != fila[\"motivo\"]:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2245,
+   "col": 20,
+   "operador": "entero",
+   "original": "grupos[-1][\"filas\"].append(fila)",
+   "mutado": "grupos[-2][\"filas\"].append(fila)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2252,
+   "col": 25,
+   "operador": "entero",
+   "original": "\"total\": sum(1 for f in filas if f[\"cuenta\"]),",
+   "mutado": "\"total\": sum(2 for f in filas if f[\"cuenta\"]),",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2260,
+   "col": 57,
+   "operador": "booleano",
+   "original": "@app.get(\"/api/problemas/resumen\", include_in_schema=False)",
+   "mutado": "@app.get(\"/api/problemas/resumen\", include_in_schema=True)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2269,
+   "col": 39,
+   "operador": "booleano",
+   "original": "return JSONResponse({\"ok\": False, \"total\": 0})",
+   "mutado": "return JSONResponse({\"ok\": True, \"total\": 0})",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2270,
+   "col": 35,
+   "operador": "booleano",
+   "original": "return JSONResponse({\"ok\": True, \"total\": res[\"total\"],",
+   "mutado": "return JSONResponse({\"ok\": False, \"total\": res[\"total\"],",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2273,
+   "col": 71,
+   "operador": "booleano",
+   "original": "@app.post(\"/api/partes/{document_id}/recuperar\", include_in_schema=False)",
+   "mutado": "@app.post(\"/api/partes/{document_id}/recuperar\", include_in_schema=True)",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2281,
+   "col": 54,
+   "operador": "logico",
+   "original": "texto = ((payload.fecha if payload else None) or \"\").strip()",
+   "mutado": "texto = ((payload.fecha if payload else None) and \"\").strip()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2282,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if texto:",
+   "mutado": "if not texto:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2284,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if parsed is None:",
+   "mutado": "if not parsed:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2286,
+   "col": 48,
+   "operador": "entero",
+   "original": "status_code=400)",
+   "mutado": "status_code=401)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2294,
+   "col": 39,
+   "operador": "booleano",
+   "original": "return JSONResponse({\"ok\": False, \"error\": exc.motivo,",
+   "mutado": "return JSONResponse({\"ok\": True, \"error\": exc.motivo,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2295,
+   "col": 68,
+   "operador": "entero",
+   "original": "\"partes\": exc.partes}, status_code=409)",
+   "mutado": "\"partes\": exc.partes}, status_code=410)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2298,
+   "col": 44,
+   "operador": "entero",
+   "original": "status_code=409)",
+   "mutado": "status_code=410)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2300,
+   "col": 11,
+   "operador": "veracidad",
+   "original": "if res is None:",
+   "mutado": "if not res:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2301,
+   "col": 39,
+   "operador": "booleano",
+   "original": "return JSONResponse({\"ok\": False, \"error\": \"Parte no encontrado\"},",
+   "mutado": "return JSONResponse({\"ok\": True, \"error\": \"Parte no encontrado\"},",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 2307,
+   "col": 35,
+   "operador": "booleano",
+   "original": "return JSONResponse({\"ok\": True, \"document_id\": res[\"document_id\"],",
+   "mutado": "return JSONResponse({\"ok\": False, \"document_id\": res[\"document_id\"],",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 189,
+   "col": 65,
+   "operador": "entero",
+   "original": "sustituido_por_id: Mapped[str | None] = mapped_column(String(36))   # sv3",
+   "mutado": "sustituido_por_id: Mapped[str | None] = mapped_column(String(37))   # sv3",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/orm_models.py",
+   "linea": 190,
+   "col": 65,
+   "operador": "entero",
+   "original": "sustituido_at_utc: Mapped[str | None] = mapped_column(String(64))   # sv3",
+   "mutado": "sustituido_at_utc: Mapped[str | None] = mapped_column(String(65))   # sv3",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1211,
+   "col": 24,
+   "operador": "logico",
+   "original": "if email_id and old.email_id == email_id:        # F-084 R3",
+   "mutado": "if email_id or old.email_id == email_id:        # F-084 R3",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/infrastructure/database/sqlalchemy_parte_repository.py",
+   "linea": 1215,
+   "col": 50,
+   "operador": "logico",
+   "original": "exclude_id, old.id, fint, cod or num,",
+   "mutado": "exclude_id, old.id, fint, cod and num,",
+   "veredicto": "muerto"
+  }
+ ]
+}
