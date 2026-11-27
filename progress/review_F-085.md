@@ -3,8 +3,7 @@ Revisión completa (pasada 1, principal) · `git diff dev...HEAD` (merge-base b5
 
 # F-085 · Review (pasada principal)
 
-**Veredicto: CHANGES_REQUESTED** (2 cambios; el resto en verde). SHA revisado: `33663c4`; no hay
-SHA aprobado todavía. La pasada 2 será incremental desde 33663c4.
+**Veredicto: CHANGES_REQUESTED** (2 cambios). SHA revisado `33663c4`, sin aprobar; la pasada 2 va desde él.
 
 **Nivel de rigor: `critico`** (declarado en `features.json`). Exige fase RED, cobertura ≥ 90 % de
 lo cambiado, mutación con 0 supervivientes sin justificar y RM1–RM7. Mutación (T9, T14), RM1–RM6
@@ -17,7 +16,6 @@ y la capa e2e quedan **«pendiente: pasada de evidencias»**. El diff no toca
   (1357 s); sv1 74, sv2 579, sv3 2989, sv4 4254, sv5 1988, todos en verde y sin caché.
   `PUERTA COBERTURA: 100.0% (219/219)`, `PUERTA TAMAÑO` dentro, `CAPA E2E: N/A (ningún servicio
   declara el bloque e2e)`, `ENTORNO LISTO`. Avisos: deuda previa de ruff; `coverage.json` no escrito.
-- [x] Están los ficheros del arnés.
 
 ## C2 — Estado coherente
 - [x] Una sola activa (F-085, `in_review`), en su rama, con `current.md` de esta sesión, cogida
@@ -70,8 +68,7 @@ y la capa e2e quedan **«pendiente: pasada de evidencias»**. El diff no toca
   - sv4: poner el 400 de R5/R6 detrás de `repository.set_registro_hora` ⇒ FALLAN los 2
     `r5_r6_endpoint_400_sin_tocar`.
   - El orden de la parte B (una sola lectura; mover en vez de `INSERT`) lo vigilan R21 y R30a.
-- [x] «Evidencias»: están las cifras, con la mutación «sin medir» (toca a la campaña) y la capa
-  e2e N/A.
+- [x] «Evidencias» completas (la mutación «sin medir», le toca a la campaña; capa e2e N/A).
 
 ## C5 — Cierre
 - [x] T1–T8, T10–T13 y T18 en `[x]`, con un commit `F-085 Tn:` cada una. N/A justificado: T9 y T14
@@ -89,12 +86,9 @@ y la capa e2e quedan **«pendiente: pasada de evidencias»**. El diff no toca
 - **Tests enmendados**: justificados por la spec y sin relajar nada.
   - `f066_r14`: R14 revocado; ahora afirma R4.
   - `f066_r18`: su tercera fila es una incidencia, y con R4 pasa a `extra` por el código 7.
-  - `f017`: un `_actor(request)` más (R11). `f043`: una recarga más (R13). `f037 r9`: una clave
-    más (R17).
-- **Desviaciones 1–3 y 5**: aceptables. En la 1, decidir la clase dentro de la transacción quita
-  una carrera; en la 3, `extra_auto=False` evita que sv3 borre la línea convertida y deshacer lo
-  restaura.
-- **Desviación 4**: no es aceptable sin una decisión del humano (Cambio 2).
+  - `f017` +1 `_actor(request)` (R11); `f043` +1 recarga (R13); `f037 r9` +1 clave (R17).
+- **Desviaciones**: la 1 (la clase se decide dentro de la transacción), la 2, la 3 (`extra_auto=False`;
+  deshacer lo restaura) y la 5 son aceptables. La 4 no lo es sin decisión del humano (Cambio 2).
 
 ## Cobertura requisito → test (todos en verde)
 | R | Test(s) |
@@ -141,9 +135,6 @@ y la capa e2e quedan **«pendiente: pasada de evidencias»**. El diff no toca
 - **D8**: `manual` también lo ponen el alta manual (`parte_repository.py:2083`) y el clon de celda
   (F-049), y la reasignación de recurso (F-035) no lo borra. sv3 ya no le impone el código del
   recurso nuevo. Lo decidió el humano en (a); vale la pena verlo en M1.
-- `HoraRecurso.es_incidencia` ahora también quita los espacios de los lados: es inocuo.
 
-## Automejora (propuesta, no aplicada)
-- En `CHECKPOINTS.md` C4, añadir: «un requisito de selección múltiple o concurrencia cuyo único
-  test corre con la cola o el colaborador apagados no está demostrado para la configuración de
-  producción». En F-085 el único test verde de la selección múltiple era `sin_cola=True`.
+**Automejora (propuesta, no aplicada)**: en `CHECKPOINTS.md` C4, «un requisito de selección
+múltiple cuyo único test corre con la cola apagada no está demostrado en producción».
