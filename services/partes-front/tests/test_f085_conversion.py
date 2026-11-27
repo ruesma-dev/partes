@@ -566,7 +566,10 @@ def test_f085_r8_varias_lineas_cada_una_su_regla(portal) -> None:
         _poner(fabrica, ids[2], es_incidencia=True, tipo_hora="V",
                incidencia_codigo="V", horas=None)
         return ids
-    cliente, fabrica, ids, _c = portal(sembrar)
+    # Sin cola: con ella, el recálculo pedido por la primera deja el parte
+    # en espera (F-043) y las demás líneas del MISMO parte dan 409 hasta
+    # que sv3 termina (ver el test siguiente y progress/impl_F-085.md).
+    cliente, fabrica, ids, _c = portal(sembrar, sin_cola=True)
     for rid in ids:
         assert _patch(cliente, rid, "CIA").status_code == 200
     assert [(_fila(fabrica, r)["tipo_hora"],
@@ -576,6 +579,34 @@ def test_f085_r8_varias_lineas_cada_una_su_regla(portal) -> None:
         assert _patch(cliente, rid, "HL01").status_code == 200
     assert [(_fila(fabrica, r)["tipo_hora"], _fila(fabrica, r)["horas"])
             for r in ids] == [("normal", None)] * 3
+
+
+def test_f085_r8_varias_lineas_de_dias_distintos_con_cola(portal) -> None:
+    """Una racha de varios días: cada día es un parte distinto y cada
+    PATCH pide su recálculo (design §2: un pedido por llamada)."""
+    def sembrar(fabrica):
+        return [sembrar_parte(fabrica, [{"tipo": "normal"}],
+                              document_id=f"d-{n}",
+                              fecha=f"2026-03-0{n}")[0] for n in (2, 3, 4)]
+    cliente, fabrica, ids, cola = portal(sembrar)
+    for rid in ids:
+        r = _patch(cliente, rid, "CIV")
+        assert r.status_code == 200 and r.json()["recalculo"] == "pedido"
+    assert [_fila(fabrica, r)["tipo_hora"] for r in ids] == ["V"] * 3
+    assert [p["document_id"] for p in _recalculos(cola)] == [
+        "d-2", "d-3", "d-4"]
+
+
+def test_f085_r8_mismo_parte_con_cola_espera_al_recalculo(portal) -> None:
+    """Caracteriza la espera de F-043: tras convertir una línea, otra del
+    mismo parte da 409 mientras sv3 recalcula, sin tocarla."""
+    def sembrar(fabrica):
+        return sembrar_parte(fabrica, [{"tipo": "normal"}, {"tipo": "normal"}])
+    cliente, fabrica, ids, _c = portal(sembrar)
+    assert _patch(cliente, ids[0], "CIA").status_code == 200
+    antes = _fila(fabrica, ids[1])
+    assert _patch(cliente, ids[1], "CIA").status_code == 409
+    assert _fila(fabrica, ids[1]) == antes
 
 
 def test_f085_r10_r11_deshacer_por_el_endpoint(portal) -> None:
