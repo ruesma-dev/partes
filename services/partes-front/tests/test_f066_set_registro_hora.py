@@ -92,11 +92,21 @@ def test_f066_r13_sin_prefijo_ext_1_normal(repo, codigo) -> None:
 @pytest.mark.parametrize("codigo, ext", [
     ("HEOF", 0), ("HEOF", 1), ("HL01", 0), ("HL01", 1), (None, 1)])
 def test_f066_r14_incidencia_no_cambia(repo, codigo, ext) -> None:
+    """Enmendado por F-085 R3/R4 (R14 revocado): una incidencia con un
+    código de horas vuelve a ser una línea de horas, con la clase del
+    código y las horas vacías; sin código, sigue igual (F-066 R15)."""
     repositorio, fabrica, ids = repo
     assert _guardar(repositorio, ids[2], 7, codigo, ext)
     assert _guardar(repositorio, ids[3], 7, codigo, ext)
-    assert _fila(fabrica, ids[2])["tipo_hora"] == "normal"
-    assert _fila(fabrica, ids[3])["tipo_hora"] == "extra"
+    if codigo is None:
+        assert _fila(fabrica, ids[2])["tipo_hora"] == "normal"
+        assert _fila(fabrica, ids[3])["tipo_hora"] == "extra"
+        assert _fila(fabrica, ids[2])["es_incidencia"] is True
+        return
+    tipo = "extra" if codigo == "HEOF" else "normal"
+    for rid in (ids[2], ids[3]):
+        fila = _fila(fabrica, rid)
+        assert (fila["tipo_hora"], fila["es_incidencia"]) == (tipo, False)
 
 
 @pytest.mark.parametrize("codigo", [None, "", "   "])
@@ -213,8 +223,9 @@ def test_f066_r18_varias_lineas(portal) -> None:
         {"tipo": "normal", "es_incidencia": True}])
     for rid in ids:
         assert _patch(cliente, rid, 7).status_code == 200
+    # Enmendado por F-085 R4: la incidencia vuelve a horas con su clase.
     assert [_fila(fabrica, r)["tipo_hora"] for r in ids] == \
-        ["extra", "extra", "normal"]
+        ["extra", "extra", "extra"]
     for rid in ids:
         assert _patch(cliente, rid, 1).status_code == 200
     assert [_fila(fabrica, r)["tipo_hora"] for r in ids] == \
