@@ -843,7 +843,10 @@ RECARGAS_PREVIAS = 22
 
 def test_f043_r19_r40_ninguna_recarga_nueva_salvo_actualizar() -> None:
     js = _js()
-    assert js.count("location.reload") == RECARGAS_PREVIAS + 1
+    # +1 de F-043 (`actualizarVista`) y, desde F-085 (R13), +1 de `onChange`:
+    # un cambio de clase de la linea (horas <-> incidencia) recarga la
+    # pagina para pintar la matriz y las opciones con la clase nueva.
+    assert js.count("location.reload") == RECARGAS_PREVIAS + 2
     assert "window.location.reload();" in _funcion(js, "actualizarVista")
     for nombre in ESPERA:
         if nombre in ("actualizarVista",):

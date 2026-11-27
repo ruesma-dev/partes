@@ -2630,7 +2630,8 @@ def build_app(
             ids, incluir_borradas=bool(body.get("incluir_borradas")),
             incidencias=tabla_incidencias,
             repartos_decididos=repartos_decididos,   # F-046 (R32)
-            mover_ciz=settings.mover_ciz)            # F-060 (R26 bis)
+            mover_ciz=settings.mover_ciz,            # F-060 (R26 bis)
+            mover_inicio=settings.mover_inicio)      # F-085 (R29)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(

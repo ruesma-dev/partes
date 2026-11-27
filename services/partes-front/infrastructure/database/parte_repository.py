@@ -128,6 +128,7 @@ from application.services.racha_incidencia import (
     inicios_con_ciz,
     motivo_desordenada,
     motivo_fin_movido,
+    motivo_inicio_movido,
     racha_delante,
     ventana,
 )
@@ -2327,8 +2328,13 @@ class ParteReviewRepository:
         incidencias: TablaIncidencias | None = None,
         repartos_decididos: frozenset[int] = frozenset(),
         mover_ciz: bool = False,
+        mover_inicio: bool = False,
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
+
+        F-085 (R29): con `mover_inicio` (y `mover_ciz`), un `inicio` cuyo
+        siguiente dia que cuenta es de su misma clave no da
+        `racha_desordenada`: sv5 recoloca su inicio previo.
 
         F-024 (R22, DA7): nunca viajan las lineas `registrado` (reenviarlas
         reescribiria en Sigrid lo que Administracion borro a proposito) y,
@@ -2480,7 +2486,8 @@ class ParteReviewRepository:
                     })
             if mover_ciz:
                 roles_de, rachas, avisos, ciz = self._roles_de_racha(
-                    session, [r for r, _l, _g in viajan], incidencias)
+                    session, [r for r, _l, _g in viajan], incidencias,
+                    mover_inicio=mover_inicio)
             else:
                 # R26 bis (DA12): el rol de dev 0926857, linea a linea.
                 roles_de = {r.id: self._rol_incidencia_anterior(session, r)
@@ -2537,7 +2544,14 @@ class ParteReviewRepository:
         x = e.get("movida_de")
         if x is None or int(x) == reg.id:
             return
-        motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
+        # F-085 (R28): lo movido no es un CIZ => era el inicio de la racha
+        # (sv5 lo recoloco hacia atras); mismo CAS.
+        cod = (e.get("hora_codigo") or "").strip().upper()
+        if cod and cod != "CIZ":
+            motivo = motivo_inicio_movido(cod, e.get("hmores_ide"),
+                                          reg.fecha_int)
+        else:
+            motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
         cambiadas = session.execute(
             update(ParteRegistroOrm)
             .where(ParteRegistroOrm.id == int(x),
@@ -2625,7 +2639,8 @@ class ParteReviewRepository:
     @classmethod
     def _roles_de_racha(
         cls, session, regs: list[ParteRegistroOrm],
-        incidencias: TablaIncidencias | None,
+        incidencias: TablaIncidencias | None, *,
+        mover_inicio: bool = False,
     ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int],
                set[int]]:
         """F-060 (R1-R12): para las lineas que viajan, el rol de cada
@@ -2642,7 +2657,10 @@ class ParteReviewRepository:
         tardia, de cualquier obra y estado, con la papelera marcada
         (`activa`, R5). `decidir` da el rol de cada incidencia y `colapsar`
         los ajusta sobre TODA la aprobacion (R7, R8), antes del reparto por
-        obra de F-022. Una incidencia sin fecha es `inicio`, como antes."""
+        obra de F-022. Una incidencia sin fecha es `inicio`, como antes.
+
+        F-085 (R29): con `mover_inicio`, el aviso de un `inicio` se calcula
+        con su clave (`aviso_desordenada(..., clave)`)."""
         por_persona: dict[str, list[ParteRegistroOrm]] = {}
         for r in regs:
             trabajo = (not r.es_incidencia
@@ -2680,7 +2698,11 @@ class ParteReviewRepository:
             for r in suyas:
                 if r.es_incidencia and roles[r.id] != INICIO:
                     continue
-                f = aviso_desordenada(historicos[persona], int(r.fecha_int))
+                clave = (clave_incidencia(r.incidencia_codigo,
+                                          r.hora_codigo, incidencias)
+                         if mover_inicio and r.es_incidencia else None)
+                f = aviso_desordenada(historicos[persona], int(r.fecha_int),
+                                      clave)
                 if f is not None:
                     avisos[r.id] = f
         return roles, rachas, avisos, ciz
