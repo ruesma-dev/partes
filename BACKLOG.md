@@ -3,13 +3,11 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
+Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
 
 ## Review
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | reviewer | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
+_Nada esperando revisión._
 
 ## Blocked
 
@@ -17,7 +15,9 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-_Ninguna feature en implementación._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | implementer | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
 
 ## Spec aprobada
 
@@ -123,7 +123,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-085 · Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid
 
-estado **en QA / revisión** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
+estado **en curso** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
 
 **Spec**: specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27)
 
@@ -140,6 +140,8 @@ Pedida por el humano el 2026-11-23 («1 adelante») tras el caso de la 0692 de P
 estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-081-editar-lineas-registradas`
 
 **Spec**: sin spec
+
+**Pendiente**: al escribir su spec: F-085 D14 (decidido por el humano el 2026-11-27) enmienda su R3: un CI* o el CIZ no cuenta como «ordinaria» (422), con es_codigo_incidencia y es_codigo_fin de clase_hora.py
 
 Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.
 
