@@ -58,6 +58,7 @@ from domain.models.registro_models import (
     FinMismoDia,
     HoraRecurso,
     LineaEntrada,
+    es_codigo_ci,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,6 +83,12 @@ MOTIVO_SIN_LABORABLE = (
     "registran sus horas extra"
 )
 MOTIVO_TIPO = "tipo de hora no reconocido"
+#: F-085 (R19, D6): una linea de horas con un codigo de incidencia (CI* o
+#: CIZ, o un `hora_ide` que es un CI* del recurso) no se escribe: sv5
+#: tomaria el primer HL* o HE* del recurso y escribiria horas (caso 0678).
+MOTIVO_CODIGO_INCIDENCIA = (
+    "codigo de incidencia en una linea de horas: vuelve a elegir el codigo "
+    "en el portal")
 #: F-019 (R0): plantilla del motivo de una accion `dedicacion`.
 MOTIVO_DEDICACION = (
     "recurso mensual ({codigo}): sus horas van a dedicacion, no a Sigrid"
@@ -193,6 +200,8 @@ class ReglasRegistro:
         previa = self._omisiones.get(linea.registro_id)
         if previa:
             return omitir(previa)
+        if self._codigo_incidencia_en_horas(linea):
+            return omitir(MOTIVO_CODIGO_INCIDENCIA)          # F-085 (R19)
         mensual = self._decidir_mensual(linea, base)
         if mensual is not None:
             return mensual
@@ -228,6 +237,21 @@ class ReglasRegistro:
             accion="escribir", hora_ide=hora.horide, hora_codigo=hora.cod,
             can=can, pre=pre, tot=round(can * pre, 2), **base,
         )
+
+    # ------------------------------------------------------------- #
+    def _codigo_incidencia_en_horas(self, linea: LineaEntrada) -> bool:
+        """F-085 (R19, D6): una linea que no es incidencia con un codigo
+        de incidencia o de fin, o con un `hora_ide` que es un CI* de su
+        recurso. Va tras las omisiones previas y antes de todo lo demas:
+        nunca se escribe un HL* o HE* por ella."""
+        if linea.es_incidencia:
+            return False
+        if es_codigo_ci(linea.hora_codigo):
+            return True
+        if not linea.hora_ide or not linea.recurso_ide:
+            return False
+        return any(h.es_incidencia and h.horide == int(linea.hora_ide)
+                   for h in self._horas.get(int(linea.recurso_ide), []))
 
     # ------------------------------------------------------------- #
     def _decidir_mensual(self, linea: LineaEntrada,
