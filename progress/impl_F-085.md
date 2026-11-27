@@ -111,12 +111,8 @@ campaña del líder. T15–T17 son MANUAL (humano). T18 es `init.sh`, abajo. `MO
 
 ## Suites por servicio (antes de `init.sh`)
 
-- sv4: `1 failed, 4253 passed, 1 skipped in 1003.55s`. El fallo era el recuento de recargas de
-  F-043, enmendado en T12. Después: `165 passed` en `test_f043_portal_fecha`, `test_f085_conversion`
-  y `test_f085_inicio_movido_sv4`.
-- sv3: `2988 passed` más los 23 de F-085 (tras enmendar f037 r9).
-- sv5: `1988 passed, 1 skipped in 26.40s`.
-- raíz: `tests/test_f085_documentacion.py` `4 passed`.
+sv4 `1 failed, 4253 passed` (el recuento de recargas de F-043, enmendado en T12; luego `165 passed`
+en F-043/F-085); sv3 `2988 passed` + 23 de F-085; sv5 `1988 passed, 1 skipped`; raíz F-085 `4 passed`.
 
 ## Salida de `init.sh`
 
@@ -217,6 +213,6 @@ y `"!= 'CIZ'"`.
     porque sv4 se cortó en el primer fallo.
   - 2.ª pasada, **exit 0**: raíz `2553 passed, 50 skipped`; sv4 `4259 passed, 1 skipped`; el
     resto, en caché verde. `PUERTA COBERTURA: 100.0% de 220 líneas cambiadas cubiertas
-    (220/220…)`. `PUERTA TAMAÑO … impl 187/220`. `CAPA E2E: N/A`. Ruff: 1219 avisos, la deuda
+    (220/220…)`. `PUERTA TAMAÑO … impl 187/220` (este informe queda en 218 líneas: tras el último `init.sh` solo ha cambiado él). `CAPA E2E: N/A`. Ruff: 1219 avisos, la deuda
     previa.
 - Mutación: sigue pendiente de la pasada de campaña del líder (T9 y T14).
