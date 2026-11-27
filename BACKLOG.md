@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 3 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
+Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
 
 ## Review
 
@@ -15,13 +15,14 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-_Ninguna feature en implementación._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | implementer | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
 
 ## Spec aprobada
 
 | # | Feature | Spec aprobada | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | 2026-11-27 | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
 | F-057 | Editor de celda: el pedido de recálculo incluye todos los partes con líneas en la celda | pendiente de tu aprobación | aprobada 2026-10-24 (DA1–DA5 = A) · `partes-wt-f057` | 7 | estandar | `feature/F-057-pedido-celda-todos-los-partes` |
 | F-065 | sv1 lee el buzón cuando llega un correo (aviso de Microsoft Graph) y no con una réplica siempre activa | pendiente de tu aprobación | aprobada 2026-10-30 (DA1 = D, DA2–DA9 = A) | 16 | estandar | `feature/F-065-buzon-por-aviso-de-graph` |
 
@@ -122,7 +123,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-085 · Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid
 
-estado **spec lista** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
+estado **en curso** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
 
 **Spec**: specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27)
 
