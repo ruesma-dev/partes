@@ -6,6 +6,14 @@ tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11
 
 Feature activa: ninguna. Siguiente: **F-084** (spec aprobada el 2026-11-26, copia `partes-wt-f084`). Última cerrada: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
+## F-085 · spec escrita (spec-author, 2026-11-27; copia `partes-wt-f085`, sin aprobar)
+
+- Spec en `specs/F-085-codigo-de-incidencia-convierte-la-linea/`; resumen y hallazgos en
+  `progress/spec_F-085.md`. Rigor `critico` (disparador 2).
+- Decisiones abiertas para el humano: D1–D15 de `design.md` §12 (sobre todo D1 partir en dos, D9
+  qué CI* se mueve, D12 `MOVER_INICIO`, D13 guardado por paso del campo de horas fuera, D14
+  enmendar F-081 R3, D15 reparación del 0678). M0 (líder, solo lectura) va antes de T1.
+
 ## F-082 · done 2026-11-26 (OK del humano: «ok»; reviewer APPROVED pasada 2, SHA 5a897d3; copia `partes-wt-f082`; **desplegada el 2026-11-26**, sv4 `r20261126182437`, arranque sin errores en Log Analytics; faltan las MANUAL de abajo, que hace el humano)
 
 - T1 (2f033d9): tests en rojo `services/partes-front/tests/test_f082_sin_partida.py` (fase RED, 8 en rojo).

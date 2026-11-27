@@ -1,0 +1,22 @@
+# F-085 · Tareas
+
+Parte A = T1–T9; parte B = T10–T16. Si D1 = (a), T10–T16 pasan a la feature nueva (con sus R21–R32 y §5) y aquí T17 sigue a T9.
+
+- [ ] T1: Tests en ROJO de sv4 `tests/test_f085_conversion.py` (R1–R11, R14; `ClaseNueva`, PATCH, deshacer, recálculo con publicador falso) y del JS (R13)  |  Verificación: `pytest services/partes-front/tests/test_f085_conversion.py` falla por lo que falta (traza RED en `progress/impl_F-085.md`)
+- [ ] T2: `clase_hora.py` (`es_codigo_incidencia`, `es_codigo_fin`) y `application/services/conversion_clase.py` nuevo (design §2)  |  Verificación: tests unit de R1–R7 de T1 en verde
+- [ ] T3: `parte_repository.py` (`set_registro_hora` con `ClaseNueva`, `ResultadoHora`, `registro_clase`, `_REG_UNDO_FIELDS` + `incidencia_codigo`, `undo_last`), `recalculo_publisher.py` (motivos) y `app.py` (400, respuesta, recálculo, rama de deshacer)  |  Verificación: `pytest services/partes-front/tests/test_f085_conversion.py` en verde
+- [ ] T4: `static/app.js` `onChange` recarga con `clase_cambiada` (R13)  |  Verificación: test node de T1 en verde
+- [ ] T5: Enmendar `test_f066_r14_incidencia_no_cambia` citando «F-085 R3/R4» (design §6); el resto de la suite de sv4 sin tocar  |  Verificación: `pytest services/partes-front` en verde
+- [ ] T6: sv3 · tests en ROJO `tests/test_f085_sv3_manual.py` (R12, R15–R18) y luego `_overwrite` y `fetch_registros_para_recurso` (design §3)  |  Verificación: traza RED y después `pytest services/partes-persistencia` en verde
+- [ ] T7: sv5 · tests en ROJO `tests/test_f085_sv5_guarda.py` (R19–R20) y luego `es_codigo_ci` y la guarda de `reglas_registro.decidir` (design §4)  |  Verificación: traza RED y después `pytest services/partes-transfer` en verde
+- [ ] T8: Documentación de la parte A (R33: `ARCHITECTURE.md` semántica 3, `partes-proyecto.md`, test de fuente) y `azure-apps/partes.md` en commit aparte del repo `azure-apps` (pull --rebase antes; sin push)  |  Verificación: test de fuente de R33 en verde; `git -C C:\Users\pgris\PycharmProjects\azure-apps log -1`
+- [ ] T9: Campaña de mutación de la parte A (nivel `critico`) sobre `clase_hora.py`, `conversion_clase.py`, `parte_repository.py` (líneas cambiadas), `recurso_conciliador.py` y `reglas_registro.py`; supervivientes con test nuevo o justificación escrita para el humano  |  Verificación: `python -m harness.mutacion --feature F-085` con 0 supervivientes sin justificar
+- [ ] T10: Tests en ROJO de sv5 parte B `tests/test_f085_inicio_movido.py` (R21–R27, R30–R32 con `SigridFake`, casos de design §5.4 y los de F-083 R13–R17 con el interruptor encendido)  |  Verificación: `pytest services/partes-transfer/tests/test_f085_inicio_movido.py` falla por lo que falta (traza RED)
+- [ ] T11: sv5 · `settings.mover_inicio`, `racha_ciz.decidir_inicio` y su motivo, y `_ciz_de_racha` con la misma lectura (design §5.1)  |  Verificación: `pytest services/partes-transfer` en verde, sin tocar tests de F-060/F-062/F-083
+- [ ] T12: sv4 · tests en ROJO y luego `settings.mover_inicio`, `motivo_inicio_movido`, `aviso_desordenada(clave=…)`, `_fin_movido` por código y `_roles_de_racha` (R28–R29, design §5.2)  |  Verificación: traza RED y después `pytest services/partes-front` en verde
+- [ ] T13: Documentación de la parte B (R33: semántica 4, `MOVER_INICIO` en settings y `partes-proyecto.md`; `azure-apps/partes.md` en commit aparte, sin push)  |  Verificación: test de fuente de R33 en verde
+- [ ] T14: Campaña de mutación de la parte B sobre `racha_ciz.py`, `registro_pipeline.py` (líneas cambiadas) y `racha_incidencia.py`  |  Verificación: `python -m harness.mutacion --feature F-085` con 0 supervivientes sin justificar
+- [ ] T15: M2 y, si el humano autoriza la edición a mano, M3 (design §8) en modo pruebas, con limpieza  |  Verificación: MANUAL (humano), comandos de design §8; resultado real en `progress/manual_F-085.md`
+- [ ] T16: M5 tras encender `MOVER_INICIO` en sv5 y luego en sv4 (lo pide y lo hace el humano)  |  Verificación: MANUAL (humano), consulta M5 de design §8
+- [ ] T17: M0 (líder, antes de T1), M1 en modo pruebas antes de desplegar y M4 (reparación del caso 0678) tras desplegar la parte A, con el OK expreso del humano para el `UPDATE` de la 25012  |  Verificación: MANUAL (humano), comandos de design §8 M0, M1 y M4; resultado real en `progress/manual_F-085.md`
+- [ ] T18: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh` termina en verde
