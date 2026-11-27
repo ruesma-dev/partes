@@ -714,15 +714,12 @@ def test_f085_r14_plantillas_pintan_por_es_incidencia() -> None:
 # ============================== R13 ================================ #
 
 def _on_change() -> str:
-    """`onChange` y, desde F-085 D16, su ayudante `avisoNoGuardadas`."""
+    """`onChange` (desde F-085 D16, con su ayudante local
+    `avisoNoGuardadas` dentro)."""
     js = APP_JS.read_text(encoding="utf-8")
-    trozos = []
-    for nombre in ("avisoNoGuardadas", "onChange"):
-        m = re.search(r"\n  function " + nombre + r"\([^)]*\) \{.*?\n  \}\n",
-                      js, re.DOTALL)
-        assert m, f"app.js no define {nombre}"
-        trozos.append(m.group(0))
-    return "".join(trozos)
+    m = re.search(r"\n  function onChange\(ev\) \{.*?\n  \}\n", js, re.DOTALL)
+    assert m, "app.js no define onChange"
+    return m.group(0)
 
 
 def _node(programa: str):
@@ -768,10 +765,9 @@ setTimeout(function () {
 }, 50);
 """ % (json.dumps(respuestas),
        ("var PartidaSel = { has: function () { return true; },"
-        " count: function () { return %d; },"
-        " ids: function () { return %s; } };"
-        % (len(respuestas),
-           json.dumps([str(5 + i) for i in range(len(respuestas))])))
+        f" count: function () {{ return {len(respuestas)}; }},"
+        " ids: function () { return "
+        f"{json.dumps([str(5 + i) for i in range(len(respuestas))])}; }} }};")
        if bulk else "",
        _on_change())
     return _node(programa)

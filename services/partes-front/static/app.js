@@ -503,27 +503,27 @@ var FiltrosSesion = (function () {
     }).then(MotivoHttp.lanzarSiFalla);
   }
 
-  // F-085 (R13, D16): el aviso de las lineas de una seleccion que NO se
-  // guardaron (p. ej. el 409 de F-043: con la cola, las de un mismo parte
-  // van de una en una). Agrupa por el texto del servidor y nombra las
-  // lineas por su id, sin datos personales.
-  function avisoNoGuardadas(mal, total) {
-    var grupos = {}, orden = [];
-    mal.forEach(function (x) {
-      var m = (x.e && x.e.message) || "Error";
-      if (!grupos[m]) { grupos[m] = []; orden.push(m); }
-      grupos[m].push(x.id);
-    });
-    return mal.length + " de " + total + " línea(s) no se han guardado:\n" +
-      orden.map(function (m) {
-        var ids = grupos[m];
-        return "- " + m + " (" + (ids.length > 1 ? "líneas " : "línea ") +
-          ids.join(", ") + ")";
-      }).join("\n");
-  }
-
   function onChange(ev) {
     var select = ev.target;
+    // F-085 (R13, D16): el aviso de las lineas de una seleccion que NO se
+    // guardaron (p. ej. el 409 de F-043: con la cola, las de un mismo parte
+    // van de una en una). Agrupa por el texto del servidor y nombra las
+    // lineas por su id, sin datos personales. Local: F-047 R23 vigila las
+    // funciones con nombre de `app.js`.
+    var avisoNoGuardadas = function (mal, total) {
+      var grupos = {}, orden = [];
+      mal.forEach(function (x) {
+        var m = (x.e && x.e.message) || "Error";
+        if (!grupos[m]) { grupos[m] = []; orden.push(m); }
+        grupos[m].push(x.id);
+      });
+      return mal.length + " de " + total + " línea(s) no se han guardado:\n" +
+        orden.map(function (m) {
+          var ids = grupos[m];
+          return "- " + m + " (" + (ids.length > 1 ? "líneas " : "línea ") +
+            ids.join(", ") + ")";
+        }).join("\n");
+    };
     var registroId = select.getAttribute("data-registro-id");
     var value = select.value;
     var row = select.closest("tr");
