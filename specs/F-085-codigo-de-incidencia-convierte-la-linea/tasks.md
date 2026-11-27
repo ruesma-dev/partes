@@ -19,4 +19,4 @@ Parte A = T1–T9; parte B = T10–T16. D1 = (b) (humano, 2026-11-27): las dos p
 - [ ] T15: M2 y, si el humano autoriza la edición a mano, M3 (design §8) en modo pruebas, con limpieza  |  Verificación: MANUAL (humano), comandos de design §8; resultado real en `progress/manual_F-085.md`
 - [ ] T16: M5 tras encender `MOVER_INICIO` en sv5 y luego en sv4 (lo pide y lo hace el humano)  |  Verificación: MANUAL (humano), consulta M5 de design §8
 - [ ] T17: M0 (líder, antes de T1), M1 y M2 en modo pruebas antes de desplegar; M4 (reparación del caso 0678) queda FUERA: la hace el humano a mano (D15, 2026-11-27) y ningún agente escribe en producción ni en Sigrid  |  Verificación: MANUAL (humano), comandos de design §8 M0, M1 y M2; resultado real en `progress/manual_F-085.md`
-- [ ] T18: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh` termina en verde
+- [x] T18: Ejecutar `bash harness/init.sh` en verde  |  Verificación: `bash harness/init.sh` termina en verde
