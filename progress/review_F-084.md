@@ -3,9 +3,9 @@ Revisión de evidencias desde a738cb3 (evidencias, pasada 2) · HEAD 8b80fec · 
 
 # F-084 · Review
 
-**Veredicto: SIN EMITIR: falta C1.** El `init.sh` de esta pasada lo paró Claude Code a mitad (tras
-compileall) porque **el sistema se quedó sin memoria**; no se relanza sin orden. Lo demás está conforme
-(abajo). Con `init.sh` en verde sobre 8b80fec, el veredicto es APPROVED; sin él no se aprueba (regla dura).
+**Veredicto: APPROVED** (SHA aprobado **34a5dbb**; delta 34a5dbb..HEAD vacío). C1: `bash harness/init.sh` exit 0
+a la 3.ª: la 1.ª la paró el sistema por falta de memoria; la 2.ª, roja solo en el inestable `test_f059_r9`
+(`nieto.pid`). En la 3.ª, raíz 2549 passed/50 skip; sv4 por caché (verde de 12:19, test ya renombrado); cobertura 100 %.
 
 **Pasada 2 (delta a738cb3..8b80fec):** 7384a14, e1a6626 y 8b80fec. Toca solo `progress/` (impl, mutacion .md,
 `equivalentes_F-084.py`) y el renombrado de un test de sv4; **ni producción ni `mutacion_F-084.json`**.
