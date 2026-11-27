@@ -1,10 +1,25 @@
 <!-- progress/review_F-084.md -->
-Revisión de evidencias desde 986f868 (pasada 3, evidencias) · HEAD bb8e55f · `git diff 986f868..HEAD`
+Revisión de evidencias desde a738cb3 (evidencias, pasada 2) · HEAD 8b80fec · `git diff a738cb3..HEAD`
 
 # F-084 · Review
 
-**Veredicto: CHANGES_REQUESTED** (pasada de evidencias). Principal: APPROVED en **986f868** (ciclo 2, tras
-un CHANGES_REQUESTED documental en 8f559d1); su detalle, comprimido al final de este informe.
+**Veredicto: SIN EMITIR: falta C1.** El `init.sh` de esta pasada lo paró Claude Code a mitad (tras
+compileall) porque **el sistema se quedó sin memoria**; no se relanza sin orden. Lo demás está conforme
+(abajo). Con `init.sh` en verde sobre 8b80fec, el veredicto es APPROVED; sin él no se aprueba (regla dura).
+
+**Pasada 2 (delta a738cb3..8b80fec):** 7384a14, e1a6626 y 8b80fec. Toca solo `progress/` (impl, mutacion .md,
+`equivalentes_F-084.py`) y el renombrado de un test de sv4; **ni producción ni `mutacion_F-084.json`**.
+- Cambio 1 [x]: `grep -c PENDIENTE progress/mutacion_F-084.md` = 0; los 7 análisis y las 2 declaraciones,
+  correctos y coherentes con mi criterio de abajo.
+- Cambio 2 [x] **RM5**: `cd services/partes-front && ..\.venv\…\python ../../progress/equivalentes_F-084.py` (venv
+  del repo principal): **exit 0**, «7/7 equivalentes demostrados» (5000/5000/5000/960/30/128/128 casos). Leído
+  el script: muta en memoria solo dentro de la función (`_mutar` exige una aparición), los textos coinciden con
+  el informe, y cada control negativo **aborta con exit 1 si no distingue** (`_falla(… banco ciego)`); árbol limpio.
+- Cambio 3 [x]: `test_f084_clasificado_es_inmutable`, docstring «protege el DISEÑO, no un requisito», sin R7.
+- Observación: también se cambió el texto fijo del generador («quedarse en `PENDIENTE`» → «sin escribir») en el
+  encabezado de «Ficheros sin mutantes»; inocuo, pero lo regenerará la próxima campaña.
+
+Pasada 1 de evidencias (a HEAD bb8e55f): CHANGES_REQUESTED por esos tres cambios; detalle a continuación.
 
 **Nivel de rigor:** `critico`, declarado en `features.json`. Exige fase RED, cobertura ≥ 90 %, mutación
 (uno por línea, muestra 60 %, [100, 300]), cero supervivientes salvo justificación aceptada por el humano,
@@ -91,23 +106,11 @@ otro envío no cuenta: R10/D3) y `r22_el_404_lleva_ok_false`.
 - `r25_las_rutas_nuevas_no_salen_en_el_esquema`: lo que fija es design §7 («todas `include_in_schema=False`»);
   solo `/api/problemas/resumen` es de R25. Legítimo; observación 5.
 
-## Cambios requeridos
+## Cambios requeridos (pasada 1 de evidencias; los tres, atendidos en la pasada 2)
 
-1. **`progress/mutacion_F-084.md`** (regenerado por el repaso de bb8e55f): sustituir las 7 cabeceras
-   «#### Análisis (PENDIENTE del implementer)» por el análisis de cada superviviente (por qué ningún test lo
-   caza, decisión «equivalente, pendiente de aceptación del humano» y enlace a la demostración), y las 2
-   «#### Declaración (PENDIENTE…)» de `recalculo_publisher.py` (líneas 52–54: un comentario y dos constantes
-   de cadena) e `identidad.py` (10–16: solo docstring), como en `mutacion_F-083.md`. `grep -c PENDIENTE` ⇒ 0.
-2. **RM5**: demostración ejecutable de los 7 equivalentes en `progress/equivalentes_F-084.py` (patrón de
-   `equivalentes_F-083.py`): dominio de cada expresión (AST/tipo/constantes no vacías) y, aplicando el mutante
-   en memoria, misma decisión en N casos con bordes, más un control negativo. Exit 0 y su salida en
-   `impl_F-084.md`. Mi script de `pcp:144` (`scratchpad/rm5/rm5_f084.py`) sirve de punto de partida.
-3. **`services/partes-front/tests/test_f084_clasificacion.py`, `test_f084_r7_clasificado_es_inmutable`**: o se
-   quita y el mutante `pcp:110` (`frozen=False`) pasa a los equivalentes (nadie muta ni hashea `Clasificado`;
-   con demostración y aceptación del humano), o se conserva sin citar un requisito que no prueba (p. ej.
-   `test_f084_clasificado_es_inmutable`, «protege el diseño, no un requisito») y se dice así en la tabla de T10.
-Ninguno toca producción: basta la pasada incremental sobre el delta, sin repetir la campaña (los tests no
-cambian lo medido; si se elige quitar el test de 3, el mutante 110 vuelve a superviviente y se declara).
+1. Rellenar los 7 análisis y las 2 declaraciones `PENDIENTE` de `progress/mutacion_F-084.md`.
+2. RM5: demostración ejecutable de los 7 equivalentes (`progress/equivalentes_F-084.py`) con control negativo.
+3. `test_f084_r7_clasificado_es_inmutable`: quitar (y declarar `pcp:110` equivalente) o renombrar sin R7.
 
 ## Observaciones (no bloquean)
 
