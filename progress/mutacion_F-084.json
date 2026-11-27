@@ -3,7 +3,7 @@
  "criterio": "codigo_1",
  "fiable": true,
  "feature": "F-084",
- "sha": "8474ce964ec3f257d5e304c9a617e1942f1675c4",
+ "sha": "6ef7b5e4cd4c70359134a8cbc9a80e2d36d748aa",
  "nivel": "critico",
  "regla": {
   "por_linea": true,
@@ -41,7 +41,7 @@
    "operador": "booleano",
    "original": "@dataclass(frozen=True)",
    "mutado": "@dataclass(frozen=False)",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/application/services/partes_con_problemas.py",
@@ -257,7 +257,7 @@
    "operador": "comparacion",
    "original": "and _misma_obra(d, c) and _clave_antiguedad(c) > creado",
    "mutado": "and _misma_obra(d, c) and _clave_antiguedad(c) >= creado",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/application/services/partes_con_problemas.py",
@@ -338,7 +338,7 @@
    "operador": "entero",
    "original": "-(f.doc.fecha_int or 0)))",
    "mutado": "-(f.doc.fecha_int or 1)))",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/application/services/partes_con_problemas.py",
@@ -374,7 +374,7 @@
    "operador": "entero",
    "original": "sustituido_at_utc: Mapped[str | None] = mapped_column(String(64))   # sv3",
    "mutado": "sustituido_at_utc: Mapped[str | None] = mapped_column(String(65))   # sv3",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
@@ -464,7 +464,7 @@
    "operador": "logico",
    "original": "and doc.sharepoint_item_id),",
    "mutado": "or doc.sharepoint_item_id),",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
@@ -527,7 +527,7 @@
    "operador": "veracidad",
    "original": "if a.obra_ide is not None and b.obra_ide is not None:",
    "mutado": "if a.obra_ide and b.obra_ide is not None:",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
@@ -716,7 +716,7 @@
    "operador": "logico",
    "original": "f\"Recuperar parte {doc.obra_codigo or doc.obra_numero_leido or ''} \"",
    "mutado": "f\"Recuperar parte {doc.obra_codigo and doc.obra_numero_leido or ''} \"",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/interface_adapters/web/app.py",
@@ -752,7 +752,7 @@
    "operador": "entero",
    "original": "\"total\": sum(1 for f in filas if f[\"cuenta\"]),",
    "mutado": "\"total\": sum(2 for f in filas if f[\"cuenta\"]),",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/interface_adapters/web/app.py",
@@ -761,7 +761,7 @@
    "operador": "booleano",
    "original": "@app.get(\"/api/problemas/resumen\", include_in_schema=False)",
    "mutado": "@app.get(\"/api/problemas/resumen\", include_in_schema=True)",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/interface_adapters/web/app.py",
@@ -788,7 +788,7 @@
    "operador": "booleano",
    "original": "@app.post(\"/api/partes/{document_id}/recuperar\", include_in_schema=False)",
    "mutado": "@app.post(\"/api/partes/{document_id}/recuperar\", include_in_schema=True)",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/interface_adapters/web/app.py",
@@ -869,7 +869,7 @@
    "operador": "booleano",
    "original": "return JSONResponse({\"ok\": False, \"error\": \"Parte no encontrado\"},",
    "mutado": "return JSONResponse({\"ok\": True, \"error\": \"Parte no encontrado\"},",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/interface_adapters/web/app.py",
