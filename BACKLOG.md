@@ -3,11 +3,13 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 0 en Review, 0 en Blocked, 1 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
+Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 1 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 61 en Done.
 
 ## Review
 
-_Nada esperando revisión._
+| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
+|---|---|---|---|---|---|---|
+| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | reviewer | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
 
 ## Blocked
 
@@ -15,9 +17,7 @@ _Ninguna feature bloqueada._
 
 ## In progress
 
-| # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
-|---|---|---|---|---|---|---|
-| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | implementer | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
+_Ninguna feature en implementación._
 
 ## Spec aprobada
 
@@ -123,7 +123,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-085 · Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid
 
-estado **en curso** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
+estado **en QA / revisión** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
 
 **Spec**: specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27)
 
