@@ -7,12 +7,13 @@ de autor que el portal escribe — `parte_documents.approved_by` /
 `deleted_by`, `parte_registros.deleted_by` / `sigrid_registrado_by`,
 `empleado_alias.created_by` y `empleado_jornada.created_by` / `updated_by`.
 
-**`undo_log.actor` NO esta en esa lista, aunque exista como columna**: no la
-escribe nadie. Ninguna de las operaciones que F-017 firma genera fila de
-`undo_log`, y las que si la generan (las ediciones) nunca han pasado un actor.
-Seguira naciendo `NULL` **despues** del corte, asi que el criterio
-«`autor IS NULL` ⇔ fila anterior a F-017» **no le aplica**. Escribirla es
-trabajo de F-018. Se dice aqui porque este modulo es lo primero que va a leer
+**`undo_log.actor` NO esta en esa lista, aunque exista como columna**: casi
+nadie la escribe. Ninguna de las operaciones que F-017 firma genera fila de
+`undo_log`, y de las que si la generan (las ediciones) solo una pasa el actor:
+`parte_recuperar` (F-084, «Recuperar» un parte sustituido). Las demas siguen
+naciendo `NULL` **despues** del corte, asi que el criterio
+«`autor IS NULL` ⇔ fila anterior a F-017» **no le aplica**. Escribirla en
+todas es trabajo de F-018. Se dice aqui porque este modulo es lo primero que va a leer
 quien construya encima.
 
 Todo lo de aqui son **funciones puras**: entra un `Mapping` de cabeceras (o

@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{#- templates/problemas.html — F-084: partes con problemas (R11-R16). -#}
+{% block title %}Problemas · {{ title }}{% endblock %}
+{% macro dia(iso) -%}
+  {%- if iso and iso|length >= 10 -%}<time datetime="{{ iso }}">{{ iso[8:10] }}/{{ iso[5:7] }}/{{ iso[0:4] }}</time>{%- else -%}—{%- endif -%}
+{%- endmacro %}
+{% macro hora(iso) -%}
+  {%- if iso and iso|length >= 16 -%}<time datetime="{{ iso }}">{{ iso[8:10] }}/{{ iso[5:7] }}/{{ iso[0:4] }} {{ iso[11:16] }}</time>{%- else -%}—{%- endif -%}
+{%- endmacro %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <span class="page-eyebrow">Problemas</span>
+    <h1>Partes con problemas{% if total %} ({{ total }}){% endif %}</h1>
+    <p class="muted">Partes sin obra, sin fecha, con una fecha dudosa o sin líneas, y partes que el
+      reemplazo desactivó. Corrige el activo desde su detalle; un sustituido se recupera o se descarta aquí.</p>
+  </div>
+</div>
+
+{% if not grupos %}
+<div class="empty"><p>No hay partes con problemas.</p></div>
+{% endif %}
+
+{% for g in grupos %}
+<div class="panel problemas-grupo" data-motivo="{{ g.motivo }}">
+  <h2 class="panel-title">
+    <span class="badge motivo motivo-{{ g.motivo }}">{{ g.texto }}</span>
+    ({{ g.filas|length }}){% if not g.cuenta %} <span class="muted">· no cuentan en el aviso</span>{% endif %}
+  </h2>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Fecha</th><th>Obra</th><th>Página</th><th>Correo</th>
+        <th class="num">Trabajadores</th><th class="num">Horas</th>
+        <th>Estado</th><th>Sustituto</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in g.filas %}
+      <tr data-document-id="{{ f.document_id }}">
+        <td>{{ dia(f.fecha) }}</td>
+        <td>{% if f.obra_codigo %}{{ f.obra_codigo }}{% else %}(sin obra){% endif %}{% if f.obra_nombre %}<div class="cell-sub">{{ f.obra_nombre }}</div>{% endif %}</td>
+        <td>{% if f.page_number %}{{ f.page_number }}/{{ f.page_count or '?' }}{% else %}—{% endif %}</td>
+        <td>{{ f.email_subject or "—" }}<div class="cell-sub">{{ hora(f.email_received_datetime) }}</div></td>
+        <td class="num">{{ f.num_trabajadores }}</td>
+        <td class="num">{{ f.horas_normales }}{% if f.horas_extra %} + {{ f.horas_extra }} extra{% endif %}</td>
+        <td>
+          {% for m in f.motivos %}{% if m != g.motivo %}<span class="badge motivo motivo-{{ m }}">{{ textos[m] }}</span> {% endif %}{% endfor %}
+          {% if f.congelado == 'aprobado' %}<span class="badge ok">aprobado</span>
+          {% elif f.congelado == 'sigrid' %}<span class="badge info">en Sigrid</span>{% endif %}
+        </td>
+        <td>
+          {% if f.sustituto %}
+            {{ dia(f.sustituto.fecha) }} · {{ f.sustituto.obra_codigo or "(sin obra)" }}
+            {% if f.sustituto.activo %}<a href="/partes/{{ f.sustituto.id }}">ver</a>{% else %}<span class="muted">(inactivo)</span>{% endif %}
+            {% if f.sustituido_at_utc %}<div class="cell-sub">sustituido el {{ hora(f.sustituido_at_utc) }}</div>{% endif %}
+          {% elif not f.is_active %}<span class="muted">sin sustituto</span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="cell-actions">
+          {% if preview_enabled and f.tiene_pdf %}
+          <button type="button" class="btn secondary small" data-parte-pdf="{{ f.document_id }}"
+                  data-parte-title="Parte · {{ f.obra_codigo or '' }} · {{ f.fecha or '' }}">Ver PDF</button>
+          {% endif %}
+          {% if f.is_active %}
+          <a class="btn secondary small" href="/partes/{{ f.document_id }}">Corregir</a>
+          {% else %}
+          <button type="button" class="btn small" data-recuperar="{{ f.document_id }}"
+                  data-fecha="{{ f.fecha or '' }}">Recuperar</button>
+          <form method="post" action="/documents/{{ f.document_id }}/delete" class="inline-form"
+                onsubmit="return confirm('¿Mover este parte a la papelera?');">
+            <input type="hidden" name="back" value="/problemas">
+            <button type="submit" class="btn danger small">Descartar</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+{% endblock %}

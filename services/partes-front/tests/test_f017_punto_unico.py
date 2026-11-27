@@ -284,7 +284,10 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     F-068: `POST /api/conciliacion/confirmar` y `POST /api/empleado/reasignar`
     firman el `solicitado_por` del recalculo de extras que piden tras casar
     o reasignar un trabajador (deshacer ya lo leia; enmienda de R21 y de
-    `design.md` §5 por decision del humano, 2026-11-13): veintitres.
+    `design.md` §5 por decision del humano, 2026-11-13): veintitres. Y la de
+    `POST /api/partes/{id}/recuperar` (F-084 R17, R18: firma la fila de
+    `undo_log` y el `solicitado_por` del recalculo; spec aprobada por el
+    humano el 2026-11-26): veinticuatro.
 
     Las nueve: aprobar documento, borrar documento, borrar linea, borrar
     obra, borrar trabajador, alta manual, preflight, aprobar sincrono y
@@ -297,4 +300,4 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     encargan los tests de R11.
     """
     fuente = _fuente(APP)
-    assert fuente.count("_actor(request)") == 23
+    assert fuente.count("_actor(request)") == 24

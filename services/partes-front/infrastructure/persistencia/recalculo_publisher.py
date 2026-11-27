@@ -49,6 +49,9 @@ MOTIVO_SINCRONIZAR = "sincronizar"
 MOTIVO_CASADO_CONCILIACION = "casado_conciliacion"
 MOTIVO_REASIGNACION = "reasignacion_trabajador"
 MOTIVO_DESHACER_TRABAJADOR = "deshacer_trabajador"
+#: F-084 (R18, R23): tras recuperar un parte sustituido o deshacerlo.
+MOTIVO_RECUPERAR_PARTE = "recuperar_parte"
+MOTIVO_DESHACER_RECUPERAR = "deshacer_recuperar_parte"
 
 #: Estado del recalculo en la respuesta del portal (`recalculo`).
 ESTADO_PEDIDO = "pedido"

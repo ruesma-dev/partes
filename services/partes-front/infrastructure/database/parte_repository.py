@@ -77,6 +77,8 @@ from application.services.parte_vacio import (
     marca_retirado,
     motivo_exclusion_limpieza,
 )
+from application.services import partes_con_problemas as pcp
+from application.services.congelacion import MOTIVO_DOC_APROBADO
 from application.services import franquicia as fq
 from application.services.reparto_aviso import (
     DECISION_APLICAR,
@@ -3586,13 +3588,19 @@ class ParteReviewRepository:
         documents: list[dict] | None = None,
         aliases: list[dict] | None = None,
         creadas: list[int] | None = None,
+        reactivados: list[str] | None = None,
+        actor: str | None = None,
     ) -> int:
         """Inserta una entrada de historial DENTRO de la sesion dada (atomico
         con la mutacion). Devuelve el id.
 
         F-049 (R25): `creadas` son los ids de las líneas que creó la acción
         (deshacer las manda a la papelera); solo entra en el payload si se
-        pasa, así que el de las demás acciones no cambia."""
+        pasa, así que el de las demás acciones no cambia.
+
+        F-084 (R17, R23): `reactivados` son los partes que la acción volvió
+        a activar (deshacer los desactiva) y entra igual, solo si se pasa;
+        `actor` va a `UndoLogOrm.actor`."""
         payload = {
             "registros": registros or [],
             "documents": documents or [],
@@ -3600,10 +3608,13 @@ class ParteReviewRepository:
         }
         if creadas is not None:
             payload["creadas"] = list(creadas)
+        if reactivados is not None:
+            payload["reactivados"] = list(reactivados)
         row = UndoLogOrm(
             created_at_utc=datetime.now(timezone.utc).isoformat(),
             action=action, description=description,
             payload=json.dumps(payload, default=str), undone=False,
+            actor=actor,
         )
         session.add(row)
         session.flush()
@@ -3834,6 +3845,10 @@ class ParteReviewRepository:
         F-068 (R19, D4-b): en una entrada `empleado` (casar o reasignar),
         `document_ids` son los partes de las lineas RESTAURADAS
         (`_documentos_de`); las omitidas por congelacion no cuentan.
+
+        F-084 (R23): en una `parte_recuperar`, ademas, cada parte de
+        `reactivados` que siga activo vuelve a inactivo, salvo el hoy
+        congelado (ya contado en `omitidos` por su snapshot).
         """
         with self._session_factory.create_session() as session:
             stmt = (
@@ -3877,6 +3892,8 @@ class ParteReviewRepository:
                 celda, creadas_omitidas = self._deshacer_creadas(
                     session, payload, actor=actor)
                 omitidos += creadas_omitidas
+            if action == "parte_recuperar":
+                self._deshacer_reactivados(session, payload)
             row.undone = True
             partes_empleado = _documentos_de(restauradas)
             session.commit()
@@ -3937,6 +3954,20 @@ class ParteReviewRepository:
         celda = self._celdas_de(session, regs)
         return ({"document_ids": [d for d in documentos if d],
                  "afectadas": self._afectadas(session, celda)}, omitidas)
+
+    @staticmethod
+    def _deshacer_reactivados(session, payload: dict) -> None:
+        """F-084 (R23): devuelve a inactivos los partes que recupero la
+        accion. El que ya no esta activo (se descarto despues) o esta hoy
+        congelado no se toca; el congelado ya cuenta en `omitidos`, porque
+        toda `parte_recuperar` lleva su snapshot de documento."""
+        for did in payload.get("reactivados") or []:
+            doc = session.get(ParteDocumentOrm, did)
+            if doc is None or not doc.is_active:
+                continue
+            if _motivo_congelado_doc(doc) is not None:
+                continue
+            doc.is_active = False
 
     def _celdas_de(self, session, regs) -> list[ParteRegistroOrm]:
         """F-049: las celdas actuales de esas líneas (normalmente una) más
@@ -4852,6 +4883,191 @@ class ParteReviewRepository:
             doc.deleted_by = deleted_by
             session.commit()
         return True
+
+    # ----------------------------------------------------------------- #
+    # F-084: partes con problemas (pestaña y contador) y recuperar un
+    # parte sustituido por el reemplazo de sv3.
+    # ----------------------------------------------------------------- #
+    @staticmethod
+    def _doc_problema(doc: ParteDocumentOrm) -> pcp.DocProblema:
+        return pcp.DocProblema(
+            id=doc.id, is_active=bool(doc.is_active),
+            deleted_at_utc=doc.deleted_at_utc, deleted_by=doc.deleted_by,
+            fecha_int=doc.fecha_int, obra_ide=doc.obra_ide,
+            obra_codigo=doc.obra_codigo,
+            obra_numero_leido=doc.obra_numero_leido,
+            email_id=doc.email_id,
+            email_received_datetime=doc.email_received_datetime,
+            created_at_utc=doc.created_at_utc or "",
+            sustituido_por_id=doc.sustituido_por_id,
+            lineas_vivas=sum(1 for r in doc.registros if not r.deleted_at_utc),
+            es_futuro=_doc_es_futuro(doc))
+
+    @staticmethod
+    def _insignia_congelado(doc: ParteDocumentOrm) -> str | None:
+        """R11: «aprobado» o «sigrid» (vive en Sigrid), o None."""
+        motivo = _motivo_congelado_doc(doc)
+        if motivo is None:
+            return None
+        return "aprobado" if motivo == MOTIVO_DOC_APROBADO else "sigrid"
+
+    @staticmethod
+    def _fila_problema(fila: pcp.Clasificado, doc: ParteDocumentOrm,
+                       sustituto: ParteDocumentOrm | None) -> dict:
+        vivas = [r for r in doc.registros if not r.deleted_at_utc]
+        horas_n = sum((r.horas or 0.0) for r in vivas
+                      if not r.es_incidencia and not _is_extra(r))
+        horas_e = sum((r.horas or 0.0) for r in vivas
+                      if not r.es_incidencia and _is_extra(r))
+        return {
+            "document_id": doc.id,
+            "motivo": fila.motivo,
+            "motivos": list(fila.motivos),
+            "texto_motivo": pcp.TEXTOS[fila.motivo],
+            "cuenta": fila.cuenta,
+            "is_active": bool(doc.is_active),
+            "fecha": doc.fecha,
+            "obra_codigo": doc.obra_codigo or doc.obra_numero_leido,
+            "obra_nombre": doc.obra_nombre or doc.obra_nombre_leido,
+            "page_number": doc.page_number,
+            "page_count": doc.page_count,
+            "email_subject": doc.email_subject,
+            "email_received_datetime": doc.email_received_datetime,
+            "num_trabajadores": len({worker_key_for_registro(r)
+                                     for r in vivas}),
+            "horas_normales": round(horas_n, 2),
+            "horas_extra": round(horas_e, 2),
+            "congelado": ParteReviewRepository._insignia_congelado(doc),
+            "tiene_pdf": bool(doc.sharepoint_drive_id
+                              and doc.sharepoint_item_id),
+            "sustituido_at_utc": doc.sustituido_at_utc,
+            "sustituto": None if sustituto is None else {
+                "id": sustituto.id,
+                "fecha": sustituto.fecha,
+                "obra_codigo": (sustituto.obra_codigo
+                                or sustituto.obra_numero_leido),
+                "obra_nombre": (sustituto.obra_nombre
+                                or sustituto.obra_nombre_leido),
+                "activo": bool(sustituto.is_active),
+            },
+        }
+
+    def _problemas(self, *, con_filas: bool) -> tuple[list, list[dict]]:
+        """UNA consulta de los partes fuera de la papelera y su
+        clasificacion: la pestaña y el contador salen de aqui (R10)."""
+        with self._session_factory.create_session() as session:
+            docs = list(session.execute(
+                select(ParteDocumentOrm)
+                .options(selectinload(ParteDocumentOrm.registros))
+                .where(ParteDocumentOrm.deleted_at_utc.is_(None))
+            ).scalars().all())
+            clasificados = pcp.clasificar(self._doc_problema(d) for d in docs)
+            if not con_filas:
+                return clasificados, []
+            por_id = {d.id: d for d in docs}
+            filas = [self._fila_problema(
+                f, por_id[f.doc.id],
+                por_id[f.sustituto.id] if f.sustituto is not None else None)
+                for f in clasificados]
+        return clasificados, filas
+
+    def list_partes_con_problemas(self) -> list[dict]:
+        """Filas de la pestaña `/problemas`, por motivo y fecha (R6-R11)."""
+        return self._problemas(con_filas=True)[1]
+
+    def resumen_problemas(self) -> dict:
+        """`{total, por_motivo}` del contador de la navegacion (R10, R25)."""
+        return pcp.resumen(self._problemas(con_filas=False)[0])
+
+    @staticmethod
+    def _misma_obra_docs(a: ParteDocumentOrm, b: ParteDocumentOrm) -> bool:
+        """R19: por `obra_ide` si los dos lo tienen; si no, por codigo; si
+        no, por el numero de obra leido."""
+        if a.obra_ide is not None and b.obra_ide is not None:
+            return a.obra_ide == b.obra_ide
+        ca = (a.obra_codigo or "").strip()
+        cb = (b.obra_codigo or "").strip()
+        if ca or cb:
+            return ca == cb
+        na = (a.obra_numero_leido or "").strip()
+        return bool(na) and na == (b.obra_numero_leido or "").strip()
+
+    def _choques(self, session, doc: ParteDocumentOrm,
+                 fecha_int: int | None) -> list[dict]:
+        """R19: partes ACTIVOS del mismo dia y obra con alguna clave de
+        trabajador del portal en comun (lineas vivas)."""
+        claves = {worker_key_for_registro(r) for r in doc.registros
+                  if not r.deleted_at_utc}
+        if not fecha_int or not claves:
+            return []
+        otros = session.execute(
+            select(ParteDocumentOrm)
+            .options(selectinload(ParteDocumentOrm.registros))
+            .where(ParteDocumentOrm.is_active.is_(True))
+            .where(ParteDocumentOrm.id != doc.id)
+            .where(ParteDocumentOrm.fecha_int == fecha_int)
+            .order_by(ParteDocumentOrm.id)
+        ).scalars().all()
+        return [
+            {"id": o.id, "fecha": o.fecha,
+             "obra": o.obra_codigo or o.obra_numero_leido}
+            for o in otros
+            if self._misma_obra_docs(doc, o)
+            and claves & {worker_key_for_registro(r) for r in o.registros
+                          if not r.deleted_at_utc}
+        ]
+
+    def recuperar_parte(self, *, document_id: str,
+                        fecha_iso: str | None = None,
+                        fecha_int: int | None = None,
+                        actor: str | None = None) -> dict | None:
+        """Devuelve activo un parte SUSTITUIDO, con la fecha corregida si
+        viene (R17). None si no existe; sin escribir nada lanza
+        `NoRecuperableError` (R22), `CongeladoError` con fecha (R21),
+        `RecalculandoError` (R21), `DuplicadoActivoError` (R20) o
+        `ChoqueRecuperarError` (R19). Conserva el rastro de sv3."""
+        with self._session_factory.create_session() as session:
+            bloqueados = self._bloquear_documentos(session, [document_id])
+            if not bloqueados:
+                return None
+            doc = bloqueados[0]
+            motivo = pcp.motivo_no_recuperable(self._doc_problema(doc))
+            if motivo is not None:
+                raise pcp.NoRecuperableError(motivo)
+            con_fecha = fecha_iso is not None
+            if con_fecha:
+                _exigir_doc_editable(doc)   # F-004
+            _exigir_sin_recalculo(doc)      # F-043
+            self._exigir_sin_duplicado_activo(session, doc)   # F-061
+            choques = self._choques(
+                session, doc, fecha_int if con_fecha else doc.fecha_int)
+            if choques:
+                raise pcp.ChoqueRecuperarError(choques)
+            doc_snap = _doc_snapshot(doc)
+            reg_snaps = [_reg_snapshot(r) for r in doc.registros]
+            anterior = doc.fecha
+            if con_fecha:
+                doc.fecha = fecha_iso
+                doc.fecha_int = fecha_int
+                for reg in doc.registros:
+                    reg.fecha = fecha_iso
+                    reg.fecha_int = fecha_int
+            doc.is_active = True
+            self._record_undo(
+                session, action="parte_recuperar",
+                description=(
+                    f"Recuperar parte {doc.obra_codigo or doc.obra_numero_leido or ''} "
+                    f"({anterior or '?'} → {doc.fecha or '?'})"),
+                documents=[doc_snap], registros=reg_snaps,
+                reactivados=[doc.id], actor=actor,
+            )
+            session.commit()
+            nueva = doc.fecha
+        logger.info(
+            "[parte-repo] recuperar parte %s: fecha %s -> %s (actor=%s)",
+            document_id, anterior, nueva, actor,
+        )
+        return {"document_id": document_id, "fecha": nueva}
 
     # ----------------------------------------------------------------- #
     # BORRADO: linea / obra / persona.  soft (-> papelera) -> hard.

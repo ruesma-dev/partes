@@ -219,6 +219,11 @@ F052_PANEL = (
 #: decision del humano, 2026-11-15).
 F068_CONCILIAR = ("textoRecalculoCasado",)
 
+#: Funciones que añade F-084 (T8, design §8 aprobado por el humano el
+#: 2026-11-26): el contador de «Problemas» de la navegación y el botón
+#: «Recuperar» de `/problemas`. Se descuentan como `F052_PANEL`.
+F084_PROBLEMAS = ("wireProblemasBadge", "_isoADma", "wireRecuperar")
+
 @pytest.mark.parametrize("nombre", sorted(HUELLAS))
 def test_f047_r23_lo_de_f043_no_cambia(nombre) -> None:
     texto = _funcion(_js(), nombre)
@@ -230,14 +235,18 @@ def test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable() -> None:
     js = _js()
     # Funciones con nombre en `app.js` en `dev` 75816f2: F-047 no añade.
     # F-052 (T12, panel de «Sincronizar con Sigrid») añade las 17 de
-    # `F052_PANEL`, todas suyas; F-068 (T9) añade la de `F068_CONCILIAR`.
+    # `F052_PANEL`, todas suyas; F-068 (T9) añade la de `F068_CONCILIAR`
+    # y F-084 (T8), las tres de `F084_PROBLEMAS`.
     # Fuera de ellas el total sigue en 302, menos una: F-032 (§5.10)
     # retira `bloqueoSesameHtml`.
     nombres = re.findall(r"function (\w+)\(", js)
     assert sorted(n for n in nombres if n in F052_PANEL) == sorted(F052_PANEL)
     assert sorted(n for n in nombres if n in F068_CONCILIAR) == sorted(
         F068_CONCILIAR)
-    assert len(nombres) - len(F052_PANEL) - len(F068_CONCILIAR) == 301
+    assert sorted(n for n in nombres if n in F084_PROBLEMAS) == sorted(
+        F084_PROBLEMAS)
+    assert len(nombres) - len(F052_PANEL) - len(F068_CONCILIAR) - len(
+        F084_PROBLEMAS) == 301
     variables = [l for l in js.split("\n") if l.startswith("  var recalculo")]
     assert variables == [
         "  var recalculoVigilados = {};        // document_id -> fecha (ISO)",

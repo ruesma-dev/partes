@@ -21,6 +21,7 @@
         <a href="/trabajadores"{% if request.url.path.startswith('/trabajadores') %} class="is-active"{% endif %}>Trabajadores</a>
         <a href="/obras"{% if request.url.path.startswith('/obras') %} class="is-active"{% endif %}>Obras</a>
         <a href="/conciliacion"{% if request.url.path.startswith('/conciliacion') %} class="is-active"{% endif %}>Conciliar</a>
+        <a href="/problemas"{% if request.url.path.startswith('/problemas') %} class="is-active"{% endif %}>Problemas<span class="nav-badge" id="problemas-badge" hidden></span></a>
         <a href="/partes"{% if request.url.path.startswith('/partes') %} class="is-active"{% endif %}>Partes</a>
         <a href="/papelera"{% if request.url.path.startswith('/papelera') %} class="is-active"{% endif %}>Papelera</a>
         {% if jornadas_admin_enabled %}
