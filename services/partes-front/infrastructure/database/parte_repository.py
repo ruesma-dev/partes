@@ -49,6 +49,7 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
+from application.services.clase_hora import es_codigo_fin
 from application.services.conversion_clase import ClaseNueva
 from application.services.conversion_clase import decidir as decidir_clase
 from application.services.jornada_admin import columnas_patron
@@ -2547,7 +2548,7 @@ class ParteReviewRepository:
         # F-085 (R28): lo movido no es un CIZ => era el inicio de la racha
         # (sv5 lo recoloco hacia atras); mismo CAS.
         cod = (e.get("hora_codigo") or "").strip().upper()
-        if cod and cod != "CIZ":
+        if cod and not es_codigo_fin(cod):
             motivo = motivo_inicio_movido(cod, e.get("hmores_ide"),
                                           reg.fecha_int)
         else:

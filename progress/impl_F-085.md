@@ -159,3 +159,29 @@ Sigrid. Encendido de B: sv5 y luego sv4, con `MOVER_CIZ` encendido.
 - MANUAL M1, M2, M3 y M5 (T15–T17): humano.
 - Push del humano: la rama y los dos commits de `azure-apps`.
 - Despliegue: sv3, sv4 y sv5. `MOVER_INICIO` sigue apagado hasta después de M2.
+
+## Ciclo 1 (CHANGES_REQUESTED en 33663c4, `progress/review_F-085.md`)
+
+**Cambio 1 (R1), hecho.** En `parte_repository.py` (`_fin_movido`), `cod and cod != "CIZ"` pasa a ser
+`cod and not es_codigo_fin(cod)`, con `es_codigo_fin` importada de `clase_hora.py`. El
+comportamiento no cambia. `prohibido` de `test_f085_r1_nadie_mas_decide_es_ci` gana `'!= "CIZ"'`
+y `"!= 'CIZ'"`.
+- RED, con la lista ampliada y el código sin cambiar
+  (`python -m pytest tests/test_f085_conversion.py -q -k nadie_mas`):
+  `E  AssertionError: ('infrastructure/database/parte_repository.py', '!= "CIZ"')` /
+  `E  '!= "CIZ"' is contained here: d and cod != "CIZ":` /
+  `1 failed, 3 passed, 85 deselected`.
+- Verde: `test_f085_conversion.py` y `test_f085_inicio_movido_sv4.py` dan `107 passed`, y los
+  `r28_*` dan `6 passed`. Según lo pedido, `init.sh` no se ha ejecutado: va al terminar el Cambio 2.
+- Repaso con grep en sv4 (`"CIZ"`, `'CI'`, `startswith("CI`, `LIKE 'CI`) fuera de `clase_hora.py`.
+  No queda ninguna comparación de F-085. Hay dos anteriores a F-085 que **no he tocado**, porque son
+  de otras features y cambiarlas sería tocar otra feature sin spec:
+  - `application/services/sincronizacion.py:290`, `.startswith("CI")` (F-052 `a5bcef1`): el
+    `a_cero` de una línea solo de Sigrid. Incluye CIZ a propósito.
+  - `application/services/incidencias_horas.py:32/77`, `PREFIJO_SIGRID = "CI"` (F-025 `d4cda31`):
+    valida `config/incidencias.yaml` al cargarlo.
+  
+  Los usos de `"CI"` de `partida_catalog.py`, `partida_matcher.py`, `app.py:4389` y `app.js`
+  son el capítulo de costes indirectos de las partidas, no códigos de hora.
+
+**Cambio 2 (R8, desviación 4)**: pendiente de la decisión del humano. No lo he tocado.

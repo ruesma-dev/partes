@@ -117,7 +117,7 @@ def test_f085_r1_nadie_mas_decide_es_ci(ruta) -> None:
     fuente = (SV4 / ruta).read_text(encoding="utf-8")
     for prohibido in ('startswith("CI")', "startswith('CI')",
                       'startswith("CIZ")', '== "CIZ"', "== 'CIZ'",
-                      "LIKE 'CI%'"):
+                      '!= "CIZ"', "!= 'CIZ'", "LIKE 'CI%'"):
         assert prohibido not in fuente, (ruta, prohibido)
 
 
