@@ -1283,7 +1283,7 @@
       "priority": 2,
       "rigor": "critico",
       "sdd": true,
-      "status": "in_review",
+      "status": "in_progress",
       "spec_aprobada": "2026-11-26",
       "spec": "specs/F-084-partes-con-problemas/ (2026-11-26, D1–D10 decididas por el humano en (a): «d2, en este caso se sustituye como hasta ahora, pero saldria en la pestaña problemas ok a lo demas»; aprobada 2026-11-26)",
       "branch": "feature/F-084-partes-con-problemas",
