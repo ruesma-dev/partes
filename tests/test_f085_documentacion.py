@@ -34,7 +34,8 @@ def test_f085_r33_arquitectura_semantica_3_parte_a() -> None:
     for palabra in ("F-085", "es_codigo_incidencia", "es_codigo_fin",
                     "conversion_clase.py", "registro_clase",
                     "codigo_incidencia", "MOTIVO_CODIGO_INCIDENCIA",
-                    "hora_match_method", "hora_manual_respetada"):
+                    "hora_match_method", "hora_manual_respetada", "D16",
+                    "avisoNoGuardadas"):
         assert palabra in seccion, palabra
 
 

@@ -23,9 +23,10 @@ Feature activa: ninguna. Siguiente: **F-085** (spec aprobada el 2026-11-27, copi
   4. Tests ajenos enmendados con su porqué: `test_f066_set_registro_hora` r14 y r18,
      `test_f017_punto_unico` (25 `_actor(request)`, uno nuevo por el recálculo), `test_f037_revert`
      r9 (la clave `hora_match_method` nueva de `fetch_registros_para_recurso`).
-  5. Riesgo: un cambio de varias líneas del MISMO parte con la cola configurada da 409 en las
-     siguientes, porque la primera deja el parte en espera de recálculo (F-043). Está
-     caracterizado por un test. Lo seguro es una línea por recálculo.
+  5. **Limitación aceptada (D16, humano 2026-11-27: «,1 b»)**: con la cola, una selección de
+     varias líneas de un MISMO parte se cambia de una en una. Tras la primera, las demás dan el
+     409 de F-043 sin tocarse. El portal avisa de cuáles no se guardaron y recarga si alguna se
+     guardó (`avisoNoGuardadas`, ciclo 1). R8, R13 y design §2 están enmendados por el líder.
 - **Verificaciones MANUAL (humano)**, design §8. Lectura S = la de F-083 §8 (`Invoke-RestMethod …
   /api/sql/read`, `$KEY` del Key Vault); lectura P = `psql -X -v ON_ERROR_STOP=1 -c "<sql>"
   "host=<servidor> dbname=partes user=<usuario> sslmode=require"`. Las M1–M3 van en LOCAL y en modo
@@ -38,6 +39,11 @@ Feature activa: ninguna. Siguiente: **F-085** (spec aprobada el 2026-11-27, copi
     `SELECT h.ide, h.fec, a.cod, h.can, h.synckey FROM hmores h LEFT JOIN auxhor a ON a.ide =
     h.horide WHERE h.synckey = 'partes:<id>'` da CIA con `can` 0. Elegir CIZ ⇒ 400 «El fin de incidencia
     (CIZ) lo pone el sistema…». En otra incidencia, elegir HLxx ⇒ Ordinaria con las horas vacías.
+    **D16**: con sv3 y la cola funcionando, en el detalle de UN parte seleccionar 3 líneas de horas
+    y elegir CIH en una de ellas ⇒ sale un aviso «2 de 3 línea(s) no se han guardado: - El parte
+    se está recalculando (extras): espera a que termine. (líneas <id>, <id>)». Al aceptarlo la
+    página se recarga con una línea en H y las otras dos como estaban. Cuando sv3 termina, repetir
+    con las dos que quedan da el mismo aviso para una de ellas; se acaba de una en una.
   - **M2 (parte B, `MOVER_INICIO=true` y `MOVER_CIZ=true` en sv5 y en sv4)**: V los días 2–4.
     Aprobar el 3 (CIV y CIZ hermano), luego el 4 (el CIZ pasa al 4) y luego el 2 ⇒ S: CIV el 02
     con `partes:<id2>`, nada con `partes:<id3>` y el CIZ el 04. En el portal, el 3 queda

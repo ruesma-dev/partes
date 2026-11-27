@@ -597,16 +597,58 @@ def test_f085_r8_varias_lineas_de_dias_distintos_con_cola(portal) -> None:
         "d-2", "d-3", "d-4"]
 
 
-def test_f085_r8_mismo_parte_con_cola_espera_al_recalculo(portal) -> None:
-    """Caracteriza la espera de F-043: tras convertir una línea, otra del
-    mismo parte da 409 mientras sv3 recalcula, sin tocarla."""
+def _entradas_deshacer(fabrica) -> list[str]:
+    from infrastructure.database.orm_models import UndoLogOrm
+    with fabrica.create_session() as s:
+        return [u.action for u in s.query(UndoLogOrm).order_by(UndoLogOrm.id)]
+
+
+def test_f085_r8_mismo_parte_con_cola_de_una_en_una(portal) -> None:
+    """R8 enmendado (D16): con cola, N líneas del MISMO parte se cambian de
+    una en una. Pedidos SECUENCIALES (deterministas): la primera se
+    convierte y pide su recálculo; cada una de las demás da el 409 de
+    F-043 sin tocar ni la línea ni el deshacer. En concurrencia real
+    (`Promise.all`) podría pasar más de una antes de marcarse la espera;
+    R8 lo admite, y por eso aquí no se afirma nada de la concurrencia."""
+    from application.services.seguimiento_recalculo import (
+        MOTIVO_RECALCULANDO,
+    )
+
     def sembrar(fabrica):
-        return sembrar_parte(fabrica, [{"tipo": "normal"}, {"tipo": "normal"}])
-    cliente, fabrica, ids, _c = portal(sembrar)
-    assert _patch(cliente, ids[0], "CIA").status_code == 200
-    antes = _fila(fabrica, ids[1])
-    assert _patch(cliente, ids[1], "CIA").status_code == 409
-    assert _fila(fabrica, ids[1]) == antes
+        return sembrar_parte(fabrica, [{"tipo": "normal"}] * 3)
+    cliente, fabrica, ids, cola = portal(sembrar)
+    antes = {rid: _fila(fabrica, rid) for rid in ids}
+    r = _patch(cliente, ids[0], "CIA")
+    assert r.status_code == 200 and r.json()["clase_cambiada"] is True
+    assert _fila(fabrica, ids[0])["tipo_hora"] == "AT"
+    for rid in ids[1:]:
+        r = _patch(cliente, rid, "CIA")
+        assert r.status_code == 409
+        assert r.json()["error"] == MOTIVO_RECALCULANDO
+        assert _fila(fabrica, rid) == antes[rid]
+    assert _entradas_deshacer(fabrica) == ["registro_clase"]
+    assert len(_recalculos(cola)) == 1
+
+
+def test_f085_r8_partes_distintos_del_mismo_dia_con_cola(portal) -> None:
+    """Con cola, líneas de partes DISTINTOS (aquí el mismo día, de dos
+    trabajadores) se convierten todas: cada una pide el recálculo de los
+    partes de SU recurso y día, y la espera de un parte no frena al otro."""
+    def sembrar(fabrica):
+        return (sembrar_parte(fabrica, [{"tipo": "normal"}],
+                              document_id="p-1", fecha="2026-03-02")
+                + sembrar_parte(fabrica, [{"tipo": "normal"}],
+                                document_id="p-2", fecha="2026-03-02",
+                                empleado_ide=78, empleado_dni="00000002W",
+                                empleado_nombre="Otra Persona",
+                                recurso_ide=502))
+    cliente, fabrica, ids, cola = portal(sembrar)
+    for rid in ids:
+        r = _patch(cliente, rid, "CIA")
+        assert r.status_code == 200 and r.json()["recalculo"] == "pedido"
+    assert [_fila(fabrica, r)["tipo_hora"] for r in ids] == ["AT", "AT"]
+    assert _entradas_deshacer(fabrica) == ["registro_clase"] * 2
+    assert [p["document_id"] for p in _recalculos(cola)] == ["p-1", "p-2"]
 
 
 def test_f085_r10_r11_deshacer_por_el_endpoint(portal) -> None:
@@ -672,10 +714,15 @@ def test_f085_r14_plantillas_pintan_por_es_incidencia() -> None:
 # ============================== R13 ================================ #
 
 def _on_change() -> str:
+    """`onChange` y, desde F-085 D16, su ayudante `avisoNoGuardadas`."""
     js = APP_JS.read_text(encoding="utf-8")
-    m = re.search(r"\n  function onChange\(ev\) \{.*?\n  \}\n", js, re.DOTALL)
-    assert m, "app.js no define onChange"
-    return m.group(0)
+    trozos = []
+    for nombre in ("avisoNoGuardadas", "onChange"):
+        m = re.search(r"\n  function " + nombre + r"\([^)]*\) \{.*?\n  \}\n",
+                      js, re.DOTALL)
+        assert m, f"app.js no define {nombre}"
+        trozos.append(m.group(0))
+    return "".join(trozos)
 
 
 def _node(programa: str):
@@ -691,9 +738,14 @@ def _node(programa: str):
 
 
 def _ejecutar_on_change(respuestas, *, bulk=False):
+    """`respuestas`: una por pedido; `{"_error": texto, "_status": n}` es
+    una peticion que falla como `MotivoHttp.lanzarSiFalla` (Error con
+    `status`). `alert` queda en `avisos` (F-085 D16)."""
     programa = """
-var recargas = 0, pedidos = [];
-var window = { location: { reload: function () { recargas += 1; } } };
+var recargas = 0, pedidos = [], avisos = [];
+function alert(m) { avisos.push(m); }
+var window = { location: { reload: function () {
+  recargas += 1; } } };
 var current = { textContent: "antes" };
 var row = { querySelector: function () { return current; } };
 var select = { value: "20", disabled: false, title: "",
@@ -703,18 +755,24 @@ var select = { value: "20", disabled: false, title: "",
 var RESPUESTAS = %s;
 function flash() {}
 function patchHora(id, v) { pedidos.push(id);
-  return Promise.resolve(RESPUESTAS[pedidos.length - 1]); }
+  var r = RESPUESTAS[pedidos.length - 1];
+  if (r && r._error) { var e = new Error(r._error); e.status = r._status;
+    return Promise.reject(e); }
+  return Promise.resolve(r); }
 %s
 %s
 onChange({ target: select });
 setTimeout(function () {
   console.log(JSON.stringify({ recargas: recargas, pedidos: pedidos,
-    texto: current.textContent }));
+    texto: current.textContent, avisos: avisos, titulo: select.title }));
 }, 50);
 """ % (json.dumps(respuestas),
        ("var PartidaSel = { has: function () { return true; },"
-        " count: function () { return 2; },"
-        " ids: function () { return ['5', '6']; } };") if bulk else "",
+        " count: function () { return %d; },"
+        " ids: function () { return %s; } };"
+        % (len(respuestas),
+           json.dumps([str(5 + i) for i in range(len(respuestas))])))
+       if bulk else "",
        _on_change())
     return _node(programa)
 
@@ -730,7 +788,7 @@ def test_f085_r13_js_sin_cambio_de_clase_como_hoy() -> None:
                                 "hora_descripcion": "Extra",
                                 "clase_cambiada": False}])
     assert out == {"recargas": 0, "pedidos": ["5"],
-                   "texto": "HEOF · Extra"}
+                   "texto": "HEOF · Extra", "avisos": [], "titulo": ""}
     out = _ejecutar_on_change([{"hora_codigo": "HEOF",
                                 "hora_descripcion": "Extra"}])
     assert out["recargas"] == 0
@@ -740,3 +798,55 @@ def test_f085_r13_js_varias_con_alguna_cambiada() -> None:
     out = _ejecutar_on_change([{"clase_cambiada": False},
                                {"clase_cambiada": True}], bulk=True)
     assert out["recargas"] == 1 and out["pedidos"] == ["5", "6"]
+    assert out["avisos"] == []
+
+
+#: El texto real del 409 de F-043 (R38), como lo manda el servidor.
+ESPERA_409 = "El parte se está recalculando (extras): espera a que termine."
+
+
+def test_f085_r13_d16_fallo_parcial_avisa_y_recarga() -> None:
+    """D16: una se guarda (y cambia de clase) y dos dan el 409 de F-043:
+    el aviso nombra las dos que fallaron, con el texto del servidor, y se
+    recarga (el `alert` bloquea: la recarga espera a que se lea)."""
+    out = _ejecutar_on_change([
+        {"clase_cambiada": True},
+        {"_error": ESPERA_409, "_status": 409},
+        {"_error": ESPERA_409, "_status": 409}], bulk=True)
+    assert out["pedidos"] == ["5", "6", "7"]
+    (aviso,) = out["avisos"]
+    assert aviso.startswith("2 de 3 línea(s) no se han guardado")
+    assert f"{ESPERA_409} (líneas 6, 7)" in aviso
+    assert "5" not in aviso.split("guardado", 1)[1].replace(
+        "(líneas 6, 7)", "")
+    assert out["recargas"] == 1
+
+
+def test_f085_r13_d16_motivos_distintos_por_separado() -> None:
+    out = _ejecutar_on_change([
+        {"clase_cambiada": False},
+        {"_error": ESPERA_409, "_status": 409},
+        {"_error": "Linea congelada", "_status": 409}], bulk=True)
+    (aviso,) = out["avisos"]
+    assert f"{ESPERA_409} (línea 6)" in aviso
+    assert "Linea congelada (línea 7)" in aviso
+    assert out["recargas"] == 1
+
+
+def test_f085_r13_d16_todas_fallan_avisa_y_no_recarga() -> None:
+    out = _ejecutar_on_change([
+        {"_error": ESPERA_409, "_status": 409},
+        {"_error": ESPERA_409, "_status": 409}], bulk=True)
+    (aviso,) = out["avisos"]
+    assert aviso.startswith("2 de 2 línea(s) no se han guardado")
+    assert f"{ESPERA_409} (líneas 5, 6)" in aviso
+    assert out["recargas"] == 0
+    assert out["titulo"] == ESPERA_409
+
+
+def test_f085_r13_d16_una_sola_que_falla_como_hoy() -> None:
+    """Sin selección múltiple no hay fallo parcial: como hoy (F-004 R16),
+    el error en el `title` del selector y sin `alert` ni recarga."""
+    out = _ejecutar_on_change([{"_error": ESPERA_409, "_status": 409}])
+    assert out["avisos"] == [] and out["recargas"] == 0
+    assert out["titulo"] == ESPERA_409 and out["texto"] == "antes"

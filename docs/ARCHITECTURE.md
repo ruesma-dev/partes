@@ -147,7 +147,11 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    con motivo `codigo_incidencia` (`deshacer_codigo_incidencia` al
    deshacer; sv3 retira la extra automática no congelada de esa base) y el
    portal recarga la página. Mientras sv3 recalcula, las demás líneas de
-   esos partes dan 409 (F-043). **sv3 respeta lo manual**: el casado de
+   esos partes dan 409 (F-043): con la cola, una selección de varias líneas
+   de un MISMO parte se cambia de una en una (D16, limitación aceptada por
+   el humano el 2026-11-27) y el portal dice qué líneas no se guardaron
+   (cuántas, el texto del servidor y su id, `avisoNoGuardadas` de
+   `app.js`) y recarga si alguna se guardó. **sv3 respeta lo manual**: el casado de
    recurso no pisa el código de una línea con `hora_match_method =
    "manual"` (solo categoría, `hora_candef` y `recurso_precio_hora`; INFO
    `hora_manual_respetada`), como la partida. **sv5 guarda**: una línea

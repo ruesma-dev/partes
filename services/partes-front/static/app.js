@@ -503,6 +503,25 @@ var FiltrosSesion = (function () {
     }).then(MotivoHttp.lanzarSiFalla);
   }
 
+  // F-085 (R13, D16): el aviso de las lineas de una seleccion que NO se
+  // guardaron (p. ej. el 409 de F-043: con la cola, las de un mismo parte
+  // van de una en una). Agrupa por el texto del servidor y nombra las
+  // lineas por su id, sin datos personales.
+  function avisoNoGuardadas(mal, total) {
+    var grupos = {}, orden = [];
+    mal.forEach(function (x) {
+      var m = (x.e && x.e.message) || "Error";
+      if (!grupos[m]) { grupos[m] = []; orden.push(m); }
+      grupos[m].push(x.id);
+    });
+    return mal.length + " de " + total + " línea(s) no se han guardado:\n" +
+      orden.map(function (m) {
+        var ids = grupos[m];
+        return "- " + m + " (" + (ids.length > 1 ? "líneas " : "línea ") +
+          ids.join(", ") + ")";
+      }).join("\n");
+  }
+
   function onChange(ev) {
     var select = ev.target;
     var registroId = select.getAttribute("data-registro-id");
@@ -516,8 +535,30 @@ var FiltrosSesion = (function () {
                 PartidaSel.has(registroId) && PartidaSel.count() > 1);
     if (bulk) ids = PartidaSel.ids();
     select.disabled = true;
-    Promise.all(ids.map(function (id) { return patchHora(id, value); }))
-      .then(function (results) {
+    Promise.all(ids.map(function (id) {
+      // F-085 (D16): cada peticion se resuelve sola, para saber cuales
+      // fallaron sin perder las que se guardaron.
+      return patchHora(id, value).then(
+        function (r) { return { id: id, ok: true, r: r }; },
+        function (e) { return { id: id, ok: false, e: e }; });
+    }))
+      .then(function (todas) {
+        var mal = todas.filter(function (x) { return !x.ok; });
+        var results = todas.filter(function (x) { return x.ok; })
+          .map(function (x) { return x.r; });
+        if (mal.length && !bulk) throw mal[0].e;   // una sola: como hoy
+        if (mal.length) {
+          // D16: fallo parcial de una seleccion. El `alert` bloquea, asi
+          // que la recarga espera a que se lea (como F-004 R13).
+          alert(avisoNoGuardadas(mal, todas.length));
+          if (!results.length) {
+            flash(select, "error");
+            select.title = mal[0].e.message || "Error";
+            return;
+          }
+          // Alguna se guardo (y quiza cambio de clase): sigue como la
+          // seleccion sin fallos, que recarga para pintarla.
+        }
         flash(select, "saved");
         if (bulk) { window.location.reload(); return; }
         // F-085 (R13): una línea que pasa a incidencia (o vuelve a horas)
