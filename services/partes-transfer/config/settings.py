@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     # imagen anterior a F-062 con hermanos escritos: no leeria `:ciz` y el
     # siguiente `fin` escribiria otro CIZ.
     mover_ciz: bool = Field(False, alias="MOVER_CIZ")
+    # F-085 (parte B, R21-R27): con `MOVER_INICIO` (y `MOVER_CIZ`, porque
+    # usa su paso 6 bis), el `inicio` aprobado ANTES del inicio ya escrito
+    # de su racha lo mueve a su dia con el `UPDATE` de F-060 en vez de
+    # escribir otro CI*. Apagada por defecto. Se enciende aqui y LUEGO en
+    # sv4; se apaga en sv4 y LUEGO aqui. Lo ya movido no se deshace.
+    mover_inicio: bool = Field(False, alias="MOVER_INICIO")
 
     # --- F-056 (DA1 = C, DA29-DA31, R3, R38): franquicia de extras --- #
     # `cod` del campo EXTENDIDO de recurso (`defext` tip 33; hoy `10`,

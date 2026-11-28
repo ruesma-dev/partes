@@ -346,7 +346,8 @@ def test_f037_r9_una_base_sin_horas_orig_tambien_se_marca() -> None:
 def test_f037_r9_la_unica_clave_nueva_es_la_marca() -> None:
     """F-037 solo anadio la marca. F-045 (enmienda A, design §5) anade
     `horas_orig`, `extra_auto`, `deleted_at_utc`, `line_index` y
-    `empleado_line_no`; ninguna otra clave puede colarse."""
+    `empleado_line_no`; F-085 (R17), `hora_match_method`; ninguna otra
+    clave puede colarse."""
     fabrica = FabricaSesionSqlite()
     _sembrar(fabrica, [_base(8.0, 10.0)])
     fila, = _repo(fabrica).fetch_registros_para_recurso()
@@ -358,5 +359,6 @@ def test_f037_r9_la_unica_clave_nueva_es_la_marca() -> None:
         "congelada_por_pareja",
         "horas_orig", "extra_auto", "deleted_at_utc", "line_index",
         "empleado_line_no",
+        "hora_match_method",
     }
     assert fila["congelada_por_pareja"] is False

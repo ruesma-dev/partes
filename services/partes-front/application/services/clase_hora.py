@@ -13,6 +13,11 @@ constantes de abajo, así que cambiarlas basta para todo sv4.
 
 Sin E/S: regla de dominio pura, como `congelacion.py`. sv3 y sv5 tendrán su
 propio sitio único en F-067.
+
+F-085 (R1): también es el único sitio de sv4 que decide si un código es de
+incidencia (`es_codigo_incidencia`: empieza por `PREFIJO_INCIDENCIA` y no
+es el fin) o el fin de una racha (`es_codigo_fin`: `CODIGO_FIN`).
+`tipo_hora_de_codigo` no cambia: un CI* lo convierte `conversion_clase`.
 """
 from __future__ import annotations
 
@@ -20,6 +25,12 @@ import re
 
 #: Prefijo de las horas extra en `auxhor.cod` (HECAP, HEGR, HEOF, HEPE...).
 PREFIJO_EXTRA = "HE"
+
+#: F-085 (R1): prefijo de los códigos de incidencia de `auxhor` (CIA, CIV...).
+PREFIJO_INCIDENCIA = "CI"
+
+#: F-085 (R1): código del fin de una racha de incidencia; lo pone el sistema.
+CODIGO_FIN = "CIZ"
 
 #: Códigos de `auxhor` que la app no usa: no se ofrecen, no se asignan, no
 #: se eligen ni cuentan como extra. Decisión del humano del 2026-11-06
@@ -51,6 +62,21 @@ def es_hora_extra(codigo: str | None) -> bool | None:
     if es_excluido(cod):
         return False
     return cod.startswith(PREFIJO_EXTRA)
+
+
+def es_codigo_fin(codigo: str | None) -> bool:
+    """F-085 (R1): True solo para `CODIGO_FIN`, sin espacios y en
+    mayúsculas."""
+    return _normaliza(codigo) == CODIGO_FIN
+
+
+def es_codigo_incidencia(codigo: str | None) -> bool:
+    """F-085 (R1): True si, normalizado, empieza por `PREFIJO_INCIDENCIA`,
+    es más largo que el prefijo y no es el fin (`CIZ`)."""
+    cod = _normaliza(codigo)
+    return (len(cod) > len(PREFIJO_INCIDENCIA)
+            and cod.startswith(PREFIJO_INCIDENCIA)
+            and not es_codigo_fin(cod))
 
 
 def tipo_hora_de_codigo(codigo: str | None) -> str | None:

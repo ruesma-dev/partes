@@ -49,7 +49,9 @@ from infrastructure.database.orm_models import (
 )
 from infrastructure.database.session_factory import SessionFactory
 from application.services import text_match as tm
-from application.services.clase_hora import tipo_hora_de_codigo
+from application.services.clase_hora import es_codigo_fin
+from application.services.conversion_clase import ClaseNueva
+from application.services.conversion_clase import decidir as decidir_clase
 from application.services.jornada_admin import columnas_patron
 from application.services.obras_agrupadas import (
     MARCAS_ENTRADA,
@@ -127,6 +129,7 @@ from application.services.racha_incidencia import (
     inicios_con_ciz,
     motivo_desordenada,
     motivo_fin_movido,
+    motivo_inicio_movido,
     racha_delante,
     ventana,
 )
@@ -742,6 +745,23 @@ def _linea_dia(reg: ParteRegistroOrm) -> LineaDia:
     )
 
 
+@dataclass(frozen=True)
+class ResultadoHora:
+    """F-085 (R9, R11): lo que deja `set_registro_hora` en la linea."""
+
+    clase_cambiada: bool
+    tipo_hora: str | None
+    es_incidencia: bool
+    incidencia_codigo: str | None
+    recurso_ide: int | None
+    fecha_int: int | None
+    document_id: str
+
+
+#: F-085 (R10): accion de deshacer de un guardado con cambio de clase.
+ACCION_REGISTRO_CLASE = "registro_clase"
+
+
 # ------------------------------------------------------------------ #
 # DESHACER: snapshots de filas (estado ANTERIOR) y su restauracion.
 # Un snapshot de registro captura TODOS los campos que cualquier accion
@@ -757,6 +777,8 @@ _REG_UNDO_FIELDS = (
     "partida_match_method",
     # F-035 (R16): el recurso elegido y la marca `recurso_manual`.
     "empleado_reside", "empleado_match_method",
+    # F-085 (R10): la letra de la incidencia (un cambio de clase la toca).
+    "incidencia_codigo",
 )
 _DOC_UNDO_FIELDS = (
     "fecha", "fecha_int", "obra_ide", "obra_codigo", "obra_nombre",
@@ -772,10 +794,31 @@ def _reg_snapshot(reg: ParteRegistroOrm) -> dict:
 
 
 def _apply_reg_snapshot(reg: ParteRegistroOrm, snap: dict) -> None:
-    # F-049 (R25, R28): las marcas solo vienen en las entradas `celda_edit`.
+    # F-049 (R25, R28): las marcas solo vienen en las entradas `celda_edit`
+    # y, desde F-085 (R10), en las `registro_clase`.
     for f in _REG_UNDO_FIELDS + _REG_UNDO_MARCAS:
         if f in snap:
             setattr(reg, f, snap[f])
+
+
+def _aplicar_clase(reg: ParteRegistroOrm, clase: ClaseNueva) -> None:
+    """F-085 (R2-R4, R7): la clase que `conversion_clase.decidir` le da a
+    la linea. Sin cambio de clase, solo el `tipo_hora` de F-066 (si lo
+    hay); con el, la forma canonica (incidencia: letra en `tipo_hora` e
+    `incidencia_codigo`, horas y `horas_orig` nulos y nunca `extra_auto`,
+    o sv3 la borraria como extra de la pareja) o la vuelta a horas con
+    las horas vacias (D3)."""
+    if not clase.cambia:
+        if not reg.es_incidencia and clase.tipo_hora is not None:
+            reg.tipo_hora = clase.tipo_hora
+        return
+    reg.es_incidencia = clase.es_incidencia
+    reg.tipo_hora = clase.tipo_hora
+    reg.incidencia_codigo = clase.incidencia_codigo
+    if clase.vaciar_horas:
+        reg.horas = None
+        reg.horas_orig = None
+        reg.extra_auto = False
 
 
 def _doc_snapshot(doc: ParteDocumentOrm) -> dict:
@@ -2286,8 +2329,13 @@ class ParteReviewRepository:
         incidencias: TablaIncidencias | None = None,
         repartos_decididos: frozenset[int] = frozenset(),
         mover_ciz: bool = False,
+        mover_inicio: bool = False,
     ) -> dict[str, Any]:
         """Payload para sv5: obra + lineas de esos registros (activos).
+
+        F-085 (R29): con `mover_inicio` (y `mover_ciz`), un `inicio` cuyo
+        siguiente dia que cuenta es de su misma clave no da
+        `racha_desordenada`: sv5 recoloca su inicio previo.
 
         F-024 (R22, DA7): nunca viajan las lineas `registrado` (reenviarlas
         reescribiria en Sigrid lo que Administracion borro a proposito) y,
@@ -2439,7 +2487,8 @@ class ParteReviewRepository:
                     })
             if mover_ciz:
                 roles_de, rachas, avisos, ciz = self._roles_de_racha(
-                    session, [r for r, _l, _g in viajan], incidencias)
+                    session, [r for r, _l, _g in viajan], incidencias,
+                    mover_inicio=mover_inicio)
             else:
                 # R26 bis (DA12): el rol de dev 0926857, linea a linea.
                 roles_de = {r.id: self._rol_incidencia_anterior(session, r)
@@ -2496,7 +2545,14 @@ class ParteReviewRepository:
         x = e.get("movida_de")
         if x is None or int(x) == reg.id:
             return
-        motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
+        # F-085 (R28): lo movido no es un CIZ => era el inicio de la racha
+        # (sv5 lo recoloco hacia atras); mismo CAS.
+        cod = (e.get("hora_codigo") or "").strip().upper()
+        if cod and not es_codigo_fin(cod):
+            motivo = motivo_inicio_movido(cod, e.get("hmores_ide"),
+                                          reg.fecha_int)
+        else:
+            motivo = motivo_fin_movido(e.get("hmores_ide"), reg.fecha_int)
         cambiadas = session.execute(
             update(ParteRegistroOrm)
             .where(ParteRegistroOrm.id == int(x),
@@ -2584,7 +2640,8 @@ class ParteReviewRepository:
     @classmethod
     def _roles_de_racha(
         cls, session, regs: list[ParteRegistroOrm],
-        incidencias: TablaIncidencias | None,
+        incidencias: TablaIncidencias | None, *,
+        mover_inicio: bool = False,
     ) -> tuple[dict[int, str], dict[int, list[int]], dict[int, int],
                set[int]]:
         """F-060 (R1-R12): para las lineas que viajan, el rol de cada
@@ -2601,7 +2658,10 @@ class ParteReviewRepository:
         tardia, de cualquier obra y estado, con la papelera marcada
         (`activa`, R5). `decidir` da el rol de cada incidencia y `colapsar`
         los ajusta sobre TODA la aprobacion (R7, R8), antes del reparto por
-        obra de F-022. Una incidencia sin fecha es `inicio`, como antes."""
+        obra de F-022. Una incidencia sin fecha es `inicio`, como antes.
+
+        F-085 (R29): con `mover_inicio`, el aviso de un `inicio` se calcula
+        con su clave (`aviso_desordenada(..., clave)`)."""
         por_persona: dict[str, list[ParteRegistroOrm]] = {}
         for r in regs:
             trabajo = (not r.es_incidencia
@@ -2639,7 +2699,11 @@ class ParteReviewRepository:
             for r in suyas:
                 if r.es_incidencia and roles[r.id] != INICIO:
                     continue
-                f = aviso_desordenada(historicos[persona], int(r.fecha_int))
+                clave = (clave_incidencia(r.incidencia_codigo,
+                                          r.hora_codigo, incidencias)
+                         if mover_inicio and r.es_incidencia else None)
+                f = aviso_desordenada(historicos[persona], int(r.fecha_int),
+                                      clave)
                 if f is not None:
                     avisos[r.id] = f
         return roles, rachas, avisos, ciz
@@ -3297,14 +3361,36 @@ class ParteReviewRepository:
         hora_ext: int | None,
         hora_precio_coste: float | None,
         hora_precio_nomina: float | None,
-    ) -> bool:
+        incidencias: TablaIncidencias | None = None,
+    ) -> ResultadoHora | bool:
+        """Guarda el codigo de hora elegido (F-066) y, desde F-085, la
+        clase que ese codigo le da a la linea (`conversion_clase.decidir`
+        con su estado, dentro de esta transaccion; `incidencias` es la
+        tabla de F-025).
+
+        Un codigo que no se puede guardar (CIZ o CI* sin letra) lanza
+        `ValueError` sin tocar nada: el endpoint ya lo rechaza antes. Sin
+        cambio de clase, la entrada de deshacer es `registro_hora` (F-066);
+        con el, `registro_clase`, que guarda ademas `horas_orig` y
+        `extra_auto` (R10). Devuelve `ResultadoHora`, o False si la linea
+        no existe."""
         with self._session_factory.create_session() as session:
             reg = session.get(ParteRegistroOrm, registro_id)
             if reg is None:
                 return False
             _exigir_reg_editable(reg)   # F-004 R3
             _exigir_sin_recalculo(reg.document)   # F-043 R38
+            clase = decidir_clase(
+                es_incidencia=bool(reg.es_incidencia),
+                incidencia_codigo=reg.incidencia_codigo,
+                tipo_hora=reg.tipo_hora, codigo=hora_codigo,
+                tabla=incidencias)
+            if clase.error is not None:
+                raise ValueError(clase.error)
             snap = _reg_snapshot(reg)
+            if clase.cambia:
+                for f in _REG_UNDO_MARCAS:
+                    snap[f] = getattr(reg, f)
             label = _reg_label(reg)
             reg.hora_ide = hora_ide
             reg.hora_codigo = hora_codigo
@@ -3315,17 +3401,28 @@ class ParteReviewRepository:
             reg.hora_match_method = "manual"
             # F-066 (R12-R15): la clase sale del codigo (prefijo `HE`, sin
             # los excluidos), no de `auxhor.ext`; sin codigo no se sabe y
-            # no se toca, y una incidencia conserva la suya.
-            tipo = tipo_hora_de_codigo(hora_codigo)
-            if tipo is not None and not reg.es_incidencia:
-                reg.tipo_hora = tipo
+            # no se toca. F-085 (R2-R4): un CI* con letra la convierte en
+            # incidencia y un codigo de horas devuelve una incidencia a
+            # horas (`_aplicar_clase`).
+            _aplicar_clase(reg, clase)
+            if not clase.cambia:
+                accion, texto = "registro_hora", "Cambiar codigo de hora"
+            elif clase.es_incidencia:
+                accion, texto = ACCION_REGISTRO_CLASE, "Cambiar a incidencia"
+            else:
+                accion, texto = ACCION_REGISTRO_CLASE, "Cambiar a horas"
             self._record_undo(
-                session, action="registro_hora",
-                description=f"Cambiar codigo de hora · {label}",
+                session, action=accion, description=f"{texto} · {label}",
                 registros=[snap],
             )
+            resultado = ResultadoHora(
+                clase_cambiada=clase.cambia, tipo_hora=reg.tipo_hora,
+                es_incidencia=bool(reg.es_incidencia),
+                incidencia_codigo=reg.incidencia_codigo,
+                recurso_ide=_recurso_de(reg), fecha_int=reg.fecha_int,
+                document_id=reg.document_id)
             session.commit()
-        return True
+        return resultado
 
     def aplicar_partida_recasada(
         self, *, registro_id: int, partida: dict | None,
@@ -3896,6 +3993,9 @@ class ParteReviewRepository:
                 self._deshacer_reactivados(session, payload)
             row.undone = True
             partes_empleado = _documentos_de(restauradas)
+            pares_clase = {(int(_recurso_de(r)), int(r.fecha_int))
+                           for r in restauradas
+                           if _recurso_de(r) and r.fecha_int}
             session.commit()
             remaining = len(list(session.execute(
                 select(UndoLogOrm).where(UndoLogOrm.undone.is_(False))
@@ -3912,6 +4012,10 @@ class ParteReviewRepository:
                                 for snap in payload.get("documents", [])]}
         if action == "empleado":
             res["document_ids"] = partes_empleado
+        if action == ACCION_REGISTRO_CLASE:
+            # F-085 (R11): los partes de los dias de las lineas restauradas,
+            # de cualquier obra (el grupo que sv3 reparte por dia).
+            res["document_ids"] = self.documentos_de_los_dias(pares_clase)
         if celda is not None:
             res.update(celda)
         return res

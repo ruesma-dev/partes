@@ -67,6 +67,10 @@ LIMITE_MOTIVO = 255
 #: Prefijo del motivo de la linea cuyo CIZ se movio a otro dia (R28).
 MOTIVO_FIN_MOVIDO = "fin_movido"
 
+#: F-085 (R28): prefijo del motivo de la linea cuyo inicio (CI*) paso a
+#: un dia anterior: la linea queda como dia intermedio de la racha.
+MOTIVO_INICIO_MOVIDO = "inicio_movido"
+
 #: Por debajo de esto, una cantidad de horas es cero (como F-025).
 _EPSILON = 1e-9
 
@@ -284,15 +288,19 @@ def inicios_con_ciz(lineas: Sequence[LineaRol],
             and (l.persona, l.clave, l.registro_id) not in con_fin}
 
 
-def aviso_desordenada(hist: Sequence[LineaHist],
-                      fecha_int: int) -> int | None:
+def aviso_desordenada(hist: Sequence[LineaHist], fecha_int: int,
+                      clave: str | None = None) -> int | None:
     """R10: la fecha del siguiente dia que cuenta tras D (hasta el ultimo
     del mes siguiente) si tiene alguna incidencia activa `registrado`;
-    None si no."""
+    None si no. F-085 (R29): con `clave` (un `inicio` con `MOVER_INICIO`),
+    None tambien si ese siguiente dia es de su misma clave: sv5 recoloca
+    el inicio, no hay nada que revisar a mano."""
     delante = _dias(hist, int(fecha_int) + 1, hasta_delante(fecha_int))
     if not delante:
         return None
     siguiente = min(delante)
+    if clave is not None and _de_la_racha(delante[siguiente], clave):
+        return None
     hay = any(int(l.fecha_int or 0) == siguiente and l.activa
               and l.es_incidencia and l.sigrid_estado == ESTADO_REGISTRADO
               for l in hist)
@@ -308,6 +316,21 @@ def motivo_fin_movido(hmores_ide: object, fecha_int: object) -> str:
         dia = "?"
     return (f"{MOTIVO_FIN_MOVIDO}: el fin de la incidencia (CIZ, linea "
             f"{hmores_ide}) paso al dia {dia}")[:LIMITE_MOTIVO]
+
+
+def motivo_inicio_movido(hora_codigo: object, hmores_ide: object,
+                         fecha_int: object) -> str:
+    """F-085 (R28): el motivo de la linea X cuyo inicio (`hmores_ide`, con
+    su codigo CI*) paso al dia D, anterior: X queda como dia intermedio."""
+    try:
+        f = f"{int(fecha_int):08d}"
+        dia = f"{f[:4]}-{f[4:6]}-{f[6:]}"
+    except (TypeError, ValueError):
+        dia = "?"
+    cod = (str(hora_codigo).strip().upper() if hora_codigo else "") or "?"
+    return (f"{MOTIVO_INICIO_MOVIDO}: el inicio de la incidencia ({cod}, "
+            f"linea {hmores_ide}) paso al dia {dia}: este dia es "
+            f"intermedio")[:LIMITE_MOTIVO]
 
 
 def motivo_desordenada(fecha_int: int) -> str:

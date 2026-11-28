@@ -6,6 +6,18 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+#: F-085 (R19): prefijo de los codigos de incidencia de `auxhor` (CI*,
+#: incluido el fin `CIZ`).
+PREFIJO_INCIDENCIA = "CI"
+
+
+def es_codigo_ci(cod: Optional[str]) -> bool:
+    """F-085 (R19): si un codigo de hora, sin espacios a los lados y en
+    mayusculas, es de incidencia (CI*, tambien `CIZ`). El sitio unico de
+    sv5 para esa regla (`HoraRecurso.es_incidencia` la usa)."""
+    return (cod or "").strip().upper().startswith(PREFIJO_INCIDENCIA)
+
+
 # ----------------------------- entrada ----------------------------- #
 
 @dataclass
@@ -99,7 +111,7 @@ class HoraRecurso:
 
     @property
     def es_incidencia(self) -> bool:
-        return (self.cod or "").upper().startswith("CI")
+        return es_codigo_ci(self.cod)
 
     @property
     def es_mensual(self) -> bool:

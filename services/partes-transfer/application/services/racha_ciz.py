@@ -43,6 +43,15 @@ sin fin:
   - `decidir_mismo_dia`: igual => `MOTIVO_POSTERIOR_SIN_CIZ`, sin hermano
     (R8, R9). Un CIZ posterior sigue mandando (`posterior`, F-060 R14).
 
+F-085 · parte B: el inicio de una racha se recoloca hacia atras. Con
+`MOVER_INICIO`, el `inicio` del dia D que trae su tramo delante busca en
+las mismas candidatas el **inicio previo** (`inicio_previo`, D9): la
+primera linea de la racha posterior a D, de su mismo codigo, con synckey
+de un registro (no un hermano `:ciz`) y un CIZ de la racha en su dia o
+despues. `decidir_inicio`: sin el, `crear` (con `no_movido` si habia una
+posterior de ese codigo, para el WARNING); enlazado => `enlazada`; su
+parte no En registro => `parte_cerrado`; si no => `mover` (R21-R23).
+
 En Sigrid no se borra (regla del humano): mover es un `UPDATE` de la linea
 (`stmt_mover_linea`), nunca un borrado y un alta. Motivos sin tildes como
 el resto de sv5, sin nombres ni DNIs y de 255 caracteres como mucho
@@ -79,6 +88,9 @@ MOTIVO_CIZ_EN_SIGRID = "ciz_en_sigrid"  # CIZ ajeno del recurso el dia D
 #: F-083 (R8): el inicio no escribe hermano: la racha sigue despues sin CIZ.
 MOTIVO_POSTERIOR_SIN_CIZ = "posterior_sin_ciz"
 
+#: F-085 (R22): prefijo del motivo de un inicio previo en un parte cerrado.
+MOTIVO_INICIO_EN_PARTE_CERRADO = "inicio_en_parte_cerrado"
+
 
 @dataclass(frozen=True)
 class DecisionFin:
@@ -89,6 +101,16 @@ class DecisionFin:
     duplicados: int = 0             # otras anteriores que no se tocan
     sin_ciz: bool = False           # F-083 (R7): intermedio por una linea
     #                                 de la racha posterior que no es CIZ
+
+
+@dataclass(frozen=True)
+class DecisionInicio:
+    """F-085 (R21-R23): que hacer con el `inicio` del dia D."""
+    tipo: str                         # crear | mover | enlazada | ...
+    linea: LineaSigrid | None = None  # el inicio previo que se mueve
+    motivo: str | None = None         # el de la omision
+    no_movido: LineaSigrid | None = None  # R23: posterior del mismo
+    #                                   codigo que no es inicio previo
 
 
 def fecha_iso(fecha_int: int) -> str:
@@ -108,6 +130,16 @@ def motivo_ciz_en_parte_cerrado(ide: int, cod: str | None,
     """R17: el CIZ que habria que mover vive en un parte cerrado."""
     return (f"{MOTIVO_CIZ_EN_PARTE_CERRADO}: el fin de la incidencia (CIZ, "
             f"linea {ide}) esta en el parte {cod or '?'} ({estado}), que ya "
+            f"no esta En registro; no se mueve ni se escribe otro. "
+            f"Corrigelo en Sigrid")[:LIMITE_MOTIVO]
+
+
+def motivo_inicio_en_parte_cerrado(ide: int, cod: str | None,
+                                   estado: str) -> str:
+    """F-085 (R22): el inicio previo que habria que mover vive en un parte
+    cerrado: ni se mueve ni se escribe otro CI* (D10)."""
+    return (f"{MOTIVO_INICIO_EN_PARTE_CERRADO}: el inicio de la incidencia "
+            f"(linea {ide}) esta en el parte {cod or '?'} ({estado}), que ya "
             f"no esta En registro; no se mueve ni se escribe otro. "
             f"Corrigelo en Sigrid")[:LIMITE_MOTIVO]
 
@@ -163,6 +195,39 @@ def ultima_posterior(candidatas: Iterable[LineaSigrid], fecha_int: int,
     if not posteriores:
         return None
     return max(posteriores, key=lambda ls: (ls.fecha_int, ls.ide))
+
+
+def _codigo(cod: str | None) -> str:
+    return (cod or "").strip().upper()
+
+
+def inicio_previo(fecha_int: int, recurso_ide: int, codigo: str | None,
+                  candidatas: Iterable[LineaSigrid],
+                  marca_pruebas: str | None
+                  ) -> tuple[LineaSigrid | None, LineaSigrid | None]:
+    """F-085 (D9): `(previo, no_movido)`. El inicio previo es la PRIMERA
+    linea de la racha posterior a D, por (fecha, `ide`), si es de `codigo`,
+    su synckey es la de un registro (no la de un hermano `:ciz`) y hay un
+    CIZ de la racha en su dia o despues. Si no lo es, `no_movido` es la
+    primera posterior de `codigo` (o None): no se mueve nada."""
+    candidatas = list(candidatas)
+    cod = _codigo(codigo)
+    clave = lambda ls: (ls.fecha_int, ls.ide)  # noqa: E731
+    posteriores = sorted(
+        (ls for ls in candidatas if ls.fecha_int > fecha_int
+         and es_linea_de_la_racha(ls, recurso_ide, marca_pruebas)),
+        key=clave)
+    if not posteriores:
+        return None, None
+    primera = posteriores[0]
+    if (_codigo(primera.hora_codigo) == cod
+            and registro_de_synckey(primera.synckey) is not None
+            and any(ls.fecha_int >= primera.fecha_int
+                    and es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)
+                    for ls in candidatas)):
+        return primera, None
+    return None, next((ls for ls in posteriores
+                       if _codigo(ls.hora_codigo) == cod), None)
 
 
 def _nombre_por_defecto(est: int | None) -> str:
@@ -239,3 +304,33 @@ def decidir_mismo_dia(
                         solo_ciz=False) is not None:
         return MOTIVO_POSTERIOR_SIN_CIZ
     return None
+
+
+def decidir_inicio(
+    fecha_int: int, recurso_ide: int, codigo: str | None,
+    candidatas: Iterable[LineaSigrid], *,
+    partes: Mapping[int, ParteSigrid], est_registro: int,
+    marca_pruebas: str | None,
+    nombre_estado: Callable[[int | None], str] = _nombre_por_defecto,
+) -> DecisionInicio:
+    """F-085 (R21-R23, D10): la decision para el `inicio` del dia D.
+
+    Sin inicio previo, `crear` (el `INSERT` de siempre). Con el: enlazado
+    => `enlazada` (motivo de F-053); su parte ausente o no En registro =>
+    `parte_cerrado`; si no => `mover`. Ni enlazado ni cerrado se escribe
+    otro CI*."""
+    previo, no_movido = inicio_previo(fecha_int, recurso_ide, codigo,
+                                      candidatas, marca_pruebas)
+    if previo is None:
+        return DecisionInicio(tipo=CREAR, no_movido=no_movido)
+    parte = partes.get(int(previo.hmoide or 0))
+    cod = parte.cod if parte is not None else None
+    if previo.enlazada:
+        return DecisionInicio(tipo=ENLAZADA, motivo=motivo_linea_enlazada(
+            [previo.ide], cod))
+    if parte is None or parte.est != est_registro:
+        est = parte.est if parte is not None else None
+        return DecisionInicio(tipo=PARTE_CERRADO, motivo=(
+            motivo_inicio_en_parte_cerrado(previo.ide, cod,
+                                           nombre_estado(est))))
+    return DecisionInicio(tipo=MOVER, linea=previo)

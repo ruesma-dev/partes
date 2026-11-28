@@ -161,7 +161,9 @@ from application.services.racha_ciz import (
     MOTIVO_POSTERIOR_SIN_CIZ,
     MOVER,
     decidir_fin,
+    decidir_inicio,
     decidir_mismo_dia,
+    inicio_previo,
     registro_de_synckey,
 )
 from application.services.reglas_registro import (
@@ -175,6 +177,7 @@ from domain.models.registro_models import (
     HoraRecurso,
     LineaEntrada,
     ObraEntrada,
+    es_codigo_ci,
     LineaSigrid,
     ParteDestino,
     ParteSigrid,
@@ -587,10 +590,19 @@ class RegistroPipeline:
         Va despues de la idempotencia (una `fin` ya escrita no busca nada)
         y antes de los conflictos, que corren igual para la accion. Bajo el
         lock en `registrar`; en `preflight`, consultivo (R25). Apagado (o
-        un settings sin el ajuste), no lee nada: como antes (R26)."""
+        un settings sin el ajuste), no lee nada: como antes (R26).
+
+        F-085 (parte B, R21-R27): con `MOVER_INICIO` ademas, cada `inicio`
+        (rol de la linea) `escribir` con codigo CI* distinto de `CIZ` y su
+        tramo delante suma sus synckeys a la MISMA lectura y su inicio
+        previo a la de los partes; tras el hermano (R24, sin cambios),
+        `decidir_inicio` lo mueve (`a.mover`) u omite la accion. Apagado,
+        ni lee ni decide nada nuevo (R27)."""
         if not self._mover_ciz():
             return
         racha = {l.registro_id: list(l.racha_registro_ids or [])
+                 for l in ctx.lineas}
+        roles = {l.registro_id: (l.incidencia_rol or "").strip().lower()
                  for l in ctx.lineas}
         fines = [a for a in ctx.acciones
                  if a.accion == "escribir"
@@ -599,7 +611,14 @@ class RegistroPipeline:
         # F-062 (R11): los `inicio` que escriben su CIZ hermano.
         inicios = [a for a in ctx.acciones
                    if a.accion == "escribir" and a.fin_mismo_dia is not None]
-        if not fines and not inicios:
+        # F-085 (R21): los `inicio` que pueden recolocar su inicio previo.
+        previos = [a for a in ctx.acciones
+                   if self._mover_inicio() and a.accion == "escribir"
+                   and roles.get(a.registro_id) == "inicio"
+                   and es_codigo_ci(a.hora_codigo)
+                   and (a.hora_codigo or "").strip().upper() != CODIGO_FIN
+                   and racha.get(a.registro_id)]
+        if not fines and not inicios and not previos:
             return
 
         def claves(rid: int) -> list[str]:
@@ -607,11 +626,19 @@ class RegistroPipeline:
             return [sk for i in racha[rid]
                     for sk in (synckey_de(i), synckey_ciz_de(i))]
 
-        leidas = self._cli.lineas_de_racha(
-            [sk for a in fines for sk in claves(a.registro_id)]
-            + [sk for a in inicios
-               for sk in (*claves(a.registro_id),
-                          synckey_ciz_de(a.registro_id))])
+        pedidas = ([sk for a in fines for sk in claves(a.registro_id)]
+                   + [sk for a in inicios
+                      for sk in (*claves(a.registro_id),
+                                 synckey_ciz_de(a.registro_id))])
+        # F-085 (R21, R27): las de los `previos` que no estaban ya, al final
+        # de la MISMA lectura; apagado, la lista es la de siempre.
+        ya = set(pedidas)
+        for a in previos:
+            for sk in claves(a.registro_id):
+                if sk not in ya:
+                    ya.add(sk)
+                    pedidas.append(sk)
+        leidas = self._cli.lineas_de_racha(pedidas)
 
         def candidatas(rid: int) -> list[LineaSigrid]:
             return [leidas[sk] for sk in claves(rid) if sk in leidas]
@@ -627,13 +654,23 @@ class RegistroPipeline:
                 self._sin_hermano(a, motivo)
             if motivo == MOTIVO_POSTERIOR_SIN_CIZ:
                 self._racha_fin_no_ciz(a, motivo)       # F-083 (R11)
-        if not fines:
+        if not fines and not previos:
             return
         hmoides = {int(ls.hmoide) for a in fines
                    for ls in candidatas(a.registro_id) if ls.hmoide}
+        for a in previos:
+            # F-085 (R21): solo el parte del inicio previo, si lo hay.
+            previo, _ = inicio_previo(a.fecha_int, int(a.recurso_ide or 0),
+                                      a.hora_codigo,
+                                      candidatas(a.registro_id), marca)
+            if previo is not None and previo.hmoide:
+                hmoides.add(int(previo.hmoide))
         partes = {h: ParteSigrid(ide=h, cod=d.get("cod"), est=d.get("est"))
                   for h, d in (self._cli.estados_de_partes(hmoides)
                                if hmoides else {}).items()}
+        for a in previos:
+            self._recolocar_inicio(a, candidatas(a.registro_id), partes,
+                                   marca)
         for a in fines:
             d = decidir_fin(a.fecha_int, int(a.recurso_ide or 0),
                             candidatas(a.registro_id),
@@ -652,6 +689,33 @@ class RegistroPipeline:
                 if d.sin_ciz:
                     self._racha_fin_no_ciz(a, d.motivo)  # F-083 (R10)
                 self._omitir(a, d.motivo)
+
+    def _recolocar_inicio(self, a: AccionLinea,
+                          candidatas: list[LineaSigrid],
+                          partes: dict[int, ParteSigrid],
+                          marca: str | None) -> None:
+        """F-085 (R21-R23): `decidir_inicio` para un `inicio`. Mover deja
+        `a.mover` (la rama generica del paso de escritura); enlazada o en
+        parte cerrado, se omite; sin inicio previo pero con una posterior
+        de su codigo, WARNING sin nombres ni DNIs."""
+        d = decidir_inicio(a.fecha_int, int(a.recurso_ide or 0),
+                           a.hora_codigo, candidatas, partes=partes,
+                           est_registro=self._est_registro(),
+                           marca_pruebas=marca,
+                           nombre_estado=self._nombre_estado)
+        if d.tipo == MOVER:
+            a.mover = d.linea
+        elif d.tipo != CREAR:
+            self._omitir(a, d.motivo)
+        elif d.no_movido is not None:
+            logger.warning("[registro] racha_inicio_no_movido "
+                           "registro_id=%s ide=%s", a.registro_id,
+                           d.no_movido.ide)
+
+    def _mover_inicio(self) -> bool:
+        """F-085 (R27): `MOVER_INICIO`; un settings sin el ajuste es el
+        interruptor apagado."""
+        return bool(getattr(self._st, "mover_inicio", False))
 
     def _mover_ciz(self) -> bool:
         """F-060 (R26) y F-062 (R8): `MOVER_CIZ`; un settings sin el
@@ -987,15 +1051,19 @@ class RegistroPipeline:
     def _log_ciz_movido(ls: LineaSigrid, e: dict,
                         mapa: dict[str, LineaSigrid]) -> None:
         """F-060 (R24) y F-062 (R19): el INFO del CIZ movido, sin nombres
-        ni DNIs. Un hermano no viene de un registro: nombra su synckey."""
+        ni DNIs. Un hermano no viene de un registro: nombra su synckey.
+        F-085 (R25): si lo movido no es un CIZ, es un inicio previo:
+        `inicio_movido`."""
         sk = synckey_de(e["registro_id"])
         if "movida_de" in e:
             origen = f"registro_id={e['movida_de']}->{e['registro_id']}"
         else:
             origen = f"synckey={ls.synckey}->{sk}"
+        que = ("ciz movido" if (ls.hora_codigo or "").strip().upper()
+               == CODIGO_FIN else "inicio_movido")
         logger.info(
-            "[registro] ciz movido ide=%s hmoide=%s->%s fecha=%s->%s %s",
-            ls.ide, ls.hmoide, e["hmoide"], ls.fecha_int,
+            "[registro] %s ide=%s hmoide=%s->%s fecha=%s->%s %s",
+            que, ls.ide, ls.hmoide, e["hmoide"], ls.fecha_int,
             mapa[sk].fecha_int, origen)
 
     @staticmethod

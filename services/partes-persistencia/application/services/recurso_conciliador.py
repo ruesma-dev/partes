@@ -71,6 +71,10 @@ from domain.ports.jornada_empleado_port import (
 
 logger = logging.getLogger(__name__)
 
+#: F-085 (R15): `hora_match_method` de un codigo de hora elegido a mano en
+#: el portal (sv4 `set_registro_hora`); el casado de recurso no lo pisa.
+METODO_MANUAL = "manual"
+
 #: Mapa candef -> jornada semanal por defecto (F-015). El de verdad llega
 #: del cableado (`JORNADA_SEMANAL_POR_CANDEF`, espejo del de sv4); este
 #: existe para que los conciliadores construidos sin el —todos los tests
@@ -336,7 +340,13 @@ class RecursoConciliador:
         (clasificacion del recurso), codigo de hora (su hora laborable/extra)
         y la jornada por defecto (candef). Devuelve solo las claves a pisar;
         las incidencias NO pisan la hora (D2). Emite warning si el codigo de
-        hora impuesto difiere del que ya tenia el registro."""
+        hora impuesto difiere del que ya tenia el registro.
+
+        F-085 (R15, R16, D8): un codigo elegido a mano en el portal
+        (`hora_match_method = "manual"`) no se pisa, sea de horas o de
+        incidencia; solo categoria, `hora_candef` y `recurso_precio_hora`.
+        Si el del recurso difiere, INFO `hora_manual_respetada` con el
+        registro y los codigos (sin nombres ni DNIs)."""
         out: dict = {}
         rec = by_ide.get(ride)
         if rec is not None and rec.restip_res:
@@ -349,16 +359,17 @@ class RecursoConciliador:
         ord_row = hsel.get("ord")
         if ord_row is not None and ord_row.pre is not None:
             out["recurso_precio_hora"] = ord_row.pre
-        tipo = (reg.get("tipo_hora") or "").strip().lower()
-        if tipo not in ("", "normal", "extra"):
-            # Incidencia (V|B|AT|FJ|F|H|M): coge SU codigo del grupo del
-            # recurso (reshor), nunca la ordinaria. Si el recurso no tiene ese
-            # codigo de incidencia, no se pisa (se mantiene el resuelto).
-            hora = (hsel.get("incidencias") or {}).get(tipo.upper())
-        elif tipo == "extra":
-            hora = hsel.get("ext") or hsel.get("ord")  # D3: sin extra -> normal
-        else:
-            hora = hsel.get("ord")
+        hora = self._hora_del_recurso(reg, hsel)
+        if reg.get("hora_match_method") == METODO_MANUAL:
+            # F-085 (R15, R16, D8): el codigo elegido a mano en el portal
+            # no se pisa (como la partida); solo categoria, candef y precio.
+            if hora is not None and reg.get("hora_ide") != hora.horide:
+                logger.info(
+                    "[recurso-concil] hora_manual_respetada registro=%s "
+                    "recurso=%s manual=%s/%s recurso_propone=%s/%s",
+                    reg.get("registro_id"), ride, reg.get("hora_ide"),
+                    reg.get("hora_codigo"), hora.horide, hora.cod)
+            return out
         if hora is None:
             return out
         prev_ide = reg.get("hora_ide")
@@ -380,6 +391,19 @@ class RecursoConciliador:
         out["hora_ext"] = hora.ext
         out["hora_match_method"] = metodo
         return out
+
+    @staticmethod
+    def _hora_del_recurso(reg: dict, hsel: dict):
+        """El codigo de hora que el recurso impone a la linea, o None."""
+        tipo = (reg.get("tipo_hora") or "").strip().lower()
+        if tipo not in ("", "normal", "extra"):
+            # Incidencia (V|B|AT|FJ|F|H|M): coge SU codigo del grupo del
+            # recurso (reshor), nunca la ordinaria. Si el recurso no tiene ese
+            # codigo de incidencia, no se pisa (se mantiene el resuelto).
+            return (hsel.get("incidencias") or {}).get(tipo.upper())
+        if tipo == "extra":
+            return hsel.get("ext") or hsel.get("ord")  # D3: sin extra -> normal
+        return hsel.get("ord")
 
 
     # ----- hmo por obra ----- #

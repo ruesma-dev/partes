@@ -287,7 +287,10 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     `design.md` §5 por decision del humano, 2026-11-13): veintitres. Y la de
     `POST /api/partes/{id}/recuperar` (F-084 R17, R18: firma la fila de
     `undo_log` y el `solicitado_por` del recalculo; spec aprobada por el
-    humano el 2026-11-26): veinticuatro.
+    humano el 2026-11-26): veinticuatro. Y la de
+    `PATCH /api/registros/{id}/hora` (F-085 R11: firma el `solicitado_por`
+    del recalculo que pide un cambio de clase; spec aprobada por el humano
+    el 2026-11-27): veinticinco.
 
     Las nueve: aprobar documento, borrar documento, borrar linea, borrar
     obra, borrar trabajador, alta manual, preflight, aprobar sincrono y
@@ -300,4 +303,4 @@ def test_f017_todos_los_puntos_de_escritura_usan_el_helper() -> None:
     encargan los tests de R11.
     """
     fuente = _fuente(APP)
-    assert fuente.count("_actor(request)") == 24
+    assert fuente.count("_actor(request)") == 25

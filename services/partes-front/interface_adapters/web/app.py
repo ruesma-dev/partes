@@ -83,6 +83,7 @@ from application.services.clase_hora import (
     es_hora_extra,
     tipo_hora_de_codigo,
 )
+from application.services.conversion_clase import error_de_codigo
 from application.services.calendar_builder import (
     MODE_NOMINA,
     build_calendar,
@@ -126,7 +127,9 @@ from infrastructure.persistencia.recalculo_publisher import (
     ESTADO_PEDIDO,
     MOTIVO_CAMBIO_FECHA,
     MOTIVO_CASADO_CONCILIACION,
+    MOTIVO_CODIGO_INCIDENCIA,
     MOTIVO_DESHACER_CELDA,
+    MOTIVO_DESHACER_CODIGO_INCIDENCIA,
     MOTIVO_DESHACER_FECHA,
     MOTIVO_DESHACER_RECUPERAR,
     MOTIVO_DESHACER_TRABAJADOR,
@@ -1778,6 +1781,13 @@ def build_app(
             # compartido de los partes de las lineas restauradas.
             res["recalculo"], _pedido = _pedir_recalculo_compartido(
                 res["document_ids"], MOTIVO_DESHACER_TRABAJADOR, actor)
+        if (res.get("ok") and res.get("action") == "registro_clase"
+                and res.get("document_ids")):
+            # F-085 (R11): deshacer un cambio de clase cambia el reparto
+            # del dia como el cambio; UN recalculo compartido de los partes
+            # de los dias de las lineas restauradas.
+            res["recalculo"], _pedido = _pedir_recalculo_compartido(
+                res["document_ids"], MOTIVO_DESHACER_CODIGO_INCIDENCIA, actor)
         return JSONResponse(res, status_code=200 if res.get("ok") else 400)
 
     @app.get("/partes", response_class=HTMLResponse)
@@ -2620,7 +2630,8 @@ def build_app(
             ids, incluir_borradas=bool(body.get("incluir_borradas")),
             incidencias=tabla_incidencias,
             repartos_decididos=repartos_decididos,   # F-046 (R32)
-            mover_ciz=settings.mover_ciz)            # F-060 (R26 bis)
+            mover_ciz=settings.mover_ciz,            # F-060 (R26 bis)
+            mover_inicio=settings.mover_inicio)      # F-085 (R29)
         excluidas = datos["excluidas"]
         if not datos["lineas"]:
             return JSONResponse(
@@ -3986,8 +3997,14 @@ def build_app(
     @app.patch("/api/registros/{registro_id}/hora")
     def set_registro_hora(
         registro_id: int,
+        request: Request,
         payload: HoraPayload = Body(...),
     ) -> dict[str, Any]:
+        """F-066 y F-085: guarda el codigo de hora y la clase que le da a
+        la linea. Un CI* con letra la convierte en incidencia y un codigo
+        de horas devuelve una incidencia a horas; `CIZ` y un CI* sin letra,
+        400 sin tocar nada (R5, R6). Con cambio de clase, UN recalculo
+        compartido de los partes de ese (recurso, dia) (R11)."""
         if not catalog.enabled:
             raise HTTPException(
                 status_code=503,
@@ -4000,7 +4017,10 @@ def build_app(
                 status_code=400,
                 detail="El tipo de hora seleccionado no existe en Sigrid.",
             )
-        ok = repository.set_registro_hora(
+        error = error_de_codigo(option.codigo, tabla_incidencias)
+        if error is not None:
+            raise HTTPException(status_code=400, detail=error)   # R5, R6
+        res = repository.set_registro_hora(
             registro_id=registro_id,
             hora_ide=option.ide,
             hora_codigo=option.codigo,
@@ -4008,9 +4028,21 @@ def build_app(
             hora_ext=option.ext,
             hora_precio_coste=option.pre,
             hora_precio_nomina=option.prenom,
+            incidencias=tabla_incidencias,
         )
-        if not ok:
+        if not res:
             raise HTTPException(status_code=404, detail="Registro no encontrado")
+        recalculo = None
+        if res.clase_cambiada:
+            pares = ([(res.recurso_ide, res.fecha_int)]
+                     if res.recurso_ide and res.fecha_int else [])
+            docs = repository.documentos_de_los_dias(pares) or [
+                res.document_id]
+            recalculo, _pedido = _pedir_recalculo_compartido(
+                docs, MOTIVO_CODIGO_INCIDENCIA, _actor(request))
+            logger.info("[hora] cambio de clase registro_id=%s tipo=%s "
+                        "documentos=%s recalculo=%s", registro_id,
+                        res.tipo_hora, docs, recalculo)
         return {
             "ok": True,
             "registro_id": registro_id,
@@ -4019,7 +4051,14 @@ def build_app(
             "hora_descripcion": option.descripcion,
             "hora_ext": option.ext,
             # F-066 (R17): por la regla del codigo, no por `auxhor.ext`.
-            "tipo_hora": tipo_hora_de_codigo(option.codigo) or "normal",
+            # F-085 (R9): una incidencia da su letra.
+            "tipo_hora": (res.tipo_hora if res.es_incidencia
+                          else tipo_hora_de_codigo(option.codigo)
+                          or "normal"),
+            "es_incidencia": res.es_incidencia,
+            "incidencia_codigo": res.incidencia_codigo,
+            "clase_cambiada": res.clase_cambiada,
+            "recalculo": recalculo,
         }
 
     @app.patch("/api/registros/{registro_id}/partida")

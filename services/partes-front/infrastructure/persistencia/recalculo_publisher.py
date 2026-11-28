@@ -52,6 +52,10 @@ MOTIVO_DESHACER_TRABAJADOR = "deshacer_trabajador"
 #: F-084 (R18, R23): tras recuperar un parte sustituido o deshacerlo.
 MOTIVO_RECUPERAR_PARTE = "recuperar_parte"
 MOTIVO_DESHACER_RECUPERAR = "deshacer_recuperar_parte"
+#: F-085 (R11): tras un cambio de clase por el codigo de hora (una linea
+#: que pasa a incidencia o vuelve a horas) o al deshacerlo.
+MOTIVO_CODIGO_INCIDENCIA = "codigo_incidencia"
+MOTIVO_DESHACER_CODIGO_INCIDENCIA = "deshacer_codigo_incidencia"
 
 #: Estado del recalculo en la respuesta del portal (`recalculo`).
 ESTADO_PEDIDO = "pedido"

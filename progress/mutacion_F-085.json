@@ -1,0 +1,920 @@
+{
+ "version": 1,
+ "criterio": "codigo_1",
+ "fiable": true,
+ "feature": "F-085",
+ "sha": "17dee7e3cea3cae3743787ba604a16baddf72bf9",
+ "nivel": "critico",
+ "regla": {
+  "por_linea": true,
+  "fraccion": 0.6,
+  "suelo": 100,
+  "techo": 300,
+  "origen": "nivel"
+ },
+ "semilla": 20261030,
+ "generados": 172,
+ "candidatos": 110,
+ "evaluados": [
+  {
+   "fichero": "services/partes-front/application/services/clase_hora.py",
+   "linea": 70,
+   "col": 30,
+   "operador": "comparacion",
+   "original": "return _normaliza(codigo) == CODIGO_FIN",
+   "mutado": "return _normaliza(codigo) != CODIGO_FIN",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/clase_hora.py",
+   "linea": 77,
+   "col": 21,
+   "operador": "comparacion",
+   "original": "return (len(cod) > len(PREFIJO_INCIDENCIA)",
+   "mutado": "return (len(cod) >= len(PREFIJO_INCIDENCIA)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/clase_hora.py",
+   "linea": 78,
+   "col": 12,
+   "operador": "logico",
+   "original": "and cod.startswith(PREFIJO_INCIDENCIA)",
+   "mutado": "or cod.startswith(PREFIJO_INCIDENCIA)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/clase_hora.py",
+   "linea": 79,
+   "col": 12,
+   "operador": "logico",
+   "original": "and not es_codigo_fin(cod))",
+   "mutado": "or not es_codigo_fin(cod))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 52,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 59,
+   "col": 25,
+   "operador": "booleano",
+   "original": "vaciar_horas: bool = False   # `horas` y `horas_orig` a nulo",
+   "mutado": "vaciar_horas: bool = True   # `horas` y `horas_orig` a nulo",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 60,
+   "col": 19,
+   "operador": "booleano",
+   "original": "cambia: bool = False         # cambio de clase (deshacer y recálculo)",
+   "mutado": "cambia: bool = True         # cambio de clase (deshacer y recálculo)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 69,
+   "col": 36,
+   "operador": "logico",
+   "original": "if es_codigo_incidencia(codigo) and _letra(codigo, tabla) is None:",
+   "mutado": "if es_codigo_incidencia(codigo) or _letra(codigo, tabla) is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 75,
+   "col": 13,
+   "operador": "comparacion",
+   "original": "if tabla is None:",
+   "mutado": "if tabla is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 78,
+   "col": 26,
+   "operador": "veracidad",
+   "original": "return clase.letra if clase is not None else None",
+   "mutado": "return clase.letra if clase else None",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 89,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if error is not None:",
+   "mutado": "if error:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 93,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if es_codigo_incidencia(codigo):",
+   "mutado": "if not es_codigo_incidencia(codigo):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 95,
+   "col": 18,
+   "operador": "not",
+   "original": "cambia = (not es_incidencia",
+   "mutado": "cambia = (es_incidencia",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 96,
+   "col": 18,
+   "operador": "logico",
+   "original": "or normalizar_codigo(incidencia_codigo) != letra)",
+   "mutado": "and normalizar_codigo(incidencia_codigo) != letra)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 97,
+   "col": 11,
+   "operador": "not",
+   "original": "if not cambia:",
+   "mutado": "if cambia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 99,
+   "col": 40,
+   "operador": "booleano",
+   "original": "return ClaseNueva(es_incidencia=True, tipo_hora=letra,",
+   "mutado": "return ClaseNueva(es_incidencia=False, tipo_hora=letra,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 100,
+   "col": 64,
+   "operador": "booleano",
+   "original": "incidencia_codigo=letra, vaciar_horas=True,",
+   "mutado": "incidencia_codigo=letra, vaciar_horas=False,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 101,
+   "col": 33,
+   "operador": "booleano",
+   "original": "cambia=True)",
+   "mutado": "cambia=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 103,
+   "col": 12,
+   "operador": "comparacion",
+   "original": "if tipo is None:",
+   "mutado": "if tipo is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 105,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if es_incidencia:",
+   "mutado": "if not es_incidencia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 106,
+   "col": 40,
+   "operador": "booleano",
+   "original": "return ClaseNueva(es_incidencia=False, tipo_hora=tipo,",
+   "mutado": "return ClaseNueva(es_incidencia=True, tipo_hora=tipo,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 107,
+   "col": 63,
+   "operador": "booleano",
+   "original": "incidencia_codigo=None, vaciar_horas=True,",
+   "mutado": "incidencia_codigo=None, vaciar_horas=False,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 108,
+   "col": 33,
+   "operador": "booleano",
+   "original": "cambia=True)",
+   "mutado": "cambia=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/conversion_clase.py",
+   "linea": 109,
+   "col": 36,
+   "operador": "booleano",
+   "original": "return ClaseNueva(es_incidencia=False, tipo_hora=tipo,",
+   "mutado": "return ClaseNueva(es_incidencia=True, tipo_hora=tipo,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/racha_incidencia.py",
+   "linea": 302,
+   "col": 25,
+   "operador": "logico",
+   "original": "if clave is not None and _de_la_racha(delante[siguiente], clave):",
+   "mutado": "if clave is not None or _de_la_racha(delante[siguiente], clave):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/racha_incidencia.py",
+   "linea": 326,
+   "col": 29,
+   "operador": "formato",
+   "original": "f = f\"{int(fecha_int):08d}\"",
+   "mutado": "f = f\"{int(fecha_int):09d}\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/racha_incidencia.py",
+   "linea": 327,
+   "col": 27,
+   "operador": "entero",
+   "original": "dia = f\"{f[:4]}-{f[4:6]}-{f[6:]}\"",
+   "mutado": "dia = f\"{f[:4]}-{f[5:6]}-{f[6:]}\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/application/services/racha_incidencia.py",
+   "linea": 330,
+   "col": 47,
+   "operador": "ternario",
+   "original": "cod = (str(hora_codigo).strip().upper() if hora_codigo else \"\") or \"?\"",
+   "mutado": "cod = (str(hora_codigo).strip().upper() if not hora_codigo else \"\") or \"?\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/config/settings.py",
+   "linea": 122,
+   "col": 31,
+   "operador": "booleano",
+   "original": "mover_inicio: bool = Field(False, alias=\"MOVER_INICIO\")",
+   "mutado": "mover_inicio: bool = Field(True, alias=\"MOVER_INICIO\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 748,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 811,
+   "col": 7,
+   "operador": "not",
+   "original": "if not clase.cambia:",
+   "mutado": "if clase.cambia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 812,
+   "col": 11,
+   "operador": "not",
+   "original": "if not reg.es_incidencia and clase.tipo_hora is not None:",
+   "mutado": "if reg.es_incidencia and clase.tipo_hora is not None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 818,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if clase.vaciar_horas:",
+   "mutado": "if not clase.vaciar_horas:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 821,
+   "col": 25,
+   "operador": "booleano",
+   "original": "reg.extra_auto = False",
+   "mutado": "reg.extra_auto = True",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 2332,
+   "col": 29,
+   "operador": "booleano",
+   "original": "mover_inicio: bool = False,",
+   "mutado": "mover_inicio: bool = True,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 2550,
+   "col": 36,
+   "operador": "logico",
+   "original": "cod = (e.get(\"hora_codigo\") or \"\").strip().upper()",
+   "mutado": "cod = (e.get(\"hora_codigo\") and \"\").strip().upper()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 2551,
+   "col": 19,
+   "operador": "not",
+   "original": "if cod and not es_codigo_fin(cod):",
+   "mutado": "if cod and es_codigo_fin(cod):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 2644,
+   "col": 29,
+   "operador": "booleano",
+   "original": "mover_inicio: bool = False,",
+   "mutado": "mover_inicio: bool = True,",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 2704,
+   "col": 41,
+   "operador": "logico",
+   "original": "if mover_inicio and r.es_incidencia else None)",
+   "mutado": "if mover_inicio or r.es_incidencia else None)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3388,
+   "col": 15,
+   "operador": "veracidad",
+   "original": "if clase.error is not None:",
+   "mutado": "if clase.error:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3391,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if clase.cambia:",
+   "mutado": "if not clase.cambia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3408,
+   "col": 15,
+   "operador": "not",
+   "original": "if not clase.cambia:",
+   "mutado": "if clase.cambia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3410,
+   "col": 17,
+   "operador": "negacion",
+   "original": "elif clase.es_incidencia:",
+   "mutado": "elif not clase.es_incidencia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 3998,
+   "col": 45,
+   "operador": "logico",
+   "original": "if _recurso_de(r) and r.fecha_int}",
+   "mutado": "if _recurso_de(r) or r.fecha_int}",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
+   "linea": 4015,
+   "col": 18,
+   "operador": "comparacion",
+   "original": "if action == ACCION_REGISTRO_CLASE:",
+   "mutado": "if action != ACCION_REGISTRO_CLASE:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 1784,
+   "col": 26,
+   "operador": "logico",
+   "original": "if (res.get(\"ok\") and res.get(\"action\") == \"registro_clase\"",
+   "mutado": "if (res.get(\"ok\") or res.get(\"action\") == \"registro_clase\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 1785,
+   "col": 16,
+   "operador": "logico",
+   "original": "and res.get(\"document_ids\")):",
+   "mutado": "or res.get(\"document_ids\")):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4021,
+   "col": 17,
+   "operador": "comparacion",
+   "original": "if error is not None:",
+   "mutado": "if error is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4022,
+   "col": 44,
+   "operador": "entero",
+   "original": "raise HTTPException(status_code=400, detail=error)   # R5, R6",
+   "mutado": "raise HTTPException(status_code=401, detail=error)   # R5, R6",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4033,
+   "col": 11,
+   "operador": "not",
+   "original": "if not res:",
+   "mutado": "if res:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4036,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if res.clase_cambiada:",
+   "mutado": "if not res.clase_cambiada:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4039,
+   "col": 60,
+   "operador": "logico",
+   "original": "docs = repository.documentos_de_los_dias(pares) or [",
+   "mutado": "docs = repository.documentos_de_los_dias(pares) and [",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4055,
+   "col": 43,
+   "operador": "ternario",
+   "original": "\"tipo_hora\": (res.tipo_hora if res.es_incidencia",
+   "mutado": "\"tipo_hora\": (res.tipo_hora if not res.es_incidencia",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-front/interface_adapters/web/app.py",
+   "linea": 4057,
+   "col": 26,
+   "operador": "logico",
+   "original": "or \"normal\"),",
+   "mutado": "and \"normal\"),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/recurso_conciliador.py",
+   "linea": 366,
+   "col": 15,
+   "operador": "negacion",
+   "original": "if hora is not None and reg.get(\"hora_ide\") != hora.horide:",
+   "mutado": "if not (hora is not None and reg.get(\"hora_ide\") != hora.horide):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/recurso_conciliador.py",
+   "linea": 398,
+   "col": 37,
+   "operador": "logico",
+   "original": "tipo = (reg.get(\"tipo_hora\") or \"\").strip().lower()",
+   "mutado": "tipo = (reg.get(\"tipo_hora\") and \"\").strip().lower()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/recurso_conciliador.py",
+   "linea": 399,
+   "col": 16,
+   "operador": "comparacion",
+   "original": "if tipo not in (\"\", \"normal\", \"extra\"):",
+   "mutado": "if tipo in (\"\", \"normal\", \"extra\"):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/recurso_conciliador.py",
+   "linea": 403,
+   "col": 44,
+   "operador": "logico",
+   "original": "return (hsel.get(\"incidencias\") or {}).get(tipo.upper())",
+   "mutado": "return (hsel.get(\"incidencias\") and {}).get(tipo.upper())",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/recurso_conciliador.py",
+   "linea": 404,
+   "col": 16,
+   "operador": "comparacion",
+   "original": "if tipo == \"extra\":",
+   "mutado": "if tipo != \"extra\":",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-persistencia/application/services/recurso_conciliador.py",
+   "linea": 405,
+   "col": 35,
+   "operador": "logico",
+   "original": "return hsel.get(\"ext\") or hsel.get(\"ord\")  # D3: sin extra -> normal",
+   "mutado": "return hsel.get(\"ext\") and hsel.get(\"ord\")  # D3: sin extra -> normal",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 605,
+   "col": 50,
+   "operador": "logico",
+   "original": "roles = {l.registro_id: (l.incidencia_rol or \"\").strip().lower()",
+   "mutado": "roles = {l.registro_id: (l.incidencia_rol and \"\").strip().lower()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 616,
+   "col": 43,
+   "operador": "logico",
+   "original": "if self._mover_inicio() and a.accion == \"escribir\"",
+   "mutado": "if self._mover_inicio() or a.accion == \"escribir\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 617,
+   "col": 48,
+   "operador": "comparacion",
+   "original": "and roles.get(a.registro_id) == \"inicio\"",
+   "mutado": "and roles.get(a.registro_id) != \"inicio\"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 618,
+   "col": 19,
+   "operador": "logico",
+   "original": "and es_codigo_ci(a.hora_codigo)",
+   "mutado": "or es_codigo_ci(a.hora_codigo)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 621,
+   "col": 11,
+   "operador": "not",
+   "original": "if not fines and not inicios and not previos:",
+   "mutado": "if fines and not inicios and not previos:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 630,
+   "col": 19,
+   "operador": "aritmetico",
+   "original": "+ [sk for a in inicios",
+   "mutado": "- [sk for a in inicios",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 638,
+   "col": 22,
+   "operador": "comparacion",
+   "original": "if sk not in ya:",
+   "mutado": "if sk in ya:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 701,
+   "col": 58,
+   "operador": "logico",
+   "original": "d = decidir_inicio(a.fecha_int, int(a.recurso_ide or 0),",
+   "mutado": "d = decidir_inicio(a.fecha_int, int(a.recurso_ide and 0),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 708,
+   "col": 20,
+   "operador": "comparacion",
+   "original": "elif d.tipo != CREAR:",
+   "mutado": "elif d.tipo == CREAR:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 710,
+   "col": 25,
+   "operador": "comparacion",
+   "original": "elif d.no_movido is not None:",
+   "mutado": "elif d.no_movido is None:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 718,
+   "col": 54,
+   "operador": "booleano",
+   "original": "return bool(getattr(self._st, \"mover_inicio\", False))",
+   "mutado": "return bool(getattr(self._st, \"mover_inicio\", True))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 1062,
+   "col": 47,
+   "operador": "logico",
+   "original": "que = (\"ciz movido\" if (ls.hora_codigo or \"\").strip().upper()",
+   "mutado": "que = (\"ciz movido\" if (ls.hora_codigo and \"\").strip().upper()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/pipelines/registro_pipeline.py",
+   "linea": 1063,
+   "col": 15,
+   "operador": "comparacion",
+   "original": "== CODIGO_FIN else \"inicio_movido\")",
+   "mutado": "!= CODIGO_FIN else \"inicio_movido\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 106,
+   "col": 18,
+   "operador": "booleano",
+   "original": "@dataclass(frozen=True)",
+   "mutado": "@dataclass(frozen=False)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 142,
+   "col": 50,
+   "operador": "logico",
+   "original": "f\"(linea {ide}) esta en el parte {cod or '?'} ({estado}), que ya \"",
+   "mutado": "f\"(linea {ide}) esta en el parte {cod and '?'} ({estado}), que ya \"",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 201,
+   "col": 16,
+   "operador": "logico",
+   "original": "return (cod or \"\").strip().upper()",
+   "mutado": "return (cod and \"\").strip().upper()",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 217,
+   "col": 49,
+   "operador": "comparacion",
+   "original": "(ls for ls in candidatas if ls.fecha_int > fecha_int",
+   "mutado": "(ls for ls in candidatas if ls.fecha_int >= fecha_int",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 218,
+   "col": 9,
+   "operador": "logico",
+   "original": "and es_linea_de_la_racha(ls, recurso_ide, marca_pruebas)),",
+   "mutado": "or es_linea_de_la_racha(ls, recurso_ide, marca_pruebas)),",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 222,
+   "col": 26,
+   "operador": "entero",
+   "original": "primera = posteriores[0]",
+   "mutado": "primera = posteriores[1]",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 223,
+   "col": 37,
+   "operador": "comparacion",
+   "original": "if (_codigo(primera.hora_codigo) == cod",
+   "mutado": "if (_codigo(primera.hora_codigo) != cod",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 224,
+   "col": 12,
+   "operador": "logico",
+   "original": "and registro_de_synckey(primera.synckey) is not None",
+   "mutado": "or registro_de_synckey(primera.synckey) is not None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 225,
+   "col": 12,
+   "operador": "logico",
+   "original": "and any(ls.fecha_int >= primera.fecha_int",
+   "mutado": "or any(ls.fecha_int >= primera.fecha_int",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 226,
+   "col": 20,
+   "operador": "logico",
+   "original": "and es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)",
+   "mutado": "or es_ciz_del_recurso(ls, recurso_ide, marca_pruebas)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 230,
+   "col": 50,
+   "operador": "comparacion",
+   "original": "if _codigo(ls.hora_codigo) == cod), None)",
+   "mutado": "if _codigo(ls.hora_codigo) != cod), None)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 324,
+   "col": 7,
+   "operador": "veracidad",
+   "original": "if previo is None:",
+   "mutado": "if not previo:",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 326,
+   "col": 41,
+   "operador": "logico",
+   "original": "parte = partes.get(int(previo.hmoide or 0))",
+   "mutado": "parte = partes.get(int(previo.hmoide and 0))",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 327,
+   "col": 23,
+   "operador": "veracidad",
+   "original": "cod = parte.cod if parte is not None else None",
+   "mutado": "cod = parte.cod if parte else None",
+   "veredicto": "superviviente"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 328,
+   "col": 7,
+   "operador": "negacion",
+   "original": "if previo.enlazada:",
+   "mutado": "if not previo.enlazada:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 331,
+   "col": 13,
+   "operador": "comparacion",
+   "original": "if parte is None or parte.est != est_registro:",
+   "mutado": "if parte is not None or parte.est != est_registro:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/racha_ciz.py",
+   "linea": 332,
+   "col": 33,
+   "operador": "comparacion",
+   "original": "est = parte.est if parte is not None else None",
+   "mutado": "est = parte.est if parte is None else None",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 203,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if self._codigo_incidencia_en_horas(linea):",
+   "mutado": "if not self._codigo_incidencia_en_horas(linea):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 247,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if linea.es_incidencia:",
+   "mutado": "if not linea.es_incidencia:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 248,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return False",
+   "mutado": "return True",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 249,
+   "col": 11,
+   "operador": "negacion",
+   "original": "if es_codigo_ci(linea.hora_codigo):",
+   "mutado": "if not es_codigo_ci(linea.hora_codigo):",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 250,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return True",
+   "mutado": "return False",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 251,
+   "col": 30,
+   "operador": "logico",
+   "original": "if not linea.hora_ide or not linea.recurso_ide:",
+   "mutado": "if not linea.hora_ide and not linea.recurso_ide:",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 252,
+   "col": 19,
+   "operador": "booleano",
+   "original": "return False",
+   "mutado": "return True",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/application/services/reglas_registro.py",
+   "linea": 253,
+   "col": 48,
+   "operador": "comparacion",
+   "original": "return any(h.es_incidencia and h.horide == int(linea.hora_ide)",
+   "mutado": "return any(h.es_incidencia and h.horide != int(linea.hora_ide)",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/config/settings.py",
+   "linea": 80,
+   "col": 31,
+   "operador": "booleano",
+   "original": "mover_inicio: bool = Field(False, alias=\"MOVER_INICIO\")",
+   "mutado": "mover_inicio: bool = Field(True, alias=\"MOVER_INICIO\")",
+   "veredicto": "muerto"
+  },
+  {
+   "fichero": "services/partes-transfer/domain/models/registro_models.py",
+   "linea": 18,
+   "col": 16,
+   "operador": "logico",
+   "original": "return (cod or \"\").strip().upper().startswith(PREFIJO_INCIDENCIA)",
+   "mutado": "return (cod and \"\").strip().upper().startswith(PREFIJO_INCIDENCIA)",
+   "veredicto": "muerto"
+  }
+ ]
+}

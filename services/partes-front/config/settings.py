@@ -113,6 +113,13 @@ class Settings(BaseSettings):
     # `racha_registro_ids` su tramo delante. Quitar solo F-062 es volver
     # sv4 a su revision anterior; sv5 sigue moviendo lo ya escrito.
     mover_ciz: bool = Field(False, alias="MOVER_CIZ")
+    # F-085 (parte B, R28, R29): con `MOVER_INICIO` (y `MOVER_CIZ`), un
+    # `inicio` aprobado antes del inicio ya registrado de su racha no da
+    # `racha_desordenada` (sv5 recoloca ese inicio) y la linea que lo tenia
+    # queda `omitido` con `inicio_movido`. APAGADO por defecto. Mismo
+    # nombre que en sv5: se enciende en sv5 y LUEGO aqui; se apaga aqui y
+    # LUEGO en sv5. Lo ya movido en Sigrid no se deshace.
+    mover_inicio: bool = Field(False, alias="MOVER_INICIO")
 
     # ------------------------------------------------------------ #
     # Colas de aprobacion asincrona (F-002). TODAS opcionales: sin

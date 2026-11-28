@@ -132,6 +132,34 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    (Python y el fragmento T-SQL `condicion_sql_extra`): el catálogo de tipos
    de hora omite los excluidos, el selector de código de hora fija
    `tipo_hora` por la regla y `/api/sigrid/tipos-hora` manda `extra` al JS.
+   **Código de incidencia en el selector (F-085)**: elegir en una línea un
+   código de incidencia (`es_codigo_incidencia` de `clase_hora.py`: empieza
+   por `CI` y no es `CIZ`) la **convierte** en incidencia con la forma
+   canónica de la ingesta (`es_incidencia`, la letra de
+   `config/incidencias.yaml` en `tipo_hora` e `incidencia_codigo`, horas y
+   `horas_orig` nulos); otra letra la cambia de letra y, en una incidencia,
+   un código de horas la devuelve a horas con las horas vacías (revoca
+   F-066 R14). La decide `application/services/conversion_clase.py`
+   (puro). `CIZ` (`es_codigo_fin`) y un CI* sin letra en la tabla dan 400
+   sin tocar nada. Un cambio de clase deja una entrada de deshacer
+   `registro_clase` (con `horas_orig`, `extra_auto` e `incidencia_codigo`),
+   pide UN recálculo compartido (F-049) de los partes de ese recurso y día
+   con motivo `codigo_incidencia` (`deshacer_codigo_incidencia` al
+   deshacer; sv3 retira la extra automática no congelada de esa base) y el
+   portal recarga la página. Mientras sv3 recalcula, las demás líneas de
+   esos partes dan 409 (F-043): con la cola, una selección de varias líneas
+   de un MISMO parte se cambia de una en una (D16, limitación aceptada por
+   el humano el 2026-11-27) y el portal dice qué líneas no se guardaron
+   (cuántas, el texto del servidor y su id, `avisoNoGuardadas` de
+   `app.js`) y recarga si alguna se guardó. **sv3 respeta lo manual**: el casado de
+   recurso no pisa el código de una línea con `hora_match_method =
+   "manual"` (solo categoría, `hora_candef` y `recurso_precio_hora`; INFO
+   `hora_manual_respetada`), como la partida. **sv5 guarda**: una línea
+   que no es incidencia con un código CI* o CIZ (o un `hora_ide` que es un
+   CI* de su recurso) se omite con `MOTIVO_CODIGO_INCIDENCIA` («codigo de
+   incidencia en una linea de horas: vuelve a elegir el codigo en el
+   portal»), tras las omisiones previas y antes de mensuales y de «sin
+   horas»: nunca escribe un HL* o HE* por ella (caso 0678, 18/11/2026).
    sv3 y sv5 la adoptan con F-067; hasta entonces sv3 aún podría asignar
    `HENC` por categoría a una línea nueva (sv5 no la elige: no está en
    `reshor`). Los mensuales (MENC) no registran por horas: sus «extras» del
@@ -310,6 +338,25 @@ contexto añade `embedded_in` (la cadena de correos). El correo va a
    si hay un CIZ ajeno ese día o si el recurso no tiene CIZ (WARNING).
    Nada es retroactivo: una racha abierta antes de F-062 recibe su CIZ con
    su siguiente `fin`.
+   **Desde F-085 (parte B)**, con el interruptor **`MOVER_INICIO`** (la
+   misma variable en sv4 y en sv5, apagada por defecto; exige `MOVER_CIZ`
+   encendido), el **inicio se recoloca hacia atrás**: un `inicio` aprobado
+   el día D, anterior al inicio ya escrito de su racha, busca en las mismas
+   candidatas del paso 6 bis (sus synckeys van en la MISMA lectura
+   `lineas_de_racha` y su parte en la misma de `estados_de_partes`) el
+   **inicio previo** (`inicio_previo` de `racha_ciz.py`: la primera línea
+   de la racha posterior a D, de su mismo código, con synckey de un
+   registro y un CIZ de la racha en su día o después) y lo **mueve** a D
+   con el `UPDATE` de F-060 (`stmt_mover_linea`; nunca `DELETE` ni otro
+   CI*). Enlazado ⇒ `linea_enlazada`; en un parte cerrado ⇒
+   `inicio_en_parte_cerrado`; sin inicio previo ⇒ el `INSERT` de siempre
+   (WARNING `racha_inicio_no_movido` si había una posterior de su código).
+   INFO `inicio_movido`. La escrita lleva `movida_de` = X y sv4 deja X
+   `omitido` con motivo `inicio_movido` (mismo CAS que `fin_movido`, por
+   el código de la escrita); con `MOVER_INICIO` sv4 tampoco da
+   `racha_desordenada` a un `inicio` cuyo siguiente día que cuenta es de
+   su misma letra. Se enciende sv5 y luego sv4; apagar los dos es la vuelta
+   atrás (lo ya movido no se deshace).
 5. **Parte mensual por obra** (`hmo`, código `PT<AA>/NNNNN`) con el mes
    NATURAL de la fecha real de trabajo; las líneas llevan **synckey**
    (`partes:<registro_id>`, en `hmores.synckey`, no en `tex`) para

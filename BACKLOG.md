@@ -3,7 +3,7 @@
 
 **Fichero generado por `harness/backlog.py` a partir de `harness/features.json`. No lo edites a mano**: edita el JSON y vuelve a generarlo (lo hace solo `bash harness/init.sh`).
 
-Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 5 en To do, 11 en Backlog y 61 en Done.
+Resumen: **79 features**, 17 abiertas y 62 terminadas. Por columna: 0 en Review, 0 en Blocked, 0 en In progress, 2 en Spec aprobada, 4 en To do, 11 en Backlog y 62 en Done.
 
 ## Review
 
@@ -28,7 +28,6 @@ _Ninguna feature en implementación._
 
 | # | Feature | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|
-| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | sin spec | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
 | F-080 | sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida |  | 2 | express | `feature/F-080-juntar-lineas-sin-partida` |
 | F-081 | Editar desde el portal líneas ya registradas en Sigrid (sin borrar: borrar es dejarla a 0) | sin spec | 2 | critico | `feature/F-081-editar-lineas-registradas` |
 | F-070 | sv3: un parte no sustituye a otro del mismo PDF | sin spec | 3 | critico | `feature/F-070-reemplazo-no-mismo-pdf` |
@@ -54,6 +53,7 @@ _Ninguna feature en implementación._
 
 | # | Feature | Cierre | OK humano | Pendiente | Prioridad | Rigor |
 |---|---|---|---|---|---|---|
+| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | 2026-11-28 | 2026-11-28 |  | 1 | critico |
 | F-084 | Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano | 2026-11-27 | 2026-11-27 |  | 2 | critico |
 | F-082 | El portal siempre ofrece «Sin partida» al editar la partida (selector de la línea y menú de selección) | 2026-11-26 | 2026-11-26 |  | 2 | estandar |
 | F-083 | Una racha de incidencia solo lleva CIZ en su último día, aunque se apruebe desordenada o el CIZ se haya tocado a mano en Sigrid | 2026-11-25 | 2026-11-25 |  | 1 | critico |
@@ -120,14 +120,6 @@ Express cerradas por mes: 2026-11: 1
 
 ## Detalle
 
-### F-085 · Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid
-
-estado **to do (comprometida)** · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
-
-**Spec**: sin spec
-
-Pedida por el humano el 2026-11-27: «he borrado la linea extra y he editado la normal y al hacerlo si pongo hora 0 no me la lleva a sigrid, si pongo 8h me aparece como ordinaria en tipo, y en sigrid lo registra mal […] el comportamiento esperado es que pueda editar, cambio el codigo, pongo hora 0 (da igual para el codigo AT), eso actualiza tipo y registra en sigrid mirando dia adelante y atras, en este caso tiene que poner inicio de incidencia y quitar el inicio del dia 19». Caso de origen (obra 0678, recurso 2777451, parte mensual PT26/00137): la línea 25012 del 18/11 nació como hora normal de 8 h (más una extra de 2 h, la 25016); la baja por accidente (AT) empezaba ese día y no el 19. Al cambiarle el código de hora a CIA en el portal, la línea siguió con tipo_hora «normal», es_incidencia false e incidencia_codigo vacío (parte_repository.set_registro_hora solo guarda hora_*, como manda F-066 R13). Consecuencias medidas el 2026-11-27: (1) con 0 h, sv5 la omite por «sin horas» (reglas_registro.decidir entra por la rama de hora normal); (2) con 8 h, sv5 la registra como hora laborable: en Sigrid quedó la línea hmores 416574 con HLOF y 8 h aunque la línea del portal decía CIA; (3) la matriz de la obra pinta «8» y la columna Tipo «Ordinaria»; (4) la racha no ve el 18: el inicio (CIA) seguiría en el 19 y sv5 nunca mueve ni reescribe un CI* (F-060 DA7 y F-083 lo dejaban en aviso y corrección manual); (5) el recálculo de sv3 pisó el código puesto a mano (log del 2026-11-27 10:07: «DIFERENCIA codigo de hora en registro=25012: previo=29/CIA -> recurso=12/HLOF», recurso_conciliador no respeta hora_match_method «manual»); (6) cada clic en las flechas del campo de horas guarda un cambio y una entrada de deshacer (unas 30 de 0,5 en 0,5). Estado en Sigrid tras los intentos: 18/11 con HLOF 8 h, ningún CIA (el del 19, líneas 416122 y su CIZ 416123, se borró a mano en Sigrid) y CIZ el 25/11 (416563). A REVISAR EN LA SPEC: conversión de la línea al elegir un CI* que no sea CIZ (es_incidencia, incidencia_codigo y tipo_hora con la letra de config/incidencias.yaml, horas sin efecto) y la vuelta atrás al elegir un código normal o extra; qué pasa con la línea extra automática del mismo día; deshacer (campos de _REG_UNDO_FIELDS); refresco de la insignia Tipo y de la matriz; recolocar la racha cuando aparece una incidencia el día anterior a un inicio ya registrado (mover el CI* con UPDATE como ya se mueve el CIZ, y qué estado toma en el portal la línea que era inicio), lo que revoca en parte DA7 de F-060; que sv3 no pise un código de hora manual; el guardado por cada paso del campo de horas (puede salir a otra feature); relación con F-081 (editar líneas ya registradas) y con F-053 (pisado); reparación del caso de origen. Servicios probables: sv4, sv5 y sv3. Rigor propuesto critico (sv5 escribe en Sigrid); el spec-author puede proponer partirla en dos.
-
 ### F-080 · sv3 junta en una línea las del mismo trabajador, día, hora y obra que quedan sin partida o en la misma partida
 
 estado **to do (comprometida)** · prioridad 2 · rigor `express` · SDD no · rama `feature/F-080-juntar-lineas-sin-partida`
@@ -139,6 +131,8 @@ Pedida por el humano el 2026-11-23 («1 adelante») tras el caso de la 0692 de P
 estado **to do (comprometida)** · prioridad 2 · rigor `critico` · SDD sí · rama `feature/F-081-editar-lineas-registradas`
 
 **Spec**: sin spec
+
+**Pendiente**: al escribir su spec: F-085 D14 (decidido por el humano el 2026-11-27) enmienda su R3: un CI* o el CIZ no cuenta como «ordinaria» (422), con es_codigo_incidencia y es_codigo_fin de clase_hora.py
 
 Pedida por el humano el 2026-11-23: «quiero poder editar lineas de sigrid, pero no borrar. al borrar seria dejarla a cero». Hoy una línea registrada está congelada (F-004, candado: «editarla aquí no la cambiaría allí»; la corrige Administración en Sigrid). Piezas que ya existen: sv5 ya actualiza líneas registradas en el reajuste (F-046) y ya pone a 0 en vez de borrar (F-053, stmt_anular_linea con WHERE optimista y guarda de parte abierto de F-034); F-052 lee y compara Sigrid. A REVISAR EN LA SPEC: qué campos se editan (horas, código de hora, partida, fecha, recurso, obra) y cuáles no; «borrar» = UPDATE a 0 horas conservando synckey; guardas (parte mensual hmo cerrado, línea enlazada, línea cambiada en Sigrid desde que se registró: concurrencia optimista); quién puede y rastro (undo_log, usuario); qué pasa con el reparto/extras del día (F-045/F-046) y con la franquicia; congelación gemela sv3/sv4 (lista cerrada); azure-apps/partes.md. Rigor crítico: escribe en Sigrid.
 
@@ -261,6 +255,14 @@ estado **pendiente** · prioridad 17 · rigor `estandar` · SDD sí · rama `fea
 **Spec**: sin spec
 
 Decisión pendiente de F-058/F-063, aparcada por el humano el 2026-11-16 con prioridad baja («dejalo para el final»). Desde F-058, `_post_sql_read` de sv2 abre una conexión nueva por llamada: medido en local el 2026-10-26, ~1,1 s por consulta frente a ~90-120 ms con la conexión reutilizada (el coste es el TLS, no la consulta). A ESTUDIAR: medir primero en producción (M4 de F-058, Log Analytics) si el tiempo real dentro de Azure lo justifica; si sí, reutilizar el cliente httpx en sv2 (opción B de F-063 T10).
+
+### F-085 · Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid
+
+estado **terminada** · cerrada el 2026-11-28 · spec aprobada el 2026-11-27 · OK del humano el 2026-11-28 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
+
+**Spec**: specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27)
+
+Pedida por el humano el 2026-11-27: «he borrado la linea extra y he editado la normal y al hacerlo si pongo hora 0 no me la lleva a sigrid, si pongo 8h me aparece como ordinaria en tipo, y en sigrid lo registra mal […] el comportamiento esperado es que pueda editar, cambio el codigo, pongo hora 0 (da igual para el codigo AT), eso actualiza tipo y registra en sigrid mirando dia adelante y atras, en este caso tiene que poner inicio de incidencia y quitar el inicio del dia 19». Caso de origen (obra 0678, recurso 2777451, parte mensual PT26/00137): la línea 25012 del 18/11 nació como hora normal de 8 h (más una extra de 2 h, la 25016); la baja por accidente (AT) empezaba ese día y no el 19. Al cambiarle el código de hora a CIA en el portal, la línea siguió con tipo_hora «normal», es_incidencia false e incidencia_codigo vacío (parte_repository.set_registro_hora solo guarda hora_*, como manda F-066 R13). Consecuencias medidas el 2026-11-27: (1) con 0 h, sv5 la omite por «sin horas» (reglas_registro.decidir entra por la rama de hora normal); (2) con 8 h, sv5 la registra como hora laborable: en Sigrid quedó la línea hmores 416574 con HLOF y 8 h aunque la línea del portal decía CIA; (3) la matriz de la obra pinta «8» y la columna Tipo «Ordinaria»; (4) la racha no ve el 18: el inicio (CIA) seguiría en el 19 y sv5 nunca mueve ni reescribe un CI* (F-060 DA7 y F-083 lo dejaban en aviso y corrección manual); (5) el recálculo de sv3 pisó el código puesto a mano (log del 2026-11-27 10:07: «DIFERENCIA codigo de hora en registro=25012: previo=29/CIA -> recurso=12/HLOF», recurso_conciliador no respeta hora_match_method «manual»); (6) cada clic en las flechas del campo de horas guarda un cambio y una entrada de deshacer (unas 30 de 0,5 en 0,5). Estado en Sigrid tras los intentos: 18/11 con HLOF 8 h, ningún CIA (el del 19, líneas 416122 y su CIZ 416123, se borró a mano en Sigrid) y CIZ el 25/11 (416563). A REVISAR EN LA SPEC: conversión de la línea al elegir un CI* que no sea CIZ (es_incidencia, incidencia_codigo y tipo_hora con la letra de config/incidencias.yaml, horas sin efecto) y la vuelta atrás al elegir un código normal o extra; qué pasa con la línea extra automática del mismo día; deshacer (campos de _REG_UNDO_FIELDS); refresco de la insignia Tipo y de la matriz; recolocar la racha cuando aparece una incidencia el día anterior a un inicio ya registrado (mover el CI* con UPDATE como ya se mueve el CIZ, y qué estado toma en el portal la línea que era inicio), lo que revoca en parte DA7 de F-060; que sv3 no pise un código de hora manual; el guardado por cada paso del campo de horas (puede salir a otra feature); relación con F-081 (editar líneas ya registradas) y con F-053 (pisado); reparación del caso de origen. Servicios probables: sv4, sv5 y sv3. Rigor propuesto critico (sv5 escribe en Sigrid); el spec-author puede proponer partirla en dos.
 
 ### F-084 · Pestaña de partes con problemas (sustituidos, sin obra, sin fecha o sin leer) para verlos y conciliarlos a mano
 
