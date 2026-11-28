@@ -1,7 +1,7 @@
 <!-- progress/mutacion_F-085.md -->
 # F-085 · Campaña de mutación
 
-Generado por `python -m harness.mutacion --feature F-085 --workers 3` el 2026-11-28 05:43.
+Generado por `python -m harness.mutacion --feature F-085 --workers 3` el 2026-11-28 07:50.
 
 ## Alcance
 
@@ -30,30 +30,29 @@ Origen del diff: **rama** (`b5e935b52a5a679612c5b210093127daeb8e0946` .. `featur
 | Métrica | Valor |
 |---|---|
 | Mutantes generados | 172 |
-| Mutantes evaluados | 100 |
-| Muertos | 91 |
-| Supervivientes | 9 (todos medidos: sin mapa no se poda) |
+| Mutantes evaluados | 19 (+ 81 veredictos reutilizados) |
+| Muertos | 95 |
+| Supervivientes | 5 (todos medidos: sin mapa no se poda) |
 | Timeouts | 0 |
 | Indeterminados | 0 |
 | Timeouts repasados en serie | 0: ningún mutante agotó el reloj |
 | Sin veredicto (base rota) | 0 |
-| Tiempo total | 14416.3 s |
-| SHA de HEAD medido | `7bf0a638c5b40c82460d6309855aab8bee69e4bf` |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_0/services/partes-front` | 854.7 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_0/services/partes-persistencia` | 56.8 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_0/services/partes-transfer` | 43.1 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_1/services/partes-front` | 856.0 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_1/services/partes-persistencia` | 55.4 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_1/services/partes-transfer` | 43.2 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_2/services/partes-front` | 854.0 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_2/services/partes-persistencia` | 57.2 |
-| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085__fzraboi/wk_2/services/partes-transfer` | 43.3 |
-| Media por mutante evaluado (s) | 144.2 |
-| Timeout efectivo por mutante (s) | 1713 — derivado de la línea base × 2.0 |
+| Tiempo total | 4613.2 s |
+| SHA de HEAD medido | `17dee7e3cea3cae3743787ba604a16baddf72bf9` |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_0/services/partes-front` | 835.5 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_0/services/partes-transfer` | 43.5 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_1/services/partes-front` | 836.7 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_1/services/partes-persistencia` | 49.4 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_1/services/partes-transfer` | 35.8 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_2/services/partes-front` | 835.8 |
+| Línea base (s) — `C:/Users/pgris/AppData/Local/Temp/mutacion_F-085_guh4p7nm/wk_2/services/partes-transfer` | 36.4 |
+| Media por mutante evaluado (s) | 242.8 |
+| Timeout efectivo por mutante (s) | 1674 — derivado de la línea base × 2.0 |
 | Suelo configurado (s) | 600 |
 | Workers | 3 |
 | Un mutante por línea | sí — 172 generados → 110 candidatos, uno por línea |
 | Muestreo | sí — 100 de 110 candidatos, semilla `20261030`, nivel `critico`; tope: 60 % de 110 candidatos, acotado a [100, 300] |
+| Modo | incremental desde `7bf0a638c5b40c82460d6309855aab8bee69e4bf` — 81 reutilizados, 9 reevaluados, 10 de control |
 | Selección de tests | desactivada (por defecto): todo con la suite entera, como la 1.9.0 |
 | SHA del mapa | n/d |
 | Medición del mapa (s) | n/d |
@@ -63,7 +62,7 @@ Origen del diff: **rama** (`b5e935b52a5a679612c5b210093127daeb8e0946` .. `featur
 | Subconjuntos descartados | n/d |
 | Podados (sin ejecutar) | n/d |
 | Tiempo ahorrado por la poda (s) — derivado: podados × línea base | n/d |
-| Media por mutante juzgado con la suite entera (s) | 366.9 (100 mutantes) |
+| Media por mutante juzgado con la suite entera (s) | 394.6 (19 mutantes) |
 
 ## Cómo se juzgó
 
@@ -96,29 +95,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 > Por qué ningún test lo caza: PENDIENTE.
 > Decisión: ¿test nuevo o mutante equivalente justificado?
 
-### 3. `services/partes-front/infrastructure/database/parte_repository.py:748` [booleano]
-
-- Original: `@dataclass(frozen=True)`
-- Mutado:   `@dataclass(frozen=False)`
-- Juicio: MEDIDO
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 4. `services/partes-front/infrastructure/database/parte_repository.py:2644` [booleano]
-
-- Original: `mover_inicio: bool = False,`
-- Mutado:   `mover_inicio: bool = True,`
-- Juicio: MEDIDO
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 5. `services/partes-front/infrastructure/database/parte_repository.py:3388` [veracidad]
+### 3. `services/partes-front/infrastructure/database/parte_repository.py:3388` [veracidad]
 
 - Original: `if clase.error is not None:`
 - Mutado:   `if clase.error:`
@@ -129,29 +106,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 > Por qué ningún test lo caza: PENDIENTE.
 > Decisión: ¿test nuevo o mutante equivalente justificado?
 
-### 6. `services/partes-front/infrastructure/database/parte_repository.py:3410` [negacion]
-
-- Original: `elif clase.es_incidencia:`
-- Mutado:   `elif not clase.es_incidencia:`
-- Juicio: MEDIDO
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 7. `services/partes-transfer/application/services/racha_ciz.py:106` [booleano]
-
-- Original: `@dataclass(frozen=True)`
-- Mutado:   `@dataclass(frozen=False)`
-- Juicio: MEDIDO
-
-#### Análisis (PENDIENTE del implementer)
-
-> Por qué ningún test lo caza: PENDIENTE.
-> Decisión: ¿test nuevo o mutante equivalente justificado?
-
-### 8. `services/partes-transfer/application/services/racha_ciz.py:324` [veracidad]
+### 4. `services/partes-transfer/application/services/racha_ciz.py:324` [veracidad]
 
 - Original: `if previo is None:`
 - Mutado:   `if not previo:`
@@ -162,7 +117,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 > Por qué ningún test lo caza: PENDIENTE.
 > Decisión: ¿test nuevo o mutante equivalente justificado?
 
-### 9. `services/partes-transfer/application/services/racha_ciz.py:327` [veracidad]
+### 5. `services/partes-transfer/application/services/racha_ciz.py:327` [veracidad]
 
 - Original: `cod = parte.cod if parte is not None else None`
 - Mutado:   `cod = parte.cod if parte else None`
@@ -179,11 +134,7 @@ Cada superviviente es una línea que ningún test comprueba de verdad, o una mut
 |---|---|---|---|
 | `services/partes-front/application/services/conversion_clase.py:78` | veracidad | superviviente | 0 |
 | `services/partes-front/application/services/conversion_clase.py:89` | veracidad | superviviente | 0 |
-| `services/partes-front/infrastructure/database/parte_repository.py:748` | booleano | superviviente | 0 |
-| `services/partes-front/infrastructure/database/parte_repository.py:2644` | booleano | superviviente | 0 |
 | `services/partes-front/infrastructure/database/parte_repository.py:3388` | veracidad | superviviente | 0 |
-| `services/partes-front/infrastructure/database/parte_repository.py:3410` | negacion | superviviente | 0 |
-| `services/partes-transfer/application/services/racha_ciz.py:106` | booleano | superviviente | 0 |
 | `services/partes-transfer/application/services/racha_ciz.py:324` | veracidad | superviviente | 0 |
 | `services/partes-transfer/application/services/racha_ciz.py:327` | veracidad | superviviente | 0 |
 

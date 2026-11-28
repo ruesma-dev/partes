@@ -3,7 +3,7 @@
  "criterio": "codigo_1",
  "fiable": true,
  "feature": "F-085",
- "sha": "7bf0a638c5b40c82460d6309855aab8bee69e4bf",
+ "sha": "17dee7e3cea3cae3743787ba604a16baddf72bf9",
  "nivel": "critico",
  "regla": {
   "por_linea": true,
@@ -284,7 +284,7 @@
    "operador": "booleano",
    "original": "@dataclass(frozen=True)",
    "mutado": "@dataclass(frozen=False)",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
@@ -356,7 +356,7 @@
    "operador": "booleano",
    "original": "mover_inicio: bool = False,",
    "mutado": "mover_inicio: bool = True,",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
@@ -401,7 +401,7 @@
    "operador": "negacion",
    "original": "elif clase.es_incidencia:",
    "mutado": "elif not clase.es_incidencia:",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-front/infrastructure/database/parte_repository.py",
@@ -680,7 +680,7 @@
    "operador": "booleano",
    "original": "@dataclass(frozen=True)",
    "mutado": "@dataclass(frozen=False)",
-   "veredicto": "superviviente"
+   "veredicto": "muerto"
   },
   {
    "fichero": "services/partes-transfer/application/services/racha_ciz.py",
