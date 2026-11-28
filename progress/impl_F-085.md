@@ -78,8 +78,7 @@ campaña del líder. T15–T17 son MANUAL (humano). T18 es `init.sh`, abajo. `MO
 2. Devuelve `False` si la línea no existe, no `None`: el test de F-066 exige `is False`.
 3. La conversión pone `extra_auto = False`. Si no, sv3 borraría la línea convertida como una
    extra automática suya. Deshacer lo restaura (`_REG_UNDO_MARCAS`).
-4. **Riesgo**: con la cola configurada, cambiar varias líneas del MISMO parte da 409 en las
-   siguientes, porque la primera deja el parte en espera (F-043). Un test lo caracteriza.
+4. Selección del MISMO parte con cola: de una en una, con aviso (D16, ciclo 1).
 5. Parte B: las synckeys de los `previos` se añaden al final y sin repetir. Apagado, la llamada
    es idéntica a la de la base (R27).
 6. LÍMITE DE SERVICIO: no hay duplicación nueva. `es_codigo_ci` (sv5) y `es_codigo_incidencia`
@@ -109,35 +108,17 @@ campaña del líder. T15–T17 son MANUAL (humano). T18 es `init.sh`, abajo. `MO
   por el motivo `fin_movido`; `E  KeyError: 'mover_inicio'`).
 - En verde tras cada tarea (detalle en las suites de abajo).
 
-## Suites por servicio (antes de `init.sh`)
+## `init.sh` del ciclo 0 (detalle del ciclo 1 abajo)
 
-sv4 `1 failed, 4253 passed` (el recuento de recargas de F-043, enmendado en T12; luego `165 passed`
-en F-043/F-085); sv3 `2988 passed` + 23 de F-085; sv5 `1988 passed, 1 skipped`; raíz F-085 `4 passed`.
-
-## Salida de `init.sh`
-
-`bash harness/init.sh` ⇒ **exit 0** (segunda pasada). La primera dio exit 1 solo por el flaky
-conocido `tests/test_f059_ejecucion.py::test_f059_r9_timeout_mata_el_arbol_y_no_es_rojo`
-(`FileNotFoundError ... nieto.pid`, con la máquina cargada: `1 failed, 1571 passed`). Lo
-reintenté 1 vez de las 3 permitidas y pasó, sin cambiar nada.
-- Raíz: `2553 passed, 50 skipped in 1979.86s`, con medición de cobertura.
-- Servicios (verde de la pasada 1, en caché en la 2): sv1 `74 passed`, sv2 `579 passed`,
-  sv3 `2989 passed`, sv4 `4254 passed`, sv5 `1988 passed`.
-- `PUERTA COBERTURA: 100.0% de 219 líneas cambiadas cubiertas (219/219, umbral 90% (del nivel
-  critico) ...; diff desde b5e935b52a, merge-base con dev)`.
-- `PUERTA TAMAÑO: F-085 dentro de los topes (requirements 144/150, design 248/250, impl 150/220)`.
-- `PUERTA CARRIL: N/A (F-085 es de nivel critico: no declara límites)`.
-- `CAPA E2E: N/A (ningún servicio declara el bloque e2e)`.
+Exit 0 en la 2.ª pasada; la 1.ª cayó solo en el flaky `test_f059_r9` (`nieto.pid`), reintentado
+1 vez de 3. Raíz `2553 passed, 50 skipped`; sv1 74, sv2 579, sv3 2989, sv4 4254, sv5 1988;
+`PUERTA COBERTURA` 219/219; `PUERTA CARRIL` y `CAPA E2E`, N/A. Antes, sueltas: sv4 falló solo
+en el recuento de recargas de F-043 (enmendado en T12).
 
 ## Verificaciones MANUAL pendientes (humano)
 
-En `progress/current.md`, con el comando y el resultado esperado de cada una:
-- M1 (parte A, local, modo pruebas);
-- M2 y M3 (parte B, local, modo pruebas, M3 opcional);
-- M5 (producción, solo lectura, tras encender B).
-
-M4 (la reparación del 0678, D15) queda **fuera**: ningún agente escribe en producción ni en
-Sigrid. Encendido de B: sv5 y luego sv4, con `MOVER_CIZ` encendido.
+En `progress/current.md`, con comando y resultado esperado: M1 (parte A, con el paso de D16), M2
+y M3 (parte B, local y en modo pruebas), M5 (producción, solo lectura). M4 (D15) queda **fuera**.
 
 ## Evidencias
 
@@ -145,13 +126,13 @@ Sigrid. Encendido de B: sv5 y luego sv4, con `MOVER_CIZ` encendido.
 |---|---|
 | Tests ejecutados | Ciclo 1: 12 442 en verde (raíz 2553 con 50 skipped, sv1 74, sv2 579, sv3 2989, sv4 4259, sv5 1988), 0 fallos. Ciclo 0: 12 437 |
 | Cobertura de líneas cambiadas | 100,0 % (220/220, umbral 90 % de `critico`) en el ciclo 1, según la línea `PUERTA COBERTURA`. Ciclo 0: 219/219 |
-| Mutantes generados / supervivientes | Sin medir: la campaña (T9, T14) la lanza el líder en la pasada de campaña, tras el APPROVED |
+| Mutantes generados / supervivientes | 172 generados, muestra 100: 91 muertos, 9 supervivientes, 0 timeouts (`progress/mutacion_F-085.md`). 4 los matan tests nuevos y 5 son equivalentes demostrados (`progress/equivalentes_F-085.py`); falta el repaso `--incremental` del líder |
 | Tiempo de la suite | Ciclo 1: raíz 1355,60 s y sv4 1126,23 s; sv1, sv2, sv3 y sv5 en caché. Ciclo 0: sv3 65,63 s, sv2 50,22 s, sv5 36,43 s y sv1 19,76 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
 
 ## Pendiente
 
-- Pasada de campaña de mutación (T9, T14): líder.
+- Repaso `--incremental` de la campaña y análisis en `mutacion_F-085.md` (T9, T14): líder.
 - MANUAL M1, M2, M3 y M5 (T15–T17): humano.
 - Push del humano: la rama y los dos commits de `azure-apps`.
 - Despliegue: sv3, sv4 y sv5. `MOVER_INICIO` sigue apagado hasta después de M2.
@@ -167,16 +148,11 @@ y `"!= 'CIZ'"`.
   `E  AssertionError: ('infrastructure/database/parte_repository.py', '!= "CIZ"')` /
   `E  '!= "CIZ"' is contained here: d and cod != "CIZ":` /
   `1 failed, 3 passed, 85 deselected`.
-- Verde: `test_f085_conversion.py` y `test_f085_inicio_movido_sv4.py` dan `107 passed`, y los
-  `r28_*` dan `6 passed`. Según lo pedido, `init.sh` no se ha ejecutado: va al terminar el Cambio 2.
-- Repaso con grep en sv4 (`"CIZ"`, `'CI'`, `startswith("CI`, `LIKE 'CI`) fuera de `clase_hora.py`.
-  No queda ninguna comparación de F-085. Hay dos anteriores que **no he tocado**, porque son de otras
-  features:
-  - `sincronizacion.py:290`, `.startswith("CI")` (F-052 `a5bcef1`): incluye CIZ a propósito;
-  - `incidencias_horas.py:32/77`, `PREFIJO_SIGRID` (F-025 `d4cda31`): valida el YAML.
-
-  Los `"CI"` de `partida_*`, `app.py:4389` y `app.js` son el capítulo de costes indirectos de las
-  partidas, no códigos de hora.
+- Verde: los `test_f085_*` de sv4 dan `107 passed` (los `r28_*`, `6 passed`).
+- Grep en sv4 fuera de `clase_hora.py`: no queda ninguna comparación de F-085. Hay dos anteriores
+  de otras features que **no he tocado**: `sincronizacion.py:290` (F-052, incluye CIZ a propósito)
+  e `incidencias_horas.py:32/77` (F-025, valida el YAML). Los `"CI"` de partidas son el capítulo de
+  costes indirectos, no códigos de hora.
 
 **Cambio 2 (R8, R13; D16 = (b), humano 2026-11-27).**
 - `static/app.js`, `onChange`: cada PATCH de la selección se resuelve por separado. Con selección
@@ -203,16 +179,38 @@ y `"!= 'CIZ'"`.
   tal cual: D16 acepta ese comportamiento, así que no hay RED de servidor que enseñar.
 - Verde: los ficheros de F-085, F-043 y F-047 de sv4 dan `194 passed`. `tests/test_f085_documentacion.py`
   da `4 passed`; vigila además «D16» y `avisoNoGuardadas` en la semántica 3.
-- Docs: `ARCHITECTURE.md` semántica 3 (D16). `partes-proyecto.md` y `azure-apps/partes.md` no
-  describen la selección múltiple: siguen siendo ciertos y no se tocan. `current.md` lleva D16 y
-  el paso de M1.
+- Docs: `ARCHITECTURE.md` semántica 3 (D16) y `current.md` (D16 y el paso de M1). Los demás no
+  describen la selección.
 - `init.sh` del ciclo:
   - 1.ª pasada, exit 1. Falló el flaky `test_f059_r9` (`assert not True ... _vivo(50844)`).
     Falló también `test_f047_r23_ninguna_funcion_nueva_y_una_sola_variable`, por la función con
     nombre nueva: corregido haciéndola local, sin tocar F-047. Y salió la cobertura al 77,3 %,
     porque sv4 se cortó en el primer fallo.
   - 2.ª pasada, **exit 0**: raíz `2553 passed, 50 skipped`; sv4 `4259 passed, 1 skipped`; el
-    resto, en caché verde. `PUERTA COBERTURA: 100.0% de 220 líneas cambiadas cubiertas
-    (220/220…)`. `PUERTA TAMAÑO … impl 187/220` (este informe queda en 218 líneas: tras el último `init.sh` solo ha cambiado él). `CAPA E2E: N/A`. Ruff: 1219 avisos, la deuda
-    previa.
-- Mutación: sigue pendiente de la pasada de campaña del líder (T9 y T14).
+    resto en caché verde; `PUERTA COBERTURA` 220/220; `CAPA E2E: N/A`; ruff 1219, la deuda previa.
+
+## Campaña de mutación (T9, T14)
+
+Campaña del líder: 172 mutantes, muestra 100: 91 muertos, **9 supervivientes**. Sin tocar
+producción (RM1). El RED de cada test es el mutante aplicado a mano en el árbol y restaurado
+byte a byte.
+
+| # | Mutante | Decisión | Test o demostración, y resultado real |
+|---|---|---|---|
+| 1 | `conversion_clase.py:78` `clase is not None` → `clase` | equivalente | `clase` es None o `ClaseIncidencia`, sin `__bool__`/`__len__`, de un solo `por_sigrid.get`: 84 casos iguales |
+| 2 | `conversion_clase.py:89` `error is not None` → `error` | equivalente | `error_de_codigo` devuelve None, `MOTIVO_CIZ_NO_SE_ELIGE` o `motivo_sin_letra(...)`, ninguna vacía: 6048 casos iguales |
+| 3 | `parte_repository.py:748` `frozen=True` → `False` | **muerto** | `test_f085_resultado_hora_inmutable` (diseño): `Failed: DID NOT RAISE FrozenInstanceError` |
+| 4 | `parte_repository.py:2644` `mover_inicio = False` → `True` | **muerto** | `test_f085_r29_roles_de_racha_apagado_por_defecto`: `assert set() == {2}` |
+| 5 | `parte_repository.py:3388` `clase.error is not None` → `clase.error` | equivalente | `clase` sale de `decidir_clase`; su `error` es el de #2: 252 casos en SQLite (salida, filas y deshacer) iguales |
+| 6 | `parte_repository.py:3410` `elif clase.es_incidencia` → `elif not …` | **muerto** | `test_f085_deshacer_describe_la_clase_nueva`: «Cambiar a horas · …».startswith(«Cambiar a incidencia · ») False (2 failed, 1 passed) |
+| 7 | `racha_ciz.py:106` `frozen=True` → `False` | **muerto** | `test_f085_decision_inicio_inmutable` (diseño): `Failed: DID NOT RAISE FrozenInstanceError` |
+| 8 | `racha_ciz.py:327` `parte is not None` → `parte` | equivalente | `parte` es None o `ParteSigrid`, sin `__bool__`/`__len__`; el pipeline construye `partes` con `ParteSigrid`: 4000 casos iguales |
+| 9 | `racha_ciz.py:324` `previo is None` → `not previo` | equivalente | `inicio_previo` devuelve `None` o `primera`, una `LineaSigrid` sin `__bool__`/`__len__`: 4000 casos iguales |
+
+- Los tests de diseño (3 y 7) y el del texto del deshacer (6) no llevan `rN`, porque no afirman un
+  requisito (regla del reviewer de F-084). El 4 sí lo lleva: afirma R29, el apagado por defecto.
+- `python progress/equivalentes_F-085.py` (`.venv`) ⇒ «5/5 equivalentes demostrados», **exit 0**:
+  localización y dominio por AST; original y mutado en memoria (sv5, en un subproceso); un control
+  negativo por superviviente (`is None` invertido) que aborta con exit 1 si no distingue; el banco de
+  sv5 exige ≥50 `mover` y ≥50 `parte_cerrado`. Análisis tras el `--incremental`; T9/T14 sin marcar.
+- `init.sh` de este paso: PENDIENTE_INIT_MUT
