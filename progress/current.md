@@ -4,7 +4,7 @@
 Limpiado el 2026-11-16: las secciones anteriores (2026-08-19 a 2026-11-15) están archivadas
 tal cual al final de `progress/history.md` («Archivado de current.md · 2026-11-16»).
 
-Feature activa: ninguna. Última cerrada: **F-085** (2026-11-28, OK del humano: «ok»; **sin desplegar**: antes M1 y M2 en modo pruebas; después sv3, sv4 y sv5 con `MOVER_INICIO` apagado). Anterior: **F-084** (2026-11-27, OK del humano: «ok»; **sin desplegar**: faltan sv3 y sv4, y después M1–M3). Anterior: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
+Feature activa: ninguna. Última cerrada: **F-085** (2026-11-28, OK del humano: «ok»; desplegada el 2026-11-28, sv3 `r20261128121243`, sv5 `r20261128121503`, sv4 `r20261128121721`, con `MOVER_INICIO` apagado; M1 y M2 en modo pruebas NO se hicieron antes de desplegar y siguen pendientes, y M5 al encender la parte B). Anterior: **F-084** (2026-11-27, OK del humano: «ok»; desplegada el 2026-11-28 con las mismas revisiones; M1 y M2 en verde, `progress/manual_F-084.md`; M3 pendiente del OK expreso del humano). Anterior: **F-082** (2026-11-26, OK del humano: «ok»; desplegada el 2026-11-26, sv4 `r20261126182437`; MANUAL pendientes del humano). Anterior: **F-083** (2026-11-25, OK del humano: «1 hazlo»; desplegada el 2026-11-25, sv5 `r20261125120627`; M4 pendiente de repetir en unos días con la base 416461). Anterior: **F-072** (2026-11-24, desplegada el 2026-11-25 sv2–sv5 `r20261125120627`, **apagada**: variables vacías).
 
 ## F-085 · done 2026-11-28 (OK del humano: «ok»; reviewer principal APPROVED en 05e25f6, evidencias APPROVED en aef7024; copia `partes-wt-f085`; **sin desplegar**: antes M1 y M2 en modo pruebas)
 
@@ -16,7 +16,10 @@ Feature activa: ninguna. Última cerrada: **F-085** (2026-11-28, OK del humano: 
 - Pendiente del humano: M1 y M2 (local, modo pruebas) antes de desplegar; desplegar sv3, sv4 y sv5;
   encender `MOVER_INICIO` (sv5 y luego sv4) y entonces M5. A mirar en M1: el aviso D16 nombra las líneas
   por id; `manual` también lo ponen el alta a mano y el clon de celda (D8).
-- Sin confirmar por el humano: quién hizo el push de `azure-apps` del 2026-11-27 18:21 (`origin/main` = 60d7f70).
+- El push de `azure-apps` del 2026-11-27 18:21 (`origin/main` = 60d7f70) lo hizo el humano (2026-11-28: «si fue mio»).
+- **Despliegue del 2026-11-28 (humano)**: push de `dev` hecho; sv3 `r20261128121243`, sv5 `r20261128121503`, sv4
+  `r20261128121721`, las tres `Running`. `MOVER_INICIO` sin definir (apagado). M1 y M2 de F-085 (local, modo
+  pruebas) no se pasaron antes: siguen pendientes.
 - Automejoras propuestas, sin aplicar: C4, un requisito de selección múltiple no queda demostrado solo con
   la cola apagada; `test_f047_r23` debería contar `var x = function`; RM5, la muestra del reviewer con el
   mutante de `generar_mutantes` y banco propio.
