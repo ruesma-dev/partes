@@ -9,7 +9,7 @@ Resumen: **79 features**, 18 abiertas y 61 terminadas. Por columna: 1 en Review,
 
 | # | Feature | La tiene | Spec | Prioridad | Rigor | Rama |
 |---|---|---|---|---|---|---|
-| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | reviewer | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
+| F-085 | Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid | humano | specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27) | 1 | critico | `feature/F-085-codigo-de-incidencia-convierte-la-linea` |
 
 ## Blocked
 
@@ -123,7 +123,7 @@ Express cerradas por mes: 2026-11: 1
 
 ### F-085 · Cambiar el código de hora de una línea a uno de incidencia la convierte en incidencia, y la racha se recoloca en Sigrid
 
-estado **en QA / revisión** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
+estado **en revisión humana** · spec aprobada el 2026-11-27 · prioridad 1 · rigor `critico` · SDD sí · rama `feature/F-085-codigo-de-incidencia-convierte-la-linea`
 
 **Spec**: specs/F-085-codigo-de-incidencia-convierte-la-linea/ (2026-11-27; decidido por el humano: D1 en (b), una sola feature; D15 fuera, la reparación del caso 0678 la hacen a mano; el resto en (a): «la raparacion no te proecupes la haremos a mano. hazlo en 1 sola feature.ok a lo demas»; aprobada 2026-11-27)
 
