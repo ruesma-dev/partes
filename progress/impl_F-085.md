@@ -126,13 +126,13 @@ y M3 (parte B, local y en modo pruebas), M5 (producción, solo lectura). M4 (D15
 |---|---|
 | Tests ejecutados | Ciclo 1: 12 442 en verde (raíz 2553 con 50 skipped, sv1 74, sv2 579, sv3 2989, sv4 4259, sv5 1988), 0 fallos. Ciclo 0: 12 437 |
 | Cobertura de líneas cambiadas | 100,0 % (220/220, umbral 90 % de `critico`) en el ciclo 1, según la línea `PUERTA COBERTURA`. Ciclo 0: 219/219 |
-| Mutantes generados / supervivientes | 172 generados, muestra 100: 91 muertos, 9 supervivientes, 0 timeouts (`progress/mutacion_F-085.md`). 4 los matan tests nuevos y 5 son equivalentes demostrados (`progress/equivalentes_F-085.py`); falta el repaso `--incremental` del líder |
+| Mutantes generados / supervivientes | 172 generados, muestra 100: **95 muertos, 5 supervivientes (los 5 equivalentes demostrados, pendientes de aceptación del humano), 0 timeouts**. Repaso `--incremental`: 19 evaluados y 81 reutilizados. Campaña inicial: 91 muertos y 9 supervivientes; 4 los matan tests nuevos (`progress/mutacion_F-085.md`) |
 | Tiempo de la suite | Ciclo 1: raíz 1355,60 s y sv4 1126,23 s; sv1, sv2, sv3 y sv5 en caché. Ciclo 0: sv3 65,63 s, sv2 50,22 s, sv5 36,43 s y sv1 19,76 s |
 | Capa e2e | `CAPA E2E: N/A (ningún servicio declara el bloque e2e)` |
 
 ## Pendiente
 
-- Repaso `--incremental` de la campaña y análisis en `mutacion_F-085.md` (T9, T14): líder.
+- Aceptación por el humano de los 5 equivalentes (T9, T14 hechas).
 - MANUAL M1, M2, M3 y M5 (T15–T17): humano.
 - Push del humano: la rama y los dos commits de `azure-apps`.
 - Despliegue: sv3, sv4 y sv5. `MOVER_INICIO` sigue apagado hasta después de M2.
@@ -191,7 +191,7 @@ y `"!= 'CIZ'"`.
 
 ## Campaña de mutación (T9, T14)
 
-Campaña del líder: 172 mutantes, muestra 100: 91 muertos, **9 supervivientes**. Sin tocar
+Campaña del líder: 172 mutantes, muestra 100: 91 muertos, **9 supervivientes**. Tras el repaso `--incremental` (19 evaluados y 81 reutilizados, SHA 17dee7e): **95 muertos, 5 supervivientes, 0 timeouts**. Sin tocar
 producción (RM1). El RED de cada test es el mutante aplicado a mano en el árbol y restaurado
 byte a byte.
 
@@ -212,6 +212,8 @@ byte a byte.
 - `python progress/equivalentes_F-085.py` (`.venv`) ⇒ «5/5 equivalentes demostrados», **exit 0**:
   localización y dominio por AST; original y mutado en memoria (sv5, en un subproceso); un control
   negativo por superviviente (`is None` invertido) que aborta con exit 1 si no distingue; el banco de
-  sv5 exige ≥50 `mover` y ≥50 `parte_cerrado`. Análisis tras el `--incremental`; T9/T14 sin marcar.
+  sv5 exige ≥50 `mover` y ≥50 `parte_cerrado`. Análisis escritos en `mutacion_F-085.md` (0 `PENDIENTE`); T9/T14 `[x]`.
 - `init.sh` de este paso: **exit 0** a la primera. Raíz `2553 passed, 50 skipped`; sv4 `4264 passed`; sv5 `1989 passed`;
   `PUERTA COBERTURA` 220/220; `PUERTA TAMAÑO … impl 216/220`; ruff 1223 (+4, del script, estilo F-084).
+- Repetida tras el repaso: #1 84 casos, #2 6048, #5 252, #9 4000, #8 4000, todos «control negativo
+  distinguido»; «5/5 equivalentes demostrados», exit=0 (# de la campaña inicial).
