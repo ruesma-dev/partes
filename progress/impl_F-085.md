@@ -213,4 +213,5 @@ byte a byte.
   localización y dominio por AST; original y mutado en memoria (sv5, en un subproceso); un control
   negativo por superviviente (`is None` invertido) que aborta con exit 1 si no distingue; el banco de
   sv5 exige ≥50 `mover` y ≥50 `parte_cerrado`. Análisis tras el `--incremental`; T9/T14 sin marcar.
-- `init.sh` de este paso: PENDIENTE_INIT_MUT
+- `init.sh` de este paso: **exit 0** a la primera. Raíz `2553 passed, 50 skipped`; sv4 `4264 passed`; sv5 `1989 passed`;
+  `PUERTA COBERTURA` 220/220; `PUERTA TAMAÑO … impl 216/220`; ruff 1223 (+4, del script, estilo F-084).
