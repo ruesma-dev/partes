@@ -181,3 +181,23 @@ def test_f085_app_pasa_mover_inicio() -> None:
               / "web" / "app.py").read_text(encoding="utf-8")
     assert "mover_inicio=settings.mover_inicio" in fuente
     assert _dia(4) == "2026-10-04"
+
+
+def test_f085_r29_roles_de_racha_apagado_por_defecto() -> None:
+    """R29: con el interruptor apagado, como hoy (F-060 R10). Quien llama a
+    `_roles_de_racha` sin `mover_inicio` lo tiene apagado: el `inicio` de
+    la misma letra que el día siguiente ya registrado sigue avisando. Mata
+    el superviviente `mover_inicio: bool = False` -> `= True`."""
+    from infrastructure.database.orm_models import ParteRegistroOrm
+    f = _fabrica()
+    _v(f, 5, estado="registrado")
+    d4 = _v(f, 4)
+    with f.create_session() as s:
+        reg = s.get(ParteRegistroOrm, d4)
+        _roles, _rachas, avisos, _ciz = (
+            ParteReviewRepository._roles_de_racha(s, [reg], TABLA))
+        assert set(avisos) == {d4}
+        _roles, _rachas, avisos, _ciz = (
+            ParteReviewRepository._roles_de_racha(s, [reg], TABLA,
+                                                  mover_inicio=True))
+        assert avisos == {}

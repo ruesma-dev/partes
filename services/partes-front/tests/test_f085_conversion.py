@@ -846,3 +846,39 @@ def test_f085_r13_d16_una_sola_que_falla_como_hoy() -> None:
     out = _ejecutar_on_change([{"_error": ESPERA_409, "_status": 409}])
     assert out["avisos"] == [] and out["recargas"] == 0
     assert out["titulo"] == ESPERA_409 and out["texto"] == "antes"
+
+
+# ========== Campaña de mutación (T9): lo que protege cada test ========== #
+
+def _descripciones(fabrica) -> list[str]:
+    from infrastructure.database.orm_models import UndoLogOrm
+    with fabrica.create_session() as s:
+        return [u.description
+                for u in s.query(UndoLogOrm).order_by(UndoLogOrm.id)]
+
+
+@pytest.mark.parametrize("idx, codigo, texto", [
+    (0, "CIA", "Cambiar a incidencia · "),
+    (2, "HL01", "Cambiar a horas · "),
+    (0, "HEOF", "Cambiar codigo de hora · "),
+])
+def test_f085_deshacer_describe_la_clase_nueva(repo, idx, codigo,
+                                               texto) -> None:
+    """Protege el texto de la entrada de deshacer (el historial que lee el
+    revisor): dice a qué clase pasó la línea. Mata el superviviente
+    `elif clase.es_incidencia:` -> `elif not clase.es_incidencia:`."""
+    repositorio, fabrica, ids = repo
+    _guardar(repositorio, ids[idx], codigo)
+    (descripcion,) = _descripciones(fabrica)
+    assert descripcion.startswith(texto)
+
+
+def test_f085_resultado_hora_inmutable(repo) -> None:
+    """Protege el diseño: `ResultadoHora` es un valor (frozen), lo que
+    devuelve el repositorio no se modifica después. Mata el superviviente
+    `@dataclass(frozen=True)` -> `frozen=False`."""
+    import dataclasses
+    repositorio, _f, ids = repo
+    resultado = _guardar(repositorio, ids[0], "CIA")
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        resultado.clase_cambiada = False

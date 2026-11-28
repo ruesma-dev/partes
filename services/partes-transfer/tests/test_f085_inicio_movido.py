@@ -564,3 +564,13 @@ def test_f085_pipeline_r32_preflight_f083_r17_encendido() -> None:
     a = _acc(pf, 2)
     assert a.accion == "omitir" and a.mover is None
     assert "la racha sigue en Sigrid el dia 2026-10-03" in a.motivo
+
+
+def test_f085_decision_inicio_inmutable() -> None:
+    """Protege el diseño: `DecisionInicio` es un valor (frozen), como
+    `DecisionFin`; el pipeline la lee y no la modifica. Mata el
+    superviviente `@dataclass(frozen=True)` -> `frozen=False`."""
+    import dataclasses
+    d = _decidir([CIV19, CIZ25])
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        d.tipo = CREAR
